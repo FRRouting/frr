@@ -282,9 +282,17 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
   while (1)
     {
       char buf[NL_PKT_BUF_SIZE];
-      struct iovec iov = { buf, sizeof buf };
+      struct iovec iov = {
+        .iov_base = buf,
+        .iov_len = sizeof buf
+      };
       struct sockaddr_nl snl;
-      struct msghdr msg = { (void *) &snl, sizeof snl, &iov, 1, NULL, 0, 0 };
+      struct msghdr msg = {
+        .msg_name = (void *) &snl,
+        .msg_namelen = sizeof snl,
+        .msg_iov = &iov,
+        .msg_iovlen = 1
+      };
       struct nlmsghdr *h;
 
       status = recvmsg (nl->sock, &msg, 0);
@@ -1312,8 +1320,16 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
 {
   int status;
   struct sockaddr_nl snl;
-  struct iovec iov = { (void *) n, n->nlmsg_len };
-  struct msghdr msg = { (void *) &snl, sizeof snl, &iov, 1, NULL, 0, 0 };
+  struct iovec iov = {
+    .iov_base = (void *) n,
+    .iov_len = n->nlmsg_len
+  };
+  struct msghdr msg = {
+    .msg_name = (void *) &snl,
+    .msg_namelen = sizeof snl,
+    .msg_iov = &iov,
+    .msg_iovlen = 1,
+  };
   int save_errno;
 
   memset (&snl, 0, sizeof snl);
