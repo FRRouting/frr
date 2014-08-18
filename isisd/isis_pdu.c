@@ -537,7 +537,7 @@ process_p2p_hello (struct isis_circuit *circuit)
     {
       /* TBA: check that we have a linklocal ourselves? */
       struct listnode *node;
-      struct prefix_ipv6 *ip;
+      struct in6_addr *ip;
       for (ALL_LIST_ELEMENTS_RO (tlvs.ipv6_addrs, node, ip))
 	if (IN6_IS_ADDR_LINKLOCAL (ip))
 	  {
@@ -1098,7 +1098,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
     {
       /* TBA: check that we have a linklocal ourselves? */
       struct listnode *node;
-      struct prefix_ipv6 *ip;
+      struct in6_addr *ip;
       for (ALL_LIST_ELEMENTS_RO (tlvs.ipv6_addrs, node, ip))
 	if (IN6_IS_ADDR_LINKLOCAL (ip))
 	  {
