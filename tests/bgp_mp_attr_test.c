@@ -478,7 +478,7 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   
   printf ("parsed?: %s\n", ret ? "no" : "yes");
   
-  if (ret != t->parses)
+  if ((ret == 0) != (t->parses == 0))
     failed++;
   
   if (tty)
