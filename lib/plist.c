@@ -962,16 +962,16 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
 #endif /* HAVE_IPV6 */
 
   /* ge and le check. */
-  if (genum && genum <= p.prefixlen)
+  if (genum && (genum <= p.prefixlen))
     return vty_invalid_prefix_range (vty, prefix);
 
-  if (lenum && lenum <= p.prefixlen)
+  if (lenum && (lenum <= p.prefixlen))
     return vty_invalid_prefix_range (vty, prefix);
 
-  if (lenum && genum > lenum)
+  if (lenum && (genum > lenum))
     return vty_invalid_prefix_range (vty, prefix);
 
-  if (genum && lenum == (afi == AFI_IP ? 32 : 128))
+  if (genum && (lenum == (afi == AFI_IP ? 32 : 128)))
     lenum = 0;
 
   /* Get prefix_list with name. */
