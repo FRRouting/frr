@@ -487,22 +487,29 @@ ospf6_lsdb_maxage_remover (struct ospf6_lsdb *lsdb)
 }
 
 void
-ospf6_lsdb_show (struct vty *vty, int level,
+ospf6_lsdb_show (struct vty *vty, enum ospf_lsdb_show_level level,
                  u_int16_t *type, u_int32_t *id, u_int32_t *adv_router,
                  struct ospf6_lsdb *lsdb)
 {
   struct ospf6_lsa *lsa;
   void (*showfunc) (struct vty *, struct ospf6_lsa *) = NULL;
 
-  if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
-    showfunc = ospf6_lsa_show_summary;
-  else if (level == OSPF6_LSDB_SHOW_LEVEL_DETAIL)
-    showfunc = ospf6_lsa_show;
-  else if (level == OSPF6_LSDB_SHOW_LEVEL_INTERNAL)
-    showfunc = ospf6_lsa_show_internal;
-  else if (level == OSPF6_LSDB_SHOW_LEVEL_DUMP)
-    showfunc = ospf6_lsa_show_dump;
-
+  switch (level)
+  {
+    case OSPF6_LSDB_SHOW_LEVEL_DETAIL:
+      showfunc = ospf6_lsa_show;
+      break;
+    case OSPF6_LSDB_SHOW_LEVEL_INTERNAL:
+      showfunc = ospf6_lsa_show_internal;
+      break;
+    case OSPF6_LSDB_SHOW_LEVEL_DUMP:
+      showfunc = ospf6_lsa_show_dump;
+      break;
+    case OSPF6_LSDB_SHOW_LEVEL_NORMAL:
+    default:
+      showfunc = ospf6_lsa_show_summary;
+  }
+  
   if (type && id && adv_router)
     {
       lsa = ospf6_lsdb_lookup (*type, *id, *adv_router, lsdb);
