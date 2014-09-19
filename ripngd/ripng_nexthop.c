@@ -209,7 +209,6 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
     if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
       ripng_packet_dump ((struct ripng_packet *)STREAM_DATA (s),
 			 stream_get_endp (s), "SEND");
-    num = 0;
     stream_reset (s);
   }
 }
