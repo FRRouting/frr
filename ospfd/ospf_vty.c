@@ -323,9 +323,9 @@ ospf_passive_interface_default (struct ospf *ospf, u_char newval)
 }
 
 static void
-ospf_passive_interface_update (struct ospf *ospf, struct interface *ifp,
-                               struct in_addr addr, 
-                               struct ospf_if_params *params, u_char value)
+ospf_passive_interface_update_addr (struct ospf *ospf, struct interface *ifp,
+                               struct ospf_if_params *params, u_char value,
+                               struct in_addr addr)
 {
   u_char dflt;
   
@@ -345,7 +345,14 @@ ospf_passive_interface_update (struct ospf *ospf, struct interface *ifp,
       ospf_free_if_params (ifp, addr);
       ospf_if_update_params (ifp, addr);
     }
-  else
+}
+
+static void
+ospf_passive_interface_update (struct ospf *ospf, struct interface *ifp,
+                               struct ospf_if_params *params, u_char value)
+{
+  params->passive_interface = value;
+  if (params == IF_DEF_PARAMS (ifp))
     {
       if (value != ospf->passive_interface_default)
         SET_IF_PARAM (params, passive_interface);
@@ -392,8 +399,11 @@ DEFUN (ospf_passive_interface,
 
       params = ospf_get_if_params (ifp, addr);
       ospf_if_update_params (ifp, addr);
+      ospf_passive_interface_update_addr (ospf, ifp, params,
+                                          OSPF_IF_PASSIVE, addr);
     }
-  ospf_passive_interface_update (ospf, ifp, addr, params, OSPF_IF_PASSIVE);
+  
+  ospf_passive_interface_update (ospf, ifp, params, OSPF_IF_PASSIVE);
 
   /* XXX We should call ospf_if_set_multicast on exactly those
    * interfaces for which the passive property changed.  It is too much
@@ -472,9 +482,11 @@ DEFUN (no_ospf_passive_interface,
       params = ospf_lookup_if_params (ifp, addr);
       if (params == NULL)
 	return CMD_SUCCESS;
+      ospf_passive_interface_update_addr (ospf, ifp, params, OSPF_IF_ACTIVE, 
+                                          addr);
     }
-  ospf_passive_interface_update (ospf, ifp, addr, params, OSPF_IF_ACTIVE);
-
+  ospf_passive_interface_update (ospf, ifp, params, OSPF_IF_ACTIVE);
+  
   /* XXX We should call ospf_if_set_multicast on exactly those
    * interfaces for which the passive property changed.  It is too much
    * work to determine this set, so we do this for every interface.
