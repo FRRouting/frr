@@ -4662,6 +4662,7 @@ static int
 peer_weight_set_vty (struct vty *vty, const char *ip_str, 
                      const char *weight_str)
 {
+  int ret;
   struct peer *peer;
   unsigned long weight;
 
@@ -4671,23 +4672,22 @@ peer_weight_set_vty (struct vty *vty, const char *ip_str,
 
   VTY_GET_INTEGER_RANGE("weight", weight, weight_str, 0, 65535);
 
-  peer_weight_set (peer, weight);
-
-  return CMD_SUCCESS;
+  ret = peer_weight_set (peer, weight);
+  return bgp_vty_return (vty, ret);
 }
 
 static int
 peer_weight_unset_vty (struct vty *vty, const char *ip_str)
 {
+  int ret;
   struct peer *peer;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
-  peer_weight_unset (peer);
-
-  return CMD_SUCCESS;
+  ret = peer_weight_unset (peer);
+  return bgp_vty_return (vty, ret);
 }
 
 DEFUN (neighbor_weight,

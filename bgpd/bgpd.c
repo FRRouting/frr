@@ -4421,7 +4421,7 @@ peer_port_unset (struct peer *peer)
 }
 
 /* neighbor weight. */
-void
+int
 peer_weight_set (struct peer *peer, u_int16_t weight)
 {
   struct peer_group *group;
@@ -4431,7 +4431,7 @@ peer_weight_set (struct peer *peer, u_int16_t weight)
   peer->weight = weight;
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    return;
+    return 0;
 
   /* peer-group member updates. */
   group = peer->group;
@@ -4439,9 +4439,10 @@ peer_weight_set (struct peer *peer, u_int16_t weight)
     {
       peer->weight = group->conf->weight;
     }
+  return 1;
 }
 
-void
+int
 peer_weight_unset (struct peer *peer)
 {
   struct peer_group *group;
@@ -4456,7 +4457,7 @@ peer_weight_unset (struct peer *peer)
   UNSET_FLAG (peer->config, PEER_CONFIG_WEIGHT);
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    return;
+    return 0;
 
   /* peer-group member updates. */
   group = peer->group;
@@ -4464,7 +4465,7 @@ peer_weight_unset (struct peer *peer)
     {
       peer->weight = 0;
     }
-  return;
+  return 1;
 }
 
 int

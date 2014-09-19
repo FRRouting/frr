@@ -24,6 +24,8 @@
 
 /* for struct ospf6_route */
 #include "ospf6_route.h"
+/* for struct ospf6_prefix */
+#include "ospf6_proto.h"
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_abr;

@@ -2486,7 +2486,7 @@ vty_log_fixed (char *buf, size_t len)
   if (!vtyvec)
     return;
   
-  iov[0].iov_base = (void *)buf;
+  iov[0].iov_base = buf;
   iov[0].iov_len = len;
   iov[1].iov_base = crlf;
   iov[1].iov_len = 2;

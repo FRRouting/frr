@@ -1268,8 +1268,8 @@ extern int peer_default_originate_unset (struct peer *, afi_t, safi_t);
 extern int peer_port_set (struct peer *, u_int16_t);
 extern int peer_port_unset (struct peer *);
 
-extern void peer_weight_set (struct peer *, u_int16_t);
-extern void peer_weight_unset (struct peer *);
+extern int peer_weight_set (struct peer *, u_int16_t);
+extern int peer_weight_unset (struct peer *);
 
 extern int peer_timers_set (struct peer *, u_int32_t, u_int32_t);
 extern int peer_timers_unset (struct peer *);

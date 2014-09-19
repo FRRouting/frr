@@ -13399,6 +13399,7 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
                     const char *ip_str, const char *access_list_str)
 {
   int ret;
+  int distance;
   struct prefix_ipv4 p;
   struct bgp_node *rn;
   struct bgp_distance *bdistance;
@@ -13418,6 +13419,13 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
     }
 
   bdistance = rn->info;
+  distance = atoi(distance_str);
+
+  if (bdistance->distance != distance)
+    {
+       vty_out (vty, "Distance does not match configured%s", VTY_NEWLINE);
+       return CMD_WARNING;
+    }
 
   if (bdistance->access_list)
     XFREE(MTYPE_AS_LIST, bdistance->access_list);

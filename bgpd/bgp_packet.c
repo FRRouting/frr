@@ -1862,8 +1862,8 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 	  if (orf_type == ORF_TYPE_PREFIX
 	      || orf_type == ORF_TYPE_PREFIX_OLD)
 	    {
-	      u_char *p_pnt = stream_pnt (s);
-	      u_char *p_end = stream_pnt (s) + orf_len;
+	      uint8_t *p_pnt = stream_pnt (s);
+	      uint8_t *p_end = stream_pnt (s) + orf_len;
 	      struct orf_prefix orfp;
 	      u_char common = 0;
 	      u_int32_t seq;
@@ -1956,7 +1956,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 				   (common & ORF_COMMON_PART_DENY ? 0 : 1 ),
 				   (common & ORF_COMMON_PART_REMOVE ? 0 : 1));
 
-		  if (!ok || (ret != CMD_SUCCESS))
+		  if (!ok || (ok && ret != CMD_SUCCESS))
 		    {
 		      zlog_info ("%s Received misformatted prefixlist ORF."
 			         " Remove All pfxlist", peer->host);

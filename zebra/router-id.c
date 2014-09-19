@@ -43,6 +43,9 @@
 #include "zebra/router-id.h"
 #include "zebra/redistribute.h"
 
+/* master zebra server structure */
+extern struct zebra_t zebrad;
+
 static struct connected *
 router_id_find_node (struct list *l, struct connected *ifc)
 {

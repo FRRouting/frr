@@ -31,7 +31,7 @@
 
 /* master list of work_queues */
 static struct list _work_queues;
-/* pointer primarly to avid an otherwise harmless warning on
+/* pointer primarily to avoid an otherwise harmless warning on
  * ALL_LIST_ELEMENTS_RO
  */
 static struct list *work_queues = &_work_queues;

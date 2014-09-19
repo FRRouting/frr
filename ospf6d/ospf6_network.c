@@ -37,18 +37,8 @@ int  ospf6_sock;
 struct in6_addr allspfrouters6;
 struct in6_addr alldrouters6;
 
-/* setsockopt ReUseAddr to on */
-void
-ospf6_set_reuseaddr (void)
-{
-  u_int on = 0;
-  if (setsockopt (ospf6_sock, SOL_SOCKET, SO_REUSEADDR, &on,
-                  sizeof (u_int)) < 0)
-    zlog_warn ("Network: set SO_REUSEADDR failed: %s", safe_strerror (errno));
-}
-
 /* setsockopt MulticastLoop to off */
-void
+static void
 ospf6_reset_mcastloop (void)
 {
   u_int off = 0;
@@ -58,7 +48,7 @@ ospf6_reset_mcastloop (void)
                safe_strerror (errno));
 }
 
-void
+static void
 ospf6_set_pktinfo (void)
 {
   setsockopt_ipv6_pktinfo (ospf6_sock, 1);
@@ -72,7 +62,7 @@ ospf6_set_transport_class (void)
 #endif
 }
 
-void
+static void
 ospf6_set_checksum (void)
 {
   int offset = 12;

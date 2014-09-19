@@ -42,6 +42,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_interface.h"
 #include "ospf6d.h"
+#include "ospf6_abr.h"
 
 unsigned char conf_debug_ospf6_spf = 0;
 

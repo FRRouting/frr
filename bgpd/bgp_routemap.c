@@ -2100,6 +2100,7 @@ static route_map_result_t
 route_match_ipv6_next_hop (void *rule, struct prefix *prefix, 
 			   route_map_object_t type, void *object)
 {
+  struct in6_addr *addr = rule;
   struct bgp_info *bgp_info;
 
   if (type == RMAP_BGP)
@@ -2109,7 +2110,7 @@ route_match_ipv6_next_hop (void *rule, struct prefix *prefix,
       if (!bgp_info->attr->extra)
         return RMAP_NOMATCH;
       
-      if (IPV6_ADDR_SAME (&bgp_info->attr->extra->mp_nexthop_global, rule))
+      if (IPV6_ADDR_SAME (&bgp_info->attr->extra->mp_nexthop_global, addr))
 	return RMAP_MATCH;
 
       if (bgp_info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
