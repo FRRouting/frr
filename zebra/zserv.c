@@ -788,7 +788,7 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr,
   struct nexthop *nexthop;
 
   /* Lookup nexthop. */
-  rib = rib_match_ipv4 (addr, vrf_id);
+  rib = rib_match_ipv4 (addr, SAFI_UNICAST, vrf_id);
 
   /* Get output stream. */
   s = client->obuf;

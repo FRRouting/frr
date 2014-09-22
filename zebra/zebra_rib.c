@@ -733,7 +733,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 }
 
 struct rib *
-rib_match_ipv4 (struct in_addr addr, vrf_id_t vrf_id)
+rib_match_ipv4 (struct in_addr addr, safi_t safi, vrf_id_t vrf_id)
 {
   struct prefix_ipv4 p;
   struct route_table *table;
@@ -743,7 +743,7 @@ rib_match_ipv4 (struct in_addr addr, vrf_id_t vrf_id)
   int recursing;
 
   /* Lookup table.  */
-  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
+  table = zebra_vrf_table (AFI_IP, safi, vrf_id);
   if (! table)
     return 0;
 
