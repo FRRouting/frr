@@ -165,7 +165,6 @@ extern void zclient_stop (struct zclient *);
 extern void zclient_reset (struct zclient *);
 extern void zclient_free (struct zclient *);
 
-extern int zclient_socket_un (const char *path);
 extern int  zclient_socket_connect (struct zclient *);
 extern void zclient_serv_path_set  (char *path);
 extern const char *const zclient_serv_path_get (void);
