@@ -1430,7 +1430,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   if (attribute_len)
     {
       attr_parse_ret = bgp_attr_parse (peer, &attr, attribute_len, 
-			    &mp_update, &mp_withdraw);
+			    &mp_update, &mp_withdraw, update.length);
       if (attr_parse_ret == BGP_ATTR_PARSE_ERROR)
 	{
 	  bgp_attr_unintern_sub (&attr);
@@ -1482,22 +1482,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
     zlog_debug("%s rcvd UPDATE wlen %d wpfx %d attrlen %d alen %d apfx %d",
                peer->host, withdraw_len, num_pfx_wd, attribute_len,
                update_len, num_pfx_adv);
-
-  /*
-   * Validate for well-known mandatory attributes. We only do this if
-   * we intend to process the update further - i.e., the AFI/SAFI is
-   * enabled.
-   */
-  if ((update.length && peer->afc[AFI_IP][SAFI_UNICAST]) ||
-      (mp_update.length && peer->afc[mp_update.afi][mp_update.safi]))
-    {
-      ret = bgp_attr_check (peer, &attr, update.length);
-      if (ret < 0)
-        {
-          bgp_attr_unintern_sub (&attr);
-          return -1;
-        }
-    }
 
   /* NLRI is processed only when the the corresponding address-family
    * has been negotiated with the peer.
