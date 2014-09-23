@@ -436,13 +436,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 	      
 	      return 1;
 	    }
-	  else if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_INTERNAL) ||
-		   match->type == ZEBRA_ROUTE_KERNEL)
-	    /* 
-	       || match->type == ZEBRA_ROUTE_KERNEL
-	       This prevents zebra from marking recursive static route as inactive.
-	       See pimd/TODO T26.
-	    */
+	  else if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_INTERNAL))
 	    {
 	      resolved = 0;
 	      for (newhop = match->nexthop; newhop; newhop = newhop->next)
