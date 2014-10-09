@@ -291,8 +291,7 @@ ospf_asbr_status_update (struct ospf *ospf, u_char status)
     }
 
   /* Transition from/to status ASBR, schedule timer. */
-  ospf_flag_spf_reason (SPF_FLAG_ASBR_STATUS_CHANGE);
-  ospf_spf_calculate_schedule (ospf);
+  ospf_spf_calculate_schedule (ospf, SPF_FLAG_ASBR_STATUS_CHANGE);
   ospf_router_lsa_update (ospf);
 }
 

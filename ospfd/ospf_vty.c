@@ -900,7 +900,7 @@ ospf_find_vl_data (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 	{
 	  vl_data->vl_oi = ospf_vl_new (ospf, vl_data);
 	  ospf_vl_add (ospf, vl_data);
-	  ospf_spf_calculate_schedule (ospf);
+	  ospf_spf_calculate_schedule (ospf, SPF_FLAG_CONFIG_CHANGE);
 	}
     }
   return vl_data;
@@ -2408,7 +2408,7 @@ DEFUN (ospf_compatible_rfc1583,
   if (!CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
     {
       SET_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE);
-      ospf_spf_calculate_schedule (ospf);
+      ospf_spf_calculate_schedule (ospf, SPF_FLAG_CONFIG_CHANGE);
     }
   return CMD_SUCCESS;
 }
@@ -2428,7 +2428,7 @@ DEFUN (no_ospf_compatible_rfc1583,
   if (CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
     {
       UNSET_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE);
-      ospf_spf_calculate_schedule (ospf);
+      ospf_spf_calculate_schedule (ospf, SPF_FLAG_CONFIG_CHANGE);
     }
   return CMD_SUCCESS;
 }

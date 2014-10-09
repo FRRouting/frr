@@ -50,42 +50,41 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 static unsigned int spf_reason_flags = 0;
 
-static void ospf_clear_spf_reason_flags (void )
+static void
+ospf_clear_spf_reason_flags (void)
 {
   spf_reason_flags = 0;
 }
 
-void ospf_flag_spf_reason (unsigned int reason)
+static void 
+ospf_spf_set_reason (ospf_spf_reason_t reason)
 {
-  if (reason <= SPF_FLAG_MAX_VALUE)
-    spf_reason_flags |= reason;
-  else
-    spf_reason_flags |= SPF_FLAG_MISC;
+  spf_reason_flags |= 1 << reason;
 }
 
 static void
 ospf_get_spf_reason_str (char *buf)
 {
-  if (buf)
+  if (!buf)
+   return;
+ 
+  buf[0] = '\0';
+  if (spf_reason_flags)
     {
-      buf[0] = '\0';
-      if (spf_reason_flags)
-	{
-	  if (spf_reason_flags & SPF_FLAG_ROUTER_LSA_INSTALL)
-	    strcat (buf, "R, ");
-	  if (spf_reason_flags & SPF_FLAG_NETWORK_LSA_INSTALL)
-	    strcat (buf, "N, ");
-	  if (spf_reason_flags & SPF_FLAG_SUMMARY_LSA_INSTALL)
-	    strcat (buf, "S, ");
-	  if (spf_reason_flags & SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL)
-	    strcat (buf, "AS, ");
-	  if (spf_reason_flags & SPF_FLAG_ABR_STATUS_CHANGE)
-	    strcat (buf, "ABR, ");
-	  if (spf_reason_flags & SPF_FLAG_ASBR_STATUS_CHANGE)
-	    strcat (buf, "ASBR, ");
-	  if (spf_reason_flags & SPF_FLAG_MAXAGE)
-	    strcat (buf, "M, ");
-      }
+      if (spf_reason_flags & SPF_FLAG_ROUTER_LSA_INSTALL)
+        strcat (buf, "R, ");
+      if (spf_reason_flags & SPF_FLAG_NETWORK_LSA_INSTALL)
+        strcat (buf, "N, ");
+      if (spf_reason_flags & SPF_FLAG_SUMMARY_LSA_INSTALL)
+        strcat (buf, "S, ");
+      if (spf_reason_flags & SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL)
+        strcat (buf, "AS, ");
+      if (spf_reason_flags & SPF_FLAG_ABR_STATUS_CHANGE)
+        strcat (buf, "ABR, ");
+      if (spf_reason_flags & SPF_FLAG_ASBR_STATUS_CHANGE)
+        strcat (buf, "ASBR, ");
+      if (spf_reason_flags & SPF_FLAG_MAXAGE)
+        strcat (buf, "M, ");
       buf[strlen(buf)-2] = '\0'; /* skip the last ", " */
     }
 }
@@ -1307,7 +1306,7 @@ ospf_spf_calculate_timer (struct thread *thread)
   unsigned long ia_time, prune_time, rt_time;
   unsigned long abr_time, total_spf_time, spf_time;
   char rbuf[32];		/* reason_buf */
-
+  
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("SPF: Timer (SPF calculation expire)");
 
@@ -1399,12 +1398,18 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   ospf_get_spf_reason_str (rbuf);
 
-  if (IS_OSPF_ABR (ospf))
-    zlog_info ("SPF Processing Time(usecs): # Areas: %d, SPF Time: %ld, InterArea: %ld, Prune: %ld, RouteInstall: %ld, ABR: %ld, Total: %ld, Reason: %s\n",
-	       areas_processed, spf_time, ia_time, prune_time, rt_time, abr_time, total_spf_time, rbuf);
-  else
-    zlog_info ("SPF Processing Time(usecs): SPF Time: %ld, InterArea: %ld, Prune: %ld, RouteInstall: %ld, Total: %ld, Reason: %s\n",
-	       spf_time, ia_time, prune_time, rt_time, total_spf_time, rbuf);
+  if (IS_DEBUG_OSPF_EVENT)
+    {
+      zlog_info ("SPF Processing Time(usecs): %ld", total_spf_time);
+      zlog_info ("\t    SPF Time: %ld", spf_time);
+      zlog_info ("\t   InterArea: %ld", ia_time);
+      zlog_info ("\t       Prune: %ld", prune_time);
+      zlog_info ("\tRouteInstall: %ld", rt_time);
+      if (IS_OSPF_ABR (ospf))
+        zlog_info ("\t         ABR: %ld (%d areas)",
+                   abr_time, areas_processed);
+      zlog_info ("Reason(s) for SPF: %s", rbuf);
+    }
 
   ospf_clear_spf_reason_flags ();
 
@@ -1414,7 +1419,7 @@ ospf_spf_calculate_timer (struct thread *thread)
 /* Add schedule for SPF calculation.  To avoid frequenst SPF calc, we
    set timer for SPF calc. */
 void
-ospf_spf_calculate_schedule (struct ospf *ospf)
+ospf_spf_calculate_schedule (struct ospf *ospf, ospf_spf_reason_t reason)
 {
   unsigned long delay, elapsed, ht;
   struct timeval result;
@@ -1425,6 +1430,8 @@ ospf_spf_calculate_schedule (struct ospf *ospf)
   /* OSPF instance does not exist. */
   if (ospf == NULL)
     return;
+  
+  ospf_spf_set_reason (reason);
   
   /* SPF calculation timer is already scheduled. */
   if (ospf->t_spf_calc)

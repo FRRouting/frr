@@ -59,22 +59,20 @@ struct vertex_parent
   int backlink;			/* index back to parent for router-lsa's */
 };
 
-extern void ospf_spf_calculate_schedule (struct ospf *);
+/* What triggered the SPF ? */
+typedef enum {
+  SPF_FLAG_ROUTER_LSA_INSTALL = 1,
+  SPF_FLAG_NETWORK_LSA_INSTALL,
+  SPF_FLAG_SUMMARY_LSA_INSTALL,
+  SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL,
+  SPF_FLAG_MAXAGE,
+  SPF_FLAG_ABR_STATUS_CHANGE,
+  SPF_FLAG_ASBR_STATUS_CHANGE,
+  SPF_FLAG_CONFIG_CHANGE,
+} ospf_spf_reason_t;
+
+extern void ospf_spf_calculate_schedule (struct ospf *, ospf_spf_reason_t);
 extern void ospf_rtrs_free (struct route_table *);
 
 /* void ospf_spf_calculate_timer_add (); */
-
-/* What triggered the SPF ? Can have at most 32 reasons with this */
-#define SPF_FLAG_ROUTER_LSA_INSTALL 0x1
-#define SPF_FLAG_NETWORK_LSA_INSTALL 0x2
-#define SPF_FLAG_SUMMARY_LSA_INSTALL 0x4
-#define SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL 0x8
-#define SPF_FLAG_MAXAGE 0x10
-#define SPF_FLAG_ABR_STATUS_CHANGE 0x20
-#define SPF_FLAG_ASBR_STATUS_CHANGE 0x40
-#define SPF_FLAG_MAX_VALUE 0x40	/* Update this when adding flags */
-#define SPF_FLAG_MISC 0x1000000	/* Keep this last */
-
-extern void ospf_flag_spf_reason (unsigned int reason);
-
 #endif /* _QUAGGA_OSPF_SPF_H */
