@@ -62,8 +62,8 @@ EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c if_proc.c \
 	ioctl.c ioctl_solaris.c \
 	GNOME-SMI GNOME-PRODUCT-ZEBRA-MIB
 
-#client : client_main.o ../lib/libzebra.la
-#	$(CC) -g -o client client_main.o ../liblzebra.la $(LIBS) $(LIB_IPV6)
+client : client_main.o ../lib/libzebra.la
+	$(CC) -g -o client client_main.o ../liblzebra.la $(LIBS) $(LIB_IPV6)
 
 quaggaconfdir = $(sysconfdir)
 
