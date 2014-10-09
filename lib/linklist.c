@@ -159,6 +159,13 @@ listnode_add_after (struct list *list, struct listnode *pp, void *val)
   list->count++;
 }
 
+/* Move given listnode to tail of the list */
+void
+listnode_move_to_tail (struct list *l, struct listnode *n)
+{
+  LISTNODE_DETACH(l,n);
+  LISTNODE_ATTACH(l,n);
+}
 
 /* Delete specific date pointer from the list. */
 void
