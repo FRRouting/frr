@@ -395,7 +395,6 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
 {
   struct stream *s = BGP_INPUT (peer);
   u_int16_t restart_flag_time;
-  int restart_bit = 0;
   size_t end = stream_get_getp (s) + caphdr->length;
 
   /* Verify length is a multiple of 4 */
@@ -409,10 +408,8 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
   SET_FLAG (peer->cap, PEER_CAP_RESTART_RCV);
   restart_flag_time = stream_getw(s);
   if (CHECK_FLAG (restart_flag_time, RESTART_R_BIT))
-    {
-      SET_FLAG (peer->cap, PEER_CAP_RESTART_BIT_RCV);
-      restart_bit = 1;
-    }
+    SET_FLAG (peer->cap, PEER_CAP_RESTART_BIT_RCV);
+  
   UNSET_FLAG (restart_flag_time, 0xF000);
   peer->v_gr_restart = restart_flag_time;
 
@@ -420,7 +417,9 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
     {
       zlog_debug ("%s OPEN has Graceful Restart capability", peer->host);
       zlog_debug ("%s Peer has%srestarted. Restart Time : %d",
-                  peer->host, restart_bit ? " " : " not ",
+                  peer->host,
+                  CHECK_FLAG (peer->cap, PEER_CAP_RESTART_BIT_RCV) ? " " 
+                                                                   : " not ",
                   peer->v_gr_restart);
     }
 
