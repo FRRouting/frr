@@ -27,11 +27,13 @@
 #include "zserv.h"
 #include "vty.h"
 
-extern void zebra_redistribute_add (int, struct zserv *, int);
-extern void zebra_redistribute_delete (int, struct zserv *, int);
+extern void zebra_redistribute_add (int, struct zserv *, int, vrf_id_t);
+extern void zebra_redistribute_delete (int, struct zserv *, int, vrf_id_t);
 
-extern void zebra_redistribute_default_add (int, struct zserv *, int);
-extern void zebra_redistribute_default_delete (int, struct zserv *, int);
+extern void zebra_redistribute_default_add (int, struct zserv *, int,
+    vrf_id_t);
+extern void zebra_redistribute_default_delete (int, struct zserv *, int,
+    vrf_id_t);
 
 extern void redistribute_update (struct prefix *, struct rib *, struct rib *);
 extern void redistribute_delete (struct prefix *, struct rib *);
@@ -56,6 +58,8 @@ extern int zebra_del_import_table_entry (struct route_node *rn,
 extern int is_zebra_import_table_enabled(afi_t, u_int32_t table_id);
 
 extern int zebra_import_table_config(struct vty *);
+
+extern int is_default (struct prefix *);
 
 #endif /* _ZEBRA_REDISTRIBUTE_H */
 

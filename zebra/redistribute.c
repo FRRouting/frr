@@ -63,7 +63,7 @@ is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
   return 0;
 }
 
-static int
+int
 is_default (struct prefix *p)
 {
   if (p->family == AF_INET)
@@ -81,7 +81,7 @@ is_default (struct prefix *p)
 }
 
 static void
-zebra_redistribute_default (struct zserv *client)
+zebra_redistribute_default (struct zserv *client, vrf_id_t vrf_id)
 {
   struct prefix_ipv4 p;
   struct route_table *table;
@@ -97,7 +97,7 @@ zebra_redistribute_default (struct zserv *client)
   p.family = AF_INET;
 
   /* Lookup table.  */
-  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (table)
     {
       rn = route_node_lookup (table, (struct prefix *)&p);
@@ -117,7 +117,7 @@ zebra_redistribute_default (struct zserv *client)
   p6.family = AF_INET6;
 
   /* Lookup table.  */
-  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (table)
     {
       rn = route_node_lookup (table, (struct prefix *)&p6);
@@ -135,13 +135,13 @@ zebra_redistribute_default (struct zserv *client)
 
 /* Redistribute routes. */
 static void
-zebra_redistribute (struct zserv *client, int type, u_short instance)
+zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t vrf_id)
 {
   struct rib *newrib;
   struct route_table *table;
   struct route_node *rn;
 
-  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
       RNODE_FOREACH_RIB (rn, newrib)
@@ -156,7 +156,7 @@ zebra_redistribute (struct zserv *client, int type, u_short instance)
 	  }
   
 #ifdef HAVE_IPV6
-  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
       RNODE_FOREACH_RIB (rn, newrib)
@@ -196,9 +196,14 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
       if (is_default(p) && client->redist_default)
 	  send_redistribute = 1;
 
-      if (redist_check_instance(&client->redist[afi][rib->type],
-				rib->instance))
-	send_redistribute = 1;
+      if (rib->instance && redist_check_instance(&client->mi_redist[afi][rib->type],
+			                	rib->instance))
+        send_redistribute = 1;
+      else
+        if ((is_default (p) &&
+            vrf_bitmap_check (client->redist_default, rib->vrf_id))
+            || vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
+	  send_redistribute = 1;
 
       if (send_redistribute)
 	{
@@ -220,8 +225,10 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
 	    }
 	}
       else if (prev_rib &&
-	       redist_check_instance(&client->redist[afi][prev_rib->type],
-				     rib->instance))
+	       ((rib->instance &&
+                redist_check_instance(&client->mi_redist[afi][prev_rib->type],
+                                      rib->instance)) ||
+                vrf_bitmap_check (client->redist[afi][prev_rib->type], rib->vrf_id))) 
 	{
 	  switch (afi)
 	    {
@@ -257,16 +264,20 @@ redistribute_delete (struct prefix *p, struct rib *rib)
       if (is_default (p))
 	{
 	  if ((p->family == AF_INET) &&
-              (client->redist_default ||
-               redist_check_instance(&client->redist[AFI_IP][rib->type],
-                                     rib->instance)))
+              (vrf_bitmap_check (client->redist_default, rib->vrf_id) ||
+               (rib->instance &&
+                redist_check_instance(&client->mi_redist[AFI_IP][rib->type],
+                                     rib->instance)) ||
+               vrf_bitmap_check (client->redist[AFI_IP][rib->type], rib->vrf_id)))
             zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_DEL, client, p,
 				       rib);
 #ifdef HAVE_IPV6
 	  if ((p->family == AF_INET6) &&
-              (client->redist_default ||
-               redist_check_instance(&client->redist[AFI_IP6][rib->type],
-                                     rib->instance)))
+              (vrf_bitmap_check (client->redist_default, rib->vrf_id) ||
+               (rib->instance &&
+                redist_check_instance(&client->mi_redist[AFI_IP6][rib->type],
+                                     rib->instance)) ||
+               vrf_bitmap_check (client->redist[AFI_IP6][rib->type], rib->vrf_id)))
             zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_DEL, client, p,
 				      rib);
 #endif /* HAVE_IPV6 */
@@ -274,14 +285,18 @@ redistribute_delete (struct prefix *p, struct rib *rib)
       else
         {
           if ((p->family == AF_INET) &&
-               redist_check_instance(&client->redist[AFI_IP][rib->type],
-                                     rib->instance))
+              ((rib->instance &&
+               redist_check_instance(&client->mi_redist[AFI_IP][rib->type],
+                                     rib->instance)) ||
+              vrf_bitmap_check (client->redist[AFI_IP][rib->type], rib->vrf_id)))
             zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_DEL, client, p,
 				      rib);
 #ifdef HAVE_IPV6
 	  if ((p->family == AF_INET6) &&
-               redist_check_instance(&client->redist[AFI_IP6][rib->type],
-                                     rib->instance))
+              ((rib->instance &&
+               redist_check_instance(&client->mi_redist[AFI_IP6][rib->type],
+                                     rib->instance)) ||
+               vrf_bitmap_check (client->redist[AFI_IP6][rib->type], rib->vrf_id)))
             zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_DEL, client, p,
 				      rib);
 #endif /* HAVE_IPV6 */
@@ -290,7 +305,8 @@ redistribute_delete (struct prefix *p, struct rib *rib)
 }
 
 void
-zebra_redistribute_add (int command, struct zserv *client, int length)
+zebra_redistribute_add (int command, struct zserv *client, int length,
+    vrf_id_t vrf_id)
 {
   afi_t afi;
   int type;
@@ -303,15 +319,22 @@ zebra_redistribute_add (int command, struct zserv *client, int length)
   if (type == 0 || type >= ZEBRA_ROUTE_MAX)
     return;
 
-  if (!redist_check_instance(&client->redist[afi][type], instance))
+  if (instance && !redist_check_instance(&client->mi_redist[afi][type], instance))
     {
-      redist_add_instance(&client->redist[afi][type], instance);
-      zebra_redistribute (client, type, instance);
+      redist_add_instance(&client->mi_redist[afi][type], instance);
+      zebra_redistribute (client, type, instance, vrf_id);
     }
+  else
+    if (! vrf_bitmap_check (client->redist[afi][type], vrf_id))
+      {
+        vrf_bitmap_set (client->redist[afi][type], vrf_id);
+        zebra_redistribute (client, type, 0, vrf_id);
+      }
 }
 
 void
-zebra_redistribute_delete (int command, struct zserv *client, int length)
+zebra_redistribute_delete (int command, struct zserv *client, int length,
+    vrf_id_t vrf_id)
 {
   afi_t afi;
   int type;
@@ -324,25 +347,27 @@ zebra_redistribute_delete (int command, struct zserv *client, int length)
   if (type == 0 || type >= ZEBRA_ROUTE_MAX)
     return;
 
-  if (redist_check_instance(&client->redist[afi][type], instance))
+  if (instance && redist_check_instance(&client->mi_redist[afi][type], instance))
     {
-      redist_del_instance(&client->redist[afi][type], instance);
+      redist_del_instance(&client->mi_redist[afi][type], instance);
       //Pending: why no reaction here?
     }
+  vrf_bitmap_unset (client->redist[afi][type], vrf_id);
 }
 
 void
-zebra_redistribute_default_add (int command, struct zserv *client, int length)
+zebra_redistribute_default_add (int command, struct zserv *client, int length,
+    vrf_id_t vrf_id)
 {
-  client->redist_default = 1;
-  zebra_redistribute_default (client);
+  vrf_bitmap_set (client->redist_default, vrf_id);
+  zebra_redistribute_default (client, vrf_id);
 }     
 
 void
 zebra_redistribute_default_delete (int command, struct zserv *client,
-				   int length)
+    int length, vrf_id_t vrf_id)
 {
-  client->redist_default = 0;;
+  vrf_bitmap_unset (client->redist_default, vrf_id);
 }     
 
 /* Interface up information. */

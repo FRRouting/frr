@@ -28,6 +28,7 @@
 #include "routemap.h"
 #include "vty.h"
 #include "zclient.h"
+#include "vrf.h"
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
@@ -61,16 +62,17 @@ struct zserv
   int rtm_table;
 
   /* This client's redistribute flag. */
-  struct redist_proto redist[AFI_MAX][ZEBRA_ROUTE_MAX];
+  struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
+  vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
   /* Redistribute default route flag. */
-  u_char redist_default;
+  vrf_bitmap_t redist_default;
 
   /* Interface information. */
-  u_char ifinfo;
+  vrf_bitmap_t ifinfo;
 
   /* Router-id information. */
-  u_char ridinfo;
+  vrf_bitmap_t ridinfo;
 
   /* client's protocol */
   u_char proto;
@@ -157,7 +159,7 @@ extern int zsend_router_id_update (struct zserv *, struct prefix *,
 
 extern pid_t pid;
 
-extern void zserv_create_header(struct stream *s, uint16_t cmd);
+extern void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id);
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *, const u_char);
 extern int zebra_server_send_message(struct zserv *client);
 

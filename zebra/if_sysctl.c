@@ -29,11 +29,8 @@
 #include "memory.h"
 #include "ioctl.h"
 #include "log.h"
-<<<<<<< HEAD
-=======
 #include "interface.h"
 #include "vrf.h"
->>>>>>> 3c27b5f... zebra, lib/memtypes.c: the netlink sockets work per VRF
 
 #include "zebra/rt.h"
 #include "zebra/kernel_socket.h"

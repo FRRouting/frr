@@ -133,12 +133,12 @@ struct buffered_update {
 void babel_if_init(void);
 
 /* Callback functions for zebra client */
-int babel_interface_up (int, struct zclient *, zebra_size_t);
-int babel_interface_down (int, struct zclient *, zebra_size_t);
-int babel_interface_add (int, struct zclient *, zebra_size_t);
-int babel_interface_delete (int, struct zclient *, zebra_size_t);
-int babel_interface_address_add (int, struct zclient *, zebra_size_t);
-int babel_interface_address_delete (int, struct zclient *, zebra_size_t);
+int babel_interface_up (int, struct zclient *, zebra_size_t, vrf_id_t);
+int babel_interface_down (int, struct zclient *, zebra_size_t, vrf_id_t);
+int babel_interface_add (int, struct zclient *, zebra_size_t, vrf_id_t);
+int babel_interface_delete (int, struct zclient *, zebra_size_t, vrf_id_t);
+int babel_interface_address_add (int, struct zclient *, zebra_size_t, vrf_id_t);
+int babel_interface_address_delete (int, struct zclient *, zebra_size_t, vrf_id_t);
 
 unsigned jitter(babel_interface_nfo *, int);
 unsigned update_jitter(babel_interface_nfo *babel_ifp, int urgent);

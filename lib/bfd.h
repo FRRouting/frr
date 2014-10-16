@@ -74,7 +74,8 @@ bfd_set_param (struct bfd_info **bfd_info, u_int32_t min_rx, u_int32_t min_tx,
 extern void
 bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
                   int family, void *dst_ip, void *src_ip, char *if_name,
-                  int ttl, int multihop, int command, int set_flag);
+                  int ttl, int multihop, int command, int set_flag,
+                  vrf_id_t vrf_id);
 
 extern const char *
 bfd_get_command_dbg_str(int command);

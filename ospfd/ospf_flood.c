@@ -94,8 +94,11 @@ ospf_external_info_check (struct ospf_lsa *lsa)
     {
       int redist_on = 0;
 
-      redist_on = is_prefix_default (&p) ? zclient->default_information :
-                  zclient->redist[AFI_IP][type].enabled;
+      redist_on = is_prefix_default (&p) ?
+                  vrf_bitmap_check (zclient->default_information, VRF_DEFAULT) :
+                  (zclient->mi_redist[AFI_IP][type].enabled ||
+                   vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT));
+                   //Pending: check for MI above.
       if (redist_on)
         {
           struct list *ext_list;

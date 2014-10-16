@@ -409,12 +409,18 @@ extern int ripng_send_packet (caddr_t buf, int bufsize,
 extern void ripng_packet_dump (struct ripng_packet *packet, int size,
                                const char *sndrcv);
 
-extern int ripng_interface_up (int command, struct zclient *, zebra_size_t);
-extern int ripng_interface_down (int command, struct zclient *, zebra_size_t);
-extern int ripng_interface_add (int command, struct zclient *, zebra_size_t);
-extern int ripng_interface_delete (int command, struct zclient *, zebra_size_t);
-extern int ripng_interface_address_add (int command, struct zclient *, zebra_size_t);
-extern int ripng_interface_address_delete (int command, struct zclient *, zebra_size_t);
+extern int ripng_interface_up (int command, struct zclient *, zebra_size_t,
+    vrf_id_t);
+extern int ripng_interface_down (int command, struct zclient *, zebra_size_t,
+    vrf_id_t);
+extern int ripng_interface_add (int command, struct zclient *, zebra_size_t,
+    vrf_id_t);
+extern int ripng_interface_delete (int command, struct zclient *, zebra_size_t,
+    vrf_id_t);
+extern int ripng_interface_address_add (int command, struct zclient *, zebra_size_t,
+    vrf_id_t);
+extern int ripng_interface_address_delete (int command, struct zclient *, zebra_size_t,
+    vrf_id_t);
 
 extern int ripng_network_write (struct vty *, int);
 

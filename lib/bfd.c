@@ -119,7 +119,8 @@ bfd_set_param (struct bfd_info **bfd_info, u_int32_t min_rx, u_int32_t min_tx,
 void
 bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
                   int family, void *dst_ip, void *src_ip, char *if_name,
-                  int ttl, int multihop, int command, int set_flag)
+                  int ttl, int multihop, int command, int set_flag,
+                  vrf_id_t vrf_id)
 {
   struct stream *s;
   int ret;
@@ -135,7 +136,7 @@ bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
 
   s = zclient->obuf;
   stream_reset (s);
-  zclient_create_header (s, command);
+  zclient_create_header (s, command, vrf_id);
 
   stream_putw(s, family);
   switch (family)

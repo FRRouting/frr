@@ -336,6 +336,99 @@ vrf_iflist_get (vrf_id_t vrf_id)
    return vrf->iflist;
 }
 
+/*
+ * VRF bit-map
+ */
+
+#define VRF_BITMAP_NUM_OF_GROUPS            8
+#define VRF_BITMAP_NUM_OF_BITS_IN_GROUP \
+    (UINT16_MAX / VRF_BITMAP_NUM_OF_GROUPS)
+#define VRF_BITMAP_NUM_OF_BYTES_IN_GROUP \
+    (VRF_BITMAP_NUM_OF_BITS_IN_GROUP / CHAR_BIT + 1) /* +1 for ensure */
+
+#define VRF_BITMAP_GROUP(_id) \
+    ((_id) / VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
+#define VRF_BITMAP_BIT_OFFSET(_id) \
+    ((_id) % VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
+
+#define VRF_BITMAP_INDEX_IN_GROUP(_bit_offset) \
+    ((_bit_offset) / CHAR_BIT)
+#define VRF_BITMAP_FLAG(_bit_offset) \
+    (((u_char)1) << ((_bit_offset) % CHAR_BIT))
+
+struct vrf_bitmap
+{
+  u_char *groups[VRF_BITMAP_NUM_OF_GROUPS];
+};
+
+vrf_bitmap_t
+vrf_bitmap_init (void)
+{
+  return (vrf_bitmap_t) XCALLOC (MTYPE_VRF_BITMAP, sizeof (struct vrf_bitmap));
+}
+
+void
+vrf_bitmap_free (vrf_bitmap_t bmap)
+{
+  struct vrf_bitmap *bm = (struct vrf_bitmap *) bmap;
+  int i;
+
+  if (bmap == VRF_BITMAP_NULL)
+    return;
+
+  for (i = 0; i < VRF_BITMAP_NUM_OF_GROUPS; i++)
+    if (bm->groups[i])
+      XFREE (MTYPE_VRF_BITMAP, bm->groups[i]);
+
+  XFREE (MTYPE_VRF_BITMAP, bm);
+}
+
+void
+vrf_bitmap_set (vrf_bitmap_t bmap, vrf_id_t vrf_id)
+{
+  struct vrf_bitmap *bm = (struct vrf_bitmap *) bmap;
+  u_char group = VRF_BITMAP_GROUP (vrf_id);
+  u_char offset = VRF_BITMAP_BIT_OFFSET (vrf_id);
+
+  if (bmap == VRF_BITMAP_NULL)
+    return;
+
+  if (bm->groups[group] == NULL)
+    bm->groups[group] = XCALLOC (MTYPE_VRF_BITMAP,
+                                 VRF_BITMAP_NUM_OF_BYTES_IN_GROUP);
+
+  SET_FLAG (bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP (offset)],
+            VRF_BITMAP_FLAG (offset));
+}
+
+void
+vrf_bitmap_unset (vrf_bitmap_t bmap, vrf_id_t vrf_id)
+{
+  struct vrf_bitmap *bm = (struct vrf_bitmap *) bmap;
+  u_char group = VRF_BITMAP_GROUP (vrf_id);
+  u_char offset = VRF_BITMAP_BIT_OFFSET (vrf_id);
+
+  if (bmap == VRF_BITMAP_NULL || bm->groups[group] == NULL)
+    return;
+
+  UNSET_FLAG (bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP (offset)],
+              VRF_BITMAP_FLAG (offset));
+}
+
+int
+vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
+{
+  struct vrf_bitmap *bm = (struct vrf_bitmap *) bmap;
+  u_char group = VRF_BITMAP_GROUP (vrf_id);
+  u_char offset = VRF_BITMAP_BIT_OFFSET (vrf_id);
+
+  if (bmap == VRF_BITMAP_NULL || bm->groups[group] == NULL)
+    return 0;
+
+  return CHECK_FLAG (bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP (offset)],
+                     VRF_BITMAP_FLAG (offset)) ? 1 : 0;
+}
+
 /* Initialize VRF module. */
 void
 vrf_init (void)

@@ -27,6 +27,7 @@
 #include "routemap.h"
 #include "zclient.h"
 #include "log.h"
+#include "vrf.h"
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
@@ -41,8 +42,9 @@ rip_zebra_ipv4_add (struct prefix_ipv4 *p, struct in_addr *nexthop,
 {
   struct zapi_ipv4 api;
 
-  if (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP].enabled)
+  if (vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT))
     {
+      api.vrf_id = VRF_DEFAULT;
       api.type = ZEBRA_ROUTE_RIP;
       api.instance = 0;
       api.flags = 0;
@@ -73,7 +75,7 @@ rip_zebra_ipv4_delete (struct prefix_ipv4 *p, struct in_addr *nexthop,
 {
   struct zapi_ipv4 api;
 
-  if (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP].enabled)
+  if (vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT))
     {
       api.type = ZEBRA_ROUTE_RIP;
       api.instance = 0;
@@ -95,7 +97,8 @@ rip_zebra_ipv4_delete (struct prefix_ipv4 *p, struct in_addr *nexthop,
 
 /* Zebra route add and delete treatment. */
 static int
-rip_zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
+rip_zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
+    vrf_id_t vrf_id)
 {
   struct stream *s;
   struct zapi_ipv4 api;
@@ -243,10 +246,10 @@ DEFUN (no_router_zebra,
 static int
 rip_redistribute_set (int type)
 {
-  if (zclient->redist[AFI_IP][type])
+  if (vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT))
     return CMD_SUCCESS;
 
-  zclient->redist[AFI_IP][type] = 1;
+  vrf_bitmap_set (zclient->redist[AFI_IP][type], VRF_DEFAULT);
 
   if (zclient->sock > 0)
     zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, API_IP, type);
@@ -258,13 +261,13 @@ rip_redistribute_set (int type)
 static int
 rip_redistribute_unset (int type)
 {
-  if (! zclient->redist[AFI_IP][type].enabled)
+  if (! vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT))
     return CMD_SUCCESS;
 
-  redist_del_instance(&zclient->redist[AFI_IP][type], 0);
+  vrf_bitmap_unset (zclient->redist[AFI_IP][type], VRF_DEFAULT);
 
   if (zclient->sock > 0)
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0);
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
 
   /* Remove the routes from RIP table. */
   rip_redistribute_withdraw (type);
@@ -275,7 +278,7 @@ rip_redistribute_unset (int type)
 int
 rip_redistribute_check (int type)
 {
-  return (zclient->redist[AFI_IP][type].enabled);
+  return vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT);
 }
 
 void
@@ -285,13 +288,14 @@ rip_redistribute_clean (void)
 
   for (i = 0; redist_type[i].str; i++)
     {
-      if (zclient->redist[AFI_IP][redist_type[i].type].enabled)
+      if (vrf_bitmap_check (zclient->redist[AFI_IP][redist_type[i].type], VRF_DEFAULT))
 	{
 	  if (zclient->sock > 0)
 	    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE,
-				     zclient, AFI_IP, redist_type[i].type, 0);
+				     zclient, AFI_IP, redist_type[i].type, 0,
+				     VRF_DEFAULT);
 
-          redist_del_instance(&zclient->redist[AFI_IP][redist_type[i].type], 0);
+	  vrf_bitmap_unset (zclient->redist[AFI_IP][redist_type[i].type], VRF_DEFAULT);
 
 	  /* Remove the routes from RIP table. */
 	  rip_redistribute_withdraw (redist_type[i].type);
@@ -305,7 +309,7 @@ DEFUN (rip_redistribute_rip,
        "Redistribute information from another routing protocol\n"
        "Routing Information Protocol (RIP)\n")
 {
-  redist_add_instance(&zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], 0);
+  vrf_bitmap_set (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT);
   return CMD_SUCCESS;
 }
 
@@ -316,7 +320,7 @@ DEFUN (no_rip_redistribute_rip,
        "Redistribute information from another routing protocol\n"
        "Routing Information Protocol (RIP)\n")
 {
-  redist_del_instance(&zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], 0);
+  vrf_bitmap_unset (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT);
   return CMD_SUCCESS;
 }
 
@@ -334,7 +338,7 @@ DEFUN (rip_redistribute_type,
 		   redist_type[i].str_min_len) == 0) 
 	{
 	  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, 
-	                        AFI_IP, redist_type[i].type, 0);
+	                        AFI_IP, redist_type[i].type, 0, VRF_DEFAULT);
 	  return CMD_SUCCESS;
 	}
     }
@@ -388,7 +392,7 @@ DEFUN (rip_redistribute_type_routemap,
       {
 	rip_routemap_set (redist_type[i].type, argv[1]);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
-                              redist_type[i].type, 0);
+                              redist_type[i].type, 0, VRF_DEFAULT);
 	return CMD_SUCCESS;
       }
   }
@@ -447,7 +451,7 @@ DEFUN (rip_redistribute_type_metric,
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
-                              redist_type[i].type, 0);
+                              redist_type[i].type, 0, VRF_DEFAULT);
 	return CMD_SUCCESS;
       }
   }
@@ -509,7 +513,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
 	rip_redistribute_metric_set (redist_type[i].type, metric);
 	rip_routemap_set (redist_type[i].type, argv[2]);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
-                              redist_type[i].type, 0);
+                              redist_type[i].type, 0, VRF_DEFAULT);
 	return CMD_SUCCESS;
       }
   }
@@ -613,7 +617,7 @@ config_write_zebra (struct vty *vty)
       vty_out (vty, "no router zebra%s", VTY_NEWLINE);
       return 1;
     }
-  else if (! zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP].enabled)
+  else if (! vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT))
     {
       vty_out (vty, "router zebra%s", VTY_NEWLINE);
       vty_out (vty, " no redistribute rip%s", VTY_NEWLINE);
@@ -629,7 +633,7 @@ config_write_rip_redistribute (struct vty *vty, int config_mode)
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default &&
-        zclient->redist[AFI_IP][i].enabled)
+        vrf_bitmap_check (zclient->redist[AFI_IP][i], VRF_DEFAULT))
       {
 	if (config_mode)
 	  {
@@ -669,12 +673,19 @@ static struct cmd_node zebra_node =
   "%s(config-router)# ",
 };
 
+static void
+rip_zebra_connected (struct zclient *zclient)
+{
+  zclient_send_requests (zclient, VRF_DEFAULT);
+}
+
 void
 rip_zclient_init (struct thread_master *master)
 {
   /* Set default value to the zebra client structure. */
   zclient = zclient_new(master);
   zclient_init (zclient, ZEBRA_ROUTE_RIP, 0);
+  zclient->zebra_connected = rip_zebra_connected;
   zclient->interface_add = rip_interface_add;
   zclient->interface_delete = rip_interface_delete;
   zclient->interface_address_add = rip_interface_address_add;

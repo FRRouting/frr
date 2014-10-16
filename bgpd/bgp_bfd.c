@@ -96,13 +96,13 @@ bgp_bfd_peer_sendmsg (struct peer *peer, int command)
                       &peer->su.sin.sin_addr,
                       (peer->su_local) ? &peer->su_local->sin.sin_addr : NULL,
                       (peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1);
+                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1, VRF_DEFAULT);
   else if (peer->su.sa.sa_family == AF_INET6)
     bfd_peer_sendmsg (zclient, bfd_info, AF_INET6,
                       &peer->su.sin6.sin6_addr,
                       (peer->su_local) ? &peer->su_local->sin6.sin6_addr : NULL,
                       (peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1);
+                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1, VRF_DEFAULT);
 }
 
 /*
@@ -171,7 +171,8 @@ bgp_bfd_update_peer (struct peer *peer)
  *                       to zebra
  */
 static int
-bgp_bfd_dest_replay (int command, struct zclient *client, zebra_size_t length)
+bgp_bfd_dest_replay (int command, struct zclient *client, zebra_size_t length,
+                     vrf_id_t vrf_id)
 {
   struct listnode *mnode, *node, *nnode;
   struct bgp *bgp;
@@ -224,7 +225,7 @@ bgp_bfd_peer_status_update (struct peer *peer, int status)
  */
 static int
 bgp_bfd_dest_update (int command, struct zclient *zclient,
-                             zebra_size_t length)
+                             zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
   struct prefix dp;

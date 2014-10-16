@@ -57,7 +57,8 @@ extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid,
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
 				    rnh_type_t type);
 extern void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type);
-extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client, rnh_type_t type);
+extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
+                                 vrf_id_t vrfid);
 extern void zebra_register_rnh_static_nh(struct prefix *, struct route_node *);
 extern void zebra_deregister_rnh_static_nh(struct prefix *, struct route_node *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,

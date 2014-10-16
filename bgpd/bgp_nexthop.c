@@ -351,7 +351,6 @@ bgp_nexthop_self (struct attr *attr)
   return 0;
 }
 
-
 int
 bgp_multiaccess_check_v4 (struct in_addr nexthop, struct peer *peer)
 {

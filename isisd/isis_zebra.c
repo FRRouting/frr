@@ -32,6 +32,7 @@
 #include "zclient.h"
 #include "stream.h"
 #include "linklist.h"
+#include "vrf.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -52,7 +53,7 @@ struct zclient *zclient = NULL;
 /* Router-id update message from zebra. */
 static int
 isis_router_id_update_zebra (int command, struct zclient *zclient,
-			     zebra_size_t length)
+			     zebra_size_t length, vrf_id_t vrf_id)
 {
   struct isis_area *area;
   struct listnode *node;
@@ -71,11 +72,12 @@ isis_router_id_update_zebra (int command, struct zclient *zclient,
 }
 
 static int
-isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
+isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length,
+    vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
-  ifp = zebra_interface_add_read (zclient->ibuf);
+  ifp = zebra_interface_add_read (zclient->ibuf, vrf_id);
 
   if (isis->debugs & DEBUG_ZEBRA)
     zlog_debug ("Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
@@ -88,13 +90,14 @@ isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
 }
 
 static int
-isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
+isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length,
+    vrf_id_t vrf_id)
 {
   struct interface *ifp;
   struct stream *s;
 
   s = zclient->ibuf;
-  ifp = zebra_interface_state_read (s);
+  ifp = zebra_interface_state_read (s, vrf_id);
 
   if (!ifp)
     return 0;
@@ -120,11 +123,11 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
 
 static int
 isis_zebra_if_state_up (int command, struct zclient *zclient,
-			zebra_size_t length)
+			zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
-  ifp = zebra_interface_state_read (zclient->ibuf);
+  ifp = zebra_interface_state_read (zclient->ibuf, vrf_id);
 
   if (ifp == NULL)
     return 0;
@@ -136,12 +139,12 @@ isis_zebra_if_state_up (int command, struct zclient *zclient,
 
 static int
 isis_zebra_if_state_down (int command, struct zclient *zclient,
-			  zebra_size_t length)
+			  zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
   struct isis_circuit *circuit;
 
-  ifp = zebra_interface_state_read (zclient->ibuf);
+  ifp = zebra_interface_state_read (zclient->ibuf, vrf_id);
 
   if (ifp == NULL)
     return 0;
@@ -156,14 +159,14 @@ isis_zebra_if_state_down (int command, struct zclient *zclient,
 
 static int
 isis_zebra_if_address_add (int command, struct zclient *zclient,
-			   zebra_size_t length)
+			   zebra_size_t length, vrf_id_t vrf_id)
 {
   struct connected *c;
   struct prefix *p;
   char buf[BUFSIZ];
 
   c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD,
-				    zclient->ibuf);
+				    zclient->ibuf, vrf_id);
 
   if (c == NULL)
     return 0;
@@ -187,7 +190,7 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
 
 static int
 isis_zebra_if_address_del (int command, struct zclient *client,
-			   zebra_size_t length)
+			   zebra_size_t length, vrf_id_t vrf_id)
 {
   struct connected *c;
   struct interface *ifp;
@@ -197,7 +200,7 @@ isis_zebra_if_address_del (int command, struct zclient *client,
 #endif /* EXTREME_DEBUG */
 
   c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE,
-				    zclient->ibuf);
+				    zclient->ibuf, vrf_id);
 
   if (c == NULL)
     return 0;
@@ -236,7 +239,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
   if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
-  if (zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS].enabled)
+  if (vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS], VRF_DEFAULT))
     {
       message = 0;
       flags = 0;
@@ -249,7 +252,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
 
       stream = zclient->obuf;
       stream_reset (stream);
-      zclient_create_header (stream, ZEBRA_IPV4_ROUTE_ADD);
+      zclient_create_header (stream, ZEBRA_IPV4_ROUTE_ADD, VRF_DEFAULT);
       /* type */
       stream_putc (stream, ZEBRA_ROUTE_ISIS);
       /* instance */
@@ -303,8 +306,9 @@ isis_zebra_route_del_ipv4 (struct prefix *prefix,
   struct zapi_ipv4 api;
   struct prefix_ipv4 prefix4;
 
-  if (zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS].enabled)
+  if (vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS], VRF_DEFAULT))
     {
+      api.vrf_id = VRF_DEFAULT;
       api.type = ZEBRA_ROUTE_ISIS;
       api.instance = 0;
       api.flags = 0;
@@ -336,6 +340,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
   if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
+  api.vrf_id = VRF_DEFAULT;
   api.type = ZEBRA_ROUTE_ISIS;
   api.instance = 0;
   api.flags = 0;
@@ -422,6 +427,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
   if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
+  api.vrf_id = VRF_DEFAULT;
   api.type = ZEBRA_ROUTE_ISIS;
   api.instance = 0;
   api.flags = 0;
@@ -493,8 +499,8 @@ isis_zebra_route_update (struct prefix *prefix,
   if (zclient->sock < 0)
     return;
 
-  if ((prefix->family == AF_INET && !zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS].enabled) ||
-      (prefix->family == AF_INET6 && !zclient->redist[AFI_IP6][ZEBRA_ROUTE_ISIS].enabled))
+  if ((prefix->family == AF_INET && !vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS], VRF_DEFAULT)) ||
+      (prefix->family == AF_INET6 && !vrf_bitmap_check (zclient->redist[AFI_IP6][ZEBRA_ROUTE_ISIS], VRF_DEFAULT)))
     return;
 
   if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ACTIVE))
@@ -520,7 +526,7 @@ isis_zebra_route_update (struct prefix *prefix,
 
 static int
 isis_zebra_read_ipv4 (int command, struct zclient *zclient,
-		      zebra_size_t length)
+		      zebra_size_t length, vrf_id_t vrf_id)
 {
   struct stream *stream;
   struct zapi_ipv4 api;
@@ -567,15 +573,17 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
 #ifdef HAVE_IPV6
 static int
 isis_zebra_read_ipv6 (int command, struct zclient *zclient,
-		      zebra_size_t length)
+		      zebra_size_t length, vrf_id_t vrf_id)
 {
   return 0;
 }
 #endif
 
 #define ISIS_TYPE_IS_REDISTRIBUTED(T) \
-T == ZEBRA_ROUTE_MAX ? zclient->default_information : \
-(zclient->redist[AFI_IP][type].enabled || client->redist[AFI_IP6][type].enabled)
+T == ZEBRA_ROUTE_MAX ? \
+  vrf_bitmap_check (zclient->default_information, VRF_DEFAULT) : \
+  (vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT) || \
+   vrf_bitmap_check (zclient->redist[AFI_IP6][type], VRF_DEFAULT)
 
 int
 isis_distribute_list_update (int routetype)
@@ -592,11 +600,18 @@ isis_redistribute_default_set (int routetype, int metric_type,
 }
 #endif /* 0 */
 
+static void
+isis_zebra_connected (struct zclient *zclient)
+{
+  zclient_send_requests (zclient, VRF_DEFAULT);
+}
+
 void
 isis_zebra_init (struct thread_master *master)
 {
-  zclient = zclient_new(master);
+  zclient = zclient_new (master);
   zclient_init (zclient, ZEBRA_ROUTE_ISIS, 0);
+  zclient->zebra_connected = isis_zebra_connected;
   zclient->router_id_update = isis_router_id_update_zebra;
   zclient->interface_add = isis_zebra_if_add;
   zclient->interface_delete = isis_zebra_if_del;

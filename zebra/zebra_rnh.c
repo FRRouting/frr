@@ -62,7 +62,8 @@ static void copy_state(struct rnh *rnh, struct rib *rib,
 })
 
 static int compare_state(struct rib *r1, struct rib *r2);
-static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type);
+static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
+                       vrf_id_t vrf_id);
 static void print_rnh(struct route_node *rn, struct vty *vty);
 
 int zebra_rnh_ip_default_route = 0;
@@ -182,7 +183,8 @@ zebra_delete_rnh (struct rnh *rnh, rnh_type_t type)
 }
 
 void
-zebra_add_rnh_client (struct rnh *rnh, struct zserv *client, rnh_type_t type)
+zebra_add_rnh_client (struct rnh *rnh, struct zserv *client, rnh_type_t type,
+                      vrf_id_t vrf_id)
 {
   if (IS_ZEBRA_DEBUG_NHT)
     {
@@ -194,6 +196,7 @@ zebra_add_rnh_client (struct rnh *rnh, struct zserv *client, rnh_type_t type)
   if (!listnode_lookup(rnh->client_list, client))
     {
       listnode_add(rnh->client_list, client);
+      send_client(rnh, client, type, vrf_id); // Pending: check if its needed
     }
 }
 
@@ -393,7 +396,7 @@ zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
 	      /* state changed, notify clients */
 	      for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
 		{
-		  send_client(rnh, client, RNH_IMPORT_CHECK_TYPE);
+		  send_client(rnh, client, RNH_IMPORT_CHECK_TYPE, vrfid);
 		}
 	    }
 
@@ -466,7 +469,7 @@ zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
 			   at_least_one ? "":"(filtered)", bufn, bufp,
 			   rib ? "reachable" : "unreachable");
 
-	      send_client(rnh, client, RNH_NEXTHOP_TYPE); /* Route-map passed */
+	      send_client(rnh, client, RNH_NEXTHOP_TYPE, vrfid); /* Route-map passed */
 	    }
 
 	  /* Now evaluate static client */
@@ -568,14 +571,14 @@ zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
 }
 
 int
-zebra_dispatch_rnh_table (vrf_id_t vrfid, int family, struct zserv *client,
+zebra_dispatch_rnh_table (vrf_id_t vrf_id, int family, struct zserv *client,
 			  rnh_type_t type)
 {
   struct route_table *ntable;
   struct route_node *nrn;
   struct rnh *rnh;
 
-  ntable = get_rnh_table(vrfid, family, type);
+  ntable = get_rnh_table(vrf_id, family, type);
   if (!ntable)
     {
       zlog_debug("dispatch_rnh_table: rnh table not found\n");
@@ -596,7 +599,7 @@ zebra_dispatch_rnh_table (vrf_id_t vrfid, int family, struct zserv *client,
 		     rnh->state ? "reachable" : "unreachable",
 		     zebra_route_string(client->proto));
 	}
-      send_client(rnh, client, RNH_NEXTHOP_TYPE);
+      send_client(rnh, client, RNH_NEXTHOP_TYPE, vrf_id);
     }
   return 1;
 }
@@ -714,7 +717,7 @@ compare_state (struct rib *r1, struct rib *r2)
 }
 
 static int
-send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type)
+send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vrf_id)
 {
   struct stream *s;
   struct rib *rib;
@@ -732,7 +735,8 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type)
   s = client->obuf;
   stream_reset (s);
 
-  zserv_create_header (s, cmd);
+  zserv_create_header (s, cmd, vrf_id);
+
   stream_putw(s, rn->p.family);
   switch (rn->p.family)
     {

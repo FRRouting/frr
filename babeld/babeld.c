@@ -60,6 +60,7 @@ THE SOFTWARE.
 #include "resend.h"
 #include "babel_filter.h"
 #include "babel_zebra.h"
+#include "vrf.h"
 
 
 static int babel_init_routing_process(struct thread *thread);
@@ -114,7 +115,7 @@ babel_config_write (struct vty *vty)
     for (afi = AFI_IP; afi < AFI_MAX; afi++)
       for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
         if (i != zclient->redist_default &&
-            zclient->redist[afi][i].enabled)
+            vrf_bitmap_check (zclient->redist[afi][i], VRF_DEFAULT) )
           {
             vty_out (vty, " redistribute %s%s", zebra_route_string (i), VTY_NEWLINE);
             lines++;

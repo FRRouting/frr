@@ -80,7 +80,7 @@ struct cmd_node zebra_node =
 /* Zebra route add and delete treatment (ipv6). */
 static int
 babel_zebra_read_ipv6 (int command, struct zclient *zclient,
-		       zebra_size_t length)
+		       zebra_size_t length, vrf_id_t vrf_id)
 {
     struct stream *s;
     struct zapi_ipv6 api;
@@ -133,7 +133,7 @@ babel_zebra_read_ipv6 (int command, struct zclient *zclient,
 
 static int
 babel_zebra_read_ipv4 (int command, struct zclient *zclient,
-		       zebra_size_t length)
+		       zebra_size_t length, vrf_id_t vrf_id)
 {
     struct stream *s;
     struct zapi_ipv4 api;
@@ -209,7 +209,7 @@ DEFUN (babel_redistribute_type,
         return CMD_WARNING;
     }
 
-    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0, VRF_DEFAULT);
     return CMD_SUCCESS;
 }
 
@@ -238,7 +238,7 @@ DEFUN (no_babel_redistribute_type,
         return CMD_WARNING;
     }
 
-    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0, VRF_DEFAULT);
     /* perhaps should we remove xroutes having the same type... */
     return CMD_SUCCESS;
 }
@@ -371,8 +371,8 @@ zebra_config_write (struct vty *vty)
         vty_out (vty, "no router zebra%s", VTY_NEWLINE);
         return 1;
     }
-    else if (! (zclient->redist[AFI_IP][ZEBRA_ROUTE_BABEL].enabled ||
-                zclient->redist[AFI_IP6][ZEBRA_ROUTE_BABEL].enabled))
+    else if (! (vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_BABEL], VRF_DEFAULT) ||
+                vrf_bitmap_check (zclient->redist[AFI_IP6][ZEBRA_ROUTE_BABEL], VRF_DEFAULT)))
     {
         vty_out (vty, "router zebra%s", VTY_NEWLINE);
         vty_out (vty, " no redistribute babel%s", VTY_NEWLINE);

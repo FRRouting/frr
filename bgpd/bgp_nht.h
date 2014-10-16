@@ -22,10 +22,12 @@
 #ifndef _BGP_NHT_H
 #define _BGP_NHT_H
 
+extern void bgp_nht_register_all (void);
+
 /**
  * bgp_parse_nexthop_update() - parse a nexthop update message from Zebra.
  */
-extern void bgp_parse_nexthop_update(int command);
+extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
 
 /**
  * bgp_find_nexthop() - lookup the nexthop cache table for the bnc object

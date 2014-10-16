@@ -83,7 +83,7 @@ ospf_bfd_reg_dereg_nbr (struct ospf_neighbor *nbr, int command)
                   inet_ntoa (nbr->src));
 
   bfd_peer_sendmsg (zclient, bfd_info, AF_INET,
-                    &nbr->src, NULL, ifp->name, 0, 0, command, 0);
+                    &nbr->src, NULL, ifp->name, 0, 0, command, 0, VRF_DEFAULT);
 }
 
 /*
@@ -147,7 +147,8 @@ ospf_bfd_reg_dereg_all_nbr (struct interface *ifp, int command)
  *                       to zebra
  */
 static int
-ospf_bfd_nbr_replay (int command, struct zclient *client, zebra_size_t length)
+ospf_bfd_nbr_replay (int command, struct zclient *client, zebra_size_t length,
+                     vrf_id_t vrf_id)
 {
   struct listnode *inode, *node, *onode;
   struct ospf *ospf;
@@ -200,7 +201,7 @@ ospf_bfd_nbr_replay (int command, struct zclient *client, zebra_size_t length)
  */
 static int
 ospf_bfd_interface_dest_update (int command, struct zclient *zclient,
-                                 zebra_size_t length)
+                                 zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
   struct ospf_interface *oi;

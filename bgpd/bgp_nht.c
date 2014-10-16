@@ -30,6 +30,7 @@
 #include "log.h"
 #include "memory.h"
 #include "nexthop.h"
+#include "vrf.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -292,7 +293,7 @@ bgp_delete_connected_nexthop (afi_t afi, struct peer *peer)
 }
 
 void
-bgp_parse_nexthop_update (int command)
+bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
 {
   struct stream *s;
   struct bgp_node *rn = NULL;
@@ -526,15 +527,18 @@ sendmsg_zebra_rnh (struct bgp_nexthop_cache *bnc, int command)
   /* Check socket. */
   if (!zclient || zclient->sock < 0)
     {
-      zlog_debug("%s: Can't send NH register, Zebra client not established",
+      /* Pending: hiding this error now, because bgp_nht_register_all() is implemented.
+         which tries it after zclient_connect()
+         zlog_debug("%s: Can't send NH register, Zebra client not established",
 		 __FUNCTION__);
+       */
       return;
     }
 
   p = &(bnc->node->p);
   s = zclient->obuf;
   stream_reset (s);
-  zclient_create_header (s, command);
+  zclient_create_header (s, command, VRF_DEFAULT);
   if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED) ||
       CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
     stream_putc(s, 1);
@@ -680,6 +684,40 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
     }
 
   RESET_FLAG(bnc->change_flags);
+}
+
+void
+bgp_nht_register_all (void)
+{
+  struct bgp_node *rn;
+  struct bgp_nexthop_cache *bnc;
+
+  for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP]); rn; rn = bgp_route_next (rn))
+    if ((bnc = rn->info) != NULL &&
+        !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+      {
+        register_zebra_rnh(bnc, 0);
+      }
+  for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP6]); rn; rn = bgp_route_next (rn))
+    if ((bnc = rn->info) != NULL &&
+        !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+      {
+        register_zebra_rnh(bnc, 0);
+      }
+
+  for (rn = bgp_table_top (bgp_import_check_table[AFI_IP]); rn; rn = bgp_route_next (rn))
+    if ((bnc = rn->info) != NULL &&
+        !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+      {
+        register_zebra_rnh(bnc, 1);
+      }
+  for (rn = bgp_table_top (bgp_import_check_table[AFI_IP6]); rn; rn = bgp_route_next (rn))
+    if ((bnc = rn->info) != NULL &&
+        !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+      {
+        register_zebra_rnh(bnc, 1);
+      }
+
 }
 
 /**

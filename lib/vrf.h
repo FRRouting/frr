@@ -110,6 +110,19 @@ extern struct list *vrf_iflist (vrf_id_t);
 extern struct list *vrf_iflist_get (vrf_id_t);
 
 /*
+ * VRF bit-map: maintaining flags, one bit per VRF ID
+ */
+
+typedef void *              vrf_bitmap_t;
+#define VRF_BITMAP_NULL     NULL
+
+extern vrf_bitmap_t vrf_bitmap_init (void);
+extern void vrf_bitmap_free (vrf_bitmap_t);
+extern void vrf_bitmap_set (vrf_bitmap_t, vrf_id_t);
+extern void vrf_bitmap_unset (vrf_bitmap_t, vrf_id_t);
+extern int vrf_bitmap_check (vrf_bitmap_t, vrf_id_t);
+
+/*
  * VRF initializer/destructor
  */
 /* Please add hooks before calling vrf_init(). */
