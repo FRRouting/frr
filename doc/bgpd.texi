@@ -537,6 +537,11 @@ This command defines a new AS path access list.
 @end deffn
 
 @deffn {Route Map} {set as-path prepend @var{as-path}} {}
+Prepend the given string of AS numbers to the AS_PATH.
+@end deffn
+
+@deffn {Route Map} {set as-path prepend last-as @var{num}} {}
+Prepend the existing last AS number (the leftmost ASN) to the AS_PATH.
 @end deffn
 
 @node Private AS Numbers
