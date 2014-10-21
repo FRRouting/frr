@@ -1,0 +1,5 @@
+The Multi-Router Looking Glass (MRLG) CGI script now lives at:
+
+  http://mrlg.op-sec.us/
+
+Please obtain the latest version from there.
