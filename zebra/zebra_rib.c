@@ -1635,8 +1635,10 @@ rib_process (struct route_node *rn)
   rib_dest_t *dest;
   struct zebra_vrf *zvrf = NULL;
   vrf_id_t vrf_id = VRF_UNKNOWN;
+  rib_table_info_t *info;
 
   assert (rn);
+  info = rn->table->info;
   
   dest = rib_dest_from_rnode (rn);
   if (dest)
@@ -1717,6 +1719,9 @@ rib_process (struct route_node *rn)
 
           continue;
         }
+
+      if (info->safi == SAFI_MULTICAST)
+	continue;
 
       /* Infinite distance. */
       if (rib->distance == DISTANCE_INFINITY)
