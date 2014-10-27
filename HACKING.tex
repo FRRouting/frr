@@ -21,23 +21,12 @@ are welcome.
 
 
 GNU coding standards apply.  Indentation follows the result of
-invoking GNU indent (as of 2.2.8a) with no arguments.  Note that this
-uses tabs instead of spaces where possible for leading whitespace, and
-assumes that tabs are every 8 columns.  Do not attempt to redefine the
-location of tab stops.  Note also that some indentation does not
-follow GNU style.  This is a historical accident, and we generally
-only clean up whitespace when code is unmaintainable due to whitespace
-issues, to minimise merging conflicts.
+invoking GNU indent (as of 2.2.8a) with the --nut argument.
 
-For GNU emacs, use indentation style ``gnu''.
-
-For Vim, use the following lines (note that tabs are at 8, and that
-softtabstop sets the indentation level):
-
-set tabstop=8
-set softtabstop=2
-set shiftwidth=2
-set noexpandtab
+Originally, tabs were used instead of spaces, with tabs are every 8 columns. 
+However, tab's interoperability issues mean space characters are now preferred for
+new changes. We generally only clean up whitespace when code is unmaintainable
+due to whitespace issues, to minimise merging conflicts.
 
 Be particularly careful not to break platforms/protocols that you
 cannot test.
