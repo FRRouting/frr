@@ -57,7 +57,7 @@ for the file type. The placeholder used for Quagga (replacing <dollar> with
 See line 2 of HACKING.tex, the source for this document, for an example.
 
 This placeholder string will be expanded out by the `git archive' commands,
-wihch is used to generate the tar archives for snapshots and releases.
+which is used to generate the tar archives for snapshots and releases.
 
 Please document fully the proper use of a new function in the header file
 in which it is declared.  And please consult existing headers for
@@ -73,7 +73,7 @@ If changing an exported interface, please try to deprecate the interface in
 an orderly manner. If at all possible, try to retain the old deprecated
 interface as is, or functionally equivalent. Make a note of when the
 interface was deprecated and guard the deprecated interface definitions in
-the header file, ie:
+the header file, i.e.:
 
 \begin{verbatim}
 /* Deprecated: 20050406 */
@@ -172,9 +172,9 @@ Set the patch to accepted on patchwork
 
 Please think very carefully before making code conditional at compile time,
 as it increases maintenance burdens and user confusion. In particular,
-please avoid gratuitious --enable-\ldots switches to the configure script -
+please avoid gratuitous --enable-\ldots switches to the configure script -
 typically code should be good enough to be in Quagga, or it shouldn't be
-there at all.
+there at all. 
 
 When code must be compile-time conditional, try have the compiler make it
 conditional rather than the C pre-processor - so that it will still be
@@ -256,7 +256,7 @@ Contributors are strongly encouraged to follow this form.
 This itemised commit messages allows reviewers to have confidence that the
 author has self-reviewed every line of the patch, as well as providing
 reviewers a clear index of which changes are intended, and descriptions for
-them (C-to-english descriptions are not desireable - some discretion is
+them (C-to-english descriptions are not desirable - some discretion is
 useful).  For short patches, a per-function/file break-down may be
 redundant.  For longer patches, such a break-down may be essential.  A
 contrived example (where the general discussion is obviously somewhat
@@ -299,7 +299,7 @@ using the srcdir variable.
 \section{RELEASE PROCEDURE}
 
 \begin{itemize}
-\item Tag the apppropriate commit with a release tag (follow existing
+\item Tag the appropriate commit with a release tag (follow existing
   conventions).
   
   [This enables recreating the release, and is just good CM practice.]
@@ -388,7 +388,7 @@ installed together.
 \label{sec:git-submission}
 
 The preferred method for submitting changes is to provide git commits via a
-publically-accessible git repository, which the maintainers can easily pull.
+publicly-accessible git repository, which the maintainers can easily pull.
 
 The commits should be in a branch based off the Quagga.net master - a
 "feature branch".  Ideally there should be no commits to this branch other
@@ -440,8 +440,8 @@ SUBMISSION apply.
 \item Do not make gratuitous changes to whitespace. See the w and b arguments
       to diff.
 
-\item Changes should be arranged so that the least contraversial and most
-      trivial are first, and the most complex or more contraversial are
+\item Changes should be arranged so that the least controversial and most
+      trivial are first, and the most complex or more controversial are
       last.  This will maximise how many the Quagga maintainers can merge,
       even if some other commits need further work.
 
@@ -473,7 +473,7 @@ SUBMISSION apply.
 \item Only apply patches that meet the submission guidelines.
 
 \item If the patch might break something, issue a call for testing on the
-      mailinglist.
+      mailing-list.
 
 \item Give an appropriate commit message (see above), and use the --author
       argument to git-commit, if required, to ensure proper attribution (you
