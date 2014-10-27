@@ -105,6 +105,68 @@ deprecated commands should be collated for each release.
 See also section~\ref{sec:dll-versioning} below regarding SHARED LIBRARY
 VERSIONING.
 
+\section{YOUR FIRST CONTRIBUTIONS}
+
+Routing protocols can be very complex sometimes. Then, working with an
+Opensource community can be complex too, but usually friendly with
+anyone who is ready to be willing to do it properly.
+
+\begin{itemize}
+
+  \item First, start doing simple tasks. Quagga's patchwork is a good place
+        to start with. Pickup some patches, apply them on your git trie,
+        review them and send your ack't or review comments. Then, a
+        maintainer will apply the patch if ack't or the author will
+        have to provide a new update. It help a lot to drain the
+        patchwork queues.
+        See \url{http://patchwork.quagga.net/project/quagga/list/}
+
+  \item The more you'll review patches from patchwork, the more the
+        Quagga's maintainers will be willing to consider some patches you will
+        be sending.
+
+  \item start using git clone, pwclient \url{http://patchwork.quagga.net/help/pwclient/}
+
+\begin{verbatim}
+$ pwclient list -s new
+ID    State        Name
+--    -----        ----
+179   New          [quagga-dev,6648] Re: quagga on FreeBSD 4.11 (gcc-2.95)
+181   New          [quagga-dev,6660] proxy-arp patch
+[...]
+
+$ pwclient git-am 1046
+\end{verbatim}
+
+\end{itemize}
+
+\section{HANDY GUIDELINES FOR MAINTAINERS}
+
+Get your cloned trie:
+\begin{verbatim}
+  git clone vjardin@git.sv.gnu.org:/srv/git/quagga.git
+\end{verbatim}
+
+Apply some ack't patches:
+\begin{verbatim}
+  pwclient git-am 1046
+    Applying patch #1046 using 'git am'
+    Description: [quagga-dev,11595] zebra: route_unlock_node is missing in "show ip[v6] route <prefix>" commands
+    Applying: zebra: route_unlock_node is missing in "show ip[v6] route <prefix>" commands
+\end{verbatim}
+
+Run a quick review. If the ack't was not done properly, you know who you have
+to blame.
+
+Push the patches:
+\begin{verbatim}
+  git push
+\end{verbatim}
+
+Set the patch to accepted on patchwork
+\begin{verbatim}
+  pwclient update -s Accepted 1046
+\end{verbatim}
 
 \section{COMPILE-TIME CONDITIONAL CODE}
 
