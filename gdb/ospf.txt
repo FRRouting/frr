@@ -1,0 +1,137 @@
+# GDB macros for use with Quagga.
+#
+# Macros in this file are specific to ospfd/. Definitions here depend on the
+# lib.txt macros file, which must also be loaed.
+#
+# The macro file can be loaded with 'source <filename>'. They can then be   
+# called by the user. Macros that explore more complicated structs generally
+# take pointer arguments. 
+
+define dump_ospf_lsa_flags
+  set $flags = $arg0
+  
+  printf "%u: ", $flags
+  
+  if $flags & 0x1
+    echo Self,
+  end
+  if $flags & 0x2
+    echo Self-checked,
+  end
+  if $flags & 0x4
+    echo Recvd,
+  end
+  if $flags & 0x8
+    echo Apprvd,
+  end
+  if $flags & 0x10
+    echo Discard,
+  end
+  if $flags & 0x20
+    echo Local-Xlt,
+  end
+  if $flags & 0x40
+    echo Premature-Aged,
+  end
+  if $flags & 0x40
+    echo In-Maxage,
+  end
+  echo \n
+end
+
+define dump_ospf_lsa_data
+  set $lsad = (struct lsa_header *)$arg0
+  
+  echo ID / AdvRtr:  \t\t
+  dump_s_addr &$lsad->id.s_addr
+  echo \ : \ 
+  dump_s_addr &$lsad->adv_router.s_addr
+  echo \n
+  
+  def_ntohs &$lsad->ls_age
+  printf "Type: %2u Age: %4u,", $lsad->type, $_
+  
+  def_ntohs &$lsad->length
+  printf " length: %2u", $_
+  
+  def_ntohl &$lsad->ls_seqnum
+  printf " Seqnum: 0x%08x", $_
+  
+  def_ntohs &$lsad->checksum
+  printf " csum: 0x%04x\n", $_
+  
+  # return the age
+  def_ntohs &$lsad->ls_age
+end
+
+define dump_ospf_lsa
+  set $lsa = (struct ospf_lsa *)$arg0
+  
+  #print/x *$lsa
+  
+  dump_ospf_lsa_data $lsa->data
+  
+  set $relage = $_ + (relative_time.tv_sec - $lsa->tv_recv.tv_sec)
+  printf "Relative age: %4u\n", $relage
+  
+  dump_ospf_lsa_flags $lsa->flags
+  
+  echo tv_recv: \ 
+  dump_timeval &$lsa->tv_recv
+  echo \ tv_orig: \ 
+  dump_timeval &$lsa->tv_orig
+  echo \n
+  
+  printf "lock %2u", $lsa->lock
+  printf " stat %2d", $lsa->stat
+  printf " rtx count: %u", $lsa->retransmit_counter
+  printf " rfsh list: %d", $lsa->refresh_list
+  printf "\n\n"
+end
+
+define walk_ospf_lsdb
+  set $node = (struct route_node *)$arg0
+  set $top = (struct route_node *)$arg0
+  set $visited = 0
+  
+  while ($node != 0)
+    set $prevl = $node
+    
+    if ($node->info != 0)
+      dump_ospf_lsa $node->info
+      set $visited = $visited + 1
+    end
+    
+    walk_route_table_next $top $node
+    set $node = $_
+    
+    # we've gotten back to the top, finish
+    if ($node == $top)
+      set $node = 0
+    end
+  end
+  printf "Visited: %u\n", $visited
+end
+
+document walk_ospf_lsdb
+Walk through an OSPF LSDB (or subset thereof) and dump all the LSAs
+contained there-in.
+
+Argument: A (struct route_node *) pointing to the top of the
+LSDB route-table which should be dumped.
+end
+
+define ospf_backbone_lsdb_top
+  set $type = $arg0
+  
+  set $ospf = ospf_master->ospf->head->data
+  
+  output/x ((struct ospf *)$ospf)->backbone->lsdb->type[$type]->db->top
+  echo \n
+end
+document ospf_backbone_lsdb_top
+Dump location of the LSDB in the backbone area for the given LSA type
+
+Argument: Integer LSA type
+end
+

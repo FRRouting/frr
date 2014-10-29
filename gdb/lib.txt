@@ -1,0 +1,295 @@
+# GDB macros for use with Quagga.
+#
+# Macros in this file are not daemon specific. E.g., OS or Quagga library
+# APIs.
+#
+# The macro file can be loaded with 'source <filename>'. They can then be
+# called by the user. Macros that explore more complicated structs generally
+# take pointer arguments.
+#
+# E.g.:
+# 
+# (gdb) source ~paul/code/quagga/gdb/lib.txt
+# (gdb) break bgp_packet.c:613
+# Breakpoint 3 at 0x7fa883033a32: file bgp_packet.c, line 613.
+# (gdb) cont
+# ...
+# (gdb) cont
+# Breakpoint 3, bgp_write_packet (peer=0x7fa885199080) at bgp_packet.c:614
+# 614                     if (CHECK_FLAG (adv->binfo->peer->cap,PEER_CAP_RESTART_RCV)
+# (gdb) dump_prefix4  &adv->rn->p
+# IPv4:10.1.1.0/24
+# (gdb) dump_prefix  &adv->rn->p
+# IPv4:10.1.1.0/24
+#
+
+
+define def_ntohs
+ set $data = (char *)$arg0
+ set $i = 0
+ 
+ set $_  = $data[$i++] << 8
+ set $_ += $data[$i++]
+end
+document def_ntohs
+Read a 2-byte short at the given pointed to area as big-endian and 
+return it in $_
+
+Argument: Pointer to a 2-byte, big-endian short word.
+Returns: Integer value of that word in $_
+end
+
+define def_ntohl
+ set $data = (char *)$arg0
+ set $i = 0
+ 
+ set $_  = $data[$i++] << 24
+ set $_ += $data[$i++] << 16
+ set $_ += $data[$i++] << 8
+ set $_ += $data[$i++]
+end
+document def_ntohl
+Read a 4-byte integer at the given pointed to area as big-endian and 
+return it in $_
+
+Argument: Pointer to a big-endian 4-byte word.
+Returns: Integer value of that word in $_
+end
+
+# NB: This is in more complicated iterative form, rather than more
+# conventional and simpler recursive form, because GDB has a recursion limit
+# on macro calls (I think).
+define walk_route_table_next
+  # callee saves
+  set $_top = $top
+  set $_node = $node
+  set $_prevl = $prevl
+  
+  set $top = (struct route_node *)$arg0
+  set $node = (struct route_node *)$arg1
+  set $prevl = $node
+  
+  # first try left
+  #echo try left\n
+  set $node = $prevl->link[0]
+  
+  # otherwise try right
+  if ($node == 0)
+    #echo left null, try right\n
+    set $node = $prevl->link[1]
+  end
+  
+  # otherwise go up, till we find the first right that
+  # we havn't been to yet
+  if ($node == 0)
+    set $node = $prevl
+    while ($node != $top)
+       #echo right null, try up and right\n
+       
+       set $prevl = $node
+       set $parent = $node->parent
+       set $node = $parent->link[1]
+       
+       if ($node != 0 && $node != $prevl)
+         #echo found node \n
+         loop_break
+       end
+       
+       #echo go up\n
+       set $node = $parent       
+    end
+  end
+  
+  #printf "next node: 0x%x\n", $node
+  
+  set $_ = $node
+  
+  set $top = $_top
+  set $node = $_node
+  set $prevl = $_prevl
+end
+document walk_route_table_next
+Return the next node to visit in the given route_table (or subset of) and
+the given current node.
+
+Arguments:
+1st: (struct route_node *) to the top of the route_table to walk
+2nd: (struct route_node *) to the current node
+
+Returns: The (struct route_node *) for the next to visit in $_
+end
+
+define walk_route_table
+  set $_visited = $visited
+  set $_node = $node
+  set $top = $_top
+  
+  set $node = (struct route_node *)$arg0
+  set $top = (struct route_node *)$arg0
+  set $visited = 0
+  
+  while ($node != 0)
+    printf "Node: 0x%x", $node
+
+    if ($node->info != 0)
+      printf "\tinfo: 0x%x", $node->info
+      set $visited = $visited + 1
+    end
+    
+    printf "\n"
+    
+    walk_route_table_next $top $node
+    set $node = $_
+    
+    # we've gotten back to the top, finish
+    if ($node == $top)
+      set $node = 0
+    end
+  end
+  printf "Visited: %u\n", $visited
+  
+  set $top = $_top
+  set $visited = $_visited
+  set $node = $_node
+end
+
+document walk_route_table
+Walk through a routing table (or subset thereof) and dump all the non-null
+(struct route_node *)->info pointers.
+
+Argument: A lib/thread.h::(struct route_node *) pointing to the route_node
+under which all data should be dumped
+end
+
+define dump_timeval 
+  set $tv = (struct timeval *)$arg0
+  set $day = 3600*24
+  
+  if $tv->tv_sec > $day
+    printf "%d days, ", $tv->tv_sec / $day
+  end
+  if $tv->tv_sec > 3600
+    printf "%dh", $tv->tv_sec / 3600
+  end
+  if ($tv->tv_sec % 3600) > 60
+    printf "%dm", ($tv->tv_sec % 3600) / 60
+  end
+  printf "%d", $tv->tv_sec % 3600 % 60
+  if $tv->tv_usec != 0
+    printf ".%06d", $tv->tv_usec
+  end
+  printf "s"
+end
+document dump_timeval
+Human readable dump of a (struct timeval *) argument
+end
+
+define dump_s_addr
+  set $addr = (char *)$arg0
+  
+  printf "%d.%d.%d.%d", $addr[0], $addr[1], $addr[2], $addr[3]
+end
+
+define dump_s6_addr
+  set $a6 = (char *)$arg0
+  set $field = 0
+  
+  while ($field < 16)
+    set $i1 = $field++
+    set $i2 = $field++
+    
+    printf "%x%x", $a6[$i1], $a6[$i2]
+    
+    if ($field > 2 && ($field % 4 == 0))
+      printf ":"
+    end
+  end
+end
+document dump_s6_addr
+Interpret the memory starting at given address as an IPv6 s6_addr and
+print in human readable form.
+end
+
+define dump_prefix4
+  set $p = (struct prefix *) $arg0
+  echo IPv4:
+  dump_s_addr &($p->u.prefix4)
+  printf "/%d\n", $p->prefixlen
+end
+document dump_prefix4
+Textual dump of a (struct prefix4 *) argument.
+end
+
+define dump_prefix6
+  set $p = (struct prefix *) $arg0
+  echo IPv6:
+  dump_s6_addr &($p->u.prefix6)
+  printf "/%d\n", $p->prefixlen
+end
+document dump_prefix6
+Textual dump of a (struct prefix6 *) argument.
+end
+
+define dump_prefix
+  set $p = $arg0
+  
+  if ($p->family == 2)
+    dump_prefix4 $p
+  end
+  if ($p->family == 10)
+    dump_prefix6 $p
+  end
+end
+document dump_prefix
+Human readable dump of a (struct prefix *) argument.
+end
+
+define rn_next_down
+  set $node = $arg0
+  while ($node != 0)
+    print/x $node
+    if ($node->link[0] != 0)
+      set $node = $node->link[0]
+    else
+      set $node = $node->link[1]
+    end
+  end
+end
+
+document rn_next_down
+Walk left-down a given route table, dumping locations of route_nodes
+
+Argument: A single (struct route_node *).
+end
+
+define rn_next_up
+  set $top = (struct route_node *)$arg0
+  set $node = (struct route_node *)$arg1
+  
+  while ($node != $top)
+    echo walk up\n
+    
+    set $prevl = $node
+    set $parent = $node->parent
+    set $node = $parent->link[1]
+    
+    if ($node != 0 && $node != $prevl)
+      echo found a node\n
+      loop_break
+    end
+    
+    echo going up\n
+    set $node = $parent
+  end
+  output/x $node
+  echo \n
+end
+
+document rn_next_up
+Walk up-and-right from the given route_node to the next valid route_node
+which is not the given "top" route_node
+
+Arguments:
+1st: A (struct route_node *) to the top of the route table.
+2nd: The (struct route_node *) to walk up from
+end
