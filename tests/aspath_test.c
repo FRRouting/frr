@@ -454,6 +454,13 @@ static struct test_segment {
   },  { NULL, NULL, {0}, 0, { NULL, 0, 0 } }
 };
 
+#define COMMON_ATTRS \
+      BGP_ATTR_FLAG_TRANS, \
+      BGP_ATTR_ORIGIN, \
+      1, \
+      BGP_ORIGIN_EGP
+#define COMMON_ATTR_SIZE 4
+
 /* */
 static struct aspath_tests {
   const char *desc;
@@ -475,11 +482,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS2_DATA, 0,
     0,
-    { BGP_ATTR_FLAG_TRANS,
-      BGP_ATTR_AS_PATH, 
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS,
+      BGP_ATTR_AS_PATH,
       10,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 1 */
   {
@@ -488,11 +496,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS2_DATA, -1,
     0,
-    { BGP_ATTR_FLAG_TRANS,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS,
       BGP_ATTR_AS_PATH, 
       8,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 2 */
   {
@@ -501,11 +510,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS2_DATA, -1,
     0,
-    { BGP_ATTR_FLAG_TRANS,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS,
       BGP_ATTR_AS_PATH, 
       12,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 3 */
   {
@@ -514,11 +524,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS2_DATA, -1,
     0,
-    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
       BGP_ATTR_AS_PATH, 
       10,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 4 */
   {
@@ -527,11 +538,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS2_DATA, -1,
     0,
-    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
       BGP_ATTR_AS4_PATH, 
       10,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 5 */
   {
@@ -540,11 +552,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS4_DATA, -1,
     PEER_CAP_AS4_RCV,
-    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
       BGP_ATTR_AS4_PATH, 
       10,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 6 */
   {
@@ -553,11 +566,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS4_DATA, 0,
     PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
-    { BGP_ATTR_FLAG_TRANS,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS,
       BGP_ATTR_AS_PATH, 
       18,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 7 */
   {
@@ -566,11 +580,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS4_DATA, -1,
     PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
-    { BGP_ATTR_FLAG_TRANS,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS,
       BGP_ATTR_AS_PATH, 
       16,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 8 */
   {
@@ -579,11 +594,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS4_DATA, -1,
     PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
-    { BGP_ATTR_FLAG_TRANS,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS,
       BGP_ATTR_AS_PATH, 
       20,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 9 */
   {
@@ -592,11 +608,12 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS4_DATA, -1,
     PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
-    { BGP_ATTR_FLAG_TRANS,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS,
       BGP_ATTR_AS_PATH, 
       22,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 10 */
   {
@@ -605,24 +622,26 @@ static struct aspath_tests {
     "8466 3 52737 4096",
     AS4_DATA, -1,
     PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
-    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
       BGP_ATTR_AS_PATH, 
       18,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 11 */
   {
     "4b AS4_PATH w/o AS_PATH",
     &test_segments[6],
     NULL,
-    AS4_DATA, 0,
+    AS4_DATA, -1,
     PEER_CAP_AS4_ADV,
-    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
       BGP_ATTR_AS4_PATH, 
       14,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
   },
   /* 12 */
   {
@@ -631,11 +650,12 @@ static struct aspath_tests {
     "8466 3 52737 4096 (123 456 789)",
     AS4_DATA, 0,
     PEER_CAP_AS4_ADV,
-    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+    { COMMON_ATTRS,
+      BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
       BGP_ATTR_AS4_PATH, 
       14,
     },
-    3,
+    COMMON_ATTR_SIZE + 3,
     &test_segments[0],
   },
   { NULL, NULL, NULL, 0, 0, 0, { 0 }, 0 },
