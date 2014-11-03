@@ -50,7 +50,7 @@ static int rip_enable_if_lookup (const char *ifname);
 static int rip_enable_network_lookup2 (struct connected *connected);
 static void rip_enable_apply_all (void);
 
-struct message ri_version_msg[] = 
+const struct message ri_version_msg[] =
 {
   {RI_RIP_VERSION_1,       "1"},
   {RI_RIP_VERSION_2,       "2"},
