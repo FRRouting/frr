@@ -8,10 +8,10 @@ spawn "./testbgpcap"
 # proc simpletest { start } {
 
 simpletest "MP4: MP IP/Uni"
-simpletest_nov6 "MPv6: MP IPv6/Uni"
+simpletest "MPv6: MP IPv6/Uni"
 simpletest "MP2: MP IP/Multicast"
-simpletest_nov6 "MP3: MP IP6/MPLS-labeled VPN"
-simpletest_nov6 "MP5: MP IP6/MPLS-VPN"
+simpletest "MP3: MP IP6/MPLS-labeled VPN"
+simpletest "MP5: MP IP6/MPLS-VPN"
 simpletest "MP6: MP IP4/MPLS-laveled VPN"
 simpletest "MP8: MP unknown AFI/SAFI"
 simpletest "MP-short: MP IP4/Unicast, length too short (< minimum)"

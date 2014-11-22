@@ -8,16 +8,6 @@
 # be part of the output...
 #set color 1
 
-set config_h [open "../config.h" "r"]
-set config_h_text [read $config_h]
-close $config_h
-set i [string first "#define HAVE_IPV6" $config_h_text]
-if { $i >= 0 } {
-	set have_ipv6 1
-} else {
-	set have_ipv6 0
-}
-send_user "IPv6 enabled: $have_ipv6\n"
 set xfail 0
 
 proc onesimple { test_name match } {
@@ -109,14 +99,4 @@ proc headerline { line } {
 proc simpletest { start } {
 	onetest "$start" "" "$start"
 }
-
-proc simpletest_nov6 { start } {
-	global have_ipv6
-	global xfail
-
-	set xfail [expr 1-$have_ipv6]
-	onetest "$start" "" "$start"
-	set xfail 0
-}
-
 
