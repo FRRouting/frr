@@ -45,6 +45,8 @@
 
 #define QUAGGA_COPYRIGHT "Copyright 1996-2005 Kunihiro Ishiguro, et al."
 
+#define QUAGGA_CONFIG_ARGS "@CONFIG_ARGS@"
+
 pid_t pid_output (const char *);
 
 #ifndef HAVE_DAEMON
