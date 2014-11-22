@@ -218,8 +218,6 @@ AC_ARG_WITH(pkg-git-version,
 	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
 AC_ARG_ENABLE(vtysh,
   AS_HELP_STRING([--disable-vtysh], [do not build integrated vty shell for Quagga]))
-AC_ARG_ENABLE(ipv6,
-  AS_HELP_STRING([--disable-ipv6], [turn off IPv6 related features and daemons]))
 AC_ARG_ENABLE(doc,
   AS_HELP_STRING([--disable-doc], [do not build docs]))
 AC_ARG_ENABLE(zebra,
@@ -1071,28 +1069,22 @@ dnl ----------
 dnl IPv6 check
 dnl ----------
 AC_MSG_CHECKING(whether does this OS have IPv6 stack)
-if test "${enable_ipv6}" = "no"; then
-  AC_MSG_RESULT(disabled)
-else
 dnl ---------
 dnl KAME IPv6
 dnl ---------
   if grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
-    zebra_cv_ipv6=yes
     AC_DEFINE(KAME,1,KAME IPv6)
     AC_MSG_RESULT(KAME)
 dnl ------------------------------------
 dnl Solaris 9, 10 and potentially higher
 dnl ------------------------------------
   elif test x"$opsys" = x"sol8"; then
-    zebra_cv_ipv6=yes;
     AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
     AC_MSG_RESULT(Solaris IPv6)
 dnl ----------
 dnl Linux IPv6
 dnl ----------
   elif test x"$opsys" = x"gnu-linux"; then
-    zebra_cv_ipv6=yes
     AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
     dnl Linux has a compilation problem with mixing
     dnl netinet/in.h and linux/in6.h they are not
@@ -1102,26 +1094,18 @@ dnl ----------
     AC_DEFINE(IPV6_MINHOPCOUNT, 73, Linux ipv6 Min Hop Count)
     AC_MSG_RESULT(Linux IPv6)
   else
-    AC_MSG_RESULT(Unknown OS)
+    AC_MSG_ERROR([Failed to detect IPv6 stack])
   fi
-fi
 
-if test x"$zebra_cv_ipv6" = x"yes"; then
-  AC_DEFINE(HAVE_IPV6,1,IPv6)
-  RIPNGD="ripngd"
-  OSPF6D="ospf6d"
-elif test x"${enable_ipv6}" = x"yes"; then
-  AC_MSG_ERROR([--enable-ipv6 given but IPv6 stack unknown])
-fi
+dnl this is unconditial, for compatibility
+AC_DEFINE(HAVE_IPV6,1,IPv6)
 
 dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
-if test "x${zebra_cv_ipv6}" = "xyes"; then
 AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h netinet/icmp6.h \
 	netinet6/in6_var.h netinet6/nd6.h], [], [],
 	QUAGGA_INCLUDES)
-fi
 
 m4_define([QUAGGA_INCLUDES],dnl
 QUAGGA_INCLUDES
@@ -1201,16 +1185,14 @@ fi
 AM_CONDITIONAL(OSPFCLIENT, test "x$OSPFCLIENT" = "xospfclient")
 
 case "${enable_ripngd}" in
-  "yes") RIPNGD="ripngd";;
   "no" ) RIPNGD="";;
-  *    ) ;;
+  *    ) RIPNGD="ripngd";;
 esac
 AM_CONDITIONAL(RIPNGD, test "x$RIPNGD" = "xripngd")
 
 case "${enable_ospf6d}" in
-  "yes") OSPF6D="ospf6d";;
   "no" ) OSPF6D="";;
-  *    ) ;;
+  *    ) OSPF6D="ospf6d";;
 esac
 AM_CONDITIONAL(OSPF6D, test "x$OSPF6D" = "xospf6d")
 
