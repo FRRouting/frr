@@ -239,6 +239,16 @@ Routing entry for 10.0.0.0/8
 These behave similarly to their ipv4 counterparts.
 @end deffn
 
+@deffn Command {ipv6 route @var{network} from @var{srcprefix} @var{gateway}} {}
+@deffnx Command {ipv6 route @var{network} from @var{srcprefix} @var{gateway} @var{distance}} {}
+Install a static source-specific route.  These routes are currently supported
+on Linux operating systems only, and perform AND matching on packet's
+destination and source addresses in the kernel's forwarding path.  Note that
+destination longest-prefix match is "more important" than source LPM, e.g.
+@command{"2001:db8:1::/64 from 2001:db8::/48"} will win over
+@command{"2001:db8::/48 from 2001:db8:1::/64"} if both match.
+@end deffn
+
 
 @deffn Command {table @var{tableno}} {}
 Select the primary kernel routing table to be used.  This only works
