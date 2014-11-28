@@ -15,8 +15,8 @@ The following sections discuss commands common to all the routing
 daemons.
 
 @menu
-* Terminal Mode Commands::      Common commands used in a VTY
 * Config Commands::             Commands used in config files
+* Terminal Mode Commands::      Common commands used in a VTY
 * Common Invocation Options::   Starting the daemons
 * Virtual Terminal Interfaces:: Interacting with the daemons
 @end menu
@@ -580,8 +580,8 @@ Move up to previous line in the history buffer.
 @kindex @key{TAB}
 Use command line completion by typing @key{TAB}.
 
-@item
-@kindex ?
+@item ?
+@kindex @key{?}
 You can use command line help by typing @code{help} at the beginning of
 the line.  Typing @kbd{?} at any point in the line will show possible
 completions.

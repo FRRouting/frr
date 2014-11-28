@@ -2,9 +2,9 @@
 
 @c %**start of header
 @setfilename quagga.info
-@settitle @uref{http://www.quagga.net,,@value{PACKAGE_NAME}}
 @c Set variables - sourced from defines.texi
 @include defines.texi
+@settitle @uref{http://www.quagga.net,,@value{PACKAGE_NAME}}
 @c %**end of header
 
 @c automake will automatically generate version.texi

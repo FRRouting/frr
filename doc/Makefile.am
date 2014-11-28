@@ -44,7 +44,7 @@ info_TEXINFOS = quagga.texi
 # because it cant just work from the png's directly it seems - contrary
 # to the documentation...
 quagga.pdf: $(info_TEXINFOS) $(figures_pdf) $(quagga_TEXINFOS)
-	$(TEXI2PDF) -o "$@" $<
+	$(TEXI2PDF) -o "$@" $< || true
 
 quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi \
 	install.texi ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi \
