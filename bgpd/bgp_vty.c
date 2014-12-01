@@ -9802,7 +9802,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   json_object *json_peers = NULL;
 
   /* Header string for each address family. */
-  static char header[] = "Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
+  static char header[] = "Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
 
   if (use_json)
     {
