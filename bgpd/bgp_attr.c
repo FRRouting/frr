@@ -1664,6 +1664,8 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
 
   stream_forward_getp (s, nlri_len);
 
+  attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_MP_REACH_NLRI);
+
   return BGP_ATTR_PARSE_PROCEED;
 #undef LEN_LEFT
 }
@@ -1680,6 +1682,7 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
   int ret;
   int num_mp_pfx = 0;
   struct peer *const peer = args->peer;  
+  struct attr *const attr = args->attr;
   const bgp_size_t length = args->length;
 
   s = peer->ibuf;
@@ -1707,6 +1710,8 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
   mp_withdraw->length = withdraw_len;
 
   stream_forward_getp (s, withdraw_len);
+
+  attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_MP_UNREACH_NLRI);
 
   return BGP_ATTR_PARSE_PROCEED;
 }
