@@ -112,6 +112,7 @@ extern void list_add_list (struct list *, struct list *);
 #define LISTNODE_ATTACH(L,N) \
   do { \
     (N)->prev = (L)->tail; \
+    (N)->next = NULL; \
     if ((L)->head == NULL) \
       (L)->head = (N); \
     else \
