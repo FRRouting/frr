@@ -965,26 +965,12 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
   Returns both route metric and protocol distance.
 */
 static int
-zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struct zebra_vrf *zvrf)
+zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struct rib *rib, struct zebra_vrf *zvrf)
 {
   struct stream *s;
-  struct rib *rib;
   unsigned long nump;
   u_char num;
   struct nexthop *nexthop;
-
-  /* Lookup nexthop. */
-  rib = rib_match_ipv4 (addr, SAFI_MULTICAST, zvrf->vrf_id, NULL);
-
-  if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-    zlog_debug("%s: %s mrib entry found.", __func__, rib ? "Matching" : "No matching");
-
-  if (!rib) {
-    /* Retry lookup with unicast rib */
-    rib = rib_match_ipv4 (addr, SAFI_UNICAST, zvrf->vrf_id, NULL);
-    if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-      zlog_debug("%s: %s rib entry found.", __func__, rib ? "Matching" : "No matching");
-  }
 
   /* Get output stream. */
   s = client->obuf;
@@ -1399,9 +1385,11 @@ static int
 zread_ipv4_nexthop_lookup_mrib (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
   struct in_addr addr;
+  struct rib *rib;
 
   addr.s_addr = stream_get_ipv4 (client->ibuf);
-  return zsend_ipv4_nexthop_lookup_mrib (client, addr, zvrf);
+  rib = rib_match_ipv4_multicast (addr, NULL);
+  return zsend_ipv4_nexthop_lookup_mrib (client, addr, rib, zvrf);
 }
 
 /* Nexthop lookup for IPv4. */

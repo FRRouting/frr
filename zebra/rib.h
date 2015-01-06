@@ -332,6 +332,21 @@ extern struct nexthop *rib_nexthop_ipv4_ifindex_add (struct rib *,
 extern void rib_nexthop_add (struct rib *rib, struct nexthop *nexthop);
 extern void rib_copy_nexthops (struct rib *rib, struct nexthop *nh);
 
+/* RPF lookup behaviour */
+enum multicast_mode
+{
+  MCAST_NO_CONFIG = 0,	/* MIX_MRIB_FIRST, but no show in config write */
+  MCAST_MRIB_ONLY,	/* MRIB only */
+  MCAST_URIB_ONLY,	/* URIB only */
+  MCAST_MIX_MRIB_FIRST,	/* MRIB, if nothing at all then URIB */
+  MCAST_MIX_DISTANCE,	/* MRIB & URIB, lower distance wins */
+  MCAST_MIX_PFXLEN,	/* MRIB & URIB, longer prefix wins */
+			/* on equal value, MRIB wins for last 2 */
+};
+
+extern void multicast_mode_ipv4_set (enum multicast_mode mode);
+extern enum multicast_mode multicast_mode_ipv4_get (void);
+
 extern int nexthop_has_fib_child(struct nexthop *);
 extern void rib_lookup_and_dump (struct prefix_ipv4 *, vrf_id_t);
 extern void rib_lookup_and_pushup (struct prefix_ipv4 *, vrf_id_t);
@@ -371,6 +386,8 @@ extern int rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix
 
 extern struct rib *rib_match_ipv4 (struct in_addr, safi_t safi, vrf_id_t,
 				   struct route_node **rn_out);
+extern struct rib *rib_match_ipv4_multicast (struct in_addr addr,
+					     struct route_node **rn_out);
 
 extern struct rib *rib_lookup_ipv4 (struct prefix_ipv4 *, vrf_id_t);
 

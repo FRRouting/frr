@@ -79,6 +79,9 @@ static const struct
   /* no entry/default: 150 */
 };
 
+/* RPF lookup behaviour */
+static enum multicast_mode ipv4_multicast_mode = MCAST_NO_CONFIG;
+
 static void
 _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn, int priority,
 	    const char *msgfmt, ...)
@@ -799,6 +802,78 @@ rib_match_ipv4 (struct in_addr addr, safi_t safi, vrf_id_t vrf_id,
 	}
     }
   return NULL;
+}
+
+struct rib *
+rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
+{
+  struct rib *rib = NULL, *mrib = NULL, *urib = NULL;
+  struct route_node *m_rn = NULL, *u_rn = NULL;
+  int skip_bgp = 0; /* bool */
+
+  switch (ipv4_multicast_mode)
+    {
+    case MCAST_MRIB_ONLY:
+      return rib_match_ipv4 (addr, SAFI_MULTICAST, skip_bgp, rn_out);
+    case MCAST_URIB_ONLY:
+      return rib_match_ipv4 (addr, SAFI_UNICAST, skip_bgp, rn_out);
+    case MCAST_NO_CONFIG:
+    case MCAST_MIX_MRIB_FIRST:
+      rib = mrib = rib_match_ipv4 (addr, SAFI_MULTICAST, skip_bgp, &m_rn);
+      if (!mrib)
+	rib = urib = rib_match_ipv4 (addr, SAFI_UNICAST, skip_bgp, &u_rn);
+      break;
+    case MCAST_MIX_DISTANCE:
+      mrib = rib_match_ipv4 (addr, SAFI_MULTICAST, skip_bgp, &m_rn);
+      urib = rib_match_ipv4 (addr, SAFI_UNICAST, skip_bgp, &u_rn);
+      if (mrib && urib)
+	rib = urib->distance < mrib->distance ? urib : mrib;
+      else if (mrib)
+	rib = mrib;
+      else if (urib)
+	rib = urib;
+      break;
+    case MCAST_MIX_PFXLEN:
+      mrib = rib_match_ipv4 (addr, SAFI_MULTICAST, skip_bgp, &m_rn);
+      urib = rib_match_ipv4 (addr, SAFI_UNICAST, skip_bgp, &u_rn);
+      if (mrib && urib)
+	rib = u_rn->p.prefixlen > m_rn->p.prefixlen ? urib : mrib;
+      else if (mrib)
+	rib = mrib;
+      else if (urib)
+	rib = urib;
+      break;
+  }
+
+  if (rn_out)
+    *rn_out = (rib == mrib) ? m_rn : u_rn;
+
+  if (IS_ZEBRA_DEBUG_RIB)
+    {
+      char buf[BUFSIZ];
+      inet_ntop (AF_INET, &addr, buf, BUFSIZ);
+
+      zlog_debug("%s: %s: found %s, using %s",
+		 __func__, buf,
+                 mrib ? (urib ? "MRIB+URIB" : "MRIB") :
+                         urib ? "URIB" : "nothing",
+		 rib == urib ? "URIB" : rib == mrib ? "MRIB" : "none");
+    }
+  return rib;
+}
+
+void
+multicast_mode_ipv4_set (enum multicast_mode mode)
+{
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug("%s: multicast lookup mode set (%d)", __func__, mode);
+  ipv4_multicast_mode = mode;
+}
+
+enum multicast_mode
+multicast_mode_ipv4_get (void)
+{
+  return ipv4_multicast_mode;
 }
 
 struct rib *
