@@ -284,26 +284,29 @@ isis_event_circuit_type_change (struct isis_circuit *circuit, int newtype)
       return;
     }
 
-  switch (circuit->is_type)
+  if (! circuit->is_passive)
     {
-    case IS_LEVEL_1:
-      if (newtype == IS_LEVEL_2)
-	circuit_resign_level (circuit, 1);
-      circuit_commence_level (circuit, 2);
-      break;
-    case IS_LEVEL_1_AND_2:
-      if (newtype == IS_LEVEL_1)
-	circuit_resign_level (circuit, 2);
-      else
-	circuit_resign_level (circuit, 1);
-      break;
-    case IS_LEVEL_2:
-      if (newtype == IS_LEVEL_1)
-	circuit_resign_level (circuit, 2);
-      circuit_commence_level (circuit, 1);
-      break;
-    default:
-      break;
+      switch (circuit->is_type)
+        {
+        case IS_LEVEL_1:
+          if (newtype == IS_LEVEL_2)
+            circuit_resign_level (circuit, 1);
+          circuit_commence_level (circuit, 2);
+          break;
+        case IS_LEVEL_1_AND_2:
+          if (newtype == IS_LEVEL_1)
+            circuit_resign_level (circuit, 2);
+          else
+            circuit_resign_level (circuit, 1);
+          break;
+        case IS_LEVEL_2:
+          if (newtype == IS_LEVEL_1)
+            circuit_resign_level (circuit, 2);
+          circuit_commence_level (circuit, 1);
+          break;
+        default:
+          break;
+        }
     }
 
   circuit->is_type = newtype;
