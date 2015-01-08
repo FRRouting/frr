@@ -3179,22 +3179,7 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
   options = OPTIONS (oi);
 #ifdef HAVE_OPAQUE_LSA
   if (CHECK_FLAG (oi->ospf->config, OSPF_OPAQUE_CAPABLE))
-    {
-      if (IS_SET_DD_I (nbr->dd_flags)
-      ||  CHECK_FLAG (nbr->options, OSPF_OPTION_O))
-        /*
-         * Set O-bit in the outgoing DD packet for capablity negotiation,
-         * if one of following case is applicable. 
-         *
-         * 1) WaitTimer expiration event triggered the neighbor state to
-         *    change to Exstart, but no (valid) DD packet has received
-         *    from the neighbor yet.
-         *
-         * 2) At least one DD packet with O-bit on has received from the
-         *    neighbor.
-         */
-        SET_FLAG (options, OSPF_OPTION_O);
-    }
+    SET_FLAG (options, OSPF_OPTION_O);
 #endif /* HAVE_OPAQUE_LSA */
   stream_putc (s, options);
 
