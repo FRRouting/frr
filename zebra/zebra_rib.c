@@ -1160,7 +1160,15 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, int update)
 {
   int ret = 0;
   struct nexthop *nexthop, *tnexthop;
+  rib_table_info_t *info = rn->table->info;
   int recursing;
+
+  if (info->safi != SAFI_UNICAST)
+    {
+      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+        SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+      return ret;
+    }
 
   /*
    * Make sure we update the FPM any time we send new information to
@@ -1207,7 +1215,15 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
 {
   int ret = 0;
   struct nexthop *nexthop, *tnexthop;
+  rib_table_info_t *info = rn->table->info;
   int recursing;
+
+  if (info->safi != SAFI_UNICAST)
+    {
+      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+        SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+      return ret;
+    }
 
   /*
    * Make sure we update the FPM any time we send new information to
@@ -1235,9 +1251,12 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
 static void
 rib_uninstall (struct route_node *rn, struct rib *rib)
 {
+  rib_table_info_t *info = rn->table->info;
+
   if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
     {
-      zfpm_trigger_update (rn, "rib_uninstall");
+      if (info->safi == SAFI_UNICAST)
+        zfpm_trigger_update (rn, "rib_uninstall");
 
       redistribute_delete (&rn->p, rib);
       if (! RIB_SYSTEM_ROUTE (rib))
@@ -1710,7 +1729,8 @@ rib_process (struct route_node *rn)
 		     select, fib);
       if (CHECK_FLAG (select->flags, ZEBRA_FLAG_CHANGED))
         {
-	  zfpm_trigger_update (rn, "updating existing route");
+          if (info->safi == SAFI_UNICAST)
+	    zfpm_trigger_update (rn, "updating existing route");
 
           /* Set real nexthop. */
 	  /* Need to check if any NHs are active to clear the
@@ -1781,7 +1801,8 @@ rib_process (struct route_node *rn)
       if (IS_ZEBRA_DEBUG_RIB)
 	rnode_debug (rn, vrf_id, "Removing existing route, fib %p", fib);
 
-      zfpm_trigger_update (rn, "removing existing route");
+      if (info->safi == SAFI_UNICAST)
+        zfpm_trigger_update (rn, "removing existing route");
 
       /* If there's no route to replace this with, withdraw redistribute and
        * uninstall from kernel.
@@ -1813,7 +1834,8 @@ rib_process (struct route_node *rn)
       if (IS_ZEBRA_DEBUG_RIB)
 	rnode_debug (rn, "Adding route, select %p", select);
 
-      zfpm_trigger_update (rn, "new route selected");
+      if (info->safi == SAFI_UNICAST)
+        zfpm_trigger_update (rn, "new route selected");
 
       /* Set real nexthop. */
       if (nexthop_active_update (rn, select, 1))
@@ -3931,6 +3953,7 @@ void
 rib_close_table (struct route_table *table)
 {
   struct route_node *rn;
+  rib_table_info_t *info = table->info;
   struct rib *rib;
 
   if (table)
@@ -3940,7 +3963,8 @@ rib_close_table (struct route_table *table)
           if (!CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	    continue;
 
-	  zfpm_trigger_update (rn, NULL);
+          if (info->safi == SAFI_UNICAST)
+            zfpm_trigger_update (rn, NULL);
 
 	  if (! RIB_SYSTEM_ROUTE (rib))
 	    rib_uninstall_kernel (rn, rib);
