@@ -1317,13 +1317,7 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
         zlog_debug ("ospf_opaque_lsa_originate_schedule: Not operational.");
       goto out; /* This is not an error. */
     }
-  if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
-    {
-      if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("ospf_opaque_lsa_originate_schedule: Under blockade.");
-      goto out; /* This is not an error, too. */
-    }
-
+  
   if (delay0 != NULL)
     delay = *delay0;
 
@@ -1765,13 +1759,7 @@ ospf_opaque_lsa_reoriginate_schedule (void *lsa_type_dependent,
         zlog_debug ("ospf_opaque_lsa_reoriginate_schedule: Not operational.");
       goto out;                 /* This is not an error. */
     }
-  if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
-    {
-      if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("ospf_opaque_lsa_reoriginate_schedule: Under blockade.");
-      goto out;                 /* This is not an error, too. */
-    }
-
+  
   /* Generate a dummy lsa to be passed for a lookup function. */
   lsa = pseudo_lsa (oi, area, lsa_type, opaque_type);
 
@@ -2132,12 +2120,6 @@ out:
  *------------------------------------------------------------------------*/
 
 static void ospf_opaque_exclude_lsa_from_lsreq (struct route_table *nbrs, struct ospf_neighbor *inbr, struct ospf_lsa *lsa);
-#ifdef BUGGY_UNLOCK
-static void ospf_opaque_type9_lsa_rxmt_nbr_check (struct ospf_interface *oi);
-static void ospf_opaque_type10_lsa_rxmt_nbr_check (struct ospf_area *area);
-static void ospf_opaque_type11_lsa_rxmt_nbr_check (struct ospf *top);
-static unsigned long ospf_opaque_nrxmt_self (struct route_table *nbrs, int lsa_type);
-#endif /* BUGGY_UNLOCK */
 
 void
 ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr, struct list *lsas)
@@ -2246,12 +2228,9 @@ ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr,
                                           struct ospf_lsa *lsa)
 {
   struct ospf *top;
-  u_char before;
-
+  
   if ((top = oi_to_top (nbr->oi)) == NULL)
     return;
-
-  before = IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque);
 
   /*
    * Since these LSA entries are not yet installed into corresponding
@@ -2261,196 +2240,20 @@ ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr,
   switch (lsa->data->type)
     {
     case OSPF_OPAQUE_LINK_LSA:
-      SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_09_LSA_BIT);
       ospf_flood_through_area (nbr->oi->area, NULL/*inbr*/, lsa);
       break;
     case OSPF_OPAQUE_AREA_LSA:
-      SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_10_LSA_BIT);
       ospf_flood_through_area (nbr->oi->area, NULL/*inbr*/, lsa);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_11_LSA_BIT);
       ospf_flood_through_as (top, NULL/*inbr*/, lsa);
       break;
     default:
       zlog_warn ("ospf_opaque_self_originated_lsa_received: Unexpected LSA-type(%u)", lsa->data->type);
       return;
     }
-
-  ospf_lsa_discard (lsa); /* List "lsas" will be deleted by caller. */
-
-  if (before == 0 && IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
-    {
-      if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("Block Opaque-LSA origination: OFF -> ON");
-    }
+  ospf_lsa_discard (lsa); /* List "lsas" will be deleted by caller. */  
 }
-
-void
-ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
-{
-  struct ospf *top;
-  int delay;
-  struct ospf_interface *oi;
-  struct listnode *node, *nnode;
-
-  if ((top = oi_to_top (nbr->oi)) == NULL)
-    return;
-  
-  if (!IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
-    return;
-  
-  switch (lsa->data->type)
-    {
-    case OSPF_OPAQUE_LINK_LSA:
-      if (CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_09_LSA_BIT))
-        UNSET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_09_LSA_BIT);
-        /* BUGGY_UNLOCK: ospf_opaque_type9_lsa_rxmt_nbr_check (nbr->oi); */
-      /* Callback function... */
-      break;
-    case OSPF_OPAQUE_AREA_LSA:
-      if (CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_10_LSA_BIT))
-        UNSET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_10_LSA_BIT);
-        /* BUGGY_UNLOCK: ospf_opaque_type10_lsa_rxmt_nbr_check (nbr->oi->area); */
-      /* Callback function... */
-      break;
-    case OSPF_OPAQUE_AS_LSA:
-      if (CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_11_LSA_BIT))
-        UNSET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_11_LSA_BIT);
-        /* BUGGY_UNLOCK: ospf_opaque_type11_lsa_rxmt_nbr_check (top); */
-      /* Callback function... */
-      break;
-    default:
-      zlog_warn ("ospf_opaque_ls_ack_received: Unexpected LSA-type(%u)", lsa->data->type);
-      return;
-    }
-  
-  if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
-      return; /* Blocking still in progress. */
-
-  if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("Block Opaque-LSA origination: ON -> OFF");
-  
-  if (! CHECK_FLAG (top->config, OSPF_OPAQUE_CAPABLE))
-    return; /* Opaque capability condition must have changed. */
-
-  /* Ok, let's start origination of Opaque-LSAs. */
-  delay = OSPF_MIN_LS_INTERVAL;
-
-  for (ALL_LIST_ELEMENTS (top->oiflist, node, nnode, oi))
-    {
-      if (! ospf_if_is_enable (oi)
-          || ospf_nbr_count_opaque_capable (oi) == 0)
-        continue;
-
-      ospf_opaque_lsa_originate_schedule (oi, &delay);
-    }
-    
-  return;
-}
-
-#ifdef BUGGY_UNLOCK
-static void
-ospf_opaque_type9_lsa_rxmt_nbr_check (struct ospf_interface *oi)
-{
-  unsigned long n;
-
-  n = ospf_opaque_nrxmt_self (oi->nbrs, OSPF_OPAQUE_LINK_LSA);
-  if (n == 0)
-    {
-      if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("Self-originated type-9 Opaque-LSAs: OI(%s): Flush completed", IF_NAME (oi));
-
-      UNSET_FLAG (oi->area->ospf->opaque, OPAQUE_BLOCK_TYPE_09_LSA_BIT);
-    }
-  return;
-}
-
-static void
-ospf_opaque_type10_lsa_rxmt_nbr_check (struct ospf_area *area)
-{
-  struct listnode *node;
-  struct ospf_interface *oi;
-  unsigned long n = 0;
-
-  for (ALL_LIST_ELEMENTS_RO (area->oiflist, node, oi))
-    {
-      if (area->area_id.s_addr != OSPF_AREA_BACKBONE
-          && oi->type == OSPF_IFTYPE_VIRTUALLINK) 
-        continue;
-
-      n = ospf_opaque_nrxmt_self (oi->nbrs, OSPF_OPAQUE_AREA_LSA);
-      if (n > 0)
-        break;
-    }
-
-  if (n == 0)
-    {
-      if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("Self-originated type-10 Opaque-LSAs: AREA(%s): Flush completed", inet_ntoa (area->area_id));
-
-      UNSET_FLAG (area->ospf->opaque, OPAQUE_BLOCK_TYPE_10_LSA_BIT);
-    }
-
-  return;
-}
-
-static void
-ospf_opaque_type11_lsa_rxmt_nbr_check (struct ospf *top)
-{
-  struct listnode *node;
-  struct ospf_interface *oi;
-  unsigned long n = 0;
-
-  for (ALL_LIST_ELEMENTS_RO (top->oiflist, node, oi))
-    {
-      switch (oi->type)
-        {
-        case OSPF_IFTYPE_VIRTUALLINK:
-          continue;
-        default:
-          break;
-        }
-
-      n = ospf_opaque_nrxmt_self (oi->nbrs, OSPF_OPAQUE_AS_LSA);
-      if (n > 0)
-        goto out;
-    }
-
-  if (n == 0)
-    {
-      if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("Self-originated type-11 Opaque-LSAs: Flush completed");
-
-      UNSET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_11_LSA_BIT);
-    }
-
-out:
-  return;
-}
-
-static unsigned long
-ospf_opaque_nrxmt_self (struct route_table *nbrs, int lsa_type)
-{
-  struct route_node *rn;
-  struct ospf_neighbor *nbr;
-  struct ospf *top;
-  unsigned long n = 0;
-
-  for (rn = route_top (nbrs); rn; rn = route_next (rn))
-    {
-      if ((nbr = rn->info) == NULL)
-        continue;
-      if ((top = oi_to_top (nbr->oi)) == NULL)
-        continue;
-      if (IPV4_ADDR_SAME (&nbr->router_id, &top->router_id))
-        continue;
-      n += ospf_ls_retransmit_count_self (nbr, lsa_type);
-    }
-
-  return n;
-}
-#endif /* BUGGY_UNLOCK */
 
 /*------------------------------------------------------------------------*
  * Followings are util functions; probably be used by Opaque-LSAs only...

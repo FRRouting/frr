@@ -32,23 +32,6 @@
 	 (type) == OSPF_OPAQUE_AS_LSA)
 
 /*
- * Usage of Opaque-LSA administrative flags in "struct ospf".
- *
- *    7   6   5   4   3   2   1   0
- * +---+---+---+---+---+---+---+---+
- * |///|///|///|///|B11|B10|B09| O |
- * +---+---+---+---+---+---+---+---+
- *                 |<--------->| A
- *                       |       +--- Operation status (operational = 1)
- *                       +----------- Blocking status for each LSA type
- */
-
-#define IS_OPAQUE_LSA_ORIGINATION_BLOCKED(V) \
-        CHECK_FLAG((V), (OPAQUE_BLOCK_TYPE_09_LSA_BIT | \
-                         OPAQUE_BLOCK_TYPE_10_LSA_BIT | \
-                         OPAQUE_BLOCK_TYPE_11_LSA_BIT))
-
-/*
  * Opaque LSA's link state ID is redefined as follows.
  *
  *        24       16        8        0
@@ -156,9 +139,6 @@ extern void ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr,
 extern void ospf_opaque_self_originated_lsa_received (struct ospf_neighbor
 						      *nbr,
 						      struct ospf_lsa *lsa);
-extern void ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr,
-					 struct ospf_lsa *lsa);
-
 extern void htonf (float *src, float *dst);
 extern void ntohf (float *src, float *dst);
 extern struct ospf *oi_to_top (struct ospf_interface *oi);

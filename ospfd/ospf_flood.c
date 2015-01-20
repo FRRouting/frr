@@ -448,16 +448,6 @@ ospf_flood_through_interface (struct ospf_interface *oi,
                 zlog_debug ("Skip this neighbor: Not Opaque-capable.");
               continue;
             }
-
-          if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (oi->ospf->opaque)
-          &&  IS_LSA_SELF (lsa)
-          &&  onbr->state == NSM_Full)
-            {
-              /* Small attempt to reduce unnecessary retransmission. */
-              if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
-                zlog_debug ("Skip this neighbor: Initial flushing done.");
-              continue;
-            }
         }
 #endif /* HAVE_OPAQUE_LSA */
 
