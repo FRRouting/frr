@@ -39,6 +39,8 @@
 extern int allow_delete;
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name,  safi_t safi);
+static void vty_show_ip_route_detail (struct vty *vty, struct route_node *rn,
+                                      int mcast);
 
 /* General function for static route. */
 static int
@@ -276,6 +278,36 @@ DEFUN (show_ip_rpf,
        "Display RPF information for multicast source\n")
 {
   return do_show_ip_route(vty, VRF_DEFAULT_NAME, SAFI_MULTICAST);
+}
+
+DEFUN (show_ip_rpf_addr,
+       show_ip_rpf_addr_cmd,
+       "show ip rpf A.B.C.D",
+       SHOW_STR
+       IP_STR
+       "Display RPF information for multicast source\n"
+       "IP multicast source address (e.g. 10.0.0.0)\n")
+{
+  struct in_addr addr;
+  struct route_node *rn;
+  struct rib *rib;
+  int ret;
+
+  ret = inet_aton (argv[0], &addr);
+  if (ret == 0)
+    {
+      vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  rib = rib_match_ipv4_multicast (addr, &rn);
+
+  if (rib)
+    vty_show_ip_route_detail (vty, rn, 1);
+  else
+    vty_out (vty, "%% No match for RPF lookup%s", VTY_NEWLINE);
+
+  return CMD_SUCCESS;
 }
 
 /* Static route configuration.  */
@@ -1867,7 +1899,7 @@ DEFUN (no_ip_route_mask_flags_tag_distance2_vrf,
 
 /* New RIB.  Detailed information for IPv4 route. */
 static void
-vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
+vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 {
   struct rib *rib;
   struct nexthop *nexthop, *tnexthop;
@@ -1877,8 +1909,19 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 
   RNODE_FOREACH_RIB (rn, rib)
     {
-      vty_out (vty, "Routing entry for %s/%d%s", 
-	       inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen,
+      const char *mcast_info;
+      if (mcast)
+        {
+          rib_table_info_t *info = rn->table->info;
+          mcast_info = (info->safi == SAFI_MULTICAST)
+                       ? " using Multicast RIB"
+                       : " using Unicast RIB";
+        }
+      else
+	mcast_info = "";
+      
+      vty_out (vty, "Routing entry for %s/%d%s%s",
+              inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen, mcast_info,
 	       VTY_NEWLINE);
       vty_out (vty, "  Known via \"%s", zebra_route_string (rib->type));
       if (rib->instance)
@@ -2649,7 +2692,7 @@ DEFUN (show_ip_route_addr,
       return CMD_WARNING;
     }
 
-  vty_show_ip_route_detail (vty, rn);
+  vty_show_ip_route_detail (vty, rn, 0);
 
   route_unlock_node (rn);
 
@@ -2704,7 +2747,7 @@ DEFUN (show_ip_route_prefix,
       return CMD_WARNING;
     }
 
-  vty_show_ip_route_detail (vty, rn);
+  vty_show_ip_route_detail (vty, rn, 0);
 
   route_unlock_node (rn);
 
@@ -3234,7 +3277,7 @@ DEFUN (show_ip_route_vrf_all_addr,
       if (! rn)
         continue;
 
-      vty_show_ip_route_detail (vty, rn);
+      vty_show_ip_route_detail (vty, rn, 0);
 
       route_unlock_node (rn);
     }
@@ -3280,7 +3323,7 @@ DEFUN (show_ip_route_vrf_all_prefix,
           continue;
         }
 
-      vty_show_ip_route_detail (vty, rn);
+      vty_show_ip_route_detail (vty, rn, 0);
 
       route_unlock_node (rn);
     }
@@ -6012,6 +6055,8 @@ zebra_vty_init (void)
 
   install_element (VIEW_NODE, &show_ip_rpf_cmd);
   install_element (ENABLE_NODE, &show_ip_rpf_cmd);
+  install_element (VIEW_NODE, &show_ip_rpf_addr_cmd);
+  install_element (ENABLE_NODE, &show_ip_rpf_addr_cmd);
 
   /* Commands for VRF */
 
