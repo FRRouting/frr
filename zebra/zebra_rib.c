@@ -93,9 +93,12 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn, int prior
 
   if (rn)
     {
+      rib_table_info_t *info = rn->table->info;
+
       inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
       bptr = buf + strlen(buf);
-      snprintf(bptr, buf + sizeof(buf) - bptr, "/%d", rn->p.prefixlen);
+      snprintf(bptr, buf + sizeof(buf) - bptr, "/%d%s", rn->p.prefixlen,
+               info->safi == SAFI_MULTICAST ? " (MRIB)" : "");
     }
   else
     {
