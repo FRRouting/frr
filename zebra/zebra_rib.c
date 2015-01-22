@@ -733,7 +733,8 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 }
 
 struct rib *
-rib_match_ipv4 (struct in_addr addr, safi_t safi, vrf_id_t vrf_id)
+rib_match_ipv4 (struct in_addr addr, safi_t safi, vrf_id_t vrf_id,
+		struct route_node **rn_out)
 {
   struct prefix_ipv4 p;
   struct route_table *table;
@@ -779,16 +780,22 @@ rib_match_ipv4 (struct in_addr addr, safi_t safi, vrf_id_t vrf_id)
 	}
       else
 	{
-	  if (match->type == ZEBRA_ROUTE_CONNECT)
-	    /* Directly point connected route. */
-	    return match;
-	  else
+	  if (match->type != ZEBRA_ROUTE_CONNECT)
 	    {
+	      int found = 0;
 	      for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
 		if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
-		  return match;
-	      return NULL;
+		  {
+		    found = 1;
+		    break;
+		  }
+	      if (!found)
+		return NULL;
 	    }
+
+	  if (rn_out)
+	    *rn_out = rn;
+	  return match;
 	}
     }
   return NULL;

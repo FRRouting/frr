@@ -788,7 +788,7 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr,
   struct nexthop *nexthop;
 
   /* Lookup nexthop. */
-  rib = rib_match_ipv4 (addr, SAFI_UNICAST, vrf_id);
+  rib = rib_match_ipv4 (addr, SAFI_UNICAST, vrf_id, NULL);
 
   /* Get output stream. */
   s = client->obuf;
@@ -974,14 +974,14 @@ zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struc
   struct nexthop *nexthop;
 
   /* Lookup nexthop. */
-  rib = rib_match_ipv4 (addr, SAFI_MULTICAST, zvrf->vrf_id);
+  rib = rib_match_ipv4 (addr, SAFI_MULTICAST, zvrf->vrf_id, NULL);
 
   if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
     zlog_debug("%s: %s mrib entry found.", __func__, rib ? "Matching" : "No matching");
 
   if (!rib) {
     /* Retry lookup with unicast rib */
-    rib = rib_match_ipv4 (addr, SAFI_UNICAST, zvrf->vrf_id);
+    rib = rib_match_ipv4 (addr, SAFI_UNICAST, zvrf->vrf_id, NULL);
     if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
       zlog_debug("%s: %s rib entry found.", __func__, rib ? "Matching" : "No matching");
   }

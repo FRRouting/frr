@@ -369,7 +369,8 @@ extern int rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix
 		            struct in_addr *gate, unsigned int ifindex, 
 		            vrf_id_t, u_int32_t, safi_t safi);
 
-extern struct rib *rib_match_ipv4 (struct in_addr, safi_t safi, vrf_id_t);
+extern struct rib *rib_match_ipv4 (struct in_addr, safi_t safi, vrf_id_t,
+				   struct route_node **rn_out);
 
 extern struct rib *rib_lookup_ipv4 (struct prefix_ipv4 *, vrf_id_t);
 
