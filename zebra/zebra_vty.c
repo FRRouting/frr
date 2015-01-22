@@ -167,9 +167,9 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 }
 
 /* Static unicast routes for multicast RPF lookup. */
-DEFUN (ip_mroute,
-       ip_mroute_cmd,
-       "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE) [<1-255>]",
+DEFUN (ip_mroute_dist,
+       ip_mroute_dist_cmd,
+       "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE) <1-255>",
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -177,12 +177,21 @@ DEFUN (ip_mroute,
        "Nexthop interface name\n"
        "Distance\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[0], NULL, argv[1], NULL, NULL, argv[2], NULL);
+    return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[0], NULL, argv[1], NULL, NULL, argc > 2 ? argv[2] : NULL, NULL);
 }
 
-DEFUN (no_ip_mroute,
-       no_ip_mroute_cmd,
-       "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE) [<1-255>]",
+ALIAS (ip_mroute_dist,
+       ip_mroute_cmd,
+       "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
+       IP_STR
+       "Configure static unicast route into MRIB for multicast RPF lookup\n"
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "Nexthop address\n"
+       "Nexthop interface name\n")
+
+DEFUN (no_ip_mroute_dist,
+       no_ip_mroute_dist_cmd,
+       "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE) <1-255>",
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -190,8 +199,18 @@ DEFUN (no_ip_mroute,
        "Nexthop interface name\n"
        "Distance\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[0], NULL, argv[1], NULL, NULL, argv[2], NULL);
+    return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[0], NULL, argv[1], NULL, NULL, argc > 2 ? argv[2] : NULL, NULL);
 }
+
+ALIAS (no_ip_mroute_dist,
+       no_ip_mroute_cmd,
+       "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
+       NO_STR
+       IP_STR
+       "Configure static unicast route into MRIB for multicast RPF lookup\n"
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "Nexthop address\n"
+       "Nexthop interface name\n")
 
 DEFUN (show_ip_rpf,
        show_ip_rpf_cmd,
@@ -5827,7 +5846,9 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &allow_external_route_update_cmd);
   install_element (CONFIG_NODE, &no_allow_external_route_update_cmd);
   install_element (CONFIG_NODE, &ip_mroute_cmd);
+  install_element (CONFIG_NODE, &ip_mroute_dist_cmd);
   install_element (CONFIG_NODE, &no_ip_mroute_cmd);
+  install_element (CONFIG_NODE, &no_ip_mroute_dist_cmd);
   install_element (CONFIG_NODE, &ip_route_cmd);
   install_element (CONFIG_NODE, &ip_route_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_flags_cmd);
