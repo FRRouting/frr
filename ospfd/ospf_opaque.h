@@ -134,8 +134,6 @@ extern void ospf_opaque_lsa_reoriginate_schedule (void *lsa_type_dependent,
 extern void ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa);
 extern void ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa);
 
-extern void ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr,
-				      struct list *lsas);
 extern void ospf_opaque_self_originated_lsa_received (struct ospf_neighbor
 						      *nbr,
 						      struct ospf_lsa *lsa);

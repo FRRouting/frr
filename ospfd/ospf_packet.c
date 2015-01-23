@@ -1779,21 +1779,6 @@ ospf_ls_upd (struct ospf *ospf, struct ip *iph, struct ospf_header *ospfh,
    */
   lsas = ospf_ls_upd_list_lsa (nbr, s, oi, size);
 
-#ifdef HAVE_OPAQUE_LSA
-  /*
-   * If self-originated Opaque-LSAs that have flooded before restart
-   * are contained in the received LSUpd message, corresponding LSReq
-   * messages to be sent may have to be modified.
-   * To eliminate possible race conditions such that flushing and normal
-   * updating for the same LSA would take place alternately, this trick
-   * must be done before entering to the loop below.
-   */
-   /* XXX: Why is this Opaque specific? Either our core code is deficient
-    * and this should be fixed generally, or Opaque is inventing strawman
-    * problems */
-   ospf_opaque_adjust_lsreq (nbr, lsas);
-#endif /* HAVE_OPAQUE_LSA */
-
 #define DISCARD_LSA(L,N) {\
         if (IS_DEBUG_OSPF_EVENT) \
           zlog_debug ("ospf_lsa_discard() in ospf_ls_upd() point %d: lsa %p" \
