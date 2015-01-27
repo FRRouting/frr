@@ -253,6 +253,14 @@ do {                                                                            
     }                                                                         \
 } while (0)
 
+#define VTY_WARN_EXPERIMENTAL()                                               \
+do {                                                                          \
+  vty_out (vty, "%% WARNING: this command is experimental. Both its name and" \
+                " parameters may%s%% change in a future version of Quagga,"   \
+                " possibly breaking your configuration!%s",                   \
+                VTY_NEWLINE, VTY_NEWLINE);                                    \
+} while (0)
+
 /* Exported variables */
 extern char integrate_default[];
 

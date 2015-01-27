@@ -179,7 +179,8 @@ DEFUN (ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
-    return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[0], NULL, argv[1], NULL, NULL, argc > 2 ? argv[2] : NULL, NULL);
+  VTY_WARN_EXPERIMENTAL();
+  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[0], NULL, argv[1], NULL, NULL, argc > 2 ? argv[2] : NULL, NULL);
 }
 
 ALIAS (ip_mroute_dist,
@@ -201,7 +202,8 @@ DEFUN (no_ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
-    return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[0], NULL, argv[1], NULL, NULL, argc > 2 ? argv[2] : NULL, NULL);
+  VTY_WARN_EXPERIMENTAL();
+  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[0], NULL, argv[1], NULL, NULL, argc > 2 ? argv[2] : NULL, NULL);
 }
 
 ALIAS (no_ip_mroute_dist,
@@ -226,6 +228,8 @@ DEFUN (ip_multicast_mode,
        "Lookup both, use entry with lower distance\n"
        "Lookup both, use entry with longer prefix\n")
 {
+  VTY_WARN_EXPERIMENTAL();
+
   if (!strncmp (argv[0], "u", 1))
     multicast_mode_ipv4_set (MCAST_URIB_ONLY);
   else if (!strncmp (argv[0], "mrib-o", 6))
@@ -277,6 +281,7 @@ DEFUN (show_ip_rpf,
        IP_STR
        "Display RPF information for multicast source\n")
 {
+  VTY_WARN_EXPERIMENTAL();
   return do_show_ip_route(vty, VRF_DEFAULT_NAME, SAFI_MULTICAST);
 }
 
@@ -292,6 +297,8 @@ DEFUN (show_ip_rpf_addr,
   struct route_node *rn;
   struct rib *rib;
   int ret;
+
+  VTY_WARN_EXPERIMENTAL();
 
   ret = inet_aton (argv[0], &addr);
   if (ret == 0)
