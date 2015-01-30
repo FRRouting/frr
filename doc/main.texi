@@ -10,6 +10,7 @@ different routing protocols.
 * Invoking zebra::              Running the program
 * Interface Commands::          Commands for zebra interfaces
 * Static Route Commands::       Commands for adding static routes
+* Multicast RIB Commands::      Commands for controlling MRIB behavior
 * zebra Route Filtering::       Commands for zebra route filtering
 * zebra FIB push interface::    Interface to optional FPM component
 * zebra Terminal Mode Commands::  Commands for zebra's VTY
@@ -184,6 +185,81 @@ for kernels supporting multiple routing tables (like GNU/Linux 2.2.x
 and later).  After setting @var{tableno} with this command, 
 static routes defined after this are added to the specified table.
 @end deffn
+
+@node Multicast RIB Commands
+@section Multicast RIB Commands
+
+The Multicast RIB provides a separate table of unicast destinations which
+is used for Multicast Reverse Path Forwarding decisions.  It is used with
+a multicast source's IP address, hence contains not multicast group
+addresses but unicast addresses.
+
+This table is fully separate from the default unicast table.  However,
+RPF lookup can include the unicast table.
+
+WARNING: RPF lookup results are non-responsive in this version of Quagga,
+i.e. multicast routing does not actively react to changes in underlying
+unicast topology!
+
+@deffn Command {ip multicast rpf-lookup-mode @var{mode}} {}
+@deffnx Command {no ip multicast rpf-lookup-mode [@var{mode}]} {}
+
+@var{mode} sets the method used to perform RPF lookups.  Supported modes:
+
+@table @samp
+@item urib-only
+Performs the lookup on the Unicast RIB.  The Multicast RIB is never used.
+@item mrib-only
+Performs the lookup on the Multicast RIB.  The Unicast RIB is never used.
+@item mrib-then-urib
+Tries to perform the lookup on the Multicast RIB.  If any route is found,
+that route is used.  Otherwise, the Unicast RIB is tried.
+@item lower-distance
+Performs a lookup on the Multicast RIB and Unicast RIB each.  The result
+with the lower administrative distance is used;  if they're equal, the
+Multicast RIB takes precedence.
+@item longer-prefix
+Performs a lookup on the Multicast RIB and Unicast RIB each.  The result
+with the longer prefix length is used;  if they're equal, the
+Multicast RIB takes precedence.
+@end table
+
+WARNING: Unreachable routes do not receive special treatment and do not
+cause fallback to a second lookup.
+@end deffn
+
+@deffn Command {show ip rpf @var{addr}} {}
+
+Performs a Multicast RPF lookup, as configured with
+@command{ip multicast rpf-lookup-mode @var{mode}}.  @var{addr} specifies
+the multicast source address to look up.
+
+@example
+> show ip rpf 192.0.2.1
+Routing entry for 192.0.2.0/24 using Unicast RIB
+  Known via "kernel", distance 0, metric 0, best
+  * 198.51.100.1, via eth0
+@end example
+
+Indicates that a multicast source lookup for 192.0.2.1 would use an
+Unicast RIB entry for 192.0.2.0/24 with a gateway of 198.51.100.1.
+@end deffn
+
+@deffn Command {show ip rpf} {}
+
+Prints the entire Multicast RIB.  Note that this is independent of the
+configured RPF lookup mode, the Multicast RIB may be printed yet not
+used at all.
+@end deffn
+
+@deffn Command {ip mroute @var{prefix} @var{nexthop} [@var{distance}]} {}
+@deffnx Command {no ip mroute @var{prefix} @var{nexthop} [@var{distance}]} {}
+
+Adds a static route entry to the Multicast RIB.  This performs exactly as
+the @command{ip route} command, except that it inserts the route in the
+Multicast RIB instead of the Unicast RIB.
+@end deffn
+
 
 @node zebra Route Filtering
 @section zebra Route Filtering
