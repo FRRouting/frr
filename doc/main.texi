@@ -224,6 +224,11 @@ with the longer prefix length is used;  if they're equal, the
 Multicast RIB takes precedence.
 @end table
 
+The @code{mrib-then-urib} setting is the default behavior if nothing is
+configured.  If this is the desired behavior, it should be explicitly
+configured to make the configuration immune against possible changes in
+what the default behavior is.
+
 WARNING: Unreachable routes do not receive special treatment and do not
 cause fallback to a second lookup.
 @end deffn
