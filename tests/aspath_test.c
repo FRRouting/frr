@@ -458,8 +458,11 @@ static struct test_segment {
       BGP_ATTR_FLAG_TRANS, \
       BGP_ATTR_ORIGIN, \
       1, \
-      BGP_ORIGIN_EGP
-#define COMMON_ATTR_SIZE 4
+      BGP_ORIGIN_EGP, \
+      BGP_ATTR_FLAG_TRANS, \
+      BGP_ATTR_NEXT_HOP, \
+      4, 192, 0, 2, 0
+#define COMMON_ATTR_SIZE 11
 
 /* */
 static struct aspath_tests {
