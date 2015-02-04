@@ -1,0 +1,33 @@
+TROUBLESHOOTING
+
+# Check kernel mcast cache
+# On Linux:
+ip mroute show
+
+! qpimd on last-hop router
+! . attached to mcast receiver
+! . runnning both PIM-SSM and IGMPv3
+!
+show ip mroute         (kernel mcast programming is correct?)
+show ip pim upstream   (we joined our upstream?)
+show ip pim neighbor   (upstream is neighbor?)
+show ip pim interface  (pim enabled on interfaces?)
+show ip multicast      (multicast enabled at all?)
+show ip rib SRC        (unicast route towards source?)
+
+show ip igmp sources   (receiver joined on interface?)
+show ip igmp interface (igmp enabled on receiver interface?)
+
+! qpimd on intermmediate routers
+! . may be attached to mcast source
+! . runnning only PIM-SSM, not IGMPv3
+!
+show ip mroute         (kernel mcast programming is correct?)
+show ip pim upstream   (we joined our upstream?)
+show ip pim join       (downstream joined us?)
+show ip pim neighbor   (downstream is neighbor?)
+show ip pim interface  (pim enabled on interfaces?)
+show ip multicast      (multicast enabled at all?)
+show ip rib SRC        (unicast route towards source?)
+
+--EOF--

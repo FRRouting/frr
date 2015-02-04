@@ -47,6 +47,7 @@ ripd	      2602/tcp		  # RIPd vty
 ripngd	      2603/tcp		  # RIPngd vty
 ospfd	      2604/tcp		  # OSPFd vty
 bgpd	      2605/tcp		  # BGPd vty
+pimd	      2611/tcp		  # PIMd vty
 
 I recommend you to add upper list to /etc/services.
 

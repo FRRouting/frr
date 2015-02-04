@@ -17,3 +17,4 @@ bgpd		2605/tcp
 ospf6d		2606/tcp
 ospfapi		2607/tcp
 isisd		2608/tcp
+pimd		2611/tcp

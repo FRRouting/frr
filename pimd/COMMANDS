@@ -1,0 +1,81 @@
+# $QuaggaId: $Format:%an, %ai, %h$ $
+
+global configuration commands:
+       pimd:
+       ip multicast-routing	Enable IP multicast forwarding
+       ip ssmpingd		Enable ssmpingd operation
+
+       zebra:
+       ip mroute		Configure static unicast route into MRIB for multicast RPF lookup
+
+interface configuration commands:
+       pimd:
+       ip igmp						Enable IGMP operation
+       ip igmp join					IGMP join multicast group
+       ip igmp query-interval <1-1800>			IGMP host query interval
+       ip igmp query-max-response-time <1-25>		IGMP max query response (seconds)
+       ip igmp query-max-response-time-dsec <10-250>	IGMP max query response (deciseconds)
+       ip pim ssm					Enable PIM SSM operation
+
+verification commands:
+       pimd:
+       show ip igmp interface			IGMP interface information
+       show ip igmp join			IGMP static join information
+       show ip igmp parameters			IGMP parameters information
+       show ip igmp groups			IGMP groups information
+       show ip igmp groups retransmissions	IGMP group retransmission
+       show ip igmp sources			IGMP sources information
+       show ip igmp sources retransmissions	IGMP source retransmission
+       show ip pim address			PIM interface address
+       show ip pim assert			PIM interface assert
+       show ip pim assert-internal		PIM interface internal assert state
+       show ip pim assert-metric		PIM interface assert metric
+       show ip pim assert-winner-metric		PIM interface assert winner metric
+       show ip pim designated-router		PIM interface designated router
+       show ip pim hello			PIM interface hello information
+       show ip pim interface			PIM interface information
+       show ip pim lan-prune-delay              PIM neighbors LAN prune delay parameters
+       show ip pim local-membership		PIM interface local-membership
+       show ip pim jp-override-interval         PIM interface J/P override interval
+       show ip pim join                         PIM interface join information
+       show ip pim neighbor			PIM neighbor information
+       show ip pim rpf				PIM cached source rpf information
+       show ip pim secondary                    PIM neighbor addresses
+       show ip pim upstream			PIM upstream information
+       show ip pim upstream-join-desired	PIM upstream join-desired
+       show ip pim upstream-rpf			PIM upstream source rpf
+       show ip multicast			Multicast global information
+       show ip mroute				IP multicast routing table
+       show ip mroute count			Route and packet count data
+       show ip rib				IP unicast routing table
+       show ip ssmpingd				ssmpingd operation
+
+       zebra:
+       show ip rpf				Display RPF information for multicast source
+
+debug commands:
+       pimd:
+       clear ip interfaces		Reset interfaces
+       clear ip igmp interfaces		Reset IGMP interfaces
+       clear ip mroute                  Reset multicast routes
+       clear ip pim interfaces		Reset PIM interfaces
+       clear ip pim oil			Rescan PIM OIL (output interface list)
+       debug igmp			IGMP protocol activity
+       debug mroute			PIM interaction with kernel MFC cache
+       debug pim			PIM protocol activity
+       debug pim zebra			ZEBRA protocol activity
+       debug ssmpingd			ssmpingd activity
+       show debugging			State of each debugging option
+       test igmp receive report		Test reception of IGMPv3 report
+       test pim receive assert          Test reception of PIM assert
+       test pim receive dump		Test reception of PIM packet dump
+       test pim receive hello		Test reception of PIM hello
+       test pim receive join		Test reception of PIM join
+       test pim receive prune		Test reception of PIM prune
+       test pim receive upcall   	Test reception of kernel upcall
+
+statistics commands:
+       pimd:
+       show memory pim		PIM memory statistics
+
+-x-

@@ -54,5 +54,6 @@ post-install:
 	@echo "	ripngd	      2603/tcp		  # RIPngd vty";
 	@echo "	ospfd	      2604/tcp		  # OSPFd vty";
 	@echo "	bgpd	      2605/tcp		  # BGPd vty";
+	@echo "	pimd	      2611/tcp		  # PIMd vty";
 
 .include <bsd.port.mk>

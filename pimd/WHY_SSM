@@ -1,0 +1,32 @@
+WHY SSM
+
+Benefis of PIM SSM over PIM SM
+------------------------------
+
+- SSM consumes minimum link bandwidth
+- SSM simplifies multicast address management (specially important for
+  inter-domain multicast)
+  - SSM (S,G) channels easily provide unique per-application addressing
+  - SSM does not require MSDP between PIM domains
+- SSM does not suffer instabilities from traffic-driven SPT switchover
+- SSM is not suscetible to DoS attack from unwanted sources
+- SSM does not use RP. Some RP issues:
+  - RP is possible point of failure
+  - RP demands redundancy management
+  - RP may require PIM dense mode support for RP election
+  - RP is possible performance bottleneck
+  - RP may demand lots of extra management
+- SSM can be deployed in an existing PIM SM network (only the last hop
+  routers need to support IGMPv3)
+- SSM is easier to deploy and maintain
+
+PIM-SSM drawbacks
+-----------------
+
+- SSM requires IGMPv3 support on both receivers and last-hop routers
+- SSM may be memory intensive when managing (S,G) states for
+  many-to-many multicast distribution
+- SSM will keep (S,G) state as long as there are subscriptions from
+  receivers, even if the source is not actually sending traffic
+
+--EOF--

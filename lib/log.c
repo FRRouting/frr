@@ -50,6 +50,7 @@ const char *zlog_proto_names[] =
   "RIPNG",
   "OSPF6",
   "ISIS",
+  "PIM",
   "MASC",
   NULL,
 };

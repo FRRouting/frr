@@ -1,0 +1,86 @@
+# $QuaggaId: $Format:%an, %ai, %h$ $
+
+DEBUG HINTS
+
+  - Check the source is issuing multicast packets with TTL high enough
+    to reach the recipients.
+
+  - Check the multicast packets are not being dropped due to
+    fragmentation problems.
+
+  - Three easy options to test IGMPv3 joins from the receiver host:
+
+    1) Configure pimd on the receiver host with "ip igmp join":
+
+       interface eth0
+        ip pim ssm
+        ip igmp join 239.1.1.1 1.1.1.1 
+
+    2) Use test_igmpv3_join command-line utility (provided with qpimd):
+
+       test_igmpv3_join eth0 239.1.1.1 1.1.1.1
+
+    3) User the Stig Venaas' ssmping utility:
+
+       ssmping -I eth0 1.1.1.1
+
+       To see multicast responses with ssmping, you will need run on
+       the host 1.1.1.1 either:
+       a) Stig Venaas' ssmpingd command-line daemon
+          OR
+       b) qpimd built-in ssmpingd service:
+          conf t
+            ip ssmpingd 1.1.1.1
+
+  - Using nepim to generate multicast stream from 1.1.1.1 to 239.1.1.1:
+
+    Notices:
+
+    a) The host unicast address 1.1.1.1 must be reachable from the
+    receiver.
+
+    b) nepim tool requires the receiver must be started *before* the
+    sender.
+
+    First: Start a receiver for that stream by running:
+
+    nepim -q -6 -j 1.1.1.1+239.1.1.1@eth0
+    (Remember of enabling both "ip pim ssm" and "ip igmp" under eth0.)
+
+    Second: Start the sender at host 1.1.1.1.
+
+    The following command generates a 100-kbps multicast stream for
+    channel 1.1.1.1,239.1.1.1 with TTL 10 and 1000-byte payload per UDP
+    packet (to avoid fragmentation):
+
+    nepim -6 -M -b 1.1.1.1 -c 239.1.1.1 -T 10 -W 1000 -r 100k -a 1d
+
+
+
+SAMPLE DEBUG COMMANDS
+
+  conf t
+   int eth0
+    ip pim ssm
+
+  test pim receive hello eth0 192.168.0.2 600 10 111 1000 3000 0
+  test pim receive join eth0 600 192.168.0.1 192.168.0.2 239.1.1.1 1.1.1.1
+
+  show ip pim join                                                         
+
+
+INTEROPERABILITY WITH CISCO
+
+  ! Cisco IP Multicast command reference:
+  ! ftp://ftpeng.cisco.com/ipmulticast/Multicast-Commands
+  !
+  ip pim ssm default ! enable SSM mode for groups 232.0.0.0/8
+  ip multicast-routing
+  ip pim state-refresh disable
+  no ip pim dm-fallback
+  !
+  interface FastEthernet0
+   ip pim sparse-mode
+   ip igmp version 3
+
+-x-

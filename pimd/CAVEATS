@@ -1,0 +1,178 @@
+# $QuaggaId: $Format:%an, %ai, %h$ $
+
+C1 IGMPv3 backward compatibility with IGMPv1 and IGMPv2 is not
+   implemented. See RFC 3376, 7.3. Multicast Router Behavior. That's
+   because only Source-Specific Multicast is currently targeted.
+
+C2 IGMPv3 support for forwarding any-source groups is not
+   implemented. Traffic for groups in mode EXCLUDE {empty} won't be
+   forwarded.  See RFC 3376, 6.3. Source-Specific Forwarding
+   Rules. That's because only Source-Specific Multicast is currently
+   targeted.
+
+C3 Load Splitting of IP Multicast Traffic over ECMP is not supported.
+   See also: RFC 2991
+   Multipath Issues in Unicast and Multicast Next-Hop Selection
+   http://www.rfc-editor.org/rfc/rfc2991.txt
+
+C4 IPSec AH authentication is not supported (RFC 4601:
+   6.3. Authentication Using IPsec).
+
+C5 PIM support is limited to SSM mode as defined in section 4.8.2
+   (PIM-SSM-Only Routers) of RFC4601. That's because only
+   Source-Specific Multicast is currently targeted.
+
+C6 PIM implementation currently does not support IPv6. PIM-SSM
+   requires IGMPv3 for IPv4 and MLDv2 for IPv6. MLDv2 is currently
+   missing. See also CAVEAT C9.
+
+C7 FIXED (S,G) Assert state machine (RFC 4601, section 4.6.1) is not
+   implemented. See also TODO T6. See also CAVEAT C10.
+
+C8 It is not possible to disable join suppression in order to
+   explicitly track the join membership of individual downstream
+   routers.
+   - IGMPv3 Explicit Membership Tracking is not supported.
+     When explicit tracking is enabled on a router, the router can
+     individually track the Internet Group Management Protocol (IGMP)
+     membership state of all reporting hosts. This feature allows the
+     router to achieve minimal leave latencies when hosts leave a
+     multicast group or channel. Example:
+       conf t
+        interface eth0
+         ip igmp explicit-tracking
+
+C9 Only IPv4 Address Family (number=1) is supported in the PIM Address
+   Family field.
+   See also RFC 4601: 5.1. PIM Address Family
+   See also CAVEAT C6.
+   See also http://www.iana.org/assignments/address-family-numbers
+
+C10 FIXED Assert metric depends on metric_preference and
+    route_metric. Those parameters should be fetched from RIB
+    (zebra). See also pim_rpf.c, pim_rpf_update().
+
+C11 SSM Mapping is not supported
+
+    SSM Mapping Overview:
+
+    SSM mapping introduces a means for the last hop router to discover
+    sources sending to groups. When SSM mapping is configured, if a
+    router receives an IGMPv1 or IGMPv2 membership report for a
+    particular group G, the router translates this report into one or
+    more (S, G) channel memberships for the well-known sources
+    associated with this group.
+
+    When the router receives an IGMPv1 or IGMPv2 membership report for
+    a group G, the router uses SSM mapping to determine one or more
+    source IP addresses for the group G. SSM mapping then translates
+    the membership report as an IGMPv3 report INCLUDE (G, [S1, G],
+    [S2, G]...[Sn, G] and continues as if it had received an IGMPv3
+    report. The router then sends out PIM joins toward (S1, G) to (Sn,
+    G) and continues to be joined to these groups as long as it
+    continues to receive the IGMPv1 or IGMPv2 membership reports and
+    as long as the SSM mapping for the group remains the same. SSM
+    mapping, thus, enables you to leverage SSM for video delivery to
+    legacy STBs that do not support IGMPv3 or for applications that do
+    not take advantage of the IGMPv3 host stack.
+
+    SSM mapping enables the last hop router to determine the source
+    addresses either by a statically configured table on the router or
+    by consulting a DNS server. When the statically configured table
+    is changed, or when the DNS mapping changes, the router will leave
+    the current sources associated with the joined groups.
+
+C12 FIXED MRIB for incongruent unicast/multicast topologies is not
+    supported.  RPF mechanism currently just looks up the information
+    in the unicast routing table.
+
+    See also:
+    RFC5110: 2.2.3.  Issue: Overlapping Unicast/Multicast Topology
+    
+    Sometimes, multicast RPF mechanisms first look up the multicast
+    routing table, or M-RIB ("topology database") with a longest
+    prefix match algorithm, and if they find any entry (including a
+    default route), that is used; if no match is found, the unicast
+    routing table is used instead.
+
+C13 Can't detect change of primary address before the actual change.
+    Possible approach is to craft old interface address into ip source
+    address by using raw ip socket.
+
+    See also:
+
+    RFC 4601: 4.3.1.  Sending Hello Messages
+
+    Before an interface goes down or changes primary IP address, a
+    Hello message with a zero HoldTime should be sent immediately
+    (with the old IP address if the IP address changed).
+
+    See also pim_sock_delete().
+
+C14 FIXED Detection of interface primary address changes may fail when
+    there are multiple addresses.
+    See also TODO T32.
+
+C15 Changes in interface secondary address list are not immediately
+    detected.
+    See also detect_secondary_address_change
+    See also TODO T31.
+
+C16 AMT Draft (mboned-auto-multicast) is not supported.
+    AMT = Automatic IP Multicast Without Explicit Tunnels
+
+    See also:
+
+    Draft
+    http://tools.ietf.org/html/draft-ietf-mboned-auto-multicast
+    http://tools.ietf.org/html/draft-ietf-mboned-auto-multicast-09
+
+    AMT gateway implementation for Linux
+    http://cs.utdallas.edu/amt/
+
+    AMT for Streaming (IPTV) on Global IP Multicast by Greg Shepherd (Cisco)
+    http://nznog.miniconf.org/nznog-2008-sysadmin-miniconf-greg-shepherd-iptv.pdf
+
+C17 SNMP / RFC 5060 (PIM MIB) is not supported.
+
+C18 MFC never recovers from removal of static route to source
+
+    # route add -host 1.2.3.4 gw 192.168.56.10
+    Before removal:
+    quagga-pimd-router# sh ip mroute
+    Source          Group           Proto Input iVifI Output oVifI TTL Uptime
+    1.2.3.4         232.1.2.3       I     eth1      3 eth0       2   1 00:00:36
+
+    # route del -host 1.2.3.4 gw 192.168.56.10
+    After removal: sh ip mroute --> empty output
+
+    # route add -host 1.2.3.4 gw 192.168.56.10
+    After the route is restored: sh ip mroute --> never recovers (empty output)
+
+    At this point, "no ip pim ssm" on the upstream interface (eth0) crashes pimd:
+
+    2014/02/14 16:30:14 PIM: ifmembership_set: (S,G)=(1.2.3.4,232.1.2.3) membership now is NOINFO on interface eth0
+    2014/02/14 16:30:14 PIM: pim_ifchannel_update_assert_tracking_desired: AssertTrackingDesired(1.2.3.4,232.1.2.3,eth0) changed from 1 to 0
+    2014/02/14 16:30:14 PIM: pim_zebra.c del_oif: nonexistent protocol mask 2 removed OIF eth0 (vif_index=2, min_ttl=0) from channel (S,G)=(1.2.3.4,232.1.2.3)
+    2014/02/14 16:30:14 PIM: pim_ifchannel_update_could_assert: CouldAssert(1.2.3.4,232.1.2.3,eth0) changed from 1 to 0
+    2014/02/14 16:30:14 PIM: pim_ifchannel_update_my_assert_metric: my_assert_metric(1.2.3.4,232.1.2.3,eth0) changed from 0,0,0,10.0.2.15 to 1,4294967295,4294967295,0.0.0.0
+    2014/02/14 16:30:14 PIM: pim_zebra.c del_oif: nonexistent protocol mask 1 removed OIF eth0 (vif_index=2, min_ttl=0) from channel (S,G)=(1.2.3.4,232.1.2.3)
+    2014/02/14 16:30:14 PIM: Assertion `!IGMP_SOURCE_TEST_FORWARDING(source->source_flags)' failed in file pim_igmpv3.c, line 412, function igmp_source_delete
+
+C19 Provision to prevent group mode clash
+
+    Beware group mode clash. A host/application issuing IGMPv2
+    any-source joins for a group will disrupt SSM multicast for that
+    group.
+
+    For instance, support for source-specific static igmp WILL FAIL if
+    there is host/application issuing IGMPv2 any-source joins for the
+    same group.
+
+    The reason is the IGMPv2 any-source join forces qpimd to switch
+    the group mode to ASM (any-source multicast); however, qpimd is
+    unable to program ASM groups into the kernel; multicast won't
+    flow. There could be some provision to prevent such a behavior,
+    but currently there is none.
+
+-x-

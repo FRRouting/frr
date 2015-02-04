@@ -236,6 +236,8 @@ AC_ARG_ENABLE(watchquagga,
 [  --disable-watchquagga   do not build watchquagga])
 AC_ARG_ENABLE(isisd,
 [  --enable-isisd          build isisd])
+AC_ARG_ENABLE(pimd,
+[  --enable-pimd           build pimd])
 AC_ARG_ENABLE(solaris,
 [  --enable-solaris          build solaris])
 AC_ARG_ENABLE(bgp-announce,
@@ -1382,6 +1384,13 @@ case "${enable_isisd}" in
 esac
 AM_CONDITIONAL(ISISD, test "x$ISISD" = "xisisd")
 
+case "${enable_pimd}" in
+  "yes") PIMD="pimd";;
+  "no" ) PIMD="";;
+  *    ) ;;
+esac
+AM_CONDITIONAL(PIMD, test "x$PIMD" = "xpimd")
+
 # XXX Perhaps auto-enable on Solaris, but that's messy for cross builds.
 case "${enable_solaris}" in
   "yes") SOLARIS="solaris";;
@@ -1404,6 +1413,7 @@ AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
 AC_SUBST(WATCHQUAGGA)
 AC_SUBST(ISISD)
+AC_SUBST(PIMD)
 AC_SUBST(SOLARIS)
 AC_SUBST(VTYSH)
 AC_SUBST(INCLUDES)
@@ -1486,7 +1496,8 @@ dnl sockaddr and netinet checks
 dnl ---------------------------
 AC_CHECK_TYPES([struct sockaddr, struct sockaddr_in,
 	struct sockaddr_in6, struct sockaddr_un, struct sockaddr_dl,
-	socklen_t,
+	socklen_t, struct vifctl, struct mfcctl, struct sioc_sg_req,
+	vifi_t, struct sioc_vif_req, struct igmpmsg,
 	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
 	struct nd_opt_adv_interval, struct rt_addrinfo,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval],
@@ -1514,6 +1525,45 @@ AC_CHECK_TYPES([struct in_pktinfo],
  [if test "${enable_irdp}" = "yes"; then
     AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
   fi], [QUAGGA_INCLUDES])
+
+dnl -----------------------
+dnl checking for IP_PKTINFO
+dnl -----------------------
+AC_MSG_CHECKING(for IP_PKTINFO)
+AC_TRY_COMPILE([#include <netdb.h>], [
+  int opt = IP_PKTINFO;
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_IP_PKTINFO, 1, [Have IP_PKTINFO])
+], [
+  AC_MSG_RESULT(no)
+])
+
+dnl ---------------------------
+dnl checking for IP_RECVDSTADDR
+dnl ---------------------------
+AC_MSG_CHECKING(for IP_RECVDSTADDR)
+AC_TRY_COMPILE([#include <netinet/in.h>], [
+  int opt = IP_RECVDSTADDR;
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_IP_RECVDSTADDR, 1, [Have IP_RECVDSTADDR])
+], [
+  AC_MSG_RESULT(no)
+])
+
+dnl ----------------------
+dnl checking for IP_RECVIF
+dnl ----------------------
+AC_MSG_CHECKING(for IP_RECVIF)
+AC_TRY_COMPILE([#include <netinet/in.h>], [
+  int opt = IP_RECVIF;
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_IP_RECVIF, 1, [Have IP_RECVIF])
+], [
+  AC_MSG_RESULT(no)
+])
 
 dnl --------------------------------------
 dnl checking for getrusage struct and call
@@ -1687,6 +1737,7 @@ AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$quagga_statedir/bgpd.pid",bgpd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
 AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$quagga_statedir/isisd.pid",isisd PID)
+AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$quagga_statedir/pimd.pid",pimd PID)
 AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$quagga_statedir/watchquagga.pid",watchquagga PID)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$quagga_statedir/zserv.api",zebra api socket)
 AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$quagga_statedir/zebra.vty",zebra vty socket)
@@ -1696,6 +1747,7 @@ AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$quagga_statedir/bgpd.vty",bgpd vty socket)
 AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$quagga_statedir/ospfd.vty",ospfd vty socket)
 AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
+AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$quagga_statedir/pimd.vty",pimd vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
 
 dnl -------------------------------
@@ -1721,6 +1773,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchquagga/Makefile
 	  ospf6d/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
+	  pimd/Makefile
 	  tests/bgpd.tests/Makefile
 	  tests/libzebra.tests/Makefile
 	  redhat/Makefile

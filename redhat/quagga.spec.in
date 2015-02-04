@@ -303,6 +303,9 @@ zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
 %if %{with_isisd}
 zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 %endif
+%if %{with_pimd}
+zebra_spec_add_service pimd     2611/tcp "PIMd vty"
+%endif
 
 for daemon in %daemon_list ; do
 	/sbin/chkconfig --add ${daemon}

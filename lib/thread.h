@@ -1,6 +1,5 @@
 /* Thread management routine header.
  * Copyright (C) 1998 Kunihiro Ishiguro
- * Portions Copyright (c) 2008 Everton da Silva Marques <everton.marques@gmail.com>
  *
  * This file is part of GNU Zebra.
  *

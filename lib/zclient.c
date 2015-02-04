@@ -260,7 +260,7 @@ zclient_socket_connect (struct zclient *zclient)
 #ifdef HAVE_TCP_ZEBRA
   zclient->sock = zclient_socket ();
 #else
-  zclient->sock = zclient_socket_un (zclient_serv_path ? zclient_serv_path : ZEBRA_SERV_PATH);
+  zclient->sock = zclient_socket_un (zclient_serv_path_get());
 #endif
   return zclient->sock;
 }
@@ -1580,6 +1580,11 @@ zclient_event (enum event event, struct zclient *zclient)
 	thread_add_read (zclient->master, zclient_read, zclient, zclient->sock);
       break;
     }
+}
+
+const char *const zclient_serv_path_get()
+{
+  return zclient_serv_path ? zclient_serv_path : ZEBRA_SERV_PATH;
 }
 
 void

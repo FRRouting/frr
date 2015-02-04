@@ -271,6 +271,21 @@ struct memory_list memory_list_isis[] =
   { -1, NULL },
 };
 
+struct memory_list memory_list_pim[] =
+{
+  { MTYPE_PIM_CHANNEL_OIL,       "PIM SSM (S,G) channel OIL"      },
+  { MTYPE_PIM_INTERFACE,         "PIM interface"	          },
+  { MTYPE_PIM_IGMP_JOIN,         "PIM interface IGMP static join" },
+  { MTYPE_PIM_IGMP_SOCKET,       "PIM interface IGMP socket"      },
+  { MTYPE_PIM_IGMP_GROUP,        "PIM interface IGMP group"       },
+  { MTYPE_PIM_IGMP_GROUP_SOURCE, "PIM interface IGMP source"      },
+  { MTYPE_PIM_NEIGHBOR,          "PIM interface neighbor"         },
+  { MTYPE_PIM_IFCHANNEL,         "PIM interface (S,G) state"      },
+  { MTYPE_PIM_UPSTREAM,          "PIM upstream (S,G) state"       },
+  { MTYPE_PIM_SSMPINGD,          "PIM sspimgd socket"             },
+  { -1, NULL },
+};
+
 struct memory_list memory_list_vtysh[] =
 {
   { MTYPE_VTYSH_CONFIG,		"Vtysh configuration",		},
@@ -287,5 +302,6 @@ struct mlist mlists[] __attribute__ ((unused)) = {
   { memory_list_ospf6,	"OSPF6"	},
   { memory_list_isis,	"ISIS"	},
   { memory_list_bgp,	"BGP"	},
+  { memory_list_pim,	"PIM"	},
   { NULL, NULL},
 };
