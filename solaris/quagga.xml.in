@@ -21,6 +21,8 @@
 	Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 	Use is subject to license terms.
 
+    Copyright 2015 Joyent, Inc.
+
 	ident	"@(#)quagga.xml	1.0	05/03/15 SMI"
 -->
 
@@ -189,7 +191,7 @@
 	<!-- ensure that restart of zebra is propogated to daemon -->
 	<dependency
 		name='zebra'
-		grouping='optional_all'
+		grouping='require_all'
 		restart_on='restart'
 		type='service'>
 		<service_fmri value='svc:/network/routing/zebra:quagga' />
@@ -320,7 +322,7 @@
 	<!-- ensure that restart of zebra is propogated to daemon -->
 	<dependency
 		name='zebra'
-		grouping='optional_all'
+		grouping='require_all'
 		restart_on='restart'
 		type='service'>
 		<service_fmri value='svc:/network/routing/zebra:quagga' />
@@ -449,7 +451,7 @@
 	<!-- ensure that restart of zebra is propogated to daemon -->
 	<dependency
 		name='zebra'
-		grouping='optional_all'
+		grouping='require_all'
 		restart_on='restart'
 		type='service'>
 		<service_fmri value='svc:/network/routing/zebra:quagga' />
@@ -580,7 +582,7 @@
 	<!-- ensure that restart of zebra is propogated to daemon -->
 	<dependency
 		name='zebra'
-		grouping='optional_all'
+		grouping='require_all'
 		restart_on='restart'
 		type='service'>
 		<service_fmri value='svc:/network/routing/zebra:quagga' />
@@ -715,7 +717,7 @@
 	<!-- ensure that restart of zebra is propogated to daemon -->
 	<dependency
 		name='zebra'
-		grouping='optional_all'
+		grouping='require_all'
 		restart_on='restart'
 		type='service'>
 		<service_fmri value='svc:/network/routing/zebra:quagga' />

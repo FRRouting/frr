@@ -146,31 +146,6 @@ routeadm_daemon_args () {
 	echo ${args}
 }
 
-# certain daemons need zebra
-routeadm_zebra_enable () {
-
-	if [ "$DAEMON" = "zebra" ]; then
-		return
-	fi
-	
-	enable_zebra=`/usr/bin/svcprop -p \
-		routing/enable_zebra $SMF_FMRI 2> /dev/null`
-	if [ "$enable_zebra" != "false" ]; then
-		zenabled=`/usr/bin/svcprop -p general/enabled zebra:quagga`
-		zenabledt=`/usr/bin/svcprop -p general_ovr/enabled zebra:quagga`
-		if [ "$zenabled" = "true" -o "$zenabledt" = "true" ]; then
-			/usr/sbin/svcadm disable zebra:quagga
-			/usr/sbin/svcadm enable -st zebra:quagga
-		else
-			/usr/sbin/svcadm enable -st zebra:quagga 
-		fi
-		if [ "$?" != "0" ]; then
-			echo "Could not enable zebra:quagga"
-			exit $SMF_EXIT_ERR_FATAL
-		fi
-	fi
-}
-
 # Include smf functions, if available. If not, define smf_present to indicate
 # there is no SMF. Should allow this script to work pre-S10.
 if [ -f "$SMFINCLUDE" ] ; then
@@ -247,7 +222,6 @@ esac
 if [ smf_present -a -f "$ROUTEADMINCLUDE" ]; then
 	handle_routeadm_upgrade $DAEMON;
 	DAEMON_ARGS=`routeadm_daemon_args`;
-	routeadm_zebra_enable $DAEMON;
 else
 	if [ $# -gt 0 ] ; then
 		shift
