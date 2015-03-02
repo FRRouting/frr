@@ -2100,6 +2100,8 @@ if_config_write (struct vty *vty)
 
       if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
 	vty_out(vty, " link-detect%s", VTY_NEWLINE);
+      else
+	vty_out(vty, " no link-detect%s", VTY_NEWLINE);
 
       for (ALL_LIST_ELEMENTS_RO (ifp->connected, addrnode, ifc))
 	  {
