@@ -1,5 +1,35 @@
 Note: this file lists major user-visible changes only.
 
+* Changes in Quagga 0.99.24
+
+User-visible changes:
+- [pimd] New daemon: pimd provides IPv4 PIM-SSM multicast routing.
+- [bgpd] New feature: "next-hop-self all" to override nexthop on iBGP route
+    reflector setups.
+- [bgpd] route-maps have a new action "set ipv6 next-hop peer-address"
+- [bgpd] route-maps have a new action "set as-path prepend last-as"
+- [bgpd] Update validity checking (particularly MP-BGP / IPv6 routes) was
+    touched up significantly.  Please report possible bugs.
+- [ripd] New feature: RIP for IPv4 now supports equal-cost multipath (ECMP)
+- [zebra] Multicast RIB support has been extended.  It still is IPv4 only.
+- [zebra] "no link-detect" is now printed in configurations since it won't
+    be the default anymore soon.  To retain current behaviour, re-save your
+    configuration after updating to 0.99.24.
+
+Distributor-visible changes:
+- --enable-pimd is added to enable pimd.  It is considered experimental, though
+    unless the distribution target is embedded systems with little flash, there
+    is no reason to not include it in packages.
+- --disable-ipv6 no longer exists as an option.  It's 2015, your C library
+    really needs to have IPv6 support by now.
+- --disable-netlink no longer exists as an option.  It didn't work anyway.
+- --disable-solaris no longer exists as an option.  It only controlled some
+    init scripts.
+- --enable-isisd is now the default.
+- mrlg.cgi is no longer included (it was severely outdated).  It can be found
+    independently at http://mrlg.op-sec.us/
+- build on Linux with the musl C library should now work
+
 * Changes in Quagga 0.99.23
 
 Known issues:
