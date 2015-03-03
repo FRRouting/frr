@@ -204,7 +204,7 @@ authentication_check (struct isis_passwd *remote, struct isis_passwd *local,
       /* Compute the digest */
       hmac_md5 (STREAM_DATA (stream), stream_get_endp (stream),
                 (unsigned char *) &(local->passwd), local->len,
-                (caddr_t) &digest);
+                (unsigned char *) &digest);
       /* Copy back the authentication value after the check */
       memcpy (STREAM_DATA (stream) + auth_tlv_offset + 3,
               remote->passwd, ISIS_AUTH_MD5_SIZE);
@@ -2416,7 +2416,7 @@ send_hello (struct isis_circuit *circuit, int level)
       hmac_md5 (STREAM_DATA (circuit->snd_stream),
                 stream_get_endp (circuit->snd_stream),
                 (unsigned char *) &circuit->passwd.passwd, circuit->passwd.len,
-                (caddr_t) &hmac_md5_hash);
+                (unsigned char *) &hmac_md5_hash);
       /* Copy the hash into the stream */
       memcpy (STREAM_DATA (circuit->snd_stream) + auth_tlv_offset + 3,
               hmac_md5_hash, ISIS_AUTH_MD5_SIZE);
@@ -2614,7 +2614,7 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
       hmac_md5 (STREAM_DATA (circuit->snd_stream),
                 stream_get_endp(circuit->snd_stream),
                 (unsigned char *) &passwd->passwd, passwd->len,
-                (caddr_t) &hmac_md5_hash);
+                (unsigned char *) &hmac_md5_hash);
       /* Copy the hash into the stream */
       memcpy (STREAM_DATA (circuit->snd_stream) + auth_tlv_offset + 3,
               hmac_md5_hash, ISIS_AUTH_MD5_SIZE);
@@ -2947,7 +2947,7 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
       hmac_md5 (STREAM_DATA (circuit->snd_stream),
                 stream_get_endp(circuit->snd_stream),
                 (unsigned char *) &passwd->passwd, passwd->len,
-                (caddr_t) &hmac_md5_hash);
+                (unsigned char *) &hmac_md5_hash);
       /* Copy the hash into the stream */
       memcpy (STREAM_DATA (circuit->snd_stream) + auth_tlv_offset + 3,
               hmac_md5_hash, ISIS_AUTH_MD5_SIZE);

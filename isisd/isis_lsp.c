@@ -393,7 +393,7 @@ lsp_auth_update (struct isis_lsp *lsp)
   /* Compute autentication value */
   hmac_md5 (STREAM_DATA (lsp->pdu), stream_get_endp(lsp->pdu),
             (unsigned char *) &passwd->passwd, passwd->len,
-            (caddr_t) &hmac_md5_hash);
+            (unsigned char *) &hmac_md5_hash);
   /* Copy the hash into the stream */
   memcpy (STREAM_DATA (lsp->pdu) + lsp->auth_tlv_offset + 3,
           hmac_md5_hash, ISIS_AUTH_MD5_SIZE);

@@ -84,6 +84,6 @@ do {				\
 
 /* From RFC 2104 */
 void hmac_md5(unsigned char* text, int text_len, unsigned char* key,
-              int key_len, caddr_t digest);
+              int key_len, uint8_t *digest);
 
 #endif /* ! _LIBZEBRA_MD5_H_*/
