@@ -689,7 +689,7 @@ ospf6_spf_schedule (struct ospf6 *ospf6, unsigned int reason)
     {
       if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
         zlog_debug ("SPF: calculation timer is already scheduled: %p",
-                   ospf6->t_spf_calc);
+                    (void *)ospf6->t_spf_calc);
       return;
     }
 

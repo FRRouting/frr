@@ -557,7 +557,7 @@ ospf_mpls_te_new_if (struct interface *ifp)
 
   if (lookup_linkparams_by_ifp (ifp) != NULL)
     {
-      zlog_warn ("ospf_mpls_te_new_if: ifp(%p) already in use?", ifp);
+      zlog_warn ("ospf_mpls_te_new_if: ifp(%p) already in use?", (void *)ifp);
       rc = 0; /* Do nothing here. */
       goto out;
     }

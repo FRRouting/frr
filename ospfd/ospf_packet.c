@@ -1714,7 +1714,7 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
 
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug("LSA[Type%d:%s]: %p new LSA created with Link State Update",
-		  lsa->data->type, inet_ntoa (lsa->data->id), lsa);
+		  lsa->data->type, inet_ntoa (lsa->data->id), (void *)lsa);
       listnode_add (lsas, lsa);
     }
 
@@ -1796,7 +1796,8 @@ ospf_ls_upd (struct ospf *ospf, struct ip *iph, struct ospf_header *ospfh,
 
 #define DISCARD_LSA(L,N) {\
         if (IS_DEBUG_OSPF_EVENT) \
-          zlog_debug ("ospf_lsa_discard() in ospf_ls_upd() point %d: lsa %p Type-%d", N, lsa, (int) lsa->data->type); \
+          zlog_debug ("ospf_lsa_discard() in ospf_ls_upd() point %d: lsa %p" \
+                      " Type-%d", N, (void *)lsa, (int) lsa->data->type); \
         ospf_lsa_discard (L); \
 	continue; }
 
@@ -1981,7 +1982,7 @@ ospf_ls_upd (struct ospf *ospf, struct ip *iph, struct ospf_header *ospfh,
               ospf_lsa_flush_area(lsa,out_if->area);
               if(IS_DEBUG_OSPF_EVENT)
                 zlog_debug ("ospf_lsa_discard() in ospf_ls_upd() point 9: lsa %p Type-%d",
-                            lsa, (int) lsa->data->type);
+                            (void *)lsa, (int) lsa->data->type);
               ospf_lsa_discard (lsa);
               Flag = 1;
             }

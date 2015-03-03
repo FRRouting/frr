@@ -53,7 +53,7 @@
  */
 #define STREAM_WARN_OFFSETS(S) \
   zlog_warn ("&(struct stream): %p, size: %lu, getp: %lu, endp: %lu\n", \
-             (S), \
+             (void *)(S), \
              (unsigned long) (S)->size, \
              (unsigned long) (S)->getp, \
              (unsigned long) (S)->endp)\

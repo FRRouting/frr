@@ -1067,8 +1067,8 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 	    {
 	      zlog_warn ("ISIS-Spf: No lsp (%p) found from root "
                   "to L%d DR %s on %s (ID %d)",
-		  lsp, level, rawlspid_print (lsp_id), 
-		  circuit->interface->name, circuit->circuit_id);
+                  (void *)lsp, level, rawlspid_print (lsp_id),
+                  circuit->interface->name, circuit->circuit_id);
               continue;
 	    }
 	  isis_spf_process_pseudo_lsp (spftree, lsp,

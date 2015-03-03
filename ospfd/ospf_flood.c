@@ -262,7 +262,7 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
     zlog_debug ("LSA[Flooding]: start, NBR %s (%s), cur(%p), New-LSA[%s]",
                inet_ntoa (nbr->router_id),
                LOOKUP (ospf_nsm_state_msg, nbr->state),
-               current,
+               (void *)current,
                dump_lsa_key (new));
 
   lsa_ack_flag = 0;
@@ -602,7 +602,8 @@ ospf_flood_through_area (struct ospf_area *area,
            * for the link on which the LSA has received.
            */
           if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
-            zlog_debug ("Type-9 Opaque-LSA: lsa->oi(%p) != oi(%p)", lsa->oi, oi);
+            zlog_debug ("Type-9 Opaque-LSA: lsa->oi(%p) != oi(%p)",
+                        (void *)lsa->oi, (void *)oi);
           continue;
         }
 #endif /* HAVE_OPAQUE_LSA */
