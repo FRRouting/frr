@@ -218,7 +218,7 @@ main (int argc, char **argv)
 	{
 	case 'n':
           instance = atoi(optarg);
-          if (instance < 1  ||  instance > 65535)
+          if (instance < 1)
             exit(0);
 	  break;
 	case 0:

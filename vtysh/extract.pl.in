@@ -25,7 +25,10 @@
 
 print <<EOF;
 #include <zebra.h>
+
 #include "command.h"
+#include "linklist.h"
+
 #include "vtysh.h"
 
 EOF

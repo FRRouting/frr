@@ -100,20 +100,7 @@ else
 fi
 AM_CONDITIONAL([HAVE_LATEX], [test "x$HAVE_LATEX" = "xtrue"])
 
-dnl ------------------------------------------------------------------
-dnl Intel compiler check. Although Intel tries really hard to make icc
-dnl look like gcc, there are some differences. It's very verbose with
-dnl -Wall and it doesn't support the individual -W options.
-dnl ------------------------------------------------------------------
-if test "x${GCC}" = "xyes" ; then
-  COMPILER="GCC"
-  AC_MSG_CHECKING([whether we are using the Intel compiler])
-  AC_EGREP_CPP([^__INTEL_COMPILER], [__INTEL_COMPILER],
-      [AC_MSG_RESULT([no])],
-      [COMPILER="ICC"
-       AC_MSG_RESULT([yes])]
-  )
-else
+if test "x${GCC}" != "xyes" ; then
   AC_MSG_CHECKING([whether we are using SunPro compiler])
   AC_EGREP_CPP([^__SUNPRO_C.*0x5(7|8|9)], ["__SUNPRO_C" __SUNPRO_C],
       [AC_MSG_RESULT([no])],
@@ -129,41 +116,73 @@ dnl already, eg "-O2 -g" for gcc, "-g" for others
 dnl (Wall is gcc specific... have to make sure
 dnl  gcc is being used before setting it)
 dnl
-dnl Intel icc 8.0 also sets __GNUC__, 
-dnl but doesn't support all these fancy -W options.
-dnl Intel compiler warnings we ignore:
-dnl 279: controlling expression is constant.
-dnl 869: parameter "xxx" was never referenced - to avoid massive warnings
-dnl      about "self", "vty", "argc" and "argv" never referenced in DEFUN
-dnl      macro.
-dnl 981: operands are evaluated in unspecified order.
-dnl
 dnl Sun Studio 10 / SunPro 5.7 is also supported,
 dnl so lets set some sane CFLAGS for it.
 dnl ---------------------------------------------
 
+AC_USE_SYSTEM_EXTENSIONS()
+AC_DEFUN([AC_C_FLAG], [{
+	AC_LANG_PUSH(C)
+	ac_c_flag_save="$CFLAGS"
+	CFLAGS="$CFLAGS $1"
+	AC_MSG_CHECKING([[whether $CC supports $1]])
+	AC_COMPILE_IFELSE(
+		[AC_LANG_PROGRAM([[]])],
+		[
+			AC_MSG_RESULT([yes])
+			m4_if([$3], [], [], [
+				CFLAGS="$ac_c_flag_save"
+				$3
+			])
+		], [
+			CFLAGS="$ac_c_flag_save"
+			AC_MSG_RESULT([no])
+			$2
+		])
+	AC_LANG_POP(C)
+	}])
+
 AC_MSG_CHECKING([whether to set a default CFLAGS])
 if test "x${cflags_specified}" = "x" ; then
   case ${COMPILER} in
-    "ICC")
-        CFLAGS="-Os -g -Wall"
-        AC_MSG_RESULT([Intel default])
-        ;;
-    "GCC")
-  	CFLAGS="-Os -fno-omit-frame-pointer -g -std=gnu99 -Wall"
-  	CFLAGS="${CFLAGS} -Wsign-compare -Wpointer-arith"
-  	CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
-  	CFLAGS="${CFLAGS} -Wmissing-prototypes -Wmissing-declarations"
-  	CFLAGS="${CFLAGS} -Wchar-subscripts -Wcast-qual"
-  	# TODO: conditionally addd -Wpacked if handled
-  	AC_MSG_RESULT([gcc default])
-  	;;
     "SUNPRO")
-  	CFLAGS="-xO4 -v -g -xspace -xcode=pic32 -xstrconst -xc99"
-  	AC_MSG_RESULT([SunPro default])
-  	;;
+        CFLAGS="-xO4 -v -g -xspace -xcode=pic32 -xstrconst -xc99"
+        AC_MSG_RESULT([SunPro default])
+        ;;
     *)
-        AC_MSG_RESULT([unknown compiler])
+        AC_MSG_RESULT([autodetecting])
+
+        AC_C_FLAG([-diag-error 10006])
+        AC_C_FLAG([-std=gnu99])
+        AC_C_FLAG([-g])
+        AC_C_FLAG([-Os], [
+          AC_C_FLAG([-O2])
+        ])
+        AC_C_FLAG([-fno-omit-frame-pointer])
+        AC_C_FLAG([-Wall])
+        AC_C_FLAG([-Wextra])
+        AC_C_FLAG([-Wmissing-prototypes])
+        AC_C_FLAG([-Wmissing-declarations])
+        AC_C_FLAG([-Wpointer-arith])
+        AC_C_FLAG([-Wbad-function-cast])
+        AC_C_FLAG([-Wwrite-strings])
+        if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
+          AC_C_FLAG([-Wcast-qual])
+          AC_C_FLAG([-Wstrict-prototypes])
+          AC_C_FLAG([-Wmissing-noreturn])
+          AC_C_FLAG([-Wmissing-format-attribute])
+          AC_C_FLAG([-Wunreachable-code])
+          AC_C_FLAG([-Wpacked])
+          AC_C_FLAG([-Wpadded])
+        else
+          AC_C_FLAG([-Wno-unused-result])
+        fi
+        AC_C_FLAG([-Wno-unused-parameter])
+        AC_C_FLAG([-Wno-missing-field-initializers])
+        # ICC emits a broken warning for const char *x = a ? "b" : "c";
+        # for some reason the string consts get 'promoted' to char *,
+        # triggering a const to non-const conversion warning.
+        AC_C_FLAG([-diag-disable 3179])
         ;;
   esac
 else
@@ -303,13 +322,6 @@ AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
-
-if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
-  CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
-  CFLAGS="${CFLAGS} -Wmissing-declarations -Wmissing-noreturn"
-  CFLAGS="${CFLAGS} -Wmissing-format-attribute -Wunreachable-code"
-  CFLAGS="${CFLAGS} -Wpacked -Wpadded"
-fi
 
 if test x"${enable_gcc_rdynamic}" != x"no" ; then
   if test x"${enable_gcc_rdynamic}" = x"yes" -o x"$COMPILER" = x"GCC"; then
