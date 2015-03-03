@@ -24,6 +24,7 @@
 
 #include <zebra.h>
 #include "if.h"
+#include "filter.h"
 
 /* Disctirubte list types. */
 enum distribute_type
