@@ -59,6 +59,12 @@ extern struct zebra_privs_t zserv_privs;
  * Because of these varying conventions, the only sane approach is for
  * the <net/route.h> header to define some flavor of ROUNDUP macro.
  */
+
+#if defined(SA_SIZE)
+/* SAROUNDUP is the only thing we need, and SA_SIZE provides that */
+#define SAROUNDUP(a)	SA_SIZE(a)
+#else /* !SA_SIZE */
+
 #if defined(RT_ROUNDUP)
 #define ROUNDUP(a)	RT_ROUNDUP(a)
 #endif /* defined(RT_ROUNDUP) */
@@ -114,6 +120,8 @@ extern struct zebra_privs_t zserv_privs;
          (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
            ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+
+#endif /* !SA_SIZE */
 
 /*
  * We use a call to an inline function to copy (PNT) to (DEST)
@@ -1115,15 +1123,6 @@ rtm_write (int message,
     msg.rtm.rtm_flags |= RTF_REJECT;
 
 
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-#define SOCKADDRSET(X,R) \
-  if (msg.rtm.rtm_addrs & (R)) \
-    { \
-      int len = ROUNDUP ((X)->sa.sa_len); \
-      memcpy (pnt, (caddr_t)(X), len); \
-      pnt += len; \
-    }
-#else 
 #define SOCKADDRSET(X,R) \
   if (msg.rtm.rtm_addrs & (R)) \
     { \
@@ -1131,7 +1130,6 @@ rtm_write (int message,
       memcpy (pnt, (caddr_t)(X), len); \
       pnt += len; \
     }
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   pnt = (caddr_t) msg.buf;
 
