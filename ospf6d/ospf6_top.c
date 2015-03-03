@@ -725,8 +725,9 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
       timerstring(&result, buf, sizeof(buf));
       ospf6_spf_reason_string(o->last_spf_reason, rbuf, sizeof(rbuf));
       vty_out(vty, "last executed %s ago, reason %s%s", buf, rbuf, VNL);
-      vty_out (vty, " Last SPF duration %ld sec %ld usec%s",
-	       o->ts_spf_duration.tv_sec, o->ts_spf_duration.tv_usec, VNL);
+      vty_out (vty, " Last SPF duration %lld sec %lld usec%s",
+               (long long)o->ts_spf_duration.tv_sec,
+               (long long)o->ts_spf_duration.tv_usec, VNL);
     }
   else
     vty_out(vty, "has not been run$%s", VNL);

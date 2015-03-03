@@ -530,15 +530,15 @@ bgp_config_write_damp (struct vty *vty)
 	   && bgp_damp_cfg.reuse_limit == DEFAULT_REUSE
 	   && bgp_damp_cfg.suppress_value == DEFAULT_SUPPRESS
 	   && bgp_damp_cfg.max_suppress_time == bgp_damp_cfg.half_life*4)
-    vty_out (vty, " bgp dampening %ld%s",
-	     bgp_damp_cfg.half_life/60,
+    vty_out (vty, " bgp dampening %lld%s",
+	     bgp_damp_cfg.half_life/60LL,
 	     VTY_NEWLINE);
   else
-    vty_out (vty, " bgp dampening %ld %d %d %ld%s",
-	     bgp_damp_cfg.half_life/60,
+    vty_out (vty, " bgp dampening %lld %d %d %lld%s",
+	     bgp_damp_cfg.half_life/60LL,
 	     bgp_damp_cfg.reuse_limit,
 	     bgp_damp_cfg.suppress_value,
-	     bgp_damp_cfg.max_suppress_time/60,
+	     bgp_damp_cfg.max_suppress_time/60LL,
 	     VTY_NEWLINE);
 }
 

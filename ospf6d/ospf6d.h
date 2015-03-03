@@ -71,19 +71,19 @@ extern struct thread_master *master;
       }                                               \
   } while (0)
 #endif /*timersub*/
-#define timerstring(tv, buf, size)                    \
-  do {                                                \
-    if ((tv)->tv_sec / 60 / 60 / 24)                  \
-      snprintf (buf, size, "%ldd%02ld:%02ld:%02ld",   \
-                (tv)->tv_sec / 60 / 60 / 24,          \
-                (tv)->tv_sec / 60 / 60 % 24,          \
-                (tv)->tv_sec / 60 % 60,               \
-                (tv)->tv_sec % 60);                   \
-    else                                              \
-      snprintf (buf, size, "%02ld:%02ld:%02ld",       \
-                (tv)->tv_sec / 60 / 60 % 24,          \
-                (tv)->tv_sec / 60 % 60,               \
-                (tv)->tv_sec % 60);                   \
+#define timerstring(tv, buf, size)                      \
+  do {                                                  \
+    if ((tv)->tv_sec / 60 / 60 / 24)                    \
+      snprintf (buf, size, "%lldd%02lld:%02lld:%02lld", \
+                (tv)->tv_sec / 60LL / 60 / 24,          \
+                (tv)->tv_sec / 60LL / 60 % 24,          \
+                (tv)->tv_sec / 60LL % 60,               \
+                (tv)->tv_sec % 60LL);                   \
+    else                                                \
+      snprintf (buf, size, "%02lld:%02lld:%02lld",      \
+                (tv)->tv_sec / 60LL / 60 % 24,          \
+                (tv)->tv_sec / 60LL % 60,               \
+                (tv)->tv_sec % 60LL);                   \
   } while (0)
 #define timerstring_local(tv, buf, size)                  \
   do {                                                    \

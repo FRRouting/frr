@@ -651,11 +651,12 @@ ospf6_spf_calculation_thread (struct thread *t)
   ospf6_spf_reason_string(ospf6->spf_reason, rbuf, sizeof(rbuf));
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
-    zlog_debug ("SPF runtime: %ld sec %ld usec",
-		runtime.tv_sec, runtime.tv_usec);
+    zlog_debug ("SPF runtime: %lld sec %lld usec",
+		(long long)runtime.tv_sec, (long long)runtime.tv_usec);
 
-  zlog_info("SPF processing: # Areas: %d, SPF runtime: %ld sec %ld usec, "
-	    "Reason: %s\n", areas_processed, runtime.tv_sec, runtime.tv_usec,
+  zlog_info("SPF processing: # Areas: %d, SPF runtime: %lld sec %lld usec, "
+	    "Reason: %s\n", areas_processed,
+	    (long long)runtime.tv_sec, (long long)runtime.tv_usec,
 	    rbuf);
   ospf6->last_spf_reason = ospf6->spf_reason;
   ospf6_reset_spf_reason(ospf6);
