@@ -148,7 +148,7 @@ buffer_add (struct buffer *b)
 {
   struct buffer_data *d;
 
-  d = XMALLOC(MTYPE_BUFFER_DATA, offsetof(struct buffer_data, data[b->size]));
+  d = XMALLOC(MTYPE_BUFFER_DATA, offsetof(struct buffer_data, data) + b->size);
   d->cp = d->sp = 0;
   d->next = NULL;
 

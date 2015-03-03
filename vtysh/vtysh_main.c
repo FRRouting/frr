@@ -231,8 +231,11 @@ static void log_it(const char *line)
 {
   time_t t = time(NULL);
   struct tm *tmp = localtime(&t);
-  const char *user = getenv("USER") ? : "boot";
+  const char *user = getenv("USER");
   char tod[64];
+
+  if (!user)
+    user = "boot";
 
   strftime(tod, sizeof tod, "%Y%m%d-%H:%M.%S", tmp);
   
