@@ -48,7 +48,7 @@ struct bgp_node
    * @see bgp_node_to_rnode
    * @see bgp_node_from_rnode
    */
-  ROUTE_NODE_FIELDS;
+  ROUTE_NODE_FIELDS
 
   struct bgp_adj_out *adj_out;
 

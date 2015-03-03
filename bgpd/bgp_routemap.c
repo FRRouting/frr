@@ -3839,7 +3839,7 @@ ALIAS (set_aspath_prepend,
        "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
        "Use the peer's AS-number\n"
-       "Number of times to insert");
+       "Number of times to insert")
 
 DEFUN (no_set_aspath_prepend,
        no_set_aspath_prepend_cmd,

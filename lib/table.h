@@ -92,7 +92,7 @@ struct route_table
 /* Each routing entry. */
 struct route_node
 {
-  ROUTE_NODE_FIELDS;
+  ROUTE_NODE_FIELDS
 
 #define l_left   link[0]
 #define l_right  link[1]
