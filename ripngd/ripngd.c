@@ -236,7 +236,7 @@ ripng_recv_packet (int sock, u_char *buf, int bufsize,
   struct msghdr msg;
   struct iovec iov;
   struct cmsghdr  *cmsgptr;
-  struct in6_addr dst;
+  struct in6_addr dst = { .s6_addr = { 0 } };
 
   memset(&dst, 0, sizeof(struct in6_addr));
 

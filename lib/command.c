@@ -1355,7 +1355,7 @@ cmd_matcher_match_multiple(struct cmd_matcher *matcher,
   enum match_type multiple_match;
   unsigned int multiple_index;
   const char *word;
-  const char *arg;
+  const char *arg = NULL;
   struct cmd_token *word_token;
   enum match_type word_match;
 

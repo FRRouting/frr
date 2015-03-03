@@ -590,8 +590,7 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
 
           if (l->m[0].type == LSA_LINK_TYPE_POINTOPOINT)
             {
-	      struct in_addr nexthop;
-	      nexthop.s_addr = 0;
+              struct in_addr nexthop = { .s_addr = 0 };
 
               /* If the destination is a router which connects to
                  the calculating router via a Point-to-MultiPoint
