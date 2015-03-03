@@ -51,6 +51,7 @@ static int del_oif(struct channel_oil *channel_oil,
 		   struct interface *oif,
 		   uint32_t proto_mask);
 
+#if 0
 static void zclient_broken(struct zclient *zclient)
 {
   struct listnode  *ifnode;
@@ -65,6 +66,7 @@ static void zclient_broken(struct zclient *zclient)
 
   /* upon return, zclient will discard connected addresses */
 }
+#endif
 
 /* Router-id update message from zebra. */
 static int pim_router_id_update_zebra(int command, struct zclient *zclient,
