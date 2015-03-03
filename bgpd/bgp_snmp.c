@@ -334,38 +334,42 @@ bgp_peer_lookup_next (struct in_addr *src)
   return NULL;
 }
 
+/* 1.3.6.1.2.1.15.3.1.x  = 10 */
+#define PEERTAB_NAMELEN 10
+
 static struct peer *
 bgpPeerTable_lookup (struct variable *v, oid name[], size_t *length, 
 		     struct in_addr *addr, int exact)
 {
   struct peer *peer = NULL;
+  size_t namelen = v ? v->namelen : PEERTAB_NAMELEN;
   int len;
 
   if (exact)
     {
       /* Check the length. */
-      if (*length - v->namelen != sizeof (struct in_addr))
+      if (*length - namelen != sizeof (struct in_addr))
 	return NULL;
 
-      oid2in_addr (name + v->namelen, IN_ADDR_SIZE, addr);
+      oid2in_addr (name + namelen, IN_ADDR_SIZE, addr);
 
       peer = peer_lookup_addr_ipv4 (addr);
       return peer;
     }
   else
     {
-      len = *length - v->namelen;
+      len = *length - namelen;
       if (len > 4) len = 4;
       
-      oid2in_addr (name + v->namelen, len, addr);
+      oid2in_addr (name + namelen, len, addr);
       
       peer = bgp_peer_lookup_next (addr);
 
       if (peer == NULL)
 	return NULL;
 
-      oid_copy_addr (name + v->namelen, addr, sizeof (struct in_addr));
-      *length = sizeof (struct in_addr) + v->namelen;
+      oid_copy_addr (name + namelen, addr, sizeof (struct in_addr));
+      *length = sizeof (struct in_addr) + namelen;
 
       return peer;
     }
@@ -376,14 +380,12 @@ bgpPeerTable_lookup (struct variable *v, oid name[], size_t *length,
 static int
 write_bgpPeerTable (int action, u_char *var_val,
 		    u_char var_val_type, size_t var_val_len,
-		    u_char *statP, oid *name, size_t length,
-		    struct variable *v)
+		    u_char *statP, oid *name, size_t length)
 {
   struct in_addr addr;
   struct peer *peer;
   long intval;
-  size_t bigsize = SNMP_MAX_LEN;
-  
+
   if (var_val_type != ASN_INTEGER) 
     {
       return SNMP_ERR_WRONGTYPE;
@@ -393,21 +395,21 @@ write_bgpPeerTable (int action, u_char *var_val,
       return SNMP_ERR_WRONGLENGTH;
     }
 
-  if (! asn_parse_int(var_val, &bigsize, &var_val_type,
-                      &intval, sizeof(long)))
-    {
-      return SNMP_ERR_WRONGENCODING;
-    }
+  intval = *(long *)var_val;
 
   memset (&addr, 0, sizeof (struct in_addr));
 
-  peer = bgpPeerTable_lookup (v, name, &length, &addr, 1);
+  peer = bgpPeerTable_lookup (NULL, name, &length, &addr, 1);
   if (! peer)
     return SNMP_ERR_NOSUCHNAME;
 
-  printf ("val: %ld\n", intval);
+  if (action != SNMP_MSG_INTERNAL_SET_COMMIT)
+    return SNMP_ERR_NOERROR;
 
-  switch (v->magic)
+  zlog_info ("%s: SNMP write .%ld = %ld",
+             peer->host, (long)name[PEERTAB_NAMELEN - 1], intval);
+
+  switch (name[PEERTAB_NAMELEN - 1])
     {
     case BGPPEERADMINSTATUS:
 #define BGP_PeerAdmin_stop  1
