@@ -476,7 +476,8 @@ int pim_msg_send(int fd,
     pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_size);
   }
 
-  sent = sendto(fd, pim_msg, pim_msg_size, MSG_DONTWAIT, &to, tolen);
+  sent = sendto(fd, pim_msg, pim_msg_size, MSG_DONTWAIT,
+                (struct sockaddr *)&to, tolen);
   if (sent != (ssize_t) pim_msg_size) {
     int e = errno;
     char dst_str[100];

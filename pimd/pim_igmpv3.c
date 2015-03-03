@@ -1680,7 +1680,8 @@ void pim_igmp_send_membership_query(struct igmp_group *group,
 #endif
   tolen = sizeof(to);
 
-  sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT, &to, tolen);
+  sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
+                (struct sockaddr *)&to, tolen);
   if (sent != (ssize_t) msg_size) {
     int e = errno;
     char dst_str[100];

@@ -96,7 +96,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
   sockaddr.sin_addr   = addr;
   sockaddr.sin_port   = htons(port);
 
-  if (bind(fd, &sockaddr, sizeof(sockaddr))) {
+  if (bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr))) {
     char addr_str[100];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
     zlog_warn("%s: bind(fd=%d,addr=%s,port=%d,len=%zu) failure: errno=%d: %s",
@@ -222,7 +222,8 @@ static void ssmpingd_sendto(struct ssmpingd_sock *ss,
   socklen_t tolen = sizeof(to);
   int sent;
 
-  sent = sendto(ss->sock_fd, buf, len, MSG_DONTWAIT, &to, tolen);
+  sent = sendto(ss->sock_fd, buf, len, MSG_DONTWAIT,
+                (struct sockaddr *)&to, tolen);
   if (sent != len) {
     int e = errno;
     char to_str[100];
