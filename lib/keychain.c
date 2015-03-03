@@ -381,18 +381,22 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
     NULL
   };
 
-#define GET_LONG_RANGE(V,STR,MIN,MAX) \
+#define _GET_LONG_RANGE(V,STR,MMCOND) \
 { \
   unsigned long tmpl; \
   char *endptr = NULL; \
   tmpl = strtoul ((STR), &endptr, 10); \
   if (*endptr != '\0' || tmpl == ULONG_MAX) \
     return -1; \
-  if ( tmpl < (MIN) || tmpl > (MAX)) \
+  if (MMCOND) \
     return -1; \
   (V) = tmpl; \
 }
-      
+#define GET_LONG_RANGE(V,STR,MIN,MAX) \
+        _GET_LONG_RANGE(V,STR,tmpl < (MIN) || tmpl > (MAX))
+#define GET_LONG_RANGE0(V,STR,MAX) \
+        _GET_LONG_RANGE(V,STR,tmpl > (MAX))
+
   /* Check hour field of time_str. */
   colon = strchr (time_str, ':');
   if (colon == NULL)
@@ -400,7 +404,7 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
   *colon = '\0';
 
   /* Hour must be between 0 and 23. */
-  GET_LONG_RANGE (hour, time_str, 0, 23);
+  GET_LONG_RANGE0 (hour, time_str, 23);
 
   /* Check min field of time_str. */
   time_str = colon + 1;
@@ -410,7 +414,7 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
   *colon = '\0';
 
   /* Min must be between 0 and 59. */
-  GET_LONG_RANGE (min, time_str, 0, 59);
+  GET_LONG_RANGE0 (min, time_str, 59);
 
   /* Check sec field of time_str. */
   time_str = colon + 1;
@@ -418,7 +422,7 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
     return -1;
   
   /* Sec must be between 0 and 59. */
-  GET_LONG_RANGE (sec, time_str, 0, 59);
+  GET_LONG_RANGE0 (sec, time_str, 59);
   
   /* Check day_str.  Day must be <1-31>. */
   GET_LONG_RANGE (day, day_str, 1, 31);
