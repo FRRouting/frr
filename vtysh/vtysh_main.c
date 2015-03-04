@@ -124,10 +124,9 @@ sigint (int sig)
 
 /* Signale wrapper for vtysh. We don't use sigevent because
  * vtysh doesn't use threads. TODO */
-static RETSIGTYPE *
+static void
 vtysh_signal_set (int signo, void (*func)(int))
 {
-  int ret;
   struct sigaction sig;
   struct sigaction osig;
 
@@ -138,12 +137,7 @@ vtysh_signal_set (int signo, void (*func)(int))
   sig.sa_flags |= SA_RESTART;
 #endif /* SA_RESTART */
 
-  ret = sigaction (signo, &sig, &osig);
-
-  if (ret < 0) 
-    return (SIG_ERR);
-  else
-    return (osig.sa_handler);
+  sigaction (signo, &sig, &osig);
 }
 
 /* Initialization of signal handles. */
