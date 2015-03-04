@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "linklist.h"
 #include "command.h"
 #include "memory.h"
 #include "vtysh/vtysh.h"
@@ -68,21 +69,6 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
 };
-
-/* 
- * Compiler is warning about prototypes not being declared.
- * The DEFUNSH and DEFUN macro's are messing with the
- * compiler I believe.  This is just to make it happy.
- */
-int vtysh_end(void);
-int vtysh_rl_describe(void);
-void vtysh_exit_ripd_only(void);
-int vtysh_connect_all_instances(struct vtysh_client *);
-
-
-/* We need direct access to ripd to implement vtysh_exit_ripd_only. */
-static struct vtysh_client *ripd_client = NULL;
- 
 
 /* Using integrated config from Quagga.conf. Default is no. */
 int vtysh_writeconfig_integrated = 0;
@@ -322,14 +308,6 @@ vtysh_client_execute (struct vtysh_client *head_client, const char *line, FILE *
     }
   return CMD_SUCCESS;
 }
-
-void
-vtysh_exit_ripd_only (void)
-{
-  if (ripd_client)
-    vtysh_client_execute (ripd_client, "exit", stdout);
-}
-
 
 void
 vtysh_pager_init (void)
@@ -754,7 +732,7 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 }
 
 /* We don't care about the point of the cursor when '?' is typed. */
-int
+static int
 vtysh_rl_describe (void)
 {
   int ret;
@@ -1006,7 +984,7 @@ static struct cmd_node keychain_key_node =
 extern struct cmd_node vty_node;
 
 /* When '^Z' is received from vty, move down to the enable mode. */
-int
+static int
 vtysh_end (void)
 {
   switch (vty->node)
@@ -2680,7 +2658,7 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
     }
 }
 
-int
+static int
 vtysh_connect_all_instances (struct vtysh_client *head_client)
 {
   struct vtysh_client *client;
@@ -2713,9 +2691,6 @@ vtysh_connect_all(const char *daemon_name)
 	  matches++;
 	  if (vtysh_connect(&vtysh_client[i]) == 0)
 	    rc++;
-	  /* We need direct access to ripd in vtysh_exit_ripd_only. */
-	  if (vtysh_client[i].flag == VTYSH_RIPD)
-	    ripd_client = &vtysh_client[i];
 
           rc += vtysh_connect_all_instances(&vtysh_client[i]);
        }

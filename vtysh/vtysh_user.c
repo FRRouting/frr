@@ -47,10 +47,6 @@
 #ifdef USE_PAM
 static int vtysh_pam(const char *);
 #endif
-struct vtysh_user *user_new(void);
-void user_free(struct vtysh_user *);
-struct vtysh_user *user_lookup(const char *);
-struct vtysh_user *user_get(const char *);
 int vtysh_auth(void);
 void vtysh_user_init(void);
 
@@ -117,19 +113,13 @@ struct vtysh_user
 
 struct list *userlist;
 
-struct vtysh_user *
+static struct vtysh_user *
 user_new (void)
 {
   return XCALLOC (0, sizeof (struct vtysh_user));
 }
 
-void
-user_free (struct vtysh_user *user)
-{
-  XFREE (0, user);
-}
-
-struct vtysh_user *
+static struct vtysh_user *
 user_lookup (const char *name)
 {
   struct listnode *node, *nnode;
@@ -160,7 +150,7 @@ user_config_write ()
     }
 }
 
-struct vtysh_user *
+static struct vtysh_user *
 user_get (const char *name)
 {
   struct vtysh_user *user;
@@ -200,7 +190,7 @@ DEFUN (username_nopassword,
 }
 
 int
-vtysh_auth ()
+vtysh_auth (void)
 {
   struct vtysh_user *user;
   struct passwd *passwd;

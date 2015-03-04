@@ -27,21 +27,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
 
-/* 
- * Compiler is warning about prototypes not being declared.
- * The DEFUNSH and DEFUN macro's are messing with the
- * compiler I believe.  This is just to make it happy.
- */
-int line_cmp(char *, char*);
-void line_del(char *);
-struct config *config_new(void);
-int config_cmp(struct config *, struct config *);
-void config_del(struct config *);
-struct config *config_get(int, const char *);
-void config_add_line(struct list *, const char *);
-void config_add_line_uniq(struct list *, const char *);
-void vtysh_config_parse_line(const char *);
-
 vector configvec;
 
 extern int vtysh_writeconfig_integrated;
@@ -63,19 +48,19 @@ struct config
 
 struct list *config_top;
 
-int
+static int
 line_cmp (char *c1, char *c2)
 {
   return strcmp (c1, c2);
 }
 
-void
+static void
 line_del (char *line)
 {
   XFREE (MTYPE_VTYSH_CONFIG_LINE, line);
 }
 
-struct config *
+static struct config *
 config_new (void)
 {
   struct config *config;
@@ -83,13 +68,13 @@ config_new (void)
   return config;
 }
 
-int
+static int
 config_cmp (struct config *c1, struct config *c2)
 {
   return strcmp (c1->name, c2->name);
 }
 
-void
+static void
 config_del (struct config* config)
 {
   list_delete (config->line);
@@ -98,7 +83,7 @@ config_del (struct config* config)
   XFREE (MTYPE_VTYSH_CONFIG, config);
 }
 
-struct config *
+static struct config *
 config_get (int index, const char *line)
 {
   struct config *config;
@@ -143,7 +128,7 @@ config_add_line (struct list *config, const char *line)
   listnode_add (config, XSTRDUP (MTYPE_VTYSH_CONFIG_LINE, line));
 }
 
-void
+static void
 config_add_line_uniq (struct list *config, const char *line)
 {
   struct listnode *node, *nnode;
@@ -157,7 +142,7 @@ config_add_line_uniq (struct list *config, const char *line)
   listnode_add_sort (config, XSTRDUP (MTYPE_VTYSH_CONFIG_LINE, line));
 }
 
-void
+static void
 vtysh_config_parse_line (const char *line)
 {
   char c;

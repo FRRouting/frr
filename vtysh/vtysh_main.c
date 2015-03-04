@@ -36,6 +36,7 @@
 #include "command.h"
 #include "memory.h"
 #include "privs.h"
+#include "linklist.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
