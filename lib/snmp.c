@@ -30,7 +30,7 @@
 #define min(A,B) ((A) < (B) ? (A) : (B))
 
 int
-oid_compare (oid *o1, int o1_len, oid *o2, int o2_len)
+oid_compare (const oid *o1, int o1_len, const oid *o2, int o2_len)
 {
   int i;
 

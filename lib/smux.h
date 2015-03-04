@@ -53,8 +53,8 @@ struct trap_object
 
 /* Declare SMUX return value. */
 #define SNMP_LOCAL_VARIABLES \
-  static long snmp_int_val; \
-  static struct in_addr snmp_in_addr_val;
+  static long snmp_int_val __attribute__ ((unused)); \
+  static struct in_addr snmp_in_addr_val __attribute__ ((unused));
 
 #define SNMP_INTEGER(V) \
   ( \
@@ -106,7 +106,7 @@ extern int smux_trap (struct variable *, size_t,
 		      const struct trap_object *, size_t,
 		      u_char);
 
-extern int oid_compare (oid *, int, oid *, int);
+extern int oid_compare (const oid *, int, const oid *, int);
 extern void oid2in_addr (oid [], int, struct in_addr *);
 extern void *oid_copy (void *, const void *, size_t);
 extern void oid_copy_addr (oid [], struct in_addr *, int);

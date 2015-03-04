@@ -295,7 +295,7 @@ rip2PeerLookup (struct variable *v, oid name[], size_t *length,
 
       peer = rip_peer_lookup (addr);
 
-      if (peer->domain == name[v->namelen + sizeof (struct in_addr)])
+      if (peer->domain == (int)name[v->namelen + sizeof (struct in_addr)])
 	return peer;
 
       return NULL;
@@ -311,8 +311,8 @@ rip2PeerLookup (struct variable *v, oid name[], size_t *length,
       peer = rip_peer_lookup (addr);
       if (peer)
 	{
-	  if ((len < sizeof (struct in_addr) + 1) ||
-	      (peer->domain > name[v->namelen + sizeof (struct in_addr)]))
+	  if ((len < (int)sizeof (struct in_addr) + 1) ||
+	      (peer->domain > (int)name[v->namelen + sizeof (struct in_addr)]))
 	    {
 	      oid_copy_addr (name + v->namelen, &peer->addr,
 			     sizeof (struct in_addr));

@@ -986,7 +986,7 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
       offsetlen = *length - v->namelen;
       len = offsetlen;
 
-      if (len > IN_ADDR_SIZE)
+      if (len > (int)IN_ADDR_SIZE)
 	len = IN_ADDR_SIZE;
 
       oid2in_addr (offset, len, area_id);
@@ -1026,7 +1026,7 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
 	  else
 	    {
 	      ls_id_next = 0;
-	      if (len > IN_ADDR_SIZE)
+	      if (len > (int)IN_ADDR_SIZE)
 		len = IN_ADDR_SIZE;
 
 	      oid2in_addr (offset, len, ls_id);
@@ -1042,7 +1042,7 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
 	  else
 	    {
 	      router_id_next = 0;
-	      if (len > IN_ADDR_SIZE)
+	      if (len > (int)IN_ADDR_SIZE)
 		len = IN_ADDR_SIZE;
 
 	      oid2in_addr (offset, len, router_id);
@@ -1152,7 +1152,7 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
 {
   oid *offset;
   int offsetlen;
-  unsigned int len;
+  int len;
   struct ospf *ospf;
   struct ospf_area *area;
   struct ospf_area_range *range;
@@ -1193,7 +1193,7 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
       offsetlen = *length - v->namelen;
 
       len = offsetlen;
-      if (len > IN_ADDR_SIZE)
+      if (len > (int)IN_ADDR_SIZE)
 	len = IN_ADDR_SIZE;
 
       oid2in_addr (offset, len, area_id);
@@ -1215,7 +1215,7 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
 
 	  if (len < 0)
 	    len = 0;
-	  if (len > IN_ADDR_SIZE)
+	  if (len > (int)IN_ADDR_SIZE)
 	    len = IN_ADDR_SIZE;
 
 	  oid2in_addr (offset, len, range_net);
