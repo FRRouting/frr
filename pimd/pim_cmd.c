@@ -2031,8 +2031,8 @@ static void show_multicast_interfaces(struct vty *vty)
     if (ioctl(qpim_mroute_socket_fd, SIOCGETVIFCNT, &vreq)) {
       int e = errno;
       vty_out(vty,
-	      "ioctl(SIOCGETVIFCNT=%d) failure for interface %s vif_index=%d: errno=%d: %s%s",
-	      SIOCGETVIFCNT,
+	      "ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s%s",
+	      (unsigned long)SIOCGETVIFCNT,
 	      ifp->name,
 	      pim_ifp->mroute_vif_index,
 	      e,
@@ -2225,8 +2225,8 @@ static void show_mroute_count(struct vty *vty)
     if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
       int e = errno;
       vty_out(vty,
-	      "ioctl(SIOCGETSGCNT=%d) failure for (S,G)=(%s,%s): errno=%d: %s%s",
-	      SIOCGETSGCNT,
+	      "ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s%s",
+	      (unsigned long)SIOCGETSGCNT,
 	      source_str,
 	      group_str,
 	      e,
