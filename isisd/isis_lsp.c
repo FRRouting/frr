@@ -2742,7 +2742,7 @@ static int
 top_lsp_refresh (struct thread *thread)
 {
   struct isis_lsp *lsp;
-  u_int16_t rem_lifetime, refresh_time;
+  u_int16_t rem_lifetime;
 
   lsp = THREAD_ARG (thread);
   assert (lsp);
@@ -2767,7 +2767,7 @@ top_lsp_refresh (struct thread *thread)
   rem_lifetime = lsp_rem_lifetime (lsp->area, IS_LEVEL_1);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
 
-  refresh_time = lsp_refresh_time (lsp, rem_lifetime);
+  /* refresh_time = lsp_refresh_time (lsp, rem_lifetime); */
   THREAD_TIMER_ON (master, lsp->t_lsp_top_ref, top_lsp_refresh, lsp,
 		   lsp->area->lsp_refresh[0]);
 
