@@ -1916,7 +1916,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 
   RNODE_FOREACH_RIB (rn, rib)
     {
-      const char *mcast_info;
+      const char *mcast_info = "";
       if (mcast)
         {
           rib_table_info_t *info = rn->table->info;
@@ -1924,8 +1924,6 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
                        ? " using Multicast RIB"
                        : " using Unicast RIB";
         }
-      else
-	mcast_info = "";
       
       vty_out (vty, "Routing entry for %s/%d%s%s",
               inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen, mcast_info,
