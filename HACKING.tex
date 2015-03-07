@@ -308,16 +308,36 @@ using the srcdir variable.
   build:
 
   \begin{verbatim}
-    git-clone git:///code.quagga.net/quagga.git quagga
-    git-archive --remote=git://code.quagga.net/quagga.git \
-        --prefix=quagga-release/ master | tar -xf -
-    cd quagga-release
+    vim configure.ac
+    git commit -m "release: 0.99.99.99"
+    git tag -u 54CD2E60 quagga-0.99.99.99
+    git push savannah tag quagga-0.99.99.99
+
+    git archive --prefix=quagga-release/ quagga-0.99.99.99 | tar xC /tmp
+    git log quagga-0.99.99.98..quagga-0.99.99.99 > \
+       /tmp/quagga-release/quagga-0.99.99.99.changelog.txt
+    cd /tmp/quagga-release
 
     autoreconf -i
     ./configure
     make
-    make dist
+    make dist-gzip
+
+    gunzip < quagga-0.99.99.99.tar.gz > quagga-0.99.99.99.tar
+    xz -6e < quagga-0.99.99.99.tar > quagga-0.99.99.99.tar.xz
+    gpg -u 54CD2E60 -a --detach-sign quagga-0.99.99.99.tar
+
+    scp quagga-0.99.99.99.* username@dl.sv.nongnu.org:/releases/quagga
   \end{verbatim}
+
+  Do NOT do this in a subdirectory of the Quagga sources, autoconf will think
+  it's a sub-package and fail to include neccessary files.
+
+\item Add the version number on https://bugzilla.quagga.net/, under
+  Administration, Products, "Quagga", Edit versions, Add a version.
+\item Edit the wiki on https://wiki.quagga.net/wiki/index.php/Release\_status
+\item Post a news entry on Savannah
+\item Send a mail to quagga-dev and quagga-users
 \end{itemize}
 
 The tarball which `make dist' creates is the tarball to be released! The
