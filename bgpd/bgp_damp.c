@@ -684,3 +684,36 @@ bgp_damp_reuse_time_vty (struct vty *vty, struct bgp_info *binfo,
 
   return  bgp_get_reuse_time (penalty, timebuf, len, use_json, json);
 }
+
+int
+bgp_show_dampening_parameters (struct vty *vty, afi_t afi, safi_t safi)
+{
+  struct bgp *bgp;
+  bgp = bgp_get_default();
+
+  if (bgp == NULL)
+    {
+      vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
+    {
+      vty_out (vty, "Half-life time: %ld min%s",
+                    damp->half_life / 60, VTY_NEWLINE);
+      vty_out (vty, "Reuse penalty: %d%s",
+                    damp->reuse_limit, VTY_NEWLINE);
+      vty_out (vty, "Suppress penalty: %d%s",
+                    damp->suppress_value, VTY_NEWLINE);
+      vty_out (vty, "Max suppress time: %ld min%s",
+                    damp->max_suppress_time / 60, VTY_NEWLINE);
+      vty_out (vty, "Max supress penalty: %u%s",
+                    damp->ceiling, VTY_NEWLINE);
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+  else
+    vty_out (vty, "dampening not enabled for %s%s",
+                  afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+
+  return CMD_SUCCESS;
+}
