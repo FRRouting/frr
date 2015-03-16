@@ -13530,6 +13530,14 @@ DEFUN (bgp_damp_set,
     }
 
   bgp = vty->index;
+
+  if (suppress < reuse)
+    {
+      vty_out (vty, "Suppress value cannot be less than reuse value %s",
+                    VTY_NEWLINE);
+      return 0;
+    }
+
   return bgp_damp_enable (bgp, bgp_node_afi (vty), bgp_node_safi (vty),
 			  half, reuse, suppress, max);
 }
