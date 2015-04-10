@@ -414,7 +414,7 @@ isis_circuit_id_gen (struct interface *ifp)
    */
   for (i = 0; i < strlen (ifp->name); i++)
     {
-      if (isdigit(ifp->name[i]))
+      if (isdigit((unsigned char)ifp->name[i]))
         {
           if (start < 0)
             {

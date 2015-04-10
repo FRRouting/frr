@@ -1387,7 +1387,8 @@ DEFUN (ipv6_nd_prefix,
 
   if (argc > 1)
     {
-      if ((isdigit(argv[1][0])) || strncmp (argv[1], "i", 1) == 0)
+      if ((isdigit((unsigned char)argv[1][0]))
+	  || strncmp (argv[1], "i", 1) == 0)
 	{
 	  if ( strncmp (argv[1], "i", 1) == 0)
 	    rp.AdvValidLifetime = UINT32_MAX;
