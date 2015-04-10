@@ -130,7 +130,7 @@ extern struct zebra_privs_t zserv_privs;
  * 2. So the compiler doesn't complain when DEST is NULL, which is only true
  *    when we are skipping the copy and incrementing to the next SA
  */
-static void inline
+static inline void
 rta_copy (union sockunion *dest, caddr_t src) {
   int len;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
@@ -280,7 +280,7 @@ int routing_sock = -1;
 /* #define DEBUG */
 
 /* Supported address family check. */
-static int inline
+static inline int
 af_check (int family)
 {
   if (family == AF_INET)
