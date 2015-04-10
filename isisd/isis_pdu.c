@@ -2271,7 +2271,7 @@ send_hello (struct isis_circuit *circuit, int level)
   struct isis_lan_hello_hdr hello_hdr;
   struct isis_p2p_hello_hdr p2p_hello_hdr;
   unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
-  unsigned long len_pointer, length, auth_tlv_offset = 0;
+  size_t len_pointer, length, auth_tlv_offset = 0;
   u_int32_t interval;
   int retval;
 
@@ -2426,16 +2426,14 @@ send_hello (struct isis_circuit *circuit, int level)
     {
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
-	  zlog_debug ("ISIS-Adj (%s): Sending L%d LAN IIH on %s, length %ld",
+	  zlog_debug ("ISIS-Adj (%s): Sending L%d LAN IIH on %s, length %zd",
 		      circuit->area->area_tag, level, circuit->interface->name,
-		      /* FIXME: use %z when we stop supporting old compilers. */
 		      length);
 	}
       else
 	{
-	  zlog_debug ("ISIS-Adj (%s): Sending P2P IIH on %s, length %ld",
+	  zlog_debug ("ISIS-Adj (%s): Sending P2P IIH on %s, length %zd",
 		      circuit->area->area_tag, circuit->interface->name,
-		      /* FIXME: use %z when we stop supporting old compilers. */
 		      length);
 	}
       if (isis->debugs & DEBUG_PACKET_DUMP)
