@@ -2561,10 +2561,26 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, p, prd);
 
   /* If peer is soft reconfiguration enabled.  Record input packet for
-     further calculation. */
+   * further calculation.
+   *
+   * Cisco IOS 12.4(24)T4 on session establishment sends withdraws for all
+   * routes that are filtered.  This tanks out Quagga RS pretty badly due to
+   * the iteration over all RS clients.
+   * Since we need to remove the entry from adj_in anyway, do that first and
+   * if there was no entry, we don't need to do anything more.
+   */
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
       && peer != bgp->peer_self)
-    bgp_adj_in_unset (rn, peer, addpath_id);
+    if (!bgp_adj_in_unset (rn, peer, addpath_id))
+      {
+        if (bgp_debug_update (peer, p, NULL, 1))
+          zlog_debug ("%s withdrawing route %s/%d "
+		      "not in adj-in", peer->host,
+		      inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+		      p->prefixlen);
+        bgp_unlock_node (rn);
+        return 0;
+      }
 
   /* Lookup withdrawn route. */
   for (ri = rn->info; ri; ri = ri->next)

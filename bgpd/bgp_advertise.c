@@ -222,7 +222,7 @@ bgp_adj_in_remove (struct bgp_node *rn, struct bgp_adj_in *bai)
   XFREE (MTYPE_BGP_ADJ_IN, bai);
 }
 
-void
+int
 bgp_adj_in_unset (struct bgp_node *rn, struct peer *peer,
                   u_int32_t addpath_id)
 {
@@ -230,6 +230,10 @@ bgp_adj_in_unset (struct bgp_node *rn, struct peer *peer,
   struct bgp_adj_in *adj_next;
 
   adj = rn->adj_in;
+
+  if (!adj)
+    return 0;
+
   while (adj)
     {
       adj_next = adj->next;
@@ -242,6 +246,8 @@ bgp_adj_in_unset (struct bgp_node *rn, struct peer *peer,
 
       adj = adj_next;
     }
+
+  return 1;
 }
 
 void
