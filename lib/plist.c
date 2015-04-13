@@ -641,15 +641,20 @@ prefix_list_entry_add (struct prefix_list *plist,
   if (pentry->seq == -1)
     pentry->seq = prefix_new_seq_get (plist);
 
-  /* Is there any same seq prefix list entry? */
-  replace = prefix_seq_check (plist, pentry->seq);
-  if (replace)
-    prefix_list_entry_delete (plist, replace, 0);
+  if (plist->tail && pentry->seq > plist->tail->seq)
+    point = NULL;
+  else
+    {
+      /* Is there any same seq prefix list entry? */
+      replace = prefix_seq_check (plist, pentry->seq);
+      if (replace)
+        prefix_list_entry_delete (plist, replace, 0);
 
-  /* Check insert point. */
-  for (point = plist->head; point; point = point->next)
-    if (point->seq >= pentry->seq)
-      break;
+      /* Check insert point. */
+      for (point = plist->head; point; point = point->next)
+        if (point->seq >= pentry->seq)
+          break;
+    }
 
   /* In case of this is the first element of the list. */
   pentry->next = point;
@@ -829,6 +834,10 @@ static struct prefix_list_entry *
 prefix_entry_dup_check (struct prefix_list *plist,
 			struct prefix_list_entry *new)
 {
+  size_t depth, maxdepth = plist->master->trie_depth;
+  uint8_t byte, *bytes = &new->prefix.u.prefix;
+  size_t validbits = new->prefix.prefixlen;
+  struct pltrie_table *table;
   struct prefix_list_entry *pentry;
   int seq = 0;
 
@@ -837,7 +846,24 @@ prefix_entry_dup_check (struct prefix_list *plist,
   else
     seq = new->seq;
 
-  for (pentry = plist->head; pentry; pentry = pentry->next)
+  table = plist->trie;
+  for (depth = 0; validbits > PLC_BITS && depth < maxdepth - 1; depth++)
+    {
+      byte = bytes[depth];
+      if (!table->entries[byte].next_table)
+        return NULL;
+
+      table = table->entries[byte].next_table;
+      validbits -= PLC_BITS;
+    }
+
+  byte = bytes[depth];
+  if (validbits > PLC_BITS)
+    pentry = table->entries[byte].final_chain;
+  else
+    pentry = table->entries[byte].up_chain;
+
+  for (; pentry; pentry = pentry->next_best)
     {
       if (prefix_same (&pentry->prefix, &new->prefix)
 	  && pentry->type == new->type
