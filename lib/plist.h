@@ -23,8 +23,6 @@
 #ifndef _QUAGGA_PLIST_H
 #define _QUAGGA_PLIST_H
 
-#define AFI_ORF_PREFIX 65535
-
 enum prefix_list_type 
 {
   PREFIX_DENY,
@@ -51,11 +49,12 @@ extern const char *prefix_list_name (struct prefix_list *);
 extern struct prefix_list *prefix_list_lookup (afi_t, const char *);
 extern enum prefix_list_type prefix_list_apply (struct prefix_list *, void *);
 
+extern struct prefix_list *prefix_bgp_orf_lookup (afi_t, const char *);
 extern struct stream * prefix_bgp_orf_entry (struct stream *,
                                              struct prefix_list *,
                                              u_char, u_char, u_char);
 extern int prefix_bgp_orf_set (char *, afi_t, struct orf_prefix *, int, int);
-extern void prefix_bgp_orf_remove_all (char *);
+extern void prefix_bgp_orf_remove_all (afi_t, char *);
 extern int prefix_bgp_show_prefix_list (struct vty *, afi_t, char *, u_char);
 
 #endif /* _QUAGGA_PLIST_H */

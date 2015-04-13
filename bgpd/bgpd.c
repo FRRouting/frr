@@ -807,7 +807,7 @@ peer_af_flag_reset (struct peer *peer, afi_t afi, safi_t safi)
   /* Clear ORF info */
   peer->orf_plist[afi][safi] = NULL;
   sprintf (orf_name, "%s.%d.%d", peer->host, afi, safi);
-  prefix_bgp_orf_remove_all (orf_name);
+  prefix_bgp_orf_remove_all (afi, orf_name);
 
   /* Set default neighbor send-community.  */
   if (! bgp_option_check (BGP_OPT_CONFIG_CISCO))
