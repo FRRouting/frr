@@ -13,7 +13,7 @@ WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
-You should have received a copy of the GNU General Public License
+You should have received a copy of the GN5U General Public License
 along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
@@ -5144,7 +5144,7 @@ peer_prefix_list_update (struct prefix_list *plist)
        * Update the prefix-list on update groups.
        */
       update_group_policy_update(bgp, BGP_POLICY_PREFIX_LIST,
-				 plist ? plist->name : NULL, 0, 0);
+				 plist ? prefix_list_name(plist) : NULL, 0, 0);
 
       for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{

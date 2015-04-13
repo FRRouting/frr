@@ -32,6 +32,9 @@ pkginclude_HEADERS = \
 	workqueue.h route_types.h libospf.h nexthop.h json.h \
 	ptm_lib.h csv.h bfd.h vrf.h
 
+noinst_HEADERS = \
+	plist_int.h
+
 EXTRA_DIST = \
 	regex.c regex-gnu.h \
 	queue.h \

@@ -32,25 +32,7 @@
 #include "log.h"
 #include "routemap.h"
 
-/* Each prefix-list's entry. */
-struct prefix_list_entry
-{
-  int seq;
-
-  int le;
-  int ge;
-
-  enum prefix_list_type type;
-
-  int any;
-  struct prefix prefix;
-
-  unsigned long refcnt;
-  unsigned long hitcnt;
-
-  struct prefix_list_entry *next;
-  struct prefix_list_entry *prev;
-};
+#include "plist_int.h"
 
 /* List of struct prefix_list. */
 struct prefix_list_list
@@ -125,6 +107,11 @@ prefix_master_get (afi_t afi)
   else if (afi == AFI_ORF_PREFIX)
     return &prefix_master_orf;
   return NULL;
+}
+
+const char *prefix_list_name (struct prefix_list *plist)
+{
+  return plist->name;
 }
 
 /* Lookup prefix_list from list of prefix_list by name. */

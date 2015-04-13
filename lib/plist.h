@@ -31,30 +31,7 @@ enum prefix_list_type
   PREFIX_PERMIT,
 };
 
-enum prefix_name_type
-{
-  PREFIX_TYPE_STRING,
-  PREFIX_TYPE_NUMBER
-};
-
-struct prefix_list
-{
-  char *name;
-  char *desc;
-
-  struct prefix_master *master;
-
-  enum prefix_name_type type;
-
-  int count;
-  int rangecount;
-
-  struct prefix_list_entry *head;
-  struct prefix_list_entry *tail;
-
-  struct prefix_list *next;
-  struct prefix_list *prev;
-};
+struct prefix_list;
 
 struct orf_prefix
 {
@@ -70,6 +47,7 @@ extern void prefix_list_reset (void);
 extern void prefix_list_add_hook (void (*func) (struct prefix_list *));
 extern void prefix_list_delete_hook (void (*func) (struct prefix_list *));
 
+extern const char *prefix_list_name (struct prefix_list *);
 extern struct prefix_list *prefix_list_lookup (afi_t, const char *);
 extern enum prefix_list_type prefix_list_apply (struct prefix_list *, void *);
 
