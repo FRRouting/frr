@@ -288,10 +288,10 @@ ecommunity_finish (void)
 /* Extended Communities token enum. */
 enum ecommunity_token
 {
+  ecommunity_token_unknown = 0,
   ecommunity_token_rt,
   ecommunity_token_soo,
   ecommunity_token_val,
-  ecommunity_token_unknown
 };
 
 /* Get next Extended Communities token from the string. */
