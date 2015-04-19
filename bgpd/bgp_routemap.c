@@ -899,12 +899,12 @@ route_match_probability (void *rule, struct prefix *prefix,
   r = (unsigned long) rand();
 #endif
 
-  switch (*(unsigned *) rule)
+  switch (*(long *) rule)
   {
     case 0: break;
     case RAND_MAX: return RMAP_MATCH;
     default:
-      if (r < *(unsigned *) rule)
+      if (r < *(long *) rule)
         {
           return RMAP_MATCH;
         }
@@ -916,7 +916,7 @@ route_match_probability (void *rule, struct prefix *prefix,
 static void *
 route_match_probability_compile (const char *arg)
 {
-  unsigned *lobule;
+  long *lobule;
   unsigned  perc;
 
 #if _SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE >= 500
@@ -926,7 +926,7 @@ route_match_probability_compile (const char *arg)
 #endif
 
   perc    = atoi (arg);
-  lobule  = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned));
+  lobule  = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (long));
 
   switch (perc)
     {
