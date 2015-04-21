@@ -2223,7 +2223,7 @@ zebra_serv ()
 
   zebra_event (ZEBRA_SERV, accept_sock, NULL);
 }
-#endif /* HAVE_TCP_ZEBRA */
+#else /* HAVE_TCP_ZEBRA */
 
 /* For sockaddr_un. */
 #include <sys/un.h>
@@ -2287,6 +2287,7 @@ zebra_serv_un (const char *path)
 
   zebra_event (ZEBRA_SERV, sock, NULL);
 }
+#endif /* HAVE_TCP_ZEBRA */
 
 
 static void
