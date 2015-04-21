@@ -22,6 +22,7 @@
 
 #include <string.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "pim_int.h"
 

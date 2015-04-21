@@ -807,8 +807,8 @@ ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
 
   for (i = 0; i < MIN (size, sizeof (buf)); i++)
     {
-      if (! islower (h->name[i]))
-        buf[i] = tolower (h->name[i]);
+      if (! islower ((unsigned char)h->name[i]))
+        buf[i] = tolower ((unsigned char)h->name[i]);
       else
         buf[i] = h->name[i];
     }
