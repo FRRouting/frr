@@ -240,8 +240,8 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
       void *object)
 {
   union sockunion *su;
-  union sockunion su_def = { .sin.sin_family = AF_INET,
-                             .sin.sin_addr.s_addr = INADDR_ANY };
+  union sockunion su_def = { .sin = { .sin_family = AF_INET,
+                                      .sin_addr.s_addr = INADDR_ANY } };
   struct peer_group *group;
   struct peer *peer;
   struct listnode *node, *nnode;
