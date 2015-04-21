@@ -1132,24 +1132,29 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 #ifdef HAVE_NET_RT_IFLIST
 #if defined (__bsdi__) || defined (__NetBSD__)
   /* Statistics print out using sysctl (). */
-  vty_out (vty, "    input packets %qu, bytes %qu, dropped %qu,"
-	   " multicast packets %qu%s",
-	   ifp->stats.ifi_ipackets, ifp->stats.ifi_ibytes,
-	   ifp->stats.ifi_iqdrops, ifp->stats.ifi_imcasts,
-	   VTY_NEWLINE);
+  vty_out (vty, "    input packets %llu, bytes %llu, dropped %llu,"
+           " multicast packets %llu%s",
+           (unsigned long long)ifp->stats.ifi_ipackets,
+           (unsigned long long)ifp->stats.ifi_ibytes,
+           (unsigned long long)ifp->stats.ifi_iqdrops,
+           (unsigned long long)ifp->stats.ifi_imcasts,
+           VTY_NEWLINE);
 
-  vty_out (vty, "    input errors %qu%s",
-	   ifp->stats.ifi_ierrors, VTY_NEWLINE);
+  vty_out (vty, "    input errors %llu%s",
+           (unsigned long long)ifp->stats.ifi_ierrors, VTY_NEWLINE);
 
-  vty_out (vty, "    output packets %qu, bytes %qu, multicast packets %qu%s",
-	   ifp->stats.ifi_opackets, ifp->stats.ifi_obytes,
-	   ifp->stats.ifi_omcasts, VTY_NEWLINE);
+  vty_out (vty, "    output packets %llu, bytes %llu,"
+           " multicast packets %llu%s",
+           (unsigned long long)ifp->stats.ifi_opackets,
+           (unsigned long long)ifp->stats.ifi_obytes,
+           (unsigned long long)ifp->stats.ifi_omcasts,
+           VTY_NEWLINE);
 
-  vty_out (vty, "    output errors %qu%s",
-	   ifp->stats.ifi_oerrors, VTY_NEWLINE);
+  vty_out (vty, "    output errors %llu%s",
+           (unsigned long long)ifp->stats.ifi_oerrors, VTY_NEWLINE);
 
-  vty_out (vty, "    collisions %qu%s",
-	   ifp->stats.ifi_collisions, VTY_NEWLINE);
+  vty_out (vty, "    collisions %llu%s",
+           (unsigned long long)ifp->stats.ifi_collisions, VTY_NEWLINE);
 #else
   /* Statistics print out using sysctl (). */
   vty_out (vty, "    input packets %lu, bytes %lu, dropped %lu,"
