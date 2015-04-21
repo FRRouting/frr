@@ -33,14 +33,14 @@ check_PROGRAMS = testsig testsegv testbuffer testmemory heavy heavywq heavythrea
 
 test-commands-defun.c: ../vtysh/vtysh_cmd.c
 	sed \
-		-e '/"vtysh.h"/d' \
+		-e 's/"vtysh\.h"/"tests.h"/' \
 		-e 's/vtysh_init_cmd/test_init_cmd/' \
 		-e 's/VTYSH_[A-Z][A-Z_0-9]*/0/g' \
 		< ../vtysh/vtysh_cmd.c \
 		> test-commands-defun.c
 
 BUILT_SOURCES = test-commands-defun.c
-noinst_HEADERS = prng.h
+noinst_HEADERS = prng.h tests.h
 
 testsig_SOURCES = test-sig.c
 testsegv_SOURCES = test-segv.c

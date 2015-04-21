@@ -250,7 +250,7 @@ run_bgp_mp_list (testcase_t *t)
   bgp_mp_list_add (&mp_list, &test_mp_list_info[3]);
   bgp_mp_list_add (&mp_list, &test_mp_list_info[0]);
 
-  for (i = 0, mp_node = listhead(&mp_list); i < test_mp_list_info_count;
+  for (i = 0, mp_node = mp_list.head; i < test_mp_list_info_count;
        i++, mp_node = listnextnode(mp_node))
     {
       info = listgetdata(mp_node);

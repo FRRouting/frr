@@ -543,7 +543,7 @@ main (void)
     return -1;
   
   peer = peer_create_accept (bgp);
-  peer->host = "foo";
+  peer->host = (char *)"foo";
   
   for (i = AFI_IP; i < AFI_MAX; i++)
     for (j = SAFI_UNICAST; j < SAFI_MAX; j++)

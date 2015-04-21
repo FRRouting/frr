@@ -140,8 +140,9 @@ int main(int argc, char **argv)
       interval_msec = prng_rand(prng) % 5000;
       arg = XMALLOC(MTYPE_TMP, TIMESTR_LEN + 1);
       timers[i] = thread_add_timer_msec(master, timer_func, arg, interval_msec);
-      ret = snprintf(arg, TIMESTR_LEN + 1, "%ld.%06ld",
-                     timers[i]->u.sands.tv_sec, timers[i]->u.sands.tv_usec);
+      ret = snprintf(arg, TIMESTR_LEN + 1, "%lld.%06lld",
+                     (long long)timers[i]->u.sands.tv_sec,
+                     (long long)timers[i]->u.sands.tv_usec);
       assert(ret > 0);
       assert((size_t)ret < TIMESTR_LEN + 1);
       timers_pending++;
@@ -180,7 +181,9 @@ int main(int argc, char **argv)
 
       ret = snprintf(expected_buf + expected_buf_pos,
                      expected_buf_len - expected_buf_pos,
-                     "%ld.%06ld\n", alarms[i]->tv_sec, alarms[i]->tv_usec);
+                     "%lld.%06lld\n",
+                     (long long)alarms[i]->tv_sec,
+                     (long long)alarms[i]->tv_usec);
       assert(ret > 0);
       expected_buf_pos += ret;
       assert(expected_buf_pos < expected_buf_len);

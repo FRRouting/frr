@@ -46,41 +46,6 @@ typedef uint16_t testoff_t;
 /* Fletcher Checksum -- Refer to RFC1008. */
 #define MODX                 4102
 
-/* Accumulator phase of checksum */
-static 
-struct acc_vals
-accumulate (u_char *buffer, testsz_t len, testoff_t off)
-{
-  u_int8_t *p;
-  u_int16_t *csum;
-  int i, partial_len;
-  struct acc_vals ret;
-  
-  csum = (u_int16_t *) (buffer + off);
-  *(csum) = 0;
-  
-  p = buffer;
-  ret.c0 = 0;
-  ret.c1 = 0;
-  
-  while (len != 0)
-    {
-      partial_len = MIN(len, MODX);
-
-      for (i = 0; i < partial_len; i++)
-	{
-	  ret.c0 = ret.c0 + *(p++);
-	  ret.c1 += ret.c0;
-	}
-
-      ret.c0 = ret.c0 % 255;
-      ret.c1 = ret.c1 % 255;
-
-      len -= partial_len;
-    }
-  return ret;
-}
-
 /* The final reduction phase.
  * This one should be the original ospfd version 
  */

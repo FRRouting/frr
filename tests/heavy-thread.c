@@ -37,6 +37,8 @@
 #include "memory.h"
 #include "log.h"
 
+#include "tests.h"
+
 extern struct thread_master *master;
 
 enum

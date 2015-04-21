@@ -22,19 +22,19 @@
 #include "lib/log.h"
 #include "lib/memory.h"
 
-void
+static void
 sighup (void)
 {
   printf ("processed hup\n");
 }
 
-void
+static void
 sigusr1 (void)
 {
   printf ("processed usr1\n");
 }
 
-void
+static void
 sigusr2 (void)
 {
   printf ("processed usr2\n");

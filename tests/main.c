@@ -52,7 +52,7 @@ DEFUN (daemon_exit,
 }
 
 static int timer_count;
-int
+static int
 test_timer (struct thread *thread)
 {
   int *count = THREAD_ARG(thread);

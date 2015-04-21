@@ -36,6 +36,8 @@
 #include "memory.h"
 #include <math.h>
 
+#include "tests.h"
+
 enum
 {
   ITERS_FIRST = 0,

@@ -36,6 +36,8 @@
 #include "workqueue.h"
 #include <math.h>
 
+#include "tests.h"
+
 extern struct thread_master *master;
 static struct work_queue *heavy_wq;
 
