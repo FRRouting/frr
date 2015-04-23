@@ -562,6 +562,17 @@ process_p2p_hello (struct isis_circuit *circuit)
     }
 
   /*
+   * it's own p2p IIH PDU - discard
+   */
+  if (!memcmp (hdr->source_id, isis->sysid, ISIS_SYS_ID_LEN))
+    {
+      zlog_warn ("ISIS-Adj (%s): it's own IIH PDU - discarded",
+                  circuit->area->area_tag);
+      free_tlvs (&tlvs);
+      return ISIS_WARNING;
+    }
+
+  /*
    * My interpertation of the ISO, if no adj exists we will create one for
    * the circuit
    */
