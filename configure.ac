@@ -94,7 +94,7 @@ AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
 dnl try and enable CFLAGS that are useful for Quagga
 dnl - specifically, options to control warnings
 
-AC_USE_SYSTEM_EXTENSIONS()
+AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
 	AC_LANG_PUSH(C)
 	ac_c_flag_save="$CFLAGS"
@@ -181,6 +181,18 @@ AC_LINK_IFELSE(
 		AC_MSG_RESULT([no])
 	])
 AC_LANG_POP(C)
+
+dnl ----------
+dnl Essentials
+dnl ----------
+
+AX_PTHREAD([
+  CC="$PTHREAD_CC"
+  CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
+  LIBS="$PTHREAD_LIBS $LIBS"
+], [
+  AC_MSG_FAILURE([This Quagga version needs pthreads])
+])
 
 dnl --------------
 dnl Check programs
