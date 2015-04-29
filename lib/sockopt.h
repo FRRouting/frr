@@ -100,6 +100,7 @@ extern int getsockopt_ifindex (int, struct msghdr *);
 extern void sockopt_iphdrincl_swab_htosys (struct ip *iph);
 extern void sockopt_iphdrincl_swab_systoh (struct ip *iph);
 
+extern int sockopt_tcp_rtt (int);
 extern int sockopt_tcp_signature(int sock, union sockunion *su,
                                  const char *password);
 #endif /*_ZEBRA_SOCKOPT_H */

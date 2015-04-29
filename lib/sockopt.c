@@ -519,6 +519,22 @@ sockopt_iphdrincl_swab_systoh (struct ip *iph)
 }
 
 int
+sockopt_tcp_rtt (int sock)
+{
+#ifdef TCP_INFO
+  struct tcp_info ti;
+  socklen_t len = sizeof(ti);
+
+  if (getsockopt (sock, IPPROTO_TCP, TCP_INFO, &ti, &len) != 0)
+    return 0;
+
+  return ti.tcpi_rtt / 1000;
+#else
+  return 0;
+#endif
+}
+
+int
 sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
 {
 #if defined(HAVE_TCP_MD5_LINUX24) && defined(GNU_LINUX)
