@@ -111,5 +111,4 @@ extern void rtadv_cmd_init (void);
 extern void zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
                           struct zebra_vrf *zvrf, int enable);
 
-
 #endif /* _ZEBRA_RTADV_H */
