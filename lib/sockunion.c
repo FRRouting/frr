@@ -27,6 +27,7 @@
 #include "memory.h"
 #include "str.h"
 #include "log.h"
+#include "jhash.h"
 
 #ifndef HAVE_INET_ATON
 int
@@ -601,6 +602,21 @@ sockunion_same (const union sockunion *su1, const union sockunion *su2)
     return 1;
   else
     return 0;
+}
+
+unsigned int
+sockunion_hash (const union sockunion *su)
+{
+  switch (sockunion_family(su))
+    {
+    case AF_INET:
+      return jhash_1word(su->sin.sin_addr.s_addr, 0);
+#ifdef HAVE_IPV6
+    case AF_INET6:
+      return jhash2(su->sin6.sin6_addr.s6_addr32, ZEBRA_NUM_OF(su->sin6.sin6_addr.s6_addr32), 0);
+#endif /* HAVE_IPV6 */
+    }
+  return 0;
 }
 
 /* After TCP connection is established.  Get local address and port. */
