@@ -69,8 +69,8 @@ enum connect_result
 
 /* Prototypes. */
 extern int str2sockunion (const char *, union sockunion *);
-extern const char *sockunion2str (union sockunion *, char *, size_t);
-extern int sockunion_cmp (union sockunion *, union sockunion *);
+extern const char *sockunion2str (const union sockunion *, char *, size_t);
+extern int sockunion_cmp (const union sockunion *, const union sockunion *);
 extern int sockunion_same (const union sockunion *, const union sockunion *);
 extern unsigned int sockunion_hash (const union sockunion *);
 
@@ -91,14 +91,14 @@ extern int sockopt_ttl (int family, int sock, int ttl);
 extern int sockopt_minttl (int family, int sock, int minttl);
 extern int sockopt_cork (int sock, int onoff);
 extern int sockopt_mark_default(int sock, int mark, struct zebra_privs_t *);
-extern int sockunion_socket (union sockunion *su);
-extern const char *inet_sutop (union sockunion *su, char *str);
-extern enum connect_result sockunion_connect (int fd, union sockunion *su, 
+extern int sockunion_socket (const union sockunion *su);
+extern const char *inet_sutop (const union sockunion *su, char *str);
+extern enum connect_result sockunion_connect (int fd, const union sockunion *su, 
                                               unsigned short port,
                                               unsigned int);
 extern union sockunion *sockunion_getsockname (int);
 extern union sockunion *sockunion_getpeername (int);
-extern union sockunion *sockunion_dup (union sockunion *);
+extern union sockunion *sockunion_dup (const union sockunion *);
 extern void sockunion_free (union sockunion *);
 extern void sockunion_init (union sockunion *);
 
