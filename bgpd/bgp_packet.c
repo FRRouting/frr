@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "memory.h"
 #include "sockunion.h"		/* for inet_ntop () */
+#include "sockopt.h"
 #include "linklist.h"
 #include "plist.h"
 #include "queue.h"
@@ -2345,6 +2346,7 @@ bgp_read (struct thread *thread)
     {
     case BGP_MSG_OPEN:
       peer->open_in++;
+      peer->rtt = sockopt_tcp_rtt(peer->fd);
       bgp_open_receive (peer, size); /* XXX return value ignored! */
       break;
     case BGP_MSG_UPDATE:

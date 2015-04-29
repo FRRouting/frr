@@ -12030,6 +12030,11 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
         }
     }
 
+  /* TCP metrics. */
+  if (p->status == Established && p->rtt)
+    vty_out (vty, "Estimated round trip time: %d ms%s",
+	     p->rtt, VTY_NEWLINE);
+
   /* Timer information. */
   if (use_json)
     {

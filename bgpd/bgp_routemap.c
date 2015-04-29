@@ -117,22 +117,33 @@ o Local extensions
 struct rmap_value
 {
   u_int8_t action;
+  u_int8_t variable;
   u_int32_t value;
 };
 
 static int
 route_value_match (struct rmap_value *rv, u_int32_t value)
 {
-  if (value == rv->value)
+  if (rv->variable == 0 && value == rv->value)
     return RMAP_MATCH;
 
   return RMAP_NOMATCH;
 }
 
 static u_int32_t
-route_value_adjust (struct rmap_value *rv, u_int32_t current)
+route_value_adjust (struct rmap_value *rv, u_int32_t current, struct peer *peer)
 {
-  u_int32_t value = rv->value;
+  u_int32_t value;
+
+  switch (rv->variable)
+    {
+    case 1:
+      value = peer->rtt;
+      break;
+    default:
+      value = rv->value;
+      break;
+    }
 
   switch (rv->action)
     {
@@ -152,8 +163,8 @@ route_value_adjust (struct rmap_value *rv, u_int32_t current)
 static void *
 route_value_compile (const char *arg)
 {
-  u_int8_t action = RMAP_VALUE_SET;
-  unsigned long larg;
+  u_int8_t action = RMAP_VALUE_SET, var = 0;
+  unsigned long larg = 0;
   char *endptr = NULL;
   struct rmap_value *rv;
 
@@ -168,16 +179,27 @@ route_value_compile (const char *arg)
       arg++;
     }
 
-  errno = 0;
-  larg = strtoul (arg, &endptr, 10);
-  if (*arg == 0 || *endptr != 0 || errno || larg > UINT32_MAX)
-    return NULL;
+  if (all_digit(arg))
+    {
+      errno = 0;
+      larg = strtoul (arg, &endptr, 10);
+      if (*arg == 0 || *endptr != 0 || errno || larg > UINT32_MAX)
+        return NULL;
+    }
+  else
+    {
+      if (strcmp(arg, "rtt") == 0)
+        var = 1;
+      else
+        return NULL;
+    }
 
   rv = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_value));
   if (!rv)
     return NULL;
 
   rv->action = action;
+  rv->variable = var;
   rv->value = larg;
   return rv;
 }
@@ -1244,7 +1266,7 @@ route_set_local_pref (void *rule, struct prefix *prefix,
 	locpref = bgp_info->attr->local_pref;
 
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF);
-      bgp_info->attr->local_pref = route_value_adjust(rv, locpref);
+      bgp_info->attr->local_pref = route_value_adjust(rv, locpref, bgp_info->peer);
     }
 
   return RMAP_OKAY;
@@ -1277,7 +1299,7 @@ route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
       bgp_info = object;
     
       /* Set weight value. */ 
-      weight = route_value_adjust(rv, 0);
+      weight = route_value_adjust(rv, 0, bgp_info->peer);
       if (weight)
         (bgp_attr_extra_get (bgp_info->attr))->weight = weight;
       else if (bgp_info->attr->extra)
@@ -1316,7 +1338,7 @@ route_set_metric (void *rule, struct prefix *prefix,
       if (bgp_info->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
 	med = bgp_info->attr->med;
 
-      bgp_info->attr->med = route_value_adjust(rv, med);
+      bgp_info->attr->med = route_value_adjust(rv, med, bgp_info->peer);
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
     }
   return RMAP_OKAY;
@@ -3640,6 +3662,15 @@ ALIAS (set_metric,
        "Metric value for destination routing protocol\n"
        "Add or subtract metric\n")
 
+ALIAS (set_metric,
+       set_metric_rtt_cmd,
+       "set metric (rtt|+rtt|-rtt)",
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Assign round trip time\n"
+       "Add round trip time\n"
+       "Subtract round trip time\n")
+
 DEFUN (no_set_metric,
        no_set_metric_cmd,
        "no set metric",
@@ -4625,6 +4656,7 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_set_weight_val_cmd);
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &set_metric_addsub_cmd);
+  install_element (RMAP_NODE, &set_metric_rtt_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_cmd);

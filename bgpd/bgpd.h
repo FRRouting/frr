@@ -569,6 +569,7 @@ struct peer
   /* Peer information */
   int fd;			/* File descriptor */
   int ttl;			/* TTL of TCP connection to the peer. */
+  int rtt;			/* Estimated round-trip-time from TCP_INFO */
   int gtsm_hops;		/* minimum hopcount to peer */
   char *desc;			/* Description of the peer. */
   unsigned short port;          /* Destination port for peer */
