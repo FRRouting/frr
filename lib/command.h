@@ -153,10 +153,25 @@ enum cmd_token_type
   TOKEN_KEYWORD,
 };
 
+enum cmd_terminal_type
+{
+  _TERMINAL_BUG = 0,
+  TERMINAL_LITERAL,
+  TERMINAL_OPTION,
+  TERMINAL_VARIABLE,
+  TERMINAL_VARARG,
+  TERMINAL_RANGE,
+  TERMINAL_IPV4,
+  TERMINAL_IPV4_PREFIX,
+  TERMINAL_IPV6,
+  TERMINAL_IPV6_PREFIX,
+};
+
 /* Command description structure. */
 struct cmd_token
 {
   enum cmd_token_type type;
+  enum cmd_terminal_type terminal;
 
   /* Used for type == MULTIPLE */
   vector multiple; /* vector of cmd_token, type == FINAL */
@@ -454,16 +469,6 @@ struct cmd_token
 #define CMD_CREATE_STR(s)  CMD_CREATE_STR_HELPER(s)
 #define CMD_CREATE_STR_HELPER(s) #s
 #define CMD_RANGE_STR(a,s) "<" CMD_CREATE_STR(a) "-" CMD_CREATE_STR(s) ">"
-
-#define CMD_OPTION(S)   ((S[0]) == '[')
-#define CMD_VARIABLE(S) (((S[0]) >= 'A' && (S[0]) <= 'Z') || ((S[0]) == '<'))
-#define CMD_VARARG(S)   ((S[0]) == '.')
-#define CMD_RANGE(S)	((S[0] == '<'))
-
-#define CMD_IPV4(S)	   ((strcmp ((S), "A.B.C.D") == 0))
-#define CMD_IPV4_PREFIX(S) ((strcmp ((S), "A.B.C.D/M") == 0))
-#define CMD_IPV6(S)        ((strcmp ((S), "X:X::X:X") == 0))
-#define CMD_IPV6_PREFIX(S) ((strcmp ((S), "X:X::X:X/M") == 0))
 
 /* Common descriptions. */
 #define SHOW_STR "Show running system information\n"

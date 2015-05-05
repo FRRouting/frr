@@ -507,6 +507,25 @@ format_parser_read_word(struct format_parser_state *state)
 
   token = XCALLOC(MTYPE_CMD_TOKENS, sizeof(*token));
   token->type = TOKEN_TERMINAL;
+  if (cmd[0] == '[')
+    token->terminal = TERMINAL_OPTION;
+  else if ((cmd[0] >= 'A' && cmd[0] <= 'Z') || (cmd[0] == '<'))
+    token->terminal = TERMINAL_VARIABLE;
+  else if (cmd[0] == '.')
+    token->terminal = TERMINAL_VARARG;
+  else if (cmd[0] == '<')
+    token->terminal = TERMINAL_RANGE;
+  else if (strcmp (cmd, "A.B.C.D") == 0)
+    token->terminal = TERMINAL_IPV4;
+  else if (strcmp (cmd, "A.B.C.D/M") == 0)
+    token->terminal = TERMINAL_IPV4_PREFIX;
+  else if (strcmp (cmd, "X:X::X:X") == 0)
+    token->terminal = TERMINAL_IPV6;
+  else if (strcmp (cmd, "X:X::X:X/M") == 0)
+    token->terminal = TERMINAL_IPV6_PREFIX;
+  else
+    token->terminal = TERMINAL_LITERAL;
+
   token->cmd = cmd;
   token->desc = format_parser_desc_str(state);
   vector_set(state->curvect, token);
@@ -1173,59 +1192,61 @@ cmd_word_match(struct cmd_token *token,
   if (!word)
     return no_match;
 
-  if (CMD_VARARG(str))
+  switch (token->terminal)
     {
-      return vararg_match;
-    }
-  else if (CMD_RANGE(str))
-    {
-      if (cmd_range_match(str, word))
-        return range_match;
-    }
-#ifdef HAVE_IPV6
-  else if (CMD_IPV6(str))
-    {
-      match_type = cmd_ipv6_match(word);
-      if ((filter == FILTER_RELAXED && match_type != no_match)
+      case TERMINAL_VARARG:
+        return vararg_match;
+
+      case TERMINAL_RANGE:
+        if (cmd_range_match(str, word))
+          return range_match;
+        break;
+
+      case TERMINAL_IPV6:
+        match_type = cmd_ipv6_match(word);
+        if ((filter == FILTER_RELAXED && match_type != no_match)
           || (filter == FILTER_STRICT && match_type == exact_match))
-        return ipv6_match;
-    }
-  else if (CMD_IPV6_PREFIX(str))
-    {
-      match_type = cmd_ipv6_prefix_match(word);
-      if ((filter == FILTER_RELAXED && match_type != no_match)
-          || (filter == FILTER_STRICT && match_type == exact_match))
-        return ipv6_prefix_match;
-    }
-#endif /* HAVE_IPV6 */
-  else if (CMD_IPV4(str))
-    {
-      match_type = cmd_ipv4_match(word);
-      if ((filter == FILTER_RELAXED && match_type != no_match)
-          || (filter == FILTER_STRICT && match_type == exact_match))
-        return ipv4_match;
-    }
-  else if (CMD_IPV4_PREFIX(str))
-    {
-      match_type = cmd_ipv4_prefix_match(word);
-      if ((filter == FILTER_RELAXED && match_type != no_match)
-          || (filter == FILTER_STRICT && match_type == exact_match))
-        return ipv4_prefix_match;
-    }
-  else if (CMD_OPTION(str) || CMD_VARIABLE(str))
-    {
-      return extend_match;
-    }
-  else
-    {
-      if (filter == FILTER_RELAXED && !strncmp(str, word, strlen(word)))
-        {
-          if (!strcmp(str, word))
-            return exact_match;
-          return partly_match;
-        }
-      if (filter == FILTER_STRICT && !strcmp(str, word))
-        return exact_match;
+          return ipv6_match;
+        break;
+
+      case TERMINAL_IPV6_PREFIX:
+        match_type = cmd_ipv6_prefix_match(word);
+        if ((filter == FILTER_RELAXED && match_type != no_match)
+            || (filter == FILTER_STRICT && match_type == exact_match))
+          return ipv6_prefix_match;
+        break;
+
+      case TERMINAL_IPV4:
+        match_type = cmd_ipv4_match(word);
+        if ((filter == FILTER_RELAXED && match_type != no_match)
+            || (filter == FILTER_STRICT && match_type == exact_match))
+          return ipv4_match;
+        break;
+
+      case TERMINAL_IPV4_PREFIX:
+        match_type = cmd_ipv4_prefix_match(word);
+        if ((filter == FILTER_RELAXED && match_type != no_match)
+            || (filter == FILTER_STRICT && match_type == exact_match))
+          return ipv4_prefix_match;
+        break;
+
+      case TERMINAL_OPTION:
+      case TERMINAL_VARIABLE:
+        return extend_match;
+
+      case TERMINAL_LITERAL:
+        if (filter == FILTER_RELAXED && !strncmp(str, word, strlen(word)))
+          {
+            if (!strcmp(str, word))
+              return exact_match;
+            return partly_match;
+          }
+        if (filter == FILTER_STRICT && !strcmp(str, word))
+          return exact_match;
+        break;
+
+      default:
+        assert (0);
     }
 
   return no_match;
@@ -1309,7 +1330,7 @@ cmd_matcher_match_terminal(struct cmd_matcher *matcher,
 
   if (!cmd_matcher_words_left(matcher))
     {
-      if (CMD_OPTION(token->cmd))
+      if (token->terminal == TERMINAL_OPTION)
         return MATCHER_OK; /* missing optional args are NOT pushed as NULL */
       else
         return MATCHER_INCOMPLETE;
@@ -1322,9 +1343,9 @@ cmd_matcher_match_terminal(struct cmd_matcher *matcher,
 
   /* We have to record the input word as argument if it matched
    * against a variable. */
-  if (CMD_VARARG(token->cmd)
-      || CMD_VARIABLE(token->cmd)
-      || CMD_OPTION(token->cmd))
+  if (token->terminal == TERMINAL_VARARG
+      || token->terminal == TERMINAL_VARIABLE
+      || token->terminal == TERMINAL_OPTION)
     {
       if (push_argument(argc, argv, word))
         return MATCHER_EXCEED_ARGC_MAX;
@@ -1335,7 +1356,7 @@ cmd_matcher_match_terminal(struct cmd_matcher *matcher,
   matcher->word_index++;
 
   /* A vararg token should consume all left over words as arguments */
-  if (CMD_VARARG(token->cmd))
+  if (token->terminal == TERMINAL_VARARG)
     while (cmd_matcher_words_left(matcher))
       {
         word = cmd_matcher_get_word(matcher);
@@ -1566,9 +1587,9 @@ cmd_matcher_build_keyword_args(struct cmd_matcher *matcher,
                 {
                   word_token = vector_slot(keyword_vector, j);
                   if ((word_token->type == TOKEN_TERMINAL
-                       && (CMD_VARARG(word_token->cmd)
-                           || CMD_VARIABLE(word_token->cmd)
-                           || CMD_OPTION(word_token->cmd)))
+                       && (word_token->terminal == TERMINAL_VARARG
+                           || word_token->terminal == TERMINAL_VARIABLE
+                           || word_token->terminal == TERMINAL_OPTION))
                       || word_token->type == TOKEN_MULTIPLE)
                     {
                       if (push_argument(argc, argv, NULL))
@@ -1854,12 +1875,14 @@ is_cmd_ambiguous (vector cmd_vector,
 	      switch (type)
 		{
 		case exact_match:
-		  if (!(CMD_OPTION (str) || CMD_VARIABLE (str))
+		  if (!(cmd_token->terminal == TERMINAL_OPTION
+                        || cmd_token->terminal == TERMINAL_VARIABLE)
 		      && strcmp (command, str) == 0)
 		    match++;
 		  break;
 		case partly_match:
-		  if (!(CMD_OPTION (str) || CMD_VARIABLE (str))
+		  if (!(cmd_token->terminal == TERMINAL_OPTION
+                        || cmd_token->terminal == TERMINAL_VARIABLE)
 		      && strncmp (command, str, strlen (command)) == 0)
 		    {
 		      if (matched && strcmp (matched, str) != 0)
@@ -1881,7 +1904,7 @@ is_cmd_ambiguous (vector cmd_vector,
 		  break;
 #ifdef HAVE_IPV6
 		case ipv6_match:
-		  if (CMD_IPV6 (str))
+		  if (cmd_token->terminal == TERMINAL_IPV6)
 		    match++;
 		  break;
 		case ipv6_prefix_match:
@@ -1895,7 +1918,7 @@ is_cmd_ambiguous (vector cmd_vector,
 		  break;
 #endif /* HAVE_IPV6 */
 		case ipv4_match:
-		  if (CMD_IPV4 (str))
+		  if (cmd_token->terminal == TERMINAL_IPV4)
 		    match++;
 		  break;
 		case ipv4_prefix_match:
@@ -1908,7 +1931,8 @@ is_cmd_ambiguous (vector cmd_vector,
 		    }
 		  break;
 		case extend_match:
-		  if (CMD_OPTION (str) || CMD_VARIABLE (str))
+		  if (cmd_token->terminal == TERMINAL_OPTION
+                      || cmd_token->terminal == TERMINAL_VARIABLE)
 		    match++;
 		  break;
 		case no_match:
@@ -1924,12 +1948,23 @@ is_cmd_ambiguous (vector cmd_vector,
 
 /* If src matches dst return dst string, otherwise return NULL */
 static const char *
-cmd_entry_function (const char *src, const char *dst)
+cmd_entry_function (const char *src, struct cmd_token *token)
 {
+  const char *dst = token->cmd;
+
   /* Skip variable arguments. */
-  if (CMD_OPTION (dst) || CMD_VARIABLE (dst) || CMD_VARARG (dst) ||
-      CMD_IPV4 (dst) || CMD_IPV4_PREFIX (dst) || CMD_RANGE (dst))
-    return NULL;
+  switch (token->terminal)
+    {
+      case TERMINAL_OPTION:
+      case TERMINAL_VARIABLE:
+      case TERMINAL_VARARG:
+      case TERMINAL_IPV4:
+      case TERMINAL_IPV4_PREFIX:
+      case TERMINAL_RANGE:
+        return NULL;
+      default:
+        break;
+    }
 
   /* In case of 'command \t', given src is NULL string. */
   if (src == NULL)
@@ -1946,65 +1981,63 @@ cmd_entry_function (const char *src, const char *dst)
 /* This version will return the dst string always if it is
    CMD_VARIABLE for '?' key processing */
 static const char *
-cmd_entry_function_desc (const char *src, const char *dst)
+cmd_entry_function_desc (const char *src, struct cmd_token *token)
 {
-  if (CMD_VARARG (dst))
-    return dst;
+  const char *dst = token->cmd;
 
-  if (CMD_RANGE (dst))
+  switch (token->terminal)
     {
-      if (cmd_range_match (dst, src))
-	return dst;
-      else
-	return NULL;
+      case TERMINAL_VARARG:
+        return dst;
+
+      case TERMINAL_RANGE:
+        if (cmd_range_match (dst, src))
+          return dst;
+        else
+          return NULL;
+
+      case TERMINAL_IPV6:
+        if (cmd_ipv6_match (src))
+          return dst;
+        else
+          return NULL;
+
+      case TERMINAL_IPV6_PREFIX:
+        if (cmd_ipv6_prefix_match (src))
+          return dst;
+        else
+          return NULL;
+
+      case TERMINAL_IPV4:
+        if (cmd_ipv4_match (src))
+          return dst;
+        else
+          return NULL;
+
+      case TERMINAL_IPV4_PREFIX:
+        if (cmd_ipv4_prefix_match (src))
+          return dst;
+        else
+          return NULL;
+
+      /* Optional or variable commands always match on '?' */
+      case TERMINAL_OPTION:
+      case TERMINAL_VARIABLE:
+        return dst;
+
+      case TERMINAL_LITERAL:
+        /* In case of 'command \t', given src is NULL string. */
+        if (src == NULL)
+          return dst;
+
+        if (strncmp (src, dst, strlen (src)) == 0)
+          return dst;
+        else
+          return NULL;
+
+      default:
+        assert(0);
     }
-
-#ifdef HAVE_IPV6
-  if (CMD_IPV6 (dst))
-    {
-      if (cmd_ipv6_match (src))
-	return dst;
-      else
-	return NULL;
-    }
-
-  if (CMD_IPV6_PREFIX (dst))
-    {
-      if (cmd_ipv6_prefix_match (src))
-	return dst;
-      else
-	return NULL;
-    }
-#endif /* HAVE_IPV6 */
-
-  if (CMD_IPV4 (dst))
-    {
-      if (cmd_ipv4_match (src))
-	return dst;
-      else
-	return NULL;
-    }
-
-  if (CMD_IPV4_PREFIX (dst))
-    {
-      if (cmd_ipv4_prefix_match (src))
-	return dst;
-      else
-	return NULL;
-    }
-
-  /* Optional or variable commands always match on '?' */
-  if (CMD_OPTION (dst) || CMD_VARIABLE (dst))
-    return dst;
-
-  /* In case of 'command \t', given src is NULL string. */
-  if (src == NULL)
-    return dst;
-
-  if (strncmp (src, dst, strlen (src)) == 0)
-    return dst;
-  else
-    return NULL;
 }
 
 /**
@@ -2223,7 +2256,7 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
               struct cmd_token *token = vector_slot(match_vector, j);
               const char *string;
 
-              string = cmd_entry_function_desc(command, token->cmd);
+              string = cmd_entry_function_desc(command, token);
               if (string && desc_unique_string(matchvec, string))
                 vector_set(matchvec, token);
             }
@@ -2436,7 +2469,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status, int islib
 	  if ((token = vector_slot (match_vector, j)))
             {
               string = cmd_entry_function (vector_slot (vline, index),
-                                           token->cmd);
+                                           token);
               if (string && cmd_unique_string (matchvec, string))
                 vector_set (matchvec, (islib != 0 ?
                                       XSTRDUP (MTYPE_TMP, string) :
@@ -4135,6 +4168,7 @@ cmd_init (int terminal)
 {
   command_cr = XSTRDUP(MTYPE_CMD_TOKENS, "<cr>");
   token_cr.type = TOKEN_TERMINAL;
+  token_cr.terminal = TERMINAL_LITERAL;
   token_cr.cmd = command_cr;
   token_cr.desc = XSTRDUP(MTYPE_CMD_TOKENS, "");
 
