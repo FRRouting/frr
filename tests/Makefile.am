@@ -26,6 +26,7 @@ endif
 check_PROGRAMS = testsig testsegv testbuffer testmemory heavy heavywq heavythread \
 		testprivs teststream testchecksum tabletest testnexthopiter \
 		testcommands test-timer-correctness test-timer-performance \
+		testcli \
 		$(TESTS_BGPD)
 
 ../vtysh/vtysh_cmd.c:
@@ -40,8 +41,9 @@ test-commands-defun.c: ../vtysh/vtysh_cmd.c
 		> test-commands-defun.c
 
 BUILT_SOURCES = test-commands-defun.c
-noinst_HEADERS = prng.h tests.h
+noinst_HEADERS = prng.h tests.h common-cli.h
 
+testcli_SOURCES = test-cli.c common-cli.c
 testsig_SOURCES = test-sig.c
 testsegv_SOURCES = test-segv.c
 testbuffer_SOURCES = test-buffer.c
@@ -63,6 +65,7 @@ testcommands_SOURCES = test-commands-defun.c test-commands.c prng.c
 test_timer_correctness_SOURCES = test-timer-correctness.c prng.c
 test_timer_performance_SOURCES = test-timer-performance.c prng.c
 
+testcli_LDADD = ../lib/libzebra.la @LIBCAP@
 testsig_LDADD = ../lib/libzebra.la @LIBCAP@
 testsegv_LDADD = ../lib/libzebra.la @LIBCAP@
 testbuffer_LDADD = ../lib/libzebra.la @LIBCAP@

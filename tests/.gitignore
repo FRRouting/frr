@@ -29,6 +29,7 @@ testbgpmpath
 testbgpmpattr
 testbuffer
 testchecksum
+testcli
 testmemory
 testprivs
 testsegv
