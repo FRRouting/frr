@@ -38,6 +38,7 @@
 #include "network.h"
 
 #include <arpa/telnet.h>
+#include <termios.h>
 
 /* Vty events */
 enum event 
@@ -1701,12 +1702,30 @@ vty_create (int vty_sock, union sockunion *su)
 }
 
 /* create vty for stdio */
+static struct termios stdio_orig_termios;
+static struct vty *stdio_vty = NULL;
+
+static void
+vty_stdio_reset (void)
+{
+  if (stdio_vty)
+    {
+      tcsetattr (0, TCSANOW, &stdio_orig_termios);
+      stdio_vty = NULL;
+    }
+}
+
 struct vty *
 vty_stdio (void)
 {
   struct vty *vty;
+  struct termios termios;
 
-  vty = vty_new_init (0);
+  /* refuse creating two vtys on stdio */
+  if (stdio_vty)
+    return NULL;
+
+  vty = stdio_vty = vty_new_init (0);
   vty->wfd = 1;
 
   /* always have stdio vty in a known _unchangeable_ state, don't want config
@@ -1714,6 +1733,18 @@ vty_stdio (void)
   vty->node = ENABLE_NODE;
   vty->v_timeout = 0;
   strcpy (vty->address, "console");
+
+  if (!tcgetattr (0, &stdio_orig_termios))
+    {
+      termios = stdio_orig_termios;
+      termios.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
+                           | INLCR | IGNCR | ICRNL | IXON);
+      termios.c_oflag &= ~OPOST;
+      termios.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+      termios.c_cflag &= ~(CSIZE | PARENB);
+      termios.c_cflag |= CS8;
+      tcsetattr (0, TCSANOW, &termios);
+    }
 
   vty_prompt (vty);
 
@@ -2226,6 +2257,8 @@ vty_close (struct vty *vty)
   /* Close socket. */
   if (vty->fd > 0)
     close (vty->fd);
+  else
+    vty_stdio_reset ();
 
   if (vty->buf)
     XFREE (MTYPE_VTY, vty->buf);
@@ -3038,6 +3071,8 @@ vty_init (struct thread_master *master_thread)
   vtyvec = vector_init (VECTOR_MIN_SIZE);
 
   vty_master = master_thread;
+
+  atexit (vty_stdio_reset);
 
   /* Initilize server thread vector. */
   Vvty_serv_thread = vector_init (VECTOR_MIN_SIZE);
