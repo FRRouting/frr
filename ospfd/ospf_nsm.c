@@ -644,23 +644,6 @@ nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
       nbr->last_regress_str = ospf_nsm_event_str [event];
     }
 
-#ifdef HAVE_SNMP
-  /* Terminal state or regression */ 
-  if ((next_state == NSM_Full) 
-      || (next_state == NSM_TwoWay)
-      || (next_state < nbr->state))
-    {
-      /* ospfVirtNbrStateChange */
-      if (nbr->oi->type == OSPF_IFTYPE_VIRTUALLINK)
-        ospfTrapVirtNbrStateChange(nbr);
-      /* ospfNbrStateChange trap  */
-      else	
-        /* To/From FULL, only managed by DR */
-        if (((next_state != NSM_Full) && (nbr->state != NSM_Full)) 
-            || (nbr->oi->state == ISM_DR))
-          ospfTrapNbrStateChange(nbr);
-    }
-#endif
 }
 
 static void
@@ -865,7 +848,34 @@ ospf_nsm_event (struct thread *thread)
   if (next_state != nbr->state)
     {
       nsm_notice_state_change (nbr, next_state, event);
+#ifdef HAVE_SNMP
+      int send_trap_virt = 0;
+      int send_trap = 0;
+      /* Terminal state or regression */ 
+      if ((next_state == NSM_Full) 
+	      || (next_state == NSM_TwoWay)
+	      || (next_state < nbr->state))
+      {
+	  /* ospfVirtNbrStateChange */
+	  if (nbr->oi->type == OSPF_IFTYPE_VIRTUALLINK)
+	      send_trap_virt = 1;
+	  /* ospfNbrStateChange trap  */
+	  else	
+	      /* To/From FULL, only managed by DR */
+	      if (((next_state != NSM_Full) && (nbr->state != NSM_Full)) 
+		      || (nbr->oi->state == ISM_DR))
+		  send_trap = 1;
+      }
+#endif
       nsm_change_state (nbr, next_state);
+
+#ifdef HAVE_SNMP
+      if (send_trap_virt) {
+	  ospfTrapVirtNbrStateChange(nbr);
+      } else if (send_trap) {
+	  ospfTrapNbrStateChange(nbr);
+      }
+#endif
     }
 
   /* Make sure timer is set. */
