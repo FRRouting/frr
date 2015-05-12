@@ -1704,6 +1704,7 @@ vty_create (int vty_sock, union sockunion *su)
 /* create vty for stdio */
 static struct termios stdio_orig_termios;
 static struct vty *stdio_vty = NULL;
+static void (*stdio_vty_atclose)(void);
 
 static void
 vty_stdio_reset (void)
@@ -1712,11 +1713,15 @@ vty_stdio_reset (void)
     {
       tcsetattr (0, TCSANOW, &stdio_orig_termios);
       stdio_vty = NULL;
+
+      if (stdio_vty_atclose)
+        stdio_vty_atclose ();
+      stdio_vty_atclose = NULL;
     }
 }
 
 struct vty *
-vty_stdio (void)
+vty_stdio (void (*atclose)())
 {
   struct vty *vty;
   struct termios termios;
@@ -1726,6 +1731,7 @@ vty_stdio (void)
     return NULL;
 
   vty = stdio_vty = vty_new_init (0);
+  stdio_vty_atclose = atclose;
   vty->wfd = 1;
 
   /* always have stdio vty in a known _unchangeable_ state, don't want config
