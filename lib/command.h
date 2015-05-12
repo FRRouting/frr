@@ -167,6 +167,9 @@ enum cmd_terminal_type
   TERMINAL_IPV6_PREFIX,
 };
 
+/* argument to be recorded on argv[] if it's not a literal */
+#define TERMINAL_RECORD(t) ((t) >= TERMINAL_OPTION)
+
 /* Command description structure. */
 struct cmd_token
 {

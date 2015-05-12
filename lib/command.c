@@ -507,15 +507,7 @@ format_parser_read_word(struct format_parser_state *state)
 
   token = XCALLOC(MTYPE_CMD_TOKENS, sizeof(*token));
   token->type = TOKEN_TERMINAL;
-  if (cmd[0] == '[')
-    token->terminal = TERMINAL_OPTION;
-  else if ((cmd[0] >= 'A' && cmd[0] <= 'Z') || (cmd[0] == '<'))
-    token->terminal = TERMINAL_VARIABLE;
-  else if (cmd[0] == '.')
-    token->terminal = TERMINAL_VARARG;
-  else if (cmd[0] == '<')
-    token->terminal = TERMINAL_RANGE;
-  else if (strcmp (cmd, "A.B.C.D") == 0)
+  if (strcmp (cmd, "A.B.C.D") == 0)
     token->terminal = TERMINAL_IPV4;
   else if (strcmp (cmd, "A.B.C.D/M") == 0)
     token->terminal = TERMINAL_IPV4_PREFIX;
@@ -523,6 +515,14 @@ format_parser_read_word(struct format_parser_state *state)
     token->terminal = TERMINAL_IPV6;
   else if (strcmp (cmd, "X:X::X:X/M") == 0)
     token->terminal = TERMINAL_IPV6_PREFIX;
+  else if (cmd[0] == '[')
+    token->terminal = TERMINAL_OPTION;
+  else if (cmd[0] == '.')
+    token->terminal = TERMINAL_VARARG;
+  else if (cmd[0] == '<')
+    token->terminal = TERMINAL_RANGE;
+  else if (cmd[0] >= 'A' && cmd[0] <= 'Z')
+    token->terminal = TERMINAL_VARIABLE;
   else
     token->terminal = TERMINAL_LITERAL;
 
@@ -1343,9 +1343,7 @@ cmd_matcher_match_terminal(struct cmd_matcher *matcher,
 
   /* We have to record the input word as argument if it matched
    * against a variable. */
-  if (token->terminal == TERMINAL_VARARG
-      || token->terminal == TERMINAL_VARIABLE
-      || token->terminal == TERMINAL_OPTION)
+  if (TERMINAL_RECORD (token->terminal))
     {
       if (push_argument(argc, argv, word))
         return MATCHER_EXCEED_ARGC_MAX;
@@ -1587,9 +1585,7 @@ cmd_matcher_build_keyword_args(struct cmd_matcher *matcher,
                 {
                   word_token = vector_slot(keyword_vector, j);
                   if ((word_token->type == TOKEN_TERMINAL
-                       && (word_token->terminal == TERMINAL_VARARG
-                           || word_token->terminal == TERMINAL_VARIABLE
-                           || word_token->terminal == TERMINAL_OPTION))
+                       && TERMINAL_RECORD (word_token->terminal))
                       || word_token->type == TOKEN_MULTIPLE)
                     {
                       if (push_argument(argc, argv, NULL))
@@ -1875,14 +1871,12 @@ is_cmd_ambiguous (vector cmd_vector,
 	      switch (type)
 		{
 		case exact_match:
-		  if (!(cmd_token->terminal == TERMINAL_OPTION
-                        || cmd_token->terminal == TERMINAL_VARIABLE)
+		  if (!TERMINAL_RECORD (cmd_token->terminal)
 		      && strcmp (command, str) == 0)
 		    match++;
 		  break;
 		case partly_match:
-		  if (!(cmd_token->terminal == TERMINAL_OPTION
-                        || cmd_token->terminal == TERMINAL_VARIABLE)
+		  if (!TERMINAL_RECORD (cmd_token->terminal)
 		      && strncmp (command, str, strlen (command)) == 0)
 		    {
 		      if (matched && strcmp (matched, str) != 0)
@@ -1931,8 +1925,7 @@ is_cmd_ambiguous (vector cmd_vector,
 		    }
 		  break;
 		case extend_match:
-		  if (cmd_token->terminal == TERMINAL_OPTION
-                      || cmd_token->terminal == TERMINAL_VARIABLE)
+		  if (TERMINAL_RECORD (cmd_token->terminal))
 		    match++;
 		  break;
 		case no_match:
@@ -1953,18 +1946,8 @@ cmd_entry_function (const char *src, struct cmd_token *token)
   const char *dst = token->cmd;
 
   /* Skip variable arguments. */
-  switch (token->terminal)
-    {
-      case TERMINAL_OPTION:
-      case TERMINAL_VARIABLE:
-      case TERMINAL_VARARG:
-      case TERMINAL_IPV4:
-      case TERMINAL_IPV4_PREFIX:
-      case TERMINAL_RANGE:
-        return NULL;
-      default:
-        break;
-    }
+  if (TERMINAL_RECORD (token->terminal))
+    return NULL;
 
   /* In case of 'command \t', given src is NULL string. */
   if (src == NULL)
