@@ -299,7 +299,21 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
    */
   if ( cap_set_proc (zprivs_state.caps) ) 
     {
-      fprintf (stderr, "privs_init: initial cap_set_proc failed\n");
+      cap_t current_caps;
+      char *current_caps_text = NULL;
+      char *wanted_caps_text = NULL;
+
+      fprintf(stderr, "privs_init: initial cap_set_proc failed: %s\n",
+              safe_strerror(errno));
+
+      current_caps = cap_get_proc();
+      if (current_caps)
+          current_caps_text = cap_to_text(current_caps, NULL);
+
+      wanted_caps_text = cap_to_text(zprivs_state.caps, NULL);
+      fprintf(stderr, "Wanted caps: %s\n", wanted_caps_text ? wanted_caps_text : "???");
+      fprintf(stderr, "Have   caps: %s\n", current_caps_text ? current_caps_text : "???");
+
       exit (1);
     }
   
