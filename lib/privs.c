@@ -102,8 +102,7 @@ static struct
 #ifdef HAVE_LCAPS /* Quagga -> Linux capabilities mappings */
   [ZCAP_SETID] = 	{ 2, (pvalue_t []) { CAP_SETGID,
                                              CAP_SETUID 		}, },
-  [ZCAP_BIND] =		{ 2, (pvalue_t []) { CAP_NET_BIND_SERVICE,
-                                             CAP_NET_BROADCAST 		}, },
+  [ZCAP_BIND] =		{ 2, (pvalue_t []) { CAP_NET_BIND_SERVICE	}, },
   [ZCAP_NET_ADMIN] =	{ 1, (pvalue_t []) { CAP_NET_ADMIN		}, },
   [ZCAP_NET_RAW] = 	{ 1, (pvalue_t []) { CAP_NET_RAW		}, },
   [ZCAP_CHROOT] = 	{ 1, (pvalue_t []) { CAP_SYS_CHROOT,		}, },
