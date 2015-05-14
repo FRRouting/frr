@@ -1,0 +1,93 @@
+echo this is a  test message
+echo  foo bla  ?  baz
+echo
+
+arg ipv4 1.2.3.4
+arg ipv4 1.2.?3.4
+arg ipv4 1.2.3
+arg ipv4 1.2.3.4.5
+arg ipv4 1.a.3.4
+arg ipv4 blah
+
+arg ipv4m 1.2.3.0/24
+arg ipv4m 1.2.?3.0/24
+arg ipv4m 1.2.3/9
+arg ipv4m 1.2.3.4.5/6
+arg ipv4m 1.a.3.4
+arg ipv4m blah
+arg ipv4m 1.2.3.0/999
+arg ipv4m 1.2.3.0/a9
+arg ipv4m 1.2.3.0/9a
+
+arg ipv6 de4d:b33f::cafe
+arg ipv6 de4d:b3?3f::caf?e
+arg ipv6 de4d:b3	3f::caf?e
+arg ipv6 de4d:b33f:z::cafe
+arg ipv6 de4d:b33f:cafe:
+arg ipv6 ::
+arg ipv6 ::/
+arg ipv6 1:2:3:4:5:6:7:8:9:0:1:2:3:4:5:6:7:8:9:0:1:2:3:4:5:6:7:8:9:0
+arg ipv6 12::34::56
+arg ipv6m dead:beef:cafe::/64
+arg ipv6m dead:be?ef:cafe:?:/64
+
+arg range 4
+arg range 5
+arg range 9?
+arg range 15
+arg range 16
+arg range -1
+arg range 99999999999999999999999999999999999999999
+
+arg ?
+
+pa	
+pat 	
+
+pat a
+pat a a
+pat a ?b
+pat a c?
+pat a a x
+
+pat b
+pat b ?a
+pat b x
+pat b x y
+
+pat c a
+pat c a 1.2.3.4
+pat c b 2.3.4
+pat c c ?x
+
+pat d
+pat d 	
+pat d foo 1.2.3.4
+pat d foo
+pat d noooo
+pat d bar 1::2
+pat d bar 1::2 foo 3.4.5.6
+pat d ba?z
+pat d foo 3.4.5.6 baz
+
+pat e
+pat e f
+pat e f g
+pat e 1.2.3.4
+
+pat f
+pat f foo
+pat f key
+
+alt a 	a?b
+alt a 1	.2?.3.4
+alt a 1	:2?	::?3
+
+conf t
+do pat d baz
+exit
+
+show run
+conf t
+hostname foohost
+do show run
