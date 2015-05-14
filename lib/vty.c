@@ -1365,8 +1365,8 @@ vty_read (struct thread *thread)
 	  vty->monitor = 0; /* disable monitoring to avoid infinite recursion */
 	  zlog_warn("%s: read error on vty client fd %d, closing: %s",
 		    __func__, vty->fd, safe_strerror(errno));
+          buffer_reset(vty->obuf);
 	}
-      buffer_reset(vty->obuf);
       vty->status = VTY_CLOSE;
     }
 
