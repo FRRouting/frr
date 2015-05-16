@@ -8690,6 +8690,17 @@ DEFUN (show_ip_bgp_flap_regexp,
 			  bgp_show_type_flap_regexp);
 }
 
+ALIAS (show_ip_bgp_flap_regexp,
+       show_ip_bgp_damp_flap_regexp_cmd,
+       "show ip bgp dampening flap-statistics regexp .LINE",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "Display routes matching the AS path regular expression\n"
+       "A regular-expression to match the BGP AS paths\n")
+
 DEFUN (show_ip_bgp_ipv4_regexp, 
        show_ip_bgp_ipv4_regexp_cmd,
        "show ip bgp ipv4 (unicast|multicast) regexp .LINE",
@@ -8829,6 +8840,17 @@ DEFUN (show_ip_bgp_flap_prefix_list,
 			       bgp_show_type_flap_prefix_list);
 }
 
+ALIAS (show_ip_bgp_flap_prefix_list,
+       show_ip_bgp_damp_flap_prefix_list_cmd,
+       "show ip bgp dampening flap-statistics prefix-list WORD",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "Display routes conforming to the prefix-list\n"
+       "IP prefix-list name\n")
+
 DEFUN (show_ip_bgp_ipv4_prefix_list, 
        show_ip_bgp_ipv4_prefix_list_cmd,
        "show ip bgp ipv4 (unicast|multicast) prefix-list WORD",
@@ -8967,6 +8989,17 @@ DEFUN (show_ip_bgp_flap_filter_list,
 			       bgp_show_type_flap_filter_list);
 }
 
+ALIAS (show_ip_bgp_flap_filter_list, 
+       show_ip_bgp_damp_flap_filter_list_cmd,
+       "show ip bgp dampening flap-statistics filter-list WORD",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "Display routes conforming to the filter-list\n"
+       "Regular expression access list name\n")
+
 DEFUN (show_ip_bgp_ipv4_filter_list, 
        show_ip_bgp_ipv4_filter_list_cmd,
        "show ip bgp ipv4 (unicast|multicast) filter-list WORD",
@@ -9040,6 +9073,18 @@ DEFUN (show_ipv6_mbgp_filter_list,
 }
 #endif /* HAVE_IPV6 */
 
+DEFUN (show_ip_bgp_dampening_info,
+       show_ip_bgp_dampening_params_cmd,
+       "show ip bgp dampening parameters",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display detail of configured dampening parameters\n")
+{
+    return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_UNICAST);
+}
+
 static int
 bgp_show_route_map (struct vty *vty, const char *name,
                     const char *rmap_str, afi_t afi,
@@ -9106,6 +9151,17 @@ DEFUN (show_ip_bgp_flap_route_map,
 			     bgp_show_type_flap_route_map);
 }
 
+ALIAS (show_ip_bgp_flap_route_map, 
+       show_ip_bgp_damp_flap_route_map_cmd,
+       "show ip bgp dampening flap-statistics route-map WORD",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "Display routes matching the route-map\n"
+       "A route-map to match on\n")
+
 DEFUN (show_ip_bgp_ipv4_route_map, 
        show_ip_bgp_ipv4_route_map_cmd,
        "show ip bgp ipv4 (unicast|multicast) route-map WORD",
@@ -9171,6 +9227,16 @@ DEFUN (show_ip_bgp_flap_cidr_only,
   return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST,
 		   bgp_show_type_flap_cidr_only, NULL, 0);
 }
+
+ALIAS (show_ip_bgp_flap_cidr_only,
+       show_ip_bgp_damp_flap_cidr_only_cmd,
+       "show ip bgp dampening flap-statistics cidr-only",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "Display only routes with non-natural netmasks\n")
 
 DEFUN (show_ip_bgp_ipv4_cidr_only,
        show_ip_bgp_ipv4_cidr_only_cmd,
@@ -10745,6 +10811,17 @@ DEFUN (show_ip_bgp_flap_prefix_longer,
 				 bgp_show_type_flap_prefix_longer);
 }
 
+ALIAS (show_ip_bgp_flap_prefix_longer,
+       show_ip_bgp_damp_flap_prefix_longer_cmd,
+       "show ip bgp dampening flap-statistics A.B.C.D/M longer-prefixes",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Display route and more specific routes\n")
+
 DEFUN (show_ip_bgp_ipv4_prefix_longer,
        show_ip_bgp_ipv4_prefix_longer_cmd,
        "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M longer-prefixes",
@@ -10778,6 +10855,16 @@ DEFUN (show_ip_bgp_flap_address,
 				 bgp_show_type_flap_address);
 }
 
+ALIAS (show_ip_bgp_flap_address,
+       show_ip_bgp_damp_flap_address_cmd,
+       "show ip bgp dampening flap-statistics A.B.C.D",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "Network in the BGP routing table to display\n")
+
 DEFUN (show_ip_bgp_flap_prefix,
        show_ip_bgp_flap_prefix_cmd,
        "show ip bgp flap-statistics A.B.C.D/M",
@@ -10790,6 +10877,17 @@ DEFUN (show_ip_bgp_flap_prefix,
   return bgp_show_prefix_longer (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_flap_prefix);
 }
+
+ALIAS (show_ip_bgp_flap_prefix,
+       show_ip_bgp_damp_flap_prefix_cmd,
+       "show ip bgp dampening flap-statistics A.B.C.D/M",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_prefix_longer,
        show_bgp_prefix_longer_cmd,
@@ -13599,6 +13697,15 @@ DEFUN (show_ip_bgp_dampened_paths,
                    NULL, 0);
 }
 
+ALIAS (show_ip_bgp_dampened_paths,
+       show_ip_bgp_damp_dampened_paths_cmd,
+       "show ip bgp dampening dampened-paths",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display paths suppressed due to dampening\n")
+
 DEFUN (show_ip_bgp_flap_statistics,
        show_ip_bgp_flap_statistics_cmd,
        "show ip bgp flap-statistics",
@@ -13610,6 +13717,15 @@ DEFUN (show_ip_bgp_flap_statistics,
   return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST,
                    bgp_show_type_flap_statistics, NULL, 0);
 }
+
+ALIAS (show_ip_bgp_flap_statistics,
+       show_ip_bgp_damp_flap_statistics_cmd,
+       "show ip bgp dampening flap-statistics",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n")
 
 /* Display specified route of BGP table. */
 static int
@@ -14153,16 +14269,25 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_dampened_paths_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_damp_dampened_paths_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_statistics_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_damp_flap_statistics_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_address_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_damp_flap_address_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_cidr_only_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_damp_flap_cidr_only_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_regexp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_filter_list_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_damp_flap_filter_list_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_prefix_list_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_damp_flap_prefix_list_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_prefix_longer_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_damp_flap_prefix_longer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_route_map_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_damp_flap_route_map_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_flap_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_damp_cmd);
   
@@ -14296,16 +14421,27 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_dampened_paths_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_dampened_paths_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_statistics_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_statistics_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_address_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_address_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_cidr_only_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_cidr_only_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_regexp_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_regexp_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_filter_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_filter_list_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_prefix_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_prefix_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_prefix_list_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_prefix_longer_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_prefix_longer_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_route_map_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_route_map_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_flap_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_damp_cmd);
 
