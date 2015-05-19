@@ -2749,6 +2749,9 @@ DEFUN (show_ip_ospf,
       vty_out (vty, "last executed %s ago%s",
                ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
                VTY_NEWLINE);
+      vty_out (vty, " Last SPF duration %s%s",
+	       ospf_timeval_dump (&ospf->ts_spf_duration, timebuf, sizeof (timebuf)),
+	       VTY_NEWLINE);
     }
   else
     vty_out (vty, "has not been run%s", VTY_NEWLINE);

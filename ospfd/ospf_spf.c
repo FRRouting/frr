@@ -46,6 +46,50 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_dump.h"
 
+/* Variables to ensure a SPF scheduled log message is printed only once */
+
+static unsigned int spf_reason_flags = 0;
+
+static void ospf_clear_spf_reason_flags ()
+{
+  spf_reason_flags = 0;
+}
+
+void ospf_flag_spf_reason (unsigned int reason)
+{
+  if (reason <= SPF_FLAG_MAX_VALUE)
+    spf_reason_flags |= reason;
+  else
+    spf_reason_flags |= SPF_FLAG_MISC;
+}
+
+static void
+ospf_get_spf_reason_str (char *buf)
+{
+  if (buf)
+    {
+      buf[0] = '\0';
+      if (spf_reason_flags)
+	{
+	  if (spf_reason_flags & SPF_FLAG_ROUTER_LSA_INSTALL)
+	    strcat (buf, "R, ");
+	  if (spf_reason_flags & SPF_FLAG_NETWORK_LSA_INSTALL)
+	    strcat (buf, "N, ");
+	  if (spf_reason_flags & SPF_FLAG_SUMMARY_LSA_INSTALL)
+	    strcat (buf, "S, ");
+	  if (spf_reason_flags & SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL)
+	    strcat (buf, "AS, ");
+	  if (spf_reason_flags & SPF_FLAG_ABR_STATUS_CHANGE)
+	    strcat (buf, "ABR, ");
+	  if (spf_reason_flags & SPF_FLAG_ASBR_STATUS_CHANGE)
+	    strcat (buf, "ASBR, ");
+	  if (spf_reason_flags & SPF_FLAG_MAXAGE)
+	    strcat (buf, "M, ");
+      }
+      buf[strlen(buf)-2] = '\0'; /* skip the last ", " */
+    }
+}
+
 static void ospf_vertex_free (void *);
 /* List of allocated vertices, to simplify cleanup of SPF.
  * Not thread-safe obviously. If it ever needs to be, it'd have to be
@@ -1232,27 +1276,28 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
 
   /* Free candidate queue. */
   pqueue_delete (candidate);
-  
+
   ospf_vertex_dump (__func__, area->spf, 0, 1);
   /* Free nexthop information, canonical versions of which are attached
    * the first level of router vertices attached to the root vertex, see
    * ospf_nexthop_calculation.
    */
   ospf_canonical_nexthops_free (area->spf);
-  
-  /* Free SPF vertices, but not the list. List has ospf_vertex_free
-   * as deconstructor.
-   */
-  list_delete_all_node (&vertex_list);
-  
+
   /* Increment SPF Calculation Counter. */
   area->spf_calculation++;
 
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &area->ospf->ts_spf);
+  area->ts_spf = area->ospf->ts_spf;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_spf_calculate: Stop. %ld vertices",
                 mtype_stats_alloc(MTYPE_OSPF_VERTEX));
+
+  /* Free SPF vertices, but not the list. List has ospf_vertex_free
+   * as deconstructor.
+   */
+  list_delete_all_node (&vertex_list);
 }
 
 /* Timer for SPF calculation. */
@@ -1263,12 +1308,18 @@ ospf_spf_calculate_timer (struct thread *thread)
   struct route_table *new_table, *new_rtrs;
   struct ospf_area *area;
   struct listnode *node, *nnode;
+  struct timeval start_time, stop_time, spf_start_time;
+  int areas_processed = 0;
+  unsigned long ia_time, prune_time, rt_time;
+  unsigned long abr_time, total_spf_time, spf_time;
+  char rbuf[32];		/* reason_buf */
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("SPF: Timer (SPF calculation expire)");
 
   ospf->t_spf_calc = NULL;
 
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &spf_start_time);
   /* Allocate new table tree. */
   new_table = route_table_init ();
   new_rtrs = route_table_init ();
@@ -1283,21 +1334,36 @@ ospf_spf_calculate_timer (struct thread *thread)
        */
       if (ospf->backbone && ospf->backbone == area)
         continue;
-      
+
       ospf_spf_calculate (area, new_table, new_rtrs);
+      areas_processed++;
     }
-  
+
   /* SPF for backbone, if required */
   if (ospf->backbone)
-    ospf_spf_calculate (ospf->backbone, new_table, new_rtrs);
-  
+    {
+      ospf_spf_calculate (ospf->backbone, new_table, new_rtrs);
+      areas_processed++;
+    }
+
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  spf_time = timeval_elapsed (stop_time, spf_start_time);
+
   ospf_vl_shut_unapproved (ospf);
+
+  start_time = stop_time;	/* saving a call */
 
   ospf_ia_routing (ospf, new_table, new_rtrs);
 
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  ia_time = timeval_elapsed (stop_time, start_time);
+
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
   ospf_prune_unreachable_networks (new_table);
   ospf_prune_unreachable_routers (new_rtrs);
 
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  prune_time = timeval_elapsed (stop_time, start_time);
   /* AS-external-LSA calculation should not be performed here. */
 
   /* If new Router Route is installed,
@@ -1307,9 +1373,13 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   ospf_ase_calculate_timer_add (ospf);
 
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
+
   /* Update routing table. */
   ospf_route_install (ospf, new_table);
 
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  rt_time = timeval_elapsed (stop_time, start_time);
   /* Update ABR/ASBR routing table */
   if (ospf->old_rtrs)
     {
@@ -1321,11 +1391,28 @@ ospf_spf_calculate_timer (struct thread *thread)
   ospf->old_rtrs = ospf->new_rtrs;
   ospf->new_rtrs = new_rtrs;
 
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start_time);
   if (IS_OSPF_ABR (ospf))
     ospf_abr_task (ospf);
 
-  if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("SPF: calculation complete");
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  abr_time = timeval_elapsed (stop_time, start_time);
+
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &stop_time);
+  total_spf_time = timeval_elapsed (stop_time, spf_start_time);
+  ospf->ts_spf_duration.tv_sec = total_spf_time/1000000;
+  ospf->ts_spf_duration.tv_usec = total_spf_time % 1000000;
+
+  ospf_get_spf_reason_str (rbuf);
+
+  if (IS_OSPF_ABR (ospf))
+    zlog_info ("SPF Processing Time(usecs): # Areas: %d, SPF Time: %ld, InterArea: %ld, Prune: %ld, RouteInstall: %ld, ABR: %ld, Total: %ld, Reason: %s\n",
+	       areas_processed, spf_time, ia_time, prune_time, rt_time, abr_time, total_spf_time, rbuf);
+  else
+    zlog_info ("SPF Processing Time(usecs): SPF Time: %ld, InterArea: %ld, Prune: %ld, RouteInstall: %ld, Total: %ld, Reason: %s\n",
+	       spf_time, ia_time, prune_time, rt_time, total_spf_time, rbuf);
+
+  ospf_clear_spf_reason_flags ();
 
   return 0;
 }
@@ -1388,6 +1475,8 @@ ospf_spf_calculate_schedule (struct ospf *ospf)
   
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("SPF: calculation timer delay = %ld", delay);
+
+  zlog_info ("SPF: Scheduled in %ld msec", delay);
 
   ospf->t_spf_calc =
     thread_add_timer_msec (master, ospf_spf_calculate_timer, ospf, delay);

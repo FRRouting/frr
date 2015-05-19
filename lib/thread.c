@@ -102,7 +102,7 @@ timeval_cmp (struct timeval a, struct timeval b)
 	  ? a.tv_usec - b.tv_usec : a.tv_sec - b.tv_sec);
 }
 
-static unsigned long
+unsigned long
 timeval_elapsed (struct timeval a, struct timeval b)
 {
   return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)

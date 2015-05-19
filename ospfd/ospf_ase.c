@@ -636,6 +636,7 @@ ospf_ase_calculate_timer (struct thread *t)
   struct route_node *rn;
   struct listnode *node;
   struct ospf_area *area;
+  struct timeval start_time, stop_time;
 
   ospf = THREAD_ARG (t);
   ospf->t_ase_calc = NULL;
@@ -643,6 +644,8 @@ ospf_ase_calculate_timer (struct thread *t)
   if (ospf->ase_calc)
     {
       ospf->ase_calc = 0;
+
+      quagga_gettime(QUAGGA_CLK_MONOTONIC, &start_time);
 
       /* Calculate external route for each AS-external-LSA */
       LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
@@ -673,6 +676,12 @@ ospf_ase_calculate_timer (struct thread *t)
       ospf_route_table_free (ospf->old_external_route);
       ospf->old_external_route = ospf->new_external_route;
       ospf->new_external_route = route_table_init ();
+
+      quagga_gettime(QUAGGA_CLK_MONOTONIC, &stop_time);
+
+      zlog_info ("SPF Processing Time(usecs): External Routes: %d\n",
+		 (stop_time.tv_sec - start_time.tv_sec)*1000000L+
+		 (stop_time.tv_usec - start_time.tv_usec));
     }
   return 0;
 }

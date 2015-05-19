@@ -247,16 +247,21 @@ ospf_timeval_dump (struct timeval *t, char *buf, size_t size)
 #define HOUR_IN_SECONDS		(60*MINUTE_IN_SECONDS)
 #define DAY_IN_SECONDS		(24*HOUR_IN_SECONDS)
 #define WEEK_IN_SECONDS		(7*DAY_IN_SECONDS)
-  unsigned long w, d, h, m, s, ms;
+  unsigned long w, d, h, m, s, ms, us;
   
   if (!t)
     return "inactive";
   
-  w = d = h = m = s = ms = 0;
+  w = d = h = m = s = ms = us = 0;
   memset (buf, 0, size);
-  
-  ms = t->tv_usec / 1000;
-  
+
+  us = t->tv_usec;
+  if (us >= 1000)
+    {
+      ms = us / 1000;
+      us %= 1000;
+    }
+
   if (ms >= 1000)
     {
       t->tv_sec += ms / 1000;
@@ -297,9 +302,11 @@ ospf_timeval_dump (struct timeval *t, char *buf, size_t size)
     snprintf (buf, size, "%ldh%02ldm%02lds", h, m, t->tv_sec);
   else if (m)
     snprintf (buf, size, "%ldm%02lds", m, t->tv_sec);
-  else
+  else if (ms)
     snprintf (buf, size, "%ld.%03lds", t->tv_sec, ms);
-  
+  else
+    snprintf (buf, size, "%ld usecs", t->tv_usec);
+
   return buf;
 }
 

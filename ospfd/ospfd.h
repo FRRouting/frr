@@ -194,8 +194,9 @@ struct ospf
   struct route_table *external_lsas;    /* Database of external LSAs,
 					   prefix is LSA's adv. network*/
 
-  /* Time stamps. */
+  /* Time stamps */
   struct timeval ts_spf;		/* SPF calculation time stamp. */
+  struct timeval ts_spf_duration;	/* Execution time of last SPF */
 
   struct route_table *maxage_lsa;       /* List of MaxAge LSA for deletion. */
   int redistribute;                     /* Num of redistributed protocols. */
@@ -392,6 +393,9 @@ struct ospf_area
 
   /* Statistics field. */
   u_int32_t spf_calculation;	/* SPF Calculation Count. */
+
+  /* Time stamps. */
+  struct timeval ts_spf;		/* SPF calculation time stamp. */
 
   /* Router count. */
   u_int32_t abr_count;		/* ABR router in this area. */

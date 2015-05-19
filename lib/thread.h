@@ -208,6 +208,7 @@ extern struct thread *thread_fetch (struct thread_master *, struct thread *);
 extern void thread_call (struct thread *);
 extern unsigned long thread_timer_remain_second (struct thread *);
 extern int thread_should_yield (struct thread *);
+extern unsigned long timeval_elapsed (struct timeval a, struct timeval b);
 
 /* Internal libzebra exports */
 extern void thread_getrusage (RUSAGE_T *);

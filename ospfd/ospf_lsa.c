@@ -2409,8 +2409,10 @@ ospf_router_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
       ospf_refresher_register_lsa (ospf, new);
     }
   if (rt_recalc)
-    ospf_spf_calculate_schedule (ospf);
-
+    {
+      ospf_flag_spf_reason (SPF_FLAG_ROUTER_LSA_INSTALL);
+      ospf_spf_calculate_schedule (ospf);
+    }
   return new;
 }
 
@@ -2444,7 +2446,10 @@ ospf_network_lsa_install (struct ospf *ospf,
       ospf_refresher_register_lsa (ospf, new);
     }
   if (rt_recalc)
-    ospf_spf_calculate_schedule (ospf);
+    {
+      ospf_flag_spf_reason (SPF_FLAG_NETWORK_LSA_INSTALL);
+      ospf_spf_calculate_schedule (ospf);
+    }
 
   return new;
 }
@@ -2467,11 +2472,10 @@ ospf_summary_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
       /* This doesn't exist yet... */
       ospf_summary_incremental_update(new); */
 #else /* #if 0 */
+      ospf_flag_spf_reason (SPF_FLAG_SUMMARY_LSA_INSTALL);
       ospf_spf_calculate_schedule (ospf);
 #endif /* #if 0 */
  
-      if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
-	zlog_debug ("ospf_summary_lsa_install(): SPF scheduled");
     }
 
   if (IS_LSA_SELF (new))
@@ -2500,6 +2504,7 @@ ospf_summary_asbr_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
 	 - RFC 2328 Section 16.5 implies it should be */
       /* ospf_ase_calculate_schedule(); */
 #else  /* #if 0 */
+      ospf_flag_spf_reason (SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL);
       ospf_spf_calculate_schedule (ospf);
 #endif /* #if 0 */
     }
@@ -3022,6 +3027,7 @@ ospf_lsa_maxage_walker_remover (struct ospf *ospf, struct ospf_lsa *lsa)
 	    ospf_ase_incremental_update (ospf, lsa);
             break;
           default:
+	    ospf_flag_spf_reason (SPF_FLAG_MAXAGE);
 	    ospf_spf_calculate_schedule (ospf);
             break;
           }
