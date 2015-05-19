@@ -1,0 +1,31 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: ch@debian.org\n"
+"POT-Creation-Date: 2006-07-15 20:31+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: boolean
+#. Description
+#: ../quagga.templates:1001
+msgid "Do you really want to stop the Quagga daemon?"
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../quagga.templates:1001
+msgid ""
+"WARNING: The Quagga routing daemon has to be stopped to proceed. This could "
+"lead to BGP flaps or loss of network connectivity."
+msgstr ""

@@ -1,0 +1,30 @@
+#!/bin/bash
+#---------------
+# Testing quagga
+#---------------
+set -e
+
+# modify config file to enable all daemons and copy config files
+CONFIG_FILE=/etc/quagga/daemons
+DAEMONS=("zebra" "bgpd" "ospfd" "ospf6d" "ripd" "ripngd" "isisd" "babeld")
+
+for daemon in "${DAEMONS[@]}"
+do
+    sed -i -e "s/${daemon}=no/${daemon}=yes/g" $CONFIG_FILE
+    cp /usr/share/doc/quagga/examples/${daemon}.conf.sample /etc/quagga/${daemon}.conf
+done
+
+# reload quagga
+/etc/init.d/quagga restart > /dev/null 2>&1
+
+# check daemons
+for daemon in "${DAEMONS[@]}"
+do
+    echo -n "check $daemon  -  "
+    if pidof -x $daemon > /dev/null; then
+        echo "${daemon} OK"
+    else
+        echo "ERROR: ${daemon} IS NOT RUNNING"
+        exit 1
+    fi
+done

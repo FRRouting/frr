@@ -1,0 +1,116 @@
+* SAFETY MEASURES:
+==================
+
+Please consider setting this package "on hold" by typing
+    echo "quagga hold" | dpkg --set-selections
+and verifying this using
+    dpkg --get-selections | grep 'hold$'
+
+Setting a package "on hold" means that it will not automatically be upgraded.
+Instead apt-get only displays a warning saying that a new version would be
+available forcing you to explicitly type "apt-get install quagga" to upgrade it.
+
+
+* What is quagga?
+=================
+
+http://www.quagga.net/
+> Quagga is a routing software suite, providing implementations of OSPFv2,
+> OSPFv3, RIP v1 and v2, RIPv3 and BGPv4 for Unix platforms, particularly
+> FreeBSD and Linux and also NetBSD, to mention a few. Quagga is a fork of GNU
+> Zebra which was developed by Kunihiro Ishiguro. Development of GNU Zebra
+> slowed dramatically to the point where eventually GNU Zebra was forked into
+> Quagga.
+
+> The Quagga tree is an attempt to provide a zebra tree with at least the
+> bug-fixes, which have accumulated, applied, while tracking any significant
+> changes made to the zebra.org tree. Ultimately, this tree hopes to revitalise
+> development of this code base.
+
+I packaged zebra-pj which was then renamed to quagga to get people used to it
+and offer Debian users the choice which versions they like to use. I hope this
+brings quagga some feedback and helps it evolving to a good successor of the
+orphaned zebra.
+
+ -- Christian Hammers <ch@debian.org>, Jul/Aug 2003
+
+
+* Why has SNMP support been disabled?
+=====================================
+Quagga used to link against the NetSNMP libraries to provide SNMP
+support. Those libraries sadly link against the OpenSSL libraries
+to provide crypto support for SNMPv3 among others.
+OpenSSL now is not compatible with the GNU GENERAL PUBLIC LICENSE (GPL)
+licence that Quagga is distributed under. For more explanation read:
+  http://www.gnome.org/~markmc/openssl-and-the-gpl.html
+  http://www.gnu.org/licenses/gpl-faq.html#GPLIncompatibleLibs
+Updating the licence to explecitly allow linking against OpenSSL
+would requite the affirmation of all people that ever contributed
+a significant part to Zebra or Quagga and thus are the collective
+"copyright holder". That's too much work. Using a shrinked down 
+version of NetSNMP without OpenSSL or convincing the NetSNMP people
+to change to GnuTLS are maybe good solutions but not reachable
+during the last days before the Sarge release :-(
+
+        *BUT*
+
+It is allowed by the used licence mix that you fetch the sources and
+build Quagga yourself with SNMP with
+	<remove the "grep ^smux" block at the end of debian/quagga.preinst>
+        # export WANT_SNMP=1
+        # apt-get -b source quagga
+Just distributing it in binary form, linked against OpenSSL, is forbidden.
+
+
+* Daemon selection:
+===================
+
+The Debian package uses /etc/quagga/daemons to tell the
+initscript which daemons to start. It's in the format
+<daemon>=<yes|no|priority>
+with no spaces (it's simply source-d into the initscript).
+Default is not to start anything, since it can hose your
+system's routing table if not set up properly.
+
+Priorities were suggested by Dancer <dancer@zeor.simegen.com>.
+They're used to start the Quagga daemons in more than one step
+(for example start one or two at network initialization and the
+rest later). The number of Quagga daemons being small, priorities
+must be between 1 and 9, inclusive (or the initscript has to be
+changed). /etc/init.d/quagga then can be started as
+
+/etc/init.d/quagga <start|stop|restart|<priority>>
+
+where priority 0 is the same as 'stop', priority 10 or 'start'
+means 'start all'
+
+
+* Error message "privs_init: initial cap_set_proc failed":
+==========================================================
+
+This error message means that "capability support" has to be built
+into the kernel.
+
+
+* Error message "netlink-listen: overrun: No buffer space available":
+=====================================================================
+
+If this message occurs the receive buffer should be increased by adding the
+following to /etc/sysctl.conf and "--nl-bufsize" to /etc/quagga/debian.conf.
+> net.core.rmem_default = 262144
+> net.core.rmem_max = 262144
+See message #4525 from 2005-05-09 in the quagga-users mailing list.
+
+
+* vtysh immediately exists:
+===========================
+
+Check /etc/pam.d/quagga, it probably denies access to your user. The passwords
+configured in /etc/quagga/Quagga.conf are only for telnet access.
+
+* Where is the babeld.8 manpage?
+================================
+
+It conflicted with the one from the babeld package and was therefore be
+renamed to quagga-babeld.8.
+

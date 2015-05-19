@@ -1,0 +1,6 @@
+Template: quagga/really_stop
+Type: boolean
+Default: false
+_Description: Do you really want to stop the Quagga daemon?
+ WARNING: The Quagga routing daemon has to be stopped to proceed. This
+ could lead to BGP flaps or loss of network connectivity.

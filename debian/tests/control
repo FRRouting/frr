@@ -1,0 +1,3 @@
+Tests: daemons
+Depends: quagga
+Restrictions: needs-root

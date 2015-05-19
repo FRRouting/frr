@@ -1,0 +1,52 @@
+Source: quagga
+Section: net
+Priority: optional
+Maintainer: Christian Hammers <ch@debian.org>
+Uploaders: Florian Weimer <fw@debian.org>
+Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, po-debconf, autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath, libsnmp-dev
+Standards-Version: 3.9.4
+Homepage: http://www.quagga.net/
+XS-Testsuite: autopkgtest
+
+Package: quagga
+Architecture: any
+Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), iproute, ${misc:Depends}
+Pre-Depends: adduser
+Conflicts: zebra, zebra-pj
+Replaces: zebra, zebra-pj
+Suggests: snmpd
+Description: BGP/OSPF/RIP routing daemon
+ GNU Quagga is free software which manages TCP/IP based routing protocols.
+ It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, and RIPng as
+ well as the IPv6 versions of these.
+ .
+ As the precessor Zebra has been considered orphaned, the Quagga project
+ has been formed by members of the zebra mailing list and the former
+ zebra-pj project to continue developing.
+ .
+ Quagga uses threading if the kernel supports it, but can also run on
+ kernels that do not support threading. Each protocol has its own daemon.
+ .
+ It is more than a routed replacement, it can be used as a Route Server and
+ a Route Reflector.
+
+Package: quagga-dbg
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, quagga (= ${binary:Version})
+Priority: extra
+Section: debug
+Description: BGP/OSPF/RIP routing daemon (debug symbols)
+ This package provides debugging symbols for all binary packages built from                                                                                                                                                                    
+ quagga source package. It's highly recommended to have this package installed                                                                                                                                                                 
+ before reporting any Quagga crashes to either Quagga developers or Debian                                                                                                                                                                     
+ package maintainers.
+
+Package: quagga-doc
+Section: net
+Architecture: all
+Depends: ${misc:Depends}
+Suggests: quagga
+Description: documentation files for quagga
+ This package includes info files for quagga, a free software which manages
+ TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
+ IS-IS, RIPv1, RIPv2, and RIPng as well as the IPv6 versions of these.

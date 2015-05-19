@@ -1,0 +1,9 @@
+doc/bgpd.8
+doc/ospf6d.8
+doc/ospfd.8
+doc/ripd.8
+doc/ripngd.8
+doc/vtysh.1
+doc/zebra.8
+doc/isisd.8
+doc/watchquagga.8

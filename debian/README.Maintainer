@@ -1,0 +1,22 @@
+#
+# To check if the patches still apply on new upstream versions:
+#
+for i in debian/patches/*.diff; do echo -e "#\n# $i\n#"; patch --fuzz=3 --dry-run -p1 < $i; done
+
+#
+# Filename transition from zebra to quagga
+#
+
+Files that keep their names
+	/usr/bin/vtysh
+
+Files that got an -pj suffix
+	/etc/default/zebra	-> /etc/quagga/debian.conf
+	/etc/init.d/zebra	-> /etc/init.d/quagga
+	/etc/zebra/		-> /etc/quagga/
+	/usr/share/doc/zebra/	-> /usr/share/doc/quagga/
+	/var/log/zebra/		-> /var/log/quagga/
+	/var/run/ 		-> /var/run/quagga/
+
+Files that were moved
+	/usr/sbin/*		-> /usr/lib/quagga/

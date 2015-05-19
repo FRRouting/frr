@@ -1,0 +1,98 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE=1
+export DEB_BUILD_HARDENING=1
+
+ifeq ($(WANT_SNMP), 1)
+  USE_SNMP=--enable-snmp
+  $(warning "DEBIAN: SNMP enabled, sorry for your inconvenience")
+else
+  $(warning "DEBIAN: SNMP disabled, see README.Debian")
+endif
+
+%:
+	dh $@ --parallel --with autotools_dev --dbg-package=quagga-dbg --list-missing
+
+override_dh_auto_clean:
+	dh_auto_clean
+	
+	@echo "BEGIN CRUFT"
+	@rm -vf */Makefile doc/quagga.fns doc/quagga.info doc/quagga.kys doc/quagga.tmp doc/quagga.pdf doc/quagga.info-*
+	@rm -vf lib/version.c doc/stamp-vti
+	@rm -vf vtysh/vtysh_cmd.c
+	@rm -vf doc/fig*.pdf doc/version.texi
+	@echo "END CRUFT"
+	
+	# why?
+	@if [ -e config.log ]; then echo "CONFIG.LOG STILL THERE"; rm config.log; fi
+
+override_dh_auto_configure:
+	# Quagga needs /proc to check some BSD vs Linux specific stuff.
+	# Else it fails with an obscure error message pointing out that
+	# IPCTL_FORWARDING is an undefined symbol which is not very helpful.
+	@if ! [ -d /proc/1 ]; then \
+	   echo "./configure needs a mounted /proc"; \
+	   exit 1; \
+	fi
+	
+	dh_auto_configure -- \
+ 		--enable-exampledir=/usr/share/doc/quagga/examples/ \
+		--localstatedir=/var/run/quagga \
+		--sbindir=/usr/lib/quagga \
+		--sysconfdir=/etc/quagga \
+	    $(USE_SNMP) \
+ 		--enable-vtysh \
+ 		--enable-isisd \
+ 		--enable-watchquagga \
+ 		--enable-ospf-te \
+ 		--enable-opaque-lsa \
+ 		--enable-ipv6 \
+ 		--enable-ospfclient=yes \
+ 		--enable-ospfapi=yes \
+ 		--enable-multipath=64 \
+ 		--enable-user=quagga \
+ 		--enable-group=quagga \
+ 		--enable-vty-group=quaggavty \
+ 		--enable-configfile-mask=0640 \
+ 		--enable-logfile-mask=0640 \
+ 		--enable-rtadv \
+ 		--enable-gcc-rdynamic \
+ 		--with-libpam
+	
+	if ! diff -b -IHAVE_SNMP -IHAVE_NETSNMP -IUCD_COMPAT -IGETIFADDR debian/my/config.h.reference config.h; then \
+		echo; \
+		echo "WARNING: Please compare with debian/my/config.h.reference"; \
+		echo; \
+		if [ "`hostname`" = "james" ]; then exit 1; fi; \
+	fi
+
+override_dh_auto_build:
+	dh_auto_build
+	
+	# doc/ is a bit crazy
+	dh_auto_build -- -C doc quagga.pdf || true # pdfetex fails with exit code 1 but still produces a good looking .pdf
+	rm -vf doc/quagga.info
+	dh_auto_build -- -C doc quagga.info
+	rm -vf doc/quagga.info.html*
+ 
+override_dh_auto_install:
+	dh_auto_install
+	
+	# cleaning up the info dir
+	rm -f debian/tmp/usr/share/info/dir*
+	
+	# install config files
+	mkdir -p debian/tmp/etc/quagga/
+	cp debian/my/debian.conf debian/tmp/etc/quagga/
+	cp debian/my/daemons debian/tmp/etc/quagga/
+	perl -pi -e 's#^!log file #!log file /var/log/quagga/#' debian/tmp/usr/share/doc/quagga/examples/*sample*
+	    
+	# installing the Quagga specific SNMP MIB
+	install -D -m 644 ./zebra/GNOME-PRODUCT-ZEBRA-MIB debian/tmp/usr/share/snmp/mibs/GNOME-PRODUCT-ZEBRA-MIB
+	
+	# installing custom man page
+	cp debian/my/babeld.8 debian/tmp/usr/share/man/man8/quagga-babeld.8
+	
+	# cleaning .la files
+	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
+

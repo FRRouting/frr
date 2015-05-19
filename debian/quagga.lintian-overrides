@@ -1,0 +1,4 @@
+quagga: non-dev-pkg-with-shlib-symlink usr/lib/libospfapiclient.so.0.0.0 usr/lib/libospfapiclient.so
+quagga: non-dev-pkg-with-shlib-symlink usr/lib/libospf.so.0.0.0 usr/lib/libospf.so
+quagga: non-dev-pkg-with-shlib-symlink usr/lib/libzebra.so.0.0.0 usr/lib/libzebra.so
+quagga: package-name-doesnt-match-sonames libospf0 libospfapiclient0 libzebra0

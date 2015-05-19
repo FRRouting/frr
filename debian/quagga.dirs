@@ -1,0 +1,7 @@
+etc/logrotate.d/
+etc/quagga/
+usr/share/doc/quagga/
+usr/share/doc/quagga/examples/
+usr/share/lintian/overrides/
+usr/share/snmp/mibs/
+var/log/quagga/
