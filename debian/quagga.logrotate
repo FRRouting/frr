@@ -1,5 +1,5 @@
 /var/log/quagga/*.log {
-        daily
+        size 500k
         sharedscripts
         missingok
         compress
