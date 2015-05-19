@@ -132,6 +132,9 @@ if_create (const char *name, int namelen)
   ifp->connected = list_new ();
   ifp->connected->del = (void (*) (void *)) connected_free;
 
+  /* Enable Link-detection by default */
+  SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
+
   if (if_master.if_new_hook)
     (*if_master.if_new_hook) (ifp);
 
