@@ -2670,7 +2670,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	  filter->map[RMAP_IN].map =
 	    route_map_lookup_by_name (filter->map[RMAP_IN].name);
 
-	  if (route_update)
+	  if (route_update && peer->status == Established)
 	    {
 	      if (CHECK_FLAG (peer->af_flags[afi][safi],
 			      PEER_FLAG_SOFT_RECONFIG))
@@ -2717,7 +2717,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	  update = 1;
 	}
 
-      if (update && route_update)
+      if (update && route_update && peer->status == Established)
 	{
 	  if (CHECK_FLAG (peer->af_flags[afi][safi],
 			  PEER_FLAG_SOFT_RECONFIG))
