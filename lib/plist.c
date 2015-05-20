@@ -29,6 +29,7 @@
 #include "buffer.h"
 #include "stream.h"
 #include "log.h"
+#include "routemap.h"
 
 /* Each prefix-list's entry. */
 struct prefix_list_entry
@@ -325,13 +326,16 @@ prefix_list_delete (struct prefix_list *plist)
      cleared. */
   master->recent = NULL;
 
-  if (plist->name)
-    XFREE (MTYPE_PREFIX_LIST_STR, plist->name);
-  
-  prefix_list_free (plist);
-  
+  route_map_notify_dependencies(plist->name, RMAP_EVENT_PLIST_DELETED);
+
   if (master->delete_hook)
     (*master->delete_hook) (NULL);
+
+  if (plist->name)
+    XFREE (MTYPE_PREFIX_LIST_STR, plist->name);
+
+  prefix_list_free (plist);
+
 }
 
 static struct prefix_list_entry *
@@ -452,6 +456,7 @@ prefix_list_entry_delete (struct prefix_list *plist,
 
   if (update_list)
     {
+      route_map_notify_dependencies(plist->name, RMAP_EVENT_PLIST_DELETED);
       if (plist->master->delete_hook)
 	(*plist->master->delete_hook) (plist);
 
@@ -514,6 +519,7 @@ prefix_list_entry_add (struct prefix_list *plist,
   if (plist->master->add_hook)
     (*plist->master->add_hook) (plist);
 
+  route_map_notify_dependencies(plist->name, RMAP_EVENT_PLIST_ADDED);
   plist->master->recent = plist;
 }
 

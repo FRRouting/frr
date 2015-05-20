@@ -644,7 +644,10 @@ community_list_set (struct community_list_handler *ch,
   if (community_list_dup_check (list, entry))
     community_entry_free (entry);
   else
-    community_list_entry_add (list, entry);
+    {
+      community_list_entry_add (list, entry);
+      route_map_notify_dependencies(name, RMAP_EVENT_CLIST_ADDED);
+    }
 
   return 0;
 }
@@ -670,6 +673,7 @@ community_list_unset (struct community_list_handler *ch,
   if (!str)
     {
       community_list_delete (list);
+      route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
       return 0;
     }
 
@@ -695,6 +699,7 @@ community_list_unset (struct community_list_handler *ch,
     return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
   community_list_entry_delete (list, entry, style);
+  route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
 
   return 0;
 }
@@ -763,7 +768,10 @@ extcommunity_list_set (struct community_list_handler *ch,
   if (community_list_dup_check (list, entry))
     community_entry_free (entry);
   else
-    community_list_entry_add (list, entry);
+    {
+      community_list_entry_add (list, entry);
+      route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_ADDED);
+    }
 
   return 0;
 }
@@ -789,6 +797,7 @@ extcommunity_list_unset (struct community_list_handler *ch,
   if (!str)
     {
       community_list_delete (list);
+      route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
       return 0;
     }
 
@@ -814,6 +823,7 @@ extcommunity_list_unset (struct community_list_handler *ch,
     return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
   community_list_entry_delete (list, entry, style);
+  route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
 
   return 0;
 }

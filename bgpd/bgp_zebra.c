@@ -1324,11 +1324,28 @@ bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type)
 
   if (BGP_DEBUG(zebra, ZEBRA))
     zlog_debug("Zebra send: redistribute add %s", zebra_route_string(type));
-    
+
   /* Send distribute add message to zebra. */
   zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
 
   return CMD_SUCCESS;
+}
+
+int
+bgp_redistribute_resend (struct bgp *bgp, afi_t afi, int type)
+{
+  /* Return if zebra connection is not established. */
+  if (zclient->sock < 0)
+    return -1;
+
+  if (BGP_DEBUG(zebra, ZEBRA))
+    zlog_debug("Zebra send: redistribute add %s", zebra_route_string(type));
+
+  /* Send distribute add message to zebra. */
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
+
+  return 0;
 }
 
 /* Redistribute with route-map specification.  */

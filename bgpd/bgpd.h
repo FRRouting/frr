@@ -23,6 +23,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 /* For union sockunion.  */
 #include "sockunion.h"
+#include "routemap.h"
 
 /* Typedef BGP specific types.  */
 typedef u_int32_t as_t;
@@ -192,6 +193,11 @@ struct bgp
 
   /* BGP redistribute route-map.  */
   struct bgp_rmap rmap[AFI_MAX][ZEBRA_ROUTE_MAX];
+
+  /* timer to dampen route map changes */
+  struct thread *t_rmap_update;   /* Handle route map updates */
+  u_int32_t rmap_update_timer;	  /* Route map update timer */
+#define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
   /* BGP distance configuration.  */
   u_char distance_ebgp;
@@ -1052,4 +1058,6 @@ extern int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
 extern int peer_ttl_security_hops_set (struct peer *, int);
 extern int peer_ttl_security_hops_unset (struct peer *);
 
+extern int bgp_route_map_update_timer (struct thread *thread);
+extern void bgp_route_map_terminate(void);
 #endif /* _QUAGGA_BGPD_H */

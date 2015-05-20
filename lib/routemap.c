@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "command.h"
 #include "vty.h"
 #include "log.h"
+#include "hash.h"
 
 /* Vector for route match rules. */
 static vector route_match_vec;
@@ -60,15 +61,47 @@ struct route_map_list
 
   void (*add_hook) (const char *);
   void (*delete_hook) (const char *);
-  void (*event_hook) (route_map_event_t, const char *); 
+  void (*event_hook) (route_map_event_t, const char *);
 };
 
 /* Master list of route map. */
-static struct route_map_list route_map_master = { NULL, NULL, NULL, NULL };
+static struct route_map_list route_map_master = { NULL, NULL, NULL, NULL, NULL };
 
-static void
-route_map_rule_delete (struct route_map_rule_list *,
-		       struct route_map_rule *);
+enum route_map_upd8_type
+  {
+    ROUTE_MAP_ADD = 1,
+    ROUTE_MAP_DEL,
+  };
+
+/* all possible route-map dependency types */
+enum route_map_dep_type
+  {
+    ROUTE_MAP_DEP_RMAP = 1,
+    ROUTE_MAP_DEP_CLIST,
+    ROUTE_MAP_DEP_ECLIST,
+    ROUTE_MAP_DEP_PLIST,
+    ROUTE_MAP_DEP_ASPATH,
+    ROUTE_MAP_DEP_FILTER,
+    ROUTE_MAP_DEP_MAX,
+  };
+
+struct route_map_dep
+{
+  char *dep_name;
+  struct hash *dep_rmap_hash;
+  struct hash *this_hash;	/* ptr to the hash structure this is part of */
+};
+
+/* Hashes maintaining dependency between various sublists used by route maps */
+struct hash *route_map_dep_hash[ROUTE_MAP_DEP_MAX];
+
+static unsigned int route_map_dep_hash_make_key (void *p);
+static int route_map_dep_hash_cmp (const void *p1, const void *p2);
+static void route_map_init_dep_hashes (void);
+static void route_map_clear_all_references (char *rmap_name);
+static void route_map_rule_delete (struct route_map_rule_list *,
+				   struct route_map_rule *);
+static int rmap_debug = 0;
 
 static void
 route_map_index_delete (struct route_map_index *, int);
@@ -105,45 +138,72 @@ route_map_add (const char *name)
 
   /* Execute hook. */
   if (route_map_master.add_hook)
-    (*route_map_master.add_hook) (name);
-
+    {
+      (*route_map_master.add_hook) (name);
+      route_map_notify_dependencies(name, RMAP_EVENT_CALL_ADDED);
+    }
   return map;
+}
+
+/* this is supposed to be called post processing by
+ * the delete hook function. Don't invoke delete_hook
+ * again in this routine.
+ */
+void
+route_map_free_map (struct route_map *map)
+{
+  struct route_map_list *list;
+  struct route_map_index *index;
+
+  while ((index = map->head) != NULL)
+    route_map_index_delete (index, 0);
+
+  list = &route_map_master;
+
+  if (map != NULL)
+    {
+      if (map->next)
+	map->next->prev = map->prev;
+      else
+	list->tail = map->prev;
+
+      if (map->prev)
+	map->prev->next = map->next;
+      else
+	list->head = map->next;
+
+      XFREE (MTYPE_ROUTE_MAP_NAME, map->name);
+      XFREE (MTYPE_ROUTE_MAP, map);
+    }
 }
 
 /* Route map delete from list. */
 static void
 route_map_delete (struct route_map *map)
 {
-  struct route_map_list *list;
   struct route_map_index *index;
   char *name;
-  
+
   while ((index = map->head) != NULL)
     route_map_index_delete (index, 0);
 
   name = map->name;
+  map->head = NULL;
 
-  list = &route_map_master;
-
-  if (map->next)
-    map->next->prev = map->prev;
-  else
-    list->tail = map->prev;
-
-  if (map->prev)
-    map->prev->next = map->next;
-  else
-    list->head = map->next;
-
-  XFREE (MTYPE_ROUTE_MAP, map);
-
+  /* Clear all dependencies */
+  route_map_clear_all_references(name);
+  map->deleted = 1;
   /* Execute deletion hook. */
   if (route_map_master.delete_hook)
-    (*route_map_master.delete_hook) (name);
+    {
+      (*route_map_master.delete_hook) (name);
+      route_map_notify_dependencies(name, RMAP_EVENT_CALL_DELETED);
+    }
 
-  if (name)
-    XFREE (MTYPE_ROUTE_MAP_NAME, name);
-
+  if (!map->to_be_processed)
+    {
+      route_map_free_map (map);
+    }
 }
 
 /* Lookup route map by route map name string. */
@@ -152,10 +212,48 @@ route_map_lookup_by_name (const char *name)
 {
   struct route_map *map;
 
+  if (!name)
+    return NULL;
+
   for (map = route_map_master.head; map; map = map->next)
-    if (strcmp (map->name, name) == 0)
+    if ((strcmp (map->name, name) == 0) && (!map->deleted))
       return map;
   return NULL;
+}
+
+int
+route_map_mark_updated (const char *name, int del_later)
+{
+  struct route_map *map;
+  int ret = -1;
+
+  /* We need to do this walk manually instead of calling lookup_by_name()
+   * because the lookup function doesn't return route maps marked as
+   * deleted.
+   */
+  for (map = route_map_master.head; map; map = map->next)
+    if (strcmp (map->name, name) == 0)
+      {
+	map->to_be_processed = 1;
+	ret = 0;
+      }
+
+  return(ret);
+}
+
+int
+route_map_clear_updated (struct route_map *map)
+{
+  int ret = -1;
+
+  if (map)
+    {
+      map->to_be_processed = 0;
+      if (map->deleted)
+	route_map_free_map(map);
+    }
+
+  return (ret);
 }
 
 /* Lookup route map.  If there isn't route map create one and return
@@ -168,7 +266,29 @@ route_map_get (const char *name)
   map = route_map_lookup_by_name (name);
   if (map == NULL)
     map = route_map_add (name);
+
   return map;
+}
+
+void
+route_map_walk_update_list (void *arg,
+			    int (*route_map_update_fn) (void *arg, char *name))
+{
+  struct route_map *node;
+  struct route_map *nnode = NULL;
+
+  for (node = route_map_master.head; node; node = nnode)
+    {
+      if (node->to_be_processed)
+	{
+	  /* DD: Should we add any thread yield code here */
+	  route_map_update_fn(arg, node->name);
+	  nnode = node->next;
+	  route_map_clear_updated(node);
+	}
+      else
+	nnode = node->next;
+    }
 }
 
 /* Return route map's type string. */
@@ -271,7 +391,8 @@ vty_show_route_map (struct vty *vty, const char *name)
   else
     {
       for (map = route_map_master.head; map; map = map->next)
-	vty_show_route_map_entry (vty, map);
+	if (!map->deleted)
+	  vty_show_route_map_entry (vty, map);
     }
   return CMD_SUCCESS;
 }
@@ -320,9 +441,11 @@ route_map_index_delete (struct route_map_index *index, int notify)
 
     /* Execute event hook. */
   if (route_map_master.event_hook && notify)
-    (*route_map_master.event_hook) (RMAP_EVENT_INDEX_DELETED,
-				    index->map->name);
-
+    {
+      (*route_map_master.event_hook) (RMAP_EVENT_INDEX_DELETED,
+				      index->map->name);
+      route_map_notify_dependencies(index->map->name, RMAP_EVENT_CALL_ADDED);
+    }
   XFREE (MTYPE_ROUTE_MAP_INDEX, index);
 }
 
@@ -386,9 +509,11 @@ route_map_index_add (struct route_map *map, enum route_map_type type,
 
   /* Execute event hook. */
   if (route_map_master.event_hook)
-    (*route_map_master.event_hook) (RMAP_EVENT_INDEX_ADDED,
-				    map->name);
-
+    {
+      (*route_map_master.event_hook) (RMAP_EVENT_INDEX_ADDED,
+				      map->name);
+      route_map_notify_dependencies (map->name, RMAP_EVENT_CALL_ADDED);
+    }
   return index;
 }
 
@@ -521,6 +646,28 @@ rulecmp (const char *dst, const char *src)
   return 1;
 }
 
+/* Use this to return the already specified argument for this match. This is
+ * useful to get the specified argument with a route map match rule when the
+ * rule is being deleted and the argument is not provided.
+ */
+const char *
+route_map_get_match_arg(struct route_map_index *index, const char *match_name)
+{
+  struct route_map_rule *rule;
+  struct route_map_rule_cmd *cmd;
+
+  /* First lookup rule for add match statement. */
+  cmd = route_map_lookup_match (match_name);
+  if (cmd == NULL)
+    return NULL;
+
+  for (rule = index->match_list.head; rule; rule = rule->next)
+    if (rule->cmd == cmd && rule->rule_str != NULL)
+      return (rule->rule_str);
+
+  return (NULL);
+}
+
 /* Add match statement to route map. */
 int
 route_map_add_match (struct route_map_index *index, const char *match_name,
@@ -572,10 +719,13 @@ route_map_add_match (struct route_map_index *index, const char *match_name,
 
   /* Execute event hook. */
   if (route_map_master.event_hook)
-    (*route_map_master.event_hook) (replaced ?
-				    RMAP_EVENT_MATCH_REPLACED:
-				    RMAP_EVENT_MATCH_ADDED,
-				    index->map->name);
+    {
+      (*route_map_master.event_hook) (replaced ?
+				      RMAP_EVENT_MATCH_REPLACED:
+				      RMAP_EVENT_MATCH_ADDED,
+				      index->map->name);
+      route_map_notify_dependencies(index->map->name, RMAP_EVENT_CALL_ADDED);
+    }
 
   return 0;
 }
@@ -599,8 +749,11 @@ route_map_delete_match (struct route_map_index *index, const char *match_name,
 	route_map_rule_delete (&index->match_list, rule);
 	/* Execute event hook. */
 	if (route_map_master.event_hook)
-	  (*route_map_master.event_hook) (RMAP_EVENT_MATCH_DELETED,
-					  index->map->name);
+	  {
+	    (*route_map_master.event_hook) (RMAP_EVENT_MATCH_DELETED,
+					    index->map->name);
+	    route_map_notify_dependencies(index->map->name, RMAP_EVENT_CALL_ADDED);
+	  }
 	return 0;
       }
   /* Can't find matched rule. */
@@ -659,10 +812,13 @@ route_map_add_set (struct route_map_index *index, const char *set_name,
 
   /* Execute event hook. */
   if (route_map_master.event_hook)
-    (*route_map_master.event_hook) (replaced ?
-				    RMAP_EVENT_SET_REPLACED:
-				    RMAP_EVENT_SET_ADDED,
-				    index->map->name);
+    {
+      (*route_map_master.event_hook) (replaced ?
+				      RMAP_EVENT_SET_REPLACED:
+				      RMAP_EVENT_SET_ADDED,
+				      index->map->name);
+      route_map_notify_dependencies(index->map->name, RMAP_EVENT_CALL_ADDED);
+    }
   return 0;
 }
 
@@ -685,8 +841,11 @@ route_map_delete_set (struct route_map_index *index, const char *set_name,
         route_map_rule_delete (&index->set_list, rule);
 	/* Execute event hook. */
 	if (route_map_master.event_hook)
-	  (*route_map_master.event_hook) (RMAP_EVENT_SET_DELETED,
-					  index->map->name);
+	  {
+	    (*route_map_master.event_hook) (RMAP_EVENT_SET_DELETED,
+					    index->map->name);
+	    route_map_notify_dependencies(index->map->name, RMAP_EVENT_CALL_ADDED);
+	  }
         return 0;
       }
   /* Can't find matched rule. */
@@ -897,6 +1056,273 @@ route_map_finish (void)
   route_match_vec = NULL;
   vector_free (route_set_vec);
   route_set_vec = NULL;
+}
+
+/* Routines for route map dependency lists and dependency processing */
+static int
+route_map_rmap_hash_cmp (const void *p1, const void *p2)
+{
+  return (strcmp((char *)p1, (char *)p2) == 0);
+}
+
+static int
+route_map_dep_hash_cmp (const void *p1, const void *p2)
+{
+
+  return (strcmp (((struct route_map_dep *)p1)->dep_name, (char *)p2) == 0);
+}
+
+static void
+route_map_rmap_free(struct hash_backet *backet, void *arg)
+{
+  char *rmap_name = (char *)backet->data;
+
+  if (rmap_name)
+    XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+}
+
+static void
+route_map_dep_hash_free (struct hash_backet *backet, void *arg)
+{
+  struct route_map_dep *dep = (struct route_map_dep *)backet->data;
+
+  if (!dep)
+    return;
+
+  if (dep->dep_rmap_hash)
+    hash_iterate (dep->dep_rmap_hash, route_map_rmap_free, (void *)NULL);
+
+  hash_free(dep->dep_rmap_hash);
+  XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
+  XFREE(MTYPE_ROUTE_MAP_DEP, dep);
+}
+
+static void
+route_map_clear_reference(struct hash_backet *backet, void *arg)
+{
+  struct route_map_dep *dep = (struct route_map_dep *)backet->data;
+  char *rmap_name;
+
+  if (dep && arg)
+    {
+      rmap_name = (char *)hash_release(dep->dep_rmap_hash, (void *)arg);
+      if (rmap_name)
+	{
+	  XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+	}
+      if (!dep->dep_rmap_hash->count)
+	{
+	  dep = hash_release(dep->this_hash, (void *)dep->dep_name);
+	  hash_free(dep->dep_rmap_hash);
+	  XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
+	  XFREE(MTYPE_ROUTE_MAP_DEP, dep);
+	}
+    }
+}
+
+static void
+route_map_clear_all_references (char *rmap_name)
+{
+  int i;
+
+  for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
+    {
+      hash_iterate(route_map_dep_hash[i], route_map_clear_reference,
+		   (void *)rmap_name);
+    }
+}
+
+static void *
+route_map_dep_hash_alloc(void *p)
+{
+  char *dep_name = (char *)p;
+  struct route_map_dep *dep_entry;
+
+  dep_entry = XCALLOC(MTYPE_ROUTE_MAP_DEP, sizeof(struct route_map_dep));
+  dep_entry->dep_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, dep_name);
+  dep_entry->dep_rmap_hash = hash_create(route_map_dep_hash_make_key,
+					 route_map_rmap_hash_cmp);
+  dep_entry->this_hash = NULL;
+
+  return((void *)dep_entry);
+}
+
+static void *
+route_map_name_hash_alloc(void *p)
+{
+  return((void *)XSTRDUP(MTYPE_ROUTE_MAP_NAME, (char *)p));
+}
+
+static unsigned int
+route_map_dep_hash_make_key (void *p)
+{
+  return (string_hash_make((char *)p));
+}
+
+static void
+route_map_print_dependency (struct hash_backet *backet, void *data)
+{
+  char *rmap_name = (char *)backet->data;
+  char *dep_name  = (char *)data;
+
+  if (rmap_name)
+    zlog_debug("%s: Dependency for %s: %s", __FUNCTION__, dep_name, rmap_name);
+}
+
+static int
+route_map_dep_update (struct hash *dephash, const char *dep_name,
+		      const char *rmap_name,
+		      route_map_event_t type)
+{
+  struct route_map_dep *dep;
+  char *ret_map_name;
+
+  switch (type)
+    {
+    case RMAP_EVENT_PLIST_ADDED:
+    case RMAP_EVENT_CLIST_ADDED:
+    case RMAP_EVENT_ECLIST_ADDED:
+    case RMAP_EVENT_ASLIST_ADDED:
+    case RMAP_EVENT_CALL_ADDED:
+    case RMAP_EVENT_FILTER_ADDED:
+      if (rmap_debug)
+	zlog_debug("%s: Adding dependency for %s in %s", __FUNCTION__,
+		   dep_name, rmap_name);
+      dep = (struct route_map_dep *) hash_get (dephash, (void *)dep_name,
+					       route_map_dep_hash_alloc);
+      if (!dep)
+	return -1;
+
+      if (!dep->this_hash)
+	dep->this_hash = dephash;
+
+      hash_get(dep->dep_rmap_hash, rmap_name, route_map_name_hash_alloc);
+      break;
+    case RMAP_EVENT_PLIST_DELETED:
+    case RMAP_EVENT_CLIST_DELETED:
+    case RMAP_EVENT_ECLIST_DELETED:
+    case RMAP_EVENT_ASLIST_DELETED:
+    case RMAP_EVENT_CALL_DELETED:
+    case RMAP_EVENT_FILTER_DELETED:
+      if (rmap_debug)
+	zlog_debug("%s: Deleting dependency for %s in %s", __FUNCTION__,
+		   dep_name, rmap_name);
+      dep = (struct route_map_dep *) hash_get (dephash, (void *)dep_name,
+					       NULL);
+      if (!dep)
+	return 0;
+      ret_map_name = (char *)hash_release(dep->dep_rmap_hash, (void *)rmap_name);
+      if (ret_map_name)
+	XFREE(MTYPE_ROUTE_MAP_NAME, ret_map_name);
+
+      if (!dep->dep_rmap_hash->count)
+	{
+	  dep = hash_release(dephash, (void *)dep_name);
+	  hash_free(dep->dep_rmap_hash);
+	  XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
+	  XFREE(MTYPE_ROUTE_MAP_DEP, dep);
+	  dep = NULL;
+	}
+      break;
+    default:
+      break;
+    }
+
+  if (dep)
+    {
+      if (rmap_debug)
+	hash_iterate (dep->dep_rmap_hash, route_map_print_dependency, (void *)dep_name);
+    }
+  return 0;
+}
+
+static struct hash *
+route_map_get_dep_hash (route_map_event_t event)
+{
+  struct hash *upd8_hash = NULL;
+
+  switch (event)
+    {
+    case RMAP_EVENT_PLIST_ADDED:
+    case RMAP_EVENT_PLIST_DELETED:
+      upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_PLIST];
+      break;
+    case RMAP_EVENT_CLIST_ADDED:
+    case RMAP_EVENT_CLIST_DELETED:
+      upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_CLIST];
+      break;
+    case RMAP_EVENT_ECLIST_ADDED:
+    case RMAP_EVENT_ECLIST_DELETED:
+      upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_ECLIST];
+      break;
+    case RMAP_EVENT_ASLIST_ADDED:
+    case RMAP_EVENT_ASLIST_DELETED:
+      upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_ASPATH];
+      break;
+    case RMAP_EVENT_CALL_ADDED:
+    case RMAP_EVENT_CALL_DELETED:
+      upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_RMAP];
+      break;
+    case RMAP_EVENT_FILTER_ADDED:
+    case RMAP_EVENT_FILTER_DELETED:
+      upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_FILTER];
+      break;
+    default:
+      upd8_hash = NULL;
+      break;
+    }
+  return (upd8_hash);
+}
+
+static void
+route_map_process_dependency (struct hash_backet *backet, void *data)
+{
+  char *rmap_name;
+  route_map_event_t type = (route_map_event_t )data;
+
+  rmap_name = (char *)backet->data;
+
+  if (rmap_name)
+    {
+      if (rmap_debug)
+	zlog_debug("%s: Notifying %s of dependency", __FUNCTION__,
+		   rmap_name);
+      if (route_map_master.event_hook)
+	(*route_map_master.event_hook) (type, rmap_name);
+    }
+}
+
+void
+route_map_upd8_dependency (route_map_event_t type, const char *arg,
+			   const char *rmap_name)
+{
+  struct hash *upd8_hash = NULL;
+
+  if ((upd8_hash = route_map_get_dep_hash(type)))
+    route_map_dep_update (upd8_hash, arg, rmap_name, type);
+}
+
+void
+route_map_notify_dependencies (const char *affected_name, route_map_event_t event)
+{
+  struct route_map_dep *dep;
+  struct hash *upd8_hash;
+
+  if (!affected_name)
+    return;
+
+  if ((upd8_hash = route_map_get_dep_hash(event)) == NULL)
+    return;
+
+  dep = (struct route_map_dep *)hash_get (upd8_hash, (void *)affected_name,
+					  NULL);
+  if (dep)
+    {
+      if (!dep->this_hash)
+	dep->this_hash = upd8_hash;
+
+      hash_iterate (dep->dep_rmap_hash, route_map_process_dependency, (void *)event);
+    }
 }
 
 /* VTY related functions. */
@@ -1180,9 +1606,19 @@ DEFUN (rmap_call,
   if (index)
     {
       if (index->nextrm)
-          XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
+	{
+	  route_map_upd8_dependency (RMAP_EVENT_CALL_DELETED,
+				     index->nextrm,
+				     index->map->name);
+	  XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
+	}
       index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[0]);
     }
+
+  /* Execute event hook. */
+  route_map_upd8_dependency (RMAP_EVENT_CALL_ADDED,
+			     index->nextrm,
+			     index->map->name);
   return CMD_SUCCESS;
 }
 
@@ -1198,6 +1634,9 @@ DEFUN (no_rmap_call,
 
   if (index->nextrm)
     {
+      route_map_upd8_dependency (RMAP_EVENT_CALL_DELETED,
+				 index->nextrm,
+				 index->map->name);
       XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
       index->nextrm = NULL;
     }
@@ -1296,10 +1735,22 @@ static struct cmd_node rmap_node =
   1
 };
 
+static void
+route_map_init_dep_hashes (void)
+{
+  int i;
+
+  for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
+    route_map_dep_hash[i] = hash_create(route_map_dep_hash_make_key,
+					route_map_dep_hash_cmp);
+}
+
 /* Initialization of route map vector. */
 void
 route_map_init_vty (void)
 {
+  route_map_init_dep_hashes();
+
   /* Install route map top node. */
   install_node (&rmap_node, route_map_config_write);
 

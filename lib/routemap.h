@@ -66,7 +66,19 @@ typedef enum
   RMAP_EVENT_MATCH_DELETED,
   RMAP_EVENT_MATCH_REPLACED,
   RMAP_EVENT_INDEX_ADDED,
-  RMAP_EVENT_INDEX_DELETED
+  RMAP_EVENT_INDEX_DELETED,
+  RMAP_EVENT_CALL_ADDED,	/* call to another routemap added */
+  RMAP_EVENT_CALL_DELETED,
+  RMAP_EVENT_PLIST_ADDED,
+  RMAP_EVENT_PLIST_DELETED,
+  RMAP_EVENT_CLIST_ADDED,
+  RMAP_EVENT_CLIST_DELETED,
+  RMAP_EVENT_ECLIST_ADDED,
+  RMAP_EVENT_ECLIST_DELETED,
+  RMAP_EVENT_ASLIST_ADDED,
+  RMAP_EVENT_ASLIST_DELETED,
+  RMAP_EVENT_FILTER_ADDED,
+  RMAP_EVENT_FILTER_DELETED,
 } route_map_event_t;
 
 /* Depth limit in RMAP recursion using RMAP_CALL. */
@@ -149,6 +161,10 @@ struct route_map
   /* Make linked list. */
   struct route_map *next;
   struct route_map *prev;
+
+  /* Maintain update info */
+  int to_be_processed;	 /* True if modification isn't acted on yet */
+  int deleted;		 /* If 1, then this node will be deleted */
 };
 
 /* Prototypes. */
@@ -165,6 +181,9 @@ extern int route_map_add_match (struct route_map_index *index,
 extern int route_map_delete_match (struct route_map_index *index,
 			           const char *match_name,
 			           const char *match_arg);
+
+extern const char *route_map_get_match_arg (struct route_map_index *index,
+					    const char *match_name);
 
 /* Add route-map set statement to the route map. */
 extern int route_map_add_set (struct route_map_index *index, 
@@ -193,6 +212,16 @@ extern route_map_result_t route_map_apply (struct route_map *map,
 
 extern void route_map_add_hook (void (*func) (const char *));
 extern void route_map_delete_hook (void (*func) (const char *));
-extern void route_map_event_hook (void (*func) (route_map_event_t, const char *));
+extern void route_map_event_hook (void (*func) (route_map_event_t,
+						const char *));
+extern int route_map_mark_updated (const char *name, int deleted);
+extern int route_map_clear_updated (struct route_map *rmap);
+extern void route_map_walk_update_list (void *arg,
+					int (*update_fn) (void *arg,
+							  char *name));
+extern void route_map_upd8_dependency (route_map_event_t type, const char *arg,
+				       const char *rmap_name);
+extern void route_map_notify_dependencies (const char *affected_name,
+					   route_map_event_t event);
 
 #endif /* _ZEBRA_ROUTEMAP_H */

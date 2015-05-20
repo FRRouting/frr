@@ -3997,6 +3997,55 @@ ALIAS (no_neighbor_advertise_interval,
        "Minimum interval between sending BGP routing updates\n"
        "time in seconds\n")
 
+/* Time to wait before processing route-map updates */
+DEFUN (bgp_set_route_map_delay_timer,
+       bgp_set_route_map_delay_timer_cmd,
+       "bgp route-map delay-timer <0-600>",
+       SET_STR
+       "BGP route-map delay timer\n"
+       "Time in secs to wait before processing route-map changes\n"
+       "0 disables the timer and no route updates happen when\n"
+       "route-maps change")
+{
+  u_int32_t rmap_delay_timer;
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  if (argv[0])
+    {
+      VTY_GET_INTEGER_RANGE ("delay-timer", rmap_delay_timer, argv[0], 0, 600);
+      bgp->rmap_update_timer = rmap_delay_timer;
+
+      /* if the dynamic update handling is being disabled, and a timer is
+       * running, stop the timer and act as if the timer has already fired.
+       */
+      if (!rmap_delay_timer && bgp->t_rmap_update )
+	{
+	  BGP_TIMER_OFF(bgp->t_rmap_update);
+	  thread_execute (bm->master, bgp_route_map_update_timer, &bgp, 0);
+	}
+      return CMD_SUCCESS;
+    }
+  else
+    CMD_WARNING;
+}
+
+DEFUN (no_bgp_set_route_map_delay_timer,
+       no_bgp_set_route_map_delay_timer_cmd,
+       "no bgp route-map delay-timer",
+       NO_STR
+       "Default BGP route-map delay timer\n"
+       "Reset to default time to wait for processing route-map changes")
+{
+  u_int32_t rmap_delay_timer;
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
+
+  return CMD_SUCCESS;
+}
+
 /* neighbor interface */
 static int
 peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
@@ -9927,6 +9976,10 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_timers_cmd);
   install_element (BGP_NODE, &no_bgp_timers_cmd);
   install_element (BGP_NODE, &no_bgp_timers_arg_cmd);
+
+  /* route-map delay-timer commands */
+  install_element (BGP_NODE, &bgp_set_route_map_delay_timer_cmd);
+  install_element (BGP_NODE, &no_bgp_set_route_map_delay_timer_cmd);
 
   /* "bgp client-to-client reflection" commands */
   install_element (BGP_NODE, &no_bgp_client_to_client_reflection_cmd);

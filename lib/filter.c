@@ -28,6 +28,7 @@
 #include "sockunion.h"
 #include "buffer.h"
 #include "log.h"
+#include "routemap.h"
 
 struct filter_cisco
 {
@@ -460,6 +461,7 @@ access_list_filter_add (struct access_list *access, struct filter *filter)
   /* Run hook function. */
   if (access->master->add_hook)
     (*access->master->add_hook) (access);
+  route_map_notify_dependencies(access->name, RMAP_EVENT_FILTER_ADDED);
 }
 
 /* If access_list has no filter then return 1. */
@@ -493,6 +495,7 @@ access_list_filter_delete (struct access_list *access, struct filter *filter)
 
   filter_free (filter);
 
+  route_map_notify_dependencies(access->name, RMAP_EVENT_FILTER_DELETED);
   /* If access_list becomes empty delete it from access_master. */
   if (access_list_empty (access))
     access_list_delete (access);
@@ -1337,6 +1340,7 @@ DEFUN (no_access_list_all,
 
   master = access->master;
 
+  route_map_notify_dependencies(access->name, RMAP_EVENT_FILTER_DELETED);
   /* Run hook function. */
   if (master->delete_hook)
     (*master->delete_hook) (access);
@@ -1508,6 +1512,7 @@ DEFUN (no_ipv6_access_list_all,
 
   master = access->master;
 
+  route_map_notify_dependencies(access->name, RMAP_EVENT_FILTER_DELETED);
   /* Run hook function. */
   if (master->delete_hook)
     (*master->delete_hook) (access);
