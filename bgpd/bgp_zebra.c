@@ -45,6 +45,7 @@ struct in_addr router_id_zebra;
 
 /* Growable buffer for nexthops sent to zebra */
 struct stream *bgp_nexthop_buf = NULL;
+struct stream *bgp_ifindices_buf = NULL;
 
 /* Router-id update message from zebra. */
 static int
@@ -668,6 +669,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
   struct peer *peer;
   struct bgp_info *mpinfo;
   size_t oldsize, newsize;
+  u_int32_t nhcount;
 
   if (zclient->sock < 0)
     return;
@@ -688,25 +690,26 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
       || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 
-  /* resize nexthop buffer size if necessary */
-  if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
-      (sizeof (struct in_addr *) * (bgp_info_mpath_count (info) + 1)))
-    {
-      newsize = (sizeof (struct in_addr *) * (bgp_info_mpath_count (info) + 1));
-      newsize = stream_resize (bgp_nexthop_buf, newsize);
-      if (newsize == oldsize)
-	{
-	  zlog_err ("can't resize nexthop buffer");
-	  return;
-	}
-    }
-
-  stream_reset (bgp_nexthop_buf);
+  nhcount = 1 + bgp_info_mpath_count (info);
 
   if (p->family == AF_INET)
     {
       struct zapi_ipv4 api;
       struct in_addr *nexthop;
+
+      /* resize nexthop buffer size if necessary */
+      if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
+          (sizeof (struct in_addr *) * nhcount))
+        {
+          newsize = (sizeof (struct in_addr *) * nhcount);
+          newsize = stream_resize (bgp_nexthop_buf, newsize);
+          if (newsize == oldsize)
+            {
+	          zlog_err ("can't resize nexthop buffer");
+	          return;
+            }
+        }
+      stream_reset (bgp_nexthop_buf);
 
       api.flags = flags;
       nexthop = &info->attr->nexthop;
@@ -722,7 +725,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = 1 + bgp_info_mpath_count (info);
+      api.nexthop_num = nhcount;
       api.nexthop = (struct in_addr **)STREAM_DATA (bgp_nexthop_buf);
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
@@ -756,16 +759,46 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
                        (struct prefix_ipv4 *) p, &api);
     }
 #ifdef HAVE_IPV6
+
   /* We have to think about a IPv6 link-local address curse. */
   if (p->family == AF_INET6)
     {
       unsigned int ifindex;
       struct in6_addr *nexthop;
       struct zapi_ipv6 api;
+      int valid_nh_count = 0;
+
+      /* resize nexthop buffer size if necessary */
+      if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
+          (sizeof (struct in6_addr *) * nhcount))
+        {
+          newsize = (sizeof (struct in6_addr *) * nhcount);
+          newsize = stream_resize (bgp_nexthop_buf, newsize);
+          if (newsize == oldsize)
+            {
+              zlog_err ("can't resize nexthop buffer");
+              return;
+            }
+        }
+      stream_reset (bgp_nexthop_buf);
+
+      /* resize ifindices buffer size if necessary */
+      if ((oldsize = stream_get_size (bgp_ifindices_buf)) <
+          (sizeof (unsigned int) * nhcount))
+        {
+          newsize = (sizeof (unsigned int) * nhcount);
+          newsize = stream_resize (bgp_ifindices_buf, newsize);
+          if (newsize == oldsize)
+            {
+              zlog_err ("can't resize nexthop buffer");
+              return;
+            }
+        }
+      stream_reset (bgp_ifindices_buf);
 
       ifindex = 0;
       nexthop = NULL;
-      
+
       assert (info->attr->extra);
       
       /* Only global address nexthop exists. */
@@ -796,6 +829,62 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
 	  else if (info->peer->nexthop.ifp)
 	    ifindex = info->peer->nexthop.ifp->ifindex;
 	}
+      stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
+      stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
+      valid_nh_count++;
+
+      for (mpinfo = bgp_info_mpath_first (info); mpinfo;
+           mpinfo = bgp_info_mpath_next (mpinfo))
+	{
+          /* Only global address nexthop exists. */
+          if (mpinfo->attr->extra->mp_nexthop_len == 16)
+            {
+              nexthop = &mpinfo->attr->extra->mp_nexthop_global;
+            }
+          /* If both global and link-local address present. */
+		  if (mpinfo->attr->extra->mp_nexthop_len == 32)
+            {
+              /* Workaround for Cisco's nexthop bug.  */
+              if (IN6_IS_ADDR_UNSPECIFIED (&mpinfo->attr->extra->mp_nexthop_global)
+                  && mpinfo->peer->su_remote->sa.sa_family == AF_INET6)
+                {
+                   nexthop = &mpinfo->peer->su_remote->sin6.sin6_addr;
+                }
+              else
+                {
+	           nexthop = &mpinfo->attr->extra->mp_nexthop_local;
+	        }
+
+              if (mpinfo->peer->nexthop.ifp)
+                {
+                  ifindex = mpinfo->peer->nexthop.ifp->ifindex;
+                }
+            }
+	      if (nexthop == NULL)
+	        {
+		  continue;
+		}
+
+          if (IN6_IS_ADDR_LINKLOCAL (nexthop) && ! ifindex)
+	        {
+	          if (mpinfo->peer->ifname)
+                {
+                   ifindex = if_nametoindex (mpinfo->peer->ifname);
+		}
+		  else if (mpinfo->peer->nexthop.ifp)
+		        {
+		           ifindex = mpinfo->peer->nexthop.ifp->ifindex;
+		        }
+                }
+	      if (ifindex == 0)
+	        {
+	          continue;
+		}
+
+          stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
+          stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
+          valid_nh_count++;
+	}
 
       /* Make Zebra API structure. */
       api.flags = flags;
@@ -803,11 +892,11 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = 1;
-      api.nexthop = &nexthop;
+      api.nexthop_num = valid_nh_count;
+      api.nexthop = (struct in6_addr **)STREAM_DATA (bgp_nexthop_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
-      api.ifindex_num = 1;
-      api.ifindex = &ifindex;
+      api.ifindex_num = valid_nh_count;
+      api.ifindex = (unsigned int *)STREAM_DATA (bgp_ifindices_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
 
@@ -1100,4 +1189,5 @@ bgp_zebra_init (void)
   if_init ();
 
   bgp_nexthop_buf = stream_new(BGP_NEXTHOP_BUF_SIZE);
+  bgp_ifindices_buf = stream_new(BGP_IFINDICES_BUF_SIZE);
 }
