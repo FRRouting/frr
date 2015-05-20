@@ -980,7 +980,12 @@ ospf_ls_retransmit_delete_nbr_as (struct ospf *ospf, struct ospf_lsa *lsa)
 void
 ospf_lsa_flush_area (struct ospf_lsa *lsa, struct ospf_area *area)
 {
+  /* Reset the lsa origination time such that it gives
+     more time for the ACK to be received and avoid
+     retransmissions */
   lsa->data->ls_age = htons (OSPF_LSA_MAXAGE);
+  lsa->tv_recv = recent_relative_time ();
+  lsa->tv_orig = lsa->tv_recv;
   ospf_flood_through_area (area, NULL, lsa);
   ospf_lsa_maxage (area->ospf, lsa);
 }
@@ -988,7 +993,12 @@ ospf_lsa_flush_area (struct ospf_lsa *lsa, struct ospf_area *area)
 void
 ospf_lsa_flush_as (struct ospf *ospf, struct ospf_lsa *lsa)
 {
+  /* Reset the lsa origination time such that it gives
+     more time for the ACK to be received and avoid
+     retransmissions */
   lsa->data->ls_age = htons (OSPF_LSA_MAXAGE);
+  lsa->tv_recv = recent_relative_time ();
+  lsa->tv_orig = lsa->tv_recv;
   ospf_flood_through_as (ospf, NULL, lsa);
   ospf_lsa_maxage (ospf, lsa);
 }
