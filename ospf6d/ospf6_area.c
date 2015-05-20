@@ -826,6 +826,8 @@ DEFUN (show_ipv6_ospf6_spf_tree,
   struct ospf6_route *route;
   struct prefix prefix;
 
+  OSPF6_CMD_CHECK_RUNNING ();
+
   ospf6_linkstate_prefix (ospf6->router_id, htonl (0), &prefix);
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
@@ -860,6 +862,8 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
   struct ospf6_vertex *root;
   struct ospf6_route *route;
   struct prefix prefix;
+
+  OSPF6_CMD_CHECK_RUNNING ();
 
   ospf6_linkstate_prefix (ospf6->router_id, htonl (0), &prefix);
 
@@ -906,6 +910,8 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
   u_int32_t router_id;
   struct ospf6_route_table *spf_table;
   unsigned char tmp_debug_ospf6_spf = 0;
+
+  OSPF6_CMD_CHECK_RUNNING ();
 
   inet_pton (AF_INET, argv[0], &router_id);
   ospf6_linkstate_prefix (router_id, htonl (0), &prefix);

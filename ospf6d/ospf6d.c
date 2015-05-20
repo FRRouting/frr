@@ -1690,6 +1690,8 @@ DEFUN (show_ipv6_ospf6_linkstate,
   struct listnode *node;
   struct ospf6_area *oa;
 
+  OSPF6_CMD_CHECK_RUNNING ();
+
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
       vty_out (vty, "%s        SPF Result in Area %s%s%s",
@@ -1737,6 +1739,8 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
   int i, sargc;
   struct listnode *node;
   struct ospf6_area *oa;
+
+  OSPF6_CMD_CHECK_RUNNING ();
 
   /* copy argv to sargv and then append "detail" */
   for (i = 0; i < argc; i++)

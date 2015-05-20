@@ -1312,6 +1312,8 @@ DEFUN (show_ipv6_ospf6_redistribute,
 {
   struct ospf6_route *route;
 
+  OSPF6_CMD_CHECK_RUNNING ();
+
   ospf6_redistribute_show_config (vty);
 
   for (route = ospf6_route_head (ospf6->external_table); route;
