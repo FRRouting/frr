@@ -943,11 +943,19 @@ bgp_input_modifier (struct peer *peer, struct prefix *p, struct attr *attr,
   if (rmap_name)
     {
       rmap = route_map_lookup_by_name(rmap_name);
+
+      if (rmap == NULL)
+	    return RMAP_DENY;
     }
   else
     {
       if (ROUTE_MAP_IN_NAME(filter))
-	rmap = ROUTE_MAP_IN (filter);
+        {
+          rmap = ROUTE_MAP_IN (filter);
+
+          if (rmap == NULL)
+	        return RMAP_DENY;
+        }
     }
 
   /* Route map apply. */
@@ -992,11 +1000,19 @@ bgp_output_modifier (struct peer *peer, struct prefix *p, struct attr *attr,
   if (rmap_name)
     {
       rmap = route_map_lookup_by_name(rmap_name);
+
+      if (rmap == NULL)
+	    return RMAP_DENY;
     }
   else
     {
       if (ROUTE_MAP_OUT_NAME(filter))
-	rmap = ROUTE_MAP_OUT (filter);
+        {
+          rmap = ROUTE_MAP_OUT (filter);
+
+          if (rmap == NULL)
+	        return RMAP_DENY;
+        }
     }
 
   /* Route map apply. */
