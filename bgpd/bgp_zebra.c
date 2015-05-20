@@ -965,7 +965,13 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
   else
     tag = 0;
 
-  if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED)
+  /* When we create an aggregate route we must also install a Null0 route in
+   * the RIB */
+  if (info->sub_type == BGP_ROUTE_AGGREGATE)
+      SET_FLAG (flags, ZEBRA_FLAG_BLACKHOLE);
+
+  if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED ||
+      info->sub_type == BGP_ROUTE_AGGREGATE)
     {
       SET_FLAG (flags, ZEBRA_FLAG_IBGP);
       SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
@@ -1064,7 +1070,17 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = valid_nh_count;
+
+      /* Note that this currently only applies to Null0 routes for aggregates.
+       * ZEBRA_FLAG_BLACKHOLE signals zapi_ipv4_route to encode a special
+       * BLACKHOLE nexthop. We want to set api.nexthop_num to zero since we
+       * do not want to also encode the 0.0.0.0 nexthop for the aggregate route.
+       */
+      if (CHECK_FLAG(flags, ZEBRA_FLAG_BLACKHOLE))
+        api.nexthop_num = 0;
+      else
+        api.nexthop_num = valid_nh_count;
+
       api.nexthop = (struct in_addr **)STREAM_DATA (bgp_nexthop_buf);
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
@@ -1233,7 +1249,17 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = valid_nh_count;
+
+      /* Note that this currently only applies to Null0 routes for aggregates.
+       * ZEBRA_FLAG_BLACKHOLE signals zapi_ipv6_route to encode a special
+       * BLACKHOLE nexthop. We want to set api.nexthop_num to zero since we
+       * do not want to also encode the :: nexthop for the aggregate route.
+       */
+      if (CHECK_FLAG(flags, ZEBRA_FLAG_BLACKHOLE))
+        api.nexthop_num = 0;
+      else
+        api.nexthop_num = valid_nh_count;
+
       api.nexthop = (struct in6_addr **)STREAM_DATA (bgp_nexthop_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
       api.ifindex_num = valid_nh_count;

@@ -2337,14 +2337,16 @@ bgp_process_main (struct work_queue *wq, void *data)
     {
       if (new_select 
 	  && new_select->type == ZEBRA_ROUTE_BGP 
-	  && new_select->sub_type == BGP_ROUTE_NORMAL)
+	  && (new_select->sub_type == BGP_ROUTE_NORMAL ||
+              new_select->sub_type == BGP_ROUTE_AGGREGATE))
 	bgp_zebra_announce (p, new_select, bgp, afi, safi);
       else
 	{
 	  /* Withdraw the route from the kernel. */
 	  if (old_select 
 	      && old_select->type == ZEBRA_ROUTE_BGP
-	      && old_select->sub_type == BGP_ROUTE_NORMAL)
+	      && (old_select->sub_type == BGP_ROUTE_NORMAL ||
+                  old_select->sub_type == BGP_ROUTE_AGGREGATE))
 	    bgp_zebra_withdraw (p, old_select, safi);
 	}
     }
@@ -3838,7 +3840,8 @@ bgp_cleanup_routes (void)
 	for (ri = rn->info; ri; ri = ri->next)
 	  if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED)
 	      && ri->type == ZEBRA_ROUTE_BGP 
-	      && ri->sub_type == BGP_ROUTE_NORMAL)
+	      && (ri->sub_type == BGP_ROUTE_NORMAL ||
+	          ri->sub_type == BGP_ROUTE_AGGREGATE))
 	    bgp_zebra_withdraw (&rn->p, ri,SAFI_UNICAST);
 
       table = bgp->rib[AFI_IP6][SAFI_UNICAST];
@@ -3847,7 +3850,8 @@ bgp_cleanup_routes (void)
 	for (ri = rn->info; ri; ri = ri->next)
 	  if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED)
 	      && ri->type == ZEBRA_ROUTE_BGP 
-	      && ri->sub_type == BGP_ROUTE_NORMAL)
+	      && (ri->sub_type == BGP_ROUTE_NORMAL ||
+	          ri->sub_type == BGP_ROUTE_AGGREGATE))
 	    bgp_zebra_withdraw (&rn->p, ri,SAFI_UNICAST);
     }
 }
