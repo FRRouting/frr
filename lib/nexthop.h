@@ -68,6 +68,7 @@ struct nexthop
   /* Nexthop address */
   union g_addr gate;
   union g_addr src;
+  union g_addr rmap_src;	/* Src is set via routemap */
 
   /* Nexthops obtained by recursive resolution.
    *

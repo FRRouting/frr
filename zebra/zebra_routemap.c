@@ -1301,7 +1301,7 @@ route_set_src (void *rule, struct prefix *prefix,
   if (type == RMAP_ZEBRA)
     {
       nh_data = (struct nh_rmap_obj *)object;
-      nh_data->nexthop->src = *(union g_addr *)rule;
+      nh_data->nexthop->rmap_src = *(union g_addr *)rule;
     }
   return RMAP_OKAY;
 }
