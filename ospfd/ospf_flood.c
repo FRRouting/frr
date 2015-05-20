@@ -95,7 +95,7 @@ ospf_external_info_check (struct ospf_lsa *lsa)
       int redist_on = 0;
 
       redist_on = is_prefix_default (&p) ? zclient->default_information :
-                  zclient->redist[type].enabled;
+                  zclient->redist[AFI_IP][type].enabled;
       if (redist_on)
         {
           struct list *ext_list;

@@ -139,7 +139,7 @@ redist_del_instance (struct redist_proto *red, u_short instance)
 void
 zclient_init (struct zclient *zclient, int redist_default, u_short instance)
 {
-  int i;
+  int afi, i;
   
   /* Enable zebra client connection by default. */
   zclient->enable = 1;
@@ -148,14 +148,17 @@ zclient_init (struct zclient *zclient, int redist_default, u_short instance)
   zclient->sock = -1;
 
   /* Clear redistribution flags. */
-  for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-    memset(&zclient->redist[i], 0, sizeof(struct redist_proto));
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      memset(&zclient->redist[afi][i], 0, sizeof(struct redist_proto));
 
   /* Set unwanted redistribute route.  bgpd does not need BGP route
      redistribution. */
   zclient->redist_default = redist_default;
   zclient->instance = instance;
-  redist_add_instance (&zclient->redist[redist_default], instance);
+  /* Pending: make afi(s) an arg. */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    redist_add_instance (&zclient->redist[afi][redist_default], instance);
 
   /* Set default-information redistribute to zero. */
   zclient->default_information = 0;
@@ -400,6 +403,7 @@ int
 zclient_start (struct zclient *zclient)
 {
   int i;
+  afi_t afi;
 
   if (zclient_debug)
     zlog_debug ("zclient_start is called");
@@ -445,16 +449,17 @@ zclient_start (struct zclient *zclient)
   zebra_message_send (zclient, ZEBRA_INTERFACE_ADD);
 
   /* Flush all redistribute request. */
-  for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-    if (zclient->redist[i].enabled)
-      {
-        struct listnode *node;
-        u_short *id;
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      if (zclient->redist[afi][i].enabled)
+        {
+          struct listnode *node;
+          u_short *id;
 
-        for (ALL_LIST_ELEMENTS_RO(zclient->redist[i].instances, node, id))
-          if (!(i == zclient->redist_default && *id == zclient->instance))
-            zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, i, *id);
-      }
+          for (ALL_LIST_ELEMENTS_RO(zclient->redist[afi][i].instances, node, id))
+            if (!(i == zclient->redist_default && *id == zclient->instance))
+              zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, i, *id);
+        }
 
   /* If default information is needed. */
   if (zclient->default_information)
@@ -694,7 +699,7 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
  * sending client
  */
 int
-zebra_redistribute_send (int command, struct zclient *zclient, int type,
+zebra_redistribute_send (int command, struct zclient *zclient, afi_t afi, int type,
                          u_short instance)
 {
   struct stream *s;
@@ -703,6 +708,7 @@ zebra_redistribute_send (int command, struct zclient *zclient, int type,
   stream_reset(s);
   
   zclient_create_header (s, command);
+  stream_putc (s, afi);
   stream_putc (s, type);
   stream_putw (s, instance);
   
@@ -1222,25 +1228,25 @@ zclient_read (struct thread *thread)
 }
 
 void
-zclient_redistribute (int command, struct zclient *zclient, int type,
+zclient_redistribute (int command, struct zclient *zclient, afi_t afi, int type,
                       u_short instance)
 {
 
   if (command == ZEBRA_REDISTRIBUTE_ADD) 
     {
-      if (redist_check_instance(&zclient->redist[type], instance))
+      if (redist_check_instance(&zclient->redist[afi][type], instance))
          return;
-      redist_add_instance(&zclient->redist[type], instance);
+      redist_add_instance(&zclient->redist[afi][type], instance);
     }
   else
     {
-      if (!redist_check_instance(&zclient->redist[type], instance))
+      if (!redist_check_instance(&zclient->redist[afi][type], instance))
          return;
-      redist_del_instance(&zclient->redist[type], instance);
+      redist_del_instance(&zclient->redist[afi][type], instance);
     }
 
   if (zclient->sock > 0)
-    zebra_redistribute_send (command, zclient, type, instance);
+    zebra_redistribute_send (command, zclient, afi, type, instance);
 }
 
 

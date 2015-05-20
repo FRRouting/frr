@@ -196,18 +196,23 @@ DEFUN (babel_redistribute_type,
        QUAGGA_REDIST_HELP_STR_BABELD)
 {
     int type;
+    afi_t afi;
 
-    type = proto_redistnum(AFI_IP6, argv[0]);
+    afi = AFI_IP6;
+    type = proto_redistnum(afi, argv[0]);
 
     if (type < 0)
-        type = proto_redistnum(AFI_IP, argv[0]);
+      {
+        afi = AFI_IP;
+        type = proto_redistnum(afi, argv[0]);
+      }
 
     if (type < 0) {
         vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
         return CMD_WARNING;
     }
 
-    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, type, 0);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0);
     return CMD_SUCCESS;
 }
 
@@ -220,18 +225,23 @@ DEFUN (no_babel_redistribute_type,
        QUAGGA_REDIST_HELP_STR_BABELD)
 {
     int type;
+    afi_t afi;
 
-    type = proto_redistnum(AFI_IP6, argv[0]);
+    afi = AFI_IP6;
+    type = proto_redistnum(afi, argv[0]);
 
     if (type < 0)
-        type = proto_redistnum(AFI_IP, argv[0]);
+      {
+        afi = AFI_IP;
+        type = proto_redistnum(afi, argv[0]);
+      }
 
     if (type < 0) {
         vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
         return CMD_WARNING;
     }
 
-    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, type, 0);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0);
     /* perhaps should we remove xroutes having the same type... */
     return CMD_SUCCESS;
 }
@@ -364,7 +374,8 @@ zebra_config_write (struct vty *vty)
         vty_out (vty, "no router zebra%s", VTY_NEWLINE);
         return 1;
     }
-    else if (! zclient->redist[ZEBRA_ROUTE_BABEL].enabled)
+    else if (! (zclient->redist[AFI_IP][ZEBRA_ROUTE_BABEL].enabled ||
+                zclient->redist[AFI_IP6][ZEBRA_ROUTE_BABEL].enabled))
     {
         vty_out (vty, "router zebra%s", VTY_NEWLINE);
         vty_out (vty, " no redistribute babel%s", VTY_NEWLINE);

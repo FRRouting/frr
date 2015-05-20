@@ -70,21 +70,21 @@ ospf6_router_id_update_zebra (int command, struct zclient *zclient,
 void
 ospf6_zebra_redistribute (int type)
 {
-  if (zclient->redist[type].enabled)
+  if (zclient->redist[AFI_IP6][type].enabled)
     return;
-  redist_add_instance(&zclient->redist[type], 0);
+  redist_add_instance(&zclient->redist[AFI_IP6][type], 0);
   if (zclient->sock > 0)
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type, 0);
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0);
 }
 
 void
 ospf6_zebra_no_redistribute (int type)
 {
-  if (! zclient->redist[type].enabled)
+  if (! zclient->redist[AFI_IP6][type].enabled)
     return;
-  redist_del_instance(&zclient->redist[type], 0);
+  redist_del_instance(&zclient->redist[AFI_IP6][type], 0);
   if (zclient->sock > 0)
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type, 0);
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6, type, 0);
 }
 
 /* Inteface addition message from zebra. */
@@ -297,7 +297,7 @@ DEFUN (show_zebra,
   vty_out (vty, "  redistribute:");
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     {
-      if (zclient->redist[i].enabled)
+      if (zclient->redist[AFI_IP6][i].enabled)
         vty_out (vty, " %s", zebra_route_string(i));
     }
   vty_out (vty, "%s", VNL);
@@ -337,7 +337,7 @@ config_write_ospf6_zebra (struct vty *vty)
       vty_out (vty, "no router zebra%s", VNL);
       vty_out (vty, "!%s", VNL);
     }
-  else if (! zclient->redist[ZEBRA_ROUTE_OSPF6].enabled)
+  else if (! zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6].enabled)
     {
       vty_out (vty, "router zebra%s", VNL);
       vty_out (vty, " no redistribute ospf6%s", VNL);
@@ -472,7 +472,7 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
 void
 ospf6_zebra_route_update_add (struct ospf6_route *request)
 {
-  if (! zclient->redist[ZEBRA_ROUTE_OSPF6].enabled)
+  if (! zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6].enabled)
     {
       ospf6->route_table->hook_add = NULL;
       ospf6->route_table->hook_remove = NULL;
@@ -484,7 +484,7 @@ ospf6_zebra_route_update_add (struct ospf6_route *request)
 void
 ospf6_zebra_route_update_remove (struct ospf6_route *request)
 {
-  if (! zclient->redist[ZEBRA_ROUTE_OSPF6].enabled)
+  if (! zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6].enabled)
     {
       ospf6->route_table->hook_add = NULL;
       ospf6->route_table->hook_remove = NULL;
@@ -500,7 +500,7 @@ ospf6_zebra_add_discard (struct ospf6_route *request)
   char buf[INET6_ADDRSTRLEN];
   struct prefix_ipv6 *dest;
 
-  if (zclient->redist[ZEBRA_ROUTE_OSPF6].enabled)
+  if (zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6].enabled)
     {
       if (!CHECK_FLAG (request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED))
 	{
@@ -544,7 +544,7 @@ ospf6_zebra_delete_discard (struct ospf6_route *request)
   char buf[INET6_ADDRSTRLEN];
   struct prefix_ipv6 *dest;
 
-  if (zclient->redist[ZEBRA_ROUTE_OSPF6].enabled)
+  if (zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6].enabled)
     {
       if (CHECK_FLAG (request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED))
 	{
@@ -587,10 +587,10 @@ DEFUN (redistribute_ospf6,
 {
   struct ospf6_route *route;
 
-  if (zclient->redist[ZEBRA_ROUTE_OSPF6].enabled)
+  if (zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6].enabled)
     return CMD_SUCCESS;
 
-  redist_add_instance(&zclient->redist[ZEBRA_ROUTE_OSPF6], 0);
+  redist_add_instance(&zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6], 0);
 
   if (ospf6 == NULL)
     return CMD_SUCCESS;
@@ -615,10 +615,10 @@ DEFUN (no_redistribute_ospf6,
 {
   struct ospf6_route *route;
 
-  if (! zclient->redist[ZEBRA_ROUTE_OSPF6].enabled)
+  if (! zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6].enabled)
     return CMD_SUCCESS;
 
-  redist_del_instance(&zclient->redist[ZEBRA_ROUTE_OSPF6], 0);
+  redist_del_instance(&zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6], 0);
 
   if (ospf6 == NULL)
     return CMD_SUCCESS;

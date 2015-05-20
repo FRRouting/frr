@@ -40,7 +40,7 @@ extern void bgp_zebra_withdraw (struct prefix *, struct bgp_info *, safi_t);
 
 extern struct bgp_redist *bgp_redist_lookup (struct bgp *, afi_t, u_char, u_short);
 extern struct bgp_redist *bgp_redist_add (struct bgp *, afi_t, u_char, u_short);
-extern int bgp_redistribute_set (int, u_short);
+extern int bgp_redistribute_set (afi_t, int, u_short);
 extern int bgp_redistribute_resend (struct bgp *, afi_t, int, u_short);
 extern int bgp_redistribute_rmap_set (struct bgp_redist *, const char *);
 extern int bgp_redistribute_metric_set (struct bgp_redist *, u_int32_t);

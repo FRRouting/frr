@@ -48,7 +48,7 @@ ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop,
 {
   struct zapi_ipv6 api;
 
-  if (zclient->redist[ZEBRA_ROUTE_RIPNG].enabled)
+  if (zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG].enabled)
     {
       api.type = ZEBRA_ROUTE_RIPNG;
       api.instance = 0;
@@ -74,7 +74,7 @@ ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop,
 {
   struct zapi_ipv6 api;
 
-  if (zclient->redist[ZEBRA_ROUTE_RIPNG].enabled)
+  if (zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG].enabled)
     {
       api.type = ZEBRA_ROUTE_RIPNG;
       api.instance = 0;
@@ -156,13 +156,13 @@ ripng_zclient_reset (void)
 static int
 ripng_redistribute_unset (int type)
 {
-  if (! zclient->redist[type].enabled)
+  if (! zclient->redist[AFI_IP6][type].enabled)
     return CMD_SUCCESS;
 
-  redist_del_instance(&zclient->redist[type], 0);
+  redist_del_instance(&zclient->redist[AFI_IP6][type], 0);
 
   if (zclient->sock > 0)
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type, 0);
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6, type, 0);
 
   ripng_redistribute_withdraw (type);
   
@@ -172,7 +172,7 @@ ripng_redistribute_unset (int type)
 int
 ripng_redistribute_check (int type)
 {
-  return (zclient->redist[type].enabled);
+  return (zclient->redist[AFI_IP6][type].enabled);
 }
 
 static void
@@ -232,13 +232,13 @@ ripng_redistribute_clean ()
 
   for (i = 0; redist_type[i].str; i++)
     {
-      if (zclient->redist[redist_type[i].type].enabled)
+      if (zclient->redist[AFI_IP6][redist_type[i].type].enabled)
         {
           if (zclient->sock > 0)
             zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE,
-                                     zclient, redist_type[i].type, 0);
+                                     zclient, AFI_IP6, redist_type[i].type, 0);
 
-          redist_del_instance(&zclient->redist[redist_type[i].type], 0);
+          redist_del_instance(&zclient->redist[AFI_IP6][redist_type[i].type], 0);
 
           /* Remove the routes from RIPng table. */
           ripng_redistribute_withdraw (redist_type[i].type);
@@ -276,7 +276,7 @@ DEFUN (ripng_redistribute_ripng,
        "Redistribute information from another routing protocol\n"
        "RIPng route\n")
 {
-  redist_add_instance(&zclient->redist[ZEBRA_ROUTE_RIPNG], 0);
+  redist_add_instance(&zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG], 0);
   return CMD_SUCCESS;
 }
 
@@ -287,7 +287,7 @@ DEFUN (no_ripng_redistribute_ripng,
        "Redistribute information from another routing protocol\n"
        "RIPng route\n")
 {
-  redist_del_instance(&zclient->redist[ZEBRA_ROUTE_RIPNG], 0);
+  redist_del_instance(&zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG], 0);
   return CMD_SUCCESS;
 }
 
@@ -307,7 +307,7 @@ DEFUN (ripng_redistribute_type,
       return CMD_WARNING;
     }
 
-  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, type, 0);
+  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0);
   return CMD_SUCCESS;
 }
 
@@ -355,7 +355,7 @@ DEFUN (ripng_redistribute_type_metric,
     }
 
   ripng_redistribute_metric_set (type, metric);
-  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, type, 0);
+  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0);
   return CMD_SUCCESS;
 }
 
@@ -387,7 +387,7 @@ DEFUN (ripng_redistribute_type_routemap,
     }
 
   ripng_redistribute_routemap_set (type, argv[1]);
-  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, type, 0);
+  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0);
  return CMD_SUCCESS;
 }
 
@@ -424,7 +424,7 @@ DEFUN (ripng_redistribute_type_metric_routemap,
 
   ripng_redistribute_metric_set (type, metric);
   ripng_redistribute_routemap_set (type, argv[2]);
-  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, type, 0);
+  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0);
   return CMD_SUCCESS;
 }
 
@@ -444,7 +444,7 @@ ripng_redistribute_write (struct vty *vty, int config_mode)
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default &&
-        zclient->redist[i].enabled)
+        zclient->redist[AFI_IP6][i].enabled)
       {
       if (config_mode)
 	{
@@ -484,7 +484,7 @@ zebra_config_write (struct vty *vty)
       vty_out (vty, "no router zebra%s", VTY_NEWLINE);
       return 1;
     }
-  else if (! zclient->redist[ZEBRA_ROUTE_RIPNG].enabled)
+  else if (! zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG].enabled)
     {
       vty_out (vty, "router zebra%s", VTY_NEWLINE);
       vty_out (vty, " no redistribute ripng%s", VTY_NEWLINE);

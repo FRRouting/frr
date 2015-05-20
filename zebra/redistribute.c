@@ -208,36 +208,42 @@ redistribute_add (struct prefix *p, struct rib *rib)
     {
       if (is_default (p))
         {
-          if (client->redist_default ||
-              redist_check_instance(&client->redist[rib->type], rib->instance))
-            {
-              if (p->family == AF_INET)
-		{
-		  client->redist_v4_add_cnt++;
-		  zsend_route_multipath (ZEBRA_IPV4_ROUTE_ADD, client, p, rib);
-		}
-#ifdef HAVE_IPV6
-              if (p->family == AF_INET6)
-		{
-		  client->redist_v6_add_cnt++;
-		  zsend_route_multipath (ZEBRA_IPV6_ROUTE_ADD, client, p, rib);
-		}
-#endif /* HAVE_IPV6 */	  
-	    }
-        }
-      else if (redist_check_instance(&client->redist[rib->type], rib->instance))
-        {
-          if (p->family == AF_INET)
+          if ((p->family == AF_INET) &&
+              (client->redist_default ||
+              redist_check_instance(&client->redist[AFI_IP][rib->type],
+                                    rib->instance)))
 	    {
 	      client->redist_v4_add_cnt++;
-	      zsend_route_multipath (ZEBRA_IPV4_ROUTE_ADD, client, p, rib);
-	    }
+              zsend_route_multipath (ZEBRA_IPV4_ROUTE_ADD, client, p, rib);
+            }
 #ifdef HAVE_IPV6
-          if (p->family == AF_INET6)
+          if ((p->family == AF_INET6) &&
+              (client->redist_default ||
+              redist_check_instance(&client->redist[AFI_IP6][rib->type],
+                                    rib->instance)))
+            {
+              client->redist_v6_add_cnt++;
+              zsend_route_multipath (ZEBRA_IPV6_ROUTE_ADD, client, p, rib);
+            }
+#endif /* HAVE_IPV6 */	  
+        }
+      else
+        {
+           if ((p->family == AF_INET) &&
+              redist_check_instance(&client->redist[AFI_IP][rib->type],
+                                    rib->instance))
 	    {
-	      client->redist_v6_add_cnt++;
-	      zsend_route_multipath (ZEBRA_IPV6_ROUTE_ADD, client, p, rib);
-	    }
+	      client->redist_v4_add_cnt++;
+              zsend_route_multipath (ZEBRA_IPV4_ROUTE_ADD, client, p, rib);
+            }
+#ifdef HAVE_IPV6
+          if ((p->family == AF_INET6) &&
+              redist_check_instance(&client->redist[AFI_IP6][rib->type],
+                                    rib->instance))
+            {
+              client->redist_v6_add_cnt++;
+              zsend_route_multipath (ZEBRA_IPV6_ROUTE_ADD, client, p, rib);
+            }
 #endif /* HAVE_IPV6 */	  
         }
     }
@@ -257,26 +263,34 @@ redistribute_delete (struct prefix *p, struct rib *rib)
     {
       if (is_default (p))
 	{
-	  if (client->redist_default ||
-              redist_check_instance(&client->redist[rib->type], rib->instance))
-	    {
-	      if (p->family == AF_INET)
-		zsend_route_multipath (ZEBRA_IPV4_ROUTE_DELETE, client, p,
+	  if ((p->family == AF_INET) &&
+              (client->redist_default ||
+               redist_check_instance(&client->redist[AFI_IP][rib->type],
+                                     rib->instance)))
+            zsend_route_multipath (ZEBRA_IPV4_ROUTE_DELETE, client, p,
 				       rib);
 #ifdef HAVE_IPV6
-	      if (p->family == AF_INET6)
-		zsend_route_multipath (ZEBRA_IPV6_ROUTE_DELETE, client, p,
+	  if ((p->family == AF_INET6) &&
+              (client->redist_default ||
+               redist_check_instance(&client->redist[AFI_IP6][rib->type],
+                                     rib->instance)))
+            zsend_route_multipath (ZEBRA_IPV6_ROUTE_DELETE, client, p,
 				       rib);
 #endif /* HAVE_IPV6 */
-	    }
 	}
-      else if (redist_check_instance(&client->redist[rib->type], rib->instance))
-      {
-	  if (p->family == AF_INET)
-	    zsend_route_multipath (ZEBRA_IPV4_ROUTE_DELETE, client, p, rib);
+      else
+        {
+          if ((p->family == AF_INET) &&
+               redist_check_instance(&client->redist[AFI_IP][rib->type],
+                                     rib->instance))
+            zsend_route_multipath (ZEBRA_IPV4_ROUTE_DELETE, client, p,
+				       rib);
 #ifdef HAVE_IPV6
-	  if (p->family == AF_INET6)
-	    zsend_route_multipath (ZEBRA_IPV6_ROUTE_DELETE, client, p, rib);
+	  if ((p->family == AF_INET6) &&
+               redist_check_instance(&client->redist[AFI_IP6][rib->type],
+                                     rib->instance))
+            zsend_route_multipath (ZEBRA_IPV6_ROUTE_DELETE, client, p,
+				       rib);
 #endif /* HAVE_IPV6 */
 	}
     }
@@ -285,18 +299,20 @@ redistribute_delete (struct prefix *p, struct rib *rib)
 void
 zebra_redistribute_add (int command, struct zserv *client, int length)
 {
+  afi_t afi;
   int type;
   u_short instance;
 
+  afi = stream_getc (client->ibuf);
   type = stream_getc (client->ibuf);
   instance = stream_getw (client->ibuf);
 
   if (type == 0 || type >= ZEBRA_ROUTE_MAX)
     return;
 
-  if (!redist_check_instance(&client->redist[type], instance))
+  if (!redist_check_instance(&client->redist[afi][type], instance))
     {
-      redist_add_instance(&client->redist[type], instance);
+      redist_add_instance(&client->redist[afi][type], instance);
       zebra_redistribute (client, type, instance);
     }
 }
@@ -304,18 +320,20 @@ zebra_redistribute_add (int command, struct zserv *client, int length)
 void
 zebra_redistribute_delete (int command, struct zserv *client, int length)
 {
+  afi_t afi;
   int type;
   u_short instance;
 
+  afi = stream_getc (client->ibuf);
   type = stream_getc (client->ibuf);
   instance = stream_getw (client->ibuf);
 
   if (type == 0 || type >= ZEBRA_ROUTE_MAX)
     return;
 
-  if (redist_check_instance(&client->redist[type], instance))
+  if (redist_check_instance(&client->redist[afi][type], instance))
     {
-      redist_del_instance(&client->redist[type], instance);
+      redist_del_instance(&client->redist[afi][type], instance);
       //Pending: why no reaction here?
     }
 }

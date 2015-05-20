@@ -95,6 +95,7 @@ babel_config_write (struct vty *vty)
 {
     int lines = 0;
     int i;
+    afi_t afi;
 
     /* list enabled debug modes */
     lines += debug_babel_config_write (vty);
@@ -110,13 +111,14 @@ babel_config_write (struct vty *vty)
     /* list enabled interfaces */
     lines = 1 + babel_enable_if_config_write (vty);
     /* list redistributed protocols */
-    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+    for (afi = AFI_IP; afi < AFI_MAX; afi++)
+      for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
         if (i != zclient->redist_default &&
-            zclient->redist[i].enabled)
-        {
+            zclient->redist[afi][i].enabled)
+          {
             vty_out (vty, " redistribute %s%s", zebra_route_string (i), VTY_NEWLINE);
             lines++;
-        }
+          }
 
     return lines;
 }

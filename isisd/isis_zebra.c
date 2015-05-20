@@ -236,7 +236,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
   if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
-  if (zclient->redist[ZEBRA_ROUTE_ISIS].enabled)
+  if (zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS].enabled)
     {
       message = 0;
       flags = 0;
@@ -303,7 +303,7 @@ isis_zebra_route_del_ipv4 (struct prefix *prefix,
   struct zapi_ipv4 api;
   struct prefix_ipv4 prefix4;
 
-  if (zclient->redist[ZEBRA_ROUTE_ISIS].enabled)
+  if (zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS].enabled)
     {
       api.type = ZEBRA_ROUTE_ISIS;
       api.instance = 0;
@@ -493,7 +493,8 @@ isis_zebra_route_update (struct prefix *prefix,
   if (zclient->sock < 0)
     return;
 
-  if (!zclient->redist[ZEBRA_ROUTE_ISIS].enabled)
+  if ((prefix->family == AF_INET && !zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS].enabled) ||
+      (prefix->family == AF_INET6 && !zclient->redist[AFI_IP6][ZEBRA_ROUTE_ISIS].enabled))
     return;
 
   if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ACTIVE))
@@ -577,7 +578,7 @@ isis_zebra_read_ipv6 (int command, struct zclient *zclient,
 
 #define ISIS_TYPE_IS_REDISTRIBUTED(T) \
 T == ZEBRA_ROUTE_MAX ? zclient->default_information : \
-zclient->redist[type].enabled
+(zclient->redist[AFI_IP][type].enabled || client->redist[AFI_IP6][type].enabled)
 
 int
 isis_distribute_list_update (int routetype)

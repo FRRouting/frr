@@ -60,7 +60,7 @@ struct zserv
   int rtm_table;
 
   /* This client's redistribute flag. */
-  struct redist_proto redist[ZEBRA_ROUTE_MAX];
+  struct redist_proto redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
   /* Redistribute default route flag. */
   u_char redist_default;

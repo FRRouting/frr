@@ -944,7 +944,8 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
   if (zclient->sock < 0)
     return;
 
-  if (!zclient->redist[ZEBRA_ROUTE_BGP].enabled)
+  if ((p->family == AF_INET && !zclient->redist[AFI_IP][ZEBRA_ROUTE_BGP].enabled)
+      || (p->family == AF_INET6 && !zclient->redist[AFI_IP6][ZEBRA_ROUTE_BGP].enabled))
     return;
 
   if (bgp->main_zebra_update_hold)
@@ -1284,7 +1285,8 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
   if (zclient->sock < 0)
     return;
 
-  if (!zclient->redist[ZEBRA_ROUTE_BGP].enabled)
+  if ((p->family == AF_INET && !zclient->redist[AFI_IP][ZEBRA_ROUTE_BGP].enabled)
+      || (p->family == AF_INET6 && !zclient->redist[AFI_IP6][ZEBRA_ROUTE_BGP].enabled))
     return;
 
   peer = info->peer;
@@ -1471,25 +1473,25 @@ bgp_redist_del (struct bgp *bgp, afi_t afi, u_char type, u_short instance)
 
 /* Other routes redistribution into BGP. */
 int
-bgp_redistribute_set (int type, u_short instance)
+bgp_redistribute_set (afi_t afi, int type, u_short instance)
 {
 
   /* Return if already redistribute flag is set. */
-  if (redist_check_instance(&zclient->redist[type], instance))
+  if (redist_check_instance(&zclient->redist[afi][type], instance))
     return CMD_WARNING;
 
-  redist_add_instance(&zclient->redist[type], instance);
+  redist_add_instance(&zclient->redist[afi][type], instance);
 
   /* Return if zebra connection is not established. */
   if (zclient->sock < 0)
     return CMD_WARNING;
 
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug("Zebra send: redistribute add %s %d", zebra_route_string(type),
-               instance);
+    zlog_debug("Zebra send: redistribute add afi %d %s %d", afi,
+               zebra_route_string(type), instance);
 
   /* Send distribute add message to zebra. */
-  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type, instance);
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, instance);
 
   return CMD_SUCCESS;
 }
@@ -1502,12 +1504,12 @@ bgp_redistribute_resend (struct bgp *bgp, afi_t afi, int type, u_short instance)
     return -1;
 
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug("Zebra send: redistribute add %s %d", zebra_route_string(type),
-               instance);
+    zlog_debug("Zebra send: redistribute delete/add afi %d %s %d", afi,
+               zebra_route_string(type), instance);
 
   /* Send distribute add message to zebra. */
-  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type, instance);
-  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type, instance);
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, instance);
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, instance);
 
   return 0;
 }
@@ -1565,19 +1567,17 @@ bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type, u_short instance)
   bgp_redist_del(bgp, afi, type, instance);
 
   /* Return if zebra connection is disabled. */
-  if (!redist_check_instance(&zclient->redist[type], instance))
+  if (!redist_check_instance(&zclient->redist[afi][type], instance))
     return CMD_WARNING;
-  redist_del_instance(&zclient->redist[type], instance);
+  redist_del_instance(&zclient->redist[afi][type], instance);
 
-  if (!bgp_redist_lookup(bgp, AFI_IP, type, instance)
-      && !bgp_redist_lookup(bgp, AFI_IP6, type, instance)
-      && zclient->sock >= 0)
+  if (zclient->sock >= 0)
     {
       /* Send distribute delete message to zebra. */
       if (BGP_DEBUG (zebra, ZEBRA))
-	zlog_debug("Zebra send: redistribute delete %s %d",
-		   zebra_route_string(type), instance);
-      zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type, instance);
+	zlog_debug("Zebra send: redistribute delete afi %d %s %d",
+		   afi, zebra_route_string(type), instance);
+      zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, instance);
     }
   
   /* Withdraw redistributed routes from current BGP's routing table. */
