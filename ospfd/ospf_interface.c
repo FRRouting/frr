@@ -883,6 +883,11 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
 
   snprintf (ifname, sizeof(ifname), "VLINK%d", vlink_count);
   vi = if_create (ifname, strnlen(ifname, sizeof(ifname)));
+  /*
+   * if_create sets ZEBRA_INTERFACE_LINKDETECTION
+   * virtual links don't need this.
+   */
+  UNSET_FLAG (vi->status, ZEBRA_INTERFACE_LINKDETECTION);
   co = connected_new ();
   co->ifp = vi;
   listnode_add (vi->connected, co);
