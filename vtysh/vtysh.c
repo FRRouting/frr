@@ -500,6 +500,157 @@ vtysh_execute (const char *line)
   return vtysh_execute_func (line, 1);
 }
 
+int
+vtysh_mark_file (char *filename)
+{
+  struct vty *vty;
+  FILE *confp = NULL;
+  int ret;
+  vector vline;
+  int tried = 0;
+  struct cmd_element *cmd;
+  int saved_ret, prev_node;
+  int lineno = 0;
+
+  if (strncmp("-", filename, 1) == 0)
+    confp = stdin;
+  else
+    confp = fopen (filename, "r");
+
+  if (confp == NULL)
+    return (1);
+
+  vty = vty_new ();
+  vty->fd = 0;			/* stdout */
+  vty->type = VTY_TERM;
+  vty->node = CONFIG_NODE;
+
+  vtysh_execute_no_pager ("enable");
+  vtysh_execute_no_pager ("configure terminal");
+
+  while (fgets (vty->buf, VTY_BUFSIZ, confp))
+    {
+      lineno++;
+      tried = 0;
+
+      if (vty->buf[0] == '!' || vty->buf[1] == '#')
+	{
+	  fprintf(stdout, "%s", vty->buf);
+	  continue;
+	}
+
+      /* Split readline string up into the vector. */
+      vline = cmd_make_strvec (vty->buf);
+
+      if (vline == NULL)
+	{
+	  fprintf(stdout, "%s", vty->buf);
+	  continue;
+	}
+
+      prev_node = vty->node;
+      saved_ret = ret = cmd_execute_command_strict (vline, vty, &cmd);
+
+      /* If command doesn't succeeded in current node, try to walk up in node tree.
+       * Changing vty->node is enough to try it just out without actual walkup in
+       * the vtysh. */
+      while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON && ret != CMD_WARNING
+	     && vty->node > CONFIG_NODE)
+	{
+	  vty->node = node_parent(vty->node);
+	  ret = cmd_execute_command_strict (vline, vty, &cmd);
+	  tried++;
+	}
+
+      /* If command succeeded in any other node than current (tried > 0) we have
+       * to move into node in the vtysh where it succeeded. */
+      if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON || ret == CMD_WARNING)
+	{
+	  if ((prev_node == BGP_VPNV4_NODE || prev_node == BGP_IPV4_NODE
+	       || prev_node == BGP_IPV6_NODE || prev_node == BGP_IPV4M_NODE
+	       || prev_node == BGP_IPV6M_NODE)
+	      && (tried == 1))
+	    {
+	      fprintf(stdout, "exit-address-family\n");
+	    }
+	  else if ((prev_node == KEYCHAIN_KEY_NODE) && (tried == 1))
+	    {
+	      fprintf(stdout, "exit\n");
+	    }
+	  else if (tried)
+	    {
+	      fprintf(stdout, "end\n");
+	    }
+	}
+      /* If command didn't succeed in any node, continue with return value from
+       * first try. */
+      else if (tried)
+	{
+	  ret = saved_ret;
+	  vty->node = prev_node;
+	}
+
+      cmd_free_strvec (vline);
+      switch (ret)
+	{
+	case CMD_WARNING:
+	  if (vty->type == VTY_FILE)
+	    fprintf (stderr,"line %d: Warning...: %s\n", lineno, vty->buf);
+	  fclose(confp);
+	  vty_close(vty);
+	  return (1);
+	case CMD_ERR_AMBIGUOUS:
+	  fprintf (stderr,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
+	  fclose(confp);
+	  vty_close(vty);
+	  return(1);
+	case CMD_ERR_NO_MATCH:
+	  fprintf (stderr,"line %d: %% Unknown command: %s\n", lineno, vty->buf);
+	  fclose(confp);
+	  vty_close(vty);
+	  return(1);
+	case CMD_ERR_INCOMPLETE:
+	  fprintf (stderr,"line %d: %% Command incomplete: %s\n", lineno, vty->buf);
+	  fclose(confp);
+	  vty_close(vty);
+	  return(1);
+	case CMD_SUCCESS:
+	  fprintf(stdout, "%s", vty->buf);
+	  break;
+	case CMD_SUCCESS_DAEMON:
+	  {
+	    u_int i;
+	    int cmd_stat = CMD_SUCCESS;
+
+	    fprintf(stdout, "%s", vty->buf);
+	    for (i = 0; i < array_size(vtysh_client); i++)
+	      {
+	        if (cmd->daemon & vtysh_client[i].flag)
+		  {
+		    cmd_stat = vtysh_client_execute (&vtysh_client[i],
+						     vty->buf, stdout);
+		    if (cmd_stat != CMD_SUCCESS)
+		      break;
+		  }
+	      }
+	    if (cmd_stat != CMD_SUCCESS)
+	      break;
+
+	    if (cmd->func)
+	      (*cmd->func) (cmd, vty, 0, NULL);
+	  }
+	}
+    }
+  /* This is the end */
+  fprintf(stdout, "end\n");
+  vty_close(vty);
+
+  if (confp != stdin)
+    fclose(confp);
+
+  return (0);
+}
+
 /* Configration make from file. */
 int
 vtysh_config_from_file (struct vty *vty, FILE *fp)
@@ -507,6 +658,7 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
   int ret;
   vector vline;
   struct cmd_element *cmd;
+  int save_node = CONFIG_NODE;
 
   while (fgets (vty->buf, VTY_BUFSIZ, fp))
     {
@@ -544,10 +696,15 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	    }
 	  else
 	    {
+	      save_node = vty->node;
 	      vtysh_execute ("end");
 	      vtysh_execute ("configure terminal");
 	      vty->node = CONFIG_NODE;
 	      ret = cmd_execute_command_strict (vline, vty, &cmd);
+	      if ((ret != CMD_SUCCESS) &&
+		  (ret != CMD_SUCCESS_DAEMON) &&
+		  (ret != CMD_WARNING))
+		vty->node = save_node;
 	    }
 	}	  
 
@@ -560,13 +717,13 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	    fprintf (stdout,"Warning...\n");
 	  break;
 	case CMD_ERR_AMBIGUOUS:
-	  fprintf (stdout,"%% Ambiguous command.\n");
+	  fprintf (stdout,"%% Ambiguous command: %s\n", vty->buf);
 	  break;
 	case CMD_ERR_NO_MATCH:
 	  fprintf (stdout,"%% Unknown command: %s", vty->buf);
 	  break;
 	case CMD_ERR_INCOMPLETE:
-	  fprintf (stdout,"%% Command incomplete.\n");
+	  fprintf (stdout,"%% Command incomplete: %s\n", vty->buf);
 	  break;
 	case CMD_SUCCESS_DAEMON:
 	  {
