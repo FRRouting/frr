@@ -1739,7 +1739,9 @@ update_group_af_walk (struct bgp *bgp, afi_t afi, safi_t safi,
   memset (&wctx, 0, sizeof (wctx));
   wctx.cb = cb;
   wctx.context = ctx;
-  hash_walk (bgp->update_groups[afid], update_group_walkcb, &wctx);
+
+  if (bgp->update_groups[afid])
+    hash_walk (bgp->update_groups[afid], update_group_walkcb, &wctx);
 }
 
 void
@@ -1761,6 +1763,44 @@ update_group_periodic_merge (struct bgp *bgp)
 
   update_group_walk (bgp, update_group_periodic_merge_walkcb,
 		     (void *) reason);
+}
+
+static int
+update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
+                                                void *arg)
+{
+  struct update_subgroup *subgrp;
+  struct peer *peer;
+  struct peer_af *paf;
+  afi_t afi;
+  safi_t safi;
+
+  UPDGRP_FOREACH_SUBGRP (updgrp, subgrp)
+    {
+      peer = SUBGRP_PEER (subgrp);
+      afi = SUBGRP_AFI (subgrp);
+      safi = SUBGRP_SAFI (subgrp);
+
+      if (peer->default_rmap[afi][safi].name)
+        {
+          subgroup_default_originate (subgrp, 0);
+        }
+    }
+
+  return UPDWALK_CONTINUE;
+}
+
+void
+update_group_refresh_default_originate_route_map (struct thread *thread)
+{
+  struct bgp *bgp;
+  char reason[] = "refresh default-originate route-map";
+
+  bgp = THREAD_ARG(thread);
+  update_group_walk (bgp, update_group_default_originate_route_map_walkcb,
+                     reason);
+  THREAD_TIMER_OFF (bgp->t_rmap_def_originate_eval);
+  bgp_unlock(bgp);
 }
 
 /*

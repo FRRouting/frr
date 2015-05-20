@@ -2612,6 +2612,7 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
   bgp_router_id_set(bgp, &router_id_zebra);
   *bgp_val = bgp;
 
+  bgp->t_rmap_def_originate_eval = NULL;
   bgp->t_rmap_update = NULL;
   bgp->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 
@@ -2694,6 +2695,12 @@ bgp_delete (struct bgp *bgp)
     peer_delete(bgp->peer_self);
     bgp->peer_self = NULL;
   }
+
+  if (bgp->t_rmap_def_originate_eval)
+    {
+      BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+      bgp_unlock(bgp);
+    }
   
   /* Remove visibility via the master list - there may however still be
    * routes to be processed still referencing the struct bgp.

@@ -266,6 +266,10 @@ struct bgp
   u_int32_t rmap_update_timer;	  /* Route map update timer */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
+  /* timer to re-evaluate neighbor default-originate route-maps */
+  struct thread *t_rmap_def_originate_eval;
+#define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
+
   /* BGP distance configuration.  */
   u_char distance_ebgp;
   u_char distance_ibgp;

@@ -2556,7 +2556,17 @@ bgp_process_main (struct work_queue *wq, void *data)
 
   /* bestpath has changed; bump version */
   if (old_select || new_select)
-    bgp_bump_version(rn);
+    {
+      bgp_bump_version(rn);
+
+      if (!bgp->t_rmap_def_originate_eval)
+        {
+          bgp_lock (bgp);
+          THREAD_TIMER_ON(master, bgp->t_rmap_def_originate_eval,
+                          update_group_refresh_default_originate_route_map,
+                          bgp, RMAP_DEFAULT_ORIGINATE_EVAL_TIMER);
+        }
+    }
 
   if (old_select)
     bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);

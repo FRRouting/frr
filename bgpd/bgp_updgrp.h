@@ -377,6 +377,7 @@ extern void update_group_af_walk (struct bgp *bgp, afi_t afi, safi_t safi,
 				  updgrp_walkcb cb, void *ctx);
 extern void update_group_walk (struct bgp *bgp, updgrp_walkcb cb, void *ctx);
 extern void update_group_periodic_merge (struct bgp *bgp);
+extern void update_group_refresh_default_originate_route_map (struct thread *thread);
 extern void update_group_start_advtimer (struct bgp *bgp);
 
 extern void update_subgroup_inherit_info (struct update_subgroup *to,
