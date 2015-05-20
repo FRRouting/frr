@@ -1195,6 +1195,69 @@ DEFUN (show_ipv6_nht,
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_nht_default_route,
+       ip_nht_default_route_cmd,
+       "ip nht resolve-via-default",
+       IP_STR
+       "Filter Next Hop tracking route resolution\n"
+       "Resolve via default route\n")
+{
+  if (zebra_rnh_ip_default_route)
+    return CMD_SUCCESS;
+
+  zebra_rnh_ip_default_route = 1;
+  zebra_evaluate_rnh_table(0, AF_INET, 1);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_nht_default_route,
+       no_ip_nht_default_route_cmd,
+       "no ip nht resolve-via-default",
+       NO_STR
+       IP_STR
+       "Filter Next Hop tracking route resolution\n"
+       "Resolve via default route\n")
+{
+  if (!zebra_rnh_ip_default_route)
+    return CMD_SUCCESS;
+
+  zebra_rnh_ip_default_route = 0;
+  zebra_evaluate_rnh_table(0, AF_INET, 1);
+  return CMD_SUCCESS;
+}
+
+DEFUN (ipv6_nht_default_route,
+       ipv6_nht_default_route_cmd,
+       "ipv6 nht resolve-via-default",
+       IP6_STR
+       "Filter Next Hop tracking route resolution\n"
+       "Resolve via default route\n")
+{
+  if (zebra_rnh_ipv6_default_route)
+    return CMD_SUCCESS;
+
+  zebra_rnh_ipv6_default_route = 1;
+  zebra_evaluate_rnh_table(0, AF_INET6, 1);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_nht_default_route,
+       no_ipv6_nht_default_route_cmd,
+       "no ipv6 nht resolve-via-default",
+       NO_STR
+       IP6_STR
+       "Filter Next Hop tracking route resolution\n"
+       "Resolve via default route\n")
+{
+  if (!zebra_rnh_ipv6_default_route)
+    return CMD_SUCCESS;
+
+  zebra_rnh_ipv6_default_route = 0;
+  zebra_evaluate_rnh_table(0, AF_INET6, 1);
+  return CMD_SUCCESS;
+}
+
+
 DEFUN (show_ip_route_tag,
        show_ip_route_tag_cmd,
        "show ip route tag <1-65535>",
@@ -3097,6 +3160,10 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ipv6_route_flags_pref_tag_cmd);
   install_element (CONFIG_NODE, &no_ipv6_route_ifname_pref_tag_cmd);
   install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_pref_tag_cmd);
+  install_element (CONFIG_NODE, &ip_nht_default_route_cmd);
+  install_element (CONFIG_NODE, &no_ip_nht_default_route_cmd);
+  install_element (CONFIG_NODE, &ipv6_nht_default_route_cmd);
+  install_element (CONFIG_NODE, &no_ipv6_nht_default_route_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_tag_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_summary_cmd);

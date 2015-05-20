@@ -40,6 +40,9 @@ struct rnh
   int filtered[ZEBRA_ROUTE_MAX]; /* if this has been filtered for client */
 };
 
+extern int zebra_rnh_ip_default_route;
+extern int zebra_rnh_ipv6_default_route;
+
 extern struct rnh *zebra_add_rnh(struct prefix *p, u_int32_t vrfid);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, u_int32_t vrfid);
 extern void zebra_delete_rnh(struct rnh *rnh);

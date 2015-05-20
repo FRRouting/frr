@@ -1558,6 +1558,12 @@ static int config_write_protocol(struct vty *vty)
 {
   int i;
 
+  if (zebra_rnh_ip_default_route)
+    vty_out (vty, "ip nht resolve-via-default%s", VTY_NEWLINE);
+
+  if (zebra_rnh_ipv6_default_route)
+    vty_out (vty, "ipv6 nht resolve-via-default%s", VTY_NEWLINE);
+
   for (i=0;i<ZEBRA_ROUTE_MAX;i++)
     {
       if (proto_rm[AFI_IP][i])
