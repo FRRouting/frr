@@ -35,7 +35,7 @@ extern void ospf6_set_pktinfo (void);
 extern void ospf6_set_checksum (void);
 
 extern int ospf6_serv_sock (void);
-extern void ospf6_sso (u_int ifindex, struct in6_addr *group, int option);
+extern int ospf6_sso (u_int ifindex, struct in6_addr *group, int option);
 
 extern int ospf6_sendmsg (struct in6_addr *, struct in6_addr *,
                           unsigned int *, struct iovec *);

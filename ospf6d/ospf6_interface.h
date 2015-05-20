@@ -78,6 +78,9 @@ struct ospf6_interface
   /* Interface State */
   u_char state;
 
+  /* Interface socket setting trial counter, resets on success */
+  u_char sso_try_cnt;
+
   /* OSPF6 Interface flag */
   char flag;
 
@@ -140,7 +143,8 @@ extern const char *ospf6_interface_state_str[];
 #define OSPF6_INTERFACE_INSTANCE_ID    0
 #define OSPF6_INTERFACE_BANDWIDTH      10000   /* Kbps */
 #define OSPF6_REFERENCE_BANDWIDTH      100000  /* Kbps */
-
+#define OSPF6_INTERFACE_SSO_RETRY_INT  1
+#define OSPF6_INTERFACE_SSO_RETRY_MAX  5
 
 
 /* Function Prototypes */

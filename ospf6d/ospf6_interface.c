@@ -728,7 +728,18 @@ interface_up (struct thread *thread)
     }
 
   /* Join AllSPFRouters */
-  ospf6_sso (oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP);
+  if (ospf6_sso (oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP) < 0)
+    {
+      if (oi->sso_try_cnt++ < OSPF6_INTERFACE_SSO_RETRY_MAX)
+        {
+          zlog_info("Scheduling %s for sso retry, trial count: %d",
+                    oi->interface->name, oi->sso_try_cnt);
+          thread_add_timer (master, interface_up, oi,
+                            OSPF6_INTERFACE_SSO_RETRY_INT);
+        }
+      return 0;
+    }
+  oi->sso_try_cnt = 0; /* Reset on success */
 
   /* Update interface route */
   ospf6_interface_connected_route_update (oi->interface);
