@@ -1185,9 +1185,14 @@ bgp_attr_nexthop (struct bgp_attr_parser_args *args)
                                  args->total);
     }
 
+  /* According to section 6.3 of RFC4271, syntactically incorrect NEXT_HOP
+     attribute must result in a NOTIFICATION message (this is implemented below).
+     At the same time, semantically incorrect NEXT_HOP is more likely to be just
+     logged locally (this is implemented somewhere else). The UPDATE message
+     gets ignored in any of these cases. */
   nexthop_n = stream_get_ipv4 (peer->ibuf);
   nexthop_h = ntohl (nexthop_n);
-  if (!bgp_valid_host_address(nexthop_h))
+  if (IPV4_NET0 (nexthop_h) || IPV4_NET127 (nexthop_h) || IPV4_CLASS_DE (nexthop_h))
     {
       char buf[INET_ADDRSTRLEN];
       inet_ntop (AF_INET, &nexthop_n, buf, INET_ADDRSTRLEN);

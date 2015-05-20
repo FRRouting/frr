@@ -57,7 +57,6 @@ extern int bgp_capability_receive (struct peer *, bgp_size_t);
 extern void bgp_update_restarted_peers (struct peer *);
 extern void bgp_update_implicit_eors (struct peer *);
 extern void bgp_check_update_delay (struct bgp *);
-extern int bgp_valid_host_address (unsigned long addr);
 
 extern int bgp_packet_set_marker (struct stream *s, u_char type);
 extern int bgp_packet_set_size (struct stream *s);

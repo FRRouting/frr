@@ -893,34 +893,6 @@ bgp_collision_detect (struct peer *new, struct in_addr remote_id)
   return 0;
 }
 
-/*
- * per draft-ietf-idr-error-handling-13
- *
- * An IP host address SHOULD be considered invalid if it appears in the
- * "IANA IPv4 Special-Purpose Address Registry" [IANA-IPV4] and either
- * the "destination" or the "forwardable" boolean in that registry is
- * given as "false".
- */
-int
-bgp_valid_host_address (unsigned long addr)
-{
-  if (IPV4_NET0(addr) ||      // 0.0.0.0/8
-      IPV4_NET127(addr) ||    // 127.0.0.0/8
-      IPV4_LINKLOCAL(addr) || // 169.254.0.0/16
-      addr == 0xC00000AA ||   // 192.0.0.170/32
-      addr == 0xC00000AB ||   // 192.0.0.171/32
-      (addr & 0xffffff00) == 0xC0000200 ||  // 192.0.2.0/24
-      (addr & 0xffffff00) == 0xC6336400 ||  // 198.51.100.0/24
-      (addr & 0xffffff00) == 0xCB007100 ||  // 203.0.113.0/24
-      IPV4_CLASS_DE(addr))
-    {
-      return 0;
-    }
-
-  return 1;
-}
-
-
 static int
 bgp_open_receive (struct peer *peer, bgp_size_t size)
 {
@@ -938,8 +910,6 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   u_int8_t notify_data_remote_as4[4];
   u_int8_t notify_data_remote_id[4];
   u_int16_t *holdtime_ptr;
-  unsigned long local_addr;
-  unsigned long remote_addr;
 
   /* Parse open packet. */
   version = stream_getc (peer->ibuf);
@@ -1028,11 +998,10 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
 	}
     }
 
-  local_addr = ntohl (peer->local_id.s_addr);
-  remote_addr = ntohl (remote_id.s_addr);
-
   /* remote router-id check. */
-  if (local_addr == remote_addr || !bgp_valid_host_address(remote_addr))
+  if (remote_id.s_addr == 0
+      || IPV4_CLASS_DE (ntohl (remote_id.s_addr))
+      || ntohl (peer->local_id.s_addr) == ntohl (remote_id.s_addr))
     {
       if (bgp_debug_neighbor_events(peer))
 	zlog_debug ("%s bad OPEN, wrong router identifier %s",
