@@ -5588,6 +5588,8 @@ int
 peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
 		 enum bgp_clear_type stype)
 {
+  struct peer_af *paf;
+
   if (peer->status != Established)
     return 0;
 
@@ -5603,7 +5605,15 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
     }
 
   if (stype == BGP_CLEAR_SOFT_OUT || stype == BGP_CLEAR_SOFT_BOTH)
-    bgp_announce_route (peer, afi, safi);
+    {
+      /* Clear the "neighbor x.x.x.x default-originate" flag */
+      paf = peer_af_find (peer, afi, safi);
+      if (paf && paf->subgroup &&
+          CHECK_FLAG (paf->subgroup->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+        UNSET_FLAG (paf->subgroup->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+
+      bgp_announce_route (peer, afi, safi);
+    }
 
   if (stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX)
     {
