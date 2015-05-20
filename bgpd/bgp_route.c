@@ -6741,7 +6741,7 @@ bgp_redistribute_add (struct prefix *p, const struct in_addr *nexthop,
 	    attr_new.med = red->redist_metric;
 
 	  /* Apply route-map. */
-	  if (red->rmap.map)
+	  if (red->rmap.name)
 	    {
 	      info.peer = bgp->peer_self;
 	      info.attr = &attr_new;
