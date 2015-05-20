@@ -382,7 +382,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd)
                     vty_out (vty, "%s", VTY_NEWLINE);
                     rd_header = 0;
                   }
-                route_vty_out_tmp (vty, &rm->p, attr, SAFI_MPLS_VPN);
+                route_vty_out_tmp (vty, &rm->p, attr, SAFI_MPLS_VPN, NULL);
               }
         }
     }
@@ -492,7 +492,7 @@ bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type ty
 	        if (tags)
 		  route_vty_out_tag (vty, &rm->p, ri, 0, SAFI_MPLS_VPN);
 	        else
-		  route_vty_out (vty, &rm->p, ri, 0, SAFI_MPLS_VPN);
+		  route_vty_out (vty, &rm->p, ri, 0, SAFI_MPLS_VPN, NULL);
 	      }
         }
     }

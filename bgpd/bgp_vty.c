@@ -7045,9 +7045,27 @@ DEFUN (show_bgp_memory,
   return CMD_SUCCESS;
 }
 
+static int
+bgp_adj_out_count (struct peer *peer, int afi, int safi)
+{
+  struct bgp_table *table;
+  struct bgp_node *rn;
+  struct bgp_adj_out *adj;
+  int count = 0;
+
+  if (!peer) return(0);
+
+  table = peer->bgp->rib[afi][safi];
+  if (!table) return(0);
+  for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
+    if (bgp_adj_out_lookup(peer, NULL, afi, safi, rn))
+	count++;
+  return (count);
+}
+
 /* Show BGP peer's summary information. */
 static int
-bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
+bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *delimit)
 {
   struct peer *peer;
   struct listnode *node, *nnode;
@@ -7057,12 +7075,20 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
 
   /* Header string for each address family. */
   static char header[] = "Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
-  
+  static char header_csv[] = "Neighbor, V, AS, MsgRcvd, MsgSent, TblVer, InQ, OutQ, Up/Down, State/PfxRcd, PfxAdv";
+
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (peer->afc[afi][safi])
 	{
-          if (!count)
+	  if (delimit)
+	    {
+	      if (!count)
+		{
+		  vty_out (vty, "%s%s", header_csv, VTY_NEWLINE);
+		}
+	    }
+          else if (!count)
             {
               unsigned long ents;
               char memstrbuf[MTYPE_MEMSTR_LEN];
@@ -7138,24 +7164,46 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
 	  else
 	    vty_out (vty, "%*s", len, " ");
 
+	  if (delimit)
+	    vty_out(vty, "%c", *delimit);
+
 	  vty_out (vty, "4 ");
 
-	  vty_out (vty, "%5u %7d %7d %8d %4d %4lu ",
-		   peer->as,
-		   peer->open_in + peer->update_in + peer->keepalive_in
-		   + peer->notify_in + peer->refresh_in + peer->dynamic_cap_in,
-		   peer->open_out + peer->update_out + peer->keepalive_out
-		   + peer->notify_out + peer->refresh_out
-		   + peer->dynamic_cap_out,
-		   0, 0, (unsigned long) peer->obuf->count);
+	  if (delimit)
+	    vty_out(vty, "%c", *delimit);
 
-	  vty_out (vty, "%8s", 
+	  if (!delimit)
+	    vty_out (vty, "%5u %7d %7d %8d %4d %4lu",
+		     peer->as,
+		     peer->open_in + peer->update_in + peer->keepalive_in
+		     + peer->notify_in + peer->refresh_in
+		     + peer->dynamic_cap_in,
+		     peer->open_out + peer->update_out + peer->keepalive_out
+		     + peer->notify_out + peer->refresh_out
+		     + peer->dynamic_cap_out,
+		     0,
+		     0,
+		     (unsigned long) peer->obuf->count);
+	  else
+	    vty_out (vty, "%5u %c %7d %c %7d %c %8d %c %4d %c %4lu %c",
+		     peer->as, *delimit,
+		     peer->open_in + peer->update_in + peer->keepalive_in
+		     + peer->notify_in + peer->refresh_in
+		     + peer->dynamic_cap_in, *delimit,
+		     peer->open_out + peer->update_out + peer->keepalive_out
+		     + peer->notify_out + peer->refresh_out
+		     + peer->dynamic_cap_out, *delimit,
+		     0, *delimit,
+		     0, *delimit,
+		     (unsigned long) peer->obuf->count, *delimit);
+
+	  vty_out (vty, "%8s",
 		   peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
+	  if (delimit)
+	    vty_out(vty, "%c", *delimit);
 
 	  if (peer->status == Established)
-	    {
 	      vty_out (vty, " %8ld", peer->pcount[afi][safi]);
-	    }
 	  else
 	    {
 	      if (CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN))
@@ -7165,6 +7213,8 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
 	      else
 		vty_out (vty, " %-11s", LOOKUP(bgp_status_msg, peer->status));
 	    }
+	  if (delimit)
+	      vty_out(vty, ", %d", bgp_adj_out_count(peer, afi, safi));
 
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	}
@@ -7180,36 +7230,36 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
   return CMD_SUCCESS;
 }
 
-static int 
-bgp_show_summary_vty (struct vty *vty, const char *name, 
-                      afi_t afi, safi_t safi)
+static int
+bgp_show_summary_vty (struct vty *vty, const char *name,
+                      afi_t afi, safi_t safi, char *delimit)
 {
   struct bgp *bgp;
 
   if (name)
     {
       bgp = bgp_lookup_by_name (name);
-      
+
       if (! bgp)
 	{
-	  vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE); 
+	  vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
 
-      bgp_show_summary (vty, bgp, afi, safi);
+      bgp_show_summary (vty, bgp, afi, safi, delimit);
       return CMD_SUCCESS;
     }
-  
+
   bgp = bgp_get_default ();
 
   if (bgp)
-    bgp_show_summary (vty, bgp, afi, safi);    
- 
+    bgp_show_summary (vty, bgp, afi, safi, delimit);
+
   return CMD_SUCCESS;
 }
 
 /* `show ip bgp summary' commands. */
-DEFUN (show_ip_bgp_summary, 
+DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
        "show ip bgp summary",
        SHOW_STR
@@ -7217,7 +7267,19 @@ DEFUN (show_ip_bgp_summary,
        BGP_STR
        "Summary of BGP neighbor status\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, NULL);
+}
+
+DEFUN (show_ip_bgp_summary_csv,
+       show_ip_bgp_summary_csv_cmd,
+       "show ip bgp summary csv",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Summary of BGP neighbor status\n")
+{
+  char csv = ',';
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, &csv);
 }
 
 DEFUN (show_ip_bgp_instance_summary,
@@ -7230,7 +7292,7 @@ DEFUN (show_ip_bgp_instance_summary,
        "View name\n"
        "Summary of BGP neighbor status\n")
 {
-  return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_UNICAST);  
+  return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, NULL);
 }
 
 DEFUN (show_ip_bgp_ipv4_summary, 
@@ -7245,9 +7307,9 @@ DEFUN (show_ip_bgp_ipv4_summary,
        "Summary of BGP neighbor status\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MULTICAST);
+    return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, NULL);
 
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, NULL);
 }
 
 ALIAS (show_ip_bgp_ipv4_summary,
@@ -7274,9 +7336,9 @@ DEFUN (show_ip_bgp_instance_ipv4_summary,
        "Summary of BGP neighbor status\n")
 {
   if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST);
+    return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST, NULL);
   else
-    return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_UNICAST);
+    return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, NULL);
 }
 
 ALIAS (show_ip_bgp_instance_ipv4_summary,
@@ -7301,7 +7363,7 @@ DEFUN (show_ip_bgp_vpnv4_all_summary,
        "Display information about all VPNv4 NLRIs\n"
        "Summary of BGP neighbor status\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, NULL);
 }
 
 DEFUN (show_ip_bgp_vpnv4_rd_summary,
@@ -7325,18 +7387,29 @@ DEFUN (show_ip_bgp_vpnv4_rd_summary,
       return CMD_WARNING;
     }
 
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, NULL);
 }
 
 #ifdef HAVE_IPV6
-DEFUN (show_bgp_summary, 
+DEFUN (show_bgp_summary,
        show_bgp_summary_cmd,
        "show bgp summary",
        SHOW_STR
        BGP_STR
        "Summary of BGP neighbor status\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, NULL);
+}
+
+DEFUN (show_bgp_summary_csv,
+       show_bgp_summary_csv_cmd,
+       "show bgp summary csv",
+       SHOW_STR
+       BGP_STR
+       "Summary of BGP neighbor status\n")
+{
+  char csv = ',';
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, &csv);
 }
 
 DEFUN (show_bgp_instance_summary,
@@ -7348,7 +7421,7 @@ DEFUN (show_bgp_instance_summary,
        "View name\n"
        "Summary of BGP neighbor status\n")
 {
-  return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST);
+  return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, NULL);
 }
 
 ALIAS (show_bgp_summary, 
@@ -7380,9 +7453,9 @@ DEFUN (show_bgp_ipv6_safi_summary,
        "Summary of BGP neighbor status\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MULTICAST);
+    return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MULTICAST, NULL);
 
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, NULL);
 }
 
 DEFUN (show_bgp_instance_ipv6_safi_summary,
@@ -7398,9 +7471,9 @@ DEFUN (show_bgp_instance_ipv6_safi_summary,
        "Summary of BGP neighbor status\n")
 {
   if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_MULTICAST);
+    return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_MULTICAST, NULL);
 
-  return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST);
+  return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, NULL);
 }
 
 /* old command */
@@ -7412,7 +7485,7 @@ DEFUN (show_ipv6_bgp_summary,
        BGP_STR
        "Summary of BGP neighbor status\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, NULL);
 }
 
 /* old command */
@@ -7424,7 +7497,7 @@ DEFUN (show_ipv6_mbgp_summary,
        MBGP_STR
        "Summary of BGP neighbor status\n")
 {
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MULTICAST);
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MULTICAST, NULL);
 }
 #endif /* HAVE_IPV6 */
 
@@ -10198,6 +10271,7 @@ bgp_vty_init (void)
 
   /* "show ip bgp summary" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_summary_csv_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_summary_cmd);
@@ -10207,6 +10281,7 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
 #ifdef HAVE_IPV6
   install_element (VIEW_NODE, &show_bgp_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_summary_csv_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_safi_summary_cmd);
@@ -10214,6 +10289,7 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
 #endif /* HAVE_IPV6 */
   install_element (RESTRICTED_NODE, &show_ip_bgp_summary_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_summary_csv_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_summary_cmd);
@@ -10223,6 +10299,7 @@ bgp_vty_init (void)
   install_element (RESTRICTED_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
 #ifdef HAVE_IPV6
   install_element (RESTRICTED_NODE, &show_bgp_summary_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_summary_csv_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_instance_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_safi_summary_cmd);
@@ -10230,6 +10307,7 @@ bgp_vty_init (void)
   install_element (RESTRICTED_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
 #endif /* HAVE_IPV6 */
   install_element (ENABLE_NODE, &show_ip_bgp_summary_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_summary_csv_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_summary_cmd);
@@ -10239,6 +10317,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
 #ifdef HAVE_IPV6
   install_element (ENABLE_NODE, &show_bgp_summary_cmd);
+  install_element (ENABLE_NODE, &show_bgp_summary_csv_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_safi_summary_cmd);
