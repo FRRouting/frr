@@ -64,7 +64,7 @@ struct hash
 extern struct hash *hash_create (unsigned int (*) (void *), 
 				 int (*) (const void *, const void *));
 extern struct hash *hash_create_size (unsigned int, unsigned int (*) (void *), 
-                                             int (*) (const void *, const void *));
+				      int (*) (const void *, const void *));
 
 extern void *hash_get (struct hash *, void *, void * (*) (void *));
 extern void *hash_alloc_intern (void *);

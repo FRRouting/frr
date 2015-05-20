@@ -149,7 +149,7 @@ route_map_add (const char *name)
  * the delete hook function. Don't invoke delete_hook
  * again in this routine.
  */
-void
+static void
 route_map_free_map (struct route_map *map)
 {
   struct route_map_list *list;
@@ -1064,39 +1064,14 @@ route_map_finish (void)
 static int
 route_map_rmap_hash_cmp (const void *p1, const void *p2)
 {
-  return (strcmp((char *)p1, (char *)p2) == 0);
+  return (strcmp((const char *)p1, (const char *)p2) == 0);
 }
 
 static int
 route_map_dep_hash_cmp (const void *p1, const void *p2)
 {
 
-  return (strcmp (((struct route_map_dep *)p1)->dep_name, (char *)p2) == 0);
-}
-
-static void
-route_map_rmap_free(struct hash_backet *backet, void *arg)
-{
-  char *rmap_name = (char *)backet->data;
-
-  if (rmap_name)
-    XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
-}
-
-static void
-route_map_dep_hash_free (struct hash_backet *backet, void *arg)
-{
-  struct route_map_dep *dep = (struct route_map_dep *)backet->data;
-
-  if (!dep)
-    return;
-
-  if (dep->dep_rmap_hash)
-    hash_iterate (dep->dep_rmap_hash, route_map_rmap_free, (void *)NULL);
-
-  hash_free(dep->dep_rmap_hash);
-  XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
-  XFREE(MTYPE_ROUTE_MAP_DEP, dep);
+  return (strcmp (((const struct route_map_dep *)p1)->dep_name, (const char *)p2) == 0);
 }
 
 static void
@@ -1152,7 +1127,7 @@ route_map_dep_hash_alloc(void *p)
 static void *
 route_map_name_hash_alloc(void *p)
 {
-  return((void *)XSTRDUP(MTYPE_ROUTE_MAP_NAME, (char *)p));
+  return((void *)XSTRDUP(MTYPE_ROUTE_MAP_NAME, (const char *)p));
 }
 
 static unsigned int
@@ -1178,6 +1153,11 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
 {
   struct route_map_dep *dep;
   char *ret_map_name;
+  char *dname, *rname;
+  int ret = 0;
+
+  dname = XSTRDUP(MTYPE_ROUTE_MAP_NAME, dep_name);
+  rname = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
 
   switch (type)
     {
@@ -1190,15 +1170,17 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
       if (rmap_debug)
 	zlog_debug("%s: Adding dependency for %s in %s", __FUNCTION__,
 		   dep_name, rmap_name);
-      dep = (struct route_map_dep *) hash_get (dephash, (void *)dep_name,
+      dep = (struct route_map_dep *) hash_get (dephash, dname,
 					       route_map_dep_hash_alloc);
-      if (!dep)
-	return -1;
+      if (!dep) {
+	ret = -1;
+	goto out;
+      }
 
       if (!dep->this_hash)
 	dep->this_hash = dephash;
 
-      hash_get(dep->dep_rmap_hash, rmap_name, route_map_name_hash_alloc);
+      hash_get(dep->dep_rmap_hash, rname, route_map_name_hash_alloc);
       break;
     case RMAP_EVENT_PLIST_DELETED:
     case RMAP_EVENT_CLIST_DELETED:
@@ -1209,17 +1191,18 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
       if (rmap_debug)
 	zlog_debug("%s: Deleting dependency for %s in %s", __FUNCTION__,
 		   dep_name, rmap_name);
-      dep = (struct route_map_dep *) hash_get (dephash, (void *)dep_name,
-					       NULL);
-      if (!dep)
-	return 0;
-      ret_map_name = (char *)hash_release(dep->dep_rmap_hash, (void *)rmap_name);
+      dep = (struct route_map_dep *) hash_get (dephash, dname, NULL);
+      if (!dep) {
+	goto out;
+      }
+
+      ret_map_name = (char *)hash_release(dep->dep_rmap_hash, rname);
       if (ret_map_name)
 	XFREE(MTYPE_ROUTE_MAP_NAME, ret_map_name);
 
       if (!dep->dep_rmap_hash->count)
 	{
-	  dep = hash_release(dephash, (void *)dep_name);
+	  dep = hash_release(dephash, dname);
 	  hash_free(dep->dep_rmap_hash);
 	  XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
 	  XFREE(MTYPE_ROUTE_MAP_DEP, dep);
@@ -1233,9 +1216,13 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
   if (dep)
     {
       if (rmap_debug)
-	hash_iterate (dep->dep_rmap_hash, route_map_print_dependency, (void *)dep_name);
+	hash_iterate (dep->dep_rmap_hash, route_map_print_dependency, dname);
     }
-  return 0;
+
+ out:
+  XFREE(MTYPE_ROUTE_MAP_NAME, rname);
+  XFREE(MTYPE_ROUTE_MAP_NAME, dname);
+  return ret;
 }
 
 static struct hash *
@@ -1309,14 +1296,17 @@ route_map_notify_dependencies (const char *affected_name, route_map_event_t even
 {
   struct route_map_dep *dep;
   struct hash *upd8_hash;
+  char *name;
 
   if (!affected_name)
     return;
 
+  name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, affected_name);
+
   if ((upd8_hash = route_map_get_dep_hash(event)) == NULL)
     return;
 
-  dep = (struct route_map_dep *)hash_get (upd8_hash, (void *)affected_name,
+  dep = (struct route_map_dep *)hash_get (upd8_hash, name,
 					  NULL);
   if (dep)
     {
@@ -1325,6 +1315,8 @@ route_map_notify_dependencies (const char *affected_name, route_map_event_t even
 
       hash_iterate (dep->dep_rmap_hash, route_map_process_dependency, (void *)event);
     }
+
+  XFREE (MTYPE_ROUTE_MAP_NAME, name);
 }
 
 /* VTY related functions. */

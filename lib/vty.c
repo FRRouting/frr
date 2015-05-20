@@ -2449,10 +2449,11 @@ vty_log (const char *level, const char *proto_str,
 
 /* Async-signal-safe version of vty_log for fixed strings. */
 void
-vty_log_fixed (const char *buf, size_t len)
+vty_log_fixed (char *buf, size_t len)
 {
   unsigned int i;
   struct iovec iov[2];
+  char crlf[4] = "\r\n";
 
   /* vty may not have been initialised */
   if (!vtyvec)
@@ -2460,7 +2461,7 @@ vty_log_fixed (const char *buf, size_t len)
   
   iov[0].iov_base = (void *)buf;
   iov[0].iov_len = len;
-  iov[1].iov_base = (void *)"\r\n";
+  iov[1].iov_base = crlf;
   iov[1].iov_len = 2;
 
   for (i = 0; i < vector_active (vtyvec); i++)

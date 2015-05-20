@@ -662,7 +662,7 @@ thread_timer_remain_second (struct thread *thread)
 }
 
 /* Trim blankspace and "()"s */
-void
+static void
 strip_funcname (char *dest, const char *funcname)
 {
   char buff[FUNCNAME_LEN];

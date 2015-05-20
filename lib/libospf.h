@@ -47,8 +47,8 @@
 #define OSPF_LSA_MAXAGE_DIFF                   900
 #define OSPF_LS_INFINITY                  0xffffff
 #define OSPF_DEFAULT_DESTINATION        0x00000000      /* 0.0.0.0 */
-#define OSPF_INITIAL_SEQUENCE_NUMBER    0x80000001
-#define OSPF_MAX_SEQUENCE_NUMBER        0x7fffffff
+#define OSPF_INITIAL_SEQUENCE_NUMBER    0x80000001U
+#define OSPF_MAX_SEQUENCE_NUMBER        0x7fffffffU
 
 /* OSPF Interface Types */
 #define OSPF_IFTYPE_NONE		0

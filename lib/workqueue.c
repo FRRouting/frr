@@ -30,7 +30,11 @@
 #include "log.h"
 
 /* master list of work_queues */
-static struct list work_queues;
+static struct list _work_queues;
+/* pointer primarly to avid an otherwise harmless warning on
+ * ALL_LIST_ELEMENTS_RO
+ */
+static struct list *work_queues = &_work_queues;
 
 #define WORK_QUEUE_MIN_GRANULARITY 1
 
@@ -78,7 +82,7 @@ work_queue_new (struct thread_master *m, const char *queue_name)
   
   new->items->del = (void (*)(void *)) work_queue_item_free;  
   
-  listnode_add (&work_queues, new);
+  listnode_add (work_queues, new);
   
   new->cycles.granularity = WORK_QUEUE_MIN_GRANULARITY;
 
@@ -97,7 +101,7 @@ work_queue_free (struct work_queue *wq)
   
   /* list_delete frees items via callback */
   list_delete (wq->items);
-  listnode_delete (&work_queues, wq);
+  listnode_delete (work_queues, wq);
   
   XFREE (MTYPE_WORK_QUEUE_NAME, wq->name);
   XFREE (MTYPE_WORK_QUEUE, wq);
@@ -191,7 +195,7 @@ DEFUN(show_work_queues,
            "Name", 
            VTY_NEWLINE);
  
-  for (ALL_LIST_ELEMENTS_RO ((&work_queues), node, wq))
+  for (ALL_LIST_ELEMENTS_RO (work_queues, node, wq))
     {
       vty_out (vty,"%c %8d %5d %8ld %8ld %7d %6d %8ld %6u %s%s",
                (CHECK_FLAG (wq->flags, WQ_UNPLUGGED) ? ' ' : 'P'),

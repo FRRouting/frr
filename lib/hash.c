@@ -27,7 +27,7 @@
 /* Allocate a new hash.  */
 struct hash *
 hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),
-                                     int (*hash_cmp) (const void *, const void *))
+		  int (*hash_cmp) (const void *, const void *))
 {
   struct hash *hash;
 

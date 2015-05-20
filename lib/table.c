@@ -626,10 +626,7 @@ route_table_get_next_internal (const struct route_table *table,
 			       struct prefix *p)
 {
   struct route_node *node, *tmp_node;
-  u_char prefixlen;
   int cmp;
-
-  prefixlen = p->prefixlen;
 
   node = table->top;
 

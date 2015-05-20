@@ -69,10 +69,11 @@ distribute_lookup (const char *ifname)
   struct distribute *dist;
 
   /* temporary reference */
-  key.ifname = (char *)ifname;
+  key.ifname = XSTRDUP(MTYPE_DISTRIBUTE_IFNAME, ifname);
 
   dist = hash_lookup (disthash, &key);
-  
+  XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
+
   return dist;
 }
 
@@ -106,11 +107,15 @@ static struct distribute *
 distribute_get (const char *ifname)
 {
   struct distribute key;
+  struct distribute *ret;
 
   /* temporary reference */
-  key.ifname = (char *)ifname;
+  key.ifname = XSTRDUP(MTYPE_DISTRIBUTE_IFNAME, ifname);
   
-  return hash_get (disthash, &key, (void * (*) (void *))distribute_hash_alloc);
+  ret = hash_get (disthash, &key, (void * (*) (void *))distribute_hash_alloc);
+
+  XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
+  return ret;
 }
 
 static unsigned int

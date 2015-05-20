@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_ROUTEMAP_H
 #define _ZEBRA_ROUTEMAP_H
 
+#include "prefix.h"
+
 /* Route map's type. */
 enum route_map_type
 {

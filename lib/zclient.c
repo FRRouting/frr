@@ -116,7 +116,7 @@ redist_del_instance (struct redist_proto *red, u_short instance)
   u_short *id = NULL;
 
   if (!red->instances)
-    return 0;
+    return;
 
   for (ALL_LIST_ELEMENTS_RO (red->instances, node, id))
     if (*id == instance)

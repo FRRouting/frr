@@ -64,10 +64,11 @@ if_rmap_lookup (const char *ifname)
   struct if_rmap *if_rmap;
 
   /* temporary copy */
-  key.ifname = (char *)ifname;
+  key.ifname = XSTRDUP (MTYPE_IF_RMAP_NAME, ifname);
 
   if_rmap = hash_lookup (ifrmaphash, &key);
   
+  XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
   return if_rmap;
 }
 
@@ -86,7 +87,7 @@ if_rmap_hook_delete (void (*func) (struct if_rmap *))
 static void *
 if_rmap_hash_alloc (void *arg)
 {
-  struct if_rmap *ifarg = arg;
+  struct if_rmap *ifarg = (struct if_rmap *)arg;
   struct if_rmap *if_rmap;
 
   if_rmap = if_rmap_new ();
@@ -99,11 +100,16 @@ static struct if_rmap *
 if_rmap_get (const char *ifname)
 {
   struct if_rmap key;
+  struct if_rmap *ret;
 
   /* temporary copy */
-  key.ifname = (char *)ifname;
+  key.ifname = XSTRDUP (MTYPE_IF_RMAP_NAME, ifname);
 
-  return (struct if_rmap *) hash_get (ifrmaphash, &key, if_rmap_hash_alloc);
+  ret = hash_get (ifrmaphash, &key, if_rmap_hash_alloc);
+  if (key.ifname)
+    XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
+
+  return ret;
 }
 
 static unsigned int
