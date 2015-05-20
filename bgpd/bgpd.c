@@ -1973,6 +1973,7 @@ bgp_create (as_t *as, const char *name)
 	bgp->maxpaths[afi][safi].maxpaths_ibgp = BGP_DEFAULT_MAXPATHS;
       }
 
+  bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
   bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
   bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
   bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
@@ -5306,6 +5307,9 @@ bgp_config_write (struct vty *vty)
       /* BGP deterministic-med. */
       if (bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
 	vty_out (vty, " bgp deterministic-med%s", VTY_NEWLINE);
+
+      /* BGP update-delay. */
+      bgp_config_write_update_delay (vty, bgp);
 
       /* BGP graceful-restart. */
       if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)

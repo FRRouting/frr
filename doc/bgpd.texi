@@ -223,6 +223,30 @@ Redistribute RIP route to BGP process.
 Redistribute OSPF route to BGP process.
 @end deffn
 
+@deffn {BGP} {update-delay @var{max-delay}} {}
+@deffnx {BGP} {update-delay @var{max-delay} @var{establish-wait}} {}
+This feature is used to enable read-only mode on BGP process restart or when
+BGP process is cleared using 'clear ip bgp *'. When applicable, read-only mode
+would begin as soon as the first peer reaches Established status and a timer
+for max-delay seconds is started.
+
+During this mode BGP doesn't run any best-path or generate any updates to its
+peers. This mode continues until:
+1. All the configured peers, except the shutdown peers, have sent explicit EOR
+(End-Of-RIB) or an implicit-EOR. The first keep-alive after BGP has reached
+Established is considered an implicit-EOR.
+   If the establish-wait optional value is given, then BGP will wait for
+   peers to reach established from the begining of the update-delay till the
+   establish-wait period is over, i.e. the minimum set of established peers for
+   which EOR is expected would be peers established during the establish-wait
+   window, not necessarily all the configured neighbors.
+2. max-delay period is over.
+On hitting any of the above two conditions, BGP resumes the decision process
+and generates updates to its peers.
+
+Default max-delay is 0, i.e. the feature is off by default.
+@end deffn
+
 @node BGP Peer
 @section BGP Peer
 

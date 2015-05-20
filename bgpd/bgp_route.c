@@ -1664,7 +1664,7 @@ bgp_processq_del (struct work_queue *wq, void *data)
   XFREE (MTYPE_BGP_PROCESS_QUEUE, pq);
 }
 
-static void
+void
 bgp_process_queue_init (void)
 {
   bm->process_main_queue
@@ -2605,9 +2605,19 @@ bgp_announce_table (struct peer *peer, afi_t afi, safi_t safi,
   if (! table)
     table = (rsclient) ? peer->rib[afi][safi] : peer->bgp->rib[afi][safi];
 
-  if (safi != SAFI_MPLS_VPN
-      && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
-    bgp_default_originate (peer, afi, safi, 0);
+  if (safi != SAFI_MPLS_VPN)
+    {
+      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+        {
+          bgp_default_originate (peer, afi, safi, 0);
+        }
+      else
+        {
+          /* Send the withdraw if it was postponed during read-only mode. */
+          if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE))
+            bgp_default_originate (peer, afi, safi, 1);
+        }
+    }
 
   /* It's initialized in bgp_announce_[check|check_rsclient]() */
   attr.extra = &extra;
@@ -2659,6 +2669,9 @@ bgp_announce_route_all (struct peer *peer)
   afi_t afi;
   safi_t safi;
   
+  if (bgp_update_delay_active(peer->bgp))
+    return;
+
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       bgp_announce_route (peer, afi, safi);

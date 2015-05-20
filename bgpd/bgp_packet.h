@@ -53,5 +53,7 @@ extern void bgp_default_update_send (struct peer *, struct attr *,
 extern void bgp_default_withdraw_send (struct peer *, afi_t, safi_t);
 
 extern int bgp_capability_receive (struct peer *, bgp_size_t);
-
+extern void bgp_update_restarted_peers (struct peer *);
+extern void bgp_update_implicit_eors (struct peer *);
+extern void bgp_check_update_delay (struct bgp *);
 #endif /* _QUAGGA_BGP_PACKET_H */

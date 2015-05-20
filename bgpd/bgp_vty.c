@@ -692,6 +692,108 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, char *mpaths,
   return CMD_SUCCESS;
 }
 
+static int
+bgp_update_delay_config_vty (struct vty *vty, const char *delay,
+                             const char *wait)
+{
+  struct bgp *bgp;
+  u_int16_t update_delay;
+  u_int16_t establish_wait;
+
+
+  bgp = vty->index;
+
+  VTY_GET_INTEGER_RANGE ("update-delay", update_delay, delay,
+                         BGP_UPDATE_DELAY_MIN, BGP_UPDATE_DELAY_MAX);
+
+  if (!wait) /* update-delay <delay> */
+    {
+      bgp->v_update_delay = update_delay;
+      bgp->v_establish_wait = bgp->v_update_delay;
+      return CMD_SUCCESS;
+    }
+
+  /* update-delay <delay> <establish-wait> */
+  establish_wait = atoi (wait);
+  if (update_delay < establish_wait)
+    {
+      vty_out (vty, "%%Failed: update-delay less than the establish-wait!%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  bgp->v_update_delay = update_delay;
+  bgp->v_establish_wait = establish_wait;
+
+  return CMD_SUCCESS;
+}
+
+static int
+bgp_update_delay_deconfig_vty (struct vty *vty)
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+
+  bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
+  bgp->v_establish_wait = bgp->v_update_delay;
+
+  return CMD_SUCCESS;
+}
+
+int
+bgp_config_write_update_delay (struct vty *vty, struct bgp *bgp)
+{
+  if (bgp->v_update_delay != BGP_UPDATE_DELAY_DEF)
+    {
+      vty_out (vty, " update-delay %d", bgp->v_update_delay);
+      if (bgp->v_update_delay != bgp->v_establish_wait)
+        vty_out (vty, " %d", bgp->v_establish_wait);
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+
+  return 0;
+}
+
+
+/* Update-delay configuration */
+DEFUN (bgp_update_delay,
+       bgp_update_delay_cmd,
+       "update-delay <0-3600>",
+       "Force initial delay for best-path and updates\n"
+       "Seconds\n")
+{
+  return bgp_update_delay_config_vty(vty, argv[0], NULL);
+}
+
+DEFUN (bgp_update_delay_establish_wait,
+       bgp_update_delay_establish_wait_cmd,
+       "update-delay <0-3600> <1-3600>",
+       "Force initial delay for best-path and updates\n"
+       "Seconds\n"
+       "Wait for peers to be established\n"
+       "Seconds\n")
+{
+  return bgp_update_delay_config_vty(vty, argv[0], argv[1]);
+}
+
+/* Update-delay deconfiguration */
+DEFUN (no_bgp_update_delay,
+       no_bgp_update_delay_cmd,
+       "no update-delay <0-3600>",
+       "Force initial delay for best-path and updates\n"
+       "Seconds\n")
+{
+  return bgp_update_delay_deconfig_vty(vty);
+}
+
+ALIAS (no_bgp_update_delay,
+       no_bgp_update_delay_establish_wait_cmd,
+       "no update-delay <0-3600> <1-3600>",
+       "Force initial delay for best-path and updates\n"
+       "Seconds\n"
+       "Wait for peers to be established\n"
+       "Seconds\n")
 
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
@@ -4353,6 +4455,11 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 	  if (ret < 0)
 	    bgp_clear_vty_error (vty, peer, afi, safi, ret);
 	}
+
+      /* This is to apply read-only mode on this clear. */
+      if (stype == BGP_CLEAR_SOFT_NONE)
+        bgp->update_delay_over = 0;
+
       return CMD_SUCCESS;
     }
 
@@ -6964,6 +7071,30 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
               vty_out (vty,
                        "BGP router identifier %s, local AS number %u%s",
                        inet_ntoa (bgp->router_id), bgp->as, VTY_NEWLINE);
+              if (bgp_update_delay_configured(bgp))
+                {
+                  vty_out (vty, "Read-only mode update-delay limit: %d seconds%s",
+                           bgp->v_update_delay, VTY_NEWLINE);
+                  if (bgp->v_update_delay != bgp->v_establish_wait)
+                    vty_out (vty, "                   Establish wait: %d seconds%s",
+                             bgp->v_establish_wait, VTY_NEWLINE);
+                  if (bgp_update_delay_active(bgp))
+                    {
+                      vty_out (vty, "  First neighbor established: %s%s",
+                               bgp->update_delay_begin_time, VTY_NEWLINE);
+                      vty_out (vty, "  Delay in progress%s", VTY_NEWLINE);
+                    }
+                  else
+                    {
+                      if (bgp->update_delay_over)
+                        {
+                          vty_out (vty, "  First neighbor established: %s%s",
+                                   bgp->update_delay_begin_time, VTY_NEWLINE);
+                          vty_out (vty, "  Best-paths/updates resumed: %s%s",
+                                   bgp->update_delay_end_time, VTY_NEWLINE);
+                        }
+                    }
+                }
 
               ents = bgp_table_count (bgp->rib[afi][safi]);
               vty_out (vty, "RIB entries %ld, using %s of memory%s", ents,
@@ -7045,6 +7176,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
   else
     vty_out (vty, "No %s neighbor is configured%s",
 	     afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+
   return CMD_SUCCESS;
 }
 
@@ -9168,6 +9300,12 @@ bgp_vty_init (void)
   /* "bgp confederation peers" commands. */
   install_element (BGP_NODE, &bgp_confederation_peers_cmd);
   install_element (BGP_NODE, &no_bgp_confederation_peers_cmd);
+
+  /* bgp update-delay command */
+  install_element (BGP_NODE, &bgp_update_delay_cmd);
+  install_element (BGP_NODE, &no_bgp_update_delay_cmd);
+  install_element (BGP_NODE, &bgp_update_delay_establish_wait_cmd);
+  install_element (BGP_NODE, &no_bgp_update_delay_establish_wait_cmd);
 
   /* "maximum-paths" commands. */
   install_element (BGP_NODE, &bgp_maxpaths_cmd);

@@ -106,6 +106,22 @@ struct bgp
 
   struct thread *t_startup;
 
+  /* BGP update delay on startup */
+  struct thread *t_update_delay;
+  struct thread *t_establish_wait;
+  u_char update_delay_over;
+  u_int16_t v_update_delay;
+  u_int16_t v_establish_wait;
+  char update_delay_begin_time[64];
+  char update_delay_end_time[64];
+  u_int32_t established;
+  u_int32_t restarted_peers;
+  u_int32_t implicit_eors;
+  u_int32_t explicit_eors;
+#define BGP_UPDATE_DELAY_DEF              0
+#define BGP_UPDATE_DELAY_MIN              0
+#define BGP_UPDATE_DELAY_MAX              3600
+
   /* BGP flags. */
   u_int16_t flags;
 #define BGP_FLAG_ALWAYS_COMPARE_MED       (1 << 0)
@@ -507,6 +523,9 @@ struct peer
   u_int32_t established;	/* Established */
   u_int32_t dropped;		/* Dropped */
 
+  /* Update delay related fields */
+  u_char    update_delay_over;  /* When this is set, BGP is no more waiting for EOR */
+
   /* Syncronization list and time.  */
   struct bgp_synchronize *sync[AFI_MAX][SAFI_MAX];
   time_t synctime;
@@ -899,6 +918,8 @@ extern int bgp_timers_unset (struct bgp *);
 extern int bgp_default_local_preference_set (struct bgp *, u_int32_t);
 extern int bgp_default_local_preference_unset (struct bgp *);
 
+extern int bgp_update_delay_active (struct bgp *);
+extern int bgp_update_delay_configured (struct bgp *);
 extern int peer_rsclient_active (struct peer *);
 
 extern int peer_remote_as (struct bgp *, union sockunion *, as_t *, afi_t, safi_t);

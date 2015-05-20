@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "stream.h"
 #include "memory.h"
 #include "plist.h"
+#include "workqueue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -40,6 +41,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_open.h"
+#include "bgpd/bgp_advertise.h"
 #ifdef HAVE_SNMP
 #include "bgpd/bgp_snmp.h"
 #endif /* HAVE_SNMP */
@@ -395,6 +397,157 @@ bgp_graceful_stale_timer_expire (struct thread *thread)
   return 0;
 }
 
+static int
+bgp_update_delay_applicable (struct bgp *bgp)
+{
+  /* update_delay_over flag should be reset (set to 0) for any new
+     applicability of the update-delay during BGP process lifetime.
+     And it should be set after an occurence of the update-delay is over)*/
+  if (!bgp->update_delay_over)
+    return 1;
+
+  return 0;
+}
+
+int
+bgp_update_delay_active (struct bgp *bgp)
+{
+  if (bgp->t_update_delay)
+    return 1;
+
+  return 0;
+}
+
+int
+bgp_update_delay_configured (struct bgp *bgp)
+{
+  if (bgp->v_update_delay)
+    return 1;
+
+  return 0;
+}
+
+/* Do the post-processing needed when bgp comes out of the read-only mode
+   on ending the update delay. */
+void
+bgp_update_delay_end (struct bgp *bgp)
+{
+  struct listnode *node, *nnode;
+  struct peer *peer;
+
+  THREAD_TIMER_OFF (bgp->t_update_delay);
+  THREAD_TIMER_OFF (bgp->t_establish_wait);
+
+  /* Reset update-delay related state */
+  bgp->update_delay_over = 1;
+  bgp->established = 0;
+  bgp->restarted_peers = 0;
+  bgp->implicit_eors = 0;
+  bgp->explicit_eors = 0;
+
+  quagga_timestamp(3, bgp->update_delay_end_time,
+                   sizeof(bgp->update_delay_end_time));
+
+  /* Route announcements were postponed for all the peers during read-only mode,
+     send those now. */
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+    bgp_announce_route_all (peer);
+
+  /* Resume the queue processing. This should trigger the event that would take
+     care of processing any work that was queued during the read-only mode. */
+  work_queue_unplug(bm->process_main_queue);
+  work_queue_unplug(bm->process_rsclient_queue);
+}
+
+/* The update delay timer expiry callback. */
+static int
+bgp_update_delay_timer (struct thread *thread)
+{
+  struct bgp *bgp;
+
+  zlog_info ("Update delay ended - timer expired.");
+
+  bgp = THREAD_ARG (thread);
+  THREAD_TIMER_OFF (bgp->t_update_delay);
+  bgp_update_delay_end(bgp);
+
+  return 0;
+}
+
+/* The establish wait timer expiry callback. */
+static int
+bgp_establish_wait_timer (struct thread *thread)
+{
+  struct bgp *bgp;
+
+  zlog_info ("Establish wait - timer expired.");
+
+  bgp = THREAD_ARG (thread);
+  THREAD_TIMER_OFF (bgp->t_establish_wait);
+  bgp_check_update_delay(bgp);
+
+  return 0;
+}
+
+/* Steps to begin the update delay:
+     - initialize queues if needed
+     - stop the queue processing
+     - start the timer */
+static void
+bgp_update_delay_begin (struct bgp *bgp)
+{
+  struct listnode *node, *nnode;
+  struct peer *peer;
+
+  if ((bm->process_main_queue == NULL) ||
+      (bm->process_rsclient_queue == NULL))
+    bgp_process_queue_init();
+
+  /* Stop the processing of queued work. Enqueue shall continue */
+  work_queue_plug(bm->process_main_queue);
+  work_queue_plug(bm->process_rsclient_queue);
+
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+    peer->update_delay_over = 0;
+
+  /* Start the update-delay timer */
+  THREAD_TIMER_ON (master, bgp->t_update_delay, bgp_update_delay_timer,
+                   bgp, bgp->v_update_delay);
+
+  if (bgp->v_establish_wait != bgp->v_update_delay)
+    THREAD_TIMER_ON (master, bgp->t_establish_wait, bgp_establish_wait_timer,
+                     bgp, bgp->v_establish_wait);
+
+  quagga_timestamp(3, bgp->update_delay_begin_time,
+                   sizeof(bgp->update_delay_begin_time));
+}
+
+static void
+bgp_update_delay_process_status_change(struct peer *peer)
+{
+  if (peer->status == Established)
+    {
+      if (!peer->bgp->established++)
+        {
+          bgp_update_delay_begin(peer->bgp);
+          zlog_info ("Begin read-only mode - update-delay timer %d seconds",
+                     peer->bgp->v_update_delay);
+        }
+      if (CHECK_FLAG (peer->cap, PEER_CAP_RESTART_BIT_RCV))
+        bgp_update_restarted_peers(peer);
+    }
+  if (peer->ostatus == Established && bgp_update_delay_active(peer->bgp))
+    {
+      /* Adjust the update-delay state to account for this flap.
+         NOTE: Intentionally skipping adjusting implicit_eors or explicit_eors
+         counters. Extra sanity check in bgp_check_update_delay() should
+         be enough to take care of any additive discrepancy in bgp eor
+         counters */
+      peer->bgp->established--;
+      peer->update_delay_over = 0;
+    }
+}
+
 /* Called after event occured, this function change status and reset
    read/write and timer thread. */
 void
@@ -411,7 +564,12 @@ bgp_fsm_change_status (struct peer *peer, int status)
   /* Preserve old status and change into new status. */
   peer->ostatus = peer->status;
   peer->status = status;
-  
+
+  /* If update-delay processing is applicable, do the necessary. */
+  if (bgp_update_delay_configured(peer->bgp) &&
+      bgp_update_delay_applicable(peer->bgp))
+    bgp_update_delay_process_status_change(peer);
+
   if (BGP_DEBUG (normal, NORMAL))
     zlog_debug ("%s went from %s to %s",
 		peer->host,
@@ -762,6 +920,17 @@ bgp_fsm_open (struct peer *peer)
 static int
 bgp_fsm_keepalive_expire (struct peer *peer)
 {
+  afi_t afi;
+  safi_t safi;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      {
+        if (!FIFO_EMPTY(&peer->sync[afi][safi]->withdraw) ||
+            !FIFO_EMPTY(&peer->sync[afi][safi]->update))
+          return 0;
+      }
+
   bgp_keepalive_send (peer);
   return 0;
 }
@@ -883,9 +1052,6 @@ bgp_establish (struct peer *peer)
 				    REFRESH_IMMEDIATE, 0);
 	}
 
-  if (peer->v_keepalive)
-    bgp_keepalive_send (peer);
-
   /* First update is deferred until ORF or ROUTE-REFRESH is received */
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
     for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
@@ -905,6 +1071,8 @@ bgp_establish (struct peer *peer)
 static int
 bgp_fsm_keepalive (struct peer *peer)
 {
+  bgp_update_implicit_eors(peer);
+
   /* peer count update */
   peer->keepalive_in++;
 
