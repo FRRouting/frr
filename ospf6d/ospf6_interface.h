@@ -170,6 +170,8 @@ extern int neighbor_change (struct thread *);
 
 extern void ospf6_interface_init (void);
 
+extern void install_element_ospf6_clear_interface (void);
+
 extern int config_write_ospf6_debug_interface (struct vty *vty);
 extern void install_element_ospf6_debug_interface (void);
 

@@ -1790,6 +1790,8 @@ ospf6_init (void)
   install_element_ospf6_debug_abr ();
   install_element_ospf6_debug_flood ();
 
+  install_element_ospf6_clear_interface ();
+
   install_element (VIEW_NODE, &show_version_ospf6_cmd);
   install_element (ENABLE_NODE, &show_version_ospf6_cmd);
 
