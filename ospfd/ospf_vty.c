@@ -169,7 +169,13 @@ DEFUN (router_ospf,
   if (ospf->instance != instance)
     vty->index = NULL;
   else
-    vty->index = ospf;
+    {
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_debug ("Config command 'router ospf %d' received", instance);
+      ospf->oi_running = 1;
+      vty->index = ospf;
+      ospf_router_id_update (ospf);
+    }
  
   return CMD_SUCCESS;
 }
@@ -3062,7 +3068,7 @@ DEFUN (show_ip_ospf,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return (show_ip_ospf_common(vty, ospf));
@@ -3080,7 +3086,7 @@ DEFUN (show_ip_ospf_instance,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance (instance)) == NULL)
+  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return (show_ip_ospf_common(vty, ospf));
@@ -3295,7 +3301,7 @@ DEFUN (show_ip_ospf_interface,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_interface_common(vty, ospf, 0, argc, argv);
@@ -3315,7 +3321,7 @@ DEFUN (show_ip_ospf_instance_interface,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance (instance)) == NULL)
+  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_interface_common(vty, ospf, 1, argc, argv);
@@ -3398,7 +3404,7 @@ DEFUN (show_ip_ospf_neighbor,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_common(vty, ospf);
@@ -3418,7 +3424,7 @@ DEFUN (show_ip_ospf_instance_neighbor,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance(instance)) == NULL)
+  if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_common(vty, ospf);
@@ -3473,7 +3479,7 @@ DEFUN (show_ip_ospf_neighbor_all,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_all_common(vty, ospf);
@@ -3493,7 +3499,7 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance(instance)) == NULL)
+  if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_all_common(vty, ospf);
@@ -3542,7 +3548,7 @@ DEFUN (show_ip_ospf_neighbor_int,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_int_common(vty, ospf, 0, argv);
@@ -3562,7 +3568,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance(instance)) == NULL)
+  if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_int_common(vty, ospf, 1, argv);
@@ -3717,7 +3723,7 @@ DEFUN (show_ip_ospf_neighbor_id,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_id_common(vty, ospf, 0, argv);
@@ -3737,7 +3743,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance(instance)) == NULL)
+  if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_id_common(vty, ospf, 1, argv);
@@ -3779,7 +3785,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_detail_common(vty, ospf);
@@ -3799,7 +3805,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance (instance)) == NULL)
+  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_detail_common(vty, ospf);
@@ -3853,7 +3859,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_detail_all_common(vty, ospf);
@@ -3874,7 +3880,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance(instance)) == NULL)
+  if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_detail_all_common(vty, ospf);
@@ -3923,7 +3929,7 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 0, argv);
@@ -3944,7 +3950,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance(instance)) == NULL)
+  if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 1, argv);
@@ -4702,7 +4708,7 @@ DEFUN (show_ip_ospf_database,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return (show_ip_ospf_database_common(vty, ospf, 0, argc, argv));
@@ -4767,7 +4773,7 @@ DEFUN (show_ip_ospf_instance_database,
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
 
-  if ((ospf = ospf_lookup_instance (instance)) == NULL)
+  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return (show_ip_ospf_database_common(vty, ospf, 1, argc, argv));
@@ -4892,7 +4898,7 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup()) == NULL)
+  if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return (show_ip_ospf_database_type_adv_router_common(vty, ospf, 0, argc, argv));
@@ -4925,7 +4931,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
 
-  if ((ospf = ospf_lookup_instance (instance)) == NULL)
+  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return (show_ip_ospf_database_type_adv_router_common(vty, ospf, 1, argc, argv));
@@ -7620,7 +7626,7 @@ DEFUN (show_ip_ospf_border_routers,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup ()) == NULL)
+  if ((ospf = ospf_lookup ()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_border_routers_common(vty, ospf);
@@ -7639,7 +7645,7 @@ DEFUN (show_ip_ospf_instance_border_routers,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance (instance)) == NULL)
+  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_border_routers_common(vty, ospf);
@@ -7682,7 +7688,7 @@ DEFUN (show_ip_ospf_route,
 {
   struct ospf *ospf;
 
-  if ((ospf = ospf_lookup ()) == NULL)
+  if ((ospf = ospf_lookup ()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_route_common(vty, ospf);
@@ -7701,7 +7707,7 @@ DEFUN (show_ip_ospf_instance_route,
   u_short instance = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
-  if ((ospf = ospf_lookup_instance (instance)) == NULL)
+  if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
   return show_ip_ospf_route_common(vty, ospf);
@@ -8325,7 +8331,7 @@ ospf_config_write (struct vty *vty)
   int write = 0;
 
   ospf = ospf_lookup ();
-  if (ospf != NULL)
+  if (ospf != NULL && ospf->oi_running)
     {
       /* `router ospf' print. */
       if (ospf->instance)

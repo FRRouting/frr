@@ -85,6 +85,13 @@ ospf_router_id_update (struct ospf *ospf)
   struct interface *ifp;
   struct listnode *node;
 
+  if (!ospf->oi_running)
+    {
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_debug ("Router ospf not configured -- Router-ID update postponed");
+      return;
+    }
+
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("Router-ID[OLD:%s]: Update", inet_ntoa (ospf->router_id));
 
@@ -828,15 +835,6 @@ add_ospf_interface (struct interface *ifp, struct ospf_area *area,
 
   ospf_area_add_if (oi->area, oi);
 
-  /* if router_id is not configured, dont bring up
-   * interfaces.
-   * ospf_router_id_update() will call ospf_if_update
-   * whenever r-id is configured instead.
-   */
-  if ((area->ospf->router_id.s_addr != 0)
-      && if_is_operative (ifp))
-    ospf_if_up (oi);
-
   return (oi);
 }
 
@@ -989,6 +987,7 @@ ospf_interface_set (struct interface *ifp, struct in_addr area_id)
   struct connected *co;
   struct ospf *ospf;
   struct ospf_if_params *params;
+  struct ospf_interface *oi;
   int ret = OSPF_AREA_ID_FORMAT_ADDRESS;
 
   if ((ospf = ospf_lookup ()) == NULL)
@@ -1006,10 +1005,19 @@ ospf_interface_set (struct interface *ifp, struct in_addr area_id)
       if (CHECK_FLAG(co->flags,ZEBRA_IFA_SECONDARY))
         continue;
 
-      if (co->address->family == AF_INET
-          && !ospf_if_table_lookup(ifp, co->address))
+      if (co->address->family == AF_INET)
         {
-          add_ospf_interface(ifp, area, co);
+          oi = ospf_if_table_lookup(ifp, co->address);
+          if (!oi)
+            oi = add_ospf_interface(ifp, area, co);
+
+          /* if router_id is not configured, dont bring up
+           * interfaces.
+           * ospf_router_id_update() will call ospf_if_update
+           * whenever r-id is configured instead.
+           */
+          if ((area->ospf->router_id.s_addr != 0) && if_is_operative (ifp))
+            ospf_if_up (oi);
         }
     }
 

@@ -131,6 +131,9 @@ struct ospf_redist
 /* OSPF instance structure. */
 struct ospf
 {
+  /* OSPF's running state based on the '[no] router ospf [<instance>]' config. */
+  u_char  oi_running;
+
   /* OSPF instance ID  */
   u_short instance;
 
