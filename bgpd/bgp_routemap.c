@@ -2091,7 +2091,7 @@ route_match_ipv6_next_hop (void *rule, struct prefix *prefix,
       if (IPV6_ADDR_SAME (&bgp_info->attr->extra->mp_nexthop_global, rule))
 	return RMAP_MATCH;
 
-      if (bgp_info->attr->extra->mp_nexthop_len == 32 &&
+      if (bgp_info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
 	  IPV6_ADDR_SAME (&bgp_info->attr->extra->mp_nexthop_local, rule))
 	return RMAP_MATCH;
 
@@ -2194,7 +2194,7 @@ route_set_ipv6_nexthop_global (void *rule, struct prefix *prefix,
 
       /* Set nexthop length. */
       if (bgp_info->attr->extra->mp_nexthop_len == 0)
-	bgp_info->attr->extra->mp_nexthop_len = 16;
+	bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
       SET_FLAG(bgp_info->attr->rmap_change_flags,
 	       BATTR_RMAP_NEXTHOP_CHANGED);
@@ -2260,8 +2260,8 @@ route_set_ipv6_nexthop_local (void *rule, struct prefix *prefix,
       (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local = *address;
     
       /* Set nexthop length. */
-      if (bgp_info->attr->extra->mp_nexthop_len != 32)
-	bgp_info->attr->extra->mp_nexthop_len = 32;
+      if (bgp_info->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+	bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 
       SET_FLAG(bgp_info->attr->rmap_change_flags,
 	       BATTR_RMAP_NEXTHOP_CHANGED);
@@ -2353,8 +2353,8 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
 	  /* The next hop value will be set as part of packet rewrite. */
 
 	  /* Set nexthop length. */
-	  if (bgp_info->attr->extra->mp_nexthop_len != 32)
-	    bgp_info->attr->extra->mp_nexthop_len = 32;
+	  if (bgp_info->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+	    bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 	}
       else
 	{
@@ -2362,7 +2362,7 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
 
 	  /* Set nexthop length. */
 	  if (bgp_info->attr->extra->mp_nexthop_len == 0)
-	    bgp_info->attr->extra->mp_nexthop_len = 16;
+	    bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 	}
     }
 

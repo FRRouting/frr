@@ -110,9 +110,9 @@ bgp_nexthop_onlink (afi_t afi, struct attr *attr)
 #ifdef HAVE_IPV6
   else if (afi == AFI_IP6)
     {
-      if (attr->extra->mp_nexthop_len == 32)
+      if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 	return 1;
-      else if (attr->extra->mp_nexthop_len == 16)
+      else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
 	{
 	  if (IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_global))
 	    return 1;

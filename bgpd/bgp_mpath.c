@@ -120,17 +120,17 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
         {
           switch (ae1->mp_nexthop_len)
             {
-            case 4:
-            case 12:
+            case BGP_ATTR_NHLEN_IPV4:
+            case BGP_ATTR_NHLEN_VPNV4:
               compare = IPV4_ADDR_CMP (&ae1->mp_nexthop_global_in,
                                        &ae2->mp_nexthop_global_in);
               break;
 #ifdef HAVE_IPV6
-            case 16:
+            case BGP_ATTR_NHLEN_IPV6_GLOBAL:
               compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
                                        &ae2->mp_nexthop_global);
               break;
-            case 32:
+            case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
               compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
                                        &ae2->mp_nexthop_global);
               if (!compare)
@@ -145,7 +145,8 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
       /* This can happen if one IPv6 peer sends you global and link-local
        * nexthops but another IPv6 peer only sends you global
        */
-      else if (ae1->mp_nexthop_len == 16 || ae1->mp_nexthop_len == 32)
+      else if (ae1->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+               ae1->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
         {
           compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
                                    &ae2->mp_nexthop_global);

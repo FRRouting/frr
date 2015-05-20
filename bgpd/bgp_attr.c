@@ -456,8 +456,8 @@ attrhash_key_make (void *p)
 
 #ifdef HAVE_IPV6
       MIX(extra->mp_nexthop_len);
-      key = jhash(extra->mp_nexthop_global.s6_addr, 16, key);
-      key = jhash(extra->mp_nexthop_local.s6_addr, 16, key);
+      key = jhash(extra->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
+      key = jhash(extra->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 #endif /* HAVE_IPV6 */
     }
 
@@ -1584,24 +1584,24 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
   /* Nexthop length check. */
   switch (attre->mp_nexthop_len)
     {
-    case 4:
-      stream_get (&attre->mp_nexthop_global_in, s, 4);
+    case BGP_ATTR_NHLEN_IPV4:
+      stream_get (&attre->mp_nexthop_global_in, s, IPV4_MAX_BYTELEN);
       /* Probably needed for RFC 2283 */
       if (attr->nexthop.s_addr == 0)
-        memcpy(&attr->nexthop.s_addr, &attre->mp_nexthop_global_in, 4);
+        memcpy(&attr->nexthop.s_addr, &attre->mp_nexthop_global_in, IPV4_MAX_BYTELEN);
       break;
-    case 12:
+    case BGP_ATTR_NHLEN_VPNV4:
       stream_getl (s); /* RD high */
       stream_getl (s); /* RD low */
-      stream_get (&attre->mp_nexthop_global_in, s, 4);
+      stream_get (&attre->mp_nexthop_global_in, s, IPV4_MAX_BYTELEN);
       break;
 #ifdef HAVE_IPV6
-    case 16:
-      stream_get (&attre->mp_nexthop_global, s, 16);
+    case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+      stream_get (&attre->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
       break;
-    case 32:
-      stream_get (&attre->mp_nexthop_global, s, 16);
-      stream_get (&attre->mp_nexthop_local, s, 16);
+    case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+      stream_get (&attre->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
+      stream_get (&attre->mp_nexthop_local, s, IPV6_MAX_BYTELEN);
       if (! IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local))
 	{
 	  char buf1[INET6_ADDRSTRLEN];
@@ -1614,7 +1614,7 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
 		       inet_ntop (AF_INET6, &attre->mp_nexthop_local,
 				  buf2, INET6_ADDRSTRLEN));
 
-	  attre->mp_nexthop_len = 16;
+	  attre->mp_nexthop_len = IPV6_MAX_BYTELEN;
 	}
       break;
 #endif /* HAVE_IPV6 */
@@ -2189,9 +2189,9 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi,
 	  assert (attr->extra);
 	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, attre->mp_nexthop_len);
-	  stream_put (s, &attre->mp_nexthop_global, 16);
-	  if (attre->mp_nexthop_len == 32)
-	    stream_put (s, &attre->mp_nexthop_local, 16);
+	  stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
+	  if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+	    stream_put (s, &attre->mp_nexthop_local, IPV6_MAX_BYTELEN);
 	}
       default:
 	break;
@@ -2760,7 +2760,8 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
 #ifdef HAVE_IPV6
   /* Add a MP_NLRI attribute to dump the IPv6 next hop */
   if (prefix != NULL && prefix->family == AF_INET6 && attr->extra &&
-     (attr->extra->mp_nexthop_len == 16 || attr->extra->mp_nexthop_len == 32) )
+     (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+      attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) )
     {
       int sizep;
       struct attr_extra *attre = attr->extra;
@@ -2776,9 +2777,9 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
 
       /* Next hop */
       stream_putc(s, attre->mp_nexthop_len);
-      stream_put(s, &attre->mp_nexthop_global, 16);
-      if (attre->mp_nexthop_len == 32)
-        stream_put(s, &attre->mp_nexthop_local, 16);
+      stream_put(s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
+      if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+        stream_put(s, &attre->mp_nexthop_local, IPV6_MAX_BYTELEN);
 
       /* SNPA */
       stream_putc(s, 0);

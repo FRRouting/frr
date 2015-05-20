@@ -885,11 +885,11 @@ bgp_info_to_ipv6_nexthop (struct bgp_info *info)
   struct in6_addr *nexthop = NULL;
 
   /* Only global address nexthop exists. */
-  if (info->attr->extra->mp_nexthop_len == 16)
+  if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
     nexthop = &info->attr->extra->mp_nexthop_global;
 
   /* If both global and link-local address present. */
-  if (info->attr->extra->mp_nexthop_len == 32)
+  if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
     {
       /* Workaround for Cisco's nexthop bug.  */
       if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
@@ -1186,7 +1186,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 
       if (nexthop)
         {
-          if (info->attr->extra->mp_nexthop_len == 32)
+          if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
             if (info->peer->nexthop.ifp)
               ifindex = info->peer->nexthop.ifp->ifindex;
 
@@ -1224,7 +1224,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (nexthop == NULL)
             continue;
 
-          if (mpinfo->attr->extra->mp_nexthop_len == 32)
+          if (mpinfo->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
             if (mpinfo->peer->nexthop.ifp)
               ifindex = mpinfo->peer->nexthop.ifp->ifindex;
 
@@ -1391,11 +1391,11 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       nexthop = NULL;
 
       /* Only global address nexthop exists. */
-      if (info->attr->extra->mp_nexthop_len == 16)
+      if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
 	nexthop = &info->attr->extra->mp_nexthop_global;
 
       /* If both global and link-local address present. */
-      if (info->attr->extra->mp_nexthop_len == 32)
+      if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 	{
 	  nexthop = &info->attr->extra->mp_nexthop_local;
 	  if (info->peer->nexthop.ifp)

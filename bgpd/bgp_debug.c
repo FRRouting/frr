@@ -343,13 +343,13 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
       char addrbuf[BUFSIZ];
 
       /* Add MP case. */
-      if (attr->extra->mp_nexthop_len == 16 
-          || attr->extra->mp_nexthop_len == 32)
+      if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL
+          || attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
         snprintf (buf + strlen (buf), size - strlen (buf), ", mp_nexthop %s",
                   inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global, 
                              addrbuf, BUFSIZ));
 
-      if (attr->extra->mp_nexthop_len == 32)
+      if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
         snprintf (buf + strlen (buf), size - strlen (buf), "(%s)",
                   inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local, 
                              addrbuf, BUFSIZ));

@@ -372,7 +372,7 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
       break;
 #ifdef HAVE_IPV6
     case AFI_IP6:
-      if (ri->attr->extra->mp_nexthop_len != 16
+      if (ri->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL
 	  || IN6_IS_ADDR_LINKLOCAL (&ri->attr->extra->mp_nexthop_global))
 	return -1;
 

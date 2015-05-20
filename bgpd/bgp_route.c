@@ -1141,7 +1141,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 	  /* IPv6 global nexthop must be included. */
 	  memcpy (&attr->extra->mp_nexthop_global, &peer->nexthop.v6_global, 
 		  IPV6_MAX_BYTELEN);
-	  attr->extra->mp_nexthop_len = 16;
+	  attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 	}
 #endif /* HAVE_IPV6 */
     }
@@ -1154,16 +1154,16 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
            PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) )
         {
           if ( IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_local) )
-            attr->extra->mp_nexthop_len=32;
+            attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
           else
-            attr->extra->mp_nexthop_len=16;
+            attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
         }
 
       /* Default nexthop_local treatment for non-RS-Clients */
       else 
         {
       /* Link-local address should not be transit to different peer. */
-      attr->extra->mp_nexthop_len = 16;
+      attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
       /* Set link-local address for shared network peer. */
       if (peer->shared_network 
@@ -1171,17 +1171,17 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 	{
 	  memcpy (&attr->extra->mp_nexthop_local, &peer->nexthop.v6_local, 
 		  IPV6_MAX_BYTELEN);
-	  attr->extra->mp_nexthop_len = 32;
+	  attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 	}
 
       /* If bgpd act as BGP-4+ route-reflector, do not send link-local
 	 address.*/
       if (reflect)
-	attr->extra->mp_nexthop_len = 16;
+	attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
       /* If BGP-4+ link-local nexthop is not link-local nexthop. */
       if (! IN6_IS_ADDR_LINKLOCAL (&peer->nexthop.v6_local))
-	attr->extra->mp_nexthop_len = 16;
+	attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
     }
 
     }
@@ -1459,14 +1459,14 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
    */
   if (p->family == AF_INET6)
     {
-      attr->extra->mp_nexthop_len = 16;
+      attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
       if (!reflect)
         {
           if (peer->shared_network ||
               (CHECK_FLAG (peer->af_flags[afi][safi],
                            PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) &&
                IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_local)))
-            attr->extra->mp_nexthop_len = 32;
+            attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
         }
 
       /* Clear off link-local nexthop in source, if not needed. This may help
@@ -1673,7 +1673,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
         /* IPv6 global nexthop must be included. */
         memcpy (&attr->extra->mp_nexthop_global, &rsclient->nexthop.v6_global,
                 IPV6_MAX_BYTELEN);
-        attr->extra->mp_nexthop_len = 16;
+        attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
       }
 #endif /* HAVE_IPV6 */
   }
@@ -1688,9 +1688,9 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
            PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) )
         {
           if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
-            attre->mp_nexthop_len=32;
+            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
           else
-            attre->mp_nexthop_len=16;
+            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
         }
 
       /* Default nexthop_local treatment for RS-Clients */
@@ -1701,9 +1701,9 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
               (rsclient->ifindex == from->ifindex))
             {
               if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
-                attre->mp_nexthop_len=32;
+                attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
               else
-                attre->mp_nexthop_len=16;
+                attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
             }
 
           /* Set link-local address for shared network peer. */
@@ -1712,11 +1712,11 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
             {
               memcpy (&attre->mp_nexthop_local, &rsclient->nexthop.v6_local,
                       IPV6_MAX_BYTELEN);
-              attre->mp_nexthop_len = 32;
+              attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
             }
 
           else
-            attre->mp_nexthop_len = 16;
+            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
         }
 
     }
@@ -1880,7 +1880,7 @@ subgroup_announce_check_rsclient (struct bgp_info *ri,
         /* IPv6 global nexthop must be included. */
         memcpy (&attr->extra->mp_nexthop_global, &rsclient->nexthop.v6_global,
                 IPV6_MAX_BYTELEN);
-        attr->extra->mp_nexthop_len = 16;
+        attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
       }
 #endif /* HAVE_IPV6 */
   }
@@ -1895,9 +1895,9 @@ subgroup_announce_check_rsclient (struct bgp_info *ri,
            PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) )
         {
           if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
-            attre->mp_nexthop_len=32;
+            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
           else
-            attre->mp_nexthop_len=16;
+            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
         }
 
       /* Default nexthop_local treatment for RS-Clients */
@@ -1908,9 +1908,9 @@ subgroup_announce_check_rsclient (struct bgp_info *ri,
               (rsclient->ifindex == from->ifindex))
             {
               if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
-                attre->mp_nexthop_len=32;
+                attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
               else
-                attre->mp_nexthop_len=16;
+                attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
             }
 
           /* Set link-local address for shared network peer. */
@@ -1919,11 +1919,11 @@ subgroup_announce_check_rsclient (struct bgp_info *ri,
             {
               memcpy (&attre->mp_nexthop_local, &rsclient->nexthop.v6_local,
                       IPV6_MAX_BYTELEN);
-              attre->mp_nexthop_len = 32;
+              attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
             }
 
           else
-            attre->mp_nexthop_len = 16;
+            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
         }
 
     }
@@ -6378,7 +6378,7 @@ bgp_redistribute_add (struct prefix *p, const struct in_addr *nexthop,
     {
       struct attr_extra *extra = bgp_attr_extra_get(&attr);
       extra->mp_nexthop_global = *nexthop6;
-      extra->mp_nexthop_len = 16;
+      extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
     }
 #endif
 
@@ -6930,11 +6930,11 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
 	  assert (attr->extra);
 	  char buf[BUFSIZ];
 	  char buf1[BUFSIZ];
-	  if (attr->extra->mp_nexthop_len == 16)
+	  if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
 	    vty_out (vty, "%s", 
 		     inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global,
                      buf, BUFSIZ));
-	  else if (attr->extra->mp_nexthop_len == 32)
+	  else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 	    vty_out (vty, "%s(%s)",
 		     inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global,
 		                buf, BUFSIZ),
@@ -7304,7 +7304,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 
 #ifdef HAVE_IPV6
       /* display nexthop local */
-      if (attr->extra && attr->extra->mp_nexthop_len == 32)
+      if (attr->extra && attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 	{
           if (json_paths)
             {

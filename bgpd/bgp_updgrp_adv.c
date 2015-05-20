@@ -617,7 +617,7 @@ subgroup_default_originate (struct update_subgroup *subgrp, int withdraw)
       /* IPv6 global nexthop must be included. */
       memcpy (&ae->mp_nexthop_global, &peer->nexthop.v6_global,
 	      IPV6_MAX_BYTELEN);
-      ae->mp_nexthop_len = 16;
+      ae->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
       /* If the peer is on shared nextwork and we have link-local
          nexthop set it. */
@@ -626,7 +626,7 @@ subgroup_default_originate (struct update_subgroup *subgrp, int withdraw)
 	{
 	  memcpy (&ae->mp_nexthop_local, &peer->nexthop.v6_local,
 		  IPV6_MAX_BYTELEN);
-	  ae->mp_nexthop_len = 32;
+	  ae->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 	}
     }
 #endif /* HAVE_IPV6 */

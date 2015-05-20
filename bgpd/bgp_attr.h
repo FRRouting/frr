@@ -47,6 +47,12 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_ATTR_MIN_LEN        3       /* Attribute flag, type length. */
 #define BGP_ATTR_DEFAULT_WEIGHT 32768
 
+/* Valid lengths for mp_nexthop_len */
+#define BGP_ATTR_NHLEN_IPV4               IPV4_MAX_BYTELEN
+#define BGP_ATTR_NHLEN_VPNV4              12
+#define BGP_ATTR_NHLEN_IPV6_GLOBAL        IPV6_MAX_BYTELEN
+#define BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL (IPV6_MAX_BYTELEN * 2)
+
 /* Additional/uncommon BGP attributes.
  * lazily allocated as and when a struct attr
  * requires it.
