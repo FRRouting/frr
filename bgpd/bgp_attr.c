@@ -1148,14 +1148,9 @@ bgp_attr_nexthop (struct bgp_attr_parser_args *args)
                                  args->total);
     }
 
-  /* According to section 6.3 of RFC4271, syntactically incorrect NEXT_HOP
-     attribute must result in a NOTIFICATION message (this is implemented below).
-     At the same time, semantically incorrect NEXT_HOP is more likely to be just
-     logged locally (this is implemented somewhere else). The UPDATE message
-     gets ignored in any of these cases. */
   nexthop_n = stream_get_ipv4 (peer->ibuf);
   nexthop_h = ntohl (nexthop_n);
-  if (IPV4_NET0 (nexthop_h) || IPV4_NET127 (nexthop_h) || IPV4_CLASS_DE (nexthop_h))
+  if (!bgp_valid_host_address(nexthop_h))
     {
       char buf[INET_ADDRSTRLEN];
       inet_ntop (AF_INET, &nexthop_n, buf, INET_ADDRSTRLEN);
@@ -1864,9 +1859,10 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (attr_endp > endp)
 	{
 	  zlog_warn ("%s: BGP type %d length %d is too large, attribute total length is %d.  attr_endp is %p.  endp is %p", peer->host, type, length, size, attr_endp, endp);
-	  bgp_notify_send (peer, 
-			   BGP_NOTIFY_UPDATE_ERR, 
-			   BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
+          bgp_notify_send_with_data (peer,
+                                     BGP_NOTIFY_UPDATE_ERR,
+                                     BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+                                     startp, attr_endp - startp);
 	  return BGP_ATTR_PARSE_ERROR;
 	}
 	

@@ -66,4 +66,5 @@ extern void bgp_check_update_delay (struct bgp *);
 extern int bgp_peer_wd_fifo_exists (struct peer *);
 extern int bgp_peer_adv_fifo_exists (struct peer *, int);
 extern void bgp_peer_schedule_updates(struct peer *peer);
+extern int bgp_valid_host_address (unsigned long addr);
 #endif /* _QUAGGA_BGP_PACKET_H */
