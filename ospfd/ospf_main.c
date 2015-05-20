@@ -301,6 +301,7 @@ main (int argc, char **argv)
   /* OSPF vty inits. */
   ospf_vty_init ();
   ospf_vty_show_init ();
+  ospf_vty_clear_init ();
 
   ospf_route_map_init ();
 #ifdef HAVE_SNMP

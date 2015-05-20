@@ -7656,6 +7656,51 @@ static struct cmd_node ospf_node =
   1
 };
 
+static void
+ospf_interface_clear (struct interface *ifp)
+{
+  if (!if_is_operative (ifp)) return;
+
+  if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
+    zlog (NULL, LOG_DEBUG, "ISM[%s]: clear by reset", ifp->name);
+
+  ospf_if_reset(ifp);
+}
+
+DEFUN (clear_ip_ospf_interface,
+       clear_ip_ospf_interface_cmd,
+       "clear ip ospf interface [IFNAME]",
+       CLEAR_STR
+       IP_STR
+       "OSPF information\n"
+       "Interface information\n"
+       "Interface name\n")
+{
+  struct interface *ifp;
+  struct listnode *node;
+
+  if (argc == 0) /* Clear all the ospfv2 interfaces. */
+    {
+      for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+        ospf_interface_clear(ifp);
+    }
+  else /* Interface name is specified. */
+    {
+      if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+        vty_out (vty, "No such interface name%s", VTY_NEWLINE);
+      else
+        ospf_interface_clear(ifp);
+    }
+
+  return CMD_SUCCESS;
+}
+
+void
+ospf_vty_clear_init (void)
+{
+  install_element (ENABLE_NODE, &clear_ip_ospf_interface_cmd);
+}
+
 
 /* Install OSPF related vty commands. */
 void
