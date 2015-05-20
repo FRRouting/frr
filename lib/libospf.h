@@ -40,7 +40,7 @@
 #define OSPF_LS_REFRESH_TIME                  1800
 #endif
 #define OSPF_MIN_LS_INTERVAL                     5
-#define OSPF_MIN_LS_ARRIVAL                      1
+#define OSPF_MIN_LS_ARRIVAL                   1000     /* in milliseconds */
 #define OSPF_LSA_INITIAL_AGE                     0	/* useful for debug */
 #define OSPF_LSA_MAXAGE                       3600
 #define OSPF_CHECK_AGE                         300

@@ -65,6 +65,9 @@ struct ospf6
 #define OSPF6_LOG_ADJACENCY_CHANGES      (1 << 0)
 #define OSPF6_LOG_ADJACENCY_DETAIL       (1 << 1)
 
+  /* LSA timer parameters */
+  unsigned int lsa_minarrival;         /* LSA minimum arrival in milliseconds. */
+
   /* SPF parameters */
   unsigned int spf_delay;		/* SPF delay time. */
   unsigned int spf_holdtime;		/* SPF hold time. */

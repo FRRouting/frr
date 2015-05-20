@@ -97,6 +97,17 @@ tv_floor (struct timeval a)
 }
 
 struct timeval
+intms2tv (int a)
+{
+  struct timeval ret;
+
+  ret.tv_sec = a/1000;
+  ret.tv_usec = (a%1000)*1000;
+
+  return ret;
+}
+
+struct timeval
 int2tv (int a)
 {
   struct timeval ret;

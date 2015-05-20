@@ -190,6 +190,9 @@ struct ospf
   unsigned int spf_max_holdtime;	/* SPF maximum-holdtime */
   unsigned int spf_hold_multiplier;	/* Adaptive multiplier for hold time */
   
+  /* LSA timer parameters */
+  unsigned int lsa_minarrival;		/* LSA minimum arrival in milliseconds. */
+
   int default_originate;		/* Default information originate. */
 #define DEFAULT_ORIGINATE_NONE		0
 #define DEFAULT_ORIGINATE_ZEBRA		1

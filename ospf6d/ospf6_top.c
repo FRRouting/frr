@@ -135,6 +135,9 @@ ospf6_create (void)
   o->spf_max_holdtime = OSPF_SPF_MAX_HOLDTIME_DEFAULT;
   o->spf_hold_multiplier = 1;
 
+  /* LSA timers value init */
+  o->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
+
   o->route_table = OSPF6_ROUTE_TABLE_CREATE (GLOBAL, ROUTES);
   o->route_table->scope = o;
   o->route_table->hook_add = ospf6_top_route_hook_add;
@@ -402,6 +405,70 @@ DEFUN (no_ospf6_log_adjacency_changes_detail,
   return CMD_SUCCESS;
 }
 
+DEFUN (ospf6_timers_lsa,
+       ospf6_timers_lsa_cmd,
+       "timers lsa min-arrival <0-600000>",
+       "Adjust routing timers\n"
+       "OSPF6 LSA timers\n"
+       "Minimum delay in receiving new version of a LSA\n"
+       "Delay in milliseconds\n")
+{
+  unsigned int minarrival;
+  struct ospf6 *ospf = vty->index;
+
+  if (!ospf)
+    return CMD_SUCCESS;
+
+  if (argc != 1)
+    {
+      vty_out (vty, "Insufficient number of arguments%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[0]);
+
+  ospf->lsa_minarrival = minarrival;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_timers_lsa,
+       no_ospf6_timers_lsa_cmd,
+       "no timers lsa min-arrival",
+       NO_STR
+       "Adjust routing timers\n"
+       "OSPF6 LSA timers\n"
+       "Minimum delay in receiving new version of a LSA\n")
+{
+  unsigned int minarrival;
+  struct ospf6 *ospf = vty->index;
+
+  if (!ospf)
+    return CMD_SUCCESS;
+
+  if (argc)
+    {
+      VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[0]);
+
+      if (ospf->lsa_minarrival != minarrival ||
+	  minarrival == OSPF_MIN_LS_ARRIVAL)
+	return CMD_SUCCESS;
+    }
+
+  ospf->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ospf6_timers_lsa,
+       no_ospf6_timers_lsa_val_cmd,
+       "no timers lsa min-arrival <0-600000>",
+       NO_STR
+       "Adjust routing timers\n"
+       "OSPF6 LSA timers\n"
+       "Minimum delay in receiving new version of a LSA\n"
+       "Delay in milliseconds\n")
+
 DEFUN (ospf6_interface_area,
        ospf6_interface_area_cmd,
        "interface IFNAME area A.B.C.D",
@@ -649,6 +716,9 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
 
   /* Redistribute configuration */
   /* XXX */
+
+  vty_out (vty, " LSA minimum arrival %d msecs%s", o->lsa_minarrival,
+           VTY_NEWLINE);
 
   /* Show SPF parameters */
   vty_out(vty, " Initial SPF scheduling delay %d millisec(s)%s"
@@ -906,6 +976,11 @@ config_write_ospf6 (struct vty *vty)
     vty_out (vty, " auto-cost reference-bandwidth %d%s", ospf6->ref_bandwidth / 1000,
              VNL);
 
+  /* LSA timers print. */
+  if (ospf6->lsa_minarrival != OSPF_MIN_LS_ARRIVAL)
+    vty_out (vty, " timers lsa min-arrival %d%s", ospf6->lsa_minarrival,
+             VTY_NEWLINE);
+
   ospf6_stub_router_config_write (vty);
   ospf6_redistribute_config_write (vty);
   ospf6_area_config_write (vty);
@@ -964,6 +1039,12 @@ ospf6_top_init (void)
   install_element (OSPF6_NODE, &ospf6_log_adjacency_changes_detail_cmd);
   install_element (OSPF6_NODE, &no_ospf6_log_adjacency_changes_cmd);
   install_element (OSPF6_NODE, &no_ospf6_log_adjacency_changes_detail_cmd);
+
+  /* LSA timers commands */
+  install_element (OSPF6_NODE, &ospf6_timers_lsa_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_timers_lsa_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_timers_lsa_val_cmd);
+
   install_element (OSPF6_NODE, &ospf6_interface_area_cmd);
   install_element (OSPF6_NODE, &no_ospf6_interface_area_cmd);
   install_element (OSPF6_NODE, &ospf6_stub_router_admin_cmd);

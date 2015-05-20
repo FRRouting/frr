@@ -247,6 +247,9 @@ ospf_new (u_short instance)
   new->spf_max_holdtime = OSPF_SPF_MAX_HOLDTIME_DEFAULT;
   new->spf_hold_multiplier = 1;
 
+  /* LSA timers value init */
+  new->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
+
   /* MaxAge init. */
   new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
   new->maxage_lsa = route_table_init();
