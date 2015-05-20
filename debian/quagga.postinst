@@ -1,5 +1,28 @@
 #!/bin/bash -e
 
+######################
+PASSWDFILE=/etc/passwd
+GROUPFILE=/etc/group
+
+quaggauid=`egrep "^quagga:" $PASSWDFILE | awk -F ":" '{ print $3 }'`
+quaggagid=`egrep "^quagga:" $GROUPFILE | awk -F ":" '{ print $3 }'`
+quaggavtygid=`egrep "^quaggavty:" $GROUPFILE | awk -F ":" '{ print $3 }'`
+
+[ -n ${quaggauid} ]    || (echo "No uid for quagga in ${PASSWDFILE}"   && /bin/false)
+[ -n ${quaggagid} ]    || (echo "No gid for quagga in ${GROUPFILE}"    && /bin/false)
+[ -n ${quaggaVTYgid} ] || (echo "No gid for quaggavty in ${GROUPFILE}" && /bin/false)
+
+chown -R ${quaggauid}:${quaggagid} /etc/quagga
+chgrp ${quaggavtygid} /etc/quagga/vtysh*
+chmod 440 /etc/sudoers.d/quagga_sudoers
+chmod 644 /etc/quagga/*
+
+ENVIRONMENTFILE=/etc/environment
+if ! grep --quiet VTYSH_PAGER=/bin/cat ${ENVIRONMENTFILE}; then
+    echo "VTYSH_PAGER=/bin/cat"  >> ${ENVIRONMENTFILE}
+fi
+##################################################
+
 if [ -n "$DEBIAN_SCRIPT_DEBUG" ]; then set -v -x; DEBIAN_SCRIPT_TRACE=1; fi
 ${DEBIAN_SCRIPT_TRACE:+ echo "#42#DEBUG# RUNNING $0 $*"}
 
