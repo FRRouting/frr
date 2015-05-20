@@ -4965,7 +4965,6 @@ bgp_static_unset (struct vty *vty, struct bgp *bgp, const char *ip_str,
     bgp_static_withdraw (bgp, &p, afi, safi);
 
   /* Clear configuration. */
-  bgp_unlink_nexthop(bgp_static);
   bgp_static_free (bgp_static);
   rn->info = NULL;
   bgp_unlock_node (rn);
