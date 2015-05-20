@@ -279,10 +279,13 @@ bgp_parse_nexthop_update (void)
 	  prefix2str(&p, buf, INET6_ADDRSTRLEN);
 	  zlog_debug("parse nexthop update(%s): rn not found", buf);
 	}
+      if (rn)
+        bgp_unlock_node (rn);
       return;
     }
 
   bnc = rn->info;
+  bgp_unlock_node (rn);
   bnc->last_update = bgp_clock();
   bnc->change_flags = 0;
   metric = stream_getl (s);
