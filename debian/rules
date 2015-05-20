@@ -11,7 +11,7 @@ else
 endif
 
 %:
-	dh $@ --parallel --with autotools_dev --dbg-package=quagga-dbg --list-missing
+	dh $@ --parallel --with autoreconf --dbg-package=quagga-dbg --list-missing
 
 override_dh_auto_clean:
 	dh_auto_clean
