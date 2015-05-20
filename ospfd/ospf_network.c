@@ -165,6 +165,9 @@ ospf_sock_init (void)
 {
   int ospf_sock;
   int ret, hincl = 1;
+  int bufsize = (8 * 1024 * 1024);
+  int optval;
+  socklen_t optlen = sizeof(optval);
 
   if ( ospfd_privs.change (ZPRIVS_RAISE) )
     zlog_err ("ospf_sock_init: could not raise privs, %s",
@@ -222,6 +225,39 @@ ospf_sock_init (void)
     {
       zlog_err ("ospf_sock_init: could not lower privs, %s",
                safe_strerror (errno) );
+    }
+
+  if ((ret = setsockopt (ospf_sock, SOL_SOCKET, SO_RCVBUF,
+			 &bufsize, sizeof (bufsize))) < 0)
+    {
+      zlog_err ("Couldn't increase raw rbuf size: %s\n", safe_strerror(errno));
+    }
+
+  if ((ret = getsockopt (ospf_sock, SOL_SOCKET, SO_RCVBUF,
+			 &optval, &optlen)) < 0)
+    {
+      zlog_err("getsockopt of SO_RCVBUF failed with error %s\n", safe_strerror(errno));
+    }
+  if (optval < bufsize)
+    {
+      zlog_err("Unable to SO_RCVBUF to %d, set to %d\n", bufsize, optval);
+    }
+
+
+  if ((ret = setsockopt (ospf_sock, SOL_SOCKET, SO_SNDBUF,
+			 &bufsize, sizeof (bufsize))) < 0)
+    {
+      zlog_err ("Couldn't increase raw wbuf size: %s\n", safe_strerror(errno));
+    }
+
+  if ((ret = getsockopt (ospf_sock, SOL_SOCKET, SO_SNDBUF,
+			 &optval, &optlen)) < 0)
+    {
+      zlog_err ("getsockopt of SO_SNDBUF failed with error %s\n", safe_strerror(errno));
+    }
+  if (optval < bufsize)
+    {
+      zlog_err ("Unable to SO_SNDBUF to %d, set to %d\n", bufsize, optval);
     }
  
   return ospf_sock;
