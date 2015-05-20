@@ -72,10 +72,12 @@ check_daemon()
           # check for config file
           if [ -n "$2" ]; then
 	    if [ ! -r "$C_PATH/$1-$2.conf" ]; then
-		return 1
+                touch "$C_PATH/$1-$2.conf"
+                chown quagga:quagga "$C_PATH/$1-$2.conf"
 	    fi
           elif [ ! -r "$C_PATH/$1.conf" ]; then
-            return 1
+            touch "$C_PATH/$1.conf"
+            chown quagga:quagga "$C_PATH/$1.conf"
           fi
         fi
         return 0
@@ -105,7 +107,7 @@ start()
         elif [ -n "$2" ]; then
 	   echo -n " $1-$2"
            if ! check_daemon $1 $2 ; then
-	       echo -n " (not started without config file)"
+	       echo -n " (binary does not exist)"
 	       return;
 	   fi
 
@@ -117,8 +119,8 @@ start()
                `eval echo "$""$1""_options"` -n "$2"
         else
 	    echo -n " $1"
-	    if ! check_daemon $1; then
-		echo -n " (not started without config file)"
+            if ! check_daemon $1; then
+	        echo -n " (binary does not exist)"
 		return;
 	    fi
 
