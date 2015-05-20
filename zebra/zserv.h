@@ -72,6 +72,34 @@ struct zserv
 
   /* client's protocol */
   u_char proto;
+
+  /* Statistics */
+  u_int32_t redist_v4_add_cnt;
+  u_int32_t redist_v4_del_cnt;
+  u_int32_t redist_v6_add_cnt;
+  u_int32_t redist_v6_del_cnt;
+  u_int32_t v4_route_add_cnt;
+  u_int32_t v4_route_upd8_cnt;
+  u_int32_t v4_route_del_cnt;
+  u_int32_t v6_route_add_cnt;
+  u_int32_t v6_route_del_cnt;
+  u_int32_t v6_route_upd8_cnt;
+  u_int32_t connected_rt_add_cnt;
+  u_int32_t connected_rt_del_cnt;
+  u_int32_t ifup_cnt;
+  u_int32_t ifdown_cnt;
+  u_int32_t ifadd_cnt;
+  u_int32_t ifdel_cnt;
+
+  time_t connect_time;
+  time_t last_read_time;
+  time_t last_write_time;
+  time_t nh_reg_time;
+  time_t nh_dereg_time;
+  time_t nh_last_upd_time;
+
+  int last_read_cmd;
+  int last_write_cmd;
 };
 
 /* Zebra instance */
