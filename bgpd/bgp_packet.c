@@ -157,6 +157,7 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
   int space_needed = 0;
   size_t mpattrlen_pos = 0;
   size_t mpattr_pos = 0;
+  int num_pfx_adv = 0;
 
   s = peer->work;
   stream_reset (s);
@@ -248,6 +249,8 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 						    adv->baa->attr);
 	  bgp_packet_mpattr_prefix(snlri, afi, safi, &rn->p, prd, tag);
 	}
+      num_pfx_adv++;
+
       if (BGP_DEBUG (update, UPDATE_OUT))
         {
           char buf[INET6_BUFSIZ];
@@ -285,8 +288,12 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
       else
 	packet = stream_dup (s);
       bgp_packet_set_size (packet);
+      if (BGP_DEBUG (update, UPDATE_OUT))
+        zlog(peer->log, LOG_DEBUG,
+             "%s form UPDATE (adv) total len %d numPfx %d",
+             peer->host,
+             (stream_get_endp (s) - stream_get_getp (s)), num_pfx_adv);
       bgp_packet_add (peer, packet);
-      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
       stream_reset (s);
       stream_reset (snlri);
       return packet;
@@ -364,6 +371,7 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
   u_char first_time = 1;
   int space_remaining = 0;
   int space_needed = 0;
+  int num_pfx_wd = 0;
 
   s = peer->work;
   stream_reset (s);
@@ -411,6 +419,7 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 
 	  bgp_packet_mpunreach_prefix(s, &rn->p, afi, safi, prd, NULL);
 	}
+      num_pfx_wd++;
 
       if (BGP_DEBUG (update, UPDATE_OUT))
         {
@@ -447,6 +456,11 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 	  stream_putw_at (s, attrlen_pos, total_attr_len);
 	}
       bgp_packet_set_size (s);
+      if (BGP_DEBUG (update, UPDATE_OUT))
+        zlog(peer->log, LOG_DEBUG,
+             "%s form UPDATE (wd) total len %d numPfx %d",
+             peer->host,
+             (stream_get_endp (s) - stream_get_getp (s)), num_pfx_wd);
       packet = stream_dup (s);
       bgp_packet_add (peer, packet);
       stream_reset (s);
@@ -684,28 +698,83 @@ bgp_write_packet (struct peer *peer)
   return NULL;
 }
 
-/* Is there partially written packet or updates we can send right
-   now.  */
-static int
-bgp_write_proceed (struct peer *peer)
+/* Are there prefixes queued for being withdrawn? */
+int
+bgp_peer_wd_fifo_exists (struct peer *peer)
 {
   afi_t afi;
   safi_t safi;
   struct bgp_advertise *adv;
-
-  if (stream_fifo_head (peer->obuf))
-    return 1;
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       if (FIFO_HEAD (&peer->sync[afi][safi]->withdraw))
 	return 1;
 
+  return 0;
+}
+
+/* Are there prefixes queued for being advertised?
+ * Are they recent?
+ */
+int
+bgp_peer_adv_fifo_exists (struct peer *peer, int chk_recent)
+{
+  afi_t afi;
+  safi_t safi;
+  struct bgp_advertise *adv;
+
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       if ((adv = FIFO_HEAD (&peer->sync[afi][safi]->update)) != NULL)
-	if (adv->binfo->uptime < peer->synctime)
-	  return 1;
+        {
+          if (!chk_recent)
+            return 1;
+          if (adv->binfo->uptime < peer->synctime)
+            return 1;
+        }
+
+  return 0;
+}
+
+/*
+ * Schedule updates for the peer, if needed.
+ */
+void
+bgp_peer_schedule_updates(struct peer *peer)
+{
+  /* If withdraw FIFO exists, immediately schedule write */
+  if (bgp_peer_wd_fifo_exists(peer) && !peer->t_write)
+    {
+      if (BGP_DEBUG (events, EVENTS))
+        zlog_debug("%s scheduling write thread", peer->host);
+      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+    }
+
+  /* If update FIFO exists, fire MRAI timer */
+  if (bgp_peer_adv_fifo_exists(peer, 0) && !peer->radv_adjusted)
+    {
+      if (BGP_DEBUG (events, EVENTS))
+        zlog_debug("%s scheduling MRAI timer", peer->host);
+      bgp_adjust_routeadv(peer);
+    }
+}
+
+/* Is there partially written packet or updates we can send right
+   now.  */
+static int
+bgp_write_proceed (struct peer *peer)
+{
+  /* If queued packet exists, we should try to write it */
+  if (stream_fifo_head (peer->obuf))
+    return 1;
+
+  /* If there are prefixes to be withdrawn or to be advertised (and
+   * queued before last MRAI timer expiry), schedule write
+   */
+  if (bgp_peer_wd_fifo_exists(peer)
+   || bgp_peer_adv_fifo_exists(peer, 1))
+    return 1;
 
   return 0;
 }
@@ -1654,6 +1723,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   struct bgp_nlri withdraw;
   struct bgp_nlri mp_update;
   struct bgp_nlri mp_withdraw;
+  int num_pfx_adv, num_pfx_wd;
 
   /* Status must be Established. */
   if (peer->status != Established) 
@@ -1672,6 +1742,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   memset (&mp_update, 0, sizeof (struct bgp_nlri));
   memset (&mp_withdraw, 0, sizeof (struct bgp_nlri));
   attr.extra = &extra;
+  num_pfx_adv = num_pfx_wd = 0;
 
   s = peer->ibuf;
   end = stream_pnt (s) + size;
@@ -1707,7 +1778,8 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   /* Unfeasible Route packet format check. */
   if (withdraw_len > 0)
     {
-      ret = bgp_nlri_sanity_check (peer, AFI_IP, stream_pnt (s), withdraw_len);
+      ret = bgp_nlri_sanity_check (peer, AFI_IP, stream_pnt (s), withdraw_len,
+                                   &num_pfx_wd);
       if (ret < 0)
 	return -1;
 
@@ -1798,7 +1870,8 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   if (update_len)
     {
       /* Check NLRI packet format and prefix length. */
-      ret = bgp_nlri_sanity_check (peer, AFI_IP, stream_pnt (s), update_len);
+      ret = bgp_nlri_sanity_check (peer, AFI_IP, stream_pnt (s), update_len,
+                                   &num_pfx_adv);
       if (ret < 0)
         {
           bgp_attr_unintern_sub (&attr);
@@ -1812,6 +1885,12 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       update.length = update_len;
       stream_forward_getp (s, update_len);
     }
+
+  if (BGP_DEBUG (update, UPDATE_IN))
+    zlog(peer->log, LOG_DEBUG,
+         "%s rcvd UPDATE wlen %d wpfx %d attrlen %d alen %d apfx %d",
+         peer->host, withdraw_len, num_pfx_wd, attribute_len,
+         update_len, num_pfx_adv);
 
   /* NLRI is processed only when the peer is configured specific
      Address Family and Subsequent Address Family. */

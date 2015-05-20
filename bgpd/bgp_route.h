@@ -217,7 +217,7 @@ extern struct bgp_info_extra *bgp_info_extra_get (struct bgp_info *);
 extern void bgp_info_set_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
 extern void bgp_info_unset_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
 
-extern int bgp_nlri_sanity_check (struct peer *, int, u_char *, bgp_size_t);
+extern int bgp_nlri_sanity_check (struct peer *, int, u_char *, bgp_size_t, int *);
 extern int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *);
 
 extern int bgp_maximum_prefix_overflow (struct peer *, afi_t, safi_t, int);

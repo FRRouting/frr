@@ -224,7 +224,12 @@ struct bgp
   } maxpaths[AFI_MAX][SAFI_MAX];
 
   u_int32_t wpkt_quanta;  /* per peer packet quanta to write */
+  u_int32_t adv_quanta;  /* adv FIFO size that triggers write */
+  u_int32_t wd_quanta;  /* withdraw FIFO size that triggers write */
 };
+
+#define BGP_ROUTE_ADV_HOLD(bgp) \
+        (bgp->main_peers_update_hold || bgp->rsclient_peers_update_hold)
 
 /* BGP peer-group support. */
 struct peer_group
@@ -551,6 +556,8 @@ struct peer
   struct thread *t_gr_restart;
   struct thread *t_gr_stale;
   
+  int radv_adjusted; /* flag if MRAI has been adjusted or not */
+
   /* workqueues */
   struct work_queue *clear_node_queue;
   

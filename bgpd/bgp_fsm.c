@@ -416,6 +416,7 @@ bgp_routeadv_timer (struct thread *thread)
 
   peer = THREAD_ARG (thread);
   peer->t_routeadv = NULL;
+  peer->radv_adjusted = 0;
 
   if (BGP_DEBUG (fsm, FSM))
     zlog (peer->log, LOG_DEBUG,
@@ -426,14 +427,9 @@ bgp_routeadv_timer (struct thread *thread)
 
   BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 
-  /*
-   * If there is no UPDATE to send, don't start the timer. We will start
-   * it when the queues go non-empty.
+  /* MRAI timer is no longer restarted here, it would be done
+   * when the FIFO is built.
    */
-  if (bgp_routeq_empty(peer))
-    return 0;
-
-  BGP_TIMER_ON (peer->t_routeadv, bgp_routeadv_timer, peer->v_routeadv);
 
   return 0;
 }
@@ -627,6 +623,24 @@ bgp_adjust_routeadv (struct peer *peer)
   time_t nowtime = bgp_clock();
   double diff;
   unsigned long remain;
+
+  /* Bypass checks for special case of MRAI being 0 */
+  if (peer->v_routeadv == 0)
+    {
+      /* Stop existing timer, just in case it is running for a different
+       * duration and schedule write thread immediately.
+       */
+      if (peer->t_routeadv)
+        BGP_TIMER_OFF(peer->t_routeadv);
+
+      peer->synctime = bgp_clock ();
+      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+      return;
+    }
+
+  /* Mark that we've adjusted the timer */
+  peer->radv_adjusted = 1;
+
 
   /*
    * CASE I:

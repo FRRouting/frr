@@ -31,6 +31,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_fsm.h"
@@ -267,10 +268,24 @@ bgp_adj_out_set (struct bgp_node *rn, struct peer *peer, struct prefix *p,
   /* Add new advertisement to advertisement attribute list. */
   bgp_advertise_add (adv->baa, adv);
 
-  if (FIFO_EMPTY(&peer->sync[afi][safi]->update))
-    bgp_adjust_routeadv(peer);
-
   BGP_ADV_FIFO_ADD (&peer->sync[afi][safi]->update, &adv->fifo);
+
+  /*
+   * Schedule write thread (by triggering adjustment of MRAI timer) only if
+   * update FIFO has grown. Otherwise, it will be done upon the work queue
+   * being fully processed. Only adjust timer if needed.
+   */
+  if (!BGP_ROUTE_ADV_HOLD(peer->bgp) &&
+      (BGP_ADV_FIFO_COUNT(&peer->sync[afi][safi]->update) >=
+       peer->bgp->adv_quanta))
+    {
+      if (!peer->radv_adjusted)
+        {
+          if (BGP_DEBUG (events, EVENTS))
+            zlog_debug("%s scheduling MRAI timer after adj_out_set", peer->host);
+          bgp_adjust_routeadv(peer);
+        }
+    }
 }
 
 void
@@ -306,8 +321,22 @@ bgp_adj_out_unset (struct bgp_node *rn, struct peer *peer, struct prefix *p,
       /* Add to synchronization entry for withdraw announcement.  */
       BGP_ADV_FIFO_ADD (&peer->sync[afi][safi]->withdraw, &adv->fifo);
 
-      /* Schedule packet write. */
-      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+      /*
+       * Schedule write thread only if withdraw FIFO has grown. Otherwise,
+       * it will be done upon the work queue being fully processed.
+       */
+      if (!BGP_ROUTE_ADV_HOLD(peer->bgp) &&
+         (BGP_ADV_FIFO_COUNT(&peer->sync[afi][safi]->withdraw) >=
+          peer->bgp->wd_quanta))
+        {
+          if (!peer->t_write)
+            {
+              if (BGP_DEBUG (events, EVENTS))
+                zlog_debug("%s scheduling write thread after adj_out_unset",
+                           peer->host);
+              BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+            }
+        }
     }
   else
     {

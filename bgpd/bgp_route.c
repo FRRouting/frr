@@ -1420,6 +1420,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   struct bgp_info *nextri = NULL;
   int paths_eq, do_mpath;
   struct list mp_list;
+  char buf[INET6_BUFSIZ];
 
   bgp_mp_list_init (&mp_list);
   do_mpath = (mpath_cfg->maxpaths_ebgp != BGP_DEFAULT_MAXPATHS ||
@@ -1789,6 +1790,27 @@ bgp_processq_del (struct work_queue *wq, void *data)
   XFREE (MTYPE_BGP_PROCESS_QUEUE, pq);
 }
 
+static void
+bgp_process_queue_complete (struct work_queue *wq)
+{
+  struct bgp *bgp;
+  struct peer *peer;
+  struct listnode *node, *nnode;
+
+  /* Schedule write thread either directly or through the MRAI timer
+   * if needed.
+   */
+  bgp = bgp_get_default ();
+  if (!bgp)
+    return;
+
+  if (BGP_ROUTE_ADV_HOLD(bgp))
+    return;
+
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+    bgp_peer_schedule_updates(peer);
+}
+
 void
 bgp_process_queue_init (void)
 {
@@ -1805,8 +1827,11 @@ bgp_process_queue_init (void)
   
   bm->process_main_queue->spec.workfunc = &bgp_process_main;
   bm->process_main_queue->spec.del_item_data = &bgp_processq_del;
+  bm->process_main_queue->spec.completion_func = &bgp_process_queue_complete;
   bm->process_main_queue->spec.max_retries = 0;
   bm->process_main_queue->spec.hold = 50;
+  /* Use a higher yield value of 50ms for main queue processing */
+  bm->process_main_queue->spec.yield = 50 * 1000L;
   
   memcpy (bm->process_rsclient_queue, bm->process_main_queue,
           sizeof (struct work_queue *));
@@ -2820,6 +2845,12 @@ bgp_announce_route (struct peer *peer, afi_t afi, safi_t safi)
 
   if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
     bgp_announce_table (peer, afi, safi, NULL, 1);
+
+  /*
+   * The write thread needs to be scheduled since it may not be done as
+   * part of building adj_out.
+   */
+  bgp_peer_schedule_updates(peer);
 }
 
 void
@@ -3374,12 +3405,13 @@ bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet)
 /* NLRI encode syntax check routine. */
 int
 bgp_nlri_sanity_check (struct peer *peer, int afi, u_char *pnt,
-		       bgp_size_t length)
+		       bgp_size_t length, int *numpfx)
 {
   u_char *end;
   u_char prefixlen;
   int psize;
 
+  *numpfx = 0;
   end = pnt + length;
 
   /* RFC1771 6.3 The NLRI field in the UPDATE message is checked for
@@ -3417,6 +3449,7 @@ bgp_nlri_sanity_check (struct peer *peer, int afi, u_char *pnt,
 	}
 
       pnt += psize;
+      (*numpfx)++;
     }
 
   /* Packet length consistency check. */

@@ -146,6 +146,9 @@ struct bgp_synchronize
     (F)->count = 0;				\
   } while (0)
 
+#define BGP_ADV_FIFO_COUNT(F) \
+  (F)->count
+
 /* Prototypes.  */
 extern void bgp_adj_out_set (struct bgp_node *, struct peer *, struct prefix *,
 		      struct attr *, afi_t, safi_t, struct bgp_info *);
