@@ -43,6 +43,41 @@
 
 unsigned char conf_debug_ospf6_spf = 0;
 
+static void
+ospf6_spf_copy_nexthops_to_route (struct ospf6_route *rt,
+				  struct ospf6_vertex *v)
+{
+  if (rt && v)
+    ospf6_copy_nexthops (rt->nh_list, v->nh_list);
+}
+
+static void
+ospf6_spf_merge_nexthops_to_route (struct ospf6_route *rt,
+				   struct ospf6_vertex *v)
+{
+  if (rt && v)
+    ospf6_merge_nexthops (rt->nh_list, v->nh_list);
+}
+
+static int
+ospf6_spf_get_ifindex_from_nh (struct ospf6_vertex *v)
+{
+  struct ospf6_nexthop *nh;
+  struct listnode *node;
+
+  if (v)
+    {
+      node = listhead(v->nh_list);
+      if (node)
+	{
+	  nh = listgetdata (node);
+	  if (nh)
+	    return (nh->ifindex);
+	}
+    }
+  return -1;
+}
+
 static int
 ospf6_vertex_cmp (void *a, void *b)
 {
@@ -76,7 +111,6 @@ static struct ospf6_vertex *
 ospf6_vertex_create (struct ospf6_lsa *lsa)
 {
   struct ospf6_vertex *v;
-  int i;
 
   v = (struct ospf6_vertex *)
     XMALLOC (MTYPE_OSPF6_VERTEX, sizeof (struct ospf6_vertex));
@@ -96,6 +130,10 @@ ospf6_vertex_create (struct ospf6_lsa *lsa)
   /* name */
   ospf6_linkstate_prefix2str (&v->vertex_id, v->name, sizeof (v->name));
 
+  if (IS_OSPF6_DEBUG_SPF (PROCESS))
+    zlog_debug ("%s: Creating vertex %s of type %s", __func__, v->name,
+		((ntohs (lsa->header->type) == OSPF6_LSTYPE_ROUTER) ? "Router" : "N/W"));
+
   /* Associated LSA */
   v->lsa = lsa;
 
@@ -105,8 +143,7 @@ ospf6_vertex_create (struct ospf6_lsa *lsa)
   v->options[1] = *(u_char *)(OSPF6_LSA_HEADER_END (lsa->header) + 2);
   v->options[2] = *(u_char *)(OSPF6_LSA_HEADER_END (lsa->header) + 3);
 
-  for (i = 0; i < OSPF6_MULTI_PATH_LIMIT; i++)
-    ospf6_nexthop_clear (&v->nexthop[i]);
+  v->nh_list =  list_new();
 
   v->parent = NULL;
   v->child_list = list_new ();
@@ -224,7 +261,8 @@ static void
 ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
                     caddr_t lsdesc)
 {
-  int i, ifindex;
+  int i;
+  int ifindex;
   struct ospf6_interface *oi;
   u_int16_t type;
   u_int32_t adv_router;
@@ -233,8 +271,14 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
   char buf[64];
 
   assert (VERTEX_IS_TYPE (ROUTER, w));
-  ifindex = (VERTEX_IS_TYPE (NETWORK, v) ? v->nexthop[0].ifindex :
+  ifindex = (VERTEX_IS_TYPE (NETWORK, v) ? ospf6_spf_get_ifindex_from_nh (v) :
              ROUTER_LSDESC_GET_IFID (lsdesc));
+  if (ifindex == -1)
+    {
+      zlog_err ("No nexthop ifindex at vertex %s", v->name);
+      return;
+    }
+
   oi = ospf6_interface_lookup_by_ifindex (ifindex);
   if (oi == NULL)
     {
@@ -263,13 +307,8 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
           zlog_debug ("  nexthop %s from %s", buf, lsa->name);
         }
 
-      if (i < OSPF6_MULTI_PATH_LIMIT)
-        {
-          memcpy (&w->nexthop[i].address, &link_lsa->linklocal_addr,
-                  sizeof (struct in6_addr));
-          w->nexthop[i].ifindex = ifindex;
-          i++;
-        }
+      ospf6_add_nexthop (w->nh_list, ifindex, &link_lsa->linklocal_addr);
+      i++;
     }
 
   if (i == 0 && IS_OSPF6_DEBUG_SPF (PROCESS))
@@ -280,8 +319,7 @@ static int
 ospf6_spf_install (struct ospf6_vertex *v,
                    struct ospf6_route_table *result_table)
 {
-  struct ospf6_route *route;
-  int i, j;
+  struct ospf6_route *route, *parent_route;
   struct ospf6_vertex *prev;
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS))
@@ -302,23 +340,7 @@ ospf6_spf_install (struct ospf6_vertex *v,
       if (IS_OSPF6_DEBUG_SPF (PROCESS))
         zlog_debug ("  another path found, merge");
 
-      for (i = 0; ospf6_nexthop_is_set (&v->nexthop[i]) &&
-           i < OSPF6_MULTI_PATH_LIMIT; i++)
-        {
-          for (j = 0; j < OSPF6_MULTI_PATH_LIMIT; j++)
-            {
-              if (ospf6_nexthop_is_set (&route->nexthop[j]))
-                {
-                  if (ospf6_nexthop_is_same (&route->nexthop[j],
-                                             &v->nexthop[i]))
-                    break;
-                  else
-                    continue;
-                }
-              ospf6_nexthop_copy (&route->nexthop[j], &v->nexthop[i]);
-              break;
-            }
-        }
+      ospf6_spf_merge_nexthops_to_route (route, v);
 
       prev = (struct ospf6_vertex *) route->route_option;
       assert (prev->hops <= v->hops);
@@ -345,15 +367,35 @@ ospf6_spf_install (struct ospf6_vertex *v,
   route->path.origin.adv_router = v->lsa->header->adv_router;
   route->path.metric_type = 1;
   route->path.cost = v->cost;
-  route->path.cost_e2 = v->hops;
+  route->path.u.cost_e2 = v->hops;
   route->path.router_bits = v->capability;
   route->path.options[0] = v->options[0];
   route->path.options[1] = v->options[1];
   route->path.options[2] = v->options[2];
 
-  for (i = 0; ospf6_nexthop_is_set (&v->nexthop[i]) &&
-       i < OSPF6_MULTI_PATH_LIMIT; i++)
-    ospf6_nexthop_copy (&route->nexthop[i], &v->nexthop[i]);
+  ospf6_spf_copy_nexthops_to_route (route, v);
+
+  /*
+   * The SPF logic implementation does not transfer the multipathing properties
+   * of a parent to a child node. Thus if there was a 3-way multipath to a
+   * node's parent and a single hop from the parent to the child, the logic of
+   * creating new vertices and computing next hops prevents there from being 3
+   * paths to the child node. This is primarily because the resolution of
+   * multipath is done in this routine, not in the main spf loop.
+   *
+   * The following logic addresses that problem by merging the parent's nexthop
+   * information with the child's, if the parent is not the root of the tree.
+   * This is based on the assumption that before a node's route is installed,
+   * its parent's route's nexthops have already been installed.
+   */
+  if (v->parent && v->parent->hops)
+    {
+      parent_route = ospf6_route_lookup (&v->parent->vertex_id, result_table);
+      if (parent_route)
+	{
+	  ospf6_route_merge_nexthops (route, parent_route);
+	}
+    }
 
   if (v->parent)
     listnode_add_sort (v->parent->child_list, v);
@@ -416,19 +458,24 @@ ospf6_spf_calculation (u_int32_t router_id,
 {
   struct pqueue *candidate_list;
   struct ospf6_vertex *root, *v, *w;
-  int i;
   int size;
   caddr_t lsdesc;
   struct ospf6_lsa *lsa;
+  struct in6_addr address;
 
   ospf6_spf_table_finish (result_table);
 
   /* Install the calculating router itself as the root of the SPF tree */
   /* construct root vertex */
   lsa = ospf6_lsdb_lookup (htons (OSPF6_LSTYPE_ROUTER), htonl (0),
-                           router_id, oa->lsdb);
+                           router_id, oa->lsdb_self);
   if (lsa == NULL)
-    return;
+    {
+      if (IS_OSPF6_DEBUG_SPF (PROCESS))
+	zlog_debug ("%s: No router LSA for area %s\n",
+		    __func__, oa->name);
+      return;
+    }
 
   /* initialize */
   candidate_list = pqueue_create ();
@@ -438,8 +485,7 @@ ospf6_spf_calculation (u_int32_t router_id,
   root->area = oa;
   root->cost = 0;
   root->hops = 0;
-  root->nexthop[0].ifindex = 0; /* loopbak I/F is better ... */
-  inet_pton (AF_INET6, "::1", &root->nexthop[0].address);
+  inet_pton (AF_INET6, "::1", &address);
 
   /* Actually insert root to the candidate-list as the only candidate */
   pqueue_enqueue (root, candidate_list);
@@ -470,6 +516,9 @@ ospf6_spf_calculation (u_int32_t router_id,
           if (lsa == NULL)
             continue;
 
+	  if (OSPF6_LSA_IS_MAXAGE (lsa))
+	    continue;
+
           if (! ospf6_lsdesc_backlink (lsa, lsdesc, v))
             continue;
 
@@ -489,14 +538,12 @@ ospf6_spf_calculation (u_int32_t router_id,
 
           /* nexthop calculation */
           if (w->hops == 0)
-            w->nexthop[0].ifindex = ROUTER_LSDESC_GET_IFID (lsdesc);
+	    ospf6_add_nexthop (w->nh_list, ROUTER_LSDESC_GET_IFID (lsdesc), NULL);
           else if (w->hops == 1 && v->hops == 0)
             ospf6_nexthop_calc (w, v, lsdesc);
           else
             {
-              for (i = 0; ospf6_nexthop_is_set (&v->nexthop[i]) &&
-                   i < OSPF6_MULTI_PATH_LIMIT; i++)
-                ospf6_nexthop_copy (&w->nexthop[i], &v->nexthop[i]);
+	      ospf6_copy_nexthops (w->nh_list, v->nh_list);
             }
 
           /* add new candidate to the candidate_list */

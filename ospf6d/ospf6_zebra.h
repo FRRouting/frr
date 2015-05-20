@@ -44,6 +44,8 @@ extern void ospf6_zebra_redistribute (int);
 extern void ospf6_zebra_no_redistribute (int);
 #define ospf6_zebra_is_redistribute(type) (zclient->redist[type])
 extern void ospf6_zebra_init (void);
+extern void ospf6_zebra_add_discard (struct ospf6_route *request);
+extern void ospf6_zebra_delete_discard (struct ospf6_route *request);
 
 extern int config_write_ospf6_debug_zebra (struct vty *vty);
 extern void install_element_ospf6_debug_zebra (void);

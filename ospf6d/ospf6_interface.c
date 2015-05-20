@@ -391,6 +391,7 @@ ospf6_interface_connected_route_update (struct interface *ifp)
   struct ospf6_route *route;
   struct connected *c;
   struct listnode *node, *nnode;
+  struct in6_addr nh_addr;
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
@@ -446,8 +447,8 @@ ospf6_interface_connected_route_update (struct interface *ifp)
       route->path.area_id = oi->area->area_id;
       route->path.type = OSPF6_PATH_TYPE_INTRA;
       route->path.cost = oi->cost;
-      route->nexthop[0].ifindex = oi->interface->ifindex;
-      inet_pton (AF_INET6, "::1", &route->nexthop[0].address);
+      inet_pton (AF_INET6, "::1", &nh_addr);
+      ospf6_route_add_nexthop (route, oi->interface->ifindex, &nh_addr);
       ospf6_route_add (route, oi->route_connected);
     }
 

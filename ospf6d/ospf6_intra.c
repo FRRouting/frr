@@ -228,7 +228,7 @@ ospf6_router_lsa_originate (struct thread *thread)
       for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, j, on))
         if (on->state == OSPF6_NEIGHBOR_FULL)
           count++;
-      
+
       if (count == 0)
         continue;
 
@@ -355,13 +355,24 @@ ospf6_router_lsa_originate (struct thread *thread)
   /* Do premature-aging of rest, undesired Router-LSAs */
   type = ntohs (OSPF6_LSTYPE_ROUTER);
   router = oa->ospf6->router_id;
+  count = 0;
   for (lsa = ospf6_lsdb_type_router_head (type, router, oa->lsdb); lsa;
        lsa = ospf6_lsdb_type_router_next (type, router, lsa))
     {
       if (ntohl (lsa->header->id) < link_state_id)
         continue;
       ospf6_lsa_purge (lsa);
+      count++;
     }
+
+  /*
+   * Waiting till the LSA is actually removed from the database to trigger
+   * SPF delays network convergence. Unlike IPv4, for an ABR, when all
+   * interfaces associated with an area are gone, triggering an SPF right away
+   * helps convergence with inter-area routes.
+   */
+  if (count && !link_state_id)
+    ospf6_spf_schedule (oa->ospf6, OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED);
 
   return 0;
 }
@@ -459,7 +470,15 @@ ospf6_network_lsa_originate (struct thread *thread)
   if (oi->state != OSPF6_INTERFACE_DR)
     {
       if (old)
-        ospf6_lsa_purge (old);
+	{
+	  ospf6_lsa_purge (old);
+	    /*
+	     * Waiting till the LSA is actually removed from the database to
+	     * trigger SPF delays network convergence.
+	     */
+	  ospf6_spf_schedule (oi->area->ospf6,
+			      OSPF6_SPF_FLAGS_NETWORK_LSA_ORIGINATED);
+	}
       return 0;
     }
 
@@ -468,11 +487,11 @@ ospf6_network_lsa_originate (struct thread *thread)
 
   /* If none of neighbor is adjacent to us */
   count = 0;
-  
+
   for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, i, on))
     if (on->state == OSPF6_NEIGHBOR_FULL)
       count++;
-  
+
   if (count == 0)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (NETWORK))
@@ -1078,7 +1097,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
   for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, i, on))
     if (on->state == OSPF6_NEIGHBOR_FULL)
       full_count++;
-  
+
   if (full_count == 0)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
@@ -1214,7 +1233,7 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
   struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
   struct prefix ls_prefix;
   struct ospf6_route *route, *ls_entry;
-  int i, prefix_num;
+  int prefix_num;
   struct ospf6_prefix *op;
   char *start, *current, *end;
   char buf[64];
@@ -1310,13 +1329,11 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
         {
           ifp = if_lookup_prefix(&route->prefix);
           if (ifp)
-            route->nexthop[0].ifindex = ifp->ifindex;
+	    ospf6_route_add_nexthop (route, ifp->ifindex, NULL);
         }
       else
         {
-          for (i = 0; ospf6_nexthop_is_set (&ls_entry->nexthop[i]) &&
-               i < OSPF6_MULTI_PATH_LIMIT; i++)
-            ospf6_nexthop_copy (&route->nexthop[i], &ls_entry->nexthop[i]);
+	  ospf6_route_copy_nexthops (route, ls_entry);
         }
 
       if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
@@ -1509,7 +1526,7 @@ ospf6_brouter_debug_print (struct ospf6_route *brouter)
              id, adv_router);
   zlog_info ("  options: %s router-bits: %s metric-type: %d metric: %d/%d",
              options, capa, brouter->path.metric_type,
-             brouter->path.cost, brouter->path.cost_e2);
+             brouter->path.cost, brouter->path.u.cost_e2);
 }
 
 void

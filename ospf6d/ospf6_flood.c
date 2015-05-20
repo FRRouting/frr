@@ -892,6 +892,9 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
               table calculation (replacing database copy) */
       ospf6_install_lsa (new);
 
+      if (OSPF6_LSA_IS_MAXAGE (new))
+	ospf6_maxage_remove (from->ospf6_if->area->ospf6);
+
       /* (e) possibly acknowledge */
       ospf6_acknowledge_lsa (new, ismore_recent, from);
 

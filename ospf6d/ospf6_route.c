@@ -37,6 +37,7 @@
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6d.h"
+#include "ospf6_zebra.h"
 
 unsigned char conf_debug_ospf6_route = 0;
 
@@ -173,18 +174,232 @@ const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] =
 { "??", "IA", "IE", "E1", "E2", };
 
 
+struct ospf6_nexthop *
+ospf6_nexthop_create (void)
+{
+  struct ospf6_nexthop *nh;
+
+  nh = XCALLOC (MTYPE_OSPF6_NEXTHOP, sizeof (struct ospf6_nexthop));
+  return nh;
+}
+
+void
+ospf6_nexthop_delete (struct ospf6_nexthop *nh)
+{
+  if (nh)
+    XFREE (MTYPE_OSPF6_NEXTHOP, nh);
+}
+
+void
+ospf6_free_nexthops (struct list *nh_list)
+{
+  struct ospf6_nexthop *nh;
+  struct listnode *node, *nnode;
+
+  if (nh_list)
+    {
+      for (ALL_LIST_ELEMENTS (nh_list, node, nnode, nh))
+	ospf6_nexthop_delete (nh);
+    }
+}
+
+void
+ospf6_clear_nexthops (struct list *nh_list)
+{
+  struct listnode *node;
+  struct ospf6_nexthop *nh;
+
+  if (nh_list)
+    {
+      for (ALL_LIST_ELEMENTS_RO (nh_list, node, nh))
+	ospf6_nexthop_clear (nh);
+    }
+}
+
+static struct ospf6_nexthop *
+ospf6_route_find_nexthop (struct list *nh_list, struct ospf6_nexthop *nh_match)
+{
+  struct listnode *node;
+  struct ospf6_nexthop *nh;
+
+  if (nh_list && nh_match)
+    {
+      for (ALL_LIST_ELEMENTS_RO (nh_list, node, nh))
+	{
+	  if (ospf6_nexthop_is_same (nh, nh_match))
+	    return (nh);
+	}
+    }
+
+  return (NULL);
+}
+
+void
+ospf6_copy_nexthops (struct list *dst, struct list *src)
+{
+  struct ospf6_nexthop *nh_new, *nh;
+  struct listnode *node;
+
+  if (dst && src)
+    {
+      for (ALL_LIST_ELEMENTS_RO (src, node, nh))
+	{
+	  if (ospf6_nexthop_is_set (nh))
+	    {
+	      nh_new = ospf6_nexthop_create ();
+	      ospf6_nexthop_copy (nh_new, nh);
+	      listnode_add (dst, nh_new);
+	    }
+	}
+    }
+}
+
+void
+ospf6_merge_nexthops (struct list *dst, struct list *src)
+{
+  struct listnode *node;
+  struct ospf6_nexthop *nh, *nh_new;
+
+  if (src && dst)
+    {
+      for (ALL_LIST_ELEMENTS_RO (src, node, nh))
+	{
+	  if (!ospf6_route_find_nexthop (dst, nh))
+	    {
+	      nh_new = ospf6_nexthop_create ();
+	      ospf6_nexthop_copy (nh_new, nh);
+	      listnode_add (dst, nh_new);
+	    }
+	}
+    }
+}
+
+int
+ospf6_route_cmp_nexthops (struct ospf6_route *a, struct ospf6_route *b)
+{
+  struct listnode *anode, *bnode;
+  struct ospf6_nexthop *anh, *bnh;
+
+  if (a && b)
+    {
+      if (listcount(a->nh_list) == listcount(b->nh_list))
+	{
+	  for (ALL_LIST_ELEMENTS_RO (a->nh_list, anode, anh))
+	    {
+	      for (ALL_LIST_ELEMENTS_RO (b->nh_list, bnode, bnh))
+		if (!ospf6_nexthop_is_same (anh, bnh))
+		  return (1);
+	    }
+	  return (0);
+	}
+      else
+	return (1);
+    }
+  /* One of the routes doesn't exist ? */
+  return (1);
+}
+
+int
+ospf6_num_nexthops (struct list *nh_list)
+{
+  return (listcount(nh_list));
+}
+
+void
+ospf6_add_nexthop (struct list *nh_list, int ifindex,
+		   struct in6_addr *addr)
+{
+  struct ospf6_nexthop *nh;
+  struct ospf6_nexthop nh_match;
+
+  if (nh_list)
+    {
+      nh_match.ifindex = ifindex;
+      if (addr != NULL)
+	memcpy (&nh_match.address, addr, sizeof (struct in6_addr));
+      else
+	memset (&nh_match.address, 0, sizeof (struct in6_addr));
+
+      if (!ospf6_route_find_nexthop (nh_list, &nh_match))
+	{
+	  nh = ospf6_nexthop_create();
+	  ospf6_nexthop_copy (nh, &nh_match);
+	  listnode_add (nh_list, nh);
+	}
+    }
+}
+
+void
+ospf6_route_zebra_copy_nexthops (struct ospf6_route *route,
+				 unsigned int *ifindexes,
+				 struct in6_addr **nexthop_addr,
+				 int entries)
+{
+  struct ospf6_nexthop *nh;
+  struct listnode *node;
+  char buf[64];
+  int i;
+
+  if (route)
+    {
+      i = 0;
+      for (ALL_LIST_ELEMENTS_RO (route->nh_list, node, nh))
+	{
+	  if (IS_OSPF6_DEBUG_ZEBRA (SEND))
+	    {
+	      char ifname[IFNAMSIZ];
+	      inet_ntop (AF_INET6, &nh->address, buf, sizeof (buf));
+	      if (!if_indextoname(nh->ifindex, ifname))
+		strlcpy(ifname, "unknown", sizeof(ifname));
+	      zlog_debug ("  nexthop: %s%%%.*s(%d)", buf, IFNAMSIZ, ifname,
+			  nh->ifindex);
+	    }
+	  if (i < entries)
+	    {
+	      nexthop_addr[i] = &nh->address;
+	      ifindexes[i] = nh->ifindex;
+	      i++;
+	    }
+	  else
+	    {
+	      return;
+	    }
+	}
+    }
+}
+
+int
+ospf6_route_get_first_nh_index (struct ospf6_route *route)
+{
+  struct ospf6_nexthop *nh;
+
+  if (route)
+    {
+      if (nh = (struct ospf6_nexthop *)listhead (route->nh_list))
+	return (nh->ifindex);
+    }
+
+  return (-1);
+}
+
 struct ospf6_route *
 ospf6_route_create (void)
 {
   struct ospf6_route *route;
   route = XCALLOC (MTYPE_OSPF6_ROUTE, sizeof (struct ospf6_route));
+  route->nh_list = list_new();
   return route;
 }
 
 void
 ospf6_route_delete (struct ospf6_route *route)
 {
-  XFREE (MTYPE_OSPF6_ROUTE, route);
+  if (route)
+    {
+      ospf6_free_nexthops (route->nh_list);
+      list_free (route->nh_list);
+      XFREE (MTYPE_OSPF6_ROUTE, route);
+    }
 }
 
 struct ospf6_route *
@@ -193,7 +408,15 @@ ospf6_route_copy (struct ospf6_route *route)
   struct ospf6_route *new;
 
   new = ospf6_route_create ();
-  memcpy (new, route, sizeof (struct ospf6_route));
+  new->type = route->type;
+  memcpy (&new->prefix, &route->prefix, sizeof (struct prefix));
+  new->installed = route->installed;
+  new->changed = route->changed;
+  new->flag = route->flag;
+  new->route_option = route->route_option;
+  new->linkstate_id = route->linkstate_id;
+  new->path = route->path;
+  ospf6_copy_nexthops (new->nh_list, route->nh_list);
   new->rnode = NULL;
   new->prev = NULL;
   new->next = NULL;
@@ -226,7 +449,7 @@ ospf6_route_unlock (struct ospf6_route *route)
 /* Route compare function. If ra is more preferred, it returns
    less than 0. If rb is more preferred returns greater than 0.
    Otherwise (neither one is preferred), returns 0 */
-static int
+int
 ospf6_route_cmp (struct ospf6_route *ra, struct ospf6_route *rb)
 {
   assert (ospf6_route_is_same (ra, rb));
@@ -246,8 +469,8 @@ ospf6_route_cmp (struct ospf6_route *ra, struct ospf6_route *rb)
 
   if (ra->path.type == OSPF6_PATH_TYPE_EXTERNAL2)
     {
-      if (ra->path.cost_e2 != rb->path.cost_e2)
-        return (ra->path.cost_e2 - rb->path.cost_e2);
+      if (ra->path.u.cost_e2 != rb->path.u.cost_e2)
+        return (ra->path.u.cost_e2 - rb->path.u.cost_e2);
     }
   else
     {
@@ -789,6 +1012,8 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
   char destination[64], nexthop[64];
   char duration[16], ifname[IFNAMSIZ];
   struct timeval now, res;
+  struct listnode *node;
+  struct ospf6_nexthop *nh;
 
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   timersub (&now, &route->changed, &res);
@@ -804,29 +1029,28 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
   else
     prefix2str (&route->prefix, destination, sizeof (destination));
 
-  /* nexthop */
-  inet_ntop (AF_INET6, &route->nexthop[0].address, nexthop,
-             sizeof (nexthop));
-  if (! if_indextoname (route->nexthop[0].ifindex, ifname))
-    snprintf (ifname, sizeof (ifname), "%d", route->nexthop[0].ifindex);
 
-  vty_out (vty, "%c%1s %2s %-30s %-25s %6.*s %s%s",
-           (ospf6_route_is_best (route) ? '*' : ' '),
-           OSPF6_DEST_TYPE_SUBSTR (route->type),
-           OSPF6_PATH_TYPE_SUBSTR (route->path.type),
-           destination, nexthop, IFNAMSIZ, ifname, duration, VNL);
-
-  for (i = 1; ospf6_nexthop_is_set (&route->nexthop[i]) &&
-       i < OSPF6_MULTI_PATH_LIMIT; i++)
+  i = 0;
+  for (ALL_LIST_ELEMENTS_RO (route->nh_list, node, nh))
     {
       /* nexthop */
-      inet_ntop (AF_INET6, &route->nexthop[i].address, nexthop,
+      inet_ntop (AF_INET6, &nh->address, nexthop,
                  sizeof (nexthop));
-      if (! if_indextoname (route->nexthop[i].ifindex, ifname))
-        snprintf (ifname, sizeof (ifname), "%d", route->nexthop[i].ifindex);
+      if (! if_indextoname (nh->ifindex, ifname))
+        snprintf (ifname, sizeof (ifname), "%d", nh->ifindex);
 
-      vty_out (vty, "%c%1s %2s %-30s %-25s %6.*s %s%s",
-               ' ', "", "", "", nexthop, IFNAMSIZ, ifname, "", VNL);
+      if (!i)
+	{
+	  vty_out (vty, "%c%1s %2s %-30s %-25s %6.*s %s%s",
+		   (ospf6_route_is_best (route) ? '*' : ' '),
+		   OSPF6_DEST_TYPE_SUBSTR (route->type),
+		   OSPF6_PATH_TYPE_SUBSTR (route->path.type),
+		   destination, nexthop, IFNAMSIZ, ifname, duration, VNL);
+	  i++;
+	}
+      else
+	vty_out (vty, "%c%1s %2s %-30s %-25s %6.*s %s%s",
+		 ' ', "", "", "", nexthop, IFNAMSIZ, ifname, "", VNL);
     }
 }
 
@@ -837,7 +1061,8 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   char area_id[16], id[16], adv_router[16], capa[16], options[16];
   struct timeval now, res;
   char duration[16];
-  int i;
+  struct listnode *node;
+  struct ospf6_nexthop *nh;
 
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
 
@@ -909,18 +1134,16 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   vty_out (vty, "Metric Type: %d%s", route->path.metric_type,
            VNL);
   vty_out (vty, "Metric: %d (%d)%s",
-           route->path.cost, route->path.cost_e2, VNL);
+           route->path.cost, route->path.u.cost_e2, VNL);
 
   /* Nexthops */
   vty_out (vty, "Nexthop:%s", VNL);
-  for (i = 0; ospf6_nexthop_is_set (&route->nexthop[i]) &&
-       i < OSPF6_MULTI_PATH_LIMIT; i++)
+  for (ALL_LIST_ELEMENTS_RO (route->nh_list, node, nh))
     {
       /* nexthop */
-      inet_ntop (AF_INET6, &route->nexthop[i].address, nexthop,
-                 sizeof (nexthop));
-      if (! if_indextoname (route->nexthop[i].ifindex, ifname))
-        snprintf (ifname, sizeof (ifname), "%d", route->nexthop[i].ifindex);
+      inet_ntop (AF_INET6, &nh->address, nexthop, sizeof (nexthop));
+      if (! if_indextoname (nh->ifindex, ifname))
+        snprintf (ifname, sizeof (ifname), "%d", nh->ifindex);
       vty_out (vty, "  %s %.*s%s", nexthop, IFNAMSIZ, ifname, VNL);
     }
   vty_out (vty, "%s", VNL);
@@ -933,7 +1156,7 @@ ospf6_route_show_table_summary (struct vty *vty,
   struct ospf6_route *route, *prev = NULL;
   int i, pathtype[OSPF6_PATH_TYPE_MAX];
   unsigned int number = 0;
-  int nhinval = 0, ecmp = 0;
+  int nh_count =0 , nhinval = 0, ecmp = 0;
   int alternative = 0, destination = 0;
 
   for (i = 0; i < OSPF6_PATH_TYPE_MAX; i++)
@@ -946,9 +1169,10 @@ ospf6_route_show_table_summary (struct vty *vty,
         destination++;
       else
         alternative++;
-      if (! ospf6_nexthop_is_set (&route->nexthop[0]))
+      nh_count = ospf6_num_nexthops (route->nh_list);
+      if (!nh_count)
         nhinval++;
-      else if (ospf6_nexthop_is_set (&route->nexthop[1]))
+      else if (nh_count > 1)
         ecmp++;
       pathtype[route->path.type]++;
       number++;

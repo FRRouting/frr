@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 #include <lib/version.h>
+#include <stdlib.h>
 
 #include "getopt.h"
 #include "thread.h"
@@ -236,6 +237,9 @@ main (int argc, char *argv[], char *envp[])
 
   /* Preserve name of myself. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
+
+  /* Seed random number for LSA ID */
+  srand (time(NULL));
 
   /* Command line argument treatment. */
   while (1) 

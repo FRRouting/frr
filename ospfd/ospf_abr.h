@@ -52,7 +52,6 @@ struct ospf_area_range
 
   /* Configured range cost. */
   u_int32_t cost_config;
-#define OSPF_AREA_RANGE_COST_UNSPEC	-1U
 };
 
 /* Prototypes. */

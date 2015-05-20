@@ -1420,6 +1420,10 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
             req.r.rtm_type = RTN_UNREACHABLE;
           else
             assert (RTN_BLACKHOLE != RTN_UNREACHABLE);  /* false */
+
+	  if (IS_ZEBRA_DEBUG_KERNEL)
+	    zlog_debug ("%s: Adding discard route for family %s\n",
+			__FUNCTION__, family == AF_INET ? "IPv4" : "IPv6");
         }
       else
         req.r.rtm_type = RTN_UNICAST;
@@ -1912,13 +1916,17 @@ kernel_delete_ipv4 (struct prefix *p, struct rib *rib)
 int
 kernel_add_ipv6 (struct prefix *p, struct rib *rib)
 {
-  return netlink_route_multipath (RTM_NEWROUTE, p, rib, AF_INET6);
+    {
+      return netlink_route_multipath (RTM_NEWROUTE, p, rib, AF_INET6);
+    }
 }
 
 int
 kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
 {
-  return netlink_route_multipath (RTM_DELROUTE, p, rib, AF_INET6);
+    {
+      return netlink_route_multipath (RTM_DELROUTE, p, rib, AF_INET6);
+    }
 }
 
 /* Delete IPv6 route from the kernel. */

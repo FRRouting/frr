@@ -159,7 +159,6 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
   struct prefix asbr_id;
   struct ospf6_route *asbr_entry, *route;
   char buf[64];
-  int i;
 
   external = (struct ospf6_as_external_lsa *)
     OSPF6_LSA_HEADER_END (lsa->header);
@@ -218,18 +217,17 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
       route->path.type = OSPF6_PATH_TYPE_EXTERNAL2;
       route->path.metric_type = 2;
       route->path.cost = asbr_entry->path.cost;
-      route->path.cost_e2 = OSPF6_ASBR_METRIC (external);
+      route->path.u.cost_e2 = OSPF6_ASBR_METRIC (external);
     }
   else
     {
       route->path.type = OSPF6_PATH_TYPE_EXTERNAL1;
       route->path.metric_type = 1;
       route->path.cost = asbr_entry->path.cost + OSPF6_ASBR_METRIC (external);
-      route->path.cost_e2 = 0;
+      route->path.u.cost_e2 = 0;
     }
 
-  for (i = 0; i < OSPF6_MULTI_PATH_LIMIT; i++)
-    ospf6_nexthop_copy (&route->nexthop[i], &asbr_entry->nexthop[i]);
+  ospf6_route_copy_nexthops (route, asbr_entry);
 
   if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
     {
@@ -408,8 +406,7 @@ ospf6_asbr_redistribute_unset (int type)
       if (info->type != type)
         continue;
 
-      ospf6_asbr_redistribute_remove (info->type, route->nexthop[0].ifindex,
-                                      &route->prefix);
+      ospf6_asbr_redistribute_remove (info->type, 0, &route->prefix);
     }
 
   ospf6_asbr_routemap_unset (type);
@@ -488,9 +485,11 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
         }
 
       info->type = type;
-      match->nexthop[0].ifindex = ifindex;
+
       if (nexthop_num && nexthop)
-        memcpy (&match->nexthop[0].address, nexthop, sizeof (struct in6_addr));
+	ospf6_route_add_nexthop (match, ifindex, nexthop);
+      else
+	ospf6_route_add_nexthop (match, ifindex, NULL);
 
       /* create/update binding in external_id_table */
       prefix_id.family = AF_INET;
@@ -533,9 +532,10 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
     }
 
   info->type = type;
-  route->nexthop[0].ifindex = ifindex;
   if (nexthop_num && nexthop)
-    memcpy (&route->nexthop[0].address, nexthop, sizeof (struct in6_addr));
+    ospf6_route_add_nexthop (route, ifindex, nexthop);
+  else
+    ospf6_route_add_nexthop (route, ifindex, NULL);
 
   /* create/update binding in external_id_table */
   prefix_id.family = AF_INET;
@@ -1274,13 +1274,13 @@ ospf6_asbr_external_route_show (struct vty *vty, struct ospf6_route *route)
     inet_ntop (AF_INET6, &info->forwarding, forwarding, sizeof (forwarding));
   else
     snprintf (forwarding, sizeof (forwarding), ":: (ifindex %d)",
-              route->nexthop[0].ifindex);
+              ospf6_route_get_first_nh_index (route));
 
   vty_out (vty, "%c %-32s %-15s type-%d %5lu %s%s",
            zebra_route_char(info->type),
            prefix, id, route->path.metric_type,
            (u_long) (route->path.metric_type == 2 ?
-                     route->path.cost_e2 : route->path.cost),
+                     route->path.u.cost_e2 : route->path.cost),
            forwarding, VNL);
 }
 

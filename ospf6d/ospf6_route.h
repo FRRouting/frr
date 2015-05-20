@@ -96,7 +96,10 @@ struct ospf6_path
   /* Cost */
   u_int8_t metric_type;
   u_int32_t cost;
-  u_int32_t cost_e2;
+  union {
+    u_int32_t cost_e2;
+    u_int32_t cost_config;
+  } u;
 };
 
 #define OSPF6_PATH_TYPE_NONE         0
@@ -109,6 +112,7 @@ struct ospf6_path
 
 #include "prefix.h"
 #include "table.h"
+#include "bitfield.h"
 
 struct ospf6_route
 {
@@ -132,17 +136,18 @@ struct ospf6_route
   /* flag */
   u_char flag;
 
-  /* path */
-  struct ospf6_path path;
-
-  /* nexthop */
-  struct ospf6_nexthop nexthop[OSPF6_MULTI_PATH_LIMIT];
-
   /* route option */
   void *route_option;
 
   /* link state id for advertising */
   u_int32_t linkstate_id;
+
+  /* path */
+  struct ospf6_path path;
+
+  /* nexthop */
+  struct list *nh_list;
+
 };
 
 #define OSPF6_DEST_TYPE_NONE       0
@@ -160,6 +165,7 @@ struct ospf6_route
 #define OSPF6_ROUTE_ACTIVE_SUMMARY   0x10
 #define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x20
 #define OSPF6_ROUTE_WAS_REMOVED      0x40
+#define OSPF6_ROUTE_BLACKHOLE_ADDED  0x80
 
 struct ospf6_route_table
 {
@@ -171,6 +177,8 @@ struct ospf6_route_table
   struct route_table *table;
 
   u_int32_t count;
+
+  bitfield_t idspace;
 
   /* hooks */
   void (*hook_add) (struct ospf6_route *);
@@ -231,8 +239,8 @@ extern const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
   ((ra)->type == (rb)->type && \
    memcmp (&(ra)->prefix, &(rb)->prefix, sizeof (struct prefix)) == 0 && \
    memcmp (&(ra)->path, &(rb)->path, sizeof (struct ospf6_path)) == 0 && \
-   memcmp (&(ra)->nexthop, &(rb)->nexthop,                               \
-           sizeof (struct ospf6_nexthop) * OSPF6_MULTI_PATH_LIMIT) == 0)
+   ospf6_route_cmp_nexthops (ra, rb) == 0)
+
 #define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 
 #define ospf6_linkstate_prefix_adv_router(x) \
@@ -251,9 +259,35 @@ extern void ospf6_linkstate_prefix (u_int32_t adv_router, u_int32_t id,
 extern void ospf6_linkstate_prefix2str (struct prefix *prefix, char *buf,
                                         int size);
 
+extern struct ospf6_nexthop *ospf6_nexthop_create (void);
+extern void ospf6_nexthop_delete (struct ospf6_nexthop *nh);
+extern void ospf6_free_nexthops (struct list *nh_list);
+extern void ospf6_clear_nexthops (struct list *nh_list);
+extern int ospf6_num_nexthops (struct list *nh_list);
+extern void ospf6_copy_nexthops (struct list *dst, struct list *src);
+extern void ospf6_merge_nexthops (struct list *dst, struct list *src);
+extern void ospf6_add_nexthop (struct list *nh_list, int ifindex,
+			       struct in6_addr *addr);
+extern int ospf6_num_nexthops (struct list *nh_list);
+extern int ospf6_route_cmp_nexthops (struct ospf6_route *a,
+				     struct ospf6_route *b);
+extern void ospf6_route_zebra_copy_nexthops (struct ospf6_route *route,
+					     unsigned int *ifindices,
+					     struct in6_addr **addr,
+					     int entries);
+extern int ospf6_route_get_first_nh_index (struct ospf6_route *route);
+
+/* Hide abstraction of nexthop implementation in route from outsiders */
+#define ospf6_route_copy_nexthops(dst, src) ospf6_copy_nexthops(dst->nh_list, src->nh_list)
+#define ospf6_route_merge_nexthops(dst, src) ospf6_merge_nexthops(dst->nh_list, src->nh_list)
+#define ospf6_route_num_nexthops(route) ospf6_num_nexthops(route->nh_list)
+#define ospf6_route_add_nexthop(route, ifindex, addr) \
+  ospf6_add_nexthop(route->nh_list, ifindex, addr)
+
 extern struct ospf6_route *ospf6_route_create (void);
 extern void ospf6_route_delete (struct ospf6_route *);
 extern struct ospf6_route *ospf6_route_copy (struct ospf6_route *route);
+extern int ospf6_route_cmp (struct ospf6_route *ra, struct ospf6_route *rb);
 
 extern void ospf6_route_lock (struct ospf6_route *route);
 extern void ospf6_route_unlock (struct ospf6_route *route);

@@ -60,9 +60,6 @@ struct ospf6_vertex
   /* Router hops to this node */
   u_char hops;
 
-  /* nexthops to this node */
-  struct ospf6_nexthop nexthop[OSPF6_MULTI_PATH_LIMIT];
-
   /* capability bits */
   u_char capability;
 
@@ -72,6 +69,9 @@ struct ospf6_vertex
   /* For tree display */
   struct ospf6_vertex *parent;
   struct list *child_list;
+
+  /* nexthops to this node */
+  struct list *nh_list;
 };
 
 #define OSPF6_VERTEX_TYPE_ROUTER  0x01

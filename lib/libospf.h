@@ -80,6 +80,7 @@
 #define OSPF_FAST_HELLO_DEFAULT             0
 
 #define OSPF_AREA_BACKBONE              0x00000000      /* 0.0.0.0 */
+#define OSPF_AREA_RANGE_COST_UNSPEC	-1U
 
 /* SPF Throttling timer values. */
 #define OSPF_SPF_DELAY_DEFAULT              200

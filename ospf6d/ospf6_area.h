@@ -55,8 +55,6 @@ struct ospf6_area
   struct ospf6_route_table *spf_table;
   struct ospf6_route_table *route_table;
 
-  struct thread  *thread_spf_calculation;
-  struct thread  *thread_route_calculation;
   u_int32_t spf_calculation;	/* SPF calculation count */
 
   struct thread *thread_router_lsa;
@@ -98,6 +96,8 @@ struct ospf6_area
 #define PREFIX_NAME_OUT(A)  (A)->plist_out.name
 #define PREFIX_LIST_OUT(A)  (A)->plist_out.list
 
+  /* Time stamps. */
+  struct timeval ts_spf;		/* SPF calculation time stamp. */
 };
 
 #define OSPF6_AREA_ENABLE     0x01
