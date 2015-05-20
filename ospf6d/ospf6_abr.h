@@ -57,6 +57,8 @@ struct ospf6_inter_router_lsa
   { (E)->metric &= htonl (0x00000000); \
     (E)->metric |= htonl (0x00ffffff) & htonl (C); }
 
+#define OSPF6_ABR_RANGE_CLEAR_COST(range) (range->path.cost = OSPF_AREA_RANGE_COST_UNSPEC)
+
 extern int ospf6_is_router_abr (struct ospf6 *o);
 
 extern void ospf6_abr_enable_area (struct ospf6_area *oa);
@@ -66,9 +68,11 @@ extern int ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
                                                 struct ospf6_area *area);
 extern void ospf6_abr_originate_summary (struct ospf6_route *route);
 extern void ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa);
+extern void ospf6_abr_defaults_to_stub (struct ospf6 *);
 extern void ospf6_abr_examin_brouter (u_int32_t router_id);
 extern void ospf6_abr_reimport (struct ospf6_area *oa);
-extern void ospf6_abr_range_update (struct ospf6_route *range);
+extern void ospf6_abr_range_reset_cost (struct ospf6 *ospf6);
+extern void ospf6_abr_prefix_resummarize (struct ospf6 *ospf6);
 
 extern int config_write_ospf6_debug_abr (struct vty *vty);
 extern void install_element_ospf6_debug_abr (void);

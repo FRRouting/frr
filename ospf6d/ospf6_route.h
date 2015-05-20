@@ -110,6 +110,10 @@ struct ospf6_path
 #define OSPF6_PATH_TYPE_REDISTRIBUTE 5
 #define OSPF6_PATH_TYPE_MAX          6
 
+#define OSPF6_PATH_SUBTYPE_DEFAULT_RT   1
+
+#define OSPF6_PATH_COST_IS_CONFIGURED(path) (path.u.cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
+
 #include "prefix.h"
 #include "table.h"
 #include "bitfield.h"

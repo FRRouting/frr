@@ -312,10 +312,6 @@ struct ospf_area
 
   /* Configured variables. */
   int external_routing;                 /* ExternalRoutingCapability. */
-#define OSPF_AREA_DEFAULT       0
-#define OSPF_AREA_STUB          1
-#define OSPF_AREA_NSSA          2
-#define OSPF_AREA_TYPE_MAX	3
   int no_summary;                       /* Don't inject summaries into stub.*/
   int shortcut_configured;              /* Area configured as shortcut. */
 #define OSPF_SHORTCUT_DEFAULT	0

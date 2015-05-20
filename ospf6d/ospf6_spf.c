@@ -36,6 +36,8 @@
 #include "ospf6_lsdb.h"
 #include "ospf6_route.h"
 #include "ospf6_area.h"
+#include "ospf6_proto.h"
+#include "ospf6_abr.h"
 #include "ospf6_spf.h"
 #include "ospf6_intra.h"
 #include "ospf6_interface.h"
@@ -601,6 +603,9 @@ ospf6_spf_calculation_thread (struct thread *t)
   /* execute SPF calculation */
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &start);
 
+  if (ospf6_is_router_abr (ospf6))
+    ospf6_abr_range_reset_cost (ospf6);
+
   for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa))
     {
 
@@ -634,10 +639,8 @@ ospf6_spf_calculation_thread (struct thread *t)
       areas_processed++;
     }
 
-  /* Redo summaries if required */
-  for (route = ospf6_route_head (ospf6->route_table); route;
-       route = ospf6_route_next (route))
-    ospf6_abr_originate_summary(route);
+  if (ospf6_is_router_abr (ospf6))
+    ospf6_abr_defaults_to_stub (ospf6);
 
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &end);
   timersub (&end, &start, &runtime);

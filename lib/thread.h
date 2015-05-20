@@ -111,6 +111,9 @@ enum quagga_clkid {
   QUAGGA_CLK_REALTIME_STABILISED, /* like realtime, but non-decrementing */
 };
 
+/* Struct timeval's tv_usec one second value.  */
+#define TIMER_SECOND_MICRO 1000000L
+
 /* Thread types. */
 #define THREAD_READ           0
 #define THREAD_WRITE          1

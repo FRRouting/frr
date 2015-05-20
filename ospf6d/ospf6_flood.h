@@ -52,6 +52,8 @@ extern void ospf6_decrement_retrans_count (struct ospf6_lsa *lsa);
 /* flooding & clear flooding */
 extern void ospf6_flood_clear (struct ospf6_lsa *lsa);
 extern void ospf6_flood (struct ospf6_neighbor *from, struct ospf6_lsa *lsa);
+extern void ospf6_flood_area (struct ospf6_neighbor *from,
+			      struct ospf6_lsa *lsa, struct ospf6_area *oa);
 
 /* receive & install */
 extern void ospf6_receive_lsa (struct ospf6_neighbor *from,

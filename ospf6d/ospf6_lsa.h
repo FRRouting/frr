@@ -141,6 +141,7 @@ struct ospf6_lsa
 #define OSPF6_LSA_FLOODBACK  0x02
 #define OSPF6_LSA_DUPLICATE  0x04
 #define OSPF6_LSA_IMPLIEDACK 0x08
+#define OSPF6_LSA_UNAPPROVED 0x10
 #define OSPF6_LSA_SEQWRAPPED 0x20
 
 struct ospf6_lsa_handler

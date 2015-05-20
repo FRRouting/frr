@@ -140,6 +140,31 @@ ospf6_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   return 0;
 }
 
+static void
+ospf6_router_lsa_options_set (struct ospf6_area *oa,
+			      struct ospf6_router_lsa *router_lsa)
+{
+  OSPF6_OPT_CLEAR_ALL (router_lsa->options);
+  memcpy (router_lsa->options, oa->options, 3);
+
+  if (ospf6_is_router_abr (ospf6))
+    SET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_B);
+  else
+    UNSET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_B);
+
+  if (!IS_AREA_STUB (oa) && ospf6_asbr_is_asbr (oa->ospf6))
+    {
+      SET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_E);
+    }
+  else
+    {
+      UNSET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_E);
+    }
+
+  UNSET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_V);
+  UNSET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_W);
+}
+
 int
 ospf6_router_is_stub_router (struct ospf6_lsa *lsa)
 {
@@ -194,23 +219,7 @@ ospf6_router_lsa_originate (struct thread *thread)
   router_lsa = (struct ospf6_router_lsa *)
     ((caddr_t) lsa_header + sizeof (struct ospf6_lsa_header));
 
-  OSPF6_OPT_SET (router_lsa->options, OSPF6_OPT_V6);
-  OSPF6_OPT_SET (router_lsa->options, OSPF6_OPT_E);
-  OSPF6_OPT_CLEAR (router_lsa->options, OSPF6_OPT_MC);
-  OSPF6_OPT_CLEAR (router_lsa->options, OSPF6_OPT_N);
-  OSPF6_OPT_SET (router_lsa->options, OSPF6_OPT_R);
-  OSPF6_OPT_CLEAR (router_lsa->options, OSPF6_OPT_DC);
-
-  if (ospf6_is_router_abr (ospf6))
-    SET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_B);
-  else
-    UNSET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_B);
-  if (ospf6_asbr_is_asbr (ospf6))
-    SET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_E);
-  else
-    UNSET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_E);
-  UNSET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_V);
-  UNSET_FLAG (router_lsa->bits, OSPF6_ROUTER_BIT_W);
+  ospf6_router_lsa_options_set (oa, router_lsa);
 
   /* describe links for each interfaces */
   lsdesc = (struct ospf6_router_lsdesc *)
@@ -1469,7 +1478,11 @@ ospf6_intra_route_calculation (struct ospf6_area *oa)
           if (hook_add)
             (*hook_add) (route);
         }
-
+      else
+	{
+	  /* Redo the summaries as things might have changed */
+	  ospf6_abr_originate_summary (route);
+	}
       route->flag = 0;
     }
 
@@ -1554,7 +1567,7 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
       inet_ntop (AF_INET, &brouter_id, brouter_name, sizeof (brouter_name));
       if (brouter->path.area_id != oa->area_id)
         continue;
-      brouter->flag = OSPF6_ROUTE_REMOVE;
+      SET_FLAG (brouter->flag, OSPF6_ROUTE_REMOVE);
 
       if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID (brouter_id) ||
           IS_OSPF6_DEBUG_ROUTE (MEMORY))
@@ -1647,9 +1660,11 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
               IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID (oa->area_id))
             zlog_info ("brouter %s still exists via area %s",
                        brouter_name, oa->name);
+          /* But re-originate summaries */
+	  ospf6_abr_originate_summary (brouter);
         }
-
-      brouter->flag = 0;
+      UNSET_FLAG (brouter->flag, OSPF6_ROUTE_ADD);
+      UNSET_FLAG (brouter->flag, OSPF6_ROUTE_CHANGE);
     }
 
   if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID (oa->area_id))

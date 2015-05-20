@@ -412,6 +412,23 @@ ospf6_asbr_redistribute_unset (int type)
   ospf6_asbr_routemap_unset (type);
 }
 
+/* When an area is unstubified, flood all the external LSAs in the area */
+void
+ospf6_asbr_send_externals_to_area (struct ospf6_area *oa)
+{
+  struct ospf6_lsa *lsa;
+
+  for (lsa = ospf6_lsdb_head (oa->ospf6->lsdb); lsa;
+       lsa = ospf6_lsdb_next (lsa))
+    {
+      if (ntohs (lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL)
+	{
+	  zlog_debug ("%s: Flooding AS-External LSA %s\n", __func__, lsa->name);
+	  ospf6_flood_area (NULL, lsa, oa);
+	}
+    }
+}
+
 void
 ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
                              u_int nexthop_num, struct in6_addr *nexthop)

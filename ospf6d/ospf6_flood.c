@@ -422,7 +422,7 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
     }
 }
 
-static void
+void
 ospf6_flood_area (struct ospf6_neighbor *from,
                   struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {

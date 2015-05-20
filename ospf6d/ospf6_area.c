@@ -43,6 +43,7 @@
 #include "ospf6_interface.h"
 #include "ospf6_intra.h"
 #include "ospf6_abr.h"
+#include "ospf6_asbr.h"
 #include "ospf6d.h"
 
 int
@@ -133,12 +134,82 @@ ospf6_area_route_hook_remove (struct ospf6_route *route)
     ospf6_route_remove (copy, ospf6->route_table);
 }
 
+static void
+ospf6_area_stub_update (struct ospf6_area *area)
+{
+
+  if (IS_AREA_STUB (area))
+    {
+      if (IS_OSPF6_DEBUG_ORIGINATE (ROUTER))
+	zlog_debug ("Stubbing out area for if %s\n", area->name);
+      OSPF6_OPT_CLEAR (area->options, OSPF6_OPT_E);
+    }
+  else if (IS_AREA_ENABLED (area))
+    {
+      if (IS_OSPF6_DEBUG_ORIGINATE (ROUTER))
+	zlog_debug ("Normal area for if %s\n", area->name);
+      OSPF6_OPT_SET (area->options, OSPF6_OPT_E);
+      ospf6_asbr_send_externals_to_area (area);
+    }
+
+  OSPF6_ROUTER_LSA_SCHEDULE(area);
+}
+
+static int
+ospf6_area_stub_set (struct ospf6 *ospf6, struct ospf6_area *area)
+{
+  if (!IS_AREA_STUB(area))
+    {
+      SET_FLAG (area->flag, OSPF6_AREA_STUB);
+      ospf6_area_stub_update (area);
+    }
+
+  return (1);
+}
+
+static void
+ospf6_area_stub_unset (struct ospf6 *ospf6, struct ospf6_area *area)
+{
+  if (IS_AREA_STUB (area))
+    {
+      UNSET_FLAG (area->flag, OSPF6_AREA_STUB);
+      ospf6_area_stub_update (area);
+    }
+}
+
+static void
+ospf6_area_no_summary_set (struct ospf6 *ospf6, struct ospf6_area *area)
+{
+  if (area)
+    {
+      if (!area->no_summary)
+	{
+	  area->no_summary = 1;
+	  ospf6_abr_range_reset_cost (ospf6);
+	  ospf6_abr_prefix_resummarize (ospf6);
+	}
+    }
+}
+
+static void
+ospf6_area_no_summary_unset (struct ospf6 *ospf6, struct ospf6_area *area)
+{
+  if (area)
+    {
+      if (area->no_summary)
+	{
+	  area->no_summary = 0;
+	  ospf6_abr_range_reset_cost (ospf6);
+	  ospf6_abr_prefix_resummarize (ospf6);
+	}
+    }
+}
+
 /* Make new area structure */
 struct ospf6_area *
 ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
 {
   struct ospf6_area *oa;
-  struct ospf6_route *route;
 
   oa = XCALLOC (MTYPE_OSPF6_AREA, sizeof (struct ospf6_area));
 
@@ -180,6 +251,9 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
 
   OSPF6_OPT_SET (oa->options, OSPF6_OPT_E);
 
+  SET_FLAG (oa->flag, OSPF6_AREA_ACTIVE);
+  SET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
+
   oa->ospf6 = o;
   listnode_add_sort (o->area_list, oa);
 
@@ -187,11 +261,6 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
     {
       o->backbone = oa;
     }
-
-  /* import athoer area's routes as inter-area routes */
-  for (route = ospf6_route_head (o->route_table); route;
-       route = ospf6_route_next (route))
-    ospf6_abr_originate_summary_to_area (route, oa);
 
   return oa;
 }
@@ -294,16 +363,46 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 {
   struct listnode *i;
   struct ospf6_interface *oi;
+  unsigned long result;
 
-  vty_out (vty, " Area %s%s", oa->name, VNL);
+  if (!IS_AREA_STUB (oa))
+    vty_out (vty, " Area %s%s", oa->name, VNL);
+  else
+    {
+      if (oa->no_summary)
+	{
+	  vty_out (vty, " Area %s[Stub, No Summary]%s", oa->name, VNL);
+	}
+      else
+	{
+	  vty_out (vty, " Area %s[Stub]%s", oa->name, VNL);
+	}
+    }
   vty_out (vty, "     Number of Area scoped LSAs is %u%s",
            oa->lsdb->count, VNL);
 
   vty_out (vty, "     Interface attached to this area:");
   for (ALL_LIST_ELEMENTS_RO (oa->if_list, i, oi))
     vty_out (vty, " %s", oi->interface->name);
-  
   vty_out (vty, "%s", VNL);
+
+  if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec)
+    {
+      result = timeval_elapsed (recent_relative_time (), oa->ts_spf);
+      if (result/TIMER_SECOND_MICRO > 0)
+	{
+	  vty_out (vty, "SPF last executed %ld.%lds ago%s",
+		   result/TIMER_SECOND_MICRO,
+		   result%TIMER_SECOND_MICRO, VTY_NEWLINE);
+	}
+      else
+	{
+	  vty_out (vty, "SPF last executed %ldus ago%s",
+		   result, VTY_NEWLINE);
+	}
+    }
+  else
+    vty_out (vty, "SPF has not been run%s", VTY_NEWLINE);
 }
 
 
@@ -346,7 +445,7 @@ DEFUN (area_range,
   int ret;
   struct ospf6_area *oa;
   struct prefix prefix;
-  struct ospf6_route *range, *route;
+  struct ospf6_route *range;
   u_int32_t cost = OSPF_AREA_RANGE_COST_UNSPEC;
 
   OSPF6_CMD_AREA_GET (argv[0], oa);
@@ -398,9 +497,7 @@ DEFUN (area_range,
   if (ospf6_is_router_abr (ospf6))
     {
       /* Redo summaries if required */
-      for (route = ospf6_route_head (ospf6->route_table); route;
-	   route = ospf6_route_next (route))
-	ospf6_abr_originate_summary(route);
+      ospf6_abr_prefix_resummarize (ospf6);
     }
 
   return CMD_SUCCESS;
@@ -503,6 +600,13 @@ ospf6_area_config_write (struct vty *vty)
           prefix2str (&range->prefix, buf, sizeof (buf));
           vty_out (vty, " area %s range %s%s", oa->name, buf, VNL);
         }
+      if (IS_AREA_STUB (oa))
+	{
+	  if (oa->no_summary)
+	    vty_out (vty, " area %s stub no-summary%s", oa->name, VNL);
+	  else
+	    vty_out (vty, " area %s stub%s", oa->name, VNL);
+	}
       if (PREFIX_NAME_IN (oa))
         vty_out (vty, " area %s filter-list prefix %s in%s",
                  oa->name, PREFIX_NAME_IN (oa), VNL);
@@ -842,6 +946,94 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
   return CMD_SUCCESS;
 }
 
+DEFUN (ospf6_area_stub,
+       ospf6_area_stub_cmd,
+       "area (A.B.C.D|<0-4294967295>) stub",
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
+       "Configure OSPF6 area as stub\n")
+{
+  struct ospf6_area *area;
+
+  OSPF6_CMD_AREA_GET(argv[0], area);
+
+  if (!ospf6_area_stub_set (ospf6, area))
+    {
+      vty_out (vty, "First deconfigure all virtual link through this area%s",
+	       VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ospf6_area_no_summary_unset (ospf6, area);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ospf6_area_stub_no_summary,
+       ospf6_area_stub_no_summary_cmd,
+       "area (A.B.C.D|<0-4294967295>) stub no-summary",
+       "OSPF6 stub parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
+       "Configure OSPF6 area as stub\n"
+       "Do not inject inter-area routes into stub\n")
+{
+  struct ospf6_area *area;
+
+  OSPF6_CMD_AREA_GET(argv[0], area);
+
+  if (!ospf6_area_stub_set (ospf6, area))
+    {
+      vty_out (vty, "First deconfigure all virtual link through this area%s",
+	       VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ospf6_area_no_summary_set (ospf6, area);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_area_stub,
+       no_ospf6_area_stub_cmd,
+       "no area (A.B.C.D|<0-4294967295>) stub",
+       NO_STR
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
+       "Configure OSPF6 area as stub\n")
+{
+  struct ospf6_area *area;
+
+  OSPF6_CMD_AREA_GET(argv[0], area);
+
+  ospf6_area_stub_unset (ospf6, area);
+  ospf6_area_no_summary_unset (ospf6, area);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_area_stub_no_summary,
+       no_ospf6_area_stub_no_summary_cmd,
+       "no area (A.B.C.D|<0-4294967295>) stub no-summary",
+       NO_STR
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
+       "Configure OSPF6 area as stub\n"
+       "Do not inject inter-area routes into area\n")
+{
+  struct ospf6_area *area;
+
+  OSPF6_CMD_AREA_GET(argv[0], area);
+
+  ospf6_area_stub_unset (ospf6, area);
+  ospf6_area_no_summary_unset (ospf6, area);
+
+  return CMD_SUCCESS;
+}
+
 void
 ospf6_area_init (void)
 {
@@ -858,6 +1050,11 @@ ospf6_area_init (void)
   install_element (OSPF6_NODE, &area_range_cost_cmd);
   install_element (OSPF6_NODE, &area_range_advertise_cost_cmd);
   install_element (OSPF6_NODE, &no_area_range_cmd);
+  install_element (OSPF6_NODE, &ospf6_area_stub_no_summary_cmd);
+  install_element (OSPF6_NODE, &ospf6_area_stub_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_area_stub_no_summary_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_area_stub_cmd);
+
 
   install_element (OSPF6_NODE, &area_import_list_cmd);
   install_element (OSPF6_NODE, &no_area_import_list_cmd);

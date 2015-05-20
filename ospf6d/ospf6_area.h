@@ -46,6 +46,9 @@ struct ospf6_area
   struct ospf6_route_table *summary_prefix;
   struct ospf6_route_table *summary_router;
 
+  /* Area type */
+  int no_summary;
+
   /* OSPF interface list */
   struct list *if_list;
 

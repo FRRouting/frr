@@ -57,8 +57,6 @@ static unsigned short timers_inited;
 
 static struct hash *cpu_record = NULL;
 
-/* Struct timeval's tv_usec one second value.  */
-#define TIMER_SECOND_MICRO 1000000L
 
 /* Adjust so that tv_usec is in the range [0,TIMER_SECOND_MICRO).
    And change negative values to 0. */
