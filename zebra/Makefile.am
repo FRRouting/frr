@@ -34,10 +34,10 @@ zebra_SOURCES = \
 	zserv.c main.c interface.c connected.c zebra_rib.c zebra_routemap.c \
 	redistribute.c debug.c rtadv.c zebra_snmp.c zebra_vty.c \
 	irdp_main.c irdp_interface.c irdp_packet.c router-id.c zebra_fpm.c \
-	$(othersrc) zebra_rnh.c
+	$(othersrc) zebra_ptm.c zebra_rnh.c
 
 testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
-	zebra_vty.c \
+	zebra_vty.c zebra_ptm.c \
 	kernel_null.c  redistribute_null.c ioctl_null.c misc_null.c zebra_rnh_null.c
 
 noinst_HEADERS = \

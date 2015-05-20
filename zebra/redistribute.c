@@ -37,6 +37,9 @@
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
 
+#define ZEBRA_PTM_SUPPORT
+
+
 /* master zebra server structure */
 extern struct zebra_t zebrad;
 
@@ -292,8 +295,10 @@ zebra_interface_up_update (struct interface *ifp)
   if (IS_ZEBRA_DEBUG_EVENT)
     zlog_debug ("MESSAGE: ZEBRA_INTERFACE_UP %s", ifp->name);
 
-  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    zsend_interface_update (ZEBRA_INTERFACE_UP, client, ifp);
+  if (ifp->ptm_status || !ifp->ptm_enable) {
+    for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+      zsend_interface_update (ZEBRA_INTERFACE_UP, client, ifp);
+  }
 }
 
 /* Interface down information. */

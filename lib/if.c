@@ -38,6 +38,7 @@
 
 /* Master list of interfaces. */
 struct list *iflist;
+int ptm_enable = 0;
 
 /* One for each program.  This structure is needed to store hooks. */
 struct if_master
@@ -373,12 +374,25 @@ if_is_running (struct interface *ifp)
 }
 
 /* Is the interface operative, eg. either UP & RUNNING
-   or UP & !ZEBRA_INTERFACE_LINK_DETECTION */
+   or UP & !ZEBRA_INTERFACE_LINK_DETECTION and
+   if ptm checking is enabled, then ptm check has passed */
 int
 if_is_operative (struct interface *ifp)
 {
   return ((ifp->flags & IFF_UP) &&
-	  (ifp->flags & IFF_RUNNING || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
+	  (((ifp->flags & IFF_RUNNING) &&
+	    (ifp->ptm_status || !ifp->ptm_enable)) ||
+	   !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
+}
+
+/* Is the interface operative, eg. either UP & RUNNING
+   or UP & !ZEBRA_INTERFACE_LINK_DETECTION, without PTM check */
+int
+if_is_no_ptm_operative (struct interface *ifp)
+{
+  return ((ifp->flags & IFF_UP) &&
+	  ((ifp->flags & IFF_RUNNING) ||
+	   !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
 }
 
 /* Is this loopback interface ? */

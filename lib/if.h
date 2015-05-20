@@ -135,6 +135,9 @@ struct interface
   /* Daemon specific interface data pointer. */
   void *info;
 
+  char ptm_enable;             /* Should we look at ptm_status ? */
+  char ptm_status;
+
   /* Statistics fileds. */
 #ifdef HAVE_PROC_NET_DEV
   struct if_stats stats;
@@ -285,6 +288,7 @@ extern void if_delete (struct interface *);
 extern int if_is_up (struct interface *);
 extern int if_is_running (struct interface *);
 extern int if_is_operative (struct interface *);
+extern int if_is_no_ptm_operative (struct interface *);
 extern int if_is_loopback (struct interface *);
 extern int if_is_broadcast (struct interface *);
 extern int if_is_pointopoint (struct interface *);
