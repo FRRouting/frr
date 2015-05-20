@@ -3103,7 +3103,8 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
   int flag = 0;
 
   /* Set netmask of interface. */
-  if (oi->type != OSPF_IFTYPE_POINTOPOINT &&
+  if (!(CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED) &&
+        oi->type == OSPF_IFTYPE_POINTOPOINT) &&
       oi->type != OSPF_IFTYPE_VIRTUALLINK)
     masklen2ip (oi->address->prefixlen, &mask);
   else
