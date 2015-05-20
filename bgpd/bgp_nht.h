@@ -31,12 +31,9 @@ extern void bgp_parse_nexthop_update();
  * bgp_find_nexthop() - lookup the nexthop cache table for the bnc object
  * ARGUMENTS:
  *   p - path for which the nexthop object is being looked up
- *   c - output variable that stores whether the nexthop object has changed
- *        since last time.
- *   m - output variable that stores whether the nexthop metric has changed
- *        since last time.
+ *   connected - True if NH MUST be a connected route
  */
-extern int bgp_find_nexthop(struct bgp_info *p, int *c, int *m);
+extern int bgp_find_nexthop(struct bgp_info *p, int connected);
 
 /**
  * bgp_find_or_add_nexthop() - lookup the nexthop cache table for the bnc
@@ -45,12 +42,11 @@ extern int bgp_find_nexthop(struct bgp_info *p, int *c, int *m);
  * ARGUMENTS:
  *   a - afi: AFI_IP or AF_IP6
  *   p - path for which the nexthop object is being looked up
- *   c - output variable that stores whether the nexthop object has changed
- *        since last time.
- *   m - output variable that stores whether the nexthop metric has changed
- *        since last time.
+ *   peer - The BGP peer associated with this NHT
+ *   connected - True if NH MUST be a connected route
  */
-extern int bgp_find_or_add_nexthop(afi_t a, struct bgp_info *p, int *c, int *m);
+extern int bgp_find_or_add_nexthop(afi_t a, struct bgp_info *p,
+				   struct peer *peer, int connected);
 
 /**
  * bgp_unlink_nexthop() - Unlink the nexthop object from the path structure.

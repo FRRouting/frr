@@ -74,6 +74,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_MSEC_JITTER 10
 
 /* Prototypes. */
+extern void bgp_fsm_nht_update(struct peer *, int valid);
 extern int bgp_event (struct thread *);
 extern int bgp_event_update (struct peer *, int event);
 extern int bgp_stop (struct peer *peer);

@@ -30,6 +30,7 @@
 struct rnh
 {
   u_char flags;
+#define ZEBRA_NHT_CONNECTED  	0x1
   struct rib *state;
   struct list *client_list;
   struct route_node *node;

@@ -1185,6 +1185,7 @@ int
 bgp_start (struct peer *peer)
 {
   int status;
+  int connected = 0;
 
   bgp_peer_conf_if_to_su_update(peer);
 
@@ -1225,6 +1226,12 @@ bgp_start (struct peer *peer)
       return 0;
     }
 
+  /* Register to be notified on peer up */
+  if ((peer->ttl == 1) || (peer->gtsm_hops == 1))
+    connected = 1;
+
+  bgp_find_or_add_nexthop(family2afi(peer->su.sa.sa_family), NULL, peer,
+			  connected);
   status = bgp_connect (peer);
 
   switch (status)
@@ -1491,6 +1498,45 @@ bgp_ignore (struct peer *peer)
     zlog (peer->log, LOG_DEBUG, "%s [FSM] bgp_ignore called", peer->host);
   return 0;
 }
+
+void
+bgp_fsm_nht_update(struct peer *peer, int valid)
+{
+  int ret = 0;
+
+  if (!peer)
+    return;
+
+  switch (peer->status)
+    {
+    case Idle:
+      if (valid)
+	BGP_EVENT_ADD(peer, BGP_Start);
+      break;
+    case Connect:
+      ret = bgp_connect_check(peer, 0);
+      if (!ret && valid)
+	{
+	  BGP_TIMER_OFF(peer->t_connect);
+	  BGP_EVENT_ADD(peer, ConnectRetry_timer_expired);
+	}
+      break;
+    case Active:
+      if (valid)
+	{
+	  BGP_TIMER_OFF(peer->t_connect);
+	  BGP_EVENT_ADD(peer, ConnectRetry_timer_expired);
+	}
+    case OpenSent:
+    case OpenConfirm:
+    case Established:
+    case Clearing:
+    case Deleted:
+    default:
+      break;
+    }
+}
+
 
 /* Finite State Machine structure */
 static const struct {

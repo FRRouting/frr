@@ -58,6 +58,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_nht.h"
 #ifdef HAVE_SNMP
 #include "bgpd/bgp_snmp.h"
 #endif /* HAVE_SNMP */
@@ -4733,24 +4734,33 @@ peer_maximum_prefix_set (struct peer *peer, afi_t afi, safi_t safi,
   else
     UNSET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
 
-  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    return 0;
-
-  group = peer->group;
-  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (! peer->af_group[afi][safi])
-	continue;
+      group = peer->group;
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+	{
+	  if (! peer->af_group[afi][safi])
+	    continue;
 
-      SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
-      peer->pmax[afi][safi] = max;
-      peer->pmax_threshold[afi][safi] = threshold;
-      peer->pmax_restart[afi][safi] = restart;
-      if (warning)
-	SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
-      else
-	UNSET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
+	  SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
+	  peer->pmax[afi][safi] = max;
+	  peer->pmax_threshold[afi][safi] = threshold;
+	  peer->pmax_restart[afi][safi] = restart;
+	  if (warning)
+	    SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
+	  else
+	    UNSET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
+
+	  if ((peer->status == Established) && (peer->afc[afi][safi]))
+	    bgp_maximum_prefix_overflow (peer, afi, safi, 1);
+	}
     }
+  else
+    {
+      if ((peer->status == Established) && (peer->afc[afi][safi]))
+	bgp_maximum_prefix_overflow (peer, afi, safi, 1);
+    }
+
   return 0;
 }
 
@@ -5767,9 +5777,6 @@ bgp_config_write (struct vty *vty)
       if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
 	vty_out (vty, " bgp network import-check%s", VTY_NEWLINE);
 
-      /* BGP scan interval. */
-      bgp_config_write_scan_time (vty);
-
       /* BGP flag dampening. */
       if (CHECK_FLAG (bgp->af_flags[AFI_IP][SAFI_UNICAST],
 	  BGP_CONFIG_DAMPENING))
@@ -5849,11 +5856,15 @@ bgp_master_init (void)
 void
 bgp_init (void)
 {
-  /* BGP VTY commands installation.  */
-  bgp_vty_init ();
+
+  /* allocates some vital data structures used by peer commands in vty_init */
+  bgp_scan_init ();
 
   /* Init zebra. */
   bgp_zebra_init ();
+
+  /* BGP VTY commands installation.  */
+  bgp_vty_init ();
 
   /* BGP inits. */
   bgp_attr_init ();
@@ -5862,7 +5873,7 @@ bgp_init (void)
   bgp_route_init ();
   bgp_route_map_init ();
   bgp_address_init ();
-  bgp_scan_init ();
+  bgp_scan_vty_init();
   bgp_mplsvpn_init ();
 
   /* Access list initialize. */

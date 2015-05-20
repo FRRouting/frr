@@ -227,7 +227,6 @@ bgp_exit (int status)
   int *socket;
   struct interface *ifp;
   extern struct zclient *zclient;
-  extern struct zclient *zlookup;
 
   /* it only makes sense for this to be called on a clean exit */
   assert (status == 0);
@@ -266,9 +265,6 @@ bgp_exit (int status)
   /* cleanup route maps */
   bgp_route_map_terminate();
 
-  /* reverse bgp_scan_init */
-  bgp_scan_finish ();
-
   /* reverse access_list_init */
   access_list_add_hook (NULL);
   access_list_delete_hook (NULL);
@@ -291,12 +287,13 @@ bgp_exit (int status)
   vty_terminate ();
   if (zclient)
     zclient_free (zclient);
-  if (zlookup)
-    zclient_free (zlookup);
   if (bgp_nexthop_buf)
     stream_free (bgp_nexthop_buf);
   if (bgp_ifindices_buf)
     stream_free (bgp_ifindices_buf);
+
+  /* reverse bgp_scan_init */
+  bgp_scan_finish ();
 
   /* reverse bgp_master_init */
   if (master)
