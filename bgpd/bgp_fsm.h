@@ -81,6 +81,9 @@ extern void bgp_timer_set (struct peer *);
 extern void bgp_fsm_change_status (struct peer *peer, int status);
 extern const char *peer_down_str[];
 extern void bgp_update_delay_end (struct bgp *);
+extern void bgp_maxmed_update (struct bgp *);
+extern int bgp_maxmed_onstartup_configured (struct bgp *);
+extern int bgp_maxmed_onstartup_active (struct bgp *);
 
 /**
  * Start the route advertisement timer (that honors MRAI) for all the

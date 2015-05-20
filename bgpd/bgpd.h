@@ -111,7 +111,21 @@ struct bgp
   as_t *confed_peers;
   int confed_peers_cnt;
 
-  struct thread *t_startup;
+  struct thread *t_startup; /* start-up timer on only once at the beginning */
+
+  u_int32_t v_maxmed_onstartup; /* Duration of max-med on start-up */
+#define BGP_MAXMED_ONSTARTUP_UNCONFIGURED  0 /* 0 means off, its the default */
+  u_int32_t maxmed_onstartup_value; /* Max-med value when active on start-up */
+  struct thread *t_maxmed_onstartup; /* non-null when max-med onstartup is on */
+  u_char    maxmed_onstartup_over; /* Flag to make it effective only once */
+
+  u_char    v_maxmed_admin; /* 1/0 if max-med administrative is on/off */
+#define BGP_MAXMED_ADMIN_UNCONFIGURED  0 /* Off by default */
+  u_int32_t maxmed_admin_value; /* Max-med value when administrative in on */
+#define BGP_MAXMED_VALUE_DEFAULT  4294967294 /* Maximum by default */
+
+  u_char    maxmed_active; /* 1/0 if max-med is active or not */
+  u_int32_t maxmed_value; /* Max-med value when its active */
 
   /* BGP update delay on startup */
   struct thread *t_update_delay;

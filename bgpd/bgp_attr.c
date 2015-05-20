@@ -2330,12 +2330,13 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     }
 
   /* MED attribute. */
-  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
+  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC) ||
+      bgp->maxmed_active)
     {
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_MULTI_EXIT_DISC);
       stream_putc (s, 4);
-      stream_putl (s, attr->med);
+      stream_putl (s, (bgp->maxmed_active ? bgp->maxmed_value : attr->med));
     }
 
   /* Local preference. */
