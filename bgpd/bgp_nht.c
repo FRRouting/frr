@@ -98,6 +98,7 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
 
   if (ri)
     {
+      /* This will return TRUE if the global IPv6 NH is a link local addr */
       if (make_prefix(afi, ri, &p) < 0)
 	return 1;
     }
@@ -114,8 +115,23 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
 	  p.family = AF_INET6;
 	  p.prefixlen = IPV6_MAX_BITLEN;
 	  p.u.prefix6 = peer->su.sin6.sin6_addr;
+
+	  /* Don't register link local NH */
+	  if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
+	    return 1;
+	}
+      else
+	{
+	  if (BGP_DEBUG(nht, NHT))
+	    {
+	      zlog_debug("%s: Attempting to register with unknown AFI %d (not %d or %d)",
+			 __FUNCTION__, afi, AFI_IP, AFI_IP6);
+	    }
+	  return 0;
 	}
     }
+  else
+    return 0;
 
   rn = bgp_node_get (bgp_nexthop_cache_table[afi], &p);
 
@@ -165,6 +181,9 @@ bgp_delete_connected_nexthop (afi_t afi, struct peer *peer)
   struct bgp_nexthop_cache *bnc;
   struct prefix p;
 
+  if (!peer)
+    return;
+
   if (afi == AFI_IP)
     {
       p.family = AF_INET;
@@ -176,7 +195,13 @@ bgp_delete_connected_nexthop (afi_t afi, struct peer *peer)
       p.family = AF_INET6;
       p.prefixlen = IPV6_MAX_BITLEN;
       p.u.prefix6 = peer->su.sin6.sin6_addr;
+
+      /* We don't register link local address for NHT */
+      if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
+	return;
     }
+  else
+    return;
 
   rn = bgp_node_lookup(bgp_nexthop_cache_table[family2afi(p.family)], &p);
   if (!rn || !rn->info)
@@ -372,6 +397,7 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
       break;
 #ifdef HAVE_IPV6
     case AFI_IP6:
+      /* We don't register link local NH */
       if (ri->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL
 	  || IN6_IS_ADDR_LINKLOCAL (&ri->attr->extra->mp_nexthop_global))
 	return -1;
@@ -382,6 +408,11 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
       break;
 #endif
     default:
+      if (BGP_DEBUG(nht, NHT))
+	{
+	  zlog_debug("%s: Attempting to make prefix with unknown AFI %d (not %d or %d)",
+		     __FUNCTION__, afi, AFI_IP, AFI_IP6);
+	}
       break;
     }
   return 0;

@@ -1251,8 +1251,14 @@ bgp_start (struct peer *peer)
   if ((peer->ttl == 1) || (peer->gtsm_hops == 1))
     connected = 1;
 
-  bgp_find_or_add_nexthop(peer->bgp, family2afi(peer->su.sa.sa_family),
-                          NULL, peer, connected);
+  if (!bgp_find_or_add_nexthop(peer->bgp, family2afi(peer->su.sa.sa_family),
+			       NULL, peer, connected))
+    {
+      if (bgp_debug_neighbor_events(peer))
+	zlog_debug ("%s [FSM] Unable to register peer addr for NHT", peer->host);
+      return 0;
+    }
+
   status = bgp_connect (peer);
 
   switch (status)
