@@ -528,6 +528,7 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_ISIS_DISTANCE_DEFAULT      115
 #define ZEBRA_IBGP_DISTANCE_DEFAULT      200
 #define ZEBRA_EBGP_DISTANCE_DEFAULT       20
+#define ZEBRA_TABLE_DISTANCE_DEFAULT     150
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))

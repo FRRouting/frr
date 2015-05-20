@@ -374,7 +374,7 @@ main (int argc, char **argv)
     return(0);
   
   /* Clean up rib. */
-  rib_weed_tables ();
+  /* rib_weed_tables (); */
 
   /* Exit when zebra is working in batch mode. */
   if (batch_mode)

@@ -9749,21 +9749,28 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 
 DEFUN (bgp_redistribute_ipv4_ospf,
        bgp_redistribute_ipv4_ospf_cmd,
-       "redistribute ospf <1-65535>",
+       "redistribute (ospf|table) <1-65535>",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n")
 {
   u_short instance;
+  u_short protocol;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
-  bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
-  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+  VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
+
+  if (strncmp(argv[0], "o", 1) == 0)
+    protocol = ZEBRA_ROUTE_OSPF;
+  else
+    protocol = ZEBRA_ROUTE_TABLE;
+
+  bgp_redist_add(vty->index, AFI_IP, protocol, instance);
+  return bgp_redistribute_set (protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap,
        bgp_redistribute_ipv4_ospf_rmap_cmd,
-       "redistribute ospf <1-65535> route-map WORD",
+       "redistribute (ospf|table) <1-65535> route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n"
@@ -9772,16 +9779,22 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 {
   struct bgp_redist *red;
   u_short instance;
+  int protocol;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
-  red = bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
-  bgp_redistribute_rmap_set (red, argv[1]);
-  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+  if (strncmp(argv[0], "o", 1) == 0)
+    protocol = ZEBRA_ROUTE_OSPF;
+  else
+    protocol = ZEBRA_ROUTE_TABLE;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
+  red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
+  bgp_redistribute_rmap_set (red, argv[2]);
+  return bgp_redistribute_set (protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric,
        bgp_redistribute_ipv4_ospf_metric_cmd,
-       "redistribute ospf <1-65535> metric <0-4294967295>",
+       "redistribute (ospf|table) <1-65535> metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n"
@@ -9791,18 +9804,24 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
   u_int32_t metric;
   struct bgp_redist *red;
   u_short instance;
+  int protocol;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
-  VTY_GET_INTEGER ("metric", metric, argv[1]);
+  if (strncmp(argv[0], "o", 1) == 0)
+    protocol = ZEBRA_ROUTE_OSPF;
+  else
+    protocol = ZEBRA_ROUTE_TABLE;
 
-  red = bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+  VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
+  VTY_GET_INTEGER ("metric", metric, argv[2]);
+
+  red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
   bgp_redistribute_metric_set (red, metric);
-  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+  return bgp_redistribute_set (protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
        bgp_redistribute_ipv4_ospf_rmap_metric_cmd,
-       "redistribute ospf <1-65535> route-map WORD metric <0-4294967295>",
+       "redistribute (ospf|table) <1-65535> route-map WORD metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n"
@@ -9814,19 +9833,25 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
   u_int32_t metric;
   struct bgp_redist *red;
   u_short instance;
+  int protocol;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
-  VTY_GET_INTEGER ("metric", metric, argv[2]);
+  if (strncmp(argv[0], "o", 1) == 0)
+    protocol = ZEBRA_ROUTE_OSPF;
+  else
+    protocol = ZEBRA_ROUTE_TABLE;
 
-  red = bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
-  bgp_redistribute_rmap_set (red, argv[1]);
+  VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
+  VTY_GET_INTEGER ("metric", metric, argv[3]);
+
+  red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
+  bgp_redistribute_rmap_set (red, argv[2]);
   bgp_redistribute_metric_set (red, metric);
-  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+  return bgp_redistribute_set (protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
        bgp_redistribute_ipv4_ospf_metric_rmap_cmd,
-       "redistribute ospf <1-65535> metric <0-4294967295> route-map WORD",
+       "redistribute (ospf|table) <1-65535> metric <0-4294967295> route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n"
@@ -9838,33 +9863,45 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
   u_int32_t metric;
   struct bgp_redist *red;
   u_short instance;
+  int protocol;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
-  VTY_GET_INTEGER ("metric", metric, argv[1]);
+  if (strncmp(argv[0], "o", 1) == 0)
+    protocol = ZEBRA_ROUTE_OSPF;
+  else
+    protocol = ZEBRA_ROUTE_TABLE;
 
-  red = bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+  VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
+  VTY_GET_INTEGER ("metric", metric, argv[2]);
+
+  red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
   bgp_redistribute_metric_set (red, metric);
-  bgp_redistribute_rmap_set (red, argv[2]);
-  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+  bgp_redistribute_rmap_set (red, argv[3]);
+  return bgp_redistribute_set (protocol, instance);
 }
 
 DEFUN (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_cmd,
-       "no redistribute ospf <1-65535>",
+       "no redistribute (ospf|table) <1-65535>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n")
 {
   u_short instance;
+  int protocol;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
-  return bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+  if (strncmp(argv[0], "o", 1) == 0)
+    protocol = ZEBRA_ROUTE_OSPF;
+  else
+    protocol = ZEBRA_ROUTE_TABLE;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
+  return bgp_redistribute_unset (vty->index, AFI_IP, protocol, instance);
 }
 
 ALIAS (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_rmap_cmd,
-       "no redistribute ospf <1-65535> route-map WORD",
+       "no redistribute (ospf|table) <1-65535> route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
@@ -9874,7 +9911,7 @@ ALIAS (no_bgp_redistribute_ipv4_ospf,
 
 ALIAS (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_metric_cmd,
-       "no redistribute ospf <1-65535> metric <0-4294967295>",
+       "no redistribute (ospf|table) <1-65535> metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
@@ -9884,7 +9921,7 @@ ALIAS (no_bgp_redistribute_ipv4_ospf,
 
 ALIAS (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_rmap_metric_cmd,
-       "no redistribute ospf <1-65535> route-map WORD metric <0-4294967295>",
+       "no redistribute (ospf|table) <1-65535> route-map WORD metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
@@ -9896,7 +9933,7 @@ ALIAS (no_bgp_redistribute_ipv4_ospf,
 
 ALIAS (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_metric_rmap_cmd,
-       "no redistribute ospf <1-65535> metric <0-4294967295> route-map WORD",
+       "no redistribute (ospf|table) <1-65535> metric <0-4294967295> route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"

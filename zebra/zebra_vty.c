@@ -31,6 +31,7 @@
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/redistribute.h"
 
 /* General fucntion for static route. */
 static int
@@ -916,6 +917,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	  || rib->type == ZEBRA_ROUTE_OSPF
 	  || rib->type == ZEBRA_ROUTE_BABEL
 	  || rib->type == ZEBRA_ROUTE_ISIS
+	  || rib->type == ZEBRA_ROUTE_TABLE
 	  || rib->type == ZEBRA_ROUTE_BGP)
 	{
 	  time_t uptime;
@@ -1113,6 +1115,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	  || rib->type == ZEBRA_ROUTE_OSPF
 	  || rib->type == ZEBRA_ROUTE_BABEL
 	  || rib->type == ZEBRA_ROUTE_ISIS
+	  || rib->type == ZEBRA_ROUTE_TABLE
 	  || rib->type == ZEBRA_ROUTE_BGP)
 	{
 	  time_t uptime;
@@ -2878,8 +2881,97 @@ zebra_ip_config (struct vty *vty)
   write += static_config_ipv6 (vty);
 #endif /* HAVE_IPV6 */
 
+  write += zebra_import_table_config (vty);
   return write;
 }
+
+DEFUN (ip_zebra_import_table_distance,
+       ip_zebra_import_table_distance_cmd,
+       "ip import-table <1-252> distance <1-255>",
+       IP_STR
+       "import routes from non-main kernel table\n"
+       "kernel routing table id\n"
+       "Distance for imported routes\n"
+       "Default distance value\n")
+{
+  u_int32_t table_id = 0;
+  int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
+  char *route_map_name = NULL;
+
+  if (argc)
+    VTY_GET_INTEGER("table", table_id, argv[0]);
+
+  if (!is_zebra_valid_kernel_table(table_id))
+    {
+      vty_out(vty, "Invalid routing table ID, %d. Must be in range 1-252%s",
+	      table_id, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (is_zebra_main_routing_table(table_id))
+    {
+      vty_out(vty, "Invalid routing table ID, %d. Must be non-default table%s",
+	      table_id, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (is_zebra_import_table_enabled(AFI_IP, table_id))
+    return CMD_SUCCESS;
+
+  if (argc > 1)
+    VTY_GET_INTEGER_RANGE("distance", distance, argv[1], 1, 255);
+
+  return (zebra_import_table(AFI_IP, table_id, distance, 1));
+
+}
+
+ALIAS (ip_zebra_import_table_distance,
+       ip_zebra_import_table_cmd,
+       "ip import-table <1-252>",
+       IP_STR
+       "import routes from non-main kernel table\n"
+       "kernel routing table id\n")
+
+DEFUN (no_ip_zebra_import_table,
+       no_ip_zebra_import_table_cmd,
+       "no ip import-table <1-252>",
+       NO_STR
+       IP_STR
+       "import routes from non-main kernel table\n"
+       "kernel routing table id\n")
+{
+  u_int32_t table_id = 0;
+
+  if (argc)
+    VTY_GET_INTEGER("table", table_id, argv[0]);
+
+  if (!is_zebra_valid_kernel_table(table_id))
+    {
+      vty_out(vty, "Invalid routing table ID. Must be in range 1-252%s",
+	      VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (is_zebra_main_routing_table(table_id))
+    {
+      vty_out(vty, "Invalid routing table ID, %d. Must be non-default table%s",
+	      table_id, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (!is_zebra_import_table_enabled(AFI_IP, table_id))
+    return CMD_SUCCESS;
+
+  return (zebra_import_table(AFI_IP, table_id, 0, 0));
+}
+
+ALIAS (no_ip_zebra_import_table,
+       no_ip_zebra_import_table_distance_cmd,
+       "no ip import-table <1-252> distance <1-255>",
+       IP_STR
+       "import routes from non-main kernel table to main table"
+       "kernel routing table id\n"
+       "distance to be used\n")
 
 /* IP node for static routes. */
 static struct cmd_node ip_node = { IP_NODE,  "",  1 };
@@ -2938,6 +3030,10 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance2_cmd);
+  install_element (CONFIG_NODE, &ip_zebra_import_table_cmd);
+  install_element (CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
+  install_element (CONFIG_NODE, &no_ip_zebra_import_table_cmd);
+  install_element (CONFIG_NODE, &no_ip_zebra_import_table_distance_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_cmd);
   install_element (VIEW_NODE, &show_ip_route_ospf_instance_cmd);

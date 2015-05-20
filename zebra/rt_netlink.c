@@ -225,7 +225,6 @@ netlink_request (int family, int type, struct nlsock *nl)
     struct rtgenmsg g;
   } req;
 
-
   /* Check netlink socket. */
   if (nl->sock < 0)
     {
@@ -254,7 +253,7 @@ netlink_request (int family, int type, struct nlsock *nl)
     }
 
   ret = sendto (nl->sock, (void *) &req, sizeof req, 0,
-                (struct sockaddr *) &snl, sizeof snl);
+		(struct sockaddr *) &snl, sizeof snl);
   save_errno = errno;
 
   if (zserv_privs.change (ZPRIVS_LOWER))
@@ -686,10 +685,8 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
     return 0;
 
   table = rtm->rtm_table;
-#if 0                           /* we weed them out later in rib_weed_tables () */
-  if (table != RT_TABLE_MAIN && table != zebrad.rtm_table_default)
-    return 0;
-#endif
+  if (!is_zebra_valid_kernel_table(table) && !is_zebra_main_routing_table(table))
+      return 0;
 
   len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
   if (len < 0)
@@ -875,10 +872,8 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
     }
 
   table = rtm->rtm_table;
-  if (table != RT_TABLE_MAIN && table != zebrad.rtm_table_default)
-    {
+  if (!is_zebra_valid_kernel_table(table) && !is_zebra_main_routing_table(table))
       return 0;
-    }
 
   len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
   if (len < 0)

@@ -43,6 +43,25 @@
 /* master zebra server structure */
 extern struct zebra_t zebrad;
 
+/* array holding redistribute info about table redistribution */
+/* bit AFI is set if that AFI is redistributing routes from this table */
+static u_char zebra_import_table_used[ZEBRA_KERNEL_TABLE_MAX];
+static u_int32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+
+int
+is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
+{
+  if (is_zebra_valid_kernel_table(table_id))
+    {
+      if (CHECK_FLAG(zebra_import_table_used[table_id], (u_char)afi))
+	return 1;
+      else
+	return 0;
+    }
+
+  return 0;
+}
+
 int
 zebra_check_addr (struct prefix *p)
 {
@@ -460,4 +479,175 @@ zebra_interface_bfd_update (struct interface *ifp, struct prefix *p)
       /* Notify to the protocol daemons. */
       zsend_interface_bfd_update (ZEBRA_INTERFACE_BFD_DEST_DOWN, client, ifp, p);
     }
+}
+
+int
+zebra_add_import_table_entry (struct route_node *rn, struct rib *rib)
+{
+  struct rib *newrib;
+  struct prefix_ipv4 p4;
+  struct nexthop *nhop;
+  struct in_addr *gate;
+
+  if (rn->p.family == AF_INET)
+    {
+      p4.family = AF_INET;
+      p4.prefixlen = rn->p.prefixlen;
+      p4.prefix = rn->p.u.prefix4;
+
+      if (rib->nexthop_num == 1)
+	{
+	  nhop = rib->nexthop;
+	  if ((nhop->type == NEXTHOP_TYPE_IFINDEX) ||
+	      (nhop->type == NEXTHOP_TYPE_IFNAME))
+	    gate = NULL;
+	  else
+	    gate = &nhop->gate.ipv4;
+
+	  rib_add_ipv4(ZEBRA_ROUTE_TABLE, rib->table, 0, &p4,
+		       gate, &nhop->src.ipv4,
+		       nhop->ifindex, zebrad.rtm_table_default,
+		       rib->metric,
+		       zebra_import_table_distance[AFI_IP][rib->table],
+		       SAFI_UNICAST);
+	}
+      else if (rib->nexthop_num > 1)
+	{
+	  newrib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
+	  newrib->type = ZEBRA_ROUTE_TABLE;
+	  newrib->distance = zebra_import_table_distance[AFI_IP][rib->table];
+	  newrib->flags = rib->flags;
+	  newrib->metric = rib->metric;
+	  newrib->table = zebrad.rtm_table_default;
+	  newrib->nexthop_num = 0;
+	  newrib->uptime = time(NULL);
+	  newrib->instance = rib->table;
+
+	  /* Assuming these routes are never recursive */
+	  for (nhop = rib->nexthop; nhop; nhop = nhop->next)
+	    copy_nexthops(newrib, nhop);
+
+	  rib_add_ipv4_multipath(&p4, newrib, SAFI_UNICAST);
+	}
+    }
+  /* DD: Add IPv6 code */
+  return 0;
+}
+
+int
+zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
+{
+  struct prefix_ipv4 p4;
+
+  if (rn->p.family == AF_INET)
+    {
+      p4.family = AF_INET;
+      p4.prefixlen = rn->p.prefixlen;
+      p4.prefix = rn->p.u.prefix4;
+
+      rib_delete_ipv4(ZEBRA_ROUTE_TABLE, rib->table, rib->flags, &p4, NULL,
+		      0, zebrad.rtm_table_default, SAFI_UNICAST);
+    }
+  /* DD: Add IPv6 code */
+
+  return 0;
+}
+
+/* Assuming no one calls this with the main routing table */
+int
+zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t distance, int add)
+{
+  struct route_table *table;
+  struct rib *rib;
+  struct route_node *rn;
+
+  if (!is_zebra_valid_kernel_table(table_id) ||
+      ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default)))
+    return (-1);
+
+  if (afi >= AFI_MAX)
+    return (-1);
+
+  table = vrf_other_route_table(afi, table_id, 0);
+  if (table == NULL)
+    {
+      return 0;
+    }
+  else if (IS_ZEBRA_DEBUG_RIB)
+    {
+      zlog_debug ("%s routes from table %d",
+		  add ? "Importing" : "Unimporting", table_id);
+    }
+
+  if (add)
+    {
+      SET_FLAG(zebra_import_table_used[table_id], afi);
+      zebra_import_table_distance[afi][table_id] = distance;
+    }
+  else
+    {
+      UNSET_FLAG(zebra_import_table_used[table_id], (u_char)afi);
+      zebra_import_table_distance[afi][table_id] = ZEBRA_TABLE_DISTANCE_DEFAULT;
+    }
+
+  for (rn = route_top(table); rn; rn = route_next(rn))
+    {
+      /* For each entry in the non-default routing table,
+       * add the entry in the main table
+       */
+      if (!rn->info)
+	continue;
+
+      RNODE_FOREACH_RIB (rn, rib)
+	{
+	  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+	    continue;
+	  break;
+	}
+
+      if (!rib)
+	continue;
+
+      if ((afi == AFI_IP) && (rn->p.family == AF_INET) ||
+	  (afi == AFI_IP6) && (rn->p.family == AF_INET6))
+	{
+	  if (add)
+	    zebra_add_import_table_entry (rn, rib);
+	  else
+	    zebra_del_import_table_entry (rn, rib);
+	}
+    }
+  return 0;
+}
+
+int
+zebra_import_table_config (struct vty *vty)
+{
+  int i;
+  afi_t afi;
+  int write = 0;
+  char afi_str[AFI_MAX][6] = {"", "ip", "ipv6"};
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++)
+	{
+	  if (is_zebra_import_table_enabled(afi, i))
+	    {
+	      if (zebra_import_table_distance[afi][i] != ZEBRA_TABLE_DISTANCE_DEFAULT)
+		{
+		  vty_out(vty, "%s import-table %d distance %d%s", afi_str[afi],
+			  i, zebra_import_table_distance[afi][i], VTY_NEWLINE);
+		}
+	      else
+		{
+		  vty_out(vty, "%s import-table %d%s", afi_str[afi], i,
+			  VTY_NEWLINE);
+		}
+	      write = 1;
+	    }
+	}
+    }
+
+  return write;
 }
