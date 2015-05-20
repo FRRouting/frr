@@ -3330,7 +3330,7 @@ DEFUN (show_ip_ospf_instance_interface,
 static void
 show_ip_ospf_neighbour_header (struct vty *vty)
 {
-  vty_out (vty, "%s%15s %3s %-15s %9s %-15s %-20s %5s %5s %5s%s",
+  vty_out (vty, "%s%-15s %3s %-15s %9s %-15s %-20s %5s %5s %5s%s",
            VTY_NEWLINE,
            "Neighbor ID", "Pri", "State", "Dead Time",
            "Address", "Interface", "RXmtL", "RqstL", "DBsmL",
