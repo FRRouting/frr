@@ -183,7 +183,7 @@ zebra_remove_rnh_client (struct rnh *rnh, struct zserv *client)
 }
 
 int
-zebra_evaluate_rnh_table (int vrfid, int family)
+zebra_evaluate_rnh_table (int vrfid, int family, int force)
 {
   struct route_table *ptable;
   struct route_table *ntable;
@@ -193,6 +193,15 @@ zebra_evaluate_rnh_table (int vrfid, int family)
   struct zserv *client;
   struct listnode *node;
   struct rib *rib;
+  int rmap_family;	       /* Route map has diff AF family enum */
+  route_map_result_t ret = RMAP_MATCH;
+  struct nexthop *nexthop;
+  int state_changed = 0;
+  int at_least_one = 0;
+  char bufn[INET6_ADDRSTRLEN];
+  char bufp[INET6_ADDRSTRLEN];
+
+  rmap_family = (family == AF_INET) ? AFI_IP : AFI_IP6;
 
   ntable = lookup_rnh_table(vrfid, family);
   if (!ntable)
@@ -213,6 +222,7 @@ zebra_evaluate_rnh_table (int vrfid, int family)
       if (!nrn->info)
 	  continue;
 
+      rnh = nrn->info;
       prn = route_node_match(ptable, &nrn->p);
       if (!prn)
 	rib = NULL;
@@ -227,26 +237,71 @@ zebra_evaluate_rnh_table (int vrfid, int family)
 	    }
 	}
 
-      rnh = nrn->info;
+      state_changed = 0;
+
       if (compare_state(rib, rnh->state))
 	{
-	  if (IS_ZEBRA_DEBUG_NHT)
-	    {
-	      char bufn[INET6_ADDRSTRLEN];
-	      char bufp[INET6_ADDRSTRLEN];
-	      prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-	      if (prn)
-		prefix2str(&prn->p, bufp, INET6_ADDRSTRLEN);
-	      else
-		strcpy(bufp, "null");
-	      zlog_debug("rnh %s resolved through route %s - sending "
-			 "nexthop %s event to clients", bufn, bufp,
-			 rib ? "reachable" : "unreachable");
-	    }
 	  copy_state(rnh, rib);
-	  for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
-	    send_client(rnh, client);
+	  state_changed = 1;
 	}
+
+      if (IS_ZEBRA_DEBUG_NHT && (state_changed || force))
+	{
+	  prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
+	  if (prn)
+	    prefix2str(&prn->p, bufp, INET6_ADDRSTRLEN);
+	  else
+	    strcpy(bufp, "null");
+	}
+
+      /* Notify registered clients */
+      if (state_changed || force)
+	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
+	  {
+	    rib = rnh->state;
+	    if (prn && rib)
+	      {
+		at_least_one = 0;
+		for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+		  {
+		    ret = zebra_nht_route_map_check(rmap_family, client->proto,
+						    &prn->p, rib, nexthop);
+		    if (ret == RMAP_DENYMATCH)
+		      {
+			UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		      }
+		    else
+		      {
+			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+			at_least_one++; /* at least one valid NH */
+		      }
+		  }
+		if (at_least_one)
+		  rnh->filtered[client->proto] = 0;
+		else
+		  rnh->filtered[client->proto] = 1;
+
+		if (IS_ZEBRA_DEBUG_NHT && (state_changed || force))
+		  zlog_debug("%srnh %s resolved through route %s - sending "
+			     "nexthop %s event to clients",
+			     at_least_one ? "":"(filtered)", bufn, bufp,
+			     rib ? "reachable" : "unreachable");
+
+		send_client(rnh, client); /* Route-map passed */
+	      }
+	    else if (state_changed)
+	      {
+		if (IS_ZEBRA_DEBUG_NHT && (state_changed || force))
+		  zlog_debug("rnh %s resolved through route %s - sending "
+			     "nexthop %s event to clients", bufn, bufp,
+			     rib ? "reachable" : "unreachable");
+		rnh->filtered[client->proto] = 0;
+		send_client(rnh, client);
+		/* We don't need to send a RNH update on force since no
+		 * update really happened, just a route-map change.
+		 */
+	      }
+	  }
     }
   return 1;
 }
@@ -490,7 +545,8 @@ send_client (struct rnh *rnh, struct zserv *client)
       nump = stream_get_endp(s);
       stream_putc (s, 0);
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) &&
+	    CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	  {
 	    stream_putc (s, nexthop->type);
 	    switch (nexthop->type)
@@ -597,7 +653,7 @@ print_rnh (struct route_node *rn, struct vty *vty)
 
   vty_out(vty, " Client list:");
   for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
-    vty_out(vty, " %s(fd %d)", zebra_route_string(client->proto),
-	    client->sock);
+    vty_out(vty, " %s(fd %d)%s", zebra_route_string(client->proto),
+	    client->sock, rnh->filtered[client->proto] ? "(filtered)" : "");
   vty_out(vty, "%s", VTY_NEWLINE);
 }

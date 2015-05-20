@@ -1456,9 +1456,9 @@ process_subq (struct list * subq, u_char qindex)
 static void
 meta_queue_process_complete (struct work_queue *dummy)
 {
-  zebra_evaluate_rnh_table(0, AF_INET);
+  zebra_evaluate_rnh_table(0, AF_INET, 0);
 #ifdef HAVE_IPV6
-  zebra_evaluate_rnh_table(0, AF_INET6);
+  zebra_evaluate_rnh_table(0, AF_INET6, 0);
 #endif /* HAVE_IPV6 */
 }
 

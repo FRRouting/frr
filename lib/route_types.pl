@@ -89,7 +89,7 @@ printf <<EOF, $ARGV[0];
 #ifndef _QUAGGA_ROUTE_TYPES_H
 #define _QUAGGA_ROUTE_TYPES_H
 
-/* Zebra route's types. */
+/* Zebra route's' types. */
 EOF
 
 push @protos, "ZEBRA_ROUTE_MAX";
@@ -133,7 +133,7 @@ printf "#define SHOW_ROUTE_V6_HEADER \\\n%s\n", codelist(@protosv6);
 print "\n";
 
 sub collect {
-	my ($daemon, $ipv4, $ipv6) = @_;
+	my ($daemon, $ipv4, $ipv6, $any) = @_;
 	my (@names, @help) = ((), ());
 	for my $p (@protos) {
 		next if ($protodetail{$p}->{"daemon"} eq $daemon && $daemon ne "zebra");
@@ -142,6 +142,10 @@ sub collect {
 		push @names, $protodetail{$p}->{"cname"};
 		push @help, "  \"".$protodetail{$p}->{"longhelp"}."\\n\"";
 	}
+	if ($any == 1) {
+		push @names, "any";
+		push @help, "  \"Any of the above protocols\\n\"";
+	}
 	return ("\"(" . join("|", @names) . ")\"", join(" \\\n", @help));
 }
 
@@ -149,18 +153,25 @@ for my $daemon (sort keys %daemons) {
 	next unless ($daemons{$daemon}->{"ipv4"} || $daemons{$daemon}->{"ipv6"});
 	printf "/* %s */\n", $daemon;
 	if ($daemons{$daemon}->{"ipv4"} && $daemons{$daemon}->{"ipv6"}) {
-		my ($names, $help) = collect($daemon, 1, 1);
+		my ($names, $help) = collect($daemon, 1, 1, 0);
 		printf "#define QUAGGA_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define QUAGGA_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
-		($names, $help) = collect($daemon, 1, 0);
+		($names, $help) = collect($daemon, 1, 0, 0);
 		printf "#define QUAGGA_IP_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define QUAGGA_IP_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
-		($names, $help) = collect($daemon, 0, 1);
+		($names, $help) = collect($daemon, 0, 1, 0);
 		printf "#define QUAGGA_IP6_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define QUAGGA_IP6_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
+		($names, $help) = collect($daemon, 0, 1, 1);
+		if ($daemon eq "zebra") {
+			printf "#define QUAGGA_IP_PROTOCOL_MAP_STR_%s \\\n  %s\n", uc $daemon, $names;
+			printf "#define QUAGGA_IP_PROTOCOL_MAP_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
+			printf "#define QUAGGA_IP6_PROTOCOL_MAP_STR_%s \\\n  %s\n", uc $daemon, $names;
+			printf "#define QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
+		}
 	} else {
 		my ($names, $help) = collect($daemon,
-			$daemons{$daemon}->{"ipv4"}, $daemons{$daemon}->{"ipv6"});
+			$daemons{$daemon}->{"ipv4"}, $daemons{$daemon}->{"ipv6"}, 0);
 		printf "#define QUAGGA_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define QUAGGA_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
 	}
