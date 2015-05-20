@@ -174,4 +174,6 @@ extern int ospf_hello_reply_timer (struct thread *);
 extern const struct message ospf_packet_type_str[];
 extern const size_t ospf_packet_type_str_max;
 
+extern void ospf_proactively_arp (struct ospf_neighbor *);
+
 #endif /* _ZEBRA_OSPF_PACKET_H */

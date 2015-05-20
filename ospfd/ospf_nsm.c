@@ -170,6 +170,10 @@ nsm_packet_received (struct ospf_neighbor *nbr)
   if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma)
     OSPF_POLL_TIMER_OFF (nbr->nbr_nbma->t_poll);
 
+  /* Send proactive ARP requests */
+  if (nbr->state < NSM_Exchange)
+      ospf_proactively_arp (nbr);
+
   return 0;
 }
 
@@ -184,13 +188,22 @@ nsm_start (struct ospf_neighbor *nbr)
   OSPF_NSM_TIMER_ON (nbr->t_inactivity, ospf_inactivity_timer,
                      nbr->v_inactivity);
 
+  /* Send proactive ARP requests */
+  ospf_proactively_arp (nbr);
+
   return 0;
 }
 
 static int
 nsm_twoway_received (struct ospf_neighbor *nbr)
 {
-  return (nsm_should_adj (nbr) ? NSM_ExStart : NSM_TwoWay);
+  int adj = nsm_should_adj (nbr);
+
+  /* Send proactive ARP requests */
+  if (adj)
+     ospf_proactively_arp (nbr);
+
+  return (adj ? NSM_ExStart : NSM_TwoWay);
 }
 
 int
@@ -273,6 +286,9 @@ nsm_negotiation_done (struct ospf_neighbor *nbr)
   struct ospf_lsa *lsa;
   struct route_node *rn;
 
+  /* Send proactive ARP requests */
+  ospf_proactively_arp (nbr);
+
   LSDB_LOOP (ROUTER_LSDB (area), rn, lsa)
     ospf_db_summary_add (nbr, lsa);
   LSDB_LOOP (NETWORK_LSDB (area), rn, lsa)
@@ -334,7 +350,12 @@ nsm_adj_ok (struct ospf_neighbor *nbr)
   int adj = nsm_should_adj (nbr);
 
   if (nbr->state == NSM_TwoWay && adj == 1)
-    next_state = NSM_ExStart;
+    {
+      next_state = NSM_ExStart;
+
+      /* Send proactive ARP requests */
+      ospf_proactively_arp (nbr);
+    }
   else if (nbr->state >= NSM_ExStart && adj == 0)
     next_state = NSM_TwoWay;
 

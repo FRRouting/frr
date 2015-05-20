@@ -3960,3 +3960,35 @@ ospf_ls_ack_send_delayed (struct ospf_interface *oi)
   while (listcount (oi->ls_ack))
     ospf_ls_ack_send_list (oi, oi->ls_ack, dst);
 }
+
+/*
+ * On pt-to-pt links, all OSPF control packets are sent to the multicast
+ * address. As a result, the kernel does not need to learn the interface
+ * MAC of the OSPF neighbor. However, in our world, this will delay
+ * convergence. Take the case when due to a link flap, all routes now
+ * want to use an interface which was deemed to be costlier prior to this
+ * event. For routes that will be installed, the missing MAC will have
+ * punt-to-CPU set on them. This may overload the CPU control path that
+ * can be avoided if the MAC was known apriori.
+ */
+#define OSPF_PING_NBR_STR_MAX  (8 + 40 + 20)
+void
+ospf_proactively_arp (struct ospf_neighbor *nbr)
+{
+    char ping_nbr[OSPF_PING_NBR_STR_MAX];
+    char *str_ptr;
+    int  ret;
+
+    if (!nbr || !nbr->oi || !nbr->oi->ifp || !nbr->oi->ifp->name)
+       return;
+
+    str_ptr = strcpy (ping_nbr, "ping -c 1 -I ");
+    str_ptr = strcat (str_ptr, nbr->oi->ifp->name);
+    str_ptr = strcat (str_ptr, " ");
+    str_ptr = strcat (str_ptr, inet_ntoa (nbr->address.u.prefix4));
+    str_ptr = strcat (str_ptr, " > /dev/null 2>&1 &");
+    ret = system (ping_nbr);
+    if (IS_DEBUG_OSPF_EVENT)
+       zlog_debug ("Executed %s %s", ping_nbr,
+                   ((ret == 0) ? "successfully" : "but failed"));
+}
