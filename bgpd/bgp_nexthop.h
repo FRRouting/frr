@@ -63,7 +63,6 @@ extern void bgp_connected_add (struct connected *c);
 extern void bgp_connected_delete (struct connected *c);
 extern int bgp_multiaccess_check_v4 (struct in_addr, struct peer *);
 extern int bgp_config_write_scan_time (struct vty *);
-extern int bgp_nexthop_onlink (afi_t, struct attr *);
 extern int bgp_nexthop_self (struct attr *);
 extern void bgp_address_init (void);
 extern struct bgp_nexthop_cache *bnc_new(void);

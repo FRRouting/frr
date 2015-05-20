@@ -92,45 +92,6 @@ bnc_free (struct bgp_nexthop_cache *bnc)
   XFREE (MTYPE_BGP_NEXTHOP_CACHE, bnc);
 }
 
-/* If nexthop exists on connected network return 1. */
-int
-bgp_nexthop_onlink (afi_t afi, struct attr *attr)
-{
-  struct bgp_node *rn;
-  
-  /* Lookup the address is onlink or not. */
-  if (afi == AFI_IP)
-    {
-      rn = bgp_node_match_ipv4 (bgp_connected_table[AFI_IP], &attr->nexthop);
-      if (rn)
-	{
-	  bgp_unlock_node (rn);
-	  return 1;
-	}
-    }
-#ifdef HAVE_IPV6
-  else if (afi == AFI_IP6)
-    {
-      if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-	return 1;
-      else if (attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
-	{
-	  if (IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_global))
-	    return 1;
-
-	  rn = bgp_node_match_ipv6 (bgp_connected_table[AFI_IP6],
-				      &attr->extra->mp_nexthop_global);
-	  if (rn)
-	    {
-	      bgp_unlock_node (rn);
-	      return 1;
-	    }
-	}
-    }
-#endif /* HAVE_IPV6 */
-  return 0;
-}
-
 /* Reset and free all BGP nexthop cache. */
 static void
 bgp_nexthop_cache_reset (struct bgp_table *table)
@@ -241,17 +202,8 @@ bgp_connected_add (struct connected *ifc)
 {
   struct prefix p;
   struct prefix *addr;
-  struct interface *ifp;
   struct bgp_node *rn;
   struct bgp_connected_ref *bc;
-
-  ifp = ifc->ifp;
-
-  if (! ifp)
-    return;
-
-  if (if_is_loopback (ifp))
-    return;
 
   addr = ifc->address;
 
@@ -311,14 +263,8 @@ bgp_connected_delete (struct connected *ifc)
 {
   struct prefix p;
   struct prefix *addr;
-  struct interface *ifp;
   struct bgp_node *rn;
   struct bgp_connected_ref *bc;
-
-  ifp = ifc->ifp;
-
-  if (if_is_loopback (ifp))
-    return;
 
   addr = ifc->address;
 

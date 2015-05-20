@@ -2711,13 +2711,19 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   /* IPv4 unicast next hop check.  */
   if (afi == AFI_IP && safi == SAFI_UNICAST)
     {
-      /* Next hop must not be 0.0.0.0 nor Class D/E address. Next hop
-	 must not be my own address.  */
+      /* Next hop must not be 0.0.0.0 nor Class D/E address. */
       if (new_attr.nexthop.s_addr == 0
-	  || IPV4_CLASS_DE (ntohl (new_attr.nexthop.s_addr))
-	  || bgp_nexthop_self (&new_attr))
+	  || IPV4_CLASS_DE (ntohl (new_attr.nexthop.s_addr)))
 	{
 	  reason = "martian next-hop;";
+	  bgp_attr_flush (&new_attr);
+	  goto filtered;
+	}
+
+      /* Next hop must not be my own address.  */
+      if (bgp_nexthop_self (&new_attr))
+	{
+	  reason = "local IP next-hop;";
 	  bgp_attr_flush (&new_attr);
 	  goto filtered;
 	}
