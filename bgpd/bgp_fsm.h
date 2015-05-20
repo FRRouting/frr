@@ -75,6 +75,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 /* Prototypes. */
 extern int bgp_event (struct thread *);
+extern int bgp_event_update (struct peer *, int event);
 extern int bgp_stop (struct peer *peer);
 extern void bgp_timer_set (struct peer *);
 extern void bgp_fsm_change_status (struct peer *peer, int status);

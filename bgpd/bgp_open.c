@@ -816,7 +816,6 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
 		    peer->host);
 
 	  if (error != error_data)
-
 	    bgp_notify_send_with_data (peer, 
 				       BGP_NOTIFY_OPEN_ERR, 
 				       BGP_NOTIFY_OPEN_UNSUP_CAPBL, 

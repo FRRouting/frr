@@ -347,6 +347,9 @@ struct peer
    */
   struct stream *scratch;
 
+  /* the doppelganger peer structure, due to dual TCP conn setup */
+  struct peer *doppelganger;
+
   /* Status of the peer. */
   int status;
   int ostatus;
@@ -419,6 +422,8 @@ struct peer
 #define PEER_FLAG_DISABLE_CONNECTED_CHECK   (1 << 6) /* disable-connected-check */
 #define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1 << 7) /* local-as no-prepend */
 #define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1 << 8) /* local-as no-prepend replace-as */
+#define PEER_FLAG_DELETE		    (1 << 9) /* mark the peer for deleting */
+#define PEER_FLAG_CONFIG_NODE		    (1 << 10) /* the node to update configs on */
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
@@ -878,14 +883,15 @@ extern struct bgp *bgp_lookup_by_name (const char *);
 extern struct peer *peer_lookup (struct bgp *, union sockunion *);
 extern struct peer_group *peer_group_lookup (struct bgp *, const char *);
 extern struct peer_group *peer_group_get (struct bgp *, const char *);
-extern struct peer *peer_lookup_with_open (union sockunion *, as_t, struct in_addr *,
-				    int *);
 extern struct peer *peer_lock (struct peer *);
 extern struct peer *peer_unlock (struct peer *);
 extern bgp_peer_sort_t peer_sort (struct peer *peer);
 extern int peer_active (struct peer *);
 extern int peer_active_nego (struct peer *);
+extern struct peer *peer_create(union sockunion *su, struct bgp *bgp, as_t local_as,
+			        as_t remote_as, afi_t afi, safi_t safi);
 extern struct peer *peer_create_accept (struct bgp *);
+extern void peer_xfer_config (struct peer *dst, struct peer *src);
 extern char *peer_uptime (time_t, char *, size_t);
 extern int bgp_config_write (struct vty *);
 extern void bgp_config_write_family_header (struct vty *, afi_t, safi_t, int *);
@@ -1011,7 +1017,7 @@ extern int peer_unsuppress_map_unset (struct peer *, afi_t, safi_t);
 extern int peer_maximum_prefix_set (struct peer *, afi_t, safi_t, u_int32_t, u_char, int, u_int16_t);
 extern int peer_maximum_prefix_unset (struct peer *, afi_t, safi_t);
 
-extern int peer_clear (struct peer *);
+extern int peer_clear (struct peer *, struct listnode **);
 extern int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
 
 extern int peer_ttl_security_hops_set (struct peer *, int);

@@ -33,6 +33,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "network.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_open.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
@@ -149,7 +150,7 @@ static void
 bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 {
   char buf[INET_ADDRSTRLEN];
-  int ret;
+  int ret = 0;
 
   /* In case of peer is EBGP, we should set TTL for this connection.  */
   if (!peer->gtsm_hops && (peer_sort (peer) == BGP_PEER_EBGP))
@@ -223,48 +224,89 @@ bgp_accept (struct thread *thread)
 
   if (BGP_DEBUG (events, EVENTS))
     zlog_debug ("[Event] BGP connection from host %s", inet_sutop (&su, buf));
-  
+
   /* Check remote IP address */
   peer1 = peer_lookup (NULL, &su);
-  if (! peer1 || peer1->status == Idle)
+  if (! peer1)
     {
       if (BGP_DEBUG (events, EVENTS))
 	{
-	  if (! peer1)
-	    zlog_debug ("[Event] BGP connection IP address %s is not configured",
-		       inet_sutop (&su, buf));
-	  else
-	    zlog_debug ("[Event] BGP connection IP address %s is Idle state",
-		       inet_sutop (&su, buf));
+	  zlog_debug ("[Event] BGP connection IP address %s is not configured",
+		      inet_sutop (&su, buf));
 	}
       close (bgp_sock);
       return -1;
     }
 
+  if (CHECK_FLAG(peer1->flags, PEER_FLAG_SHUTDOWN))
+    {
+      zlog_debug ("[Event] connection from %s rejected due to admin shutdown",
+		  inet_sutop (&su, buf));
+      close (bgp_sock);
+      return -1;
+    }
+
+  /*
+   * Do not accept incoming connections in Clearing state. This can result
+   * in incorect state transitions - e.g., the connection goes back to
+   * Established and then the Clearing_Completed event is generated. Also,
+   * block incoming connection in Deleted state.
+   */
+  if (peer1->status == Clearing || peer1->status == Deleted)
+    {
+      struct bgp *bgp = peer1->bgp;
+
+      if (BGP_DEBUG (events, EVENTS))
+        zlog_debug("[Event] Closing incoming conn for %s (0x%x) state %d",
+                   peer1->host, peer1, peer1->status);
+      close (bgp_sock);
+      return -1;
+    }
+
+  if (peer1->doppelganger)
+    {
+      /* We have an existing connection. Kill the existing one and run
+	 with this one.
+      */
+      if (BGP_DEBUG (events, EVENTS))
+	zlog_debug ("[Event] New active connection from peer %s, Killing"
+		    " previous active connection", peer1->host);
+      peer_delete(peer1->doppelganger);
+    }
+
   bgp_set_socket_ttl (peer1, bgp_sock);
 
+  peer = peer_create (&su, peer1->bgp, peer1->local_as,
+		      peer1->as, 0, 0);
+
+  peer_xfer_config(peer, peer1);
+  UNSET_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE);
+
+  peer->doppelganger = peer1;
+  peer1->doppelganger = peer;
+  peer->fd = bgp_sock;
+  bgp_fsm_change_status(peer, Active);
+  BGP_TIMER_OFF(peer->t_start);	/* created in peer_create() */
+
+  SET_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER);
+
   /* Make dummy peer until read Open packet. */
-  if (BGP_DEBUG (events, EVENTS))
-    zlog_debug ("[Event] Make dummy peer structure until read Open packet");
+  if (peer1->status == Established &&
+      CHECK_FLAG (peer1->sflags, PEER_STATUS_NSF_MODE))
+    {
+      /* If we have an existing established connection with graceful restart
+       * capability announced with one or more address families, then drop
+       * existing established connection and move state to connect.
+       */
+      peer1->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+      SET_FLAG (peer1->sflags, PEER_STATUS_NSF_WAIT);
+      bgp_event_update(peer1, TCP_connection_closed);
+    }
 
-  {
-    char buf[SU_ADDRSTRLEN];
-
-    peer = peer_create_accept (peer1->bgp);
-    SET_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER);
-    peer->su = su;
-    peer->fd = bgp_sock;
-    peer->status = Active;
-    peer->local_id = peer1->local_id;
-    peer->v_holdtime = peer1->v_holdtime;
-    peer->v_keepalive = peer1->v_keepalive;
-
-    /* Make peer's address string. */
-    sockunion2str (&su, buf, SU_ADDRSTRLEN);
-    peer->host = XSTRDUP (MTYPE_BGP_PEER_HOST, buf);
-  }
-
-  BGP_EVENT_ADD (peer, TCP_connection_open);
+  if (peer_active (peer))
+    {
+      BGP_EVENT_ADD (peer, TCP_connection_open);
+    }
 
   return 0;
 }
@@ -415,7 +457,7 @@ bgp_connect (struct peer *peer)
 }
 
 /* After TCP connection is established.  Get local address and port. */
-void
+int
 bgp_getsockname (struct peer *peer)
 {
   if (peer->su_local)
@@ -431,9 +473,13 @@ bgp_getsockname (struct peer *peer)
     }
 
   peer->su_local = sockunion_getsockname (peer->fd);
+  if (!peer->su_local) return -1;
   peer->su_remote = sockunion_getpeername (peer->fd);
+  if (!peer->su_remote) return -1;
 
   bgp_nexthop_set (peer->su_local, peer->su_remote, &peer->nexthop, peer);
+
+  return 0;
 }
 
 
@@ -595,6 +641,9 @@ bgp_close (void)
 {
   struct listnode *node, *next;
   struct bgp_listener *listener;
+
+  if (bm->listen_sockets == NULL)
+    return;
 
   for (ALL_LIST_ELEMENTS (bm->listen_sockets, node, next, listener))
     {

@@ -1786,7 +1786,7 @@ bgp_maximum_prefix_restart_timer (struct thread *thread)
     zlog_debug ("%s Maximum-prefix restart timer expired, restore peering",
 		peer->host);
 
-  peer_clear (peer);
+  peer_clear (peer, NULL);
 
   return 0;
 }

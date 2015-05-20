@@ -842,6 +842,8 @@ bgp_write_notify (struct peer *peer)
   if (peer->v_start >= (60 * 2))
     peer->v_start = (60 * 2);
 
+  /* Handle Graceful Restart case where the state changes to
+     Connect instead of Idle */
   BGP_EVENT_ADD (peer, BGP_Stop);
 
   return 0;
@@ -1020,8 +1022,8 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
       }
     }
   else
-     zlog_info ("Notification sent to neighbor %s: configuration change",
-                peer->host);
+     zlog_info ("Notification sent to neighbor %s:%d: configuration change",
+                peer->host, peer->fd);
 
   /* Call immediately. */
   BGP_WRITE_OFF (peer->t_write);
@@ -1189,13 +1191,7 @@ static int
 bgp_collision_detect (struct peer *new, struct in_addr remote_id)
 {
   struct peer *peer;
-  struct listnode *node, *nnode;
-  struct bgp *bgp;
 
-  bgp = bgp_get_default ();
-  if (! bgp)
-    return 0;
-  
   /* Upon receipt of an OPEN message, the local system must examine
      all of its connections that are in the OpenConfirm state.  A BGP
      speaker may also examine connections in an OpenSent state if it
@@ -1205,31 +1201,42 @@ bgp_collision_detect (struct peer *new, struct in_addr remote_id)
      OPEN message, then the local system performs the following
      collision resolution procedure: */
 
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+  if ((peer = new->doppelganger) != NULL)
     {
-      /* Under OpenConfirm status, local peer structure already hold
-         remote router ID. */
-
-      if (peer != new
-	  && (peer->status == OpenConfirm || peer->status == OpenSent)
-	  && sockunion_same (&peer->su, &new->su))
+      /* Do not accept the new connection in Established or Clearing states.
+       * Note that a peer GR is handled by closing the existing connection
+       * upon receipt of new one.
+       */
+      if (peer->status == Established || peer->status == Clearing)
+        {
+          bgp_notify_send (new, BGP_NOTIFY_CEASE,
+                           BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+          return (-1);
+        }
+      else if ((peer->status == OpenConfirm) || (peer->status == OpenSent))
 	{
 	  /* 1. The BGP Identifier of the local system is compared to
 	     the BGP Identifier of the remote system (as specified in
 	     the OPEN message). */
 
 	  if (ntohl (peer->local_id.s_addr) < ntohl (remote_id.s_addr))
-	    {
-	      /* 2. If the value of the local BGP Identifier is less
-		 than the remote one, the local system closes BGP
-		 connection that already exists (the one that is
-		 already in the OpenConfirm state), and accepts BGP
-		 connection initiated by the remote system. */
-
-	      if (peer->fd >= 0)
-		bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
-	      return 1;
-	    }
+	    if (!CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
+	      {
+		/* 2. If the value of the local BGP Identifier is less
+		   than the remote one, the local system closes BGP
+		   connection that already exists (the one that is
+		   already in the OpenConfirm state), and accepts BGP
+		   connection initiated by the remote system. */
+		bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+				 BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+		return 1;
+	      }
+	    else
+	      {
+		bgp_notify_send (new, BGP_NOTIFY_CEASE,
+			         BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+		return -1;
+	      }
 	  else
 	    {
 	      /* 3. Otherwise, the local system closes newly created
@@ -1237,11 +1244,18 @@ bgp_collision_detect (struct peer *new, struct in_addr remote_id)
 		 received OPEN message), and continues to use the
 		 existing one (the one that is already in the
 		 OpenConfirm state). */
-
-	      if (new->fd >= 0)
-		bgp_notify_send (new, BGP_NOTIFY_CEASE, 
-			         BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
-	      return -1;
+	      if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
+		{
+		  bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+				   BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+		  return 1;
+		}
+	      else
+		{
+		  bgp_notify_send (new, BGP_NOTIFY_CEASE,
+				   BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+		  return -1;
+		}
 	    }
 	}
     }
@@ -1258,14 +1272,12 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   u_int16_t send_holdtime;
   as_t remote_as;
   as_t as4 = 0;
-  struct peer *realpeer;
+  struct peer *active_peer = NULL;
   struct in_addr remote_id;
   int mp_capability;
   u_int8_t notify_data_remote_as[2];
   u_int8_t notify_data_remote_id[4];
 
-  realpeer = NULL;
-  
   /* Parse open packet. */
   version = stream_getc (peer->ibuf);
   memcpy (notify_data_remote_as, stream_pnt (peer->ibuf), 2);
@@ -1314,8 +1326,8 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
         {
           zlog_err ("%s [AS4] NEW speaker using AS_TRANS for AS4, not allowed",
                     peer->host);
-          bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
-                 BGP_NOTIFY_OPEN_BAD_PEER_AS);
+	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
+			   BGP_NOTIFY_OPEN_BAD_PEER_AS);
           return -1;
         }
       
@@ -1343,148 +1355,6 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
 			   BGP_NOTIFY_OPEN_BAD_PEER_AS);
 	  return -1;
 	}
-    }
-
-  /* Lookup peer from Open packet. */
-  if (CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-    {
-      int as = 0;
-
-      realpeer = peer_lookup_with_open (&peer->su, remote_as, &remote_id, &as);
-
-      if (! realpeer)
-	{
-	  /* Peer's source IP address is check in bgp_accept(), so this
-	     must be AS number mismatch or remote-id configuration
-	     mismatch. */
-	  if (as)
-	    {
-	      if (BGP_DEBUG (normal, NORMAL))
-		zlog_debug ("%s bad OPEN, wrong router identifier %s",
-			    peer->host, inet_ntoa (remote_id));
-	      bgp_notify_send_with_data (peer, BGP_NOTIFY_OPEN_ERR, 
-					 BGP_NOTIFY_OPEN_BAD_BGP_IDENT,
-					 notify_data_remote_id, 4);
-	    }
-	  else
-	    {
-	      if (BGP_DEBUG (normal, NORMAL))
-		zlog_debug ("%s bad OPEN, remote AS is %u, expected %u",
-			    peer->host, remote_as, peer->as);
-	      bgp_notify_send_with_data (peer, BGP_NOTIFY_OPEN_ERR,
-					 BGP_NOTIFY_OPEN_BAD_PEER_AS,
-					 notify_data_remote_as, 2);
-	    }
-	  return -1;
-	}
-    }
-
-  /* When collision is detected and this peer is closed.  Retrun
-     immidiately. */
-  ret = bgp_collision_detect (peer, remote_id);
-  if (ret < 0)
-    return ret;
-
-  /* Hack part. */
-  if (CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-    {
-	if (realpeer->status == Established
-	    && CHECK_FLAG (realpeer->sflags, PEER_STATUS_NSF_MODE))
-	{
-	  realpeer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
-	  SET_FLAG (realpeer->sflags, PEER_STATUS_NSF_WAIT);
-	}
-	else if (ret == 0 && realpeer->status != Active
-	         && realpeer->status != OpenSent
-		 && realpeer->status != OpenConfirm
-		 && realpeer->status != Connect)
- 	{
- 	  /* XXX: This is an awful problem.. 
- 	   *
- 	   * According to the RFC we should just let this connection (of the
- 	   * accepted 'peer') continue on to Established if the other
- 	   * connection (the 'realpeer' one) is in state Connect, and deal
- 	   * with the more larval FSM as/when it gets far enough to receive
- 	   * an Open. We don't do that though, we instead close the (more
- 	   * developed) accepted connection.
- 	   *
- 	   * This means there's a race, which if hit, can loop:
- 	   *
- 	   *       FSM for A                        FSM for B
- 	   *  realpeer     accept-peer       realpeer     accept-peer
- 	   *
- 	   *  Connect                        Connect
- 	   *               Active
- 	   *               OpenSent          OpenSent
- 	   *               <arrive here,
- 	   *               Notify, delete>   
- 	   *                                 Idle         Active
- 	   *   OpenSent                                   OpenSent
- 	   *                                              <arrive here,
- 	   *                                              Notify, delete>
- 	   *   Idle
- 	   *   <wait>                        <wait>
- 	   *   Connect                       Connect
- 	   *
-           *
- 	   * If both sides are Quagga, they're almost certain to wait for
- 	   * the same amount of time of course (which doesn't preclude other
- 	   * implementations also waiting for same time). The race is
- 	   * exacerbated by high-latency (in bgpd and/or the network).
- 	   *
- 	   * The reason we do this is because our FSM is tied to our peer
- 	   * structure, which carries our configuration information, etc. 
- 	   * I.e. we can't let the accepted-peer FSM continue on as it is,
- 	   * cause it's not associated with any actual peer configuration -
- 	   * it's just a dummy.
- 	   *
- 	   * It's possible we could hack-fix this by just bgp_stop'ing the
- 	   * realpeer and continueing on with the 'transfer FSM' below. 
- 	   * Ideally, we need to seperate FSMs from struct peer.
- 	   *
- 	   * Setting one side to passive avoids the race, as a workaround.
- 	   */
- 	  if (BGP_DEBUG (events, EVENTS))
-	    zlog_debug ("%s peer status is %s close connection",
-			realpeer->host, LOOKUP (bgp_status_msg,
-			realpeer->status));
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE,
-			   BGP_NOTIFY_CEASE_CONNECT_REJECT);
-
- 	  return -1;
- 	}
-
-      if (BGP_DEBUG (events, EVENTS))
-	zlog_debug ("%s [Event] Transfer accept BGP peer to real (state %s)",
-		   peer->host, 
-		   LOOKUP (bgp_status_msg, realpeer->status));
-
-      bgp_stop (realpeer);
-      
-      /* Transfer file descriptor. */
-      realpeer->fd = peer->fd;
-      peer->fd = -1;
-
-      /* Transfer input buffer. */
-      stream_free (realpeer->ibuf);
-      realpeer->ibuf = peer->ibuf;
-      realpeer->packet_size = peer->packet_size;
-      peer->ibuf = NULL;
-
-      /* Transfer status. */
-      realpeer->status = peer->status;
-      bgp_stop (peer);
-      
-      /* peer pointer change. Open packet send to neighbor. */
-      peer = realpeer;
-      bgp_open_send (peer);
-      if (peer->fd < 0)
-	{
-	  zlog_err ("bgp_open_receive peer's fd is negative value %d",
-		    peer->fd);
-	  return -1;
-	}
-      BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
     }
 
   /* remote router-id check. */
@@ -1598,10 +1468,27 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
       peer->afc_nego[AFI_IP6][SAFI_MULTICAST] = peer->afc[AFI_IP6][SAFI_MULTICAST];
     }
 
-  /* Get sockname. */
-  bgp_getsockname (peer);
+  /* When collision is detected and this peer is closed.  Retrun
+     immidiately. */
+  ret = bgp_collision_detect (peer, remote_id);
+  if (ret < 0)
+    return ret;
 
-  BGP_EVENT_ADD (peer, Receive_OPEN_message);
+  /* Get sockname. */
+  if ((ret = bgp_getsockname (peer)) < 0)
+    {
+      zlog_err("%s: bgp_getsockname() failed for peer: %s", __FUNCTION__,
+	       peer->host);
+      return (ret);
+    }
+
+  if ((ret = bgp_event_update(peer, Receive_OPEN_message)) < 0)
+    {
+      zlog_err("%s: BGP event update failed for peer: %s", __FUNCTION__,
+	       peer->host);
+      /* DD: bgp send notify and reset state */
+      return (ret);
+    }
 
   peer->packet_size = 0;
   if (peer->ibuf)
@@ -1633,7 +1520,8 @@ bgp_check_update_delay(struct bgp *bgp)
           (bgp->v_establish_wait == bgp->v_update_delay))
         for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
           {
-            if (!CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN)
+            if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
+                && !CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN)
                 && !peer->update_delay_over)
               {
                 if (BGP_DEBUG (normal, NORMAL))
@@ -2787,11 +2675,5 @@ bgp_read (struct thread *thread)
     stream_reset (peer->ibuf);
 
  done:
-  if (CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-    {
-      if (BGP_DEBUG (events, EVENTS))
-	zlog_debug ("%s [Event] Accepting BGP peer delete", peer->host);
-      peer_delete (peer);
-    }
   return 0;
 }
