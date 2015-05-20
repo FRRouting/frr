@@ -2628,6 +2628,8 @@ bgp_delete (struct bgp *bgp)
   afi_t afi;
   int i;
 
+  THREAD_OFF (bgp->t_startup);
+
   for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
     {
       if (peer->status == Established ||
