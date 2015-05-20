@@ -196,6 +196,8 @@ struct bgp
     u_int16_t ibgp_flags;
 #define BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN (1 << 0)
   } maxpaths[AFI_MAX][SAFI_MAX];
+
+  u_int32_t wpkt_quanta;  /* per peer packet quanta to write */
 };
 
 /* BGP peer-group support. */
@@ -535,6 +537,7 @@ struct peer
   /* Syncronization list and time.  */
   struct bgp_synchronize *sync[AFI_MAX][SAFI_MAX];
   time_t synctime;
+  time_t last_write;  /* timestamp when the last UPDATE msg was written */
 
   /* Send prefix count. */
   unsigned long scount[AFI_MAX][SAFI_MAX];

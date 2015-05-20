@@ -616,7 +616,7 @@ bgp_write_packet (struct peer *peer)
 	adv = FIFO_HEAD (&peer->sync[afi][safi]->update);
 	if (adv)
 	  {
-            if (adv->binfo && adv->binfo->uptime < peer->synctime)
+            if (adv->binfo && adv->binfo->uptime <= peer->synctime)
 	      {
 		if (CHECK_FLAG (adv->binfo->peer->cap, PEER_CAP_RESTART_RCV)
 		    && CHECK_FLAG (adv->binfo->peer->cap, PEER_CAP_RESTART_ADV)
@@ -689,6 +689,7 @@ bgp_write (struct thread *thread)
   struct stream *s; 
   int num;
   unsigned int count = 0;
+  int oc = 0;
 
   /* Yes first of all get peer pointer. */
   peer = THREAD_ARG (thread);
@@ -706,6 +707,8 @@ bgp_write (struct thread *thread)
     return 0;	/* nothing to send */
 
   sockopt_cork (peer->fd, 1);
+
+  oc = peer->update_out;
 
   /* Nonblocking write until TCP output buffer is full.  */
   do
@@ -774,13 +777,17 @@ bgp_write (struct thread *thread)
       /* OK we send packet so delete it. */
       bgp_packet_delete (peer);
     }
-  while (++count < BGP_WRITE_PACKET_MAX &&
+  while (++count < peer->bgp->wpkt_quanta &&
 	 (s = bgp_write_packet (peer)) != NULL);
-  
+
   if (bgp_write_proceed (peer))
     BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 
  done:
+  /* Update the last write if some updates were written. */
+  if (peer->update_out > oc)
+    peer->last_write = bgp_clock ();
+
   sockopt_cork (peer->fd, 0);
   return 0;
 }

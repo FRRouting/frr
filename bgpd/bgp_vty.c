@@ -49,6 +49,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_packet.h"
 
 extern struct in_addr router_id_zebra;
 
@@ -795,6 +796,54 @@ ALIAS (no_bgp_update_delay,
        "Seconds\n"
        "Wait for peers to be established\n"
        "Seconds\n")
+
+int
+bgp_wpkt_quanta_config_vty (struct vty *vty, char *num, char set)
+{
+  struct bgp *bgp;
+  u_int16_t update_delay;
+
+  bgp = vty->index;
+
+  if (set)
+    VTY_GET_INTEGER_RANGE ("write-quanta", bgp->wpkt_quanta, num,
+			   1, 4294967295);
+  else
+    bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
+
+  return CMD_SUCCESS;
+}
+
+int
+bgp_config_write_wpkt_quanta (struct vty *vty, struct bgp *bgp)
+{
+  if (bgp->wpkt_quanta != BGP_WRITE_PACKET_MAX)
+      vty_out (vty, " write-quanta %d%s",
+               bgp->wpkt_quanta, VTY_NEWLINE);
+
+  return 0;
+}
+
+
+/* Update-delay configuration */
+DEFUN (bgp_wpkt_quanta,
+       bgp_wpkt_quanta_cmd,
+       "write-quanta <1-4294967295>",
+       "How many packets to write to peer socket per run\n"
+       "Number of packets\n")
+{
+  return bgp_wpkt_quanta_config_vty(vty, argv[0], 1);
+}
+
+/* Update-delay deconfiguration */
+DEFUN (no_bgp_wpkt_quanta,
+       no_bgp_wpkt_quanta_cmd,
+       "no write-quanta <1-4294967295>",
+       "How many packets to write to peer socket per run\n"
+       "Number of packets\n")
+{
+  return bgp_wpkt_quanta_config_vty(vty, argv[0], 0);
+}
 
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
@@ -7835,9 +7884,11 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   
   /* read timer */
   vty_out (vty, "  Last read %s", peer_uptime (p->readtime, timebuf, BGP_UPTIME_LEN));
+  vty_out (vty, ", Last write %s%s",
+	   peer_uptime (p->last_write, timebuf, BGP_UPTIME_LEN), VTY_NEWLINE);
 
   /* Configured timer values. */
-  vty_out (vty, ", hold time is %d, keepalive interval is %d seconds%s",
+  vty_out (vty, "  Hold time is %d, keepalive interval is %d seconds%s",
 	   p->v_holdtime, p->v_keepalive, VTY_NEWLINE);
   if (CHECK_FLAG (p->config, PEER_CONFIG_TIMER))
     {
@@ -8133,8 +8184,12 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   if (p->t_connect)
     vty_out (vty, "Next connect timer due in %ld seconds%s",
 	     thread_timer_remain_second (p->t_connect), VTY_NEWLINE);
-  
-  vty_out (vty, "Read thread: %s  Write thread: %s%s", 
+  if (p->t_routeadv)
+    vty_out (vty, "MRAI (interval %ld) timer expires in %ld seconds%s",
+	     p->v_routeadv, thread_timer_remain_second (p->t_routeadv),
+	     VTY_NEWLINE);
+
+  vty_out (vty, "Read thread: %s  Write thread: %s%s",
 	   p->t_read ? "on" : "off",
 	   p->t_write ? "on" : "off",
 	   VTY_NEWLINE);
@@ -9382,6 +9437,9 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &no_bgp_update_delay_cmd);
   install_element (BGP_NODE, &bgp_update_delay_establish_wait_cmd);
   install_element (BGP_NODE, &no_bgp_update_delay_establish_wait_cmd);
+
+  install_element (BGP_NODE, &bgp_wpkt_quanta_cmd);
+  install_element (BGP_NODE, &no_bgp_wpkt_quanta_cmd);
 
   /* "maximum-paths" commands. */
   install_element (BGP_NODE, &bgp_maxpaths_cmd);

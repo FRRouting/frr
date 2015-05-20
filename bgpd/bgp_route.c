@@ -1521,8 +1521,17 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
   struct bgp_info *old_select;
   struct bgp_info_pair old_and_new;
   struct listnode *node, *nnode;
-  struct peer *rsclient = bgp_node_table (rn)->owner;
-  
+  struct peer *rsclient;
+
+  /* Is it end of initial update? (after startup) */
+  if (!rn)
+    {
+      bgp_start_routeadv(bgp);
+      return WQ_SUCCESS;
+    }
+
+  rsclient = bgp_node_table (rn)->owner;
+
   /* Best path selection. */
   bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
   new_select = old_and_new.new;
@@ -1585,7 +1594,14 @@ bgp_process_main (struct work_queue *wq, void *data)
   struct bgp_info_pair old_and_new;
   struct listnode *node, *nnode;
   struct peer *peer;
-  
+
+  /* Is it end of initial update? (after startup) */
+  if (!rn)
+    {
+      bgp_start_routeadv(bgp);
+      return WQ_SUCCESS;
+    }
+
   /* Best path selection. */
   bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
   old_select = old_and_new.old;
@@ -1652,11 +1668,15 @@ static void
 bgp_processq_del (struct work_queue *wq, void *data)
 {
   struct bgp_process_queue *pq = data;
-  struct bgp_table *table = bgp_node_table (pq->rn);
-  
+  struct bgp_table *table;
+
   bgp_unlock (pq->bgp);
-  bgp_unlock_node (pq->rn);
-  bgp_table_unlock (table);
+  if (pq->rn)
+    {
+      table = bgp_node_table (pq->rn);
+      bgp_unlock_node (pq->rn);
+      bgp_table_unlock (table);
+    }
   XFREE (MTYPE_BGP_PROCESS_QUEUE, pq);
 }
 
@@ -1721,6 +1741,36 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
     }
   
   SET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+  return;
+}
+
+void
+bgp_add_eoiu_mark (struct bgp *bgp, bgp_table_t type)
+{
+  struct bgp_process_queue *pqnode;
+
+  if ( (bm->process_main_queue == NULL) ||
+       (bm->process_rsclient_queue == NULL) )
+    bgp_process_queue_init ();
+
+  pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE,
+                    sizeof (struct bgp_process_queue));
+  if (!pqnode)
+    return;
+
+  pqnode->rn = NULL;
+  pqnode->bgp = bgp;
+  bgp_lock (bgp);
+  switch (type)
+    {
+      case BGP_TABLE_MAIN:
+        work_queue_add (bm->process_main_queue, pqnode);
+        break;
+      case BGP_TABLE_RSCLIENT:
+        work_queue_add (bm->process_rsclient_queue, pqnode);
+        break;
+    }
+
   return;
 }
 

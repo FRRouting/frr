@@ -71,6 +71,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
     thread_cancel_event (master, (P)); 		\
   } while (0)
 
+#define BGP_MSEC_JITTER 10
+
 /* Prototypes. */
 extern int bgp_event (struct thread *);
 extern int bgp_stop (struct peer *peer);
@@ -78,5 +80,21 @@ extern void bgp_timer_set (struct peer *);
 extern void bgp_fsm_change_status (struct peer *peer, int status);
 extern const char *peer_down_str[];
 extern void bgp_update_delay_end (struct bgp *);
+
+/**
+ * Start the route advertisement timer (that honors MRAI) for all the
+ * peers. Typically called at the end of initial convergence, coming
+ * out of read-only mode.
+ */
+extern void bgp_start_routeadv (struct bgp *);
+
+/**
+ * See if the route advertisement timer needs to be adjusted for a
+ * peer. For example, if the last update was written to the peer a
+ * long while back, we don't need to wait for the periodic advertisement
+ * timer to expire to send the new set of prefixes. It should fire
+ * instantly and updates should go out sooner.
+ */
+extern void bgp_adjust_routeadv (struct peer *);
 
 #endif /* _QUAGGA_BGP_FSM_H */

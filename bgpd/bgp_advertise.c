@@ -267,6 +267,9 @@ bgp_adj_out_set (struct bgp_node *rn, struct peer *peer, struct prefix *p,
   /* Add new advertisement to advertisement attribute list. */
   bgp_advertise_add (adv->baa, adv);
 
+  if (FIFO_EMPTY(&peer->sync[afi][safi]->update))
+    bgp_adjust_routeadv(peer);
+
   BGP_ADV_FIFO_ADD (&peer->sync[afi][safi]->update, &adv->fifo);
 }
 

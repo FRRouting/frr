@@ -295,6 +295,22 @@ bgp_keepalive_timer (struct thread *thread)
 }
 
 static int
+bgp_routeq_empty (struct peer *peer)
+{
+  afi_t afi;
+  safi_t safi;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      {
+        if (!FIFO_EMPTY(&peer->sync[afi][safi]->withdraw) ||
+            !FIFO_EMPTY(&peer->sync[afi][safi]->update))
+          return 0;
+      }
+  return 1;
+}
+
+static int
 bgp_routeadv_timer (struct thread *thread)
 {
   struct peer *peer;
@@ -311,8 +327,14 @@ bgp_routeadv_timer (struct thread *thread)
 
   BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 
-  BGP_TIMER_ON (peer->t_routeadv, bgp_routeadv_timer,
-		peer->v_routeadv);
+  /*
+   * If there is no UPDATE to send, don't start the timer. We will start
+   * it when the queues go non-empty.
+   */
+  if (bgp_routeq_empty(peer))
+    return 0;
+
+  BGP_TIMER_ON (peer->t_routeadv, bgp_routeadv_timer, peer->v_routeadv);
 
   return 0;
 }
@@ -448,6 +470,13 @@ bgp_update_delay_end (struct bgp *bgp)
   quagga_timestamp(3, bgp->update_delay_end_time,
                    sizeof(bgp->update_delay_end_time));
 
+  /*
+   * Add an end-of-initial-update marker to the main process queues so that
+   * the route advertisement timer for the peers can be started.
+   */
+  bgp_add_eoiu_mark(bgp, BGP_TABLE_MAIN);
+  bgp_add_eoiu_mark(bgp, BGP_TABLE_RSCLIENT);
+
   /* Route announcements were postponed for all the peers during read-only mode,
      send those now. */
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
@@ -457,6 +486,92 @@ bgp_update_delay_end (struct bgp *bgp)
      care of processing any work that was queued during the read-only mode. */
   work_queue_unplug(bm->process_main_queue);
   work_queue_unplug(bm->process_rsclient_queue);
+}
+
+/**
+ * see bgp_fsm.h
+ */
+void
+bgp_start_routeadv (struct bgp *bgp)
+{
+  struct listnode *node, *nnode;
+  struct peer *peer;
+
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+    {
+      if (peer->status != Established)
+	continue;
+      BGP_TIMER_OFF(peer->t_routeadv);
+      BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
+    }
+}
+
+/**
+ * see bgp_fsm.h
+ */
+void
+bgp_adjust_routeadv (struct peer *peer)
+{
+  time_t nowtime = bgp_clock();
+  double diff;
+  unsigned long remain;
+
+  /*
+   * CASE I:
+   * If the last update was written more than MRAI back, expire the timer
+   * instantly so that we can send the update out sooner.
+   *
+   *                           <-------  MRAI --------->
+   *         |-----------------|-----------------------|
+   *         <------------- m ------------>
+   *         ^                 ^          ^
+   *         |                 |          |
+   *         |                 |     current time
+   *         |            timer start
+   *      last write
+   *
+   *                     m > MRAI
+   */
+  diff = difftime(nowtime, peer->last_write);
+  if (diff > (double) peer->v_routeadv)
+    {
+      BGP_TIMER_OFF(peer->t_routeadv);
+      BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
+      if (BGP_DEBUG (update, UPDATE_OUT))
+	zlog (peer->log, LOG_DEBUG, "%s: MRAI timer to expire instantly\n",
+	      peer->host);
+      return;
+    }
+
+  /*
+   * CASE II:
+   * - Find when to expire the MRAI timer.
+   *   If MRAI timer is not active, assume we can start it now.
+   *
+   *                      <-------  MRAI --------->
+   *         |------------|-----------------------|
+   *         <-------- m ----------><----- r ----->
+   *         ^            ^        ^
+   *         |            |        |
+   *         |            |   current time
+   *         |       timer start
+   *      last write
+   *
+   *                     (MRAI - m) < r
+   */
+  if (peer->t_routeadv)
+    remain = thread_timer_remain_second(peer->t_routeadv);
+  else
+    remain = peer->v_routeadv;
+  diff = peer->v_routeadv - diff;
+  if (diff <= (double) remain)
+    {
+      BGP_TIMER_OFF(peer->t_routeadv);
+      BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, diff);
+      if (BGP_DEBUG (update, UPDATE_OUT))
+	zlog (peer->log, LOG_DEBUG, "%s: MRAI timer to expire in %f secs\n",
+	      peer->host, diff);
+    }
 }
 
 /* The update delay timer expiry callback. */
@@ -920,16 +1035,12 @@ bgp_fsm_open (struct peer *peer)
 static int
 bgp_fsm_keepalive_expire (struct peer *peer)
 {
-  afi_t afi;
-  safi_t safi;
-
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-      {
-        if (!FIFO_EMPTY(&peer->sync[afi][safi]->withdraw) ||
-            !FIFO_EMPTY(&peer->sync[afi][safi]->update))
-          return 0;
-      }
+  /*
+   * If there are UPDATE messages to send, no need to send keepalive. The
+   * peer will note our progress through the UPDATEs.
+   */
+  if (!bgp_routeq_empty(peer))
+    return 0;
 
   bgp_keepalive_send (peer);
   return 0;
@@ -1062,7 +1173,12 @@ bgp_establish (struct peer *peer)
 
   bgp_announce_route_all (peer);
 
-  BGP_TIMER_ON (peer->t_routeadv, bgp_routeadv_timer, 1);
+  /* Start the route advertisement timer to send updates to the peer - if BGP
+   * is not in read-only mode. If it is, the timer will be started at the end
+   * of read-only mode.
+   */
+  if (!bgp_update_delay_active(peer->bgp))
+    BGP_TIMER_ON (peer->t_routeadv, bgp_routeadv_timer, 0);
 
   return 0;
 }
