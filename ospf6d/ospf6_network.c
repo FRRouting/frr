@@ -127,6 +127,9 @@ ospf6_sso (u_int ifindex, struct in6_addr *group, int option)
 {
   struct ipv6_mreq mreq6;
   int ret;
+  int bufsize = (8 * 1024 * 1024);
+  int optval;
+  socklen_t optlen = sizeof(optval);
 
   assert (ifindex);
   mreq6.ipv6mr_interface = ifindex;
@@ -137,6 +140,38 @@ ospf6_sso (u_int ifindex, struct in6_addr *group, int option)
   if (ret < 0)
     zlog_err ("Network: setsockopt (%d) on ifindex %d failed: %s",
               option, ifindex, safe_strerror (errno));
+
+  if ((ret = setsockopt (ospf6_sock, SOL_SOCKET, SO_SNDBUF,
+			 &bufsize, sizeof (bufsize))) < 0)
+    {
+      zlog_err ("Couldn't increase raw wbuf size: %s\n", safe_strerror(errno));
+    }
+
+  if ((ret = getsockopt (ospf6_sock, SOL_SOCKET, SO_SNDBUF,
+			 &optval, &optlen)) < 0)
+    {
+      zlog_err ("getsockopt of SO_SNDBUF failed with error %s\n", safe_strerror(errno));
+    }
+  else if (optval < bufsize)
+    {
+      zlog_err ("Unable to SO_SNDBUF to %d, set to %d\n", bufsize, optval);
+    }
+
+  if ((ret = setsockopt (ospf6_sock, SOL_SOCKET, SO_RCVBUF,
+			 &bufsize, sizeof (bufsize))) < 0)
+    {
+      zlog_err ("Couldn't increase raw rbuf size: %s\n", safe_strerror(errno));
+    }
+
+  if ((ret = getsockopt (ospf6_sock, SOL_SOCKET, SO_RCVBUF,
+			 &optval, &optlen)) < 0)
+    {
+      zlog_err ("getsockopt of SO_RCVBUF failed with error %s\n", safe_strerror(errno));
+    }
+  else if (optval < bufsize)
+    {
+      zlog_err ("Unable to SO_RCVBUF to %d, set to %d\n", bufsize, optval);
+    }
 }
 
 static int
