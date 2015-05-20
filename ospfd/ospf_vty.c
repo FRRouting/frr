@@ -446,6 +446,13 @@ DEFUN (ospf_network_area,
   struct in_addr area_id;
   int ret, format;
 
+  if (ospf->if_ospf_cli_count > 0)
+    {
+      vty_out (vty, "Please remove all ip ospf area x.x.x.x commands first.%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   /* Get network prefix and Area ID. */
   VTY_GET_IPV4_PREFIX ("network prefix", p, argv[0]);
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[1]);
@@ -5887,6 +5894,95 @@ ALIAS (no_ip_ospf_transmit_delay,
        "OSPF interface commands\n"
        "Link state transmit delay\n")
 
+DEFUN (ip_ospf_area,
+       ip_ospf_area_cmd,
+       "ip ospf area (A.B.C.D|<0-4294967295>)",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Enable OSPF on this interface\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n")
+{
+  struct interface *ifp = vty->index;
+  int format, ret;
+  struct in_addr area_id;
+  struct ospf *ospf;
+  struct ospf_if_params *params;
+  struct route_node *rn;
+
+  ospf = ospf_lookup ();
+  if (ospf == NULL)
+    {
+      vty_out (vty, " OSPF Routing Process not enabled%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
+
+  ret = ospf_str2area_id (argv[0], &area_id, &format);
+  if (ret < 0)
+    {
+      vty_out (vty, "Please specify area by A.B.C.D|<0-4294967295>%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (memcmp (ifp->name, "VLINK", 5) == 0)
+    {
+      vty_out (vty, "Cannot enable OSPF on a virtual link.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  params = IF_DEF_PARAMS (ifp);
+  if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
+    {
+      return CMD_WARNING;
+    }
+
+  for (rn = route_top (ospf->networks); rn; rn = route_next (rn))
+    {
+      if (rn->info != NULL)
+        {
+          vty_out (vty, "Please remove all network commands first.%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+
+  /* enable ospf on this interface with area_id */
+  ospf_interface_set (ifp, area_id);
+  ospf->if_ospf_cli_count++;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_ospf_area,
+       no_ip_ospf_area_cmd,
+       "no ip ospf area",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Disable OSPF on this interface\n")
+{
+  struct interface *ifp = vty->index;
+  struct ospf *ospf;
+  struct ospf_if_params *params;
+
+  ospf = ospf_lookup ();
+  if (ospf == NULL)
+    {
+      vty_out (vty, " OSPF Routing Process not enabled%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
+
+  params = IF_DEF_PARAMS (ifp);
+  if (!OSPF_IF_PARAM_CONFIGURED(params, if_area))
+    {
+      vty_out (vty, "Can't find specified inteface area configuration.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ospf_interface_unset (ifp);
+  ospf->if_ospf_cli_count--;
+  return CMD_SUCCESS;
+}
+
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
        "redistribute " QUAGGA_REDIST_STR_OSPFD
@@ -6951,6 +7047,14 @@ config_write_interface (struct vty *vty)
 	    vty_out (vty, "%s", VTY_NEWLINE);
 	  }
 
+	/* Area  print. */
+	if (OSPF_IF_PARAM_CONFIGURED (params, if_area))
+	  {
+	    vty_out (vty, " ip ospf area %s%s",
+		     inet_ntoa (params->if_area), VTY_NEWLINE);
+
+	  }
+
 	/* bfd  print. */
 	if (OSPF_IF_PARAM_CONFIGURED (params, bfd))
 	  vty_out (vty, " ip ospf bfd%s", VTY_NEWLINE);
@@ -7600,6 +7704,10 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &ip_ospf_transmit_delay_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_cmd);
+
+  /* "ip ospf area" commands. */
+  install_element (INTERFACE_NODE, &ip_ospf_area_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_area_cmd);
 
   /* These commands are compatibitliy for previous version. */
   install_element (INTERFACE_NODE, &ospf_authentication_key_cmd);

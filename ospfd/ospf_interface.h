@@ -48,6 +48,8 @@ struct ospf_if_params
   DECLARE_IF_PARAM (u_char, bfd);                    /* Respond to BFD events */
   DECLARE_IF_PARAM (u_char, passive_interface);      /* OSPF Interface is passive: no sending or receiving (no need to join multicast groups) */
   DECLARE_IF_PARAM (u_char, priority);               /* OSPF Interface priority */
+  /* Enable OSPF on this interface with area if_area */
+  DECLARE_IF_PARAM (struct in_addr, if_area);
   DECLARE_IF_PARAM (u_char, type);                   /* type of interface */
 #define OSPF_IF_ACTIVE                  0
 #define OSPF_IF_PASSIVE		        1
