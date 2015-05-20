@@ -2533,34 +2533,49 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
 
 DEFUN (ospf_write_multiplier,
        ospf_write_multiplier_cmd,
-       "write-multiplier <1-50>",
-       "Number of writes per thread callback\n")
+       "ospf write-multiplier <1-100>",
+       "OSPF specific commands\n"
+       "Write multiplier\n"
+       "Maximum number of interface serviced per write\n")
 {
   struct ospf *ospf = vty->index;
-  u_int32_t write_multiplier;
+  u_int32_t write_oi_count;
 
-  write_multiplier = strtol (argv[0], NULL, 10);
-  if (write_multiplier < 1 || write_multiplier > 50)
+  write_oi_count = strtol (argv[0], NULL, 10);
+  if (write_oi_count < 1 || write_oi_count > 100)
     {
       vty_out (vty, "write-multiplier value is invalid%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  ospf->write_multiplier = write_multiplier;
+  ospf->write_oi_count = write_oi_count;
   return CMD_SUCCESS;
 }
+
+ALIAS (ospf_write_multiplier,
+       write_multiplier_cmd,
+       "write-multiplier <1-100>",
+       "Write multiplier\n"
+       "Maximum number of interface serviced per write\n")
 
 DEFUN (no_ospf_write_multiplier,
        no_ospf_write_multiplier_cmd,
-       "no write-multiplier",
+       "no ospf write-multiplier",
        NO_STR
-       "Number of writes per thread callback\n")
+       "OSPF specific commands\n"
+       "Write multiplier\n")
 {
   struct ospf *ospf = vty->index;
 
-  ospf->write_multiplier = OSPF_WRITE_MULTIPLIER_DEFAULT;
+  ospf->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
   return CMD_SUCCESS;
 }
+
+ALIAS (no_ospf_write_multiplier,
+       no_write_multiplier_cmd,
+       "no write-multiplier",
+       NO_STR
+       "Write multiplier\n")
 
 const char *ospf_abr_type_descr_str[] = 
 {
@@ -2793,7 +2808,7 @@ DEFUN (show_ip_ospf,
   
   /* Show write multiplier values */
   vty_out (vty, " Write Multiplier set to %d %s",
-	   ospf->write_multiplier, VTY_NEWLINE);
+	   ospf->write_oi_count, VTY_NEWLINE);
 
   /* Show refresh parameters. */
   vty_out (vty, " Refresh timer %d secs%s",
@@ -7323,9 +7338,9 @@ ospf_config_write (struct vty *vty)
 		 ospf->spf_max_holdtime, VTY_NEWLINE);
       
       /* Write multiplier print. */
-      if (ospf->write_multiplier != OSPF_WRITE_MULTIPLIER_DEFAULT)
+      if (ospf->write_oi_count != OSPF_WRITE_INTERFACE_COUNT_DEFAULT)
         vty_out (vty, " ospf write-multiplier %d%s",
-                 ospf->write_multiplier, VTY_NEWLINE);
+                 ospf->write_oi_count, VTY_NEWLINE);
 
       /* Max-metric router-lsa print */
       config_write_stub_router (vty, ospf);
@@ -7766,6 +7781,8 @@ ospf_vty_init (void)
   /* write multiplier commands */
   install_element (OSPF_NODE, &ospf_write_multiplier_cmd);
   install_element (OSPF_NODE, &no_ospf_write_multiplier_cmd);
+  install_element (OSPF_NODE, &write_multiplier_cmd);
+  install_element (OSPF_NODE, &no_write_multiplier_cmd);
 
   /* Init interface related vty commands. */
   ospf_vty_if_init ();
