@@ -220,13 +220,26 @@ extern void masklen2ip6 (const int, struct in6_addr *);
 extern void str2in6_addr (const char *, struct in6_addr *);
 extern const char *inet6_ntoa (struct in6_addr);
 
+static inline int ipv6_martian (struct in6_addr *addr)
+{
+  struct in6_addr localhost_addr;
+
+  inet_pton (AF_INET6, "::1", &localhost_addr);
+
+  if (IPV6_ADDR_SAME(&localhost_addr, addr))
+    return 1;
+
+  return 0;
+}
+
 #endif /* HAVE_IPV6 */
 
 extern int all_digit (const char *);
 
+/* NOTE: This routine expects the address argument in network byte order. */
 static inline int ipv4_martian (struct in_addr *addr)
 {
-  in_addr_t ip = addr->s_addr;
+  in_addr_t ip = ntohl(addr->s_addr);
 
   if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_DE(ip)) {
     return 1;
