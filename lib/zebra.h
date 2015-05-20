@@ -493,6 +493,7 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_NEXTHOP_IPV6_IFINDEX       7
 #define ZEBRA_NEXTHOP_IPV6_IFNAME        8
 #define ZEBRA_NEXTHOP_BLACKHOLE          9
+#define ZEBRA_NEXTHOP_IPV4_ONLINK       10
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */

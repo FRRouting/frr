@@ -93,7 +93,8 @@ struct zclient
 #define ZAPI_MESSAGE_IFINDEX  0x02
 #define ZAPI_MESSAGE_DISTANCE 0x04
 #define ZAPI_MESSAGE_METRIC   0x08
-#define ZAPI_MESSAGE_TAG      0x20
+#define ZAPI_MESSAGE_TAG      0x10
+#define ZAPI_MESSAGE_ONLINK   0x20
 
 /* Zserv protocol message header */
 struct zserv_header

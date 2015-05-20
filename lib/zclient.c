@@ -450,6 +450,21 @@ zclient_connect (struct thread *t)
   * nexthop information is provided, and the message describes a prefix
   * to blackhole or reject route.
   *
+  * The original struct zapi_ipv4, zapi_ipv4_route() and zread_ipv4_*()
+  * infrastructure was built around the traditional (32-bit "gate OR
+  * ifindex") nexthop data unit. A special encoding can be used to feed
+  * onlink (64-bit "gate AND ifindex") nexthops into zapi_ipv4_route()
+  * using the same zapi_ipv4 structure. This is done by setting zapi_ipv4
+  * fields as follows:
+  *  - .message |= ZAPI_MESSAGE_NEXTHOP | ZAPI_MESSAGE_ONLINK
+  *  - .nexthop_num == .ifindex_num
+  *  - .nexthop and .ifindex are filled with gate and ifindex parts of
+  *    each compound nexthop, both in the same order
+  *
+  * zapi_ipv4_route() will produce two nexthop data units for each such
+  * interleaved 64-bit nexthop. On the zserv side of the socket it will be
+  * mapped to a singlle NEXTHOP_TYPE_IPV4_IFINDEX_OL RIB nexthop structure.
+  *
   * If ZAPI_MESSAGE_DISTANCE is set, the distance value is written as a 1
   * byte value.
   * 
@@ -486,8 +501,25 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   stream_write (s, (u_char *) & p->prefix, psize);
 
   /* Nexthop, ifindex, distance and metric information. */
-  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
+  /* ZAPI_MESSAGE_ONLINK implies interleaving */
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_ONLINK))
     {
+      /* ZAPI_MESSAGE_NEXTHOP is required for proper receiving */
+      assert (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP));
+      /* 64-bit data units, interleaved between nexthop[] and ifindex[] */
+      assert (api->nexthop_num == api->ifindex_num);
+      stream_putc (s, api->nexthop_num * 2);
+      for (i = 0; i < api->nexthop_num; i++)
+        {
+          stream_putc (s, ZEBRA_NEXTHOP_IPV4_ONLINK);
+          stream_put_in_addr (s, api->nexthop[i]);
+          stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+          stream_putl (s, api->ifindex[i]);
+        }
+    }
+  else if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
+     {
+      /* traditional 32-bit data units */
       if (CHECK_FLAG (api->flags, ZEBRA_FLAG_BLACKHOLE))
         {
           stream_putc (s, 1);
