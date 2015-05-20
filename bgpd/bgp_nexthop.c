@@ -468,8 +468,13 @@ show_ip_bgp_nexthop_table (struct vty *vty, int detail)
 		}
 	}
 	else
-	  vty_out (vty, " %s invalid%s",
-		   inet_ntop (AF_INET, &rn->p.u.prefix4, buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
+          {
+	    vty_out (vty, " %s invalid%s",
+		     inet_ntop (AF_INET, &rn->p.u.prefix4, buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
+
+            if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+              vty_out (vty, "  Must be Connected%s", VTY_NEWLINE);
+          }
 #ifdef HAVE_CLOCK_MONOTONIC
 	tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
 	vty_out (vty, "  Last update: %s", ctime(&tbuf));
@@ -519,9 +524,14 @@ show_ip_bgp_nexthop_table (struct vty *vty, int detail)
 		  }
 	  }
 	  else
-	    vty_out (vty, " %s invalid%s",
-		     inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, INET6_ADDRSTRLEN),
-		     VTY_NEWLINE);
+            {
+	      vty_out (vty, " %s invalid%s",
+		       inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, INET6_ADDRSTRLEN),
+		       VTY_NEWLINE);
+
+              if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+                vty_out (vty, "  Must be Connected%s", VTY_NEWLINE);
+            }
 #ifdef HAVE_CLOCK_MONOTONIC
 	  tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
 	  vty_out (vty, "  Last update: %s", ctime(&tbuf));
