@@ -126,6 +126,7 @@ struct attr
 #define BATTR_RMAP_NEXTHOP_CHANGED (1 << 0)
 #define BATTR_RMAP_NEXTHOP_PEER_ADDRESS (1 << 1)
 #define BATTR_REFLECTED (1 << 2)
+#define BATTR_RMAP_NEXTHOP_UNCHANGED (1 << 3)
 
 /* Router Reflector related structure. */
 struct cluster_list

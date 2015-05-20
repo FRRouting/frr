@@ -1079,6 +1079,7 @@ struct rmap_ip_nexthop_set
 {
   struct in_addr *address;
   int peer_address;
+  int unchanged;
 };
 
 static route_map_result_t
@@ -1094,7 +1095,12 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
       bgp_info = object;
       peer = bgp_info->peer;
 
-      if (rins->peer_address)
+      if (rins->unchanged)
+      {
+        SET_FLAG(bgp_info->attr->rmap_change_flags,
+                 BATTR_RMAP_NEXTHOP_UNCHANGED);
+      }
+      else if (rins->peer_address)
 	{
          if ((CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IN) ||
            CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IMPORT))
@@ -1138,10 +1144,13 @@ route_set_ip_nexthop_compile (const char *arg)
   struct rmap_ip_nexthop_set *rins;
   struct in_addr *address = NULL;
   int peer_address = 0;
+  int unchanged = 0;
   int ret;
 
   if (strcmp (arg, "peer-address") == 0)
     peer_address = 1;
+  else if (strcmp (arg, "unchanged") == 0)
+    unchanged = 1;
   else
     {
       address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct in_addr));
@@ -1158,6 +1167,7 @@ route_set_ip_nexthop_compile (const char *arg)
 
   rins->address = address;
   rins->peer_address = peer_address;
+  rins->unchanged = unchanged;
 
   return rins;
 }
@@ -3645,6 +3655,17 @@ DEFUN (set_ip_nexthop_peer,
   return bgp_route_set_add (vty, vty->index, "ip next-hop", "peer-address");
 }
 
+DEFUN (set_ip_nexthop_unchanged,
+       set_ip_nexthop_unchanged_cmd,
+       "set ip next-hop unchanged",
+       SET_STR
+       IP_STR
+       "Next hop address\n"
+       "Don't modify existing Next hop address\n")
+{
+  return bgp_route_set_add (vty, vty->index, "ip next-hop", "unchanged");
+}
+
 DEFUN_DEPRECATED (no_set_ip_nexthop_peer,
        no_set_ip_nexthop_peer_cmd,
        "no set ip next-hop peer-address",
@@ -4693,6 +4714,7 @@ bgp_route_map_init (void)
 
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_peer_cmd);
+  install_element (RMAP_NODE, &set_ip_nexthop_unchanged_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);
   install_element (RMAP_NODE, &set_local_pref_cmd);

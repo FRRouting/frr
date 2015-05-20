@@ -70,6 +70,7 @@ typedef struct
 #define BPACKET_ATTRVEC_FLAGS_RMAP_CHANGED   (1 << 1)
 #define BPACKET_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS   (1 << 2)
 #define BPACKET_ATTRVEC_FLAGS_REFLECTED (1 << 3)
+#define BPACKET_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED   (1 << 4)
 
 typedef struct bpacket_attr_vec_arr
 {

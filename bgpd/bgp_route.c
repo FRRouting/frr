@@ -1493,6 +1493,8 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
 
       info.peer = peer;
       info.attr = attr;
+      /* don't confuse inbound and outbound setting */
+      RESET_FLAG(attr->rmap_change_flags);
 
       /*
        * The route reflector is not allowed to modify the attributes
@@ -1530,6 +1532,8 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
    * Also see earlier comments in this function.
    */
   if (!(CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_CHANGED) ||
+        CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
+        CHECK_FLAG(riattr->rmap_change_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
         transparent ||
         CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)))
     {

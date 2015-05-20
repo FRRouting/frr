@@ -439,7 +439,9 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
                CHECK_FLAG(vec->flags,
                           BPACKET_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)))
 	    stream_put_in_addr_at (s, vec->offset + 1, &paf->peer->nexthop.v4);
-          else if (paf->peer->sort == BGP_PEER_EBGP &&
+          else if (!CHECK_FLAG(vec->flags,
+                          BPACKET_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+                   paf->peer->sort == BGP_PEER_EBGP &&
                    !peer_af_flag_check (paf->peer, paf->afi, paf->safi,
                                          PEER_FLAG_NEXTHOP_UNCHANGED))
 	    {
@@ -515,7 +517,9 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
                           BPACKET_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)))
             stream_put_in6_addr_at (s, vec->offset + 1,
                                     &paf->peer->nexthop.v6_global);
-          else if (paf->peer->sort == BGP_PEER_EBGP &&
+          else if (!CHECK_FLAG(vec->flags,
+                          BPACKET_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+                   paf->peer->sort == BGP_PEER_EBGP &&
                    !peer_af_flag_check (paf->peer, paf->afi, paf->safi,
                                          PEER_FLAG_NEXTHOP_UNCHANGED))
 	    {
@@ -1097,6 +1101,11 @@ bpacket_vec_arr_inherit_attr_flags (struct bpacket_attr_vec_arr *vecarr,
   if (CHECK_FLAG (attr->rmap_change_flags, BATTR_REFLECTED))
     SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
 	      BPACKET_ATTRVEC_FLAGS_REFLECTED);
+
+  if (CHECK_FLAG (attr->rmap_change_flags,
+		  BATTR_RMAP_NEXTHOP_UNCHANGED))
+    SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
+	      BPACKET_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED);
 }
 
 /* Reset the Attributes vector array. The vector array is used to override
