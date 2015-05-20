@@ -1417,6 +1417,10 @@ aspath_cmp_left (const struct aspath *aspath1, const struct aspath *aspath2)
   if (!(aspath1 && aspath2))
     return 0;
 
+  /* If both paths are originated in this AS then we do want to compare MED */
+  if (!aspath_count_hops(aspath1) && !aspath_count_hops(aspath2))
+    return 1;
+
   seg1 = aspath1->segments;
   seg2 = aspath2->segments;
 
