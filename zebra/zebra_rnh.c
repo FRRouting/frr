@@ -266,6 +266,7 @@ zebra_evaluate_rnh_table (int vrfid, int family, int force)
   char bufs[INET6_ADDRSTRLEN];
   struct route_node *static_rn;
   struct nexthop *nexthop;
+
   ntable = lookup_rnh_table(vrfid, family);
   if (!ntable)
     {
@@ -312,7 +313,21 @@ zebra_evaluate_rnh_table (int vrfid, int family, int force)
 
       state_changed = 0;
 
-      if (compare_state(rib, rnh->state))
+      /* Ensure prefixes we're resolving over have stayed the same */
+      if (!prefix_same(&rnh->resolved_route, &prn->p))
+	{
+	  if (rib)
+	    UNSET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+
+	  if (prn)
+	    prefix_copy(&rnh->resolved_route, &prn->p);
+	  else
+	    memset(&rnh->resolved_route, 0, sizeof(struct prefix));
+
+	  copy_state(rnh, rib, nrn);
+	  state_changed = 1;
+	}
+      else if (compare_state(rib, rnh->state))
 	{
          if (rib)
            UNSET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);

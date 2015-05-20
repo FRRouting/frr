@@ -33,6 +33,7 @@ struct rnh
 #define ZEBRA_NHT_CONNECTED  	0x1
 #define ZEBRA_NHT_DELETED       0x2
   struct rib *state;
+  struct prefix resolved_route;
   struct list *client_list;
   struct list *zebra_static_route_list; /* static routes dependent on this NH */
   struct route_node *node;

@@ -278,6 +278,12 @@ prefix_copy (struct prefix *dest, const struct prefix *src)
 int
 prefix_same (const struct prefix *p1, const struct prefix *p2)
 {
+  if ((p1 && !p2) || (!p1 && p2))
+    return 0;
+
+  if (!p1 && !p2)
+    return 1;
+
   if (p1->family == p2->family && p1->prefixlen == p2->prefixlen)
     {
       if (p1->family == AF_INET)
