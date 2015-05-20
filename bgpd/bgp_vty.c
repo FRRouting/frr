@@ -8591,7 +8591,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                 json_object_object_add(json_peer, "dynamic-peer", json_boolean_true);
 
               json_string = json_object_new_string(peer->host);
-              json_object_object_add(json_peer, "ip", json_string);
+              json_object_object_add(json_peer, "peer-id", json_string);
 
 	      if (peer->hostname)
 		{
