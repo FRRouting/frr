@@ -117,10 +117,15 @@ struct bgp
   struct thread *t_update_delay;
   struct thread *t_establish_wait;
   u_char update_delay_over;
+  u_char main_zebra_update_hold;
+  u_char main_peers_update_hold;
+  u_char rsclient_peers_update_hold;
   u_int16_t v_update_delay;
   u_int16_t v_establish_wait;
   char update_delay_begin_time[64];
   char update_delay_end_time[64];
+  char update_delay_zebra_resume_time[64];
+  char update_delay_peers_resume_time[64];
   u_int32_t established;
   u_int32_t restarted_peers;
   u_int32_t implicit_eors;

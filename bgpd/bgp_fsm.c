@@ -563,9 +563,6 @@ bgp_update_delay_configured (struct bgp *bgp)
 void
 bgp_update_delay_end (struct bgp *bgp)
 {
-  struct listnode *node, *nnode;
-  struct peer *peer;
-
   THREAD_TIMER_OFF (bgp->t_update_delay);
   THREAD_TIMER_OFF (bgp->t_establish_wait);
 
@@ -581,15 +578,22 @@ bgp_update_delay_end (struct bgp *bgp)
 
   /*
    * Add an end-of-initial-update marker to the main process queues so that
-   * the route advertisement timer for the peers can be started.
+   * the route advertisement timer for the peers can be started. Also set
+   * the zebra and peer update hold flags. These flags are used to achieve
+   * three stages in the update-delay post processing:
+   *  1. Finish best-path selection for all the prefixes held on the queues.
+   *     (routes in BGP are updated, and peers sync queues are populated too)
+   *  2. As the eoiu mark is reached in the bgp process routine, ship all the
+   *     routes to zebra. With that zebra should see updates from BGP close
+   *     to each other.
+   *  3. Unblock the peer update writes. With that peer update packing with
+   *     the prefixes should be at its maximum.
    */
   bgp_add_eoiu_mark(bgp, BGP_TABLE_MAIN);
   bgp_add_eoiu_mark(bgp, BGP_TABLE_RSCLIENT);
-
-  /* Route announcements were postponed for all the peers during read-only mode,
-     send those now. */
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-    bgp_announce_route_all (peer);
+  bgp->main_zebra_update_hold = 1;
+  bgp->main_peers_update_hold = 1;
+  bgp->rsclient_peers_update_hold = 1;
 
   /* Resume the queue processing. This should trigger the event that would take
      care of processing any work that was queued during the read-only mode. */
@@ -605,6 +609,15 @@ bgp_start_routeadv (struct bgp *bgp)
 {
   struct listnode *node, *nnode;
   struct peer *peer;
+
+  zlog_info("bgp_start_routeadv(), update hold status - main: %d, rsclient: %d",
+             bgp->main_peers_update_hold, bgp->rsclient_peers_update_hold);
+
+  if (bgp->main_peers_update_hold || bgp->rsclient_peers_update_hold)
+    return;
+
+  quagga_timestamp(3, bgp->update_delay_peers_resume_time,
+                   sizeof(bgp->update_delay_peers_resume_time));
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {

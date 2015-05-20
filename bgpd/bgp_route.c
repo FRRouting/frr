@@ -1526,6 +1526,12 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
   /* Is it end of initial update? (after startup) */
   if (!rn)
     {
+      /* This is just to keep the display sane in case all the peers are
+         rsclients only */
+      quagga_timestamp(3, bgp->update_delay_zebra_resume_time,
+                       sizeof(bgp->update_delay_zebra_resume_time));
+
+      bgp->rsclient_peers_update_hold = 0;
       bgp_start_routeadv(bgp);
       return WQ_SUCCESS;
     }
@@ -1598,6 +1604,17 @@ bgp_process_main (struct work_queue *wq, void *data)
   /* Is it end of initial update? (after startup) */
   if (!rn)
     {
+      quagga_timestamp(3, bgp->update_delay_zebra_resume_time,
+                       sizeof(bgp->update_delay_zebra_resume_time));
+
+      bgp->main_zebra_update_hold = 0;
+      for (afi = AFI_IP; afi < AFI_MAX; afi++)
+        for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+          {
+            bgp_zebra_announce_table(bgp, afi, safi);
+          }
+      bgp->main_peers_update_hold = 0;
+
       bgp_start_routeadv(bgp);
       return WQ_SUCCESS;
     }
@@ -2657,19 +2674,9 @@ bgp_announce_table (struct peer *peer, afi_t afi, safi_t safi,
   if (! table)
     table = (rsclient) ? peer->rib[afi][safi] : peer->bgp->rib[afi][safi];
 
-  if (safi != SAFI_MPLS_VPN)
-    {
-      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
-        {
-          bgp_default_originate (peer, afi, safi, 0);
-        }
-      else
-        {
-          /* Send the withdraw if it was postponed during read-only mode. */
-          if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE))
-            bgp_default_originate (peer, afi, safi, 1);
-        }
-    }
+  if (safi != SAFI_MPLS_VPN
+      && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+    bgp_default_originate (peer, afi, safi, 0);
 
   /* It's initialized in bgp_announce_[check|check_rsclient]() */
   attr.extra = &extra;
@@ -2721,9 +2728,6 @@ bgp_announce_route_all (struct peer *peer)
   afi_t afi;
   safi_t safi;
   
-  if (bgp_update_delay_active(peer->bgp))
-    return;
-
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       bgp_announce_route (peer, afi, safi);

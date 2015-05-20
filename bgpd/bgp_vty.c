@@ -7388,8 +7388,12 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
                         {
                           vty_out (vty, "  First neighbor established: %s%s",
                                    bgp->update_delay_begin_time, VTY_NEWLINE);
-                          vty_out (vty, "  Best-paths/updates resumed: %s%s",
+                          vty_out (vty, "          Best-paths resumed: %s%s",
                                    bgp->update_delay_end_time, VTY_NEWLINE);
+                          vty_out (vty, "        zebra update resumed: %s%s",
+                                   bgp->update_delay_zebra_resume_time, VTY_NEWLINE);
+                          vty_out (vty, "        peers update resumed: %s%s",
+                                   bgp->update_delay_peers_resume_time, VTY_NEWLINE);
                         }
                     }
                 }
