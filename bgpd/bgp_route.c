@@ -1480,7 +1480,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
         {
           if (!reflect ||
               CHECK_FLAG (peer->af_flags[afi][safi],
-                          PEER_FLAG_FORCE_NEXTHOP_SELF))
+                          PEER_FLAG_NEXTHOP_SELF_ALL))
             subgroup_announce_reset_nhop (p->family, attr);
         }
       else if (peer->sort == BGP_PEER_EBGP)
