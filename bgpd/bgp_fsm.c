@@ -1248,14 +1248,20 @@ bgp_start (struct peer *peer)
     }
 
   /* Register to be notified on peer up */
-  if ((peer->ttl == 1) || (peer->gtsm_hops == 1))
+  if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1 &&
+      ! CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
+      && ! bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
     connected = 1;
+  else
+    connected = 0;
 
   if (!bgp_find_or_add_nexthop(peer->bgp, family2afi(peer->su.sa.sa_family),
 			       NULL, peer, connected))
     {
       if (bgp_debug_neighbor_events(peer))
-	zlog_debug ("%s [FSM] Unable to register peer addr for NHT", peer->host);
+	zlog_debug ("%s [FSM] Waiting for NHT", peer->host);
+
+      BGP_EVENT_ADD(peer, TCP_connection_open_failed);
       return 0;
     }
 
@@ -1541,11 +1547,10 @@ bgp_fsm_nht_update(struct peer *peer, int valid)
 	BGP_EVENT_ADD(peer, BGP_Start);
       break;
     case Connect:
-      ret = bgp_connect_check(peer, 0);
-      if (!ret && valid)
+      if (!valid)
 	{
 	  BGP_TIMER_OFF(peer->t_connect);
-	  BGP_EVENT_ADD(peer, ConnectRetry_timer_expired);
+	  BGP_EVENT_ADD(peer, TCP_fatal_error);
 	}
       break;
     case Active:
@@ -1554,9 +1559,12 @@ bgp_fsm_nht_update(struct peer *peer, int valid)
 	  BGP_TIMER_OFF(peer->t_connect);
 	  BGP_EVENT_ADD(peer, ConnectRetry_timer_expired);
 	}
+      break;
     case OpenSent:
     case OpenConfirm:
     case Established:
+      if (!valid && (peer->gtsm_hops == 1))
+	BGP_EVENT_ADD(peer, TCP_fatal_error);
     case Clearing:
     case Deleted:
     default:

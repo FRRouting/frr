@@ -367,7 +367,10 @@ bgp_parse_nexthop_update (void)
 		  break;
 
 	  if (!oldnh)
-	    bnc->change_flags |= BGP_NEXTHOP_CHANGED;
+	    {
+	      bnc->change_flags |= BGP_NEXTHOP_CHANGED;
+	      UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+	    }
 	}
       bnc_nexthop_free(bnc);
       bnc->nexthop = nhlist_head;
