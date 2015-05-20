@@ -16,3 +16,4 @@ usr/share/man/man8/quagga-babeld.8
 usr/share/man/man8/watchquagga.8
 usr/share/snmp/mibs/
 cumulus/etc/* etc/
+debian/watchquagga-monit.rc   etc/cumulus/ssmonitor.d

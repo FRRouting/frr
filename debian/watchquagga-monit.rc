@@ -1,0 +1,4 @@
+check process watchquagga with pidfile /var/run/quagga/watchquagga.pid
+        start program = "/etc/init.d/quagga start watchquagga" with timeout 120 seconds
+        stop program = "/etc/init.d/quagga stop watchquagga"
+        if 3 restarts within 10 cycles then timeout
