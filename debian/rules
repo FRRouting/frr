@@ -2,6 +2,7 @@
 
 export DH_VERBOSE=1
 export DEB_BUILD_HARDENING=1
+export DH_OPTIONS=-v
 
 ifeq ($(WANT_SNMP), 1)
   USE_SNMP=--enable-snmp
@@ -12,19 +13,24 @@ endif
 
 %:
 	dh $@ --parallel --with autoreconf --dbg-package=quagga-dbg --list-missing
+        if [ -e config.status ]; then \
+                 dh $@ --parallel  --dbg-package=quagga-dbg --list-missing; \
+        else \
+                 dh $@ --parallel  --with autoreconf --dbg-package=quagga-dbg --list-missing; \
+        fi
 
 override_dh_auto_clean:
-	dh_auto_clean
+	#dh_auto_clean
 	
-	@echo "BEGIN CRUFT"
-	@rm -vf */Makefile doc/quagga.fns doc/quagga.info doc/quagga.kys doc/quagga.tmp doc/quagga.pdf doc/quagga.info-*
-	@rm -vf lib/version.c doc/stamp-vti
-	@rm -vf vtysh/vtysh_cmd.c
-	@rm -vf doc/fig*.pdf doc/version.texi
-	@echo "END CRUFT"
+	#@echo "BEGIN CRUFT"
+	#@rm -vf */Makefile doc/quagga.fns doc/quagga.info doc/quagga.kys doc/quagga.tmp doc/quagga.pdf doc/quagga.info-*
+	#@rm -vf lib/version.c doc/stamp-vti
+	#@rm -vf vtysh/vtysh_cmd.c
+	#@rm -vf doc/fig*.pdf doc/version.texi
+	#@echo "END CRUFT"
 	
 	# why?
-	@if [ -e config.log ]; then echo "CONFIG.LOG STILL THERE"; rm config.log; fi
+	#@if [ -e config.log ]; then echo "CONFIG.LOG STILL THERE"; rm config.log; fi
 
 override_dh_auto_configure:
 	# Quagga needs /proc to check some BSD vs Linux specific stuff.
@@ -34,7 +40,8 @@ override_dh_auto_configure:
 	   echo "./configure needs a mounted /proc"; \
 	   exit 1; \
 	fi
-	
+
+	if ! [ -e config.status ]; then \
 	dh_auto_configure -- \
  		--enable-exampledir=/usr/share/doc/quagga/examples/ \
 		--localstatedir=/var/run/quagga \
@@ -57,8 +64,8 @@ override_dh_auto_configure:
  		--enable-logfile-mask=0640 \
  		--enable-rtadv \
  		--enable-gcc-rdynamic \
- 		--with-libpam
-	
+		--with-libpam; \
+	fi
 	if ! diff -b -IHAVE_SNMP -IHAVE_NETSNMP -IUCD_COMPAT -IGETIFADDR debian/my/config.h.reference config.h; then \
 		echo; \
 		echo "WARNING: Please compare with debian/my/config.h.reference"; \
@@ -67,7 +74,9 @@ override_dh_auto_configure:
 	fi
 
 override_dh_auto_build:
-	dh_auto_build
+	#dh_auto_build
+	$(MAKE)
+
 	
 	# doc/ is a bit crazy
 ifeq ($(GENERATE_PDF), 1)
@@ -76,6 +85,8 @@ endif
 	rm -vf doc/quagga.info
 	dh_auto_build -- -C doc quagga.info
 	rm -vf doc/quagga.info.html*
+
+override_dh_auto_test:
  
 override_dh_auto_install:
 	dh_auto_install
