@@ -38,6 +38,9 @@
 #include "linklist.h"
 #include "command.h"
 
+extern struct list *config_top;
+extern void config_add_line(struct list *config, const char *line);
+
 /* 
  * Compiler is warning about prototypes not being declared.
  * The DEFUNSH and DEFUN macro's are messing with the
@@ -143,11 +146,15 @@ user_config_write ()
 {
   struct listnode *node, *nnode;
   struct vtysh_user *user;
+  char line[128];
 
   for (ALL_LIST_ELEMENTS (userlist, node, nnode, user))
     {
       if (user->nopassword)
-	printf (" username %s nopassword\n", user->name);
+	{
+	  sprintf(line, "username %s nopassword", user->name);
+	  config_add_line (config_top, line);
+	}
     }
 }
 

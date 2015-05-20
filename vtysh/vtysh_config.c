@@ -437,6 +437,8 @@ vtysh_config_write ()
     }
   if (vtysh_writeconfig_integrated)
     vtysh_config_parse_line ("service integrated-vtysh-config");
+
+  user_config_write ();
 }
 
 void

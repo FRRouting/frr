@@ -2366,32 +2366,6 @@ vty_read_config (char *config_file,
     }
   else
     {
-#ifdef VTYSH
-      int ret;
-      struct stat conf_stat;
-
-      /* !!!!PLEASE LEAVE!!!!
-       * This is NEEDED for use with vtysh -b, or else you can get
-       * a real configuration food fight with a lot garbage in the
-       * merged configuration file it creates coming from the per
-       * daemon configuration files.  This also allows the daemons
-       * to start if there default configuration file is not
-       * present or ignore them, as needed when using vtysh -b to
-       * configure the daemons at boot - MAG
-       */
-
-      /* Stat for vtysh Zebra.conf, if found startup and wait for
-       * boot configuration
-       */
-
-      if ( strstr(config_default_dir, "vtysh") == NULL)
-        {
-          ret = stat (integrate_default, &conf_stat);
-          if (ret >= 0)
-            return;
-        }
-#endif /* VTYSH */
-
       confp = fopen (config_default_dir, "r");
       if (confp == NULL)
         {
@@ -2415,6 +2389,36 @@ vty_read_config (char *config_file,
         fullpath = config_default_dir;
     }
 
+  host_config_set (fullpath);
+
+#ifdef VTYSH
+  if (config_file)
+    {
+      int ret;
+      struct stat conf_stat;
+
+      /* !!!!PLEASE LEAVE!!!!
+       * This is NEEDED for use with vtysh -b, or else you can get
+       * a real configuration food fight with a lot garbage in the
+       * merged configuration file it creates coming from the per
+       * daemon configuration files.  This also allows the daemons
+       * to start if there default configuration file is not
+       * present or ignore them, as needed when using vtysh -b to
+       * configure the daemons at boot - MAG
+       */
+
+      /* Stat for vtysh Zebra.conf, if found startup and wait for
+       * boot configuration
+       */
+
+      if ( strstr(config_default_dir, "vtysh") == NULL)
+        {
+          ret = stat (integrate_default, &conf_stat);
+          if (ret >= 0)
+	    return;
+        }
+    }
+#endif /* VTYSH */
   vty_read_file (confp);
 
   fclose (confp);

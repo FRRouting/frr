@@ -1,7 +1,9 @@
 Description: Fixes group permission. (line numbers adjusted for 0.99.22)
 
---- old/vtysh/vtysh.c.orig	2004-10-30 23:16:08.000000000 +0200
-+++ new/vtysh/vtysh.c	2004-10-30 23:16:41.000000000 +0200
+Index: quagga-0.99.23.1/vtysh/vtysh.c
+===================================================================
+--- quagga-0.99.23.1.orig/vtysh/vtysh.c	2015-04-16 07:58:08.000000000 -0700
++++ quagga-0.99.23.1/vtysh/vtysh.c	2015-04-16 08:02:16.108035000 -0700
 @@ -26,6 +26,8 @@
  #include <sys/wait.h>
  #include <sys/resource.h>
@@ -11,35 +13,47 @@ Description: Fixes group permission. (line numbers adjusted for 0.99.22)
  
  #include <readline/readline.h>
  #include <readline/history.h>
-@@ -1786,6 +1794,9 @@
-   FILE *fp;
-   char *integrate_sav = NULL;
+@@ -2026,6 +2028,9 @@
+   char line[] = "write terminal\n";
+   FILE *fp, *fp1;
  
 +  /* Setting file permissions */
 +  struct group *quagga_vty_group;
 +
-   integrate_sav = malloc (strlen (integrate_default) +
- 			  strlen (CONF_BACKUP_EXT) + 1);
-   strcpy (integrate_sav, integrate_default);
-@@ -1812,6 +1823,21 @@
-   vtysh_config_dump (fp);
+   fprintf (stdout,"Building Configuration...\n");
+ 
+   backup_config_file(integrate_default);
+@@ -2058,16 +2063,31 @@
  
    fclose (fp);
-+	
+ 
 +  errno = 0;
-+  if ((quagga_vty_group = getgrnam(VTY_GROUP)) == NULL) 
++  if ((quagga_vty_group = getgrnam(VTY_GROUP)) == NULL)
 +    {
 +      fprintf (stdout, "%% Can't get group %s: %s (%d)\n",
 +        VTY_GROUP, strerror(errno), errno);
 +      return CMD_WARNING;
-+    }    
++    }
 +
 +  if ((chown(integrate_default, -1, quagga_vty_group->gr_gid)) != 0)
 +    {
-+      fprintf (stdout,"%% Can't chown configuration file %s: %s (%d)\n", 
++      fprintf (stdout,"%% Can't chown configuration file %s: %s (%d)\n",
 +	integrate_default, strerror(errno), errno);
 +      return CMD_WARNING;
 +    }
- 
++
    if (chmod (integrate_default, CONFIGFILE_MASK) != 0)
      {
+-      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n", 
++      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n",
+ 	       integrate_default, safe_strerror(errno), errno);
+       return CMD_WARNING;
+     }
+ 
+  if (chmod (host.config, CONFIGFILE_MASK) != 0)
+     {
+-      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n", 
++      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n",
+ 	       integrate_default, safe_strerror(errno), errno);
+       return CMD_WARNING;
+     }
