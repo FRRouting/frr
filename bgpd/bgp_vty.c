@@ -95,6 +95,9 @@ peer_address_self_check (union sockunion *su)
 }
 
 /* Utility function for looking up peer from VTY.  */
+/* This is used only for configuration, so disallow if attempted on
+ * a dynamic neighbor.
+ */
 static struct peer *
 peer_lookup_vty (struct vty *vty, const char *ip_str)
 {
@@ -124,39 +127,60 @@ peer_lookup_vty (struct vty *vty, const char *ip_str)
                    VTY_NEWLINE);
           return NULL;
         }
+      if (peer_dynamic_neighbor (peer))
+        {
+          vty_out (vty, "%% Operation not allowed on a dynamic neighbor%s",
+	           VTY_NEWLINE);
+          return NULL;
+        }
+
     }
   return peer;
 }
 
 /* Utility function for looking up peer or peer group.  */
+/* This is used only for configuration, so disallow if attempted on
+ * a dynamic neighbor.
+ */
 static struct peer *
 peer_and_group_lookup_vty (struct vty *vty, const char *peer_str)
 {
   int ret;
   struct bgp *bgp;
   union sockunion su;
-  struct peer *peer;
-  struct peer_group *group;
+  struct peer *peer = NULL;
+  struct peer_group *group = NULL;
 
   bgp = vty->index;
 
   ret = str2sockunion (peer_str, &su);
   if (ret == 0)
     {
+      /* IP address, locate peer. */
       peer = peer_lookup (bgp, &su);
-      if (peer)
-	return peer;
     }
   else
     {
+      /* Not IP, could match either peer configured on interface or a group. */
       peer = peer_lookup_by_conf_if (bgp, peer_str);
-      if (peer)
-        return peer;
-
-      group = peer_group_lookup (bgp, peer_str);
-      if (group)
-	return group->conf;
+      if (!peer)
+        group = peer_group_lookup (bgp, peer_str);
     }
+
+  if (peer)
+    {
+      if (peer_dynamic_neighbor (peer))
+        {
+          vty_out (vty, "%% Operation not allowed on a dynamic neighbor%s",
+	           VTY_NEWLINE);
+          return NULL;
+        }
+
+      return peer;
+    }
+
+  if (group)
+    return group->conf;
 
   vty_out (vty, "%% Specify remote-as or peer-group commands first%s",
 	   VTY_NEWLINE);
@@ -236,6 +260,15 @@ bgp_vty_return (struct vty *vty, int ret)
       break;
     case BGP_ERR_AS_OVERRIDE:
       str = "as-override cannot be configured for IBGP peers";
+      break;
+    case BGP_ERR_INVALID_DYNAMIC_NEIGHBORS_LIMIT:
+      str = "Invalid limit for number of dynamic neighbors";
+      break;
+    case BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS:
+      str = "Dynamic neighbor listen range already exists";
+      break;
+    case BGP_ERR_INVALID_FOR_DYNAMIC_PEER:
+      str = "Operation not allowed on a dynamic neighbor";
       break;
     }
   if (str)
@@ -1883,6 +1916,176 @@ DEFUN (no_bgp_rr_allow_outbound_policy,
   return CMD_SUCCESS;
 }
 
+DEFUN (bgp_listen_limit,
+       bgp_listen_limit_cmd,
+       "bgp listen limit " DYNAMIC_NEIGHBOR_LIMIT_RANGE,
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "maximum number of BGP Dynamic Neighbors that can be created\n"
+       "Configure Dynamic Neighbors listen limit value\n")
+{
+  struct bgp *bgp;
+  int listen_limit;
+
+  bgp = vty->index;
+
+  VTY_GET_INTEGER_RANGE ("listen limit", listen_limit, argv[0],
+                         BGP_DYNAMIC_NEIGHBORS_LIMIT_MIN,
+                         BGP_DYNAMIC_NEIGHBORS_LIMIT_MAX);
+
+  bgp_listen_limit_set (bgp, listen_limit);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_listen_limit,
+       no_bgp_listen_limit_cmd,
+       "no bgp listen limit",
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "unset maximum number of BGP Dynamic Neighbors that can be created\n"
+       "Configure Dynamic Neighbors listen limit value to default\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_listen_limit_unset (bgp);
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (bgp_listen_range,
+       bgp_listen_range_cmd,
+       LISTEN_RANGE_CMD "peer-group WORD" ,
+       "BGP specific commands\n"
+       "Configure BGP Dynamic Neighbors\n"
+       "add a listening range for Dynamic Neighbors\n"
+       LISTEN_RANGE_ADDR_STR)
+{
+  struct bgp *bgp;
+  struct prefix range;
+  struct peer_group *group;
+  afi_t afi;
+  int ret;
+
+  bgp = vty->index;
+
+  //VTY_GET_IPV4_PREFIX ("listen range", range, argv[0]);
+
+  /* Convert IP prefix string to struct prefix. */
+  ret = str2prefix (argv[0], &range);
+  if (! ret)
+    {
+      vty_out (vty, "%% Malformed listen range%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  afi = family2afi(range.family);
+
+#ifdef HAVE_IPV6
+  if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&range.u.prefix6))
+    {
+      vty_out (vty, "%% Malformed listen range (link-local address)%s",
+	       VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+#endif /* HAVE_IPV6 */
+
+  apply_mask (&range);
+
+
+  group = peer_group_lookup (bgp, argv[1]);
+  if (! group)
+    {
+      vty_out (vty, "%% Configure the peer-group first%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ret = peer_group_listen_range_add(group, &range);
+  return bgp_vty_return (vty, ret);
+}
+
+DEFUN (no_bgp_listen_range,
+       no_bgp_listen_range_cmd,
+       "no bgp listen range A.B.C.D/M peer-group WORD" ,
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "delete a listening range for Dynamic Neighbors\n"
+       "Remove Dynamic Neighbors listening range\n")
+{
+  struct bgp *bgp;
+  struct prefix range;
+  struct peer_group *group;
+  afi_t afi;
+  int ret;
+
+  bgp = vty->index;
+
+  // VTY_GET_IPV4_PREFIX ("listen range", range, argv[0]);
+
+  /* Convert IP prefix string to struct prefix. */
+  ret = str2prefix (argv[0], &range);
+  if (! ret)
+    {
+      vty_out (vty, "%% Malformed listen range%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  afi = family2afi(range.family);
+
+#ifdef HAVE_IPV6
+  if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&range.u.prefix6))
+    {
+      vty_out (vty, "%% Malformed listen range (link-local address)%s",
+	       VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+#endif /* HAVE_IPV6 */
+
+  apply_mask (&range);
+
+
+  group = peer_group_lookup (bgp, argv[1]);
+  if (! group)
+    {
+      vty_out (vty, "%% Peer-group does not exist%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ret = peer_group_listen_range_del(group, &range);
+  return bgp_vty_return (vty, ret);
+}
+
+int
+bgp_config_write_listen (struct vty *vty, struct bgp *bgp)
+{
+  struct peer_group *group;
+  struct listnode *node, *nnode, *rnode, *nrnode;
+  struct prefix *range;
+  afi_t afi;
+  char buf[128];
+
+  if (bgp->dynamic_neighbors_limit != BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT)
+      vty_out (vty, " bgp listen limit %d%s",
+               bgp->dynamic_neighbors_limit, VTY_NEWLINE);
+
+  for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
+    {
+      for (afi = AFI_IP; afi < AFI_MAX; afi++)
+        {
+          for (ALL_LIST_ELEMENTS (group->listen_range[afi], rnode, nrnode, range))
+            {
+              prefix2str(range, buf, sizeof(buf));
+              vty_out(vty, " bgp listen range %s peer-group %s%s",
+                      buf, group->name, VTY_NEWLINE);
+            }
+        }
+    }
+
+  return 0;
+}
+
+
 static int
 peer_remote_as_vty (struct vty *vty, const char *peer_str, 
                     const char *as_str, afi_t afi, safi_t safi)
@@ -2041,6 +2244,13 @@ DEFUN (no_neighbor,
       peer = peer_lookup (vty->index, &su);
       if (peer)
 	{
+          if (peer_dynamic_neighbor (peer))
+            {
+              vty_out (vty, "%% Operation not allowed on a dynamic neighbor%s",
+                       VTY_NEWLINE);
+              return CMD_WARNING;
+            }
+
 	  other = peer->doppelganger;
 	  peer_delete (peer);
 	  if (other && other->status != Deleted)
@@ -2394,6 +2604,15 @@ DEFUN (neighbor_set_peer_group,
         {
           vty_out (vty, "%% Can not configure the local system as neighbor%s",
                    VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+
+      /* Disallow for dynamic neighbor. */
+      peer = peer_lookup (bgp, &su);
+      if (peer && peer_dynamic_neighbor (peer))
+        {
+          vty_out (vty, "%% Operation not allowed on a dynamic neighbor%s",
+	           VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -7903,9 +8122,10 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 {
   struct peer *peer;
   struct listnode *node, *nnode;
-  unsigned int count = 0;
-  char timebuf[BGP_UPTIME_LEN];
+  unsigned int count = 0, dn_count = 0;
+  char timebuf[BGP_UPTIME_LEN], dn_flag[2];
   int len;
+  struct peer_group *group;
 
   /* Header string for each address family. */
   static char header[] = "Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
@@ -8006,7 +8226,14 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
           
 	  count++;
 
-	  len = vty_out (vty, "%s", peer->host);
+      memset(dn_flag, '\0', sizeof(dn_flag));
+      if (peer_dynamic_neighbor(peer))
+        {
+          dn_count++;
+          dn_flag[0] = '*';
+        }
+
+      len = vty_out (vty, "%s%s", dn_flag, peer->host);
 	  len = 16 - len;
 	  if (len < 1)
 	    vty_out (vty, "%s%*s", VTY_NEWLINE, 16, " ");
@@ -8075,6 +8302,16 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
   else
     vty_out (vty, "No %s neighbor is configured%s",
 	     afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+
+
+  if (dn_count)
+    {
+      vty_out(vty, "* - dynamic neighbor%s", VTY_NEWLINE);
+      vty_out(vty,
+              "%d %s dynamic neighbor(s), limit %d%s",
+              dn_count, afi == AFI_IP ? "IPv4" : "IPv6",
+              bgp->dynamic_neighbors_limit, VTY_NEWLINE);
+    }
 
   return CMD_SUCCESS;
 }
@@ -8642,6 +8879,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   struct bgp *bgp;
   char buf1[BUFSIZ], buf[SU_ADDRSTRLEN];
   char timebuf[BGP_UPTIME_LEN];
+  char dn_flag[2];
   afi_t afi;
   safi_t safi;
   u_int16_t i;
@@ -8654,7 +8892,14 @@ bgp_show_peer (struct vty *vty, struct peer *p)
              BGP_PEER_SU_UNSPEC(p) ? "None" :
              sockunion2str (&p->su, buf, SU_ADDRSTRLEN));
   else /* Configured IP address. */
-    vty_out (vty, "BGP neighbor is %s, ", p->host);
+    {
+      memset(dn_flag, '\0', sizeof(dn_flag));
+      if (peer_dynamic_neighbor(p))
+        dn_flag[0] = '*';
+
+      vty_out (vty, "BGP neighbor is %s%s, ", dn_flag, p->host);
+    }
+
   vty_out (vty, "remote AS %u, ", p->as);
   vty_out (vty, "local AS %u%s%s, ",
 	   p->change_local_as ? p->change_local_as : p->local_as,
@@ -8672,8 +8917,26 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   
   /* Peer-group */
   if (p->group)
-    vty_out (vty, " Member of peer-group %s for session parameters%s",
-	     p->group->name, VTY_NEWLINE);
+    {
+      vty_out (vty, " Member of peer-group %s for session parameters%s",
+               p->group->name, VTY_NEWLINE);
+
+      if (dn_flag[0])
+        {
+          struct prefix *prefix = NULL, *range = NULL;
+
+          prefix = sockunion2hostprefix(&(p->su));
+          if (prefix)
+            range = peer_group_lookup_dynamic_neighbor_range (p->group,
+                                                              prefix);
+          if (range)
+            {
+              prefix2str(range, buf1, sizeof(buf1));
+              vty_out (vty, " Belongs to the subnet range group: %s%s",
+                       buf1, VTY_NEWLINE);
+            }
+        }
+    }
 
   /* Administrative shutdown. */
   if (CHECK_FLAG (p->flags, PEER_FLAG_SHUTDOWN))
@@ -9968,6 +10231,205 @@ DEFUN (show_bgp_updgrps_afi_adj_subgroup,
   show_bgp_updgrps_adj_info_aux(vty, afi, safi, argv[3], atoll(argv[2]));
 }
 
+static int
+bgp_show_one_peer_group (struct vty *vty, struct peer_group *group)
+{
+  struct listnode *node, *nnode;
+  struct prefix *range;
+  struct peer *conf;
+  struct peer *peer;
+  char buf[128];
+  afi_t afi;
+  safi_t safi;
+  char *peer_status, *af_str;
+  int lr_count;
+  int dynamic;
+  int af_cfgd;
+
+  conf = group->conf;
+
+  vty_out (vty, "%sBGP peer-group %s,  remote AS %d%s",
+           VTY_NEWLINE, group->name, conf->as, VTY_NEWLINE);
+
+  if (group->bgp->as == conf->as)
+    vty_out (vty, "  Peer-group type is internal%s", VTY_NEWLINE);
+  else
+    vty_out (vty, "  Peer-group type is external%s", VTY_NEWLINE);
+
+  /* Display AFs configured. */
+  vty_out (vty, "  Configured address-families:");
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+      {
+        if (conf->afc[afi][safi])
+          {
+            af_cfgd = 1;
+            vty_out (vty, " %s;", afi_safi_print(afi, safi));
+          }
+      }
+  if (!af_cfgd)
+    vty_out (vty, " none%s", VTY_NEWLINE);
+  else
+    vty_out (vty, "%s", VTY_NEWLINE);
+
+  /* Display listen ranges (for dynamic neighbors), if any */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      if (afi == AFI_IP)
+        af_str = "IPv4";
+      else if (afi == AFI_IP6)
+        af_str = "IPv6";
+      lr_count = listcount(group->listen_range[afi]);
+      if (lr_count)
+        {
+          vty_out(vty,
+                  "  %d %s listen range(s)%s",
+                  lr_count, af_str, VTY_NEWLINE);
+
+
+          for (ALL_LIST_ELEMENTS (group->listen_range[afi], node,
+                                  nnode, range))
+            {
+              prefix2str(range, buf, sizeof(buf));
+              vty_out(vty, "    %s%s", buf, VTY_NEWLINE);
+            }
+        }
+    }
+
+  /* Display group members and their status */
+  if (listcount(group->peer))
+    {
+      vty_out (vty, "  Peer-group members:%s", VTY_NEWLINE);
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+        {
+          if (CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN))
+            peer_status = "Idle (Admin)";
+          else if (CHECK_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+            peer_status = "Idle (PfxCt)";
+          else
+            peer_status = LOOKUP(bgp_status_msg, peer->status);
+
+          dynamic = peer_dynamic_neighbor(peer);
+          vty_out (vty, "    %s %s %s %s",
+                   peer->host, dynamic ? "(dynamic)" : "",
+                   peer_status, VTY_NEWLINE);
+        }
+    }
+
+  return CMD_SUCCESS;
+}
+
+/* Show BGP peer group's information. */
+enum show_group_type
+{
+  show_all_groups,
+  show_peer_group
+};
+
+static int
+bgp_show_peer_group (struct vty *vty, struct bgp *bgp,
+                     enum show_group_type type, const char *group_name)
+{
+  struct listnode *node, *nnode;
+  struct peer_group *group;
+  int find = 0;
+
+  for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
+    {
+      switch (type)
+	{
+	case show_all_groups:
+	  bgp_show_one_peer_group (vty, group);
+	  break;
+	case show_peer_group:
+          if (group_name && (strcmp(group->name, group_name) == 0))
+            {
+              find = 1;
+              bgp_show_one_peer_group (vty, group);
+	    }
+	  break;
+	}
+    }
+
+  if (type == show_peer_group && ! find)
+    vty_out (vty, "%% No such peer-groupr%s", VTY_NEWLINE);
+
+  return CMD_SUCCESS;
+}
+
+static int
+bgp_show_peer_group_vty (struct vty *vty, const char *name,
+                         enum show_group_type type, const char *group_name)
+{
+  struct bgp *bgp;
+  int ret = CMD_SUCCESS;
+
+  if (name)
+    {
+      bgp = bgp_lookup_by_name (name);
+
+      if (! bgp)
+        {
+          vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+
+  bgp = bgp_get_default ();
+
+  if (bgp)
+    ret = bgp_show_peer_group (vty, bgp, type, group_name);
+
+  return ret;
+}
+
+DEFUN (show_ip_bgp_peer_groups,
+       show_ip_bgp_peer_groups_cmd,
+       "show ip bgp peer-group",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Detailed information on all BGP peer groups\n")
+{
+  return bgp_show_peer_group_vty (vty, NULL, show_all_groups, NULL);
+}
+
+DEFUN (show_ip_bgp_instance_peer_groups,
+       show_ip_bgp_instance_peer_groups_cmd,
+       "show ip bgp view WORD peer-group",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP View\n"
+       "Detailed information on all BGP peer groups\n")
+{
+  return bgp_show_peer_group_vty (vty, argv[0], show_all_groups, NULL);
+}
+
+DEFUN (show_ip_bgp_peer_group,
+       show_ip_bgp_peer_group_cmd,
+       "show ip bgp peer-group WORD",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP peer-group name\n"
+       "Detailed information on a BGP peer group\n")
+{
+  return bgp_show_peer_group_vty (vty, NULL, show_peer_group, argv[0]);
+}
+
+DEFUN (show_ip_bgp_instance_peer_group,
+       show_ip_bgp_instance_peer_group_cmd,
+       "show ip bgp view WORD peer-group WORD",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP View\n"
+       "BGP peer-group name\n"
+       "Detailed information on a BGP peer group\n")
+{
+  return bgp_show_peer_group_vty (vty, argv[0], show_peer_group, argv[1]);
+}
 
 /* Redistribute VTY commands.  */
 
@@ -10811,6 +11273,14 @@ bgp_vty_init (void)
   /* bgp ibgp-allow-policy-mods command */
   install_element (BGP_NODE, &bgp_rr_allow_outbound_policy_cmd);
   install_element (BGP_NODE, &no_bgp_rr_allow_outbound_policy_cmd);
+
+  /* "bgp listen limit" commands. */
+  install_element (BGP_NODE, &bgp_listen_limit_cmd);
+  install_element (BGP_NODE, &no_bgp_listen_limit_cmd);
+
+  /* "bgp listen range" commands. */
+  install_element (BGP_NODE, &bgp_listen_range_cmd);
+  install_element (BGP_NODE, &no_bgp_listen_range_cmd);
 
   /* "neighbor remote-as" commands. */
   install_element (BGP_NODE, &neighbor_remote_as_cmd);
@@ -11805,6 +12275,16 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_ipv6_bgp_summary_cmd);
   install_element (ENABLE_NODE, &show_ipv6_mbgp_summary_cmd);
 #endif /* HAVE_IPV6 */
+
+  /* "show ip bgp peer-group" commands. */
+  install_element (VIEW_NODE, &show_ip_bgp_peer_groups_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_peer_groups_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_peer_group_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_peer_group_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_peer_groups_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_peer_groups_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_peer_group_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_peer_group_cmd);
 
   /* "show ip bgp rsclient" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_rsclient_summary_cmd);

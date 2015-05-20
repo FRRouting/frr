@@ -224,11 +224,30 @@ bgp_accept (struct thread *thread)
 
   /* Check remote IP address */
   peer1 = peer_lookup (NULL, &su);
+
+  if (! peer1)
+    {
+      peer1 = peer_lookup_dynamic_neighbor (NULL, &su);
+      if (peer1)
+        {
+          /* Dynamic neighbor has been created, let it proceed */
+          peer1->fd = bgp_sock;
+          bgp_fsm_change_status(peer1, Active);
+          BGP_TIMER_OFF(peer1->t_start); /* created in peer_create() */
+
+          if (peer_active (peer1))
+              BGP_EVENT_ADD (peer1, TCP_connection_open);
+
+          return 0;
+        }
+    }
+
   if (! peer1)
     {
       if (bgp_debug_neighbor_events(peer))
 	{
-	  zlog_debug ("[Event] BGP connection IP address %s is not configured",
+	  zlog_debug ("[Event] %s connection rejected - not configured"
+                      " and not valid for dynamic",
 		      inet_sutop (&su, buf));
 	}
       close (bgp_sock);

@@ -951,6 +951,15 @@ bgp_stop (struct peer *peer)
   char orf_name[BUFSIZ];
   int ret = 0;
 
+  if (peer_dynamic_neighbor(peer) &&
+      !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE)))
+    {
+      if (bgp_debug_neighbor_events(peer))
+        zlog_debug ("%s (dynamic neighbor) deleted", peer->host);
+      peer_delete (peer);
+      return -1;
+    }
+
   /* Can't do this in Clearing; events are used for state transitions */
   if (peer->status != Clearing)
     {
@@ -1117,6 +1126,14 @@ bgp_stop_with_error (struct peer *peer)
   if (peer->v_start >= (60 * 2))
     peer->v_start = (60 * 2);
 
+  if (peer_dynamic_neighbor(peer))
+    {
+      if (bgp_debug_neighbor_events(peer))
+        zlog_debug ("%s (dynamic neighbor) deleted", peer->host);
+      peer_delete (peer);
+      return -1;
+    }
+
   return(bgp_stop (peer));
 }
 
@@ -1127,6 +1144,14 @@ bgp_stop_with_notify (struct peer *peer, u_char code, u_char sub_code)
 {
   /* Send notify to remote peer */
   bgp_notify_send (peer, code, sub_code);
+
+  if (peer_dynamic_neighbor(peer))
+    {
+      if (bgp_debug_neighbor_events(peer))
+        zlog_debug ("%s (dynamic neighbor) deleted", peer->host);
+      peer_delete (peer);
+      return -1;
+    }
 
   /* Clear start timer value to default. */
   peer->v_start = BGP_INIT_START_TIMER;
@@ -1180,6 +1205,14 @@ bgp_connect_success (struct peer *peer)
 static int
 bgp_connect_fail (struct peer *peer)
 {
+  if (peer_dynamic_neighbor(peer))
+    {
+      if (bgp_debug_neighbor_events(peer))
+        zlog_debug ("%s (dynamic neighbor) deleted", peer->host);
+      peer_delete (peer);
+      return -1;
+    }
+
   return (bgp_stop (peer));
 }
 
@@ -1737,9 +1770,11 @@ bgp_event_update (struct peer *peer, int event)
   int ret = 0;
   struct peer *other;
   int passive_conn = 0;
+  int dyn_nbr;
 
   other = peer->doppelganger;
   passive_conn = (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)) ? 1 : 0;
+  dyn_nbr = peer_dynamic_neighbor(peer);
 
   /* Logging this event. */
   next = FSM [peer->status -1][event - 1].next_state;
@@ -1772,7 +1807,7 @@ bgp_event_update (struct peer *peer, int event)
       bgp_timer_set (peer);
 
     }
-  else if (!passive_conn && peer->bgp)
+  else if (!dyn_nbr && !passive_conn && peer->bgp)
     {
       /* If we got a return value of -1, that means there was an error, restart
        * the FSM. If the peer structure was deleted

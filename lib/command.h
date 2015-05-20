@@ -508,6 +508,15 @@ struct cmd_token
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor tag\n"
 #endif /* HAVE_IPV6 */
 
+/* Dynamic neighbor (listen range) configuration */
+#ifdef HAVE_IPV6
+#define LISTEN_RANGE_CMD      "bgp listen range (A.B.C.D/M|X:X::X:X/M) "
+#define LISTEN_RANGE_ADDR_STR "Neighbor address\nNeighbor IPv6 address\n"
+#else
+#define LISTEN_RANGE_CMD      "bgp listen range A.B.C.D/M "
+#define LISTEN_RANGE_ADDR_STR "Neighbor address\n"
+#endif /* HAVE_IPV6 */
+
 /* Prototypes. */
 extern void install_node (struct cmd_node *, int (*) (struct vty *));
 extern void install_default (enum node_type);

@@ -572,6 +572,29 @@ bgp_default_subgroup_pkt_queue_max_unset (struct bgp *bgp)
   return 0;
 }
 
+/* Listen limit configuration.  */
+int
+bgp_listen_limit_set (struct bgp *bgp, int listen_limit)
+{
+  if (! bgp)
+    return -1;
+
+  bgp->dynamic_neighbors_limit = listen_limit;
+
+  return 0;
+}
+
+int
+bgp_listen_limit_unset (struct bgp *bgp)
+{
+  if (! bgp)
+    return -1;
+
+  bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
+
+  return 0;
+}
+
 struct peer_af *
 peer_af_create (struct peer *peer, afi_t afi, safi_t safi)
 {
@@ -1309,6 +1332,13 @@ peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if, as_t 
 
   if (peer)
     {
+      /* Not allowed for a dynamic peer. */
+      if (peer_dynamic_neighbor (peer))
+        {
+          *as = peer->as;
+          return BGP_ERR_INVALID_FOR_DYNAMIC_PEER;
+        }
+
       /* When this peer is a member of peer-group.  */
       if (peer->group)
 	{
@@ -1551,6 +1581,9 @@ peer_delete (struct peer *peer)
      relationship.  */
   if (peer->group)
     {
+      if (peer_dynamic_neighbor(peer))
+        peer_drop_dynamic_neighbor(peer);
+
       if ((pn = listnode_lookup (peer->group->peer, peer)))
         {
           peer = peer_unlock (peer); /* group->peer list reference */
@@ -1719,6 +1752,7 @@ struct peer_group *
 peer_group_get (struct bgp *bgp, const char *name)
 {
   struct peer_group *group;
+  afi_t afi;
 
   group = peer_group_lookup (bgp, name);
   if (group)
@@ -1728,6 +1762,8 @@ peer_group_get (struct bgp *bgp, const char *name)
   group->bgp = bgp;
   group->name = strdup (name);
   group->peer = list_new ();
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    group->listen_range[afi] = list_new ();
   group->conf = peer_new (bgp);
   if (! bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
     group->conf->afc[AFI_IP][SAFI_UNICAST] = 1;
@@ -2039,8 +2075,10 @@ peer_group_delete (struct peer_group *group)
 {
   struct bgp *bgp;
   struct peer *peer;
+  struct prefix *prefix;
   struct peer *other;
   struct listnode *node, *nnode;
+  afi_t afi;
 
   bgp = group->bgp;
 
@@ -2056,6 +2094,15 @@ peer_group_delete (struct peer_group *group)
 	}
     }
   list_delete (group->peer);
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      for (ALL_LIST_ELEMENTS (group->listen_range[afi], node, nnode, prefix))
+        {
+          prefix_free(prefix);
+        }
+      list_delete (group->listen_range[afi]);
+    }
 
   free (group->name);
   group->name = NULL;
@@ -2096,6 +2143,78 @@ peer_group_remote_as_delete (struct peer_group *group)
   list_delete_all_node (group->peer);
 
   group->conf->as = 0;
+
+  return 0;
+}
+
+int
+peer_group_listen_range_add (struct peer_group *group, struct prefix *range)
+{
+  struct prefix *prefix;
+  struct listnode *node, *nnode;
+  afi_t afi;
+
+  afi = family2afi(range->family);
+
+  /* Group needs remote AS configured. */
+  if (! group->conf->as)
+    return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
+
+  /* Ensure no duplicates. Currently we don't care about overlaps. */
+  for (ALL_LIST_ELEMENTS (group->listen_range[afi], node, nnode, prefix))
+    {
+      if (prefix_same(range, prefix))
+        return BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS;
+    }
+
+  prefix = prefix_new();
+  prefix_copy(prefix, range);
+  listnode_add(group->listen_range[afi], prefix);
+  return 0;
+}
+
+int
+peer_group_listen_range_del (struct peer_group *group, struct prefix *range)
+{
+  struct prefix *prefix, *prefix2;
+  struct listnode *node, *nnode;
+  struct peer *peer;
+  afi_t afi;
+  char buf[SU_ADDRSTRLEN];
+
+  afi = family2afi(range->family);
+
+  /* Identify the listen range. */
+  for (ALL_LIST_ELEMENTS (group->listen_range[afi], node, nnode, prefix))
+    {
+      if (prefix_same(range, prefix))
+        break;
+    }
+
+  if (!prefix)
+    return BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND;
+
+  prefix2str(prefix, buf, sizeof(buf));
+
+  /* Dispose off any dynamic neighbors that exist due to this listen range */
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+    {
+      if (!peer_dynamic_neighbor (peer))
+        continue;
+
+      prefix2 = sockunion2hostprefix(&peer->su);
+      if (prefix_match(prefix, prefix2))
+        {
+          if (bgp_debug_neighbor_events(peer))
+            zlog_debug ("Deleting dynamic neighbor %s group %s upon "
+                        "delete of listen range %s",
+                        peer->host, group->name, buf);
+          peer_delete (peer);
+        }
+    }
+
+  /* Get rid of the listen range */
+  listnode_delete(group->listen_range[afi], prefix);
 
   return 0;
 }
@@ -2365,6 +2484,8 @@ bgp_create (as_t *as, const char *name)
   bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
   bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
   bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+  bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
+  bgp->dynamic_neighbors_count = 0;
 
   bgp->as = *as;
 
@@ -2659,6 +2780,189 @@ peer_lookup (struct bgp *bgp, union sockunion *su)
     }
   return NULL;
 }
+
+struct peer *
+peer_create_bind_dynamic_neighbor (struct bgp *bgp, union sockunion *su,
+                                   struct peer_group *group)
+{
+  struct peer *peer;
+  afi_t afi;
+  safi_t safi;
+  as_t as;
+
+  /* Create peer first; we've already checked group config is valid. */
+  peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, 0, 0);
+  if (!peer)
+    return NULL;
+
+  /* Link to group */
+  peer->group = group;
+  peer = peer_lock (peer);
+  listnode_add (group->peer, peer);
+
+  /*
+   * Bind peer for all AFs configured for the group. We don't call
+   * peer_group_bind as that is sub-optimal and does some stuff we don't want.
+   */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      {
+        if (!group->conf->afc[afi][safi])
+          continue;
+        peer->af_group[afi][safi] = 1;
+        peer->afc[afi][safi] = 1;
+        if (!peer_af_find(peer, afi, safi) &&
+            peer_af_create(peer, afi, safi) == NULL)
+          {
+            zlog_err("couldn't create af structure for peer %s", peer->host);
+          }
+        peer_group2peer_config_copy (group, peer, afi, safi);
+      }
+
+  /* Mark as dynamic, but also as a "config node" for other things to work. */
+  SET_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR);
+  SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
+
+  return peer;
+}
+
+struct prefix *
+peer_group_lookup_dynamic_neighbor_range (struct peer_group * group,
+                                          struct prefix * prefix)
+{
+  struct listnode *node, *nnode;
+  struct prefix *range;
+  afi_t afi;
+
+  afi = family2afi(prefix->family);
+
+  if (group->listen_range[afi])
+    for (ALL_LIST_ELEMENTS (group->listen_range[afi], node, nnode, range))
+      if (prefix_match(range, prefix))
+        return range;
+
+  return NULL;
+}
+
+struct peer_group *
+peer_group_lookup_dynamic_neighbor (struct bgp *bgp, struct prefix *prefix,
+                                    struct prefix **listen_range)
+{
+  struct prefix *range = NULL;
+  struct peer_group *group = NULL;
+  struct listnode *node, *nnode;
+
+  *listen_range = NULL;
+  if (bgp != NULL)
+    {
+      for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
+        if ((range = peer_group_lookup_dynamic_neighbor_range(group, prefix)))
+          break;
+    }
+  else if (bm->bgp != NULL)
+    {
+      struct listnode *bgpnode, *nbgpnode;
+
+      for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
+        for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
+          if ((range = peer_group_lookup_dynamic_neighbor_range(group, prefix)))
+            break;
+    }
+
+  *listen_range = range;
+  return (group && range) ? group : NULL;
+}
+
+struct peer *
+peer_lookup_dynamic_neighbor (struct bgp *bgp, union sockunion *su)
+{
+  struct peer_group *group;
+  struct bgp *gbgp;
+  struct peer *peer;
+  struct prefix *prefix;
+  struct prefix *listen_range;
+  int dncount;
+  char buf[SU_ADDRSTRLEN];
+  char buf1[SU_ADDRSTRLEN];
+
+  prefix = sockunion2hostprefix(su);
+  if (!prefix)
+    return NULL;
+
+  /* See if incoming connection matches a configured listen range. */
+  group = peer_group_lookup_dynamic_neighbor (bgp, prefix, &listen_range);
+
+  if (! group)
+    return NULL;
+
+  gbgp = group->bgp;
+
+  if (! gbgp)
+    return NULL;
+
+  prefix2str(prefix, buf, sizeof(buf));
+  prefix2str(listen_range, buf1, sizeof(buf1));
+
+  if (bgp_debug_neighbor_events(NULL))
+    zlog_debug ("Dynamic Neighbor %s matches group %s listen range %s",
+                buf, group->name, buf1);
+
+  /* Are we within the listen limit? */
+  dncount = gbgp->dynamic_neighbors_count;
+
+  if (dncount >= gbgp->dynamic_neighbors_limit)
+    {
+      if (bgp_debug_neighbor_events(NULL))
+        zlog_debug ("Dynamic Neighbor %s rejected - at limit %d",
+                    inet_sutop (su, buf), gbgp->dynamic_neighbors_limit);
+      return NULL;
+    }
+
+  /* Ensure group is not disabled. */
+  if (CHECK_FLAG (group->conf->flags, PEER_FLAG_SHUTDOWN))
+    {
+      if (bgp_debug_neighbor_events(NULL))
+        zlog_debug ("Dynamic Neighbor %s rejected - group %s disabled",
+                    buf, group->name);
+      return NULL;
+    }
+
+  /* Check that at least one AF is activated for the group. */
+  if (!peer_group_af_configured (group))
+    {
+      if (bgp_debug_neighbor_events(NULL))
+        zlog_debug ("Dynamic Neighbor %s rejected - no AF activated for group %s",
+                    buf, group->name);
+      return NULL;
+    }
+
+  /* Create dynamic peer and bind to associated group. */
+  peer = peer_create_bind_dynamic_neighbor (gbgp, su, group);
+  assert (peer);
+
+  gbgp->dynamic_neighbors_count = ++dncount;
+
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("%s Dynamic Neighbor added, group %s count %d",
+                peer->host, group->name, dncount);
+
+  return peer;
+}
+
+void peer_drop_dynamic_neighbor (struct peer *peer)
+{
+  int dncount = -1;
+  if (peer->group && peer->group->bgp)
+    {
+      dncount = peer->group->bgp->dynamic_neighbors_count;
+      if (dncount)
+        peer->group->bgp->dynamic_neighbors_count = --dncount;
+    }
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("%s dropped from group %s, count %d",
+                 peer->host, peer->group->name, dncount);
+}
+
 
 /* If peer is configured at least one address family return 1. */
 int
@@ -5468,6 +5772,10 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
   char buf[SU_ADDRSTRLEN];
   char *addr;
 
+  /* Skip dynamic neighbors. */
+  if (peer_dynamic_neighbor (peer))
+    return;
+
   if (peer->conf_if)
     addr = peer->conf_if;
   else
@@ -5895,6 +6203,10 @@ bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
     }
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
+      /* Skip dynamic neighbors. */
+      if (peer_dynamic_neighbor (peer))
+        continue;
+
       if (peer->afc[afi][safi])
 	{
 	  if (CHECK_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE))
@@ -6125,6 +6437,9 @@ bgp_config_write (struct vty *vty)
       /* Distance configuration. */
       bgp_config_write_distance (vty, bgp);
       
+      /* listen range and limit for dynamic BGP neighbors */
+      bgp_config_write_listen (vty, bgp);
+
       /* No auto-summary */
       if (bgp_option_check (BGP_OPT_CONFIG_CISCO))
 	vty_out (vty, " no auto-summary%s", VTY_NEWLINE);

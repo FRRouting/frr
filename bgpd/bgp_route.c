@@ -2508,6 +2508,10 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
                                   BGP_NOTIFY_CEASE_MAX_PREFIX, ndata, 7);
       }
 
+      /* Dynamic peers will just close their connection. */
+      if (peer_dynamic_neighbor (peer))
+        return 1;
+
       /* restart timer start */
       if (peer->pmax_restart[afi][safi])
 	{
