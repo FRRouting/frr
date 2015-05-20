@@ -1706,7 +1706,11 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
   addattr_l (&req.n, sizeof req, RTA_DST, &p->u.prefix, bytelen);
 
   /* Metric. */
-  addattr32 (&req.n, sizeof req, RTA_PRIORITY, rib->metric);
+  /* Hardcode the metric for all routes coming from zebra. Metric isn't used
+   * either by the kernel or by zebra. Its purely for calculating best path(s)
+   * by the routing protocol and for communicating with protocol peers.
+   */
+  addattr32 (&req.n, sizeof req, RTA_PRIORITY, NL_DEFAULT_ROUTE_METRIC);
 
   if (discard)
     {
