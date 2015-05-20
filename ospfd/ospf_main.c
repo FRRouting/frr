@@ -310,6 +310,15 @@ main (int argc, char **argv)
   ospf_opaque_init ();
 #endif /* HAVE_OPAQUE_LSA */
   
+  /* Need to initialize the default ospf structure, so the interface mode
+     commands can be duly processed if they are received before 'router ospf',
+     when quagga(ospfd) is restarted */
+  if (!ospf_get())
+    {
+      zlog_err("OSPF instance init failed: %s", strerror(errno));
+      exit (1);
+    }
+
   /* Get configuration file. */
   vty_read_config (config_file, config_default);
 
