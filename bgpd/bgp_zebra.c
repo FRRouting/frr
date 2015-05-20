@@ -1419,35 +1419,6 @@ bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type)
   return CMD_SUCCESS;
 }
 
-/* Unset redistribution route-map configuration.  */
-int
-bgp_redistribute_routemap_unset (struct bgp *bgp, afi_t afi, int type)
-{
-  if (! bgp->rmap[afi][type].name)
-    return 0;
-
-  /* Unset route-map. */
-  free (bgp->rmap[afi][type].name);
-  bgp->rmap[afi][type].name = NULL;
-  bgp->rmap[afi][type].map = NULL;
-
-  return 1;
-}
-
-/* Unset redistribution metric configuration.  */
-int
-bgp_redistribute_metric_unset (struct bgp *bgp, afi_t afi, int type)
-{
-  if (! bgp->redist_metric_flag[afi][type])
-    return 0;
-
-  /* Unset metric. */
-  bgp->redist_metric_flag[afi][type] = 0;
-  bgp->redist_metric[afi][type] = 0;
-
-  return 1;
-}
-
 void
 bgp_zclient_reset (void)
 {
