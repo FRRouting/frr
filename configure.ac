@@ -1218,6 +1218,12 @@ dnl ----------
     AC_MSG_CHECKING(for GNU libc >= 2.1)
     AC_DEFINE(HAVE_IPV6,1,Linux IPv6)
     AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
+    dnl Linux has a compilation problem with mixing
+    dnl netinet/in.h and linux/in6.h they are not
+    dnl compatible.  There has been discussion on
+    dnl how to fix it but no real progress on implementation
+    dnl when they fix it, remove this
+    AC_DEFINE(IPV6_MINHOPCOUNT, 73, Linux ipv6 Min Hop Count)
 
     AC_EGREP_CPP(yes, [
 #include <features.h>

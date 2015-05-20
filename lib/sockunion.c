@@ -496,16 +496,6 @@ sockopt_cork (int sock, int onoff)
 #endif
 }
 
-/* For some crazy reason, our build doesn't seem to pick this up */
-#ifdef GNU_LINUX
-#ifndef IP_MINTTL
-#define IP_MINTTL 21
-#endif
-#ifndef IPV6_MINHOPCNT
-#define IPV6_MINHOPCNT 73
-#endif
-#endif
-
 int
 sockopt_minttl (int family, int sock, int minttl)
 {
@@ -520,13 +510,13 @@ sockopt_minttl (int family, int sock, int minttl)
       return ret;
     }
 #endif /* IP_MINTTL */
-#ifdef IPV6_MINHOPCNT
+#ifdef IPV6_MINHOPCOUNT
   if (family == AF_INET6)
     {
-      int ret = setsockopt (sock, IPPROTO_IPV6, IPV6_MINHOPCNT, &minttl, sizeof(minttl));
+      int ret = setsockopt (sock, IPPROTO_IPV6, IPV6_MINHOPCOUNT, &minttl, sizeof(minttl));
       if (ret < 0)
 	  zlog (NULL, LOG_WARNING,
-		"can't set sockopt IPV6_MINHOPCNT to %d on socket %d: %s",
+		"can't set sockopt IPV6_MINHOPCOUNT to %d on socket %d: %s",
 		minttl, sock, safe_strerror (errno));
       return ret;
     }
