@@ -129,6 +129,9 @@ struct interface
   /* Connected address list. */
   struct list *connected;
 
+  /* Neighbor connected address list. */
+  struct list *nbr_connected;
+
   /* Daemon specific interface data pointer. */
   void *info;
 
@@ -183,6 +186,16 @@ struct connected
 
   /* Label for Linux 2.2.X and upper. */
   char *label;
+};
+
+/* Nbr Connected address structure. */
+struct nbr_connected
+{
+  /* Attached interface. */
+  struct interface *ifp;
+
+  /* Address of connected network. */
+  struct prefix *address;
 };
 
 /* Does the destination field contain a peer address? */
@@ -303,6 +316,9 @@ extern struct connected  *connected_delete_by_prefix (struct interface *,
                                                struct prefix *);
 extern struct connected  *connected_lookup_address (struct interface *, 
                                              struct in_addr);
+extern struct nbr_connected *nbr_connected_new (void);
+extern void nbr_connected_free (struct nbr_connected *);
+struct nbr_connected *nbr_connected_check (struct interface *, struct prefix *);
 
 #ifndef HAVE_IF_NAMETOINDEX
 extern unsigned int if_nametoindex (const char *);

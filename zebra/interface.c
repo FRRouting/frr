@@ -633,6 +633,21 @@ connected_dump_vty (struct vty *vty, struct connected *connected)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
+/* Dump interface neighbor address information to vty. */
+static void
+nbr_connected_dump_vty (struct vty *vty, struct nbr_connected *connected)
+{
+  struct prefix *p;
+
+  /* Print interface address. */
+  p = connected->address;
+  vty_out (vty, "  %s ", prefix_family_str (p));
+  prefix_vty_out (vty, p);
+  vty_out (vty, "/%d", p->prefixlen);
+
+  vty_out (vty, "%s", VTY_NEWLINE);
+}
+
 #ifdef RTADV
 /* Dump interface ND information to vty. */
 static void
@@ -704,6 +719,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   struct sockaddr_dl *sdl;
 #endif /* HAVE_STRUCT_SOCKADDR_DL */
   struct connected *connected;
+  struct nbr_connected *nbr_connected;
   struct listnode *node;
   struct route_node *rn;
   struct zebra_if *zebra_if;
@@ -802,6 +818,10 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 #ifdef RTADV
   nd_dump_vty (vty, ifp);
 #endif /* RTADV */
+  if (listhead(ifp->nbr_connected))
+    vty_out (vty, "  Neighbor address(s):%s", VTY_NEWLINE);
+  for (ALL_LIST_ELEMENTS_RO (ifp->nbr_connected, node, nbr_connected))
+    nbr_connected_dump_vty (vty, nbr_connected);
 
 #ifdef HAVE_PROC_NET_DEV
   /* Statistics print out using proc file system. */

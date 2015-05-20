@@ -106,15 +106,22 @@ peer_lookup_vty (struct vty *vty, const char *ip_str)
   ret = str2sockunion (ip_str, &su);
   if (ret < 0)
     {
-      vty_out (vty, "%% Malformed address: %s%s", ip_str, VTY_NEWLINE);
-      return NULL;
+      peer = peer_lookup_by_conf_if (bgp, ip_str);
+      if (!peer)
+        {
+          vty_out (vty, "%% Malformed address or name: %s%s", ip_str, VTY_NEWLINE);
+          return NULL;
+        }
     }
-
-  peer = peer_lookup (bgp, &su);
-  if (! peer)
+  else
     {
-      vty_out (vty, "%% Specify remote-as or peer-group commands first%s", VTY_NEWLINE);
-      return NULL;
+      peer = peer_lookup (bgp, &su);
+      if (! peer)
+        {
+          vty_out (vty, "%% Specify remote-as or peer-group commands first%s",
+                   VTY_NEWLINE);
+          return NULL;
+        }
     }
   return peer;
 }
@@ -140,6 +147,10 @@ peer_and_group_lookup_vty (struct vty *vty, const char *peer_str)
     }
   else
     {
+      peer = peer_lookup_by_conf_if (bgp, peer_str);
+      if (peer)
+        return peer;
+
       group = peer_group_lookup (bgp, peer_str);
       if (group)
 	return group->conf;
@@ -1593,23 +1604,30 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
   ret = str2sockunion (peer_str, &su);
   if (ret < 0)
     {
-      ret = peer_group_remote_as (bgp, peer_str, &as);
+      /* Check for peer by interface */
+      ret = peer_remote_as (bgp, NULL, peer_str, &as, afi, safi);
       if (ret < 0)
-	{
-	  vty_out (vty, "%% Create the peer-group first%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-      return CMD_SUCCESS;
+        {
+          ret = peer_group_remote_as (bgp, peer_str, &as);
+          if (ret < 0)
+            {
+              vty_out (vty, "%% Create the peer-group or interface first%s",
+                       VTY_NEWLINE);
+              return CMD_WARNING;
+            }
+          return CMD_SUCCESS;
+        }
     }
-
-  if (peer_address_self_check (&su))
+  else
     {
-      vty_out (vty, "%% Can not configure the local system as neighbor%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
+      if (peer_address_self_check (&su))
+        {
+          vty_out (vty, "%% Can not configure the local system as neighbor%s",
+                   VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      ret = peer_remote_as (bgp, &su, NULL, &as, afi, safi);
     }
-
-  ret = peer_remote_as (bgp, &su, &as, afi, safi);
 
   /* This peer belongs to peer group.  */
   switch (ret)
@@ -1635,17 +1653,51 @@ DEFUN (neighbor_remote_as,
   return peer_remote_as_vty (vty, argv[0], argv[1], AFI_IP, SAFI_UNICAST);
 }
 
+DEFUN (neighbor_interface_config,
+       neighbor_interface_config_cmd,
+       "neighbor WORD interface",
+       NEIGHBOR_STR
+       "Interface name or neighbor tag\n"
+       "Enable BGP on interface\n")
+{
+  struct bgp *bgp;
+  struct peer *peer;
+  struct peer_group *group;
+
+  bgp = vty->index;
+  group = peer_group_lookup (bgp, argv[0]);
+  if (group)
+    {
+      vty_out (vty, "%% Name conflict with peer-group %s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  peer = peer_conf_interface_get (bgp, argv[0], AFI_IP, SAFI_UNICAST);
+  if (!peer)
+    return CMD_WARNING;
+
+  return CMD_SUCCESS;
+}
+
+
 DEFUN (neighbor_peer_group,
        neighbor_peer_group_cmd,
        "neighbor WORD peer-group",
        NEIGHBOR_STR
-       "Neighbor tag\n"
+       "Interface name or neighbor tag\n"
        "Configure peer-group\n")
 {
   struct bgp *bgp;
+  struct peer *peer;
   struct peer_group *group;
 
   bgp = vty->index;
+  peer = peer_lookup_by_conf_if (bgp, argv[0]);
+  if (peer)
+    {
+      vty_out (vty, "%% Name conflict with interface: %s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   group = peer_group_get (bgp, argv[0]);
   if (! group)
@@ -1670,6 +1722,14 @@ DEFUN (no_neighbor,
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
     {
+      /* look up for neighbor by interface name config. */
+      peer = peer_lookup_by_conf_if (vty->index, argv[0]);
+      if (peer)
+        {
+          peer_delete (peer);
+          return CMD_SUCCESS;
+        }
+
       group = peer_group_lookup (vty->index, argv[0]);
       if (group)
 	peer_group_delete (group);
@@ -1703,6 +1763,30 @@ ALIAS (no_neighbor,
        "Specify a BGP neighbor\n"
        AS_STR)
 
+DEFUN (no_neighbor_interface_config,
+       no_neighbor_interface_config_cmd,
+       "no neighbor WORD interface",
+       NO_STR
+       NEIGHBOR_STR
+       "Interface name\n"
+       "Configure BGP on interface\n")
+{
+  struct peer *peer;
+
+  /* look up for neighbor by interface name config. */
+  peer = peer_lookup_by_conf_if (vty->index, argv[0]);
+  if (peer)
+    {
+      peer_delete (peer);
+    }
+  else
+    {
+      vty_out (vty, "%% Create the bgp interface first%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_neighbor_peer_group,
        no_neighbor_peer_group_cmd,
        "no neighbor WORD peer-group",
@@ -1724,23 +1808,32 @@ DEFUN (no_neighbor_peer_group,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_neighbor_peer_group_remote_as,
-       no_neighbor_peer_group_remote_as_cmd,
+DEFUN (no_neighbor_interface_peer_group_remote_as,
+       no_neighbor_interface_peer_group_remote_as_cmd,
        "no neighbor WORD remote-as " CMD_AS_RANGE,
        NO_STR
        NEIGHBOR_STR
-       "Neighbor tag\n"
+       "Interface name or neighbor tag\n"
        "Specify a BGP neighbor\n"
        AS_STR)
 {
   struct peer_group *group;
+  struct peer *peer;
+
+  /* look up for neighbor by interface name config. */
+  peer = peer_lookup_by_conf_if (vty->index, argv[0]);
+  if (peer)
+    {
+      peer_as_change (peer, 0);
+      return CMD_SUCCESS;
+    }
 
   group = peer_group_lookup (vty->index, argv[0]);
   if (group)
     peer_group_remote_as_delete (group);
   else
     {
-      vty_out (vty, "%% Create the peer-group first%s", VTY_NEWLINE);
+      vty_out (vty, "%% Create the peer-group or interface first%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
@@ -1935,9 +2028,9 @@ DEFUN (no_neighbor_activate,
 
 DEFUN (neighbor_set_peer_group,
        neighbor_set_peer_group_cmd,
-       NEIGHBOR_CMD "peer-group WORD",
+       NEIGHBOR_CMD2 "peer-group WORD",
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Member of the peer-group\n"
        "peer-group name\n")
 {
@@ -1945,15 +2038,30 @@ DEFUN (neighbor_set_peer_group,
   as_t as;
   union sockunion su;
   struct bgp *bgp;
+  struct peer *peer;
   struct peer_group *group;
 
   bgp = vty->index;
+  peer = NULL;
 
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
     {
-      vty_out (vty, "%% Malformed address: %s%s", argv[0], VTY_NEWLINE);
-      return CMD_WARNING;
+      peer = peer_lookup_by_conf_if (bgp, argv[0]);
+      if (!peer)
+        {
+          vty_out (vty, "%% Malformed address or name: %s%s", argv[0], VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  else
+    {
+      if (peer_address_self_check (&su))
+        {
+          vty_out (vty, "%% Can not configure the local system as neighbor%s",
+                   VTY_NEWLINE);
+          return CMD_WARNING;
+        }
     }
 
   group = peer_group_lookup (bgp, argv[1]);
@@ -1963,14 +2071,7 @@ DEFUN (neighbor_set_peer_group,
       return CMD_WARNING;
     }
 
-  if (peer_address_self_check (&su))
-    {
-      vty_out (vty, "%% Can not configure the local system as neighbor%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ret = peer_group_bind (bgp, &su, group, bgp_node_afi (vty), 
+  ret = peer_group_bind (bgp, &su, peer, group, bgp_node_afi (vty),
 			 bgp_node_safi (vty), &as);
 
   if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT)
@@ -1984,10 +2085,10 @@ DEFUN (neighbor_set_peer_group,
 
 DEFUN (no_neighbor_set_peer_group,
        no_neighbor_set_peer_group_cmd,
-       NO_NEIGHBOR_CMD "peer-group WORD",
+       NO_NEIGHBOR_CMD2 "peer-group WORD",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Member of the peer-group\n"
        "peer-group name\n")
 {
@@ -3188,6 +3289,9 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
   if (! peer)
     return CMD_WARNING;
 
+  if (peer->conf_if)
+    return CMD_WARNING;
+
   if (source_str)
     {
       union sockunion su;
@@ -3656,7 +3760,7 @@ peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
   struct peer *peer;
 
   peer = peer_lookup_vty (vty, ip_str);
-  if (! peer)
+  if (! peer || peer->conf_if)
     return CMD_WARNING;
 
   if (str)
@@ -4532,16 +4636,23 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
       /* Make sockunion for lookup. */
       ret = str2sockunion (arg, &su);
       if (ret < 0)
-	{
-	  vty_out (vty, "Malformed address: %s%s", arg, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-      peer = peer_lookup (bgp, &su);
-      if (! peer)
-	{
-	  vty_out (vty, "%%BGP: Unknown neighbor - \"%s\"%s", arg, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
+        {
+          peer = peer_lookup_by_conf_if (bgp, arg);
+          if (!peer)
+            {
+              vty_out (vty, "Malformed address or name: %s%s", arg, VTY_NEWLINE);
+              return CMD_WARNING;
+            }
+        }
+      else
+        {
+          peer = peer_lookup (bgp, &su);
+          if (! peer)
+            {
+              vty_out (vty, "%%BGP: Unknown neighbor - \"%s\"%s", arg, VTY_NEWLINE);
+              return CMD_WARNING;
+            }
+        }
 
       if (stype == BGP_CLEAR_SOFT_NONE)
 	ret = peer_clear (peer, NULL);
@@ -4713,32 +4824,35 @@ ALIAS (clear_ip_bgp_all,
 
 DEFUN (clear_ip_bgp_peer,
        clear_ip_bgp_peer_cmd, 
-       "clear ip bgp (A.B.C.D|X:X::X:X)",
+       "clear ip bgp (A.B.C.D|X:X::X:X|WORD)",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor IP address to clear\n"
-       "BGP IPv6 neighbor to clear\n")
+       "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n")
 {
   return bgp_clear_vty (vty, NULL, 0, 0, clear_peer, BGP_CLEAR_SOFT_NONE, argv[0]);
 }
 
 ALIAS (clear_ip_bgp_peer,
        clear_bgp_peer_cmd, 
-       "clear bgp (A.B.C.D|X:X::X:X)",
+       "clear bgp (A.B.C.D|X:X::X:X|WORD)",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
-       "BGP IPv6 neighbor to clear\n")
+       "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n")
 
 ALIAS (clear_ip_bgp_peer,
        clear_bgp_ipv6_peer_cmd, 
-       "clear bgp ipv6 (A.B.C.D|X:X::X:X)",
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD)",
        CLEAR_STR
        BGP_STR
        "Address family\n"
        "BGP neighbor address to clear\n"
-       "BGP IPv6 neighbor to clear\n")
+       "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n")
 
 DEFUN (clear_ip_bgp_peer_group,
        clear_ip_bgp_peer_group_cmd, 
@@ -5083,11 +5197,12 @@ ALIAS (clear_ip_bgp_peer_vpnv4_soft_out,
 
 DEFUN (clear_bgp_peer_soft_out,
        clear_bgp_peer_soft_out_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X) soft out",
+       "clear bgp (A.B.C.D|X:X::X:X|WORD) soft out",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig\n"
        "Soft reconfig outbound update\n")
 {
@@ -5097,32 +5212,35 @@ DEFUN (clear_bgp_peer_soft_out,
 
 ALIAS (clear_bgp_peer_soft_out,
        clear_bgp_ipv6_peer_soft_out_cmd,
-       "clear bgp ipv6 (A.B.C.D|X:X::X:X) soft out",
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) soft out",
        CLEAR_STR
        BGP_STR
        "Address family\n"
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig\n"
        "Soft reconfig outbound update\n")
 
 ALIAS (clear_bgp_peer_soft_out,
        clear_bgp_peer_out_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X) out",
+       "clear bgp (A.B.C.D|X:X::X:X|WORD) out",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig outbound update\n")
 
 ALIAS (clear_bgp_peer_soft_out,
        clear_bgp_ipv6_peer_out_cmd,
-       "clear bgp ipv6 (A.B.C.D|X:X::X:X) out",
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) out",
        CLEAR_STR
        BGP_STR
        "Address family\n"
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig outbound update\n")
 
 DEFUN (clear_ip_bgp_peer_group_soft_out,
@@ -5842,11 +5960,12 @@ ALIAS (clear_ip_bgp_peer_vpnv4_soft_in,
 
 DEFUN (clear_bgp_peer_soft_in,
        clear_bgp_peer_soft_in_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X) soft in",
+       "clear bgp (A.B.C.D|X:X::X:X|WORD) soft in",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig\n"
        "Soft reconfig inbound update\n")
 {
@@ -5856,41 +5975,45 @@ DEFUN (clear_bgp_peer_soft_in,
 
 ALIAS (clear_bgp_peer_soft_in,
        clear_bgp_ipv6_peer_soft_in_cmd,
-       "clear bgp ipv6 (A.B.C.D|X:X::X:X) soft in",
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) soft in",
        CLEAR_STR
        BGP_STR
        "Address family\n"
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig\n"
        "Soft reconfig inbound update\n")
 
 ALIAS (clear_bgp_peer_soft_in,
        clear_bgp_peer_in_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X) in",
+       "clear bgp (A.B.C.D|X:X::X:X|WORD) in",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig inbound update\n")
 
 ALIAS (clear_bgp_peer_soft_in,
        clear_bgp_ipv6_peer_in_cmd,
-       "clear bgp ipv6 (A.B.C.D|X:X::X:X) in",
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) in",
        CLEAR_STR
        BGP_STR
        "Address family\n"
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig inbound update\n")
 
 DEFUN (clear_bgp_peer_in_prefix_filter,
        clear_bgp_peer_in_prefix_filter_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X) in prefix-filter",
+       "clear bgp (A.B.C.D|X:X::X:X|WORD) in prefix-filter",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig inbound update\n"
        "Push out the existing ORF prefix-list\n")
 {
@@ -5900,12 +6023,13 @@ DEFUN (clear_bgp_peer_in_prefix_filter,
 
 ALIAS (clear_bgp_peer_in_prefix_filter,
        clear_bgp_ipv6_peer_in_prefix_filter_cmd,
-       "clear bgp ipv6 (A.B.C.D|X:X::X:X) in prefix-filter",
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) in prefix-filter",
        CLEAR_STR
        BGP_STR
        "Address family\n"
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig inbound update\n"
        "Push out the existing ORF prefix-list\n")
 
@@ -6582,11 +6706,12 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft,
 
 DEFUN (clear_bgp_peer_soft,
        clear_bgp_peer_soft_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X) soft",
+       "clear bgp (A.B.C.D|X:X::X:X|WORD) soft",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_peer,
@@ -6595,12 +6720,13 @@ DEFUN (clear_bgp_peer_soft,
 
 ALIAS (clear_bgp_peer_soft,
        clear_bgp_ipv6_peer_soft_cmd,
-       "clear bgp ipv6 (A.B.C.D|X:X::X:X) soft",
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) soft",
        CLEAR_STR
        BGP_STR
        "Address family\n"
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig\n")
 
 DEFUN (clear_ip_bgp_peer_group_soft,
@@ -6864,11 +6990,12 @@ ALIAS (clear_ip_bgp_all_rsclient,
 #ifdef HAVE_IPV6
 DEFUN (clear_bgp_peer_rsclient,
        clear_bgp_peer_rsclient_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X) rsclient",
+       "clear bgp (A.B.C.D|X:X::X:X|WORD) rsclient",
        CLEAR_STR
        BGP_STR
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig for rsclient RIB\n")
 {
   if (argc == 2)
@@ -6881,28 +7008,30 @@ DEFUN (clear_bgp_peer_rsclient,
 
 ALIAS (clear_bgp_peer_rsclient,
        clear_bgp_ipv6_peer_rsclient_cmd,
-       "clear bgp ipv6 (A.B.C.D|X:X::X:X) rsclient",
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) rsclient",
        CLEAR_STR
        BGP_STR
        "Address family\n"
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig for rsclient RIB\n")
 
 ALIAS (clear_bgp_peer_rsclient,
        clear_bgp_instance_peer_rsclient_cmd,
-       "clear bgp view WORD (A.B.C.D|X:X::X:X) rsclient",
+       "clear bgp view WORD (A.B.C.D|X:X::X:X|WORD) rsclient",
        CLEAR_STR
        BGP_STR
        "BGP view\n"
        "view name\n"
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig for rsclient RIB\n")
 
 ALIAS (clear_bgp_peer_rsclient,
        clear_bgp_ipv6_instance_peer_rsclient_cmd,
-       "clear bgp ipv6 view WORD (A.B.C.D|X:X::X:X) rsclient",
+       "clear bgp ipv6 view WORD (A.B.C.D|X:X::X:X|WORD) rsclient",
        CLEAR_STR
        BGP_STR
        "Address family\n"
@@ -6910,17 +7039,19 @@ ALIAS (clear_bgp_peer_rsclient,
        "view name\n"
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig for rsclient RIB\n")
 #endif /* HAVE_IPV6 */
 
 DEFUN (clear_ip_bgp_peer_rsclient,
        clear_ip_bgp_peer_rsclient_cmd,
-       "clear ip bgp (A.B.C.D|X:X::X:X) rsclient",
+       "clear ip bgp (A.B.C.D|X:X::X:X|WORD) rsclient",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig for rsclient RIB\n")
 {
   if (argc == 2)
@@ -6933,7 +7064,7 @@ DEFUN (clear_ip_bgp_peer_rsclient,
 
 ALIAS (clear_ip_bgp_peer_rsclient,
        clear_ip_bgp_instance_peer_rsclient_cmd,
-       "clear ip bgp view WORD (A.B.C.D|X:X::X:X) rsclient",
+       "clear ip bgp view WORD (A.B.C.D|X:X::X:X|WORD) rsclient",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6941,6 +7072,7 @@ ALIAS (clear_ip_bgp_peer_rsclient,
        "view name\n"
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Soft reconfig for rsclient RIB\n")
 
 DEFUN (show_bgp_views,
@@ -7836,7 +7968,7 @@ static void
 bgp_show_peer (struct vty *vty, struct peer *p)
 {
   struct bgp *bgp;
-  char buf1[BUFSIZ];
+  char buf1[BUFSIZ], buf[SU_ADDRSTRLEN];
   char timebuf[BGP_UPTIME_LEN];
   afi_t afi;
   safi_t safi;
@@ -7845,8 +7977,12 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 
   bgp = p->bgp;
 
-  /* Configured IP address. */
-  vty_out (vty, "BGP neighbor is %s, ", p->host);
+  if (p->conf_if) /* Configured interface name. */
+    vty_out (vty, "BGP neighbor on %s: %s, ", p->conf_if,
+             BGP_PEER_SU_UNSPEC(p) ? "None" :
+             sockunion2str (&p->su, buf, SU_ADDRSTRLEN));
+  else /* Configured IP address. */
+    vty_out (vty, "BGP neighbor is %s, ", p->host);
   vty_out (vty, "remote AS %u, ", p->as);
   vty_out (vty, "local AS %u%s%s, ",
 	   p->change_local_as ? p->change_local_as : p->local_as,
@@ -8237,7 +8373,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 
 static int
 bgp_show_neighbor (struct vty *vty, struct bgp *bgp,
-		   enum show_type type, union sockunion *su)
+		   enum show_type type, union sockunion *su, const char *conf_if)
 {
   struct listnode *node, *nnode;
   struct peer *peer;
@@ -8254,11 +8390,22 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp,
 	  bgp_show_peer (vty, peer);
 	  break;
 	case show_peer:
-	  if (sockunion_same (&peer->su, su))
-	    {
-	      find = 1;
-	      bgp_show_peer (vty, peer);
-	    }
+    if (conf_if)
+      {
+        if (peer->conf_if && !strcmp(peer->conf_if, conf_if))
+          {
+            find = 1;
+            bgp_show_peer (vty, peer);
+          }
+      }
+    else
+      {
+        if (sockunion_same (&peer->su, su))
+          {
+            find = 1;
+            bgp_show_peer (vty, peer);
+          }
+      }
 	  break;
 	}
     }
@@ -8277,35 +8424,35 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
   struct bgp *bgp;
   union sockunion su;
 
-  if (ip_str)
-    {
-      ret = str2sockunion (ip_str, &su);
-      if (ret < 0)
-        {
-          vty_out (vty, "%% Malformed address: %s%s", ip_str, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
   if (name)
     {
       bgp = bgp_lookup_by_name (name);
-      
       if (! bgp)
         {
           vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE); 
           return CMD_WARNING;
         }
-
-      bgp_show_neighbor (vty, bgp, type, &su);
-
-      return CMD_SUCCESS;
+    }
+  else
+    {
+      bgp = bgp_get_default ();
     }
 
-  bgp = bgp_get_default ();
-
   if (bgp)
-    bgp_show_neighbor (vty, bgp, type, &su);
+    {
+      if (ip_str)
+        {
+          ret = str2sockunion (ip_str, &su);
+          if (ret < 0)
+            bgp_show_neighbor (vty, bgp, type, NULL, ip_str);
+          else
+            bgp_show_neighbor (vty, bgp, type, &su, NULL);
+        }
+      else
+        {
+          bgp_show_neighbor (vty, bgp, type, NULL, NULL);
+        }
+    }
 
   return CMD_SUCCESS;
 }
@@ -8371,20 +8518,21 @@ ALIAS (show_ip_bgp_neighbors,
 
 DEFUN (show_ip_bgp_neighbors_peer,
        show_ip_bgp_neighbors_peer_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X)",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD)",
        SHOW_STR
        IP_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n")
 {
   return bgp_show_neighbor_vty (vty, NULL, show_peer, argv[argc - 1]);
 }
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_ip_bgp_ipv4_neighbors_peer_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X)",
+       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD)",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8393,7 +8541,8 @@ ALIAS (show_ip_bgp_neighbors_peer,
        "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n")
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_ip_bgp_vpnv4_all_neighbors_peer_cmd,
@@ -8419,22 +8568,24 @@ ALIAS (show_ip_bgp_neighbors_peer,
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_bgp_neighbors_peer_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X)",
+       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD)",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n")
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_bgp_ipv6_neighbors_peer_cmd,
-       "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X)",
+       "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD)",
        SHOW_STR
        BGP_STR
        "Address family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n")
 
 DEFUN (show_ip_bgp_instance_neighbors,
        show_ip_bgp_instance_neighbors_cmd,
@@ -8470,7 +8621,7 @@ ALIAS (show_ip_bgp_instance_neighbors,
 
 DEFUN (show_ip_bgp_instance_neighbors_peer,
        show_ip_bgp_instance_neighbors_peer_cmd,
-       "show ip bgp view WORD neighbors (A.B.C.D|X:X::X:X)",
+       "show ip bgp view WORD neighbors (A.B.C.D|X:X::X:X|WORD)",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8478,25 +8629,27 @@ DEFUN (show_ip_bgp_instance_neighbors_peer,
        "View name\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n")
 {
   return bgp_show_neighbor_vty (vty, argv[0], show_peer, argv[1]);
 }
 
 ALIAS (show_ip_bgp_instance_neighbors_peer,
        show_bgp_instance_neighbors_peer_cmd,
-       "show bgp view WORD neighbors (A.B.C.D|X:X::X:X)",
+       "show bgp view WORD neighbors (A.B.C.D|X:X::X:X|WORD)",
        SHOW_STR
        BGP_STR
        "BGP view\n"
        "View name\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n")
 
 ALIAS (show_ip_bgp_instance_neighbors_peer,
        show_bgp_instance_ipv6_neighbors_peer_cmd,
-       "show bgp view WORD ipv6 neighbors (A.B.C.D|X:X::X:X)",
+       "show bgp view WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD)",
        SHOW_STR
        BGP_STR
        "BGP view\n"
@@ -8504,7 +8657,8 @@ ALIAS (show_ip_bgp_instance_neighbors_peer,
        "Address family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n")
        
 /* Show BGP's AS paths internal data.  There are both `show ip bgp
    paths' and `show ip mbgp paths'.  Those functions results are the
@@ -9579,13 +9733,15 @@ bgp_vty_init (void)
 
   /* "neighbor remote-as" commands. */
   install_element (BGP_NODE, &neighbor_remote_as_cmd);
+  install_element (BGP_NODE, &neighbor_interface_config_cmd);
   install_element (BGP_NODE, &no_neighbor_cmd);
   install_element (BGP_NODE, &no_neighbor_remote_as_cmd);
+  install_element (BGP_NODE, &no_neighbor_interface_config_cmd);
 
   /* "neighbor peer-group" commands. */
   install_element (BGP_NODE, &neighbor_peer_group_cmd);
   install_element (BGP_NODE, &no_neighbor_peer_group_cmd);
-  install_element (BGP_NODE, &no_neighbor_peer_group_remote_as_cmd);
+  install_element (BGP_NODE, &no_neighbor_interface_peer_group_remote_as_cmd);
 
   /* "neighbor local-as" commands. */
   install_element (BGP_NODE, &neighbor_local_as_cmd);

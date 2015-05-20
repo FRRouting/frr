@@ -493,7 +493,8 @@ struct cmd_token
 #define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"
 #define NEIGHBOR_CMD2      "neighbor (A.B.C.D|X:X::X:X|WORD) "
 #define NO_NEIGHBOR_CMD2   "no neighbor (A.B.C.D|X:X::X:X|WORD) "
-#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nNeighbor tag\n"
+#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
+#define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
 #else
 #define NEIGHBOR_CMD       "neighbor A.B.C.D "
 #define NO_NEIGHBOR_CMD    "no neighbor A.B.C.D "

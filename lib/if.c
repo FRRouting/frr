@@ -132,6 +132,9 @@ if_create (const char *name, int namelen)
   ifp->connected = list_new ();
   ifp->connected->del = (void (*) (void *)) connected_free;
 
+  ifp->nbr_connected = list_new ();
+  ifp->nbr_connected->del = (void (*) (void *)) nbr_connected_free;
+
   /* Enable Link-detection by default */
   SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
 
@@ -150,6 +153,9 @@ if_delete_retain (struct interface *ifp)
 
   /* Free connected address list */
   list_delete_all_node (ifp->connected);
+
+  /* Free connected nbr address list */
+  list_delete_all_node (ifp->nbr_connected);
 }
 
 /* Delete and free interface structure. */
@@ -161,6 +167,7 @@ if_delete (struct interface *ifp)
   if_delete_retain(ifp);
 
   list_free (ifp->connected);
+  list_free (ifp->nbr_connected);
 
   XFREE (MTYPE_IF, ifp);
 }
@@ -652,6 +659,13 @@ connected_new (void)
   return XCALLOC (MTYPE_CONNECTED, sizeof (struct connected));
 }
 
+/* Allocate nbr connected structure. */
+struct nbr_connected *
+nbr_connected_new (void)
+{
+  return XCALLOC (MTYPE_NBR_CONNECTED, sizeof (struct nbr_connected));
+}
+
 /* Free connected structure. */
 void
 connected_free (struct connected *connected)
@@ -666,6 +680,30 @@ connected_free (struct connected *connected)
     XFREE (MTYPE_CONNECTED_LABEL, connected->label);
 
   XFREE (MTYPE_CONNECTED, connected);
+}
+
+/* Free nbr connected structure. */
+void
+nbr_connected_free (struct nbr_connected *connected)
+{
+  if (connected->address)
+    prefix_free (connected->address);
+
+  XFREE (MTYPE_NBR_CONNECTED, connected);
+}
+
+/* If same interface nbr address already exists... */
+struct nbr_connected *
+nbr_connected_check (struct interface *ifp, struct prefix *p)
+{
+  struct nbr_connected *ifc;
+  struct listnode *node;
+
+  for (ALL_LIST_ELEMENTS_RO (ifp->nbr_connected, node, ifc))
+    if (prefix_same (ifc->address, p))
+      return ifc;
+
+  return NULL;
 }
 
 /* Print if_addr structure. */
@@ -691,6 +729,26 @@ connected_log (struct connected *connected, char *str)
       strncat (logbuf, inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 	       BUFSIZ - strlen(logbuf));
     }
+  zlog (NULL, LOG_INFO, "%s", logbuf);
+}
+
+/* Print if_addr structure. */
+static void __attribute__ ((unused))
+nbr_connected_log (struct nbr_connected *connected, char *str)
+{
+  struct prefix *p;
+  struct interface *ifp;
+  char logbuf[BUFSIZ];
+  char buf[BUFSIZ];
+
+  ifp = connected->ifp;
+  p = connected->address;
+
+  snprintf (logbuf, BUFSIZ, "%s interface %s %s %s/%d ",
+	    str, ifp->name, prefix_family_str (p),
+	    inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
+	    p->prefixlen);
+
   zlog (NULL, LOG_INFO, "%s", logbuf);
 }
 

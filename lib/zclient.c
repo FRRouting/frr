@@ -826,6 +826,81 @@ zebra_interface_address_read (int type, struct stream *s)
   return ifc;
 }
 
+/*
+ * format of message for neighbor connected address is:
+ *    0
+ *  0 1 2 3 4 5 6 7
+ * +-+-+-+-+-+-+-+-+
+ * |   type        |  ZEBRA_INTERFACE_NBR_ADDRESS_ADD or
+ * +-+-+-+-+-+-+-+-+  ZEBRA_INTERFACE_NBR_ADDRES_DELETE
+ * |               |
+ * +               +
+ * |   ifindex     |
+ * +               +
+ * |               |
+ * +               +
+ * |               |
+ * +-+-+-+-+-+-+-+-+
+ * |  addr_family  |
+ * +-+-+-+-+-+-+-+-+
+ * |    addr...    |
+ * :               :
+ * |               |
+ * +-+-+-+-+-+-+-+-+
+ * |    addr_len   |  len of addr.
+ * +-+-+-+-+-+-+-+-+
+ */
+struct nbr_connected *
+zebra_interface_nbr_address_read (int type, struct stream *s)
+{
+  unsigned int ifindex;
+  struct interface *ifp;
+  struct prefix p;
+  struct nbr_connected *ifc;
+
+  /* Get interface index. */
+  ifindex = stream_getl (s);
+
+  /* Lookup index. */
+  ifp = if_lookup_by_index (ifindex);
+  if (ifp == NULL)
+    {
+      zlog_warn ("zebra_nbr_interface_address_read(%s): "
+                 "Can't find interface by ifindex: %d ",
+                 (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD? "ADD" : "DELETE"),
+                 ifindex);
+      return NULL;
+    }
+
+  p.family = stream_getc (s);
+  stream_get (&p.u.prefix, s, prefix_blen (&p));
+  p.prefixlen = stream_getc (s);
+
+  if (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD)
+    {
+      /* Currently only supporting P2P links, so any new RA source address is
+         considered as the replacement of the previously learnt Link-Local address. */
+      if (!(ifc = listnode_head(ifp->nbr_connected)))
+        {
+          ifc = nbr_connected_new ();
+          ifc->address = prefix_new ();
+          ifc->ifp = ifp;
+          listnode_add (ifp->nbr_connected, ifc);
+        }
+
+      prefix_copy(ifc->address, &p);
+    }
+  else
+    {
+      assert (type == ZEBRA_INTERFACE_NBR_ADDRESS_DELETE);
+
+      ifc = nbr_connected_check(ifp, &p);
+      if (ifc)
+          listnode_delete (ifp->nbr_connected, ifc);
+    }
+
+  return ifc;
+}
 
 /* Zebra client message read function. */
 static int
@@ -942,6 +1017,14 @@ zclient_read (struct thread *thread)
     case ZEBRA_INTERFACE_ADDRESS_DELETE:
       if (zclient->interface_address_delete)
 	(*zclient->interface_address_delete) (command, zclient, length);
+      break;
+    case ZEBRA_INTERFACE_NBR_ADDRESS_ADD:
+      if (zclient->interface_nbr_address_add)
+	(*zclient->interface_nbr_address_add) (command, zclient, length);
+      break;
+    case ZEBRA_INTERFACE_NBR_ADDRESS_DELETE:
+      if (zclient->interface_nbr_address_delete)
+	(*zclient->interface_nbr_address_delete) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_UP:
       if (zclient->interface_up)

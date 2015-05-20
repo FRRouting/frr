@@ -78,6 +78,8 @@ struct zclient
   int (*interface_down) (int, struct zclient *, uint16_t);
   int (*interface_address_add) (int, struct zclient *, uint16_t);
   int (*interface_address_delete) (int, struct zclient *, uint16_t);
+  int (*interface_nbr_address_add) (int, struct zclient *, uint16_t);
+  int (*interface_nbr_address_delete) (int, struct zclient *, uint16_t);
   int (*ipv4_route_add) (int, struct zclient *, uint16_t);
   int (*ipv4_route_delete) (int, struct zclient *, uint16_t);
   int (*ipv6_route_add) (int, struct zclient *, uint16_t);
@@ -155,6 +157,7 @@ extern void zclient_create_header (struct stream *, uint16_t);
 extern struct interface *zebra_interface_add_read (struct stream *);
 extern struct interface *zebra_interface_state_read (struct stream *s);
 extern struct connected *zebra_interface_address_read (int, struct stream *);
+extern struct nbr_connected *zebra_interface_nbr_address_read (int, struct stream *);
 extern void zebra_interface_if_set_value (struct stream *, struct interface *);
 extern void zebra_router_id_update_read (struct stream *s, struct prefix *rid);
 extern int zapi_ipv4_route (u_char, struct zclient *, struct prefix_ipv4 *, 

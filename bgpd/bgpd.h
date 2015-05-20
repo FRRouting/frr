@@ -370,11 +370,13 @@ struct peer
   unsigned short port;          /* Destination port for peer */
   char *host;			/* Printable address of the peer. */
   union sockunion su;		/* Sockunion address of the peer. */
+#define BGP_PEER_SU_UNSPEC(peer) (peer->su.sa.sa_family == AF_UNSPEC)
   time_t uptime;		/* Last Up/Down time */
   time_t readtime;		/* Last read time */
   time_t resettime;		/* Last reset time */
   
   unsigned int ifindex;		/* ifindex of the BGP connection. */
+  char *conf_if;                /* neighbor interface config name. */
   char *ifname;			/* bind interface name. */
   char *update_if;
   union sockunion *update_source;
@@ -865,8 +867,9 @@ enum bgp_clear_type
 #define BGP_ERR_TCPSIG_FAILED			-29
 #define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-30
 #define BGP_ERR_NO_IBGP_WITH_TTLHACK		-31
-#define BGP_ERR_MAX				-32
+#define BGP_ERR_NO_INTERFACE_CONFIG             -32
 #define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS    -33
+#define BGP_ERR_MAX				-34
 
 extern struct bgp_master *bm;
 
@@ -883,6 +886,10 @@ extern struct bgp *bgp_get_default (void);
 extern struct bgp *bgp_lookup (as_t, const char *);
 extern struct bgp *bgp_lookup_by_name (const char *);
 extern struct peer *peer_lookup (struct bgp *, union sockunion *);
+extern struct peer *peer_lookup_by_conf_if (struct bgp *, const char *);
+extern struct peer *peer_conf_interface_get(struct bgp *, const char *, afi_t,
+                                            safi_t);
+extern void  bgp_peer_conf_if_to_su_update (struct peer *);
 extern struct peer_group *peer_group_lookup (struct bgp *, const char *);
 extern struct peer_group *peer_group_get (struct bgp *, const char *);
 extern struct peer *peer_lock (struct peer *);
@@ -890,8 +897,8 @@ extern struct peer *peer_unlock (struct peer *);
 extern bgp_peer_sort_t peer_sort (struct peer *peer);
 extern int peer_active (struct peer *);
 extern int peer_active_nego (struct peer *);
-extern struct peer *peer_create(union sockunion *su, struct bgp *bgp, as_t local_as,
-			        as_t remote_as, afi_t afi, safi_t safi);
+extern struct peer *peer_create(union sockunion *, const char *, struct bgp *,
+                                as_t, as_t, afi_t, safi_t);
 extern struct peer *peer_create_accept (struct bgp *);
 extern void peer_xfer_config (struct peer *dst, struct peer *src);
 extern char *peer_uptime (time_t, char *, size_t);
@@ -938,8 +945,9 @@ extern int bgp_default_local_preference_unset (struct bgp *);
 extern int bgp_update_delay_active (struct bgp *);
 extern int bgp_update_delay_configured (struct bgp *);
 extern int peer_rsclient_active (struct peer *);
-
-extern int peer_remote_as (struct bgp *, union sockunion *, as_t *, afi_t, safi_t);
+extern void peer_as_change (struct peer *, as_t);
+extern int peer_remote_as (struct bgp *, union sockunion *,const char *, as_t *,
+                           afi_t, safi_t);
 extern int peer_group_remote_as (struct bgp *, const char *, as_t *);
 extern int peer_delete (struct peer *peer);
 extern int peer_group_delete (struct peer_group *);
@@ -948,8 +956,8 @@ extern int peer_group_remote_as_delete (struct peer_group *);
 extern int peer_activate (struct peer *, afi_t, safi_t);
 extern int peer_deactivate (struct peer *, afi_t, safi_t);
 
-extern int peer_group_bind (struct bgp *, union sockunion *, struct peer_group *,
-		     afi_t, safi_t, as_t *);
+extern int peer_group_bind (struct bgp *, union sockunion *, struct peer *,
+                            struct peer_group *, afi_t, safi_t, as_t *);
 extern int peer_group_unbind (struct bgp *, struct peer *, struct peer_group *,
 		       afi_t, safi_t);
 

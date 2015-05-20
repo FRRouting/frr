@@ -437,13 +437,82 @@ rtadv_process_solicit (struct interface *ifp)
 }
 
 static void
-rtadv_process_advert (void)
+rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
+                      struct sockaddr_in6 *addr)
 {
-  zlog_info ("Router advertisement received");
+  struct nd_router_advert *radvert;
+  char addr_str[INET6_ADDRSTRLEN];
+  struct zebra_if *zif;
+
+  zif = ifp->info;
+
+  inet_ntop (AF_INET6, &addr->sin6_addr, addr_str, INET6_ADDRSTRLEN);
+
+  zlog_info ("Router advertisement received on %s from : %s", ifp->name, addr_str);
+
+  if (len < sizeof(struct nd_router_advert)) {
+      zlog_warn("received icmpv6 RA packet with invalid length (%d) from %s",
+                len, addr_str);
+      return;
+  }
+  if (!IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) {
+      zlog_warn("received icmpv6 RA packet with non-linklocal source address from %s",
+                addr_str);
+      return;
+  }
+
+  radvert = (struct nd_router_advert *) msg;
+
+  if ((radvert->nd_ra_curhoplimit && zif->rtadv.AdvCurHopLimit) &&
+      (radvert->nd_ra_curhoplimit != zif->rtadv.AdvCurHopLimit))
+    {
+      zlog_warn("our AdvCurHopLimit on %s doesn't agree with %s",
+                ifp->name, addr_str);
+    }
+
+  if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED) &&
+      !zif->rtadv.AdvManagedFlag)
+    {
+      zlog_warn("our AdvManagedFlag on %s doesn't agree with %s",
+                ifp->name, addr_str);
+    }
+
+  if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_OTHER) &&
+      !zif->rtadv.AdvOtherConfigFlag)
+    {
+      zlog_warn("our AdvOtherConfigFlag on %s doesn't agree with %s",
+                ifp->name, addr_str);
+    }
+
+  if ((radvert->nd_ra_reachable && zif->rtadv.AdvReachableTime) &&
+      (ntohl(radvert->nd_ra_reachable) != zif->rtadv.AdvReachableTime))
+    {
+      zlog_warn("our AdvReachableTime on %s doesn't agree with %s",
+                ifp->name, addr_str);
+    }
+
+  if ((radvert->nd_ra_retransmit && zif->rtadv.AdvRetransTimer) &&
+      (ntohl(radvert->nd_ra_retransmit) != zif->rtadv.AdvRetransTimer))
+    {
+      zlog_warn("our AdvRetransTimer on %s doesn't agree with %s",
+                ifp->name, addr_str);
+    }
+
+  /* Currently supporting only P2P links, so any new RA source address is
+     considered as the replacement of the previously learnt Link-Local address.
+     As per the RFC, lifetime zero is to be considered a delete */
+  if (ntohs(radvert->nd_ra_router_lifetime))
+     nbr_connected_replacement_add_ipv6(ifp, &addr->sin6_addr, 128);
+  else
+     nbr_connected_delete_ipv6(ifp, &addr->sin6_addr, 128);
+
+  return;
 }
 
+
 static void
-rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int hoplimit)
+rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int hoplimit,
+                      struct sockaddr_in6 *from)
 {
   struct icmp6_hdr *icmph;
   struct interface *ifp;
@@ -494,7 +563,7 @@ rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int h
   if (icmph->icmp6_type == ND_ROUTER_SOLICIT)
     rtadv_process_solicit (ifp);
   else if (icmph->icmp6_type == ND_ROUTER_ADVERT)
-    rtadv_process_advert ();
+    rtadv_process_advert (buf, len, ifp, from);
 
   return;
 }
@@ -523,7 +592,7 @@ rtadv_read (struct thread *thread)
       return len;
     }
 
-  rtadv_process_packet (buf, (unsigned)len, ifindex, hoplimit);
+  rtadv_process_packet (buf, (unsigned)len, ifindex, hoplimit, &from);
 
   return 0;
 }

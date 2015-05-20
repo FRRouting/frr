@@ -299,6 +299,143 @@ zsend_interface_address (int cmd, struct zserv *client,
   return zebra_server_send_message(client);
 }
 
+static int
+zsend_interface_nbr_address (int cmd, struct zserv *client,
+                             struct interface *ifp, struct nbr_connected *ifc)
+{
+  int blen;
+  struct stream *s;
+  struct prefix *p;
+
+  /* Check this client need interface information. */
+  if (! client->ifinfo)
+    return 0;
+
+  s = client->obuf;
+  stream_reset (s);
+
+  zserv_create_header (s, cmd);
+  stream_putl (s, ifp->ifindex);
+
+  /* Prefix information. */
+  p = ifc->address;
+  stream_putc (s, p->family);
+  blen = prefix_blen (p);
+  stream_put (s, &p->u.prefix, blen);
+
+  /*
+   * XXX gnu version does not send prefixlen for ZEBRA_INTERFACE_ADDRESS_DELETE
+   * but zebra_interface_address_delete_read() in the gnu version
+   * expects to find it
+   */
+  stream_putc (s, p->prefixlen);
+
+  /* Write packet size. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  return zebra_server_send_message(client);
+}
+
+/* Interface address addition. */
+static void
+zebra_interface_nbr_address_add_update (struct interface *ifp,
+                                        struct nbr_connected *ifc)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+  struct prefix *p;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    {
+      char buf[INET6_ADDRSTRLEN];
+
+      p = ifc->address;
+      zlog_debug ("MESSAGE: ZEBRA_INTERFACE_NBR_ADDRESS_ADD %s/%d on %s",
+      inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN),
+      p->prefixlen, ifc->ifp->name);
+    }
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    if (client->ifinfo)
+      zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_ADD, client, ifp, ifc);
+}
+
+/* Interface address deletion. */
+static void
+zebra_interface_nbr_address_delete_update (struct interface *ifp,
+                                           struct nbr_connected *ifc)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+  struct prefix *p;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    {
+      char buf[INET6_ADDRSTRLEN];
+
+      p = ifc->address;
+      zlog_debug ("MESSAGE: ZEBRA_INTERFACE_NBR_ADDRESS_DELETE %s/%d on %s",
+		  inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN),
+		 p->prefixlen, ifc->ifp->name);
+    }
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    if (client->ifinfo)
+      zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_DELETE, client, ifp, ifc);
+}
+
+/* Add new nbr connected IPv6 address if none exists already, or replace the
+   existing one if an ifc entry is found on the interface. */
+void
+nbr_connected_replacement_add_ipv6 (struct interface *ifp, struct in6_addr *address,
+                                    u_char prefixlen)
+{
+  struct nbr_connected *ifc;
+  struct prefix p;
+
+  p.family = AF_INET6;
+  IPV6_ADDR_COPY (&p.u.prefix, address);
+  p.prefixlen = prefixlen;
+
+  if (nbr_connected_check(ifp, &p))
+    return;
+
+  if (!(ifc = listnode_head(ifp->nbr_connected)))
+    {
+      /* new addition */
+      ifc = nbr_connected_new ();
+      ifc->address = prefix_new();
+      ifc->ifp = ifp;
+      listnode_add (ifp->nbr_connected, ifc);
+    }
+
+  prefix_copy(ifc->address, &p);
+
+  zebra_interface_nbr_address_add_update (ifp, ifc);
+}
+
+void
+nbr_connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
+                           u_char prefixlen)
+{
+  struct nbr_connected *ifc;
+  struct prefix p;
+
+  p.family = AF_INET6;
+  IPV6_ADDR_COPY (&p.u.prefix, address);
+  p.prefixlen = prefixlen;
+
+  ifc = nbr_connected_check(ifp, &p);
+  if (!ifc)
+    return;
+
+  listnode_delete (ifp->nbr_connected, ifc);
+
+  zebra_interface_nbr_address_delete_update (ifp, ifc);
+
+  nbr_connected_free (ifc);
+}
+
 /*
  * The cmd passed to zsend_interface_update  may be ZEBRA_INTERFACE_UP or
  * ZEBRA_INTERFACE_DOWN.
@@ -761,6 +898,7 @@ zread_interface_add (struct zserv *client, u_short length)
   struct listnode *cnode, *cnnode;
   struct interface *ifp;
   struct connected *c;
+  struct nbr_connected *nc;
 
   /* Interface information is needed. */
   client->ifinfo = 1;
@@ -781,6 +919,13 @@ zread_interface_add (struct zserv *client, u_short length)
 				        ifp, c) < 0))
 	    return -1;
 	}
+      for (ALL_LIST_ELEMENTS (ifp->nbr_connected, cnode, cnnode, nc))
+	{
+	  if (zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_ADD, client,
+				        ifp, nc) < 0)
+	    return -1;
+	}
+
     }
   return 0;
 }

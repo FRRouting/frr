@@ -276,7 +276,7 @@ bgp_accept (struct thread *thread)
 
   bgp_set_socket_ttl (peer1, bgp_sock);
 
-  peer = peer_create (&su, peer1->bgp, peer1->local_as,
+  peer = peer_create (&su, peer1->conf_if, peer1->bgp, peer1->local_as,
 		      peer1->as, 0, 0);
 
   peer_xfer_config(peer, peer1);
@@ -318,11 +318,14 @@ bgp_bind (struct peer *peer)
 #ifdef SO_BINDTODEVICE
   int ret;
   struct ifreq ifreq;
+  char *name;
 
-  if (! peer->ifname)
+  if (! peer->ifname && !peer->conf_if)
     return 0;
 
-  strncpy ((char *)&ifreq.ifr_name, peer->ifname, sizeof (ifreq.ifr_name));
+  name = (peer->conf_if ? peer->conf_if : peer->ifname);
+
+  strncpy ((char *)&ifreq.ifr_name, name, sizeof (ifreq.ifr_name));
 
   if ( bgpd_privs.change (ZPRIVS_RAISE) )
   	zlog_err ("bgp_bind: could not raise privs");
@@ -335,7 +338,7 @@ bgp_bind (struct peer *peer)
 
   if (ret < 0)
     {
-      zlog (peer->log, LOG_INFO, "bind to interface %s failed", peer->ifname);
+      zlog (peer->log, LOG_INFO, "bind to interface %s failed", name);
       return ret;
     }
 #endif /* SO_BINDTODEVICE */
@@ -406,6 +409,11 @@ bgp_connect (struct peer *peer)
 {
   unsigned int ifindex = 0;
 
+  if (peer->conf_if && BGP_PEER_SU_UNSPEC(peer))
+    {
+      zlog_debug("Peer address not learnt: Returning from connect");
+      return 0;
+    }
   /* Make socket for the peer. */
   peer->fd = sockunion_socket (&peer->su);
   if (peer->fd < 0)
@@ -444,8 +452,8 @@ bgp_connect (struct peer *peer)
   bgp_update_source (peer);
 
 #ifdef HAVE_IPV6
-  if (peer->ifname)
-    ifindex = if_nametoindex (peer->ifname);
+  if (peer->conf_if || peer->ifname)
+    ifindex = if_nametoindex (peer->conf_if ? peer->conf_if : peer->ifname);
 #endif /* HAVE_IPV6 */
 
   if (BGP_DEBUG (events, EVENTS))

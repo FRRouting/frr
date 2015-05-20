@@ -970,6 +970,10 @@ bgp_stop (struct peer *peer)
       peer_delete(peer);
       ret = -1;
     }
+  else
+    {
+      bgp_peer_conf_if_to_su_update(peer);
+    }
 
   return ret;
 }
@@ -1057,6 +1061,8 @@ int
 bgp_start (struct peer *peer)
 {
   int status;
+
+  bgp_peer_conf_if_to_su_update(peer);
 
   if (BGP_PEER_START_SUPPRESSED (peer))
     {
