@@ -250,6 +250,7 @@ extern void bgp_redistribute_delete (struct prefix *, u_char, u_short);
 extern void bgp_redistribute_withdraw (struct bgp *, afi_t, int, u_short);
 
 extern void bgp_static_delete (struct bgp *);
+extern void bgp_static_redo_import_check (struct bgp *);
 extern void bgp_static_update (struct bgp *, struct prefix *, struct bgp_static *,
 			afi_t, safi_t);
 extern void bgp_static_withdraw (struct bgp *, struct prefix *, afi_t, safi_t);

@@ -44,37 +44,48 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
 
-#define lookup_rnh_table(v, f)		         \
-({						 \
-  struct vrf *vrf;                               \
-  struct route_table *t = NULL;                  \
-  vrf = vrf_lookup(v);                           \
-  if (vrf)                                       \
-    t = vrf->rnh_table[family2afi(f)];	         \
-  t;                                             \
-})
-
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
 
 static void free_state(struct rib *rib, struct route_node *rn);
-static void copy_state(struct rnh *rnh, struct rib *rib, struct route_node *rn);
+static void copy_state(struct rnh *rnh, struct rib *rib,
+		       struct route_node *rn);
 static int compare_state(struct rib *r1, struct rib *r2);
-static int send_client(struct rnh *rnh, struct zserv *client);
+static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type);
 static void print_rnh(struct route_node *rn, struct vty *vty);
 
 int zebra_rnh_ip_default_route = 0;
 int zebra_rnh_ipv6_default_route = 0;
 
-char *
-rnh_str (struct rnh *rnh, char *buf, int size)
+static inline struct route_table *get_rnh_table(int vrfid, int family,
+						rnh_type_t type)
+{
+  struct vrf *vrf;
+  struct route_table *t = NULL;
+
+  vrf = vrf_lookup(vrfid);
+  if (vrf)
+    switch (type)
+      {
+      case RNH_NEXTHOP_TYPE:
+	t = vrf->rnh_table[family2afi(family)];
+	break;
+      case RNH_IMPORT_CHECK_TYPE:
+	t = vrf->import_check_table[family2afi(family)];
+	break;
+      }
+
+  return t;
+}
+
+char *rnh_str (struct rnh *rnh, char *buf, int size)
 {
   prefix2str(&(rnh->node->p), buf, size);
   return buf;
 }
 
 struct rnh *
-zebra_add_rnh (struct prefix *p, u_int32_t vrfid)
+zebra_add_rnh (struct prefix *p, u_int32_t vrfid, rnh_type_t type)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -86,7 +97,7 @@ zebra_add_rnh (struct prefix *p, u_int32_t vrfid)
       prefix2str(p, buf, INET6_ADDRSTRLEN);
       zlog_debug("add rnh %s in vrf %d", buf, vrfid);
     }
-  table = lookup_rnh_table(vrfid, PREFIX_FAMILY(p));
+  table = get_rnh_table(vrfid, PREFIX_FAMILY(p), type);
   if (!table)
     {
       zlog_debug("add_rnh: rnh table not found\n");
@@ -114,12 +125,12 @@ zebra_add_rnh (struct prefix *p, u_int32_t vrfid)
 }
 
 struct rnh *
-zebra_lookup_rnh (struct prefix *p, u_int32_t vrfid)
+zebra_lookup_rnh (struct prefix *p, u_int32_t vrfid, rnh_type_t type)
 {
   struct route_table *table;
   struct route_node *rn;
 
-  table = lookup_rnh_table(vrfid, PREFIX_FAMILY(p));
+  table = get_rnh_table(vrfid, PREFIX_FAMILY(p), type);
   if (!table)
     return NULL;
 
@@ -136,7 +147,7 @@ zebra_lookup_rnh (struct prefix *p, u_int32_t vrfid)
 }
 
 void
-zebra_delete_rnh (struct rnh *rnh)
+zebra_delete_rnh (struct rnh *rnh, rnh_type_t type)
 {
   struct route_node *rn;
 
@@ -160,7 +171,7 @@ zebra_delete_rnh (struct rnh *rnh)
 }
 
 void
-zebra_add_rnh_client (struct rnh *rnh, struct zserv *client)
+zebra_add_rnh_client (struct rnh *rnh, struct zserv *client, rnh_type_t type)
 {
   if (IS_ZEBRA_DEBUG_NHT)
     {
@@ -172,12 +183,11 @@ zebra_add_rnh_client (struct rnh *rnh, struct zserv *client)
   if (!listnode_lookup(rnh->client_list, client))
     {
       listnode_add(rnh->client_list, client);
-      send_client(rnh, client);
     }
 }
 
 void
-zebra_remove_rnh_client (struct rnh *rnh, struct zserv *client)
+zebra_remove_rnh_client (struct rnh *rnh, struct zserv *client, rnh_type_t type)
 {
   if (IS_ZEBRA_DEBUG_NHT)
     {
@@ -189,7 +199,7 @@ zebra_remove_rnh_client (struct rnh *rnh, struct zserv *client)
   listnode_delete(rnh->client_list, client);
   if (list_isempty(rnh->client_list) &&
       list_isempty(rnh->zebra_static_route_list))
-    zebra_delete_rnh(rnh);
+    zebra_delete_rnh(rnh, type);
 }
 
 void
@@ -197,7 +207,7 @@ zebra_register_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
 {
   struct rnh *rnh;
 
-  rnh = zebra_add_rnh(nh, 0);
+  rnh = zebra_add_rnh(nh, 0, RNH_NEXTHOP_TYPE);
   if (rnh && !listnode_lookup(rnh->zebra_static_route_list, static_rn))
     {
       listnode_add(rnh->zebra_static_route_list, static_rn);
@@ -209,7 +219,7 @@ zebra_deregister_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
 {
   struct rnh *rnh;
 
-  rnh = zebra_lookup_rnh(nh, 0);
+  rnh = zebra_lookup_rnh(nh, 0, RNH_NEXTHOP_TYPE);
   if (!rnh || (rnh->flags & ZEBRA_NHT_DELETED))
     return;
 
@@ -217,7 +227,7 @@ zebra_deregister_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
 
   if (list_isempty(rnh->client_list) &&
       list_isempty(rnh->zebra_static_route_list))
-    zebra_delete_rnh(rnh);
+    zebra_delete_rnh(rnh, RNH_NEXTHOP_TYPE);
 }
 
 static inline int
@@ -276,12 +286,13 @@ zebra_evaluate_rnh_nexthops(int family, struct rib *rib, struct route_node *prn,
 }
 
 int
-zebra_evaluate_rnh_table (int vrfid, int family, int force)
+zebra_evaluate_rnh (int vrfid, int family, int force, rnh_type_t type,
+		    struct prefix *p)
 {
   struct route_table *ptable;
   struct route_table *ntable;
-  struct route_node *prn;
-  struct route_node *nrn;
+  struct route_node *prn = NULL;
+  struct route_node *nrn = NULL;
   struct rnh *rnh;
   struct zserv *client;
   struct listnode *node;
@@ -292,9 +303,10 @@ zebra_evaluate_rnh_table (int vrfid, int family, int force)
   char bufp[INET6_ADDRSTRLEN];
   char bufs[INET6_ADDRSTRLEN];
   struct route_node *static_rn;
-  struct nexthop *nexthop;
+  struct nexthop *nexthop, *tnexthop;
+  int recursing;
 
-  ntable = lookup_rnh_table(vrfid, family);
+  ntable = get_rnh_table(vrfid, family, type);
   if (!ntable)
     {
       zlog_debug("evaluate_rnh_table: rnh table not found\n");
@@ -308,17 +320,38 @@ zebra_evaluate_rnh_table (int vrfid, int family, int force)
       return -1;
     }
 
-  for (nrn = route_top (ntable); nrn; nrn = route_next (nrn))
+  if (p)
+    nrn = route_node_lookup(ntable, p);
+  else
+    nrn = route_top (ntable);
+
+  while (nrn != NULL)
     {
       if (!nrn->info)
-	  continue;
+	goto loopend;
 
       rnh = nrn->info;
       at_least_one = 0;
 
+      /* free stale stuff first */
+      if (prn)
+	route_unlock_node(prn);
+
       prn = route_node_match(ptable, &nrn->p);
-      if (!prn || (zebra_rnh_is_default_route(&prn->p) &&
-		   !zebra_rnh_resolve_via_default(prn->p.family)))
+
+      /* Do not resolve over default route unless allowed &&
+       * match route to be exact if so specified
+       */
+      if (!prn)
+	rib = NULL;
+      else if ((type == RNH_NEXTHOP_TYPE) &&
+	       (zebra_rnh_is_default_route(&prn->p) &&
+		!zebra_rnh_resolve_via_default(prn->p.family)))
+	rib = NULL;
+      else if ((type == RNH_IMPORT_CHECK_TYPE) &&
+	       ((zebra_rnh_is_default_route(&prn->p)) ||
+		((CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH)) &&
+		 !prefix_same(&nrn->p, &prn->p))))
 	rib = NULL;
       else
 	{
@@ -333,6 +366,9 @@ zebra_evaluate_rnh_table (int vrfid, int family, int force)
 		      if (rib->type == ZEBRA_ROUTE_CONNECT)
 			break;
 		    }
+		  else if ((type == RNH_IMPORT_CHECK_TYPE) &&
+			   (rib->type == ZEBRA_ROUTE_BGP))
+		    continue;
 		  else
 		    break;
 		}
@@ -340,6 +376,42 @@ zebra_evaluate_rnh_table (int vrfid, int family, int force)
 	}
 
       state_changed = 0;
+
+      /* Handle import check first as its simpler */
+      if (type == RNH_IMPORT_CHECK_TYPE)
+	{
+	  if (rib && (rnh->state == NULL))
+	    {
+	      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+		if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+		  {
+		    state_changed = 1;
+		    break;
+		  }
+	    }
+	  else if (!rib && (rnh->state != NULL))
+	    state_changed = 1;
+
+	  if (compare_state(rib, rnh->state))
+	    copy_state(rnh, rib, nrn);
+
+	  if (state_changed || force)
+	    {
+	      if (IS_ZEBRA_DEBUG_NHT)
+		{
+		  prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
+		  zlog_debug("rnh import check %s for %s, notifying clients\n",
+			     rnh->state ? "passed" : "failed", bufn);
+		}
+	      /* state changed, notify clients */
+	      for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
+		{
+		  send_client(rnh, client, RNH_IMPORT_CHECK_TYPE);
+		}
+	    }
+
+	  goto loopend;
+	}
 
       /* Ensure prefixes we're resolving over have stayed the same */
       if (!prefix_same(&rnh->resolved_route, &prn->p))
@@ -401,7 +473,7 @@ zebra_evaluate_rnh_table (int vrfid, int family, int force)
 			   at_least_one ? "":"(filtered)", bufn, bufp,
 			   rib ? "reachable" : "unreachable");
 
-	      send_client(rnh, client); /* Route-map passed */
+	      send_client(rnh, client, RNH_NEXTHOP_TYPE); /* Route-map passed */
 	    }
 
 	  /* Now evaluate static client */
@@ -482,18 +554,34 @@ zebra_evaluate_rnh_table (int vrfid, int family, int force)
 		}
 	    }
 	}
+    loopend:
+      if (p)
+	{
+	  route_unlock_node(nrn);
+	  nrn = NULL;
+	}
+      else
+	{
+	  /* route_next takes care of unlocking nrn */
+	  nrn = route_next(nrn);
+	}
     }
+
+  if (prn)
+    route_unlock_node(prn);
+
   return 1;
 }
 
 int
-zebra_dispatch_rnh_table (int vrfid, int family, struct zserv *client)
+zebra_dispatch_rnh_table (int vrfid, int family, struct zserv *client,
+			  rnh_type_t type)
 {
   struct route_table *ntable;
   struct route_node *nrn;
   struct rnh *rnh;
 
-  ntable = lookup_rnh_table(vrfid, family);
+  ntable = get_rnh_table(vrfid, family, type);
   if (!ntable)
     {
       zlog_debug("dispatch_rnh_table: rnh table not found\n");
@@ -514,18 +602,18 @@ zebra_dispatch_rnh_table (int vrfid, int family, struct zserv *client)
 		     rnh->state ? "reachable" : "unreachable",
 		     zebra_route_string(client->proto));
 	}
-      send_client(rnh, client);
+      send_client(rnh, client, RNH_NEXTHOP_TYPE);
     }
   return 1;
 }
 
 void
-zebra_print_rnh_table (int vrfid, int af, struct vty *vty)
+zebra_print_rnh_table (int vrfid, int af, struct vty *vty, rnh_type_t type)
 {
   struct route_table *table;
   struct route_node *rn;
 
-  table = lookup_rnh_table(vrfid, af);
+  table = get_rnh_table(vrfid, af, type);
   if (!table)
     {
       zlog_debug("print_rnhs: rnh table not found\n");
@@ -538,13 +626,14 @@ zebra_print_rnh_table (int vrfid, int af, struct vty *vty)
 }
 
 int
-zebra_cleanup_rnh_client (int vrfid, int family, struct zserv *client)
+zebra_cleanup_rnh_client (int vrfid, int family, struct zserv *client,
+			  rnh_type_t type)
 {
   struct route_table *ntable;
   struct route_node *nrn;
   struct rnh *rnh;
 
-  ntable = lookup_rnh_table(vrfid, family);
+  ntable = get_rnh_table(vrfid, family, type);
   if (!ntable)
     {
       zlog_debug("cleanup_rnh_client: rnh table not found\n");
@@ -564,7 +653,7 @@ zebra_cleanup_rnh_client (int vrfid, int family, struct zserv *client)
 	  zlog_debug("rnh %s - cleaning state for client %s", bufn,
 		     zebra_route_string(client->proto));
 	}
-      zebra_remove_rnh_client(rnh, client);
+      zebra_remove_rnh_client(rnh, client, type);
     }
   return 1;
 }
@@ -631,7 +720,7 @@ compare_state (struct rib *r1, struct rib *r2)
 }
 
 static int
-send_client (struct rnh *rnh, struct zserv *client)
+send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type)
 {
   struct stream *s;
   struct rib *rib;
@@ -639,6 +728,8 @@ send_client (struct rnh *rnh, struct zserv *client)
   u_char num;
   struct nexthop *nexthop;
   struct route_node *rn;
+  int cmd = (type == RNH_IMPORT_CHECK_TYPE)
+    ? ZEBRA_IMPORT_CHECK_UPDATE : ZEBRA_NEXTHOP_UPDATE;
 
   rn = rnh->node;
   rib = rnh->state;
@@ -647,11 +738,23 @@ send_client (struct rnh *rnh, struct zserv *client)
   s = client->obuf;
   stream_reset (s);
 
-  zserv_create_header (s, ZEBRA_NEXTHOP_UPDATE);
-
+  zserv_create_header (s, cmd);
   stream_putw(s, rn->p.family);
-  stream_put_prefix (s, &rn->p);
-
+  switch (rn->p.family)
+    {
+    case AF_INET:
+      stream_putc(s, rn->p.prefixlen);
+      stream_put_in_addr(s, &rn->p.u.prefix4);
+      break;
+    case AF_INET6:
+      stream_putc(s, rn->p.prefixlen);
+      stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
+      break;
+    default:
+      zlog_err("%s: Unknown family (%d) notification attempted\n",
+	       __FUNCTION__, rn->p.family);
+      break;
+    }
   if (rib)
     {
       stream_putl (s, rib->metric);
@@ -704,7 +807,7 @@ send_client (struct rnh *rnh, struct zserv *client)
   stream_putw_at (s, 0, stream_get_endp (s));
 
   client->nh_last_upd_time = quagga_time(NULL);
-  client->last_write_cmd = ZEBRA_NEXTHOP_UPDATE;
+  client->last_write_cmd = cmd;
   return zebra_server_send_message(client);
 }
 

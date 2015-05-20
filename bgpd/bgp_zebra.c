@@ -119,7 +119,15 @@ static int
 bgp_read_nexthop_update (int command, struct zclient *zclient,
 			 zebra_size_t length)
 {
-  bgp_parse_nexthop_update();
+  bgp_parse_nexthop_update(command);
+  return 0;
+}
+
+static int
+bgp_read_import_check_update(int command, struct zclient *zclient,
+			     zebra_size_t length)
+{
+  bgp_parse_nexthop_update(command);
   return 0;
 }
 
@@ -1665,6 +1673,7 @@ bgp_zebra_init (void)
   zclient->ipv6_route_delete = zebra_read_ipv6;
 #endif /* HAVE_IPV6 */
   zclient->nexthop_update = bgp_read_nexthop_update;
+  zclient->import_check_update = bgp_read_import_check_update;
 
   /* Interface related init. */
   if_init ();

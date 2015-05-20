@@ -6408,7 +6408,9 @@ bgp_config_write (struct vty *vty)
 	}
 
       /* BGP network import check. */
-      if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
+      if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH))
+	vty_out (vty, " bgp network import-check exact%s", VTY_NEWLINE);
+      else if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
 	vty_out (vty, " bgp network import-check%s", VTY_NEWLINE);
 
       /* BGP flag dampening. */

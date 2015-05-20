@@ -25,7 +25,7 @@
 /**
  * bgp_parse_nexthop_update() - parse a nexthop update message from Zebra.
  */
-extern void bgp_parse_nexthop_update();
+extern void bgp_parse_nexthop_update(int command);
 
 /**
  * bgp_find_nexthop() - lookup the nexthop cache table for the bnc object

@@ -4461,7 +4461,8 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
   if (ri)
        {
       if (attrhash_cmp (ri->attr, attr_new) &&
-	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED) &&
+	  !bgp_flag_check(bgp, BGP_FLAG_FORCE_STATIC_PROCESS))
         {
           bgp_unlock_node (rn);
           bgp_attr_unintern (&attr_new);
@@ -4491,12 +4492,22 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 		  if (BGP_DEBUG(nht, NHT))
 		    {
 		      char buf1[INET6_ADDRSTRLEN];
-		      inet_ntop(AF_INET, (const void *)&attr_new->nexthop,
-				buf1, INET6_ADDRSTRLEN);
-		      zlog_debug("%s(%s): NH unresolved", __FUNCTION__, buf1);
+		      inet_ntop (p->family, &p->u.prefix, buf1,
+				 INET6_ADDRSTRLEN);
+		      zlog_debug("%s(%s): Route not in table, not advertising",
+				 __FUNCTION__, buf1);
 		    }
 		  bgp_info_unset_flag (rn, ri, BGP_INFO_VALID);
 		}
+	    }
+	  else
+	    {
+	      /* Delete the NHT structure if any, if we're toggling between
+	       * enabling/disabling import check. We deregister the route
+	       * from NHT to avoid overloading NHT and the process interaction
+	       */
+	      bgp_unlink_nexthop(ri);
+	      bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
 	    }
           /* Process change. */
           bgp_process (bgp, rn, afi, safi);
@@ -4520,15 +4531,23 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 	  if (BGP_DEBUG(nht, NHT))
 	    {
 	      char buf1[INET6_ADDRSTRLEN];
-	      inet_ntop(AF_INET, (const void *)&attr_new->nexthop,
-			buf1, INET6_ADDRSTRLEN);
-	      zlog_debug("%s(%s): NH unresolved", __FUNCTION__, buf1);
+	      inet_ntop(p->family, &p->u.prefix, buf1,
+			INET6_ADDRSTRLEN);
+	      zlog_debug("%s(%s): Route not in table, not advertising", __FUNCTION__,
+			 buf1);
 	    }
 	  bgp_info_unset_flag (rn, new, BGP_INFO_VALID);
 	}
     }
   else
-    bgp_info_set_flag (rn, new, BGP_INFO_VALID);
+    {
+      /* Delete the NHT structure if any, if we're toggling between
+       * enabling/disabling import check. We deregister the route
+       * from NHT to avoid overloading NHT and the process interaction
+       */
+      bgp_unlink_nexthop(new);
+      bgp_info_set_flag (rn, new, BGP_INFO_VALID);
+    }
 
   /* Register new BGP information. */
   bgp_info_add (rn, new);
@@ -4608,7 +4627,8 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
   if (ri)
     {
       if (attrhash_cmp (ri->attr, attr_new) &&
-	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED) &&
+	  !bgp_flag_check(bgp, BGP_FLAG_FORCE_STATIC_PROCESS))
 	{
 	  bgp_unlock_node (rn);
 	  bgp_attr_unintern (&attr_new);
@@ -4640,12 +4660,22 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 		  if (BGP_DEBUG(nht, NHT))
 		    {
 		      char buf1[INET6_ADDRSTRLEN];
-		      inet_ntop(AF_INET, (const void *)&attr_new->nexthop,
-				buf1, INET6_ADDRSTRLEN);
-		      zlog_debug("%s(%s): NH unresolved", __FUNCTION__, buf1);
+		      inet_ntop(p->family, &p->u.prefix, buf1,
+				INET6_ADDRSTRLEN);
+		      zlog_debug("%s(%s): Route not in table, not advertising",
+				 __FUNCTION__, buf1);
 		    }
 		  bgp_info_unset_flag (rn, ri, BGP_INFO_VALID);
 		}
+	    }
+	  else
+	    {
+	      /* Delete the NHT structure if any, if we're toggling between
+	       * enabling/disabling import check. We deregister the route
+	       * from NHT to avoid overloading NHT and the process interaction
+	       */
+	      bgp_unlink_nexthop(ri);
+	      bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
 	    }
 	  /* Process change. */
 	  bgp_aggregate_increment (bgp, p, ri, afi, safi);
@@ -4670,15 +4700,24 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	  if (BGP_DEBUG(nht, NHT))
 	    {
 	      char buf1[INET6_ADDRSTRLEN];
-	      inet_ntop(AF_INET, (const void *)&attr_new->nexthop, buf1,
+	      inet_ntop(p->family, &p->u.prefix, buf1,
 			INET6_ADDRSTRLEN);
-	      zlog_debug("%s(%s): NH unresolved", __FUNCTION__, buf1);
+	      zlog_debug("%s(%s): Route not in table, not advertising",
+			 __FUNCTION__, buf1);
 	    }
 	  bgp_info_unset_flag (rn, new, BGP_INFO_VALID);
 	}
     }
   else
-    bgp_info_set_flag (rn, new, BGP_INFO_VALID);
+    {
+      /* Delete the NHT structure if any, if we're toggling between
+       * enabling/disabling import check. We deregister the route
+       * from NHT to avoid overloading NHT and the process interaction
+       */
+      bgp_unlink_nexthop(new);
+
+      bgp_info_set_flag (rn, new, BGP_INFO_VALID);
+    }
 
   /* Aggregate address increment. */
   bgp_aggregate_increment (bgp, p, new, afi, safi);
@@ -5003,6 +5042,29 @@ bgp_static_delete (struct bgp *bgp)
 		bgp_unlock_node (rn);
 	      }
 	  }
+}
+
+void
+bgp_static_redo_import_check (struct bgp *bgp)
+{
+  afi_t afi;
+  safi_t safi;
+  struct bgp_node *rn;
+  struct bgp_node *rm;
+  struct bgp_table *table;
+  struct bgp_static *bgp_static;
+
+  /* Use this flag to force reprocessing of the route */
+  bgp_flag_set(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      for (rn = bgp_table_top (bgp->route[afi][safi]); rn; rn = bgp_route_next (rn))
+	if (rn->info != NULL)
+	  {
+	    bgp_static = rn->info;
+	    bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+	  }
+  bgp_flag_unset(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
 }
 
 int

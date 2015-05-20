@@ -301,6 +301,9 @@ struct vrf
   /* Recursive Nexthop table */
   struct route_table *rnh_table[AFI_MAX];
 
+  /* Import check table (used mostly by BGP */
+  struct route_table *import_check_table[AFI_MAX];
+
   /* Routing tables off of main table for redistribute table */
   struct route_table *other_table[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 };

@@ -134,42 +134,6 @@ redist_del_instance (struct redist_proto *red, u_short instance)
     }
 }
 
-/* Initialize zebra client.  Argument redist_default is unwanted
-   redistribute route type. */
-void
-zclient_init (struct zclient *zclient, int redist_default, u_short instance)
-{
-  int afi, i;
-  
-  /* Enable zebra client connection by default. */
-  zclient->enable = 1;
-
-  /* Set -1 to the default socket value. */
-  zclient->sock = -1;
-
-  /* Clear redistribution flags. */
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-      memset(&zclient->redist[afi][i], 0, sizeof(struct redist_proto));
-
-  /* Set unwanted redistribute route.  bgpd does not need BGP route
-     redistribution. */
-  zclient->redist_default = redist_default;
-  zclient->instance = instance;
-  /* Pending: make afi(s) an arg. */
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    redist_add_instance (&zclient->redist[afi][redist_default], instance);
-
-  /* Set default-information redistribute to zero. */
-  zclient->default_information = 0;
-
-  /* Schedule first zclient connection. */
-  if (zclient_debug)
-    zlog_debug ("zclient start scheduled");
-
-  zclient_event (ZCLIENT_SCHEDULE, zclient);
-}
-
 /* Stop zebra client services. */
 void
 zclient_stop (struct zclient *zclient)
@@ -405,13 +369,6 @@ zclient_start (struct zclient *zclient)
   int i;
   afi_t afi;
 
-  if (zclient_debug)
-    zlog_debug ("zclient_start is called");
-
-  /* zclient is disabled. */
-  if (! zclient->enable)
-    return 0;
-
   /* If already connected to the zebra. */
   if (zclient->sock >= 0)
     return 0;
@@ -419,34 +376,6 @@ zclient_start (struct zclient *zclient)
   /* Check connect thread. */
   if (zclient->t_connect)
     return 0;
-
-  if (zclient_socket_connect(zclient) < 0)
-    {
-      if (zclient_debug)
-	zlog_debug ("zclient connection fail");
-      zclient->fail++;
-      zclient_event (ZCLIENT_CONNECT, zclient);
-      return -1;
-    }
-
-  if (set_nonblocking(zclient->sock) < 0)
-    zlog_warn("%s: set_nonblocking(%d) failed", __func__, zclient->sock);
-
-  /* Clear fail count. */
-  zclient->fail = 0;
-  if (zclient_debug)
-    zlog_debug ("zclient connect success with socket [%d]", zclient->sock);
-      
-  /* Create read thread. */
-  zclient_event (ZCLIENT_READ, zclient);
-
-  zebra_hello_send (zclient);
-
-  /* We need router-id information. */
-  zebra_message_send (zclient, ZEBRA_ROUTER_ID_ADD);
-
-  /* We need interface information. */
-  zebra_message_send (zclient, ZEBRA_INTERFACE_ADD);
 
   /* Flush all redistribute request. */
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -482,6 +411,73 @@ zclient_connect (struct thread *t)
     zlog_debug ("zclient_connect is called");
 
   return zclient_start (zclient);
+}
+
+/* Initialize zebra client.  Argument redist_default is unwanted
+   redistribute route type. */
+void
+zclient_init (struct zclient *zclient, int redist_default, u_short instance)
+{
+  int afi, i;
+  
+  /* Enable zebra client connection by default. */
+  zclient->enable = 1;
+
+  /* Set -1 to the default socket value. */
+  zclient->sock = -1;
+
+  /* Clear redistribution flags. */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      memset(&zclient->redist[afi][i], 0, sizeof(struct redist_proto));
+
+  /* Set unwanted redistribute route.  bgpd does not need BGP route
+     redistribution. */
+  zclient->redist_default = redist_default;
+  zclient->instance = instance;
+  /* Pending: make afi(s) an arg. */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    redist_add_instance (&zclient->redist[afi][redist_default], instance);
+
+  /* Set default-information redistribute to zero. */
+  zclient->default_information = 0;
+
+  if (zclient_debug)
+    zlog_debug ("zclient_start is called");
+
+  /* zclient is disabled. */
+  if (! zclient->enable)
+    return;
+
+  if (zclient_socket_connect(zclient) < 0)
+    {
+      if (zclient_debug)
+	zlog_debug ("zclient connection fail");
+      zclient->fail++;
+      zclient_event (ZCLIENT_CONNECT, zclient);
+      return;
+    }
+
+  if (set_nonblocking(zclient->sock) < 0)
+    zlog_warn("%s: set_nonblocking(%d) failed", __func__, zclient->sock);
+
+  /* Clear fail count. */
+  zclient->fail = 0;
+  if (zclient_debug)
+    zlog_debug ("zclient connect success with socket [%d]", zclient->sock);
+
+  /* Create read thread. */
+  zclient_event (ZCLIENT_READ, zclient);
+
+  zebra_hello_send (zclient);
+
+  /* We need router-id information. */
+  zebra_message_send (zclient, ZEBRA_ROUTER_ID_ADD);
+
+  /* We need interface information. */
+  zebra_message_send (zclient, ZEBRA_INTERFACE_ADD);
+
+  zclient_event (ZCLIENT_SCHEDULE, zclient);
 }
 
  /* 
@@ -1211,6 +1207,12 @@ zclient_read (struct thread *thread)
 	zlog_debug("zclient rcvd nexthop update\n");
       if (zclient->nexthop_update)
 	(*zclient->nexthop_update) (command, zclient, length);
+      break;
+    case ZEBRA_IMPORT_CHECK_UPDATE:
+      if (zclient_debug)
+	zlog_debug("zclient rcvd import check update\n");
+      if (zclient->import_check_update)
+	(*zclient->import_check_update) (command, zclient, length);
       break;
     default:
       break;

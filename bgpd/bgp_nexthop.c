@@ -48,11 +48,12 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 /* Route table for next-hop lookup cache. */
 struct bgp_table *bgp_nexthop_cache_table[AFI_MAX];
-static struct bgp_table *cache1_table[AFI_MAX];
 
 /* Route table for connected route. */
 static struct bgp_table *bgp_connected_table[AFI_MAX];
 
+/* Route table for import-check */
+struct bgp_table *bgp_import_check_table[AFI_MAX];
 
 char *
 bnc_str (struct bgp_nexthop_cache *bnc, char *buf, int size)
@@ -571,15 +572,14 @@ DEFUN (show_ip_bgp_nexthop_detail,
 void
 bgp_scan_init (void)
 {
-  cache1_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
-  bgp_nexthop_cache_table[AFI_IP] = cache1_table[AFI_IP];
-
+  bgp_nexthop_cache_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
   bgp_connected_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
+  bgp_import_check_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
 
 #ifdef HAVE_IPV6
-  cache1_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
-  bgp_nexthop_cache_table[AFI_IP6] = cache1_table[AFI_IP6];
+  bgp_nexthop_cache_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
   bgp_connected_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
+  bgp_import_check_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
 #endif /* HAVE_IPV6 */
 
 }
@@ -599,20 +599,26 @@ bgp_scan_finish (void)
   /* Only the current one needs to be reset. */
   bgp_nexthop_cache_reset (bgp_nexthop_cache_table[AFI_IP]);
 
-  bgp_table_unlock (cache1_table[AFI_IP]);
-  cache1_table[AFI_IP] = NULL;
+  bgp_table_unlock (bgp_nexthop_cache_table[AFI_IP]);
+  bgp_nexthop_cache_table[AFI_IP] = NULL;
 
   bgp_table_unlock (bgp_connected_table[AFI_IP]);
   bgp_connected_table[AFI_IP] = NULL;
+
+  bgp_table_unlock (bgp_import_check_table[AFI_IP]);
+  bgp_import_check_table[AFI_IP] = NULL;
 
 #ifdef HAVE_IPV6
   /* Only the current one needs to be reset. */
   bgp_nexthop_cache_reset (bgp_nexthop_cache_table[AFI_IP6]);
 
-  bgp_table_unlock (cache1_table[AFI_IP6]);
-  cache1_table[AFI_IP6] = NULL;
+  bgp_table_unlock (bgp_nexthop_cache_table[AFI_IP6]);
+  bgp_nexthop_cache_table[AFI_IP6] = NULL;
 
   bgp_table_unlock (bgp_connected_table[AFI_IP6]);
   bgp_connected_table[AFI_IP6] = NULL;
+
+  bgp_table_unlock (bgp_import_check_table[AFI_IP6]);
+  bgp_import_check_table[AFI_IP6] = NULL;
 #endif /* HAVE_IPV6 */
 }

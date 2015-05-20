@@ -2114,21 +2114,45 @@ DEFUN (bgp_default_ipv4_unicast,
 /* "bgp import-check" configuration.  */
 DEFUN (bgp_network_import_check,
        bgp_network_import_check_cmd,
-       "bgp network import-check",
+       "bgp network import-check {exact}",
        "BGP specific commands\n"
        "BGP network command\n"
-       "Check BGP network route exists in IGP\n")
+       "Check BGP network route exists in IGP\n"
+       "Match route precisely")
 {
   struct bgp *bgp;
+  int trigger = 0;
 
   bgp = vty->index;
-  bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
+  if (!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK))
+    {
+      bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
+      trigger = 1;
+    }
+
+  if (argv[0] != NULL)
+    {
+      if (!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH))
+	{
+	  bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
+	  trigger = 1;
+	}
+    }
+  else if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH))
+    {
+      bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
+      trigger = 1;
+    }
+
+  if (trigger)
+    bgp_static_redo_import_check(bgp);
+
   return CMD_SUCCESS;
 }
 
 DEFUN (no_bgp_network_import_check,
        no_bgp_network_import_check_cmd,
-       "no bgp network import-check",
+       "no bgp network import-check {exact}",
        NO_STR
        "BGP specific commands\n"
        "BGP network command\n"
@@ -2137,7 +2161,12 @@ DEFUN (no_bgp_network_import_check,
   struct bgp *bgp;
 
   bgp = vty->index;
-  bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK);
+  if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK))
+    {
+      bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK);
+      bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
+      bgp_static_redo_import_check(bgp);
+    }
   return CMD_SUCCESS;
 }
 

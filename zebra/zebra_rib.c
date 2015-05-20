@@ -123,6 +123,9 @@ vrf_alloc (const char *name)
   vrf->rnh_table[AFI_IP] = route_table_init();
   vrf->rnh_table[AFI_IP6] = route_table_init();
 
+  vrf->import_check_table[AFI_IP] = route_table_init();
+  vrf->import_check_table[AFI_IP6] = route_table_init();
+
   return vrf;
 }
 
@@ -1753,9 +1756,11 @@ process_subq (struct list * subq, u_char qindex)
 static void
 meta_queue_process_complete (struct work_queue *dummy)
 {
-  zebra_evaluate_rnh_table(0, AF_INET, 0);
+  zebra_evaluate_rnh(0, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
+  zebra_evaluate_rnh(0, AF_INET, 0, RNH_IMPORT_CHECK_TYPE, NULL);
 #ifdef HAVE_IPV6
-  zebra_evaluate_rnh_table(0, AF_INET6, 0);
+  zebra_evaluate_rnh(0, AF_INET6, 0, RNH_NEXTHOP_TYPE, NULL);
+  zebra_evaluate_rnh(0, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE, NULL);
 #endif /* HAVE_IPV6 */
 }
 
