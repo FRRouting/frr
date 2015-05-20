@@ -217,13 +217,6 @@ ospf_fifo_flush (struct ospf_fifo *fifo)
   fifo->count = 0;
 }
 
-/* Return the current fifo count */
-static int
-ospf_fifo_count (struct ospf_fifo *fifo)
-{
-	return (fifo->count);
-}
-
 /* Free ospf packet fifo. */
 void
 ospf_fifo_free (struct ospf_fifo *fifo)

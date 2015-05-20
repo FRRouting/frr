@@ -108,6 +108,7 @@ ospf_external_info_check (struct ospf_lsa *lsa)
 
           for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext))
             {
+	      rn = NULL;
               if (ext->external_info)
                 rn = route_node_lookup (ext->external_info,
                                         (struct prefix *) &p);

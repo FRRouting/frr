@@ -185,20 +185,6 @@ ospf6_delete (struct ospf6 *o)
 }
 
 static void
-ospf6_enable (struct ospf6 *o)
-{
-  struct listnode *node, *nnode;
-  struct ospf6_area *oa;
-
-  if (CHECK_FLAG (o->flag, OSPF6_DISABLED))
-    {
-      UNSET_FLAG (o->flag, OSPF6_DISABLED);
-      for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
-        ospf6_area_enable (oa);
-    }
-}
-
-static void
 ospf6_disable (struct ospf6 *o)
 {
   struct listnode *node, *nnode;
@@ -224,7 +210,7 @@ ospf6_disable (struct ospf6 *o)
     }
 }
 
-int
+static int
 ospf6_maxage_remover (struct thread *thread)
 {
   struct ospf6 *o = (struct ospf6 *) THREAD_ARG (thread);
@@ -540,13 +526,10 @@ DEFUN (no_ospf6_interface_area,
        "OSPF6 area ID in IPv4 address notation\n"
        )
 {
-  struct ospf6 *o;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
   struct interface *ifp;
   u_int32_t area_id;
-
-  o = (struct ospf6 *) vty->index;
 
   ifp = if_lookup_by_name (argv[0]);
   if (ifp == NULL)

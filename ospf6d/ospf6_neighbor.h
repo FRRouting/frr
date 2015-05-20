@@ -137,7 +137,7 @@ static const char *ospf6_neighbor_event_str[] =
     "InactivityTimer",
   };
 
-static const char *ospf6_neighbor_event_string (int event)
+static inline const char *ospf6_neighbor_event_string (int event)
 {
   #define OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING "UnknownEvent"
 

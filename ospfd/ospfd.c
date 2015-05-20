@@ -498,7 +498,7 @@ ospf_finish_final (struct ospf *ospf)
   struct ospf_vl_data *vl_data;
   struct listnode *node, *nnode;
   int i;
-  u_short instance;
+  u_short instance = 0;
 
 #ifdef HAVE_OPAQUE_LSA
   ospf_opaque_type11_lsa_term (ospf);

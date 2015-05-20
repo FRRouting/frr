@@ -464,7 +464,7 @@ new_msg_register_event (u_int32_t seqnum, struct lsa_filter_type *filter)
 {
   u_char buf[OSPF_API_MAX_MSG_SIZE];
   struct msg_register_event *emsg;
-  int len;
+  unsigned int len;
 
   emsg = (struct msg_register_event *) buf;
   len = sizeof (struct msg_register_event) +
@@ -483,7 +483,7 @@ new_msg_sync_lsdb (u_int32_t seqnum, struct lsa_filter_type *filter)
 {
   u_char buf[OSPF_API_MAX_MSG_SIZE];
   struct msg_sync_lsdb *smsg;
-  int len;
+  unsigned int len;
 
   smsg = (struct msg_sync_lsdb *) buf;
   len = sizeof (struct msg_sync_lsdb) +
@@ -504,7 +504,7 @@ new_msg_originate_request (u_int32_t seqnum,
 			   struct in_addr area_id, struct lsa_header *data)
 {
   struct msg_originate_request *omsg;
-  int omsglen;
+  unsigned int omsglen;
   char buf[OSPF_API_MAX_MSG_SIZE];
 
   omsg = (struct msg_originate_request *) buf;
@@ -630,7 +630,7 @@ new_msg_lsa_change_notify (u_char msgtype,
 {
   u_char buf[OSPF_API_MAX_MSG_SIZE];
   struct msg_lsa_change_notify *nmsg;
-  int len;
+  unsigned int len;
 
   assert (data);
 

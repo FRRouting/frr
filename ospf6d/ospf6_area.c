@@ -676,13 +676,11 @@ DEFUN (no_area_filter_list,
        "Filter networks sent from this area\n")
 {
   struct ospf6_area *area;
-  struct prefix_list *plist;
 
   OSPF6_CMD_AREA_GET (argv[0], area);
   argc--;
   argv++;
 
-  plist = prefix_list_lookup (AFI_IP6, argv[0]);
   if (strncmp (argv[1], "in", 2) == 0)
     {
       if (PREFIX_NAME_IN (area))

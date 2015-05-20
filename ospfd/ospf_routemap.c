@@ -45,7 +45,6 @@ ospf_route_map_update (const char *name)
 {
   struct ospf *ospf;
   int type;
-  u_short instance; // PENDING
 
   /* If OSPF instatnce does not exist, return right now. */
   ospf = ospf_lookup ();
@@ -532,15 +531,18 @@ route_set_metric_compile (const char *arg)
      set metric <+/-metric> check
      Ignore the +/- component */
   if (! all_digit (arg))
-    if ((strncmp (arg, "+", 1) == 0 || strncmp (arg, "-", 1) == 0) &&
-        all_digit (arg+1))
-      {
-        zlog_warn ("OSPF does not support 'set metric +/-'");
-        arg++;
-      }
-    else
-      return NULL;
-
+    {
+      if ((strncmp (arg, "+", 1) == 0 || strncmp (arg, "-", 1) == 0) &&
+	  all_digit (arg+1))
+	{
+	  zlog_warn ("OSPF does not support 'set metric +/-'");
+	  arg++;
+	}
+      else
+	{
+	  return NULL;
+	}
+    }
   metric = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
   ret = atoi (arg);
 

@@ -61,7 +61,7 @@ ospf6_spf_merge_nexthops_to_route (struct ospf6_route *rt,
     ospf6_merge_nexthops (rt->nh_list, v->nh_list);
 }
 
-static int
+static unsigned int
 ospf6_spf_get_ifindex_from_nh (struct ospf6_vertex *v)
 {
   struct ospf6_nexthop *nh;
@@ -77,7 +77,7 @@ ospf6_spf_get_ifindex_from_nh (struct ospf6_vertex *v)
 	    return (nh->ifindex);
 	}
     }
-  return -1;
+  return 0;
 }
 
 static int
@@ -264,7 +264,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
                     caddr_t lsdesc)
 {
   int i;
-  int ifindex;
+  unsigned int ifindex;
   struct ospf6_interface *oi;
   u_int16_t type;
   u_int32_t adv_router;
@@ -275,7 +275,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
   assert (VERTEX_IS_TYPE (ROUTER, w));
   ifindex = (VERTEX_IS_TYPE (NETWORK, v) ? ospf6_spf_get_ifindex_from_nh (v) :
              ROUTER_LSDESC_GET_IFID (lsdesc));
-  if (ifindex == -1)
+  if (ifindex == 0)
     {
       zlog_err ("No nexthop ifindex at vertex %s", v->name);
       return;
@@ -436,7 +436,7 @@ static const char *ospf6_spf_reason_str[] =
 
 void ospf6_spf_reason_string (unsigned int reason, char *buf, int size)
 {
-  int bit;
+  unsigned int bit;
   int len = 0;
 
   if (!buf)
@@ -594,7 +594,6 @@ ospf6_spf_calculation_thread (struct thread *t)
   struct ospf6 *ospf6;
   struct timeval start, end, runtime;
   struct listnode *node;
-  struct ospf6_route *route;
   int areas_processed = 0;
   char rbuf[32];
 

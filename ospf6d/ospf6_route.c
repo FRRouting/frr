@@ -375,7 +375,7 @@ ospf6_route_get_first_nh_index (struct ospf6_route *route)
 
   if (route)
     {
-      if (nh = (struct ospf6_nexthop *)listhead (route->nh_list))
+      if ((nh = (struct ospf6_nexthop *)listhead (route->nh_list)))
 	return (nh->ifindex);
     }
 

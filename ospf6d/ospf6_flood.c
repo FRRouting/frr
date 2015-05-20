@@ -760,7 +760,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
   struct ospf6_lsa *new = NULL, *old = NULL, *rem = NULL;
   int ismore_recent;
   int is_debug = 0;
-  int time_delta_ms;
+  unsigned int time_delta_ms;
 
   ismore_recent = 1;
   assert (from);

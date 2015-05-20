@@ -383,9 +383,6 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
   struct stream *s;
   struct ospf_path *path;
   struct listnode *node;
-#ifdef HAVE_NETLINK
-  int ol_cnt = 0, not_ol_cnt = 0;
-#endif /* HAVE_NETLINK */
   struct ospf *ospf = ospf_lookup ();
 
   if (redist_check_instance(&zclient->redist[AFI_IP][ZEBRA_ROUTE_OSPF], ospf->instance))

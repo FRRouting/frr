@@ -679,7 +679,7 @@ ospf_ase_calculate_timer (struct thread *t)
 
       quagga_gettime(QUAGGA_CLK_MONOTONIC, &stop_time);
 
-      zlog_info ("SPF Processing Time(usecs): External Routes: %d\n",
+      zlog_info ("SPF Processing Time(usecs): External Routes: %ld\n",
 		 (stop_time.tv_sec - start_time.tv_sec)*1000000L+
 		 (stop_time.tv_usec - start_time.tv_usec));
     }

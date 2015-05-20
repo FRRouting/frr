@@ -2081,8 +2081,6 @@ config_write_debug (struct vty *vty)
 
   if (ospf->instance)
     sprintf(str, " %d", ospf->instance);
-  else
-    sprintf(str, "");
 
   /* debug ospf ism (status|events|timers). */
   if (IS_CONF_DEBUG_OSPF (ism, ISM) == OSPF_DEBUG_ISM)
