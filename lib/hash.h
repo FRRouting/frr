@@ -25,6 +25,9 @@ Boston, MA 02111-1307, USA.  */
 #define HASH_INITIAL_SIZE     256	/* initial number of backets. */
 #define HASH_THRESHOLD	      10	/* expand when backet. */
 
+#define HASHWALK_CONTINUE 0
+#define HASHWALK_ABORT -1
+
 struct hash_backet
 {
   /* Linked list.  */
@@ -70,6 +73,9 @@ extern void *hash_release (struct hash *, void *);
 
 extern void hash_iterate (struct hash *, 
 		   void (*) (struct hash_backet *, void *), void *);
+
+extern void hash_walk (struct hash *,
+		   int (*) (struct hash_backet *, void *), void *);
 
 extern void hash_clean (struct hash *, void (*) (void *));
 extern void hash_free (struct hash *);

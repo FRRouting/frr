@@ -116,7 +116,16 @@ struct attr
   
   /* Path origin attribute */
   u_char origin;
+
+  /* has the route-map changed any attribute?
+     Used on the peer outbound side. */
+  u_int32_t rmap_change_flags;
 };
+
+/* rmap_change_flags definition */
+#define BATTR_RMAP_NEXTHOP_CHANGED (1 << 0)
+#define BATTR_RMAP_NEXTHOP_PEER_ADDRESS (1 << 1)
+#define BATTR_REFLECTED (1 << 2)
 
 /* Router Reflector related structure. */
 struct cluster_list
@@ -149,6 +158,8 @@ typedef enum {
  BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
 } bgp_attr_parse_ret_t;
 
+struct bpacket_attr_vec_arr;
+
 /* Prototypes. */
 extern void bgp_attr_init (void);
 extern void bgp_attr_finish (void);
@@ -162,6 +173,7 @@ extern void bgp_attr_dup (struct attr *, struct attr *);
 extern void bgp_attr_deep_dup (struct attr *, struct attr *);
 extern void bgp_attr_deep_free (struct attr *);
 extern struct attr *bgp_attr_intern (struct attr *attr);
+extern struct attr *bgp_attr_refcount (struct attr *attr);
 extern void bgp_attr_unintern_sub (struct attr *);
 extern void bgp_attr_unintern (struct attr **);
 extern void bgp_attr_flush (struct attr *);
@@ -172,6 +184,7 @@ extern struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
                                         struct community *, int as_set, u_char);
 extern bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *,
 					struct stream *, struct attr *,
+					struct bpacket_attr_vec_arr *vecarr,
 					struct prefix *, afi_t, safi_t,
 					struct peer *, struct prefix_rd *,
 					u_char *);
@@ -212,6 +225,7 @@ extern int bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
  * finally the _end() function.
  */
 extern size_t bgp_packet_mpattr_start(struct stream *s, afi_t afi, safi_t safi,
+				      struct bpacket_attr_vec_arr *vecarr,
 				      struct attr *attr);
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				     struct prefix *p, struct prefix_rd *prd,

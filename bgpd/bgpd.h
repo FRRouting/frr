@@ -22,13 +22,41 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define _QUAGGA_BGPD_H
 
 /* For union sockunion.  */
+#include "queue.h"
 #include "sockunion.h"
 #include "routemap.h"
+
+struct update_subgroup;
+struct bpacket;
 
 /* Typedef BGP specific types.  */
 typedef u_int32_t as_t;
 typedef u_int16_t as16_t; /* we may still encounter 16 Bit asnums */
 typedef u_int16_t bgp_size_t;
+
+#define max(a,b)		\
+  ({ __typeof__ (a) _a = (a);	\
+    __typeof__ (b) _b = (b);	\
+    _a > _b ? _a : _b; })
+
+enum bgp_af_index
+{
+  BGP_AF_START,
+  BGP_AF_IPV4_UNICAST = BGP_AF_START,
+  BGP_AF_IPV4_MULTICAST,
+  BGP_AF_IPV4_VPN,
+  BGP_AF_IPV6_UNICAST,
+  BGP_AF_IPV6_MULTICAST,
+  BGP_AF_MAX
+};
+
+#define AF_FOREACH(af) \
+  for ((af) = BGP_AF_START; (af) < BGP_AF_MAX; (af)++)
+
+#define FOREACH_AFI_SAFI(afi, safi)			\
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)		\
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
 
 /* BGP master for system wide configurations and variables.  */
 struct bgp_master
@@ -61,6 +89,9 @@ struct bgp_master
 #define BGP_OPT_MULTIPLE_INSTANCE        (1 << 1)
 #define BGP_OPT_CONFIG_CISCO             (1 << 2)
 #define BGP_OPT_NO_LISTEN                (1 << 3)
+
+  u_int64_t updgrp_idspace;
+  u_int64_t subgrp_idspace;
 };
 
 /* BGP route-map structure.  */
@@ -105,6 +136,27 @@ struct bgp
 
   /* BGP route-server-clients. */
   struct list *rsclient;
+
+  struct hash *update_groups[BGP_AF_MAX];
+
+  /*
+   * Global statistics for update groups.
+   */
+  struct {
+    u_int32_t join_events;
+    u_int32_t prune_events;
+    u_int32_t merge_events;
+    u_int32_t split_events;
+    u_int32_t updgrp_switch_events;
+    u_int32_t peer_refreshes_combined;
+    u_int32_t adj_count;
+    u_int32_t merge_checks_triggered;
+
+    u_int32_t updgrps_created;
+    u_int32_t updgrps_deleted;
+    u_int32_t subgrps_created;
+    u_int32_t subgrps_deleted;
+  } update_group_stats;
 
   /* BGP configuration.  */
   u_int16_t config;
@@ -212,6 +264,9 @@ struct bgp
   /* BGP default local-preference.  */
   u_int32_t default_local_pref;
 
+  /* BGP default subgroup pkt queue max  */
+  u_int32_t default_subgroup_pkt_queue_max;
+
   /* BGP default timer.  */
   u_int32_t default_holdtime;
   u_int32_t default_keepalive;
@@ -229,8 +284,7 @@ struct bgp
   } maxpaths[AFI_MAX][SAFI_MAX];
 
   u_int32_t wpkt_quanta;  /* per peer packet quanta to write */
-  u_int32_t adv_quanta;  /* adv FIFO size that triggers write */
-  u_int32_t wd_quanta;  /* withdraw FIFO size that triggers write */
+  u_int32_t coalesce_time;
 };
 
 #define BGP_ROUTE_ADV_HOLD(bgp) \
@@ -346,6 +400,38 @@ typedef enum
 #define BGP_MAX_PACKET_SIZE                   4096
 #define BGP_MAX_PACKET_SIZE_OVERFLOW          1024
 
+/*
+ * Trigger delay for bgp_announce_route().
+ */
+#define BGP_ANNOUNCE_ROUTE_SHORT_DELAY_MS  100
+#define BGP_ANNOUNCE_ROUTE_DELAY_MS        500
+
+struct peer_af
+{
+  /* back pointer to the peer */
+  struct peer *peer;
+
+  /* which subgroup the peer_af belongs to */
+  struct update_subgroup *subgroup;
+
+  /* for being part of an update subgroup's peer list */
+  LIST_ENTRY(peer_af) subgrp_train;
+
+  /* for being part of a packet's peer list */
+  LIST_ENTRY(peer_af) pkt_train;
+
+  struct bpacket *next_pkt_to_send;
+
+  /*
+   * Trigger timer for bgp_announce_route().
+   */
+  struct thread *t_announce_route;
+
+  afi_t afi;
+  safi_t safi;
+  int afid;
+};
+
 /* BGP neighbor structure. */
 struct peer
 {
@@ -362,6 +448,10 @@ struct peer
   /* BGP peer group.  */
   struct peer_group *group;
   u_char af_group[AFI_MAX][SAFI_MAX];
+  u_int64_t version[AFI_MAX][SAFI_MAX];
+
+  /* BGP peer_af structures, per configured AF on this peer */
+  struct peer_af *peer_af_array[BGP_AF_MAX];
 
   /* Peer's remote AS number. */
   as_t as;			
@@ -479,6 +569,7 @@ struct peer
 #define PEER_FLAG_DELETE		    (1 << 9) /* mark the peer for deleting */
 #define PEER_FLAG_CONFIG_NODE		    (1 << 10) /* the node to update configs on */
 #define PEER_FLAG_BFD		            (1 << 11) /* bfd */
+#define PEER_FLAG_LONESOUL                  (1 << 12)
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
@@ -572,8 +663,6 @@ struct peer
   struct thread *t_gr_restart;
   struct thread *t_gr_stale;
   
-  int radv_adjusted; /* flag if MRAI has been adjusted or not */
-
   /* workqueues */
   struct work_queue *clear_node_queue;
   
@@ -698,6 +787,12 @@ struct bgp_nlri
   /* Length of whole NLRI.  */
   bgp_size_t length;
 };
+
+#define PEERAF_FOREACH(peer, paf, afi)					\
+  for ((afi) = BGP_AF_START, (paf) = (peer)->peer_af_array[(afi)];	\
+       (afi) < BGP_AF_MAX;						\
+       (afi)++, (paf) = (peer)->peer_af_array[(afi)])			\
+    if ((paf) != NULL)							\
 
 /* BGP versions.  */
 #define BGP_VERSION_4		                 4
@@ -852,6 +947,9 @@ struct bgp_nlri
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100
 
+/* BGP default subgroup packet queue max .  */
+#define BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX      40
+
 /* BGP graceful restart  */
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
@@ -930,6 +1028,17 @@ enum bgp_clear_type
 #define BGP_ERR_AS_OVERRIDE                     -34
 #define BGP_ERR_MAX				-35
 
+/*
+ * Enumeration of different policy kinds a peer can be configured with.
+ */
+typedef enum
+{
+  BGP_POLICY_ROUTE_MAP,
+  BGP_POLICY_FILTER_LIST,
+  BGP_POLICY_PREFIX_LIST,
+  BGP_POLICY_DISTRIBUTE_LIST,
+} bgp_policy_type_e;
+
 extern struct bgp_master *bm;
 
 extern struct thread_master *master;
@@ -1000,6 +1109,9 @@ extern int bgp_timers_unset (struct bgp *);
 
 extern int bgp_default_local_preference_set (struct bgp *, u_int32_t);
 extern int bgp_default_local_preference_unset (struct bgp *);
+
+extern int bgp_default_subgroup_pkt_queue_max_set (struct bgp *bgp, u_int32_t);
+extern int bgp_default_subgroup_pkt_queue_max_unset (struct bgp *bgp);
 
 extern int bgp_update_delay_active (struct bgp *);
 extern int bgp_update_delay_configured (struct bgp *);
@@ -1096,4 +1208,95 @@ extern int bgp_route_map_update_timer (struct thread *thread);
 extern void bgp_route_map_terminate(void);
 
 extern int peer_cmp (struct peer *p1, struct peer *p2);
+
+extern struct peer_af * peer_af_create (struct peer *, afi_t, safi_t);
+extern struct peer_af * peer_af_find (struct peer *, afi_t, safi_t);
+extern int peer_af_delete (struct peer *, afi_t, safi_t);
+
+static inline int
+afindex (afi_t afi, safi_t safi)
+{
+  switch (afi)
+    {
+    case AFI_IP:
+      switch (safi)
+	{
+	case SAFI_UNICAST:
+	  return BGP_AF_IPV4_UNICAST;
+	  break;
+	case SAFI_MULTICAST:
+	  return BGP_AF_IPV4_MULTICAST;
+	  break;
+	case SAFI_MPLS_VPN:
+	  return BGP_AF_IPV4_VPN;
+	  break;
+	default:
+	  return BGP_AF_MAX;
+	  break;
+	}
+      break;
+    case AFI_IP6:
+      switch (safi)
+	{
+	case SAFI_UNICAST:
+	  return BGP_AF_IPV6_UNICAST;
+	  break;
+	case SAFI_MULTICAST:
+	  return BGP_AF_IPV6_MULTICAST;
+	  break;
+	default:
+	  return BGP_AF_MAX;
+	  break;
+	}
+      break;
+    default:
+      return BGP_AF_MAX;
+      break;
+    }
+}
+
+/* If peer is configured at least one address family return 1. */
+static inline int
+peer_group_active (struct peer *peer)
+{
+  if (peer->af_group[AFI_IP][SAFI_UNICAST]
+      || peer->af_group[AFI_IP][SAFI_MULTICAST]
+      || peer->af_group[AFI_IP][SAFI_MPLS_VPN]
+      || peer->af_group[AFI_IP6][SAFI_UNICAST]
+      || peer->af_group[AFI_IP6][SAFI_MULTICAST])
+    return 1;
+  return 0;
+}
+
+/* If peer is negotiated at least one address family return 1. */
+static inline int
+peer_afi_active_nego (const struct peer *peer, afi_t afi)
+{
+  if (peer->afc_nego[afi][SAFI_UNICAST]
+      || peer->afc_nego[afi][SAFI_MULTICAST]
+      || peer->afc_nego[afi][SAFI_MPLS_VPN])
+    return 1;
+  return 0;
+}
+
+static inline char *
+timestamp_string (time_t ts)
+{
+#ifdef HAVE_CLOCK_MONOTONIC
+  time_t tbuf;
+  tbuf = time(NULL) - (bgp_clock() - ts);
+  return ctime(&tbuf);
+#else
+  return ctime(&ts);
+#endif /* HAVE_CLOCK_MONOTONIC */
+}
+
+static inline int
+peer_established (struct peer *peer)
+{
+  if (peer->status == Established)
+    return 1;
+  return 0;
+}
+
 #endif /* _QUAGGA_BGPD_H */

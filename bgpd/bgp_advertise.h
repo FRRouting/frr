@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_ADVERTISE_H
 #define _QUAGGA_BGP_ADVERTISE_H
 
+struct update_subgroup;
+
 /* BGP advertise FIFO.  */
 struct bgp_advertise_fifo
 {
@@ -71,8 +73,14 @@ struct bgp_adj_out
   struct bgp_adj_out *next;
   struct bgp_adj_out *prev;
 
-  /* Advertised peer.  */
-  struct peer *peer;
+  /* Advertised subgroup.  */
+  struct update_subgroup *subgroup;
+
+  /* Threading that makes the adj part of subgroup's adj queue */
+  TAILQ_ENTRY(bgp_adj_out) subgrp_adj_train;
+
+  /* Prefix information.  */
+  struct bgp_node *rn;
 
   /* Advertised attribute.  */
   struct attr *attr;
@@ -149,13 +157,14 @@ struct bgp_synchronize
 #define BGP_ADV_FIFO_COUNT(F) \
   (F)->count
 
+#define BGP_ADV_FIFO_EMPTY(F)			\
+  (((struct bgp_advertise_fifo *)(F))->next == (struct bgp_advertise *)(F))
+
+#define BGP_ADV_FIFO_HEAD(F)                                  \
+  ((((struct bgp_advertise_fifo *)(F))->next == (struct bgp_advertise *)(F)) \
+  ? NULL : (F)->next)
+
 /* Prototypes.  */
-extern void bgp_adj_out_set (struct bgp_node *, struct peer *, struct prefix *,
-		      struct attr *, afi_t, safi_t, struct bgp_info *);
-extern void bgp_adj_out_unset (struct bgp_node *, struct peer *, struct prefix *,
-			afi_t, safi_t);
-extern void bgp_adj_out_remove (struct bgp_node *, struct bgp_adj_out *, 
-			 struct peer *, afi_t, safi_t);
 extern int bgp_adj_out_lookup (struct peer *, struct prefix *, afi_t, safi_t,
 			struct bgp_node *);
 
@@ -163,10 +172,23 @@ extern void bgp_adj_in_set (struct bgp_node *, struct peer *, struct attr *);
 extern void bgp_adj_in_unset (struct bgp_node *, struct peer *);
 extern void bgp_adj_in_remove (struct bgp_node *, struct bgp_adj_in *);
 
-extern struct bgp_advertise *
-bgp_advertise_clean (struct peer *, struct bgp_adj_out *, afi_t, safi_t);
-
 extern void bgp_sync_init (struct peer *);
 extern void bgp_sync_delete (struct peer *);
+extern unsigned int baa_hash_key (void *p);
+extern int baa_hash_cmp (const void *p1, const void *p2);
+extern void bgp_advertise_add (struct bgp_advertise_attr *baa,
+			       struct bgp_advertise *adv);
+extern struct bgp_advertise *bgp_advertise_new (void);
+extern void bgp_advertise_free (struct bgp_advertise *adv);
+extern struct bgp_advertise_attr *
+bgp_advertise_intern (struct hash *hash, struct attr *attr);
+extern struct bgp_advertise_attr *baa_new (void);
+extern void
+bgp_advertise_delete (struct bgp_advertise_attr *baa,
+		      struct bgp_advertise *adv);
+extern void
+bgp_advertise_unintern (struct hash *hash, struct bgp_advertise_attr *baa);
+extern struct bgp_adj_out *
+bgp_adj_peer_lookup (struct peer *peer, struct bgp_node *rn);
 
 #endif /* _QUAGGA_BGP_ADVERTISE_H */

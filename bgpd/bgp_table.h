@@ -43,6 +43,7 @@ struct bgp_table
   struct peer *owner;
 
   struct route_table *route_table;
+  u_int64_t version;
 };
 
 struct bgp_node
@@ -63,6 +64,7 @@ struct bgp_node
 
   struct bgp_node *prn;
 
+  u_int64_t version;
   u_char flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 #define BGP_NODE_USER_CLEAR             (1 << 1)
@@ -351,6 +353,20 @@ static inline int
 bgp_table_iter_started (bgp_table_iter_t * iter)
 {
   return route_table_iter_started (&iter->rt_iter);
+}
+
+/* This would benefit from a real atomic operation...
+ * until then. */
+static inline u_int64_t
+bgp_table_next_version (struct bgp_table *table)
+{
+  return ++table->version;
+}
+
+static inline u_int64_t
+bgp_table_version (struct bgp_table *table)
+{
+  return table->version;
 }
 
 #endif /* _QUAGGA_BGP_TABLE_H */

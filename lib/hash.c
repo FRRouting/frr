@@ -225,6 +225,31 @@ hash_iterate (struct hash *hash,
       }
 }
 
+/* Iterator function for hash.  */
+void
+hash_walk (struct hash *hash,
+	   int (*func) (struct hash_backet *, void *), void *arg)
+{
+  unsigned int i;
+  struct hash_backet *hb;
+  struct hash_backet *hbnext;
+  int ret = HASHWALK_CONTINUE;
+
+  for (i = 0; i < hash->size; i++)
+    {
+      for (hb = hash->index[i]; hb; hb = hbnext)
+	{
+	  /* get pointer to next hash backet here, in case (*func)
+	   * decides to delete hb by calling hash_release
+	   */
+	  hbnext = hb->next;
+	  ret = (*func) (hb, arg);
+	  if (ret == HASHWALK_ABORT)
+	    return;
+	}
+    }
+}
+
 /* Clean up hash.  */
 void
 hash_clean (struct hash *hash, void (*free_func) (void *))

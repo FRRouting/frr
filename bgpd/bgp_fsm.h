@@ -40,7 +40,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
     if (!(T) && (peer->status != Deleted))	\
       THREAD_WRITE_ON(master,(T),(F),peer,(V)); \
   } while (0)
-    
+
+#define BGP_PEER_WRITE_ON(T,F,V, peer)			\
+  do {							\
+    if (!(T) && ((peer)->status != Deleted))		\
+      THREAD_WRITE_ON(master,(T),(F),(peer),(V));	\
+  } while (0)
+
 #define BGP_WRITE_OFF(T)			\
   do {						\
     if (T)					\
@@ -79,6 +85,7 @@ extern int bgp_event (struct thread *);
 extern int bgp_event_update (struct peer *, int event);
 extern int bgp_stop (struct peer *peer);
 extern void bgp_timer_set (struct peer *);
+extern int bgp_routeadv_timer (struct thread *);
 extern void bgp_fsm_change_status (struct peer *peer, int status);
 extern const char *peer_down_str[];
 extern void bgp_update_delay_end (struct bgp *);

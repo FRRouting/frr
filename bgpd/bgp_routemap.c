@@ -40,6 +40,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "buffer.h"
 #include "sockunion.h"
 #include "hash.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -1103,19 +1104,26 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
 	      bgp_info->attr->nexthop.s_addr = sockunion2ip (peer->su_remote);
 	      bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
 	    }
-	  else if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT)
-		   && peer->su_local
-		   && sockunion_family (peer->su_local) == AF_INET)
+	 else if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT))
 	    {
-	      bgp_info->attr->nexthop.s_addr = sockunion2ip (peer->su_local);
-	      bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
+	      /* The next hop value will be set as part of packet rewrite.
+	       * Set the flags here to indicate that rewrite needs to be done.
+               * Also, clear the value.
+	       */
+	      SET_FLAG(bgp_info->attr->rmap_change_flags,
+		       BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+	      SET_FLAG(bgp_info->attr->rmap_change_flags,
+		       BATTR_RMAP_NEXTHOP_CHANGED);
+              bgp_info->attr->nexthop.s_addr = 0;
 	    }
 	}
       else
 	{
-	  /* Set next hop value. */ 
+	  /* Set next hop value. */
 	  bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
 	  bgp_info->attr->nexthop = *rins->address;
+	  SET_FLAG(bgp_info->attr->rmap_change_flags,
+		   BATTR_RMAP_NEXTHOP_CHANGED);
 	}
     }
 
@@ -2173,10 +2181,13 @@ route_set_ipv6_nexthop_global (void *rule, struct prefix *prefix,
     
       /* Set next hop value. */ 
       (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global = *address;
-    
+
       /* Set nexthop length. */
       if (bgp_info->attr->extra->mp_nexthop_len == 0)
 	bgp_info->attr->extra->mp_nexthop_len = 16;
+
+      SET_FLAG(bgp_info->attr->rmap_change_flags,
+	       BATTR_RMAP_NEXTHOP_CHANGED);
     }
 
   return RMAP_OKAY;
@@ -2241,6 +2252,9 @@ route_set_ipv6_nexthop_local (void *rule, struct prefix *prefix,
       /* Set nexthop length. */
       if (bgp_info->attr->extra->mp_nexthop_len != 32)
 	bgp_info->attr->extra->mp_nexthop_len = 32;
+
+      SET_FLAG(bgp_info->attr->rmap_change_flags,
+	       BATTR_RMAP_NEXTHOP_CHANGED);
     }
 
   return RMAP_OKAY;
@@ -2313,20 +2327,20 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
 					      INET6_ADDRSTRLEN),
 		     &peer_address);
 	}
-      else if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT)
-	       && peer->su_local
-	       && sockunion_family (peer->su_local) == AF_INET6)
+      else if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT))
 	{
-	  inet_pton (AF_INET, sockunion2str (peer->su_local,
-					     peer_addr_buf,
-					     INET6_ADDRSTRLEN),
-		     &peer_address);
+	  SET_FLAG(bgp_info->attr->rmap_change_flags,
+		   BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+	  SET_FLAG(bgp_info->attr->rmap_change_flags,
+		   BATTR_RMAP_NEXTHOP_CHANGED);
+          /* clear next hop value. */
+          memset (&((bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global),
+                  0, sizeof (struct in6_addr));
 	}
 
       if (IN6_IS_ADDR_LINKLOCAL(&peer_address))
 	{
-	  /* Set next hop value. */
-	  (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local = peer_address;
+	  /* The next hop value will be set as part of packet rewrite. */
 
 	  /* Set nexthop length. */
 	  if (bgp_info->attr->extra->mp_nexthop_len != 32)
@@ -2334,8 +2348,7 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
 	}
       else
 	{
-	  /* Set next hop value. */
-	  (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global = peer_address;
+	  /* The next hop value will be set as part of packet rewrite. */
 
 	  /* Set nexthop length. */
 	  if (bgp_info->attr->extra->mp_nexthop_len == 0)
@@ -2652,7 +2665,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	      if (CHECK_FLAG (peer->af_flags[afi][safi],
 			      PEER_FLAG_SOFT_RECONFIG))
 		{
-                  if (bgp_debug_update(peer, NULL, 1))
+                  if (bgp_debug_update(peer, NULL, NULL, 1))
 		    zlog_debug("Processing route_map %s update on "
 			       "peer %s (inbound, soft-reconfig)",
 			       rmap_name, peer->host);
@@ -2663,7 +2676,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 		       || CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV))
 		{
 
-                  if (bgp_debug_update(peer, NULL, 1))
+                  if (bgp_debug_update(peer, NULL, NULL, 1))
 		    zlog_debug("Processing route_map %s update on "
 			       "peer %s (inbound, route-refresh)",
 			       rmap_name, peer->host);
@@ -2699,7 +2712,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	  if (CHECK_FLAG (peer->af_flags[afi][safi],
 			  PEER_FLAG_SOFT_RECONFIG))
 	    {
-              if (bgp_debug_update(peer, NULL, 1))
+              if (bgp_debug_update(peer, NULL, NULL, 1))
 		zlog_debug("Processing route_map %s update on "
 			   "peer %s (import, soft-reconfig)",
 			   rmap_name, peer->host);
@@ -2709,7 +2722,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	  else if (CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV)
 		   || CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV))
 	    {
-              if (bgp_debug_update(peer, NULL, 1))
+              if (bgp_debug_update(peer, NULL, NULL, 1))
 		zlog_debug("Processing route_map %s update on "
 			   "peer %s (import, route-refresh)",
 			   rmap_name, peer->host);
@@ -2719,27 +2732,24 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	}
     }
 
+  /*
+   * For outbound, unsuppress and default-originate map change (content or
+   * map created), merely update the "config" here, the actual route
+   * announcement happens at the group level.
+   */
   if (filter->map[RMAP_OUT].name &&
-	  (strcmp(rmap_name, filter->map[RMAP_OUT].name) == 0))
-	{
-	  filter->map[RMAP_OUT].map =
-	    route_map_lookup_by_name (filter->map[RMAP_OUT].name);
-
-          if (bgp_debug_update(peer, NULL, 0))
-	    zlog_debug("Processing route_map %s update on peer %s (outbound)",
-		       rmap_name, peer->host);
-
-	  if (route_update)
-	    bgp_announce_route_all(peer);
-	}
+      (strcmp(rmap_name, filter->map[RMAP_OUT].name) == 0))
+    filter->map[RMAP_OUT].map =
+      route_map_lookup_by_name (filter->map[RMAP_OUT].name);
 
   if (filter->usmap.name &&
       (strcmp(rmap_name, filter->usmap.name) == 0))
-    {
-      filter->usmap.map = route_map_lookup_by_name (filter->usmap.name);
-      if (route_update)
-	bgp_announce_route_all(peer);
-    }
+    filter->usmap.map = route_map_lookup_by_name (filter->usmap.name);
+
+  if (peer->default_rmap[afi][safi].name &&
+      (strcmp (rmap_name, peer->default_rmap[afi][safi].name) == 0))
+    peer->default_rmap[afi][safi].map =
+      route_map_lookup_by_name (peer->default_rmap[afi][safi].name);
 }
 
 static void
@@ -2807,26 +2817,16 @@ bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
 	    if (! peer->afc[afi][safi])
 	      continue;
 
-	    /* process in/out/import/export route-maps */
+	    /* process in/out/import/export/default-orig route-maps */
 	    bgp_route_map_process_peer(rmap_name, peer, afi, safi, route_update);
-
-	    /* process default-originate route-map */
-	    if (peer->default_rmap[afi][safi].name &&
-		(strcmp (rmap_name, peer->default_rmap[afi][safi].name) == 0))
-	      {
-		peer->default_rmap[afi][safi].map =
-		  route_map_lookup_by_name (peer->default_rmap[afi][safi].name);
-
-                if (bgp_debug_update(peer, NULL, 0))
-		  zlog_debug("Processing route_map %s update on "
-			     "default-originate", rmap_name);
-
-		if (route_update)
-		  bgp_default_originate (peer, afi, safi, 0);
-	      }
 	  }
     }
 
+  /* for outbound/default-orig route-maps, process for groups */
+  update_group_policy_update(bgp, BGP_POLICY_ROUTE_MAP, rmap_name,
+			     route_update, 0);
+
+  /* update peer-group config (template) */
   bgp_route_map_update_peer_group(rmap_name, bgp);
 
   /* For table route-map updates. */
@@ -2893,7 +2893,7 @@ bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
 
                 if (route_update)
                   {
-                    if (bgp_debug_update(peer, NULL, 0))
+                    if (BGP_DEBUG (zebra, ZEBRA))
                       zlog_debug("Processing route_map %s update on "
                                  "redistributed routes", rmap_name);
 
@@ -2932,13 +2932,18 @@ bgp_route_map_mark_update (char *rmap_name)
 
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
+
       if (bgp->t_rmap_update == NULL)
 	{
 	  /* rmap_update_timer of 0 means don't do route updates */
 	  if (bgp->rmap_update_timer)
-	    bgp->t_rmap_update =
-	      thread_add_timer(master, bgp_route_map_update_timer, bgp,
-			       bgp->rmap_update_timer);
+            {
+               bgp->t_rmap_update =
+                 thread_add_timer(master, bgp_route_map_update_timer, bgp,
+                                  bgp->rmap_update_timer);
+              /* Signal the groups that a route-map update event has started */
+              update_group_policy_update(bgp, BGP_POLICY_ROUTE_MAP, rmap_name, 1, 1);
+            }
 	  else
 	    bgp_route_map_process_update((void *)bgp, rmap_name, 0);
 	}

@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "hash.h"
 #include "jhash.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -38,6 +39,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_updgrp.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str [] = 
@@ -474,7 +476,8 @@ attrhash_cmp (const void *p1, const void *p2)
       && attr1->aspath == attr2->aspath
       && attr1->community == attr2->community
       && attr1->med == attr2->med
-      && attr1->local_pref == attr2->local_pref)
+      && attr1->local_pref == attr2->local_pref
+      && attr1->rmap_change_flags == attr2->rmap_change_flags)
     {
       const struct attr_extra *ae1 = attr1->extra;
       const struct attr_extra *ae2 = attr2->extra;
@@ -607,6 +610,40 @@ bgp_attr_intern (struct attr *attr)
   return find;
 }
 
+/**
+ * Increment the refcount on various structures that attr holds.
+ * Note on usage: call _only_ when the 'attr' object has already
+ * been 'intern'ed and exists in 'attrhash' table. The function
+ * serves to hold a reference to that (real) object.
+ * Note also that the caller can safely call bgp_attr_unintern()
+ * after calling bgp_attr_refcount(). That would release the
+ * reference and could result in a free() of the attr object.
+ */
+struct attr *
+bgp_attr_refcount (struct attr *attr)
+{
+  /* Intern referenced strucutre. */
+  if (attr->aspath)
+    attr->aspath->refcnt++;
+
+  if (attr->community)
+    attr->community->refcnt++;
+
+  if (attr->extra)
+    {
+      struct attr_extra *attre = attr->extra;
+      if (attre->ecommunity)
+	attre->ecommunity->refcnt++;
+
+      if (attre->cluster)
+	attre->cluster->refcnt++;
+
+      if (attre->transit)
+	attre->transit->refcnt++;
+    }
+  attr->refcnt++;
+  return attr;
+}
 
 /* Make network statement's attribute. */
 struct attr *
@@ -1565,7 +1602,7 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
 	  char buf1[INET6_ADDRSTRLEN];
 	  char buf2[INET6_ADDRSTRLEN];
 
-	  if (bgp_debug_update(peer, NULL, 1))
+	  if (bgp_debug_update(peer, NULL, NULL, 1))
 	    zlog_debug ("%s sent two nexthops %s %s but second one is not a link-local nexthop", peer->host,
 		       inet_ntop (AF_INET6, &attre->mp_nexthop_global,
 				  buf1, INET6_ADDRSTRLEN),
@@ -1716,7 +1753,7 @@ bgp_attr_unknown (struct bgp_attr_parser_args *args)
   const u_char flag = args->flags;  
   const bgp_size_t length = args->length;
   
-  if (bgp_debug_update(peer, NULL, 1))
+  if (bgp_debug_update(peer, NULL, NULL, 1))
     zlog_debug ("%s Unknown attribute is received (type %d, length %d)",
                 peer->host, type, length);
   
@@ -2098,6 +2135,7 @@ int stream_put_prefix (struct stream *, struct prefix *);
 
 size_t
 bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi,
+			 struct bpacket_attr_vec_arr *vecarr,
 			 struct attr *attr)
 {
   size_t sizep;
@@ -2118,10 +2156,12 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi,
 	{
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
+	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 4);
 	  stream_put_ipv4 (s, attr->nexthop.s_addr);
 	  break;
 	case SAFI_MPLS_VPN:
+	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 12);
 	  stream_putl (s, 0);
 	  stream_putl (s, 0);
@@ -2142,6 +2182,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi,
 	  struct attr_extra *attre = attr->extra;
 
 	  assert (attr->extra);
+	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, attre->mp_nexthop_len);
 	  stream_put (s, &attre->mp_nexthop_global, 16);
 	  if (attre->mp_nexthop_len == 32)
@@ -2194,6 +2235,7 @@ bgp_packet_mpattr_end (struct stream *s, size_t sizep)
 bgp_size_t
 bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 		      struct stream *s, struct attr *attr,
+		      struct bpacket_attr_vec_arr *vecarr,
 		      struct prefix *p, afi_t afi, safi_t safi,
 		      struct peer *from, struct prefix_rd *prd, u_char *tag)
 {
@@ -2202,6 +2244,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   struct aspath *aspath;
   int send_as4_path = 0;
   int send_as4_aggregator = 0;
+  int i = 0;
   int use32bit = (CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV)) ? 1 : 0;
   size_t mpattrlen_pos = 0;
 
@@ -2213,7 +2256,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 
   if (p && !(afi == AFI_IP && safi == SAFI_UNICAST))
     {
-      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi, attr);
+      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi, vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
     }
@@ -2290,16 +2333,9 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     {
       stream_putc (s, BGP_ATTR_FLAG_TRANS);
       stream_putc (s, BGP_ATTR_NEXT_HOP);
+      bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
       stream_putc (s, 4);
-      if (safi == SAFI_MPLS_VPN)
-	{
-	  if (attr->nexthop.s_addr == 0)
-	    stream_put_ipv4 (s, peer->nexthop.v4.s_addr);
-	  else
-	    stream_put_ipv4 (s, attr->nexthop.s_addr);
-	}
-      else
-	stream_put_ipv4 (s, attr->nexthop.s_addr);
+      stream_put_ipv4 (s, attr->nexthop.s_addr);
     }
 
   /* MED attribute. */

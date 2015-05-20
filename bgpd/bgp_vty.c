@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "memory.h"
 #include "hash.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_advertise.h"
@@ -50,6 +51,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_updgrp.h"
 
 extern struct in_addr router_id_zebra;
 
@@ -1027,6 +1029,51 @@ DEFUN (no_bgp_wpkt_quanta,
   return bgp_wpkt_quanta_config_vty(vty, argv[0], 0);
 }
 
+int
+bgp_coalesce_config_vty (struct vty *vty, const char *num, char set)
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+
+  if (set)
+    VTY_GET_INTEGER_RANGE ("coalesce-time", bgp->coalesce_time, num,
+			   0, 4294967295);
+  else
+    bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
+
+  return CMD_SUCCESS;
+}
+
+int
+bgp_config_write_coalesce_time (struct vty *vty, struct bgp *bgp)
+{
+  if (bgp->coalesce_time != BGP_DEFAULT_SUBGROUP_COALESCE_TIME)
+      vty_out (vty, " coalesce-time %d%s",
+               bgp->coalesce_time, VTY_NEWLINE);
+
+  return 0;
+}
+
+
+DEFUN (bgp_coalesce_time,
+       bgp_coalesce_time_cmd,
+       "coalesce-time <0-4294967295>",
+       "Subgroup coalesce timer\n"
+       "Subgroup coalesce timer value (in ms)\n")
+{
+  return bgp_coalesce_config_vty(vty, argv[0], 1);
+}
+
+DEFUN (no_bgp_coalesce_time,
+       no_bgp_coalesce_time_cmd,
+       "no coalesce-time <0-4294967295>",
+       "Subgroup coalesce timer\n"
+       "Subgroup coalesce timer value (in ms)\n")
+{
+  return bgp_coalesce_config_vty(vty, argv[0], 0);
+}
+
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
@@ -1757,37 +1804,39 @@ ALIAS (no_bgp_default_local_preference,
        "local preference (higher=more preferred)\n"
        "Configure default local preference value\n")
 
-static void
-peer_announce_routes_if_rmap_out (struct bgp *bgp)
+DEFUN (bgp_default_subgroup_pkt_queue_max,
+       bgp_default_subgroup_pkt_queue_max_cmd,
+       "bgp default subgroup-pkt-queue-max <20-100>",
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "subgroup-pkt-queue-max\n"
+       "Configure subgroup packet queue max\n")
 {
-  struct peer *peer;
-  struct listnode *node, *nnode;
-  struct bgp_filter *filter;
-  afi_t afi;
-  safi_t safi;
+  struct bgp *bgp;
+  u_int32_t max_size;
 
-  /* Reannounce all routes to appropriate neighbors */
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-    {
-      for (afi = AFI_IP; afi < AFI_MAX; afi++)
-	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-	  {
-	    if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
-	      {
-		/* check if there's an out route-map on this client */
-		filter = &peer->filter[afi][safi];
-		if (ROUTE_MAP_OUT_NAME(filter))
-		  {
-		    if (bgp_debug_update(peer, NULL, 0))
-		      zlog_debug("%s: Announcing routes again for peer %s"
-				 "(afi=%d, safi=%d", __func__, peer->host, afi,
-				 safi);
+  bgp = vty->index;
 
-		    bgp_announce_route_all(peer);
-		  }
-	      }
-	}
-    }
+  VTY_GET_INTEGER ("subgroup packet queue max", max_size, argv[0]);
+
+  bgp_default_subgroup_pkt_queue_max_set (bgp, max_size);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_default_subgroup_pkt_queue_max,
+       no_bgp_default_subgroup_pkt_queue_max_cmd,
+       "no bgp default subgroup-pkt-queue-max",
+       NO_STR
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "subgroup-pkt-queue-max\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_default_subgroup_pkt_queue_max_unset (bgp);
+  return CMD_SUCCESS;
 }
 
 DEFUN (bgp_rr_allow_outbound_policy,
@@ -1806,7 +1855,7 @@ DEFUN (bgp_rr_allow_outbound_policy,
   if (!bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
     {
       bgp_flag_set(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
-      peer_announce_routes_if_rmap_out(bgp);
+      update_group_announce_rrclients(bgp);
     }
 
   return CMD_SUCCESS;
@@ -1828,7 +1877,7 @@ DEFUN (no_bgp_rr_allow_outbound_policy,
   if (bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
     {
       bgp_flag_unset(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
-      peer_announce_routes_if_rmap_out(bgp);
+      update_group_announce_rrclients(bgp);
     }
 
   return CMD_SUCCESS;
@@ -2196,6 +2245,43 @@ ALIAS (no_neighbor_local_as,
        "AS number used as local AS\n"
        "Do not prepend local-as to updates from ebgp peers\n"
        "Do not prepend local-as to updates from ibgp peers\n")
+
+DEFUN (neighbor_solo,
+       neighbor_solo_cmd,
+       NEIGHBOR_CMD2 "solo",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Solo peer - part of its own update group\n")
+{
+  struct peer *peer;
+  int ret;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  ret = update_group_adjust_soloness(peer, 1);
+  return bgp_vty_return (vty, ret);
+}
+
+DEFUN (no_neighbor_solo,
+       no_neighbor_solo_cmd,
+       NO_NEIGHBOR_CMD2 "solo",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Solo peer - part of its own update group\n")
+{
+  struct peer *peer;
+  int ret;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  ret = update_group_adjust_soloness(peer, 0);
+  return bgp_vty_return (vty, ret);
+}
 
 DEFUN (neighbor_password,
        neighbor_password_cmd,
@@ -7684,6 +7770,12 @@ DEFUN (show_bgp_memory,
              mtype_memstr (memstrbuf, sizeof (memstrbuf),
                          count * sizeof (struct bgp_static)),
              VTY_NEWLINE);
+
+  if ((count = mtype_stats_alloc (MTYPE_BGP_PACKET)))
+    vty_out (vty, "%ld Packets, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct bpacket)),
+             VTY_NEWLINE);
   
   /* Adj-In/Out */
   if ((count = mtype_stats_alloc (MTYPE_BGP_ADJ_IN)))
@@ -7876,6 +7968,9 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
               if (bgp->v_maxmed_admin)
                 vty_out (vty, "Max-med administrative active%s", VTY_NEWLINE);
 
+	      vty_out(vty, "BGP table version %llu%s",
+		      bgp_table_version(bgp->rib[afi][safi]), VTY_NEWLINE);
+
               ents = bgp_table_count (bgp->rib[afi][safi]);
               vty_out (vty, "RIB entries %ld, using %s of memory%s", ents,
                        mtype_memstr (memstrbuf, sizeof (memstrbuf),
@@ -7927,7 +8022,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 	    vty_out(vty, "%c", *delimit);
 
 	  if (!delimit)
-	    vty_out (vty, "%5u %7d %7d %8d %4d %4u ",
+	    vty_out (vty, "%5u %7d %7d %8lu %4d %4u ",
 		     peer->as,
 		     peer->open_in + peer->update_in + peer->keepalive_in
 		     + peer->notify_in + peer->refresh_in
@@ -7935,12 +8030,11 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 		     peer->open_out + peer->update_out + peer->keepalive_out
 		     + peer->notify_out + peer->refresh_out
 		     + peer->dynamic_cap_out,
+		     peer->version[afi][safi],
 		     0,
-		     0,
-		     peer->sync[afi][safi]->update.count +
-		     peer->sync[afi][safi]->withdraw.count);
+                     (unsigned long) peer->obuf->count);
 	  else
-	    vty_out (vty, "%5u %c %7d %c %7d %c %8d %c %4d %c %4u %c",
+	    vty_out (vty, "%5u %c %7d %c %7d %c %8lu %c %4d %c %4u %c",
 		     peer->as, *delimit,
 		     peer->open_in + peer->update_in + peer->keepalive_in
 		     + peer->notify_in + peer->refresh_in
@@ -7948,10 +8042,9 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 		     peer->open_out + peer->update_out + peer->keepalive_out
 		     + peer->notify_out + peer->refresh_out
 		     + peer->dynamic_cap_out, *delimit,
+		     peer->version[afi][safi], *delimit,
 		     0, *delimit,
-		     0, *delimit,
-		     peer->sync[afi][safi]->update.count +
-		     peer->sync[afi][safi]->withdraw.count, *delimit);
+                     (unsigned long) peer->obuf->count, *delimit);
 
 	  vty_out (vty, "%8s",
 		   peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
@@ -8320,6 +8413,7 @@ static void
 bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
 {
   struct bgp_filter *filter;
+  struct peer_af *paf;
   char orf_pfx_name[BUFSIZ];
   int orf_pfx_count;
 
@@ -8331,6 +8425,17 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
   if (p->af_group[afi][safi])
     vty_out (vty, "  %s peer-group member%s", p->group->name, VTY_NEWLINE);
 
+  paf = peer_af_find(p, afi, safi);
+  if (paf && PAF_SUBGRP(paf))
+    {
+      vty_out (vty, "  Update group %llu, subgroup %llu%s",
+	       PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id, VTY_NEWLINE);
+      vty_out (vty, "  Packet Queue length %d%s",
+	       bpacket_queue_virtual_length(paf), VTY_NEWLINE);
+    } else
+    {
+      vty_out(vty, "  Not part of any update group%s", VTY_NEWLINE);
+    }
   if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
       || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
       || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
@@ -8425,7 +8530,8 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
 	vty_out (vty, " default route-map %s%s,",
 		 p->default_rmap[afi][safi].map ? "*" : "",
 		 p->default_rmap[afi][safi].name);
-      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE))
+      if (paf && PAF_SUBGRP(paf) && CHECK_FLAG(PAF_SUBGRP(paf)->sflags,
+					     SUBGRP_STATUS_DEFAULT_ORIGINATE))
 	vty_out (vty, " default sent%s", VTY_NEWLINE);
       else
 	vty_out (vty, " default not sent%s", VTY_NEWLINE);
@@ -8962,7 +9068,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
     vty_out (vty, "Next connect timer due in %ld seconds%s",
 	     thread_timer_remain_second (p->t_connect), VTY_NEWLINE);
   if (p->t_routeadv)
-    vty_out (vty, "MRAI (interval %ld) timer expires in %ld seconds%s",
+    vty_out (vty, "MRAI (interval %u) timer expires in %ld seconds%s",
 	     p->v_routeadv, thread_timer_remain_second (p->t_routeadv),
 	     VTY_NEWLINE);
 
@@ -9663,6 +9769,205 @@ ALIAS (show_bgp_instance_ipv6_safi_rsclient_summary,
        "Summary of all Route Server Clients\n")
 
 #endif /* HAVE IPV6 */
+
+DEFUN (show_ip_bgp_updgrps,
+       show_ip_bgp_updgrps_cmd,
+       "show ip bgp update-groups summary",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP update groups\n"
+       "Summary information\n")
+{
+  struct bgp *bgp;
+
+  bgp = bgp_get_default();
+  if (bgp)
+    update_group_show(bgp, AFI_IP, SAFI_UNICAST, vty);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_bgp_ipv6_updgrps,
+       show_bgp_ipv6_updgrps_cmd,
+       "show bgp update-groups summary",
+       SHOW_STR
+       BGP_STR
+       "BGP update groups\n"
+       "Summary information\n")
+{
+  struct bgp *bgp;
+
+  bgp = bgp_get_default();
+  if (bgp)
+    update_group_show(bgp, AFI_IP6, SAFI_UNICAST, vty);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_bgp_updgrps,
+       show_bgp_updgrps_cmd,
+       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups summary",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "BGP update groups\n"
+       "Summary information\n")
+{
+  struct bgp *bgp;
+  afi_t afi;
+  safi_t safi;
+
+  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  bgp = bgp_get_default();
+  if (bgp)
+    update_group_show(bgp, afi, safi, vty);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_bgp_updgrps_stats,
+       show_bgp_updgrps_stats_cmd,
+       "show bgp update-groups statistics",
+       SHOW_STR
+       BGP_STR
+       "BGP update groups\n"
+       "Statistics\n")
+{
+  struct bgp *bgp;
+
+  bgp = bgp_get_default();
+  if (bgp)
+    update_group_show_stats(bgp, vty);
+
+  return CMD_SUCCESS;
+}
+
+static void
+show_bgp_updgrps_adj_info_aux (struct vty *vty, afi_t afi, safi_t safi,
+			       const char *what, u_int64_t subgrp_id)
+{
+  struct bgp *bgp;
+  bgp = bgp_get_default();
+  if (bgp)
+    {
+      if (!strcmp(what, "advertise-queue"))
+        update_group_show_adj_queue(bgp, afi, safi, vty, subgrp_id);
+      else if (!strcmp(what, "advertised-routes"))
+        update_group_show_advertised(bgp, afi, safi, vty, subgrp_id);
+      else if (!strcmp(what, "packet-queue"))
+        update_group_show_packet_queue(bgp, afi, safi, vty, subgrp_id);
+    }
+}
+
+DEFUN (show_ip_bgp_updgrps_adj,
+       show_ip_bgp_updgrps_adj_cmd,
+       "show ip bgp update-groups (advertise-queue|advertised-routes|packet-queue)",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP update groups\n"
+       "Advertisement queue\n"
+       "Announced routes\n"
+       "Packet queue\n")
+{
+  show_bgp_updgrps_adj_info_aux(vty, AFI_IP, SAFI_UNICAST, argv[0], 0);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_bgp_updgrps_afi_adj,
+       show_bgp_updgrps_afi_adj_cmd,
+       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups (advertise-queue|advertised-routes|packet-queue)",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "BGP update groups\n"
+       "Advertisement queue\n"
+       "Announced routes\n"
+       "Packet queue\n")
+{
+  afi_t afi;
+  safi_t safi;
+
+  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  show_bgp_updgrps_adj_info_aux(vty, afi, safi, argv[2], 0);
+}
+
+DEFUN (show_bgp_updgrps_adj,
+       show_bgp_updgrps_adj_cmd,
+       "show bgp update-groups (advertise-queue|advertised-routes|packet-queue)",
+       SHOW_STR
+       BGP_STR
+       "BGP update groups\n"
+       "Advertisement queue\n"
+       "Announced routes\n"
+       "Packet queue\n")
+{
+  show_bgp_updgrps_adj_info_aux(vty, AFI_IP6, SAFI_UNICAST, argv[0], 0);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_bgp_updgrps_adj_s,
+       show_ip_bgp_updgrps_adj_subgroup_cmd,
+       "show ip bgp update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP update groups\n"
+       "64-bit subgroup id\n"
+       "Advertisement queue\n"
+       "Announced routes\n"
+       "Packet queue\n")
+{
+  show_bgp_updgrps_adj_info_aux(vty, AFI_IP, SAFI_UNICAST, argv[1],
+				atoll(argv[0]));
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_bgp_updgrps_adj_s,
+       show_bgp_updgrps_adj_subgroup_cmd,
+       "show bgp update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       SHOW_STR
+       BGP_STR
+       "BGP update groups\n"
+       "64-bit subgroup id\n"
+       "Advertisement queue\n"
+       "Announced routes\n"
+       "Packet queue\n")
+{
+  show_bgp_updgrps_adj_info_aux(vty, AFI_IP6, SAFI_UNICAST, argv[1],
+				atoll(argv[0]));
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_bgp_updgrps_afi_adj_subgroup,
+       show_bgp_updgrps_afi_adj_subgroup_cmd,
+       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "BGP update groups\n"
+       "64-bit subgroup id\n"
+       "Advertisement queue\n"
+       "Announced routes\n"
+       "Packet queue\n")
+{
+  afi_t afi;
+  safi_t safi;
+
+  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  show_bgp_updgrps_adj_info_aux(vty, afi, safi, argv[3], atoll(argv[2]));
+}
+
 
 /* Redistribute VTY commands.  */
 
@@ -10393,6 +10698,9 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_wpkt_quanta_cmd);
   install_element (BGP_NODE, &no_bgp_wpkt_quanta_cmd);
 
+  install_element (BGP_NODE, &bgp_coalesce_time_cmd);
+  install_element (BGP_NODE, &no_bgp_coalesce_time_cmd);
+
   /* "maximum-paths" commands. */
   install_element (BGP_NODE, &bgp_maxpaths_cmd);
   install_element (BGP_NODE, &no_bgp_maxpaths_cmd);
@@ -10496,6 +10804,10 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &no_bgp_default_local_preference_cmd);
   install_element (BGP_NODE, &no_bgp_default_local_preference_val_cmd);
 
+  /* "bgp default subgroup-pkt-queue-max" commands. */
+  install_element (BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);
+  install_element (BGP_NODE, &no_bgp_default_subgroup_pkt_queue_max_cmd);
+
   /* bgp ibgp-allow-policy-mods command */
   install_element (BGP_NODE, &bgp_rr_allow_outbound_policy_cmd);
   install_element (BGP_NODE, &no_bgp_rr_allow_outbound_policy_cmd);
@@ -10520,6 +10832,10 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &no_neighbor_local_as_val_cmd);
   install_element (BGP_NODE, &no_neighbor_local_as_val2_cmd);
   install_element (BGP_NODE, &no_neighbor_local_as_val3_cmd);
+
+  /* "neighbor solo" commands. */
+  install_element (BGP_NODE, &neighbor_solo_cmd);
+  install_element (BGP_NODE, &no_neighbor_solo_cmd);
 
   /* "neighbor password" commands. */
   install_element (BGP_NODE, &neighbor_password_cmd);
@@ -11353,6 +11669,15 @@ bgp_vty_init (void)
   /* "show ip bgp summary" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_summary_csv_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv6_updgrps_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_adj_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_subgroup_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_adj_subgroup_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_subgroup_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_summary_cmd);
@@ -11371,6 +11696,15 @@ bgp_vty_init (void)
 #endif /* HAVE_IPV6 */
   install_element (RESTRICTED_NODE, &show_ip_bgp_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_summary_csv_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_updgrps_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_ipv6_updgrps_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_adj_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_updgrps_adj_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_updgrps_afi_adj_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_adj_subgroup_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_updgrps_adj_subgroup_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_updgrps_afi_adj_subgroup_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_summary_cmd);
@@ -11389,6 +11723,16 @@ bgp_vty_init (void)
 #endif /* HAVE_IPV6 */
   install_element (ENABLE_NODE, &show_ip_bgp_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_summary_csv_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_cmd);
+  install_element (ENABLE_NODE, &show_bgp_ipv6_updgrps_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_stats_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_adj_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_adj_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_adj_subgroup_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_adj_subgroup_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_subgroup_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_summary_cmd);

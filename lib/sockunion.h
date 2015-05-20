@@ -86,7 +86,7 @@ enum connect_result
 extern int str2sockunion (const char *, union sockunion *);
 extern const char *sockunion2str (union sockunion *, char *, size_t);
 extern int sockunion_cmp (union sockunion *, union sockunion *);
-extern int sockunion_same (union sockunion *, union sockunion *);
+extern int sockunion_same (const union sockunion *, const union sockunion *);
 
 extern union sockunion *sockunion_str2su (const char *str);
 extern int sockunion_accept (int sock, union sockunion *);

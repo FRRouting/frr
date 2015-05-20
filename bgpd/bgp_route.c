@@ -34,6 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "plist.h"
 #include "thread.h"
 #include "workqueue.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -56,6 +57,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_updgrp.h"
 
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
@@ -986,7 +988,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
     {
       if (IPV4_ADDR_SAME (&peer->remote_id, &riattr->extra->originator_id))
 	{
-          if (bgp_debug_update(peer, p, 0))
+          if (bgp_debug_update(peer, p, NULL, 0))
 	    zlog_debug("%s [Update:SEND] %s/%d originator-id is same as remote router-id",
 		       peer->host,
 		       inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -1008,7 +1010,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   /* Output filter check. */
   if (bgp_output_filter (peer, p, riattr, afi, safi) == FILTER_DENY)
     {
-      if (bgp_debug_update(peer, p, 0))
+      if (bgp_debug_update(peer, p, NULL, 0))
 	zlog_debug("%s [Update:SEND] %s/%d is filtered",
 	           peer->host,
 	           inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -1020,7 +1022,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   /* AS path loop check. */
   if (aspath_loop_check (riattr->aspath, peer->as))
     {
-      if (bgp_debug_update(peer, p, 0))
+      if (bgp_debug_update(peer, p, NULL, 0))
         zlog_debug("%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
 	           peer->host, peer->as);
       return 0;
@@ -1032,7 +1034,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
     {
       if (aspath_loop_check(riattr->aspath, bgp->confed_id))
 	{
-          if (bgp_debug_update(peer, p, 0))
+          if (bgp_debug_update(peer, p, NULL, 0))
 	    zlog_debug("%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
 		       peer->host,
 		       bgp->confed_id);
@@ -1228,6 +1230,331 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   return 1;
 }
 
+static void
+subgroup_announce_reset_nhop (u_char family, struct attr *attr)
+{
+  if (family == AF_INET)
+    attr->nexthop.s_addr = 0;
+#ifdef HAVE_IPV6
+  if (family == AF_INET6)
+    memset (&attr->extra->mp_nexthop_global, 0, IPV6_MAX_BYTELEN);
+#endif
+}
+
+int
+subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
+			 struct prefix *p, struct attr *attr)
+{
+  struct bgp_filter *filter;
+  struct peer *from;
+  struct peer *peer;
+  struct peer *onlypeer;
+  struct bgp *bgp;
+  struct attr *riattr;
+  struct peer_af *paf;
+  char buf[SU_ADDRSTRLEN];
+  int ret;
+  int transparent;
+  int reflect;
+  afi_t afi;
+  safi_t safi;
+
+  if (DISABLE_BGP_ANNOUNCE)
+    return 0;
+
+  afi = SUBGRP_AFI(subgrp);
+  safi = SUBGRP_SAFI(subgrp);
+  peer = SUBGRP_PEER(subgrp);
+  onlypeer = NULL;
+  if (CHECK_FLAG (peer->flags, PEER_FLAG_LONESOUL))
+    onlypeer = SUBGRP_PFIRST(subgrp)->peer;
+
+  from = ri->peer;
+  filter = &peer->filter[afi][safi];
+  bgp = SUBGRP_INST(subgrp);
+  riattr = bgp_info_mpath_count (ri) ? bgp_info_mpath_attr (ri) : ri->attr;
+
+  /* Aggregate-address suppress check. */
+  if (ri->extra && ri->extra->suppress)
+    if (! UNSUPPRESS_MAP_NAME (filter))
+      {
+	return 0;
+      }
+
+  /* Do not send announces to RS-clients from the 'normal' bgp_table. */
+  if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+    {
+      return 0;
+    }
+
+  /* Do not send back route to sender. */
+  if (onlypeer && from == onlypeer)
+    {
+      return 0;
+    }
+
+  /* Transparency check. */
+  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
+      && CHECK_FLAG (from->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+    transparent = 1;
+  else
+    transparent = 0;
+
+  /* If community is not disabled check the no-export and local. */
+  if (! transparent && bgp_community_filter (peer, riattr))
+    {
+      if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+	zlog_debug ("subgrpannouncecheck: community filter check fail");
+      return 0;
+    }
+
+  /* If the attribute has originator-id and it is same as remote
+     peer's id. */
+  if (onlypeer &&
+      riattr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID) &&
+      (IPV4_ADDR_SAME (&onlypeer->remote_id, &riattr->extra->originator_id)))
+	{
+          if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+	    zlog_debug ("%s [Update:SEND] %s/%d originator-id is same as "
+		  "remote router-id",
+		  onlypeer->host,
+		  inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+		  p->prefixlen);
+	  return 0;
+	}
+
+  /* ORF prefix-list filter check */
+  if (CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+      && (CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
+	  || CHECK_FLAG (peer->af_cap[afi][safi],
+			 PEER_CAP_ORF_PREFIX_SM_OLD_RCV)))
+    if (peer->orf_plist[afi][safi])
+      {
+	if (prefix_list_apply (peer->orf_plist[afi][safi], p) == PREFIX_DENY)
+	  {
+	    return 0;
+	  }
+      }
+
+  /* Output filter check. */
+  if (bgp_output_filter (peer, p, riattr, afi, safi) == FILTER_DENY)
+    {
+      if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+	zlog_debug ("%s [Update:SEND] %s/%d is filtered",
+	      peer->host,
+	      inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+	      p->prefixlen);
+      return 0;
+    }
+
+#ifdef BGP_SEND_ASPATH_CHECK
+  /* AS path loop check. */
+  if (onlypeer && aspath_loop_check (riattr->aspath, onlypeer->as))
+    {
+      if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+        zlog_debug ("%s [Update:SEND] suppress announcement to peer AS %u "
+	      "that is part of AS path.",
+	      onlypeer->host, onlypeer->as);
+      return 0;
+    }
+#endif /* BGP_SEND_ASPATH_CHECK */
+
+  /* If we're a CONFED we need to loop check the CONFED ID too */
+  if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
+    {
+      if (aspath_loop_check(riattr->aspath, bgp->confed_id))
+	{
+          if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+	    zlog_debug ("%s [Update:SEND] suppress announcement to peer AS %u"
+		  " is AS path.",
+		  peer->host,
+		  bgp->confed_id);
+	  return 0;
+	}
+    }
+
+  /* Route-Reflect check. */
+  if (from->sort == BGP_PEER_IBGP && peer->sort == BGP_PEER_IBGP)
+    reflect = 1;
+  else
+    reflect = 0;
+
+  /* IBGP reflection check. */
+  if (reflect)
+    {
+      /* A route from a Client peer. */
+      if (CHECK_FLAG (from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
+	{
+	  /* Reflect to all the Non-Client peers and also to the
+             Client peers other than the originator.  Originator check
+             is already done.  So there is noting to do. */
+	  /* no bgp client-to-client reflection check. */
+	  if (bgp_flag_check (bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+	    if (CHECK_FLAG (peer->af_flags[afi][safi],
+			    PEER_FLAG_REFLECTOR_CLIENT))
+	      return 0;
+	}
+      else
+	{
+	  /* A route from a Non-client peer. Reflect to all other
+	     clients. */
+	  if (! CHECK_FLAG (peer->af_flags[afi][safi],
+			    PEER_FLAG_REFLECTOR_CLIENT))
+	    return 0;
+	}
+    }
+
+  /* For modify attribute, copy it to temporary structure. */
+  bgp_attr_dup (attr, riattr);
+
+  /* If local-preference is not set. */
+  if ((peer->sort == BGP_PEER_IBGP
+       || peer->sort == BGP_PEER_CONFED)
+      && (! (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))))
+    {
+      attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF);
+      attr->local_pref = bgp->default_local_pref;
+    }
+
+  /* If originator-id is not set and the route is to be reflected,
+     set the originator id */
+  if (reflect && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))))
+    {
+      attr->extra = bgp_attr_extra_get(attr);
+      IPV4_ADDR_COPY(&(attr->extra->originator_id), &(from->remote_id));
+      SET_FLAG(attr->flag, BGP_ATTR_ORIGINATOR_ID);
+    }
+
+  /* Remove MED if its an EBGP peer - will get overwritten by route-maps */
+  if (peer->sort == BGP_PEER_EBGP
+      && attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
+    {
+      if (ri->peer != bgp->peer_self && ! transparent
+	  && ! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
+	attr->flag &= ~(ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC));
+    }
+
+  /* Since the nexthop attribute can vary per peer, it is not explicitly set
+   * in announce check, only certain flags and length (or number of nexthops
+   * -- for IPv6/MP_REACH) are set here in order to guide the update formation
+   * code in setting the nexthop(s) on a per peer basis in reformat_peer().
+   * Typically, the source nexthop in the attribute is preserved but in the
+   * scenarios where we know it will always be overwritten, we reset the
+   * nexthop to "0" in an attempt to achieve better Update packing. An
+   * example of this is when a prefix from each of 2 IBGP peers needs to be
+   * announced to an EBGP peer (and they have the same attributes barring
+   * their nexthop).
+   */
+  if (reflect)
+    SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
+
+#ifdef HAVE_IPV6
+  /* IPv6/MP starts with 1 nexthop, the link-local address is passed only if
+   * we're not reflecting the route and the peer (group) to whom we're going
+   * to announce is on a shared network (directly connected peers) or the
+   * peer (group) is configured to receive link-local nexthop and it is
+   * available in the prefix.
+   * Of course, the operator can always set it through the route-map, if
+   * so desired.
+   */
+  if (p->family == AF_INET6)
+    {
+      attr->extra->mp_nexthop_len = 16;
+      if (!reflect)
+        {
+          if (peer->shared_network ||
+              (CHECK_FLAG (peer->af_flags[afi][safi],
+                           PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) &&
+               IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_local)))
+            attr->extra->mp_nexthop_len = 32;
+        }
+
+      /* Clear off link-local nexthop in source, if not needed. This may help
+       * more prefixes share the same attribute for announcement.
+       */
+      if (!(CHECK_FLAG (peer->af_flags[afi][safi],
+            PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
+        memset (&attr->extra->mp_nexthop_local, 0, IPV6_MAX_BYTELEN);
+    }
+#endif /* HAVE_IPV6 */
+
+  bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
+  bgp_peer_as_override(bgp, afi, safi, peer, attr);
+
+  /* Route map & unsuppress-map apply. */
+  if (ROUTE_MAP_OUT_NAME (filter)
+      || (ri->extra && ri->extra->suppress) )
+    {
+      struct bgp_info info;
+      struct attr dummy_attr;
+      struct attr_extra dummy_extra;
+
+      dummy_attr.extra = &dummy_extra;
+
+      info.peer = peer;
+      info.attr = attr;
+
+      /*
+       * The route reflector is not allowed to modify the attributes
+       * of the reflected IBGP routes unless explicitly allowed.
+       */
+      if ((from->sort == BGP_PEER_IBGP && peer->sort == BGP_PEER_IBGP)
+        && !bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
+        {
+          bgp_attr_dup (&dummy_attr, attr);
+          info.attr = &dummy_attr;
+        }
+
+      SET_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT);
+
+      if (ri->extra && ri->extra->suppress)
+	ret = route_map_apply (UNSUPPRESS_MAP (filter), p, RMAP_BGP, &info);
+      else
+	ret = route_map_apply (ROUTE_MAP_OUT (filter), p, RMAP_BGP, &info);
+
+      peer->rmap_type = 0;
+
+      if (ret == RMAP_DENYMATCH)
+	{
+	  bgp_attr_flush (attr);
+	  return 0;
+	}
+    }
+
+  /* After route-map has been applied, we check to see if the nexthop to
+   * be carried in the attribute (that is used for the announcement) can
+   * be cleared off or not. We do this in all cases where we would be
+   * setting the nexthop to "ourselves". For IPv6, we only need to consider
+   * the global nexthop here; the link-local nexthop would have been cleared
+   * already, and if not, it is required by the update formation code.
+   * Also see earlier comments in this function.
+   */
+  if (!(CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_CHANGED) ||
+        transparent ||
+        CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)))
+    {
+      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF))
+        {
+          if (!reflect ||
+              CHECK_FLAG (peer->af_flags[afi][safi],
+                          PEER_FLAG_FORCE_NEXTHOP_SELF))
+            subgroup_announce_reset_nhop (p->family, attr);
+        }
+      else if (peer->sort == BGP_PEER_EBGP)
+        {
+          SUBGRP_FOREACH_PEER (subgrp, paf)
+            {
+              if (bgp_multiaccess_check_v4 (riattr->nexthop, paf->peer))
+                break;
+            }
+          if (!paf)
+            subgroup_announce_reset_nhop (p->family, attr);
+        }
+    }
+
+  return 1;
+}
+
 static int
 bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
         struct prefix *p, struct attr *attr, afi_t afi, safi_t safi)
@@ -1238,11 +1565,9 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   struct bgp_info info;
   struct peer *from;
   struct attr *riattr;
-  struct bgp *bgp;
 
   from = ri->peer;
   filter = &rsclient->filter[afi][safi];
-  bgp = rsclient->bgp;
   riattr = bgp_info_mpath_count (ri) ? bgp_info_mpath_attr (ri) : ri->attr;
 
   if (DISABLE_BGP_ANNOUNCE)
@@ -1273,15 +1598,15 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
      peer's id. */
   if (riattr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID))
     {
-      if (IPV4_ADDR_SAME (&rsclient->remote_id, 
+      if (IPV4_ADDR_SAME (&rsclient->remote_id,
                           &riattr->extra->originator_id))
         {
-          if (bgp_debug_update(rsclient, p, 0))
+          if (bgp_debug_update(rsclient, p, NULL, 0))
             zlog_debug ("%s [Update:SEND] %s/%d originator-id is same as remote router-id",
-                        rsclient->host,
-                        inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                        p->prefixlen);
-         return 0;
+                 rsclient->host,
+                 inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+                 p->prefixlen);
+          return 0;
        }
     }
 
@@ -1298,11 +1623,11 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   /* Output filter check. */
   if (bgp_output_filter (rsclient, p, riattr, afi, safi) == FILTER_DENY)
     {
-      if (bgp_debug_update(rsclient, p, 0))
+      if (bgp_debug_update(rsclient, p, NULL, 0))
         zlog_debug ("%s [Update:SEND] %s/%d is filtered",
-                    rsclient->host,
-                    inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                    p->prefixlen);
+             rsclient->host,
+             inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+             p->prefixlen);
       return 0;
     }
 
@@ -1310,9 +1635,9 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   /* AS path loop check. */
   if (aspath_loop_check (riattr->aspath, rsclient->as))
     {
-      if (bgp_debug_update(rsclient, p, 0))
+      if (bgp_debug_update(rsclient, p, NULL, 0))
         zlog_debug ("%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
-                    rsclient->host, rsclient->as);
+             rsclient->host, rsclient->as);
       return 0;
     }
 #endif /* BGP_SEND_ASPATH_CHECK */
@@ -1355,7 +1680,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
       struct attr_extra *attre = attr->extra;
 
       /* Left nexthop_local unchanged if so configured. */
-      if ( CHECK_FLAG (rsclient->af_flags[afi][safi], 
+      if ( CHECK_FLAG (rsclient->af_flags[afi][safi],
            PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) )
         {
           if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
@@ -1363,11 +1688,218 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
           else
             attre->mp_nexthop_len=16;
         }
-        
+
       /* Default nexthop_local treatment for RS-Clients */
-      else 
-        { 
-          /* Announcer and RS-Client are both in the same network */      
+      else
+        {
+          /* Announcer and RS-Client are both in the same network */
+          if (rsclient->shared_network && from->shared_network &&
+              (rsclient->ifindex == from->ifindex))
+            {
+              if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
+                attre->mp_nexthop_len=32;
+              else
+                attre->mp_nexthop_len=16;
+            }
+
+          /* Set link-local address for shared network peer. */
+          else if (rsclient->shared_network
+              && IN6_IS_ADDR_LINKLOCAL (&rsclient->nexthop.v6_local))
+            {
+              memcpy (&attre->mp_nexthop_local, &rsclient->nexthop.v6_local,
+                      IPV6_MAX_BYTELEN);
+              attre->mp_nexthop_len = 32;
+            }
+
+          else
+            attre->mp_nexthop_len = 16;
+        }
+
+    }
+#endif /* HAVE_IPV6 */
+
+
+  /* If this is EBGP peer and remove-private-AS is set.  */
+  if (rsclient->sort == BGP_PEER_EBGP
+      && peer_af_flag_check (rsclient, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS)
+      && aspath_private_as_check (attr->aspath))
+    attr->aspath = aspath_empty_get ();
+
+  /* Route map & unsuppress-map apply. */
+  if (ROUTE_MAP_OUT_NAME (filter) || (ri->extra && ri->extra->suppress) )
+    {
+      info.peer = rsclient;
+      info.attr = attr;
+
+      SET_FLAG (rsclient->rmap_type, PEER_RMAP_TYPE_OUT);
+
+      if (ri->extra && ri->extra->suppress)
+        ret = route_map_apply (UNSUPPRESS_MAP (filter), p, RMAP_BGP, &info);
+      else
+        ret = route_map_apply (ROUTE_MAP_OUT (filter), p, RMAP_BGP, &info);
+
+      rsclient->rmap_type = 0;
+
+      if (ret == RMAP_DENYMATCH)
+       {
+         bgp_attr_flush (attr);
+         return 0;
+       }
+    }
+
+  return 1;
+}
+
+static int
+subgroup_announce_check_rsclient (struct bgp_info *ri,
+				  struct update_subgroup *subgrp,
+				  struct prefix *p, struct attr *attr)
+{
+  int ret;
+  char buf[SU_ADDRSTRLEN];
+  struct bgp_filter *filter;
+  struct bgp_info info;
+  struct peer *from;
+  struct peer *rsclient;
+  struct peer *onlypeer;
+  struct attr *riattr;
+  struct bgp *bgp;
+  afi_t afi;
+  safi_t safi;
+
+  if (DISABLE_BGP_ANNOUNCE)
+    return 0;
+
+  afi = SUBGRP_AFI(subgrp);
+  safi = SUBGRP_SAFI(subgrp);
+  rsclient = SUBGRP_PEER(subgrp);
+  onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ?
+	      (SUBGRP_PFIRST(subgrp))->peer : NULL);
+  from = ri->peer;
+  filter = &rsclient->filter[afi][safi];
+  bgp = rsclient->bgp;
+  riattr = bgp_info_mpath_count (ri) ? bgp_info_mpath_attr (ri) : ri->attr;
+
+  /* Do not send back route to sender. */
+  if (onlypeer && (from == onlypeer))
+    return 0;
+
+  /* Aggregate-address suppress check. */
+  if (ri->extra && ri->extra->suppress)
+    if (! UNSUPPRESS_MAP_NAME (filter))
+      return 0;
+
+  /* Default route check.  */
+  if (CHECK_FLAG (rsclient->af_sflags[afi][safi],
+          PEER_STATUS_DEFAULT_ORIGINATE))
+    {
+      if (p->family == AF_INET && p->u.prefix4.s_addr == INADDR_ANY)
+        return 0;
+#ifdef HAVE_IPV6
+      else if (p->family == AF_INET6 && p->prefixlen == 0)
+        return 0;
+#endif /* HAVE_IPV6 */
+    }
+
+  /* If the attribute has originator-id and it is same as remote
+     peer's id. */
+  if (onlypeer && riattr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID))
+    {
+      if (IPV4_ADDR_SAME (&onlypeer->remote_id,
+                          &riattr->extra->originator_id))
+        {
+          if (bgp_debug_update(rsclient, p, subgrp->update_group, 0))
+            zlog_debug ("%s [Update:SEND] %s/%d originator-id is same as remote router-id",
+                 onlypeer->host,
+                        inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+                        p->prefixlen);
+         return 0;
+       }
+    }
+
+  /* ORF prefix-list filter check */
+  if (CHECK_FLAG (rsclient->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+      && (CHECK_FLAG (rsclient->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
+         || CHECK_FLAG (rsclient->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)))
+    if (rsclient->orf_plist[afi][safi])
+      {
+       if (prefix_list_apply (rsclient->orf_plist[afi][safi], p) == PREFIX_DENY)
+          return 0;
+      }
+
+  /* Output filter check. */
+  if (bgp_output_filter (rsclient, p, riattr, afi, safi) == FILTER_DENY)
+    {
+      if (bgp_debug_update(rsclient, p, subgrp->update_group, 0))
+        zlog_debug ("%s [Update:SEND] %s/%d is filtered",
+                    rsclient->host,
+                    inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+                    p->prefixlen);
+      return 0;
+    }
+
+#ifdef BGP_SEND_ASPATH_CHECK
+  /* AS path loop check. */
+  if (onlypeer && aspath_loop_check (riattr->aspath, onlypeer->as))
+    {
+      if (bgp_debug_update(rsclient, p, subgrp->update_group, 0))
+        zlog_debug ("%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
+                    onlypeer->host, onlypeer->as);
+      return 0;
+    }
+#endif /* BGP_SEND_ASPATH_CHECK */
+
+  /* For modify attribute, copy it to temporary structure. */
+  bgp_attr_dup (attr, riattr);
+
+  /* next-hop-set */
+  if ((p->family == AF_INET && attr->nexthop.s_addr == 0)
+#ifdef HAVE_IPV6
+          || (p->family == AF_INET6 &&
+              IN6_IS_ADDR_UNSPECIFIED(&attr->extra->mp_nexthop_global))
+#endif /* HAVE_IPV6 */
+     )
+  {
+    /* Set IPv4 nexthop. */
+    if (p->family == AF_INET)
+      {
+        if (safi == SAFI_MPLS_VPN)
+          memcpy (&attr->extra->mp_nexthop_global_in, &rsclient->nexthop.v4,
+                  IPV4_MAX_BYTELEN);
+        else
+          memcpy (&attr->nexthop, &rsclient->nexthop.v4, IPV4_MAX_BYTELEN);
+      }
+#ifdef HAVE_IPV6
+    /* Set IPv6 nexthop. */
+    if (p->family == AF_INET6)
+      {
+        /* IPv6 global nexthop must be included. */
+        memcpy (&attr->extra->mp_nexthop_global, &rsclient->nexthop.v6_global,
+                IPV6_MAX_BYTELEN);
+        attr->extra->mp_nexthop_len = 16;
+      }
+#endif /* HAVE_IPV6 */
+  }
+
+#ifdef HAVE_IPV6
+  if (p->family == AF_INET6)
+    {
+      struct attr_extra *attre = attr->extra;
+
+      /* Left nexthop_local unchanged if so configured. */
+      if ( CHECK_FLAG (rsclient->af_flags[afi][safi],
+           PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) )
+        {
+          if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
+            attre->mp_nexthop_len=32;
+          else
+            attre->mp_nexthop_len=16;
+        }
+
+      /* Default nexthop_local treatment for RS-Clients */
+      else
+        {
+          /* Announcer and RS-Client are both in the same network */
           if (rsclient->shared_network && from->shared_network &&
               (rsclient->ifindex == from->ifindex))
             {
@@ -1561,27 +2093,32 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   return;
 }
 
-static int
-bgp_process_announce_selected (struct peer *peer, struct bgp_info *selected,
-                               struct bgp_node *rn, afi_t afi, safi_t safi)
+/*
+ * A new route/change in bestpath of an existing route. Evaluate the path
+ * for advertisement to the subgroup.
+ */
+int
+subgroup_process_announce_selected (struct update_subgroup *subgrp,
+				    struct bgp_info *selected,
+				    struct bgp_node *rn)
 {
   struct prefix *p;
+  struct peer_af *paf;
+  struct peer *onlypeer;
   struct attr attr;
   struct attr_extra extra;
+  afi_t afi;
+  safi_t safi;
 
   p = &rn->p;
-
-  /* Announce route to Established peer. */
-  if (peer->status != Established)
-    return 0;
-
-  /* Address family configuration check. */
-  if (! peer->afc_nego[afi][safi])
-    return 0;
+  afi = SUBGRP_AFI(subgrp);
+  safi = SUBGRP_SAFI(subgrp);
+  onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ?
+	      (SUBGRP_PFIRST(subgrp))->peer : NULL);
 
   /* First update is deferred until ORF or ROUTE-REFRESH is received */
-  if (CHECK_FLAG (peer->af_sflags[afi][safi],
-      PEER_STATUS_ORF_WAIT_REFRESH))
+  if (onlypeer && CHECK_FLAG (onlypeer->af_sflags[afi][safi],
+			      PEER_STATUS_ORF_WAIT_REFRESH))
     return 0;
 
   /* It's initialized in bgp_announce_[check|check_rsclient]() */
@@ -1590,28 +2127,29 @@ bgp_process_announce_selected (struct peer *peer, struct bgp_info *selected,
   switch (bgp_node_table (rn)->type)
     {
       case BGP_TABLE_MAIN:
-      /* Announcement to peer->conf.  If the route is filtered,
+      /* Announcement to the subgroup.  If the route is filtered,
          withdraw it. */
-        if (selected && bgp_announce_check (selected, peer, p, &attr, afi, safi))
-          bgp_adj_out_set (rn, peer, p, &attr, afi, safi, selected);
+	if (selected && subgroup_announce_check(selected, subgrp, p, &attr))
+	  bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
         else
-          bgp_adj_out_unset (rn, peer, p, afi, safi);
+	  bgp_adj_out_unset_subgroup(rn, subgrp);
+
         break;
       case BGP_TABLE_RSCLIENT:
-        /* Announcement to peer->conf.  If the route is filtered, 
+        /* Announcement to peer->conf.  If the route is filtered,
            withdraw it. */
-        if (selected && 
-            bgp_announce_check_rsclient (selected, peer, p, &attr, afi, safi))
-          bgp_adj_out_set (rn, peer, p, &attr, afi, safi, selected);
+        if (selected &&
+            subgroup_announce_check_rsclient (selected, subgrp, p, &attr))
+          bgp_adj_out_set_subgroup (rn, subgrp, &attr, selected);
         else
-	  bgp_adj_out_unset (rn, peer, p, afi, safi);
+	  bgp_adj_out_unset_subgroup(rn, subgrp);
         break;
     }
 
   return 0;
 }
 
-struct bgp_process_queue 
+struct bgp_process_queue
 {
   struct bgp *bgp;
   struct bgp_node *rn;
@@ -1632,6 +2170,8 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
   struct bgp_info_pair old_and_new;
   struct listnode *node, *nnode;
   struct peer *rsclient;
+  struct peer_af *paf;
+  struct update_subgroup *subgrp;
 
   /* Is it end of initial update? (after startup) */
   if (!rn)
@@ -1672,8 +2212,12 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 		UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
              }
 
-            bgp_process_announce_selected (rsclient, new_select, rn,
-                                           afi, safi);
+	    paf = peer_af_find(rsclient, afi, safi);
+	    assert(paf);
+	    subgrp = PAF_SUBGRP(paf);
+	    if (!subgrp) /* not an established session */
+	      continue;
+            subgroup_process_announce_selected (subgrp, new_select, rn);
           }
     }
   else
@@ -1686,12 +2230,14 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 	  bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
 	  UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
 	}
-      bgp_process_announce_selected (rsclient, new_select, rn, afi, safi);
+      paf = peer_af_find(rsclient, afi, safi);
+      if (paf && (subgrp = PAF_SUBGRP(paf))) /* if an established session */
+	subgroup_process_announce_selected (subgrp, new_select, rn);
     }
 
   if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
     bgp_info_reap (rn, old_select);
-  
+
   UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return WQ_SUCCESS;
 }
@@ -1752,6 +2298,10 @@ bgp_process_main (struct work_queue *wq, void *data)
   /* If the user did "clear ip bgp prefix x.x.x.x" this flag will be set */
   UNSET_FLAG(rn->flags, BGP_NODE_USER_CLEAR);
 
+  /* bestpath has changed; bump version */
+  if (old_select || new_select)
+    bgp_bump_version(rn);
+
   if (old_select)
     bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
   if (new_select)
@@ -1761,12 +2311,7 @@ bgp_process_main (struct work_queue *wq, void *data)
       UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
     }
 
-
-  /* Check each BGP peer. */
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-    {
-      bgp_process_announce_selected (peer, new_select, rn, afi, safi);
-    }
+  group_announce_route(bgp, afi, safi, rn, new_select);
 
   /* FIB update. */
   if ((safi == SAFI_UNICAST || safi == SAFI_MULTICAST) && (! bgp->name &&
@@ -1810,27 +2355,6 @@ bgp_processq_del (struct work_queue *wq, void *data)
   XFREE (MTYPE_BGP_PROCESS_QUEUE, pq);
 }
 
-static void
-bgp_process_queue_complete (struct work_queue *wq)
-{
-  struct bgp *bgp;
-  struct peer *peer;
-  struct listnode *node, *nnode;
-
-  /* Schedule write thread either directly or through the MRAI timer
-   * if needed.
-   */
-  bgp = bgp_get_default ();
-  if (!bgp)
-    return;
-
-  if (BGP_ROUTE_ADV_HOLD(bgp))
-    return;
-
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-    bgp_peer_schedule_updates(peer);
-}
-
 void
 bgp_process_queue_init (void)
 {
@@ -1847,7 +2371,6 @@ bgp_process_queue_init (void)
   
   bm->process_main_queue->spec.workfunc = &bgp_process_main;
   bm->process_main_queue->spec.del_item_data = &bgp_processq_del;
-  bm->process_main_queue->spec.completion_func = &bgp_process_queue_complete;
   bm->process_main_queue->spec.max_retries = 0;
   bm->process_main_queue->spec.hold = 50;
   /* Use a higher yield value of 50ms for main queue processing */
@@ -2165,7 +2688,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
           && attrhash_cmp (ri->attr, attr_new))
         {
 
-          if (bgp_debug_update(peer, p, 1))
+          if (bgp_debug_update(peer, p, NULL, 1))
             zlog_debug ("%s rcvd %s/%d for RS-client %s...duplicate ignored",
                         peer->host,
                         inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2183,7 +2706,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
         bgp_info_restore (rn, ri);
       
       /* Received Logging. */
-      if (bgp_debug_update(peer, p, 1))
+      if (bgp_debug_update(peer, p, NULL, 1))
         zlog_debug ("%s rcvd %s/%d for RS-client %s",
                     peer->host,
                     inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2210,7 +2733,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
     }
 
   /* Received Logging. */
-  if (bgp_debug_update(peer, p, 1))
+  if (bgp_debug_update(peer, p, NULL, 1))
     {
       zlog_debug ("%s rcvd %s/%d for RS-client %s",
                   peer->host,
@@ -2240,7 +2763,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
  filtered: 
 
   /* This BGP update is filtered.  Log the reason then update BGP entry.  */
-  if (bgp_debug_update(peer, p, 1))
+  if (bgp_debug_update(peer, p, NULL, 1))
         zlog_debug ("%s rcvd UPDATE about %s/%d -- DENIED for RS-client %s due to: %s",
                     peer->host,
                     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2276,7 +2799,7 @@ bgp_withdraw_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   /* Withdraw specified route from routing table. */
   if (ri && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
     bgp_rib_withdraw (rn, ri, peer, afi, safi);
-  else if (bgp_debug_update(peer, p, 1))
+  else if (bgp_debug_update(peer, p, NULL, 1))
     zlog_debug ("%s Can't find the route %s/%d", peer->host,
                 inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
                 p->prefixlen);
@@ -2408,7 +2931,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 	      && peer->sort == BGP_PEER_EBGP
 	      && CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
 	    {
-	      if (bgp_debug_update(peer, p, 1))
+	      if (bgp_debug_update(peer, p, NULL, 1))
 		  zlog_debug ("%s rcvd %s/%d",
 		              peer->host,
 		              inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2422,7 +2945,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 	    }
           else /* Duplicate - odd */
 	    {
-	      if (bgp_debug_update(peer, p, 1))
+	      if (bgp_debug_update(peer, p, NULL, 1))
                 {
                 if (!peer->rcvd_attr_printed)
                   {
@@ -2453,7 +2976,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       /* Withdraw/Announce before we fully processed the withdraw */
       if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
         {
-          if (bgp_debug_update(peer, p, 1))
+          if (bgp_debug_update(peer, p, NULL, 1))
             zlog_debug ("%s rcvd %s/%d, flapped quicker than processing",
                         peer->host,
                         inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2462,7 +2985,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
         }
 
       /* Received Logging. */
-      if (bgp_debug_update(peer, p, 1))
+      if (bgp_debug_update(peer, p, NULL, 1))
 	zlog_debug ("%s rcvd %s/%d",
 	            peer->host,
 	            inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2546,7 +3069,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
     } // End of implicit withdraw
 
   /* Received Logging. */
-  if (bgp_debug_update(peer, p, 1))
+  if (bgp_debug_update(peer, p, NULL, 1))
     {
       if (!peer->rcvd_attr_printed)
         {
@@ -2618,7 +3141,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   /* This BGP update is filtered.  Log the reason then update BGP
      entry.  */
  filtered:
-  if (bgp_debug_update(peer, p, 1))
+  if (bgp_debug_update(peer, p, NULL, 1))
     {
       if (!peer->rcvd_attr_printed)
         {
@@ -2689,7 +3212,7 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
     }
 
   /* Logging. */
-  if (bgp_debug_update(peer, p, 1))
+  if (bgp_debug_update(peer, p, NULL, 1))
     zlog_debug ("%s rcvd UPDATE about %s/%d -- withdrawn",
 	        peer->host,
 	        inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2713,7 +3236,7 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   /* Withdraw specified route from routing table. */
   if (ri && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
     bgp_rib_withdraw (rn, ri, peer, afi, safi);
-  else if (bgp_debug_update(peer, p, 1))
+  else if (bgp_debug_update(peer, p, NULL, 1))
     zlog_debug ("%s Can't find the route %s/%d", peer->host,
 	        inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 	        p->prefixlen);
@@ -2727,175 +3250,103 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 void
 bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
 {
-  struct bgp *bgp;
-  struct attr attr;
-  struct aspath *aspath;
-  struct prefix p;
-  struct peer *from;
-  struct bgp_node *rn;
-  struct bgp_info *ri;
-  int ret = RMAP_DENYMATCH;
-  
-  if (!(afi == AFI_IP || afi == AFI_IP6))
-    return;
-  
-  bgp = peer->bgp;
-  from = bgp->peer_self;
-  
-  bgp_attr_default_set (&attr, BGP_ORIGIN_IGP);
-  aspath = attr.aspath;
-  attr.local_pref = bgp->default_local_pref;
-  memcpy (&attr.nexthop, &peer->nexthop.v4, IPV4_MAX_BYTELEN);
-
-  if (afi == AFI_IP)
-    str2prefix ("0.0.0.0/0", &p);
-#ifdef HAVE_IPV6
-  else if (afi == AFI_IP6)
-    {
-      struct attr_extra *ae = attr.extra;
-
-      str2prefix ("::/0", &p);
-
-      /* IPv6 global nexthop must be included. */
-      memcpy (&ae->mp_nexthop_global, &peer->nexthop.v6_global, 
-	      IPV6_MAX_BYTELEN);
-	      ae->mp_nexthop_len = 16;
- 
-      /* If the peer is on shared nextwork and we have link-local
-	 nexthop set it. */
-      if (peer->shared_network 
-	  && !IN6_IS_ADDR_UNSPECIFIED (&peer->nexthop.v6_local))
-	{
-	  memcpy (&ae->mp_nexthop_local, &peer->nexthop.v6_local, 
-		  IPV6_MAX_BYTELEN);
-	  ae->mp_nexthop_len = 32;
-	}
-    }
-#endif /* HAVE_IPV6 */
-
-  if (peer->default_rmap[afi][safi].name)
-    {
-      SET_FLAG (bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
-      for (rn = bgp_table_top(bgp->rib[afi][safi]); rn; rn = bgp_route_next(rn))
-        {
-          for (ri = rn->info; ri; ri = ri->next)
-            {
-              struct attr dummy_attr;
-              struct attr_extra dummy_extra;
-              struct bgp_info info;
-
-              /* Provide dummy so the route-map can't modify the attributes */
-              dummy_attr.extra = &dummy_extra;
-              bgp_attr_dup(&dummy_attr, ri->attr);
-              info.peer = ri->peer;
-              info.attr = &dummy_attr;
-
-              ret = route_map_apply(peer->default_rmap[afi][safi].map, &rn->p,
-                                    RMAP_BGP, &info);
-
-              /* The route map might have set attributes. If we don't flush them
-               * here, they will be leaked. */
-              bgp_attr_flush(&dummy_attr);
-              if (ret != RMAP_DENYMATCH)
-                break;
-            }
-          if (ret != RMAP_DENYMATCH)
-            break;
-        }
-      bgp->peer_self->rmap_type = 0;
-
-      if (ret == RMAP_DENYMATCH)
-        withdraw = 1;
-    }
-
-  if (withdraw)
-    {
-      if (CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE))
-	bgp_default_withdraw_send (peer, afi, safi);
-      UNSET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE);
-    }
-  else
-    {
-      if (! CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE))
-        {
-          SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE);
-          bgp_default_update_send (peer, &attr, afi, safi, from);
-        }
-    }
-  
-  bgp_attr_extra_free (&attr);
-  aspath_unintern (&aspath);
+  struct update_subgroup *subgrp;
+  subgrp = peer_subgroup(peer, afi, safi);
+  subgroup_default_originate(subgrp, withdraw);
 }
 
-static void
-bgp_announce_table (struct peer *peer, afi_t afi, safi_t safi,
-                   struct bgp_table *table, int rsclient)
+
+/*
+ * bgp_stop_announce_route_timer
+ */
+void
+bgp_stop_announce_route_timer (struct peer_af *paf)
 {
-  struct bgp_node *rn;
-  struct bgp_info *ri;
-  struct attr attr;
-  struct attr_extra extra;
-
-  if (! table)
-    table = (rsclient) ? peer->rib[afi][safi] : peer->bgp->rib[afi][safi];
-
-  if (safi != SAFI_MPLS_VPN
-      && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
-    bgp_default_originate (peer, afi, safi, 0);
-
-  /* It's initialized in bgp_announce_[check|check_rsclient]() */
-  attr.extra = &extra;
-
-  for (rn = bgp_table_top (table); rn; rn = bgp_route_next(rn))
-    for (ri = rn->info; ri; ri = ri->next)
-      if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED) && ri->peer != peer)
-	{
-         if ( (rsclient) ?
-              (bgp_announce_check_rsclient (ri, peer, &rn->p, &attr, afi, safi))
-              : (bgp_announce_check (ri, peer, &rn->p, &attr, afi, safi)))
-	    bgp_adj_out_set (rn, peer, &rn->p, &attr, afi, safi, ri);
-	  else
-	    bgp_adj_out_unset (rn, peer, &rn->p, afi, safi);
-	}
+  if (!paf->t_announce_route)
+    return;
+ 
+  THREAD_TIMER_OFF (paf->t_announce_route);
 }
 
+/*
+ * bgp_announce_route_timer_expired
+ *
+ * Callback that is invoked when the route announcement timer for a
+ * peer_af expires.
+ */
+static int
+bgp_announce_route_timer_expired (struct thread *t)
+{
+  struct peer_af *paf;
+  struct peer *peer;
+
+
+  paf = THREAD_ARG (t);
+  peer = paf->peer;
+
+  assert (paf->t_announce_route);
+  paf->t_announce_route = NULL;
+
+  if (peer->status != Established)
+    return 0;
+
+  if (!peer->afc_nego[paf->afi][paf->safi])
+    return 0;
+
+  peer_af_announce_route (paf, 1);
+  return 0;
+}
+
+/*
+ * bgp_announce_route
+ *
+ * *Triggers* announcement of routes of a given AFI/SAFI to a peer.
+ */
 void
 bgp_announce_route (struct peer *peer, afi_t afi, safi_t safi)
 {
-  struct bgp_node *rn;
-  struct bgp_table *table;
+  struct peer_af *paf;
+  struct update_subgroup *subgrp;
 
-  if (peer->status != Established)
+  paf = peer_af_find (peer, afi, safi);
+  if (!paf)
     return;
-
-  if (! peer->afc_nego[afi][safi])
-    return;
-
-  /* First update is deferred until ORF or ROUTE-REFRESH is received */
-  if (CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH))
-    return;
-
-  if (safi != SAFI_MPLS_VPN)
-    bgp_announce_table (peer, afi, safi, NULL, 0);
-  else
-    for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
-	 rn = bgp_route_next(rn))
-      if ((table = (rn->info)) != NULL)
-       bgp_announce_table (peer, afi, safi, table, 0);
-
-  if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-    bgp_announce_table (peer, afi, safi, NULL, 1);
+  subgrp = PAF_SUBGRP(paf);
 
   /*
-   * The write thread needs to be scheduled since it may not be done as
-   * part of building adj_out.
+   * Ignore if subgroup doesn't exist (implies AF is not negotiated)
+   * or a refresh has already been triggered.
    */
-  bgp_peer_schedule_updates(peer);
+  if (!subgrp || paf->t_announce_route)
+    return;
+
+  /*
+   * Start a timer to stagger/delay the announce. This serves
+   * two purposes - announcement can potentially be combined for
+   * multiple peers and the announcement doesn't happen in the
+   * vty context.
+   */
+  THREAD_TIMER_MSEC_ON (master, paf->t_announce_route,
+			bgp_announce_route_timer_expired, paf,
+                        (subgrp->peer_count == 1) ?
+			BGP_ANNOUNCE_ROUTE_SHORT_DELAY_MS :
+			BGP_ANNOUNCE_ROUTE_DELAY_MS);
 }
 
+/*
+ * Announce routes from all AF tables to a peer.
+ *
+ * This should ONLY be called when there is a need to refresh the
+ * routes to the peer based on a policy change for this peer alone
+ * or a route refresh request received from the peer.
+ * The operation will result in splitting the peer from its existing
+ * subgroups and putting it in new subgroups.
+ */
 void
 bgp_announce_route_all (struct peer *peer)
 {
+  struct peer_af *paf;
+  int af;
   afi_t afi;
   safi_t safi;
   
@@ -3146,6 +3597,10 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
             bgp_unlock_node (rn);
             break;
           }
+
+      /*
+       * Can't do this anymore. adj-outs are not maintained per peer.
+       *
       for (aout = rn->adj_out; aout; aout = aout->next)
         if (aout->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
           {
@@ -3153,7 +3608,7 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
             bgp_unlock_node (rn);
             break;
           }
-
+      */
       for (ri = rn->info; ri; ri = ri->next)
         if (ri->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
           {
@@ -3641,7 +4096,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
         == RMAP_DENY)
     {
       /* This BGP update is filtered.  Log the reason then update BGP entry.  */
-      if (bgp_debug_update(rsclient, p, 1))
+      if (bgp_debug_update(rsclient, p, NULL, 1))
         zlog_debug ("Static UPDATE about %s/%d -- DENIED for RS-client %s due to: import-policy",
                     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
                     p->prefixlen, rsclient->host);
@@ -6613,11 +7068,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-#define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, "\
-			      "h history, * valid, > best, = multipath,%s"\
-		"              i internal, r RIB-failure, S Stale, R Removed%s"
-#define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s"
-#define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path%s"
 #define BGP_SHOW_HEADER_CSV "Flags, Network, Next Hop, Metric, LocPrf, Weight, Path%s"
 #define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path%s"
 #define BGP_SHOW_FLAP_HEADER "   Network          From            Flaps Duration Reuse    Path%s"
@@ -6826,7 +7276,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	      }
 	    else if (header)
 	      {
-		vty_out (vty, "BGP table version is 0, local router ID is %s%s", inet_ntoa (*router_id), VTY_NEWLINE);
+		vty_out (vty, "BGP table version is %llu, local router ID is %s%s", table->version, inet_ntoa (*router_id), VTY_NEWLINE);
 		vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
 		vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
 		if (type == bgp_show_type_dampend_paths
@@ -10614,7 +11064,7 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
   if (! in && CHECK_FLAG (peer->af_sflags[afi][safi],
 			  PEER_STATUS_DEFAULT_ORIGINATE))
     {
-      vty_out (vty, "BGP table version is 0, local router ID is %s%s", inet_ntoa (bgp->router_id), VTY_NEWLINE);
+      vty_out (vty, "BGP table version is %llu, local router ID is %s%s", table->version, inet_ntoa (bgp->router_id), VTY_NEWLINE);
       vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
       vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
 
@@ -10661,47 +11111,48 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
       }
     else
       {
-	for (adj = rn->adj_out; adj; adj = adj->next)
-	  if (adj->peer == peer)
-	    {
-	      if (header1)
-		{
-		  vty_out (vty, "BGP table version is 0, local router ID is %s%s", inet_ntoa (bgp->router_id), VTY_NEWLINE);
-		  vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
-		  vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
-		  header1 = 0;
-		}
-	      if (header2)
-		{
-		  if (delim)
-		    vty_out (vty, BGP_SHOW_HEADER_CSV, VTY_NEWLINE);
-		  else
-		    vty_out (vty, BGP_SHOW_HEADER, VTY_NEWLINE);
-		  header2 = 0;
-		}
-	      if (adj->attr)
-		{
-		  if (!CHECK_FLAG(peer->af_flags[afi][safi],
-				  PEER_FLAG_REFLECTOR_CLIENT)
-		      || bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
-		    {
+	adj = bgp_adj_peer_lookup(peer, rn);
+	if (adj)
+	  {
+	    if (header1)
+	      {
+		vty_out (vty, "BGP table version is %llu, local router ID "
+			 "is %s%s", table->version,
+			 inet_ntoa (bgp->router_id), VTY_NEWLINE);
+		vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+		vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+		header1 = 0;
+	      }
+	    if (header2)
+	      {
+		if (delim)
+		  vty_out (vty, BGP_SHOW_HEADER_CSV, VTY_NEWLINE);
+		else
+		  vty_out (vty, BGP_SHOW_HEADER, VTY_NEWLINE);
+		header2 = 0;
+	      }
+	    if (adj->attr)
+	      {
+		if (!CHECK_FLAG(peer->af_flags[afi][safi],
+				PEER_FLAG_REFLECTOR_CLIENT)
+		    || bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
+		  {
+		    bgp_attr_dup(&attr, adj->attr);
+		    ret = bgp_output_modifier(peer, &rn->p, &attr, afi,
+					      safi, rmap_name);
+		  }
+		else
+		  ret = RMAP_PERMIT;
 
-		      bgp_attr_dup(&attr, adj->attr);
-		      ret = bgp_output_modifier(peer, &rn->p, &attr, afi,
-						safi, rmap_name);
-		    }
-		  else
-		    ret = RMAP_PERMIT;
-
-		  if (ret != RMAP_DENY)
-		    {
-		      route_vty_out_tmp (vty, &rn->p, &attr, safi, delim);
-		      output_count++;
-		    }
-		  else
-		    filtered_count++;
-		}
-	    }
+		if (ret != RMAP_DENY)
+		  {
+		    route_vty_out_tmp (vty, &rn->p, &attr, safi, delim);
+		    output_count++;
+		  }
+		else
+		  filtered_count++;
+	      }
+	  }
       }
 
   if (output_count != 0)

@@ -552,7 +552,7 @@ sockopt_v6only (int family, int sock)
 
 /* If same family and same prefix return 1. */
 int
-sockunion_same (union sockunion *su1, union sockunion *su2)
+sockunion_same (const union sockunion *su1, const union sockunion *su2)
 {
   int ret = 0;
 

@@ -26,12 +26,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_UNFEASIBLE_LEN    2U
 #define BGP_WRITE_PACKET_MAX 10U
 
-/* Size of FIFOs upon which write thread is triggered. Note that write
- * thread is also triggered upon BGP work-queue completion.
- */
-#define BGP_ADV_FIFO_QUANTA 500
-#define BGP_WD_FIFO_QUANTA 200
-
 /* When to refresh */
 #define REFRESH_IMMEDIATE 1
 #define REFRESH_DEFER     2 
@@ -63,8 +57,10 @@ extern int bgp_capability_receive (struct peer *, bgp_size_t);
 extern void bgp_update_restarted_peers (struct peer *);
 extern void bgp_update_implicit_eors (struct peer *);
 extern void bgp_check_update_delay (struct bgp *);
-extern int bgp_peer_wd_fifo_exists (struct peer *);
-extern int bgp_peer_adv_fifo_exists (struct peer *, int);
-extern void bgp_peer_schedule_updates(struct peer *peer);
 extern int bgp_valid_host_address (unsigned long addr);
+
+extern int bgp_packet_set_marker (struct stream *s, u_char type);
+extern int bgp_packet_set_size (struct stream *s);
+extern void bgp_packet_add (struct peer *peer, struct stream *s);
+
 #endif /* _QUAGGA_BGP_PACKET_H */

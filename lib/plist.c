@@ -329,7 +329,7 @@ prefix_list_delete (struct prefix_list *plist)
   route_map_notify_dependencies(plist->name, RMAP_EVENT_PLIST_DELETED);
 
   if (master->delete_hook)
-    (*master->delete_hook) (NULL);
+    (*master->delete_hook) (plist);
 
   if (plist->name)
     XFREE (MTYPE_PREFIX_LIST_STR, plist->name);

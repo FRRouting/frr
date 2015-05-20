@@ -60,6 +60,17 @@ elif test -n "$CFLAGS" ; then
   cflags_specified=yes ;
 fi
 
+AC_ARG_ENABLE(tcmalloc,
+[  --enable-tcmalloc    Turn on tcmalloc],
+[case "${enableval}" in
+  yes) tcmalloc_enabled=true
+LIBS="$LIBS -ltcmalloc_minimal"
+ ;;
+  no)  tcmalloc_enabled=false ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-tcmalloc) ;;
+esac],[tcmalloc_enabled=false])
+
+
 dnl --------------------
 dnl Check CC and friends
 dnl --------------------

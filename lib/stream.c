@@ -401,6 +401,21 @@ stream_getl_from (struct stream *s, size_t from)
   return l;
 }
 
+/* Copy from stream at specific location to destination. */
+void
+stream_get_from (void *dst, struct stream *s, size_t from, size_t size)
+{
+  STREAM_VERIFY_SANE(s);
+
+  if (!GETP_VALID (s, from + size))
+    {
+      STREAM_BOUND_WARN (s, "get from");
+      return;
+    }
+
+  memcpy (dst, s->data + from, size);
+}
+
 u_int32_t
 stream_getl (struct stream *s)
 {
@@ -707,6 +722,38 @@ stream_put_in_addr (struct stream *s, struct in_addr *addr)
   s->endp += sizeof (u_int32_t);
 
   return sizeof (u_int32_t);
+}
+
+/* Put in_addr at location in the stream. */
+int
+stream_put_in_addr_at (struct stream *s, size_t putp, struct in_addr *addr)
+{
+  STREAM_VERIFY_SANE(s);
+
+  if (!PUT_AT_VALID (s, putp + 4))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+
+  memcpy (&s->data[putp], addr, 4);
+  return 4;
+}
+
+/* Put in6_addr at location in the stream. */
+int
+stream_put_in6_addr_at (struct stream *s, size_t putp, struct in6_addr *addr)
+{
+  STREAM_VERIFY_SANE(s);
+
+  if (!PUT_AT_VALID (s, putp + 16))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+
+  memcpy (&s->data[putp], addr, 16);
+  return 16;
 }
 
 /* Put prefix by nlri type format. */

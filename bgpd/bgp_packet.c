@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "sockunion.h"		/* for inet_ntop () */
 #include "linklist.h"
 #include "plist.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -47,11 +48,12 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_updgrp.h"
 
 int stream_put_prefix (struct stream *, struct prefix *);
 
 /* Set up BGP packet marker and packet type. */
-static int
+int
 bgp_packet_set_marker (struct stream *s, u_char type)
 {
   int i;
@@ -72,7 +74,7 @@ bgp_packet_set_marker (struct stream *s, u_char type)
 
 /* Set BGP packet header size entry.  If size is zero then use current
    stream size. */
-static int
+int
 bgp_packet_set_size (struct stream *s)
 {
   int cp;
@@ -85,7 +87,7 @@ bgp_packet_set_size (struct stream *s)
 }
 
 /* Add new packet to the peer. */
-static void
+void
 bgp_packet_add (struct peer *peer, struct stream *s)
 {
   /* Add packet to the end of list. */
@@ -140,181 +142,6 @@ bgp_connect_check (struct peer *peer, int change_state)
     }
 }
 
-/* Make BGP update packet.  */
-static struct stream *
-bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
-{
-  struct stream *s;
-  struct stream *snlri;
-  struct bgp_adj_out *adj;
-  struct bgp_advertise *adv;
-  struct stream *packet;
-  struct bgp_node *rn = NULL;
-  struct bgp_info *binfo = NULL;
-  bgp_size_t total_attr_len = 0;
-  unsigned long attrlen_pos = 0;
-  int space_remaining = 0;
-  int space_needed = 0;
-  size_t mpattrlen_pos = 0;
-  size_t mpattr_pos = 0;
-  int num_pfx_adv = 0;
-  char send_attr_str[BUFSIZ];
-  int send_attr_printed;
-
-  s = peer->work;
-  stream_reset (s);
-  snlri = peer->scratch;
-  stream_reset (snlri);
-
-  adv = FIFO_HEAD (&peer->sync[afi][safi]->update);
-
-  while (adv)
-    {
-      assert (adv->rn);
-      rn = adv->rn;
-      adj = adv->adj;
-      if (adv->binfo)
-        binfo = adv->binfo;
-
-      space_remaining = STREAM_CONCAT_REMAIN (s, snlri, STREAM_SIZE(s)) -
-                        BGP_MAX_PACKET_SIZE_OVERFLOW;
-      space_needed = BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen);
-
-      /* When remaining space can't include NLRI and it's length.  */
-      if (space_remaining < space_needed)
-	break;
-
-      /* If packet is empty, set attribute. */
-      if (stream_empty (s))
-	{
-	  struct peer *from = NULL;
-
-          if (binfo)
-	    from = binfo->peer;
-
-	  /* 1: Write the BGP message header - 16 bytes marker, 2 bytes length,
-	   * one byte message type.
-	   */
-	  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
-
-	  /* 2: withdrawn routes length */
-	  stream_putw (s, 0);
-
-	  /* 3: total attributes length - attrlen_pos stores the position */
-	  attrlen_pos = stream_get_endp (s);
-	  stream_putw (s, 0);
-
-	  /* 4: if there is MP_REACH_NLRI attribute, that should be the first
-	   * attribute, according to draft-ietf-idr-error-handling. Save the
-	   * position.
-	   */
-	  mpattr_pos = stream_get_endp(s);
-
-	  /* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
-	  total_attr_len = bgp_packet_attribute (NULL, peer, s,
-	                                         adv->baa->attr,
-	                                         NULL, afi, safi,
-	                                         from, NULL, NULL);
-
-          space_remaining = STREAM_CONCAT_REMAIN (s, snlri, STREAM_SIZE(s)) -
-                            BGP_MAX_PACKET_SIZE_OVERFLOW;
-          space_needed = BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen);
-
-          /* If the attributes alone do not leave any room for NLRI then
-           * return */
-          if (space_remaining < space_needed)
-            {
-              zlog_err ("%s cannot send UPDATE, the attributes do not leave "
-                        "room for NLRI", peer->host);
-              /* Flush the FIFO update queue */
-              while (adv)
-                adv = bgp_advertise_clean (peer, adv->adj, afi, safi);
-              return NULL;
-            }
-
-          if (BGP_DEBUG (update, UPDATE_OUT) ||
-              BGP_DEBUG (update, UPDATE_PREFIX))
-            {
-              memset (send_attr_str, 0, BUFSIZ);
-              send_attr_printed = 0;
-              bgp_dump_attr (peer, adv->baa->attr, send_attr_str, BUFSIZ);
-            }
-	}
-
-      if (afi == AFI_IP && safi == SAFI_UNICAST)
-	stream_put_prefix (s, &rn->p);
-      else
-	{
-	  /* Encode the prefix in MP_REACH_NLRI attribute */
-	  struct prefix_rd *prd = NULL;
-	  u_char *tag = NULL;
-
-	  if (rn->prn)
-	    prd = (struct prefix_rd *) &rn->prn->p;
-	  if (binfo && binfo->extra)
-	    tag = binfo->extra->tag;
-
-	  if (stream_empty(snlri))
-	    mpattrlen_pos = bgp_packet_mpattr_start(snlri, afi, safi,
-						    adv->baa->attr);
-	  bgp_packet_mpattr_prefix(snlri, afi, safi, &rn->p, prd, tag);
-	}
-      num_pfx_adv++;
-
-      if (bgp_debug_update(peer, &rn->p, 0))
-        {
-        if (!send_attr_printed)
-          {
-            zlog_debug ("%s send UPDATE w/ attr: %s", peer->host, send_attr_str);
-            send_attr_printed = 1;
-          }
-          char buf[INET6_BUFSIZ];
-
-          zlog_debug ("%s send UPDATE %s/%d",
-                      peer->host,
-                      inet_ntop (rn->p.family, &(rn->p.u.prefix), buf, INET6_BUFSIZ),
-                      rn->p.prefixlen);
-        }
-
-      /* Synchnorize attribute.  */
-      if (adj->attr)
-	bgp_attr_unintern (&adj->attr);
-      else
-	peer->scount[afi][safi]++;
-
-      adj->attr = bgp_attr_intern (adv->baa->attr);
-
-      adv = bgp_advertise_clean (peer, adj, afi, safi);
-    }
-
-  if (! stream_empty (s))
-    {
-      if (!stream_empty(snlri))
-	{
-	  bgp_packet_mpattr_end(snlri, mpattrlen_pos);
-	  total_attr_len += stream_get_endp(snlri);
-	}
-
-      /* set the total attribute length correctly */
-      stream_putw_at (s, attrlen_pos, total_attr_len);
-
-      if (!stream_empty(snlri))
-	packet = stream_dupcat(s, snlri, mpattr_pos);
-      else
-	packet = stream_dup (s);
-      bgp_packet_set_size (packet);
-      if (BGP_DEBUG (update, UPDATE_OUT))
-        zlog_debug("%s form UPDATE (adv) total len %d numPfx %d",
-                   peer->host,
-                   (stream_get_endp (s) - stream_get_getp (s)), num_pfx_adv);
-      bgp_packet_add (peer, packet);
-      stream_reset (s);
-      stream_reset (snlri);
-      return packet;
-    }
-  return NULL;
-}
-
 static struct stream *
 bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
 {
@@ -358,299 +185,28 @@ bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
   return packet;
 }
 
-/* Make BGP withdraw packet.  */
-/* For ipv4 unicast:
-   16-octet marker | 2-octet length | 1-octet type |
-    2-octet withdrawn route length | withdrawn prefixes | 2-octet attrlen (=0)
-*/
-/* For other afi/safis:
-   16-octet marker | 2-octet length | 1-octet type |
-    2-octet withdrawn route length (=0) | 2-octet attrlen |
-     mp_unreach attr type | attr len | afi | safi | withdrawn prefixes
-*/
-static struct stream *
-bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
-{
-  struct stream *s;
-  struct stream *packet;
-  struct bgp_adj_out *adj;
-  struct bgp_advertise *adv;
-  struct bgp_node *rn;
-  unsigned long pos;
-  bgp_size_t unfeasible_len;
-  bgp_size_t total_attr_len;
-  size_t mp_start = 0;
-  size_t attrlen_pos = 0;
-  size_t mplen_pos = 0;
-  u_char first_time = 1;
-  int space_remaining = 0;
-  int space_needed = 0;
-  int num_pfx_wd = 0;
-
-  s = peer->work;
-  stream_reset (s);
-
-  while ((adv = FIFO_HEAD (&peer->sync[afi][safi]->withdraw)) != NULL)
-    {
-      assert (adv->rn);
-      adj = adv->adj;
-      rn = adv->rn;
-
-      space_remaining = STREAM_REMAIN (s) -
-                        BGP_MAX_PACKET_SIZE_OVERFLOW;
-      space_needed = (BGP_NLRI_LENGTH + BGP_TOTAL_ATTR_LEN +
-                      PSIZE (rn->p.prefixlen));
-
-      if (space_remaining < space_needed)
-	break;
-
-      if (stream_empty (s))
-	{
-	  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
-	  stream_putw (s, 0); /* unfeasible routes length */
-	}
-      else
-	first_time = 0;
-
-      if (afi == AFI_IP && safi == SAFI_UNICAST)
-	stream_put_prefix (s, &rn->p);
-      else
-	{
-	  struct prefix_rd *prd = NULL;
-
-	  if (rn->prn)
-	    prd = (struct prefix_rd *) &rn->prn->p;
-
-	  /* If first time, format the MP_UNREACH header */
-	  if (first_time)
-	    {
-	      attrlen_pos = stream_get_endp (s);
-	      /* total attr length = 0 for now. reevaluate later */
-	      stream_putw (s, 0);
-	      mp_start = stream_get_endp (s);
-	      mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
-	    }
-
-	  bgp_packet_mpunreach_prefix(s, &rn->p, afi, safi, prd, NULL);
-	}
-      num_pfx_wd++;
-
-      if (bgp_debug_update(peer, &rn->p, 0))
-        {
-          char buf[INET6_BUFSIZ];
-
-          zlog_debug ("%s send UPDATE %s/%d -- unreachable",
-                      peer->host,
-                      inet_ntop (rn->p.family, &(rn->p.u.prefix), buf, INET6_BUFSIZ),
-                      rn->p.prefixlen);
-        }
-
-      peer->scount[afi][safi]--;
-
-      bgp_adj_out_remove (rn, adj, peer, afi, safi);
-      bgp_unlock_node (rn);
-    }
-
-  if (! stream_empty (s))
-    {
-      if (afi == AFI_IP && safi == SAFI_UNICAST)
-	{
-	  unfeasible_len
-	    = stream_get_endp (s) - BGP_HEADER_SIZE - BGP_UNFEASIBLE_LEN;
-	  stream_putw_at (s, BGP_HEADER_SIZE, unfeasible_len);
-	  stream_putw (s, 0);
-	}
-      else
-	{
-	  /* Set the mp_unreach attr's length */
-	  bgp_packet_mpunreach_end(s, mplen_pos);
-
-	  /* Set total path attribute length. */
-	  total_attr_len = stream_get_endp(s) - mp_start;
-	  stream_putw_at (s, attrlen_pos, total_attr_len);
-	}
-      bgp_packet_set_size (s);
-      if (BGP_DEBUG (update, UPDATE_OUT))
-        zlog_debug("%s form UPDATE (wd) total len %d numPfx %d",
-                   peer->host,
-                  (stream_get_endp (s) - stream_get_getp (s)), num_pfx_wd);
-      packet = stream_dup (s);
-      bgp_packet_add (peer, packet);
-      stream_reset (s);
-      return packet;
-    }
-
-  return NULL;
-}
-
-void
-bgp_default_update_send (struct peer *peer, struct attr *attr,
-			 afi_t afi, safi_t safi, struct peer *from)
-{
-  struct stream *s;
-  struct stream *packet;
-  struct prefix p;
-  unsigned long pos;
-  bgp_size_t total_attr_len;
-
-  if (DISABLE_BGP_ANNOUNCE)
-    return;
-
-  if (afi == AFI_IP)
-    str2prefix ("0.0.0.0/0", &p);
-#ifdef HAVE_IPV6
-  else 
-    str2prefix ("::/0", &p);
-#endif /* HAVE_IPV6 */
-
-  /* Logging the attribute. */
-  if (bgp_debug_update(peer, &p, 0))
-    {
-      char attrstr[BUFSIZ];
-      char buf[INET6_BUFSIZ];
-      attrstr[0] = '\0';
-
-      bgp_dump_attr (peer, attr, attrstr, BUFSIZ);
-      zlog_debug ("%s send UPDATE %s/%d %s",
-	          peer->host, inet_ntop(p.family, &(p.u.prefix), buf, INET6_BUFSIZ),
-	          p.prefixlen, attrstr);
-    }
-
-  s = stream_new (BGP_MAX_PACKET_SIZE);
-
-  /* Make BGP update packet. */
-  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
-
-  /* Unfeasible Routes Length. */
-  stream_putw (s, 0);
-
-  /* Make place for total attribute length.  */
-  pos = stream_get_endp (s);
-  stream_putw (s, 0);
-  total_attr_len = bgp_packet_attribute (NULL, peer, s, attr, &p, afi, safi, from, NULL, NULL);
-
-  /* Set Total Path Attribute Length. */
-  stream_putw_at (s, pos, total_attr_len);
-
-  /* NLRI set. */
-  if (p.family == AF_INET && safi == SAFI_UNICAST)
-    stream_put_prefix (s, &p);
-
-  /* Set size. */
-  bgp_packet_set_size (s);
-
-  packet = stream_dup (s);
-  stream_free (s);
-
-  /* Dump packet if debug option is set. */
-#ifdef DEBUG
-  /* bgp_packet_dump (packet); */
-#endif /* DEBUG */
-
-  /* Add packet to the peer. */
-  bgp_packet_add (peer, packet);
-
-  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-}
-
-void
-bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
-{
-  struct stream *s;
-  struct stream *packet;
-  struct prefix p;
-  unsigned long attrlen_pos = 0;
-  unsigned long cp;
-  bgp_size_t unfeasible_len;
-  bgp_size_t total_attr_len;
-  size_t mp_start = 0;
-  size_t mplen_pos = 0;
-
-  if (DISABLE_BGP_ANNOUNCE)
-    return;
-
-  if (afi == AFI_IP)
-    str2prefix ("0.0.0.0/0", &p);
-#ifdef HAVE_IPV6
-  else 
-    str2prefix ("::/0", &p);
-#endif /* HAVE_IPV6 */
-
-  total_attr_len = 0;
-
-  if (bgp_debug_update(peer, &p, 0))
-    {
-      char buf[INET6_BUFSIZ];
-
-      zlog_debug ("%s send UPDATE %s/%d -- unreachable",
-                  peer->host, inet_ntop(p.family, &(p.u.prefix), buf, INET6_BUFSIZ),
-                  p.prefixlen);
-    }
-
-  s = stream_new (BGP_MAX_PACKET_SIZE);
-
-  /* Make BGP update packet. */
-  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
-
-  /* Unfeasible Routes Length. */;
-  cp = stream_get_endp (s);
-  stream_putw (s, 0);
-
-  /* Withdrawn Routes. */
-  if (p.family == AF_INET && safi == SAFI_UNICAST)
-    {
-      stream_put_prefix (s, &p);
-
-      unfeasible_len = stream_get_endp (s) - cp - 2;
-
-      /* Set unfeasible len.  */
-      stream_putw_at (s, cp, unfeasible_len);
-
-      /* Set total path attribute length. */
-      stream_putw (s, 0);
-    }
-  else
-    {
-      attrlen_pos = stream_get_endp (s);
-      stream_putw (s, 0);
-      mp_start = stream_get_endp (s);
-      mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
-      bgp_packet_mpunreach_prefix(s, &p, afi, safi, NULL, NULL);
-
-      /* Set the mp_unreach attr's length */
-      bgp_packet_mpunreach_end(s, mplen_pos);
-
-      /* Set total path attribute length. */
-      total_attr_len = stream_get_endp(s) - mp_start;
-      stream_putw_at (s, attrlen_pos, total_attr_len);
-    }
-
-  bgp_packet_set_size (s);
-
-  packet = stream_dup (s);
-  stream_free (s);
-
-  /* Add packet to the peer. */
-  bgp_packet_add (peer, packet);
-
-  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-}
-
 /* Get next packet to be written.  */
 static struct stream *
 bgp_write_packet (struct peer *peer)
 {
+  struct stream *s = NULL;
+  struct peer_af *paf;
+  struct bpacket *next_pkt;
   afi_t afi;
   safi_t safi;
-  struct stream *s = NULL;
-  struct bgp_advertise *adv;
 
   s = stream_fifo_head (peer->obuf);
   if (s)
     return s;
 
-  /* The code beyond this part deals with update packets, check if updates
-     are on hold as part of the update-delay post processing stages. */
+  /*
+   * The code beyond this part deals with update packets, proceed only
+   * if peer is Established and updates are not on hold (as part of
+   * update-delay post processing).
+   */
+  if (peer->status != Established)
+    return NULL;
+
   if (peer->bgp && (peer->bgp->main_peers_update_hold ||
                     peer->bgp->rsclient_peers_update_hold))
     return NULL;
@@ -658,138 +214,109 @@ bgp_write_packet (struct peer *peer)
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
-	adv = FIFO_HEAD (&peer->sync[afi][safi]->withdraw);
-	if (adv)
+        paf = peer_af_find (peer, afi, safi);
+        if (!paf || !PAF_SUBGRP(paf))
+          continue;
+        next_pkt = paf->next_pkt_to_send;
+
+	/* Try to generate a packet for the peer if we are at the end of
+	 * the list. Always try to push out WITHDRAWs first. */
+        if (!next_pkt || !next_pkt->buffer)
 	  {
-	    s = bgp_withdraw_packet (peer, afi, safi);
-	    if (s)
-	      return s;
+	    next_pkt = subgroup_withdraw_packet(PAF_SUBGRP(paf));
+            if (!next_pkt || !next_pkt->buffer)
+	      subgroup_update_packet (PAF_SUBGRP(paf));
+	    next_pkt = paf->next_pkt_to_send;
 	  }
-      }
-    
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-      {
-	adv = FIFO_HEAD (&peer->sync[afi][safi]->update);
-	if (adv)
-	  {
-            if (adv->binfo && adv->binfo->uptime <= peer->synctime)
+
+	/* If we still don't have a packet to send to the peer, then
+	 * try to find out out if we have to send eor or if not, skip to
+	 * the next AFI, SAFI.
+	 * Don't send the EOR prematurely... if the subgroup's coalesce
+	 * timer is running, the adjacency-out structure is not created
+	 * yet.
+	 */
+        if (!next_pkt || !next_pkt->buffer)
+          {
+	    if (CHECK_FLAG (peer->cap, PEER_CAP_RESTART_RCV))
 	      {
-		if (CHECK_FLAG (adv->binfo->peer->cap, PEER_CAP_RESTART_RCV)
-		    && CHECK_FLAG (adv->binfo->peer->cap, PEER_CAP_RESTART_ADV)
-		    && ! (CHECK_FLAG (adv->binfo->peer->cap,
-                                      PEER_CAP_RESTART_BIT_RCV) &&
-		          CHECK_FLAG (adv->binfo->peer->cap,
-                                      PEER_CAP_RESTART_BIT_ADV))
-		    && ! CHECK_FLAG (adv->binfo->flags, BGP_INFO_STALE)
+		if (!(PAF_SUBGRP(paf))->t_coalesce &&
+		    peer->afc_nego[afi][safi] && peer->synctime
+		    && ! CHECK_FLAG (peer->af_sflags[afi][safi],
+				     PEER_STATUS_EOR_SEND)
 		    && safi != SAFI_MPLS_VPN)
 		  {
-		    if (CHECK_FLAG (adv->binfo->peer->af_sflags[afi][safi],
-			PEER_STATUS_EOR_RECEIVED))
-		      s = bgp_update_packet (peer, afi, safi);
+		    SET_FLAG (peer->af_sflags[afi][safi],
+			      PEER_STATUS_EOR_SEND);
+		    return bgp_update_packet_eor (peer, afi, safi);
 		  }
-		else
-		  s = bgp_update_packet (peer, afi, safi);
-	      }
 
-	    if (s)
-	      return s;
+	      }
+	    continue;
 	  }
 
-	if (CHECK_FLAG (peer->cap, PEER_CAP_RESTART_RCV))
-	  {
-	    if (peer->afc_nego[afi][safi] && peer->synctime
-		&& ! CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_EOR_SEND)
-		&& safi != SAFI_MPLS_VPN)
-	      {
-		SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_EOR_SEND);
-		return bgp_update_packet_eor (peer, afi, safi);
-	      }
-	  }
+
+        /*
+	 * Found a packet template to send, overwrite packet with appropriate
+         * attributes from peer and advance peer
+	 */
+        s = bpacket_reformat_for_peer (next_pkt, paf);
+        bpacket_queue_advance_peer (paf);
+        if (bgp_debug_update(peer, NULL, NULL, 0))
+          zlog_debug ("u%llu:s%llu %s send UPDATE len %d ",
+                      PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
+                      peer->host, (stream_get_endp(s) - stream_get_getp(s)));
+        return s;
       }
 
   return NULL;
 }
 
-/* Are there prefixes queued for being withdrawn? */
-int
-bgp_peer_wd_fifo_exists (struct peer *peer)
+/* The next action for the peer from a write perspective */
+static void
+bgp_write_proceed_actions (struct peer *peer)
 {
   afi_t afi;
   safi_t safi;
-  struct bgp_advertise *adv;
+  struct peer_af *paf;
+  struct bpacket *next_pkt;
+  int fullq_found = 0;
 
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-      if (FIFO_HEAD (&peer->sync[afi][safi]->withdraw))
-	return 1;
-
-  return 0;
-}
-
-/* Are there prefixes queued for being advertised?
- * Are they recent?
- */
-int
-bgp_peer_adv_fifo_exists (struct peer *peer, int chk_recent)
-{
-  afi_t afi;
-  safi_t safi;
-  struct bgp_advertise *adv;
-
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-      if ((adv = FIFO_HEAD (&peer->sync[afi][safi]->update)) != NULL)
-        {
-          if (!chk_recent)
-            return 1;
-          if (adv->binfo->uptime < peer->synctime)
-            return 1;
-        }
-
-  return 0;
-}
-
-/*
- * Schedule updates for the peer, if needed.
- */
-void
-bgp_peer_schedule_updates(struct peer *peer)
-{
-  /* If withdraw FIFO exists, immediately schedule write */
-  if (bgp_peer_wd_fifo_exists(peer) && !peer->t_write)
-    {
-      if (bgp_debug_update(peer, NULL, 0))
-        zlog_debug("%s scheduling write thread", peer->host);
-      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-    }
-
-  /* If update FIFO exists, fire MRAI timer */
-  if (bgp_peer_adv_fifo_exists(peer, 0) && !peer->radv_adjusted)
-    {
-      if (bgp_debug_update(peer, NULL, 0))
-        zlog_debug("%s scheduling MRAI timer", peer->host);
-      bgp_adjust_routeadv(peer);
-    }
-}
-
-/* Is there partially written packet or updates we can send right
-   now.  */
-static int
-bgp_write_proceed (struct peer *peer)
-{
-  /* If queued packet exists, we should try to write it */
   if (stream_fifo_head (peer->obuf))
-    return 1;
+    {
+      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+      return;
+    }
 
-  /* If there are prefixes to be withdrawn or to be advertised (and
-   * queued before last MRAI timer expiry), schedule write
-   */
-  if (bgp_peer_wd_fifo_exists(peer)
-   || bgp_peer_adv_fifo_exists(peer, 1))
-    return 1;
-
-  return 0;
+   for (afi = AFI_IP; afi < AFI_MAX; afi++)
+     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      {
+        paf = peer_af_find (peer, afi, safi);
+        if (!paf)
+          continue;
+        next_pkt = paf->next_pkt_to_send;
+        if (next_pkt && next_pkt->buffer)
+          {
+            BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+            return;
+          }
+        /* No packets readily available for AFI/SAFI, are there subgroup packets
+         * that need to be generated? */
+        if (paf->subgroup &&
+	    bpacket_queue_is_full(SUBGRP_INST(paf->subgroup),
+				  SUBGRP_PKTQ(paf->subgroup)))
+          fullq_found = 1;
+        else if (subgroup_packets_to_build (paf->subgroup))
+          {
+            BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+            return;
+          }
+      }
+  if (fullq_found)
+    {
+      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+      return;
+    }
 }
 
 /* Write packet to the peer. */
@@ -798,7 +325,7 @@ bgp_write (struct thread *thread)
 {
   struct peer *peer;
   u_char type;
-  struct stream *s; 
+  struct stream *s;
   int num;
   unsigned int count = 0;
   int oc = 0;
@@ -816,7 +343,10 @@ bgp_write (struct thread *thread)
 
   s = bgp_write_packet (peer);
   if (!s)
-    return 0;	/* nothing to send */
+    {
+      bgp_write_proceed_actions (peer);
+      return 0;
+    }
 
   sockopt_cork (peer->fd, 1);
 
@@ -892,8 +422,7 @@ bgp_write (struct thread *thread)
   while (++count < peer->bgp->wpkt_quanta &&
 	 (s = bgp_write_packet (peer)) != NULL);
 
-  if (bgp_write_proceed (peer))
-    BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+  bgp_write_proceed_actions (peer);
 
  done:
   /* Update the last write if some updates were written. */
@@ -910,7 +439,7 @@ bgp_write_notify (struct peer *peer)
 {
   int ret, val;
   u_char type;
-  struct stream *s; 
+  struct stream *s;
 
   /* There should be at least one packet. */
   s = stream_fifo_head (peer->obuf);
@@ -1801,8 +1330,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (ret < 0)
 	return -1;
 
-      zlog_err ("%s [Update:RECV] Unfeasible NLRI received", peer->host);
-
       withdraw.afi = AFI_IP;
       withdraw.safi = SAFI_UNICAST;
       withdraw.nlri = stream_pnt (s);
@@ -1871,7 +1398,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
         zlog_err ("%s rcvd UPDATE with errors in attr(s)!! Withdrawing route.",
                   peer->host);
 
-      if (ret && bgp_debug_update(peer, NULL, 1))
+      if (ret && bgp_debug_update(peer, NULL, NULL, 1))
         {
           zlog_debug ("%s rcvd UPDATE w/ attr: %s", peer->host, peer->rcvd_attr_str);
           peer->rcvd_attr_printed = 1;
@@ -2052,7 +1579,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  if (peer->nsf[AFI_IP6][SAFI_MULTICAST])
 	    bgp_clear_stale_route (peer, AFI_IP6, SAFI_MULTICAST);
 
-	  if (bgp_debug_update(peer, NULL, 1))
+	  if (bgp_debug_update(peer, NULL, NULL, 1))
 	    zlog_debug ("rcvd End-of-RIB for IPv6 Multicast from %s", peer->host);
 	}
     }
@@ -2082,7 +1609,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
               bgp_update_explicit_eors(peer);
             }
 
-	  if (bgp_debug_update(peer, NULL, 1))
+	  if (bgp_debug_update(peer, NULL, NULL, 1))
 	    zlog_debug ("rcvd End-of-RIB for VPNv4 Unicast from %s", peer->host);
 	}
     }
@@ -2227,7 +1754,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   reserved = stream_getc (s);
   safi = stream_getc (s);
 
-  if (bgp_debug_update(peer, NULL, 0))
+  if (bgp_debug_update(peer, NULL, NULL, 0))
     zlog_debug ("%s rcvd REFRESH_REQ for afi/safi: %d/%d",
 	       peer->host, afi, safi);
 

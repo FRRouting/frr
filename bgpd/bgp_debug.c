@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "sockunion.h"
 #include "memory.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
@@ -36,6 +37,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_updgrp.h"
 
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
@@ -46,6 +48,7 @@ unsigned long conf_bgp_debug_keepalive;
 unsigned long conf_bgp_debug_update;
 unsigned long conf_bgp_debug_zebra;
 unsigned long conf_bgp_debug_nht;
+unsigned long conf_bgp_debug_update_groups;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -56,6 +59,7 @@ unsigned long term_bgp_debug_keepalive;
 unsigned long term_bgp_debug_update;
 unsigned long term_bgp_debug_zebra;
 unsigned long term_bgp_debug_nht;
+unsigned long term_bgp_debug_update_groups;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -313,6 +317,12 @@ bgp_debug_list_has_entry(struct list *list, struct peer *peer, struct prefix *p)
   return 0;
 }
 
+int
+bgp_debug_peer_updout_enabled(struct peer *peer)
+{
+  return (bgp_debug_list_has_entry(bgp_debug_update_out_peers, peer, NULL));
+}
+
 /* Dump attribute. */
 int
 bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
@@ -437,6 +447,15 @@ bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
               code_str, subcode_str, bgp_notify->length,
               bgp_notify->data ? bgp_notify->data : "");
 }
+
+static void
+bgp_debug_clear_updgrp_update_dbg(struct bgp *bgp)
+{
+  if (!bgp)
+    bgp = bgp_get_default();
+  update_group_walk (bgp, update_group_clear_update_dbg, NULL);
+}
+
 
 /* Debug option setting interface. */
 unsigned long bgp_debug_option = 0;
@@ -912,7 +931,19 @@ DEFUN (debug_bgp_update_direct_peer,
   if (inbound)
     bgp_debug_list_add_entry(bgp_debug_update_in_peers, peer, NULL);
   else
-    bgp_debug_list_add_entry(bgp_debug_update_out_peers, peer, NULL);
+    {
+      struct peer_af *paf;
+      int af;
+
+      bgp_debug_list_add_entry(bgp_debug_update_out_peers, peer, NULL);
+      PEERAF_FOREACH (peer, paf, af)
+        {
+          if (PAF_SUBGRP (paf))
+            {
+              UPDGRP_PEER_DBG_EN(PAF_SUBGRP(paf)->update_group);
+            }
+        }
+    }
 
   if (vty->node == CONFIG_NODE)
     {
@@ -1004,6 +1035,20 @@ DEFUN (no_debug_bgp_update_direct_peer,
             {
               TERM_DEBUG_OFF (update, UPDATE_OUT);
               vty_out (vty, "BGP updates debugging (outbound) is off%s", VTY_NEWLINE);
+            }
+        }
+
+      if (found_peer)
+        {
+          struct peer_af *paf;
+          int af;
+
+          PEERAF_FOREACH (peer, paf, af)
+            {
+              if (PAF_SUBGRP (paf))
+                {
+                  UPDGRP_PEER_DBG_DIS(PAF_SUBGRP(paf)->update_group);
+                }
             }
         }
     }
@@ -1132,6 +1177,8 @@ DEFUN (no_debug_bgp_update,
   bgp_debug_list_free(bgp_debug_update_in_peers);
   bgp_debug_list_free(bgp_debug_update_out_peers);
   bgp_debug_list_free(bgp_debug_update_prefixes);
+
+  bgp_debug_clear_updgrp_update_dbg(vty->index);
 
   if (vty->node == CONFIG_NODE)
     {
@@ -1281,6 +1328,42 @@ DEFUN (no_debug_bgp_zebra_prefix,
   return CMD_SUCCESS;
 }
 
+/* debug bgp update-groups */
+DEFUN (debug_bgp_update_groups,
+       debug_bgp_update_groups_cmd,
+       "debug bgp update-groups",
+       DEBUG_STR
+       BGP_STR
+       "BGP update-groups\n")
+{
+  if (vty->node == CONFIG_NODE)
+    DEBUG_ON (update_groups, UPDATE_GROUPS);
+  else
+    {
+      TERM_DEBUG_ON (update_groups, UPDATE_GROUPS);
+      vty_out (vty, "BGP update-groups debugging is on%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_update_groups,
+       no_debug_bgp_update_groups_cmd,
+       "no debug bgp update-groups",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP update-groups\n")
+{
+  if (vty->node == CONFIG_NODE)
+    DEBUG_OFF (update_groups, UPDATE_GROUPS);
+  else
+    {
+      TERM_DEBUG_OFF (update_groups, UPDATE_GROUPS);
+      vty_out (vty, "BGP update-groups debugging is off%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_bgp,
        no_debug_bgp_cmd,
        "no debug bgp",
@@ -1294,6 +1377,8 @@ DEFUN (no_debug_bgp,
   bgp_debug_list_free(bgp_debug_update_out_peers);
   bgp_debug_list_free(bgp_debug_update_prefixes);
   bgp_debug_list_free(bgp_debug_zebra_prefixes);
+
+  bgp_debug_clear_updgrp_update_dbg(vty->index);
 
   TERM_DEBUG_OFF (keepalive, KEEPALIVE);
   TERM_DEBUG_OFF (update, UPDATE_IN);
@@ -1349,6 +1434,9 @@ DEFUN (show_debugging_bgp,
   if (BGP_DEBUG (zebra, ZEBRA))
     bgp_debug_list_print (vty, "  BGP zebra debugging is on",
                           bgp_debug_zebra_prefixes);
+
+  if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
+    vty_out (vty, "  BGP update-groups debugging is on%s", VTY_NEWLINE);
 
   vty_out (vty, "%s", VTY_NEWLINE);
   return CMD_SUCCESS;
@@ -1411,6 +1499,12 @@ bgp_config_write_debug (struct vty *vty)
       write++;
     }
 
+    if (CONF_BGP_DEBUG (update_groups, UPDATE_GROUPS))
+    {
+      vty_out (vty, "debug bgp update-groups%s", VTY_NEWLINE);
+      write++;
+    }
+
   return write;
 }
 
@@ -1445,6 +1539,8 @@ bgp_debug_init (void)
   install_element (CONFIG_NODE, &debug_bgp_update_direct_cmd);
   install_element (ENABLE_NODE, &debug_bgp_zebra_cmd);
   install_element (CONFIG_NODE, &debug_bgp_zebra_cmd);
+  install_element (ENABLE_NODE, &debug_bgp_update_groups_cmd);
+  install_element (CONFIG_NODE, &debug_bgp_update_groups_cmd);
 
   /* deb bgp updates [in|out] A.B.C.D */
   install_element (ENABLE_NODE, &debug_bgp_update_direct_peer_cmd);
@@ -1491,6 +1587,8 @@ bgp_debug_init (void)
   install_element (CONFIG_NODE, &no_debug_bgp_update_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_zebra_cmd);
+  install_element (ENABLE_NODE, &no_debug_bgp_update_groups_cmd);
+  install_element (CONFIG_NODE, &no_debug_bgp_update_groups_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_cmd);
 }
 
@@ -1577,7 +1675,8 @@ bgp_debug_keepalive (struct peer *peer)
 }
 
 int
-bgp_debug_update (struct peer *peer, struct prefix *p, unsigned int inbound)
+bgp_debug_update (struct peer *peer, struct prefix *p,
+                  struct update_group *updgrp, unsigned int inbound)
 {
   if (inbound)
     {
@@ -1592,6 +1691,10 @@ bgp_debug_update (struct peer *peer, struct prefix *p, unsigned int inbound)
       if (bgp_debug_per_peer (peer, term_bgp_debug_update,
                               BGP_DEBUG_UPDATE_OUT,
                               bgp_debug_update_out_peers))
+        return 1;
+
+      /* Check if update debugging implicitly enabled for the group. */
+      if (updgrp && UPDGRP_DBG_ON(updgrp))
         return 1;
     }
 

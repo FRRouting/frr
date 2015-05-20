@@ -4,6 +4,7 @@
 #include "stream.h"
 #include "privs.h"
 #include "memory.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"

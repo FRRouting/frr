@@ -28,6 +28,7 @@
 #include "linklist.h"
 #include "sockunion.h"
 #include "memory.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -412,7 +413,8 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
   old_mpath_count = 0;
   prev_mpath = new_best;
   mp_node = listhead (mp_list);
-  debug = bgp_debug_update(NULL, &rn->p, 1) || bgp_debug_update(NULL, &rn->p, 0);
+  debug = bgp_debug_update(NULL, &rn->p, NULL, 1) ||
+          bgp_debug_update(NULL, &rn->p, NULL, 0);
 
   if (debug)
     prefix2str (&rn->p, pfx_buf, sizeof (pfx_buf));

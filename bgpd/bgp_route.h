@@ -26,6 +26,12 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 struct bgp_nexthop_cache;
 
+#define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, "\
+                              "h history, * valid, > best, = multipath,%s"\
+                "              i internal, r RIB-failure, S Stale, R Removed%s"
+#define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s"
+#define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path%s"
+
 /* Ancillary information to struct bgp_info, 
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -199,12 +205,19 @@ enum bgp_path_type
   BGP_PATH_MULTIPATH
 };
 
+static inline void
+bgp_bump_version (struct bgp_node *node)
+{
+  node->version = bgp_table_next_version(bgp_node_table(node));
+}
+
 /* Prototypes. */
 extern void bgp_process_queue_init (void);
 extern void bgp_route_init (void);
 extern void bgp_route_finish (void);
 extern void bgp_cleanup_routes (void);
 extern void bgp_announce_route (struct peer *, afi_t, safi_t);
+extern void bgp_stop_announce_route_timer(struct peer_af *paf);
 extern void bgp_announce_route_all (struct peer *);
 extern void bgp_default_originate (struct peer *, afi_t, safi_t, int);
 extern void bgp_soft_reconfig_in (struct peer *, afi_t, safi_t);
@@ -279,5 +292,14 @@ extern safi_t bgp_node_safi (struct vty *);
 extern void route_vty_out (struct vty *, struct prefix *, struct bgp_info *, int, safi_t, char *);
 extern void route_vty_out_tag (struct vty *, struct prefix *, struct bgp_info *, int, safi_t);
 extern void route_vty_out_tmp (struct vty *, struct prefix *, struct attr *, safi_t, char *);
+
+extern int
+subgroup_process_announce_selected (struct update_subgroup *subgrp,
+				    struct bgp_info *selected,
+				    struct bgp_node *rn);
+
+extern int subgroup_announce_check(struct bgp_info *ri,
+				   struct update_subgroup *subgrp,
+				   struct prefix *p, struct attr *attr);
 
 #endif /* _QUAGGA_BGP_ROUTE_H */

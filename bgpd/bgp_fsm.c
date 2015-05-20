@@ -31,6 +31,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 #include "plist.h"
 #include "workqueue.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -45,6 +46,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_SNMP
 #include "bgpd/bgp_snmp.h"
 #endif /* HAVE_SNMP */
+#include "bgpd/bgp_updgrp.h"
 
 /* BGP FSM (finite state machine) has three types of functions.  Type
    one is thread functions.  Type two is event functions.  Type three
@@ -93,10 +95,16 @@ peer_xfer_conn(struct peer *from_peer)
   if (!peer || !CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
     return from_peer;
 
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("peer transfer (%s -> %s)", from_peer->host, peer->host);
+
   BGP_WRITE_OFF(peer->t_write);
   BGP_READ_OFF(peer->t_read);
   BGP_WRITE_OFF(from_peer->t_write);
   BGP_READ_OFF(from_peer->t_read);
+
+  BGP_TIMER_OFF(peer->t_routeadv);
+  BGP_TIMER_OFF(from_peer->t_routeadv);
 
   fd = peer->fd;
   peer->fd = from_peer->fd;
@@ -390,27 +398,26 @@ bgp_keepalive_timer (struct thread *thread)
 static int
 bgp_routeq_empty (struct peer *peer)
 {
-  afi_t afi;
-  safi_t safi;
+  struct peer_af *paf;
+  int af;
 
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-      {
-        if (!FIFO_EMPTY(&peer->sync[afi][safi]->withdraw) ||
-            !FIFO_EMPTY(&peer->sync[afi][safi]->update))
-          return 0;
-      }
+  PEERAF_FOREACH(peer, paf, af)
+    {
+      if (!PAF_SUBGRP(paf))
+	continue;
+      if (!advertise_list_is_empty(PAF_SUBGRP(paf)))
+	return 0;
+    }
   return 1;
 }
 
-static int
+int
 bgp_routeadv_timer (struct thread *thread)
 {
   struct peer *peer;
 
   peer = THREAD_ARG (thread);
   peer->t_routeadv = NULL;
-  peer->radv_adjusted = 0;
 
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s [FSM] Timer (routeadv timer expire)", peer->host);
@@ -419,10 +426,9 @@ bgp_routeadv_timer (struct thread *thread)
 
   BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 
-  /* MRAI timer is no longer restarted here, it would be done
-   * when the FIFO is built.
+  /* MRAI timer will be started again when FIFO is built, no need to
+   * do it here.
    */
-
   return 0;
 }
 
@@ -630,9 +636,6 @@ bgp_adjust_routeadv (struct peer *peer)
       return;
     }
 
-  /* Mark that we've adjusted the timer */
-  peer->radv_adjusted = 1;
-
 
   /*
    * CASE I:
@@ -655,8 +658,6 @@ bgp_adjust_routeadv (struct peer *peer)
     {
       BGP_TIMER_OFF(peer->t_routeadv);
       BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
-      if (bgp_debug_update(peer, NULL, 0))
-	zlog_debug ("%s: MRAI timer to expire instantly", peer->host);
       return;
     }
 
@@ -685,8 +686,6 @@ bgp_adjust_routeadv (struct peer *peer)
     {
       BGP_TIMER_OFF(peer->t_routeadv);
       BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, diff);
-      if (bgp_debug_update(peer, NULL, 0))
-	zlog_debug ("%s: MRAI timer to expire in %f secs", peer->host, diff);
     }
 }
 
@@ -720,8 +719,6 @@ bgp_maxmed_onstartup_active (struct bgp *bgp)
 void
 bgp_maxmed_update (struct bgp *bgp)
 {
-  struct listnode *node, *nnode;
-  struct peer *peer;
   u_char     maxmed_active;
   u_int32_t  maxmed_value;
 
@@ -747,8 +744,7 @@ bgp_maxmed_update (struct bgp *bgp)
       bgp->maxmed_active = maxmed_active;
       bgp->maxmed_value = maxmed_value;
 
-      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-        bgp_announce_route_all (peer);
+      update_group_announce(bgp);
     }
 }
 
@@ -1004,6 +1000,10 @@ bgp_stop (struct peer *peer)
 
       /* set last reset time */
       peer->resettime = peer->uptime = bgp_clock ();
+
+      if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
+	zlog_debug ("%s remove from all update group", peer->host);
+      update_group_remove_peer_afs(peer);
 
 #ifdef HAVE_SNMP
       bgpTrapBackwardTransition (peer);
@@ -1339,6 +1339,7 @@ static int
 bgp_establish (struct peer *peer)
 {
   struct bgp_notify *notify;
+  struct peer_af *paf;
   afi_t afi;
   safi_t safi;
   int nsf_af_count = 0;
@@ -1376,6 +1377,9 @@ bgp_establish (struct peer *peer)
   /* bgp log-neighbor-changes of neighbor Up */
   if (bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
     zlog_info ("%%ADJCHANGE: neighbor %s Up", peer->host);
+
+  /* assign update-group/subgroup */
+  update_group_adjust_peer_afs(peer);
 
   /* graceful restart */
   UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT);
@@ -1449,14 +1453,17 @@ bgp_establish (struct peer *peer)
 	    || CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV))
 	  SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH);
 
-  bgp_announce_route_all (peer);
+  bgp_announce_peer (peer);
 
   /* Start the route advertisement timer to send updates to the peer - if BGP
    * is not in read-only mode. If it is, the timer will be started at the end
    * of read-only mode.
    */
   if (!bgp_update_delay_active(peer->bgp))
-    BGP_TIMER_ON (peer->t_routeadv, bgp_routeadv_timer, 0);
+    {
+      BGP_TIMER_OFF(peer->t_routeadv);
+      BGP_TIMER_ON (peer->t_routeadv, bgp_routeadv_timer, 0);
+    }
 
   if (peer->doppelganger && (peer->doppelganger->status != Deleted))
     {

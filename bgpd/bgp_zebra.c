@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "zclient.h"
 #include "routemap.h"
 #include "thread.h"
+#include "queue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
