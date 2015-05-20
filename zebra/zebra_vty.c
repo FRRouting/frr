@@ -1072,6 +1072,84 @@ vty_show_ip_route_summary (struct vty *vty, struct route_table *table)
 	   fib_cnt[ZEBRA_ROUTE_TOTAL], VTY_NEWLINE);  
 }
 
+/*
+ * Implementation of the ip route summary prefix command.
+ *
+ * This command prints the primary prefixes that have been installed by various
+ * protocols on the box.
+ *
+ */
+static void
+vty_show_ip_route_summary_prefix (struct vty *vty, struct route_table *table)
+{
+  struct route_node *rn;
+  struct rib *rib;
+  struct nexthop *nexthop;
+#define ZEBRA_ROUTE_IBGP  ZEBRA_ROUTE_MAX
+#define ZEBRA_ROUTE_TOTAL (ZEBRA_ROUTE_IBGP + 1)
+  u_int32_t rib_cnt[ZEBRA_ROUTE_TOTAL + 1];
+  u_int32_t fib_cnt[ZEBRA_ROUTE_TOTAL + 1];
+  u_int32_t i;
+  int       cnt;
+
+  memset (&rib_cnt, 0, sizeof(rib_cnt));
+  memset (&fib_cnt, 0, sizeof(fib_cnt));
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    RNODE_FOREACH_RIB (rn, rib)
+      {
+
+       /*
+        * In case of ECMP, count only once.
+        */
+       cnt = 0;
+       for (nexthop = rib->nexthop; (!cnt && nexthop); nexthop = nexthop->next)
+         {
+          cnt++;
+          rib_cnt[ZEBRA_ROUTE_TOTAL]++;
+          rib_cnt[rib->type]++;
+          if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+	        {
+	         fib_cnt[ZEBRA_ROUTE_TOTAL]++;
+             fib_cnt[rib->type]++;
+            }
+	      if (rib->type == ZEBRA_ROUTE_BGP &&
+	          CHECK_FLAG (rib->flags, ZEBRA_FLAG_IBGP))
+            {
+	         rib_cnt[ZEBRA_ROUTE_IBGP]++;
+		     if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+		        fib_cnt[ZEBRA_ROUTE_IBGP]++;
+            }
+	     }
+      }
+
+  vty_out (vty, "%-20s %-20s %-20s %s",
+	   "Route Source", "Prefix Routes", "FIB", VTY_NEWLINE);
+
+  for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+    {
+      if (rib_cnt[i] > 0)
+	{
+	  if (i == ZEBRA_ROUTE_BGP)
+	    {
+	      vty_out (vty, "%-20s %-20d %-20d %s", "ebgp",
+		       rib_cnt[ZEBRA_ROUTE_BGP] - rib_cnt[ZEBRA_ROUTE_IBGP],
+		       fib_cnt[ZEBRA_ROUTE_BGP] - fib_cnt[ZEBRA_ROUTE_IBGP],
+		       VTY_NEWLINE);
+	      vty_out (vty, "%-20s %-20d %-20d %s", "ibgp",
+		       rib_cnt[ZEBRA_ROUTE_IBGP], fib_cnt[ZEBRA_ROUTE_IBGP],
+		       VTY_NEWLINE);
+	    }
+	  else
+	    vty_out (vty, "%-20s %-20d %-20d %s", zebra_route_string(i),
+		     rib_cnt[i], fib_cnt[i], VTY_NEWLINE);
+	}
+    }
+
+  vty_out (vty, "------%s", VTY_NEWLINE);
+  vty_out (vty, "%-20s %-20d %-20d %s", "Totals", rib_cnt[ZEBRA_ROUTE_TOTAL],
+	   fib_cnt[ZEBRA_ROUTE_TOTAL], VTY_NEWLINE);
+}
+
 /* Show route summary.  */
 DEFUN (show_ip_route_summary,
        show_ip_route_summary_cmd,
@@ -1088,6 +1166,27 @@ DEFUN (show_ip_route_summary,
     return CMD_SUCCESS;
 
   vty_show_ip_route_summary (vty, table);
+
+  return CMD_SUCCESS;
+}
+
+/* Show route summary prefix.  */
+DEFUN (show_ip_route_summary_prefix,
+       show_ip_route_summary_prefix_cmd,
+       "show ip route summary prefix",
+       SHOW_STR
+       IP_STR
+       "IP routing table\n"
+       "Summary of all routes\n"
+       "Prefix routes\n")
+{
+  struct route_table *table;
+
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (! table)
+    return CMD_SUCCESS;
+
+  vty_show_ip_route_summary_prefix (vty, table);
 
   return CMD_SUCCESS;
 }
@@ -1927,6 +2026,27 @@ DEFUN (show_ipv6_route_summary,
   return CMD_SUCCESS;
 }
 
+/* Show ipv6 route summary prefix.  */
+DEFUN (show_ipv6_route_summary_prefix,
+       show_ipv6_route_summary_prefix_cmd,
+       "show ipv6 route summary prefix",
+       SHOW_STR
+       IP_STR
+       "IPv6 routing table\n"
+       "Summary of all IPv6 routes\n"
+       "Prefix routes\n")
+{
+  struct route_table *table;
+
+  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  if (! table)
+    return CMD_SUCCESS;
+
+  vty_show_ip_route_summary_prefix (vty, table);
+
+  return CMD_SUCCESS;
+}
+
 /*
  * Show IPv6 mroute command.Used to dump
  * the Multicast routing table.
@@ -2096,6 +2216,7 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ip_route_protocol_cmd);
   install_element (VIEW_NODE, &show_ip_route_supernets_cmd);
   install_element (VIEW_NODE, &show_ip_route_summary_cmd);
+  install_element (VIEW_NODE, &show_ip_route_summary_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_route_cmd);
   install_element (ENABLE_NODE, &show_ip_route_addr_cmd);
   install_element (ENABLE_NODE, &show_ip_route_prefix_cmd);
@@ -2103,6 +2224,7 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_route_protocol_cmd);
   install_element (ENABLE_NODE, &show_ip_route_supernets_cmd);
   install_element (ENABLE_NODE, &show_ip_route_summary_cmd);
+  install_element (ENABLE_NODE, &show_ip_route_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ip_mroute_cmd);
   install_element (ENABLE_NODE, &show_ip_mroute_cmd);
@@ -2127,6 +2249,7 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_pref_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_summary_cmd);
+  install_element (VIEW_NODE, &show_ipv6_route_summary_prefix_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_protocol_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_addr_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_prefix_cmd);
@@ -2137,6 +2260,7 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ipv6_route_prefix_cmd);
   install_element (ENABLE_NODE, &show_ipv6_route_prefix_longer_cmd);
   install_element (ENABLE_NODE, &show_ipv6_route_summary_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_route_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_mroute_cmd);
   install_element (ENABLE_NODE, &show_ipv6_mroute_cmd);
