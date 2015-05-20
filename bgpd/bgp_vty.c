@@ -5448,8 +5448,8 @@ DEFUN (clear_ip_bgp_all_soft_out,
        IP_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   if (argc == 1)
     return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
@@ -5466,7 +5466,7 @@ ALIAS (clear_ip_bgp_all_soft_out,
        IP_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_ip_bgp_all_soft_out,
        clear_ip_bgp_instance_all_soft_out_cmd,
@@ -5477,8 +5477,8 @@ ALIAS (clear_ip_bgp_all_soft_out,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_all_ipv4_soft_out,
        clear_ip_bgp_all_ipv4_soft_out_cmd,
@@ -5490,8 +5490,8 @@ DEFUN (clear_ip_bgp_all_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
@@ -5511,7 +5511,7 @@ ALIAS (clear_ip_bgp_all_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
        clear_ip_bgp_instance_all_ipv4_soft_out_cmd,
@@ -5525,7 +5525,7 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST, clear_all,
@@ -5544,8 +5544,8 @@ DEFUN (clear_ip_bgp_all_vpnv4_soft_out,
        "Clear all peers\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_all,
 			BGP_CLEAR_SOFT_OUT, NULL);
@@ -5560,7 +5560,7 @@ ALIAS (clear_ip_bgp_all_vpnv4_soft_out,
        "Clear all peers\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_bgp_all_soft_out,
        clear_bgp_all_soft_out_cmd,
@@ -5568,8 +5568,8 @@ DEFUN (clear_bgp_all_soft_out,
        CLEAR_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   if (argc == 1)
     return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_all,
@@ -5587,8 +5587,8 @@ ALIAS (clear_bgp_all_soft_out,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_all_soft_out,
        clear_bgp_all_out_cmd,
@@ -5596,7 +5596,7 @@ ALIAS (clear_bgp_all_soft_out,
        CLEAR_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_all_soft_out,
        clear_bgp_ipv6_all_soft_out_cmd,
@@ -5605,8 +5605,8 @@ ALIAS (clear_bgp_all_soft_out,
        BGP_STR
        "Address family\n"
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_all_soft_out,
        clear_bgp_ipv6_all_out_cmd,
@@ -5615,7 +5615,7 @@ ALIAS (clear_bgp_all_soft_out,
        BGP_STR
        "Address family\n"
        "Clear all peers\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_bgp_ipv6_safi_prefix,
        clear_bgp_ipv6_safi_prefix_cmd,
@@ -5640,8 +5640,8 @@ DEFUN (clear_ip_bgp_peer_soft_out,
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_OUT, argv[0]);
@@ -5654,7 +5654,7 @@ ALIAS (clear_ip_bgp_peer_soft_out,
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
        clear_ip_bgp_peer_ipv4_soft_out_cmd,
@@ -5666,8 +5666,8 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_peer,
@@ -5687,7 +5687,7 @@ ALIAS (clear_ip_bgp_peer_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
        clear_ip_bgp_peer_vpnv4_soft_out_cmd,
@@ -5698,8 +5698,8 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
        "BGP neighbor address to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_peer,
 			BGP_CLEAR_SOFT_OUT, argv[0]);
@@ -5714,7 +5714,7 @@ ALIAS (clear_ip_bgp_peer_vpnv4_soft_out,
        "BGP neighbor address to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_bgp_peer_soft_out,
        clear_bgp_peer_soft_out_cmd,
@@ -5724,8 +5724,8 @@ DEFUN (clear_bgp_peer_soft_out,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_OUT, argv[0]);
@@ -5740,8 +5740,8 @@ ALIAS (clear_bgp_peer_soft_out,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_peer_soft_out,
        clear_bgp_peer_out_cmd,
@@ -5751,7 +5751,7 @@ ALIAS (clear_bgp_peer_soft_out,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_peer_soft_out,
        clear_bgp_ipv6_peer_out_cmd,
@@ -5762,7 +5762,7 @@ ALIAS (clear_bgp_peer_soft_out,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_peer_group_soft_out,
        clear_ip_bgp_peer_group_soft_out_cmd, 
@@ -5772,8 +5772,8 @@ DEFUN (clear_ip_bgp_peer_group_soft_out,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
 			BGP_CLEAR_SOFT_OUT, argv[0]);
@@ -5787,7 +5787,7 @@ ALIAS (clear_ip_bgp_peer_group_soft_out,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft_out,
        clear_ip_bgp_peer_group_ipv4_soft_out_cmd,
@@ -5800,8 +5800,8 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_group,
@@ -5822,7 +5822,7 @@ ALIAS (clear_ip_bgp_peer_group_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_bgp_peer_group_soft_out,
        clear_bgp_peer_group_soft_out_cmd,
@@ -5831,8 +5831,8 @@ DEFUN (clear_bgp_peer_group_soft_out,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_group,
 			BGP_CLEAR_SOFT_OUT, argv[0]);
@@ -5846,8 +5846,8 @@ ALIAS (clear_bgp_peer_group_soft_out,
        "Address family\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_peer_group_soft_out,
        clear_bgp_peer_group_out_cmd,
@@ -5856,7 +5856,7 @@ ALIAS (clear_bgp_peer_group_soft_out,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_peer_group_soft_out,
        clear_bgp_ipv6_peer_group_out_cmd,
@@ -5866,7 +5866,7 @@ ALIAS (clear_bgp_peer_group_soft_out,
        "Address family\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_external_soft_out,
        clear_ip_bgp_external_soft_out_cmd, 
@@ -5875,8 +5875,8 @@ DEFUN (clear_ip_bgp_external_soft_out,
        IP_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_OUT, NULL);
@@ -5889,7 +5889,7 @@ ALIAS (clear_ip_bgp_external_soft_out,
        IP_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_external_ipv4_soft_out,
        clear_ip_bgp_external_ipv4_soft_out_cmd,
@@ -5901,8 +5901,8 @@ DEFUN (clear_ip_bgp_external_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_external,
@@ -5922,7 +5922,7 @@ ALIAS (clear_ip_bgp_external_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_bgp_external_soft_out,
        clear_bgp_external_soft_out_cmd,
@@ -5930,8 +5930,8 @@ DEFUN (clear_bgp_external_soft_out,
        CLEAR_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_OUT, NULL);
@@ -5944,8 +5944,8 @@ ALIAS (clear_bgp_external_soft_out,
        BGP_STR
        "Address family\n"
        "Clear all external peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_external_soft_out,
        clear_bgp_external_out_cmd,
@@ -5953,7 +5953,7 @@ ALIAS (clear_bgp_external_soft_out,
        CLEAR_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_external_soft_out,
        clear_bgp_ipv6_external_out_cmd,
@@ -5962,7 +5962,7 @@ ALIAS (clear_bgp_external_soft_out,
        BGP_STR
        "Address family\n"
        "Clear all external peers\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_as_soft_out,
        clear_ip_bgp_as_soft_out_cmd,
@@ -5971,8 +5971,8 @@ DEFUN (clear_ip_bgp_as_soft_out,
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_as,
 			BGP_CLEAR_SOFT_OUT, argv[0]);
@@ -5985,7 +5985,7 @@ ALIAS (clear_ip_bgp_as_soft_out,
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_as_ipv4_soft_out,
        clear_ip_bgp_as_ipv4_soft_out_cmd,
@@ -5997,8 +5997,8 @@ DEFUN (clear_ip_bgp_as_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_as,
@@ -6018,7 +6018,7 @@ ALIAS (clear_ip_bgp_as_ipv4_soft_out,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_as_vpnv4_soft_out,
        clear_ip_bgp_as_vpnv4_soft_out_cmd,
@@ -6029,8 +6029,8 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft_out,
        "Clear peers with the AS number\n"
        "Address family\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_as,
 			BGP_CLEAR_SOFT_OUT, argv[0]);
@@ -6045,7 +6045,7 @@ ALIAS (clear_ip_bgp_as_vpnv4_soft_out,
        "Clear peers with the AS number\n"
        "Address family\n"
        "Address Family modifier\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 DEFUN (clear_bgp_as_soft_out,
        clear_bgp_as_soft_out_cmd,
@@ -6053,8 +6053,8 @@ DEFUN (clear_bgp_as_soft_out,
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_as,
 			BGP_CLEAR_SOFT_OUT, argv[0]);
@@ -6067,8 +6067,8 @@ ALIAS (clear_bgp_as_soft_out,
        BGP_STR
        "Address family\n"
        "Clear peers with the AS number\n"
-       "Soft reconfig\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_as_soft_out,
        clear_bgp_as_out_cmd,
@@ -6076,7 +6076,7 @@ ALIAS (clear_bgp_as_soft_out,
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 ALIAS (clear_bgp_as_soft_out,
        clear_bgp_ipv6_as_out_cmd,
@@ -6085,7 +6085,7 @@ ALIAS (clear_bgp_as_soft_out,
        BGP_STR
        "Address family\n"
        "Clear peers with the AS number\n"
-       "Soft reconfig outbound update\n")
+       BGP_SOFT_OUT_STR)
 
 /* Inbound soft-reconfiguration */
 DEFUN (clear_ip_bgp_all_soft_in,
@@ -6095,8 +6095,8 @@ DEFUN (clear_ip_bgp_all_soft_in,
        IP_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   if (argc == 1)
     return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
@@ -6115,8 +6115,8 @@ ALIAS (clear_ip_bgp_all_soft_in,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_ip_bgp_all_soft_in,
        clear_ip_bgp_all_in_cmd,
@@ -6125,7 +6125,7 @@ ALIAS (clear_ip_bgp_all_soft_in,
        IP_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_all_in_prefix_filter,
        clear_ip_bgp_all_in_prefix_filter_cmd,
@@ -6134,7 +6134,7 @@ DEFUN (clear_ip_bgp_all_in_prefix_filter,
        IP_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   if (argc== 1)
@@ -6154,7 +6154,7 @@ ALIAS (clear_ip_bgp_all_in_prefix_filter,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 
 
@@ -6168,8 +6168,8 @@ DEFUN (clear_ip_bgp_all_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
@@ -6189,7 +6189,7 @@ ALIAS (clear_ip_bgp_all_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
        clear_ip_bgp_instance_all_ipv4_soft_in_cmd,
@@ -6203,8 +6203,8 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST, clear_all,
@@ -6224,7 +6224,7 @@ DEFUN (clear_ip_bgp_all_ipv4_in_prefix_filter,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
@@ -6245,7 +6245,7 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_in_prefix_filter,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   if (strncmp (argv[1], "m", 1) == 0)
@@ -6265,8 +6265,8 @@ DEFUN (clear_ip_bgp_all_vpnv4_soft_in,
        "Clear all peers\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_all,
 			BGP_CLEAR_SOFT_IN, NULL);
@@ -6281,7 +6281,7 @@ ALIAS (clear_ip_bgp_all_vpnv4_soft_in,
        "Clear all peers\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_bgp_all_soft_in,
        clear_bgp_all_soft_in_cmd,
@@ -6289,8 +6289,8 @@ DEFUN (clear_bgp_all_soft_in,
        CLEAR_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   if (argc == 1)
     return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_all,
@@ -6308,8 +6308,8 @@ ALIAS (clear_bgp_all_soft_in,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_all_soft_in,
        clear_bgp_ipv6_all_soft_in_cmd,
@@ -6318,8 +6318,8 @@ ALIAS (clear_bgp_all_soft_in,
        BGP_STR
        "Address family\n"
        "Clear all peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_all_soft_in,
        clear_bgp_all_in_cmd,
@@ -6327,7 +6327,7 @@ ALIAS (clear_bgp_all_soft_in,
        CLEAR_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_all_soft_in,
        clear_bgp_ipv6_all_in_cmd,
@@ -6336,7 +6336,7 @@ ALIAS (clear_bgp_all_soft_in,
        BGP_STR
        "Address family\n"
        "Clear all peers\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_bgp_all_in_prefix_filter,
        clear_bgp_all_in_prefix_filter_cmd,
@@ -6344,7 +6344,7 @@ DEFUN (clear_bgp_all_in_prefix_filter,
        CLEAR_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
@@ -6358,7 +6358,7 @@ ALIAS (clear_bgp_all_in_prefix_filter,
        BGP_STR
        "Address family\n"
        "Clear all peers\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 
 DEFUN (clear_ip_bgp_peer_soft_in,
@@ -6368,8 +6368,8 @@ DEFUN (clear_ip_bgp_peer_soft_in,
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_IN, argv[0]);
@@ -6382,7 +6382,7 @@ ALIAS (clear_ip_bgp_peer_soft_in,
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
        
 DEFUN (clear_ip_bgp_peer_in_prefix_filter,
        clear_ip_bgp_peer_in_prefix_filter_cmd,
@@ -6391,7 +6391,7 @@ DEFUN (clear_ip_bgp_peer_in_prefix_filter,
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out the existing ORF prefix-list\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
@@ -6408,8 +6408,8 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_peer,
@@ -6429,7 +6429,7 @@ ALIAS (clear_ip_bgp_peer_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
        clear_ip_bgp_peer_ipv4_in_prefix_filter_cmd,
@@ -6441,7 +6441,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out the existing ORF prefix-list\n")
 {
   if (strncmp (argv[1], "m", 1) == 0)
@@ -6461,8 +6461,8 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft_in,
        "BGP neighbor address to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_peer,
 			BGP_CLEAR_SOFT_IN, argv[0]);
@@ -6477,7 +6477,7 @@ ALIAS (clear_ip_bgp_peer_vpnv4_soft_in,
        "BGP neighbor address to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_bgp_peer_soft_in,
        clear_bgp_peer_soft_in_cmd,
@@ -6487,8 +6487,8 @@ DEFUN (clear_bgp_peer_soft_in,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_IN, argv[0]);
@@ -6503,8 +6503,8 @@ ALIAS (clear_bgp_peer_soft_in,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_peer_soft_in,
        clear_bgp_peer_in_cmd,
@@ -6514,7 +6514,7 @@ ALIAS (clear_bgp_peer_soft_in,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_peer_soft_in,
        clear_bgp_ipv6_peer_in_cmd,
@@ -6525,7 +6525,7 @@ ALIAS (clear_bgp_peer_soft_in,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_bgp_peer_in_prefix_filter,
        clear_bgp_peer_in_prefix_filter_cmd,
@@ -6535,7 +6535,7 @@ DEFUN (clear_bgp_peer_in_prefix_filter,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out the existing ORF prefix-list\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_peer,
@@ -6551,7 +6551,7 @@ ALIAS (clear_bgp_peer_in_prefix_filter,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out the existing ORF prefix-list\n")
 
 DEFUN (clear_ip_bgp_peer_group_soft_in,
@@ -6562,8 +6562,8 @@ DEFUN (clear_ip_bgp_peer_group_soft_in,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
 			BGP_CLEAR_SOFT_IN, argv[0]);
@@ -6577,7 +6577,7 @@ ALIAS (clear_ip_bgp_peer_group_soft_in,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_peer_group_in_prefix_filter,
        clear_ip_bgp_peer_group_in_prefix_filter_cmd,
@@ -6587,7 +6587,7 @@ DEFUN (clear_ip_bgp_peer_group_in_prefix_filter,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
@@ -6605,8 +6605,8 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_group,
@@ -6627,7 +6627,7 @@ ALIAS (clear_ip_bgp_peer_group_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_peer_group_ipv4_in_prefix_filter,
        clear_ip_bgp_peer_group_ipv4_in_prefix_filter_cmd,
@@ -6640,7 +6640,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_in_prefix_filter,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   if (strncmp (argv[1], "m", 1) == 0)
@@ -6658,8 +6658,8 @@ DEFUN (clear_bgp_peer_group_soft_in,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_group,
 			BGP_CLEAR_SOFT_IN, argv[0]);
@@ -6673,8 +6673,8 @@ ALIAS (clear_bgp_peer_group_soft_in,
        "Address family\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_peer_group_soft_in,
        clear_bgp_peer_group_in_cmd,
@@ -6683,7 +6683,7 @@ ALIAS (clear_bgp_peer_group_soft_in,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_peer_group_soft_in,
        clear_bgp_ipv6_peer_group_in_cmd,
@@ -6693,7 +6693,7 @@ ALIAS (clear_bgp_peer_group_soft_in,
        "Address family\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_bgp_peer_group_in_prefix_filter,
        clear_bgp_peer_group_in_prefix_filter_cmd,
@@ -6702,7 +6702,7 @@ DEFUN (clear_bgp_peer_group_in_prefix_filter,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_group,
@@ -6717,7 +6717,7 @@ ALIAS (clear_bgp_peer_group_in_prefix_filter,
        "Address family\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 
 DEFUN (clear_ip_bgp_external_soft_in,
@@ -6727,8 +6727,8 @@ DEFUN (clear_ip_bgp_external_soft_in,
        IP_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_IN, NULL);
@@ -6741,7 +6741,7 @@ ALIAS (clear_ip_bgp_external_soft_in,
        IP_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_external_in_prefix_filter,
        clear_ip_bgp_external_in_prefix_filter_cmd,
@@ -6750,7 +6750,7 @@ DEFUN (clear_ip_bgp_external_in_prefix_filter,
        IP_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
@@ -6767,8 +6767,8 @@ DEFUN (clear_ip_bgp_external_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_external,
@@ -6788,7 +6788,7 @@ ALIAS (clear_ip_bgp_external_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_external_ipv4_in_prefix_filter,
        clear_ip_bgp_external_ipv4_in_prefix_filter_cmd,
@@ -6800,7 +6800,7 @@ DEFUN (clear_ip_bgp_external_ipv4_in_prefix_filter,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
@@ -6817,8 +6817,8 @@ DEFUN (clear_bgp_external_soft_in,
        CLEAR_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_IN, NULL);
@@ -6831,8 +6831,8 @@ ALIAS (clear_bgp_external_soft_in,
        BGP_STR
        "Address family\n"
        "Clear all external peers\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_external_soft_in,
        clear_bgp_external_in_cmd,
@@ -6840,7 +6840,7 @@ ALIAS (clear_bgp_external_soft_in,
        CLEAR_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_external_soft_in,
        clear_bgp_ipv6_external_in_cmd,
@@ -6849,7 +6849,7 @@ ALIAS (clear_bgp_external_soft_in,
        BGP_STR
        "Address family\n"
        "Clear all external peers\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_bgp_external_in_prefix_filter,
        clear_bgp_external_in_prefix_filter_cmd,
@@ -6857,7 +6857,7 @@ DEFUN (clear_bgp_external_in_prefix_filter,
        CLEAR_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_external,
@@ -6871,7 +6871,7 @@ ALIAS (clear_bgp_external_in_prefix_filter,
        BGP_STR
        "Address family\n"
        "Clear all external peers\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 
 DEFUN (clear_ip_bgp_as_soft_in,
@@ -6881,8 +6881,8 @@ DEFUN (clear_ip_bgp_as_soft_in,
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_as,
 			BGP_CLEAR_SOFT_IN, argv[0]);
@@ -6895,7 +6895,7 @@ ALIAS (clear_ip_bgp_as_soft_in,
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_as_in_prefix_filter,
        clear_ip_bgp_as_in_prefix_filter_cmd,
@@ -6904,7 +6904,7 @@ DEFUN (clear_ip_bgp_as_in_prefix_filter,
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_as,
@@ -6921,8 +6921,8 @@ DEFUN (clear_ip_bgp_as_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_as,
@@ -6942,7 +6942,7 @@ ALIAS (clear_ip_bgp_as_ipv4_soft_in,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
        clear_ip_bgp_as_ipv4_in_prefix_filter_cmd,
@@ -6954,7 +6954,7 @@ DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   if (strncmp (argv[1], "m", 1) == 0)
@@ -6974,8 +6974,8 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft_in,
        "Clear peers with the AS number\n"
        "Address family\n"
        "Address Family modifier\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_as,
 			BGP_CLEAR_SOFT_IN, argv[0]);
@@ -6990,7 +6990,7 @@ ALIAS (clear_ip_bgp_as_vpnv4_soft_in,
        "Clear peers with the AS number\n"
        "Address family\n"
        "Address Family modifier\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_bgp_as_soft_in,
        clear_bgp_as_soft_in_cmd,
@@ -6998,8 +6998,8 @@ DEFUN (clear_bgp_as_soft_in,
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_as,
 			BGP_CLEAR_SOFT_IN, argv[0]);
@@ -7012,8 +7012,8 @@ ALIAS (clear_bgp_as_soft_in,
        BGP_STR
        "Address family\n"
        "Clear peers with the AS number\n"
-       "Soft reconfig\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_as_soft_in,
        clear_bgp_as_in_cmd,
@@ -7021,7 +7021,7 @@ ALIAS (clear_bgp_as_soft_in,
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 ALIAS (clear_bgp_as_soft_in,
        clear_bgp_ipv6_as_in_cmd,
@@ -7030,7 +7030,7 @@ ALIAS (clear_bgp_as_soft_in,
        BGP_STR
        "Address family\n"
        "Clear peers with the AS number\n"
-       "Soft reconfig inbound update\n")
+       BGP_SOFT_IN_STR)
 
 DEFUN (clear_bgp_as_in_prefix_filter,
        clear_bgp_as_in_prefix_filter_cmd,
@@ -7038,7 +7038,7 @@ DEFUN (clear_bgp_as_in_prefix_filter,
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_as,
@@ -7052,7 +7052,7 @@ ALIAS (clear_bgp_as_in_prefix_filter,
        BGP_STR
        "Address family\n"
        "Clear peers with the AS number\n"
-       "Soft reconfig inbound update\n"
+       BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 
 /* Both soft-reconfiguration */
@@ -7063,7 +7063,7 @@ DEFUN (clear_ip_bgp_all_soft,
        IP_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   if (argc == 1)
     return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
@@ -7082,7 +7082,7 @@ ALIAS (clear_ip_bgp_all_soft,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 
 
 DEFUN (clear_ip_bgp_all_ipv4_soft,
@@ -7095,7 +7095,7 @@ DEFUN (clear_ip_bgp_all_ipv4_soft,
        "Address family\n"
        "Address Family Modifier\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
@@ -7117,7 +7117,7 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft,
        "Address family\n"
        "Address Family Modifier\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
@@ -7136,7 +7136,7 @@ DEFUN (clear_ip_bgp_all_vpnv4_soft,
        "Clear all peers\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_all,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7148,7 +7148,7 @@ DEFUN (clear_bgp_all_soft,
        CLEAR_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   if (argc == 1)
     return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_all,
@@ -7166,7 +7166,7 @@ ALIAS (clear_bgp_all_soft,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 
 ALIAS (clear_bgp_all_soft,
        clear_bgp_ipv6_all_soft_cmd,
@@ -7175,7 +7175,7 @@ ALIAS (clear_bgp_all_soft,
        BGP_STR
        "Address family\n"
        "Clear all peers\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 
 DEFUN (clear_ip_bgp_peer_soft,
        clear_ip_bgp_peer_soft_cmd,
@@ -7184,7 +7184,7 @@ DEFUN (clear_ip_bgp_peer_soft,
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7200,7 +7200,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft,
        "Address family\n"
        "Address Family Modifier\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_peer,
@@ -7219,7 +7219,7 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft,
        "BGP neighbor address to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_peer,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7233,7 +7233,7 @@ DEFUN (clear_bgp_peer_soft,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7248,7 +7248,7 @@ ALIAS (clear_bgp_peer_soft,
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 
 DEFUN (clear_ip_bgp_peer_group_soft,
        clear_ip_bgp_peer_group_soft_cmd,
@@ -7258,7 +7258,7 @@ DEFUN (clear_ip_bgp_peer_group_soft,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7275,7 +7275,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_group,
@@ -7292,7 +7292,7 @@ DEFUN (clear_bgp_peer_group_soft,
        BGP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_group,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7306,7 +7306,7 @@ ALIAS (clear_bgp_peer_group_soft,
        "Address family\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 
 DEFUN (clear_ip_bgp_external_soft,
        clear_ip_bgp_external_soft_cmd,
@@ -7315,7 +7315,7 @@ DEFUN (clear_ip_bgp_external_soft,
        IP_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_BOTH, NULL);
@@ -7331,7 +7331,7 @@ DEFUN (clear_ip_bgp_external_ipv4_soft,
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_external,
@@ -7347,7 +7347,7 @@ DEFUN (clear_bgp_external_soft,
        CLEAR_STR
        BGP_STR
        "Clear all external peers\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_BOTH, NULL);
@@ -7360,7 +7360,7 @@ ALIAS (clear_bgp_external_soft,
        BGP_STR
        "Address family\n"
        "Clear all external peers\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 
 DEFUN (clear_ip_bgp_as_soft,
        clear_ip_bgp_as_soft_cmd,
@@ -7369,7 +7369,7 @@ DEFUN (clear_ip_bgp_as_soft,
        IP_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_as,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7385,7 +7385,7 @@ DEFUN (clear_ip_bgp_as_ipv4_soft,
        "Address family\n"
        "Address Family Modifier\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   if (strncmp (argv[1], "m", 1) == 0)
     return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_as,
@@ -7404,7 +7404,7 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft,
        "Clear peers with the AS number\n"
        "Address family\n"
        "Address Family Modifier\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_as,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7416,7 +7416,7 @@ DEFUN (clear_bgp_as_soft,
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_as,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
@@ -7429,7 +7429,7 @@ ALIAS (clear_bgp_as_soft,
        BGP_STR
        "Address family\n"
        "Clear peers with the AS number\n"
-       "Soft reconfig\n")
+       BGP_SOFT_STR)
 
 /* RS-client soft reconfiguration. */
 #ifdef HAVE_IPV6
@@ -7439,7 +7439,7 @@ DEFUN (clear_bgp_all_rsclient,
        CLEAR_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 {
   if (argc == 1)
     return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_all,
@@ -7456,7 +7456,7 @@ ALIAS (clear_bgp_all_rsclient,
        BGP_STR
        "Address family\n"
        "Clear all peers\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 
 ALIAS (clear_bgp_all_rsclient,
        clear_bgp_instance_all_rsclient_cmd,
@@ -7466,7 +7466,7 @@ ALIAS (clear_bgp_all_rsclient,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 
 ALIAS (clear_bgp_all_rsclient,
        clear_bgp_ipv6_instance_all_rsclient_cmd,
@@ -7477,7 +7477,7 @@ ALIAS (clear_bgp_all_rsclient,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 #endif /* HAVE_IPV6 */
 
 DEFUN (clear_ip_bgp_all_rsclient,
@@ -7487,7 +7487,7 @@ DEFUN (clear_ip_bgp_all_rsclient,
        IP_STR
        BGP_STR
        "Clear all peers\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 {
   if (argc == 1)
     return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
@@ -7506,7 +7506,7 @@ ALIAS (clear_ip_bgp_all_rsclient,
        "BGP view\n"
        "view name\n"
        "Clear all peers\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 
 #ifdef HAVE_IPV6
 DEFUN (clear_bgp_peer_rsclient,
@@ -7517,7 +7517,7 @@ DEFUN (clear_bgp_peer_rsclient,
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 {
   if (argc == 2)
     return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_peer,
@@ -7536,7 +7536,7 @@ ALIAS (clear_bgp_peer_rsclient,
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 
 ALIAS (clear_bgp_peer_rsclient,
        clear_bgp_instance_peer_rsclient_cmd,
@@ -7548,7 +7548,7 @@ ALIAS (clear_bgp_peer_rsclient,
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 
 ALIAS (clear_bgp_peer_rsclient,
        clear_bgp_ipv6_instance_peer_rsclient_cmd,
@@ -7561,7 +7561,7 @@ ALIAS (clear_bgp_peer_rsclient,
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 #endif /* HAVE_IPV6 */
 
 DEFUN (clear_ip_bgp_peer_rsclient,
@@ -7573,7 +7573,7 @@ DEFUN (clear_ip_bgp_peer_rsclient,
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 {
   if (argc == 2)
     return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_peer,
@@ -7594,7 +7594,7 @@ ALIAS (clear_ip_bgp_peer_rsclient,
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
-       "Soft reconfig for rsclient RIB\n")
+       BGP_SOFT_RSCLIENT_RIB_STR)
 
 DEFUN (show_bgp_views,
        show_bgp_views_cmd,
