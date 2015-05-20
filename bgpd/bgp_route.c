@@ -324,7 +324,7 @@ bgp_med_value (struct attr *attr, struct bgp *bgp)
 /* Compare two bgp route entity.  br is preferable then return 1. */
 static int
 bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
-	      int *paths_eq)
+	      int *paths_eq, struct bgp_maxpaths_cfg *mpath_cfg)
 {
   struct attr *newattr, *existattr;
   struct attr_extra *newattre, *existattre;
@@ -477,6 +477,26 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (newm > existm)
     ret = 0;
 
+  /* 8.1. Same IGP metric. Compare the cluster list length as
+     representative of IGP hops metric. Rewrite the metric value
+     pair (newm, existm) with the cluster list length. Prefer the
+     path with smaller cluster list length.                       */
+  if (newm == existm)
+    {
+      if (peer_sort (new->peer) == BGP_PEER_IBGP
+	  && peer_sort (exist->peer) == BGP_PEER_IBGP
+	  && CHECK_FLAG (mpath_cfg->ibgp_flags,
+			 BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN))
+	{
+	  newm = BGP_CLUSTER_LIST_LENGTH(new->attr);
+	  existm = BGP_CLUSTER_LIST_LENGTH(exist->attr);
+	  if (newm < existm)
+	    ret = 1;
+	  if (newm > existm)
+	    ret = 0;
+	}
+    }
+
   /* 9. Maximum path check. */
   if (newm == existm)
     {
@@ -540,12 +560,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     return 0;
 
   /* 12. Cluster length comparision. */
-  new_cluster = exist_cluster = 0;
-
-  if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))
-    new_cluster = newattre->cluster->length;
-  if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))
-    exist_cluster = existattre->cluster->length;
+  new_cluster = BGP_CLUSTER_LIST_LENGTH(new->attr);
+  exist_cluster = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
   if (new_cluster < exist_cluster)
     return 1;
@@ -1352,7 +1368,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 		{
 		  if (CHECK_FLAG (ri2->flags, BGP_INFO_SELECTED))
 		    old_select = ri2;
-		  if (bgp_info_cmp (bgp, ri2, new_select, &paths_eq))
+		  if (bgp_info_cmp (bgp, ri2, new_select, &paths_eq,
+				    mpath_cfg))
 		    {
 		      bgp_info_unset_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
 		      new_select = ri2;
@@ -1405,7 +1422,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
       bgp_info_unset_flag (rn, ri, BGP_INFO_DMED_CHECK);
       bgp_info_unset_flag (rn, ri, BGP_INFO_DMED_SELECTED);
 
-      if (bgp_info_cmp (bgp, ri, new_select, &paths_eq))
+      if (bgp_info_cmp (bgp, ri, new_select, &paths_eq, mpath_cfg))
 	{
 	  if (do_mpath && bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
 	    bgp_mp_dmed_deselect (new_select);

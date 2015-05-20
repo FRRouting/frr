@@ -169,6 +169,8 @@ struct bgp
   struct bgp_maxpaths_cfg {
     u_int16_t maxpaths_ebgp;
     u_int16_t maxpaths_ibgp;
+    u_int16_t ibgp_flags;
+#define BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN (1 << 0)
   } maxpaths[AFI_MAX][SAFI_MAX];
 };
 

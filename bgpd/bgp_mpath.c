@@ -46,7 +46,7 @@
  */
 int
 bgp_maximum_paths_set (struct bgp *bgp, afi_t afi, safi_t safi,
-                       int peertype, u_int16_t maxpaths)
+                       int peertype, u_int16_t maxpaths, u_int16_t options)
 {
   if (!bgp || (afi >= AFI_MAX) || (safi >= SAFI_MAX))
     return -1;
@@ -55,6 +55,7 @@ bgp_maximum_paths_set (struct bgp *bgp, afi_t afi, safi_t safi,
     {
     case BGP_PEER_IBGP:
       bgp->maxpaths[afi][safi].maxpaths_ibgp = maxpaths;
+      bgp->maxpaths[afi][safi].ibgp_flags |= options;
       break;
     case BGP_PEER_EBGP:
       bgp->maxpaths[afi][safi].maxpaths_ebgp = maxpaths;
@@ -82,6 +83,7 @@ bgp_maximum_paths_unset (struct bgp *bgp, afi_t afi, safi_t safi,
     {
     case BGP_PEER_IBGP:
       bgp->maxpaths[afi][safi].maxpaths_ibgp = BGP_DEFAULT_MAXPATHS;
+      bgp->maxpaths[afi][safi].ibgp_flags = 0;
       break;
     case BGP_PEER_EBGP:
       bgp->maxpaths[afi][safi].maxpaths_ebgp = BGP_DEFAULT_MAXPATHS;

@@ -132,6 +132,10 @@ struct transit
 
 #define ATTR_FLAG_BIT(X)  (1 << ((X) - 1))
 
+#define BGP_CLUSTER_LIST_LENGTH(attr)				\
+  (((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) ?	\
+   (attr)->extra->cluster->length : 0)
+
 typedef enum {
  BGP_ATTR_PARSE_PROCEED = 0,
  BGP_ATTR_PARSE_ERROR = -1,

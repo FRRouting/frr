@@ -651,6 +651,48 @@ DEFUN (no_bgp_confederation_peers,
   return CMD_SUCCESS;
 }
 
+/**
+ * Central routine for maximum-paths configuration.
+ * @peer_type: BGP_PEER_EBGP or BGP_PEER_IBGP
+ * @set: 1 for setting values, 0 for removing the max-paths config.
+ */
+int
+bgp_maxpaths_config_vty (struct vty *vty, int peer_type, char *mpaths,
+			 u_int16_t options, int set)
+{
+  struct bgp *bgp;
+  u_int16_t maxpaths;
+  int ret;
+  afi_t afi;
+  safi_t safi;
+
+  bgp = vty->index;
+  afi = bgp_node_afi (vty);
+  safi = bgp_node_safi (vty);
+
+  if (set)
+    {
+      VTY_GET_INTEGER_RANGE ("maximum-paths", maxpaths, mpaths, 1, 255);
+      ret = bgp_maximum_paths_set (bgp, afi, safi, peer_type, maxpaths,
+				   options);
+    }
+  else
+    ret = bgp_maximum_paths_unset (bgp, afi, safi, peer_type);
+
+  if (ret < 0)
+    {
+      vty_out (vty,
+	       "%% Failed to %sset maximum-paths %s %u for afi %u, safi %u%s",
+	       (set == 1) ? "" : "un",
+	       (peer_type == BGP_PEER_EBGP) ? "ebgp" : "ibgp",
+	       maxpaths, afi, safi, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
+}
+
+
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
@@ -658,25 +700,7 @@ DEFUN (bgp_maxpaths,
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
-  struct bgp *bgp;
-  u_int16_t maxpaths;
-  int ret;
-
-  bgp = vty->index;
-
-  VTY_GET_INTEGER_RANGE ("maximum-paths", maxpaths, argv[0], 1, 255);
-
-  ret = bgp_maximum_paths_set (bgp, bgp_node_afi (vty), bgp_node_safi(vty),
-			       BGP_PEER_EBGP, maxpaths);
-  if (ret < 0)
-    {
-      vty_out (vty,
-	       "%% Failed to set maximum-paths %u for afi %u, safi %u%s",
-	       maxpaths, bgp_node_afi (vty), bgp_node_safi(vty), VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
+  return bgp_maxpaths_config_vty(vty, BGP_PEER_EBGP, argv[0], 0, 1);
 }
 
 DEFUN (bgp_maxpaths_ibgp,
@@ -686,25 +710,19 @@ DEFUN (bgp_maxpaths_ibgp,
        "iBGP-multipath\n"
        "Number of paths\n")
 {
-  struct bgp *bgp;
-  u_int16_t maxpaths;
-  int ret;
+  return bgp_maxpaths_config_vty(vty, BGP_PEER_IBGP, argv[0], 0, 1);
+}
 
-  bgp = vty->index;
-
-  VTY_GET_INTEGER_RANGE ("maximum-paths", maxpaths, argv[0], 1, 255);
-
-  ret = bgp_maximum_paths_set (bgp, bgp_node_afi (vty), bgp_node_safi(vty),
-			       BGP_PEER_IBGP, maxpaths);
-  if (ret < 0)
-    {
-      vty_out (vty,
-	       "%% Failed to set maximum-paths ibgp %u for afi %u, safi %u%s",
-	       maxpaths, bgp_node_afi (vty), bgp_node_safi(vty), VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
+DEFUN (bgp_maxpaths_ibgp_cluster,
+       bgp_maxpaths_ibgp_cluster_cmd,
+       "maximum-paths ibgp <1-255> equal-cluster-length",
+       "Forward packets over multiple paths\n"
+       "iBGP-multipath\n"
+       "Number of paths\n"
+       "Match the cluster length\n")
+{
+  return bgp_maxpaths_config_vty(vty, BGP_PEER_IBGP, argv[0],
+				 BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN, 1);
 }
 
 DEFUN (no_bgp_maxpaths,
@@ -714,22 +732,7 @@ DEFUN (no_bgp_maxpaths,
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
-  struct bgp *bgp;
-  int ret;
-
-  bgp = vty->index;
-
-  ret = bgp_maximum_paths_unset (bgp, bgp_node_afi (vty), bgp_node_safi(vty),
-				 BGP_PEER_EBGP);
-  if (ret < 0)
-    {
-      vty_out (vty,
-	       "%% Failed to unset maximum-paths for afi %u, safi %u%s",
-	       bgp_node_afi (vty), bgp_node_safi(vty), VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
+  return bgp_maxpaths_config_vty(vty, BGP_PEER_EBGP, NULL, 0, 0);
 }
 
 ALIAS (no_bgp_maxpaths,
@@ -747,22 +750,7 @@ DEFUN (no_bgp_maxpaths_ibgp,
        "iBGP-multipath\n"
        "Number of paths\n")
 {
-  struct bgp *bgp;
-  int ret;
-
-  bgp = vty->index;
-
-  ret = bgp_maximum_paths_unset (bgp, bgp_node_afi (vty), bgp_node_safi(vty),
-				 BGP_PEER_IBGP);
-  if (ret < 0)
-    {
-      vty_out (vty,
-	       "%% Failed to unset maximum-paths ibgp for afi %u, safi %u%s",
-	       bgp_node_afi (vty), bgp_node_safi(vty), VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return CMD_SUCCESS;
+  return bgp_maxpaths_config_vty(vty, BGP_PEER_IBGP, NULL, 0, 0);
 }
 
 ALIAS (no_bgp_maxpaths_ibgp,
@@ -772,6 +760,15 @@ ALIAS (no_bgp_maxpaths_ibgp,
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n")
+
+ALIAS (no_bgp_maxpaths_ibgp,
+       no_bgp_maxpaths_ibgp_cluster_cmd,
+       "no maximum-paths ibgp <1-255> equal-cluster-length",
+       NO_STR
+       "Forward packets over multiple paths\n"
+       "iBGP-multipath\n"
+       "Number of paths\n"
+       "Match the cluster length\n")
 
 int
 bgp_config_write_maxpaths (struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -787,8 +784,12 @@ bgp_config_write_maxpaths (struct vty *vty, struct bgp *bgp, afi_t afi,
   if (bgp->maxpaths[afi][safi].maxpaths_ibgp != BGP_DEFAULT_MAXPATHS)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
-      vty_out (vty, " maximum-paths ibgp %d%s",
-	       bgp->maxpaths[afi][safi].maxpaths_ibgp, VTY_NEWLINE);
+      vty_out (vty, " maximum-paths ibgp %d",
+	       bgp->maxpaths[afi][safi].maxpaths_ibgp);
+      if (CHECK_FLAG (bgp->maxpaths[afi][safi].ibgp_flags,
+		      BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN))
+	vty_out (vty, " equal-cluster-length");
+      vty_out (vty, "%s", VTY_NEWLINE);
     }
 
   return 0;
@@ -9179,14 +9180,20 @@ bgp_vty_init (void)
   install_element (BGP_IPV6_NODE, &no_bgp_maxpaths_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_maxpaths_arg_cmd);
   install_element (BGP_NODE, &bgp_maxpaths_ibgp_cmd);
+  install_element(BGP_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
   install_element (BGP_NODE, &no_bgp_maxpaths_ibgp_cmd);
   install_element (BGP_NODE, &no_bgp_maxpaths_ibgp_arg_cmd);
+  install_element (BGP_NODE, &no_bgp_maxpaths_ibgp_cluster_cmd);
   install_element (BGP_IPV4_NODE, &bgp_maxpaths_ibgp_cmd);
+  install_element(BGP_IPV4_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_maxpaths_ibgp_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_maxpaths_ibgp_cluster_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_maxpaths_ibgp_arg_cmd);
   install_element (BGP_IPV6_NODE, &bgp_maxpaths_ibgp_cmd);
+  install_element(BGP_IPV6_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_maxpaths_ibgp_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_maxpaths_ibgp_arg_cmd);
+  install_element (BGP_IPV6_NODE, &no_bgp_maxpaths_ibgp_cluster_cmd);
 
   /* "timers bgp" commands. */
   install_element (BGP_NODE, &bgp_timers_cmd);

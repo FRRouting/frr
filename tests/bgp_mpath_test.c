@@ -157,9 +157,9 @@ run_bgp_cfg_maximum_paths (testcase_t *t)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
         /* test bgp_maximum_paths_set */
-        api_result = bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_EBGP, 10);
+        api_result = bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_EBGP, 10, 0);
         EXPECT_TRUE (api_result == 0, test_result);
-        api_result = bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_IBGP, 10);
+        api_result = bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_IBGP, 10, 0);
         EXPECT_TRUE (api_result == 0, test_result);
         EXPECT_TRUE (bgp->maxpaths[afi][safi].maxpaths_ebgp == 10, test_result);
         EXPECT_TRUE (bgp->maxpaths[afi][safi].maxpaths_ibgp == 10, test_result);
