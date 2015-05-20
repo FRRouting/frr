@@ -6366,9 +6366,15 @@ bgp_config_write (struct vty *vty)
 	vty_out (vty, " bgp bestpath as-path ignore%s", VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_CONFED))
 	vty_out (vty, " bgp bestpath as-path confed%s", VTY_NEWLINE);
+
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
-	vty_out (vty, " bgp bestpath as-path multipath-relax%s", VTY_NEWLINE);
+        if (bgp_flag_check (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET)) {
+	  vty_out (vty, " bgp bestpath as-path multipath-relax no-as-set%s", VTY_NEWLINE);
+        } else {
+	  vty_out (vty, " bgp bestpath as-path multipath-relax%s", VTY_NEWLINE);
+        }
       }
+
       if (bgp_flag_check (bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
 	vty_out (vty, " bgp route-reflector allow-outbound-policy%s",
 		 VTY_NEWLINE);

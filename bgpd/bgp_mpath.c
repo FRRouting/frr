@@ -660,71 +660,76 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
 
   bgp_attr_dup (&attr, new_best->attr);
 
-  /* aggregate attribute from multipath constituents */
-  aspath = aspath_dup (attr.aspath);
-  origin = attr.origin;
-  community = attr.community ? community_dup (attr.community) : NULL;
-  ae = attr.extra;
-  ecomm = (ae && ae->ecommunity) ? ecommunity_dup (ae->ecommunity) : NULL;
-
-  for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
-       mpinfo = bgp_info_mpath_next (mpinfo))
+  if (new_best->peer &&
+      !bgp_flag_check (new_best->peer->bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET))
     {
-      asmerge = aspath_aggregate (aspath, mpinfo->attr->aspath);
-      aspath_free (aspath);
-      aspath = asmerge;
 
-      if (origin < mpinfo->attr->origin)
-        origin = mpinfo->attr->origin;
+      /* aggregate attribute from multipath constituents */
+      aspath = aspath_dup (attr.aspath);
+      origin = attr.origin;
+      community = attr.community ? community_dup (attr.community) : NULL;
+      ae = attr.extra;
+      ecomm = (ae && ae->ecommunity) ? ecommunity_dup (ae->ecommunity) : NULL;
 
-      if (mpinfo->attr->community)
+      for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
+           mpinfo = bgp_info_mpath_next (mpinfo))
         {
-          if (community)
+          asmerge = aspath_aggregate (aspath, mpinfo->attr->aspath);
+          aspath_free (aspath);
+          aspath = asmerge;
+
+          if (origin < mpinfo->attr->origin)
+            origin = mpinfo->attr->origin;
+
+          if (mpinfo->attr->community)
             {
-              commerge = community_merge (community, mpinfo->attr->community);
-              community = community_uniq_sort (commerge);
-              community_free (commerge);
+              if (community)
+                {
+                  commerge = community_merge (community, mpinfo->attr->community);
+                  community = community_uniq_sort (commerge);
+                  community_free (commerge);
+                }
+              else
+                community = community_dup (mpinfo->attr->community);
             }
-          else
-            community = community_dup (mpinfo->attr->community);
+
+          ae = mpinfo->attr->extra;
+          if (ae && ae->ecommunity)
+            {
+              if (ecomm)
+                {
+                  ecommerge = ecommunity_merge (ecomm, ae->ecommunity);
+                  ecomm = ecommunity_uniq_sort (ecommerge);
+                  ecommunity_free (&ecommerge);
+                }
+              else
+                ecomm = ecommunity_dup (ae->ecommunity);
+            }
         }
 
-      ae = mpinfo->attr->extra;
-      if (ae && ae->ecommunity)
+      attr.aspath = aspath;
+      attr.origin = origin;
+      if (community)
         {
-          if (ecomm)
-            {
-              ecommerge = ecommunity_merge (ecomm, ae->ecommunity);
-              ecomm = ecommunity_uniq_sort (ecommerge);
-              ecommunity_free (&ecommerge);
-            }
-          else
-            ecomm = ecommunity_dup (ae->ecommunity);
+          attr.community = community;
+          attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
         }
-    }
+      if (ecomm)
+        {
+          ae = bgp_attr_extra_get (&attr);
+          ae->ecommunity = ecomm;
+          attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
+        }
 
-  attr.aspath = aspath;
-  attr.origin = origin;
-  if (community)
-    {
-      attr.community = community;
-      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
-    }
-  if (ecomm)
-    {
-      ae = bgp_attr_extra_get (&attr);
-      ae->ecommunity = ecomm;
-      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
-    }
-
-  /* Zap multipath attr nexthop so we set nexthop to self */
-  attr.nexthop.s_addr = 0;
+      /* Zap multipath attr nexthop so we set nexthop to self */
+      attr.nexthop.s_addr = 0;
 #ifdef HAVE_IPV6
-  if (attr.extra)
-    memset (&attr.extra->mp_nexthop_global, 0, sizeof (struct in6_addr));
+      if (attr.extra)
+        memset (&attr.extra->mp_nexthop_global, 0, sizeof (struct in6_addr));
 #endif /* HAVE_IPV6 */
 
-  /* TODO: should we set ATOMIC_AGGREGATE and AGGREGATOR? */
+      /* TODO: should we set ATOMIC_AGGREGATE and AGGREGATOR? */
+    }
 
   new_attr = bgp_attr_intern (&attr);
   bgp_attr_extra_free (&attr);

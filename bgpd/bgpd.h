@@ -238,6 +238,7 @@ struct bgp
 #define BGP_FLAG_ASPATH_MULTIPATH_RELAX   (1 << 14)
 #define BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY (1 << 15)
 #define BGP_FLAG_DISABLE_NH_CONNECTED_CHK (1 << 16)
+#define BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET (1 << 17)
 
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];

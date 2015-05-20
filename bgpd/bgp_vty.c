@@ -1588,6 +1588,7 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
 
   bgp = vty->index;
   bgp_flag_set (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+  bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET);
   return CMD_SUCCESS;
 }
 
@@ -1604,6 +1605,43 @@ DEFUN (no_bgp_bestpath_aspath_multipath_relax,
 
   bgp = vty->index;
   bgp_flag_unset (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+  bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET);
+  return CMD_SUCCESS;
+}
+
+/* "bgp bestpath as-path multipath-relax no-as-set" configuration.  */
+DEFUN (bgp_bestpath_aspath_multipath_relax_no_as_set,
+       bgp_bestpath_aspath_multipath_relax_no_as_set_cmd,
+       "bgp bestpath as-path multipath-relax no-as-set",
+       "BGP specific commands\n"
+       "Change the default bestpath selection\n"
+       "AS-path attribute\n"
+       "Allow load sharing across routes that have different AS paths (but same length)\n"
+       "Do not generate an AS_SET\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_set (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+  bgp_flag_set (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_bestpath_aspath_multipath_relax_no_as_set,
+       no_bgp_bestpath_aspath_multipath_relax_no_as_set_cmd,
+       "no bgp bestpath as-path multipath-relax no-as-set",
+       NO_STR
+       "BGP specific commands\n"
+       "Change the default bestpath selection\n"
+       "AS-path attribute\n"
+       "Allow load sharing across routes that have different AS paths (but same length)\n"
+       "Do not generate an AS_SET\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_unset (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+  bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET);
   return CMD_SUCCESS;
 }
 
@@ -11418,6 +11456,10 @@ bgp_vty_init (void)
   /* "bgp bestpath as-path multipath-relax" commands */
   install_element (BGP_NODE, &bgp_bestpath_aspath_multipath_relax_cmd);
   install_element (BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_cmd);
+
+  /* "bgp bestpath as-path multipath-relax no-as-set" commands */
+  install_element (BGP_NODE, &bgp_bestpath_aspath_multipath_relax_no_as_set_cmd);
+  install_element (BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_no_as_set_cmd);
 
   /* "bgp log-neighbor-changes" commands */
   install_element (BGP_NODE, &bgp_log_neighbor_changes_cmd);
