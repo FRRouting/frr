@@ -248,7 +248,7 @@ bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
       || ri->peer == ri->peer->bgp->peer_self)
     return;
     
-  if (BGP_INFO_HOLDDOWN (ri)
+  if (!BGP_INFO_COUNTABLE (ri)
       && CHECK_FLAG (ri->flags, BGP_INFO_COUNTED))
     {
           
@@ -265,7 +265,7 @@ bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
           zlog_warn ("%s: Please report to Quagga bugzilla", __func__);
         }      
     }
-  else if (!BGP_INFO_HOLDDOWN (ri) 
+  else if (BGP_INFO_COUNTABLE (ri)
            && !CHECK_FLAG (ri->flags, BGP_INFO_COUNTED))
     {
       SET_FLAG (ri->flags, BGP_INFO_COUNTED);
@@ -282,8 +282,8 @@ bgp_info_set_flag (struct bgp_node *rn, struct bgp_info *ri, u_int32_t flag)
 {
   SET_FLAG (ri->flags, flag);
   
-  /* early bath if we know it's not a flag that changes useability state */
-  if (!CHECK_FLAG (flag, BGP_INFO_VALID|BGP_INFO_UNUSEABLE))
+  /* early bath if we know it's not a flag that changes countability state */
+  if (!CHECK_FLAG (flag, BGP_INFO_VALID|BGP_INFO_HISTORY|BGP_INFO_REMOVED))
     return;
   
   bgp_pcount_adjust (rn, ri);
@@ -294,8 +294,8 @@ bgp_info_unset_flag (struct bgp_node *rn, struct bgp_info *ri, u_int32_t flag)
 {
   UNSET_FLAG (ri->flags, flag);
   
-  /* early bath if we know it's not a flag that changes useability state */
-  if (!CHECK_FLAG (flag, BGP_INFO_VALID|BGP_INFO_UNUSEABLE))
+  /* early bath if we know it's not a flag that changes countability state */
+  if (!CHECK_FLAG (flag, BGP_INFO_VALID|BGP_INFO_HISTORY|BGP_INFO_REMOVED))
     return;
   
   bgp_pcount_adjust (rn, ri);

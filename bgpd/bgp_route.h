@@ -136,6 +136,10 @@ struct bgp_static
   u_char tag[3];
 };
 
+#define BGP_INFO_COUNTABLE(BI) \
+  (! CHECK_FLAG ((BI)->flags, BGP_INFO_HISTORY) \
+   && ! CHECK_FLAG ((BI)->flags, BGP_INFO_REMOVED))
+
 /* Flags which indicate a route is unuseable in some form */
 #define BGP_INFO_UNUSEABLE \
   (BGP_INFO_HISTORY|BGP_INFO_DAMPED|BGP_INFO_REMOVED)
