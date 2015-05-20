@@ -4491,36 +4491,30 @@ peer_password_unset (struct peer *peer)
 }
 
 /*
- * peer_on_policy_change
- *
  * Helper function that is called after the name of the policy
- * being used by a peer_af has changed.
+ * being used by a peer has changed (AF specific). Automatically
+ * initiates inbound or outbound processing as needed.
  */
 static void
-peer_on_policy_change (struct peer *peer, afi_t afi, safi_t safi)
+peer_on_policy_change (struct peer *peer, afi_t afi, safi_t safi, int outbound)
 {
-  update_group_adjust_peer (peer_af_find (peer, afi, safi));
-}
-
-/* Set route-map to the peer. */
-static void
-peer_reprocess_routes (struct peer *peer, int direct,
-		       afi_t afi, safi_t safi)
-{
-  if (peer->status != Established)
-    return;
-
-  if (direct != RMAP_OUT)
+  if (outbound)
     {
-      if (CHECK_FLAG (peer->af_flags[afi][safi],
-		      PEER_FLAG_SOFT_RECONFIG))
-	bgp_soft_reconfig_in (peer, afi, safi);
-      else if (CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV)
-	       || CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-	bgp_route_refresh_send (peer, afi, safi, 0, 0, 0);
+      update_group_adjust_peer (peer_af_find (peer, afi, safi));
+      if (peer->status == Established)
+        bgp_announce_route(peer, afi, safi);
     }
   else
-    bgp_announce_route(peer, afi, safi);
+    {
+      if (peer->status != Established)
+        return;
+
+      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+        bgp_soft_reconfig_in (peer, afi, safi);
+      else if (CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV)
+             || CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV))
+        bgp_route_refresh_send (peer, afi, safi, 0, 0, 0);
+    }
 }
 
 
@@ -4554,8 +4548,8 @@ peer_distribute_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
       return 0;
     }
 
@@ -4571,9 +4565,8 @@ peer_distribute_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 	free (filter->dlist[direct].name);
       filter->dlist[direct].name = strdup (name);
       filter->dlist[direct].alist = access_list_lookup (afi, name);
-
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
     }
 
   return 0;
@@ -4609,8 +4602,8 @@ peer_distribute_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 	    free (filter->dlist[direct].name);
 	  filter->dlist[direct].name = strdup (gfilter->dlist[direct].name);
 	  filter->dlist[direct].alist = gfilter->dlist[direct].alist;
-	  if (direct == FILTER_OUT)
-	    peer_on_policy_change (peer, afi, safi);
+          peer_on_policy_change(peer, afi, safi,
+                                (direct == FILTER_OUT) ? 1 : 0);
 	  return 0;
 	}
     }
@@ -4622,26 +4615,26 @@ peer_distribute_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
       return 0;
     }
 
-    group = peer->group;
-    for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
-      {
-	filter = &peer->filter[afi][safi];
+  group = peer->group;
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+    {
+      filter = &peer->filter[afi][safi];
 
-	if (! peer->af_group[afi][safi])
-	  continue;
+      if (! peer->af_group[afi][safi])
+        continue;
 
-	if (filter->dlist[direct].name)
-	  free (filter->dlist[direct].name);
-	filter->dlist[direct].name = NULL;
-	filter->dlist[direct].alist = NULL;
-	if (direct == FILTER_OUT)
-	  peer_on_policy_change (peer, afi, safi);
-      }
+      if (filter->dlist[direct].name)
+        free (filter->dlist[direct].name);
+      filter->dlist[direct].name = NULL;
+      filter->dlist[direct].alist = NULL;
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
+    }
 
   return 0;
 }
@@ -4732,8 +4725,8 @@ peer_prefix_list_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
       return 0;
     }
 
@@ -4749,9 +4742,8 @@ peer_prefix_list_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 	free (filter->plist[direct].name);
       filter->plist[direct].name = strdup (name);
       filter->plist[direct].plist = prefix_list_lookup (afi, name);
-
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
     }
   return 0;
 }
@@ -4786,8 +4778,8 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 	    free (filter->plist[direct].name);
 	  filter->plist[direct].name = strdup (gfilter->plist[direct].name);
 	  filter->plist[direct].plist = gfilter->plist[direct].plist;
-	  if (direct == FILTER_OUT)
-	    peer_on_policy_change (peer, afi, safi);
+          peer_on_policy_change(peer, afi, safi,
+                                (direct == FILTER_OUT) ? 1 : 0);
 	  return 0;
 	}
     }
@@ -4799,8 +4791,8 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
       return 0;
     }
 
@@ -4816,9 +4808,8 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 	free (filter->plist[direct].name);
       filter->plist[direct].name = NULL;
       filter->plist[direct].plist = NULL;
-
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
     }
 
   return 0;
@@ -4910,8 +4901,8 @@ peer_aslist_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
       return 0;
     }
 
@@ -4927,8 +4918,8 @@ peer_aslist_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 	free (filter->aslist[direct].name);
       filter->aslist[direct].name = strdup (name);
       filter->aslist[direct].aslist = as_list_lookup (name);
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
     }
   return 0;
 }
@@ -4963,8 +4954,8 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
 	    free (filter->aslist[direct].name);
 	  filter->aslist[direct].name = strdup (gfilter->aslist[direct].name);
 	  filter->aslist[direct].aslist = gfilter->aslist[direct].aslist;
-          if (direct == FILTER_OUT)
-            peer_on_policy_change (peer, afi, safi);
+          peer_on_policy_change(peer, afi, safi,
+                                (direct == FILTER_OUT) ? 1 : 0);
 	  return 0;
 	}
     }
@@ -4976,8 +4967,8 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (direct == FILTER_OUT)
-	peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
       return 0;
     }
 
@@ -4993,9 +4984,8 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
 	free (filter->aslist[direct].name);
       filter->aslist[direct].name = NULL;
       filter->aslist[direct].aslist = NULL;
-
-      if (direct == FILTER_OUT)
-        peer_on_policy_change (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == FILTER_OUT) ? 1 : 0);
     }
 
   return 0;
@@ -5100,9 +5090,8 @@ peer_route_map_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (direct == RMAP_OUT)
-	peer_on_policy_change (peer, afi, safi);
-      peer_reprocess_routes(peer, direct, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == RMAP_OUT) ? 1 : 0);
       return 0;
     }
 
@@ -5118,9 +5107,8 @@ peer_route_map_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 	free (filter->map[direct].name);
       filter->map[direct].name = strdup (name);
       filter->map[direct].map = route_map_lookup_by_name (name);
-      if (direct == RMAP_OUT)
-	peer_on_policy_change (peer, afi, safi);
-      peer_reprocess_routes (peer, direct, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == RMAP_OUT) ? 1 : 0);
     }
   return 0;
 }
@@ -5158,8 +5146,8 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 	    free (filter->map[direct].name);
 	  filter->map[direct].name = strdup (gfilter->map[direct].name);
 	  filter->map[direct].map = gfilter->map[direct].map;
-	  if (direct == RMAP_OUT)
-	    peer_on_policy_change (peer, afi, safi);
+          peer_on_policy_change(peer, afi, safi,
+                                (direct == RMAP_OUT) ? 1 : 0);
 	  return 0;
 	}
     }
@@ -5171,9 +5159,8 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (direct == RMAP_OUT)
-	peer_on_policy_change (peer, afi, safi);
-      peer_reprocess_routes(peer, direct, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == RMAP_OUT) ? 1 : 0);
       return 0;
     }
 
@@ -5189,9 +5176,8 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 	free (filter->map[direct].name);
       filter->map[direct].name = NULL;
       filter->map[direct].map = NULL;
-      if (direct == RMAP_OUT)
-	peer_on_policy_change (peer, afi, safi);
-      peer_reprocess_routes(peer, direct, afi, safi);
+      peer_on_policy_change(peer, afi, safi,
+                            (direct == RMAP_OUT) ? 1 : 0);
     }
   return 0;
 }
@@ -5221,8 +5207,7 @@ peer_unsuppress_map_set (struct peer *peer, afi_t afi, safi_t safi,
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      peer_on_policy_change (peer, afi, safi);
-      bgp_announce_route (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi, 1);
       return 0;
     }
 
@@ -5238,8 +5223,7 @@ peer_unsuppress_map_set (struct peer *peer, afi_t afi, safi_t safi,
 	free (filter->usmap.name);
       filter->usmap.name = strdup (name);
       filter->usmap.map = route_map_lookup_by_name (name);
-      peer_on_policy_change (peer, afi, safi);
-      bgp_announce_route (peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi, 1);
     }
   return 0;
 }
@@ -5267,8 +5251,7 @@ peer_unsuppress_map_unset (struct peer *peer, afi_t afi, safi_t safi)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      peer_on_policy_change (peer, afi, safi);
-      bgp_announce_route(peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi, 1);
       return 0;
     }
 
@@ -5284,8 +5267,7 @@ peer_unsuppress_map_unset (struct peer *peer, afi_t afi, safi_t safi)
 	free (filter->usmap.name);
       filter->usmap.name = NULL;
       filter->usmap.map = NULL;
-      peer_on_policy_change (peer, afi, safi);
-      bgp_announce_route(peer, afi, safi);
+      peer_on_policy_change(peer, afi, safi, 1);
     }
   return 0;
 }
