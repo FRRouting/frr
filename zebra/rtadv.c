@@ -1618,8 +1618,6 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
     {
       if (zif->rtadv.AdvSendAdvertisements)
 	vty_out (vty, " no ipv6 nd suppress-ra%s", VTY_NEWLINE);
-      else
-	vty_out (vty, " ipv6 nd suppress-ra%s", VTY_NEWLINE);
     }
 
   
