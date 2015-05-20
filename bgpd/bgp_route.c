@@ -1991,6 +1991,9 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 	  continue;
 	if (BGP_INFO_HOLDDOWN (ri1))
 	  continue;
+        if (ri1->peer && ri1->peer != bgp->peer_self)
+          if (ri1->peer->status != Established)
+            continue;
 
 	new_select = ri1;
 	if (do_mpath)
@@ -2003,6 +2006,11 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 		continue;
 	      if (BGP_INFO_HOLDDOWN (ri2))
 		continue;
+              if (ri2->peer &&
+                  ri2->peer != bgp->peer_self &&
+                  !CHECK_FLAG (ri2->peer->sflags, PEER_STATUS_NSF_WAIT))
+                if (ri2->peer->status != Established)
+                  continue;
 
 	      if (aspath_cmp_left (ri1->attr->aspath, ri2->attr->aspath)
 		  || aspath_cmp_left_confed (ri1->attr->aspath,
@@ -2054,6 +2062,12 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
           
           continue;
         }
+
+      if (ri->peer &&
+          ri->peer != bgp->peer_self &&
+          !CHECK_FLAG (ri->peer->sflags, PEER_STATUS_NSF_WAIT))
+        if (ri->peer->status != Established)
+          continue;
 
       if (bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED)
           && (! CHECK_FLAG (ri->flags, BGP_INFO_DMED_SELECTED)))
