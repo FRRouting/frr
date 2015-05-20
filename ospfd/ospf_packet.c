@@ -760,6 +760,11 @@ ospf_write (struct thread *thread)
   sockopt_iphdrincl_swab_htosys (&iph);
   ret = sendmsg (ospf->fd, &msg, flags);
   sockopt_iphdrincl_swab_systoh (&iph);
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_debug ("ospf_write to %s, "
+	       "id %d, off %d, len %d, interface %s, mtu %u:",
+	       inet_ntoa (iph.ip_dst), iph.ip_id, iph.ip_off, iph.ip_len,
+	       oi->ifp->name, oi->ifp->mtu);
   
   if (ret < 0)
     zlog_warn ("*** sendmsg in ospf_write failed to %s, "
@@ -789,10 +794,16 @@ ospf_write (struct thread *thread)
   /* Now delete packet from queue. */
   ospf_packet_delete (oi);
 
+  /* Move this interface to the tail of write_q to
+	 serve everyone in a round robin fashion */
+  list_delete_node (ospf->oi_write_q, node);
   if (ospf_fifo_head (oi->obuf) == NULL)
     {
       oi->on_write_q = 0;
-      list_delete_node (ospf->oi_write_q, node);
+    }
+  else
+    {
+      listnode_add (ospf->oi_write_q, oi);
     }
   
   /* If packets still remain in queue, call write thread. */
@@ -3326,7 +3337,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
       u_int16_t ls_age;
 
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("ospf_make_ls_upd: List Iteration");
+        zlog_debug ("ospf_make_ls_upd: List Iteration %d", count);
 
       lsa = listgetdata (node);
 
@@ -3732,7 +3743,8 @@ ospf_ls_upd_queue_send (struct ospf_interface *oi, struct list *update,
   u_int16_t length = OSPF_HEADER_SIZE;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("listcount = %d, dst %s", listcount (update), inet_ntoa(addr));
+    zlog_debug ("listcount = %d, [%s]dst %s", listcount (update), IF_NAME(oi),
+			    inet_ntoa(addr));
   
   op = ospf_ls_upd_packet_new (update, oi);
 
