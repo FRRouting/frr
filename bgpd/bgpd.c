@@ -806,6 +806,17 @@ peer_global_config_reset (struct peer *peer)
   peer->keepalive = 0;
   peer->connect = 0;
   peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+
+  /* Reset some other configs back to defaults. */
+  peer->v_start = BGP_INIT_START_TIMER;
+  peer->v_asorig = BGP_DEFAULT_ASORIGINATE;
+  peer->password = NULL;
+  peer->local_id = peer->bgp->router_id;
+  peer->v_holdtime = peer->bgp->default_holdtime;
+  peer->v_keepalive = peer->bgp->default_keepalive;
+
+  /* Set back the CONFIG_NODE flag. */
+  SET_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE);
 }
 
 /* Check peer's AS number and determines if this peer is IBGP or EBGP */
