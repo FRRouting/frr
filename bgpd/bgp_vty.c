@@ -3479,7 +3479,7 @@ peer_timers_connect_set_vty (struct vty *vty, const char *ip_str,
   struct peer *peer;
   u_int32_t connect;
 
-  peer = peer_lookup_vty (vty, ip_str);
+  peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
@@ -3487,7 +3487,7 @@ peer_timers_connect_set_vty (struct vty *vty, const char *ip_str,
 
   ret = peer_timers_connect_set (peer, connect);
 
-  return CMD_SUCCESS;
+  return bgp_vty_return (vty, ret);
 }
 
 static int
@@ -3502,14 +3502,14 @@ peer_timers_connect_unset_vty (struct vty *vty, const char *ip_str)
 
   ret = peer_timers_connect_unset (peer);
 
-  return CMD_SUCCESS;
+  return bgp_vty_return (vty, ret);
 }
 
 DEFUN (neighbor_timers_connect,
        neighbor_timers_connect_cmd,
-       NEIGHBOR_CMD "timers connect <0-65535>",
+       NEIGHBOR_CMD2 "timers connect <0-65535>",
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
        "BGP connect timer\n"
        "Connect timer\n")
@@ -3519,10 +3519,10 @@ DEFUN (neighbor_timers_connect,
 
 DEFUN (no_neighbor_timers_connect,
        no_neighbor_timers_connect_cmd,
-       NO_NEIGHBOR_CMD "timers connect",
+       NO_NEIGHBOR_CMD2 "timers connect",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
        "BGP connect timer\n")
 {
@@ -3531,10 +3531,10 @@ DEFUN (no_neighbor_timers_connect,
 
 ALIAS (no_neighbor_timers_connect,
        no_neighbor_timers_connect_val_cmd,
-       NO_NEIGHBOR_CMD "timers connect <0-65535>",
+       NO_NEIGHBOR_CMD2 "timers connect <0-65535>",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
        "BGP connect timer\n"
        "Connect timer\n")
@@ -3547,7 +3547,7 @@ peer_advertise_interval_vty (struct vty *vty, const char *ip_str,
   struct peer *peer;
   u_int32_t routeadv = 0;
 
-  peer = peer_lookup_vty (vty, ip_str);
+  peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
@@ -3559,14 +3559,14 @@ peer_advertise_interval_vty (struct vty *vty, const char *ip_str,
   else
     ret = peer_advertise_interval_unset (peer);
 
-  return CMD_SUCCESS;
+  return bgp_vty_return (vty, ret);
 }
 
 DEFUN (neighbor_advertise_interval,
        neighbor_advertise_interval_cmd,
-       NEIGHBOR_CMD "advertisement-interval <0-600>",
+       NEIGHBOR_CMD2 "advertisement-interval <0-600>",
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Minimum interval between sending BGP routing updates\n"
        "time in seconds\n")
 {
@@ -3575,10 +3575,10 @@ DEFUN (neighbor_advertise_interval,
 
 DEFUN (no_neighbor_advertise_interval,
        no_neighbor_advertise_interval_cmd,
-       NO_NEIGHBOR_CMD "advertisement-interval",
+       NO_NEIGHBOR_CMD2 "advertisement-interval",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Minimum interval between sending BGP routing updates\n")
 {
   return peer_advertise_interval_vty (vty, argv[0], NULL, 0);
@@ -3586,10 +3586,10 @@ DEFUN (no_neighbor_advertise_interval,
 
 ALIAS (no_neighbor_advertise_interval,
        no_neighbor_advertise_interval_val_cmd,
-       NO_NEIGHBOR_CMD "advertisement-interval <0-600>",
+       NO_NEIGHBOR_CMD2 "advertisement-interval <0-600>",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Minimum interval between sending BGP routing updates\n"
        "time in seconds\n")
 
