@@ -448,7 +448,8 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
 
   inet_ntop (AF_INET6, &addr->sin6_addr, addr_str, INET6_ADDRSTRLEN);
 
-  zlog_info ("Router advertisement received on %s from : %s", ifp->name, addr_str);
+  if (IS_ZEBRA_DEBUG_PACKET)
+    zlog_debug ("Router advertisement received on %s from : %s", ifp->name, addr_str);
 
   if (len < sizeof(struct nd_router_advert)) {
       zlog_warn("received icmpv6 RA packet with invalid length (%d) from %s",
