@@ -2498,6 +2498,17 @@ DEFUN (no_ospf_timers_throttle_spf,
                               OSPF_SPF_MAX_HOLDTIME_DEFAULT);
 }
 
+ALIAS (no_ospf_timers_throttle_spf,
+       no_ospf_timers_throttle_spf_val_cmd,
+       "no timers throttle spf <0-60000> <0-60000> <0-60000>",
+       NO_STR
+       "Adjust routing timers\n"
+       "Throttling adaptive timer\n"
+       "OSPF SPF timers\n"
+       "Delay (msec) from first change received till SPF calculation\n"
+       "Initial hold time (msec) between consecutive SPF calculations\n"
+       "Maximum hold time (msec)\n")
+
 ALIAS_DEPRECATED (no_ospf_timers_throttle_spf,
                   no_ospf_timers_spf_cmd,
                   "no timers spf",
@@ -4648,7 +4659,6 @@ static void
 show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 {
   struct route_node *rn;
-  struct ospf_lsa *lsa;
 
   vty_out (vty, "%s                MaxAge Link States:%s%s",
            VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
@@ -5140,6 +5150,103 @@ ALIAS (ip_ospf_authentication,
        "OSPF interface commands\n"
        "Enable authentication on this interface\n")
 
+DEFUN (no_ip_ospf_authentication_args,
+       no_ip_ospf_authentication_args_addr_cmd,
+       "no ip ospf authentication (null|message-digest) A.B.C.D",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Enable authentication on this interface\n"
+       "Use null authentication\n"
+       "Use message-digest authentication\n"
+       "Address of interface")
+{
+  struct interface *ifp;
+  struct in_addr addr;
+  int ret;
+  struct ospf_if_params *params;
+  struct route_node *rn;
+  int auth_type;
+
+  ifp = vty->index;
+  params = IF_DEF_PARAMS (ifp);
+
+  if (argc == 2)
+    {
+      ret = inet_aton(argv[1], &addr);
+      if (!ret)
+	{
+	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+
+      params = ospf_lookup_if_params (ifp, addr);
+      if (params == NULL)
+	{
+	  vty_out (vty, "Ip Address specified is unknown%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+      params->auth_type = OSPF_AUTH_NOTSET;
+      UNSET_IF_PARAM (params, auth_type);
+      if (params != IF_DEF_PARAMS (ifp))
+	{
+	  ospf_free_if_params (ifp, addr);
+	  ospf_if_update_params (ifp, addr);
+	}
+    }
+  else
+    {
+      if ( argv[0][0] == 'n' )
+	{
+	  auth_type = OSPF_AUTH_NULL;
+	}
+      else if ( argv[0][0] == 'm' )
+	{
+	  auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
+	}
+      else
+	{
+	  vty_out (vty, "Unexpected input encountered%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+      /*
+       * Here we have a case where the user has entered
+       * 'no ip ospf authentication (null | message_digest )'
+       * we need to find if we have any ip addresses underneath it that
+       * correspond to the associated type.
+       */
+      for (rn = route_top (IF_OIFS_PARAMS (ifp)); rn; rn = route_next (rn))
+	{
+	  if ((params = rn->info))
+	    {
+	      if (params->auth_type == auth_type)
+		{
+		  params->auth_type = OSPF_AUTH_NOTSET;
+		  UNSET_IF_PARAM (params, auth_type);
+		  if (params != IF_DEF_PARAMS (ifp))
+		    {
+		      ospf_free_if_params (ifp, rn->p.u.prefix4);
+		      ospf_if_update_params(ifp, rn->p.u.prefix4);
+		    }
+		}
+	    }
+	}
+    }
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ip_ospf_authentication_args,
+       no_ip_ospf_authentication_args_cmd,
+       "no ip ospf authentication (null|message-digest)",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Enable authentication on this interface\n"
+       "Use null authentication\n"
+       "Use message-digest authentication\n")
+
 DEFUN (no_ip_ospf_authentication,
        no_ip_ospf_authentication_addr_cmd,
        "no ip ospf authentication A.B.C.D",
@@ -5153,7 +5260,8 @@ DEFUN (no_ip_ospf_authentication,
   struct in_addr addr;
   int ret;
   struct ospf_if_params *params;
-  
+  struct route_node *rn;
+
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
@@ -5169,16 +5277,44 @@ DEFUN (no_ip_ospf_authentication,
 
       params = ospf_lookup_if_params (ifp, addr);
       if (params == NULL)
-	return CMD_SUCCESS;
-    }
+	{
+	  vty_out (vty, "Ip Address specified is unknown%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
 
-  params->auth_type = OSPF_AUTH_NOTSET;
-  UNSET_IF_PARAM (params, auth_type);
-  
-  if (params != IF_DEF_PARAMS (ifp))
+      params->auth_type = OSPF_AUTH_NOTSET;
+      UNSET_IF_PARAM (params, auth_type);
+      if (params != IF_DEF_PARAMS (ifp))
+	{
+	  ospf_free_if_params (ifp, addr);
+	  ospf_if_update_params (ifp, addr);
+	}
+    }
+  else
     {
-      ospf_free_if_params (ifp, addr);
-      ospf_if_update_params (ifp, addr);
+      /*
+       * When a user enters 'no ip ospf authentication'
+       * We should remove all authentication types from
+       * the interface.
+       */
+      for (rn = route_top (IF_OIFS_PARAMS (ifp)); rn; rn = route_next (rn))
+	{
+	  if ((params = rn->info))
+	    {
+	      if ((params->auth_type == OSPF_AUTH_NULL) ||
+		  (params->auth_type == OSPF_AUTH_CRYPTOGRAPHIC) ||
+		  (params->auth_type == OSPF_AUTH_SIMPLE))
+		{
+		  params->auth_type = OSPF_AUTH_NOTSET;
+		  UNSET_IF_PARAM (params, auth_type);
+		  if (params != IF_DEF_PARAMS (ifp))
+		    {
+		      ospf_free_if_params (ifp, rn->p.u.prefix4);
+		      ospf_if_update_params(ifp, rn->p.u.prefix4);
+		    }
+		}
+	    }
+	}
     }
   
   return CMD_SUCCESS;
@@ -8674,6 +8810,8 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &ip_ospf_authentication_args_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_authentication_addr_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_authentication_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_authentication_args_addr_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_authentication_args_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_authentication_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_authentication_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_authentication_key_addr_cmd);
@@ -8991,6 +9129,7 @@ ospf_vty_init (void)
   install_element (OSPF_NODE, &no_ospf_timers_spf_cmd);
   install_element (OSPF_NODE, &ospf_timers_throttle_spf_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_throttle_spf_cmd);
+  install_element (OSPF_NODE, &no_ospf_timers_throttle_spf_val_cmd);
   
   /* LSA timers commands */
   install_element (OSPF_NODE, &ospf_timers_lsa_cmd);
