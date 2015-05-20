@@ -45,6 +45,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_clist.h"
@@ -52,6 +53,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_debug.h"
 
 /* Memo of route-map commands.
 
@@ -2409,6 +2411,23 @@ bgp_route_map_update (const char *unused)
 	}
     }
 
+  /* For table route-map updates. */
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
+    {
+      for (afi = AFI_IP; afi < AFI_MAX; afi++)
+        for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+          {
+            if (bgp->table_map[afi][safi].name)
+              {
+                bgp->table_map[afi][safi].map =
+	                route_map_lookup_by_name (bgp->table_map[afi][safi].name);
+                bgp_zebra_announce_table(bgp, afi, safi);
+              }
+            else
+              bgp->table_map[afi][safi].map = NULL;
+          }
+    }
+
   /* For network route-map updates. */
   for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
@@ -2442,6 +2461,32 @@ bgp_route_map_update (const char *unused)
 	}
     }
 }
+
+static void
+bgp_route_map_add (const char *unused)
+{
+  if (BGP_DEBUG (events, EVENTS))
+        zlog_debug ("received route-map add");
+
+  bgp_route_map_update(unused);
+}
+static void
+bgp_route_map_delete (const char *unused)
+{
+  if (BGP_DEBUG (events, EVENTS))
+        zlog_debug ("received route-map delete");
+
+  bgp_route_map_update(unused);
+}
+static void
+bgp_route_map_event (route_map_event_t event, const char *unused)
+{
+  if (BGP_DEBUG (events, EVENTS))
+        zlog_debug ("received route-map event");
+
+  bgp_route_map_update(unused);
+}
+
 
 DEFUN (match_peer,
        match_peer_cmd,
@@ -3897,8 +3942,9 @@ bgp_route_map_init (void)
 {
   route_map_init ();
   route_map_init_vty ();
-  route_map_add_hook (bgp_route_map_update);
-  route_map_delete_hook (bgp_route_map_update);
+  route_map_add_hook (bgp_route_map_add);
+  route_map_delete_hook (bgp_route_map_delete);
+  route_map_event_hook (bgp_route_map_event);
 
   route_map_install_match (&route_match_peer_cmd);
   route_map_install_match (&route_match_ip_address_cmd);

@@ -5196,6 +5196,7 @@ bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
     }
 
   bgp_config_write_maxpaths (vty, bgp, afi, safi, &write);
+  bgp_config_write_table_map (vty, bgp, afi, safi, &write);
 
   if (write)
     vty_out (vty, " exit-address-family%s", VTY_NEWLINE);
@@ -5378,6 +5379,7 @@ bgp_config_write (struct vty *vty)
 
       /* maximum-paths */
       bgp_config_write_maxpaths (vty, bgp, AFI_IP, SAFI_UNICAST, &write);
+      bgp_config_write_table_map (vty, bgp, AFI_IP, SAFI_UNICAST, &write);
 
       /* Distance configuration. */
       bgp_config_write_distance (vty, bgp);

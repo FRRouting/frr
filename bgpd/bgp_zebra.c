@@ -48,6 +48,43 @@ struct in_addr router_id_zebra;
 struct stream *bgp_nexthop_buf = NULL;
 struct stream *bgp_ifindices_buf = NULL;
 
+/* These array buffers are used in making a copy of the attributes for
+   route-map apply. Arrays are being used here to minimize mallocs and
+   frees for the temporary copy of the attributes.
+   Given the zapi api expects the nexthop buffer to contain pointer to
+   pointers for nexthops, we couldnt have used a single nexthop variable
+   on the stack, hence we had two options:
+     1. maintain a linked-list and free it after zapi_*_route call
+     2. use an array to avoid number of mallocs.
+   Number of supported next-hops are finite, use of arrays should be ok. */
+struct attr attr_cp[BGP_MAXIMUM_MAXPATHS];
+struct attr_extra attr_extra_cp[BGP_MAXIMUM_MAXPATHS];
+int    attr_index = 0;
+
+/* Once per address-family initialization of the attribute array */
+#define BGP_INFO_ATTR_BUF_INIT()\
+do {\
+  memset(attr_cp, 0, BGP_MAXIMUM_MAXPATHS * sizeof(struct attr));\
+  memset(attr_extra_cp, 0, BGP_MAXIMUM_MAXPATHS * sizeof(struct attr_extra));\
+  attr_index = 0;\
+} while (0)
+
+#define BGP_INFO_ATTR_BUF_COPY(info_src, info_dst)\
+do { \
+  *info_dst = *info_src; \
+  assert(attr_index != BGP_MAXIMUM_MAXPATHS);\
+  attr_cp[attr_index].extra = &attr_extra_cp[attr_index]; \
+  bgp_attr_dup (&attr_cp[attr_index], info_src->attr); \
+  bgp_attr_deep_dup (&attr_cp[attr_index], info_src->attr); \
+  info_dst->attr = &attr_cp[attr_index]; \
+  attr_index++;\
+} while (0)
+
+#define BGP_INFO_ATTR_BUF_FREE(info) \
+do { \
+  bgp_attr_deep_free(info->attr); \
+} while (0)
+
 /* Router-id update message from zebra. */
 static int
 bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length)
@@ -671,15 +708,72 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
   return ret;
 }
 
+static struct in6_addr *
+bgp_info_to_ipv6_nexthop (struct bgp_info *info)
+{
+  struct in6_addr *nexthop = NULL;
+
+  /* Only global address nexthop exists. */
+  if (info->attr->extra->mp_nexthop_len == 16)
+    nexthop = &info->attr->extra->mp_nexthop_global;
+
+  /* If both global and link-local address present. */
+  if (info->attr->extra->mp_nexthop_len == 32)
+    {
+      /* Workaround for Cisco's nexthop bug.  */
+      if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
+          && info->peer->su_remote->sa.sa_family == AF_INET6)
+        nexthop = &info->peer->su_remote->sin6.sin6_addr;
+      else
+        nexthop = &info->attr->extra->mp_nexthop_local;
+    }
+
+  return nexthop;
+}
+
+static int
+bgp_table_map_apply (struct route_map *map, struct prefix *p,
+                     struct bgp_info *info)
+{
+  if (route_map_apply(map, p, RMAP_BGP, info) != RMAP_DENYMATCH)
+    return 1;
+
+  if (BGP_DEBUG(zebra, ZEBRA))
+    {
+      if (p->family == AF_INET)
+        {
+          char buf[2][INET_ADDRSTRLEN];
+          zlog_debug("Zebra rmap deny: IPv4 route %s/%d nexthop %s",
+                     inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
+                     p->prefixlen,
+                     inet_ntop(AF_INET, &info->attr->nexthop, buf[1],
+                               sizeof(buf[1])));
+        }
+      if (p->family == AF_INET6)
+        {
+          char buf[2][INET6_ADDRSTRLEN];
+          zlog_debug("Zebra rmap deny: IPv6 route %s/%d nexthop %s",
+                     inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
+                     p->prefixlen,
+                     inet_ntop(AF_INET6, bgp_info_to_ipv6_nexthop(info), buf[1],
+                               sizeof(buf[1])));
+        }
+    }
+  return 0;
+}
+
 void
-bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, safi_t safi)
+bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
+                    afi_t afi, safi_t safi)
 {
   int flags;
   u_char distance;
   struct peer *peer;
   struct bgp_info *mpinfo;
   size_t oldsize, newsize;
-  u_int32_t nhcount;
+  u_int32_t nhcount, metric;
+  struct bgp_info local_info;
+  struct bgp_info *info_cp = &local_info;
 
   if (zclient->sock < 0)
     return;
@@ -706,6 +800,8 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
     {
       struct zapi_ipv4 api;
       struct in_addr *nexthop;
+      char buf[2][INET_ADDRSTRLEN];
+      int valid_nh_count = 0;
 
       /* resize nexthop buffer size if necessary */
       if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
@@ -720,26 +816,72 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
             }
         }
       stream_reset (bgp_nexthop_buf);
+      nexthop = NULL;
+
+      /* Metric is currently based on the best-path only. */
+      metric = info->attr->med;
+
+      if (bgp->table_map[afi][safi].name)
+        {
+          BGP_INFO_ATTR_BUF_INIT();
+
+          /* Copy info and attributes, so the route-map apply doesn't modify the
+             BGP route info. */
+          BGP_INFO_ATTR_BUF_COPY(info, info_cp);
+          if (bgp_table_map_apply(bgp->table_map[afi][safi].map, p, info_cp))
+            {
+              metric = info_cp->attr->med;
+              nexthop = &info_cp->attr->nexthop;
+            }
+          BGP_INFO_ATTR_BUF_FREE(info_cp);
+        }
+      else
+        {
+          nexthop = &info->attr->nexthop;
+        }
+
+      if (nexthop)
+        {
+          stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
+          valid_nh_count++;
+        }
+
+      for (mpinfo = bgp_info_mpath_first (info); mpinfo;
+           mpinfo = bgp_info_mpath_next (mpinfo))
+        {
+          nexthop = NULL;
+
+          if (bgp->table_map[afi][safi].name)
+            {
+              /* Copy info and attributes, so the route-map apply doesn't modify the
+                 BGP route info. */
+              BGP_INFO_ATTR_BUF_COPY(mpinfo, info_cp);
+              if (bgp_table_map_apply(bgp->table_map[afi][safi].map, p, info_cp))
+                nexthop = &info_cp->attr->nexthop;
+              BGP_INFO_ATTR_BUF_FREE(info_cp);
+            }
+          else
+            {
+              nexthop = &mpinfo->attr->nexthop;
+            }
+
+          if (nexthop == NULL)
+            continue;
+
+          stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
+          valid_nh_count++;
+        }
 
       api.flags = flags;
-      nexthop = &info->attr->nexthop;
-      stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
-      for (mpinfo = bgp_info_mpath_first (info); mpinfo;
-	   mpinfo = bgp_info_mpath_next (mpinfo))
-	{
-	  nexthop = &mpinfo->attr->nexthop;
-	  stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
-	}
-
       api.type = ZEBRA_ROUTE_BGP;
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = nhcount;
+      api.nexthop_num = valid_nh_count;
       api.nexthop = (struct in_addr **)STREAM_DATA (bgp_nexthop_buf);
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
-      api.metric = info->attr->med;
+      api.metric = metric;
 
       distance = bgp_distance_apply (p, info, bgp);
 
@@ -750,23 +892,19 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
 	}
 
       if (BGP_DEBUG(zebra, ZEBRA))
-	{
-	  int i;
-	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_debug("Zebra send: IPv4 route add %s/%d nexthop %s metric %u"
-		     " count %d",
-		     inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
-		     p->prefixlen,
-		     inet_ntop(AF_INET, api.nexthop[0], buf[1], sizeof(buf[1])),
-		     api.metric, api.nexthop_num);
-	  for (i = 1; i < api.nexthop_num; i++)
-	    zlog_debug("Zebra send: IPv4 route add [nexthop %d] %s",
-		       i, inet_ntop(AF_INET, api.nexthop[i], buf[1],
-				    sizeof(buf[1])));
-	}
+        {
+          int i;
+          zlog_debug("Zebra send: IPv4 route %s %s/%d  metric %u"
+                     " count %d", (valid_nh_count ? "add":"delete"),
+                     inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
+                     p->prefixlen, api.metric, api.nexthop_num);
+          for (i = 0; i < api.nexthop_num; i++)
+            zlog_debug("  IPv4 [nexthop %d] %s", i+1,
+                       inet_ntop(AF_INET, api.nexthop[i], buf[1], sizeof(buf[1])));
+        }
 
-      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_ADD, zclient, 
-                       (struct prefix_ipv4 *) p, &api);
+      zapi_ipv4_route (valid_nh_count ? ZEBRA_IPV4_ROUTE_ADD: ZEBRA_IPV4_ROUTE_DELETE,
+                       zclient, (struct prefix_ipv4 *) p, &api);
     }
 #ifdef HAVE_IPV6
 
@@ -777,6 +915,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
       struct in6_addr *nexthop;
       struct zapi_ipv6 api;
       int valid_nh_count = 0;
+	    char buf[2][INET6_ADDRSTRLEN];
 
       /* resize nexthop buffer size if necessary */
       if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
@@ -810,94 +949,86 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
       nexthop = NULL;
 
       assert (info->attr->extra);
-      
-      /* Only global address nexthop exists. */
-      if (info->attr->extra->mp_nexthop_len == 16)
-	nexthop = &info->attr->extra->mp_nexthop_global;
-      
-      /* If both global and link-local address present. */
-      if (info->attr->extra->mp_nexthop_len == 32)
-	{
-	  /* Workaround for Cisco's nexthop bug.  */
-	  if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
-	      && peer->su_remote->sa.sa_family == AF_INET6)
-	    nexthop = &peer->su_remote->sin6.sin6_addr;
-	  else
-	    nexthop = &info->attr->extra->mp_nexthop_local;
 
-	  if (info->peer->nexthop.ifp)
-	    ifindex = info->peer->nexthop.ifp->ifindex;
-	}
+      /* Metric is currently based on the best-path only. */
+      metric = info->attr->med;
 
-      if (nexthop == NULL)
-	return;
+      if (bgp->table_map[afi][safi].name)
+        {
+          BGP_INFO_ATTR_BUF_INIT();
 
-      if (!ifindex)
-	{
-	  if (info->peer->ifname)
-	    ifindex = if_nametoindex (info->peer->ifname);
-	  else if (info->peer->nexthop.ifp)
-	    ifindex = info->peer->nexthop.ifp->ifindex;
-	}
-      stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
-      stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
-      valid_nh_count++;
-
-      for (mpinfo = bgp_info_mpath_first (info); mpinfo;
-           mpinfo = bgp_info_mpath_next (mpinfo))
-	{
-	  ifindex = 0;
-
-          /* Only global address nexthop exists. */
-          if (mpinfo->attr->extra->mp_nexthop_len == 16)
-              nexthop = &mpinfo->attr->extra->mp_nexthop_global;
-
-          /* If both global and link-local address present. */
-	  if (mpinfo->attr->extra->mp_nexthop_len == 32)
+          /* Copy info and attributes, so the route-map apply doesn't modify the
+             BGP route info. */
+          BGP_INFO_ATTR_BUF_COPY(info, info_cp);
+          if (bgp_table_map_apply(bgp->table_map[afi][safi].map, p, info_cp))
             {
-              /* Workaround for Cisco's nexthop bug.  */
-              if (IN6_IS_ADDR_UNSPECIFIED (&mpinfo->attr->extra->mp_nexthop_global)
-                  && mpinfo->peer->su_remote->sa.sa_family == AF_INET6)
-                {
-                   nexthop = &mpinfo->peer->su_remote->sin6.sin6_addr;
-                }
-              else
-                {
-	           nexthop = &mpinfo->attr->extra->mp_nexthop_local;
-	        }
-
-              if (mpinfo->peer->nexthop.ifp)
-                {
-                  ifindex = mpinfo->peer->nexthop.ifp->ifindex;
-                }
+              metric = info_cp->attr->med;
+              nexthop = bgp_info_to_ipv6_nexthop(info_cp);
             }
+          BGP_INFO_ATTR_BUF_FREE(info_cp);
+        }
+      else
+        {
+           nexthop = bgp_info_to_ipv6_nexthop(info);
+        }
 
-	  if (nexthop == NULL)
-	    {
-	      continue;
-	    }
+      if (nexthop)
+        {
+          if (info->attr->extra->mp_nexthop_len == 32)
+            if (info->peer->nexthop.ifp)
+              ifindex = info->peer->nexthop.ifp->ifindex;
 
           if (!ifindex)
-	    {
-	      if (mpinfo->peer->ifname)
-		{
-		  ifindex = if_nametoindex (mpinfo->peer->ifname);
-		}
-	      else if (mpinfo->peer->nexthop.ifp)
-		{
-		  ifindex = mpinfo->peer->nexthop.ifp->ifindex;
-		}
-	    }
-
-	  if (ifindex == 0)
-	    {
-	      continue;
-	    }
+            if (info->peer->ifname)
+              ifindex = if_nametoindex (info->peer->ifname);
+            else if (info->peer->nexthop.ifp)
+              ifindex = info->peer->nexthop.ifp->ifindex;
 
           stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
           stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
           valid_nh_count++;
-	}
+        }
+
+      for (mpinfo = bgp_info_mpath_first (info); mpinfo;
+           mpinfo = bgp_info_mpath_next (mpinfo))
+        {
+          ifindex = 0;
+          nexthop = NULL;
+
+          if (bgp->table_map[afi][safi].name)
+            {
+              /* Copy info and attributes, so the route-map apply doesn't modify the
+                 BGP route info. */
+              BGP_INFO_ATTR_BUF_COPY(mpinfo, info_cp);
+              if (bgp_table_map_apply(bgp->table_map[afi][safi].map, p, info_cp))
+                nexthop = bgp_info_to_ipv6_nexthop(info_cp);
+              BGP_INFO_ATTR_BUF_FREE(info_cp);
+            }
+          else
+            {
+              nexthop = bgp_info_to_ipv6_nexthop(mpinfo);
+            }
+
+          if (nexthop == NULL)
+            continue;
+
+          if (mpinfo->attr->extra->mp_nexthop_len == 32)
+            if (mpinfo->peer->nexthop.ifp)
+              ifindex = mpinfo->peer->nexthop.ifp->ifindex;
+
+          if (!ifindex)
+            if (mpinfo->peer->ifname)
+              ifindex = if_nametoindex (mpinfo->peer->ifname);
+            else if (mpinfo->peer->nexthop.ifp)
+              ifindex = mpinfo->peer->nexthop.ifp->ifindex;
+
+          if (ifindex == 0)
+            continue;
+
+          stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
+          stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
+          valid_nh_count++;
+        }
 
       /* Make Zebra API structure. */
       api.flags = flags;
@@ -911,22 +1042,42 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
       api.ifindex_num = valid_nh_count;
       api.ifindex = (unsigned int *)STREAM_DATA (bgp_ifindices_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
-      api.metric = info->attr->med;
+      api.metric = metric;
 
       if (BGP_DEBUG(zebra, ZEBRA))
-	{
-	  char buf[2][INET6_ADDRSTRLEN];
-	  zlog_debug("Zebra send: IPv6 route add %s/%d nexthop %s metric %u",
-		     inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
-		     p->prefixlen,
-		     inet_ntop(AF_INET6, nexthop, buf[1], sizeof(buf[1])),
-		     api.metric);
-	}
+        {
+          int i;
+          zlog_debug("Zebra send: IPv6 route %s %s/%d metric %u",
+                   valid_nh_count ? "add" : "delete",
+                   inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
+                   p->prefixlen, api.metric);
+          for (i = 0; i < api.nexthop_num; i++)
+            zlog_debug("  IPv6 [nexthop %d] %s", i+1,
+                       inet_ntop(AF_INET6, api.nexthop[i], buf[1], sizeof(buf[1])));
+        }
 
-      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, 
-                       (struct prefix_ipv6 *) p, &api);
+      zapi_ipv6_route (valid_nh_count ? ZEBRA_IPV6_ROUTE_ADD : ZEBRA_IPV6_ROUTE_DELETE,
+                       zclient, (struct prefix_ipv6 *) p, &api);
     }
 #endif /* HAVE_IPV6 */
+}
+
+/* Announce all routes of a table to zebra */
+void
+bgp_zebra_announce_table (struct bgp *bgp, afi_t afi, safi_t safi)
+{
+  struct bgp_node *rn;
+  struct bgp_table *table;
+  struct bgp_info *ri;
+
+  table = bgp->rib[afi][safi];
+
+  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
+    for (ri = rn->info; ri; ri = ri->next)
+      if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED)
+          && ri->type == ZEBRA_ROUTE_BGP
+          && ri->sub_type == BGP_ROUTE_NORMAL)
+        bgp_zebra_announce (&rn->p, ri, bgp, afi, safi);
 }
 
 void

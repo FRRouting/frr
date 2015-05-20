@@ -1598,7 +1598,7 @@ bgp_process_main (struct work_queue *wq, void *data)
         {
           if (CHECK_FLAG (old_select->flags, BGP_INFO_IGP_CHANGED) ||
 	      CHECK_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG))
-            bgp_zebra_announce (p, old_select, bgp, safi);
+            bgp_zebra_announce (p, old_select, bgp, afi, safi);
           
 	  UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
           UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
@@ -1629,7 +1629,7 @@ bgp_process_main (struct work_queue *wq, void *data)
       if (new_select 
 	  && new_select->type == ZEBRA_ROUTE_BGP 
 	  && new_select->sub_type == BGP_ROUTE_NORMAL)
-	bgp_zebra_announce (p, new_select, bgp, safi);
+	bgp_zebra_announce (p, new_select, bgp, afi, safi);
       else
 	{
 	  /* Withdraw the route from the kernel. */
@@ -4033,6 +4033,84 @@ bgp_static_unset_vpnv4 (struct vty *vty, const char *ip_str,
     vty_out (vty, "%% Can't find the route%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
+}
+
+static int
+bgp_table_map_set (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+                   const char *rmap_name)
+{
+  struct bgp_rmap *rmap;
+
+  rmap = &bgp->table_map[afi][safi];
+  if (rmap_name)
+    {
+      if (rmap->name)
+        free (rmap->name);
+      rmap->name = strdup (rmap_name);
+      rmap->map = route_map_lookup_by_name (rmap_name);
+    }
+  else
+    {
+      if (rmap->name)
+        free (rmap->name);
+      rmap->name = NULL;
+      rmap->map = NULL;
+    }
+
+  bgp_zebra_announce_table(bgp, afi, safi);
+
+  return CMD_SUCCESS;
+}
+
+static int
+bgp_table_map_unset (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
+                     const char *rmap_name)
+{
+  struct bgp_rmap *rmap;
+
+  rmap = &bgp->table_map[afi][safi];
+  if (rmap->name)
+    free (rmap->name);
+  rmap->name = NULL;
+  rmap->map = NULL;
+
+  bgp_zebra_announce_table(bgp, afi, safi);
+
+  return CMD_SUCCESS;
+}
+
+int
+bgp_config_write_table_map (struct vty *vty, struct bgp *bgp, afi_t afi,
+			   safi_t safi, int *write)
+{
+  if (bgp->table_map[afi][safi].name)
+    {
+      bgp_config_write_family_header (vty, afi, safi, write);
+      vty_out (vty, " table-map %s%s",
+	       bgp->table_map[afi][safi].name, VTY_NEWLINE);
+    }
+
+  return 0;
+}
+
+
+DEFUN (bgp_table_map,
+       bgp_table_map_cmd,
+       "table-map WORD",
+       "BGP table to RIB route download filter\n"
+       "Name of the route map\n")
+{
+  return bgp_table_map_set (vty, vty->index,
+             bgp_node_afi (vty), bgp_node_safi (vty), argv[0]);
+}
+DEFUN (no_bgp_table_map,
+       no_bgp_table_map_cmd,
+       "no table-map WORD",
+       "BGP table to RIB route download filter\n"
+       "Name of the route map\n")
+{
+  return bgp_table_map_unset (vty, vty->index,
+             bgp_node_afi (vty), bgp_node_safi (vty), argv[0]);
 }
 
 DEFUN (bgp_network,
@@ -12671,6 +12749,7 @@ bgp_route_init (void)
   bgp_distance_table = bgp_table_init (AFI_IP, SAFI_UNICAST);
 
   /* IPv4 BGP commands. */
+  install_element (BGP_NODE, &bgp_table_map_cmd);
   install_element (BGP_NODE, &bgp_network_cmd);
   install_element (BGP_NODE, &bgp_network_mask_cmd);
   install_element (BGP_NODE, &bgp_network_mask_natural_cmd);
@@ -12680,6 +12759,7 @@ bgp_route_init (void)
   install_element (BGP_NODE, &bgp_network_backdoor_cmd);
   install_element (BGP_NODE, &bgp_network_mask_backdoor_cmd);
   install_element (BGP_NODE, &bgp_network_mask_natural_backdoor_cmd);
+  install_element (BGP_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_NODE, &no_bgp_network_cmd);
   install_element (BGP_NODE, &no_bgp_network_mask_cmd);
   install_element (BGP_NODE, &no_bgp_network_mask_natural_cmd);
@@ -12712,12 +12792,14 @@ bgp_route_init (void)
   install_element (BGP_NODE, &no_aggregate_address_mask_summary_as_set_cmd);
 
   /* IPv4 unicast configuration.  */
+  install_element (BGP_IPV4_NODE, &bgp_table_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_natural_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_route_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_route_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_natural_route_map_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_mask_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_mask_natural_cmd);
@@ -12747,12 +12829,14 @@ bgp_route_init (void)
   install_element (BGP_IPV4_NODE, &no_aggregate_address_mask_summary_as_set_cmd);
 
   /* IPv4 multicast configuration.  */
+  install_element (BGP_IPV4M_NODE, &bgp_table_map_cmd);
   install_element (BGP_IPV4M_NODE, &bgp_network_cmd);
   install_element (BGP_IPV4M_NODE, &bgp_network_mask_cmd);
   install_element (BGP_IPV4M_NODE, &bgp_network_mask_natural_cmd);
   install_element (BGP_IPV4M_NODE, &bgp_network_route_map_cmd);
   install_element (BGP_IPV4M_NODE, &bgp_network_mask_route_map_cmd);
   install_element (BGP_IPV4M_NODE, &bgp_network_mask_natural_route_map_cmd);
+  install_element (BGP_IPV4M_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV4M_NODE, &no_bgp_network_cmd);
   install_element (BGP_IPV4M_NODE, &no_bgp_network_mask_cmd);
   install_element (BGP_IPV4M_NODE, &no_bgp_network_mask_natural_cmd);
@@ -13026,8 +13110,10 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_prefix_counts_cmd);
 
   /* New config IPv6 BGP commands.  */
+  install_element (BGP_IPV6_NODE, &bgp_table_map_cmd);
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_cmd);
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_route_map_cmd);
+  install_element (BGP_IPV6_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_route_map_cmd);
 

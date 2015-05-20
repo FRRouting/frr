@@ -150,7 +150,6 @@ cluster_free (struct cluster_list *cluster)
   XFREE (MTYPE_CLUSTER, cluster);
 }
 
-#if 0
 static struct cluster_list *
 cluster_dup (struct cluster_list *cluster)
 {
@@ -169,7 +168,6 @@ cluster_dup (struct cluster_list *cluster)
   
   return new;
 }
-#endif
 
 static struct cluster_list *
 cluster_intern (struct cluster_list *cluster)
@@ -219,6 +217,23 @@ transit_free (struct transit *transit)
   XFREE (MTYPE_TRANSIT, transit);
 }
 
+static struct transit *
+transit_dup (struct transit *transit)
+{
+  struct transit *new;
+
+  new = XCALLOC (MTYPE_TRANSIT, sizeof (struct transit));
+  new->length = transit->length;
+  if (new->length)
+    {
+      new->val = XMALLOC (MTYPE_TRANSIT_VAL, transit->length);
+      memcpy (new->val, transit->val, transit->length);
+    }
+  else
+    new->val = NULL;
+
+  return new;
+}
 
 static void *
 transit_hash_alloc (void *p)
@@ -340,6 +355,46 @@ bgp_attr_dup (struct attr *new, struct attr *orig)
     {
       new->extra = bgp_attr_extra_new();
       *new->extra = *orig->extra;
+    }
+}
+
+void
+bgp_attr_deep_dup (struct attr *new, struct attr *orig)
+{
+  if (orig->aspath)
+    new->aspath = aspath_dup(orig->aspath);
+
+  if (orig->community)
+    new->community = community_dup(orig->community);
+
+  if (orig->extra)
+    {
+      if (orig->extra->ecommunity)
+        new->extra->ecommunity = ecommunity_dup(orig->extra->ecommunity);
+      if (orig->extra->cluster)
+        new->extra->cluster = cluster_dup(orig->extra->cluster);
+      if (orig->extra->transit)
+        new->extra->transit = transit_dup(orig->extra->transit);
+    }
+}
+
+void
+bgp_attr_deep_free (struct attr *attr)
+{
+  if (attr->aspath)
+    aspath_free(attr->aspath);
+
+  if (attr->community)
+    community_free(attr->community);
+
+  if (attr->extra)
+    {
+      if (attr->extra->ecommunity)
+        ecommunity_free(&attr->extra->ecommunity);
+      if (attr->extra->cluster)
+        cluster_free(attr->extra->cluster);
+      if (attr->extra->transit)
+        transit_free(attr->extra->transit);
     }
 }
 

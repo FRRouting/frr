@@ -247,6 +247,17 @@ and generates updates to its peers.
 Default max-delay is 0, i.e. the feature is off by default.
 @end deffn
 
+@deffn {BGP} {table-map @var{route-map-name}} {}
+This feature is used to apply a route-map on route updates from BGP to Zebra.
+All the applicable match operations are allowed, such as match on prefix,
+next-hop, communities, etc. Set operations for this attach-point are limited
+to metric and next-hop only. Any operation of this feature does not affect
+BGPs internal RIB.
+
+Supported for ipv4 and ipv6 address families. It works on multi-paths as well,
+however, metric setting is based on the best-path only.
+@end deffn
+
 @node BGP Peer
 @section BGP Peer
 

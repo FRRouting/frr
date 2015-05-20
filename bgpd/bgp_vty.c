@@ -672,7 +672,8 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, char *mpaths,
 
   if (set)
     {
-      VTY_GET_INTEGER_RANGE ("maximum-paths", maxpaths, mpaths, 1, 255);
+      VTY_GET_INTEGER_RANGE ("maximum-paths", maxpaths, mpaths, 1,
+                             BGP_MAXIMUM_MAXPATHS);
       ret = bgp_maximum_paths_set (bgp, afi, safi, peer_type, maxpaths,
 				   options);
     }

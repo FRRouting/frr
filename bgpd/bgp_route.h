@@ -237,6 +237,8 @@ extern int bgp_withdraw (struct peer *, struct prefix *, struct attr *,
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process (struct bgp *, struct bgp_node *, afi_t, safi_t);
+extern int bgp_config_write_table_map (struct vty *, struct bgp *, afi_t, safi_t,
+                                       int *);
 extern int bgp_config_write_network (struct vty *, struct bgp *, afi_t, safi_t, int *);
 extern int bgp_config_write_distance (struct vty *, struct bgp *);
 
