@@ -627,6 +627,8 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			      {
 				resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 				resolved_hop->ifindex = newhop->ifindex;
+				if (newhop->flags & NEXTHOP_FLAG_ONLINK)
+				  resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 			      }
 			  }
 
@@ -677,6 +679,8 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			      {
 				resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 				resolved_hop->ifindex = newhop->ifindex;
+				if (newhop->flags & NEXTHOP_FLAG_ONLINK)
+				  resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 			      }
 			  }
 
