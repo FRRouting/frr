@@ -46,6 +46,7 @@ unsigned long conf_bgp_debug_packet;
 unsigned long conf_bgp_debug_filter;
 unsigned long conf_bgp_debug_keepalive;
 unsigned long conf_bgp_debug_update;
+unsigned long conf_bgp_debug_bestpath;
 unsigned long conf_bgp_debug_zebra;
 unsigned long conf_bgp_debug_nht;
 unsigned long conf_bgp_debug_update_groups;
@@ -57,6 +58,7 @@ unsigned long term_bgp_debug_packet;
 unsigned long term_bgp_debug_filter;
 unsigned long term_bgp_debug_keepalive;
 unsigned long term_bgp_debug_update;
+unsigned long term_bgp_debug_bestpath;
 unsigned long term_bgp_debug_zebra;
 unsigned long term_bgp_debug_nht;
 unsigned long term_bgp_debug_update_groups;
@@ -66,6 +68,7 @@ struct list *bgp_debug_keepalive_peers = NULL;
 struct list *bgp_debug_update_out_peers = NULL;
 struct list *bgp_debug_update_in_peers = NULL;
 struct list *bgp_debug_update_prefixes = NULL;
+struct list *bgp_debug_bestpath_prefixes = NULL;
 struct list *bgp_debug_zebra_prefixes = NULL;
 
 /* messages for BGP-4 status */
@@ -814,6 +817,126 @@ DEFUN (no_debug_bgp_keepalive_peer,
   return CMD_SUCCESS;
 }
 
+/* debug bgp bestpath */
+DEFUN (debug_bgp_bestpath_prefix,
+       debug_bgp_bestpath_prefix_cmd,
+       "debug bgp bestpath (A.B.C.D/M|X:X::X:X/M)",
+       DEBUG_STR
+       BGP_STR
+       "BGP bestpath\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv6 prefix <network>/<length>\n")
+
+{
+  struct prefix *argv_p;
+  int ret;
+
+  argv_p = prefix_new();
+  ret = str2prefix (argv[0], argv_p);
+  if (!ret)
+    {
+      prefix_free(argv_p);
+      vty_out (vty, "%% Malformed Prefix%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+
+  if (!bgp_debug_bestpath_prefixes)
+    bgp_debug_bestpath_prefixes = list_new ();
+
+  if (bgp_debug_list_has_entry(bgp_debug_bestpath_prefixes, NULL, argv_p))
+    {
+      vty_out (vty, "BGP bestptah debugging is already enabled for %s%s", argv[0], VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
+
+  bgp_debug_list_add_entry(bgp_debug_bestpath_prefixes, NULL, argv_p);
+
+  if (vty->node == CONFIG_NODE)
+    {
+      DEBUG_ON (bestpath, BESTPATH);
+    }
+  else
+    {
+      TERM_DEBUG_ON (bestpath, BESTPATH);
+      vty_out (vty, "BGP bestpath debugging is on for %s%s", argv[0], VTY_NEWLINE);
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_bestpath_prefix,
+       no_debug_bgp_bestpath_prefix_cmd,
+       "no debug bgp bestpath (A.B.C.D/M|X:X::X:X/M)",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP bestpath\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "IPv6 prefix <network>/<length>\n")
+
+{
+  struct prefix *argv_p;
+  int found_prefix = 0;
+  int ret;
+
+  argv_p = prefix_new();
+  ret = str2prefix (argv[0], argv_p);
+  if (!ret)
+    {
+      prefix_free(argv_p);
+      vty_out (vty, "%% Malformed Prefix%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (bgp_debug_bestpath_prefixes && !list_isempty(bgp_debug_bestpath_prefixes))
+    {
+      found_prefix = bgp_debug_list_remove_entry(bgp_debug_bestpath_prefixes, NULL, argv_p);
+
+      if (list_isempty(bgp_debug_bestpath_prefixes))
+        {
+          if (vty->node == CONFIG_NODE)
+            {
+              DEBUG_OFF (bestpath, BESTPATH);
+            }
+          else
+            {
+              TERM_DEBUG_OFF (bestpath, BESTPATH);
+              vty_out (vty, "BGP bestpath debugging (per prefix) is off%s", VTY_NEWLINE);
+            }
+        }
+    }
+
+  if (found_prefix)
+    vty_out (vty, "BGP bestpath debugging is off for %s%s", argv[0], VTY_NEWLINE);
+  else
+    vty_out (vty, "BGP bestpath debugging was not enabled for %s%s", argv[0], VTY_NEWLINE);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_bestpath,
+       no_debug_bgp_bestpath_cmd,
+       "no debug bgp bestpath",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP bestpath\n")
+{
+  bgp_debug_list_free(bgp_debug_bestpath_prefixes);
+
+  if (vty->node == CONFIG_NODE)
+    DEBUG_OFF (bestpath, BESTPATH);
+  else
+    {
+      TERM_DEBUG_OFF (bestpath, BESTPATH);
+      vty_out (vty, "BGP bestpath debugging is off%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
+
+
 /* debug bgp updates */
 DEFUN (debug_bgp_update,
        debug_bgp_update_cmd,
@@ -1376,6 +1499,7 @@ DEFUN (no_debug_bgp,
   bgp_debug_list_free(bgp_debug_update_in_peers);
   bgp_debug_list_free(bgp_debug_update_out_peers);
   bgp_debug_list_free(bgp_debug_update_prefixes);
+  bgp_debug_list_free(bgp_debug_bestpath_prefixes);
   bgp_debug_list_free(bgp_debug_zebra_prefixes);
 
   bgp_debug_clear_updgrp_update_dbg(vty->index);
@@ -1384,6 +1508,7 @@ DEFUN (no_debug_bgp,
   TERM_DEBUG_OFF (update, UPDATE_IN);
   TERM_DEBUG_OFF (update, UPDATE_OUT);
   TERM_DEBUG_OFF (update, UPDATE_PREFIX);
+  TERM_DEBUG_OFF (bestpath, BESTPATH);
   TERM_DEBUG_OFF (as4, AS4);
   TERM_DEBUG_OFF (as4, AS4_SEGMENT);
   TERM_DEBUG_OFF (neighbor_events, NEIGHBOR_EVENTS);
@@ -1430,6 +1555,10 @@ DEFUN (show_debugging_bgp,
   if (BGP_DEBUG (update, UPDATE_OUT))
     bgp_debug_list_print (vty, "  BGP updates debugging is on (outbound)",
                           bgp_debug_update_out_peers);
+
+  if (BGP_DEBUG (bestpath, BESTPATH))
+    bgp_debug_list_print (vty, "  BGP bestpath debugging is on for",
+                          bgp_debug_bestpath_prefixes);
 
   if (BGP_DEBUG (zebra, ZEBRA))
     bgp_debug_list_print (vty, "  BGP zebra debugging is on",
@@ -1478,6 +1607,12 @@ bgp_config_write_debug (struct vty *vty)
   else if (CONF_BGP_DEBUG (update, UPDATE_OUT))
     {
       vty_out (vty, "debug bgp updates out%s", VTY_NEWLINE);
+      write++;
+    }
+
+  if (CONF_BGP_DEBUG (bestpath, BESTPATH))
+    {
+      vty_out (vty, "debug bgp bestpath%s", VTY_NEWLINE);
       write++;
     }
 
@@ -1541,6 +1676,8 @@ bgp_debug_init (void)
   install_element (CONFIG_NODE, &debug_bgp_zebra_cmd);
   install_element (ENABLE_NODE, &debug_bgp_update_groups_cmd);
   install_element (CONFIG_NODE, &debug_bgp_update_groups_cmd);
+  install_element (ENABLE_NODE, &debug_bgp_bestpath_prefix_cmd);
+  install_element (CONFIG_NODE, &debug_bgp_bestpath_prefix_cmd);
 
   /* deb bgp updates [in|out] A.B.C.D */
   install_element (ENABLE_NODE, &debug_bgp_update_direct_peer_cmd);
@@ -1590,6 +1727,10 @@ bgp_debug_init (void)
   install_element (ENABLE_NODE, &no_debug_bgp_update_groups_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_update_groups_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_cmd);
+  install_element (ENABLE_NODE, &no_debug_bgp_bestpath_cmd);
+  install_element (CONFIG_NODE, &no_debug_bgp_bestpath_cmd);
+  install_element (ENABLE_NODE, &no_debug_bgp_bestpath_prefix_cmd);
+  install_element (CONFIG_NODE, &no_debug_bgp_bestpath_prefix_cmd);
 }
 
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug
@@ -1704,6 +1845,20 @@ bgp_debug_update (struct peer *peer, struct prefix *p,
       if (bgp_debug_per_prefix (p, term_bgp_debug_update,
                                 BGP_DEBUG_UPDATE_PREFIX,
                                 bgp_debug_update_prefixes))
+        return 1;
+    }
+
+  return 0;
+}
+
+int
+bgp_debug_bestpath (struct prefix *p)
+{
+  if (BGP_DEBUG (bestpath, BESTPATH))
+    {
+      if (bgp_debug_per_prefix (p, term_bgp_debug_bestpath,
+                                BGP_DEBUG_BESTPATH,
+                                bgp_debug_bestpath_prefixes))
         return 1;
     }
 

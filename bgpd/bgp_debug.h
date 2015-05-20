@@ -64,6 +64,7 @@ extern unsigned long conf_bgp_debug_neighbor_events;
 extern unsigned long conf_bgp_debug_packet;
 extern unsigned long conf_bgp_debug_keepalive;
 extern unsigned long conf_bgp_debug_update;
+extern unsigned long conf_bgp_debug_bestpath;
 extern unsigned long conf_bgp_debug_zebra;
 extern unsigned long conf_bgp_debug_nht;
 extern unsigned long conf_bgp_debug_update_groups;
@@ -73,6 +74,7 @@ extern unsigned long term_bgp_debug_neighbor_events;
 extern unsigned long term_bgp_debug_packet;
 extern unsigned long term_bgp_debug_keepalive;
 extern unsigned long term_bgp_debug_update;
+extern unsigned long term_bgp_debug_bestpath;
 extern unsigned long term_bgp_debug_zebra;
 extern unsigned long term_bgp_debug_nht;
 extern unsigned long term_bgp_debug_update_groups;
@@ -82,6 +84,7 @@ extern struct list *bgp_debug_keepalive_peers;
 extern struct list *bgp_debug_update_in_peers;
 extern struct list *bgp_debug_update_out_peers;
 extern struct list *bgp_debug_update_prefixes;
+extern struct list *bgp_debug_bestpath_prefixes;
 extern struct list *bgp_debug_zebra_prefixes;
 
 struct bgp_debug_filter
@@ -93,6 +96,7 @@ struct bgp_debug_filter
 #define BGP_DEBUG_AS4                 0x01
 #define BGP_DEBUG_AS4_SEGMENT         0x02
 
+#define BGP_DEBUG_BESTPATH            0x01
 #define BGP_DEBUG_NEIGHBOR_EVENTS     0x01
 #define BGP_DEBUG_PACKET              0x01
 #define BGP_DEBUG_KEEPALIVE           0x01
@@ -138,6 +142,7 @@ extern int bgp_debug_neighbor_events(struct peer *peer);
 extern int bgp_debug_keepalive(struct peer *peer);
 extern int bgp_debug_update(struct peer *peer, struct prefix *p,
                             struct update_group *updgrp, unsigned int inbound);
+extern int bgp_debug_bestpath(struct prefix *p);
 extern int bgp_debug_zebra(struct prefix *p);
 
 #endif /* _QUAGGA_BGP_DEBUG_H */
