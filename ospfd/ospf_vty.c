@@ -224,6 +224,8 @@ DEFUN (ospf_router_id,
        "OSPF router-id in IP address format\n")
 {
   struct ospf *ospf = vty->index;
+  struct listnode *node;
+  struct ospf_area *area;
   struct in_addr router_id;
   int ret;
 
@@ -238,7 +240,15 @@ DEFUN (ospf_router_id,
     }
 
   ospf->router_id_static = router_id;
-  
+
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+    if (area->full_nbrs)
+      {
+        vty_out (vty, "For this router-id change to take effect,"
+                 " save config and restart ospfd%s", VTY_NEWLINE);
+        return CMD_SUCCESS;
+      }
+
   ospf_router_id_update (ospf);
   
   return CMD_SUCCESS;
@@ -258,11 +268,21 @@ DEFUN (no_ospf_router_id,
        "router-id for the OSPF process\n")
 {
   struct ospf *ospf = vty->index;
+  struct listnode *node;
+  struct ospf_area *area;
 
   if (!ospf)
     return CMD_SUCCESS;
 
   ospf->router_id_static.s_addr = 0;
+
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+    if (area->full_nbrs)
+      {
+        vty_out (vty, "For this router-id change to take effect,"
+                 " save config and restart ospfd%s", VTY_NEWLINE);
+        return CMD_SUCCESS;
+      }
 
   ospf_router_id_update (ospf);
 

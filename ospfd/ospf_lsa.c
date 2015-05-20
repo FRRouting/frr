@@ -3389,7 +3389,7 @@ ospf_lsa_flush_self_originated (struct ospf_neighbor *nbr,
 	       self->data->type, inet_ntoa (self->data->id));
 }
 #else /* ORIGINAL_CODING */
-static int
+int
 ospf_lsa_flush_schedule (struct ospf *ospf, struct ospf_lsa *lsa)
 {
   if (lsa == NULL || !IS_LSA_SELF (lsa))

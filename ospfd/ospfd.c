@@ -84,6 +84,7 @@ ospf_router_id_update (struct ospf *ospf)
   struct ospf_interface *oi;
   struct interface *ifp;
   struct listnode *node;
+  int type;
 
   if (!ospf->oi_running)
     {
@@ -111,13 +112,10 @@ ospf_router_id_update (struct ospf *ospf)
   else
     router_id = router_id_zebra;
 
-  ospf->router_id = router_id;
   
-  if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("Router-ID[NEW:%s]: Update", inet_ntoa (ospf->router_id));
-
-  if (!IPV4_ADDR_SAME (&router_id_old, &router_id))
+    if (!IPV4_ADDR_SAME (&router_id_old, &router_id))
     {
+
       for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
         /* Update self-neighbor's router_id. */
         oi->nbr_self->router_id = router_id;
@@ -125,7 +123,6 @@ ospf_router_id_update (struct ospf *ospf)
       /* If AS-external-LSA is queued, then flush those LSAs. */
       if (router_id_old.s_addr == 0 && ospf->external_origin)
 	{
-	  int type;
 	  /* Originate each redistributed external route. */
 	  for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
 	    if (ospf->external_origin & (1 << type))
@@ -137,6 +134,50 @@ ospf_router_id_update (struct ospf *ospf)
 
 	  ospf->external_origin = 0;
 	}
+
+      /* Flush (inline) all external LSAs based on the OSPF_LSA_SELF flag */
+      if (ospf->lsdb)
+        {
+          struct route_node *rn;
+          struct ospf_lsa *lsa;
+
+          LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
+            if (IS_LSA_SELF(lsa))
+              ospf_lsa_flush_schedule(ospf, lsa);
+        }
+
+      ospf->router_id = router_id;
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_debug ("Router-ID[NEW:%s]: Update", inet_ntoa (ospf->router_id));
+
+      /* Flush (inline) all external LSAs which now match the new router-id,
+         need to adjust the OSPF_LSA_SELF flag, so the flush doesnt hit
+         asserts in ospf_refresher_unregister_lsa(). This step is needed
+         because the current quagga code does look-up for self-originated LSAs
+         based on the self router-id alone but expects OSPF_LSA_SELF to be
+         properly set */
+      if (ospf->lsdb)
+        {
+          struct route_node *rn;
+          struct ospf_lsa *lsa;
+
+          LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
+            {
+              /* AdvRouter and Router ID is the same. */
+              if (IPV4_ADDR_SAME (&lsa->data->adv_router, &ospf->router_id))
+              {
+                SET_FLAG (lsa->flags, OSPF_LSA_SELF_CHECKED);
+                SET_FLAG (lsa->flags, OSPF_LSA_SELF);
+                ospf_lsa_flush_schedule(ospf, lsa);
+              }
+            }
+        }
+
+      /* Originate each redistributed external route. */
+      for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
+        thread_add_event (master, ospf_external_lsa_originate_timer,
+                          ospf, type);
+      thread_add_event (master, ospf_default_originate_timer, ospf, 0);
 
       /* update router-lsa's for each area */
       ospf_router_lsa_update (ospf);

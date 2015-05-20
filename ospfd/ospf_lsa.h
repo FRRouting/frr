@@ -260,7 +260,7 @@ extern void ospf_lsa_free (struct ospf_lsa *);
 extern struct ospf_lsa *ospf_lsa_lock (struct ospf_lsa *);
 extern void ospf_lsa_unlock (struct ospf_lsa **);
 extern void ospf_lsa_discard (struct ospf_lsa *);
-
+extern int ospf_lsa_flush_schedule (struct ospf *, struct ospf_lsa *);
 extern struct lsa_header *ospf_lsa_data_new (size_t);
 extern struct lsa_header *ospf_lsa_data_dup (struct lsa_header *);
 extern void ospf_lsa_data_free (struct lsa_header *);
