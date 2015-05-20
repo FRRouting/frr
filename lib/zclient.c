@@ -165,7 +165,13 @@ zclient_stop (struct zclient *zclient)
 void
 zclient_reset (struct zclient *zclient)
 {
+  int afi;
+
   zclient_stop (zclient);
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    redist_del_instance (&zclient->redist[afi][zclient->redist_default], zclient->instance);
+
   zclient_init (zclient, zclient->redist_default, zclient->instance);
 }
 

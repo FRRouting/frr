@@ -2546,7 +2546,7 @@ bgp_create (as_t *as, const char *name)
   THREAD_TIMER_ON (master, bgp->t_startup, bgp_startup_timer_expire,
                    bgp, bgp->restart_time);
 
-  update_group_init(bgp);
+  update_bgp_group_init(bgp);
   return bgp;
 }
 
@@ -2728,7 +2728,8 @@ bgp_delete (struct bgp *bgp)
       BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
       bgp_unlock(bgp);
     }
-  
+
+  update_bgp_group_free (bgp);
   /* Remove visibility via the master list - there may however still be
    * routes to be processed still referencing the struct bgp.
    */

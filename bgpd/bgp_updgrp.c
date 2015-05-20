@@ -144,7 +144,7 @@ conf_copy (struct peer *dst, struct peer *src, afi_t afi, safi_t safi)
   dst->v_routeadv = src->v_routeadv;
   dst->flags = src->flags;
   dst->af_flags[afi][safi] = src->af_flags[afi][safi];
-  dst->host = strdup (src->host);
+  dst->host = XSTRDUP (MTYPE_BGP_PEER_HOST, src->host);
   dst->cap = src->cap;
   dst->af_cap[afi][safi] = src->af_cap[afi][safi];
   dst->afc_nego[afi][safi] = src->afc_nego[afi][safi];
@@ -727,6 +727,8 @@ update_group_delete (struct update_group *updgrp)
 
   hash_release (updgrp->bgp->update_groups[updgrp->afid], updgrp);
   conf_release (updgrp->conf, updgrp->afi, updgrp->safi);
+
+  XFREE (MTYPE_BGP_PEER_HOST, updgrp->conf->host);
   XFREE (MTYPE_BGP_PEER, updgrp->conf);
   XFREE (MTYPE_BGP_UPDGRP, updgrp);
 }
@@ -1550,13 +1552,25 @@ update_subgroup_split_peer (struct peer_af *paf, struct update_group *updgrp)
 }
 
 void
-update_group_init (struct bgp *bgp)
+update_bgp_group_init (struct bgp *bgp)
 {
   int afid;
 
   AF_FOREACH (afid)
     bgp->update_groups[afid] = hash_create (updgrp_hash_key_make,
 					    updgrp_hash_cmp);
+}
+
+void
+update_bgp_group_free (struct bgp *bgp)
+{
+  int afid;
+
+  AF_FOREACH (afid)
+    {
+      hash_free(bgp->update_groups[afid]);
+      bgp->update_groups[afid] = NULL;
+    }
 }
 
 void
