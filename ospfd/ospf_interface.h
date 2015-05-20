@@ -45,6 +45,7 @@ struct ospf_if_params
   DECLARE_IF_PARAM (u_int32_t, transmit_delay); /* Interface Transmisson Delay */
   DECLARE_IF_PARAM (u_int32_t, output_cost_cmd);/* Command Interface Output Cost */
   DECLARE_IF_PARAM (u_int32_t, retransmit_interval); /* Retransmission Interval */
+  DECLARE_IF_PARAM (u_char, bfd);                    /* Respond to BFD events */
   DECLARE_IF_PARAM (u_char, passive_interface);      /* OSPF Interface is passive: no sending or receiving (no need to join multicast groups) */
   DECLARE_IF_PARAM (u_char, priority);               /* OSPF Interface priority */
   DECLARE_IF_PARAM (u_char, type);                   /* type of interface */

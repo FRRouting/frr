@@ -429,7 +429,8 @@ struct in_pktinfo
 #define ZEBRA_NEXTHOP_UPDATE              26
 #define ZEBRA_INTERFACE_NBR_ADDRESS_ADD   27
 #define ZEBRA_INTERFACE_NBR_ADDRESS_DELETE 28
-#define ZEBRA_MESSAGE_MAX                 29
+#define ZEBRA_INTERFACE_BFD_DEST_DOWN    29
+#define ZEBRA_MESSAGE_MAX                30
 
 /* Marker value used in new Zserv, in the byte location corresponding
  * the command value in the old zserv header. To allow old and new

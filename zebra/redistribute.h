@@ -45,7 +45,7 @@ extern void zebra_interface_address_add_update (struct interface *,
 					 	struct connected *);
 extern void zebra_interface_address_delete_update (struct interface *,
 						   struct connected *c);
-
+extern void zebra_interface_bfd_update (struct interface *, struct prefix *);
 extern int zebra_check_addr (struct prefix *);
 
 #endif /* _ZEBRA_REDISTRIBUTE_H */

@@ -262,7 +262,7 @@ zebra_ptm_process_msg (char *buf)
               dest_prefix.u.prefix4 = dest_addr;
               dest_prefix.prefixlen = IPV4_MAX_PREFIXLEN;
 
-              /* Send BFD message with ifp and dest_prefix to protocols */
+              if_bfd_session_down(ifp, &dest_prefix);
             } else {
               if_down (ifp);
             }

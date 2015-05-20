@@ -481,6 +481,36 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
   return zebra_server_send_message(client);
 }
 
+int
+zsend_interface_bfd_update (int cmd, struct zserv *client,
+                            struct interface *ifp, struct prefix *p)
+{
+  int blen;
+  struct stream *s;
+
+  /* Check this client need interface information. */
+  if (! client->ifinfo)
+    return 0;
+
+  s = client->obuf;
+  stream_reset (s);
+
+  zserv_create_header (s, cmd);
+  stream_putl (s, ifp->ifindex);
+
+  /* BFD destination prefix information. */
+  stream_putc (s, p->family);
+  blen = prefix_blen (p);
+  stream_put (s, &p->u.prefix, blen);
+  stream_putc (s, p->prefixlen);
+
+  /* Write packet size. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  client->if_bfd_cnt++;
+  return zebra_server_send_message(client);
+}
+
 /*
  * The zebra server sends the clients  a ZEBRA_IPV4_ROUTE_ADD or a
  * ZEBRA_IPV6_ROUTE_ADD via zsend_route_multipath in the following

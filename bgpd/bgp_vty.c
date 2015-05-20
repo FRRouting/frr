@@ -2436,6 +2436,28 @@ DEFUN (no_neighbor_shutdown,
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_SHUTDOWN);
 }
 
+/* neighbor bfd. */
+DEFUN (neighbor_bfd,
+       neighbor_bfd_cmd,
+       NEIGHBOR_CMD2 "bfd",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Respond to BFD session event\n")
+{
+  return peer_flag_set_vty (vty, argv[0], PEER_FLAG_BFD);
+}
+
+DEFUN (no_neighbor_bfd,
+       no_neighbor_bfd_cmd,
+       NO_NEIGHBOR_CMD2 "bfd",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Respond to BFD session event\n")
+{
+  return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_BFD);
+}
+
 /* Deprecated neighbor capability route-refresh. */
 DEFUN_DEPRECATED (neighbor_capability_route_refresh,
 		  neighbor_capability_route_refresh_cmd,
@@ -10272,6 +10294,10 @@ bgp_vty_init (void)
   /* "neighbor passive" commands. */
   install_element (BGP_NODE, &neighbor_passive_cmd);
   install_element (BGP_NODE, &no_neighbor_passive_cmd);
+
+  /* "neighbor bfd" commands. */
+  install_element (BGP_NODE, &neighbor_bfd_cmd);
+  install_element (BGP_NODE, &no_neighbor_bfd_cmd);
 
   /* "neighbor shutdown" commands. */
   install_element (BGP_NODE, &neighbor_shutdown_cmd);

@@ -457,6 +457,7 @@ struct peer
 #define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1 << 8) /* local-as no-prepend replace-as */
 #define PEER_FLAG_DELETE		    (1 << 9) /* mark the peer for deleting */
 #define PEER_FLAG_CONFIG_NODE		    (1 << 10) /* the node to update configs on */
+#define PEER_FLAG_BFD		            (1 << 11) /* bfd */
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
