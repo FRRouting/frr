@@ -46,6 +46,7 @@ struct nh_rmap_obj
   struct nexthop *nexthop;
   u_int32_t source_protocol;
   int metric;
+  u_short tag;
 };
 
 static void zebra_route_map_set_delay_timer(u_int32_t value);
@@ -172,6 +173,68 @@ zebra_route_set_delete (struct vty *vty, struct route_map_index *index,
   return CMD_SUCCESS;
 }
 
+/* 'match tag TAG'
+ * Match function return 1 if match is success else return 0
+ */
+static route_map_result_t
+route_match_tag (void *rule, struct prefix *prefix,
+		 route_map_object_t type, void *object)
+{
+  u_short *tag;
+  struct nh_rmap_obj *nh_data;
+
+  if (type == RMAP_ZEBRA)
+    {
+      tag = rule;
+      nh_data = object;
+
+      if (nh_data->tag == *tag)
+	return RMAP_MATCH;
+    }
+  return RMAP_NOMATCH;
+}
+
+/* Route map 'match tag' match statement. 'arg' is TAG value */
+static void *
+route_match_tag_compile (const char *arg)
+{
+  u_short *tag;
+  u_short tmp;
+
+  /* tag value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  tmp = atoi(arg);
+  if (tmp < 1)
+    return NULL;
+
+  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+
+  if (!tag)
+    return tag;
+
+  *tag = tmp;
+
+  return tag;
+}
+
+/* Free route map's compiled 'match tag' value. */
+static void
+route_match_tag_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for tag matching */
+struct route_map_rule_cmd route_match_tag_cmd =
+{
+   "tag",
+   route_match_tag,
+   route_match_tag_compile,
+   route_match_tag_free
+};
+
 
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
@@ -253,6 +316,39 @@ ALIAS (no_match_interface,
        MATCH_STR
        "Match first hop interface of route\n"
        "Interface name\n")
+
+DEFUN (match_tag,
+       match_tag_cmd,
+       "match tag <1-65535>",
+       MATCH_STR
+       "Match tag of route\n"
+       "Tag value\n")
+{
+  return zebra_route_match_add (vty, vty->index, "tag", argv[0],
+                                RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_tag,
+       no_match_tag_cmd,
+       "no match tag",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n")
+{
+  if (argc == 0)
+    return zebra_route_match_delete (vty, vty->index, "tag", NULL,
+                                     RMAP_EVENT_MATCH_DELETED);
+
+  return zebra_route_match_delete (vty, vty->index, "tag", argv[0],
+                                   RMAP_EVENT_MATCH_DELETED);
+}
+
+ALIAS (no_match_tag,
+       no_match_tag_val_cmd,
+       "no match tag <1-65535>",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n")
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
@@ -1380,7 +1476,7 @@ zebra_route_map_write_delay_timer (struct vty *vty)
 
 route_map_result_t
 zebra_route_map_check (int family, int rib_type, struct prefix *p,
-		       struct nexthop *nexthop)
+		       struct nexthop *nexthop, u_short tag)
 {
   struct route_map *rmap = NULL;
   route_map_result_t ret = RMAP_MATCH;
@@ -1389,6 +1485,7 @@ zebra_route_map_check (int family, int rib_type, struct prefix *p,
   nh_obj.nexthop = nexthop;
   nh_obj.source_protocol = rib_type;
   nh_obj.metric = 0;
+  nh_obj.tag = tag;
 
   if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX)
     rmap = route_map_lookup_by_name (proto_rm[family][rib_type]);
@@ -1412,6 +1509,7 @@ zebra_nht_route_map_check (int family, int client_proto, struct prefix *p,
   nh_obj.nexthop = nexthop;
   nh_obj.source_protocol = rib->type;
   nh_obj.metric = rib->metric;
+  nh_obj.tag = rib->tag;
 
   if (client_proto >= 0 && client_proto < ZEBRA_ROUTE_MAX)
     rmap = route_map_lookup_by_name (nht_rm[family][client_proto]);
@@ -1524,6 +1622,7 @@ zebra_route_map_init ()
   route_map_delete_hook (zebra_route_map_delete);
   route_map_event_hook (zebra_route_map_event);
 
+  route_map_install_match (&route_match_tag_cmd);
   route_map_install_match (&route_match_interface_cmd);
   route_map_install_match (&route_match_ip_next_hop_cmd);
   route_map_install_match (&route_match_ip_next_hop_prefix_list_cmd);
@@ -1535,6 +1634,9 @@ zebra_route_map_init ()
 /* */
   route_map_install_set (&route_set_src_cmd);
 /* */
+  install_element (RMAP_NODE, &match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_val_cmd);
   install_element (RMAP_NODE, &match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_cmd); 
   install_element (RMAP_NODE, &no_match_interface_val_cmd); 
