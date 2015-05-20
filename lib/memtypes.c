@@ -84,6 +84,7 @@ struct memory_list memory_list_zebra[] =
   { MTYPE_STATIC_IPV6,		"Static IPv6 route"		},
   { MTYPE_RIB_DEST,		"RIB destination"		},
   { MTYPE_RIB_TABLE_INFO,	"RIB table info"		},
+  { MTYPE_RNH,		        "Nexthop tracking object"	},
   { -1, NULL },
 };
 

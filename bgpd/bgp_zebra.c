@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_nexthop.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -72,6 +73,15 @@ bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length)
         bgp_router_id_set (bgp, &router_id.u.prefix4);
     }
 
+  return 0;
+}
+
+/* Nexthop update message from zebra. */
+static int
+bgp_read_nexthop_update (int command, struct zclient *zclient,
+			 zebra_size_t length)
+{
+  bgp_parse_nexthop_update();
   return 0;
 }
 
@@ -1187,6 +1197,7 @@ bgp_zebra_init (void)
   zclient->ipv6_route_add = zebra_read_ipv6;
   zclient->ipv6_route_delete = zebra_read_ipv6;
 #endif /* HAVE_IPV6 */
+  zclient->nexthop_update = bgp_read_nexthop_update;
 
   /* Interface related init. */
   if_init ();

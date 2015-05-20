@@ -34,6 +34,7 @@
 #include "workqueue.h"
 #include "prefix.h"
 #include "routemap.h"
+#include "nexthop.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
@@ -41,6 +42,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_fpm.h"
+#include "zebra/zebra_rnh.h"
 
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
@@ -118,6 +120,8 @@ vrf_alloc (const char *name)
   vrf->stable[AFI_IP][SAFI_MULTICAST] = route_table_init ();
   vrf->stable[AFI_IP6][SAFI_MULTICAST] = route_table_init ();
 
+  vrf->rnh_table[AFI_IP] = route_table_init();
+  vrf->rnh_table[AFI_IP6] = route_table_init();
 
   return vrf;
 }
@@ -177,31 +181,6 @@ vrf_static_table (afi_t afi, safi_t safi, u_int32_t id)
   return vrf->stable[afi][safi];
 }
 
-/*
- * nexthop_type_to_str
- */
-const char *
-nexthop_type_to_str (enum nexthop_types_t nh_type)
-{
-  static const char *desc[] = {
-    "none",
-    "Directly connected",
-    "Interface route",
-    "IPv4 nexthop",
-    "IPv4 nexthop with ifindex",
-    "IPv4 nexthop with ifname",
-    "IPv6 nexthop",
-    "IPv6 nexthop with ifindex",
-    "IPv6 nexthop with ifname",
-    "Null0 nexthop",
-  };
-
-  if (nh_type >= ZEBRA_NUM_OF (desc))
-    return "<Invalid nh type>";
-
-  return desc[nh_type];
-}
-
 /* Add nexthop to the end of a nexthop list.  */
 static void
 _nexthop_add (struct nexthop **target, struct nexthop *nexthop)
@@ -218,7 +197,7 @@ _nexthop_add (struct nexthop **target, struct nexthop *nexthop)
 }
 
 /* Add nexthop to the end of a rib node's nexthop list */
-static void
+void
 nexthop_add (struct rib *rib, struct nexthop *nexthop)
 {
   _nexthop_add(&rib->nexthop, nexthop);
@@ -238,10 +217,8 @@ nexthop_delete (struct rib *rib, struct nexthop *nexthop)
   rib->nexthop_num--;
 }
 
-static void nexthops_free(struct nexthop *nexthop);
-
 /* Free nexthop. */
-static void
+void
 nexthop_free (struct nexthop *nexthop)
 {
   if (nexthop->ifname)
@@ -252,7 +229,7 @@ nexthop_free (struct nexthop *nexthop)
 }
 
 /* Frees a list of nexthops */
-static void
+void
 nexthops_free (struct nexthop *nexthop)
 {
   struct nexthop *nh, *next;
@@ -1475,6 +1452,18 @@ process_subq (struct list * subq, u_char qindex)
   return 1;
 }
 
+/*
+ * All meta queues have been processed. Trigger next-hop evaluation.
+ */
+static void
+meta_queue_process_complete (struct work_queue *dummy)
+{
+  zebra_evaluate_rnh_table(0, AF_INET);
+#ifdef HAVE_IPV6
+  zebra_evaluate_rnh_table(0, AF_INET6);
+#endif /* HAVE_IPV6 */
+}
+
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
  * a non-empty sub-queue with lowest priority. wq is equal to zebra->ribq and data
  * is pointed to the meta queue structure.
@@ -1635,6 +1624,7 @@ rib_queue_init (struct zebra_t *zebra)
   /* fill in the work queue spec */
   zebra->ribq->spec.workfunc = &meta_queue_process;
   zebra->ribq->spec.errorfunc = NULL;
+  zebra->ribq->spec.completion_func = &meta_queue_process_complete;
   /* XXX: TODO: These should be runtime configurable via vty */
   zebra->ribq->spec.max_retries = 3;
   zebra->ribq->spec.hold = rib_process_hold_time;

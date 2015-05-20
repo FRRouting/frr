@@ -55,6 +55,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_nht.c"
 
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
@@ -126,20 +127,14 @@ bgp_info_extra_get (struct bgp_info *ri)
   return ri->extra;
 }
 
-/* Allocate new bgp info structure. */
-static struct bgp_info *
-bgp_info_new (void)
-{
-  return XCALLOC (MTYPE_BGP_ROUTE, sizeof (struct bgp_info));
-}
-
 /* Free bgp route information. */
 static void
 bgp_info_free (struct bgp_info *binfo)
 {
   if (binfo->attr)
     bgp_attr_unintern (&binfo->attr);
-  
+
+  bgp_unlink_nexthop(binfo);
   bgp_info_extra_free (&binfo->extra);
   bgp_info_mpath_free (&binfo->mpath);
 
@@ -1857,6 +1852,23 @@ bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
   bgp_rib_remove (rn, ri, peer, afi, safi);
 }
 
+static struct bgp_info *
+info_make (int type, int sub_type, struct peer *peer, struct attr *attr,
+	   struct bgp_node *rn)
+{
+  struct bgp_info *new;
+
+  /* Make new BGP info. */
+  new = XCALLOC (MTYPE_BGP_ROUTE, sizeof (struct bgp_info));
+  new->type = type;
+  new->sub_type = sub_type;
+  new->peer = peer;
+  new->attr = attr;
+  new->uptime = bgp_clock ();
+  new->net = rn;
+  return new;
+}
+
 static void
 bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
       struct attr *attr, struct peer *peer, struct prefix *p, int type,
@@ -2004,13 +2016,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
               p->prefixlen, rsclient->host);
     }
 
-  /* Make new BGP info. */
-  new = bgp_info_new ();
-  new->type = type;
-  new->sub_type = sub_type;
-  new->peer = peer;
-  new->attr = attr_new;
-  new->uptime = bgp_clock ();
+  new = info_make(type, sub_type, peer, attr_new, rn);
 
   /* Update MPLS tag. */
   if (safi == SAFI_MPLS_VPN)
@@ -2316,7 +2322,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	      || (peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)))
 	{
-	  if (bgp_nexthop_lookup (afi, peer, ri, NULL, NULL))
+	  if (bgp_find_or_add_nexthop (afi, ri, NULL, NULL))
 	    bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
 	  else
 	    bgp_info_unset_flag (rn, ri, BGP_INFO_VALID);
@@ -2343,12 +2349,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
     }
 
   /* Make new BGP info. */
-  new = bgp_info_new ();
-  new->type = type;
-  new->sub_type = sub_type;
-  new->peer = peer;
-  new->attr = attr_new;
-  new->uptime = bgp_clock ();
+  new = info_make(type, sub_type, peer, attr_new, rn);
 
   /* Update MPLS tag. */
   if (safi == SAFI_MPLS_VPN)
@@ -2362,7 +2363,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	  || (peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	  || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)))
     {
-      if (bgp_nexthop_lookup (afi, peer, new, NULL, NULL))
+      if (bgp_find_or_add_nexthop (afi, new, NULL, NULL))
 	bgp_info_set_flag (rn, new, BGP_INFO_VALID);
       else
         bgp_info_unset_flag (rn, new, BGP_INFO_VALID);
@@ -3450,15 +3451,11 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
           return;
         }
     }
-  
+
   /* Make new BGP info. */
-  new = bgp_info_new ();
-  new->type = ZEBRA_ROUTE_BGP;
-  new->sub_type = BGP_ROUTE_STATIC;
-  new->peer = bgp->peer_self;
+  new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, bgp->peer_self,
+		  attr_new, rn);
   SET_FLAG (new->flags, BGP_INFO_VALID);
-  new->attr = attr_new;
-  new->uptime = bgp_clock ();
 
   /* Register new BGP information. */
   bgp_info_add (rn, new);
@@ -3571,13 +3568,9 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
     }
 
   /* Make new BGP info. */
-  new = bgp_info_new ();
-  new->type = ZEBRA_ROUTE_BGP;
-  new->sub_type = BGP_ROUTE_STATIC;
-  new->peer = bgp->peer_self;
+  new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, bgp->peer_self, attr_new,
+		  rn);
   SET_FLAG (new->flags, BGP_INFO_VALID);
-  new->attr = attr_new;
-  new->uptime = bgp_clock ();
 
   /* Aggregate address increment. */
   bgp_aggregate_increment (bgp, p, new, afi, safi);
@@ -3622,13 +3615,10 @@ bgp_static_update_vpnv4 (struct bgp *bgp, struct prefix *p, afi_t afi,
   rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, p, prd);
 
   /* Make new BGP info. */
-  new = bgp_info_new ();
-  new->type = ZEBRA_ROUTE_BGP;
-  new->sub_type = BGP_ROUTE_STATIC;
-  new->peer = bgp->peer_self;
-  new->attr = bgp_attr_default_intern (BGP_ORIGIN_IGP);
+  new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, bgp->peer_self,
+		  bgp_attr_default_intern(BGP_ORIGIN_IGP), rn);
+
   SET_FLAG (new->flags, BGP_INFO_VALID);
-  new->uptime = bgp_clock ();
   new->extra = bgp_info_extra_new();
   memcpy (new->extra->tag, tag, 3);
 
@@ -4700,13 +4690,10 @@ bgp_aggregate_route (struct bgp *bgp, struct prefix *p, struct bgp_info *rinew,
   if (aggregate->count > 0)
     {
       rn = bgp_node_get (table, p);
-      new = bgp_info_new ();
-      new->type = ZEBRA_ROUTE_BGP;
-      new->sub_type = BGP_ROUTE_AGGREGATE;
-      new->peer = bgp->peer_self;
+      new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, bgp->peer_self,
+		      bgp_attr_aggregate_intern(bgp, origin, aspath, community,
+						aggregate->as_set), rn);
       SET_FLAG (new->flags, BGP_INFO_VALID);
-      new->attr = bgp_attr_aggregate_intern (bgp, origin, aspath, community, aggregate->as_set);
-      new->uptime = bgp_clock ();
 
       bgp_info_add (rn, new);
       bgp_unlock_node (rn);
@@ -4884,14 +4871,10 @@ bgp_aggregate_add (struct bgp *bgp, struct prefix *p, afi_t afi, safi_t safi,
   if (aggregate->count)
     {
       rn = bgp_node_get (table, p);
-
-      new = bgp_info_new ();
-      new->type = ZEBRA_ROUTE_BGP;
-      new->sub_type = BGP_ROUTE_AGGREGATE;
-      new->peer = bgp->peer_self;
+      new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, bgp->peer_self,
+		      bgp_attr_aggregate_intern(bgp, origin, aspath, community,
+						aggregate->as_set), rn);
       SET_FLAG (new->flags, BGP_INFO_VALID);
-      new->attr = bgp_attr_aggregate_intern (bgp, origin, aspath, community, aggregate->as_set);
-      new->uptime = bgp_clock ();
 
       bgp_info_add (rn, new);
       bgp_unlock_node (rn);
@@ -5531,16 +5514,12 @@ bgp_redistribute_add (struct prefix *p, const struct in_addr *nexthop,
  		  aspath_unintern (&attr.aspath);
  		  bgp_attr_extra_free (&attr);
  		  return;
- 		} 
+		}
  	    }
 
-	  new = bgp_info_new ();
-	  new->type = type;
-	  new->sub_type = BGP_ROUTE_REDISTRIBUTE;
-	  new->peer = bgp->peer_self;
+	  new = info_make(type, BGP_ROUTE_REDISTRIBUTE, bgp->peer_self,
+			  new_attr, bn);
 	  SET_FLAG (new->flags, BGP_INFO_VALID);
-	  new->attr = new_attr;
-	  new->uptime = bgp_clock ();
 
 	  bgp_aggregate_increment (bgp, p, new, afi, SAFI_UNICAST);
 	  bgp_info_add (bn, new);

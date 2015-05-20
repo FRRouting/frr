@@ -27,8 +27,10 @@
 #include "command.h"
 #include "table.h"
 #include "rib.h"
+#include "nexthop.h"
 
 #include "zebra/zserv.h"
+#include "zebra/zebra_rnh.h"
 
 /* General fucntion for static route. */
 static int
@@ -808,6 +810,28 @@ DEFUN (show_ip_route,
 	  }
 	vty_show_ip_route (vty, rn, rib);
       }
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_nht,
+       show_ip_nht_cmd,
+       "show ip nht",
+       SHOW_STR
+       IP_STR
+       "IP nexthop tracking table\n")
+{
+  zebra_print_rnh_table(0, AF_INET, vty);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ipv6_nht,
+       show_ipv6_nht_cmd,
+       "show ipv6 nht",
+       SHOW_STR
+       IP_STR
+       "IPv6 nexthop tracking table\n")
+{
+  zebra_print_rnh_table(0, AF_INET6, vty);
   return CMD_SUCCESS;
 }
 
@@ -2210,6 +2234,8 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance2_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_cmd);
+  install_element (VIEW_NODE, &show_ip_nht_cmd);
+  install_element (VIEW_NODE, &show_ipv6_nht_cmd);
   install_element (VIEW_NODE, &show_ip_route_addr_cmd);
   install_element (VIEW_NODE, &show_ip_route_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_route_prefix_longer_cmd);
@@ -2218,6 +2244,8 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ip_route_summary_cmd);
   install_element (VIEW_NODE, &show_ip_route_summary_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_route_cmd);
+  install_element (ENABLE_NODE, &show_ip_nht_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_nht_cmd);
   install_element (ENABLE_NODE, &show_ip_route_addr_cmd);
   install_element (ENABLE_NODE, &show_ip_route_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_route_prefix_longer_cmd);

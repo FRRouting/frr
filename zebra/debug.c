@@ -30,6 +30,7 @@ unsigned long zebra_debug_packet;
 unsigned long zebra_debug_kernel;
 unsigned long zebra_debug_rib;
 unsigned long zebra_debug_fpm;
+unsigned long zebra_debug_nht;
 
 DEFUN (show_debugging_zebra,
        show_debugging_zebra_cmd,
@@ -74,6 +75,8 @@ DEFUN (show_debugging_zebra,
 
   if (IS_ZEBRA_DEBUG_FPM)
     vty_out (vty, "  Zebra FPM debugging is on%s", VTY_NEWLINE);
+  if (IS_ZEBRA_DEBUG_NHT)
+    vty_out (vty, "  Zebra next-hop tracking debugging is on%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -86,6 +89,17 @@ DEFUN (debug_zebra_events,
        "Debug option set for zebra events\n")
 {
   zebra_debug_event = ZEBRA_DEBUG_EVENT;
+  return CMD_WARNING;
+}
+
+DEFUN (debug_zebra_nht,
+       debug_zebra_nht_cmd,
+       "debug zebra nht",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug option set for zebra next hop tracking\n")
+{
+  zebra_debug_nht = ZEBRA_DEBUG_NHT;
   return CMD_WARNING;
 }
 
@@ -193,6 +207,18 @@ DEFUN (no_debug_zebra_events,
        "Debug option set for zebra events\n")
 {
   zebra_debug_event = 0;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_zebra_nht,
+       no_debug_zebra_nht_cmd,
+       "no debug zebra nht",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug option set for zebra next hop tracking\n")
+{
+  zebra_debug_nht = 0;
   return CMD_SUCCESS;
 }
 
@@ -352,6 +378,7 @@ zebra_debug_init (void)
 
   install_element (ENABLE_NODE, &show_debugging_zebra_cmd);
   install_element (ENABLE_NODE, &debug_zebra_events_cmd);
+  install_element (ENABLE_NODE, &debug_zebra_nht_cmd);
   install_element (ENABLE_NODE, &debug_zebra_packet_cmd);
   install_element (ENABLE_NODE, &debug_zebra_packet_direct_cmd);
   install_element (ENABLE_NODE, &debug_zebra_packet_detail_cmd);
@@ -360,6 +387,7 @@ zebra_debug_init (void)
   install_element (ENABLE_NODE, &debug_zebra_rib_q_cmd);
   install_element (ENABLE_NODE, &debug_zebra_fpm_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_events_cmd);
+  install_element (ENABLE_NODE, &no_debug_zebra_nht_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_packet_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_kernel_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_rib_cmd);
@@ -367,6 +395,7 @@ zebra_debug_init (void)
   install_element (ENABLE_NODE, &no_debug_zebra_fpm_cmd);
 
   install_element (CONFIG_NODE, &debug_zebra_events_cmd);
+  install_element (CONFIG_NODE, &debug_zebra_nht_cmd);
   install_element (CONFIG_NODE, &debug_zebra_packet_cmd);
   install_element (CONFIG_NODE, &debug_zebra_packet_direct_cmd);
   install_element (CONFIG_NODE, &debug_zebra_packet_detail_cmd);
@@ -375,6 +404,7 @@ zebra_debug_init (void)
   install_element (CONFIG_NODE, &debug_zebra_rib_q_cmd);
   install_element (CONFIG_NODE, &debug_zebra_fpm_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_events_cmd);
+  install_element (CONFIG_NODE, &no_debug_zebra_nht_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_packet_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_kernel_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_rib_cmd);

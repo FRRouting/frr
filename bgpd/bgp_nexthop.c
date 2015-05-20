@@ -30,16 +30,20 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 #include "hash.h"
 #include "jhash.h"
+#include "nexthop.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_damp.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"	/* For ZEBRA_SERV_PATH. */
+
+extern struct zclient *zclient;
 
 struct bgp_nexthop_cache *zlookup_query (struct in_addr);
 #ifdef HAVE_IPV6
@@ -59,7 +63,7 @@ static int bgp_scan_interval;
 static int bgp_import_interval;
 
 /* Route table for next-hop lookup cache. */
-static struct bgp_table *bgp_nexthop_cache_table[AFI_MAX];
+struct bgp_table *bgp_nexthop_cache_table[AFI_MAX];
 static struct bgp_table *cache1_table[AFI_MAX];
 static struct bgp_table *cache2_table[AFI_MAX];
 
@@ -68,6 +72,13 @@ static struct bgp_table *bgp_connected_table[AFI_MAX];
 
 /* BGP nexthop lookup query client. */
 struct zclient *zlookup = NULL;
+
+char *
+bnc_str (struct bgp_nexthop_cache *bnc, char *buf, int size)
+{
+  prefix2str(&(bnc->node->p), buf, size);
+  return buf;
+}
 
 /* Add nexthop to the end of the list.  */
 static void
@@ -84,7 +95,7 @@ bnc_nexthop_add (struct bgp_nexthop_cache *bnc, struct nexthop *nexthop)
   nexthop->prev = last;
 }
 
-static void
+void
 bnc_nexthop_free (struct bgp_nexthop_cache *bnc)
 {
   struct nexthop *nexthop;
@@ -97,59 +108,21 @@ bnc_nexthop_free (struct bgp_nexthop_cache *bnc)
     }
 }
 
-static struct bgp_nexthop_cache *
-bnc_new (void)
+struct bgp_nexthop_cache *
+bnc_new ()
 {
-  return XCALLOC (MTYPE_BGP_NEXTHOP_CACHE, sizeof (struct bgp_nexthop_cache));
+  struct bgp_nexthop_cache *bnc;
+
+  bnc = XCALLOC (MTYPE_BGP_NEXTHOP_CACHE, sizeof (struct bgp_nexthop_cache));
+  LIST_INIT(&(bnc->paths));
+  return bnc;
 }
 
-static void
+void
 bnc_free (struct bgp_nexthop_cache *bnc)
 {
   bnc_nexthop_free (bnc);
   XFREE (MTYPE_BGP_NEXTHOP_CACHE, bnc);
-}
-
-static int
-bgp_nexthop_same (struct nexthop *next1, struct nexthop *next2)
-{
-  if (next1->type != next2->type)
-    return 0;
-
-  switch (next1->type)
-    {
-    case ZEBRA_NEXTHOP_IPV4:
-      if (! IPV4_ADDR_SAME (&next1->gate.ipv4, &next2->gate.ipv4))
-	return 0;
-      break;
-    case ZEBRA_NEXTHOP_IPV4_IFINDEX:
-      if (! IPV4_ADDR_SAME (&next1->gate.ipv4, &next2->gate.ipv4)
-	  || next1->ifindex != next2->ifindex)
-	return 0;
-      break;
-    case ZEBRA_NEXTHOP_IFINDEX:
-    case ZEBRA_NEXTHOP_IFNAME:
-      if (next1->ifindex != next2->ifindex)
-	return 0;
-      break;
-#ifdef HAVE_IPV6
-    case ZEBRA_NEXTHOP_IPV6:
-      if (! IPV6_ADDR_SAME (&next1->gate.ipv6, &next2->gate.ipv6))
-	return 0;
-      break;
-    case ZEBRA_NEXTHOP_IPV6_IFINDEX:
-    case ZEBRA_NEXTHOP_IPV6_IFNAME:
-      if (! IPV6_ADDR_SAME (&next1->gate.ipv6, &next2->gate.ipv6))
-	return 0;
-      if (next1->ifindex != next2->ifindex)
-	return 0;
-      break;
-#endif /* HAVE_IPV6 */
-    default:
-      /* do nothing */
-      break;
-    }
-  return 1;
 }
 
 static int
@@ -167,7 +140,7 @@ bgp_nexthop_cache_different (struct bgp_nexthop_cache *bnc1,
 
   for (i = 0; i < bnc1->nexthop_num; i++)
     {
-      if (! bgp_nexthop_same (next1, next2))
+      if (! nexthop_same_no_recurse (next1, next2))
 	return 1;
 
       next1 = next1->next;
@@ -416,6 +389,7 @@ bgp_scan (afi_t afi, safi_t safi)
   struct bgp_info *next;
   struct peer *peer;
   struct listnode *node, *nnode;
+#if BGP_SCAN_NEXTHOP
   int valid;
   int current;
   int changed;
@@ -426,6 +400,7 @@ bgp_scan (afi_t afi, safi_t safi)
     bgp_nexthop_cache_table[afi] = cache2_table[afi];
   else
     bgp_nexthop_cache_table[afi] = cache1_table[afi];
+#endif
 
   /* Get default bgp. */
   bgp = bgp_get_default ();
@@ -455,6 +430,7 @@ bgp_scan (afi_t afi, safi_t safi)
 
 	  if (bi->type == ZEBRA_ROUTE_BGP && bi->sub_type == BGP_ROUTE_NORMAL)
 	    {
+#if BGP_SCAN_NEXTHOP
 	      changed = 0;
 	      metricchanged = 0;
 
@@ -487,6 +463,7 @@ bgp_scan (afi_t afi, safi_t safi)
 					       afi, SAFI_UNICAST);
 		    }
 		}
+#endif
 
               if (CHECK_FLAG (bgp->af_flags[afi][SAFI_UNICAST],
 		  BGP_CONFIG_DAMPENING)
@@ -499,11 +476,13 @@ bgp_scan (afi_t afi, safi_t safi)
       bgp_process (bgp, rn, afi, SAFI_UNICAST);
     }
 
+#if BGP_SCAN_NEXTHOP
   /* Flash old cache. */
   if (bgp_nexthop_cache_table[afi] == cache1_table[afi])
     bgp_nexthop_cache_reset (cache2_table[afi]);
   else
     bgp_nexthop_cache_reset (cache1_table[afi]);
+#endif
 
   if (BGP_DEBUG (events, EVENTS))
     {
@@ -1294,9 +1273,7 @@ static int
 show_ip_bgp_scan_tables (struct vty *vty, const char detail)
 {
   struct bgp_node *rn;
-  struct bgp_nexthop_cache *bnc;
   char buf[INET6_ADDRSTRLEN];
-  u_char i;
 
   if (bgp_scan_thread)
     vty_out (vty, "BGP scan is running%s", VTY_NEWLINE);
@@ -1304,6 +1281,7 @@ show_ip_bgp_scan_tables (struct vty *vty, const char detail)
     vty_out (vty, "BGP scan is not running%s", VTY_NEWLINE);
   vty_out (vty, "BGP scan interval is %d%s", bgp_scan_interval, VTY_NEWLINE);
 
+#if BGP_SCAN_NEXTHOP
   vty_out (vty, "Current BGP nexthop cache:%s", VTY_NEWLINE);
   for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP]); rn; rn = bgp_route_next (rn))
     if ((bnc = rn->info) != NULL)
@@ -1368,7 +1346,9 @@ show_ip_bgp_scan_tables (struct vty *vty, const char detail)
 	}
   }
 #endif /* HAVE_IPV6 */
-
+#else
+  vty_out (vty, "BGP next-hop tracking is on%s", VTY_NEWLINE);
+#endif
   vty_out (vty, "BGP connected route:%s", VTY_NEWLINE);
   for (rn = bgp_table_top (bgp_connected_table[AFI_IP]); 
        rn; 
@@ -1393,6 +1373,117 @@ show_ip_bgp_scan_tables (struct vty *vty, const char detail)
   return CMD_SUCCESS;
 }
 
+static int
+show_ip_bgp_nexthop_table (struct vty *vty, int detail)
+{
+  struct bgp_node *rn;
+  struct bgp_nexthop_cache *bnc;
+  char buf[INET6_ADDRSTRLEN];
+  time_t tbuf;
+  u_char i;
+
+  vty_out (vty, "Current BGP nexthop cache:%s", VTY_NEWLINE);
+  for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP]); rn; rn = bgp_route_next (rn))
+    if ((bnc = rn->info) != NULL)
+      {
+	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID))
+	{
+	  vty_out (vty, " %s valid [IGP metric %d], #paths %d%s",
+		   inet_ntop (AF_INET, &rn->p.u.prefix4, buf, INET6_ADDRSTRLEN),
+		   bnc->metric, bnc->path_count, VTY_NEWLINE);
+	  if (detail)
+	    for (i = 0; i < bnc->nexthop_num; i++)
+	      switch (bnc->nexthop[i].type)
+	      {
+	      case NEXTHOP_TYPE_IPV4:
+		vty_out (vty, "  gate %s%s",
+			 inet_ntop (AF_INET, &bnc->nexthop[i].gate.ipv4, buf,
+				    INET6_ADDRSTRLEN), VTY_NEWLINE);
+		break;
+	      case NEXTHOP_TYPE_IFINDEX:
+		vty_out (vty, "  if %s%s",
+			 ifindex2ifname(bnc->nexthop[i].ifindex), VTY_NEWLINE);
+		break;
+	      case NEXTHOP_TYPE_IPV4_IFINDEX:
+		vty_out (vty, "  gate %s, if %s%s",
+			 inet_ntop(AF_INET, &bnc->nexthop[i].gate.ipv4, buf,
+				   INET6_ADDRSTRLEN),
+			 ifindex2ifname(bnc->nexthop[i].ifindex), VTY_NEWLINE);
+		break;
+	      default:
+		vty_out (vty, "  invalid nexthop type %u%s",
+			 bnc->nexthop[i].type, VTY_NEWLINE);
+	      }
+	}
+	else
+	  vty_out (vty, " %s invalid%s",
+		   inet_ntop (AF_INET, &rn->p.u.prefix4, buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
+#ifdef HAVE_CLOCK_MONOTONIC
+	tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
+	vty_out (vty, "  Last update: %s", ctime(&tbuf));
+#else
+	vty_out (vty, "  Last update: %s", ctime(&bnc->uptime));
+#endif /* HAVE_CLOCK_MONOTONIC */
+
+	vty_out(vty, "%s", VTY_NEWLINE);
+      }
+
+#ifdef HAVE_IPV6
+  {
+    for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP6]);
+         rn;
+         rn = bgp_route_next (rn))
+      if ((bnc = rn->info) != NULL)
+	{
+	  if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID))
+	  {
+	    vty_out (vty, " %s valid [IGP metric %d]%s",
+		     inet_ntop (AF_INET6, &rn->p.u.prefix6, buf,
+				INET6_ADDRSTRLEN),
+		     bnc->metric, VTY_NEWLINE);
+	    if (detail)
+	      for (i = 0; i < bnc->nexthop_num; i++)
+		switch (bnc->nexthop[i].type)
+		{
+		case NEXTHOP_TYPE_IPV6:
+		  vty_out (vty, "  gate %s%s",
+			   inet_ntop (AF_INET6, &bnc->nexthop[i].gate.ipv6,
+				      buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
+		  break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+		  vty_out(vty, "  gate %s, if %s%s",
+			  inet_ntop(AF_INET6, &bnc->nexthop[i].gate.ipv6, buf,
+				    INET6_ADDRSTRLEN),
+			  ifindex2ifname(bnc->nexthop[i].ifindex),
+			  VTY_NEWLINE);
+		  break;
+		case NEXTHOP_TYPE_IFINDEX:
+		  vty_out (vty, "  ifidx %u%s", bnc->nexthop[i].ifindex,
+			   VTY_NEWLINE);
+		  break;
+		default:
+		  vty_out (vty, "  invalid nexthop type %u%s",
+			   bnc->nexthop[i].type, VTY_NEWLINE);
+		}
+	  }
+	  else
+	    vty_out (vty, " %s invalid%s",
+		     inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, INET6_ADDRSTRLEN),
+		     VTY_NEWLINE);
+#ifdef HAVE_CLOCK_MONOTONIC
+	  tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
+	  vty_out (vty, "  Last update: %s", ctime(&tbuf));
+#else
+	  vty_out (vty, "  Last update: %s", ctime(&bnc->uptime));
+#endif /* HAVE_CLOCK_MONOTONIC */
+
+	  vty_out(vty, "%s", VTY_NEWLINE);
+	}
+  }
+#endif /* HAVE_IPV6 */
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_bgp_scan,
        show_ip_bgp_scan_cmd,
        "show ip bgp scan",
@@ -1414,6 +1505,28 @@ DEFUN (show_ip_bgp_scan_detail,
        "More detailed output\n")
 {
   return show_ip_bgp_scan_tables (vty, 1);
+}
+
+DEFUN (show_ip_bgp_nexthop,
+       show_ip_bgp_nexthop_cmd,
+       "show ip bgp nexthop",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP nexthop table\n")
+{
+  return show_ip_bgp_nexthop_table (vty, 0);
+}
+
+DEFUN (show_ip_bgp_nexthop_detail,
+       show_ip_bgp_nexthop_detail_cmd,
+       "show ip bgp nexthop detail",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP nexthop table\n")
+{
+  return show_ip_bgp_nexthop_table (vty, 1);
 }
 
 int
@@ -1458,8 +1571,12 @@ bgp_scan_init (void)
   install_element (BGP_NODE, &no_bgp_scan_time_val_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_scan_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_scan_detail_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_nexthop_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_nexthop_detail_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_scan_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_scan_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_nexthop_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_nexthop_detail_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_scan_detail_cmd);
 }
 

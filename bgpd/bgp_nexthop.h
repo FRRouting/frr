@@ -22,6 +22,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define _QUAGGA_BGP_NEXTHOP_H
 
 #include "if.h"
+#include "queue.h"
+#include "prefix.h"
 
 #define BGP_SCAN_INTERVAL_DEFAULT   60
 #define BGP_IMPORT_INTERVAL_DEFAULT 15
@@ -44,6 +46,20 @@ struct bgp_nexthop_cache
   /* Nexthop number and nexthop linked list.*/
   u_char nexthop_num;
   struct nexthop *nexthop;
+  time_t last_update;
+  u_int16_t flags;
+
+#define BGP_NEXTHOP_VALID (1 << 0)
+#define BGP_NEXTHOP_REGISTERED (1 << 1)
+
+  u_int16_t change_flags;
+
+#define BGP_NEXTHOP_CHANGED (1 << 0)
+#define BGP_NEXTHOP_METRIC_CHANGED (1 << 1)
+
+  struct bgp_node *node;
+  LIST_HEAD(path_list, bgp_info) paths;
+  unsigned int path_count;
 };
 
 extern void bgp_scan_init (void);
@@ -57,5 +73,9 @@ extern int bgp_config_write_scan_time (struct vty *);
 extern int bgp_nexthop_onlink (afi_t, struct attr *);
 extern int bgp_nexthop_self (struct attr *);
 extern void bgp_address_init (void);
+extern struct bgp_nexthop_cache *bnc_new();
+extern void bnc_free(struct bgp_nexthop_cache *bnc);
+extern void bnc_nexthop_free(struct bgp_nexthop_cache *bnc);
+extern char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size);
 
 #endif /* _QUAGGA_BGP_NEXTHOP_H */

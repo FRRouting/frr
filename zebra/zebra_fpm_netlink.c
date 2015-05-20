@@ -29,6 +29,7 @@
 #include "rib.h"
 
 #include "rt_netlink.h"
+#include "nexthop.h"
 
 #include "zebra_fpm_private.h"
 

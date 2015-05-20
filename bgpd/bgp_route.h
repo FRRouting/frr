@@ -21,7 +21,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_ROUTE_H
 #define _QUAGGA_BGP_ROUTE_H
 
+#include "queue.h"
 #include "bgp_table.h"
+
+struct bgp_nexthop_cache;
 
 /* Ancillary information to struct bgp_info, 
  * used for uncommonly used data (aggregation, MPLS, etc.)
@@ -47,7 +50,16 @@ struct bgp_info
   /* For linked list. */
   struct bgp_info *next;
   struct bgp_info *prev;
-  
+
+  /* For nexthop linked list */
+  LIST_ENTRY(bgp_info) nh_thread;
+
+  /* Back pointer to the prefix node */
+  struct bgp_node *net;
+
+  /* Back pointer to the nexthop structure */
+  struct bgp_nexthop_cache *nexthop;
+
   /* Peer structure.  */
   struct peer *peer;
 

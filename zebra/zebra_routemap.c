@@ -28,6 +28,7 @@
 #include "command.h"
 #include "filter.h"
 #include "plist.h"
+#include "nexthop.h"
 
 #include "zebra/zserv.h"
 

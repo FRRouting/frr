@@ -967,6 +967,12 @@ zclient_read (struct thread *thread)
       if (zclient->ipv6_route_delete)
 	(*zclient->ipv6_route_delete) (command, zclient, length);
       break;
+    case ZEBRA_NEXTHOP_UPDATE:
+      if (zclient_debug)
+	zlog_debug("zclient rcvd nexthop update\n");
+      if (zclient->nexthop_update)
+	(*zclient->nexthop_update) (command, zclient, length);
+      break;
     default:
       break;
     }

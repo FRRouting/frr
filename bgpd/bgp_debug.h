@@ -67,6 +67,7 @@ extern unsigned long conf_bgp_debug_keepalive;
 extern unsigned long conf_bgp_debug_update;
 extern unsigned long conf_bgp_debug_normal;
 extern unsigned long conf_bgp_debug_zebra;
+extern unsigned long conf_bgp_debug_nht;
 
 extern unsigned long term_bgp_debug_as4;
 extern unsigned long term_bgp_debug_fsm;
@@ -77,6 +78,7 @@ extern unsigned long term_bgp_debug_keepalive;
 extern unsigned long term_bgp_debug_update;
 extern unsigned long term_bgp_debug_normal;
 extern unsigned long term_bgp_debug_zebra;
+extern unsigned long term_bgp_debug_nht;
 
 #define BGP_DEBUG_AS4                 0x01
 #define BGP_DEBUG_AS4_SEGMENT         0x02
@@ -90,6 +92,7 @@ extern unsigned long term_bgp_debug_zebra;
 #define BGP_DEBUG_UPDATE_OUT          0x02
 #define BGP_DEBUG_NORMAL              0x01
 #define BGP_DEBUG_ZEBRA               0x01
+#define BGP_DEBUG_NHT                 0x01
 
 #define BGP_DEBUG_PACKET_SEND         0x01
 #define BGP_DEBUG_PACKET_SEND_DETAIL  0x02
