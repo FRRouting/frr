@@ -61,7 +61,7 @@ int keep_kernel_mode = 0;
 
 #ifdef HAVE_NETLINK
 /* Receive buffer size for netlink socket */
-u_int32_t nl_rcvbufsize = 0;
+u_int32_t nl_rcvbufsize = 4194304;
 #endif /* HAVE_NETLINK */
 
 /* Command line options. */
