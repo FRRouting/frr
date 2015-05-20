@@ -1325,9 +1325,6 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
 
   peer = info->peer;
 
-  if (peer->bgp && peer->bgp->main_zebra_update_hold)
-    return;
-
   flags = 0;
 
   if (peer->sort == BGP_PEER_IBGP)
