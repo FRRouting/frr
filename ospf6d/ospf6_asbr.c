@@ -972,13 +972,13 @@ route_map_command_status (struct vty *vty, int ret)
   switch (ret)
     {
     case RMAP_RULE_MISSING:
-      vty_out (vty, "Can't find rule.%s", VNL);
+      vty_out (vty, "OSPF6 Can't find rule.%s", VNL);
       break;
     case RMAP_COMPILE_ERROR:
-      vty_out (vty, "Argument is malformed.%s", VNL);
+      vty_out (vty, "OSPF6 Argument is malformed.%s", VNL);
       break;
     default:
-      vty_out (vty, "route-map add set failed.%s", VNL);
+      vty_out (vty, "OSPF6 route-map add set failed.%s", VNL);
       break;
     }
   return CMD_WARNING;

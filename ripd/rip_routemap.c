@@ -58,10 +58,10 @@ rip_route_match_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
 	{
 	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+	  vty_out (vty, "%% RIP Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+	  vty_out (vty, "%% RIP Argument is malformed.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
@@ -81,10 +81,10 @@ rip_route_match_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
 	{
 	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+	  vty_out (vty, "%% RIP Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+	  vty_out (vty, "%% RIP Argument is malformed.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
@@ -104,7 +104,7 @@ rip_route_set_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
 	{
 	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+	  vty_out (vty, "%% RIP Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	case RMAP_COMPILE_ERROR:
 	  /* rip, ripng and other protocols share the set metric command
@@ -112,7 +112,7 @@ rip_route_set_add (struct vty *vty, struct route_map_index *index,
 	     if metric is out of range for rip and ripng, it is not for
 	     other protocols. Do not return an error */
 	  if (strcmp(command, "metric")) {
-	     vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+	     vty_out (vty, "%% RIP Argument is malformed.%s", VTY_NEWLINE);
 	     return CMD_WARNING;
 	  }
 	}
@@ -133,10 +133,10 @@ rip_route_set_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
 	{
 	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+	  vty_out (vty, "%% RIP Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+	  vty_out (vty, "%% RIP Argument is malformed.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }

@@ -108,10 +108,10 @@ ospf_route_match_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% OSPF Can't find rule.%s", VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% OSPF Argument is malformed.%s", VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -131,10 +131,10 @@ ospf_route_match_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% OSPF Can't find rule.%s", VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% OSPF Argument is malformed.%s", VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -154,10 +154,10 @@ ospf_route_set_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% OSPF Can't find rule.%s", VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% OSPF Argument is malformed.%s", VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -178,10 +178,10 @@ ospf_route_set_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% OSPF Can't find rule.%s", VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% OSPF Argument is malformed.%s", VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -505,6 +505,19 @@ route_set_metric_compile (const char *arg)
 {
   u_int32_t *metric;
   int32_t ret;
+
+  /* OSPF doesn't support the +/- in
+     set metric <+/-metric> check
+     Ignore the +/- component */
+  if (! all_digit (arg))
+    if ((strncmp (arg, "+", 1) == 0 || strncmp (arg, "-", 1) == 0) &&
+        all_digit (arg+1))
+      {
+        zlog_warn ("OSPF does not support 'set metric +/-'");
+        arg++;
+      }
+    else
+      return NULL;
 
   metric = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
   ret = atoi (arg);
