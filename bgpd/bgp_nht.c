@@ -308,6 +308,10 @@ bgp_parse_nexthop_update (void)
 
   if (nexthop_num)
     {
+      /* notify bgp fsm if nbr ip goes from invalid->valid */
+      if (!bnc->nexthop_num)
+	UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+
       bnc->flags |= BGP_NEXTHOP_VALID;
       bnc->metric = metric;
       bnc->nexthop_num = nexthop_num;
@@ -367,10 +371,7 @@ bgp_parse_nexthop_update (void)
 		  break;
 
 	  if (!oldnh)
-	    {
-	      bnc->change_flags |= BGP_NEXTHOP_CHANGED;
-	      UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
-	    }
+	    bnc->change_flags |= BGP_NEXTHOP_CHANGED;
 	}
       bnc_nexthop_free(bnc);
       bnc->nexthop = nhlist_head;
@@ -378,7 +379,11 @@ bgp_parse_nexthop_update (void)
   else
     {
       bnc->flags &= ~BGP_NEXTHOP_VALID;
+      bnc->nexthop_num = nexthop_num;
+
+      /* notify bgp fsm if nbr ip goes from valid->invalid */
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+
       bnc_nexthop_free(bnc);
       bnc->nexthop = NULL;
     }
