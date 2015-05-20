@@ -23,6 +23,7 @@ V_PATH=/var/run/quagga
 # Keep zebra first and do not list watchquagga!
 DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld"
 MAX_INSTANCES=5
+RELOAD_SCRIPT=/usr/lib/quagga/quagga-reload.py
 
 # Print the name of the pidfile.
 pidfile()
@@ -476,6 +477,19 @@ case "$1" in
         fi
         ;;
 
+    reload)
+	# Just apply the commands that have changed, no restart necessary
+        if [ -z "$ENABLE_RELOAD" ] || [ "$ENABLE_RELOAD" != "yes" ]; then
+            echo "Reload is an experimental feature. Set ENABLE_RELOAD to yes in /etc/default/quagga."
+            exit 1
+        fi
+	[ ! -x "$RELOAD_SCRIPT" ] && echo "quagga-reload script not available" && exit 0
+	NEW_CONFIG_FILE="${2:-$C_PATH/Quagga.conf}"
+	[ ! -r $NEW_CONFIG_FILE ] && echo "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
+	echo "Applying only incremental changes to running configuration from Quagga.conf"
+	"$RELOAD_SCRIPT" --reload /etc/quagga/Quagga.conf
+	;;
+
     restart|force-reload)
         $0 stop $dmn
         sleep 1
@@ -484,7 +498,9 @@ case "$1" in
 
     *)
         echo "Usage: /etc/init.d/quagga {start|stop|restart|force-reload|<priority>} [daemon]"
+	echo "Usage: /etc/init.d/quagga reload"
         echo "       E.g. '/etc/init.d/quagga 5' would start all daemons with a prio 1-5."
+	echo "       reload applies only modifications to the running config."
         echo "       Read /usr/share/doc/quagga/README.Debian for details."
         exit 1
         ;;
