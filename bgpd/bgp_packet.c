@@ -914,6 +914,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   struct in_addr remote_id;
   int mp_capability;
   u_int8_t notify_data_remote_as[2];
+  u_int8_t notify_data_remote_as4[4];
   u_int8_t notify_data_remote_id[4];
   u_int16_t *holdtime_ptr;
   unsigned long local_addr;
@@ -946,6 +947,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
        * that we do not know which peer is connecting to us now.
        */ 
       as4 = peek_for_as4_capability (peer, optlen);
+      memcpy (notify_data_remote_as4, &as4, 4);
     }
   
   /* Just in case we have a silly peer who sends AS4 capability set to 0 */
@@ -953,8 +955,10 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
     {
       zlog_err ("%s bad OPEN, got AS4 capability, but AS4 set to 0",
                 peer->host);
-      bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
-                       BGP_NOTIFY_OPEN_BAD_PEER_AS);
+      bgp_notify_send_with_data (peer,
+                                 BGP_NOTIFY_OPEN_ERR,
+                                 BGP_NOTIFY_OPEN_BAD_PEER_AS,
+                                 notify_data_remote_as4, 4);
       return -1;
     }
   
@@ -968,8 +972,10 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
         {
           zlog_err ("%s [AS4] NEW speaker using AS_TRANS for AS4, not allowed",
                     peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
-			   BGP_NOTIFY_OPEN_BAD_PEER_AS);
+          bgp_notify_send_with_data (peer,
+                                     BGP_NOTIFY_OPEN_ERR,
+                                     BGP_NOTIFY_OPEN_BAD_PEER_AS,
+                                     notify_data_remote_as4, 4);
           return -1;
         }
       
@@ -993,8 +999,10 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
 	  zlog_err ("%s bad OPEN, got AS4 capability, but remote_as %u"
 	            " mismatch with 16bit 'myasn' %u in open",
 	            peer->host, as4, remote_as);
-	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
-			   BGP_NOTIFY_OPEN_BAD_PEER_AS);
+          bgp_notify_send_with_data (peer,
+                                     BGP_NOTIFY_OPEN_ERR,
+                                     BGP_NOTIFY_OPEN_BAD_PEER_AS,
+                                     notify_data_remote_as4, 4);
 	  return -1;
 	}
     }
