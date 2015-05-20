@@ -7840,6 +7840,8 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   char timebuf[BGP_UPTIME_LEN];
   afi_t afi;
   safi_t safi;
+  u_int16_t i;
+  u_char *msg;
 
   bgp = p->bgp;
 
@@ -8116,12 +8118,31 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	   p->established, p->dropped,
 	   VTY_NEWLINE);
 
-  if (! p->dropped)
+  if (! p->last_reset)
     vty_out (vty, "  Last reset never%s", VTY_NEWLINE);
   else
-    vty_out (vty, "  Last reset %s, due to %s%s",
-            peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN),
-            peer_down_str[(int) p->last_reset], VTY_NEWLINE);
+    {
+      vty_out (vty, "  Last reset %s, due to %s%s",
+              peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN),
+              peer_down_str[(int) p->last_reset], VTY_NEWLINE);
+
+      if (p->last_reset_cause_size)
+        {
+          msg = p->last_reset_cause;
+          vty_out(vty, "  Message received that caused BGP to send a NOTIFICATION:%s    ", VTY_NEWLINE);
+          for (i = 1; i <= p->last_reset_cause_size; i++)
+            {
+                vty_out(vty, "%02X", *msg++);
+
+                if (i != p->last_reset_cause_size)
+                  if (i % 16 == 0)
+                    vty_out(vty, "%s    ", VTY_NEWLINE);
+                  else if (i % 4 == 0)
+                    vty_out(vty, " ");
+            }
+          vty_out(vty, "%s", VTY_NEWLINE);
+        }
+    }
 
   if (CHECK_FLAG (p->sflags, PEER_STATUS_PREFIX_OVERFLOW))
     {

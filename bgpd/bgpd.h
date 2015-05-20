@@ -299,6 +299,11 @@ typedef enum
   BGP_PEER_CONFED,
 } bgp_peer_sort_t;
 
+/* BGP message header and packet size.  */
+#define BGP_MARKER_SIZE		                16
+#define BGP_HEADER_SIZE		                19
+#define BGP_MAX_PACKET_SIZE                   4096
+
 /* BGP neighbor structure. */
 struct peer
 {
@@ -598,6 +603,8 @@ struct peer
 #define PEER_DOWN_PASSIVE_CHANGE        20 /* neighbor passive command */
 #define PEER_DOWN_MULTIHOP_CHANGE       21 /* neighbor multihop command */
 #define PEER_DOWN_NSF_CLOSE_SESSION     22 /* NSF tcp session close */
+unsigned long last_reset_cause_size;
+u_char last_reset_cause[BGP_MAX_PACKET_SIZE];
 
   /* The kind of route-map Flags.*/
   u_char rmap_type;
@@ -636,11 +643,6 @@ struct bgp_nlri
 
 /* Default BGP port number.  */
 #define BGP_PORT_DEFAULT                       179
-
-/* BGP message header and packet size.  */
-#define BGP_MARKER_SIZE		                16
-#define BGP_HEADER_SIZE		                19
-#define BGP_MAX_PACKET_SIZE                   4096
 
 /* BGP minimum message size.  */
 #define BGP_MSG_OPEN_MIN_SIZE                   (BGP_HEADER_SIZE + 10)

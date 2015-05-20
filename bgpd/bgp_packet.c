@@ -2529,10 +2529,14 @@ bgp_read (struct thread *thread)
   struct peer *peer;
   bgp_size_t size;
   char notify_data_length[2];
+  u_int32_t notify_out;
 
   /* Yes first of all get peer pointer. */
   peer = THREAD_ARG (thread);
   peer->t_read = NULL;
+
+  /* Note notify_out so we can check later to see if we sent another one */
+  notify_out = peer->notify_out;
 
   /* For non-blocking IO check. */
   if (peer->status == Connect)
@@ -2669,11 +2673,30 @@ bgp_read (struct thread *thread)
       break;
     }
 
+  /* If reading this packet caused us to send a NOTIFICATION then store a copy
+   * of the packet for troubleshooting purposes
+   */
+  if (notify_out < peer->notify_out)
+    {
+      memcpy(peer->last_reset_cause, peer->ibuf->data, peer->packet_size);
+      peer->last_reset_cause_size = peer->packet_size;
+      notify_out = peer->notify_out;
+    }
+
   /* Clear input buffer. */
   peer->packet_size = 0;
   if (peer->ibuf)
     stream_reset (peer->ibuf);
 
  done:
+  /* If reading this packet caused us to send a NOTIFICATION then store a copy
+   * of the packet for troubleshooting purposes
+   */
+  if (notify_out < peer->notify_out)
+    {
+      memcpy(peer->last_reset_cause, peer->ibuf->data, peer->packet_size);
+      peer->last_reset_cause_size = peer->packet_size;
+    }
+
   return 0;
 }
