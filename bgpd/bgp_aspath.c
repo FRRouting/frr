@@ -463,13 +463,11 @@ aspath_highest (struct aspath *aspath)
   struct assegment *seg = aspath->segments;
   as_t highest = 0;
   unsigned int i;
-  
+
   while (seg)
     {
       for (i = 0; i < seg->length; i++)
-        if (seg->as[i] > highest
-            && (seg->as[i] < BGP_PRIVATE_AS_MIN
-                || seg->as[i] > BGP_PRIVATE_AS_MAX))
+        if (seg->as[i] > highest && !BGP_AS_IS_PRIVATE(seg->as[i]))
 	  highest = seg->as[i];
       seg = seg->next;
     }
@@ -1128,27 +1126,123 @@ int
 aspath_private_as_check (struct aspath *aspath)
 {
   struct assegment *seg;
-  
+
   if ( !(aspath && aspath->segments) )
     return 0;
-    
+
   seg = aspath->segments;
 
   while (seg)
     {
       int i;
-      
+
       for (i = 0; i < seg->length; i++)
 	{
-	  if ( (seg->as[i] < BGP_PRIVATE_AS_MIN)
-	      || (seg->as[i] > BGP_PRIVATE_AS_MAX &&
-                  seg->as[i] < BGP_PRIVATE_AS4_MIN)
-               || (seg->as[i] > BGP_PRIVATE_AS4_MAX))
+	  if (!BGP_AS_IS_PRIVATE(seg->as[i]))
 	    return 0;
 	}
       seg = seg->next;
     }
   return 1;
+}
+
+/* Replace all private ASNs with our own ASN */
+struct aspath *
+aspath_replace_private_asns (struct aspath *aspath, as_t asn)
+{
+  struct aspath *new;
+  struct assegment *seg;
+
+  new = aspath_dup(aspath);
+  seg = new->segments;
+
+  while (seg)
+    {
+      int i;
+
+      for (i = 0; i < seg->length; i++)
+	{
+	  if (BGP_AS_IS_PRIVATE(seg->as[i]))
+            seg->as[i] = asn;
+	}
+      seg = seg->next;
+    }
+
+  aspath_str_update(new);
+  return new;
+}
+
+/* Remove all private ASNs */
+struct aspath *
+aspath_remove_private_asns (struct aspath *aspath)
+{
+  struct aspath *new;
+  struct assegment *seg;
+  struct assegment *new_seg;
+  struct assegment *last_new_seg;
+  int i;
+  int j;
+  int public = 0;
+
+  new = XCALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
+
+  new_seg = NULL;
+  last_new_seg = NULL;
+  seg = aspath->segments;
+  while (seg)
+    {
+      public = 0;
+      for (i = 0; i < seg->length; i++)
+	{
+          // ASN is public
+	  if (!BGP_AS_IS_PRIVATE(seg->as[i]))
+            {
+                public++;
+            }
+        }
+
+      // The entire segment is private so skip it
+      if (!public)
+        {
+          seg = seg->next;
+          continue;
+        }
+
+      // The entire segment is public so copy it
+      else if (public == seg->length)
+        {
+          new_seg = assegment_dup (seg);
+        }
+
+      // The segment is a mix of public and private ASNs. Copy as many spots as
+      // there are public ASNs then come back and fill in only the public ASNs.
+      else
+        {
+          new_seg = assegment_new (seg->type, public);
+          j = 0;
+          for (i = 0; i < seg->length; i++)
+            {
+              // ASN is public
+              if (!BGP_AS_IS_PRIVATE(seg->as[i]))
+                {
+                  new_seg->as[j] = seg->as[i];
+                  j++;
+                }
+            }
+        }
+
+      // This is the first segment so set the aspath segments pointer to this one
+      if (!last_new_seg)
+        new->segments = new_seg;
+      else
+        last_new_seg->next = new_seg;
+
+      last_new_seg = new_seg;
+      seg = seg->next;
+    }
+
+  aspath_str_update(new);
+  return new;
 }
 
 /* AS path confed check.  If aspath contains confed set or sequence then return 1. */

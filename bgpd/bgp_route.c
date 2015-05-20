@@ -863,6 +863,42 @@ bgp_import_modifier (struct peer *rsclient, struct peer *peer,
   return RMAP_PERMIT;
 }
 
+
+/* If this is an EBGP peer with remove-private-AS */
+void
+bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
+                           struct peer *peer, struct attr *attr)
+{
+  if (peer->sort == BGP_PEER_EBGP &&
+      peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS))
+    {
+      // Take action on the entire aspath
+      if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
+        {
+          if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+            attr->aspath = aspath_replace_private_asns (attr->aspath, bgp->as);
+
+          // The entire aspath consists of private ASNs so create an empty aspath
+          else if (aspath_private_as_check (attr->aspath))
+            attr->aspath = aspath_empty_get ();
+
+          // There are some public and some private ASNs, remove the private ASNs
+          else
+            attr->aspath = aspath_remove_private_asns (attr->aspath);
+        }
+
+      // 'all' was not specified so the entire aspath must be private ASNs
+      // for us to do anything
+      else if (aspath_private_as_check (attr->aspath))
+        {
+          if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+            attr->aspath = aspath_replace_private_asns (attr->aspath, bgp->as);
+          else
+            attr->aspath = aspath_empty_get ();
+        }
+    }
+}
+
 static int
 bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 		    struct attr *attr, afi_t afi, safi_t safi)
@@ -1128,11 +1164,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
     }
 #endif /* HAVE_IPV6 */
 
-  /* If this is EBGP peer and remove-private-AS is set.  */
-  if (peer->sort == BGP_PEER_EBGP
-      && peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS)
-      && aspath_private_as_check (attr->aspath))
-    attr->aspath = aspath_empty_get ();
+  bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
 
   /* Route map & unsuppress-map apply. */
   if (ROUTE_MAP_OUT_NAME (filter)
@@ -1184,9 +1216,11 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   struct bgp_info info;
   struct peer *from;
   struct attr *riattr;
+  struct bgp *bgp;
 
   from = ri->peer;
   filter = &rsclient->filter[afi][safi];
+  bgp = rsclient->bgp;
   riattr = bgp_info_mpath_count (ri) ? bgp_info_mpath_attr (ri) : ri->attr;
 
   if (DISABLE_BGP_ANNOUNCE)
@@ -1340,12 +1374,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
     }
 #endif /* HAVE_IPV6 */
 
-
-  /* If this is EBGP peer and remove-private-AS is set.  */
-  if (rsclient->sort == BGP_PEER_EBGP
-      && peer_af_flag_check (rsclient, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS)
-      && aspath_private_as_check (attr->aspath))
-    attr->aspath = aspath_empty_get ();
+  bgp_peer_remove_private_as(bgp, afi, safi, rsclient, attr);
 
   /* Route map & unsuppress-map apply. */
   if (ROUTE_MAP_OUT_NAME (filter) || (ri->extra && ri->extra->suppress) )

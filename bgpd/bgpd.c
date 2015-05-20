@@ -2643,6 +2643,8 @@ static const struct peer_flag_action peer_af_flag_action_list[] =
     { PEER_FLAG_NEXTHOP_UNCHANGED,        1, peer_change_reset_out },
     { PEER_FLAG_MED_UNCHANGED,            1, peer_change_reset_out },
     { PEER_FLAG_REMOVE_PRIVATE_AS,        1, peer_change_reset_out },
+    { PEER_FLAG_REMOVE_PRIVATE_AS_ALL,    1, peer_change_reset_out },
+    { PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,1, peer_change_reset_out },
     { PEER_FLAG_ALLOWAS_IN,               0, peer_change_reset_in },
     { PEER_FLAG_ORF_PREFIX_SM,            1, peer_change_reset },
     { PEER_FLAG_ORF_PREFIX_RM,            1, peer_change_reset },
@@ -5440,11 +5442,22 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	     peer_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_SELF_ALL) ?
 	     " all" : "", VTY_NEWLINE);
 
-  /* Remove private AS. */
-  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS)
-      && ! peer->af_group[afi][safi])
-    vty_out (vty, " neighbor %s remove-private-AS%s",
-	     addr, VTY_NEWLINE);
+  /* remove-private-AS */
+  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS) && !peer->af_group[afi][safi])
+    {
+      if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL) &&
+          peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+        vty_out (vty, " neighbor %s remove-private-AS all replace-AS%s", addr, VTY_NEWLINE);
+
+      else if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+        vty_out (vty, " neighbor %s remove-private-AS replace-AS%s", addr, VTY_NEWLINE);
+
+      else if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
+        vty_out (vty, " neighbor %s remove-private-AS all%s", addr, VTY_NEWLINE);
+
+      else
+        vty_out (vty, " neighbor %s remove-private-AS%s", addr, VTY_NEWLINE);
+    }
 
   /* send-community print. */
   if (! peer->af_group[afi][safi])

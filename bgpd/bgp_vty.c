@@ -215,7 +215,7 @@ bgp_vty_return (struct vty *vty, int ret)
       str = "Invalid command. Not an internal neighbor";
       break;
     case BGP_ERR_REMOVE_PRIVATE_AS:
-      str = "Private AS cannot be removed for IBGP peers";
+      str = "remove-private-AS cannot be configured for IBGP peers";
       break;
     case BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP:
       str = "Local-AS allowed only for EBGP peers";
@@ -2663,11 +2663,65 @@ DEFUN (neighbor_remove_private_as,
        NEIGHBOR_CMD2 "remove-private-AS",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Remove private AS number from outbound updates\n")
+       "Remove private ASNs in outbound updates\n")
 {
+  peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+			  bgp_node_safi (vty),
+                          PEER_FLAG_REMOVE_PRIVATE_AS_ALL|
+                          PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
   return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
 			       bgp_node_safi (vty),
 			       PEER_FLAG_REMOVE_PRIVATE_AS);
+}
+
+DEFUN (neighbor_remove_private_as_all,
+       neighbor_remove_private_as_all_cmd,
+       NEIGHBOR_CMD2 "remove-private-AS all",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Remove private ASNs in outbound updates\n"
+       "Apply to all AS numbers")
+{
+  peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+			  bgp_node_safi (vty),
+                          PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+			       bgp_node_safi (vty),
+			       PEER_FLAG_REMOVE_PRIVATE_AS|
+                               PEER_FLAG_REMOVE_PRIVATE_AS_ALL);
+}
+
+DEFUN (neighbor_remove_private_as_replace_as,
+       neighbor_remove_private_as_replace_as_cmd,
+       NEIGHBOR_CMD2 "remove-private-AS replace-AS",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Remove private ASNs in outbound updates\n"
+       "Replace private ASNs with our ASN in outbound updates\n")
+{
+  peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+			  bgp_node_safi (vty),
+                          PEER_FLAG_REMOVE_PRIVATE_AS_ALL);
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+			       bgp_node_safi (vty),
+			       PEER_FLAG_REMOVE_PRIVATE_AS|
+                               PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
+}
+
+DEFUN (neighbor_remove_private_as_all_replace_as,
+       neighbor_remove_private_as_all_replace_as_cmd,
+       NEIGHBOR_CMD2 "remove-private-AS all replace-AS",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Remove private ASNs in outbound updates\n"
+       "Apply to all AS numbers"
+       "Replace private ASNs with our ASN in outbound updates\n")
+{
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+			       bgp_node_safi (vty),
+			       PEER_FLAG_REMOVE_PRIVATE_AS|
+                               PEER_FLAG_REMOVE_PRIVATE_AS_ALL|
+                               PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
 }
 
 DEFUN (no_neighbor_remove_private_as,
@@ -2676,12 +2730,43 @@ DEFUN (no_neighbor_remove_private_as,
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Remove private AS number from outbound updates\n")
+       "Remove private ASNs in outbound updates\n")
 {
   return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				 bgp_node_safi (vty),
-				 PEER_FLAG_REMOVE_PRIVATE_AS);
+				 PEER_FLAG_REMOVE_PRIVATE_AS|
+                                 PEER_FLAG_REMOVE_PRIVATE_AS_ALL|
+                                 PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
 }
+
+ALIAS (no_neighbor_remove_private_as,
+       no_neighbor_remove_private_as_all_cmd,
+       NO_NEIGHBOR_CMD2 "remove-private-AS all",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Remove private ASNs in outbound updates\n"
+       "Apply to all AS numbers")
+
+ALIAS (no_neighbor_remove_private_as,
+       no_neighbor_remove_private_as_replace_as_cmd,
+       NO_NEIGHBOR_CMD2 "remove-private-AS replace-AS",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Remove private ASNs in outbound updates\n"
+       "Replace private ASNs with our ASN in outbound updates\n")
+
+ALIAS (no_neighbor_remove_private_as,
+       no_neighbor_remove_private_as_all_replace_as_cmd,
+       NO_NEIGHBOR_CMD2 "remove-private-AS all replace-AS",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Remove private ASNs in outbound updates\n"
+       "Apply to all AS numbers"
+       "Replace private ASNs with our ASN in outbound updates\n")
+
 
 /* neighbor send-community. */
 DEFUN (neighbor_send_community,
@@ -8154,9 +8239,13 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
     vty_out (vty, "  Route-Server Client%s", VTY_NEWLINE);
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
     vty_out (vty, "  Inbound soft reconfiguration allowed%s", VTY_NEWLINE);
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
-    vty_out (vty, "  Private AS number removed from updates to this neighbor%s", VTY_NEWLINE);
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF))
+  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+    vty_out (vty, "  Private AS numbers replaced in updates to this neighbor%s", VTY_NEWLINE);
+  else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
+    vty_out (vty, "  Private AS numbers removed in updates to this neighbor%s", VTY_NEWLINE);
+
+  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF) ||
+      CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF_ALL))
     vty_out (vty, "  NEXT_HOP is always this router%s", VTY_NEWLINE);
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED))
     vty_out (vty, "  AS_PATH is propagated unchanged to this neighbor%s", VTY_NEWLINE);
@@ -10226,16 +10315,52 @@ bgp_vty_init (void)
   /* "neighbor remove-private-AS" commands. */
   install_element (BGP_NODE, &neighbor_remove_private_as_cmd);
   install_element (BGP_NODE, &no_neighbor_remove_private_as_cmd);
+  install_element (BGP_NODE, &neighbor_remove_private_as_all_cmd);
+  install_element (BGP_NODE, &no_neighbor_remove_private_as_all_cmd);
+  install_element (BGP_NODE, &neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_NODE, &no_neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_NODE, &neighbor_remove_private_as_all_replace_as_cmd);
+  install_element (BGP_NODE, &no_neighbor_remove_private_as_all_replace_as_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_remove_private_as_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_remove_private_as_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_remove_private_as_all_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_remove_private_as_all_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_remove_private_as_all_replace_as_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_remove_private_as_all_replace_as_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_remove_private_as_cmd);
   install_element (BGP_IPV4M_NODE, &no_neighbor_remove_private_as_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_remove_private_as_all_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_remove_private_as_all_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_remove_private_as_all_replace_as_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_remove_private_as_all_replace_as_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_remove_private_as_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_remove_private_as_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_remove_private_as_all_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_remove_private_as_all_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_remove_private_as_all_replace_as_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_remove_private_as_all_replace_as_cmd);
   install_element (BGP_IPV6M_NODE, &neighbor_remove_private_as_cmd);
   install_element (BGP_IPV6M_NODE, &no_neighbor_remove_private_as_cmd);
+  install_element (BGP_IPV6M_NODE, &neighbor_remove_private_as_all_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_remove_private_as_all_cmd);
+  install_element (BGP_IPV6M_NODE, &neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_IPV6M_NODE, &neighbor_remove_private_as_all_replace_as_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_remove_private_as_all_replace_as_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_remove_private_as_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_remove_private_as_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_remove_private_as_all_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_remove_private_as_all_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_remove_private_as_replace_as_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_remove_private_as_all_replace_as_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_remove_private_as_all_replace_as_cmd);
 
   /* "neighbor send-community" commands.*/
   install_element (BGP_NODE, &neighbor_send_community_cmd);
