@@ -52,6 +52,7 @@ struct bgp_nexthop_cache
   void *nht_info;		/* In BGP, peer session */
   LIST_HEAD(path_list, bgp_info) paths;
   unsigned int path_count;
+  struct bgp *bgp;
 };
 
 extern int bgp_nexthop_lookup (afi_t, struct peer *peer, struct bgp_info *,

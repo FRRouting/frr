@@ -1267,8 +1267,8 @@ bgp_start (struct peer *peer)
   if ((peer->ttl == 1) || (peer->gtsm_hops == 1))
     connected = 1;
 
-  bgp_find_or_add_nexthop(family2afi(peer->su.sa.sa_family), NULL, peer,
-			  connected);
+  bgp_find_or_add_nexthop(peer->bgp, family2afi(peer->su.sa.sa_family),
+                          NULL, peer, connected);
   status = bgp_connect (peer);
 
   switch (status)

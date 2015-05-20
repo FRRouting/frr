@@ -40,13 +40,14 @@ extern int bgp_find_nexthop(struct bgp_info *p, int connected);
  *  object. If not found, create a new object and register with ZEBRA for
  *  nexthop notification.
  * ARGUMENTS:
+ *   bgp - BGP instance
  *   a - afi: AFI_IP or AF_IP6
  *   p - path for which the nexthop object is being looked up
  *   peer - The BGP peer associated with this NHT
  *   connected - True if NH MUST be a connected route
  */
-extern int bgp_find_or_add_nexthop(afi_t a, struct bgp_info *p,
-				   struct peer *peer, int connected);
+extern int bgp_find_or_add_nexthop(struct bgp *bgp, afi_t a,
+                       struct bgp_info *p, struct peer *peer, int connected);
 
 /**
  * bgp_unlink_nexthop() - Unlink the nexthop object from the path structure.

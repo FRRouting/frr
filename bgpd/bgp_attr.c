@@ -2249,7 +2249,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   size_t mpattrlen_pos = 0;
 
   if (! bgp)
-    bgp = bgp_get_default ();
+    bgp = peer->bgp;
 
   /* Remember current pointer. */
   cp = stream_get_endp (s);
