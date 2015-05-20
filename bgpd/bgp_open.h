@@ -74,7 +74,8 @@ struct capability_gr
 #define CAPABILITY_CODE_ORF             3 /* Cooperative Route Filtering Capability */
 #define CAPABILITY_CODE_RESTART        64 /* Graceful Restart Capability */
 #define CAPABILITY_CODE_AS4            65 /* 4-octet AS number Capability */
-#define CAPABILITY_CODE_DYNAMIC        66 /* Dynamic Capability */
+#define CAPABILITY_CODE_DYNAMIC_OLD    66 /* Dynamic Capability, deprecated since 2003 */
+#define CAPABILITY_CODE_DYNAMIC        67 /* Dynamic Capability */
 #define CAPABILITY_CODE_ADDPATH        69 /* Addpath Capability */
 #define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
 #define CAPABILITY_CODE_ORF_OLD       130 /* Cooperative Route Filtering Capability(cisco) */
