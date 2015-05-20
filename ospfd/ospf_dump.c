@@ -204,7 +204,7 @@ ospf_if_name_string (struct ospf_interface *oi)
   static char buf[OSPF_IF_STRING_MAXLEN] = "";
   u_int32_t ifaddr;
 
-  if (!oi)
+  if (!oi || !oi->address)
     return "inactive";
 
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
