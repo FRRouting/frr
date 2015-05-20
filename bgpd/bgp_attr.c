@@ -880,19 +880,18 @@ bgp_attr_flags_diagnose (struct bgp_attr_parser_args *args,
       CHECK_FLAG (real_flags,    attr_flag_str[i].key)
     )
     {
-      zlog (args->peer->log, LOG_ERR, "%s attribute must%s be flagged as \"%s\"",
-            LOOKUP (attr_str, attr_code),
-            CHECK_FLAG (desired_flags, attr_flag_str[i].key) ? "" : " not",
-            attr_flag_str[i].str);
+      zlog_err ("%s attribute must%s be flagged as \"%s\"",
+                LOOKUP (attr_str, attr_code),
+                CHECK_FLAG (desired_flags, attr_flag_str[i].key) ? "" : " not",
+                attr_flag_str[i].str);
       seen = 1;
     }
   if (!seen)
     {
-      zlog (args->peer->log, LOG_DEBUG,
-            "Strange, %s called for attr %s, but no problem found with flags"
-            " (real flags 0x%x, desired 0x%x)",
-            __func__, LOOKUP (attr_str, attr_code),
-            real_flags, desired_flags);
+      zlog_debug ("Strange, %s called for attr %s, but no problem found with flags"
+                  " (real flags 0x%x, desired 0x%x)",
+                  __func__, LOOKUP (attr_str, attr_code),
+                  real_flags, desired_flags);
     }
 }
 
@@ -939,9 +938,8 @@ bgp_attr_flag_invalid (struct bgp_attr_parser_args *args)
   if (!CHECK_FLAG (BGP_ATTR_FLAG_OPTIONAL, flags)
       && !CHECK_FLAG (BGP_ATTR_FLAG_TRANS, flags))
     {
-      zlog (peer->log, LOG_ERR,
-            "%s well-known attributes must have transitive flag set (%x)",
-            LOOKUP (attr_str, attr_code), flags);
+      zlog_err ("%s well-known attributes must have transitive flag set (%x)",
+                LOOKUP (attr_str, attr_code), flags);
       return 1;
     }
   
@@ -952,19 +950,17 @@ bgp_attr_flag_invalid (struct bgp_attr_parser_args *args)
     {
       if (!CHECK_FLAG (flags, BGP_ATTR_FLAG_OPTIONAL))
         {
-          zlog (peer->log, LOG_ERR,
-                "%s well-known attribute "
-                "must NOT have the partial flag set (%x)",
-                 LOOKUP (attr_str, attr_code), flags);
+          zlog_err ("%s well-known attribute "
+                    "must NOT have the partial flag set (%x)",
+                    LOOKUP (attr_str, attr_code), flags);
           return 1;
         }
       if (CHECK_FLAG (flags, BGP_ATTR_FLAG_OPTIONAL)
           && !CHECK_FLAG (flags, BGP_ATTR_FLAG_TRANS))
         {
-          zlog (peer->log, LOG_ERR,
-                "%s optional + transitive attribute "
-                "must NOT have the partial flag set (%x)",
-                 LOOKUP (attr_str, attr_code), flags);
+          zlog_err ("%s optional + transitive attribute "
+                    "must NOT have the partial flag set (%x)",
+                    LOOKUP (attr_str, attr_code), flags);
           return 1;
         }
     }
@@ -999,8 +995,7 @@ bgp_attr_origin (struct bgp_attr_parser_args *args)
      value). */
   if (length != 1)
     {
-      zlog (peer->log, LOG_ERR, "Origin attribute length is not one %d",
-	    length);
+      zlog_err ("Origin attribute length is not one %d", length);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
                                  args->total);
@@ -1016,8 +1011,7 @@ bgp_attr_origin (struct bgp_attr_parser_args *args)
       && (attr->origin != BGP_ORIGIN_EGP)
       && (attr->origin != BGP_ORIGIN_INCOMPLETE))
     {
-      zlog (peer->log, LOG_ERR, "Origin attribute value is invalid %d",
-	      attr->origin);
+      zlog_err ("Origin attribute value is invalid %d", attr->origin);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_INVAL_ORIGIN,
                                  args->total);
@@ -1048,9 +1042,7 @@ bgp_attr_aspath (struct bgp_attr_parser_args *args)
   /* In case of IBGP, length will be zero. */
   if (! attr->aspath)
     {
-      zlog (peer->log, LOG_ERR,
-            "Malformed AS path from %s, length is %d",
-            peer->host, length);
+      zlog_err ("Malformed AS path from %s, length is %d", peer->host, length);
       return bgp_attr_malformed (args, BGP_NOTIFY_UPDATE_MAL_AS_PATH, 0);
     }
 
@@ -1077,7 +1069,7 @@ bgp_attr_aspath_check (struct peer *const peer, struct attr *const attr)
   if ((peer->sort == BGP_PEER_CONFED && ! aspath_left_confed_check (attr->aspath)) ||
      (peer->sort == BGP_PEER_EBGP && aspath_confed_check (attr->aspath)))
     {
-      zlog (peer->log, LOG_ERR, "Malformed AS path from %s", peer->host);
+      zlog_err ("Malformed AS path from %s", peer->host);
       bgp_notify_send (peer, BGP_NOTIFY_UPDATE_ERR,
                        BGP_NOTIFY_UPDATE_MAL_AS_PATH);
       return BGP_ATTR_PARSE_ERROR;
@@ -1089,8 +1081,7 @@ bgp_attr_aspath_check (struct peer *const peer, struct attr *const attr)
       if (peer->sort == BGP_PEER_EBGP
 	  && ! aspath_firstas_check (attr->aspath, peer->as))
  	{
- 	  zlog (peer->log, LOG_ERR,
- 		"%s incorrect first AS (must be %u)", peer->host, peer->as);
+          zlog_err ("%s incorrect first AS (must be %u)", peer->host, peer->as);
           bgp_notify_send (peer, BGP_NOTIFY_UPDATE_ERR,
                            BGP_NOTIFY_UPDATE_MAL_AS_PATH);
           return BGP_ATTR_PARSE_ERROR;
@@ -1124,9 +1115,7 @@ bgp_attr_as4_path (struct bgp_attr_parser_args *args, struct aspath **as4_path)
   /* In case of IBGP, length will be zero. */
   if (!*as4_path)
     {
-      zlog (peer->log, LOG_ERR,
-            "Malformed AS4 path from %s, length is %d",
-            peer->host, length);
+      zlog_err ("Malformed AS4 path from %s, length is %d", peer->host, length);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_MAL_AS_PATH,
                                  0);
@@ -1152,8 +1141,7 @@ bgp_attr_nexthop (struct bgp_attr_parser_args *args)
   /* Check nexthop attribute length. */
   if (length != 4)
     {
-      zlog (peer->log, LOG_ERR, "Nexthop attribute length isn't four [%d]",
-	      length);
+      zlog_err ("Nexthop attribute length isn't four [%d]", length);
 
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -1171,7 +1159,7 @@ bgp_attr_nexthop (struct bgp_attr_parser_args *args)
     {
       char buf[INET_ADDRSTRLEN];
       inet_ntop (AF_INET, &nexthop_n, buf, INET_ADDRSTRLEN);
-      zlog (peer->log, LOG_ERR, "Martian nexthop %s", buf);
+      zlog_err ("Martian nexthop %s", buf);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
                                  args->total);
@@ -1194,8 +1182,7 @@ bgp_attr_med (struct bgp_attr_parser_args *args)
   /* Length check. */
   if (length != 4)
     {
-      zlog (peer->log, LOG_ERR, 
-	    "MED attribute length isn't four [%d]", length);
+      zlog_err ("MED attribute length isn't four [%d]", length);
 
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -1220,8 +1207,7 @@ bgp_attr_local_pref (struct bgp_attr_parser_args *args)
   /* Length check. */
   if (length != 4)
   {
-    zlog (peer->log, LOG_ERR, "LOCAL_PREF attribute length isn't 4 [%u]",
-          length);
+    zlog_err ("LOCAL_PREF attribute length isn't 4 [%u]", length);
     return bgp_attr_malformed (args,
                                BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
                                args->total);
@@ -1255,8 +1241,7 @@ bgp_attr_atomic (struct bgp_attr_parser_args *args)
   /* Length check. */
   if (length != 0)
     {
-      zlog (peer->log, LOG_ERR, "ATOMIC_AGGREGATE attribute length isn't 0 [%u]",
-            length);
+      zlog_err ("ATOMIC_AGGREGATE attribute length isn't 0 [%u]", length);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
                                  args->total);
@@ -1285,8 +1270,7 @@ bgp_attr_aggregator (struct bgp_attr_parser_args *args)
   
   if (length != wantedlen)
     {
-      zlog (peer->log, LOG_ERR, "AGGREGATOR attribute length isn't %u [%u]",
-            wantedlen, length);
+      zlog_err ("AGGREGATOR attribute length isn't %u [%u]", wantedlen, length);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
                                  args->total);
@@ -1316,8 +1300,7 @@ bgp_attr_as4_aggregator (struct bgp_attr_parser_args *args,
       
   if (length != 8)
     {
-      zlog (peer->log, LOG_ERR, "New Aggregator length is not 8 [%d]",
-            length);
+      zlog_err ("New Aggregator length is not 8 [%d]", length);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
                                  0);
@@ -1473,7 +1456,7 @@ bgp_attr_originator_id (struct bgp_attr_parser_args *args)
   /* Length check. */
   if (length != 4)
     {
-      zlog (peer->log, LOG_ERR, "Bad originator ID length %d", length);
+      zlog_err ("Bad originator ID length %d", length);
 
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -1499,7 +1482,7 @@ bgp_attr_cluster_list (struct bgp_attr_parser_args *args)
   /* Check length. */
   if (length % 4)
     {
-      zlog (peer->log, LOG_ERR, "Bad cluster list length %d", length);
+      zlog_err ("Bad cluster list length %d", length);
 
       return bgp_attr_malformed (args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
                                  args->total);
@@ -1587,8 +1570,8 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
 	  char buf1[INET6_ADDRSTRLEN];
 	  char buf2[INET6_ADDRSTRLEN];
 
-	  if (BGP_DEBUG (update, UPDATE_IN))
-	    zlog_debug ("%s got two nexthop %s %s but second one is not a link-local nexthop", peer->host,
+	  if (bgp_debug_update(peer, NULL, 1))
+	    zlog_debug ("%s sent two nexthops %s %s but second one is not a link-local nexthop", peer->host,
 		       inet_ntop (AF_INET6, &attre->mp_nexthop_global,
 				  buf1, INET6_ADDRSTRLEN),
 		       inet_ntop (AF_INET6, &attre->mp_nexthop_local,
@@ -1738,15 +1721,10 @@ bgp_attr_unknown (struct bgp_attr_parser_args *args)
   const u_char flag = args->flags;  
   const bgp_size_t length = args->length;
   
-
-  if (BGP_DEBUG (normal, NORMAL))
-  zlog_debug ("%s Unknown attribute is received (type %d, length %d)",
-	      peer->host, type, length);
+  if (bgp_debug_update(peer, NULL, 1))
+    zlog_debug ("%s Unknown attribute is received (type %d, length %d)",
+                peer->host, type, length);
   
-  if (BGP_DEBUG (events, EVENTS))
-    zlog (peer->log, LOG_DEBUG, 
-	  "Unknown attribute type %d length %d is received", type, length);
-
   /* Forward read pointer of input stream. */
   stream_forward_getp (peer->ibuf, length);
 
@@ -1822,10 +1800,9 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (endp - BGP_INPUT_PNT (peer) < BGP_ATTR_MIN_LEN)
 	{
 	  /* XXX warning: long int format, int arg (arg 5) */
-	  zlog (peer->log, LOG_WARNING, 
-		"%s: error BGP attribute length %lu is smaller than min len",
-		peer->host,
-		(unsigned long) (endp - STREAM_PNT (BGP_INPUT (peer))));
+	  zlog_warn ("%s: error BGP attribute length %lu is smaller than min len",
+                     peer->host,
+		     (unsigned long) (endp - STREAM_PNT (BGP_INPUT (peer))));
 
 	  bgp_notify_send (peer, 
 			   BGP_NOTIFY_UPDATE_ERR, 
@@ -1845,10 +1822,9 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN)
           && ((endp - startp) < (BGP_ATTR_MIN_LEN + 1)))
 	{
-	  zlog (peer->log, LOG_WARNING, 
-		"%s: Extended length set, but just %lu bytes of attr header",
-		peer->host,
-		(unsigned long) (endp - STREAM_PNT (BGP_INPUT (peer))));
+	  zlog_warn ("%s: Extended length set, but just %lu bytes of attr header",
+		     peer->host,
+		     (unsigned long) (endp - STREAM_PNT (BGP_INPUT (peer))));
 
 	  bgp_notify_send (peer, 
 			   BGP_NOTIFY_UPDATE_ERR, 
@@ -1868,9 +1844,8 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 
       if (CHECK_BITMAP (seen, type))
 	{
-	  zlog (peer->log, LOG_WARNING,
-		"%s: error BGP attribute type %d appears twice in a message",
-		peer->host, type);
+	  zlog_warn ("%s: error BGP attribute type %d appears twice in a message",
+		     peer->host, type);
 
 	  bgp_notify_send (peer, 
 			   BGP_NOTIFY_UPDATE_ERR, 
@@ -1888,8 +1863,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 
       if (attr_endp > endp)
 	{
-	  zlog (peer->log, LOG_WARNING, 
-		"%s: BGP type %d length %d is too large, attribute total length is %d.  attr_endp is %p.  endp is %p", peer->host, type, length, size, attr_endp, endp);
+	  zlog_warn ("%s: BGP type %d length %d is too large, attribute total length is %d.  attr_endp is %p.  endp is %p", peer->host, type, length, size, attr_endp, endp);
 	  bgp_notify_send (peer, 
 			   BGP_NOTIFY_UPDATE_ERR, 
 			   BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
@@ -1988,10 +1962,9 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       /* If hard error occured immediately return to the caller. */
       if (ret == BGP_ATTR_PARSE_ERROR)
         {
-          zlog (peer->log, LOG_WARNING,
-                "%s: Attribute %s, parse error", 
-                peer->host, 
-                LOOKUP (attr_str, type));
+          zlog_warn ("%s: Attribute %s, parse error", 
+                     peer->host, 
+                     LOOKUP (attr_str, type));
           if (as4_path)
             aspath_unintern (&as4_path);
           return ret;
@@ -1999,10 +1972,9 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (ret == BGP_ATTR_PARSE_WITHDRAW)
         {
           
-          zlog (peer->log, LOG_WARNING,
-                "%s: Attribute %s, parse error - treating as withdrawal",
-                peer->host,
-                LOOKUP (attr_str, type));
+          zlog_warn ("%s: Attribute %s, parse error - treating as withdrawal",
+                     peer->host,
+                     LOOKUP (attr_str, type));
           if (as4_path)
             aspath_unintern (&as4_path);
           return ret;
@@ -2011,9 +1983,8 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       /* Check the fetched length. */
       if (BGP_INPUT_PNT (peer) != attr_endp)
 	{
-	  zlog (peer->log, LOG_WARNING, 
-		"%s: BGP attribute %s, fetch error", 
-                peer->host, LOOKUP (attr_str, type));
+	  zlog_warn ("%s: BGP attribute %s, fetch error",
+                     peer->host, LOOKUP (attr_str, type));
 	  bgp_notify_send (peer, 
 			   BGP_NOTIFY_UPDATE_ERR, 
 			   BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
@@ -2026,9 +1997,8 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
   /* Check final read pointer is same as end pointer. */
   if (BGP_INPUT_PNT (peer) != endp)
     {
-      zlog (peer->log, LOG_WARNING, 
-	    "%s: BGP attribute %s, length mismatch",
-	    peer->host, LOOKUP (attr_str, type));
+      zlog_warn ("%s: BGP attribute %s, length mismatch",
+	         peer->host, LOOKUP (attr_str, type));
       bgp_notify_send (peer, 
 		       BGP_NOTIFY_UPDATE_ERR, 
 		       BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
@@ -2118,9 +2088,7 @@ bgp_attr_check (struct peer *peer, struct attr *attr)
 
   if (type)
     {
-      zlog (peer->log, LOG_WARNING, 
-	    "%s Missing well-known attribute %d.",
-	    peer->host, type);
+      zlog_warn ("%s Missing well-known attribute %d.", peer->host, type);
       bgp_notify_send_with_data (peer, 
 				 BGP_NOTIFY_UPDATE_ERR, 
 				 BGP_NOTIFY_UPDATE_MISS_ATTR,

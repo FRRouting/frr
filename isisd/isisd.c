@@ -778,9 +778,10 @@ print_debug (struct vty *vty, int flags, int onoff)
 
 DEFUN (show_debugging,
        show_debugging_cmd,
-       "show debugging",
+       "show debugging isis",
        SHOW_STR
-       "State of each debugging option\n")
+       "State of each debugging option\n"
+       ISIS_STR)
 {
   vty_out (vty, "IS-IS:%s", VTY_NEWLINE);
   print_debug (vty, isis->debugs, 1);

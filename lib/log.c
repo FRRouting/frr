@@ -582,28 +582,6 @@ ZLOG_FUNC(zlog_debug, LOG_DEBUG)
 
 #undef ZLOG_FUNC
 
-#define PLOG_FUNC(FUNCNAME,PRIORITY) \
-void \
-FUNCNAME(struct zlog *zl, const char *format, ...) \
-{ \
-  va_list args; \
-  va_start(args, format); \
-  vzlog (zl, PRIORITY, format, args); \
-  va_end(args); \
-}
-
-PLOG_FUNC(plog_err, LOG_ERR)
-
-PLOG_FUNC(plog_warn, LOG_WARNING)
-
-PLOG_FUNC(plog_info, LOG_INFO)
-
-PLOG_FUNC(plog_notice, LOG_NOTICE)
-
-PLOG_FUNC(plog_debug, LOG_DEBUG)
-
-#undef PLOG_FUNC
-
 void
 _zlog_assert_failed (const char *assertion, const char *file,
 		     unsigned int line, const char *function)

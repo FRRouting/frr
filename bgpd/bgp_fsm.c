@@ -314,9 +314,8 @@ bgp_start_timer (struct thread *thread)
   peer = THREAD_ARG (thread);
   peer->t_start = NULL;
 
-  if (BGP_DEBUG (fsm, FSM))
-    zlog (peer->log, LOG_DEBUG,
-	  "%s [FSM] Timer (start timer expire).", peer->host);
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug("%s [FSM] Timer (start timer expire).", peer->host);
 
   THREAD_VAL (thread) = BGP_Start;
   bgp_event (thread);  /* bgp_event unlocks peer */
@@ -334,9 +333,8 @@ bgp_connect_timer (struct thread *thread)
   peer = THREAD_ARG (thread);
   peer->t_connect = NULL;
 
-  if (BGP_DEBUG (fsm, FSM))
-    zlog (peer->log, LOG_DEBUG, "%s [FSM] Timer (connect timer expire)",
-	  peer->host);
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug("%s [FSM] Timer (connect timer expire)", peer->host);
 
   if (CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER))
     {
@@ -362,10 +360,8 @@ bgp_holdtime_timer (struct thread *thread)
   peer = THREAD_ARG (thread);
   peer->t_holdtime = NULL;
 
-  if (BGP_DEBUG (fsm, FSM))
-    zlog (peer->log, LOG_DEBUG,
-	  "%s [FSM] Timer (holdtime timer expire)",
-	  peer->host);
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("%s [FSM] Timer (holdtime timer expire)", peer->host);
 
   THREAD_VAL (thread) = Hold_Timer_expired;
   bgp_event (thread); /* bgp_event unlocks peer */
@@ -382,10 +378,8 @@ bgp_keepalive_timer (struct thread *thread)
   peer = THREAD_ARG (thread);
   peer->t_keepalive = NULL;
 
-  if (BGP_DEBUG (fsm, FSM))
-    zlog (peer->log, LOG_DEBUG,
-	  "%s [FSM] Timer (keepalive timer expire)",
-	  peer->host);
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("%s [FSM] Timer (keepalive timer expire)", peer->host);
 
   THREAD_VAL (thread) = KeepAlive_timer_expired;
   bgp_event (thread); /* bgp_event unlocks peer */
@@ -418,10 +412,8 @@ bgp_routeadv_timer (struct thread *thread)
   peer->t_routeadv = NULL;
   peer->radv_adjusted = 0;
 
-  if (BGP_DEBUG (fsm, FSM))
-    zlog (peer->log, LOG_DEBUG,
-	  "%s [FSM] Timer (routeadv timer expire)",
-	  peer->host);
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("%s [FSM] Timer (routeadv timer expire)", peer->host);
 
   peer->synctime = bgp_clock ();
 
@@ -481,7 +473,7 @@ bgp_graceful_restart_timer_expire (struct thread *thread)
   UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT);
   BGP_TIMER_OFF (peer->t_gr_stale);
 
-  if (BGP_DEBUG (events, EVENTS))
+  if (bgp_debug_neighbor_events(peer))
     {
       zlog_debug ("%s graceful restart timer expired", peer->host);
       zlog_debug ("%s graceful restart stalepath timer stopped", peer->host);
@@ -502,7 +494,7 @@ bgp_graceful_stale_timer_expire (struct thread *thread)
   peer = THREAD_ARG (thread);
   peer->t_gr_stale = NULL;
 
-  if (BGP_DEBUG (events, EVENTS))
+  if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s graceful restart stalepath timer expired", peer->host);
 
   /* NSF delete stale route */
@@ -663,9 +655,8 @@ bgp_adjust_routeadv (struct peer *peer)
     {
       BGP_TIMER_OFF(peer->t_routeadv);
       BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
-      if (BGP_DEBUG (update, UPDATE_OUT))
-	zlog (peer->log, LOG_DEBUG, "%s: MRAI timer to expire instantly\n",
-	      peer->host);
+      if (bgp_debug_update(peer, NULL, 0))
+	zlog_debug ("%s: MRAI timer to expire instantly", peer->host);
       return;
     }
 
@@ -694,9 +685,8 @@ bgp_adjust_routeadv (struct peer *peer)
     {
       BGP_TIMER_OFF(peer->t_routeadv);
       BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, diff);
-      if (BGP_DEBUG (update, UPDATE_OUT))
-	zlog (peer->log, LOG_DEBUG, "%s: MRAI timer to expire in %f secs\n",
-	      peer->host, diff);
+      if (bgp_debug_update(peer, NULL, 0))
+	zlog_debug ("%s: MRAI timer to expire in %f secs", peer->host, diff);
     }
 }
 
@@ -936,7 +926,7 @@ bgp_fsm_change_status (struct peer *peer, int status)
       bgp_update_delay_applicable(peer->bgp))
     bgp_update_delay_process_status_change(peer);
 
-  if (BGP_DEBUG (normal, NORMAL))
+  if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s went from %s to %s",
 		peer->host,
 		LOOKUP (bgp_status_msg, peer->ostatus),
@@ -986,12 +976,12 @@ bgp_stop (struct peer *peer)
       if (peer->t_gr_stale)
 	{
 	  BGP_TIMER_OFF (peer->t_gr_stale);
-	  if (BGP_DEBUG (events, EVENTS))
+          if (bgp_debug_neighbor_events(peer))
 	    zlog_debug ("%s graceful restart stalepath timer stopped", peer->host);
 	}
       if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT))
 	{
-	  if (BGP_DEBUG (events, EVENTS))
+          if (bgp_debug_neighbor_events(peer))
 	    {
 	      zlog_debug ("%s graceful restart timer started for %d sec",
 			  peer->host, peer->v_gr_restart);
@@ -1170,7 +1160,7 @@ bgp_connect_success (struct peer *peer)
 
   BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
 
-  if (BGP_DEBUG (normal, NORMAL))
+  if (bgp_debug_neighbor_events(peer))
     {
       char buf1[SU_ADDRSTRLEN];
 
@@ -1205,8 +1195,8 @@ bgp_start (struct peer *peer)
 
   if (BGP_PEER_START_SUPPRESSED (peer))
     {
-      if (BGP_DEBUG (fsm, FSM))
-        plog_err (peer->log, "%s [FSM] Trying to start suppressed peer"
+      if (bgp_debug_neighbor_events(peer))
+        zlog_err ("%s [FSM] Trying to start suppressed peer"
                   " - this is never supposed to happen!", peer->host);
       return -1;
     }
@@ -1251,21 +1241,21 @@ bgp_start (struct peer *peer)
   switch (status)
     {
     case connect_error:
-      if (BGP_DEBUG (fsm, FSM))
-	plog_debug (peer->log, "%s [FSM] Connect error", peer->host);
+      if (bgp_debug_neighbor_events(peer))
+	zlog_debug ("%s [FSM] Connect error", peer->host);
       BGP_EVENT_ADD (peer, TCP_connection_open_failed);
       break;
     case connect_success:
-      if (BGP_DEBUG (fsm, FSM))
-	plog_debug (peer->log, "%s [FSM] Connect immediately success",
+      if (bgp_debug_neighbor_events(peer))
+	zlog_debug ("%s [FSM] Connect immediately success",
 		   peer->host);
       BGP_EVENT_ADD (peer, TCP_connection_open);
       break;
     case connect_in_progress:
       /* To check nonblocking connect, we wait until socket is
          readable or writable. */
-      if (BGP_DEBUG (fsm, FSM))
-	plog_debug (peer->log, "%s [FSM] Non blocking connect waiting result",
+      if (bgp_debug_neighbor_events(peer))
+	zlog_debug ("%s [FSM] Non blocking connect waiting result",
 		   peer->host);
       if (peer->fd < 0)
 	{
@@ -1326,7 +1316,7 @@ bgp_fsm_keepalive_expire (struct peer *peer)
 static int
 bgp_fsm_event_error (struct peer *peer)
 {
-  plog_err (peer->log, "%s [FSM] unexpected packet received in state %s",
+  zlog_err ("%s [FSM] unexpected packet received in state %s",
 	    peer->host, LOOKUP (bgp_status_msg, peer->status));
 
   return bgp_stop_with_notify (peer, BGP_NOTIFY_FSM_ERR, 0);
@@ -1337,8 +1327,8 @@ bgp_fsm_event_error (struct peer *peer)
 static int
 bgp_fsm_holdtime_expire (struct peer *peer)
 {
-  if (BGP_DEBUG (fsm, FSM))
-    plog_debug (peer->log, "%s [FSM] Hold timer expire", peer->host);
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("%s [FSM] Hold timer expire", peer->host);
 
   return bgp_stop_with_notify (peer, BGP_NOTIFY_HOLD_ERR, 0);
 }
@@ -1419,7 +1409,7 @@ bgp_establish (struct peer *peer)
       if (peer->t_gr_stale)
 	{
 	  BGP_TIMER_OFF (peer->t_gr_stale);
-	  if (BGP_DEBUG (events, EVENTS))
+          if (bgp_debug_neighbor_events(peer))
 	    zlog_debug ("%s graceful restart stalepath timer stopped", peer->host);
 	}
     }
@@ -1427,7 +1417,7 @@ bgp_establish (struct peer *peer)
   if (peer->t_gr_restart)
     {
       BGP_TIMER_OFF (peer->t_gr_restart);
-      if (BGP_DEBUG (events, EVENTS))
+      if (bgp_debug_neighbor_events(peer))
 	zlog_debug ("%s graceful restart timer stopped", peer->host);
     }
 
@@ -1470,7 +1460,7 @@ bgp_establish (struct peer *peer)
 
   if (peer->doppelganger && (peer->doppelganger->status != Deleted))
     {
-      if (BGP_DEBUG (events, EVENTS))
+      if (bgp_debug_neighbor_events(peer))
 	zlog_debug("[Event] Deleting stub connection for peer %s", peer->host);
 
       if (peer->doppelganger->status > Active)
@@ -1508,8 +1498,8 @@ bgp_fsm_update (struct peer *peer)
 static int
 bgp_ignore (struct peer *peer)
 {
-  if (BGP_DEBUG (fsm, FSM))
-    zlog (peer->log, LOG_DEBUG, "%s [FSM] bgp_ignore called", peer->host);
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("%s [FSM] bgp_ignore called", peer->host);
   return 0;
 }
 
@@ -1747,8 +1737,8 @@ bgp_event_update (struct peer *peer, int event)
   /* Logging this event. */
   next = FSM [peer->status -1][event - 1].next_state;
 
-  if (BGP_DEBUG (fsm, FSM) && peer->status != next)
-    plog_debug (peer->log, "%s [FSM] %s (%s->%s)", peer->host,
+  if (bgp_debug_neighbor_events(peer) && peer->status != next)
+    zlog_debug ("%s [FSM] %s (%s->%s)", peer->host,
 	       bgp_event_str[event],
 	       LOOKUP (bgp_status_msg, peer->status),
 	       LOOKUP (bgp_status_msg, next));

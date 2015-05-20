@@ -281,7 +281,7 @@ bgp_adj_out_set (struct bgp_node *rn, struct peer *peer, struct prefix *p,
     {
       if (!peer->radv_adjusted)
         {
-          if (BGP_DEBUG (events, EVENTS))
+          if (bgp_debug_update(peer, NULL, 0))
             zlog_debug("%s scheduling MRAI timer after adj_out_set", peer->host);
           bgp_adjust_routeadv(peer);
         }
@@ -331,7 +331,7 @@ bgp_adj_out_unset (struct bgp_node *rn, struct peer *peer, struct prefix *p,
         {
           if (!peer->t_write)
             {
-              if (BGP_DEBUG (events, EVENTS))
+              if (bgp_debug_update(peer, NULL, 0))
                 zlog_debug("%s scheduling write thread after adj_out_unset",
                            peer->host);
               BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);

@@ -155,7 +155,7 @@ bgp_capability_mp (struct peer *peer, struct capability_header *hdr)
   
   bgp_capability_mp_data (s, &mpc);
   
-  if (BGP_DEBUG (normal, NORMAL))
+  if (bgp_debug_neighbor_events(peer->host))
     zlog_debug ("%s OPEN has MP_EXT CAP for afi/safi: %u/%u",
                peer->host, mpc.afi, mpc.safi);
   
@@ -177,7 +177,7 @@ static void
 bgp_capability_orf_not_support (struct peer *peer, afi_t afi, safi_t safi,
 				u_char type, u_char mode)
 {
-  if (BGP_DEBUG (normal, NORMAL))
+  if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s Addr-family %d/%d has ORF type/mode %d/%d not supported",
 	       peer->host, afi, safi, type, mode);
 }
@@ -216,7 +216,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
   afi = entry.mpc.afi;
   safi = entry.mpc.safi;
   
-  if (BGP_DEBUG (normal, NORMAL))
+  if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s ORF Cap entry for afi/safi: %u/%u",
 	        peer->host, entry.mpc.afi, entry.mpc.safi);
 
@@ -293,7 +293,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
           continue;
         }
       
-      if (BGP_DEBUG (normal, NORMAL))
+      if (bgp_debug_neighbor_events(peer))
         zlog_debug ("%s OPEN has %s ORF capability"
                     " as %s for afi/safi: %d/%d",
                     peer->host, LOOKUP (orf_type_str, type),
@@ -351,7 +351,7 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
   UNSET_FLAG (restart_flag_time, 0xF000);
   peer->v_gr_restart = restart_flag_time;
 
-  if (BGP_DEBUG (normal, NORMAL))
+  if (bgp_debug_neighbor_events(peer))
     {
       zlog_debug ("%s OPEN has Graceful Restart capability", peer->host);
       zlog_debug ("%s Peer has%srestarted. Restart Time : %d",
@@ -367,21 +367,21 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
       
       if (!bgp_afi_safi_valid_indices (afi, &safi))
         {
-          if (BGP_DEBUG (normal, NORMAL))
+          if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Addr-family %d/%d(afi/safi) not supported."
                         " Ignore the Graceful Restart capability",
                         peer->host, afi, safi);
         }
       else if (!peer->afc[afi][safi])
         {
-          if (BGP_DEBUG (normal, NORMAL))
+          if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Addr-family %d/%d(afi/safi) not enabled."
                         " Ignore the Graceful Restart capability",
                         peer->host, afi, safi);
         }
       else
         {
-          if (BGP_DEBUG (normal, NORMAL))
+          if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Address family %s is%spreserved", peer->host,
                         afi_safi_print (afi, safi),
                         CHECK_FLAG (peer->af_cap[afi][safi],
@@ -486,7 +486,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
 	  return -1;
 	}
       
-      if (BGP_DEBUG (normal, NORMAL))
+      if (bgp_debug_neighbor_events(peer))
 	zlog_debug ("%s OPEN has %s capability (%u), length %u",
 		   peer->host,
 		   LOOKUP (capcode_str, caphdr.code),
@@ -715,7 +715,7 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
   ret = 0;
   error = error_data;
 
-  if (BGP_DEBUG (normal, NORMAL))
+  if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s rcv OPEN w/ OPTION parameter len: %u",
 	       peer->host, length);
   
@@ -744,7 +744,7 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
 	  return -1;
 	}
 
-      if (BGP_DEBUG (normal, NORMAL))
+      if (bgp_debug_neighbor_events(peer))
 	zlog_debug ("%s rcvd OPEN w/ optional parameter type %u (%s) len %u",
 		   peer->host, opt_type,
 		   opt_type == BGP_OPEN_OPT_AUTH ? "Authentication" :
@@ -811,7 +811,7 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
 	  && ! peer->afc_nego[AFI_IP6][SAFI_UNICAST]
 	  && ! peer->afc_nego[AFI_IP6][SAFI_MULTICAST])
 	{
-	  plog_err (peer->log, "%s [Error] Configured AFI/SAFIs do not "
+	  zlog_err ("%s [Error] Configured AFI/SAFIs do not "
 		    "overlap with received MP capabilities",
 		    peer->host);
 

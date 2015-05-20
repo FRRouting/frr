@@ -502,15 +502,11 @@ main (void)
   struct peer *peer;
   int i, j;
   
-  conf_bgp_debug_fsm = -1UL;
-  conf_bgp_debug_events = -1UL;
+  conf_bgp_debug_neighbor_events = -1UL;
   conf_bgp_debug_packet = -1UL;
-  conf_bgp_debug_normal = -1UL;
   conf_bgp_debug_as4 = -1UL;
-  term_bgp_debug_fsm = -1UL;
-  term_bgp_debug_events = -1UL;
+  term_bgp_debug_neighbor_events = -1UL;
   term_bgp_debug_packet = -1UL;
-  term_bgp_debug_normal = -1UL;
   term_bgp_debug_as4 = -1UL;
   
   master = thread_master_create ();

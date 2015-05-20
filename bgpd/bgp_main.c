@@ -176,7 +176,7 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 void 
 sighup (void)
 {
-  zlog (NULL, LOG_INFO, "SIGHUP received");
+  zlog_info ("SIGHUP received");
 
   /* Terminate all thread. */
   bgp_terminate ();
@@ -301,9 +301,6 @@ bgp_exit (int status)
 
   if (zlog_default)
     closezlog (zlog_default);
-
-  if (CONF_BGP_DEBUG (normal, NORMAL))
-    log_memstats_stderr ("bgpd");
 
   exit (status);
 }

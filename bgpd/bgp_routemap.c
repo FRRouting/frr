@@ -2652,7 +2652,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	      if (CHECK_FLAG (peer->af_flags[afi][safi],
 			      PEER_FLAG_SOFT_RECONFIG))
 		{
-		  if (BGP_DEBUG(events, EVENTS))
+                  if (bgp_debug_update(peer, NULL, 1))
 		    zlog_debug("Processing route_map %s update on "
 			       "peer %s (inbound, soft-reconfig)",
 			       rmap_name, peer->host);
@@ -2663,7 +2663,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 		       || CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV))
 		{
 
-		  if (BGP_DEBUG(events, EVENTS))
+                  if (bgp_debug_update(peer, NULL, 1))
 		    zlog_debug("Processing route_map %s update on "
 			       "peer %s (inbound, route-refresh)",
 			       rmap_name, peer->host);
@@ -2699,7 +2699,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	  if (CHECK_FLAG (peer->af_flags[afi][safi],
 			  PEER_FLAG_SOFT_RECONFIG))
 	    {
-	      if (BGP_DEBUG(events, EVENTS))
+              if (bgp_debug_update(peer, NULL, 1))
 		zlog_debug("Processing route_map %s update on "
 			   "peer %s (import, soft-reconfig)",
 			   rmap_name, peer->host);
@@ -2709,7 +2709,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	  else if (CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV)
 		   || CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV))
 	    {
-	      if (BGP_DEBUG(events, EVENTS))
+              if (bgp_debug_update(peer, NULL, 1))
 		zlog_debug("Processing route_map %s update on "
 			   "peer %s (import, route-refresh)",
 			   rmap_name, peer->host);
@@ -2725,7 +2725,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 	  filter->map[RMAP_OUT].map =
 	    route_map_lookup_by_name (filter->map[RMAP_OUT].name);
 
-	  if (BGP_DEBUG(events, EVENTS))
+          if (bgp_debug_update(peer, NULL, 0))
 	    zlog_debug("Processing route_map %s update on peer %s (outbound)",
 		       rmap_name, peer->host);
 
@@ -2817,7 +2817,7 @@ bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
 		peer->default_rmap[afi][safi].map =
 		  route_map_lookup_by_name (peer->default_rmap[afi][safi].name);
 
-		if (BGP_DEBUG(events, EVENTS))
+                if (bgp_debug_update(peer, NULL, 0))
 		  zlog_debug("Processing route_map %s update on "
 			     "default-originate", rmap_name);
 
@@ -2838,7 +2838,7 @@ bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
 	  {
 	    bgp->table_map[afi][safi].map =
 	      route_map_lookup_by_name (bgp->table_map[afi][safi].name);
-	    if (BGP_DEBUG(events, EVENTS))
+            if (BGP_DEBUG (zebra, ZEBRA))
 	      zlog_debug("Processing route_map %s update on "
 			 "table map", rmap_name);
 	    if (route_update)
@@ -2861,7 +2861,7 @@ bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
 		if (route_update)
 		  if (!bgp_static->backdoor)
 		    {
-		      if (BGP_DEBUG(events, EVENTS))
+                      if (bgp_debug_zebra(&bn->p))
 			zlog_debug("Processing route_map %s update on "
 				   "static route %s", rmap_name,
 				   inet_ntop (bn->p.family, &bn->p.u.prefix,
@@ -2883,7 +2883,7 @@ bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
 
 	    if (bgp->redist[afi][i] && route_update)
 	      {
-		if (BGP_DEBUG(events, EVENTS))
+                if (BGP_DEBUG (zebra, ZEBRA))
 		  zlog_debug("Processing route_map %s update on "
 			     "redistributed routes", rmap_name);
 
@@ -2908,13 +2908,7 @@ bgp_route_map_update_timer(struct thread *thread)
 
   bgp->t_rmap_update = NULL;
 
-  if (BGP_DEBUG(events, EVENTS))
-    zlog_debug("Started processing route map update");
-
   route_map_walk_update_list((void *)bgp, bgp_route_map_process_update_cb);
-
-  if (BGP_DEBUG(events, EVENTS))
-    zlog_debug("Finished processing route map update");
 
   return (0);
 }
@@ -2929,9 +2923,6 @@ bgp_route_map_mark_update (char *rmap_name)
     {
       if (bgp->t_rmap_update == NULL)
 	{
-	  if (BGP_DEBUG(events, EVENTS))
-	    zlog_debug("Starting route map update timer (in %d secs)",
-		       bgp->rmap_update_timer);
 	  /* rmap_update_timer of 0 means don't do route updates */
 	  if (bgp->rmap_update_timer)
 	    bgp->t_rmap_update =
@@ -2946,9 +2937,6 @@ bgp_route_map_mark_update (char *rmap_name)
 static void
 bgp_route_map_add (const char *rmap_name)
 {
-  if (BGP_DEBUG (events, EVENTS))
-    zlog_debug ("received route-map add of %s", rmap_name);
-
   if (route_map_mark_updated(rmap_name, 0) == 0)
     bgp_route_map_mark_update(rmap_name);
 
@@ -2958,9 +2946,6 @@ bgp_route_map_add (const char *rmap_name)
 static void
 bgp_route_map_delete (const char *rmap_name)
 {
-  if (BGP_DEBUG (events, EVENTS))
-    zlog_debug ("received route-map delete of %s", rmap_name);
-
   if (route_map_mark_updated(rmap_name, 1) == 0)
     bgp_route_map_mark_update(rmap_name);
 
@@ -2970,9 +2955,6 @@ bgp_route_map_delete (const char *rmap_name)
 static void
 bgp_route_map_event (route_map_event_t event, const char *rmap_name)
 {
-  if (BGP_DEBUG (events, EVENTS))
-    zlog_debug ("received route-map event for %s", rmap_name);
-
   if (route_map_mark_updated(rmap_name, 0) == 0)
     bgp_route_map_mark_update(rmap_name);
 

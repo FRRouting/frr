@@ -146,6 +146,8 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_TRANSIT,		"BGP transit attr"		},
   { MTYPE_TRANSIT_VAL,		"BGP transit val"		},
   { 0, NULL },
+  { MTYPE_BGP_DEBUG_FILTER,     "BGP debug filter"              },
+  { 0, NULL },
   { MTYPE_BGP_DISTANCE,		"BGP distance"			},
   { MTYPE_BGP_NEXTHOP_CACHE,	"BGP nexthop"			},
   { MTYPE_BGP_CONFED_LIST,	"BGP confed list"		},

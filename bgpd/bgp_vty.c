@@ -1775,7 +1775,7 @@ peer_announce_routes_if_rmap_out (struct bgp *bgp)
 		filter = &peer->filter[afi][safi];
 		if (ROUTE_MAP_OUT_NAME(filter))
 		  {
-		    if (BGP_DEBUG(update, UPDATE_OUT))
+		    if (bgp_debug_update(peer, NULL, 0))
 		      zlog_debug("%s: Announcing routes again for peer %s"
 				 "(afi=%d, safi=%d", __func__, peer->host, afi,
 				 safi);
