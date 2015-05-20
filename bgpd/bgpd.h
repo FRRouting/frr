@@ -665,11 +665,10 @@ struct peer
   u_int16_t af_sflags[AFI_MAX][SAFI_MAX];
 #define PEER_STATUS_ORF_PREFIX_SEND   (1 << 0) /* prefix-list send peer */
 #define PEER_STATUS_ORF_WAIT_REFRESH  (1 << 1) /* wait refresh received peer */
-#define PEER_STATUS_DEFAULT_ORIGINATE (1 << 2) /* default-originate peer */
-#define PEER_STATUS_PREFIX_THRESHOLD  (1 << 3) /* exceed prefix-threshold */
-#define PEER_STATUS_PREFIX_LIMIT      (1 << 4) /* exceed prefix-limit */
-#define PEER_STATUS_EOR_SEND          (1 << 5) /* end-of-rib send to peer */
-#define PEER_STATUS_EOR_RECEIVED      (1 << 6) /* end-of-rib received from peer */
+#define PEER_STATUS_PREFIX_THRESHOLD  (1 << 2) /* exceed prefix-threshold */
+#define PEER_STATUS_PREFIX_LIMIT      (1 << 3) /* exceed prefix-limit */
+#define PEER_STATUS_EOR_SEND          (1 << 4) /* end-of-rib send to peer */
+#define PEER_STATUS_EOR_RECEIVED      (1 << 5) /* end-of-rib received from peer */
 
   /* Default attribute value for the peer. */
   u_int32_t config;
