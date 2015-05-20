@@ -68,11 +68,4 @@ if [ "$1" = "install" ]; then
     fi
 fi
 
-# No -q so that the filename is displayed. But on stderr due to debhelper.
-if grep ^smux /etc/quagga/*.conf >&2 2>/dev/null; then
-  echo "The currently used smux options will no longer work so remove them!" >&2
-  echo "See /usr/share/doc/quagga/README.Debian for more information." >&2
-  exit 1
-fi
-
 #DEBHELPER#
