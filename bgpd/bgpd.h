@@ -787,14 +787,13 @@ struct bgp_nlri
 #define BGP_EVENTS_MAX                          15
 
 /* BGP timers default value.  */
-#define BGP_INIT_START_TIMER                     5
+#define BGP_INIT_START_TIMER                     1
 #define BGP_ERROR_START_TIMER                   30
 #define BGP_DEFAULT_HOLDTIME                   180
 #define BGP_DEFAULT_KEEPALIVE                   60 
 #define BGP_DEFAULT_ASORIGINATE                 15
 #define BGP_DEFAULT_EBGP_ROUTEADV               30
 #define BGP_DEFAULT_IBGP_ROUTEADV                5
-#define BGP_CLEAR_CONNECT_RETRY                 20
 #define BGP_DEFAULT_CONNECT_RETRY              120
 
 /* BGP default local preference.  */
