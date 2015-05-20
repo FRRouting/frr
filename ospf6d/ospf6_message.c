@@ -245,6 +245,7 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
   char *p;
   int twoway = 0;
   int neighborchange = 0;
+  int neighbor_ifindex_change = 0;
   int backupseen = 0;
 
   hello = (struct ospf6_hello *)
@@ -285,9 +286,15 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
       on->priority = hello->priority;
     }
 
-  /* always override neighbor's source address and ifindex */
-  on->ifindex = ntohl (hello->interface_id);
+  /* Always override neighbor's source address */
   memcpy (&on->linklocal_addr, src, sizeof (struct in6_addr));
+
+  /* Neighbor ifindex check */
+  if (on->ifindex != ntohl (hello->interface_id))
+    {
+      on->ifindex = ntohl (hello->interface_id);
+      neighbor_ifindex_change++;
+    }
 
   /* TwoWay check */
   for (p = (char *) ((caddr_t) hello + sizeof (struct ospf6_hello));
@@ -348,6 +355,9 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
     thread_add_event (master, backup_seen, oi, 0);
   if (neighborchange)
     thread_add_event (master, neighbor_change, oi, 0);
+
+  if (neighbor_ifindex_change && on->state == OSPF6_NEIGHBOR_FULL)
+    OSPF6_ROUTER_LSA_SCHEDULE (oi->area);
 }
 
 static void
