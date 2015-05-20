@@ -2025,6 +2025,100 @@ struct route_map_rule_cmd route_set_ipv6_nexthop_local_cmd =
   route_set_ipv6_nexthop_local_compile,
   route_set_ipv6_nexthop_local_free
 };
+
+/* `set ipv6 nexthop peer-address' */
+
+/* Set nexthop to object.  ojbect must be pointer to struct attr. */
+static route_map_result_t
+route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
+			     route_map_object_t type, void *object)
+{
+  int *use_peer_address;
+  struct in6_addr peer_address;
+  struct bgp_info *bgp_info;
+  struct peer *peer;
+  char peer_addr_buf[INET6_ADDRSTRLEN];
+
+  if (type == RMAP_BGP)
+    {
+      /* Fetch routemap's rule information. */
+      use_peer_address = rule;
+      bgp_info = object;
+      peer = bgp_info->peer;
+
+      if ((CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IN) ||
+           CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IMPORT))
+	  && peer->su_remote
+	  && sockunion_family (peer->su_remote) == AF_INET6)
+	{
+	  inet_pton (AF_INET6, sockunion2str (peer->su_remote,
+					      peer_addr_buf,
+					      INET6_ADDRSTRLEN),
+		     &peer_address);
+	}
+      else if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT)
+	       && peer->su_local
+	       && sockunion_family (peer->su_local) == AF_INET6)
+	{
+	  inet_pton (AF_INET, sockunion2str (peer->su_local,
+					     peer_addr_buf,
+					     INET6_ADDRSTRLEN),
+		     &peer_address);
+	}
+
+      if (IN6_IS_ADDR_LINKLOCAL(&peer_address))
+	{
+	  /* Set next hop value. */
+	  (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local = peer_address;
+
+	  /* Set nexthop length. */
+	  if (bgp_info->attr->extra->mp_nexthop_len != 32)
+	    bgp_info->attr->extra->mp_nexthop_len = 32;
+	}
+      else
+	{
+	  /* Set next hop value. */
+	  (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global = peer_address;
+
+	  /* Set nexthop length. */
+	  if (bgp_info->attr->extra->mp_nexthop_len == 0)
+	    bgp_info->attr->extra->mp_nexthop_len = 16;
+	}
+    }
+
+  return RMAP_OKAY;
+}
+
+/* Route map `ip next-hop' compile function.  Given string is converted
+   to struct in_addr structure. */
+static void *
+route_set_ipv6_nexthop_peer_compile (const char *arg)
+{
+  int ret;
+  int *rins = NULL;
+
+  rins = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (int));
+  *rins = 1;
+
+  return rins;
+}
+
+/* Free route map's compiled `ip next-hop' value. */
+static void
+route_set_ipv6_nexthop_peer_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for ip nexthop set. */
+struct route_map_rule_cmd route_set_ipv6_nexthop_peer_cmd =
+{
+  "ipv6 next-hop peer-address",
+  route_set_ipv6_nexthop_peer,
+  route_set_ipv6_nexthop_peer_compile,
+  route_set_ipv6_nexthop_peer_free
+};
+
 #endif /* HAVE_IPV6 */
 
 /* `set vpnv4 nexthop A.B.C.D' */
@@ -3575,6 +3669,29 @@ DEFUN (no_match_ipv6_address_prefix_list,
   return bgp_route_match_delete (vty, vty->index, "ipv6 address prefix-list", argv[0]);
 }
 
+DEFUN (set_ipv6_nexthop_peer,
+       set_ipv6_nexthop_peer_cmd,
+       "set ipv6 next-hop peer-address",
+       SET_STR
+       IPV6_STR
+       "Next hop address\n"
+       "Use peer address (for BGP only)\n")
+{
+  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop peer-address", NULL);
+}
+
+DEFUN (no_set_ipv6_nexthop_peer,
+       no_set_ipv6_nexthop_peer_cmd,
+       "no set ipv6 next-hop peer-address",
+       NO_STR
+       SET_STR
+       IPV6_STR
+       "IPv6 next-hop address\n"
+       )
+{
+  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop", argv[0]);
+}
+
 DEFUN (set_ipv6_nexthop_global,
        set_ipv6_nexthop_global_cmd,
        "set ipv6 next-hop global X:X::X:X",
@@ -3913,7 +4030,8 @@ bgp_route_map_init (void)
   route_map_install_match (&route_match_ipv6_address_prefix_list_cmd);
   route_map_install_set (&route_set_ipv6_nexthop_global_cmd);
   route_map_install_set (&route_set_ipv6_nexthop_local_cmd);
-  
+  route_map_install_set (&route_set_ipv6_nexthop_peer_cmd);
+
   install_element (RMAP_NODE, &match_ipv6_address_cmd);
   install_element (RMAP_NODE, &no_match_ipv6_address_cmd);
   install_element (RMAP_NODE, &match_ipv6_next_hop_cmd);
@@ -3926,6 +4044,8 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_ipv6_nexthop_local_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_val_cmd);
+  install_element (RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
+  install_element (RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
 #endif /* HAVE_IPV6 */
 
   /* AS-Pathlimit: functionality removed, commands kept for
