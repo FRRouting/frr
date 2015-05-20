@@ -967,7 +967,9 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
     }
 
   if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
-      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
+      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
+      || bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 
   nhcount = 1 + bgp_info_mpath_count (info);
@@ -1304,7 +1306,8 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
     }
 
   if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
-      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
+      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
+      || bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 
   if (p->family == AF_INET)

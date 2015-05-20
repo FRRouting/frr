@@ -2086,6 +2086,34 @@ bgp_config_write_listen (struct vty *vty, struct bgp *bgp)
 }
 
 
+DEFUN (bgp_disable_connected_route_check,
+       bgp_disable_connected_route_check_cmd,
+       "bgp disable-ebgp-connected-route-check",
+       "BGP specific commands\n"
+       "Disable checking if nexthop is connected on ebgp sessions\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_set (bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_disable_connected_route_check,
+       no_bgp_disable_connected_route_check_cmd,
+       "no bgp disable-ebgp-connected-route-check",
+       NO_STR
+       "BGP specific commands\n"
+       "Disable checking if nexthop is connected on ebgp sessions\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_unset (bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
+  return CMD_SUCCESS;
+}
+
+
 static int
 peer_remote_as_vty (struct vty *vty, const char *peer_str, 
                     const char *as_str, afi_t afi, safi_t safi)
@@ -11296,6 +11324,10 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &no_bgp_maxmed_onstartup_period_cmd);
   install_element (BGP_NODE, &bgp_maxmed_onstartup_medv_cmd);
   install_element (BGP_NODE, &no_bgp_maxmed_onstartup_period_medv_cmd);
+
+  /* bgp disable-ebgp-connected-nh-check */
+  install_element (BGP_NODE, &bgp_disable_connected_route_check_cmd);
+  install_element (BGP_NODE, &no_bgp_disable_connected_route_check_cmd);
 
   /* bgp update-delay command */
   install_element (BGP_NODE, &bgp_update_delay_cmd);

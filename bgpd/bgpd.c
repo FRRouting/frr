@@ -6310,6 +6310,10 @@ bgp_config_write (struct vty *vty)
 	vty_out (vty, " bgp cluster-id %s%s", inet_ntoa (bgp->cluster_id),
 		 VTY_NEWLINE);
 
+      /* Disable ebgp connected nexthop check */
+      if (bgp_flag_check (bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+	vty_out (vty, " bgp disable-ebgp-connected-route-check%s", VTY_NEWLINE);
+
       /* Confederation identifier*/
       if (CHECK_FLAG (bgp->config, BGP_CONFIG_CONFEDERATION))
        vty_out (vty, " bgp confederation identifier %i%s", bgp->confed_id,

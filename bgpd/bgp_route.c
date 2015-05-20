@@ -3046,7 +3046,8 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST)
 	{
 	  if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1 &&
-	      ! CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
+	      ! CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
+	      && ! bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 	    connected = 1;
 	  else
 	    connected = 0;
@@ -3102,7 +3103,8 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST)
     {
       if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1 &&
-	  ! CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
+	  ! CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
+	  && ! bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 	connected = 1;
       else
 	connected = 0;
