@@ -156,7 +156,7 @@ bgp_capability_mp (struct peer *peer, struct capability_header *hdr)
   
   bgp_capability_mp_data (s, &mpc);
   
-  if (bgp_debug_neighbor_events(peer->host))
+  if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s OPEN has MP_EXT CAP for afi/safi: %u/%u",
                peer->host, mpc.afi, mpc.safi);
   
@@ -432,7 +432,7 @@ bgp_capability_addpath (struct peer *peer, struct capability_header *hdr)
       safi_t safi = stream_getc (s);
       u_char send_receive = stream_getc (s);
 
-      if (bgp_debug_neighbor_events(peer->host))
+      if (bgp_debug_neighbor_events(peer))
         zlog_debug ("%s OPEN has AddPath CAP for afi/safi: %u/%u%s%s",
                     peer->host, afi, safi,
                     (send_receive & BGP_ADDPATH_RX) ? ", receive" : "",

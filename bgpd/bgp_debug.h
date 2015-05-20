@@ -89,7 +89,7 @@ extern struct list *bgp_debug_zebra_prefixes;
 
 struct bgp_debug_filter
 {
-  struct peer *peer;
+  char *host;
   struct prefix *p;
 };
 
@@ -133,7 +133,7 @@ struct bgp_debug_filter
 extern const char *bgp_type_str[];
 
 extern int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
-extern int bgp_debug_peer_updout_enabled(struct peer *peer);
+extern int bgp_debug_peer_updout_enabled(char *host);
 extern void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
 
 extern const struct message bgp_status_msg[];

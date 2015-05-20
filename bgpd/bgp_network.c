@@ -246,7 +246,7 @@ bgp_accept (struct thread *thread)
 
   if (! peer1)
     {
-      if (bgp_debug_neighbor_events(peer))
+      if (bgp_debug_neighbor_events(NULL))
 	{
 	  zlog_debug ("[Event] %s connection rejected - not configured"
                       " and not valid for dynamic",
@@ -258,7 +258,7 @@ bgp_accept (struct thread *thread)
 
   if (CHECK_FLAG(peer1->flags, PEER_FLAG_SHUTDOWN))
     {
-      if (bgp_debug_neighbor_events(peer))
+      if (bgp_debug_neighbor_events(peer1))
         zlog_debug ("[Event] connection from %s rejected due to admin shutdown",
                     inet_sutop (&su, buf));
       close (bgp_sock);
@@ -301,7 +301,7 @@ bgp_accept (struct thread *thread)
       /* We have an existing connection. Kill the existing one and run
 	 with this one.
       */
-      if (bgp_debug_neighbor_events(peer))
+      if (bgp_debug_neighbor_events(peer1))
 	zlog_debug ("[Event] New active connection from peer %s, Killing"
 		    " previous active connection", peer1->host);
       peer_delete(peer1->doppelganger);
