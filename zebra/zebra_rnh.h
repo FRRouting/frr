@@ -33,6 +33,7 @@ struct rnh
 #define ZEBRA_NHT_CONNECTED  	0x1
   struct rib *state;
   struct list *client_list;
+  struct list *zebra_static_route_list; /* static routes dependent on this NH */
   struct route_node *node;
   int filtered[ZEBRA_ROUTE_MAX]; /* if this has been filtered for client */
 };
@@ -41,6 +42,8 @@ extern struct rnh *zebra_add_rnh(struct prefix *p, u_int32_t vrfid);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, u_int32_t vrfid);
 extern void zebra_delete_rnh(struct rnh *rnh);
 extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client);
+extern void zebra_register_rnh_static_nh(struct prefix *, struct route_node *);
+extern void zebra_deregister_rnh_static_nh(struct prefix *, struct route_node *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client);
 extern int zebra_evaluate_rnh_table(int vrfid, int family, int force);
 extern int zebra_dispatch_rnh_table(int vrfid, int family, struct zserv *cl);

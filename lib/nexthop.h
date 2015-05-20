@@ -63,6 +63,7 @@ struct nexthop
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
 #define NEXTHOP_FLAG_ONLINK     (1 << 3) /* Nexthop should be installed onlink. */
 #define NEXTHOP_FLAG_MATCHED    (1 << 4) /* Already matched vs a nexthop */
+#define NEXTHOP_FLAG_FILTERED   (1 << 5) /* rmap filtered, used by static only */
 
   /* Nexthop address */
   union g_addr gate;
