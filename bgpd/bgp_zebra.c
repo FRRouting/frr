@@ -778,7 +778,10 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
   if (local->sa.sa_family == AF_INET)
     {
       nexthop->v4 = local->sin.sin_addr;
-      ifp = if_lookup_by_ipv4 (&local->sin.sin_addr);
+      if (peer->update_if)
+        ifp = if_lookup_by_name (peer->update_if);
+      else
+        ifp = if_lookup_by_ipv4_exact (&local->sin.sin_addr);
     }
 #ifdef HAVE_IPV6
   if (local->sa.sa_family == AF_INET6)
@@ -788,8 +791,10 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
 	  if (peer->conf_if || peer->ifname)
 	    ifp = if_lookup_by_index (if_nametoindex (peer->conf_if ? peer->conf_if : peer->ifname));
 	}
+      else if (peer->update_if)
+        ifp = if_lookup_by_name (peer->update_if);
       else
-	ifp = if_lookup_by_ipv6 (&local->sin6.sin6_addr);
+        ifp = if_lookup_by_ipv6_exact (&local->sin6.sin6_addr);
     }
 #endif /* HAVE_IPV6 */
 
