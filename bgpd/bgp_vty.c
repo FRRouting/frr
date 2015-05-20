@@ -232,6 +232,9 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_NO_IBGP_WITH_TTLHACK:
       str = "ttl-security only allowed for EBGP peers";
       break;
+    case BGP_ERR_AS_OVERRIDE:
+      str = "as-override cannot be configured for IBGP peers";
+      break;
     }
   if (str)
     {
@@ -2655,6 +2658,32 @@ DEFUN (no_neighbor_nexthop_self,
   return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				 bgp_node_safi (vty),
 				 PEER_FLAG_NEXTHOP_SELF|PEER_FLAG_NEXTHOP_SELF_ALL);
+}
+
+/* neighbor as-override */
+DEFUN (neighbor_as_override,
+       neighbor_as_override_cmd,
+       NEIGHBOR_CMD2 "as-override",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Override ASNs in outbound updates if aspath equals remote-as\n")
+{
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+                               bgp_node_safi (vty),
+                               PEER_FLAG_AS_OVERRIDE);
+}
+
+DEFUN (no_neighbor_as_override,
+       no_neighbor_as_override_cmd,
+       NO_NEIGHBOR_CMD2 "as-override",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Override ASNs in outbound updates if aspath equals remote-as\n")
+{
+  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+                                 bgp_node_safi (vty),
+                                 PEER_FLAG_AS_OVERRIDE);
 }
 
 /* neighbor remove-private-AS. */
@@ -8364,6 +8393,9 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
   else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
     vty_out (vty, "  Private AS numbers removed in updates to this neighbor%s", VTY_NEWLINE);
 
+  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_OVERRIDE))
+    vty_out (vty, "  Override ASNs in outbound updates if aspath equals remote-as%s", VTY_NEWLINE);
+
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF) ||
       CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF_ALL))
     vty_out (vty, "  NEXT_HOP is always this router%s", VTY_NEWLINE);
@@ -10431,6 +10463,20 @@ bgp_vty_init (void)
   install_element (BGP_IPV6M_NODE, &no_neighbor_nexthop_self_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_nexthop_self_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_nexthop_self_cmd);
+
+  /* "neighbor as-override" commands. */
+  install_element (BGP_NODE, &neighbor_as_override_cmd);
+  install_element (BGP_NODE, &no_neighbor_as_override_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_as_override_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_as_override_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_as_override_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_as_override_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_as_override_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_as_override_cmd);
+  install_element (BGP_IPV6M_NODE, &neighbor_as_override_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_as_override_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_as_override_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_as_override_cmd);
 
   /* "neighbor remove-private-AS" commands. */
   install_element (BGP_NODE, &neighbor_remove_private_as_cmd);

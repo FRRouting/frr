@@ -97,6 +97,8 @@ extern void aspath_print_all_vty (struct vty *);
 extern unsigned int aspath_key_make (void *);
 extern int aspath_loop_check (struct aspath *, as_t);
 extern int aspath_private_as_check (struct aspath *);
+extern int aspath_single_asn_check (struct aspath *, as_t asn);
+extern struct aspath *aspath_replace_specific_asn (struct aspath *aspath, as_t target_asn, as_t our_asn);
 extern struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn);
 extern struct aspath *aspath_remove_private_asns (struct aspath *aspath);
 extern int aspath_firstas_check (struct aspath *, as_t);

@@ -2664,6 +2664,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] =
     { PEER_FLAG_ORF_PREFIX_RM,            1, peer_change_reset },
     { PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED,  0, peer_change_reset_out },
     { PEER_FLAG_NEXTHOP_SELF_ALL,         1, peer_change_reset_out },
+    { PEER_FLAG_AS_OVERRIDE,              1, peer_change_reset_out },
     { 0, 0, 0 }
   };
 
@@ -2906,6 +2907,11 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
   if (flag & PEER_FLAG_REMOVE_PRIVATE_AS
       && peer_sort (peer) == BGP_PEER_IBGP)
     return BGP_ERR_REMOVE_PRIVATE_AS;
+
+  /* as-override is not allowed for IBGP peers */
+  if (flag & PEER_FLAG_AS_OVERRIDE
+      && peer_sort (peer) == BGP_PEER_IBGP)
+    return BGP_ERR_AS_OVERRIDE;
 
   /* When unset the peer-group member's flag we have to check
      peer-group configuration.  */
@@ -5472,6 +5478,11 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
       else
         vty_out (vty, " neighbor %s remove-private-AS%s", addr, VTY_NEWLINE);
     }
+
+  /* as-override */
+  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_AS_OVERRIDE) &&
+      !peer->af_group[afi][safi])
+    vty_out (vty, " neighbor %s as-override%s", addr, VTY_NEWLINE);
 
   /* send-community print. */
   if (! peer->af_group[afi][safi])

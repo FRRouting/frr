@@ -1146,6 +1146,58 @@ aspath_private_as_check (struct aspath *aspath)
   return 1;
 }
 
+/* Return True if the entire ASPATH consist of the specified ASN */
+int
+aspath_single_asn_check (struct aspath *aspath, as_t asn)
+{
+  struct assegment *seg;
+
+  if ( !(aspath && aspath->segments) )
+    return 0;
+
+  seg = aspath->segments;
+
+  while (seg)
+    {
+      int i;
+
+      for (i = 0; i < seg->length; i++)
+	{
+	  if (seg->as[i] != asn)
+	    return 0;
+	}
+      seg = seg->next;
+    }
+  return 1;
+}
+
+/* Replace all instances of the target ASN with our own ASN */
+struct aspath *
+aspath_replace_specific_asn (struct aspath *aspath, as_t target_asn,
+                             as_t our_asn)
+{
+  struct aspath *new;
+  struct assegment *seg;
+
+  new = aspath_dup(aspath);
+  seg = new->segments;
+
+  while (seg)
+    {
+      int i;
+
+      for (i = 0; i < seg->length; i++)
+	{
+	  if (seg->as[i] == target_asn)
+            seg->as[i] = our_asn;
+	}
+      seg = seg->next;
+    }
+
+  aspath_str_update(new);
+  return new;
+}
+
 /* Replace all private ASNs with our own ASN */
 struct aspath *
 aspath_replace_private_asns (struct aspath *aspath, as_t asn)

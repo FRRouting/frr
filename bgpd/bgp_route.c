@@ -899,6 +899,19 @@ bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
     }
 }
 
+/* If this is an EBGP peer with as-override */
+static void
+bgp_peer_as_override(struct bgp *bgp, afi_t afi, safi_t safi,
+                     struct peer *peer, struct attr *attr)
+{
+  if (peer->sort == BGP_PEER_EBGP &&
+      peer_af_flag_check (peer, afi, safi, PEER_FLAG_AS_OVERRIDE))
+    {
+      if (aspath_single_asn_check (attr->aspath, peer->as))
+        attr->aspath = aspath_replace_specific_asn (attr->aspath, peer->as, bgp->as);
+    }
+}
+
 static int
 bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 		    struct attr *attr, afi_t afi, safi_t safi)
@@ -1161,6 +1174,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 #endif /* HAVE_IPV6 */
 
   bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
+  bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
   /* Route map & unsuppress-map apply. */
   if (ROUTE_MAP_OUT_NAME (filter)
@@ -1368,6 +1382,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
 #endif /* HAVE_IPV6 */
 
   bgp_peer_remove_private_as(bgp, afi, safi, rsclient, attr);
+  bgp_peer_as_override(bgp, afi, safi, rsclient, attr);
 
   /* Route map & unsuppress-map apply. */
   if (ROUTE_MAP_OUT_NAME (filter) || (ri->extra && ri->extra->suppress) )

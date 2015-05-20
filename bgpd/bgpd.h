@@ -489,6 +489,7 @@ struct peer
 #define PEER_FLAG_NEXTHOP_SELF_ALL          (1 << 17) /* next-hop-self all */
 #define PEER_FLAG_REMOVE_PRIVATE_AS_ALL     (1 << 18) /* remove-private-as all */
 #define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1 << 19) /* remove-private-as replace-as */
+#define PEER_FLAG_AS_OVERRIDE               (1 << 20) /* as-override */
 
   /* MD5 password */
   char *password;
@@ -910,7 +911,8 @@ enum bgp_clear_type
 #define BGP_ERR_NO_IBGP_WITH_TTLHACK		-31
 #define BGP_ERR_NO_INTERFACE_CONFIG             -32
 #define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS    -33
-#define BGP_ERR_MAX				-34
+#define BGP_ERR_AS_OVERRIDE                     -34
+#define BGP_ERR_MAX				-35
 
 extern struct bgp_master *bm;
 
