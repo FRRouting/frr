@@ -1138,7 +1138,9 @@ aspath_private_as_check (struct aspath *aspath)
       for (i = 0; i < seg->length; i++)
 	{
 	  if ( (seg->as[i] < BGP_PRIVATE_AS_MIN)
-	      || (seg->as[i] > BGP_PRIVATE_AS_MAX) )
+	      || (seg->as[i] > BGP_PRIVATE_AS_MAX &&
+                  seg->as[i] < BGP_PRIVATE_AS4_MIN)
+               || (seg->as[i] > BGP_PRIVATE_AS4_MAX))
 	    return 0;
 	}
       seg = seg->next;

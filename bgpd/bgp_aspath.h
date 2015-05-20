@@ -31,6 +31,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_PRIVATE_AS_MIN       64512U
 #define BGP_PRIVATE_AS_MAX       65535U
 
+/* Private 4 byte AS range defined in RFC6996.  */
+#define BGP_PRIVATE_AS4_MIN     4200000000U
+#define BGP_PRIVATE_AS4_MAX     4294967294U
+
 /* we leave BGP_AS_MAX as the 16bit AS MAX number.  */
 #define BGP_AS_MAX		     65535U
 #define BGP_AS4_MAX		4294967295U
