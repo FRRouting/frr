@@ -323,7 +323,6 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   /* we need to do the LLC in here because of P2P circuits, which will
    * not need it
    */
-  int written = 1;
   struct sockaddr_ll sa;
 
   stream_set_getp (circuit->snd_stream, 0);
@@ -356,7 +355,7 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   iov[1].iov_base = circuit->snd_stream->data;
   iov[1].iov_len = stream_get_endp (circuit->snd_stream);
 
-  written = sendmsg (circuit->fd, &msg, 0);
+  sendmsg (circuit->fd, &msg, 0);
 
   return ISIS_OK;
 }
@@ -364,7 +363,6 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
 int
 isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
 {
-  int written = 1;
   struct sockaddr_ll sa;
 
   stream_set_getp (circuit->snd_stream, 0);
@@ -381,10 +379,10 @@ isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
 
   /* lets try correcting the protocol */
   sa.sll_protocol = htons (0x00FE);
-  written = sendto (circuit->fd, circuit->snd_stream->data,
-		    stream_get_endp (circuit->snd_stream), 0, 
-		    (struct sockaddr *) &sa,
-		    sizeof (struct sockaddr_ll));
+  sendto (circuit->fd, circuit->snd_stream->data,
+	  stream_get_endp (circuit->snd_stream), 0, 
+	  (struct sockaddr *) &sa,
+	  sizeof (struct sockaddr_ll));
 
   return ISIS_OK;
 }

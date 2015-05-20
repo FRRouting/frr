@@ -1456,8 +1456,8 @@ isis_spf_schedule6 (struct isis_area *area, int level)
   assert (area->is_type & level);
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    zlog_debug ("ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago",
-                area->area_tag, level, diff);
+    zlog_debug ("ISIS-Spf (%s) L%d SPF schedule called, lastrun %lld sec ago",
+                area->area_tag, level, (long long)diff);
 
   if (spftree->pending)
     return ISIS_OK;
@@ -1476,8 +1476,8 @@ isis_spf_schedule6 (struct isis_area *area, int level)
                      area->min_spf_interval[1] - diff);
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    zlog_debug ("ISIS-Spf (%s) L%d SPF scheduled %d sec from now",
-                area->area_tag, level, area->min_spf_interval[level-1] - diff);
+    zlog_debug ("ISIS-Spf (%s) L%d SPF scheduled %lld sec from now",
+                area->area_tag, level, (long long)(area->min_spf_interval[level-1] - diff));
 
   spftree->pending = 1;
 

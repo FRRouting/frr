@@ -1342,7 +1342,6 @@ DEFUN (no_ipv6_router_isis,
 {
   struct interface *ifp;
   struct isis_area *area;
-  struct listnode *node;
   struct isis_circuit *circuit;
 
   ifp = (struct interface *) vty->index;

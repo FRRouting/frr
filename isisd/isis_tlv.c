@@ -115,7 +115,6 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
   struct ipv6_reachability *ipv6_reach;
   int prefix_octets;
 #endif /* HAVE_IPV6 */
-  u_char virtual;
   int value_len, retval = ISIS_OK;
   u_char *start = stream, *pnt = stream, *endpnt;
 
@@ -179,7 +178,6 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	       * |                        Virtual Flag                           | 
 	       * +-------+-------+-------+-------+-------+-------+-------+-------+
 	       */
-	      virtual = *pnt;	/* FIXME: what is the use for this? */
 	      pnt++;
 	      value_len++;
 	      /* +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -926,7 +924,6 @@ tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream)
   struct prefix_ipv4 *ipv4;
   u_char value[255];
   u_char *pos = value;
-  int retval;
 
   for (ALL_LIST_ELEMENTS_RO (ip_addrs, node, ipv4))
     {

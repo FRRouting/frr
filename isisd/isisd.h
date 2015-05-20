@@ -23,6 +23,8 @@
 #ifndef ISISD_H
 #define ISISD_H
 
+#include "vty.h"
+
 #define ISISD_VERSION "0.0.7"
 
 /* uncomment if you are a developer in bug hunt */

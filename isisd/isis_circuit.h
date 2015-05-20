@@ -23,6 +23,8 @@
 #ifndef ISIS_CIRCUIT_H
 #define ISIS_CIRCUIT_H
 
+#include "vty.h"
+
 #define CIRCUIT_MAX 255
 
 struct password
