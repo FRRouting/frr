@@ -13,6 +13,7 @@ quaggavtygid=`egrep "^quaggavty:" $GROUPFILE | awk -F ":" '{ print $3 }'`
 [ -n ${quaggaVTYgid} ] || (echo "No gid for quaggavty in ${GROUPFILE}" && /bin/false)
 
 chown -R ${quaggauid}:${quaggagid} /etc/quagga
+touch /etc/quagga/vtysh.conf
 chgrp ${quaggavtygid} /etc/quagga/vtysh*
 chmod 440 /etc/sudoers.d/quagga_sudoers
 chmod 644 /etc/quagga/*
