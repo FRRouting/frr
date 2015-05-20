@@ -2032,6 +2032,7 @@ write_config_integrated(void)
   for (i = 0; i < array_size(vtysh_client); i++)
     vtysh_client_config (&vtysh_client[i], line);
 
+  vtysh_config_write ();
   vtysh_config_dump (fp);
 
   fclose (fp);
