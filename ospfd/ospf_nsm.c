@@ -338,7 +338,8 @@ nsm_exchange_done (struct ospf_neighbor *nbr)
     return NSM_Full;
 
   /* Send Link State Request. */
-  ospf_ls_req_send (nbr);
+  if (nbr->t_ls_req == NULL)
+    ospf_ls_req_send (nbr);
 
   return NSM_Loading;
 }

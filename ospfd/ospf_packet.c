@@ -1205,6 +1205,9 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
   
   /* Save received neighbor values from DD. */
   ospf_db_desc_save_current (nbr, dd);
+
+  if (!nbr->t_ls_req)
+    ospf_ls_req_send (nbr);
 }
 
 static int
