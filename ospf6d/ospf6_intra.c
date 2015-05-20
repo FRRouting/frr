@@ -1303,14 +1303,13 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
         break;
 
       /* Appendix A.4.1.1 */
-      if (CHECK_FLAG(op->prefix_options, OSPF6_PREFIX_OPTION_NU) ||
-	  CHECK_FLAG(op->prefix_options, OSPF6_PREFIX_OPTION_LA))
+      if (CHECK_FLAG(op->prefix_options, OSPF6_PREFIX_OPTION_NU))
 	{
 	  if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
 	    {
 	      ospf6_linkstate_prefix2str ((struct prefix *)OSPF6_PREFIX_BODY(op),
 					  buf, sizeof (buf));
-	      zlog_debug ("%s: Skipping Prefix %s has NU/LA option set",
+	      zlog_debug ("%s: Skipping Prefix %s has NU option set",
 			  __func__, buf);
 	    }
 	  continue;
