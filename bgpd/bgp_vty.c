@@ -5145,6 +5145,89 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
   return CMD_SUCCESS;
 }
 
+/* Recalculate bestpath and re-advertise a prefix */
+static int
+bgp_clear_prefix (struct vty *vty, char *view_name, const char *ip_str,
+                  afi_t afi, safi_t safi, struct prefix_rd *prd)
+{
+  int ret;
+  struct prefix match;
+  struct bgp_node *rn;
+  struct bgp_node *rm;
+  struct bgp_info *ri;
+  struct bgp_info *ri_temp;
+  struct bgp *bgp;
+  struct bgp_table *table;
+  struct bgp_table *rib;
+
+  /* BGP structure lookup. */
+  if (view_name)
+    {
+      bgp = bgp_lookup_by_name (view_name);
+      if (bgp == NULL)
+        {
+          vty_out (vty, "%% Can't find BGP view %s%s", view_name, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  else
+    {
+      bgp = bgp_get_default ();
+      if (bgp == NULL)
+        {
+          vty_out (vty, "%% No BGP process is configured%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+
+  /* Check IP address argument. */
+  ret = str2prefix (ip_str, &match);
+  if (! ret)
+    {
+      vty_out (vty, "%% address is malformed%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  match.family = afi2family (afi);
+  rib = bgp->rib[afi][safi];
+
+  if (safi == SAFI_MPLS_VPN)
+    {
+      for (rn = bgp_table_top (rib); rn; rn = bgp_route_next (rn))
+        {
+          if (prd && memcmp (rn->p.u.val, prd->val, 8) != 0)
+            continue;
+
+          if ((table = rn->info) != NULL)
+            {
+              if ((rm = bgp_node_match (table, &match)) != NULL)
+                {
+                  if (rm->p.prefixlen == match.prefixlen)
+                    {
+                      SET_FLAG (rn->flags, BGP_NODE_USER_CLEAR);
+                      bgp_process (bgp, rm, afi, safi);
+                    }
+                  bgp_unlock_node (rm);
+                }
+            }
+        }
+    }
+  else
+    {
+      if ((rn = bgp_node_match (rib, &match)) != NULL)
+        {
+          if (rn->p.prefixlen == match.prefixlen)
+            {
+              SET_FLAG (rn->flags, BGP_NODE_USER_CLEAR);
+              bgp_process (bgp, rn, afi, safi);
+            }
+          bgp_unlock_node (rn);
+        }
+    }
+
+  return CMD_SUCCESS;
+}
+
 static int
 bgp_clear_vty (struct vty *vty, const char *name, afi_t afi, safi_t safi,
                enum clear_sort sort, enum bgp_clear_type stype, 
@@ -5309,6 +5392,27 @@ ALIAS (clear_ip_bgp_external,
        BGP_STR
        "Address family\n"
        "Clear all external peers\n")
+
+DEFUN (clear_ip_bgp_prefix,
+       clear_ip_bgp_prefix_cmd,
+       "clear ip bgp prefix A.B.C.D/M",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear bestpath and re-advertise\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+{
+  return bgp_clear_prefix (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL);
+}
+
+ALIAS (clear_ip_bgp_prefix,
+       clear_bgp_prefix_cmd,
+       "clear bgp prefix A.B.C.D/M",
+       CLEAR_STR
+       BGP_STR
+       "Clear bestpath and re-advertise\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+
 
 DEFUN (clear_ip_bgp_as,
        clear_ip_bgp_as_cmd,
@@ -5512,6 +5616,22 @@ ALIAS (clear_bgp_all_soft_out,
        "Address family\n"
        "Clear all peers\n"
        "Soft reconfig outbound update\n")
+
+DEFUN (clear_bgp_ipv6_safi_prefix,
+       clear_bgp_ipv6_safi_prefix_cmd,
+       "clear bgp ipv6 (unicast|multicast) prefix X:X::X:X/M",
+       CLEAR_STR
+       BGP_STR
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Clear bestpath and re-advertise\n"
+       "IPv6 prefix <network>/<length>,  e.g.,  3ffe::/16\n")
+{
+  if (strncmp (argv[0], "m", 1) == 0)
+    return bgp_clear_prefix (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL);
+  else
+    return bgp_clear_prefix (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL);
+}
 
 DEFUN (clear_ip_bgp_peer_soft_out,
        clear_ip_bgp_peer_soft_out_cmd,
@@ -10816,6 +10936,10 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_bgp_ipv6_as_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_ipv6_as_in_prefix_filter_cmd);
 #endif /* HAVE_IPV6 */
+
+  /* clear ip bgp prefix  */
+  install_element (ENABLE_NODE, &clear_ip_bgp_prefix_cmd);
+  install_element (ENABLE_NODE, &clear_bgp_ipv6_safi_prefix_cmd);
 
   /* "clear ip bgp neighbor soft out" */
   install_element (ENABLE_NODE, &clear_ip_bgp_all_soft_out_cmd);

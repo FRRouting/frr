@@ -1714,7 +1714,7 @@ bgp_process_main (struct work_queue *wq, void *data)
   new_select = old_and_new.new;
 
   /* Nothing to do. */
-  if (old_select && old_select == new_select)
+  if (old_select && old_select == new_select && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR))
     {
       if (! CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
         {
@@ -1727,6 +1727,9 @@ bgp_process_main (struct work_queue *wq, void *data)
           return WQ_SUCCESS;
         }
     }
+
+  /* If the user did "clear ip bgp prefix x.x.x.x" this flag will be set */
+  UNSET_FLAG(rn->flags, BGP_NODE_USER_CLEAR);
 
   if (old_select)
     bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
