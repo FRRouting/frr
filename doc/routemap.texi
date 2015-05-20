@@ -151,6 +151,10 @@ Matches the specified @var{as_path}.
 Matches the specified @var{metric}.
 @end deffn
 
+@deffn {Route-map Command} {match local-preference @var{metric}} {}
+Matches the specified @var{local-preference}.
+@end deffn
+
 @deffn {Route-map Command} {match community @var{community_list}} {}
 Matches the specified  @var{community_list}
 @end deffn

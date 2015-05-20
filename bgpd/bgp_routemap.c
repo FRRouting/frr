@@ -74,6 +74,7 @@ o Cisco route-map
        metric           :  Done
        route-type       :  (This will not be implemented by bgpd)
        tag              :  (This will not be implemented by bgpd)
+       local-preference :  Done
 
  set  as-path prepend   :  Done
       as-path tag       :  Not yet
@@ -511,6 +512,72 @@ struct route_map_rule_cmd route_match_ip_route_source_prefix_list_cmd =
   route_match_ip_route_source_prefix_list,
   route_match_ip_route_source_prefix_list_compile,
   route_match_ip_route_source_prefix_list_free
+};
+
+/* `match local-preference LOCAL-PREF' */
+
+/* Match function return 1 if match is success else return zero. */
+static route_map_result_t
+route_match_local_pref (void *rule, struct prefix *prefix,
+			route_map_object_t type, void *object)
+{
+  u_int32_t *local_pref;
+  struct bgp_info *bgp_info;
+
+  if (type == RMAP_BGP)
+    {
+      local_pref = rule;
+      bgp_info = object;
+
+      if (bgp_info->attr->local_pref == *local_pref)
+	return RMAP_MATCH;
+      else
+	return RMAP_NOMATCH;
+    }
+  return RMAP_NOMATCH;
+}
+
+/* Route map `match local-preference' match statement.
+   `arg' is local-pref value */
+static void *
+route_match_local_pref_compile (const char *arg)
+{
+  u_int32_t *local_pref;
+  char *endptr = NULL;
+  unsigned long tmpval;
+
+  /* Locpref value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  errno = 0;
+  tmpval = strtoul (arg, &endptr, 10);
+  if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
+    return NULL;
+
+  local_pref = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
+
+  if (!local_pref)
+    return local_pref;
+
+  *local_pref = tmpval;
+  return local_pref;
+}
+
+/* Free route map's compiled `match local-preference' value. */
+static void
+route_match_local_pref_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for metric matching. */
+struct route_map_rule_cmd route_match_local_pref_cmd =
+{
+  "local-preference",
+  route_match_local_pref,
+  route_match_local_pref_compile,
+  route_match_local_pref_free
 };
 
 /* `match metric METRIC' */
@@ -2827,6 +2894,37 @@ ALIAS (no_match_metric,
        "Match metric of route\n"
        "Metric value\n")
 
+DEFUN (match_local_pref,
+       match_local_pref_cmd,
+       "match local-preference <0-4294967295>",
+       MATCH_STR
+       "Match local-preference of route\n"
+       "Metric value\n")
+{
+  return bgp_route_match_add (vty, vty->index, "local-preference", argv[0]);
+}
+
+DEFUN (no_match_local_pref,
+       no_match_local_pref_cmd,
+       "no match local-preference",
+       NO_STR
+       MATCH_STR
+       "Match local preference of route\n")
+{
+  if (argc == 0)
+    return bgp_route_match_delete (vty, vty->index, "local-preference", NULL);
+
+  return bgp_route_match_delete (vty, vty->index, "local-preference", argv[0]);
+}
+
+ALIAS (no_match_local_pref,
+       no_match_local_pref_val_cmd,
+       "no match local-preference <0-4294967295>",
+       NO_STR
+       MATCH_STR
+       "Match local preference of route\n"
+       "Local preference value\n")
+
 DEFUN (match_community, 
        match_community_cmd,
        "match community (<1-99>|<100-500>|WORD)",
@@ -3947,6 +4045,7 @@ bgp_route_map_init (void)
   route_map_event_hook (bgp_route_map_event);
 
   route_map_install_match (&route_match_peer_cmd);
+  route_map_install_match (&route_match_local_pref_cmd);
   route_map_install_match (&route_match_ip_address_cmd);
   route_map_install_match (&route_match_ip_next_hop_cmd);
   route_map_install_match (&route_match_ip_route_source_cmd);
@@ -3956,6 +4055,7 @@ bgp_route_map_init (void)
   route_map_install_match (&route_match_aspath_cmd);
   route_map_install_match (&route_match_community_cmd);
   route_map_install_match (&route_match_ecommunity_cmd);
+  route_map_install_match (&route_match_local_pref_cmd);
   route_map_install_match (&route_match_metric_cmd);
   route_map_install_match (&route_match_origin_cmd);
   route_map_install_match (&route_match_probability_cmd);
@@ -4006,6 +4106,9 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_metric_cmd);
   install_element (RMAP_NODE, &no_match_metric_cmd);
   install_element (RMAP_NODE, &no_match_metric_val_cmd);
+  install_element (RMAP_NODE, &match_local_pref_cmd);
+  install_element (RMAP_NODE, &no_match_local_pref_cmd);
+  install_element (RMAP_NODE, &no_match_local_pref_val_cmd);
   install_element (RMAP_NODE, &match_community_cmd);
   install_element (RMAP_NODE, &match_community_exact_cmd);
   install_element (RMAP_NODE, &no_match_community_cmd);
