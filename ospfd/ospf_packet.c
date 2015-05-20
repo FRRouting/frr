@@ -3925,9 +3925,12 @@ ospf_ls_ack_send_list (struct ospf_interface *oi, struct list *ack,
   /* Set packet length. */
   op->length = length;
 
-  /* Set destination IP address. */
-  op->dst = dst;
-  
+  /* Decide destination address. */
+  if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+    op->dst.s_addr = htonl (OSPF_ALLSPFROUTERS);
+  else
+    op->dst.s_addr = dst.s_addr;
+
   /* Add packet to the interface output queue. */
   ospf_packet_add (oi, op);
 
