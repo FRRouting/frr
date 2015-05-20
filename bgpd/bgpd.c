@@ -5891,9 +5891,19 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	{
 	  if (! g_peer->as)
 	    {
-	      if (g_peer->as_type == AS_SPECIFIED)
-		vty_out (vty, " neighbor %s remote-as %u%s", addr, peer->as,
-			 VTY_NEWLINE);
+	      if (peer->as_type == AS_SPECIFIED)
+		{
+		  vty_out (vty, " neighbor %s remote-as %u%s", addr, peer->as,
+			   VTY_NEWLINE);
+		}
+	      else if (peer->as_type == AS_INTERNAL)
+		{
+		  vty_out (vty, " neighbor %s remote-as internal%s", addr, VTY_NEWLINE);
+		}
+	      else if (peer->as_type == AS_EXTERNAL)
+		{
+		  vty_out (vty, " neighbor %s remote-as external%s", addr, VTY_NEWLINE);
+		}
 	    }
 	  if (peer->af_group[AFI_IP][SAFI_UNICAST])
 	    vty_out (vty, " neighbor %s peer-group %s%s", addr,
