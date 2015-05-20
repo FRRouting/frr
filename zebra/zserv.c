@@ -858,8 +858,6 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
   struct stream *s;
   struct prefix p;
   u_short l = 0;
-  u_char flags;
-  u_char exact_match;
 
   if (IS_ZEBRA_DEBUG_NHT)
     zlog_debug("rnh_unregister msg from client %s: length=%d\n",
@@ -869,7 +867,7 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
 
   while (l < length)
     {
-      flags = stream_getc(s);
+      (void)stream_getc(s); //Connected or not.  Not used in this function
       p.family = stream_getw(s);
       p.prefixlen = stream_getc(s);
       l += 4;
@@ -1281,7 +1279,6 @@ zread_ipv6_add (struct zserv *client, u_short length)
   u_char nexthop_type;
   unsigned long ifindex;
   struct prefix_ipv6 p;
-  u_char ifname_len;
   safi_t safi;
   static struct in6_addr nexthops[MULTIPATH_NUM];
   static unsigned int ifindices[MULTIPATH_NUM];

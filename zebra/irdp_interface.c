@@ -638,7 +638,6 @@ DEFUN (no_ip_irdp_address_preference,
 {
   struct listnode *node, *nnode;
   struct in_addr ip; 
-  int pref;
   int ret;
   struct interface *ifp;
   struct zebra_if *zi;
@@ -656,8 +655,6 @@ DEFUN (no_ip_irdp_address_preference,
   ret = inet_aton(argv[0], &ip);
   if (!ret) 
     return CMD_WARNING;
-
-  pref = atoi(argv[1]);
 
   for (ALL_LIST_ELEMENTS (irdp->AdvPrefList, node, nnode, adv))
     {

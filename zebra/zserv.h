@@ -26,6 +26,7 @@
 #include "if.h"
 #include "workqueue.h"
 #include "routemap.h"
+#include "vty.h"
 #include "zclient.h"
 
 /* Default port information. */
@@ -113,7 +114,7 @@ struct zebra_t
   struct list *client_list;
 
   /* default table */
-  int rtm_table_default;
+  u_int32_t rtm_table_default;
 
   /* rib work queue */
   struct work_queue *ribq;

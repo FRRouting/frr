@@ -1289,8 +1289,7 @@ DEFUN (show_ip_route_tag,
 
         if (first)
           {
-            vty_out (vty, SHOW_ROUTE_V4_HEADER, VTY_NEWLINE, VTY_NEWLINE,
-                     VTY_NEWLINE);
+            vty_out (vty, SHOW_ROUTE_V4_HEADER);
             first = 0;
           }
         vty_show_ip_route (vty, rn, rib);
@@ -2959,7 +2958,6 @@ DEFUN (ip_zebra_import_table_distance,
 {
   u_int32_t table_id = 0;
   int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-  char *route_map_name = NULL;
 
   if (argc)
     VTY_GET_INTEGER("table", table_id, argv[0]);

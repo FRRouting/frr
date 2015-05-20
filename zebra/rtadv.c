@@ -493,7 +493,7 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
     }
 
   if ((radvert->nd_ra_retransmit && zif->rtadv.AdvRetransTimer) &&
-      (ntohl(radvert->nd_ra_retransmit) != zif->rtadv.AdvRetransTimer))
+      (ntohl(radvert->nd_ra_retransmit) != (unsigned int)zif->rtadv.AdvRetransTimer))
     {
       zlog_warn("our AdvRetransTimer on %s doesn't agree with %s",
                 ifp->name, addr_str);

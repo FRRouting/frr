@@ -626,8 +626,8 @@ zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t distance, int add)
       if (!rib)
 	continue;
 
-      if ((afi == AFI_IP) && (rn->p.family == AF_INET) ||
-	  (afi == AFI_IP6) && (rn->p.family == AF_INET6))
+      if (((afi == AFI_IP) && (rn->p.family == AF_INET)) ||
+	  ((afi == AFI_IP6) && (rn->p.family == AF_INET6)))
 	{
 	  if (add)
 	    zebra_add_import_table_entry (rn, rib);

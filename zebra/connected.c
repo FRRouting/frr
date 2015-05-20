@@ -80,18 +80,18 @@ connected_announce (struct interface *ifp, struct connected *ifc)
 
   if (ifc->address->family == AF_INET)
     {
-    if (ifc->anchor = if_anchor_lookup_by_address(ifc->address->u.prefix4))
-      {
-        /* found an anchor, so I'm unnumbered */
-        SET_FLAG (ifc->flags, ZEBRA_IFA_UNNUMBERED);
-        listnode_add (ifc->anchor->unnumbered, ifc);
-      }
-    else
-      {
-        /* I'm numbered */
-        UNSET_FLAG (ifc->flags, ZEBRA_IFA_UNNUMBERED);
-        ifc->unnumbered = list_new();
-      }
+      if ((ifc->anchor = if_anchor_lookup_by_address(ifc->address->u.prefix4)))
+	{
+	  /* found an anchor, so I'm unnumbered */
+	  SET_FLAG (ifc->flags, ZEBRA_IFA_UNNUMBERED);
+	  listnode_add (ifc->anchor->unnumbered, ifc);
+	}
+      else
+	{
+	  /* I'm numbered */
+	  UNSET_FLAG (ifc->flags, ZEBRA_IFA_UNNUMBERED);
+	  ifc->unnumbered = list_new();
+	}
     }
 
   listnode_add (ifp->connected, ifc);

@@ -87,7 +87,7 @@ zebra_route_match_delete (struct vty *vty, struct route_map_index *index,
 			  route_map_event_t type)
 {
   int ret;
-  char *dep_name = (char *)arg;
+  char *dep_name = NULL;
   const char *tmpstr;
   char *rmap_name = NULL;
 
@@ -98,6 +98,10 @@ zebra_route_match_delete (struct vty *vty, struct route_map_index *index,
 	{
 	  if ((tmpstr = route_map_get_match_arg(index, command)) != NULL)
 	    dep_name = XSTRDUP(MTYPE_ROUTE_MAP_RULE, tmpstr);
+	}
+      else
+	{
+	  dep_name = XSTRDUP(MTYPE_ROUTE_MAP_RULE, arg);
 	}
       rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, index->map->name);
     }
@@ -119,7 +123,7 @@ zebra_route_match_delete (struct vty *vty, struct route_map_index *index,
   if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
     route_map_upd8_dependency(type, dep_name, rmap_name);
 
-  if (arg == NULL && dep_name)
+  if (dep_name)
     XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
   if (rmap_name)
     XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);

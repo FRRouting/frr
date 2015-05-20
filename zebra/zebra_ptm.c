@@ -34,13 +34,13 @@
 
 #define PTM_MSG_LEN     4
 #define PTM_HEADER_LEN  37
-char *ZEBRA_PTM_GET_STATUS_CMD = "get-status";
-char *ZEBRA_PTM_PORT_STR = "port";
-char *ZEBRA_PTM_CBL_STR = "cbl status";
-char *ZEBRA_PTM_PASS_STR = "pass";
-char *ZEBRA_PTM_FAIL_STR = "fail";
-char *ZEBRA_PTM_BFDSTATUS_STR = "BFD status";
-char *ZEBRA_PTM_BFDDEST_STR = "BFD peer";
+const char *ZEBRA_PTM_GET_STATUS_CMD = "get-status";
+const char *ZEBRA_PTM_PORT_STR = "port";
+const char *ZEBRA_PTM_CBL_STR = "cbl status";
+const char *ZEBRA_PTM_PASS_STR = "pass";
+const char *ZEBRA_PTM_FAIL_STR = "fail";
+const char *ZEBRA_PTM_BFDSTATUS_STR = "BFD status";
+const char *ZEBRA_PTM_BFDDEST_STR = "BFD peer";
 
 extern struct zebra_t zebrad;
 int ptm_enable;
@@ -204,7 +204,7 @@ zebra_ptm_install_commands (void)
 }
 
 static char *
-zebra_ptm_find_key(char *key_arg, char *arg, int arglen)
+zebra_ptm_find_key(const char *key_arg, char *arg, int arglen)
 {
   char buf[ZEBRA_PTM_MAX_SOCKBUF];
   char *data, *hdr, *key, *val;
@@ -287,7 +287,7 @@ zebra_ptm_handle_bfd_msg(char *buf, int buflen)
   if (!strcmp (bfdst_str, ZEBRA_PTM_FAIL_STR)) {
 	  if (ifp->ptm_enable && if_is_no_ptm_operative (ifp)) {
         if (inet_pton(AF_INET, dest_str, &dest_addr) <= 0) {
-            zlog_err("%s: Peer addr not found\n", __func__,
+            zlog_err("%s: Peer addr(%s) not found\n", __func__,
                dest_str);
             return;
         }

@@ -123,7 +123,7 @@ ifstat_dev_fields (int version, char *buf, struct interface *ifp)
 }
 
 /* Update interface's statistics. */
-void
+static void
 ifstat_update_proc (void)
 {
   FILE *fp;

@@ -28,9 +28,9 @@
 #define NL_DEFAULT_ROUTE_METRIC 20
 
 extern int
-addattr32 (struct nlmsghdr *n, int maxlen, int type, int data);
+addattr32 (struct nlmsghdr *n, unsigned int maxlen, int type, int data);
 extern int
-addattr_l (struct nlmsghdr *n, int maxlen, int type, void *data, int alen);
+addattr_l (struct nlmsghdr *n, unsigned int maxlen, int type, void *data, int alen);
 
 extern int
 rta_addattr_l (struct rtattr *rta, int maxlen, int type, void *data, int alen);
@@ -41,6 +41,8 @@ nl_msg_type_to_str (uint16_t msg_type);
 extern const char *
 nl_rtproto_to_str (u_char rtproto);
 
+extern int netlink_route_read(void);
+extern int interface_lookup_netlink(void);
 
 #endif /* HAVE_NETLINK */
 

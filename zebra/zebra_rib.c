@@ -228,7 +228,7 @@ is_zebra_main_routing_table(u_int32_t table_id)
 }
 
 /* Add nexthop to the end of a nexthop list.  */
-void
+static void
 _nexthop_add (struct nexthop **target, struct nexthop *nexthop)
 {
   struct nexthop *last;
@@ -3132,7 +3132,7 @@ rib_add_ipv6_multipath (struct prefix_ipv6 *p, struct rib *rib, safi_t safi,
   struct rib *same = NULL;
   struct nexthop *nexthop;
   int ret = 0;
-  int table_id = 0;
+  unsigned int table_id = 0;
 
   if (rib)
     table_id = rib->table;

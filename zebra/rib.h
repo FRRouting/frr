@@ -53,7 +53,7 @@ struct rib
   u_short instance;
 
   /* Which routing table */
-  int table;
+  uint32_t table;
 
   /* Metric */
   u_int32_t metric;

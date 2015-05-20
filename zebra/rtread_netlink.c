@@ -23,8 +23,7 @@
 #include <zebra.h>
 
 #include "zebra/zserv.h"
-
-extern void netlink_route_read (void);
+#include "zebra/rt_netlink.h"
 
 void route_read (void)
 {
