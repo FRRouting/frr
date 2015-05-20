@@ -159,6 +159,10 @@ peer_xfer_conn(struct peer *from_peer)
   from_peer->last_event = last_evt;
   from_peer->last_major_event = last_maj_evt;
   peer->remote_id = from_peer->remote_id;
+  if (from_peer->hostname != NULL)
+    peer->hostname = XSTRDUP(MTYPE_HOST, from_peer->hostname);
+  if (from_peer->domainname != NULL)
+    peer->domainname = XSTRDUP(MTYPE_HOST, from_peer->domainname);
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)

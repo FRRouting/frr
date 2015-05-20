@@ -79,6 +79,7 @@ struct capability_gr
 #define CAPABILITY_CODE_ADDPATH        69 /* Addpath Capability */
 #define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
 #define CAPABILITY_CODE_ORF_OLD       130 /* Cooperative Route Filtering Capability(cisco) */
+#define CAPABILITY_CODE_HOSTNAME      131 /* Advertise hostname capabilty */
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -87,6 +88,7 @@ struct capability_gr
 #define CAPABILITY_CODE_RESTART_LEN     2 /* Receiving only case */
 #define CAPABILITY_CODE_AS4_LEN         4
 #define CAPABILITY_CODE_ADDPATH_LEN     4
+#define CAPABILITY_CODE_MIN_HOSTNAME_LEN 2
 
 /* Cooperative Route Filtering Capability.  */
 

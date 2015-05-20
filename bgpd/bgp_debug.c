@@ -183,13 +183,20 @@ bgp_find_peer (struct vty *vty, const char *peer_str)
   int ret;
   union sockunion su;
   struct bgp *bgp;
+  struct peer *peer;
 
   bgp = vty->index;
   ret = str2sockunion (peer_str, &su);
 
   /* 'swpX' string */
   if (ret < 0)
-    return peer_lookup_by_conf_if (bgp, peer_str);
+    {
+      peer = peer_lookup_by_conf_if (bgp, peer_str);
+      if (!peer)
+	peer = peer_lookup_by_hostname (bgp, peer_str);
+
+      return peer;
+    }
   else
     return peer_lookup (bgp, &su);
 }

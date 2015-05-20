@@ -451,7 +451,86 @@ bgp_capability_addpath (struct peer *peer, struct capability_header *hdr)
   return 0;
 }
 
-static const struct message capcode_str[] =
+static int
+bgp_capability_hostname (struct peer *peer, struct capability_header *hdr)
+{
+  struct stream *s = BGP_INPUT (peer);
+  char str[BGP_MAX_HOSTNAME+1];
+  size_t end = stream_get_getp (s) + hdr->length;
+  u_char len;
+
+  SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
+
+  len = stream_getc(s);
+  if (stream_get_getp(s) + len > end)
+    {
+      zlog_warn("%s: Received malformed hostname capability from peer %s",
+		__FUNCTION__, peer->host);
+      return -1;
+    }
+
+  if (len > BGP_MAX_HOSTNAME)
+    {
+      stream_get(str, s, BGP_MAX_HOSTNAME);
+      stream_forward_getp(s, len-BGP_MAX_HOSTNAME);
+      len = BGP_MAX_HOSTNAME;	/* to set the '\0' below */
+    }
+  else if (len)
+    stream_get(str, s, len);
+
+  if (len)
+    {
+      str[len] = '\0';
+
+      if (peer->hostname != NULL)
+	XFREE(MTYPE_HOST, peer->hostname);
+
+      if (peer->domainname != NULL)
+	XFREE(MTYPE_HOST, peer->domainname);
+
+      peer->hostname = XSTRDUP(MTYPE_HOST, str);
+    }
+
+  if (stream_get_getp(s) +1 > end)
+    {
+      zlog_warn("%s: Received invalid domain name len (hostname capability) from peer %s",
+		__FUNCTION__, peer->host);
+      return -1;
+    }
+
+  len = stream_getc(s);
+  if (stream_get_getp(s) + len > end)
+    {
+      zlog_warn("%s: Received runt domain name (hostname capability) from peer %s",
+		__FUNCTION__, peer->host);
+      return -1;
+    }
+
+  if (len > BGP_MAX_HOSTNAME)
+    {
+      stream_get(str, s, BGP_MAX_HOSTNAME);
+      stream_forward_getp(s, len-BGP_MAX_HOSTNAME);
+      len = BGP_MAX_HOSTNAME;	/* to set the '\0' below */
+    }
+  else if (len)
+    stream_get(str, s, len);
+
+  if (len)
+    {
+      str[len] = '\0';
+      peer->domainname = XSTRDUP(MTYPE_HOST, str);
+    }
+
+  if (bgp_debug_neighbor_events(peer))
+    {
+      zlog_debug("%s received hostname %s, domainname %s",
+		 peer->host, peer->hostname, peer->domainname);
+    }
+
+  return 0;
+}
+
+  static const struct message capcode_str[] =
 {
   { CAPABILITY_CODE_MP,			"MultiProtocol Extensions"	},
   { CAPABILITY_CODE_REFRESH,		"Route Refresh"			},
@@ -463,6 +542,7 @@ static const struct message capcode_str[] =
   { CAPABILITY_CODE_DYNAMIC_OLD,	"Dynamic (Old)"			},
   { CAPABILITY_CODE_REFRESH_OLD,	"Route Refresh (Old)"		},
   { CAPABILITY_CODE_ORF_OLD,		"ORF (Old)"			},
+  { CAPABILITY_CODE_HOSTNAME,           "Hostname"                      },
 };
 static const int capcode_str_max = array_size(capcode_str);
 
@@ -479,6 +559,7 @@ static const size_t cap_minsizes[] =
   [CAPABILITY_CODE_DYNAMIC_OLD]	= CAPABILITY_CODE_DYNAMIC_LEN,
   [CAPABILITY_CODE_REFRESH_OLD]	= CAPABILITY_CODE_REFRESH_LEN,
   [CAPABILITY_CODE_ORF_OLD]	= sizeof (struct capability_orf_entry),
+  [CAPABILITY_CODE_HOSTNAME]    = CAPABILITY_CODE_MIN_HOSTNAME_LEN,
 };
 
 /**
@@ -543,6 +624,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
           case CAPABILITY_CODE_ADDPATH:
           case CAPABILITY_CODE_DYNAMIC:
           case CAPABILITY_CODE_DYNAMIC_OLD:
+	  case CAPABILITY_CODE_HOSTNAME:
               /* Check length. */
               if (caphdr.length < cap_minsizes[caphdr.code])
                 {
@@ -615,6 +697,10 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
               break;            
           case CAPABILITY_CODE_ADDPATH:
             if (bgp_capability_addpath (peer, &caphdr))
+              return -1;
+            break;
+          case CAPABILITY_CODE_HOSTNAME:
+            if (bgp_capability_hostname (peer, &caphdr))
               return -1;
             break;
           default:
@@ -951,6 +1037,7 @@ bgp_open_capability (struct stream *s, struct peer *peer)
   as_t local_as;
   u_int32_t restart_time;
   u_char afi_safi_count = 0;
+  struct utsname names;
 
   /* Remember current pointer for Opt Parm Len. */
   cp = stream_get_endp (s);
@@ -1095,6 +1182,51 @@ bgp_open_capability (struct stream *s, struct peer *peer)
       stream_putc (s, CAPABILITY_CODE_DYNAMIC_LEN + 2);
       stream_putc (s, CAPABILITY_CODE_DYNAMIC);
       stream_putc (s, CAPABILITY_CODE_DYNAMIC_LEN);
+    }
+
+  /* Hostname capability */
+  uname(&names);
+  if (names.nodename[0] != '\0')
+    {
+      SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV);
+      stream_putc (s, BGP_OPEN_OPT_CAP);
+      rcapp = stream_get_endp(s);	/* Ptr to length placeholder */
+      stream_putc(s, 0);		/* dummy len for now */
+      stream_putc (s, CAPABILITY_CODE_HOSTNAME);
+      capp = stream_get_endp(s);
+      stream_putc(s, 0);		/* dummy len for now */
+      len = strlen(names.nodename);
+      if (len > BGP_MAX_HOSTNAME)
+	len = BGP_MAX_HOSTNAME;
+
+      stream_putc(s, len);
+      stream_put(s, names.nodename, len);
+#ifdef _GNU_SOURCE
+      if ((names.domainname[0] != '\0') &&
+	  (strcmp(names.domainname, "(none)") != 0))
+	{
+	  len = strlen(names.domainname);
+	  if (len > BGP_MAX_HOSTNAME)
+	    len = BGP_MAX_HOSTNAME;
+
+	  stream_putc(s, len);
+	  stream_put(s, names.domainname, len);
+	}
+	else
+#endif
+	{
+	  stream_putc(s, 0);	/* 0 length */
+	}
+
+      /* Set the lengths straight */
+      len = stream_get_endp(s) - rcapp - 1;
+      stream_putc_at(s, rcapp, len);
+      len = stream_get_endp(s) - capp - 1;
+      stream_putc_at(s, capp, len);
+
+      if (bgp_debug_neighbor_events(peer))
+	zlog_debug("%s Sending hostname cap with hn = %s, dn = %s",
+		   peer->host, names.nodename, names.domainname);
     }
 
   /* Sending base graceful-restart capability irrespective of the config */
