@@ -40,8 +40,9 @@ vtyfile()
 # Check if daemon is started by using the pidfile.
 started()
 {
-        [ -e `pidfile $1` ] && kill -0 `cat \`pidfile $1\`` 2> /dev/null && return 0
-        return 1
+        [ ! -e `pidfile $1` ] && return 3
+	kill -0 `cat \`pidfile $1\`` 2> /dev/null || return 1
+	return 0
 }
 
 # Loads the config via vtysh -b if configured to do so.
@@ -403,6 +404,43 @@ start_prio()
         echo "."
 }
 
+check_status()
+{
+    local daemon_name
+    local daemon_prio
+    local daemon_inst
+
+    if [ -n "$1" ] && [[ "$1" =~ (.*)-(.*) ]]; then
+	daemon=${BASH_REMATCH[1]}
+	inst=${BASH_REMATCH[2]}
+    else
+	daemon="$1"
+    fi
+
+    daemon_list=${daemon:-$DAEMONS}
+
+    # Which daemons have been started?
+    for daemon_name in $daemon_list; do
+        eval daemon_prio=\$$daemon_name
+        if [ "$daemon_prio" -gt 0 ]; then
+           eval "daemon_inst=\${${daemon_name}_instances//,/ }"
+           if [ -n "$daemon_inst" ]; then
+              for i in ${daemon_inst}; do
+		  if [ -n "$inst" -a "$inst" = "$i" ]; then
+                      started "$1" || return $?
+		  elif [ -z "$inst" ]; then
+                      started "$daemon_name-$i" || return $?
+		  fi
+              done
+           else
+               started "$daemon_name" || return $?
+           fi
+        fi
+    done
+
+    # All daemons that need to have been started are up and running
+    return 0
+}
 
 #########################################################
 #               Main program                            #
@@ -432,7 +470,7 @@ fi
 
 if [ -n "$3" ]; then
    dmn="$2"-"$3"
-else
+elif [ -n "$2" ]; then
    dmn="$2"
 fi
 
@@ -490,6 +528,11 @@ case "$1" in
 	"$RELOAD_SCRIPT" --reload /etc/quagga/Quagga.conf
 	;;
 
+    status)
+        check_status $dmn
+        exit $?
+        ;;
+
     restart|force-reload)
         $0 stop $dmn
         sleep 1
@@ -497,10 +540,10 @@ case "$1" in
         ;;
 
     *)
-        echo "Usage: /etc/init.d/quagga {start|stop|restart|force-reload|<priority>} [daemon]"
-	echo "Usage: /etc/init.d/quagga reload"
+        echo "Usage: /etc/init.d/quagga {start|stop|status|reload|restart|force-reload|<priority>} [daemon]"
         echo "       E.g. '/etc/init.d/quagga 5' would start all daemons with a prio 1-5."
-	echo "       reload applies only modifications to the running config."
+	echo "       reload applies only modifications from the running config to all daemons."
+	echo "       reload neither restarts starts any daemon nor starts any new ones."
         echo "       Read /usr/share/doc/quagga/README.Debian for details."
         exit 1
         ;;
