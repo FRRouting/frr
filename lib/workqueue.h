@@ -84,11 +84,14 @@ struct work_queue
     unsigned int max_retries;	
 
     unsigned int hold;	/* hold time for first run, in ms */
+
+    unsigned long yield; /* yield time in us for associated thread */
   } spec;
   
   /* remaining fields should be opaque to users */
   struct list *items;                 /* queue item list */
   unsigned long runs;                 /* runs count */
+  unsigned long yields;               /* yields count */
   
   struct {
     unsigned int best;

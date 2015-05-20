@@ -706,6 +706,7 @@ thread_get (struct thread_master *m, u_char type,
   thread->func = func;
   thread->arg = arg;
   thread->index = -1;
+  thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
 
   strip_funcname (thread->funcname, funcname);
 
@@ -1198,7 +1199,8 @@ thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start, unsigned long *cputime)
   return timeval_elapsed (now->real, start->real);
 }
 
-/* We should aim to yield after THREAD_YIELD_TIME_SLOT milliseconds. 
+/* We should aim to yield after yield milliseconds, which defaults
+   to THREAD_YIELD_TIME_SLOT .
    Note: we are using real (wall clock) time for this calculation.
    It could be argued that CPU time may make more sense in certain
    contexts.  The things to consider are whether the thread may have
@@ -1212,7 +1214,13 @@ thread_should_yield (struct thread *thread)
 {
   quagga_get_relative (NULL);
   return (timeval_elapsed(relative_time, thread->real) >
-  	  THREAD_YIELD_TIME_SLOT);
+          thread->yield);
+}
+
+void
+thread_set_yield_time (struct thread *thread, unsigned long yield_time)
+{
+  thread->yield = yield_time;
 }
 
 void

@@ -85,6 +85,7 @@ struct thread
   int index;			/* used for timers to store position in queue */
   struct timeval real;
   struct cpu_thread_history *hist; /* cache pointer to cpu_history */
+  unsigned long yield; /* yield time in us */
   char funcname[FUNCNAME_LEN];
 };
 
@@ -209,6 +210,8 @@ extern void thread_call (struct thread *);
 extern unsigned long thread_timer_remain_second (struct thread *);
 extern int thread_should_yield (struct thread *);
 extern unsigned long timeval_elapsed (struct timeval a, struct timeval b);
+/* set yield time for thread */
+extern void thread_set_yield_time (struct thread *, unsigned long);
 
 /* Internal libzebra exports */
 extern void thread_getrusage (RUSAGE_T *);
