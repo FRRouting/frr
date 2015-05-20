@@ -383,6 +383,9 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
   struct stream *s;
   struct ospf_path *path;
   struct listnode *node;
+#ifdef HAVE_NETLINK
+  int ol_cnt = 0, not_ol_cnt = 0;
+#endif /* HAVE_NETLINK */
 
   if (zclient->redist[ZEBRA_ROUTE_OSPF])
     {
@@ -426,6 +429,40 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
       /* Nexthop, ifindex, distance and metric information. */
       for (ALL_LIST_ELEMENTS_RO (or->paths, node, path))
         {
+#ifdef HAVE_NETLINK
+          if (path->unnumbered)
+            {
+              stream_putc (s, ZEBRA_NEXTHOP_IPV4_ONLINK);
+              stream_put_in_addr (s, &path->nexthop);
+              if (path->ifindex)
+                stream_putl (s, path->ifindex);
+              else
+                stream_putl (s, 0);
+            }
+          else
+            {
+    	      if (path->nexthop.s_addr != INADDR_ANY &&
+		  path->ifindex != 0)
+		{
+		  stream_putc (s, ZEBRA_NEXTHOP_IPV4_IFINDEX);
+		  stream_put_in_addr (s, &path->nexthop);
+		  stream_putl (s, path->ifindex);
+		}
+	      else if (path->nexthop.s_addr != INADDR_ANY)
+                {
+                  stream_putc (s, ZEBRA_NEXTHOP_IPV4);
+                  stream_put_in_addr (s, &path->nexthop);
+                }
+              else
+                {
+                  stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+                  if (path->ifindex)
+                    stream_putl (s, path->ifindex);
+                  else
+                    stream_putl (s, 0);
+                }
+            }
+#else  /* HAVE_NETLINK */
           if (path->nexthop.s_addr != INADDR_ANY &&
 	      path->ifindex != 0)
             {
@@ -446,16 +483,18 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
               else
                 stream_putl (s, 0);
             }
+#endif /* HAVE_NETLINK */
 
           if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
             {
 	      char buf[2][INET_ADDRSTRLEN];
-	      zlog_debug("Zebra: Route add %s/%d nexthop %s",
+	      zlog_debug("Zebra: Route add %s/%d nexthop %s, ifindex=%d",
 			 inet_ntop(AF_INET, &p->prefix,
 				   buf[0], sizeof(buf[0])),
 			 p->prefixlen,
 			 inet_ntop(AF_INET, &path->nexthop,
-				   buf[1], sizeof(buf[1])));
+				   buf[1], sizeof(buf[1])),
+			 path->ifindex);
             }
         }
 

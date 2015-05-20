@@ -90,7 +90,7 @@ struct interface
 #define ZEBRA_INTERFACE_ACTIVE     (1 << 0)
 #define ZEBRA_INTERFACE_SUB        (1 << 1)
 #define ZEBRA_INTERFACE_LINKDETECTION (1 << 2)
-  
+
   /* Interface flags. */
   uint64_t flags;
 
@@ -173,6 +173,7 @@ struct connected
   u_char flags;
 #define ZEBRA_IFA_SECONDARY    (1 << 0)
 #define ZEBRA_IFA_PEER         (1 << 1)
+#define ZEBRA_IFA_UNNUMBERED   (1 << 2)
   /* N.B. the ZEBRA_IFA_PEER flag should be set if and only if
      a peer address has been configured.  If this flag is set,
      the destination field must contain the peer address.  
@@ -186,6 +187,12 @@ struct connected
   /* Peer or Broadcast address, depending on whether ZEBRA_IFA_PEER is set.
      Note: destination may be NULL if ZEBRA_IFA_PEER is not set. */
   struct prefix *destination;
+
+  /* A list of unnumbered IFCs borrowing the address from me */
+  struct list *unnumbered;
+
+  /* Pointer to the anchor IFC if I'm unnumbered */
+  struct connected *anchor;
 
   /* Label for Linux 2.2.X and upper. */
   char *label;
@@ -262,6 +269,7 @@ extern struct interface *if_lookup_by_index (unsigned int);
 extern struct interface *if_lookup_exact_address (struct in_addr);
 extern struct interface *if_lookup_address (struct in_addr);
 extern struct interface *if_lookup_prefix (struct prefix *prefix);
+extern struct connected *if_anchor_lookup_by_address (struct in_addr src);
 
 /* These 2 functions are to be used when the ifname argument is terminated
    by a '\0' character: */

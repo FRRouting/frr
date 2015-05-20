@@ -2889,30 +2889,37 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
       if (oi == NULL)
 	continue;
       
-      /* Show OSPF interface information. */
-      vty_out (vty, "  Internet Address %s/%d,",
-	       inet_ntoa (oi->address->u.prefix4), oi->address->prefixlen);
-
-      if (oi->connected->destination || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+      if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
         {
-          struct in_addr *dest;
-          const char *dstr;
-          
-	  if (CONNECTED_PEER(oi->connected)
-	      || oi->type == OSPF_IFTYPE_VIRTUALLINK)
-            dstr = "Peer";
-          else
-            dstr = "Broadcast";
-          
-          /* For Vlinks, showing the peer address is probably more
-           * informative than the local interface that is being used
-           */
-          if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-            dest = &oi->vl_data->peer_addr;
-          else
-            dest = &oi->connected->destination->u.prefix4;
-          
-	  vty_out (vty, " %s %s,", dstr, inet_ntoa (*dest));
+          vty_out (vty, "  This interface is UNNUMBERED,");
+        }
+      else
+        {
+          /* Show OSPF interface information. */
+          vty_out (vty, "  Internet Address %s/%d,",
+                   inet_ntoa (oi->address->u.prefix4), oi->address->prefixlen);
+
+          if (oi->connected->destination || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+            {
+              struct in_addr *dest;
+              const char *dstr;
+
+              if (CONNECTED_PEER(oi->connected)
+                  || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+                dstr = "Peer";
+              else
+                dstr = "Broadcast";
+
+              /* For Vlinks, showing the peer address is probably more
+               * informative than the local interface that is being used
+               */
+              if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+                dest = &oi->vl_data->peer_addr;
+              else
+                dest = &oi->connected->destination->u.prefix4;
+
+              vty_out (vty, " %s %s,", dstr, inet_ntoa (*dest));
+            }
         }
 
       vty_out (vty, " Area %s%s", ospf_area_desc_string (oi->area),
@@ -2964,7 +2971,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
 		       inet_ntoa (nbr->address.u.prefix4), VTY_NEWLINE);
 	    }
 	}
-      
+
       /* Next network-LSA sequence number we'll use, if we're elected DR */
       if (oi->params && ntohl (oi->params->network_lsa_seqnum)
                           != OSPF_INITIAL_SEQUENCE_NUMBER)

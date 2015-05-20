@@ -611,6 +611,8 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
 	  path = ospf_path_new ();
 	  path->nexthop.s_addr = 0;
 	  path->ifindex = oi->ifp->ifindex;
+          if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
+            path->unnumbered = 1;
 	  listnode_add (or->paths, path);
 	}
       else
@@ -783,6 +785,8 @@ ospf_route_copy_nexthops_from_vertex (struct ospf_route *to,
 	      path = ospf_path_new ();
 	      path->nexthop = nexthop->router;
 	      path->ifindex = nexthop->oi->ifp->ifindex;
+              if (CHECK_FLAG(nexthop->oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
+                path->unnumbered = 1;
 	      listnode_add (to->paths, path);
 	    }
 	}

@@ -315,6 +315,36 @@ if_lookup_address (struct in_addr src)
   return match;
 }
 
+/* Lookup anchor interface by IPv4 address. */
+struct connected *
+if_anchor_lookup_by_address (struct in_addr src)
+{
+  struct listnode *node;
+  struct listnode *cnode;
+  struct interface *ifp;
+  struct prefix *p;
+  struct connected *c;
+
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+    {
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
+        {
+          if (CHECK_FLAG(c->flags, ZEBRA_IFA_UNNUMBERED) ||
+              !CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
+            continue;
+
+          p = c->address;
+
+          if (p && p->family == AF_INET)
+            {
+              if (IPV4_ADDR_SAME (&p->u.prefix4, &src))
+                return c;
+            }
+        }
+    }
+  return NULL;
+}
+
 /* Lookup interface by prefix */
 struct interface *
 if_lookup_prefix (struct prefix *prefix)

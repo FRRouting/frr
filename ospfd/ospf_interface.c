@@ -353,7 +353,12 @@ ospf_if_is_configured (struct ospf *ospf, struct in_addr *address)
   for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
     if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
       {
-        if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+        if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
+          {
+            if (htonl(oi->ifp->ifindex) == address->s_addr)
+              return oi;
+          }
+        else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 	  {
 	    /* special leniency: match if addr is anywhere on peer subnet */
 	    if (prefix_match(CONNECTED_PREFIX(oi->connected),
@@ -477,8 +482,10 @@ ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src,
       if (if_is_loopback (oi->ifp))
         continue;
 
-      if (prefix_match (CONNECTED_PREFIX(oi->connected),
-      			(struct prefix *) &addr))
+      if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
+        match = oi;
+      else if (prefix_match (CONNECTED_PREFIX(oi->connected),
+                             (struct prefix *) &addr))
 	{
 	  if ( (match == NULL) || 
 	       (match->address->prefixlen < oi->address->prefixlen)

@@ -532,7 +532,7 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
 {
   int links = 0;
   struct ospf_neighbor *nbr;
-  struct in_addr id, mask;
+  struct in_addr id, mask, data;
   u_int16_t cost = ospf_link_cost (oi);
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
@@ -541,19 +541,34 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
   if ((nbr = ospf_nbr_lookup_ptop (oi)))
     if (nbr->state == NSM_Full)
       {
-	/* For unnumbered point-to-point networks, the Link Data field
-	   should specify the interface's MIB-II ifIndex value. */
-	links += link_info_set (s, nbr->router_id, oi->address->u.prefix4,
-		                LSA_LINK_TYPE_POINTOPOINT, 0, cost);
+        if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
+          {
+            /* For unnumbered point-to-point networks, the Link Data field
+               should specify the interface's MIB-II ifIndex value. */
+            data.s_addr = htonl(oi->ifp->ifindex);
+            links += link_info_set (s, nbr->router_id, data,
+                                    LSA_LINK_TYPE_POINTOPOINT, 0, cost);
+          }
+        else
+          {
+            links += link_info_set (s, nbr->router_id,
+                                    oi->address->u.prefix4,
+                                    LSA_LINK_TYPE_POINTOPOINT, 0, cost);
+          }
       }
 
-  /* Regardless of the state of the neighboring router, we must
-     add a Type 3 link (stub network).
-     N.B. Options 1 & 2 share basically the same logic. */
-  masklen2ip (oi->address->prefixlen, &mask);
-  id.s_addr = CONNECTED_PREFIX(oi->connected)->u.prefix4.s_addr & mask.s_addr;
-  links += link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
-			  oi->output_cost);
+  /* no need for a stub link for unnumbered interfaces */
+  if (!CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
+    {
+      /* Regardless of the state of the neighboring router, we must
+         add a Type 3 link (stub network).
+         N.B. Options 1 & 2 share basically the same logic. */
+      masklen2ip (oi->address->prefixlen, &mask);
+      id.s_addr = CONNECTED_PREFIX(oi->connected)->u.prefix4.s_addr & mask.s_addr;
+      links += link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
+                              oi->output_cost);
+    }
+
   return links;
 }
 

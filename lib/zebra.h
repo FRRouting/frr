@@ -482,6 +482,7 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_FLAG_CHANGED            0x20
 #define ZEBRA_FLAG_STATIC             0x40
 #define ZEBRA_FLAG_REJECT             0x80
+#define ZEBRA_FLAG_SCOPE_LINK         0x100
 
 /* Zebra nexthop flags. */
 #define ZEBRA_NEXTHOP_IFINDEX            1

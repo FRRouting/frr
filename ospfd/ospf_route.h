@@ -40,6 +40,7 @@ struct ospf_path
   struct in_addr nexthop;
   struct in_addr adv_router;
   unsigned int ifindex;
+  unsigned char unnumbered;
 };
 
 /* Below is the structure linked to every
