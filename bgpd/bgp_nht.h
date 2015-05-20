@@ -56,4 +56,14 @@ extern int bgp_find_or_add_nexthop(struct bgp *bgp, afi_t a,
  */
 extern void bgp_unlink_nexthop(struct bgp_info *p);
 
+/**
+ * bgp_delete_connected_nexthop() - Reset the 'peer' pointer for a connected
+ * nexthop entry. If no paths reference the nexthop, it will be unregistered
+ * and freed.
+ * ARGUMENTS:
+ *   afi - afi: AFI_IP or AF_IP6
+ *   peer - Ptr to peer
+ */
+extern void bgp_delete_connected_nexthop (afi_t afi, struct peer *peer);
+
 #endif /* _BGP_NHT_H */

@@ -882,6 +882,11 @@ peer_free (struct peer *peer)
   BGP_WRITE_OFF (peer->t_write);
   BGP_EVENT_FLUSH (peer);
   
+  /* Free connected nexthop, if present */
+  if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) &&
+      !peer_dynamic_neighbor (peer))
+    bgp_delete_connected_nexthop (family2afi(peer->su.sa.sa_family), peer);
+
   if (peer->desc)
     XFREE (MTYPE_PEER_DESC, peer->desc);
   
