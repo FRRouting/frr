@@ -7372,7 +7372,7 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
 
 DEFUN (ospf_max_metric_router_lsa_shutdown,
        ospf_max_metric_router_lsa_shutdown_cmd,
-       "max-metric router-lsa on-shutdown <5-86400>",
+       "max-metric router-lsa on-shutdown <5-100>",
        "OSPF maximum / infinite-distance metric\n"
        "Advertise own Router-LSA with infinite distance (stub router)\n"
        "Advertise stub-router prior to full shutdown of OSPF\n"
