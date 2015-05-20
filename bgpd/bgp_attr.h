@@ -85,6 +85,9 @@ struct attr_extra
   
   /* MP Nexthop length */
   u_char mp_nexthop_len;
+
+  /* route tag */
+  u_short tag;
 };
 
 /* BGP core attribute structure. */

@@ -485,9 +485,22 @@ static void *
 route_match_tag_compile (const char *arg)
 {
   u_short *tag;
+  u_short tmp;
+
+  /* tag value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  tmp = atoi(arg);
+  if (tmp < 1)
+    return NULL;
 
   tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
-  *tag = atoi (arg);
+
+  if (!tag)
+    return tag;
+
+  *tag = tmp;
 
   return tag;
 }
@@ -937,7 +950,7 @@ ALIAS (no_match_ip_address_prefix_list,
 
 DEFUN (match_tag, 
        match_tag_cmd,
-       "match tag <0-65535>",
+       "match tag <1-65535>",
        MATCH_STR
        "Match tag of route\n"
        "Metric value\n")
@@ -960,7 +973,7 @@ DEFUN (no_match_tag,
 
 ALIAS (no_match_tag,
        no_match_tag_val_cmd,
-       "no match tag <0-65535>",
+       "no match tag <1-65535>",
        NO_STR
        MATCH_STR
        "Match tag of route\n"
@@ -1060,7 +1073,7 @@ ALIAS (no_set_ip_nexthop,
 
 DEFUN (set_tag,
        set_tag_cmd,
-       "set tag <0-65535>",
+       "set tag <1-65535>",
        SET_STR
        "Tag value for routing protocol\n"
        "Tag value\n")
@@ -1083,7 +1096,7 @@ DEFUN (no_set_tag,
 
 ALIAS (no_set_tag,
        no_set_tag_val_cmd,
-       "no set tag <0-65535>",
+       "no set tag <1-65535>",
        NO_STR
        SET_STR
        "Tag value for routing protocol\n"

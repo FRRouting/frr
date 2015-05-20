@@ -417,6 +417,67 @@ struct route_map_rule_cmd route_match_interface_cmd =
   route_match_interface_free
 };
 
+/* Match function return 1 if match is success else return zero. */
+static route_map_result_t
+route_match_tag (void *rule, struct prefix *prefix,
+                 route_map_object_t type, void *object)
+{
+  u_short *tag;
+  struct external_info *ei;
+
+  if (type == RMAP_OSPF)
+    {
+      tag = rule;
+      ei = object;
+
+      return ((ei->tag == *tag)? RMAP_MATCH : RMAP_NOMATCH);
+    }
+
+  return RMAP_NOMATCH;
+}
+
+/*  Route map `match tag' match statement. `arg' is TAG value */
+static void *
+route_match_tag_compile (const char *arg)
+{
+  u_short *tag;
+  u_short tmp;
+
+  /* tag value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  tmp = atoi(arg);
+  if (tmp < 1)
+    return NULL;
+
+  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+
+  if (!tag)
+    return tag;
+
+  *tag = tmp;
+
+  return tag;
+}
+
+/* Free route map's compiled 'match tag' value. */
+static void
+route_match_tag_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for tag matching. */
+struct route_map_rule_cmd route_match_tag_cmd =
+{
+  "tag",
+  route_match_tag,
+  route_match_tag_compile,
+  route_match_tag_free,
+};
+
+
 /* `set metric METRIC' */
 /* Set metric to attribute. */
 static route_map_result_t
@@ -529,6 +590,67 @@ struct route_map_rule_cmd route_set_metric_type_cmd =
   route_set_metric_type,
   route_set_metric_type_compile,
   route_set_metric_type_free,
+};
+
+static route_map_result_t
+route_set_tag (void *rule, struct prefix *prefix,
+               route_map_object_t type, void *object)
+{
+  u_short *tag;
+  struct external_info *ei;
+
+  if (type == RMAP_OSPF)
+    {
+      tag = rule;
+      ei = object;
+
+      /* Set tag value */
+      ei->tag=*tag;
+    }
+
+  return RMAP_OKAY;
+}
+
+/* Route map `tag' compile function.  Given string is converted to u_short. */
+static void *
+route_set_tag_compile (const char *arg)
+{
+  u_short *tag;
+  u_short tmp;
+
+  /* tag value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  tmp = atoi(arg);
+
+  if (tmp < 1)
+      return NULL;
+
+  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+
+  if (!tag)
+    return tag;
+
+  *tag = tmp;
+
+  return tag;
+}
+
+/* Free route map's tag value. */
+static void
+route_set_tag_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for tag set. */
+struct route_map_rule_cmd route_set_tag_cmd =
+{
+  "tag",
+  route_set_tag,
+  route_set_tag_compile,
+  route_set_tag_free,
 };
 
 DEFUN (match_ip_nexthop,
@@ -716,6 +838,37 @@ ALIAS (no_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 
+DEFUN (match_tag,
+       match_tag_cmd,
+       "match tag <1-65535>",
+       MATCH_STR
+       "Match tag of route\n"
+       "Tag value\n")
+{
+  return ospf_route_match_add (vty, vty->index, "tag", argv[0]);
+}
+
+DEFUN (no_match_tag,
+       no_match_tag_cmd,
+       "no match tag",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n")
+{
+  if (argc == 0)
+    return ospf_route_match_delete (vty, vty->index, "tag", NULL);
+
+  return ospf_route_match_delete (vty, vty->index, "tag", argv[0]);
+}
+
+ALIAS (no_match_tag,
+       no_match_tag_val_cmd,
+       "no match tag <1-65535>",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n"
+       "Tag value\n")
+
 DEFUN (set_metric,
        set_metric_cmd,
        "set metric <0-4294967295>",
@@ -785,6 +938,37 @@ ALIAS (no_set_metric_type,
        "OSPF[6] external type 1 metric\n"
        "OSPF[6] external type 2 metric\n")
 
+DEFUN (set_tag,
+       set_tag_cmd,
+       "set tag <1-65535>",
+       SET_STR
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+{
+  return ospf_route_set_add (vty, vty->index, "tag", argv[0]);
+}
+
+DEFUN (no_set_tag,
+       no_set_tag_cmd,
+       "no set tag",
+       NO_STR
+       SET_STR
+       "Tag value for routing protocol\n")
+{
+  if (argc == 0)
+      ospf_route_set_delete(vty, vty->index, "tag", NULL);
+
+  return ospf_route_set_delete (vty, vty->index, "tag", argv[0]);
+}
+
+ALIAS (no_set_tag,
+       no_set_tag_val_cmd,
+       "no set tag <1-65535>",
+       NO_STR
+       SET_STR
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+
 /* Route-map init */
 void
 ospf_route_map_init (void)
@@ -801,9 +985,11 @@ ospf_route_map_init (void)
   route_map_install_match (&route_match_ip_address_cmd);
   route_map_install_match (&route_match_ip_address_prefix_list_cmd);
   route_map_install_match (&route_match_interface_cmd);
+  route_map_install_match (&route_match_tag_cmd);
 
   route_map_install_set (&route_set_metric_cmd);
   route_map_install_set (&route_set_metric_type_cmd);
+  route_map_install_set (&route_set_tag_cmd);
 
   install_element (RMAP_NODE, &match_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_match_ip_nexthop_cmd);
@@ -820,6 +1006,9 @@ ospf_route_map_init (void)
   install_element (RMAP_NODE, &match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_val_cmd);
+  install_element (RMAP_NODE, &match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_val_cmd);
 
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
@@ -827,4 +1016,7 @@ ospf_route_map_init (void)
   install_element (RMAP_NODE, &set_metric_type_cmd);
   install_element (RMAP_NODE, &no_set_metric_type_cmd);
   install_element (RMAP_NODE, &no_set_metric_type_val_cmd);
+  install_element (RMAP_NODE, &set_tag_cmd);
+  install_element (RMAP_NODE, &no_set_tag_cmd);
+  install_element (RMAP_NODE, &no_set_tag_val_cmd);
 }

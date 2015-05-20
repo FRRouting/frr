@@ -76,7 +76,7 @@ o Cisco route-map
        length           :  (This will not be implemented by bgpd)
        metric           :  Done
        route-type       :  (This will not be implemented by bgpd)
-       tag              :  (This will not be implemented by bgpd)
+       tag              :  Done
        local-preference :  Done
 
  set  as-path prepend   :  Done
@@ -96,7 +96,7 @@ o Cisco route-map
       metric            :  Done
       metric-type       :  Not yet
       origin            :  Done
-      tag               :  (This will not be implemented by bgpd)
+      tag               :  Done
       weight            :  Done
 
 o Local extensions
@@ -1007,6 +1007,72 @@ struct route_map_rule_cmd route_match_interface_cmd =
 
 /* `set ip next-hop IP_ADDRESS' */
 
+/* Match function return 1 if match is success else return zero. */
+static route_map_result_t
+route_match_tag (void *rule, struct prefix *prefix,
+                 route_map_object_t type, void *object)
+{
+  u_short *tag;
+  struct bgp_info *bgp_info;
+
+  if (type == RMAP_BGP)
+    {
+      tag = rule;
+      bgp_info = object;
+
+      if (!bgp_info->attr->extra)
+         return RMAP_NOMATCH;
+
+      return ((bgp_info->attr->extra->tag == *tag)? RMAP_MATCH : RMAP_NOMATCH);
+    }
+
+  return RMAP_NOMATCH;
+}
+
+
+/*  Route map `match tag' match statement. `arg' is TAG value */
+static void *
+route_match_tag_compile (const char *arg)
+{
+  u_short *tag;
+  u_short tmp;
+
+  /* tag value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  tmp = atoi(arg);
+  if (tmp < 1)
+    return NULL;
+
+  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+
+  if (!tag)
+    return tag;
+
+  *tag = tmp;
+
+  return tag;
+}
+
+
+/* Free route map's compiled 'match tag' value. */
+static void
+route_match_tag_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for tag matching. */
+struct route_map_rule_cmd route_match_tag_cmd =
+{
+  "tag",
+  route_match_tag,
+  route_match_tag_compile,
+  route_match_tag_free,
+};
+
+
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
 struct rmap_ip_nexthop_set
 {
@@ -1877,6 +1943,73 @@ struct route_map_rule_cmd route_set_aggregator_as_cmd =
   route_set_aggregator_as_compile,
   route_set_aggregator_as_free,
 };
+
+/* Set tag to object. object must be pointer to struct bgp_info */
+static route_map_result_t
+route_set_tag (void *rule, struct prefix *prefix,
+               route_map_object_t type, void *object)
+{
+  u_short *tag;
+  struct bgp_info *bgp_info;
+  struct attr_extra *ae;
+
+  if (type == RMAP_BGP)
+    {
+      tag = rule;
+      bgp_info = object;
+      ae = bgp_attr_extra_get (bgp_info->attr);
+
+      /* Set tag value */
+      ae->tag=*tag;
+
+    }
+
+  return RMAP_OKAY;
+}
+
+/* Route map `tag' compile function.  Given string is converted to u_short. */
+static void *
+route_set_tag_compile (const char *arg)
+{
+  u_short *tag;
+  u_short tmp;
+
+  /* tag value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  tmp = atoi(arg);
+
+  if (tmp < 1)
+      return NULL;
+
+  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+
+  if (!tag)
+    return tag;
+
+  *tag = tmp;
+
+  return tag;
+}
+
+/* Free route map's tag value. */
+static void
+route_set_tag_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+
+/* Route map commands for tag set. */
+struct route_map_rule_cmd route_set_tag_cmd =
+{
+  "tag",
+  route_set_tag,
+  route_set_tag_compile,
+  route_set_tag_free,
+};
+
 
 #ifdef HAVE_IPV6
 /* `match ipv6 address IP_ACCESS_LIST' */
@@ -3447,6 +3580,41 @@ ALIAS (no_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 
+DEFUN (match_tag,
+       match_tag_cmd,
+       "match tag <1-65535>",
+       MATCH_STR
+       "Match tag of route\n"
+       "Tag value\n")
+{
+  return bgp_route_match_add (vty, vty->index, "tag", argv[0],
+		              RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_tag,
+       no_match_tag_cmd,
+       "no match tag",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n")
+{
+  if (argc == 0)
+    return bgp_route_match_delete (vty, vty->index, "tag", NULL,
+		                   RMAP_EVENT_MATCH_DELETED);
+
+  return bgp_route_match_delete (vty, vty->index, "tag", argv[0],
+		                 RMAP_EVENT_MATCH_DELETED);
+}
+
+ALIAS (no_match_tag,
+       no_match_tag_val_cmd,
+       "no match tag <1-65535>",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n"
+       "Tag value\n")
+
+
 DEFUN (set_ip_nexthop,
        set_ip_nexthop_cmd,
        "set ip next-hop A.B.C.D",
@@ -4094,6 +4262,37 @@ ALIAS (no_set_aggregator_as,
        "AS number\n"
        "IP address of aggregator\n")
 
+DEFUN (set_tag,
+       set_tag_cmd,
+       "set tag <1-65535>",
+       SET_STR
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+{
+  return bgp_route_set_add (vty, vty->index, "tag", argv[0]);
+}
+
+DEFUN (no_set_tag,
+       no_set_tag_cmd,
+       "no set tag",
+       NO_STR
+       SET_STR
+       "Tag value for routing protocol\n")
+{
+  if (argc == 0)
+      bgp_route_set_delete(vty, vty->index, "tag", NULL);
+
+  return bgp_route_set_delete (vty, vty->index, "tag", argv[0]);
+}
+
+ALIAS (no_set_tag,
+       no_set_tag_val_cmd,
+       "no set tag <1-65535>",
+       NO_STR
+       SET_STR
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+
 
 #ifdef HAVE_IPV6
 DEFUN (match_ipv6_address, 
@@ -4421,6 +4620,7 @@ bgp_route_map_init (void)
   route_map_install_match (&route_match_origin_cmd);
   route_map_install_match (&route_match_probability_cmd);
   route_map_install_match (&route_match_interface_cmd);
+  route_map_install_match (&route_match_tag_cmd);
 
   route_map_install_set (&route_set_ip_nexthop_cmd);
   route_map_install_set (&route_set_local_pref_cmd);
@@ -4437,6 +4637,7 @@ bgp_route_map_init (void)
   route_map_install_set (&route_set_originator_id_cmd);
   route_map_install_set (&route_set_ecommunity_rt_cmd);
   route_map_install_set (&route_set_ecommunity_soo_cmd);
+  route_map_install_set (&route_set_tag_cmd);
 
   install_element (RMAP_NODE, &match_peer_cmd);
   install_element (RMAP_NODE, &match_peer_local_cmd);
@@ -4488,6 +4689,9 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_val_cmd);
+  install_element (RMAP_NODE, &match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_val_cmd);
 
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_peer_cmd);
@@ -4537,6 +4741,9 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_originator_id_cmd);
   install_element (RMAP_NODE, &no_set_originator_id_cmd);
   install_element (RMAP_NODE, &no_set_originator_id_val_cmd);
+  install_element (RMAP_NODE, &set_tag_cmd);
+  install_element (RMAP_NODE, &no_set_tag_cmd);
+  install_element (RMAP_NODE, &no_set_tag_val_cmd);
 
 #ifdef HAVE_IPV6
   route_map_install_match (&route_match_ipv6_address_cmd);

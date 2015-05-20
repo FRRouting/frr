@@ -189,6 +189,7 @@ ospf_new (void)
     {
       new->dmetric[i].type = -1;
       new->dmetric[i].value = -1;
+      new->dtag[i] = 0;
     }
   new->default_metric = -1;
   new->ref_bandwidth = OSPF_DEFAULT_REF_BANDWIDTH;

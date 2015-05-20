@@ -244,6 +244,9 @@ struct ospf
 				   -1 means metric value is not set. */
   } dmetric [ZEBRA_ROUTE_MAX + 1];
 
+  /* Redistribute tag info. */
+  u_short dtag [ZEBRA_ROUTE_MAX + 1];
+
   /* For redistribute route map. */
   struct
   {

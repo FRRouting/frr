@@ -1638,8 +1638,8 @@ ospf_external_lsa_body_set (struct stream *s, struct external_info *ei,
   /* Put forwarding address. */
   stream_put_ipv4 (s, fwd_addr.s_addr);
   
-  /* Put route tag -- This value should be introduced from configuration. */
-  stream_putl (s, 0);
+  /* Put route tag -- only first 16bits are used for compatibility */
+  stream_putl (s, ei->tag);
 }
 
 /* Create new external-LSA. */
@@ -2152,7 +2152,7 @@ ospf_default_originate_timer (struct thread *thread)
       /* If there is no default route via redistribute,
 	 then originate AS-external-LSA with nexthop 0 (self). */
       nexthop.s_addr = 0;
-      ospf_external_info_add (DEFAULT_ROUTE, p, 0, nexthop);
+      ospf_external_info_add (DEFAULT_ROUTE, p, 0, nexthop, 0);
     }
 
   if ((ei = ospf_default_external_info (ospf)))

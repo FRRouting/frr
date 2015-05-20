@@ -57,6 +57,9 @@ struct rib
   /* Distance. */
   u_char distance;
 
+  /* Tag */
+  u_short tag;
+
   /* Flags of this route.
    * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
    * to clients via Zserv
@@ -165,6 +168,9 @@ struct static_ipv4
   /* Administrative distance. */
   u_char distance;
 
+  /* Tag */
+  u_short tag;
+
   /* Flag for this static route's type. */
   u_char type;
 #define STATIC_IPV4_GATEWAY     1
@@ -196,6 +202,9 @@ struct static_ipv6
 
   /* Administrative distance. */
   u_char distance;
+
+  /* Tag */
+  u_short tag;
 
   /* Flag for this static route's type. */
   u_char type;
@@ -393,11 +402,11 @@ extern unsigned long rib_score_proto (u_char proto);
 
 extern int
 static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
-       u_char flags, u_char distance, u_int32_t vrf_id);
+                 u_char flags, u_short tag, u_char distance, u_int32_t vrf_id);
 
 extern int
 static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
-		    u_char distance, u_int32_t vrf_id);
+		    u_short tag, u_char distance, u_int32_t vrf_id);
 
 #ifdef HAVE_IPV6
 extern int
@@ -417,8 +426,8 @@ extern struct route_table *rib_table_ipv6;
 
 extern int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		 const char *ifname, u_char flags, u_char distance,
-		 u_int32_t vrf_id);
+		 const char *ifname, u_char flags, u_short tag,
+                 u_char distance, u_int32_t vrf_id);
 
 extern int
 rib_add_ipv6_multipath (struct prefix_ipv6 *, struct rib *, safi_t,
@@ -426,7 +435,8 @@ rib_add_ipv6_multipath (struct prefix_ipv6 *, struct rib *, safi_t,
 
 extern int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		    const char *ifname, u_char distance, u_int32_t vrf_id);
+		    const char *ifname, u_short tag, u_char distance,
+                    u_int32_t vrf_id);
 
 #endif /* HAVE_IPV6 */
 
