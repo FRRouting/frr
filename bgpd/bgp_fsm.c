@@ -911,7 +911,23 @@ bgp_fsm_change_status (struct peer *peer, int status)
    * (and must do so before actually changing into Deleted..
    */
   if (status >= Clearing)
-    bgp_clear_route_all (peer);
+    {
+      bgp_clear_route_all (peer);
+
+      /* If no route was queued for the clear-node processing, generate the
+       * completion event here. This is needed because if there are no routes
+       * to trigger the background clear-node thread, the event won't get
+       * generated and the peer would be stuck in Clearing. Note that this
+       * event is for the peer and helps the peer transition out of Clearing
+       * state; it should not be generated per (AFI,SAFI). The event is
+       * directly posted here without calling clear_node_complete() as we
+       * shouldn't do an extra unlock. This event will get processed after
+       * the state change that happens below, so peer will be in Clearing
+       * (or Deleted).
+       */
+      if (!peer->clear_node_queue->thread)
+        BGP_EVENT_ADD (peer, Clearing_Completed);
+    }
   
   /* Preserve old status and change into new status. */
   peer->ostatus = peer->status;
