@@ -590,7 +590,7 @@ ripng_enable_network_add (struct prefix *p)
       return -1;
     }
   else
-    node->info = (char *) "enabled";
+    node->info = (void *)1;
 
   /* XXX: One should find a better solution than a generic one */
   ripng_enable_apply_all();

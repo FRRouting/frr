@@ -238,6 +238,8 @@ ripng_recv_packet (int sock, u_char *buf, int bufsize,
   struct cmsghdr  *cmsgptr;
   struct in6_addr dst;
 
+  memset(&dst, 0, sizeof(struct in6_addr));
+
   /* Ancillary data.  This store cmsghdr and in6_pktinfo.  But at this
      point I can't determine size of cmsghdr */
   char adata[1024];
