@@ -148,7 +148,7 @@ bgp_update_sock_send_buffer_size (int fd)
     }
 }
 
-static void
+int
 bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 {
   char buf[INET_ADDRSTRLEN];
@@ -164,6 +164,7 @@ bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 		    __func__,
 		    inet_ntop (AF_INET, &peer->remote_id, buf, sizeof(buf)),
 		    errno);
+	  return ret;
 	}
     }
   else if (peer->gtsm_hops)
@@ -178,6 +179,7 @@ bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 		    __func__,
 		    inet_ntop (AF_INET, &peer->remote_id, buf, sizeof(buf)),
 		    errno);
+	  return ret;
 	}
       ret = sockopt_minttl (peer->su.sa.sa_family, bgp_sock,
 			    MAXTTL + 1 - peer->gtsm_hops);
@@ -187,8 +189,11 @@ bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 		    __func__,
 		    inet_ntop (AF_INET, &peer->remote_id, buf, sizeof(buf)),
 		    errno);
+	  return ret;
 	}
     }
+
+  return ret;
 }
 
 /* Accept bgp connection. */
@@ -305,7 +310,10 @@ bgp_accept (struct thread *thread)
       peer_delete(peer1->doppelganger);
     }
 
-  bgp_set_socket_ttl (peer1, bgp_sock);
+  if (bgp_set_socket_ttl (peer1, bgp_sock) < 0)
+    if (bgp_debug_neighbor_events(peer1))
+      zlog_debug ("[Event] Unable to set min/max TTL on peer %s, Continuing",
+		  peer1->host);
 
   peer = peer_create (&su, peer1->conf_if, peer1->bgp, peer1->local_as,
 		      peer1->as, peer1->as_type, 0, 0);
@@ -453,7 +461,8 @@ bgp_connect (struct peer *peer)
   /* Set socket send buffer size */
   bgp_update_sock_send_buffer_size(peer->fd);
 
-  bgp_set_socket_ttl (peer, peer->fd);
+  if (bgp_set_socket_ttl (peer, peer->fd) < 0)
+    return -1;
 
   sockopt_reuseaddr (peer->fd);
   sockopt_reuseport (peer->fd);

@@ -496,6 +496,16 @@ sockopt_cork (int sock, int onoff)
 #endif
 }
 
+/* For some crazy reason, our build doesn't seem to pick this up */
+#ifdef GNU_LINUX
+#ifndef IP_MINTTL
+#define IP_MINTTL 21
+#endif
+#ifndef IPV6_MINHOPCNT
+#define IPV6_MINHOPCNT 73
+#endif
+#endif
+
 int
 sockopt_minttl (int family, int sock, int minttl)
 {

@@ -860,7 +860,8 @@ print_rnh (struct route_node *rn, struct vty *vty)
   char buf[BUFSIZ];
 
   rnh = rn->info;
-  vty_out(vty, "%s%s", inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
+  vty_out(vty, "%s%s%s", inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
+	  CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED) ? "(Connected)" : "",
 	  VTY_NEWLINE);
   if (rnh->state)
     {

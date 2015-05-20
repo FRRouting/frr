@@ -3568,7 +3568,13 @@ peer_ebgp_multihop_set (struct peer *peer, int ttl)
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
       if (peer->fd >= 0 && peer->sort != BGP_PEER_IBGP)
-	sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
+	{
+	  if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+	    bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+			     BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+	  else
+	    bgp_session_reset(peer);
+	}
     }
   else
     {
@@ -3580,8 +3586,11 @@ peer_ebgp_multihop_set (struct peer *peer, int ttl)
 
 	  peer->ttl = group->conf->ttl;
 
-	  if (peer->fd >= 0)
-	    sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
+	  if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+	    bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+			     BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+	  else
+	    bgp_session_reset(peer);
 	}
     }
   return 0;
@@ -3606,8 +3615,11 @@ peer_ebgp_multihop_unset (struct peer *peer)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer->fd >= 0 && peer->sort != BGP_PEER_IBGP)
-	sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
+      if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+	bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+			 BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+      else
+	bgp_session_reset(peer);
     }
   else
     {
@@ -3618,9 +3630,15 @@ peer_ebgp_multihop_unset (struct peer *peer)
 	    continue;
 
 	  peer->ttl = 1;
-	  
+
 	  if (peer->fd >= 0)
-	    sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
+	    {
+	      if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+		bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+				 BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+	      else
+		bgp_session_reset(peer);
+	    }
 	}
     }
   return 0;
@@ -5505,53 +5523,79 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
      before actually applying the ttl-security rules.  Cisco really made a
      mess of this configuration parameter, and OpenBGPD got it right.
   */
-  
-  if (peer->gtsm_hops == 0)
+
+  if ((peer->gtsm_hops == 0) && (peer->sort != BGP_PEER_IBGP))
     {
       if (is_ebgp_multihop_configured (peer))
 	return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
-      /* specify MAXTTL on outgoing packets */
-      /* Routine handles iBGP peers correctly */
-      ret = peer_ebgp_multihop_set (peer, MAXTTL);
-      if (ret != 0)
-	return ret;
-    }
-  
-  peer->gtsm_hops = gtsm_hops;
+      if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+	{
+	  peer->gtsm_hops = gtsm_hops;
 
-  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    {
-      if (peer->fd >= 0)
-        sockopt_minttl (peer->su.sa.sa_family, peer->fd,
-                        MAXTTL + 1 - gtsm_hops);
-      if (peer->status != Established && peer->doppelganger)
-        sockopt_minttl (peer->su.sa.sa_family, peer->doppelganger->fd,
-                        MAXTTL + 1 - gtsm_hops);
+	  /* Calling ebgp multihop also resets the session.
+	   * On restart, NHT will get setup correctly as will the
+	   * min & max ttls on the socket. The return value is
+	   * irrelevant.
+	   */
+	  ret = peer_ebgp_multihop_set (peer, MAXTTL);
+
+	  if (ret != 0)
+	    return ret;
+	}
+      else
+	{
+	  group = peer->group;
+	  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+	    {
+	      peer->gtsm_hops = group->conf->gtsm_hops;
+
+	      /* Calling ebgp multihop also resets the session.
+	       * On restart, NHT will get setup correctly as will the
+	       * min & max ttls on the socket. The return value is
+	       * irrelevant.
+	       */
+	      ret = peer_ebgp_multihop_set (peer, MAXTTL);
+	    }
+	}
     }
   else
     {
-      group = peer->group;
-      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+      /* Post the first gtsm setup or if its ibgp, maxttl setting isn't
+       * necessary, just set the minttl.
+       */
+      if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
 	{
-	  peer->gtsm_hops = group->conf->gtsm_hops;
+	  peer->gtsm_hops = gtsm_hops;
 
-	  /* Change setting of existing peer
-	   *   established then change value (may break connectivity)
-	   *   not established yet (teardown session and restart)
-	   *   no session then do nothing (will get handled by next connection)
-	   */
-	  if (peer->status == Established)
+	  if (peer->fd >= 0)
+	    sockopt_minttl (peer->su.sa.sa_family, peer->fd,
+			    MAXTTL + 1 - gtsm_hops);
+	  if ((peer->status < Established) && peer->doppelganger &&
+	      (peer->doppelganger->fd >= 0))
+	    sockopt_minttl (peer->su.sa.sa_family, peer->doppelganger->fd,
+			    MAXTTL + 1 - gtsm_hops);
+	}
+      else
+	{
+	  group = peer->group;
+	  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
 	    {
+	      peer->gtsm_hops = group->conf->gtsm_hops;
+
+	      /* Change setting of existing peer
+	       *   established then change value (may break connectivity)
+	       *   not established yet (teardown session and restart)
+	       *   no session then do nothing (will get handled by next connection)
+	       */
 	      if (peer->fd >= 0 && peer->gtsm_hops != 0)
 		sockopt_minttl (peer->su.sa.sa_family, peer->fd,
 				MAXTTL + 1 - peer->gtsm_hops);
-	    }
-	  else if (peer->status < Established)
-	    {
-              if (bgp_debug_neighbor_events(peer))
-		zlog_debug ("%s Min-ttl changed", peer->host);
-              bgp_session_reset(peer);
+	      if ((peer->status < Established) && peer->doppelganger &&
+		  (peer->doppelganger->fd >= 0))
+		sockopt_minttl (peer->su.sa.sa_family, peer->doppelganger->fd,
+				MAXTTL + 1 - gtsm_hops);
+
 	    }
 	}
     }
@@ -5564,7 +5608,7 @@ peer_ttl_security_hops_unset (struct peer *peer)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
-  struct peer *opeer;
+  int ret = 0;
 
   zlog_debug ("peer_ttl_security_hops_unset: set gtsm_hops to zero for %s", peer->host);
 
@@ -5574,14 +5618,23 @@ peer_ttl_security_hops_unset (struct peer *peer)
   else
     peer->gtsm_hops = 0;
 
-  opeer = peer;
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer->fd >= 0)
-	sockopt_minttl (peer->su.sa.sa_family, peer->fd, 0);
+      /* Invoking ebgp_multihop_set will set the TTL back to the original
+       * value as well as restting the NHT and such. The session is reset.
+       */
+      if (peer->sort == BGP_PEER_EBGP)
+	ret = peer_ebgp_multihop_unset (peer);
+      else
+	{
+	  if (peer->fd >= 0)
+	    sockopt_minttl (peer->su.sa.sa_family, peer->fd, 0);
 
-      if (peer->status != Established && peer->doppelganger)
-        sockopt_minttl (peer->su.sa.sa_family, peer->doppelganger->fd, 0);
+	  if ((peer->status < Established) && peer->doppelganger &&
+	      (peer->doppelganger->fd >= 0))
+	    sockopt_minttl (peer->su.sa.sa_family,
+			    peer->doppelganger->fd, 0);
+	}
     }
   else
     {
@@ -5589,16 +5642,22 @@ peer_ttl_security_hops_unset (struct peer *peer)
       for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
 	{
 	  peer->gtsm_hops = 0;
-	  
-	  if (peer->fd >= 0)
-	    sockopt_minttl (peer->su.sa.sa_family, peer->fd, 0);
+	  if (peer->sort == BGP_PEER_EBGP)
+	    ret = peer_ebgp_multihop_unset (peer);
+	  else
+	    {
+	      if (peer->fd >= 0)
+		sockopt_minttl (peer->su.sa.sa_family, peer->fd, 0);
 
-          if (peer->status != Established && peer->doppelganger)
-            sockopt_minttl (peer->su.sa.sa_family, peer->doppelganger->fd, 0);
+	      if ((peer->status < Established) && peer->doppelganger &&
+		  (peer->doppelganger->fd >= 0))
+		sockopt_minttl (peer->su.sa.sa_family,
+				peer->doppelganger->fd, 0);
+	    }
 	}
     }
 
-  return peer_ebgp_multihop_unset (opeer);
+  return 0;
 }
 
 /*
