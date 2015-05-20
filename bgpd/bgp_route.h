@@ -185,6 +185,13 @@ enum bgp_clear_route_type
   BGP_CLEAR_ROUTE_MY_RSCLIENT
 };
 
+enum bgp_path_type
+{
+  BGP_PATH_ALL,
+  BGP_PATH_BESTPATH,
+  BGP_PATH_MULTIPATH
+};
+
 /* Prototypes. */
 extern void bgp_process_queue_init (void);
 extern void bgp_route_init (void);
