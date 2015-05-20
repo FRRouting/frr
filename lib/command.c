@@ -1106,7 +1106,7 @@ cmd_ipv6_prefix_match (const char *str)
 
 #endif /* HAVE_IPV6  */
 
-#define DECIMAL_STRLEN_MAX 10
+#define DECIMAL_STRLEN_MAX 20
 
 static int
 cmd_range_match (const char *range, const char *str)
@@ -1114,14 +1114,15 @@ cmd_range_match (const char *range, const char *str)
   char *p;
   char buf[DECIMAL_STRLEN_MAX + 1];
   char *endptr = NULL;
-  unsigned long min, max, val;
+  signed long long min, max, val;
 
   if (str == NULL)
     return 1;
 
-  val = strtoul (str, &endptr, 10);
+  val = strtoll (str, &endptr, 10);
   if (*endptr != '\0')
     return 0;
+  val = llabs(val);
 
   range++;
   p = strchr (range, '-');
@@ -1131,7 +1132,7 @@ cmd_range_match (const char *range, const char *str)
     return 0;
   strncpy (buf, range, p - range);
   buf[p - range] = '\0';
-  min = strtoul (buf, &endptr, 10);
+  min = strtoll (buf, &endptr, 10);
   if (*endptr != '\0')
     return 0;
 
@@ -1143,7 +1144,7 @@ cmd_range_match (const char *range, const char *str)
     return 0;
   strncpy (buf, range, p - range);
   buf[p - range] = '\0';
-  max = strtoul (buf, &endptr, 10);
+  max = strtoll (buf, &endptr, 10);
   if (*endptr != '\0')
     return 0;
 
