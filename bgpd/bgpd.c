@@ -1280,7 +1280,10 @@ peer_as_change (struct peer *peer, as_t as)
 
   if (conf && CHECK_FLAG (conf->config, PEER_CONFIG_ROUTEADV))
       peer->v_routeadv = conf->routeadv;
-  else
+
+  /* Only go back to the default advertisement-interval if the user had not
+   * already configured it */
+  else if (!CHECK_FLAG (peer->config, PEER_CONFIG_ROUTEADV))
     if (peer_sort (peer) == BGP_PEER_IBGP)
       peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
     else
