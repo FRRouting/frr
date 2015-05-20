@@ -282,6 +282,16 @@ bgp_accept (struct thread *thread)
       return -1;
     }
 
+  /* Check that at least one AF is activated for the peer. */
+  if (!peer_active (peer1))
+    {
+      if (bgp_debug_neighbor_events(peer1))
+        zlog_debug ("%s - incoming conn rejected - no AF activated for peer",
+                    peer1->host);
+      close (bgp_sock);
+      return -1;
+    }
+
   if (bgp_debug_neighbor_events(peer1))
     zlog_debug ("[Event] BGP connection from host %s", inet_sutop (&su, buf));
 
