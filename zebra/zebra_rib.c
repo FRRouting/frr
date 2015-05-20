@@ -1512,7 +1512,7 @@ rib_process (struct route_node *rn)
           assert (fib == NULL);
           fib = rib;
         }
-      
+
       /* Unlock removed routes, so they'll be freed, bar the FIB entry,
        * which we need to do do further work with below.
        */
@@ -1532,13 +1532,17 @@ rib_process (struct route_node *rn)
         }
       
       /* Skip unreachable nexthop. */
-      /* With static routes that may have recursive nexthops, calling
-       * nexthop_active_update will clear the ZEBRA_FLAG_CHANGED flag
-       * as the top level NH may not have changed. Those flags are set
-       * by the NHT evaluation. So, we skip an active_update_check here
-       * for static routes as its job has already been done.
+      /* This first call to nexthop_active_update is merely to determine if
+       * there's any change to nexthops associated with this RIB entry. Now,
+       * rib_process() can be invoked due to an external event such as link
+       * down or due to next-hop-tracking evaluation. In the latter case,
+       * a decision has already been made that the NHs have changed. So, no
+       * need to invoke a potentially expensive call again. Further, since
+       * the change might be in a recursive NH which is not caught in
+       * the nexthop_active_update() code. Thus, we might miss changes to
+       * recursive NHs.
        */
-      if (rib->type != ZEBRA_ROUTE_STATIC &&
+      if (!CHECK_FLAG(rib->flags, ZEBRA_FLAG_CHANGED) &&
 	  ! nexthop_active_update (rn, rib, 0))
         continue;
 
@@ -1624,6 +1628,7 @@ rib_process (struct route_node *rn)
 	    {
 	      UNSET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
 	    }
+	  UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
 	}
       else if (! RIB_SYSTEM_ROUTE (select))
         {
@@ -1665,6 +1670,7 @@ rib_process (struct route_node *rn)
 
       /* Set real nexthop. */
       nexthop_active_update (rn, fib, 1);
+      UNSET_FLAG(fib->flags, ZEBRA_FLAG_CHANGED);
     }
 
   /* Regardless of some RIB entry being SELECTED or not before, now we can
@@ -1687,6 +1693,7 @@ rib_process (struct route_node *rn)
 	  SET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
 	  redistribute_add (&rn->p, select);
 	}
+      UNSET_FLAG(select->flags, ZEBRA_FLAG_CHANGED);
     }
 
   /* FIB route was removed, should be deleted */
