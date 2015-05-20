@@ -110,14 +110,14 @@ void
 ospf6_abr_disable_area (struct ospf6_area *area)
 {
   struct ospf6_area *oa;
-  struct ospf6_route *ro;
+  struct ospf6_route *ro, *nro;
   struct ospf6_lsa *old;
   struct listnode *node, *nnode;
 
   /* Withdraw all summary prefixes previously originated */
-  for (ro = ospf6_route_head (area->summary_prefix); ro;
-       ro = ospf6_route_next (ro))
+  for (ro = ospf6_route_head (area->summary_prefix); ro; ro = nro)
     {
+      nro = ospf6_route_next (ro);
       old = ospf6_lsdb_lookup (ro->path.origin.type, ro->path.origin.id,
                                area->ospf6->router_id, area->lsdb);
       if (old)
@@ -126,9 +126,9 @@ ospf6_abr_disable_area (struct ospf6_area *area)
     }
 
   /* Withdraw all summary router-routes previously originated */
-  for (ro = ospf6_route_head (area->summary_router); ro;
-       ro = ospf6_route_next (ro))
+  for (ro = ospf6_route_head (area->summary_router); ro; ro = nro)
     {
+      nro = ospf6_route_next (ro);
       old = ospf6_lsdb_lookup (ro->path.origin.type, ro->path.origin.id,
                                area->ospf6->router_id, area->lsdb);
       if (old)

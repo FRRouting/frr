@@ -838,7 +838,7 @@ ospf6_route_remove (struct ospf6_route *route,
 
   if (node->info == route)
     {
-      if (route->next && ospf6_route_is_same (route->next, route))
+      if (route->next && route->next->rnode == node)
         {
           node->info = route->next;
           SET_FLAG (route->next->flag, OSPF6_ROUTE_BEST);

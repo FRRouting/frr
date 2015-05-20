@@ -410,11 +410,12 @@ ospf6_spf_install (struct ospf6_vertex *v,
 void
 ospf6_spf_table_finish (struct ospf6_route_table *result_table)
 {
-  struct ospf6_route *route;
+  struct ospf6_route *route, *nroute;
   struct ospf6_vertex *v;
   for (route = ospf6_route_head (result_table); route;
-       route = ospf6_route_next (route))
+       route = nroute)
     {
+      nroute = ospf6_route_next (route);
       v = (struct ospf6_vertex *) route->route_option;
       ospf6_vertex_delete (v);
       ospf6_route_remove (route, result_table);

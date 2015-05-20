@@ -243,7 +243,7 @@ ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa)
 {
   struct ospf6_as_external_lsa *external;
   struct prefix prefix;
-  struct ospf6_route *route;
+  struct ospf6_route *route, *nroute;
   char buf[64];
 
   external = (struct ospf6_as_external_lsa *)
@@ -277,8 +277,9 @@ ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa)
 
   for (ospf6_route_lock (route);
        route && ospf6_route_is_prefix (&prefix, route);
-       route = ospf6_route_next (route))
+       route = nroute)
     {
+      nroute = ospf6_route_next (route);
       if (route->type != OSPF6_DEST_TYPE_NETWORK)
         continue;
       if (route->path.origin.type != lsa->header->type)
