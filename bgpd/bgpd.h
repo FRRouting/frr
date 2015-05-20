@@ -329,6 +329,7 @@ typedef enum
 #define BGP_MARKER_SIZE		                16
 #define BGP_HEADER_SIZE		                19
 #define BGP_MAX_PACKET_SIZE                   4096
+#define BGP_MAX_PACKET_SIZE_OVERFLOW          1024
 
 /* BGP neighbor structure. */
 struct peer

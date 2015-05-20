@@ -153,6 +153,8 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
   struct bgp_info *binfo = NULL;
   bgp_size_t total_attr_len = 0;
   unsigned long attrlen_pos = 0;
+  int space_remaining = 0;
+  int space_needed = 0;
   size_t mpattrlen_pos = 0;
   size_t mpattr_pos = 0;
 
@@ -171,9 +173,12 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
       if (adv->binfo)
         binfo = adv->binfo;
 
+      space_remaining = STREAM_CONCAT_REMAIN (s, snlri, STREAM_SIZE(s)) -
+                        BGP_MAX_PACKET_SIZE_OVERFLOW;
+      space_needed = BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen);
+
       /* When remaining space can't include NLRI and it's length.  */
-      if (STREAM_CONCAT_REMAIN (s, snlri, STREAM_SIZE(s)) <=
-	  (BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen)))
+      if (space_remaining < space_needed)
 	break;
 
       /* If packet is empty, set attribute. */
@@ -207,6 +212,22 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 	                                         adv->baa->attr,
 	                                         NULL, afi, safi,
 	                                         from, NULL, NULL);
+
+          space_remaining = STREAM_CONCAT_REMAIN (s, snlri, STREAM_SIZE(s)) -
+                            BGP_MAX_PACKET_SIZE_OVERFLOW;
+          space_needed = BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen);
+
+          /* If the attributes alone do not leave any room for NLRI then
+           * return */
+          if (space_remaining < space_needed)
+            {
+              zlog_err ("%s cannot send UPDATE, the attributes do not leave "
+                        "room for NLRI", peer->host);
+              /* Flush the FIFO update queue */
+              while (adv)
+                adv = bgp_advertise_clean (peer, adv->adj, afi, safi);
+              return NULL;
+            }
 	}
 
       if (afi == AFI_IP && safi == SAFI_UNICAST)
@@ -341,6 +362,8 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
   size_t attrlen_pos = 0;
   size_t mplen_pos = 0;
   u_char first_time = 1;
+  int space_remaining = 0;
+  int space_needed = 0;
 
   s = peer->work;
   stream_reset (s);
@@ -351,8 +374,12 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
       adj = adv->adj;
       rn = adv->rn;
 
-      if (STREAM_REMAIN (s)
-	  < (BGP_NLRI_LENGTH + BGP_TOTAL_ATTR_LEN + PSIZE (rn->p.prefixlen)))
+      space_remaining = STREAM_REMAIN (s) -
+                        BGP_MAX_PACKET_SIZE_OVERFLOW;
+      space_needed = (BGP_NLRI_LENGTH + BGP_TOTAL_ATTR_LEN +
+                      PSIZE (rn->p.prefixlen));
+
+      if (space_remaining < space_needed)
 	break;
 
       if (stream_empty (s))
