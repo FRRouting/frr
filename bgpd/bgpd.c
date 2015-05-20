@@ -830,7 +830,9 @@ peer_calc_sort (struct peer *peer)
   /* Peer-group */
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer->as)
+      if (peer->as_type != AS_SPECIFIED)
+	return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP : BGP_PEER_EBGP);
+      else if (peer->as)
 	return (bgp->as == peer->as ? BGP_PEER_IBGP : BGP_PEER_EBGP);
       else
 	{
@@ -864,6 +866,9 @@ peer_calc_sort (struct peer *peer)
     }
   else
     {
+      if (peer->as_type != AS_SPECIFIED)
+	return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP : BGP_PEER_EBGP);
+
       return (peer->local_as == 0
 	      ? BGP_PEER_INTERNAL : peer->local_as == peer->as
 	      ? BGP_PEER_IBGP : BGP_PEER_EBGP);
@@ -1170,7 +1175,7 @@ bgp_peer_conf_if_to_su_update (struct peer *peer)
 /* Create new BGP peer.  */
 struct peer *
 peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
-             as_t local_as, as_t remote_as, afi_t afi, safi_t safi)
+             as_t local_as, as_t remote_as, int as_type, afi_t afi, safi_t safi)
 {
   int active;
   struct peer *peer;
@@ -1191,6 +1196,7 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
     }
   peer->local_as = local_as;
   peer->as = remote_as;
+  peer->as_type = as_type;
   peer->local_id = bgp->router_id;
   peer->v_holdtime = bgp->default_holdtime;
   peer->v_keepalive = bgp->default_keepalive;
@@ -1239,9 +1245,9 @@ peer_conf_interface_get(struct bgp *bgp, const char *conf_if, afi_t afi,
     {
       if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4)
           && afi == AFI_IP && safi == SAFI_UNICAST)
-        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, 0, 0);
+        peer = peer_create (NULL, conf_if, bgp, bgp->as, AS_SPECIFIED, 0, 0, 0);
       else
-        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, afi, safi);
+        peer = peer_create (NULL, conf_if, bgp, bgp->as, AS_SPECIFIED, 0, afi, safi);
 
     }
 
@@ -1264,7 +1270,7 @@ peer_create_accept (struct bgp *bgp)
 
 /* Change peer's AS number.  */
 void
-peer_as_change (struct peer *peer, as_t as)
+peer_as_change (struct peer *peer, as_t as, int as_specified)
 {
   bgp_peer_sort_t type;
   struct peer *conf;
@@ -1283,6 +1289,7 @@ peer_as_change (struct peer *peer, as_t as)
     }
   type = peer_sort (peer);
   peer->as = as;
+  peer->as_type = as_specified;
 
   if (bgp_config_check (peer->bgp, BGP_CONFIG_CONFEDERATION)
       && ! bgp_confederation_peers_check (peer->bgp, as)
@@ -1340,8 +1347,8 @@ peer_as_change (struct peer *peer, as_t as)
 /* If peer does not exist, create new one.  If peer already exists,
    set AS number to the peer.  */
 int
-peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if, as_t *as,
-		            afi_t afi, safi_t safi)
+peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if,
+		as_t *as, int as_type, afi_t afi, safi_t safi)
 {
   struct peer *peer;
   as_t local_as;
@@ -1371,7 +1378,7 @@ peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if, as_t 
 	    }
 	  if (peer_sort (peer->group->conf) == BGP_PEER_IBGP)
 	    {
-	      if (bgp->as != *as)
+	      if ((as_type != AS_INTERNAL) && (bgp->as != *as))
 		{
 		  *as = peer->as;
 		  return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
@@ -1379,7 +1386,7 @@ peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if, as_t 
 	    }
 	  else
 	    {
-	      if (bgp->as == *as)
+	      if ((as_type != AS_EXTERNAL) && (bgp->as == *as))
 		{
 		  *as = peer->as;
 		  return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
@@ -1389,7 +1396,7 @@ peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if, as_t 
 
       /* Existing peer's AS number change. */
       if (peer->as != *as)
-	peer_as_change (peer, *as);
+	peer_as_change (peer, *as, as_type);
     }
   else
     {
@@ -1410,9 +1417,9 @@ peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if, as_t 
 
       if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4)
 	  && afi == AFI_IP && safi == SAFI_UNICAST)
-	peer = peer_create (su, conf_if, bgp, local_as, *as, 0, 0);
+	peer = peer_create (su, conf_if, bgp, local_as, *as, as_type, 0, 0);
       else
-	peer = peer_create (su, conf_if, bgp, local_as, *as, afi, safi);
+	peer = peer_create (su, conf_if, bgp, local_as, *as, as_type, afi, safi);
     }
 
   return 0;
@@ -2065,7 +2072,8 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
 
 /* Peer group's remote AS configuration.  */
 int
-peer_group_remote_as (struct bgp *bgp, const char *group_name, as_t *as)
+peer_group_remote_as (struct bgp *bgp, const char *group_name,
+		      as_t *as, int as_type)
 {
   struct peer_group *group;
   struct peer *peer;
@@ -2075,17 +2083,18 @@ peer_group_remote_as (struct bgp *bgp, const char *group_name, as_t *as)
   if (! group)
     return -1;
 
-  if (group->conf->as == *as)
+  if ((as_type == group->conf->as_type) && (group->conf->as == *as))
     return 0;
+
 
   /* When we setup peer-group AS number all peer group member's AS
      number must be updated to same number.  */
-  peer_as_change (group->conf, *as);
+  peer_as_change (group->conf, *as, as_type);
 
   for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (peer->as != *as)
-	peer_as_change (peer, *as);
+	peer_as_change (peer, *as, as_type);
     }
 
   return 0;
@@ -2145,7 +2154,8 @@ peer_group_remote_as_delete (struct peer_group *group)
   struct peer *peer, *other;
   struct listnode *node, *nnode;
 
-  if (! group->conf->as)
+  if ((group->conf->as_type == AS_UNSPECIFIED) ||
+      ((! group->conf->as) && (group->conf->as_type == AS_SPECIFIED)))
     return 0;
 
   for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
@@ -2164,6 +2174,7 @@ peer_group_remote_as_delete (struct peer_group *group)
   list_delete_all_node (group->peer);
 
   group->conf->as = 0;
+  group->conf->as_type = AS_UNSPECIFIED;
 
   return 0;
 }
@@ -2258,10 +2269,11 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
   /* Create a new peer. */
   if (! peer)
     {
-      if (! group->conf->as)
+      if ((group->conf->as_type == AS_SPECIFIED) && (! group->conf->as)) {
 	return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
+      }
 
-      peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, afi, safi);
+      peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, afi, safi);
       peer->group = group;
       peer->af_group[afi][safi] = 1;
 
@@ -2286,6 +2298,12 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
   if (peer_group_active (peer)
       && strcmp (peer->group->name, group->name) != 0)
     return BGP_ERR_PEER_GROUP_MISMATCH;
+
+  if (peer->as_type == AS_UNSPECIFIED)
+    {
+      peer->as_type = group->conf->as_type;
+      peer->as = group->conf->as;
+    }
 
   if (! group->conf->as)
     {
@@ -2821,7 +2839,7 @@ peer_create_bind_dynamic_neighbor (struct bgp *bgp, union sockunion *su,
   as_t as;
 
   /* Create peer first; we've already checked group config is valid. */
-  peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, 0, 0);
+  peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, 0, 0);
   if (!peer)
     return NULL;
 
@@ -2916,14 +2934,16 @@ peer_lookup_dynamic_neighbor (struct bgp *bgp, union sockunion *su)
   char buf1[SU_ADDRSTRLEN];
 
   prefix = sockunion2hostprefix(su);
-  if (!prefix)
+  if (!prefix) {
     return NULL;
+  }
 
   /* See if incoming connection matches a configured listen range. */
   group = peer_group_lookup_dynamic_neighbor (bgp, prefix, &listen_range);
 
   if (! group)
     return NULL;
+
 
   gbgp = group->bgp;
 
@@ -5820,15 +5840,28 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	  if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
 	    vty_out (vty, " neighbor %s peer-group%s", addr,
 		     VTY_NEWLINE);
-	  if (peer->as)
-	    vty_out (vty, " neighbor %s remote-as %u%s", addr, peer->as,
-		     VTY_NEWLINE);
+	  if (peer->as_type == AS_SPECIFIED)
+	    {
+	      vty_out (vty, " neighbor %s remote-as %u%s", addr, peer->as,
+		       VTY_NEWLINE);
+	    }
+	  else if (peer->as_type == AS_INTERNAL)
+	    {
+	      vty_out (vty, " neighbor %s remote-as internal%s", addr, VTY_NEWLINE);
+	    }
+	  else if (peer->as_type == AS_EXTERNAL)
+	    {
+	      vty_out (vty, " neighbor %s remote-as external%s", addr, VTY_NEWLINE);
+	    }
 	}
       else
 	{
 	  if (! g_peer->as)
-	    vty_out (vty, " neighbor %s remote-as %u%s", addr, peer->as,
-		     VTY_NEWLINE);
+	    {
+	      if (g_peer->as_type == AS_SPECIFIED)
+		vty_out (vty, " neighbor %s remote-as %u%s", addr, peer->as,
+			 VTY_NEWLINE);
+	    }
 	  if (peer->af_group[AFI_IP][SAFI_UNICAST])
 	    vty_out (vty, " neighbor %s peer-group %s%s", addr,
 		     peer->group->name, VTY_NEWLINE);

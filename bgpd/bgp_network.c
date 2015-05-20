@@ -310,7 +310,7 @@ bgp_accept (struct thread *thread)
   bgp_set_socket_ttl (peer1, bgp_sock);
 
   peer = peer_create (&su, peer1->conf_if, peer1->bgp, peer1->local_as,
-		      peer1->as, 0, 0);
+		      peer1->as, peer1->as_type, 0, 0);
 
   peer_xfer_config(peer, peer1);
   UNSET_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE);

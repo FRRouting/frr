@@ -2507,22 +2507,36 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
   int ret;
   struct bgp *bgp;
   as_t as;
+  int as_type = AS_SPECIFIED;
   union sockunion su;
 
   bgp = vty->index;
 
-  /* Get AS number.  */
-  VTY_GET_INTEGER_RANGE ("AS", as, as_str, 1, BGP_AS4_MAX);
+  if (strncmp(as_str, "internal", strlen("internal")) == 0)
+    {
+      as = 0;
+      as_type = AS_INTERNAL;
+    }
+  else if (strncmp(as_str, "external", strlen("external")) == 0)
+    {
+      as = 0;
+      as_type = AS_EXTERNAL;
+    }
+  else
+    {
+      /* Get AS number.  */
+      VTY_GET_INTEGER_RANGE ("AS", as, as_str, 1, BGP_AS4_MAX);
+    }
 
   /* If peer is peer group, call proper function.  */
   ret = str2sockunion (peer_str, &su);
   if (ret < 0)
     {
       /* Check for peer by interface */
-      ret = peer_remote_as (bgp, NULL, peer_str, &as, afi, safi);
+      ret = peer_remote_as (bgp, NULL, peer_str, &as, as_type, afi, safi);
       if (ret < 0)
         {
-          ret = peer_group_remote_as (bgp, peer_str, &as);
+          ret = peer_group_remote_as (bgp, peer_str, &as, as_type);
           if (ret < 0)
             {
               vty_out (vty, "%% Create the peer-group or interface first%s",
@@ -2540,7 +2554,7 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
                    VTY_NEWLINE);
           return CMD_WARNING;
         }
-      ret = peer_remote_as (bgp, &su, NULL, &as, afi, safi);
+      ret = peer_remote_as (bgp, &su, NULL, &as, as_type, afi, safi);
     }
 
   /* This peer belongs to peer group.  */
@@ -2558,7 +2572,7 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
-       NEIGHBOR_CMD2 "remote-as " CMD_AS_RANGE,
+       NEIGHBOR_CMD2 "remote-as (" CMD_AS_RANGE "|external|internal)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a BGP neighbor\n"
@@ -2677,7 +2691,7 @@ DEFUN (no_neighbor,
 
 ALIAS (no_neighbor,
        no_neighbor_remote_as_cmd,
-       NO_NEIGHBOR_CMD "remote-as " CMD_AS_RANGE,
+       NO_NEIGHBOR_CMD "remote-as (" CMD_AS_RANGE "|internal|external)",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
@@ -2731,7 +2745,7 @@ DEFUN (no_neighbor_peer_group,
 
 DEFUN (no_neighbor_interface_peer_group_remote_as,
        no_neighbor_interface_peer_group_remote_as_cmd,
-       "no neighbor WORD remote-as " CMD_AS_RANGE,
+       "no neighbor WORD remote-as (" CMD_AS_RANGE "|internal|external)",
        NO_STR
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
@@ -2745,7 +2759,7 @@ DEFUN (no_neighbor_interface_peer_group_remote_as,
   peer = peer_lookup_by_conf_if (vty->index, argv[0]);
   if (peer)
     {
-      peer_as_change (peer, 0);
+      peer_as_change (peer, 0, AS_SPECIFIED);
       return CMD_SUCCESS;
     }
 
@@ -10668,10 +10682,16 @@ bgp_show_one_peer_group (struct vty *vty, struct peer_group *group)
 
   conf = group->conf;
 
+  if (conf->as_type == AS_SPECIFIED ||
+      conf->as_type == AS_EXTERNAL) {
   vty_out (vty, "%sBGP peer-group %s,  remote AS %d%s",
            VTY_NEWLINE, group->name, conf->as, VTY_NEWLINE);
+  } else if (conf->as_type == AS_INTERNAL) {
+    vty_out (vty, "%sBGP peer-group %s,  remote AS %d%s",
+	     VTY_NEWLINE, group->name, group->bgp->as, VTY_NEWLINE);
+  }
 
-  if (group->bgp->as == conf->as)
+  if ((group->bgp->as == conf->as) || (conf->as_type == AS_INTERNAL))
     vty_out (vty, "  Peer-group type is internal%s", VTY_NEWLINE);
   else
     vty_out (vty, "  Peer-group type is external%s", VTY_NEWLINE);

@@ -137,6 +137,7 @@ peer_xfer_conn(struct peer *from_peer)
   stream_fifo_clean(peer->obuf);
   stream_fifo_clean(from_peer->obuf);
 
+  peer->as = from_peer->as;
   peer->v_holdtime = from_peer->v_holdtime;
   peer->v_keepalive = from_peer->v_keepalive;
   peer->v_asorig = from_peer->v_asorig;

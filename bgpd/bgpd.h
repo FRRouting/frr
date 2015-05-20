@@ -29,6 +29,18 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 struct update_subgroup;
 struct bpacket;
 
+/*
+ * Allow the neighbor XXXX remote-as to take internal or external
+ * AS_SPECIFIED is zero to auto-inherit original non-feature/enhancement behavior
+ * in the system.
+ */
+enum {
+  AS_UNSPECIFIED = 0,
+  AS_SPECIFIED,
+  AS_INTERNAL,
+  AS_EXTERNAL,
+};
+
 /* Typedef BGP specific types.  */
 typedef u_int32_t as_t;
 typedef u_int16_t as16_t; /* we may still encounter 16 Bit asnums */
@@ -471,7 +483,8 @@ struct peer
   struct peer_af *peer_af_array[BGP_AF_MAX];
 
   /* Peer's remote AS number. */
-  as_t as;			
+  int as_type;
+  as_t as;
 
   /* Peer's local AS number. */
   as_t local_as;
@@ -1109,7 +1122,7 @@ extern bgp_peer_sort_t peer_sort (struct peer *peer);
 extern int peer_active (struct peer *);
 extern int peer_active_nego (struct peer *);
 extern struct peer *peer_create(union sockunion *, const char *, struct bgp *,
-                                as_t, as_t, afi_t, safi_t);
+                                as_t, as_t, int, afi_t, safi_t);
 extern struct peer *peer_create_accept (struct bgp *);
 extern void peer_xfer_config (struct peer *dst, struct peer *src);
 extern char *peer_uptime (time_t, char *, size_t);
@@ -1162,10 +1175,10 @@ extern int bgp_listen_limit_unset (struct bgp *);
 extern int bgp_update_delay_active (struct bgp *);
 extern int bgp_update_delay_configured (struct bgp *);
 extern int peer_rsclient_active (struct peer *);
-extern void peer_as_change (struct peer *, as_t);
+extern void peer_as_change (struct peer *, as_t, int);
 extern int peer_remote_as (struct bgp *, union sockunion *,const char *, as_t *,
-                           afi_t, safi_t);
-extern int peer_group_remote_as (struct bgp *, const char *, as_t *);
+                           int, afi_t, safi_t);
+extern int peer_group_remote_as (struct bgp *, const char *, as_t *, int);
 extern int peer_delete (struct peer *peer);
 extern int peer_group_delete (struct peer_group *);
 extern int peer_group_remote_as_delete (struct peer_group *);
