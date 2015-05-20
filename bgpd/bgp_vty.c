@@ -85,7 +85,8 @@ peer_address_self_check (union sockunion *su)
     ifp = if_lookup_by_ipv4_exact (&su->sin.sin_addr);
 #ifdef HAVE_IPV6
   else if (su->sa.sa_family == AF_INET6)
-    ifp = if_lookup_by_ipv6_exact (&su->sin6.sin6_addr);
+    ifp = if_lookup_by_ipv6_exact (&su->sin6.sin6_addr,
+				   su->sin6.sin6_scope_id);
 #endif /* HAVE IPV6 */
 
   if (ifp)

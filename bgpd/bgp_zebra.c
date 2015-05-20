@@ -649,7 +649,7 @@ if_lookup_by_ipv4_exact (struct in_addr *addr)
 
 #ifdef HAVE_IPV6
 struct interface *
-if_lookup_by_ipv6 (struct in6_addr *addr)
+if_lookup_by_ipv6 (struct in6_addr *addr, int ifindex)
 {
   struct listnode *ifnode;
   struct listnode *cnode;
@@ -670,14 +670,22 @@ if_lookup_by_ipv6 (struct in6_addr *addr)
 	    
 	  if (cp->family == AF_INET6)
 	    if (prefix_match (cp, (struct prefix *)&p))
-	      return ifp;
+	      {
+		if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6))
+		  {
+		    if (ifindex == ifp->ifindex)
+		      return ifp;
+		  }
+		else
+		  return ifp;
+	      }
 	}
     }
   return NULL;
 }
 
 struct interface *
-if_lookup_by_ipv6_exact (struct in6_addr *addr)
+if_lookup_by_ipv6_exact (struct in6_addr *addr, int ifindex)
 {
   struct listnode *ifnode;
   struct listnode *cnode;
@@ -693,7 +701,15 @@ if_lookup_by_ipv6_exact (struct in6_addr *addr)
 	    
 	  if (cp->family == AF_INET6)
 	    if (IPV6_ADDR_SAME (&cp->u.prefix6, addr))
-	      return ifp;
+	      {
+		if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6))
+		  {
+		    if (ifindex == ifp->ifindex)
+		      return ifp;
+		  }
+		else
+		  return ifp;
+	      }
 	}
     }
   return NULL;
@@ -794,7 +810,8 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
       else if (peer->update_if)
         ifp = if_lookup_by_name (peer->update_if);
       else
-        ifp = if_lookup_by_ipv6_exact (&local->sin6.sin6_addr);
+        ifp = if_lookup_by_ipv6_exact (&local->sin6.sin6_addr,
+				       local->sin6.sin6_scope_id);
     }
 #endif /* HAVE_IPV6 */
 
@@ -836,7 +853,8 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
 		  IPV6_MAX_BYTELEN);
 
 	  /* If directory connected set link-local address. */
-	  direct = if_lookup_by_ipv6 (&remote->sin6.sin6_addr);
+	  direct = if_lookup_by_ipv6 (&remote->sin6.sin6_addr,
+				      remote->sin6.sin6_scope_id);
 	  if (direct)
 	    if_get_ipv6_local (ifp, &nexthop->v6_local);
 	}
@@ -857,7 +875,7 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
     }
 
   if (IN6_IS_ADDR_LINKLOCAL (&local->sin6.sin6_addr) ||
-      if_lookup_by_ipv6 (&remote->sin6.sin6_addr))
+      if_lookup_by_ipv6 (&remote->sin6.sin6_addr, remote->sin6.sin6_scope_id))
     peer->shared_network = 1;
   else
     peer->shared_network = 0;

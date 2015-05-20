@@ -303,7 +303,7 @@ sockunion_connect (int fd, union sockunion *peersu, unsigned short port,
       if (IN6_IS_ADDR_LINKLOCAL(&su.sin6.sin6_addr) && ifindex)
 	{
 #ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
-	  /* su.sin6.sin6_scope_id = ifindex; */
+	  su.sin6.sin6_scope_id = ifindex;
 #ifdef MUSICA
 	  su.sin6.sin6_scope_id = ifindex; 
 #endif
@@ -569,6 +569,12 @@ sockunion_same (const union sockunion *su1, const union sockunion *su2)
     case AF_INET6:
       ret = memcmp (&su1->sin6.sin6_addr, &su2->sin6.sin6_addr,
 		    sizeof (struct in6_addr));
+      if ((ret == 0) && IN6_IS_ADDR_LINKLOCAL(&su1->sin6.sin6_addr))
+	{
+	  /* compare interface indices */
+	  if (su1->sin6.sin6_scope_id && su2->sin6.sin6_scope_id)
+	    ret = (su1->sin6.sin6_scope_id == su2->sin6.sin6_scope_id) ? 0 : 1;
+	}
       break;
 #endif /* HAVE_IPV6 */
     }

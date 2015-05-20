@@ -42,6 +42,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 extern struct zebra_privs_t bgpd_privs;
 
+static int bgp_bind(struct peer *);
+
 /* BGP listening socket. */
 struct bgp_listener
 {
@@ -305,6 +307,7 @@ bgp_accept (struct thread *thread)
   peer->doppelganger = peer1;
   peer1->doppelganger = peer;
   peer->fd = bgp_sock;
+  bgp_bind(peer);
   bgp_fsm_change_status(peer, Active);
   BGP_TIMER_OFF(peer->t_start);	/* created in peer_create() */
 
@@ -337,7 +340,6 @@ bgp_bind (struct peer *peer)
 {
 #ifdef SO_BINDTODEVICE
   int ret;
-  struct ifreq ifreq;
   char *name;
 
   if (! peer->ifname && !peer->conf_if)
@@ -345,13 +347,11 @@ bgp_bind (struct peer *peer)
 
   name = (peer->conf_if ? peer->conf_if : peer->ifname);
 
-  strncpy ((char *)&ifreq.ifr_name, name, sizeof (ifreq.ifr_name));
-
   if ( bgpd_privs.change (ZPRIVS_RAISE) )
   	zlog_err ("bgp_bind: could not raise privs");
   
-  ret = setsockopt (peer->fd, SOL_SOCKET, SO_BINDTODEVICE, 
-		    &ifreq, sizeof (ifreq));
+  ret = setsockopt (peer->fd, SOL_SOCKET, SO_BINDTODEVICE,
+		    name, strlen(name));
 
   if (bgpd_privs.change (ZPRIVS_LOWER) )
     zlog_err ("bgp_bind: could not lower privs");

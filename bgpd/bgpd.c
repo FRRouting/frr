@@ -1144,6 +1144,7 @@ bgp_peer_conf_if_to_su_update (struct peer *peer)
 #ifdef SIN6_LEN
       peer->su.sin6.sin6_len = sizeof (struct sockaddr_in6);
 #endif
+      peer->su.sin6.sin6_scope_id = ifp->ifindex;
     }
   else
     {
