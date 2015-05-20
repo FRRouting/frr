@@ -120,6 +120,11 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 
       if (addpath_encoded)
         {
+
+          /* When packet overflow occurs return immediately. */
+          if (pnt + BGP_ADDPATH_ID_LEN > lim)
+            return -1;
+
           addpath_id = ntohl(*((uint32_t*) pnt));
           pnt += BGP_ADDPATH_ID_LEN;
         }
