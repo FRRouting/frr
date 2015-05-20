@@ -216,7 +216,7 @@ extern int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *);
 extern int bgp_maximum_prefix_overflow (struct peer *, afi_t, safi_t, int);
 
 extern void bgp_redistribute_add (struct prefix *, const struct in_addr *,
-				  const struct in6_addr *,
+				  const struct in6_addr *, unsigned int ifindex,
 				  u_int32_t, u_char);
 extern void bgp_redistribute_delete (struct prefix *, u_char);
 extern void bgp_redistribute_withdraw (struct bgp *, afi_t, int);

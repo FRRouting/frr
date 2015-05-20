@@ -64,7 +64,7 @@ o Cisco route-map
 
  match as-path          :  Done
        community        :  Done
-       interface        :  Not yet
+       interface        :  Done
        ip address       :  Done
        ip next-hop      :  Done
        ip route-source  :  Done
@@ -949,6 +949,58 @@ struct route_map_rule_cmd route_match_probability_cmd =
   route_match_probability,
   route_match_probability_compile,
   route_match_probability_free
+};
+
+/* `match interface IFNAME' */
+/* Match function should return 1 if match is success else return
+   zero. */
+static route_map_result_t
+route_match_interface (void *rule, struct prefix *prefix,
+		       route_map_object_t type, void *object)
+{
+  struct interface *ifp;
+  struct nexthop *nexthop;
+  struct bgp_info *info;
+
+  if (type == RMAP_BGP)
+    {
+      info = object;
+
+      if (!info || !info->attr)
+	return RMAP_NOMATCH;
+
+      ifp = if_lookup_by_name ((char *)rule);
+
+      if (ifp == NULL || ifp->ifindex != info->attr->nh_ifindex)
+	return RMAP_NOMATCH;
+
+      return RMAP_MATCH;
+    }
+  return RMAP_NOMATCH;
+}
+
+/* Route map `interface' match statement.  `arg' should be
+   interface name. */
+static void *
+route_match_interface_compile (const char *arg)
+{
+  return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+/* Free route map's compiled `interface' value. */
+static void
+route_match_interface_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for ip address matching. */
+struct route_map_rule_cmd route_match_interface_cmd =
+{
+  "interface",
+  route_match_interface,
+  route_match_interface_compile,
+  route_match_interface_free
 };
 
 /* } */
@@ -3361,6 +3413,40 @@ ALIAS (no_match_origin,
        "local IGP\n"
        "unknown heritage\n")
 
+DEFUN (match_interface,
+       match_interface_cmd,
+       "match interface WORD",
+       MATCH_STR
+       "Match first hop interface of route\n"
+       "Interface name\n")
+{
+  return bgp_route_match_add (vty, vty->index, "interface", argv[0],
+			      RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_interface,
+       no_match_interface_cmd,
+       "no match interface",
+       NO_STR
+       MATCH_STR
+       "Match first hop interface of route\n")
+{
+  if (argc == 0)
+    return bgp_route_match_delete (vty, vty->index, "interface", NULL,
+				   RMAP_EVENT_MATCH_DELETED);
+
+  return bgp_route_match_delete (vty, vty->index, "interface", argv[0],
+				 RMAP_EVENT_MATCH_DELETED);
+}
+
+ALIAS (no_match_interface,
+       no_match_interface_val_cmd,
+       "no match interface WORD",
+       NO_STR
+       MATCH_STR
+       "Match first hop interface of route\n"
+       "Interface name\n")
+
 DEFUN (set_ip_nexthop,
        set_ip_nexthop_cmd,
        "set ip next-hop A.B.C.D",
@@ -4334,6 +4420,7 @@ bgp_route_map_init (void)
   route_map_install_match (&route_match_metric_cmd);
   route_map_install_match (&route_match_origin_cmd);
   route_map_install_match (&route_match_probability_cmd);
+  route_map_install_match (&route_match_interface_cmd);
 
   route_map_install_set (&route_set_ip_nexthop_cmd);
   route_map_install_set (&route_set_local_pref_cmd);
@@ -4398,6 +4485,9 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_probability_cmd);
   install_element (RMAP_NODE, &no_match_probability_cmd);
   install_element (RMAP_NODE, &no_match_probability_val_cmd);
+  install_element (RMAP_NODE, &match_interface_cmd);
+  install_element (RMAP_NODE, &no_match_interface_cmd);
+  install_element (RMAP_NODE, &no_match_interface_val_cmd);
 
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_peer_cmd);
