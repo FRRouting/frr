@@ -521,10 +521,42 @@ subgroup_total_packets_enqueued (struct update_subgroup *subgrp)
 static int
 update_group_show_walkcb (struct update_group *updgrp, void *arg)
 {
-  struct vty *vty = arg;
+  struct updwalk_context *ctx = arg;
+  struct vty *vty;
   struct update_subgroup *subgrp;
   struct peer_af *paf;
   struct bgp_filter *filter;
+  int match = 0;
+
+  if (!ctx)
+    return;
+
+  if (ctx->subgrp_id)
+    {
+      UPDGRP_FOREACH_SUBGRP (updgrp, subgrp)
+	{
+	  if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
+	    continue;
+	  else
+	    {
+	      match = 1;
+	      break;
+	    }
+	}
+    }
+  else
+    {
+      match = 1;
+    }
+
+  if (!match)
+    {
+      /* Since this routine is invoked from a walk, we cannot signal any */
+      /* error here, can only return. */
+      return CMD_SUCCESS;
+    }
+
+  vty = ctx->vty;
 
   vty_out (vty, "Update-group %llu:%s", updgrp->id, VTY_NEWLINE);
   vty_out (vty, "  Created: %s", timestamp_string (updgrp->uptime));
@@ -546,6 +578,8 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
 
   UPDGRP_FOREACH_SUBGRP (updgrp, subgrp)
   {
+    if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
+      continue;
     vty_out (vty, "%s", VTY_NEWLINE);
     vty_out (vty, "  Update-subgroup %llu:%s", subgrp->id, VTY_NEWLINE);
     vty_out (vty, "    Created: %s", timestamp_string (subgrp->uptime));
@@ -1526,9 +1560,15 @@ update_group_init (struct bgp *bgp)
 }
 
 void
-update_group_show (struct bgp *bgp, afi_t afi, safi_t safi, struct vty *vty)
+update_group_show (struct bgp *bgp, afi_t afi, safi_t safi, struct vty *vty,
+		   u_int64_t subgrp_id)
 {
-  update_group_af_walk (bgp, afi, safi, update_group_show_walkcb, vty);
+  struct updwalk_context ctx;
+  memset (&ctx, 0, sizeof (ctx));
+  ctx.vty = vty;
+  ctx.subgrp_id = subgrp_id;
+
+  update_group_af_walk (bgp, afi, safi, update_group_show_walkcb, &ctx);
 }
 
 /*

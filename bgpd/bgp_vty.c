@@ -10352,61 +10352,107 @@ ALIAS (show_bgp_instance_ipv6_safi_rsclient_summary,
 
 #endif /* HAVE IPV6 */
 
-DEFUN (show_ip_bgp_updgrps,
-       show_ip_bgp_updgrps_cmd,
-       "show ip bgp update-groups summary",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP update groups\n"
-       "Summary information\n")
+static int bgp_show_update_groups(int afi, int safi, struct vty *vty,
+				  u_int64_t subgrp_id)
 {
   struct bgp *bgp;
 
   bgp = bgp_get_default();
   if (bgp)
-    update_group_show(bgp, AFI_IP, SAFI_UNICAST, vty);
+    update_group_show(bgp, afi, safi, vty, subgrp_id);
   return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_bgp_updgrps,
+       show_ip_bgp_updgrps_cmd,
+       "show ip bgp update-groups",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Detailed info about dynamic update groups\n")
+{
+  return (bgp_show_update_groups(AFI_IP, SAFI_UNICAST, vty, 0));
 }
 
 DEFUN (show_bgp_ipv6_updgrps,
        show_bgp_ipv6_updgrps_cmd,
-       "show bgp update-groups summary",
+       "show bgp update-groups",
        SHOW_STR
        BGP_STR
-       "BGP update groups\n"
-       "Summary information\n")
+       "Detailed info about v6 dynamic update groups\n")
 {
-  struct bgp *bgp;
-
-  bgp = bgp_get_default();
-  if (bgp)
-    update_group_show(bgp, AFI_IP6, SAFI_UNICAST, vty);
-  return CMD_SUCCESS;
+  return (bgp_show_update_groups(AFI_IP6, SAFI_UNICAST, vty, 0));
 }
 
 DEFUN (show_bgp_updgrps,
        show_bgp_updgrps_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups summary",
+       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups",
        SHOW_STR
        BGP_STR
        "Address family\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "BGP update groups\n"
-       "Summary information\n")
+       "Detailed info about dynamic update groups\n")
 {
-  struct bgp *bgp;
   afi_t afi;
   safi_t safi;
 
   afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
   safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  bgp = bgp_get_default();
-  if (bgp)
-    update_group_show(bgp, afi, safi, vty);
-  return CMD_SUCCESS;
+  return (bgp_show_update_groups(afi, safi, vty, 0));
+}
+
+DEFUN (show_ip_bgp_updgrps_s,
+       show_ip_bgp_updgrps_s_cmd,
+       "show ip bgp update-groups SUBGROUP-ID",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Detailed info about dynamic update groups\n"
+       "Specific subgroup to display detailed info for\n")
+{
+  u_int64_t subgrp_id;
+
+  VTY_GET_ULL("subgroup-id", subgrp_id, argv[0]);
+  return (bgp_show_update_groups(AFI_IP, SAFI_UNICAST, vty, subgrp_id));
+}
+
+DEFUN (show_bgp_ipv6_updgrps_s,
+       show_bgp_ipv6_updgrps_s_cmd,
+       "show bgp update-groups SUBGROUP-ID",
+       SHOW_STR
+       BGP_STR
+       "Detailed info about v6 dynamic update groups\n"
+       "Specific subgroup to display detailed info for\n")
+{
+  u_int64_t subgrp_id;
+
+  VTY_GET_ULL("subgroup-id", subgrp_id, argv[0]);
+  return(bgp_show_update_groups(AFI_IP6, SAFI_UNICAST, vty, subgrp_id));
+}
+
+DEFUN (show_bgp_updgrps_s,
+       show_bgp_updgrps_s_cmd,
+       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups SUBGROUP-ID",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Detailed info about v6 dynamic update groups\n"
+       "Specific subgroup to display detailed info for")
+{
+  afi_t afi;
+  safi_t safi;
+  u_int64_t subgrp_id;
+
+  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+
+  VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
+  return(bgp_show_update_groups(afi, safi, vty, subgrp_id));
 }
 
 DEFUN (show_bgp_updgrps_stats,
@@ -10453,6 +10499,7 @@ DEFUN (show_ip_bgp_updgrps_adj,
        "Advertisement queue\n"
        "Announced routes\n"
        "Packet queue\n")
+
 {
   show_bgp_updgrps_adj_info_aux(vty, AFI_IP, SAFI_UNICAST, argv[0], 0);
   return CMD_SUCCESS;
@@ -10470,7 +10517,8 @@ DEFUN (show_bgp_updgrps_afi_adj,
        "BGP update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
-       "Packet queue\n")
+       "Packet queue\n"
+       "Specific subgroup info wanted for\n")
 {
   afi_t afi;
   safi_t safi;
@@ -10478,6 +10526,7 @@ DEFUN (show_bgp_updgrps_afi_adj,
   afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
   safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
   show_bgp_updgrps_adj_info_aux(vty, afi, safi, argv[2], 0);
+  return CMD_SUCCESS;
 }
 
 DEFUN (show_bgp_updgrps_adj,
@@ -10495,40 +10544,28 @@ DEFUN (show_bgp_updgrps_adj,
 }
 
 DEFUN (show_ip_bgp_updgrps_adj_s,
-       show_ip_bgp_updgrps_adj_subgroup_cmd,
+       show_ip_bgp_updgrps_adj_s_cmd,
        "show ip bgp update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
        SHOW_STR
        IP_STR
        BGP_STR
        "BGP update groups\n"
-       "64-bit subgroup id\n"
+       "Specific subgroup to display info for\n"
        "Advertisement queue\n"
        "Announced routes\n"
        "Packet queue\n")
+
 {
-  show_bgp_updgrps_adj_info_aux(vty, AFI_IP, SAFI_UNICAST, argv[1],
-				atoll(argv[0]));
+  u_int64_t subgrp_id;
+
+  VTY_GET_ULL("subgroup-id", subgrp_id, argv[0]);
+
+  show_bgp_updgrps_adj_info_aux(vty, AFI_IP, SAFI_UNICAST, argv[1], subgrp_id);
   return CMD_SUCCESS;
 }
 
-DEFUN (show_bgp_updgrps_adj_s,
-       show_bgp_updgrps_adj_subgroup_cmd,
-       "show bgp update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
-       SHOW_STR
-       BGP_STR
-       "BGP update groups\n"
-       "64-bit subgroup id\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-  show_bgp_updgrps_adj_info_aux(vty, AFI_IP6, SAFI_UNICAST, argv[1],
-				atoll(argv[0]));
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_updgrps_afi_adj_subgroup,
-       show_bgp_updgrps_afi_adj_subgroup_cmd,
+DEFUN (show_bgp_updgrps_afi_adj_s,
+       show_bgp_updgrps_afi_adj_s_cmd,
        "show bgp (ipv4|ipv6) (unicast|multicast) update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
        SHOW_STR
        BGP_STR
@@ -10537,18 +10574,43 @@ DEFUN (show_bgp_updgrps_afi_adj_subgroup,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "BGP update groups\n"
-       "64-bit subgroup id\n"
+       "Specific subgroup to display info for\n"
+       "Advertisement queue\n"
+       "Announced routes\n"
+       "Packet queue\n"
+       "Specific subgroup info wanted for\n")
+{
+  afi_t afi;
+  safi_t safi;
+  u_int64_t subgrp_id;
+
+  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
+  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
+
+  show_bgp_updgrps_adj_info_aux(vty, afi, safi, argv[3], subgrp_id);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_bgp_updgrps_adj_s,
+       show_bgp_updgrps_adj_s_cmd,
+       "show bgp update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       SHOW_STR
+       BGP_STR
+       "BGP update groups\n"
+       "Specific subgroup to display info for\n"
        "Advertisement queue\n"
        "Announced routes\n"
        "Packet queue\n")
 {
-  afi_t afi;
-  safi_t safi;
+  u_int64_t subgrp_id;
 
-  afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
-  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  show_bgp_updgrps_adj_info_aux(vty, afi, safi, argv[3], atoll(argv[2]));
+  VTY_GET_ULL("subgroup-id", subgrp_id, argv[0]);
+
+  show_bgp_updgrps_adj_info_aux(vty, AFI_IP6, SAFI_UNICAST, argv[1], subgrp_id);
+  return CMD_SUCCESS;
 }
+
 
 static int
 bgp_show_one_peer_group (struct vty *vty, struct peer_group *group)
@@ -12468,12 +12530,15 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_updgrps_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_updgrps_s_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_s_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv6_updgrps_s_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_adj_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_subgroup_cmd);
-  install_element (VIEW_NODE, &show_bgp_updgrps_adj_subgroup_cmd);
-  install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_subgroup_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_s_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
+  install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_summary_cmd);
@@ -12493,12 +12558,15 @@ bgp_vty_init (void)
   install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_updgrps_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_s_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_updgrps_s_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_ipv6_updgrps_s_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_adj_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_adj_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_afi_adj_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_adj_subgroup_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_updgrps_adj_subgroup_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_updgrps_afi_adj_subgroup_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_adj_s_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_updgrps_adj_s_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_summary_cmd);
@@ -12518,13 +12586,15 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (ENABLE_NODE, &show_bgp_updgrps_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_stats_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_s_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_s_cmd);
+  install_element (ENABLE_NODE, &show_bgp_ipv6_updgrps_s_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_updgrps_adj_cmd);
   install_element (ENABLE_NODE, &show_bgp_updgrps_adj_cmd);
   install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_adj_subgroup_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_adj_subgroup_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_subgroup_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_adj_s_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_adj_s_cmd);
+  install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_summary_cmd);

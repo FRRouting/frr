@@ -162,6 +162,19 @@ do { \
     } \
 } while (0)
 
+/* Utility macros to convert VTY argument to unsigned long long */
+#define VTY_GET_ULL(NAME,V,STR) \
+do { \
+  char *endptr = NULL; \
+  errno = 0; \
+  (V) = strtoull ((STR), &endptr, 10); \
+  if (*(STR) == '-' || *endptr != '\0' || errno) \
+    { \
+      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE); \
+      return CMD_WARNING; \
+    } \
+} while (0)
+
 /*
  * The logic below ((TMPL) <= ((MIN) && (TMPL) != (MIN)) is
  * done to circumvent the compiler complaining about
