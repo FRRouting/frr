@@ -1927,6 +1927,18 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
   return 0;
 }
 
+static int
+bgp_startup_timer_expire (struct thread *thread)
+{
+  struct bgp *bgp;
+
+  bgp = THREAD_ARG (thread);
+  bgp->t_startup = NULL;
+
+  return 0;
+}
+
+
 /* BGP instance creation by `router bgp' commands. */
 static struct bgp *
 bgp_create (as_t *as, const char *name)
@@ -1971,6 +1983,9 @@ bgp_create (as_t *as, const char *name)
 
   if (name)
     bgp->name = strdup (name);
+
+  THREAD_TIMER_ON (master, bgp->t_startup, bgp_startup_timer_expire,
+                   bgp, bgp->restart_time);
 
   return bgp;
 }

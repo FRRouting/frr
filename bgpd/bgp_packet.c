@@ -614,6 +614,10 @@ bgp_write_packet (struct peer *peer)
 	      {
 		if (CHECK_FLAG (adv->binfo->peer->cap, PEER_CAP_RESTART_RCV)
 		    && CHECK_FLAG (adv->binfo->peer->cap, PEER_CAP_RESTART_ADV)
+		    && ! (CHECK_FLAG (adv->binfo->peer->cap,
+                                      PEER_CAP_RESTART_BIT_RCV) &&
+		          CHECK_FLAG (adv->binfo->peer->cap,
+                                      PEER_CAP_RESTART_BIT_ADV))
 		    && ! CHECK_FLAG (adv->binfo->flags, BGP_INFO_STALE)
 		    && safi != SAFI_MPLS_VPN)
 		  {
