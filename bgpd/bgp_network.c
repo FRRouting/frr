@@ -293,7 +293,8 @@ bgp_accept (struct thread *thread)
     }
 
   if (bgp_debug_neighbor_events(peer1))
-    zlog_debug ("[Event] BGP connection from host %s", inet_sutop (&su, buf));
+    zlog_debug ("[Event] BGP connection from host %s fd %d",
+                inet_sutop (&su, buf), bgp_sock);
 
   if (peer1->doppelganger)
     {
