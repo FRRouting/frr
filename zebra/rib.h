@@ -398,6 +398,14 @@ extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *);
 
 #ifdef HAVE_IPV6
 extern struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
+extern struct nexthop *nexthop_ipv6_ifindex_add (struct rib *rib,
+		        struct in6_addr *ipv6, unsigned int ifindex);
+extern struct nexthop *nexthop_ipv6_ifname_add (struct rib *rib,
+						struct in6_addr *ipv6,
+						char *ifname);
+extern int
+rib_bogus_ipv6 (int type, struct prefix_ipv6 *p,
+                struct in6_addr *gate, unsigned int ifindex, int table);
 #endif /* HAVE_IPV6 */
 
 extern struct vrf *vrf_lookup (u_int32_t);
@@ -457,6 +465,10 @@ extern int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 		 const char *ifname, u_char flags, u_char distance,
 		 u_int32_t vrf_id);
+
+extern int
+rib_add_ipv6_multipath (struct prefix_ipv6 *, struct rib *, safi_t,
+                        unsigned long);
 
 extern int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,

@@ -341,7 +341,7 @@ nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
   return nexthop;
 }
 
-static struct nexthop *
+struct nexthop *
 nexthop_ipv6_ifname_add (struct rib *rib, struct in6_addr *ipv6,
 			 char *ifname)
 {
@@ -357,7 +357,7 @@ nexthop_ipv6_ifname_add (struct rib *rib, struct in6_addr *ipv6,
   return nexthop;
 }
 
-static struct nexthop *
+struct nexthop *
 nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
 			  unsigned int ifindex)
 {
@@ -2598,7 +2598,7 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 
 
 #ifdef HAVE_IPV6
-static int
+int
 rib_bogus_ipv6 (int type, struct prefix_ipv6 *p,
 		struct in6_addr *gate, unsigned int ifindex, int table)
 {
@@ -2725,6 +2725,96 @@ rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
   
   route_unlock_node (rn);
   return 0;
+}
+
+int
+rib_add_ipv6_multipath (struct prefix_ipv6 *p, struct rib *rib, safi_t safi,
+	                unsigned long ifindex)
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct rib *same = NULL;
+  struct nexthop *nexthop;
+  int ret = 0;
+  int table_id = 0;
+
+  if (rib)
+    table_id = rib->table;
+  else
+    return 0;			/* why are we getting called with NULL rib */
+
+  /* Lookup table.  */
+  table = vrf_table (AFI_IP6, safi, 0);
+
+  if (! table)
+    return 0;
+
+  /* Make sure mask is applied. */
+  apply_mask_ipv6 (p);
+
+  /* Set default distance by route type. */
+  if (rib->distance == 0)
+    {
+      rib->distance = route_info[rib->type].distance;
+
+      /* iBGP distance is 200. */
+      if (rib->type == ZEBRA_ROUTE_BGP
+	  && CHECK_FLAG (rib->flags, ZEBRA_FLAG_IBGP))
+	rib->distance = 200;
+    }
+
+  /* Lookup route node.*/
+  rn = route_node_get (table, (struct prefix *) p);
+
+  /* If same type of route are installed, treat it as a implicit
+     withdraw. */
+  RNODE_FOREACH_RIB (rn, same) {
+     if (CHECK_FLAG (same->status, RIB_ENTRY_REMOVED)) {
+       continue;
+     }
+     if (same->type != rib->type) {
+       continue;
+     }
+
+     if (same->table != rib->table) {
+       continue;
+     }
+     if (same->type != ZEBRA_ROUTE_CONNECT) {
+       break;
+     }
+     else if ((nexthop = same->nexthop) &&
+	       nexthop->type == NEXTHOP_TYPE_IFINDEX &&
+	       nexthop->ifindex == ifindex) {
+	    same->refcnt++;
+	    return 0;
+     }
+  }
+
+  /* If this route is kernel route, set FIB flag to the route. */
+  if (rib->type == ZEBRA_ROUTE_KERNEL || rib->type == ZEBRA_ROUTE_CONNECT) {
+    for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next) {
+      SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+    }
+  }
+
+  /* Link new rib to node.*/
+  rib_addnode (rn, rib);
+  ret = 1;
+  /* Free implicit route.*/
+  if (same)
+  {
+    if (IS_ZEBRA_DEBUG_RIB)
+    {
+      zlog_debug ("%s: calling rib_delnode (%p, %p) on existing RIB entry",
+        __func__, rn, same);
+      rib_dump ((struct prefix *)p, same);
+    }
+    rib_delnode (rn, same);
+    ret = -1;
+  }
+
+  route_unlock_node (rn);
+  return ret;
 }
 
 /* XXX factor with rib_delete_ipv6 */
