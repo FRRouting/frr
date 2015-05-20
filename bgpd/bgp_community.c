@@ -144,7 +144,7 @@ community_include (struct community *com, u_int32_t val)
   return 0;
 }
 
-static u_int32_t
+u_int32_t
 community_val_get (struct community *com, int i)
 {
   u_char *p;
