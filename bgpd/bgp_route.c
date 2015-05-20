@@ -7539,10 +7539,19 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
             {
               json_string = json_object_new_string(sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
               json_object_object_add(json_path, "peer-ip", json_string);
+
+              if (binfo->peer->conf_if)
+                {
+                  json_string = json_object_new_string(binfo->peer->conf_if);
+                  json_object_object_add(json_path, "peer-interface", json_string);
+                }
             }
           else
             {
-	      vty_out (vty, " from %s", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
+              if (binfo->peer->conf_if)
+                vty_out (vty, " from %s", binfo->peer->conf_if);
+              else
+                vty_out (vty, " from %s", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
 
 	      if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
 	        vty_out (vty, " (%s)", inet_ntoa (attr->extra->originator_id));
@@ -8306,14 +8315,26 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 	{
           if (json)
             {
-              json_string = json_object_new_string(sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
-              json_object_array_add(json_adv_to, json_string);
+              if (peer->conf_if)
+                {
+                  json_string = json_object_new_string(peer->conf_if);
+                  json_object_array_add(json_adv_to, json_string);
+                }
+              else
+                {
+                  json_string = json_object_new_string(sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
+                  json_object_array_add(json_adv_to, json_string);
+                }
             }
           else
             {
 	      if (! first)
 	        vty_out (vty, "  Advertised to non peer-group peers:%s ", VTY_NEWLINE);
-	      vty_out (vty, " %s", sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
+
+              if (peer->conf_if)
+                vty_out (vty, " %s", peer->conf_if);
+              else
+                vty_out (vty, " %s", sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
             }
 	    first = 1;
 	}
