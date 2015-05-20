@@ -89,6 +89,7 @@ check_daemon()
 # The Quagga daemons creates the pidfile when starting.
 start()
 {
+	ulimit -n $MAX_FDS
         if [ "$1" = "watchquagga" ]; then
 
 	    # We may need to restart watchquagga if new daemons are added and/or
