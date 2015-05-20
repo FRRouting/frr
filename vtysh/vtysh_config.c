@@ -26,6 +26,21 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "vtysh/vtysh.h"
 
+/* 
+ * Compiler is warning about prototypes not being declared.
+ * The DEFUNSH and DEFUN macro's are messing with the
+ * compiler I believe.  This is just to make it happy.
+ */
+int line_cmp(char *, char*);
+void line_del(char *);
+struct config *config_new(void);
+int config_cmp(struct config *, struct config *);
+void config_del(struct config *);
+struct config *config_get(int, const char *);
+void config_add_line(struct list *, const char *);
+void config_add_line_uniq(struct list *, const char *);
+void vtysh_config_parse_line(const char *);
+
 vector configvec;
 
 extern int vtysh_writeconfig_integrated;
@@ -390,7 +405,7 @@ vtysh_read_file (FILE *confp)
 
 /* Read up configuration file from config_default_dir. */
 int
-vtysh_read_config (char *config_default_dir)
+vtysh_read_config (const char *config_default_dir)
 {
   FILE *confp = NULL;
 

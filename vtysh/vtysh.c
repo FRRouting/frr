@@ -50,9 +50,9 @@ char *vtysh_pager_name = NULL;
 struct vtysh_client
 {
   int fd;
-  char *name;
+  const char *name;
   int flag;
-  char *path;
+  const char *path;
   struct vtysh_client *next;
 };
 
@@ -67,6 +67,16 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .path = BABEL_VTYSH_PATH, .next = NULL},
 };
+
+/* 
+ * Compiler is warning about prototypes not being declared.
+ * The DEFUNSH and DEFUN macro's are messing with the
+ * compiler I believe.  This is just to make it happy.
+ */
+int vtysh_end(void);
+int vtysh_rl_describe(void);
+void vtysh_exit_ripd_only(void);
+int vtysh_connect_all_instances(struct vtysh_client *);
 
 
 /* We need direct access to ripd to implement vtysh_exit_ripd_only. */
@@ -192,7 +202,7 @@ vtysh_client_config_one (struct vtysh_client *vclient, char *line)
   return ret;
 }
 
-static int
+static void
 vtysh_client_config (struct vtysh_client *head_client, char *line)
 {
   struct vtysh_client *client;
@@ -200,17 +210,17 @@ vtysh_client_config (struct vtysh_client *head_client, char *line)
 
   rc = vtysh_client_config_one(head_client, line);
   if (rc != CMD_SUCCESS)
-    return rc;
+    return;
 
   client = head_client->next;
   while (client)
     {
       rc = vtysh_client_config_one(client, line);
       if (rc != CMD_SUCCESS)
-        return rc;
+        return;
       client = client->next;
     }
-  return CMD_SUCCESS;
+  return;
 }
 
 static int
@@ -501,7 +511,7 @@ vtysh_execute (const char *line)
 }
 
 int
-vtysh_mark_file (char *filename)
+vtysh_mark_file (const char *filename)
 {
   struct vty *vty;
   FILE *confp = NULL;
@@ -1926,7 +1936,6 @@ DEFUN (vtysh_write_terminal,
        "Write to terminal\n")
 {
   u_int i;
-  int ret;
   char line[] = "write terminal\n";
   FILE *fp = NULL;
 
@@ -1948,7 +1957,7 @@ DEFUN (vtysh_write_terminal,
   vty_out (vty, "!%s", VTY_NEWLINE);
 
   for (i = 0; i < array_size(vtysh_client); i++)
-    ret = vtysh_client_config (&vtysh_client[i], line);
+    vtysh_client_config (&vtysh_client[i], line);
 
   /* Integrate vtysh specific configuration. */
   vtysh_config_write ();
@@ -1996,7 +2005,6 @@ static int
 write_config_integrated(void)
 {
   u_int i;
-  int ret;
   char line[] = "write terminal\n";
   FILE *fp;
   char *integrate_sav = NULL;
@@ -2022,7 +2030,7 @@ write_config_integrated(void)
     }
 
   for (i = 0; i < array_size(vtysh_client); i++)
-    ret = vtysh_client_config (&vtysh_client[i], line);
+    vtysh_client_config (&vtysh_client[i], line);
 
   vtysh_config_dump (fp);
 
@@ -2157,11 +2165,10 @@ DEFUN (vtysh_show_daemons,
 }
 
 /* Execute command in child process. */
-static int
+static void
 execute_command (const char *command, int argc, const char *arg1,
 		 const char *arg2)
 {
-  int ret;
   pid_t pid;
   int status;
 
@@ -2180,13 +2187,13 @@ execute_command (const char *command, int argc, const char *arg1,
       switch (argc)
 	{
 	case 0:
-	  ret = execlp (command, command, (const char *)NULL);
+	  execlp (command, command, (const char *)NULL);
 	  break;
 	case 1:
-	  ret = execlp (command, command, arg1, (const char *)NULL);
+	  execlp (command, command, arg1, (const char *)NULL);
 	  break;
 	case 2:
-	  ret = execlp (command, command, arg1, arg2, (const char *)NULL);
+	  execlp (command, command, arg1, arg2, (const char *)NULL);
 	  break;
 	}
 
@@ -2198,10 +2205,9 @@ execute_command (const char *command, int argc, const char *arg1,
     {
       /* This is parent. */
       execute_flag = 1;
-      ret = wait4 (pid, &status, 0, NULL);
+      wait4 (pid, &status, 0, NULL);
       execute_flag = 0;
     }
-  return 0;
 }
 
 DEFUN (vtysh_ping,
@@ -2443,7 +2449,7 @@ static void
 vtysh_update_all_insances(struct vtysh_client * head_client)
 {
   struct vtysh_client *client;
-  char *path;
+  char *ptr;
   DIR *dir;
   struct dirent *file;
   int n = 0;
@@ -2466,11 +2472,11 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
                 }
               client = (struct vtysh_client *) malloc(sizeof(struct vtysh_client));
               client->fd = -1;
-              client->name = (char *) malloc(10);
-              strcpy(client->name, "ospfd");
+	      client->name = "ospfd";
               client->flag = VTYSH_OSPFD;
-              client->path = (char *) malloc(100);
-              sprintf(client->path, "/var/run/quagga/%s", file->d_name);
+              ptr = (char *) malloc(100);
+              sprintf(ptr, "/var/run/quagga/%s", file->d_name);
+	      client->path = (const char *)ptr;
               client->next = NULL;
               vtysh_client_sorted_insert(head_client, client);
               n++;

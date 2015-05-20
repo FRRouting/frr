@@ -38,6 +38,20 @@
 #include "linklist.h"
 #include "command.h"
 
+/* 
+ * Compiler is warning about prototypes not being declared.
+ * The DEFUNSH and DEFUN macro's are messing with the
+ * compiler I believe.  This is just to make it happy.
+ */
+int vtysh_pam(const char *);
+struct vtysh_user *user_new(void);
+void user_free(struct vtysh_user *);
+struct vtysh_user *user_lookup(const char *);
+void user_config_write(void);
+struct vtysh_user *user_get(const char *);
+int vtysh_auth(void);
+void vtysh_user_init(void);
+
 #ifdef USE_PAM
 static struct pam_conv conv = 
 {
