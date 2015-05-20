@@ -7671,7 +7671,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 	    vty_out(vty, "%c", *delimit);
 
 	  if (!delimit)
-	    vty_out (vty, "%5u %7d %7d %8d %4d %4lu ",
+	    vty_out (vty, "%5u %7d %7d %8d %4d %4u ",
 		     peer->as,
 		     peer->open_in + peer->update_in + peer->keepalive_in
 		     + peer->notify_in + peer->refresh_in
@@ -7684,7 +7684,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 		     peer->sync[afi][safi]->update.count +
 		     peer->sync[afi][safi]->withdraw.count);
 	  else
-	    vty_out (vty, "%5u %c %7d %c %7d %c %8d %c %4d %c %4lu %c",
+	    vty_out (vty, "%5u %c %7d %c %7d %c %8d %c %4d %c %4u %c",
 		     peer->as, *delimit,
 		     peer->open_in + peer->update_in + peer->keepalive_in
 		     + peer->notify_in + peer->refresh_in
