@@ -6737,7 +6737,10 @@ route_vty_out (struct vty *vty, struct prefix *p,
         {
           if (json_paths)
             {
-              json_string = json_object_new_string(attr->aspath);
+	      if (!attr->aspath->str || aspath_count_hops (attr->aspath) == 0)
+                json_string = json_object_new_string("Local");
+              else
+                json_string = json_object_new_string(attr->aspath->str);
               json_object_object_add(json_path, "aspath", json_string);
             }
           else
@@ -8119,32 +8122,23 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
         }
     }
 
-  if (display)
-    {
-      if (use_json)
-        {
-          json_object_object_add(json, "paths", json_paths);
-        }
-    }
-  else
-    {
-      if (use_json)
-        {
-          vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
-        }
-      else
-        {
-          vty_out (vty, "%% Network not in table%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
   if (use_json)
     {
+      if (display)
+        json_object_object_add(json, "paths", json_paths);
+
       vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
 
       // Recursively free all json structures
       json_object_put(json);
+    }
+  else
+    {
+      if (!display)
+        {
+          vty_out (vty, "%% Network not in table%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
     }
 
   return CMD_SUCCESS;
