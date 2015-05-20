@@ -272,6 +272,11 @@ struct bgp_nexthop
 #endif /* HAVE_IPV6 */  
 };
 
+/* BGP addpath values */
+#define BGP_ADDPATH_RX     1
+#define BGP_ADDPATH_TX     2
+#define BGP_ADDPATH_ID_LEN 4
+
 /* BGP router distinguisher value.  */
 #define BGP_RD_SIZE                8
 
@@ -442,6 +447,8 @@ struct peer
 #define PEER_CAP_AS4_RCV                    (1 << 8) /* as4 received */
 #define PEER_CAP_RESTART_BIT_ADV            (1 << 9) /* sent restart state */
 #define PEER_CAP_RESTART_BIT_RCV            (1 << 10) /* peer restart state */
+#define PEER_CAP_ADDPATH_ADV                (1 << 11) /* addpath advertised */
+#define PEER_CAP_ADDPATH_RCV                (1 << 12) /* addpath received */
 
   /* Capability flags (reset in bgp_stop) */
   u_int16_t af_cap[AFI_MAX][SAFI_MAX];
@@ -453,6 +460,10 @@ struct peer
 #define PEER_CAP_ORF_PREFIX_RM_OLD_RCV      (1 << 5) /* receive-mode received */
 #define PEER_CAP_RESTART_AF_RCV             (1 << 6) /* graceful restart afi/safi received */
 #define PEER_CAP_RESTART_AF_PRESERVE_RCV    (1 << 7) /* graceful restart afi/safi F-bit received */
+#define PEER_CAP_ADDPATH_AF_TX_ADV          (1 << 8) /* addpath tx advertised */
+#define PEER_CAP_ADDPATH_AF_TX_RCV          (1 << 9) /* addpath tx received */
+#define PEER_CAP_ADDPATH_AF_RX_ADV          (1 << 10) /* addpath rx advertised */
+#define PEER_CAP_ADDPATH_AF_RX_RCV          (1 << 11) /* addpath rx received */
 
   /* Global configuration flags. */
   u_int32_t flags;

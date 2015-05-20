@@ -417,6 +417,39 @@ bgp_capability_as4 (struct peer *peer, struct capability_header *hdr)
   return as4;
 }
 
+static int
+bgp_capability_addpath (struct peer *peer, struct capability_header *hdr)
+{
+  struct stream *s = BGP_INPUT (peer);
+  size_t end = stream_get_getp (s) + hdr->length;
+
+  SET_FLAG (peer->cap, PEER_CAP_ADDPATH_RCV);
+
+  while (stream_get_getp (s) + 4 <= end)
+    {
+      afi_t afi = stream_getw (s);
+      safi_t safi = stream_getc (s);
+      u_char send_receive = stream_getc (s);
+
+      if (bgp_debug_neighbor_events(peer->host))
+        zlog_debug ("%s OPEN has AddPath CAP for afi/safi: %u/%u%s%s",
+                    peer->host, afi, safi,
+                    (send_receive & BGP_ADDPATH_RX) ? ", receive" : "",
+                    (send_receive & BGP_ADDPATH_TX) ? ", transmit" : "");
+
+      if (!bgp_afi_safi_valid_indices (afi, &safi))
+        return -1;
+
+      if (send_receive & BGP_ADDPATH_RX)
+        SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV);
+
+      if (send_receive & BGP_ADDPATH_TX)
+        SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV);
+    }
+
+  return 0;
+}
+
 static const struct message capcode_str[] =
 {
   { CAPABILITY_CODE_MP,			"MultiProtocol Extensions"	},
@@ -424,6 +457,7 @@ static const struct message capcode_str[] =
   { CAPABILITY_CODE_ORF,		"Cooperative Route Filtering" 	},
   { CAPABILITY_CODE_RESTART,		"Graceful Restart"		},
   { CAPABILITY_CODE_AS4,		"4-octet AS number"		},
+  { CAPABILITY_CODE_ADDPATH,            "AddPath"                      },
   { CAPABILITY_CODE_DYNAMIC,		"Dynamic"			},
   { CAPABILITY_CODE_REFRESH_OLD,	"Route Refresh (Old)"		},
   { CAPABILITY_CODE_ORF_OLD,		"ORF (Old)"			},
@@ -438,6 +472,7 @@ static const size_t cap_minsizes[] =
   [CAPABILITY_CODE_ORF]		= sizeof (struct capability_orf_entry),
   [CAPABILITY_CODE_RESTART]	= sizeof (struct capability_gr),
   [CAPABILITY_CODE_AS4]		= CAPABILITY_CODE_AS4_LEN,
+  [CAPABILITY_CODE_ADDPATH]     = CAPABILITY_CODE_ADDPATH_LEN,
   [CAPABILITY_CODE_DYNAMIC]	= CAPABILITY_CODE_DYNAMIC_LEN,
   [CAPABILITY_CODE_REFRESH_OLD]	= CAPABILITY_CODE_REFRESH_LEN,
   [CAPABILITY_CODE_ORF_OLD]	= sizeof (struct capability_orf_entry),
@@ -502,6 +537,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
           case CAPABILITY_CODE_ORF_OLD:
           case CAPABILITY_CODE_RESTART:
           case CAPABILITY_CODE_AS4:
+          case CAPABILITY_CODE_ADDPATH:
           case CAPABILITY_CODE_DYNAMIC:
               /* Check length. */
               if (caphdr.length < cap_minsizes[caphdr.code])
@@ -572,6 +608,10 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
               if (!bgp_capability_as4 (peer, &caphdr))
                 return -1;
               break;            
+          case CAPABILITY_CODE_ADDPATH:
+            if (bgp_capability_addpath (peer, &caphdr))
+              return -1;
+            break;
           default:
             if (caphdr.code > 128)
               {
@@ -905,6 +945,7 @@ bgp_open_capability (struct stream *s, struct peer *peer)
   safi_t safi;
   as_t local_as;
   u_int32_t restart_time;
+  u_char afi_safi_count = 0;
 
   /* Remember current pointer for Opt Parm Len. */
   cp = stream_get_endp (s);
@@ -1002,6 +1043,30 @@ bgp_open_capability (struct stream *s, struct peer *peer)
   else
     local_as = peer->local_as;
   stream_putl (s, local_as );
+
+  /* AddPath
+   * For now we will only advertise RX support. TX support will be added later.
+   */
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+      if (peer->afc[afi][safi])
+        afi_safi_count++;
+
+  SET_FLAG (peer->cap, PEER_CAP_ADDPATH_ADV);
+  stream_putc (s, BGP_OPEN_OPT_CAP);
+  stream_putc (s, (CAPABILITY_CODE_ADDPATH_LEN * afi_safi_count) + 2);
+  stream_putc (s, CAPABILITY_CODE_ADDPATH);
+  stream_putc (s, CAPABILITY_CODE_ADDPATH_LEN * afi_safi_count);
+
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+      if (peer->afc[afi][safi])
+        {
+          stream_putw (s, afi);
+          stream_putc (s, safi);
+          stream_putc (s, BGP_ADDPATH_RX);
+          SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV);
+        }
 
   /* ORF capability. */
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)

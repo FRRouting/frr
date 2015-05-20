@@ -8645,6 +8645,47 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 			 CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV) ? "and " : "");
 	      vty_out (vty, "%s", VTY_NEWLINE);
 	    }
+
+	  /* AddPath */
+	  if (CHECK_FLAG (p->cap, PEER_CAP_ADDPATH_RCV)
+	      || CHECK_FLAG (p->cap, PEER_CAP_ADDPATH_ADV))
+            {
+	      vty_out (vty, "    AddPath:%s", VTY_NEWLINE);
+
+              for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+                for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+                  {
+
+                    if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ||
+                        CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
+                      {
+                        vty_out (vty, "      %s: TX ", afi_safi_print (afi, safi));
+
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV))
+                          vty_out (vty, "advertised", afi_safi_print (afi, safi));
+
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
+                          vty_out (vty, "%sreceived", CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ? " and " : "" );
+
+                        vty_out (vty, "%s", VTY_NEWLINE);
+                      }
+
+                    if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ||
+                        CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
+                      {
+                        vty_out (vty, "      %s: RX ", afi_safi_print (afi, safi));
+
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV))
+                          vty_out (vty, "advertised", afi_safi_print (afi, safi));
+
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
+                          vty_out (vty, "%sreceived", CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ? " and " : "" );
+
+                        vty_out (vty, "%s", VTY_NEWLINE);
+                      }
+                  }
+            }
+
 	  /* Dynamic */
 	  if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV)
 	      || CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))

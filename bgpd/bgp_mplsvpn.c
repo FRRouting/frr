@@ -90,6 +90,10 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
   struct rd_ip rd_ip;
   struct prefix_rd prd;
   u_char *tagpnt;
+  afi_t afi;
+  safi_t safi;
+  u_char addpath_encoded;
+  u_int32_t addpath_id;
 
   /* Check peer status. */
   if (peer->status != Established)
@@ -101,11 +105,23 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 
   pnt = packet->nlri;
   lim = pnt + packet->length;
+  afi = packet->afi;
+  safi = packet->safi;
+  addpath_id = 0;
+
+  addpath_encoded = (CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) &&
+                     CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV));
 
   for (; pnt < lim; pnt += psize)
     {
       /* Clear prefix structure. */
       memset (&p, 0, sizeof (struct prefix));
+
+      if (addpath_encoded)
+        {
+          addpath_id = ntohl(*((uint32_t*) pnt));
+          pnt += BGP_ADDPATH_ID_LEN;
+        }
 
       /* Fetch prefix length. */
       prefixlen = *pnt++;
@@ -156,10 +172,10 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 	return -1;
 
       if (attr)
-	bgp_update (peer, &p, attr, AFI_IP, SAFI_MPLS_VPN,
+	bgp_update (peer, &p, addpath_id, attr, AFI_IP, SAFI_MPLS_VPN,
 		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
       else
-	bgp_withdraw (peer, &p, attr, AFI_IP, SAFI_MPLS_VPN,
+	bgp_withdraw (peer, &p, addpath_id, attr, AFI_IP, SAFI_MPLS_VPN,
 		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
     }
 
