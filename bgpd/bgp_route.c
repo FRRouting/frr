@@ -2152,8 +2152,6 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
           && attrhash_cmp (ri->attr, attr_new))
         {
 
-          bgp_info_unset_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
-
           if (bgp_debug_update(peer, p, 1))
             zlog_debug ("%s rcvd %s/%d for RS-client %s...duplicate ignored",
                         peer->host,
@@ -2391,8 +2389,6 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
       if (!CHECK_FLAG (ri->flags, BGP_INFO_REMOVED) 
           && attrhash_cmp (ri->attr, attr_new))
 	{
-	  bgp_info_unset_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
-
 	  if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
 	      && peer->sort == BGP_PEER_EBGP
 	      && CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
