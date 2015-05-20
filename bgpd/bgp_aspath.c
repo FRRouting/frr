@@ -1044,6 +1044,9 @@ aspath_aggregate (struct aspath *as1, struct aspath *as2)
       if (match != minlen || match != seg1->length 
 	  || seg1->length != seg2->length)
 	break;
+      /* We are moving on to the next segment to reset match */
+      else
+        match = 0;
       
       seg1 = seg1->next;
       seg2 = seg2->next;

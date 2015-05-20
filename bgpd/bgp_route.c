@@ -4800,6 +4800,7 @@ bgp_aggregate_free (struct bgp_aggregate *aggregate)
   XFREE (MTYPE_BGP_AGGREGATE, aggregate);
 }     
 
+/* Update an aggregate as routes are added/removed from the BGP table */
 static void
 bgp_aggregate_route (struct bgp *bgp, struct prefix *p, struct bgp_info *rinew,
 		     afi_t afi, safi_t safi, struct bgp_info *del, 
@@ -4889,11 +4890,11 @@ bgp_aggregate_route (struct bgp *bgp, struct prefix *p, struct bgp_info *rinew,
 
 		aggregate->count++;
 
+		if (origin < ri->attr->origin)
+		  origin = ri->attr->origin;
+
 		if (aggregate->as_set)
 		  {
-		    if (origin < ri->attr->origin)
-		      origin = ri->attr->origin;
-
 		    if (aspath)
 		      {
 			asmerge = aspath_aggregate (aspath, ri->attr->aspath);
@@ -4930,11 +4931,11 @@ bgp_aggregate_route (struct bgp *bgp, struct prefix *p, struct bgp_info *rinew,
       if (aggregate->summary_only)
         (bgp_info_extra_get (rinew))->suppress++;
 
+      if (origin < rinew->attr->origin)
+        origin = rinew->attr->origin;
+
       if (aggregate->as_set)
 	{
-	  if (origin < rinew->attr->origin)
-	    origin = rinew->attr->origin;
-
 	  if (aspath)
 	    {
 	      asmerge = aspath_aggregate (aspath, rinew->attr->aspath);
@@ -5055,6 +5056,7 @@ bgp_aggregate_decrement (struct bgp *bgp, struct prefix *p,
   bgp_unlock_node (child);
 }
 
+/* Called via bgp_aggregate_set when the user configures aggregate-address */
 static void
 bgp_aggregate_add (struct bgp *bgp, struct prefix *p, afi_t afi, safi_t safi,
 		   struct bgp_aggregate *aggregate)
@@ -5105,13 +5107,21 @@ bgp_aggregate_add (struct bgp *bgp, struct prefix *p, afi_t afi, safi_t safi,
 		    bgp_info_set_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
 		    match++;
 		  }
+
+                /* If at least one route among routes that are aggregated has
+                 * ORIGIN with the value INCOMPLETE, then the aggregated route
+                 * MUST have the ORIGIN attribute with the value INCOMPLETE.
+                 * Otherwise, if at least one route among routes that are
+                 * aggregated has ORIGIN with the value EGP, then the aggregated
+                 * route MUST have the ORIGIN attribute with the value EGP.
+                 */
+                if (origin < ri->attr->origin)
+                    origin = ri->attr->origin;
+
 		/* as-set aggregate route generate origin, as path,
 		   community aggregation.  */
 		if (aggregate->as_set)
 		  {
-		    if (origin < ri->attr->origin)
-		      origin = ri->attr->origin;
-
 		    if (aspath)
 		      {
 			asmerge = aspath_aggregate (aspath, ri->attr->aspath);

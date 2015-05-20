@@ -646,6 +646,7 @@ bgp_attr_default_intern (u_char origin)
   return new;
 }
 
+/* Create the attributes for an aggregate */
 struct attr *
 bgp_attr_aggregate_intern (struct bgp *bgp, u_char origin,
 			   struct aspath *aspath,
