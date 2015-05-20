@@ -281,6 +281,7 @@ bgp_write_proceed_actions (struct peer *peer)
   struct peer_af *paf;
   struct bpacket *next_pkt;
   int fullq_found = 0;
+  struct update_subgroup *subgrp;
 
   if (stream_fifo_head (peer->obuf))
     {
@@ -294,22 +295,42 @@ bgp_write_proceed_actions (struct peer *peer)
         paf = peer_af_find (peer, afi, safi);
         if (!paf)
           continue;
+        subgrp = paf->subgroup;
+        if (!subgrp)
+          continue;
+
         next_pkt = paf->next_pkt_to_send;
         if (next_pkt && next_pkt->buffer)
           {
             BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
             return;
           }
+
         /* No packets readily available for AFI/SAFI, are there subgroup packets
          * that need to be generated? */
-        if (paf->subgroup &&
-	    bpacket_queue_is_full(SUBGRP_INST(paf->subgroup),
-				  SUBGRP_PKTQ(paf->subgroup)))
+        if (bpacket_queue_is_full(SUBGRP_INST(subgrp),
+                                  SUBGRP_PKTQ(subgrp)))
           fullq_found = 1;
-        else if (subgroup_packets_to_build (paf->subgroup))
+        else if (subgroup_packets_to_build (subgrp))
           {
             BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
             return;
+          }
+
+        /* No packets to send, see if EOR is pending */
+        if (CHECK_FLAG (peer->cap, PEER_CAP_RESTART_RCV))
+          {
+            if (!subgrp->t_coalesce &&
+                peer->afc_nego[afi][safi] &&
+                peer->synctime &&
+                !CHECK_FLAG(peer->af_sflags[afi][safi],
+                            PEER_STATUS_EOR_SEND) &&
+                safi != SAFI_MPLS_VPN)
+              {
+                BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+                return;
+              }
+
           }
       }
   if (fullq_found)
