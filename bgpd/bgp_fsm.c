@@ -1351,14 +1351,11 @@ bgp_start (struct peer *peer)
 static int
 bgp_reconnect (struct peer *peer)
 {
-  int ret = 0;
+  if (bgp_stop (peer) < 0)
+    return -1;
 
-  if (bgp_stop (peer) > 0)
-    bgp_start (peer);
-  else
-    ret = -1;
-
-  return ret;
+  bgp_start (peer);
+  return 0;
 }
 
 static int
