@@ -382,12 +382,18 @@ bgp_adj_out_set_subgroup (struct bgp_node *rn,
   subgrp->version = max (subgrp->version, rn->version);
 }
 
+/* The only time 'withdraw' will be false is if we are sending
+ * the "neighbor x.x.x.x default-originate" default and need to clear
+ * bgp_adj_out for the 0.0.0.0/0 route in the BGP table.
+ */
 void
 bgp_adj_out_unset_subgroup (struct bgp_node *rn,
-			    struct update_subgroup *subgrp)
+			    struct update_subgroup *subgrp,
+                            char withdraw)
 {
   struct bgp_adj_out *adj;
   struct bgp_advertise *adv;
+  char trigger_write;
 
   if (DISABLE_BGP_ANNOUNCE)
     return;
@@ -398,11 +404,11 @@ bgp_adj_out_unset_subgroup (struct bgp_node *rn,
   if (!adj)
     goto done;
 
-  /* Clearn up previous advertisement.  */
+  /* Clean up previous advertisement.  */
   if (adj->adv)
     bgp_advertise_clean_subgroup (subgrp, adj);
 
-  if (adj->attr)
+  if (adj->attr && withdraw)
     {
       /* We need advertisement structure.  */
       adj->adv = bgp_advertise_new ();
@@ -410,12 +416,18 @@ bgp_adj_out_unset_subgroup (struct bgp_node *rn,
       adv->rn = rn;
       adv->adj = adj;
 
-      /* Schedule packet write, if FIFO is getting its first entry. */
+      /* Note if we need to trigger a packet write */
       if (BGP_ADV_FIFO_EMPTY (&subgrp->sync->withdraw))
-        subgroup_trigger_write(subgrp);
+        trigger_write = 1;
+      else
+        trigger_write = 0;
 
       /* Add to synchronization entry for withdraw announcement.  */
       BGP_ADV_FIFO_ADD (&subgrp->sync->withdraw, &adv->fifo);
+
+      /* Schedule packet write, if FIFO is getting its first entry. */
+      if (trigger_write)
+        subgroup_trigger_write(subgrp);
     }
   else
     {
@@ -510,7 +522,7 @@ subgroup_announce_table (struct update_subgroup *subgrp,
 	      && subgroup_announce_check (ri, subgrp, &rn->p, &attr))
 	    bgp_adj_out_set_subgroup (rn, subgrp, &attr, ri);
 	  else
-	    bgp_adj_out_unset_subgroup (rn, subgrp);
+	    bgp_adj_out_unset_subgroup (rn, subgrp, 1);
 	}
 
   /*
@@ -680,6 +692,20 @@ subgroup_default_originate (struct update_subgroup *subgrp, int withdraw)
 	{
 	  SET_FLAG (subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
 	  subgroup_default_update_packet (subgrp, &attr, from);
+
+          /* The 'neighbor x.x.x.x default-originate' default will act as an
+           * implicit withdraw for any previous UPDATEs sent for 0.0.0.0/0 so
+           * clear adj_out for the 0.0.0.0/0 prefix in the BGP table.
+           */
+          if (afi == AFI_IP)
+            str2prefix ("0.0.0.0/0", &p);
+#ifdef HAVE_IPV6
+          else
+            str2prefix ("::/0", &p);
+#endif /* HAVE_IPV6 */
+
+          rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, &p, NULL);
+          bgp_adj_out_unset_subgroup (rn, subgrp, 0);
 	}
     }
 

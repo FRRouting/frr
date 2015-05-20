@@ -459,7 +459,8 @@ bgp_adj_out_set_subgroup (struct bgp_node *rn,
 			  struct attr *attr, struct bgp_info *binfo);
 extern void
 bgp_adj_out_unset_subgroup (struct bgp_node *rn,
-			    struct update_subgroup *subgrp);
+			    struct update_subgroup *subgrp,
+                            char withdraw);
 void
 subgroup_announce_table (struct update_subgroup *subgrp,
 			 struct bgp_table *table, int rsclient);

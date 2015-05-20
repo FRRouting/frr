@@ -230,6 +230,9 @@ extern void bgp_clear_route_all (struct peer *);
 extern void bgp_clear_adj_in (struct peer *, afi_t, safi_t);
 extern void bgp_clear_stale_route (struct peer *, afi_t, safi_t);
 
+extern struct bgp_node *bgp_afi_node_get (struct bgp_table *table, afi_t afi,
+                                          safi_t safi, struct prefix *p,
+                                          struct prefix_rd *prd);
 extern struct bgp_info *bgp_info_lock (struct bgp_info *);
 extern struct bgp_info *bgp_info_unlock (struct bgp_info *);
 extern void bgp_info_add (struct bgp_node *rn, struct bgp_info *ri);

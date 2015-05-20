@@ -64,7 +64,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
 
-static struct bgp_node *
+struct bgp_node *
 bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix *p,
 		  struct prefix_rd *prd)
 {
@@ -1220,6 +1220,18 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
       return 0;
     }
 
+  /* Do not send the default route in the BGP table if the neighbor is
+   * configured for default-originate */
+  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+    {
+      if (p->family == AF_INET && p->u.prefix4.s_addr == INADDR_ANY)
+        return 0;
+#ifdef HAVE_IPV6
+      else if (p->family == AF_INET6 && p->prefixlen == 0)
+        return 0;
+#endif /* HAVE_IPV6 */
+    }
+
   /* Transparency check. */
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
       && CHECK_FLAG (from->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
@@ -1902,7 +1914,7 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
 	if (selected && subgroup_announce_check(selected, subgrp, p, &attr))
 	  bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
         else
-	  bgp_adj_out_unset_subgroup(rn, subgrp);
+	  bgp_adj_out_unset_subgroup(rn, subgrp, 1);
 
         break;
       case BGP_TABLE_RSCLIENT:
@@ -1912,7 +1924,7 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
             subgroup_announce_check_rsclient (selected, subgrp, p, &attr))
           bgp_adj_out_set_subgroup (rn, subgrp, &attr, selected);
         else
-	  bgp_adj_out_unset_subgroup(rn, subgrp);
+	  bgp_adj_out_unset_subgroup(rn, subgrp, 1);
         break;
     }
 
