@@ -20,6 +20,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 #include <math.h>
+#include <json/json.h>
 
 #include "prefix.h"
 #include "memory.h"
@@ -579,12 +580,15 @@ bgp_get_reuse_time (unsigned int penalty, char *buf, size_t len)
 }
  
 void
-bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo)  
+bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo,
+                   json_object *json_path)
 {
   struct bgp_damp_info *bdi;
   time_t t_now, t_diff;
   char timebuf[BGP_UPTIME_LEN];
   int penalty;
+  json_object *json_int;
+  json_object *json_string;
 
   if (!binfo->extra)
     return;
@@ -602,16 +606,37 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo)
   t_diff = t_now - bdi->t_updated;
   penalty = bgp_damp_decay (t_diff, bdi->penalty);
 
-  vty_out (vty, "      Dampinfo: penalty %d, flapped %d times in %s",
-           penalty, bdi->flap,
-	   peer_uptime (bdi->start_time, timebuf, BGP_UPTIME_LEN));
+  if (json_path)
+    {
+      json_int = json_object_new_int(penalty);
+      json_object_object_add(json_path, "dampening-penalty", json_int);
 
-  if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED)
-      && ! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-    vty_out (vty, ", reuse in %s",
-	     bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN));
+      json_int = json_object_new_int(bdi->flap);
+      json_object_object_add(json_path, "dampening-flap-count", json_int);
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+      json_string = json_object_new_string(peer_uptime (bdi->start_time, timebuf, BGP_UPTIME_LEN));
+      json_object_object_add(json_path, "dampening-flap-period", json_string);
+
+      if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED)
+          && ! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
+        {
+          json_string = json_object_new_string(bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN));
+          json_object_object_add(json_path, "dampening-reuse-in", json_string);
+        }
+    }
+  else
+    {
+      vty_out (vty, "      Dampinfo: penalty %d, flapped %d times in %s",
+               penalty, bdi->flap,
+	       peer_uptime (bdi->start_time, timebuf, BGP_UPTIME_LEN));
+
+      if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED)
+          && ! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
+        vty_out (vty, ", reuse in %s",
+	       bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN));
+
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
 }
 
 const char *

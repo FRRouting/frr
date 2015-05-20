@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_OPEN_H
 #define _QUAGGA_BGP_OPEN_H
 
+#include <json/json.h>
+
 /* Standard header for capability TLV */
 struct capability_header
 {

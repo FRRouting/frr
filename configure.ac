@@ -49,6 +49,8 @@ dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
 
+LIBS="$LIBS -L/usr/include/json/ -ljson"
+
 dnl ------------
 dnl Check CFLAGS
 dnl ------------

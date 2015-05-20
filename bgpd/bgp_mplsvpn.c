@@ -399,7 +399,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd)
                     vty_out (vty, "%s", VTY_NEWLINE);
                     rd_header = 0;
                   }
-                route_vty_out_tmp (vty, &rm->p, attr, SAFI_MPLS_VPN, NULL);
+                route_vty_out_tmp (vty, &rm->p, attr, SAFI_MPLS_VPN);
               }
         }
     }
