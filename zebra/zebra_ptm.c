@@ -32,10 +32,8 @@
 #define ZEBRA_PTM_RECONNECT_TIME_INITIAL 1 /* initial reconnect is 1s */
 #define ZEBRA_PTM_RECONNECT_TIME_MAX     300
 
-#define PTM_EOF_LEN     4
 #define PTM_MSG_LEN     4
-#define PTM_HEADER_LEN  10
-char *PTM_EOF_STR = "EOF\n";
+#define PTM_HEADER_LEN  37
 char *ZEBRA_PTM_GET_STATUS_CMD = "get-status";
 char *ZEBRA_PTM_PORT_STR = "port";
 char *ZEBRA_PTM_CBL_STR = "cbl status";
@@ -173,7 +171,7 @@ zebra_ptm_socket_init (void)
 
   zebra_ptm_sock = -1;
 
-  sock = socket (PF_UNIX, SOCK_STREAM, 0);
+  sock = socket (PF_UNIX, (SOCK_STREAM | SOCK_NONBLOCK), 0);
   if (sock < 0)
     return -1;
 
@@ -404,21 +402,12 @@ zebra_ptm_sock_read (struct thread *thread)
 
   /* PTM communicates in CSV format */
   while(!done) {
-    rcvptr = eofptr = rcvbuf;
-    /* check for EOF */
-    nbytes = recv(sock, eofptr, PTM_EOF_LEN, 0);
+    rcvptr = rcvbuf;
+    /* get PTM header */
+    nbytes = recv(sock, rcvptr, PTM_HEADER_LEN, 0);
     if (nbytes <= 0)
         break;
-    if (!strncmp(eofptr, PTM_EOF_STR, PTM_EOF_LEN)){
-      done = TRUE;
-      continue;
-    }
-
-    /* get rest of PTM header */
-    nbytes = recv(sock, rcvptr+PTM_EOF_LEN, PTM_HEADER_LEN-PTM_EOF_LEN, 0);
-    if (nbytes <= 0)
-        break;
-    strncpy(msgbuf, rcvptr, PTM_MSG_LEN);
+    snprintf(msgbuf, PTM_MSG_LEN+1, "%s", rcvptr);
     msglen = strtol(msgbuf, NULL, 10);
 
     /* get the PTM message */
@@ -432,8 +421,7 @@ zebra_ptm_sock_read (struct thread *thread)
   }
 
   if (nbytes <= 0) {
-
-    if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
+    if (errno  && errno != EWOULDBLOCK && errno != EAGAIN) {
 	  zlog_warn ("routing socket error: %s", safe_strerror (errno));
 
       close (zebra_ptm_sock);
@@ -441,6 +429,7 @@ zebra_ptm_sock_read (struct thread *thread)
       zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
                                            NULL, zebra_ptm_reconnect_time);
       return (-1);
+    }
   }
 
   zebra_ptm_thread = thread_add_read (zebrad.master, zebra_ptm_sock_read, NULL, sock);
