@@ -8533,6 +8533,9 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
               json_int = json_object_new_int(peer->obuf->count);
               json_object_object_add(json_peer, "outq", json_int);
 
+              json_int = json_object_new_int(0);
+              json_object_object_add(json_peer, "inq", json_int);
+
               json_string = json_object_new_string(peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
               json_object_object_add(json_peer, "uptime", json_string);
 
@@ -8608,6 +8611,13 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   if (use_json)
     {
       json_object_object_add(json, "peers", json_peers);
+
+      json_int = json_object_new_int(count);
+      json_object_object_add(json, "total-peers", json_int);
+
+      json_int = json_object_new_int(dn_count);
+      json_object_object_add(json, "dynamic-peers", json_int);
+
       vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
 
       // Recursively free all json structures
