@@ -1000,11 +1000,18 @@ DEFUN (no_set_metric,
 
 ALIAS (no_set_metric,
        no_set_metric_val_cmd,
-       "no set metric (<0-4294967295>|<+/-metric>)",
+       "no set metric <0-4294967295>",
        NO_STR
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Metric value\n"
+       "Metric value\n")
+
+ALIAS (no_set_metric,
+       no_set_metric_addsub_cmd,
+       "no set metric <+/-metric>",
+       NO_STR
+       SET_STR
+       "Metric value for destination routing protocol\n"
        "Add or subtract metric\n")
 
 DEFUN (set_ip_nexthop,
@@ -1135,6 +1142,7 @@ rip_route_map_init ()
   install_element (RMAP_NODE, &set_metric_addsub_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_val_cmd);
+  install_element (RMAP_NODE, &no_set_metric_addsub_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);

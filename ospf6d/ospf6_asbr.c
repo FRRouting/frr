@@ -1093,16 +1093,29 @@ DEFUN (set_metric,
 /* delete "set metric" */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
-       "no set metric <0-4294967295>",
+       "no set metric",
        NO_STR
-       "Set value\n"
-       "Metric\n"
-       "METRIC value\n")
+       SET_STR
+       "Metric value for destination routing protocol\n")
 {
-  int ret = route_map_delete_set ((struct route_map_index *) vty->index,
-                                  "metric", argv[0]);
+  int ret = 0;
+
+  if (argc == 0)
+    ret = route_map_delete_set ((struct route_map_index *) vty->index,
+                                "metric", NULL);
+  else
+    ret = route_map_delete_set ((struct route_map_index *) vty->index,
+                                "metric", argv[0]);
   return route_map_command_status (vty, ret);
 }
+
+ALIAS (no_set_metric,
+       no_set_metric_val_cmd,
+       "no set metric <0-4294967295>",
+       NO_STR
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Metric value\n")
 
 /* add "set forwarding-address" */
 DEFUN (ospf6_routemap_set_forwarding,
@@ -1162,6 +1175,7 @@ ospf6_routemap_init (void)
   /* ASE Metric */
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
+  install_element (RMAP_NODE, &no_set_metric_val_cmd);
 
   /* ASE Metric */
   install_element (RMAP_NODE, &ospf6_routemap_set_forwarding_cmd);
