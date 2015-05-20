@@ -2366,34 +2366,10 @@ vty_read_config (char *config_file,
     }
   else
     {
-      confp = fopen (config_default_dir, "r");
-      if (confp == NULL)
-        {
-          fprintf (stderr, "%s: failed to open configuration file %s: %s\n",
-                   __func__, config_default_dir, safe_strerror (errno));
-          
-          confp = vty_use_backup_config (config_default_dir);
-          if (confp)
-            {
-              fprintf (stderr, "WARNING: using backup configuration file!\n");
-              fullpath = config_default_dir;
-            }
-          else
-            {
-              fprintf (stderr, "can't open configuration file [%s]\n",
-  		                 config_default_dir);
-  	          exit (1);
-            }
-        }      
-      else
-        fullpath = config_default_dir;
-    }
 
-  host_config_set (fullpath);
+      host_config_set (config_default_dir);
 
 #ifdef VTYSH
-  if (config_file)
-    {
       int ret;
       struct stat conf_stat;
 
@@ -2417,8 +2393,30 @@ vty_read_config (char *config_file,
           if (ret >= 0)
 	    return;
         }
-    }
 #endif /* VTYSH */
+      confp = fopen (config_default_dir, "r");
+      if (confp == NULL)
+        {
+          fprintf (stderr, "%s: failed to open configuration file %s: %s\n",
+                   __func__, config_default_dir, safe_strerror (errno));
+
+          confp = vty_use_backup_config (config_default_dir);
+          if (confp)
+            {
+              fprintf (stderr, "WARNING: using backup configuration file!\n");
+              fullpath = config_default_dir;
+            }
+          else
+            {
+              fprintf (stderr, "can't open configuration file [%s]\n",
+		       config_default_dir);
+	      exit (1);
+            }
+        }
+      else
+        fullpath = config_default_dir;
+    }
+
   vty_read_file (confp);
 
   fclose (confp);

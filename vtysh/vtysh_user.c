@@ -55,6 +55,9 @@ struct vtysh_user *user_get(const char *);
 int vtysh_auth(void);
 void vtysh_user_init(void);
 
+extern struct list *config_top;
+extern void config_add_line(struct list *config, const char *line);
+
 #ifdef USE_PAM
 static struct pam_conv conv = 
 {

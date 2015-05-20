@@ -3010,6 +3010,7 @@ DEFUN (config_write_file,
   char *config_file_sav = NULL;
   int ret = CMD_WARNING;
   struct vty *file_vty;
+  struct stat conf_stat;
 
   /* Check and see if we are operating under vtysh configuration */
   if (host.config == NULL)
@@ -3058,25 +3059,28 @@ DEFUN (config_write_file,
       }
   vty_close (file_vty);
 
-  if (unlink (config_file_sav) != 0)
-    if (errno != ENOENT)
-      {
-	vty_out (vty, "Can't unlink backup configuration file %s.%s", config_file_sav,
-		 VTY_NEWLINE);
-        goto finished;
-      }
-  if (link (config_file, config_file_sav) != 0)
+  if (stat(config_file, &conf_stat) >= 0)
     {
-      vty_out (vty, "Can't backup old configuration file %s.%s", config_file_sav,
-	        VTY_NEWLINE);
-      goto finished;
-    }
-  sync ();
-  if (unlink (config_file) != 0)
-    {
-      vty_out (vty, "Can't unlink configuration file %s.%s", config_file,
-	        VTY_NEWLINE);
-      goto finished;
+      if (unlink (config_file_sav) != 0)
+	if (errno != ENOENT)
+	  {
+	    vty_out (vty, "Can't unlink backup configuration file %s.%s", config_file_sav,
+		     VTY_NEWLINE);
+	    goto finished;
+	  }
+      if (link (config_file, config_file_sav) != 0)
+	{
+	  vty_out (vty, "Can't backup old configuration file %s.%s", config_file_sav,
+		   VTY_NEWLINE);
+	  goto finished;
+	}
+      sync ();
+      if (unlink (config_file) != 0)
+	{
+	  vty_out (vty, "Can't unlink configuration file %s.%s", config_file,
+		   VTY_NEWLINE);
+	  goto finished;
+	}
     }
   if (link (config_file_tmp, config_file) != 0)
     {
