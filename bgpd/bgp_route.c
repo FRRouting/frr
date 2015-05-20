@@ -2882,7 +2882,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
      Adj-RIBs-In.  */
   if (! soft_reconfig && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
       && peer != bgp->peer_self)
-    bgp_adj_in_set (rn, peer, attr);
+    bgp_adj_in_set (rn, peer, attr, addpath_id);
 
   /* Check previously received route. */
   for (ri = rn->info; ri; ri = ri->next)
@@ -3281,7 +3281,7 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
      further calculation. */
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
       && peer != bgp->peer_self)
-    bgp_adj_in_unset (rn, peer);
+    bgp_adj_in_unset (rn, peer, addpath_id);
 
   /* Lookup withdrawn route. */
   for (ri = rn->info; ri; ri = ri->next)
@@ -3485,7 +3485,7 @@ bgp_soft_reconfig_table (struct peer *peer, afi_t afi, safi_t safi,
 	    struct bgp_info *ri = rn->info;
 	    u_char *tag = (ri && ri->extra) ? ri->extra->tag : NULL;
 
-	    ret = bgp_update (peer, &rn->p, ri->addpath_rx_id, ain->attr,
+	    ret = bgp_update (peer, &rn->p, ain->addpath_rx_id, ain->attr,
                               afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 			      prd, tag, 1);
 
@@ -3494,7 +3494,6 @@ bgp_soft_reconfig_table (struct peer *peer, afi_t afi, safi_t safi,
 		bgp_unlock_node (rn);
 		return;
 	      }
-	    continue;
 	  }
       }
 }
@@ -3543,6 +3542,9 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
   
   assert (rn && peer);
   
+  /* It is possible that we have multiple paths for a prefix from a peer
+   * if that peer is using AddPath.
+   */
   for (ri = rn->info; ri; ri = ri->next)
     if (ri->peer == peer || cnq->purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
       {
@@ -3554,7 +3556,6 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
           bgp_info_set_flag (rn, ri, BGP_INFO_STALE);
         else
           bgp_rib_remove (rn, ri, peer, afi, safi);
-        break;
       }
   return WQ_SUCCESS;
 }
@@ -3624,6 +3625,7 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
     {
       struct bgp_info *ri;
       struct bgp_adj_in *ain;
+      struct bgp_adj_in *ain_next;
       struct bgp_adj_out *aout;
 
       /* XXX:TODO: This is suboptimal, every non-empty route_node is
@@ -3656,14 +3658,23 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
        * Given that our per-peer prefix-counts now should be reliable,
        * this may actually be achievable. It doesn't seem to be a huge
        * problem at this time,
+       *
+       * It is possible that we have multiple paths for a prefix from a peer
+       * if that peer is using AddPath.
        */
-      for (ain = rn->adj_in; ain; ain = ain->next)
-        if (ain->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
-          {
-            bgp_adj_in_remove (rn, ain);
-            bgp_unlock_node (rn);
-            break;
-          }
+      ain = rn->adj_in;
+      while (ain)
+        {
+          ain_next = ain->next;
+
+          if (ain->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
+            {
+              bgp_adj_in_remove (rn, ain);
+              bgp_unlock_node (rn);
+            }
+
+          ain = ain_next;
+        }
 
       /*
        * Can't do this anymore. adj-outs are not maintained per peer.
@@ -3788,17 +3799,30 @@ bgp_clear_adj_in (struct peer *peer, afi_t afi, safi_t safi)
   struct bgp_table *table;
   struct bgp_node *rn;
   struct bgp_adj_in *ain;
+  struct bgp_adj_in *ain_next;
 
   table = peer->bgp->rib[afi][safi];
 
+  /* It is possible that we have multiple paths for a prefix from a peer
+   * if that peer is using AddPath.
+   */
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
-    for (ain = rn->adj_in; ain ; ain = ain->next)
-      if (ain->peer == peer)
-	{
-          bgp_adj_in_remove (rn, ain);
-          bgp_unlock_node (rn);
-          break;
-	}
+    {
+      ain = rn->adj_in;
+
+      while (ain)
+        {
+          ain_next = ain->next;
+
+          if (ain->peer == peer)
+            {
+              bgp_adj_in_remove (rn, ain);
+              bgp_unlock_node (rn);
+	    }
+
+          ain = ain_next;
+        }
+    }
 }
 
 void
