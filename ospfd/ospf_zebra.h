@@ -54,25 +54,32 @@ extern int ospf_redistribute_check (struct ospf *, struct external_info *,
 				    int *);
 extern int ospf_distribute_check_connected (struct ospf *,
 					    struct external_info *);
-extern void ospf_distribute_list_update (struct ospf *, uintptr_t);
+extern void ospf_distribute_list_update (struct ospf *, uintptr_t, u_short);
 
-extern int ospf_is_type_redistributed (int);
+extern int ospf_is_type_redistributed (int, u_short);
 extern void ospf_distance_reset (struct ospf *);
 extern u_char ospf_distance_apply (struct prefix_ipv4 *, struct ospf_route *);
+extern struct ospf_external *ospf_external_lookup (u_char, u_short);
+extern struct ospf_external *ospf_external_add (u_char, u_short);
+extern void ospf_external_del (u_char, u_short);
+extern struct ospf_redist *ospf_redist_lookup (struct ospf *, u_char, u_short);
+extern struct ospf_redist *ospf_redist_add (struct ospf *, u_char, u_short);
+extern void ospf_redist_del (struct ospf *, u_char, u_short);
 
-extern int ospf_redistribute_set (struct ospf *, int, int, int);
-extern int ospf_redistribute_unset (struct ospf *, int);
+
+extern int ospf_redistribute_set (struct ospf *, int, u_short, int, int);
+extern int ospf_redistribute_unset (struct ospf *, int, u_short);
 extern int ospf_redistribute_default_set (struct ospf *, int, int, int);
 extern int ospf_redistribute_default_unset (struct ospf *);
 extern int ospf_distribute_list_out_set (struct ospf *, int, const char *);
 extern int ospf_distribute_list_out_unset (struct ospf *, int, const char *);
-extern void ospf_routemap_set (struct ospf *, int, const char *);
-extern void ospf_routemap_unset (struct ospf *, int);
+extern void ospf_routemap_set (struct ospf_redist *, const char *);
+extern void ospf_routemap_unset (struct ospf_redist *);
 extern int ospf_distance_set (struct vty *, struct ospf *, const char *,
 			      const char *, const char *);
 extern int ospf_distance_unset (struct vty *, struct ospf *, const char *,
 				const char *, const char *);
-extern void ospf_zebra_init (void);
+extern void ospf_zebra_init (u_short);
 
 #endif /* _ZEBRA_OSPF_ZEBRA_H */
 

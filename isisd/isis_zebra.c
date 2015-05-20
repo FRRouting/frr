@@ -236,7 +236,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
   if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
-  if (zclient->redist[ZEBRA_ROUTE_ISIS])
+  if (zclient->redist[ZEBRA_ROUTE_ISIS].enabled)
     {
       message = 0;
       flags = 0;
@@ -252,6 +252,8 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
       zclient_create_header (stream, ZEBRA_IPV4_ROUTE_ADD);
       /* type */
       stream_putc (stream, ZEBRA_ROUTE_ISIS);
+      /* instance */
+      stream_putw (stream, 0);
       /* flags */
       stream_putc (stream, flags);
       /* message */
@@ -301,9 +303,10 @@ isis_zebra_route_del_ipv4 (struct prefix *prefix,
   struct zapi_ipv4 api;
   struct prefix_ipv4 prefix4;
 
-  if (zclient->redist[ZEBRA_ROUTE_ISIS])
+  if (zclient->redist[ZEBRA_ROUTE_ISIS].enabled)
     {
       api.type = ZEBRA_ROUTE_ISIS;
+      api.instance = 0;
       api.flags = 0;
       api.message = 0;
       api.safi = SAFI_UNICAST;
@@ -334,6 +337,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
     return;
 
   api.type = ZEBRA_ROUTE_ISIS;
+  api.instance = 0;
   api.flags = 0;
   api.message = 0;
   api.safi = SAFI_UNICAST;
@@ -419,6 +423,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
     return;
 
   api.type = ZEBRA_ROUTE_ISIS;
+  api.instance = 0;
   api.flags = 0;
   api.message = 0;
   api.safi = SAFI_UNICAST;
@@ -488,7 +493,7 @@ isis_zebra_route_update (struct prefix *prefix,
   if (zclient->sock < 0)
     return;
 
-  if (!zclient->redist[ZEBRA_ROUTE_ISIS])
+  if (!zclient->redist[ZEBRA_ROUTE_ISIS].enabled)
     return;
 
   if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ACTIVE))
@@ -527,6 +532,7 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
   ifindex = 0;
 
   api.type = stream_getc (stream);
+  api.instance = stream_getw (stream);
   api.flags = stream_getc (stream);
   api.message = stream_getc (stream);
 
@@ -570,7 +576,8 @@ isis_zebra_read_ipv6 (int command, struct zclient *zclient,
 #endif
 
 #define ISIS_TYPE_IS_REDISTRIBUTED(T) \
-T == ZEBRA_ROUTE_MAX ? zclient->default_information : zclient->redist[type]
+T == ZEBRA_ROUTE_MAX ? zclient->default_information : \
+zclient->redist[type].enabled
 
 int
 isis_distribute_list_update (int routetype)
@@ -591,7 +598,7 @@ void
 isis_zebra_init ()
 {
   zclient = zclient_new ();
-  zclient_init (zclient, ZEBRA_ROUTE_ISIS);
+  zclient_init (zclient, ZEBRA_ROUTE_ISIS, 0);
   zclient->router_id_update = isis_router_id_update_zebra;
   zclient->interface_add = isis_zebra_if_add;
   zclient->interface_delete = isis_zebra_if_del;

@@ -2889,7 +2889,7 @@ ospf_read (struct thread *thread)
     {
       if ((oi = ospf_associate_packet_vl (ospf, ifp, iph, ospfh)) == NULL)
         {
-          if (IS_DEBUG_OSPF_EVENT)
+          if (!ospf->instance && IS_DEBUG_OSPF_EVENT)
             zlog_debug ("Packet from [%s] received on link %s"
                         " but no ospf_interface",
                         inet_ntoa (iph->ip_src), ifp->name);

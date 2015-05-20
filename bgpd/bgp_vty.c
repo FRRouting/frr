@@ -9639,7 +9639,8 @@ DEFUN (bgp_redistribute_ipv4,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_redistribute_set (vty->index, AFI_IP, type);
+  bgp_redist_add(vty->index, AFI_IP, type, 0);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_rmap,
@@ -9651,6 +9652,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
        "Pointer to route-map entries\n")
 {
   int type;
+  struct bgp_redist *red;
 
   type = proto_redistnum (AFI_IP, argv[0]);
   if (type < 0 || type == ZEBRA_ROUTE_BGP)
@@ -9659,8 +9661,9 @@ DEFUN (bgp_redistribute_ipv4_rmap,
       return CMD_WARNING;
     }
 
-  bgp_redistribute_rmap_set (vty->index, AFI_IP, type, argv[1]);
-  return bgp_redistribute_set (vty->index, AFI_IP, type);
+  red = bgp_redist_add(vty->index, AFI_IP, type, 0);
+  bgp_redistribute_rmap_set (red, argv[1]);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_metric,
@@ -9673,6 +9676,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
 {
   int type;
   u_int32_t metric;
+  struct bgp_redist *red;
 
   type = proto_redistnum (AFI_IP, argv[0]);
   if (type < 0 || type == ZEBRA_ROUTE_BGP)
@@ -9682,8 +9686,9 @@ DEFUN (bgp_redistribute_ipv4_metric,
     }
   VTY_GET_INTEGER ("metric", metric, argv[1]);
 
-  bgp_redistribute_metric_set (vty->index, AFI_IP, type, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP, type);
+  red = bgp_redist_add(vty->index, AFI_IP, type, 0);
+  bgp_redistribute_metric_set (red, metric);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
@@ -9698,6 +9703,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 {
   int type;
   u_int32_t metric;
+  struct bgp_redist *red;
 
   type = proto_redistnum (AFI_IP, argv[0]);
   if (type < 0 || type == ZEBRA_ROUTE_BGP)
@@ -9707,9 +9713,10 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
     }
   VTY_GET_INTEGER ("metric", metric, argv[2]);
 
-  bgp_redistribute_rmap_set (vty->index, AFI_IP, type, argv[1]);
-  bgp_redistribute_metric_set (vty->index, AFI_IP, type, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP, type);
+  red = bgp_redist_add(vty->index, AFI_IP, type, 0);
+  bgp_redistribute_rmap_set (red, argv[1]);
+  bgp_redistribute_metric_set (red, metric);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
@@ -9724,6 +9731,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 {
   int type;
   u_int32_t metric;
+  struct bgp_redist *red;
 
   type = proto_redistnum (AFI_IP, argv[0]);
   if (type < 0 || type == ZEBRA_ROUTE_BGP)
@@ -9733,10 +9741,170 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
     }
   VTY_GET_INTEGER ("metric", metric, argv[1]);
 
-  bgp_redistribute_metric_set (vty->index, AFI_IP, type, metric);
-  bgp_redistribute_rmap_set (vty->index, AFI_IP, type, argv[2]);
-  return bgp_redistribute_set (vty->index, AFI_IP, type);
+  red = bgp_redist_add(vty->index, AFI_IP, type, 0);
+  bgp_redistribute_metric_set (red, metric);
+  bgp_redistribute_rmap_set (red, argv[2]);
+  return bgp_redistribute_set (type, 0);
 }
+
+DEFUN (bgp_redistribute_ipv4_ospf,
+       bgp_redistribute_ipv4_ospf_cmd,
+       "redistribute ospf <1-65535>",
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n")
+{
+  u_short instance;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
+  bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+}
+
+DEFUN (bgp_redistribute_ipv4_ospf_rmap,
+       bgp_redistribute_ipv4_ospf_rmap_cmd,
+       "redistribute ospf <1-65535> route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  struct bgp_redist *red;
+  u_short instance;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
+  red = bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+  bgp_redistribute_rmap_set (red, argv[1]);
+  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+}
+
+DEFUN (bgp_redistribute_ipv4_ospf_metric,
+       bgp_redistribute_ipv4_ospf_metric_cmd,
+       "redistribute ospf <1-65535> metric <0-4294967295>",
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n"
+       "Metric for redistributed routes\n"
+       "Default metric\n")
+{
+  u_int32_t metric;
+  struct bgp_redist *red;
+  u_short instance;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
+  VTY_GET_INTEGER ("metric", metric, argv[1]);
+
+  red = bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+  bgp_redistribute_metric_set (red, metric);
+  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+}
+
+DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
+       bgp_redistribute_ipv4_ospf_rmap_metric_cmd,
+       "redistribute ospf <1-65535> route-map WORD metric <0-4294967295>",
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n"
+       "Metric for redistributed routes\n"
+       "Default metric\n")
+{
+  u_int32_t metric;
+  struct bgp_redist *red;
+  u_short instance;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
+  VTY_GET_INTEGER ("metric", metric, argv[2]);
+
+  red = bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+  bgp_redistribute_rmap_set (red, argv[1]);
+  bgp_redistribute_metric_set (red, metric);
+  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+}
+
+DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
+       bgp_redistribute_ipv4_ospf_metric_rmap_cmd,
+       "redistribute ospf <1-65535> metric <0-4294967295> route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n"
+       "Metric for redistributed routes\n"
+       "Default metric\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  u_int32_t metric;
+  struct bgp_redist *red;
+  u_short instance;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
+  VTY_GET_INTEGER ("metric", metric, argv[1]);
+
+  red = bgp_redist_add(vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+  bgp_redistribute_metric_set (red, metric);
+  bgp_redistribute_rmap_set (red, argv[2]);
+  return bgp_redistribute_set (ZEBRA_ROUTE_OSPF, instance);
+}
+
+DEFUN (no_bgp_redistribute_ipv4_ospf,
+       no_bgp_redistribute_ipv4_ospf_cmd,
+       "no redistribute ospf <1-65535>",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n")
+{
+  u_short instance;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
+  return bgp_redistribute_unset (vty->index, AFI_IP, ZEBRA_ROUTE_OSPF, instance);
+}
+
+ALIAS (no_bgp_redistribute_ipv4_ospf,
+       no_bgp_redistribute_ipv4_ospf_rmap_cmd,
+       "no redistribute ospf <1-65535> route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+
+ALIAS (no_bgp_redistribute_ipv4_ospf,
+       no_bgp_redistribute_ipv4_ospf_metric_cmd,
+       "no redistribute ospf <1-65535> metric <0-4294967295>",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n"
+       "Metric for redistributed routes\n"
+       "Default metric\n")
+
+ALIAS (no_bgp_redistribute_ipv4_ospf,
+       no_bgp_redistribute_ipv4_ospf_rmap_metric_cmd,
+       "no redistribute ospf <1-65535> route-map WORD metric <0-4294967295>",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n"
+       "Metric for redistributed routes\n"
+       "Default metric\n")
+
+ALIAS (no_bgp_redistribute_ipv4_ospf,
+       no_bgp_redistribute_ipv4_ospf_metric_rmap_cmd,
+       "no redistribute ospf <1-65535> metric <0-4294967295> route-map WORD",
+       NO_STR
+       "Redistribute information from another routing protocol\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n"
+       "Metric for redistributed routes\n"
+       "Default metric\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
 
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
@@ -9753,8 +9921,7 @@ DEFUN (no_bgp_redistribute_ipv4,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  return bgp_redistribute_unset (vty->index, AFI_IP, type);
+  return bgp_redistribute_unset (vty->index, AFI_IP, type, 0);
 }
 
 ALIAS (no_bgp_redistribute_ipv4,
@@ -9813,7 +9980,8 @@ DEFUN (bgp_redistribute_ipv6,
       return CMD_WARNING;
     }
 
-  return bgp_redistribute_set (vty->index, AFI_IP6, type);
+  bgp_redist_add(vty->index, AFI_IP6, type, 0);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_rmap,
@@ -9825,6 +9993,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
        "Pointer to route-map entries\n")
 {
   int type;
+  struct bgp_redist *red;
 
   type = proto_redistnum (AFI_IP6, argv[0]);
   if (type < 0 || type == ZEBRA_ROUTE_BGP)
@@ -9833,8 +10002,9 @@ DEFUN (bgp_redistribute_ipv6_rmap,
       return CMD_WARNING;
     }
 
-  bgp_redistribute_rmap_set (vty->index, AFI_IP6, type, argv[1]);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type);
+  red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
+  bgp_redistribute_rmap_set (red, argv[1]);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_metric,
@@ -9847,6 +10017,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
 {
   int type;
   u_int32_t metric;
+  struct bgp_redist *red;
 
   type = proto_redistnum (AFI_IP6, argv[0]);
   if (type < 0 || type == ZEBRA_ROUTE_BGP)
@@ -9856,8 +10027,9 @@ DEFUN (bgp_redistribute_ipv6_metric,
     }
   VTY_GET_INTEGER ("metric", metric, argv[1]);
 
-  bgp_redistribute_metric_set (vty->index, AFI_IP6, type, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type);
+  red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
+  bgp_redistribute_metric_set (red, metric);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
@@ -9872,6 +10044,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 {
   int type;
   u_int32_t metric;
+  struct bgp_redist *red;
 
   type = proto_redistnum (AFI_IP6, argv[0]);
   if (type < 0 || type == ZEBRA_ROUTE_BGP)
@@ -9881,9 +10054,10 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
     }
   VTY_GET_INTEGER ("metric", metric, argv[2]);
 
-  bgp_redistribute_rmap_set (vty->index, AFI_IP6, type, argv[1]);
-  bgp_redistribute_metric_set (vty->index, AFI_IP6, type, metric);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type);
+  red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
+  bgp_redistribute_rmap_set (red, argv[1]);
+  bgp_redistribute_metric_set (red, metric);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
@@ -9898,6 +10072,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 {
   int type;
   u_int32_t metric;
+  struct bgp_redist *red;
 
   type = proto_redistnum (AFI_IP6, argv[0]);
   if (type < 0 || type == ZEBRA_ROUTE_BGP)
@@ -9907,9 +10082,10 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
     }
   VTY_GET_INTEGER ("metric", metric, argv[1]);
 
-  bgp_redistribute_metric_set (vty->index, AFI_IP6, type, metric);
-  bgp_redistribute_rmap_set (vty->index, AFI_IP6, type, argv[2]);
-  return bgp_redistribute_set (vty->index, AFI_IP6, type);
+  red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
+  bgp_redistribute_metric_set (red, metric);
+  bgp_redistribute_rmap_set (red, argv[2]);
+  return bgp_redistribute_set (type, 0);
 }
 
 DEFUN (no_bgp_redistribute_ipv6,
@@ -9928,7 +10104,7 @@ DEFUN (no_bgp_redistribute_ipv6,
       return CMD_WARNING;
     }
 
-  return bgp_redistribute_unset (vty->index, AFI_IP6, type);
+  return bgp_redistribute_unset (vty->index, AFI_IP6, type, 0);
 }
 
 ALIAS (no_bgp_redistribute_ipv6,
@@ -9985,21 +10161,31 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     {
       /* Redistribute BGP does not make sense.  */
-      if (bgp->redist[afi][i] && i != ZEBRA_ROUTE_BGP)
+      if (i != ZEBRA_ROUTE_BGP)
 	{
-	  /* Display "address-family" when it is not yet diplayed.  */
-	  bgp_config_write_family_header (vty, afi, safi, write);
+          struct list *red_list;
+          struct listnode *node;
+          struct bgp_redist *red;
 
-	  /* "redistribute" configuration.  */
-	  vty_out (vty, " redistribute %s", zebra_route_string(i));
+          red_list = bgp->redist[afi][i];
+          if (!red_list)
+            continue;
 
-	  if (bgp->redist_metric_flag[afi][i])
-	    vty_out (vty, " metric %u", bgp->redist_metric[afi][i]);
+          for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+            {
+              /* Display "address-family" when it is not yet diplayed.  */
+              bgp_config_write_family_header (vty, afi, safi, write);
 
-	  if (bgp->rmap[afi][i].name)
-	    vty_out (vty, " route-map %s", bgp->rmap[afi][i].name);
-
-	  vty_out (vty, "%s", VTY_NEWLINE);
+              /* "redistribute" configuration.  */
+              vty_out (vty, " redistribute %s", zebra_route_string(i));
+              if (red->instance)
+                vty_out (vty, " %d", red->instance);
+              if (red->redist_metric_flag)
+                vty_out (vty, " metric %u", red->redist_metric);
+              if (red->rmap.name)
+                vty_out (vty, " route-map %s", red->rmap.name);
+              vty_out (vty, "%s", VTY_NEWLINE);
+            }
 	}
     }
   return *write;
@@ -11264,6 +11450,16 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_redistribute_ipv4_metric_rmap_cmd);
   install_element (BGP_NODE, &no_bgp_redistribute_ipv4_rmap_metric_cmd);
   install_element (BGP_NODE, &no_bgp_redistribute_ipv4_metric_rmap_cmd);
+  install_element (BGP_NODE, &bgp_redistribute_ipv4_ospf_cmd);
+  install_element (BGP_NODE, &no_bgp_redistribute_ipv4_ospf_cmd);
+  install_element (BGP_NODE, &bgp_redistribute_ipv4_ospf_rmap_cmd);
+  install_element (BGP_NODE, &no_bgp_redistribute_ipv4_ospf_rmap_cmd);
+  install_element (BGP_NODE, &bgp_redistribute_ipv4_ospf_metric_cmd);
+  install_element (BGP_NODE, &no_bgp_redistribute_ipv4_ospf_metric_cmd);
+  install_element (BGP_NODE, &bgp_redistribute_ipv4_ospf_rmap_metric_cmd);
+  install_element (BGP_NODE, &no_bgp_redistribute_ipv4_ospf_rmap_metric_cmd);
+  install_element (BGP_NODE, &bgp_redistribute_ipv4_ospf_metric_rmap_cmd);
+  install_element (BGP_NODE, &no_bgp_redistribute_ipv4_ospf_metric_rmap_cmd);
 #ifdef HAVE_IPV6
   install_element (BGP_IPV6_NODE, &bgp_redistribute_ipv6_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_redistribute_ipv6_cmd);

@@ -153,12 +153,13 @@ ospf_area_id_cmp (struct ospf_area *a1, struct ospf_area *a2)
 
 /* Allocate new ospf structure. */
 static struct ospf *
-ospf_new (void)
+ospf_new (u_short instance)
 {
   int i;
 
   struct ospf *new = XCALLOC (MTYPE_OSPF_TOP, sizeof (struct ospf));
 
+  new->instance = instance;
   new->router_id.s_addr = htonl (0);
   new->router_id_static.s_addr = htonl (0);
 
@@ -187,8 +188,6 @@ ospf_new (void)
   /* Distribute parameter init. */
   for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
     {
-      new->dmetric[i].type = -1;
-      new->dmetric[i].value = -1;
       new->dtag[i] = 0;
     }
   new->default_metric = -1;
@@ -248,6 +247,23 @@ ospf_lookup ()
   return listgetdata (listhead (om->ospf));
 }
 
+struct ospf *
+ospf_lookup_instance (u_short instance)
+{
+  struct ospf *ospf;
+  struct listnode *node, *nnode;
+
+  if (listcount (om->ospf) == 0)
+    return NULL;
+
+  for (ALL_LIST_ELEMENTS (om->ospf, node, nnode, ospf))
+    if ((ospf->instance == 0 && instance == 0)
+        || (ospf->instance && instance && ospf->instance == instance))
+      return ospf;
+
+  return NULL;
+}
+
 static void
 ospf_add (struct ospf *ospf)
 {
@@ -268,7 +284,29 @@ ospf_get ()
   ospf = ospf_lookup ();
   if (ospf == NULL)
     {
-      ospf = ospf_new ();
+      ospf = ospf_new (0);
+      ospf_add (ospf);
+
+      if (ospf->router_id_static.s_addr == 0)
+	ospf_router_id_update (ospf);
+
+#ifdef HAVE_OPAQUE_LSA
+      ospf_opaque_type11_lsa_init (ospf);
+#endif /* HAVE_OPAQUE_LSA */
+    }
+
+  return ospf;
+}
+
+struct ospf *
+ospf_get_instance (u_short instance)
+{
+  struct ospf *ospf;
+
+  ospf = ospf_lookup_instance (instance);
+  if (ospf == NULL)
+    {
+      ospf = ospf_new (instance);
       ospf_add (ospf);
 
       if (ospf->router_id_static.s_addr == 0)
@@ -409,6 +447,7 @@ ospf_finish_final (struct ospf *ospf)
   struct ospf_vl_data *vl_data;
   struct listnode *node, *nnode;
   int i;
+  u_short instance;
 
 #ifdef HAVE_OPAQUE_LSA
   ospf_opaque_type11_lsa_term (ospf);
@@ -419,7 +458,17 @@ ospf_finish_final (struct ospf *ospf)
   
   /* Unregister redistribution */
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-    ospf_redistribute_unset (ospf, i);
+    {
+      struct list *red_list;
+      struct ospf_redist *red;
+
+      red_list = ospf->redist[i];
+      if (!red_list)
+        continue;
+
+      for (ALL_LIST_ELEMENTS(red_list, node, nnode, red))
+        ospf_redistribute_unset (ospf, i, red->instance);
+    }
   ospf_redistribute_default_unset (ospf);
 
   for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
@@ -557,23 +606,43 @@ ospf_finish_final (struct ospf *ospf)
   list_delete (ospf->areas);
   
   for (i = ZEBRA_ROUTE_SYSTEM; i <= ZEBRA_ROUTE_MAX; i++)
-    if (EXTERNAL_INFO (i) != NULL)
-      for (rn = route_top (EXTERNAL_INFO (i)); rn; rn = route_next (rn))
-	{
-	  if (rn->info == NULL)
-	    continue;
-	  
-	  XFREE (MTYPE_OSPF_EXTERNAL_INFO, rn->info);
-	  rn->info = NULL;
-	  route_unlock_node (rn);
-	}
+    {
+      struct list *ext_list;
+      struct listnode *node;
+      struct ospf_external *ext;
+
+      ext_list = om->external[i];
+      if (!ext_list)
+        continue;
+
+      for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext))
+        {
+          if (ext->external_info)
+            for (rn = route_top (ext->external_info); rn; rn = route_next (rn))
+              {
+                if (rn->info == NULL)
+                  continue;
+
+                XFREE (MTYPE_OSPF_EXTERNAL_INFO, rn->info);
+                rn->info = NULL;
+                route_unlock_node (rn);
+              }
+        }
+    }
 
   ospf_distance_reset (ospf);
   route_table_finish (ospf->distance_table);
 
+  if (!CHECK_FLAG (om->options, OSPF_MASTER_SHUTDOWN))
+    instance = ospf->instance;
+
   ospf_delete (ospf);
 
   XFREE (MTYPE_OSPF_TOP, ospf);
+
+  if (!CHECK_FLAG (om->options, OSPF_MASTER_SHUTDOWN))
+    ospf_get_instance(instance);
+
 }
 
 
@@ -775,11 +844,13 @@ static void update_redistributed(struct ospf *ospf, int add_to_ospf)
 {
   struct route_node *rn;
   struct external_info *ei;
+  struct ospf_external *ext;
 
-  if (ospf_is_type_redistributed (ZEBRA_ROUTE_CONNECT))
-    if (EXTERNAL_INFO (ZEBRA_ROUTE_CONNECT))
+  if (ospf_is_type_redistributed (ZEBRA_ROUTE_CONNECT, 0))
+    if ((ext = ospf_external_lookup(ZEBRA_ROUTE_CONNECT, 0)) &&
+         EXTERNAL_INFO (ext))
       {
-        for (rn = route_top (EXTERNAL_INFO (ZEBRA_ROUTE_CONNECT));
+        for (rn = route_top (EXTERNAL_INFO (ext));
              rn; rn = route_next (rn))
           {
             if ((ei = rn->info) != NULL)

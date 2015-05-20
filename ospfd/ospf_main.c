@@ -73,12 +73,13 @@ struct zebra_privs_t ospfd_privs =
 };
 
 /* Configuration filename and directory. */
-char config_default[] = SYSCONFDIR OSPF_DEFAULT_CONFIG;
+char config_default[100];
 
 /* OSPFd options. */
 struct option longopts[] = 
 {
   { "daemon",      no_argument,       NULL, 'd'},
+  { "instance",    required_argument, NULL, 'n'},
   { "config_file", required_argument, NULL, 'f'},
   { "pid_file",    required_argument, NULL, 'i'},
   { "socket",      required_argument, NULL, 'z'},
@@ -99,7 +100,7 @@ struct option longopts[] =
 struct thread_master *master;
 
 /* Process ID saved for use by init system */
-const char *pid_file = PATH_OSPFD_PID;
+char pid_file[100];
 
 #ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;
@@ -116,6 +117,7 @@ usage (char *progname, int status)
       printf ("Usage : %s [OPTION...]\n\
 Daemon which manages OSPF.\n\n\
 -d, --daemon       Runs in daemon mode\n\
+-n, --instance     Set the instance id\n\
 -f, --config_file  Set configuration file name\n\
 -i, --pid_file     Set process identifier file name\n\
 -z, --socket       Set path of zebra socket\n\
@@ -182,9 +184,11 @@ main (int argc, char **argv)
   char *p;
   char *vty_addr = NULL;
   int vty_port = OSPF_VTY_PORT;
+  char vty_path[100];
   int daemon_mode = 0;
   char *config_file = NULL;
   char *progname;
+  u_short instance = 0;
   struct thread thread;
   int dryrun = 0;
 
@@ -203,13 +207,18 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "df:i:z:hA:P:u:g:avC", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:n:z:hA:P:u:g:avC", longopts, 0);
     
       if (opt == EOF)
 	break;
 
       switch (opt) 
 	{
+	case 'n':
+          instance = atoi(optarg);
+          if (instance < 1  ||  instance > 65535)
+            exit(0);
+	  break;
 	case 0:
 	  break;
 	case 'd':
@@ -222,7 +231,7 @@ main (int argc, char **argv)
 	  vty_addr = optarg;
 	  break;
         case 'i':
-          pid_file = optarg;
+          strcpy(pid_file,optarg);
           break;
 	case 'z':
 	  zclient_serv_path_set (optarg);
@@ -274,7 +283,7 @@ main (int argc, char **argv)
       exit (1);
     }
 
-  zlog_default = openzlog (progname, ZLOG_OSPF,
+  zlog_default = openzlog (progname, ZLOG_OSPF, instance,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 
   /* OSPF master init. */
@@ -296,7 +305,7 @@ main (int argc, char **argv)
 
   /* OSPFd inits. */
   ospf_if_init ();
-  ospf_zebra_init ();
+  ospf_zebra_init (instance);
 
   /* OSPF vty inits. */
   ospf_vty_init ();
@@ -314,13 +323,17 @@ main (int argc, char **argv)
   /* Need to initialize the default ospf structure, so the interface mode
      commands can be duly processed if they are received before 'router ospf',
      when quagga(ospfd) is restarted */
-  if (!ospf_get())
+  if (!ospf_get_instance(instance))
     {
       zlog_err("OSPF instance init failed: %s", strerror(errno));
       exit (1);
     }
 
   /* Get configuration file. */
+  if (instance)
+    sprintf(config_default, "%sospfd-%d.conf", SYSCONFDIR, instance);
+  else
+    sprintf(config_default, "%s%s", SYSCONFDIR, OSPF_DEFAULT_CONFIG);
   vty_read_config (config_file, config_default);
 
   /* Start execution only if not in dry-run mode */
@@ -334,14 +347,23 @@ main (int argc, char **argv)
       exit (1);
     }
 
+  /* Create VTY socket */
+  if (instance)
+    {
+      sprintf(pid_file, "/var/run/quagga/ospfd-%d.pid", instance);
+      sprintf(vty_path, "/var/run/quagga/ospfd-%d.vty", instance);
+    }
+  else
+    {
+      strcpy(pid_file, PATH_OSPFD_PID);
+      strcpy(vty_path, OSPF_VTYSH_PATH);
+    }
   /* Process id file create. */
   pid_output (pid_file);
-
-  /* Create VTY socket */
-  vty_serv_sock (vty_addr, vty_port, OSPF_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, vty_path);
 
   /* Print banner. */
-  zlog_notice ("OSPFd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
+  zlog_notice ("OSPFd %s starting: vty@%d, %s", QUAGGA_VERSION, vty_port, vty_path);
 
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))

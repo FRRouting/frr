@@ -150,6 +150,7 @@ time_print(FILE *fp, struct timestamp_control *ctl)
 static void
 vzlog (struct zlog *zl, int priority, const char *format, va_list args)
 {
+  char proto_str[32];
   struct timestamp_control tsctl;
   tsctl.already_rendered = 0;
 
@@ -181,6 +182,11 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
       va_end(ac);
     }
 
+  if (zl->instance)
+   sprintf (proto_str, "%s[%d]: ", zlog_proto_names[zl->protocol], zl->instance);
+  else
+   sprintf (proto_str, "%s: ", zlog_proto_names[zl->protocol]);
+
   /* File output. */
   if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
     {
@@ -188,7 +194,7 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
       time_print (zl->fp, &tsctl);
       if (zl->record_priority)
 	fprintf (zl->fp, "%s: ", zlog_priority[priority]);
-      fprintf (zl->fp, "%s: ", zlog_proto_names[zl->protocol]);
+      fprintf (zl->fp, "%s", proto_str);
       va_copy(ac, args);
       vfprintf (zl->fp, format, ac);
       va_end(ac);
@@ -203,7 +209,7 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
       time_print (stdout, &tsctl);
       if (zl->record_priority)
 	fprintf (stdout, "%s: ", zlog_priority[priority]);
-      fprintf (stdout, "%s: ", zlog_proto_names[zl->protocol]);
+      fprintf (stdout, "%s", proto_str);
       va_copy(ac, args);
       vfprintf (stdout, format, ac);
       va_end(ac);
@@ -214,7 +220,7 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
   /* Terminal monitor. */
   if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
     vty_log ((zl->record_priority ? zlog_priority[priority] : NULL),
-	     zlog_proto_names[zl->protocol], format, &tsctl, args);
+	     proto_str, format, &tsctl, args);
 }
 
 static char *
@@ -600,7 +606,7 @@ _zlog_assert_failed (const char *assertion, const char *file,
 
 /* Open log stream */
 struct zlog *
-openzlog (const char *progname, zlog_proto_t protocol,
+openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
 	  int syslog_flags, int syslog_facility)
 {
   struct zlog *zl;
@@ -610,6 +616,7 @@ openzlog (const char *progname, zlog_proto_t protocol,
 
   zl->ident = progname;
   zl->protocol = protocol;
+  zl->instance = instance;
   zl->facility = syslog_facility;
   zl->syslog_options = syslog_flags;
 

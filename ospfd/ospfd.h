@@ -76,6 +76,12 @@
 #define OSPF_LS_REFRESH_SHIFT       (60 * 15)
 #define OSPF_LS_REFRESH_JITTER      60
 
+struct ospf_external
+{
+  u_short instance;
+  struct route_table *external_info;
+};
+
 /* OSPF master for system wide configuration and variables. */
 struct ospf_master
 {
@@ -89,8 +95,8 @@ struct ospf_master
   struct list *iflist;
 
   /* Redistributed external information. */
-  struct route_table *external_info[ZEBRA_ROUTE_MAX + 1];
-#define EXTERNAL_INFO(T)      om->external_info[T]
+  struct list *external[ZEBRA_ROUTE_MAX + 1];
+#define EXTERNAL_INFO(E)      (E->external_info)
 
   /* OSPF start time. */
   time_t start_time;
@@ -100,9 +106,34 @@ struct ospf_master
 #define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */  
 };
 
+struct ospf_redist
+{
+  u_short instance;
+
+  /* Redistribute metric info. */
+  struct
+  {
+    int type;                   /* External metric type (E1 or E2).  */
+    int value;		        /* Value for static metric (24-bit).
+				   -1 means metric value is not set. */
+  } dmetric;
+
+  /* For redistribute route map. */
+  struct
+  {
+    char *name;
+    struct route_map *map;
+  } route_map; /* +1 is for default-information */
+#define ROUTEMAP_NAME(R)   (R->route_map.name)
+#define ROUTEMAP(R)        (R->route_map.map)
+};
+
 /* OSPF instance structure. */
 struct ospf
 {
+  /* OSPF instance ID  */
+  u_short instance;
+
   /* OSPF Router ID. */
   struct in_addr router_id;		/* Configured automatically. */
   struct in_addr router_id_static;	/* Configured manually. */
@@ -236,26 +267,12 @@ struct ospf
 #define DISTRIBUTE_NAME(O,T)    (O)->dlist[T].name
 #define DISTRIBUTE_LIST(O,T)    (O)->dlist[T].list
 
-  /* Redistribute metric info. */
-  struct 
-  {
-    int type;                   /* External metric type (E1 or E2).  */
-    int value;		        /* Value for static metric (24-bit).
-				   -1 means metric value is not set. */
-  } dmetric [ZEBRA_ROUTE_MAX + 1];
+  /* OSPF redistribute configuration */
+  struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
   /* Redistribute tag info. */
-  u_short dtag [ZEBRA_ROUTE_MAX + 1];
+  u_short dtag[ZEBRA_ROUTE_MAX + 1]; //Pending: cant configure as of now
 
-  /* For redistribute route map. */
-  struct
-  {
-    char *name;
-    struct route_map *map;
-  } route_map [ZEBRA_ROUTE_MAX + 1]; /* +1 is for default-information */
-#define ROUTEMAP_NAME(O,T)   (O)->route_map[T].name
-#define ROUTEMAP(O,T)        (O)->route_map[T].map
-  
   int default_metric;		/* Default metric for redistribute. */
 
 #define OSPF_LSA_REFRESHER_GRANULARITY 10
@@ -514,7 +531,9 @@ extern int ospf_zlog;
 /* Prototypes. */
 extern const char *ospf_redist_string(u_int route_type);
 extern struct ospf *ospf_lookup (void);
+extern struct ospf *ospf_lookup_instance (u_short);
 extern struct ospf *ospf_get (void);
+extern struct ospf *ospf_get_instance (u_short);
 extern void ospf_finish (struct ospf *);
 extern void ospf_router_id_update (struct ospf *ospf);
 extern int ospf_network_set (struct ospf *, struct prefix_ipv4 *,

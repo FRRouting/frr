@@ -2397,7 +2397,7 @@ bgp_delete (struct bgp *bgp)
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (i = 0; i < ZEBRA_ROUTE_MAX; i++) 
       if (i != ZEBRA_ROUTE_BGP)
-	bgp_redistribute_unset (bgp, afi, i);
+	bgp_redistribute_unset (bgp, afi, i, 0);
 
   for (ALL_LIST_ELEMENTS (bgp->group, node, next, group))
     {

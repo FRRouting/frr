@@ -2791,7 +2791,7 @@ bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
   char buf[INET6_ADDRSTRLEN];
 
   if (!bgp)
-    return;
+    return (-1);
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
@@ -2875,20 +2875,31 @@ bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
       {
-	if (bgp->rmap[afi][i].name &&
-	    (strcmp(rmap_name, bgp->rmap[afi][i].name) == 0))
-	  {
-	    bgp->rmap[afi][i].map =
-	      route_map_lookup_by_name (bgp->rmap[afi][i].name);
+        struct list *red_list;
+        struct listnode *node;
+        struct bgp_redist *red;
 
-	    if (bgp->redist[afi][i] && route_update)
-	      {
-                if (BGP_DEBUG (zebra, ZEBRA))
-		  zlog_debug("Processing route_map %s update on "
-			     "redistributed routes", rmap_name);
+        red_list = bgp->redist[afi][i];
+        if (!red_list)
+            continue;
 
-		bgp_redistribute_resend (bgp, afi, i);
-	      }
+        for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+          {
+            if (red->rmap.name &&
+                (strcmp(rmap_name, red->rmap.name) == 0))
+              {
+                red->rmap.map =
+                  route_map_lookup_by_name (red->rmap.name);
+
+                if (route_update)
+                  {
+                    if (bgp_debug_update(peer, NULL, 0))
+                      zlog_debug("Processing route_map %s update on "
+                                 "redistributed routes", rmap_name);
+
+                    bgp_redistribute_resend (bgp, afi, i, red->instance);
+                  }
+              }
 	  }
       }
 

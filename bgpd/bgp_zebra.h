@@ -38,11 +38,13 @@ extern void bgp_zebra_announce (struct prefix *, struct bgp_info *, struct bgp *
 extern void bgp_zebra_announce_table (struct bgp *, afi_t, safi_t);
 extern void bgp_zebra_withdraw (struct prefix *, struct bgp_info *, safi_t);
 
-extern int bgp_redistribute_set (struct bgp *, afi_t, int);
-extern int bgp_redistribute_resend (struct bgp *, afi_t, int);
-extern int bgp_redistribute_rmap_set (struct bgp *, afi_t, int, const char *);
-extern int bgp_redistribute_metric_set (struct bgp *, afi_t, int, u_int32_t);
-extern int bgp_redistribute_unset (struct bgp *, afi_t, int);
+extern struct bgp_redist *bgp_redist_lookup (struct bgp *, afi_t, u_char, u_short);
+extern struct bgp_redist *bgp_redist_add (struct bgp *, afi_t, u_char, u_short);
+extern int bgp_redistribute_set (int, u_short);
+extern int bgp_redistribute_resend (struct bgp *, afi_t, int, u_short);
+extern int bgp_redistribute_rmap_set (struct bgp_redist *, const char *);
+extern int bgp_redistribute_metric_set (struct bgp_redist *, u_int32_t);
+extern int bgp_redistribute_unset (struct bgp *, afi_t, int, u_short);
 
 extern struct interface *if_lookup_by_ipv4 (struct in_addr *);
 extern struct interface *if_lookup_by_ipv4_exact (struct in_addr *);

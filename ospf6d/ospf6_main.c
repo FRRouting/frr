@@ -313,7 +313,7 @@ main (int argc, char *argv[], char *envp[])
   master = thread_master_create ();
 
   /* Initializations. */
-  zlog_default = openzlog (progname, ZLOG_OSPF6,
+  zlog_default = openzlog (progname, ZLOG_OSPF6, 0,
                            LOG_CONS|LOG_NDELAY|LOG_PID,
                            LOG_DAEMON);
   zprivs_init (&ospf6d_privs);

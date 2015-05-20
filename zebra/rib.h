@@ -48,6 +48,9 @@ struct rib
   /* Type fo this route. */
   int type;
 
+  /* Source protocol instance */
+  u_short instance;
+
   /* Which routing table */
   int table;			
 
@@ -383,14 +386,14 @@ extern struct route_table *vrf_static_table (afi_t afi, safi_t safi, u_int32_t i
 /* NOTE:
  * All rib_add_ipv[46]* functions will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
-extern int rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p, 
+extern int rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 			 struct in_addr *gate, struct in_addr *src,
 			 unsigned int ifindex, u_int32_t vrf_id,
 			 u_int32_t, u_char, safi_t);
 
 extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *, safi_t);
 
-extern int rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
+extern int rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 		            struct in_addr *gate, unsigned int ifindex, 
 		            u_int32_t, safi_t safi);
 
@@ -403,7 +406,7 @@ extern void rib_weed_tables (void);
 extern void rib_sweep_route (void);
 extern void rib_close (void);
 extern void rib_init (void);
-extern unsigned long rib_score_proto (u_char proto);
+extern unsigned long rib_score_proto (u_char proto, u_short instance);
 struct zebra_t;
 extern void rib_queue_add (struct zebra_t *zebra, struct route_node *rn);
 
@@ -418,12 +421,12 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 
 #ifdef HAVE_IPV6
 extern int
-rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
+rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 	      struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id,
 	      u_int32_t metric, u_char distance, safi_t safi);
 
 extern int
-rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
+rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 		 struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id, safi_t safi);
 
 extern struct rib *rib_lookup_ipv6 (struct in6_addr *);

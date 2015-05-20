@@ -893,7 +893,10 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
       vty_out (vty, "Routing entry for %s/%d%s", 
 	       inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen,
 	       VTY_NEWLINE);
-      vty_out (vty, "  Known via \"%s\"", zebra_route_string (rib->type));
+      vty_out (vty, "  Known via \"%s", zebra_route_string (rib->type));
+      if (rib->instance)
+        vty_out (vty, "[%d]", rib->instance);
+      vty_out (vty, "\"");
       vty_out (vty, ", distance %u, metric %u", rib->distance, rib->metric);
       if (rib->tag)
 	vty_out (vty, ", tag %d", rib->tag);
@@ -1022,15 +1025,17 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
       if (nexthop == rib->nexthop)
 	{
 	  /* Prefix information. */
-	  len = vty_out (vty, "%c%c%c %s/%d",
-			 zebra_route_char (rib->type),
+	  len = vty_out (vty, "%c", zebra_route_char (rib->type));
+          if (rib->instance)
+	    len += vty_out (vty, "[%d]", rib->instance);
+          len += vty_out (vty, "%c%c %s/%d",
 			 CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED)
 			 ? '>' : ' ',
 			 CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
 			 ? '*' : ' ',
 			 inet_ntop (AF_INET, &rn->p.u.prefix, buf, BUFSIZ),
 			 rn->p.prefixlen);
-		
+
 	  /* Distance and metric display. */
 	  if (rib->type != ZEBRA_ROUTE_CONNECT 
 	      && rib->type != ZEBRA_ROUTE_KERNEL)
@@ -1337,6 +1342,42 @@ DEFUN (show_ip_route_protocol,
   for (rn = route_top (table); rn; rn = route_next (rn))
     RNODE_FOREACH_RIB (rn, rib)
       if (rib->type == type)
+	{
+	  if (first)
+	    {
+	      vty_out (vty, SHOW_ROUTE_V4_HEADER);
+	      first = 0;
+	    }
+	  vty_show_ip_route (vty, rn, rib);
+	}
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_route_ospf_instance,
+       show_ip_route_ospf_instance_cmd,
+       "show ip route ospf <1-65535>",
+       SHOW_STR
+       IP_STR
+       "IP routing table\n"
+       "Open Shortest Path First (OSPFv2)\n"
+       "Instance ID\n")
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct rib *rib;
+  int first = 1;
+  u_short instance = 0;
+
+  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (! table)
+    return CMD_SUCCESS;
+
+  /* Show matched type IPv4 routes. */
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    RNODE_FOREACH_RIB (rn, rib)
+      if (rib->type == ZEBRA_ROUTE_OSPF && rib->instance == instance)
 	{
 	  if (first)
 	    {
@@ -2899,6 +2940,7 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance2_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_cmd);
+  install_element (VIEW_NODE, &show_ip_route_ospf_instance_cmd);
   install_element (VIEW_NODE, &show_ip_route_tag_cmd);
   install_element (VIEW_NODE, &show_ip_nht_cmd);
   install_element (VIEW_NODE, &show_ipv6_nht_cmd);
@@ -2910,6 +2952,7 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ip_route_summary_cmd);
   install_element (VIEW_NODE, &show_ip_route_summary_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_route_cmd);
+  install_element (ENABLE_NODE, &show_ip_route_ospf_instance_cmd);
   install_element (ENABLE_NODE, &show_ip_route_tag_cmd);
   install_element (ENABLE_NODE, &show_ip_nht_cmd);
   install_element (ENABLE_NODE, &show_ipv6_nht_cmd);

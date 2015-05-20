@@ -428,6 +428,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
 
   /* Type, flags, message. */
   api.type = stream_getc (s);
+  api.instance = stream_getw (s);
   api.flags = stream_getc (s);
   api.message = stream_getc (s);
 
@@ -468,8 +469,8 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
       if (bgp_debug_zebra(&p))
 	{
 	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_debug("Zebra rcvd: IPv4 route add %s %s/%d nexthop %s metric %u tag %d",
-		     zebra_route_string(api.type),
+	  zlog_debug("Zebra rcvd: IPv4 route add %s[%d] %s/%d nexthop %s metric %u tag %d",
+		     zebra_route_string(api.type), api.instance,
 		     inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
 		     p.prefixlen,
 		     inet_ntop(AF_INET, &nexthop, buf[1], sizeof(buf[1])),
@@ -477,23 +478,23 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
 		     api.tag);
 	}
       bgp_redistribute_add((struct prefix *)&p, &nexthop, NULL, ifindex,
-			   api.metric, api.type, api.tag);
+			   api.metric, api.type, api.instance, api.tag);
     }
   else
     {
       if (bgp_debug_zebra(&p))
 	{
 	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_debug("Zebra rcvd: IPv4 route delete %s %s/%d "
+	  zlog_debug("Zebra rcvd: IPv4 route delete %s[%d] %s/%d "
 		     "nexthop %s metric %u tag %d",
-		     zebra_route_string(api.type),
+		     zebra_route_string(api.type), api.instance,
 		     inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
 		     p.prefixlen,
 		     inet_ntop(AF_INET, &nexthop, buf[1], sizeof(buf[1])),
 		     api.metric,
 		     api.tag);
 	}
-      bgp_redistribute_delete((struct prefix *)&p, api.type);
+      bgp_redistribute_delete((struct prefix *)&p, api.type, api.instance);
     }
 
   return 0;
@@ -515,6 +516,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
 
   /* Type, flags, message. */
   api.type = stream_getc (s);
+  api.instance = stream_getw (s);
   api.flags = stream_getc (s);
   api.message = stream_getc (s);
 
@@ -561,8 +563,8 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
       if (bgp_debug_zebra(&p))
 	{
 	  char buf[2][INET6_ADDRSTRLEN];
-	  zlog_debug("Zebra rcvd: IPv6 route add %s %s/%d nexthop %s metric %u tag %d",
-		     zebra_route_string(api.type),
+	  zlog_debug("Zebra rcvd: IPv6 route add %s[%d] %s/%d nexthop %s metric %u tag %d",
+		     zebra_route_string(api.type), api.instance,
 		     inet_ntop(AF_INET6, &p.prefix, buf[0], sizeof(buf[0])),
 		     p.prefixlen,
 		     inet_ntop(AF_INET, &nexthop, buf[1], sizeof(buf[1])),
@@ -570,23 +572,23 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
 		     api.tag);
 	}
       bgp_redistribute_add ((struct prefix *)&p, NULL, &nexthop, ifindex,
-			    api.metric, api.type, api.tag);
+			    api.metric, api.type, api.instance, api.tag);
     }
   else
     {
       if (bgp_debug_zebra(&p))
 	{
 	  char buf[2][INET6_ADDRSTRLEN];
-	  zlog_debug("Zebra rcvd: IPv6 route delete %s %s/%d "
+	  zlog_debug("Zebra rcvd: IPv6 route delete %s[%d] %s/%d "
 		     "nexthop %s metric %u tag %d",
-		     zebra_route_string(api.type),
+		     zebra_route_string(api.type), api.instance,
 		     inet_ntop(AF_INET6, &p.prefix, buf[0], sizeof(buf[0])),
 		     p.prefixlen,
 		     inet_ntop(AF_INET6, &nexthop, buf[1], sizeof(buf[1])),
 		     api.metric,
                      api.tag);
 	}
-      bgp_redistribute_delete ((struct prefix *) &p, api.type);
+      bgp_redistribute_delete ((struct prefix *) &p, api.type, api.instance);
     }
   
   return 0;
@@ -942,7 +944,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
   if (zclient->sock < 0)
     return;
 
-  if (! zclient->redist[ZEBRA_ROUTE_BGP])
+  if (!zclient->redist[ZEBRA_ROUTE_BGP].enabled)
     return;
 
   if (bgp->main_zebra_update_hold)
@@ -1049,6 +1051,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 
       api.flags = flags;
       api.type = ZEBRA_ROUTE_BGP;
+      api.instance = 0;
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
@@ -1217,6 +1220,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       /* Make Zebra API structure. */
       api.flags = flags;
       api.type = ZEBRA_ROUTE_BGP;
+      api.instance = 0;
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
@@ -1280,7 +1284,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
   if (zclient->sock < 0)
     return;
 
-  if (! zclient->redist[ZEBRA_ROUTE_BGP])
+  if (!zclient->redist[ZEBRA_ROUTE_BGP].enabled)
     return;
 
   peer = info->peer;
@@ -1309,6 +1313,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       nexthop = &info->attr->nexthop;
 
       api.type = ZEBRA_ROUTE_BGP;
+      api.instance = 0;
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
@@ -1372,6 +1377,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
 
       api.flags = flags;
       api.type = ZEBRA_ROUTE_BGP;
+      api.instance = 0;
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
@@ -1405,117 +1411,177 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
     }
 #endif /* HAVE_IPV6 */
 }
+struct bgp_redist *
+bgp_redist_lookup (struct bgp *bgp, afi_t afi, u_char type, u_short instance)
+{
+  struct list *red_list;
+  struct listnode *node;
+  struct bgp_redist *red;
+
+  red_list = bgp->redist[afi][type];
+  if (!red_list)
+    return(NULL);
+
+  for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+    if (red->instance == instance)
+      return red;
+
+  return NULL;
+}
+
+struct bgp_redist *
+bgp_redist_add (struct bgp *bgp, afi_t afi, u_char type, u_short instance)
+{
+  struct list *red_list;
+  struct bgp_redist *red;
+
+  red = bgp_redist_lookup(bgp, afi, type, instance);
+  if (red)
+    return red;
+
+  if (!bgp->redist[afi][type])
+    bgp->redist[afi][type] = list_new();
+
+  red_list = bgp->redist[afi][type];
+  red = (struct bgp_redist *)calloc (1, sizeof(struct bgp_redist));
+  red->instance = instance;
+
+  listnode_add(red_list, red);
+
+  return red;
+}
+
+static void
+bgp_redist_del (struct bgp *bgp, afi_t afi, u_char type, u_short instance)
+{
+  struct bgp_redist *red;
+
+  red = bgp_redist_lookup(bgp, afi, type, instance);
+
+  if (red)
+    {
+      listnode_delete(bgp->redist[afi][type], red);
+      if (!bgp->redist[afi][type]->count)
+        {
+          list_free(bgp->redist[afi][type]);
+          bgp->redist[afi][type] = NULL;
+        }
+    }
+}
 
 /* Other routes redistribution into BGP. */
 int
-bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type)
+bgp_redistribute_set (int type, u_short instance)
 {
-  /* Set flag to BGP instance. */
-  bgp->redist[afi][type] = 1;
 
   /* Return if already redistribute flag is set. */
-  if (zclient->redist[type])
+  if (redist_check_instance(&zclient->redist[type], instance))
     return CMD_WARNING;
 
-  zclient->redist[type] = 1;
+  redist_add_instance(&zclient->redist[type], instance);
 
   /* Return if zebra connection is not established. */
   if (zclient->sock < 0)
     return CMD_WARNING;
 
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug("Zebra send: redistribute add %s", zebra_route_string(type));
+    zlog_debug("Zebra send: redistribute add %s %d", zebra_route_string(type),
+               instance);
 
   /* Send distribute add message to zebra. */
-  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type, instance);
 
   return CMD_SUCCESS;
 }
 
 int
-bgp_redistribute_resend (struct bgp *bgp, afi_t afi, int type)
+bgp_redistribute_resend (struct bgp *bgp, afi_t afi, int type, u_short instance)
 {
   /* Return if zebra connection is not established. */
   if (zclient->sock < 0)
     return -1;
 
   if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug("Zebra send: redistribute add %s", zebra_route_string(type));
+    zlog_debug("Zebra send: redistribute add %s %d", zebra_route_string(type),
+               instance);
 
   /* Send distribute add message to zebra. */
-  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
-  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type, instance);
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type, instance);
 
   return 0;
 }
 
 /* Redistribute with route-map specification.  */
 int
-bgp_redistribute_rmap_set (struct bgp *bgp, afi_t afi, int type, 
-                           const char *name)
+bgp_redistribute_rmap_set (struct bgp_redist *red, const char *name)
 {
-  if (bgp->rmap[afi][type].name
-      && (strcmp (bgp->rmap[afi][type].name, name) == 0))
+  if (red->rmap.name
+      && (strcmp (red->rmap.name, name) == 0))
     return 0;
 
-  if (bgp->rmap[afi][type].name)
-    free (bgp->rmap[afi][type].name);
-  bgp->rmap[afi][type].name = strdup (name);
-  bgp->rmap[afi][type].map = route_map_lookup_by_name (name);
+  if (red->rmap.name)
+    free (red->rmap.name);
+  red->rmap.name = strdup (name);
+  red->rmap.map = route_map_lookup_by_name (name);
 
   return 1;
 }
 
 /* Redistribute with metric specification.  */
 int
-bgp_redistribute_metric_set (struct bgp *bgp, afi_t afi, int type,
-			     u_int32_t metric)
+bgp_redistribute_metric_set (struct bgp_redist *red, u_int32_t metric)
 {
-  if (bgp->redist_metric_flag[afi][type]
-      && bgp->redist_metric[afi][type] == metric)
+  if (red->redist_metric_flag
+      && red->redist_metric == metric)
     return 0;
 
-  bgp->redist_metric_flag[afi][type] = 1;
-  bgp->redist_metric[afi][type] = metric;
+  red->redist_metric_flag = 1;
+  red->redist_metric = metric;
 
   return 1;
 }
 
 /* Unset redistribution.  */
 int
-bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type)
+bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type, u_short instance)
 {
-  /* Unset flag from BGP instance. */
-  bgp->redist[afi][type] = 0;
+  struct bgp_redist *red;
+
+  red = bgp_redist_lookup(bgp, afi, type, instance);
+  if (!red)
+    return CMD_SUCCESS;
 
   /* Unset route-map. */
-  if (bgp->rmap[afi][type].name)
-    free (bgp->rmap[afi][type].name);
-  bgp->rmap[afi][type].name = NULL;
-  bgp->rmap[afi][type].map = NULL;
+  if (red->rmap.name)
+    free (red->rmap.name);
+  red->rmap.name = NULL;
+  red->rmap.map = NULL;
 
   /* Unset metric. */
-  bgp->redist_metric_flag[afi][type] = 0;
-  bgp->redist_metric[afi][type] = 0;
+  red->redist_metric_flag = 0;
+  red->redist_metric = 0;
+
+  bgp_redist_del(bgp, afi, type, instance);
 
   /* Return if zebra connection is disabled. */
-  if (! zclient->redist[type])
+  if (!redist_check_instance(&zclient->redist[type], instance))
     return CMD_WARNING;
-  zclient->redist[type] = 0;
+  redist_del_instance(&zclient->redist[type], instance);
 
-  if (bgp->redist[AFI_IP][type] == 0 
-      && bgp->redist[AFI_IP6][type] == 0 
+  if (!bgp_redist_lookup(bgp, AFI_IP, type, instance)
+      && !bgp_redist_lookup(bgp, AFI_IP6, type, instance)
       && zclient->sock >= 0)
     {
       /* Send distribute delete message to zebra. */
       if (BGP_DEBUG (zebra, ZEBRA))
-	zlog_debug("Zebra send: redistribute delete %s",
-		   zebra_route_string(type));
-      zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
+	zlog_debug("Zebra send: redistribute delete %s %d",
+		   zebra_route_string(type), instance);
+      zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type, instance);
     }
   
   /* Withdraw redistributed routes from current BGP's routing table. */
-  bgp_redistribute_withdraw (bgp, afi, type);
+  bgp_redistribute_withdraw (bgp, afi, type, instance);
 
   return CMD_SUCCESS;
 }
@@ -1531,7 +1597,7 @@ bgp_zebra_init (void)
 {
   /* Set default values. */
   zclient = zclient_new ();
-  zclient_init (zclient, ZEBRA_ROUTE_BGP);
+  zclient_init (zclient, ZEBRA_ROUTE_BGP, 0);
   zclient->router_id_update = bgp_router_id_update;
   zclient->interface_add = bgp_interface_add;
   zclient->interface_delete = bgp_interface_delete;

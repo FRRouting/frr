@@ -1590,16 +1590,23 @@ ospf_get_nssa_ip (struct ospf_area *area)
 #define DEFAULT_METRIC_TYPE		     EXTERNAL_METRIC_TYPE_2
 
 int
-metric_type (struct ospf *ospf, u_char src)
+metric_type (struct ospf *ospf, u_char src, u_short instance)
 {
-  return (ospf->dmetric[src].type < 0 ?
-	  DEFAULT_METRIC_TYPE : ospf->dmetric[src].type);
+  struct ospf_redist *red;
+
+  red = ospf_redist_lookup(ospf, src, instance);
+
+  return ((!red || red->dmetric.type < 0) ?
+	  DEFAULT_METRIC_TYPE : red->dmetric.type);
 }
 
 int
-metric_value (struct ospf *ospf, u_char src)
+metric_value (struct ospf *ospf, u_char src, u_short instance)
 {
-  if (ospf->dmetric[src].value < 0)
+  struct ospf_redist *red;
+
+  red = ospf_redist_lookup(ospf, src, instance);
+  if (!red || red->dmetric.value < 0)
     {
       if (src == DEFAULT_ROUTE)
 	{
@@ -1614,7 +1621,7 @@ metric_value (struct ospf *ospf, u_char src)
 	return ospf->default_metric;
     }
 
-  return ospf->dmetric[src].value;
+  return red->dmetric.value;
 }
 
 /* Set AS-external-LSA body. */
@@ -1627,6 +1634,7 @@ ospf_external_lsa_body_set (struct stream *s, struct external_info *ei,
   u_int32_t mvalue;
   int mtype;
   int type;
+  u_short instance;
 
   /* Put Network Mask. */
   masklen2ip (p->prefixlen, &mask);
@@ -1634,12 +1642,13 @@ ospf_external_lsa_body_set (struct stream *s, struct external_info *ei,
 
   /* If prefix is default, specify DEFAULT_ROUTE. */
   type = is_prefix_default (&ei->p) ? DEFAULT_ROUTE : ei->type;
+  instance = is_prefix_default (&ei->p) ? 0 : ei->instance;
   
   mtype = (ROUTEMAP_METRIC_TYPE (ei) != -1) ?
-    ROUTEMAP_METRIC_TYPE (ei) : metric_type (ospf, type);
+    ROUTEMAP_METRIC_TYPE (ei) : metric_type (ospf, type, instance);
 
   mvalue = (ROUTEMAP_METRIC (ei) != -1) ?
-    ROUTEMAP_METRIC (ei) : metric_value (ospf, type);
+    ROUTEMAP_METRIC (ei) : metric_value (ospf, type, instance);
 
   /* Put type of external metric. */
   stream_putc (s, (mtype == EXTERNAL_METRIC_TYPE_2 ? 0x80 : 0));
@@ -2106,17 +2115,25 @@ ospf_external_lsa_originate_timer (struct thread *thread)
   struct external_info *ei;
   struct route_table *rt;
   int type = THREAD_VAL (thread);
+  struct list *ext_list;
+  struct listnode *node;
+  struct ospf_external *ext;
 
   ospf->t_external_lsa = NULL;
 
-  /* Originate As-external-LSA from all type of distribute source. */
-  if ((rt = EXTERNAL_INFO (type)))
-    for (rn = route_top (rt); rn; rn = route_next (rn))
-      if ((ei = rn->info) != NULL)
-	if (!is_prefix_default ((struct prefix_ipv4 *)&ei->p))
-	  if (!ospf_external_lsa_originate (ospf, ei))
-	    zlog_warn ("LSA: AS-external-LSA was not originated.");
-  
+  ext_list = om->external[type];
+  if (!ext_list)
+    return 0;
+
+  for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext))
+    /* Originate As-external-LSA from all type of distribute source. */
+    if ((rt = ext->external_info))
+      for (rn = route_top (rt); rn; rn = route_next (rn))
+        if ((ei = rn->info) != NULL)
+          if (!is_prefix_default ((struct prefix_ipv4 *)&ei->p))
+            if (!ospf_external_lsa_originate (ospf, ei))
+              zlog_warn ("LSA: AS-external-LSA was not originated.");
+
   return 0;
 }
 
@@ -2133,17 +2150,30 @@ ospf_default_external_info (struct ospf *ospf)
 
   /* First, lookup redistributed default route. */
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
-    if (EXTERNAL_INFO (type) && type != ZEBRA_ROUTE_OSPF)
-      {
-	rn = route_node_lookup (EXTERNAL_INFO (type), (struct prefix *) &p);
-	if (rn != NULL)
-	  {
-	    route_unlock_node (rn);
-	    assert (rn->info);
-	    if (ospf_redistribute_check (ospf, rn->info, NULL))
-	      return rn->info;
-	  }
-      }
+    {
+      struct list *ext_list;
+      struct listnode *node;
+      struct ospf_external *ext;
+
+      if (type == ZEBRA_ROUTE_OSPF)
+        continue;
+
+      ext_list = om->external[type];
+      if (!ext_list)
+        continue;
+
+      for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext))
+        {
+          rn = route_node_lookup (ext->external_info, (struct prefix *) &p);
+          if (rn != NULL)
+            {
+              route_unlock_node (rn);
+              assert (rn->info);
+              if (ospf_redistribute_check (ospf, rn->info, NULL))
+                return rn->info;
+            }
+        }
+    }
 
   return NULL;
 }
@@ -2167,7 +2197,7 @@ ospf_default_originate_timer (struct thread *thread)
       /* If there is no default route via redistribute,
 	 then originate AS-external-LSA with nexthop 0 (self). */
       nexthop.s_addr = 0;
-      ospf_external_info_add (DEFAULT_ROUTE, p, 0, nexthop, 0);
+      ospf_external_info_add (DEFAULT_ROUTE, 0, p, 0, nexthop, 0);
     }
 
   if ((ei = ospf_default_external_info (ospf)))
@@ -2298,15 +2328,18 @@ ospf_external_lsa_refresh_default (struct ospf *ospf)
 }
 
 void
-ospf_external_lsa_refresh_type (struct ospf *ospf, u_char type, int force)
+ospf_external_lsa_refresh_type (struct ospf *ospf, u_char type, u_short instance,
+                                int force)
 {
   struct route_node *rn;
   struct external_info *ei;
+  struct ospf_external *ext;
 
   if (type != DEFAULT_ROUTE)
-    if (EXTERNAL_INFO(type))
+    if ((ext = ospf_external_lookup(type, instance)) &&
+        EXTERNAL_INFO (ext))
       /* Refresh each redistributed AS-external-LSAs. */
-      for (rn = route_top (EXTERNAL_INFO (type)); rn; rn = route_next (rn))
+      for (rn = route_top (EXTERNAL_INFO (ext)); rn; rn = route_next (rn))
 	if ((ei = rn->info))
 	  if (!is_prefix_default (&ei->p))
 	    {

@@ -1473,6 +1473,10 @@ DEFUN (mpls_te,
 {
   struct listnode *node, *nnode;
   struct mpls_te_link *lp;
+  struct ospf *ospf = vty->index;
+
+  if (!ospf)
+    return CMD_SUCCESS;
 
   if (OspfMplsTE.status == enabled)
     return CMD_SUCCESS;
@@ -1511,6 +1515,10 @@ DEFUN (no_mpls_te,
 {
   struct listnode *node, *nnode;
   struct mpls_te_link *lp;
+  struct ospf *ospf = vty->index;
+
+  if (!ospf)
+    return CMD_SUCCESS;
 
   if (OspfMplsTE.status == disabled)
     return CMD_SUCCESS;
@@ -1537,6 +1545,10 @@ DEFUN (mpls_te_router_addr,
 {
   struct te_tlv_router_addr *ra = &OspfMplsTE.router_addr;
   struct in_addr value;
+  struct ospf *ospf = vty->index;
+
+  if (!ospf)
+    return CMD_SUCCESS;
 
   if (! inet_aton (argv[0], &value))
     {

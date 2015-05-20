@@ -111,7 +111,8 @@ babel_config_write (struct vty *vty)
     lines = 1 + babel_enable_if_config_write (vty);
     /* list redistributed protocols */
     for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-        if (i != zclient->redist_default && zclient->redist[i])
+        if (i != zclient->redist_default &&
+            zclient->redist[i].enabled)
         {
             vty_out (vty, " redistribute %s%s", zebra_route_string (i), VTY_NEWLINE);
             lines++;

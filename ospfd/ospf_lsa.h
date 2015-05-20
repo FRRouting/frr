@@ -314,7 +314,7 @@ extern struct ospf_lsa *ospf_lsa_refresh (struct ospf *, struct ospf_lsa *);
  
 extern void ospf_external_lsa_refresh_default (struct ospf *);
 
-extern void ospf_external_lsa_refresh_type (struct ospf *, u_char, int);
+extern void ospf_external_lsa_refresh_type (struct ospf *, u_char, u_short, int);
 extern struct ospf_lsa *ospf_external_lsa_refresh (struct ospf *,
                                                    struct ospf_lsa *,
                                                    struct external_info *,
@@ -333,8 +333,8 @@ extern void ospf_lsa_maxage_delete (struct ospf *, struct ospf_lsa *);
 extern void ospf_discard_from_db (struct ospf *, struct ospf_lsdb *, struct ospf_lsa*);
 extern int is_prefix_default (struct prefix_ipv4 *);
 
-extern int metric_type (struct ospf *, u_char);
-extern int metric_value (struct ospf *, u_char);
+extern int metric_type (struct ospf *, u_char, u_short);
+extern int metric_value (struct ospf *, u_char, u_short);
 
 extern struct in_addr ospf_get_nssa_ip (struct ospf_area *);
 extern int ospf_translated_nssa_compare (struct ospf_lsa *, struct ospf_lsa *);

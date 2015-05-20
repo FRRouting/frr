@@ -30,6 +30,10 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#include <dirent.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "command.h"
 #include "memory.h"
 #include "vtysh/vtysh.h"
@@ -46,19 +50,22 @@ char *vtysh_pager_name = NULL;
 struct vtysh_client
 {
   int fd;
-  const char *name;
+  char *name;
   int flag;
-  const char *path;
-} vtysh_client[] =
+  char *path;
+  struct vtysh_client *next;
+};
+
+struct vtysh_client vtysh_client[] =
 {
-  { .fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .path = ZEBRA_VTYSH_PATH},
-  { .fd = -1, .name = "ripd", .flag = VTYSH_RIPD, .path = RIP_VTYSH_PATH},
-  { .fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .path = RIPNG_VTYSH_PATH},
-  { .fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .path = OSPF_VTYSH_PATH},
-  { .fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .path = OSPF6_VTYSH_PATH},
-  { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH},
-  { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH},
-  { .fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .path = BABEL_VTYSH_PATH},
+  { .fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .path = ZEBRA_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "ripd", .flag = VTYSH_RIPD, .path = RIP_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .path = RIPNG_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .path = OSPF_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .path = OSPF6_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .path = BABEL_VTYSH_PATH, .next = NULL},
 };
 
 
@@ -88,7 +95,7 @@ vclient_close (struct vtysh_client *vclient)
  * under load - it SHOULD handle it. */
 #define ERR_WHERE_STRING "vtysh(): vtysh_client_config(): "
 static int
-vtysh_client_config (struct vtysh_client *vclient, char *line)
+vtysh_client_config_one (struct vtysh_client *vclient, char *line)
 {
   int ret;
   char *buf;
@@ -186,7 +193,28 @@ vtysh_client_config (struct vtysh_client *vclient, char *line)
 }
 
 static int
-vtysh_client_execute (struct vtysh_client *vclient, const char *line, FILE *fp)
+vtysh_client_config (struct vtysh_client *head_client, char *line)
+{
+  struct vtysh_client *client;
+  int rc;
+
+  rc = vtysh_client_config_one(head_client, line);
+  if (rc != CMD_SUCCESS)
+    return rc;
+
+  client = head_client->next;
+  while (client)
+    {
+      rc = vtysh_client_config_one(client, line);
+      if (rc != CMD_SUCCESS)
+        return rc;
+      client = client->next;
+    }
+  return CMD_SUCCESS;
+}
+
+static int
+vtysh_client_execute_one (struct vtysh_client *vclient, const char *line, FILE *fp)
 {
   int ret;
   char buf[1001];
@@ -248,6 +276,27 @@ vtysh_client_execute (struct vtysh_client *vclient, const char *line, FILE *fp)
             return (buf[nbytes-1]);
 	}
     }
+}
+
+static int
+vtysh_client_execute (struct vtysh_client *head_client, const char *line, FILE *fp)
+{
+  struct vtysh_client *client;
+  int rc;
+
+  rc = vtysh_client_execute_one(head_client, line, fp);
+  if (rc != CMD_SUCCESS)
+    return rc;
+
+  client = head_client->next;
+  while (client)
+    {
+      rc = vtysh_client_execute_one(client, line, fp);
+      if (rc != CMD_SUCCESS)
+        return rc;
+      client = client->next;
+    }
+  return CMD_SUCCESS;
 }
 
 void
@@ -1004,6 +1053,14 @@ DEFUNSH (VTYSH_OSPFD,
   vty->node = OSPF_NODE;
   return CMD_SUCCESS;
 }
+
+ALIAS_SH (VTYSH_OSPFD,
+	 router_ospf,
+	 router_ospf_instance_cmd,
+	 "router ospf <1-65535>",
+	 "Enable a routing process\n"
+	 "Start OSPF configuration\n"
+         "Instance ID\n")
 
 DEFUNSH (VTYSH_OSPF6D,
 	 router_ospf6,
@@ -2177,6 +2234,114 @@ vtysh_connect (struct vtysh_client *vclient)
   return 0;
 }
 
+/* Return true if str begins with prefix, else return false */
+static int
+begins_with(const char *str, const char *prefix)
+{
+  if (!str || !prefix)
+    return 0;
+  size_t lenstr = strlen(str);
+  size_t lenprefix = strlen(prefix);
+  if (lenprefix >  lenstr)
+    return 0;
+  return strncmp(str, prefix, lenprefix) == 0;
+}
+
+/* Return true if str ends with suffix, else return false */
+static int
+ends_with(const char *str, const char *suffix)
+{
+  if (!str || !suffix)
+    return 0;
+  size_t lenstr = strlen(str);
+  size_t lensuffix = strlen(suffix);
+  if (lensuffix >  lenstr)
+    return 0;
+  return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}
+
+static void
+vtysh_client_sorted_insert (struct vtysh_client *head_client,
+                            struct vtysh_client *client)
+{
+  struct vtysh_client *prev_node, *current_node;
+
+  prev_node = head_client;
+  current_node = head_client->next;
+  while (current_node)
+    {
+      if (strcmp(current_node->path, client->path) > 0)
+        break;
+
+      prev_node = current_node;
+      current_node = current_node->next;
+    }
+  client->next = current_node;
+  prev_node->next = client;
+}
+
+#define MAXIMUM_INSTANCES 10
+
+static void
+vtysh_update_all_insances(struct vtysh_client * head_client)
+{
+  struct vtysh_client *client;
+  char *path;
+  DIR *dir;
+  struct dirent *file;
+  int n = 0;
+
+  if (head_client->flag != VTYSH_OSPFD) return;
+
+  /* ls /var/run/quagga/ and look for all files ending in .vty */
+  dir = opendir("/var/run/quagga/");
+  if (dir)
+    {
+      while ((file = readdir(dir)) != NULL)
+        {
+          if (begins_with(file->d_name, "ospfd-") && ends_with(file->d_name, ".vty"))
+            {
+              if (n == MAXIMUM_INSTANCES)
+                {
+                  fprintf(stderr,
+                          "Parsing /var/run/quagga/, client limit(%d) reached!\n", n);
+                  break;
+                }
+              client = (struct vtysh_client *) malloc(sizeof(struct vtysh_client));
+              client->fd = -1;
+              client->name = (char *) malloc(10);
+              strcpy(client->name, "ospfd");
+              client->flag = VTYSH_OSPFD;
+              client->path = (char *) malloc(100);
+              sprintf(client->path, "/var/run/quagga/%s", file->d_name);
+              client->next = NULL;
+              vtysh_client_sorted_insert(head_client, client);
+              n++;
+            }
+        }
+      closedir(dir);
+    }
+}
+
+int
+vtysh_connect_all_instances (struct vtysh_client *head_client)
+{
+  struct vtysh_client *client;
+  int rc = 0;
+
+  vtysh_update_all_insances(head_client);
+
+  client = head_client->next;
+  while (client)
+    {
+      if (vtysh_connect(client) == 0)
+        rc++;
+      client = client->next;
+    }
+
+  return rc;
+}
+
 int
 vtysh_connect_all(const char *daemon_name)
 {
@@ -2194,7 +2359,9 @@ vtysh_connect_all(const char *daemon_name)
 	  /* We need direct access to ripd in vtysh_exit_ripd_only. */
 	  if (vtysh_client[i].flag == VTYSH_RIPD)
 	    ripd_client = &vtysh_client[i];
-	}
+
+          rc += vtysh_connect_all_instances(&vtysh_client[i]);
+       }
     }
   if (!matches)
     fprintf(stderr, "Error: no daemons match name %s!\n", daemon_name);
@@ -2368,6 +2535,7 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &router_ripng_cmd);
 #endif
   install_element (CONFIG_NODE, &router_ospf_cmd);
+  install_element (CONFIG_NODE, &router_ospf_instance_cmd);
 #ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &router_ospf6_cmd);
 #endif

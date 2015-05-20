@@ -92,19 +92,33 @@ ospf_external_info_check (struct ospf_lsa *lsa)
 
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
-      int redist_type = is_prefix_default (&p) ? DEFAULT_ROUTE : type;
-      if (ospf_is_type_redistributed (redist_type))
-	if (EXTERNAL_INFO (type))
-	  {
-	    rn = route_node_lookup (EXTERNAL_INFO (type),
-				    (struct prefix *) &p);
-	    if (rn)
-	      {
-		route_unlock_node (rn);
-		if (rn->info != NULL)
-		  return (struct external_info *) rn->info;
-	      }
-	  }
+      int redist_on = 0;
+
+      redist_on = is_prefix_default (&p) ? zclient->default_information :
+                  zclient->redist[type].enabled;
+      if (redist_on)
+        {
+          struct list *ext_list;
+          struct listnode *node;
+          struct ospf_external *ext;
+
+          ext_list = om->external[type];
+          if (!ext_list)
+            continue;
+
+          for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext))
+            {
+              if (ext->external_info)
+                rn = route_node_lookup (ext->external_info,
+                                        (struct prefix *) &p);
+              if (rn)
+                {
+                  route_unlock_node (rn);
+                  if (rn->info != NULL)
+                    return (struct external_info *) rn->info;
+                }
+            }
+        }
     }
 
   return NULL;

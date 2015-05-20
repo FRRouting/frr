@@ -934,16 +934,16 @@ rtm_read (struct rt_msghdr *rtm)
        * to specify the route really
        */
       if (rtm->rtm_type == RTM_CHANGE)
-        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p,
+        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
                          NULL, 0, 0, SAFI_UNICAST);
       
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
-	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, 
+	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
 		      &p, &gate.sin.sin_addr, NULL, 0, 0, 0, 0, SAFI_UNICAST);
       else
-	rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, 
+	rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0 zebra_flags,
 		      &p, &gate.sin.sin_addr, 0, 0, SAFI_UNICAST);
     }
 #ifdef HAVE_IPV6
@@ -976,16 +976,16 @@ rtm_read (struct rt_msghdr *rtm)
        * to specify the route really
        */
       if (rtm->rtm_type == RTM_CHANGE)
-        rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p,
+        rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
                          NULL, 0, 0, SAFI_UNICAST);
       
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
-	rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags,
+	rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
 		      &p, &gate.sin6.sin6_addr, ifindex, 0, 0, 0, SAFI_UNICAST);
       else
-	rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags,
+	rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
 			 &p, &gate.sin6.sin6_addr, ifindex, 0, SAFI_UNICAST);
     }
 #endif /* HAVE_IPV6 */

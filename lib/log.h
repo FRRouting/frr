@@ -73,6 +73,7 @@ struct zlog
 {
   const char *ident;	/* daemon name (first arg to openlog) */
   zlog_proto_t protocol;
+  u_short      instance;
   int maxlvl[ZLOG_NUM_DESTS];	/* maximum priority to send to associated
   				   logging destination */
   int default_lvl;	/* maxlvl to use if none is specified */
@@ -97,7 +98,7 @@ extern struct zlog *zlog_default;
 
 /* Open zlog function */
 extern struct zlog *openzlog (const char *progname, zlog_proto_t protocol,
-		              int syslog_options, int syslog_facility);
+		              u_short instance, int syslog_options, int syslog_facility);
 
 /* Close zlog function. */
 extern void closezlog (struct zlog *zl);

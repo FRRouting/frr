@@ -719,9 +719,19 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 	  /* kevinm: refresh any redistributions */
 	  for (x = ZEBRA_ROUTE_SYSTEM; x < ZEBRA_ROUTE_MAX; x++)
 	    {
-	      if (x == ZEBRA_ROUTE_OSPF || x == ZEBRA_ROUTE_OSPF6)
-		continue;
-	      ospf_external_lsa_refresh_type (oi->ospf, x, force);
+              struct list *red_list;
+              struct listnode *node;
+              struct ospf_redist *red;
+
+              if (x == ZEBRA_ROUTE_OSPF6)
+                continue;
+
+              red_list = oi->ospf->redist[x];
+              if (!red_list)
+                continue;
+
+              for (ALL_LIST_ELEMENTS_RO(red_list, node, red))
+	        ospf_external_lsa_refresh_type (oi->ospf, x, red->instance, force);
 	    }
           /* XXX: Clearly some thing is wrong with refresh of external LSAs
            * this added to hack around defaults not refreshing after a timer

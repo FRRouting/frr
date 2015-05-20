@@ -187,7 +187,7 @@ babel_init(int argc, char **argv)
     progname = babel_get_progname(argv[0]);
 
     /* set default log (lib/log.h) */
-    zlog_default = openzlog(progname, ZLOG_BABEL,
+    zlog_default = openzlog(progname, ZLOG_BABEL, 0,
                             LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
     /* set log destination as stdout until the config file is read */
     zlog_set_level(NULL, ZLOG_DEST_STDOUT, LOG_WARNING);

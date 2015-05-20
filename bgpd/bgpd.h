@@ -70,6 +70,18 @@ struct bgp_rmap
   struct route_map *map;
 };
 
+struct bgp_redist
+{
+  u_short instance;
+
+  /* BGP redistribute metric configuration. */
+  u_char redist_metric_flag;
+  u_int32_t redist_metric;
+
+  /* BGP redistribute route-map.  */
+  struct bgp_rmap rmap;
+};
+
 /* BGP instance structure.  */
 struct bgp 
 {
@@ -185,14 +197,7 @@ struct bgp
   struct bgp_rmap table_map[AFI_MAX][SAFI_MAX];
 
   /* BGP redistribute configuration. */
-  u_char redist[AFI_MAX][ZEBRA_ROUTE_MAX];
-
-  /* BGP redistribute metric configuration. */
-  u_char redist_metric_flag[AFI_MAX][ZEBRA_ROUTE_MAX];
-  u_int32_t redist_metric[AFI_MAX][ZEBRA_ROUTE_MAX];
-
-  /* BGP redistribute route-map.  */
-  struct bgp_rmap rmap[AFI_MAX][ZEBRA_ROUTE_MAX];
+  struct list *redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
   /* timer to dampen route map changes */
   struct thread *t_rmap_update;   /* Handle route map updates */

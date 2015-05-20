@@ -743,7 +743,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
       p.prefixlen = rtm->rtm_dst_len;
 
       if (!tb[RTA_MULTIPATH])
-          rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, flags, &p, gate, src, index,
+          rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, flags, &p, gate, src, index,
                         table, metric, 0, SAFI_UNICAST);
       else
         {
@@ -809,7 +809,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
       memcpy (&p.prefix, dest, 16);
       p.prefixlen = rtm->rtm_dst_len;
 
-      rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, flags, &p, gate, index, table,
+      rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, 0, flags, &p, gate, index, table,
 		    metric, 0, SAFI_UNICAST);
     }
 #endif /* HAVE_IPV6 */
@@ -948,7 +948,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
       if (h->nlmsg_type == RTM_NEWROUTE)
         {
           if (!tb[RTA_MULTIPATH])
-            rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, &p, gate, src, index, table,
+            rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, 0, &p, gate, src, index, table,
                           metric, 0, SAFI_UNICAST);
           else
             {
@@ -1007,7 +1007,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
             }
         }
       else
-        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p, gate, index,
+        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, gate, index,
                          table, SAFI_UNICAST);
     }
 
@@ -1034,9 +1034,9 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
         }
 
       if (h->nlmsg_type == RTM_NEWROUTE)
-        rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, 0, &p, gate, index, table, metric, 0, SAFI_UNICAST);
+        rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, 0, 0, &p, gate, index, table, metric, 0, SAFI_UNICAST);
       else
-        rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p, gate, index,
+        rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, gate, index,
                          table, SAFI_UNICAST);
     }
 #endif /* HAVE_IPV6 */
