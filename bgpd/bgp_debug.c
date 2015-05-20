@@ -244,6 +244,47 @@ bgp_debug_list_print (struct vty *vty, const char *desc, struct list *list)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
+/* Print the command to enable the debug for each peer/prefix this debug is
+ * enabled for
+ */
+static int
+bgp_debug_list_conf_print (struct vty *vty, const char *desc, struct list *list)
+{
+  struct bgp_debug_filter *filter;
+  struct listnode *node, *nnode;
+  char buf[INET6_ADDRSTRLEN];
+  int write = 0;
+
+  if (list && !list_isempty(list))
+    {
+      for (ALL_LIST_ELEMENTS (list, node, nnode, filter))
+        {
+          if (filter->peer)
+            {
+              vty_out (vty, "%s %s%s", desc, filter->peer->host, VTY_NEWLINE);
+              write++;
+            }
+
+
+          if (filter->p)
+            {
+              vty_out (vty, "%s %s/%d%s", desc,
+                       inet_ntop (filter->p->family, &filter->p->u.prefix, buf, INET6_ADDRSTRLEN),
+                       filter->p->prefixlen, VTY_NEWLINE);
+              write++;
+            }
+        }
+    }
+
+    if (!write)
+      {
+        vty_out (vty, "%s%s", desc, VTY_NEWLINE);
+        write++;
+      }
+
+    return write;
+}
+
 static void
 bgp_debug_list_add_entry(struct list *list, struct peer *peer, struct prefix *p)
 {
@@ -549,6 +590,8 @@ DEFUN (debug_bgp_neighbor_events,
        BGP_STR
        "BGP Neighbor Events\n")
 {
+  bgp_debug_list_free(bgp_debug_neighbor_events_peers);
+
   if (vty->node == CONFIG_NODE)
     DEBUG_ON (neighbor_events, NEIGHBOR_EVENTS);
   else
@@ -705,6 +748,8 @@ DEFUN (debug_bgp_keepalive,
        BGP_STR
        "BGP keepalives\n")
 {
+  bgp_debug_list_free(bgp_debug_keepalive_peers);
+
   if (vty->node == CONFIG_NODE)
     DEBUG_ON (keepalive, KEEPALIVE);
   else
@@ -935,8 +980,6 @@ DEFUN (no_debug_bgp_bestpath,
   return CMD_SUCCESS;
 }
 
-
-
 /* debug bgp updates */
 DEFUN (debug_bgp_update,
        debug_bgp_update_cmd,
@@ -945,6 +988,10 @@ DEFUN (debug_bgp_update,
        BGP_STR
        "BGP updates\n")
 {
+  bgp_debug_list_free(bgp_debug_update_in_peers);
+  bgp_debug_list_free(bgp_debug_update_out_peers);
+  bgp_debug_list_free(bgp_debug_update_prefixes);
+
   if (vty->node == CONFIG_NODE)
     {
       DEBUG_ON (update, UPDATE_IN);
@@ -968,30 +1015,28 @@ DEFUN (debug_bgp_update_direct,
        "Inbound updates\n"
        "Outbound updates\n")
 {
+
+  if (strncmp ("i", argv[0], 1) == 0)
+    bgp_debug_list_free(bgp_debug_update_in_peers);
+  else
+    bgp_debug_list_free(bgp_debug_update_out_peers);
+
   if (vty->node == CONFIG_NODE)
     {
       if (strncmp ("i", argv[0], 1) == 0)
-	{
-	  DEBUG_OFF (update, UPDATE_OUT);
-	  DEBUG_ON (update, UPDATE_IN);
-	}
+        DEBUG_ON (update, UPDATE_IN);
       else
-	{	
-	  DEBUG_OFF (update, UPDATE_IN);
-	  DEBUG_ON (update, UPDATE_OUT);
-	}
+        DEBUG_ON (update, UPDATE_OUT);
     }
   else
     {
       if (strncmp ("i", argv[0], 1) == 0)
 	{
-	  TERM_DEBUG_OFF (update, UPDATE_OUT);
 	  TERM_DEBUG_ON (update, UPDATE_IN);
 	  vty_out (vty, "BGP updates debugging is on (inbound)%s", VTY_NEWLINE);
 	}
       else
 	{
-	  TERM_DEBUG_OFF (update, UPDATE_IN);
 	  TERM_DEBUG_ON (update, UPDATE_OUT);
 	  vty_out (vty, "BGP updates debugging is on (outbound)%s", VTY_NEWLINE);
 	}
@@ -1071,31 +1116,65 @@ DEFUN (debug_bgp_update_direct_peer,
   if (vty->node == CONFIG_NODE)
     {
       if (inbound)
-	{
-	  DEBUG_OFF (update, UPDATE_OUT);
-	  DEBUG_ON (update, UPDATE_IN);
-	}
+	DEBUG_ON (update, UPDATE_IN);
       else
-	{
-	  DEBUG_OFF (update, UPDATE_IN);
-	  DEBUG_ON (update, UPDATE_OUT);
-	}
+	DEBUG_ON (update, UPDATE_OUT);
     }
   else
     {
       if (inbound)
 	{
-	  TERM_DEBUG_OFF (update, UPDATE_OUT);
 	  TERM_DEBUG_ON (update, UPDATE_IN);
 	  vty_out (vty, "BGP updates debugging is on (inbound) for %s%s", argv[1], VTY_NEWLINE);
 	}
       else
 	{
-	  TERM_DEBUG_OFF (update, UPDATE_IN);
 	  TERM_DEBUG_ON (update, UPDATE_OUT);
 	  vty_out (vty, "BGP updates debugging is on (outbound) for %s%s", argv[1], VTY_NEWLINE);
 	}
     }
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_update_direct,
+       no_debug_bgp_update_direct_cmd,
+       "no debug bgp updates (in|out)",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP updates\n"
+       "Inbound updates\n"
+       "Outbound updates\n")
+{
+  if (strncmp ("i", argv[0], 1) == 0)
+    {
+      bgp_debug_list_free(bgp_debug_update_in_peers);
+
+      if (vty->node == CONFIG_NODE)
+        {
+          DEBUG_OFF (update, UPDATE_IN);
+        }
+      else
+        {
+          TERM_DEBUG_OFF (update, UPDATE_IN);
+          vty_out (vty, "BGP updates debugging is off (inbound)%s", VTY_NEWLINE);
+        }
+    }
+  else
+    {
+      bgp_debug_list_free(bgp_debug_update_out_peers);
+
+      if (vty->node == CONFIG_NODE)
+        {
+          DEBUG_OFF (update, UPDATE_OUT);
+        }
+      else
+        {
+          TERM_DEBUG_OFF (update, UPDATE_OUT);
+          vty_out (vty, "BGP updates debugging is off (outbound)%s", VTY_NEWLINE);
+        }
+    }
+
   return CMD_SUCCESS;
 }
 
@@ -1303,6 +1382,7 @@ DEFUN (no_debug_bgp_update,
 
   bgp_debug_clear_updgrp_update_dbg(vty->index);
 
+  // dwalton
   if (vty->node == CONFIG_NODE)
     {
       DEBUG_OFF (update, UPDATE_IN);
@@ -1429,7 +1509,7 @@ DEFUN (no_debug_bgp_zebra_prefix,
 
   if (bgp_debug_zebra_prefixes && !list_isempty(bgp_debug_zebra_prefixes))
     {
-      found_prefix = bgp_debug_list_remove_entry(bgp_debug_neighbor_events_peers, NULL, argv_p);
+      found_prefix = bgp_debug_list_remove_entry(bgp_debug_zebra_prefixes, NULL, argv_p);
 
       if (list_isempty(bgp_debug_zebra_prefixes))
         {
@@ -1533,19 +1613,26 @@ DEFUN (show_debugging_bgp,
   if (BGP_DEBUG (as4, AS4_SEGMENT))
     vty_out (vty, "  BGP as4 aspath segment debugging is on%s", VTY_NEWLINE);
 
-  if (BGP_DEBUG (neighbor_events, NEIGHBOR_EVENTS))
-    bgp_debug_list_print (vty, "  BGP neighbor-events debugging is on",
-                          bgp_debug_neighbor_events_peers);
+  if (BGP_DEBUG (bestpath, BESTPATH))
+    bgp_debug_list_print (vty, "  BGP bestpath debugging is on",
+                          bgp_debug_bestpath_prefixes);
 
   if (BGP_DEBUG (keepalive, KEEPALIVE))
     bgp_debug_list_print (vty, "  BGP keepalives debugging is on",
                           bgp_debug_keepalive_peers);
 
+  if (BGP_DEBUG (neighbor_events, NEIGHBOR_EVENTS))
+    bgp_debug_list_print (vty, "  BGP neighbor-events debugging is on",
+                          bgp_debug_neighbor_events_peers);
+
   if (BGP_DEBUG (nht, NHT))
     vty_out (vty, "  BGP next-hop tracking debugging is on%s", VTY_NEWLINE);
 
+  if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
+    vty_out (vty, "  BGP update-groups debugging is on%s", VTY_NEWLINE);
+
   if (BGP_DEBUG (update, UPDATE_PREFIX))
-    bgp_debug_list_print (vty, "  BGP updates debugging is on for",
+    bgp_debug_list_print (vty, "  BGP updates debugging is on",
                           bgp_debug_update_prefixes);
 
   if (BGP_DEBUG (update, UPDATE_IN))
@@ -1556,16 +1643,9 @@ DEFUN (show_debugging_bgp,
     bgp_debug_list_print (vty, "  BGP updates debugging is on (outbound)",
                           bgp_debug_update_out_peers);
 
-  if (BGP_DEBUG (bestpath, BESTPATH))
-    bgp_debug_list_print (vty, "  BGP bestpath debugging is on for",
-                          bgp_debug_bestpath_prefixes);
-
   if (BGP_DEBUG (zebra, ZEBRA))
     bgp_debug_list_print (vty, "  BGP zebra debugging is on",
                           bgp_debug_zebra_prefixes);
-
-  if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    vty_out (vty, "  BGP update-groups debugging is on%s", VTY_NEWLINE);
 
   vty_out (vty, "%s", VTY_NEWLINE);
   return CMD_SUCCESS;
@@ -1588,56 +1668,66 @@ bgp_config_write_debug (struct vty *vty)
       write++;
     }
 
-  if (CONF_BGP_DEBUG (keepalive, KEEPALIVE))
-    {
-      vty_out (vty, "debug bgp keepalives%s", VTY_NEWLINE);
-      write++;
-    }
-
-  if (CONF_BGP_DEBUG (update, UPDATE_IN) && CONF_BGP_DEBUG (update, UPDATE_OUT))
-    {
-      vty_out (vty, "debug bgp updates%s", VTY_NEWLINE);
-      write++;
-    }
-  else if (CONF_BGP_DEBUG (update, UPDATE_IN))
-    {
-      vty_out (vty, "debug bgp updates in%s", VTY_NEWLINE);
-      write++;
-    }
-  else if (CONF_BGP_DEBUG (update, UPDATE_OUT))
-    {
-      vty_out (vty, "debug bgp updates out%s", VTY_NEWLINE);
-      write++;
-    }
-
   if (CONF_BGP_DEBUG (bestpath, BESTPATH))
     {
-      vty_out (vty, "debug bgp bestpath%s", VTY_NEWLINE);
-      write++;
+      write += bgp_debug_list_conf_print (vty, "debug bgp bestpath",
+                                          bgp_debug_bestpath_prefixes);
+    }
+
+  if (CONF_BGP_DEBUG (keepalive, KEEPALIVE))
+    {
+      write += bgp_debug_list_conf_print (vty, "debug bgp keepalive",
+                                          bgp_debug_keepalive_peers);
     }
 
   if (CONF_BGP_DEBUG (neighbor_events, NEIGHBOR_EVENTS))
     {
-      vty_out (vty, "debug bgp neighbor-events%s", VTY_NEWLINE);
-      write++;
+      write += bgp_debug_list_conf_print (vty, "debug bgp neighbor-events",
+                                          bgp_debug_neighbor_events_peers);
     }
 
-  if (CONF_BGP_DEBUG (zebra, ZEBRA))
-    {
-      vty_out (vty, "debug bgp zebra%s", VTY_NEWLINE);
-      write++;
-    }
-
-    if (CONF_BGP_DEBUG (nht, NHT))
+  if (CONF_BGP_DEBUG (nht, NHT))
     {
       vty_out (vty, "debug bgp nht%s", VTY_NEWLINE);
       write++;
     }
 
-    if (CONF_BGP_DEBUG (update_groups, UPDATE_GROUPS))
+  if (CONF_BGP_DEBUG (update_groups, UPDATE_GROUPS))
     {
       vty_out (vty, "debug bgp update-groups%s", VTY_NEWLINE);
       write++;
+    }
+
+  if (CONF_BGP_DEBUG (update, UPDATE_PREFIX))
+    {
+      write += bgp_debug_list_conf_print (vty, "debug bgp updates prefix",
+                                          bgp_debug_update_prefixes);
+    }
+
+  if (CONF_BGP_DEBUG (update, UPDATE_IN))
+    {
+      write += bgp_debug_list_conf_print (vty, "debug bgp updates in",
+                                          bgp_debug_update_in_peers);
+    }
+
+  if (CONF_BGP_DEBUG (update, UPDATE_OUT))
+    {
+      write += bgp_debug_list_conf_print (vty, "debug bgp updates out",
+                                          bgp_debug_update_out_peers);
+    }
+
+  if (CONF_BGP_DEBUG (zebra, ZEBRA))
+    {
+      if (!bgp_debug_zebra_prefixes || list_isempty(bgp_debug_zebra_prefixes))
+        {
+          vty_out (vty, "debug bgp zebra%s", VTY_NEWLINE);
+          write++;
+        }
+      else
+        {
+          write += bgp_debug_list_conf_print (vty, "debug bgp zebra prefix",
+                                              bgp_debug_zebra_prefixes);
+        }
     }
 
   return write;
@@ -1670,8 +1760,6 @@ bgp_debug_init (void)
   install_element (CONFIG_NODE, &debug_bgp_keepalive_cmd);
   install_element (ENABLE_NODE, &debug_bgp_update_cmd);
   install_element (CONFIG_NODE, &debug_bgp_update_cmd);
-  install_element (ENABLE_NODE, &debug_bgp_update_direct_cmd);
-  install_element (CONFIG_NODE, &debug_bgp_update_direct_cmd);
   install_element (ENABLE_NODE, &debug_bgp_zebra_cmd);
   install_element (CONFIG_NODE, &debug_bgp_zebra_cmd);
   install_element (ENABLE_NODE, &debug_bgp_update_groups_cmd);
@@ -1679,19 +1767,25 @@ bgp_debug_init (void)
   install_element (ENABLE_NODE, &debug_bgp_bestpath_prefix_cmd);
   install_element (CONFIG_NODE, &debug_bgp_bestpath_prefix_cmd);
 
-  /* deb bgp updates [in|out] A.B.C.D */
+  /* debug bgp updates (in|out) */
+  install_element (ENABLE_NODE, &debug_bgp_update_direct_cmd);
+  install_element (CONFIG_NODE, &debug_bgp_update_direct_cmd);
+  install_element (ENABLE_NODE, &no_debug_bgp_update_direct_cmd);
+  install_element (CONFIG_NODE, &no_debug_bgp_update_direct_cmd);
+
+  /* debug bgp updates (in|out) A.B.C.D */
   install_element (ENABLE_NODE, &debug_bgp_update_direct_peer_cmd);
   install_element (CONFIG_NODE, &debug_bgp_update_direct_peer_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_update_direct_peer_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_update_direct_peer_cmd);
 
-  /* deb bgp updates prefix A.B.C.D/M */
+  /* debug bgp updates prefix A.B.C.D/M */
   install_element (ENABLE_NODE, &debug_bgp_update_prefix_cmd);
   install_element (CONFIG_NODE, &debug_bgp_update_prefix_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_update_prefix_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_update_prefix_cmd);
 
-  /* deb bgp zebra prefix A.B.C.D/M */
+  /* debug bgp zebra prefix A.B.C.D/M */
   install_element (ENABLE_NODE, &debug_bgp_zebra_prefix_cmd);
   install_element (CONFIG_NODE, &debug_bgp_zebra_prefix_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_zebra_prefix_cmd);
@@ -1702,13 +1796,13 @@ bgp_debug_init (void)
   install_element (ENABLE_NODE, &no_debug_bgp_as4_segment_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_as4_segment_cmd);
 
-  /* deb bgp neighbor-events A.B.C.D */
+  /* debug bgp neighbor-events A.B.C.D */
   install_element (ENABLE_NODE, &debug_bgp_neighbor_events_peer_cmd);
   install_element (CONFIG_NODE, &debug_bgp_neighbor_events_peer_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_neighbor_events_peer_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_neighbor_events_peer_cmd);
 
-  /* deb bgp keepalive A.B.C.D */
+  /* debug bgp keepalive A.B.C.D */
   install_element (ENABLE_NODE, &debug_bgp_keepalive_peer_cmd);
   install_element (CONFIG_NODE, &debug_bgp_keepalive_peer_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_keepalive_peer_cmd);

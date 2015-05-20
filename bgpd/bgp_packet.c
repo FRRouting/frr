@@ -1577,7 +1577,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  if (peer->nsf[AFI_IP6][SAFI_MULTICAST])
 	    bgp_clear_stale_route (peer, AFI_IP6, SAFI_MULTICAST);
 
-	  if (bgp_debug_update(peer, NULL, NULL, 1))
+          if (bgp_debug_neighbor_events(peer))
 	    zlog_debug ("rcvd End-of-RIB for IPv6 Multicast from %s", peer->host);
 	}
     }
@@ -1607,7 +1607,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
               bgp_update_explicit_eors(peer);
             }
 
-	  if (bgp_debug_update(peer, NULL, NULL, 1))
+          if (bgp_debug_neighbor_events(peer))
 	    zlog_debug ("rcvd End-of-RIB for VPNv4 Unicast from %s", peer->host);
 	}
     }
