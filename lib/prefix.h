@@ -156,6 +156,16 @@ union prefix46constptr
 /* Prefix's family member. */
 #define PREFIX_FAMILY(p)  ((p)->family)
 
+/* glibc defines s6_addr32 to __in6_u.__u6_addr32 if __USE_{MISC || GNU} */
+#ifndef s6_addr32
+#if defined(SUNOS_5)
+/* Some SunOS define s6_addr32 only to kernel */
+#define s6_addr32 _S6_un._S6_u32
+#else
+#define s6_addr32 __u6_addr.__u6_addr32
+#endif /* SUNOS_5 */
+#endif /*s6_addr32*/
+
 /* Prototypes. */
 extern int afi2family (afi_t);
 extern afi_t family2afi (int);
