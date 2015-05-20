@@ -330,14 +330,15 @@ nexthops_free (struct nexthop *nexthop, struct route_node *rn)
 	  nh_p.family = AF_INET;
 	  nh_p.prefixlen = IPV4_MAX_BITLEN;
 	  nh_p.u.prefix4 = nh->gate.ipv4;
+	  zebra_deregister_rnh_static_nh(&nh_p, rn);
 	}
       else if (nh->type == NEXTHOP_TYPE_IPV6)
 	{
 	  nh_p.family = AF_INET6;
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = nh->gate.ipv6;
+	  zebra_deregister_rnh_static_nh(&nh_p, rn);
 	}
-      zebra_deregister_rnh_static_nh(&nh_p, rn);
       nexthop_free (nh, rn);
     }
 }

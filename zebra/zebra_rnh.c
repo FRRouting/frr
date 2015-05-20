@@ -137,7 +137,7 @@ zebra_delete_rnh (struct rnh *rnh)
 {
   struct route_node *rn;
 
-  if (!rnh || !(rn = rnh->node))
+  if (!rnh || (rnh->flags & ZEBRA_NHT_DELETED) || !(rn = rnh->node))
     return;
 
   if (IS_ZEBRA_DEBUG_NHT)
@@ -146,6 +146,7 @@ zebra_delete_rnh (struct rnh *rnh)
       zlog_debug("delete rnh %s", rnh_str(rnh, buf, INET6_ADDRSTRLEN));
     }
 
+  rnh->flags |= ZEBRA_NHT_DELETED;
   list_free(rnh->client_list);
   list_free(rnh->zebra_static_route_list);
   free_state(rnh->state, rn);
@@ -206,7 +207,7 @@ zebra_deregister_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
   struct rnh *rnh;
 
   rnh = zebra_lookup_rnh(nh, 0);
-  if (!rnh)
+  if (!rnh || (rnh->flags & ZEBRA_NHT_DELETED))
     return;
 
   listnode_delete(rnh->zebra_static_route_list, static_rn);
