@@ -233,6 +233,7 @@ ospf_new (void)
     }
   new->t_read = thread_add_read (master, ospf_read, new, new->fd);
   new->oi_write_q = list_new ();
+  new->write_multiplier = OSPF_WRITE_MULTIPLIER_DEFAULT;
   
   return new;
 }

@@ -2531,6 +2531,37 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
+DEFUN (ospf_write_multiplier,
+       ospf_write_multiplier_cmd,
+       "write-multiplier <1-50>",
+       "Number of writes per thread callback\n")
+{
+  struct ospf *ospf = vty->index;
+  u_int32_t write_multiplier;
+
+  write_multiplier = strtol (argv[0], NULL, 10);
+  if (write_multiplier < 1 || write_multiplier > 50)
+    {
+      vty_out (vty, "write-multiplier value is invalid%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ospf->write_multiplier = write_multiplier;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_write_multiplier,
+       no_ospf_write_multiplier_cmd,
+       "no write-multiplier",
+       NO_STR
+       "Number of writes per thread callback\n")
+{
+  struct ospf *ospf = vty->index;
+
+  ospf->write_multiplier = OSPF_WRITE_MULTIPLIER_DEFAULT;
+  return CMD_SUCCESS;
+}
+
 const char *ospf_abr_type_descr_str[] = 
 {
   "Unknown",
@@ -2760,6 +2791,10 @@ DEFUN (show_ip_ospf,
            ospf_timer_dump (ospf->t_spf_calc, timebuf, sizeof (timebuf)),
            VTY_NEWLINE);
   
+  /* Show write multiplier values */
+  vty_out (vty, " Write Multiplier set to %d %s",
+	   ospf->write_multiplier, VTY_NEWLINE);
+
   /* Show refresh parameters. */
   vty_out (vty, " Refresh timer %d secs%s",
 	   ospf->lsa_refresh_interval, VTY_NEWLINE);
@@ -7287,6 +7322,11 @@ ospf_config_write (struct vty *vty)
 		 ospf->spf_delay, ospf->spf_holdtime,
 		 ospf->spf_max_holdtime, VTY_NEWLINE);
       
+      /* Write multiplier print. */
+      if (ospf->write_multiplier != OSPF_WRITE_MULTIPLIER_DEFAULT)
+        vty_out (vty, " ospf write-multiplier %d%s",
+                 ospf->write_multiplier, VTY_NEWLINE);
+
       /* Max-metric router-lsa print */
       config_write_stub_router (vty, ospf);
       
@@ -7722,6 +7762,10 @@ ospf_vty_init (void)
   install_element (OSPF_NODE, &no_ospf_neighbor_cmd);
   install_element (OSPF_NODE, &no_ospf_neighbor_priority_cmd);
   install_element (OSPF_NODE, &no_ospf_neighbor_poll_interval_cmd);
+
+  /* write multiplier commands */
+  install_element (OSPF_NODE, &ospf_write_multiplier_cmd);
+  install_element (OSPF_NODE, &no_ospf_write_multiplier_cmd);
 
   /* Init interface related vty commands. */
   ospf_vty_if_init ();
