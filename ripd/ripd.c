@@ -1684,16 +1684,6 @@ rip_request_process (struct rip_packet *packet, int size,
       ntohs (rte->family) == 0 &&
       ntohl (rte->metric) == RIP_METRIC_INFINITY)
     {	
-      struct prefix_ipv4 saddr;
-
-      /* saddr will be used for determining which routes to split-horizon.
-         Since the source address we'll pick will be on the same subnet as the
-         destination, for the purpose of split-horizoning, we'll
-         pretend that "from" is our source address.  */
-      saddr.family = AF_INET;
-      saddr.prefixlen = IPV4_MAX_BITLEN;
-      saddr.prefix = from->sin_addr;
-
       /* All route with split horizon */
       rip_output_process (ifc, from, rip_all_route, packet->version);
     }
@@ -2934,7 +2924,7 @@ DEFUN (rip_route,
       return CMD_WARNING;
     }
 
-  node->info = (char *)"static";
+  node->info = (void *)1;
 
   rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL, 0, 0);
 
@@ -3181,7 +3171,6 @@ rip_distance_unset (struct vty *vty, const char *distance_str,
 {
   int ret;
   struct prefix_ipv4 p;
-  u_char distance;
   struct route_node *rn;
   struct rip_distance *rdistance;
 
@@ -3191,8 +3180,6 @@ rip_distance_unset (struct vty *vty, const char *distance_str,
       vty_out (vty, "Malformed prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-  distance = atoi (distance_str);
 
   rn = route_node_lookup (rip_distance_table, (struct prefix *)&p);
   if (! rn)
