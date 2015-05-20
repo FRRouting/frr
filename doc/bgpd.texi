@@ -430,6 +430,12 @@ Apply a route-map on the neighbor.  @var{direct} must be @code{in} or
 @code{out}.
 @end deffn
 
+@deffn {BGP} {bgp route-reflector allow-outbound-policy} {}
+By default, attribute modification via route-map policy out is not reflected
+on reflected routes. This option allows the modifications to be reflected as
+well. Once enabled, it affects all reflected routes.
+@end deffn
+
 @c -----------------------------------------------------------------------
 @node BGP Peer Group
 @section BGP Peer Group

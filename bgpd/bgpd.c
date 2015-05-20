@@ -5675,6 +5675,10 @@ bgp_config_write (struct vty *vty)
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
 	vty_out (vty, " bgp bestpath as-path multipath-relax%s", VTY_NEWLINE);
       }
+      if (bgp_flag_check (bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
+	vty_out (vty, " bgp route-reflector allow-outbound-policy%s",
+		 VTY_NEWLINE);
+      }
       if (bgp_flag_check (bgp, BGP_FLAG_COMPARE_ROUTER_ID))
 	vty_out (vty, " bgp bestpath compare-routerid%s", VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_MED_CONFED)

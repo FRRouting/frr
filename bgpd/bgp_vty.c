@@ -1586,6 +1586,83 @@ ALIAS (no_bgp_default_local_preference,
        "local preference (higher=more preferred)\n"
        "Configure default local preference value\n")
 
+static void
+peer_announce_routes_if_rmap_out (struct bgp *bgp)
+{
+  struct peer *peer;
+  struct listnode *node, *nnode;
+  struct bgp_filter *filter;
+  afi_t afi;
+  safi_t safi;
+
+  /* Reannounce all routes to appropriate neighbors */
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+    {
+      for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+	  {
+	    if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
+	      {
+		/* check if there's an out route-map on this client */
+		filter = &peer->filter[afi][safi];
+		if (ROUTE_MAP_OUT_NAME(filter))
+		  {
+		    if (BGP_DEBUG(update, UPDATE_OUT))
+		      zlog_debug("%s: Announcing routes again for peer %s"
+				 "(afi=%d, safi=%d", __func__, peer->host, afi,
+				 safi);
+
+		    bgp_announce_route_all(peer);
+		  }
+	      }
+	}
+    }
+}
+
+DEFUN (bgp_rr_allow_outbound_policy,
+       bgp_rr_allow_outbound_policy_cmd,
+       "bgp route-reflector allow-outbound-policy",
+       "BGP specific commands\n"
+       "Allow modifications made by out route-map\n"
+       "on ibgp neighbors\n")
+{
+  struct bgp *bgp;
+  u_int32_t local_pref;
+  int ret;
+
+  bgp = vty->index;
+
+  if (!bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
+    {
+      bgp_flag_set(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+      peer_announce_routes_if_rmap_out(bgp);
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_rr_allow_outbound_policy,
+       no_bgp_rr_allow_outbound_policy_cmd,
+       "no bgp route-reflector allow-outbound-policy",
+       NO_STR
+       "BGP specific commands\n"
+       "Allow modifications made by out route-map\n"
+       "on ibgp neighbors\n")
+{
+  struct bgp *bgp;
+  u_int32_t local_pref;
+
+  bgp = vty->index;
+
+  if (bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
+    {
+      bgp_flag_unset(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+      peer_announce_routes_if_rmap_out(bgp);
+    }
+
+  return CMD_SUCCESS;
+}
+
 static int
 peer_remote_as_vty (struct vty *vty, const char *peer_str, 
                     const char *as_str, afi_t afi, safi_t safi)
@@ -9730,6 +9807,10 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_default_local_preference_cmd);
   install_element (BGP_NODE, &no_bgp_default_local_preference_cmd);
   install_element (BGP_NODE, &no_bgp_default_local_preference_val_cmd);
+
+  /* bgp ibgp-allow-policy-mods command */
+  install_element (BGP_NODE, &bgp_rr_allow_outbound_policy_cmd);
+  install_element (BGP_NODE, &no_bgp_rr_allow_outbound_policy_cmd);
 
   /* "neighbor remote-as" commands. */
   install_element (BGP_NODE, &neighbor_remote_as_cmd);
