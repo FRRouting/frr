@@ -838,13 +838,6 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
           if ((type = l->m[0].type) == LSA_LINK_TYPE_STUB)
             continue;
           
-          /* Infinite distance links shouldn't be followed, except
-           * for local links (a stub-routed router still wants to
-           * calculate tree, so must follow its own links).
-           */
-          if ((v != area->spf) && l->m[0].metric >= OSPF_OUTPUT_COST_INFINITE)
-            continue;
-
           /* (b) Otherwise, W is a transit vertex (router or transit
              network).  Look up the vertex W's LSA (router-LSA or
              network-LSA) in Area A's link state database. */
