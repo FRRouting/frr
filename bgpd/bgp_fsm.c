@@ -395,22 +395,6 @@ bgp_keepalive_timer (struct thread *thread)
   return 0;
 }
 
-static int
-bgp_routeq_empty (struct peer *peer)
-{
-  struct peer_af *paf;
-  int af;
-
-  PEERAF_FOREACH(peer, paf, af)
-    {
-      if (!PAF_SUBGRP(paf))
-	continue;
-      if (!advertise_list_is_empty(PAF_SUBGRP(paf)))
-	return 0;
-    }
-  return 1;
-}
-
 int
 bgp_routeadv_timer (struct thread *thread)
 {
@@ -1333,13 +1317,6 @@ bgp_fsm_open (struct peer *peer)
 static int
 bgp_fsm_keepalive_expire (struct peer *peer)
 {
-  /*
-   * If there are UPDATE messages to send, no need to send keepalive. The
-   * peer will note our progress through the UPDATEs.
-   */
-  if (!bgp_routeq_empty(peer))
-    return 0;
-
   bgp_keepalive_send (peer);
   return 0;
 }
