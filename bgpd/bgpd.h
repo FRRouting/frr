@@ -502,6 +502,13 @@ struct peer
   int status;
   int ostatus;
 
+  /* FSM events, stored for debug purposes.
+   * Note: uchar used for reduced memory usage.
+   */
+  unsigned char cur_event;
+  unsigned char last_event;
+  unsigned char last_major_event;
+
   /* Peer index, used for dumping TABLE_DUMP_V2 format */
   uint16_t table_dump_index;
 

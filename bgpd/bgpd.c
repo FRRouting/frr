@@ -980,6 +980,7 @@ peer_new (struct bgp *bgp)
   peer->v_asorig = BGP_DEFAULT_ASORIGINATE;
   peer->status = Idle;
   peer->ostatus = Idle;
+  peer->cur_event = peer->last_event = peer->last_major_event = 0;
   peer->bgp = bgp;
   peer = peer_lock (peer); /* initial reference */
   bgp_lock (bgp);
