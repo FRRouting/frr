@@ -10,7 +10,7 @@ XS-Testsuite: autopkgtest
 
 Package: quagga
 Architecture: any
-Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), iproute, ${misc:Depends}
+Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), iproute, ${misc:Depends}, cl-utilities
 Pre-Depends: adduser
 Conflicts: zebra, zebra-pj
 Replaces: zebra, zebra-pj
