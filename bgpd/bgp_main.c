@@ -225,7 +225,6 @@ bgp_exit (int status)
 {
   struct bgp *bgp;
   struct listnode *node, *nnode;
-  int *socket;
   struct interface *ifp;
   extern struct zclient *zclient;
 

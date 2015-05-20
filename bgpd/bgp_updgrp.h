@@ -290,7 +290,7 @@ struct updwalk_context
   u_int64_t updgrp_id;
   u_int64_t subgrp_id;
   bgp_policy_type_e policy_type;
-  char *policy_name;
+  const char *policy_name;
   int policy_event_start_flag;
   int policy_route_update;
   updgrp_walkcb cb;
@@ -371,13 +371,13 @@ extern int
 update_subgroup_trigger_merge_check (struct update_subgroup *,
 				     int force);
 extern void update_group_policy_update (struct bgp *bgp,
-					bgp_policy_type_e ptype, char *pname,
+					bgp_policy_type_e ptype, const char *pname,
 					int route_update, int start_event);
 extern void update_group_af_walk (struct bgp *bgp, afi_t afi, safi_t safi,
 				  updgrp_walkcb cb, void *ctx);
 extern void update_group_walk (struct bgp *bgp, updgrp_walkcb cb, void *ctx);
 extern void update_group_periodic_merge (struct bgp *bgp);
-extern void update_group_refresh_default_originate_route_map (struct thread *thread);
+extern int update_group_refresh_default_originate_route_map (struct thread *thread);
 extern void update_group_start_advtimer (struct bgp *bgp);
 
 extern void update_subgroup_inherit_info (struct update_subgroup *to,

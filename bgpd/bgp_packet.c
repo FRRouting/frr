@@ -263,7 +263,7 @@ bgp_write_packet (struct peer *peer)
         s = bpacket_reformat_for_peer (next_pkt, paf);
         bpacket_queue_advance_peer (paf);
         if (bgp_debug_update(peer, NULL, NULL, 0))
-          zlog_debug ("u%llu:s%llu %s send UPDATE len %d ",
+          zlog_debug ("u%" PRIu64 ":s%" PRIu64 "%s send UPDATE len %zu ",
                       PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
                       peer->host, (stream_get_endp(s) - stream_get_getp(s)));
         return s;
@@ -349,7 +349,7 @@ bgp_write (struct thread *thread)
   struct stream *s;
   int num;
   unsigned int count = 0;
-  int oc = 0;
+  unsigned int oc = 0;
 
   /* Yes first of all get peer pointer. */
   peer = THREAD_ARG (thread);
@@ -516,7 +516,6 @@ void
 bgp_keepalive_send (struct peer *peer)
 {
   struct stream *s;
-  int length;
 
   s = stream_new (BGP_MAX_PACKET_SIZE);
 
@@ -524,7 +523,7 @@ bgp_keepalive_send (struct peer *peer)
   bgp_packet_set_marker (s, BGP_MSG_KEEPALIVE);
 
   /* Set packet size. */
-  length = bgp_packet_set_size (s);
+  (void)bgp_packet_set_size (s);
 
   /* Dump packet if debug option is set. */
   /* bgp_packet_dump (s); */
@@ -543,7 +542,6 @@ void
 bgp_open_send (struct peer *peer)
 {
   struct stream *s;
-  int length;
   u_int16_t send_holdtime;
   as_t local_as;
 
@@ -574,7 +572,7 @@ bgp_open_send (struct peer *peer)
   bgp_open_capability (s, peer);
 
   /* Set BGP packet length. */
-  length = bgp_packet_set_size (s);
+  (void)bgp_packet_set_size (s);
 
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s sending OPEN, version %d, my as %u, holdtime %d, id %s", 
@@ -683,7 +681,6 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
 {
   struct stream *s;
   struct stream *packet;
-  int length;
   struct bgp_filter *filter;
   int orf_refresh = 0;
 
@@ -751,7 +748,7 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
       }
 
   /* Set packet size. */
-  length = bgp_packet_set_size (s);
+  (void)bgp_packet_set_size (s);
 
   if (bgp_debug_neighbor_events(peer))
     {
@@ -777,7 +774,6 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 {
   struct stream *s;
   struct stream *packet;
-  int length;
 
   /* Adjust safi code. */
   if (safi == SAFI_MPLS_VPN)
@@ -805,7 +801,7 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
     }
 
   /* Set packet size. */
-  length = bgp_packet_set_size (s);
+  (void)bgp_packet_set_size (s);
 
   /* Make real packet. */
   packet = stream_dup (s);
@@ -903,7 +899,6 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   u_int16_t send_holdtime;
   as_t remote_as;
   as_t as4 = 0;
-  struct peer *active_peer = NULL;
   struct in_addr remote_id;
   int mp_capability;
   u_int8_t notify_data_remote_as[2];
@@ -915,7 +910,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   version = stream_getc (peer->ibuf);
   memcpy (notify_data_remote_as, stream_pnt (peer->ibuf), 2);
   remote_as  = stream_getw (peer->ibuf);
-  holdtime_ptr = stream_pnt (peer->ibuf);
+  holdtime_ptr = (u_int16_t *)stream_pnt (peer->ibuf);
   holdtime = stream_getw (peer->ibuf);
   memcpy (notify_data_remote_id, stream_pnt (peer->ibuf), 4);
   remote_id.s_addr = stream_get_ipv4 (peer->ibuf);
@@ -1086,7 +1081,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
       bgp_notify_send_with_data (peer,
 		                 BGP_NOTIFY_OPEN_ERR,
 		                 BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
-                                 holdtime_ptr, 2);
+                                 (u_char *)holdtime_ptr, 2);
       return -1;
     }
     
@@ -1175,7 +1170,7 @@ void
 bgp_check_update_delay(struct bgp *bgp)
 {
   struct listnode *node, *nnode;
-  struct peer *peer;
+  struct peer *peer = NULL;
 
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("Checking update delay, T: %d R: %d I:%d E: %d", bgp->established,
@@ -1752,7 +1747,6 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 {
   afi_t afi;
   safi_t safi;
-  u_char reserved;
   struct stream *s;
   struct peer_af *paf;
 
@@ -1780,7 +1774,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   
   /* Parse packet. */
   afi = stream_getw (s);
-  reserved = stream_getc (s);
+  (void)stream_getc (s);
   safi = stream_getc (s);
 
   if (bgp_debug_update(peer, NULL, NULL, 0))
@@ -1836,7 +1830,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 	      u_int32_t seq;
 	      int psize;
 	      char name[BUFSIZ];
-	      int ret;
+	      int ret = CMD_SUCCESS;
 
               if (bgp_debug_neighbor_events(peer))
 		{
@@ -1870,7 +1864,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 		      prefix_bgp_orf_remove_all (name);
 		      break;
 		    }
-		  ok = ((p_end - p_pnt) >= sizeof(u_int32_t)) ;
+		  ok = ((u_int32_t)(p_end - p_pnt) >= sizeof(u_int32_t)) ;
 		  if (ok)
 		    {
 		      memcpy (&seq, p_pnt, sizeof (u_int32_t));
@@ -1967,11 +1961,9 @@ bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
   struct capability_mp_data mpc;
   struct capability_header *hdr;
   u_char action;
-  struct bgp *bgp;
   afi_t afi;
   safi_t safi;
 
-  bgp = peer->bgp;
   end = pnt + length;
 
   while (pnt < end)

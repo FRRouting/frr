@@ -420,7 +420,7 @@ aspath_count_confeds (struct aspath *aspath)
 }
 
 unsigned int
-aspath_count_hops (struct aspath *aspath)
+aspath_count_hops (const struct aspath *aspath)
 {
   int count = 0;
   struct assegment *seg = aspath->segments;

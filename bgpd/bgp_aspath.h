@@ -105,7 +105,7 @@ extern int aspath_firstas_check (struct aspath *, as_t);
 extern int aspath_confed_check (struct aspath *);
 extern int aspath_left_confed_check (struct aspath *);
 extern unsigned long aspath_count (void);
-extern unsigned int aspath_count_hops (struct aspath *);
+extern unsigned int aspath_count_hops (const struct aspath *);
 extern unsigned int aspath_count_confeds (struct aspath *);
 extern unsigned int aspath_size (struct aspath *);
 extern as_t aspath_highest (struct aspath *);

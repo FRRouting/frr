@@ -47,6 +47,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_snmp.h"
 #endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_nht.h"
 
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
@@ -1199,8 +1200,6 @@ bgp_stop_with_notify (struct peer *peer, u_char code, u_char sub_code)
 static int
 bgp_connect_success (struct peer *peer)
 {
-  int ret = 0;
-
   if (peer->fd < 0)
     {
       zlog_err ("bgp_connect_success peer's fd is negative value %d",
@@ -1408,7 +1407,6 @@ static int
 bgp_establish (struct peer *peer)
 {
   struct bgp_notify *notify;
-  struct peer_af *paf;
   afi_t afi;
   safi_t safi;
   int nsf_af_count = 0;
@@ -1597,8 +1595,6 @@ bgp_fsm_exeption (struct peer *peer)
 void
 bgp_fsm_nht_update(struct peer *peer, int valid)
 {
-  int ret = 0;
-
   if (!peer)
     return;
 

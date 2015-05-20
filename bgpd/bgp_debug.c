@@ -286,7 +286,7 @@ bgp_debug_list_conf_print (struct vty *vty, const char *desc, struct list *list)
 }
 
 static void
-bgp_debug_list_add_entry(struct list *list, char *host, struct prefix *p)
+bgp_debug_list_add_entry(struct list *list, const char *host, struct prefix *p)
 {
   struct bgp_debug_filter *filter;
 
@@ -307,7 +307,7 @@ bgp_debug_list_add_entry(struct list *list, char *host, struct prefix *p)
 }
 
 static int
-bgp_debug_list_remove_entry(struct list *list, char *host, struct prefix *p)
+bgp_debug_list_remove_entry(struct list *list, const char *host, struct prefix *p)
 {
   struct bgp_debug_filter *filter;
   struct listnode *node, *nnode;
@@ -334,7 +334,7 @@ bgp_debug_list_remove_entry(struct list *list, char *host, struct prefix *p)
 }
 
 static int
-bgp_debug_list_has_entry(struct list *list, char *host, struct prefix *p)
+bgp_debug_list_has_entry(struct list *list, const char *host, struct prefix *p)
 {
   struct bgp_debug_filter *filter;
   struct listnode *node, *nnode;
@@ -611,7 +611,7 @@ DEFUN (debug_bgp_neighbor_events_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
-  char *host = argv[0];
+  const char *host = argv[0];
 
   if (!bgp_debug_neighbor_events_peers)
     bgp_debug_neighbor_events_peers = list_new ();
@@ -666,7 +666,7 @@ DEFUN (no_debug_bgp_neighbor_events_peer,
        "BGP neighbor on interface to debug\n")
 {
   int found_peer = 0;
-  char *host = argv[0];
+  const char *host = argv[0];
 
   if (bgp_debug_neighbor_events_peers && !list_isempty(bgp_debug_neighbor_events_peers))
     {
@@ -755,7 +755,7 @@ DEFUN (debug_bgp_keepalive_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
-  char *host = argv[0];
+  const char *host = argv[0];
 
   if (!bgp_debug_keepalive_peers)
     bgp_debug_keepalive_peers = list_new ();
@@ -810,7 +810,7 @@ DEFUN (no_debug_bgp_keepalive_peer,
        "BGP neighbor on interface to debug\n")
 {
   int found_peer = 0;
-  char *host = argv[0];
+  const char *host = argv[0];
 
   if (bgp_debug_keepalive_peers && !list_isempty(bgp_debug_keepalive_peers))
     {
@@ -1027,7 +1027,7 @@ DEFUN (debug_bgp_update_direct_peer,
        "BGP IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
-  char *host = argv[1];
+  const char *host = argv[1];
   int inbound;
 
   if (!bgp_debug_update_in_peers)
@@ -1162,7 +1162,7 @@ DEFUN (no_debug_bgp_update_direct_peer,
 {
   int inbound;
   int found_peer = 0;
-  char *host = argv[1];
+  const char *host = argv[1];
 
   if (strncmp ("i", argv[0], 1) == 0)
     inbound = 1;

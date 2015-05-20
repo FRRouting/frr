@@ -49,8 +49,8 @@ extern int bgp_redistribute_unset (struct bgp *, afi_t, int, u_short);
 extern struct interface *if_lookup_by_ipv4 (struct in_addr *);
 extern struct interface *if_lookup_by_ipv4_exact (struct in_addr *);
 #ifdef HAVE_IPV6
-extern struct interface *if_lookup_by_ipv6 (struct in6_addr *, int ifindex);
-extern struct interface *if_lookup_by_ipv6_exact (struct in6_addr *, int ifindex);
+extern struct interface *if_lookup_by_ipv6 (struct in6_addr *, unsigned int ifindex);
+extern struct interface *if_lookup_by_ipv6_exact (struct in6_addr *, unsigned int ifindex);
 #endif /* HAVE_IPV6 */
 
 #endif /* _QUAGGA_BGP_ZEBRA_H */

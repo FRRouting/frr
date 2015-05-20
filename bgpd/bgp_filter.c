@@ -51,7 +51,7 @@ struct as_list_master
   void (*add_hook) (char *);
 
   /* Hook function which is executed when access_list is deleted. */
-  void (*delete_hook) (char *);
+  void (*delete_hook) (const char *);
 };
 
 /* Element of AS path filter. */
@@ -412,7 +412,7 @@ as_list_add_hook (void (*func) (char *))
 
 /* Delete hook function. */
 void
-as_list_delete_hook (void (*func) (char *))
+as_list_delete_hook (void (*func) (const char *))
 {
   as_list_master.delete_hook = func;
 }

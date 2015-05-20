@@ -960,7 +960,6 @@ route_match_interface (void *rule, struct prefix *prefix,
 		       route_map_object_t type, void *object)
 {
   struct interface *ifp;
-  struct nexthop *nexthop;
   struct bgp_info *info;
 
   if (type == RMAP_BGP)
@@ -1382,7 +1381,6 @@ route_set_metric (void *rule, struct prefix *prefix,
 static void *
 route_set_metric_compile (const char *arg)
 {
-  u_int32_t metric;
   unsigned long larg;
   char *endptr = NULL;
 
@@ -1393,7 +1391,6 @@ route_set_metric_compile (const char *arg)
       larg = strtoul (arg, &endptr, 10);
       if (*endptr != '\0' || errno || larg > UINT32_MAX)
         return NULL;
-      metric = larg;
     }
   else
     {
@@ -1407,7 +1404,6 @@ route_set_metric_compile (const char *arg)
       larg = strtoul (arg+1, &endptr, 10);
       if (*endptr != '\0' || errno || larg > UINT32_MAX)
 	return NULL;
-      metric = larg;
     }
 
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
@@ -2077,12 +2073,10 @@ static route_map_result_t
 route_match_ipv6_next_hop (void *rule, struct prefix *prefix, 
 			   route_map_object_t type, void *object)
 {
-  struct in6_addr *addr;
   struct bgp_info *bgp_info;
 
   if (type == RMAP_BGP)
     {
-      addr = rule;
       bgp_info = object;
       
       if (!bgp_info->attr->extra)
@@ -2314,7 +2308,6 @@ static route_map_result_t
 route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
 			     route_map_object_t type, void *object)
 {
-  int *use_peer_address;
   struct in6_addr peer_address;
   struct bgp_info *bgp_info;
   struct peer *peer;
@@ -2323,7 +2316,6 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
   if (type == RMAP_BGP)
     {
       /* Fetch routemap's rule information. */
-      use_peer_address = rule;
       bgp_info = object;
       peer = bgp_info->peer;
 
@@ -2550,7 +2542,7 @@ bgp_route_match_delete (struct vty *vty, struct route_map_index *index,
 			route_map_event_t type)
 {
   int ret;
-  char *dep_name = (char *)arg;
+  char *dep_name = NULL;
   const char *tmpstr;
   char *rmap_name = NULL;
 
@@ -2561,6 +2553,10 @@ bgp_route_match_delete (struct vty *vty, struct route_map_index *index,
 	{
 	  if ((tmpstr = route_map_get_match_arg(index, command)) != NULL)
 	    dep_name = XSTRDUP(MTYPE_ROUTE_MAP_RULE, tmpstr);
+	}
+      else
+	{
+	  dep_name = XSTRDUP(MTYPE_ROUTE_MAP_RULE, arg);
 	}
       rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, index->map->name);
     }
@@ -2577,7 +2573,7 @@ bgp_route_match_delete (struct vty *vty, struct route_map_index *index,
 	  vty_out (vty, "%% BGP Argument is malformed.%s", VTY_NEWLINE);
 	  break;
 	}
-      if (arg == NULL && dep_name)
+      if (dep_name)
 	XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
       if (rmap_name)
 	XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
@@ -2587,7 +2583,7 @@ bgp_route_match_delete (struct vty *vty, struct route_map_index *index,
   if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
     route_map_upd8_dependency(type, dep_name, rmap_name);
 
-  if (arg == NULL && dep_name)
+  if (dep_name)
     XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
   if (rmap_name)
     XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
@@ -2646,7 +2642,7 @@ bgp_route_set_delete (struct vty *vty, struct route_map_index *index,
  * modifications.
  */
 static void
-bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
+bgp_route_map_process_peer (const char *rmap_name, struct peer *peer,
 			    int afi, int safi, int route_update)
 {
 
@@ -2763,7 +2759,7 @@ bgp_route_map_process_peer (char *rmap_name, struct peer *peer,
 }
 
 static void
-bgp_route_map_update_peer_group(char *rmap_name, struct bgp *bgp)
+bgp_route_map_update_peer_group(const char *rmap_name, struct bgp *bgp)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
@@ -2798,7 +2794,7 @@ bgp_route_map_update_peer_group(char *rmap_name, struct bgp *bgp)
 }
 
 static int
-bgp_route_map_process_update (void *arg, char *rmap_name, int route_update)
+bgp_route_map_process_update (void *arg, const char *rmap_name, int route_update)
 {
   int i;
   afi_t afi;
@@ -2935,7 +2931,7 @@ bgp_route_map_update_timer(struct thread *thread)
 }
 
 static void
-bgp_route_map_mark_update (char *rmap_name)
+bgp_route_map_mark_update (const char *rmap_name)
 {
   struct listnode *node, *nnode;
   struct bgp *bgp;
@@ -4209,11 +4205,8 @@ DEFUN (set_aggregator_as,
        "IP address of aggregator\n")
 {
   int ret;
-  as_t as;
   struct in_addr address;
   char *argstr;
-
-  VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
   
   ret = inet_aton (argv[1], &address);
   if (ret == 0)
@@ -4243,15 +4236,12 @@ DEFUN (no_set_aggregator_as,
        "AS number of aggregator\n")
 {
   int ret;
-  as_t as;
   struct in_addr address;
   char *argstr;
 
   if (argv == 0)
     return bgp_route_set_delete (vty, vty->index, "aggregator as", NULL);
   
-  VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
-
   ret = inet_aton (argv[1], &address);
   if (ret == 0)
     {

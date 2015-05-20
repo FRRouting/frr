@@ -461,6 +461,7 @@ ecommunity_regexp_match (struct ecommunity *ecom, regex_t * reg)
   return 0;
 }
 
+#if 0
 /* Delete community attribute using regular expression match.  Return
    modified communites attribute.  */
 static struct community *
@@ -508,6 +509,7 @@ community_regexp_delete (struct community *com, regex_t * reg)
     }
   return com;
 }
+#endif
 
 /* When given community attribute matches to the community-list return
    1 else return 0.  */

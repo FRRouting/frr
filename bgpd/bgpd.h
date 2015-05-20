@@ -25,6 +25,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "queue.h"
 #include "sockunion.h"
 #include "routemap.h"
+#include "linklist.h"
 
 struct update_subgroup;
 struct bpacket;
@@ -1105,6 +1106,7 @@ extern struct peer *peer_lookup_by_conf_if (struct bgp *, const char *);
 extern struct peer *peer_conf_interface_get(struct bgp *, const char *, afi_t,
                                             safi_t);
 extern void  bgp_peer_conf_if_to_su_update (struct peer *);
+extern int peer_group_listen_range_del(struct peer_group *, struct prefix *);
 extern struct peer_group *peer_group_lookup (struct bgp *, const char *);
 extern struct peer_group *peer_group_get (struct bgp *, const char *);
 extern struct peer *peer_create_bind_dynamic_neighbor (struct bgp *,
@@ -1215,8 +1217,8 @@ extern int peer_default_originate_unset (struct peer *, afi_t, safi_t);
 extern int peer_port_set (struct peer *, u_int16_t);
 extern int peer_port_unset (struct peer *);
 
-extern int peer_weight_set (struct peer *, u_int16_t);
-extern int peer_weight_unset (struct peer *);
+extern void peer_weight_set (struct peer *, u_int16_t);
+extern void peer_weight_unset (struct peer *);
 
 extern int peer_timers_set (struct peer *, u_int32_t, u_int32_t);
 extern int peer_timers_unset (struct peer *);
@@ -1227,8 +1229,8 @@ extern int peer_timers_connect_unset (struct peer *);
 extern int peer_advertise_interval_set (struct peer *, u_int32_t);
 extern int peer_advertise_interval_unset (struct peer *);
 
-extern int peer_interface_set (struct peer *, const char *);
-extern int peer_interface_unset (struct peer *);
+extern void peer_interface_set (struct peer *, const char *);
+extern void peer_interface_unset (struct peer *);
 
 extern int peer_distribute_set (struct peer *, afi_t, safi_t, int, const char *);
 extern int peer_distribute_unset (struct peer *, afi_t, safi_t, int);
@@ -1272,6 +1274,9 @@ extern int peer_cmp (struct peer *p1, struct peer *p2);
 extern struct peer_af * peer_af_create (struct peer *, afi_t, safi_t);
 extern struct peer_af * peer_af_find (struct peer *, afi_t, safi_t);
 extern int peer_af_delete (struct peer *, afi_t, safi_t);
+
+extern void bgp_scan_finish(void);
+extern void bgp_close(void);
 
 static inline int
 afindex (afi_t afi, safi_t safi)

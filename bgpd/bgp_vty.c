@@ -890,12 +890,8 @@ DEFUN (no_bgp_confederation_identifier,
        "AS number\n")
 {
   struct bgp *bgp;
-  as_t as;
 
   bgp = vty->index;
-
-  if (argc == 1)
-    VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
 
   bgp_confederation_id_unset (bgp);
 
@@ -970,12 +966,12 @@ DEFUN (no_bgp_confederation_peers,
  * @peer_type: BGP_PEER_EBGP or BGP_PEER_IBGP
  * @set: 1 for setting values, 0 for removing the max-paths config.
  */
-int
-bgp_maxpaths_config_vty (struct vty *vty, int peer_type, char *mpaths,
+static int
+bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
 			 u_int16_t options, int set)
 {
   struct bgp *bgp;
-  u_int16_t maxpaths;
+  u_int16_t maxpaths = 0;
   int ret;
   afi_t afi;
   safi_t safi;
@@ -1280,11 +1276,10 @@ ALIAS (no_bgp_update_delay,
        "Wait for peers to be established\n"
        "Seconds\n")
 
-int
-bgp_wpkt_quanta_config_vty (struct vty *vty, char *num, char set)
+static int
+bgp_wpkt_quanta_config_vty (struct vty *vty, const char *num, char set)
 {
   struct bgp *bgp;
-  u_int16_t update_delay;
 
   bgp = vty->index;
 
@@ -1328,7 +1323,7 @@ DEFUN (no_bgp_wpkt_quanta,
   return bgp_wpkt_quanta_config_vty(vty, argv[0], 0);
 }
 
-int
+static int
 bgp_coalesce_config_vty (struct vty *vty, const char *num, char set)
 {
   struct bgp *bgp;
@@ -2260,8 +2255,6 @@ DEFUN (bgp_rr_allow_outbound_policy,
        "on ibgp neighbors\n")
 {
   struct bgp *bgp;
-  u_int32_t local_pref;
-  int ret;
 
   bgp = vty->index;
 
@@ -2284,7 +2277,6 @@ DEFUN (no_bgp_rr_allow_outbound_policy,
        "on ibgp neighbors\n")
 {
   struct bgp *bgp;
-  u_int32_t local_pref;
 
   bgp = vty->index;
 
@@ -4582,7 +4574,6 @@ static int
 peer_weight_set_vty (struct vty *vty, const char *ip_str, 
                      const char *weight_str)
 {
-  int ret;
   struct peer *peer;
   unsigned long weight;
 
@@ -4592,7 +4583,7 @@ peer_weight_set_vty (struct vty *vty, const char *ip_str,
 
   VTY_GET_INTEGER_RANGE("weight", weight, weight_str, 0, 65535);
 
-  ret = peer_weight_set (peer, weight);
+  peer_weight_set (peer, weight);
 
   return CMD_SUCCESS;
 }
@@ -4896,7 +4887,7 @@ DEFUN (bgp_set_route_map_delay_timer,
       return CMD_SUCCESS;
     }
   else
-    CMD_WARNING;
+    return CMD_WARNING;
 }
 
 DEFUN (no_bgp_set_route_map_delay_timer,
@@ -4906,7 +4897,6 @@ DEFUN (no_bgp_set_route_map_delay_timer,
        "Default BGP route-map delay timer\n"
        "Reset to default time to wait for processing route-map changes")
 {
-  u_int32_t rmap_delay_timer;
   struct bgp *bgp;
 
   bgp = vty->index;
@@ -4919,7 +4909,6 @@ DEFUN (no_bgp_set_route_map_delay_timer,
 static int
 peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
 {
-  int ret;
   struct peer *peer;
 
   peer = peer_lookup_vty (vty, ip_str);
@@ -4927,9 +4916,9 @@ peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
     return CMD_WARNING;
 
   if (str)
-    ret = peer_interface_set (peer, str);
+    peer_interface_set (peer, str);
   else
-    ret = peer_interface_unset (peer);
+    peer_interface_unset (peer);
 
   return CMD_SUCCESS;
 }
@@ -5734,8 +5723,6 @@ bgp_clear_prefix (struct vty *vty, char *view_name, const char *ip_str,
   struct prefix match;
   struct bgp_node *rn;
   struct bgp_node *rm;
-  struct bgp_info *ri;
-  struct bgp_info *ri_temp;
   struct bgp *bgp;
   struct bgp_table *table;
   struct bgp_table *rib;
@@ -8319,7 +8306,6 @@ bgp_adj_out_count (struct peer *peer, int afi, int safi)
 {
   struct bgp_table *table;
   struct bgp_node *rn;
-  struct bgp_adj_out *adj;
   int count = 0;
 
   if (!peer) return(0);
@@ -8342,17 +8328,15 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   unsigned int count = 0, dn_count = 0;
   char timebuf[BGP_UPTIME_LEN], dn_flag[2];
   int len;
-  struct peer_group *group;
-  json_object *json;
-  json_object *json_int;
-  json_object *json_string;
-  json_object *json_peer;
-  json_object *json_peers;
-  json_object *json_boolean_true;
+  json_object *json = NULL;
+  json_object *json_int = NULL;
+  json_object *json_string = NULL;
+  json_object *json_peer = NULL;
+  json_object *json_peers = NULL;
+  json_object *json_boolean_true = NULL;
 
   /* Header string for each address family. */
   static char header[] = "Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
-  static char header_csv[] = "Neighbor, V, AS, MsgRcvd, MsgSent, TblVer, InQ, OutQ, Up/Down, State/PfxRcd, PfxAdv";
 
   if (use_json)
     {
@@ -8505,7 +8489,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   if (bgp->v_maxmed_admin)
                     vty_out (vty, "Max-med administrative active%s", VTY_NEWLINE);
 
-                 vty_out(vty, "BGP table version %llu%s",
+                 vty_out(vty, "BGP table version %" PRIu64 "%s",
                          bgp_table_version(bgp->rib[afi][safi]), VTY_NEWLINE);
 
                   ents = bgp_table_count (bgp->rib[afi][safi]);
@@ -8620,7 +8604,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
 
               vty_out (vty, "4 ");
 
-              vty_out (vty, "%5u %7d %7d %8lu %4d %4u ",
+              vty_out (vty, "%5u %7d %7d %8lu %4d %4ld ",
                        peer->as,
                        peer->open_in + peer->update_in + peer->keepalive_in
                        + peer->notify_in + peer->refresh_in
@@ -8630,7 +8614,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                        + peer->dynamic_cap_out,
                        peer->version[afi][safi],
                        0,
-                       (unsigned long) peer->obuf->count);
+                       peer->obuf->count);
 
               vty_out (vty, "%8s",
                        peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
@@ -9037,7 +9021,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
   paf = peer_af_find(p, afi, safi);
   if (paf && PAF_SUBGRP(paf))
     {
-      vty_out (vty, "  Update group %llu, subgroup %llu%s",
+      vty_out (vty, "  Update group %" PRIu64 ", subgroup %" PRIu64 "%s",
 	       PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id, VTY_NEWLINE);
       vty_out (vty, "  Packet Queue length %d%s",
 	       bpacket_queue_virtual_length(paf), VTY_NEWLINE);
@@ -9403,7 +9387,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
                         vty_out (vty, "      %s: TX ", afi_safi_print (afi, safi));
 
                         if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV))
-                          vty_out (vty, "advertised", afi_safi_print (afi, safi));
+                          vty_out (vty, "advertised %s", afi_safi_print (afi, safi));
 
                         if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
                           vty_out (vty, "%sreceived", CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ? " and " : "" );
@@ -9417,7 +9401,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
                         vty_out (vty, "      %s: RX ", afi_safi_print (afi, safi));
 
                         if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV))
-                          vty_out (vty, "advertised", afi_safi_print (afi, safi));
+                          vty_out (vty, "advertised %s", afi_safi_print (afi, safi));
 
                         if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
                           vty_out (vty, "%sreceived", CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ? " and " : "" );
@@ -9616,13 +9600,19 @@ bgp_show_peer (struct vty *vty, struct peer *p)
           vty_out(vty, "  Message received that caused BGP to send a NOTIFICATION:%s    ", VTY_NEWLINE);
           for (i = 1; i <= p->last_reset_cause_size; i++)
             {
-                vty_out(vty, "%02X", *msg++);
+	      vty_out(vty, "%02X", *msg++);
 
-                if (i != p->last_reset_cause_size)
-                  if (i % 16 == 0)
-                    vty_out(vty, "%s    ", VTY_NEWLINE);
-                  else if (i % 4 == 0)
-                    vty_out(vty, " ");
+	      if (i != p->last_reset_cause_size)
+		{
+		  if (i % 16 == 0)
+		    {
+		      vty_out(vty, "%s    ", VTY_NEWLINE);
+		    }
+		  else if (i % 4 == 0)
+		    {
+		      vty_out(vty, " ");
+		    }
+		}
             }
           vty_out(vty, "%s", VTY_NEWLINE);
         }
@@ -10675,7 +10665,8 @@ bgp_show_one_peer_group (struct vty *vty, struct peer_group *group)
   char buf[128];
   afi_t afi;
   safi_t safi;
-  char *peer_status, *af_str;
+  const char *peer_status;
+  const char *af_str;
   int lr_count;
   int dynamic;
   int af_cfgd;

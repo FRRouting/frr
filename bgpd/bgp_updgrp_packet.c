@@ -602,7 +602,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
   int space_remaining = 0;
   int space_needed = 0;
   char send_attr_str[BUFSIZ];
-  int send_attr_printed;
+  int send_attr_printed = 0;
   int num_pfx = 0;
 
 
@@ -680,7 +680,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
            * return */
           if (space_remaining < space_needed)
             {
-              zlog_err ("u%llu:s%llu attributes too long, cannot send UPDATE",
+              zlog_err ("u%" PRIu64 ":s%" PRIu64 " attributes too long, cannot send UPDATE",
 		        subgrp->update_group->id, subgrp->id);
 
               /* Flush the FIFO update queue */
@@ -725,12 +725,12 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
           if (!send_attr_printed)
             {
-              zlog_debug ("u%llu:s%llu send UPDATE w/ attr: %s",
+              zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE w/ attr: %s",
                 subgrp->update_group->id, subgrp->id, send_attr_str);
               send_attr_printed = 1;
             }
 
-	  zlog_debug ("u%llu:s%llu send UPDATE %s/%d",
+	  zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s/%d",
 		subgrp->update_group->id, subgrp->id,
 		inet_ntop (rn->p.family, &(rn->p.u.prefix), buf,
 			   INET6_BUFSIZ), rn->p.prefixlen);
@@ -767,7 +767,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 	packet = stream_dup (s);
       bgp_packet_set_size (packet);
       if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-        zlog_debug ("u%llu:s%llu UPDATE len %d numpfx %d",
+        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " UPDATE len %zd numpfx %d",
                 subgrp->update_group->id, subgrp->id,
                 (stream_get_endp(packet) - stream_get_getp(packet)), num_pfx);
       pkt = bpacket_queue_add (SUBGRP_PKTQ (subgrp), packet, &vecarr);
@@ -795,7 +795,6 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
   struct stream *s;
   struct bgp_adj_out *adj;
   struct bgp_advertise *adv;
-  struct peer *peer;
   struct bgp_node *rn;
   bgp_size_t unfeasible_len;
   bgp_size_t total_attr_len;
@@ -815,8 +814,6 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
   if (bpacket_queue_is_full (SUBGRP_INST (subgrp), SUBGRP_PKTQ (subgrp)))
     return NULL;
 
-
-  peer = SUBGRP_PEER (subgrp);
   afi = SUBGRP_AFI (subgrp);
   safi = SUBGRP_SAFI (subgrp);
   s = subgrp->work;
@@ -872,7 +869,7 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	{
 	  char buf[INET6_BUFSIZ];
 
-	  zlog_debug ("u%llu:s%llu send UPDATE %s/%d -- unreachable",
+	  zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s/%d -- unreachable",
 		subgrp->update_group->id, subgrp->id,
 		inet_ntop (rn->p.family, &(rn->p.u.prefix), buf,
 			   INET6_BUFSIZ), rn->p.prefixlen);
@@ -904,7 +901,7 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	}
       bgp_packet_set_size (s);
       if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
-        zlog_debug ("u%llu:s%llu UPDATE (withdraw) len %d numpfx %d",
+        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " UPDATE (withdraw) len %zd numpfx %d",
                     subgrp->update_group->id, subgrp->id,
                     (stream_get_endp(s) - stream_get_getp(s)), num_pfx);
       pkt = bpacket_queue_add (SUBGRP_PKTQ (subgrp), stream_dup (s), NULL);
@@ -955,7 +952,7 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
       attrstr[0] = '\0';
 
       bgp_dump_attr (peer, attr, attrstr, BUFSIZ);
-      zlog_debug ("u%llu:s%llu send UPDATE %s/%d %s",
+      zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s/%d %s",
 	    (SUBGRP_UPDGRP (subgrp))->id, subgrp->id,
 	    inet_ntop (p.family, &(p.u.prefix), buf, INET6_BUFSIZ),
 	    p.prefixlen, attrstr);
@@ -994,7 +991,6 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
 void
 subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
 {
-  struct peer *peer;
   struct stream *s;
   struct stream *packet;
   struct prefix p;
@@ -1010,7 +1006,6 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
   if (DISABLE_BGP_ANNOUNCE)
     return;
 
-  peer = SUBGRP_PEER (subgrp);
   afi = SUBGRP_AFI (subgrp);
   safi = SUBGRP_SAFI (subgrp);
 
@@ -1027,7 +1022,7 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
     {
       char buf[INET6_BUFSIZ];
 
-      zlog_debug ("u%llu:s%llu send UPDATE %s/%d -- unreachable",
+      zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s/%d -- unreachable",
 	    (SUBGRP_UPDGRP (subgrp))->id, subgrp->id, inet_ntop (p.family,
 								 &(p.u.
 								   prefix),

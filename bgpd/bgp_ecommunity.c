@@ -512,7 +512,7 @@ struct ecommunity *
 ecommunity_str2com (const char *str, int type, int keyword_included)
 {
   struct ecommunity *ecom = NULL;
-  enum ecommunity_token token;
+  enum ecommunity_token token = ecommunity_token_unknown;
   struct ecommunity_val eval;
   int keyword = 0;
 

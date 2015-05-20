@@ -34,6 +34,6 @@ extern enum as_filter_type as_list_apply (struct as_list *, void *);
 
 extern struct as_list *as_list_lookup (const char *);
 extern void as_list_add_hook (void (*func) (char *));
-extern void as_list_delete_hook (void (*func) (char *));
+extern void as_list_delete_hook (void (*func) (const char *));
 
 #endif /* _QUAGGA_BGP_FILTER_H */

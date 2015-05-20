@@ -85,7 +85,6 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
   struct prefix p;
   int psize;
   int prefixlen;
-  u_int32_t label;
   u_int16_t type;
   struct rd_as rd_as;
   struct rd_ip rd_ip;
@@ -140,7 +139,7 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 	  return -1;
 	}
 
-      label = decode_label (pnt);
+      (void)decode_label (pnt);
 
       /* Copyr label to prefix. */
       tagpnt = pnt;;

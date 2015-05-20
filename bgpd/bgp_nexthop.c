@@ -76,7 +76,7 @@ bnc_nexthop_free (struct bgp_nexthop_cache *bnc)
 }
 
 struct bgp_nexthop_cache *
-bnc_new ()
+bnc_new (void)
 {
   struct bgp_nexthop_cache *bnc;
 
@@ -159,7 +159,7 @@ static struct hash *bgp_address_hash;
 static void *
 bgp_address_hash_alloc (void *p)
 {
-  struct in_addr *val = p;
+  const struct in_addr *val = (const struct in_addr *)p;
   struct bgp_addr *addr;
 
   addr = XMALLOC (MTYPE_BGP_ADDR, sizeof (struct bgp_addr));
@@ -433,7 +433,6 @@ show_ip_bgp_nexthop_table (struct vty *vty, int detail)
   char buf[INET6_ADDRSTRLEN];
   struct nexthop *nexthop;
   time_t tbuf;
-  u_char i;
 
   vty_out (vty, "Current BGP nexthop cache:%s", VTY_NEWLINE);
   for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP]); rn; rn = bgp_route_next (rn))
@@ -585,7 +584,7 @@ bgp_scan_init (void)
 }
 
 void
-bgp_scan_vty_init()
+bgp_scan_vty_init (void)
 {
   install_element (ENABLE_NODE, &show_ip_bgp_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_cmd);

@@ -254,9 +254,9 @@ static void *
 updgrp_hash_alloc (void *p)
 {
   struct update_group *updgrp;
-  struct update_group *in;
+  const struct update_group *in;
 
-  in = p;
+  in = (const struct update_group *)p;
   updgrp = XCALLOC (MTYPE_BGP_UPDGRP, sizeof (struct update_group));
   memcpy (updgrp, in, sizeof (struct update_group));
   updgrp->conf = XCALLOC (MTYPE_BGP_PEER, sizeof (struct peer));
@@ -529,7 +529,7 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
   int match = 0;
 
   if (!ctx)
-    return;
+    return CMD_SUCCESS;
 
   if (ctx->subgrp_id)
     {
@@ -558,7 +558,7 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
 
   vty = ctx->vty;
 
-  vty_out (vty, "Update-group %llu:%s", updgrp->id, VTY_NEWLINE);
+  vty_out (vty, "Update-group %" PRIu64 ":%s", updgrp->id, VTY_NEWLINE);
   vty_out (vty, "  Created: %s", timestamp_string (updgrp->uptime));
   filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
   if (filter->map[RMAP_OUT].name)
@@ -581,14 +581,14 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
     vty_out (vty, "%s", VTY_NEWLINE);
-    vty_out (vty, "  Update-subgroup %llu:%s", subgrp->id, VTY_NEWLINE);
+    vty_out (vty, "  Update-subgroup %" PRIu64 ":%s", subgrp->id, VTY_NEWLINE);
     vty_out (vty, "    Created: %s", timestamp_string (subgrp->uptime));
 
     if (subgrp->split_from.update_group_id || subgrp->split_from.subgroup_id)
       {
-	vty_out (vty, "    Split from group id: %llu%s",
+	vty_out (vty, "    Split from group id: %" PRIu64 "%s",
 		 subgrp->split_from.update_group_id, VTY_NEWLINE);
-	vty_out (vty, "    Split from subgroup id: %llu%s",
+	vty_out (vty, "    Split from subgroup id: %" PRIu64 "%s",
 		 subgrp->split_from.subgroup_id, VTY_NEWLINE);
       }
 
@@ -605,7 +605,7 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
 	     subgrp->peer_refreshes_combined, VTY_NEWLINE);
     vty_out (vty, "    Merge checks triggered: %u%s",
 	     subgrp->merge_checks_triggered, VTY_NEWLINE);
-    vty_out (vty, "    Version: %llu%s", subgrp->version, VTY_NEWLINE);
+    vty_out (vty, "    Version: %" PRIu64 "%s", subgrp->version, VTY_NEWLINE);
     vty_out (vty, "    Packet queue length: %d%s",
 	     bpacket_queue_length (SUBGRP_PKTQ (subgrp)), VTY_NEWLINE);
     vty_out (vty, "    Total packets enqueued: %u%s",
@@ -646,7 +646,7 @@ updgrp_show_packet_queue_walkcb (struct update_group *updgrp, void *arg)
   {
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
-    vty_out (vty, "update group %llu, subgroup %llu%s", updgrp->id,
+    vty_out (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "%s", updgrp->id,
 	     subgrp->id, VTY_NEWLINE);
     bpacket_queue_show_vty (SUBGRP_PKTQ (subgrp), vty);
   }
@@ -710,7 +710,7 @@ update_group_create (struct peer_af *paf)
   update_group_checkin (updgrp);
 
   if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    zlog_debug ("create update group %llu", updgrp->id);
+    zlog_debug ("create update group %" PRIu64, updgrp->id);
 
   UPDGRP_GLOBAL_STAT (updgrp, updgrps_created) += 1;
 
@@ -721,7 +721,7 @@ static void
 update_group_delete (struct update_group *updgrp)
 {
   if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    zlog_debug ("delete update group %llu", updgrp->id);
+    zlog_debug ("delete update group %" PRIu64, updgrp->id);
 
   UPDGRP_GLOBAL_STAT (updgrp, updgrps_deleted) += 1;
 
@@ -768,7 +768,7 @@ update_subgroup_create (struct update_group *updgrp)
   bpacket_queue_add (SUBGRP_PKTQ (subgrp), NULL, NULL);
   TAILQ_INIT (&(subgrp->adjq));
   if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    zlog_debug ("create subgroup u%llu:s%llu",
+    zlog_debug ("create subgroup u%" PRIu64 ":s%" PRIu64,
                 updgrp->id, subgrp->id);
 
   update_group_add_subgroup (updgrp, subgrp);
@@ -801,7 +801,7 @@ update_subgroup_delete (struct update_subgroup *subgrp)
   sync_delete (subgrp);
 
   if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    zlog_debug ("delete subgroup u%llu:s%llu",
+    zlog_debug ("delete subgroup u%" PRIu64 ":s%" PRIu64,
                  subgrp->update_group->id, subgrp->id);
 
   update_group_remove_subgroup (subgrp->update_group, subgrp);
@@ -859,7 +859,7 @@ update_subgroup_add_peer (struct update_subgroup *subgrp, struct peer_af *paf,
   paf->subgroup = subgrp;
   subgrp->peer_count++;
 
-  if (bgp_debug_peer_updout_enabled(paf->peer))
+  if (bgp_debug_peer_updout_enabled(paf->peer->host))
     {
       UPDGRP_PEER_DBG_EN(subgrp->update_group);
     }
@@ -902,7 +902,7 @@ update_subgroup_remove_peer_internal (struct update_subgroup *subgrp,
 {
   assert (subgrp && paf);
 
-  if (bgp_debug_peer_updout_enabled(paf->peer))
+  if (bgp_debug_peer_updout_enabled(paf->peer->host))
     {
       UPDGRP_PEER_DBG_DIS(subgrp->update_group);
     }
@@ -1083,7 +1083,7 @@ update_subgroup_merge (struct update_subgroup *subgrp,
   SUBGRP_INCR_STAT (target, merge_events);
 
   if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    zlog_debug ("u%llu:s%llu (%d peers) merged into u%llu:s%llu, "
+    zlog_debug ("u%" PRIu64 ":s%" PRIu64 " (%d peers) merged into u%" PRIu64 ":s%" PRIu64 ", "
 		"trigger: %s", subgrp->update_group->id, subgrp->id, peer_count,
                 target->update_group->id, target->id, reason ? reason : "unknown");
 
@@ -1222,7 +1222,7 @@ update_subgroup_copy_packets (struct update_subgroup *dest,
 }
 
 static int
-updgrp_prefix_list_update (struct update_group *updgrp, char *name)
+updgrp_prefix_list_update (struct update_group *updgrp, const char *name)
 {
   struct peer *peer;
   struct bgp_filter *filter;
@@ -1241,7 +1241,7 @@ updgrp_prefix_list_update (struct update_group *updgrp, char *name)
 }
 
 static int
-updgrp_filter_list_update (struct update_group *updgrp, char *name)
+updgrp_filter_list_update (struct update_group *updgrp, const char *name)
 {
   struct peer *peer;
   struct bgp_filter *filter;
@@ -1259,7 +1259,7 @@ updgrp_filter_list_update (struct update_group *updgrp, char *name)
 }
 
 static int
-updgrp_distribute_list_update (struct update_group *updgrp, char *name)
+updgrp_distribute_list_update (struct update_group *updgrp, const char *name)
 {
   struct peer *peer;
   struct bgp_filter *filter;
@@ -1278,7 +1278,7 @@ updgrp_distribute_list_update (struct update_group *updgrp, char *name)
 }
 
 static int
-updgrp_route_map_update (struct update_group *updgrp, char *name,
+updgrp_route_map_update (struct update_group *updgrp, const char *name,
 			 int *def_rmap_changed)
 {
   struct peer *peer;
@@ -1381,14 +1381,14 @@ updgrp_policy_update_walkcb (struct update_group *updgrp, void *arg)
     if (changed)
       {
         if (bgp_debug_update(NULL, NULL, updgrp, 0))
-          zlog_debug ("u%llu:s%llu announcing routes upon policy %s (type %d) change",
+          zlog_debug ("u%" PRIu64 ":s%" PRIu64 " announcing routes upon policy %s (type %d) change",
                        updgrp->id, subgrp->id, ctx->policy_name, ctx->policy_type);
         subgroup_announce_route (subgrp);
       }
     if (def_changed)
       {
         if (bgp_debug_update(NULL, NULL, updgrp, 0))
-          zlog_debug ("u%llu:s%llu announcing default upon default routemap %s change",
+          zlog_debug ("u%" PRIu64 ":s%" PRIu64 " announcing default upon default routemap %s change",
                        updgrp->id, subgrp->id, ctx->policy_name);
         subgroup_default_originate (subgrp, 0);
       }
@@ -1439,7 +1439,7 @@ update_group_periodic_merge_walkcb (struct update_group *updgrp, void *arg)
  */
 void
 update_group_policy_update (struct bgp *bgp, bgp_policy_type_e ptype,
-			    char *pname, int route_update, int start_event)
+			    const char *pname, int route_update, int start_event)
 {
   struct updwalk_context ctx;
 
@@ -1483,7 +1483,7 @@ update_subgroup_split_peer (struct peer_af *paf, struct update_group *updgrp)
       subgrp = old_subgrp;
       old_id = old_subgrp->update_group->id;
 
-      if (bgp_debug_peer_updout_enabled(paf->peer))
+      if (bgp_debug_peer_updout_enabled(paf->peer->host))
         {
           UPDGRP_PEER_DBG_DIS(old_subgrp->update_group);
         }
@@ -1491,12 +1491,12 @@ update_subgroup_split_peer (struct peer_af *paf, struct update_group *updgrp)
       update_group_remove_subgroup (old_subgrp->update_group, old_subgrp);
       update_group_add_subgroup (updgrp, subgrp);
 
-      if (bgp_debug_peer_updout_enabled(paf->peer))
+      if (bgp_debug_peer_updout_enabled(paf->peer->host))
         {
           UPDGRP_PEER_DBG_EN(updgrp);
         }
       if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-        zlog_debug ("u%llu:s%llu peer %s moved to u%llu:s%llu",
+        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " peer %s moved to u%" PRIu64 ":s%" PRIu64,
                   old_id, subgrp->id, paf->peer->host, updgrp->id, subgrp->id);
 
       /*
@@ -1529,7 +1529,7 @@ update_subgroup_split_peer (struct peer_af *paf, struct update_group *updgrp)
   update_subgroup_copy_packets (subgrp, paf->next_pkt_to_send);
 
   if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    zlog_debug ("u%llu:s%llu peer %s split and moved into u%llu:s%llu",
+    zlog_debug ("u%" PRIu64 ":s%" PRIu64 " peer %s split and moved into u%" PRIu64 ":s%" PRIu64,
 		paf->subgroup->update_group->id, paf->subgroup->id,
                 paf->peer->host, updgrp->id, subgrp->id);
 
@@ -1674,7 +1674,7 @@ update_group_adjust_peer (struct peer_af *paf)
 
   update_subgroup_add_peer (subgrp, paf, 1);
   if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    zlog_debug ("u%llu:s%llu add peer %s",
+    zlog_debug ("u%" PRIu64 ":s%" PRIu64 " add peer %s",
                  updgrp->id, subgrp->id, paf->peer->host);
 
   return;
@@ -1771,7 +1771,6 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 {
   struct update_subgroup *subgrp;
   struct peer *peer;
-  struct peer_af *paf;
   afi_t afi;
   safi_t safi;
 
@@ -1790,7 +1789,7 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
   return UPDWALK_CONTINUE;
 }
 
-void
+int
 update_group_refresh_default_originate_route_map (struct thread *thread)
 {
   struct bgp *bgp;
@@ -1801,6 +1800,8 @@ update_group_refresh_default_originate_route_map (struct thread *thread)
                      reason);
   THREAD_TIMER_OFF (bgp->t_rmap_def_originate_eval);
   bgp_unlock(bgp);
+
+  return(0);
 }
 
 /*
@@ -1827,8 +1828,6 @@ peer_af_announce_route (struct peer_af *paf, int combine)
 
   if (combine)
     {
-      struct peer_af *temp_paf;
-
       /*
        * If there are other peers in the old subgroup that also need
        * routes to be announced, pull them into the peer's new
@@ -1863,7 +1862,7 @@ peer_af_announce_route (struct peer_af *paf, int combine)
 	return;
 
       if (bgp_debug_update(paf->peer, NULL, subgrp->update_group, 0))
-        zlog_debug ("u%llu:s%llu %s announcing routes",
+        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " %s announcing routes",
                     subgrp->update_group->id, subgrp->id, paf->peer->host);
 
       subgroup_announce_route (paf->subgroup);
@@ -1884,7 +1883,7 @@ peer_af_announce_route (struct peer_af *paf, int combine)
     }
 
   if (bgp_debug_update(paf->peer, NULL, subgrp->update_group, 0))
-    zlog_debug ("u%llu:s%llu announcing routes to %s, combined into %d peers",
+    zlog_debug ("u%" PRIu64 ":s%" PRIu64 " announcing routes to %s, combined into %d peers",
 		subgrp->update_group->id, subgrp->id,
 		paf->peer->host, subgrp->peer_count);
 

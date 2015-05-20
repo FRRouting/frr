@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_nht.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -459,6 +460,10 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
       api.ifindex_num = stream_getc (s);
       ifindex = stream_getl (s); /* ifindex, unused */
     }
+  else
+    {
+      ifindex = 0;
+    }
 
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_DISTANCE))
     api.distance = stream_getc (s);
@@ -475,7 +480,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
 
   if (command == ZEBRA_IPV4_ROUTE_ADD)
     {
-      if (bgp_debug_zebra(&p))
+      if (bgp_debug_zebra((struct prefix *)&p))
 	{
 	  char buf[2][INET_ADDRSTRLEN];
 	  zlog_debug("Zebra rcvd: IPv4 route add %s[%d] %s/%d nexthop %s metric %u tag %d",
@@ -491,7 +496,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
     }
   else
     {
-      if (bgp_debug_zebra(&p))
+      if (bgp_debug_zebra((struct prefix *)&p))
 	{
 	  char buf[2][INET_ADDRSTRLEN];
 	  zlog_debug("Zebra rcvd: IPv4 route delete %s[%d] %s/%d "
@@ -547,6 +552,10 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
       api.ifindex_num = stream_getc (s);
       ifindex = stream_getl (s); /* ifindex, unused */
     }
+  else
+    {
+      ifindex = 0;
+    }
 
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_DISTANCE))
     api.distance = stream_getc (s);
@@ -569,7 +578,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
 
   if (command == ZEBRA_IPV6_ROUTE_ADD)
     {
-      if (bgp_debug_zebra(&p))
+      if (bgp_debug_zebra((struct prefix *)&p))
 	{
 	  char buf[2][INET6_ADDRSTRLEN];
 	  zlog_debug("Zebra rcvd: IPv6 route add %s[%d] %s/%d nexthop %s metric %u tag %d",
@@ -585,7 +594,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
     }
   else
     {
-      if (bgp_debug_zebra(&p))
+      if (bgp_debug_zebra((struct prefix *)&p))
 	{
 	  char buf[2][INET6_ADDRSTRLEN];
 	  zlog_debug("Zebra rcvd: IPv6 route delete %s[%d] %s/%d "
@@ -657,7 +666,7 @@ if_lookup_by_ipv4_exact (struct in_addr *addr)
 
 #ifdef HAVE_IPV6
 struct interface *
-if_lookup_by_ipv6 (struct in6_addr *addr, int ifindex)
+if_lookup_by_ipv6 (struct in6_addr *addr, unsigned int ifindex)
 {
   struct listnode *ifnode;
   struct listnode *cnode;
@@ -679,7 +688,7 @@ if_lookup_by_ipv6 (struct in6_addr *addr, int ifindex)
 	  if (cp->family == AF_INET6)
 	    if (prefix_match (cp, (struct prefix *)&p))
 	      {
-		if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6))
+		if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6.s6_addr32[0]))
 		  {
 		    if (ifindex == ifp->ifindex)
 		      return ifp;
@@ -693,7 +702,7 @@ if_lookup_by_ipv6 (struct in6_addr *addr, int ifindex)
 }
 
 struct interface *
-if_lookup_by_ipv6_exact (struct in6_addr *addr, int ifindex)
+if_lookup_by_ipv6_exact (struct in6_addr *addr, unsigned int ifindex)
 {
   struct listnode *ifnode;
   struct listnode *cnode;
@@ -1217,11 +1226,12 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
               ifindex = info->peer->nexthop.ifp->ifindex;
 
           if (!ifindex)
-            if (info->peer->conf_if || info->peer->ifname)
-              ifindex = if_nametoindex (info->peer->conf_if ? info->peer->conf_if : info->peer->ifname);
-            else if (info->peer->nexthop.ifp)
-              ifindex = info->peer->nexthop.ifp->ifindex;
-
+	    {
+	      if (info->peer->conf_if || info->peer->ifname)
+		ifindex = if_nametoindex (info->peer->conf_if ? info->peer->conf_if : info->peer->ifname);
+	      else if (info->peer->nexthop.ifp)
+		ifindex = info->peer->nexthop.ifp->ifindex;
+	    }
           stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
           stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
           valid_nh_count++;
@@ -1255,11 +1265,12 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
               ifindex = mpinfo->peer->nexthop.ifp->ifindex;
 
           if (!ifindex)
-            if (mpinfo->peer->conf_if || mpinfo->peer->ifname)
-              ifindex = if_nametoindex (mpinfo->peer->conf_if ? mpinfo->peer->conf_if : mpinfo->peer->ifname);
-            else if (mpinfo->peer->nexthop.ifp)
-              ifindex = mpinfo->peer->nexthop.ifp->ifindex;
-
+	    {
+	      if (mpinfo->peer->conf_if || mpinfo->peer->ifname)
+		ifindex = if_nametoindex (mpinfo->peer->conf_if ? mpinfo->peer->conf_if : mpinfo->peer->ifname);
+	      else if (mpinfo->peer->nexthop.ifp)
+		ifindex = mpinfo->peer->nexthop.ifp->ifindex;
+	    }
           if (ifindex == 0)
             continue;
 

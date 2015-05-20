@@ -38,6 +38,7 @@
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_fsm.h"
 
 extern struct zclient *zclient;
 extern struct bgp_table *bgp_nexthop_cache_table[AFI_MAX];
@@ -282,7 +283,7 @@ void
 bgp_parse_nexthop_update (int command)
 {
   struct stream *s;
-  struct bgp_node *rn;
+  struct bgp_node *rn = NULL;
   struct bgp_nexthop_cache *bnc;
   struct nexthop *nexthop;
   struct nexthop *oldnh;
@@ -618,8 +619,8 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
   LIST_FOREACH(path, &(bnc->paths), nh_thread)
     {
       if (!(path->type == ZEBRA_ROUTE_BGP &&
-	    (path->sub_type == BGP_ROUTE_NORMAL) ||
-	    (path->sub_type == BGP_ROUTE_STATIC)))
+	    ((path->sub_type == BGP_ROUTE_NORMAL) ||
+	     (path->sub_type == BGP_ROUTE_STATIC))))
 	continue;
 
       rn = path->net;

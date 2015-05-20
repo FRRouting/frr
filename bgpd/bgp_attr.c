@@ -81,7 +81,7 @@ static struct hash *cluster_hash;
 static void *
 cluster_hash_alloc (void *p)
 {
-  struct cluster_list * val = (struct cluster_list *) p;
+  const struct cluster_list *val = (const struct cluster_list *) p;
   struct cluster_list *cluster;
 
   cluster = XMALLOC (MTYPE_CLUSTER, sizeof (struct cluster_list));
@@ -541,7 +541,7 @@ attr_show_all (struct vty *vty)
 static void *
 bgp_attr_hash_alloc (void *p)
 {
-  struct attr * val = (struct attr *) p;
+  const struct attr * val = (const struct attr *) p;
   struct attr *attr;
 
   attr = XMALLOC (MTYPE_ATTR, sizeof (struct attr));
@@ -961,7 +961,6 @@ bgp_attr_flag_invalid (struct bgp_attr_parser_args *args)
   u_int8_t mask = BGP_ATTR_FLAG_EXTLEN;
   const u_int8_t flags = args->flags;
   const u_int8_t attr_code = args->type;
-  struct peer *const peer = args->peer; 
   
   /* there may be attributes we don't know about */
   if (attr_code > attr_flags_values_max)
@@ -1271,7 +1270,6 @@ bgp_attr_local_pref (struct bgp_attr_parser_args *args)
 static int
 bgp_attr_atomic (struct bgp_attr_parser_args *args)
 {
-  struct peer *const peer = args->peer; 
   struct attr *const attr = args->attr;
   const bgp_size_t length = args->length;
   
@@ -2183,7 +2181,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi,
       case SAFI_UNICAST:
       case SAFI_MULTICAST:
 	{
-	  unsigned long sizep;
 	  struct attr_extra *attre = attr->extra;
 
 	  assert (attr->extra);
@@ -2249,7 +2246,6 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   struct aspath *aspath;
   int send_as4_path = 0;
   int send_as4_aggregator = 0;
-  int i = 0;
   int use32bit = (CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV)) ? 1 : 0;
   size_t mpattrlen_pos = 0;
 

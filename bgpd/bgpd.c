@@ -659,7 +659,7 @@ peer_af_delete (struct peer *peer, afi_t afi, safi_t safi)
   if (PAF_SUBGRP(af))
     {
       if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-        zlog_debug ("u%llu:s%llu remove peer %s",
+        zlog_debug ("u%" PRIu64 ":s%" PRIu64 " remove peer %s",
                 af->subgroup->update_group->id, af->subgroup->id, peer->host);
     }
 
@@ -1304,16 +1304,18 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
     conf = peer->group->conf;
 
   if (conf && CHECK_FLAG (conf->config, PEER_CONFIG_ROUTEADV))
+    {
       peer->v_routeadv = conf->routeadv;
-
+    }
   /* Only go back to the default advertisement-interval if the user had not
    * already configured it */
   else if (!CHECK_FLAG (peer->config, PEER_CONFIG_ROUTEADV))
-    if (peer_sort (peer) == BGP_PEER_IBGP)
-      peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-    else
-      peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-
+    {
+      if (peer_sort (peer) == BGP_PEER_IBGP)
+	peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
+      else
+	peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+    }
   /* TTL reset */
   if (peer_sort (peer) == BGP_PEER_IBGP)
     peer->ttl = 255;
@@ -2340,10 +2342,12 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
     {
       /* Advertisement-interval reset */
       if (! CHECK_FLAG (group->conf->config, PEER_CONFIG_ROUTEADV))
-        if (peer_sort (group->conf) == BGP_PEER_IBGP)
-	  group->conf->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-        else
-	  group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+	{
+	  if (peer_sort (group->conf) == BGP_PEER_IBGP)
+	    group->conf->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
+	  else
+	    group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+	}
 
       /* ebgp-multihop reset */
       if (peer_sort (group->conf) == BGP_PEER_IBGP)
@@ -2836,7 +2840,6 @@ peer_create_bind_dynamic_neighbor (struct bgp *bgp, union sockunion *su,
   struct peer *peer;
   afi_t afi;
   safi_t safi;
-  as_t as;
 
   /* Create peer first; we've already checked group config is valid. */
   peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, 0, 0);
@@ -3964,7 +3967,7 @@ peer_port_unset (struct peer *peer)
 }
 
 /* neighbor weight. */
-int
+void
 peer_weight_set (struct peer *peer, u_int16_t weight)
 {
   struct peer_group *group;
@@ -3974,7 +3977,7 @@ peer_weight_set (struct peer *peer, u_int16_t weight)
   peer->weight = weight;
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    return 0;
+    return;
 
   /* peer-group member updates. */
   group = peer->group;
@@ -3982,10 +3985,9 @@ peer_weight_set (struct peer *peer, u_int16_t weight)
     {
       peer->weight = group->conf->weight;
     }
-  return 0;
 }
 
-int
+void
 peer_weight_unset (struct peer *peer)
 {
   struct peer_group *group;
@@ -4000,7 +4002,7 @@ peer_weight_unset (struct peer *peer)
   UNSET_FLAG (peer->config, PEER_CONFIG_WEIGHT);
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    return 0;
+    return;
 
   /* peer-group member updates. */
   group = peer->group;
@@ -4008,7 +4010,7 @@ peer_weight_unset (struct peer *peer)
     {
       peer->weight = 0;
     }
-  return 0;
+  return;
 }
 
 int
@@ -4227,24 +4229,20 @@ peer_advertise_interval_unset (struct peer *peer)
 }
 
 /* neighbor interface */
-int
+void
 peer_interface_set (struct peer *peer, const char *str)
 {
   if (peer->ifname)
     free (peer->ifname);
   peer->ifname = strdup (str);
-
-  return 0;
 }
 
-int
+void
 peer_interface_unset (struct peer *peer)
 {
   if (peer->ifname)
     free (peer->ifname);
   peer->ifname = NULL;
-
-  return 0;
 }
 
 /* Allow-as in.  */
@@ -5042,7 +5040,7 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
 }
 
 static void
-peer_aslist_update (char *aslist_name)
+peer_aslist_update (const char *aslist_name)
 {
   afi_t afi;
   safi_t safi;
@@ -5104,10 +5102,10 @@ peer_aslist_add (char *aslist_name)
 }
 
 static void
-peer_aslist_del (char *aslist_name)
+peer_aslist_del (const char *aslist_name)
 {
   peer_aslist_update (aslist_name);
-  route_map_notify_dependencies((char *)aslist_name, RMAP_EVENT_ASLIST_DELETED);
+  route_map_notify_dependencies(aslist_name, RMAP_EVENT_ASLIST_DELETED);
 }
 
 

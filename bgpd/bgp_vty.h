@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_VTY_H
 #define _QUAGGA_BGP_VTY_H
 
+#include "bgpd/bgpd.h"
+
 #define CMD_AS_RANGE "<1-4294967295>"
 #define DYNAMIC_NEIGHBOR_LIMIT_RANGE "<1-5000>"
 

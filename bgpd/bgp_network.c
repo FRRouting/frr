@@ -273,10 +273,8 @@ bgp_accept (struct thread *thread)
    */
   if (peer1->status == Clearing || peer1->status == Deleted)
     {
-      struct bgp *bgp = peer1->bgp;
-
       if (bgp_debug_neighbor_events(peer1))
-        zlog_debug("[Event] Closing incoming conn for %s (0x%x) state %d",
+        zlog_debug("[Event] Closing incoming conn for %s (%p) state %d",
                    peer1->host, peer1, peer1->status);
       close (bgp_sock);
       return -1;

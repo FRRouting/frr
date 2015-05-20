@@ -392,7 +392,7 @@ zebra_ptm_sock_read (struct thread *thread)
   int sock, done = 0;
   char rcvbuf[ZEBRA_PTM_MAX_SOCKBUF];
   int nbytes, msglen;
-  char  *rcvptr, *eofptr;
+  char  *rcvptr;
   char msgbuf[ZEBRA_PTM_MAX_SOCKBUF];
 
   sock = THREAD_FD (thread);
