@@ -1724,6 +1724,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   safi_t safi;
   u_char reserved;
   struct stream *s;
+  struct peer_af *paf;
 
   /* If peer does not have the capability, send notification. */
   if (! CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_ADV))
@@ -1915,6 +1916,15 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   /* First update is deferred until ORF or ROUTE-REFRESH is received */
   if (CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH))
     UNSET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH);
+
+  /* If the peer is configured for default-originate clear the
+   * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will re-advertise the
+   * default
+   */
+  paf = peer_af_find (peer, afi, safi);
+  if (paf && paf->subgroup &&
+      CHECK_FLAG (paf->subgroup->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+    UNSET_FLAG (paf->subgroup->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
 
   /* Perform route refreshment to the peer */
   bgp_announce_route (peer, afi, safi);
