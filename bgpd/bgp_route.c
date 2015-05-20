@@ -540,7 +540,11 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	return 0;
     }
 
-  /* 11. Rourter-ID comparision. */
+  /* 11. Router-ID comparision. */
+  /* If one of the paths is "stale", the corresponding peer router-id will
+   * be 0 and would always win over the other path. If originator id is
+   * used for the comparision, it will decide which path is better.
+   */
   if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
     new_id.s_addr = newattre->originator_id.s_addr;
   else
@@ -565,6 +569,14 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     return 0;
 
   /* 13. Neighbor address comparision. */
+  /* Do this only if neither path is "stale" as stale paths do not have
+   * valid peer information (as the connection may or may not be up).
+   */
+  if (CHECK_FLAG (exist->flags, BGP_INFO_STALE))
+    return 1;
+  if (CHECK_FLAG (new->flags, BGP_INFO_STALE))
+    return 0;
+
   ret = sockunion_cmp (new->peer->su_remote, exist->peer->su_remote);
 
   if (ret == 1)
