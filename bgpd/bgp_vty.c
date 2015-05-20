@@ -6209,11 +6209,12 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
 
 DEFUN (clear_ip_bgp_peer_soft_out,
        clear_ip_bgp_peer_soft_out_cmd,
-       "clear ip bgp A.B.C.D soft out",
+       "clear ip bgp (A.B.C.D|WORD) soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
@@ -6223,20 +6224,22 @@ DEFUN (clear_ip_bgp_peer_soft_out,
 
 ALIAS (clear_ip_bgp_peer_soft_out,
        clear_ip_bgp_peer_out_cmd,
-       "clear ip bgp A.B.C.D out",
+       "clear ip bgp (A.B.C.D|WORD) out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        BGP_SOFT_OUT_STR)
 
 DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
        clear_ip_bgp_peer_ipv4_soft_out_cmd,
-       "clear ip bgp A.B.C.D ipv4 (unicast|multicast) soft out",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -6253,23 +6256,26 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
 
 ALIAS (clear_ip_bgp_peer_ipv4_soft_out,
        clear_ip_bgp_peer_ipv4_out_cmd,
-       "clear ip bgp A.B.C.D ipv4 (unicast|multicast) out",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        BGP_SOFT_OUT_STR)
 
+/* NOTE: WORD peers have not been tested for vpnv4 */
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
        clear_ip_bgp_peer_vpnv4_soft_out_cmd,
-       "clear ip bgp A.B.C.D vpnv4 unicast soft out",
+       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
        BGP_SOFT_STR
@@ -6281,11 +6287,12 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
 
 ALIAS (clear_ip_bgp_peer_vpnv4_soft_out,
        clear_ip_bgp_peer_vpnv4_out_cmd,
-       "clear ip bgp A.B.C.D vpnv4 unicast out",
+       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast out",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
        BGP_SOFT_OUT_STR)
@@ -6937,11 +6944,12 @@ ALIAS (clear_bgp_all_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_peer_soft_in,
        clear_ip_bgp_peer_soft_in_cmd,
-       "clear ip bgp A.B.C.D soft in",
+       "clear ip bgp (A.B.C.D|WORD) soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
@@ -6951,20 +6959,22 @@ DEFUN (clear_ip_bgp_peer_soft_in,
 
 ALIAS (clear_ip_bgp_peer_soft_in,
        clear_ip_bgp_peer_in_cmd,
-       "clear ip bgp A.B.C.D in",
+       "clear ip bgp (A.B.C.D|WORD) in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        BGP_SOFT_IN_STR)
        
 DEFUN (clear_ip_bgp_peer_in_prefix_filter,
        clear_ip_bgp_peer_in_prefix_filter_cmd,
-       "clear ip bgp A.B.C.D in prefix-filter",
+       "clear ip bgp (A.B.C.D|WORD) in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        BGP_SOFT_IN_STR
        "Push out the existing ORF prefix-list\n")
 {
@@ -6974,11 +6984,12 @@ DEFUN (clear_ip_bgp_peer_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
        clear_ip_bgp_peer_ipv4_soft_in_cmd,
-       "clear ip bgp A.B.C.D ipv4 (unicast|multicast) soft in",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -6995,11 +7006,12 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
 
 ALIAS (clear_ip_bgp_peer_ipv4_soft_in,
        clear_ip_bgp_peer_ipv4_in_cmd,
-       "clear ip bgp A.B.C.D ipv4 (unicast|multicast) in",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -7007,11 +7019,12 @@ ALIAS (clear_ip_bgp_peer_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
        clear_ip_bgp_peer_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp A.B.C.D ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -7028,11 +7041,12 @@ DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_in,
        clear_ip_bgp_peer_vpnv4_soft_in_cmd,
-       "clear ip bgp A.B.C.D vpnv4 unicast soft in",
+       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
        BGP_SOFT_STR
@@ -7044,11 +7058,12 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft_in,
 
 ALIAS (clear_ip_bgp_peer_vpnv4_soft_in,
        clear_ip_bgp_peer_vpnv4_in_cmd,
-       "clear ip bgp A.B.C.D vpnv4 unicast in",
+       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast in",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
        BGP_SOFT_IN_STR)
@@ -7753,11 +7768,12 @@ ALIAS (clear_bgp_all_soft,
 
 DEFUN (clear_ip_bgp_peer_soft,
        clear_ip_bgp_peer_soft_cmd,
-       "clear ip bgp A.B.C.D soft",
+       "clear ip bgp (A.B.C.D|WORD) soft",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
@@ -7766,11 +7782,12 @@ DEFUN (clear_ip_bgp_peer_soft,
 
 DEFUN (clear_ip_bgp_peer_ipv4_soft,
        clear_ip_bgp_peer_ipv4_soft_cmd,
-       "clear ip bgp A.B.C.D ipv4 (unicast|multicast) soft",
+       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
        "Address Family Modifier\n"
@@ -7786,11 +7803,12 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft,
 
 DEFUN (clear_ip_bgp_peer_vpnv4_soft,
        clear_ip_bgp_peer_vpnv4_soft_cmd,
-       "clear ip bgp A.B.C.D vpnv4 unicast soft",
+       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft",
        CLEAR_STR
        IP_STR
        BGP_STR
        "BGP neighbor address to clear\n"
+       "BGP neighbor on interface to clear\n"
        "Address family\n"
        "Address Family Modifier\n"
        BGP_SOFT_STR)
