@@ -185,10 +185,12 @@ bgp_advertise_clean (struct peer *peer, struct bgp_adj_out *adj,
   struct bgp_advertise *adv;
   struct bgp_advertise_attr *baa;
   struct bgp_advertise *next;
+  struct bgp_advertise_fifo *fhead;
 
   adv = adj->adv;
   baa = adv->baa;
   next = NULL;
+  fhead = &peer->sync[afi][safi]->withdraw;
 
   if (baa)
     {
@@ -200,10 +202,12 @@ bgp_advertise_clean (struct peer *peer, struct bgp_adj_out *adj,
 
       /* Unintern BGP advertise attribute.  */
       bgp_advertise_unintern (peer->hash[afi][safi], baa);
+
+      fhead = &peer->sync[afi][safi]->update;
     }
 
   /* Unlink myself from advertisement FIFO.  */
-  FIFO_DEL (adv);
+  BGP_ADV_FIFO_DEL (fhead, adv);
 
   /* Free memory.  */
   bgp_advertise_free (adj->adv);
@@ -263,7 +267,7 @@ bgp_adj_out_set (struct bgp_node *rn, struct peer *peer, struct prefix *p,
   /* Add new advertisement to advertisement attribute list. */
   bgp_advertise_add (adv->baa, adv);
 
-  FIFO_ADD (&peer->sync[afi][safi]->update, &adv->fifo);
+  BGP_ADV_FIFO_ADD (&peer->sync[afi][safi]->update, &adv->fifo);
 }
 
 void
@@ -297,7 +301,7 @@ bgp_adj_out_unset (struct bgp_node *rn, struct peer *peer, struct prefix *p,
       adv->adj = adj;
 
       /* Add to synchronization entry for withdraw announcement.  */
-      FIFO_ADD (&peer->sync[afi][safi]->withdraw, &adv->fifo);
+      BGP_ADV_FIFO_ADD (&peer->sync[afi][safi]->withdraw, &adv->fifo);
 
       /* Schedule packet write. */
       BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
@@ -389,9 +393,9 @@ bgp_sync_init (struct peer *peer)
       {
 	sync = XCALLOC (MTYPE_BGP_SYNCHRONISE, 
 	                sizeof (struct bgp_synchronize));
-	FIFO_INIT (&sync->update);
-	FIFO_INIT (&sync->withdraw);
-	FIFO_INIT (&sync->withdraw_low);
+	BGP_ADV_FIFO_INIT (&sync->update);
+	BGP_ADV_FIFO_INIT (&sync->withdraw);
+	BGP_ADV_FIFO_INIT (&sync->withdraw_low);
 	peer->sync[afi][safi] = sync;
 	peer->hash[afi][safi] = hash_create (baa_hash_key, baa_hash_cmp);
       }

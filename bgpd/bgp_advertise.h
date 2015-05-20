@@ -26,6 +26,7 @@ struct bgp_advertise_fifo
 {
   struct bgp_advertise *next;
   struct bgp_advertise *prev;
+  u_int32_t count;
 };
 
 /* BGP advertise attribute.  */
@@ -126,6 +127,24 @@ struct bgp_synchronize
 #define BGP_ADJ_IN_DEL(N,A)    BGP_INFO_DEL(N,A,adj_in)
 #define BGP_ADJ_OUT_ADD(N,A)   BGP_INFO_ADD(N,A,adj_out)
 #define BGP_ADJ_OUT_DEL(N,A)   BGP_INFO_DEL(N,A,adj_out)
+
+#define BGP_ADV_FIFO_ADD(F, N)			\
+  do {						\
+    FIFO_ADD((F), (N));				\
+    (F)->count++;				\
+  } while (0)
+
+#define BGP_ADV_FIFO_DEL(F, N)			\
+  do {						\
+    FIFO_DEL((N));				\
+    (F)->count--;				\
+  } while (0)
+
+#define BGP_ADV_FIFO_INIT(F)			\
+  do {						\
+    FIFO_INIT((F));				\
+    (F)->count = 0;				\
+  } while (0)
 
 /* Prototypes.  */
 extern void bgp_adj_out_set (struct bgp_node *, struct peer *, struct prefix *,

@@ -7174,7 +7174,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 	    vty_out(vty, "%c", *delimit);
 
 	  if (!delimit)
-	    vty_out (vty, "%5u %7d %7d %8d %4d %4lu",
+	    vty_out (vty, "%5u %7d %7d %8d %4d %4lu ",
 		     peer->as,
 		     peer->open_in + peer->update_in + peer->keepalive_in
 		     + peer->notify_in + peer->refresh_in
@@ -7184,7 +7184,8 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 		     + peer->dynamic_cap_out,
 		     0,
 		     0,
-		     (unsigned long) peer->obuf->count);
+		     peer->sync[afi][safi]->update.count +
+		     peer->sync[afi][safi]->withdraw.count);
 	  else
 	    vty_out (vty, "%5u %c %7d %c %7d %c %8d %c %4d %c %4lu %c",
 		     peer->as, *delimit,
@@ -7196,7 +7197,8 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi, char *del
 		     + peer->dynamic_cap_out, *delimit,
 		     0, *delimit,
 		     0, *delimit,
-		     (unsigned long) peer->obuf->count, *delimit);
+		     peer->sync[afi][safi]->update.count +
+		     peer->sync[afi][safi]->withdraw.count, *delimit);
 
 	  vty_out (vty, "%8s",
 		   peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
