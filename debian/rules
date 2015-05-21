@@ -76,6 +76,7 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	#dh_auto_build
 	$(MAKE)
+	dh_auto_build -- -C doc draft-zebra-00.txt
 
 	
 	# doc/ is a bit crazy
