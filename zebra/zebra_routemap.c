@@ -659,6 +659,7 @@ DEFUN (set_src,
   struct interface *pif = NULL;
   int family;
   struct prefix p;
+  vrf_iter_t iter;
 
   if (inet_pton(AF_INET, argv[0], &src.ipv4) != 1)
     {
@@ -685,10 +686,18 @@ DEFUN (set_src,
 	  return CMD_WARNING;
     }
 
-  if (family == AF_INET)
-    pif = if_lookup_exact_address ((void *)&src.ipv4, AF_INET);
-  else if (family == AF_INET6)
-    pif = if_lookup_exact_address ((void *)&src.ipv6, AF_INET6);
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      if (family == AF_INET)
+        pif = if_lookup_exact_address_vrf ((void *)&src.ipv4, AF_INET,
+                                           vrf_iter2id (iter));
+      else if (family == AF_INET6)
+        pif = if_lookup_exact_address_vrf ((void *)&src.ipv6, AF_INET6,
+                                           vrf_iter2id (iter));
+
+      if (pif != NULL)
+        break;
+    }
 
   if (!pif)
     {
