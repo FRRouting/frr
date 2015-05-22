@@ -29,6 +29,8 @@
 #include "log.h"
 #include "memory.h"
 
+#define VRF_DEFAULT_NAME    "Default-IP-Routing-Table"
+
 struct vrf
 {
   /* Identifier, same as the vector index */
@@ -48,10 +50,17 @@ struct vrf_master
 {
   int (*vrf_new_hook) (vrf_id_t, void **);
   int (*vrf_delete_hook) (vrf_id_t, void **);
+  int (*vrf_enable_hook) (vrf_id_t, void **);
+  int (*vrf_disable_hook) (vrf_id_t, void **);
 } vrf_master = {0,};
 
 /* VRF table */
 struct route_table *vrf_table = NULL;
+
+static int vrf_is_enabled (struct vrf *vrf);
+static int vrf_enable (struct vrf *vrf);
+static void vrf_disable (struct vrf *vrf);
+
 
 /* Build the table key */
 static void
@@ -100,6 +109,9 @@ vrf_delete (struct vrf *vrf)
 {
   zlog_info ("VRF %u is to be deleted.", vrf->vrf_id);
 
+  if (vrf_is_enabled (vrf))
+    vrf_disable (vrf);
+
   if (vrf_master.vrf_delete_hook)
     (*vrf_master.vrf_delete_hook) (vrf->vrf_id, &vrf->info);
 
@@ -129,6 +141,61 @@ vrf_lookup (vrf_id_t vrf_id)
   return vrf;
 }
 
+/*
+ * Check whether the VRF is enabled - that is, whether the VRF
+ * is ready to allocate resources. Currently there's only one
+ * type of resource: socket.
+ */
+static int
+vrf_is_enabled (struct vrf *vrf)
+{
+  return vrf && vrf->vrf_id == VRF_DEFAULT;
+}
+
+/*
+ * Enable a VRF - that is, let the VRF be ready to use.
+ * The VRF_ENABLE_HOOK callback will be called to inform
+ * that they can allocate resources in this VRF.
+ *
+ * RETURN: 1 - enabled successfully; otherwise, 0.
+ */
+static int
+vrf_enable (struct vrf *vrf)
+{
+  /* Till now, only the default VRF can be enabled. */
+  if (vrf->vrf_id == VRF_DEFAULT)
+    {
+      zlog_info ("VRF %u is enabled.", vrf->vrf_id);
+
+      if (vrf_master.vrf_enable_hook)
+        (*vrf_master.vrf_enable_hook) (vrf->vrf_id, &vrf->info);
+
+      return 1;
+    }
+
+  return 0;
+}
+
+/*
+ * Disable a VRF - that is, let the VRF be unusable.
+ * The VRF_DELETE_HOOK callback will be called to inform
+ * that they must release the resources in the VRF.
+ */
+static void
+vrf_disable (struct vrf *vrf)
+{
+  if (vrf_is_enabled (vrf))
+    {
+      zlog_info ("VRF %u is to be disabled.", vrf->vrf_id);
+
+      /* Till now, nothing to be done for the default VRF. */
+
+      if (vrf_master.vrf_disable_hook)
+        (*vrf_master.vrf_disable_hook) (vrf->vrf_id, &vrf->info);
+    }
+}
+
+
 /* Add a VRF hook. Please add hooks before calling vrf_init(). */
 void
 vrf_add_hook (int type, int (*func)(vrf_id_t, void **))
@@ -139,6 +206,12 @@ vrf_add_hook (int type, int (*func)(vrf_id_t, void **))
     break;
   case VRF_DELETE_HOOK:
     vrf_master.vrf_delete_hook = func;
+    break;
+  case VRF_ENABLE_HOOK:
+    vrf_master.vrf_enable_hook = func;
+    break;
+  case VRF_DISABLE_HOOK:
+    vrf_master.vrf_disable_hook = func;
     break;
   default:
     break;
@@ -281,7 +354,14 @@ vrf_init (void)
     }
 
   /* Set the default VRF name. */
-  default_vrf->name = XSTRDUP (MTYPE_VRF_NAME, "Default-IP-Routing-Table");
+  default_vrf->name = XSTRDUP (MTYPE_VRF_NAME, VRF_DEFAULT_NAME);
+
+  /* Enable the default VRF. */
+  if (!vrf_enable (default_vrf))
+    {
+      zlog_err ("vrf_init: failed to enable the default VRF!");
+      exit (1);
+    }
 }
 
 /* Terminate VRF module. */
@@ -297,5 +377,25 @@ vrf_terminate (void)
 
   route_table_finish (vrf_table);
   vrf_table = NULL;
+}
+
+/* Create a socket for the VRF. */
+int
+vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
+{
+  int ret = -1;
+
+  if (!vrf_is_enabled (vrf_lookup (vrf_id)))
+    {
+      errno = ENOSYS;
+      return -1;
+    }
+
+  if (vrf_id == VRF_DEFAULT)
+    ret = socket (domain, type, protocol);
+  else
+    errno = ENOSYS;
+
+  return ret;
 }
 

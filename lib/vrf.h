@@ -44,6 +44,8 @@
 
 #define VRF_NEW_HOOK        0   /* a new VRF is just created */
 #define VRF_DELETE_HOOK     1   /* a VRF is to be deleted */
+#define VRF_ENABLE_HOOK     2   /* a VRF is ready to use */
+#define VRF_DISABLE_HOOK    3   /* a VRF is to be unusable */
 
 /*
  * Add a specific hook to VRF module.
@@ -113,6 +115,13 @@ extern struct list *vrf_iflist_get (vrf_id_t);
 /* Please add hooks before calling vrf_init(). */
 extern void vrf_init (void);
 extern void vrf_terminate (void);
+
+/*
+ * VRF utilities
+ */
+
+/* Create a socket serving for the given VRF */
+extern int vrf_socket (int, int, int, vrf_id_t);
 
 #endif /*_ZEBRA_VRF_H*/
 
