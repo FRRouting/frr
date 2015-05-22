@@ -59,7 +59,7 @@ route_node_new (struct route_table *table)
 
 /* Allocate new route node with prefix set. */
 static struct route_node *
-route_node_set (struct route_table *table, struct prefix *prefix)
+route_node_set (struct route_table *table, const struct prefix *prefix)
 {
   struct route_node *node;
   
@@ -141,14 +141,14 @@ static const u_char maskbit[] =
 
 /* Common prefix route genaration. */
 static void
-route_common (struct prefix *n, struct prefix *p, struct prefix *new)
+route_common (const struct prefix *n, const struct prefix *p, struct prefix *new)
 {
   int i;
   u_char diff;
   u_char mask;
 
-  u_char *np = (u_char *)&n->u.prefix;
-  u_char *pp = (u_char *)&p->u.prefix;
+  const u_char *np = (const u_char *)&n->u.prefix;
+  const u_char *pp = (const u_char *)&p->u.prefix;
   u_char *newp = (u_char *)&new->u.prefix;
 
   for (i = 0; i < p->prefixlen / 8; i++)
@@ -265,7 +265,7 @@ route_node_match_ipv6 (const struct route_table *table,
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *
-route_node_lookup (const struct route_table *table, struct prefix *p)
+route_node_lookup (const struct route_table *table, const struct prefix *p)
 {
   struct route_node *node;
   u_char prefixlen = p->prefixlen;
@@ -287,7 +287,7 @@ route_node_lookup (const struct route_table *table, struct prefix *p)
 
 /* Add node to routing table. */
 struct route_node *
-route_node_get (struct route_table *const table, struct prefix *p)
+route_node_get (struct route_table *const table, const struct prefix *p)
 {
   struct route_node *new;
   struct route_node *node;
