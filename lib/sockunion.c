@@ -623,6 +623,62 @@ sockunion_hash (const union sockunion *su)
   return 0;
 }
 
+size_t
+family2addrsize(int family)
+{
+  switch (family)
+    {
+    case AF_INET:
+      return sizeof(struct in_addr);
+#ifdef HAVE_IPV6
+    case AF_INET6:
+      return sizeof(struct in6_addr);
+#endif /* HAVE_IPV6 */
+    }
+  return 0;
+}
+
+size_t
+sockunion_get_addrlen(const union sockunion *su)
+{
+  return family2addrsize(sockunion_family(su));
+}
+
+const u_char *
+sockunion_get_addr(const union sockunion *su)
+{
+  switch (sockunion_family(su))
+    {
+    case AF_INET:
+      return (const u_char *) &su->sin.sin_addr.s_addr;
+#ifdef HAVE_IPV6
+    case AF_INET6:
+      return (const u_char *) &su->sin6.sin6_addr;
+#endif /* HAVE_IPV6 */
+    }
+  return NULL;
+}
+
+void
+sockunion_set(union sockunion *su, int family, const u_char *addr, size_t bytes)
+{
+  if (family2addrsize(family) != bytes)
+    return;
+
+  sockunion_family(su) = family;
+  switch (family)
+    {
+    case AF_INET:
+      memcpy(&su->sin.sin_addr.s_addr, addr, bytes);
+      break;
+#ifdef HAVE_IPV6
+    case AF_INET6:
+      memcpy(&su->sin6.sin6_addr, addr, bytes);
+      break;
+#endif /* HAVE_IPV6 */
+    }
+}
+
 /* After TCP connection is established.  Get local address and port. */
 union sockunion *
 sockunion_getsockname (int fd)
