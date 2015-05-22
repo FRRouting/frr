@@ -39,6 +39,7 @@
 #include "vtysh/vtysh.h"
 #include "log.h"
 #include "bgpd/bgp_vty.h"
+#include "vrf.h"
 
 /* Struct VTY. */
 struct vty *vty;
@@ -1498,6 +1499,14 @@ DEFUNSH (VTYSH_INTERFACE,
   return CMD_SUCCESS;
 }
 
+ALIAS_SH (VTYSH_ZEBRA,
+	 vtysh_interface,
+	 vtysh_interface_vrf_cmd,
+	 "interface IFNAME " VRF_CMD_STR,
+	 "Select an interface to configure\n"
+	 "Interface's name\n"
+	 VRF_CMD_HELP_STR)
+
 /* TODO Implement "no interface command in isisd. */
 DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
        vtysh_no_interface_cmd,
@@ -1505,6 +1514,14 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
        NO_STR
        "Delete a pseudo interface's configuration\n"
        "Interface's name\n")
+
+DEFSH (VTYSH_ZEBRA,
+       vtysh_no_interface_vrf_cmd,
+       "no interface IFNAME " VRF_CMD_STR,
+       NO_STR
+       "Delete a pseudo interface's configuration\n"
+       "Interface's name\n"
+       VRF_CMD_HELP_STR)
 
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
@@ -2823,6 +2840,8 @@ vtysh_init_vty (void)
   install_element (KEYCHAIN_KEY_NODE, &key_chain_cmd);
   install_element (CONFIG_NODE, &vtysh_interface_cmd);
   install_element (CONFIG_NODE, &vtysh_no_interface_cmd);
+  install_element (CONFIG_NODE, &vtysh_interface_vrf_cmd);
+  install_element (CONFIG_NODE, &vtysh_no_interface_vrf_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_daemon_cmd);
   install_element (ENABLE_NODE, &vtysh_copy_runningconfig_startupconfig_cmd);

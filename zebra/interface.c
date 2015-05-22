@@ -32,6 +32,7 @@
 #include "connected.h"
 #include "log.h"
 #include "zclient.h"
+#include "vrf.h"
 
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -1033,6 +1034,13 @@ DEFUN_NOSH (zebra_interface,
   return ret;
 }
 
+ALIAS (zebra_interface,
+       zebra_interface_vrf_cmd,
+       "interface IFNAME " VRF_CMD_STR,
+       "Select an interface to configure\n"
+       "Interface's name\n"
+       VRF_CMD_HELP_STR)
+
 struct cmd_node interface_node =
 {
   INTERFACE_NODE,
@@ -1689,10 +1697,12 @@ if_config_write (struct vty *vty)
 {
   struct listnode *node;
   struct interface *ifp;
+  vrf_iter_t iter;
 
   zebra_ptm_write (vty);
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), node, ifp))
     {
       struct zebra_if *if_data;
       struct listnode *addrnode;
@@ -1700,9 +1710,12 @@ if_config_write (struct vty *vty)
       struct prefix *p;
 
       if_data = ifp->info;
-      
-      vty_out (vty, "interface %s%s", ifp->name,
-	       VTY_NEWLINE);
+
+      if (ifp->vrf_id == VRF_DEFAULT)
+        vty_out (vty, "interface %s%s", ifp->name, VTY_NEWLINE);
+      else
+        vty_out (vty, "interface %s vrf %u%s", ifp->name, ifp->vrf_id,
+                 VTY_NEWLINE);
 
       if (if_data)
 	{
@@ -1776,7 +1789,9 @@ zebra_if_init (void)
   install_element (ENABLE_NODE, &show_interface_cmd);
   install_element (ENABLE_NODE, &show_interface_desc_cmd);
   install_element (CONFIG_NODE, &zebra_interface_cmd);
+  install_element (CONFIG_NODE, &zebra_interface_vrf_cmd);
   install_element (CONFIG_NODE, &no_interface_cmd);
+  install_element (CONFIG_NODE, &no_interface_vrf_cmd);
   install_default (INTERFACE_NODE);
   install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);

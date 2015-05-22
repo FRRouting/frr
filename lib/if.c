@@ -712,6 +712,9 @@ DEFUN (interface,
       return CMD_WARNING;
     }
 
+  if (argc > 1)
+    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+
 #ifdef SUNOS_5
   ifp = if_sunwzebra_get (argv[0], sl, vrf_id);
 #else
@@ -724,6 +727,13 @@ DEFUN (interface,
   return CMD_SUCCESS;
 }
 
+ALIAS (interface,
+       interface_vrf_cmd,
+       "interface IFNAME " VRF_CMD_STR,
+       "Select an interface to configure\n"
+       "Interface's name\n"
+       VRF_CMD_HELP_STR)
+
 DEFUN_NOSH (no_interface,
            no_interface_cmd,
            "no interface IFNAME",
@@ -734,6 +744,9 @@ DEFUN_NOSH (no_interface,
   // deleting interface
   struct interface *ifp;
   vrf_id_t vrf_id = VRF_DEFAULT;
+
+  if (argc > 1)
+    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
 
   ifp = if_lookup_by_name_vrf (argv[0], vrf_id);
 
@@ -754,6 +767,14 @@ DEFUN_NOSH (no_interface,
 
   return CMD_SUCCESS;
 }
+
+ALIAS (no_interface,
+       no_interface_vrf_cmd,
+       "no interface IFNAME " VRF_CMD_STR,
+       NO_STR
+       "Delete a pseudo interface's configuration\n"
+       "Interface's name\n"
+       VRF_CMD_HELP_STR)
 
 /* For debug purpose. */
 DEFUN (show_address,
