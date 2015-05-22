@@ -238,6 +238,9 @@ zebra_vrf_enable (vrf_id_t vrf_id, void **info)
 
   assert (zvrf);
 
+#ifdef RTADV
+  rtadv_init (zvrf);
+#endif
   return 0;
 }
 
@@ -261,6 +264,10 @@ zebra_vrf_disable (vrf_id_t vrf_id, void **info)
       if (operative)
         if_down (ifp);
     }
+
+#ifdef RTADV
+  rtadv_terminate (zvrf);
+#endif
 
   list_delete_all_node (zvrf->rid_all_sorted_list);
   list_delete_all_node (zvrf->rid_lo_sorted_list);
@@ -406,7 +413,7 @@ main (int argc, char **argv)
   access_list_init ();
   prefix_list_init ();
 #ifdef RTADV
-  rtadv_init ();
+  rtadv_cmd_init ();
 #endif
 #ifdef HAVE_IRDP
   irdp_init();
