@@ -164,38 +164,15 @@ ripng_if_down (struct interface *ifp)
   struct route_node *rp;
   struct ripng_info *rinfo;
   struct ripng_interface *ri;
+  struct list *list = NULL;
+  struct listnode *listnode = NULL, *nextnode = NULL;
 
   if (ripng)
-    {
-      for (rp = route_top (ripng->table); rp; rp = route_next (rp))
-	if ((rinfo = rp->info) != NULL)
-	  {
-	    /* Routes got through this interface. */
-	    if (rinfo->ifindex == ifp->ifindex
-		&& rinfo->type == ZEBRA_ROUTE_RIPNG
-		&& rinfo->sub_type == RIPNG_ROUTE_RTE)
-	      {
-		ripng_zebra_ipv6_delete ((struct prefix_ipv6 *) &rp->p,
-					 &rinfo->nexthop,
-					 rinfo->ifindex);
-
-		ripng_redistribute_delete (rinfo->type, rinfo->sub_type,
-					   (struct prefix_ipv6 *)&rp->p,
-					   rinfo->ifindex);
-	      }
-	    else
-	      {
-		/* All redistributed routes got through this interface,
-		 * but the static and system ones are kept. */
-		if ((rinfo->ifindex == ifp->ifindex) &&
-		    (rinfo->type != ZEBRA_ROUTE_STATIC) &&
-		    (rinfo->type != ZEBRA_ROUTE_SYSTEM))
-		  ripng_redistribute_delete (rinfo->type, rinfo->sub_type,
-					     (struct prefix_ipv6 *) &rp->p,
-					     rinfo->ifindex);
-	      }
-	  }
-    }
+    for (rp = route_top (ripng->table); rp; rp = route_next (rp))
+      if ((list = rp->info) != NULL)
+        for (ALL_LIST_ELEMENTS (list, listnode, nextnode, rinfo))
+          if (rinfo->ifindex == ifp->ifindex)
+            ripng_ecmp_delete (rinfo);
 
   ri = ifp->info;
   

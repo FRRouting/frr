@@ -24,21 +24,32 @@
 
 #include "command.h"
 #include "prefix.h"
+#include "table.h"
 #include "stream.h"
+#include "memory.h"
 #include "routemap.h"
 #include "zclient.h"
 #include "log.h"
 
 #include "ripngd/ripngd.h"
+#include "ripngd/ripng_debug.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
-void
-ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop,
-		      unsigned int ifindex, u_char metric)
+/* Send ECMP routes to zebra. */
+static void
+ripng_zebra_ipv6_send (struct route_node *rp, u_char cmd)
 {
+  static struct in6_addr **nexthops = NULL;
+  static unsigned int *ifindexes = NULL;
+  static unsigned int nexthops_len = 0;
+
+  struct list *list = (struct list *)rp->info;
   struct zapi_ipv6 api;
+  struct listnode *listnode = NULL;
+  struct ripng_info *rinfo = NULL;
+  int count = 0;
 
   if (vrf_bitmap_check (zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG], VRF_DEFAULT))
     {
@@ -48,42 +59,62 @@ ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop,
       api.flags = 0;
       api.message = 0;
       api.safi = SAFI_UNICAST;
+
+      if (nexthops_len < listcount (list))
+        {
+          nexthops_len = listcount (list);
+          nexthops = XREALLOC (MTYPE_TMP, nexthops,
+                               nexthops_len * sizeof (struct in6_addr *));
+          ifindexes = XREALLOC (MTYPE_TMP, ifindexes,
+                                nexthops_len * sizeof (unsigned int));
+        }
+
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = 1;
-      api.nexthop = &nexthop;
       SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
-      api.ifindex_num = 1;
-      api.ifindex = &ifindex;
+      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
+        {
+          nexthops[count] = &rinfo->nexthop;
+          ifindexes[count] = rinfo->ifindex;
+          count++;
+          if (cmd == ZEBRA_IPV6_ROUTE_ADD)
+            SET_FLAG (rinfo->flags, RIPNG_RTF_FIB);
+          else
+            UNSET_FLAG (rinfo->flags, RIPNG_RTF_FIB);
+        }
+
+      api.nexthop = nexthops;
+      api.nexthop_num = count;
+      api.ifindex = ifindexes;
+      api.ifindex_num = count;
+
+      rinfo = listgetdata (listhead (list));
+
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
-      api.metric = metric;
-      
-      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, p, &api);
+      api.metric = rinfo->metric;
+
+      zapi_ipv6_route (cmd, zclient,
+                       (struct prefix_ipv6 *)&rp->p, &api);
+
+      if (IS_RIPNG_DEBUG_ZEBRA)
+        zlog_debug ("%s: %s/%d nexthops %d",
+                    (cmd == ZEBRA_IPV6_ROUTE_ADD) ? \
+                        "Install into zebra" : "Delete from zebra",
+                    inet6_ntoa (rp->p.u.prefix6), rp->p.prefixlen, count);
     }
 }
 
+/* Add/update ECMP routes to zebra. */
 void
-ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop,
-			 unsigned int ifindex)
+ripng_zebra_ipv6_add (struct route_node *rp)
 {
-  struct zapi_ipv6 api;
+  ripng_zebra_ipv6_send (rp, ZEBRA_IPV6_ROUTE_ADD);
+}
 
-  if (vrf_bitmap_check (zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG], VRF_DEFAULT))
-    {
-      api.vrf_id = VRF_DEFAULT;
-      api.type = ZEBRA_ROUTE_RIPNG;
-      api.instance = 0;
-      api.flags = 0;
-      api.message = 0;
-      api.safi = SAFI_UNICAST;
-      SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = 1;
-      api.nexthop = &nexthop;
-      SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
-      api.ifindex_num = 1;
-      api.ifindex = &ifindex;
-
-      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, p, &api);
-    }
+/* Delete ECMP routes from zebra. */
+void
+ripng_zebra_ipv6_delete (struct route_node *rp)
+{
+  ripng_zebra_ipv6_send (rp, ZEBRA_IPV6_ROUTE_DELETE);
 }
 
 /* Zebra route add and delete treatment. */
