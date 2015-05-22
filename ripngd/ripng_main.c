@@ -34,6 +34,7 @@
 #include "if.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "vrf.h"
 
 #include "ripngd/ripngd.h"
 
@@ -276,6 +277,7 @@ main (int argc, char **argv)
   cmd_init (1);
   vty_init (master);
   memory_init ();
+  vrf_init ();
 
   /* RIPngd inits. */
   ripng_init ();

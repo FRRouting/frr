@@ -33,6 +33,7 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "zclient.h"
+#include "vrf.h"
 
 #include "ripd/ripd.h"
 
@@ -280,6 +281,7 @@ main (int argc, char **argv)
   vty_init (master);
   memory_init ();
   keychain_init ();
+  vrf_init ();
 
   /* RIP related initialization. */
   rip_init ();

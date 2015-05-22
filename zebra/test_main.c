@@ -316,7 +316,6 @@ main (int argc, char **argv)
   cmd_init (1);
   vty_init (zebrad.master);
   memory_init ();
-  if_init();
   zebra_debug_init ();
   zebra_if_init ();
   test_cmd_init ();

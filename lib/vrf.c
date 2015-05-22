@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 
+#include "if.h"
 #include "vrf.h"
 #include "prefix.h"
 #include "table.h"
@@ -249,6 +250,8 @@ vrf_init (void)
 
   /* Set the default VRF name. */
   default_vrf->name = XSTRDUP (MTYPE_VRF_NAME, "Default-IP-Routing-Table");
+
+  if_init ();
 }
 
 /* Terminate VRF module. */
@@ -264,5 +267,7 @@ vrf_terminate (void)
 
   route_table_finish (vrf_table);
   vrf_table = NULL;
+
+  if_terminate ();
 }
 

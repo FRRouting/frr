@@ -1738,9 +1738,6 @@ bgp_zebra_init (struct thread_master *master)
   zclient->nexthop_update = bgp_read_nexthop_update;
   zclient->import_check_update = bgp_read_import_check_update;
 
-  /* Interface related init. */
-  if_init ();
-
   bgp_nexthop_buf = stream_new(BGP_NEXTHOP_BUF_SIZE);
   bgp_ifindices_buf = stream_new(BGP_IFINDICES_BUF_SIZE);
 }

@@ -1766,7 +1766,6 @@ void
 zebra_if_init (void)
 {
   /* Initialize interface and new hook. */
-  if_init ();
   if_add_hook (IF_NEW_HOOK, if_zebra_new_hook);
   if_add_hook (IF_DELETE_HOOK, if_zebra_delete_hook);
   

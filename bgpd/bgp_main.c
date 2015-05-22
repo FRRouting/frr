@@ -37,6 +37,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "plist.h"
 #include "stream.h"
 #include "queue.h"
+#include "vrf.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -238,17 +239,14 @@ bgp_exit (int status)
   /* reverse bgp_zebra_init/if_init */
   if (retain_mode)
     if_add_hook (IF_DELETE_HOOK, NULL);
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       struct listnode *c_node, *c_nnode;
       struct connected *c;
 
       for (ALL_LIST_ELEMENTS (ifp->connected, c_node, c_nnode, c))
         bgp_connected_delete (c);
-
-      if_delete (ifp);
     }
-  list_free (iflist);
 
   /* reverse bgp_attr_init */
   bgp_attr_finish ();
@@ -280,6 +278,7 @@ bgp_exit (int status)
   /* reverse community_list_init */
   community_list_terminate (bgp_clist);
 
+  vrf_terminate ();
   cmd_terminate ();
   vty_terminate ();
   if (zclient)
@@ -412,6 +411,7 @@ main (int argc, char **argv)
   cmd_init (1);
   vty_init (bm->master);
   memory_init ();
+  vrf_init ();
 
   /* BGP related initialization.  */
   bgp_init ();

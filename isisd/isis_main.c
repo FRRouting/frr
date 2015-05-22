@@ -35,6 +35,7 @@
 #include "sigevent.h"
 #include "filter.h"
 #include "zclient.h"
+#include "vrf.h"
 
 #include "isisd/dict.h"
 #include "include-netbsd/iso.h"
@@ -335,6 +336,7 @@ main (int argc, char **argv, char **envp)
   vty_init (master);
   memory_init ();
   access_list_init();
+  vrf_init ();
   isis_init ();
   isis_circuit_init ();
   isis_spf_cmds_init ();

@@ -1269,7 +1269,6 @@ void
 ospf_if_init ()
 {
   /* Initialize Zebra interface data structure. */
-  if_init ();
   om->iflist = iflist;
   if_add_hook (IF_NEW_HOOK, ospf_if_new_hook);
   if_add_hook (IF_DELETE_HOOK, ospf_if_delete_hook);
