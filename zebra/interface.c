@@ -388,21 +388,23 @@ if_add_update (struct interface *ifp)
       if (if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
 	{
 	  if (IS_ZEBRA_DEBUG_KERNEL)
-	    zlog_debug ("interface %s index %d is shutdown. Won't wake it up.",
-			ifp->name, ifp->ifindex);
+	    zlog_debug ("interface %s vrf %u index %d is shutdown. "
+			"Won't wake it up.",
+			ifp->name, ifp->vrf_id, ifp->ifindex);
 	  return;
 	}
 
       if_addr_wakeup (ifp);
 
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_debug ("interface %s index %d becomes active.", 
-		    ifp->name, ifp->ifindex);
+	zlog_debug ("interface %s vrf %u index %d becomes active.",
+		    ifp->name, ifp->vrf_id, ifp->ifindex);
     }
   else
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_debug ("interface %s index %d is added.", ifp->name, ifp->ifindex);
+	zlog_debug ("interface %s vrf %u index %d is added.",
+		    ifp->name, ifp->vrf_id, ifp->ifindex);
     }
 }
 
@@ -419,8 +421,8 @@ if_delete_update (struct interface *ifp)
 
   if (if_is_up(ifp))
     {
-      zlog_err ("interface %s index %d is still up while being deleted.",
-	    ifp->name, ifp->ifindex);
+      zlog_err ("interface %s vrf %u index %d is still up while being deleted.",
+                ifp->name, ifp->vrf_id, ifp->ifindex);
       return;
     }
 
@@ -428,8 +430,8 @@ if_delete_update (struct interface *ifp)
   UNSET_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE);
   
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("interface %s index %d is now inactive.",
-	       ifp->name, ifp->ifindex);
+    zlog_debug ("interface %s vrf %u index %d is now inactive.",
+                ifp->name, ifp->vrf_id, ifp->ifindex);
 
   /* Delete connected routes from the kernel. */
   if (ifp->connected)
@@ -845,6 +847,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   }
 
   zebra_ptm_show_status(vty, ifp);
+
+  vty_out (vty, "  vrf: %u%s", ifp->vrf_id, VTY_NEWLINE);
 
   if (ifp->desc)
     vty_out (vty, "  Description: %s%s", ifp->desc,

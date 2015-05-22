@@ -145,6 +145,8 @@ struct interface
 #ifdef HAVE_NET_RT_IFLIST
   struct if_data stats;
 #endif /* HAVE_NET_RT_IFLIST */
+
+  vrf_id_t vrf_id;
 };
 
 /* Connected address structure. */

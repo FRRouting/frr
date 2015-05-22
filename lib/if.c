@@ -521,12 +521,12 @@ if_flag_dump (unsigned long flag)
 static void
 if_dump (const struct interface *ifp)
 {
-    zlog_info ("Interface %s index %d metric %d mtu %d "
+    zlog_info ("Interface %s vrf %u index %d metric %d mtu %d "
 #ifdef HAVE_IPV6
                "mtu6 %d "
 #endif /* HAVE_IPV6 */
                "%s",
-               ifp->name, ifp->ifindex, ifp->metric, ifp->mtu, 
+               ifp->name, ifp->vrf_id, ifp->ifindex, ifp->metric, ifp->mtu,
 #ifdef HAVE_IPV6
                ifp->mtu6,
 #endif /* HAVE_IPV6 */
@@ -773,8 +773,8 @@ connected_log (struct connected *connected, char *str)
   ifp = connected->ifp;
   p = connected->address;
 
-  snprintf (logbuf, BUFSIZ, "%s interface %s %s %s/%d ", 
-	    str, ifp->name, prefix_family_str (p),
+  snprintf (logbuf, BUFSIZ, "%s interface %s vrf %u %s %s/%d ",
+	    str, ifp->name, ifp->vrf_id, prefix_family_str (p),
 	    inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 	    p->prefixlen);
 
