@@ -96,10 +96,18 @@ ripng_zebra_ipv6_send (struct route_node *rp, u_char cmd)
                        (struct prefix_ipv6 *)&rp->p, &api);
 
       if (IS_RIPNG_DEBUG_ZEBRA)
-        zlog_debug ("%s: %s/%d nexthops %d",
-                    (cmd == ZEBRA_IPV6_ROUTE_ADD) ? \
-                        "Install into zebra" : "Delete from zebra",
-                    inet6_ntoa (rp->p.u.prefix6), rp->p.prefixlen, count);
+        {
+          if (ripng->ecmp)
+            zlog_debug ("%s: %s/%d nexthops %d",
+                        (cmd == ZEBRA_IPV6_ROUTE_ADD) ? \
+                            "Install into zebra" : "Delete from zebra",
+                        inet6_ntoa (rp->p.u.prefix6), rp->p.prefixlen, count);
+          else
+            zlog_debug ("%s: %s/%d",
+                        (cmd == ZEBRA_IPV6_ROUTE_ADD) ? \
+                            "Install into zebra" : "Delete from zebra",
+                        inet6_ntoa (rp->p.u.prefix6), rp->p.prefixlen);
+        }
     }
 }
 

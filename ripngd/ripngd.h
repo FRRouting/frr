@@ -129,6 +129,9 @@ struct ripng
   struct thread *t_triggered_update;
   struct thread *t_triggered_interval;
 
+  /* RIPng ECMP flag */
+  unsigned int ecmp;
+
   /* For redistribute route map. */
   struct
   {

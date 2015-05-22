@@ -440,7 +440,8 @@ ripng_garbage_collect (struct thread *t)
 static void ripng_timeout_update (struct ripng_info *rinfo);
 
 /* Add new route to the ECMP list.
- * RETURN: the new entry added in the list
+ * RETURN: the new entry added in the list, or NULL if it is not the first
+ *         entry and ECMP is not allowed.
  */
 struct ripng_info *
 ripng_ecmp_add (struct ripng_info *rinfo_new)
@@ -452,6 +453,11 @@ ripng_ecmp_add (struct ripng_info *rinfo_new)
   if (rp->info == NULL)
     rp->info = list_new ();
   list = (struct list *)rp->info;
+
+  /* If ECMP is not allowed and some entry already exists in the list,
+   * do nothing. */
+  if (listcount (list) && !ripng->ecmp)
+    return NULL;
 
   rinfo = ripng_info_new ();
   memcpy (rinfo, rinfo_new, sizeof (struct ripng_info));
@@ -2638,6 +2644,80 @@ DEFUN (no_ripng_default_information_originate,
   return CMD_SUCCESS;
 }
 
+/* Update ECMP routes to zebra when ECMP is disabled. */
+static void
+ripng_ecmp_disable (void)
+{
+  struct route_node *rp;
+  struct ripng_info *rinfo, *tmp_rinfo;
+  struct list *list;
+  struct listnode *node, *nextnode;
+
+  if (!ripng)
+    return;
+
+  for (rp = route_top (ripng->table); rp; rp = route_next (rp))
+    if ((list = rp->info) != NULL && listcount (list) > 1)
+      {
+        rinfo = listgetdata (listhead (list));
+        if (!ripng_route_rte (rinfo))
+          continue;
+
+        /* Drop all other entries, except the first one. */
+        for (ALL_LIST_ELEMENTS (list, node, nextnode, tmp_rinfo))
+          if (tmp_rinfo != rinfo)
+            {
+              RIPNG_TIMER_OFF (tmp_rinfo->t_timeout);
+              RIPNG_TIMER_OFF (tmp_rinfo->t_garbage_collect);
+              list_delete_node (list, node);
+              ripng_info_free (tmp_rinfo);
+            }
+
+        /* Update zebra. */
+        ripng_zebra_ipv6_add (rp);
+
+        /* Set the route change flag. */
+        SET_FLAG (rinfo->flags, RIPNG_RTF_CHANGED);
+
+        /* Signal the output process to trigger an update. */
+        ripng_event (RIPNG_TRIGGERED_UPDATE, 0);
+      }
+}
+
+DEFUN (ripng_allow_ecmp,
+       ripng_allow_ecmp_cmd,
+       "allow-ecmp",
+       "Allow Equal Cost MultiPath\n")
+{
+  if (ripng->ecmp)
+    {
+      vty_out (vty, "ECMP is already enabled.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ripng->ecmp = 1;
+  zlog_info ("ECMP is enabled.");
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ripng_allow_ecmp,
+       no_ripng_allow_ecmp_cmd,
+       "no allow-ecmp",
+       NO_STR
+       "Allow Equal Cost MultiPath\n")
+{
+  if (!ripng->ecmp)
+    {
+      vty_out (vty, "ECMP is already disabled.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ripng->ecmp = 0;
+  zlog_info ("ECMP is disabled.");
+  ripng_ecmp_disable ();
+  return CMD_SUCCESS;
+}
+
 /* RIPng configuration write function. */
 static int
 ripng_config_write (struct vty *vty)
@@ -2676,6 +2756,10 @@ ripng_config_write (struct vty *vty)
 		   rp->p.prefixlen, 
 
 		   VTY_NEWLINE);
+
+      /* ECMP configuration. */
+      if (ripng->ecmp)
+        vty_out (vty, " allow-ecmp%s", VTY_NEWLINE);
 
       /* RIPng static routes. */
       for (rp = route_top (ripng->route); rp; rp = route_next (rp))
@@ -3041,6 +3125,9 @@ ripng_init ()
 
   install_element (RIPNG_NODE, &ripng_default_information_originate_cmd);
   install_element (RIPNG_NODE, &no_ripng_default_information_originate_cmd);
+
+  install_element (RIPNG_NODE, &ripng_allow_ecmp_cmd);
+  install_element (RIPNG_NODE, &no_ripng_allow_ecmp_cmd);
 
   ripng_if_init ();
   ripng_debug_init ();
