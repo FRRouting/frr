@@ -1213,7 +1213,8 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
   memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
   /* It'll get set if required inside */
-  ret = zebra_route_map_check(family, rib->type, &rn->p, nexthop, rib->tag);
+  ret = zebra_route_map_check(family, rib->type, &rn->p, nexthop, rib->vrf_id,
+                              rib->tag);
   if (ret == RMAP_DENYMATCH)
     {
       if (IS_ZEBRA_DEBUG_RIB)
