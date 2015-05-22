@@ -627,6 +627,8 @@ zprivs_init(struct zebra_privs_t *zprivs)
 {
   struct passwd *pwentry = NULL;
   struct group *grentry = NULL;
+  gid_t groups[NGROUPS_MAX];
+  int i, ngroups = 0;
 
   if (!zprivs)
     {
@@ -645,20 +647,43 @@ zprivs_init(struct zebra_privs_t *zprivs)
 
   if (zprivs->user)
     {
-      if ( (pwentry = getpwnam (zprivs->user)) )
-        {
-          zprivs_state.zuid = pwentry->pw_uid;
-        }
-      else
+      if ( (pwentry = getpwnam (zprivs->user)) == NULL )
         {
           /* cant use log.h here as it depends on vty */
           fprintf (stderr, "privs_init: could not lookup user %s\n",
                    zprivs->user);
           exit (1);
         }
+
+      zprivs_state.zuid = pwentry->pw_uid;
+      zprivs_state.zgid = pwentry->pw_gid;
     }
 
   grentry = NULL;
+
+  if (zprivs->group)
+    {
+      if ( (grentry = getgrnam (zprivs->group)) == NULL )
+        {
+          fprintf (stderr, "privs_init: could not lookup group %s\n",
+                   zprivs->group);
+          exit (1);
+        }
+
+      zprivs_state.zgid = grentry->gr_gid;
+    }
+
+  if (zprivs->user)
+    {
+      ngroups = sizeof(groups);
+      if ( (ngroups = getgrouplist (zprivs->user, zprivs_state.zgid, groups, &ngroups )) < 0 )
+        {
+          /* cant use log.h here as it depends on vty */
+          fprintf (stderr, "privs_init: could not getgrouplist for user %s\n",
+                   zprivs->user);
+          exit (1);
+        }
+    }
 
   if (zprivs->vty_group)
     /* Add the vty_group to the supplementary groups so it can be chowned to */
@@ -666,12 +691,15 @@ zprivs_init(struct zebra_privs_t *zprivs)
       if ( (grentry = getgrnam (zprivs->vty_group)) )
         {
           zprivs_state.vtygrp = grentry->gr_gid;
-          if ( setgroups (1, &zprivs_state.vtygrp) )
+
+          for ( i = 0; i < ngroups; i++ )
+            if ( groups[i] == zprivs_state.vtygrp )
+              break;
+
+          if ( i >= ngroups && ngroups < (int) ZEBRA_NUM_OF(groups) )
             {
-              fprintf (stderr, "privs_init: could not setgroups, %s\n",
-                         safe_strerror (errno) );
-              exit (1);
-            }       
+              groups[i] = zprivs_state.vtygrp;
+            }
         }
       else
         {
@@ -680,19 +708,19 @@ zprivs_init(struct zebra_privs_t *zprivs)
           exit (1);
         }
     }
-  
-  if (zprivs->group)
+
+  if (ngroups)
     {
-      if ( (grentry = getgrnam (zprivs->group)) )
+      if ( setgroups (ngroups, groups) )
         {
-          zprivs_state.zgid = grentry->gr_gid;
-        }
-      else
-        {
-          fprintf (stderr, "privs_init: could not lookup group %s\n",
-                   zprivs->group);
+          fprintf (stderr, "privs_init: could not setgroups, %s\n",
+                   safe_strerror (errno) );
           exit (1);
         }
+    }
+
+  if (zprivs_state.zgid)
+    {
       /* change group now, forever. uid we do later */
       if ( setregid (zprivs_state.zgid, zprivs_state.zgid) )
         {
