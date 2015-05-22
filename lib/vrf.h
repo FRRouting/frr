@@ -23,8 +23,20 @@
 #ifndef _ZEBRA_VRF_H
 #define _ZEBRA_VRF_H
 
+#include "linklist.h"
+
 /* The default VRF ID */
 #define VRF_DEFAULT 0
+
+/*
+ * The command strings
+ */
+
+#define VRF_CMD_STR         "vrf <0-65535>"
+#define VRF_CMD_HELP_STR    "Specify the VRF\nThe VRF ID\n"
+
+#define VRF_ALL_CMD_STR         "vrf all"
+#define VRF_ALL_CMD_HELP_STR    "Specify the VRF\nAll VRFs\n"
 
 /*
  * VRF hooks
@@ -75,6 +87,7 @@ extern vrf_iter_t vrf_iterator (vrf_id_t);
  */
 extern vrf_id_t vrf_iter2id (vrf_iter_t);
 extern void *vrf_iter2info (vrf_iter_t);
+extern struct list *vrf_iter2iflist (vrf_iter_t);
 
 /*
  * Utilities to obtain the user data
@@ -84,6 +97,15 @@ extern void *vrf_iter2info (vrf_iter_t);
 extern void *vrf_info_get (vrf_id_t);
 /* Look up the data pointer of the specified VRF. */
 extern void *vrf_info_lookup (vrf_id_t);
+
+/*
+ * Utilities to obtain the interface list
+ */
+
+/* Look up the interface list of the specified VRF. */
+extern struct list *vrf_iflist (vrf_id_t);
+/* Get the interface list of the specified VRF. Create one if not find. */
+extern struct list *vrf_iflist_get (vrf_id_t);
 
 /*
  * VRF initializer/destructor

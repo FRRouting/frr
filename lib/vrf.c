@@ -36,6 +36,9 @@ struct vrf
   /* Name */
   char *name;
 
+  /* Master list of interfaces belonging to this VRF */
+  struct list *iflist;
+
   /* User data */
   void *info;
 };
@@ -80,6 +83,9 @@ vrf_get (vrf_id_t vrf_id)
   vrf->vrf_id = vrf_id;
   rn->info = vrf;
 
+  /* Initialize interfaces. */
+  if_init (vrf_id, &vrf->iflist);
+
   zlog_info ("VRF %u is created.", vrf_id);
 
   if (vrf_master.vrf_new_hook)
@@ -96,6 +102,8 @@ vrf_delete (struct vrf *vrf)
 
   if (vrf_master.vrf_delete_hook)
     (*vrf_master.vrf_delete_hook) (vrf->vrf_id, &vrf->info);
+
+  if_terminate (vrf->vrf_id, &vrf->iflist);
 
   if (vrf->name)
     XFREE (MTYPE_VRF_NAME, vrf->name);
@@ -215,6 +223,14 @@ vrf_iter2info (vrf_iter_t iter)
   return (rn && rn->info) ? ((struct vrf *)rn->info)->info : NULL;
 }
 
+/* Obtain the interface list from the given VRF iterator. */
+struct list *
+vrf_iter2iflist (vrf_iter_t iter)
+{
+  struct route_node *rn = (struct route_node *) iter;
+  return (rn && rn->info) ? ((struct vrf *)rn->info)->iflist : NULL;
+}
+
 /* Get the data pointer of the specified VRF. If not found, create one. */
 void *
 vrf_info_get (vrf_id_t vrf_id)
@@ -229,6 +245,22 @@ vrf_info_lookup (vrf_id_t vrf_id)
 {
   struct vrf *vrf = vrf_lookup (vrf_id);
   return vrf ? vrf->info : NULL;
+}
+
+/* Look up the interface list in a VRF. */
+struct list *
+vrf_iflist (vrf_id_t vrf_id)
+{
+   struct vrf * vrf = vrf_lookup (vrf_id);
+   return vrf ? vrf->iflist : NULL;
+}
+
+/* Get the interface list of the specified VRF. Create one if not find. */
+struct list *
+vrf_iflist_get (vrf_id_t vrf_id)
+{
+   struct vrf * vrf = vrf_get (vrf_id);
+   return vrf->iflist;
 }
 
 /* Initialize VRF module. */
@@ -250,8 +282,6 @@ vrf_init (void)
 
   /* Set the default VRF name. */
   default_vrf->name = XSTRDUP (MTYPE_VRF_NAME, "Default-IP-Routing-Table");
-
-  if_init ();
 }
 
 /* Terminate VRF module. */
@@ -267,7 +297,5 @@ vrf_terminate (void)
 
   route_table_finish (vrf_table);
   vrf_table = NULL;
-
-  if_terminate ();
 }
 

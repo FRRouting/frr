@@ -273,17 +273,38 @@ extern struct interface *if_lookup_address (void *matchaddr, int family);
 extern struct interface *if_lookup_prefix (struct prefix *prefix);
 extern struct connected *if_anchor_lookup_by_address (struct in_addr src);
 
+extern struct interface *if_create_vrf (const char *name, int namelen,
+                                vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_index_vrf (unsigned int,
+                                vrf_id_t vrf_id);
+extern struct interface *if_lookup_exact_address_vrf (void *matchaddr, int family,
+                                vrf_id_t vrf_id);
+extern struct interface *if_lookup_address_vrf (void *matchaddr, int family,
+                                vrf_id_t vrf_id);
+extern struct interface *if_lookup_prefix_vrf (struct prefix *prefix,
+                                vrf_id_t vrf_id);
+
 /* These 2 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
 extern struct interface *if_lookup_by_name (const char *ifname);
 extern struct interface *if_get_by_name (const char *ifname);
 
+extern struct interface *if_lookup_by_name_vrf (const char *ifname,
+                                vrf_id_t vrf_id);
+extern struct interface *if_get_by_name_vrf (const char *ifname,
+                                vrf_id_t vrf_id);
+
 /* For these 2 functions, the namelen argument should be the precise length
    of the ifname string (not counting any optional trailing '\0' character).
    In most cases, strnlen should be used to calculate the namelen value. */
 extern struct interface *if_lookup_by_name_len(const char *ifname,
-					       size_t namelen);
-extern struct interface *if_get_by_name_len(const char *ifname, size_t namelen);
+                                              size_t namelen);
+extern struct interface *if_get_by_name_len(const char *ifname,size_t namelen);
+
+extern struct interface *if_lookup_by_name_len_vrf(const char *ifname,
+                                size_t namelen, vrf_id_t vrf_id);
+extern struct interface *if_get_by_name_len_vrf(const char *ifname,
+                                size_t namelen, vrf_id_t vrf_id);
 
 
 /* Delete the interface, but do not free the structure, and leave it in the
@@ -304,8 +325,8 @@ extern int if_is_broadcast (struct interface *);
 extern int if_is_pointopoint (struct interface *);
 extern int if_is_multicast (struct interface *);
 extern void if_add_hook (int, int (*)(struct interface *));
-extern void if_init (void);
-extern void if_terminate (void);
+extern void if_init (vrf_id_t, struct list **);
+extern void if_terminate (vrf_id_t, struct list **);
 extern void if_dump_all (void);
 extern const char *if_flag_dump(unsigned long);
 
@@ -313,11 +334,13 @@ extern const char *if_flag_dump(unsigned long);
    ifindex2ifname uses internal interface info, whereas if_indextoname must
    make a system call. */
 extern const char *ifindex2ifname (unsigned int);
+extern const char *ifindex2ifname_vrf (unsigned int, vrf_id_t vrf_id);
 
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must
    make a system call. */
 extern unsigned int ifname2ifindex(const char *ifname);
+extern unsigned int ifname2ifindex_vrf(const char *ifname, vrf_id_t vrf_id);
 
 /* Connected address functions. */
 extern struct connected *connected_new (void);
@@ -350,5 +373,7 @@ extern struct cmd_element no_interface_cmd;
 extern struct cmd_element interface_pseudo_cmd;
 extern struct cmd_element no_interface_pseudo_cmd;
 extern struct cmd_element show_address_cmd;
+extern struct cmd_element show_address_vrf_cmd;
+extern struct cmd_element show_address_vrf_all_cmd;
 
 #endif /* _ZEBRA_IF_H */
