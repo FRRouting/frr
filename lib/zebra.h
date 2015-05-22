@@ -556,6 +556,9 @@ typedef u_int8_t safi_t;
 typedef u_int16_t zebra_size_t;
 typedef u_int16_t zebra_command_t;
 
+/* VRF ID type. */
+typedef u_int16_t vrf_id_t;
+
 /* FIFO -- first in first out structure and macros.  */
 struct fifo
 {

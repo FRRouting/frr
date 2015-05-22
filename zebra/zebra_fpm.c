@@ -330,7 +330,7 @@ zfpm_is_table_for_fpm (struct route_table *table)
    * We only send the unicast tables in the main instance to the FPM
    * at this point.
    */
-  if (info->vrf->id != 0)
+  if (info->zvrf->vrf_id != 0)
     return 0;
 
   if (info->safi != SAFI_UNICAST)

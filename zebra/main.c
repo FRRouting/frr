@@ -32,6 +32,7 @@
 #include "plist.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -213,6 +214,29 @@ struct quagga_signal_t zebra_signals[] =
   },
 };
 
+/* Callback upon creating a new VRF. */
+static int
+zebra_vrf_new (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = *info;
+
+  if (! zvrf)
+    {
+      zvrf = zebra_vrf_alloc (vrf_id);
+      *info = (void *)zvrf;
+    }
+
+  return 0;
+}
+
+/* Zebra VRF initialization. */
+static void
+zebra_vrf_init (void)
+{
+  vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
+  vrf_init ();
+}
+
 /* Main startup routine. */
 int
 main (int argc, char **argv)
@@ -354,7 +378,8 @@ main (int argc, char **argv)
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
-  /* Make kernel routing socket. */
+  /* Initialize VRF module, and make kernel routing socket. */
+  zebra_vrf_init ();
   kernel_init ();
   interface_list ();
   route_read ();

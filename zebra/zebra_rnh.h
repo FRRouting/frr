@@ -52,9 +52,9 @@ typedef enum
 extern int zebra_rnh_ip_default_route;
 extern int zebra_rnh_ipv6_default_route;
 
-extern struct rnh *zebra_add_rnh(struct prefix *p, u_int32_t vrfid,
+extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid,
 				 rnh_type_t type);
-extern struct rnh *zebra_lookup_rnh(struct prefix *p, u_int32_t vrfid,
+extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
 				    rnh_type_t type);
 extern void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type);
 extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client, rnh_type_t type);
@@ -62,11 +62,11 @@ extern void zebra_register_rnh_static_nh(struct prefix *, struct route_node *);
 extern void zebra_deregister_rnh_static_nh(struct prefix *, struct route_node *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 				    rnh_type_t type);
-extern int zebra_evaluate_rnh(int vrfid, int family, int force, rnh_type_t type,
+extern int zebra_evaluate_rnh(vrf_id_t vrfid, int family, int force, rnh_type_t type,
 			      struct prefix *p);
-extern int zebra_dispatch_rnh_table(int vrfid, int family, struct zserv *cl, rnh_type_t);
-extern void zebra_print_rnh_table(int vrfid, int family, struct vty *vty, rnh_type_t);
+extern int zebra_dispatch_rnh_table(vrf_id_t vrfid, int family, struct zserv *cl, rnh_type_t);
+extern void zebra_print_rnh_table(vrf_id_t vrfid, int family, struct vty *vty, rnh_type_t);
 extern char *rnh_str(struct rnh *rnh, char *buf, int size);
-extern int zebra_cleanup_rnh_client(int vrf, int family, struct zserv *client,
+extern int zebra_cleanup_rnh_client(vrf_id_t vrf, int family, struct zserv *client,
 				    rnh_type_t type);
 #endif /*_ZEBRA_RNH_H */

@@ -28,6 +28,7 @@
 #include "table.h"
 #include "rib.h"
 #include "nexthop.h"
+#include "vrf.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_rnh.h"
@@ -1184,7 +1185,7 @@ DEFUN (show_ip_route,
   struct rib *rib;
   int first = 1;
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1305,7 +1306,7 @@ DEFUN (show_ip_route_tag,
   if (argv[0])
     tag = atoi(argv[0]);
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1349,7 +1350,7 @@ DEFUN (show_ip_route_prefix_longer,
       return CMD_WARNING;
     }
   
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1382,7 +1383,7 @@ DEFUN (show_ip_route_supernets,
   u_int32_t addr; 
   int first = 1;
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1428,7 +1429,7 @@ DEFUN (show_ip_route_protocol,
       return CMD_WARNING;
     }
   
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1464,7 +1465,7 @@ DEFUN (show_ip_route_ospf_instance,
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1503,7 +1504,7 @@ DEFUN (show_ip_route_addr,
       return CMD_WARNING;
     }
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1541,7 +1542,7 @@ DEFUN (show_ip_route_prefix,
       return CMD_WARNING;
     }
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1712,7 +1713,7 @@ DEFUN (show_ip_route_summary,
 {
   struct route_table *table;
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1733,7 +1734,7 @@ DEFUN (show_ip_route_summary_prefix,
 {
   struct route_table *table;
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -1754,7 +1755,7 @@ static_config_ipv4 (struct vty *vty)
   write = 0;
 
   /* Lookup table.  */
-  stable = vrf_static_table (AFI_IP, SAFI_UNICAST, 0);
+  stable = zebra_vrf_static_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! stable)
     return -1;
 
@@ -1816,7 +1817,7 @@ DEFUN (show_ip_mroute,
   struct rib *rib;
   int first = 1;
 
-  table = vrf_table (AFI_IP, SAFI_MULTICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2613,7 +2614,7 @@ DEFUN (show_ipv6_route,
   struct rib *rib;
   int first = 1;
 
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2649,7 +2650,7 @@ DEFUN (show_ipv6_route_tag,
   if (argv[0])
     tag = atoi(argv[0]);
 
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2686,7 +2687,7 @@ DEFUN (show_ipv6_route_prefix_longer,
   int ret;
   int first = 1;
 
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2733,7 +2734,7 @@ DEFUN (show_ipv6_route_protocol,
       return CMD_WARNING;
     }
   
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2772,7 +2773,7 @@ DEFUN (show_ipv6_route_addr,
       return CMD_WARNING;
     }
 
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2810,7 +2811,7 @@ DEFUN (show_ipv6_route_prefix,
       return CMD_WARNING;
     }
 
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2839,7 +2840,7 @@ DEFUN (show_ipv6_route_summary,
 {
   struct route_table *table;
 
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2860,7 +2861,7 @@ DEFUN (show_ipv6_route_summary_prefix,
 {
   struct route_table *table;
 
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2886,7 +2887,7 @@ DEFUN (show_ipv6_mroute,
   struct rib *rib;
   int first = 1;
 
-  table = vrf_table (AFI_IP6, SAFI_MULTICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_MULTICAST, VRF_DEFAULT);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2917,7 +2918,7 @@ static_config_ipv6 (struct vty *vty)
   write = 0;
 
   /* Lookup table.  */
-  stable = vrf_static_table (AFI_IP6, SAFI_UNICAST, 0);
+  stable = zebra_vrf_static_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (! stable)
     return -1;
 
