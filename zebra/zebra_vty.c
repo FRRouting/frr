@@ -961,7 +961,8 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	    case NEXTHOP_TYPE_IPV4_IFINDEX:
 	      vty_out (vty, " %s", inet_ntoa (nexthop->gate.ipv4));
 	      if (nexthop->ifindex)
-		vty_out (vty, ", via %s", ifindex2ifname (nexthop->ifindex));
+		vty_out (vty, ", via %s",
+                         ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	      break;
 #ifdef HAVE_IPV6
 	    case NEXTHOP_TYPE_IPV6:
@@ -972,12 +973,13 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	      if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
 		vty_out (vty, ", %s", nexthop->ifname);
 	      else if (nexthop->ifindex)
-		vty_out (vty, ", via %s", ifindex2ifname (nexthop->ifindex));
+		vty_out (vty, ", via %s",
+                         ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	      break;
 #endif /* HAVE_IPV6 */
 	    case NEXTHOP_TYPE_IFINDEX:
 	      vty_out (vty, " directly connected, %s",
-		       ifindex2ifname (nexthop->ifindex));
+		       ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_IFNAME:
 	      vty_out (vty, " directly connected, %s", nexthop->ifname);
@@ -1073,7 +1075,8 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	  vty_out (vty, " via %s", inet_ntoa (nexthop->gate.ipv4));
 	  if (nexthop->ifindex)
-	    vty_out (vty, ", %s", ifindex2ifname (nexthop->ifindex));
+	    vty_out (vty, ", %s",
+                     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	  break;
 #ifdef HAVE_IPV6
         case NEXTHOP_TYPE_IPV6:
@@ -1084,13 +1087,14 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
 	    vty_out (vty, ", %s", nexthop->ifname);
 	  else if (nexthop->ifindex)
-	    vty_out (vty, ", %s", ifindex2ifname (nexthop->ifindex));
+	    vty_out (vty, ", %s",
+                     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	  break;
 #endif /* HAVE_IPV6 */
 
 	case NEXTHOP_TYPE_IFINDEX:
 	  vty_out (vty, " is directly connected, %s",
-		   ifindex2ifname (nexthop->ifindex));
+		   ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	  break;
 	case NEXTHOP_TYPE_IFNAME:
 	  vty_out (vty, " is directly connected, %s", nexthop->ifname);

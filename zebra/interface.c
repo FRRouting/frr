@@ -644,7 +644,7 @@ if_up (struct interface *ifp)
                 ifp->name);
 
   /* Examine all static routes. */
-  rib_update ();
+  rib_update (ifp->vrf_id);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -681,7 +681,7 @@ if_down (struct interface *ifp)
     zlog_debug ("%s: calling rib_update_static on interface %s down", __func__,
                 ifp->name);
 
-  rib_update_static ();
+  rib_update_static (ifp->vrf_id);
 
   if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (ifp);
 

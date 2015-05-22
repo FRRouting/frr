@@ -766,14 +766,15 @@ str2prefix (const char *str, struct prefix *p)
   return 0;
 }
 
-int
-prefix2str (const struct prefix *p, char *str, int size)
+const char *
+prefix2str (union prefix46constptr pu, char *str, int size)
 {
+  const struct prefix *p = pu.p;
   char buf[BUFSIZ];
 
   inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ);
   snprintf (str, size, "%s/%d", buf, p->prefixlen);
-  return 0;
+  return str;
 }
 
 struct prefix *

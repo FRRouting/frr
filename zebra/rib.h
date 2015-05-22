@@ -52,6 +52,9 @@ struct rib
   /* Source protocol instance */
   u_short instance;
 
+  /* VRF identifier. */
+  vrf_id_t vrf_id;
+
   /* Which routing table */
   uint32_t table;
 
@@ -367,7 +370,8 @@ extern void rib_lookup_and_pushup (struct prefix_ipv4 *);
 #define rib_dump(prefix ,rib) _rib_dump(__func__, prefix, rib)
 extern void _rib_dump (const char *,
 		       union prefix46constptr, const struct rib *);
-extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *);
+extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *,
+                                  vrf_id_t);
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0
 #define ZEBRA_RIB_FOUND_NOGATE 1
@@ -401,21 +405,21 @@ extern int zebra_check_addr (struct prefix *p);
  * also implicitly withdraw equal prefix of same type. */
 extern int rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 			 struct in_addr *gate, struct in_addr *src,
-			 unsigned int ifindex, u_int32_t vrf_id,
+			 unsigned int ifindex, vrf_id_t vrf_id, u_int32_t table_id,
 			 u_int32_t, u_char, safi_t);
 
 extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *, safi_t);
 
 extern int rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 		            struct in_addr *gate, unsigned int ifindex, 
-		            u_int32_t, safi_t safi);
+		            vrf_id_t, u_int32_t, safi_t safi);
 
-extern struct rib *rib_match_ipv4 (struct in_addr);
+extern struct rib *rib_match_ipv4 (struct in_addr, vrf_id_t);
 
-extern struct rib *rib_lookup_ipv4 (struct prefix_ipv4 *);
+extern struct rib *rib_lookup_ipv4 (struct prefix_ipv4 *, vrf_id_t);
 
-extern void rib_update (void);
-extern void rib_update_static (void);
+extern void rib_update (vrf_id_t);
+extern void rib_update_static (vrf_id_t);
 extern void rib_weed_tables (void);
 extern void rib_sweep_route (void);
 extern void rib_close (void);
@@ -427,32 +431,33 @@ extern void rib_queue_add (struct zebra_t *zebra, struct route_node *rn);
 
 extern int
 static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
-                 u_char flags, u_short tag, u_char distance, u_int32_t vrf_id);
+                 u_char flags, u_short tag, u_char distance, vrf_id_t vrf_id);
 
 extern int
 static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
-		    u_short tag, u_char distance, u_int32_t vrf_id);
+		    u_short tag, u_char distance, vrf_id_t vrf_id);
 
 #ifdef HAVE_IPV6
 extern int
 rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
-	      struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id,
-	      u_int32_t metric, u_char distance, safi_t safi);
+	      struct in6_addr *gate, unsigned int ifindex, vrf_id_t vrf_id,
+              u_int32_t table_id, u_int32_t metric, u_char distance, safi_t safi);
 
 extern int
 rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
-		 struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id, safi_t safi);
+		 struct in6_addr *gate, unsigned int ifindex, vrf_id_t vrf_id,
+                 u_int32_t table_id, safi_t safi);
 
-extern struct rib *rib_lookup_ipv6 (struct in6_addr *);
+extern struct rib *rib_lookup_ipv6 (struct in6_addr *, vrf_id_t);
 
-extern struct rib *rib_match_ipv6 (struct in6_addr *);
+extern struct rib *rib_match_ipv6 (struct in6_addr *, vrf_id_t);
 
 extern struct route_table *rib_table_ipv6;
 
 extern int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 		 const char *ifname, u_char flags, u_short tag,
-                 u_char distance, u_int32_t vrf_id);
+                 u_char distance, vrf_id_t vrf_id);
 
 extern int
 rib_add_ipv6_multipath (struct prefix *, struct rib *, safi_t,
@@ -461,7 +466,7 @@ rib_add_ipv6_multipath (struct prefix *, struct rib *, safi_t,
 extern int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 		    const char *ifname, u_short tag, u_char distance,
-                    u_int32_t vrf_id);
+                    vrf_id_t vrf_id);
 
 #endif /* HAVE_IPV6 */
 
