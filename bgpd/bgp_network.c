@@ -619,7 +619,7 @@ bgp_connect (struct peer *peer)
 
 #ifdef HAVE_IPV6
   if (peer->conf_if || peer->ifname)
-    ifindex = if_nametoindex (peer->conf_if ? peer->conf_if : peer->ifname);
+    ifindex = ifname2ifindex (peer->conf_if ? peer->conf_if : peer->ifname);
 #endif /* HAVE_IPV6 */
 
   if (bgp_debug_neighbor_events(peer))

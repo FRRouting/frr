@@ -347,10 +347,9 @@ ospf6_route_zebra_copy_nexthops (struct ospf6_route *route,
 	{
 	  if (IS_OSPF6_DEBUG_ZEBRA (SEND))
 	    {
-	      char ifname[IFNAMSIZ];
+	      const char *ifname;
 	      inet_ntop (AF_INET6, &nh->address, buf, sizeof (buf));
-	      if (!if_indextoname(nh->ifindex, ifname))
-		strlcpy(ifname, "unknown", sizeof(ifname));
+	      ifname = ifindex2ifname (nh->ifindex);
 	      zlog_debug ("  nexthop: %s%%%.*s(%d)", buf, IFNAMSIZ, ifname,
 			  nh->ifindex);
 	    }
@@ -1015,7 +1014,8 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
 {
   int i;
   char destination[PREFIX2STR_BUFFER], nexthop[64];
-  char duration[16], ifname[IFNAMSIZ];
+  char duration[16];
+  const char *ifname;
   struct timeval now, res;
   struct listnode *node;
   struct ospf6_nexthop *nh;
@@ -1034,15 +1034,13 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
   else
     prefix2str (&route->prefix, destination, sizeof (destination));
 
-
   i = 0;
   for (ALL_LIST_ELEMENTS_RO (route->nh_list, node, nh))
     {
       /* nexthop */
       inet_ntop (AF_INET6, &nh->address, nexthop,
                  sizeof (nexthop));
-      if (! if_indextoname (nh->ifindex, ifname))
-        snprintf (ifname, sizeof (ifname), "%d", nh->ifindex);
+      ifname = ifindex2ifname (nh->ifindex);	  
 
       if (!i)
 	{
@@ -1062,7 +1060,8 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
 void
 ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
 {
-  char destination[PREFIX2STR_BUFFER], nexthop[64], ifname[IFNAMSIZ];
+  const char *ifname;
+  char destination[PREFIX2STR_BUFFER], nexthop[64];
   char area_id[16], id[16], adv_router[16], capa[16], options[16];
   struct timeval now, res;
   char duration[16];
@@ -1147,8 +1146,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
     {
       /* nexthop */
       inet_ntop (AF_INET6, &nh->address, nexthop, sizeof (nexthop));
-      if (! if_indextoname (nh->ifindex, ifname))
-        snprintf (ifname, sizeof (ifname), "%d", nh->ifindex);
+      ifname = ifindex2ifname (nh->ifindex);
       vty_out (vty, "  %s %.*s%s", nexthop, IFNAMSIZ, ifname, VNL);
     }
   vty_out (vty, "%s", VNL);
