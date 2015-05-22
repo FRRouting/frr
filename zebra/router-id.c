@@ -36,16 +36,12 @@
 #include "log.h"
 #include "table.h"
 #include "rib.h"
+#include "vrf.h"
 
 #include "zebra/zserv.h"
 #include "zebra/router-id.h"
 #include "zebra/redistribute.h"
 
-static struct list _rid_all_sorted_list;
-static struct list _rid_lo_sorted_list;
-static struct list *rid_all_sorted_list = &_rid_all_sorted_list;
-static struct list *rid_lo_sorted_list = &_rid_lo_sorted_list;
-static struct prefix rid_user_assigned;
 
 /* master zebra server structure */
 extern struct zebra_t zebrad;
@@ -77,44 +73,55 @@ router_id_bad_address (struct connected *ifc)
 }
 
 void
-router_id_get (struct prefix *p)
+router_id_get (struct prefix *p, vrf_id_t vrf_id)
 {
   struct listnode *node;
   struct connected *c;
+  struct zebra_vrf *zvrf = vrf_info_get (vrf_id);
 
   p->u.prefix4.s_addr = 0;
   p->family = AF_INET;
   p->prefixlen = 32;
 
-  if (rid_user_assigned.u.prefix4.s_addr)
-    p->u.prefix4.s_addr = rid_user_assigned.u.prefix4.s_addr;
-  else if (!list_isempty (rid_lo_sorted_list))
+  if (zvrf->rid_user_assigned.u.prefix4.s_addr)
+    p->u.prefix4.s_addr = zvrf->rid_user_assigned.u.prefix4.s_addr;
+  else if (!list_isempty (zvrf->rid_lo_sorted_list))
     {
-      node = listtail (rid_lo_sorted_list);
+      node = listtail (zvrf->rid_lo_sorted_list);
       c = listgetdata (node);
       p->u.prefix4.s_addr = c->address->u.prefix4.s_addr;
     }
-  else if (!list_isempty (rid_all_sorted_list))
+  else if (!list_isempty (zvrf->rid_all_sorted_list))
     {
-      node = listtail (rid_all_sorted_list);
+      node = listtail (zvrf->rid_all_sorted_list);
       c = listgetdata (node);
       p->u.prefix4.s_addr = c->address->u.prefix4.s_addr;
     }
 }
 
 static void
-router_id_set (struct prefix *p)
+router_id_set (struct prefix *p, vrf_id_t vrf_id)
 {
   struct prefix p2;
   struct listnode *node;
   struct zserv *client;
+  struct zebra_vrf *zvrf;
 
-  rid_user_assigned.u.prefix4.s_addr = p->u.prefix4.s_addr;
+  if (p->u.prefix4.s_addr == 0) /* unset */
+    {
+      zvrf = vrf_info_lookup (vrf_id);
+      if (! zvrf)
+        return;
+    }
+  else /* set */
+    zvrf = vrf_info_get (vrf_id);
 
-  router_id_get (&p2);
+  zvrf->rid_user_assigned.u.prefix4.s_addr = p->u.prefix4.s_addr;
+
+  router_id_get (&p2, vrf_id);
 
   for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
-    zsend_router_id_update (client, &p2);
+    zsend_router_id_update (client, &p2, vrf_id);
 }
 
 void
@@ -125,28 +132,29 @@ router_id_add_address (struct connected *ifc)
   struct prefix before;
   struct prefix after;
   struct zserv *client;
+  struct zebra_vrf *zvrf = vrf_info_get (ifc->ifp->vrf_id);
 
   if (router_id_bad_address (ifc))
     return;
 
-  router_id_get (&before);
+  router_id_get (&before, zvrf->vrf_id);
 
   if (!strncmp (ifc->ifp->name, "lo", 2)
       || !strncmp (ifc->ifp->name, "dummy", 5))
-    l = rid_lo_sorted_list;
+    l = zvrf->rid_lo_sorted_list;
   else
-    l = rid_all_sorted_list;
+    l = zvrf->rid_all_sorted_list;
   
   if (!router_id_find_node (l, ifc))
     listnode_add_sort (l, ifc);
 
-  router_id_get (&after);
+  router_id_get (&after, zvrf->vrf_id);
 
   if (prefix_same (&before, &after))
     return;
 
   for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
-    zsend_router_id_update (client, &after);
+    zsend_router_id_update (client, &after, zvrf->vrf_id);
 }
 
 void
@@ -158,36 +166,51 @@ router_id_del_address (struct connected *ifc)
   struct prefix before;
   struct listnode *node;
   struct zserv *client;
+  struct zebra_vrf *zvrf = vrf_info_get (ifc->ifp->vrf_id);
 
   if (router_id_bad_address (ifc))
     return;
 
-  router_id_get (&before);
+  router_id_get (&before, zvrf->vrf_id);
 
   if (!strncmp (ifc->ifp->name, "lo", 2)
       || !strncmp (ifc->ifp->name, "dummy", 5))
-    l = rid_lo_sorted_list;
+    l = zvrf->rid_lo_sorted_list;
   else
-    l = rid_all_sorted_list;
+    l = zvrf->rid_all_sorted_list;
 
   if ((c = router_id_find_node (l, ifc)))
     listnode_delete (l, c);
 
-  router_id_get (&after);
+  router_id_get (&after, zvrf->vrf_id);
 
   if (prefix_same (&before, &after))
     return;
 
   for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
-    zsend_router_id_update (client, &after);
+    zsend_router_id_update (client, &after, zvrf->vrf_id);
 }
 
 void
 router_id_write (struct vty *vty)
 {
-  if (rid_user_assigned.u.prefix4.s_addr)
-    vty_out (vty, "router-id %s%s", inet_ntoa (rid_user_assigned.u.prefix4),
-	     VTY_NEWLINE);
+  struct zebra_vrf *zvrf;
+  vrf_iter_t iter;
+
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    if ((zvrf = vrf_iter2info (iter)) != NULL)
+      if (zvrf->rid_user_assigned.u.prefix4.s_addr)
+        {
+          if (zvrf->vrf_id == VRF_DEFAULT)
+            vty_out (vty, "router-id %s%s",
+                     inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
+                     VTY_NEWLINE);
+          else
+            vty_out (vty, "router-id %s vrf %u%s",
+                     inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
+                     zvrf->vrf_id,
+                     VTY_NEWLINE);
+        }
 }
 
 DEFUN (router_id,
@@ -197,6 +220,7 @@ DEFUN (router_id,
        "IP address to use for router-id\n")
 {
   struct prefix rid;
+  vrf_id_t vrf_id = VRF_DEFAULT;
 
   rid.u.prefix4.s_addr = inet_addr (argv[0]);
   if (!rid.u.prefix4.s_addr)
@@ -205,10 +229,20 @@ DEFUN (router_id,
   rid.prefixlen = 32;
   rid.family = AF_INET;
 
-  router_id_set (&rid);
+  if (argc > 1)
+    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+
+  router_id_set (&rid, vrf_id);
 
   return CMD_SUCCESS;
 }
+
+ALIAS (router_id,
+       router_id_vrf_cmd,
+       "router-id A.B.C.D " VRF_CMD_STR,
+       "Manually set the router-id\n"
+       "IP address to use for router-id\n"
+       VRF_CMD_HELP_STR)
 
 DEFUN (no_router_id,
        no_router_id_cmd,
@@ -217,15 +251,26 @@ DEFUN (no_router_id,
        "Remove the manually configured router-id\n")
 {
   struct prefix rid;
+  vrf_id_t vrf_id = VRF_DEFAULT;
 
   rid.u.prefix4.s_addr = 0;
   rid.prefixlen = 0;
   rid.family = AF_INET;
 
-  router_id_set (&rid);
+  if (argc > 0)
+    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+
+  router_id_set (&rid, vrf_id);
 
   return CMD_SUCCESS;
 }
+
+ALIAS (no_router_id,
+       no_router_id_vrf_cmd,
+       "no router-id " VRF_CMD_STR,
+       NO_STR
+       "Remove the manually configured router-id\n"
+       VRF_CMD_HELP_STR)
 
 static int
 router_id_cmp (void *a, void *b)
@@ -237,18 +282,27 @@ router_id_cmp (void *a, void *b)
 }
 
 void
-router_id_init (void)
+router_id_cmd_init (void)
 {
   install_element (CONFIG_NODE, &router_id_cmd);
   install_element (CONFIG_NODE, &no_router_id_cmd);
+  install_element (CONFIG_NODE, &router_id_vrf_cmd);
+  install_element (CONFIG_NODE, &no_router_id_vrf_cmd);
+}
 
-  memset (rid_all_sorted_list, 0, sizeof (_rid_all_sorted_list));
-  memset (rid_lo_sorted_list, 0, sizeof (_rid_lo_sorted_list));
-  memset (&rid_user_assigned, 0, sizeof (rid_user_assigned));
+void
+router_id_init (struct zebra_vrf *zvrf)
+{
+  zvrf->rid_all_sorted_list = &zvrf->_rid_all_sorted_list;
+  zvrf->rid_lo_sorted_list = &zvrf->_rid_lo_sorted_list;
 
-  rid_all_sorted_list->cmp = router_id_cmp;
-  rid_lo_sorted_list->cmp = router_id_cmp;
+  memset (zvrf->rid_all_sorted_list, 0, sizeof (zvrf->_rid_all_sorted_list));
+  memset (zvrf->rid_lo_sorted_list, 0, sizeof (zvrf->_rid_lo_sorted_list));
+  memset (&zvrf->rid_user_assigned, 0, sizeof (zvrf->rid_user_assigned));
 
-  rid_user_assigned.family = AF_INET;
-  rid_user_assigned.prefixlen = 32;
+  zvrf->rid_all_sorted_list->cmp = router_id_cmp;
+  zvrf->rid_lo_sorted_list->cmp = router_id_cmp;
+
+  zvrf->rid_user_assigned.family = AF_INET;
+  zvrf->rid_user_assigned.prefixlen = 32;
 }

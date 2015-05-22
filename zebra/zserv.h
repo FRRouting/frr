@@ -151,7 +151,9 @@ extern void nbr_connected_delete_ipv6 (struct interface *, struct in6_addr *, u_
 extern int zsend_interface_update (int, struct zserv *, struct interface *);
 extern int zsend_redistribute_route (int, struct zserv *, struct prefix *,
 				     struct rib *);
-extern int zsend_router_id_update(struct zserv *, struct prefix *);
+extern int zsend_router_id_update (struct zserv *, struct prefix *,
+                                   vrf_id_t);
+
 extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd);

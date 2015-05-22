@@ -948,7 +948,8 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p)
 
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
 int
-zsend_router_id_update (struct zserv *client, struct prefix *p)
+zsend_router_id_update (struct zserv *client, struct prefix *p,
+    vrf_id_t vrf_id)
 {
   struct stream *s;
   int blen;
@@ -1623,9 +1624,9 @@ zread_router_id_add (struct zserv *client, u_short length)
   /* Router-id information is needed. */
   client->ridinfo = 1;
 
-  router_id_get (&p);
+  router_id_get (&p, VRF_DEFAULT);
 
-  return zsend_router_id_update (client,&p);
+  return zsend_router_id_update (client, &p, VRF_DEFAULT);
 }
 
 /* Unregister zebra server router-id information. */

@@ -224,6 +224,7 @@ zebra_vrf_new (vrf_id_t vrf_id, void **info)
     {
       zvrf = zebra_vrf_alloc (vrf_id);
       *info = (void *)zvrf;
+      router_id_init (zvrf);
     }
 
   return 0;
@@ -360,7 +361,7 @@ main (int argc, char **argv)
   rib_init ();
   zebra_if_init ();
   zebra_debug_init ();
-  router_id_init();
+  router_id_cmd_init ();
   zebra_vty_init ();
   access_list_init ();
   prefix_list_init ();
