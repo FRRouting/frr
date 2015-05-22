@@ -230,11 +230,51 @@ zebra_vrf_new (vrf_id_t vrf_id, void **info)
   return 0;
 }
 
+/* Callback upon enabling a VRF. */
+static int
+zebra_vrf_enable (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
+
+  assert (zvrf);
+
+  return 0;
+}
+
+/* Callback upon disabling a VRF. */
+static int
+zebra_vrf_disable (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
+  struct listnode *list_node;
+  struct interface *ifp;
+
+  assert (zvrf);
+
+  rib_close_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
+  rib_close_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), list_node, ifp))
+    {
+      int operative = if_is_operative (ifp);
+      UNSET_FLAG (ifp->flags, IFF_UP);
+      if (operative)
+        if_down (ifp);
+    }
+
+  list_delete_all_node (zvrf->rid_all_sorted_list);
+  list_delete_all_node (zvrf->rid_lo_sorted_list);
+
+  return 0;
+}
+
 /* Zebra VRF initialization. */
 static void
 zebra_vrf_init (void)
 {
   vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
+  vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
+  vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
   vrf_init ();
 }
 
