@@ -263,6 +263,7 @@ redistribute_delete (struct prefix *p, struct rib *rib)
   struct listnode *node, *nnode;
   struct zserv *client;
   char buf[INET6_ADDRSTRLEN];
+  int afi;
 
   if (IS_ZEBRA_DEBUG_RIB)
     {
@@ -275,47 +276,28 @@ redistribute_delete (struct prefix *p, struct rib *rib)
   if (rib->distance == DISTANCE_INFINITY)
     return;
 
+  afi = family2afi(p->family);
+  if (!afi)
+    {
+      zlog_warn("%s: Unknown AFI/SAFI prefix received\n", __FUNCTION__);
+      return;
+    }
+
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
     {
-      if (is_default (p))
+      if ((is_default (p) &&
+           vrf_bitmap_check (client->redist_default, rib->vrf_id)) ||
+          (rib->instance &&
+           redist_check_instance(&client->mi_redist[afi][rib->type],
+                                 rib->instance)) ||
+          vrf_bitmap_check (client->redist[afi][rib->type], rib->vrf_id))
 	{
-	  if ((p->family == AF_INET) &&
-              (vrf_bitmap_check (client->redist_default, rib->vrf_id) ||
-               (rib->instance &&
-                redist_check_instance(&client->mi_redist[AFI_IP][rib->type],
-                                     rib->instance)) ||
-               vrf_bitmap_check (client->redist[AFI_IP][rib->type], rib->vrf_id)))
+	  if (p->family == AF_INET)
             zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_DEL, client, p,
 				       rib);
-#ifdef HAVE_IPV6
-	  if ((p->family == AF_INET6) &&
-              (vrf_bitmap_check (client->redist_default, rib->vrf_id) ||
-               (rib->instance &&
-                redist_check_instance(&client->mi_redist[AFI_IP6][rib->type],
-                                     rib->instance)) ||
-               vrf_bitmap_check (client->redist[AFI_IP6][rib->type], rib->vrf_id)))
+	  if (p->family == AF_INET6)
             zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_DEL, client, p,
 				      rib);
-#endif /* HAVE_IPV6 */
-	}
-      else
-        {
-          if ((p->family == AF_INET) &&
-              ((rib->instance &&
-               redist_check_instance(&client->mi_redist[AFI_IP][rib->type],
-                                     rib->instance)) ||
-              vrf_bitmap_check (client->redist[AFI_IP][rib->type], rib->vrf_id)))
-            zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_DEL, client, p,
-				      rib);
-#ifdef HAVE_IPV6
-	  if ((p->family == AF_INET6) &&
-              ((rib->instance &&
-               redist_check_instance(&client->mi_redist[AFI_IP6][rib->type],
-                                     rib->instance)) ||
-               vrf_bitmap_check (client->redist[AFI_IP6][rib->type], rib->vrf_id)))
-            zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_DEL, client, p,
-				      rib);
-#endif /* HAVE_IPV6 */
 	}
     }
 }
