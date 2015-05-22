@@ -11117,11 +11117,10 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
           if (dn_flag[0])
             {
-              struct prefix *prefix = NULL, *range = NULL;
+              struct prefix prefix, *range = NULL;
 
-              prefix = sockunion2hostprefix(&(p->su));
-              if (prefix)
-                range = peer_group_lookup_dynamic_neighbor_range (p->group, prefix);
+              sockunion2hostprefix(&(p->su), &prefix);
+	      range = peer_group_lookup_dynamic_neighbor_range (p->group, &prefix);
 
               if (range)
                 {
@@ -11137,11 +11136,10 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
           if (dn_flag[0])
             {
-              struct prefix *prefix = NULL, *range = NULL;
+              struct prefix prefix, *range = NULL;
 
-              prefix = sockunion2hostprefix(&(p->su));
-              if (prefix)
-                range = peer_group_lookup_dynamic_neighbor_range (p->group, prefix);
+              sockunion2hostprefix(&(p->su), &prefix);
+	      range = peer_group_lookup_dynamic_neighbor_range (p->group, &prefix);
 
               if (range)
                 {
