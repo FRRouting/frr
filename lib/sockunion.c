@@ -166,13 +166,20 @@ str2sockunion (const char *str, union sockunion *su)
 const char *
 sockunion2str (union sockunion *su, char *buf, size_t len)
 {
-  if  (su->sa.sa_family == AF_INET)
-    return inet_ntop (AF_INET, &su->sin.sin_addr, buf, len);
+  switch (sockunion_family(su))
+    {
+    case AF_UNSPEC:
+      snprintf (buf, len, "(unspec)");
+      return buf;
+    case AF_INET:
+      return inet_ntop (AF_INET, &su->sin.sin_addr, buf, len);
 #ifdef HAVE_IPV6
-  else if (su->sa.sa_family == AF_INET6)
-    return inet_ntop (AF_INET6, &su->sin6.sin6_addr, buf, len);
+    case AF_INET6:
+      return inet_ntop (AF_INET6, &su->sin6.sin6_addr, buf, len);
 #endif /* HAVE_IPV6 */
-  return NULL;
+    }
+  snprintf (buf, len, "(af %d)", sockunion_family(su));
+  return buf;
 }
 
 union sockunion *
