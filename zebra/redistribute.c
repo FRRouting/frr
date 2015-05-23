@@ -446,12 +446,12 @@ zebra_interface_address_add_update (struct interface *ifp,
 
   if (IS_ZEBRA_DEBUG_EVENT)
     {
-      char buf[INET6_ADDRSTRLEN];
+      char buf[PREFIX_STRLEN];
 
       p = ifc->address;
-      zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s/%d on %s",
-		  inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN),
-		  p->prefixlen, ifc->ifp->name);
+      zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s on %s",
+		  prefix2str (p, buf, sizeof(buf)),
+		  ifc->ifp->name);
     }
 
   if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -478,12 +478,12 @@ zebra_interface_address_delete_update (struct interface *ifp,
 
   if (IS_ZEBRA_DEBUG_EVENT)
     {
-      char buf[INET6_ADDRSTRLEN];
+      char buf[PREFIX_STRLEN];
 
       p = ifc->address;
-      zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s/%d on %s",
-		  inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN),
-		 p->prefixlen, ifc->ifp->name);
+      zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s on %s",
+		  prefix2str (p, buf, sizeof(buf)),
+		  ifc->ifp->name);
     }
 
   router_id_del_address(ifc);
