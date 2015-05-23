@@ -129,6 +129,9 @@ union prefix46constptr
 #define INET6_BUFSIZ 51
 #endif /* INET6_BUFSIZ */
 
+/* Maximum prefix string length (IPv6) */
+#define PREFIX_STRLEN 51
+
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
 #define IPV4_MAX_BITLEN    32
