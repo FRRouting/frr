@@ -59,6 +59,7 @@ check_PROGRAMS = \
 	tests/lib/test_ringbuf \
 	tests/lib/test_srcdest_table \
 	tests/lib/test_segv \
+	tests/lib/test_seqlock \
 	tests/lib/test_sig \
 	tests/lib/test_stream \
 	tests/lib/test_table \
@@ -236,6 +237,10 @@ tests_lib_test_segv_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_segv_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_segv_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_segv_SOURCES = tests/lib/test_segv.c
+tests_lib_test_seqlock_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_seqlock_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_seqlock_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_seqlock_SOURCES = tests/lib/test_seqlock.c
 tests_lib_test_sig_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_sig_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_sig_LDADD = $(ALL_TESTS_LDADD)

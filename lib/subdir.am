@@ -65,6 +65,7 @@ lib_libfrr_la_SOURCES = \
 	lib/ringbuf.c \
 	lib/routemap.c \
 	lib/sbuf.c \
+	lib/seqlock.c \
 	lib/sha256.c \
 	lib/sigevent.c \
 	lib/skiplist.c \
@@ -193,6 +194,7 @@ pkginclude_HEADERS += \
 	lib/ringbuf.h \
 	lib/routemap.h \
 	lib/sbuf.h \
+	lib/seqlock.h \
 	lib/sha256.h \
 	lib/sigevent.h \
 	lib/skiplist.h \

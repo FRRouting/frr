@@ -926,6 +926,80 @@ AC_CHECK_HEADERS([pthread_np.h],,, [
 ])
 AC_CHECK_FUNCS([pthread_setname_np pthread_set_name_np])
 
+needsync=true
+
+AS_IF([$needsync], [
+  dnl Linux
+  AC_MSG_CHECKING([for Linux futex() support])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <unistd.h>
+#include <limits.h>
+#include <sys/time.h>
+#include <sys/syscall.h>
+#include <linux/futex.h>
+
+int main(void);
+],
+[
+{
+  return syscall(SYS_futex, NULL, FUTEX_WAIT, 0, NULL, NULL, 0);
+}
+])], [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE(HAVE_SYNC_LINUX_FUTEX,,Have Linux futex support)
+    needsync=false
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
+
+AS_IF([$needsync], [
+  dnl FreeBSD
+  AC_MSG_CHECKING([for FreeBSD _umtx_op() support])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <errno.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/umtx.h>
+int main(void);
+],
+[
+{
+  return _umtx_op(NULL, UMTX_OP_WAIT_UINT, 0, NULL, NULL);
+}
+])], [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE(HAVE_SYNC_UMTX_OP,,Have FreeBSD _umtx_op() support)
+    needsync=false
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
+
+AS_IF([$needsync], [
+  dnl OpenBSD patch (not upstream at the time of writing this)
+  dnl https://marc.info/?l=openbsd-tech&m=147299508409549&w=2
+  AC_MSG_CHECKING([for OpenBSD futex() support])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <sys/futex.h>
+int main(void);
+],
+[
+{
+  return futex(NULL, FUTEX_WAIT, 0, NULL, NULL, 0);
+}
+])], [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE(HAVE_SYNC_OPENBSD_FUTEX,,Have OpenBSD futex support)
+    needsync=false
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
+
 dnl Utility macro to avoid retyping includes all the time
 m4_define([FRR_INCLUDES],
 [#ifdef SUNOS_5
