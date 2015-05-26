@@ -6084,17 +6084,20 @@ peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object
 
   /* Making formatted timer strings. */
 #define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
+#define ONE_WEEK_SECOND ONE_DAY_SECOND*7
+#define ONE_YEAR_SECOND ONE_DAY_SECOND*365
 
   if (use_json)
     {
       unsigned long time_store;
-      unsigned long day_msec    = 86400000;
-      unsigned long hour_msec   = 3600000;
-      unsigned long minute_msec = 60000;
       unsigned long sec_msec    = 1000;
+      unsigned long minute_msec = sec_msec * 60;
+      unsigned long hour_msec   = minute_msec * 60;
+      unsigned long day_msec    = hour_msec * 24;
+      unsigned long year_msec   = day_msec *365;
 
       time_store =
+	year_msec * tm->tm_year +
 	day_msec * tm->tm_yday +
 	hour_msec * tm->tm_hour +
 	minute_msec * tm->tm_min +
@@ -6108,9 +6111,13 @@ peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object
   else if (uptime1 < ONE_WEEK_SECOND)
     snprintf (buf, len, "%dd%02dh%02dm",
 	      tm->tm_yday, tm->tm_hour, tm->tm_min);
-  else
+  else if (uptime1 < ONE_YEAR_SECOND)
     snprintf (buf, len, "%02dw%dd%02dh",
 	      tm->tm_yday/7, tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
+  else
+    snprintf (buf, len, "%02dy%02dw%dd",
+	      tm->tm_year - 70, tm->tm_yday/7,
+	      tm->tm_yday - ((tm->tm_yday/7) * 7));
 
   return buf;
 }
