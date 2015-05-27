@@ -680,6 +680,14 @@ _zlog_assert_failed (const char *assertion, const char *file,
   abort();
 }
 
+void
+memory_oom (size_t size, const char *name)
+{
+	zlog_err("out of memory: failed to allocate %zu bytes for %s"
+		 "object", size, name);
+	zlog_backtrace(LOG_ERR);
+	abort();
+}
 
 /* Open log stream */
 struct zlog *

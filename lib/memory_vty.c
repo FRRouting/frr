@@ -397,6 +397,24 @@ show_memory_mallinfo (struct vty *vty)
 }
 #endif /* HAVE_MALLINFO */
 
+static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
+{
+	struct vty *vty = arg;
+	if (!mt)
+		vty_out (vty, "--- qmem %s ---%s", mg->name, VTY_NEWLINE);
+	else {
+		char size[32];
+		snprintf(size, sizeof(size), "%6zu", mt->size);
+		vty_out (vty, "%-30s: %10zu  %s%s",
+			mt->name, mt->n_alloc,
+			mt->size == 0 ? "" :
+			mt->size == SIZE_VAR ? "(variably sized)" :
+			size, VTY_NEWLINE);
+	}
+	return 0;
+}
+
+
 DEFUN (show_memory,
        show_memory_cmd,
        "show memory",
@@ -417,6 +435,7 @@ DEFUN (show_memory,
       needsep = show_memory_vty (vty, ml->list);
     }
 
+  qmem_walk(qmem_walker, vty);
   return CMD_SUCCESS;
 }
 

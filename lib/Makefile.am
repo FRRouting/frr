@@ -14,7 +14,7 @@ libzebra_la_SOURCES = \
 	filter.c routemap.c distribute.c stream.c str.c log.c plist.c \
 	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c memtypes.c workqueue.c nexthop.c json.c \
-	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory_vty.c
+	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory.c memory_vty.c
 
 BUILT_SOURCES = memtypes.h route_types.h gitversion.h
 

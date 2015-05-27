@@ -21,8 +21,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _ZEBRA_MEMORY_VTY_H
 #define _ZEBRA_MEMORY_VTY_H
 
-#define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
-
 /* For pretty printing of memory allocate information. */
 struct memory_list
 {
