@@ -3519,11 +3519,12 @@ ALIAS (no_debug_pim_zebra,
        DEBUG_PIM_STR
        DEBUG_PIM_ZEBRA_STR)
 
-DEFUN (show_debugging,
-       show_debugging_cmd,
-       "show debugging",
+DEFUN (show_debugging_pim,
+       show_debugging_pim_cmd,
+       "show debugging pim",
        SHOW_STR
-       "State of each debugging option\n")
+       DEBUG_STR
+       PIM_STR)
 {
   pim_debug_config_write(vty);
   return CMD_SUCCESS;
@@ -4373,7 +4374,7 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_mroute_count_cmd);
   install_element (VIEW_NODE, &show_ip_rib_cmd);
   install_element (VIEW_NODE, &show_ip_ssmpingd_cmd);
-  install_element (VIEW_NODE, &show_debugging_cmd);
+  install_element (VIEW_NODE, &show_debugging_pim_cmd);
 
   install_element (ENABLE_NODE, &clear_ip_interfaces_cmd);
   install_element (ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);
@@ -4412,7 +4413,7 @@ void pim_cmd_init()
   install_element (ENABLE_NODE, &show_ip_mroute_count_cmd);
   install_element (ENABLE_NODE, &show_ip_rib_cmd);
   install_element (ENABLE_NODE, &show_ip_ssmpingd_cmd);
-  install_element (ENABLE_NODE, &show_debugging_cmd);
+  install_element (ENABLE_NODE, &show_debugging_pim_cmd);
 
   install_element (ENABLE_NODE, &test_igmp_receive_report_cmd);
   install_element (ENABLE_NODE, &test_pim_receive_assert_cmd);
