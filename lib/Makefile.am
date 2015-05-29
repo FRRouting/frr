@@ -38,6 +38,7 @@ BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
 libfrr_la_LIBADD = @LIBCAP@
 
 pkginclude_HEADERS = \
+	frratomic.h \
 	buffer.h checksum.h filter.h getopt.h hash.h \
 	if.h linklist.h log.h \
 	graph.h command_match.h \
