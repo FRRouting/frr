@@ -10,11 +10,11 @@ libzebra_la_LDFLAGS = -version-info 0:0:0
 libzebra_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c daemon.c \
 	checksum.c vector.c linklist.c vty.c command.c \
-	sockunion.c prefix.c thread.c if.c memory.c buffer.c table.c hash.c \
+	sockunion.c prefix.c thread.c if.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c str.c log.c plist.c \
 	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c memtypes.c workqueue.c nexthop.c json.c \
-	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c
+	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory_vty.c
 
 BUILT_SOURCES = memtypes.h route_types.h gitversion.h
 
@@ -31,7 +31,7 @@ pkginclude_HEADERS = \
 	privs.h sigevent.h pqueue.h jhash.h zassert.h memtypes.h \
 	workqueue.h route_types.h libospf.h nexthop.h json.h \
 	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
-	fifo.h
+	fifo.h memory_vty.h
 
 noinst_HEADERS = \
 	plist_int.h
