@@ -66,6 +66,10 @@ LIBS="$LIBS -ltcmalloc_minimal"
 esac],[tcmalloc_enabled=false])
 
 
+dnl Thanks autoconf, but we don't want a default -g -O2.  We have our own
+dnl flag determination logic.
+CFLAGS="${CFLAGS:-}"
+
 dnl --------------------
 dnl Check CC and friends
 dnl --------------------
