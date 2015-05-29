@@ -69,7 +69,6 @@ deficient is made.
 	autoconf:	2.59 (2.60 on 2006-06-26 is too recent to require)
 	libtool:	1.5.22 (released 2005-12-18)
 	texinfo:	4.7 (released 2004-04-10; 4.8 is not yet common)
-	GNU AWK:	3.1.5 (released 2005-08-12)
 
 For running tests, one also needs:
 
