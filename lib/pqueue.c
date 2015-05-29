@@ -23,6 +23,9 @@ Boston, MA 02111-1307, USA.  */
 #include "memory.h"
 #include "pqueue.h"
 
+DEFINE_MTYPE_STATIC(LIB, PQUEUE,      "Priority queue")
+DEFINE_MTYPE_STATIC(LIB, PQUEUE_DATA, "Priority queue data")
+
 /* priority queue using heap sort */
 
 /* pqueue->cmp() controls the order of sorting (i.e, ascending or

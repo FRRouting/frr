@@ -28,6 +28,7 @@
 #include "ioctl.h"
 #include "connected.h"
 #include "memory.h"
+#include "zebra_memory.h"
 #include "log.h"
 #include "privs.h"
 #include "vrf.h"

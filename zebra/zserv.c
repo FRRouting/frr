@@ -27,6 +27,7 @@
 #include "thread.h"
 #include "stream.h"
 #include "memory.h"
+#include "zebra_memory.h"
 #include "table.h"
 #include "rib.h"
 #include "network.h"

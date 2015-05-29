@@ -10247,7 +10247,7 @@ DEFUN (show_bgp_memory,
                          count * sizeof (struct peer)),
            VTY_NEWLINE);
   
-  if ((count = mtype_stats_alloc (MTYPE_BGP_PEER_GROUP)))
+  if ((count = mtype_stats_alloc (MTYPE_PEER_GROUP)))
     vty_out (vty, "%ld peer groups, using %s of memory%s", count,
              mtype_memstr (memstrbuf, sizeof (memstrbuf),
                            count * sizeof (struct peer_group)),

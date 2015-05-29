@@ -23,6 +23,9 @@
 #ifndef _ZEBRA_TABLE_H
 #define _ZEBRA_TABLE_H
 
+#include "memory.h"
+DECLARE_MTYPE(ROUTE_TABLE)
+
 /*
  * Forward declarations.
  */

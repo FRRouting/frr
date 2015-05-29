@@ -26,6 +26,8 @@
 #include <zclient.h>
 #include <vty.h>
 
+#include "ripng_memory.h"
+
 /* RIPng version and port number. */
 #define RIPNG_V1                         1
 #define RIPNG_PORT_DEFAULT             521

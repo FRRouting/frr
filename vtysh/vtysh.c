@@ -44,6 +44,8 @@
 #include "ns.h"
 #include "vrf.h"
 
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
+
 /* Struct VTY. */
 struct vty *vty;
 
@@ -561,7 +563,7 @@ vtysh_mark_file (const char *filename)
 
   vtysh_execute_no_pager ("enable");
   vtysh_execute_no_pager ("configure terminal");
-  vty_buf_copy = XCALLOC (MTYPE_VTY, VTY_BUFSIZ);
+  vty_buf_copy = XCALLOC (MTYPE_VTYSH_CMD, VTY_BUFSIZ);
 
   while (fgets (vty->buf, VTY_BUFSIZ, confp))
     {
@@ -641,25 +643,25 @@ vtysh_mark_file (const char *filename)
 	    fprintf (stderr,"line %d: Warning...: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
-          XFREE(MTYPE_VTY, vty_buf_copy);
+          XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 	  return CMD_WARNING;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stderr,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
-          XFREE(MTYPE_VTY, vty_buf_copy);
+          XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 	  return CMD_ERR_AMBIGUOUS;
 	case CMD_ERR_NO_MATCH:
 	  fprintf (stderr,"line %d: %% Unknown command: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
-          XFREE(MTYPE_VTY, vty_buf_copy);
+          XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 	  return CMD_ERR_NO_MATCH;
 	case CMD_ERR_INCOMPLETE:
 	  fprintf (stderr,"line %d: %% Command incomplete: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
-          XFREE(MTYPE_VTY, vty_buf_copy);
+          XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 	  return CMD_ERR_INCOMPLETE;
 	case CMD_SUCCESS:
 	  fprintf(stdout, "%s", vty->buf);
@@ -691,7 +693,7 @@ vtysh_mark_file (const char *filename)
   /* This is the end */
   fprintf(stdout, "end\n");
   vty_close(vty);
-  XFREE(MTYPE_VTY, vty_buf_copy);
+  XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
   if (confp != stdin)
     fclose(confp);

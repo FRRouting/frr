@@ -28,7 +28,8 @@
 #include "network.h"
 #include <stddef.h>
 
-
+DEFINE_MTYPE_STATIC(LIB, BUFFER,      "Buffer")
+DEFINE_MTYPE_STATIC(LIB, BUFFER_DATA, "Buffer data")
 
 /* Buffer master. */
 struct buffer

@@ -39,6 +39,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_memory.h"
 
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
    negotiate remote peer supports extentions or not. But if
@@ -638,17 +639,17 @@ bgp_capability_hostname (struct peer *peer, struct capability_header *hdr)
 
       if (peer->hostname != NULL)
         {
-          XFREE(MTYPE_HOST, peer->hostname);
+          XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
           peer->hostname = NULL;
         }
 
       if (peer->domainname != NULL)
         {
-          XFREE(MTYPE_HOST, peer->domainname);
+          XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
           peer->domainname = NULL;
         }
 
-      peer->hostname = XSTRDUP(MTYPE_HOST, str);
+      peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
     }
 
   if (stream_get_getp(s) +1 > end)
@@ -678,7 +679,7 @@ bgp_capability_hostname (struct peer *peer, struct capability_header *hdr)
   if (len)
     {
       str[len] = '\0';
-      peer->domainname = XSTRDUP(MTYPE_HOST, str);
+      peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
     }
 
   if (bgp_debug_neighbor_events(peer))

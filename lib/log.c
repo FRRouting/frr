@@ -35,6 +35,8 @@
 #include <ucontext.h>
 #endif
 
+DEFINE_MTYPE_STATIC(LIB, ZLOG, "Logging")
+
 static int logfile_fd = -1;	/* Used in signal handler. */
 
 struct zlog *zlog_default = NULL;

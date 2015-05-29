@@ -32,6 +32,7 @@
 #include "isisd/isis_redist.h"
 #include "isis_flags.h"
 #include "dict.h"
+#include "isis_memory.h"
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */

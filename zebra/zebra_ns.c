@@ -29,6 +29,10 @@
 #include "rtadv.h"
 #include "zebra_ns.h"
 #include "zebra_vrf.h"
+#include "zebra_memory.h"
+
+DEFINE_MTYPE(ZEBRA, ZEBRA_NS,       "Zebra Name Space")
+DEFINE_MTYPE(ZEBRA, NETLINK_NAME,   "Netlink name")
 
 struct zebra_ns *dzns;
 

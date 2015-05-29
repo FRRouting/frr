@@ -39,6 +39,9 @@
 #include "command.h"
 #include "vty.h"
 
+DEFINE_MTYPE_STATIC(LIB, NS,        "Logical-Router")
+DEFINE_MTYPE_STATIC(LIB, NS_NAME,   "Logical-Router Name")
+DEFINE_MTYPE_STATIC(LIB, NS_BITMAP, "Logical-Router bit-map")
 
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000 /* New network namespace (lo, device, names sockets, etc) */

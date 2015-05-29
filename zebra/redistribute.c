@@ -40,6 +40,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
+#include "zebra/zebra_memory.h"
 
 #define ZEBRA_PTM_SUPPORT
 

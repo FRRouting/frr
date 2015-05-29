@@ -29,6 +29,10 @@
 #include "command.h"
 #include "log.h"
 
+DEFINE_MTYPE(LIB, WORK_QUEUE,             "Work queue")
+DEFINE_MTYPE_STATIC(LIB, WORK_QUEUE_ITEM, "Work queue item")
+DEFINE_MTYPE_STATIC(LIB, WORK_QUEUE_NAME, "Work queue name string")
+
 /* master list of work_queues */
 static struct list _work_queues;
 /* pointer primarily to avoid an otherwise harmless warning on

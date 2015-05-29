@@ -34,6 +34,8 @@
 #include "table.h"
 #include "nexthop.h"
 
+DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
+
 /* Zebra client events. */
 enum event {ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT};
 

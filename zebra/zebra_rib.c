@@ -25,6 +25,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"
+#include "zebra_memory.h"
 #include "str.h"
 #include "command.h"
 #include "log.h"
@@ -285,7 +286,7 @@ rib_nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
 {
   struct nexthop *nexthop;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
   nexthop->gate.ipv6 = *ipv6;
   nexthop->ifindex = ifindex;
@@ -457,7 +458,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 			SET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
 
-			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
+			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* If the resolving route specifies a gateway, use it */
 			if (newhop->type == NEXTHOP_TYPE_IPV4
@@ -507,7 +508,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 		      {
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 
-			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
+			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* If the resolving route specifies a gateway, use it */
 			if (newhop->type == NEXTHOP_TYPE_IPV4
@@ -665,7 +666,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 			SET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
 
-			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
+			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* See nexthop_active_ipv4 for a description how the
 			 * resolved nexthop is constructed. */
@@ -706,7 +707,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 		      {
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 
-			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
+			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* See nexthop_active_ipv4 for a description how the
 			 * resolved nexthop is constructed. */

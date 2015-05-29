@@ -34,6 +34,7 @@
 #include "connected.h"
 #include "table.h"
 #include "memory.h"
+#include "zebra_memory.h"
 #include "rib.h"
 #include "thread.h"
 #include "privs.h"

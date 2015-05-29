@@ -24,6 +24,9 @@
 #ifndef _QUAGGA_WORK_QUEUE_H
 #define _QUAGGA_WORK_QUEUE_H
 
+#include "memory.h"
+DECLARE_MTYPE(WORK_QUEUE)
+
 /* Hold time for the initial schedule of a queue run, in  millisec */
 #define WORK_QUEUE_DEFAULT_HOLD  50 
 

@@ -29,6 +29,8 @@
 #include "log.h"
 #include "jhash.h"
 
+DEFINE_MTYPE_STATIC(LIB, SOCKUNION, "Socket union")
+
 #ifndef HAVE_INET_ATON
 int
 inet_aton (const char *cp, struct in_addr *inaddr)

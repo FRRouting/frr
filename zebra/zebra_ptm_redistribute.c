@@ -25,6 +25,7 @@
 #include "stream.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_ptm_redistribute.h"
+#include "zebra/zebra_memory.h"
 
 static int
 zsend_interface_bfd_update (int cmd, struct zserv *client,

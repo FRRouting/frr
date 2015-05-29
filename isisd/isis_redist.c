@@ -24,6 +24,7 @@
 #include "if.h"
 #include "linklist.h"
 #include "memory.h"
+#include "isis_memory.h"
 #include "prefix.h"
 #include "routemap.h"
 #include "stream.h"
@@ -94,7 +95,7 @@ isis_redist_route_node_create(route_table_delegate_t *delegate,
                               struct route_table *table)
 {
   struct route_node *node;
-  node = XCALLOC(MTYPE_ROUTE_NODE, sizeof(*node));
+  node = XCALLOC(MTYPE_ISIS_EXT_ROUTE, sizeof(*node));
   return node;
 }
 
@@ -104,8 +105,8 @@ isis_redist_route_node_destroy(route_table_delegate_t *delegate,
                                struct route_node *node)
 {
   if (node->info)
-    XFREE(MTYPE_ISIS, node->info);
-  XFREE (MTYPE_ROUTE_NODE, node);
+    XFREE(MTYPE_ISIS_EXT_INFO, node->info);
+  XFREE (MTYPE_ISIS_EXT_ROUTE, node);
 }
 
 static route_table_delegate_t isis_redist_rt_delegate = {
@@ -142,7 +143,7 @@ isis_redist_install(struct isis_area *area, int level,
     }
   else
     {
-      er_node->info = XMALLOC(MTYPE_ISIS, sizeof(*info));
+      er_node->info = XMALLOC(MTYPE_ISIS_EXT_INFO, sizeof(*info));
     }
 
   memcpy(er_node->info, info, sizeof(*info));
@@ -242,7 +243,7 @@ isis_redist_ensure_default(struct isis *isis, int family)
       return;
     }
 
-  ei_node->info = XCALLOC(MTYPE_ISIS, sizeof(struct isis_ext_info));
+  ei_node->info = XCALLOC(MTYPE_ISIS_EXT_INFO, sizeof(struct isis_ext_info));
 
   info = ei_node->info;
   info->origin = DEFAULT_ROUTE;
@@ -280,7 +281,7 @@ isis_redist_add(int type, struct prefix *p, u_char distance, uint32_t metric)
   if (ei_node->info)
     route_unlock_node(ei_node);
   else
-    ei_node->info = XCALLOC(MTYPE_ISIS, sizeof(struct isis_ext_info));
+    ei_node->info = XCALLOC(MTYPE_ISIS_EXT_INFO, sizeof(struct isis_ext_info));
 
   info = ei_node->info;
   info->origin = type;

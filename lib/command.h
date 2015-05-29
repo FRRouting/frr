@@ -26,6 +26,12 @@
 #include "vector.h"
 #include "vty.h"
 #include "lib/route_types.h"
+#include "memory.h"
+
+DECLARE_MTYPE(HOST)
+
+/* for test-commands.c */
+DECLARE_MTYPE(STRVEC)
 
 /* Host configuration variable */
 struct host

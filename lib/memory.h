@@ -138,6 +138,9 @@ struct memgroup
 	DEFINE_MTYPE_ATTR(group, name, static, desc) \
 	static struct memtype * const MTYPE_ ## name = &_mt_##name;
 
+DECLARE_MGROUP(LIB)
+DECLARE_MTYPE(TMP)
+
 
 extern void *qmalloc (struct memtype *mt, size_t size)
 	__attribute__ ((malloc, _ALLOC_SIZE(2), nonnull (1) _RET_NONNULL));
@@ -171,7 +174,5 @@ typedef int qmem_walk_fn (void *arg, struct memgroup *mg, struct memtype *mt);
 extern int qmem_walk (qmem_walk_fn *func, void *arg);
 
 extern void memory_oom (size_t size, const char *name);
-
-#include "memtypes.h"
 
 #endif /* _QUAGGA_MEMORY_H */

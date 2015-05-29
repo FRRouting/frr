@@ -21,6 +21,11 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _ZEBRA_HASH_H
 #define _ZEBRA_HASH_H
 
+#include "memory.h"
+
+DECLARE_MTYPE(HASH)
+DECLARE_MTYPE(HASH_BACKET)
+
 /* Default hash table size.  */ 
 #define HASH_INITIAL_SIZE     256	/* initial number of backets. */
 #define HASH_THRESHOLD	      10	/* expand when backet. */

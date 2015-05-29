@@ -38,6 +38,10 @@
 
 #include "tests.h"
 
+DEFINE_MGROUP(TEST_HEAVYWQ, "heavy-wq test")
+DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE, "heavy_wq_node")
+DEFINE_MTYPE_STATIC(TEST_HEAVYWQ, WQ_NODE_STR, "heavy_wq_node->str")
+
 extern struct thread_master *master;
 static struct work_queue *heavy_wq;
 
@@ -61,17 +65,17 @@ heavy_wq_add (struct vty *vty, const char *str, int i)
 {
   struct heavy_wq_node *hn;
 
-  if ((hn = XCALLOC (MTYPE_PREFIX_LIST, sizeof(struct heavy_wq_node))) == NULL)
+  if ((hn = XCALLOC (MTYPE_WQ_NODE, sizeof(struct heavy_wq_node))) == NULL)
     {
       zlog_err ("%s: unable to allocate hn", __func__);
       return;
     }
   
   hn->i = i;
-  if (!(hn->str = XSTRDUP (MTYPE_PREFIX_LIST_STR, str)))
+  if (!(hn->str = XSTRDUP (MTYPE_WQ_NODE_STR, str)))
     {
       zlog_err ("%s: unable to xstrdup", __func__);
-      XFREE (MTYPE_PREFIX_LIST, hn);
+      XFREE (MTYPE_WQ_NODE, hn);
       return;
     }
   
@@ -92,9 +96,9 @@ slow_func_del (struct work_queue *wq, void *data)
   struct heavy_wq_node *hn = data;
   assert (hn && hn->str);
   printf ("%s: %s\n", __func__, hn->str);
-  XFREE (MTYPE_PREFIX_LIST_STR, hn->str);
+  XFREE (MTYPE_WQ_NODE_STR, hn->str);
   hn->str = NULL;  
-  XFREE(MTYPE_PREFIX_LIST, hn);
+  XFREE(MTYPE_WQ_NODE, hn);
 }
 
 static wq_item_status

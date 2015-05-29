@@ -63,8 +63,6 @@
 #include "ospfd/ospf_te.h"
 #include "ospfd/ospf_vty.h"
 
-DEFINE_MTYPE_STATIC(OSPFD, OSPF_MPLS_TE_LINKPARAMS, "OSPF MPLS-TE link parameters")
-
 /*
  * Global variable to manage Opaque-LSA/MPLS-TE on this node.
  * Note that all parameter values are stored in network byte order.

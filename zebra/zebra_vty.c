@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include "memory.h"
+#include "zebra_memory.h"
 #include "if.h"
 #include "prefix.h"
 #include "command.h"
@@ -30,6 +31,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "lib/json.h"
+#include "routemap.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"

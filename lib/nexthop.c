@@ -33,6 +33,8 @@
 #include "prefix.h"
 #include "nexthop.h"
 
+DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
+
 /* check if nexthops are same, non-recursive */
 int
 nexthop_same_no_recurse (struct nexthop *next1, struct nexthop *next2)

@@ -32,6 +32,10 @@
 #include "command.h"
 #include "sigevent.h"
 
+DEFINE_MTYPE_STATIC(LIB, THREAD,        "Thread")
+DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
+DEFINE_MTYPE_STATIC(LIB, THREAD_STATS,  "Thread stats")
+
 #if defined(__APPLE__)
 #include <mach/mach.h>
 #include <mach/mach_time.h>

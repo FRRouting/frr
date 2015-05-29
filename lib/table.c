@@ -27,6 +27,9 @@
 #include "memory.h"
 #include "sockunion.h"
 
+DEFINE_MTYPE(       LIB, ROUTE_TABLE, "Route table")
+DEFINE_MTYPE_STATIC(LIB, ROUTE_NODE,  "Route node")
+
 static void route_node_delete (struct route_node *);
 static void route_table_free (struct route_table *);
 

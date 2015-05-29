@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_RIP_H
 #define _ZEBRA_RIP_H
 
+#include "rip_memory.h"
+
 /* RIP version number. */
 #define RIPv1                            1
 #define RIPv2                            2

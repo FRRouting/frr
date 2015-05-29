@@ -10,10 +10,12 @@ noinst_LIBRARIES = librip.a
 sbin_PROGRAMS = ripd
 
 librip_a_SOURCES = \
+	rip_memory.c \
 	ripd.c rip_zebra.c rip_interface.c rip_debug.c rip_snmp.c \
 	rip_routemap.c rip_peer.c rip_offset.c
 
 noinst_HEADERS = \
+	rip_memory.h \
 	ripd.h rip_debug.h rip_interface.h
 
 ripd_SOURCES = \

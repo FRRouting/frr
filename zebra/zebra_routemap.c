@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include "memory.h"
+#include "zebra_memory.h"
 #include "prefix.h"
 #include "rib.h"
 #include "routemap.h"

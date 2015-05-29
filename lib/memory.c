@@ -29,6 +29,9 @@
 static struct memgroup *mg_first = NULL;
 struct memgroup **mg_insert = &mg_first;
 
+DEFINE_MGROUP(LIB, "libzebra")
+DEFINE_MTYPE(LIB, TMP, "Temporary memory")
+
 static inline void
 mt_count_alloc (struct memtype *mt, size_t size)
 {

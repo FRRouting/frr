@@ -30,6 +30,9 @@
 #include "memory.h"
 #include "command.h"
 
+DEFINE_MTYPE_STATIC(LIB, VRF,        "VRF")
+DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
+
 /*
  * Turn on/off debug code
  * for vrf.

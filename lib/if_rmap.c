@@ -27,6 +27,9 @@
 #include "if.h"
 #include "if_rmap.h"
 
+DEFINE_MTYPE_STATIC(LIB, IF_RMAP,      "Interface route map")
+DEFINE_MTYPE_STATIC(LIB, IF_RMAP_NAME, "I.f. route map name")
+
 struct hash *ifrmaphash;
 
 /* Hook functions. */

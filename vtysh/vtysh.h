@@ -22,6 +22,9 @@
 #ifndef VTYSH_H
 #define VTYSH_H
 
+#include "memory.h"
+DECLARE_MGROUP(MVTYSH)
+
 #define VTYSH_ZEBRA  0x01
 #define VTYSH_RIPD   0x02
 #define VTYSH_RIPNGD 0x04
