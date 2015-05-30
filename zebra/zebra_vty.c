@@ -3439,89 +3439,6 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
   return write;
 }
 
-/*
- * Show IP mroute command to dump the BGP Multicast
- * routing table
- */
-DEFUN (show_ip_mroute,
-       show_ip_mroute_cmd,
-       "show ip mroute",
-       SHOW_STR
-       IP_STR
-       "IP Multicast routing table\n")
-{
-  struct route_table *table;
-  struct route_node *rn;
-  struct rib *rib;
-  int first = 1;
-  vrf_id_t vrf_id = VRF_DEFAULT;
-
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
-
-  table = zebra_vrf_table (AFI_IP, SAFI_MULTICAST, vrf_id);
-  if (! table)
-    return CMD_SUCCESS;
-
-  /* Show all IPv4 routes. */
-  for (rn = route_top (table); rn; rn = route_next (rn))
-    RNODE_FOREACH_RIB (rn, rib)
-      {
-       if (first)
-         {
-	   vty_out (vty, SHOW_ROUTE_V4_HEADER);
-           first = 0;
-         }
-       vty_show_ip_route (vty, rn, rib);
-      }
-  return CMD_SUCCESS;
-}
-
-ALIAS (show_ip_mroute,
-       show_ip_mroute_vrf_cmd,
-       "show ip mroute  " VRF_CMD_STR,
-       SHOW_STR
-       IP_STR
-       "IP Multicast routing table\n"
-       VRF_CMD_HELP_STR)
-
-DEFUN (show_ip_mroute_vrf_all,
-       show_ip_mroute_vrf_all_cmd,
-       "show ip mroute " VRF_ALL_CMD_STR,
-       SHOW_STR
-       IP_STR
-       "IP Multicast routing table\n"
-       VRF_ALL_CMD_HELP_STR)
-{
-  struct route_table *table;
-  struct route_node *rn;
-  struct rib *rib;
-  struct zebra_vrf *zvrf;
-  vrf_iter_t iter;
-  int first = 1;
-
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    {
-      if ((zvrf = vrf_iter2info (iter)) == NULL ||
-          (table = zvrf->table[AFI_IP][SAFI_UNICAST]) == NULL)
-        continue;
-
-      /* Show all IPv4 routes. */
-      for (rn = route_top (table); rn; rn = route_next (rn))
-        RNODE_FOREACH_RIB (rn, rib)
-          {
-           if (first)
-             {
-               vty_out (vty, SHOW_ROUTE_V4_HEADER);
-               first = 0;
-             }
-           vty_show_ip_route (vty, rn, rib);
-          }
-    }
-
-  return CMD_SUCCESS;
-}
-
 #ifdef HAVE_IPV6
 /* General fucntion for IPv6 static route. */
 static int
@@ -6057,9 +5974,6 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_route_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_route_summary_prefix_cmd);
 
-  install_element (VIEW_NODE, &show_ip_mroute_cmd);
-  install_element (ENABLE_NODE, &show_ip_mroute_cmd);
-
   install_element (VIEW_NODE, &show_ip_rpf_cmd);
   install_element (ENABLE_NODE, &show_ip_rpf_cmd);
   install_element (VIEW_NODE, &show_ip_rpf_addr_cmd);
@@ -6153,12 +6067,6 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_route_vrf_all_supernets_cmd);
   install_element (ENABLE_NODE, &show_ip_route_vrf_all_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_route_vrf_all_summary_prefix_cmd);
-
-  install_element (VIEW_NODE, &show_ip_mroute_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ip_mroute_vrf_cmd);
-
-  install_element (VIEW_NODE, &show_ip_mroute_vrf_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_mroute_vrf_all_cmd);
 
 #ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &ipv6_route_cmd);
