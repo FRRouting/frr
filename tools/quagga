@@ -21,7 +21,7 @@ V_PATH=/var/run/quagga
 # Local Daemon selection may be done by using /etc/quagga/daemons.
 # See /usr/share/doc/quagga/README.Debian.gz for further information.
 # Keep zebra first and do not list watchquagga!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT=/usr/lib/quagga/quagga-reload.py
 
