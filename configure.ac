@@ -1017,6 +1017,11 @@ dnl figure out how to specify an interface in multicast sockets API
 dnl ---------------------------------------------------------------
 AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], QUAGGA_INCLUDES)
 
+AC_CHECK_HEADERS([linux/mroute.h], [], [],
+[
+#if HAVE_NETINET_IN_H
+#include<netinet/in.h>
+#endif])
 AC_MSG_CHECKING([for BSD struct ip_mreq hack])
 AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>

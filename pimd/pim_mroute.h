@@ -40,6 +40,9 @@
 
 #define PIM_MROUTE_MIN_TTL (1)
 
+#if defined(HAVE_LINUX_MROUTE_H)
+#include <linux/mroute.h>
+#else
 /*
   Below: from <linux/mroute.h>
 */
@@ -153,6 +156,7 @@ struct igmpmsg
   unsigned char unused3;
   struct in_addr im_src,im_dst;
 };
+#endif
 #endif
 
 /*
