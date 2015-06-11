@@ -85,6 +85,20 @@ struct nexthop
   n;                                                                    \
 })
 
+
+extern int zebra_rnh_ip_default_route;
+extern int zebra_rnh_ipv6_default_route;
+
+static inline int
+nh_resolve_via_default(int family)
+{
+  if (((family == AF_INET) && zebra_rnh_ip_default_route) ||
+      ((family == AF_INET6) && zebra_rnh_ipv6_default_route))
+    return 1;
+  else
+    return 0;
+}
+
 extern const char *nexthop_type_to_str (enum nexthop_types_t nh_type);
 extern int nexthop_same_no_recurse (struct nexthop *next1, struct nexthop *next2);
 

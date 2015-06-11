@@ -570,6 +570,11 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 	return 0;
 
       /* Pick up selected route. */
+      /* However, do not resolve over default route unless explicitly allowed. */
+      if (is_default_prefix (&rn->p) &&
+          !nh_resolve_via_default (p.family))
+        return 0;
+
       RNODE_FOREACH_RIB (rn, match)
 	{
 	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
@@ -774,6 +779,11 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 	return 0;
 
       /* Pick up selected route. */
+      /* However, do not resolve over default route unless explicitly allowed. */
+      if (is_default_prefix (&rn->p) &&
+          !nh_resolve_via_default (p.family))
+        return 0;
+
       RNODE_FOREACH_RIB (rn, match)
 	{
 	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))

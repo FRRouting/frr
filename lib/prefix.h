@@ -247,4 +247,18 @@ static inline int ipv4_martian (struct in_addr *addr)
   return 0;
 }
 
+static inline int
+is_default_prefix (struct prefix *p)
+{
+  if (!p)
+    return 0;
+
+  if (((p->family == AF_INET) && (p->u.prefix4.s_addr == INADDR_ANY))
+      || ((p->family == AF_INET6) &&
+          !memcmp(&p->u.prefix6, &in6addr_any, sizeof (struct in6_addr))))
+    return 1;
+
+  return 0;
+}
+
 #endif /* _ZEBRA_PREFIX_H */

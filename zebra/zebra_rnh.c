@@ -230,30 +230,6 @@ zebra_deregister_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
     zebra_delete_rnh(rnh, RNH_NEXTHOP_TYPE);
 }
 
-static inline int
-zebra_rnh_is_default_route(struct prefix *p)
-{
-  if (!p)
-    return 0;
-
-  if (((p->family == AF_INET) && (p->u.prefix4.s_addr == INADDR_ANY))
-      || ((p->family == AF_INET6) &&
-	  !memcmp(&p->u.prefix6, &in6addr_any, sizeof (struct in6_addr))))
-    return 1;
-
-  return 0;
-}
-
-static inline int
-zebra_rnh_resolve_via_default(int family)
-{
-  if (((family == AF_INET) && zebra_rnh_ip_default_route) ||
-      ((family == AF_INET6) && zebra_rnh_ipv6_default_route))
-    return 1;
-  else
-    return 0;
-}
-
 static int
 zebra_evaluate_rnh_nexthops(int family, struct rib *rib, struct route_node *prn,
 			    int proto)
@@ -345,11 +321,11 @@ zebra_evaluate_rnh (int vrfid, int family, int force, rnh_type_t type,
       if (!prn)
 	rib = NULL;
       else if ((type == RNH_NEXTHOP_TYPE) &&
-	       (zebra_rnh_is_default_route(&prn->p) &&
-		!zebra_rnh_resolve_via_default(prn->p.family)))
+               (is_default_prefix (&prn->p) &&
+                !nh_resolve_via_default(prn->p.family)))
 	rib = NULL;
       else if ((type == RNH_IMPORT_CHECK_TYPE) &&
-	       ((zebra_rnh_is_default_route(&prn->p)) ||
+	       ((is_default_prefix(&prn->p)) ||
 		((CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH)) &&
 		 !prefix_same(&nrn->p, &prn->p))))
 	rib = NULL;
