@@ -1044,6 +1044,13 @@ DEFUN (set_ip_nexthop,
       vty_out (vty, "%% Malformed next-hop address%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
+  if (su.sin.sin_addr.s_addr == 0 ||
+      IPV4_CLASS_DE(su.sin.sin_addr.s_addr))
+    {
+      vty_out (vty, "%% nexthop address cannot be 0.0.0.0, multicast "
+               "or reserved%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   return rip_route_set_add (vty, vty->index, "ip next-hop", argv[0]);
 }

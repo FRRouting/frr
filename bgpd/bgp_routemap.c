@@ -3633,7 +3633,14 @@ DEFUN (set_ip_nexthop,
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
     {
-      vty_out (vty, "%% Malformed Next-hop address%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (su.sin.sin_addr.s_addr == 0 ||
+      IPV4_CLASS_DE(su.sin.sin_addr.s_addr))
+    {
+      vty_out (vty, "%% nexthop address cannot be 0.0.0.0, multicast "
+               "or reserved%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
  
@@ -4413,6 +4420,24 @@ DEFUN (set_ipv6_nexthop_global,
        "IPv6 global address\n"
        "IPv6 address of next hop\n")
 {
+  struct in6_addr addr;
+  int ret;
+
+  ret = inet_pton (AF_INET6, argv[0], &addr);
+  if (!ret)
+    {
+      vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (IN6_IS_ADDR_UNSPECIFIED(&addr) ||
+      IN6_IS_ADDR_LOOPBACK(&addr)    ||
+      IN6_IS_ADDR_MULTICAST(&addr)   ||
+      IN6_IS_ADDR_LINKLOCAL(&addr))
+    {
+      vty_out (vty, "%% Invalid global nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   return bgp_route_set_add (vty, vty->index, "ipv6 next-hop global", argv[0]);
 }
 
@@ -4450,6 +4475,21 @@ DEFUN (set_ipv6_nexthop_local,
        "IPv6 local address\n"
        "IPv6 address of next hop\n")
 {
+  struct in6_addr addr;
+  int ret;
+
+  ret = inet_pton (AF_INET6, argv[0], &addr);
+  if (!ret)
+    {
+      vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (!IN6_IS_ADDR_LINKLOCAL(&addr))
+    {
+      vty_out (vty, "%% Invalid link-local nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   return bgp_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[0]);
 }
 

@@ -645,6 +645,12 @@ DEFUN (set_ipv6_nexthop_local,
       return CMD_WARNING;
     }
 
+  if (!IN6_IS_ADDR_LINKLOCAL(&su.sin6.sin6_addr))
+    {
+      vty_out (vty, "%% Invalid link-local nexthop address%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   return ripng_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[0]);
 }
 
