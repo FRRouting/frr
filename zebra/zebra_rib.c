@@ -2816,16 +2816,30 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
     rib_delnode (rn, rib);
   else
     {
+      /* Mark this nexthop as inactive and reinstall the route. Then, delete
+       * the nexthop. There is no need to re-evaluate the route for this
+       * scenario.
+       */
+      UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-        rib_uninstall (rn, rib);
+        {
+          redistribute_delete (&rn->p, rib);
+          rib_uninstall_kernel (rn, rib);
+          /* Are there other active nexthops? */
+          if (rib->nexthop_active_num > 1)
+            {
+              rib_install_kernel (rn, rib);
+              redistribute_add (&rn->p, rib);
+            }
+        }
 
+      /* Delete the nexthop and dereg from NHT */
       nh_p.family = AF_INET;
       nh_p.prefixlen = IPV4_MAX_BITLEN;
       nh_p.u.prefix4 = nexthop->gate.ipv4;
       nexthop_delete (rib, nexthop);
       zebra_deregister_rnh_static_nh(&nh_p, rn);
       nexthop_free (nexthop, rn);
-      rib_queue_add (&zebrad, rn);
     }
   /* Unlock node. */
   route_unlock_node (rn);
@@ -3543,16 +3557,30 @@ static_uninstall_ipv6 (struct prefix *p, struct static_ipv6 *si)
     }
   else
     {
+      /* Mark this nexthop as inactive and reinstall the route. Then, delete
+       * the nexthop. There is no need to re-evaluate the route for this
+       * scenario.
+       */
+      UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-        rib_uninstall (rn, rib);
+        {
+          redistribute_delete (&rn->p, rib);
+          rib_uninstall_kernel (rn, rib);
+          /* Are there other active nexthops? */
+          if (rib->nexthop_active_num > 1)
+            {
+              rib_install_kernel (rn, rib);
+              redistribute_add (&rn->p, rib);
+            }
+        }
 
+      /* Delete the nexthop and dereg from NHT */
       nh_p.family = AF_INET6;
       nh_p.prefixlen = IPV6_MAX_BITLEN;
       nh_p.u.prefix6 = nexthop->gate.ipv6;
       nexthop_delete (rib, nexthop);
       zebra_deregister_rnh_static_nh(&nh_p, rn);
       nexthop_free (nexthop, rn);
-      rib_queue_add (&zebrad, rn);
     }
   /* Unlock node. */
   route_unlock_node (rn);
