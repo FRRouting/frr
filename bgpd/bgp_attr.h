@@ -173,7 +173,7 @@ extern void bgp_attr_finish (void);
 extern bgp_attr_parse_ret_t bgp_attr_parse (struct peer *, struct attr *,
                                            bgp_size_t, struct bgp_nlri *,
                                            struct bgp_nlri *);
-extern int bgp_attr_check (struct peer *, struct attr *);
+extern int bgp_attr_check (struct peer *, struct attr *, bgp_size_t);
 extern struct attr_extra *bgp_attr_extra_get (struct attr *);
 extern void bgp_attr_extra_free (struct attr *);
 extern void bgp_attr_dup (struct attr *, struct attr *);

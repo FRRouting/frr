@@ -2106,7 +2106,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 
 /* Well-known attribute check. */
 int
-bgp_attr_check (struct peer *peer, struct attr *attr)
+bgp_attr_check (struct peer *peer, struct attr *attr, bgp_size_t nlri_len)
 {
   u_char type = 0;
   
@@ -2116,8 +2116,13 @@ bgp_attr_check (struct peer *peer, struct attr *attr)
   if (! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AS_PATH)))
     type = BGP_ATTR_AS_PATH;
 
-  if (! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP)))
-    type = BGP_ATTR_NEXT_HOP;
+  /* As per RFC 2858, NEXT_HOP is needed only if the update contains NLRI
+   * other than in MP_REACH. In fact, if only MP_REACH_NLRI is present, the
+   * update should not contain NEXT_HOP but it should be ignored, if recvd.
+   */
+  if (nlri_len)
+    if (! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP)))
+      type = BGP_ATTR_NEXT_HOP;
 
   if (peer->sort == BGP_PEER_IBGP
       && ! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))

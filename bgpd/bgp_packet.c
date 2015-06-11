@@ -1455,6 +1455,22 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
                peer->host, withdraw_len, num_pfx_wd, attribute_len,
                update_len, num_pfx_adv);
 
+  /*
+   * Validate for well-known mandatory attributes. We only do this if
+   * we intend to process the update further - i.e., the AFI/SAFI is
+   * enabled.
+   */
+  if ((update.length && peer->afc[AFI_IP][SAFI_UNICAST]) ||
+      (mp_update.length && peer->afc[mp_update.afi][mp_update.safi]))
+    {
+      ret = bgp_attr_check (peer, &attr, update.length);
+      if (ret < 0)
+        {
+          bgp_attr_unintern_sub (&attr);
+          return -1;
+        }
+    }
+
   /* NLRI is processed only when the peer is configured specific
      Address Family and Subsequent Address Family. */
   if (peer->afc[AFI_IP][SAFI_UNICAST])
@@ -1463,18 +1479,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	bgp_nlri_parse (peer, NULL, &withdraw);
 
       if (update.length)
-	{
-	  /* We check well-known attribute only for IPv4 unicast
-	     update. */
-	  ret = bgp_attr_check (peer, &attr);
-	  if (ret < 0)
-	    {
-	      bgp_attr_unintern_sub (&attr);
-	      return -1;
-            }
-
-	  bgp_nlri_parse (peer, NLRI_ATTR_ARG, &update);
-	}
+        bgp_nlri_parse (peer, NLRI_ATTR_ARG, &update);
 
       if (mp_update.length
 	  && mp_update.afi == AFI_IP 
