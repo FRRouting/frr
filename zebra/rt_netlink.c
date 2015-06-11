@@ -375,10 +375,24 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
 		  return 0;
 		}
 
-	      zlog_err ("%s error: %s, type=%s(%u), seq=%u, pid=%u",
+	      if (nl == &netlink_cmd
+		  && msg_type == RTM_NEWROUTE && -errnum == ESRCH)
+		{
+                  /* This is known to happen in some situations, don't log
+                   * as error.
+                   */
+		  if (IS_ZEBRA_DEBUG_KERNEL)
+	            zlog_debug ("%s error: %s, type=%s(%u), seq=%u, pid=%u",
+                                nl->name, safe_strerror (-errnum),
+                                lookup (nlmsg_str, msg_type),
+                                msg_type, err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+                }
+              else
+	        zlog_err ("%s error: %s, type=%s(%u), seq=%u, pid=%u",
 			nl->name, safe_strerror (-errnum),
 			lookup (nlmsg_str, msg_type),
 			msg_type, err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+
               return -1;
             }
 
