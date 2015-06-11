@@ -1568,7 +1568,10 @@ rib_process (struct route_node *rn)
 
       /* Infinit distance. */
       if (rib->distance == DISTANCE_INFINITY)
-        continue;
+        {
+          UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+          continue;
+        }
 
       /* Newly selected rib, the common case. */
       if (!select)
@@ -1591,26 +1594,41 @@ rib_process (struct route_node *rn)
         {
           if (select->type != ZEBRA_ROUTE_CONNECT
               || rib->metric <= select->metric)
-            select = rib;
+            {
+              UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
+              select = rib;
+            }
+          else
+            UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
           continue;
         }
       else if (select->type == ZEBRA_ROUTE_CONNECT)
-        continue;
+        {
+          UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+          continue;
+        }
       
       /* higher distance loses */
       if (rib->distance > select->distance)
-        continue;
+        {
+          UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+          continue;
+        }
       
       /* lower wins */
       if (rib->distance < select->distance)
         {
+          UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
           select = rib;
           continue;
         }
       
       /* metric tie-breaks equal distance */
       if (rib->metric <= select->metric)
-        select = rib;
+        {
+          UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
+          select = rib;
+        }
     } /* RNODE_FOREACH_RIB_SAFE */
 
   /* After the cycle is finished, the following pointers will be set:
