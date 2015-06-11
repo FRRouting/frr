@@ -28,6 +28,7 @@
 #include "zebra/rib.h"
 
 extern int kernel_add_ipv4 (struct prefix *, struct rib *);
+extern int kernel_update_ipv4 (struct prefix *, struct rib *);
 extern int kernel_delete_ipv4 (struct prefix *, struct rib *);
 extern int kernel_add_route (struct prefix_ipv4 *, struct in_addr *, int, int);
 extern int kernel_address_add_ipv4 (struct interface *, struct connected *);

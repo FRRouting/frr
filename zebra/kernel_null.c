@@ -9,6 +9,7 @@
 #include "zebra/connected.h"
 
 int kernel_add_ipv4 (struct prefix *a, struct rib *b) { return 0; }
+int kernel_update_ipv4 (struct prefix *a, struct rib *b) { return 0; }
 #ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
 #pragma weak kernel_delete_ipv4 = kernel_add_ipv4
 #else

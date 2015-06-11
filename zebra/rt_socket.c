@@ -231,6 +231,13 @@ kernel_add_ipv4 (struct prefix *p, struct rib *rib)
 }
 
 int
+kernel_update_ipv4 (struct prefix *p, struct rib *rib)
+{
+  kernel_delete_ipv4 (p, rib);
+  return kernel_add_ipv4 (p, rib);
+}
+
+int
 kernel_delete_ipv4 (struct prefix *p, struct rib *rib)
 {
   int route;

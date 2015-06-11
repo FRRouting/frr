@@ -328,6 +328,13 @@ kernel_add_ipv4 (struct prefix *p, struct rib *rib)
 }
 
 int
+kernel_update_ipv4 (struct prefix *p, struct rib *rib)
+{
+  kernel_ioctl_ipv4 (SIOCDELRT, p, rib, AF_INET);
+  return kernel_ioctl_ipv4 (SIOCADDRT, p, rib, AF_INET);
+}
+
+int
 kernel_delete_ipv4 (struct prefix *p, struct rib *rib)
 {
   return kernel_ioctl_ipv4 (SIOCDELRT, p, rib, AF_INET);

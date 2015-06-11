@@ -1352,8 +1352,11 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 
 
 
+/* Update flag indicates whether this is a "replace" or not. Currently, this
+ * is only used for IPv4.
+ */
 static void
-rib_install_kernel (struct route_node *rn, struct rib *rib)
+rib_install_kernel (struct route_node *rn, struct rib *rib, int update)
 {
   int ret = 0;
   struct nexthop *nexthop, *tnexthop;
@@ -1367,7 +1370,10 @@ rib_install_kernel (struct route_node *rn, struct rib *rib)
   switch (PREFIX_FAMILY (&rn->p))
     {
     case AF_INET:
-      ret = kernel_add_ipv4 (&rn->p, rib);
+      if (update)
+        ret = kernel_update_ipv4 (&rn->p, rib);
+      else
+        ret = kernel_add_ipv4 (&rn->p, rib);
       break;
 #ifdef HAVE_IPV6
     case AF_INET6:
@@ -1509,6 +1515,7 @@ rib_process (struct route_node *rn)
   struct nexthop *nexthop = NULL, *tnexthop;
   int recursing;
   char buf[INET6_ADDRSTRLEN];
+  int update_ok = 0;
   
   assert (rn);
   
@@ -1624,8 +1631,16 @@ rib_process (struct route_node *rn)
 	  zfpm_trigger_update (rn, "updating existing route");
 
           redistribute_delete (&rn->p, select);
+
           if (! RIB_SYSTEM_ROUTE (select))
-            rib_uninstall_kernel (rn, select);
+            {
+              /* For v4, use the replace semantics of netlink. */
+              if (PREFIX_FAMILY (&rn->p) == AF_INET)
+                update_ok = 1;
+              else
+                rib_uninstall_kernel (rn, select);
+            }
+
 
           /* Set real nexthop. */
 	  /* Need to check if any NHs are active to clear the
@@ -1633,12 +1648,21 @@ rib_process (struct route_node *rn)
 	   */
           if (nexthop_active_update (rn, select, 1))
 	    {
+              /* Clear FIB flag for IPv4, install will set it */
+              if (update_ok)
+                {
+                  for (nexthop = select->nexthop; nexthop; nexthop = nexthop->next)
+                    UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+                }
 	      if (! RIB_SYSTEM_ROUTE (select))
-		rib_install_kernel (rn, select);
+		rib_install_kernel (rn, select, update_ok);
 	      redistribute_add (&rn->p, select);
 	    }
 	  else
 	    {
+              /* For IPv4, do the uninstall here. */
+              if (update_ok)
+                rib_uninstall_kernel (rn, select);
 	      UNSET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
 	    }
 	  UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
@@ -1659,7 +1683,7 @@ rib_process (struct route_node *rn)
               break;
             }
           if (! installed) 
-            rib_install_kernel (rn, select);
+            rib_install_kernel (rn, select, 0);
         }
       goto end;
     }
@@ -1677,8 +1701,22 @@ rib_process (struct route_node *rn)
       zfpm_trigger_update (rn, "removing existing route");
 
       redistribute_delete (&rn->p, fib);
+
       if (! RIB_SYSTEM_ROUTE (fib))
-	rib_uninstall_kernel (rn, fib);
+        {
+          /* For v4, use the replace semantics of netlink -- only if there is
+           * another route to replace this with.
+           */
+          if (PREFIX_FAMILY (&rn->p) == AF_INET)
+            {
+              if (!select || RIB_SYSTEM_ROUTE(select))
+                rib_uninstall_kernel (rn, fib);
+              else
+                update_ok = 1;
+            }
+            else
+              rib_uninstall_kernel (rn, fib);
+        }
       UNSET_FLAG (fib->flags, ZEBRA_FLAG_SELECTED);
 
       /* Set real nexthop. */
@@ -1701,10 +1739,26 @@ rib_process (struct route_node *rn)
       /* Set real nexthop. */
       if (nexthop_active_update (rn, select, 1))
 	{
+          /* Clear FIB flag for IPv4 for previous installed route. */
+          if (update_ok)
+            {
+              assert (fib);
+              for (nexthop = fib->nexthop; nexthop; nexthop = nexthop->next)
+                UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+            }
 	  if (! RIB_SYSTEM_ROUTE (select))
-	    rib_install_kernel (rn, select);
+	    rib_install_kernel (rn, select, update_ok);
 	  SET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
 	  redistribute_add (&rn->p, select);
+	}
+      else
+	{
+          /* For IPv4, uninstall prior route here, if any. */
+          if (update_ok)
+            {
+              assert (fib);
+              rib_uninstall_kernel (rn, fib);
+            }
 	}
       UNSET_FLAG(select->flags, ZEBRA_FLAG_CHANGED);
     }
@@ -2624,7 +2678,7 @@ rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
             }
           /* This means someone else, other than Zebra, has deleted
            * a Zebra router from the kernel. We will add it back */
-           rib_install_kernel(rn, fib);
+           rib_install_kernel(rn, fib, 0);
         }
       else
 	{
@@ -2824,13 +2878,14 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         {
           redistribute_delete (&rn->p, rib);
-          rib_uninstall_kernel (rn, rib);
-          /* Are there other active nexthops? */
+          /* If there are other active nexthops, do an update. */
           if (rib->nexthop_active_num > 1)
             {
-              rib_install_kernel (rn, rib);
+              rib_install_kernel (rn, rib, 1);
               redistribute_add (&rn->p, rib);
             }
+          else
+            rib_uninstall_kernel (rn, rib);
         }
 
       /* Delete the nexthop and dereg from NHT */
@@ -3361,7 +3416,7 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
             }
           /* This means someone else, other than Zebra, has deleted a Zebra
            * route from the kernel. We will add it back */
-          rib_install_kernel(rn, fib);
+          rib_install_kernel(rn, fib, 0);
         }
       else
 	{
@@ -3569,7 +3624,7 @@ static_uninstall_ipv6 (struct prefix *p, struct static_ipv6 *si)
           /* Are there other active nexthops? */
           if (rib->nexthop_active_num > 1)
             {
-              rib_install_kernel (rn, rib);
+              rib_install_kernel (rn, rib, 0);
               redistribute_add (&rn->p, rib);
             }
         }
