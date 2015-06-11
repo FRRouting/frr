@@ -64,8 +64,9 @@
 #define PIM_MASK_ZEBRA               (1 << 8)
 #define PIM_MASK_SSMPINGD            (1 << 9)
 #define PIM_MASK_MROUTE              (1 << 10)
-#define PIM_MASK_PIM_HELLO	     (1 << 11)
-#define PIM_MASK_PIM_J_P	     (1 << 12)
+#define PIM_MASK_PIM_HELLO           (1 << 11)
+#define PIM_MASK_PIM_J_P             (1 << 12)
+#define PIM_MASK_STATIC              (1 << 13)
 
 const char *const PIM_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS;
@@ -99,6 +100,7 @@ int64_t                   qpim_mroute_add_events;
 int64_t                   qpim_mroute_add_last;
 int64_t                   qpim_mroute_del_events;
 int64_t                   qpim_mroute_del_last;
+struct list              *qpim_static_route_list; /* list of routes added statically */
 
 #define PIM_JP_HOLDTIME (qpim_t_periodic * 7 / 2)
 
@@ -116,8 +118,9 @@ int64_t                   qpim_mroute_del_last;
 #define PIM_DEBUG_ZEBRA               (qpim_debugs & PIM_MASK_ZEBRA)
 #define PIM_DEBUG_SSMPINGD            (qpim_debugs & PIM_MASK_SSMPINGD)
 #define PIM_DEBUG_MROUTE              (qpim_debugs & PIM_MASK_MROUTE)
-#define PIM_DEBUG_PIM_HELLO	      (qpim_debugs & PIM_MASK_PIM_HELLO)
-#define PIM_DEBUG_PIM_J_P	      (qpim_debugs & PIM_MASK_PIM_J_P)
+#define PIM_DEBUG_PIM_HELLO           (qpim_debugs & PIM_MASK_PIM_HELLO)
+#define PIM_DEBUG_PIM_J_P             (qpim_debugs & PIM_MASK_PIM_J_P)
+#define PIM_DEBUG_STATIC              (qpim_debugs & PIM_MASK_STATIC)
 
 #define PIM_DEBUG_EVENTS       (qpim_debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS))
 #define PIM_DEBUG_PACKETS      (qpim_debugs & (PIM_MASK_PIM_PACKETS | PIM_MASK_IGMP_PACKETS))
@@ -136,6 +139,7 @@ int64_t                   qpim_mroute_del_last;
 #define PIM_DO_DEBUG_MROUTE              (qpim_debugs |= PIM_MASK_MROUTE)
 #define PIM_DO_DEBUG_PIM_HELLO           (qpim_debugs |= PIM_MASK_PIM_HELLO)
 #define PIM_DO_DEBUG_PIM_J_P             (qpim_debugs |= PIM_MASK_PIM_J_P)
+#define PIM_DO_DEBUG_STATIC              (qpim_debugs |= PIM_MASK_STATIC)
 
 #define PIM_DONT_DEBUG_PIM_EVENTS          (qpim_debugs &= ~PIM_MASK_PIM_EVENTS)
 #define PIM_DONT_DEBUG_PIM_PACKETS         (qpim_debugs &= ~PIM_MASK_PIM_PACKETS)
@@ -150,6 +154,7 @@ int64_t                   qpim_mroute_del_last;
 #define PIM_DONT_DEBUG_MROUTE              (qpim_debugs &= ~PIM_MASK_MROUTE)
 #define PIM_DONT_DEBUG_PIM_HELLO           (qpim_debugs &= ~PIM_MASK_PIM_HELLO)
 #define PIM_DONT_DEBUG_PIM_J_P             (qpim_debugs &= ~PIM_MASK_PIM_J_P)
+#define PIM_DONT_DEBUG_STATIC              (qpim_debugs &= ~PIM_MASK_STATIC)
 
 void pim_init(void);
 void pim_terminate(void);

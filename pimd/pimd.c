@@ -35,6 +35,7 @@
 #include "pim_upstream.h"
 #include "pim_rpf.h"
 #include "pim_ssmpingd.h"
+#include "pim_static.h"
 
 const char *const PIM_ALL_SYSTEMS      = MCAST_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS      = MCAST_ALL_ROUTERS;
@@ -67,6 +68,7 @@ int64_t                   qpim_mroute_add_events = 0;
 int64_t                   qpim_mroute_add_last = 0;
 int64_t                   qpim_mroute_del_events = 0;
 int64_t                   qpim_mroute_del_last = 0;
+struct list              *qpim_static_route_list = 0;
 
 static void pim_free()
 {
@@ -77,6 +79,9 @@ static void pim_free()
 
   if (qpim_upstream_list)
     list_free(qpim_upstream_list);
+
+  if (qpim_static_route_list)
+     list_free(qpim_static_route_list);
 }
 
 void pim_init()
@@ -107,6 +112,14 @@ void pim_init()
     return;
   }
   qpim_upstream_list->del = (void (*)(void *)) pim_upstream_free;
+
+  qpim_static_route_list = list_new();
+  if (!qpim_static_route_list) {
+    zlog_err("%s %s: failure: static_route_list=list_new()",
+        __FILE__, __PRETTY_FUNCTION__);
+    return;
+  }
+  qpim_static_route_list->del = (void (*)(void *)) pim_static_route_free;
 
   qpim_mroute_socket_fd = -1; /* mark mroute as disabled */
   qpim_mroute_oif_highest_vif_index = -1;

@@ -283,6 +283,7 @@ struct memory_list memory_list_pim[] =
   { MTYPE_PIM_IFCHANNEL,         "PIM interface (S,G) state"      },
   { MTYPE_PIM_UPSTREAM,          "PIM upstream (S,G) state"       },
   { MTYPE_PIM_SSMPINGD,          "PIM sspimgd socket"             },
+  { MTYPE_PIM_STATIC_ROUTE,      "PIM Static Route"               },
   { -1, NULL },
 };
 

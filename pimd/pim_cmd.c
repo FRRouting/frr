@@ -51,6 +51,7 @@
 #include "pim_macro.h"
 #include "pim_ssmpingd.h"
 #include "pim_zebra.h"
+#include "pim_static.h"
 
 static struct cmd_node pim_global_node = {
   PIM_NODE,
@@ -1626,6 +1627,44 @@ static void mroute_del_all()
   }
 }
 
+static void static_mroute_add_all()
+{
+  struct listnode     *node;
+  struct static_route *s_route;
+
+  for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
+    if (pim_mroute_add(&s_route->mc)) {
+      /* just log warning */
+      char source_str[100];
+      char group_str[100];
+      pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
+      pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
+      zlog_warn("%s %s: (S,G)=(%s,%s) failure writing MFC",
+      __FILE__, __PRETTY_FUNCTION__,
+      source_str, group_str);
+    }
+  }
+}
+
+static void static_mroute_del_all()
+{
+   struct listnode     *node;
+   struct static_route *s_route;
+
+   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
+     if (pim_mroute_del(&s_route->mc)) {
+       /* just log warning */
+       char source_str[100];
+       char group_str[100];
+       pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
+       pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
+       zlog_warn("%s %s: (S,G)=(%s,%s) failure clearing MFC",
+       __FILE__, __PRETTY_FUNCTION__,
+       source_str, group_str);
+     }
+   }
+}
+
 DEFUN (clear_ip_mroute,
        clear_ip_mroute_cmd,
        "clear ip mroute",
@@ -2133,15 +2172,17 @@ static void show_mroute(struct vty *vty)
 {
   struct listnode    *node;
   struct channel_oil *c_oil;
+  struct static_route *s_route;
   time_t              now;
 
-  vty_out(vty, "Proto: I=IGMP P=PIM%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  vty_out(vty, "Proto: I=IGMP P=PIM S=STATIC%s%s", VTY_NEWLINE, VTY_NEWLINE);
   
   vty_out(vty, "Source          Group           Proto Input iVifI Output oVifI TTL Uptime  %s",
 	  VTY_NEWLINE);
 
   now = pim_time_monotonic_sec();
 
+  /* print list of PIM and IGMP routes */
   for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
     char group_str[100]; 
     char source_str[100];
@@ -2187,6 +2228,48 @@ static void show_mroute(struct vty *vty)
 	      VTY_NEWLINE);
     }
   }
+
+  /* Print list of static routes */
+  for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
+    char group_str[100];
+    char source_str[100];
+    int oif_vif_index;
+
+    pim_inet4_dump("<group?>", s_route->group, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", s_route->source, source_str, sizeof(source_str));
+
+    for (oif_vif_index = 0; oif_vif_index < MAXVIFS; ++oif_vif_index) {
+      struct interface *ifp_in;
+      struct interface *ifp_out;
+      char oif_uptime[10];
+      int ttl;
+      char proto[5];
+
+      ttl = s_route->oif_ttls[oif_vif_index];
+      if (ttl < 1)
+         continue;
+
+      ifp_in  = pim_if_find_by_vif_index(s_route->iif);
+      ifp_out = pim_if_find_by_vif_index(oif_vif_index);
+
+      pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - s_route->creation[oif_vif_index]);
+
+      proto[0] = '\0';
+      strcat(proto, "S");
+
+      vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+         source_str,
+         group_str,
+         proto,
+         ifp_in ? ifp_in->name : "<iif?>",
+         s_route->iif,
+         ifp_out ? ifp_out->name : "<oif?>",
+         oif_vif_index,
+         ttl,
+         oif_uptime,
+         VTY_NEWLINE);
+    }
+  }
 }
 
 DEFUN (show_ip_mroute,
@@ -2204,12 +2287,14 @@ static void show_mroute_count(struct vty *vty)
 {
   struct listnode    *node;
   struct channel_oil *c_oil;
+  struct static_route *s_route;
 
   vty_out(vty, "%s", VTY_NEWLINE);
   
   vty_out(vty, "Source          Group           Packets      Bytes WrongIf  %s",
 	  VTY_NEWLINE);
 
+  /* Print PIM and IGMP route counts */
   for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
     char group_str[100]; 
     char source_str[100];
@@ -2242,7 +2327,41 @@ static void show_mroute_count(struct vty *vty)
 	    sgreq.bytecnt,
 	    sgreq.wrong_if,
 	    VTY_NEWLINE);
+  }
 
+   /* Print static route counts */
+  for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
+    char group_str[100];
+    char source_str[100];
+    struct sioc_sg_req sgreq;
+
+    memset(&sgreq, 0, sizeof(sgreq));
+    sgreq.src = s_route->mc.mfcc_origin;
+    sgreq.grp = s_route->mc.mfcc_mcastgrp;
+
+    pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
+
+    if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
+      int e = errno;
+      vty_out(vty,
+         "ioctl(SIOCGETSGCNT=%d) failure for (S,G)=(%s,%s): errno=%d: %s%s",
+         SIOCGETSGCNT,
+         source_str,
+         group_str,
+         e,
+         safe_strerror(e),
+         VTY_NEWLINE);
+      continue;
+    }
+
+    vty_out(vty, "%-15s %-15s %7ld %10ld %7ld %s",
+       source_str,
+       group_str,
+       sgreq.pktcnt,
+       sgreq.bytecnt,
+       sgreq.wrong_if,
+       VTY_NEWLINE);
   }
 }
 
@@ -2365,6 +2484,7 @@ DEFUN (ip_multicast_routing,
   pim_mroute_socket_enable();
   pim_if_add_vif_all();
   mroute_add_all();
+  static_mroute_add_all();
   return CMD_SUCCESS;
 }
 
@@ -2377,6 +2497,7 @@ DEFUN (no_ip_multicast_routing,
        "Enable IP multicast forwarding\n")
 {
   mroute_del_all();
+  static_mroute_del_all();
   pim_if_del_vif_all();
   pim_mroute_socket_disable();
   return CMD_SUCCESS;
@@ -3071,6 +3192,200 @@ DEFUN (interface_no_ip_pim_ssm,
   return CMD_SUCCESS;
 }
 
+DEFUN (interface_ip_mroute,
+       interface_ip_mroute_cmd,
+       "ip mroute INTERFACE A.B.C.D",
+       IP_STR
+       "Add multicast route\n"
+       "Outgoing interface name\n"
+       "Group address\n")
+{
+   struct interface *iif;
+   struct interface *oif;
+   const char       *oifname;
+   const char       *grp_str;
+   struct in_addr    grp_addr;
+   struct in_addr    src_addr;
+   int               result;
+
+   iif = vty->index;
+
+   oifname = argv[0];
+   oif = if_lookup_by_name(oifname);
+   if (!oif) {
+     vty_out(vty, "No such interface name %s%s",
+        oifname, VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   grp_str = argv[1];
+   result = inet_pton(AF_INET, grp_str, &grp_addr);
+   if (result <= 0) {
+     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
+        grp_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   src_addr.s_addr = INADDR_ANY;
+
+   if (pim_static_add(iif, oif, grp_addr, src_addr)) {
+      vty_out(vty, "Failed to add route%s", VTY_NEWLINE);
+      return CMD_WARNING;
+   }
+
+   return CMD_SUCCESS;
+}
+
+DEFUN (interface_ip_mroute_source,
+       interface_ip_mroute_source_cmd,
+       "ip mroute INTERFACE A.B.C.D A.B.C.D",
+       IP_STR
+       "Add multicast route\n"
+       "Outgoing interface name\n"
+       "Group address\n"
+       "Source address\n")
+{
+   struct interface *iif;
+   struct interface *oif;
+   const char       *oifname;
+   const char       *grp_str;
+   struct in_addr    grp_addr;
+   const char       *src_str;
+   struct in_addr    src_addr;
+   int               result;
+
+   iif = vty->index;
+
+   oifname = argv[0];
+   oif = if_lookup_by_name(oifname);
+   if (!oif) {
+     vty_out(vty, "No such interface name %s%s",
+        oifname, VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   grp_str = argv[1];
+   result = inet_pton(AF_INET, grp_str, &grp_addr);
+   if (result <= 0) {
+     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
+        grp_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   src_str = argv[2];
+   result = inet_pton(AF_INET, src_str, &src_addr);
+   if (result <= 0) {
+     vty_out(vty, "Bad source address %s: errno=%d: %s%s",
+        src_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   if (pim_static_add(iif, oif, grp_addr, src_addr)) {
+      vty_out(vty, "Failed to add route%s", VTY_NEWLINE);
+      return CMD_WARNING;
+   }
+
+   return CMD_SUCCESS;
+}
+
+DEFUN (interface_no_ip_mroute,
+       interface_no_ip_mroute_cmd,
+       "no ip mroute INTERFACE A.B.C.D",
+       NO_STR
+       IP_STR
+       "Add multicast route\n"
+       "Outgoing interface name\n"
+       "Group Address\n")
+{
+   struct interface *iif;
+   struct interface *oif;
+   const char       *oifname;
+   const char       *grp_str;
+   struct in_addr    grp_addr;
+   struct in_addr    src_addr;
+   int               result;
+
+   iif = vty->index;
+
+   oifname = argv[0];
+   oif = if_lookup_by_name(oifname);
+   if (!oif) {
+     vty_out(vty, "No such interface name %s%s",
+        oifname, VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   grp_str = argv[1];
+   result = inet_pton(AF_INET, grp_str, &grp_addr);
+   if (result <= 0) {
+     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
+        grp_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   src_addr.s_addr = INADDR_ANY;
+
+   if (pim_static_del(iif, oif, grp_addr, src_addr)) {
+      vty_out(vty, "Failed to remove route%s", VTY_NEWLINE);
+      return CMD_WARNING;
+   }
+
+   return CMD_SUCCESS;
+}
+
+DEFUN (interface_no_ip_mroute_source,
+       interface_no_ip_mroute_source_cmd,
+       "no ip mroute INTERFACE A.B.C.D A.B.C.D",
+       NO_STR
+       IP_STR
+       "Add multicast route\n"
+       "Outgoing interface name\n"
+       "Group Address\n"
+       "Source Address\n")
+{
+   struct interface *iif;
+   struct interface *oif;
+   const char       *oifname;
+   const char       *grp_str;
+   struct in_addr    grp_addr;
+   const char       *src_str;
+   struct in_addr    src_addr;
+   int               result;
+
+   iif = vty->index;
+
+   oifname = argv[0];
+   oif = if_lookup_by_name(oifname);
+   if (!oif) {
+     vty_out(vty, "No such interface name %s%s",
+        oifname, VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   grp_str = argv[1];
+   result = inet_pton(AF_INET, grp_str, &grp_addr);
+   if (result <= 0) {
+     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
+        grp_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   src_str = argv[2];
+   result = inet_pton(AF_INET, src_str, &src_addr);
+   if (result <= 0) {
+     vty_out(vty, "Bad source address %s: errno=%d: %s%s",
+        src_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     return CMD_WARNING;
+   }
+
+   if (pim_static_del(iif, oif, grp_addr, src_addr)) {
+      vty_out(vty, "Failed to remove route%s", VTY_NEWLINE);
+      return CMD_WARNING;
+   }
+
+   return CMD_SUCCESS;
+}
+
 DEFUN (debug_igmp,
        debug_igmp_cmd,
        "debug igmp",
@@ -3218,6 +3533,33 @@ ALIAS (no_debug_mroute,
        "undebug mroute",
        UNDEBUG_STR
        DEBUG_MROUTE_STR)
+
+DEFUN (debug_static,
+       debug_static_cmd,
+       "debug static",
+       DEBUG_STR
+       DEBUG_STATIC_STR)
+{
+  PIM_DO_DEBUG_STATIC;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_static,
+       no_debug_static_cmd,
+       "no debug static",
+       NO_STR
+       DEBUG_STR
+       DEBUG_STATIC_STR)
+{
+  PIM_DONT_DEBUG_STATIC;
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_debug_static,
+       undebug_static_cmd,
+       "undebug static",
+       UNDEBUG_STR
+       DEBUG_STATIC_STR)
 
 DEFUN (debug_pim,
        debug_pim_cmd,
@@ -4344,6 +4686,12 @@ void pim_cmd_init()
   install_element (INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd); 
 
+  // Static mroutes NEB
+  install_element (INTERFACE_NODE, &interface_ip_mroute_cmd);
+  install_element (INTERFACE_NODE, &interface_ip_mroute_source_cmd);
+  install_element (INTERFACE_NODE, &interface_no_ip_mroute_cmd);
+  install_element (INTERFACE_NODE, &interface_no_ip_mroute_source_cmd);
+
   install_element (VIEW_NODE, &show_ip_igmp_interface_cmd);
   install_element (VIEW_NODE, &show_ip_igmp_join_cmd);
   install_element (VIEW_NODE, &show_ip_igmp_parameters_cmd);
@@ -4437,6 +4785,8 @@ void pim_cmd_init()
   install_element (ENABLE_NODE, &undebug_igmp_trace_cmd);
   install_element (ENABLE_NODE, &debug_mroute_cmd);
   install_element (ENABLE_NODE, &no_debug_mroute_cmd);
+  install_element (ENABLE_NODE, &debug_static_cmd);
+  install_element (ENABLE_NODE, &no_debug_static_cmd);
   install_element (ENABLE_NODE, &debug_pim_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_cmd);
   install_element (ENABLE_NODE, &undebug_pim_cmd);
@@ -4478,6 +4828,8 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &undebug_igmp_trace_cmd);
   install_element (CONFIG_NODE, &debug_mroute_cmd);
   install_element (CONFIG_NODE, &no_debug_mroute_cmd);
+  install_element (CONFIG_NODE, &debug_static_cmd);
+  install_element (CONFIG_NODE, &no_debug_static_cmd);
   install_element (CONFIG_NODE, &debug_pim_cmd);
   install_element (CONFIG_NODE, &no_debug_pim_cmd);
   install_element (CONFIG_NODE, &undebug_pim_cmd);
