@@ -389,6 +389,12 @@ zebra_evaluate_rnh (int vrfid, int family, int force, rnh_type_t type,
 	  goto loopend;
 	}
 
+      /* If nexthop cannot be resolved and that is also the existing state,
+       * there is nothing further to do.
+       */
+      if (!rib && rnh->state == NULL)
+        goto loopend;
+
       /* Ensure prefixes we're resolving over have stayed the same */
       if (!prefix_same(&rnh->resolved_route, &prn->p))
 	{
