@@ -3157,6 +3157,7 @@ static const struct peer_flag_action peer_flag_action_list[] =
     { PEER_FLAG_STRICT_CAP_MATCH,         0, peer_change_none },
     { PEER_FLAG_DYNAMIC_CAPABILITY,       0, peer_change_reset },
     { PEER_FLAG_DISABLE_CONNECTED_CHECK,  0, peer_change_reset },
+    { PEER_FLAG_CAPABILITY_ENHE,          0, peer_change_reset },
     { PEER_FLAG_BFD,                      0, peer_change_none },
     { 0, 0, 0 }
   };
@@ -6088,6 +6089,13 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
         if (! peer_group_active (peer) ||
 	    ! CHECK_FLAG (g_peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY))
 	vty_out (vty, " neighbor %s capability dynamic%s", addr,
+	     VTY_NEWLINE);
+
+      /* Extended next-hop capability.  */
+      if (CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+        if (! peer_group_active (peer) ||
+	    ! CHECK_FLAG (g_peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+	vty_out (vty, " neighbor %s capability extended-nexthop%s", addr,
 	     VTY_NEWLINE);
 
       /* dont capability negotiation. */

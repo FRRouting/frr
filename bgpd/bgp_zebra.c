@@ -1020,7 +1020,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 
   nhcount = 1 + bgp_info_mpath_count (info);
 
-  if (p->family == AF_INET)
+  if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(info->attr))
     {
       struct zapi_ipv4 api;
       struct in_addr *nexthop;
@@ -1153,7 +1153,8 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 #ifdef HAVE_IPV6
 
   /* We have to think about a IPv6 link-local address curse. */
-  if (p->family == AF_INET6)
+  if (p->family == AF_INET6 ||
+      (p->family == AF_INET && BGP_ATTR_NEXTHOP_AFI_IP6(info->attr)))
     {
       unsigned int ifindex;
       struct in6_addr *nexthop;
@@ -1310,20 +1311,45 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           api.tag = tag;
         }
 
-      if (bgp_debug_zebra(p))
+      if (p->family == AF_INET)
         {
-          int i;
-          zlog_debug("Zebra send: IPv6 route %s %s/%d metric %u tag %d",
-                   valid_nh_count ? "add" : "delete",
-                   inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
-                   p->prefixlen, api.metric, api.tag);
-          for (i = 0; i < api.nexthop_num; i++)
-            zlog_debug("  IPv6 [nexthop %d] %s", i+1,
-                       inet_ntop(AF_INET6, api.nexthop[i], buf[1], sizeof(buf[1])));
-        }
+          if (bgp_debug_zebra(p))
+            {
+              int i;
+              zlog_debug("Zebra send: IPv4 route %s %s/%d metric %u tag %d",
+                         valid_nh_count ? "add" : "delete",
+                         inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
+                         p->prefixlen, api.metric, api.tag);
+              for (i = 0; i < api.nexthop_num; i++)
+                zlog_debug("  IPv6 [nexthop %d] %s", i+1,
+                           inet_ntop(AF_INET6, api.nexthop[i], buf[1], sizeof(buf[1])));
+            }
 
-      zapi_ipv6_route (valid_nh_count ? ZEBRA_IPV6_ROUTE_ADD : ZEBRA_IPV6_ROUTE_DELETE,
-                       zclient, (struct prefix_ipv6 *) p, &api);
+          if (valid_nh_count)
+            zapi_ipv4_route_ipv6_nexthop (ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD,
+                                          zclient, (struct prefix_ipv4 *) p, &api);
+          else
+            zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE,
+                             zclient, (struct prefix_ipv4 *) p, &api);
+        }
+      else
+        {
+          if (bgp_debug_zebra(p))
+            {
+              int i;
+              zlog_debug("Zebra send: IPv6 route %s %s/%d metric %u tag %d",
+                         valid_nh_count ? "add" : "delete",
+                         inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
+                         p->prefixlen, api.metric, api.tag);
+              for (i = 0; i < api.nexthop_num; i++)
+                zlog_debug("  IPv6 [nexthop %d] %s", i+1,
+                           inet_ntop(AF_INET6, api.nexthop[i], buf[1], sizeof(buf[1])));
+            }
+
+          zapi_ipv6_route (valid_nh_count ?
+                           ZEBRA_IPV6_ROUTE_ADD : ZEBRA_IPV6_ROUTE_DELETE,
+                           zclient, (struct prefix_ipv6 *) p, &api);
+        }
     }
 #endif /* HAVE_IPV6 */
 }

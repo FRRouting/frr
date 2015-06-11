@@ -3221,7 +3221,7 @@ rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 }
 
 int
-rib_add_ipv6_multipath (struct prefix_ipv6 *p, struct rib *rib, safi_t safi,
+rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
 	                unsigned long ifindex)
 {
   struct route_table *table;
@@ -3231,26 +3231,41 @@ rib_add_ipv6_multipath (struct prefix_ipv6 *p, struct rib *rib, safi_t safi,
   int ret = 0;
   unsigned int table_id = 0;
 
-  if (rib)
-    table_id = rib->table;
-  else
-    return 0;			/* why are we getting called with NULL rib */
-
-  /* Lookup table.  */
-  if ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default))
+  if (p->family == AF_INET)
     {
-      table = vrf_table (AFI_IP6, safi, 0);
+      if (!rib)
+        return 0;
+
+      table = vrf_table (AFI_IP, safi, 0);
+      if (!table)
+        return 0;
+      /* Make it sure prefixlen is applied to the prefix. */
+      apply_mask_ipv4 (p);
     }
   else
     {
-      table = vrf_other_route_table(AFI_IP6, table_id, 0);
+      if (rib)
+        table_id = rib->table;
+      else
+        return 0;			/* why are we getting called with NULL rib */
+
+      /* Lookup table.  */
+      if ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default))
+        {
+          table = vrf_table (AFI_IP6, safi, 0);
+        }
+      else
+        {
+          table = vrf_other_route_table(AFI_IP6, table_id, 0);
+        }
+
+      if (! table)
+        return 0;
+
+      /* Make sure mask is applied. */
+      apply_mask_ipv6 (p);
+
     }
-
-  if (! table)
-    return 0;
-
-  /* Make sure mask is applied. */
-  apply_mask_ipv6 (p);
 
   /* Set default distance by route type. */
   if (rib->distance == 0)

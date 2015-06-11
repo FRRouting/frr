@@ -150,6 +150,10 @@ struct bgp_static
   u_char tag[3];
 };
 
+#define BGP_ATTR_NEXTHOP_AFI_IP6(attr) \
+  (! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP)) && \
+   (attr)->extra && ((attr)->extra->mp_nexthop_len == 16 || \
+    (attr)->extra->mp_nexthop_len == 32))
 #define BGP_INFO_COUNTABLE(BI) \
   (! CHECK_FLAG ((BI)->flags, BGP_INFO_HISTORY) \
    && ! CHECK_FLAG ((BI)->flags, BGP_INFO_REMOVED))

@@ -3328,6 +3328,30 @@ DEFUN (no_neighbor_dont_capability_negotiate,
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_DONT_CAPABILITY);
 }
 
+/* neighbor capability extended next hop encoding */
+DEFUN (neighbor_capability_enhe,
+       neighbor_capability_enhe_cmd,
+       NEIGHBOR_CMD2 "capability extended-nexthop",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Advertise capability to the peer\n"
+       "Advertise extended next-hop capability to the peer\n")
+{
+  return peer_flag_set_vty (vty, argv[0], PEER_FLAG_CAPABILITY_ENHE);
+}
+
+DEFUN (no_neighbor_capability_enhe,
+       no_neighbor_capability_enhe_cmd,
+       NO_NEIGHBOR_CMD2 "capability extended-nexthop",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Advertise capability to the peer\n"
+       "Advertise extended next-hop capability to the peer\n")
+{
+  return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_CAPABILITY_ENHE);
+}
+
 static int
 peer_af_flag_modify_vty (struct vty *vty, const char *peer_str, afi_t afi,
 			 safi_t safi, u_int32_t flag, int set)
@@ -9546,6 +9570,28 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	      vty_out (vty, "%s", VTY_NEWLINE);
 	    }
 
+	  /* Extended nexthop */
+	  if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV)
+	      || CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV))
+	    {
+	      vty_out (vty, "    Extended nexthop:");
+	      if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV))
+		vty_out (vty, " advertised");
+	      if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
+		vty_out (vty, " %sreceived",
+			 CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV) ? "and " : "");
+	      vty_out (vty, "%s", VTY_NEWLINE);
+
+              if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
+		{
+		  vty_out (vty, "      Address families by peer:%s        ", VTY_NEWLINE);
+                  for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+                    if (CHECK_FLAG (p->af_cap[AFI_IP][safi], PEER_CAP_ENHE_AF_RCV))
+                      vty_out (vty, "           %s%s",
+                               afi_safi_print (AFI_IP, safi), VTY_NEWLINE);
+                }
+	    }
+
 	  /* Route Refresh */
 	  if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV)
 	      || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
@@ -12241,6 +12287,10 @@ bgp_vty_init (void)
   /* Deprecated "neighbor capability route-refresh" commands.*/
   install_element (BGP_NODE, &neighbor_capability_route_refresh_cmd);
   install_element (BGP_NODE, &no_neighbor_capability_route_refresh_cmd);
+
+  /* "neighbor capability extended-nexthop" commands.*/
+  install_element (BGP_NODE, &neighbor_capability_enhe_cmd);
+  install_element (BGP_NODE, &no_neighbor_capability_enhe_cmd);
 
   /* "neighbor capability orf prefix-list" commands.*/
   install_element (BGP_NODE, &neighbor_capability_orf_prefix_cmd);

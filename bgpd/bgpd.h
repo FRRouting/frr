@@ -581,6 +581,8 @@ struct peer
 #define PEER_CAP_ADDPATH_RCV                (1 << 12) /* addpath received */
 #define PEER_CAP_HOSTNAME_ADV               (1 << 13) /* hostname advertised */
 #define PEER_CAP_HOSTNAME_RCV               (1 << 14) /* hostname received */
+#define PEER_CAP_ENHE_ADV                   (1 << 15) /* Extended nexthop advertised */
+#define PEER_CAP_ENHE_RCV                   (1 << 16) /* Extended nexthop received */
 
   /* Capability flags (reset in bgp_stop) */
   u_int16_t af_cap[AFI_MAX][SAFI_MAX];
@@ -596,6 +598,9 @@ struct peer
 #define PEER_CAP_ADDPATH_AF_TX_RCV          (1 << 9) /* addpath tx received */
 #define PEER_CAP_ADDPATH_AF_RX_ADV          (1 << 10) /* addpath rx advertised */
 #define PEER_CAP_ADDPATH_AF_RX_RCV          (1 << 11) /* addpath rx received */
+#define PEER_CAP_ENHE_AF_ADV                (1 << 12) /* Extended nexthopi afi/safi advertised */
+#define PEER_CAP_ENHE_AF_RCV                (1 << 13) /* Extended nexthop afi/safi received */
+#define PEER_CAP_ENHE_AF_NEGO               (1 << 14) /* Extended nexthop afi/safi negotiated */
 
   /* Global configuration flags. */
   u_int32_t flags;
@@ -613,6 +618,7 @@ struct peer
 #define PEER_FLAG_BFD		            (1 << 11) /* bfd */
 #define PEER_FLAG_LONESOUL                  (1 << 12)
 #define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 13) /* dynamic neighbor */
+#define PEER_FLAG_CAPABILITY_ENHE           (1 << 14) /* Extended next-hop (rfc 5549)*/
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
@@ -1391,6 +1397,18 @@ static inline int
 peer_dynamic_neighbor (struct peer *peer)
 {
   return (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR)) ? 1 : 0;
+}
+
+/*
+ * Currently supporting RFC 5549 for AFI_IP/SAFI_UNICAST only.
+ *
+ * Note: When other RFC-5549 applicable SAFIs to be supported, that should
+ * come as an argument to this routine.
+ */
+static inline int
+peer_cap_enhe (struct peer *peer)
+{
+  return (CHECK_FLAG(peer->af_cap[AFI_IP][SAFI_UNICAST], PEER_CAP_ENHE_AF_NEGO));
 }
 
 #endif /* _QUAGGA_BGPD_H */

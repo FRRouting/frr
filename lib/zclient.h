@@ -212,6 +212,8 @@ struct zapi_ipv6
 
 extern int zapi_ipv6_route (u_char cmd, struct zclient *zclient, 
                      struct prefix_ipv6 *p, struct zapi_ipv6 *api);
+extern int zapi_ipv4_route_ipv6_nexthop (u_char, struct zclient *,
+                                         struct prefix_ipv4 *, struct zapi_ipv6 *);
 #endif /* HAVE_IPV6 */
 
 #endif /* _ZEBRA_ZCLIENT_H */

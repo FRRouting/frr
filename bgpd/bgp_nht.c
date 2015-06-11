@@ -103,11 +103,17 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
 
   if (ri)
     {
+      is_bgp_static_route = ((ri->type == ZEBRA_ROUTE_BGP) &&
+			     (ri->sub_type == BGP_ROUTE_STATIC)) ? 1 : 0;
+
+      /* Since Extended Next-hop Encoding (RFC5549) support, we want to derive
+         address-family from the next-hop. */
+      if (!is_bgp_static_route)
+        afi = BGP_ATTR_NEXTHOP_AFI_IP6(ri->attr) ? AFI_IP6 : AFI_IP;
+
       /* This will return TRUE if the global IPv6 NH is a link local addr */
       if (make_prefix(afi, ri, &p) < 0)
 	return 1;
-      is_bgp_static_route = ((ri->type == ZEBRA_ROUTE_BGP) &&
-			     (ri->sub_type == BGP_ROUTE_STATIC)) ? 1 : 0;
     }
   else if (peer)
     {

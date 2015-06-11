@@ -452,7 +452,7 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
                  u_char distance, u_int32_t vrf_id);
 
 extern int
-rib_add_ipv6_multipath (struct prefix_ipv6 *, struct rib *, safi_t,
+rib_add_ipv6_multipath (struct prefix *, struct rib *, safi_t,
                         unsigned long);
 
 extern int

@@ -421,7 +421,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
       route_map_sets_nh = CHECK_FLAG (vec->flags,
                                       BPACKET_ATTRVEC_FLAGS_RMAP_CHANGED);
 
-      if (paf->afi == AFI_IP)
+      if (paf->afi == AFI_IP && !peer_cap_enhe(paf->peer))
 	{
 	  struct in_addr v4nh;
 
@@ -501,7 +501,7 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 #endif
 
 	}
-      else if (paf->afi == AFI_IP6)
+      else if (paf->afi == AFI_IP6 || peer_cap_enhe(paf->peer))
 	{
           struct in6_addr v6nhglobal;
           struct in6_addr v6nhlocal;
@@ -698,7 +698,8 @@ subgroup_update_packet (struct update_subgroup *subgrp)
             }
 	}
 
-      if (afi == AFI_IP && safi == SAFI_UNICAST)
+      if ((afi == AFI_IP && safi == SAFI_UNICAST) &&
+          !peer_cap_enhe(peer))
 	stream_put_prefix (s, &rn->p);
       else
 	{
@@ -713,7 +714,8 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
 	  if (stream_empty (snlri))
 	    mpattrlen_pos = bgp_packet_mpattr_start (snlri, afi, safi,
-						     &vecarr, adv->baa->attr);
+                                         (peer_cap_enhe(peer) ? AFI_IP6 : afi),
+				          &vecarr, adv->baa->attr);
 	  bgp_packet_mpattr_prefix (snlri, afi, safi, &rn->p, prd, tag);
 	}
 
@@ -795,6 +797,7 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
   struct stream *s;
   struct bgp_adj_out *adj;
   struct bgp_advertise *adv;
+  struct peer *peer;
   struct bgp_node *rn;
   bgp_size_t unfeasible_len;
   bgp_size_t total_attr_len;
@@ -814,6 +817,7 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
   if (bpacket_queue_is_full (SUBGRP_INST (subgrp), SUBGRP_PKTQ (subgrp)))
     return NULL;
 
+  peer = SUBGRP_PEER (subgrp);
   afi = SUBGRP_AFI (subgrp);
   safi = SUBGRP_SAFI (subgrp);
   s = subgrp->work;
@@ -841,7 +845,8 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
       else
 	first_time = 0;
 
-      if (afi == AFI_IP && safi == SAFI_UNICAST)
+      if (afi == AFI_IP && safi == SAFI_UNICAST &&
+          !peer_cap_enhe(peer))
 	stream_put_prefix (s, &rn->p);
       else
 	{
@@ -883,7 +888,8 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 
   if (!stream_empty (s))
     {
-      if (afi == AFI_IP && safi == SAFI_UNICAST)
+      if (afi == AFI_IP && safi == SAFI_UNICAST &&
+          !peer_cap_enhe(peer))
 	{
 	  unfeasible_len
 	    = stream_get_endp (s) - BGP_HEADER_SIZE - BGP_UNFEASIBLE_LEN;
@@ -976,7 +982,8 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
   stream_putw_at (s, pos, total_attr_len);
 
   /* NLRI set. */
-  if (p.family == AF_INET && safi == SAFI_UNICAST)
+  if (p.family == AF_INET && safi == SAFI_UNICAST &&
+      !peer_cap_enhe(peer))
     stream_put_prefix (s, &p);
 
   /* Set size. */
@@ -991,6 +998,7 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
 void
 subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
 {
+  struct peer *peer;
   struct stream *s;
   struct stream *packet;
   struct prefix p;
@@ -1006,6 +1014,7 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
   if (DISABLE_BGP_ANNOUNCE)
     return;
 
+  peer = SUBGRP_PEER (subgrp);
   afi = SUBGRP_AFI (subgrp);
   safi = SUBGRP_SAFI (subgrp);
 
@@ -1041,7 +1050,8 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
   stream_putw (s, 0);
 
   /* Withdrawn Routes. */
-  if (p.family == AF_INET && safi == SAFI_UNICAST)
+  if (p.family == AF_INET && safi == SAFI_UNICAST &&
+      !peer_cap_enhe(peer))
     {
       stream_put_prefix (s, &p);
 

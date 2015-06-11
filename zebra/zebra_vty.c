@@ -888,6 +888,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
   struct rib *rib;
   struct nexthop *nexthop, *tnexthop;
   int recursing;
+  char buf[BUFSIZ];
 
   RNODE_FOREACH_RIB (rn, rib)
     {
@@ -958,6 +959,18 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	      if (nexthop->ifindex)
 		vty_out (vty, ", via %s", ifindex2ifname (nexthop->ifindex));
 	      break;
+#ifdef HAVE_IPV6
+	    case NEXTHOP_TYPE_IPV6:
+	    case NEXTHOP_TYPE_IPV6_IFINDEX:
+	    case NEXTHOP_TYPE_IPV6_IFNAME:
+	      vty_out (vty, " %s",
+		       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+	      if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
+		vty_out (vty, ", %s", nexthop->ifname);
+	      else if (nexthop->ifindex)
+		vty_out (vty, ", via %s", ifindex2ifname (nexthop->ifindex));
+	      break;
+#endif /* HAVE_IPV6 */
 	    case NEXTHOP_TYPE_IFINDEX:
 	      vty_out (vty, " directly connected, %s",
 		       ifindex2ifname (nexthop->ifindex));
@@ -1058,6 +1071,19 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	  if (nexthop->ifindex)
 	    vty_out (vty, ", %s", ifindex2ifname (nexthop->ifindex));
 	  break;
+#ifdef HAVE_IPV6
+        case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFNAME:
+	  vty_out (vty, " via %s",
+		   inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+	  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
+	    vty_out (vty, ", %s", nexthop->ifname);
+	  else if (nexthop->ifindex)
+	    vty_out (vty, ", %s", ifindex2ifname (nexthop->ifindex));
+	  break;
+#endif /* HAVE_IPV6 */
+
 	case NEXTHOP_TYPE_IFINDEX:
 	  vty_out (vty, " is directly connected, %s",
 		   ifindex2ifname (nexthop->ifindex));
@@ -1168,7 +1194,7 @@ DEFUN (show_ip_route,
 	    vty_out (vty, SHOW_ROUTE_V4_HEADER);
 	    first = 0;
 	  }
-	vty_show_ip_route (vty, rn, rib);
+        vty_show_ip_route (vty, rn, rib);
       }
   return CMD_SUCCESS;
 }

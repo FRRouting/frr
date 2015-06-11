@@ -433,7 +433,8 @@ struct in_pktinfo
 #define ZEBRA_IMPORT_ROUTE_REGISTER       30
 #define ZEBRA_IMPORT_ROUTE_UNREGISTER     31
 #define ZEBRA_IMPORT_CHECK_UPDATE         32
-#define ZEBRA_MESSAGE_MAX                 33
+#define ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD 33
+#define ZEBRA_MESSAGE_MAX                 34
 
 /* Marker value used in new Zserv, in the byte location corresponding
  * the command value in the old zserv header. To allow old and new

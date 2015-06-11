@@ -2137,7 +2137,7 @@ bgp_attr_check (struct peer *peer, struct attr *attr)
 int stream_put_prefix (struct stream *, struct prefix *);
 
 size_t
-bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi,
+bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 			 struct bpacket_attr_vec_arr *vecarr,
 			 struct attr *attr)
 {
@@ -2152,7 +2152,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi,
   stream_putc (s, safi);	/* SAFI */
 
   /* Nexthop */
-  switch (afi)
+  switch (nh_afi)
     {
     case AFI_IP:
       switch (safi)
@@ -2255,9 +2255,12 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   /* Remember current pointer. */
   cp = stream_get_endp (s);
 
-  if (p && !(afi == AFI_IP && safi == SAFI_UNICAST))
+  if (p && !((afi == AFI_IP && safi == SAFI_UNICAST) &&
+              !peer_cap_enhe(peer)))
     {
-      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi, vecarr, attr);
+      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi,
+                                    (peer_cap_enhe(peer) ? AFI_IP6 : afi),
+                                    vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
     }
@@ -2330,13 +2333,31 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       send_as4_path = 1; /* we'll do this later, at the correct place */
   
   /* Nexthop attribute. */
-  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP) && afi == AFI_IP)
+  if (afi == AFI_IP && !peer_cap_enhe(peer))
     {
-      stream_putc (s, BGP_ATTR_FLAG_TRANS);
-      stream_putc (s, BGP_ATTR_NEXT_HOP);
-      bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
-      stream_putc (s, 4);
-      stream_put_ipv4 (s, attr->nexthop.s_addr);
+      if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP))
+        {
+          stream_putc (s, BGP_ATTR_FLAG_TRANS);
+          stream_putc (s, BGP_ATTR_NEXT_HOP);
+          bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
+          stream_putc (s, 4);
+          stream_put_ipv4 (s, attr->nexthop.s_addr);
+        }
+      else if (safi == SAFI_UNICAST && peer_cap_enhe(from))
+        {
+          /*
+           * Likely this is the case when an IPv4 prefix was received with
+           * Extended Next-hop capability and now being advertised to
+           * non-ENHE peers.
+           * Setting the mandatory (ipv4) next-hop attribute here to enable
+           * implicit next-hop self with correct (ipv4 address family).
+           */
+          stream_putc (s, BGP_ATTR_FLAG_TRANS);
+          stream_putc (s, BGP_ATTR_NEXT_HOP);
+          bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, NULL);
+          stream_putc (s, 4);
+          stream_put_ipv4 (s, 0);
+        }
     }
 
   /* MED attribute. */

@@ -232,7 +232,8 @@ extern int bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
  * finally the _end() function.
  */
 extern size_t bgp_packet_mpattr_start(struct stream *s, afi_t afi, safi_t safi,
-				      struct bpacket_attr_vec_arr *vecarr,
+                                      afi_t nh_afi,
+                                      struct bpacket_attr_vec_arr *vecarr,
 				      struct attr *attr);
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				     struct prefix *p, struct prefix_rd *prd,

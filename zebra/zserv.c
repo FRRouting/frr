@@ -1268,6 +1268,127 @@ zread_ipv4_import_lookup (struct zserv *client, u_short length)
 #ifdef HAVE_IPV6
 /* Zebra server IPv6 prefix add function. */
 static int
+zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length)
+{
+  int i;
+  struct stream *s;
+  struct in6_addr nexthop;
+  struct rib *rib;
+  u_char message;
+  u_char nexthop_num;
+  u_char nexthop_type;
+  unsigned long ifindex;
+  struct prefix_ipv4 p;
+  u_char ifname_len;
+  safi_t safi;
+  static struct in6_addr nexthops[MULTIPATH_NUM];
+  static unsigned int ifindices[MULTIPATH_NUM];
+  int ret;
+
+  /* Get input stream.  */
+  s = client->ibuf;
+
+  ifindex = 0;
+  memset (&nexthop, 0, sizeof (struct in6_addr));
+
+  /* Allocate new rib. */
+  rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
+
+  /* Type, flags, message. */
+  rib->type = stream_getc (s);
+  rib->instance = stream_getw (s);
+  rib->flags = stream_getc (s);
+  message = stream_getc (s);
+  safi = stream_getw (s);
+  rib->uptime = time (NULL);
+
+  /* IPv4 prefix. */
+  memset (&p, 0, sizeof (struct prefix_ipv4));
+  p.family = AF_INET;
+  p.prefixlen = stream_getc (s);
+  stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+
+  /* We need to give nh-addr, nh-ifindex with the same next-hop object
+   * to the rib to ensure that IPv6 multipathing works; need to coalesce
+   * these. Clients should send the same number of paired set of
+   * next-hop-addr/next-hop-ifindices. */
+  if (CHECK_FLAG (message, ZAPI_MESSAGE_NEXTHOP))
+    {
+      int nh_count = 0;
+      int if_count = 0;
+      int max_nh_if = 0;
+
+      nexthop_num = stream_getc (s);
+      for (i = 0; i < nexthop_num; i++)
+	{
+	  nexthop_type = stream_getc (s);
+
+	  switch (nexthop_type)
+	    {
+	    case ZEBRA_NEXTHOP_IPV6:
+	      stream_get (&nexthop, s, 16);
+              if (nh_count < MULTIPATH_NUM) {
+	        nexthops[nh_count++] = nexthop;
+              }
+	      break;
+	    case ZEBRA_NEXTHOP_IFINDEX:
+              if (if_count < MULTIPATH_NUM) {
+	        ifindices[if_count++] = stream_getl (s);
+              }
+	      break;
+            case ZEBRA_NEXTHOP_BLACKHOLE:
+              nexthop_blackhole_add (rib);
+              break;
+	    }
+	}
+
+      max_nh_if = (nh_count > if_count) ? nh_count : if_count;
+      for (i = 0; i < max_nh_if; i++)
+        {
+	  if ((i < nh_count) && !IN6_IS_ADDR_UNSPECIFIED (&nexthops[i])) {
+            if ((i < if_count) && ifindices[i]) {
+              nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
+            }
+            else {
+	      nexthop_ipv6_add (rib, &nexthops[i]);
+            }
+          }
+          else {
+            if ((i < if_count) && ifindices[i]) {
+	      nexthop_ifindex_add (rib, ifindices[i]);
+	    }
+          }
+	}
+    }
+
+  /* Distance. */
+  if (CHECK_FLAG (message, ZAPI_MESSAGE_DISTANCE))
+    rib->distance = stream_getc (s);
+
+  /* Metric. */
+  if (CHECK_FLAG (message, ZAPI_MESSAGE_METRIC))
+    rib->metric = stream_getl (s);
+
+  /* Tag */
+  if (CHECK_FLAG (message, ZAPI_MESSAGE_TAG))
+    rib->tag = stream_getw (s);
+  else
+    rib->tag = 0;
+
+  /* Table */
+  rib->table=zebrad.rtm_table_default;
+  ret = rib_add_ipv6_multipath ((struct prefix *)&p, rib, safi, ifindex);
+  /* Stats */
+  if (ret > 0)
+    client->v4_route_add_cnt++;
+  else if (ret < 0)
+    client->v4_route_upd8_cnt++;
+
+  return 0;
+}
+
+/* Zebra server IPv6 prefix add function. */
+static int
 zread_ipv6_add (struct zserv *client, u_short length)
 {
   int i;
@@ -1385,7 +1506,7 @@ zread_ipv6_add (struct zserv *client, u_short length)
 
   /* Table */
   rib->table=zebrad.rtm_table_default;
-  ret = rib_add_ipv6_multipath (&p, rib, safi, ifindex);
+  ret = rib_add_ipv6_multipath ((struct prefix *)&p, rib, safi, ifindex);
   /* Stats */
   if (ret > 0)
     client->v6_route_add_cnt++;
@@ -1731,6 +1852,9 @@ zebra_client_read (struct thread *thread)
       zread_ipv4_delete (client, length);
       break;
 #ifdef HAVE_IPV6
+    case ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD:
+      zread_ipv4_route_ipv6_nexthop_add (client, length);
+      break;
     case ZEBRA_IPV6_ROUTE_ADD:
       zread_ipv6_add (client, length);
       break;

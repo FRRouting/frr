@@ -1396,7 +1396,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
    * Of course, the operator can always set it through the route-map, if
    * so desired.
    */
-  if (p->family == AF_INET6)
+  if (p->family == AF_INET6 || peer_cap_enhe(peer))
     {
       attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
       if (!reflect)
@@ -1481,7 +1481,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
           if (!reflect ||
               CHECK_FLAG (peer->af_flags[afi][safi],
                           PEER_FLAG_NEXTHOP_SELF_ALL))
-            subgroup_announce_reset_nhop (p->family, attr);
+            subgroup_announce_reset_nhop ((peer_cap_enhe(peer) ? AF_INET6 : p->family), attr);
         }
       else if (peer->sort == BGP_PEER_EBGP)
         {
@@ -1491,7 +1491,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
                 break;
             }
           if (!paf)
-            subgroup_announce_reset_nhop (p->family, attr);
+            subgroup_announce_reset_nhop ((peer_cap_enhe(peer) ? AF_INET6 : p->family), attr);
         }
     }
 
@@ -1600,9 +1600,10 @@ subgroup_announce_check_rsclient (struct bgp_info *ri,
   bgp_attr_dup (attr, riattr);
 
   /* next-hop-set */
-  if ((p->family == AF_INET && attr->nexthop.s_addr == 0)
+  if ((p->family == AF_INET && !peer_cap_enhe(rsclient)
+       && attr->nexthop.s_addr == 0)
 #ifdef HAVE_IPV6
-          || (p->family == AF_INET6 &&
+          || ((p->family == AF_INET6 || peer_cap_enhe(rsclient)) &&
               IN6_IS_ADDR_UNSPECIFIED(&attr->extra->mp_nexthop_global))
 #endif /* HAVE_IPV6 */
      )
@@ -1613,12 +1614,12 @@ subgroup_announce_check_rsclient (struct bgp_info *ri,
         if (safi == SAFI_MPLS_VPN)
           memcpy (&attr->extra->mp_nexthop_global_in, &rsclient->nexthop.v4,
                   IPV4_MAX_BYTELEN);
-        else
+        else if (!peer_cap_enhe(rsclient))
           memcpy (&attr->nexthop, &rsclient->nexthop.v4, IPV4_MAX_BYTELEN);
       }
 #ifdef HAVE_IPV6
     /* Set IPv6 nexthop. */
-    if (p->family == AF_INET6)
+    if (p->family == AF_INET6 || peer_cap_enhe(rsclient))
       {
         /* IPv6 global nexthop must be included. */
         memcpy (&attr->extra->mp_nexthop_global, &rsclient->nexthop.v6_global,
@@ -1629,7 +1630,7 @@ subgroup_announce_check_rsclient (struct bgp_info *ri,
   }
 
 #ifdef HAVE_IPV6
-  if (p->family == AF_INET6)
+  if (p->family == AF_INET6 || peer_cap_enhe(rsclient))
     {
       struct attr_extra *attre = attr->extra;
 
@@ -2471,7 +2472,8 @@ bgp_update_rsclient (struct peer *rsclient, u_int32_t addpath_id,
   bgp_attr_unintern (&attr_new2);
 
   /* IPv4 unicast next hop check.  */
-  if ((afi == AFI_IP) && ((safi == SAFI_UNICAST) || safi == SAFI_MULTICAST))
+  if ((afi == AFI_IP) && ((safi == SAFI_UNICAST && !peer_cap_enhe(peer))
+                           || safi == SAFI_MULTICAST))
     {
      /* Next hop must not be 0.0.0.0 nor Class D/E address. */
       if (new_attr.nexthop.s_addr == 0
@@ -2720,7 +2722,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
     }
 
   /* IPv4 unicast next hop check.  */
-  if (afi == AFI_IP && safi == SAFI_UNICAST)
+  if (afi == AFI_IP && safi == SAFI_UNICAST && !peer_cap_enhe(peer))
     {
       /* Next hop must not be 0.0.0.0 nor Class D/E address. */
       if (new_attr.nexthop.s_addr == 0
@@ -6553,7 +6555,8 @@ route_vty_out (struct vty *vty, struct prefix *p,
     {
 
       /* IPv4 Next Hop */
-      if (p->family == AF_INET)
+      if (p->family == AF_INET
+          && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
           if (json_paths)
             {
@@ -6580,7 +6583,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
 
 #ifdef HAVE_IPV6
       /* IPv6 Next Hop */
-      else if (p->family == AF_INET6)
+      else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 	{
 	  int len;
 	  char buf[BUFSIZ];
@@ -6691,7 +6694,8 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p,
   /* Print attribute */
   if (attr) 
     {
-      if (p->family == AF_INET)
+      if (p->family == AF_INET
+          && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
 	  if (safi == SAFI_MPLS_VPN)
 	    vty_out (vty, "%-16s",
@@ -6700,7 +6704,7 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p,
 	    vty_out (vty, "%-16s", inet_ntoa (attr->nexthop));
 	}
 #ifdef HAVE_IPV6
-      else if (p->family == AF_INET6)
+      else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
         {
           int len;
           char buf[BUFSIZ];
@@ -6764,7 +6768,8 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
   attr = binfo->attr;
   if (attr) 
     {
-      if (p->family == AF_INET)
+      if (p->family == AF_INET
+          && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
 	  if (safi == SAFI_MPLS_VPN)
 	    vty_out (vty, "%-16s",
@@ -6773,7 +6778,7 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
 	    vty_out (vty, "%-16s", inet_ntoa (attr->nexthop));
 	}
 #ifdef HAVE_IPV6      
-      else if (p->family == AF_INET6)
+      else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 	{
 	  assert (attr->extra);
 	  char buf[BUFSIZ];
@@ -7026,7 +7031,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         vty_out (vty, "%s", VTY_NEWLINE);
 	  
       /* Line2 display Next-hop, Neighbor, Router-id */
-      if (p->family == AF_INET)
+      if (p->family == AF_INET
+          && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
           if (safi == SAFI_MPLS_VPN)
             {
@@ -7068,7 +7074,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (binfo->peer == bgp->peer_self)
 	{
 
-          if (p->family == AF_INET)
+          if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
             {
               if (json_paths)
                 json_string = json_object_new_string("0.0.0.0");

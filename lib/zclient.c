@@ -630,6 +630,70 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
 
 #ifdef HAVE_IPV6
 int
+zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
+                              struct prefix_ipv4 *p, struct zapi_ipv6 *api)
+{
+  int i;
+  int psize;
+  struct stream *s;
+
+  /* Reset stream. */
+  s = zclient->obuf;
+  stream_reset (s);
+
+  zclient_create_header (s, cmd);
+
+  /* Put type and nexthop. */
+  stream_putc (s, api->type);
+  stream_putw (s, api->instance);
+  stream_putc (s, api->flags);
+  stream_putc (s, api->message);
+  stream_putw (s, api->safi);
+
+  /* Put prefix information. */
+  psize = PSIZE (p->prefixlen);
+  stream_putc (s, p->prefixlen);
+  stream_write (s, (u_char *) & p->prefix, psize);
+
+  /* Nexthop, ifindex, distance and metric information. */
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
+    {
+      if (CHECK_FLAG (api->flags, ZEBRA_FLAG_BLACKHOLE))
+        {
+          stream_putc (s, 1);
+          stream_putc (s, ZEBRA_NEXTHOP_BLACKHOLE);
+          /* XXX assert(api->nexthop_num == 0); */
+          /* XXX assert(api->ifindex_num == 0); */
+        }
+      else
+	stream_putc (s, api->nexthop_num + api->ifindex_num);
+
+      for (i = 0; i < api->nexthop_num; i++)
+	{
+	  stream_putc (s, ZEBRA_NEXTHOP_IPV6);
+	  stream_write (s, (u_char *)api->nexthop[i], 16);
+	}
+      for (i = 0; i < api->ifindex_num; i++)
+	{
+	  stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+	  stream_putl (s, api->ifindex[i]);
+	}
+    }
+
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_DISTANCE))
+    stream_putc (s, api->distance);
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_METRIC))
+    stream_putl (s, api->metric);
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_TAG))
+    stream_putw (s, api->tag);
+
+  /* Put length at the first point of the stream. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  return zclient_send_message(zclient);
+}
+
+int
 zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 	       struct zapi_ipv6 *api)
 {
