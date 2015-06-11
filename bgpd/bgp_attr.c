@@ -1606,7 +1606,8 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
 	  char buf2[INET6_ADDRSTRLEN];
 
 	  if (bgp_debug_update(peer, NULL, NULL, 1))
-	    zlog_debug ("%s sent two nexthops %s %s but second one is not a link-local nexthop", peer->host,
+            zlog_debug ("%s rcvd nexthops %s, %s -- ignoring non-LL value",
+                        peer->host,
 		       inet_ntop (AF_INET6, &attre->mp_nexthop_global,
 				  buf1, INET6_ADDRSTRLEN),
 		       inet_ntop (AF_INET6, &attre->mp_nexthop_local,
