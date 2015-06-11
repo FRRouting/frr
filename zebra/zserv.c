@@ -44,6 +44,7 @@
 #include "zebra/debug.h"
 #include "zebra/ipforward.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/rt_netlink.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -415,6 +416,8 @@ nbr_connected_replacement_add_ipv6 (struct interface *ifp, struct in6_addr *addr
   prefix_copy(ifc->address, &p);
 
   zebra_interface_nbr_address_add_update (ifp, ifc);
+
+  if_nbr_ipv6ll_to_ipv4ll_neigh_update (ifp, address, 1);
 }
 
 void
@@ -435,6 +438,8 @@ nbr_connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
   listnode_delete (ifp->nbr_connected, ifc);
 
   zebra_interface_nbr_address_delete_update (ifp, ifc);
+
+  if_nbr_ipv6ll_to_ipv4ll_neigh_update (ifp, address, 0);
 
   nbr_connected_free (ifc);
 }

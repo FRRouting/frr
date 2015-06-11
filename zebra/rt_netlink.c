@@ -1483,8 +1483,30 @@ _netlink_route_build_singlepath(
         size_t req_size,
 	int cmd)
 {
+
+  if (rtmsg->rtm_family == AF_INET &&
+      (nexthop->type == NEXTHOP_TYPE_IPV6
+      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
+      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
+    {
+      char buf[16] = "169.254.0.1";
+      struct in_addr ipv4_ll;
+
+      inet_pton (AF_INET, buf, &ipv4_ll);
+      rtmsg->rtm_flags |= RTNH_F_ONLINK;
+      addattr_l (nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4);
+      addattr32 (nlmsg, req_size, RTA_OIF, nexthop->ifindex);
+
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug(" 5549: _netlink_route_build_singlepath() (%s): "
+                   "nexthop via %s if %u",
+                   routedesc, buf, nexthop->ifindex);
+      return;
+    }
+
   if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ONLINK))
     rtmsg->rtm_flags |= RTNH_F_ONLINK;
+
   if (nexthop->type == NEXTHOP_TYPE_IPV4
       || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
     {
@@ -1573,13 +1595,37 @@ _netlink_route_build_multipath(
         struct nexthop *nexthop,
         struct rtattr *rta,
         struct rtnexthop *rtnh,
-        union g_addr **src
-        )
+        struct rtmsg *rtmsg,
+        union g_addr **src)
 {
   rtnh->rtnh_len = sizeof (*rtnh);
   rtnh->rtnh_flags = 0;
   rtnh->rtnh_hops = 0;
   rta->rta_len += rtnh->rtnh_len;
+
+  if (rtmsg->rtm_family == AF_INET &&
+      (nexthop->type == NEXTHOP_TYPE_IPV6
+      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
+      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
+    {
+      char buf[16] = "169.254.0.1";
+      struct in_addr ipv4_ll;
+
+      inet_pton (AF_INET, buf, &ipv4_ll);
+      bytelen = 4;
+      rtnh->rtnh_flags |= RTNH_F_ONLINK;
+      rta_addattr_l (rta, NL_PKT_BUF_SIZE, RTA_GATEWAY,
+                     &ipv4_ll, bytelen);
+      rtnh->rtnh_len += sizeof (struct rtattr) + bytelen;
+      rtnh->rtnh_ifindex = nexthop->ifindex;
+
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug(" 5549: netlink_route_build_multipath() (%s): "
+                   "nexthop via %s if %u",
+                   routedesc, buf, nexthop->ifindex);
+      return;
+    }
+
 
   if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ONLINK))
     rtnh->rtnh_flags |= RTNH_F_ONLINK;
@@ -1681,6 +1727,32 @@ _netlink_route_debug(
 #endif /* HAVE_IPV6 */
          p->prefixlen, nexthop_type_to_str (nexthop->type));
     }
+}
+
+int
+netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen)
+{
+  struct {
+      struct nlmsghdr         n;
+      struct ndmsg            ndm;
+      char                    buf[256];
+  } req;
+
+  memset(&req.n, 0, sizeof(req.n));
+  memset(&req.ndm, 0, sizeof(req.ndm));
+
+  req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+  req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+  req.n.nlmsg_type = cmd; //RTM_NEWNEIGH or RTM_DELNEIGH
+  req.ndm.ndm_family = AF_INET;
+  req.ndm.ndm_state = NUD_PERMANENT;
+  req.ndm.ndm_ifindex = ifindex;
+  req.ndm.ndm_type = RTN_UNICAST;
+
+  addattr_l(&req.n, sizeof(req), NDA_DST, &addr, 4);
+  addattr_l(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
+
+  return netlink_talk (&req.n, &netlink_cmd);
 }
 
 /* Routing table change via netlink interface. */
@@ -1874,7 +1946,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
               _netlink_route_debug(cmd, p, nexthop,
                                    routedesc, family);
               _netlink_route_build_multipath(routedesc, bytelen,
-                                             nexthop, rta, rtnh, &src1);
+                                             nexthop, rta, rtnh, &req.r, &src1);
               rtnh = RTNH_NEXT (rtnh);
 
               if (cmd == RTM_NEWROUTE)

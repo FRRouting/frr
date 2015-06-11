@@ -3962,8 +3962,14 @@ rib_close_table (struct route_table *table)
 void
 rib_close (void)
 {
+  struct listnode *node, *nnode;
+  struct interface *ifp;
+
   rib_close_table (vrf_table (AFI_IP, SAFI_UNICAST, 0));
   rib_close_table (vrf_table (AFI_IP6, SAFI_UNICAST, 0));
+
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+    if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 }
 
 /* Routing information base initialize. */

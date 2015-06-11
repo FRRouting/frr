@@ -41,6 +41,7 @@
 #include "zebra/debug.h"
 #include "zebra/irdp.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/rt_netlink.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -528,6 +529,64 @@ if_delete_update (struct interface *ifp)
   ifp->ifindex = IFINDEX_INTERNAL;
 }
 
+void
+ipv6_ll_address_to_mac (struct in6_addr *address, u_char *mac)
+{
+  mac[0] = address->s6_addr[8];
+  mac[0] &= ~0x02;
+  mac[1] = address->s6_addr[9];
+  mac[2] = address->s6_addr[10];
+  mac[3] = address->s6_addr[13];
+  mac[4] = address->s6_addr[14];
+  mac[5] = address->s6_addr[15];
+}
+
+void
+if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
+                                      struct in6_addr *address,
+                                      int add)
+{
+  char buf[16] = "169.254.0.1";
+  struct in_addr ipv4_ll;
+  u_char mac[6];
+
+  inet_pton (AF_INET, buf, &ipv4_ll);
+
+  ipv6_ll_address_to_mac(address, mac);
+  netlink_neigh_update (add ? RTM_NEWNEIGH : RTM_DELNEIGH,
+                        ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+}
+
+void
+if_nbr_ipv6ll_to_ipv4ll_neigh_add_all (struct interface *ifp)
+{
+  if (listhead(ifp->nbr_connected))
+    {
+      struct nbr_connected *nbr_connected;
+      struct listnode *node;
+
+      for (ALL_LIST_ELEMENTS_RO (ifp->nbr_connected, node, nbr_connected))
+        if_nbr_ipv6ll_to_ipv4ll_neigh_update (ifp,
+                                              &nbr_connected->address->u.prefix6,
+                                              1);
+    }
+}
+
+void
+if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (struct interface *ifp)
+{
+  if (listhead(ifp->nbr_connected))
+    {
+      struct nbr_connected *nbr_connected;
+      struct listnode *node;
+
+      for (ALL_LIST_ELEMENTS_RO (ifp->nbr_connected, node, nbr_connected))
+        if_nbr_ipv6ll_to_ipv4ll_neigh_update (ifp,
+                                              &nbr_connected->address->u.prefix6,
+                                              0);
+    }
+}
+
 /* Interface is up. */
 void
 if_up (struct interface *ifp)
@@ -545,6 +604,7 @@ if_up (struct interface *ifp)
   }
   zebra_interface_up_update (ifp);
 
+  if_nbr_ipv6ll_to_ipv4ll_neigh_add_all (ifp);
 
   /* Install connected routes to the kernel. */
   if (ifp->connected)
@@ -597,6 +657,8 @@ if_down (struct interface *ifp)
 
   /* Examine all static routes which direct to the interface. */
   rib_update ();
+
+  if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (ifp);
 }
 
 void

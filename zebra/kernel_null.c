@@ -48,6 +48,11 @@ int kernel_address_delete_ipv4 (struct interface *a, struct connected *b)
   return 0;
 }
 
+int netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen)
+{
+  return 0;
+}
+
 void kernel_init (void) { return; }
 #ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
 #pragma weak route_read = kernel_init
