@@ -1404,10 +1404,8 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
   if (p->family == AF_INET)
     {
       struct zapi_ipv4 api;
-      struct in_addr *nexthop;
 
       api.flags = flags;
-      nexthop = &info->attr->nexthop;
 
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
@@ -1429,12 +1427,9 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       if (bgp_debug_zebra(p))
 	{
 	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_debug("Zebra send: IPv4 route delete %s/%d nexthop %s metric %u tag %d",
+	  zlog_debug("Zebra send: IPv4 route delete %s/%d metric %u tag %d",
 		     inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
-		     p->prefixlen,
-		     inet_ntop(AF_INET, nexthop, buf[1], sizeof(buf[1])),
-		     api.metric,
-		     api.tag);
+		     p->prefixlen, api.metric, api.tag);
 	}
 
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, 
@@ -1445,44 +1440,18 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
   if (p->family == AF_INET6)
     {
       struct zapi_ipv6 api;
-      unsigned int ifindex;
-      struct in6_addr *nexthop;
       
       assert (info->attr->extra);
       
-      ifindex = 0;
-      nexthop = NULL;
-
-      /* Only global address nexthop exists. */
-      if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL)
-	nexthop = &info->attr->extra->mp_nexthop_global;
-
-      /* If both global and link-local address present. */
-      if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-	{
-	  nexthop = &info->attr->extra->mp_nexthop_local;
-	  if (info->peer->nexthop.ifp)
-	    ifindex = info->peer->nexthop.ifp->ifindex;
-	}
-
-      if (nexthop == NULL)
-	return;
-
-      if (IN6_IS_ADDR_LINKLOCAL (nexthop) && ! ifindex)
-	if (info->peer->conf_if || info->peer->ifname)
-	  ifindex = if_nametoindex (info->peer->conf_if ? info->peer->conf_if : info->peer->ifname);
-
       api.flags = flags;
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = 1;
-      api.nexthop = &nexthop;
-      SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
-      api.ifindex_num = 1;
-      api.ifindex = &ifindex;
+      api.nexthop_num = 0;
+      api.nexthop = NULL;
+      api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
 
@@ -1495,12 +1464,9 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       if (bgp_debug_zebra(p))
 	{
 	  char buf[2][INET6_ADDRSTRLEN];
-	  zlog_debug("Zebra send: IPv6 route delete %s/%d nexthop %s metric %u tag %d",
+	  zlog_debug("Zebra send: IPv6 route delete %s/%d metric %u tag %d",
 		     inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
-		     p->prefixlen,
-		     inet_ntop(AF_INET6, nexthop, buf[1], sizeof(buf[1])),
-		     api.metric,
-                     api.tag);
+		     p->prefixlen, api.metric, api.tag);
 	}
 
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, 
