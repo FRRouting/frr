@@ -49,6 +49,17 @@
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_dump.h"
 
+#define QUAGGA_REDIST_STR_OSPFD \
+  "(kernel|connected|static|rip|isis|bgp|babel)"
+#define QUAGGA_REDIST_HELP_STR_OSPFD \
+  "Kernel routes (not installed via the zebra RIB)\n" \
+  "Connected routes (directly attached subnet or host)\n" \
+  "Statically configured routes\n" \
+  "Routing Information Protocol (RIP)\n" \
+  "Intermediate System to Intermediate System (IS-IS)\n" \
+  "Border Gateway Protocol (BGP)\n" \
+  "Babel routing protocol (Babel)\n"
+
 
 static const char *ospf_network_type_str[] =
 {
@@ -6912,11 +6923,12 @@ DEFUN (no_ospf_redistribute_source,
 
 DEFUN (ospf_redistribute_instance_source,
        ospf_redistribute_instance_source_cmd,
-       "redistribute ospf <1-65535>"
+       "redistribute (ospf|table) <1-65535>"
          " {metric <0-16777214>|metric-type (1|2)|route-map WORD}",
        REDIST_STR
        "Open Shortest Path First\n"
-       "Instance ID\n"
+       "Non-main Kernel Routing Table\n"
+       "Instance ID/Table ID\n"
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
@@ -6932,40 +6944,43 @@ DEFUN (ospf_redistribute_instance_source,
   u_short instance;
   struct ospf_redist *red;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
+  if (strncmp(argv[0], "o", 1) == 0)
+    source = ZEBRA_ROUTE_OSPF;
+  else
+    source = ZEBRA_ROUTE_TABLE;
+
+  VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
 
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (!ospf->instance)
+  if ((source == ZEBRA_ROUTE_OSPF) && !ospf->instance)
     {
       vty_out (vty, "Instance redistribution in non-instanced OSPF not allowed%s",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (ospf->instance == instance)
+  if ((source == ZEBRA_ROUTE_OSPF) && (ospf->instance == instance))
     {
       vty_out (vty, "Same instance OSPF redistribution not allowed%s",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  source = ZEBRA_ROUTE_OSPF;
-
   /* Get metric value. */
-  if (argv[1] != NULL)
-    if (!str2metric (argv[1], &metric))
+  if (argv[2] != NULL)
+    if (!str2metric (argv[2], &metric))
       return CMD_WARNING;
 
   /* Get metric type. */
-  if (argv[2] != NULL)
-    if (!str2metric_type (argv[2], &type))
+  if (argv[3] != NULL)
+    if (!str2metric_type (argv[3], &type))
       return CMD_WARNING;
 
   red = ospf_redist_add(ospf, source, instance);
-  if (argv[3] != NULL)
-    ospf_routemap_set (red, argv[3]);
+  if (argv[4] != NULL)
+    ospf_routemap_set (red, argv[4]);
   else
     ospf_routemap_unset (red);
 
@@ -6974,12 +6989,13 @@ DEFUN (ospf_redistribute_instance_source,
 
 DEFUN (no_ospf_redistribute_instance_source,
        no_ospf_redistribute_instance_source_cmd,
-       "no redistribute ospf <1-65535>"
+       "no redistribute (ospf|table) <1-65535>"
        " {metric <0-16777214>|metric-type (1|2)|route-map WORD}",
        NO_STR
        REDIST_STR
        "Open Shortest Path First\n"
-       "Instance ID\n"
+       "Non-main Kernel Routing Table\n"
+       "Instance ID/Table Id\n"
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
@@ -6996,23 +7012,27 @@ DEFUN (no_ospf_redistribute_instance_source,
   if (!ospf)
     return CMD_SUCCESS;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[0]);
+  if (strncmp(argv[0], "o", 1) == 0)
+    source = ZEBRA_ROUTE_OSPF;
+  else
+    source = ZEBRA_ROUTE_TABLE;
 
-  if (!ospf->instance)
+  VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
+
+  if ((source == ZEBRA_ROUTE_OSPF) && !ospf->instance)
     {
       vty_out (vty, "Instance redistribution in non-instanced OSPF not allowed%s",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (ospf->instance == instance)
+  if ((source == ZEBRA_ROUTE_OSPF) && (ospf->instance == instance))
     {
       vty_out (vty, "Same instance OSPF redistribution not allowed%s",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  source = ZEBRA_ROUTE_OSPF;
   red = ospf_redist_lookup(ospf, source, instance);
   if (!red)
     return CMD_SUCCESS;
