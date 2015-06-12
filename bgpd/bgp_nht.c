@@ -206,8 +206,14 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
   if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
     register_zebra_rnh(bnc, is_bgp_static_route);
 
-  if (ri)
+  if (ri && ri->nexthop != bnc)
     {
+      /* Unlink from existing nexthop cache, if any. This will also free
+       * the nexthop cache entry, if appropriate.
+       */
+      bgp_unlink_nexthop (ri);
+
+      /* Link to new nexthop cache. */
       path_nh_map(ri, bnc, 1);
 
       if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
