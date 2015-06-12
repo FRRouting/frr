@@ -2409,6 +2409,59 @@ bgp_info_addpath_rx_str(struct bgp_info *ri, char *buf)
     sprintf(buf, " with addpath ID %d", ri->addpath_rx_id);
 }
 
+/* Check if received nexthop is valid or not. */
+static int
+bgp_update_martian_nexthop (afi_t afi, safi_t safi, struct attr *attr)
+{
+  struct attr_extra *attre = attr->extra;
+  int ret = 0;
+
+  /* Only validated for unicast and multicast currently. */
+  if (safi != SAFI_UNICAST && safi != SAFI_MULTICAST)
+    return 0;
+
+  /* If NEXT_HOP is present, validate it. */
+  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP))
+    {
+      if (attr->nexthop.s_addr == 0 ||
+          IPV4_CLASS_DE (ntohl (attr->nexthop.s_addr)) ||
+          bgp_nexthop_self (attr))
+        ret = 1;
+    }
+
+  /* If MP_NEXTHOP is present, validate it. */
+  /* Note: For IPv6 nexthops, we only validate the global (1st) nexthop;
+   * there is code in bgp_attr.c to ignore the link-local (2nd) nexthop if
+   * it is not an IPv6 link-local address.
+   */
+  if (attre && attre->mp_nexthop_len)
+    {
+      switch (attre->mp_nexthop_len)
+        {
+        case BGP_ATTR_NHLEN_IPV4:
+        case BGP_ATTR_NHLEN_VPNV4:
+          ret = (attre->mp_nexthop_global_in.s_addr == 0 ||
+                 IPV4_CLASS_DE (ntohl (attre->mp_nexthop_global_in.s_addr)));
+          break;
+
+#ifdef HAVE_IPV6
+        case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+        case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+          ret = (IN6_IS_ADDR_UNSPECIFIED(&attre->mp_nexthop_global) ||
+                 IN6_IS_ADDR_LOOPBACK(&attre->mp_nexthop_global)    ||
+                 IN6_IS_ADDR_MULTICAST(&attre->mp_nexthop_global));
+          break;
+#endif /* HAVE_IPV6 */
+
+        default:
+          ret = 1;
+          break;
+        }
+    }
+
+  return ret;
+}
+
 static void
 bgp_update_rsclient (struct peer *rsclient, u_int32_t addpath_id,
                      afi_t afi, safi_t safi, struct attr *attr,
@@ -2480,19 +2533,12 @@ bgp_update_rsclient (struct peer *rsclient, u_int32_t addpath_id,
   attr_new = bgp_attr_intern (&new_attr);
   bgp_attr_unintern (&attr_new2);
 
-  /* IPv4 unicast next hop check.  */
-  if ((afi == AFI_IP) && ((safi == SAFI_UNICAST && !peer_cap_enhe(peer))
-                           || safi == SAFI_MULTICAST))
+  /* next hop check.  */
+  if (bgp_update_martian_nexthop (afi, safi, &new_attr))
     {
-     /* Next hop must not be 0.0.0.0 nor Class D/E address. */
-      if (new_attr.nexthop.s_addr == 0
-         || IPV4_CLASS_DE (ntohl (new_attr.nexthop.s_addr)))
-       {
-         bgp_attr_unintern (&attr_new);
-
-         reason = "martian next-hop;";
-         goto filtered;
-       }
+       bgp_attr_unintern (&attr_new);
+       reason = "martian next-hop;";
+       goto filtered;
     }
 
   /* If the update is implicit withdraw. */
@@ -2730,25 +2776,12 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       goto filtered;
     }
 
-  /* IPv4 unicast next hop check.  */
-  if (afi == AFI_IP && safi == SAFI_UNICAST && !peer_cap_enhe(peer))
+  /* next hop check.  */
+  if (bgp_update_martian_nexthop (afi, safi, &new_attr))
     {
-      /* Next hop must not be 0.0.0.0 nor Class D/E address. */
-      if (new_attr.nexthop.s_addr == 0
-	  || IPV4_CLASS_DE (ntohl (new_attr.nexthop.s_addr)))
-	{
-	  reason = "martian next-hop;";
-	  bgp_attr_flush (&new_attr);
-	  goto filtered;
-	}
-
-      /* Next hop must not be my own address.  */
-      if (bgp_nexthop_self (&new_attr))
-	{
-	  reason = "local IP next-hop;";
-	  bgp_attr_flush (&new_attr);
-	  goto filtered;
-	}
+       reason = "martian or self next-hop;";
+       bgp_attr_flush (&new_attr);
+       goto filtered;
     }
 
   attr_new = bgp_attr_intern (&new_attr);
