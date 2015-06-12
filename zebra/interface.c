@@ -533,8 +533,7 @@ if_delete_update (struct interface *ifp)
 void
 ipv6_ll_address_to_mac (struct in6_addr *address, u_char *mac)
 {
-  mac[0] = address->s6_addr[8];
-  mac[0] &= ~0x02;
+  mac[0] = address->s6_addr[8] ^ 0x02;
   mac[1] = address->s6_addr[9];
   mac[2] = address->s6_addr[10];
   mac[3] = address->s6_addr[13];
