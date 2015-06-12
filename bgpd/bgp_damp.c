@@ -20,7 +20,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 #include <math.h>
-#include <json/json.h>
 
 #include "prefix.h"
 #include "memory.h"
@@ -587,8 +586,6 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo,
   time_t t_now, t_diff;
   char timebuf[BGP_UPTIME_LEN];
   int penalty;
-  json_object *json_int;
-  json_object *json_string;
 
   if (!binfo->extra)
     return;
@@ -608,20 +605,16 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo,
 
   if (json_path)
     {
-      json_int = json_object_new_int(penalty);
-      json_object_object_add(json_path, "dampening-penalty", json_int);
-
-      json_int = json_object_new_int(bdi->flap);
-      json_object_object_add(json_path, "dampening-flap-count", json_int);
-
-      json_string = json_object_new_string(peer_uptime (bdi->start_time, timebuf, BGP_UPTIME_LEN));
-      json_object_object_add(json_path, "dampening-flap-period", json_string);
+      json_object_int_add(json_path, "dampening-penalty", penalty);
+      json_object_int_add(json_path, "dampening-flap-count", bdi->flap);
+      json_object_string_add(json_path, "dampening-flap-period",
+                              peer_uptime (bdi->start_time, timebuf, BGP_UPTIME_LEN));
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED)
           && ! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
         {
-          json_string = json_object_new_string(bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN));
-          json_object_object_add(json_path, "dampening-reuse-in", json_string);
+          json_object_string_add(json_path, "dampening-reuse-in",
+                                 bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN));
         }
     }
   else

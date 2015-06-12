@@ -8453,11 +8453,8 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   char timebuf[BGP_UPTIME_LEN], dn_flag[2];
   int len;
   json_object *json = NULL;
-  json_object *json_int = NULL;
-  json_object *json_string = NULL;
   json_object *json_peer = NULL;
   json_object *json_peers = NULL;
-  json_object *json_boolean_true = NULL;
 
   /* Header string for each address family. */
   static char header[] = "Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
@@ -8465,8 +8462,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   if (use_json)
     {
       json = json_object_new_object();
-      json_peers = json_object_new_array();
-      json_boolean_true = json_object_new_boolean(1);
+      json_peers = json_object_new_object();
     }
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
@@ -8484,11 +8480,8 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
               /* Usage summary and header */
               if (use_json)
                 {
-                  json_string = json_object_new_string(inet_ntoa (bgp->router_id));
-                  json_object_object_add(json, "router-id", json_string);
-
-                  json_int = json_object_new_int(bgp->as);
-                  json_object_object_add(json, "as", json_int);
+                  json_object_string_add(json, "router-id", inet_ntoa (bgp->router_id));
+                  json_object_int_add(json, "as", bgp->as);
                 }
               else
                 {
@@ -8501,36 +8494,28 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                 {
                   if (use_json)
                     {
-                      json_int = json_object_new_int(bgp->v_update_delay);
-                      json_object_object_add(json, "update-delay-limit", json_int);
+                      json_object_int_add(json, "update-delay-limit", bgp->v_update_delay);
 
                       if (bgp->v_update_delay != bgp->v_establish_wait)
-                        {
-                          json_int = json_object_new_int(bgp->v_establish_wait);
-                          json_object_object_add(json, "update-delay-establish-wait", json_int);
-                        }
+                        json_object_int_add(json, "update-delay-establish-wait", bgp->v_establish_wait);
 
                       if (bgp_update_delay_active(bgp))
                         {
-                          json_string = json_object_new_string(bgp->update_delay_begin_time);
-                          json_object_object_add(json, "update-delay-first-neighbor", json_string);
-                          json_object_object_add(json, "update-delay-in-progress", json_boolean_true);
+                          json_object_string_add(json, "update-delay-first-neighbor", bgp->update_delay_begin_time);
+                          json_object_boolean_true_add(json, "update-delay-in-progress");
                         }
                       else
                         {
                           if (bgp->update_delay_over)
                             {
-                              json_string = json_object_new_string(bgp->update_delay_begin_time);
-                              json_object_object_add(json, "update-delay-first-neighbor", json_string);
-
-                              json_string = json_object_new_string(bgp->update_delay_end_time);
-                              json_object_object_add(json, "update-delay-bestpath-resumed", json_string);
-
-                              json_string = json_object_new_string(bgp->update_delay_zebra_resume_time);
-                              json_object_object_add(json, "update-delay-zebra-update-resume", json_string);
-
-                              json_string = json_object_new_string(bgp->update_delay_peers_resume_time);
-                              json_object_object_add(json, "update-delay-peer-update-resume", json_string);
+                              json_object_string_add(json, "update-delay-first-neighbor",
+                                                     bgp->update_delay_begin_time);
+                              json_object_string_add(json, "update-delay-bestpath-resumed",
+                                                     bgp->update_delay_end_time);
+                              json_object_string_add(json, "update-delay-zebra-update-resume",
+                                                     bgp->update_delay_zebra_resume_time);
+                              json_object_string_add(json, "update-delay-peer-update-resume",
+                                                     bgp->update_delay_peers_resume_time);
                             }
                         }
                     }
@@ -8568,43 +8553,34 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
               if (use_json)
                 {
                   if (bgp_maxmed_onstartup_configured(bgp) && bgp->maxmed_active)
-                    json_object_object_add(json, "max-med-on-startup", json_boolean_true);
+                    json_object_boolean_true_add(json, "max-med-on-startup");
                   if (bgp->v_maxmed_admin)
-                    json_object_object_add(json, "max-med-administrative", json_boolean_true);
+                    json_object_boolean_true_add(json, "max-med-administrative");
 
-                  json_int = json_object_new_int(bgp_table_version(bgp->rib[afi][safi]));
-                  json_object_object_add(json, "table-version", json_int);
+                  json_object_int_add(json, "table-version", bgp_table_version(bgp->rib[afi][safi]));
 
                   ents = bgp_table_count (bgp->rib[afi][safi]);
-                  json_int = json_object_new_int(ents);
-                  json_object_object_add(json, "rib-count", json_int);
-                  json_int = json_object_new_int(ents * sizeof (struct bgp_node));
-                  json_object_object_add(json, "rib-memory", json_int);
+                  json_object_int_add(json, "rib-count", ents);
+                  json_object_int_add(json, "rib-memory", ents * sizeof (struct bgp_node));
 
                   ents = listcount (bgp->peer);
-                  json_int = json_object_new_int(ents);
-                  json_object_object_add(json, "peer-count", json_int);
-                  json_int = json_object_new_int(ents * sizeof (struct peer));
-                  json_object_object_add(json, "peer-memory", json_int);
+                  json_object_int_add(json, "peer-count", ents);
+                  json_object_int_add(json, "peer-memory", ents * sizeof (struct peer));
 
                   if ((ents = listcount (bgp->rsclient)))
                     {
-                      json_int = json_object_new_int(ents);
-                      json_object_object_add(json, "rsclient-count", json_int);
-                      json_int = json_object_new_int(ents * sizeof (struct peer));
-                      json_object_object_add(json, "rsclient-memory", json_int);
+                      json_object_int_add(json, "rsclient-count", ents);
+                      json_object_int_add(json, "rsclient-memory", ents * sizeof (struct peer));
                     }
 
                   if ((ents = listcount (bgp->group)))
                     {
-                      json_int = json_object_new_int(ents);
-                      json_object_object_add(json, "peer-group-count", json_int);
-                      json_int = json_object_new_int(ents * sizeof (struct peer_group));
-                      json_object_object_add(json, "peer-group-memory", json_int);
+                      json_object_int_add(json, "peer-group-count", ents);
+                      json_object_int_add(json, "peer-group-memory", ents * sizeof (struct peer_group));
                     }
 
                   if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
-                    json_object_object_add(json, "dampening-enabled", json_boolean_true);
+                    json_object_boolean_true_add(json, "dampening-enabled");
                 }
               else
                 {
@@ -8657,69 +8633,48 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
               json_peer = json_object_new_object();
 
               if (peer_dynamic_neighbor(peer))
-                json_object_object_add(json_peer, "dynamic-peer", json_boolean_true);
-
-              json_string = json_object_new_string(peer->host);
-              json_object_object_add(json_peer, "peer-id", json_string);
+                json_object_boolean_true_add(json_peer, "dynamic-peer");
 
 	      if (peer->hostname)
-		{
-		  json_string = json_object_new_string(peer->hostname);
-		  json_object_object_add(json_peer, "hostname", json_string);
-		}
+                json_object_string_add(json_peer, "hostname", peer->hostname);
 
 	      if (peer->domainname)
-		{
-		  json_string = json_object_new_string(peer->domainname);
-		  json_object_object_add(json_peer, "domainname", json_string);
-		}
+                json_object_string_add(json_peer, "domainname", peer->domainname);
 
-              json_int = json_object_new_int(peer->as);
-              json_object_object_add(json_peer, "remote-as", json_int);
+              json_object_int_add(json_peer, "remote-as", peer->as);
+              json_object_int_add(json_peer, "version", 4);
+              json_object_int_add(json_peer, "msgrcvd",
+                                  peer->open_in + peer->update_in + peer->keepalive_in
+                                  + peer->notify_in + peer->refresh_in
+                                  + peer->dynamic_cap_in);
+              json_object_int_add(json_peer, "msgsent",
+                                  peer->open_out + peer->update_out + peer->keepalive_out
+                                  + peer->notify_out + peer->refresh_out
+                                  + peer->dynamic_cap_out);
 
-              json_int = json_object_new_int(4);
-              json_object_object_add(json_peer, "version", json_int);
-
-              json_int = json_object_new_int(peer->open_in + peer->update_in + peer->keepalive_in
-                                             + peer->notify_in + peer->refresh_in
-                                             + peer->dynamic_cap_in);
-              json_object_object_add(json_peer, "msgrcvd", json_int);
-
-              json_int = json_object_new_int(peer->open_out + peer->update_out + peer->keepalive_out
-                                             + peer->notify_out + peer->refresh_out
-                                             + peer->dynamic_cap_out);
-              json_object_object_add(json_peer, "msgsent", json_int);
-
-              json_int = json_object_new_int(peer->version[afi][safi]);
-              json_object_object_add(json_peer, "table-version", json_int);
-
-              json_int = json_object_new_int(peer->obuf->count);
-              json_object_object_add(json_peer, "outq", json_int);
-
-              json_int = json_object_new_int(0);
-              json_object_object_add(json_peer, "inq", json_int);
-
-              json_string = json_object_new_string(peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
-              json_object_object_add(json_peer, "uptime", json_string);
-
-              json_int = json_object_new_int(peer->pcount[afi][safi]);
-              json_object_object_add(json_peer, "prefix-received-count", json_int);
-
-              json_int = json_object_new_int(bgp_adj_out_count(peer, afi, safi));
-              json_object_object_add(json_peer, "prefix-advertised-count", json_int);
+              json_object_int_add(json_peer, "table-version", peer->version[afi][safi]);
+              json_object_int_add(json_peer, "outq", peer->obuf->count);
+              json_object_int_add(json_peer, "inq", 0);
+              json_object_string_add(json_peer, "uptime",
+                                     peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
+              json_object_int_add(json_peer, "prefix-received-count", peer->pcount[afi][safi]);
+              json_object_int_add(json_peer, "prefix-advertised-count", bgp_adj_out_count(peer, afi, safi));
 
               if (CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN))
-                json_string = json_object_new_string("Idle (Admin)");
-
+                json_object_string_add(json_peer, "state", "Idle (Admin)");
               else if (CHECK_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
-                json_string = json_object_new_string("Idle (PfxCt)");
-
+                json_object_string_add(json_peer, "state", "Idle (PfxCt)");
               else
-                json_string = json_object_new_string(LOOKUP(bgp_status_msg, peer->status));
+                json_object_string_add(json_peer, "state", LOOKUP(bgp_status_msg, peer->status));
 
-              json_object_object_add(json_peer, "state", json_string);
+              if (peer->conf_if)
+                json_object_string_add(json_peer, "id-type", "interface");
+              else if (peer->su.sa.sa_family == AF_INET)
+                json_object_string_add(json_peer, "id-type", "ipv4");
+              else if (peer->su.sa.sa_family == AF_INET6)
+                json_object_string_add(json_peer, "id-type", "ipv6");
 
-              json_object_array_add(json_peers, json_peer);
+              json_object_object_add(json_peers, peer->host, json_peer);
             }
           else
             {
@@ -8756,7 +8711,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                        0,
                        peer->obuf->count);
 
-              vty_out (vty, "%8s",
+              vty_out (vty, "%-8s",
                        peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
 
               if (peer->status == Established)
@@ -8779,16 +8734,11 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
     {
       json_object_object_add(json, "peers", json_peers);
 
-      json_int = json_object_new_int(count);
-      json_object_object_add(json, "total-peers", json_int);
-
-      json_int = json_object_new_int(dn_count);
-      json_object_object_add(json, "dynamic-peers", json_int);
+      json_object_int_add(json, "total-peers", count);
+      json_object_int_add(json, "dynamic-peers", dn_count);
 
       vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
-
-      // Recursively free all json structures
-      json_object_put(json);
+      json_object_free(json);
     }
   else
     {

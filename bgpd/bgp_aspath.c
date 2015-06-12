@@ -99,6 +99,14 @@ assegment_data_new (int num)
   return (XMALLOC (MTYPE_AS_SEG_DATA, ASSEGMENT_DATA_SIZE (num, 1)));
 }
 
+const char *aspath_segment_type_str[] = {
+  "as-invalid",
+  "as-set",
+  "as-sequence",
+  "as-confed-sequence",
+  "as-confed-set"
+};
+
 /* Get a new segment. Note that 0 is an allowed length,
  * and will result in a segment with no allocated data segment.
  * the caller should immediately assign data to the segment, as the segment
@@ -326,6 +334,13 @@ aspath_free (struct aspath *aspath)
     assegment_free_all (aspath->segments);
   if (aspath->str)
     XFREE (MTYPE_AS_STR, aspath->str);
+
+  if (aspath->json)
+    {
+      json_object_free(aspath->json);
+      aspath->json = NULL;
+    }
+
   XFREE (MTYPE_AS_PATH, aspath);
 }
 
@@ -500,10 +515,19 @@ aspath_make_str_count (struct aspath *as)
   int str_size;
   int len = 0;
   char *str_buf;
+  json_object *jaspath_segments = NULL;
+  json_object *jseg = NULL;
+  json_object *jseg_list = NULL;
+
+  as->json = json_object_new_object();
+  jaspath_segments = json_object_new_array();
 
   /* Empty aspath. */
   if (!as->segments)
     {
+      json_object_string_add(as->json, "string", "Local");
+      json_object_object_add(as->json, "segments", jaspath_segments);
+      json_object_int_add(as->json, "length", 0);
       as->str = XMALLOC (MTYPE_AS_STR, 1);
       as->str[0] = '\0';
       as->str_len = 0;
@@ -546,6 +570,8 @@ aspath_make_str_count (struct aspath *as)
             XFREE (MTYPE_AS_STR, str_buf);
             as->str = NULL;
             as->str_len = 0;
+            json_object_free(as->json);
+            as->json = NULL;
             return;
         }
       
@@ -571,15 +597,24 @@ aspath_make_str_count (struct aspath *as)
         len += snprintf (str_buf + len, str_size - len, 
 			 "%c", 
                          aspath_delimiter_char (seg->type, AS_SEG_START));
+
+      jseg_list = json_object_new_array();
       
       /* write out the ASNs, with their seperators, bar the last one*/
       for (i = 0; i < seg->length; i++)
         {
+          json_object_array_add(jseg_list, json_object_new_int(seg->as[i]));
+
           len += snprintf (str_buf + len, str_size - len, "%u", seg->as[i]);
           
           if (i < (seg->length - 1))
             len += snprintf (str_buf + len, str_size - len, "%c", seperator);
         }
+
+      jseg = json_object_new_object();
+      json_object_string_add(jseg, "type", aspath_segment_type_str[seg->type]);
+      json_object_object_add(jseg, "list", jseg_list);
+      json_object_array_add(jaspath_segments, jseg);
       
       if (seg->type != AS_SEQUENCE)
         len += snprintf (str_buf + len, str_size - len, "%c", 
@@ -596,6 +631,9 @@ aspath_make_str_count (struct aspath *as)
   as->str = str_buf;
   as->str_len = len;
 
+  json_object_string_add(as->json, "string", str_buf);
+  json_object_object_add(as->json, "segments", jaspath_segments);
+  json_object_int_add(as->json, "length", aspath_count_hops (as));
   return;
 }
 
@@ -604,6 +642,13 @@ aspath_str_update (struct aspath *as)
 {
   if (as->str)
     XFREE (MTYPE_AS_STR, as->str);
+
+  if (as->json)
+    {
+      json_object_free(as->json);
+      as->json = NULL;
+    }
+
   aspath_make_str_count (as);
 }
 
@@ -637,6 +682,7 @@ aspath_dup (struct aspath *aspath)
   struct aspath *new;
 
   new = XCALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
+  new->json = NULL;
 
   if (aspath->segments)
     new->segments = assegment_dup_all (aspath->segments);
@@ -675,6 +721,7 @@ aspath_hash_alloc (void *arg)
   new->segments = aspath->segments;
   new->str = aspath->str;
   new->str_len = aspath->str_len;
+  new->json = aspath->json;
 
   return new;
 }
@@ -1239,6 +1286,7 @@ aspath_remove_private_asns (struct aspath *aspath)
 
   new = XCALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
 
+  new->json = NULL;
   new_seg = NULL;
   last_new_seg = NULL;
   seg = aspath->segments;
@@ -1628,7 +1676,11 @@ aspath_reconcile_as4 ( struct aspath *aspath, struct aspath *as4path)
     }
   
   if (!hops)
-   return aspath_dup (as4path);
+    {
+      newpath = aspath_dup (as4path);
+      aspath_str_update(newpath);
+      return newpath;
+    }
   
   if ( BGP_DEBUG(as4, AS4))
     zlog_debug("[AS4] got AS_PATH %s and AS4_PATH %s synthesizing now",

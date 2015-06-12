@@ -19,7 +19,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include <zebra.h>
-#include <json/json.h>
 
 #include "prefix.h"
 #include "linklist.h"
@@ -6509,44 +6508,41 @@ static void
 route_vty_short_status_out (struct vty *vty, struct bgp_info *binfo,
                             json_object *json_path)
 {
-  json_object *json_boolean_true;
-
   if (json_path)
     {
-      json_boolean_true = json_object_new_boolean(1);
 
       /* Route status display. */
       if (CHECK_FLAG (binfo->flags, BGP_INFO_REMOVED))
-        json_object_object_add(json_path, "removed", json_boolean_true);
+        json_object_boolean_true_add(json_path, "removed");
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_STALE))
-        json_object_object_add(json_path, "stale", json_boolean_true);
+        json_object_boolean_true_add(json_path, "stale");
 
       if (binfo->extra && binfo->extra->suppress)
-        json_object_object_add(json_path, "suppressed", json_boolean_true);
+        json_object_boolean_true_add(json_path, "suppressed");
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_VALID) &&
                ! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-        json_object_object_add(json_path, "valid", json_boolean_true);
+        json_object_boolean_true_add(json_path, "valid");
 
       /* Selected */
       if (CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-        json_object_object_add(json_path, "history", json_boolean_true);
+        json_object_boolean_true_add(json_path, "history");
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
-        json_object_object_add(json_path, "damped", json_boolean_true);
+        json_object_boolean_true_add(json_path, "damped");
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED))
-        json_object_object_add(json_path, "bestpath", json_boolean_true);
+        json_object_boolean_true_add(json_path, "bestpath");
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_MULTIPATH))
-        json_object_object_add(json_path, "multipath", json_boolean_true);
+        json_object_boolean_true_add(json_path, "multipath");
 
       /* Internal route. */
       if ((binfo->peer->as) && (binfo->peer->as == binfo->peer->local_as))
-        json_object_object_add(json_path, "internal", json_boolean_true);
+        json_object_string_add(json_path, "path-from", "internal");
       else
-        json_object_object_add(json_path, "external", json_boolean_true);
+        json_object_string_add(json_path, "path-from", "external");
 
       return;
     }
@@ -6590,14 +6586,13 @@ route_vty_out (struct vty *vty, struct prefix *p,
                json_object *json_paths)
 {
   struct attr *attr;
-  json_object *json_path;
-  json_object *json_int;
-  json_object *json_string;
+  json_object *json_path = NULL;
+  json_object *json_nexthops = NULL;
+  json_object *json_nexthop_global = NULL;
+  json_object *json_nexthop_ll = NULL;
 
   if (json_paths)
     json_path = json_object_new_object();
-  else
-    json_path = NULL;
 
   /* short status lead text */
   route_vty_short_status_out (vty, binfo, json_path);
@@ -6622,16 +6617,15 @@ route_vty_out (struct vty *vty, struct prefix *p,
 	{
           if (json_paths)
             {
+              json_nexthop_global = json_object_new_object();
+
 	      if (safi == SAFI_MPLS_VPN)
-                {
-                  json_string = json_object_new_string(inet_ntoa (attr->extra->mp_nexthop_global_in));
-                  json_object_object_add(json_path, "nexthop-global", json_string);
-                }
+                json_object_string_add(json_nexthop_global, "ip", inet_ntoa (attr->extra->mp_nexthop_global_in));
               else
-                {
-                  json_string = json_object_new_string(inet_ntoa (attr->nexthop));
-                  json_object_object_add(json_path, "nexthop-global", json_string);
-                }
+                json_object_string_add(json_nexthop_global, "ip", inet_ntoa (attr->nexthop));
+
+              json_object_string_add(json_nexthop_global, "afi", "ipv4");
+              json_object_boolean_true_add(json_nexthop_global, "used");
             }
           else
             {
@@ -6652,8 +6646,33 @@ route_vty_out (struct vty *vty, struct prefix *p,
 
           if (json_paths)
             {
-              json_string = json_object_new_string(inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global, buf, BUFSIZ));
-              json_object_object_add(json_path, "nexthop-global", json_string);
+              json_nexthop_global = json_object_new_object();
+              json_object_string_add(json_nexthop_global, "ip",
+                                     inet_ntop (AF_INET6,
+                                                &attr->extra->mp_nexthop_global,
+                                                buf, BUFSIZ));
+              json_object_string_add(json_nexthop_global, "afi", "ipv6");
+              json_object_string_add(json_nexthop_global, "scope", "global");
+
+              /* We display both LL & GL if both have been received */
+              if ((attr->extra->mp_nexthop_len == 32) || (binfo->peer->conf_if))
+                {
+                  json_nexthop_ll = json_object_new_object();
+                  json_object_string_add(json_nexthop_ll, "ip",
+                                         inet_ntop (AF_INET6,
+                                                    &attr->extra->mp_nexthop_local,
+                                                    buf, BUFSIZ));
+                  json_object_string_add(json_nexthop_ll, "afi", "ipv6");
+                  json_object_string_add(json_nexthop_ll, "scope", "link-local");
+
+                  if (IPV6_ADDR_CMP (&attr->extra->mp_nexthop_global,
+                                     &attr->extra->mp_nexthop_local) != 0)
+                    json_object_boolean_true_add(json_nexthop_ll, "used");
+                  else
+                    json_object_boolean_true_add(json_nexthop_global, "used");
+                }
+              else
+                json_object_boolean_true_add(json_nexthop_global, "used");
             }
           else
             {
@@ -6672,10 +6691,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
       /* MED/Metric */
       if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
         if (json_paths)
-          {
-            json_int = json_object_new_int(attr->med);
-            json_object_object_add(json_path, "med", json_int);
-          }
+          json_object_int_add(json_path, "med", attr->med);
         else
 	  vty_out (vty, "%10u", attr->med);
       else
@@ -6685,10 +6701,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
       /* Local Pref */
       if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))
         if (json_paths)
-          {
-            json_int = json_object_new_int(attr->local_pref);
-            json_object_object_add(json_path, "localpref", json_int);
-          }
+          json_object_int_add(json_path, "localpref", attr->local_pref);
         else
 	  vty_out (vty, "%7u", attr->local_pref);
       else
@@ -6698,11 +6711,9 @@ route_vty_out (struct vty *vty, struct prefix *p,
       if (json_paths)
         {
           if (attr->extra)
-            json_int = json_object_new_int(attr->extra->weight);
+            json_object_int_add(json_path, "weight", attr->extra->weight);
           else
-            json_int = json_object_new_int(0);
-
-          json_object_object_add(json_path, "weight", json_int);
+            json_object_int_add(json_path, "weight", 0);
         }
       else
         vty_out (vty, "%7u ", (attr->extra ? attr->extra->weight : 0));
@@ -6711,31 +6722,35 @@ route_vty_out (struct vty *vty, struct prefix *p,
       if (attr->aspath)
         {
           if (json_paths)
-            {
-	      if (!attr->aspath->str || !attr->aspath->segments)
-                json_string = json_object_new_string("Local");
-              else
-                json_string = json_object_new_string(attr->aspath->str);
-              json_object_object_add(json_path, "aspath", json_string);
-            }
+            json_object_string_add(json_path, "aspath", attr->aspath->str);
           else
-            {
-              aspath_print_vty (vty, "%s", attr->aspath, " ");
-            }
+            aspath_print_vty (vty, "%s", attr->aspath, " ");
         }
 
       /* Print origin */
       if (json_paths)
-        {
-          json_string = json_object_new_string(bgp_origin_str[attr->origin]);
-          json_object_object_add(json_path, "origin", json_string);
-        }
+        json_object_string_add(json_path, "origin", bgp_origin_long_str[attr->origin]);
       else
         vty_out (vty, "%s", bgp_origin_str[attr->origin]);
     }
 
   if (json_paths)
-    json_object_array_add(json_paths, json_path);
+    {
+      if (json_nexthop_global || json_nexthop_ll)
+        {
+          json_nexthops = json_object_new_array();
+
+          if (json_nexthop_global)
+            json_object_array_add(json_nexthops, json_nexthop_global);
+
+          if (json_nexthop_ll)
+            json_object_array_add(json_nexthops, json_nexthop_ll);
+
+          json_object_object_add(json_path, "nexthops", json_nexthops);
+        }
+
+      json_object_array_add(json_paths, json_path);
+    }
   else
     vty_out (vty, "%s", VTY_NEWLINE);
 }  
@@ -6981,19 +6996,23 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 #ifdef HAVE_CLOCK_MONOTONIC
   time_t tbuf;
 #endif
-  json_object *json_int;
-  json_object *json_string;
-  json_object *json_path = NULL;
-  json_object *json_boolean_false;
-  json_object *json_boolean_true = NULL;
+  json_object *json_bestpath = NULL;
   json_object *json_cluster_list = NULL;
+  json_object *json_cluster_list_list = NULL;
+  json_object *json_ext_community = NULL;
+  json_object *json_last_update = NULL;
+  json_object *json_nexthop_global = NULL;
+  json_object *json_nexthop_ll = NULL;
+  json_object *json_nexthops = NULL;
+  json_object *json_path = NULL;
+  json_object *json_peer = NULL;
+  json_object *json_string = NULL;
 
   if (json_paths)
     {
       json_path = json_object_new_object();
-      json_boolean_false = json_object_new_boolean(0);
-      json_boolean_true = json_object_new_boolean(1);
-      json_cluster_list = json_object_new_array();
+      json_peer = json_object_new_object();
+      json_nexthop_global = json_object_new_object();
     }
 
   attr = binfo->attr;
@@ -7003,32 +7022,24 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       /* Line1 display AS-path, Aggregator */
       if (attr->aspath)
 	{
-          if (!json_paths)
-	    vty_out (vty, "  ");
-
-          if (!attr->aspath->segments)
+          if (json_paths)
+           {
+            json_object_lock(attr->aspath->json);
+            json_object_object_add(json_path, "aspath", attr->aspath->json);
+           }
+          else
             {
-              if (json_paths)
-                json_string = json_object_new_string("Local");
+              if (attr->aspath->segments)
+                aspath_print_vty (vty, "  %s", attr->aspath, "");
               else
-	        vty_out (vty, "Local");
+                vty_out (vty, "  Local");
             }
-	  else
-            {
-              if (json_paths)
-                json_string = json_object_new_string(attr->aspath->str);
-              else
-	        aspath_print_vty (vty, "%s", attr->aspath, "");
-            }
-
-            if (json_paths)
-              json_object_object_add(json_path, "aspath", json_string);
 	}
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_REMOVED))
         {
           if (json_paths)
-            json_object_object_add(json_path, "removed", json_boolean_true);
+            json_object_boolean_true_add(json_path, "removed");
           else
             vty_out (vty, ", (removed)");
         }
@@ -7036,7 +7047,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->flags, BGP_INFO_STALE))
         {
           if (json_paths)
-            json_object_object_add(json_path, "stale", json_boolean_true);
+            json_object_boolean_true_add(json_path, "stale");
           else
 	    vty_out (vty, ", (stale)");
         }
@@ -7045,10 +7056,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         {
           if (json_paths)
             {
-              json_int = json_object_new_int(attr->extra->aggregator_as);
-              json_string = json_object_new_string(inet_ntoa (attr->extra->aggregator_addr));
-              json_object_object_add(json_path, "aggregator-as", json_int);
-              json_object_object_add(json_path, "aggregator-id", json_string);
+              json_object_int_add(json_path, "aggregator-as", attr->extra->aggregator_as);
+              json_object_string_add(json_path, "aggregator-id", inet_ntoa (attr->extra->aggregator_addr));
             }
           else
             {
@@ -7061,7 +7070,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
         {
           if (json_paths)
-            json_object_object_add(json_path, "rxed-from-rr-client", json_boolean_true);
+            json_object_boolean_true_add(json_path, "rxed-from-rr-client");
           else
 	    vty_out (vty, ", (Received from a RR-client)");
         }
@@ -7069,7 +7078,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
         {
           if (json_paths)
-            json_object_object_add(json_path, "rxed-from-rs-client", json_boolean_true);
+            json_object_boolean_true_add(json_path, "rxed-from-rs-client");
           else
 	    vty_out (vty, ", (Received from a RS-client)");
         }
@@ -7077,14 +7086,14 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
         {
           if (json_paths)
-            json_object_object_add(json_path, "dampening-history-entry", json_boolean_true);
+            json_object_boolean_true_add(json_path, "dampening-history-entry");
           else
 	    vty_out (vty, ", (history entry)");
         }
       else if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
         {
           if (json_paths)
-            json_object_object_add(json_path, "dampening-suppressed", json_boolean_true);
+            json_object_boolean_true_add(json_path, "dampening-suppressed");
           else
 	    vty_out (vty, ", (suppressed due to dampening)");
         }
@@ -7093,26 +7102,27 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         vty_out (vty, "%s", VTY_NEWLINE);
 	  
       /* Line2 display Next-hop, Neighbor, Router-id */
+      /* Display the nexthop */
       if (p->family == AF_INET
           && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
           if (safi == SAFI_MPLS_VPN)
             {
               if (json_paths)
-                json_string = json_object_new_string(inet_ntoa (attr->extra->mp_nexthop_global_in));
+                json_object_string_add(json_nexthop_global, "ip", inet_ntoa (attr->extra->mp_nexthop_global_in));
               else
 	        vty_out (vty, "    %s", inet_ntoa (attr->extra->mp_nexthop_global_in));
             }
           else
             {
               if (json_paths)
-                json_string = json_object_new_string(inet_ntoa (attr->nexthop));
+                json_object_string_add(json_nexthop_global, "ip", inet_ntoa (attr->nexthop));
               else
 	        vty_out (vty, "    %s", inet_ntoa (attr->nexthop));
             }
 
           if (json_paths)
-            json_object_object_add(json_path, "nexthop-global", json_string);
+            json_object_string_add(json_nexthop_global, "afi", "ipv4");
 	}
 #ifdef HAVE_IPV6
       else
@@ -7120,9 +7130,11 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	  assert (attr->extra);
           if (json_paths)
             {
-              json_string = json_object_new_string(inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global,
-                                                          buf, INET6_ADDRSTRLEN));
-              json_object_object_add(json_path, "nexthop-global", json_string);
+              json_object_string_add(json_nexthop_global, "ip",
+                                     inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global,
+                                                buf, INET6_ADDRSTRLEN));
+              json_object_string_add(json_nexthop_global, "afi", "ipv6");
+              json_object_string_add(json_nexthop_global, "scope", "global");
             }
           else
             {
@@ -7133,119 +7145,105 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	}
 #endif /* HAVE_IPV6 */
 
+
+      /* Display the IGP cost or 'inaccessible' */
+      if (! CHECK_FLAG (binfo->flags, BGP_INFO_VALID))
+        {
+          if (json_paths)
+            json_object_boolean_false_add(json_nexthop_global, "accessible");
+          else
+            vty_out (vty, " (inaccessible)");
+        }
+      else
+        {
+          if (binfo->extra && binfo->extra->igpmetric)
+            {
+              if (json_paths)
+                json_object_int_add(json_nexthop_global, "metric", binfo->extra->igpmetric);
+              else
+                vty_out (vty, " (metric %u)", binfo->extra->igpmetric);
+            }
+
+          /* IGP cost is 0, display this only for json */
+          else
+            {
+              if (json_paths)
+                json_object_int_add(json_nexthop_global, "metric", 0);
+            }
+
+          if (json_paths)
+            json_object_boolean_true_add(json_nexthop_global, "accessible");
+        }
+
+      /* Display peer "from" output */
+      /* This path was originated locally */
       if (binfo->peer == bgp->peer_self)
 	{
 
           if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
             {
               if (json_paths)
-                json_string = json_object_new_string("0.0.0.0");
+                json_object_string_add(json_peer, "peer-id", "0.0.0.0");
               else
 	        vty_out (vty, " from 0.0.0.0 ");
             }
           else
             {
               if (json_paths)
-                json_string = json_object_new_string("::");
+                json_object_string_add(json_peer, "peer-id", "::");
               else
 	        vty_out (vty, " from :: ");
             }
 
           if (json_paths)
-            {
-              json_object_object_add(json_path, "peer-id", json_string);
-              json_string = json_object_new_string(inet_ntoa(bgp->router_id));
-              json_object_object_add(json_path, "peer-router-id", json_string);
-              json_object_object_add(json_path, "nexthop-global-accessible",
-                                     json_boolean_true);
-            }
+            json_object_string_add(json_peer, "router-id", inet_ntoa(bgp->router_id));
           else
-            {
-	      vty_out (vty, "(%s)", inet_ntoa(bgp->router_id));
-            }
+	    vty_out (vty, "(%s)", inet_ntoa(bgp->router_id));
 	}
+
+      /* We RXed this path from one of our peers */
       else
 	{
-	  if (! CHECK_FLAG (binfo->flags, BGP_INFO_VALID))
-            {
-              if (json_paths)
-                json_object_object_add(json_path, "nexthop-global-accessible", json_boolean_false);
-              else
-	        vty_out (vty, " (inaccessible)");
-            }
-	  else if (binfo->extra && binfo->extra->igpmetric)
-            {
-              if (json_paths)
-                {
-                  json_int = json_object_new_int(binfo->extra->igpmetric);
-                  json_object_object_add(json_path, "nexthop-global-igp-cost", json_int);
-                  json_object_object_add(json_path, "nexthop-global-accessible", json_boolean_true);
-                }
-              else
-                {
-	          vty_out (vty, " (metric %u)", binfo->extra->igpmetric);
-                }
-            }
-
-          /* IGP cost to nexthop is 0 */
-          else
-            if (json_paths)
-              json_object_object_add(json_path, "nexthop-global-accessible", json_boolean_true);
 
           if (json_paths)
             {
-              json_string = json_object_new_string(sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
-              json_object_object_add(json_path, "peer-id", json_string);
-	      if (binfo->peer->hostname)
-		{
-		  json_string = json_object_new_string(binfo->peer->hostname);
-		  json_object_object_add(json_path, "peer-hostname", json_string);
-		}
-	      if (binfo->peer->domainname)
-		{
-		  json_string = json_object_new_string(binfo->peer->domainname);
-		  json_object_object_add(json_path, "peer-domainname", json_string);
-		}
+              json_object_string_add(json_peer, "peer-id", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
+              json_object_string_add(json_peer, "router-id", inet_ntop (AF_INET, &binfo->peer->remote_id, buf1, BUFSIZ));
+
+              if (binfo->peer->hostname)
+                json_object_string_add(json_peer, "hostname", binfo->peer->hostname);
+
+              if (binfo->peer->domainname)
+                json_object_string_add(json_peer, "domainname", binfo->peer->domainname);
+
               if (binfo->peer->conf_if)
-                {
-                  json_string = json_object_new_string(binfo->peer->conf_if);
-                  json_object_object_add(json_path, "peer-interface", json_string);
-                }
+                json_object_string_add(json_peer, "interface", binfo->peer->conf_if);
             }
           else
             {
               if (binfo->peer->conf_if)
-		{
-		  if (binfo->peer->hostname &&
-		      bgp_flag_check(binfo->peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
-		    vty_out (vty, " from %s(%s)", binfo->peer->hostname,
-			     binfo->peer->conf_if);
-		  else
-		    vty_out (vty, " from %s", binfo->peer->conf_if);
-		}
+                {
+                  if (binfo->peer->hostname &&
+                      bgp_flag_check(binfo->peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
+                    vty_out (vty, " from %s(%s)", binfo->peer->hostname,
+                             binfo->peer->conf_if);
+                  else
+                    vty_out (vty, " from %s", binfo->peer->conf_if);
+                }
               else
-		{
-		  if (binfo->peer->hostname &&
-		      bgp_flag_check(binfo->peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
-		    vty_out (vty, " from %s(%s)", binfo->peer->hostname,
-			     binfo->peer->host);
-		  else
-		    vty_out (vty, " from %s", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
-		}
+                {
+                  if (binfo->peer->hostname &&
+                      bgp_flag_check(binfo->peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
+                    vty_out (vty, " from %s(%s)", binfo->peer->hostname,
+                             binfo->peer->host);
+                  else
+                    vty_out (vty, " from %s", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
+                }
 
-	      if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
-	        vty_out (vty, " (%s)", inet_ntoa (attr->extra->originator_id));
-	      else
-	        vty_out (vty, " (%s)", inet_ntop (AF_INET, &binfo->peer->remote_id, buf1, BUFSIZ));
-            }
-
-          /* Always encode the peer's router-id in the json output.  We will
-           * include the originator-id later if this is a reflected route.
-           */
-          if (json_paths)
-            {
-              json_string = json_object_new_string(inet_ntop (AF_INET, &binfo->peer->remote_id, buf1, BUFSIZ));
-              json_object_object_add(json_path, "peer-router-id", json_string);
+              if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+                vty_out (vty, " (%s)", inet_ntoa (attr->extra->originator_id));
+              else
+                vty_out (vty, " (%s)", inet_ntop (AF_INET, &binfo->peer->remote_id, buf1, BUFSIZ));
             }
 	}
 
@@ -7253,16 +7251,20 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         vty_out (vty, "%s", VTY_NEWLINE);
 
 #ifdef HAVE_IPV6
-      /* display nexthop local */
+      /* display the link-local nexthop */
       if (attr->extra && attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 	{
           if (json_paths)
             {
-              json_string = json_object_new_string(inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local,
-                                                              buf, INET6_ADDRSTRLEN));
-              json_object_object_add(json_path, "nexthop-local", json_string);
-              json_object_object_add(json_path, "nexthop-local-accessible", json_boolean_true);
-              json_object_object_add(json_path, "nexthop-local-used", json_boolean_true);
+              json_nexthop_ll = json_object_new_object();
+              json_object_string_add(json_nexthop_ll, "ip",
+                                     inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local,
+                                                buf, INET6_ADDRSTRLEN));
+              json_object_string_add(json_nexthop_ll, "afi", "ipv6");
+              json_object_string_add(json_nexthop_ll, "scope", "link-local");
+
+              json_object_boolean_true_add(json_nexthop_ll, "accessible");
+              json_object_boolean_true_add(json_nexthop_ll, "used");
             }
           else
             {
@@ -7272,152 +7274,108 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 		       VTY_NEWLINE);
             }
 	}
+      /* If we do not have a link-local nexthop then we must flag the global as "used" */
+      else
+        {
+          if (json_paths)
+            json_object_boolean_true_add(json_nexthop_global, "used");
+        }
 #endif /* HAVE_IPV6 */
 
       /* Line 3 display Origin, Med, Locpref, Weight, Tag, valid, Int/Ext/Local, Atomic, best */
       if (json_paths)
-        {
-          json_string = json_object_new_string(bgp_origin_long_str[attr->origin]);
-          json_object_object_add(json_path, "origin", json_string);
-        }
+        json_object_string_add(json_path, "origin", bgp_origin_long_str[attr->origin]);
       else
-        {
-          vty_out (vty, "      Origin %s", bgp_origin_long_str[attr->origin]);
-        }
+        vty_out (vty, "      Origin %s", bgp_origin_long_str[attr->origin]);
 	  
       if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
         {
           if (json_paths)
-            {
-              json_int = json_object_new_int(attr->med);
-              json_object_object_add(json_path, "med", json_int);
-            }
+            json_object_int_add(json_path, "med", attr->med);
           else
-            {
-	      vty_out (vty, ", metric %u", attr->med);
-            }
+	    vty_out (vty, ", metric %u", attr->med);
         }
 	  
       if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
         {
           if (json_paths)
-            {
-              json_int = json_object_new_int(attr->local_pref);
-              json_object_object_add(json_path, "localpref", json_int);
-            }
+            json_object_int_add(json_path, "localpref", attr->local_pref);
           else
-            {
-	      vty_out (vty, ", localpref %u", attr->local_pref);
-            }
+	    vty_out (vty, ", localpref %u", attr->local_pref);
         }
       else
         {
           if (json_paths)
-            {
-              json_int = json_object_new_int(bgp->default_local_pref);
-              json_object_object_add(json_path, "localpref", json_int);
-            }
+            json_object_int_add(json_path, "localpref", bgp->default_local_pref);
           else
-            {
-	      vty_out (vty, ", localpref %u", bgp->default_local_pref);
-            }
+	    vty_out (vty, ", localpref %u", bgp->default_local_pref);
         }
 
       if (attr->extra && attr->extra->weight != 0)
         {
           if (json_paths)
-            {
-              json_int = json_object_new_int(attr->extra->weight);
-              json_object_object_add(json_path, "weight", json_int);
-            }
+            json_object_int_add(json_path, "weight", attr->extra->weight);
           else
-            {
-	      vty_out (vty, ", weight %u", attr->extra->weight);
-            }
+	    vty_out (vty, ", weight %u", attr->extra->weight);
         }
 
       if (attr->extra && attr->extra->tag != 0)
         {
           if (json_paths)
-            {
-              json_int = json_object_new_int(attr->extra->tag);
-              json_object_object_add(json_path, "tag", json_int);
-            }
+            json_object_int_add(json_path, "tag", attr->extra->tag);
           else
-            {
-              vty_out (vty, ", tag %d", attr->extra->tag);
-            }
+            vty_out (vty, ", tag %d", attr->extra->tag);
         }
 	
       if (! CHECK_FLAG (binfo->flags, BGP_INFO_VALID))
         {
           if (json_paths)
-            json_object_object_add(json_path, "valid", json_boolean_false);
+            json_object_boolean_false_add(json_path, "valid");
           else
 	    vty_out (vty, ", invalid");
         }
       else if (! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
         {
           if (json_paths)
-            json_object_object_add(json_path, "valid", json_boolean_true);
+            json_object_boolean_true_add(json_path, "valid");
           else
 	    vty_out (vty, ", valid");
         }
 
       if (binfo->peer != bgp->peer_self)
 	{
-	  if (binfo->peer->as == binfo->peer->local_as)
+          if (binfo->peer->as == binfo->peer->local_as)
             {
               if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
                 {
                   if (json_paths)
-                    {
-                      json_string = json_object_new_string("confed-internal");
-                      json_object_object_add(json_path, "peer-type", json_string);
-                    }
+                    json_object_string_add(json_peer, "type", "confed-internal");
                   else
-                    {
-                      vty_out (vty, ", confed-internal");
-                    }
+                    vty_out (vty, ", confed-internal");
                 }
               else
                 {
                   if (json_paths)
-                    {
-                      json_string = json_object_new_string("internal");
-                      json_object_object_add(json_path, "peer-type", json_string);
-                    }
+                    json_object_string_add(json_peer, "type", "internal");
                   else
-                    {
-                      vty_out (vty, ", internal");
-                    }
+                    vty_out (vty, ", internal");
                 }
             }
-	  else
+          else
             {
               if (bgp_confederation_peers_check(bgp, binfo->peer->as))
                 {
                   if (json_paths)
-                    {
-                      json_string = json_object_new_string("confed-external");
-                      json_object_object_add(json_path, "peer-type", json_string);
-                    }
+                    json_object_string_add(json_peer, "type", "confed-external");
                   else
-                    {
-	              vty_out (vty, ", confed-external");
-                    }
+                    vty_out (vty, ", confed-external");
                 }
               else
                 {
                   if (json_paths)
-                    {
-                      json_string = json_object_new_string("external");
-                      json_object_object_add(json_path, "peer-type", json_string);
-                    }
+                    json_object_string_add(json_peer, "type", "external");
                   else
-                    {
-	              vty_out (vty, ", external");
-                    }
+                    vty_out (vty, ", external");
                 }
             }
 	}
@@ -7425,8 +7383,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         {
           if (json_paths)
             {
-              json_object_object_add(json_path, "aggregated", json_boolean_true);
-              json_object_object_add(json_path, "local", json_boolean_true);
+              json_object_boolean_true_add(json_path, "aggregated");
+              json_object_boolean_true_add(json_path, "local");
             }
           else
             {
@@ -7436,7 +7394,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       else if (binfo->type != ZEBRA_ROUTE_BGP)
         {
           if (json_paths)
-            json_object_object_add(json_path, "sourced", json_boolean_true);
+            json_object_boolean_true_add(json_path, "sourced");
           else
 	    vty_out (vty, ", sourced");
         }
@@ -7444,8 +7402,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         {
           if (json_paths)
             {
-              json_object_object_add(json_path, "sourced", json_boolean_true);
-              json_object_object_add(json_path, "local", json_boolean_true);
+              json_object_boolean_true_add(json_path, "sourced");
+              json_object_boolean_true_add(json_path, "local");
             }
           else
             {
@@ -7456,7 +7414,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
         {
           if (json_paths)
-            json_object_object_add(json_path, "atomic-aggregate", json_boolean_true);
+            json_object_boolean_true_add(json_path, "atomic-aggregate");
           else
 	    vty_out (vty, ", atomic-aggregate");
         }
@@ -7466,7 +7424,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	   bgp_info_mpath_count (binfo)))
         {
           if (json_paths)
-            json_object_object_add(json_path, "multipath", json_boolean_true);
+            json_object_boolean_true_add(json_path, "multipath");
           else
 	    vty_out (vty, ", multipath");
         }
@@ -7474,7 +7432,11 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED))
         {
           if (json_paths)
-            json_object_object_add(json_path, "bestpath", json_boolean_true);
+            {
+              json_bestpath = json_object_new_object();
+              json_object_boolean_true_add(json_bestpath, "overall");
+              json_object_object_add(json_path, "bestpath", json_bestpath);
+            }
           else
 	    vty_out (vty, ", best");
         }
@@ -7487,8 +7449,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         {
           if (json_paths)
             {
-              json_string = json_object_new_string(attr->community->str);
-              json_object_object_add(json_path, "community", json_string);
+              json_object_lock(attr->community->json);
+              json_object_object_add(json_path, "community", attr->community->json);
             }
           else
             {
@@ -7502,8 +7464,9 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         {
           if (json_paths)
             {
-              json_string = json_object_new_string(attr->extra->ecommunity->str);
-              json_object_object_add(json_path, "extended-community", json_string);
+              json_ext_community = json_object_new_object();
+              json_object_string_add(json_ext_community, "string", attr->extra->ecommunity->str);
+              json_object_object_add(json_path, "extended-community", json_ext_community);
             }
           else
             {
@@ -7520,15 +7483,10 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	  if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
             {
               if (json_paths)
-                {
-                  json_string = json_object_new_string(inet_ntoa (attr->extra->originator_id));
-                  json_object_object_add(json_path, "originator-id", json_string);
-                }
+                json_object_string_add(json_path, "originator-id", inet_ntoa (attr->extra->originator_id));
               else
-                {
-	          vty_out (vty, "      Originator: %s",
-	                   inet_ntoa (attr->extra->originator_id));
-                }
+	        vty_out (vty, "      Originator: %s",
+	                 inet_ntoa (attr->extra->originator_id));
             }
 
 	  if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))
@@ -7537,11 +7495,21 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 
               if (json_paths)
                 {
+                  json_cluster_list = json_object_new_object();
+                  json_cluster_list_list = json_object_new_array();
+
 	          for (i = 0; i < attr->extra->cluster->length / 4; i++)
                     {
                       json_string = json_object_new_string(inet_ntoa (attr->extra->cluster->list[i]));
-                      json_object_array_add(json_cluster_list, json_string);
+                      json_object_array_add(json_cluster_list_list, json_string);
                     }
+
+                  /* struct cluster_list does not have "str" variable like
+                   * aspath and community do.  Add this someday if someone
+                   * asks for it.
+                  json_object_string_add(json_cluster_list, "string", attr->extra->cluster->str);
+                   */
+                  json_object_object_add(json_cluster_list, "list", json_cluster_list_list);
                   json_object_object_add(json_path, "cluster-list", json_cluster_list);
                 }
               else
@@ -7568,11 +7536,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         {
           if (json_paths)
             {
-              json_int = json_object_new_int(binfo->addpath_rx_id);
-              json_object_object_add(json_path, "addpath-rx-id", json_int);
-
-              json_int = json_object_new_int(binfo->addpath_tx_id);
-              json_object_object_add(json_path, "addpath-tx-id", json_int);
+              json_object_int_add(json_path, "addpath-rx-id", binfo->addpath_rx_id);
+              json_object_int_add(json_path, "addpath-tx-id", binfo->addpath_tx_id);
             }
           else
             {
@@ -7586,24 +7551,48 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 #ifdef HAVE_CLOCK_MONOTONIC
       tbuf = time(NULL) - (bgp_clock() - binfo->uptime);
       if (json_paths)
-        json_string = json_object_new_string(ctime(&tbuf));
+        {
+          json_last_update = json_object_new_object();
+          json_object_int_add(json_last_update, "epoch", tbuf);
+          json_object_string_add(json_last_update, "string", ctime(&tbuf));
+          json_object_object_add(json_path, "last-update", json_last_update);
+        }
       else
         vty_out (vty, "      Last update: %s", ctime(&tbuf));
 #else
       if (json_paths)
-        json_string = json_object_new_string(ctime(&binfo->uptime));
+        {
+          json_last_update = json_object_new_object();
+          json_object_int_add(json_last_update, "epoch", tbuf);
+          json_object_string_add(json_last_update, "string", ctime(&binfo->uptime));
+          json_object_object_add(json_path, "last-update", json_last_update);
+        }
       else
         vty_out (vty, "      Last update: %s", ctime(&binfo->uptime));
 #endif /* HAVE_CLOCK_MONOTONIC */
-      if (json_paths)
-        json_object_object_add(json_path, "last-update", json_string);
     }
 
   /* We've constructed the json object for this path, add it to the json
    * array of paths
    */
   if (json_paths)
-    json_object_array_add(json_paths, json_path);
+    {
+      if (json_nexthop_global || json_nexthop_ll)
+        {
+          json_nexthops = json_object_new_array();
+
+          if (json_nexthop_global)
+            json_object_array_add(json_nexthops, json_nexthop_global);
+
+          if (json_nexthop_ll)
+            json_object_array_add(json_nexthops, json_nexthop_ll);
+
+          json_object_object_add(json_path, "nexthops", json_nexthops);
+        }
+
+      json_object_object_add(json_path, "peer", json_peer);
+      json_object_array_add(json_paths, json_path);
+    }
   else
     vty_out (vty, "%s", VTY_NEWLINE);
 }
@@ -7653,21 +7642,15 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
   struct prefix *p;
   char buf[BUFSIZ];
   char buf2[BUFSIZ];
-  json_object *json;
-  json_object *json_int;
-  json_object *json_paths;
-  json_object *json_routes;
-  json_object *json_string;
+  json_object *json = NULL;
+  json_object *json_paths = NULL;
+  json_object *json_routes = NULL;
 
   if (use_json)
     {
       json = json_object_new_object();
-      json_int = json_object_new_int(table->version);
-      json_object_object_add(json, "table-version", json_int);
-
-      json_string = json_object_new_string(inet_ntoa (*router_id));
-      json_object_object_add(json, "router-id", json_string);
-
+      json_object_int_add(json, "table-version", table->version);
+      json_object_string_add(json, "router-id", inet_ntoa (*router_id));
       json_routes = json_object_new_object();
     }
 
@@ -7889,9 +7872,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
     {
       json_object_object_add(json, "routes", json_routes);
       vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
-
-      // Recursively free all json structures
-      json_object_put(json);
+      json_object_free(json);
     }
   else
     {
@@ -7951,20 +7932,15 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   int no_advertise = 0;
   int local_as = 0;
   int first = 0;
-  json_object *json_string;
-  json_object *json_int;
   json_object *json_adv_to = NULL;
+  json_object *json_peer = NULL;
 
   p = &rn->p;
 
   if (json)
     {
-      json_string = json_object_new_string(inet_ntop (p->family, &p->u.prefix, buf2, INET6_ADDRSTRLEN));
-      json_object_object_add(json, "prefix", json_string);
-
-      json_int = json_object_new_int(p->prefixlen);
-      json_object_object_add(json, "prefixlen", json_int);
-      json_adv_to = json_object_new_array();
+      json_object_string_add(json, "prefix", inet_ntop (p->family, &p->u.prefix, buf2, INET6_ADDRSTRLEN));
+      json_object_int_add(json, "prefixlen", p->prefixlen);
     }
   else
     {
@@ -8027,23 +8003,24 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 	{
           if (json)
             {
-	      if (peer->hostname)
-		{
-                  json_string = json_object_new_string(peer->hostname);
-                  json_object_array_add(json_adv_to, json_string);
+              /* 'advertised-to' is a dictionary of peers we have advertised this
+               * prefix too.  The key is the peer's IP or swpX, the value is the
+               * hostname if we know it and "" if not.
+               */
+              json_peer = json_object_new_object();
 
-		  /* TODO: Have to add domain name here too */
-		}
+	      if (peer->hostname)
+                json_object_string_add(json_peer, "hostname", peer->hostname);
+
+              if (!json_adv_to)
+                json_adv_to = json_object_new_object();
+
               if (peer->conf_if)
-                {
-                  json_string = json_object_new_string(peer->conf_if);
-                  json_object_array_add(json_adv_to, json_string);
-                }
+                json_object_object_add(json_adv_to, peer->conf_if, json_peer);
               else
-                {
-                  json_string = json_object_new_string(sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
-                  json_object_array_add(json_adv_to, json_string);
-                }
+                json_object_object_add(json_adv_to,
+                                       sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN),
+                                       json_peer);
             }
           else
             {
@@ -8101,8 +8078,8 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
   struct bgp_node *rm;
   struct bgp_info *ri;
   struct bgp_table *table;
-  json_object *json;
-  json_object *json_paths;
+  json_object *json = NULL;
+  json_object *json_paths = NULL;
 
   /* Check IP address argument. */
   ret = str2prefix (ip_str, &match);
@@ -8118,11 +8095,6 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
     {
       json = json_object_new_object();
       json_paths = json_object_new_array();
-    }
-  else
-    {
-      json = NULL;
-      json_paths = NULL;
     }
 
   if (safi == SAFI_MPLS_VPN)
@@ -8202,9 +8174,7 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
         json_object_object_add(json, "paths", json_paths);
 
       vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
-
-      // Recursively free all json structures
-      json_object_put(json);
+      json_object_free(json);
     }
   else
     {

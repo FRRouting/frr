@@ -21,7 +21,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_DAMP_H
 #define _QUAGGA_BGP_DAMP_H
 
-#include <json/json.h>
+#include "lib/json.h"
 
 /* Structure maintained on a per-route basis. */
 struct bgp_damp_info

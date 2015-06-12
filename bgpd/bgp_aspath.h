@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_ASPATH_H
 #define _QUAGGA_BGP_ASPATH_H
 
+#include "lib/json.h"
+
 /* AS path segment type.  */
 #define AS_SET                       1
 #define AS_SEQUENCE                  2
@@ -63,6 +65,9 @@ struct aspath
   /* segment data */
   struct assegment *segments;
   
+  /* AS path as a json object */
+  json_object *json;
+
   /* String expression of AS path.  This string is used by vty output
      and AS path regular expression match.  */
   char *str;

@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_COMMUNITY_H
 #define _QUAGGA_BGP_COMMUNITY_H
 
+#include "lib/json.h"
+
 /* Communities attribute.  */
 struct community 
 {
@@ -32,6 +34,9 @@ struct community
 
   /* Communities value.  */
   u_int32_t *val;
+
+  /* Communities as a json object */
+  json_object *json;
 
   /* String of community attribute.  This sring is used by vty output
      and expanded community-list for regular expression match.  */

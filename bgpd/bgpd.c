@@ -5818,7 +5818,7 @@ peer_uptime (time_t uptime2, char *buf, size_t len)
   /* If there is no connection has been done before print `never'. */
   if (uptime2 == 0)
     {
-      snprintf (buf, len, "never   ");
+      snprintf (buf, len, "never");
       return buf;
     }
 

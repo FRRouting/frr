@@ -21,7 +21,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_ROUTE_H
 #define _QUAGGA_BGP_ROUTE_H
 
-#include <json/json.h>
+#include "lib/json.h"
 #include "queue.h"
 #include "bgp_table.h"
 
