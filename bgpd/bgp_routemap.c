@@ -2326,31 +2326,35 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
 					      peer_addr_buf,
 					      INET6_ADDRSTRLEN),
 		     &peer_address);
+          /* Set next hop value and length in attribute. */
+          if (IN6_IS_ADDR_LINKLOCAL(&peer_address))
+            {
+              (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local = peer_address;
+              if (bgp_info->attr->extra->mp_nexthop_len != 32)
+                bgp_info->attr->extra->mp_nexthop_len = 32;
+            }
+          else
+            {
+              (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global = peer_address;
+              if (bgp_info->attr->extra->mp_nexthop_len == 0)
+                bgp_info->attr->extra->mp_nexthop_len = 16;
+            }
+
 	}
       else if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT))
 	{
+          /* The next hop value will be set as part of packet rewrite.
+           * Set the flags here to indicate that rewrite needs to be done.
+           * Also, clear the value - we clear both global and link-local
+           * nexthops, whether we send one or both is determined elsewhere.
+           */
 	  SET_FLAG(bgp_info->attr->rmap_change_flags,
 		   BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
           /* clear next hop value. */
           memset (&((bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global),
                   0, sizeof (struct in6_addr));
-	}
-
-      if (IN6_IS_ADDR_LINKLOCAL(&peer_address))
-	{
-	  /* The next hop value will be set as part of packet rewrite. */
-
-	  /* Set nexthop length. */
-	  if (bgp_info->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-	    bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-	}
-      else
-	{
-	  /* The next hop value will be set as part of packet rewrite. */
-
-	  /* Set nexthop length. */
-	  if (bgp_info->attr->extra->mp_nexthop_len == 0)
-	    bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+          memset (&((bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local),
+                  0, sizeof (struct in6_addr));
 	}
     }
 
@@ -4404,7 +4408,7 @@ DEFUN (no_set_ipv6_nexthop_peer,
        "IPv6 next-hop address\n"
        )
 {
-  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop", argv[0]);
+  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop peer-address", NULL);
 }
 
 DEFUN (set_ipv6_nexthop_global,
