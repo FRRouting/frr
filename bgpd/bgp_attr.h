@@ -129,10 +129,12 @@ struct attr
 };
 
 /* rmap_change_flags definition */
-#define BATTR_RMAP_NEXTHOP_CHANGED (1 << 0)
+#define BATTR_RMAP_IPV4_NHOP_CHANGED (1 << 0)
 #define BATTR_RMAP_NEXTHOP_PEER_ADDRESS (1 << 1)
 #define BATTR_REFLECTED (1 << 2)
 #define BATTR_RMAP_NEXTHOP_UNCHANGED (1 << 3)
+#define BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED (1 << 4)
+#define BATTR_RMAP_IPV6_LL_NHOP_CHANGED (1 << 5)
 
 /* Router Reflector related structure. */
 struct cluster_list
@@ -246,5 +248,16 @@ extern void bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     afi_t afi, safi_t safi, struct prefix_rd *prd,
 			     u_char *tag);
 extern void bgp_packet_mpunreach_end (struct stream *s, size_t attrlen_pnt);
+
+static inline int
+bgp_rmap_nhop_changed(u_int32_t out_rmap_flags, u_int32_t in_rmap_flags)
+{
+  return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS) ||
+           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
+           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED) ||
+           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
+           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED) ||
+           CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED)) ? 1 : 0);
+}
 
 #endif /* _QUAGGA_BGP_ATTR_H */

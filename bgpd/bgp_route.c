@@ -1388,28 +1388,24 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
     SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
 
 #ifdef HAVE_IPV6
-  /* IPv6/MP starts with 1 nexthop, the link-local address is passed only if
-   * we're not reflecting the route and the peer (group) to whom we're going
-   * to announce is on a shared network (directly connected peers) or the
-   * peer (group) is configured to receive link-local nexthop and it is
-   * available in the prefix.
-   * Of course, the operator can always set it through the route-map, if
-   * so desired.
+  /* IPv6/MP starts with 1 nexthop. The link-local address is passed only if
+   * the peer (group) is configured to receive link-local nexthop unchanged
+   * and it is available in the prefix OR we're not reflecting the route and
+   * the peer (group) to whom we're going to announce is on a shared network
    */
   if (p->family == AF_INET6 || peer_cap_enhe(peer))
     {
       attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-      if (!reflect)
+      if ((CHECK_FLAG (peer->af_flags[afi][safi],
+                       PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) &&
+           IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_local)) ||
+          (!reflect && peer->shared_network))
         {
-          if (peer->shared_network ||
-              (CHECK_FLAG (peer->af_flags[afi][safi],
-                           PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) &&
-               IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_local)))
-            attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
+          attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
         }
 
-      /* Clear off link-local nexthop in source, if not needed. This may help
-       * more prefixes share the same attribute for announcement.
+      /* Clear off link-local nexthop in source, whenever it is not needed to
+       * ensure more prefixes share the same attribute for announcement.
        */
       if (!(CHECK_FLAG (peer->af_flags[afi][safi],
             PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)))
@@ -1469,22 +1465,35 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
    * the global nexthop here; the link-local nexthop would have been cleared
    * already, and if not, it is required by the update formation code.
    * Also see earlier comments in this function.
+  */
+  /*
+   * If route-map has performed some operation on the nexthop or the peer
+   * configuration says to pass it unchanged, we cannot reset the nexthop
+   * here, so only attempt to do it if these aren't true. Note that the
+   * route-map handler itself might have cleared the nexthop, if for example,
+   * it is configured as 'peer-address'.
    */
-  if (!(CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_CHANGED) ||
-        CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
-        CHECK_FLAG(riattr->rmap_change_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
-        transparent ||
-        CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)))
+  if (!bgp_rmap_nhop_changed(attr->rmap_change_flags,
+                             riattr->rmap_change_flags) &&
+      !transparent &&
+      !CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
+
     {
+      /* We can reset the nexthop, if setting (or forcing) it to 'self' */
       if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF))
         {
           if (!reflect ||
               CHECK_FLAG (peer->af_flags[afi][safi],
                           PEER_FLAG_NEXTHOP_SELF_ALL))
-            subgroup_announce_reset_nhop ((peer_cap_enhe(peer) ? AF_INET6 : p->family), attr);
+            subgroup_announce_reset_nhop ((peer_cap_enhe(peer) ?
+                          AF_INET6 : p->family), attr);
         }
       else if (peer->sort == BGP_PEER_EBGP)
         {
+          /* Can also reset the nexthop if announcing to EBGP, but only if
+           * no peer in the subgroup is on a shared subnet.
+           * Note: 3rd party nexthop currently implemented for IPv4 only.
+           */
           SUBGRP_FOREACH_PEER (subgrp, paf)
             {
               if (bgp_multiaccess_check_v4 (riattr->nexthop, paf->peer))

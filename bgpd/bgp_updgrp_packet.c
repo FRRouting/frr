@@ -408,136 +408,133 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
 {
   struct stream *s = NULL;
   bpacket_attr_vec *vec;
+  struct peer *peer;
 
   s = stream_dup (pkt->buffer);
+  peer = PAF_PEER(paf);
 
   vec = &pkt->arr.entries[BGP_ATTR_VEC_NH];
-  if (CHECK_FLAG (vec->flags, BPACKET_ATTRVEC_FLAGS_UPDATED))
+  if (CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_UPDATED))
     {
       u_int8_t nhlen;
       int route_map_sets_nh;
       nhlen = stream_getc_from (s, vec->offset);
 
-      route_map_sets_nh = CHECK_FLAG (vec->flags,
-                                      BPACKET_ATTRVEC_FLAGS_RMAP_CHANGED);
-
-      if (paf->afi == AFI_IP && !peer_cap_enhe(paf->peer))
+      if (paf->afi == AFI_IP && !peer_cap_enhe(peer))
 	{
-	  struct in_addr v4nh;
+	  struct in_addr v4nh, *mod_v4nh;
+          int nh_modified = 0;
+
+          route_map_sets_nh =
+            (CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED) ||
+             CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
           stream_get_from (&v4nh, s, vec->offset + 1, 4);
+          mod_v4nh = &v4nh;
 
-	  /* If NH unavailable from attribute or the route-map has set it to
-           * be the peering address, use peer's NH. The "NH unavailable" case
-           * also covers next-hop-self and some other scenarios -- see
-           * subgroup_announce_check(). The only other case where we use the
-           * peer's NH is if it is an EBGP multiaccess scenario and there is
-           * no next-hop-unchanged setting.
+          /*
+           * If route-map has set the nexthop, that is always used; if it is
+           * specified as peer-address, the peering address is picked up.
+           * Otherwise, if NH is unavailable from attribute, the peering addr
+           * is picked up; the "NH unavailable" case also covers next-hop-self
+           * and some other scenarios -- see subgroup_announce_check(). In
+           * all other cases, use the nexthop carried in the attribute unless
+           * it is EBGP non-multiaccess and there is no next-hop-unchanged setting.
+           * Note: It is assumed route-map cannot set the nexthop to an
+           * invalid value.
            */
-          if (!v4nh.s_addr ||
-              (route_map_sets_nh &&
-               CHECK_FLAG(vec->flags,
-                          BPACKET_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)))
-	    stream_put_in_addr_at (s, vec->offset + 1, &paf->peer->nexthop.v4);
-          else if (!CHECK_FLAG(vec->flags,
-                          BPACKET_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
-                   paf->peer->sort == BGP_PEER_EBGP &&
-                   !peer_af_flag_check (paf->peer, paf->afi, paf->safi,
-                                         PEER_FLAG_NEXTHOP_UNCHANGED))
-	    {
-              if (bgp_multiaccess_check_v4 (v4nh, paf->peer) == 0)
-	        stream_put_in_addr_at (s, vec->offset + 1,
-                                       &paf->peer->nexthop.v4);
-	    }
-
-#if 0
-	  if (!v4nh.s_addr)
-	    nhtouse = paf->peer->nexthop.v4;
-
-	  /*
-           * If NH is available from attribute (which is after outbound
-           * policy application), always use it if it has been specified
-           * by the policy. Otherwise, the decision to make is whether
-           * we need to set ourselves as the next-hop or not. Here are
-	   * the conditions for that (1 OR 2):
-	   *
-	   * (1) if the configuration says: 'next-hop-self'
-	   * (2) if the peer is EBGP AND not a third-party-nexthop type
-	   *
-	   * There are some exceptions even if the above conditions apply.
-	   * Those are:
-	   * (a) if the configuration says: 'next-hop-unchanged'. Honor that
-	   *        always. Not set 'self' as next-hop.
-	   * (b) if we are reflecting the routes (IBGP->IBGP) and the config
-	   *        is _not_ forcing next-hop-self. We should pass on the
-	   *        next-hop unchanged for reflected routes.
-	   */
           if (route_map_sets_nh)
             {
-              /*
-               * If address is specified, nothing to do; if specified as
-               * 'peer-address', compute the value to use.
-               *
-               * NOTE: If we are reflecting routes, the policy could have set
-               * this only if outbound policy has been allowed for route
-               * reflection -- handled in announce_check().
-               */
-              if (CHECK_FLAG(vec->flags,
-                             BPACKET_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS))
-                nhtouse = paf->peer->nexthop.v4;
+               if (CHECK_FLAG(vec->flags,
+                              BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS))
+                 {
+                   mod_v4nh = &peer->nexthop.v4;
+                   nh_modified = 1;
+                 }
             }
-          else if (peer_af_flag_check (paf->peer, paf->afi, paf->safi,
-                   PEER_FLAG_NEXTHOP_SELF)
-            || (paf->peer->sort == BGP_PEER_EBGP &&
-                (bgp_multiaccess_check_v4 (v4nh, paf->peer) == 0)))
-	    {
-              if (!(peer_af_flag_check (paf->peer, paf->afi, paf->safi,
-                                        PEER_FLAG_NEXTHOP_UNCHANGED)
-                || (CHECK_FLAG(vec->flags, BPACKET_ATTRVEC_FLAGS_REFLECTED) &&
-                    !peer_af_flag_check(paf->peer, paf->afi, paf->safi,
-                                        PEER_FLAG_FORCE_NEXTHOP_SELF))))
-		nhtouse = paf->peer->nexthop.v4;
-	    }
-#endif
+          else if (!v4nh.s_addr)
+            {
+               mod_v4nh = &peer->nexthop.v4;
+               nh_modified = 1;
+            }
+          else if (peer->sort == BGP_PEER_EBGP &&
+                   (bgp_multiaccess_check_v4 (v4nh, peer) == 0) &&
+                   !CHECK_FLAG(vec->flags,
+                               BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+                   !peer_af_flag_check (peer, paf->afi, paf->safi,
+                                         PEER_FLAG_NEXTHOP_UNCHANGED))
+            {
+               mod_v4nh = &peer->nexthop.v4;
+               nh_modified = 1;
+            }
+
+          if (nh_modified)
+            stream_put_in_addr_at (s, vec->offset + 1, mod_v4nh);
 
 	}
-      else if (paf->afi == AFI_IP6 || peer_cap_enhe(paf->peer))
+      else if (paf->afi == AFI_IP6 || peer_cap_enhe(peer))
 	{
-          struct in6_addr v6nhglobal;
-          struct in6_addr v6nhlocal;
+          struct in6_addr v6nhglobal, *mod_v6nhg;
+          struct in6_addr v6nhlocal, *mod_v6nhl;
+          int gnh_modified, lnh_modified;
+
+          gnh_modified = lnh_modified = 0;
+          mod_v6nhg = &v6nhglobal;
+          mod_v6nhl = &v6nhlocal;
+
+          route_map_sets_nh =
+            (CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED) ||
+             CHECK_FLAG (vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS));
 
           /*
            * The logic here is rather similar to that for IPv4, the
-           * additional work being to handle 1 or 2 nexthops.
+           * additional work being to handle 1 or 2 nexthops. Also, 3rd
+           * party nexthop is not propagated for EBGP right now.
            */
           stream_get_from (&v6nhglobal, s, vec->offset + 1, 16);
-          if (IN6_IS_ADDR_UNSPECIFIED (&v6nhglobal) ||
-              (route_map_sets_nh &&
-               CHECK_FLAG(vec->flags,
-                          BPACKET_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)))
-            stream_put_in6_addr_at (s, vec->offset + 1,
-                                    &paf->peer->nexthop.v6_global);
-          else if (!CHECK_FLAG(vec->flags,
-                          BPACKET_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
-                   paf->peer->sort == BGP_PEER_EBGP &&
-                   !peer_af_flag_check (paf->peer, paf->afi, paf->safi,
+          if (route_map_sets_nh)
+            {
+               if (CHECK_FLAG(vec->flags,
+                              BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS))
+                 {
+                   mod_v6nhg = &peer->nexthop.v6_global;
+                   gnh_modified = 1;
+                 }
+            }
+          else if (IN6_IS_ADDR_UNSPECIFIED (&v6nhglobal))
+            {
+               mod_v6nhg = &peer->nexthop.v6_global;
+               gnh_modified = 1;
+            }
+          else if (peer->sort == BGP_PEER_EBGP &&
+                   !CHECK_FLAG(vec->flags,
+                               BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+                   !peer_af_flag_check (peer, paf->afi, paf->safi,
                                          PEER_FLAG_NEXTHOP_UNCHANGED))
-	    {
-              stream_put_in6_addr_at (s, vec->offset + 1,
-                                      &paf->peer->nexthop.v6_global);
-	    }
+            {
+               mod_v6nhg = &peer->nexthop.v6_global;
+               gnh_modified = 1;
+            }
+
 
 	  if (nhlen == 32)
 	    {
               stream_get_from (&v6nhlocal, s, vec->offset + 1 + 16, 16);
               if (IN6_IS_ADDR_UNSPECIFIED (&v6nhlocal))
-                stream_put_in6_addr_at (s, vec->offset + 1 + 16,
-                                        &paf->peer->nexthop.v6_local);
+                {
+                   mod_v6nhl = &peer->nexthop.v6_local;
+                   lnh_modified = 1;
+                }
 	    }
+
+          if (gnh_modified)
+            stream_put_in6_addr_at (s, vec->offset + 1, mod_v6nhg);
+          if (lnh_modified)
+            stream_put_in6_addr_at (s, vec->offset + 1 + 16, mod_v6nhl);
 	}
     }
 
-  bgp_packet_add (paf->peer, s);
+  bgp_packet_add (peer, s);
   return s;
 }
 
@@ -1094,23 +1091,33 @@ bpacket_vec_arr_inherit_attr_flags (struct bpacket_attr_vec_arr *vecarr,
 				    struct attr *attr)
 {
   if (CHECK_FLAG (attr->rmap_change_flags,
-		  BATTR_RMAP_NEXTHOP_CHANGED))
+                  BATTR_RMAP_NEXTHOP_PEER_ADDRESS))
     SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
-	      BPACKET_ATTRVEC_FLAGS_RMAP_CHANGED);
-
-  if (CHECK_FLAG (attr->rmap_change_flags,
-		  BATTR_RMAP_NEXTHOP_PEER_ADDRESS))
-    SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
-	      BPACKET_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS);
+              BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS);
 
   if (CHECK_FLAG (attr->rmap_change_flags, BATTR_REFLECTED))
     SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
-	      BPACKET_ATTRVEC_FLAGS_REFLECTED);
+              BPKT_ATTRVEC_FLAGS_REFLECTED);
 
   if (CHECK_FLAG (attr->rmap_change_flags,
-		  BATTR_RMAP_NEXTHOP_UNCHANGED))
+                  BATTR_RMAP_NEXTHOP_UNCHANGED))
     SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
-	      BPACKET_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED);
+              BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED);
+
+  if (CHECK_FLAG (attr->rmap_change_flags,
+                  BATTR_RMAP_IPV4_NHOP_CHANGED))
+    SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
+              BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED);
+
+  if (CHECK_FLAG (attr->rmap_change_flags,
+                  BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED))
+    SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
+              BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED);
+
+  if (CHECK_FLAG (attr->rmap_change_flags,
+                  BATTR_RMAP_IPV6_LL_NHOP_CHANGED))
+    SET_FLAG (vecarr->entries[BGP_ATTR_VEC_NH].flags,
+              BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED);
 }
 
 /* Reset the Attributes vector array. The vector array is used to override
@@ -1143,7 +1150,7 @@ bpacket_attr_vec_arr_set_vec (struct bpacket_attr_vec_arr *vecarr,
     return;
   assert (type < BGP_ATTR_VEC_MAX);
 
-  SET_FLAG (vecarr->entries[type].flags, BPACKET_ATTRVEC_FLAGS_UPDATED);
+  SET_FLAG (vecarr->entries[type].flags, BPKT_ATTRVEC_FLAGS_UPDATED);
   vecarr->entries[type].offset = stream_get_endp (s);
   if (attr)
     bpacket_vec_arr_inherit_attr_flags(vecarr, type, attr);
