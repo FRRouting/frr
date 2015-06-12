@@ -7136,6 +7136,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
               json_object_object_add(json_path, "peer-id", json_string);
               json_string = json_object_new_string(inet_ntoa(bgp->router_id));
               json_object_object_add(json_path, "peer-router-id", json_string);
+              json_object_object_add(json_path, "nexthop-global-accessible",
+                                     json_boolean_true);
             }
           else
             {
@@ -7239,10 +7241,12 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
               json_string = json_object_new_string(inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local,
                                                               buf, INET6_ADDRSTRLEN));
               json_object_object_add(json_path, "nexthop-local", json_string);
+              json_object_object_add(json_path, "nexthop-local-accessible", json_boolean_true);
+              json_object_object_add(json_path, "nexthop-local-used", json_boolean_true);
             }
           else
             {
-	      vty_out (vty, "    (%s)%s",
+	      vty_out (vty, "    (%s) (used)%s",
 		       inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local,
 			          buf, INET6_ADDRSTRLEN),
 		       VTY_NEWLINE);
