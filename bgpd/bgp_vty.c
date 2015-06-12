@@ -4510,7 +4510,9 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
   return CMD_SUCCESS;
 }
 
-#define BGP_UPDATE_SOURCE_STR "(A.B.C.D|X:X::X:X|WORD)"
+#define BGP_UPDATE_SOURCE_STR "A.B.C.D|X:X::X:X|WORD"
+#define BGP_UPDATE_SOURCE_REQ_STR "(" BGP_UPDATE_SOURCE_STR ")"
+#define BGP_UPDATE_SOURCE_OPT_STR "{" BGP_UPDATE_SOURCE_STR "}"
 #define BGP_UPDATE_SOURCE_HELP_STR \
   "IPv4 address\n" \
   "IPv6 address\n" \
@@ -4518,7 +4520,7 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
 
 DEFUN (neighbor_update_source,
        neighbor_update_source_cmd,
-       NEIGHBOR_CMD2 "update-source " BGP_UPDATE_SOURCE_STR,
+       NEIGHBOR_CMD2 "update-source " BGP_UPDATE_SOURCE_REQ_STR,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Source of routing updates\n"
@@ -4529,11 +4531,12 @@ DEFUN (neighbor_update_source,
 
 DEFUN (no_neighbor_update_source,
        no_neighbor_update_source_cmd,
-       NO_NEIGHBOR_CMD2 "update-source",
+       NO_NEIGHBOR_CMD2 "update-source " BGP_UPDATE_SOURCE_OPT_STR,
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Source of routing updates\n")
+       "Source of routing updates\n"
+       BGP_UPDATE_SOURCE_HELP_STR)
 {
   return peer_update_source_vty (vty, argv[0], NULL);
 }
