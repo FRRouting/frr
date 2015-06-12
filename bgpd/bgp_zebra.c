@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_bfd.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -303,47 +304,6 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
 	  {
 	    if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
 	      continue;
-
-	    if (ifp == peer->nexthop.ifp)
-	      BGP_EVENT_ADD (peer, BGP_Stop);
-	  }
-      }
-  }
-
-  return 0;
-}
-
-static int
-bgp_interface_bfd_dest_down (int command, struct zclient *zclient,
-                             zebra_size_t length)
-{
-  struct interface *ifp;
-  struct prefix p;
-
-  ifp = zebra_interface_bfd_read (zclient->ibuf, &p);
-
-  if (ifp == NULL)
-    return 0;
-
-  if (BGP_DEBUG (zebra, ZEBRA))
-    {
-      char buf[128];
-      prefix2str(&p, buf, sizeof(buf));
-      zlog_debug("Zebra: interface %s bfd destination %s down", ifp->name, buf);
-    }
-
-  /* Bring the peer down if BFD is enabled in BGP */
-  {
-    struct listnode *mnode, *node, *nnode;
-    struct bgp *bgp;
-    struct peer *peer;
-
-    for (ALL_LIST_ELEMENTS_RO (bm->bgp, mnode, bgp))
-      {
-	for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-	  {
-            if (!CHECK_FLAG (peer->flags, PEER_FLAG_BFD))
-              continue;
 
 	    if (ifp == peer->nexthop.ifp)
 	      BGP_EVENT_ADD (peer, BGP_Stop);
@@ -1718,7 +1678,6 @@ bgp_zebra_init (void)
   zclient->ipv4_route_delete = zebra_read_ipv4;
   zclient->interface_up = bgp_interface_up;
   zclient->interface_down = bgp_interface_down;
-  zclient->interface_bfd_dest_down = bgp_interface_bfd_dest_down;
 #ifdef HAVE_IPV6
   zclient->ipv6_route_add = zebra_read_ipv6;
   zclient->ipv6_route_delete = zebra_read_ipv6;

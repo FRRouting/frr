@@ -943,31 +943,43 @@ memconstant(const void *s, int c, size_t n)
 }
 
 struct interface*
-zebra_interface_bfd_read (struct stream *s, struct prefix *p)
+zebra_interface_bfd_read (struct stream *s, struct prefix *dp,
+                          struct prefix *sp)
 {
   unsigned int ifindex;
-  struct interface *ifp;
+  struct interface *ifp = NULL;
   int plen;
 
   /* Get interface index. */
   ifindex = stream_getl (s);
 
   /* Lookup index. */
-  ifp = if_lookup_by_index (ifindex);
-  if (ifp == NULL)
+  if (ifindex != 0)
     {
-      zlog_warn ("zebra_interface_bfd_read: "
-                 "Can't find interface by ifindex: %d ", ifindex);
-      return NULL;
+      ifp = if_lookup_by_index (ifindex);
+      if (ifp == NULL)
+        {
+          zlog_warn ("zebra_interface_bfd_read: "
+                     "Can't find interface by ifindex: %d ", ifindex);
+          return NULL;
+        }
     }
 
-  /* Fetch interface address. */
-  p->family = stream_getc (s);
+  /* Fetch destination address. */
+  dp->family = stream_getc (s);
 
-  plen = prefix_blen (p);
-  stream_get (&p->u.prefix, s, plen);
-  p->prefixlen = stream_getc (s);
+  plen = prefix_blen (dp);
+  stream_get (&dp->u.prefix, s, plen);
+  dp->prefixlen = stream_getc (s);
 
+  if (sp)
+    {
+      sp->family = stream_getc (s);
+
+      plen = prefix_blen (sp);
+      stream_get (&sp->u.prefix, s, plen);
+      sp->prefixlen = stream_getc (s);
+    }
   return ifp;
 }
 
@@ -1283,6 +1295,10 @@ zclient_read (struct thread *thread)
 	zlog_debug("zclient rcvd import check update\n");
       if (zclient->import_check_update)
 	(*zclient->import_check_update) (command, zclient, length);
+      break;
+    case ZEBRA_BFD_DEST_REPLAY:
+      if (zclient->bfd_dest_replay)
+	(*zclient->bfd_dest_replay) (command, zclient, length);
       break;
     default:
       break;

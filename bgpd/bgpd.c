@@ -64,6 +64,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_snmp.h"
 #endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_bfd.h"
 
 
 /* BGP process wide configuration.  */
@@ -940,6 +941,9 @@ peer_free (struct peer *peer)
   if (peer->conf_if)
     XFREE (MTYPE_PEER_CONF_IF, peer->conf_if);
 
+  if (peer->bfd_info)
+    bgp_bfd_peer_free(peer);
+
   memset (peer, 0, sizeof (struct peer));
   
   XFREE (MTYPE_BGP_PEER, peer);
@@ -1241,6 +1245,8 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
 	  zlog_err("couldn't create af structure for peer %s", peer->host);
 	}
     }
+
+  bgp_bfd_peer_init(peer);
 
   /* Set up peer's events and timers. */
   if (! active && peer_active (peer))
@@ -1830,6 +1836,7 @@ peer_group_get (struct bgp *bgp, const char *name)
   group->conf->connect = 0;
   SET_FLAG (group->conf->sflags, PEER_STATUS_GROUP);
   listnode_add_sort (bgp->group, group);
+  bgp_bfd_peer_init(group->conf);
 
   return 0;
 }
@@ -2090,6 +2097,8 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->usmap.name = NULL;
       pfilter->usmap.map = NULL;
     }
+
+  bgp_bfd_peer_group2peer_copy(conf, peer);
 } 
 
 /* Peer group's remote AS configuration.  */
@@ -2164,6 +2173,9 @@ peer_group_delete (struct peer_group *group)
 
   /* Delete from all peer_group list. */
   listnode_delete (bgp->group, group);
+
+  if (group->conf->bfd_info)
+    bgp_bfd_peer_free(group->conf);
 
   peer_group_free (group);
 
@@ -5493,7 +5505,7 @@ peer_maximum_prefix_unset (struct peer *peer, afi_t afi, safi_t safi)
   return 0;
 }
 
-static int is_ebgp_multihop_configured (struct peer *peer)
+int is_ebgp_multihop_configured (struct peer *peer)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
@@ -6010,7 +6022,9 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
       if (CHECK_FLAG (peer->flags, PEER_FLAG_BFD))
         if (! peer_group_active (peer) ||
             ! CHECK_FLAG (g_peer->flags, PEER_FLAG_BFD))
-	  vty_out (vty, " neighbor %s bfd%s", addr, VTY_NEWLINE);
+          {
+            bgp_bfd_peer_config_write(vty, peer, addr);
+          }
 
       /* Password. */
       if (peer->password)
@@ -6715,6 +6729,9 @@ bgp_init (void)
 #ifdef HAVE_SNMP
   bgp_snmp_init ();
 #endif /* HAVE_SNMP */
+
+  /* BFD init */
+  bgp_bfd_init();
 }
 
 void

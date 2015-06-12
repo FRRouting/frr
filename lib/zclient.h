@@ -94,6 +94,7 @@ struct zclient
   int (*ipv6_route_delete) (int, struct zclient *, uint16_t);
   int (*nexthop_update) (int, struct zclient *, uint16_t);
   int (*import_check_update) (int, struct zclient *, uint16_t);
+  int (*bfd_dest_replay) (int, struct zclient *, uint16_t);
 };
 
 /* Zebra API message flag. */
@@ -176,7 +177,9 @@ extern void zclient_create_header (struct stream *, uint16_t);
 extern struct interface *zebra_interface_add_read (struct stream *);
 extern struct interface *zebra_interface_state_read (struct stream *s);
 extern struct connected *zebra_interface_address_read (int, struct stream *);
-extern struct interface *zebra_interface_bfd_read (struct stream *s, struct prefix *);
+extern struct interface *zebra_interface_bfd_read (struct stream *s,
+                                                    struct prefix *,
+                                                    struct prefix *);
 extern struct nbr_connected *zebra_interface_nbr_address_read (int, struct stream *);
 extern void zebra_interface_if_set_value (struct stream *, struct interface *);
 extern void zebra_router_id_update_read (struct stream *s, struct prefix *rid);

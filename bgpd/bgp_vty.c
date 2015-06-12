@@ -52,6 +52,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_bfd.h"
 
 extern struct in_addr router_id_zebra;
 
@@ -181,7 +182,7 @@ peer_lookup_vty (struct vty *vty, const char *ip_str)
 /* This is used only for configuration, so disallow if attempted on
  * a dynamic neighbor.
  */
-static struct peer *
+struct peer *
 peer_and_group_lookup_vty (struct vty *vty, const char *peer_str)
 {
   int ret;
@@ -227,7 +228,7 @@ peer_and_group_lookup_vty (struct vty *vty, const char *peer_str)
   return NULL;
 }
 
-static int
+int
 bgp_vty_return (struct vty *vty, int ret)
 {
   const char *str = NULL;
@@ -3234,28 +3235,6 @@ DEFUN (no_neighbor_shutdown,
        "Administratively shut down this neighbor\n")
 {
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_SHUTDOWN);
-}
-
-/* neighbor bfd. */
-DEFUN (neighbor_bfd,
-       neighbor_bfd_cmd,
-       NEIGHBOR_CMD2 "bfd",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Respond to BFD session event\n")
-{
-  return peer_flag_set_vty (vty, argv[0], PEER_FLAG_BFD);
-}
-
-DEFUN (no_neighbor_bfd,
-       no_neighbor_bfd_cmd,
-       NO_NEIGHBOR_CMD2 "bfd",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Respond to BFD session event\n")
-{
-  return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_BFD);
 }
 
 /* Deprecated neighbor capability route-refresh. */
@@ -9854,6 +9833,9 @@ bgp_show_peer (struct vty *vty, struct peer *p)
     bgp_capability_vty_out (vty, p);
  
   vty_out (vty, "%s", VTY_NEWLINE);
+
+  /* BFD information. */
+  bgp_bfd_show_info(vty, p);
 }
 
 static int
@@ -12245,9 +12227,6 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &neighbor_passive_cmd);
   install_element (BGP_NODE, &no_neighbor_passive_cmd);
 
-  /* "neighbor bfd" commands. */
-  install_element (BGP_NODE, &neighbor_bfd_cmd);
-  install_element (BGP_NODE, &no_neighbor_bfd_cmd);
 
   /* "neighbor shutdown" commands. */
   install_element (BGP_NODE, &neighbor_shutdown_cmd);

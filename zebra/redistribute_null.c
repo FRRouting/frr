@@ -53,9 +53,6 @@ void zebra_interface_address_delete_update (struct interface *a,
                                                 struct connected *b)
 { return; }
 #endif
-void zebra_interface_bfd_update (struct interface *a, struct prefix *b)
-{ return; }
-
 
 int zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t metric,
 			int add)

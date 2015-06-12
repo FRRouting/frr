@@ -477,36 +477,6 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
   return zebra_server_send_message(client);
 }
 
-int
-zsend_interface_bfd_update (int cmd, struct zserv *client,
-                            struct interface *ifp, struct prefix *p)
-{
-  int blen;
-  struct stream *s;
-
-  /* Check this client need interface information. */
-  if (! client->ifinfo)
-    return 0;
-
-  s = client->obuf;
-  stream_reset (s);
-
-  zserv_create_header (s, cmd);
-  stream_putl (s, ifp->ifindex);
-
-  /* BFD destination prefix information. */
-  stream_putc (s, p->family);
-  blen = prefix_blen (p);
-  stream_put (s, &p->u.prefix, blen);
-  stream_putc (s, p->prefixlen);
-
-  /* Write packet size. */
-  stream_putw_at (s, 0, stream_get_endp (s));
-
-  client->if_bfd_cnt++;
-  return zebra_server_send_message(client);
-}
-
 /*
  * The zebra server sends the clients  a ZEBRA_IPV4_ROUTE_ADD or a
  * ZEBRA_IPV6_ROUTE_ADD via zsend_route_multipath in the following
@@ -1905,6 +1875,13 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_IMPORT_ROUTE_UNREGISTER:
       zserv_rnh_unregister(client, sock, length, RNH_IMPORT_CHECK_TYPE);
       break;
+    case ZEBRA_BFD_DEST_UPDATE:
+    case ZEBRA_BFD_DEST_REGISTER:
+      zebra_ptm_bfd_dst_register(client, sock, length, command);
+      break;
+    case ZEBRA_BFD_DEST_DEREGISTER:
+      zebra_ptm_bfd_dst_deregister(client, sock, length);
+      break;
     default:
       zlog_info ("Zebra received unknown command %d", command);
       break;
@@ -2194,6 +2171,8 @@ zebra_show_client_detail (struct vty *vty, struct zserv *client)
 	   client->redist_v6_del_cnt, VTY_NEWLINE);
   vty_out (vty, "Connected   %-12d%-12d%-12d%s", client->ifadd_cnt, 0,
 	   client->ifdel_cnt, VTY_NEWLINE);
+  vty_out (vty, "BFD peer    %-12d%-12d%-12d%s", client->bfd_peer_add_cnt,
+       client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt, VTY_NEWLINE);
   vty_out (vty, "Interface Up Notifications: %d%s", client->ifup_cnt,
 	   VTY_NEWLINE);
   vty_out (vty, "Interface Down Notifications: %d%s", client->ifdown_cnt,

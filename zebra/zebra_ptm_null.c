@@ -1,6 +1,5 @@
-/*
- * Definitions for prescriptive topology module (PTM).
- * Copyright (C) 1998, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
+/**
+ * @copyright Copyright (C) 2015 Cumulus Networks, Inc.
  *
  * This file is part of GNU Zebra.
  *
@@ -19,20 +18,12 @@
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
+#include <zebra.h>
+#include "prefix.h"
 
-#ifndef _ZEBRA_PTM_H
-#define _ZEBRA_PTM_H
+void zebra_interface_bfd_update (struct interface *a, struct prefix *dp,
+                                 struct prefix *sp)
+{ return; }
 
-extern const char ZEBRA_PTM_SOCK_NAME[];
-#define ZEBRA_PTM_MAX_SOCKBUF 3200 /* 25B *128 ports */
-#define ZEBRA_PTM_SEND_MAX_SOCKBUF 512
-extern int ptm_enable;
-
-void zebra_ptm_init (void);
-int zebra_ptm_connect (struct thread *t);
-void zebra_ptm_write (struct vty *vty);
-
-int zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
-                                  int command);
-int zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length);
-#endif
+void zebra_bfd_peer_replay_req (void)
+{ return; }

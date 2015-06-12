@@ -338,7 +338,7 @@ ospf_interface_bfd_dest_down (int command, struct zclient *zclient,
   struct route_node *node;
   struct prefix p;
 
-  ifp = zebra_interface_bfd_read (zclient->ibuf, &p);
+  ifp = zebra_interface_bfd_read (zclient->ibuf, &p, NULL);
 
   if (ifp == NULL)
     return 0;

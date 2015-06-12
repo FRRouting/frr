@@ -94,6 +94,10 @@ struct zserv
   u_int32_t ifadd_cnt;
   u_int32_t ifdel_cnt;
   u_int32_t if_bfd_cnt;
+  u_int32_t bfd_peer_add_cnt;
+  u_int32_t bfd_peer_upd8_cnt;
+  u_int32_t bfd_peer_del_cnt;
+  u_int32_t bfd_peer_replay_cnt;
 
   time_t connect_time;
   time_t last_read_time;
@@ -148,8 +152,6 @@ extern int zsend_interface_update (int, struct zserv *, struct interface *);
 extern int zsend_route_multipath (int, struct zserv *, struct prefix *, 
                                   struct rib *);
 extern int zsend_router_id_update(struct zserv *, struct prefix *);
-extern int zsend_interface_bfd_update(int, struct zserv *, struct interface *,
-                                      struct prefix *);
 extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd);

@@ -818,6 +818,9 @@ u_char last_reset_cause[BGP_MAX_PACKET_SIZE];
   /* hostname and domainname advertised by host */
   char *hostname;
   char *domainname;
+
+  /* peer specific BFD information */
+  void *bfd_info;
 };
 
 #define PEER_PASSWORD_MINLEN	(1)
@@ -1217,6 +1220,7 @@ extern int peer_af_flag_check (struct peer *, afi_t, safi_t, u_int32_t);
 
 extern int peer_ebgp_multihop_set (struct peer *, int);
 extern int peer_ebgp_multihop_unset (struct peer *);
+extern int is_ebgp_multihop_configured (struct peer *peer);
 
 extern int peer_description_set (struct peer *, char *);
 extern int peer_description_unset (struct peer *);

@@ -48,6 +48,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_bfd.h"
 
 /* Definition of display strings corresponding to FSM events. This should be
  * kept consistent with the events defined in bgpd.h
@@ -1059,6 +1060,8 @@ bgp_stop (struct peer *peer)
 
       /* Reset peer synctime */
       peer->synctime = 0;
+
+      bgp_bfd_deregister_peer(peer);
     }
 
   /* Stop read and write threads when exists. */
@@ -1548,6 +1551,7 @@ bgp_establish (struct peer *peer)
 	peer_delete(peer->doppelganger);
     }
 
+  bgp_bfd_register_peer(peer);
   return ret;
 }
 

@@ -28,19 +28,42 @@
 #include "zebra/zebra_ptm.h"
 #include "if.h"
 #include "command.h"
+#include "stream.h"
+#include "ptm_lib.h"
+#include "zebra/zebra_ptm_redistribute.h"
 
 #define ZEBRA_PTM_RECONNECT_TIME_INITIAL 1 /* initial reconnect is 1s */
 #define ZEBRA_PTM_RECONNECT_TIME_MAX     300
 
 #define PTM_MSG_LEN     4
 #define PTM_HEADER_LEN  37
-const char *ZEBRA_PTM_GET_STATUS_CMD = "get-status";
-const char *ZEBRA_PTM_PORT_STR = "port";
-const char *ZEBRA_PTM_CBL_STR = "cbl status";
-const char *ZEBRA_PTM_PASS_STR = "pass";
-const char *ZEBRA_PTM_FAIL_STR = "fail";
-const char *ZEBRA_PTM_BFDSTATUS_STR = "BFD status";
-const char *ZEBRA_PTM_BFDDEST_STR = "BFD peer";
+
+const char ZEBRA_PTM_GET_STATUS_CMD[] = "get-status";
+const char ZEBRA_PTM_BFD_START_CMD[] = "start-bfd-sess";
+const char ZEBRA_PTM_BFD_STOP_CMD[] = "stop-bfd-sess";
+
+const char ZEBRA_PTM_PORT_STR[] = "port";
+const char ZEBRA_PTM_CBL_STR[] = "cbl status";
+const char ZEBRA_PTM_PASS_STR[] = "pass";
+const char ZEBRA_PTM_FAIL_STR[] = "fail";
+const char ZEBRA_PTM_BFDSTATUS_STR[] = "state";
+const char ZEBRA_PTM_BFDSTATUS_UP_STR[] = "Up";
+const char ZEBRA_PTM_BFDSTATUS_DOWN_STR[] = "Down";
+const char ZEBRA_PTM_BFDDEST_STR[] = "peer";
+const char ZEBRA_PTM_BFDSRC_STR[] = "local";
+const char ZEBRA_PTM_INVALID_PORT_NAME[] = "N/A";
+const char ZEBRA_PTM_INVALID_SRC_IP[] = "N/A";
+
+const char ZEBRA_PTM_BFD_DST_IP_FIELD[] = "dstIPaddr";
+const char ZEBRA_PTM_BFD_SRC_IP_FIELD[] = "srcIPaddr";
+const char ZEBRA_PTM_BFD_MIN_RX_FIELD[] = "requiredMinRx";
+const char ZEBRA_PTM_BFD_MIN_TX_FIELD[] = "upMinTx";
+const char ZEBRA_PTM_BFD_DETECT_MULT_FIELD[] = "detectMult";
+const char ZEBRA_PTM_BFD_MULTI_HOP_FIELD[] = "multiHop";
+const char ZEBRA_PTM_BFD_CLIENT_FIELD[] = "client";
+const char ZEBRA_PTM_BFD_SEQID_FIELD[] = "seqid";
+const char ZEBRA_PTM_BFD_IFNAME_FIELD[] = "ifName";
+const char ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD[] = "maxHopCnt";
 
 extern struct zebra_t zebrad;
 int ptm_enable;
@@ -49,29 +72,63 @@ int zebra_ptm_sock = -1;
 struct thread *zebra_ptm_thread = NULL;
 
 static int zebra_ptm_reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
+int zebra_ptm_pid = 0;
+static ptm_lib_handle_t *ptm_hdl;
 
-static void zebra_ptm_finish(void);
 static int zebra_ptm_socket_init(void);
 int zebra_ptm_sock_read(struct thread *);
 int zebra_ptm_sock_write(struct thread *);
 static void zebra_ptm_install_commands (void);
+static int zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt);
+static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt);
+void zebra_bfd_peer_replay_req (void);
 
 const char ZEBRA_PTM_SOCK_NAME[] = "\0/var/run/ptmd.socket";
 
 void
 zebra_ptm_init (void)
 {
+  char buf[64];
+
+  zebra_ptm_pid = getpid();
   zebra_ptm_install_commands();
+
+  sprintf(buf, "%s", "quagga");
+  ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_bfd_msg,
+                                    zebra_ptm_handle_cbl_msg);
 }
 
 int
 zebra_ptm_connect (struct thread *t)
 {
-  zebra_ptm_socket_init();
+  int init = 0;
+  char *data;
+  void *out_ctxt;
+  int len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
+
+  if (zebra_ptm_sock == -1) {
+    zebra_ptm_socket_init();
+    init = 1;
+  }
 
   if (zebra_ptm_sock != -1) {
-    zebra_ptm_thread = thread_add_write (zebrad.master, zebra_ptm_sock_write,
-                                         NULL, zebra_ptm_sock);
+    if (init) {
+      zebra_bfd_peer_replay_req();
+    }
+
+    if (ptm_enable) {
+      data = calloc(1, len);
+      if (!data) {
+          zlog_debug("%s: Allocation of send data failed", __func__);
+          return -1;
+        }
+      ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, "cmd", ZEBRA_PTM_GET_STATUS_CMD);
+      ptm_lib_complete_msg(ptm_hdl, out_ctxt, data, &len);
+
+      zebra_ptm_thread = thread_add_write (zebrad.master, zebra_ptm_sock_write,
+                                         data, zebra_ptm_sock);
+    }
     zebra_ptm_reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
   } else {
     zebra_ptm_reconnect_time *= 2;
@@ -83,21 +140,6 @@ zebra_ptm_connect (struct thread *t)
   }
 
   return(errno);
-}
-
-static void
-zebra_ptm_finish (void)
-{
-  if (zebra_ptm_sock != -1)
-    {
-      if (zebra_ptm_thread != NULL)
-	{
-	  thread_cancel(zebra_ptm_thread);
-	  zebra_ptm_thread = NULL;
-	}
-      close (zebra_ptm_sock);
-      zebra_ptm_sock = -1;
-    }
 }
 
 DEFUN (zebra_ptm_enable,
@@ -142,13 +184,12 @@ DEFUN (no_zebra_ptm_enable,
 
 	  ifp->ptm_enable = 0;
 	  if (if_is_operative (ifp) && send_linkup) {
-	    zlog_debug ("%s: Bringing up interface %s\n", __func__,
+	    zlog_debug ("%s: Bringing up interface %s", __func__,
 			ifp->name);
 	    if_up (ifp);
 	  }
 	}
     }
-  zebra_ptm_finish();
 
   return CMD_SUCCESS;
 }
@@ -185,12 +226,12 @@ zebra_ptm_socket_init (void)
                 sizeof (addr.sun_family)+sizeof (ZEBRA_PTM_SOCK_NAME)-1);
   if (ret < 0)
     {
-      zlog_debug("%s: Unable to connect to socket %s [%s]\n",
+      zlog_warn("%s: Unable to connect to socket %s [%s]",
 	              __func__, ZEBRA_PTM_SOCK_NAME, safe_strerror(errno));
       close (sock);
       return -1;
     }
-  zlog_debug ("%s: connection to ptm socket %s succeeded\n",
+  zlog_debug ("%s: connection to ptm socket %s succeeded",
 	      __func__, ZEBRA_PTM_SOCK_NAME);
   zebra_ptm_sock = sock;
   return sock;
@@ -203,134 +244,163 @@ zebra_ptm_install_commands (void)
   install_element (CONFIG_NODE, &no_zebra_ptm_enable_cmd);
 }
 
-static char *
-zebra_ptm_find_key(const char *key_arg, char *arg, int arglen)
+/* BFD session goes down, send message to the protocols. */
+void
+if_bfd_session_down (struct interface *ifp, struct prefix *dp, struct prefix *sp)
 {
-  char buf[ZEBRA_PTM_MAX_SOCKBUF];
-  char *data, *hdr, *key, *val;
-  char *currd, *currh;
-  char *savd, *savh;
+  if (IS_ZEBRA_DEBUG_EVENT)
+    {
+      char buf[2][INET6_ADDRSTRLEN];
 
-  snprintf(buf, sizeof(buf), "%s", arg);
-  /* split up row header and data */
-  hdr = buf;
-  data = strstr(hdr, "\n");
-  if (!data)
-    return NULL;
-  *data = '\0';
-  data++;
-
-  currh = strtok_r(hdr, ",\n\0", &savh);
-  currd = strtok_r(data, ",\n\0", &savd);
-  while(currh && currd) {
-    key = currh;
-    val = currd;
-    if (!strcmp(key, key_arg)) {
-        /* found the value */
-        return val;
+      if (ifp)
+        {
+          zlog_debug ("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_DOWN %s/%d on %s",
+                  inet_ntop (dp->family, &dp->u.prefix, buf, INET6_ADDRSTRLEN),
+                  dp->prefixlen, ifp->name);
+        }
+      else
+        {
+          zlog_debug ("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_DOWN %s/%d "
+                      "with src %s/%d",
+                  inet_ntop (dp->family, &dp->u.prefix, buf[0], INET6_ADDRSTRLEN),
+                  dp->prefixlen,
+                  inet_ntop (sp->family, &sp->u.prefix, buf[1], INET6_ADDRSTRLEN),
+                  sp->prefixlen);
+        }
     }
-    currh = strtok_r(NULL, ",\n\0", &savh);
-    currd = strtok_r(NULL, ",\n\0", &savd);
-  }
 
-  return NULL;
+  zebra_interface_bfd_update (ifp, dp, sp);
 }
 
-static  void
-zebra_ptm_handle_bfd_msg(char *buf, int buflen)
+static int
+zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt)
 {
-  struct interface *ifp;
-  char *port_str, *bfdst_str, *dest_str;
-  struct in_addr dest_addr;
+  struct interface *ifp = NULL;
+  char port_str[128];
+  char bfdst_str[32];
+  char dest_str[64];
+  char src_str[64];
   struct prefix dest_prefix;
+  struct prefix src_prefix;
 
-  port_str = zebra_ptm_find_key(ZEBRA_PTM_PORT_STR, buf, buflen);
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str);
 
-  if (!port_str) {
-    zlog_debug("%s: Key %s not found in PTM msg\n", __func__,
+  if (port_str[0] == '\0') {
+    zlog_debug("%s: Key %s not found in PTM msg", __func__,
                ZEBRA_PTM_PORT_STR);
-    return;
+    return -1;
   }
 
-  ifp = if_lookup_by_name(port_str);
+  if (strcmp(ZEBRA_PTM_INVALID_PORT_NAME, port_str)) {
+    ifp = if_lookup_by_name(port_str);
 
-  if (!ifp) {
-    zlog_err("%s: %s not found in interface list\n", __func__, port_str);
-	return;
+    if (!ifp) {
+      zlog_err("%s: %s not found in interface list", __func__, port_str);
+          return -1;
+    }
   }
 
-  bfdst_str = zebra_ptm_find_key(ZEBRA_PTM_BFDSTATUS_STR, buf, buflen);
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSTATUS_STR, bfdst_str);
 
-  if (!bfdst_str) {
-    zlog_debug("%s: Key %s not found in PTM msg\n", __func__,
+  if (bfdst_str[0] == '\0') {
+    zlog_debug("%s: Key %s not found in PTM msg", __func__,
                ZEBRA_PTM_BFDSTATUS_STR);
-    return;
+    return -1;
   }
 
-  dest_str = zebra_ptm_find_key(ZEBRA_PTM_BFDDEST_STR, buf, buflen);
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDDEST_STR, dest_str);
 
-  if (!dest_str) {
-    zlog_debug("%s: Key %s not found in PTM msg\n", __func__,
+  if (dest_str[0] == '\0') {
+    zlog_debug("%s: Key %s not found in PTM msg", __func__,
                ZEBRA_PTM_BFDDEST_STR);
-    return;
+    return -1;
   }
 
-  zlog_debug("%s: Recv Port [%s] bfd status [%s] peer [%s]\n", __func__,
-             port_str, bfdst_str, dest_str);
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSRC_STR, src_str);
 
-  /* if ptm cbl checks fail then no more processing required */
-  if (!ifp->ptm_status) {
-    return;
+  if (src_str[0] == '\0') {
+    zlog_debug("%s: Key %s not found in PTM msg", __func__,
+               ZEBRA_PTM_BFDSRC_STR);
+    return -1;
   }
+
+  zlog_debug("%s: Recv Port [%s] bfd status [%s] peer [%s] local [%s]",
+              __func__, port_str, bfdst_str, dest_str, src_str);
 
   /* we only care if bfd session goes down */
-  if (!strcmp (bfdst_str, ZEBRA_PTM_FAIL_STR)) {
-	  if (ifp->ptm_enable && if_is_no_ptm_operative (ifp)) {
-        if (inet_pton(AF_INET, dest_str, &dest_addr) <= 0) {
-            zlog_err("%s: Peer addr(%s) not found\n", __func__,
-               dest_str);
-            return;
-        }
-        dest_prefix.family = AF_INET;
-        dest_prefix.u.prefix4 = dest_addr;
-        dest_prefix.prefixlen = IPV4_MAX_PREFIXLEN;
+  if (!strcmp (bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
+    if (inet_pton(AF_INET, dest_str, &dest_prefix.u.prefix4) > 0) {
+      dest_prefix.family = AF_INET;
+      dest_prefix.prefixlen = IPV4_MAX_PREFIXLEN;
+    }
+#ifdef HAVE_IPV6
+    else if (inet_pton(AF_INET6, dest_str, &dest_prefix.u.prefix6) > 0) {
+      dest_prefix.family = AF_INET6;
+      dest_prefix.prefixlen = IPV6_MAX_PREFIXLEN;
+    }
+#endif /* HAVE_IPV6 */
+    else {
+        zlog_err("%s: Peer addr %s not found", __func__,
+           dest_str);
+        return -1;
+    }
 
-        zlog_debug("%s: bfd session down [%s]\n", __func__, dest_str);
-        if_bfd_session_down(ifp, &dest_prefix);
+    memset(&src_prefix, 0, sizeof(struct prefix));
+    if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
+      if (inet_pton(AF_INET, src_str, &src_prefix.u.prefix4) > 0) {
+        src_prefix.family = AF_INET;
+        src_prefix.prefixlen = IPV4_MAX_PREFIXLEN;
       }
+#ifdef HAVE_IPV6
+      else if (inet_pton(AF_INET6, src_str, &src_prefix.u.prefix6) > 0) {
+        src_prefix.family = AF_INET6;
+        src_prefix.prefixlen = IPV6_MAX_PREFIXLEN;
+      }
+#endif /* HAVE_IPV6 */
+      else {
+          zlog_err("%s: Local addr %s not found", __func__,
+             src_str);
+          return -1;
+      }
+    }
+
+    if_bfd_session_down(ifp, &dest_prefix, &src_prefix);
   }
+
+  return 0;
 }
 
-static void
-zebra_ptm_handle_cbl_msg(char *buf, int buflen)
+static int
+zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt)
 {
   struct interface *ifp;
-  char *cbl_str, *port_str;
+  char cbl_str[32];
+  char port_str[128];
 
-  port_str = zebra_ptm_find_key(ZEBRA_PTM_PORT_STR, buf, buflen);
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str);
 
-  if (!port_str) {
-    zlog_debug("%s: Key %s not found in PTM msg\n", __func__,
+  if (port_str[0] == '\0') {
+    zlog_debug("%s: Key %s not found in PTM msg", __func__,
                ZEBRA_PTM_PORT_STR);
-    return;
+    return 0;
   }
 
-  cbl_str = zebra_ptm_find_key(ZEBRA_PTM_CBL_STR, buf, buflen);
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CBL_STR, cbl_str);
 
-  if (!cbl_str) {
-    zlog_debug("%s: Key %s not found in PTM msg\n", __func__,
+  if (cbl_str[0] == '\0') {
+    zlog_debug("%s: Key %s not found in PTM msg", __func__,
                ZEBRA_PTM_CBL_STR);
-    return;
+    return 0;
   }
 
-  zlog_debug("%s: Recv Port [%s] cbl status [%s]\n", __func__,
+  zlog_debug("%s: Recv Port [%s] cbl status [%s]", __func__,
              port_str, cbl_str);
 
   ifp = if_lookup_by_name(port_str);
 
   if (!ifp) {
-    zlog_err("%s: %s not found in interface list\n", __func__, port_str);
-	return;
+    zlog_err("%s: %s not found in interface list", __func__, port_str);
+	return -1;
   }
 
   if (!strcmp(cbl_str, ZEBRA_PTM_PASS_STR) && (!ifp->ptm_status)) {
@@ -342,17 +412,8 @@ zebra_ptm_handle_cbl_msg(char *buf, int buflen)
 	  if (ifp->ptm_enable && if_is_no_ptm_operative (ifp))
 	    if_down (ifp);
   }
-}
 
-static void
-zebra_ptm_process_csv (char *buf, int buflen)
-{
-  /* handle any cbl messages */
-  zebra_ptm_handle_cbl_msg(buf, buflen);
-
-  /* handle any bfd messages */
-  zebra_ptm_handle_bfd_msg(buf, buflen);
-
+  return 0;
 }
 
 int
@@ -360,29 +421,33 @@ zebra_ptm_sock_write (struct thread *thread)
 {
   int sock;
   int nbytes;
+  char *data;
 
   sock = THREAD_FD (thread);
+  data = THREAD_ARG (thread);
 
   if (sock == -1)
     return -1;
 
-  nbytes = send(sock, ZEBRA_PTM_GET_STATUS_CMD,
-                strlen(ZEBRA_PTM_GET_STATUS_CMD), 0);
+  errno = 0;
 
-  if (nbytes <= 0)
-    {
-      if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
-	zlog_warn ("routing socket error: %s", safe_strerror (errno));
+  nbytes = send(sock, data, strlen(data), 0);
 
-      zebra_ptm_sock = -1;
-      zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect, NULL,
-					   zebra_ptm_reconnect_time);
-      return (-1);
+  if (nbytes <= 0) {
+    if (errno && errno != EWOULDBLOCK && errno != EAGAIN) {
+        zlog_warn ("%s routing socket error: %s", __func__,
+                      safe_strerror (errno));
+        zebra_ptm_sock = -1;
+        zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                              NULL, zebra_ptm_reconnect_time);
+        return (-1);
     }
+  }
 
-  zlog_debug ("%s: Sent message %s\n", __func__, ZEBRA_PTM_GET_STATUS_CMD);
-  zebra_ptm_thread = thread_add_read (zebrad.master, zebra_ptm_sock_read, NULL, sock);
-
+  zlog_debug ("%s: Sent message (%d) %s", __func__, strlen(data), data);
+  zebra_ptm_thread = thread_add_read (zebrad.master, zebra_ptm_sock_read,
+                                      NULL, sock);
+  free (data);
   return(0);
 }
 
@@ -390,11 +455,10 @@ int
 zebra_ptm_sock_read (struct thread *thread)
 {
   int sock, done = 0;
-  char rcvbuf[ZEBRA_PTM_MAX_SOCKBUF];
-  int nbytes, msglen;
+  int rc;
   char  *rcvptr;
-  char msgbuf[ZEBRA_PTM_MAX_SOCKBUF];
 
+  errno = 0;
   sock = THREAD_FD (thread);
 
   if (sock == -1)
@@ -402,37 +466,337 @@ zebra_ptm_sock_read (struct thread *thread)
 
   /* PTM communicates in CSV format */
   while(!done) {
-    rcvptr = rcvbuf;
-    /* get PTM header */
-    nbytes = recv(sock, rcvptr, PTM_HEADER_LEN, 0);
-    if (nbytes <= 0)
-        break;
-    snprintf(msgbuf, PTM_MSG_LEN+1, "%s", rcvptr);
-    msglen = strtol(msgbuf, NULL, 10);
+    rcvptr = calloc(1, ZEBRA_PTM_MAX_SOCKBUF);
 
-    /* get the PTM message */
-    rcvptr = calloc(1, msglen);
-    nbytes = recv(sock, rcvptr, msglen, 0);
-    if (nbytes <= 0)
-        break;
-    /* process one PTM message */
-    zebra_ptm_process_csv(rcvptr, msglen);
-    free(rcvptr);
+    rc = ptm_lib_process_msg(ptm_hdl, sock, rcvptr, ZEBRA_PTM_MAX_SOCKBUF,
+                                NULL);
+    if (rc <= 0)
+      break;
   }
 
-  if (nbytes <= 0) {
-    if (errno  && errno != EWOULDBLOCK && errno != EAGAIN) {
-	  zlog_warn ("routing socket error: %s", safe_strerror (errno));
+  if (rc <= 0) {
+    if (((rc == 0) && !errno) || (errno  && (errno != EWOULDBLOCK) && (errno != EAGAIN))) {
+      zlog_warn ("%s routing socket error: %s(%d) bytes %d", __func__,
+                    safe_strerror (errno), errno, rc);
 
       close (zebra_ptm_sock);
       zebra_ptm_sock = -1;
       zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                           NULL, zebra_ptm_reconnect_time);
+                                         NULL, zebra_ptm_reconnect_time);
       return (-1);
     }
   }
 
-  zebra_ptm_thread = thread_add_read (zebrad.master, zebra_ptm_sock_read, NULL, sock);
+  free(rcvptr);
+  zebra_ptm_thread = thread_add_read (zebrad.master, zebra_ptm_sock_read,
+                                      NULL, sock);
 
+  return 0;
+}
+
+/* BFD peer/dst register/update */
+int
+zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
+                              int command)
+{
+  char *data;
+  struct stream *s;
+  struct prefix src_p;
+  struct prefix dst_p;
+  u_char multi_hop;
+  u_char multi_hop_cnt;
+  u_char detect_mul;
+  unsigned int min_rx_timer;
+  unsigned int min_tx_timer;
+  char if_name[INTERFACE_NAMSIZ];
+  u_char len;
+  void *out_ctxt;
+  char buf[INET6_ADDRSTRLEN];
+  char tmp_buf[64];
+  int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
+
+  if (command == ZEBRA_BFD_DEST_UPDATE)
+    client->bfd_peer_upd8_cnt++;
+  else
+    client->bfd_peer_add_cnt++;
+
+  zlog_debug("bfd_dst_register msg from client %s: length=%d",
+     zebra_route_string(client->proto), length);
+
+  if (zebra_ptm_sock == -1)
+    {
+      zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                             NULL, zebra_ptm_reconnect_time);
+      return -1;
+    }
+
+  data = calloc(1, data_len);
+  if (!data)
+    {
+      zlog_debug("%s: Allocation of send data failed", __func__);
+      return -1;
+    }
+
+  ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
+  sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_START_CMD);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, "cmd", tmp_buf);
+  sprintf(tmp_buf, "quagga");
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
+                      tmp_buf);
+  sprintf(tmp_buf, "%d", zebra_ptm_pid);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
+                      tmp_buf);
+
+  s = client->ibuf;
+
+  dst_p.family = stream_getw(s);
+
+  if (dst_p.family == AF_INET)
+    dst_p.prefixlen = IPV4_MAX_BYTELEN;
+  else
+    dst_p.prefixlen = IPV6_MAX_BYTELEN;
+
+  stream_get(&dst_p.u.prefix, s, dst_p.prefixlen);
+  if (dst_p.family == AF_INET)
+    {
+      inet_ntop(AF_INET, &dst_p.u.prefix4, buf, sizeof(buf));
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
+    }
+#ifdef HAVE_IPV6
+  else
+    {
+      inet_ntop(AF_INET6, &dst_p.u.prefix6, buf, sizeof(buf));
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
+    }
+#endif /* HAVE_IPV6 */
+
+  min_rx_timer = stream_getl(s);
+  sprintf(tmp_buf, "%d", min_rx_timer);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MIN_RX_FIELD,
+                      tmp_buf);
+  min_tx_timer = stream_getl(s);
+  sprintf(tmp_buf, "%d", min_tx_timer);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MIN_TX_FIELD,
+                      tmp_buf);
+  detect_mul = stream_getc(s);
+  sprintf(tmp_buf, "%d", detect_mul);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DETECT_MULT_FIELD,
+                      tmp_buf);
+
+  multi_hop = stream_getc(s);
+  if (multi_hop)
+    {
+      sprintf(tmp_buf, "%d", 1);
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MULTI_HOP_FIELD,
+                          tmp_buf);
+      src_p.family = stream_getw(s);
+
+      if (src_p.family == AF_INET)
+        src_p.prefixlen = IPV4_MAX_BYTELEN;
+      else
+        src_p.prefixlen = IPV6_MAX_BYTELEN;
+
+      stream_get(&src_p.u.prefix, s, src_p.prefixlen);
+      if (src_p.family == AF_INET)
+        {
+          inet_ntop(AF_INET, &src_p.u.prefix4, buf, sizeof(buf));
+          ptm_lib_append_msg(ptm_hdl, out_ctxt,
+                              ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+        }
+#ifdef HAVE_IPV6
+      else
+        {
+          inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
+          ptm_lib_append_msg(ptm_hdl, out_ctxt,
+                              ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+        }
+#endif /* HAVE_IPV6 */
+
+      multi_hop_cnt = stream_getc(s);
+      sprintf(tmp_buf, "%d", multi_hop_cnt);
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD,
+                          tmp_buf);
+    }
+  else
+    {
+#ifdef HAVE_IPV6
+      if (dst_p.family == AF_INET6)
+        {
+          src_p.family = stream_getw(s);
+
+          if (src_p.family == AF_INET)
+            src_p.prefixlen = IPV4_MAX_BYTELEN;
+          else
+            src_p.prefixlen = IPV6_MAX_BYTELEN;
+
+          stream_get(&src_p.u.prefix, s, src_p.prefixlen);
+          if (src_p.family == AF_INET)
+            {
+              inet_ntop(AF_INET, &src_p.u.prefix4, buf, sizeof(buf));
+              ptm_lib_append_msg(ptm_hdl, out_ctxt,
+                                  ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+            }
+          else
+            {
+              inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
+              ptm_lib_append_msg(ptm_hdl, out_ctxt,
+                                  ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+            }
+        }
+#endif /* HAVE_IPV6 */
+      len = stream_getc(s);
+      stream_get(if_name, s, len);
+      if_name[len] = '\0';
+
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_IFNAME_FIELD,
+                          if_name);
+    }
+
+  ptm_lib_complete_msg(ptm_hdl, out_ctxt, data, &data_len);
+  zebra_ptm_thread = thread_add_write (zebrad.master, zebra_ptm_sock_write,
+                                         data, zebra_ptm_sock);
+  return 0;
+}
+
+/* BFD peer/dst deregister */
+int
+zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length)
+{
+  char *data;
+  struct stream *s;
+  struct prefix src_p;
+  struct prefix dst_p;
+  u_char multi_hop;
+  char if_name[INTERFACE_NAMSIZ];
+  u_char len;
+  char buf[INET6_ADDRSTRLEN];
+  char tmp_buf[64];
+  int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
+  void *out_ctxt;
+
+  client->bfd_peer_del_cnt++;
+
+  zlog_debug("bfd_dst_deregister msg from client %s: length=%d",
+       zebra_route_string(client->proto), length);
+
+  if (zebra_ptm_sock == -1)
+    {
+      zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                             NULL, zebra_ptm_reconnect_time);
+      return -1;
+    }
+
+  data = calloc(1, data_len);
+  if (!data)
+    {
+      zlog_debug("%s: Allocation of send data failed", __func__);
+      return -1;
+    }
+
+  ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
+
+  sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_STOP_CMD);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, "cmd", tmp_buf);
+
+  sprintf(tmp_buf, "%s", "quagga");
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
+                      tmp_buf);
+
+  sprintf(tmp_buf, "%d", zebra_ptm_pid);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
+                      tmp_buf);
+
+  s = client->ibuf;
+
+  dst_p.family = stream_getw(s);
+
+  if (dst_p.family == AF_INET)
+    dst_p.prefixlen = IPV4_MAX_BYTELEN;
+  else
+    dst_p.prefixlen = IPV6_MAX_BYTELEN;
+
+  stream_get(&dst_p.u.prefix, s, dst_p.prefixlen);
+  if (dst_p.family == AF_INET)
+    {
+      inet_ntop(AF_INET, &dst_p.u.prefix4, buf, sizeof(buf));
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
+    }
+#ifdef HAVE_IPV6
+  else
+    {
+      inet_ntop(AF_INET6, &dst_p.u.prefix6, buf, sizeof(buf));
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_DST_IP_FIELD, buf);
+    }
+#endif /* HAVE_IPV6 */
+
+  multi_hop = stream_getc(s);
+  if (multi_hop)
+    {
+      sprintf(tmp_buf, "%d", 1);
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MULTI_HOP_FIELD,
+                          tmp_buf);
+
+      src_p.family = stream_getw(s);
+
+      if (src_p.family == AF_INET)
+        src_p.prefixlen = IPV4_MAX_BYTELEN;
+      else
+        src_p.prefixlen = IPV6_MAX_BYTELEN;
+
+      stream_get(&src_p.u.prefix, s, src_p.prefixlen);
+      if (src_p.family == AF_INET)
+        {
+          inet_ntop(AF_INET, &src_p.u.prefix4, buf, sizeof(buf));
+          ptm_lib_append_msg(ptm_hdl, out_ctxt,
+                              ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+        }
+#ifdef HAVE_IPV6
+      else
+        {
+          inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
+          ptm_lib_append_msg(ptm_hdl, out_ctxt,
+                              ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+        }
+#endif /* HAVE_IPV6 */
+    }
+  else
+    {
+#ifdef HAVE_IPV6
+      if (dst_p.family == AF_INET6)
+        {
+          src_p.family = stream_getw(s);
+
+          if (src_p.family == AF_INET)
+            src_p.prefixlen = IPV4_MAX_BYTELEN;
+          else
+            src_p.prefixlen = IPV6_MAX_BYTELEN;
+
+          stream_get(&src_p.u.prefix, s, src_p.prefixlen);
+          if (src_p.family == AF_INET)
+            {
+              inet_ntop(AF_INET, &src_p.u.prefix4, buf, sizeof(buf));
+              ptm_lib_append_msg(ptm_hdl, out_ctxt,
+                                  ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+            }
+          else
+            {
+              inet_ntop(AF_INET6, &src_p.u.prefix6, buf, sizeof(buf));
+              ptm_lib_append_msg(ptm_hdl, out_ctxt,
+                                  ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
+            }
+        }
+#endif /* HAVE_IPV6 */
+
+      len = stream_getc(s);
+      stream_get(if_name, s, len);
+      if_name[len] = '\0';
+
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_IFNAME_FIELD,
+                          if_name);
+    }
+
+  ptm_lib_complete_msg(ptm_hdl, out_ctxt, data, &data_len);
+  zebra_ptm_thread = thread_add_write (zebrad.master, zebra_ptm_sock_write,
+                                         data, zebra_ptm_sock);
   return 0;
 }
