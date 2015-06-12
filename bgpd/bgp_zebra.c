@@ -133,7 +133,7 @@ bgp_read_import_check_update(int command, struct zclient *zclient,
 }
 
 static void
-bgp_nbr_connected_add (struct nbr_connected *ifc)
+bgp_start_interface_nbrs (struct interface *ifp)
 {
   struct listnode *node, *nnode, *mnode;
   struct bgp *bgp;
@@ -143,7 +143,9 @@ bgp_nbr_connected_add (struct nbr_connected *ifc)
     {
       for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
         {
-          if (peer->conf_if && (strcmp (peer->conf_if, ifc->ifp->name) == 0))
+          if (peer->conf_if &&
+              (strcmp (peer->conf_if, ifp->name) == 0) &&
+              peer->status != Established)
             {
               if (peer_active(peer))
                 BGP_EVENT_ADD (peer, BGP_Stop);
@@ -154,11 +156,37 @@ bgp_nbr_connected_add (struct nbr_connected *ifc)
 }
 
 static void
-bgp_nbr_connected_delete (struct nbr_connected *ifc)
+bgp_nbr_connected_add (struct nbr_connected *ifc)
+{
+  struct listnode *node;
+  struct connected *connected;
+  struct interface *ifp;
+  struct prefix *p;
+
+  /* Kick-off the FSM for any relevant peers only if there is a
+   * valid local address on the interface.
+   */
+  ifp = ifc->ifp;
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
+    {
+      p = connected->address;
+      if (p->family == AF_INET6 &&
+          IN6_IS_ADDR_LINKLOCAL (&p->u.prefix6))
+        break;
+    }
+  if (!connected)
+    return;
+
+  bgp_start_interface_nbrs (ifp);
+}
+
+static void
+bgp_nbr_connected_delete (struct nbr_connected *ifc, int del)
 {
   struct listnode *node, *nnode, *mnode;
   struct bgp *bgp;
   struct peer *peer;
+  struct interface *ifp;
 
   for (ALL_LIST_ELEMENTS_RO (bm->bgp, mnode, bgp))
     {
@@ -169,6 +197,13 @@ bgp_nbr_connected_delete (struct nbr_connected *ifc)
               BGP_EVENT_ADD (peer, BGP_Stop);
             }
         }
+    }
+  /* Free neighbor also, if we're asked to. */
+  if (del)
+    {
+      ifp = ifc->ifp;
+      listnode_delete (ifp->nbr_connected, ifc);
+      nbr_connected_free (ifc);
     }
 }
 
@@ -251,7 +286,7 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
     bgp_connected_delete (c);
 
   for (ALL_LIST_ELEMENTS (ifp->nbr_connected, node, nnode, nc))
-    bgp_nbr_connected_delete (nc);
+    bgp_nbr_connected_delete (nc, 1);
 
   /* Fast external-failover */
   {
@@ -339,7 +374,16 @@ bgp_interface_address_add (int command, struct zclient *zclient,
     }
 
   if (if_is_operative (ifc->ifp))
-    bgp_connected_add (ifc);
+    {
+      bgp_connected_add (ifc);
+      /* If we have learnt of any neighbors on this interface,
+       * check to kick off any BGP interface-based neighbors,
+       * but only if this is a link-local address.
+       */
+      if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6) &&
+          !list_isempty(ifc->ifp->nbr_connected))
+        bgp_start_interface_nbrs (ifc->ifp);
+    }
 
   return 0;
 }
@@ -416,7 +460,7 @@ bgp_interface_nbr_address_delete (int command, struct zclient *zclient,
     }
 
   if (if_is_operative (ifc->ifp))
-    bgp_nbr_connected_delete (ifc);
+    bgp_nbr_connected_delete (ifc, 0);
 
   nbr_connected_free (ifc);
 

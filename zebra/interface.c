@@ -42,6 +42,7 @@
 #include "zebra/irdp.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
+#include "zebra/zserv.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -587,6 +588,19 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (struct interface *ifp)
     }
 }
 
+void
+if_down_del_nbr_connected (struct interface *ifp)
+{
+  struct nbr_connected *nbr_connected;
+  struct listnode *node, *nnode;
+
+  for (ALL_LIST_ELEMENTS (ifp->nbr_connected, node, nnode, nbr_connected))
+    {
+      listnode_delete (ifp->nbr_connected, nbr_connected);
+      nbr_connected_free (nbr_connected);
+    }
+}
+
 /* Interface is up. */
 void
 if_up (struct interface *ifp)
@@ -659,6 +673,9 @@ if_down (struct interface *ifp)
   rib_update ();
 
   if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (ifp);
+
+  /* Delete all neighbor addresses learnt through IPv6 RA */
+  if_down_del_nbr_connected (ifp);
 }
 
 void
