@@ -7242,35 +7242,15 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
               json_object_string_add(json_peer, "peer-id", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
               json_object_string_add(json_peer, "router-id", inet_ntop (AF_INET, &binfo->peer->remote_id, buf1, BUFSIZ));
 
-              if (binfo->peer->hostname)
-                json_object_string_add(json_peer, "hostname", binfo->peer->hostname);
-
-              if (binfo->peer->domainname)
-                json_object_string_add(json_peer, "domainname", binfo->peer->domainname);
-
               if (binfo->peer->conf_if)
                 json_object_string_add(json_peer, "interface", binfo->peer->conf_if);
             }
           else
             {
               if (binfo->peer->conf_if)
-                {
-                  if (binfo->peer->hostname &&
-                      bgp_flag_check(binfo->peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
-                    vty_out (vty, " from %s(%s)", binfo->peer->hostname,
-                             binfo->peer->conf_if);
-                  else
-                    vty_out (vty, " from %s", binfo->peer->conf_if);
-                }
+                vty_out (vty, " from %s", binfo->peer->conf_if);
               else
-                {
-                  if (binfo->peer->hostname &&
-                      bgp_flag_check(binfo->peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
-                    vty_out (vty, " from %s(%s)", binfo->peer->hostname,
-                             binfo->peer->host);
-                  else
-                    vty_out (vty, " from %s", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
-                }
+                vty_out (vty, " from %s", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
 
               if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
                 vty_out (vty, " (%s)", inet_ntoa (attr->extra->originator_id));
@@ -8041,9 +8021,6 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
                */
               json_peer = json_object_new_object();
 
-	      if (peer->hostname)
-                json_object_string_add(json_peer, "hostname", peer->hostname);
-
               if (!json_adv_to)
                 json_adv_to = json_object_new_object();
 
@@ -8059,21 +8036,10 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 	      if (! first)
 	        vty_out (vty, "  Advertised to non peer-group peers:%s ", VTY_NEWLINE);
 
-	      if (peer->hostname && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
-		{
-		  if (peer->conf_if)
-		    vty_out (vty, " %s(%s)", peer->hostname, peer->conf_if);
-		  else
-		    vty_out (vty, " %s(%s)", peer->hostname,
-			     sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
-		}
-	      else
-		{
-		  if (peer->conf_if)
-		    vty_out (vty, " %s", peer->conf_if);
-		  else
-		    vty_out (vty, " %s", sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
-		}
+              if (peer->conf_if)
+                vty_out (vty, " %s", peer->conf_if);
+              else
+                vty_out (vty, " %s", sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
             }
 	    first = 1;
 	}
@@ -11157,13 +11123,8 @@ peer_lookup_in_view (struct vty *vty, const char *view_name,
       peer = peer_lookup_by_conf_if (bgp, ip_str);
       if (!peer)
         {
-	  /* search for peer by hostname */
-	  peer = peer_lookup_by_hostname(bgp, ip_str);
-	  if (!peer)
-	    {
-	      vty_out (vty, "%% Malformed address or name: %s%s", ip_str, VTY_NEWLINE);
-	      return NULL;
-	    }
+	  vty_out (vty, "%% Malformed address or name: %s%s", ip_str, VTY_NEWLINE);
+	  return NULL;
         }
       return peer;
     }
@@ -11649,15 +11610,8 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi)
    */
   thread_execute (bm->master, bgp_peer_count_walker, &pcounts, 0);
 
-  if (peer->hostname && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
-    {
-      vty_out (vty, "Prefix counts for %s/%s, %s%s",
-	       peer->hostname, peer->host, afi_safi_print (afi, safi),
-	       VTY_NEWLINE);
-    }
-  else
-    vty_out (vty, "Prefix counts for %s, %s%s",
-	     peer->host, afi_safi_print (afi, safi), VTY_NEWLINE);
+  vty_out (vty, "Prefix counts for %s, %s%s",
+           peer->host, afi_safi_print (afi, safi), VTY_NEWLINE);
   vty_out (vty, "PfxCt: %ld%s", peer->pcount[afi][safi], VTY_NEWLINE);
   vty_out (vty, "%sCounts from RIB table walk:%s%s", 
            VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);

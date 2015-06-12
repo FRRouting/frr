@@ -1759,12 +1759,6 @@ peer_delete (struct peer *peer)
 
   FOREACH_AFI_SAFI (afi, safi)
     peer_af_delete (peer, afi, safi);
-
-  if (peer->hostname)
-    XFREE(MTYPE_HOST, peer->hostname);
-  if (peer->domainname)
-    XFREE(MTYPE_HOST, peer->domainname);
-
   peer_unlock (peer); /* initial reference */
 
   return 0;
@@ -2835,35 +2829,6 @@ peer_lookup_by_conf_if (struct bgp *bgp, const char *conf_if)
         for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
           if (peer->conf_if && !strcmp(peer->conf_if, conf_if)
               && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-            return peer;
-    }
-  return NULL;
-}
-
-struct peer *
-peer_lookup_by_hostname (struct bgp *bgp, const char *hostname)
-{
-  struct peer *peer;
-  struct listnode *node, *nnode;
-
-  if (!hostname)
-    return NULL;
-
-  if (bgp != NULL)
-    {
-      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-        if (peer->hostname && !strcmp(peer->hostname, hostname)
-            && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-          return peer;
-    }
-  else if (bm->bgp != NULL)
-    {
-      struct listnode *bgpnode, *nbgpnode;
-
-      for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
-        for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-          if (peer->hostname && !strcmp(peer->hostname, hostname)
-	      && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
             return peer;
     }
   return NULL;
@@ -6489,10 +6454,6 @@ bgp_config_write (struct vty *vty)
       if (bgp->default_local_pref != BGP_DEFAULT_LOCAL_PREF)
 	vty_out (vty, " bgp default local-preference %d%s",
 		 bgp->default_local_pref, VTY_NEWLINE);
-
-      /* BGP default show-hostname */
-      if (bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
-	vty_out (vty, " bgp default show-hostname%s", VTY_NEWLINE);
 
       /* BGP default subgroup-pkt-queue-max. */
       if (bgp->default_subgroup_pkt_queue_max != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
