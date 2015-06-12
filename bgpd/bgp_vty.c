@@ -9403,9 +9403,22 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	   " no-prepend" : "",
 	   CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) ?
 	   " replace-as" : "");
-  vty_out (vty, "%s link%s",
-	   p->as == p->local_as ? "internal" : "external",
-	   VTY_NEWLINE);
+
+  /* peer type internal, external, confed-internal or confed-external */
+  if (p->as == p->local_as)
+    {
+      if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
+        vty_out (vty, "confed-internal link%s", VTY_NEWLINE);
+      else
+        vty_out (vty, "internal link%s", VTY_NEWLINE);
+    }
+  else
+    {
+      if (bgp_confederation_peers_check(bgp, p->as))
+        vty_out (vty, "confed-external link%s", VTY_NEWLINE);
+      else
+        vty_out (vty, "external link%s", VTY_NEWLINE);
+    }
 
   /* Description. */
   if (p->desc)
@@ -10864,11 +10877,14 @@ bgp_show_one_peer_group (struct vty *vty, struct peer_group *group)
 
   if (conf->as_type == AS_SPECIFIED ||
       conf->as_type == AS_EXTERNAL) {
-  vty_out (vty, "%sBGP peer-group %s,  remote AS %d%s",
+  vty_out (vty, "%sBGP peer-group %s, remote AS %d%s",
            VTY_NEWLINE, group->name, conf->as, VTY_NEWLINE);
   } else if (conf->as_type == AS_INTERNAL) {
-    vty_out (vty, "%sBGP peer-group %s,  remote AS %d%s",
+    vty_out (vty, "%sBGP peer-group %s, remote AS %d%s",
 	     VTY_NEWLINE, group->name, group->bgp->as, VTY_NEWLINE);
+  } else {
+    vty_out (vty, "%sBGP peer-group %s%s",
+	     VTY_NEWLINE, group->name, VTY_NEWLINE);
   }
 
   if ((group->bgp->as == conf->as) || (conf->as_type == AS_INTERNAL))

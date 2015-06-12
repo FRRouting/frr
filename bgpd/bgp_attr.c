@@ -2287,11 +2287,13 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     {    
       aspath = aspath_dup (attr->aspath);
 
+      /* Even though we may not be configured for confederations we may have
+       * RXed an AS_PATH with AS_CONFED_SEQUENCE or AS_CONFED_SET */
+      aspath = aspath_delete_confed_seq (aspath);
+
       if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 	{
-	  /* Strip the confed info, and then stuff our path CONFED_ID
-	     on the front */
-	  aspath = aspath_delete_confed_seq (aspath);
+	  /* Stuff our path CONFED_ID on the front */
 	  aspath = aspath_add_seq (aspath, bgp->confed_id);
 	}
       else

@@ -6692,7 +6692,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
         {
           if (json_paths)
             {
-	      if (!attr->aspath->str || aspath_count_hops (attr->aspath) == 0)
+	      if (!attr->aspath->str || !attr->aspath->segments)
                 json_string = json_object_new_string("Local");
               else
                 json_string = json_object_new_string(attr->aspath->str);
@@ -6986,7 +6986,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           if (!json_paths)
 	    vty_out (vty, "  ");
 
-	  if (aspath_count_hops (attr->aspath) == 0)
+          if (!attr->aspath->segments)
             {
               if (json_paths)
                 json_string = json_object_new_string("Local");
@@ -7344,26 +7344,56 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	{
 	  if (binfo->peer->as == binfo->peer->local_as)
             {
-              if (json_paths)
-                json_object_object_add(json_path, "internal", json_boolean_true);
-              else
-	        vty_out (vty, ", internal");
-            }
-	  else 
-            {
-              if (bgp_confederation_peers_check(bgp, binfo->peer->as))
+              if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
                 {
                   if (json_paths)
-                    json_object_object_add(json_path, "confed-external", json_boolean_true);
+                    {
+                      json_string = json_object_new_string("confed-internal");
+                      json_object_object_add(json_path, "peer-type", json_string);
+                    }
                   else
-	            vty_out (vty, ", confed-external");
+                    {
+                      vty_out (vty, ", confed-internal");
+                    }
                 }
               else
                 {
                   if (json_paths)
-                    json_object_object_add(json_path, "external", json_boolean_true);
+                    {
+                      json_string = json_object_new_string("internal");
+                      json_object_object_add(json_path, "peer-type", json_string);
+                    }
                   else
-	            vty_out (vty, ", external");
+                    {
+                      vty_out (vty, ", internal");
+                    }
+                }
+            }
+	  else
+            {
+              if (bgp_confederation_peers_check(bgp, binfo->peer->as))
+                {
+                  if (json_paths)
+                    {
+                      json_string = json_object_new_string("confed-external");
+                      json_object_object_add(json_path, "peer-type", json_string);
+                    }
+                  else
+                    {
+	              vty_out (vty, ", confed-external");
+                    }
+                }
+              else
+                {
+                  if (json_paths)
+                    {
+                      json_string = json_object_new_string("external");
+                      json_object_object_add(json_path, "peer-type", json_string);
+                    }
+                  else
+                    {
+	              vty_out (vty, ", external");
+                    }
                 }
             }
 	}

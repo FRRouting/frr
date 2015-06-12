@@ -1718,36 +1718,52 @@ aspath_cmp_left_confed (const struct aspath *aspath1, const struct aspath *aspat
   return 0;
 }
 
-/* Delete all leading AS_CONFED_SEQUENCE/SET segments from aspath.
- * See RFC3065, 6.1 c1 */
+/* Delete all AS_CONFED_SEQUENCE/SET segments from aspath.
+ * RFC 5065 section 4.1.c.1
+ *
+ * 1) if any path segments of the AS_PATH are of the type
+ *    AS_CONFED_SEQUENCE or AS_CONFED_SET, those segments MUST be
+ *    removed from the AS_PATH attribute, leaving the sanitized
+ *    AS_PATH attribute to be operated on by steps 2, 3 or 4.
+ */
 struct aspath *
 aspath_delete_confed_seq (struct aspath *aspath)
 {
-  struct assegment *seg;
+  struct assegment *seg, *prev, *next;
+  char removed_confed_segment;
 
   if (!(aspath && aspath->segments))
     return aspath;
 
   seg = aspath->segments;
+  removed_confed_segment = 0;
+  next = NULL;
+  prev = NULL;
   
-  /* "if the first path segment of the AS_PATH is 
-   *  of type AS_CONFED_SEQUENCE,"
-   */
-  if (aspath->segments->type != AS_CONFED_SEQUENCE)
-    return aspath;
-
-  /* "... that segment and any immediately following segments 
-   *  of the type AS_CONFED_SET or AS_CONFED_SEQUENCE are removed 
-   *  from the AS_PATH attribute,"
-   */
-  while (seg && 
-         (seg->type == AS_CONFED_SEQUENCE || seg->type == AS_CONFED_SET))
+  while (seg)
     {
-      aspath->segments = seg->next;
-      assegment_free (seg);
-      seg = aspath->segments;
+      next = seg->next;
+
+      if (seg->type == AS_CONFED_SEQUENCE || seg->type == AS_CONFED_SET)
+        {
+          /* This is the first segment in the aspath */
+          if (aspath->segments == seg)
+            aspath->segments = seg->next;
+          else
+            prev->next = seg->next;
+
+          assegment_free (seg);
+          removed_confed_segment = 1;
+        }
+      else
+        prev = seg;
+
+      seg = next;
     }
-  aspath_str_update (aspath);
+
+  if (removed_confed_segment)
+    aspath_str_update (aspath);
+
   return aspath;
 }
 

@@ -830,17 +830,22 @@ peer_calc_sort (struct peer *peer)
   /* Peer-group */
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer->as_type != AS_SPECIFIED)
-	return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP : BGP_PEER_EBGP);
-      else if (peer->as)
+      if (peer->as_type == AS_INTERNAL)
+        return BGP_PEER_IBGP;
+
+      else if (peer->as_type == AS_EXTERNAL)
+        return BGP_PEER_EBGP;
+
+      else if (peer->as_type == AS_SPECIFIED && peer->as)
 	return (bgp->as == peer->as ? BGP_PEER_IBGP : BGP_PEER_EBGP);
+
       else
 	{
 	  struct peer *peer1;
 	  peer1 = listnode_head (peer->group->peer);
+
 	  if (peer1)
-	    return (peer1->local_as == peer1->as 
-		    ? BGP_PEER_IBGP : BGP_PEER_EBGP);
+             return peer1->sort;
 	} 
       return BGP_PEER_INTERNAL;
     }
@@ -853,10 +858,20 @@ peer_calc_sort (struct peer *peer)
 
       if (peer->local_as == peer->as)
 	{
-	  if (peer->local_as == bgp->confed_id)
-	    return BGP_PEER_EBGP;
-	  else
-	    return BGP_PEER_IBGP;
+          if (bgp->as == bgp->confed_id)
+            {
+              if (peer->local_as == bgp->as)
+                return BGP_PEER_IBGP;
+              else
+                return BGP_PEER_EBGP;
+            }
+          else
+            {
+              if (peer->local_as == bgp->confed_id)
+                return BGP_PEER_EBGP;
+              else
+                return BGP_PEER_IBGP;
+            }
 	}
 
       if (bgp_confederation_peers_check (bgp, peer->as))
