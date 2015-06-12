@@ -6605,12 +6605,12 @@ route_vty_out (struct vty *vty, struct prefix *p,
 	      if (safi == SAFI_MPLS_VPN)
                 {
                   json_string = json_object_new_string(inet_ntoa (attr->extra->mp_nexthop_global_in));
-                  json_object_object_add(json_path, "nexthop", json_string);
+                  json_object_object_add(json_path, "nexthop-global", json_string);
                 }
               else
                 {
                   json_string = json_object_new_string(inet_ntoa (attr->nexthop));
-                  json_object_object_add(json_path, "nexthop", json_string);
+                  json_object_object_add(json_path, "nexthop-global", json_string);
                 }
             }
           else
@@ -6633,7 +6633,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
           if (json_paths)
             {
               json_string = json_object_new_string(inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global, buf, BUFSIZ));
-              json_object_object_add(json_path, "nexthop", json_string);
+              json_object_object_add(json_path, "nexthop-global", json_string);
             }
           else
             {
@@ -7092,7 +7092,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
             }
 
           if (json_paths)
-            json_object_object_add(json_path, "nexthop", json_string);
+            json_object_object_add(json_path, "nexthop-global", json_string);
 	}
 #ifdef HAVE_IPV6
       else
@@ -7102,7 +7102,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
             {
               json_string = json_object_new_string(inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global,
                                                           buf, INET6_ADDRSTRLEN));
-              json_object_object_add(json_path, "nexthop", json_string);
+              json_object_object_add(json_path, "nexthop-global", json_string);
             }
           else
             {
@@ -7147,7 +7147,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	  if (! CHECK_FLAG (binfo->flags, BGP_INFO_VALID))
             {
               if (json_paths)
-                json_object_object_add(json_path, "nexthop-accessible", json_boolean_false);
+                json_object_object_add(json_path, "nexthop-global-accessible", json_boolean_false);
               else
 	        vty_out (vty, " (inaccessible)");
             }
@@ -7156,8 +7156,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
               if (json_paths)
                 {
                   json_int = json_object_new_int(binfo->extra->igpmetric);
-                  json_object_object_add(json_path, "nexthop-igp-cost", json_int);
-                  json_object_object_add(json_path, "nexthop-accessible", json_boolean_true);
+                  json_object_object_add(json_path, "nexthop-global-igp-cost", json_int);
+                  json_object_object_add(json_path, "nexthop-global-accessible", json_boolean_true);
                 }
               else
                 {
@@ -7168,7 +7168,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           /* IGP cost to nexthop is 0 */
           else
             if (json_paths)
-              json_object_object_add(json_path, "nexthop-accessible", json_boolean_true);
+              json_object_object_add(json_path, "nexthop-global-accessible", json_boolean_true);
 
           if (json_paths)
             {
