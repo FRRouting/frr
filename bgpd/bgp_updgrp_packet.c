@@ -409,6 +409,8 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
   struct stream *s = NULL;
   bpacket_attr_vec *vec;
   struct peer *peer;
+  char buf[BUFSIZ];
+  char buf2[BUFSIZ];
 
   s = stream_dup (pkt->buffer);
   peer = PAF_PEER(paf);
@@ -471,6 +473,11 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
           if (nh_modified)
             stream_put_in_addr_at (s, vec->offset + 1, mod_v4nh);
 
+          if (bgp_debug_update(peer, NULL, NULL, 0))
+            zlog_debug ("u" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ nexthop %s",
+                    PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
+                    peer->host, inet_ntoa (*mod_v4nh));
+
 	}
       else if (paf->afi == AFI_IP6 || peer_cap_enhe(peer))
 	{
@@ -531,6 +538,23 @@ bpacket_reformat_for_peer (struct bpacket *pkt, struct peer_af *paf)
             stream_put_in6_addr_at (s, vec->offset + 1, mod_v6nhg);
           if (lnh_modified)
             stream_put_in6_addr_at (s, vec->offset + 1 + 16, mod_v6nhl);
+
+          if (bgp_debug_update(peer, NULL, NULL, 0))
+            {
+              if (nhlen == 32)
+                zlog_debug ("u" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ mp_nexthops %s, %s",
+                            PAF_SUBGRP(paf)->update_group->id,
+                            PAF_SUBGRP(paf)->id,
+                            peer->host,
+                            inet_ntop (AF_INET6, mod_v6nhg, buf, BUFSIZ),
+                            inet_ntop (AF_INET6, mod_v6nhl, buf2, BUFSIZ));
+              else
+                zlog_debug ("u" PRIu64 ":s%" PRIu64 " %s send UPDATE w/ mp_nexthop %s",
+                            PAF_SUBGRP(paf)->update_group->id,
+                            PAF_SUBGRP(paf)->id,
+                            peer->host,
+                            inet_ntop (AF_INET6, mod_v6nhg, buf, BUFSIZ));
+            }
 	}
     }
 

@@ -262,10 +262,6 @@ bgp_write_packet (struct peer *peer)
 	 */
         s = bpacket_reformat_for_peer (next_pkt, paf);
         bpacket_queue_advance_peer (paf);
-        if (bgp_debug_update(peer, NULL, NULL, 0))
-          zlog_debug ("u%" PRIu64 ":s%" PRIu64 "%s send UPDATE len %zu ",
-                      PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
-                      peer->host, (stream_get_endp(s) - stream_get_getp(s)));
         return s;
       }
 
