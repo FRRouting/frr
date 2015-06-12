@@ -416,28 +416,31 @@ bgp_update_address (struct interface *ifp, const union sockunion *dst,
 }
 
 /* Update source selection.  */
-static void
+static int
 bgp_update_source (struct peer *peer)
 {
   struct interface *ifp;
   union sockunion addr;
+  int ret = 0;
 
   /* Source is specified with interface name.  */
   if (peer->update_if)
     {
       ifp = if_lookup_by_name (peer->update_if);
       if (! ifp)
-	return;
+	return -1;
 
       if (bgp_update_address (ifp, &peer->su, &addr))
-	return;
+	return -1;
 
-      sockunion_bind (peer->fd, &addr, 0, &addr);
+      ret = sockunion_bind (peer->fd, &addr, 0, &addr);
     }
 
   /* Source is specified with IP address.  */
   if (peer->update_source)
-    sockunion_bind (peer->fd, peer->update_source, 0, peer->update_source);
+    ret = sockunion_bind (peer->fd, peer->update_source, 0, peer->update_source);
+
+  return ret;
 }
 
 #define DATAPLANE_MARK 254	/* main table ID */
@@ -492,7 +495,10 @@ bgp_connect (struct peer *peer)
   bgp_bind (peer);
 
   /* Update source bind. */
-  bgp_update_source (peer);
+  if (bgp_update_source (peer) < 0)
+    {
+      return connect_error;
+    }
 
 #ifdef HAVE_IPV6
   if (peer->conf_if || peer->ifname)
