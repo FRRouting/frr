@@ -439,7 +439,21 @@ bgp_capability_addpath (struct peer *peer, struct capability_header *hdr)
                     (send_receive & BGP_ADDPATH_TX) ? ", transmit" : "");
 
       if (!bgp_afi_safi_valid_indices (afi, &safi))
-        return -1;
+        {
+          if (bgp_debug_neighbor_events(peer))
+            zlog_debug ("%s Addr-family %d/%d(afi/safi) not supported."
+                        " Ignore the Addpath Attribute for this AFI/SAFI",
+                        peer->host, afi, safi);
+	  continue;
+        }
+      else if (!peer->afc[afi][safi])
+        {
+          if (bgp_debug_neighbor_events(peer))
+            zlog_debug ("%s Addr-family %d/%d(afi/safi) not enabled."
+                        " Ignore the AddPath capability for this AFI/SAFI",
+                        peer->host, afi, safi);
+	  continue;
+        }
 
       if (send_receive & BGP_ADDPATH_RX)
         SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV);
