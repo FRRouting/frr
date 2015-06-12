@@ -882,12 +882,16 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
 
 	  /* If there is no global address.  Set link-local address as
              global.  I know this break RFC specification... */
+          /* In this scenario, the expectation for interop is that the
+           * network admin would use a route-map to specify the global
+           * IPv6 nexthop.
+           */
 	  if (!ret)
 	    memcpy (&nexthop->v6_global, &local->sin6.sin6_addr, 
 		    IPV6_MAX_BYTELEN);
-	  else
-	    memcpy (&nexthop->v6_local, &local->sin6.sin6_addr, 
-		    IPV6_MAX_BYTELEN);
+          /* Always set the link-local address */
+          memcpy (&nexthop->v6_local, &local->sin6.sin6_addr,
+                  IPV6_MAX_BYTELEN);
 	}
     }
 
