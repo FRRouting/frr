@@ -496,6 +496,25 @@ sockopt_cork (int sock, int onoff)
 #endif
 }
 
+int sockopt_mark_default(int sock, int mark, struct zebra_privs_t *cap)
+{
+#ifdef SO_MARK
+  int ret;
+
+  if ( cap->change (ZPRIVS_RAISE) )
+    zlog_err ("routing_socket: Can't raise privileges");
+
+  ret = setsockopt(sock, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
+
+  if ( cap->change (ZPRIVS_LOWER) )
+    zlog_err ("routing_socket: Can't lower privileges");
+
+  return ret;
+#else
+  return 0;
+#endif
+}
+
 int
 sockopt_minttl (int family, int sock, int minttl)
 {

@@ -23,6 +23,8 @@
 #ifndef _ZEBRA_SOCKUNION_H
 #define _ZEBRA_SOCKUNION_H
 
+#include "privs.h"
+
 #if 0
 union sockunion {
   struct sockinet {
@@ -99,6 +101,7 @@ extern int sockunion_bind (int sock, union sockunion *,
 extern int sockopt_ttl (int family, int sock, int ttl);
 extern int sockopt_minttl (int family, int sock, int minttl);
 extern int sockopt_cork (int sock, int onoff);
+extern int sockopt_mark_default(int sock, int mark, struct zebra_privs_t *);
 extern int sockunion_socket (union sockunion *su);
 extern const char *inet_sutop (union sockunion *su, char *str);
 extern enum connect_result sockunion_connect (int fd, union sockunion *su, 

@@ -440,6 +440,8 @@ bgp_update_source (struct peer *peer)
     sockunion_bind (peer->fd, peer->update_source, 0, peer->update_source);
 }
 
+#define DATAPLANE_MARK 254	/* main table ID */
+
 /* BGP try to connect to the peer.  */
 int
 bgp_connect (struct peer *peer)
@@ -466,6 +468,9 @@ bgp_connect (struct peer *peer)
 
   sockopt_reuseaddr (peer->fd);
   sockopt_reuseport (peer->fd);
+  if (sockopt_mark_default(peer->fd, DATAPLANE_MARK, &bgpd_privs) < 0)
+    zlog_warn("Unable to set mark on FD for peer %s, err=%s", peer->host,
+	      safe_strerror(errno));
   
 #ifdef IPTOS_PREC_INTERNETCONTROL
   if (bgpd_privs.change (ZPRIVS_RAISE))
