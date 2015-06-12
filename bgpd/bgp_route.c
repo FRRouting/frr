@@ -561,7 +561,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       && (exist_sort == BGP_PEER_IBGP || exist_sort == BGP_PEER_CONFED))
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to eBGP peer > iBGP peeer",
+        zlog_debug("%s: path %s wins over path %s due to eBGP peer > iBGP peer",
                    pfx_buf, new->peer->host, exist->peer->host);
       return 1;
     }
@@ -570,7 +570,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       && (new_sort == BGP_PEER_IBGP || new_sort == BGP_PEER_CONFED))
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to iBGP peer < eBGP peeer",
+        zlog_debug("%s: path %s loses to path %s due to iBGP peer < eBGP peer",
                    pfx_buf, new->peer->host, exist->peer->host);
       return 0;
     }
@@ -599,7 +599,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       ret = 0;
     }
 
-  /* 8.1. Same IGP metric. Compare the cluster list length as
+  /* 9. Same IGP metric. Compare the cluster list length as
      representative of IGP hops metric. Rewrite the metric value
      pair (newm, existm) with the cluster list length. Prefer the
      path with smaller cluster list length.                       */
@@ -633,7 +633,27 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	}
     }
 
-  /* 9. Maximum path check. */
+  /* 10. confed-external vs. confed-internal */
+  if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
+    {
+      if (new_sort == BGP_PEER_CONFED && exist_sort == BGP_PEER_IBGP)
+        {
+          if (debug)
+            zlog_debug("%s: path %s wins over path %s due to confed-external peer > confed-internal peer",
+                       pfx_buf, new->peer->host, exist->peer->host);
+          return 1;
+        }
+
+      if (exist_sort == BGP_PEER_CONFED && new_sort == BGP_PEER_IBGP)
+        {
+          if (debug)
+            zlog_debug("%s: path %s loses to path %s due to confed-internal peer < confed-external peer",
+                       pfx_buf, new->peer->host, exist->peer->host);
+          return 0;
+        }
+    }
+
+  /* 11. Maximum path check. */
   if (newm == existm)
     {
       if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX))
@@ -682,7 +702,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       return ret;
     }
 
-  /* 10. If both paths are external, prefer the path that was received
+  /* 12. If both paths are external, prefer the path that was received
      first (the oldest one).  This step minimizes route-flap, since a
      newer path won't displace an older one, even if it was the
      preferred route based on the additional decision criteria below.  */
@@ -707,7 +727,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
         }
     }
 
-  /* 11. Router-ID comparision. */
+  /* 13. Router-ID comparision. */
   /* If one of the paths is "stale", the corresponding peer router-id will
    * be 0 and would always win over the other path. If originator id is
    * used for the comparision, it will decide which path is better.
@@ -737,7 +757,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       return 0;
     }
 
-  /* 12. Cluster length comparision. */
+  /* 14. Cluster length comparision. */
   new_cluster = BGP_CLUSTER_LIST_LENGTH(new->attr);
   exist_cluster = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
@@ -759,7 +779,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       return 0;
     }
 
-  /* 13. Neighbor address comparision. */
+  /* 15. Neighbor address comparision. */
   /* Do this only if neither path is "stale" as stale paths do not have
    * valid peer information (as the connection may or may not be up).
    */
