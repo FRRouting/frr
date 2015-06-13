@@ -349,6 +349,7 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
 					     struct in_addr group_addr)
 {
   struct pim_upstream *up;
+  enum pim_rpf_result rpf_result;
 
   up = XMALLOC(MTYPE_PIM_UPSTREAM, sizeof(*up));
   if (!up) {
@@ -372,7 +373,11 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
   up->rpf.source_nexthop.mrib_route_metric        = qpim_infinite_assert_metric.route_metric;
   up->rpf.rpf_addr.s_addr                         = PIM_NET_INADDR_ANY;
 
-  pim_rpf_update(up, 0);
+  rpf_result = pim_rpf_update(up, 0);
+  if (rpf_result == PIM_RPF_FAILURE) {
+    XFREE(MTYPE_PIM_UPSTREAM, up);
+    return NULL;
+  }
 
   listnode_add(qpim_upstream_list, up);
 
