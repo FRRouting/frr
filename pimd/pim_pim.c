@@ -211,9 +211,6 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
                  ip_hdr->ip_src,
                  pim_msg + PIM_MSG_HEADER_LEN,
                  pim_msg_len - PIM_MSG_HEADER_LEN);
-    if (!result) {
-      pim_if_dr_election(ifp); /* PIM Hello message is received */
-    }
     return result;
   }
 
