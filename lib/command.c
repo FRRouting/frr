@@ -4209,7 +4209,7 @@ cmd_init (int terminal)
 
       vrf_install_commands ();
     }
-  srand(time(NULL));
+  srandom(time(NULL));
 }
 
 static void

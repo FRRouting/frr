@@ -1874,7 +1874,7 @@ ripng_request (struct interface *ifp)
 static int
 ripng_update_jitter (int time)
 {
-  return ((rand () % (time + 1)) - (time / 2));
+  return ((random () % (time + 1)) - (time / 2));
 }
 
 void
@@ -2928,7 +2928,7 @@ void
 ripng_init ()
 {
   /* Randomize. */
-  srand (time (NULL));
+  srandom (time (NULL));
 
   /* Install RIPNG_NODE. */
   install_node (&cmd_ripng_node, ripng_config_write);

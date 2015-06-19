@@ -2867,7 +2867,7 @@ rip_update_jitter (unsigned long time)
   if (jitter_input < JITTER_BOUND)
     jitter_input = JITTER_BOUND;
   
-  jitter = (((rand () % ((jitter_input * 2) + 1)) - jitter_input));  
+  jitter = (((random () % ((jitter_input * 2) + 1)) - jitter_input));
 
   return jitter/JITTER_BOUND;
 }
@@ -4140,7 +4140,7 @@ void
 rip_init (void)
 {
   /* Randomize for triggered update random(). */
-  srand (time (NULL));
+  srandom (time (NULL));
 
   /* Install top nodes. */
   install_node (&rip_node, config_write_rip);
