@@ -39,7 +39,6 @@
 #include "pim_join.h"
 #include "pim_assert.h"
 #include "pim_msg.h"
-#include "pim_rand.h"
 
 static int on_pim_hello_send(struct thread *t);
 static int pim_hello_send(struct interface *ifp,
@@ -686,7 +685,7 @@ void pim_hello_restart_triggered(struct interface *ifp)
   }
   zassert(!pim_ifp->t_pim_hello_timer);
 
-  random_msec = pim_rand_next(0, triggered_hello_delay_msec);
+  random_msec = random() % (triggered_hello_delay_msec + 1);
 
   if (PIM_DEBUG_PIM_EVENTS) {
     zlog_debug("Scheduling %d msec triggered hello on interface %s",
@@ -724,7 +723,7 @@ int pim_sock_add(struct interface *ifp)
   pim_ifp->t_pim_sock_read   = 0;
   pim_ifp->pim_sock_creation = pim_time_monotonic_sec();
 
-  pim_ifp->pim_generation_id = pim_rand() & (int64_t) 0xFFFFFFFF;
+  pim_ifp->pim_generation_id = random();
 
   zlog_info("PIM INTERFACE UP: on interface %s ifindex=%d",
 	    ifp->name, ifp->ifindex);

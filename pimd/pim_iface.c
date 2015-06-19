@@ -37,7 +37,6 @@
 #include "pim_pim.h"
 #include "pim_neighbor.h"
 #include "pim_ifchannel.h"
-#include "pim_rand.h"
 #include "pim_sock.h"
 #include "pim_time.h"
 #include "pim_ssmpingd.h"
@@ -845,7 +844,7 @@ int pim_if_t_override_msec(struct interface *ifp)
   effective_override_interval_msec =
     pim_if_effective_override_interval_msec(ifp);
 
-  t_override_msec = pim_rand_next(0, effective_override_interval_msec);
+  t_override_msec = random() % (effective_override_interval_msec + 1);
 
   return t_override_msec;
 }
@@ -908,6 +907,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 {
   struct pim_interface *pim_ifp;
   long t_suppressed_msec;
+  uint32_t ramount = 0;
 
   pim_ifp = ifp->info;
   zassert(pim_ifp);
@@ -917,8 +917,8 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
     return 0;
 
   /* t_suppressed = t_periodic * rand(1.1, 1.4) */
-
-  t_suppressed_msec = qpim_t_periodic * pim_rand_next(1100, 1400);
+  ramount = 1100 + (random() % (1400 - 1100 + 1));
+  t_suppressed_msec = qpim_t_periodic * ramount;
 
   return t_suppressed_msec;
 }

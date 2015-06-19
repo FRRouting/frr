@@ -52,7 +52,7 @@ libpim_a_SOURCES = \
 	pim_igmpv3.c pim_str.c pim_mroute.c pim_util.c pim_time.c \
 	pim_oil.c pim_zlookup.c pim_pim.c pim_tlv.c pim_neighbor.c \
 	pim_hello.c pim_ifchannel.c pim_join.c pim_assert.c \
-	pim_msg.c pim_upstream.c pim_rpf.c pim_rand.c pim_macro.c \
+	pim_msg.c pim_upstream.c pim_rpf.c pim_macro.c \
 	pim_igmp_join.c pim_ssmpingd.c pim_int.c
 
 noinst_HEADERS = \
@@ -61,7 +61,7 @@ noinst_HEADERS = \
 	pim_igmpv3.h pim_str.h pim_mroute.h pim_util.h pim_time.h \
 	pim_oil.h pim_zlookup.h pim_pim.h pim_tlv.h pim_neighbor.h \
 	pim_hello.h pim_ifchannel.h pim_join.h pim_assert.h \
-	pim_msg.h pim_upstream.h pim_rpf.h pim_rand.h pim_macro.h \
+	pim_msg.h pim_upstream.h pim_rpf.h pim_macro.h \
 	pim_igmp_join.h pim_ssmpingd.h pim_int.h
 
 pimd_SOURCES = \

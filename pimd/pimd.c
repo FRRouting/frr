@@ -33,7 +33,6 @@
 #include "pim_oil.h"
 #include "pim_pim.h"
 #include "pim_upstream.h"
-#include "pim_rand.h"
 #include "pim_rpf.h"
 #include "pim_ssmpingd.h"
 
@@ -82,7 +81,7 @@ static void pim_free()
 
 void pim_init()
 {
-  pim_rand_init();
+  srandom(time(NULL));
 
   if (!inet_aton(PIM_ALL_PIM_ROUTERS, &qpim_all_pim_routers_addr)) {
     zlog_err("%s %s: could not solve %s to group address: errno=%d: %s",
