@@ -60,7 +60,7 @@
 
 #define STREAM_VERIFY_SANE(S) \
   do { \
-    if ( !(GETP_VALID(S, (S)->getp)) && ENDP_VALID(S, (S)->endp) ) \
+    if ( !(GETP_VALID(S, (S)->getp) && ENDP_VALID(S, (S)->endp)) ) \
       STREAM_WARN_OFFSETS(S); \
     assert ( GETP_VALID(S, (S)->getp) ); \
     assert ( ENDP_VALID(S, (S)->endp) ); \
