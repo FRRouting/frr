@@ -32,6 +32,7 @@
 #include "pim_cmd.h"
 #include "pim_str.h"
 #include "pim_ssmpingd.h"
+#include "pim_pim.h"
 
 int pim_debug_config_write(struct vty *vty)
 {
@@ -132,6 +133,13 @@ int pim_interface_config_write(struct vty *vty)
       /* IF ip pim ssm */
       if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 	vty_out(vty, " ip pim ssm%s", VTY_NEWLINE);
+	++writes;
+      }
+
+      /* IF ip pim drpriority */
+      if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
+	vty_out(vty, " ip pim drpriority %d%s", pim_ifp->pim_dr_priority,
+		VTY_NEWLINE);
 	++writes;
       }
 

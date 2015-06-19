@@ -106,7 +106,7 @@ static void dr_election_by_pri(struct interface *ifp)
   PIM Hello message is received, when a neighbor times out, or when a
   router's own DR Priority changes.
  */
-void pim_if_dr_election(struct interface *ifp)
+int pim_if_dr_election(struct interface *ifp)
 {
   struct pim_interface *pim_ifp = ifp->info;
   struct in_addr old_dr_addr;
@@ -140,7 +140,10 @@ void pim_if_dr_election(struct interface *ifp)
     pim_if_update_join_desired(pim_ifp);
     pim_if_update_could_assert(ifp);
     pim_if_update_assert_tracking_desired(ifp);
+    return 1;
   }
+
+  return 0;
 }
 
 static void update_dr_priority(struct pim_neighbor *neigh,

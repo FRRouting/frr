@@ -563,10 +563,11 @@ static void pim_show_dr(struct vty *vty)
   now = pim_time_monotonic_sec();
 
   vty_out(vty,
-	  "NonPri: Number of neighbors missing DR Priority hello option%s%s",
-	  VTY_NEWLINE, VTY_NEWLINE);
+	  "NonPri: Number of neighbors missing DR Priority hello option%s"
+	  "DrPri: Designated Router Priority sent%s%s",
+	  VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
   
-  vty_out(vty, "Interface Address         DR              Uptime   Elections Changes NonPri%s", VTY_NEWLINE);
+  vty_out(vty, "Interface Address         DR              Uptime   Elections Changes NonPri      DrPri%s", VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
@@ -590,7 +591,7 @@ static void pim_show_dr(struct vty *vty)
     pim_inet4_dump("<dr?>", pim_ifp->pim_dr_addr,
 		   dr_str, sizeof(dr_str));
 
-    vty_out(vty, "%-9s %-15s %-15s %8s %9d %7d %6d%s",
+    vty_out(vty, "%-9s %-15s %-15s %8s %9d %7d %6d %10d%s",
 	    ifp->name,
 	    inet_ntoa(ifaddr),
 	    dr_str,
@@ -598,6 +599,7 @@ static void pim_show_dr(struct vty *vty)
 	    pim_ifp->pim_dr_election_count,
 	    pim_ifp->pim_dr_election_changes,
 	    pim_ifp->pim_dr_num_nondrpri_neighbors,
+	    pim_ifp->pim_dr_priority,
 	    VTY_NEWLINE);
   }
 }
@@ -3123,6 +3125,66 @@ DEFUN (interface_no_ip_igmp_query_max_response_time_dsec,
   return CMD_SUCCESS;
 }
 
+DEFUN (interface_ip_pim_drprio,
+       interface_ip_pim_drprio_cmd,
+       "ip pim drpriority <1-4294967295>",
+       IP_STR
+       PIM_STR
+       "Set the Designated Router Election Priority\n"
+       "Value of the new DR Priority\n")
+{
+  struct interface *ifp;
+  struct pim_interface *pim_ifp;
+  uint32_t old_dr_prio;
+
+  ifp = vty->index;
+  pim_ifp = ifp->info;
+
+  if (!pim_ifp) {
+    vty_out(vty, "Please enable PIM on interface, first%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  old_dr_prio = pim_ifp->pim_dr_priority;
+
+  pim_ifp->pim_dr_priority = strtol(argv[0], NULL, 10);
+
+  if (old_dr_prio != pim_ifp->pim_dr_priority) {
+    if (pim_if_dr_election(ifp))
+      pim_hello_restart_now(ifp);
+  }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (interface_no_ip_pim_drprio,
+       interface_no_ip_pim_drprio_cmd,
+       "no ip pim drpriority {<1-4294967295>}",
+       IP_STR
+       PIM_STR
+       "Revert the Designated Router Priority to default\n"
+       "Old Value of the Priority\n")
+{
+  struct interface *ifp;
+  struct pim_interface *pim_ifp;
+
+  ifp = vty->index;
+  pim_ifp = ifp->info;
+
+  if (!pim_ifp) {
+    vty_out(vty, "Pim no enabled on this interface%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
+    pim_ifp->pim_dr_priority = PIM_DEFAULT_DR_PRIORITY;
+    if (pim_if_dr_election(ifp))
+      pim_hello_restart_now(ifp);
+  }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (interface_ip_pim_ssm,
        interface_ip_pim_ssm_cmd,
        "ip pim ssm",
@@ -4684,7 +4746,9 @@ void pim_cmd_init()
   install_element (INTERFACE_NODE, &interface_ip_igmp_query_max_response_time_dsec_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_query_max_response_time_dsec_cmd); 
   install_element (INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
-  install_element (INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd); 
+  install_element (INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
+  install_element (INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
+  install_element (INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 
   // Static mroutes NEB
   install_element (INTERFACE_NODE, &interface_ip_mroute_cmd);

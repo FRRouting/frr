@@ -69,6 +69,6 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 			 struct list *addr_list);
 struct prefix *pim_neighbor_find_secondary(struct pim_neighbor *neigh,
 					   struct in_addr addr);
-void pim_if_dr_election(struct interface *ifp);
+int pim_if_dr_election(struct interface *ifp);
 
 #endif /* PIM_NEIGHBOR_H */
