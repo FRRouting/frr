@@ -601,6 +601,13 @@ process_p2p_hello (struct isis_circuit *circuit)
           adj->level = hdr->circuit_t;
         }
       circuit->u.p2p.neighbor = adj;
+      /* Build lsp with the new neighbor entry when a new
+       * adjacency is formed. Set adjacency circuit type to
+       * IIH PDU header circuit type before lsp is regenerated
+       * when an adjacency is up. This will result in the new
+       * adjacency entry getting added to the lsp tlv neighbor list.
+       */
+      adj->circuit_t = hdr->circuit_t;
       isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING, NULL);
       adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
     }
@@ -886,7 +893,6 @@ process_p2p_hello (struct isis_circuit *circuit)
       break;
     }
 
-  adj->circuit_t = hdr->circuit_t;
 
   if (isis->debugs & DEBUG_ADJ_PACKETS)
     {
