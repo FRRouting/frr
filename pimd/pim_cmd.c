@@ -2070,16 +2070,13 @@ static void show_multicast_interfaces(struct vty *vty)
     vreq.vifi = pim_ifp->mroute_vif_index;
 
     if (ioctl(qpim_mroute_socket_fd, SIOCGETVIFCNT, &vreq)) {
-      int e = errno;
-      vty_out(vty,
-	      "ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s%s",
-	      (unsigned long)SIOCGETVIFCNT,
-	      ifp->name,
-	      pim_ifp->mroute_vif_index,
-	      e,
-	      safe_strerror(e),
-	      VTY_NEWLINE);	      
-      continue;
+      zlog_warn("ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s%s",
+		(unsigned long)SIOCGETVIFCNT,
+		ifp->name,
+		pim_ifp->mroute_vif_index,
+		errno,
+		safe_strerror(errno),
+		VTY_NEWLINE);
     }
 
     ifaddr = pim_ifp->primary_address;
