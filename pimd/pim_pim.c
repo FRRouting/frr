@@ -698,6 +698,7 @@ int pim_sock_add(struct interface *ifp)
 {
   struct pim_interface *pim_ifp;
   struct in_addr ifaddr;
+  uint32_t old_genid;
 
   pim_ifp = ifp->info;
   zassert(pim_ifp);
@@ -720,7 +721,18 @@ int pim_sock_add(struct interface *ifp)
   pim_ifp->t_pim_sock_read   = 0;
   pim_ifp->pim_sock_creation = pim_time_monotonic_sec();
 
-  pim_ifp->pim_generation_id = random();
+  /*
+   * Just ensure that the new generation id
+   * actually chooses something different.
+   * Actually ran across a case where this
+   * happened, pre-switch to random().
+   * While this is unlikely to happen now
+   * let's make sure it doesn't.
+   */
+  old_genid = pim_ifp->pim_generation_id;
+
+  while (old_genid == pim_ifp->pim_generation_id)
+    pim_ifp->pim_generation_id = random();
 
   zlog_info("PIM INTERFACE UP: on interface %s ifindex=%d",
 	    ifp->name, ifp->ifindex);
