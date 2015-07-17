@@ -215,7 +215,7 @@ AC_ARG_WITH(pkg-git-version,
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
 	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
 AC_ARG_ENABLE(vtysh,
-[  --enable-vtysh          include integrated vty shell for Quagga])
+[  --disable-vtysh          do not build integrated vty shell for Quagga])
 AC_ARG_ENABLE(ipv6,
 [  --disable-ipv6          turn off IPv6 related features and daemons])
 AC_ARG_ENABLE(doc,
@@ -237,7 +237,7 @@ AC_ARG_ENABLE(watchquagga,
 AC_ARG_ENABLE(isisd,
 [  --enable-isisd          build isisd])
 AC_ARG_ENABLE(pimd,
-[  --enable-pimd           build pimd])
+[  --disable-pimd           do not build pimd])
 AC_ARG_ENABLE(solaris,
 [  --enable-solaris          build solaris])
 AC_ARG_ENABLE(bgp-announce,
@@ -677,7 +677,8 @@ dnl ---------------------
 dnl Integrated VTY option
 dnl ---------------------
 case "${enable_vtysh}" in
-  "yes") VTYSH="vtysh";
+  "no") VTYSH="";;
+  *)    VTYSH="vtysh";
          AC_DEFINE(VTYSH,,VTY shell)
 dnl	 Vtysh uses libreadline, which looks for termcap functions at
 dnl	 configure time.  We follow readlines search order.
@@ -707,7 +708,6 @@ dnl	 [TODO] on Linux, and in [TODO] on Solaris.
 	 fi
 	 ;;
   "no" ) VTYSH="";;
-  *    ) ;;
 esac
 AC_SUBST(LIBREADLINE)
 AM_CONDITIONAL(VTYSH, test "x$VTYSH" = "xvtysh")
@@ -1390,9 +1390,8 @@ esac
 AM_CONDITIONAL(ISISD, test "x$ISISD" = "xisisd")
 
 case "${enable_pimd}" in
-  "yes") PIMD="pimd";;
   "no" ) PIMD="";;
-  *    ) ;;
+  *    ) PIMD="pimd";;
 esac
 AM_CONDITIONAL(PIMD, test "x$PIMD" = "xpimd")
 
