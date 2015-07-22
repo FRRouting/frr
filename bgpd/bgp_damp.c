@@ -605,15 +605,15 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo,
 
   if (json_path)
     {
-      json_object_int_add(json_path, "dampening-penalty", penalty);
-      json_object_int_add(json_path, "dampening-flap-count", bdi->flap);
-      json_object_string_add(json_path, "dampening-flap-period",
+      json_object_int_add(json_path, "dampeningPenalty", penalty);
+      json_object_int_add(json_path, "dampeningFlapCount", bdi->flap);
+      json_object_string_add(json_path, "dampeningFlapPeriod",
                               peer_uptime (bdi->start_time, timebuf, BGP_UPTIME_LEN));
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED)
           && ! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
         {
-          json_object_string_add(json_path, "dampening-reuse-in",
+          json_object_string_add(json_path, "dampeningReuseIn",
                                  bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN));
         }
     }

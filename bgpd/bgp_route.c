@@ -6540,9 +6540,9 @@ route_vty_short_status_out (struct vty *vty, struct bgp_info *binfo,
 
       /* Internal route. */
       if ((binfo->peer->as) && (binfo->peer->as == binfo->peer->local_as))
-        json_object_string_add(json_path, "path-from", "internal");
+        json_object_string_add(json_path, "pathFrom", "internal");
       else
-        json_object_string_add(json_path, "path-from", "external");
+        json_object_string_add(json_path, "pathFrom", "external");
 
       return;
     }
@@ -7088,8 +7088,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         {
           if (json_paths)
             {
-              json_object_int_add(json_path, "aggregator-as", attr->extra->aggregator_as);
-              json_object_string_add(json_path, "aggregator-id", inet_ntoa (attr->extra->aggregator_addr));
+              json_object_int_add(json_path, "aggregatorAs", attr->extra->aggregator_as);
+              json_object_string_add(json_path, "aggregatorId", inet_ntoa (attr->extra->aggregator_addr));
             }
           else
             {
@@ -7102,7 +7102,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
         {
           if (json_paths)
-            json_object_boolean_true_add(json_path, "rxed-from-rr-client");
+            json_object_boolean_true_add(json_path, "rxedFromRrClient");
           else
 	    vty_out (vty, ", (Received from a RR-client)");
         }
@@ -7110,7 +7110,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
         {
           if (json_paths)
-            json_object_boolean_true_add(json_path, "rxed-from-rs-client");
+            json_object_boolean_true_add(json_path, "rxedFromRsClient");
           else
 	    vty_out (vty, ", (Received from a RS-client)");
         }
@@ -7118,14 +7118,14 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
         {
           if (json_paths)
-            json_object_boolean_true_add(json_path, "dampening-history-entry");
+            json_object_boolean_true_add(json_path, "dampeningHistoryEntry");
           else
 	    vty_out (vty, ", (history entry)");
         }
       else if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
         {
           if (json_paths)
-            json_object_boolean_true_add(json_path, "dampening-suppressed");
+            json_object_boolean_true_add(json_path, "dampeningSuppressed");
           else
 	    vty_out (vty, ", (suppressed due to dampening)");
         }
@@ -7215,20 +7215,20 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
             {
               if (json_paths)
-                json_object_string_add(json_peer, "peer-id", "0.0.0.0");
+                json_object_string_add(json_peer, "peerId", "0.0.0.0");
               else
 	        vty_out (vty, " from 0.0.0.0 ");
             }
           else
             {
               if (json_paths)
-                json_object_string_add(json_peer, "peer-id", "::");
+                json_object_string_add(json_peer, "peerId", "::");
               else
 	        vty_out (vty, " from :: ");
             }
 
           if (json_paths)
-            json_object_string_add(json_peer, "router-id", inet_ntoa(bgp->router_id));
+            json_object_string_add(json_peer, "routerId", inet_ntoa(bgp->router_id));
           else
 	    vty_out (vty, "(%s)", inet_ntoa(bgp->router_id));
 	}
@@ -7239,8 +7239,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 
           if (json_paths)
             {
-              json_object_string_add(json_peer, "peer-id", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
-              json_object_string_add(json_peer, "router-id", inet_ntop (AF_INET, &binfo->peer->remote_id, buf1, BUFSIZ));
+              json_object_string_add(json_peer, "peerId", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
+              json_object_string_add(json_peer, "routerId", inet_ntop (AF_INET, &binfo->peer->remote_id, buf1, BUFSIZ));
 
               if (binfo->peer->conf_if)
                 json_object_string_add(json_peer, "interface", binfo->peer->conf_if);
@@ -7426,7 +7426,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
         {
           if (json_paths)
-            json_object_boolean_true_add(json_path, "atomic-aggregate");
+            json_object_boolean_true_add(json_path, "atomicAggregate");
           else
 	    vty_out (vty, ", atomic-aggregate");
         }
@@ -7478,7 +7478,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
             {
               json_ext_community = json_object_new_object();
               json_object_string_add(json_ext_community, "string", attr->extra->ecommunity->str);
-              json_object_object_add(json_path, "extended-community", json_ext_community);
+              json_object_object_add(json_path, "extendedCommunity", json_ext_community);
             }
           else
             {
@@ -7495,7 +7495,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	  if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
             {
               if (json_paths)
-                json_object_string_add(json_path, "originator-id", inet_ntoa (attr->extra->originator_id));
+                json_object_string_add(json_path, "originatorId", inet_ntoa (attr->extra->originator_id));
               else
 	        vty_out (vty, "      Originator: %s",
 	                 inet_ntoa (attr->extra->originator_id));
@@ -7522,7 +7522,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
                   json_object_string_add(json_cluster_list, "string", attr->extra->cluster->str);
                    */
                   json_object_object_add(json_cluster_list, "list", json_cluster_list_list);
-                  json_object_object_add(json_path, "cluster-list", json_cluster_list);
+                  json_object_object_add(json_path, "clusterList", json_cluster_list);
                 }
               else
                 {
@@ -7548,8 +7548,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         {
           if (json_paths)
             {
-              json_object_int_add(json_path, "addpath-rx-id", binfo->addpath_rx_id);
-              json_object_int_add(json_path, "addpath-tx-id", binfo->addpath_tx_id);
+              json_object_int_add(json_path, "addpathRxId", binfo->addpath_rx_id);
+              json_object_int_add(json_path, "addpathTxId", binfo->addpath_tx_id);
             }
           else
             {
@@ -7567,7 +7567,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           json_last_update = json_object_new_object();
           json_object_int_add(json_last_update, "epoch", tbuf);
           json_object_string_add(json_last_update, "string", ctime(&tbuf));
-          json_object_object_add(json_path, "last-update", json_last_update);
+          json_object_object_add(json_path, "lastUpdate", json_last_update);
         }
       else
         vty_out (vty, "      Last update: %s", ctime(&tbuf));
@@ -7577,7 +7577,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           json_last_update = json_object_new_object();
           json_object_int_add(json_last_update, "epoch", tbuf);
           json_object_string_add(json_last_update, "string", ctime(&binfo->uptime));
-          json_object_object_add(json_path, "last-update", json_last_update);
+          json_object_object_add(json_path, "lastUpdate", json_last_update);
         }
       else
         vty_out (vty, "      Last update: %s", ctime(&binfo->uptime));
@@ -7661,8 +7661,8 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
   if (use_json)
     {
       json = json_object_new_object();
-      json_object_int_add(json, "table-version", table->version);
-      json_object_string_add(json, "router-id", inet_ntoa (*router_id));
+      json_object_int_add(json, "tableVersion", table->version);
+      json_object_string_add(json, "routerId", inet_ntoa (*router_id));
       json_routes = json_object_new_object();
     }
 
@@ -8049,7 +8049,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
     {
       if (first)
         {
-          json_object_object_add(json, "advertised-to", json_adv_to);
+          json_object_object_add(json, "advertisedTo", json_adv_to);
         }
     }
   else

@@ -289,19 +289,19 @@ set_community_string  (struct community *com)
 	case COMMUNITY_NO_EXPORT:
 	  strcpy (pnt, "no-export");
 	  pnt += strlen ("no-export");
-          json_string = json_object_new_string("no-export");
+          json_string = json_object_new_string("noExport");
           json_object_array_add(json_community_list, json_string);
 	  break;
 	case COMMUNITY_NO_ADVERTISE:
 	  strcpy (pnt, "no-advertise");
 	  pnt += strlen ("no-advertise");
-          json_string = json_object_new_string("no-advertise");
+          json_string = json_object_new_string("noAdvertise");
           json_object_array_add(json_community_list, json_string);
 	  break;
 	case COMMUNITY_LOCAL_AS:
 	  strcpy (pnt, "local-AS");
 	  pnt += strlen ("local-AS");
-          json_string = json_object_new_string("local-AS");
+          json_string = json_object_new_string("localAs");
           json_object_array_add(json_community_list, json_string);
 	  break;
 	default:
