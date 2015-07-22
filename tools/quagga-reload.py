@@ -388,6 +388,7 @@ def compare_context_objects(newconf, running):
     # Compare the two Config objects to find the lines that we need to add/del
     lines_to_add = []
     lines_to_del = []
+    restart_bgpd = False
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
@@ -395,8 +396,13 @@ def compare_context_objects(newconf, running):
 
         if running_ctx_keys not in newconf.contexts:
 
+	    # Check if bgp's local ASN has changed. If yes, just restart it
+	    if "router bgp" in running_ctx_keys[0]:
+		restart_bgpd = True
+		continue
+
             # Non-global context
-            if running_ctx_keys and not ("address-family" in key for key in running_ctx_keys):
+            if running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
                 lines_to_del.append((running_ctx_keys, None))
 
             # Global context
@@ -422,12 +428,17 @@ def compare_context_objects(newconf, running):
     for (newconf_ctx_keys, newconf_ctx) in newconf.contexts.iteritems():
 
         if newconf_ctx_keys not in running.contexts:
+
+	    # If its "router bgp" and we're restarting bgp, skip doing 
+	    # anything specific for bgp
+	    if "router bgp" in newconf_ctx_keys[0] and restart_bgpd:
+		continue	
             lines_to_add.append((newconf_ctx_keys, None))
 
             for line in newconf_ctx.lines:
                 lines_to_add.append((newconf_ctx_keys, line))
 
-    return (lines_to_add, lines_to_del)
+    return (lines_to_add, lines_to_del, restart_bgpd)
 
 if __name__ == '__main__':
     # Command line options
@@ -478,7 +489,7 @@ if __name__ == '__main__':
 
         #print "Running config context"
         #print running.get_contexts()
-        (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+        (lines_to_add, lines_to_del, restart_bgp) = compare_context_objects(newconf, running)
 
         if lines_to_del:
             print "\nLines To Delete"
@@ -503,6 +514,9 @@ if __name__ == '__main__':
 
                 cmd = line_to_vtysh_conft(ctx_keys, line, False)
                 print cmd
+
+	if restart_bgp:
+            print "BGP local AS changed, restarting bgpd"  	
 
         print ''
 
@@ -538,7 +552,7 @@ if __name__ == '__main__':
             running.load_from_show_running()
             logger.info('Running Quagga Config (Pass #%d)\n%s', x, running.get_lines())
 
-            (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+            (lines_to_add, lines_to_del, restart_bgp) = compare_context_objects(newconf, running)
 
             if lines_to_del:
                 for (ctx_keys, line) in lines_to_del:
@@ -601,4 +615,8 @@ if __name__ == '__main__':
                         logger.debug(cmd)
 
                     subprocess.call(cmd)
+
+	    if restart_bgp:
+		    cmd = ['sudo', 'service', 'quagga', 'restart', 'bgpd']
+		    subprocess.call(cmd)
 

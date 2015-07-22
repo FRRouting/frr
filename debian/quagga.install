@@ -1,3 +1,4 @@
+etc/quagga/
 usr/bin/vtysh
 usr/include/quagga/
 usr/lib/

@@ -49,7 +49,7 @@
 #define RIP_RTE_SIZE                    20
 
 /* Max count of routing table entry in one rip packet. */
-#define RIP_MAX_RTE   ((RIP_PACKET_MAXSIZ - RIP_HEADER_SIZE) / RIP_RTE_SIZE)
+#define RIP_MAX_RTE                     25
 
 /* RIP version 2 multicast address. */
 #ifndef INADDR_RIP_GROUP
