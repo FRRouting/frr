@@ -337,36 +337,52 @@ bgp_interface_bfd_dest_down (int command, struct zclient *zclient,
           if (!CHECK_FLAG (peer->flags, PEER_FLAG_BFD))
             continue;
 
-          if (dp.family == AF_INET)
-            if (dp.u.prefix4.s_addr != peer->su.sin.sin_addr.s_addr)
-              continue;
+          if ((dp.family == AF_INET) && (peer->su.sa.sa_family == AF_INET))
+            {
+              if (dp.u.prefix4.s_addr != peer->su.sin.sin_addr.s_addr)
+                continue;
+            }
 #ifdef HAVE_IPV6
-          else if (dp.family == AF_INET6)
-            if (!memcmp(&dp.u.prefix6, &peer->su.sin6.sin6_addr,
-                        sizeof (struct in6_addr)))
-              continue;
+          else if ((dp.family == AF_INET6) &&
+                    (peer->su.sa.sa_family == AF_INET6))
+            {
+              if (memcmp(&dp.u.prefix6, &peer->su.sin6.sin6_addr,
+                          sizeof (struct in6_addr)))
+                continue;
+            }
 #endif
           else
             continue;
 
           if (ifp && (ifp == peer->nexthop.ifp))
+            {
+              peer->last_reset = PEER_DOWN_BFD_DOWN;
               BGP_EVENT_ADD (peer, BGP_Stop);
+            }
           else
             {
               if (!peer->su_local)
                 continue;
 
-              if (sp.family == AF_INET)
-                if (sp.u.prefix4.s_addr != peer->su_local->sin.sin_addr.s_addr)
-                  continue;
+              if ((sp.family == AF_INET) &&
+                    (peer->su_local->sa.sa_family == AF_INET))
+                {
+                  if (sp.u.prefix4.s_addr != peer->su_local->sin.sin_addr.s_addr)
+                    continue;
+                }
 #ifdef HAVE_IPV6
-              else if (sp.family == AF_INET6)
-                if (!memcmp(&sp.u.prefix6, &peer->su_local->sin6.sin6_addr,
-                            sizeof (struct in6_addr)))
-                  continue;
+              else if ((sp.family == AF_INET6) &&
+                        (peer->su_local->sa.sa_family == AF_INET6)) 
+                {
+                  if (memcmp(&sp.u.prefix6, &peer->su_local->sin6.sin6_addr,
+                              sizeof (struct in6_addr)))
+                    continue;
+                }
 #endif
               else
                 continue;
+
+              peer->last_reset = PEER_DOWN_BFD_DOWN;
               BGP_EVENT_ADD (peer, BGP_Stop);
             }
         }
