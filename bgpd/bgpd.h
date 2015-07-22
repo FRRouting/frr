@@ -915,6 +915,7 @@ struct bgp_nlri
 #define BGP_NOTIFY_HEADER_MAX                    4
 
 /* BGP_NOTIFY_OPEN_ERR sub codes.  */
+#define BGP_NOTIFY_OPEN_MALFORMED_ATTR           0
 #define BGP_NOTIFY_OPEN_UNSUP_VERSION            1
 #define BGP_NOTIFY_OPEN_BAD_PEER_AS              2
 #define BGP_NOTIFY_OPEN_BAD_BGP_IDENT            3

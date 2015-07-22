@@ -154,6 +154,14 @@ bgp_capability_mp (struct peer *peer, struct capability_header *hdr)
   struct capability_mp_data mpc;
   struct stream *s = BGP_INPUT (peer);
   
+  /* Verify length is 4 */
+  if (hdr->length != 4)
+    {
+      zlog_warn("MP Cap: Received invalid length %d, non-multiple of 4",
+		hdr->length);
+      return -1;
+    }
+
   bgp_capability_mp_data (s, &mpc);
   
   if (bgp_debug_neighbor_events(peer))
@@ -236,7 +244,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
       zlog_info ("%s ORF Capability entry length error,"
                  " Cap length %u, num %u",
                  peer->host, hdr->length, entry.num);
-      bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
+      bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
       return -1;
     }
 
@@ -342,6 +350,14 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
   int restart_bit = 0;
   size_t end = stream_get_getp (s) + caphdr->length;
 
+  /* Verify length is a multiple of 4 */
+  if ((caphdr->length-2) % 4)
+    {
+      zlog_warn("Restart Cap: Received invalid length %d, non-multiple of 4",
+		caphdr->length);
+      return -1;
+    }
+
   SET_FLAG (peer->cap, PEER_CAP_RESTART_RCV);
   restart_flag_time = stream_getw(s);
   if (CHECK_FLAG (restart_flag_time, RESTART_R_BIT))
@@ -370,7 +386,7 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
         {
           if (bgp_debug_neighbor_events(peer))
             zlog_debug ("%s Addr-family %d/%d(afi/safi) not supported."
-                        " Ignore the Graceful Restart capability",
+                        " Ignore the Graceful Restart capability for this AFI/SAFI",
                         peer->host, afi, safi);
         }
       else if (!peer->afc[afi][safi])
@@ -398,6 +414,7 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
   return 0;
 }
 
+/* Unlike other capability parsing routines, this one returns 0 on error */
 static as_t
 bgp_capability_as4 (struct peer *peer, struct capability_header *hdr)
 {
@@ -425,6 +442,14 @@ bgp_capability_addpath (struct peer *peer, struct capability_header *hdr)
   size_t end = stream_get_getp (s) + hdr->length;
 
   SET_FLAG (peer->cap, PEER_CAP_ADDPATH_RCV);
+
+  /* Verify length is a multiple of 4 */
+  if (hdr->length % 4)
+    {
+      zlog_warn("Add Path: Received invalid length %d, non-multiple of 4",
+		hdr->length);
+      return -1;
+    }
 
   while (stream_get_getp (s) + 4 <= end)
     {
@@ -470,6 +495,14 @@ bgp_capability_enhe (struct peer *peer, struct capability_header *hdr)
 {
   struct stream *s = BGP_INPUT (peer);
   size_t end = stream_get_getp (s) + hdr->length;
+
+  /* Verify length is a multiple of 4 */
+  if (hdr->length % 6)
+    {
+      zlog_warn("Extended NH: Received invalid length %d, non-multiple of 6",
+		hdr->length);
+      return -1;
+    }
 
   while (stream_get_getp (s) + 6 <= end)
     {
@@ -561,12 +594,13 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
       size_t start;
       u_char *sp = stream_pnt (s);
       struct capability_header caphdr;
-      
+
+      ret = 0;
       /* We need at least capability code and capability length. */
       if (stream_get_getp(s) + 2 > end)
 	{
 	  zlog_info ("%s Capability length error (< header)", peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
+	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
       
@@ -578,7 +612,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
       if (start + caphdr.length > end)
 	{
 	  zlog_info ("%s Capability length error (< length)", peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
+	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
       
@@ -611,7 +645,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                              LOOKUP (capcode_str, caphdr.code),
                              caphdr.length, 
 			     (unsigned) cap_minsizes[caphdr.code]);
-                  bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
+                  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
                   return -1;
                 }
           /* we deliberately ignore unknown codes, see below */
@@ -638,6 +672,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                       memcpy (*error, sp, caphdr.length + 2);
                       *error += caphdr.length + 2;
                     }
+		  ret = 0;	/* Don't return error for this */
                 }
             }
             break;
@@ -653,12 +688,10 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
             break;
           case CAPABILITY_CODE_ORF:
           case CAPABILITY_CODE_ORF_OLD:
-            if (bgp_capability_orf_entry (peer, &caphdr))
-              return -1;
+            ret = bgp_capability_orf_entry (peer, &caphdr);
             break;
           case CAPABILITY_CODE_RESTART:
-            if (bgp_capability_restart (peer, &caphdr))
-              return -1;
+            ret = bgp_capability_restart (peer, &caphdr);
             break;
           case CAPABILITY_CODE_DYNAMIC:
 	  case CAPABILITY_CODE_DYNAMIC_OLD:
@@ -670,15 +703,13 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                * for the value really, only error case.
                */
               if (!bgp_capability_as4 (peer, &caphdr))
-                return -1;
+                ret = -1;
               break;            
           case CAPABILITY_CODE_ADDPATH:
-            if (bgp_capability_addpath (peer, &caphdr))
-              return -1;
+            ret = bgp_capability_addpath (peer, &caphdr);
             break;
           case CAPABILITY_CODE_ENHE:
-            if (bgp_capability_enhe (peer, &caphdr))
-              return -1;
+            ret = bgp_capability_enhe (peer, &caphdr);
             break;
           default:
             if (caphdr.code > 128)
@@ -696,6 +727,12 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                 *error += caphdr.length + 2;
               }
           }
+
+      if (ret < 0)
+	{
+	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+	  return -1;
+	}
       if (stream_get_getp(s) != (start + caphdr.length))
         {
           if (stream_get_getp(s) > (start + caphdr.length))
@@ -836,7 +873,7 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
       if (STREAM_READABLE(s) < 2)
 	{
 	  zlog_info ("%s Option length error", peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
+	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
 
@@ -848,7 +885,7 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
       if (STREAM_READABLE (s) < opt_length)
 	{
 	  zlog_info ("%s Option length error", peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
+	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
 

@@ -1103,12 +1103,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   if (optlen != 0) 
     {
       if ((ret = bgp_open_option_parse (peer, optlen, &mp_capability)) < 0)
-        {
-          bgp_notify_send (peer,
-                 BGP_NOTIFY_OPEN_ERR,
-                 BGP_NOTIFY_OPEN_UNACEP_HOLDTIME);
-	  return ret;
-        }
+	return ret;
     }
   else
     {
