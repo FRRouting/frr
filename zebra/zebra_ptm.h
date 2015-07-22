@@ -26,11 +26,31 @@
 extern const char ZEBRA_PTM_SOCK_NAME[];
 #define ZEBRA_PTM_MAX_SOCKBUF 3200 /* 25B *128 ports */
 #define ZEBRA_PTM_SEND_MAX_SOCKBUF 512
-extern int ptm_enable;
+
+/* Zebra ptm context block */
+struct zebra_ptm_cb
+{
+  int ptm_sock; /* ptm file descriptor. */
+
+  struct buffer *wb; /* Buffer of data waiting to be written to ptm. */
+
+  struct thread *t_read; /* Thread for read */
+  struct thread *t_write; /* Thread for write */
+  struct thread *t_timer; /* Thread for timer */
+
+  char *out_data;
+  char *in_data;
+  int reconnect_time;
+
+  int ptm_enable;
+  int pid;
+};
 
 void zebra_ptm_init (void);
+void zebra_ptm_finish(void);
 int zebra_ptm_connect (struct thread *t);
 void zebra_ptm_write (struct vty *vty);
+int zebra_ptm_get_enable_state(void);
 
 int zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
                                   int command);

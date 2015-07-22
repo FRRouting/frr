@@ -22,6 +22,7 @@
 #include <zebra.h>
 #include <sys/un.h>		/* for sockaddr_un */
 #include <net/if.h>
+#include "vty.h"
 #include "zebra/zserv.h"
 #include "zebra/interface.h"
 #include "zebra/debug.h"
@@ -30,6 +31,7 @@
 #include "command.h"
 #include "stream.h"
 #include "ptm_lib.h"
+#include "buffer.h"
 #include "zebra/zebra_ptm_redistribute.h"
 
 #define ZEBRA_PTM_RECONNECT_TIME_INITIAL 1 /* initial reconnect is 1s */
@@ -42,6 +44,7 @@ const char ZEBRA_PTM_GET_STATUS_CMD[] = "get-status";
 const char ZEBRA_PTM_BFD_START_CMD[] = "start-bfd-sess";
 const char ZEBRA_PTM_BFD_STOP_CMD[] = "stop-bfd-sess";
 
+const char ZEBRA_PTM_CMD_STR[] = "cmd";
 const char ZEBRA_PTM_PORT_STR[] = "port";
 const char ZEBRA_PTM_CBL_STR[] = "cbl status";
 const char ZEBRA_PTM_PASS_STR[] = "pass";
@@ -66,18 +69,13 @@ const char ZEBRA_PTM_BFD_IFNAME_FIELD[] = "ifName";
 const char ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD[] = "maxHopCnt";
 
 extern struct zebra_t zebrad;
-int ptm_enable;
 
-int zebra_ptm_sock = -1;
-struct thread *zebra_ptm_thread = NULL;
-
-static int zebra_ptm_reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
-int zebra_ptm_pid = 0;
 static ptm_lib_handle_t *ptm_hdl;
+
+struct zebra_ptm_cb ptm_cb;
 
 static int zebra_ptm_socket_init(void);
 int zebra_ptm_sock_read(struct thread *);
-int zebra_ptm_sock_write(struct thread *);
 static void zebra_ptm_install_commands (void);
 static int zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt);
 static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt);
@@ -90,53 +88,151 @@ zebra_ptm_init (void)
 {
   char buf[64];
 
-  zebra_ptm_pid = getpid();
+  memset(&ptm_cb, 0, sizeof(struct zebra_ptm_cb));
+
+  ptm_cb.out_data = calloc(1, ZEBRA_PTM_SEND_MAX_SOCKBUF);
+  if (!ptm_cb.out_data)
+    {
+      zlog_warn("%s: Allocation of send data failed", __func__);
+      return;
+    }
+
+  ptm_cb.in_data = calloc(1, ZEBRA_PTM_MAX_SOCKBUF);
+  if (!ptm_cb.in_data)
+    {
+      zlog_warn("%s: Allocation of recv data failed", __func__);
+      free(ptm_cb.out_data);
+      return;
+    }
+
+  ptm_cb.pid = getpid();
   zebra_ptm_install_commands();
 
   sprintf(buf, "%s", "quagga");
   ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_bfd_msg,
                                     zebra_ptm_handle_cbl_msg);
+  ptm_cb.wb = buffer_new(0);
+
+  ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
+
+  ptm_cb.ptm_sock = -1;
+}
+
+void
+zebra_ptm_finish(void)
+{
+  if (ptm_cb.ptm_sock != -1)
+    close(ptm_cb.ptm_sock);
+
+  if (ptm_cb.wb)
+    buffer_free(ptm_cb.wb);
+
+  if (ptm_cb.out_data)
+    free(ptm_cb.out_data);
+
+  if (ptm_cb.in_data)
+    free(ptm_cb.in_data);
+
+  /* Release threads. */
+  if (ptm_cb.t_read)
+    thread_cancel (ptm_cb.t_read);
+  if (ptm_cb.t_write)
+    thread_cancel (ptm_cb.t_write);
+  if (ptm_cb.t_timer)
+    thread_cancel (ptm_cb.t_timer);
+}
+
+static int
+zebra_ptm_flush_messages (struct thread *thread)
+{
+  ptm_cb.t_write = NULL;
+
+  if (ptm_cb.ptm_sock == -1)
+    return -1;
+
+  errno = 0;
+
+  switch (buffer_flush_available(ptm_cb.wb, ptm_cb.ptm_sock))
+    {
+    case BUFFER_ERROR:
+      zlog_warn ("%s ptm socket error: %s", __func__,
+                    safe_strerror (errno));
+      close(ptm_cb.ptm_sock);
+      ptm_cb.ptm_sock = -1;
+      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                            NULL, ptm_cb.reconnect_time);
+      return (-1);
+    case BUFFER_PENDING:
+      ptm_cb.t_write = thread_add_write(zebrad.master, zebra_ptm_flush_messages,
+                                        NULL, ptm_cb.ptm_sock);
+      break;
+    case BUFFER_EMPTY:
+      break;
+    }
+
+  return(0);
+}
+
+static int
+zebra_ptm_send_message(char *data, int size)
+{
+  errno = 0;
+  switch (buffer_write(ptm_cb.wb, ptm_cb.ptm_sock, data, size))
+    {
+    case BUFFER_ERROR:
+      zlog_warn ("%s ptm socket error: %s", __func__, safe_strerror (errno));
+      close(ptm_cb.ptm_sock);
+      ptm_cb.ptm_sock = -1;
+      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                            NULL, ptm_cb.reconnect_time);
+      return -1;
+    case BUFFER_EMPTY:
+      THREAD_OFF(ptm_cb.t_write);
+      break;
+    case BUFFER_PENDING:
+      THREAD_WRITE_ON(zebrad.master, ptm_cb.t_write,
+		      zebra_ptm_flush_messages, NULL, ptm_cb.ptm_sock);
+      break;
+    }
+
+  return 0;
 }
 
 int
 zebra_ptm_connect (struct thread *t)
 {
   int init = 0;
-  char *data;
   void *out_ctxt;
   int len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 
-  if (zebra_ptm_sock == -1) {
+  if (ptm_cb.ptm_sock == -1) {
     zebra_ptm_socket_init();
     init = 1;
   }
 
-  if (zebra_ptm_sock != -1) {
+  if (ptm_cb.ptm_sock != -1) {
     if (init) {
+      ptm_cb.t_read = thread_add_read (zebrad.master, zebra_ptm_sock_read,
+                                      NULL, ptm_cb.ptm_sock);
       zebra_bfd_peer_replay_req();
     }
 
-    if (ptm_enable) {
-      data = calloc(1, len);
-      if (!data) {
-          zlog_debug("%s: Allocation of send data failed", __func__);
-          return -1;
-        }
+    if (ptm_cb.ptm_enable) {
       ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
-      ptm_lib_append_msg(ptm_hdl, out_ctxt, "cmd", ZEBRA_PTM_GET_STATUS_CMD);
-      ptm_lib_complete_msg(ptm_hdl, out_ctxt, data, &len);
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR,
+                          ZEBRA_PTM_GET_STATUS_CMD);
+      ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &len);
 
-      zebra_ptm_thread = thread_add_write (zebrad.master, zebra_ptm_sock_write,
-                                         data, zebra_ptm_sock);
+      zebra_ptm_send_message(ptm_cb.out_data, len);
     }
-    zebra_ptm_reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
+    ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
   } else {
-    zebra_ptm_reconnect_time *= 2;
-    if (zebra_ptm_reconnect_time > ZEBRA_PTM_RECONNECT_TIME_MAX)
-      zebra_ptm_reconnect_time = ZEBRA_PTM_RECONNECT_TIME_MAX;
+    ptm_cb.reconnect_time *= 2;
+    if (ptm_cb.reconnect_time > ZEBRA_PTM_RECONNECT_TIME_MAX)
+      ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_MAX;
 
-    zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect, NULL,
-					 zebra_ptm_reconnect_time);
+    ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect, NULL,
+					 ptm_cb.reconnect_time);
   }
 
   return(errno);
@@ -150,7 +246,7 @@ DEFUN (zebra_ptm_enable,
   struct listnode *i;
   struct interface *ifp;
 
-  ptm_enable = 1;
+  ptm_cb.ptm_enable = 1;
 
   for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
     if (!ifp->ptm_enable)
@@ -174,7 +270,7 @@ DEFUN (no_zebra_ptm_enable,
   struct interface *ifp;
   int send_linkup;
 
-  ptm_enable = 0;
+  ptm_cb.ptm_enable = 0;
   for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
     {
       if (ifp->ptm_enable)
@@ -184,8 +280,9 @@ DEFUN (no_zebra_ptm_enable,
 
 	  ifp->ptm_enable = 0;
 	  if (if_is_operative (ifp) && send_linkup) {
-	    zlog_debug ("%s: Bringing up interface %s", __func__,
-			ifp->name);
+            if (IS_ZEBRA_DEBUG_EVENT)
+	      zlog_debug ("%s: Bringing up interface %s", __func__,
+			    ifp->name);
 	    if_up (ifp);
 	  }
 	}
@@ -197,7 +294,7 @@ DEFUN (no_zebra_ptm_enable,
 void
 zebra_ptm_write (struct vty *vty)
 {
-  if (ptm_enable)
+  if (ptm_cb.ptm_enable)
     vty_out (vty, "ptm-enable%s", VTY_NEWLINE);
 
   return;
@@ -210,7 +307,7 @@ zebra_ptm_socket_init (void)
   int sock;
   struct sockaddr_un addr;
 
-  zebra_ptm_sock = -1;
+  ptm_cb.ptm_sock = -1;
 
   sock = socket (PF_UNIX, (SOCK_STREAM | SOCK_NONBLOCK), 0);
   if (sock < 0)
@@ -231,9 +328,7 @@ zebra_ptm_socket_init (void)
       close (sock);
       return -1;
     }
-  zlog_debug ("%s: connection to ptm socket %s succeeded",
-	      __func__, ZEBRA_PTM_SOCK_NAME);
-  zebra_ptm_sock = sock;
+  ptm_cb.ptm_sock = sock;
   return sock;
 }
 
@@ -245,7 +340,7 @@ zebra_ptm_install_commands (void)
 }
 
 /* BFD session goes down, send message to the protocols. */
-void
+static void
 if_bfd_session_down (struct interface *ifp, struct prefix *dp, struct prefix *sp)
 {
   if (IS_ZEBRA_DEBUG_EVENT)
@@ -255,8 +350,8 @@ if_bfd_session_down (struct interface *ifp, struct prefix *dp, struct prefix *sp
       if (ifp)
         {
           zlog_debug ("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_DOWN %s/%d on %s",
-                  inet_ntop (dp->family, &dp->u.prefix, buf, INET6_ADDRSTRLEN),
-                  dp->prefixlen, ifp->name);
+                  inet_ntop (dp->family, &dp->u.prefix, buf[0],
+                              INET6_ADDRSTRLEN), dp->prefixlen, ifp->name);
         }
       else
         {
@@ -322,8 +417,9 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt)
     return -1;
   }
 
-  zlog_debug("%s: Recv Port [%s] bfd status [%s] peer [%s] local [%s]",
-              __func__, port_str, bfdst_str, dest_str, src_str);
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug("%s: Recv Port [%s] bfd status [%s] peer [%s] local [%s]",
+                  __func__, port_str, bfdst_str, dest_str, src_str);
 
   /* we only care if bfd session goes down */
   if (!strcmp (bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
@@ -374,11 +470,19 @@ zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt)
   struct interface *ifp;
   char cbl_str[32];
   char port_str[128];
+  char cmd_str[32];
+
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CMD_STR, cmd_str);
+
+  /* Drop command response messages */
+  if (cmd_str[0] != '\0') {
+    return 0;
+  }
 
   ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str);
 
   if (port_str[0] == '\0') {
-    zlog_debug("%s: Key %s not found in PTM msg", __func__,
+    zlog_debug("%s: key %s not found in PTM msg", __func__,
                ZEBRA_PTM_PORT_STR);
     return 0;
   }
@@ -391,7 +495,8 @@ zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt)
     return 0;
   }
 
-  zlog_debug("%s: Recv Port [%s] cbl status [%s]", __func__,
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug("%s: Recv Port [%s] cbl status [%s]", __func__,
              port_str, cbl_str);
 
   ifp = if_lookup_by_name(port_str);
@@ -415,46 +520,10 @@ zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt)
 }
 
 int
-zebra_ptm_sock_write (struct thread *thread)
-{
-  int sock;
-  int nbytes;
-  char *data;
-
-  sock = THREAD_FD (thread);
-  data = THREAD_ARG (thread);
-
-  if (sock == -1)
-    return -1;
-
-  errno = 0;
-
-  nbytes = send(sock, data, strlen(data), 0);
-
-  if (nbytes <= 0) {
-    if (errno && errno != EWOULDBLOCK && errno != EAGAIN) {
-        zlog_warn ("%s routing socket error: %s", __func__,
-                      safe_strerror (errno));
-        zebra_ptm_sock = -1;
-        zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                              NULL, zebra_ptm_reconnect_time);
-        return (-1);
-    }
-  }
-
-  zlog_debug ("%s: Sent message (%d) %s", __func__, strlen(data), data);
-  zebra_ptm_thread = thread_add_read (zebrad.master, zebra_ptm_sock_read,
-                                      NULL, sock);
-  free (data);
-  return(0);
-}
-
-int
 zebra_ptm_sock_read (struct thread *thread)
 {
   int sock, done = 0;
   int rc;
-  char  *rcvptr;
 
   errno = 0;
   sock = THREAD_FD (thread);
@@ -464,9 +533,7 @@ zebra_ptm_sock_read (struct thread *thread)
 
   /* PTM communicates in CSV format */
   while(!done) {
-    rcvptr = calloc(1, ZEBRA_PTM_MAX_SOCKBUF);
-
-    rc = ptm_lib_process_msg(ptm_hdl, sock, rcvptr, ZEBRA_PTM_MAX_SOCKBUF,
+    rc = ptm_lib_process_msg(ptm_hdl, sock, ptm_cb.in_data, ZEBRA_PTM_MAX_SOCKBUF,
                                 NULL);
     if (rc <= 0)
       break;
@@ -477,17 +544,16 @@ zebra_ptm_sock_read (struct thread *thread)
       zlog_warn ("%s routing socket error: %s(%d) bytes %d", __func__,
                     safe_strerror (errno), errno, rc);
 
-      close (zebra_ptm_sock);
-      zebra_ptm_sock = -1;
-      zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                         NULL, zebra_ptm_reconnect_time);
+      close (ptm_cb.ptm_sock);
+      ptm_cb.ptm_sock = -1;
+      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                         NULL, ptm_cb.reconnect_time);
       return (-1);
     }
   }
 
-  free(rcvptr);
-  zebra_ptm_thread = thread_add_read (zebrad.master, zebra_ptm_sock_read,
-                                      NULL, sock);
+  ptm_cb.t_read = thread_add_read (zebrad.master, zebra_ptm_sock_read,
+                                  NULL, ptm_cb.ptm_sock);
 
   return 0;
 }
@@ -497,7 +563,6 @@ int
 zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
                               int command)
 {
-  char *data;
   struct stream *s;
   struct prefix src_p;
   struct prefix dst_p;
@@ -518,30 +583,24 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
   else
     client->bfd_peer_add_cnt++;
 
-  zlog_debug("bfd_dst_register msg from client %s: length=%d",
-     zebra_route_string(client->proto), length);
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug("bfd_dst_register msg from client %s: length=%d",
+                zebra_route_string(client->proto), length);
 
-  if (zebra_ptm_sock == -1)
+  if (ptm_cb.ptm_sock == -1)
     {
-      zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                             NULL, zebra_ptm_reconnect_time);
-      return -1;
-    }
-
-  data = calloc(1, data_len);
-  if (!data)
-    {
-      zlog_debug("%s: Allocation of send data failed", __func__);
+      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                             NULL, ptm_cb.reconnect_time);
       return -1;
     }
 
   ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
   sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_START_CMD);
-  ptm_lib_append_msg(ptm_hdl, out_ctxt, "cmd", tmp_buf);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
   sprintf(tmp_buf, "quagga");
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
                       tmp_buf);
-  sprintf(tmp_buf, "%d", zebra_ptm_pid);
+  sprintf(tmp_buf, "%d", ptm_cb.pid);
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
                       tmp_buf);
 
@@ -650,9 +709,12 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
                           if_name);
     }
 
-  ptm_lib_complete_msg(ptm_hdl, out_ctxt, data, &data_len);
-  zebra_ptm_thread = thread_add_write (zebrad.master, zebra_ptm_sock_write,
-                                         data, zebra_ptm_sock);
+  ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
+
+  if (IS_ZEBRA_DEBUG_SEND)
+    zlog_debug ("%s: Sent message (%d) %s", __func__, data_len,
+                  ptm_cb.out_data);
+  zebra_ptm_send_message(ptm_cb.out_data, data_len);
   return 0;
 }
 
@@ -660,7 +722,6 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
 int
 zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length)
 {
-  char *data;
   struct stream *s;
   struct prefix src_p;
   struct prefix dst_p;
@@ -674,33 +735,27 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length)
 
   client->bfd_peer_del_cnt++;
 
-  zlog_debug("bfd_dst_deregister msg from client %s: length=%d",
-       zebra_route_string(client->proto), length);
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug("bfd_dst_deregister msg from client %s: length=%d",
+                zebra_route_string(client->proto), length);
 
-  if (zebra_ptm_sock == -1)
+  if (ptm_cb.ptm_sock == -1)
     {
-      zebra_ptm_thread = thread_add_timer (zebrad.master, zebra_ptm_connect,
-                                             NULL, zebra_ptm_reconnect_time);
-      return -1;
-    }
-
-  data = calloc(1, data_len);
-  if (!data)
-    {
-      zlog_debug("%s: Allocation of send data failed", __func__);
+      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                             NULL, ptm_cb.reconnect_time);
       return -1;
     }
 
   ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
 
   sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_STOP_CMD);
-  ptm_lib_append_msg(ptm_hdl, out_ctxt, "cmd", tmp_buf);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
   sprintf(tmp_buf, "%s", "quagga");
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
                       tmp_buf);
 
-  sprintf(tmp_buf, "%d", zebra_ptm_pid);
+  sprintf(tmp_buf, "%d", ptm_cb.pid);
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
                       tmp_buf);
 
@@ -793,8 +848,17 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length)
                           if_name);
     }
 
-  ptm_lib_complete_msg(ptm_hdl, out_ctxt, data, &data_len);
-  zebra_ptm_thread = thread_add_write (zebrad.master, zebra_ptm_sock_write,
-                                         data, zebra_ptm_sock);
+  ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
+  if (IS_ZEBRA_DEBUG_SEND)
+    zlog_debug ("%s: Sent message (%d) %s", __func__, data_len,
+                  ptm_cb.out_data);
+
+  zebra_ptm_send_message(ptm_cb.out_data, data_len);
   return 0;
+}
+
+int
+zebra_ptm_get_enable_state(void)
+{
+  return ptm_cb.ptm_enable;
 }

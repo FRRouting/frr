@@ -63,7 +63,7 @@ if_zebra_new_hook (struct interface *ifp)
   zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
   zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
 
-  ifp->ptm_enable = ptm_enable;
+  ifp->ptm_enable = zebra_ptm_get_enable_state();
 #ifdef RTADV
   {
     /* Set default router advertise values. */

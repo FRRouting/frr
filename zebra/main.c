@@ -177,6 +177,7 @@ sigint (void)
   irdp_finish();
 #endif
 
+  zebra_ptm_finish();
   exit (0);
 }
 
