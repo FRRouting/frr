@@ -963,9 +963,13 @@ peer_free (struct peer *peer)
                                                 
 /* increase reference count on a struct peer */
 struct peer *
-peer_lock (struct peer *peer)
+peer_lock_with_caller (const char *name, struct peer *peer)
 {
   assert (peer && (peer->lock >= 0));
+
+#if 0
+    zlog_debug("%s peer_lock %p %d", name, peer, peer->lock);
+#endif
     
   peer->lock++;
   
@@ -976,29 +980,21 @@ peer_lock (struct peer *peer)
  * struct peer is freed and NULL returned if last reference
  */
 struct peer *
-peer_unlock (struct peer *peer)
+peer_unlock_with_caller (const char *name, struct peer *peer)
 {
   assert (peer && (peer->lock > 0));
+
+#if 0
+  zlog_debug("%s peer_unlock %p %d", name, peer, peer->lock);
+#endif
   
   peer->lock--;
   
   if (peer->lock == 0)
     {
-#if 0
-      zlog_debug ("unlocked and freeing");
-      zlog_backtrace (LOG_DEBUG);
-#endif
       peer_free (peer);
       return NULL;
     }
-
-#if 0
-  if (peer->lock == 1)
-    {
-      zlog_debug ("unlocked to 1");
-      zlog_backtrace (LOG_DEBUG);
-    }
-#endif
 
   return peer;
 }
@@ -1277,7 +1273,7 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
     peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
   else
     peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-    
+
   peer = peer_lock (peer); /* bgp peer list reference */
   listnode_add_sort (bgp->peer, peer);
 
@@ -2222,7 +2218,6 @@ peer_group_delete (struct peer_group *group)
   for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       other = peer->doppelganger;
-      peer->group = NULL;
       peer_delete (peer);
       if (other && other->status != Deleted)
 	{
@@ -2271,7 +2266,6 @@ peer_group_remote_as_delete (struct peer_group *group)
     {
       other = peer->doppelganger;
 
-      peer->group = NULL;
       peer_delete (peer);
 
       if (other && other->status != Deleted)
