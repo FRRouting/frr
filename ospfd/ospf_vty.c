@@ -21,7 +21,7 @@
  */
 
 #include <zebra.h>
-#include <json/json.h>
+#include <lib/json.h>
 #include <string.h>
 
 #include "memory.h"
@@ -3935,240 +3935,371 @@ show_ip_ospf_neighbour_header (struct vty *vty)
 }
 
 static void
-show_ip_ospf_neighbor_sub (struct vty *vty, struct ospf_interface *oi)
+show_ip_ospf_neighbor_sub (struct vty *vty, struct ospf_interface *oi, json_object *json, u_char use_json)
 {
   struct route_node *rn;
   struct ospf_neighbor *nbr;
   char msgbuf[16];
   char timebuf[OSPF_TIME_DUMP_SIZE];
+  json_object *json_neighbor = NULL;
 
   for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
-    if ((nbr = rn->info))
-      /* Do not show myself. */
-      if (nbr != oi->nbr_self)
-	/* Down state is not shown. */
-	if (nbr->state != NSM_Down)
-	  {
-	    ospf_nbr_state_message (nbr, msgbuf, 16);
+    {
+      if ((nbr = rn->info))
+        {
+          /* Do not show myself. */
+          if (nbr != oi->nbr_self)
+            {
+              /* Down state is not shown. */
+              if (nbr->state != NSM_Down)
+                {
+                  if (use_json)
+                    {
+                      json_neighbor = json_object_new_object();
+                      ospf_nbr_state_message (nbr, msgbuf, 16);
 
-	    if (nbr->state == NSM_Attempt && nbr->router_id.s_addr == 0)
-	      vty_out (vty, "%-15s %3d %-15s ",
-		       "-", nbr->priority,
-		       msgbuf);
-            else
-	      vty_out (vty, "%-15s %3d %-15s ",
-		       inet_ntoa (nbr->router_id), nbr->priority,
-		       msgbuf);
-            
-            vty_out (vty, "%9s ",
-                     ospf_timer_dump (nbr->t_inactivity, timebuf, 
-                                      sizeof(timebuf)));
-            
-	    vty_out (vty, "%-15s ", inet_ntoa (nbr->src));
-	    vty_out (vty, "%-20s %5ld %5ld %5d%s",
-		     IF_NAME (oi), ospf_ls_retransmit_count (nbr),
-		     ospf_ls_request_count (nbr), ospf_db_summary_count (nbr),
-		     VTY_NEWLINE);
-	  }
+                      struct timeval result;
+                      unsigned long time_store = 0;
+
+                      result = tv_sub (nbr->t_inactivity->u.sands, recent_relative_time());
+                      time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+
+                      json_object_int_add (json_neighbor, "priority", nbr->priority);
+                      json_object_string_add (json_neighbor, "state", msgbuf);
+                      json_object_int_add (json_neighbor, "deadTimeMsecs", time_store);
+                      json_object_string_add (json_neighbor, "address", inet_ntoa (nbr->src));
+                      json_object_string_add (json_neighbor, "ifaceName", IF_NAME (oi));
+                      json_object_int_add (json_neighbor, "retransmitCntr", ospf_ls_retransmit_count (nbr));
+                      json_object_int_add (json_neighbor, "requestCntr", ospf_ls_request_count (nbr));
+                      json_object_int_add (json_neighbor, "dbSummaryCntr", ospf_db_summary_count (nbr));
+                      if (nbr->state == NSM_Attempt && nbr->router_id.s_addr == 0)
+                        json_object_object_add(json, "neighbor", json_neighbor);
+                      else
+                        json_object_object_add(json, inet_ntoa (nbr->router_id), json_neighbor);
+                    }
+                  else
+                    {
+                      ospf_nbr_state_message (nbr, msgbuf, 16);
+
+                      if (nbr->state == NSM_Attempt && nbr->router_id.s_addr == 0)
+                        vty_out (vty, "%-15s %3d %-15s ",
+                                 "-", nbr->priority,
+                                 msgbuf);
+                      else
+                        vty_out (vty, "%-15s %3d %-15s ",
+                                 inet_ntoa (nbr->router_id), nbr->priority,
+                                 msgbuf);
+
+                      vty_out (vty, "%9s ",
+                               ospf_timer_dump (nbr->t_inactivity, timebuf,
+                                                sizeof(timebuf)));
+                      vty_out (vty, "%-15s ", inet_ntoa (nbr->src));
+                      vty_out (vty, "%-20s %5ld %5ld %5d%s",
+                               IF_NAME (oi), ospf_ls_retransmit_count (nbr),
+                               ospf_ls_request_count (nbr), ospf_db_summary_count (nbr),
+                               VTY_NEWLINE);
+                    }
+                }
+            }
+        }
+    }
 }
 
 static int
-show_ip_ospf_neighbor_common (struct vty *vty, struct ospf *ospf)
+show_ip_ospf_neighbor_common (struct vty *vty, struct ospf *ospf, u_char use_json)
 {
   struct ospf_interface *oi;
   struct listnode *node;
+  json_object *json = NULL;
+
+  if (use_json)
+    json = json_object_new_object();
+  else
+    show_ip_ospf_neighbour_header (vty);
 
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s", VTY_NEWLINE, ospf->instance, VTY_NEWLINE);
-
-  show_ip_ospf_neighbour_header (vty);
+    {
+      if (use_json)
+        json_object_int_add(json, "ospfInstance", ospf->instance);
+      else
+        vty_out (vty, "%sOSPF Instance: %d%s%s", VTY_NEWLINE, ospf->instance,
+                 VTY_NEWLINE, VTY_NEWLINE);
+    }
 
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
-    show_ip_ospf_neighbor_sub (vty, oi);
+    show_ip_ospf_neighbor_sub (vty, oi, json, use_json);
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  if (use_json)
+    {
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    vty_out (vty, "%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_ospf_neighbor,
        show_ip_ospf_neighbor_cmd,
-       "show ip ospf neighbor",
+       "show ip ospf neighbor {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "Neighbor list\n")
+       "Neighbor list\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
+  u_char use_json = (argv[0] != NULL);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_common(vty, ospf);
+  return show_ip_ospf_neighbor_common(vty, ospf, use_json);
 }
 
 
 DEFUN (show_ip_ospf_instance_neighbor,
        show_ip_ospf_instance_neighbor_cmd,
-       "show ip ospf <1-65535> neighbor",
+       "show ip ospf <1-65535> neighbor {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
-       "Neighbor list\n")
+       "Neighbor list\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
   u_short instance = 0;
+  u_char use_json = (argv[1] != NULL);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_common(vty, ospf);
+  return show_ip_ospf_neighbor_common(vty, ospf, use_json);
 }
 
 static int
-show_ip_ospf_neighbor_all_common (struct vty *vty, struct ospf *ospf)
+show_ip_ospf_neighbor_all_common (struct vty *vty, struct ospf *ospf, u_char use_json)
 {
   struct listnode *node;
   struct ospf_interface *oi;
+  json_object *json = NULL;
+  json_object *json_neighbor_sub = NULL;
+
+  if (use_json)
+    {
+      json = json_object_new_object();
+      json_neighbor_sub = json_object_new_object();
+    }
+  else
+    show_ip_ospf_neighbour_header (vty);
 
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s", VTY_NEWLINE, ospf->instance, VTY_NEWLINE);
-
-  show_ip_ospf_neighbour_header (vty);
+    {
+      if (use_json)
+        json_object_int_add(json, "ospfInstance", ospf->instance);
+      else
+        vty_out (vty, "%sOSPF Instance: %d%s%s", VTY_NEWLINE, ospf->instance,
+                 VTY_NEWLINE, VTY_NEWLINE);
+    }
 
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     {
       struct listnode *nbr_node;
       struct ospf_nbr_nbma *nbr_nbma;
 
-      show_ip_ospf_neighbor_sub (vty, oi);
+      show_ip_ospf_neighbor_sub (vty, oi, json, use_json);
 
-    /* print Down neighbor status */
-    for (ALL_LIST_ELEMENTS_RO (oi->nbr_nbma, nbr_node, nbr_nbma))
-      {
-	if (nbr_nbma->nbr == NULL
-	    || nbr_nbma->nbr->state == NSM_Down)
-	  {
-	    vty_out (vty, "%-15s %3d %-15s %9s ",
-		     "-", nbr_nbma->priority, "Down", "-");
-	    vty_out (vty, "%-15s %-20s %5d %5d %5d%s", 
-		     inet_ntoa (nbr_nbma->addr), IF_NAME (oi),
-		     0, 0, 0, VTY_NEWLINE);
-	  }
-      }
+      /* print Down neighbor status */
+      for (ALL_LIST_ELEMENTS_RO (oi->nbr_nbma, nbr_node, nbr_nbma))
+        {
+          if (nbr_nbma->nbr == NULL
+              || nbr_nbma->nbr->state == NSM_Down)
+            {
+              if (use_json)
+                {
+                  json_object_int_add (json_neighbor_sub, "nbrNbmaPriority", nbr_nbma->priority);
+                  json_object_boolean_true_add (json_neighbor_sub, "nbrNbmaDown");
+                  json_object_string_add (json_neighbor_sub, "nbrNbmaIfaceName", IF_NAME (oi));
+                  json_object_int_add (json_neighbor_sub, "nbrNbmaRetransmitCntr", 0);
+                  json_object_int_add (json_neighbor_sub, "nbrNbmaRequestCntr", 0);
+                  json_object_int_add (json_neighbor_sub, "nbrNbmaDbSummaryCntr", 0);
+                  json_object_object_add(json, inet_ntoa (nbr_nbma->addr), json_neighbor_sub);
+                }
+              else
+                {
+                  vty_out (vty, "%-15s %3d %-15s %9s ",
+                           "-", nbr_nbma->priority, "Down", "-");
+                  vty_out (vty, "%-15s %-20s %5d %5d %5d%s",
+                           inet_ntoa (nbr_nbma->addr), IF_NAME (oi),
+                           0, 0, 0, VTY_NEWLINE);
+                }
+            }
+        }
     }
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  if (use_json)
+    {
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    vty_out (vty, "%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_ospf_neighbor_all,
        show_ip_ospf_neighbor_all_cmd,
-       "show ip ospf neighbor all",
+       "show ip ospf neighbor all {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Neighbor list\n"
-       "include down status neighbor\n")
+       "include down status neighbor\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
+  u_char use_json = (argv[0] != NULL);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_all_common(vty, ospf);
+  return show_ip_ospf_neighbor_all_common(vty, ospf, use_json);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_all,
        show_ip_ospf_instance_neighbor_all_cmd,
-       "show ip ospf <1-65535> neighbor all",
+       "show ip ospf <1-65535> neighbor all {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
        "Neighbor list\n"
-       "include down status neighbor\n")
+       "include down status neighbor\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
   u_short instance = 0;
+  u_char use_json = (argv[1] != NULL);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_all_common(vty, ospf);
+  return show_ip_ospf_neighbor_all_common(vty, ospf, use_json);
 }
 
 static int
 show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_base,
-                                  const char **argv)
+                                  const char **argv, u_char use_json)
 {
   struct interface *ifp;
   struct route_node *rn;
+  json_object *json = NULL;
+
+  if (use_json)
+    json = json_object_new_object();
+  else
+    show_ip_ospf_neighbour_header (vty);
 
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s", VTY_NEWLINE, ospf->instance, VTY_NEWLINE);
+    {
+      if (use_json)
+        json_object_int_add(json, "ospfInstance", ospf->instance);
+      else
+        vty_out (vty, "%sOSPF Instance: %d%s%s", VTY_NEWLINE, ospf->instance,
+                 VTY_NEWLINE, VTY_NEWLINE);
+    }
 
-  ifp = if_lookup_by_name (argv[arg_base + 0]);
+  ifp = if_lookup_by_name (argv[arg_base]);
   if (!ifp)
     {
-      vty_out (vty, "No such interface.%s", VTY_NEWLINE);
+      if (use_json)
+        json_object_boolean_true_add(json, "noSuchIface");
+      else
+        vty_out (vty, "No such interface.%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  
-  show_ip_ospf_neighbour_header (vty);
   
   for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
     {
       struct ospf_interface *oi = rn->info;
 
       if (oi == NULL)
-	continue;
+        continue;
 
-      show_ip_ospf_neighbor_sub (vty, oi);
+      show_ip_ospf_neighbor_sub (vty, oi, json, use_json);
     }
+
+  if (use_json)
+    {
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    vty_out (vty, "%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_ospf_neighbor_int,
        show_ip_ospf_neighbor_int_cmd,
-       "show ip ospf neighbor IFNAME",
+       "show ip ospf neighbor IFNAME {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Neighbor list\n"
-       "Interface name\n")
+       "Interface name\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
+  u_char use_json;
+
+  if (argc == 1)
+    use_json = 0;
+  else if ((argv[0] && strcmp(argv[0] ,"json") == 0) ||
+           (argv[1] && strcmp(argv[1] ,"json") == 0))
+    use_json = 1;
+  else
+    use_json = 0;
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_int_common(vty, ospf, 0, argv);
+  return show_ip_ospf_neighbor_int_common(vty, ospf, 0, argv, use_json);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_int,
        show_ip_ospf_instance_neighbor_int_cmd,
-       "show ip ospf <1-65535> neighbor IFNAME",
+       "show ip ospf <1-65535> neighbor IFNAME {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
        "Neighbor list\n"
-       "Interface name\n")
+       "Interface name\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
   u_short instance = 0;
+  u_char use_json;
+
+  if (argc == 2)
+    use_json = 0;
+  else if ((argv[1] && strcmp(argv[1] ,"json") == 0) ||
+           (argv[2] && strcmp(argv[2] ,"json") == 0))
+    use_json = 1;
+  else
+    use_json = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_int_common(vty, ospf, 1, argv);
+  return show_ip_ospf_neighbor_int_common(vty, ospf, 1, argv, use_json);
 }
 
 static void
