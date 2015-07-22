@@ -469,9 +469,9 @@ if [ ! -d $V_PATH ]; then
     chmod 755 /$V_PATH
 fi
 
-if [ -n "$3" ]; then
+if [ -n "$3" ] && [ "$3" != "all" ]; then
    dmn="$2"-"$3"
-elif [ -n "$2" ]; then
+elif [ -n "$2" ] && [ "$2" != "all" ]; then
    dmn="$2"
 fi
 

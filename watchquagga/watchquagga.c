@@ -912,14 +912,7 @@ try_restart(struct daemon *dmn)
 	  break;
 	}
     }
-    zlog_info("Phased restart: stopping all routing daemons.");
-    /* First step: stop all other daemons. */
-    for (dmn = gs.daemons; dmn; dmn = dmn->next)
-      {
-        if (dmn != gs.special)
-	  run_job(&dmn->restart,"stop",gs.stop_command,1,1);
-      }
-    set_phase(PHASE_STOPS_PENDING);
+    run_job(&gs.restart,"restart",gs.restart_command,0,1);
     break;
   default:
     zlog_err("error: unknown restart mode %d",gs.mode);
