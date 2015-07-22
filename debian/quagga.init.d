@@ -527,6 +527,7 @@ case "$1" in
 	[ ! -r $NEW_CONFIG_FILE ] && echo "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
 	echo "Applying only incremental changes to running configuration from Quagga.conf"
 	"$RELOAD_SCRIPT" --reload /etc/quagga/Quagga.conf
+	exit $?
 	;;
 
     status)
