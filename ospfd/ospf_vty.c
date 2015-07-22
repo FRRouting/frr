@@ -21,6 +21,7 @@
  */
 
 #include <zebra.h>
+#include <json/json.h>
 
 #include "memory.h"
 #include "thread.h"
@@ -2914,294 +2915,601 @@ const char *ospf_shortcut_mode_descr_str[] =
   "Disabled"
 };
 
-
-
 static void
-show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
+show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_areas, u_char use_json)
 {
+  json_object *json_area = NULL;
+
+  if (use_json)
+    json_area = json_object_new_object();
+
   /* Show Area ID. */
-  vty_out (vty, " Area ID: %s", inet_ntoa (area->area_id));
+  if (!use_json)
+    vty_out (vty, " Area ID: %s", inet_ntoa (area->area_id));
 
   /* Show Area type/mode. */
   if (OSPF_IS_AREA_BACKBONE (area))
-    vty_out (vty, " (Backbone)%s", VTY_NEWLINE);
+    {
+      if (use_json)
+        json_object_boolean_true_add(json_area, "backbone");
+      else
+        vty_out (vty, " (Backbone)%s", VTY_NEWLINE);
+    }
   else
     {
-      if (area->external_routing == OSPF_AREA_STUB)
-        vty_out (vty, " (Stub%s%s)",
-		         area->no_summary ? ", no summary" : "",
-		         area->shortcut_configured ? "; " : "");
+      if (use_json)
+        {
+          if (area->external_routing == OSPF_AREA_STUB)
+            {
+              if (area->no_summary)
+                json_object_boolean_true_add(json_area, "stubNoSummary");
+              if (area->shortcut_configured)
+                json_object_boolean_true_add(json_area, "stubShortcut");
+            }
+          else if (area->external_routing == OSPF_AREA_NSSA)
+            {
+              if (area->no_summary)
+                json_object_boolean_true_add(json_area, "nssaNoSummary");
+              if (area->shortcut_configured)
+                json_object_boolean_true_add(json_area, "nssaShortcut");
+            }
 
-      else if (area->external_routing == OSPF_AREA_NSSA)
-        vty_out (vty, " (NSSA%s%s)",
-                 area->no_summary ? ", no summary" : "",
-                 area->shortcut_configured ? "; " : "");
+          json_object_string_add(json_area,"shortcuttingMode",
+                                 ospf_shortcut_mode_descr_str[area->shortcut_configured]);
+          if (area->shortcut_capability)
+            json_object_boolean_true_add(json_area,"sBitConcensus");
+        }
+      else
+        {
+          if (area->external_routing == OSPF_AREA_STUB)
+            vty_out (vty, " (Stub%s%s)",
+                     area->no_summary ? ", no summary" : "",
+                     area->shortcut_configured ? "; " : "");
+          else if (area->external_routing == OSPF_AREA_NSSA)
+            vty_out (vty, " (NSSA%s%s)",
+                     area->no_summary ? ", no summary" : "",
+                     area->shortcut_configured ? "; " : "");
 
-      vty_out (vty, "%s", VTY_NEWLINE);
-      vty_out (vty, "   Shortcutting mode: %s",
-               ospf_shortcut_mode_descr_str[area->shortcut_configured]);
-      vty_out (vty, ", S-bit consensus: %s%s",
-               area->shortcut_capability ? "ok" : "no", VTY_NEWLINE);
+          vty_out (vty, "%s", VTY_NEWLINE);
+          vty_out (vty, "   Shortcutting mode: %s",
+                   ospf_shortcut_mode_descr_str[area->shortcut_configured]);
+          vty_out (vty, ", S-bit consensus: %s%s",
+                   area->shortcut_capability ? "ok" : "no", VTY_NEWLINE);
+        }
     }
 
-  /* Show number of interfaces. */
-  vty_out (vty, "   Number of interfaces in this area: Total: %d, "
-	   "Active: %d%s", listcount (area->oiflist),
-	   area->act_ints, VTY_NEWLINE);
+  /* Show number of interfaces */
+  if (use_json)
+    {
+      json_object_int_add(json_area, "areaIfTotalCntr", listcount (area->oiflist));
+      json_object_int_add(json_area, "areaIfActiveCntr", area->act_ints);
+    }
+  else
+    vty_out (vty, "   Number of interfaces in this area: Total: %d, "
+             "Active: %d%s", listcount (area->oiflist),
+             area->act_ints, VTY_NEWLINE);
 
   if (area->external_routing == OSPF_AREA_NSSA)
     {
-      vty_out (vty, "   It is an NSSA configuration. %s   Elected NSSA/ABR performs type-7/type-5 LSA translation. %s", VTY_NEWLINE, VTY_NEWLINE);
-      if (! IS_OSPF_ABR (area->ospf))
-        vty_out (vty, "   It is not ABR, therefore not Translator. %s",
-                 VTY_NEWLINE);
-      else if (area->NSSATranslatorState)
-       {
-         vty_out (vty, "   We are an ABR and ");
-         if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_CANDIDATE)
-           vty_out (vty, "the NSSA Elected Translator. %s", 
-	                VTY_NEWLINE);
-         else if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_ALWAYS)
-           vty_out (vty, "always an NSSA Translator. %s",
-                    VTY_NEWLINE);
-       }
+      if (use_json)
+        {
+          json_object_boolean_true_add(json_area, "nssa");
+          if (! IS_OSPF_ABR (area->ospf))
+            json_object_boolean_false_add(json_area, "abr");
+          else if (area->NSSATranslatorState)
+            {
+              json_object_boolean_true_add(json_area, "abr");
+              if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_CANDIDATE)
+                json_object_boolean_true_add(json_area, "nssaTranslatorElected");
+              else if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_ALWAYS)
+                json_object_boolean_true_add(json_area, "nssaTranslatorAlways");
+            }
+          else
+            {
+              json_object_boolean_true_add(json_area, "abr");
+              if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_CANDIDATE)
+                json_object_boolean_false_add(json_area, "nssaTranslatorElected");
+              else
+                json_object_boolean_true_add(json_area, "nssaTranslatorNever");
+            }
+        }
       else
-       {
-         vty_out (vty, "   We are an ABR, but ");
-         if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_CANDIDATE)
-           vty_out (vty, "not the NSSA Elected Translator. %s",
-                    VTY_NEWLINE);
-         else
-           vty_out (vty, "never an NSSA Translator. %s", 
-	             VTY_NEWLINE);
-	   }
+        {
+          vty_out (vty, "   It is an NSSA configuration. %s   Elected NSSA/ABR performs type-7/type-5 LSA translation. %s", VTY_NEWLINE, VTY_NEWLINE);
+          if (! IS_OSPF_ABR (area->ospf))
+            vty_out (vty, "   It is not ABR, therefore not Translator. %s",
+                     VTY_NEWLINE);
+          else if (area->NSSATranslatorState)
+            {
+              vty_out (vty, "   We are an ABR and ");
+              if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_CANDIDATE)
+                vty_out (vty, "the NSSA Elected Translator. %s",
+                         VTY_NEWLINE);
+              else if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_ALWAYS)
+                vty_out (vty, "always an NSSA Translator. %s",
+                         VTY_NEWLINE);
+            }
+          else
+            {
+              vty_out (vty, "   We are an ABR, but ");
+              if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_CANDIDATE)
+                vty_out (vty, "not the NSSA Elected Translator. %s",
+                         VTY_NEWLINE);
+              else
+                vty_out (vty, "never an NSSA Translator. %s",
+                         VTY_NEWLINE);
+            }
+        }
     }
+
   /* Stub-router state for this area */
   if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
     {
       char timebuf[OSPF_TIME_DUMP_SIZE];
-      vty_out (vty, "   Originating stub / maximum-distance Router-LSA%s",
-               VTY_NEWLINE);
-      if (CHECK_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
-        vty_out (vty, "     Administratively activated (indefinitely)%s",
-                 VTY_NEWLINE);
-      if (area->t_stub_router)
-        vty_out (vty, "     Active from startup, %s remaining%s",
-                 ospf_timer_dump (area->t_stub_router, timebuf, 
-                                  sizeof(timebuf)), VTY_NEWLINE);
+
+      if (use_json)
+        {
+          json_object_boolean_true_add(json_area, "originStubMaxDistRouterLsa");
+          if (CHECK_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
+            json_object_boolean_true_add(json_area, "indefiniteActiveAdmin");
+          if (area->t_stub_router)
+            {
+              struct timeval result;
+              unsigned long time_store = 0;
+              result = tv_sub (area->t_stub_router->u.sands, recent_relative_time());
+              time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+              json_object_int_add(json_area, "activeStartupRemainderMsecs", time_store);
+            }
+        }
+      else
+        {
+          vty_out (vty, "   Originating stub / maximum-distance Router-LSA%s",
+                   VTY_NEWLINE);
+          if (CHECK_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
+            vty_out (vty, "     Administratively activated (indefinitely)%s",
+                     VTY_NEWLINE);
+          if (area->t_stub_router)
+            vty_out (vty, "     Active from startup, %s remaining%s",
+                     ospf_timer_dump (area->t_stub_router, timebuf,
+                                      sizeof(timebuf)), VTY_NEWLINE);
+        }
     }
-  
-  /* Show number of fully adjacent neighbors. */
-  vty_out (vty, "   Number of fully adjacent neighbors in this area:"
-                " %d%s", area->full_nbrs, VTY_NEWLINE);
 
-  /* Show authentication type. */
-  vty_out (vty, "   Area has ");
-  if (area->auth_type == OSPF_AUTH_NULL)
-    vty_out (vty, "no authentication%s", VTY_NEWLINE);
-  else if (area->auth_type == OSPF_AUTH_SIMPLE)
-    vty_out (vty, "simple password authentication%s", VTY_NEWLINE);
-  else if (area->auth_type == OSPF_AUTH_CRYPTOGRAPHIC)
-    vty_out (vty, "message digest authentication%s", VTY_NEWLINE);
+  if (use_json)
+    {
+      /* Show number of fully adjacent neighbors. */
+      json_object_int_add(json_area, "nbrFullAdjacentCntr", area->full_nbrs);
 
-  if (!OSPF_IS_AREA_BACKBONE (area))
-    vty_out (vty, "   Number of full virtual adjacencies going through"
-	     " this area: %d%s", area->full_vls, VTY_NEWLINE);
+      /* Show authentication type. */
+      if (area->auth_type == OSPF_AUTH_NULL)
+        json_object_string_add(json_area, "authentication", "authenticationNone");
+      else if (area->auth_type == OSPF_AUTH_SIMPLE)
+        json_object_string_add(json_area, "authentication", "authenticationSimplePassword");
+      else if (area->auth_type == OSPF_AUTH_CRYPTOGRAPHIC)
+        json_object_string_add(json_area, "authentication", "authenticationMessageDigest");
 
-  /* Show SPF calculation times. */
-  vty_out (vty, "   SPF algorithm executed %d times%s",
-	   area->spf_calculation, VTY_NEWLINE);
+      if (!OSPF_IS_AREA_BACKBONE (area))
+        json_object_int_add(json_area, "virtualAdjacenciesPassingCntr", area->full_vls);
 
-  /* Show number of LSA. */
-  vty_out (vty, "   Number of LSA %ld%s", area->lsdb->total, VTY_NEWLINE);
-  vty_out (vty, "   Number of router LSA %ld. Checksum Sum 0x%08x%s",
-	   ospf_lsdb_count (area->lsdb, OSPF_ROUTER_LSA),
-	   ospf_lsdb_checksum (area->lsdb, OSPF_ROUTER_LSA), VTY_NEWLINE);
-  vty_out (vty, "   Number of network LSA %ld. Checksum Sum 0x%08x%s",
-           ospf_lsdb_count (area->lsdb, OSPF_NETWORK_LSA),
-           ospf_lsdb_checksum (area->lsdb, OSPF_NETWORK_LSA), VTY_NEWLINE);
-  vty_out (vty, "   Number of summary LSA %ld. Checksum Sum 0x%08x%s",
-           ospf_lsdb_count (area->lsdb, OSPF_SUMMARY_LSA),
-           ospf_lsdb_checksum (area->lsdb, OSPF_SUMMARY_LSA), VTY_NEWLINE);
-  vty_out (vty, "   Number of ASBR summary LSA %ld. Checksum Sum 0x%08x%s",
-           ospf_lsdb_count (area->lsdb, OSPF_ASBR_SUMMARY_LSA),
-           ospf_lsdb_checksum (area->lsdb, OSPF_ASBR_SUMMARY_LSA), VTY_NEWLINE);
-  vty_out (vty, "   Number of NSSA LSA %ld. Checksum Sum 0x%08x%s",
-           ospf_lsdb_count (area->lsdb, OSPF_AS_NSSA_LSA),
-           ospf_lsdb_checksum (area->lsdb, OSPF_AS_NSSA_LSA), VTY_NEWLINE);
+      /* Show SPF calculation times. */
+      json_object_int_add(json_area, "spfExecutedCntr", area->spf_calculation);
+      json_object_int_add(json_area, "lsaNumber", area->lsdb->total);
+      json_object_int_add(json_area, "lsaRouterNumber", ospf_lsdb_count (area->lsdb, OSPF_ROUTER_LSA));
+      json_object_int_add(json_area, "lsaRouterChecksum", ospf_lsdb_checksum (area->lsdb, OSPF_ROUTER_LSA));
+      json_object_int_add(json_area, "lsaNetworkNumber", ospf_lsdb_count (area->lsdb, OSPF_NETWORK_LSA));
+      json_object_int_add(json_area, "lsaNetworkChecksum", ospf_lsdb_checksum (area->lsdb, OSPF_NETWORK_LSA));
+      json_object_int_add(json_area, "lsaSummaryNumber", ospf_lsdb_count (area->lsdb, OSPF_SUMMARY_LSA));
+      json_object_int_add(json_area, "lsaSummaryChecksum", ospf_lsdb_checksum (area->lsdb, OSPF_SUMMARY_LSA));
+      json_object_int_add(json_area, "lsaAsbrNumber", ospf_lsdb_count (area->lsdb, OSPF_ASBR_SUMMARY_LSA));
+      json_object_int_add(json_area, "lsaAsbrChecksum", ospf_lsdb_checksum (area->lsdb, OSPF_ASBR_SUMMARY_LSA));
+      json_object_int_add(json_area, "lsaNssaNumber", ospf_lsdb_count (area->lsdb, OSPF_AS_NSSA_LSA));
+      json_object_int_add(json_area, "lsaNssaChecksum", ospf_lsdb_checksum (area->lsdb, OSPF_AS_NSSA_LSA));
+    }
+  else
+    {
+      /* Show number of fully adjacent neighbors. */
+      vty_out (vty, "   Number of fully adjacent neighbors in this area:"
+               " %d%s", area->full_nbrs, VTY_NEWLINE);
+
+      /* Show authentication type. */
+      vty_out (vty, "   Area has ");
+      if (area->auth_type == OSPF_AUTH_NULL)
+        vty_out (vty, "no authentication%s", VTY_NEWLINE);
+      else if (area->auth_type == OSPF_AUTH_SIMPLE)
+        vty_out (vty, "simple password authentication%s", VTY_NEWLINE);
+      else if (area->auth_type == OSPF_AUTH_CRYPTOGRAPHIC)
+        vty_out (vty, "message digest authentication%s", VTY_NEWLINE);
+
+      if (!OSPF_IS_AREA_BACKBONE (area))
+        vty_out (vty, "   Number of full virtual adjacencies going through"
+                 " this area: %d%s", area->full_vls, VTY_NEWLINE);
+
+      /* Show SPF calculation times. */
+      vty_out (vty, "   SPF algorithm executed %d times%s",
+               area->spf_calculation, VTY_NEWLINE);
+
+      /* Show number of LSA. */
+      vty_out (vty, "   Number of LSA %ld%s", area->lsdb->total, VTY_NEWLINE);
+      vty_out (vty, "   Number of router LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (area->lsdb, OSPF_ROUTER_LSA),
+               ospf_lsdb_checksum (area->lsdb, OSPF_ROUTER_LSA), VTY_NEWLINE);
+      vty_out (vty, "   Number of network LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (area->lsdb, OSPF_NETWORK_LSA),
+               ospf_lsdb_checksum (area->lsdb, OSPF_NETWORK_LSA), VTY_NEWLINE);
+      vty_out (vty, "   Number of summary LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (area->lsdb, OSPF_SUMMARY_LSA),
+               ospf_lsdb_checksum (area->lsdb, OSPF_SUMMARY_LSA), VTY_NEWLINE);
+      vty_out (vty, "   Number of ASBR summary LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (area->lsdb, OSPF_ASBR_SUMMARY_LSA),
+               ospf_lsdb_checksum (area->lsdb, OSPF_ASBR_SUMMARY_LSA), VTY_NEWLINE);
+      vty_out (vty, "   Number of NSSA LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (area->lsdb, OSPF_AS_NSSA_LSA),
+               ospf_lsdb_checksum (area->lsdb, OSPF_AS_NSSA_LSA), VTY_NEWLINE);
+    }
+
 #ifdef HAVE_OPAQUE_LSA
-  vty_out (vty, "   Number of opaque link LSA %ld. Checksum Sum 0x%08x%s",
-           ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_LINK_LSA),
-           ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_LINK_LSA), VTY_NEWLINE);
-  vty_out (vty, "   Number of opaque area LSA %ld. Checksum Sum 0x%08x%s",
-           ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_AREA_LSA),
-           ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_AREA_LSA), VTY_NEWLINE);
+  if (use_json)
+    {
+      json_object_int_add(json_area, "lsaOpaqueLinkNumber", ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_LINK_LSA));
+      json_object_int_add(json_area, "lsaOpaqueLinkChecksum", ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_LINK_LSA));
+      json_object_int_add(json_area, "lsaOpaqueAreaNumber", ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_AREA_LSA));
+      json_object_int_add(json_area, "lsaOpaqueAreaChecksum", ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_AREA_LSA));
+    }
+  else
+    {
+      vty_out (vty, "   Number of opaque link LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_LINK_LSA),
+               ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_LINK_LSA), VTY_NEWLINE);
+      vty_out (vty, "   Number of opaque area LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_AREA_LSA),
+               ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_AREA_LSA), VTY_NEWLINE);
+    }
 #endif /* HAVE_OPAQUE_LSA */
-  vty_out (vty, "%s", VTY_NEWLINE);
+
+  if (use_json)
+    json_object_object_add(json_areas, inet_ntoa (area->area_id), json_area);
+  else
+    vty_out (vty, "%s", VTY_NEWLINE);
 }
 
 static int
-show_ip_ospf_common (struct vty *vty, struct ospf *ospf)
+show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
 {
   struct listnode *node, *nnode;
   struct ospf_area * area;
   struct timeval result;
   char timebuf[OSPF_TIME_DUMP_SIZE];
+  json_object *json = NULL;
+  json_object *json_areas = NULL;
+
+  if (use_json)
+    json = json_object_new_object();
+    json_areas = json_object_new_object();
 
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s%s", VTY_NEWLINE, ospf->instance,
-             VTY_NEWLINE, VTY_NEWLINE);
+    {
+      if (use_json)
+        {
+          json_object_int_add(json, "ospfInstance", ospf->instance);
+        }
+      else
+        {
+          vty_out (vty, "%sOSPF Instance: %d%s%s", VTY_NEWLINE, ospf->instance,
+                   VTY_NEWLINE, VTY_NEWLINE);
+        }
+    }
 
   /* Show Router ID. */
-  vty_out (vty, " OSPF Routing Process, Router ID: %s%s",
-           inet_ntoa (ospf->router_id),
-           VTY_NEWLINE);
+  if (use_json)
+    {
+      json_object_string_add(json, "routerId", inet_ntoa (ospf->router_id));
+    }
+  else
+    {
+      vty_out (vty, " OSPF Routing Process, Router ID: %s%s",
+               inet_ntoa (ospf->router_id),
+               VTY_NEWLINE);
+    }
 
   /* Graceful shutdown */
   if (ospf->t_deferred_shutdown)
-    vty_out (vty, " Deferred shutdown in progress, %s remaining%s",
-             ospf_timer_dump (ospf->t_deferred_shutdown,
-                              timebuf, sizeof (timebuf)), VTY_NEWLINE);
+    {
+      if (use_json)
+        {
+          unsigned long time_store = 0;
+          result = tv_sub (ospf->t_deferred_shutdown->u.sands, recent_relative_time());
+          time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+          json_object_int_add(json, "deferredShutdownMsecs", time_store);
+        }
+      else
+        {
+          vty_out (vty, " Deferred shutdown in progress, %s remaining%s",
+                   ospf_timer_dump (ospf->t_deferred_shutdown,
+                                    timebuf, sizeof (timebuf)), VTY_NEWLINE);
+        }
+    }
+
   /* Show capability. */
-  vty_out (vty, " Supports only single TOS (TOS0) routes%s", VTY_NEWLINE);
-  vty_out (vty, " This implementation conforms to RFC2328%s", VTY_NEWLINE);
-  vty_out (vty, " RFC1583Compatibility flag is %s%s",
-	   CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE) ?
-	   "enabled" : "disabled", VTY_NEWLINE);
+  if (use_json)
+    {
+      json_object_boolean_true_add(json, "tosRoutesOnly");
+      json_object_boolean_true_add(json, "rfc2328Conform");
+      if (CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
+        {
+          json_object_boolean_true_add(json, "rfc1583Compatibility");
+        }
+    }
+  else
+    {
+      vty_out (vty, " Supports only single TOS (TOS0) routes%s", VTY_NEWLINE);
+      vty_out (vty, " This implementation conforms to RFC2328%s", VTY_NEWLINE);
+      vty_out (vty, " RFC1583Compatibility flag is %s%s",
+               CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE) ?
+               "enabled" : "disabled", VTY_NEWLINE);
+    }
+
 #ifdef HAVE_OPAQUE_LSA
-  vty_out (vty, " OpaqueCapability flag is %s%s%s",
-	   CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE) ?
-           "enabled" : "disabled",
-           IS_OPAQUE_LSA_ORIGINATION_BLOCKED (ospf->opaque) ?
-           " (origination blocked)" : "",
-           VTY_NEWLINE);
+  if (use_json)
+    {
+      if (CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE))
+        {
+          json_object_boolean_true_add(json, "opaqueCapable");
+        }
+      if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (ospf->opaque))
+        {
+          json_object_boolean_true_add(json, "lsaOpaqueOriginationBlocked");
+        }
+    }
+  else
+    {
+      vty_out (vty, " OpaqueCapability flag is %s%s%s",
+               CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE) ? "enabled" : "disabled",
+               IS_OPAQUE_LSA_ORIGINATION_BLOCKED (ospf->opaque) ? " (origination blocked)" : "",
+               VTY_NEWLINE);
+    }
 #endif /* HAVE_OPAQUE_LSA */
-  
+
   /* Show stub-router configuration */
   if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED
       || ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
     {
-      vty_out (vty, " Stub router advertisement is configured%s",
-               VTY_NEWLINE);
-      if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED)
-        vty_out (vty, "   Enabled for %us after start-up%s",
-                 ospf->stub_router_startup_time, VTY_NEWLINE);
-      if (ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
-        vty_out (vty, "   Enabled for %us prior to full shutdown%s",
-                 ospf->stub_router_shutdown_time, VTY_NEWLINE);
+      if (use_json)
+        {
+          json_object_boolean_true_add(json, "stubAdvertisement");
+          if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+            json_object_int_add(json,"postStartEnabledMsecs", ospf->stub_router_startup_time / 1000);
+          if (ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+            json_object_int_add(json,"preShutdownEnabledMsecs", ospf->stub_router_shutdown_time / 1000);
+        }
+      else
+        {
+          vty_out (vty, " Stub router advertisement is configured%s",
+                   VTY_NEWLINE);
+          if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+            vty_out (vty, "   Enabled for %us after start-up%s",
+                     ospf->stub_router_startup_time, VTY_NEWLINE);
+          if (ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+            vty_out (vty, "   Enabled for %us prior to full shutdown%s",
+                     ospf->stub_router_shutdown_time, VTY_NEWLINE);
+        }
     }
-  
+
   /* Show SPF timers. */
-  vty_out (vty, " Initial SPF scheduling delay %d millisec(s)%s"
-                " Minimum hold time between consecutive SPFs %d millisec(s)%s"
-                " Maximum hold time between consecutive SPFs %d millisec(s)%s"
-                " Hold time multiplier is currently %d%s",
-	  ospf->spf_delay, VTY_NEWLINE,
-	  ospf->spf_holdtime, VTY_NEWLINE,
-	  ospf->spf_max_holdtime, VTY_NEWLINE,
-	  ospf->spf_hold_multiplier, VTY_NEWLINE);
-  vty_out (vty, " SPF algorithm ");
-  if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
+  if (use_json)
     {
-      result = tv_sub (recent_relative_time (), ospf->ts_spf);
-      vty_out (vty, "last executed %s ago%s",
-               ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
-               VTY_NEWLINE);
-      vty_out (vty, " Last SPF duration %s%s",
-	       ospf_timeval_dump (&ospf->ts_spf_duration, timebuf, sizeof (timebuf)),
-	       VTY_NEWLINE);
+      json_object_int_add(json, "spfScheduleDelayMsecs", ospf->spf_delay);
+      json_object_int_add(json, "holdtimeMinMsecs", ospf->spf_holdtime);
+      json_object_int_add(json, "holdtimeMaxMsecs", ospf->spf_max_holdtime);
+      json_object_int_add(json, "holdtimeMultplier", ospf->spf_hold_multiplier);
     }
   else
-    vty_out (vty, "has not been run%s", VTY_NEWLINE);
-  vty_out (vty, " SPF timer %s%s%s",
-           (ospf->t_spf_calc ? "due in " : "is "),
-           ospf_timer_dump (ospf->t_spf_calc, timebuf, sizeof (timebuf)),
-           VTY_NEWLINE);
-  
-  vty_out (vty, " LSA minimum arrival %d msecs%s",
-           ospf->lsa_minarrival, VTY_NEWLINE);
+    {
+      vty_out (vty, " Initial SPF scheduling delay %d millisec(s)%s"
+                    " Minimum hold time between consecutive SPFs %d millisec(s)%s"
+                    " Maximum hold time between consecutive SPFs %d millisec(s)%s"
+                    " Hold time multiplier is currently %d%s",
+               ospf->spf_delay, VTY_NEWLINE,
+               ospf->spf_holdtime, VTY_NEWLINE,
+               ospf->spf_max_holdtime, VTY_NEWLINE,
+               ospf->spf_hold_multiplier, VTY_NEWLINE);
+    }
 
-  /* Show write multiplier values */
-  vty_out (vty, " Write Multiplier set to %d %s",
-	   ospf->write_oi_count, VTY_NEWLINE);
+  if (use_json)
+    {
+      if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
+        {
+          unsigned long time_store = 0;
 
-  /* Show refresh parameters. */
-  vty_out (vty, " Refresh timer %d secs%s",
-	   ospf->lsa_refresh_interval, VTY_NEWLINE);
-	   
+          result = tv_sub (recent_relative_time(), ospf->ts_spf);
+          result = tv_sub (result, recent_relative_time());
+          time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+          json_object_int_add(json, "spfLastExecutedMsecs", time_store);
+
+          time_store = (1000 * ospf->ts_spf_duration.tv_sec) + (ospf->ts_spf_duration.tv_usec / 1000);
+          json_object_int_add(json, "spfLastDurationMsecs", time_store);
+        }
+      else
+        json_object_boolean_true_add(json, "spfHasNotRun");
+    }
+  else
+    {
+      vty_out (vty, " SPF algorithm ");
+      if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
+        {
+          result = tv_sub (recent_relative_time(), ospf->ts_spf);
+          vty_out (vty, "last executed %s ago%s",
+                   ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
+                   VTY_NEWLINE);
+          vty_out (vty, " Last SPF duration %s%s",
+                   ospf_timeval_dump (&ospf->ts_spf_duration, timebuf, sizeof (timebuf)),
+                   VTY_NEWLINE);
+        }
+      else
+        vty_out (vty, "has not been run%s", VTY_NEWLINE);
+    }
+
+  if (use_json)
+    {
+      struct timeval temp_time;
+      unsigned long time_store = 0;
+
+      if (ospf->t_spf_calc)
+        {
+          temp_time = tv_sub (ospf->t_spf_calc->u.sands, recent_relative_time());
+          time_store = (1000 * temp_time.tv_sec) + (temp_time.tv_usec / 1000);
+          json_object_int_add(json, "spfTimerDueInMsecs", time_store);
+        }
+
+      json_object_int_add(json, "lsaMinArrivalMsecs", ospf->lsa_minarrival);
+      /* Show write multiplier values */
+      json_object_int_add(json, "writeMultiplier", ospf->write_oi_count);
+      /* Show refresh parameters. */
+      json_object_int_add(json, "refreshTimerMsecs", ospf->lsa_refresh_interval / 1000);
+    }
+  else
+    {
+      vty_out (vty, " SPF timer %s%s%s",
+               (ospf->t_spf_calc ? "due in " : "is "),
+               ospf_timer_dump (ospf->t_spf_calc, timebuf, sizeof (timebuf)),
+               VTY_NEWLINE);
+
+      vty_out (vty, " LSA minimum arrival %d msecs%s",
+               ospf->lsa_minarrival, VTY_NEWLINE);
+
+      /* Show write multiplier values */
+      vty_out (vty, " Write Multiplier set to %d %s",
+               ospf->write_oi_count, VTY_NEWLINE);
+
+      /* Show refresh parameters. */
+      vty_out (vty, " Refresh timer %d secs%s",
+               ospf->lsa_refresh_interval, VTY_NEWLINE);
+    }
+
   /* Show ABR/ASBR flags. */
   if (CHECK_FLAG (ospf->flags, OSPF_FLAG_ABR))
-    vty_out (vty, " This router is an ABR, ABR type is: %s%s",
-             ospf_abr_type_descr_str[ospf->abr_type], VTY_NEWLINE);
-
+    {
+     if (use_json)
+       json_object_string_add(json, "abrType", ospf_abr_type_descr_str[ospf->abr_type]);
+     else
+       vty_out (vty, " This router is an ABR, ABR type is: %s%s",
+                ospf_abr_type_descr_str[ospf->abr_type], VTY_NEWLINE);
+    }
   if (CHECK_FLAG (ospf->flags, OSPF_FLAG_ASBR))
-    vty_out (vty, " This router is an ASBR "
-             "(injecting external routing information)%s", VTY_NEWLINE);
+    {
+      if (use_json)
+        json_object_string_add(json, "asbrRouter", "injectingExternalRoutingInformation");
+      else
+        vty_out (vty, " This router is an ASBR "
+                 "(injecting external routing information)%s", VTY_NEWLINE);
+    }
 
   /* Show Number of AS-external-LSAs. */
-  vty_out (vty, " Number of external LSA %ld. Checksum Sum 0x%08x%s",
-	   ospf_lsdb_count (ospf->lsdb, OSPF_AS_EXTERNAL_LSA),
-	   ospf_lsdb_checksum (ospf->lsdb, OSPF_AS_EXTERNAL_LSA), VTY_NEWLINE);
+  if (use_json)
+    {
+      json_object_int_add(json, "lsaExternalCntr",
+                          ospf_lsdb_count (ospf->lsdb, OSPF_AS_EXTERNAL_LSA));
+      json_object_int_add(json, "lsaExternalChecksum",
+                          ospf_lsdb_checksum (ospf->lsdb, OSPF_AS_EXTERNAL_LSA));
+    }
+  else
+    {
+      vty_out (vty, " Number of external LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (ospf->lsdb, OSPF_AS_EXTERNAL_LSA),
+               ospf_lsdb_checksum (ospf->lsdb, OSPF_AS_EXTERNAL_LSA), VTY_NEWLINE);
+    }
+
 #ifdef HAVE_OPAQUE_LSA
-  vty_out (vty, " Number of opaque AS LSA %ld. Checksum Sum 0x%08x%s",
-	   ospf_lsdb_count (ospf->lsdb, OSPF_OPAQUE_AS_LSA),
-	   ospf_lsdb_checksum (ospf->lsdb, OSPF_OPAQUE_AS_LSA), VTY_NEWLINE);
+  if (use_json)
+    {
+       json_object_int_add(json, "lsaAsopaqueCntr",
+                           ospf_lsdb_count (ospf->lsdb, OSPF_OPAQUE_AS_LSA));
+       json_object_int_add(json, "lsaAsOpaqueChecksum",
+                           ospf_lsdb_checksum (ospf->lsdb, OSPF_OPAQUE_AS_LSA));
+    }
+  else
+    {
+      vty_out (vty, " Number of opaque AS LSA %ld. Checksum Sum 0x%08x%s",
+               ospf_lsdb_count (ospf->lsdb, OSPF_OPAQUE_AS_LSA),
+               ospf_lsdb_checksum (ospf->lsdb, OSPF_OPAQUE_AS_LSA), VTY_NEWLINE);
+    }
 #endif /* HAVE_OPAQUE_LSA */
+
   /* Show number of areas attached. */
-  vty_out (vty, " Number of areas attached to this router: %d%s",
-           listcount (ospf->areas), VTY_NEWLINE);
+  if (use_json)
+    json_object_int_add(json, "attachedAreaCntr", listcount (ospf->areas));
+  else
+    vty_out (vty, " Number of areas attached to this router: %d%s",
+             listcount (ospf->areas), VTY_NEWLINE);
 
   if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES))
     {
       if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
-	vty_out(vty, " All adjacency changes are logged%s",VTY_NEWLINE);
+        {
+          if (use_json)
+            json_object_boolean_true_add(json, "adjacencyChangesLoggedAll");
+          else
+            vty_out(vty, " All adjacency changes are logged%s",VTY_NEWLINE);
+        }
       else
-	vty_out(vty, " Adjacency changes are logged%s",VTY_NEWLINE);
+        {
+          if (use_json)
+            json_object_boolean_true_add(json, "adjacencyChangesLogged");
+          else
+            vty_out(vty, " Adjacency changes are logged%s",VTY_NEWLINE);
+        }
     }
-
-  vty_out (vty, "%s",VTY_NEWLINE);
-
   /* Show each area status. */
   for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
-    show_ip_ospf_area (vty, area);
+    show_ip_ospf_area (vty, area, json_areas, use_json);
+
+  if (use_json)
+    {
+      json_object_object_add(json, "areas", json_areas);
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    vty_out (vty, "%s",VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_ospf,
        show_ip_ospf_cmd,
-       "show ip ospf",
+       "show ip ospf {json}",
        SHOW_STR
        IP_STR
-       "OSPF information\n")
-
+       "OSPF information\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
+  u_char use_json = (argv[0] != NULL);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return (show_ip_ospf_common(vty, ospf));
+  return (show_ip_ospf_common(vty, ospf, use_json));
 }
 
 DEFUN (show_ip_ospf_instance,
        show_ip_ospf_instance_cmd,
-       "show ip ospf <1-65535>",
+       "show ip ospf <1-65535> {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
-       "Instance ID\n")
+       "Instance ID\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
   u_short instance = 0;
+  u_char use_json = (argv[1] != NULL);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return (show_ip_ospf_common(vty, ospf));
+  return (show_ip_ospf_common(vty, ospf, use_json));
 }
-
 
 static void
 show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
