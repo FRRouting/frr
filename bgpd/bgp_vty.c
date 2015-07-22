@@ -3390,42 +3390,52 @@ DEFUN (no_neighbor_capability_orf_prefix,
 /* neighbor next-hop-self. */
 DEFUN (neighbor_nexthop_self,
        neighbor_nexthop_self_cmd,
-       NEIGHBOR_CMD2 "next-hop-self {all}",
+       NEIGHBOR_CMD2 "next-hop-self",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Disable the next hop calculation for this neighbor\n")
+{
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+			       bgp_node_safi (vty), PEER_FLAG_NEXTHOP_SELF);
+}
+
+/* neighbor next-hop-self. */
+DEFUN (neighbor_nexthop_self_force,
+       neighbor_nexthop_self_force_cmd,
+       NEIGHBOR_CMD2 "next-hop-self force",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Disable the next hop calculation for this neighbor\n"
-       "Apply also to ibgp-learned routes when acting as a route reflector\n")
+       "Set the next hop to self for reflected routes\n")
 {
-  u_int32_t flags = PEER_FLAG_NEXTHOP_SELF, unset = 0;
-  int rc;
-
-  /* Check if "all" is specified */
-  if (argv[1] != NULL)
-    flags |= PEER_FLAG_NEXTHOP_SELF_ALL;
-  else
-    unset |= PEER_FLAG_NEXTHOP_SELF_ALL;
-
-  rc = peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
-			     bgp_node_safi (vty), flags);
-  if ( rc == CMD_SUCCESS && unset )
-    rc = peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
-				 bgp_node_safi (vty), unset);
-  return rc;
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+			       bgp_node_safi (vty),
+			       (PEER_FLAG_FORCE_NEXTHOP_SELF |
+				PEER_FLAG_NEXTHOP_SELF));
 }
 
 DEFUN (no_neighbor_nexthop_self,
        no_neighbor_nexthop_self_cmd,
-       NO_NEIGHBOR_CMD2 "next-hop-self {all}",
+       NO_NEIGHBOR_CMD2 "next-hop-self",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Disable the next hop calculation for this neighbor\n")
+{
+  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+				 bgp_node_safi (vty),
+				 (PEER_FLAG_NEXTHOP_SELF |
+				  PEER_FLAG_FORCE_NEXTHOP_SELF));
+}
+
+ALIAS (no_neighbor_nexthop_self,
+       no_neighbor_nexthop_self_force_cmd,
+       NO_NEIGHBOR_CMD2 "next-hop-self force",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Disable the next hop calculation for this neighbor\n"
-       "Apply also to ibgp-learned routes when acting as a route reflector\n")
-{
-  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
-				 bgp_node_safi (vty),
-				 PEER_FLAG_NEXTHOP_SELF|PEER_FLAG_NEXTHOP_SELF_ALL);
-}
+       "Set the next hop to self for reflected routes\n")
 
 /* neighbor as-override */
 DEFUN (neighbor_as_override,
@@ -9115,6 +9125,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
     vty_out (vty, "  Route-Server Client%s", VTY_NEWLINE);
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
     vty_out (vty, "  Inbound soft reconfiguration allowed%s", VTY_NEWLINE);
+
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
     vty_out (vty, "  Private AS numbers replaced in updates to this neighbor%s", VTY_NEWLINE);
   else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
@@ -9124,7 +9135,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
     vty_out (vty, "  Override ASNs in outbound updates if aspath equals remote-as%s", VTY_NEWLINE);
 
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF) ||
-      CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF_ALL))
+      CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF))
     vty_out (vty, "  NEXT_HOP is always this router%s", VTY_NEWLINE);
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED))
     vty_out (vty, "  AS_PATH is propagated unchanged to this neighbor%s", VTY_NEWLINE);
@@ -12033,6 +12044,20 @@ bgp_vty_init (void)
   install_element (BGP_IPV6M_NODE, &no_neighbor_nexthop_self_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_nexthop_self_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_nexthop_self_cmd);
+
+  /* "neighbor next-hop-self force" commands. */
+  install_element (BGP_NODE, &neighbor_nexthop_self_force_cmd);
+  install_element (BGP_NODE, &no_neighbor_nexthop_self_force_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_nexthop_self_force_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_nexthop_self_force_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_nexthop_self_force_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_nexthop_self_force_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_nexthop_self_force_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_nexthop_self_force_cmd);
+  install_element (BGP_IPV6M_NODE, &neighbor_nexthop_self_force_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_nexthop_self_force_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_nexthop_self_force_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_nexthop_self_force_cmd);
 
   /* "neighbor as-override" commands. */
   install_element (BGP_NODE, &neighbor_as_override_cmd);

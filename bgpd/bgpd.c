@@ -3248,7 +3248,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] =
     { PEER_FLAG_ORF_PREFIX_SM,            1, peer_change_reset },
     { PEER_FLAG_ORF_PREFIX_RM,            1, peer_change_reset },
     { PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED,  0, peer_change_reset_out },
-    { PEER_FLAG_NEXTHOP_SELF_ALL,         1, peer_change_reset_out },
+    { PEER_FLAG_FORCE_NEXTHOP_SELF,       1, peer_change_reset_out },
     { PEER_FLAG_AS_OVERRIDE,              1, peer_change_reset_out },
     { 0, 0, 0 }
   };
@@ -6246,11 +6246,13 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	     VTY_NEWLINE);
 
   /* Nexthop self. */
-  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_SELF)
+  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_FORCE_NEXTHOP_SELF)
       && ! peer->af_group[afi][safi])
-    vty_out (vty, " neighbor %s next-hop-self%s%s", addr,
-	     peer_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_SELF_ALL) ?
-	     " all" : "", VTY_NEWLINE);
+    vty_out (vty, " neighbor %s next-hop-self force%s",
+	     addr, VTY_NEWLINE);
+  else if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_SELF)
+      && ! peer->af_group[afi][safi])
+    vty_out (vty, " neighbor %s next-hop-self%s", addr, VTY_NEWLINE);
 
   /* remove-private-AS */
   if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS) && !peer->af_group[afi][safi])
