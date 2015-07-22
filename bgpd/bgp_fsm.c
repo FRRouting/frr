@@ -474,7 +474,8 @@ const char *peer_down_str[] =
   "Capability changed",
   "Passive config change",
   "Multihop config change",
-  "NSF peer closed the session"
+  "NSF peer closed the session",
+  "Intf peering v6only config change"
 };
 
 static int
