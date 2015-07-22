@@ -782,6 +782,9 @@ peer_af_flag_reset (struct peer *peer, afi_t afi, safi_t safi)
 static void
 peer_global_config_reset (struct peer *peer)
 {
+
+  int v6only;
+
   peer->weight = 0;
   peer->change_local_as = 0;
   peer->ttl = (peer_sort (peer) == BGP_PEER_IBGP ? 255 : 1);
@@ -801,7 +804,14 @@ peer_global_config_reset (struct peer *peer)
   else
     peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 
+  /* This is a per-peer specific flag and so we must preserve it */
+  v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+
   peer->flags = 0;
+
+  if (v6only)
+    SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+
   peer->config = 0;
   peer->holdtime = 0;
   peer->keepalive = 0;
@@ -1163,30 +1173,74 @@ void
 bgp_peer_conf_if_to_su_update (struct peer *peer)
 {
   struct interface *ifp;
-  struct nbr_connected *ifc;
+  struct nbr_connected *ifc_nbr;
+  struct connected *ifc;
+  struct prefix p;
+  u_int32_t s_addr;
+  struct listnode *node;
 
   if (!peer->conf_if)
     return;
 
-  if ((ifp = if_lookup_by_name(peer->conf_if)) &&
-       ifp->nbr_connected &&
-      (ifc = listnode_head(ifp->nbr_connected)))
+  if (ifp = if_lookup_by_name(peer->conf_if))
     {
-      peer->su.sa.sa_family = AF_INET6;
-      memcpy(&peer->su.sin6.sin6_addr, &ifc->address->u.prefix,
-             sizeof (struct in6_addr));
+      /* if multiple IP addresses assigned to link, we pick the first */
+      if (!CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
+	  if (ifc->address && (ifc->address->family == AF_INET))
+	    {
+	      /* Try IPv4 connection first, if present */
+	      PREFIX_COPY_IPV4(&p, CONNECTED_PREFIX(ifc));
+	      /* We can determine peer's IP address if prefixlen is 30/31 */
+	      if (p.prefixlen == 30)
+		{
+		  peer->su.sa.sa_family = AF_INET;
+		  s_addr = ntohl(p.u.prefix4.s_addr);
+		  if (s_addr % 4 == 1)
+		    peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
+		  else if (s_addr % 4 == 2)
+		    peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+		  peer->su->sin.sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+		  return;
+		}
+	      else if (p.prefixlen == 31)
+		{
+		  peer->su.sa.sa_family = AF_INET;
+		  s_addr = ntohl(p.u.prefix4.s_addr);
+		  if (s_addr % 2 == 0)
+		    peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
+		  else
+		    peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+		  peer->su->sin.sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+		  return;
+		}
+	      else
+		zlog_warn("%s neighbor interface with IPv4 numbered links used without /30 or /31",
+			  peer->conf_if);
+	    }
+
+      if (ifp->nbr_connected &&
+	  (ifc_nbr = listnode_head(ifp->nbr_connected)))
+	{
+	  peer->su.sa.sa_family = AF_INET6;
+	  memcpy(&peer->su.sin6.sin6_addr, &ifc_nbr->address->u.prefix,
+		 sizeof (struct in6_addr));
 #ifdef SIN6_LEN
-      peer->su.sin6.sin6_len = sizeof (struct sockaddr_in6);
+	  peer->su.sin6.sin6_len = sizeof (struct sockaddr_in6);
 #endif
-      peer->su.sin6.sin6_scope_id = ifp->ifindex;
+	  peer->su.sin6.sin6_scope_id = ifp->ifindex;
+
+	  return;
+	}
     }
-  else
-    {
-      /* This works as an indication of unresolved peer address
-         on a BGP interface*/
-      peer->su.sa.sa_family = AF_UNSPEC;
-      memset(&peer->su.sin6.sin6_addr, 0, sizeof (struct in6_addr));
-    }
+  /* This works as an indication of unresolved peer address
+     on a BGP interface*/
+  peer->su.sa.sa_family = AF_UNSPEC;
+  memset(&peer->su.sin6.sin6_addr, 0, sizeof (struct in6_addr));
 }
 
 /* Create new BGP peer.  */
@@ -1255,7 +1309,7 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
 
 struct peer *
 peer_conf_interface_get(struct bgp *bgp, const char *conf_if, afi_t afi,
-                        safi_t safi)
+                        safi_t safi, int v6only)
 {
   struct peer *peer;
 
@@ -1268,6 +1322,26 @@ peer_conf_interface_get(struct bgp *bgp, const char *conf_if, afi_t afi,
       else
         peer = peer_create (NULL, conf_if, bgp, bgp->as, AS_SPECIFIED, 0, afi, safi);
 
+      if (peer && v6only)
+	SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+    }
+  else if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) ||
+	   (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)))
+    {
+      if (v6only)
+	SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+      else
+	UNSET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+
+      /* v6only flag changed. Reset bgp seesion */
+      if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+	{
+	  peer->last_reset = PEER_DOWN_V6ONLY_CHANGE;
+	  bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+			   BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+	}
+      else
+	bgp_session_reset(peer);
     }
 
   return peer;
@@ -1845,6 +1919,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
   struct peer *conf;
   struct bgp_filter *pfilter;
   struct bgp_filter *gfilter;
+  int v6only;
 
   conf = group->conf;
   pfilter = &peer->filter[afi][safi];
@@ -1867,8 +1942,15 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
   /* Weight */
   peer->weight = conf->weight;
 
+  /* this flag is per-neighbor and so has to be preserved */
+  v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+
   /* peer flags apply */
   peer->flags = conf->flags;
+
+  if (v6only)
+    SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+
   /* peer af_flags apply */
   peer->af_flags[afi][safi] = conf->af_flags[afi][safi];
   /* peer config apply */
@@ -2446,6 +2528,7 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
 		   struct peer_group *group, afi_t afi, safi_t safi)
 {
   struct peer *other;
+  int v6only;
 
   if (! peer->af_group[afi][safi])
       return 0;
@@ -5918,7 +6001,12 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
   if (afi == AFI_IP && safi == SAFI_UNICAST)
     {
       if (peer->conf_if)
-        vty_out (vty, " neighbor %s interface%s", addr, VTY_NEWLINE);
+	{
+	  if (CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
+	      vty_out (vty, " neighbor %s interface v6only %s", addr, VTY_NEWLINE);
+	  else
+	    vty_out (vty, " neighbor %s interface%s", addr, VTY_NEWLINE);
+	}
 
       /* remote-as. */
       if (! peer_group_active (peer))

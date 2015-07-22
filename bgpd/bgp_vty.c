@@ -2611,10 +2611,11 @@ DEFUN (neighbor_remote_as,
 
 DEFUN (neighbor_interface_config,
        neighbor_interface_config_cmd,
-       "neighbor WORD interface",
+       "neighbor WORD interface {v6only}",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
-       "Enable BGP on interface\n")
+       "Enable BGP on interface\n"
+       "Enable BGP with v6 link-local only\n")
 {
   struct bgp *bgp;
   struct peer *peer;
@@ -2628,7 +2629,10 @@ DEFUN (neighbor_interface_config,
       return CMD_WARNING;
     }
 
-  peer = peer_conf_interface_get (bgp, argv[0], AFI_IP, SAFI_UNICAST);
+  if (argv[1] != NULL)
+    peer = peer_conf_interface_get (bgp, argv[0], AFI_IP, SAFI_UNICAST, 1);
+  else
+    peer = peer_conf_interface_get (bgp, argv[0], AFI_IP, SAFI_UNICAST, 0);
   if (!peer)
     return CMD_WARNING;
 
@@ -4979,12 +4983,15 @@ DEFUN (neighbor_interface,
        "Interface\n"
        "Interface name\n")
 {
-  return peer_interface_vty (vty, argv[0], argv[1]);
+  if (argc == 3)
+    return peer_interface_vty (vty, argv[0], argv[1]);
+  else
+    return peer_interface_vty (vty, argv[0], argv[1]);
 }
 
 DEFUN (no_neighbor_interface,
        no_neighbor_interface_cmd,
-       NO_NEIGHBOR_CMD "interface WORD",
+       NO_NEIGHBOR_CMD2 "interface WORD",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR

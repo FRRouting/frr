@@ -614,6 +614,7 @@ struct peer
 #define PEER_FLAG_LONESOUL                  (1 << 12)
 #define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 13) /* dynamic neighbor */
 #define PEER_FLAG_CAPABILITY_ENHE           (1 << 14) /* Extended next-hop (rfc 5549)*/
+#define PEER_FLAG_IFPEER_V6ONLY             (1 << 15) /* if-based peer is v6 only *
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
@@ -677,6 +678,7 @@ struct peer
 #define PEER_CONFIG_TIMER             (1 << 1) /* keepalive & holdtime */
 #define PEER_CONFIG_CONNECT           (1 << 2) /* connect */
 #define PEER_CONFIG_ROUTEADV          (1 << 3) /* route advertise */
+
   u_int32_t weight;
   u_int32_t holdtime;
   u_int32_t keepalive;
@@ -796,6 +798,7 @@ struct peer
 #define PEER_DOWN_PASSIVE_CHANGE        20 /* neighbor passive command */
 #define PEER_DOWN_MULTIHOP_CHANGE       21 /* neighbor multihop command */
 #define PEER_DOWN_NSF_CLOSE_SESSION     22 /* NSF tcp session close */
+#define PEER_DOWN_V6ONLY_CHANGE         23 /* if-based peering v6only toggled */
 unsigned long last_reset_cause_size;
 u_char last_reset_cause[BGP_MAX_PACKET_SIZE];
 
@@ -1111,7 +1114,7 @@ extern struct bgp *bgp_lookup_by_name (const char *);
 extern struct peer *peer_lookup (struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if (struct bgp *, const char *);
 extern struct peer *peer_conf_interface_get(struct bgp *, const char *, afi_t,
-                                            safi_t);
+                                            safi_t, int v6only);
 extern void  bgp_peer_conf_if_to_su_update (struct peer *);
 extern int peer_group_listen_range_del(struct peer_group *, struct prefix *);
 extern struct peer_group *peer_group_lookup (struct bgp *, const char *);

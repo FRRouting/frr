@@ -41,6 +41,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_damp.h"
+#include "bgpd/bgp_fsm.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"	/* For ZEBRA_SERV_PATH. */
 
@@ -204,6 +205,10 @@ bgp_connected_add (struct connected *ifc)
   struct prefix *addr;
   struct bgp_node *rn;
   struct bgp_connected_ref *bc;
+  struct listnode *node, *nnode, *mnode;
+  struct bgp *bgp;
+  struct peer *peer;
+  u_int32_t saddr;
 
   addr = ifc->address;
 
@@ -228,6 +233,20 @@ bgp_connected_add (struct connected *ifc)
 	  bc = XCALLOC (MTYPE_BGP_CONN, sizeof (struct bgp_connected_ref));
 	  bc->refcnt = 1;
 	  rn->info = bc;
+	}
+
+      for (ALL_LIST_ELEMENTS_RO (bm->bgp, mnode, bgp))
+	{
+	  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+	    {
+	      if (peer->conf_if && (strcmp (peer->conf_if, ifc->ifp->name) == 0) &&
+		  !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
+		{
+		  if (peer_active(peer))
+		    BGP_EVENT_ADD (peer, BGP_Stop);
+		  BGP_EVENT_ADD (peer, BGP_Start);
+		}
+	    }
 	}
     }
 #ifdef HAVE_IPV6
