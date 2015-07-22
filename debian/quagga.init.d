@@ -153,7 +153,7 @@ stop()
     else
         PIDFILE=`pidfile $inst`
         PID=`cat $PIDFILE 2>/dev/null`
-        start-stop-daemon --stop --quiet --oknodo --pidfile "$PIDFILE" --exec "$D_PATH/$1"
+        start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --oknodo --pidfile "$PIDFILE" --exec "$D_PATH/$1"
         #
         #       Now we have to wait until $DAEMON has _really_ stopped.
         #
