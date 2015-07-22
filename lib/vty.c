@@ -2399,7 +2399,7 @@ vty_read_config (char *config_file,
         {
           fprintf (stderr, "%s: failed to open configuration file %s: %s\n",
                    __func__, config_default_dir, safe_strerror (errno));
-
+          
           confp = vty_use_backup_config (config_default_dir);
           if (confp)
             {
@@ -2409,10 +2409,10 @@ vty_read_config (char *config_file,
           else
             {
               fprintf (stderr, "can't open configuration file [%s]\n",
-		       config_default_dir);
-	      exit (1);
+  		                 config_default_dir);
+  	          exit (1);
             }
-        }
+        }      
       else
         fullpath = config_default_dir;
     }

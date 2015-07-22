@@ -38,9 +38,6 @@
 #include "linklist.h"
 #include "command.h"
 
-extern struct list *config_top;
-extern void config_add_line(struct list *config, const char *line);
-
 /* 
  * Compiler is warning about prototypes not being declared.
  * The DEFUNSH and DEFUN macro's are messing with the

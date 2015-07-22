@@ -2020,6 +2020,7 @@ backup_config_file (const char *fbackup)
 static int
 write_config_integrated(void)
 {
+  int ret;
   u_int i;
   char line[] = "write terminal\n";
   FILE *fp, *fp1;
