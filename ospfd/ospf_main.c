@@ -49,6 +49,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_vty.h"
+#include "ospfd/ospf_bfd.h"
 
 /* ospfd privileges */
 zebra_capabilities_t _caps_p [] = 
@@ -311,6 +312,9 @@ main (int argc, char **argv)
   ospf_vty_init ();
   ospf_vty_show_init ();
   ospf_vty_clear_init ();
+
+  /* OSPF BFD init */
+  ospf_bfd_init();
 
   ospf_route_map_init ();
 #ifdef HAVE_SNMP

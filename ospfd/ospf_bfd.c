@@ -1,0 +1,352 @@
+/**
+ * ospf_bfd.c: OSPF BFD handling routines
+ *
+ * @copyright Copyright (C) 2015 Cumulus Networks, Inc.
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GNU Zebra; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ */
+
+#include <zebra.h>
+
+#include "command.h"
+#include "linklist.h"
+#include "memory.h"
+#include "prefix.h"
+#include "thread.h"
+#include "buffer.h"
+#include "stream.h"
+#include "zclient.h"
+#include "vty.h"
+#include "table.h"
+#include "bfd.h"
+#include "ospfd.h"
+#include "ospf_asbr.h"
+#include "ospf_lsa.h"
+#include "ospf_lsdb.h"
+#include "ospf_neighbor.h"
+#include "ospf_interface.h"
+#include "ospf_nsm.h"
+#include "ospf_bfd.h"
+#include "ospf_dump.h"
+#include "ospf_vty.h"
+
+extern struct zclient *zclient;
+
+/*
+ * ospf_bfd_reg_dereg_nbr - Register/Deregister a neighbor with BFD through
+ *                          zebra for starting/stopping the monitoring of
+ *                          the neighbor rechahability.
+ */
+static void
+ospf_bfd_reg_dereg_nbr (struct ospf_neighbor *nbr, int command)
+{
+  struct ospf_interface *oi = nbr->oi;
+  struct interface *ifp = oi->ifp;
+  struct ospf_if_params *params;
+  struct bfd_info *bfd_info;
+
+  /* Check if BFD is enabled */
+  params = IF_DEF_PARAMS (ifp);
+
+  /* Check if BFD is enabled */
+  if (!params->bfd_info)
+    return;
+  bfd_info = (struct bfd_info *)params->bfd_info;
+
+  if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+    zlog_debug ("%s nbr (%s) with BFD",
+                  bfd_get_command_dbg_str(command),
+                  inet_ntoa (nbr->src));
+
+  bfd_peer_sendmsg (zclient, bfd_info, AF_INET,
+                    &nbr->src, NULL, ifp->name, 0, 0, command, 0);
+}
+
+/*
+ * ospf_bfd_trigger_event - Neighbor is registered/deregistered with BFD when
+ *                          neighbor state is changed to/from 2way.
+ */
+void
+ospf_bfd_trigger_event(struct ospf_neighbor *nbr, int old_state, int state)
+{
+  if ((old_state < NSM_TwoWay) && (state >= NSM_TwoWay))
+    ospf_bfd_reg_dereg_nbr(nbr, ZEBRA_BFD_DEST_REGISTER);
+  else if ((old_state >= NSM_TwoWay) && (state < NSM_TwoWay))
+    ospf_bfd_reg_dereg_nbr(nbr, ZEBRA_BFD_DEST_DEREGISTER);
+}
+
+/*
+ * ospf_bfd_reg_dereg_all_nbr - Register/Deregister all neighbors associated
+ *                              with a interface with BFD through
+ *                              zebra for starting/stopping the monitoring of
+ *                              the neighbor rechahability.
+ */
+static int
+ospf_bfd_reg_dereg_all_nbr (struct interface *ifp, int command)
+{
+  struct ospf_interface *oi;
+  struct route_table *nbrs;
+  struct ospf_neighbor *nbr;
+  struct route_node *irn;
+  struct route_node *nrn;
+
+  for (irn = route_top (IF_OIFS (ifp)); irn; irn = route_next (irn))
+    {
+      if ((oi = irn->info) == NULL)
+        continue;
+
+      if ((nbrs = oi->nbrs) == NULL)
+        continue;
+
+      for (nrn = route_top (nbrs); nrn; nrn = route_next (nrn))
+        {
+          if ((nbr = nrn->info) == NULL || nbr == oi->nbr_self)
+            continue;
+
+          if (nbr->state < NSM_TwoWay)
+            continue;
+
+          ospf_bfd_reg_dereg_nbr(nbr, command);
+        }
+    }
+
+  return 0;
+}
+
+/*
+ * ospf_bfd_nbr_replay - Replay all the neighbors that have BFD enabled
+ *                       to zebra
+ */
+static int
+ospf_bfd_nbr_replay (int command, struct zclient *client, zebra_size_t length)
+{
+  struct listnode *inode, *node, *onode;
+  struct ospf *ospf;
+  struct ospf_interface *oi;
+  struct route_table *nbrs;
+  struct route_node *rn;
+  struct ospf_neighbor *nbr;
+  struct ospf_if_params *params;
+
+  if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+    {
+      zlog_debug("Zebra: BFD Dest replay request");
+    }
+
+  /* Replay the neighbor, if BFD is enabled in BGP */
+  for (ALL_LIST_ELEMENTS (om->ospf, node, onode, ospf))
+    {
+      for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, inode, oi))
+        {
+          if ((nbrs = oi->nbrs) == NULL)
+            continue;
+
+          params = IF_DEF_PARAMS (oi->ifp);
+          if (!params->bfd_info)
+            continue;
+
+          for (rn = route_top (nbrs); rn; rn = route_next (rn))
+            {
+              if ((nbr = rn->info) == NULL || nbr == oi->nbr_self)
+                continue;
+
+              if (nbr->state < NSM_TwoWay)
+                continue;
+
+              if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+                zlog_debug ("Replaying nbr (%s) to BFD", inet_ntoa (nbr->src));
+
+              ospf_bfd_reg_dereg_nbr(nbr, ZEBRA_BFD_DEST_UPDATE);
+            }
+        }
+    }
+  return 0;
+}
+
+/*
+ * ospf_bfd_interface_dest_down - Find the neighbor for which the BFD status
+ *                                has changed and bring down the neighbor
+ *                                connectivity.
+ */
+static int
+ospf_bfd_interface_dest_down (int command, struct zclient *zclient,
+                              zebra_size_t length)
+{
+  struct interface *ifp;
+  struct ospf_interface *oi;
+  struct ospf_if_params *params;
+  struct ospf_neighbor *nbr;
+  struct route_node *node;
+  struct prefix p;
+
+  ifp = bfd_get_peer_info (zclient->ibuf, &p, NULL);
+
+  if ((ifp == NULL) || (p.family != AF_INET))
+    return 0;
+
+  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
+    {
+      char buf[128];
+      prefix2str(&p, buf, sizeof(buf));
+      zlog_debug("Zebra: interface %s bfd destination %s down", ifp->name, buf);
+    }
+
+  params = IF_DEF_PARAMS (ifp);
+  if (!params->bfd_info)
+    return 0;
+
+  for (node = route_top (IF_OIFS (ifp)); node; node = route_next (node))
+    {
+      if ((oi = node->info) == NULL)
+        continue;
+
+      nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &p.u.prefix4);
+      if (!nbr)
+        continue;
+
+      if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
+        zlog_debug ("NSM[%s:%s]: BFD Down",
+                    IF_NAME (nbr->oi), inet_ntoa (nbr->address.u.prefix4));
+
+      OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_InactivityTimer);
+    }
+
+  return 0;
+}
+
+/*
+ * ospf_bfd_write_config - Write the interface BFD configuration.
+ */
+void
+ospf_bfd_write_config(struct vty *vty, struct ospf_if_params *params)
+
+{
+  struct bfd_info *bfd_info;
+
+  if (!params->bfd_info)
+    return;
+
+  bfd_info = (struct bfd_info *)params->bfd_info;
+
+  if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
+    vty_out (vty, " ip ospf bfd %d %d %d%s",
+              bfd_info->detect_mult, bfd_info->required_min_rx,
+              bfd_info->desired_min_tx, VTY_NEWLINE);
+  else
+    vty_out (vty, " ip ospf bfd%s", VTY_NEWLINE);
+}
+
+
+/*
+ * ospf_bfd_if_param_set - Set the configured BFD paramter values for
+ *                         interface.
+ */
+static void
+ospf_bfd_if_param_set (struct interface *ifp, u_int32_t min_rx,
+                       u_int32_t min_tx, u_int8_t detect_mult, int defaults)
+{
+  struct ospf_if_params *params;
+  int command = 0;
+
+  params = IF_DEF_PARAMS (ifp);
+
+  bfd_set_param(&(params->bfd_info), min_rx, min_tx, detect_mult,
+                defaults, &command);
+  if (command)
+    ospf_bfd_reg_dereg_all_nbr(ifp, command);
+}
+
+
+DEFUN (ip_ospf_bfd,
+       ip_ospf_bfd_cmd,
+       "ip ospf bfd",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Enables BFD support\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  assert (ifp);
+  ospf_bfd_if_param_set (ifp, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
+                         BFD_DEF_DETECT_MULT, 1);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ip_ospf_bfd_param,
+       ip_ospf_bfd_param_cmd,
+       "ip ospf bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Enables BFD support\n"
+       "Detect Multiplier\n"
+       "Required min receive interval\n"
+       "Desired min transmit interval\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  u_int32_t rx_val;
+  u_int32_t tx_val;
+  u_int8_t dm_val;
+  int ret;
+
+  assert (ifp);
+
+  if ((ret = bfd_validate_param (vty, argv[0], argv[1], argv[2], &dm_val,
+                                 &rx_val, &tx_val)) != CMD_SUCCESS)
+    return ret;
+
+  ospf_bfd_if_param_set (ifp, rx_val, tx_val, dm_val, 0);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_ospf_bfd,
+       no_ip_ospf_bfd_cmd,
+       "no ip ospf bfd",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Disables BFD support\n")
+{
+  struct interface *ifp = (struct interface *)vty->index;
+  struct ospf_if_params *params;
+
+  assert (ifp);
+
+  params = IF_DEF_PARAMS (ifp);
+  if (params->bfd_info)
+    {
+      ospf_bfd_reg_dereg_all_nbr(ifp, ZEBRA_BFD_DEST_DEREGISTER);
+      bfd_info_free(&(params->bfd_info));
+    }
+
+  return CMD_SUCCESS;
+}
+
+void
+ospf_bfd_init(void)
+{
+  /* Initialize BFD client functions */
+  zclient->interface_bfd_dest_down = ospf_bfd_interface_dest_down;
+  zclient->bfd_dest_replay = ospf_bfd_nbr_replay;
+
+  /* Install BFD command */
+  install_element (INTERFACE_NODE, &ip_ospf_bfd_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_bfd_param_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_bfd_cmd);
+}

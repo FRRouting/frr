@@ -48,6 +48,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_snmp.h"
+#include "ospfd/ospf_bfd.h"
 
 static void nsm_clear_adj (struct ospf_neighbor *);
 
@@ -811,6 +812,8 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   if (state == NSM_Down)
     nbr->crypt_seqnum = 0;
   
+  ospf_bfd_trigger_event(nbr, old_state, state);
+
   /* Preserve old status? */
 }
 

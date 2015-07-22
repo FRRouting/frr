@@ -31,6 +31,7 @@
 #include "command.h"
 #include "stream.h"
 #include "log.h"
+#include "bfd.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_spf.h"
@@ -560,6 +561,7 @@ void
 ospf_del_if_params (struct ospf_if_params *oip)
 {
   list_delete (oip->auth_crypt);
+  bfd_info_free(&(oip->bfd_info));
   XFREE (MTYPE_OSPF_IF_PARAMS, oip);
 }
 

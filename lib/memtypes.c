@@ -71,6 +71,7 @@ struct memory_list memory_list_lib[] =
   { MTYPE_PQUEUE,		"Priority queue"		},
   { MTYPE_PQUEUE_DATA,		"Priority queue data"		},
   { MTYPE_HOST,			"Host config"			},
+  { MTYPE_BFD_INFO,             "BFD info"			},
   { -1, NULL },
 };
 
@@ -162,7 +163,6 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_BGP_REGEXP,		"BGP regexp"			},
   { MTYPE_BGP_AGGREGATE,	"BGP aggregate"			},
   { MTYPE_BGP_ADDR,		"BGP own address"		},
-  { MTYPE_BGP_PEER_BFD_INFO,    "BGP peer BFD info"		},
   { -1, NULL }
 };
 

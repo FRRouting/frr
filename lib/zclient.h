@@ -177,9 +177,6 @@ extern void zclient_create_header (struct stream *, uint16_t);
 extern struct interface *zebra_interface_add_read (struct stream *);
 extern struct interface *zebra_interface_state_read (struct stream *s);
 extern struct connected *zebra_interface_address_read (int, struct stream *);
-extern struct interface *zebra_interface_bfd_read (struct stream *s,
-                                                    struct prefix *,
-                                                    struct prefix *);
 extern struct nbr_connected *zebra_interface_nbr_address_read (int, struct stream *);
 extern void zebra_interface_if_set_value (struct stream *, struct interface *);
 extern void zebra_router_id_update_read (struct stream *s, struct prefix *rid);

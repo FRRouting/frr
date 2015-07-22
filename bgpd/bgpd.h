@@ -610,11 +610,10 @@ struct peer
 #define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1 << 8) /* local-as no-prepend replace-as */
 #define PEER_FLAG_DELETE		    (1 << 9) /* mark the peer for deleting */
 #define PEER_FLAG_CONFIG_NODE		    (1 << 10) /* the node to update configs on */
-#define PEER_FLAG_BFD		            (1 << 11) /* bfd */
-#define PEER_FLAG_LONESOUL                  (1 << 12)
-#define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 13) /* dynamic neighbor */
-#define PEER_FLAG_CAPABILITY_ENHE           (1 << 14) /* Extended next-hop (rfc 5549)*/
-#define PEER_FLAG_IFPEER_V6ONLY             (1 << 15) /* if-based peer is v6 only *
+#define PEER_FLAG_LONESOUL                  (1 << 11)
+#define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 12) /* dynamic neighbor */
+#define PEER_FLAG_CAPABILITY_ENHE           (1 << 13) /* Extended next-hop (rfc 5549)*/
+#define PEER_FLAG_IFPEER_V6ONLY             (1 << 14) /* if-based peer is v6 only *
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];

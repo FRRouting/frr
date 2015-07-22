@@ -28,6 +28,7 @@
 #include "thread.h"
 #include "prefix.h"
 #include "plist.h"
+#include "bfd.h"
 
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -41,6 +42,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_spf.h"
 #include "ospf6d.h"
+#include "ospf6_bfd.h"
 
 unsigned char conf_debug_ospf6_interface = 0;
 
@@ -259,6 +261,8 @@ ospf6_interface_delete (struct ospf6_interface *oi)
   /* plist_name */
   if (oi->plist_name)
     XFREE (MTYPE_PREFIX_LIST_STR, oi->plist_name);
+
+  bfd_info_free(&(oi->bfd_info));
 
   XFREE (MTYPE_OSPF6_IF, oi);
 }
@@ -1858,6 +1862,8 @@ config_write_ospf6_interface (struct vty *vty)
         vty_out (vty, " ipv6 ospf6 network point-to-point%s", VNL);
       else if (oi->type == OSPF_IFTYPE_BROADCAST)
 	vty_out (vty, " ipv6 ospf6 network broadcast%s", VNL);
+
+      ospf6_bfd_write_config(vty, oi);
 
       vty_out (vty, "!%s", VNL);
     }

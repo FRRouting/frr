@@ -327,52 +327,6 @@ ospf_interface_address_delete (int command, struct zclient *zclient,
   return 0;
 }
 
-static int
-ospf_interface_bfd_dest_down (int command, struct zclient *zclient,
-                              zebra_size_t length)
-{
-  struct interface *ifp;
-  struct ospf_interface *oi;
-  struct ospf_if_params *params;
-  struct ospf_neighbor *nbr;
-  struct route_node *node;
-  struct prefix p;
-
-  ifp = zebra_interface_bfd_read (zclient->ibuf, &p, NULL);
-
-  if (ifp == NULL)
-    return 0;
-
-  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-    {
-      char buf[128];
-      prefix2str(&p, buf, sizeof(buf));
-      zlog_debug("Zebra: interface %s bfd destination %s down", ifp->name, buf);
-    }
-
-  params = IF_DEF_PARAMS (ifp);
-  if (!OSPF_IF_PARAM_CONFIGURED (params, bfd))
-    return 0;
-
-  for (node = route_top (IF_OIFS (ifp)); node; node = route_next (node))
-    {
-      if ((oi = node->info) == NULL)
-        continue;
-
-      nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &p.u.prefix4);
-      if (!nbr)
-        continue;
-
-      if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
-        zlog_debug ("NSM[%s:%s]: BFD Down",
-                    IF_NAME (nbr->oi), inet_ntoa (nbr->address.u.prefix4));
-
-      OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_InactivityTimer);
-    }
-
-  return 0;
-}
-
 void
 ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
 {
@@ -1590,7 +1544,6 @@ ospf_zebra_init (u_short instance)
   zclient->interface_down = ospf_interface_state_down;
   zclient->interface_address_add = ospf_interface_address_add;
   zclient->interface_address_delete = ospf_interface_address_delete;
-  zclient->interface_bfd_dest_down = ospf_interface_bfd_dest_down;
   zclient->ipv4_route_add = ospf_zebra_read_ipv4;
   zclient->ipv4_route_delete = ospf_zebra_read_ipv4;
 

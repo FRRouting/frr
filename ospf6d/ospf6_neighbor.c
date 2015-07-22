@@ -39,6 +39,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_flood.h"
 #include "ospf6d.h"
+#include "ospf6_bfd.h"
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 
@@ -199,7 +200,7 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on, int e
       (next_state < prev_state))
     ospf6TrapNbrStateChange (on);
 #endif
-
+  ospf6_bfd_trigger_event(on, prev_state, next_state);
 }
 
 /* RFC2328 section 10.4 */

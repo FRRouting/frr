@@ -43,6 +43,7 @@
 #include "ospf6_abr.h"
 #include "ospf6_flood.h"
 #include "ospf6d.h"
+#include "ospf6_bfd.h"
 
 #ifdef HAVE_SNMP
 #include "ospf6_snmp.h"
@@ -1780,6 +1781,7 @@ ospf6_init (void)
   ospf6_snmp_init (master);
 #endif /*HAVE_SNMP*/
 
+  ospf6_bfd_init();
   install_node (&debug_node, config_write_ospf6_debug);
 
   install_element_ospf6_debug_message ();

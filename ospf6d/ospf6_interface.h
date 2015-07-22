@@ -113,6 +113,9 @@ struct ospf6_interface
 
   /* prefix-list name to filter connected prefix */
   char *plist_name;
+
+  /* BFD information */
+  void *bfd_info;
 };
 
 /* interface state */

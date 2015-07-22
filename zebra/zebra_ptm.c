@@ -303,8 +303,6 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt)
   ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSTATUS_STR, bfdst_str);
 
   if (bfdst_str[0] == '\0') {
-    zlog_debug("%s: Key %s not found in PTM msg", __func__,
-               ZEBRA_PTM_BFDSTATUS_STR);
     return -1;
   }
 

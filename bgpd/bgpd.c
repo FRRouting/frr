@@ -36,6 +36,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "linklist.h"
 #include "workqueue.h"
 #include "queue.h"
+#include "bfd.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -826,6 +827,8 @@ peer_global_config_reset (struct peer *peer)
   peer->v_holdtime = peer->bgp->default_holdtime;
   peer->v_keepalive = peer->bgp->default_keepalive;
 
+  bfd_info_free(&(peer->bfd_info));
+
   /* Set back the CONFIG_NODE flag. */
   SET_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE);
 }
@@ -951,8 +954,7 @@ peer_free (struct peer *peer)
   if (peer->conf_if)
     XFREE (MTYPE_PEER_CONF_IF, peer->conf_if);
 
-  if (peer->bfd_info)
-    bgp_bfd_peer_free(peer);
+  bfd_info_free(&(peer->bfd_info));
 
   memset (peer, 0, sizeof (struct peer));
   
@@ -1297,8 +1299,6 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
 	  zlog_err("couldn't create af structure for peer %s", peer->host);
 	}
     }
-
-  bgp_bfd_peer_init(peer);
 
   /* Set up peer's events and timers. */
   if (! active && peer_active (peer))
@@ -1905,7 +1905,6 @@ peer_group_get (struct bgp *bgp, const char *name)
   group->conf->connect = 0;
   SET_FLAG (group->conf->sflags, PEER_STATUS_GROUP);
   listnode_add_sort (bgp->group, group);
-  bgp_bfd_peer_init(group->conf);
 
   return 0;
 }
@@ -2251,8 +2250,7 @@ peer_group_delete (struct peer_group *group)
   /* Delete from all peer_group list. */
   listnode_delete (bgp->group, group);
 
-  if (group->conf->bfd_info)
-    bgp_bfd_peer_free(group->conf);
+  bfd_info_free(&(group->conf->bfd_info));
 
   peer_group_free (group);
 
@@ -2569,6 +2567,7 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
 	    }
 	  return 0;
 	}
+      bgp_bfd_deregister_peer(peer);
       peer_global_config_reset (peer);
     }
 
@@ -3234,7 +3233,6 @@ static const struct peer_flag_action peer_flag_action_list[] =
     { PEER_FLAG_DYNAMIC_CAPABILITY,       0, peer_change_reset },
     { PEER_FLAG_DISABLE_CONNECTED_CHECK,  0, peer_change_reset },
     { PEER_FLAG_CAPABILITY_ENHE,          0, peer_change_reset },
-    { PEER_FLAG_BFD,                      0, peer_change_none },
     { 0, 0, 0 }
   };
 
@@ -6073,9 +6071,8 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	  vty_out (vty, " neighbor %s shutdown%s", addr, VTY_NEWLINE);
 
       /* bfd. */
-      if (CHECK_FLAG (peer->flags, PEER_FLAG_BFD))
-        if (! peer_group_active (peer) ||
-            ! CHECK_FLAG (g_peer->flags, PEER_FLAG_BFD))
+      if (peer->bfd_info)
+        if (! peer_group_active (peer) || ! g_peer->bfd_info)
           {
             bgp_bfd_peer_config_write(vty, peer, addr);
           }

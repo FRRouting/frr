@@ -1,5 +1,5 @@
 /**
- * bgp_bfd.h: BGP BFD definitions and structures
+ * ospf6_bfd.h: OSPF6 BFD definitions and structures
  *
  * @copyright Copyright (C) 2015 Cumulus Networks, Inc.
  *
@@ -21,25 +21,16 @@
  * 02111-1307, USA.
  */
 
-#ifndef _QUAGGA_BGP_BFD_H
-#define _QUAGGA_BGP_BFD_H
+#ifndef OSPF6_BFD_H
+#define OSPF6_BFD_H
 
 extern void
-bgp_bfd_init(void);
+ospf6_bfd_init(void);
 
 extern void
-bgp_bfd_peer_group2peer_copy(struct peer *conf, struct peer *peer);
+ospf6_bfd_trigger_event(struct ospf6_neighbor *nbr, int old_state, int state);
 
 extern void
-bgp_bfd_register_peer (struct peer *peer);
+ospf6_bfd_write_config(struct vty *vty, struct ospf6_interface *oi);
 
-extern void
-bgp_bfd_deregister_peer (struct peer *peer);
-
-extern void
-bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr);
-
-extern void
-bgp_bfd_show_info(struct vty *vty, struct peer *peer);
-
-#endif /* _QUAGGA_BGP_BFD_H */
+#endif /* OSPF6_BFD_H */
