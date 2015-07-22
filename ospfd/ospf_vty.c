@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 #include <json/json.h>
+#include <string.h>
 
 #include "memory.h"
 #include "thread.h"
@@ -3512,49 +3513,92 @@ DEFUN (show_ip_ospf_instance,
 }
 
 static void
-show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
-			    struct interface *ifp)
+show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface *ifp,
+                            json_object *json_interface_sub, u_char use_json)
 {
   int is_up;
   struct ospf_neighbor *nbr;
   struct route_node *rn;
 
   /* Is interface up? */
-  vty_out (vty, "%s is %s%s", ifp->name,
-	   ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
-  vty_out (vty, "  ifindex %u, MTU %u bytes, BW %u Kbit %s%s",
-  	   ifp->ifindex, ifp->mtu, ifp->bandwidth, if_flag_dump(ifp->flags),
-	   VTY_NEWLINE);
+  if (use_json)
+    {
+      is_up = if_is_operative(ifp);
+      if (is_up)
+        json_object_boolean_true_add(json_interface_sub, "ifUp");
+      else
+        json_object_boolean_false_add(json_interface_sub, "ifDown");
+
+      json_object_int_add(json_interface_sub, "ifIndex", ifp->ifindex);
+      json_object_int_add(json_interface_sub, "mtuBytes", ifp->mtu);
+      json_object_int_add(json_interface_sub, "bandwidthKbit", ifp->bandwidth);
+      json_object_string_add(json_interface_sub, "ifFlags", if_flag_dump(ifp->flags));
+    }
+  else
+    {
+      vty_out (vty, "%s is %s%s", ifp->name,
+               ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
+      vty_out (vty, "  ifindex %u, MTU %u bytes, BW %u Kbit %s%s",
+               ifp->ifindex, ifp->mtu, ifp->bandwidth, if_flag_dump(ifp->flags),
+               VTY_NEWLINE);
+    }
 
   /* Is interface OSPF enabled? */
-  if (ospf_oi_count(ifp) == 0)
+  if (use_json)
     {
-      vty_out (vty, "  OSPF not enabled on this interface%s", VTY_NEWLINE);
-      return;
+      if (ospf_oi_count(ifp) == 0)
+        {
+          json_object_boolean_false_add(json_interface_sub, "ospfEnabled");
+          return;
+        }
+      else if (!is_up)
+        {
+          json_object_boolean_false_add(json_interface_sub, "ospfRunning");
+          return;
+        }
+      else
+        json_object_boolean_true_add(json_interface_sub, "ospfEnabled");
     }
-  else if (!is_up)
+  else
     {
-      vty_out (vty, "  OSPF is enabled, but not running on this interface%s",
-	       VTY_NEWLINE);
-      return;
+      if (ospf_oi_count(ifp) == 0)
+        {
+          vty_out (vty, "  OSPF not enabled on this interface%s", VTY_NEWLINE);
+          return;
+        }
+      else if (!is_up)
+        {
+          vty_out (vty, "  OSPF is enabled, but not running on this interface%s",
+                   VTY_NEWLINE);
+          return;
+        }
     }
 
   for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
     {
       struct ospf_interface *oi = rn->info;
-      
+
       if (oi == NULL)
-	continue;
-      
+        continue;
+
       if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
         {
-          vty_out (vty, "  This interface is UNNUMBERED,");
+          if (use_json)
+            json_object_boolean_true_add(json_interface_sub, "ifUnnumbered");
+          else
+            vty_out (vty, "  This interface is UNNUMBERED,");
         }
       else
         {
           /* Show OSPF interface information. */
-          vty_out (vty, "  Internet Address %s/%d,",
-                   inet_ntoa (oi->address->u.prefix4), oi->address->prefixlen);
+          if (use_json)
+            {
+              json_object_string_add(json_interface_sub, "ipAddress", inet_ntoa (oi->address->u.prefix4));
+              json_object_int_add(json_interface_sub, "ipAddressPrefixlen", oi->address->prefixlen);
+            }
+          else
+            vty_out (vty, "  Internet Address %s/%d,",
+                     inet_ntoa (oi->address->u.prefix4), oi->address->prefixlen);
 
           if (oi->connected->destination || oi->type == OSPF_IFTYPE_VIRTUALLINK)
             {
@@ -3568,181 +3612,316 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
                 dstr = "Broadcast";
 
               /* For Vlinks, showing the peer address is probably more
-               * informative than the local interface that is being used
-               */
+ *  *  *  *                * informative than the local interface that is being used
+ *   *   *   *                               */
               if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
                 dest = &oi->vl_data->peer_addr;
               else
                 dest = &oi->connected->destination->u.prefix4;
 
-              vty_out (vty, " %s %s,", dstr, inet_ntoa (*dest));
+              if (use_json)
+                {
+                  json_object_string_add(json_interface_sub, "ospfIfType", dstr);
+                  if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+                    json_object_string_add(json_interface_sub, "vlinkPeer", inet_ntoa (*dest));
+                  else
+                    json_object_string_add(json_interface_sub, "localIfUsed", inet_ntoa (*dest));
+                }
+              else
+                vty_out (vty, " %s %s,", dstr, inet_ntoa (*dest));
             }
         }
+      if (use_json)
+        {
+          json_object_string_add(json_interface_sub, "area", ospf_area_desc_string (oi->area));
+          if (OSPF_IF_PARAM(oi, mtu_ignore))
+            json_object_boolean_true_add(json_interface_sub, "mtuMismatchDetect");
+          json_object_string_add(json_interface_sub, "routerId", inet_ntoa (ospf->router_id));
+          json_object_string_add(json_interface_sub, "networkType", ospf_network_type_str[oi->type]);
+          json_object_int_add(json_interface_sub, "cost", oi->output_cost);
+          json_object_int_add(json_interface_sub, "transmitDelayMsecs", 1000 / OSPF_IF_PARAM (oi,transmit_delay));
+          json_object_string_add(json_interface_sub, "state", LOOKUP (ospf_ism_state_msg, oi->state));
+          json_object_int_add(json_interface_sub, "priority", PRIORITY (oi));
+        }
+      else
+        {
+          vty_out (vty, " Area %s%s", ospf_area_desc_string (oi->area),
+                   VTY_NEWLINE);
 
-      vty_out (vty, " Area %s%s", ospf_area_desc_string (oi->area),
-	       VTY_NEWLINE);
+          vty_out (vty, "  MTU mismatch detection:%s%s",
+                   OSPF_IF_PARAM(oi, mtu_ignore) ? "disabled" : "enabled", VTY_NEWLINE);
 
-      vty_out (vty, "  MTU mismatch detection:%s%s",
-           OSPF_IF_PARAM(oi, mtu_ignore) ? "disabled" : "enabled", VTY_NEWLINE);
+          vty_out (vty, "  Router ID %s, Network Type %s, Cost: %d%s",
+                   inet_ntoa (ospf->router_id), ospf_network_type_str[oi->type],
+                   oi->output_cost, VTY_NEWLINE);
 
-      vty_out (vty, "  Router ID %s, Network Type %s, Cost: %d%s",
-	       inet_ntoa (ospf->router_id), ospf_network_type_str[oi->type],
-	       oi->output_cost, VTY_NEWLINE);
-
-      vty_out (vty, "  Transmit Delay is %d sec, State %s, Priority %d%s",
-	       OSPF_IF_PARAM (oi,transmit_delay), LOOKUP (ospf_ism_state_msg, oi->state),
-	       PRIORITY (oi), VTY_NEWLINE);
+          vty_out (vty, "  Transmit Delay is %d sec, State %s, Priority %d%s",
+                   OSPF_IF_PARAM (oi,transmit_delay), LOOKUP (ospf_ism_state_msg, oi->state),
+                   PRIORITY (oi), VTY_NEWLINE);
+        }
 
   /* Show DR information. */
       if (DR (oi).s_addr == 0)
-	vty_out (vty, "  No designated router on this network%s", VTY_NEWLINE);
+        {
+          if (!use_json)
+            vty_out (vty, "  No backup designated router on this network%s",
+                     VTY_NEWLINE);
+        }
       else
-	{
-	  nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &DR (oi));
-	  if (nbr == NULL)
-	    vty_out (vty, "  No designated router on this network%s", VTY_NEWLINE);
-	  else
-	    {
-	      vty_out (vty, "  Designated Router (ID) %s,",
-		       inet_ntoa (nbr->router_id));
-	      vty_out (vty, " Interface Address %s%s",
-		       inet_ntoa (nbr->address.u.prefix4), VTY_NEWLINE);
-	    }
-	}
-
-      /* Show BDR information. */
-      if (BDR (oi).s_addr == 0)
-	vty_out (vty, "  No backup designated router on this network%s",
-		 VTY_NEWLINE);
-      else
-	{
-	  nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &BDR (oi));
-	  if (nbr == NULL)
-	    vty_out (vty, "  No backup designated router on this network%s",
-		     VTY_NEWLINE);
-	  else
-	    {
-	      vty_out (vty, "  Backup Designated Router (ID) %s,",
-		       inet_ntoa (nbr->router_id));
-	      vty_out (vty, " Interface Address %s%s",
-		       inet_ntoa (nbr->address.u.prefix4), VTY_NEWLINE);
-	    }
-	}
+        {
+          nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &BDR (oi));
+          if (nbr == NULL)
+            {
+              if (!use_json)
+                vty_out (vty, "  No backup designated router on this network%s",
+                         VTY_NEWLINE);
+            }
+          else
+            {
+              if (use_json)
+                {
+                  json_object_string_add(json_interface_sub, "bdrId", inet_ntoa (nbr->router_id));
+                  json_object_string_add(json_interface_sub, "bdrAddress", inet_ntoa (nbr->address.u.prefix4));
+                }
+              else
+                {
+                  vty_out (vty, "  Backup Designated Router (ID) %s,",
+                           inet_ntoa (nbr->router_id));
+                  vty_out (vty, " Interface Address %s%s",
+                           inet_ntoa (nbr->address.u.prefix4), VTY_NEWLINE);
+                }
+            }
+        }
 
       /* Next network-LSA sequence number we'll use, if we're elected DR */
-      if (oi->params && ntohl (oi->params->network_lsa_seqnum)
-                          != OSPF_INITIAL_SEQUENCE_NUMBER)
-        vty_out (vty, "  Saved Network-LSA sequence number 0x%x%s",
-                 ntohl (oi->params->network_lsa_seqnum), VTY_NEWLINE);
-      
-      vty_out (vty, "  Multicast group memberships:");
-      if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS)
-          || OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
+      if (oi->params && ntohl (oi->params->network_lsa_seqnum) != OSPF_INITIAL_SEQUENCE_NUMBER)
         {
-          if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS))
-            vty_out (vty, " OSPFAllRouters");
-          if (OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
-            vty_out (vty, " OSPFDesignatedRouters");
+          if (use_json)
+            json_object_int_add(json_interface_sub, "networkLsaSequence", ntohl (oi->params->network_lsa_seqnum));
+          else
+            vty_out (vty, "  Saved Network-LSA sequence number 0x%x%s",
+                     ntohl (oi->params->network_lsa_seqnum), VTY_NEWLINE);
+        }
+
+      if (use_json)
+        {
+          if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS)
+              || OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
+            {
+              if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS))
+                json_object_boolean_true_add(json_interface_sub, "mcastMemberOspfAllRouters");
+              if (OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
+                json_object_boolean_true_add(json_interface_sub, "mcastMemberOspfDesignatedRouters");
+            }
         }
       else
-        vty_out (vty, " <None>");
-      vty_out (vty, "%s", VTY_NEWLINE);
+        {
+          vty_out (vty, "  Multicast group memberships:");
+          if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS)
+              || OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
+            {
+              if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS))
+                vty_out (vty, " OSPFAllRouters");
+              if (OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
+                vty_out (vty, " OSPFDesignatedRouters");
+            }
+          else
+            vty_out (vty, " <None>");
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
 
-      vty_out (vty, "  Timer intervals configured,");
-      vty_out (vty, " Hello ");
-      if (OSPF_IF_PARAM (oi, fast_hello) == 0)
-        vty_out (vty, "%ds,", OSPF_IF_PARAM (oi, v_hello));
+      if (use_json)
+        {
+          if (OSPF_IF_PARAM (oi, fast_hello) == 0)
+            json_object_int_add(json_interface_sub, "timerMsecs", 1000 /OSPF_IF_PARAM (oi, v_hello));
+          else
+            json_object_int_add(json_interface_sub, "timerMsecs", 1000 / OSPF_IF_PARAM (oi, fast_hello));
+          json_object_int_add(json_interface_sub, "timerDeadMsecs", 1000 / OSPF_IF_PARAM (oi, v_wait));
+          json_object_int_add(json_interface_sub, "timerWaitMsecs", 1000 / OSPF_IF_PARAM (oi, v_wait));
+          json_object_int_add(json_interface_sub, "timerRetransmit", 1000 / OSPF_IF_PARAM (oi, retransmit_interval));
+        }
       else
-        vty_out (vty, "%dms,", 1000 / OSPF_IF_PARAM (oi, fast_hello));
-      vty_out (vty, " Dead %ds, Wait %ds, Retransmit %d%s",
-	       OSPF_IF_PARAM (oi, v_wait),
-	       OSPF_IF_PARAM (oi, v_wait),
-	       OSPF_IF_PARAM (oi, retransmit_interval),
-	       VTY_NEWLINE);
-      
+        {
+          vty_out (vty, "  Timer intervals configured,");
+          vty_out (vty, " Hello ");
+          if (OSPF_IF_PARAM (oi, fast_hello) == 0)
+            vty_out (vty, "%ds,", OSPF_IF_PARAM (oi, v_hello));
+          else
+            vty_out (vty, "%dms,", 1000 / OSPF_IF_PARAM (oi, fast_hello));
+          vty_out (vty, " Dead %ds, Wait %ds, Retransmit %d%s",
+                   OSPF_IF_PARAM (oi, v_wait),
+                   OSPF_IF_PARAM (oi, v_wait),
+                   OSPF_IF_PARAM (oi, retransmit_interval),
+                   VTY_NEWLINE);
+        }
+
       if (OSPF_IF_PASSIVE_STATUS (oi) == OSPF_IF_ACTIVE)
         {
-	  char timebuf[OSPF_TIME_DUMP_SIZE];
-	  vty_out (vty, "    Hello due in %s%s",
-		   ospf_timer_dump (oi->t_hello, timebuf, sizeof(timebuf)), 
-		   VTY_NEWLINE);
+          char timebuf[OSPF_TIME_DUMP_SIZE];
+          if (use_json)
+            {
+              struct timeval result;
+              unsigned long time_store = 0;
+              result = tv_sub (oi->t_hello->u.sands, recent_relative_time());
+              time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
+              json_object_int_add(json_interface_sub, "timerHelloInMsecs", time_store);
+            }
+          else
+            vty_out (vty, "    Hello due in %s%s",
+                     ospf_timer_dump (oi->t_hello, timebuf, sizeof(timebuf)),
+                     VTY_NEWLINE);
         }
       else /* passive-interface is set */
-	vty_out (vty, "    No Hellos (Passive interface)%s", VTY_NEWLINE);
-      
-      vty_out (vty, "  Neighbor Count is %d, Adjacent neighbor count is %d%s",
-	       ospf_nbr_count (oi, 0), ospf_nbr_count (oi, NSM_Full),
-	       VTY_NEWLINE);
+        {
+          if (use_json)
+            json_object_boolean_true_add(json_interface_sub, "timerPassiveIface");
+          else
+            vty_out (vty, "    No Hellos (Passive interface)%s", VTY_NEWLINE);
+        }
+
+      if (use_json)
+        {
+          json_object_int_add(json_interface_sub, "nbrCount", ospf_nbr_count (oi, 0));
+          json_object_int_add(json_interface_sub, "nbrAdjacentCount", ospf_nbr_count (oi, NSM_Full));
+        }
+      else
+        vty_out (vty, "  Neighbor Count is %d, Adjacent neighbor count is %d%s",
+                 ospf_nbr_count (oi, 0), ospf_nbr_count (oi, NSM_Full),
+                 VTY_NEWLINE);
     }
 }
 
 static int
-show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int arg_base,
-                               int argc, const char **argv)
+show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
+                               const char **argv, int iface_argv, u_char use_json)
 {
   struct interface *ifp;
   struct listnode *node;
+  json_object *json = NULL;
+  json_object *json_interface_sub = NULL;
+
+  if (use_json)
+    {
+      json = json_object_new_object();
+      json_interface_sub = json_object_new_object();
+    }
 
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s%s", VTY_NEWLINE, ospf->instance,
-             VTY_NEWLINE, VTY_NEWLINE);
+    {
+      if (use_json)
+        json_object_int_add(json, "ospfInstance", ospf->instance);
+      else
+        vty_out (vty, "%sOSPF Instance: %d%s%s", VTY_NEWLINE, ospf->instance,
+                 VTY_NEWLINE, VTY_NEWLINE);
+    }
 
-  if (argc == arg_base + 0)
+  if (argc == (iface_argv + 1))
+    {
+      /* Show All Interfaces.*/
+      for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+        {
+          if (ospf_oi_count(ifp))
+            {
+              show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
+            }
+        }
+    }
+  else if (argv[iface_argv] && strcmp(argv[iface_argv], "json") == 0)
     {
       /* Show All Interfaces. */
       for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
-        if (ospf_oi_count(ifp))
-          show_ip_ospf_interface_sub (vty, ospf, ifp);
+        {
+          if (ospf_oi_count(ifp))
+            {
+              show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
+              json_object_object_add(json, ifp->name, json_interface_sub);
+            }
+        }
     }
   else
     {
       /* Interface name is specified. */
-      if ((ifp = if_lookup_by_name (argv[arg_base + 0])) == NULL)
-        vty_out (vty, "No such interface name%s", VTY_NEWLINE);
+      if ((ifp = if_lookup_by_name (argv[iface_argv])) == NULL)
+        {
+          if (use_json)
+              json_object_boolean_true_add(json, "noSuchIface");
+          else
+              vty_out (vty, "No such interface name%s", VTY_NEWLINE);
+        }
       else
-        show_ip_ospf_interface_sub (vty, ospf, ifp);
+        {
+          show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
+          if (use_json)
+            json_object_object_add(json, ifp->name, json_interface_sub);
+        }
     }
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  if (use_json)
+    {
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    vty_out (vty, "%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_ospf_interface,
        show_ip_ospf_interface_cmd,
-       "show ip ospf interface [INTERFACE]",
+       "show ip ospf interface [INTERFACE] {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Interface information\n"
-       "Interface name\n")
+       "Interface name\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
+  u_char use_json;
+
+  if (argc == 1)
+    use_json = 0;
+  else if ((argv[0] && strcmp(argv[0] ,"json") == 0) ||
+           (argv[1] && strcmp(argv[1] ,"json") == 0))
+    use_json = 1;
+  else
+    use_json = 0;
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_interface_common(vty, ospf, 0, argc, argv);
+  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 0, use_json);
 }
 
 DEFUN (show_ip_ospf_instance_interface,
        show_ip_ospf_instance_interface_cmd,
-       "show ip ospf <1-65535> interface [INTERFACE]",
+       "show ip ospf <1-65535> interface [INTERFACE] {json}",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
        "Interface information\n"
-       "Interface name\n")
+       "Interface name\n"
+       "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
   u_short instance = 0;
+  u_char use_json;
+
+  if (argc == 2)
+    use_json = 0;
+  else if ((argv[1] && strcmp(argv[1] ,"json") == 0) ||
+           (argv[2] && strcmp(argv[2] ,"json") == 0))
+    use_json = 1;
+  else
+    use_json = 0;
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_interface_common(vty, ospf, 1, argc, argv);
+  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 1, use_json);
 }
 
 static void
