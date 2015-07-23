@@ -496,13 +496,13 @@ access_list_filter_delete (struct access_list *access, struct filter *filter)
   filter_free (filter);
 
   route_map_notify_dependencies(access->name, RMAP_EVENT_FILTER_DELETED);
-  /* If access_list becomes empty delete it from access_master. */
-  if (access_list_empty (access))
-    access_list_delete (access);
-
   /* Run hook function. */
   if (master->delete_hook)
     (*master->delete_hook) (access);
+
+  /* If access_list becomes empty delete it from access_master. */
+  if (access_list_empty (access))
+    access_list_delete (access);
 }
 
 /*

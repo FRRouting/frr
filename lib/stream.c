@@ -93,12 +93,6 @@ stream_new (size_t size)
 
   assert (size > 0);
   
-  if (size == 0)
-    {
-      zlog_warn ("stream_new(): called with 0 size!");
-      return NULL;
-    }
-  
   s = XCALLOC (MTYPE_STREAM, sizeof (struct stream));
 
   if (s == NULL)

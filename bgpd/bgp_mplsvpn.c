@@ -139,8 +139,6 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 	  return -1;
 	}
 
-      (void)decode_label (pnt);
-
       /* Copyr label to prefix. */
       tagpnt = pnt;;
 
