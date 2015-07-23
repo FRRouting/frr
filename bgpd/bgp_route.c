@@ -1484,7 +1484,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
    * the global nexthop here; the link-local nexthop would have been cleared
    * already, and if not, it is required by the update formation code.
    * Also see earlier comments in this function.
-  */
+   */
   /*
    * If route-map has performed some operation on the nexthop or the peer
    * configuration says to pass it unchanged, we cannot reset the nexthop
@@ -1496,14 +1496,13 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
                              riattr->rmap_change_flags) &&
       !transparent &&
       !CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
-
     {
       /* We can reset the nexthop, if setting (or forcing) it to 'self' */
       if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF))
         {
           if (!reflect ||
               CHECK_FLAG (peer->af_flags[afi][safi],
-                          PEER_FLAG_NEXTHOP_SELF_ALL))
+                          PEER_FLAG_FORCE_NEXTHOP_SELF))
             subgroup_announce_reset_nhop ((peer_cap_enhe(peer) ?
                           AF_INET6 : p->family), attr);
         }
