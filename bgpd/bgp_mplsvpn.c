@@ -136,9 +136,6 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 	  return -1;
 	}
 
-      /* XXX: Not doing anything with the label */
-      decode_label (pnt);
-
       /* Fetch prefix length. */
       prefixlen = *pnt++;
       p.family = afi2family (packet->afi);
