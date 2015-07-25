@@ -208,7 +208,6 @@ bgp_connected_add (struct connected *ifc)
   struct listnode *node, *nnode, *mnode;
   struct bgp *bgp;
   struct peer *peer;
-  u_int32_t saddr;
 
   addr = ifc->address;
 

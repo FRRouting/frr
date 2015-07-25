@@ -24,11 +24,12 @@
 #include "vty.h"
 #include "stream.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_ptm_redistribute.h"
 
 /* master zebra server structure */
 extern struct zebra_t zebrad;
 
-int
+static int
 zsend_interface_bfd_update (int cmd, struct zserv *client,
                             struct interface *ifp, struct prefix *dp,
                             struct prefix *sp)
@@ -88,7 +89,7 @@ zebra_interface_bfd_update (struct interface *ifp, struct prefix *dp,
     }
 }
 
-int
+static int
 zsend_bfd_peer_replay (int cmd, struct zserv *client)
 {
   struct stream *s;

@@ -36,6 +36,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "linklist.h"
 #include "workqueue.h"
 #include "queue.h"
+#include "zclient.h"
 #include "bfd.h"
 
 #include "bgpd/bgpd.h"
@@ -66,7 +67,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
-
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -1180,7 +1180,7 @@ bgp_peer_conf_if_to_su_update (struct peer *peer)
   if (!peer->conf_if)
     return;
 
-  if (ifp = if_lookup_by_name(peer->conf_if))
+  if ((ifp = if_lookup_by_name(peer->conf_if)))
     {
       /* if multiple IP addresses assigned to link, we pick the first */
       if (!CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
@@ -2520,7 +2520,6 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
 		   struct peer_group *group, afi_t afi, safi_t safi)
 {
   struct peer *other;
-  int v6only;
 
   if (! peer->af_group[afi][safi])
       return 0;
@@ -5726,7 +5725,7 @@ peer_ttl_security_hops_unset (struct peer *peer)
 	}
     }
 
-  return 0;
+  return ret;
 }
 
 /*

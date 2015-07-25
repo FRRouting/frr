@@ -613,7 +613,7 @@ struct peer
 #define PEER_FLAG_LONESOUL                  (1 << 11)
 #define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 12) /* dynamic neighbor */
 #define PEER_FLAG_CAPABILITY_ENHE           (1 << 13) /* Extended next-hop (rfc 5549)*/
-#define PEER_FLAG_IFPEER_V6ONLY             (1 << 14) /* if-based peer is v6 only *
+#define PEER_FLAG_IFPEER_V6ONLY             (1 << 14) /* if-based peer is v6 only */
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
@@ -814,7 +814,7 @@ u_char last_reset_cause[BGP_MAX_PACKET_SIZE];
 #define PEER_RMAP_TYPE_EXPORT         (1 << 7) /* neighbor route-map export */
 
   /* peer specific BFD information */
-  void *bfd_info;
+  struct bfd_info *bfd_info;
 };
 
 #define PEER_PASSWORD_MINLEN	(1)

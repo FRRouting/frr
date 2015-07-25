@@ -43,6 +43,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/zserv.h"
+#include "zebra/interface.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -530,7 +531,7 @@ if_delete_update (struct interface *ifp)
   ifp->ifindex = IFINDEX_INTERNAL;
 }
 
-void
+static void
 ipv6_ll_address_to_mac (struct in6_addr *address, u_char *mac)
 {
   mac[0] = address->s6_addr[8] ^ 0x02;
@@ -548,16 +549,16 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
 {
   char buf[16] = "169.254.0.1";
   struct in_addr ipv4_ll;
-  u_char mac[6];
+  char mac[6];
 
   inet_pton (AF_INET, buf, &ipv4_ll);
 
-  ipv6_ll_address_to_mac(address, mac);
+  ipv6_ll_address_to_mac(address, (u_char *)mac);
   netlink_neigh_update (add ? RTM_NEWNEIGH : RTM_DELNEIGH,
                         ifp->ifindex, ipv4_ll.s_addr, mac, 6);
 }
 
-void
+static void
 if_nbr_ipv6ll_to_ipv4ll_neigh_add_all (struct interface *ifp)
 {
   if (listhead(ifp->nbr_connected))
@@ -587,7 +588,7 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (struct interface *ifp)
     }
 }
 
-void
+static void
 if_down_del_nbr_connected (struct interface *ifp)
 {
   struct nbr_connected *nbr_connected;

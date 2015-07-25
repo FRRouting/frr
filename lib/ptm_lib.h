@@ -45,5 +45,5 @@ ptm_lib_handle_t *ptm_lib_register(char *, ptm_cmd_cb, ptm_notify_cb, ptm_respon
 void ptm_lib_deregister(ptm_lib_handle_t *);
 int ptm_lib_find_key_in_msg(void *, const char *, char *);
 int ptm_lib_init_msg(ptm_lib_handle_t *, int, int, void *, void **);
-int ptm_lib_append_msg(ptm_lib_handle_t *, void *, const char *, char *);
+int ptm_lib_append_msg(ptm_lib_handle_t *, void *, const char *, const char *);
 int ptm_lib_complete_msg(ptm_lib_handle_t *, void *, char *, int *);

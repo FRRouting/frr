@@ -45,6 +45,8 @@
 #include "zebra/ipforward.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/rt_netlink.h"
+#include "zebra/interface.h"
+#include "zebra/zebra_ptm.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -1254,7 +1256,6 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length)
   u_char nexthop_type;
   unsigned long ifindex;
   struct prefix_ipv4 p;
-  u_char ifname_len;
   safi_t safi;
   static struct in6_addr nexthops[MULTIPATH_NUM];
   static unsigned int ifindices[MULTIPATH_NUM];

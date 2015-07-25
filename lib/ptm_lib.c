@@ -124,7 +124,7 @@ _ptm_lib_decode_header (csv_t *csv,
 
 int
 ptm_lib_append_msg(ptm_lib_handle_t *hdl, void *ctxt,
-                   const char *key, char *val)
+                   const char *key, const char *val)
 {
     ptm_lib_msg_ctxt_t *p_ctxt = ctxt;
     csv_t *csv;

@@ -23,5 +23,6 @@
 #define _VTYSH_USER_H
 
 int vtysh_auth ();
+void user_config_write(void);
 
 #endif /* _VTYSH_USER_H */

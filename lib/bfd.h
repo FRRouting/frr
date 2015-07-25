@@ -53,7 +53,7 @@ extern struct bfd_info *
 bfd_info_create(void);
 
 extern void
-bfd_info_free(void **bfd_info);
+bfd_info_free(struct bfd_info **bfd_info);
 
 extern int
 bfd_validate_param(struct vty *vty, const char *dm_str, const char *rx_str,

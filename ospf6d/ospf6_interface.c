@@ -28,6 +28,7 @@
 #include "thread.h"
 #include "prefix.h"
 #include "plist.h"
+#include "zclient.h"
 #include "bfd.h"
 
 #include "ospf6_lsa.h"

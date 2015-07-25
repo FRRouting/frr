@@ -56,41 +56,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 extern struct in_addr router_id_zebra;
 
-/* Intentional re-definition of the auto-generated macros, without table */
-#define QUAGGA_REDIST_STR_BGPD \
-  "(kernel|connected|static|rip|ripng|ospf|ospf6|isis|babel)"
-#define QUAGGA_REDIST_HELP_STR_BGPD \
-  "Kernel routes (not installed via the zebra RIB)\n" \
-  "Connected routes (directly attached subnet or host)\n" \
-  "Statically configured routes\n" \
-  "Routing Information Protocol (RIP)\n" \
-  "Routing Information Protocol next-generation (IPv6) (RIPng)\n" \
-  "Open Shortest Path First (OSPFv2)\n" \
-  "Open Shortest Path First (IPv6) (OSPFv3)\n" \
-  "Intermediate System to Intermediate System (IS-IS)\n" \
-  "Babel routing protocol (Babel)\n"
-#define QUAGGA_IP_REDIST_STR_BGPD \
-  "(kernel|connected|static|rip|ospf|isis|babel)"
-#define QUAGGA_IP_REDIST_HELP_STR_BGPD \
-  "Kernel routes (not installed via the zebra RIB)\n" \
-  "Connected routes (directly attached subnet or host)\n" \
-  "Statically configured routes\n" \
-  "Routing Information Protocol (RIP)\n" \
-  "Open Shortest Path First (OSPFv2)\n" \
-  "Intermediate System to Intermediate System (IS-IS)\n" \
-  "Babel routing protocol (Babel)\n"
-#define QUAGGA_IP6_REDIST_STR_BGPD \
-  "(kernel|connected|static|ripng|ospf6|isis|babel)"
-#define QUAGGA_IP6_REDIST_HELP_STR_BGPD \
-  "Kernel routes (not installed via the zebra RIB)\n" \
-  "Connected routes (directly attached subnet or host)\n" \
-  "Statically configured routes\n" \
-  "Routing Information Protocol next-generation (IPv6) (RIPng)\n" \
-  "Open Shortest Path First (IPv6) (OSPFv3)\n" \
-  "Intermediate System to Intermediate System (IS-IS)\n" \
-  "Babel routing protocol (Babel)\n"
-
-
 /* Utility function to get address family from current node.  */
 afi_t
 bgp_node_afi (struct vty *vty)

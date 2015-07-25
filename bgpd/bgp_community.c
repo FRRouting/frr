@@ -217,7 +217,7 @@ set_community_string  (struct community *com)
   json_object *json_string = NULL;
 
   if (!com)
-    return NULL;
+    return;
   
   com->json = json_object_new_object();
   json_community_list = json_object_new_array();

@@ -43,6 +43,7 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_fpm.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/interface.h"
 
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
@@ -3240,7 +3241,7 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
       if (!table)
         return 0;
       /* Make it sure prefixlen is applied to the prefix. */
-      apply_mask_ipv4 (p);
+      apply_mask_ipv4 ((struct prefix_ipv4 *)p);
     }
   else
     {
@@ -3263,7 +3264,7 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
         return 0;
 
       /* Make sure mask is applied. */
-      apply_mask_ipv6 (p);
+      apply_mask_ipv6 ((struct prefix_ipv6 *)p);
 
     }
 

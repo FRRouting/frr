@@ -1335,10 +1335,11 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 
           if (valid_nh_count)
             zapi_ipv4_route_ipv6_nexthop (ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD,
-                                          zclient, (struct prefix_ipv4 *) p, &api);
+                                          zclient, (struct prefix_ipv4 *) p,
+					  (struct zapi_ipv6 *)&api);
           else
             zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE,
-                             zclient, (struct prefix_ipv4 *) p, &api);
+                             zclient, (struct prefix_ipv4 *) p, (struct zapi_ipv4 *)&api);
         }
       else
         {

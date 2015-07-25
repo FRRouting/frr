@@ -474,6 +474,8 @@ subgroup_trigger_write (struct update_subgroup *subgrp);
 extern int
 update_group_clear_update_dbg (struct update_group *updgrp, void *arg);
 
+extern void update_bgp_group_free(struct bgp *bgp);
+
 /*
  * Inline functions
  */

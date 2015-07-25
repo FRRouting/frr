@@ -7,6 +7,7 @@
 #include "zebra/rt.h"
 #include "zebra/redistribute.h"
 #include "zebra/connected.h"
+#include "zebra/rt_netlink.h"
 
 int kernel_add_ipv4 (struct prefix *a, struct rib *b) { return 0; }
 int kernel_update_ipv4 (struct prefix *a, struct rib *b) { return 0; }

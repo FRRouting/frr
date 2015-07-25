@@ -52,18 +52,6 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_bfd.h"
 
-#define QUAGGA_REDIST_STR_OSPFD \
-  "(kernel|connected|static|rip|isis|bgp|babel)"
-#define QUAGGA_REDIST_HELP_STR_OSPFD \
-  "Kernel routes (not installed via the zebra RIB)\n" \
-  "Connected routes (directly attached subnet or host)\n" \
-  "Statically configured routes\n" \
-  "Routing Information Protocol (RIP)\n" \
-  "Intermediate System to Intermediate System (IS-IS)\n" \
-  "Border Gateway Protocol (BGP)\n" \
-  "Babel routing protocol (Babel)\n"
-
-
 static const char *ospf_network_type_str[] =
 {
   "Null",

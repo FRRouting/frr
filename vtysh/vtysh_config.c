@@ -25,6 +25,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 
 #include "vtysh/vtysh.h"
+#include "vtysh/vtysh_user.h"
 
 /* 
  * Compiler is warning about prototypes not being declared.

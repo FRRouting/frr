@@ -20,6 +20,8 @@
  */
 #include <zebra.h>
 #include "prefix.h"
+#include "if.h"
+#include "zebra_ptm_redistribute.h"
 
 void zebra_interface_bfd_update (struct interface *a, struct prefix *dp,
                                  struct prefix *sp)
