@@ -31,6 +31,7 @@
 #include "command.h"
 #include "stream.h"
 #include "log.h"
+#include "zclient.h"
 #include "bfd.h"
 
 #include "ospfd/ospfd.h"

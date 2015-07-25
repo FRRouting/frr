@@ -51,7 +51,7 @@ bfd_info_create(void)
  * bfd_info_free - Free the BFD information.
  */
 void
-bfd_info_free(void **bfd_info)
+bfd_info_free(struct bfd_info **bfd_info)
 {
   if (*bfd_info)
     {

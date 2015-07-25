@@ -80,7 +80,7 @@ struct ospf_if_params
   u_int32_t network_lsa_seqnum;		/* Network LSA seqnum */
 
   /* BFD configuration */
-  void *bfd_info;
+  struct bfd_info *bfd_info;
 };
 
 enum
