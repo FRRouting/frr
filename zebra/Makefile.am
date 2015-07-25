@@ -23,7 +23,7 @@ if HAVE_NETLINK
 othersrc = zebra_fpm_netlink.c
 endif
 
-AM_CFLAGS = $(PICFLAGS)
+AM_CFLAGS = $(PICFLAGS) $(WERROR)
 AM_LDFLAGS = $(PILDFLAGS)
 
 sbin_PROGRAMS = zebra

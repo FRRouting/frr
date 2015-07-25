@@ -3,7 +3,7 @@
 INCLUDES = @INCLUDES@ -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ -DSTATEDIR=\"$(localstatedir)/\"
 
-AM_CFLAGS = $(PICFLAGS)
+AM_CFLAGS = $(PICFLAGS) $(WERROR)
 AM_LDFLAGS = $(PILDFLAGS)
 
 sbin_PROGRAMS = watchquagga

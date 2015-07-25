@@ -166,6 +166,11 @@ else
   AC_MSG_RESULT([CFLAGS supplied by user])
 fi
 
+if test x"${enable_werror}" = x"yes" ; then
+  WERROR="-Werror"
+fi
+AC_SUBST(WERROR)
+
 dnl --------------
 dnl Check programs
 dnl --------------
@@ -293,6 +298,8 @@ AC_ARG_ENABLE(pcreposix,
 [  --enable-pcreposix          enable using PCRE Posix libs for regex functions])
 AC_ARG_ENABLE(fpm,
 [  --enable-fpm            enable Forwarding Plane Manager support])
+AC_ARG_ENABLE(werror,
+  AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 
 if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"

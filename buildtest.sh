@@ -4,7 +4,7 @@
 # builds some git commit of Quagga in some different configurations
 # usage: buildtest.sh [commit [configurations...]]
 
-basecfg="--prefix=/usr --enable-user=quagga --enable-group=quagga --enable-vty-group=quagga --enable-configfile-mask=0660 --enable-logfile-mask=0640 --enable-vtysh --sysconfdir=/etc/quagga --enable-exampledir=/etc/quagga/samples --localstatedir=/var/run/quagga --libdir=/usr/lib64/quagga --enable-ipv6 --enable-ripngd --enable-ospf6d --enable-rtadv --disable-static --enable-isisd --enable-multipath=0 --enable-babeld"
+basecfg="--prefix=/usr --enable-user=quagga --enable-group=quagga --enable-vty-group=quagga --enable-configfile-mask=0660 --enable-logfile-mask=0640 --enable-vtysh --sysconfdir=/etc/quagga --enable-exampledir=/etc/quagga/samples --localstatedir=/var/run/quagga --libdir=/usr/lib64/quagga --enable-ipv6 --enable-ripngd --enable-ospf6d --enable-rtadv --disable-static --enable-isisd --enable-multipath=0 --enable-babeld --enable-werror"
 
 configs_base="gcc|$basecfg"
 
