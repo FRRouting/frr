@@ -63,6 +63,7 @@ override_dh_auto_configure:
  		--enable-configfile-mask=0640 \
  		--enable-logfile-mask=0640 \
  		--enable-rtadv \
+		--enable-werror \
  		--enable-gcc-rdynamic \
 		--with-libpam; \
 	fi
