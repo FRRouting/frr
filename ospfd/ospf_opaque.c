@@ -1343,10 +1343,10 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
   &&    oi->t_opaque_lsa_self == NULL)
     {
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("Schedule Type-9 Opaque-LSA origination in %d sec later.", delay);
+        zlog_debug ("Schedule Type-9 Opaque-LSA origination in %d ms later.", delay);
       oi->t_opaque_lsa_self =
-	thread_add_timer (master, ospf_opaque_type9_lsa_originate, oi, delay);
-      delay += OSPF_MIN_LS_INTERVAL;
+	thread_add_timer_msec (master, ospf_opaque_type9_lsa_originate, oi, delay);
+      delay += top->min_ls_interval;
     }
 
   if (! list_isempty (ospf_opaque_type10_funclist)
@@ -1359,11 +1359,11 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
        * again and again.
        */
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("Schedule Type-10 Opaque-LSA origination in %d sec later.", delay);
+        zlog_debug ("Schedule Type-10 Opaque-LSA origination in %d ms later.", delay);
       area->t_opaque_lsa_self =
-        thread_add_timer (master, ospf_opaque_type10_lsa_originate,
-                          area, delay);
-      delay += OSPF_MIN_LS_INTERVAL;
+        thread_add_timer_msec (master, ospf_opaque_type10_lsa_originate,
+			       area, delay);
+      delay += top->min_ls_interval;
     }
 
   if (! list_isempty (ospf_opaque_type11_funclist)
@@ -1376,11 +1376,11 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
        * again and again.
        */
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_debug ("Schedule Type-11 Opaque-LSA origination in %d sec later.", delay);
+        zlog_debug ("Schedule Type-11 Opaque-LSA origination in %d ms later.", delay);
       top->t_opaque_lsa_self =
-        thread_add_timer (master, ospf_opaque_type11_lsa_originate,
-                          top, delay);
-      delay += OSPF_MIN_LS_INTERVAL;
+        thread_add_timer_msec (master, ospf_opaque_type11_lsa_originate,
+			       top, delay);
+      delay += top->min_ls_interval;
     }
 
   /*
@@ -1658,7 +1658,7 @@ ospf_opaque_lsa_refresh (struct ospf_lsa *lsa)
 
 #define OSPF_OPAQUE_TIMER_ON(T,F,L,V) \
       if (!(T)) \
-        (T) = thread_add_timer (master, (F), (L), (V))
+        (T) = thread_add_timer_msec (master, (F), (L), (V))
 
 static struct ospf_lsa *pseudo_lsa (struct ospf_interface *oi, struct ospf_area *area, u_char lsa_type, u_char opaque_type);
 static int ospf_opaque_type9_lsa_reoriginate_timer (struct thread *t);
@@ -1812,15 +1812,15 @@ ospf_opaque_lsa_reoriginate_schedule (void *lsa_type_dependent,
    * it is highly possible that these conditions might not be satisfied
    * at the time of re-origination function is to be called.
    */
-  delay = OSPF_MIN_LS_INTERVAL; /* XXX */
+  delay = top->min_ls_interval; /* XXX */
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("Schedule Type-%u Opaque-LSA to RE-ORIGINATE in %d"
-               " sec later: [opaque-type=%u]", 
+               " ms later: [opaque-type=%u]", 
                lsa_type, delay, 
                GET_OPAQUE_TYPE (ntohl (lsa->data->id.s_addr)));
 
-  OSPF_OPAQUE_TIMER_ON (oipt->t_opaque_lsa_self, func, oipt, delay);
+  OSPF_OPAQUE_TIMER_ON (oipt->t_opaque_lsa_self, func, oipt, delay * 1000);
 
 out:
   return;
@@ -2042,7 +2042,7 @@ ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa0)
     zlog_debug ("Schedule Type-%u Opaque-LSA to REFRESH in %d sec later: [opaque-type=%u, opaque-id=%x]", lsa->data->type, delay, GET_OPAQUE_TYPE (ntohl (lsa->data->id.s_addr)), GET_OPAQUE_ID (ntohl (lsa->data->id.s_addr)));
 
   OSPF_OPAQUE_TIMER_ON (oipi->t_opaque_lsa_self,
-                        ospf_opaque_lsa_refresh_timer, oipi, delay);
+                        ospf_opaque_lsa_refresh_timer, oipi, delay * 1000);
 out:
   return;
 }

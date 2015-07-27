@@ -156,9 +156,9 @@ ospf_lsa_refresh_delay (struct ospf_lsa *lsa)
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   delta = tv_sub (now, lsa->tv_orig);
 
-  if (tv_cmp (delta, int2tv (OSPF_MIN_LS_INTERVAL)) < 0)
+  if (tv_cmp (delta, intms2tv (OSPF_MIN_LS_INTERVAL)) < 0)
     {
-      delay = tv_ceil (tv_sub (int2tv (OSPF_MIN_LS_INTERVAL), delta));
+      delay = tv_ceil (tv_sub (intms2tv (OSPF_MIN_LS_INTERVAL), delta));
 
       if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
         zlog_debug ("LSA[Type%d:%s]: Refresh timer delay %d seconds",

@@ -191,7 +191,8 @@ struct ospf
   unsigned int spf_hold_multiplier;	/* Adaptive multiplier for hold time */
   
   /* LSA timer parameters */
-  unsigned int lsa_minarrival;		/* LSA minimum arrival in milliseconds. */
+  unsigned int min_ls_interval; /* mininum delay between LSAs (in msec) */
+  unsigned int min_ls_arrival;		/* LSA minimum arrival in milliseconds. */
 
   int default_originate;		/* Default information originate. */
 #define DEFAULT_ORIGINATE_NONE		0

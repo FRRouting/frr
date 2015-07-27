@@ -248,7 +248,8 @@ ospf_new (u_short instance)
   new->spf_hold_multiplier = 1;
 
   /* LSA timers value init */
-  new->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
+  new->min_ls_interval = OSPF_MIN_LS_INTERVAL;
+  new->min_ls_arrival = OSPF_MIN_LS_ARRIVAL;
 
   /* MaxAge init. */
   new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
