@@ -1253,7 +1253,7 @@ out:
   if (isis->debugs & DEBUG_ADJ_PACKETS)
     {
       zlog_debug ("ISIS-Adj (%s): Rcvd L%d LAN IIH from %s on %s, cirType %s, "
-		  "cirID %u, length %ld",
+		  "cirID %u, length %zd",
 		  circuit->area->area_tag,
 		  level, snpa_print (ssnpa), circuit->interface->name,
 		  circuit_t2string (circuit->is_type),
@@ -2707,7 +2707,7 @@ send_csnp (struct isis_circuit *circuit, int level)
 
       if (isis->debugs & DEBUG_SNP_PACKETS)
         {
-          zlog_debug ("ISIS-Snp (%s): Sent L%d CSNP on %s, length %ld",
+          zlog_debug ("ISIS-Snp (%s): Sent L%d CSNP on %s, length %zd",
                       circuit->area->area_tag, level, circuit->interface->name,
                       stream_get_endp (circuit->snd_stream));
           for (ALL_LIST_ELEMENTS_RO (list, node, lsp))
@@ -2956,7 +2956,7 @@ send_psnp (int level, struct isis_circuit *circuit)
 
       if (isis->debugs & DEBUG_SNP_PACKETS)
         {
-          zlog_debug ("ISIS-Snp (%s): Sent L%d PSNP on %s, length %ld",
+          zlog_debug ("ISIS-Snp (%s): Sent L%d PSNP on %s, length %zd",
                       circuit->area->area_tag, level,
                       circuit->interface->name,
                       stream_get_endp (circuit->snd_stream));
