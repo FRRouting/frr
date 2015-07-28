@@ -73,9 +73,7 @@ class Config(object):
         The internal representation has been marked appropriately by passing it
         through vtysh with the -m parameter
         """
-
-        if args.debug:
-            logger.debug('Loading Config object from file %s', filename)
+        logger.debug('Loading Config object from file %s', filename)
 
         try:
             file_output = subprocess.check_output(['vtysh', '-m', '-f', filename])
@@ -100,9 +98,7 @@ class Config(object):
         The internal representation has been marked appropriately by passing it
         through vtysh with the -m parameter
         """
-
-        if args.debug:
-            logger.debug('Loading Config object from vtysh show running')
+        logger.debug('Loading Config object from vtysh show running')
 
         try:
             config_text = subprocess.check_output("vtysh -c 'show run' | tail -n +4 | vtysh -m -f -", shell=True)
@@ -242,17 +238,13 @@ end
                 ctx_keys = [line,]
                 current_context_lines = []
 
-                if args.debug:
-                    logger.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
-
+                logger.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
                 self.save_contexts(ctx_keys, current_context_lines)
                 new_ctx = True
 
             elif line == "end":
                 self.save_contexts(ctx_keys, current_context_lines)
-
-                if args.debug:
-                    logger.debug('LINE %-50s: exiting old context, %-50s', line, ctx_keys)
+                logger.debug('LINE %-50s: exiting old context, %-50s', line, ctx_keys)
 
                 # Start a new context
                 new_ctx = True
@@ -268,9 +260,7 @@ end
                     # Start a new context
                     ctx_keys = copy.deepcopy(main_ctx_key)
                     current_context_lines = []
-
-                    if args.debug:
-                        logger.debug('LINE %-50s: popping from subcontext to ctx%-50s', line, ctx_keys)
+                    logger.debug('LINE %-50s: popping from subcontext to ctx%-50s', line, ctx_keys)
 
             elif new_ctx is True:
                 if not main_ctx_key:
@@ -281,9 +271,7 @@ end
 
                 current_context_lines = []
                 new_ctx = False
-
-                if args.debug:
-                    logger.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
+                logger.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
 
             elif "address-family " in line:
                 main_ctx_key = []
@@ -293,9 +281,8 @@ end
                     self.save_contexts(ctx_keys, current_context_lines)
                     current_context_lines = []
                     main_ctx_key = copy.deepcopy(ctx_keys)
+                    logger.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
 
-                    if args.debug:
-                        logger.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
                     if line == "address-family ipv6":
                         ctx_keys.append("address-family ipv6 unicast")
                     else:
@@ -304,8 +291,7 @@ end
             else:
                 # Continuing in an existing context, add non-commented lines to it
                 current_context_lines.append(line)
-                if args.debug:
-                    logger.debug('LINE %-50s: append to current_context_lines, %-50s', line, ctx_keys)
+                logger.debug('LINE %-50s: append to current_context_lines, %-50s', line, ctx_keys)
 
         # Save the context of the last one
         self.save_contexts(ctx_keys, current_context_lines)
@@ -396,10 +382,10 @@ def compare_context_objects(newconf, running):
 
         if running_ctx_keys not in newconf.contexts:
 
-	    # Check if bgp's local ASN has changed. If yes, just restart it
-	    if "router bgp" in running_ctx_keys[0]:
-		restart_bgpd = True
-		continue
+            # Check if bgp's local ASN has changed. If yes, just restart it
+            if "router bgp" in running_ctx_keys[0]:
+                restart_bgpd = True
+                continue
 
             # Non-global context
             if running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
@@ -429,10 +415,10 @@ def compare_context_objects(newconf, running):
 
         if newconf_ctx_keys not in running.contexts:
 
-	    # If its "router bgp" and we're restarting bgp, skip doing 
-	    # anything specific for bgp
-	    if "router bgp" in newconf_ctx_keys[0] and restart_bgpd:
-		continue	
+            # If its "router bgp" and we're restarting bgp, skip doing
+            # anything specific for bgp
+            if "router bgp" in newconf_ctx_keys[0] and restart_bgpd:
+                continue
             lines_to_add.append((newconf_ctx_keys, None))
 
             for line in newconf_ctx.lines:
@@ -470,12 +456,36 @@ if __name__ == '__main__':
         raise Exception('Must specify --reload or --test')
     logger = logging.getLogger(__name__)
 
+    # Verify the new config file is valid
+    if not os.path.isfile(args.filename):
+        print "Filename %s does not exist" % args.filename
+        sys.exit(1)
+
+    if not os.path.getsize(args.filename):
+        print "Filename %s is an empty file" % args.filename
+        sys.exit(1)
+
+
+    # Verify that 'service integrated-vtysh-config' is configured
+    vtysh_filename = '/etc/quagga/vtysh.conf'
+    fh = open(vtysh_filename, 'r')
+    service_integrated_vtysh_config = False
+
+    for line in fh.readlines():
+        line = line.strip()
+
+        if line == 'service integrated-vtysh-config':
+            service_integrated_vtysh_config = True
+            break
+    fh.close()
+
+    if not service_integrated_vtysh_config:
+        print "'service integrated-vtysh-config' is not configured, this is required for 'service quagga reload'"
+        sys.exit(1)
 
     # Create a Config object from the config generated by newconf
     newconf = Config()
     newconf.load_from_file(args.filename)
-    #print "New config context"
-    #print newconf.get_contexts()
 
     if args.test:
 
@@ -487,8 +497,6 @@ if __name__ == '__main__':
         else:
             running.load_from_show_running()
 
-        #print "Running config context"
-        #print running.get_contexts()
         (lines_to_add, lines_to_del, restart_bgp) = compare_context_objects(newconf, running)
 
         if lines_to_del:
@@ -515,10 +523,8 @@ if __name__ == '__main__':
                 cmd = line_to_vtysh_conft(ctx_keys, line, False)
                 print cmd
 
-	if restart_bgp:
-            print "BGP local AS changed, restarting bgpd"  	
-
-        print ''
+        if restart_bgp:
+            print "BGP local AS changed, restarting bgpd\n"
 
     elif args.reload:
 
@@ -563,18 +569,18 @@ if __name__ == '__main__':
                     cmd = line_to_vtysh_conft(ctx_keys, line, True)
                     original_cmd = cmd
 
-                     # Some commands in quagga are picky about taking a "no" of the entire line.
-                     # OSPF is bad about this, you can't "no" the entire line, you have to "no"
-                     # only the beginning. If we hit one of these command an exception will be
-                     # thrown.  Catch it and remove the last '-c', 'FOO' from cmd and try again.
-                     # Example:
-                     #  quagga(config-if)# ip ospf authentication message-digest 1.1.1.1
-                     #  quagga(config-if)# no ip ospf authentication message-digest 1.1.1.1
-                     #  % Unknown command.
-                     #  quagga(config-if)# no ip ospf authentication message-digest
-                     #  % Unknown command.
-                     #  quagga(config-if)# no ip ospf authentication
-                     #  quagga(config-if)#
+                    # Some commands in quagga are picky about taking a "no" of the entire line.
+                    # OSPF is bad about this, you can't "no" the entire line, you have to "no"
+                    # only the beginning. If we hit one of these command an exception will be
+                    # thrown.  Catch it and remove the last '-c', 'FOO' from cmd and try again.
+                    # Example:
+                    #  quagga(config-if)# ip ospf authentication message-digest 1.1.1.1
+                    #  quagga(config-if)# no ip ospf authentication message-digest 1.1.1.1
+                    #  % Unknown command.
+                    #  quagga(config-if)# no ip ospf authentication message-digest
+                    #  % Unknown command.
+                    #  quagga(config-if)# no ip ospf authentication
+                    #  quagga(config-if)#
 
                     while True:
 
@@ -610,13 +616,9 @@ if __name__ == '__main__':
                         continue
 
                     cmd = line_to_vtysh_conft(ctx_keys, line, False)
-
-                    if args.debug:
-                        logger.debug(cmd)
-
+                    logger.debug(cmd)
                     subprocess.call(cmd)
 
-	    if restart_bgp:
-		    cmd = ['sudo', 'service', 'quagga', 'restart', 'bgpd']
-		    subprocess.call(cmd)
-
+            if restart_bgp:
+                cmd = ['sudo', 'service', 'quagga', 'restart', 'bgpd']
+                subprocess.call(cmd)
