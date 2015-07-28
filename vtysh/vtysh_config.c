@@ -368,7 +368,6 @@ vtysh_config_dump (FILE *fp)
 static void
 vtysh_read_file (FILE *confp)
 {
-  int ret;
   struct vty *vty;
 
   vty = vty_new ();
@@ -380,28 +379,12 @@ vtysh_read_file (FILE *confp)
   vtysh_execute_no_pager ("configure terminal");
 
   /* Execute configuration file. */
-  ret = vtysh_config_from_file (vty, confp);
+  vtysh_config_from_file (vty, confp);
 
   vtysh_execute_no_pager ("end");
   vtysh_execute_no_pager ("disable");
 
   vty_close (vty);
-
-  if (ret != CMD_SUCCESS) 
-    {
-      switch (ret)
-	{
-	case CMD_ERR_AMBIGUOUS:
-	  fprintf (stderr, "Ambiguous command.\n");
-	  break;
-	case CMD_ERR_NO_MATCH:
-	  fprintf (stderr, "There is no such command.\n");
-	  break;
-	}
-      fprintf (stderr, "Error occured during reading below line.\n%s\n", 
-	       vty->buf);
-      exit (1);
-    }
 }
 
 /* Read up configuration file from config_default_dir. */

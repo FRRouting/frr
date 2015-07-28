@@ -49,6 +49,9 @@ struct vty
   /* Command input buffer */
   char *buf;
 
+  /* Command input error buffer */
+  char *error_buf;
+
   /* Command cursor point */
   int cp;
 

@@ -322,6 +322,7 @@ vty_new ()
 
   new->obuf = buffer_new(0);	/* Use default buffer size. */
   new->buf = XCALLOC (MTYPE_VTY, VTY_BUFSIZ);
+  new->error_buf = XCALLOC (MTYPE_VTY, VTY_BUFSIZ);
   new->max = VTY_BUFSIZ;
 
   return new;
@@ -478,6 +479,7 @@ vty_ensure (struct vty *vty, int length)
     {
       vty->max *= 2;
       vty->buf = XREALLOC (MTYPE_VTY, vty->buf, vty->max);
+      vty->error_buf = XREALLOC (MTYPE_VTY, vty->error_buf, vty->max);
     }
 }
 
@@ -2195,6 +2197,9 @@ vty_close (struct vty *vty)
   if (vty->buf)
     XFREE (MTYPE_VTY, vty->buf);
 
+  if (vty->error_buf)
+    XFREE (MTYPE_VTY, vty->error_buf);
+
   /* Check configure. */
   vty_config_unlock (vty);
 
@@ -2243,16 +2248,14 @@ vty_read_file (FILE *confp)
       switch (ret)
        {
          case CMD_ERR_AMBIGUOUS:
-           fprintf (stderr, "Ambiguous command.\n");
+           fprintf (stderr, "\nAmbiguous command.");
            break;
          case CMD_ERR_NO_MATCH:
-           fprintf (stderr, "There is no such command.\n");
+           fprintf (stderr, "\nThere is no such command.");
            break;
        }
-      fprintf (stderr, "Error occured during reading below line.\n%s\n", 
-	       vty->buf);
-      vty_close (vty);
-      exit (1);
+      fprintf (stderr, "\nError occured during reading below line.\n%s\n",
+	       vty->error_buf);
     }
 
   vty_close (vty);

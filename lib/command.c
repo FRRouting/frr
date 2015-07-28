@@ -2761,11 +2761,12 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
   return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd);
 }
 
-/* Configration make from file. */
+/* Configuration make from file. */
 int
 config_from_file (struct vty *vty, FILE *fp)
 {
-  int ret;
+  int ret, error_ret=0;
+  int saved_node;
   vector vline;
 
   while (fgets (vty->buf, VTY_BUFSIZ, fp))
@@ -2778,24 +2779,42 @@ config_from_file (struct vty *vty, FILE *fp)
       /* Execute configuration command : this is strict match */
       ret = cmd_execute_command_strict (vline, vty, NULL);
 
-      /* Try again with setting node to CONFIG_NODE */
-      while (ret != CMD_SUCCESS && ret != CMD_WARNING
-	     && ret != CMD_ERR_NOTHING_TODO && vty->node != CONFIG_NODE)
-	{
-	  vty->node = node_parent(vty->node);
-	  ret = cmd_execute_command_strict (vline, vty, NULL);
-	}
+      // Climb the tree and try the command again at each node
+      if (ret != CMD_SUCCESS && ret != CMD_WARNING &&
+          ret != CMD_ERR_NOTHING_TODO && vty->node != CONFIG_NODE) {
+
+          saved_node = vty->node;
+
+          while (ret != CMD_SUCCESS && ret != CMD_WARNING &&
+                 ret != CMD_ERR_NOTHING_TODO && vty->node != CONFIG_NODE) {
+              vty->node = node_parent(vty->node);
+              ret = cmd_execute_command_strict (vline, vty, NULL);
+          }
+
+          // If climbing the tree did not work then ignore the command and
+          // stay at the same node
+          if (ret != CMD_SUCCESS && ret != CMD_WARNING &&
+              ret != CMD_ERR_NOTHING_TODO) {
+              vty->node = saved_node;
+
+              if (!error_ret) {
+                  memcpy(vty->error_buf, vty->buf, VTY_BUFSIZ);
+                  error_ret = ret;
+              }
+          }
+      }
 
       cmd_free_strvec (vline);
-
-      if (ret != CMD_SUCCESS && ret != CMD_WARNING
-	  && ret != CMD_ERR_NOTHING_TODO)
-	return ret;
     }
+
+  if (error_ret) {
+      return error_ret;
+  }
+
   return CMD_SUCCESS;
 }
 
-/* Configration from terminal */
+/* Configuration from terminal */
 DEFUN (config_terminal,
        config_terminal_cmd,
        "configure terminal",

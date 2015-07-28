@@ -662,7 +662,7 @@ vtysh_mark_file (const char *filename)
 }
 
 /* Configration make from file. */
-int
+void
 vtysh_config_from_file (struct vty *vty, FILE *fp)
 {
   int ret;
@@ -707,14 +707,15 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	  else
 	    {
 	      save_node = vty->node;
-	      vtysh_execute ("end");
-	      vtysh_execute ("configure terminal");
 	      vty->node = CONFIG_NODE;
 	      ret = cmd_execute_command_strict (vline, vty, &cmd);
+
+              // If the command did not work at CONFIG_NODE either then ignore
+              // the command and go back to our previous node.
 	      if ((ret != CMD_SUCCESS) &&
 		  (ret != CMD_SUCCESS_DAEMON) &&
 		  (ret != CMD_WARNING))
-		vty->node = save_node;
+                vty->node = save_node;
 	    }
 	}	  
 
@@ -758,7 +759,6 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	  }
 	}
     }
-  return CMD_SUCCESS;
 }
 
 /* We don't care about the point of the cursor when '?' is typed. */

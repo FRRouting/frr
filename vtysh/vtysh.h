@@ -50,7 +50,7 @@ char *vtysh_prompt (void);
 
 void vtysh_config_write (void);
 
-int vtysh_config_from_file (struct vty *, FILE *);
+void vtysh_config_from_file (struct vty *, FILE *);
 
 int vtysh_mark_file(const char *filename);
 
