@@ -8613,7 +8613,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
 
               vty_out (vty, "4 ");
 
-              vty_out (vty, "%5u %7d %7d %8lu %4d %4ld ",
+              vty_out (vty, "%5u %7d %7d %8" PRIu64 " %4d %4zd ",
                        peer->as,
                        peer->open_in + peer->update_in + peer->keepalive_in
                        + peer->notify_in + peer->refresh_in
