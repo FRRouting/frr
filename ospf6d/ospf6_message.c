@@ -1640,7 +1640,7 @@ static void
 ospf6_send (struct in6_addr *src, struct in6_addr *dst,
             struct ospf6_interface *oi, struct ospf6_header *oh)
 {
-  int len;
+  unsigned int len;
   char srcname[64], dstname[64];
   struct iovec iovector[2];
 

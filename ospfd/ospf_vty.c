@@ -4847,7 +4847,8 @@ static void
 show_ip_ospf_database_router_links (struct vty *vty,
                                     struct router_lsa *rl)
 {
-  int len, i, type;
+  int len, type;
+  unsigned int i;
 
   len = ntohs (rl->header.length) - 4;
   for (i = 0; i < ntohs (rl->links) && len > 0; len -= 12, i++)

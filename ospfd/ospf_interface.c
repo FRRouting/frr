@@ -1028,7 +1028,7 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
   struct ospf_interface *voi;
   struct listnode *node;
   struct vertex_parent *vp = NULL;
-  int i;
+  unsigned int i;
   struct router_lsa *rl;
 
   voi = vl_data->vl_oi;
