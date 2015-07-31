@@ -1602,14 +1602,28 @@ bgp_redistribute_rmap_set (struct bgp_redist *red, const char *name)
 
 /* Redistribute with metric specification.  */
 int
-bgp_redistribute_metric_set (struct bgp_redist *red, u_int32_t metric)
+bgp_redistribute_metric_set (struct bgp *bgp, struct bgp_redist *red, afi_t afi,
+			     int type, u_int32_t metric)
 {
+  struct bgp_node *rn;
+  struct bgp_info *ri;
+
   if (red->redist_metric_flag
       && red->redist_metric == metric)
     return 0;
 
   red->redist_metric_flag = 1;
   red->redist_metric = metric;
+
+  for (rn = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); rn; rn = bgp_route_next(rn)) {
+    for (ri = rn->info; ri; ri = ri->next) {
+      if (ri->sub_type == BGP_ROUTE_REDISTRIBUTE && ri->type == type) {
+	  ri->attr->med = red->redist_metric;
+	  bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
+	  bgp_process(bgp, rn, afi, SAFI_UNICAST);
+      }
+    }
+  }
 
   return 1;
 }
