@@ -2759,8 +2759,8 @@ bgp_delete (struct bgp *bgp)
 {
   struct peer *peer;
   struct peer_group *group;
-  struct listnode *node;
-  struct listnode *next;
+  struct listnode *node, *pnode;
+  struct listnode *next, *pnext;
   afi_t afi;
   int i;
 
@@ -2791,7 +2791,7 @@ bgp_delete (struct bgp *bgp)
 
   for (ALL_LIST_ELEMENTS (bgp->group, node, next, group))
     {
-      for (ALL_LIST_ELEMENTS (group->peer, node, next, peer))
+      for (ALL_LIST_ELEMENTS (group->peer, pnode, pnext, peer))
 	{
 	  if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
 	    {
