@@ -49,13 +49,14 @@ struct pqueue;
 /* Master of the theads. */
 struct thread_master
 {
-  struct thread_list read;
-  struct thread_list write;
+  struct thread **read;
+  struct thread **write;
   struct pqueue *timer;
   struct thread_list event;
   struct thread_list ready;
   struct thread_list unuse;
   struct pqueue *background;
+  int fd_limit;
   fd_set readfd;
   fd_set writefd;
   fd_set exceptfd;
