@@ -1304,7 +1304,10 @@ route_map_notify_dependencies (const char *affected_name, route_map_event_t even
   name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, affected_name);
 
   if ((upd8_hash = route_map_get_dep_hash(event)) == NULL)
-    return;
+    {
+      XFREE (MTYPE_ROUTE_MAP_NAME, name);
+      return;
+    }
 
   dep = (struct route_map_dep *)hash_get (upd8_hash, name,
 					  NULL);
