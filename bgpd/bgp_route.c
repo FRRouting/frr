@@ -5741,6 +5741,13 @@ bgp_aggregate_add (struct bgp *bgp, struct prefix *p, afi_t afi, safi_t safi,
       /* Process change. */
       bgp_process (bgp, rn, afi, safi);
     }
+  else
+    {
+      if (aspath)
+	aspath_free (aspath);
+      if (community)
+	community_free (community);
+    }
 }
 
 void
