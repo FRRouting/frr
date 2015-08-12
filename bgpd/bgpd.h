@@ -21,6 +21,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGPD_H
 #define _QUAGGA_BGPD_H
 
+#include "lib/json.h"
 /* For union sockunion.  */
 #include "queue.h"
 #include "sockunion.h"
@@ -1147,7 +1148,8 @@ extern struct peer *peer_create(union sockunion *, const char *, struct bgp *,
                                 as_t, as_t, int, afi_t, safi_t);
 extern struct peer *peer_create_accept (struct bgp *);
 extern void peer_xfer_config (struct peer *dst, struct peer *src);
-extern char *peer_uptime (time_t, char *, size_t);
+extern char *peer_uptime (time_t, char *, size_t, u_char, json_object *);
+
 extern int bgp_config_write (struct vty *);
 extern void bgp_config_write_family_header (struct vty *, afi_t, safi_t, int *);
 

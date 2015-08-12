@@ -20,6 +20,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
+#include "lib/json.h"
 #include "command.h"
 #include "prefix.h"
 #include "plist.h"
@@ -8573,8 +8574,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
               json_object_int_add(json_peer, "tableVersion", peer->version[afi][safi]);
               json_object_int_add(json_peer, "outq", peer->obuf->count);
               json_object_int_add(json_peer, "inq", 0);
-              json_object_string_add(json_peer, "uptime",
-                                     peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
+              peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN, use_json, json_peer);
               json_object_int_add(json_peer, "prefixReceivedCount", peer->pcount[afi][safi]);
               json_object_int_add(json_peer, "prefixAdvertisedCount", bgp_adj_out_count(peer, afi, safi));
 
@@ -8626,7 +8626,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                        peer->obuf->count);
 
               vty_out (vty, "%-8s",
-                       peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN));
+                       peer_uptime (peer->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL));
 
               if (peer->status == Established)
                   vty_out (vty, " %8ld", peer->pcount[afi][safi]);
@@ -8972,270 +8972,480 @@ enum show_type
 };
 
 static void
-bgp_show_peer_afi_orf_cap (struct vty *vty, struct peer *p,
-			   afi_t afi, safi_t safi,
-			   u_int16_t adv_smcap, u_int16_t adv_rmcap,
-			   u_int16_t rcv_smcap, u_int16_t rcv_rmcap)
+bgp_show_peer_afi_orf_cap (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
+                           u_int16_t adv_smcap, u_int16_t adv_rmcap, u_int16_t rcv_smcap,
+                           u_int16_t rcv_rmcap, u_char use_json, json_object *json_pref)
 {
   /* Send-Mode */
   if (CHECK_FLAG (p->af_cap[afi][safi], adv_smcap)
       || CHECK_FLAG (p->af_cap[afi][safi], rcv_smcap))
     {
-      vty_out (vty, "      Send-mode: ");
-      if (CHECK_FLAG (p->af_cap[afi][safi], adv_smcap))
-	vty_out (vty, "advertised");
-      if (CHECK_FLAG (p->af_cap[afi][safi], rcv_smcap))
-	vty_out (vty, "%sreceived",
-		 CHECK_FLAG (p->af_cap[afi][safi], adv_smcap) ?
-		 ", " : "");
-      vty_out (vty, "%s", VTY_NEWLINE);
+      if (use_json)
+        {
+          if (CHECK_FLAG (p->af_cap[afi][safi], adv_smcap) && CHECK_FLAG (p->af_cap[afi][safi], rcv_smcap))
+	    json_object_string_add(json_pref, "sendMode", "advertisedAndReceived");
+          else if (CHECK_FLAG (p->af_cap[afi][safi], adv_smcap))
+	    json_object_string_add(json_pref, "sendMode", "advertised");
+          else if (CHECK_FLAG (p->af_cap[afi][safi], rcv_smcap))
+	    json_object_string_add(json_pref, "sendMode", "received");
+        }
+      else
+        {
+          vty_out (vty, "      Send-mode: ");
+          if (CHECK_FLAG (p->af_cap[afi][safi], adv_smcap))
+	    vty_out (vty, "advertised");
+          if (CHECK_FLAG (p->af_cap[afi][safi], rcv_smcap))
+	    vty_out (vty, "%sreceived",
+		     CHECK_FLAG (p->af_cap[afi][safi], adv_smcap) ?
+	             ", " : "");
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
     }
 
   /* Receive-Mode */
   if (CHECK_FLAG (p->af_cap[afi][safi], adv_rmcap)
       || CHECK_FLAG (p->af_cap[afi][safi], rcv_rmcap))
     {
-      vty_out (vty, "      Receive-mode: ");
-      if (CHECK_FLAG (p->af_cap[afi][safi], adv_rmcap))
-	vty_out (vty, "advertised");
-      if (CHECK_FLAG (p->af_cap[afi][safi], rcv_rmcap))
-	vty_out (vty, "%sreceived",
-		 CHECK_FLAG (p->af_cap[afi][safi], adv_rmcap) ?
-		 ", " : "");
-      vty_out (vty, "%s", VTY_NEWLINE);
+      if (use_json)
+        {
+          if (CHECK_FLAG (p->af_cap[afi][safi], adv_rmcap) && CHECK_FLAG (p->af_cap[afi][safi], rcv_rmcap))
+	    json_object_string_add(json_pref, "recvMode", "advertisedAndReceived");
+          else if (CHECK_FLAG (p->af_cap[afi][safi], adv_rmcap))
+	    json_object_string_add(json_pref, "recvMode", "advertised");
+          else if (CHECK_FLAG (p->af_cap[afi][safi], rcv_rmcap))
+	    json_object_string_add(json_pref, "recvMode", "received");
+        }
+      else
+        {
+          vty_out (vty, "      Receive-mode: ");
+          if (CHECK_FLAG (p->af_cap[afi][safi], adv_rmcap))
+	    vty_out (vty, "advertised");
+          if (CHECK_FLAG (p->af_cap[afi][safi], rcv_rmcap))
+            vty_out (vty, "%sreceived",
+                     CHECK_FLAG (p->af_cap[afi][safi], adv_rmcap) ?
+                     ", " : "");
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
     }
 }
 
 static void
-bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
+bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
+                   u_char use_json, json_object *json_neigh)
 {
   struct bgp_filter *filter;
   struct peer_af *paf;
   char orf_pfx_name[BUFSIZ];
   int orf_pfx_count;
+  json_object *json_af = NULL;
+  json_object *json_prefA = NULL;
+  json_object *json_prefB = NULL;
+  json_object *json_addr = NULL;
 
-  filter = &p->filter[afi][safi];
-
-  vty_out (vty, " For address family: %s%s", afi_safi_print (afi, safi),
-	   VTY_NEWLINE);
-
-  if (p->af_group[afi][safi])
-    vty_out (vty, "  %s peer-group member%s", p->group->name, VTY_NEWLINE);
-
-  paf = peer_af_find(p, afi, safi);
-  if (paf && PAF_SUBGRP(paf))
+  if (use_json)
     {
-      vty_out (vty, "  Update group %" PRIu64 ", subgroup %" PRIu64 "%s",
-	       PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id, VTY_NEWLINE);
-      vty_out (vty, "  Packet Queue length %d%s",
-	       bpacket_queue_virtual_length(paf), VTY_NEWLINE);
-    } else
-    {
-      vty_out(vty, "  Not part of any update group%s", VTY_NEWLINE);
-    }
-  if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_RCV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
-    vty_out (vty, "  AF-dependant capabilities:%s", VTY_NEWLINE);
+      json_addr = json_object_new_object();
+      json_af = json_object_new_object();
+      json_prefA = json_object_new_object();
+      json_prefB = json_object_new_object();
+      filter = &p->filter[afi][safi];
 
-  if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_RCV))
-    {
-      vty_out (vty, "    Outbound Route Filter (ORF) type (%d) Prefix-list:%s",
-	       ORF_TYPE_PREFIX, VTY_NEWLINE);
-      bgp_show_peer_afi_orf_cap (vty, p, afi, safi,
-				 PEER_CAP_ORF_PREFIX_SM_ADV,
-				 PEER_CAP_ORF_PREFIX_RM_ADV,
-				 PEER_CAP_ORF_PREFIX_SM_RCV,
-				 PEER_CAP_ORF_PREFIX_RM_RCV);
-    }
-  if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
-      || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
-    {
-      vty_out (vty, "    Outbound Route Filter (ORF) type (%d) Prefix-list:%s",
-	       ORF_TYPE_PREFIX_OLD, VTY_NEWLINE);
-      bgp_show_peer_afi_orf_cap (vty, p, afi, safi,
-				 PEER_CAP_ORF_PREFIX_SM_ADV,
-				 PEER_CAP_ORF_PREFIX_RM_ADV,
-				 PEER_CAP_ORF_PREFIX_SM_OLD_RCV,
-				 PEER_CAP_ORF_PREFIX_RM_OLD_RCV);
-    }
+      if (p->af_group[afi][safi])
+        json_object_string_add(json_addr, "peerGroupMember", p->group->name);
 
-  sprintf (orf_pfx_name, "%s.%d.%d", p->host, afi, safi);
-  orf_pfx_count =  prefix_bgp_show_prefix_list (NULL, afi, orf_pfx_name);
+      paf = peer_af_find(p, afi, safi);
+      if (paf && PAF_SUBGRP(paf))
+        {
+          json_object_int_add(json_addr, "updateGroupId", PAF_UPDGRP(paf)->id);
+          json_object_int_add(json_addr, "subGroupId", PAF_SUBGRP(paf)->id);
+          json_object_int_add(json_addr, "packetQueueLength", bpacket_queue_virtual_length(paf));
+        }
 
-  if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_PREFIX_SEND)
-      || orf_pfx_count)
-    {
-      vty_out (vty, "  Outbound Route Filter (ORF):");
-      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_PREFIX_SEND))
-	  vty_out (vty, " sent;");
-      if (orf_pfx_count)
-	vty_out (vty, " received (%d entries)", orf_pfx_count);
-      vty_out (vty, "%s", VTY_NEWLINE);
-    }
-  if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH))
-      vty_out (vty, "  First update is deferred until ORF or ROUTE-REFRESH is received%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_RCV))
+        {
+          json_object_int_add(json_af, "orfType", ORF_TYPE_PREFIX);
+          bgp_show_peer_afi_orf_cap (vty, p, afi, safi,
+				     PEER_CAP_ORF_PREFIX_SM_ADV,
+				     PEER_CAP_ORF_PREFIX_RM_ADV,
+				     PEER_CAP_ORF_PREFIX_SM_RCV,
+				     PEER_CAP_ORF_PREFIX_RM_RCV, use_json, json_prefA);
+          json_object_object_add(json_af, "orfPrefixList", json_prefA);
+        }
 
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
-    vty_out (vty, "  Route-Reflector Client%s", VTY_NEWLINE);
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-    vty_out (vty, "  Route-Server Client%s", VTY_NEWLINE);
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
-    vty_out (vty, "  Inbound soft reconfiguration allowed%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
+        {
+          json_object_int_add(json_af, "orfOldType", ORF_TYPE_PREFIX_OLD);
+          bgp_show_peer_afi_orf_cap (vty, p, afi, safi,
+				     PEER_CAP_ORF_PREFIX_SM_ADV,
+				     PEER_CAP_ORF_PREFIX_RM_ADV,
+				     PEER_CAP_ORF_PREFIX_SM_OLD_RCV,
+				     PEER_CAP_ORF_PREFIX_RM_OLD_RCV, use_json, json_prefB);
+          json_object_object_add(json_af, "orfOldPrefixList", json_prefB);
+        }
 
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
-    vty_out (vty, "  Private AS numbers replaced in updates to this neighbor%s", VTY_NEWLINE);
-  else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
-    vty_out (vty, "  Private AS numbers removed in updates to this neighbor%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
+        json_object_object_add(json_addr, "afDependentCap", json_af);
 
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_OVERRIDE))
-    vty_out (vty, "  Override ASNs in outbound updates if aspath equals remote-as%s", VTY_NEWLINE);
+      sprintf (orf_pfx_name, "%s.%d.%d", p->host, afi, safi);
+      orf_pfx_count =  prefix_bgp_show_prefix_list (NULL, afi, orf_pfx_name, use_json);
 
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF) ||
-      CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF))
-    vty_out (vty, "  NEXT_HOP is always this router%s", VTY_NEWLINE);
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED))
-    vty_out (vty, "  AS_PATH is propagated unchanged to this neighbor%s", VTY_NEWLINE);
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
-    vty_out (vty, "  NEXT_HOP is propagated unchanged to this neighbor%s", VTY_NEWLINE);
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
-    vty_out (vty, "  MED is propagated unchanged to this neighbor%s", VTY_NEWLINE);
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
-      || CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
-    {
-      vty_out (vty, "  Community attribute sent to this neighbor");
+      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_PREFIX_SEND)
+          || orf_pfx_count)
+        {
+          if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_PREFIX_SEND))
+	    json_object_boolean_true_add(json_neigh, "orfSent");
+          if (orf_pfx_count)
+            json_object_int_add(json_addr, "orfRecvCounter", orf_pfx_count);
+        }
+      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH))
+        json_object_string_add(json_addr, "orfFirstUpdate", "deferredUntilORFOrRouteRefreshRecvd");
+
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
+        json_object_boolean_true_add(json_addr, "routeReflectorClient");
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+        json_object_boolean_true_add(json_addr, "routeServerClient");
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+        json_object_boolean_true_add(json_addr, "inboundSoftConfigPermit");
+
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+        json_object_boolean_true_add(json_addr, "privateAsNumsReplacedInUpdatesToNbr");
+      else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
+        json_object_boolean_true_add(json_addr, "privateAsNumsRemovedInUpdatesToNbr");
+
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_OVERRIDE))
+        json_object_string_add(json_addr, "overrideASNsInOutboundUpdates", "ifAspathEqualRemoteAs");
+
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF) ||
+          CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF))
+        json_object_boolean_true_add(json_addr, "routerAlwaysNextHop");
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED))
+        json_object_boolean_true_add(json_addr, "unchangedAsPathPropogatedToNbr");
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
+        json_object_boolean_true_add(json_addr, "unchangedNextHopPropogatedToNbr");
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
+        json_object_boolean_true_add(json_addr, "unchangedMedPropogatedToNbr");
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
-	&& CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
-	vty_out (vty, "(both)%s", VTY_NEWLINE);
-      else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
-	vty_out (vty, "(extended)%s", VTY_NEWLINE);
-      else 
-	vty_out (vty, "(standard)%s", VTY_NEWLINE);
-    }
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
-    {
-      vty_out (vty, "  Default information originate,");
+          || CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
+        {
+          if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
+	      && CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
+	    json_object_string_add(json_addr, "commAttriSentToNbr", "extendedAndStandard");
+          else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
+	    json_object_string_add(json_addr, "commAttriSentToNbr", "extended");
+          else
+	    json_object_string_add(json_addr, "commAttriSentToNbr", "standard");
+        }
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+        {
+          if (p->default_rmap[afi][safi].name)
+	    json_object_string_add(json_addr, "defaultRouteMap", p->default_rmap[afi][safi].name);
 
-      if (p->default_rmap[afi][safi].name)
-	vty_out (vty, " default route-map %s%s,",
-		 p->default_rmap[afi][safi].map ? "*" : "",
-		 p->default_rmap[afi][safi].name);
-      if (paf && PAF_SUBGRP(paf) && CHECK_FLAG(PAF_SUBGRP(paf)->sflags,
-					     SUBGRP_STATUS_DEFAULT_ORIGINATE))
-	vty_out (vty, " default sent%s", VTY_NEWLINE);
+          if (paf && PAF_SUBGRP(paf) && CHECK_FLAG(PAF_SUBGRP(paf)->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+            json_object_boolean_true_add(json_addr, "defaultSent");
+          else
+            json_object_boolean_true_add(json_addr, "defaultNotSent");
+        }
+
+      if (filter->plist[FILTER_IN].name
+          || filter->dlist[FILTER_IN].name
+          || filter->aslist[FILTER_IN].name
+          || filter->map[RMAP_IN].name)
+        json_object_boolean_true_add(json_addr, "inboundPathPolicyConfig");
+      if (filter->plist[FILTER_OUT].name
+          || filter->dlist[FILTER_OUT].name
+          || filter->aslist[FILTER_OUT].name
+          || filter->map[RMAP_OUT].name
+          || filter->usmap.name)
+        json_object_boolean_true_add(json_addr, "outboundPathPolicyConfig");
+      if (filter->map[RMAP_IMPORT].name)
+        json_object_boolean_true_add(json_addr, "importPolicyRsClientConfig");
+      if (filter->map[RMAP_EXPORT].name)
+        json_object_boolean_true_add(json_addr, "exportPolicyRsClientConfig");
+
+      /* prefix-list */
+      if (filter->plist[FILTER_IN].name)
+        json_object_string_add(json_addr, "incomingUpdatePrefixFilterList", filter->plist[FILTER_IN].name);
+      if (filter->plist[FILTER_OUT].name)
+        json_object_string_add(json_addr, "outgoingUpdatePrefixFilterList", filter->plist[FILTER_OUT].name);
+
+      /* distribute-list */
+      if (filter->dlist[FILTER_IN].name)
+        json_object_string_add(json_addr, "incomingUpdateNetworkFilterList", filter->dlist[FILTER_IN].name);
+      if (filter->dlist[FILTER_OUT].name)
+        json_object_string_add(json_addr, "outgoingUpdateNetworkFilterList", filter->dlist[FILTER_OUT].name);
+
+      /* filter-list. */
+      if (filter->aslist[FILTER_IN].name)
+        json_object_string_add(json_addr, "incomingUpdateAsPathFilterList", filter->aslist[FILTER_IN].name);
+      if (filter->aslist[FILTER_OUT].name)
+        json_object_string_add(json_addr, "outgoingUpdateAsPathFilterList", filter->aslist[FILTER_OUT].name);
+
+      /* route-map. */
+      if (filter->map[RMAP_IN].name)
+        json_object_string_add(json_addr, "routeMapForIncomingAdvertisements", filter->map[RMAP_IN].name);
+      if (filter->map[RMAP_OUT].name)
+        json_object_string_add(json_addr, "routeMapForOutgoingAdvertisements", filter->map[RMAP_OUT].name);
+      if (filter->map[RMAP_IMPORT].name)
+        json_object_string_add(json_addr, "routeMapForAdvertisementsIntoRsClient", filter->map[RMAP_IMPORT].name);
+      if (filter->map[RMAP_EXPORT].name)
+        json_object_string_add(json_addr, "routeMapForAdvertisementsFromRsClient", filter->map[RMAP_EXPORT].name);
+
+      /* unsuppress-map */
+      if (filter->usmap.name)
+        json_object_string_add(json_addr, "selectiveUnsuppressRouteMap", filter->usmap.name);
+
+      /* Receive prefix count */
+      json_object_int_add(json_addr, "acceptedPrefixCounter", p->pcount[afi][safi]);
+
+      /* Maximum prefix */
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
+        {
+          json_object_int_add(json_addr, "prefixAllowedMax", p->pmax[afi][safi]);
+          if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
+            json_object_boolean_true_add(json_addr, "prefixAllowedMaxWarning");
+          json_object_int_add(json_addr, "prefixAllowedWarningThresh", p->pmax_threshold[afi][safi]);
+          if (p->pmax_restart[afi][safi])
+            json_object_int_add(json_addr, "prefixAllowedRestartIntervalMsecs", p->pmax_restart[afi][safi] * 60000);
+        }
+      json_object_object_add(json_neigh, afi_safi_print (afi, safi), json_addr);
+
+    }
+  else
+    {
+      filter = &p->filter[afi][safi];
+
+      vty_out (vty, " For address family: %s%s", afi_safi_print (afi, safi),
+	       VTY_NEWLINE);
+
+      if (p->af_group[afi][safi])
+        vty_out (vty, "  %s peer-group member%s", p->group->name, VTY_NEWLINE);
+
+      paf = peer_af_find(p, afi, safi);
+      if (paf && PAF_SUBGRP(paf))
+        {
+          vty_out (vty, "  Update group %" PRIu64 ", subgroup %" PRIu64 "%s",
+	           PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id, VTY_NEWLINE);
+          vty_out (vty, "  Packet Queue length %d%s",
+                   bpacket_queue_virtual_length(paf), VTY_NEWLINE);
+        }
       else
-	vty_out (vty, " default not sent%s", VTY_NEWLINE);
-    }
+        {
+          vty_out(vty, "  Not part of any update group%s", VTY_NEWLINE);
+        }
+      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
+        vty_out (vty, "  AF-dependant capabilities:%s", VTY_NEWLINE);
 
-  if (filter->plist[FILTER_IN].name
-      || filter->dlist[FILTER_IN].name
-      || filter->aslist[FILTER_IN].name
-      || filter->map[RMAP_IN].name)
-    vty_out (vty, "  Inbound path policy configured%s", VTY_NEWLINE);
-  if (filter->plist[FILTER_OUT].name
-      || filter->dlist[FILTER_OUT].name
-      || filter->aslist[FILTER_OUT].name
-      || filter->map[RMAP_OUT].name
-      || filter->usmap.name)
-    vty_out (vty, "  Outbound path policy configured%s", VTY_NEWLINE);
-  if (filter->map[RMAP_IMPORT].name)
-    vty_out (vty, "  Import policy for this RS-client configured%s", VTY_NEWLINE);
-  if (filter->map[RMAP_EXPORT].name)
-    vty_out (vty, "  Export policy for this RS-client configured%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_RCV))
+        {
+          vty_out (vty, "    Outbound Route Filter (ORF) type (%d) Prefix-list:%s",
+                   ORF_TYPE_PREFIX, VTY_NEWLINE);
+          bgp_show_peer_afi_orf_cap (vty, p, afi, safi,
+				     PEER_CAP_ORF_PREFIX_SM_ADV,
+				     PEER_CAP_ORF_PREFIX_RM_ADV,
+				     PEER_CAP_ORF_PREFIX_SM_RCV,
+				     PEER_CAP_ORF_PREFIX_RM_RCV, use_json, NULL);
+        }
+      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
+          || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
+        {
+          vty_out (vty, "    Outbound Route Filter (ORF) type (%d) Prefix-list:%s",
+	           ORF_TYPE_PREFIX_OLD, VTY_NEWLINE);
+          bgp_show_peer_afi_orf_cap (vty, p, afi, safi,
+				     PEER_CAP_ORF_PREFIX_SM_ADV,
+				     PEER_CAP_ORF_PREFIX_RM_ADV,
+				     PEER_CAP_ORF_PREFIX_SM_OLD_RCV,
+				     PEER_CAP_ORF_PREFIX_RM_OLD_RCV, use_json, NULL);
+        }
 
-  /* prefix-list */
-  if (filter->plist[FILTER_IN].name)
-    vty_out (vty, "  Incoming update prefix filter list is %s%s%s",
-	     filter->plist[FILTER_IN].plist ? "*" : "",
-	     filter->plist[FILTER_IN].name,
-	     VTY_NEWLINE);
-  if (filter->plist[FILTER_OUT].name)
-    vty_out (vty, "  Outgoing update prefix filter list is %s%s%s",
-	     filter->plist[FILTER_OUT].plist ? "*" : "",
-	     filter->plist[FILTER_OUT].name,
-	     VTY_NEWLINE);
+      sprintf (orf_pfx_name, "%s.%d.%d", p->host, afi, safi);
+      orf_pfx_count =  prefix_bgp_show_prefix_list (NULL, afi, orf_pfx_name, use_json);
 
-  /* distribute-list */
-  if (filter->dlist[FILTER_IN].name)
-    vty_out (vty, "  Incoming update network filter list is %s%s%s",
-	     filter->dlist[FILTER_IN].alist ? "*" : "",
-	     filter->dlist[FILTER_IN].name,
-	     VTY_NEWLINE);
-  if (filter->dlist[FILTER_OUT].name)
-    vty_out (vty, "  Outgoing update network filter list is %s%s%s",
-	     filter->dlist[FILTER_OUT].alist ? "*" : "",
-	     filter->dlist[FILTER_OUT].name,
-	     VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_PREFIX_SEND)
+          || orf_pfx_count)
+        {
+          vty_out (vty, "  Outbound Route Filter (ORF):");
+          if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_PREFIX_SEND))
+	      vty_out (vty, " sent;");
+          if (orf_pfx_count)
+            vty_out (vty, " received (%d entries)", orf_pfx_count);
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
+      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH))
+          vty_out (vty, "  First update is deferred until ORF or ROUTE-REFRESH is received%s", VTY_NEWLINE);
 
-  /* filter-list. */
-  if (filter->aslist[FILTER_IN].name)
-    vty_out (vty, "  Incoming update AS path filter list is %s%s%s",
-	     filter->aslist[FILTER_IN].aslist ? "*" : "",
-	     filter->aslist[FILTER_IN].name,
-	     VTY_NEWLINE);
-  if (filter->aslist[FILTER_OUT].name)
-    vty_out (vty, "  Outgoing update AS path filter list is %s%s%s",
-	     filter->aslist[FILTER_OUT].aslist ? "*" : "",
-	     filter->aslist[FILTER_OUT].name,
-	     VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
+        vty_out (vty, "  Route-Reflector Client%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+        vty_out (vty, "  Route-Server Client%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+        vty_out (vty, "  Inbound soft reconfiguration allowed%s", VTY_NEWLINE);
 
-  /* route-map. */
-  if (filter->map[RMAP_IN].name)
-    vty_out (vty, "  Route map for incoming advertisements is %s%s%s",
-            filter->map[RMAP_IN].map ? "*" : "",
-            filter->map[RMAP_IN].name,
-	     VTY_NEWLINE);
-  if (filter->map[RMAP_OUT].name)
-    vty_out (vty, "  Route map for outgoing advertisements is %s%s%s",
-            filter->map[RMAP_OUT].map ? "*" : "",
-            filter->map[RMAP_OUT].name,
-            VTY_NEWLINE);
-  if (filter->map[RMAP_IMPORT].name)
-    vty_out (vty, "  Route map for advertisements going into this RS-client's table is %s%s%s",
-            filter->map[RMAP_IMPORT].map ? "*" : "",
-            filter->map[RMAP_IMPORT].name,
-            VTY_NEWLINE);
-  if (filter->map[RMAP_EXPORT].name)
-    vty_out (vty, "  Route map for advertisements coming from this RS-client is %s%s%s",
-            filter->map[RMAP_EXPORT].map ? "*" : "",
-            filter->map[RMAP_EXPORT].name,
-	     VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+        vty_out (vty, "  Private AS numbers replaced in updates to this neighbor%s", VTY_NEWLINE);
+      else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
+        vty_out (vty, "  Private AS numbers removed in updates to this neighbor%s", VTY_NEWLINE);
 
-  /* unsuppress-map */
-  if (filter->usmap.name)
-    vty_out (vty, "  Route map for selective unsuppress is %s%s%s",
-	     filter->usmap.map ? "*" : "",
-	     filter->usmap.name, VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_OVERRIDE))
+        vty_out (vty, "  Override ASNs in outbound updates if aspath equals remote-as%s", VTY_NEWLINE);
 
-  /* Receive prefix count */
-  vty_out (vty, "  %ld accepted prefixes%s", p->pcount[afi][safi], VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF) ||
+          CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF))
+        vty_out (vty, "  NEXT_HOP is always this router%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED))
+        vty_out (vty, "  AS_PATH is propagated unchanged to this neighbor%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
+        vty_out (vty, "  NEXT_HOP is propagated unchanged to this neighbor%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
+        vty_out (vty, "  MED is propagated unchanged to this neighbor%s", VTY_NEWLINE);
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
+          || CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
+        {
+          vty_out (vty, "  Community attribute sent to this neighbor");
+          if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
+	      && CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
+	    vty_out (vty, "(both)%s", VTY_NEWLINE);
+          else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
+	    vty_out (vty, "(extended)%s", VTY_NEWLINE);
+          else
+	    vty_out (vty, "(standard)%s", VTY_NEWLINE);
+        }
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+        {
+          vty_out (vty, "  Default information originate,");
 
-  /* Maximum prefix */
-  if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
-    {
-      vty_out (vty, "  Maximum prefixes allowed %ld%s%s", p->pmax[afi][safi],
-	       CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING)
-	       ? " (warning-only)" : "", VTY_NEWLINE);
-      vty_out (vty, "  Threshold for warning message %d%%",
-	       p->pmax_threshold[afi][safi]);
-      if (p->pmax_restart[afi][safi])
-	vty_out (vty, ", restart interval %d min", p->pmax_restart[afi][safi]);
+          if (p->default_rmap[afi][safi].name)
+	    vty_out (vty, " default route-map %s%s,",
+	             p->default_rmap[afi][safi].map ? "*" : "",
+	             p->default_rmap[afi][safi].name);
+          if (paf && PAF_SUBGRP(paf) && CHECK_FLAG(PAF_SUBGRP(paf)->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+            vty_out (vty, " default sent%s", VTY_NEWLINE);
+          else
+            vty_out (vty, " default not sent%s", VTY_NEWLINE);
+        }
+
+      if (filter->plist[FILTER_IN].name
+          || filter->dlist[FILTER_IN].name
+          || filter->aslist[FILTER_IN].name
+          || filter->map[RMAP_IN].name)
+        vty_out (vty, "  Inbound path policy configured%s", VTY_NEWLINE);
+      if (filter->plist[FILTER_OUT].name
+          || filter->dlist[FILTER_OUT].name
+          || filter->aslist[FILTER_OUT].name
+          || filter->map[RMAP_OUT].name
+          || filter->usmap.name)
+        vty_out (vty, "  Outbound path policy configured%s", VTY_NEWLINE);
+      if (filter->map[RMAP_IMPORT].name)
+        vty_out (vty, "  Import policy for this RS-client configured%s", VTY_NEWLINE);
+      if (filter->map[RMAP_EXPORT].name)
+        vty_out (vty, "  Export policy for this RS-client configured%s", VTY_NEWLINE);
+
+      /* prefix-list */
+      if (filter->plist[FILTER_IN].name)
+        vty_out (vty, "  Incoming update prefix filter list is %s%s%s",
+	         filter->plist[FILTER_IN].plist ? "*" : "",
+	         filter->plist[FILTER_IN].name,
+	         VTY_NEWLINE);
+      if (filter->plist[FILTER_OUT].name)
+        vty_out (vty, "  Outgoing update prefix filter list is %s%s%s",
+	         filter->plist[FILTER_OUT].plist ? "*" : "",
+	         filter->plist[FILTER_OUT].name,
+	         VTY_NEWLINE);
+
+      /* distribute-list */
+      if (filter->dlist[FILTER_IN].name)
+        vty_out (vty, "  Incoming update network filter list is %s%s%s",
+	         filter->dlist[FILTER_IN].alist ? "*" : "",
+	         filter->dlist[FILTER_IN].name,
+	         VTY_NEWLINE);
+      if (filter->dlist[FILTER_OUT].name)
+        vty_out (vty, "  Outgoing update network filter list is %s%s%s",
+	         filter->dlist[FILTER_OUT].alist ? "*" : "",
+	         filter->dlist[FILTER_OUT].name,
+	         VTY_NEWLINE);
+
+      /* filter-list. */
+      if (filter->aslist[FILTER_IN].name)
+        vty_out (vty, "  Incoming update AS path filter list is %s%s%s",
+	         filter->aslist[FILTER_IN].aslist ? "*" : "",
+	         filter->aslist[FILTER_IN].name,
+	         VTY_NEWLINE);
+      if (filter->aslist[FILTER_OUT].name)
+        vty_out (vty, "  Outgoing update AS path filter list is %s%s%s",
+	         filter->aslist[FILTER_OUT].aslist ? "*" : "",
+	         filter->aslist[FILTER_OUT].name,
+	         VTY_NEWLINE);
+
+      /* route-map. */
+      if (filter->map[RMAP_IN].name)
+        vty_out (vty, "  Route map for incoming advertisements is %s%s%s",
+                 filter->map[RMAP_IN].map ? "*" : "",
+                 filter->map[RMAP_IN].name,
+	         VTY_NEWLINE);
+      if (filter->map[RMAP_OUT].name)
+        vty_out (vty, "  Route map for outgoing advertisements is %s%s%s",
+                 filter->map[RMAP_OUT].map ? "*" : "",
+                 filter->map[RMAP_OUT].name,
+                 VTY_NEWLINE);
+      if (filter->map[RMAP_IMPORT].name)
+        vty_out (vty, "  Route map for advertisements going into this RS-client's table is %s%s%s",
+                 filter->map[RMAP_IMPORT].map ? "*" : "",
+                 filter->map[RMAP_IMPORT].name,
+                 VTY_NEWLINE);
+      if (filter->map[RMAP_EXPORT].name)
+        vty_out (vty, "  Route map for advertisements coming from this RS-client is %s%s%s",
+                 filter->map[RMAP_EXPORT].map ? "*" : "",
+                 filter->map[RMAP_EXPORT].name,
+	         VTY_NEWLINE);
+
+      /* unsuppress-map */
+      if (filter->usmap.name)
+        vty_out (vty, "  Route map for selective unsuppress is %s%s%s",
+	         filter->usmap.map ? "*" : "",
+	         filter->usmap.name, VTY_NEWLINE);
+
+      /* Receive prefix count */
+      vty_out (vty, "  %ld accepted prefixes%s", p->pcount[afi][safi], VTY_NEWLINE);
+
+      /* Maximum prefix */
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
+        {
+          vty_out (vty, "  Maximum prefixes allowed %ld%s%s", p->pmax[afi][safi],
+	           CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING)
+	           ? " (warning-only)" : "", VTY_NEWLINE);
+          vty_out (vty, "  Threshold for warning message %d%%",
+	           p->pmax_threshold[afi][safi]);
+          if (p->pmax_restart[afi][safi])
+            vty_out (vty, ", restart interval %d min", p->pmax_restart[afi][safi]);
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
+
       vty_out (vty, "%s", VTY_NEWLINE);
     }
-
-  vty_out (vty, "%s", VTY_NEWLINE);
 }
 
 static void
-bgp_show_peer (struct vty *vty, struct peer *p)
+bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *json, json_object *json_neigh)
 {
   struct bgp *bgp;
   char buf1[BUFSIZ], buf[SU_ADDRSTRLEN];
@@ -9248,115 +9458,248 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 
   bgp = p->bgp;
 
-  if (p->conf_if) /* Configured interface name. */
-    vty_out (vty, "BGP neighbor on %s: %s, ", p->conf_if,
-             BGP_PEER_SU_UNSPEC(p) ? "None" :
-             sockunion2str (&p->su, buf, SU_ADDRSTRLEN));
-  else /* Configured IP address. */
+  if (!use_json)
     {
-      memset(dn_flag, '\0', sizeof(dn_flag));
-      if (peer_dynamic_neighbor(p))
-        dn_flag[0] = '*';
+      if (p->conf_if) /* Configured interface name. */
+        vty_out (vty, "BGP neighbor on %s: %s, ", p->conf_if,
+                 BGP_PEER_SU_UNSPEC(p) ? "None" :
+                 sockunion2str (&p->su, buf, SU_ADDRSTRLEN));
+      else /* Configured IP address. */
+        {
+          memset(dn_flag, '\0', sizeof(dn_flag));
+          if (peer_dynamic_neighbor(p))
+            dn_flag[0] = '*';
 
-      vty_out (vty, "BGP neighbor is %s%s, ", dn_flag, p->host);
+          vty_out (vty, "BGP neighbor is %s%s, ", dn_flag, p->host);
+        }
     }
 
-  vty_out (vty, "remote AS %u, ", p->as);
-  vty_out (vty, "local AS %u%s%s, ",
-	   p->change_local_as ? p->change_local_as : p->local_as,
-	   CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) ?
-	   " no-prepend" : "",
-	   CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) ?
-	   " replace-as" : "");
-
-  /* peer type internal, external, confed-internal or confed-external */
-  if (p->as == p->local_as)
+  if (use_json)
     {
-      if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
-        vty_out (vty, "confed-internal link%s", VTY_NEWLINE);
+      if (p->conf_if && BGP_PEER_SU_UNSPEC(p))
+        json_object_string_add(json_neigh, "bgpNeighborAddr", "none");
+      else if (p->conf_if && !BGP_PEER_SU_UNSPEC(p))
+        json_object_string_add(json_neigh, "bgpNeighborAddr", sockunion2str (&p->su, buf, SU_ADDRSTRLEN));
+
+      json_object_int_add(json_neigh, "remoteAs", p->as);
+
+      if (p->change_local_as)
+        json_object_int_add(json_neigh, "localAs", p->change_local_as);
       else
-        vty_out (vty, "internal link%s", VTY_NEWLINE);
+        json_object_int_add(json_neigh, "localAs", p->local_as);
+
+      if (CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND))
+        json_object_boolean_true_add(json_neigh, "localAsNoPrepend");
+
+      if (CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS))
+        json_object_boolean_true_add(json_neigh, "localAsReplaceAs");
     }
   else
     {
-      if (bgp_confederation_peers_check(bgp, p->as))
-        vty_out (vty, "confed-external link%s", VTY_NEWLINE);
+      vty_out (vty, "remote AS %u, ", p->as);
+      vty_out (vty, "local AS %u%s%s, ",
+	       p->change_local_as ? p->change_local_as : p->local_as,
+	       CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) ?
+	       " no-prepend" : "",
+	       CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) ?
+	       " replace-as" : "");
+    }
+  /* peer type internal, external, confed-internal or confed-external */
+  if (p->as == p->local_as)
+    {
+      if (use_json)
+        {
+          if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
+            json_object_boolean_true_add(json_neigh, "nbrConfedInternalLink");
+          else
+            json_object_boolean_true_add(json_neigh, "nbrInternalLink");
+        }
       else
-        vty_out (vty, "external link%s", VTY_NEWLINE);
+        {
+          if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
+            vty_out (vty, "confed-internal link%s", VTY_NEWLINE);
+          else
+            vty_out (vty, "internal link%s", VTY_NEWLINE);
+        }
+    }
+  else
+    {
+      if (use_json)
+        {
+          if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
+            json_object_boolean_true_add(json_neigh, "nbrConfedExternalLink");
+          else
+            json_object_boolean_true_add(json_neigh, "nbrExternalLink");
+        }
+      else
+        {
+         if (bgp_confederation_peers_check(bgp, p->as))
+           vty_out (vty, "confed-external link%s", VTY_NEWLINE);
+         else
+           vty_out (vty, "external link%s", VTY_NEWLINE);
+        }
     }
 
   /* Description. */
   if (p->desc)
-    vty_out (vty, " Description: %s%s", p->desc, VTY_NEWLINE);
+    {
+      if (use_json)
+        json_object_string_add(json_neigh, "nbrDesc", p->desc);
+      else
+        vty_out (vty, " Description: %s%s", p->desc, VTY_NEWLINE);
+    }
 
   /* Peer-group */
   if (p->group)
     {
-      vty_out (vty, " Member of peer-group %s for session parameters%s",
-               p->group->name, VTY_NEWLINE);
-
-      if (dn_flag[0])
+      if (use_json)
         {
-          struct prefix *prefix = NULL, *range = NULL;
+          json_object_string_add(json_neigh, "peerGroup", p->group->name);
 
-          prefix = sockunion2hostprefix(&(p->su));
-          if (prefix)
-            range = peer_group_lookup_dynamic_neighbor_range (p->group,
-                                                              prefix);
-          if (range)
+          if (dn_flag[0])
             {
-              prefix2str(range, buf1, sizeof(buf1));
-              vty_out (vty, " Belongs to the subnet range group: %s%s",
-                       buf1, VTY_NEWLINE);
+              struct prefix *prefix = NULL, *range = NULL;
+
+              prefix = sockunion2hostprefix(&(p->su));
+              if (prefix)
+                range = peer_group_lookup_dynamic_neighbor_range (p->group, prefix);
+
+              if (range)
+                {
+                  prefix2str(range, buf1, sizeof(buf1));
+                  json_object_string_add(json_neigh, "peerSubnetRangeGroup", buf1);
+                }
+            }
+        }
+      else
+        {
+          vty_out (vty, " Member of peer-group %s for session parameters%s",
+                   p->group->name, VTY_NEWLINE);
+
+          if (dn_flag[0])
+            {
+              struct prefix *prefix = NULL, *range = NULL;
+
+              prefix = sockunion2hostprefix(&(p->su));
+              if (prefix)
+                range = peer_group_lookup_dynamic_neighbor_range (p->group, prefix);
+
+              if (range)
+                {
+                  prefix2str(range, buf1, sizeof(buf1));
+                  vty_out (vty, " Belongs to the subnet range group: %s%s", buf1, VTY_NEWLINE);
+                }
             }
         }
     }
 
-  /* Administrative shutdown. */
-  if (CHECK_FLAG (p->flags, PEER_FLAG_SHUTDOWN))
-    vty_out (vty, " Administratively shut down%s", VTY_NEWLINE);
-
-  /* BGP Version. */
-  vty_out (vty, "  BGP version 4");
-  vty_out (vty, ", remote router ID %s%s", 
-	   inet_ntop (AF_INET, &p->remote_id, buf1, BUFSIZ),
-	   VTY_NEWLINE);
-
-  /* Confederation */
-  if (CHECK_FLAG (bgp->config, BGP_CONFIG_CONFEDERATION)
-      && bgp_confederation_peers_check (bgp, p->as))
-    vty_out (vty, "  Neighbor under common administration%s", VTY_NEWLINE);
-  
-  /* Status. */
-  vty_out (vty, "  BGP state = %s",  
-	   LOOKUP (bgp_status_msg, p->status));
-  if (p->status == Established) 
-    vty_out (vty, ", up for %8s", 
-	     peer_uptime (p->uptime, timebuf, BGP_UPTIME_LEN));
-  else if (p->status == Active)
+  if (use_json)
     {
-      if (CHECK_FLAG (p->flags, PEER_FLAG_PASSIVE))
-	vty_out (vty, " (passive)"); 
-      else if (CHECK_FLAG (p->sflags, PEER_STATUS_NSF_WAIT))
-	vty_out (vty, " (NSF passive)"); 
-    }
-  vty_out (vty, "%s", VTY_NEWLINE);
-  
-  /* read timer */
-  vty_out (vty, "  Last read %s", peer_uptime (p->readtime, timebuf, BGP_UPTIME_LEN));
-  vty_out (vty, ", Last write %s%s",
-	   peer_uptime (p->last_write, timebuf, BGP_UPTIME_LEN), VTY_NEWLINE);
+      /* Administrative shutdown. */
+      if (CHECK_FLAG (p->flags, PEER_FLAG_SHUTDOWN))
+        json_object_boolean_true_add(json_neigh, "adminShutDown");
 
-  /* Configured timer values. */
-  vty_out (vty, "  Hold time is %d, keepalive interval is %d seconds%s",
-	   p->v_holdtime, p->v_keepalive, VTY_NEWLINE);
-  if (CHECK_FLAG (p->config, PEER_CONFIG_TIMER))
+      /* BGP Version. */
+      json_object_int_add(json_neigh, "bgpVersion", 4);
+      json_object_string_add(json_neigh, "remoteRouterId", inet_ntop (AF_INET, &p->remote_id, buf1, BUFSIZ));
+
+      /* Confederation */
+      if (CHECK_FLAG (bgp->config, BGP_CONFIG_CONFEDERATION) && bgp_confederation_peers_check (bgp, p->as))
+        json_object_boolean_true_add(json_neigh, "nbrCommonAdmin");
+
+      /* Status. */
+      json_object_string_add(json_neigh, "bgpState", LOOKUP (bgp_status_msg, p->status));
+
+      if (p->status == Established)
+        {
+          time_t uptime;
+          struct tm *tm;
+
+          uptime = bgp_clock();
+          uptime -= p->uptime;
+          tm = gmtime(&uptime);
+
+          json_object_int_add(json_neigh, "bgpTimerUp", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+        }
+
+      else if (p->status == Active)
+        {
+          if (CHECK_FLAG (p->flags, PEER_FLAG_PASSIVE))
+            json_object_string_add(json_neigh, "bgpStateIs", "passive");
+          else if (CHECK_FLAG (p->sflags, PEER_STATUS_NSF_WAIT))
+            json_object_string_add(json_neigh, "bgpStateIs", "passiveNSF");
+        }
+
+      /* read timer */
+      time_t uptime;
+      struct tm *tm;
+
+      uptime = bgp_clock();
+      uptime -= p->readtime;
+      tm = gmtime(&uptime);
+      json_object_int_add(json_neigh, "bgpTimerLastRead", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+
+      uptime = bgp_clock();
+      uptime -= p->last_write;
+      tm = gmtime(&uptime);
+      json_object_int_add(json_neigh, "bgpTimerLastRead", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+
+      /* Configured timer values. */
+      json_object_int_add(json_neigh, "bgpTimerHoldTimeMsecs", p->v_holdtime * 1000);
+      json_object_int_add(json_neigh, "bgpTimerKeepAliveIntervalMsecs", p->v_keepalive * 1000);
+
+      if (CHECK_FLAG (p->config, PEER_CONFIG_TIMER))
+        {
+          json_object_int_add(json_neigh, "bgpTimerConfiguredHoldTimeMsecs", p->holdtime * 1000);
+          json_object_int_add(json_neigh, "bgpTimerConfiguredKeepAliveIntervalMsecs", p->keepalive * 1000);
+        }
+    }
+  else
     {
-      vty_out (vty, "  Configured hold time is %d", p->holdtime);
-      vty_out (vty, ", keepalive interval is %d seconds%s",
-	       p->keepalive, VTY_NEWLINE);
-    }
+      /* Administrative shutdown. */
+      if (CHECK_FLAG (p->flags, PEER_FLAG_SHUTDOWN))
+        vty_out (vty, " Administratively shut down%s", VTY_NEWLINE);
 
+      /* BGP Version. */
+      vty_out (vty, "  BGP version 4");
+      vty_out (vty, ", remote router ID %s%s", inet_ntop (AF_INET, &p->remote_id, buf1, BUFSIZ),
+               VTY_NEWLINE);
+
+      /* Confederation */
+      if (CHECK_FLAG (bgp->config, BGP_CONFIG_CONFEDERATION)
+          && bgp_confederation_peers_check (bgp, p->as))
+        vty_out (vty, "  Neighbor under common administration%s", VTY_NEWLINE);
+  
+      /* Status. */
+      vty_out (vty, "  BGP state = %s", LOOKUP (bgp_status_msg, p->status));
+
+      if (p->status == Established)
+        vty_out (vty, ", up for %8s", peer_uptime (p->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL));
+
+      else if (p->status == Active)
+        {
+          if (CHECK_FLAG (p->flags, PEER_FLAG_PASSIVE))
+            vty_out (vty, " (passive)");
+        else if (CHECK_FLAG (p->sflags, PEER_STATUS_NSF_WAIT))
+               vty_out (vty, " (NSF passive)");
+        }
+      vty_out (vty, "%s", VTY_NEWLINE);
+
+      /* read timer */
+      vty_out (vty, "  Last read %s", peer_uptime (p->readtime, timebuf, BGP_UPTIME_LEN, 0, NULL));
+      vty_out (vty, ", Last write %s%s",
+               peer_uptime (p->last_write, timebuf, BGP_UPTIME_LEN, 0, NULL), VTY_NEWLINE);
+
+      /* Configured timer values. */
+      vty_out (vty, "  Hold time is %d, keepalive interval is %d seconds%s",
+	       p->v_holdtime, p->v_keepalive, VTY_NEWLINE);
+      if (CHECK_FLAG (p->config, PEER_CONFIG_TIMER))
+        {
+          vty_out (vty, "  Configured hold time is %d", p->holdtime);
+          vty_out (vty, ", keepalive interval is %d seconds%s",
+	           p->keepalive, VTY_NEWLINE);
+        }
+    }
   /* Capability. */
   if (p->status == Established) 
     {
@@ -9374,163 +9717,365 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	  || p->afc_adv[AFI_IP][SAFI_MPLS_VPN]
 	  || p->afc_recv[AFI_IP][SAFI_MPLS_VPN])
 	{
-	  vty_out (vty, "  Neighbor capabilities:%s", VTY_NEWLINE);
-
-	  /* AS4 */
-	  if (CHECK_FLAG (p->cap, PEER_CAP_AS4_RCV)
-	      || CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV))
-	    {
-	      vty_out (vty, "    4 Byte AS:");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV))
-		vty_out (vty, " advertised");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_AS4_RCV))
-		vty_out (vty, " %sreceived",
-			 CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV) ? "and " : "");
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
-
-	  /* AddPath */
-	  if (CHECK_FLAG (p->cap, PEER_CAP_ADDPATH_RCV)
-	      || CHECK_FLAG (p->cap, PEER_CAP_ADDPATH_ADV))
+          if (use_json)
             {
-	      vty_out (vty, "    AddPath:%s", VTY_NEWLINE);
+	      json_object *json_cap = NULL;
 
-              for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
-                for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
-                  {
+              json_cap = json_object_new_object();
 
-                    if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ||
-                        CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
+	      /* AS4 */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_AS4_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV))
+	        {
+	          if (CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV) && CHECK_FLAG (p->cap, PEER_CAP_AS4_RCV))
+		    json_object_string_add(json_cap, "4byteAs", "advertisedAndReceived");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV))
+		    json_object_string_add(json_cap, "4byteAs", "advertised");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_AS4_RCV))
+		    json_object_string_add(json_cap, "4byteAs", "received");
+	        }
+
+	      /* AddPath */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_ADDPATH_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_ADDPATH_ADV))
+                {
+	          json_object *json_add = NULL;
+                  const char *print_store;
+
+                  json_add = json_object_new_object();
+
+                  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+                    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
                       {
-                        vty_out (vty, "      %s: TX ", afi_safi_print (afi, safi));
+	                json_object *json_sub = NULL;
+                        json_sub = json_object_new_object();
+                        print_store = afi_safi_print (afi, safi);
 
-                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV))
-                          vty_out (vty, "advertised %s", afi_safi_print (afi, safi));
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ||
+                            CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
+                          {
+	                    if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) && CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
+	                      json_object_boolean_true_add(json_sub, "txAdvertisedAndReceived");
+	                    else if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV))
+		              json_object_boolean_true_add(json_sub, "txAdvertised");
+	                    else if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
+		              json_object_boolean_true_add(json_sub, "txReceived");
+                          }
 
-                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
-                          vty_out (vty, "%sreceived", CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ? " and " : "" );
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ||
+                            CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
+                          {
+	                    if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) && CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
+	                      json_object_boolean_true_add(json_sub, "rxAdvertisedAndReceived");
+	                    else if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV))
+		              json_object_boolean_true_add(json_sub, "rxAdvertised");
+	                    else if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
+		              json_object_boolean_true_add(json_sub, "rxReceived");
+                          }
 
-                        vty_out (vty, "%s", VTY_NEWLINE);
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ||
+                            CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV) ||
+                            CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ||
+                            CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
+                          json_object_object_add(json_add, print_store, json_sub);
                       }
 
-                    if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ||
-                        CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
-                      {
-                        vty_out (vty, "      %s: RX ", afi_safi_print (afi, safi));
-
-                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV))
-                          vty_out (vty, "advertised %s", afi_safi_print (afi, safi));
-
-                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
-                          vty_out (vty, "%sreceived", CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ? " and " : "" );
-
-                        vty_out (vty, "%s", VTY_NEWLINE);
-                      }
-                  }
-            }
-
-	  /* Dynamic */
-	  if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV)
-	      || CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))
-	    {
-	      vty_out (vty, "    Dynamic:");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))
-		vty_out (vty, " advertised");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV))
-		vty_out (vty, " %sreceived",
-			 CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV) ? "and " : "");
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
-
-	  /* Extended nexthop */
-	  if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV)
-	      || CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV))
-	    {
-	      vty_out (vty, "    Extended nexthop:");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV))
-		vty_out (vty, " advertised");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
-		vty_out (vty, " %sreceived",
-			 CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV) ? "and " : "");
-	      vty_out (vty, "%s", VTY_NEWLINE);
-
-              if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
-		{
-		  vty_out (vty, "      Address families by peer:%s        ", VTY_NEWLINE);
-                  for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
-                    if (CHECK_FLAG (p->af_cap[AFI_IP][safi], PEER_CAP_ENHE_AF_RCV))
-                      vty_out (vty, "           %s%s",
-                               afi_safi_print (AFI_IP, safi), VTY_NEWLINE);
+                  json_object_object_add(json_cap, "addPath", json_add);
                 }
-	    }
 
-	  /* Route Refresh */
-	  if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV)
-	      || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
-	      || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
-	    {
-	      vty_out (vty, "    Route refresh:");
- 	      if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV))
-		vty_out (vty, " advertised");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
-		  || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
-		vty_out (vty, " %sreceived(%s)",
-			 CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV) ? "and " : "",
-			 (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV)
-			  && CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)) ?
-			 "old & new" : CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV) ? "old" : "new");
+	      /* Dynamic */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))
+	        {
+	          if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV) && CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV))
+		    json_object_string_add(json_cap, "dynamic", "advertisedAndReceived");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))
+		    json_object_string_add(json_cap, "dynamic", "advertised");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV))
+		    json_object_string_add(json_cap, "dynamic", "received");
+	        }
 
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
+	      /* Extended nexthop */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV))
+	        {
+	          json_object *json_nxt = NULL;
+                  const char *print_store;
 
-	  /* Multiprotocol Extensions */
-	  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
-	    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
-	      if (p->afc_adv[afi][safi] || p->afc_recv[afi][safi])
-		{
-		  vty_out (vty, "    Address family %s:", afi_safi_print (afi, safi));
-		  if (p->afc_adv[afi][safi]) 
+                  json_nxt = json_object_new_object();
+
+	          if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV) && CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
+		    json_object_string_add(json_cap, "extendedNexthop", "advertisedAndReceived");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV))
+		    json_object_string_add(json_cap, "extendedNexthop", "advertised");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
+		    json_object_string_add(json_cap, "extendedNexthop", "received");
+
+                  if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
+		    {
+                      for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+                        {
+                          if (CHECK_FLAG (p->af_cap[AFI_IP][safi], PEER_CAP_ENHE_AF_RCV))
+                            {
+                              print_store = afi_safi_print (AFI_IP, safi);
+                              json_object_string_add(json_nxt, print_store, "recieved");
+                            }
+                        }
+                      json_object_object_add(json_cap, "extendedNexthopFamililesByPeer", json_nxt);
+                    }
+	        }
+
+	      /* Route Refresh */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
+	        {
+	          if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV) && (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV) || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV)))
+                    {
+		      if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV) && CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV))
+                        json_object_string_add(json_cap, "routeRefresh", "advertisedAndReceivedOldNew");
+                      else
+                        {
+                          if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
+                            json_object_string_add(json_cap, "routeRefresh", "advertisedAndReceivedOld");
+                          else
+                            json_object_string_add(json_cap, "routeRefresh", "advertisedAndReceivedNew");
+                        }
+                    }
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV))
+		    json_object_string_add(json_cap, "routeRefresh", "advertised");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV) || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
+		    json_object_string_add(json_cap, "routeRefresh", "received");
+                }
+
+	      /* Multiprotocol Extensions */
+	      json_object *json_multi = NULL;
+              json_multi = json_object_new_object();
+
+	      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	        {
+                  for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	            {
+                      if (p->afc_adv[afi][safi] || p->afc_recv[afi][safi])
+		        {
+	                  json_object *json_exten = NULL;
+                          json_exten = json_object_new_object();
+
+                          if (p->afc_adv[afi][safi] && p->afc_recv[afi][safi])
+                            json_object_boolean_true_add(json_exten, "advertisedAndReceived");
+                          else if (p->afc_adv[afi][safi])
+                            json_object_boolean_true_add(json_exten, "advertised");
+                          else if (p->afc_recv[afi][safi])
+                            json_object_boolean_true_add(json_exten, "received");
+
+                          json_object_object_add(json_multi, afi_safi_print (afi, safi), json_exten);
+		        }
+                    }
+                }
+              json_object_object_add(json_cap, "multiprotocolExtensions", json_multi);
+
+	      /* Gracefull Restart */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV))
+	        {
+	          if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV) && CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
+		    json_object_string_add(json_cap, "gracefulRestart", "advertisedAndReceived");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV))
+		    json_object_string_add(json_cap, "gracefulRestartCapability", "advertised");
+	          else if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
+		    json_object_string_add(json_cap, "gracefulRestartCapability", "received");
+
+	          if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
+		    {
+		      int restart_af_count = 0;
+                      json_object *json_restart = NULL;
+                      json_restart = json_object_new_object();
+
+		      json_object_int_add(json_cap, "gracefulRestartRemoteTimerMsecs", p->v_gr_restart * 1000);
+
+		      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+		        {
+                          for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+		            {
+                              if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV))
+			        {
+	                          json_object *json_sub = NULL;
+                                  json_sub = json_object_new_object();
+
+                                  if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV))
+                                    json_object_boolean_true_add(json_sub, "preserved");
+			          restart_af_count++;
+                                  json_object_object_add(json_restart, afi_safi_print (afi, safi), json_sub);
+			        }
+                            }
+                        }
+		      if (! restart_af_count)
+		        json_object_string_add(json_cap, "addressFamiliesByPeer", "none");
+                      else
+                        json_object_object_add(json_cap, "addressFamiliesByPeer", json_restart);
+                    }
+                }
+              json_object_object_add(json_neigh, "neighborCapabilities", json_cap);
+            }
+          else
+            {
+	      vty_out (vty, "  Neighbor capabilities:%s", VTY_NEWLINE);
+
+	      /* AS4 */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_AS4_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV))
+	        {
+	          vty_out (vty, "    4 Byte AS:");
+	          if (CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV))
 		    vty_out (vty, " advertised");
-		  if (p->afc_recv[afi][safi])
-		    vty_out (vty, " %sreceived", p->afc_adv[afi][safi] ? "and " : "");
-		  vty_out (vty, "%s", VTY_NEWLINE);
-		} 
+	          if (CHECK_FLAG (p->cap, PEER_CAP_AS4_RCV))
+		    vty_out (vty, " %sreceived",
+			     CHECK_FLAG (p->cap, PEER_CAP_AS4_ADV) ? "and " : "");
+	          vty_out (vty, "%s", VTY_NEWLINE);
+	        }
 
-	  /* Gracefull Restart */
-	  if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV)
-	      || CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV))
-	    {
-	      vty_out (vty, "    Graceful Restart Capabilty:");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV))
-		vty_out (vty, " advertised");
-	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
-		vty_out (vty, " %sreceived",
-			 CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV) ? "and " : "");
-	      vty_out (vty, "%s", VTY_NEWLINE);
+	      /* AddPath */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_ADDPATH_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_ADDPATH_ADV))
+                {
+	          vty_out (vty, "    AddPath:%s", VTY_NEWLINE);
 
-	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
-		{
-		  int restart_af_count = 0;
+                  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+                    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+                      {
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ||
+                            CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
+                          {
+                            vty_out (vty, "      %s: TX ", afi_safi_print (afi, safi));
 
-		  vty_out (vty, "      Remote Restart timer is %d seconds%s",
-			   p->v_gr_restart, VTY_NEWLINE);	
-		  vty_out (vty, "      Address families by peer:%s        ", VTY_NEWLINE);
+                            if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV))
+                              vty_out (vty, "advertised %s", afi_safi_print (afi, safi));
 
-		  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
-		    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
-		      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV))
-			{
-			  vty_out (vty, "%s%s(%s)", restart_af_count ? ", " : "",
-				   afi_safi_print (afi, safi),
-				   CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV) ?
-				   "preserved" : "not preserved");
-			  restart_af_count++;
-			}
-		  if (! restart_af_count)
-		    vty_out (vty, "none");
-		  vty_out (vty, "%s", VTY_NEWLINE);
-		}
-	    }
+                            if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV))
+                              vty_out (vty, "%sreceived", CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) ? " and " : "" );
+
+                            vty_out (vty, "%s", VTY_NEWLINE);
+                          }
+
+                        if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ||
+                        CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
+                          {
+                            vty_out (vty, "      %s: RX ", afi_safi_print (afi, safi));
+
+                            if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV))
+                              vty_out (vty, "advertised %s", afi_safi_print (afi, safi));
+
+                            if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
+                              vty_out (vty, "%sreceived", CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ? " and " : "" );
+
+                            vty_out (vty, "%s", VTY_NEWLINE);
+                          }
+                      }
+                }
+
+	      /* Dynamic */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))
+	        {
+	          vty_out (vty, "    Dynamic:");
+	          if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))
+		    vty_out (vty, " advertised");
+	          if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV))
+		    vty_out (vty, " %sreceived",
+			     CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV) ? "and " : "");
+	          vty_out (vty, "%s", VTY_NEWLINE);
+	        }
+
+	      /* Extended nexthop */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV))
+	        {
+	          vty_out (vty, "    Extended nexthop:");
+	          if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV))
+		    vty_out (vty, " advertised");
+	          if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
+		    vty_out (vty, " %sreceived",
+			     CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV) ? "and " : "");
+	          vty_out (vty, "%s", VTY_NEWLINE);
+
+                  if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
+		    {
+		      vty_out (vty, "      Address families by peer:%s        ", VTY_NEWLINE);
+                      for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+                        if (CHECK_FLAG (p->af_cap[AFI_IP][safi], PEER_CAP_ENHE_AF_RCV))
+                          vty_out (vty, "           %s%s",
+                                   afi_safi_print (AFI_IP, safi), VTY_NEWLINE);
+                    }
+	        }
+
+	      /* Route Refresh */
+              if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV)
+                  || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
+                  || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
+                {
+                  vty_out (vty, "    Route refresh:");
+                  if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV))
+                    vty_out (vty, " advertised");
+                  if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
+                      || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
+                    vty_out (vty, " %sreceived(%s)",
+                             CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV) ? "and " : "",
+                             (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV)
+                             && CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)) ?
+                             "old & new" : CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV) ? "old" : "new");
+
+                  vty_out (vty, "%s", VTY_NEWLINE);
+                }
+
+	      /* Multiprotocol Extensions */
+	      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	        for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	          if (p->afc_adv[afi][safi] || p->afc_recv[afi][safi])
+		    {
+		      vty_out (vty, "    Address family %s:", afi_safi_print (afi, safi));
+		      if (p->afc_adv[afi][safi])
+		        vty_out (vty, " advertised");
+		      if (p->afc_recv[afi][safi])
+		        vty_out (vty, " %sreceived", p->afc_adv[afi][safi] ? "and " : "");
+		      vty_out (vty, "%s", VTY_NEWLINE);
+		    }
+
+	      /* Gracefull Restart */
+	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV)
+	          || CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV))
+	        {
+	          vty_out (vty, "    Graceful Restart Capabilty:");
+	          if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV))
+		    vty_out (vty, " advertised");
+	          if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
+		    vty_out (vty, " %sreceived",
+			     CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV) ? "and " : "");
+	          vty_out (vty, "%s", VTY_NEWLINE);
+
+	          if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
+		    {
+		      int restart_af_count = 0;
+
+		      vty_out (vty, "      Remote Restart timer is %d seconds%s",
+			       p->v_gr_restart, VTY_NEWLINE);
+		      vty_out (vty, "      Address families by peer:%s        ", VTY_NEWLINE);
+
+		      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+		        for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+		          if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV))
+			    {
+			      vty_out (vty, "%s%s(%s)", restart_af_count ? ", " : "",
+				       afi_safi_print (afi, safi),
+				       CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV) ?
+				       "preserved" : "not preserved");
+			      restart_af_count++;
+			    }
+		      if (! restart_af_count)
+		        vty_out (vty, "none");
+		      vty_out (vty, "%s", VTY_NEWLINE);
+	            }
+	        }
+            }
 	}
     }
 
@@ -9539,168 +10084,351 @@ bgp_show_peer (struct vty *vty, struct peer *p)
       || p->t_gr_restart
       || p->t_gr_stale)
     {
+      json_object *json_grace = NULL;
+      json_object *json_grace_send = NULL;
+      json_object *json_grace_recv = NULL;
       int eor_send_af_count = 0;
       int eor_receive_af_count = 0;
 
-      vty_out (vty, "  Graceful restart informations:%s", VTY_NEWLINE);
-      if (p->status == Established) 
-	{
-	  vty_out (vty, "    End-of-RIB send: ");
-	  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
-	    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
-	      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_EOR_SEND))
-		{
-		  vty_out (vty, "%s%s", eor_send_af_count ? ", " : "",
-			   afi_safi_print (afi, safi));
-		  eor_send_af_count++;
-		}
-	  vty_out (vty, "%s", VTY_NEWLINE);
+      if (use_json)
+        {
+          json_grace = json_object_new_object();
+          json_grace_send = json_object_new_object();
+          json_grace_recv = json_object_new_object();
 
-	  vty_out (vty, "    End-of-RIB received: ");
-	  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
-	    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
-	      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED))
-		{
-		  vty_out (vty, "%s%s", eor_receive_af_count ? ", " : "",
-			   afi_safi_print (afi, safi));
-		  eor_receive_af_count++;
-		}
-	  vty_out (vty, "%s", VTY_NEWLINE);
-	}
+          if (p->status == Established)
+	    {
+	      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	        {
+                  for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	            {
+                      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_EOR_SEND))
+		        {
+		          json_object_boolean_true_add(json_grace_send, afi_safi_print (afi, safi));
+		          eor_send_af_count++;
+		        }
+                    }
+                }
+	      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	        {
+                  for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	            {
+                      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED))
+		        {
+		          json_object_boolean_true_add(json_grace_recv, afi_safi_print (afi, safi));
+                          eor_receive_af_count++;
+                        }
+		    }
+                }
+            }
 
-      if (p->t_gr_restart)
-        vty_out (vty, "    The remaining time of restart timer is %ld%s",
-                 thread_timer_remain_second (p->t_gr_restart), VTY_NEWLINE);
+          json_object_object_add(json_grace, "endOfRibSend", json_grace_send);
+          json_object_object_add(json_grace, "endOfRibRecv", json_grace_recv);
+
+          if (p->t_gr_restart)
+            json_object_int_add(json_grace, "gracefulRestartTimerMsecs", thread_timer_remain_second (p->t_gr_restart) * 1000);
+
+          if (p->t_gr_stale)
+            json_object_int_add(json_grace, "gracefulStalepathTimerMsecs", thread_timer_remain_second (p->t_gr_stale) * 1000);
+
+          json_object_object_add(json_neigh, "gracefulRestartInfo", json_grace);
+        }
+      else
+        {
+          vty_out (vty, "  Graceful restart informations:%s", VTY_NEWLINE);
+          if (p->status == Established)
+	    {
+	      vty_out (vty, "    End-of-RIB send: ");
+	      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	        {
+                  for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	            {
+                      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_EOR_SEND))
+		        {
+		          vty_out (vty, "%s%s", eor_send_af_count ? ", " : "",
+			           afi_safi_print (afi, safi));
+		          eor_send_af_count++;
+		        }
+                    }
+                }
+	      vty_out (vty, "%s", VTY_NEWLINE);
+	      vty_out (vty, "    End-of-RIB received: ");
+	      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	        {
+                  for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	            {
+                      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED))
+		        {
+		          vty_out (vty, "%s%s", eor_receive_af_count ? ", " : "",
+		                   afi_safi_print (afi, safi));
+		          eor_receive_af_count++;
+                        }
+		    }
+                }
+	      vty_out (vty, "%s", VTY_NEWLINE);
+            }
+
+          if (p->t_gr_restart)
+            vty_out (vty, "    The remaining time of restart timer is %ld%s",
+                     thread_timer_remain_second (p->t_gr_restart), VTY_NEWLINE);
       
-      if (p->t_gr_stale)
-        vty_out (vty, "    The remaining time of stalepath timer is %ld%s",
-                 thread_timer_remain_second (p->t_gr_stale), VTY_NEWLINE);
+          if (p->t_gr_stale)
+            vty_out (vty, "    The remaining time of stalepath timer is %ld%s",
+                     thread_timer_remain_second (p->t_gr_stale), VTY_NEWLINE);
+        }
+    }
+  if (use_json)
+    {
+      json_object *json_stat = NULL;
+      json_stat = json_object_new_object();
+      /* Packet counts. */
+      json_object_int_add(json_stat, "depthInq", 0);
+      json_object_int_add(json_stat, "depthOutq", (unsigned long) p->obuf->count);
+      json_object_int_add(json_stat, "opensSent",  p->open_out);
+      json_object_int_add(json_stat, "opensRecv", p->open_in);
+      json_object_int_add(json_stat, "notificationsSent", p->notify_out);
+      json_object_int_add(json_stat, "notificationsRecv", p->notify_in);
+      json_object_int_add(json_stat, "updatesSent", p->update_out);
+      json_object_int_add(json_stat, "updatesRecv", p->update_in);
+      json_object_int_add(json_stat, "keepalivesSent", p->keepalive_out);
+      json_object_int_add(json_stat, "keepalivesRecv", p->keepalive_in);
+      json_object_int_add(json_stat, "routeRefreshSent", p->refresh_out);
+      json_object_int_add(json_stat, "routeRefreshRecv", p->refresh_in);
+      json_object_int_add(json_stat, "capabilitySent", p->dynamic_cap_out);
+      json_object_int_add(json_stat, "capabilityRecv", p->dynamic_cap_in);
+      json_object_int_add(json_stat, "totalSent", p->open_out + p->notify_out + p->update_out + p->keepalive_out + p->refresh_out + p->dynamic_cap_out);
+      json_object_int_add(json_stat, "totalRecv", p->open_in + p->notify_in + p->update_in + p->keepalive_in + p->refresh_in + p->dynamic_cap_in);
+      json_object_object_add(json_neigh, "messageStats", json_stat);
+    }
+  else
+    {
+      /* Packet counts. */
+      vty_out (vty, "  Message statistics:%s", VTY_NEWLINE);
+      vty_out (vty, "    Inq depth is 0%s", VTY_NEWLINE);
+      vty_out (vty, "    Outq depth is %lu%s", (unsigned long) p->obuf->count, VTY_NEWLINE);
+      vty_out (vty, "                         Sent       Rcvd%s", VTY_NEWLINE);
+      vty_out (vty, "    Opens:         %10d %10d%s", p->open_out, p->open_in, VTY_NEWLINE);
+      vty_out (vty, "    Notifications: %10d %10d%s", p->notify_out, p->notify_in, VTY_NEWLINE);
+      vty_out (vty, "    Updates:       %10d %10d%s", p->update_out, p->update_in, VTY_NEWLINE);
+      vty_out (vty, "    Keepalives:    %10d %10d%s", p->keepalive_out, p->keepalive_in, VTY_NEWLINE);
+      vty_out (vty, "    Route Refresh: %10d %10d%s", p->refresh_out, p->refresh_in, VTY_NEWLINE);
+      vty_out (vty, "    Capability:    %10d %10d%s", p->dynamic_cap_out, p->dynamic_cap_in, VTY_NEWLINE);
+      vty_out (vty, "    Total:         %10d %10d%s", p->open_out + p->notify_out +
+               p->update_out + p->keepalive_out + p->refresh_out + p->dynamic_cap_out,
+               p->open_in + p->notify_in + p->update_in + p->keepalive_in + p->refresh_in +
+               p->dynamic_cap_in, VTY_NEWLINE);
     }
 
-  /* Packet counts. */
-  vty_out (vty, "  Message statistics:%s", VTY_NEWLINE);
-  vty_out (vty, "    Inq depth is 0%s", VTY_NEWLINE);
-  vty_out (vty, "    Outq depth is %lu%s", (unsigned long) p->obuf->count, VTY_NEWLINE);
-  vty_out (vty, "                         Sent       Rcvd%s", VTY_NEWLINE);
-  vty_out (vty, "    Opens:         %10d %10d%s", p->open_out, p->open_in, VTY_NEWLINE);
-  vty_out (vty, "    Notifications: %10d %10d%s", p->notify_out, p->notify_in, VTY_NEWLINE);
-  vty_out (vty, "    Updates:       %10d %10d%s", p->update_out, p->update_in, VTY_NEWLINE);
-  vty_out (vty, "    Keepalives:    %10d %10d%s", p->keepalive_out, p->keepalive_in, VTY_NEWLINE);
-  vty_out (vty, "    Route Refresh: %10d %10d%s", p->refresh_out, p->refresh_in, VTY_NEWLINE);
-  vty_out (vty, "    Capability:    %10d %10d%s", p->dynamic_cap_out, p->dynamic_cap_in, VTY_NEWLINE);
-  vty_out (vty, "    Total:         %10d %10d%s", p->open_out + p->notify_out +
-	   p->update_out + p->keepalive_out + p->refresh_out + p->dynamic_cap_out,
-	   p->open_in + p->notify_in + p->update_in + p->keepalive_in + p->refresh_in +
-	   p->dynamic_cap_in, VTY_NEWLINE);
-
-  /* advertisement-interval */
-  vty_out (vty, "  Minimum time between advertisement runs is %d seconds%s",
-	   p->v_routeadv, VTY_NEWLINE);
-
-  /* Update-source. */
-  if (p->update_if || p->update_source)
+  if (use_json)
     {
-      vty_out (vty, "  Update source is ");
-      if (p->update_if)
-	vty_out (vty, "%s", p->update_if);
-      else if (p->update_source)
-	vty_out (vty, "%s",
-		 sockunion2str (p->update_source, buf1, SU_ADDRSTRLEN));
+      /* advertisement-interval */
+      json_object_int_add(json_neigh, "minBtwnAdvertisementRunsTimerMsecs", p->v_routeadv * 1000);
+
+      /* Update-source. */
+      if (p->update_if || p->update_source)
+        {
+          if (p->update_if)
+            json_object_string_add(json_neigh, "updateSource", p->update_if);
+          else if (p->update_source)
+            json_object_string_add(json_neigh, "updateSource", sockunion2str (p->update_source, buf1, SU_ADDRSTRLEN));
+        }
+
+      /* Default weight */
+      if (CHECK_FLAG (p->config, PEER_CONFIG_WEIGHT))
+        json_object_int_add(json_neigh, "defaultWeight", p->weight);
+
+    }
+  else
+    {
+      /* advertisement-interval */
+      vty_out (vty, "  Minimum time between advertisement runs is %d seconds%s",
+               p->v_routeadv, VTY_NEWLINE);
+
+      /* Update-source. */
+      if (p->update_if || p->update_source)
+        {
+          vty_out (vty, "  Update source is ");
+          if (p->update_if)
+            vty_out (vty, "%s", p->update_if);
+          else if (p->update_source)
+            vty_out (vty, "%s", sockunion2str (p->update_source, buf1, SU_ADDRSTRLEN));
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
+
+      /* Default weight */
+      if (CHECK_FLAG (p->config, PEER_CONFIG_WEIGHT))
+        vty_out (vty, "  Default weight %d%s", p->weight, VTY_NEWLINE);
+
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 
-  /* Default weight */
-  if (CHECK_FLAG (p->config, PEER_CONFIG_WEIGHT))
-    vty_out (vty, "  Default weight %d%s", p->weight,
-	     VTY_NEWLINE);
-
-  vty_out (vty, "%s", VTY_NEWLINE);
-
   /* Address Family Information */
+  json_object *json_hold = NULL;
+
+  if (use_json)
+    json_hold = json_object_new_object();
+
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
     for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
       if (p->afc[afi][safi])
-	bgp_show_peer_afi (vty, p, afi, safi);
+	bgp_show_peer_afi (vty, p, afi, safi, use_json, json_hold);
 
-  vty_out (vty, "  Connections established %d; dropped %d%s",
-	   p->established, p->dropped,
-	   VTY_NEWLINE);
+  if (use_json)
+    {
+      json_object_int_add(json_hold, "connectionsEstablished", p->established);
+      json_object_int_add(json_hold, "connectionsDropped", p->dropped);
+    }
+  else
+    vty_out (vty, "  Connections established %d; dropped %d%s", p->established, p->dropped,
+	     VTY_NEWLINE);
 
   if (! p->last_reset)
-    vty_out (vty, "  Last reset never%s", VTY_NEWLINE);
+    {
+      if (use_json)
+        json_object_string_add(json_hold, "lastReset", "never");
+      else
+        vty_out (vty, "  Last reset never%s", VTY_NEWLINE);
+    }
   else
     {
-      vty_out (vty, "  Last reset %s, due to %s%s",
-              peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN),
-              peer_down_str[(int) p->last_reset], VTY_NEWLINE);
-
-      if (p->last_reset_cause_size)
+      if (use_json)
         {
-          msg = p->last_reset_cause;
-          vty_out(vty, "  Message received that caused BGP to send a NOTIFICATION:%s    ", VTY_NEWLINE);
-          for (i = 1; i <= p->last_reset_cause_size; i++)
-            {
-	      vty_out(vty, "%02X", *msg++);
+          time_t uptime;
+          struct tm *tm;
 
-	      if (i != p->last_reset_cause_size)
-		{
-		  if (i % 16 == 0)
-		    {
-		      vty_out(vty, "%s    ", VTY_NEWLINE);
-		    }
-		  else if (i % 4 == 0)
-		    {
-		      vty_out(vty, " ");
-		    }
-		}
+          uptime = bgp_clock();
+          uptime -= p->resettime;
+          tm = gmtime(&uptime);
+          json_object_int_add(json_hold, "lastResetTimerMsecs", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+          json_object_string_add(json_hold, "lastResetDueTo", peer_down_str[(int) p->last_reset]);
+          if (p->last_reset_cause_size)
+            {
+              msg = p->last_reset_cause;
+              char adapter[BUFSIZ];
+              sprintf(adapter, "%s", msg);
+              json_object_string_add(json_hold, "messageReceivedThatCausedBgpNotification", adapter);
             }
-          vty_out(vty, "%s", VTY_NEWLINE);
+        }
+      else
+        {
+          vty_out (vty, "  Last reset %s, due to %s%s",
+                  peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN, 0, NULL),
+                  peer_down_str[(int) p->last_reset], VTY_NEWLINE);
+
+          if (p->last_reset_cause_size)
+            {
+              msg = p->last_reset_cause;
+              vty_out(vty, "  Message received that caused BGP to send a NOTIFICATION:%s    ", VTY_NEWLINE);
+              for (i = 1; i <= p->last_reset_cause_size; i++)
+                {
+                  vty_out(vty, "%02X", *msg++);
+
+                  if (i != p->last_reset_cause_size)
+                    {
+                      if (i % 16 == 0)
+                        {
+                          vty_out(vty, "%s    ", VTY_NEWLINE);
+                        }
+                      else if (i % 4 == 0)
+                        {
+                          vty_out(vty, " ");
+                        }
+                    }
+                }
+              vty_out(vty, "%s", VTY_NEWLINE);
+            }
         }
     }
 
   if (CHECK_FLAG (p->sflags, PEER_STATUS_PREFIX_OVERFLOW))
     {
-      vty_out (vty, "  Peer had exceeded the max. no. of prefixes configured.%s", VTY_NEWLINE);
+      if (use_json)
+        json_object_boolean_true_add(json_hold, "prefixesConfigExceedMax");
+      else
+        vty_out (vty, "  Peer had exceeded the max. no. of prefixes configured.%s", VTY_NEWLINE);
 
       if (p->t_pmax_restart)
-	vty_out (vty, "  Reduce the no. of prefix from %s, will restart in %ld seconds%s",
-		 p->host, thread_timer_remain_second (p->t_pmax_restart),
-		 VTY_NEWLINE);
+        {
+          if (use_json)
+            {
+              json_object_string_add(json_hold, "reducePrefixNumFrom", p->host);
+              json_object_int_add(json_hold, "restartInTimerMsec", thread_timer_remain_second (p->t_pmax_restart) * 1000);
+            }
+          else
+            vty_out (vty, "  Reduce the no. of prefix from %s, will restart in %ld seconds%s",
+                     p->host, thread_timer_remain_second (p->t_pmax_restart),
+                     VTY_NEWLINE);
+        }
       else
-	vty_out (vty, "  Reduce the no. of prefix and clear ip bgp %s to restore peering%s",
-		 p->host, VTY_NEWLINE);
+        {
+          if (use_json)
+            json_object_string_add(json_hold, "reducePrefixNumAndClearIpBgp", p->host);
+          else
+            vty_out (vty, "  Reduce the no. of prefix and clear ip bgp %s to restore peering%s",
+	             p->host, VTY_NEWLINE);
+        }
     }
+
+  if (use_json)
+    json_object_object_add(json_neigh, "addressFamilyInfo", json_hold);
 
   /* EBGP Multihop and GTSM */
   if (p->sort != BGP_PEER_IBGP)
     {
-      if (p->gtsm_hops > 0)
-	vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",
-		 p->gtsm_hops, VTY_NEWLINE);
-      else if (p->ttl > 1)
-	vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",
-		 p->ttl, VTY_NEWLINE);
+      if (use_json)
+        {
+          if (p->gtsm_hops > 0)
+            json_object_int_add(json_neigh, "externalBgpNbrMaxHopsAway", p->gtsm_hops);
+          else if (p->ttl > 1)
+            json_object_int_add(json_neigh, "externalBgpNbrMaxHopsAway", p->ttl);
+        }
+      else
+        {
+          if (p->gtsm_hops > 0)
+            vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",
+                     p->gtsm_hops, VTY_NEWLINE);
+          else if (p->ttl > 1)
+            vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",
+                     p->ttl, VTY_NEWLINE);
+        }
     }
   else
     {
       if (p->gtsm_hops > 0)
-	vty_out (vty, "  Internal BGP neighbor may be up to %d hops away.%s",
-		 p->gtsm_hops, VTY_NEWLINE);
+        {
+          if (use_json)
+            json_object_int_add(json_neigh, "internalBgpNbrMaxHopsAway", p->gtsm_hops);
+          else
+            vty_out (vty, "  Internal BGP neighbor may be up to %d hops away.%s",
+                     p->gtsm_hops, VTY_NEWLINE);
+        }
     }
 
   /* Local address. */
   if (p->su_local)
     {
-      vty_out (vty, "Local host: %s, Local port: %d%s",
-	       sockunion2str (p->su_local, buf1, SU_ADDRSTRLEN),
-	       ntohs (p->su_local->sin.sin_port),
-	       VTY_NEWLINE);
+      if (use_json)
+        {
+          json_object_string_add(json_neigh, "hostLocal", sockunion2str (p->su_local, buf1, SU_ADDRSTRLEN));
+          json_object_int_add(json_neigh, "portLocal", ntohs (p->su_local->sin.sin_port));
+        }
+      else
+        vty_out (vty, "Local host: %s, Local port: %d%s",
+	         sockunion2str (p->su_local, buf1, SU_ADDRSTRLEN),
+	         ntohs (p->su_local->sin.sin_port),
+	         VTY_NEWLINE);
     }
       
   /* Remote address. */
   if (p->su_remote)
     {
-      vty_out (vty, "Foreign host: %s, Foreign port: %d%s",
+      if (use_json)
+        {
+          json_object_string_add(json_neigh, "hostForeign", sockunion2str (p->su_remote, buf1, SU_ADDRSTRLEN));
+          json_object_int_add(json_neigh, "portForeign", ntohs (p->su_remote->sin.sin_port));
+        }
+      else
+        vty_out (vty, "Foreign host: %s, Foreign port: %d%s",
 	       sockunion2str (p->su_remote, buf1, SU_ADDRSTRLEN),
 	       ntohs (p->su_remote->sin.sin_port),
 	       VTY_NEWLINE);
@@ -9709,56 +10437,108 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   /* Nexthop display. */
   if (p->su_local)
     {
-      vty_out (vty, "Nexthop: %s%s", 
-	       inet_ntop (AF_INET, &p->nexthop.v4, buf1, BUFSIZ),
-	       VTY_NEWLINE);
+      if (use_json)
+        {
+          json_object_string_add(json_neigh, "nexthop", inet_ntop (AF_INET, &p->nexthop.v4, buf1, BUFSIZ));
 #ifdef HAVE_IPV6
-      vty_out (vty, "Nexthop global: %s%s", 
-	       inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, BUFSIZ),
-	       VTY_NEWLINE);
-      vty_out (vty, "Nexthop local: %s%s",
-	       inet_ntop (AF_INET6, &p->nexthop.v6_local, buf1, BUFSIZ),
-	       VTY_NEWLINE);
-      vty_out (vty, "BGP connection: %s%s",
-	       p->shared_network ? "shared network" : "non shared network",
-	       VTY_NEWLINE);
+          json_object_string_add(json_neigh, "nexthopGlobal", inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, BUFSIZ));
+          json_object_string_add(json_neigh, "nexthopLocal", inet_ntop (AF_INET6, &p->nexthop.v6_local, buf1, BUFSIZ));
+          if (p->shared_network)
+            json_object_string_add(json_neigh, "bgpConnection", "sharedNetwork");
+          else
+            json_object_string_add(json_neigh, "bgpConnection", "nonSharedNetwork");
 #endif /* HAVE_IPV6 */
+        }
+      else
+        {
+          vty_out (vty, "Nexthop: %s%s",
+	           inet_ntop (AF_INET, &p->nexthop.v4, buf1, BUFSIZ),
+	           VTY_NEWLINE);
+#ifdef HAVE_IPV6
+          vty_out (vty, "Nexthop global: %s%s",
+	           inet_ntop (AF_INET6, &p->nexthop.v6_global, buf1, BUFSIZ),
+	           VTY_NEWLINE);
+          vty_out (vty, "Nexthop local: %s%s",
+	           inet_ntop (AF_INET6, &p->nexthop.v6_local, buf1, BUFSIZ),
+	           VTY_NEWLINE);
+          vty_out (vty, "BGP connection: %s%s",
+	           p->shared_network ? "shared network" : "non shared network",
+	           VTY_NEWLINE);
+#endif /* HAVE_IPV6 */
+        }
     }
 
   /* Timer information. */
-  if (p->t_start)
-    vty_out (vty, "Next start timer due in %ld seconds%s",
-	     thread_timer_remain_second (p->t_start), VTY_NEWLINE);
-  if (p->t_connect)
-    vty_out (vty, "Next connect timer due in %ld seconds%s",
-	     thread_timer_remain_second (p->t_connect), VTY_NEWLINE);
-  if (p->t_routeadv)
-    vty_out (vty, "MRAI (interval %u) timer expires in %ld seconds%s",
-	     p->v_routeadv, thread_timer_remain_second (p->t_routeadv),
-	     VTY_NEWLINE);
+  if (use_json)
+    {
+      if (p->t_start)
+        json_object_int_add(json_neigh, "nextStartTimerDueInMsecs", thread_timer_remain_second (p->t_start) * 1000);
+      if (p->t_connect)
+        json_object_int_add(json_neigh, "nextConnectTimerDueInMsecs", thread_timer_remain_second (p->t_connect) * 1000);
+      if (p->t_routeadv)
+        {
+          json_object_int_add(json_neigh, "mraiInterval", p->v_routeadv);
+          json_object_int_add(json_neigh, "mraiTimerExpireInMsecs", thread_timer_remain_second (p->t_routeadv) * 1000);
+        }
 
-  vty_out (vty, "Read thread: %s  Write thread: %s%s",
-	   p->t_read ? "on" : "off",
-	   p->t_write ? "on" : "off",
-	   VTY_NEWLINE);
+      if (p->t_read)
+        json_object_string_add(json_neigh, "readThread", "on");
+      else
+        json_object_string_add(json_neigh, "readThread", "off");
+      if (p->t_write)
+        json_object_string_add(json_neigh, "writeThread", "on");
+      else
+        json_object_string_add(json_neigh, "writeThread", "off");
+    }
+  else
+    {
+      if (p->t_start)
+        vty_out (vty, "Next start timer due in %ld seconds%s",
+                 thread_timer_remain_second (p->t_start), VTY_NEWLINE);
+      if (p->t_connect)
+        vty_out (vty, "Next connect timer due in %ld seconds%s",
+                 thread_timer_remain_second (p->t_connect), VTY_NEWLINE);
+      if (p->t_routeadv)
+        vty_out (vty, "MRAI (interval %u) timer expires in %ld seconds%s",
+                 p->v_routeadv, thread_timer_remain_second (p->t_routeadv),
+                 VTY_NEWLINE);
+
+      vty_out (vty, "Read thread: %s  Write thread: %s%s",
+               p->t_read ? "on" : "off",
+               p->t_write ? "on" : "off",
+               VTY_NEWLINE);
+    }
 
   if (p->notify.code == BGP_NOTIFY_OPEN_ERR
       && p->notify.subcode == BGP_NOTIFY_OPEN_UNSUP_CAPBL)
-    bgp_capability_vty_out (vty, p);
- 
-  vty_out (vty, "%s", VTY_NEWLINE);
+    bgp_capability_vty_out (vty, p, use_json, json_neigh);
+
+  if (!use_json)
+    vty_out (vty, "%s", VTY_NEWLINE);
 
   /* BFD information. */
-  bgp_bfd_show_info(vty, p);
+  bgp_bfd_show_info(vty, p, use_json, json_neigh);
+
+  if (use_json)
+    {
+      if (p->conf_if) /* Configured interface name. */
+        json_object_object_add(json, p->conf_if, json_neigh);
+      else /* Configured IP address. */
+        json_object_object_add(json, p->host, json_neigh);
+    }
 }
 
 static int
-bgp_show_neighbor (struct vty *vty, struct bgp *bgp,
-		   enum show_type type, union sockunion *su, const char *conf_if)
+bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
+                   union sockunion *su, const char *conf_if, u_char use_json, json_object *json)
 {
   struct listnode *node, *nnode;
   struct peer *peer;
   int find = 0;
+  json_object *json_neigh = NULL;
+
+  if (use_json)
+    json_neigh = json_object_new_object();
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
@@ -9766,51 +10546,78 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp,
 	continue;
 
       switch (type)
-	{
-	case show_all:
-	  bgp_show_peer (vty, peer);
-	  break;
-	case show_peer:
-    if (conf_if)
-      {
-        if (peer->conf_if && !strcmp(peer->conf_if, conf_if))
-          {
-            find = 1;
-            bgp_show_peer (vty, peer);
-          }
-      }
-    else
-      {
-        if (sockunion_same (&peer->su, su))
-          {
-            find = 1;
-            bgp_show_peer (vty, peer);
-          }
-      }
-	  break;
+        {
+          case show_all:
+            bgp_show_peer (vty, peer, use_json, json, json_neigh);
+          break;
+          case show_peer:
+            if (conf_if)
+              {
+                if (peer->conf_if && !strcmp(peer->conf_if, conf_if))
+                  {
+                    find = 1;
+                    bgp_show_peer (vty, peer, use_json, json, json_neigh);
+                  }
+              }
+            else
+              {
+               if (sockunion_same (&peer->su, su))
+                 {
+                   find = 1;
+                   bgp_show_peer (vty, peer, use_json, json, json_neigh);
+                 }
+              }
+          break;
 	}
     }
 
   if (type == show_peer && ! find)
-    vty_out (vty, "%% No such neighbor%s", VTY_NEWLINE);
-  
+    {
+      if (use_json)
+        json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
+      else
+        vty_out (vty, "%% No such neighbor%s", VTY_NEWLINE);
+    }
+
+  if (use_json)
+    {
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    {
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+
   return CMD_SUCCESS;
 }
 
 static int 
 bgp_show_neighbor_vty (struct vty *vty, const char *name, 
-                       enum show_type type, const char *ip_str)
+                       enum show_type type, const char *ip_str, u_char use_json)
 {
   int ret;
   struct bgp *bgp;
   union sockunion su;
+  json_object *json = NULL;
+
+  if (use_json)
+    json = json_object_new_object();
 
   if (name)
     {
       bgp = bgp_lookup_by_name (name);
       if (! bgp)
         {
-          vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE); 
+          if (use_json)
+            {
+              json_object_boolean_true_add(json, "bgpNoSuchInstance");
+              vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+              json_object_free(json);
+            }
+          else
+            vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
+
           return CMD_WARNING;
         }
     }
@@ -9825,13 +10632,13 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
         {
           ret = str2sockunion (ip_str, &su);
           if (ret < 0)
-            bgp_show_neighbor (vty, bgp, type, NULL, ip_str);
+            bgp_show_neighbor (vty, bgp, type, NULL, ip_str, use_json, json);
           else
-            bgp_show_neighbor (vty, bgp, type, &su, NULL);
+            bgp_show_neighbor (vty, bgp, type, &su, NULL, use_json, json);
         }
       else
         {
-          bgp_show_neighbor (vty, bgp, type, NULL, NULL);
+          bgp_show_neighbor (vty, bgp, type, NULL, NULL, use_json, json);
         }
     }
 
@@ -9841,79 +10648,100 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
 /* "show ip bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
-       "show ip bgp neighbors",
+       "show ip bgp neighbors {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 {
-  return bgp_show_neighbor_vty (vty, NULL, show_all, NULL);
+  u_char use_json;
+
+  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
+    use_json = 1;
+  else
+    use_json = 0;
+
+  return bgp_show_neighbor_vty (vty, NULL, show_all, NULL, use_json);
 }
 
 ALIAS (show_ip_bgp_neighbors,
        show_ip_bgp_ipv4_neighbors_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors",
+       "show ip bgp ipv4 (unicast|multicast) neighbors {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors,
        show_ip_bgp_vpnv4_all_neighbors_cmd,
-       "show ip bgp vpnv4 all neighbors",
+       "show ip bgp vpnv4 all neighbors {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "Display VPNv4 NLRI specific information\n"
        "Display information about all VPNv4 NLRIs\n"
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors,
        show_ip_bgp_vpnv4_rd_neighbors_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors",
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "Display VPNv4 NLRI specific information\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors,
        show_bgp_neighbors_cmd,
-       "show bgp neighbors",
+       "show bgp neighbors {json}",
        SHOW_STR
        BGP_STR
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors,
        show_bgp_ipv6_neighbors_cmd,
-       "show bgp ipv6 neighbors",
+       "show bgp ipv6 neighbors {json}",
        SHOW_STR
        BGP_STR
        "Address family\n"
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 
 DEFUN (show_ip_bgp_neighbors_peer,
        show_ip_bgp_neighbors_peer_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD)",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n")
+       "Neighbor on bgp configured interface\n"
+       "JavaScript Object Notation\n")
 {
-  return bgp_show_neighbor_vty (vty, NULL, show_peer, argv[argc - 1]);
+  u_char use_json;
+
+  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
+    use_json = 1;
+  else
+    use_json = 0;
+
+  return bgp_show_neighbor_vty (vty, NULL, show_peer, argv[argc - 2], use_json);
 }
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_ip_bgp_ipv4_neighbors_peer_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD)",
+       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9923,86 +10751,101 @@ ALIAS (show_ip_bgp_neighbors_peer,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n")
+       "Neighbor on bgp configured interface\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_ip_bgp_vpnv4_all_neighbors_peer_cmd,
-       "show ip bgp vpnv4 all neighbors A.B.C.D",
+       "show ip bgp vpnv4 all neighbors A.B.C.D {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "Display VPNv4 NLRI specific information\n"
        "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_ip_bgp_vpnv4_rd_neighbors_peer_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D",
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "Display VPNv4 NLRI specific information\n"
        "Display information about all VPNv4 NLRIs\n"
        "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n")
+       "Neighbor to display information about\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_bgp_neighbors_peer_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD)",
+       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n")
+       "Neighbor on bgp configured interface\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_neighbors_peer,
        show_bgp_ipv6_neighbors_peer_cmd,
-       "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD)",
+       "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        BGP_STR
        "Address family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n")
+       "Neighbor on bgp configured interface\n"
+       "JavaScript Object Notation\n")
 
 DEFUN (show_ip_bgp_instance_neighbors,
        show_ip_bgp_instance_neighbors_cmd,
-       "show ip bgp view WORD neighbors",
+       "show ip bgp view WORD neighbors {json}",
        SHOW_STR
        IP_STR
        BGP_STR
        "BGP view\n"
        "View name\n"
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 {
-  return bgp_show_neighbor_vty (vty, argv[0], show_all, NULL);
+  u_char use_json;
+
+  if (argv[1] && strcmp(argv[1], "json") == 0)
+    use_json = 1;
+  else
+    use_json = 0;
+
+  return bgp_show_neighbor_vty (vty, argv[0], show_all, NULL, use_json);
 }
 
 ALIAS (show_ip_bgp_instance_neighbors,
        show_bgp_instance_neighbors_cmd,
-       "show bgp view WORD neighbors",
+       "show bgp view WORD neighbors {json}",
        SHOW_STR
        BGP_STR
        "BGP view\n"
        "View name\n"
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_instance_neighbors,
        show_bgp_instance_ipv6_neighbors_cmd,
-       "show bgp view WORD ipv6 neighbors",
+       "show bgp view WORD ipv6 neighbors {json}",
        SHOW_STR
        BGP_STR
        "BGP view\n"
        "View name\n"
        "Address family\n"
-       "Detailed information on TCP and BGP neighbor connections\n")
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
 
 DEFUN (show_ip_bgp_instance_neighbors_peer,
        show_ip_bgp_instance_neighbors_peer_cmd,
-       "show ip bgp view WORD neighbors (A.B.C.D|X:X::X:X|WORD)",
+       "show ip bgp view WORD neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10011,14 +10854,22 @@ DEFUN (show_ip_bgp_instance_neighbors_peer,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n")
+       "Neighbor on bgp configured interface\n"
+       "JavaScript Object Notation\n")
 {
-  return bgp_show_neighbor_vty (vty, argv[0], show_peer, argv[1]);
+  u_char use_json;
+
+  if (argv[2] && strcmp(argv[2], "json") == 0)
+    use_json = 1;
+  else
+    use_json = 0;
+
+  return bgp_show_neighbor_vty (vty, argv[0], show_peer, argv[1], use_json);
 }
 
 ALIAS (show_ip_bgp_instance_neighbors_peer,
        show_bgp_instance_neighbors_peer_cmd,
-       "show bgp view WORD neighbors (A.B.C.D|X:X::X:X|WORD)",
+       "show bgp view WORD neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        BGP_STR
        "BGP view\n"
@@ -10026,11 +10877,12 @@ ALIAS (show_ip_bgp_instance_neighbors_peer,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n")
+       "Neighbor on bgp configured interface\n"
+       "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_instance_neighbors_peer,
        show_bgp_instance_ipv6_neighbors_peer_cmd,
-       "show bgp view WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD)",
+       "show bgp view WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        BGP_STR
        "BGP view\n"
@@ -10039,7 +10891,8 @@ ALIAS (show_ip_bgp_instance_neighbors_peer,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n")
+       "Neighbor on bgp configured interface\n"
+       "JavaScript Object Notation\n")
        
 /* Show BGP's AS paths internal data.  There are both `show ip bgp
    paths' and `show ip mbgp paths'.  Those functions results are the
@@ -10171,7 +11024,7 @@ bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
     rmname = "<none>";
   vty_out (vty, " %13s ", rmname);
 
-  vty_out (vty, "%8s", peer_uptime (rsclient->uptime, timebuf, BGP_UPTIME_LEN));
+  vty_out (vty, "%8s", peer_uptime (rsclient->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL));
 
   if (CHECK_FLAG (rsclient->flags, PEER_FLAG_SHUTDOWN))
     vty_out (vty, " Idle (Admin)");

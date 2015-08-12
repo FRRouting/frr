@@ -21,8 +21,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_DAMP_H
 #define _QUAGGA_BGP_DAMP_H
 
-#include "lib/json.h"
-
 /* Structure maintained on a per-route basis. */
 struct bgp_damp_info
 {
@@ -144,6 +142,6 @@ extern int bgp_damp_decay (time_t, int);
 extern void bgp_config_write_damp (struct vty *);
 extern void bgp_damp_info_vty (struct vty *, struct bgp_info *, json_object *json_path);
 extern const char * bgp_damp_reuse_time_vty (struct vty *, struct bgp_info *,
-                                             char *, size_t);
+                                             char *, size_t, u_char, json_object *);
 
 #endif /* _QUAGGA_BGP_DAMP_H */

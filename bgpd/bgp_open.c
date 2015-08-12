@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 #include "queue.h"
 
+#include "lib/json.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
@@ -49,12 +50,16 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
    inforation at each peer. */
 
 void
-bgp_capability_vty_out (struct vty *vty, struct peer *peer)
+bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, json_object *json_neigh)
 {
   char *pnt;
   char *end;
   struct capability_mp_data mpc;
   struct capability_header *hdr;
+  json_object *json_cap = NULL;
+
+  if (use_json)
+    json_cap = json_object_new_object();
 
   pnt = peer->notify.data;
   end = pnt + peer->notify.length;
@@ -72,46 +77,89 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer)
 
       if (hdr->code == CAPABILITY_CODE_MP)
 	{
-	  vty_out (vty, "  Capability error for: Multi protocol ");
-
-	  switch (ntohs (mpc.afi))
-	    {
-	    case AFI_IP:
-	      vty_out (vty, "AFI IPv4, ");
-	      break;
-	    case AFI_IP6:
-	      vty_out (vty, "AFI IPv6, ");
-	      break;
-	    default:
-	      vty_out (vty, "AFI Unknown %d, ", ntohs (mpc.afi));
-	      break;
-	    }
-	  switch (mpc.safi)
-	    {
-	    case SAFI_UNICAST:
-	      vty_out (vty, "SAFI Unicast");
-	      break;
-	    case SAFI_MULTICAST:
-	      vty_out (vty, "SAFI Multicast");
-	      break;
-	    case SAFI_MPLS_LABELED_VPN:
-	      vty_out (vty, "SAFI MPLS-labeled VPN");
-	      break;
-	    default:
-	      vty_out (vty, "SAFI Unknown %d ", mpc.safi);
-	      break;
-	    }
-	  vty_out (vty, "%s", VTY_NEWLINE);
-	}
+          if (use_json)
+            {
+              switch (ntohs (mpc.afi))
+                {
+                  case AFI_IP:
+                    json_object_string_add(json_cap, "capabilityErrorMultiProtocolAfi", "IPv4");
+                  break;
+                  case AFI_IP6:
+                    json_object_string_add(json_cap, "capabilityErrorMultiProtocolAfi", "IPv6");
+                  break;
+                  default:
+                    json_object_int_add(json_cap, "capabilityErrorMultiProtocolAfiUnknown", ntohs (mpc.afi));
+                  break;
+                }
+              switch (mpc.safi)
+                {
+                  case SAFI_UNICAST:
+                    json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "unicast");
+                  break;
+                  case SAFI_MULTICAST:
+                    json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "multicast");
+                  break;
+                  case SAFI_MPLS_LABELED_VPN:
+                    json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "MPLS-labeled VPN");
+                  break;
+                  default:
+                    json_object_int_add(json_cap, "capabilityErrorMultiProtocolSafiUnknown", mpc.safi);
+                  break;
+                }
+            }
+          else
+            {
+              vty_out (vty, "  Capability error for: Multi protocol ");
+              switch (ntohs (mpc.afi))
+                {
+                  case AFI_IP:
+                    vty_out (vty, "AFI IPv4, ");
+                  break;
+                  case AFI_IP6:
+                    vty_out (vty, "AFI IPv6, ");
+                  break;
+                  default:
+                    vty_out (vty, "AFI Unknown %d, ", ntohs (mpc.afi));
+                  break;
+                }
+              switch (mpc.safi)
+                {
+                  case SAFI_UNICAST:
+                    vty_out (vty, "SAFI Unicast");
+                  break;
+                  case SAFI_MULTICAST:
+                    vty_out (vty, "SAFI Multicast");
+                  break;
+                 case SAFI_MPLS_LABELED_VPN:
+                    vty_out (vty, "SAFI MPLS-labeled VPN");
+                  break;
+                  default:
+                    vty_out (vty, "SAFI Unknown %d ", mpc.safi);
+                  break;
+                }
+              vty_out (vty, "%s", VTY_NEWLINE);
+            }
+        }
       else if (hdr->code >= 128)
-	vty_out (vty, "  Capability error: vendor specific capability code %d",
-		 hdr->code);
+        {
+          if (use_json)
+            json_object_int_add(json_cap, "capabilityErrorVendorSpecificCapabilityCode", hdr->code);
+          else
+            vty_out (vty, "  Capability error: vendor specific capability code %d",
+                     hdr->code);
+        }
       else
-	vty_out (vty, "  Capability error: unknown capability code %d", 
-		 hdr->code);
-
+        {
+          if (use_json)
+            json_object_int_add(json_cap, "capabilityErrorUnknownCapabilityCode", hdr->code);
+          else
+            vty_out (vty, "  Capability error: unknown capability code %d",
+                     hdr->code);
+        }
       pnt += hdr->length + 2;
     }
+  if (use_json)
+    json_object_object_add(json_neigh, "capabilityErrors", json_cap);
 }
 
 static void 

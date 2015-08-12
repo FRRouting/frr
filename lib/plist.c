@@ -20,6 +20,7 @@
  */
 
 #include <zebra.h>
+#include "lib/json.h"
 
 #include "prefix.h"
 #include "command.h"
@@ -2559,10 +2560,13 @@ prefix_bgp_orf_remove_all (char *name)
 
 /* return prefix count */
 int
-prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name)
+prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name, u_char use_json)
 {
   struct prefix_list *plist;
   struct prefix_list_entry *pentry;
+  json_object *json = NULL;
+  json_object *json_prefix = NULL;
+  json_object *json_list = NULL;
 
   plist = prefix_list_lookup (AFI_ORF_PREFIX, name);
   if (! plist)
@@ -2571,26 +2575,65 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name)
   if (! vty)
     return plist->count;
 
-  vty_out (vty, "ip%s prefix-list %s: %d entries%s",
-	   afi == AFI_IP ? "" : "v6",
-	   plist->name, plist->count, VTY_NEWLINE);
-
-  for (pentry = plist->head; pentry; pentry = pentry->next)
+  if(use_json)
     {
-      struct prefix *p = &pentry->prefix;
-      char buf[BUFSIZ];
+      json = json_object_new_object();
+      json_prefix = json_object_new_object();
+      json_list = json_object_new_object();
 
-      vty_out (vty, "   seq %d %s %s/%d", pentry->seq,
-	       prefix_list_type_str (pentry),
-	       inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
-	       p->prefixlen);
+      json_object_int_add(json_prefix, "prefixListCounter", plist->count);
+      json_object_string_add(json_prefix, "prefixListName", plist->name);
 
-      if (pentry->ge)
-	vty_out (vty, " ge %d", pentry->ge);
-      if (pentry->le)
-	vty_out (vty, " le %d", pentry->le);
+      for (pentry = plist->head; pentry; pentry = pentry->next)
+        {
+          struct prefix *p = &pentry->prefix;
+          char buf_a[BUFSIZ];
+          char buf_b[BUFSIZ];
 
-      vty_out (vty, "%s", VTY_NEWLINE);
+          sprintf(buf_a, "%s/%d", inet_ntop (p->family, &p->u.prefix, buf_b, BUFSIZ),
+                            p->prefixlen);
+
+          json_object_int_add(json_list, "seq", pentry->seq);
+          json_object_string_add(json_list, "seqPrefixListType", prefix_list_type_str (pentry));
+
+          if (pentry->ge)
+            json_object_int_add(json_list, "ge", pentry->ge);
+          if (pentry->le)
+            json_object_int_add(json_list, "le", pentry->le);
+
+          json_object_object_add(json_prefix, buf_a, json_list);
+        }
+      if (afi == AFI_IP)
+        json_object_object_add(json, "ipPrefixList", json_prefix);
+      else
+        json_object_object_add(json, "ipv6PrefixList", json_prefix);
+
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    {
+      vty_out (vty, "ip%s prefix-list %s: %d entries%s",
+               afi == AFI_IP ? "" : "v6",
+               plist->name, plist->count, VTY_NEWLINE);
+
+      for (pentry = plist->head; pentry; pentry = pentry->next)
+        {
+          struct prefix *p = &pentry->prefix;
+          char buf[BUFSIZ];
+
+          vty_out (vty, "   seq %d %s %s/%d", pentry->seq,
+                   prefix_list_type_str (pentry),
+                   inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
+                   p->prefixlen);
+
+          if (pentry->ge)
+            vty_out (vty, " ge %d", pentry->ge);
+          if (pentry->le)
+            vty_out (vty, " le %d", pentry->le);
+
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
     }
   return plist->count;
 }

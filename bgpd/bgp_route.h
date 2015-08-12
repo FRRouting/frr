@@ -21,7 +21,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_ROUTE_H
 #define _QUAGGA_BGP_ROUTE_H
 
-#include "lib/json.h"
 #include "queue.h"
 #include "bgp_table.h"
 
@@ -299,8 +298,8 @@ extern afi_t bgp_node_afi (struct vty *);
 extern safi_t bgp_node_safi (struct vty *);
 
 extern void route_vty_out (struct vty *, struct prefix *, struct bgp_info *, int, safi_t, json_object *);
-extern void route_vty_out_tag (struct vty *, struct prefix *, struct bgp_info *, int, safi_t);
-extern void route_vty_out_tmp (struct vty *, struct prefix *, struct attr *, safi_t);
+extern void route_vty_out_tag (struct vty *, struct prefix *, struct bgp_info *, int, safi_t, json_object *);
+extern void route_vty_out_tmp (struct vty *, struct prefix *, struct attr *, safi_t, u_char, json_object *);
 
 extern int
 subgroup_process_announce_selected (struct update_subgroup *subgrp,

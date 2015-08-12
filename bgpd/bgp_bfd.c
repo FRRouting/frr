@@ -33,6 +33,7 @@
 #include "zclient.h"
 #include "vty.h"
 #include "bfd.h"
+#include "lib/json.h"
 #include "bgpd/bgpd.h"
 #include "bgp_fsm.h"
 #include "bgpd/bgp_bfd.h"
@@ -383,22 +384,40 @@ bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
  * bgp_bfd_show_info - Show the peer BFD information.
  */
 void
-bgp_bfd_show_info(struct vty *vty, struct peer *peer)
+bgp_bfd_show_info(struct vty *vty, struct peer *peer, u_char use_json, json_object *json_neigh)
 {
   struct bfd_info *bfd_info;
+  json_object *json_bfd = NULL;
 
   if (!peer->bfd_info)
     return;
 
+  if (use_json)
+    json_bfd = json_object_new_object();
+
   bfd_info = (struct bfd_info *)peer->bfd_info;
 
-  vty_out (vty, "  BFD: Multi-hop: %s%s",
-       (bgp_bfd_is_peer_multihop(peer)) ? "yes" : "no", VTY_NEWLINE);
-  vty_out (vty, "    Detect Mul: %d, Min Rx interval: %d,"
-                " Min Tx interval: %d%s",
-                    bfd_info->detect_mult, bfd_info->required_min_rx,
-                    bfd_info->desired_min_tx, VTY_NEWLINE);
-  vty_out (vty, "%s", VTY_NEWLINE);
+  if (use_json)
+    {
+      if (bgp_bfd_is_peer_multihop(peer))
+        json_object_string_add(json_bfd, "bfdMultiHop", "yes");
+      else
+        json_object_string_add(json_bfd, "bfdMultiHop", "no");
+      json_object_int_add(json_bfd, "detectMultiplier", bfd_info->detect_mult);
+      json_object_int_add(json_bfd, "rxMinInterval", bfd_info->required_min_rx);
+      json_object_int_add(json_bfd, "txMinInterval", bfd_info->desired_min_tx);
+      json_object_object_add(json_neigh, "peerBfdInfo", json_bfd);
+    }
+  else
+    {
+      vty_out (vty, "  BFD: Multi-hop: %s%s",
+               (bgp_bfd_is_peer_multihop(peer)) ? "yes" : "no", VTY_NEWLINE);
+      vty_out (vty, "    Detect Mul: %d, Min Rx interval: %d,"
+               " Min Tx interval: %d%s",
+               bfd_info->detect_mult, bfd_info->required_min_rx,
+               bfd_info->desired_min_tx, VTY_NEWLINE);
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
 }
 
 DEFUN (neighbor_bfd,
