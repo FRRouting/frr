@@ -944,7 +944,6 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
 				struct attr *attr, struct peer *from)
 {
   struct stream *s;
-  struct stream *packet;
   struct peer *peer;
   struct prefix p;
   unsigned long pos;
@@ -1010,9 +1009,7 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
   /* Set size. */
   bgp_packet_set_size (s);
 
-  packet = stream_dup (s);
-  stream_free (s);
-  (void) bpacket_queue_add (SUBGRP_PKTQ (subgrp), packet, &vecarr);
+  (void) bpacket_queue_add (SUBGRP_PKTQ (subgrp), s, &vecarr);
   subgroup_trigger_write(subgrp);
 }
 
@@ -1021,7 +1018,6 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
 {
   struct peer *peer;
   struct stream *s;
-  struct stream *packet;
   struct prefix p;
   unsigned long attrlen_pos = 0;
   unsigned long cp;
@@ -1102,10 +1098,7 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
 
   bgp_packet_set_size (s);
 
-  packet = stream_dup (s);
-  stream_free (s);
-
-  (void) bpacket_queue_add (SUBGRP_PKTQ (subgrp), packet, NULL);
+  (void) bpacket_queue_add (SUBGRP_PKTQ (subgrp), s, NULL);
   subgroup_trigger_write(subgrp);
 }
 
