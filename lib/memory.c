@@ -392,12 +392,11 @@ show_memory_mallinfo (struct vty *vty)
 }
 #endif /* HAVE_MALLINFO */
 
-DEFUN (show_memory_all,
-       show_memory_all_cmd,
-       "show memory all",
+DEFUN (show_memory,
+       show_memory_cmd,
+       "show memory",
        "Show running system information\n"
-       "Memory statistics\n"
-       "All memory statistics\n")
+       "Memory statistics\n")
 {
   struct mlist *ml;
   int needsep = 0;
@@ -416,147 +415,15 @@ DEFUN (show_memory_all,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_memory_all,
-       show_memory_cmd,
-       "show memory",
-       "Show running system information\n"
-       "Memory statistics\n")
-
-DEFUN (show_memory_lib,
-       show_memory_lib_cmd,
-       "show memory lib",
-       SHOW_STR
-       "Memory statistics\n"
-       "Library memory\n")
-{
-  show_memory_vty (vty, memory_list_lib);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_memory_zebra,
-       show_memory_zebra_cmd,
-       "show memory zebra",
-       SHOW_STR
-       "Memory statistics\n"
-       "Zebra memory\n")
-{
-  show_memory_vty (vty, memory_list_zebra);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_memory_rip,
-       show_memory_rip_cmd,
-       "show memory rip",
-       SHOW_STR
-       "Memory statistics\n"
-       "RIP memory\n")
-{
-  show_memory_vty (vty, memory_list_rip);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_memory_ripng,
-       show_memory_ripng_cmd,
-       "show memory ripng",
-       SHOW_STR
-       "Memory statistics\n"
-       "RIPng memory\n")
-{
-  show_memory_vty (vty, memory_list_ripng);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_memory_babel,
-       show_memory_babel_cmd,
-       "show memory babel",
-       SHOW_STR
-       "Memory statistics\n"
-       "Babel memory\n")
-{
-  show_memory_vty (vty, memory_list_babel);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_memory_bgp,
-       show_memory_bgp_cmd,
-       "show memory bgp",
-       SHOW_STR
-       "Memory statistics\n"
-       "BGP memory\n")
-{
-  show_memory_vty (vty, memory_list_bgp);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_memory_ospf,
-       show_memory_ospf_cmd,
-       "show memory ospf",
-       SHOW_STR
-       "Memory statistics\n"
-       "OSPF memory\n")
-{
-  show_memory_vty (vty, memory_list_ospf);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_memory_ospf6,
-       show_memory_ospf6_cmd,
-       "show memory ospf6",
-       SHOW_STR
-       "Memory statistics\n"
-       "OSPF6 memory\n")
-{
-  show_memory_vty (vty, memory_list_ospf6);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_memory_isis,
-       show_memory_isis_cmd,
-       "show memory isis",
-       SHOW_STR
-       "Memory statistics\n"
-       "ISIS memory\n")
-{
-  show_memory_vty (vty, memory_list_isis);
-  return CMD_SUCCESS;
-}
 
 void
 memory_init (void)
 {
   install_element (RESTRICTED_NODE, &show_memory_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_all_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_lib_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_rip_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_ripng_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_babel_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_bgp_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_ospf_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_ospf6_cmd);
-  install_element (RESTRICTED_NODE, &show_memory_isis_cmd);
 
   install_element (VIEW_NODE, &show_memory_cmd);
-  install_element (VIEW_NODE, &show_memory_all_cmd);
-  install_element (VIEW_NODE, &show_memory_lib_cmd);
-  install_element (VIEW_NODE, &show_memory_rip_cmd);
-  install_element (VIEW_NODE, &show_memory_ripng_cmd);
-  install_element (VIEW_NODE, &show_memory_babel_cmd);
-  install_element (VIEW_NODE, &show_memory_bgp_cmd);
-  install_element (VIEW_NODE, &show_memory_ospf_cmd);
-  install_element (VIEW_NODE, &show_memory_ospf6_cmd);
-  install_element (VIEW_NODE, &show_memory_isis_cmd);
 
   install_element (ENABLE_NODE, &show_memory_cmd);
-  install_element (ENABLE_NODE, &show_memory_all_cmd);
-  install_element (ENABLE_NODE, &show_memory_lib_cmd);
-  install_element (ENABLE_NODE, &show_memory_zebra_cmd);
-  install_element (ENABLE_NODE, &show_memory_rip_cmd);
-  install_element (ENABLE_NODE, &show_memory_ripng_cmd);
-  install_element (ENABLE_NODE, &show_memory_babel_cmd);
-  install_element (ENABLE_NODE, &show_memory_bgp_cmd);
-  install_element (ENABLE_NODE, &show_memory_ospf_cmd);
-  install_element (ENABLE_NODE, &show_memory_ospf6_cmd);
-  install_element (ENABLE_NODE, &show_memory_isis_cmd);
 }
 
 /* Stats querying from users */

@@ -146,7 +146,6 @@ static struct stream *
 bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct stream *s;
-  struct stream *packet;
 
   if (DISABLE_BGP_ANNOUNCE)
     return NULL;
@@ -179,10 +178,8 @@ bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
     }
 
   bgp_packet_set_size (s);
-  packet = stream_dup (s);
-  bgp_packet_add (peer, packet);
-  stream_free (s);
-  return packet;
+  bgp_packet_add (peer, s);
+  return s;
 }
 
 /* Get next packet to be written.  */
@@ -676,7 +673,6 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
 			u_char orf_type, u_char when_to_refresh, int remove)
 {
   struct stream *s;
-  struct stream *packet;
   struct bgp_filter *filter;
   int orf_refresh = 0;
 
@@ -753,12 +749,8 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
 		   peer->host, afi, safi);
     }
 
-  /* Make real packet. */
-  packet = stream_dup (s);
-  stream_free (s);
-
   /* Add packet to the peer. */
-  bgp_packet_add (peer, packet);
+  bgp_packet_add (peer, s);
 
   BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
@@ -769,7 +761,6 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 		     int capability_code, int action)
 {
   struct stream *s;
-  struct stream *packet;
 
   /* Adjust safi code. */
   if (safi == SAFI_MPLS_VPN)
@@ -799,12 +790,8 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
   /* Set packet size. */
   (void)bgp_packet_set_size (s);
 
-  /* Make real packet. */
-  packet = stream_dup (s);
-  stream_free (s);
-
   /* Add packet to the peer. */
-  bgp_packet_add (peer, packet);
+  bgp_packet_add (peer, s);
 
   BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
