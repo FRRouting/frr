@@ -203,7 +203,7 @@ AC_GNU_SOURCE
 dnl -------
 dnl libtool
 dnl -------
-AC_PROG_LIBTOOL
+LT_INIT
 
 dnl ----------------------
 dnl Packages configuration
@@ -1668,29 +1668,6 @@ dnl configure date
 dnl ----------
 CONFDATE=`date '+%Y%m%d'`
 AC_SUBST(CONFDATE)
-
-dnl Conditionally enable PIE support for GNU toolchains.
-AC_ARG_ENABLE(pie, AS_HELP_STRING([--disable-pie], [Do not build tools as a Position Independent Executables]))
-if test "$enable_pie" != "no"; then
-  AC_CACHE_CHECK([whether $CC accepts PIE flags], [ap_cv_cc_pie], [
-    save_CFLAGS=$CFLAGS
-    save_LDFLAGS=$LDFLAGS
-    CFLAGS="$CFLAGS -fPIE"
-    LDFLAGS="$LDFLAGS -pie"
-    AC_LINK_IFELSE([AC_LANG_SOURCE([[static int foo[30000]; int main () { return 0; }]])],
-      [ap_cv_cc_pie=yes], [ap_cv_cc_pie=no]
-    )
-    CFLAGS=$save_CFLAGS
-    LDFLAGS=$save_LDFLAGS
-  ])
-  if test "$ap_cv_cc_pie" = "yes"; then
-    PICFLAGS="-fPIE"
-    PILDFLAGS="-pie"
-  fi
-fi
-
-AC_SUBST(PICFLAGS)
-AC_SUBST(PILDFLAGS)
 
 dnl -------
 dnl DejaGNU

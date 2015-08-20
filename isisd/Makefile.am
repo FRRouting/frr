@@ -6,8 +6,7 @@ DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 LIBS = @LIBS@ 
 
-AM_CFLAGS = $(PICFLAGS) $(WERROR)
-AM_LDFLAGS = $(PILDFLAGS)
+AM_CFLAGS = $(WERROR)
 
 noinst_LIBRARIES = libisis.a
 sbin_PROGRAMS = isisd 
