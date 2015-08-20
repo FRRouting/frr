@@ -1567,6 +1567,52 @@ ALIAS (vtysh_exit_interface,
        "quit",
        "Exit current mode and down to previous mode\n")
 
+DEFUN (vtysh_show_thread,
+       vtysh_show_thread_cmd,
+       "show thread cpu [FILTER]",
+      SHOW_STR
+      "Thread information\n"
+      "Thread CPU usage\n"
+      "Display filter (rwtexb)\n")
+{
+  unsigned int i;
+  int ret = CMD_SUCCESS;
+  char line[100];
+
+  sprintf(line, "show thread cpu %s\n", (argc == 1) ? argv[0] : "");
+  for (i = 0; i < array_size(vtysh_client); i++)
+    if ( vtysh_client[i].fd >= 0 )
+      {
+        fprintf (stdout, "Thread statistics for %s:\n",
+                 vtysh_client[i].name);
+        ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
+        fprintf (stdout,"\n");
+      }
+  return ret;
+}
+
+DEFUN (vtysh_show_work_queues,
+       vtysh_show_work_queues_cmd,
+       "show work-queues",
+       SHOW_STR
+       "Work Queue information\n")
+{
+  unsigned int i;
+  int ret = CMD_SUCCESS;
+  char line[] = "show work-queues\n";
+
+  for (i = 0; i < array_size(vtysh_client); i++)
+    if ( vtysh_client[i].fd >= 0 )
+      {
+        fprintf (stdout, "Work queue statistics for %s:\n",
+                 vtysh_client[i].name);
+        ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
+        fprintf (stdout,"\n");
+      }
+
+  return ret;
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -2834,6 +2880,12 @@ vtysh_init_vty (void)
 
   install_element (VIEW_NODE, &vtysh_show_memory_cmd);
   install_element (ENABLE_NODE, &vtysh_show_memory_cmd);
+
+  install_element (VIEW_NODE, &vtysh_show_work_queues_cmd);
+  install_element (ENABLE_NODE, &vtysh_show_work_queues_cmd);
+
+  install_element (VIEW_NODE, &vtysh_show_thread_cmd);
+  install_element (ENABLE_NODE, &vtysh_show_thread_cmd);
 
   /* Logging */
   install_element (ENABLE_NODE, &vtysh_show_logging_cmd);
