@@ -143,6 +143,14 @@ int pim_interface_config_write(struct vty *vty)
 	++writes;
       }
 
+      /* IF ip pim hello */
+      if (pim_ifp->pim_hello_period != PIM_DEFAULT_HELLO_PERIOD) {
+	vty_out(vty, " ip pim hello %d", pim_ifp->pim_hello_period);
+	if (pim_ifp->pim_default_holdtime != -1)
+	  vty_out(vty, " %d", pim_ifp->pim_default_holdtime);
+	vty_out(vty, "%s", VTY_NEWLINE);
+      }
+
       /* IF ip igmp */
       if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
 	vty_out(vty, " ip igmp%s", VTY_NEWLINE);

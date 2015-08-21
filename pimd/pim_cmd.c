@@ -3169,7 +3169,7 @@ DEFUN (interface_no_ip_pim_drprio,
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    vty_out(vty, "Pim no enabled on this interface%s", VTY_NEWLINE);
+    vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
     return CMD_WARNING;
   }
 
@@ -3443,6 +3443,70 @@ DEFUN (interface_no_ip_mroute_source,
    }
 
    return CMD_SUCCESS;
+}
+
+DEFUN (interface_ip_pim_hello,
+       interface_ip_pim_hello_cmd,
+       "ip pim hello <1-180>",
+       IP_STR
+       PIM_STR
+       IFACE_PIM_HELLO_STR
+       IFACE_PIM_HELLO_TIME_STR)
+{
+  struct interface *ifp;
+  struct pim_interface *pim_ifp;
+
+  ifp = vty->index;
+  pim_ifp = ifp->info;
+
+  if (!pim_ifp) {
+    vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  pim_ifp->pim_hello_period = strtol(argv[0], NULL, 10);
+
+  if (argc == 2)
+    pim_ifp->pim_default_holdtime = strtol(argv[1], NULL, 10);
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (interface_ip_pim_hello,
+       interface_ip_pim_hello_hold_cmd,
+       "ip pim hello <1-180> <1-180>",
+       IP_STR
+       PIM_STR
+       IFACE_PIM_HELLO_STR
+       IFACE_PIM_HELLO_TIME_STR
+       IFACE_PIM_HELLO_HOLD_STR)
+
+
+DEFUN (interface_no_ip_pim_hello,
+       interface_no_ip_pim_hello_cmd,
+       "no ip pim hello {<1-180> <1-180>}",
+       NO_STR
+       IP_STR
+       PIM_STR
+       IFACE_PIM_HELLO_STR
+       IFACE_PIM_HELLO_TIME_STR
+       IFACE_PIM_HELLO_HOLD_STR)
+{
+  struct interface *ifp;
+  struct pim_interface *pim_ifp;
+
+  ifp = vty->index;
+  pim_ifp = ifp->info;
+
+  if (!pim_ifp) {
+    vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  pim_ifp->pim_hello_period     = PIM_DEFAULT_HELLO_PERIOD;
+  pim_ifp->pim_default_holdtime = -1;
+
+  return CMD_SUCCESS;
 }
 
 DEFUN (debug_igmp,
@@ -4746,6 +4810,9 @@ void pim_cmd_init()
   install_element (INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
   install_element (INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
+  install_element (INTERFACE_NODE, &interface_ip_pim_hello_cmd);
+  install_element (INTERFACE_NODE, &interface_ip_pim_hello_hold_cmd);
+  install_element (INTERFACE_NODE, &interface_no_ip_pim_hello_cmd);
 
   // Static mroutes NEB
   install_element (INTERFACE_NODE, &interface_ip_mroute_cmd);
