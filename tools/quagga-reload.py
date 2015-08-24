@@ -468,16 +468,16 @@ if __name__ == '__main__':
 
     # Verify that 'service integrated-vtysh-config' is configured
     vtysh_filename = '/etc/quagga/vtysh.conf'
-    fh = open(vtysh_filename, 'r')
     service_integrated_vtysh_config = False
 
-    for line in fh.readlines():
-        line = line.strip()
+    if os.path.isfile(vtysh_filename):
+        with open(vtysh_filename, 'r') as fh:
+            for line in fh.readlines():
+                line = line.strip()
 
-        if line == 'service integrated-vtysh-config':
-            service_integrated_vtysh_config = True
-            break
-    fh.close()
+                if line == 'service integrated-vtysh-config':
+                    service_integrated_vtysh_config = True
+                    break
 
     if not service_integrated_vtysh_config:
         print "'service integrated-vtysh-config' is not configured, this is required for 'service quagga reload'"
