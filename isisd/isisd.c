@@ -2171,6 +2171,39 @@ DEFUN (no_set_overload_bit,
   return CMD_SUCCESS;
 }
 
+DEFUN (set_attached_bit,
+       set_attached_bit_cmd,
+       "set-attached-bit",
+       "Set attached bit to identify as L1/L2 router for inter-area traffic\n"
+       "Set attached bit\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+  assert (area);
+
+  area->attached_bit = LSPBIT_ATT;
+  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_set_attached_bit,
+       no_set_attached_bit_cmd,
+       "no set-attached-bit",
+       "Reset attached bit\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+  assert (area);
+
+  area->attached_bit = 0;
+  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (dynamic_hostname,
        dynamic_hostname_cmd,
        "hostname dynamic",
@@ -3245,6 +3278,9 @@ isis_init ()
 
   install_element (ISIS_NODE, &set_overload_bit_cmd);
   install_element (ISIS_NODE, &no_set_overload_bit_cmd);
+
+  install_element (ISIS_NODE, &set_attached_bit_cmd);
+  install_element (ISIS_NODE, &no_set_attached_bit_cmd);
 
   install_element (ISIS_NODE, &dynamic_hostname_cmd);
   install_element (ISIS_NODE, &no_dynamic_hostname_cmd);

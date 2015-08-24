@@ -442,7 +442,7 @@ lsp_seqnum_update (struct isis_lsp *lsp0)
 }
 
 static u_int8_t
-lsp_bits_generate (int level, int overload_bit)
+lsp_bits_generate (int level, int overload_bit, int attached_bit)
 {
   u_int8_t lsp_bits = 0;
   if (level == IS_LEVEL_1)
@@ -451,6 +451,8 @@ lsp_bits_generate (int level, int overload_bit)
     lsp_bits = IS_LEVEL_1_AND_2;
   if (overload_bit)
     lsp_bits |= overload_bit;
+  if (attached_bit)
+    lsp_bits |= attached_bit;
   return lsp_bits;
 }
 
@@ -1130,7 +1132,8 @@ lsp_next_frag (u_char frag_num, struct isis_lsp *lsp0, struct isis_area *area,
       return lsp;
     }
   lsp = lsp_new (frag_id, ntohs(lsp0->lsp_header->rem_lifetime), 0,
-                 lsp_bits_generate (level, area->overload_bit), 0, level);
+                 lsp_bits_generate (level, area->overload_bit,
+                 area->attached_bit), 0, level);
   lsp->area = area;
   lsp->own_lsp = 1;
   lsp_insert (lsp, area->lspdb[level - 1]);
@@ -1591,7 +1594,8 @@ lsp_generate (struct isis_area *area, int level)
     }
   rem_lifetime = lsp_rem_lifetime (area, level);
   newlsp = lsp_new (lspid, rem_lifetime, seq_num,
-                    area->is_type | area->overload_bit, 0, level);
+                    area->is_type | area->overload_bit | area->attached_bit,
+                    0, level);
   newlsp->area = area;
   newlsp->own_lsp = 1;
 
@@ -1658,7 +1662,8 @@ lsp_regenerate (struct isis_area *area, int level)
 
   lsp_clear_data (lsp);
   lsp_build (lsp, area);
-  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, area->overload_bit);
+  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, area->overload_bit,
+                                                 area->attached_bit);
   rem_lifetime = lsp_rem_lifetime (area, level);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
   lsp_seqnum_update (lsp);
@@ -1668,7 +1673,8 @@ lsp_regenerate (struct isis_area *area, int level)
   for (ALL_LIST_ELEMENTS_RO (lsp->lspu.frags, node, frag))
     {
       frag->lsp_header->lsp_bits = lsp_bits_generate (level,
-                                                      area->overload_bit);
+                                                      area->overload_bit,
+                                                      area->attached_bit);
       /* Set the lifetime values of all the fragments to the same value,
        * so that no fragment expires before the lsp is refreshed.
        */
@@ -1829,7 +1835,8 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 
   lsp->level = level;
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
-  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0);
+  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0,
+                                                 circuit->area->attached_bit);
 
   /*
    * add self to IS neighbours 
@@ -1959,7 +1966,9 @@ lsp_generate_pseudo (struct isis_circuit *circuit, int level)
 
   rem_lifetime = lsp_rem_lifetime (circuit->area, level);
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
-  lsp = lsp_new (lsp_id, rem_lifetime, 1, circuit->area->is_type, 0, level);
+  lsp = lsp_new (lsp_id, rem_lifetime, 1,
+                 circuit->area->is_type | circuit->area->attached_bit,
+                 0, level);
   lsp->area = circuit->area;
 
   lsp_build_pseudo (lsp, circuit, level);
@@ -2025,7 +2034,8 @@ lsp_regenerate_pseudo (struct isis_circuit *circuit, int level)
   lsp_build_pseudo (lsp, circuit, level);
 
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
-  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0);
+  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0,
+                                                 circuit->area->attached_bit);
   rem_lifetime = lsp_rem_lifetime (circuit->area, level);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
   lsp_inc_seqnum (lsp, 0);
@@ -2429,7 +2439,8 @@ top_lsp_refresh (struct thread *thread)
 		     IS_LEVEL_1);
 
   lsp->lsp_header->lsp_bits = lsp_bits_generate (lsp->level,
-                                                 lsp->area->overload_bit);
+                                                 lsp->area->overload_bit,
+                                                 lsp->area->attached_bit);
   rem_lifetime = lsp_rem_lifetime (lsp->area, IS_LEVEL_1);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
 
@@ -2468,8 +2479,8 @@ generate_topology_lsps (struct isis_area *area)
       lspid[ISIS_SYS_ID_LEN - 2] = ((i >> 8) & 0xFF);
 
       rem_lifetime = lsp_rem_lifetime (area, IS_LEVEL_1);
-      lsp = lsp_new (lspid, rem_lifetime, 1, IS_LEVEL_1 | area->overload_bit,
-                     0, 1);
+      lsp = lsp_new (lspid, rem_lifetime, 1, IS_LEVEL_1 | area->overload_bit
+                     | area->attached_bit, 0, 1);
       if (!lsp)
 	return;
       lsp->area = area;
