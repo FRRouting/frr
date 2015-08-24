@@ -1324,12 +1324,6 @@ main(int argc, char **argv)
 	      mode_str[gs.mode],special);
       return usage(progname,1);
     }
-  if (gs.special && (gs.numdaemons < 2))
-    {
-      fprintf(stderr,"Mode [%s] does not make sense with only 1 daemon "
-		     "to watch.\n",mode_str[gs.mode]);
-      return usage(progname,1);
-    }
 
   zlog_default = openzlog(progname, ZLOG_NONE, 0,
 			  LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
