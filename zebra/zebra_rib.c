@@ -48,6 +48,9 @@
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
 
+/* Should we allow non Quagga processes to delete our routes */
+extern int allow_delete;
+
 /* Hold time for RIB process, should be very minimal.
  * it is useful to able to set it otherwise for testing, hence exported
  * as global here for test-rig code.
@@ -2695,9 +2698,20 @@ rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
                          inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
                          p->prefixlen);
             }
-          /* This means someone else, other than Zebra, has deleted
-           * a Zebra router from the kernel. We will add it back */
-           rib_install_kernel(rn, fib, 0);
+	  if (allow_delete)
+	    {
+	      /* Unset flags. */
+	      for (nexthop = fib->nexthop; nexthop; nexthop = nexthop->next)
+		UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+
+	      UNSET_FLAG (fib->flags, ZEBRA_FLAG_SELECTED);
+	    }
+	  else
+	    {
+	      /* This means someone else, other than Zebra, has deleted
+	       * a Zebra router from the kernel. We will add it back */
+	      rib_install_kernel(rn, fib, 0);
+	    }
         }
       else
 	{
@@ -3448,9 +3462,20 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
                          inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
                          p->prefixlen);
             }
-          /* This means someone else, other than Zebra, has deleted a Zebra
-           * route from the kernel. We will add it back */
-          rib_install_kernel(rn, fib, 0);
+	  if (allow_delete)
+	    {
+	      /* Unset flags. */
+	      for (nexthop = fib->nexthop; nexthop; nexthop = nexthop->next)
+		UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+
+	      UNSET_FLAG (fib->flags, ZEBRA_FLAG_SELECTED);
+	    }
+	  else
+	    {
+	      /* This means someone else, other than Zebra, has deleted a Zebra
+	       * route from the kernel. We will add it back */
+	      rib_install_kernel(rn, fib, 0);
+	    }
         }
       else
 	{

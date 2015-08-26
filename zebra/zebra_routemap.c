@@ -33,6 +33,7 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/zebra_routemap.h"
 
 static u_int32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct thread *zebra_t_rmap_update = NULL;
@@ -1558,15 +1559,10 @@ zebra_route_map_event (route_map_event_t event, const char *rmap_name)
 }
 
 /* ip protocol configuration write function */
-static int config_write_protocol(struct vty *vty)
+void
+zebra_routemap_config_write_protocol (struct vty *vty)
 {
   int i;
-
-  if (zebra_rnh_ip_default_route)
-    vty_out (vty, "ip nht resolve-via-default%s", VTY_NEWLINE);
-
-  if (zebra_rnh_ipv6_default_route)
-    vty_out (vty, "ipv6 nht resolve-via-default%s", VTY_NEWLINE);
 
   for (i=0;i<ZEBRA_ROUTE_MAX;i++)
     {
@@ -1598,15 +1594,11 @@ static int config_write_protocol(struct vty *vty)
   if (zebra_rmap_update_timer != ZEBRA_RMAP_DEFAULT_UPDATE_TIMER)
     vty_out (vty, "zebra route-map delay-timer %d%s", zebra_rmap_update_timer,
 	     VTY_NEWLINE);
-  return 1;
 }
-/* table node for protocol filtering */
-static struct cmd_node protocol_node = { PROTOCOL_NODE, "", 1 };
 
 void
 zebra_route_map_init ()
 {
-  install_node (&protocol_node, config_write_protocol);
   install_element (CONFIG_NODE, &ip_protocol_cmd);
   install_element (CONFIG_NODE, &no_ip_protocol_cmd);
   install_element (CONFIG_NODE, &no_ip_protocol_val_cmd);
