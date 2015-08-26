@@ -45,6 +45,7 @@ const char ZEBRA_PTM_BFD_START_CMD[] = "start-bfd-sess";
 const char ZEBRA_PTM_BFD_STOP_CMD[] = "stop-bfd-sess";
 
 const char ZEBRA_PTM_CMD_STR[] = "cmd";
+const char ZEBRA_PTM_CMD_STATUS_STR[] = "cmd_status";
 const char ZEBRA_PTM_PORT_STR[] = "port";
 const char ZEBRA_PTM_CBL_STR[] = "cbl status";
 const char ZEBRA_PTM_PASS_STR[] = "pass";
@@ -77,8 +78,7 @@ struct zebra_ptm_cb ptm_cb;
 static int zebra_ptm_socket_init(void);
 int zebra_ptm_sock_read(struct thread *);
 static void zebra_ptm_install_commands (void);
-static int zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt);
-static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt);
+static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req (void);
 
 const char ZEBRA_PTM_SOCK_NAME[] = "\0/var/run/ptmd.socket";
@@ -109,8 +109,8 @@ zebra_ptm_init (void)
   zebra_ptm_install_commands();
 
   sprintf(buf, "%s", "quagga");
-  ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_bfd_msg,
-                                    zebra_ptm_handle_cbl_msg);
+  ptm_hdl = ptm_lib_register(buf, NULL, zebra_ptm_handle_msg_cb,
+                                    zebra_ptm_handle_msg_cb);
   ptm_cb.wb = buffer_new(0);
 
   ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
@@ -368,32 +368,13 @@ if_bfd_session_down (struct interface *ifp, struct prefix *dp, struct prefix *sp
 }
 
 static int
-zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt)
+zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
 {
-  struct interface *ifp = NULL;
-  char port_str[128];
   char bfdst_str[32];
   char dest_str[64];
   char src_str[64];
   struct prefix dest_prefix;
   struct prefix src_prefix;
-
-  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str);
-
-  if (port_str[0] == '\0') {
-    zlog_debug("%s: Key %s not found in PTM msg", __func__,
-               ZEBRA_PTM_PORT_STR);
-    return -1;
-  }
-
-  if (strcmp(ZEBRA_PTM_INVALID_PORT_NAME, port_str)) {
-    ifp = if_lookup_by_name(port_str);
-
-    if (!ifp) {
-      zlog_err("%s: %s not found in interface list", __func__, port_str);
-          return -1;
-    }
-  }
 
   ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSTATUS_STR, bfdst_str);
 
@@ -419,7 +400,8 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt)
 
   if (IS_ZEBRA_DEBUG_EVENT)
     zlog_debug("%s: Recv Port [%s] bfd status [%s] peer [%s] local [%s]",
-                  __func__, port_str, bfdst_str, dest_str, src_str);
+                  __func__, ifp ? ifp->name : "N/A", bfdst_str,
+                  dest_str, src_str);
 
   /* we only care if bfd session goes down */
   if (!strcmp (bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
@@ -465,58 +447,85 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt)
 }
 
 static int
-zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt)
+zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt, struct interface *ifp,
+                         char *cbl_str)
 {
-  struct interface *ifp;
-  char cbl_str[32];
-  char port_str[128];
-  char cmd_str[32];
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug("%s: Recv Port [%s] cbl status [%s]", __func__,
+             ifp->name, cbl_str);
 
-  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CMD_STR, cmd_str);
+  if (!strcmp(cbl_str, ZEBRA_PTM_PASS_STR) && (!ifp->ptm_status)) {
+    ifp->ptm_status = 1;
+    if (ifp->ptm_enable && if_is_no_ptm_operative (ifp))
+      if_up (ifp);
+  } else if (!strcmp (cbl_str, ZEBRA_PTM_FAIL_STR) && (ifp->ptm_status)) {
+    ifp->ptm_status = 0;
+    if (ifp->ptm_enable && if_is_no_ptm_operative (ifp))
+      if_down (ifp);
+  }
+
+  return 0;
+}
+/*
+ * zebra_ptm_handle_msg_cb - The purpose of this callback function is to handle
+ *  all the command responses and notifications received from PTM.
+ *
+ * Command responses: Upon establishing connection with PTM, Zebra requests
+ *  status of all interfaces using 'get-status' command if global ptm-enable
+ *  knob is enabled. As a response to the get-status command PTM sends status
+ *  of all the interfaces as command responses. All other type of command
+ *  responses with cmd_status key word  are dropped. The sole purpose of
+ *  registering this function as callback for the command responses is to
+ *  handle the responses to get-status command.
+ *
+ * Notifications: Cable status and BFD session status changes are sent as
+ *  notifications by PTM. So, this function is also the callback function for
+ *  processing all the notifications from the PTM.
+ *
+ */
+static int
+zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
+{
+  struct interface *ifp = NULL;
+  char port_str[128];
+  char cbl_str[32];
+  char cmd_status_str[32];
+
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CMD_STATUS_STR, cmd_status_str);
 
   /* Drop command response messages */
-  if (cmd_str[0] != '\0') {
+  if (cmd_status_str[0] != '\0') {
     return 0;
   }
 
   ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str);
 
   if (port_str[0] == '\0') {
-    zlog_debug("%s: key %s not found in PTM msg", __func__,
+    zlog_debug("%s: Key %s not found in PTM msg", __func__,
                ZEBRA_PTM_PORT_STR);
-    return 0;
+    return -1;
+  }
+
+  if (strcmp(ZEBRA_PTM_INVALID_PORT_NAME, port_str)) {
+    ifp = if_lookup_by_name(port_str);
+
+    if (!ifp) {
+      zlog_err("%s: %s not found in interface list", __func__, port_str);
+      return -1;
+    }
   }
 
   ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CBL_STR, cbl_str);
 
   if (cbl_str[0] == '\0') {
-    zlog_debug("%s: Key %s not found in PTM msg", __func__,
-               ZEBRA_PTM_CBL_STR);
-    return 0;
+    return zebra_ptm_handle_bfd_msg(arg, in_ctxt, ifp);
+  } else {
+    if (ifp) {
+      return zebra_ptm_handle_cbl_msg(arg, in_ctxt, ifp, cbl_str);
+    } else {
+      return -1;
+    }
   }
-
-  if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug("%s: Recv Port [%s] cbl status [%s]", __func__,
-             port_str, cbl_str);
-
-  ifp = if_lookup_by_name(port_str);
-
-  if (!ifp) {
-    zlog_err("%s: %s not found in interface list", __func__, port_str);
-	return -1;
-  }
-
-  if (!strcmp(cbl_str, ZEBRA_PTM_PASS_STR) && (!ifp->ptm_status)) {
-	  ifp->ptm_status = 1;
-	  if (ifp->ptm_enable && if_is_no_ptm_operative (ifp))
-	    if_up (ifp);
-  } else if (!strcmp (cbl_str, ZEBRA_PTM_FAIL_STR) && (ifp->ptm_status)) {
-	  ifp->ptm_status = 0;
-	  if (ifp->ptm_enable && if_is_no_ptm_operative (ifp))
-	    if_down (ifp);
-  }
-
-  return 0;
 }
 
 int
