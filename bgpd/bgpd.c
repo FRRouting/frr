@@ -1218,7 +1218,7 @@ bgp_peer_conf_if_to_su_update (struct peer *peer)
 		  return;
 		}
 	      else
-		zlog_warn("%s neighbor interface with IPv4 numbered links used without /30 or /31",
+		zlog_warn("%s: IPv4 interface address is not /30 or /31, v4 session not started",
 			  peer->conf_if);
 	    }
 
