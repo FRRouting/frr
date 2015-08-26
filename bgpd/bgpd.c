@@ -2306,7 +2306,7 @@ peer_group_listen_range_add (struct peer_group *group, struct prefix *range)
   afi = family2afi(range->family);
 
   /* Group needs remote AS configured. */
-  if (! group->conf->as)
+  if (group->conf->as_type == AS_UNSPECIFIED)
     return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
 
   /* Ensure no duplicates. Currently we don't care about overlaps. */
@@ -3035,9 +3035,10 @@ peer_group_lookup_dynamic_neighbor (struct bgp *bgp, struct prefix *prefix,
       for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
         for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
           if ((range = peer_group_lookup_dynamic_neighbor_range(group, prefix)))
-            break;
+	    goto found_range;
     }
 
+ found_range:
   *listen_range = range;
   return (group && range) ? group : NULL;
 }
