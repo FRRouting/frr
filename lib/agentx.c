@@ -43,7 +43,7 @@ agentx_log_callback(int major, int minor,
 		    void *serverarg, void *clientarg)
 {
   struct snmp_log_message *slm = (struct snmp_log_message *)serverarg;
-  char *msg = strdup (slm->msg);
+  char *msg = XSTRDUP(MTYPE_TMP, slm->msg);
   if (msg) msg[strlen(msg)-1] = '\0';
   switch (slm->priority)
     {
@@ -56,7 +56,7 @@ agentx_log_callback(int major, int minor,
     case LOG_INFO:    zlog_info  ("snmp[info]: %s",    msg?msg:slm->msg); break;
     case LOG_DEBUG:   zlog_debug ("snmp[debug]: %s",   msg?msg:slm->msg); break;
     }
-  free(msg);
+  XFREE(MTYPE_TMP, msg);
   return SNMP_ERR_NOERROR;
 }
 

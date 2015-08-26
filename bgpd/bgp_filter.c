@@ -189,7 +189,7 @@ as_list_free (struct as_list *aslist)
 {
   if (aslist->name)
     {
-      free (aslist->name);
+      XFREE(MTYPE_AS_STR, aslist->name);
       aslist->name = NULL;
     }
   XFREE (MTYPE_AS_LIST, aslist);
@@ -208,7 +208,7 @@ as_list_insert (const char *name)
 
   /* Allocate new access_list and copy given name. */
   aslist = as_list_new ();
-  aslist->name = strdup (name);
+  aslist->name = XSTRDUP(MTYPE_AS_STR, name);
   assert (aslist->name);
 
   /* If name is made by all digit character.  We treat it as
@@ -350,7 +350,7 @@ as_list_empty (struct as_list *aslist)
 static void
 as_list_filter_delete (struct as_list *aslist, struct as_filter *asfilter)
 {
-  char *name = strdup (aslist->name);
+  char *name = XSTRDUP(MTYPE_AS_STR, aslist->name);
 
   if (asfilter->next)
     asfilter->next->prev = asfilter->prev;
@@ -372,7 +372,7 @@ as_list_filter_delete (struct as_list *aslist, struct as_filter *asfilter)
   if (as_list_master.delete_hook)
     (*as_list_master.delete_hook) (name);
   if (name)
-    free(name);
+    XFREE(MTYPE_AS_STR, name);
 }
 
 static int

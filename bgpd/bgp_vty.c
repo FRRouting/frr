@@ -3751,22 +3751,24 @@ peer_rsclient_set_vty (struct vty *vty, const char *peer_str,
 
           /* Import policy. */
           if (pfilter->map[RMAP_IMPORT].name)
-            free (pfilter->map[RMAP_IMPORT].name);
+            XFREE(MTYPE_BGP_FILTER_NAME, pfilter->map[RMAP_IMPORT].name);
           if (gfilter->map[RMAP_IMPORT].name)
             {
-              pfilter->map[RMAP_IMPORT].name = strdup (gfilter->map[RMAP_IMPORT].name);
+              pfilter->map[RMAP_IMPORT].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
+						       gfilter->map[RMAP_IMPORT].name);
               pfilter->map[RMAP_IMPORT].map = gfilter->map[RMAP_IMPORT].map;
             }
           else
             {
               pfilter->map[RMAP_IMPORT].name = NULL;
-              pfilter->map[RMAP_IMPORT].map =NULL;
+              pfilter->map[RMAP_IMPORT].map = NULL;
             }
 
           /* Export policy. */
           if (gfilter->map[RMAP_EXPORT].name && ! pfilter->map[RMAP_EXPORT].name)
             {
-              pfilter->map[RMAP_EXPORT].name = strdup (gfilter->map[RMAP_EXPORT].name);
+              pfilter->map[RMAP_EXPORT].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
+						       gfilter->map[RMAP_EXPORT].name);
               pfilter->map[RMAP_EXPORT].map = gfilter->map[RMAP_EXPORT].map;
             }
         }
@@ -8325,7 +8327,7 @@ DEFUN (show_bgp_memory,
                          count * sizeof (struct peer)),
            VTY_NEWLINE);
   
-  if ((count = mtype_stats_alloc (MTYPE_PEER_GROUP)))
+  if ((count = mtype_stats_alloc (MTYPE_BGP_PEER_GROUP)))
     vty_out (vty, "%ld peer groups, using %s of memory%s", count,
              mtype_memstr (memstrbuf, sizeof (memstrbuf),
                            count * sizeof (struct peer_group)),

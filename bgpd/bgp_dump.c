@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include "linklist.h"
 #include "queue.h"
+#include "memory.h"
 
 #include "bgpd/bgp_table.h"
 
@@ -614,8 +615,8 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump,
       /* Set interval. */
       bgp_dump->interval = interval;
       if (bgp_dump->interval_str)
-	free (bgp_dump->interval_str);
-      bgp_dump->interval_str = strdup (interval_str);
+	XFREE(MTYPE_BGP_DUMP_STR, bgp_dump->interval_str);
+      bgp_dump->interval_str = XSTRDUP(MTYPE_BGP_DUMP_STR, interval_str);
       
     }
   else
@@ -631,8 +632,8 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump,
 
   /* Set file name. */
   if (bgp_dump->filename)
-    free (bgp_dump->filename);
-  bgp_dump->filename = strdup (path);
+    XFREE(MTYPE_BGP_DUMP_STR, bgp_dump->filename);
+  bgp_dump->filename = XSTRDUP(MTYPE_BGP_DUMP_STR, path);
 
   /* This should be called when interval is expired. */
   bgp_dump_open_file (bgp_dump);
@@ -646,7 +647,7 @@ bgp_dump_unset (struct vty *vty, struct bgp_dump *bgp_dump)
   /* Set file name. */
   if (bgp_dump->filename)
     {
-      free (bgp_dump->filename);
+      XFREE(MTYPE_BGP_DUMP_STR, bgp_dump->filename);
       bgp_dump->filename = NULL;
     }
 
@@ -668,7 +669,7 @@ bgp_dump_unset (struct vty *vty, struct bgp_dump *bgp_dump)
 
   if (bgp_dump->interval_str)
     {
-      free (bgp_dump->interval_str);
+      XFREE(MTYPE_BGP_DUMP_STR, bgp_dump->interval_str);
       bgp_dump->interval_str = NULL;
     }
   

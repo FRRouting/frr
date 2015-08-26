@@ -640,7 +640,7 @@ closezlog (struct zlog *zl)
     fclose (zl->fp);
 
   if (zl->filename != NULL)
-    free (zl->filename);
+    XFREE(MTYPE_ZLOG, zl->filename);
 
   XFREE (MTYPE_ZLOG, zl);
 }
@@ -676,7 +676,7 @@ zlog_set_file (struct zlog *zl, const char *filename, int log_level)
     return 0;
 
   /* Set flags. */
-  zl->filename = strdup (filename);
+  zl->filename = XSTRDUP(MTYPE_ZLOG, filename);
   zl->maxlvl[ZLOG_DEST_FILE] = log_level;
   zl->fp = fp;
   logfile_fd = fileno(fp);
@@ -698,7 +698,7 @@ zlog_reset_file (struct zlog *zl)
   zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
 
   if (zl->filename)
-    free (zl->filename);
+    XFREE(MTYPE_ZLOG, zl->filename);
   zl->filename = NULL;
 
   return 1;
