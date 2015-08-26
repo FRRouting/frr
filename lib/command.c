@@ -2102,6 +2102,8 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   char *command;
   vector matches = NULL;
   vector match_vector;
+  uint32_t command_found = 0;
+  const char *last_word;
 
   /* Set index. */
   if (vector_active (vline) == 0)
@@ -2187,13 +2189,13 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
     }
 
   /* Make description vector. */
-  for (i = 0; i < vector_active (matches); i++)
+  for (i = 0; i < vector_active (matches); i++) {
     if ((cmd_element = vector_slot (cmd_vector, i)) != NULL)
       {
         unsigned int j;
-        const char *last_word;
         vector vline_trimmed;
 
+	command_found++;
         last_word = vector_slot(vline, vector_active(vline) - 1);
         if (last_word == NULL || !strlen(last_word))
           {
@@ -2222,6 +2224,18 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
                 vector_set(matchvec, token);
             }
       }
+  }
+
+  /*
+   * We can get into this situation when the command is complete
+   * but the last part of the command is an optional piece of
+   * cli.
+   */
+  last_word = vector_slot(vline, vector_active(vline) - 1);
+  if (command_found == 0 && (last_word == NULL || !strlen(last_word))) {
+    vector_set(matchvec, &token_cr);
+  }
+
   vector_free (cmd_vector);
   cmd_matches_free(&matches);
 
