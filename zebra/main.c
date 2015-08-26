@@ -59,6 +59,9 @@ struct thread_master *master;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
+/* Allow non-quagga entities to delete quagga routes */
+int allow_delete = 0;
+
 /* Don't delete kernel route. */
 int keep_kernel_mode = 0;
 
@@ -70,23 +73,24 @@ u_int32_t nl_rcvbufsize = 4194304;
 /* Command line options. */
 struct option longopts[] = 
 {
-  { "batch",       no_argument,       NULL, 'b'},
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "keep_kernel", no_argument,       NULL, 'k'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "socket",      required_argument, NULL, 'z'},
-  { "help",        no_argument,       NULL, 'h'},
-  { "vty_addr",    required_argument, NULL, 'A'},
-  { "vty_port",    required_argument, NULL, 'P'},
-  { "retain",      no_argument,       NULL, 'r'},
-  { "dryrun",      no_argument,       NULL, 'C'},
+  { "batch",        no_argument,       NULL, 'b'},
+  { "daemon",       no_argument,       NULL, 'd'},
+  { "allow_delete", no_argument,       NULL, 'a'},
+  { "keep_kernel",  no_argument,       NULL, 'k'},
+  { "config_file",  required_argument, NULL, 'f'},
+  { "pid_file",     required_argument, NULL, 'i'},
+  { "socket",       required_argument, NULL, 'z'},
+  { "help",         no_argument,       NULL, 'h'},
+  { "vty_addr",     required_argument, NULL, 'A'},
+  { "vty_port",     required_argument, NULL, 'P'},
+  { "retain",       no_argument,       NULL, 'r'},
+  { "dryrun",       no_argument,       NULL, 'C'},
 #ifdef HAVE_NETLINK
-  { "nl-bufsize",  required_argument, NULL, 's'},
+  { "nl-bufsize",   required_argument, NULL, 's'},
 #endif /* HAVE_NETLINK */
-  { "user",        required_argument, NULL, 'u'},
-  { "group",       required_argument, NULL, 'g'},
-  { "version",     no_argument,       NULL, 'v'},
+  { "user",         required_argument, NULL, 'u'},
+  { "group",        required_argument, NULL, 'g'},
+  { "version",      no_argument,       NULL, 'v'},
   { 0 }
 };
 
@@ -131,6 +135,7 @@ usage (char *progname, int status)
 	      "redistribution between different routing protocols.\n\n"\
 	      "-b, --batch        Runs in batch mode\n"\
 	      "-d, --daemon       Runs in daemon mode\n"\
+	      "-a, --allow_delete Allow other processes to delete Quagga Routes\n" \
 	      "-f, --config_file  Set configuration file name\n"\
 	      "-i, --pid_file     Set process identifier file name\n"\
 	      "-z, --socket       Set path of zebra socket\n"\
@@ -237,9 +242,9 @@ main (int argc, char **argv)
       int opt;
   
 #ifdef HAVE_NETLINK  
-      opt = getopt_long (argc, argv, "bdkf:i:z:hA:P:ru:g:vs:C", longopts, 0);
+      opt = getopt_long (argc, argv, "bdakf:i:z:hA:P:ru:g:vs:C", longopts, 0);
 #else
-      opt = getopt_long (argc, argv, "bdkf:i:z:hA:P:ru:g:vC", longopts, 0);
+      opt = getopt_long (argc, argv, "bdakf:i:z:hA:P:ru:g:vC", longopts, 0);
 #endif /* HAVE_NETLINK */
 
       if (opt == EOF)
@@ -253,6 +258,9 @@ main (int argc, char **argv)
 	  batch_mode = 1;
 	case 'd':
 	  daemon_mode = 1;
+	  break;
+	case 'a':
+	  allow_delete = 1;
 	  break;
 	case 'k':
 	  keep_kernel_mode = 1;

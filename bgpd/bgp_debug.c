@@ -211,7 +211,7 @@ bgp_debug_list_free(struct list *list)
           prefix_free(filter->p);
 
         if (filter->host)
-          XFREE (MTYPE_BGP_PEER_HOST, filter->host);
+          XFREE (MTYPE_BGP_DEBUG_STR, filter->host);
 
         XFREE (MTYPE_BGP_DEBUG_FILTER, filter);
       }
@@ -296,7 +296,7 @@ bgp_debug_list_add_entry(struct list *list, const char *host, struct prefix *p)
 
   if (host)
     {
-      filter->host = XSTRDUP (MTYPE_BGP_PEER_HOST, host);
+      filter->host = XSTRDUP (MTYPE_BGP_DEBUG_STR, host);
       filter->p = NULL;
     }
   else if (p)
@@ -319,7 +319,7 @@ bgp_debug_list_remove_entry(struct list *list, const char *host, struct prefix *
       if (host && strcmp (filter->host, host) == 0)
         {
           listnode_delete (list, filter);
-          XFREE (MTYPE_BGP_PEER_HOST, filter->host);
+          XFREE (MTYPE_BGP_DEBUG_STR, filter->host);
           XFREE (MTYPE_BGP_DEBUG_FILTER, filter);
           return 1;
         }

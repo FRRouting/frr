@@ -32,6 +32,9 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
+#include "zebra/zebra_routemap.h"
+
+extern int allow_delete;
 
 /* General fucntion for static route. */
 static int
@@ -2958,6 +2961,26 @@ static_config_ipv6 (struct vty *vty)
 }
 #endif /* HAVE_IPV6 */
 
+DEFUN (allow_external_route_update,
+       allow_external_route_update_cmd,
+       "allow-external-route-update",
+       "Allow Quagga routes to be overwritten by external processes")
+{
+  allow_delete = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_allow_external_route_update,
+       no_allow_external_route_update_cmd,
+       "no allow-external-route-update",
+       "Allow Quagga routes to be overwritten by external processes")
+{
+  allow_delete = 0;
+
+  return CMD_SUCCESS;
+}
+
 /* Static ip route configuration write function. */
 static int
 zebra_ip_config (struct vty *vty)
@@ -3060,15 +3083,36 @@ ALIAS (no_ip_zebra_import_table,
        "kernel routing table id\n"
        "distance to be used\n")
 
+static int
+config_write_protocol (struct vty *vty)
+{
+  if (allow_delete)
+    vty_out(vty, "allow-external-route-update%s", VTY_NEWLINE);
+
+  if (zebra_rnh_ip_default_route)
+    vty_out(vty, "ip nht resolve-via-default%s", VTY_NEWLINE);
+
+  if (zebra_rnh_ipv6_default_route)
+    vty_out(vty, "ipv6 nht resolve-via-default%s", VTY_NEWLINE);
+
+  zebra_routemap_config_write_protocol(vty);
+
+  return 1;
+}
+
 /* IP node for static routes. */
 static struct cmd_node ip_node = { IP_NODE,  "",  1 };
+static struct cmd_node protocol_node = { PROTOCOL_NODE, "", 1 };
 
 /* Route VTY.  */
 void
 zebra_vty_init (void)
 {
   install_node (&ip_node, zebra_ip_config);
+  install_node (&protocol_node, config_write_protocol);
 
+  install_element (CONFIG_NODE, &allow_external_route_update_cmd);
+  install_element (CONFIG_NODE, &no_allow_external_route_update_cmd);
   install_element (CONFIG_NODE, &ip_route_cmd);
   install_element (CONFIG_NODE, &ip_route_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_flags_cmd);

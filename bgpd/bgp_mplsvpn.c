@@ -243,6 +243,7 @@ str2prefix_rd (const char *str, struct prefix_rd *prd)
     }
   memcpy (prd->val, s->data, 8);
 
+  XFREE(MTYPE_TMP, half);
   return 1;
 }
 

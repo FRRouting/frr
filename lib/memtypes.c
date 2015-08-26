@@ -43,6 +43,7 @@ struct memory_list memory_list_lib[] =
   { MTYPE_ROUTE_NODE,		"Route node"			},
   { MTYPE_DISTRIBUTE,		"Distribute list"		},
   { MTYPE_DISTRIBUTE_IFNAME,	"Dist-list ifname"		},
+  { MTYPE_DISTRIBUTE_NAME,      "Dist-list name"                },
   { MTYPE_ACCESS_LIST,		"Access List"			},
   { MTYPE_ACCESS_LIST_STR,	"Access List Str"		},
   { MTYPE_ACCESS_FILTER,	"Access Filter"			},
@@ -97,7 +98,9 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_BGP_LISTENER,		"BGP listen socket details"	},
   { MTYPE_BGP_PEER,		"BGP peer"			},
   { MTYPE_BGP_PEER_HOST,	"BGP peer hostname"		},
-  { MTYPE_PEER_GROUP,		"Peer group"			},
+  { MTYPE_BGP_PEER_IFNAME,      "BGP peer ifname"               },
+  { MTYPE_BGP_PEER_GROUP,	"BGP Peer group"		},
+  { MTYPE_BGP_PEER_GROUP_HOST,  "BGP Peer group hostname"       },
   { MTYPE_PEER_DESC,		"Peer description"		},
   { MTYPE_PEER_PASSWORD,	"Peer password string"		},
   { MTYPE_BGP_PEER_AF,		"BGP peer af"			},
@@ -152,6 +155,7 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_TRANSIT_VAL,		"BGP transit val"		},
   { 0, NULL },
   { MTYPE_BGP_DEBUG_FILTER,     "BGP debug filter"              },
+  { MTYPE_BGP_DEBUG_STR,        "BGP debug filter string"       },
   { 0, NULL },
   { MTYPE_BGP_DISTANCE,		"BGP distance"			},
   { MTYPE_BGP_NEXTHOP_CACHE,	"BGP nexthop"			},
@@ -163,6 +167,10 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_BGP_REGEXP,		"BGP regexp"			},
   { MTYPE_BGP_AGGREGATE,	"BGP aggregate"			},
   { MTYPE_BGP_ADDR,		"BGP own address"		},
+  { 0 , NULL},
+  { MTYPE_BGP_REDIST,           "BGP redistribution"            },
+  { MTYPE_BGP_FILTER_NAME,      "BGP Filter Information"        },
+  { MTYPE_BGP_DUMP_STR,         "BGP Dump String Information"   },
   { -1, NULL }
 };
 

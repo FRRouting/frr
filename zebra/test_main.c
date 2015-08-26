@@ -45,6 +45,9 @@ struct zebra_t zebrad =
 /* process id. */
 pid_t pid;
 
+/* Allow non-quagga entities to delete quagga routes */
+int allow_delete = 0;
+
 /* zebra_rib's workqueue hold time. Private export for use by test code only */
 extern int rib_process_hold_time;
 
@@ -54,14 +57,15 @@ struct thread_master *master;
 /* Command line options. */
 struct option longopts[] = 
 {
-  { "batch",       no_argument,       NULL, 'b'},
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "help",        no_argument,       NULL, 'h'},
-  { "vty_addr",    required_argument, NULL, 'A'},
-  { "vty_port",    required_argument, NULL, 'P'},
-  { "version",     no_argument,       NULL, 'v'},
-  { "rib_hold",	   required_argument, NULL, 'r'},
+  { "batch",        no_argument,       NULL, 'b'},
+  { "daemon",       no_argument,       NULL, 'd'},
+  { "allow_delete", no_argument,       NULL, 'a'},
+  { "config_file",  required_argument, NULL, 'f'},
+  { "help",         no_argument,       NULL, 'h'},
+  { "vty_addr",     required_argument, NULL, 'A'},
+  { "vty_port",     required_argument, NULL, 'P'},
+  { "version",      no_argument,       NULL, 'v'},
+  { "rib_hold",     required_argument, NULL, 'r'},
   { 0 }
 };
 
@@ -91,6 +95,7 @@ usage (char *progname, int status)
 	      "redistribution between different routing protocols.\n\n"\
 	      "-b, --batch        Runs in batch mode\n"\
 	      "-d, --daemon       Runs in daemon mode\n"\
+	      "-a, --allow_delete Allow other processes to delete Quagga Routes\n" \
 	      "-f, --config_file  Set configuration file name\n"\
 	      "-A, --vty_addr     Set vty's bind address\n"\
 	      "-P, --vty_port     Set vty's port number\n"\
@@ -222,7 +227,7 @@ main (int argc, char **argv)
     {
       int opt;
   
-      opt = getopt_long (argc, argv, "bdf:hA:P:r:v", longopts, 0);
+      opt = getopt_long (argc, argv, "bdaf:hA:P:r:v", longopts, 0);
 
       if (opt == EOF)
 	break;
@@ -235,6 +240,9 @@ main (int argc, char **argv)
 	  batch_mode = 1;
 	case 'd':
 	  daemon_mode = 1;
+	  break;
+	case 'a':
+	  allow_delete =1;
 	  break;
 	case 'f':
 	  config_file = optarg;

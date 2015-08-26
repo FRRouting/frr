@@ -144,7 +144,10 @@ conf_copy (struct peer *dst, struct peer *src, afi_t afi, safi_t safi)
   dst->v_routeadv = src->v_routeadv;
   dst->flags = src->flags;
   dst->af_flags[afi][safi] = src->af_flags[afi][safi];
-  dst->host = XSTRDUP (MTYPE_BGP_PEER_HOST, src->host);
+  if (dst->host)
+      XFREE(MTYPE_BGP_PEER_HOST, dst->host);
+
+  dst->host = XSTRDUP(MTYPE_BGP_PEER_HOST, src->host);
   dst->cap = src->cap;
   dst->af_cap[afi][safi] = src->af_cap[afi][safi];
   dst->afc_nego[afi][safi] = src->afc_nego[afi][safi];
@@ -158,43 +161,43 @@ conf_copy (struct peer *dst, struct peer *src, afi_t afi, safi_t safi)
   if (src->default_rmap[afi][safi].name)
     {
       dst->default_rmap[afi][safi].name =
-	strdup (src->default_rmap[afi][safi].name);
+	XSTRDUP(MTYPE_ROUTE_MAP_NAME, src->default_rmap[afi][safi].name);
       dst->default_rmap[afi][safi].map = src->default_rmap[afi][safi].map;
     }
 
   if (DISTRIBUTE_OUT_NAME(srcfilter))
     {
-      DISTRIBUTE_OUT_NAME(dstfilter) = strdup(DISTRIBUTE_OUT_NAME(srcfilter));
+      DISTRIBUTE_OUT_NAME(dstfilter) = XSTRDUP(MTYPE_BGP_FILTER_NAME, DISTRIBUTE_OUT_NAME(srcfilter));
       DISTRIBUTE_OUT(dstfilter) = DISTRIBUTE_OUT(srcfilter);
     }
 
   if (PREFIX_LIST_OUT_NAME(srcfilter))
     {
-      PREFIX_LIST_OUT_NAME(dstfilter) = strdup(PREFIX_LIST_OUT_NAME(srcfilter));
+      PREFIX_LIST_OUT_NAME(dstfilter) = XSTRDUP(MTYPE_BGP_FILTER_NAME, PREFIX_LIST_OUT_NAME(srcfilter));
       PREFIX_LIST_OUT(dstfilter) = PREFIX_LIST_OUT(srcfilter);
     }
 
   if (FILTER_LIST_OUT_NAME(srcfilter))
     {
-      FILTER_LIST_OUT_NAME(dstfilter) = strdup(FILTER_LIST_OUT_NAME(srcfilter));
+      FILTER_LIST_OUT_NAME(dstfilter) = XSTRDUP(MTYPE_BGP_FILTER_NAME, FILTER_LIST_OUT_NAME(srcfilter));
       FILTER_LIST_OUT(dstfilter) = FILTER_LIST_OUT(srcfilter);
     }
 
   if (ROUTE_MAP_OUT_NAME(srcfilter))
     {
-      ROUTE_MAP_OUT_NAME(dstfilter) = strdup(ROUTE_MAP_OUT_NAME(srcfilter));
+      ROUTE_MAP_OUT_NAME(dstfilter) = XSTRDUP(MTYPE_BGP_FILTER_NAME, ROUTE_MAP_OUT_NAME(srcfilter));
       ROUTE_MAP_OUT(dstfilter) = ROUTE_MAP_OUT(srcfilter);
     }
 
   if (UNSUPPRESS_MAP_NAME(srcfilter))
     {
-      UNSUPPRESS_MAP_NAME(dstfilter) = strdup(UNSUPPRESS_MAP_NAME(srcfilter));
+      UNSUPPRESS_MAP_NAME(dstfilter) = XSTRDUP(MTYPE_BGP_FILTER_NAME, UNSUPPRESS_MAP_NAME(srcfilter));
       UNSUPPRESS_MAP(dstfilter) = UNSUPPRESS_MAP(srcfilter);
     }
 }
 
 /**
- * since we did a bunch of strdup's in conf_copy, time to free them up
+ * since we did a bunch of XSTRDUP's in conf_copy, time to free them up
  */
 static void
 conf_release (struct peer *src, afi_t afi, safi_t safi)
@@ -204,22 +207,22 @@ conf_release (struct peer *src, afi_t afi, safi_t safi)
   srcfilter = &src->filter[afi][safi];
 
   if (src->default_rmap[afi][safi].name)
-    free (src->default_rmap[afi][safi].name);
+    XFREE(MTYPE_ROUTE_MAP_NAME, src->default_rmap[afi][safi].name);
 
   if (srcfilter->dlist[FILTER_OUT].name)
-    free (srcfilter->dlist[FILTER_OUT].name);
+    XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->dlist[FILTER_OUT].name);
 
   if (srcfilter->plist[FILTER_OUT].name)
-    free (srcfilter->plist[FILTER_OUT].name);
+    XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->plist[FILTER_OUT].name);
 
   if (srcfilter->aslist[FILTER_OUT].name)
-    free (srcfilter->aslist[FILTER_OUT].name);
+    XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->aslist[FILTER_OUT].name);
 
   if (srcfilter->map[RMAP_OUT].name)
-    free (srcfilter->map[RMAP_OUT].name);
+    XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->map[RMAP_OUT].name);
 
   if (srcfilter->usmap.name)
-    free (srcfilter->usmap.name);
+    XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->usmap.name);
 }
 
 static void
@@ -728,7 +731,13 @@ update_group_delete (struct update_group *updgrp)
   hash_release (updgrp->bgp->update_groups[updgrp->afid], updgrp);
   conf_release (updgrp->conf, updgrp->afi, updgrp->safi);
 
-  XFREE (MTYPE_BGP_PEER_HOST, updgrp->conf->host);
+  if (updgrp->conf->host)
+      XFREE(MTYPE_BGP_PEER_HOST, updgrp->conf->host);
+  updgrp->conf->host = NULL;
+
+  if (updgrp->conf->ifname)
+    XFREE(MTYPE_BGP_PEER_IFNAME, updgrp->conf->ifname);
+
   XFREE (MTYPE_BGP_PEER, updgrp->conf);
   XFREE (MTYPE_BGP_UPDGRP, updgrp);
 }

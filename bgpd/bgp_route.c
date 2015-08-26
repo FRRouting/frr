@@ -36,6 +36,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include "workqueue.h"
 #include "queue.h"
+#include "memory.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -3919,7 +3920,7 @@ static void
 bgp_static_free (struct bgp_static *bgp_static)
 {
   if (bgp_static->rmap.name)
-    free (bgp_static->rmap.name);
+    XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
   XFREE (MTYPE_BGP_STATIC, bgp_static);
 }
 
@@ -4498,14 +4499,14 @@ bgp_static_set (struct vty *vty, struct bgp *bgp, const char *ip_str,
       if (rmap)
 	{
 	  if (bgp_static->rmap.name)
-	    free (bgp_static->rmap.name);
-	  bgp_static->rmap.name = strdup (rmap);
+	    XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+	  bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 	  bgp_static->rmap.map = route_map_lookup_by_name (rmap);
 	}
       else
 	{
 	  if (bgp_static->rmap.name)
-	    free (bgp_static->rmap.name);
+	    XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 	  bgp_static->rmap.name = NULL;
 	  bgp_static->rmap.map = NULL;
 	  bgp_static->valid = 0;
@@ -4524,8 +4525,8 @@ bgp_static_set (struct vty *vty, struct bgp *bgp, const char *ip_str,
       if (rmap)
 	{
 	  if (bgp_static->rmap.name)
-	    free (bgp_static->rmap.name);
-	  bgp_static->rmap.name = strdup (rmap);
+	    XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+	  bgp_static->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 	  bgp_static->rmap.map = route_map_lookup_by_name (rmap);
 	}
       rn->info = bgp_static;
@@ -4800,14 +4801,14 @@ bgp_table_map_set (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
   if (rmap_name)
     {
       if (rmap->name)
-        free (rmap->name);
-      rmap->name = strdup (rmap_name);
+        XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+      rmap->name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
       rmap->map = route_map_lookup_by_name (rmap_name);
     }
   else
     {
       if (rmap->name)
-        free (rmap->name);
+        XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
       rmap->name = NULL;
       rmap->map = NULL;
     }
@@ -4825,7 +4826,7 @@ bgp_table_map_unset (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
   rmap = &bgp->table_map[afi][safi];
   if (rmap->name)
-    free (rmap->name);
+    XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
   rmap->name = NULL;
   rmap->map = NULL;
 
@@ -14587,11 +14588,11 @@ bgp_distance_set (struct vty *vty, const char *distance_str,
   /* Reset access-list configuration. */
   if (bdistance->access_list)
     {
-      free (bdistance->access_list);
+      XFREE(MTYPE_AS_LIST, bdistance->access_list);
       bdistance->access_list = NULL;
     }
   if (access_list_str)
-    bdistance->access_list = strdup (access_list_str);
+    bdistance->access_list = XSTRDUP(MTYPE_AS_LIST, access_list_str);
 
   return CMD_SUCCESS;
 }
@@ -14622,7 +14623,7 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
   bdistance = rn->info;
 
   if (bdistance->access_list)
-    free (bdistance->access_list);
+    XFREE(MTYPE_AS_LIST, bdistance->access_list);
   bgp_distance_free (bdistance);
 
   rn->info = NULL;

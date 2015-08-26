@@ -49,14 +49,14 @@ distribute_free (struct distribute *dist)
     XFREE (MTYPE_DISTRIBUTE_IFNAME, dist->ifname);
 
   if (dist->list[DISTRIBUTE_IN])
-    free (dist->list[DISTRIBUTE_IN]);
+    XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_IN]);
   if (dist->list[DISTRIBUTE_OUT])
-    free (dist->list[DISTRIBUTE_OUT]);
+    XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_OUT]);
 
   if (dist->prefix[DISTRIBUTE_IN])
-    free (dist->prefix[DISTRIBUTE_IN]);
+    XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_IN]);
   if (dist->prefix[DISTRIBUTE_OUT])
-    free (dist->prefix[DISTRIBUTE_OUT]);
+    XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_OUT]);
 
   XFREE (MTYPE_DISTRIBUTE, dist);
 }
@@ -151,14 +151,14 @@ distribute_list_set (const char *ifname, enum distribute_type type,
   if (type == DISTRIBUTE_IN)
     {
       if (dist->list[DISTRIBUTE_IN])
-	free (dist->list[DISTRIBUTE_IN]);
-      dist->list[DISTRIBUTE_IN] = strdup (alist_name);
+	XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_IN]);
+      dist->list[DISTRIBUTE_IN] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, alist_name);
     }
   if (type == DISTRIBUTE_OUT)
     {
       if (dist->list[DISTRIBUTE_OUT])
-	free (dist->list[DISTRIBUTE_OUT]);
-      dist->list[DISTRIBUTE_OUT] = strdup (alist_name);
+	XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_OUT]);
+      dist->list[DISTRIBUTE_OUT] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, alist_name);
     }
 
   /* Apply this distribute-list to the interface. */
@@ -186,7 +186,7 @@ distribute_list_unset (const char *ifname, enum distribute_type type,
       if (strcmp (dist->list[DISTRIBUTE_IN], alist_name) != 0)
 	return 0;
 
-      free (dist->list[DISTRIBUTE_IN]);
+      XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_IN]);
       dist->list[DISTRIBUTE_IN] = NULL;      
     }
 
@@ -197,7 +197,7 @@ distribute_list_unset (const char *ifname, enum distribute_type type,
       if (strcmp (dist->list[DISTRIBUTE_OUT], alist_name) != 0)
 	return 0;
 
-      free (dist->list[DISTRIBUTE_OUT]);
+      XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_OUT]);
       dist->list[DISTRIBUTE_OUT] = NULL;      
     }
 
@@ -229,14 +229,14 @@ distribute_list_prefix_set (const char *ifname, enum distribute_type type,
   if (type == DISTRIBUTE_IN)
     {
       if (dist->prefix[DISTRIBUTE_IN])
-	free (dist->prefix[DISTRIBUTE_IN]);
-      dist->prefix[DISTRIBUTE_IN] = strdup (plist_name);
+	XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_IN]);
+      dist->prefix[DISTRIBUTE_IN] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, plist_name);
     }
   if (type == DISTRIBUTE_OUT)
     {
       if (dist->prefix[DISTRIBUTE_OUT])
-	free (dist->prefix[DISTRIBUTE_OUT]);
-      dist->prefix[DISTRIBUTE_OUT] = strdup (plist_name);
+	XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_OUT]);
+      dist->prefix[DISTRIBUTE_OUT] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, plist_name);
     }
 
   /* Apply this distribute-list to the interface. */
@@ -264,8 +264,8 @@ distribute_list_prefix_unset (const char *ifname, enum distribute_type type,
       if (strcmp (dist->prefix[DISTRIBUTE_IN], plist_name) != 0)
 	return 0;
 
-      free (dist->prefix[DISTRIBUTE_IN]);
-      dist->prefix[DISTRIBUTE_IN] = NULL;      
+      XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_IN]);
+      dist->prefix[DISTRIBUTE_IN] = NULL;
     }
 
   if (type == DISTRIBUTE_OUT)
@@ -275,8 +275,8 @@ distribute_list_prefix_unset (const char *ifname, enum distribute_type type,
       if (strcmp (dist->prefix[DISTRIBUTE_OUT], plist_name) != 0)
 	return 0;
 
-      free (dist->prefix[DISTRIBUTE_OUT]);
-      dist->prefix[DISTRIBUTE_OUT] = NULL;      
+      XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_OUT]);
+      dist->prefix[DISTRIBUTE_OUT] = NULL;
     }
 
   /* Apply this distribute-list to the interface. */

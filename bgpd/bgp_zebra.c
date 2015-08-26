@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "routemap.h"
 #include "thread.h"
 #include "queue.h"
+#include "memory.h"
 #include "lib/json.h"
 
 #include "bgpd/bgpd.h"
@@ -1516,7 +1517,7 @@ bgp_redist_add (struct bgp *bgp, afi_t afi, u_char type, u_short instance)
     bgp->redist[afi][type] = list_new();
 
   red_list = bgp->redist[afi][type];
-  red = (struct bgp_redist *)calloc (1, sizeof(struct bgp_redist));
+  red = (struct bgp_redist *)XCALLOC(MTYPE_BGP_REDIST, sizeof(struct bgp_redist));
   red->instance = instance;
 
   listnode_add(red_list, red);
@@ -1594,8 +1595,8 @@ bgp_redistribute_rmap_set (struct bgp_redist *red, const char *name)
     return 0;
 
   if (red->rmap.name)
-    free (red->rmap.name);
-  red->rmap.name = strdup (name);
+    XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
+  red->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, name);
   red->rmap.map = route_map_lookup_by_name (name);
 
   return 1;
@@ -1641,7 +1642,7 @@ bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type, u_short instance)
 
   /* Unset route-map. */
   if (red->rmap.name)
-    free (red->rmap.name);
+    XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
   red->rmap.name = NULL;
   red->rmap.map = NULL;
 
