@@ -2698,7 +2698,7 @@ ALIAS (no_neighbor,
 
 DEFUN (no_neighbor_interface_config,
        no_neighbor_interface_config_cmd,
-       "no neighbor WORD interface",
+       "no neighbor WORD interface {v6only}",
        NO_STR
        NEIGHBOR_STR
        "Interface name\n"
