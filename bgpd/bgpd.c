@@ -2313,7 +2313,7 @@ peer_group_listen_range_add (struct peer_group *group, struct prefix *range)
   for (ALL_LIST_ELEMENTS (group->listen_range[afi], node, nnode, prefix))
     {
       if (prefix_same(range, prefix))
-        return BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS;
+        return 0;
     }
 
   prefix = prefix_new();
