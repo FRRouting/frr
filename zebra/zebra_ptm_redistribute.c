@@ -32,7 +32,7 @@ extern struct zebra_t zebrad;
 static int
 zsend_interface_bfd_update (int cmd, struct zserv *client,
                             struct interface *ifp, struct prefix *dp,
-                            struct prefix *sp)
+                            struct prefix *sp, int status)
 {
   int blen;
   struct stream *s;
@@ -56,6 +56,9 @@ zsend_interface_bfd_update (int cmd, struct zserv *client,
   stream_put (s, &dp->u.prefix, blen);
   stream_putc (s, dp->prefixlen);
 
+  /* BFD status */
+  stream_putl(s, status);
+
   /* BFD source prefix information. */
   stream_putc (s, sp->family);
   blen = prefix_blen (sp);
@@ -71,7 +74,7 @@ zsend_interface_bfd_update (int cmd, struct zserv *client,
 
 void
 zebra_interface_bfd_update (struct interface *ifp, struct prefix *dp,
-                            struct prefix *sp)
+                            struct prefix *sp, int status)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
@@ -84,8 +87,8 @@ zebra_interface_bfd_update (struct interface *ifp, struct prefix *dp,
         continue;
 
       /* Notify to the protocol daemons. */
-      zsend_interface_bfd_update (ZEBRA_INTERFACE_BFD_DEST_DOWN, client, ifp,
-                                    dp, sp);
+      zsend_interface_bfd_update (ZEBRA_INTERFACE_BFD_DEST_UPDATE, client, ifp,
+                                    dp, sp, status);
     }
 }
 

@@ -46,6 +46,27 @@
 extern struct zclient *zclient;
 
 /*
+ * ospf6_bfd_info_free - Free BFD info structure
+ */
+void
+ospf6_bfd_info_free(void **bfd_info)
+{
+  bfd_info_free((struct bfd_info **) bfd_info);
+}
+
+/*
+ * ospf6_bfd_show_info - Show BFD info structure
+ */
+void
+ospf6_bfd_show_info(struct vty *vty, void *bfd_info, int param_only)
+{
+  if (param_only)
+    bfd_show_param(vty, bfd_info, 1, 0, 0, NULL);
+  else
+    bfd_show_info(vty, bfd_info, 0, 1, 0, NULL);
+}
+
+/*
  * ospf6_bfd_reg_dereg_nbr - Register/Deregister a neighbor with BFD through
  *                           zebra for starting/stopping the monitoring of
  *                           the neighbor rechahability.
@@ -102,6 +123,11 @@ ospf6_bfd_reg_dereg_all_nbr (struct ospf6_interface *oi, int command)
 
   for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, node, on))
     {
+      if (command != ZEBRA_BFD_DEST_DEREGISTER)
+        ospf6_bfd_info_nbr_create(oi, on);
+      else
+        bfd_info_free((struct bfd_info **)&on->bfd_info);
+
       if (on->state < OSPF6_NEIGHBOR_TWOWAY)
         continue;
 
@@ -151,13 +177,13 @@ ospf6_bfd_nbr_replay (int command, struct zclient *client, zebra_size_t length)
 }
 
 /*
- * ospf6_bfd_interface_dest_down - Find the neighbor for which the BFD status
- *                                 has changed and bring down the neighbor
- *                                 connectivity.
+ * ospf6_bfd_interface_dest_update - Find the neighbor for which the BFD status
+ *                                   has changed and bring down the neighbor
+ *                                   connectivity if BFD down is received.
  */
 static int
-ospf6_bfd_interface_dest_down (int command, struct zclient *zclient,
-                              zebra_size_t length)
+ospf6_bfd_interface_dest_update (int command, struct zclient *zclient,
+                                  zebra_size_t length)
 {
   struct interface *ifp;
   struct ospf6_interface *oi;
@@ -166,8 +192,12 @@ ospf6_bfd_interface_dest_down (int command, struct zclient *zclient,
   struct prefix sp;
   struct listnode *node, *nnode;
   char dst[64];
+  int status;
+  int old_status;
+  struct bfd_info *bfd_info;
+  struct timeval tv;
 
-  ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp);
+  ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status);
 
   if ((ifp == NULL) || (dp.family != AF_INET6))
     return 0;
@@ -176,7 +206,8 @@ ospf6_bfd_interface_dest_down (int command, struct zclient *zclient,
     {
       char buf[128];
       prefix2str(&dp, buf, sizeof(buf));
-      zlog_debug("Zebra: interface %s bfd destination %s down", ifp->name, buf);
+      zlog_debug("Zebra: interface %s bfd destination %s %s", ifp->name, buf,
+                 bfd_get_status_str(status));
     }
 
 
@@ -192,14 +223,54 @@ ospf6_bfd_interface_dest_down (int command, struct zclient *zclient,
       if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
         {
           inet_ntop (AF_INET6, &on->linklocal_addr, dst, sizeof (dst));
-          zlog_debug ("[%s:%s]: BFD Down", ifp->name, dst);
+          zlog_debug ("[%s:%s]: BFD %s", ifp->name, dst,
+                      bfd_get_status_str(status));
         }
 
-      THREAD_OFF (on->inactivity_timer);
-      thread_add_event (master, inactivity_timer, on, 0);
+      if (!on->bfd_info)
+        continue;
+
+      bfd_info = (struct bfd_info *)on->bfd_info;
+      if (bfd_info->status == status)
+        continue;
+
+      old_status = bfd_info->status;
+      bfd_info->status = status;
+      quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv);
+      bfd_info->last_update = tv.tv_sec;
+
+      if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP))
+        {
+          THREAD_OFF (on->inactivity_timer);
+          thread_add_event (master, inactivity_timer, on, 0);
+        }
     }
 
   return 0;
+}
+
+/*
+ * ospf6_bfd_info_nbr_create - Create/update BFD information for a neighbor.
+ */
+void
+ospf6_bfd_info_nbr_create (struct ospf6_interface *oi,
+                            struct ospf6_neighbor *on)
+{
+  struct bfd_info *oi_bfd_info;
+  struct bfd_info *on_bfd_info;
+
+  if (!oi->bfd_info)
+    return;
+
+  oi_bfd_info = (struct bfd_info *)oi->bfd_info;
+
+  if (!on->bfd_info)
+    on->bfd_info = bfd_info_create();
+
+  on_bfd_info = (struct bfd_info *)on->bfd_info;
+  on_bfd_info->detect_mult = oi_bfd_info->detect_mult;
+  on_bfd_info->desired_min_tx = oi_bfd_info->desired_min_tx;
+  on_bfd_info->required_min_rx = oi_bfd_info->required_min_rx;
 }
 
 /*
@@ -321,7 +392,7 @@ DEFUN (no_ipv6_ospf6_bfd,
   if (oi->bfd_info)
     {
       ospf6_bfd_reg_dereg_all_nbr(oi, ZEBRA_BFD_DEST_DEREGISTER);
-      bfd_info_free(&(oi->bfd_info));
+      bfd_info_free((struct bfd_info **)&(oi->bfd_info));
     }
 
   return CMD_SUCCESS;
@@ -331,7 +402,7 @@ void
 ospf6_bfd_init(void)
 {
   /* Initialize BFD client functions */
-  zclient->interface_bfd_dest_down = ospf6_bfd_interface_dest_down;
+  zclient->interface_bfd_dest_update = ospf6_bfd_interface_dest_update;
   zclient->bfd_dest_replay = ospf6_bfd_nbr_replay;
 
   /* Install BFD command */

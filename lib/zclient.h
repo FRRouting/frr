@@ -85,7 +85,7 @@ struct zclient
   int (*interface_down) (int, struct zclient *, uint16_t);
   int (*interface_address_add) (int, struct zclient *, uint16_t);
   int (*interface_address_delete) (int, struct zclient *, uint16_t);
-  int (*interface_bfd_dest_down) (int, struct zclient *, uint16_t);
+  int (*interface_bfd_dest_update) (int, struct zclient *, uint16_t);
   int (*interface_nbr_address_add) (int, struct zclient *, uint16_t);
   int (*interface_nbr_address_delete) (int, struct zclient *, uint16_t);
   int (*ipv4_route_add) (int, struct zclient *, uint16_t);

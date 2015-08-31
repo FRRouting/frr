@@ -29,7 +29,6 @@
 #include "prefix.h"
 #include "plist.h"
 #include "zclient.h"
-#include "bfd.h"
 
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -263,7 +262,7 @@ ospf6_interface_delete (struct ospf6_interface *oi)
   if (oi->plist_name)
     XFREE (MTYPE_PREFIX_LIST_STR, oi->plist_name);
 
-  bfd_info_free(&(oi->bfd_info));
+  ospf6_bfd_info_free(&(oi->bfd_info));
 
   XFREE (MTYPE_OSPF6_IF, oi);
 }
@@ -977,7 +976,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   for (lsa = ospf6_lsdb_head (oi->lsack_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     vty_out (vty, "      %s%s", lsa->name, VNL);
-
+  ospf6_bfd_show_info(vty, oi->bfd_info, 1);
   return 0;
 }
 

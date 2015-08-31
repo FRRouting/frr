@@ -115,7 +115,7 @@ struct ospf6_interface
   char *plist_name;
 
   /* BFD information */
-  struct bfd_info *bfd_info;
+  void *bfd_info;
 };
 
 /* interface state */

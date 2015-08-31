@@ -33,4 +33,14 @@ ospf6_bfd_trigger_event(struct ospf6_neighbor *nbr, int old_state, int state);
 extern void
 ospf6_bfd_write_config(struct vty *vty, struct ospf6_interface *oi);
 
+extern void
+ospf6_bfd_info_nbr_create (struct ospf6_interface *oi,
+                            struct ospf6_neighbor *on);
+
+extern void
+ospf6_bfd_info_free(void **bfd_info);
+
+extern void
+ospf6_bfd_show_info(struct vty *vty, void *bfd_info, int param_only);
+
 #endif /* OSPF6_BFD_H */

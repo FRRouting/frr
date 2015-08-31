@@ -73,7 +73,8 @@ bgp_bfd_peer_group2peer_copy(struct peer *conf, struct peer *peer)
 static int
 bgp_bfd_is_peer_multihop(struct peer *peer)
 {
-  if((peer->sort == BGP_PEER_IBGP) || is_ebgp_multihop_configured(peer))
+  if((peer->conf_if == NULL) && ((peer->sort == BGP_PEER_IBGP) ||
+                          is_ebgp_multihop_configured(peer)))
     return 1;
   else
     return 0;
@@ -191,19 +192,46 @@ bgp_bfd_dest_replay (int command, struct zclient *client, zebra_size_t length)
 }
 
 /*
- * bgp_interface_bfd_dest_down - Find the peer for which the BFD status
- *                               has changed and bring down the peer
- *                               connectivity.
+ * bgp_bfd_peer_status_update - Update the BFD status if it has changed. Bring
+ *                              down the peer if the BFD session went down from  *                              up.
+ */
+static void
+bgp_bfd_peer_status_update (struct peer *peer, int status)
+{
+  struct bfd_info *bfd_info;
+  int old_status;
+
+  bfd_info = (struct bfd_info *)peer->bfd_info;
+
+  if (bfd_info->status == status)
+    return;
+
+  old_status = bfd_info->status;
+  bfd_info->status = status;
+  bfd_info->last_update = bgp_clock();
+
+  if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP))
+    {
+      peer->last_reset = PEER_DOWN_BFD_DOWN;
+      BGP_EVENT_ADD (peer, BGP_Stop);
+    }
+}
+
+/*
+ * bgp_bfd_dest_update - Find the peer for which the BFD status
+ *                       has changed and bring down the peer
+ *                       connectivity if the BFD session went down.
  */
 static int
-bgp_interface_bfd_dest_down (int command, struct zclient *zclient,
+bgp_bfd_dest_update (int command, struct zclient *zclient,
                              zebra_size_t length)
 {
   struct interface *ifp;
   struct prefix dp;
   struct prefix sp;
+  int status;
 
-  ifp = bfd_get_peer_info (zclient->ibuf, &dp, &sp);
+  ifp = bfd_get_peer_info (zclient->ibuf, &dp, &sp, &status);
 
   if (BGP_DEBUG (zebra, ZEBRA))
     {
@@ -211,14 +239,14 @@ bgp_interface_bfd_dest_down (int command, struct zclient *zclient,
       prefix2str(&dp, buf[0], sizeof(buf[0]));
       if (ifp)
         {
-          zlog_debug("Zebra: interface %s bfd destination %s down",
-                      ifp->name, buf[0]);
+          zlog_debug("Zebra: interface %s bfd destination %s %s",
+                      ifp->name, buf[0], bfd_get_status_str(status));
         }
       else
         {
           prefix2str(&sp, buf[1], sizeof(buf[1]));
-          zlog_debug("Zebra: source %s bfd destination %s down",
-                      buf[1], buf[0]);
+          zlog_debug("Zebra: source %s bfd destination %s %s",
+                      buf[1], buf[0], bfd_get_status_str(status));
         }
     }
 
@@ -253,8 +281,7 @@ bgp_interface_bfd_dest_down (int command, struct zclient *zclient,
 
           if (ifp && (ifp == peer->nexthop.ifp))
             {
-              peer->last_reset = PEER_DOWN_BFD_DOWN;
-              BGP_EVENT_ADD (peer, BGP_Stop);
+              bgp_bfd_peer_status_update(peer, status);
             }
           else
             {
@@ -279,8 +306,7 @@ bgp_interface_bfd_dest_down (int command, struct zclient *zclient,
               else
                 continue;
 
-              peer->last_reset = PEER_DOWN_BFD_DOWN;
-              BGP_EVENT_ADD (peer, BGP_Stop);
+              bgp_bfd_peer_status_update(peer, status);
             }
         }
   }
@@ -299,8 +325,8 @@ bgp_bfd_peer_param_set (struct peer *peer, u_int32_t min_rx, u_int32_t min_tx,
   struct listnode *node, *nnode;
   int command = 0;
 
-  bfd_set_param(&(peer->bfd_info), min_rx, min_tx, detect_mult,
-                defaults, &command);
+  bfd_set_param((struct bfd_info **)&(peer->bfd_info), min_rx, min_tx,
+                detect_mult, defaults, &command);
 
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
@@ -308,8 +334,8 @@ bgp_bfd_peer_param_set (struct peer *peer, u_int32_t min_rx, u_int32_t min_tx,
       for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
         {
           command = 0;
-          bfd_set_param(&(peer->bfd_info), min_rx, min_tx, detect_mult,
-                        defaults, &command);
+          bfd_set_param((struct bfd_info **)&(peer->bfd_info), min_rx, min_tx,
+                        detect_mult, defaults, &command);
 
           if ((peer->status == Established) &&
               (command == ZEBRA_BFD_DEST_REGISTER))
@@ -386,38 +412,8 @@ bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
 void
 bgp_bfd_show_info(struct vty *vty, struct peer *peer, u_char use_json, json_object *json_neigh)
 {
-  struct bfd_info *bfd_info;
-  json_object *json_bfd = NULL;
-
-  if (!peer->bfd_info)
-    return;
-
-  if (use_json)
-    json_bfd = json_object_new_object();
-
-  bfd_info = (struct bfd_info *)peer->bfd_info;
-
-  if (use_json)
-    {
-      if (bgp_bfd_is_peer_multihop(peer))
-        json_object_string_add(json_bfd, "bfdMultiHop", "yes");
-      else
-        json_object_string_add(json_bfd, "bfdMultiHop", "no");
-      json_object_int_add(json_bfd, "detectMultiplier", bfd_info->detect_mult);
-      json_object_int_add(json_bfd, "rxMinInterval", bfd_info->required_min_rx);
-      json_object_int_add(json_bfd, "txMinInterval", bfd_info->desired_min_tx);
-      json_object_object_add(json_neigh, "peerBfdInfo", json_bfd);
-    }
-  else
-    {
-      vty_out (vty, "  BFD: Multi-hop: %s%s",
-               (bgp_bfd_is_peer_multihop(peer)) ? "yes" : "no", VTY_NEWLINE);
-      vty_out (vty, "    Detect Mul: %d, Min Rx interval: %d,"
-               " Min Tx interval: %d%s",
-               bfd_info->detect_mult, bfd_info->required_min_rx,
-               bfd_info->desired_min_tx, VTY_NEWLINE);
-      vty_out (vty, "%s", VTY_NEWLINE);
-    }
+  bfd_show_info(vty, (struct bfd_info *)peer->bfd_info,
+                bgp_bfd_is_peer_multihop(peer), 0, use_json, json_neigh);
 }
 
 DEFUN (neighbor_bfd,
@@ -501,7 +497,7 @@ void
 bgp_bfd_init(void)
 {
   /* Initialize BFD client functions */
-  zclient->interface_bfd_dest_down = bgp_interface_bfd_dest_down;
+  zclient->interface_bfd_dest_update = bgp_bfd_dest_update;
   zclient->bfd_dest_replay = bgp_bfd_dest_replay;
 
   /* "neighbor bfd" commands. */
