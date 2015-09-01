@@ -96,6 +96,9 @@ struct ospf6_neighbor
   struct thread *thread_send_lsreq;
   struct thread *thread_send_lsupdate;
   struct thread *thread_send_lsack;
+
+  /* BFD information */
+  void *bfd_info;
 };
 
 /* Neighbor state */

@@ -1208,9 +1208,9 @@ zclient_read (struct thread *thread)
       if (zclient->interface_address_delete)
 	(*zclient->interface_address_delete) (command, zclient, length);
       break;
-    case ZEBRA_INTERFACE_BFD_DEST_DOWN:
-      if (zclient->interface_bfd_dest_down)
-	(*zclient->interface_bfd_dest_down) (command, zclient, length);
+    case ZEBRA_INTERFACE_BFD_DEST_UPDATE:
+      if (zclient->interface_bfd_dest_update)
+	(*zclient->interface_bfd_dest_update) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_NBR_ADDRESS_ADD:
       if (zclient->interface_nbr_address_add)

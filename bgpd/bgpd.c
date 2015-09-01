@@ -1168,83 +1168,127 @@ peer_xfer_config (struct peer *peer_dst, struct peer *peer_src)
     }
 }
 
-/*
- * Set or reset the peer address socketunion structure based on the
- * learnt peer address. Currently via the source address of the
- * ipv6 ND router-advertisement.
- */
-void
-bgp_peer_conf_if_to_su_update (struct peer *peer)
+static int
+bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
 {
-  struct interface *ifp;
-  struct nbr_connected *ifc_nbr;
   struct connected *ifc;
   struct prefix p;
   u_int32_t s_addr;
   struct listnode *node;
 
+  /* If our IPv4 address on the interface is /30 or /31, we can derive the
+   * IPv4 address of the other end.
+   */
+  for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
+    {
+      if (ifc->address && (ifc->address->family == AF_INET))
+        {
+          PREFIX_COPY_IPV4(&p, CONNECTED_PREFIX(ifc));
+          if (p.prefixlen == 30)
+            {
+              peer->su.sa.sa_family = AF_INET;
+              s_addr = ntohl(p.u.prefix4.s_addr);
+              if (s_addr % 4 == 1)
+                peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
+              else if (s_addr % 4 == 2)
+                peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+              peer->su->sin.sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+              return 1;
+            }
+          else if (p.prefixlen == 31)
+            {
+              peer->su.sa.sa_family = AF_INET;
+              s_addr = ntohl(p.u.prefix4.s_addr);
+              if (s_addr % 2 == 0)
+                peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
+              else
+                peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+              peer->su->sin.sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+              return 1;
+            }
+          else
+            zlog_warn("%s: IPv4 interface address is not /30 or /31, v4 session not started",
+                      peer->conf_if);
+        }
+    }
+
+  return 0;
+}
+
+static int
+bgp_peer_conf_if_to_su_update_v6 (struct peer *peer, struct interface *ifp)
+{
+  struct nbr_connected *ifc_nbr;
+
+  /* Have we learnt the peer's IPv6 link-local address? */
+  if (ifp->nbr_connected &&
+      (ifc_nbr = listnode_head(ifp->nbr_connected)))
+    {
+      peer->su.sa.sa_family = AF_INET6;
+      memcpy(&peer->su.sin6.sin6_addr, &ifc_nbr->address->u.prefix,
+             sizeof (struct in6_addr));
+#ifdef SIN6_LEN
+      peer->su.sin6.sin6_len = sizeof (struct sockaddr_in6);
+#endif
+      peer->su.sin6.sin6_scope_id = ifp->ifindex;
+      return 1;
+    }
+
+  return 0;
+}
+
+/*
+ * Set or reset the peer address socketunion structure based on the
+ * learnt/derived peer address. If the address has changed, update the
+ * password on the listen socket, if needed.
+ */
+void
+bgp_peer_conf_if_to_su_update (struct peer *peer)
+{
+  struct interface *ifp;
+  int prev_family;
+  int peer_addr_updated = 0;
+
   if (!peer->conf_if)
     return;
 
+  prev_family = peer->su.sa.sa_family;
   if ((ifp = if_lookup_by_name(peer->conf_if)))
     {
-      /* if multiple IP addresses assigned to link, we pick the first */
+      /* If BGP unnumbered is not "v6only", we first see if we can derive the
+       * peer's IPv4 address.
+       */
       if (!CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
-	  if (ifc->address && (ifc->address->family == AF_INET))
-	    {
-	      /* Try IPv4 connection first, if present */
-	      PREFIX_COPY_IPV4(&p, CONNECTED_PREFIX(ifc));
-	      /* We can determine peer's IP address if prefixlen is 30/31 */
-	      if (p.prefixlen == 30)
-		{
-		  peer->su.sa.sa_family = AF_INET;
-		  s_addr = ntohl(p.u.prefix4.s_addr);
-		  if (s_addr % 4 == 1)
-		    peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
-		  else if (s_addr % 4 == 2)
-		    peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		  peer->su->sin.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-		  return;
-		}
-	      else if (p.prefixlen == 31)
-		{
-		  peer->su.sa.sa_family = AF_INET;
-		  s_addr = ntohl(p.u.prefix4.s_addr);
-		  if (s_addr % 2 == 0)
-		    peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
-		  else
-		    peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		  peer->su->sin.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-		  return;
-		}
-	      else
-		zlog_warn("%s: IPv4 interface address is not /30 or /31, v4 session not started",
-			  peer->conf_if);
-	    }
+        peer_addr_updated = bgp_peer_conf_if_to_su_update_v4 (peer, ifp);
 
-      if (ifp->nbr_connected &&
-	  (ifc_nbr = listnode_head(ifp->nbr_connected)))
-	{
-	  peer->su.sa.sa_family = AF_INET6;
-	  memcpy(&peer->su.sin6.sin6_addr, &ifc_nbr->address->u.prefix,
-		 sizeof (struct in6_addr));
-#ifdef SIN6_LEN
-	  peer->su.sin6.sin6_len = sizeof (struct sockaddr_in6);
-#endif
-	  peer->su.sin6.sin6_scope_id = ifp->ifindex;
-
-	  return;
-	}
+      /* If "v6only" or we can't derive peer's IPv4 address, see if we've
+       * learnt the peer's IPv6 link-local address. This is from the source
+       * IPv6 address in router advertisement.
+       */
+      if (!peer_addr_updated)
+        peer_addr_updated = bgp_peer_conf_if_to_su_update_v6 (peer, ifp);
     }
-  /* This works as an indication of unresolved peer address
-     on a BGP interface*/
-  peer->su.sa.sa_family = AF_UNSPEC;
-  memset(&peer->su.sin6.sin6_addr, 0, sizeof (struct in6_addr));
+  /* If we could derive the peer address, we may need to install the password
+   * configured for the peer, if any, on the listen socket. Otherwise, mark
+   * that peer's address is not available and uninstall the password, if
+   * needed.
+   */
+  if (peer_addr_updated)
+    {
+      if (peer->password && prev_family == AF_UNSPEC)
+        bgp_md5_set (peer);
+    }
+  else
+    {
+      if (peer->password && prev_family != AF_UNSPEC)
+        bgp_md5_unset (peer);
+      peer->su.sa.sa_family = AF_UNSPEC;
+      memset(&peer->su.sin6.sin6_addr, 0, sizeof (struct in6_addr));
+    }
 }
 
 /* Create new BGP peer.  */
@@ -1745,8 +1789,9 @@ peer_delete (struct peer *peer)
       peer->password = NULL;
 
       if (!accept_peer &&
+          ! BGP_PEER_SU_UNSPEC(peer) &&
           ! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-	bgp_md5_set (peer);
+	bgp_md5_unset (peer);
     }
   
   bgp_timer_set (peer); /* stops all timers for Deleted */
@@ -1987,7 +2032,8 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
   if (conf->password && !peer->password)
     peer->password =  XSTRDUP (MTYPE_PEER_PASSWORD, conf->password);
 
-  bgp_md5_set (peer);
+  if (! BGP_PEER_SU_UNSPEC(peer))
+    bgp_md5_set (peer);
 
   /* maximum-prefix */
   peer->pmax[afi][safi] = conf->pmax[afi][safi];
@@ -2313,7 +2359,7 @@ peer_group_listen_range_add (struct peer_group *group, struct prefix *range)
   for (ALL_LIST_ELEMENTS (group->listen_range[afi], node, nnode, prefix))
     {
       if (prefix_same(range, prefix))
-        return BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS;
+        return 0;
     }
 
   prefix = prefix_new();
@@ -4597,6 +4643,9 @@ peer_password_set (struct peer *peer, const char *password)
       else
         bgp_session_reset(peer);
         
+      if (BGP_PEER_SU_UNSPEC(peer))
+        return BGP_SUCCESS;
+
       return (bgp_md5_set (peer) >= 0) ? BGP_SUCCESS : BGP_ERR_TCPSIG_FAILED;
     }
 
@@ -4615,8 +4664,11 @@ peer_password_set (struct peer *peer, const char *password)
       else
         bgp_session_reset(peer);
       
-      if (bgp_md5_set (peer) < 0)
-        ret = BGP_ERR_TCPSIG_FAILED;
+      if (! BGP_PEER_SU_UNSPEC(peer))
+        {
+          if (bgp_md5_set (peer) < 0)
+            ret = BGP_ERR_TCPSIG_FAILED;
+        }
     }
 
   return ret;
@@ -4648,7 +4700,8 @@ peer_password_unset (struct peer *peer)
       
       peer->password = NULL;
       
-      bgp_md5_set (peer);
+      if (! BGP_PEER_SU_UNSPEC(peer))
+        bgp_md5_unset (peer);
 
       return 0;
     }
@@ -4669,7 +4722,8 @@ peer_password_unset (struct peer *peer)
       XFREE (MTYPE_PEER_PASSWORD, peer->password);
       peer->password = NULL;
 
-      bgp_md5_set (peer);
+      if (! BGP_PEER_SU_UNSPEC(peer))
+        bgp_md5_unset (peer);
     }
 
   return 0;

@@ -44,6 +44,8 @@ bfd_info_create(void)
   bfd_info = XCALLOC (MTYPE_BFD_INFO, sizeof (struct bfd_info));
   assert(bfd_info);
 
+  bfd_info->status = BFD_STATUS_UNKNOWN;
+  bfd_info->last_update = 0;
   return bfd_info;
 }
 
@@ -247,7 +249,8 @@ bfd_get_command_dbg_str(int command)
  *                     went down from the message sent from Zebra to clients.
  */
 struct interface *
-bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp)
+bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp,
+                    int *status)
 {
   unsigned int ifindex;
   struct interface *ifp = NULL;
@@ -275,6 +278,9 @@ bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp)
   stream_get (&dp->u.prefix, s, plen);
   dp->prefixlen = stream_getc (s);
 
+  /* Get BFD status. */
+  *status = stream_getl (s);
+
   if (sp)
     {
       sp->family = stream_getc (s);
@@ -284,4 +290,148 @@ bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp)
       sp->prefixlen = stream_getc (s);
     }
   return ifp;
+}
+
+/*
+ * bfd_get_status_str - Convert BFD status to a display string.
+ */
+const char *
+bfd_get_status_str(int status)
+{
+  switch (status)
+  {
+    case BFD_STATUS_DOWN:
+      return "Down";
+    case BFD_STATUS_UP:
+      return "Up";
+    case BFD_STATUS_UNKNOWN:
+    default:
+      return "Unknown";
+  }
+}
+
+/*
+ * bfd_last_update - Calculate the last BFD update time and convert it
+ *                   into a dd:hh:mm:ss display format.
+ */
+static void
+bfd_last_update (time_t last_update, char *buf, size_t len)
+{
+  time_t curr;
+  time_t diff;
+  struct tm *tm;
+  struct timeval tv;
+
+  /* If no BFD satatus update has ever been received, print `never'. */
+  if (last_update == 0)
+    {
+      snprintf (buf, len, "never");
+      return;
+    }
+
+  /* Get current time. */
+  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv);
+  curr = tv.tv_sec;
+  diff = curr - last_update;
+  tm = gmtime (&diff);
+
+  snprintf (buf, len, "%d:%02d:%02d:%02d",
+            tm->tm_yday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+}
+
+/*
+ * bfd_show_param - Show the BFD parameter information.
+ */
+void
+bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
+                int extra_space, u_char use_json, json_object *json_obj)
+{
+  json_object *json_bfd = NULL;
+
+  if (!bfd_info)
+    return;
+
+  if (use_json)
+    {
+      if (bfd_tag)
+        json_bfd = json_object_new_object();
+      else
+        json_bfd = json_obj;
+
+      json_object_int_add(json_bfd, "detectMultiplier", bfd_info->detect_mult);
+      json_object_int_add(json_bfd, "rxMinInterval", bfd_info->required_min_rx);
+      json_object_int_add(json_bfd, "txMinInterval", bfd_info->desired_min_tx);
+      if (bfd_tag)
+        json_object_object_add(json_obj, "peerBfdInfo", json_bfd);
+    }
+  else
+    {
+      vty_out (vty, "  %s%sDetect Mul: %d, Min Rx interval: %d,"
+                " Min Tx interval: %d%s",
+                    (extra_space) ? "  ": "", (bfd_tag) ? "BFD: " : "  ",
+                    bfd_info->detect_mult, bfd_info->required_min_rx,
+                    bfd_info->desired_min_tx, VTY_NEWLINE);
+    }
+}
+
+/*
+ * bfd_show_status - Show the BFD status information.
+ */
+static void
+bfd_show_status(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
+                int extra_space, u_char use_json, json_object *json_bfd)
+{
+  char time_buf[32];
+
+  if (!bfd_info)
+    return;
+
+  bfd_last_update(bfd_info->last_update, time_buf, 32);
+  if (use_json)
+    {
+      json_object_string_add(json_bfd, "status",
+                              bfd_get_status_str(bfd_info->status));
+      json_object_string_add(json_bfd, "lastUpdate", time_buf);
+    }
+  else
+    {
+      vty_out (vty, "  %s%sStatus: %s, Last update: %s%s",
+                  (extra_space) ? "  ": "", (bfd_tag) ? "BFD: " : "  ",
+                  bfd_get_status_str(bfd_info->status), time_buf, VTY_NEWLINE);
+    }
+}
+
+/*
+ * bfd_show_info - Show the BFD information.
+ */
+void
+bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
+              int extra_space, u_char use_json, json_object *json_obj)
+{
+  json_object *json_bfd = NULL;
+
+  if (!bfd_info)
+    return;
+
+  if (use_json)
+    {
+      json_bfd = json_object_new_object();
+      if (multihop)
+        json_object_string_add(json_bfd, "type", "multi hop");
+      else
+        json_object_string_add(json_bfd, "type", "single hop");
+    }
+  else
+    {
+      vty_out (vty, "  %sBFD: Type: %s%s", (extra_space) ? "  " : "",
+              (multihop) ? "multi hop" : "single hop", VTY_NEWLINE);
+    }
+
+  bfd_show_param(vty, bfd_info, 0, extra_space, use_json, json_bfd);
+  bfd_show_status(vty, bfd_info, 0, extra_space, use_json, json_bfd);
+
+  if (use_json)
+    json_object_object_add(json_obj, "peerBfdInfo", json_bfd);
+  else
+    vty_out (vty, "%s", VTY_NEWLINE);
 }

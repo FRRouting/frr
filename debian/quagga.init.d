@@ -518,10 +518,6 @@ case "$1" in
 
     reload)
 	# Just apply the commands that have changed, no restart necessary
-        if [ -z "$ENABLE_RELOAD" ] || [ "$ENABLE_RELOAD" != "yes" ]; then
-            echo "Reload is an experimental feature. Set ENABLE_RELOAD to yes in /etc/default/quagga."
-            exit 1
-        fi
 	[ ! -x "$RELOAD_SCRIPT" ] && echo "quagga-reload script not available" && exit 0
 	NEW_CONFIG_FILE="${2:-$C_PATH/Quagga.conf}"
 	[ ! -r $NEW_CONFIG_FILE ] && echo "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1

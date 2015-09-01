@@ -33,6 +33,7 @@
 #include "ptm_lib.h"
 #include "buffer.h"
 #include "zebra/zebra_ptm_redistribute.h"
+#include "bfd.h"
 
 #define ZEBRA_PTM_RECONNECT_TIME_INITIAL 1 /* initial reconnect is 1s */
 #define ZEBRA_PTM_RECONNECT_TIME_MAX     300
@@ -68,6 +69,7 @@ const char ZEBRA_PTM_BFD_CLIENT_FIELD[] = "client";
 const char ZEBRA_PTM_BFD_SEQID_FIELD[] = "seqid";
 const char ZEBRA_PTM_BFD_IFNAME_FIELD[] = "ifName";
 const char ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD[] = "maxHopCnt";
+const char ZEBRA_PTM_BFD_SEND_EVENT[] = "sendEvent";
 
 extern struct zebra_t zebrad;
 
@@ -341,7 +343,8 @@ zebra_ptm_install_commands (void)
 
 /* BFD session goes down, send message to the protocols. */
 static void
-if_bfd_session_down (struct interface *ifp, struct prefix *dp, struct prefix *sp)
+if_bfd_session_update (struct interface *ifp, struct prefix *dp,
+                      struct prefix *sp, int status)
 {
   if (IS_ZEBRA_DEBUG_EVENT)
     {
@@ -349,22 +352,24 @@ if_bfd_session_down (struct interface *ifp, struct prefix *dp, struct prefix *sp
 
       if (ifp)
         {
-          zlog_debug ("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_DOWN %s/%d on %s",
-                  inet_ntop (dp->family, &dp->u.prefix, buf[0],
-                              INET6_ADDRSTRLEN), dp->prefixlen, ifp->name);
+          zlog_debug ("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d on %s"
+                      " %s event",
+                        inet_ntop (dp->family, &dp->u.prefix, buf[0],
+                              INET6_ADDRSTRLEN), dp->prefixlen, ifp->name,
+                        bfd_get_status_str(status));
         }
       else
         {
-          zlog_debug ("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_DOWN %s/%d "
-                      "with src %s/%d",
+          zlog_debug ("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d "
+                      "with src %s/%d %s event",
                   inet_ntop (dp->family, &dp->u.prefix, buf[0], INET6_ADDRSTRLEN),
                   dp->prefixlen,
                   inet_ntop (sp->family, &sp->u.prefix, buf[1], INET6_ADDRSTRLEN),
-                  sp->prefixlen);
+                  sp->prefixlen, bfd_get_status_str(status));
         }
     }
 
-  zebra_interface_bfd_update (ifp, dp, sp);
+  zebra_interface_bfd_update (ifp, dp, sp, status);
 }
 
 static int
@@ -403,44 +408,25 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
                   __func__, ifp ? ifp->name : "N/A", bfdst_str,
                   dest_str, src_str);
 
-  /* we only care if bfd session goes down */
-  if (!strcmp (bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
-    if (inet_pton(AF_INET, dest_str, &dest_prefix.u.prefix4) > 0) {
-      dest_prefix.family = AF_INET;
-      dest_prefix.prefixlen = IPV4_MAX_PREFIXLEN;
-    }
-#ifdef HAVE_IPV6
-    else if (inet_pton(AF_INET6, dest_str, &dest_prefix.u.prefix6) > 0) {
-      dest_prefix.family = AF_INET6;
-      dest_prefix.prefixlen = IPV6_MAX_PREFIXLEN;
-    }
-#endif /* HAVE_IPV6 */
-    else {
-        zlog_err("%s: Peer addr %s not found", __func__,
-           dest_str);
+  if (str2prefix(dest_str, &dest_prefix) == 0) {
+      zlog_err("%s: Peer addr %s not found", __func__,
+         dest_str);
+      return -1;
+  }
+
+  memset(&src_prefix, 0, sizeof(struct prefix));
+  if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
+    if (str2prefix(src_str, &src_prefix) == 0) {
+        zlog_err("%s: Local addr %s not found", __func__,
+           src_str);
         return -1;
     }
+  }
 
-    memset(&src_prefix, 0, sizeof(struct prefix));
-    if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
-      if (inet_pton(AF_INET, src_str, &src_prefix.u.prefix4) > 0) {
-        src_prefix.family = AF_INET;
-        src_prefix.prefixlen = IPV4_MAX_PREFIXLEN;
-      }
-#ifdef HAVE_IPV6
-      else if (inet_pton(AF_INET6, src_str, &src_prefix.u.prefix6) > 0) {
-        src_prefix.family = AF_INET6;
-        src_prefix.prefixlen = IPV6_MAX_PREFIXLEN;
-      }
-#endif /* HAVE_IPV6 */
-      else {
-          zlog_err("%s: Local addr %s not found", __func__,
-             src_str);
-          return -1;
-      }
-    }
-
-    if_bfd_session_down(ifp, &dest_prefix, &src_prefix);
+  if (!strcmp (bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
+    if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_DOWN);
+  } else {
+    if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_UP);
   }
 
   return 0;
@@ -717,6 +703,10 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
       ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_IFNAME_FIELD,
                           if_name);
     }
+
+  sprintf(tmp_buf, "%d", 1);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEND_EVENT,
+                      tmp_buf);
 
   ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
 

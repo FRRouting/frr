@@ -104,8 +104,8 @@ bgp_md5_set_connect (int socket, union sockunion *su, const char *password)
   return ret;
 }
 
-int
-bgp_md5_set (struct peer *peer)
+static int
+bgp_md5_set_password (struct peer *peer, const char *password)
 {
   struct listnode *node;
   int ret = 0;
@@ -117,13 +117,13 @@ bgp_md5_set (struct peer *peer)
       return -1;
     }
   
-  /* Just set the password on the listen socket(s). Outbound connections
+  /* Set or unset the password on the listen socket(s). Outbound connections
    * are taken care of in bgp_connect() below.
    */
   for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
     if (listener->su.sa.sa_family == peer->su.sa.sa_family)
       {
-	ret = bgp_md5_set_socket (listener->fd, &peer->su, peer->password);
+	ret = bgp_md5_set_socket (listener->fd, &peer->su, password);
 	break;
       }
 
@@ -131,6 +131,20 @@ bgp_md5_set (struct peer *peer)
     zlog_err ("%s: could not lower privs", __func__);
   
   return ret;
+}
+
+int
+bgp_md5_set (struct peer *peer)
+{
+  /* Set the password from listen socket. */
+  return bgp_md5_set_password (peer, peer->password);
+}
+
+int
+bgp_md5_unset (struct peer *peer)
+{
+  /* Unset the password from listen socket. */
+  return bgp_md5_set_password (peer, NULL);
 }
 
 /* Update BGP socket send buffer size */
@@ -541,7 +555,13 @@ bgp_getsockname (struct peer *peer)
   peer->su_remote = sockunion_getpeername (peer->fd);
   if (!peer->su_remote) return -1;
 
-  bgp_nexthop_set (peer->su_local, peer->su_remote, &peer->nexthop, peer);
+  if (bgp_nexthop_set (peer->su_local, peer->su_remote,
+                       &peer->nexthop, peer))
+    {
+      zlog_err ("%s: nexthop_set failed, resetting connection - intf %p",
+                peer->host, peer->nexthop.ifp);
+      return -1;
+    }
 
   return 0;
 }

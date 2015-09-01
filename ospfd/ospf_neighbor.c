@@ -30,6 +30,7 @@
 #include "stream.h"
 #include "table.h"
 #include "log.h"
+#include "json.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -42,6 +43,7 @@
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_bfd.h"
 
 /* Fill in the the 'key' as appropriate to retrieve the entry for nbr
  * from the ospf_interface's nbrs table. Indexed by interface address
@@ -98,6 +100,7 @@ ospf_nbr_new (struct ospf_interface *oi)
 
   nbr->crypt_seqnum = 0;
 
+  ospf_bfd_info_nbr_create(oi, nbr);
   return nbr;
 }
 
@@ -141,6 +144,7 @@ ospf_nbr_free (struct ospf_neighbor *nbr)
   /* Cancel all events. *//* Thread lookup cost would be negligible. */
   thread_cancel_event (master, nbr);
 
+  ospf_bfd_info_free(&nbr->bfd_info);
   XFREE (MTYPE_OSPF_NEIGHBOR, nbr);
 }
 

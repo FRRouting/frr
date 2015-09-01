@@ -88,6 +88,9 @@ struct ospf_neighbor
   struct timeval ts_last_regress;   /* last regressive NSM change     */
   const char *last_regress_str;     /* Event which last regressed NSM */
   u_int32_t state_change;           /* NSM state change counter       */
+
+  /* BFD information */
+  void *bfd_info;
 };
 
 /* Macros. */

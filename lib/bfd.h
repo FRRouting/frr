@@ -24,6 +24,8 @@
 #ifndef _ZEBRA_BFD_H
 #define _ZEBRA_BFD_H
 
+#include "lib/json.h"
+
 #define BFD_CMD_DETECT_MULT_RANGE "<2-255> "
 #define BFD_CMD_MIN_RX_RANGE "<50-60000> "
 #define BFD_CMD_MIN_TX_RANGE "<50-60000>"
@@ -41,12 +43,18 @@
 #define BFD_FLAG_PARAM_CFG (1 << 0) /* parameters have been configured */
 #define BFD_FLAG_BFD_REG   (1 << 1) /* Peer registered with BFD */
 
+#define BFD_STATUS_UNKNOWN (1 << 0) /* BFD session status never received */
+#define BFD_STATUS_DOWN    (1 << 1) /* BFD session status is down */
+#define BFD_STATUS_UP      (1 << 2) /* BFD session status is up */
+
 struct bfd_info
 {
   u_int16_t flags;
   u_int8_t  detect_mult;
   u_int32_t desired_min_tx;
   u_int32_t required_min_rx;
+  time_t    last_update;
+  u_int8_t  status;
 };
 
 extern struct bfd_info *
@@ -72,6 +80,18 @@ extern const char *
 bfd_get_command_dbg_str(int command);
 
 extern struct interface *
-bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp);
+bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp,
+                   int *status);
+
+const char *
+bfd_get_status_str(int status);
+
+extern void
+bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
+                int extra_space, u_char use_json, json_object *json_obj);
+
+extern void
+bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
+              int extra_space, u_char use_json, json_object *json_obj);
 
 #endif /* _ZEBRA_BFD_H */

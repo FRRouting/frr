@@ -1127,6 +1127,31 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
       return (ret);
     }
 
+  /* Verify valid local address present based on negotiated address-families. */
+  if (peer->afc_nego[AFI_IP][SAFI_UNICAST] ||
+      peer->afc_nego[AFI_IP][SAFI_MULTICAST] ||
+      peer->afc_nego[AFI_IP][SAFI_MPLS_VPN])
+    {
+      if (!peer->nexthop.v4.s_addr)
+        {
+          zlog_err ("%s: No local IPv4 addr resetting connection, fd %d",
+                    peer->host, peer->fd);
+          bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+          return -1;
+        }
+    }
+  if (peer->afc_nego[AFI_IP6][SAFI_UNICAST] ||
+      peer->afc_nego[AFI_IP6][SAFI_MULTICAST])
+    {
+      if (IN6_IS_ADDR_UNSPECIFIED (&peer->nexthop.v6_global))
+        {
+          zlog_err ("%s: No local IPv6 addr resetting connection, fd %d",
+                    peer->host, peer->fd);
+          bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_SUBCODE_UNSPECIFIC);
+          return -1;
+        }
+    }
+
   if ((ret = bgp_event_update(peer, Receive_OPEN_message)) < 0)
     {
       zlog_err("%s: BGP event update failed for peer: %s", __FUNCTION__,

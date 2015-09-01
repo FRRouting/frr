@@ -3857,6 +3857,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
         vty_out (vty, "  Neighbor Count is %d, Adjacent neighbor count is %d%s",
                  ospf_nbr_count (oi, 0), ospf_nbr_count (oi, NSM_Full),
                  VTY_NEWLINE);
+      ospf_bfd_interface_show(vty, ifp, json_interface_sub, use_json);
     }
 }
 
@@ -4622,6 +4623,8 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
       else
         json_object_object_add(json, inet_ntoa (nbr->router_id), json_sub);
     }
+
+  ospf_bfd_show_info(vty, nbr->bfd_info, json, use_json, 0);
 }
 
 static int
