@@ -669,9 +669,11 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
   vector vline;
   struct cmd_element *cmd;
   int save_node = CONFIG_NODE;
+  int lineno = 0;
 
   while (fgets (vty->buf, VTY_BUFSIZ, fp))
     {
+      lineno++;
       if (vty->buf[0] == '!' || vty->buf[1] == '#')
 	continue;
 
@@ -725,16 +727,16 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	{
 	case CMD_WARNING:
 	  if (vty->type == VTY_FILE)
-	    fprintf (stdout,"Warning...\n");
+	    fprintf (stdout,"line %d: Warning...: %s\n", lineno, vty->buf);
 	  break;
 	case CMD_ERR_AMBIGUOUS:
-	  fprintf (stdout,"%% Ambiguous command: %s\n", vty->buf);
+	  fprintf (stdout,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
 	  break;
 	case CMD_ERR_NO_MATCH:
-	  fprintf (stdout,"%% Unknown command: %s", vty->buf);
+	  fprintf (stdout,"line %d: %% Unknown command: %s", lineno, vty->buf);
 	  break;
 	case CMD_ERR_INCOMPLETE:
-	  fprintf (stdout,"%% Command incomplete: %s\n", vty->buf);
+	  fprintf (stdout,"line %d: %% Command incomplete: %s\n", lineno, vty->buf);
 	  break;
 	case CMD_SUCCESS_DAEMON:
 	  {
