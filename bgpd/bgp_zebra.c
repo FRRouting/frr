@@ -1621,7 +1621,8 @@ bgp_redistribute_metric_set (struct bgp *bgp, struct bgp_redist *red, afi_t afi,
 
   for (rn = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); rn; rn = bgp_route_next(rn)) {
     for (ri = rn->info; ri; ri = ri->next) {
-      if (ri->sub_type == BGP_ROUTE_REDISTRIBUTE && ri->type == type) {
+      if (ri->sub_type == BGP_ROUTE_REDISTRIBUTE && ri->type == type &&
+	  ri->instance == red->instance) {
 	  ri->attr->med = red->redist_metric;
 	  bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
 	  bgp_process(bgp, rn, afi, SAFI_UNICAST);
