@@ -2174,11 +2174,18 @@ bgp_processq_del (struct work_queue *wq, void *data)
 void
 bgp_process_queue_init (void)
 {
-  bm->process_main_queue
-    = work_queue_new (bm->master, "process_main_queue");
-  bm->process_rsclient_queue
-    = work_queue_new (bm->master, "process_rsclient_queue");
-  
+  if (!bm->process_main_queue)
+    {
+      bm->process_main_queue
+	= work_queue_new (bm->master, "process_main_queue");
+    }
+
+  if (!bm->process_rsclient_queue)
+    {
+      bm->process_rsclient_queue
+	= work_queue_new (bm->master, "process_rsclient_queue");
+    }
+
   if ( !(bm->process_main_queue && bm->process_rsclient_queue) )
     {
       zlog_err ("%s: Failed to allocate work queue", __func__);
@@ -2205,11 +2212,7 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   /* already scheduled for processing? */
   if (CHECK_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED))
     return;
-  
-  if ( (bm->process_main_queue == NULL) ||
-       (bm->process_rsclient_queue == NULL) )
-    bgp_process_queue_init ();
-  
+
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE, 
                     sizeof (struct bgp_process_queue));
   if (!pqnode)
@@ -2241,10 +2244,6 @@ void
 bgp_add_eoiu_mark (struct bgp *bgp, bgp_table_t type)
 {
   struct bgp_process_queue *pqnode;
-
-  if ( (bm->process_main_queue == NULL) ||
-       (bm->process_rsclient_queue == NULL) )
-    bgp_process_queue_init ();
 
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE,
                     sizeof (struct bgp_process_queue));

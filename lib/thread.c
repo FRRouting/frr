@@ -607,6 +607,22 @@ thread_add_fd (struct thread **thread_array, struct thread *thread)
   thread_array[thread->u.fd] = thread;
 }
 
+/* Thread list is empty or not.  */
+static int
+thread_empty (struct thread_list *list)
+{
+  return  list->head ? 0 : 1;
+}
+
+/* Delete top of the list and return it. */
+static struct thread *
+thread_trim_head (struct thread_list *list)
+{
+  if (!thread_empty (list))
+    return thread_list_delete (list, list->head);
+  return NULL;
+}
+
 /* Move thread to unuse list. */
 static void
 thread_add_unuse (struct thread_master *m, struct thread *thread)
@@ -666,6 +682,24 @@ thread_queue_free (struct thread_master *m, struct pqueue *queue)
   pqueue_delete(queue);
 }
 
+/*
+ * thread_master_free_unused
+ *
+ * As threads are finished with they are put on the
+ * unuse list for later reuse.
+ * If we are shutting down, Free up unused threads
+ * So we can see if we forget to shut anything off
+ */
+void
+thread_master_free_unused (struct thread_master *m)
+{
+  struct thread *t;
+  while ((t = thread_trim_head(&m->unuse)) != NULL)
+    {
+      XFREE(MTYPE_THREAD, t);
+    }
+}
+
 /* Stop thread scheduler. */
 void
 thread_master_free (struct thread_master *m)
@@ -686,22 +720,6 @@ thread_master_free (struct thread_master *m)
       hash_free (cpu_record);
       cpu_record = NULL;
     }
-}
-
-/* Thread list is empty or not.  */
-static int
-thread_empty (struct thread_list *list)
-{
-  return  list->head ? 0 : 1;
-}
-
-/* Delete top of the list and return it. */
-static struct thread *
-thread_trim_head (struct thread_list *list)
-{
-  if (!thread_empty (list))
-    return thread_list_delete (list, list->head);
-  return NULL;
 }
 
 /* Return remain time in second. */

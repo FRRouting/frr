@@ -62,6 +62,7 @@ route_read (void)
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
       zlog_warn ("sysctl() fail by %s", safe_strerror (errno));
+      XFREE(MTYPE_TMP, ref);
       return;
     }
 

@@ -183,6 +183,7 @@ enum quagga_clkid {
 /* Prototypes. */
 extern struct thread_master *thread_master_create (void);
 extern void thread_master_free (struct thread_master *);
+extern void thread_master_free_unused(struct thread_master *);
 
 extern struct thread *funcname_thread_add_read (struct thread_master *, 
 				                int (*)(struct thread *),

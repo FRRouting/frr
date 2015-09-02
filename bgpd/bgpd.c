@@ -955,6 +955,9 @@ peer_free (struct peer *peer)
   if (peer->notify.data)
     XFREE(MTYPE_TMP, peer->notify.data);
 
+  if (peer->clear_node_queue)
+    work_queue_free(peer->clear_node_queue);
+
   bgp_sync_delete (peer);
 
   if (peer->conf_if)
@@ -2895,6 +2898,7 @@ bgp_delete (struct bgp *bgp)
   if (list_isempty(bm->bgp))
     bgp_close ();
 
+  thread_master_free_unused(bm->master);
   bgp_unlock(bgp);  /* initial reference */
 
   return 0;
@@ -6833,6 +6837,8 @@ bgp_master_init (void)
   bm->port = BGP_PORT_DEFAULT;
   bm->master = thread_master_create ();
   bm->start_time = bgp_clock ();
+
+  bgp_process_queue_init();
 }
 
 

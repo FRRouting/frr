@@ -66,6 +66,7 @@ ifstat_update_sysctl (void)
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
       zlog (NULL, LOG_WARNING, "sysctl error by %s", safe_strerror (errno));
+      XFREE(MTYPE_TMP, ref);
       return;
     }
 

@@ -857,10 +857,6 @@ bgp_update_delay_begin (struct bgp *bgp)
   struct listnode *node, *nnode;
   struct peer *peer;
 
-  if ((bm->process_main_queue == NULL) ||
-      (bm->process_rsclient_queue == NULL))
-    bgp_process_queue_init();
-
   /* Stop the processing of queued work. Enqueue shall continue */
   work_queue_plug(bm->process_main_queue);
   work_queue_plug(bm->process_rsclient_queue);

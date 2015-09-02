@@ -223,6 +223,10 @@ conf_release (struct peer *src, afi_t afi, safi_t safi)
 
   if (srcfilter->usmap.name)
     XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->usmap.name);
+
+  if (src->host)
+    XFREE(MTYPE_BGP_PEER_HOST, src->host);
+  src->host = NULL;
 }
 
 static void
@@ -717,6 +721,7 @@ update_group_create (struct peer_af *paf)
 
   UPDGRP_GLOBAL_STAT (updgrp, updgrps_created) += 1;
 
+  conf_release(&tmp_conf, paf->afi, paf->safi);
   return updgrp;
 }
 
