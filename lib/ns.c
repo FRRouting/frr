@@ -39,7 +39,6 @@
 #include "command.h"
 #include "vty.h"
 
-#ifdef HAVE_NETNS
 
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000 /* New network namespace (lo, device, names sockets, etc) */
@@ -57,13 +56,37 @@ static inline int setns(int fd, int nstype)
 }
 #endif /* HAVE_SETNS */
 
+#ifdef HAVE_NETNS
+
 #define NS_DEFAULT_NAME    "/proc/self/ns/net"
+static int have_netns_enabled = -1;
 
 #else /* !HAVE_NETNS */
 
 #define NS_DEFAULT_NAME    "Default-logical-router"
 
 #endif /* HAVE_NETNS */
+
+static int have_netns(void)
+{
+#ifdef HAVE_NETNS
+  if (have_netns_enabled < 0)
+    {
+        int fd = open (NS_DEFAULT_NAME, O_RDONLY);
+
+        if (fd < 0)
+          have_netns_enabled = 0;
+        else
+          {
+            have_netns_enabled = 1;
+            close(fd);
+          }
+    }
+  return have_netns_enabled;
+#else
+  return 0;
+#endif
+}
 
 struct ns
 {
@@ -194,11 +217,10 @@ ns_lookup (ns_id_t ns_id)
 static int
 ns_is_enabled (struct ns *ns)
 {
-#ifdef HAVE_NETNS
-  return ns && ns->fd >= 0;
-#else
-  return ns && ns->fd == -2 && ns->ns_id == NS_DEFAULT;
-#endif
+  if (have_netns())
+      return ns && ns->fd >= 0;
+  else
+      return ns && ns->fd == -2 && ns->ns_id == NS_DEFAULT;
 }
 
 /*
@@ -214,12 +236,12 @@ ns_enable (struct ns *ns)
 
   if (!ns_is_enabled (ns))
     {
-#ifdef HAVE_NETNS
-      ns->fd = open (ns->name, O_RDONLY);
-#else
-      ns->fd = -2; /* Remember that ns_enable_hook has been called */
-      errno = -ENOTSUP;
-#endif
+      if (have_netns()) {
+        ns->fd = open (ns->name, O_RDONLY);
+      } else {
+        ns->fd = -2; /* Remember that ns_enable_hook has been called */
+        errno = -ENOTSUP;
+      }
 
       if (!ns_is_enabled (ns))
         {
@@ -228,10 +250,9 @@ ns_enable (struct ns *ns)
           return 0;
         }
 
-#ifdef HAVE_NETNS
-      zlog_info ("NS %u is associated with NETNS %s.",
-                 ns->ns_id, ns->name);
-#endif
+      if (have_netns())
+        zlog_info ("NS %u is associated with NETNS %s.",
+                   ns->ns_id, ns->name);
 
       zlog_info ("NS %u is enabled.", ns->ns_id);
       if (ns_master.ns_enable_hook)
@@ -256,9 +277,9 @@ ns_disable (struct ns *ns)
       if (ns_master.ns_disable_hook)
         (*ns_master.ns_disable_hook) (ns->ns_id, &ns->info);
 
-#ifdef HAVE_NETNS
-      close (ns->fd);
-#endif
+      if (have_netns())
+        close (ns->fd);
+
       ns->fd = -1;
     }
 }
@@ -497,7 +518,6 @@ ns_bitmap_check (ns_bitmap_t bmap, ns_id_t ns_id)
                      NS_BITMAP_FLAG (offset)) ? 1 : 0;
 }
 
-#ifdef HAVE_NETNS
 /*
  * NS realization with NETNS
  */
@@ -633,8 +653,6 @@ ns_config_write (struct vty *vty)
   return write;
 }
 
-#endif /* HAVE_NETNS */
-
 /* Initialize NS module. */
 void
 ns_init (void)
@@ -662,12 +680,13 @@ ns_init (void)
       exit (1);
     }
 
-#ifdef HAVE_NETNS
-  /* Install NS commands. */
-  install_node (&ns_node, ns_config_write);
-  install_element (CONFIG_NODE, &ns_netns_cmd);
-  install_element (CONFIG_NODE, &no_ns_netns_cmd);
-#endif
+  if (have_netns())
+    {
+      /* Install NS commands. */
+      install_node (&ns_node, ns_config_write);
+      install_element (CONFIG_NODE, &ns_netns_cmd);
+      install_element (CONFIG_NODE, &no_ns_netns_cmd);
+    }
 }
 
 /* Terminate NS module. */
@@ -698,17 +717,18 @@ ns_socket (int domain, int type, int protocol, ns_id_t ns_id)
       return -1;
     }
 
-#ifdef HAVE_NETNS
-  ret = (ns_id != NS_DEFAULT) ? setns (ns->fd, CLONE_NEWNET) : 0;
-  if (ret >= 0)
+  if (have_netns())
     {
-      ret = socket (domain, type, protocol);
-      if (ns_id != NS_DEFAULT)
-        setns (ns_lookup (NS_DEFAULT)->fd, CLONE_NEWNET);
+      ret = (ns_id != NS_DEFAULT) ? setns (ns->fd, CLONE_NEWNET) : 0;
+      if (ret >= 0)
+        {
+          ret = socket (domain, type, protocol);
+          if (ns_id != NS_DEFAULT)
+            setns (ns_lookup (NS_DEFAULT)->fd, CLONE_NEWNET);
+        }
     }
-#else
-  ret = socket (domain, type, protocol);
-#endif
+  else
+    ret = socket (domain, type, protocol);
 
   return ret;
 }
