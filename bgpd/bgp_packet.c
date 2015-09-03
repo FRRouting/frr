@@ -1011,7 +1011,17 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
     }
 
   /* Check neighbor as number. */
-  if (peer->as_type == AS_INTERNAL)
+  if (peer->as_type == AS_UNSPECIFIED)
+    {
+      if (bgp_debug_neighbor_events(peer))
+	zlog_debug("%s bad OPEN, remote AS is unspecified currently", peer->host);
+      bgp_notify_send_with_data(peer,
+				BGP_NOTIFY_OPEN_ERR,
+				BGP_NOTIFY_OPEN_BAD_PEER_AS,
+				notify_data_remote_as, 2);
+      return -1;
+    }
+  else if (peer->as_type == AS_INTERNAL)
     {
       if (remote_as != peer->bgp->as)
 	{

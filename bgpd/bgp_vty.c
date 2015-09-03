@@ -9498,7 +9498,12 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
     }
   else
     {
-      vty_out (vty, "remote AS %u, ", p->as);
+      if ((p->as_type == AS_SPECIFIED) ||
+	  (p->as_type == AS_EXTERNAL) ||
+	  (p->as_type == AS_INTERNAL))
+	vty_out (vty, "remote AS %u, ", p->as);
+      else
+	vty_out (vty, "remote AS Unspecified, ");
       vty_out (vty, "local AS %u%s%s, ",
 	       p->change_local_as ? p->change_local_as : p->local_as,
 	       CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) ?
