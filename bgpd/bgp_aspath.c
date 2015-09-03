@@ -710,8 +710,6 @@ aspath_hash_alloc (void *arg)
 
   /* Malformed AS path value. */
   assert (aspath->str);
-  if (! aspath->str)
-    return NULL;
 
   /* New aspath structure is needed. */
   new = XMALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
@@ -860,6 +858,11 @@ aspath_parse (struct stream *s, size_t length, int use32bit)
       assegment_free_all (as.segments);
       /* aspath_key_make() always updates the string */
       XFREE (MTYPE_AS_STR, as.str);
+      if (as.json)
+	{
+	  json_object_free(as.json);
+	  as.json = NULL;
+	}
     }
 
   find->refcnt++;
