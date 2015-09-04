@@ -62,7 +62,7 @@ static struct pam_conv conv =
   NULL
 };
 
-int
+static int
 vtysh_pam (const char *user)
 {
   int ret;
