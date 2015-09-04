@@ -20,6 +20,7 @@
 %{!?with_irdp:		%define	with_irdp	1 }
 %{!?with_rtadv:		%define	with_rtadv	1 }
 %{!?with_isisd:		%define	with_isisd	1 }
+%{!?with_pimd:		%define	with_pimd	1 }
 %{!?with_shared:	%define	with_shared	1 }
 %{!?with_multipath:	%define	with_multipath	64 }
 %{!?quagga_user:	%define	quagga_user	quagga }
@@ -44,23 +45,24 @@
 %{!?dist:		%define		dist	%{default_dist}}
 
 # as distros change packages we depend on, our Requires have to change, sadly.
-%define quagga_buildreqs texi2html texinfo tetex autoconf pam-devel
-%define quagga_buildreqs %{quagga_buildreqs} patch libcap-devel
+%define quagga_buildreqs texi2html texinfo autoconf pam-devel
+%define quagga_buildreqs %{expand:%{quagga_buildreqs}} patch libcap-devel
 
 # FC4 and 5 split texi2html out of tetex package.
-%if "%dist" != "fc2" || "%dist" != "fc3"
-%define  quagga_buildreqs %{quagga_buildreqs} texi2html
-%endif
+%define quagga_buildreqs %{expand:%{quagga_buildreqs}} texi2html
 
-# pam_stack is deprecated in FC5
+# pam_stack was deprecated in FC5
 # default to pam_stack, default should be changed later.
 %if "%dist" == "fc4" || "%dist" == "fc3"
 %define	quagga_pam_source quagga.pam.stack
 %else
 %define	quagga_pam_source quagga.pam
 %endif
-############################################################################
 
+# man page probably needs groff for groff_ms macros
+%define  quagga_buildreqs %{expand:%{quagga_buildreqs}} groff
+
+############################################################################
 
 # misc internal defines
 %{!?quagga_uid:		%define         quagga_uid      92 }
@@ -103,7 +105,7 @@ Requires(pre):		net-snmp
 BuildRequires:	readline readline-devel ncurses ncurses-devel
 Requires(pre):		ncurses
 %endif
-BuildRequires:	texinfo tetex autoconf pam-devel patch libcap-devel tetex
+BuildRequires:	%{quagga_buildreqs}
 # Initscripts > 5.60 is required for IPv6 support
 Requires(pre):		initscripts >= 5.60
 Requires(pre):		ncurses pam
@@ -223,7 +225,7 @@ developing OSPF-API and quagga applications.
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
-texi2html -number quagga.texi
+texi2html --number-footnotes  --number-sections quagga.texi
 popd
 
 %install
@@ -446,6 +448,10 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 
 %changelog
+* Fri Sep 4 2015 Paul Jakma <paul@jakma.org> - %{version}
+- buildreq updates
+- add a default define for with_pimd
+
 * Thu Sep 12 2005 Paul Jakma <paul@dishone.st>
 - Steal some changes from Fedora spec file:
 - Add with_rtadv variable
