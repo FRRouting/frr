@@ -2213,6 +2213,10 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   if (CHECK_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED))
     return;
 
+  if ( (bm->process_main_queue == NULL) ||
+       (bm->process_rsclient_queue == NULL) )
+    bgp_process_queue_init ();
+
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE, 
                     sizeof (struct bgp_process_queue));
   if (!pqnode)
@@ -2244,6 +2248,10 @@ void
 bgp_add_eoiu_mark (struct bgp *bgp, bgp_table_t type)
 {
   struct bgp_process_queue *pqnode;
+
+  if ( (bm->process_main_queue == NULL) ||
+       (bm->process_rsclient_queue == NULL) )
+    bgp_process_queue_init ();
 
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE,
                     sizeof (struct bgp_process_queue));
