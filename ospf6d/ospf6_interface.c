@@ -1858,10 +1858,13 @@ config_write_ospf6_interface (struct vty *vty)
       if (oi->mtu_ignore)
         vty_out (vty, " ipv6 ospf6 mtu-ignore%s", VNL);
 
-      if (oi->type == OSPF_IFTYPE_POINTOPOINT)
-        vty_out (vty, " ipv6 ospf6 network point-to-point%s", VNL);
-      else if (oi->type == OSPF_IFTYPE_BROADCAST)
-	vty_out (vty, " ipv6 ospf6 network broadcast%s", VNL);
+      if (oi->type != ospf6_default_iftype(ifp))
+        {
+          if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+            vty_out (vty, " ipv6 ospf6 network point-to-point%s", VNL);
+          else if (oi->type == OSPF_IFTYPE_BROADCAST)
+            vty_out (vty, " ipv6 ospf6 network broadcast%s", VNL);
+        }
 
       ospf6_bfd_write_config(vty, oi);
 
