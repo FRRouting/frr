@@ -297,9 +297,7 @@ ospf_if_cleanup (struct ospf_interface *oi)
   ospf_ls_upd_queue_empty (oi);
   
   /* Reset pseudo neighbor. */
-  ospf_nbr_delete (oi->nbr_self);
-  oi->nbr_self = ospf_nbr_new (oi);
-  ospf_nbr_add_self (oi);
+  ospf_nbr_self_reset (oi);
 }
 
 void

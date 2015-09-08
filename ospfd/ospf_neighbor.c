@@ -206,6 +206,15 @@ ospf_nbr_bidirectional (struct in_addr *router_id,
   return 0;
 }
 
+/* reset nbr_self */
+void
+ospf_nbr_self_reset (struct ospf_interface *oi)
+{
+  ospf_nbr_delete (oi->nbr_self);
+  oi->nbr_self = ospf_nbr_new (oi);
+  ospf_nbr_add_self (oi);
+}
+
 /* Add self to nbr list. */
 void
 ospf_nbr_add_self (struct ospf_interface *oi)

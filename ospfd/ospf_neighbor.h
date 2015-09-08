@@ -102,6 +102,7 @@ extern struct ospf_neighbor *ospf_nbr_new (struct ospf_interface *);
 extern void ospf_nbr_free (struct ospf_neighbor *);
 extern void ospf_nbr_delete (struct ospf_neighbor *);
 extern int ospf_nbr_bidirectional (struct in_addr *, struct in_addr *, int);
+extern void ospf_nbr_self_reset (struct ospf_interface *);
 extern void ospf_nbr_add_self (struct ospf_interface *);
 extern int ospf_nbr_count (struct ospf_interface *, int);
 #ifdef HAVE_OPAQUE_LSA

@@ -124,8 +124,7 @@ ospf_router_id_update (struct ospf *ospf)
 	   * oi->nbr_self->router_id = router_id for
 	   * !(virtual | ptop) links
 	   */
-	  ospf_nbr_delete(oi->nbr_self);
-	  ospf_nbr_add_self(oi);
+	  ospf_nbr_self_reset (oi);
 	}
 
       /* If AS-external-LSA is queued, then flush those LSAs. */
