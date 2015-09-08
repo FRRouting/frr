@@ -69,6 +69,7 @@ int64_t                   qpim_mroute_add_last = 0;
 int64_t                   qpim_mroute_del_events = 0;
 int64_t                   qpim_mroute_del_last = 0;
 struct list              *qpim_static_route_list = 0;
+struct in_addr            qpim_rp;
 
 static void pim_free()
 {

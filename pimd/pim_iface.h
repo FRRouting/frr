@@ -53,7 +53,13 @@
 #define PIM_IF_DONT_IGMP_LISTEN_ALLROUTERS(options) ((options) &= ~PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS)
 #define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPRESSION(options) ((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPRESSION)
 
+enum pim_interface_type {
+  PIM_INTERFACE_SSM,
+  PIM_INTERFACE_SM
+};
+
 struct pim_interface {
+  enum pim_interface_type itype;
   uint32_t       options;                            /* bit vector */
   int            mroute_vif_index;
   struct in_addr primary_address; /* remember addr to detect change */

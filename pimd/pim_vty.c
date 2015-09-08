@@ -93,9 +93,14 @@ int pim_debug_config_write(struct vty *vty)
 int pim_global_config_write(struct vty *vty)
 {
   int writes = 0;
+  char buffer[32];
 
   if (PIM_MROUTE_IS_ENABLED) {
     vty_out(vty, "%s%s", PIM_CMD_IP_MULTICAST_ROUTING, VTY_NEWLINE);
+    ++writes;
+  }
+  if (qpim_rp.s_addr) {
+    vty_out(vty, "ip pim rp %s%s", inet_ntop(AF_INET, &qpim_rp, buffer, 32), VTY_NEWLINE);
     ++writes;
   }
 
@@ -132,7 +137,10 @@ int pim_interface_config_write(struct vty *vty)
 
       /* IF ip pim ssm */
       if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-	vty_out(vty, " ip pim ssm%s", VTY_NEWLINE);
+	if (pim_ifp->itype == PIM_INTERFACE_SSM)
+	  vty_out(vty, " ip pim ssm%s", VTY_NEWLINE);
+	else
+	  vty_out(vty, " ip pim sm%s", VTY_NEWLINE);
 	++writes;
       }
 

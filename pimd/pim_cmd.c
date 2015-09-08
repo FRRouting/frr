@@ -2477,6 +2477,39 @@ DEFUN (show_ip_ssmpingd,
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_rp,
+       ip_pim_rp_cmd,
+       "ip pim rp A.B.C.D",
+       IP_STR
+       "pim multicast routing"
+       "Rendevous Point"
+       "ip address of RP")
+{
+  int result;
+
+  result = inet_pton(AF_INET, argv[0], &qpim_rp);
+  if (result <= 0) {
+    vty_out(vty, "%% Bad RP address specified: %s", argv[0]);
+    return CMD_WARNING;
+  }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_rp,
+       no_ip_pim_rp_cmd,
+       "no ip pim rp {A.B.C.D}",
+       NO_STR
+       IP_STR
+       "pim multicast routing"
+       "Rendevous Point"
+       "ip address of RP")
+{
+  qpim_rp.s_addr = 0;
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_multicast_routing,
        ip_multicast_routing_cmd,
        PIM_CMD_IP_MULTICAST_ROUTING,
@@ -3185,6 +3218,29 @@ DEFUN (interface_no_ip_pim_drprio,
   return CMD_SUCCESS;
 }
 
+static int
+pim_cmd_interface_add (struct interface *ifp, enum pim_interface_type itype)
+{
+  struct pim_interface *pim_ifp = ifp->info;
+
+  if (!pim_ifp) {
+    pim_ifp = pim_if_new(ifp, 0 /* igmp=false */, 1 /* pim=true */);
+    if (!pim_ifp) {
+      return 0;
+    }
+  }
+  else {
+    PIM_IF_DO_PIM(pim_ifp->options);
+  }
+
+  pim_ifp->itype = itype;
+  pim_if_addr_add_all(ifp);
+  pim_if_membership_refresh(ifp);
+
+  return 1;
+}
+
+
 DEFUN (interface_ip_pim_ssm,
        interface_ip_pim_ssm_cmd,
        "ip pim ssm",
@@ -3193,43 +3249,42 @@ DEFUN (interface_ip_pim_ssm,
        IFACE_PIM_STR)
 {
   struct interface *ifp;
-  struct pim_interface *pim_ifp;
 
   ifp = vty->index;
-  pim_ifp = ifp->info;
 
-  if (!pim_ifp) {
-    pim_ifp = pim_if_new(ifp, 0 /* igmp=false */, 1 /* pim=true */);
-    if (!pim_ifp) {
-      vty_out(vty, "Could not enable PIM on interface%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  if (!pim_cmd_interface_add(ifp, PIM_INTERFACE_SSM)) {
+    vty_out(vty, "Could not enable PIM SSM on interface%s", VTY_NEWLINE);
+    return CMD_WARNING;
   }
-  else {
-    PIM_IF_DO_PIM(pim_ifp->options);
-  }
-
-  pim_if_addr_add_all(ifp);
-  pim_if_membership_refresh(ifp);
 
   return CMD_SUCCESS;
 }
 
-DEFUN (interface_no_ip_pim_ssm,
-       interface_no_ip_pim_ssm_cmd,
-       "no ip pim ssm",
-       NO_STR
+DEFUN (interface_ip_pim_sm,
+       interface_ip_pim_sm_cmd,
+       "ip pim sm",
        IP_STR
        PIM_STR
        IFACE_PIM_STR)
 {
   struct interface *ifp;
-  struct pim_interface *pim_ifp;
 
   ifp = vty->index;
-  pim_ifp = ifp->info;
+  if (!pim_cmd_interface_add(ifp, PIM_INTERFACE_SM)) {
+    vty_out(vty, "Could not enable PIM SM on interface%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  return CMD_SUCCESS;
+}
+
+static int
+pim_cmd_interface_delete (struct interface *ifp)
+{
+  struct pim_interface *pim_ifp = ifp->info;
+
   if (!pim_ifp)
-    return CMD_SUCCESS;
+    return 1;
 
   PIM_IF_DONT_PIM(pim_ifp->options);
 
@@ -3249,6 +3304,44 @@ DEFUN (interface_no_ip_pim_ssm,
 
   if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
     pim_if_delete(ifp);
+  }
+
+  return 1;
+}
+
+DEFUN (interface_no_ip_pim_ssm,
+       interface_no_ip_pim_ssm_cmd,
+       "no ip pim ssm",
+       NO_STR
+       IP_STR
+       PIM_STR
+       IFACE_PIM_STR)
+{
+  struct interface *ifp;
+
+  ifp = vty->index;
+  if (!pim_cmd_interface_delete(ifp)) {
+    vty_out(vty, "Unable to delete interface information%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (interface_no_ip_pim_sm,
+       interface_no_ip_pim_sm_cmd,
+       "no ip pim sm",
+       NO_STR
+       IP_STR
+       PIM_STR
+       IFACE_PIM_STR)
+{
+  struct interface *ifp;
+
+  ifp = vty->index;
+  if (!pim_cmd_interface_delete(ifp)) {
+    vty_out(vty, "Unable to delete interface information%s", VTY_NEWLINE);
+    return CMD_WARNING;
   }
 
   return CMD_SUCCESS;
@@ -4789,6 +4882,8 @@ void pim_cmd_init()
 
   install_element (CONFIG_NODE, &ip_multicast_routing_cmd);
   install_element (CONFIG_NODE, &no_ip_multicast_routing_cmd);
+  install_element (CONFIG_NODE, &ip_pim_rp_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_rp_cmd);
   install_element (CONFIG_NODE, &ip_ssmpingd_cmd);
   install_element (CONFIG_NODE, &no_ip_ssmpingd_cmd); 
 #if 0
@@ -4810,6 +4905,8 @@ void pim_cmd_init()
   install_element (INTERFACE_NODE, &interface_ip_igmp_query_max_response_time_dsec_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_igmp_query_max_response_time_dsec_cmd); 
   install_element (INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
+  install_element (INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
+  install_element (INTERFACE_NODE, &interface_ip_pim_sm_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
   install_element (INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
