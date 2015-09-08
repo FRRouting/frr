@@ -371,6 +371,7 @@ static int pim_sock_open(struct in_addr ifaddr, int ifindex)
     return -1;
 
   if (pim_socket_join(fd, qpim_all_pim_routers_addr, ifaddr, ifindex)) {
+    close(fd);
     return -2;
   }
 
