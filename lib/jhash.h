@@ -29,7 +29,7 @@ extern u_int32_t jhash(const void *key, u_int32_t length, u_int32_t initval);
 /* A special optimized version that handles 1 or more of u_int32_ts.
  * The length parameter here is the number of u_int32_ts in the key.
  */
-extern u_int32_t jhash2(u_int32_t *k, u_int32_t length, u_int32_t initval);
+extern u_int32_t jhash2(const u_int32_t *k, u_int32_t length, u_int32_t initval);
 
 /* A special ultra-optimized versions that knows they are hashing exactly
  * 3, 2 or 1 word(s).
