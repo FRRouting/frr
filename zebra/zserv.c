@@ -730,7 +730,7 @@ zsend_ipv6_nexthop_lookup (struct zserv *client, struct in6_addr *addr,
 
   /* Fill in result. */
   zserv_create_header (s, ZEBRA_IPV6_NEXTHOP_LOOKUP, vrf_id);
-  stream_put (s, &addr, 16);
+  stream_put (s, addr, 16);
 
   if (rib)
     {
