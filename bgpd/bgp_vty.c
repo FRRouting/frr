@@ -117,8 +117,11 @@ peer_lookup_vty (struct vty *vty, const char *ip_str)
       peer = peer_lookup_by_conf_if (bgp, ip_str);
       if (!peer)
         {
-          vty_out (vty, "%% Malformed address or name: %s%s", ip_str, VTY_NEWLINE);
-          return NULL;
+	  if ((peer = peer_lookup_by_hostname(bgp, ip_str)) == NULL)
+	    {
+	      vty_out (vty, "%% Malformed address or name: %s%s", ip_str, VTY_NEWLINE);
+	      return NULL;
+	    }
         }
     }
   else
@@ -384,8 +387,12 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
           peer = peer_lookup_by_conf_if (bgp, arg);
           if (!peer)
             {
-              vty_out (vty, "Malformed address or name: %s%s", arg, VTY_NEWLINE);
-              return CMD_WARNING;
+	      peer = peer_lookup_by_hostname(bgp, arg);
+	      if (!peer)
+		{
+		  vty_out (vty, "Malformed address or name: %s%s", arg, VTY_NEWLINE);
+		  return CMD_WARNING;
+		}
             }
         }
       else
@@ -2105,6 +2112,36 @@ DEFUN (bgp_default_ipv4_unicast,
 
   bgp = vty->index;
   bgp_flag_unset (bgp, BGP_FLAG_NO_DEFAULT_IPV4);
+  return CMD_SUCCESS;
+}
+
+/* Display hostname in certain command outputs */
+DEFUN (bgp_default_show_hostname,
+       bgp_default_show_hostname_cmd,
+       "bgp default show-hostname",
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "Show hostname in certain command ouputs\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_set (bgp, BGP_FLAG_SHOW_HOSTNAME);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_default_show_hostname,
+       no_bgp_default_show_hostname_cmd,
+       "no bgp default show-hostname",
+       NO_STR
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "Show hostname in certain command ouputs\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_unset (bgp, BGP_FLAG_SHOW_HOSTNAME);
   return CMD_SUCCESS;
 }
 
@@ -8562,6 +8599,12 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
               if (peer_dynamic_neighbor(peer))
                 json_object_boolean_true_add(json_peer, "dynamicPeer");
 
+              if (peer->hostname)
+                json_object_string_add(json_peer, "hostname", peer->hostname);
+
+              if (peer->domainname)
+                json_object_string_add(json_peer, "domainname", peer->domainname);
+
               json_object_int_add(json_peer, "remoteAs", peer->as);
               json_object_int_add(json_peer, "version", 4);
               json_object_int_add(json_peer, "msgRcvd",
@@ -8605,7 +8648,11 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   dn_flag[0] = '*';
                 }
 
-              len = vty_out (vty, "%s%s", dn_flag, peer->host);
+	      if (peer->hostname && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
+		len = vty_out (vty, "%s%s(%s)", dn_flag, peer->hostname,
+			       peer->host);
+	      else
+		len = vty_out (vty, "%s%s", dn_flag, peer->host);
               len = 16 - len;
 
               if (len < 1)
@@ -9556,6 +9603,15 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
         vty_out (vty, " Description: %s%s", p->desc, VTY_NEWLINE);
     }
 
+  if (p->hostname)
+    {
+      if (p->domainname && (p->domainname[0] != '\0'))
+        vty_out(vty, "Hostname: %s.%s%s", p->hostname, p->domainname,
+                VTY_NEWLINE);
+      else
+        vty_out(vty, "Hostname: %s%s", p->hostname, VTY_NEWLINE);
+    }
+
   /* Peer-group */
   if (p->group)
     {
@@ -10046,6 +10102,19 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 		        vty_out (vty, " %sreceived", p->afc_adv[afi][safi] ? "and " : "");
 		      vty_out (vty, "%s", VTY_NEWLINE);
 		    }
+
+              /* Hostname capability */
+              if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV) ||
+                  CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV))
+                {
+                  vty_out (vty, "    Hostname Capability:");
+                  if (CHECK_FLAG (p->cap, PEER_CAP_HOSTNAME_ADV))
+                    vty_out (vty, " advertised");
+                  if (CHECK_FLAG (p->cap, PEER_CAP_HOSTNAME_RCV))
+                    vty_out (vty, " %sreceived",
+                             CHECK_FLAG (p->cap, PEER_CAP_HOSTNAME_ADV) ? "and " : "");
+                  vty_out (vty, "%s", VTY_NEWLINE);
+                }
 
 	      /* Gracefull Restart */
 	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV)
@@ -12621,6 +12690,10 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_default_local_preference_cmd);
   install_element (BGP_NODE, &no_bgp_default_local_preference_cmd);
   install_element (BGP_NODE, &no_bgp_default_local_preference_val_cmd);
+
+  /* bgp default show-hostname */
+  install_element (BGP_NODE, &bgp_default_show_hostname_cmd);
+  install_element (BGP_NODE, &no_bgp_default_show_hostname_cmd);
 
   /* "bgp default subgroup-pkt-queue-max" commands. */
   install_element (BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);

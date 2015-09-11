@@ -28,6 +28,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "routemap.h"
 #include "linklist.h"
 
+#define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
+
 struct update_subgroup;
 struct bpacket;
 
@@ -254,6 +256,7 @@ struct bgp
 #define BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET (1 << 17)
 #define BGP_FLAG_FORCE_STATIC_PROCESS     (1 << 18)
 #define BGP_FLAG_IMPORT_CHECK_EXACT_MATCH (1 << 19)
+#define BGP_FLAG_SHOW_HOSTNAME            (1 << 20)
 
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -579,9 +582,11 @@ struct peer
 #define PEER_CAP_ADDPATH_RCV                (1 << 12) /* addpath received */
 #define PEER_CAP_ENHE_ADV                   (1 << 13) /* Extended nexthop advertised */
 #define PEER_CAP_ENHE_RCV                   (1 << 14) /* Extended nexthop received */
+#define PEER_CAP_HOSTNAME_ADV               (1 << 15) /* hostname advertised */
+#define PEER_CAP_HOSTNAME_RCV               (1 << 16) /* hostname received */
 
   /* Capability flags (reset in bgp_stop) */
-  u_int16_t af_cap[AFI_MAX][SAFI_MAX];
+  u_int32_t af_cap[AFI_MAX][SAFI_MAX];
 #define PEER_CAP_ORF_PREFIX_SM_ADV          (1 << 0) /* send-mode advertised */
 #define PEER_CAP_ORF_PREFIX_RM_ADV          (1 << 1) /* receive-mode advertised */
 #define PEER_CAP_ORF_PREFIX_SM_RCV          (1 << 2) /* send-mode received */
@@ -816,6 +821,10 @@ u_char last_reset_cause[BGP_MAX_PACKET_SIZE];
 
   /* peer specific BFD information */
   struct bfd_info *bfd_info;
+
+  /* hostname and domainname advertised by host */
+  char *hostname;
+  char *domainname;
 };
 
 #define PEER_PASSWORD_MINLEN	(1)
@@ -1115,6 +1124,7 @@ extern struct bgp *bgp_lookup (as_t, const char *);
 extern struct bgp *bgp_lookup_by_name (const char *);
 extern struct peer *peer_lookup (struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if (struct bgp *, const char *);
+extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);
 extern struct peer *peer_conf_interface_get(struct bgp *, const char *, afi_t,
                                             safi_t, int v6only);
 extern void  bgp_peer_conf_if_to_su_update (struct peer *);
