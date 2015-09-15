@@ -5,6 +5,7 @@ AM_CFLAGS = $(WERROR)
 
 lib_LTLIBRARIES = libospfapiclient.la
 libospfapiclient_la_LDFLAGS = -version-info 0:0:0
+libospfapiclient_la_LIBADD = ../ospfd/libospf.la ../lib/libzebra.la
 
 sbin_PROGRAMS = ospfclient
 
