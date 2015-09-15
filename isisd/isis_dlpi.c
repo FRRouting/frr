@@ -184,7 +184,7 @@ dlpiok (int fd, t_uscalar_t oprim)
   dl_ok_ack_t *doa = (dl_ok_ack_t *)dlpi_ctl;
 
   retv = dlpirctl (fd);
-  if (retv < DL_OK_ACK_SIZE || doa->dl_primitive != DL_OK_ACK ||
+  if (retv < (ssize_t)DL_OK_ACK_SIZE || doa->dl_primitive != DL_OK_ACK ||
     doa->dl_correct_primitive != oprim)
     {
       return -1;
@@ -206,7 +206,7 @@ dlpiinfo (int fd)
   /* Info_req uses M_PCPROTO. */
   dlpisend (fd, &dir, sizeof (dir), NULL, 0, RS_HIPRI);
   retv = dlpirctl (fd);
-  if (retv < DL_INFO_ACK_SIZE || dlpi_ctl[0] != DL_INFO_ACK)
+  if (retv < (ssize_t)DL_INFO_ACK_SIZE || dlpi_ctl[0] != DL_INFO_ACK)
     return -1;
   else
     return retv;
@@ -261,7 +261,7 @@ dlpibind (int fd)
   dlpisend (fd, &dbr, sizeof (dbr), NULL, 0, 0);
 
   retv = dlpirctl (fd);
-  if (retv < DL_BIND_ACK_SIZE || dba->dl_primitive != DL_BIND_ACK)
+  if (retv < (ssize_t)DL_BIND_ACK_SIZE || dba->dl_primitive != DL_BIND_ACK)
     return -1;
   else
     return 0;
@@ -297,12 +297,13 @@ dlpiaddr (int fd, u_char *addr)
   dlpisend (fd, &dpar, sizeof (dpar), NULL, 0, 0);
 
   retv = dlpirctl (fd);
-  if (retv < DL_PHYS_ADDR_ACK_SIZE || dpaa->dl_primitive != DL_PHYS_ADDR_ACK)
+  if (retv < (ssize_t)DL_PHYS_ADDR_ACK_SIZE
+      || dpaa->dl_primitive != DL_PHYS_ADDR_ACK)
     return -1;
 
   if (dpaa->dl_addr_offset < DL_PHYS_ADDR_ACK_SIZE ||
     dpaa->dl_addr_length != ETHERADDRL ||
-    dpaa->dl_addr_offset + dpaa->dl_addr_length > retv)
+    dpaa->dl_addr_offset + dpaa->dl_addr_length > (size_t)retv)
     return -1;
 
   bcopy((char *)dpaa + dpaa->dl_addr_offset, addr, ETHERADDRL);
@@ -413,8 +414,8 @@ open_dlpi_dev (struct isis_circuit *circuit)
     case DL_100BT:
       break;
     default:
-      zlog_warn ("%s: unexpected mac type on %s: %d", __func__,
-	circuit->interface->name, dia->dl_mac_type);
+      zlog_warn ("%s: unexpected mac type on %s: %lld", __func__,
+	circuit->interface->name, (long long)dia->dl_mac_type);
       close (fd);
       return ISIS_WARNING;
     }
@@ -566,13 +567,13 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
       return ISIS_WARNING;
     }
 
-  if (ctlbuf.len < DL_UNITDATA_IND_SIZE ||
+  if (ctlbuf.len < (ssize_t)DL_UNITDATA_IND_SIZE ||
     dui->dl_primitive != DL_UNITDATA_IND)
     return ISIS_WARNING;
 
   if (dui->dl_src_addr_length != ETHERADDRL + 2 ||
     dui->dl_src_addr_offset < DL_UNITDATA_IND_SIZE ||
-    dui->dl_src_addr_offset + dui->dl_src_addr_length > ctlbuf.len)
+    dui->dl_src_addr_offset + dui->dl_src_addr_length > (size_t)ctlbuf.len)
     return ISIS_WARNING;
 
   memcpy (ssnpa, (char *)dui + dui->dl_src_addr_offset +
@@ -599,9 +600,9 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   int rv;
 
   buflen = stream_get_endp (circuit->snd_stream) + LLC_LEN;
-  if (buflen > sizeof (sock_buff))
+  if ((size_t)buflen > sizeof (sock_buff))
     {
-      zlog_warn ("isis_send_pdu_bcast: sock_buff size %lu is less than "
+      zlog_warn ("isis_send_pdu_bcast: sock_buff size %zu is less than "
 		 "output pdu size %d on circuit %s",
 		 sizeof (sock_buff), buflen, circuit->interface->name);
       return ISIS_WARNING;
