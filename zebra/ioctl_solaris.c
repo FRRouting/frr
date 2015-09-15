@@ -309,7 +309,7 @@ if_get_flags_direct (const char *ifname, uint64_t *flags, unsigned int af)
 void
 if_get_flags (struct interface *ifp)
 {
-  int ret4, ret6;
+  int ret4 = 0, ret6 = 0;
   uint64_t newflags = 0;
   uint64_t tmpflags;
 
