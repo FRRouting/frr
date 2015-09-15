@@ -120,7 +120,7 @@ oid bgp_oid [] = { BGP4MIB };
 oid bgp_trap_oid [] = { BGP4MIB, 0 };
 
 /* IP address 0.0.0.0. */
-static struct in_addr bgp_empty_addr = {0};
+static struct in_addr bgp_empty_addr = { .s_addr = 0 };
 
 /* Hook functions. */
 static u_char *bgpVersion (struct variable *, oid [], size_t *, int,

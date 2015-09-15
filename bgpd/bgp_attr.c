@@ -1825,7 +1825,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
   /* same goes for as4_aggregator */
   struct aspath *as4_path = NULL;
   as_t as4_aggregator = 0;
-  struct in_addr as4_aggregator_addr = { 0 };
+  struct in_addr as4_aggregator_addr = { .s_addr = 0 };
 
   /* Initialize bitmap. */
   memset (seen, 0, BGP_ATTR_BITMAP_SIZE);

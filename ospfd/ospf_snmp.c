@@ -213,7 +213,7 @@ oid ospf_oid [] = { OSPF2MIB };
 oid ospf_trap_oid [] = { OSPF2MIB, 16, 2 }; /* Not reverse mappable! */
 
 /* IP address 0.0.0.0. */
-static struct in_addr ospf_empty_addr = {0};
+static struct in_addr ospf_empty_addr = { .s_addr = 0 };
 
 /* Hook functions. */
 static u_char *ospfGeneralGroup (struct variable *, oid *, size_t *,
