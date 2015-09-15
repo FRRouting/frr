@@ -645,8 +645,8 @@ ospf_write (struct thread *thread)
   struct listnode *node;
 #ifdef WANT_OSPF_WRITE_FRAGMENT
   static u_int16_t ipid = 0;
-#endif /* WANT_OSPF_WRITE_FRAGMENT */
   u_int16_t maxdatasize;
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
 #define OSPF_WRITE_IPHL_SHIFT 2
   int pkt_count = 0;
   
@@ -675,9 +675,10 @@ ospf_write (struct thread *thread)
        * and reliability - not more data, than our
        * socket can accept
        */
+#ifdef WANT_OSPF_WRITE_FRAGMENT
       maxdatasize = MIN (oi->ifp->mtu, ospf->maxsndbuflen) -
         sizeof (struct ip);
-
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
       /* Get one packet from queue. */
       op = ospf_fifo_head (oi->obuf);
       assert (op);
