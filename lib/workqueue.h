@@ -122,6 +122,8 @@ extern void work_queue_plug (struct work_queue *wq);
 /* unplug the queue, allow it to be drained again */
 extern void work_queue_unplug (struct work_queue *wq);
 
+bool work_queue_is_scheduled (struct work_queue *);
+
 /* Helpers, exported for thread.c and command.c */
 extern int work_queue_run (struct thread *);
 extern struct cmd_element show_work_queues_cmd;
