@@ -622,6 +622,41 @@ zprivs_state_null (void)
   return zprivs_null_state;
 }
 
+#ifndef HAVE_GETGROUPLIST
+/* Solaris 11 has no getgrouplist() */
+static int
+getgrouplist(const char *user, gid_t group, gid_t *groups, int *ngroups)
+{
+  struct group *grp;
+  size_t usridx;
+  int pos = 0, ret;
+
+  if (pos < *ngroups)
+    groups[pos] = group;
+  pos++;
+
+  setgrent();
+  while ((grp = getgrent()))
+    {
+      if (grp->gr_gid == group)
+        continue;
+      for (usridx = 0; grp->gr_mem[usridx] != NULL; usridx++)
+        if (!strcmp (grp->gr_mem[usridx], user))
+          {
+            if (pos < *ngroups)
+              groups[pos] = grp->gr_gid;
+            pos++;
+            break;
+          }
+    }
+  endgrent();
+
+  ret = (pos <= *ngroups) ? pos : -1;
+  *ngroups = pos;
+  return ret;
+}
+#endif /* HAVE_GETGROUPLIST */
+
 void
 zprivs_init(struct zebra_privs_t *zprivs)
 {

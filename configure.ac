@@ -830,7 +830,7 @@ AC_CHECK_FUNCS([dup2 ftruncate getcwd gethostbyname getpagesize gettimeofday \
 	strtol strtoul strlcat strlcpy \
 	daemon snprintf vsnprintf \
 	if_nametoindex if_indextoname getifaddrs \
-	uname fcntl])
+	uname fcntl getgrouplist])
 
 dnl ------------------------------------
 dnl Determine routing get and set method
