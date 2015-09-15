@@ -23,10 +23,10 @@
  * 02111-1307, USA.
  */
 
+#include <zebra.h>
+
 #include <stdio.h>
 #include <unistd.h>
-
-#include <zebra.h>
 
 #include "memory.h"
 #include "pqueue.h"

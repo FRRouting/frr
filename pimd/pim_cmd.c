@@ -20,9 +20,9 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
-#include <sys/ioctl.h>
-
 #include <zebra.h>
+
+#include <sys/ioctl.h>
 
 #include "command.h"
 #include "if.h"

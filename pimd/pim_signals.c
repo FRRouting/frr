@@ -20,9 +20,10 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
+#include <zebra.h>
+
 #include <signal.h>
 
-#include <zebra.h>
 #include "sigevent.h"
 #include "memory.h"
 #include "log.h"

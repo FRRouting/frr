@@ -20,6 +20,7 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
+#include <zebra.h>
 #include "pim_mroute.h"
 
 #include <sys/types.h>
@@ -31,7 +32,6 @@
 #include <netdb.h>
 #include <errno.h>
 
-#include <zebra.h>
 #include "log.h"
 #include "privs.h"
 

@@ -20,11 +20,12 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
+#include <zebra.h>
+
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
 
-#include <zebra.h>
 #include "log.h"
 #include "thread.h"
 

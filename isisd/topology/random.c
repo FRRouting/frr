@@ -7,6 +7,7 @@
 /*                                                                   */
 /*********************************************************************/
 
+#include <zebra.h>
 #include <sys/types.h>
 #include <sys/times.h>
 
