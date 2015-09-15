@@ -110,9 +110,9 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
   /* Needed to obtain destination address from recvmsg() */
   {
 #if defined(HAVE_IP_PKTINFO)
-    /* Linux IP_PKTINFO */
+    /* Linux and Solaris IP_PKTINFO */
     int opt = 1;
-    if (setsockopt(fd, SOL_IP, IP_PKTINFO, &opt, sizeof(opt))) {
+    if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt))) {
       zlog_warn("%s: could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
 		__PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
     }

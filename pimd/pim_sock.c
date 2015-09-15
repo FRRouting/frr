@@ -80,9 +80,9 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int loop)
   /* Needed to obtain destination address from recvmsg() */
   {
 #if defined(HAVE_IP_PKTINFO)
-    /* Linux IP_PKTINFO */
+    /* Linux and Solaris IP_PKTINFO */
     int opt = 1;
-    if (setsockopt(fd, SOL_IP, IP_PKTINFO, &opt, sizeof(opt))) {
+    if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt))) {
       zlog_warn("Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
 		fd, errno, safe_strerror(errno));
     }
@@ -306,7 +306,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
        cmsg = CMSG_NXTHDR(&msgh,cmsg)) {
 
 #ifdef HAVE_IP_PKTINFO
-    if ((cmsg->cmsg_level == SOL_IP) && (cmsg->cmsg_type == IP_PKTINFO)) {
+    if ((cmsg->cmsg_level == IPPROTO_IP) && (cmsg->cmsg_type == IP_PKTINFO)) {
       struct in_pktinfo *i = (struct in_pktinfo *) CMSG_DATA(cmsg);
       if (to)
 	((struct sockaddr_in *) to)->sin_addr = i->ipi_addr;
