@@ -92,6 +92,9 @@ typedef int socklen_t;
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
 #endif /* HAVE_INTTYPES_H */
+#ifdef HAVE_STDBOOL_H
+#include <stdbool.h>
+#endif
 
 /* machine dependent includes */
 #ifdef SUNOS_5
