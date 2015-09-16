@@ -41,6 +41,7 @@ extern int rtm_write (int message, union sockunion *dest,
                       union sockunion *mask, union sockunion *gate,
                       unsigned int index, int zebra_flags, int metric);
 
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 /* Adjust netmask socket length. Return value is a adjusted sin_len
    value. */
 static int
@@ -63,6 +64,7 @@ sin_masklen (struct in_addr mask)
     len--;
   return len;
 }
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
 /* Interface between zebra message and rtm message. */
 static int
@@ -252,6 +254,7 @@ kernel_delete_ipv4 (struct prefix *p, struct rib *rib)
 
 #ifdef HAVE_IPV6
 
+#ifdef SIN6_LEN
 /* Calculate sin6_len value for netmask socket value. */
 static int
 sin6_masklen (struct in6_addr mask)
@@ -279,6 +282,7 @@ sin6_masklen (struct in6_addr mask)
 
   return len;
 }
+#endif /* SIN6_LEN */
 
 /* Interface between zebra message and rtm message. */
 static int
@@ -439,6 +443,8 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
 	  zlog_info ("kernel_rtm_ipv6_multipath(): nexthop %d add error=%d.",
 	    nexthop_num, error);
 	}
+#else
+      (void)error;
 #endif
 
       nexthop_num++;
