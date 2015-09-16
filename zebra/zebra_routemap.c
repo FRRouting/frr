@@ -848,7 +848,6 @@ DEFUN (ipv6_protocol,
        "Route map name\n")
 {
   int i;
-  u_int32_t table_id;
 
   if (strcasecmp(argv[0], "any") == 0)
     i = ZEBRA_ROUTE_MAX;
@@ -882,7 +881,6 @@ DEFUN (no_ipv6_protocol,
        "Protocol from which to stop filtering routes\n")
 {
   int i;
-  u_int32_t table_id;
 
   if (strcasecmp(argv[0], "any") == 0)
     i = ZEBRA_ROUTE_MAX;
