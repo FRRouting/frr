@@ -155,6 +155,7 @@ extern int zsend_router_id_update(struct zserv *, struct prefix *);
 extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd);
+extern void zserv_nexthop_num_warn(const char *, const struct prefix *, const u_char);
 extern int zebra_server_send_message(struct zserv *client);
 
 extern void zebra_route_map_write_delay_timer(struct vty *);
