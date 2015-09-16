@@ -411,7 +411,7 @@ if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
   char addrbuf[PREFIX_STRLEN];
 
   zlog_warn ("Can't set %s on interface %s",
-             prefix2str(ifc->address->prefix, addrbuf, sizeof(addrbuf)),
+             prefix2str(ifc->address, addrbuf, sizeof(addrbuf)),
              ifp->name);
 
   return 0;
@@ -424,7 +424,7 @@ if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
   char addrbuf[PREFIX_STRLEN];
 
   zlog_warn ("Can't delete %s on interface %s",
-             prefix2str(ifc->address->prefix, addrbuf, sizeof(addrbuf)),
+             prefix2str(ifc->address, addrbuf, sizeof(addrbuf)),
              ifp->name);
 
   return 0;
