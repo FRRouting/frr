@@ -149,17 +149,18 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 {
   int num_ifindex = 0;
   struct stream *s;
-  const uint16_t MIN_LEN = 14; /* getc=1 getc=1 getw=2 getipv4=4 getc=1 getl=4 getc=1 */
-  uint16_t length, len;
+  const uint16_t MIN_LEN = 10; /* getipv4=4 getc=1 getl=4 getc=1 */
+  uint16_t length;
   u_char marker;
   u_char version;
+  uint16_t vrf_id;
   uint16_t command;
   int nbytes;
   struct in_addr raddr;
   uint8_t distance;
   uint32_t metric;
   int nexthop_num;
-  int i;
+  int i, err;
 
   if (PIM_DEBUG_ZEBRA) {
     char addr_str[100];
@@ -172,41 +173,37 @@ static int zclient_read_nexthop(struct zclient *zlookup,
   s = zlookup->ibuf;
   stream_reset(s);
 
-  nbytes = stream_read(s, zlookup->sock, 2);
-  if (nbytes < 2) {
-    zlog_err("%s %s: failure reading zclient lookup socket: nbytes=%d",
-	     __FILE__, __PRETTY_FUNCTION__, nbytes);
+  err = zclient_read_header (s, zlookup->sock, &length, &marker, &version,
+                             &vrf_id, &command);
+  if (err < 0) {
+    zlog_err("%s %s: zclient_read_header() failed",
+	     __FILE__, __PRETTY_FUNCTION__);
     zclient_lookup_failed(zlookup);
     return -1;
   }
-  length = stream_getw(s);
 
-  len = length - 2;
-
-  if (len < MIN_LEN) {
+  if (length < MIN_LEN) {
     zlog_err("%s %s: failure reading zclient lookup socket: len=%d < MIN_LEN=%d",
-	     __FILE__, __PRETTY_FUNCTION__, len, MIN_LEN);
+	     __FILE__, __PRETTY_FUNCTION__, length, MIN_LEN);
     zclient_lookup_failed(zlookup);
     return -2;
   }
-
-  nbytes = stream_read(s, zlookup->sock, len);
-  if (nbytes < (length - 2)) {
+  
+  nbytes = stream_read(s, zlookup->sock, length);
+  if (nbytes < length) {
     zlog_err("%s %s: failure reading zclient lookup socket: nbytes=%d < len=%d",
-	     __FILE__, __PRETTY_FUNCTION__, nbytes, len);
+	     __FILE__, __PRETTY_FUNCTION__, nbytes, length);
     zclient_lookup_failed(zlookup);
     return -3;
   }
-  marker = stream_getc(s);
-  version = stream_getc(s);
   
   if (version != ZSERV_VERSION || marker != ZEBRA_HEADER_MARKER) {
     zlog_err("%s: socket %d version mismatch, marker %d, version %d",
 	     __func__, zlookup->sock, marker, version);
+    zclient_lookup_failed(zlookup);
     return -4;
   }
     
-  command = stream_getw(s);
   if (command != ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB) {
     zlog_err("%s: socket %d command mismatch: %d",
             __func__, zlookup->sock, command);
@@ -236,19 +233,19 @@ static int zclient_read_nexthop(struct zclient *zlookup,
     return -6;
   }
 
-  len -= MIN_LEN;
+  length -= MIN_LEN;
 
   for (i = 0; i < nexthop_num; ++i) {
     enum nexthop_types_t nexthop_type;
 
-    if (len < 1) {
+    if (length < 1) {
       zlog_err("%s: socket %d empty input expecting nexthop_type: len=%d",
-	       __func__, zlookup->sock, len);
+	       __func__, zlookup->sock, length);
       return -7;
     }
     
     nexthop_type = stream_getc(s);
-    --len;
+    --length;
 
     switch (nexthop_type) {
     case ZEBRA_NEXTHOP_IFINDEX:
@@ -262,13 +259,13 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 	return num_ifindex;
       }
       if (nexthop_type == ZEBRA_NEXTHOP_IPV4_IFINDEX) {
-	if (len < 4) {
+	if (length < 4) {
 	  zlog_err("%s: socket %d short input expecting nexthop IPv4-addr: len=%d",
-		   __func__, zlookup->sock, len);
+		   __func__, zlookup->sock, length);
 	  return -8;
 	}
 	nexthop_tab[num_ifindex].nexthop_addr.s_addr = stream_get_ipv4(s);
-	len -= 4;
+	length -= 4;
       }
       else {
 	nexthop_tab[num_ifindex].nexthop_addr.s_addr = PIM_NET_INADDR_ANY;
@@ -288,7 +285,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 	return num_ifindex;
       }
       nexthop_tab[num_ifindex].nexthop_addr.s_addr = stream_get_ipv4(s);
-      len -= 4;
+      length -= 4;
       nexthop_tab[num_ifindex].ifindex             = 0;
       nexthop_tab[num_ifindex].protocol_distance   = distance;
       nexthop_tab[num_ifindex].route_metric        = metric;

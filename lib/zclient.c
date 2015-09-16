@@ -334,6 +334,25 @@ zclient_create_header (struct stream *s, uint16_t command, vrf_id_t vrf_id)
   stream_putw (s, command);
 }
 
+int
+zclient_read_header (struct stream *s, int sock, u_int16_t *size, u_char *marker,
+                     u_char *version, u_int16_t *vrf_id, u_int16_t *cmd)
+{
+  if (stream_read (s, sock, ZEBRA_HEADER_SIZE) != ZEBRA_HEADER_SIZE)
+    return -1;
+
+  *size = stream_getw (s) - ZEBRA_HEADER_SIZE;
+  *marker = stream_getc (s);
+  *version = stream_getc (s);
+  *vrf_id = stream_getw (s);
+  *cmd = stream_getw (s);
+
+  if (*size && stream_read (s, sock, *size) != *size)
+    return -1;
+
+  return 0;
+}
+
 /* Send simple Zebra message. */
 static int
 zebra_message_send (struct zclient *zclient, int command, vrf_id_t vrf_id)
