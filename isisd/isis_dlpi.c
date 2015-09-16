@@ -313,7 +313,7 @@ dlpiaddr (int fd, u_char *addr)
 static int
 open_dlpi_dev (struct isis_circuit *circuit)
 {
-  int fd, unit, retval;
+  int fd = -1, unit, retval;
   char devpath[MAXPATHLEN];
   dl_info_ack_t *dia = (dl_info_ack_t *)dlpi_ctl;
   ssize_t acklen;
