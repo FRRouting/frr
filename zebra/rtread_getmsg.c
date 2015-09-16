@@ -151,13 +151,13 @@ route_read (struct zebra_ns *zns)
 
 		/* This is normal loop termination */
 		if (retval == 0 &&
-			msgdata.len >= sizeof (struct T_optmgmt_ack) &&
+			(size_t)msgdata.len >= sizeof (struct T_optmgmt_ack) &&
 			TLIack->PRIM_type == T_OPTMGMT_ACK &&
 			TLIack->MGMT_flags == T_SUCCESS &&
 			MIB2hdr->len == 0)
 			break;
 
-		if (msgdata.len >= sizeof (struct T_error_ack) &&
+		if ((size_t)msgdata.len >= sizeof (struct T_error_ack) &&
 			TLIerr->PRIM_type == T_ERROR_ACK) {
 			zlog_warn ("getmsg(ctl) returned T_ERROR_ACK: %s",
 				safe_strerror ((TLIerr->TLI_error == TSYSERR)
@@ -169,7 +169,7 @@ route_read (struct zebra_ns *zns)
 		   like what GateD does in this instance, but not
 		   critical yet. */
 		if (retval != MOREDATA ||
-			msgdata.len < sizeof (struct T_optmgmt_ack) ||
+			(size_t)msgdata.len < sizeof (struct T_optmgmt_ack) ||
 			TLIack->PRIM_type != T_OPTMGMT_ACK ||
 			TLIack->MGMT_flags != T_SUCCESS) {
 			errno = ENOMSG;
