@@ -266,8 +266,8 @@ struct nbr_connected
 extern int if_cmp_func (struct interface *, struct interface *);
 extern struct interface *if_create (const char *name, int namelen);
 extern struct interface *if_lookup_by_index (unsigned int);
-extern struct interface *if_lookup_exact_address (struct in_addr);
-extern struct interface *if_lookup_address (struct in_addr);
+extern struct interface *if_lookup_exact_address (void *matchaddr, int family);
+extern struct interface *if_lookup_address (void *matchaddr, int family);
 extern struct interface *if_lookup_prefix (struct prefix *prefix);
 extern struct connected *if_anchor_lookup_by_address (struct in_addr src);
 

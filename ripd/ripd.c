@@ -1125,7 +1125,7 @@ rip_response_process (struct rip_packet *packet, int size,
   /* The datagram's IPv4 source address should be checked to see
      whether the datagram is from a valid neighbor; the source of the
      datagram must be on a directly connected network (RFC2453 - Sec. 3.9.2) */
-  if (if_lookup_address(from->sin_addr) == NULL) 
+  if (if_lookup_address((void *)&from->sin_addr, AF_INET) == NULL)
     {
       zlog_info ("This datagram doesn't came from a valid neighbor: %s",
 		 inet_ntoa (from->sin_addr));
@@ -1211,7 +1211,7 @@ rip_response_process (struct rip_packet *packet, int size,
 	      continue;
 	    }
 
-	  if (! if_lookup_address (rte->nexthop))
+	  if (! if_lookup_address ((void *)&rte->nexthop, AF_INET))
 	    {
 	      struct route_node *rn;
 	      struct rip_info *rinfo;
@@ -1843,7 +1843,7 @@ rip_read (struct thread *t)
     }
 
   /* Which interface is this packet comes from. */
-  ifp = if_lookup_address (from.sin_addr);
+  ifp = if_lookup_address ((void *)&from.sin_addr, AF_INET);
   
   /* RIP packet received */
   if (IS_RIP_DEBUG_EVENT)
@@ -2525,7 +2525,7 @@ rip_update_process (int route_type)
       {
 	p = (struct prefix_ipv4 *) &rp->p;
 
-	ifp = if_lookup_address (p->prefix);
+	ifp = if_lookup_address ((void *)&p->prefix, AF_INET);
 	if (! ifp)
 	  {
 	    zlog_warn ("Neighbor %s doesnt have connected interface!",

@@ -62,33 +62,6 @@ is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
   return 0;
 }
 
-int
-zebra_check_addr (struct prefix *p)
-{
-  if (p->family == AF_INET)
-    {
-      u_int32_t addr;
-
-      addr = p->u.prefix4.s_addr;
-      addr = ntohl (addr);
-
-      if (IPV4_NET127 (addr)
-          || IN_CLASSD (addr)
-          || IPV4_LINKLOCAL(addr))
-	return 0;
-    }
-#ifdef HAVE_IPV6
-  if (p->family == AF_INET6)
-    {
-      if (IN6_IS_ADDR_LOOPBACK (&p->u.prefix6))
-	return 0;
-      if (IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
-	return 0;
-    }
-#endif /* HAVE_IPV6 */
-  return 1;
-}
-
 static int
 is_default (struct prefix *p)
 {

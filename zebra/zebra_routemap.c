@@ -648,32 +648,57 @@ DEFUN (no_match_source_protocol,
 
 DEFUN (set_src,
        set_src_cmd,
-       "set src A.B.C.D",
+       "set src (A.B.C.D|X:X::X:X)",
        SET_STR
        "src address for route\n"
        "src address\n")
 {
-  struct in_addr src;
-  struct interface *pif;
+  union g_addr src;
+  struct interface *pif = NULL;
+  int family;
+  struct prefix p;
 
-  if (inet_pton(AF_INET, argv[0], &src) <= 0)
+  if (inet_pton(AF_INET, argv[0], &src.ipv4) != 1)
+    {
+      if (inet_pton(AF_INET6, argv[0], &src.ipv6) != 1)
+	{
+	  vty_out (vty, "%% not a valid IPv4/v6 address%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+
+      p.family = family = AF_INET6;
+      p.u.prefix6 = src.ipv6;
+      p.prefixlen = IPV6_MAX_BITLEN;
+    }
+  else
+    {
+      p.family = family = AF_INET;
+      p.u.prefix4 = src.ipv4;
+      p.prefixlen = IPV4_MAX_BITLEN;
+    }
+
+  if (!zebra_check_addr(&p))
+    {
+	  vty_out (vty, "%% not a valid source IPv4/v6 address%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+    }
+
+  if (family == AF_INET)
+    pif = if_lookup_exact_address ((void *)&src.ipv4, AF_INET);
+  else if (family == AF_INET6)
+    pif = if_lookup_exact_address ((void *)&src.ipv6, AF_INET6);
+
+  if (!pif)
     {
       vty_out (vty, "%% not a local address%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-
-    pif = if_lookup_exact_address (src);
-    if (!pif)
-      {
-        vty_out (vty, "%% not a local address%s", VTY_NEWLINE);
-        return CMD_WARNING;
-      }
   return zebra_route_set_add (vty, vty->index, "src", argv[0]);
 }
 
 DEFUN (no_set_src,
        no_set_src_cmd,
-       "no set src",
+       "no set src {A.B.C.D|X:X::X:X}",
        NO_STR
        SET_STR
        "Source address for route\n")
@@ -683,14 +708,6 @@ DEFUN (no_set_src,
 
   return zebra_route_set_delete (vty, vty->index, "src", argv[0]);
 }
-
-ALIAS (no_set_src,
-       no_set_src_val_cmd,
-       "no set src (A.B.C.D)",
-       NO_STR
-       SET_STR
-       "src address for route\n"
-       "src address\n")
 
 DEFUN (zebra_route_map_timer,
        zebra_route_map_timer_cmd,
@@ -815,6 +832,112 @@ DEFUN (show_ip_protocol,
     }
     if (proto_rm[AFI_IP][i])
       vty_out (vty, "%-10s  : %-10s%s", "any", proto_rm[AFI_IP][i],
+					VTY_NEWLINE);
+    else
+      vty_out (vty, "%-10s  : none%s", "any", VTY_NEWLINE);
+
+    return CMD_SUCCESS;
+}
+
+DEFUN (ipv6_protocol,
+       ipv6_protocol_cmd,
+       "ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       IP6_STR
+       "Filter IPv6 routing info exchanged between zebra and protocol\n"
+       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       "Route map name\n")
+{
+  int i;
+  u_int32_t table_id;
+
+  if (strcasecmp(argv[0], "any") == 0)
+    i = ZEBRA_ROUTE_MAX;
+  else
+    i = proto_name2num(argv[0]);
+  if (i < 0)
+    {
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (proto_rm[AFI_IP6][i])
+    {
+      if (strcmp(proto_rm[AFI_IP6][i], argv[1]) == 0)
+	return CMD_SUCCESS;
+
+      XFREE (MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP6][i]);
+    }
+  proto_rm[AFI_IP6][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
+  rib_update();
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_protocol,
+       no_ipv6_protocol_cmd,
+       "no ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA,
+       NO_STR
+       IP6_STR
+       "Stop filtering IPv6 routing info between zebra and protocol\n"
+       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       "Protocol from which to stop filtering routes\n")
+{
+  int i;
+  u_int32_t table_id;
+
+  if (strcasecmp(argv[0], "any") == 0)
+    i = ZEBRA_ROUTE_MAX;
+  else
+    i = proto_name2num(argv[0]);
+  if (i < 0)
+    {
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+               VTY_NEWLINE);
+     return CMD_WARNING;
+    }
+  if (!proto_rm[AFI_IP6][i])
+    return CMD_SUCCESS;
+
+  if ((argc == 2 && strcmp(argv[1], proto_rm[AFI_IP6][i]) == 0) ||
+      (argc < 2))
+    {
+      XFREE (MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP6][i]);
+      proto_rm[AFI_IP6][i] = NULL;
+      rib_update();
+    }
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ipv6_protocol,
+       no_ipv6_protocol_val_cmd,
+       "no ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       NO_STR
+       IP6_STR
+       "Stop filtering IPv6 routing info between zebra and protocol\n"
+       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+       "route map name")
+
+DEFUN (show_ipv6_protocol,
+       show_ipv6_protocol_cmd,
+       "show ipv6 protocol",
+        SHOW_STR
+        IP6_STR
+       "IPv6 protocol filtering status\n")
+{
+    int i;
+
+    vty_out(vty, "Protocol    : route-map %s", VTY_NEWLINE);
+    vty_out(vty, "------------------------%s", VTY_NEWLINE);
+    for (i=0;i<ZEBRA_ROUTE_MAX;i++)
+    {
+        if (proto_rm[AFI_IP6][i])
+          vty_out (vty, "%-10s  : %-10s%s", zebra_route_string(i),
+					proto_rm[AFI_IP6][i],
+					VTY_NEWLINE);
+        else
+          vty_out (vty, "%-10s  : none%s", zebra_route_string(i), VTY_NEWLINE);
+    }
+    if (proto_rm[AFI_IP6][i])
+      vty_out (vty, "%-10s  : %-10s%s", "any", proto_rm[AFI_IP6][i],
 					VTY_NEWLINE);
     else
       vty_out (vty, "%-10s  : none%s", "any", VTY_NEWLINE);
@@ -1413,17 +1536,17 @@ route_set_src_compile (const char *arg)
 {
   union g_addr src, *psrc;
 
-  if (inet_pton(AF_INET, arg, &src.ipv4) != 1
+  if (
 #ifdef HAVE_IPV6
-      && inet_pton(AF_INET6, arg, &src.ipv6) != 1
+      (inet_pton(AF_INET6, arg, &src.ipv6) == 1) ||
 #endif /* HAVE_IPV6 */
-     )
-    return NULL;
-
-  psrc = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (union g_addr));
-  *psrc = src;
-
-  return psrc;
+      (src.ipv4.s_addr && (inet_pton(AF_INET, arg, &src.ipv4) == 1)))
+    {
+      psrc = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (union g_addr));
+      *psrc = src;
+      return psrc;
+    }
+  return NULL;
 }
 
 /* Free route map's compiled `set src' value. */
@@ -1570,6 +1693,10 @@ zebra_routemap_config_write_protocol (struct vty *vty)
         vty_out (vty, "ip protocol %s route-map %s%s", zebra_route_string(i),
                  proto_rm[AFI_IP][i], VTY_NEWLINE);
 
+      if (proto_rm[AFI_IP6][i])
+        vty_out (vty, "ipv6 protocol %s route-map %s%s", zebra_route_string(i),
+                 proto_rm[AFI_IP6][i], VTY_NEWLINE);
+
       if (nht_rm[AFI_IP][i])
         vty_out (vty, "ip nht %s route-map %s%s", zebra_route_string(i),
                  nht_rm[AFI_IP][i], VTY_NEWLINE);
@@ -1582,6 +1709,10 @@ zebra_routemap_config_write_protocol (struct vty *vty)
   if (proto_rm[AFI_IP][ZEBRA_ROUTE_MAX])
       vty_out (vty, "ip protocol %s route-map %s%s", "any",
                proto_rm[AFI_IP][ZEBRA_ROUTE_MAX], VTY_NEWLINE);
+
+  if (proto_rm[AFI_IP6][ZEBRA_ROUTE_MAX])
+      vty_out (vty, "ipv6 protocol %s route-map %s%s", "any",
+               proto_rm[AFI_IP6][ZEBRA_ROUTE_MAX], VTY_NEWLINE);
 
   if (nht_rm[AFI_IP][ZEBRA_ROUTE_MAX])
       vty_out (vty, "ip nht %s route-map %s%s", "any",
@@ -1604,6 +1735,11 @@ zebra_route_map_init ()
   install_element (CONFIG_NODE, &no_ip_protocol_val_cmd);
   install_element (VIEW_NODE, &show_ip_protocol_cmd);
   install_element (ENABLE_NODE, &show_ip_protocol_cmd);
+  install_element (CONFIG_NODE, &ipv6_protocol_cmd);
+  install_element (CONFIG_NODE, &no_ipv6_protocol_cmd);
+  install_element (CONFIG_NODE, &no_ipv6_protocol_val_cmd);
+  install_element (VIEW_NODE, &show_ipv6_protocol_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_protocol_cmd);
   install_element (CONFIG_NODE, &ip_protocol_nht_rmap_cmd);
   install_element (CONFIG_NODE, &no_ip_protocol_nht_rmap_cmd);
   install_element (CONFIG_NODE, &no_ip_protocol_nht_rmap_val_cmd);

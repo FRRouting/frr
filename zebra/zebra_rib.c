@@ -231,6 +231,33 @@ is_zebra_main_routing_table(u_int32_t table_id)
   return 0;
 }
 
+int
+zebra_check_addr (struct prefix *p)
+{
+  if (p->family == AF_INET)
+    {
+      u_int32_t addr;
+
+      addr = p->u.prefix4.s_addr;
+      addr = ntohl (addr);
+
+      if (IPV4_NET127 (addr)
+          || IN_CLASSD (addr)
+          || IPV4_LINKLOCAL(addr))
+	return 0;
+    }
+#ifdef HAVE_IPV6
+  if (p->family == AF_INET6)
+    {
+      if (IN6_IS_ADDR_LOOPBACK (&p->u.prefix6))
+	return 0;
+      if (IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
+	return 0;
+    }
+#endif /* HAVE_IPV6 */
+  return 1;
+}
+
 /* Add nexthop to the end of a nexthop list.  */
 static void
 _nexthop_add (struct nexthop **target, struct nexthop *nexthop)
@@ -1298,7 +1325,6 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	}
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
     }
-
   return CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 }
 
@@ -1336,7 +1362,10 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 	prev_index != nexthop->ifindex ||
 	((nexthop->type >= NEXTHOP_TYPE_IFINDEX &&
 	  nexthop->type < NEXTHOP_TYPE_IPV6) &&
-	 prev_src.ipv4.s_addr != nexthop->rmap_src.ipv4.s_addr))
+	 prev_src.ipv4.s_addr != nexthop->rmap_src.ipv4.s_addr) ||
+	((nexthop->type >= NEXTHOP_TYPE_IPV6 &&
+	  nexthop->type < NEXTHOP_TYPE_BLACKHOLE) &&
+	 !(IPV6_ADDR_SAME (&prev_src.ipv6, &nexthop->rmap_src.ipv6))))
       {
 	SET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
 	SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);

@@ -255,7 +255,7 @@ rip2IfLookup (struct variable *v, oid name[], size_t *length,
 
       oid2in_addr (name + v->namelen, sizeof (struct in_addr), addr);
 
-      return if_lookup_exact_address (*addr);
+      return if_lookup_exact_address ((void *)addr, AF_INET);
     }
   else
     {

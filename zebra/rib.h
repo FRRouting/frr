@@ -393,6 +393,7 @@ extern struct route_table *vrf_other_route_table (afi_t afi, u_int32_t table_id,
 						  u_int32_t vrf_id);
 extern int is_zebra_valid_kernel_table(u_int32_t table_id);
 extern int is_zebra_main_routing_table(u_int32_t table_id);
+extern int zebra_check_addr (struct prefix *p);
 
 /* NOTE:
  * All rib_add_ipv[46]* functions will not just add prefix into RIB, but

@@ -257,7 +257,7 @@ if_lookup_by_name_len(const char *name, size_t namelen)
 
 /* Lookup interface by IPv4 address. */
 struct interface *
-if_lookup_exact_address (struct in_addr src)
+if_lookup_exact_address (void *src, int family)
 {
   struct listnode *node;
   struct listnode *cnode;
@@ -271,11 +271,19 @@ if_lookup_exact_address (struct in_addr src)
 	{
 	  p = c->address;
 
-	  if (p && p->family == AF_INET)
+	  if (p && (p->family == family))
 	    {
-	      if (IPV4_ADDR_SAME (&p->u.prefix4, &src))
-		return ifp;
-	    }	      
+	      if (family == AF_INET)
+		{
+		  if (IPV4_ADDR_SAME (&p->u.prefix4, (struct in_addr *)src))
+		    return ifp;
+		}
+	      else if (family == AF_INET6)
+		{
+		  if (IPV6_ADDR_SAME (&p->u.prefix4, (struct in6_addr *)src))
+		    return ifp;
+		}
+	    }
 	}
     }
   return NULL;
@@ -283,7 +291,7 @@ if_lookup_exact_address (struct in_addr src)
 
 /* Lookup interface by IPv4 address. */
 struct interface *
-if_lookup_address (struct in_addr src)
+if_lookup_address (void *matchaddr, int family)
 {
   struct listnode *node;
   struct prefix addr;
@@ -293,9 +301,18 @@ if_lookup_address (struct in_addr src)
   struct connected *c;
   struct interface *match;
 
-  addr.family = AF_INET;
-  addr.u.prefix4 = src;
-  addr.prefixlen = IPV4_MAX_BITLEN;
+  if (family == AF_INET)
+    {
+      addr.family = AF_INET;
+      addr.u.prefix4 = *((struct in_addr *)matchaddr);
+      addr.prefixlen = IPV4_MAX_BITLEN;
+    }
+  else if (family == AF_INET6)
+    {
+      addr.family = AF_INET6;
+      addr.u.prefix6 = *((struct in6_addr *)matchaddr);
+      addr.prefixlen = IPV6_MAX_BITLEN;
+    }
 
   match = NULL;
 
