@@ -53,3 +53,4 @@ debian/quagga.prerm.debhelper
 debian/quagga.substvars
 debian/quagga/
 debian/tmp/
+*.swp

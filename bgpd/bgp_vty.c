@@ -9500,6 +9500,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
   char buf1[BUFSIZ], buf[SU_ADDRSTRLEN];
   char timebuf[BGP_UPTIME_LEN];
   char dn_flag[2];
+  const char *subcode_str;
+  const char *code_str;
   afi_t afi;
   safi_t safi;
   u_int16_t i;
@@ -10387,9 +10389,23 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
         }
       else
         {
-          vty_out (vty, "  Last reset %s, due to %s%s",
-                  peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN, 0, NULL),
-                  peer_down_str[(int) p->last_reset], VTY_NEWLINE);
+          vty_out (vty, "  Last reset %s, ",
+                   peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN, 0, NULL));
+
+          if (p->last_reset == PEER_DOWN_NOTIFY_SEND ||
+              p->last_reset == PEER_DOWN_NOTIFY_RECEIVED)
+            {
+              code_str = bgp_notify_code_str(p->notify.code);
+              subcode_str = bgp_notify_subcode_str(p->notify.code, p->notify.subcode);
+              vty_out (vty, "due to NOTIFICATION %s (%s%s)%s",
+                       p->last_reset == PEER_DOWN_NOTIFY_SEND ? "sent" : "received",
+                       code_str, subcode_str, VTY_NEWLINE);
+            }
+          else
+            {
+              vty_out (vty, "due to %s%s",
+                       peer_down_str[(int) p->last_reset], VTY_NEWLINE);
+            }
 
           if (p->last_reset_cause_size)
             {

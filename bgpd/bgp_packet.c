@@ -621,6 +621,9 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
     bgp_notify.subcode = sub_code;
     bgp_notify.data = NULL;
     bgp_notify.length = length - BGP_MSG_NOTIFY_MIN_SIZE;
+
+    peer->notify.code = bgp_notify.code;
+    peer->notify.subcode = bgp_notify.subcode;
     
     if (bgp_notify.length)
       {
@@ -644,7 +647,7 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
   }
 
   /* peer reset cause */
-  if (sub_code != BGP_NOTIFY_CEASE_CONFIG_CHANGE)
+  if (code == BGP_NOTIFY_CEASE)
     {
       if (sub_code == BGP_NOTIFY_CEASE_ADMIN_RESET)
         peer->last_reset = PEER_DOWN_USER_RESET;
@@ -653,6 +656,8 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
       else
         peer->last_reset = PEER_DOWN_NOTIFY_SEND;
     }
+  else
+    peer->last_reset = PEER_DOWN_NOTIFY_SEND;
 
   /* Call immediately. */
   BGP_WRITE_OFF (peer->t_write);
@@ -1735,8 +1740,7 @@ bgp_notify_receive (struct peer *peer, bgp_size_t size)
   /* peer count update */
   peer->notify_in++;
 
-  if (peer->status == Established)
-    peer->last_reset = PEER_DOWN_NOTIFY_RECEIVED;
+  peer->last_reset = PEER_DOWN_NOTIFY_RECEIVED;
 
   /* We have to check for Notify with Unsupported Optional Parameter.
      in that case we fallback to open without the capability option.

@@ -134,6 +134,8 @@ extern const char *bgp_type_str[];
 
 extern int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
 extern int bgp_debug_peer_updout_enabled(char *host);
+extern const char *bgp_notify_code_str(char);
+extern const char *bgp_notify_subcode_str(char, char);
 extern void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
 
 extern const struct message bgp_status_msg[];

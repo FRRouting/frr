@@ -451,52 +451,60 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
     return 0;
 }
 
-/* dump notify packet */
-void
-bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify, 
-                 const char *direct)
+const char *
+bgp_notify_code_str (char code)
 {
-  const char *subcode_str;
-  const char *code_str;
+  return LOOKUP_DEF (bgp_notify_msg, code, "Unrecognized Error Code");
+}
 
-  subcode_str = "";
-  code_str = LOOKUP_DEF (bgp_notify_msg, bgp_notify->code,
-                         "Unrecognized Error Code");
+const char *
+bgp_notify_subcode_str (char code, char subcode)
+{
 
-  switch (bgp_notify->code)
+  switch (code)
     {
     case BGP_NOTIFY_HEADER_ERR:
-      subcode_str = LOOKUP_DEF (bgp_notify_head_msg, bgp_notify->subcode,
-                                "Unrecognized Error Subcode");
-      break;
+      return LOOKUP_DEF (bgp_notify_head_msg, subcode,
+                         "Unrecognized Error Subcode");
     case BGP_NOTIFY_OPEN_ERR:
-      subcode_str = LOOKUP_DEF (bgp_notify_open_msg, bgp_notify->subcode,
-                                "Unrecognized Error Subcode");
-      break;
+      return LOOKUP_DEF (bgp_notify_open_msg, subcode,
+                         "Unrecognized Error Subcode");
     case BGP_NOTIFY_UPDATE_ERR:
-      subcode_str = LOOKUP_DEF (bgp_notify_update_msg, bgp_notify->subcode,
-                                "Unrecognized Error Subcode");
-      break;
+      return LOOKUP_DEF (bgp_notify_update_msg, subcode,
+                         "Unrecognized Error Subcode");
     case BGP_NOTIFY_HOLD_ERR:
       break;
     case BGP_NOTIFY_FSM_ERR:
       break;
     case BGP_NOTIFY_CEASE:
-      subcode_str = LOOKUP_DEF (bgp_notify_cease_msg, bgp_notify->subcode,
-                                "Unrecognized Error Subcode");
-      break;
+      return LOOKUP_DEF (bgp_notify_cease_msg, subcode,
+                         "Unrecognized Error Subcode");
     case BGP_NOTIFY_CAPABILITY_ERR:
-      subcode_str = LOOKUP_DEF (bgp_notify_capability_msg, bgp_notify->subcode,
-                                "Unrecognized Error Subcode");
-      break;
+      return LOOKUP_DEF (bgp_notify_capability_msg, subcode,
+                         "Unrecognized Error Subcode");
     }
+  return "";
+}
+
+/* dump notify packet */
+void
+bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
+                 const char *direct)
+{
+  const char *subcode_str;
+  const char *code_str;
 
   if (BGP_DEBUG (neighbor_events, NEIGHBOR_EVENTS) || bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
-    zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) %d bytes %s",
-              strcmp (direct, "received") == 0 ? "received from" : "sent to",
-              peer->host, bgp_notify->code, bgp_notify->subcode,
-              code_str, subcode_str, bgp_notify->length,
-              bgp_notify->data ? bgp_notify->data : "");
+    {
+      code_str = bgp_notify_code_str(bgp_notify->code);
+      subcode_str = bgp_notify_subcode_str(bgp_notify->code, bgp_notify->subcode);
+
+      zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) %d bytes %s",
+                 strcmp (direct, "received") == 0 ? "received from" : "sent to",
+                 peer->host, bgp_notify->code, bgp_notify->subcode,
+                 code_str, subcode_str, bgp_notify->length,
+                 bgp_notify->data ? bgp_notify->data : "");
+    }
 }
 
 static void
