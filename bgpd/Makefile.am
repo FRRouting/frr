@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in.
 
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
-DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
+DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DMULTIPATH_NUM=@MULTIPATH_NUM@
 INSTALL_SDATA=@INSTALL@ -m 600
 
 AM_CFLAGS = $(PICFLAGS) $(WERROR)
