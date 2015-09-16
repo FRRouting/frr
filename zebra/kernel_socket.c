@@ -69,6 +69,12 @@ extern struct zebra_privs_t zserv_privs;
 #define ROUNDUP(a)	RT_ROUNDUP(a)
 #endif /* defined(RT_ROUNDUP) */
 
+#if defined(SUNOS_5)
+/* Solaris has struct sockaddr_in[6] definitions at 16 / 32 bytes size,
+ * so the whole concept doesn't really apply. */
+#define ROUNDUP(a)      (a)
+#endif
+
 /*
  * If ROUNDUP has not yet been defined in terms of platform-provided
  * defines, attempt to cope with heuristics.
