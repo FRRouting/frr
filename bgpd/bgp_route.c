@@ -8084,15 +8084,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 
   if (use_json)
     {
-      if (output_count == 0)
-        {
-          if (type == bgp_show_type_normal)
-            json_object_string_add(json, "alert", "No BGP network exists");
-          else
-            json_object_string_add(json, "alert", "No route output");
-        }
-      else
-        json_object_object_add(json, "routes", json_routes);
+      json_object_object_add(json, "routes", json_routes);
       vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
       json_object_free(json);
     }
