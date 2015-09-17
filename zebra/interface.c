@@ -452,6 +452,8 @@ if_add_update (struct interface *ifp)
   if_link_per_ns(zebra_ns_lookup (NS_DEFAULT), ifp);
 
   if_data = ifp->info;
+  assert(if_data);
+
   if (if_data->multicast == IF_ZEBRA_MULTICAST_ON)
     if_set_flags (ifp, IFF_MULTICAST);
   else if (if_data->multicast == IF_ZEBRA_MULTICAST_OFF)
