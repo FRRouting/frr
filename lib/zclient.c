@@ -347,6 +347,13 @@ zclient_read_header (struct stream *s, int sock, u_int16_t *size, u_char *marker
   *vrf_id = stream_getw (s);
   *cmd = stream_getw (s);
 
+  if (*version != ZSERV_VERSION || *marker != ZEBRA_HEADER_MARKER)
+    {
+      zlog_err("%s: socket %d version mismatch, marker %d, version %d",
+               __func__, sock, *marker, *version);
+      return -1;
+    }
+
   if (*size && stream_read (s, sock, *size) != *size)
     return -1;
 
