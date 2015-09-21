@@ -476,7 +476,8 @@ zebra_evaluate_rnh (int vrfid, int family, int force, rnh_type_t type,
 	    {
 	      RNODE_FOREACH_RIB(static_rn, srib)
 		{
-		  break;	/* pick the first and only(?) rib for static */
+                  if (srib->type == ZEBRA_ROUTE_STATIC)
+                    break;	/* currently works for only 1 static route. */
 		}
 
 	      if (!srib)
