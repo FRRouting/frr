@@ -973,7 +973,8 @@ update_subgroup_find (struct update_group *updgrp, struct peer_af *paf)
 
   UPDGRP_FOREACH_SUBGRP (updgrp, subgrp)
   {
-    if (subgrp->version != version)
+    if (subgrp->version != version ||
+        CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
       continue;
 
     /*
@@ -1042,6 +1043,10 @@ update_subgroup_can_merge_into (struct update_subgroup *subgrp,
    * be merged.
    */
   if (subgrp->version != target->version)
+    return 0;
+
+  if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE) !=
+      CHECK_FLAG(target->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
     return 0;
 
   /*
