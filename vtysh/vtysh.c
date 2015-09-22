@@ -2028,6 +2028,34 @@ DEFUN (vtysh_write_terminal,
   return CMD_SUCCESS;
 }
 
+DEFUN (vtysh_write_terminal_daemon,
+       vtysh_write_terminal_daemon_cmd,
+       "write terminal (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|babeld)",
+       "Write running configuration to memory, network, or terminal\n"
+       "Write to terminal\n"
+       "For the zebra daemon\n"
+       "For the rip daemon\n"
+       "For the ripng daemon\n"
+       "For the ospf daemon\n"
+       "For the ospfv6 daemon\n"
+       "For the bgp daemon\n"
+       "For the isis daemon\n"
+       "For the babel daemon\n")
+{
+  unsigned int i;
+  int ret = CMD_SUCCESS;
+
+  for (i = 0; i < array_size(vtysh_client); i++)
+    {
+      if (strcmp(vtysh_client[i].name, argv[0]) == 0)
+	break;
+    }
+
+  ret = vtysh_client_execute(&vtysh_client[i], "show running-config\n", stdout);
+
+  return ret;
+}
+
 DEFUN (vtysh_integrated_config,
        vtysh_integrated_config_cmd,
        "service integrated-vtysh-config",
@@ -2196,6 +2224,20 @@ ALIAS (vtysh_write_terminal,
        "show running-config",
        SHOW_STR
        "Current operating configuration\n")
+
+ALIAS (vtysh_write_terminal_daemon,
+       vtysh_show_running_config_daemon_cmd,
+       "show running-config (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|babeld)",
+       SHOW_STR
+       "Current operating configuration\n"
+       "For the zebra daemon\n"
+       "For the rip daemon\n"
+       "For the ripng daemon\n"
+       "For the ospf daemon\n"
+       "For the ospfv6 daemon\n"
+       "For the bgp daemon\n"
+       "For the isis daemon\n"
+       "For the babel daemon\n")
 
 DEFUN (vtysh_terminal_length,
        vtysh_terminal_length_cmd,
@@ -2830,12 +2872,14 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &vtysh_interface_cmd);
   install_element (CONFIG_NODE, &vtysh_no_interface_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_cmd);
+  install_element (ENABLE_NODE, &vtysh_show_running_config_daemon_cmd);
   install_element (ENABLE_NODE, &vtysh_copy_runningconfig_startupconfig_cmd);
   install_element (ENABLE_NODE, &vtysh_write_file_cmd);
   install_element (ENABLE_NODE, &vtysh_write_cmd);
 
   /* "write terminal" command. */
   install_element (ENABLE_NODE, &vtysh_write_terminal_cmd);
+  install_element (ENABLE_NODE, &vtysh_write_terminal_daemon_cmd);
  
   install_element (CONFIG_NODE, &vtysh_integrated_config_cmd);
   install_element (CONFIG_NODE, &no_vtysh_integrated_config_cmd);
