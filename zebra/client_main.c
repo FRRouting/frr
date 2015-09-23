@@ -192,13 +192,15 @@ zebra_sim (FILE *fp)
 int
 main (int argc, char **argv)
 {
+  struct thread_master *master;
   FILE *fp;
 
   if (argc == 1)
       usage_exit ();
 
+  master = thread_master_create();
   /* Establish connection to zebra. */
-  zclient = zclient_new ();
+  zclient = zclient_new(master);
   zclient->enable = 1;
 #ifdef HAVE_TCP_ZEBRA
   zclient->sock = zclient_socket ();

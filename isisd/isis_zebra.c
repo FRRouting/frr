@@ -593,9 +593,9 @@ isis_redistribute_default_set (int routetype, int metric_type,
 #endif /* 0 */
 
 void
-isis_zebra_init ()
+isis_zebra_init (struct thread_master *master)
 {
-  zclient = zclient_new ();
+  zclient = zclient_new(master);
   zclient_init (zclient, ZEBRA_ROUTE_ISIS, 0);
   zclient->router_id_update = isis_router_id_update_zebra;
   zclient->interface_add = isis_zebra_if_add;

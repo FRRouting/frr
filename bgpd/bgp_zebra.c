@@ -1682,10 +1682,10 @@ bgp_zclient_reset (void)
 }
 
 void
-bgp_zebra_init (void)
+bgp_zebra_init (struct thread_master *master)
 {
   /* Set default values. */
-  zclient = zclient_new ();
+  zclient = zclient_new (master);
   zclient_init (zclient, ZEBRA_ROUTE_BGP, 0);
   zclient->router_id_update = bgp_router_id_update;
   zclient->interface_add = bgp_interface_add;

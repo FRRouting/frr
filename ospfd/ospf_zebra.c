@@ -1530,10 +1530,10 @@ ospf_distance_apply (struct prefix_ipv4 *p, struct ospf_route *or)
 }
 
 void
-ospf_zebra_init (u_short instance)
+ospf_zebra_init (struct thread_master *master, u_short instance)
 {
   /* Allocate zebra structure. */
-  zclient = zclient_new ();
+  zclient = zclient_new(master);
   zclient_init (zclient, ZEBRA_ROUTE_OSPF, instance);
   zclient->router_id_update = ospf_router_id_update_zebra;
   zclient->interface_add = ospf_interface_add;

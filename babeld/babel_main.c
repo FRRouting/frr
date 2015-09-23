@@ -275,7 +275,7 @@ babel_init(int argc, char **argv)
     babeld_quagga_init();
     /* init zebra client's structure and it's commands */
     /* this replace kernel_setup && kernel_setup_socket */
-    babelz_zebra_init ();
+    babelz_zebra_init(master);
 
     /* Get zebra configuration file. */
     zlog_set_level (NULL, ZLOG_DEST_STDOUT, ZLOG_DISABLED);

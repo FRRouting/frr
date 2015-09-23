@@ -43,7 +43,7 @@ extern void ospf6_zebra_route_update_remove (struct ospf6_route *request);
 extern void ospf6_zebra_redistribute (int);
 extern void ospf6_zebra_no_redistribute (int);
 #define ospf6_zebra_is_redistribute(type) (zclient->redist[AFI_IP6][type].enabled)
-extern void ospf6_zebra_init (void);
+extern void ospf6_zebra_init (struct thread_master *);
 extern void ospf6_zebra_add_discard (struct ospf6_route *request);
 extern void ospf6_zebra_delete_discard (struct ospf6_route *request);
 

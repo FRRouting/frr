@@ -39,8 +39,6 @@ enum event {ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT};
 /* Prototype for event manager. */
 static void zclient_event (enum event, struct zclient *);
 
-extern struct thread_master *master;
-
 char *zclient_serv_path = NULL;
 
 /* This file local debug flag. */
@@ -48,7 +46,7 @@ int zclient_debug = 0;
 
 /* Allocate zclient structure. */
 struct zclient *
-zclient_new ()
+zclient_new (struct thread_master *master)
 {
   struct zclient *zclient;
   zclient = XCALLOC (MTYPE_ZCLIENT, sizeof (struct zclient));
@@ -56,6 +54,7 @@ zclient_new ()
   zclient->ibuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
   zclient->obuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
   zclient->wb = buffer_new(0);
+  zclient->master = master;
 
   return zclient;
 }
@@ -289,7 +288,7 @@ zclient_flush_data(struct thread *thread)
       return zclient_failed(zclient);
       break;
     case BUFFER_PENDING:
-      zclient->t_write = thread_add_write(master, zclient_flush_data,
+      zclient->t_write = thread_add_write(zclient->master, zclient_flush_data,
 					  zclient, zclient->sock);
       break;
     case BUFFER_EMPTY:
@@ -315,7 +314,7 @@ zclient_send_message(struct zclient *zclient)
       THREAD_OFF(zclient->t_write);
       break;
     case BUFFER_PENDING:
-      THREAD_WRITE_ON(master, zclient->t_write,
+      THREAD_WRITE_ON(zclient->master, zclient->t_write,
 		      zclient_flush_data, zclient, zclient->sock);
       break;
     }
@@ -1327,7 +1326,7 @@ zclient_event (enum event event, struct zclient *zclient)
     case ZCLIENT_SCHEDULE:
       if (! zclient->t_connect)
 	zclient->t_connect =
-	  thread_add_event (master, zclient_connect, zclient, 0);
+	  thread_add_event (zclient->master, zclient_connect, zclient, 0);
       break;
     case ZCLIENT_CONNECT:
       if (zclient->fail >= 10)
@@ -1337,12 +1336,12 @@ zclient_event (enum event event, struct zclient *zclient)
 		   zclient->fail < 3 ? 10 : 60);
       if (! zclient->t_connect)
 	zclient->t_connect = 
-	  thread_add_timer (master, zclient_connect, zclient,
+	  thread_add_timer (zclient->master, zclient_connect, zclient,
 			    zclient->fail < 3 ? 10 : 60);
       break;
     case ZCLIENT_READ:
       zclient->t_read = 
-	thread_add_read (master, zclient_read, zclient, zclient->sock);
+	thread_add_read (zclient->master, zclient_read, zclient, zclient->sock);
       break;
     }
 }

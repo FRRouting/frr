@@ -635,10 +635,10 @@ DEFUN (no_redistribute_ospf6,
 }
 
 void
-ospf6_zebra_init (void)
+ospf6_zebra_init (struct thread_master *master)
 {
   /* Allocate zebra structure. */
-  zclient = zclient_new ();
+  zclient = zclient_new(master);
   zclient_init (zclient, ZEBRA_ROUTE_OSPF6, 0);
   zclient->router_id_update = ospf6_router_id_update_zebra;
   zclient->interface_add = ospf6_zebra_if_add;

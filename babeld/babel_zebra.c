@@ -48,9 +48,6 @@ THE SOFTWARE.
 #include "xroute.h"
 #include "util.h"
 
-void babelz_zebra_init(void);
-
-
 /* we must use a pointer because of zclient.c's functions (new, free). */
 struct zclient *zclient;
 static int zebra_config_write (struct vty *vty);
@@ -341,9 +338,9 @@ debug_babel_config_write (struct vty * vty)
 #endif /* NO_DEBUG */
 }
 
-void babelz_zebra_init(void)
+void babelz_zebra_init (struct thread_master *master)
 {
-    zclient = zclient_new();
+    zclient = zclient_new(master);
     zclient_init(zclient, ZEBRA_ROUTE_BABEL, 0);
 
     zclient->interface_add = babel_interface_add;

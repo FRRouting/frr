@@ -279,7 +279,7 @@ main (int argc, char **argv)
 
   /* RIPngd inits. */
   ripng_init ();
-  zebra_init ();
+  zebra_init(master);
   ripng_peer_init ();
 
   /* Get configuration file. */

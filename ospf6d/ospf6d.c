@@ -1769,7 +1769,7 @@ ospf6_init (void)
   ospf6_area_init ();
   ospf6_interface_init ();
   ospf6_neighbor_init ();
-  ospf6_zebra_init ();
+  ospf6_zebra_init(master);
 
   ospf6_lsa_init ();
   ospf6_spf_init ();

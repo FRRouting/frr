@@ -337,7 +337,7 @@ main (int argc, char **argv, char **envp)
   /* create the global 'isis' instance */
   isis_new (1);
 
-  isis_zebra_init ();
+  isis_zebra_init(master);
 
   /* parse config file */
   /* this is needed three times! because we have interfaces before the areas */

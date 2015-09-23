@@ -6889,7 +6889,7 @@ bgp_init (void)
   bgp_scan_init ();
 
   /* Init zebra. */
-  bgp_zebra_init ();
+  bgp_zebra_init(master);
 
   /* BGP VTY commands installation.  */
   bgp_vty_init ();

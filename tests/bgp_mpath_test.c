@@ -377,7 +377,7 @@ static int
 global_test_init (void)
 {
   master = thread_master_create ();
-  zclient = zclient_new ();
+  zclient = zclient_new(master);
   bgp_master_init ();
   bgp_option_set (BGP_OPT_NO_LISTEN);
   
