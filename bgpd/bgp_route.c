@@ -2177,13 +2177,13 @@ bgp_process_queue_init (void)
   if (!bm->process_main_queue)
     {
       bm->process_main_queue
-	= work_queue_new (bm->master, "process_main_queue");
+	= work_queue_new(master, "process_main_queue");
     }
 
   if (!bm->process_rsclient_queue)
     {
       bm->process_rsclient_queue
-	= work_queue_new (bm->master, "process_rsclient_queue");
+	= work_queue_new(master, "process_rsclient_queue");
     }
 
   if ( !(bm->process_main_queue && bm->process_rsclient_queue) )
@@ -3430,7 +3430,7 @@ bgp_clear_node_queue_init (struct peer *peer)
   snprintf (wname, sizeof(wname), "clear %s", peer->host);
 #undef CLEAR_QUEUE_NAME_LEN
 
-  if ( (peer->clear_node_queue = work_queue_new (bm->master, wname)) == NULL)
+  if ( (peer->clear_node_queue = work_queue_new (master, wname)) == NULL)
     {
       zlog_err ("%s: Failed to allocate work queue", __func__);
       exit (1);
@@ -11575,7 +11575,7 @@ bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
   
   memset (&ts, 0, sizeof (ts));
   ts.table = bgp->rib[afi][safi];
-  thread_execute (bm->master, bgp_table_stats_walker, &ts, 0);
+  thread_execute (master, bgp_table_stats_walker, &ts, 0);
 
   vty_out (vty, "BGP %s RIB statistics%s%s",
            afi_safi_print (afi, safi), VTY_NEWLINE, VTY_NEWLINE);
@@ -11882,7 +11882,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
  *    * stats for the thread-walk (i.e. ensure this can't be blamed on
  *       * on just vty_read()).
  *          */
-  thread_execute (bm->master, bgp_peer_count_walker, &pcounts, 0);
+  thread_execute(master, bgp_peer_count_walker, &pcounts, 0);
 
   if (use_json)
     {

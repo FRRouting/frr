@@ -79,9 +79,6 @@ struct bgp_master
   /* BGP instance list.  */
   struct list *bgp;
 
-  /* BGP thread master.  */
-  struct thread_master *master;
-
   /* work queues */
   struct work_queue *process_main_queue;
   struct work_queue *process_rsclient_queue;

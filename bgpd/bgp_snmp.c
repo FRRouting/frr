@@ -888,7 +888,7 @@ bgpTrapBackwardTransition (struct peer *peer)
 void
 bgp_snmp_init (void)
 {
-  smux_init (bm->master);
+  smux_init(master);
   REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
 }
 #endif /* HAVE_SNMP */
