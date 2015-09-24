@@ -242,8 +242,8 @@ router_id_init (void)
   install_element (CONFIG_NODE, &router_id_cmd);
   install_element (CONFIG_NODE, &no_router_id_cmd);
 
-  memset (rid_all_sorted_list, 0, sizeof (rid_all_sorted_list));
-  memset (rid_lo_sorted_list, 0, sizeof (rid_lo_sorted_list));
+  memset (rid_all_sorted_list, 0, sizeof (_rid_all_sorted_list));
+  memset (rid_lo_sorted_list, 0, sizeof (_rid_lo_sorted_list));
   memset (&rid_user_assigned, 0, sizeof (rid_user_assigned));
 
   rid_all_sorted_list->cmp = router_id_cmp;

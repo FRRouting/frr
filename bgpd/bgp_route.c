@@ -2200,7 +2200,7 @@ bgp_process_queue_init (void)
   bm->process_main_queue->spec.yield = 50 * 1000L;
   
   memcpy (bm->process_rsclient_queue, bm->process_main_queue,
-          sizeof (struct work_queue *));
+          sizeof (struct work_queue));
   bm->process_rsclient_queue->spec.workfunc = &bgp_process_rsclient;
 }
 

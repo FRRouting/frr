@@ -1091,7 +1091,7 @@ peer_xfer_config (struct peer *peer_dst, struct peer *peer_src)
   struct peer_af *paf;
   afi_t afi;
   safi_t safi;
-  int afindex;
+  enum bgp_af_index afindex;
 
   assert(peer_src);
   assert(peer_dst);

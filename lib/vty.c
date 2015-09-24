@@ -2311,8 +2311,16 @@ vty_use_backup_config (char *fullpath)
     }
   
   while((c = read (sav, buffer, 512)) > 0)
-    write (tmp, buffer, c);
-  
+    {
+      if (write (tmp, buffer, c) <= 0)
+	{
+	  free (fullpath_sav);
+	  free (fullpath_tmp);
+	  close (sav);
+	  close (tmp);
+	  return NULL;
+	}
+    }
   close (sav);
   close (tmp);
   
@@ -2349,7 +2357,11 @@ vty_read_config (char *config_file,
     {
       if (! IS_DIRECTORY_SEP (config_file[0]))
         {
-          getcwd (cwd, MAXPATHLEN);
+          if (getcwd (cwd, MAXPATHLEN) == NULL)
+	    {
+	      fprintf (stderr, "Failure to determine Current Working Directory %d!\n", errno);
+	      exit (1);
+	    }
           tmp = XMALLOC (MTYPE_TMP, 
  			      strlen (cwd) + strlen (config_file) + 2);
           sprintf (tmp, "%s/%s", cwd, config_file);
@@ -2484,7 +2496,11 @@ vty_log_fixed (char *buf, size_t len)
       if (((vty = vector_slot (vtyvec, i)) != NULL) && vty->monitor)
 	/* N.B. We don't care about the return code, since process is
 	   most likely just about to die anyway. */
-	writev(vty->fd, iov, 2);
+	if (writev(vty->fd, iov, 2) == -1)
+	  {
+	    fprintf(stderr, "Failure to writev: %d\n", errno);
+	    exit(-1);
+	  }
     }
 }
 
@@ -2932,8 +2948,21 @@ vty_save_cwd (void)
 
   if (!c)
     {
-      chdir (SYSCONFDIR);
-      getcwd (cwd, MAXPATHLEN);
+      /*
+       * At this point if these go wrong, more than likely
+       * the whole world is coming down around us
+       * Hence not worrying about it too much.
+       */
+      if (!chdir (SYSCONFDIR))
+	{
+	  fprintf(stderr, "Failure to chdir to %s, errno: %d\n", SYSCONFDIR, errno);
+	  exit(-1);
+	}
+      if (getcwd (cwd, MAXPATHLEN) == NULL)
+	{
+	  fprintf(stderr, "Failure to getcwd, errno: %d\n", errno);
+	  exit(-1);
+	}
     }
 
   vty_cwd = XMALLOC (MTYPE_TMP, strlen (cwd) + 1);

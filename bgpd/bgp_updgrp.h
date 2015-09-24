@@ -517,7 +517,7 @@ static inline void
 update_group_adjust_peer_afs (struct peer *peer)
 {
   struct peer_af *paf;
-  afi_t afi;
+  enum bgp_af_index afi;
 
   PEERAF_FOREACH (peer, paf, afi) update_group_adjust_peer (paf);
 }
@@ -531,7 +531,7 @@ static inline void
 update_group_remove_peer_afs (struct peer *peer)
 {
   struct peer_af *paf;
-  afi_t afi;
+  enum bgp_af_index afi;
 
   PEERAF_FOREACH (peer, paf, afi)
     update_subgroup_remove_peer (PAF_SUBGRP (paf), paf);
@@ -581,7 +581,7 @@ static inline void
 bgp_announce_peer (struct peer *peer)
 {
   struct peer_af *paf;
-  int af;
+  enum bgp_af_index af;
 
   PEERAF_FOREACH (peer, paf, af) subgroup_announce_all (PAF_SUBGRP (paf));
 }

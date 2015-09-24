@@ -1081,7 +1081,7 @@ DEFUN (debug_bgp_update_direct_peer,
     {
       struct peer *peer;
       struct peer_af *paf;
-      int af;
+      enum bgp_af_index af;
 
       bgp_debug_list_add_entry(bgp_debug_update_out_peers, host, NULL);
       peer = bgp_find_peer (vty, host);
@@ -1220,7 +1220,7 @@ DEFUN (no_debug_bgp_update_direct_peer,
 
       struct peer *peer;
       struct peer_af *paf;
-      int af;
+      enum bgp_af_index af;
       peer = bgp_find_peer (vty, host);
 
       if (peer)
