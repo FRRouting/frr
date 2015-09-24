@@ -2344,8 +2344,11 @@ static void show_mroute_count(struct vty *vty)
     if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
       int e = errno;
       vty_out(vty,
-         "ioctl(SIOCGETSGCNT=%d) failure for (S,G)=(%s,%s): errno=%d: %s%s",
-         SIOCGETSGCNT,
+         "ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s%s",
+         /* note that typeof ioctl defs can vary across platforms, from
+          * int, to unsigned int, to long unsigned int
+          */
+         (unsigned long)SIOCGETSGCNT,
          source_str,
          group_str,
          e,
