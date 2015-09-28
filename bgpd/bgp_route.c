@@ -6362,6 +6362,8 @@ bgp_redistribute_add (struct prefix *p, const struct in_addr *nexthop,
  
  	  if (bi)
  	    {
+              /* Ensure the (source route) type is updated. */
+              bi->type = type;
  	      if (attrhash_cmp (bi->attr, new_attr) &&
 		  !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
  		{
