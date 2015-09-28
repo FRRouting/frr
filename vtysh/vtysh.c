@@ -666,62 +666,14 @@ void
 vtysh_config_from_file (struct vty *vty, FILE *fp)
 {
   int ret;
-  vector vline;
   struct cmd_element *cmd;
-  int save_node = CONFIG_NODE;
   int lineno = 0;
 
   while (fgets (vty->buf, VTY_BUFSIZ, fp))
     {
       lineno++;
-      if (vty->buf[0] == '!' || vty->buf[1] == '#')
-	continue;
 
-      vline = cmd_make_strvec (vty->buf);
-
-      /* In case of comment line. */
-      if (vline == NULL)
-	continue;
-
-      /* Execute configuration command : this is strict match. */
-      ret = cmd_execute_command_strict (vline, vty, &cmd);
-
-      /* Try again with setting node to CONFIG_NODE. */
-      if (ret != CMD_SUCCESS 
-	  && ret != CMD_SUCCESS_DAEMON
-	  && ret != CMD_WARNING)
-	{
-	  if (vty->node == KEYCHAIN_KEY_NODE)
-	    {
-	      vty->node = KEYCHAIN_NODE;
-	      vtysh_exit_ripd_only ();
-	      ret = cmd_execute_command_strict (vline, vty, &cmd);
-
-	      if (ret != CMD_SUCCESS 
-		  && ret != CMD_SUCCESS_DAEMON 
-		  && ret != CMD_WARNING)
-		{
-		  vtysh_exit_ripd_only ();
-		  vty->node = CONFIG_NODE;
-		  ret = cmd_execute_command_strict (vline, vty, &cmd);
-		}
-	    }
-	  else
-	    {
-	      save_node = vty->node;
-	      vty->node = CONFIG_NODE;
-	      ret = cmd_execute_command_strict (vline, vty, &cmd);
-
-              // If the command did not work at CONFIG_NODE either then ignore
-              // the command and go back to our previous node.
-	      if ((ret != CMD_SUCCESS) &&
-		  (ret != CMD_SUCCESS_DAEMON) &&
-		  (ret != CMD_WARNING))
-                vty->node = save_node;
-	    }
-	}	  
-
-      cmd_free_strvec (vline);
+      ret = command_config_read_one_line (vty, &cmd, 1);
 
       switch (ret)
 	{
