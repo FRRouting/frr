@@ -45,18 +45,20 @@ int pim_igmp_join_source(int fd, int ifindex,
 			 struct in_addr source_addr)
 {
   struct group_source_req req;
-  struct sockaddr_in *group_sa = (struct sockaddr_in *) &req.gsr_group;
-  struct sockaddr_in *source_sa = (struct sockaddr_in *) &req.gsr_source;
+  struct sockaddr_in group;
+  struct sockaddr_in source;
 
-  memset(group_sa, 0, sizeof(*group_sa));
-  group_sa->sin_family = AF_INET;
-  group_sa->sin_addr = group_addr;
-  group_sa->sin_port = htons(0);
+  memset(&group, 0, sizeof(group));
+  group.sin_family = AF_INET;
+  group.sin_addr = group_addr;
+  group.sin_port = htons(0);
+  memcpy(&req.gsr_group, &group, sizeof(struct sockaddr_in));
 
-  memset(source_sa, 0, sizeof(*source_sa));
-  source_sa->sin_family = AF_INET;
-  source_sa->sin_addr = source_addr;
-  source_sa->sin_port = htons(0);
+  memset(&source, 0, sizeof(source));
+  source.sin_family = AF_INET;
+  source.sin_addr = source_addr;
+  source.sin_port = htons(0);
+  memcpy(&req.gsr_source, &source, sizeof(struct sockaddr_in));
 
   req.gsr_interface = ifindex;
 
