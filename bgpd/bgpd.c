@@ -1543,7 +1543,7 @@ peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if,
 	}
 
       /* Existing peer's AS number change. */
-      if (peer->as != *as)
+      if ((peer->as != *as) || (peer->as_type != as_type))
 	peer_as_change (peer, *as, as_type);
     }
   else
@@ -2265,7 +2265,7 @@ peer_group_remote_as (struct bgp *bgp, const char *group_name,
 
   for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
-      if (peer->as != *as)
+      if ((peer->as != *as) || (peer->as_type != as_type))
 	peer_as_change (peer, *as, as_type);
     }
 
