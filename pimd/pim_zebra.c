@@ -42,6 +42,7 @@
 #include "pim_join.h"
 #include "pim_zlookup.h"
 #include "pim_ifchannel.h"
+#include "pim_rp.h"
 
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
@@ -1091,8 +1092,13 @@ void igmp_source_forward_start(struct igmp_source *source)
   group = source->source_group;
 
   if (!source->source_channel_oil) {
+    struct in_addr vif_source;
     struct pim_interface *pim_oif;
-    int input_iface_vif_index = fib_lookup_if_vif_index(source->source_addr);
+
+    if (!pim_rp_set_upstream_addr (&vif_source, source->source_addr))
+      return;
+
+    int input_iface_vif_index = fib_lookup_if_vif_index(vif_source);
     if (input_iface_vif_index < 1) {
       char source_str[100];
       pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
@@ -1239,15 +1245,18 @@ void pim_forward_start(struct pim_ifchannel *ch)
   if (PIM_DEBUG_PIM_TRACE) {
     char source_str[100];
     char group_str[100]; 
+    char upstream_str[100];
+
     pim_inet4_dump("<source?>", ch->source_addr, source_str, sizeof(source_str));
     pim_inet4_dump("<group?>", ch->group_addr, group_str, sizeof(group_str));
-    zlog_debug("%s: (S,G)=(%s,%s) oif=%s",
+    pim_inet4_dump("<upstream?>", up->upstream_addr, upstream_str, sizeof(upstream_str));
+    zlog_debug("%s: (S,G)=(%s,%s) oif=%s(%s)",
 	       __PRETTY_FUNCTION__,
-	       source_str, group_str, ch->interface->name);
+	       source_str, group_str, ch->interface->name, upstream_str);
   }
 
   if (!up->channel_oil) {
-    int input_iface_vif_index = fib_lookup_if_vif_index(up->source_addr);
+    int input_iface_vif_index = fib_lookup_if_vif_index(up->upstream_addr);
     if (input_iface_vif_index < 1) {
       char source_str[100];
       pim_inet4_dump("<source?>", up->source_addr, source_str, sizeof(source_str));

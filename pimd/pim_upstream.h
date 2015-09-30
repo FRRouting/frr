@@ -80,6 +80,7 @@ enum pim_upstream_state {
   See RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Message
 */
 struct pim_upstream {
+  struct in_addr           upstream_addr;/* Who we are talking to */
   struct in_addr           source_addr;  /* (S,G) source key */
   struct in_addr           group_addr;   /* (S,G) group key */
   uint32_t                 flags;

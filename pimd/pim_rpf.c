@@ -131,7 +131,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
   save_rpf_addr = rpf->rpf_addr;       /* detect change in RPF'(S,G) */
 
   if (pim_nexthop_lookup(&rpf->source_nexthop,
-			 up->source_addr)) {
+			 up->upstream_addr)) {
     return PIM_RPF_FAILURE;
   }
 

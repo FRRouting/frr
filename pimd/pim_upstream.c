@@ -44,6 +44,7 @@
 #include "pim_zebra.h"
 #include "pim_oil.h"
 #include "pim_macro.h"
+#include "pim_rp.h"
 
 static void join_timer_start(struct pim_upstream *up);
 static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
@@ -345,6 +346,7 @@ static void pim_upstream_switch(struct pim_upstream *up,
 
 }
 
+
 static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
 					     struct in_addr group_addr)
 {
@@ -355,10 +357,19 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
   if (!up) {
     zlog_err("%s: PIM XMALLOC(%zu) failure",
 	     __PRETTY_FUNCTION__, sizeof(*up));
-    return 0;
+    return NULL;
   }
   
   up->source_addr                = source_addr;
+  if (!pim_rp_set_upstream_addr (&up->upstream_addr, source_addr))
+    {
+      if (PIM_DEBUG_PIM_TRACE)
+	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);
+
+      XFREE (MTYPE_PIM_UPSTREAM, up);
+      return NULL;
+    }
+
   up->group_addr                 = group_addr;
   up->flags                      = 0;
   up->ref_count                  = 1;
