@@ -103,9 +103,11 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
   enum pim_ifjoin_state old_state = ch->ifjoin_state;
 
   if (old_state == new_state) {
-    zlog_debug("%s calledby %s: non-transition on state %d (%s)",
-	       __PRETTY_FUNCTION__, caller, new_state,
-	       pim_ifchannel_ifjoin_name(new_state));
+    if (PIM_DEBUG_PIM_EVENTS) {
+      zlog_debug("%s calledby %s: non-transition on state %d (%s)",
+		 __PRETTY_FUNCTION__, caller, new_state,
+		 pim_ifchannel_ifjoin_name(new_state));
+    }
     return;
   }
 
@@ -286,7 +288,7 @@ static void ifmembership_set(struct pim_ifchannel *ch,
   if (ch->local_ifmembership == membership)
     return;
 
-  /* if (PIM_DEBUG_PIM_EVENTS) */ {
+  if (PIM_DEBUG_PIM_EVENTS) {
     char src_str[100];
     char grp_str[100];
     pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));

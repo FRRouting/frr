@@ -125,7 +125,7 @@ int pim_if_dr_election(struct interface *ifp)
   /* DR changed ? */
   if (old_dr_addr.s_addr != pim_ifp->pim_dr_addr.s_addr) {
 
-    /* if (PIM_DEBUG_PIM_EVENTS) */ {
+    if (PIM_DEBUG_PIM_EVENTS) {
       char dr_old_str[100];
       char dr_new_str[100];
       pim_inet4_dump("<old_dr?>", old_dr_addr, dr_old_str, sizeof(dr_old_str));

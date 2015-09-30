@@ -61,7 +61,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop,
   if (num_ifindex > 1) {
     char addr_str[100];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_debug("%s %s: FIXME ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
+    zlog_info("%s %s: FIXME ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
 	      __FILE__, __PRETTY_FUNCTION__,
 	      num_ifindex, addr_str, first_ifindex);
     /* debug warning only, do not return */
@@ -136,22 +136,22 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
   }
 
   rpf->rpf_addr = pim_rpf_find_rpf_addr(up);
-  if (PIM_INADDR_IS_ANY(rpf->rpf_addr)) {
+  if (PIM_INADDR_IS_ANY(rpf->rpf_addr) && PIM_DEBUG_PIM_EVENTS) {
     /* RPF'(S,G) not found */
     char src_str[100];
     char grp_str[100];
     pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s %s: RPF'(%s,%s) not found: won't send join upstream",
-              __FILE__, __PRETTY_FUNCTION__,
-              src_str, grp_str);
+    zlog_debug("%s %s: RPF'(%s,%s) not found: won't send join upstream",
+	       __FILE__, __PRETTY_FUNCTION__,
+	       src_str, grp_str);
     /* warning only */
   }
 
   /* detect change in pim_nexthop */
   if (nexthop_mismatch(&rpf->source_nexthop, &save_nexthop)) {
 
-    /* if (PIM_DEBUG_PIM_EVENTS) */ {
+    if (PIM_DEBUG_PIM_EVENTS) {
       char src_str[100];
       char grp_str[100];
       char nhaddr_str[100];
@@ -176,7 +176,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
   /* detect change in RPF_interface(S) */
   if (save_nexthop.interface != rpf->source_nexthop.interface) {
 
-    /* if (PIM_DEBUG_PIM_EVENTS) */ {
+    if (PIM_DEBUG_PIM_EVENTS) {
       char src_str[100];
       char grp_str[100];
       pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));

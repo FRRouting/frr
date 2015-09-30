@@ -758,7 +758,7 @@ static int fib_lookup_if_vif_index(struct in_addr addr)
   if (num_ifindex > 1) {
     char addr_str[100];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_debug("%s %s: FIXME ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
+    zlog_info("%s %s: FIXME ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
 	       __FILE__, __PRETTY_FUNCTION__,
 	       num_ifindex, addr_str, first_ifindex);
     /* debug warning only, do not return */

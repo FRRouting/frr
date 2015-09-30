@@ -289,14 +289,14 @@ static int zclient_read_nexthop(struct zclient *zlookup,
       nexthop_tab[num_ifindex].ifindex             = 0;
       nexthop_tab[num_ifindex].protocol_distance   = distance;
       nexthop_tab[num_ifindex].route_metric        = metric;
-      {
+      if (PIM_DEBUG_ZEBRA) {
 	char addr_str[100];
 	char nexthop_str[100];
 	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
 	pim_inet4_dump("<nexthop?>", nexthop_tab[num_ifindex].nexthop_addr, nexthop_str, sizeof(nexthop_str));
-	zlog_warn("%s %s: zebra returned recursive nexthop %s for address %s",
-		  __FILE__, __PRETTY_FUNCTION__,
-		  nexthop_str, addr_str);
+	zlog_debug("%s %s: zebra returned recursive nexthop %s for address %s",
+		   __FILE__, __PRETTY_FUNCTION__,
+		   nexthop_str, addr_str);
       }
       ++num_ifindex;
       break;
@@ -381,7 +381,7 @@ int zclient_lookup_nexthop(struct zclient *zlookup,
 
     num_ifindex = zclient_lookup_nexthop_once(qpim_zclient_lookup, nexthop_tab,
 					      PIM_NEXTHOP_IFINDEX_TAB_SIZE, addr);
-    if (num_ifindex < 1) {
+    if ((num_ifindex < 1) && PIM_DEBUG_ZEBRA) {
       char addr_str[100];
       pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
       zlog_warn("%s %s: lookup=%d/%d: could not find nexthop ifindex for address %s",
@@ -406,15 +406,15 @@ int zclient_lookup_nexthop(struct zclient *zlookup,
     if (first_ifindex > 0) {
       /* found: first ifindex is non-recursive nexthop */
 
-      if (lookup > 0) {
+      if ((lookup > 0) && PIM_DEBUG_ZEBRA) {
 	/* Report non-recursive success after first lookup */
 	char addr_str[100];
 	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	zlog_info("%s %s: lookup=%d/%d: found non-recursive ifindex=%d for address %s dist=%d met=%d",
-		  __FILE__, __PRETTY_FUNCTION__,
-		  lookup, max_lookup, first_ifindex, addr_str,
-		  nexthop_tab[0].protocol_distance,
-		  nexthop_tab[0].route_metric);
+	zlog_debug("%s %s: lookup=%d/%d: found non-recursive ifindex=%d for address %s dist=%d met=%d",
+		   __FILE__, __PRETTY_FUNCTION__,
+		   lookup, max_lookup, first_ifindex, addr_str,
+		   nexthop_tab[0].protocol_distance,
+		   nexthop_tab[0].route_metric);
 
 	/* use last address as nexthop address */
 	nexthop_tab[0].nexthop_addr = addr;
@@ -427,12 +427,12 @@ int zclient_lookup_nexthop(struct zclient *zlookup,
       return num_ifindex;
     }
 
-    {
+    if (PIM_DEBUG_ZEBRA) {
       char addr_str[100];
       char nexthop_str[100];
       pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
       pim_inet4_dump("<nexthop?>", nexthop_addr, nexthop_str, sizeof(nexthop_str));
-      zlog_warn("%s %s: lookup=%d/%d: zebra returned recursive nexthop %s for address %s dist=%d met=%d",
+      zlog_debug("%s %s: lookup=%d/%d: zebra returned recursive nexthop %s for address %s dist=%d met=%d",
 		__FILE__, __PRETTY_FUNCTION__,
 		lookup, max_lookup, nexthop_str, addr_str,
 		nexthop_tab[0].protocol_distance,
@@ -443,11 +443,13 @@ int zclient_lookup_nexthop(struct zclient *zlookup,
 
   } /* for (max_lookup) */
 
-  char addr_str[100];
-  pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-  zlog_warn("%s %s: lookup=%d/%d: failure searching recursive nexthop ifindex for address %s",
-	    __FILE__, __PRETTY_FUNCTION__,
-	    lookup, max_lookup, addr_str);
+  if (PIM_DEBUG_ZEBRA) {
+    char addr_str[100];
+    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+    zlog_warn("%s %s: lookup=%d/%d: failure searching recursive nexthop ifindex for address %s",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      lookup, max_lookup, addr_str);
+  }
 
   return -2;
 }
