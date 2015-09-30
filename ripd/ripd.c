@@ -1108,7 +1108,8 @@ rip_response_process (struct rip_packet *packet, int size,
   struct prefix_ipv4 ifaddr;
   struct prefix_ipv4 ifaddrclass;
   int subnetted;
-      
+
+  memset(&ifaddr, 0, sizeof(ifaddr));
   /* We don't know yet. */
   subnetted = -1;
 

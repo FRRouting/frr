@@ -2775,54 +2775,82 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
   return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd);
 }
 
+/**
+ * Parse one line of config, walking up the parse tree attempting to find a match
+ *
+ * @param vty The vty context in which the command should be executed.
+ * @param cmd Pointer where the struct cmd_element* of the match command
+ *            will be stored, if any.  May be set to NULL if this info is
+ *            not needed.
+ * @param use_daemon Boolean to control whether or not we match on CMD_SUCCESS_DAEMON
+ *                   or not.
+ * @return The status of the command that has been executed or an error code
+ *         as to why no command could be executed.
+ */
+int
+command_config_read_one_line (struct vty *vty, struct cmd_element **cmd, int use_daemon)
+{
+  vector vline;
+  int saved_node;
+  int ret;
+
+  vline = cmd_make_strvec (vty->buf);
+
+  /* In case of comment line */
+  if (vline == NULL)
+    return CMD_SUCCESS;
+
+  /* Execute configuration command : this is strict match */
+  ret = cmd_execute_command_strict (vline, vty, cmd);
+
+  // Climb the tree and try the command again at each node
+  if (!(use_daemon && ret == CMD_SUCCESS_DAEMON) &&
+      ret != CMD_SUCCESS && ret != CMD_WARNING &&
+      ret != CMD_ERR_NOTHING_TODO && vty->node != CONFIG_NODE) {
+
+    saved_node = vty->node;
+
+    while (!(use_daemon && ret == CMD_SUCCESS_DAEMON) &&
+	   ret != CMD_SUCCESS && ret != CMD_WARNING &&
+	   ret != CMD_ERR_NOTHING_TODO && vty->node != CONFIG_NODE) {
+      vty->node = node_parent(vty->node);
+      ret = cmd_execute_command_strict (vline, vty, NULL);
+    }
+
+    // If climbing the tree did not work then ignore the command and
+    // stay at the same node
+    if (!(use_daemon && ret == CMD_SUCCESS_DAEMON) &&
+	ret != CMD_SUCCESS && ret != CMD_WARNING &&
+	ret != CMD_ERR_NOTHING_TODO)
+      {
+	vty->node = saved_node;
+
+	memcpy(vty->error_buf, vty->buf, VTY_BUFSIZ);
+      }
+  }
+
+  cmd_free_strvec (vline);
+
+  return ret;
+}
+
 /* Configuration make from file. */
 int
 config_from_file (struct vty *vty, FILE *fp, unsigned int *line_num)
 {
   int ret, error_ret=0;
-  int saved_node;
   *line_num = 0;
-  vector vline;
 
   while (fgets (vty->buf, VTY_BUFSIZ, fp))
     {
       if (!error_ret)
 	++(*line_num);
 
-      vline = cmd_make_strvec (vty->buf);
+      ret = command_config_read_one_line (vty, NULL, 0);
 
-      /* In case of comment line */
-      if (vline == NULL)
-	continue;
-      /* Execute configuration command : this is strict match */
-      ret = cmd_execute_command_strict (vline, vty, NULL);
-
-      // Climb the tree and try the command again at each node
       if (ret != CMD_SUCCESS && ret != CMD_WARNING &&
-          ret != CMD_ERR_NOTHING_TODO && vty->node != CONFIG_NODE) {
-
-          saved_node = vty->node;
-
-          while (ret != CMD_SUCCESS && ret != CMD_WARNING &&
-                 ret != CMD_ERR_NOTHING_TODO && vty->node != CONFIG_NODE) {
-              vty->node = node_parent(vty->node);
-              ret = cmd_execute_command_strict (vline, vty, NULL);
-          }
-
-          // If climbing the tree did not work then ignore the command and
-          // stay at the same node
-          if (ret != CMD_SUCCESS && ret != CMD_WARNING &&
-              ret != CMD_ERR_NOTHING_TODO) {
-              vty->node = saved_node;
-
-              if (!error_ret) {
-                  memcpy(vty->error_buf, vty->buf, VTY_BUFSIZ);
-                  error_ret = ret;
-              }
-          }
-      }
-
-      cmd_free_strvec (vline);
+	  ret != CMD_ERR_NOTHING_TODO)
+	error_ret = ret;
     }
 
   if (error_ret) {

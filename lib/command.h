@@ -532,6 +532,7 @@ extern void cmd_free_strvec (vector);
 extern vector cmd_describe_command (vector, struct vty *, int *status);
 extern char **cmd_complete_command (vector, struct vty *, int *status);
 extern const char *cmd_prompt (enum node_type);
+extern int command_config_read_one_line (struct vty *vty, struct cmd_element **, int use_config_node);
 extern int config_from_file (struct vty *, FILE *, unsigned int *line_num);
 extern enum node_type node_parent (enum node_type);
 extern int cmd_execute_command (vector, struct vty *, struct cmd_element **, int);
