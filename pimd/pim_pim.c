@@ -206,6 +206,20 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	       pim_version, pim_type, pim_msg_len, checksum);
   }
 
+  if (pim_type == PIM_MSG_TYPE_REGISTER  ||
+      pim_type == PIM_MSG_TYPE_REG_STOP  ||
+      pim_type == PIM_MSG_TYPE_BOOTSTRAP ||
+      pim_type == PIM_MSG_TYPE_GRAFT     ||
+      pim_type == PIM_MSG_TYPE_GRAFT_ACK ||
+      pim_type == PIM_MSG_TYPE_CANDIDATE)
+    {
+      if (PIM_DEBUG_PIM_PACKETS) {
+	zlog_debug("Recv PIM packet type %d which is not currently understood",
+		   pim_type);
+      }
+      return -1;
+    }
+
   if (pim_type == PIM_MSG_TYPE_HELLO) {
     int result = pim_hello_recv(ifp,
                  ip_hdr->ip_src,
