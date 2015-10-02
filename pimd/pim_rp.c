@@ -74,6 +74,20 @@ pim_rp_i_am_rp (struct in_addr group)
 }
 
 /*
+ * RP(G)
+ *
+ * Return the RP that the Group belongs too.
+ */
+struct in_addr
+pim_rp_g (struct in_addr group)
+{
+  /*
+   * For staticly configured RP, it is always the qpim_rp
+   */
+  return(qpim_rp);
+}
+
+/*
  * Set the upstream IP address we want to talk to based upon
  * the rp configured and the source address
  *
