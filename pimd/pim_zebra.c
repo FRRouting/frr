@@ -150,8 +150,6 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
   if (!ifp)
     return 0;
 
-  zlog_info("INTERFACE UP: %s ifindex=%d", ifp->name, ifp->ifindex);
-
   if (PIM_DEBUG_ZEBRA) {
     zlog_debug("%s: %s index %d flags %ld metric %d mtu %d operative %d",
 	       __PRETTY_FUNCTION__,
@@ -181,8 +179,6 @@ static int pim_zebra_if_state_down(int command, struct zclient *zclient,
   ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
   if (!ifp)
     return 0;
-
-  zlog_info("INTERFACE DOWN: %s ifindex=%d", ifp->name, ifp->ifindex);
 
   if (PIM_DEBUG_ZEBRA) {
     zlog_debug("%s: %s index %d flags %ld metric %d mtu %d operative %d",
@@ -242,8 +238,6 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
   struct connected *c;
   struct prefix *p;
 
-  zassert(command == ZEBRA_INTERFACE_ADDRESS_ADD);
-
   /*
     zebra api notifies address adds/dels events by using the same call
     interface_add_read below, see comments in lib/zclient.c
@@ -278,17 +272,19 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 
     struct in_addr primary_addr = pim_find_primary_addr(c->ifp);
     if (primary_addr.s_addr != p->u.prefix4.s_addr) {
-      /* but we had a primary address already */
+      if (PIM_DEBUG_ZEBRA) {
+	/* but we had a primary address already */
 
-      char buf[BUFSIZ];
-      char old[100];
+	char buf[BUFSIZ];
+	char old[100];
 
-      prefix2str(p, buf, BUFSIZ);
-      pim_inet4_dump("<old?>", primary_addr, old, sizeof(old));
+	prefix2str(p, buf, BUFSIZ);
+	pim_inet4_dump("<old?>", primary_addr, old, sizeof(old));
 
-      zlog_warn("%s: %s primary addr old=%s: forcing secondary flag on new=%s",
-		__PRETTY_FUNCTION__,
-		c->ifp->name, old, buf);
+	zlog_warn("%s: %s primary addr old=%s: forcing secondary flag on new=%s",
+		  __PRETTY_FUNCTION__,
+		  c->ifp->name, old, buf);
+      }
       SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
     }
   }
@@ -303,8 +299,6 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 {
   struct connected *c;
   struct prefix *p;
-
-  zassert(command == ZEBRA_INTERFACE_ADDRESS_DELETE);
 
   /*
     zebra api notifies address adds/dels events by using the same call
