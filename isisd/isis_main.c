@@ -246,7 +246,12 @@ main (int argc, char **argv, char **envp)
   _argc = argc;
   _argv = argv;
   _envp = envp;
-  getcwd (_cwd, sizeof (_cwd));
+  if (getcwd (_cwd, sizeof (_cwd)) == NULL)
+    {
+      zlog_err ("ISISd: Unable to determine CWD: %d", errno);
+      exit (1);
+    }
+
   if (*argv[0] == '.')
     snprintf (_progpath, sizeof (_progpath), "%s/%s", _cwd, _argv[0]);
   else
@@ -348,8 +353,11 @@ main (int argc, char **argv, char **envp)
     return(0);
   
   /* demonize */
-  if (daemon_mode)
-    daemon (0, 0);
+  if (daemon_mode && daemon (0, 0) < 0)
+    {
+      zlog_err("ISISd daemon failed: %s", strerror(errno));
+      return (1);
+    }
 
   /* Process ID file creation. */
   if (pid_file[0] != '\0')

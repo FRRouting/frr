@@ -67,8 +67,36 @@ const char *zlog_priority[] =
   "debugging",
   NULL,
 };
-  
 
+/*
+ * write_wrapper
+ *
+ * glibc has declared that the return value from write *must* not be
+ * ignored.
+ * gcc see's this problem and issues a warning for the line.
+ *
+ * Why is this a big deal you say?  Because both of them are right
+ * and if you have -Werror enabled then all calls to write
+ * generate a build error and the build stops.
+ *
+ * clang has helpfully allowed this construct:
+ * (void)write(...)
+ * to tell the compiler yeah I know it has a return value
+ * I don't care about it at this time.
+ * gcc doesn't have this ability.
+ *
+ * This code was written such that it didn't care about the
+ * return value from write.  At this time do I want
+ * to go through and fix and test this code for correctness.
+ * So just wrapper the bad behavior and move on.
+ */
+static void write_wrapper (int fd, const void *buf, size_t count)
+{
+  if (write (fd, buf, count) <= 0)
+    return;
+
+  return;
+}
 
 /* For time string format. */
 
@@ -324,7 +352,7 @@ syslog_sigsafe(int priority, const char *msg, size_t msglen)
     }
   s = str_append(LOC,": ");
   s = str_append(LOC,msg);
-  write(syslog_fd,buf,s-buf);
+  write_wrapper (syslog_fd,buf,s-buf);
 #undef LOC
 }
 
@@ -405,7 +433,7 @@ zlog_signal(int signo, const char *action
   /* N.B. implicit priority is most severe */
 #define PRI LOG_CRIT
 
-#define DUMP(FD) write(FD, buf, s-buf);
+#define DUMP(FD) write_wrapper(FD, buf, s-buf);
   /* If no file logging configured, try to write to fallback log file. */
   if ((logfile_fd >= 0) || ((logfile_fd = open_crashlog()) >= 0))
     DUMP(logfile_fd)
@@ -456,17 +484,17 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
 #define DUMP(FD) { \
   if (program_counter) \
     { \
-      write(FD, pclabel, sizeof(pclabel)-1); \
+      write_wrapper(FD, pclabel, sizeof(pclabel)-1); \
       backtrace_symbols_fd(&program_counter, 1, FD); \
     } \
-  write(FD, buf, s-buf);	\
+  write_wrapper(FD, buf, s-buf);	\
   backtrace_symbols_fd(array, size, FD); \
 }
 #elif defined(HAVE_PRINTSTACK)
 #define DUMP(FD) { \
   if (program_counter) \
-    write((FD), pclabel, sizeof(pclabel)-1); \
-  write((FD), buf, s-buf); \
+    write_wrapper((FD), pclabel, sizeof(pclabel)-1); \
+  write_wrapper((FD), buf, s-buf); \
   printstack((FD)); \
 }
 #endif /* HAVE_GLIBC_BACKTRACE, HAVE_PRINTSTACK */

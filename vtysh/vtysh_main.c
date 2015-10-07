@@ -336,7 +336,13 @@ main (int argc, char **argv, char **env)
 
   /* Ignore error messages */
   if (no_error)
-    freopen("/dev/null", "w", stdout);
+    {
+      if (freopen("/dev/null", "w", stdout) == NULL)
+	{
+	  fprintf(stderr, "Exiting: Failed to duplicate stdout with -n option");
+	  exit(1);
+	}
+    }
 
   /* Make sure we pass authentication before proceeding. */
   vtysh_auth ();
