@@ -219,7 +219,23 @@ end
 
         # the keywords that we know are single line contexts. bgp in this case
         # is not the main router bgp block, but enabling multi-instance
-        oneline_ctx_keywords = ("ip ", "ipv6 ", "log ", "hostname ", "zebra ", "ptm-enable", "debug ", "service ", "enable ", "password ", "access-list ", "bgp ")
+        oneline_ctx_keywords = ("access-list ",
+                                "bgp ",
+                                "debug ",
+                                "dump ",
+                                "enable ",
+                                "hostname ",
+                                "ip ",
+                                "ipv6 ",
+                                "log ",
+                                "password ",
+                                "ptm-enable",
+                                "router-id ",
+                                "service ",
+                                "table ",
+                                "username ",
+                                "zebra ")
+
 
         for line in self.lines:
 
