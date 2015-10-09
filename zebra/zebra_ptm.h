@@ -46,6 +46,10 @@ struct zebra_ptm_cb
   int pid;
 };
 
+#define ZEBRA_PTM_STATUS_DOWN 0
+#define ZEBRA_PTM_STATUS_UP 1
+#define ZEBRA_PTM_STATUS_UNKNOWN 2
+
 void zebra_ptm_init (void);
 void zebra_ptm_finish(void);
 int zebra_ptm_connect (struct thread *t);
@@ -55,4 +59,6 @@ int zebra_ptm_get_enable_state(void);
 int zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
                                   int command);
 int zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length);
+void
+zebra_ptm_show_status(struct vty *vty, struct interface *ifp);
 #endif

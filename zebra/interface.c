@@ -611,7 +611,7 @@ if_up (struct interface *ifp)
   struct prefix *p;
 
   /* Notify the protocol daemons. */
-  if (ifp->ptm_enable && !ifp->ptm_status) {
+  if (ifp->ptm_enable && (ifp->ptm_status == ZEBRA_PTM_STATUS_DOWN)) {
     zlog_warn("%s: interface %s hasn't passed ptm check\n", __func__,
 	      ifp->name);
     return;
@@ -836,16 +836,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
     vty_out (vty, "down%s", VTY_NEWLINE);
   }
 
-  vty_out (vty, "  PTM status: ");
-  if (ifp->ptm_enable) {
-    if (ifp->ptm_status) {
-      vty_out (vty, "pass%s", VTY_NEWLINE);
-    } else {
-      vty_out (vty, "fail%s", VTY_NEWLINE);
-    }
-  } else {
-    vty_out (vty, "disabled%s", VTY_NEWLINE);
-  }
+  zebra_ptm_show_status(vty, ifp);
 
   if (ifp->desc)
     vty_out (vty, "  Description: %s%s", ifp->desc,

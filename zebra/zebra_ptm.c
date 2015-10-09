@@ -82,6 +82,8 @@ int zebra_ptm_sock_read(struct thread *);
 static void zebra_ptm_install_commands (void);
 static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req (void);
+void zebra_ptm_send_status_req(void);
+void zebra_ptm_reset_status(int ptm_disable);
 
 const char ZEBRA_PTM_SOCK_NAME[] = "\0/var/run/ptmd.socket";
 
@@ -161,6 +163,7 @@ zebra_ptm_flush_messages (struct thread *thread)
                     safe_strerror (errno));
       close(ptm_cb.ptm_sock);
       ptm_cb.ptm_sock = -1;
+      zebra_ptm_reset_status(0);
       ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
                                             NULL, ptm_cb.reconnect_time);
       return (-1);
@@ -185,6 +188,7 @@ zebra_ptm_send_message(char *data, int size)
       zlog_warn ("%s ptm socket error: %s", __func__, safe_strerror (errno));
       close(ptm_cb.ptm_sock);
       ptm_cb.ptm_sock = -1;
+      zebra_ptm_reset_status(0);
       ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
                                             NULL, ptm_cb.reconnect_time);
       return -1;
@@ -204,8 +208,6 @@ int
 zebra_ptm_connect (struct thread *t)
 {
   int init = 0;
-  void *out_ctxt;
-  int len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 
   if (ptm_cb.ptm_sock == -1) {
     zebra_ptm_socket_init();
@@ -218,15 +220,7 @@ zebra_ptm_connect (struct thread *t)
                                       NULL, ptm_cb.ptm_sock);
       zebra_bfd_peer_replay_req();
     }
-
-    if (ptm_cb.ptm_enable) {
-      ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
-      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR,
-                          ZEBRA_PTM_GET_STATUS_CMD);
-      ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &len);
-
-      zebra_ptm_send_message(ptm_cb.out_data, len);
-    }
+    zebra_ptm_send_status_req();
     ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
   } else {
     ptm_cb.reconnect_time *= 2;
@@ -254,7 +248,8 @@ DEFUN (zebra_ptm_enable,
     if (!ifp->ptm_enable)
       {
 	ifp->ptm_enable = 1;
-	ifp->ptm_status = 1;	/* to bring down ports that may fail check */
+        /* Assign a default unknown status */
+	ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
       }
 
   zebra_ptm_connect(NULL);
@@ -268,28 +263,8 @@ DEFUN (no_zebra_ptm_enable,
        NO_STR
        "Enable neighbor check with specified topology\n")
 {
-  struct listnode *i;
-  struct interface *ifp;
-  int send_linkup;
-
   ptm_cb.ptm_enable = 0;
-  for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
-    {
-      if (ifp->ptm_enable)
-	{
-	  if (!if_is_operative(ifp))
-	    send_linkup = 1;
-
-	  ifp->ptm_enable = 0;
-	  if (if_is_operative (ifp) && send_linkup) {
-            if (IS_ZEBRA_DEBUG_EVENT)
-	      zlog_debug ("%s: Bringing up interface %s", __func__,
-			    ifp->name);
-	    if_up (ifp);
-	  }
-	}
-    }
-
+  zebra_ptm_reset_status(1);
   return CMD_SUCCESS;
 }
 
@@ -436,22 +411,30 @@ static int
 zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt, struct interface *ifp,
                          char *cbl_str)
 {
+  int send_linkup = 0;
+
   if (IS_ZEBRA_DEBUG_EVENT)
     zlog_debug("%s: Recv Port [%s] cbl status [%s]", __func__,
              ifp->name, cbl_str);
 
-  if (!strcmp(cbl_str, ZEBRA_PTM_PASS_STR) && (!ifp->ptm_status)) {
-    ifp->ptm_status = 1;
-    if (ifp->ptm_enable && if_is_no_ptm_operative (ifp))
+  if (!strcmp(cbl_str, ZEBRA_PTM_PASS_STR) &&
+              (ifp->ptm_status != ZEBRA_PTM_STATUS_UP)) {
+
+    if (ifp->ptm_status == ZEBRA_PTM_STATUS_DOWN)
+      send_linkup = 1;
+    ifp->ptm_status = ZEBRA_PTM_STATUS_UP;
+    if (ifp->ptm_enable && if_is_no_ptm_operative (ifp) && send_linkup)
       if_up (ifp);
-  } else if (!strcmp (cbl_str, ZEBRA_PTM_FAIL_STR) && (ifp->ptm_status)) {
-    ifp->ptm_status = 0;
+  } else if (!strcmp (cbl_str, ZEBRA_PTM_FAIL_STR) &&
+              (ifp->ptm_status != ZEBRA_PTM_STATUS_DOWN)) {
+    ifp->ptm_status = ZEBRA_PTM_STATUS_DOWN;
     if (ifp->ptm_enable && if_is_no_ptm_operative (ifp))
       if_down (ifp);
   }
 
   return 0;
 }
+
 /*
  * zebra_ptm_handle_msg_cb - The purpose of this callback function is to handle
  *  all the command responses and notifications received from PTM.
@@ -541,6 +524,7 @@ zebra_ptm_sock_read (struct thread *thread)
 
       close (ptm_cb.ptm_sock);
       ptm_cb.ptm_sock = -1;
+      zebra_ptm_reset_status(0);
       ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
                                          NULL, ptm_cb.reconnect_time);
       return (-1);
@@ -860,4 +844,80 @@ int
 zebra_ptm_get_enable_state(void)
 {
   return ptm_cb.ptm_enable;
+}
+
+/*
+ * zebra_ptm_get_status_str - Convert status to a display string.
+ */
+static const char *
+zebra_ptm_get_status_str(int status)
+{
+  switch (status)
+  {
+    case ZEBRA_PTM_STATUS_DOWN:
+      return "fail";
+    case ZEBRA_PTM_STATUS_UP:
+      return "pass";
+    case ZEBRA_PTM_STATUS_UNKNOWN:
+    default:
+      return "n/a";
+  }
+}
+
+void
+zebra_ptm_show_status(struct vty *vty, struct interface *ifp)
+{
+  vty_out (vty, "  PTM status: ");
+  if (ifp->ptm_enable) {
+    vty_out (vty, "%s%s", zebra_ptm_get_status_str (ifp->ptm_status),
+                          VTY_NEWLINE);
+  } else {
+    vty_out (vty, "disabled%s", VTY_NEWLINE);
+  }
+}
+
+void
+zebra_ptm_send_status_req(void)
+{
+  void *out_ctxt;
+  int len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
+
+  if (ptm_cb.ptm_enable)
+    {
+      ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR,
+                          ZEBRA_PTM_GET_STATUS_CMD);
+      ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &len);
+
+      zebra_ptm_send_message(ptm_cb.out_data, len);
+    }
+}
+
+void
+zebra_ptm_reset_status(int ptm_disable)
+{
+  struct listnode *i;
+  struct interface *ifp;
+  int send_linkup;
+
+  for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
+    {
+      send_linkup = 0;
+      if (ifp->ptm_enable)
+	{
+	  if (!if_is_operative(ifp))
+	    send_linkup = 1;
+
+          if (ptm_disable)
+	    ifp->ptm_enable = 0;
+          ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
+
+	  if (if_is_operative (ifp) && send_linkup) {
+            if (IS_ZEBRA_DEBUG_EVENT)
+	      zlog_debug ("%s: Bringing up interface %s", __func__,
+			    ifp->name);
+	    if_up (ifp);
+	  }
+	}
+    }
 }
