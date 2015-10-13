@@ -113,7 +113,7 @@ static struct cmd_node smux_node =
 };
 
 /* thread master */
-static struct thread_master *master;
+static struct thread_master *smux_master;
 
 static int
 oid_compare_part (oid *o1, int o1_len, oid *o2, int o2_len)
@@ -1239,13 +1239,13 @@ smux_event (enum smux_event event, int sock)
   switch (event)
     {
     case SMUX_SCHEDULE:
-      smux_connect_thread = thread_add_event (master, smux_connect, NULL, 0);
+      smux_connect_thread = thread_add_event (smux_master, smux_connect, NULL, 0);
       break;
     case SMUX_CONNECT:
-      smux_connect_thread = thread_add_timer (master, smux_connect, NULL, 10);
+      smux_connect_thread = thread_add_timer (smux_master, smux_connect, NULL, 10);
       break;
     case SMUX_READ:
-      smux_read_thread = thread_add_read (master, smux_read, NULL, sock);
+      smux_read_thread = thread_add_read (smux_master, smux_read, NULL, sock);
       break;
     default:
       break;
@@ -1473,8 +1473,9 @@ smux_tree_cmp(struct subtree *tree1, struct subtree *tree2)
 void
 smux_init (struct thread_master *tm)
 {
+  assert (tm);
   /* copy callers thread master */
-  master = tm;
+  smux_master = tm;
   
   /* Make MIB tree. */
   treelist = list_new();
