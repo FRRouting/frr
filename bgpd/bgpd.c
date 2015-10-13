@@ -2904,7 +2904,7 @@ bgp_delete (struct bgp *bgp)
   if (list_isempty(bm->bgp))
     bgp_close ();
 
-  thread_master_free_unused(master);
+  thread_master_free_unused(bm->master);
   bgp_unlock(bgp);  /* initial reference */
 
   return 0;
@@ -6874,6 +6874,7 @@ bgp_master_init (void)
   bm->bgp = list_new ();
   bm->listen_sockets = list_new ();
   bm->port = BGP_PORT_DEFAULT;
+  bm->master = thread_master_create ();
   bm->start_time = bgp_clock ();
 
   bgp_process_queue_init();

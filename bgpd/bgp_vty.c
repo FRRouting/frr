@@ -4946,7 +4946,7 @@ DEFUN (bgp_set_route_map_delay_timer,
       if (!rmap_delay_timer && bgp->t_rmap_update )
 	{
 	  BGP_TIMER_OFF(bgp->t_rmap_update);
-	  thread_execute(master, bgp_route_map_update_timer, &bgp, 0);
+	  thread_execute (bm->master, bgp_route_map_update_timer, &bgp, 0);
 	}
       return CMD_SUCCESS;
     }

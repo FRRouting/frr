@@ -1287,7 +1287,7 @@ main (void)
 {
   int i = 0;
   bgp_master_init ();
-  master = thread_master_create();
+  master = bm->master;
   bgp_option_set (BGP_OPT_NO_LISTEN);
   bgp_attr_init ();
   

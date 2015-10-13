@@ -329,7 +329,6 @@ main (int argc, char **argv)
 
   /* BGP master init. */
   bgp_master_init ();
-  master = thread_master_create();
 
   /* Command line argument treatment. */
   while (1) 
@@ -407,6 +406,9 @@ main (int argc, char **argv)
 	  break;
 	}
     }
+
+  /* Make thread master. */
+  master = bm->master;
 
   /* Initializations. */
   srand (time (NULL));
