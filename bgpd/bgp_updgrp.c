@@ -1182,7 +1182,7 @@ update_subgroup_trigger_merge_check (struct update_subgroup *subgrp,
     return 0;
 
   subgrp->t_merge_check =
-    thread_add_background (master,
+    thread_add_background (bm->master,
 			   update_subgroup_merge_check_thread_cb,
 			   subgrp, 0);
 

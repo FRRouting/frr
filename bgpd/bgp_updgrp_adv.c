@@ -743,7 +743,7 @@ subgroup_announce_all (struct update_subgroup *subgrp)
    */
   if (!subgrp->t_coalesce)
     {
-      THREAD_TIMER_MSEC_ON (master, subgrp->t_coalesce, subgroup_coalesce_timer,
+      THREAD_TIMER_MSEC_ON (bm->master, subgrp->t_coalesce, subgroup_coalesce_timer,
 		            subgrp, subgrp->v_coalesce);
     }
 }

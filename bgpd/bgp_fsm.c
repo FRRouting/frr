@@ -799,7 +799,7 @@ bgp_maxmed_onstartup_begin (struct bgp *bgp)
   zlog_info ("Begin maxmed onstartup mode - timer %d seconds",
              bgp->v_maxmed_onstartup);
 
-  THREAD_TIMER_ON (master, bgp->t_maxmed_onstartup,
+  THREAD_TIMER_ON (bm->master, bgp->t_maxmed_onstartup,
                    bgp_maxmed_onstartup_timer,
                    bgp, bgp->v_maxmed_onstartup);
 
@@ -869,11 +869,11 @@ bgp_update_delay_begin (struct bgp *bgp)
     peer->update_delay_over = 0;
 
   /* Start the update-delay timer */
-  THREAD_TIMER_ON (master, bgp->t_update_delay, bgp_update_delay_timer,
+  THREAD_TIMER_ON (bm->master, bgp->t_update_delay, bgp_update_delay_timer,
                    bgp, bgp->v_update_delay);
 
   if (bgp->v_establish_wait != bgp->v_update_delay)
-    THREAD_TIMER_ON (master, bgp->t_establish_wait, bgp_establish_wait_timer,
+    THREAD_TIMER_ON (bm->master, bgp->t_establish_wait, bgp_establish_wait_timer,
                      bgp, bgp->v_establish_wait);
 
   quagga_timestamp(3, bgp->update_delay_begin_time,

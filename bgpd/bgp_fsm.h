@@ -26,7 +26,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_READ_ON(T,F,V)			\
   do {						\
     if (!(T) && (peer->status != Deleted))	\
-      THREAD_READ_ON(master,T,F,peer,V);	\
+      THREAD_READ_ON(bm->master,T,F,peer,V);	\
   } while (0)
 
 #define BGP_READ_OFF(T)				\
@@ -38,13 +38,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_WRITE_ON(T,F,V)			\
   do {						\
     if (!(T) && (peer->status != Deleted))	\
-      THREAD_WRITE_ON(master,(T),(F),peer,(V)); \
+      THREAD_WRITE_ON(bm->master,(T),(F),peer,(V)); \
   } while (0)
 
 #define BGP_PEER_WRITE_ON(T,F,V, peer)			\
   do {							\
     if (!(T) && ((peer)->status != Deleted))		\
-      THREAD_WRITE_ON(master,(T),(F),(peer),(V));	\
+      THREAD_WRITE_ON(bm->master,(T),(F),(peer),(V));	\
   } while (0)
 
 #define BGP_WRITE_OFF(T)			\
@@ -56,7 +56,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_TIMER_ON(T,F,V)			\
   do {						\
     if (!(T) && (peer->status != Deleted))	\
-      THREAD_TIMER_ON(master,(T),(F),peer,(V)); \
+      THREAD_TIMER_ON(bm->master,(T),(F),peer,(V)); \
   } while (0)
 
 #define BGP_TIMER_OFF(T)			\
@@ -68,13 +68,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_EVENT_ADD(P,E)			\
   do {						\
     if ((P)->status != Deleted)			\
-      thread_add_event (master, bgp_event, (P), (E)); \
+      thread_add_event (bm->master, bgp_event, (P), (E)); \
   } while (0)
 
 #define BGP_EVENT_FLUSH(P)			\
   do { 						\
     assert (peer); 				\
-    thread_cancel_event (master, (P)); 		\
+    thread_cancel_event (bm->master, (P)); 		\
   } while (0)
 
 #define BGP_MSEC_JITTER 10

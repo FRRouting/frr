@@ -2710,7 +2710,7 @@ bgp_create (as_t *as, const char *name)
   bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
   bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 
-  THREAD_TIMER_ON (master, bgp->t_startup, bgp_startup_timer_expire,
+  THREAD_TIMER_ON (bm->master, bgp->t_startup, bgp_startup_timer_expire,
                    bgp, bgp->restart_time);
 
   update_bgp_group_init(bgp);
@@ -6889,7 +6889,7 @@ bgp_init (void)
   bgp_scan_init ();
 
   /* Init zebra. */
-  bgp_zebra_init(master);
+  bgp_zebra_init(bm->master);
 
   /* BGP VTY commands installation.  */
   bgp_vty_init ();

@@ -2969,7 +2969,7 @@ bgp_route_map_mark_update (const char *rmap_name)
 	  if (bgp->rmap_update_timer)
             {
                bgp->t_rmap_update =
-                 thread_add_timer(master, bgp_route_map_update_timer, bgp,
+                 thread_add_timer(bm->master, bgp_route_map_update_timer, bgp,
                                   bgp->rmap_update_timer);
               /* Signal the groups that a route-map update event has started */
               update_group_policy_update(bgp, BGP_POLICY_ROUTE_MAP, rmap_name, 1, 1);

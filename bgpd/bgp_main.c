@@ -105,9 +105,6 @@ char config_default[] = SYSCONFDIR BGP_DEFAULT_CONFIG;
 /* Route retain mode flag. */
 static int retain_mode = 0;
 
-/* Master of threads. */
-struct thread_master *master;
-
 /* Manually specified configuration file name.  */
 char *config_file = NULL;
 
@@ -296,8 +293,8 @@ bgp_exit (int status)
   bgp_scan_finish ();
 
   /* reverse bgp_master_init */
-  if (master)
-    thread_master_free (master);
+  if (bm->master)
+    thread_master_free (bm->master);
 
   if (zlog_default)
     closezlog (zlog_default);
@@ -407,15 +404,13 @@ main (int argc, char **argv)
 	}
     }
 
-  /* Make thread master. */
-  master = bm->master;
 
   /* Initializations. */
   srand (time (NULL));
-  signal_init (master, array_size(bgp_signals), bgp_signals);
+  signal_init (bm->master, array_size(bgp_signals), bgp_signals);
   zprivs_init (&bgpd_privs);
   cmd_init (1);
-  vty_init (master);
+  vty_init (bm->master);
   memory_init ();
 
   /* BGP related initialization.  */
@@ -449,7 +444,7 @@ main (int argc, char **argv)
 	       bm->port);
 
   /* Start finite state machine, here we go! */
-  while (thread_fetch (master, &thread))
+  while (thread_fetch (bm->master, &thread))
     thread_call (&thread);
 
   /* Not reached. */
