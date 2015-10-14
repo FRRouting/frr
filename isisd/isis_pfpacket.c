@@ -230,12 +230,24 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 			LLC_LEN, MSG_PEEK,
 			(struct sockaddr *) &s_addr, (socklen_t *) &addr_len);
 
-  if (bytesread < 0)
+  if ((bytesread < 0) || (s_addr.sll_ifindex != (int)circuit->interface->ifindex))
     {
-      zlog_warn ("isis_recv_packet_bcast(): ifname %s, fd %d, bytesread %d, "
-                 "recvfrom(): %s",
-                 circuit->interface->name, circuit->fd, bytesread,
-                 safe_strerror (errno));
+      if (bytesread < 0)
+        {
+          zlog_warn ("isis_recv_packet_bcast(): ifname %s, fd %d, "
+                     "bytesread %d, recvfrom(): %s",
+                     circuit->interface->name, circuit->fd, bytesread,
+                     safe_strerror (errno));
+        }
+      if (s_addr.sll_ifindex != (int)circuit->interface->ifindex)
+        {
+          zlog_warn("packet is received on multiple interfaces: "
+                    "socket interface %d, circuit interface %d, "
+                    "packet type %u",
+                    s_addr.sll_ifindex, circuit->interface->ifindex,
+                    s_addr.sll_pkttype);
+        }
+
       /* get rid of the packet */
       bytesread = recvfrom (circuit->fd, discard_buff, sizeof (discard_buff),
                             MSG_DONTWAIT, (struct sockaddr *) &s_addr,
