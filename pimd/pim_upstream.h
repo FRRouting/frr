@@ -72,6 +72,11 @@ enum pim_upstream_state {
   PIM_UPSTREAM_JOINED
 };
 
+enum pim_upstream_sptbit {
+  PIM_UPSTREAM_SPTBIT_FALSE,
+  PIM_UPSTREAM_SPTBIT_TRUE
+};
+
 /*
   Upstream (S,G) channel in Joined state
   
@@ -87,6 +92,8 @@ struct pim_upstream {
   struct channel_oil      *channel_oil;
 
   enum pim_upstream_state  join_state;
+  enum pim_upstream_sptbit sptbit;
+
   int                      ref_count;
 
   struct pim_rpf           rpf;

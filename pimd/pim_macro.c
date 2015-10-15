@@ -227,8 +227,6 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 {
   struct interface *ifp;
 
-  /* SPTbit(S,G) is always true for PIM-SSM-Only Routers */
-
   ifp = ch->interface;
   if (!ifp) {
     char src_str[100];
@@ -240,6 +238,10 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 	      src_str, grp_str);
     return 0; /* false */
   }
+
+  /* SPTbit(S,G) == TRUE */
+  if (ch->upstream->sptbit == PIM_UPSTREAM_SPTBIT_FALSE)
+    return 0; /* false */
 
   /* RPF_interface(S) != I ? */
   if (ch->upstream->rpf.source_nexthop.interface == ifp)

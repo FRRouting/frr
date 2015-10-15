@@ -799,9 +799,10 @@ static void assert_action_a6(struct pim_ifchannel *ch,
   /*
     If (I is RPF_interface(S)) AND (UpstreamJPState(S,G) == true) set
     SPTbit(S,G) to TRUE.
-    
-    Notice: For PIM SSM, SPTbit(S,G) is already always true.
   */
+  if (ch->upstream->rpf.source_nexthop.interface == ch->interface)
+   if (ch->upstream->join_state == PIM_UPSTREAM_JOINED)
+     ch->upstream->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 
   zassert(ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER);
 }
