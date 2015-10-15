@@ -238,6 +238,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 {
   struct connected *c;
   struct prefix *p;
+  struct in_addr old = { .s_addr = 0 };
 
   /*
     zebra api notifies address adds/dels events by using the same call
@@ -267,6 +268,8 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
     dump_if_address(c->ifp);
 #endif
   }
+
+  pim_rp_check_rp (old, p->u.prefix4);
 
   if (!CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)) {
     /* trying to add primary address */
@@ -300,6 +303,7 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 {
   struct connected *c;
   struct prefix *p;
+  struct in_addr new = { .s_addr = 0 };
 
   /*
     zebra api notifies address adds/dels events by using the same call
@@ -330,6 +334,7 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 #endif
   }
 
+  pim_rp_check_rp (p->u.prefix4, new);
   pim_if_addr_del(c, 0);
   
   return 0;
