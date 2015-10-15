@@ -54,7 +54,7 @@ libpim_a_SOURCES = \
 	pim_hello.c pim_ifchannel.c pim_join.c pim_assert.c \
 	pim_msg.c pim_upstream.c pim_rpf.c pim_macro.c \
 	pim_igmp_join.c pim_ssmpingd.c pim_int.c pim_rp.c \
-	pim_static.c pim_br.c
+	pim_static.c pim_br.c pim_register.c
 
 noinst_HEADERS = \
 	pimd.h pim_version.h pim_cmd.h pim_signals.h pim_iface.h \
@@ -64,7 +64,7 @@ noinst_HEADERS = \
 	pim_hello.h pim_ifchannel.h pim_join.h pim_assert.h \
 	pim_msg.h pim_upstream.h pim_rpf.h pim_macro.h \
 	pim_igmp_join.h pim_ssmpingd.h pim_int.h pim_rp.h \
-	pim_static.h pim_br.h
+	pim_static.h pim_br.h pim_register.h
 
 pimd_SOURCES = \
 	pim_main.c $(libpim_a_SOURCES)
