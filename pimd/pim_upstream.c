@@ -719,9 +719,8 @@ pim_upstream_keep_alive_timer (struct thread *t)
    * But this is the start.
    */
 
-  return 0;
+  return 1;
 }
-
 
 void
 pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
@@ -731,4 +730,38 @@ pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
 		   up->t_ka_timer,
 		   pim_upstream_keep_alive_timer,
 		   up, time);
+}
+
+/*
+ * 4.2.1 Last-Hop Switchover to the SPT
+ *
+ *  In Sparse-Mode PIM, last-hop routers join the shared tree towards the
+ *  RP.  Once traffic from sources to joined groups arrives at a last-hop
+ *  router, it has the option of switching to receive the traffic on a
+ *  shortest path tree (SPT).
+ *
+ *  The decision for a router to switch to the SPT is controlled as
+ *  follows:
+ *
+ *    void
+ *    CheckSwitchToSpt(S,G) {
+ *      if ( ( pim_include(*,G) (-) pim_exclude(S,G)
+ *             (+) pim_include(S,G) != NULL )
+ *           AND SwitchToSptDesired(S,G) ) {
+ *             # Note: Restarting the KAT will result in the SPT switch
+ *             set KeepaliveTimer(S,G) to Keepalive_Period
+ *      }
+ *    }
+ *
+ *  SwitchToSptDesired(S,G) is a policy function that is implementation
+ *  defined.  An "infinite threshold" policy can be implemented by making
+ *  SwitchToSptDesired(S,G) return false all the time.  A "switch on
+ *  first packet" policy can be implemented by making
+ *  SwitchToSptDesired(S,G) return true once a single packet has been
+ *  received for the source and group.
+ */
+int
+pim_upstream_switch_to_spt_desired (struct in_addr source, struct in_addr group)
+{
+  return 0;
 }
