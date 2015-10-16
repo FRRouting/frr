@@ -116,7 +116,7 @@ static int on_join_timer(struct thread *t)
 
   send_join(up);
 
-  up->t_join_timer = 0;
+  up->t_join_timer = NULL;
   join_timer_start(up);
 
   return 0;
@@ -373,10 +373,11 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
   up->group_addr                 = group_addr;
   up->flags                      = 0;
   up->ref_count                  = 1;
-  up->t_join_timer               = 0;
+  up->t_join_timer               = NULL;
+  up->t_ka_timer                 = NULL;
   up->join_state                 = 0;
   up->state_transition           = pim_time_monotonic_sec();
-  up->channel_oil                = 0;
+  up->channel_oil                = NULL;
   up->sptbit                     = PIM_UPSTREAM_SPTBIT_TRUE;
 
   up->rpf.source_nexthop.interface                = 0;

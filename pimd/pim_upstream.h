@@ -99,6 +99,14 @@ struct pim_upstream {
   struct pim_rpf           rpf;
 
   struct thread           *t_join_timer;
+
+  /*
+   * KAT(S,G)
+   */
+  struct thread           *t_ka_timer;
+#define PIM_KEEPALIVE_PERIOD  (210)
+#define PIM_RP_KEEPALIVE_PERIOD ( 3 * qpim_register_suppress_time + qpim_register_probe_time )
+
   int64_t                  state_transition; /* Record current state uptime */
 };
 

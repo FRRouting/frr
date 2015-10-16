@@ -71,6 +71,9 @@ int64_t                   qpim_mroute_del_last = 0;
 struct list              *qpim_static_route_list = 0;
 struct in_addr            qpim_rp;
 
+int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
+int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
+
 static void pim_free()
 {
   pim_ssmpingd_destroy();

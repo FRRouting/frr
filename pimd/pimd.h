@@ -108,6 +108,15 @@ extern struct in_addr     qpim_rp;
 #define PIM_MROUTE_IS_ENABLED  (qpim_mroute_socket_fd >= 0)
 #define PIM_MROUTE_IS_DISABLED (qpim_mroute_socket_fd < 0)
 
+/*
+ * Register-Stop Timer (RST(S,G))
+ * Default values
+ */
+extern int32_t qpim_register_suppress_time;
+extern int32_t qpim_register_probe_time;
+#define PIM_REGISTER_SUPPRESSION_TIME_DEFAULT      (60)
+#define PIM_REGISTER_PROBE_TIME_DEFAULT            (5)
+
 #define PIM_DEBUG_PIM_EVENTS          (qpim_debugs & PIM_MASK_PIM_EVENTS)
 #define PIM_DEBUG_PIM_PACKETS         (qpim_debugs & PIM_MASK_PIM_PACKETS)
 #define PIM_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs & PIM_MASK_PIM_PACKETDUMP_SEND)
