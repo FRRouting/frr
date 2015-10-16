@@ -101,6 +101,19 @@ vclient_close (struct vtysh_client *vclient)
     }
 }
 
+/* Return true if str begins with prefix, else return false */
+static int
+begins_with(const char *str, const char *prefix)
+{
+  if (!str || !prefix)
+    return 0;
+  size_t lenstr = strlen(str);
+  size_t lenprefix = strlen(prefix);
+  if (lenprefix >  lenstr)
+    return 0;
+  return strncmp(str, prefix, lenprefix) == 0;
+}
+
 /* Following filled with debug code to trace a problematic condition
  * under load - it SHOULD handle it. */
 #define ERR_WHERE_STRING "vtysh(): vtysh_client_config(): "
@@ -1999,7 +2012,7 @@ DEFUN (vtysh_write_terminal_daemon,
 
   for (i = 0; i < array_size(vtysh_client); i++)
     {
-      if (strcmp(vtysh_client[i].name, argv[0]) == 0)
+      if (begins_with(vtysh_client[i].name, argv[0]))
 	break;
     }
 
@@ -2490,19 +2503,6 @@ vtysh_connect (struct vtysh_client *vclient)
   vclient->fd = sock;
 
   return 0;
-}
-
-/* Return true if str begins with prefix, else return false */
-static int
-begins_with(const char *str, const char *prefix)
-{
-  if (!str || !prefix)
-    return 0;
-  size_t lenstr = strlen(str);
-  size_t lenprefix = strlen(prefix);
-  if (lenprefix >  lenstr)
-    return 0;
-  return strncmp(str, prefix, lenprefix) == 0;
 }
 
 /* Return true if str ends with suffix, else return false */
