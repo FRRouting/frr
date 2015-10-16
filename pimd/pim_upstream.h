@@ -135,4 +135,5 @@ void pim_upstream_rpf_interface_changed(struct pim_upstream *up,
 void pim_upstream_update_could_assert(struct pim_upstream *up);
 void pim_upstream_update_my_assert_metric(struct pim_upstream *up);
 
+void pim_upstream_keep_alive_timer_start (struct pim_upstream *up, uint32_t time);
 #endif /* PIM_UPSTREAM_H */

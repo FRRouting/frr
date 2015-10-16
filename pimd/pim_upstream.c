@@ -45,6 +45,7 @@
 #include "pim_oil.h"
 #include "pim_macro.h"
 #include "pim_rp.h"
+#include "pim_br.h"
 
 static void join_timer_start(struct pim_upstream *up);
 static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
@@ -65,6 +66,7 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 void pim_upstream_delete(struct pim_upstream *up)
 {
   THREAD_OFF(up->t_join_timer);
+  THREAD_OFF(up->t_ka_timer);
 
   upstream_channel_oil_detach(up);
 
@@ -698,4 +700,35 @@ static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up)
 
     } /* scan iface channel list */
   } /* scan iflist */
+}
+
+/*
+ * On an RP, the PMBR value must be cleared when the
+ * Keepalive Timer expires
+ */
+static int
+pim_upstream_keep_alive_timer (struct thread *t)
+{
+  struct pim_upstream *up;
+
+  up = THREAD_ARG(t);
+
+  pim_br_clear_pmbr (up->source_addr, up->group_addr);
+  /*
+   * We need to do more here :)
+   * But this is the start.
+   */
+
+  return 0;
+}
+
+
+void
+pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
+				     uint32_t time)
+{
+  THREAD_TIMER_ON (master,
+		   up->t_ka_timer,
+		   pim_upstream_keep_alive_timer,
+		   up, time);
 }

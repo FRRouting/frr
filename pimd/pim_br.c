@@ -81,6 +81,26 @@ pim_br_set_pmbr (struct in_addr source, struct in_addr group, struct in_addr br)
   pim_br->pmbr = br;
 }
 
+/*
+ * Remove the (S,G) from the stored values
+ */
+void
+pim_br_clear_pmbr (struct in_addr source, struct in_addr group)
+{
+  struct listnode *node, *next;
+  struct pim_br *pim_br;
+
+  for (ALL_LIST_ELEMENTS (pim_br_list, node, next, pim_br)) {
+    if (source.s_addr == pim_br->source.s_addr &&
+	group.s_addr == pim_br->group.s_addr)
+      break;
+  }
+
+  if (!pim_br)
+    return;
+
+  listnode_delete (pim_br_list, pim_br);
+}
 
 void pim_br_init (void)
 {
