@@ -822,7 +822,6 @@ peer_global_config_reset (struct peer *peer)
 
   /* Reset some other configs back to defaults. */
   peer->v_start = BGP_INIT_START_TIMER;
-  peer->v_asorig = BGP_DEFAULT_ASORIGINATE;
   peer->password = NULL;
   peer->local_id = peer->bgp->router_id;
   peer->v_holdtime = peer->bgp->default_holdtime;
@@ -1029,7 +1028,6 @@ peer_new (struct bgp *bgp)
   peer->fd = -1;
   peer->v_start = BGP_INIT_START_TIMER;
   peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
-  peer->v_asorig = BGP_DEFAULT_ASORIGINATE;
   peer->status = Idle;
   peer->ostatus = Idle;
   peer->cur_event = peer->last_event = peer->last_major_event = 0;
@@ -1119,7 +1117,6 @@ peer_xfer_config (struct peer *peer_dst, struct peer *peer_src)
   peer_dst->connect = peer_src->connect;
   peer_dst->v_holdtime = peer_src->v_holdtime;
   peer_dst->v_keepalive = peer_src->v_keepalive;
-  peer_dst->v_asorig = peer_src->v_asorig;
   peer_dst->routeadv = peer_src->routeadv;
   peer_dst->v_routeadv = peer_src->v_routeadv;
 

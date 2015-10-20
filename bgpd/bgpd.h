@@ -695,7 +695,6 @@ struct peer
   u_int32_t v_connect;
   u_int32_t v_holdtime;
   u_int32_t v_keepalive;
-  u_int32_t v_asorig;
   u_int32_t v_routeadv;
   u_int32_t v_pmax_restart;
   u_int32_t v_gr_restart;
@@ -707,7 +706,6 @@ struct peer
   struct thread *t_connect;
   struct thread *t_holdtime;
   struct thread *t_keepalive;
-  struct thread *t_asorig;
   struct thread *t_routeadv;
   struct thread *t_pmax_restart;
   struct thread *t_gr_restart;
@@ -999,7 +997,6 @@ struct bgp_nlri
 #define BGP_ERROR_START_TIMER                   30
 #define BGP_DEFAULT_HOLDTIME                   180
 #define BGP_DEFAULT_KEEPALIVE                   60 
-#define BGP_DEFAULT_ASORIGINATE                 15
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
 #define BGP_DEFAULT_CONNECT_RETRY               10
