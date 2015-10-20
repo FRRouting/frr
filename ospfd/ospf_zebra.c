@@ -1024,6 +1024,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   struct prefix_ipv4 p;
   struct external_info *ei;
   struct ospf *ospf;
+  int i;
 
   s = zclient->ibuf;
   ifindex = 0;
@@ -1085,6 +1086,15 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
       /* Protocol tag overwrites all other tag value send by zebra */
       if (ospf->dtag[api.type] > 0)
        api.tag = ospf->dtag[api.type];
+
+      /*
+       * Given zebra sends update for a prefix via ADD message, it should
+       * be considered as an implicit DEL for that prefix with other source
+       * types.
+       */
+      for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+        if (i != api.type)
+          ospf_external_info_delete(i, api.instance, p);
 
       ei = ospf_external_info_add (api.type, api.instance, p, ifindex,
                                    nexthop, api.tag);
