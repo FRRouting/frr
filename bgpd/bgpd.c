@@ -2700,6 +2700,7 @@ bgp_create (as_t *as, const char *name)
   bgp->dynamic_neighbors_count = 0;
   bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
   bgp_flag_set (bgp, BGP_FLAG_SHOW_HOSTNAME);
+  bgp_flag_set (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
 
   bgp->as = *as;
 
@@ -6747,8 +6748,8 @@ bgp_config_write (struct vty *vty)
 		 VTY_NEWLINE);
 
       /* BGP log-neighbor-changes. */
-      if (bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
-	vty_out (vty, " bgp log-neighbor-changes%s", VTY_NEWLINE);
+      if (!bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
+	vty_out (vty, " no bgp log-neighbor-changes%s", VTY_NEWLINE);
 
       /* BGP configuration. */
       if (bgp_flag_check (bgp, BGP_FLAG_ALWAYS_COMPARE_MED))
