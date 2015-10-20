@@ -61,135 +61,169 @@ static int pim_mroute_set(int fd, int enable)
   return 0;
 }
 
+static const char *igmpmsgtype2str[IGMPMSG_WHOLEPKT + 1] = {
+  "<unknown_upcall?>",
+  "NOCACHE",
+  "WRONGVIF",
+  "WHOLEPKT", };
+
+static int
+pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg,
+			const char *src_str, const char *grp_str)
+{
+  return 0;
+}
+
+static int
+pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const struct igmpmsg *msg,
+			 const char *src_str, const char *grp_str)
+{
+  return 0;
+}
+
+static int
+pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *msg,
+			 const char *src_str, const char *grp_str)
+{
+  struct pim_ifchannel *ch;
+  struct pim_interface *pim_ifp;
+
+  /*
+    Send Assert(S,G) on iif as response to WRONGVIF kernel upcall.
+
+    RFC 4601 4.8.2.  PIM-SSM-Only Routers
+
+    iif is the incoming interface of the packet.
+    if (iif is in inherited_olist(S,G)) {
+    send Assert(S,G) on iif
+    }
+  */
+
+  if (!ifp) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) could not find input interface for input_vif_index=%d",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str, msg->im_vif);
+    }
+    return -1;
+  }
+
+  pim_ifp = ifp->info;
+  if (!pim_ifp) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) multicast not enabled on interface %s",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str, ifp->name);
+    }
+    return -2;
+  }
+
+  ch = pim_ifchannel_find(ifp, msg->im_src, msg->im_dst);
+  if (!ch) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) could not find channel on interface %s",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str, ifp->name);
+    }
+    return -3;
+  }
+
+  /*
+    RFC 4601: 4.6.1.  (S,G) Assert Message State Machine
+
+    Transitions from NoInfo State
+
+    An (S,G) data packet arrives on interface I, AND
+    CouldAssert(S,G,I)==TRUE An (S,G) data packet arrived on an
+    downstream interface that is in our (S,G) outgoing interface
+    list.  We optimistically assume that we will be the assert
+    winner for this (S,G), and so we transition to the "I am Assert
+    Winner" state and perform Actions A1 (below), which will
+    initiate the assert negotiation for (S,G).
+  */
+
+  if (ch->ifassert_state != PIM_IFASSERT_NOINFO) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) channel is not on Assert NoInfo state for interface %s",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str, ifp->name);
+    }
+    return -4;
+  }
+
+  if (!PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) interface %s is not downstream for channel",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str, ifp->name);
+    }
+    return -5;
+  }
+
+  if (assert_action_a1(ch)) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) assert_action_a1 failure on interface %s",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str, ifp->name);
+    }
+    return -6;
+  }
+
+  return 0;
+}
+
 int pim_mroute_msg(int fd, const char *buf, int buf_size)
 {
   struct interface     *ifp;
   const struct ip      *ip_hdr;
   const struct igmpmsg *msg;
-  const char *upcall;
-  char src_str[100];
-  char grp_str[100];
+  char src_str[100] = "<src?>";
+  char grp_str[100] = "<grp?>";
 
   ip_hdr = (const struct ip *) buf;
 
   /* kernel upcall must have protocol=0 */
   if (ip_hdr->ip_p) {
     /* this is not a kernel upcall */
-#ifdef PIM_UNEXPECTED_KERNEL_UPCALL
-    zlog_warn("%s: not a kernel upcall proto=%d msg_size=%d",
-	      __PRETTY_FUNCTION__, ip_hdr->ip_p, buf_size);
-#endif
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: not a kernel upcall proto=%d msg_size=%d",
+		 __PRETTY_FUNCTION__, ip_hdr->ip_p, buf_size);
+    }
     return 0;
   }
 
   msg = (const struct igmpmsg *) buf;
 
-  switch (msg->im_msgtype) {
-  case IGMPMSG_NOCACHE:  upcall = "NOCACHE";  break;
-  case IGMPMSG_WRONGVIF: upcall = "WRONGVIF"; break;
-  case IGMPMSG_WHOLEPKT: upcall = "WHOLEPKT"; break;
-  default: upcall = "<unknown_upcall?>";
-  }
   ifp = pim_if_find_by_vif_index(msg->im_vif);
-  pim_inet4_dump("<src?>", msg->im_src, src_str, sizeof(src_str));
-  pim_inet4_dump("<grp?>", msg->im_dst, grp_str, sizeof(grp_str));
-    
-  if (msg->im_msgtype == IGMPMSG_WRONGVIF) {
-    struct pim_ifchannel *ch;
-    struct pim_interface *pim_ifp;
 
-    /*
-      Send Assert(S,G) on iif as response to WRONGVIF kernel upcall.
-      
-      RFC 4601 4.8.2.  PIM-SSM-Only Routers
-      
-      iif is the incoming interface of the packet.
-      if (iif is in inherited_olist(S,G)) {
-      send Assert(S,G) on iif
-      }
-    */
+  if (PIM_DEBUG_PIM_TRACE) {
+    pim_inet4_dump("<src?>", msg->im_src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", msg->im_dst, grp_str, sizeof(grp_str));
+    zlog_warn("%s: kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d",
+	      __PRETTY_FUNCTION__,
+	      igmpmsgtype2str[msg->im_msgtype],
+	      msg->im_msgtype,
+	      ip_hdr->ip_p,
+	      fd,
+	      src_str,
+	      grp_str,
+	      ifp ? ifp->name : "<ifname?>",
+	      msg->im_vif);
+  }
 
-    if (PIM_DEBUG_PIM_TRACE) {
-      zlog_debug("%s: WRONGVIF from fd=%d for (S,G)=(%s,%s) on %s vifi=%d",
-		 __PRETTY_FUNCTION__,
-		 fd,
-		 src_str,
-		 grp_str,
-		 ifp ? ifp->name : "<ifname?>",
-		 msg->im_vif);
-    }
-
-    if (!ifp) {
-      zlog_warn("%s: WRONGVIF (S,G)=(%s,%s) could not find input interface for input_vif_index=%d",
-		__PRETTY_FUNCTION__,
-		src_str, grp_str, msg->im_vif);
-      return -1;
-    }
-
-    pim_ifp = ifp->info;
-    if (!pim_ifp) {
-      zlog_warn("%s: WRONGVIF (S,G)=(%s,%s) multicast not enabled on interface %s",
-		__PRETTY_FUNCTION__,
-		src_str, grp_str, ifp->name);
-      return -2;
-    }
-
-    ch = pim_ifchannel_find(ifp, msg->im_src, msg->im_dst);
-    if (!ch) {
-      zlog_warn("%s: WRONGVIF (S,G)=(%s,%s) could not find channel on interface %s",
-		__PRETTY_FUNCTION__,
-		src_str, grp_str, ifp->name);
-      return -3;
-    }
-
-    /*
-      RFC 4601: 4.6.1.  (S,G) Assert Message State Machine
-
-      Transitions from NoInfo State
-
-      An (S,G) data packet arrives on interface I, AND
-      CouldAssert(S,G,I)==TRUE An (S,G) data packet arrived on an
-      downstream interface that is in our (S,G) outgoing interface
-      list.  We optimistically assume that we will be the assert
-      winner for this (S,G), and so we transition to the "I am Assert
-      Winner" state and perform Actions A1 (below), which will
-      initiate the assert negotiation for (S,G).
-    */
-
-    if (ch->ifassert_state != PIM_IFASSERT_NOINFO) {
-      zlog_warn("%s: WRONGVIF (S,G)=(%s,%s) channel is not on Assert NoInfo state for interface %s",
-		__PRETTY_FUNCTION__,
-		src_str, grp_str, ifp->name);
-      return -4;
-    }
-
-    if (!PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)) {
-      zlog_warn("%s: WRONGVIF (S,G)=(%s,%s) interface %s is not downstream for channel",
-		__PRETTY_FUNCTION__,
-		src_str, grp_str, ifp->name);
-      return -5;
-    }
-
-    if (assert_action_a1(ch)) {
-      zlog_warn("%s: WRONGVIF (S,G)=(%s,%s) assert_action_a1 failure on interface %s",
-		__PRETTY_FUNCTION__,
-		src_str, grp_str, ifp->name);
-      return -6;
-    }
-
-    return 0;
-  } /* IGMPMSG_WRONGVIF */
-
-  zlog_warn("%s: kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d",
-	    __PRETTY_FUNCTION__,
-	    upcall,
-	    msg->im_msgtype,
-	    ip_hdr->ip_p,
-	    fd,
-	    src_str,
-	    grp_str,
-	    ifp ? ifp->name : "<ifname?>",
-	    msg->im_vif);
+  switch (msg->im_msgtype) {
+  case IGMPMSG_WRONGVIF:
+    return pim_mroute_msg_wrongvif(fd, ifp, msg, src_str, grp_str);
+    break;
+  case IGMPMSG_NOCACHE:
+    return pim_mroute_msg_nocache(fd, ifp, msg, src_str, grp_str);
+    break;
+  case IGMPMSG_WHOLEPKT:
+    return pim_mroute_msg_wholepkt(fd, ifp, msg, src_str, grp_str);
+    break;
+  default:
+    break;
+  }
 
   return 0;
 }
