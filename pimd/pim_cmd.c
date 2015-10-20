@@ -2143,7 +2143,7 @@ DEFUN (show_ip_multicast,
 	  qpim_mroute_oif_highest_vif_index,
 	  VTY_NEWLINE);
   vty_out(vty, "Maximum highest VifIndex: %d%s",
-	  MAXVIFS - 1,
+	  MAXVIFS - 2,
 	  VTY_NEWLINE);
 
   vty_out(vty, "%s", VTY_NEWLINE);

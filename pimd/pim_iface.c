@@ -647,7 +647,7 @@ int pim_if_add_vif(struct interface *ifp)
     return -4;
   }
 
-  if (pim_mroute_add_vif(ifp->ifindex, ifaddr)) {
+  if (pim_mroute_add_vif(ifp->ifindex, ifaddr, 0)) {
     /* pim_mroute_add_vif reported error */
     return -5;
   }

@@ -259,6 +259,7 @@ static void mroute_read_off()
 int pim_mroute_socket_enable()
 {
   int fd;
+  struct in_addr pimreg = { .s_addr = 0 };
 
   if (PIM_MROUTE_IS_ENABLED)
     return -1;
@@ -287,6 +288,8 @@ int pim_mroute_socket_enable()
   }
 
   qpim_mroute_socket_fd       = fd;
+  pim_mroute_add_vif(MAXVIFS-1, pimreg, VIFF_REGISTER);
+
   qpim_mroute_socket_creation = pim_time_monotonic_sec();
   mroute_read_on();
 
@@ -325,7 +328,7 @@ int pim_mroute_socket_disable()
   would be used for multicast forwarding, a corresponding multicast
   interface must be added to the kernel.
  */
-int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr)
+int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr, unsigned char flags)
 {
   struct vifctl vc;
   int err;
@@ -338,7 +341,7 @@ int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr)
 
   memset(&vc, 0, sizeof(vc));
   vc.vifc_vifi = vif_index;
-  vc.vifc_flags = 0;
+  vc.vifc_flags = flags;
   vc.vifc_threshold = PIM_MROUTE_MIN_TTL;
   vc.vifc_rate_limit = 0;
   memcpy(&vc.vifc_lcl_addr, &ifaddr, sizeof(vc.vifc_lcl_addr));
@@ -349,7 +352,7 @@ int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr)
   }
 #endif
 
-  err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_VIF, (void*) &vc, sizeof(vc)); 
+  err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_VIF, (void*) &vc, sizeof(vc));
   if (err) {
     char ifaddr_str[100];
     int e = errno;
