@@ -74,9 +74,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGPPEERKEEPALIVE                     19
 #define BGPPEERHOLDTIMECONFIGURED            20
 #define BGPPEERKEEPALIVECONFIGURED           21
-#define BGPPEERMINASORIGINATIONINTERVAL      22
-#define BGPPEERMINROUTEADVERTISEMENTINTERVAL 23
-#define BGPPEERINUPDATEELAPSEDTIME           24
+#define BGPPEERMINROUTEADVERTISEMENTINTERVAL 22
+#define BGPPEERINUPDATEELAPSEDTIME           23
 
 /* BGP MIB bgpIdentifier. */
 #define BGPIDENTIFIER                         0
@@ -189,8 +188,6 @@ struct variable bgp_variables[] =
    3, {3, 1, 20}},
   {BGPPEERKEEPALIVECONFIGURED, INTEGER, RWRITE, bgpPeerTable,
    3, {3, 1, 21}},
-  {BGPPEERMINASORIGINATIONINTERVAL, INTEGER, RWRITE, bgpPeerTable,
-   3, {3, 1, 22}},
   {BGPPEERMINROUTEADVERTISEMENTINTERVAL, INTEGER, RWRITE, bgpPeerTable,
    3, {3, 1, 23}},
   {BGPPEERINUPDATEELAPSEDTIME, GAUGE32, RONLY, bgpPeerTable,
@@ -438,9 +435,6 @@ write_bgpPeerTable (int action, u_char *var_val,
       peer->keepalive = intval;
       peer->v_keepalive = intval;
       break;
-    case BGPPEERMINASORIGINATIONINTERVAL:
-      peer->v_asorig = intval;
-      break;
     case BGPPEERMINROUTEADVERTISEMENTINTERVAL:
       peer->v_routeadv = intval;
       break;
@@ -568,10 +562,6 @@ bgpPeerTable (struct variable *v, oid name[], size_t *length,
 	return SNMP_INTEGER (peer->keepalive);
       else
 	return SNMP_INTEGER (peer->v_keepalive);
-      break;
-    case BGPPEERMINASORIGINATIONINTERVAL:
-      *write_method = write_bgpPeerTable;
-      return SNMP_INTEGER (peer->v_asorig);
       break;
     case BGPPEERMINROUTEADVERTISEMENTINTERVAL:
       *write_method = write_bgpPeerTable;

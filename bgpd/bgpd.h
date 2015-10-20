@@ -255,8 +255,7 @@ struct bgp
 #define BGP_FLAG_DISABLE_NH_CONNECTED_CHK (1 << 16)
 #define BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET (1 << 17)
 #define BGP_FLAG_FORCE_STATIC_PROCESS     (1 << 18)
-#define BGP_FLAG_IMPORT_CHECK_EXACT_MATCH (1 << 19)
-#define BGP_FLAG_SHOW_HOSTNAME            (1 << 20)
+#define BGP_FLAG_SHOW_HOSTNAME            (1 << 19)
 
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -695,7 +694,6 @@ struct peer
   u_int32_t v_connect;
   u_int32_t v_holdtime;
   u_int32_t v_keepalive;
-  u_int32_t v_asorig;
   u_int32_t v_routeadv;
   u_int32_t v_pmax_restart;
   u_int32_t v_gr_restart;
@@ -707,7 +705,6 @@ struct peer
   struct thread *t_connect;
   struct thread *t_holdtime;
   struct thread *t_keepalive;
-  struct thread *t_asorig;
   struct thread *t_routeadv;
   struct thread *t_pmax_restart;
   struct thread *t_gr_restart;
@@ -996,13 +993,11 @@ struct bgp_nlri
 
 /* BGP timers default value.  */
 #define BGP_INIT_START_TIMER                     1
-#define BGP_ERROR_START_TIMER                   30
-#define BGP_DEFAULT_HOLDTIME                   180
-#define BGP_DEFAULT_KEEPALIVE                   60 
-#define BGP_DEFAULT_ASORIGINATE                 15
-#define BGP_DEFAULT_EBGP_ROUTEADV               30
-#define BGP_DEFAULT_IBGP_ROUTEADV                5
-#define BGP_DEFAULT_CONNECT_RETRY              120
+#define BGP_DEFAULT_HOLDTIME                     9
+#define BGP_DEFAULT_KEEPALIVE                    3
+#define BGP_DEFAULT_EBGP_ROUTEADV                0
+#define BGP_DEFAULT_IBGP_ROUTEADV                0
+#define BGP_DEFAULT_CONNECT_RETRY               10
 
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100

@@ -175,6 +175,8 @@ vtysh_config_parse_line (const char *line)
 
   switch (c)
     {
+    /* Suppress exclamation points ! and commented lines. The !s are generated
+     * dynamically in vtysh_config_dump() */
     case '!':
     case '#':
       break;
@@ -188,8 +190,11 @@ vtysh_config_parse_line (const char *line)
 	  else if (strncmp (line, " address-family ipv4 multicast",
 		   strlen (" address-family ipv4 multicast")) == 0)
 	    config = config_get (BGP_IPV4M_NODE, line);
-	  else if (strncmp (line, " address-family ipv6",
-		   strlen (" address-family ipv6")) == 0)
+	  else if (strncmp (line, " address-family ipv4", strlen (" address-family ipv4")) == 0 ||
+	           strncmp (line, " address-family ipv4 unicast", strlen (" address-family ipv4 unicast")) == 0)
+	    config = config_get (BGP_IPV4_NODE, line);
+	  else if (strncmp (line, " address-family ipv6", strlen (" address-family ipv6")) == 0 ||
+	           strncmp (line, " address-family ipv6 unicast", strlen (" address-family ipv6 unicast")) == 0)
 	    config = config_get (BGP_IPV6_NODE, line);
 	  else if (config->index == RMAP_NODE ||
 	           config->index == INTERFACE_NODE ||

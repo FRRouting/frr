@@ -1466,14 +1466,14 @@ bgp_config_write_maxpaths (struct vty *vty, struct bgp *bgp, afi_t afi,
   if (bgp->maxpaths[afi][safi].maxpaths_ebgp != BGP_DEFAULT_MAXPATHS)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
-      vty_out (vty, " maximum-paths %d%s",
+      vty_out (vty, "  maximum-paths %d%s",
 	       bgp->maxpaths[afi][safi].maxpaths_ebgp, VTY_NEWLINE);
     }
 
   if (bgp->maxpaths[afi][safi].maxpaths_ibgp != BGP_DEFAULT_MAXPATHS)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
-      vty_out (vty, " maximum-paths ibgp %d",
+      vty_out (vty, "  maximum-paths ibgp %d",
 	       bgp->maxpaths[afi][safi].maxpaths_ibgp);
       if (CHECK_FLAG (bgp->maxpaths[afi][safi].ibgp_flags,
 		      BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN))
@@ -2153,45 +2153,26 @@ DEFUN (no_bgp_default_show_hostname,
 /* "bgp import-check" configuration.  */
 DEFUN (bgp_network_import_check,
        bgp_network_import_check_cmd,
-       "bgp network import-check {exact}",
+       "bgp network import-check",
        "BGP specific commands\n"
        "BGP network command\n"
-       "Check BGP network route exists in IGP\n"
-       "Match route precisely")
+       "Check BGP network route exists in IGP\n")
 {
   struct bgp *bgp;
-  int trigger = 0;
 
   bgp = vty->index;
   if (!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK))
     {
       bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
-      trigger = 1;
+      bgp_static_redo_import_check(bgp);
     }
-
-  if (argv[0] != NULL)
-    {
-      if (!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH))
-	{
-	  bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
-	  trigger = 1;
-	}
-    }
-  else if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH))
-    {
-      bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
-      trigger = 1;
-    }
-
-  if (trigger)
-    bgp_static_redo_import_check(bgp);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (no_bgp_network_import_check,
        no_bgp_network_import_check_cmd,
-       "no bgp network import-check {exact}",
+       "no bgp network import-check",
        NO_STR
        "BGP specific commands\n"
        "BGP network command\n"
@@ -2203,9 +2184,9 @@ DEFUN (no_bgp_network_import_check,
   if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK))
     {
       bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK);
-      bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
       bgp_static_redo_import_check(bgp);
     }
+
   return CMD_SUCCESS;
 }
 
@@ -4836,7 +4817,7 @@ peer_timers_connect_unset_vty (struct vty *vty, const char *ip_str)
 
 DEFUN (neighbor_timers_connect,
        neighbor_timers_connect_cmd,
-       NEIGHBOR_CMD2 "timers connect <0-65535>",
+       NEIGHBOR_CMD2 "timers connect <1-65535>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
@@ -4860,7 +4841,7 @@ DEFUN (no_neighbor_timers_connect,
 
 ALIAS (no_neighbor_timers_connect,
        no_neighbor_timers_connect_val_cmd,
-       NO_NEIGHBOR_CMD2 "timers connect <0-65535>",
+       NO_NEIGHBOR_CMD2 "timers connect <1-65535>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -12459,7 +12440,7 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
               bgp_config_write_family_header (vty, afi, safi, write);
 
               /* "redistribute" configuration.  */
-              vty_out (vty, " redistribute %s", zebra_route_string(i));
+              vty_out (vty, "  redistribute %s", zebra_route_string(i));
               if (red->instance)
                 vty_out (vty, " %d", red->instance);
               if (red->redist_metric_flag)

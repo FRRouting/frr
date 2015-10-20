@@ -1500,6 +1500,13 @@ _netlink_route_build_singlepath(
       addattr_l (nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4);
       addattr32 (nlmsg, req_size, RTA_OIF, nexthop->ifindex);
 
+      if (nexthop->rmap_src.ipv4.s_addr && (cmd == RTM_NEWROUTE))
+        addattr_l (nlmsg, req_size, RTA_PREFSRC,
+                   &nexthop->rmap_src.ipv4, bytelen);
+      else if (nexthop->src.ipv4.s_addr && (cmd == RTM_NEWROUTE))
+        addattr_l (nlmsg, req_size, RTA_PREFSRC,
+                   &nexthop->src.ipv4, bytelen);
+
       if (IS_ZEBRA_DEBUG_KERNEL)
         zlog_debug(" 5549: _netlink_route_build_singlepath() (%s): "
                    "nexthop via %s if %u",
@@ -1647,6 +1654,11 @@ _netlink_route_build_multipath(
                      &ipv4_ll, bytelen);
       rtnh->rtnh_len += sizeof (struct rtattr) + bytelen;
       rtnh->rtnh_ifindex = nexthop->ifindex;
+
+      if (nexthop->rmap_src.ipv4.s_addr)
+        *src = &nexthop->rmap_src;
+      else if (nexthop->src.ipv4.s_addr)
+         *src = &nexthop->src;
 
       if (IS_ZEBRA_DEBUG_KERNEL)
         zlog_debug(" 5549: netlink_route_build_multipath() (%s): "

@@ -175,14 +175,14 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
       SET_FLAG(bnc->flags, BGP_STATIC_ROUTE);
 
       /* If we're toggling the type, re-register */
-      if ((bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH)) &&
+      if ((bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)) &&
 	  !CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
 	{
 	  SET_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH);
 	  UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 	  UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 	}
-      else if ((!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH)) &&
+      else if ((!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)) &&
 	       CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
 	{
 	  UNSET_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH);

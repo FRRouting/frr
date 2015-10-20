@@ -292,17 +292,18 @@ end
             elif "address-family " in line:
                 main_ctx_key = []
 
-                if line != "address-family ipv4 unicast":
-                    # Save old context first
-                    self.save_contexts(ctx_keys, current_context_lines)
-                    current_context_lines = []
-                    main_ctx_key = copy.deepcopy(ctx_keys)
-                    logger.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                logger.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
 
-                    if line == "address-family ipv6":
-                        ctx_keys.append("address-family ipv6 unicast")
-                    else:
-                        ctx_keys.append(line)
+                if line == "address-family ipv6":
+                    ctx_keys.append("address-family ipv6 unicast")
+                elif line == "address-family ipv4":
+                    ctx_keys.append("address-family ipv4 unicast")
+                else:
+                    ctx_keys.append(line)
 
             else:
                 # Continuing in an existing context, add non-commented lines to it
