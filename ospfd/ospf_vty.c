@@ -7688,6 +7688,9 @@ DEFUN (ip_ospf_area,
   params = IF_DEF_PARAMS (ifp);
   if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
     {
+      vty_out (vty,
+               "Must remove previous area config before changing ospf area %s",
+               VTY_NEWLINE);
       return CMD_WARNING;
     }
 
