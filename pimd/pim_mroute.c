@@ -71,6 +71,20 @@ static int
 pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg,
 			const char *src_str, const char *grp_str)
 {
+  struct mfcctl mc;
+
+  /*
+   * This is just a hack to get the (S,G) received packet up into
+   * our user space so that we can register it.
+   *
+   * Once we run into a few more issues than we'll fix this.
+   */
+  memset(&mc, 0, sizeof(struct mfcctl));
+  mc.mfcc_origin   = msg->im_src;
+  mc.mfcc_mcastgrp = msg->im_dst;
+  mc.mfcc_parent   = ifp->ifindex;
+  mc.mfcc_ttls[MAXVIFS-1] = 1;
+  pim_mroute_add(&mc);
   return 0;
 }
 
