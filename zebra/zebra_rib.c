@@ -1268,7 +1268,9 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       break;
     case NEXTHOP_TYPE_IPV6_IFINDEX:
-      family = AFI_IP6;
+      /* RFC 5549, v4 prefix with v6 NH */
+      if (rn->p.family != AF_INET)
+	family = AFI_IP6;
       if (IN6_IS_ADDR_LINKLOCAL (&nexthop->gate.ipv6))
 	{
 	  ifp = if_lookup_by_index (nexthop->ifindex);
