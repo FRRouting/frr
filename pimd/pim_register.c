@@ -29,6 +29,7 @@
 #include "pim_str.h"
 #include "pim_rp.h"
 #include "pim_register.h"
+#include "pim_upstream.h"
 #include "pim_br.h"
 
 struct thread *send_test_packet_timer = NULL;
@@ -130,6 +131,7 @@ pim_register_recv (struct interface *ifp,
     return 0;
   }
 
+#define inherited_olist(S,G) NULL
   /*
    * Please note this is not drawn to get the correct bit/data size
    *
@@ -165,9 +167,9 @@ pim_register_recv (struct interface *ifp,
 	zlog_debug("%s: Received Register message with Border bit set", __func__);
 
       if (pimbr.s_addr == pim_br_unknown.s_addr)
-	pim_br_set_pmbr(source, group, outer_src);
-      else if (outer.s_addr != pimbr.s_addr) {
-	pim_register_stop_send(outer);
+	pim_br_set_pmbr(source, group, src_addr);
+      else if (src_addr.s_addr != pimbr.s_addr) {
+	pim_register_stop_send(src_addr);
 	if (PIM_DEBUG_PIM_PACKETS)
 	  zlog_debug("%s: Sending register-Stop to %s and dropping mr. packet",
 	    __func__, "Sender");
@@ -185,17 +187,17 @@ pim_register_recv (struct interface *ifp,
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	((SwitchToSptDesired(source, group)) &&
-	 (inherited_list(source, group) == NULL))) {
-      pim_register_stop_send(outer);
+	 (inherited_olist(source, group) == NULL))) {
+      pim_register_stop_send(src_addr);
       sentRegisterStop = 1;
     }
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	(SwitchToSptDesired(source, group))) {
-      if (SentRegisterStop) {
-	//set KeepaliveTimer(S,G) to RP_Keepalive_Period;
+      if (sentRegisterStop) {
+	pim_upstream_keep_alive_timer_start (upstream, PIM_RP_KEEPALIVE_PERIOD);
       } else {
-	//set KeepaliveTimer(S,G) to Keepalive_Period;
+	pim_upstream_keep_alive_timer_start (upstream, PIM_KEEPALIVE_PERIOD);
       }
     }
 
@@ -205,7 +207,7 @@ pim_register_recv (struct interface *ifp,
       //inherited_olist(S,G,rpt)
     }
   } else {
-    pim_register_stop_send(outer);
+    pim_register_stop_send(src_addr);
   }
 
   return 1;
