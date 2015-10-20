@@ -933,34 +933,54 @@ peer_free (struct peer *peer)
     bgp_delete_connected_nexthop (family2afi(peer->su.sa.sa_family), peer);
 
   if (peer->desc)
-    XFREE (MTYPE_PEER_DESC, peer->desc);
+    {
+      XFREE (MTYPE_PEER_DESC, peer->desc);
+      peer->desc = NULL;
+    }
   
   /* Free allocated host character. */
   if (peer->host)
-    XFREE (MTYPE_BGP_PEER_HOST, peer->host);
-  peer->host = NULL;
+    {
+      XFREE (MTYPE_BGP_PEER_HOST, peer->host);
+      peer->host = NULL;
+    }
 
   if (peer->ifname)
-    XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
-  peer->ifname = NULL;
+    {
+      XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
+      peer->ifname = NULL;
+    }
 
   /* Update source configuration.  */
   if (peer->update_source)
-    sockunion_free (peer->update_source);
+    {
+      sockunion_free (peer->update_source);
+      peer->update_source = NULL;
+    }
   
   if (peer->update_if)
-    XFREE (MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
+    {
+      XFREE (MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
+      peer->update_if = NULL;
+    }
 
   if (peer->notify.data)
     XFREE(MTYPE_TMP, peer->notify.data);
+  memset (&peer->notify, 0, sizeof (struct bgp_notify));
 
   if (peer->clear_node_queue)
-    work_queue_free(peer->clear_node_queue);
+    {
+      work_queue_free(peer->clear_node_queue);
+      peer->clear_node_queue = NULL;
+    }
 
   bgp_sync_delete (peer);
 
   if (peer->conf_if)
-    XFREE (MTYPE_PEER_CONF_IF, peer->conf_if);
+    {
+      XFREE (MTYPE_PEER_CONF_IF, peer->conf_if);
+      peer->conf_if = NULL;
+    }
 
   bfd_info_free(&(peer->bfd_info));
 
@@ -1776,8 +1796,10 @@ peer_delete (struct peer *peer)
   UNSET_FLAG(peer->flags, PEER_FLAG_DELETE);
 
   if (peer->doppelganger)
-    peer->doppelganger->doppelganger = NULL;
-  peer->doppelganger = NULL;
+    {
+      peer->doppelganger->doppelganger = NULL;
+      peer->doppelganger = NULL;
+    }
 
   UNSET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
   bgp_fsm_change_status (peer, Deleted);
@@ -1830,22 +1852,41 @@ peer_delete (struct peer *peer)
 
   /* Buffers.  */
   if (peer->ibuf)
-    stream_free (peer->ibuf);
+    {
+      stream_free (peer->ibuf);
+      peer->ibuf = NULL;
+    }
+
   if (peer->obuf)
-    stream_fifo_free (peer->obuf);
+    {
+      stream_fifo_free (peer->obuf);
+      peer->obuf = NULL;
+    }
+
   if (peer->work)
-    stream_free (peer->work);
+    {
+      stream_free (peer->work);
+      peer->work = NULL;
+    }
+
   if (peer->scratch)
-    stream_free(peer->scratch);
-  peer->obuf = NULL;
-  peer->work = peer->scratch = peer->ibuf = NULL;
+    {
+      stream_free(peer->scratch);
+      peer->scratch = NULL;
+    }
 
   /* Local and remote addresses. */
   if (peer->su_local)
-    sockunion_free (peer->su_local);
+    {
+      sockunion_free (peer->su_local);
+      peer->su_local = NULL;
+    }
+
   if (peer->su_remote)
-    sockunion_free (peer->su_remote);
-  peer->su_local = peer->su_remote = NULL;
+    {
+      sockunion_free (peer->su_remote);
+      peer->su_remote = NULL;
+    }
   
   /* Free filter related memory.  */
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -1856,40 +1897,60 @@ peer_delete (struct peer *peer)
 	for (i = FILTER_IN; i < FILTER_MAX; i++)
 	  {
 	    if (filter->dlist[i].name)
-	      XFREE(MTYPE_BGP_FILTER_NAME, filter->dlist[i].name);
+              {
+                XFREE(MTYPE_BGP_FILTER_NAME, filter->dlist[i].name);
+                filter->dlist[i].name = NULL;
+              }
+
 	    if (filter->plist[i].name)
-	      XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[i].name);
+              {
+                XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[i].name);
+                filter->plist[i].name = NULL;
+              }
+
 	    if (filter->aslist[i].name)
-	      XFREE(MTYPE_BGP_FILTER_NAME, filter->aslist[i].name);
-            
-            filter->dlist[i].name = NULL;
-            filter->plist[i].name = NULL;
-            filter->aslist[i].name = NULL;
+              {
+                XFREE(MTYPE_BGP_FILTER_NAME, filter->aslist[i].name);
+                filter->aslist[i].name = NULL;
+              }
           }
+
         for (i = RMAP_IN; i < RMAP_MAX; i++)
           {
 	    if (filter->map[i].name)
-	      XFREE(MTYPE_BGP_FILTER_NAME, filter->map[i].name);
-            filter->map[i].name = NULL;
+              {
+                XFREE(MTYPE_BGP_FILTER_NAME, filter->map[i].name);
+                filter->map[i].name = NULL;
+              }
 	  }
 
 	if (filter->usmap.name)
-	  XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+          {
+            XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+            filter->usmap.name = NULL;
+          }
 
 	if (peer->default_rmap[afi][safi].name)
-	  XFREE(MTYPE_ROUTE_MAP_NAME, peer->default_rmap[afi][safi].name);
-        
-        filter->usmap.name = NULL;
-        peer->default_rmap[afi][safi].name = NULL;
+          {
+            XFREE(MTYPE_ROUTE_MAP_NAME, peer->default_rmap[afi][safi].name);
+            peer->default_rmap[afi][safi].name = NULL;
+          }
       }
 
   FOREACH_AFI_SAFI (afi, safi)
     peer_af_delete (peer, afi, safi);
 
   if (peer->hostname)
-    XFREE(MTYPE_HOST, peer->hostname);
+    {
+      XFREE(MTYPE_HOST, peer->hostname);
+      peer->hostname = NULL;
+    }
+
   if (peer->domainname)
-    XFREE(MTYPE_HOST, peer->domainname);
+    {
+      XFREE(MTYPE_HOST, peer->domainname);
+      peer->domainname = NULL;
+    }
 
   peer_unlock (peer); /* initial reference */
 
