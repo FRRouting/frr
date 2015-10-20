@@ -1466,14 +1466,14 @@ bgp_config_write_maxpaths (struct vty *vty, struct bgp *bgp, afi_t afi,
   if (bgp->maxpaths[afi][safi].maxpaths_ebgp != BGP_DEFAULT_MAXPATHS)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
-      vty_out (vty, " maximum-paths %d%s",
+      vty_out (vty, "  maximum-paths %d%s",
 	       bgp->maxpaths[afi][safi].maxpaths_ebgp, VTY_NEWLINE);
     }
 
   if (bgp->maxpaths[afi][safi].maxpaths_ibgp != BGP_DEFAULT_MAXPATHS)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
-      vty_out (vty, " maximum-paths ibgp %d",
+      vty_out (vty, "  maximum-paths ibgp %d",
 	       bgp->maxpaths[afi][safi].maxpaths_ibgp);
       if (CHECK_FLAG (bgp->maxpaths[afi][safi].ibgp_flags,
 		      BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN))
@@ -12440,7 +12440,7 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
               bgp_config_write_family_header (vty, afi, safi, write);
 
               /* "redistribute" configuration.  */
-              vty_out (vty, " redistribute %s", zebra_route_string(i));
+              vty_out (vty, "  redistribute %s", zebra_route_string(i));
               if (red->instance)
                 vty_out (vty, " %d", red->instance);
               if (red->redist_metric_flag)

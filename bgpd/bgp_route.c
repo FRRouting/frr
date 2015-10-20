@@ -4849,7 +4849,7 @@ bgp_config_write_table_map (struct vty *vty, struct bgp *bgp, afi_t afi,
   if (bgp->table_map[afi][safi].name)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
-      vty_out (vty, " table-map %s%s",
+      vty_out (vty, "  table-map %s%s",
 	       bgp->table_map[afi][safi].name, VTY_NEWLINE);
     }
 
@@ -15141,7 +15141,7 @@ bgp_config_write_network_vpnv4 (struct vty *vty, struct bgp *bgp,
 	    prefix_rd2str (prd, rdbuf, RD_ADDRSTRLEN);
 	    label = decode_label (bgp_static->tag);
 
-	    vty_out (vty, " network %s/%d rd %s tag %d",
+	    vty_out (vty, "  network %s/%d rd %s tag %d",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN), 
 		     p->prefixlen,
 		     rdbuf, label);
@@ -15182,7 +15182,7 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
 
 	    destination = ntohl (p->u.prefix4.s_addr);
 	    masklen2ip (p->prefixlen, &netmask);
-	    vty_out (vty, " network %s",
+	    vty_out (vty, "  network %s",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN));
 
 	    if ((IN_CLASSC (destination) && p->prefixlen == 24)
@@ -15197,7 +15197,7 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
 	  }
 	else
 	  {
-	    vty_out (vty, " network %s/%d",
+	    vty_out (vty, "  network %s/%d",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN), 
 		     p->prefixlen);
 	  }
@@ -15227,13 +15227,13 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
 	    struct in_addr netmask;
 
 	    masklen2ip (p->prefixlen, &netmask);
-	    vty_out (vty, " aggregate-address %s %s",
+	    vty_out (vty, "  aggregate-address %s %s",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 		     inet_ntoa (netmask));
 	  }
 	else
 	  {
-	    vty_out (vty, " aggregate-address %s/%d",
+	    vty_out (vty, "  aggregate-address %s/%d",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 		     p->prefixlen);
 	  }
