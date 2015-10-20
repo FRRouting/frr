@@ -2699,6 +2699,7 @@ bgp_create (as_t *as, const char *name)
   bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
   bgp->dynamic_neighbors_count = 0;
   bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
+  bgp_flag_set (bgp, BGP_FLAG_SHOW_HOSTNAME);
 
   bgp->as = *as;
 
@@ -6763,8 +6764,8 @@ bgp_config_write (struct vty *vty)
 		 bgp->default_local_pref, VTY_NEWLINE);
 
       /* BGP default show-hostname */
-      if (bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
-	vty_out (vty, " bgp default show-hostname%s", VTY_NEWLINE);
+      if (!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
+	vty_out (vty, " no bgp default show-hostname%s", VTY_NEWLINE);
 
       /* BGP default subgroup-pkt-queue-max. */
       if (bgp->default_subgroup_pkt_queue_max != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
