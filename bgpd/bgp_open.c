@@ -623,7 +623,10 @@ bgp_capability_hostname (struct peer *peer, struct capability_header *hdr)
         XFREE(MTYPE_HOST, peer->hostname);
 
       if (peer->domainname != NULL)
-        XFREE(MTYPE_HOST, peer->domainname);
+        {
+          XFREE(MTYPE_HOST, peer->domainname);
+          peer->domainname = NULL;
+        }
 
       peer->hostname = XSTRDUP(MTYPE_HOST, str);
     }
