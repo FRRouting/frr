@@ -39,6 +39,7 @@
 #include "pim_join.h"
 #include "pim_assert.h"
 #include "pim_msg.h"
+#include "pim_register.h"
 
 static int on_pim_hello_send(struct thread *t);
 static int pim_hello_send(struct interface *ifp,
@@ -206,8 +207,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	       pim_version, pim_type, pim_msg_len, checksum);
   }
 
-  if (pim_type == PIM_MSG_TYPE_REGISTER  ||
-      pim_type == PIM_MSG_TYPE_REG_STOP  ||
+  if (pim_type == PIM_MSG_TYPE_REG_STOP  ||
       pim_type == PIM_MSG_TYPE_BOOTSTRAP ||
       pim_type == PIM_MSG_TYPE_GRAFT     ||
       pim_type == PIM_MSG_TYPE_GRAFT_ACK ||
@@ -221,11 +221,16 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
     }
 
   if (pim_type == PIM_MSG_TYPE_HELLO) {
-    int result = pim_hello_recv(ifp,
-                 ip_hdr->ip_src,
-                 pim_msg + PIM_MSG_HEADER_LEN,
-                 pim_msg_len - PIM_MSG_HEADER_LEN);
-    return result;
+    return pim_hello_recv(ifp,
+			  ip_hdr->ip_src,
+			  pim_msg + PIM_MSG_HEADER_LEN,
+			  pim_msg_len - PIM_MSG_HEADER_LEN);
+  } else if (pim_type == PIM_MSG_TYPE_REGISTER) {
+    return pim_register_recv(ifp,
+			     ip_hdr->ip_dst,
+			     ip_hdr->ip_src,
+			     pim_msg + PIM_MSG_HEADER_LEN,
+			     pim_msg_len - PIM_MSG_HEADER_LEN);
   }
 
   neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);
@@ -242,15 +247,18 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 			      ip_hdr->ip_src,
 			      pim_msg + PIM_MSG_HEADER_LEN,
 			      pim_msg_len - PIM_MSG_HEADER_LEN);
+    break;
   case PIM_MSG_TYPE_ASSERT:
     return pim_assert_recv(ifp, neigh,
 			   ip_hdr->ip_src,
 			   pim_msg + PIM_MSG_HEADER_LEN,
 			   pim_msg_len - PIM_MSG_HEADER_LEN);
+    break;
   default:
     zlog_warn("%s %s: unsupported PIM message type=%d from %s on %s",
 	      __FILE__, __PRETTY_FUNCTION__,
 	      pim_type, src_str, ifp->name);
+    break;
   }
 
   return -1;

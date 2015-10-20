@@ -111,13 +111,13 @@ pim_register_recv (struct interface *ifp,
 		   struct in_addr src_addr,
 		   uint8_t *tlv_buf, int tlv_buf_size)
 {
-  //int sentRegisterStop = 0;
+  int sentRegisterStop = 0;
+  struct ip *ip_hdr;
+  size_t hlen;
   struct in_addr group = { .s_addr = 0 };
   struct in_addr source = { .s_addr = 0 };
-  struct in_addr outer_src = { .s_addr = 0 };
-  uint32_t *bits = (uint32_t *)tlv_buf;
-  //uint8_t *data = (tlv_buf + sizeof(uint32_t));
-  uint32_t nrb;
+  uint8_t *msg;
+  uint32_t *bits;
 
   if (!pim_check_is_my_ip_address (dest_addr)) {
     if (PIM_DEBUG_PIM_PACKETS) {
@@ -130,9 +130,34 @@ pim_register_recv (struct interface *ifp,
     return 0;
   }
 
-  nrb = (*bits && PIM_REGISTER_NR_BIT);
+  /*
+   * Please note this is not drawn to get the correct bit/data size
+   *
+   * The entirety of the REGISTER packet looks like this:
+   * -------------------------------------------------------------
+   * | Ver  | Type | Reserved     |       Checksum               |
+   * |-----------------------------------------------------------|
+   * |B|N|     Reserved 2                                        |
+   * |-----------------------------------------------------------|
+   * | Encap  |                IP HDR                            |
+   * | Mcast  |                                                  |
+   * | Packet |--------------------------------------------------|
+   * |        |               Mcast Data                         |
+   * |        |                                                  |
+   * ...
+   *
+   * tlv_buf when received from the caller points at the B bit
+   * We need to know the inner source and dest
+   */
+  bits = (uint32_t *)tlv_buf;
+  ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_LEN);
+  hlen = (ip_hdr->ip_hl << 2) | PIM_MSG_REGISTER_LEN;
+  msg = (uint8_t *)tlv_buf + hlen;
+  source = ip_hdr->ip_src;
+  group = ip_hdr->ip_dst;
+
   if (I_am_RP (group) && (dest_addr.s_addr == (RP (group).s_addr))) {
-    //sentRegisterStop = 0;
+    sentRegisterStop = 0;
 
     if (*bits && PIM_REGISTER_BORDER_BIT) {
       struct in_addr pimbr = pim_br_get_pmbr (source, group);
@@ -141,17 +166,47 @@ pim_register_recv (struct interface *ifp,
 
       if (pimbr.s_addr == pim_br_unknown.s_addr)
 	pim_br_set_pmbr(source, group, outer_src);
-      else if (outer_src.s_addr != pimbr.s_addr) {
-	pim_register_stop_send(outer_src);
+      else if (outer.s_addr != pimbr.s_addr) {
+	pim_register_stop_send(outer);
 	if (PIM_DEBUG_PIM_PACKETS)
 	  zlog_debug("%s: Sending register-Stop to %s and dropping mr. packet",
 	    __func__, "Sender");
+	/* Drop Packet Silently */
+	return 1;
       }
     }
-  } else {
-      nrb++;
-    //pim_recv_
+
+    struct pim_upstream *upstream = pim_upstream_find (source, group);
+    /*
+     * If we don't have a place to send ignore the packet
+     */
+    if (!upstream)
+      return 1;
+
+    if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
+	((SwitchToSptDesired(source, group)) &&
+	 (inherited_list(source, group) == NULL))) {
+      pim_register_stop_send(outer);
+      sentRegisterStop = 1;
     }
+
+    if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
+	(SwitchToSptDesired(source, group))) {
+      if (SentRegisterStop) {
+	//set KeepaliveTimer(S,G) to RP_Keepalive_Period;
+      } else {
+	//set KeepaliveTimer(S,G) to Keepalive_Period;
+      }
+    }
+
+    if (!(upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) &&
+	!(*bits && PIM_REGISTER_NR_BIT)) {
+      //decapsulate and forward the iner packet to
+      //inherited_olist(S,G,rpt)
+    }
+  } else {
+    pim_register_stop_send(outer);
+  }
 
   return 1;
 }
