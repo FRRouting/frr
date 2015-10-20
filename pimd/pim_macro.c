@@ -309,10 +309,10 @@ struct pim_assert_metric pim_macro_ch_my_assert_metric_eval(const struct pim_ifc
 
 /*
   RFC 4601 4.2.  Data Packet Forwarding Rules
-  RFC 4601 4.8.2.  PIM-SSM-Only Routers
   
   Macro:
   inherited_olist(S,G) =
+    inherited_olist(S,G,rpt) (+)
     joins(S,G) (+) pim_include(S,G) (-) lost_assert(S,G)
 */
 static int pim_macro_chisin_inherited_olist(const struct pim_ifchannel *ch)

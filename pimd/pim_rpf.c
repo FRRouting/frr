@@ -165,7 +165,6 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
 		 nhaddr_str,
 		 rpf->source_nexthop.mrib_metric_preference,
 		 rpf->source_nexthop.mrib_route_metric);
-      /* warning only */
     }
 
     pim_upstream_update_join_desired(up);
