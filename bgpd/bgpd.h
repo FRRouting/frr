@@ -1001,7 +1001,7 @@ struct bgp_nlri
 #define BGP_DEFAULT_KEEPALIVE                   60 
 #define BGP_DEFAULT_ASORIGINATE                 15
 #define BGP_DEFAULT_EBGP_ROUTEADV               30
-#define BGP_DEFAULT_IBGP_ROUTEADV                5
+#define BGP_DEFAULT_IBGP_ROUTEADV                0
 #define BGP_DEFAULT_CONNECT_RETRY              120
 
 /* BGP default local preference.  */
