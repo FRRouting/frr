@@ -2153,45 +2153,26 @@ DEFUN (no_bgp_default_show_hostname,
 /* "bgp import-check" configuration.  */
 DEFUN (bgp_network_import_check,
        bgp_network_import_check_cmd,
-       "bgp network import-check {exact}",
+       "bgp network import-check",
        "BGP specific commands\n"
        "BGP network command\n"
-       "Check BGP network route exists in IGP\n"
-       "Match route precisely")
+       "Check BGP network route exists in IGP\n")
 {
   struct bgp *bgp;
-  int trigger = 0;
 
   bgp = vty->index;
   if (!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK))
     {
       bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
-      trigger = 1;
+      bgp_static_redo_import_check(bgp);
     }
-
-  if (argv[0] != NULL)
-    {
-      if (!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH))
-	{
-	  bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
-	  trigger = 1;
-	}
-    }
-  else if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH))
-    {
-      bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
-      trigger = 1;
-    }
-
-  if (trigger)
-    bgp_static_redo_import_check(bgp);
 
   return CMD_SUCCESS;
 }
 
 DEFUN (no_bgp_network_import_check,
        no_bgp_network_import_check_cmd,
-       "no bgp network import-check {exact}",
+       "no bgp network import-check",
        NO_STR
        "BGP specific commands\n"
        "BGP network command\n"
@@ -2203,9 +2184,9 @@ DEFUN (no_bgp_network_import_check,
   if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK))
     {
       bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK);
-      bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK_EXACT_MATCH);
       bgp_static_redo_import_check(bgp);
     }
+
   return CMD_SUCCESS;
 }
 
