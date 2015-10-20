@@ -11,6 +11,7 @@ convergence times.  OSPF is widely used in large networks such as
 networks.
 
 @menu
+* OSPF Fundamentals::
 * Configuring ospfd::           
 * OSPF router::                 
 * OSPF area::                   
@@ -20,6 +21,8 @@ networks.
 * Debugging OSPF::              
 * OSPF Configuration Examples::
 @end menu
+
+@include ospf_fundamentals.texi
 
 @node Configuring ospfd
 @section Configuring ospfd

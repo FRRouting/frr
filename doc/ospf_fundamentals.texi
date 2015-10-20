@@ -1,0 +1,582 @@
+@c Copyright 2006 Sun Microsystems, Inc. All Rights Reserved.
+@cindex OSPF Fundamentals
+@node OSPF Fundamentals
+@section OSPF Fundamentals
+
+@cindex Link-state routing protocol
+@cindex Distance-vector routing protocol
+@acronym{OSPF} is, mostly, a link-state routing protocol. In contrast
+to @dfn{distance-vector} protocols, such as @acronym{RIP} or
+@acronym{BGP}, where routers describe available @dfn{paths} (i.e@. routes) 
+to each other, in @dfn{link-state} protocols routers instead
+describe the state of their links to their immediate neighbouring
+routers.
+
+@cindex Link State Announcement
+@cindex Link State Advertisement
+@cindex LSA flooding
+@cindex Link State DataBase
+Each router describes their link-state information in a message known
+as an @acronym{LSA,Link State Advertisement}, which is then propogated
+through to all other routers in a link-state routing domain, by a
+process called @dfn{flooding}. Each router thus builds up an
+@acronym{LSDB,Link State Database} of all the link-state messages. From
+this collection of LSAs in the LSDB, each router can then calculate the
+shortest path to any other router, based on some common metric, by
+using an algorithm such as @url{http://www.cs.utexas.edu/users/EWD/,
+Edgser Dijkstra}'s @acronym{SPF,Shortest Path First}.
+
+@cindex Link-state routing protocol advantages
+By describing connectivity of a network in this way, in terms of
+routers and links rather than in terms of the paths through a network,
+a link-state protocol can use less bandwidth and converge more quickly
+than other protocols. A link-state protocol need distribute only one
+link-state message throughout the link-state domain when a link on any
+single given router changes state, in order for all routers to
+reconverge on the best paths through the network. In contrast, distance
+vector protocols can require a progression of different path update
+messages from a series of different routers in order to converge.
+
+@cindex Link-state routing protocol disadvantages
+The disadvantage to a link-state protocol is that the process of
+computing the best paths can be relatively intensive when compared to
+distance-vector protocols, in which near to no computation need be done
+other than (potentially) select between multiple routes. This overhead
+is mostly negligible for modern embedded CPUs, even for networks with
+thousands of nodes. The primary scaling overhead lies more in coping
+with the ever greater frequency of LSA updates as the size of a
+link-state area increases, in managing the @acronym{LSDB} and required
+flooding.
+
+This section aims to give a distilled, but accurate, description of the
+more important workings of @acronym{OSPF}@ which an administrator may need
+to know to be able best configure and trouble-shoot @acronym{OSPF}@.
+
+@subsection OSPF Mechanisms
+
+@acronym{OSPF} defines a range of mechanisms, concerned with detecting,
+describing and propogating state through a network. These mechanisms
+will nearly all be covered in greater detail further on. They may be
+broadly classed as:
+
+@table @dfn
+@cindex OSPF Hello Protocol overview
+@item The Hello Protocol
+
+@cindex OSPF Hello Protocol
+The OSPF Hello protocol allows OSPF to quickly detect changes in
+two-way reachability between routers on a link. OSPF can additionally
+avail of other sources of reachability information, such as link-state
+information provided by hardware, or through dedicated reachability
+protocols such as @acronym{BFD,Bi-directional Forwarding Detection}.
+
+OSPF also uses the Hello protocol to propagate certain state between
+routers sharing a link, for example:
+
+@itemize @bullet
+@item Hello protocol configured state, such as the dead-interval.
+@item Router priority, for DR/BDR election.
+@item DR/BDR election results.
+@item Any optional capabilities supported by each router.
+@end itemize
+
+The Hello protocol is comparatively trivial and will not be explored in
+greater detail than here.
+
+@cindex OSPF LSA overview 
+@item LSAs
+
+At the heart of @acronym{OSPF} are @acronym{LSA,Link State
+Advertisement} messages. Despite the name, some @acronym{LSA}s do not,
+strictly speaking, describe link-state information. Common
+@acronym{LSA}s describe information such as:
+
+@itemize @bullet
+@item
+Routers, in terms of their links.
+@item
+Networks, in terms of attached routers.
+@item
+Routes, external to a link-state domain:
+
+@itemize @bullet
+@item External Routes
+
+Routes entirely external to @acronym{OSPF}@. Routers originating such
+routes are known as @acronym{ASBR,Autonomous-System Border Router}
+routers.
+
+@item Summary Routes
+
+Routes which summarise routing information relating to OSPF areas
+external to the OSPF link-state area at hand, originated by
+@acronym{ABR,Area Boundary Router} routers.
+@end itemize
+@end itemize
+
+@item LSA Flooding
+OSPF defines several related mechanisms, used to manage synchronisation of
+@acronym{LSDB}s between neighbours as neighbours form adjacencies and
+the propogation, or @dfn{flooding} of new or updated @acronym{LSA}s.
+
+@xref{OSPF Flooding}.
+
+@cindex OSPF Areas overview
+@item Areas
+OSPF provides for the protocol to be broken up into multiple smaller
+and independent link-state areas. Each area must be connected to a
+common backbone area by an @acronym{ABR,Area Boundary Router}. These
+@acronym{ABR} routers are responsible for summarising the link-state
+routing information of an area into @dfn{Summary LSAs}, possibly in a
+condensed (i.e. aggregated) form, and then originating these summaries
+into all other areas the @acronym{ABR} is connected to.
+
+Note that only summaries and external routes are passed between areas.
+As these describe @emph{paths}, rather than any router link-states,
+routing between areas hence is by @dfn{distance-vector}, @strong{not}
+link-state.
+
+@xref{OSPF Areas}.
+@end table
+
+@subsection OSPF LSAs
+
+@acronym{LSA}s are the core object in OSPF@. Everything else in OSPF
+revolves around detecting what to describe in LSAs, when to update
+them, how to flood them throughout a network and how to calculate
+routes from them. 
+
+There are a variety of different @acronym{LSA}s, for purposes such
+as describing actual link-state information, describing paths (i.e.
+routes), describing bandwidth usage of links for 
+@acronym{TE,Traffic Engineering} purposes, and even arbitrary data
+by way of @emph{Opaque} @acronym{LSA}s.
+
+@subsubsection LSA Header
+All LSAs share a common header with the following information:
+
+@itemize @bullet
+@item Type
+
+Different types of @acronym{LSA}s describe different things in
+@acronym{OSPF}@. Types include:
+
+@itemize @bullet
+@item Router LSA
+@item Network LSA
+@item Network Summary LSA
+@item Router Summary LSA
+@item AS-External LSA
+@end itemize
+
+The specifics of the different types of LSA are examined below.
+
+@item Advertising Router
+
+The Router ID of the router originating the LSA, see @ref{ospf router-id}.
+
+@item LSA ID
+
+The ID of the LSA, which is typically derived in some way from the
+information the LSA describes, e.g. a Router LSA uses the Router ID as
+the LSA ID, a Network LSA will have the IP address of the @acronym{DR}
+as its LSA ID@.
+
+The combination of the Type, ID and Advertising Router ID must uniquely
+identify the @acronym{LSA}@. There can however be multiple instances of
+an LSA with the same Type, LSA ID and Advertising Router ID, see
+@ref{OSPF LSA sequence number,,LSA Sequence Number}.
+
+@item Age
+
+A number to allow stale @acronym{LSA}s to, eventually, be purged by routers
+from their @acronym{LSDB}s.
+
+The value nominally is one of seconds. An age of 3600, i.e. 1 hour, is
+called the @dfn{MaxAge}. MaxAge LSAs are ignored in routing
+calculations. LSAs must be periodically refreshed by their Advertising
+Router before reaching MaxAge if they are to remain valid.
+
+Routers may deliberately flood LSAs with the age artificially set to
+3600 to indicate an LSA is no longer valid. This is called
+@dfn{flushing} of an LSA@.
+
+It is not abnormal to see stale LSAs in the LSDB, this can occur where
+a router has shutdown without flushing its LSA(s), e.g. where it has
+become disconnected from the network. Such LSAs do little harm.
+
+@anchor{OSPF LSA sequence number}
+@item Sequence Number
+
+A number used to distinguish newer instances of an LSA from older instances.
+@end itemize
+
+@subsubsection Link-State LSAs
+Of all the various kinds of @acronym{LSA}s, just two types comprise the
+actual link-state part of @acronym{OSPF}, Router @acronym{LSA}s and
+Network @acronym{LSA}s. These LSA types are absolutely core to the
+protocol. 
+
+Instances of these LSAs are specific to the link-state area in which
+they are originated. Routes calculated from these two LSA types are
+called @dfn{intra-area routes}.
+
+@itemize @bullet
+@item Router LSA
+
+Each OSPF Router must originate a router @acronym{LSA} to describe
+itself. In it, the router lists each of its @acronym{OSPF} enabled
+interfaces, for the given link-state area, in terms of:
+
+@itemize @bullet
+@item Cost
+
+The output cost of that interface, scaled inversely to some commonly known
+reference value, @xref{OSPF auto-cost reference-bandwidth,,auto-cost
+reference-bandwidth}.
+
+@item Link Type
+@itemize @bullet
+@item Transit Network
+
+A link to a multi-access network, on which the router has at least one
+Full adjacency with another router.
+
+@item @acronym{PtP,Point-to-Point}
+
+A link to a single remote router, with a Full adjacency. No
+@acronym{DR, Designated Router} is elected on such links; no network
+LSA is originated for such a link.
+
+@item Stub
+
+A link with no adjacent neighbours, or a host route.
+@end itemize
+
+@item Link ID and Data
+
+These values depend on the Link Type:
+
+@multitable @columnfractions .18 .32 .32
+@headitem Link Type @tab Link ID @tab Link Data
+
+@item Transit
+@tab Link IP address of the @acronym{DR}
+@tab Interface IP address
+
+@item Point-to-Point
+@tab Router ID of the remote router
+@tab Local interface IP address,
+or the @acronym{ifindex,MIB-II interface index} 
+for unnumbered links
+
+@item Stub
+@tab IP address
+@tab Subnet Mask
+
+@end multitable
+@end itemize
+
+Links on a router may be listed multiple times in the Router LSA, e.g.
+a @acronym{PtP} interface on which OSPF is enabled must @emph{always}
+be described by a Stub link in the Router @acronym{LSA}, in addition to
+being listed as PtP link in the Router @acronym{LSA} if the adjacency
+with the remote router is Full.
+
+Stub links may also be used as a way to describe links on which OSPF is
+@emph{not} spoken, known as @dfn{passive interfaces}, see @ref{OSPF
+passive-interface,,passive-interface}.
+
+@item Network LSA
+
+On multi-access links (e.g. ethernets, certain kinds of ATM and X@.25
+configurations), routers elect a @acronym{DR}@. The @acronym{DR} is
+responsible for originating a Network @acronym{LSA}, which helps reduce
+the information needed to describe multi-access networks with multiple
+routers attached. The @acronym{DR} also acts as a hub for the flooding of
+@acronym{LSA}s on that link, thus reducing flooding overheads.
+
+The contents of the Network LSA describes the:
+
+@itemize @bullet
+@item Subnet Mask
+
+As the @acronym{LSA} ID of a Network LSA must be the IP address of the
+@acronym{DR}, the Subnet Mask together with the @acronym{LSA} ID gives
+you the network address.
+
+@item Attached Routers
+
+Each router fully-adjacent with the @acronym{DR} is listed in the LSA,
+by their Router-ID. This allows the corresponding Router @acronym{LSA}s to be
+easily retrieved from the @acronym{LSDB}@.
+@end itemize
+@end itemize
+
+Summary of Link State LSAs:
+
+@multitable @columnfractions .18 .32 .40
+@headitem LSA Type @tab LSA ID Describes @tab LSA Data Describes
+
+@item Router LSA 
+@tab The Router ID 
+@tab The @acronym{OSPF} enabled links of the router, within
+     a specific link-state area.
+
+@item Network LSA
+@tab The IP address of the @acronym{DR} for the network
+@tab The Subnet Mask of the network, and the Router IDs of all routers
+     on the network.
+@end multitable
+
+With an LSDB composed of just these two types of @acronym{LSA}, it is
+possible to construct a directed graph of the connectivity between all
+routers and networks in a given OSPF link-state area. So, not
+surprisingly, when OSPF routers build updated routing tables, the first
+stage of @acronym{SPF} calculation concerns itself only with these two
+LSA types. 
+
+@subsubsection Link-State LSA Examples
+
+The example below (@pxref{OSPF Link-State LSA Example}) shows two
+@acronym{LSA}s, both originated by the same router (Router ID
+192.168.0.49) and with the same @acronym{LSA} ID (192.168.0.49), but of
+different LSA types.
+
+The first LSA being the router LSA describing 192.168.0.49's links: 2 links
+to multi-access networks with fully-adjacent neighbours (i.e. Transit
+links) and 1 being a Stub link (no adjacent neighbours).
+
+The second LSA being a Network LSA, for which 192.168.0.49 is the
+@acronym{DR}, listing the Router IDs of 4 routers on that network which
+are fully adjacent with 192.168.0.49.
+
+@anchor{OSPF Link-State LSA Example}
+@example
+# show ip ospf database router 192.168.0.49
+
+       OSPF Router with ID (192.168.0.53)
+
+
+                Router Link States (Area 0.0.0.0)
+
+  LS age: 38
+  Options: 0x2  : *|-|-|-|-|-|E|*
+  LS Flags: 0x6  
+  Flags: 0x2 : ASBR
+  LS Type: router-LSA
+  Link State ID: 192.168.0.49 
+  Advertising Router: 192.168.0.49
+  LS Seq Number: 80000f90
+  Checksum: 0x518b
+  Length: 60
+   Number of Links: 3
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 192.168.1.3
+     (Link Data) Router Interface address: 192.168.1.3
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 192.168.0.49
+     (Link Data) Router Interface address: 192.168.0.49
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.168.3.190
+     (Link Data) Network Mask: 255.255.255.255
+      Number of TOS metrics: 0
+       TOS 0 Metric: 39063
+# show ip ospf database network 192.168.0.49
+
+       OSPF Router with ID (192.168.0.53)
+
+
+                Net Link States (Area 0.0.0.0)
+
+  LS age: 285
+  Options: 0x2  : *|-|-|-|-|-|E|*
+  LS Flags: 0x6  
+  LS Type: network-LSA
+  Link State ID: 192.168.0.49 (address of Designated Router)
+  Advertising Router: 192.168.0.49
+  LS Seq Number: 80000074
+  Checksum: 0x0103
+  Length: 40
+  Network Mask: /29
+        Attached Router: 192.168.0.49
+        Attached Router: 192.168.0.52
+        Attached Router: 192.168.0.53
+        Attached Router: 192.168.0.54
+@end example
+
+Note that from one LSA, you can find the other. E.g. Given the
+Network-LSA you have a list of Router IDs on that network, from which
+you can then look up, in the local @acronym{LSDB}, the matching Router
+LSA@. From that Router-LSA you may (potentially) find links to other
+Transit networks and Routers IDs which can be used to lookup the
+corresponding Router or Network LSA@. And in that fashion, one can find
+all the Routers and Networks reachable from that starting @acronym{LSA}@.
+
+Given the Router LSA instead, you have the IP address of the
+@acronym{DR} of any attached transit links. Network LSAs will have that IP
+as their LSA ID, so you can then look up that Network LSA and from that
+find all the attached routers on that link, leading potentially to more
+links and Network and Router LSAs, etc. etc.
+
+From just the above two @acronym{LSA}s, one can already see the
+following partial topology:
+@example
+@group
+
+      
+   --------------------- Network: ......
+            |            Designated Router IP: 192.168.1.3
+            |
+      IP: 192.168.1.3
+       (transit link)
+        (cost: 10)
+   Router ID: 192.168.0.49(stub)---------- IP: 192.168.3.190/32
+        (cost: 10)        (cost: 39063)
+       (transit link)
+      IP: 192.168.0.49
+            |
+            |
+------------------------------ Network: 192.168.0.48/29
+  |        |           |       Designated Router IP: 192.168.0.49
+  |        |           |
+  |        |     Router ID: 192.168.0.54
+  |        |
+  |   Router ID: 192.168.0.53
+  |
+Router ID: 192.168.0.52
+@end group
+@end example
+
+Note the Router IDs, though they look like IP addresses and often are
+IP addresses, are not strictly speaking IP addresses, nor need they be
+reachable addresses (though, OSPF will calculate routes to Router IDs).
+
+@subsubsection External LSAs
+
+External, or "Type 5", @acronym{LSA}s describe routing information which is
+entirely external to @acronym{OSPF}, and is "injected" into
+@acronym{OSPF}@. Such routing information may have come from another
+routing protocol, such as RIP or BGP, they may represent static routes
+or they may represent a default route.
+
+An @acronym{OSPF} router which originates External @acronym{LSA}s is known as an
+@acronym{ASBR,AS Boundary Router}. Unlike the link-state @acronym{LSA}s, and
+most other @acronym{LSA}s, which are flooded only within the area in
+which they originate, External @acronym{LSA}s are flooded through-out
+the @acronym{OSPF} network to all areas capable of carrying External
+@acronym{LSA}s (@pxref{OSPF Areas}).
+
+Routes internal to OSPF (intra-area or inter-area) are always preferred
+over external routes.
+
+The External @acronym{LSA} describes the following:
+
+@itemize @bullet
+@item IP Network number
+
+The IP Network number of the route is described by the @acronym{LSA} ID
+field.
+
+@item IP Network Mask
+
+The body of the External LSA describes the IP Network Mask of the
+route. This, together with the @acronym{LSA} ID, describes the prefix
+of the IP route concerned.
+
+@item Metric
+
+The cost of the External Route. This cost may be an OSPF cost (also
+known as a "Type 1" metric), i.e. equivalent to the normal OSPF costs,
+or an externally derived cost ("Type 2" metric) which is not comparable
+to OSPF costs and always considered larger than any OSPF cost. Where
+there are both Type 1 and 2 External routes for a route, the Type 1 is
+always preferred.
+
+@item Forwarding Address
+
+The address of the router to forward packets to for the route. This may
+be, and usually is, left as 0 to specify that the ASBR originating the
+External @acronym{LSA} should be used. There must be an internal OSPF
+route to the forwarding address, for the forwarding address to be
+useable.
+
+@item Tag
+
+An arbitrary 4-bytes of data, not interpreted by OSPF, which may
+carry whatever information about the route which OSPF speakers desire.
+@end itemize
+
+@subsubsection AS External LSA Example
+
+To illustrate, below is an example of an External @acronym{LSA} in the
+@acronym{LSDB} of an OSPF router. It describes a route to the IP prefix
+of 192.168.165.0/24, originated by the ASBR with Router-ID
+192.168.0.49. The metric of 20 is external to OSPF. The forwarding
+address is 0, so the route should forward to the originating ASBR if
+selected.
+
+@example
+@group
+# show ip ospf database external 192.168.165.0
+  LS age: 995
+  Options: 0x2  : *|-|-|-|-|-|E|*
+  LS Flags: 0x9
+  LS Type: AS-external-LSA
+  Link State ID: 192.168.165.0 (External Network Number)
+  Advertising Router: 192.168.0.49
+  LS Seq Number: 800001d8
+  Checksum: 0xea27
+  Length: 36
+  Network Mask: /24
+        Metric Type: 2 (Larger than any link state path)
+        TOS: 0
+        Metric: 20
+        Forward Address: 0.0.0.0
+        External Route Tag: 0
+@end group
+@end example
+
+We can add this to our partial topology from above, which now looks
+like:
+@example
+@group
+   --------------------- Network: ......
+            |            Designated Router IP: 192.168.1.3
+            |
+      IP: 192.168.1.3      /---- External route: 192.168.165.0/24
+       (transit link)     /                Cost: 20 (External metric)
+        (cost: 10)       /
+   Router ID: 192.168.0.49(stub)---------- IP: 192.168.3.190/32
+        (cost: 10)        (cost: 39063)
+       (transit link)
+      IP: 192.168.0.49
+            |
+            |
+------------------------------ Network: 192.168.0.48/29
+  |        |           |       Designated Router IP: 192.168.0.49
+  |        |           |
+  |        |     Router ID: 192.168.0.54
+  |        |
+  |   Router ID: 192.168.0.53
+  |
+Router ID: 192.168.0.52
+@end group
+@end example
+
+@subsubsection Summary LSAs
+
+Summary LSAs are created by @acronym{ABR}s to summarise the destinations available within one area to other areas. These LSAs may describe IP networks, potentially in aggregated form, or @acronym{ASBR} routers. 
+
+@anchor{OSPF Flooding}
+@subsection OSPF Flooding
+
+@anchor{OSPF Areas}
+@subsection OSPF Areas
