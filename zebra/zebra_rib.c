@@ -3892,6 +3892,35 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 
 /* RIB update function. */
 void
+rib_update_static (void)
+{
+  struct route_node *rn;
+  struct route_table *table;
+  struct rib *rib, *next;
+
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (table)
+    for (rn = route_top (table); rn; rn = route_next (rn))
+      RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+        if (rib->type == ZEBRA_ROUTE_STATIC)
+          {
+            rib_queue_add (&zebrad, rn);
+            break;
+          }
+
+  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  if (table)
+    for (rn = route_top (table); rn; rn = route_next (rn))
+      RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+        if (rib->type == ZEBRA_ROUTE_STATIC)
+          {
+            rib_queue_add (&zebrad, rn);
+            break;
+          }
+}
+
+/* RIB update function. */
+void
 rib_update (void)
 {
   struct route_node *rn;

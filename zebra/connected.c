@@ -31,6 +31,7 @@
 #include "log.h"
 #include "memory.h"
 
+#include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/interface.h"
@@ -213,6 +214,9 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
   rib_add_ipv4 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, NULL, ifp->ifindex,
 	RT_TABLE_MAIN, ifp->metric, 0, SAFI_MULTICAST);
 
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: calling rib_update", __func__);
+
   rib_update ();
 }
 
@@ -327,7 +331,10 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
 
   rib_delete_ipv4 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, ifp->ifindex, 0, SAFI_MULTICAST);
 
-  rib_update ();
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: calling rib_update_static", __func__);
+
+  rib_update_static ();
 }
 
 void
@@ -387,7 +394,10 @@ connected_delete_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
 
   connected_withdraw (ifc);
 
-  rib_update();
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: calling rib_update_static", __func__);
+
+  rib_update_static();
 }
 
 #ifdef HAVE_IPV6
@@ -412,6 +422,9 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
 
   rib_add_ipv6 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, ifp->ifindex, RT_TABLE_MAIN,
                 ifp->metric, 0, SAFI_UNICAST);
+
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: calling rib_update", __func__);
 
   rib_update ();
 }
@@ -498,7 +511,10 @@ connected_down_ipv6 (struct interface *ifp, struct connected *ifc)
 
   rib_delete_ipv6 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, ifp->ifindex, 0, SAFI_UNICAST);
 
-  rib_update ();
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: calling rib_update_static", __func__);
+
+  rib_update_static ();
 }
 
 void
@@ -519,6 +535,9 @@ connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
 
   connected_withdraw (ifc);
 
-  rib_update();
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: calling rib_update_static", __func__);
+
+  rib_update_static();
 }
 #endif /* HAVE_IPV6 */
