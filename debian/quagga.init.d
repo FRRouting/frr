@@ -25,6 +25,8 @@ DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld"
 MAX_INSTANCES=5
 RELOAD_SCRIPT=/usr/lib/quagga/quagga-reload.py
 
+. /lib/lsb/init-functions
+
 # Print the name of the pidfile.
 pidfile()
 {
@@ -41,8 +43,12 @@ vtyfile()
 started()
 {
         [ ! -e `pidfile $1` ] && return 3
-	kill -0 `cat \`pidfile $1\`` 2> /dev/null || return 1
-	return 0
+	if [ -n "$2" ] && [ "$2" == "log" ]; then
+           status_of_proc -p `pidfile $1` $1 $1 && return 0 || return $?
+	else
+	   kill -0 `cat \`pidfile $1\`` 2> /dev/null || return 1
+	   return 0
+        fi
 }
 
 # Loads the config via vtysh -b if configured to do so.
@@ -410,6 +416,7 @@ check_status()
     local daemon_name
     local daemon_prio
     local daemon_inst
+    local failed_status=0
 
     if [ -n "$1" ] && [[ "$1" =~ (.*)-(.*) ]]; then
 	daemon=${BASH_REMATCH[1]}
@@ -428,19 +435,19 @@ check_status()
            if [ -n "$daemon_inst" ]; then
               for i in ${daemon_inst}; do
 		  if [ -n "$inst" -a "$inst" = "$i" ]; then
-                      started "$1" || return $?
+                      started "$1" "log" || failed_status=$?
 		  elif [ -z "$inst" ]; then
-                      started "$daemon_name-$i" || return $?
+                      started "$daemon_name-$i" "log" || failed_status=$?
 		  fi
               done
            else
-               started "$daemon_name" || return $?
+               started "$daemon_name" "log" || failed_status=$?
            fi
         fi
     done
 
     # All daemons that need to have been started are up and running
-    return 0
+    return $failed_status
 }
 
 #########################################################
