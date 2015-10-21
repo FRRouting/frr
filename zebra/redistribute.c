@@ -171,58 +171,73 @@ zebra_redistribute (struct zserv *client, int type, u_short instance)
 #endif /* HAVE_IPV6 */
 }
 
+/* Either advertise a route for redistribution to registered clients or */
+/* withdraw redistribution if add cannot be done for client */
 void
-redistribute_add (struct prefix *p, struct rib *rib)
+redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
+  int send_redistribute;
+  int afi;
+
+  afi = family2afi(p->family);
+  if (!afi)
+    {
+      zlog_warn("%s: Unknown AFI/SAFI prefix received\n", __FUNCTION__);
+      return;
+    }
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
     {
-      if (is_default (p))
-        {
-          if ((p->family == AF_INET) &&
-              (client->redist_default ||
-              redist_check_instance(&client->redist[AFI_IP][rib->type],
-                                    rib->instance)))
+      send_redistribute = 0;
+
+      if (is_default(p) && client->redist_default)
+	  send_redistribute = 1;
+
+      if (redist_check_instance(&client->redist[afi][rib->type],
+				rib->instance))
+	send_redistribute = 1;
+
+      if (send_redistribute)
+	{
+	  switch (afi)
 	    {
+	    case AFI_IP:
 	      client->redist_v4_add_cnt++;
               zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_ADD, client,
 					p, rib);
-            }
-#ifdef HAVE_IPV6
-          if ((p->family == AF_INET6) &&
-              (client->redist_default ||
-              redist_check_instance(&client->redist[AFI_IP6][rib->type],
-                                    rib->instance)))
-            {
-              client->redist_v6_add_cnt++;
+	      break;
+	    case AFI_IP6:
+	      client->redist_v6_add_cnt++;
               zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_ADD, client,
 				     p, rib);
-            }
-#endif /* HAVE_IPV6 */	  
-        }
-      else
-        {
-           if ((p->family == AF_INET) &&
-              redist_check_instance(&client->redist[AFI_IP][rib->type],
-                                    rib->instance))
+	      break;
+	    default:
+	      zlog_warn("%s: Unknown AFI/SAFI prefix received\n", __FUNCTION__);
+	      break;
+	    }
+	}
+      else if (prev_rib &&
+	       redist_check_instance(&client->redist[afi][prev_rib->type],
+				     rib->instance))
+	{
+	  switch (afi)
 	    {
-	      client->redist_v4_add_cnt++;
-              zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_ADD, client,
-					p, rib);
-            }
-#ifdef HAVE_IPV6
-          if ((p->family == AF_INET6) &&
-              redist_check_instance(&client->redist[AFI_IP6][rib->type],
-                                    rib->instance))
-            {
-              client->redist_v6_add_cnt++;
-              zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_ADD, client,
-					p, rib);
-            }
-#endif /* HAVE_IPV6 */	  
-        }
+	    case AFI_IP:
+	      client->redist_v4_del_cnt++;
+	      zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_DEL, client, p,
+					prev_rib);
+	      break;
+	    case AFI_IP6:
+	      client->redist_v6_del_cnt++;
+	      zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_DEL, client, p,
+					prev_rib);
+	      break;
+	    default:
+	      break;
+	    }
+	}
     }
 }
 

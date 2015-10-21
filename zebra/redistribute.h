@@ -33,7 +33,7 @@ extern void zebra_redistribute_delete (int, struct zserv *, int);
 extern void zebra_redistribute_default_add (int, struct zserv *, int);
 extern void zebra_redistribute_default_delete (int, struct zserv *, int);
 
-extern void redistribute_add (struct prefix *, struct rib *);
+extern void redistribute_update (struct prefix *, struct rib *, struct rib *);
 extern void redistribute_delete (struct prefix *, struct rib *);
 
 extern void zebra_interface_up_update (struct interface *);
