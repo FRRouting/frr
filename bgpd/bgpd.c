@@ -6231,7 +6231,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
     }
   else
     {
-      if (! g_peer->as)
+      if (g_peer->as_type == AS_UNSPECIFIED)
         {
           if (peer->as_type == AS_SPECIFIED)
             {
