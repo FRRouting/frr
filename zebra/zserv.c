@@ -480,31 +480,18 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
 }
 
 /*
- * The zebra server sends the clients  a ZEBRA_IPV4_ROUTE_ADD or a
- * ZEBRA_IPV6_ROUTE_ADD via zsend_route_multipath in the following
- * situations:
- * - when the client starts up, and requests default information
- *   by sending a ZEBRA_REDISTRIBUTE_DEFAULT_ADD to the zebra server, in the
- * - case of rip, ripngd, ospfd and ospf6d, when the client sends a
- *   ZEBRA_REDISTRIBUTE_ADD as a result of the "redistribute" vty cmd,
- * - when the zebra server redistributes routes after it updates its rib
+ * This is the new function to announce and withdraw redistributed routes, used
+ * by Zebra. This is the old zsend_route_multipath() function. That function
+ * was duplicating code to send a lot of information that was essentially thrown
+ * away or ignored by the receiver. This is the leaner function that is not a
+ * duplicate of the zapi_ipv4_route_add/del.
  *
- * The zebra server sends clients a ZEBRA_IPV4_ROUTE_DELETE or a
- * ZEBRA_IPV6_ROUTE_DELETE via zsend_route_multipath when:
- * - a "ip route"  or "ipv6 route" vty command is issued, a prefix is
- * - deleted from zebra's rib, and this info
- *   has to be redistributed to the clients 
- * 
- * XXX The ZEBRA_IPV*_ROUTE_ADD message is also sent by the client to the
- * zebra server when the client wants to tell the zebra server to add a
- * route to the kernel (zapi_ipv4_add etc. ).  Since it's essentially the
- * same message being sent back and forth, this function and
- * zapi_ipv{4,6}_{add, delete} should be re-written to avoid code
- * duplication.
+ * The primary difference is that this function merely sends a single NH instead of
+ * all the nexthops.
  */
 int
-zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
-                       struct rib *rib)
+zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
+			  struct rib *rib)
 {
   int psize;
   struct stream *s;
@@ -512,17 +499,19 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
   unsigned long nhnummark = 0, messmark = 0;
   int nhnum = 0;
   u_char zapi_flags = 0;
-  
+  struct nexthop dummy_nh;
+
   s = client->obuf;
   stream_reset (s);
-  
+  memset(&dummy_nh, 0, sizeof(struct nexthop));
+
   zserv_create_header (s, cmd);
-  
+
   /* Put type and nexthop. */
   stream_putc (s, rib->type);
   stream_putw (s, rib->instance);
   stream_putc (s, rib->flags);
-  
+
   /* marker for message flags field */
   messmark = stream_get_endp (s);
   stream_putc (s, 0);
@@ -532,30 +521,45 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
   stream_putc (s, p->prefixlen);
   stream_write (s, (u_char *) & p->u.prefix, psize);
 
-  /* 
-   * XXX The message format sent by zebra below does not match the format
-   * of the corresponding message expected by the zebra server
-   * itself (e.g., see zread_ipv4_add). The nexthop_num is not set correctly,
-   * (is there a bug on the client side if more than one segment is sent?)
-   * nexthop ZEBRA_NEXTHOP_IPV4 is never set, ZEBRA_NEXTHOP_IFINDEX 
-   * is hard-coded.
-   */
-  /* Nexthop */
-  
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
     {
+      /* We don't send any nexthops when there's a multipath */
+      if (rib->nexthop_active_num > 1)
+	{
+          SET_FLAG (zapi_flags, ZAPI_MESSAGE_NEXTHOP);
+          SET_FLAG (zapi_flags, ZAPI_MESSAGE_IFINDEX);
+
+	  stream_putc(s, 1);
+	  if (p->family == AF_INET)
+	    {
+	      stream_put_in_addr (s, &dummy_nh.gate.ipv4);
+	    }
+	  else if (p->family == AF_INET6)
+	    {
+                stream_write (s, (u_char *) &dummy_nh.gate.ipv6, 16);
+	    }
+	  else
+	    {
+	      /* We don't handle anything else now, abort */
+	      zlog_err("%s: Unable to redistribute route of unknown family, %d\n",
+		       __func__, p->family);
+	      return -1;
+	    }
+          stream_putc (s, 1);
+          stream_putl (s, 0);	/* dummy ifindex */
+	  break;
+	}
+
       if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
           || nexthop_has_fib_child(nexthop))
         {
           SET_FLAG (zapi_flags, ZAPI_MESSAGE_NEXTHOP);
           SET_FLAG (zapi_flags, ZAPI_MESSAGE_IFINDEX);
-          
           if (nhnummark == 0)
             {
               nhnummark = stream_get_endp (s);
               stream_putc (s, 1); /* placeholder */
             }
-          
           nhnum++;
 
           switch(nexthop->type) 
@@ -568,12 +572,16 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
               case NEXTHOP_TYPE_IPV6:
               case NEXTHOP_TYPE_IPV6_IFINDEX:
               case NEXTHOP_TYPE_IPV6_IFNAME:
-                stream_write (s, (u_char *) &nexthop->gate.ipv6, 16);
+		/* Only BGP supports IPv4 prefix with IPv6 NH, so kill this */
+		if (p->family == AF_INET)
+		  stream_put_in_addr(s, &dummy_nh.gate.ipv4);
+		else
+		  stream_write (s, (u_char *) &nexthop->gate.ipv6, 16);
                 break;
 #endif
               default:
-                if (cmd == ZEBRA_IPV4_ROUTE_ADD 
-                    || cmd == ZEBRA_IPV4_ROUTE_DELETE)
+                if (cmd == ZEBRA_REDISTRIBUTE_IPV4_ADD
+                    || cmd == ZEBRA_REDISTRIBUTE_IPV4_DEL)
                   {
                     struct in_addr empty;
                     memset (&empty, 0, sizeof (struct in_addr));
@@ -596,7 +604,7 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
     }
 
   /* Metric */
-  if (cmd == ZEBRA_IPV4_ROUTE_ADD || cmd == ZEBRA_IPV6_ROUTE_ADD)
+  if (cmd == ZEBRA_REDISTRIBUTE_IPV4_ADD || cmd == ZEBRA_REDISTRIBUTE_IPV6_ADD)
     {
       SET_FLAG (zapi_flags, ZAPI_MESSAGE_DISTANCE);
       stream_putc (s, rib->distance);
@@ -610,14 +618,14 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
           stream_putw(s, rib->tag);
         }
     }
-  
+
   /* write real message flags value */
   stream_putc_at (s, messmark, zapi_flags);
-  
+
   /* Write next-hop number */
   if (nhnummark)
     stream_putc_at (s, nhnummark, nhnum);
-  
+
   /* Write packet size. */
   stream_putw_at (s, 0, stream_get_endp (s));
 

@@ -1259,6 +1259,22 @@ zclient_read (struct thread *thread)
       if (zclient->bfd_dest_replay)
 	(*zclient->bfd_dest_replay) (command, zclient, length);
       break;
+    case ZEBRA_REDISTRIBUTE_IPV4_ADD:
+      if (zclient->redistribute_route_ipv4_add)
+	(*zclient->redistribute_route_ipv4_add) (command, zclient, length);
+      break;
+    case ZEBRA_REDISTRIBUTE_IPV4_DEL:
+      if (zclient->redistribute_route_ipv4_del)
+	(*zclient->redistribute_route_ipv4_del) (command, zclient, length);
+      break;
+    case ZEBRA_REDISTRIBUTE_IPV6_ADD:
+      if (zclient->redistribute_route_ipv6_add)
+	(*zclient->redistribute_route_ipv6_add) (command, zclient, length);
+      break;
+    case ZEBRA_REDISTRIBUTE_IPV6_DEL:
+      if (zclient->redistribute_route_ipv6_del)
+	(*zclient->redistribute_route_ipv6_del) (command, zclient, length);
+      break;
     default:
       break;
     }

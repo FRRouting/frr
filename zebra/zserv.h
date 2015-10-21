@@ -149,8 +149,8 @@ extern void nbr_connected_replacement_add_ipv6 (struct interface *,
                                                 struct in6_addr *, u_char);
 extern void nbr_connected_delete_ipv6 (struct interface *, struct in6_addr *, u_char);
 extern int zsend_interface_update (int, struct zserv *, struct interface *);
-extern int zsend_route_multipath (int, struct zserv *, struct prefix *, 
-                                  struct rib *);
+extern int zsend_redistribute_route (int, struct zserv *, struct prefix *,
+				     struct rib *);
 extern int zsend_router_id_update(struct zserv *, struct prefix *);
 extern pid_t pid;
 

@@ -484,7 +484,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
   else
     api.tag = 0;
 
-  if (command == ZEBRA_IPV4_ROUTE_ADD)
+  if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD)
     {
       if (bgp_debug_zebra((struct prefix *)&p))
 	{
@@ -500,7 +500,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
       bgp_redistribute_add((struct prefix *)&p, &nexthop, NULL, ifindex,
 			   api.metric, api.type, api.instance, api.tag);
     }
-  else
+  else if (command == ZEBRA_REDISTRIBUTE_IPV4_DEL)
     {
       if (bgp_debug_zebra((struct prefix *)&p))
 	{
@@ -582,7 +582,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
   if (IN6_IS_ADDR_LINKLOCAL (&p.prefix))
     return 0;
 
-  if (command == ZEBRA_IPV6_ROUTE_ADD)
+  if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
     {
       if (bgp_debug_zebra((struct prefix *)&p))
 	{
@@ -598,7 +598,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
       bgp_redistribute_add ((struct prefix *)&p, NULL, &nexthop, ifindex,
 			    api.metric, api.type, api.instance, api.tag);
     }
-  else
+  else if (command == ZEBRA_REDISTRIBUTE_IPV6_DEL)
     {
       if (bgp_debug_zebra((struct prefix *)&p))
 	{
@@ -1696,11 +1696,15 @@ bgp_zebra_init (struct thread_master *master)
   zclient->interface_nbr_address_delete = bgp_interface_nbr_address_delete;
   zclient->ipv4_route_add = zebra_read_ipv4;
   zclient->ipv4_route_delete = zebra_read_ipv4;
+  zclient->redistribute_route_ipv4_add = zebra_read_ipv4;
+  zclient->redistribute_route_ipv4_del = zebra_read_ipv4;
   zclient->interface_up = bgp_interface_up;
   zclient->interface_down = bgp_interface_down;
 #ifdef HAVE_IPV6
   zclient->ipv6_route_add = zebra_read_ipv6;
   zclient->ipv6_route_delete = zebra_read_ipv6;
+  zclient->redistribute_route_ipv6_add = zebra_read_ipv6;
+  zclient->redistribute_route_ipv6_del = zebra_read_ipv6;
 #endif /* HAVE_IPV6 */
   zclient->nexthop_update = bgp_read_nexthop_update;
   zclient->import_check_update = bgp_read_import_check_update;

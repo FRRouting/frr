@@ -142,6 +142,7 @@ ospf_external_info_add (u_char type, u_short instance, struct prefix_ipv4 p,
   struct external_info *new;
   struct route_node *rn;
   struct ospf_external *ext;
+  char inetbuf[INET6_BUFSIZ];
 
   ext = ospf_external_lookup(type, instance);
   if (!ext)
@@ -152,12 +153,20 @@ ospf_external_info_add (u_char type, u_short instance, struct prefix_ipv4 p,
   if (rn)
     if (rn->info)
       {
-	route_unlock_node (rn);
-	zlog_warn ("Redistribute[%s][%d]: %s/%d already exists, discard.",
+	new = rn->info;
+	if ((new->ifindex == ifindex) &&
+	    (new->nexthop.s_addr == nexthop.s_addr) && (new->tag == tag))
+	  {
+	    route_unlock_node(rn);
+	    return NULL;	/* NULL => no LSA to refresh */
+	  }
+
+	inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf, INET6_BUFSIZ);
+	zlog_warn ("Redistribute[%s][%d]: %s/%d discarding old info with NH %s.",
 		   ospf_redist_string(type), instance,
-		   inet_ntoa (p.prefix), p.prefixlen);
-	/* XFREE (MTYPE_OSPF_TMP, rn->info); */
-	return rn->info;
+		   inet_ntoa (p.prefix), p.prefixlen, inetbuf);
+	XFREE (MTYPE_OSPF_EXTERNAL_INFO, rn->info);
+	rn->info = NULL;
       }
 
   /* Create new External info instance. */
@@ -167,13 +176,17 @@ ospf_external_info_add (u_char type, u_short instance, struct prefix_ipv4 p,
   new->nexthop = nexthop;
   new->tag = tag;
 
+  /* we don't unlock rn from the get() because we're attaching the info */
   if (rn)
     rn->info = new;
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
-    zlog_debug ("Redistribute[%s]: %s/%d external info created.",
-	       ospf_redist_string(type),
-	       inet_ntoa (p.prefix), p.prefixlen);
+    {
+      inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf, INET6_BUFSIZ);
+      zlog_debug ("Redistribute[%s]: %s/%d external info created, with NH %s",
+		  ospf_redist_string(type),
+		  inet_ntoa (p.prefix), p.prefixlen, inetbuf);
+    }
   return new;
 }
 

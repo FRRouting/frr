@@ -98,6 +98,10 @@ struct zclient
   int (*nexthop_update) (int, struct zclient *, uint16_t);
   int (*import_check_update) (int, struct zclient *, uint16_t);
   int (*bfd_dest_replay) (int, struct zclient *, uint16_t);
+  int (*redistribute_route_ipv4_add) (int, struct zclient *, uint16_t);
+  int (*redistribute_route_ipv4_del) (int, struct zclient *, uint16_t);
+  int (*redistribute_route_ipv6_add) (int, struct zclient *, uint16_t);
+  int (*redistribute_route_ipv6_del) (int, struct zclient *, uint16_t);
 };
 
 /* Zebra API message flag. */

@@ -1683,13 +1683,11 @@ rib_process (struct route_node *rn)
         {
 	  zfpm_trigger_update (rn, "updating existing route");
 
-          redistribute_delete (&rn->p, select);
-
           if (! RIB_SYSTEM_ROUTE (select))
             {
               /* For v4, use the replace semantics of netlink. */
               if (PREFIX_FAMILY (&rn->p) == AF_INET)
-                update_ok = 1;
+		  update_ok = 1;
               else
                 rib_uninstall_kernel (rn, select);
             }
@@ -1709,10 +1707,15 @@ rib_process (struct route_node *rn)
                 }
 	      if (! RIB_SYSTEM_ROUTE (select))
 		rib_install_kernel (rn, select, update_ok);
+
+	      /* assuming that the receiver knows how to dedup */
 	      redistribute_add (&rn->p, select);
 	    }
 	  else
 	    {
+	      /* Withdraw unreachable redistribute route */
+	      redistribute_delete(&rn->p, select);
+
               /* For IPv4, do the uninstall here. */
               if (update_ok)
                 rib_uninstall_kernel (rn, select);
@@ -1753,7 +1756,9 @@ rib_process (struct route_node *rn)
 
       zfpm_trigger_update (rn, "removing existing route");
 
-      redistribute_delete (&rn->p, fib);
+      /* If there's no route to replace this with, withdraw redistribute */
+      if (!select)
+	redistribute_delete(&rn->p, fib);
 
       if (! RIB_SYSTEM_ROUTE (fib))
         {
@@ -1762,7 +1767,7 @@ rib_process (struct route_node *rn)
            */
           if (PREFIX_FAMILY (&rn->p) == AF_INET)
             {
-              if (!select || RIB_SYSTEM_ROUTE(select))
+              if (!select)
                 rib_uninstall_kernel (rn, fib);
               else
                 update_ok = 1;
@@ -1802,6 +1807,7 @@ rib_process (struct route_node *rn)
 	  if (! RIB_SYSTEM_ROUTE (select))
 	    rib_install_kernel (rn, select, update_ok);
 	  SET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
+	  /* Unconditionally announce, this part is exercised by new routes */
 	  redistribute_add (&rn->p, select);
 	}
       else
@@ -1812,6 +1818,8 @@ rib_process (struct route_node *rn)
               assert (fib);
               rib_uninstall_kernel (rn, fib);
             }
+	  /* if "select", the earlier redist delete wouldn't have happened */
+	  redistribute_delete(&rn->p, select);
 	}
       UNSET_FLAG(select->flags, ZEBRA_FLAG_CHANGED);
     }
@@ -2941,7 +2949,6 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
       UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         {
-          redistribute_delete (&rn->p, rib);
           /* If there are other active nexthops, do an update. */
           if (rib->nexthop_active_num > 1)
             {
@@ -2949,7 +2956,10 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
               redistribute_add (&rn->p, rib);
             }
           else
-            rib_uninstall_kernel (rn, rib);
+	    {
+	      redistribute_delete (&rn->p, rib);
+	      rib_uninstall_kernel (rn, rib);
+	    }
         }
 
       /* Delete the nexthop and dereg from NHT */

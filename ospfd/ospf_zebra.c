@@ -1070,7 +1070,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   if (ospf == NULL)
     return 0;
 
-  if (command == ZEBRA_IPV4_ROUTE_ADD)
+  if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD)
     {
       /* XXX|HACK|TODO|FIXME:
        * Maybe we should ignore reject/blackhole routes? Testing shows that
@@ -1098,7 +1098,11 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
 
       ei = ospf_external_info_add (api.type, api.instance, p, ifindex,
                                    nexthop, api.tag);
-
+      if (ei == NULL)
+	{
+	  /* Nothing has changed, so nothing to do; return */
+	  return 0;
+	}
       if (ospf->router_id.s_addr == 0)
         /* Set flags to generate AS-external-LSA originate event
            for each redistributed protocols later. */
@@ -1116,17 +1120,19 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
                   current = ospf_external_info_find_lsa (ospf, &ei->p);
                   if (!current)
                     ospf_external_lsa_originate (ospf, ei);
-                  else if (IS_LSA_MAXAGE (current))
-                    ospf_external_lsa_refresh (ospf, current,
-                                               ei, LSA_REFRESH_FORCE);
                   else
-                    zlog_warn ("ospf_zebra_read_ipv4() : %s already exists",
-                               inet_ntoa (p.prefix));
+		    {
+		      if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
+			zlog_debug ("ospf_zebra_read_ipv4() : %s refreshing LSA",
+				    inet_ntoa (p.prefix));
+		      ospf_external_lsa_refresh (ospf, current,
+						 ei, LSA_REFRESH_FORCE);
+		    }
                 }
             }
         }
     }
-  else                          /* if (command == ZEBRA_IPV4_ROUTE_DELETE) */
+  else                          /* if (command == ZEBRA_REDISTRIBUTE_IPV4_DEL) */
     {
       ospf_external_info_delete (api.type, api.instance, p);
       if (is_prefix_default (&p))
@@ -1554,6 +1560,8 @@ ospf_zebra_init (struct thread_master *master, u_short instance)
   zclient->interface_address_delete = ospf_interface_address_delete;
   zclient->ipv4_route_add = ospf_zebra_read_ipv4;
   zclient->ipv4_route_delete = ospf_zebra_read_ipv4;
+  zclient->redistribute_route_ipv4_add = ospf_zebra_read_ipv4;
+  zclient->redistribute_route_ipv4_del = ospf_zebra_read_ipv4;
 
   access_list_add_hook (ospf_filter_update);
   access_list_delete_hook (ospf_filter_update);

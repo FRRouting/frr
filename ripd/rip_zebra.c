@@ -140,10 +140,10 @@ rip_zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
     api.metric = 0;
 
   /* Then fetch IPv4 prefixes. */
-  if (command == ZEBRA_IPV4_ROUTE_ADD)
+  if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD)
     rip_redistribute_add (api.type, RIP_ROUTE_REDISTRIBUTE, &p, ifindex, 
                           &nexthop, api.metric, api.distance);
-  else 
+  else if (command == ZEBRA_REDISTRIBUTE_IPV4_DEL)
     rip_redistribute_delete (api.type, RIP_ROUTE_REDISTRIBUTE, &p, ifindex);
 
   return 0;
@@ -683,6 +683,8 @@ rip_zclient_init (struct thread_master *master)
   zclient->ipv4_route_delete = rip_zebra_read_ipv4;
   zclient->interface_up = rip_interface_up;
   zclient->interface_down = rip_interface_down;
+  zclient->redistribute_route_ipv4_add = rip_zebra_read_ipv4;
+  zclient->redistribute_route_ipv4_del = rip_zebra_read_ipv4;
   
   /* Install zebra node. */
   install_node (&zebra_node, config_write_zebra);

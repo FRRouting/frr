@@ -555,7 +555,7 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
   else
     api.metric = 0;
 
-  if (command == ZEBRA_IPV4_ROUTE_ADD)
+  if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD)
     {
       if (isis->debugs & DEBUG_ZEBRA)
 	zlog_debug ("IPv4 Route add from Z");
@@ -606,9 +606,13 @@ isis_zebra_init (struct thread_master *master)
   zclient->interface_address_delete = isis_zebra_if_address_del;
   zclient->ipv4_route_add = isis_zebra_read_ipv4;
   zclient->ipv4_route_delete = isis_zebra_read_ipv4;
+  zclient->redistribute_route_ipv4_add = isis_zebra_read_ipv4;
+  zclient->redistribute_route_ipv4_del = isis_zebra_read_ipv4;
 #ifdef HAVE_IPV6
   zclient->ipv6_route_add = isis_zebra_read_ipv6;
   zclient->ipv6_route_delete = isis_zebra_read_ipv6;
+  zclient->redistribute_route_ipv6_add = isis_zebra_read_ipv6;
+  zclient->redistribute_route_ipv6_del = isis_zebra_read_ipv6;
 #endif /* HAVE_IPV6 */
 
   return;

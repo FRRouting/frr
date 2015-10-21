@@ -261,7 +261,7 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
 		  zebra_route_string(api.type), prefixstr, nexthopstr, ifindex);
     }
  
-  if (command == ZEBRA_IPV6_ROUTE_ADD)
+  if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
     ospf6_asbr_redistribute_add (api.type, ifindex, (struct prefix *) &p,
                                  api.nexthop_num, nexthop);
   else
@@ -649,8 +649,12 @@ ospf6_zebra_init (struct thread_master *master)
   zclient->interface_address_delete = ospf6_zebra_if_address_update_delete;
   zclient->ipv4_route_add = NULL;
   zclient->ipv4_route_delete = NULL;
+  zclient->redistribute_route_ipv4_add = NULL;
+  zclient->redistribute_route_ipv4_del = NULL;
   zclient->ipv6_route_add = ospf6_zebra_read_ipv6;
   zclient->ipv6_route_delete = ospf6_zebra_read_ipv6;
+  zclient->redistribute_route_ipv6_add = ospf6_zebra_read_ipv6;
+  zclient->redistribute_route_ipv6_del = ospf6_zebra_read_ipv6;
 
   /* redistribute connected route by default */
   /* ospf6_zebra_redistribute (ZEBRA_ROUTE_CONNECT); */
