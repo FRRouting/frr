@@ -1256,6 +1256,14 @@ bgp_start (struct peer *peer)
 
   bgp_peer_conf_if_to_su_update(peer);
 
+  if (peer->su.sa.sa_family == AF_UNSPEC)
+    {
+      if (bgp_debug_neighbor_events(peer))
+        zlog_debug ("%s [FSM] Unable to get neighbor's IP address, waiting...",
+		    peer->host);
+      return -1;
+    }
+
   if (BGP_PEER_START_SUPPRESSED (peer))
     {
       if (bgp_debug_neighbor_events(peer))
