@@ -38,12 +38,8 @@ uint8_t *pim_tlv_append_uint16(uint8_t *buf,
 {
   uint16_t option_len = 2;
 
-  if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend) {
-    zlog_warn("%s: buffer overflow: left=%zd needed=%d",
-	      __PRETTY_FUNCTION__,
-	      buf_pastend - buf, PIM_TLV_OPTION_SIZE(option_len));
-    return 0;
-  }
+  if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend)
+    return NULL;
 
   *(uint16_t *) buf = htons(option_type);
   buf += 2;
@@ -63,12 +59,8 @@ uint8_t *pim_tlv_append_2uint16(uint8_t *buf,
 {
   uint16_t option_len = 4;
 
-  if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend) {
-    zlog_warn("%s: buffer overflow: left=%zd needed=%d",
-	      __PRETTY_FUNCTION__,
-	      buf_pastend - buf, PIM_TLV_OPTION_SIZE(option_len));
-    return 0;
-  }
+  if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend)
+    return NULL;
 
   *(uint16_t *) buf = htons(option_type);
   buf += 2;
@@ -89,12 +81,8 @@ uint8_t *pim_tlv_append_uint32(uint8_t *buf,
 {
   uint16_t option_len = 4;
 
-  if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend) {
-    zlog_warn("%s: buffer overflow: left=%zd needed=%d",
-	      __PRETTY_FUNCTION__,
-	      buf_pastend - buf, PIM_TLV_OPTION_SIZE(option_len));
-    return 0;
-  }
+  if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend)
+    return NULL;
 
   *(uint16_t *) buf = htons(option_type);
   buf += 2;
@@ -136,12 +124,8 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
     if (p->family != AF_INET)
       continue;
 
-    if ((curr + ucast_ipv4_encoding_len) > buf_pastend) {
-      zlog_warn("%s: buffer overflow: left=%zd needed=%zu",
-		__PRETTY_FUNCTION__,
-		buf_pastend - curr, ucast_ipv4_encoding_len);
+    if ((curr + ucast_ipv4_encoding_len) > buf_pastend)
       return 0;
-    }
 
     /* Write encoded unicast IPv4 address */
     *(uint8_t *) curr = PIM_MSG_ADDRESS_FAMILY_IPV4; /* notice: AF_INET != PIM_MSG_ADDRESS_FAMILY_IPV4 */
@@ -155,9 +139,9 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
   }
 
   if (PIM_DEBUG_PIM_TRACE) {
-    zlog_warn("%s: number of encoded secondary unicast IPv4 addresses: %zu",
-	      __PRETTY_FUNCTION__,
-	      option_len / ucast_ipv4_encoding_len);
+    zlog_debug("%s: number of encoded secondary unicast IPv4 addresses: %zu",
+	       __PRETTY_FUNCTION__,
+	       option_len / ucast_ipv4_encoding_len);
   }
 
   if (option_len < 1) {
