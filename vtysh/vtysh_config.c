@@ -225,8 +225,6 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "router isis", strlen ("router isis")) == 0)
   	config = config_get (ISIS_NODE, line);
-      else if (strncmp (line, "router bgp", strlen ("router bgp")) == 0)
-	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "route-map", strlen ("route-map")) == 0)
 	config = config_get (RMAP_NODE, line);
       else if (strncmp (line, "access-list", strlen ("access-list")) == 0)
@@ -268,6 +266,12 @@ vtysh_config_parse_line (const char *line)
 			   strlen ("enable password")) == 0)
 	config = config_get (AAA_NODE, line);
       else if (strncmp (line, "ip protocol", strlen ("ip protocol")) == 0)
+	config = config_get (PROTOCOL_NODE, line);
+      else if (strncmp (line, "ipv6 protocol", strlen ("ipv6 protocol")) == 0)
+	config = config_get (PROTOCOL_NODE, line);
+      else if (strncmp (line, "ip nht", strlen ("ip nht")) == 0)
+	config = config_get (PROTOCOL_NODE, line);
+      else if (strncmp (line, "ipv6 nht", strlen ("ipv6 nht")) == 0)
 	config = config_get (PROTOCOL_NODE, line);
       else
 	{
