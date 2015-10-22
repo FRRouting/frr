@@ -2917,7 +2917,7 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
 
 /* Uninstall static route from RIB. */
 static void
-static_uninstall_ipv4 (struct prefix *p, struct static_route *si)
+static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si)
 {
   struct route_node *rn;
   struct rib *rib;
@@ -2926,7 +2926,7 @@ static_uninstall_ipv4 (struct prefix *p, struct static_route *si)
   struct prefix nh_p;
 
   /* Lookup table.  */
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = vrf_table (afi, safi, 0);
   if (! table)
     return;
   
@@ -2975,23 +2975,46 @@ static_uninstall_ipv4 (struct prefix *p, struct static_route *si)
       UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         {
-          /* If there are other active nexthops, do an update. */
-          if (rib->nexthop_active_num > 1)
-            {
-              rib_install_kernel (rn, rib, 1);
-              redistribute_update (&rn->p, rib, NULL);
-            }
-          else
+	  if (afi == AFI_IP)
+	    {
+	      /* If there are other active nexthops, do an update. */
+	      if (rib->nexthop_active_num > 1)
+		{
+		  rib_install_kernel (rn, rib, 1);
+		  redistribute_update (&rn->p, rib, NULL);
+		}
+	      else
+		{
+		  redistribute_delete (&rn->p, rib);
+		  rib_uninstall_kernel (rn, rib);
+		}
+	    }
+	  else
 	    {
 	      redistribute_delete (&rn->p, rib);
 	      rib_uninstall_kernel (rn, rib);
+	      /* Are there other active nexthops? */
+	      if (rib->nexthop_active_num > 1)
+		{
+		  rib_install_kernel (rn, rib, 0);
+		  redistribute_update (&rn->p, rib, NULL);
+		}
 	    }
         }
 
-      /* Delete the nexthop and dereg from NHT */
-      nh_p.family = AF_INET;
-      nh_p.prefixlen = IPV4_MAX_BITLEN;
-      nh_p.u.prefix4 = nexthop->gate.ipv4;
+      if (afi == AFI_IP)
+	{
+	  /* Delete the nexthop and dereg from NHT */
+	  nh_p.family = AF_INET;
+	  nh_p.prefixlen = IPV4_MAX_BITLEN;
+	  nh_p.u.prefix4 = nexthop->gate.ipv4;
+	}
+      else
+	{
+	  nh_p.family = AF_INET6;
+	  nh_p.prefixlen = IPV6_MAX_BITLEN;
+	  nh_p.u.prefix6 = nexthop->gate.ipv6;
+	}
       nexthop_delete (rib, nexthop);
       zebra_deregister_rnh_static_nh(&nh_p, rn);
       nexthop_free (nexthop, rn);
@@ -3140,7 +3163,7 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
     }
 
   /* Install into rib. */
-  static_uninstall_ipv4 (p, si);
+  static_uninstall_route (AFI_IP, SAFI_UNICAST, p, si);
 
   /* Unlink static route from linked list. */
   if (si->prev)
@@ -3573,89 +3596,6 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
   return 0;
 }
 
-static void
-static_uninstall_ipv6 (struct prefix *p, struct static_route *si)
-{
-  struct route_table *table;
-  struct route_node *rn;
-  struct rib *rib;
-  struct nexthop *nexthop;
-  struct prefix nh_p;
-
-  /* Lookup table.  */
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
-  if (! table)
-    return;
-
-  /* Lookup existing route with type and distance. */
-  rn = route_node_lookup (table, (struct prefix *) p);
-  if (! rn)
-    return;
-
-  RNODE_FOREACH_RIB (rn, rib)
-    {
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
-        continue;
-    
-      if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance &&
-          rib->tag == si->tag)
-        break;
-    }
-
-  if (! rib)
-    {
-      route_unlock_node (rn);
-      return;
-    }
-
-  /* Lookup nexthop. */
-  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-    if (static_nexthop_same (nexthop, si))
-      break;
-
-  /* Can't find nexthop. */
-  if (! nexthop)
-    {
-      route_unlock_node (rn);
-      return;
-    }
-  
-  /* Check nexthop. */
-  if (rib->nexthop_num == 1)
-    {
-      rib_delnode (rn, rib);
-    }
-  else
-    {
-      /* Mark this nexthop as inactive and reinstall the route. Then, delete
-       * the nexthop. There is no need to re-evaluate the route for this
-       * scenario.
-       */
-      UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-      if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-        {
-          redistribute_delete (&rn->p, rib);
-          rib_uninstall_kernel (rn, rib);
-          /* Are there other active nexthops? */
-          if (rib->nexthop_active_num > 1)
-            {
-              rib_install_kernel (rn, rib, 0);
-              redistribute_update (&rn->p, rib, NULL);
-            }
-        }
-
-      /* Delete the nexthop and dereg from NHT */
-      nh_p.family = AF_INET6;
-      nh_p.prefixlen = IPV6_MAX_BITLEN;
-      nh_p.u.prefix6 = nexthop->gate.ipv6;
-      nexthop_delete (rib, nexthop);
-      zebra_deregister_rnh_static_nh(&nh_p, rn);
-      nexthop_free (nexthop, rn);
-    }
-  /* Unlock node. */
-  route_unlock_node (rn);
-}
-
 /* Add static route into static route configuration. */
 int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
@@ -3784,7 +3724,7 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
     }
 
   /* Install into rib. */
-  static_uninstall_ipv6 (p, si);
+  static_uninstall_route (AFI_IP6, SAFI_UNICAST, p, si);
 
   /* Unlink static route from linked list. */
   if (si->prev)
