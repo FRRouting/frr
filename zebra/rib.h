@@ -348,7 +348,6 @@ extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *);
 #define ZEBRA_RIB_FOUND_CONNECTED 2
 #define ZEBRA_RIB_NOTFOUND 3
 
-#ifdef HAVE_IPV6
 extern struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
 extern struct nexthop *nexthop_ipv6_ifindex_add (struct rib *rib,
 		        struct in6_addr *ipv6, unsigned int ifindex);
@@ -358,7 +357,6 @@ extern struct nexthop *nexthop_ipv6_ifname_add (struct rib *rib,
 extern int
 rib_bogus_ipv6 (int type, struct prefix_ipv6 *p,
                 struct in6_addr *gate, unsigned int ifindex, int table);
-#endif /* HAVE_IPV6 */
 
 extern struct vrf *vrf_lookup (u_int32_t);
 extern struct route_table *vrf_table (afi_t afi, safi_t safi, u_int32_t id);
@@ -406,7 +404,6 @@ extern int
 static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 		    u_short tag, u_char distance, u_int32_t vrf_id);
 
-#ifdef HAVE_IPV6
 extern int
 rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 	      struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id,
@@ -435,8 +432,6 @@ extern int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 		    const char *ifname, u_short tag, u_char distance,
                     u_int32_t vrf_id);
-
-#endif /* HAVE_IPV6 */
 
 extern int rib_gc_dest (struct route_node *rn);
 extern struct route_table *rib_tables_iter_next (rib_tables_iter_t *iter);

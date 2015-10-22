@@ -246,7 +246,6 @@ zebra_check_addr (struct prefix *p)
           || IPV4_LINKLOCAL(addr))
 	return 0;
     }
-#ifdef HAVE_IPV6
   if (p->family == AF_INET6)
     {
       if (IN6_IS_ADDR_LOOPBACK (&p->u.prefix6))
@@ -254,7 +253,6 @@ zebra_check_addr (struct prefix *p)
       if (IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
 	return 0;
     }
-#endif /* HAVE_IPV6 */
   return 1;
 }
 
@@ -455,7 +453,6 @@ nexthop_ipv4_ifindex_ol_add (struct rib *rib, const struct in_addr *ipv4,
   return nexthop;
 }
 
-#ifdef HAVE_IPV6
 struct nexthop *
 nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
 {
@@ -501,7 +498,6 @@ nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
 
   return nexthop;
 }
-#endif /* HAVE_IPV6 */
 
 struct nexthop *
 nexthop_blackhole_add (struct rib *rib)
@@ -757,7 +753,6 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
   return 0;
 }
 
-#ifdef HAVE_IPV6
 /* If force flag is not set, do not modify falgs at all for uninstall
    the route from FIB. */
 static int
@@ -947,7 +942,6 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
     }
   return 0;
 }
-#endif /* HAVE_IPV6 */
 
 struct rib *
 rib_match_ipv4 (struct in_addr addr)
@@ -1132,7 +1126,6 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate)
   return ZEBRA_RIB_NOTFOUND;
 }
 
-#ifdef HAVE_IPV6
 struct rib *
 rib_match_ipv6 (struct in6_addr *addr)
 {
@@ -1194,7 +1187,6 @@ rib_match_ipv6 (struct in6_addr *addr)
     }
   return NULL;
 }
-#endif /* HAVE_IPV6 */
 
 #define RIB_SYSTEM_ROUTE(R) \
         ((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
@@ -1259,7 +1251,6 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
       else
 	UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       break;
-#ifdef HAVE_IPV6
     case NEXTHOP_TYPE_IPV6:
       family = AFI_IP6;
       if (nexthop_active_ipv6 (rib, nexthop, set, rn))
@@ -1287,7 +1278,6 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	    UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
       break;
-#endif /* HAVE_IPV6 */
     case NEXTHOP_TYPE_BLACKHOLE:
       SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       break;
@@ -1410,11 +1400,9 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, int update)
       else
         ret = kernel_add_ipv4 (&rn->p, rib);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       ret = kernel_add_ipv6 (&rn->p, rib);
       break;
-#endif /* HAVE_IPV6 */
     }
 
   /* This condition is never met, if we are using rt_socket.c */
@@ -1444,11 +1432,9 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
     case AF_INET:
       ret = kernel_delete_ipv4 (&rn->p, rib);
       break;
-#ifdef HAVE_IPV6
     case AF_INET6:
       ret = kernel_delete_ipv6 (&rn->p, rib);
       break;
-#endif /* HAVE_IPV6 */
     }
 
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
@@ -1886,10 +1872,8 @@ meta_queue_process_complete (struct work_queue *dummy)
 {
   zebra_evaluate_rnh(0, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
   zebra_evaluate_rnh(0, AF_INET, 0, RNH_IMPORT_CHECK_TYPE, NULL);
-#ifdef HAVE_IPV6
   zebra_evaluate_rnh(0, AF_INET6, 0, RNH_NEXTHOP_TYPE, NULL);
   zebra_evaluate_rnh(0, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE, NULL);
-#endif /* HAVE_IPV6 */
 }
 
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
@@ -3139,7 +3123,6 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 }
 
 
-#ifdef HAVE_IPV6
 int
 rib_bogus_ipv6 (int type, struct prefix_ipv6 *p,
 		struct in6_addr *gate, unsigned int ifindex, int table)
@@ -3889,7 +3872,6 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 
   return 1;
 }
-#endif /* HAVE_IPV6 */
 
 /* RIB update function. */
 void

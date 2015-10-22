@@ -27,9 +27,7 @@
 
 union g_addr {
   struct in_addr ipv4;
-#ifdef HAVE_IPV6
   struct in6_addr ipv6;
-#endif /* HAVE_IPV6 */
 };
 
 enum nexthop_types_t
