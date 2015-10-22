@@ -1177,6 +1177,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
           return -1;
         }
     }
+  peer->rtt = sockopt_tcp_rtt (peer->fd);
 
   if ((ret = bgp_event_update(peer, Receive_OPEN_message)) < 0)
     {
@@ -2346,7 +2347,6 @@ bgp_read (struct thread *thread)
     {
     case BGP_MSG_OPEN:
       peer->open_in++;
-      peer->rtt = sockopt_tcp_rtt(peer->fd);
       bgp_open_receive (peer, size); /* XXX return value ignored! */
       break;
     case BGP_MSG_UPDATE:
