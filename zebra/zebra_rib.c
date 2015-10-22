@@ -2886,7 +2886,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 }
 
 static int
-static_ipv4_nexthop_same (struct nexthop *nexthop, struct static_route *si)
+static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
 {
   if (nexthop->type == NEXTHOP_TYPE_IPV4
       && si->type == STATIC_IPV4_GATEWAY
@@ -2898,6 +2898,19 @@ static_ipv4_nexthop_same (struct nexthop *nexthop, struct static_route *si)
     return 1;
   if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE
       && si->type == STATIC_IPV4_BLACKHOLE)
+    return 1;
+  if (nexthop->type == NEXTHOP_TYPE_IPV6
+      && si->type == STATIC_IPV6_GATEWAY
+      && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6))
+    return 1;
+  if (nexthop->type == NEXTHOP_TYPE_IFNAME
+      && si->type == STATIC_IPV6_IFNAME
+      && strcmp (nexthop->ifname, si->ifname) == 0)
+    return 1;
+  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
+      && si->type == STATIC_IPV6_GATEWAY_IFNAME
+      && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6)
+      && strcmp (nexthop->ifname, si->ifname) == 0)
     return 1;
   return 0;
 }
@@ -2940,7 +2953,7 @@ static_uninstall_ipv4 (struct prefix *p, struct static_route *si)
 
   /* Lookup nexthop. */
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-    if (static_ipv4_nexthop_same (nexthop, si))
+    if (static_nexthop_same (nexthop, si))
       break;
 
   /* Can't find nexthop. */
@@ -3560,25 +3573,6 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
   return 0;
 }
 
-static int
-static_ipv6_nexthop_same (struct nexthop *nexthop, struct static_route *si)
-{
-  if (nexthop->type == NEXTHOP_TYPE_IPV6
-      && si->type == STATIC_IPV6_GATEWAY
-      && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6))
-    return 1;
-  if (nexthop->type == NEXTHOP_TYPE_IFNAME
-      && si->type == STATIC_IPV6_IFNAME
-      && strcmp (nexthop->ifname, si->ifname) == 0)
-    return 1;
-  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
-      && si->type == STATIC_IPV6_GATEWAY_IFNAME
-      && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6)
-      && strcmp (nexthop->ifname, si->ifname) == 0)
-    return 1;
-  return 0;
-}
-
 static void
 static_uninstall_ipv6 (struct prefix *p, struct static_route *si)
 {
@@ -3616,7 +3610,7 @@ static_uninstall_ipv6 (struct prefix *p, struct static_route *si)
 
   /* Lookup nexthop. */
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-    if (static_ipv6_nexthop_same (nexthop, si))
+    if (static_nexthop_same (nexthop, si))
       break;
 
   /* Can't find nexthop. */
