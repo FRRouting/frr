@@ -27,6 +27,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "stream.h"
 #include "command.h"
 #include "sockunion.h"
+#include "sockopt.h"
 #include "network.h"
 #include "memory.h"
 #include "filter.h"
@@ -5981,6 +5982,8 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_AF_UNCONFIGURED;
+
+  peer->rtt = sockopt_tcp_rtt (peer->fd);
 
   if (stype == BGP_CLEAR_SOFT_OUT || stype == BGP_CLEAR_SOFT_BOTH)
     {
