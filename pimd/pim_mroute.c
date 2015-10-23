@@ -200,8 +200,11 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
   if (ip_hdr->ip_p) {
     /* this is not a kernel upcall */
     if (PIM_DEBUG_PIM_TRACE) {
-      zlog_debug("%s: not a kernel upcall proto=%d msg_size=%d",
-		 __PRETTY_FUNCTION__, ip_hdr->ip_p, buf_size);
+      pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", ip_hdr->ip_dst, grp_str, sizeof(grp_str));
+      zlog_debug("%s: not a kernel upcall proto=%d src: %s dst: %s msg_size=%d",
+		 __PRETTY_FUNCTION__, ip_hdr->ip_p, src_str, grp_str, buf_size);
+      //zlog_hexdump(buf, buf_size);
     }
     return 0;
   }
