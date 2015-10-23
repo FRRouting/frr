@@ -145,6 +145,7 @@ struct bgp
 
   /* BGP peer. */
   struct list *peer;
+  struct hash *peerhash;
 
   /* BGP peer group.  */
   struct list *group;

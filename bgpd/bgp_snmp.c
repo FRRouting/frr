@@ -311,7 +311,7 @@ bgp_peer_lookup_next (struct in_addr *src)
   union sockunion su;
   int ret;
 
-  memset (&su, 0, sizeof (union sockunion));
+  sockunion_init (&su);
 
   bgp = bgp_get_default ();
   if (! bgp)
@@ -620,6 +620,8 @@ bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
   union sockunion su;
   unsigned int len;
   struct in_addr paddr;
+
+  sockunion_init (&su);
 
 #define BGP_PATHATTR_ENTRY_OFFSET \
           (IN_ADDR_SIZE + 1 + IN_ADDR_SIZE)
