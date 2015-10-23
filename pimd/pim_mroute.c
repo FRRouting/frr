@@ -81,6 +81,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
    */
   if ((qpim_rp.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
+      (!PIM_I_am_DR(pim_ifp)) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM))
     return 0;
 
@@ -115,6 +116,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const struct igmpmsg *ms
 		 __PRETTY_FUNCTION__);
     }
   }
+
   return 0;
 }
 

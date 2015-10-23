@@ -30,8 +30,6 @@
 #include "pim_iface.h"
 #include "pim_ifchannel.h"
 
-#define PIM_IFP_I_am_DR(pim_ifp) ((pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr)
-
 /*
   DownstreamJPState(S,G,I) is the per-interface state machine for
   receiving (S,G) Join/Prune messages.
@@ -181,7 +179,7 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
     
   return (
 	  /* I_am_DR( I ) ? */
-	  PIM_IFP_I_am_DR(pim_ifp)
+	  PIM_I_am_DR(pim_ifp)
 	  &&
 	  /* lost_assert(S,G,I) == FALSE ? */
 	  (!pim_macro_ch_lost_assert(ch))
@@ -419,7 +417,7 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
   /* local_receiver_include(S,G,I) ? */
   if (local_receiver_include(ch)) {
     /* I_am_DR(I) ? */
-    if (PIM_IFP_I_am_DR(pim_ifp))
+    if (PIM_I_am_DR(pim_ifp))
       return 1; /* true */
 
     /* AssertWinner(S,G,I) == me ? */
