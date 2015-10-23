@@ -206,6 +206,25 @@ sockunion_normalise_mapped (union sockunion *su)
 #endif /* HAVE_IPV6 */
 }
 
+/* return sockunion structure : this function should be revised. */
+static const char *
+sockunion_log (union sockunion *su, char *buf, size_t len)
+{
+  switch (su->sa.sa_family)
+    {
+    case AF_INET:
+      return inet_ntop(AF_INET, &su->sin.sin_addr, buf, len);
+
+    case AF_INET6:
+      return inet_ntop(AF_INET6, &(su->sin6.sin6_addr), buf, len);
+      break;
+
+    default:
+      snprintf (buf, len, "af_unknown %d ", su->sa.sa_family);
+      return buf;
+    }
+}
+
 /* Return socket of sockunion. */
 int
 sockunion_socket (union sockunion *su)
@@ -215,7 +234,9 @@ sockunion_socket (union sockunion *su)
   sock = socket (su->sa.sa_family, SOCK_STREAM, 0);
   if (sock < 0)
     {
-      zlog (NULL, LOG_WARNING, "Can't make socket : %s", safe_strerror (errno));
+      char buf[SU_ADDRSTRLEN];
+      zlog (NULL, LOG_WARNING, "Can't make socket for %s : %s",
+            sockunion_log (su, buf, SU_ADDRSTRLEN), safe_strerror (errno));
       return -1;
     }
 
@@ -255,27 +276,6 @@ sockunion_sizeof (union sockunion *su)
 #endif /* AF_INET6 */
     }
   return ret;
-}
-
-/* return sockunion structure : this function should be revised. */
-static const char *
-sockunion_log (union sockunion *su, char *buf, size_t len)
-{
-  switch (su->sa.sa_family) 
-    {
-    case AF_INET:
-      return inet_ntop(AF_INET, &su->sin.sin_addr, buf, len);
-
-#ifdef HAVE_IPV6
-    case AF_INET6:
-      return inet_ntop(AF_INET6, &(su->sin6.sin6_addr), buf, len);
-      break;
-#endif /* HAVE_IPV6 */
-
-    default:
-      snprintf (buf, len, "af_unknown %d ", su->sa.sa_family);
-      return buf;
-    }
 }
 
 /* sockunion_connect returns
@@ -407,7 +407,11 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
 
   ret = bind (sock, (struct sockaddr *)su, size);
   if (ret < 0)
-    zlog (NULL, LOG_WARNING, "can't bind socket : %s", safe_strerror (errno));
+    {
+      char buf[SU_ADDRSTRLEN];
+      zlog (NULL, LOG_WARNING, "can't bind socket for %s : %s",
+            sockunion_log (su, buf, SU_ADDRSTRLEN), safe_strerror (errno));
+    }
 
   return ret;
 }
