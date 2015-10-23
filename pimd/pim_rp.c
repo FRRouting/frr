@@ -45,7 +45,7 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
     zlog_debug("%s: %s for old %s new %s", __func__, rp, sold, snew );
   }
 
-  if (qpim_rp.s_addr == 0)
+  if (qpim_rp.s_addr == INADDR_NONE)
     return;
 
   if (new.s_addr == qpim_rp.s_addr)
@@ -98,7 +98,7 @@ pim_rp_g (struct in_addr group)
 int
 pim_rp_set_upstream_addr (struct in_addr *up, struct in_addr source)
 {
-  if ((qpim_rp.s_addr == 0) && (source.s_addr == 0xFFFFFFFF))
+  if ((qpim_rp.s_addr == INADDR_NONE) && (source.s_addr == 0xFFFFFFFF))
     {
       if (PIM_DEBUG_PIM_TRACE)
 	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);

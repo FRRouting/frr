@@ -72,6 +72,22 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 			const char *src_str, const char *grp_str)
 {
   struct mfcctl mc;
+  struct pim_interface *pim_ifp = ifp->info;
+
+  /*
+   * If the incoming interface is unknown OR
+   * the Interface type is SSM we don't need to
+   * do anything here
+   */
+  if ((qpim_rp.s_addr == INADDR_NONE) ||
+      (!pim_ifp) ||
+      (pim_ifp->itype == PIM_INTERFACE_SSM))
+    return 0;
+
+  if (PIM_DEBUG_PIM_TRACE) {
+    zlog_debug("%s: Adding a Route for %s from %s for WHOLEPKT consumption",
+	       __PRETTY_FUNCTION__, grp_str, src_str);
+  }
 
   /*
    * This is just a hack to get the (S,G) received packet up into
@@ -92,6 +108,13 @@ static int
 pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const struct igmpmsg *msg,
 			 const char *src_str, const char *grp_str)
 {
+
+  if (qpim_rp.s_addr == INADDR_NONE) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: Received WHOLEPKT with no RP configured to send it to",
+		 __PRETTY_FUNCTION__);
+    }
+  }
   return 0;
 }
 
