@@ -25,11 +25,35 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "prefix.h"
 #include "command.h"
+#include "memory.h"
+#include "privs.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
+
+/* privileges */
+static zebra_capabilities_t _caps_p [] =
+{
+    ZCAP_BIND,
+    ZCAP_NET_RAW,
+    ZCAP_NET_ADMIN,
+};
+
+struct zebra_privs_t bgpd_privs =
+{
+#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
+  .user = QUAGGA_USER,
+  .group = QUAGGA_GROUP,
+#endif
+#ifdef VTY_GROUP
+  .vty_group = VTY_GROUP,
+#endif
+  .caps_p = _caps_p,
+  .cap_num_p = array_size(_caps_p),
+  .cap_num_i = 0,
+};
 
 enum MRT_MSG_TYPES {
    MSG_NULL,
@@ -47,7 +71,7 @@ enum MRT_MSG_TYPES {
    MSG_TABLE_DUMP               /* routing table dump */
 };
 
-int
+static int
 attr_parse (struct stream *s, u_int16_t len)
 {
   u_int flag;
@@ -57,14 +81,14 @@ attr_parse (struct stream *s, u_int16_t len)
 
   lim = s->getp + len;
 
-  printf ("attr_parse s->getp %d, len %d, lim %d\n", s->getp, len, lim);
+  printf ("attr_parse s->getp %zd, len %d, lim %d\n", s->getp, len, lim);
 
   while (s->getp < lim)
     {
       flag = stream_getc (s);
       type = stream_getc (s);
 
-      if (flag & ATTR_FLAG_EXTLEN)
+      if (flag & BGP_ATTR_FLAG_EXTLEN)
 	length = stream_getw (s);
       else
 	length = stream_getc (s);
@@ -84,27 +108,22 @@ attr_parse (struct stream *s, u_int16_t len)
 	  break;
 	case BGP_ATTR_AS_PATH:
 	  {
-	    struct aspath aspath;
+	    struct aspath *aspath;
 
-	    aspath.data = (s->data + s->getp);
-	    aspath.length = length;
-	    aspath.str = aspath_make_str_count (&aspath);
-	    printf ("ASPATH: %s\n", aspath.str);
-	    free (aspath.str);
-	    
-	    stream_forward (s, length);
+	    aspath = aspath_parse (s, length, 1);
+	    printf ("ASPATH: %s\n", aspath->str);
+	    aspath_free(aspath);
 	  }
 	  break;
-	case BGP_ATTR_NEXT_HOP:	
+	case BGP_ATTR_NEXT_HOP:
 	  {
 	    struct in_addr nexthop;
 	    nexthop.s_addr = stream_get_ipv4 (s);
 	    printf ("NEXTHOP: %s\n", inet_ntoa (nexthop));
-	    /* stream_forward (s, length); */
 	  }
 	  break;
 	default:
-	  stream_forward (s, length);
+	  stream_getw_from (s, length);
 	  break;
 	}
     }
@@ -121,7 +140,7 @@ main (int argc, char **argv)
   time_t now;
   int type;
   int subtype;
-  int len;
+  size_t len;
   int source_as;
   int dest_as;
   int ifindex;
@@ -150,7 +169,7 @@ main (int argc, char **argv)
       stream_reset (s);
 
       ret = fread (s->data, 12, 1, fp);
-      if (feof (fp))
+      if (!ret || feof (fp))
 	{
 	  printf ("END OF FILE\n");
 	  break;
@@ -213,7 +232,7 @@ main (int argc, char **argv)
 	    }
 	}
 
-      printf ("len: %d\n", len);
+      printf ("len: %zd\n", len);
 
       ret = fread (s->data + 12, len, 1, fp);
       if (feof (fp))

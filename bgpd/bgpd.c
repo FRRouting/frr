@@ -39,6 +39,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "queue.h"
 #include "zclient.h"
 #include "bfd.h"
+#include "hash.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -698,6 +700,22 @@ peer_cmp (struct peer *p1, struct peer *p2)
   return sockunion_cmp (&p1->su, &p2->su);
 }
 
+static unsigned int
+peer_hash_key_make(void *p)
+{
+  struct peer *peer = p;
+  return sockunion_hash(&peer->su);
+}
+
+static int
+peer_hash_cmp (const void *p1, const void *p2)
+{
+  const struct peer *peer1 = p1;
+  const struct peer *peer2 = p2;
+  return (sockunion_same (&peer1->su, &peer2->su) &&
+          CHECK_FLAG (peer1->flags, PEER_FLAG_CONFIG_NODE) == CHECK_FLAG (peer2->flags, PEER_FLAG_CONFIG_NODE));
+}
+
 int
 peer_af_flag_check (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag)
 {
@@ -1309,6 +1327,10 @@ bgp_peer_conf_if_to_su_update (struct peer *peer)
       peer->su.sa.sa_family = AF_UNSPEC;
       memset(&peer->su.sin6.sin6_addr, 0, sizeof (struct in6_addr));
     }
+
+  /* Since our su changed we need to del/add peer to the peerhash */
+  hash_release(peer->bgp->peerhash, peer);
+  hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 }
 
 /* Create new BGP peer.  */
@@ -1350,6 +1372,7 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
 
   peer = peer_lock (peer); /* bgp peer list reference */
   listnode_add_sort (bgp->peer, peer);
+  hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
   active = peer_active (peer);
 
@@ -1417,7 +1440,7 @@ peer_conf_interface_get(struct bgp *bgp, const char *conf_if, afi_t afi,
   return peer;
 }
 
-/* Make accept BGP peer.  Called from bgp_accept (). */
+/* Make accept BGP peer. This function is only called from the test code */
 struct peer *
 peer_create_accept (struct bgp *bgp)
 {
@@ -1824,6 +1847,7 @@ peer_delete (struct peer *peer)
     {
       peer_unlock (peer); /* bgp peer list reference */
       list_delete_node (bgp->peer, pn);
+      hash_release(bgp->peerhash, peer);
     }
       
   if (peer_rsclient_active (peer)
@@ -2733,6 +2757,7 @@ bgp_create (as_t *as, const char *name)
   bgp->peer_self->host = XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
   bgp->peer = list_new ();
   bgp->peer->cmp = (int (*)(void *, void *)) peer_cmp;
+  bgp->peerhash = hash_create (peer_hash_key_make, peer_hash_cmp);
 
   bgp->group = list_new ();
   bgp->group->cmp = (int (*)(void *, void *)) peer_group_cmp;
@@ -2996,6 +3021,8 @@ bgp_free (struct bgp *bgp)
   list_delete (bgp->group);
   list_delete (bgp->peer);
   list_delete (bgp->rsclient);
+  hash_free(bgp->peerhash);
+  bgp->peerhash = NULL;
 
   if (bgp->name)
     XFREE(MTYPE_BGP, bgp->name);
@@ -3074,27 +3101,37 @@ peer_lookup_by_hostname (struct bgp *bgp, const char *hostname)
 struct peer *
 peer_lookup (struct bgp *bgp, union sockunion *su)
 {
-  struct peer *peer;
-  struct listnode *node, *nnode;
+  struct peer *peer = NULL;
+  struct peer tmp_peer;
+
+  memset(&tmp_peer, 0, sizeof(struct peer));
+
+  /*
+   * We do not want to find the doppelganger peer so search for the peer in
+   * the hash that has PEER_FLAG_CONFIG_NODE
+   */
+  SET_FLAG (tmp_peer.flags, PEER_FLAG_CONFIG_NODE);
+
+  tmp_peer.su = *su;
 
   if (bgp != NULL)
     {
-      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-        if (sockunion_same (&peer->su, su)
-            && (CHECK_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE)))
-          return peer;
+      peer = hash_lookup(bgp->peerhash, &tmp_peer);
     }
   else if (bm->bgp != NULL)
     {
       struct listnode *bgpnode, *nbgpnode;
   
       for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
-        for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-          if (sockunion_same (&peer->su, su)
-              && (CHECK_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE)))
-            return peer;
+        {
+          peer = hash_lookup(bgp->peerhash, &tmp_peer);
+
+          if (peer)
+            break;
+        }
     }
-  return NULL;
+
+  return peer;
 }
 
 struct peer *

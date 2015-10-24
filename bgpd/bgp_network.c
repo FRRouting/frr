@@ -229,6 +229,8 @@ bgp_accept (struct thread *thread)
   struct peer *peer1;
   char buf[SU_ADDRSTRLEN];
 
+  sockunion_init (&su);
+
   /* Register accept thread. */
   accept_sock = THREAD_FD (thread);
   if (accept_sock < 0)
@@ -443,6 +445,8 @@ bgp_update_source (struct peer *peer)
   struct interface *ifp;
   union sockunion addr;
   int ret = 0;
+
+  sockunion_init (&addr);
 
   /* Source is specified with interface name.  */
   if (peer->update_if)
