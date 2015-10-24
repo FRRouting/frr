@@ -1022,7 +1022,7 @@ zlog_hexdump (void *mem, unsigned int len) {
                 s += sprintf(s, " ");
 
               else if(isprint(((char*)mem)[j])) /* printable char */
-                s += sprintf(s, "%x", 0xFF & ((char*)mem)[j]);
+                s += sprintf(s, "%c", 0xFF & ((char*)mem)[j]);
 
               else /* other char */
                 s += sprintf(s, ".");
