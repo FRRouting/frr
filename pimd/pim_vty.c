@@ -99,8 +99,8 @@ int pim_global_config_write(struct vty *vty)
     vty_out(vty, "%s%s", PIM_CMD_IP_MULTICAST_ROUTING, VTY_NEWLINE);
     ++writes;
   }
-  if (qpim_rp.s_addr) {
-    vty_out(vty, "ip pim rp %s%s", inet_ntop(AF_INET, &qpim_rp, buffer, 32), VTY_NEWLINE);
+  if (qpim_rp.rpf_addr.s_addr != INADDR_NONE) {
+    vty_out(vty, "ip pim rp %s%s", inet_ntop(AF_INET, &qpim_rp.rpf_addr, buffer, 32), VTY_NEWLINE);
     ++writes;
   }
 

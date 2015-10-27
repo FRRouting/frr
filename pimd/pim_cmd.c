@@ -2487,9 +2487,14 @@ DEFUN (ip_pim_rp,
 {
   int result;
 
-  result = inet_pton(AF_INET, argv[0], &qpim_rp);
+  result = inet_pton(AF_INET, argv[0], &qpim_rp.rpf_addr.s_addr);
   if (result <= 0) {
     vty_out(vty, "%% Bad RP address specified: %s", argv[0]);
+    return CMD_WARNING;
+  }
+
+  if (pim_nexthop_lookup(&qpim_rp.source_nexthop, qpim_rp.rpf_addr) != 0) {
+    vty_out(vty, "%% No Path to RP address specified: %s", argv[0]);
     return CMD_WARNING;
   }
 
@@ -2505,7 +2510,7 @@ DEFUN (no_ip_pim_rp,
        "Rendevous Point"
        "ip address of RP")
 {
-  qpim_rp.s_addr = 0;
+  qpim_rp.rpf_addr.s_addr = INADDR_NONE;
 
   return CMD_SUCCESS;
 }

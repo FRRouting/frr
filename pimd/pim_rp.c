@@ -39,22 +39,22 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
     char sold[100];
     char snew[100];
     char rp[100];
-    pim_inet4_dump("<rp?>", qpim_rp, rp, sizeof(rp));
+    pim_inet4_dump("<rp?>", qpim_rp.rpf_addr, rp, sizeof(rp));
     pim_inet4_dump("<old?>", old, sold, sizeof(sold));
     pim_inet4_dump("<new?>", new, snew, sizeof(snew));
     zlog_debug("%s: %s for old %s new %s", __func__, rp, sold, snew );
   }
 
-  if (qpim_rp.s_addr == INADDR_NONE)
+  if (qpim_rp.rpf_addr.s_addr == INADDR_NONE)
     return;
 
-  if (new.s_addr == qpim_rp.s_addr)
+  if (new.s_addr == qpim_rp.rpf_addr.s_addr)
     {
       i_am_rp = 1;
       return;
     }
 
-  if (old.s_addr == qpim_rp.s_addr)
+  if (old.s_addr == qpim_rp.rpf_addr.s_addr)
     {
       i_am_rp = 0;
       return;
@@ -84,7 +84,7 @@ pim_rp_g (struct in_addr group)
   /*
    * For staticly configured RP, it is always the qpim_rp
    */
-  return(qpim_rp);
+  return(qpim_rp.rpf_addr);
 }
 
 /*
@@ -98,14 +98,14 @@ pim_rp_g (struct in_addr group)
 int
 pim_rp_set_upstream_addr (struct in_addr *up, struct in_addr source)
 {
-  if ((qpim_rp.s_addr == INADDR_NONE) && (source.s_addr == 0xFFFFFFFF))
+  if ((qpim_rp.rpf_addr.s_addr == INADDR_NONE) && (source.s_addr == INADDR_ANY))
     {
       if (PIM_DEBUG_PIM_TRACE)
 	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);
       return 0;
     }
 
-  *up = (source.s_addr == 0xFFFFFFFF) ? qpim_rp : source;
+  *up = (source.s_addr == INADDR_ANY) ? qpim_rp.rpf_addr : source;
 
   return 1;
 }

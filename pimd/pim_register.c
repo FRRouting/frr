@@ -47,7 +47,7 @@ pim_check_is_my_ip_address (struct in_addr dest_addr)
    * type of configuration.
    * Note - Premature optimization might bite our patooeys' here.
    */
-  if (I_am_RP(dest_addr) && (dest_addr.s_addr == qpim_rp.s_addr))
+  if (I_am_RP(dest_addr) && (dest_addr.s_addr == qpim_rp.rpf_addr.s_addr))
     return 1;
 
   if (if_lookup_exact_address (&dest_addr, AF_INET))

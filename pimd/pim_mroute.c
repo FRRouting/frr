@@ -30,6 +30,7 @@
 #include "pim_time.h"
 #include "pim_iface.h"
 #include "pim_macro.h"
+#include "pim_rp.h"
 
 /* GLOBAL VARS */
 extern struct zebra_privs_t pimd_privs;
@@ -73,13 +74,15 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 {
   struct mfcctl mc;
   struct pim_interface *pim_ifp = ifp->info;
+  struct in_addr rpg;
 
+  rpg = RP(msg->im_dst);
   /*
    * If the incoming interface is unknown OR
    * the Interface type is SSM we don't need to
    * do anything here
    */
-  if ((qpim_rp.s_addr == INADDR_NONE) ||
+  if ((rpg.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
       (!PIM_I_am_DR(pim_ifp)) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM))
@@ -106,17 +109,28 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 }
 
 static int
-pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const struct igmpmsg *msg,
+pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 			 const char *src_str, const char *grp_str)
 {
+  struct pim_interface *pim_ifp = ifp->info;
+  struct in_addr group;
+  struct in_addr rpg;
+  const struct ip *ip_hdr;
 
-  if (qpim_rp.s_addr == INADDR_NONE) {
-    if (PIM_DEBUG_PIM_TRACE) {
-      zlog_debug("%s: Received WHOLEPKT with no RP configured to send it to",
-		 __PRETTY_FUNCTION__);
-    }
+  ip_hdr = (const struct ip *)buf;
+
+  group = ip_hdr->ip_dst;
+
+  rpg = RP(group);
+
+  if ((rpg.s_addr == INADDR_NONE) ||
+      (!pim_ifp) ||
+      (!PIM_I_am_DR(pim_ifp)) ||
+      (pim_ifp->itype == PIM_INTERFACE_SSM)) {
+    return 0;
   }
 
+  //pim_register_send(buf, rpg);
   return 0;
 }
 
@@ -261,6 +275,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
     return pim_mroute_msg_nocache(fd, ifp, msg, src_str, grp_str);
     break;
   case IGMPMSG_WHOLEPKT:
+    zlog_hexdump(buf, buf_size);
     return pim_mroute_msg_wholepkt(fd, ifp, msg, src_str, grp_str);
     break;
   default:
