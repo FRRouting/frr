@@ -437,41 +437,28 @@ memory_init (void)
 const char *
 mtype_memstr (char *buf, size_t len, unsigned long bytes)
 {
-  unsigned int t, g, m, k;
-  
+  unsigned int m, k;
+
   /* easy cases */
   if (!bytes)
     return "0 bytes";
   if (bytes == 1)
     return "1 byte";
-    
-  if (sizeof (unsigned long) >= 8)
-    /* Hacked to make it not warn on ILP32 machines
-     * Shift will always be 40 at runtime. See below too */
-    t = bytes >> (sizeof (unsigned long) >= 8 ? 40 : 0);
-  else
-    t = 0;
-  g = bytes >> 30;
+
+  /*
+   * When we pass the 2gb barrier mallinfo() can no longer report
+   * correct data so it just does something odd...
+   * Reporting like Terrabytes of data.  Which makes users...
+   * edgy.. yes edgy that's the term for it.
+   * So let's just give up gracefully
+   */
+  if (bytes > 0x7fffffff)
+    return "> 2GB";
+
   m = bytes >> 20;
   k = bytes >> 10;
-  
-  if (t > 10)
-    {
-      /* The shift will always be 39 at runtime.
-       * Just hacked to make it not warn on 'smaller' machines. 
-       * Static compiler analysis should mean no extra code
-       */
-      if (bytes & (1UL << (sizeof (unsigned long) >= 8 ? 39 : 0)))
-        t++;
-      snprintf (buf, len, "%4d TiB", t);
-    }
-  else if (g > 10)
-    {
-      if (bytes & (1 << 29))
-        g++;
-      snprintf (buf, len, "%d GiB", g);
-    }
-  else if (m > 10)
+
+ if (m > 10)
     {
       if (bytes & (1 << 19))
         m++;
