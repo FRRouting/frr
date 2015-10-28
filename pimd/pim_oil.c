@@ -138,3 +138,145 @@ void pim_channel_oil_del(struct channel_oil *c_oil)
     pim_channel_oil_delete(c_oil);
   }
 }
+
+int pim_channel_add_oif(struct channel_oil *channel_oil,
+		   struct interface *oif,
+		   uint32_t proto_mask)
+{
+  struct pim_interface *pim_ifp;
+  int old_ttl;
+
+  zassert(channel_oil);
+
+  pim_ifp = oif->info;
+
+  if (PIM_DEBUG_MROUTE) {
+    char group_str[100];
+    char source_str[100];
+    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+    zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d",
+	       __FILE__, __PRETTY_FUNCTION__,
+	       source_str, group_str,
+	       proto_mask, oif->name, pim_ifp->mroute_vif_index);
+  }
+
+  if (pim_ifp->mroute_vif_index < 1) {
+    zlog_warn("%s %s: interface %s vif_index=%d < 1",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      oif->name, pim_ifp->mroute_vif_index);
+    return -1;
+  }
+
+#ifdef PIM_ENFORCE_LOOPFREE_MFC
+  /*
+    Prevent creating MFC entry with OIF=IIF.
+
+    This is a protection against implementation mistakes.
+
+    PIM protocol implicitely ensures loopfree multicast topology.
+
+    IGMP must be protected against adding looped MFC entries created
+    by both source and receiver attached to the same interface. See
+    TODO T22.
+  */
+  if (pim_ifp->mroute_vif_index == channel_oil->oil.mfcc_parent) {
+    char group_str[100];
+    char source_str[100];
+    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+    zlog_warn("%s %s: refusing protocol mask %u request for IIF=OIF=%s (vif_index=%d) for channel (S,G)=(%s,%s)",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      proto_mask, oif->name, pim_ifp->mroute_vif_index,
+	      source_str, group_str);
+    return -2;
+  }
+#endif
+
+  zassert(qpim_mroute_oif_highest_vif_index < MAXVIFS);
+  zassert(pim_ifp->mroute_vif_index <= qpim_mroute_oif_highest_vif_index);
+
+  /* Prevent single protocol from subscribing same interface to
+     channel (S,G) multiple times */
+  if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask) {
+    char group_str[100];
+    char source_str[100];
+    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+    zlog_warn("%s %s: existing protocol mask %u requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      proto_mask, oif->name, pim_ifp->mroute_vif_index,
+	      channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
+	      source_str, group_str);
+    return -3;
+  }
+
+  /* Allow other protocol to request subscription of same interface to
+     channel (S,G) multiple times, by silently ignoring further
+     requests */
+  if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] & PIM_OIF_FLAG_PROTO_ANY) {
+
+    /* Check the OIF really exists before returning, and only log
+       warning otherwise */
+    if (channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] < 1) {
+      char group_str[100];
+      char source_str[100];
+      pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+      pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+      zlog_warn("%s %s: new protocol mask %u requested nonexistent OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+		__FILE__, __PRETTY_FUNCTION__,
+		proto_mask, oif->name, pim_ifp->mroute_vif_index,
+		channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
+		source_str, group_str);
+    }
+
+    return 0;
+  }
+
+  old_ttl = channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index];
+
+  if (old_ttl > 0) {
+    char group_str[100];
+    char source_str[100];
+    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+    zlog_warn("%s %s: interface %s (vif_index=%d) is existing output for channel (S,G)=(%s,%s)",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      oif->name, pim_ifp->mroute_vif_index,
+	      source_str, group_str);
+    return -4;
+  }
+
+  channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = PIM_MROUTE_MIN_TTL;
+
+  if (pim_mroute_add(&channel_oil->oil)) {
+    char group_str[100];
+    char source_str[100];
+    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+    zlog_warn("%s %s: could not add output interface %s (vif_index=%d) for channel (S,G)=(%s,%s)",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      oif->name, pim_ifp->mroute_vif_index,
+	      source_str, group_str);
+
+    channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = old_ttl;
+    return -5;
+  }
+
+  channel_oil->oif_creation[pim_ifp->mroute_vif_index] = pim_time_monotonic_sec();
+  ++channel_oil->oil_size;
+  channel_oil->oif_flags[pim_ifp->mroute_vif_index] |= proto_mask;
+
+  if (PIM_DEBUG_MROUTE) {
+    char group_str[100];
+    char source_str[100];
+    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+    zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d: DONE",
+	       __FILE__, __PRETTY_FUNCTION__,
+	       source_str, group_str,
+	       proto_mask, oif->name, pim_ifp->mroute_vif_index);
+  }
+
+  return 0;
+}

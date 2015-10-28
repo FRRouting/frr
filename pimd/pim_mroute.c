@@ -103,7 +103,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   mc.mfcc_origin   = msg->im_src;
   mc.mfcc_mcastgrp = msg->im_dst;
   mc.mfcc_parent   = ifp->ifindex;
-  mc.mfcc_ttls[MAXVIFS-1] = 1;
+  mc.mfcc_ttls[PIM_OIF_PIM_REGISTER_VIF] = 1;
   pim_mroute_add(&mc);
   return 0;
 }
@@ -379,7 +379,7 @@ int pim_mroute_socket_enable()
   }
 
   qpim_mroute_socket_fd       = fd;
-  pim_mroute_add_vif(MAXVIFS-1, pimreg, VIFF_REGISTER);
+  pim_mroute_add_vif(PIM_OIF_PIM_REGISTER_VIF, pimreg, VIFF_REGISTER);
 
   qpim_mroute_socket_creation = pim_time_monotonic_sec();
   mroute_read_on();

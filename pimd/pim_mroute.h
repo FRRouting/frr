@@ -48,7 +48,7 @@
 */
 
 #ifndef MAXVIFS
-#define MAXVIFS (32)
+#define MAXVIFS (256)
 #endif
 
 #ifndef SIOCGETVIFCNT
