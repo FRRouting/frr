@@ -30,6 +30,7 @@
 #include "pim_oil.h"
 #include "pim_str.h"
 #include "pim_iface.h"
+#include "pim_time.h"
 
 void pim_channel_oil_free(struct channel_oil *c_oil)
 {
