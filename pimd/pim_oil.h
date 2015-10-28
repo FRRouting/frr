@@ -25,9 +25,19 @@
 
 #include "pim_mroute.h"
 
-#define PIM_OIF_FLAG_PROTO_IGMP (1 << 0) /* bitmask 1 */
-#define PIM_OIF_FLAG_PROTO_PIM  (1 << 1) /* bitmask 2 */
-#define PIM_OIF_FLAG_PROTO_ANY  (3)      /* bitmask (1 | 2) */
+/*
+ * Where did we get this (S,G) from?
+ *
+ * IGMP - Learned from IGMP
+ * PIM - Learned from PIM
+ * SOURCE - Learned from Source multicast packet received
+ */
+#define PIM_OIF_FLAG_PROTO_IGMP   (1 << 0)
+#define PIM_OIF_FLAG_PROTO_PIM    (1 << 1)
+#define PIM_OIF_FLAG_PROTO_SOURCE (2 << 1)
+#define PIM_OIF_FLAG_PROTO_ANY    (PIM_OIF_FLAG_PROTO_IGMP | \
+                                   PIM_OIF_FLAG_PROTO_PIM | \
+                                   PIM_OIF_FLAG_PROTO_SOURCE)
 
 /*
   qpim_channel_oil_list holds a list of struct channel_oil.

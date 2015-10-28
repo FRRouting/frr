@@ -2174,7 +2174,7 @@ static void show_mroute(struct vty *vty)
   struct static_route *s_route;
   time_t              now;
 
-  vty_out(vty, "Proto: I=IGMP P=PIM S=STATIC%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  vty_out(vty, "Proto: I=IGMP P=PIM S=STATIC O=SOURCE%s%s", VTY_NEWLINE, VTY_NEWLINE);
   
   vty_out(vty, "Source          Group           Proto Input iVifI Output oVifI TTL Uptime  %s",
 	  VTY_NEWLINE);
@@ -2212,6 +2212,9 @@ static void show_mroute(struct vty *vty)
       }
       if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_IGMP) {
 	strcat(proto, "I");
+      }
+      if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE) {
+	strcat(proto, "O");
       }
 
       vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
