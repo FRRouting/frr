@@ -74,7 +74,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 {
   struct mfcctl mc;
   struct pim_interface *pim_ifp = ifp->info;
-  struct in_addr rpg;
+  struct pim_rpf *rpg;
 
   rpg = RP(msg->im_dst);
   /*
@@ -82,7 +82,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
    * the Interface type is SSM we don't need to
    * do anything here
    */
-  if ((rpg.s_addr == INADDR_NONE) ||
+  if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
       (!PIM_I_am_DR(pim_ifp)) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM))
@@ -114,7 +114,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 {
   struct pim_interface *pim_ifp = ifp->info;
   struct in_addr group;
-  struct in_addr rpg;
+  struct pim_rpf *rpg;
   const struct ip *ip_hdr;
 
   ip_hdr = (const struct ip *)buf;
@@ -123,7 +123,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 
   rpg = RP(group);
 
-  if ((rpg.s_addr == INADDR_NONE) ||
+  if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
       (!PIM_I_am_DR(pim_ifp)) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM)) {

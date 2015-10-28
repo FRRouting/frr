@@ -26,6 +26,8 @@
 #include "pimd.h"
 #include "pim_str.h"
 #include "pim_rp.h"
+#include "pim_str.h"
+#include "pim_rpf.h"
 
 static int i_am_rp = 0;
 
@@ -78,13 +80,14 @@ pim_rp_i_am_rp (struct in_addr group)
  *
  * Return the RP that the Group belongs too.
  */
-struct in_addr
+struct pim_rpf *
 pim_rp_g (struct in_addr group)
 {
   /*
    * For staticly configured RP, it is always the qpim_rp
    */
-  return(qpim_rp.rpf_addr);
+  pim_nexthop_lookup(&qpim_rp.source_nexthop, qpim_rp.rpf_addr);
+  return(&qpim_rp);
 }
 
 /*

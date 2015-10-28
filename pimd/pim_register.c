@@ -158,7 +158,7 @@ pim_register_recv (struct interface *ifp,
   source = ip_hdr->ip_src;
   group = ip_hdr->ip_dst;
 
-  if (I_am_RP (group) && (dest_addr.s_addr == (RP (group).s_addr))) {
+  if (I_am_RP (group) && (dest_addr.s_addr == ((RP (group))->rpf_addr.s_addr))) {
     sentRegisterStop = 0;
 
     if (*bits && PIM_REGISTER_BORDER_BIT) {
