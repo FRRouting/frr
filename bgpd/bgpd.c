@@ -722,6 +722,35 @@ peer_af_flag_check (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag)
   return CHECK_FLAG (peer->af_flags[afi][safi], flag);
 }
 
+/* Return true if flag is set for the peer but not the peer-group */
+static int
+peergroup_af_flag_check (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag)
+{
+  struct peer *g_peer = NULL;
+
+  if (peer_af_flag_check (peer, afi, safi, flag))
+    {
+      if (peer_group_active (peer))
+        {
+          g_peer = peer->group->conf;
+
+          /* If this flag is not set for the peer's peer-group then return true */
+          if (!peer->af_group[afi][safi] || !peer_af_flag_check (g_peer, afi, safi, flag))
+            {
+              return 1;
+            }
+        }
+
+      /* peer is not in a peer-group but the flag is set to return true */
+      else
+        {
+          return 1;
+        }
+    }
+
+  return 0;
+}
+
 /* Reset all address family specific configuration.  */
 static void
 peer_af_flag_reset (struct peer *peer, afi_t afi, safi_t safi)
@@ -3448,6 +3477,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] =
     { PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED,  0, peer_change_reset_out },
     { PEER_FLAG_FORCE_NEXTHOP_SELF,       1, peer_change_reset_out },
     { PEER_FLAG_AS_OVERRIDE,              1, peer_change_reset_out },
+    { PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,1, peer_change_reset_out },
     { 0, 0, 0 }
   };
 
@@ -3570,10 +3600,6 @@ peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
   if (! found)
     return BGP_ERR_INVALID_FLAG;    
 
-  /* Not for peer-group member.  */
-  if (action.not_for_member && peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   /* When unset the peer-group member's flag we have to check
      peer-group configuration.  */
   if (! set && peer_group_active (peer))
@@ -3581,8 +3607,6 @@ peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
       {
 	if (flag == PEER_FLAG_SHUTDOWN)
 	  return BGP_ERR_PEER_GROUP_SHUTDOWN;
-	else
-	  return BGP_ERR_PEER_GROUP_HAS_THE_FLAG;
       }
 
   /* Flag conflict check.  */
@@ -3647,14 +3671,6 @@ peer_flag_unset (struct peer *peer, u_int32_t flag)
 }
 
 static int
-peer_is_group_member (struct peer *peer, afi_t afi, safi_t safi)
-{
-  if (peer->af_group[afi][safi])
-    return 1;
-  return 0;
-}
-
-static int
 peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
 		     int set)
 {
@@ -3677,10 +3693,6 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
 
-  /* Not for peer-group member.  */
-  if (action.not_for_member && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
  /* Spcecial check for reflector client.  */
   if (flag & PEER_FLAG_REFLECTOR_CLIENT
       && peer_sort (peer) != BGP_PEER_IBGP)
@@ -3695,12 +3707,6 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
   if (flag & PEER_FLAG_AS_OVERRIDE
       && peer_sort (peer) == BGP_PEER_IBGP)
     return BGP_ERR_AS_OVERRIDE;
-
-  /* When unset the peer-group member's flag we have to check
-     peer-group configuration.  */
-  if (! set && peer->af_group[afi][safi])
-    if (CHECK_FLAG (peer->group->conf->af_flags[afi][safi], flag))
-      return BGP_ERR_PEER_GROUP_HAS_THE_FLAG;
 
   /* When current flag configuration is same as requested one.  */
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
@@ -4166,10 +4172,6 @@ peer_default_originate_set (struct peer *peer, afi_t afi, safi_t safi,
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
 
-  /* Default originate can't be used for peer group memeber.  */
-  if (peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   if (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE)
       || (rmap && ! peer->default_rmap[afi][safi].name)
       || (rmap && strcmp (rmap, peer->default_rmap[afi][safi].name) != 0))
@@ -4227,10 +4229,6 @@ peer_default_originate_unset (struct peer *peer, afi_t afi, safi_t safi)
   /* Adress family must be activated.  */
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
-
-  /* Default originate can't be used for peer group memeber.  */
-  if (peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
     { 
@@ -4339,10 +4337,6 @@ peer_timers_set (struct peer *peer, u_int32_t keepalive, u_int32_t holdtime)
   struct peer_group *group;
   struct listnode *node, *nnode;
 
-  /* Not for peer group memeber.  */
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   /* keepalive value check.  */
   if (keepalive > 65535)
     return BGP_ERR_INVALID_VALUE;
@@ -4380,9 +4374,6 @@ peer_timers_unset (struct peer *peer)
   struct peer_group *group;
   struct listnode *node, *nnode;
 
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   /* Clear configuration. */
   UNSET_FLAG (peer->config, PEER_CONFIG_TIMER);
   peer->keepalive = 0;
@@ -4408,9 +4399,6 @@ peer_timers_connect_set (struct peer *peer, u_int32_t connect)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
-
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   if (connect > 65535)
     return BGP_ERR_INVALID_VALUE;
@@ -4442,9 +4430,6 @@ peer_timers_connect_unset (struct peer *peer)
   struct peer_group *group;
   struct listnode *node, *nnode;
 
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   /* Clear configuration. */
   UNSET_FLAG (peer->config, PEER_CONFIG_CONNECT);
   peer->connect = 0;
@@ -4471,9 +4456,6 @@ peer_advertise_interval_set (struct peer *peer, u_int32_t routeadv)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
-
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   if (routeadv > 600)
     return BGP_ERR_INVALID_VALUE;
@@ -4509,9 +4491,6 @@ peer_advertise_interval_unset (struct peer *peer)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
-
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   UNSET_FLAG (peer->config, PEER_CONFIG_ROUTEADV);
   peer->routeadv = 0;
@@ -4640,9 +4619,6 @@ peer_local_as_set (struct peer *peer, as_t as, int no_prepend, int replace_as)
   if (bgp->as == as)
     return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS;
 
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   if (peer->as == as)
     return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS;
 
@@ -4709,9 +4685,6 @@ peer_local_as_unset (struct peer *peer)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
-
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   if (! peer->change_local_as)
     return 0;
@@ -4822,11 +4795,6 @@ peer_password_unset (struct peer *peer)
 
   if (!CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer_group_active (peer)
-	  && peer->group->conf->password
-	  && strcmp (peer->group->conf->password, peer->password) == 0)
-	return BGP_ERR_PEER_GROUP_HAS_THE_FLAG;
-
       if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
         bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
       else
@@ -4909,9 +4877,6 @@ peer_distribute_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
   if (direct != FILTER_IN && direct != FILTER_OUT)
     return BGP_ERR_INVALID_VALUE;
 
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   filter = &peer->filter[afi][safi];
 
   if (filter->plist[direct].name)
@@ -4961,9 +4926,6 @@ peer_distribute_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 
   if (direct != FILTER_IN && direct != FILTER_OUT)
     return BGP_ERR_INVALID_VALUE;
-
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   filter = &peer->filter[afi][safi];
 
@@ -5086,9 +5048,6 @@ peer_prefix_list_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
   if (direct != FILTER_IN && direct != FILTER_OUT)
     return BGP_ERR_INVALID_VALUE;
 
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   filter = &peer->filter[afi][safi];
 
   if (filter->dlist[direct].name)
@@ -5137,9 +5096,6 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 
   if (direct != FILTER_IN && direct != FILTER_OUT)
     return BGP_ERR_INVALID_VALUE;
-
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   filter = &peer->filter[afi][safi];
 
@@ -5265,9 +5221,6 @@ peer_aslist_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
   if (direct != FILTER_IN && direct != FILTER_OUT)
     return BGP_ERR_INVALID_VALUE;
 
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   filter = &peer->filter[afi][safi];
 
   if (filter->aslist[direct].name)
@@ -5313,9 +5266,6 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
 
   if (direct != FILTER_IN && direct != FILTER_OUT)
     return BGP_ERR_INVALID_VALUE;
-
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   filter = &peer->filter[afi][safi];
 
@@ -5452,10 +5402,6 @@ peer_route_map_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
       direct != RMAP_IMPORT && direct != RMAP_EXPORT)
     return BGP_ERR_INVALID_VALUE;
 
-  if ( (direct == RMAP_OUT || direct == RMAP_IMPORT)
-      && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   filter = &peer->filter[afi][safi];
 
   if (filter->map[direct].name)
@@ -5504,10 +5450,6 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
   if (direct != RMAP_IN && direct != RMAP_OUT &&
       direct != RMAP_IMPORT && direct != RMAP_EXPORT)
     return BGP_ERR_INVALID_VALUE;
-
-  if ( (direct == RMAP_OUT || direct == RMAP_IMPORT)
-      && peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   filter = &peer->filter[afi][safi];
 
@@ -5570,9 +5512,6 @@ peer_unsuppress_map_set (struct peer *peer, afi_t afi, safi_t safi,
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
 
-  if (peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-      
   filter = &peer->filter[afi][safi];
 
   if (filter->usmap.name)
@@ -5615,9 +5554,6 @@ peer_unsuppress_map_unset (struct peer *peer, afi_t afi, safi_t safi)
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
   
-  if (peer_is_group_member (peer, afi, safi))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   filter = &peer->filter[afi][safi];
 
   if (filter->usmap.name)
@@ -6549,16 +6485,15 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
     vty_out (vty, "  neighbor %s activate%s", addr, VTY_NEWLINE);
 
   /* ORF capability.  */
-  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_SM)
-      || CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_RM))
-    if (! peer->af_group[afi][safi])
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM) ||
+      peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ORF_PREFIX_RM))
     {
       vty_out (vty, "  neighbor %s capability orf prefix-list", addr);
 
-      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_SM)
-	  && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_RM))
+      if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM) &&
+          peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ORF_PREFIX_RM))
 	vty_out (vty, " both");
-      else if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ORF_PREFIX_SM))
+      else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM))
 	vty_out (vty, " send");
       else
 	vty_out (vty, " receive");
@@ -6566,85 +6501,77 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
     }
 
   /* Route reflector client. */
-  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REFLECTOR_CLIENT)
-      && ! peer->af_group[afi][safi])
-    vty_out (vty, "  neighbor %s route-reflector-client%s", addr,
-	     VTY_NEWLINE);
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REFLECTOR_CLIENT))
+    vty_out (vty, "  neighbor %s route-reflector-client%s", addr, VTY_NEWLINE);
 
-  /* Nexthop self. */
-  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_FORCE_NEXTHOP_SELF)
-      && ! peer->af_group[afi][safi])
-    vty_out (vty, "  neighbor %s next-hop-self force%s",
-	     addr, VTY_NEWLINE);
-  else if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_SELF)
-      && ! peer->af_group[afi][safi])
+  /* next-hop-self force */
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_FORCE_NEXTHOP_SELF))
+    vty_out (vty, "  neighbor %s next-hop-self force%s", addr, VTY_NEWLINE);
+
+  /* next-hop-self */
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_SELF))
     vty_out (vty, "  neighbor %s next-hop-self%s", addr, VTY_NEWLINE);
 
   /* remove-private-AS */
-  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS) && !peer->af_group[afi][safi])
-    {
-      if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL) &&
-          peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
-        vty_out (vty, "  neighbor %s remove-private-AS all replace-AS%s", addr, VTY_NEWLINE);
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE))
+    vty_out (vty, "  neighbor %s remove-private-AS all replace-AS%s", addr, VTY_NEWLINE);
 
-      else if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
-        vty_out (vty, "  neighbor %s remove-private-AS replace-AS%s", addr, VTY_NEWLINE);
+  else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+    vty_out (vty, "  neighbor %s remove-private-AS replace-AS%s", addr, VTY_NEWLINE);
 
-      else if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
-        vty_out (vty, "  neighbor %s remove-private-AS all%s", addr, VTY_NEWLINE);
+  else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
+    vty_out (vty, "  neighbor %s remove-private-AS all%s", addr, VTY_NEWLINE);
 
-      else
-        vty_out (vty, "  neighbor %s remove-private-AS%s", addr, VTY_NEWLINE);
-    }
+  else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS))
+    vty_out (vty, "  neighbor %s remove-private-AS%s", addr, VTY_NEWLINE);
 
   /* as-override */
-  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_AS_OVERRIDE) &&
-      !peer->af_group[afi][safi])
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_AS_OVERRIDE))
     vty_out (vty, "  neighbor %s as-override%s", addr, VTY_NEWLINE);
 
   /* send-community print. */
-  if (! peer->af_group[afi][safi])
+  if (bgp_option_check (BGP_OPT_CONFIG_CISCO))
     {
-      if (bgp_option_check (BGP_OPT_CONFIG_CISCO))
-	{
-	  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY)
-	      && peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))
-	    vty_out (vty, "  neighbor %s send-community both%s", addr, VTY_NEWLINE);
-	  else if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))	
-	    vty_out (vty, "  neighbor %s send-community extended%s",
-		     addr, VTY_NEWLINE);
-	  else if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY))
-	    vty_out (vty, "  neighbor %s send-community%s", addr, VTY_NEWLINE);
-	}
-      else
-	{
-	  if (! peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY)
-	      && ! peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))
-	    vty_out (vty, "  no neighbor %s send-community both%s",
-		     addr, VTY_NEWLINE);
-	  else if (! peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))
-	    vty_out (vty, "  no neighbor %s send-community extended%s",
-		     addr, VTY_NEWLINE);
-	  else if (! peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY))
-	    vty_out (vty, "  no neighbor %s send-community%s",
-		     addr, VTY_NEWLINE);
-	}
+      if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY)
+          && peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))
+        vty_out (vty, "  neighbor %s send-community both%s", addr, VTY_NEWLINE);
+      else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))
+        vty_out (vty, "  neighbor %s send-community extended%s",
+                 addr, VTY_NEWLINE);
+      else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY))
+        vty_out (vty, "  neighbor %s send-community%s", addr, VTY_NEWLINE);
+    }
+  else
+    {
+      if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY) &&
+          peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_COMMUNITY) &&
+          !peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY) &&
+          peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))
+        vty_out (vty, "  no neighbor %s send-community both%s", addr, VTY_NEWLINE);
+      else if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY) &&
+               peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))
+        vty_out (vty, "  no neighbor %s send-community extended%s", addr, VTY_NEWLINE);
+      else if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY) &&
+               peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_COMMUNITY))
+        vty_out (vty, "  no neighbor %s send-community%s", addr, VTY_NEWLINE);
     }
 
   /* Default information */
-  if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_DEFAULT_ORIGINATE)
-      && ! peer->af_group[afi][safi])
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_DEFAULT_ORIGINATE) ||
+      (g_peer &&
+       ((peer->default_rmap[afi][safi].name && !g_peer->default_rmap[afi][safi].name) ||
+        (!peer->default_rmap[afi][safi].name && g_peer->default_rmap[afi][safi].name) ||
+        (peer->default_rmap[afi][safi].name &&
+         strcmp(peer->default_rmap[afi][safi].name, g_peer->default_rmap[afi][safi].name)))))
     {
       vty_out (vty, "  neighbor %s default-originate", addr);
       if (peer->default_rmap[afi][safi].name)
-	vty_out (vty, "  route-map %s", peer->default_rmap[afi][safi].name);
+	vty_out (vty, " route-map %s", peer->default_rmap[afi][safi].name);
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 
   /* Soft reconfiguration inbound. */
-  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
-    if (! peer->af_group[afi][safi] ||
-	! CHECK_FLAG (g_peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SOFT_RECONFIG))
     vty_out (vty, "  neighbor %s soft-reconfiguration inbound%s", addr,
 	     VTY_NEWLINE);
 
@@ -6667,13 +6594,11 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
       }
 
   /* Route server client. */
-  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
-      && ! peer->af_group[afi][safi])
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT))
     vty_out (vty, "  neighbor %s route-server-client%s", addr, VTY_NEWLINE);
 
   /* Nexthop-local unchanged. */
-  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
-      && ! peer->af_group[afi][safi])
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED))
     vty_out (vty, "  neighbor %s nexthop-local unchanged%s", addr, VTY_NEWLINE);
 
   /* Allow AS in.  */
@@ -6693,22 +6618,21 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
   bgp_config_write_filter (vty, peer, afi, safi);
 
   /* atribute-unchanged. */
-  if ((CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)
+  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)
       || CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)
       || CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
-      && ! peer->af_group[afi][safi])
     {
-      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)
-          && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)
-          && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
+      if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_AS_PATH_UNCHANGED)
+          && peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED)
+          && peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_MED_UNCHANGED))
 	vty_out (vty, "  neighbor %s attribute-unchanged%s", addr, VTY_NEWLINE);
       else
 	vty_out (vty, "  neighbor %s attribute-unchanged%s%s%s%s", addr,
-	     (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)) ?
+	     peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_AS_PATH_UNCHANGED) ?
 	     " as-path" : "",
-	     (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)) ?
+	     peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED) ?
 	     " next-hop" : "",
-	     (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED)) ?
+	     peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_MED_UNCHANGED) ?
 	     " med" : "", VTY_NEWLINE);
     }
 }

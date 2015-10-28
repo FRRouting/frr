@@ -1719,9 +1719,6 @@ update_group_adjust_soloness (struct peer *peer, int set)
   struct peer_group *group;
   struct listnode *node, *nnode;
 
-  if (peer_group_active (peer))
-    return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
-
   if (!CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
       peer_lonesoul_or_not (peer, set);
