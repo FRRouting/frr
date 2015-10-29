@@ -26,6 +26,10 @@
 #include "thread.h"
 
 #include "pimd.h"
+#include "pim_mroute.h"
+#include "pim_iface.h"
+#include "pim_msg.h"
+#include "pim_pim.h"
 #include "pim_str.h"
 #include "pim_rp.h"
 #include "pim_register.h"
@@ -60,6 +64,43 @@ static void
 pim_register_stop_send (struct in_addr src)
 {
   return;
+}
+
+void
+pim_register_send (const struct ip *ip_hdr, struct pim_rpf *rpg)
+{
+  unsigned char buffer[3000];
+  unsigned char *b1;
+  struct pim_interface *pinfo;
+  struct interface *ifp;
+  uint32_t plen;
+
+  ifp = rpg->source_nexthop.interface;
+  pinfo = (struct pim_interface *)ifp->info;
+  if (!pinfo) {
+    zlog_debug("%s: No pinfo!\n", __PRETTY_FUNCTION__);
+    return;
+  }
+
+  memset(buffer, 0, 3000);
+  b1 = buffer + PIM_MSG_REGISTER_LEN;
+
+  plen = ntohs(ip_hdr->ip_len);
+  memcpy(b1, (unsigned char *)ip_hdr, plen);
+
+  pim_msg_build_header(buffer, plen + PIM_MSG_HEADER_LEN, PIM_MSG_TYPE_REGISTER);
+
+  if (pim_msg_send(pinfo->pim_sock_fd,
+		   rpg->rpf_addr,
+		   buffer,
+		   plen + PIM_MSG_REGISTER_LEN,
+		   ifp->name)) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: could not send PIM register message on interface %s",
+		 __PRETTY_FUNCTION__, ifp->name);
+    }
+    return;
+  }
 }
 
 /*

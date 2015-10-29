@@ -28,7 +28,7 @@
 #define PIM_REGISTER_BORDER_BIT 0x80000000
 #define PIM_REGISTER_NR_BIT     0x40000000
 
-#define PIM_MSG_REGISTER_LEN   (4)
+#define PIM_MSG_REGISTER_LEN   (8)
 
 void pim_register_send_test_packet_start (struct in_addr source,
 					  struct in_addr group,
@@ -38,5 +38,7 @@ int pim_register_recv (struct interface *ifp,
 		       struct in_addr dest_addr,
 		       struct in_addr src_addr,
 		       uint8_t *tlv_buf, int tlv_buf_size);
+
+void pim_register_send (const struct ip *msg, struct pim_rpf *rpg);
 
 #endif

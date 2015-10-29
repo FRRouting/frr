@@ -33,6 +33,7 @@
 #include "pim_macro.h"
 #include "pim_rp.h"
 #include "pim_oil.h"
+#include "pim_register.h"
 
 /* GLOBAL VARS */
 extern struct zebra_privs_t pimd_privs;
@@ -133,7 +134,6 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
   const struct ip *ip_hdr;
   struct pim_upstream *up;
 
-  zlog_debug("%s:", __PRETTY_FUNCTION__);
   ip_hdr = (const struct ip *)buf;
 
   src = ip_hdr->ip_src;
@@ -148,16 +148,21 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
     return 0;
   }
 
+  pim_ifp = up->rpf.source_nexthop.interface->info;
+
   rpg = RP(group);
 
   if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
       (!PIM_I_am_DR(pim_ifp)) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM)) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: Failed Check send packet", __PRETTY_FUNCTION__);
+    }
     return 0;
   }
 
-  //pim_register_send(buf, rpg);
+  pim_register_send((const struct ip *)(buf + sizeof(struct ip)), rpg);
   return 0;
 }
 
