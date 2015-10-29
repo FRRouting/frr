@@ -57,6 +57,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 extern struct in_addr router_id_zebra;
 
+static struct peer_group *
+listen_range_exists (struct bgp *bgp, struct prefix *range, int exact);
+
 /* Utility function to get address family from current node.  */
 afi_t
 bgp_node_afi (struct vty *vty)
@@ -206,9 +209,6 @@ bgp_vty_return (struct vty *vty, int ret)
       break;
     case BGP_ERR_INVALID_FLAG:
       str = "Invalid flag";
-      break;
-    case BGP_ERR_PEER_INACTIVE:
-      str = "Activate the neighbor for the address family first";
       break;
     case BGP_ERR_PEER_GROUP_SHUTDOWN:
       str = "Peer-group has been shutdown. Activate the peer-group first";
@@ -2347,6 +2347,38 @@ DEFUN (no_bgp_listen_limit,
 }
 
 
+/*
+ * Check if this listen range is already configured. Check for exact
+ * match or overlap based on input.
+ */
+static struct peer_group *
+listen_range_exists (struct bgp *bgp, struct prefix *range, int exact)
+{
+  struct listnode *node, *nnode;
+  struct listnode *node1, *nnode1;
+  struct peer_group *group;
+  struct prefix *lr;
+  afi_t afi;
+  int match;
+
+  afi = family2afi(range->family);
+  for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
+    {
+      for (ALL_LIST_ELEMENTS (group->listen_range[afi], node1,
+                              nnode1, lr))
+        {
+          if (exact)
+            match = prefix_same (range, lr);
+          else
+            match = (prefix_match (range, lr) || prefix_match (lr, range));
+          if (match)
+            return group;
+        }
+    }
+
+  return NULL;
+}
+
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
        LISTEN_RANGE_CMD "peer-group WORD" ,
@@ -2357,7 +2389,7 @@ DEFUN (bgp_listen_range,
 {
   struct bgp *bgp;
   struct prefix range;
-  struct peer_group *group;
+  struct peer_group *group, *existing_group;
   afi_t afi;
   int ret;
 
@@ -2386,6 +2418,27 @@ DEFUN (bgp_listen_range,
 
   apply_mask (&range);
 
+  /* Check if same listen range is already configured. */
+  existing_group = listen_range_exists (bgp, &range, 1);
+  if (existing_group)
+    {
+      if (strcmp (existing_group->name, argv[1]) == 0)
+        return CMD_SUCCESS;
+      else
+        {
+          vty_out (vty, "%% Same listen range is attached to peer-group %s%s",
+                   existing_group->name, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+
+  /* Check if an overlapping listen range exists. */
+  if (listen_range_exists (bgp, &range, 0))
+    {
+      vty_out (vty, "%% Listen range overlaps with existing listen range%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   group = peer_group_lookup (bgp, argv[1]);
   if (! group)

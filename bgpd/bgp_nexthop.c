@@ -477,7 +477,8 @@ show_ip_bgp_nexthop_table (struct vty *vty, int detail)
 			    VTY_NEWLINE);
 		    break;
 		  case NEXTHOP_TYPE_IFINDEX:
-		    vty_out (vty, "  ifidx %u%s", nexthop->ifindex,
+		    vty_out (vty, "  if %s%s",
+                             ifindex2ifname(nexthop->ifindex),
 			     VTY_NEWLINE);
 		    break;
 		  default:

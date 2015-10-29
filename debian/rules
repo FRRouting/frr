@@ -65,7 +65,8 @@ override_dh_auto_configure:
  		--enable-rtadv \
 		--enable-werror \
  		--enable-gcc-rdynamic \
-		--with-libpam; \
+		--with-libpam \
+		--enable-dependency-tracking; \
 	fi
 	if ! diff -b -IHAVE_SNMP -IHAVE_NETSNMP -IUCD_COMPAT -IGETIFADDR debian/my/config.h.reference config.h; then \
 		echo; \
