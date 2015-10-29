@@ -3283,6 +3283,8 @@ DEFUN (interface_ip_pim_sm,
     return CMD_WARNING;
   }
 
+  pim_if_create_pimreg();
+
   return CMD_SUCCESS;
 }
 

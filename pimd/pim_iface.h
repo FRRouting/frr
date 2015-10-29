@@ -107,6 +107,7 @@ struct pim_interface {
   uint32_t       pim_ifstat_hello_recvfail;
 };
 
+extern struct interface *pim_regiface;
 /*
   if default_holdtime is set (>= 0), use it;
   otherwise default_holdtime is 3.5 * hello_period
@@ -166,4 +167,5 @@ void pim_if_update_join_desired(struct pim_interface *pim_ifp);
 
 void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
+void pim_if_create_pimreg(void);
 #endif /* PIM_IFACE_H */

@@ -194,9 +194,6 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   }
 #endif
 
-  zassert(qpim_mroute_oif_highest_vif_index < MAXVIFS);
-  zassert(pim_ifp->mroute_vif_index <= qpim_mroute_oif_highest_vif_index);
-
   /* Prevent single protocol from subscribing same interface to
      channel (S,G) multiple times */
   if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask) {

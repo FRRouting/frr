@@ -41,6 +41,8 @@
 #include "pim_time.h"
 #include "pim_ssmpingd.h"
 
+struct interface *pim_regiface = NULL;
+
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 
 void pim_if_init()
@@ -144,8 +146,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
   ifp->info = pim_ifp;
 
   pim_sock_reset(ifp);
-
-  zassert(PIM_IF_TEST_PIM(pim_ifp->options) || PIM_IF_TEST_IGMP(pim_ifp->options));
 
   if (PIM_MROUTE_IS_ENABLED) {
     pim_if_add_vif(ifp);
@@ -615,6 +615,7 @@ int pim_if_add_vif(struct interface *ifp)
 {
   struct pim_interface *pim_ifp = ifp->info;
   struct in_addr ifaddr;
+  unsigned char flags;
 
   zassert(pim_ifp);
 
@@ -640,14 +641,15 @@ int pim_if_add_vif(struct interface *ifp)
   }
 
   ifaddr = pim_ifp->primary_address;
-  if (PIM_INADDR_IS_ANY(ifaddr)) {
+  if (ifp->ifindex != PIM_OIF_PIM_REGISTER_VIF && PIM_INADDR_IS_ANY(ifaddr)) {
     zlog_warn("%s: could not get address for interface %s ifindex=%d",
 	      __PRETTY_FUNCTION__,
 	      ifp->name, ifp->ifindex);
     return -4;
   }
 
-  if (pim_mroute_add_vif(ifp->ifindex, ifaddr, 0)) {
+  flags = (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF) ? VIFF_REGISTER : 0;
+  if (pim_mroute_add_vif(ifp->ifindex, ifaddr, flags)) {
     /* pim_mroute_add_vif reported error */
     return -5;
   }
@@ -657,7 +659,8 @@ int pim_if_add_vif(struct interface *ifp)
   /*
     Update highest vif_index
    */
-  if (pim_ifp->mroute_vif_index > qpim_mroute_oif_highest_vif_index) {
+  if (pim_ifp->mroute_vif_index != PIM_OIF_PIM_REGISTER_VIF &&
+      pim_ifp->mroute_vif_index > qpim_mroute_oif_highest_vif_index) {
     qpim_mroute_oif_highest_vif_index = pim_ifp->mroute_vif_index;
   }
 
@@ -1195,5 +1198,20 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
 
   for (ALL_LIST_ELEMENTS(pim_ifp->pim_ifchannel_list, node, next_node, ch)) {
     pim_ifchannel_update_assert_tracking_desired(ch);
+  }
+}
+
+/*
+ * PIM wants to have an interface pointer for everything it does.
+ * The pimreg is a special interface that we have that is not
+ * quite an inteface but a VIF is created for it.
+ */
+void pim_if_create_pimreg (void)
+{
+  if (!pim_regiface) {
+    pim_regiface = if_create("pimreg", strlen("pimreg"));
+    pim_regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
+
+    pim_if_new(pim_regiface, 0, 0);
   }
 }
