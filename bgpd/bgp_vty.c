@@ -210,9 +210,6 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_INVALID_FLAG:
       str = "Invalid flag";
       break;
-    case BGP_ERR_PEER_INACTIVE:
-      str = "Activate the neighbor for the address family first";
-      break;
     case BGP_ERR_PEER_GROUP_SHUTDOWN:
       str = "Peer-group has been shutdown. Activate the peer-group first";
       break;
