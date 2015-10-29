@@ -40,7 +40,7 @@ static struct static_route * static_route_alloc()
 
    s_route = XCALLOC(MTYPE_PIM_STATIC_ROUTE, sizeof(*s_route));
    if (!s_route) {
-     zlog_err("PIM XCALLOC(%u) failure", sizeof(*s_route));
+     zlog_err("PIM XCALLOC(%zu) failure", sizeof(*s_route));
      return 0;
    }
    return s_route;
