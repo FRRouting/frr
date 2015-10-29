@@ -32,6 +32,7 @@
 #include "pim_iface.h"
 #include "pim_macro.h"
 #include "pim_rp.h"
+#include "pim_oil.h"
 
 /* GLOBAL VARS */
 extern struct zebra_privs_t pimd_privs;
@@ -73,9 +74,9 @@ static int
 pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg,
 			const char *src_str, const char *grp_str)
 {
-  struct mfcctl mc;
   struct pim_interface *pim_ifp = ifp->info;
   struct pim_rpf *rpg;
+  struct pim_upstream *up;
 
   rpg = RP(msg->im_dst);
   /*
@@ -94,18 +95,30 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 	       __PRETTY_FUNCTION__, grp_str, src_str);
   }
 
-  /*
-   * This is just a hack to get the (S,G) received packet up into
-   * our user space so that we can register it.
-   *
-   * Once we run into a few more issues than we'll fix this.
-   */
-  memset(&mc, 0, sizeof(struct mfcctl));
-  mc.mfcc_origin   = msg->im_src;
-  mc.mfcc_mcastgrp = msg->im_dst;
-  mc.mfcc_parent   = ifp->ifindex;
-  mc.mfcc_ttls[PIM_OIF_PIM_REGISTER_VIF] = 1;
-  pim_mroute_add(&mc);
+  up = pim_upstream_add(msg->im_src, msg->im_dst);
+  if (!up) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: Failure to add upstream information for (%s,%s)",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str);
+    }
+    return 0;
+  }
+
+  up->channel_oil = pim_channel_oil_add(msg->im_dst,
+					msg->im_src,
+					pim_ifp->mroute_vif_index);
+  if (!up->channel_oil) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: Failure to add channel oil for (%s,%s)",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str);
+    }
+    return 0;
+  }
+
+  pim_channel_add_oif(up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_SOURCE);
+
   return 0;
 }
 
@@ -113,14 +126,27 @@ static int
 pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 			 const char *src_str, const char *grp_str)
 {
-  struct pim_interface *pim_ifp = ifp->info;
+  struct pim_interface *pim_ifp;
   struct in_addr group;
+  struct in_addr src;
   struct pim_rpf *rpg;
   const struct ip *ip_hdr;
+  struct pim_upstream *up;
 
+  zlog_debug("%s:", __PRETTY_FUNCTION__);
   ip_hdr = (const struct ip *)buf;
 
+  src = ip_hdr->ip_src;
   group = ip_hdr->ip_dst;
+
+  up = pim_upstream_find(src, group);
+  if (!up) {
+    if (PIM_DEBUG_PIM_TRACE) {
+      zlog_debug("%s: Unable to find upstream channel WHOLEPKT(%s,%s)",
+		 __PRETTY_FUNCTION__, src_str, grp_str);
+    }
+    return 0;
+  }
 
   rpg = RP(group);
 
@@ -351,7 +377,6 @@ static void mroute_read_off()
 int pim_mroute_socket_enable()
 {
   int fd;
-  struct in_addr pimreg = { .s_addr = 0 };
 
   if (PIM_MROUTE_IS_ENABLED)
     return -1;
@@ -380,7 +405,6 @@ int pim_mroute_socket_enable()
   }
 
   qpim_mroute_socket_fd       = fd;
-  pim_mroute_add_vif(PIM_OIF_PIM_REGISTER_VIF, pimreg, VIFF_REGISTER);
 
   qpim_mroute_socket_creation = pim_time_monotonic_sec();
   mroute_read_on();
@@ -451,9 +475,9 @@ int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr, unsigned char flags
 
     pim_inet4_dump("<ifaddr?>", ifaddr, ifaddr_str, sizeof(ifaddr_str));
 
-    zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s): errno=%d: %s",
+    zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
 	      __FILE__, __PRETTY_FUNCTION__,
-	      qpim_mroute_socket_fd, vif_index, ifaddr_str,
+	      qpim_mroute_socket_fd, vif_index, ifaddr_str, flags,
 	      e, safe_strerror(e));
     errno = e;
     return -2;
