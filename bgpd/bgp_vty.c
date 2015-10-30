@@ -57,6 +57,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 extern struct in_addr router_id_zebra;
 
+static struct peer_group *
+listen_range_exists (struct bgp *bgp, struct prefix *range, int exact);
+
 /* Utility function to get address family from current node.  */
 afi_t
 bgp_node_afi (struct vty *vty)
@@ -207,17 +210,8 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_INVALID_FLAG:
       str = "Invalid flag";
       break;
-    case BGP_ERR_PEER_INACTIVE:
-      str = "Activate the neighbor for the address family first";
-      break;
-    case BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER:
-      str = "Invalid command for a peer-group member";
-      break;
     case BGP_ERR_PEER_GROUP_SHUTDOWN:
       str = "Peer-group has been shutdown. Activate the peer-group first";
-      break;
-    case BGP_ERR_PEER_GROUP_HAS_THE_FLAG:
-      str = "This peer is a peer-group member.  Please change peer-group configuration";
       break;
     case BGP_ERR_PEER_FLAG_CONFLICT:
       str = "Can't set override-capability and strict-capability-match at the same time";
@@ -2353,6 +2347,38 @@ DEFUN (no_bgp_listen_limit,
 }
 
 
+/*
+ * Check if this listen range is already configured. Check for exact
+ * match or overlap based on input.
+ */
+static struct peer_group *
+listen_range_exists (struct bgp *bgp, struct prefix *range, int exact)
+{
+  struct listnode *node, *nnode;
+  struct listnode *node1, *nnode1;
+  struct peer_group *group;
+  struct prefix *lr;
+  afi_t afi;
+  int match;
+
+  afi = family2afi(range->family);
+  for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
+    {
+      for (ALL_LIST_ELEMENTS (group->listen_range[afi], node1,
+                              nnode1, lr))
+        {
+          if (exact)
+            match = prefix_same (range, lr);
+          else
+            match = (prefix_match (range, lr) || prefix_match (lr, range));
+          if (match)
+            return group;
+        }
+    }
+
+  return NULL;
+}
+
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
        LISTEN_RANGE_CMD "peer-group WORD" ,
@@ -2363,7 +2389,7 @@ DEFUN (bgp_listen_range,
 {
   struct bgp *bgp;
   struct prefix range;
-  struct peer_group *group;
+  struct peer_group *group, *existing_group;
   afi_t afi;
   int ret;
 
@@ -2392,6 +2418,27 @@ DEFUN (bgp_listen_range,
 
   apply_mask (&range);
 
+  /* Check if same listen range is already configured. */
+  existing_group = listen_range_exists (bgp, &range, 1);
+  if (existing_group)
+    {
+      if (strcmp (existing_group->name, argv[1]) == 0)
+        return CMD_SUCCESS;
+      else
+        {
+          vty_out (vty, "%% Same listen range is attached to peer-group %s%s",
+                   existing_group->name, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+
+  /* Check if an overlapping listen range exists. */
+  if (listen_range_exists (bgp, &range, 0))
+    {
+      vty_out (vty, "%% Listen range overlaps with existing listen range%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   group = peer_group_lookup (bgp, argv[1]);
   if (! group)
@@ -3399,8 +3446,7 @@ DEFUN (neighbor_nexthop_self_force,
 {
   return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
 			       bgp_node_safi (vty),
-			       (PEER_FLAG_FORCE_NEXTHOP_SELF |
-				PEER_FLAG_NEXTHOP_SELF));
+			       PEER_FLAG_FORCE_NEXTHOP_SELF);
 }
 
 DEFUN (no_neighbor_nexthop_self,
@@ -3413,11 +3459,10 @@ DEFUN (no_neighbor_nexthop_self,
 {
   return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				 bgp_node_safi (vty),
-				 (PEER_FLAG_NEXTHOP_SELF |
-				  PEER_FLAG_FORCE_NEXTHOP_SELF));
+				 PEER_FLAG_NEXTHOP_SELF);
 }
 
-ALIAS (no_neighbor_nexthop_self,
+DEFUN (no_neighbor_nexthop_self_force,
        no_neighbor_nexthop_self_force_cmd,
        NO_NEIGHBOR_CMD2 "next-hop-self force",
        NO_STR
@@ -3425,6 +3470,11 @@ ALIAS (no_neighbor_nexthop_self,
        NEIGHBOR_ADDR_STR2
        "Disable the next hop calculation for this neighbor\n"
        "Set the next hop to self for reflected routes\n")
+{
+  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+				 bgp_node_safi (vty),
+				 PEER_FLAG_FORCE_NEXTHOP_SELF);
+}
 
 /* neighbor as-override */
 DEFUN (neighbor_as_override,
@@ -3460,10 +3510,6 @@ DEFUN (neighbor_remove_private_as,
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n")
 {
-  peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
-			  bgp_node_safi (vty),
-                          PEER_FLAG_REMOVE_PRIVATE_AS_ALL|
-                          PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
   return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
 			       bgp_node_safi (vty),
 			       PEER_FLAG_REMOVE_PRIVATE_AS);
@@ -3477,12 +3523,8 @@ DEFUN (neighbor_remove_private_as_all,
        "Remove private ASNs in outbound updates\n"
        "Apply to all AS numbers")
 {
-  peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
-			  bgp_node_safi (vty),
-                          PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
   return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
 			       bgp_node_safi (vty),
-			       PEER_FLAG_REMOVE_PRIVATE_AS|
                                PEER_FLAG_REMOVE_PRIVATE_AS_ALL);
 }
 
@@ -3494,12 +3536,8 @@ DEFUN (neighbor_remove_private_as_replace_as,
        "Remove private ASNs in outbound updates\n"
        "Replace private ASNs with our ASN in outbound updates\n")
 {
-  peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
-			  bgp_node_safi (vty),
-                          PEER_FLAG_REMOVE_PRIVATE_AS_ALL);
   return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
 			       bgp_node_safi (vty),
-			       PEER_FLAG_REMOVE_PRIVATE_AS|
                                PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
 }
 
@@ -3514,9 +3552,7 @@ DEFUN (neighbor_remove_private_as_all_replace_as,
 {
   return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
 			       bgp_node_safi (vty),
-			       PEER_FLAG_REMOVE_PRIVATE_AS|
-                               PEER_FLAG_REMOVE_PRIVATE_AS_ALL|
-                               PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
+                               PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE);
 }
 
 DEFUN (no_neighbor_remove_private_as,
@@ -3529,12 +3565,10 @@ DEFUN (no_neighbor_remove_private_as,
 {
   return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				 bgp_node_safi (vty),
-				 PEER_FLAG_REMOVE_PRIVATE_AS|
-                                 PEER_FLAG_REMOVE_PRIVATE_AS_ALL|
-                                 PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
+				 PEER_FLAG_REMOVE_PRIVATE_AS);
 }
 
-ALIAS (no_neighbor_remove_private_as,
+DEFUN (no_neighbor_remove_private_as_all,
        no_neighbor_remove_private_as_all_cmd,
        NO_NEIGHBOR_CMD2 "remove-private-AS all",
        NO_STR
@@ -3542,8 +3576,13 @@ ALIAS (no_neighbor_remove_private_as,
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
        "Apply to all AS numbers")
+{
+  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+				 bgp_node_safi (vty),
+				 PEER_FLAG_REMOVE_PRIVATE_AS_ALL);
+}
 
-ALIAS (no_neighbor_remove_private_as,
+DEFUN (no_neighbor_remove_private_as_replace_as,
        no_neighbor_remove_private_as_replace_as_cmd,
        NO_NEIGHBOR_CMD2 "remove-private-AS replace-AS",
        NO_STR
@@ -3551,8 +3590,13 @@ ALIAS (no_neighbor_remove_private_as,
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
        "Replace private ASNs with our ASN in outbound updates\n")
+{
+  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+				 bgp_node_safi (vty),
+				 PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE);
+}
 
-ALIAS (no_neighbor_remove_private_as,
+DEFUN (no_neighbor_remove_private_as_all_replace_as,
        no_neighbor_remove_private_as_all_replace_as_cmd,
        NO_NEIGHBOR_CMD2 "remove-private-AS all replace-AS",
        NO_STR
@@ -3561,6 +3605,11 @@ ALIAS (no_neighbor_remove_private_as,
        "Remove private ASNs in outbound updates\n"
        "Apply to all AS numbers"
        "Replace private ASNs with our ASN in outbound updates\n")
+{
+  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+				 bgp_node_safi (vty),
+				 PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE);
+}
 
 
 /* neighbor send-community. */
@@ -9153,8 +9202,12 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
         json_object_boolean_true_add(json_addr, "inboundSoftConfigPermit");
 
-      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE))
+        json_object_boolean_true_add(json_addr, "privateAsNumsAllReplacedInUpdatesToNbr");
+      else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
         json_object_boolean_true_add(json_addr, "privateAsNumsReplacedInUpdatesToNbr");
+      else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
+        json_object_boolean_true_add(json_addr, "privateAsNumsAllRemovedInUpdatesToNbr");
       else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
         json_object_boolean_true_add(json_addr, "privateAsNumsRemovedInUpdatesToNbr");
 
@@ -9336,8 +9389,12 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))
         vty_out (vty, "  Inbound soft reconfiguration allowed%s", VTY_NEWLINE);
 
-      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE))
+        vty_out (vty, "  Private AS numbers (all) replaced in updates to this neighbor%s", VTY_NEWLINE);
+      else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
         vty_out (vty, "  Private AS numbers replaced in updates to this neighbor%s", VTY_NEWLINE);
+      else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
+        vty_out (vty, "  Private AS numbers (all) removed in updates to this neighbor%s", VTY_NEWLINE);
       else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
         vty_out (vty, "  Private AS numbers removed in updates to this neighbor%s", VTY_NEWLINE);
 

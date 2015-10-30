@@ -647,6 +647,7 @@ struct peer
 #define PEER_FLAG_REMOVE_PRIVATE_AS_ALL     (1 << 18) /* remove-private-as all */
 #define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1 << 19) /* remove-private-as replace-as */
 #define PEER_FLAG_AS_OVERRIDE               (1 << 20) /* as-override */
+#define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1 << 21) /* remove-private-as all replace-as */
 
   /* MD5 password */
   char *password;
@@ -1068,30 +1069,27 @@ enum bgp_clear_type
 #define BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT  -13
 #define BGP_ERR_MULTIPLE_INSTANCE_NOT_SET       -14
 #define BGP_ERR_AS_MISMATCH                     -15
-#define BGP_ERR_PEER_INACTIVE                   -16
-#define BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER   -17
-#define BGP_ERR_PEER_GROUP_HAS_THE_FLAG         -18
-#define BGP_ERR_PEER_FLAG_CONFLICT              -19
-#define BGP_ERR_PEER_GROUP_SHUTDOWN             -20
-#define BGP_ERR_PEER_FILTER_CONFLICT            -21
-#define BGP_ERR_NOT_INTERNAL_PEER               -22
-#define BGP_ERR_REMOVE_PRIVATE_AS               -23
-#define BGP_ERR_AF_UNCONFIGURED                 -24
-#define BGP_ERR_SOFT_RECONFIG_UNCONFIGURED      -25
-#define BGP_ERR_INSTANCE_MISMATCH               -26
-#define BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP  -27
-#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS    -28
-#define BGP_ERR_TCPSIG_FAILED			-29
-#define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-30
-#define BGP_ERR_NO_IBGP_WITH_TTLHACK		-31
-#define BGP_ERR_NO_INTERFACE_CONFIG             -32
-#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS    -33
-#define BGP_ERR_AS_OVERRIDE                     -34
-#define BGP_ERR_INVALID_DYNAMIC_NEIGHBORS_LIMIT -35
-#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS  -36
-#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND -37
-#define BGP_ERR_INVALID_FOR_DYNAMIC_PEER        -38
-#define BGP_ERR_MAX                             -39
+#define BGP_ERR_PEER_FLAG_CONFLICT              -16
+#define BGP_ERR_PEER_GROUP_SHUTDOWN             -17
+#define BGP_ERR_PEER_FILTER_CONFLICT            -18
+#define BGP_ERR_NOT_INTERNAL_PEER               -19
+#define BGP_ERR_REMOVE_PRIVATE_AS               -20
+#define BGP_ERR_AF_UNCONFIGURED                 -21
+#define BGP_ERR_SOFT_RECONFIG_UNCONFIGURED      -22
+#define BGP_ERR_INSTANCE_MISMATCH               -23
+#define BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP  -24
+#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS    -25
+#define BGP_ERR_TCPSIG_FAILED			-26
+#define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-27
+#define BGP_ERR_NO_IBGP_WITH_TTLHACK		-28
+#define BGP_ERR_NO_INTERFACE_CONFIG             -29
+#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS    -30
+#define BGP_ERR_AS_OVERRIDE                     -31
+#define BGP_ERR_INVALID_DYNAMIC_NEIGHBORS_LIMIT -32
+#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS  -33
+#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND -34
+#define BGP_ERR_INVALID_FOR_DYNAMIC_PEER        -35
+#define BGP_ERR_MAX                             -36
 
 /*
  * Enumeration of different policy kinds a peer can be configured with.

@@ -30,6 +30,7 @@
 #include "zclient.h"
 #include "linklist.h"
 #include "log.h"
+#include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -96,7 +97,7 @@ zebra_redistribute_default (struct zserv *client)
   p.family = AF_INET;
 
   /* Lookup table.  */
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (table)
     {
       rn = route_node_lookup (table, (struct prefix *)&p);
@@ -116,7 +117,7 @@ zebra_redistribute_default (struct zserv *client)
   p6.family = AF_INET6;
 
   /* Lookup table.  */
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (table)
     {
       rn = route_node_lookup (table, (struct prefix *)&p6);
@@ -140,7 +141,7 @@ zebra_redistribute (struct zserv *client, int type, u_short instance)
   struct route_table *table;
   struct route_node *rn;
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
       RNODE_FOREACH_RIB (rn, newrib)
@@ -155,7 +156,7 @@ zebra_redistribute (struct zserv *client, int type, u_short instance)
 	  }
   
 #ifdef HAVE_IPV6
-  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
       RNODE_FOREACH_RIB (rn, newrib)
@@ -499,7 +500,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib)
 
 	  rib_add_ipv4(ZEBRA_ROUTE_TABLE, rib->table, 0, &p4,
 		       gate, &nhop->src.ipv4,
-		       nhop->ifindex, zebrad.rtm_table_default,
+		       nhop->ifindex, rib->vrf_id, zebrad.rtm_table_default,
 		       rib->metric,
 		       zebra_import_table_distance[AFI_IP][rib->table],
 		       SAFI_UNICAST);
@@ -539,7 +540,7 @@ zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
       p4.prefix = rn->p.u.prefix4;
 
       rib_delete_ipv4(ZEBRA_ROUTE_TABLE, rib->table, rib->flags, &p4, NULL,
-		      0, zebrad.rtm_table_default, SAFI_UNICAST);
+		      0, rib->vrf_id, zebrad.rtm_table_default, SAFI_UNICAST);
     }
   /* DD: Add IPv6 code */
 
@@ -561,7 +562,7 @@ zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t distance, int add)
   if (afi >= AFI_MAX)
     return (-1);
 
-  table = vrf_other_route_table(afi, table_id, 0);
+  table = zebra_vrf_other_route_table(afi, table_id, VRF_DEFAULT);
   if (table == NULL)
     {
       return 0;

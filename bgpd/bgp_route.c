@@ -1136,12 +1136,16 @@ bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
                            struct peer *peer, struct attr *attr)
 {
   if (peer->sort == BGP_PEER_EBGP &&
-      peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS))
+      (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE) ||
+       peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE) ||
+       peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL) ||
+       peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS)))
     {
       // Take action on the entire aspath
-      if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
+      if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE) ||
+          peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
         {
-          if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
+          if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE))
             attr->aspath = aspath_replace_private_asns (attr->aspath, bgp->as);
 
           // The entire aspath consists of private ASNs so create an empty aspath
@@ -1500,7 +1504,8 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
       !CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED))
     {
       /* We can reset the nexthop, if setting (or forcing) it to 'self' */
-      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF))
+      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_SELF) ||
+          CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_FORCE_NEXTHOP_SELF))
         {
           if (!reflect ||
               CHECK_FLAG (peer->af_flags[afi][safi],

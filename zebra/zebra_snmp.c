@@ -19,6 +19,10 @@
  * 02111-1307, USA.  
  */
 
+/*
+ * Currently SNMP is only running properly for MIBs in the default VRF.
+ */
+
 #include <zebra.h>
 
 #ifdef HAVE_SNMP
@@ -31,6 +35,7 @@
 #include "command.h"
 #include "smux.h"
 #include "table.h"
+#include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -143,7 +148,7 @@ ipFwNumber (struct variable *v, oid objid[], size_t *objid_len,
   if (smux_header_generic(v, objid, objid_len, exact, val_len, write_method) == MATCH_FAILED)
     return NULL;
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return NULL;
 
@@ -168,7 +173,7 @@ ipCidrNumber (struct variable *v, oid objid[], size_t *objid_len,
   if (smux_header_generic(v, objid, objid_len, exact, val_len, write_method) == MATCH_FAILED)
     return NULL;
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return 0;
 
@@ -330,7 +335,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
   if (exact && (*objid_len != (unsigned) v->namelen + 10))
     return;
 
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
     return;
 

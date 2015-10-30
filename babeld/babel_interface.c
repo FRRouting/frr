@@ -55,6 +55,7 @@ THE SOFTWARE.
 #include "neighbour.h"
 #include "route.h"
 #include "xroute.h"
+#include "vrf.h"
 
 
 #define IS_ENABLE(ifp) (babel_enable_if_lookup(ifp->name) >= 0)
@@ -878,7 +879,7 @@ void
 babel_if_init ()
 {
     /* initialize interface list */
-    if_init();
+    vrf_init();
     if_add_hook (IF_NEW_HOOK,    babel_if_new_hook);
     if_add_hook (IF_DELETE_HOOK, babel_if_delete_hook);
 

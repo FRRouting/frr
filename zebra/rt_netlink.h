@@ -44,8 +44,8 @@ nl_rtproto_to_str (u_char rtproto);
 int
 netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen);
 
-extern int netlink_route_read(void);
-extern int interface_lookup_netlink(void);
+extern int interface_lookup_netlink (struct zebra_vrf *zvrf);
+extern int netlink_route_read (struct zebra_vrf *zvrf);
 
 #endif /* HAVE_NETLINK */
 

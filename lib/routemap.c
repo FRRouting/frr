@@ -66,6 +66,38 @@ struct route_map_list
 
 /* Master list of route map. */
 static struct route_map_list route_map_master = { NULL, NULL, NULL, NULL, NULL };
+struct hash *route_map_master_hash = NULL;
+
+static unsigned int
+route_map_hash_key_make (void *p)
+{
+  const struct route_map *map = p;
+  return string_hash_make (map->name);
+}
+
+static int
+route_map_hash_cmp(const void *p1, const void *p2)
+{
+  const struct route_map *map1 = p1;
+  const struct route_map *map2 = p2;
+
+  if (map1->deleted == map2->deleted)
+    {
+      if (map1->name && map2->name)
+        {
+          if (!strcmp (map1->name, map2->name))
+            {
+              return 1;
+            }
+        }
+      else if (!map1->name && !map2->name)
+        {
+          return 1;
+        }
+    }
+
+  return 0;
+}
 
 enum route_map_upd8_type
   {
@@ -127,7 +159,10 @@ route_map_add (const char *name)
 
   map = route_map_new (name);
   list = &route_map_master;
-    
+
+  /* Add map to the hash */
+  hash_get(route_map_master_hash, map, hash_alloc_intern);
+
   map->next = NULL;
   map->prev = list->tail;
   if (list->tail)
@@ -172,6 +207,7 @@ route_map_free_map (struct route_map *map)
       else
 	list->head = map->next;
 
+      hash_release(route_map_master_hash, map);
       XFREE (MTYPE_ROUTE_MAP_NAME, map->name);
       XFREE (MTYPE_ROUTE_MAP, map);
     }
@@ -211,14 +247,17 @@ struct route_map *
 route_map_lookup_by_name (const char *name)
 {
   struct route_map *map;
+  struct route_map tmp_map;
 
   if (!name)
     return NULL;
 
-  for (map = route_map_master.head; map; map = map->next)
-    if ((strcmp (map->name, name) == 0) && (!map->deleted))
-      return map;
-  return NULL;
+  // map.deleted is 0 via memset
+  memset(&tmp_map, 0, sizeof(struct route_map));
+  tmp_map.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, name);
+  map = hash_lookup(route_map_master_hash, &tmp_map);
+  XFREE(MTYPE_ROUTE_MAP_NAME, tmp_map.name);
+  return map;
 }
 
 int
@@ -226,17 +265,30 @@ route_map_mark_updated (const char *name, int del_later)
 {
   struct route_map *map;
   int ret = -1;
+  struct route_map tmp_map;
 
-  /* We need to do this walk manually instead of calling lookup_by_name()
-   * because the lookup function doesn't return route maps marked as
-   * deleted.
+  if (!name)
+    return (ret);
+
+  map = route_map_lookup_by_name(name);
+
+  /* If we did not find the routemap with deleted=0 try again
+   * with deleted=1
    */
-  for (map = route_map_master.head; map; map = map->next)
-    if (strcmp (map->name, name) == 0)
-      {
-	map->to_be_processed = 1;
-	ret = 0;
-      }
+  if (!map)
+    {
+      memset(&tmp_map, 0, sizeof(struct route_map));
+      tmp_map.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, name);
+      tmp_map.deleted = 1;
+      map = hash_lookup(route_map_master_hash, &tmp_map);
+      XFREE(MTYPE_ROUTE_MAP_NAME, tmp_map.name);
+    }
+
+  if (map)
+    {
+      map->to_be_processed = 1;
+      ret = 0;
+    }
 
   return(ret);
 }
@@ -386,8 +438,12 @@ vty_show_route_map (struct vty *vty, const char *name)
         }
       else
         {
-          vty_out (vty, "%%route-map %s not found%s", name, VTY_NEWLINE);
-          return CMD_WARNING;
+          if (zlog_default)
+            vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
+          if (zlog_default->instance)
+            vty_out (vty, " %d", zlog_default->instance);
+          vty_out (vty, ": 'route-map %s' not found%s", name, VTY_NEWLINE);
+          return CMD_SUCCESS;
         }
     }
   else
@@ -1049,6 +1105,7 @@ route_map_init (void)
   /* Make vector for match and set. */
   route_match_vec = vector_init (1);
   route_set_vec = vector_init (1);
+  route_map_master_hash = hash_create(route_map_hash_key_make, route_map_hash_cmp);
 }
 
 void

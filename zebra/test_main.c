@@ -29,6 +29,7 @@
 #include "log.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -201,6 +202,71 @@ struct quagga_signal_t zebra_signals[] =
   },
 };
 
+/* Callback upon creating a new VRF. */
+static int
+zebra_vrf_new (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = *info;
+
+  if (! zvrf)
+    {
+      zvrf = zebra_vrf_alloc (vrf_id);
+      *info = (void *)zvrf;
+    }
+
+  return 0;
+}
+
+/* Callback upon enabling a VRF. */
+static int
+zebra_vrf_enable (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
+
+  assert (zvrf);
+
+  kernel_init (zvrf);
+  route_read (zvrf);
+
+  return 0;
+}
+
+/* Callback upon disabling a VRF. */
+static int
+zebra_vrf_disable (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
+  struct listnode *list_node;
+  struct interface *ifp;
+
+  assert (zvrf);
+
+  rib_close_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
+  rib_close_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), list_node, ifp))
+    {
+      int operative = if_is_operative (ifp);
+      UNSET_FLAG (ifp->flags, IFF_UP);
+      if (operative)
+        if_down (ifp);
+    }
+
+  kernel_terminate (zvrf);
+
+  return 0;
+}
+
+/* Zebra VRF initialization. */
+static void
+zebra_vrf_init (void)
+{
+  vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
+  vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
+  vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
+  vrf_init ();
+}
+
 /* Main startup routine. */
 int
 main (int argc, char **argv)
@@ -292,7 +358,6 @@ main (int argc, char **argv)
   cmd_init (1);
   vty_init (zebrad.master);
   memory_init ();
-  if_init();
   zebra_debug_init ();
   zebra_if_init ();
   test_cmd_init ();
@@ -302,8 +367,7 @@ main (int argc, char **argv)
   access_list_init ();
 
   /* Make kernel routing socket. */
-  kernel_init ();
-  route_read ();
+  zebra_vrf_init ();
   zebra_vty_init();
 
   /* Configuration file read*/

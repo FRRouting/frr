@@ -25,6 +25,7 @@
 #include "prefix.h"
 #include "log.h"
 #include "if.h"
+#include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -90,11 +91,11 @@ handle_route_entry (mib2_ipRouteEntry_t *routeEntry)
 	gateway.s_addr = routeEntry->ipRouteNextHop;
 
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &prefix,
-		      &gateway, NULL, 0, 0, 0, 0, SAFI_UNICAST);
+		      &gateway, NULL, 0, VRF_DEFAULT, 0, 0, 0, SAFI_UNICAST);
 }
 
 void
-route_read (void)
+route_read (struct zebra_vrf *zvrf)
 {
 	char 			storage[RT_BUFSIZ];
 
@@ -108,6 +109,10 @@ route_read (void)
 
 	struct strbuf		msgdata;
 	int			flags, dev, retval, process;
+
+	if (zvrf->vrf_id != VRF_DEFAULT) {
+		return;
+	}
 
 	if ((dev = open (_PATH_GETMSG_ROUTE, O_RDWR)) == -1) {
 		zlog_warn ("can't open %s: %s", _PATH_GETMSG_ROUTE,

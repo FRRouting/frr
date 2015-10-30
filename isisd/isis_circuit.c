@@ -2739,7 +2739,6 @@ void
 isis_circuit_init ()
 {
   /* Initialize Zebra interface data structure */
-  if_init ();
   if_add_hook (IF_NEW_HOOK, isis_if_new_hook);
   if_add_hook (IF_DELETE_HOOK, isis_if_delete_hook);
 

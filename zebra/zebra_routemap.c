@@ -29,6 +29,7 @@
 #include "filter.h"
 #include "plist.h"
 #include "nexthop.h"
+#include "vrf.h"
 
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
@@ -45,6 +46,7 @@ extern struct zebra_t zebrad;
 struct nh_rmap_obj
 {
   struct nexthop *nexthop;
+  vrf_id_t vrf_id;
   u_int32_t source_protocol;
   int metric;
   u_short tag;
@@ -255,11 +257,11 @@ route_match_interface (void *rule, struct prefix *prefix,
     {
       if (strcasecmp(ifname, "any") == 0)
 	return RMAP_MATCH;
-      ifindex = ifname2ifindex(ifname);
-      if (ifindex == 0)
-	return RMAP_NOMATCH;
       nh_data = object;
       if (!nh_data || !nh_data->nexthop)
+	return RMAP_NOMATCH;
+      ifindex = ifname2ifindex_vrf (ifname, nh_data->vrf_id);
+      if (ifindex == 0)
 	return RMAP_NOMATCH;
       if (nh_data->nexthop->ifindex == ifindex)
 	return RMAP_MATCH;
@@ -657,6 +659,7 @@ DEFUN (set_src,
   struct interface *pif = NULL;
   int family;
   struct prefix p;
+  vrf_iter_t iter;
 
   if (inet_pton(AF_INET, argv[0], &src.ipv4) != 1)
     {
@@ -683,10 +686,18 @@ DEFUN (set_src,
 	  return CMD_WARNING;
     }
 
-  if (family == AF_INET)
-    pif = if_lookup_exact_address ((void *)&src.ipv4, AF_INET);
-  else if (family == AF_INET6)
-    pif = if_lookup_exact_address ((void *)&src.ipv6, AF_INET6);
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      if (family == AF_INET)
+        pif = if_lookup_exact_address_vrf ((void *)&src.ipv4, AF_INET,
+                                           vrf_iter2id (iter));
+      else if (family == AF_INET6)
+        pif = if_lookup_exact_address_vrf ((void *)&src.ipv6, AF_INET6,
+                                           vrf_iter2id (iter));
+
+      if (pif != NULL)
+        break;
+    }
 
   if (!pif)
     {
@@ -767,7 +778,7 @@ DEFUN (ip_protocol,
   if (IS_ZEBRA_DEBUG_RIB)
     zlog_debug ("%s: calling rib_update", __func__);
 
-  rib_update();
+  rib_update(VRF_DEFAULT);
   return CMD_SUCCESS;
 }
 
@@ -804,7 +815,7 @@ DEFUN (no_ip_protocol,
       if (IS_ZEBRA_DEBUG_RIB)
         zlog_debug ("%s: calling rib_update", __func__);
 
-      rib_update();
+      rib_update(VRF_DEFAULT);
     }
   return CMD_SUCCESS;
 }
@@ -879,7 +890,7 @@ DEFUN (ipv6_protocol,
   if (IS_ZEBRA_DEBUG_RIB)
     zlog_debug ("%s: calling rib_update", __func__);
 
-  rib_update();
+  rib_update(VRF_DEFAULT);
   return CMD_SUCCESS;
 }
 
@@ -916,7 +927,7 @@ DEFUN (no_ipv6_protocol,
       if (IS_ZEBRA_DEBUG_RIB)
         zlog_debug ("%s: calling rib_update", __func__);
 
-      rib_update();
+      rib_update(VRF_DEFAULT);
     }
   return CMD_SUCCESS;
 }
@@ -1590,7 +1601,7 @@ zebra_route_map_update_timer (struct thread *thread)
   if (IS_ZEBRA_DEBUG_RIB)
     zlog_debug ("%s: calling rib_update", __func__);
 
-  rib_update();
+  rib_update(VRF_DEFAULT);
   zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
   zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 
@@ -1621,13 +1632,14 @@ zebra_route_map_write_delay_timer (struct vty *vty)
 
 route_map_result_t
 zebra_route_map_check (int family, int rib_type, struct prefix *p,
-		       struct nexthop *nexthop, u_short tag)
+		       struct nexthop *nexthop, vrf_id_t vrf_id, u_short tag)
 {
   struct route_map *rmap = NULL;
   route_map_result_t ret = RMAP_MATCH;
   struct nh_rmap_obj nh_obj;
 
   nh_obj.nexthop = nexthop;
+  nh_obj.vrf_id = vrf_id;
   nh_obj.source_protocol = rib_type;
   nh_obj.metric = 0;
   nh_obj.tag = tag;
@@ -1652,6 +1664,7 @@ zebra_nht_route_map_check (int family, int client_proto, struct prefix *p,
   struct nh_rmap_obj nh_obj;
 
   nh_obj.nexthop = nexthop;
+  nh_obj.vrf_id = rib->vrf_id;
   nh_obj.source_protocol = rib->type;
   nh_obj.metric = rib->metric;
   nh_obj.tag = rib->tag;

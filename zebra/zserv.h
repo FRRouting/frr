@@ -134,9 +134,10 @@ extern void zebra_if_init (void);
 extern void zebra_zserv_socket_init (char *path);
 extern void hostinfo_get (void);
 extern void rib_init (void);
-extern void interface_list (void);
-extern void kernel_init (void);
-extern void route_read (void);
+extern void interface_list (struct zebra_vrf *);
+extern void route_read (struct zebra_vrf *);
+extern void kernel_init (struct zebra_vrf *);
+extern void kernel_terminate (struct zebra_vrf *);
 extern void zebra_route_map_init (void);
 extern void zebra_snmp_init (void);
 extern void zebra_vty_init (void);
@@ -151,7 +152,9 @@ extern void nbr_connected_delete_ipv6 (struct interface *, struct in6_addr *, u_
 extern int zsend_interface_update (int, struct zserv *, struct interface *);
 extern int zsend_redistribute_route (int, struct zserv *, struct prefix *,
 				     struct rib *);
-extern int zsend_router_id_update(struct zserv *, struct prefix *);
+extern int zsend_router_id_update (struct zserv *, struct prefix *,
+                                   vrf_id_t);
+
 extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd);
@@ -162,6 +165,7 @@ extern void zebra_route_map_write_delay_timer(struct vty *);
 extern route_map_result_t zebra_route_map_check (int family, int rib_type,
 						 struct prefix *p,
 						 struct nexthop *nexthop,
+                                                 vrf_id_t vrf_id,
                                                  u_short tag);
 extern route_map_result_t zebra_nht_route_map_check (int family,
 						     int client_proto,

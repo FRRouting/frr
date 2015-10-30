@@ -73,14 +73,15 @@ struct memory_list memory_list_lib[] =
   { MTYPE_PQUEUE_DATA,		"Priority queue data"		},
   { MTYPE_HOST,			"Host config"			},
   { MTYPE_BFD_INFO,             "BFD info"			},
+  { MTYPE_VRF,			"VRF"				},
+  { MTYPE_VRF_NAME,		"VRF name"			},
   { -1, NULL },
 };
 
 struct memory_list memory_list_zebra[] = 
 {
   { MTYPE_RTADV_PREFIX,		"Router Advertisement Prefix"	},
-  { MTYPE_VRF,			"VRF"				},
-  { MTYPE_VRF_NAME,		"VRF name"			},
+  { MTYPE_ZEBRA_VRF,		"ZEBRA VRF"				},
   { MTYPE_NEXTHOP,		"Nexthop"			},
   { MTYPE_RIB,			"RIB"				},
   { MTYPE_RIB_QUEUE,		"RIB process work queue"	},
@@ -88,6 +89,7 @@ struct memory_list memory_list_zebra[] =
   { MTYPE_RIB_DEST,		"RIB destination"		},
   { MTYPE_RIB_TABLE_INFO,	"RIB table info"		},
   { MTYPE_RNH,		        "Nexthop tracking object"	},
+  { MTYPE_NETLINK_NAME,	        "Netlink name"			},
   { -1, NULL },
 };
 

@@ -2077,7 +2077,6 @@ void
 rip_if_init (void)
 {
   /* Default initial size of interface vector. */
-  if_init();
   if_add_hook (IF_NEW_HOOK, rip_interface_new_hook);
   if_add_hook (IF_DELETE_HOOK, rip_interface_delete_hook);
   

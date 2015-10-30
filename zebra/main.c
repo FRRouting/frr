@@ -32,6 +32,7 @@
 #include "plist.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -213,6 +214,82 @@ struct quagga_signal_t zebra_signals[] =
   },
 };
 
+/* Callback upon creating a new VRF. */
+static int
+zebra_vrf_new (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = *info;
+
+  if (! zvrf)
+    {
+      zvrf = zebra_vrf_alloc (vrf_id);
+      *info = (void *)zvrf;
+      router_id_init (zvrf);
+    }
+
+  return 0;
+}
+
+/* Callback upon enabling a VRF. */
+static int
+zebra_vrf_enable (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
+
+  assert (zvrf);
+
+#ifdef RTADV
+  rtadv_init (zvrf);
+#endif
+  kernel_init (zvrf);
+  interface_list (zvrf);
+  route_read (zvrf);
+
+  return 0;
+}
+
+/* Callback upon disabling a VRF. */
+static int
+zebra_vrf_disable (vrf_id_t vrf_id, void **info)
+{
+  struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
+  struct listnode *list_node;
+  struct interface *ifp;
+
+  assert (zvrf);
+
+  rib_close_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
+  rib_close_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), list_node, ifp))
+    {
+      int operative = if_is_operative (ifp);
+      UNSET_FLAG (ifp->flags, IFF_UP);
+      if (operative)
+        if_down (ifp);
+    }
+
+#ifdef RTADV
+  rtadv_terminate (zvrf);
+#endif
+  kernel_terminate (zvrf);
+
+  list_delete_all_node (zvrf->rid_all_sorted_list);
+  list_delete_all_node (zvrf->rid_lo_sorted_list);
+
+  return 0;
+}
+
+/* Zebra VRF initialization. */
+static void
+zebra_vrf_init (void)
+{
+  vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
+  vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
+  vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
+  vrf_init ();
+}
+
 /* Main startup routine. */
 int
 main (int argc, char **argv)
@@ -336,12 +413,12 @@ main (int argc, char **argv)
   rib_init ();
   zebra_if_init ();
   zebra_debug_init ();
-  router_id_init();
+  router_id_cmd_init ();
   zebra_vty_init ();
   access_list_init ();
   prefix_list_init ();
 #ifdef RTADV
-  rtadv_init ();
+  rtadv_cmd_init ();
 #endif
 #ifdef HAVE_IRDP
   irdp_init();
@@ -354,10 +431,8 @@ main (int argc, char **argv)
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
-  /* Make kernel routing socket. */
-  kernel_init ();
-  interface_list ();
-  route_read ();
+  /* Initialize VRF module, and make kernel routing socket. */
+  zebra_vrf_init ();
 
 #ifdef HAVE_SNMP
   zebra_snmp_init ();

@@ -30,8 +30,10 @@
 #include "memory.h"
 #include "log.h"
 #include "privs.h"
+#include "vrf.h"
 
 #include "zebra/interface.h"
+#include "zebra/rib.h"
 
 void lifreq_set_name (struct lifreq *, const char *);
 int if_get_flags_direct (const char *, uint64_t *, unsigned int af);
@@ -349,8 +351,13 @@ interface_info_ioctl (struct interface *ifp)
 
 /* Lookup all interface information. */
 void
-interface_list ()
+interface_list (struct zebra_vrf *zvrf)
 {
+  if (zvrf->vrf_id != VRF_DEFAULT)
+    {
+      zlog_warn ("interface_list: ignore VRF %u", zvrf->vrf_id);
+      return;
+    }
   interface_list_ioctl (AF_INET);
   interface_list_ioctl (AF_INET6);
   interface_list_ioctl (AF_UNSPEC);

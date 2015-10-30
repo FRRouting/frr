@@ -36,6 +36,7 @@
 #include "routemap.h"
 #include "stream.h"
 #include "nexthop.h"
+#include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
@@ -50,6 +51,16 @@ extern struct zebra_t zebrad;
 static void free_state(struct rib *rib, struct route_node *rn);
 static void copy_state(struct rnh *rnh, struct rib *rib,
 		       struct route_node *rn);
+#define lookup_rnh_table(v, f)		         \
+({						 \
+  struct zebra_vrf *zvrf;                        \
+  struct route_table *t = NULL;                  \
+  zvrf = zebra_vrf_lookup(v);                    \
+  if (zvrf)                                      \
+    t = zvrf->rnh_table[family2afi(f)];	         \
+  t;                                             \
+})
+
 static int compare_state(struct rib *r1, struct rib *r2);
 static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type);
 static void print_rnh(struct route_node *rn, struct vty *vty);
@@ -57,21 +68,21 @@ static void print_rnh(struct route_node *rn, struct vty *vty);
 int zebra_rnh_ip_default_route = 0;
 int zebra_rnh_ipv6_default_route = 0;
 
-static inline struct route_table *get_rnh_table(int vrfid, int family,
+static inline struct route_table *get_rnh_table(vrf_id_t vrfid, int family,
 						rnh_type_t type)
 {
-  struct vrf *vrf;
+  struct zebra_vrf *zvrf;
   struct route_table *t = NULL;
 
-  vrf = vrf_lookup(vrfid);
-  if (vrf)
+  zvrf = zebra_vrf_lookup(vrfid);
+  if (zvrf)
     switch (type)
       {
       case RNH_NEXTHOP_TYPE:
-	t = vrf->rnh_table[family2afi(family)];
+	t = zvrf->rnh_table[family2afi(family)];
 	break;
       case RNH_IMPORT_CHECK_TYPE:
-	t = vrf->import_check_table[family2afi(family)];
+	t = zvrf->import_check_table[family2afi(family)];
 	break;
       }
 
@@ -85,7 +96,7 @@ char *rnh_str (struct rnh *rnh, char *buf, int size)
 }
 
 struct rnh *
-zebra_add_rnh (struct prefix *p, u_int32_t vrfid, rnh_type_t type)
+zebra_add_rnh (struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -125,7 +136,7 @@ zebra_add_rnh (struct prefix *p, u_int32_t vrfid, rnh_type_t type)
 }
 
 struct rnh *
-zebra_lookup_rnh (struct prefix *p, u_int32_t vrfid, rnh_type_t type)
+zebra_lookup_rnh (struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -262,7 +273,7 @@ zebra_evaluate_rnh_nexthops(int family, struct rib *rib, struct route_node *prn,
 }
 
 int
-zebra_evaluate_rnh (int vrfid, int family, int force, rnh_type_t type,
+zebra_evaluate_rnh (vrf_id_t vrfid, int family, int force, rnh_type_t type,
 		    struct prefix *p)
 {
   struct route_table *ptable;
@@ -289,7 +300,7 @@ zebra_evaluate_rnh (int vrfid, int family, int force, rnh_type_t type,
       return -1;
     }
 
-  ptable = vrf_table(family2afi(family), SAFI_UNICAST, vrfid);
+  ptable = zebra_vrf_table(family2afi(family), SAFI_UNICAST, vrfid);
   if (!ptable)
     {
       zlog_debug("evaluate_rnh_table: prefix table not found\n");
@@ -557,7 +568,7 @@ zebra_evaluate_rnh (int vrfid, int family, int force, rnh_type_t type,
 }
 
 int
-zebra_dispatch_rnh_table (int vrfid, int family, struct zserv *client,
+zebra_dispatch_rnh_table (vrf_id_t vrfid, int family, struct zserv *client,
 			  rnh_type_t type)
 {
   struct route_table *ntable;
@@ -591,7 +602,7 @@ zebra_dispatch_rnh_table (int vrfid, int family, struct zserv *client,
 }
 
 void
-zebra_print_rnh_table (int vrfid, int af, struct vty *vty, rnh_type_t type)
+zebra_print_rnh_table (vrf_id_t vrfid, int af, struct vty *vty, rnh_type_t type)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -609,7 +620,7 @@ zebra_print_rnh_table (int vrfid, int af, struct vty *vty, rnh_type_t type)
 }
 
 int
-zebra_cleanup_rnh_client (int vrfid, int family, struct zserv *client,
+zebra_cleanup_rnh_client (vrf_id_t vrfid, int family, struct zserv *client,
 			  rnh_type_t type)
 {
   struct route_table *ntable;
