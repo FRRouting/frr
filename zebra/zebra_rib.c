@@ -79,9 +79,6 @@ static const struct
   /* no entry/default: 150 */
 };
 
-/* Vector for routing table.  */
-static vector zebra_vrf_vector;
-
 /*
  * nexthop_type_to_str
  */
@@ -4178,7 +4175,7 @@ zebra_vrf_alloc (vrf_id_t vrf_id)
 struct zebra_vrf *
 zebra_vrf_lookup (vrf_id_t vrf_id)
 {
-  return vector_lookup (zebra_vrf_vector, vrf_id);
+  return vrf_info_lookup (vrf_id);
 }
 
 /* Lookup the routing table in an enabled VRF. */
