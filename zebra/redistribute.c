@@ -500,7 +500,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib)
 
 	  rib_add_ipv4(ZEBRA_ROUTE_TABLE, rib->table, 0, &p4,
 		       gate, &nhop->src.ipv4,
-		       nhop->ifindex, zebrad.rtm_table_default,
+		       nhop->ifindex, rib->vrf_id, zebrad.rtm_table_default,
 		       rib->metric,
 		       zebra_import_table_distance[AFI_IP][rib->table],
 		       SAFI_UNICAST);
@@ -540,7 +540,7 @@ zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
       p4.prefix = rn->p.u.prefix4;
 
       rib_delete_ipv4(ZEBRA_ROUTE_TABLE, rib->table, rib->flags, &p4, NULL,
-		      0, zebrad.rtm_table_default, SAFI_UNICAST);
+		      0, rib->vrf_id, zebrad.rtm_table_default, SAFI_UNICAST);
     }
   /* DD: Add IPv6 code */
 
