@@ -1929,6 +1929,8 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
       vty_out (vty, ", distance %u, metric %u", rib->distance, rib->metric);
       if (rib->tag)
 	vty_out (vty, ", tag %d", rib->tag);
+       if (rib->mtu)
+        vty_out (vty, ", mtu %u", rib->mtu);
       if (rib->vrf_id != VRF_DEFAULT)
         {
           zvrf = vrf_info_lookup(rib->vrf_id);

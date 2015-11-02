@@ -201,10 +201,10 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
     return;
 
   rib_add_ipv4 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, NULL, ifp->ifindex,
-	ifp->vrf_id, RT_TABLE_MAIN, ifp->metric, 0, SAFI_UNICAST);
+		ifp->vrf_id, RT_TABLE_MAIN, ifp->metric, 0, 0, SAFI_UNICAST);
 
   rib_add_ipv4 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, NULL, ifp->ifindex,
-	ifp->vrf_id, RT_TABLE_MAIN, ifp->metric, 0, SAFI_MULTICAST);
+		ifp->vrf_id, RT_TABLE_MAIN, ifp->metric, 0, 0, SAFI_MULTICAST);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%u: IF %s IPv4 address add/up, scheduling RIB processing",
@@ -379,7 +379,7 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
 #endif
 
   rib_add_ipv6 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, ifp->ifindex, ifp->vrf_id,
-                RT_TABLE_MAIN, ifp->metric, 0, SAFI_UNICAST);
+                RT_TABLE_MAIN, ifp->metric, 0, 0, SAFI_UNICAST);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%u: IF %s IPv6 address down, scheduling RIB processing",

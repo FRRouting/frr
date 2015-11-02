@@ -695,6 +695,8 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
           SET_FLAG(zapi_flags, ZAPI_MESSAGE_TAG);
           stream_putw(s, rib->tag);
         }
+      SET_FLAG (zapi_flags, ZAPI_MESSAGE_MTU);
+      stream_putl (s, rib->mtu);
     }
 
   /* write real message flags value */
@@ -1264,6 +1266,11 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   else
     rib->tag = 0;
 
+  if (CHECK_FLAG (message, ZAPI_MESSAGE_MTU))
+    rib->mtu = stream_getl (s);
+  else
+    rib->mtu = 0;
+
   /* Table */
   rib->table = zvrf->table_id;
 
@@ -1518,6 +1525,11 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   else
     rib->tag = 0;
 
+  if (CHECK_FLAG (message, ZAPI_MESSAGE_MTU))
+    rib->mtu = stream_getl (s);
+  else
+    rib->mtu = 0;
+
   /* Table */
   rib->table = zvrf->table_id;
 
@@ -1635,6 +1647,11 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
     rib->tag = stream_getw (s);
   else
     rib->tag = 0;
+
+  if (CHECK_FLAG (message, ZAPI_MESSAGE_MTU))
+    rib->mtu = stream_getl (s);
+  else
+    rib->mtu = 0;
 
   /* VRF ID */
   rib->vrf_id = zvrf->vrf_id;

@@ -352,6 +352,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
       zebra_deregister_rnh_static_nexthops(rib->vrf_id, nexthop->resolved, top);
       nexthops_free(nexthop->resolved);
       nexthop->resolved = NULL;
+      rib->nexthop_mtu = 0;
     }
 
   /* Skip nexthops that have been filtered out due to route-map */
@@ -545,6 +546,8 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 		      }
 		    resolved = 1;
 		  }
+              if (resolved && set)
+                rib->nexthop_mtu = match->mtu;
 	      return resolved;
 	    }
 	  else
@@ -2414,7 +2417,7 @@ int
 rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 	      struct in_addr *gate, struct in_addr *src,
 	      ifindex_t ifindex, vrf_id_t vrf_id, u_int32_t table_id,
-	      u_int32_t metric, u_char distance, safi_t safi)
+	      u_int32_t metric, u_int32_t mtu, u_char distance, safi_t safi)
 {
   struct rib *rib;
   struct rib *same = NULL;
@@ -2481,6 +2484,7 @@ rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
   rib->distance = distance;
   rib->flags = flags;
   rib->metric = metric;
+  rib->mtu = mtu;
   rib->table = table_id;
   rib->vrf_id = vrf_id;
   rib->nexthop_num = 0;
@@ -2554,9 +2558,10 @@ void _rib_dump (const char * func,
   );
   zlog_debug
   (
-    "%s: metric == %u, distance == %u, flags == %u, status == %u",
+    "%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
     func,
     rib->metric,
+    rib->mtu,
     rib->distance,
     rib->flags,
     rib->status
@@ -2992,6 +2997,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
       rib->instance = 0;
       rib->distance = si->distance;
       rib->metric = 0;
+      rib->mtu = 0;
       rib->vrf_id = si->vrf_id;
       rib->table =  si->vrf_id ? (zebra_vrf_lookup(si->vrf_id))->table_id : zebrad.rtm_table_default;
       rib->nexthop_num = 0;
@@ -3342,7 +3348,8 @@ static_delete_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex
 int
 rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 	      struct in6_addr *gate, ifindex_t ifindex, vrf_id_t vrf_id,
-              u_int32_t table_id, u_int32_t metric, u_char distance, safi_t safi)
+              u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
+	      u_char distance, safi_t safi)
 {
   struct rib *rib;
   struct rib *same = NULL;
@@ -3401,6 +3408,7 @@ rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
   rib->distance = distance;
   rib->flags = flags;
   rib->metric = metric;
+  rib->mtu = mtu;
   rib->table = table_id;
   rib->vrf_id = vrf_id;
   rib->nexthop_num = 0;

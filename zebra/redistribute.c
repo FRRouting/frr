@@ -578,7 +578,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      rib_add_ipv4(ZEBRA_ROUTE_TABLE, rib->table, 0, &p4,
                            gate, &nhop->src.ipv4,
 		           nhop->ifindex, rib->vrf_id, zebrad.rtm_table_default,
-		           rib->metric,
+		           rib->metric, rib->mtu,
 		           zebra_import_table_distance[AFI_IP][rib->table],
 		           SAFI_UNICAST);
 	    }
@@ -589,6 +589,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      newrib->distance = zebra_import_table_distance[AFI_IP][rib->table];
 	      newrib->flags = rib->flags;
 	      newrib->metric = rib->metric;
+	      newrib->mtu = rib->mtu;
 	      newrib->table = zebrad.rtm_table_default;
 	      newrib->nexthop_num = 0;
 	      newrib->uptime = time(NULL);

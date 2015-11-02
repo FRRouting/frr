@@ -116,6 +116,7 @@ struct zclient
 #define ZAPI_MESSAGE_DISTANCE 0x04
 #define ZAPI_MESSAGE_METRIC   0x08
 #define ZAPI_MESSAGE_TAG      0x10
+#define ZAPI_MESSAGE_MTU      0x20
 
 /* Zserv protocol message header */
 struct zserv_header
@@ -153,6 +154,8 @@ struct zapi_ipv4
   u_int32_t metric;
 
   u_short tag;
+
+  u_int32_t mtu;
 
   vrf_id_t vrf_id;
 };
@@ -236,6 +239,8 @@ struct zapi_ipv6
   u_int32_t metric;
 
   u_short tag;
+
+  u_int32_t mtu;
 
   vrf_id_t vrf_id;
 };
