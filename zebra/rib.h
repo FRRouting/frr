@@ -81,6 +81,7 @@ struct rib
 #define RIB_ENTRY_REMOVED	   0x1
   /* to simplify NHT logic when NHs change, instead of doing a NH by NH cmp */
 #define RIB_ENTRY_NEXTHOPS_CHANGED 0x2
+#define RIB_ENTRY_CHANGED          0x4
 
   /* Nexthop information. */
   u_char nexthop_num;

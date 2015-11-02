@@ -489,7 +489,6 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_FLAG_BLACKHOLE          0x04
 #define ZEBRA_FLAG_IBGP               0x08
 #define ZEBRA_FLAG_SELECTED           0x10
-#define ZEBRA_FLAG_CHANGED            0x20
 #define ZEBRA_FLAG_STATIC             0x40
 #define ZEBRA_FLAG_REJECT             0x80
 #define ZEBRA_FLAG_SCOPE_LINK         0x100

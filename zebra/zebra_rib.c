@@ -1188,7 +1188,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 /* Iterate over all nexthops of the given RIB entry and refresh their
  * ACTIVE flag. rib->nexthop_active_num is updated accordingly. If any
  * nexthop is found to toggle the ACTIVE flag, the whole rib structure
- * is flagged with ZEBRA_FLAG_CHANGED. The 4th 'set' argument is
+ * is flagged with RIB_ENTRY_CHANGED. The 4th 'set' argument is
  * transparently passed to nexthop_active_check().
  *
  * Return value is the new number of active nexthops.
@@ -1204,7 +1204,7 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
   old_num_nh = rib->nexthop_active_num;
 
   rib->nexthop_active_num = 0;
-  UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+  UNSET_FLAG (rib->status, RIB_ENTRY_CHANGED);
 
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
   {
@@ -1224,15 +1224,15 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 	  nexthop->type < NEXTHOP_TYPE_BLACKHOLE) &&
 	 !(IPV6_ADDR_SAME (&prev_src.ipv6, &nexthop->rmap_src.ipv6))))
       {
-	SET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+	SET_FLAG (rib->flags, RIB_ENTRY_CHANGED);
 	SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
       }
   }
 
   if (old_num_nh != rib->nexthop_active_num)
-    SET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+    SET_FLAG (rib->flags, RIB_ENTRY_CHANGED);
 
-  if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_CHANGED))
+  if (CHECK_FLAG (rib->flags, RIB_ENTRY_CHANGED))
     {
       SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
     }
@@ -1429,7 +1429,7 @@ rib_process_add_route (struct zebra_vrf *zvrf, struct route_node *rn,
   /* Update real nexthop. This may actually determine if nexthop is active or not. */
   if (!nexthop_active_update (rn, select, 1))
     {
-      UNSET_FLAG(select->flags, ZEBRA_FLAG_CHANGED);
+      UNSET_FLAG(select->flags, RIB_ENTRY_CHANGED);
       return;
     }
 
@@ -1455,7 +1455,7 @@ rib_process_add_route (struct zebra_vrf *zvrf, struct route_node *rn,
   /* Update for redistribution. */
   if (installed)
     redistribute_update (&rn->p, select, NULL);
-  UNSET_FLAG(select->flags, ZEBRA_FLAG_CHANGED);
+  UNSET_FLAG(select->flags, RIB_ENTRY_CHANGED);
 }
 
 static void
@@ -1482,7 +1482,7 @@ rib_process_del_route (struct zebra_vrf *zvrf, struct route_node *rn,
 
   /* Update nexthop for route, reset changed flag. */
   nexthop_active_update (rn, fib, 1);
-  UNSET_FLAG(fib->flags, ZEBRA_FLAG_CHANGED);
+  UNSET_FLAG(fib->flags, RIB_ENTRY_CHANGED);
 }
 
 static void
@@ -1503,7 +1503,7 @@ rib_process_update_route (struct zebra_vrf *zvrf, struct route_node *rn,
    * something has changed.
    */
   if (select != fib ||
-      CHECK_FLAG (select->flags, ZEBRA_FLAG_CHANGED))
+      CHECK_FLAG (select->flags, RIB_ENTRY_CHANGED))
     {
       zfpm_trigger_update (rn, "updating existing route");
 
@@ -1623,11 +1623,11 @@ rib_process_update_route (struct zebra_vrf *zvrf, struct route_node *rn,
 
       /* Set real nexthop. */
       nexthop_active_update (rn, fib, 1);
-      UNSET_FLAG(fib->flags, ZEBRA_FLAG_CHANGED);
+      UNSET_FLAG(fib->flags, RIB_ENTRY_CHANGED);
     }
 
   /* Clear changed flag. */
-  UNSET_FLAG(select->flags, ZEBRA_FLAG_CHANGED);
+  UNSET_FLAG(select->flags, RIB_ENTRY_CHANGED);
 }
 
 /* Core function for processing routing information base. */
@@ -1707,7 +1707,7 @@ rib_process (struct route_node *rn)
        * the nexthop_active_update() code. Thus, we might miss changes to
        * recursive NHs.
        */
-      if (!CHECK_FLAG(rib->flags, ZEBRA_FLAG_CHANGED) &&
+      if (!CHECK_FLAG(rib->flags, RIB_ENTRY_CHANGED) &&
           ! nexthop_active_update (rn, rib, 0))
         {
           if (rib->type == ZEBRA_ROUTE_TABLE)
@@ -1735,7 +1735,7 @@ rib_process (struct route_node *rn)
       /* Infinite distance. */
       if (rib->distance == DISTANCE_INFINITY)
         {
-          UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+          UNSET_FLAG (rib->flags, RIB_ENTRY_CHANGED);
           continue;
         }
 
@@ -1761,30 +1761,30 @@ rib_process (struct route_node *rn)
           if (select->type != ZEBRA_ROUTE_CONNECT
               || rib->metric <= select->metric)
             {
-              UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
+              UNSET_FLAG (select->flags, RIB_ENTRY_CHANGED);
               select = rib;
             }
           else
-            UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+            UNSET_FLAG (rib->flags, RIB_ENTRY_CHANGED);
           continue;
         }
       else if (select->type == ZEBRA_ROUTE_CONNECT)
         {
-          UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+          UNSET_FLAG (rib->flags, RIB_ENTRY_CHANGED);
           continue;
         }
       
       /* higher distance loses */
       if (rib->distance > select->distance)
         {
-          UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+          UNSET_FLAG (rib->flags, RIB_ENTRY_CHANGED);
           continue;
         }
       
       /* lower wins */
       if (rib->distance < select->distance)
         {
-          UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
+          UNSET_FLAG (select->flags, RIB_ENTRY_CHANGED);
           select = rib;
           continue;
         }
@@ -1792,7 +1792,7 @@ rib_process (struct route_node *rn)
       /* metric tie-breaks equal distance */
       if (rib->metric <= select->metric)
         {
-          UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
+          UNSET_FLAG (select->flags, RIB_ENTRY_CHANGED);
           select = rib;
         }
     } /* RNODE_FOREACH_RIB_SAFE */
@@ -1823,7 +1823,7 @@ rib_process (struct route_node *rn)
       if (IS_ZEBRA_DEBUG_RIB)
 	rnode_debug (rn, vrf_id, "Updating existing route, select %p, fib %p",
                      (void *)select, (void *)fib);
-      if (CHECK_FLAG (select->flags, ZEBRA_FLAG_CHANGED))
+      if (CHECK_FLAG (select->status, RIB_ENTRY_CHANGED))
         {
           if (info->safi == SAFI_UNICAST)
 	    zfpm_trigger_update (rn, "updating existing route");
@@ -1865,7 +1865,7 @@ rib_process (struct route_node *rn)
                 rib_uninstall_kernel (rn, select);
 	      UNSET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
 	    }
-	  UNSET_FLAG (select->flags, ZEBRA_FLAG_CHANGED);
+	  UNSET_FLAG (select->flags, RIB_ENTRY_CHANGED);
 	}
       else if (! RIB_SYSTEM_ROUTE (select))
         {
@@ -1918,7 +1918,7 @@ rib_process (struct route_node *rn)
 
       /* Set real nexthop. */
       nexthop_active_update (rn, fib, 1);
-      UNSET_FLAG(fib->flags, ZEBRA_FLAG_CHANGED);
+      UNSET_FLAG(fib->flags, RIB_ENTRY_CHANGED);
     }
 
   /* Regardless of some RIB entry being SELECTED or not before, now we can
@@ -1988,7 +1988,7 @@ rib_process (struct route_node *rn)
               redistribute_delete(&rn->p, fib);
 	    }
 	}
-      UNSET_FLAG(select->flags, ZEBRA_FLAG_CHANGED);
+      UNSET_FLAG(select->flags, RIB_ENTRY_CHANGED);
     }
 #endif
 
