@@ -287,6 +287,8 @@ ospf_new (u_short instance)
   new->oi_write_q = list_new ();
   new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
   
+  /* Enable "log-adjacency-changes" */
+  SET_FLAG(new->config, OSPF_LOG_ADJACENCY_CHANGES);
   return new;
 }
 

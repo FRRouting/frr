@@ -2310,6 +2310,7 @@ DEFUN (ospf_log_adjacency_changes,
     return CMD_SUCCESS;
 
   SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
+  UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
 }
 
@@ -2357,6 +2358,7 @@ DEFUN (no_ospf_log_adjacency_changes_detail,
   if (!ospf)
     return CMD_SUCCESS;
 
+  UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
   UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
 }
@@ -9515,11 +9517,13 @@ ospf_config_write (struct vty *vty)
       /* log-adjacency-changes flag print. */
       if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES))
 	{
-	  vty_out(vty, " log-adjacency-changes");
 	  if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
-	    vty_out(vty, " detail");
-	  vty_out(vty, "%s", VTY_NEWLINE);
+	    vty_out(vty, " log-adjacency-changes detail%s", VTY_NEWLINE);
 	}
+      else
+        {
+	  vty_out(vty, " no log-adjacency-changes%s", VTY_NEWLINE);
+        }
 
       /* RFC1583 compatibility flag print -- Compatible with CISCO 12.1. */
       if (CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
