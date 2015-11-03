@@ -40,6 +40,11 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
+#include "ospf6_abr.h"
+#include "ospf6_asbr.h"
+#include "ospf6_lsa.h"
+#include "ospf6_spf.h"
+#include "ospf6_zebra.h"
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 
@@ -987,6 +992,50 @@ ALIAS (no_debug_ospf6_neighbor,
        "Debug OSPFv3 Neighbor Event\n"
       )
 
+DEFUN (no_debug_ospf6,
+       no_debug_ospf6_cmd,
+       "no debug ospf6",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR)
+{
+  u_int i;
+  struct ospf6_lsa_handler *handler = NULL;
+
+  OSPF6_DEBUG_ABR_OFF ();
+  OSPF6_DEBUG_ASBR_OFF ();
+  OSPF6_DEBUG_BROUTER_OFF ();
+  OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_OFF ();
+  OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_OFF ();
+  OSPF6_DEBUG_FLOODING_OFF ();
+  OSPF6_DEBUG_INTERFACE_OFF ();
+
+  for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
+    {
+      handler = vector_slot (ospf6_lsa_handler_vector, i);
+
+      if (handler != NULL)
+        {
+          UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG);
+        }
+    }
+
+  for (i = 0; i < 6; i++)
+    OSPF6_DEBUG_MESSAGE_OFF (i, OSPF6_DEBUG_NEIGHBOR_STATE | OSPF6_DEBUG_NEIGHBOR_EVENT);
+
+  OSPF6_DEBUG_NEIGHBOR_OFF (OSPF6_DEBUG_NEIGHBOR_STATE | OSPF6_DEBUG_NEIGHBOR_EVENT);
+  OSPF6_DEBUG_ROUTE_OFF (OSPF6_DEBUG_ROUTE_TABLE);
+  OSPF6_DEBUG_ROUTE_OFF (OSPF6_DEBUG_ROUTE_INTRA);
+  OSPF6_DEBUG_ROUTE_OFF (OSPF6_DEBUG_ROUTE_INTER);
+  OSPF6_DEBUG_ROUTE_OFF (OSPF6_DEBUG_ROUTE_MEMORY);
+  OSPF6_DEBUG_SPF_OFF (OSPF6_DEBUG_SPF_PROCESS);
+  OSPF6_DEBUG_SPF_OFF (OSPF6_DEBUG_SPF_TIME);
+  OSPF6_DEBUG_SPF_OFF (OSPF6_DEBUG_SPF_DATABASE);
+  OSPF6_DEBUG_ZEBRA_OFF (OSPF6_DEBUG_ZEBRA_SEND | OSPF6_DEBUG_ZEBRA_RECV);
+
+  return CMD_SUCCESS;
+}
+
 int
 config_write_ospf6_debug_neighbor (struct vty *vty)
 {
@@ -1007,10 +1056,12 @@ install_element_ospf6_debug_neighbor (void)
   install_element (ENABLE_NODE, &debug_ospf6_neighbor_detail_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_neighbor_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_neighbor_detail_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf6_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_neighbor_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_neighbor_detail_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_neighbor_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_neighbor_detail_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf6_cmd);
 }
 
 

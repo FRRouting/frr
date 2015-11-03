@@ -158,6 +158,8 @@ extern struct ospf6_lsa_handler unknown_handler;
 #define OSPF6_LSA_IS_KNOWN(type) \
   (ospf6_get_lsa_handler (type) != &unknown_handler ? 1 : 0)
 
+extern vector ospf6_lsa_handler_vector;
+
 /* Macro for LSA Origination */
 /* addr is (struct prefix *) */
 #define CONTINUE_IF_ADDRESS_LINKLOCAL(debug,addr)      \
