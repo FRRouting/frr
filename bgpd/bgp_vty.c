@@ -1637,8 +1637,12 @@ DEFUN (bgp_deterministic_med,
   struct bgp *bgp;
 
   bgp = vty->index;
-  bgp_flag_set (bgp, BGP_FLAG_DETERMINISTIC_MED);
-  bgp_recalculate_all_bestpaths (bgp);
+
+  if (!bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED))
+    {
+      bgp_flag_set (bgp, BGP_FLAG_DETERMINISTIC_MED);
+      bgp_recalculate_all_bestpaths (bgp);
+    }
 
   return CMD_SUCCESS;
 }
@@ -1653,8 +1657,12 @@ DEFUN (no_bgp_deterministic_med,
   struct bgp *bgp;
 
   bgp = vty->index;
-  bgp_flag_unset (bgp, BGP_FLAG_DETERMINISTIC_MED);
-  bgp_recalculate_all_bestpaths (bgp);
+
+  if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED))
+    {
+      bgp_flag_unset (bgp, BGP_FLAG_DETERMINISTIC_MED);
+      bgp_recalculate_all_bestpaths (bgp);
+    }
 
   return CMD_SUCCESS;
 }

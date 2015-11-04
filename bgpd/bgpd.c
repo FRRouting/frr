@@ -2816,6 +2816,7 @@ bgp_create (as_t *as, const char *name)
   bgp_flag_set (bgp, BGP_FLAG_IMPORT_CHECK);
   bgp_flag_set (bgp, BGP_FLAG_SHOW_HOSTNAME);
   bgp_flag_set (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+  bgp_flag_set (bgp, BGP_FLAG_DETERMINISTIC_MED);
 
   bgp->as = *as;
 
@@ -6931,8 +6932,8 @@ bgp_config_write (struct vty *vty)
 	vty_out (vty, " bgp enforce-first-as%s", VTY_NEWLINE);
 
       /* BGP deterministic-med. */
-      if (bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
-	vty_out (vty, " bgp deterministic-med%s", VTY_NEWLINE);
+      if (!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
+        vty_out (vty, " no bgp deterministic-med%s", VTY_NEWLINE);
 
       /* BGP update-delay. */
       bgp_config_write_update_delay (vty, bgp);
