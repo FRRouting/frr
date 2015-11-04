@@ -406,11 +406,11 @@ struct pim_upstream *pim_upstream_find(struct in_addr source_addr,
   struct pim_upstream *up;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, up_node, up)) {
-    if (
-	(source_addr.s_addr == up->source_addr.s_addr) &&
-	(group_addr.s_addr == up->group_addr.s_addr)
-	) {
-      return up;
+    if (group_addr.s_addr == up->group_addr.s_addr) {
+      if ((up->source_addr.s_addr == INADDR_ANY) ||
+	  (source_addr.s_addr == up->source_addr.s_addr)) {
+	return up;
+      }
     }
   }
 
