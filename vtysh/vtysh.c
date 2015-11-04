@@ -1043,6 +1043,13 @@ DEFUNSH (VTYSH_BGPD,
 
 ALIAS_SH (VTYSH_BGPD,
 	  router_bgp,
+	  router_bgp_asn_cmd,
+	 "router bgp",
+	  ROUTER_STR
+	  BGP_STR)
+
+ALIAS_SH (VTYSH_BGPD,
+	  router_bgp,
 	  router_bgp_view_cmd,
 	  "router bgp " CMD_AS_RANGE " view WORD",
 	  ROUTER_STR
@@ -2817,6 +2824,7 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &router_babel_cmd);
   install_element (CONFIG_NODE, &router_isis_cmd);
   install_element (CONFIG_NODE, &router_bgp_cmd);
+  install_element (CONFIG_NODE, &router_bgp_asn_cmd);
   install_element (CONFIG_NODE, &router_bgp_view_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_unicast_cmd);

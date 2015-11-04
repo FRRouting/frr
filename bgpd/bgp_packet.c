@@ -1892,7 +1892,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 		    {
                       if (bgp_debug_neighbor_events(peer))
 			zlog_debug ("%s rcvd Remove-All pfxlist ORF request", peer->host);
-		      prefix_bgp_orf_remove_all (name);
+		      prefix_bgp_orf_remove_all (afi, name);
 		      break;
 		    }
 		  ok = ((u_int32_t)(p_end - p_pnt) >= sizeof(u_int32_t)) ;
@@ -1952,12 +1952,12 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 		    {
 		      zlog_info ("%s Received misformatted prefixlist ORF."
 			         " Remove All pfxlist", peer->host);
-		      prefix_bgp_orf_remove_all (name);
+		      prefix_bgp_orf_remove_all (afi, name);
 		      break;
 		    }
 		}
 	      peer->orf_plist[afi][safi] =
-			 prefix_list_lookup (AFI_ORF_PREFIX, name);
+		prefix_list_lookup (afi, name);
 	    }
 	  stream_forward_getp (s, orf_len);
 	}

@@ -155,6 +155,9 @@ ospf6_create (void)
 
   o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
 
+  /* Enable "log-adjacency-changes" */
+  SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+
   return o;
 }
 
@@ -349,13 +352,14 @@ DEFUN (ospf6_log_adjacency_changes,
   struct ospf6 *ospf6 = vty->index;
 
   SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
   return CMD_SUCCESS;
 }
 
 DEFUN (ospf6_log_adjacency_changes_detail,
        ospf6_log_adjacency_changes_detail_cmd,
        "log-adjacency-changes detail",
-              "Log changes in adjacency state\n"
+       "Log changes in adjacency state\n"
        "Log all state changes\n")
 {
   struct ospf6 *ospf6 = vty->index;
@@ -368,7 +372,7 @@ DEFUN (ospf6_log_adjacency_changes_detail,
 DEFUN (no_ospf6_log_adjacency_changes,
        no_ospf6_log_adjacency_changes_cmd,
        "no log-adjacency-changes",
-              NO_STR
+       NO_STR
        "Log changes in adjacency state\n")
 {
   struct ospf6 *ospf6 = vty->index;
@@ -381,13 +385,14 @@ DEFUN (no_ospf6_log_adjacency_changes,
 DEFUN (no_ospf6_log_adjacency_changes_detail,
        no_ospf6_log_adjacency_changes_detail_cmd,
        "no log-adjacency-changes detail",
-              NO_STR
-              "Log changes in adjacency state\n"
+       NO_STR
+       "Log changes in adjacency state\n"
        "Log all state changes\n")
 {
   struct ospf6 *ospf6 = vty->index;
 
   UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
   return CMD_SUCCESS;
 }
 
@@ -949,10 +954,12 @@ config_write_ospf6 (struct vty *vty)
   /* log-adjacency-changes flag print. */
   if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
     {
-      vty_out(vty, " log-adjacency-changes");
       if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-	vty_out(vty, " detail");
-      vty_out(vty, "%s", VTY_NEWLINE);
+        vty_out(vty, " log-adjacency-changes detail%s", VTY_NEWLINE);
+    }
+  else
+    {
+      vty_out(vty, " no log-adjacency-changes%s", VTY_NEWLINE);
     }
 
   if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)

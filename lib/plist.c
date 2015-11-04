@@ -32,24 +32,26 @@
 #include "log.h"
 #include "routemap.h"
 
-/* Each prefix-list's entry. */
-struct prefix_list_entry
-{
-  int seq;
+#include "plist_int.h"
 
-  int le;
-  int ge;
+/* not currently changeable, code assumes bytes further down */
+#define PLC_BITS	8
+#define PLC_LEN		(1 << PLC_BITS)
+#define PLC_MAXLEVELV4	2	/* /24 for IPv4 */
+#define PLC_MAXLEVELV6	4	/* /48 for IPv6 */
+#define PLC_MAXLEVEL	4	/* max(v4,v6) */
 
-  enum prefix_list_type type;
+struct pltrie_entry {
+	union {
+		struct pltrie_table *next_table;
+		struct prefix_list_entry *final_chain;
+	};
 
-  int any;
-  struct prefix prefix;
+	struct prefix_list_entry *up_chain;
+};
 
-  unsigned long refcnt;
-  unsigned long hitcnt;
-
-  struct prefix_list_entry *next;
-  struct prefix_list_entry *prev;
+struct pltrie_table {
+	struct pltrie_entry entries[PLC_LEN];
 };
 
 /* List of struct prefix_list. */
@@ -79,6 +81,9 @@ struct prefix_master
 
   /* Hook function which is executed when prefix_list is deleted. */
   void (*delete_hook) (struct prefix_list *);
+
+  /* number of bytes that have a trie level */
+  size_t trie_depth;
 };
 
 /* Static structure of IPv4 prefix_list's master. */
@@ -89,6 +94,8 @@ static struct prefix_master prefix_master_ipv4 =
   1,
   NULL,
   NULL,
+  NULL,
+  PLC_MAXLEVELV4,
 };
 
 #ifdef HAVE_IPV6
@@ -100,36 +107,53 @@ static struct prefix_master prefix_master_ipv6 =
   1,
   NULL,
   NULL,
+  NULL,
+  PLC_MAXLEVELV6,
 };
 #endif /* HAVE_IPV6*/
 
 /* Static structure of BGP ORF prefix_list's master. */
-static struct prefix_master prefix_master_orf = 
-{ 
+static struct prefix_master prefix_master_orf_v4 =
+{
   {NULL, NULL},
   {NULL, NULL},
   1,
   NULL,
   NULL,
+  NULL,
+  PLC_MAXLEVELV4,
+};
+
+/* Static structure of BGP ORF prefix_list's master. */
+static struct prefix_master prefix_master_orf_v6 =
+{
+  {NULL, NULL},
+  {NULL, NULL},
+  1,
+  NULL,
+  NULL,
+  NULL,
+  PLC_MAXLEVELV6,
 };
 
 static struct prefix_master *
-prefix_master_get (afi_t afi)
+prefix_master_get (afi_t afi, int orf)
 {
   if (afi == AFI_IP)
-    return &prefix_master_ipv4;
-#ifdef HAVE_IPV6
-  else if (afi == AFI_IP6)
-    return &prefix_master_ipv6;
-#endif /* HAVE_IPV6 */
-  else if (afi == AFI_ORF_PREFIX)
-    return &prefix_master_orf;
+    return orf ? &prefix_master_orf_v4 : &prefix_master_ipv4;
+  if (afi == AFI_IP6)
+    return orf ? &prefix_master_orf_v6 : &prefix_master_ipv6;
   return NULL;
 }
 
+const char *prefix_list_name (struct prefix_list *plist)
+{
+  return plist->name;
+}
+
 /* Lookup prefix_list from list of prefix_list by name. */
-struct prefix_list *
-prefix_list_lookup (afi_t afi, const char *name)
+static struct prefix_list *
+prefix_list_lookup_do (afi_t afi, int orf, const char *name)
 {
   struct prefix_list *plist;
   struct prefix_master *master;
@@ -137,7 +161,7 @@ prefix_list_lookup (afi_t afi, const char *name)
   if (name == NULL)
     return NULL;
 
-  master = prefix_master_get (afi);
+  master = prefix_master_get (afi, orf);
   if (master == NULL)
     return NULL;
 
@@ -150,6 +174,18 @@ prefix_list_lookup (afi_t afi, const char *name)
       return plist;
 
   return NULL;
+}
+
+struct prefix_list *
+prefix_list_lookup (afi_t afi, const char *name)
+{
+  return prefix_list_lookup_do (afi, 0, name);
+}
+
+struct prefix_list *
+prefix_bgp_orf_lookup (afi_t afi, const char *name)
+{
+  return prefix_list_lookup_do (afi, 1, name);
 }
 
 static struct prefix_list *
@@ -185,7 +221,7 @@ prefix_list_entry_free (struct prefix_list_entry *pentry)
 /* Insert new prefix list to list of prefix_list.  Each prefix_list
    is sorted by the name. */
 static struct prefix_list *
-prefix_list_insert (afi_t afi, const char *name)
+prefix_list_insert (afi_t afi, int orf, const char *name)
 {
   unsigned int i;
   long number;
@@ -194,7 +230,7 @@ prefix_list_insert (afi_t afi, const char *name)
   struct prefix_list_list *list;
   struct prefix_master *master;
 
-  master = prefix_master_get (afi);
+  master = prefix_master_get (afi, orf);
   if (master == NULL)
     return NULL;
 
@@ -202,6 +238,7 @@ prefix_list_insert (afi_t afi, const char *name)
   plist = prefix_list_new ();
   plist->name = XSTRDUP (MTYPE_PREFIX_LIST_STR, name);
   plist->master = master;
+  plist->trie = XCALLOC (MTYPE_PREFIX_LIST_TRIE, sizeof (struct pltrie_table));
 
   /* If name is made by all digit character.  We treat it as
      number. */
@@ -275,14 +312,14 @@ prefix_list_insert (afi_t afi, const char *name)
 }
 
 static struct prefix_list *
-prefix_list_get (afi_t afi, const char *name)
+prefix_list_get (afi_t afi, int orf, const char *name)
 {
   struct prefix_list *plist;
 
-  plist = prefix_list_lookup (afi, name);
+  plist = prefix_list_lookup_do (afi, orf, name);
 
   if (plist == NULL)
-    plist = prefix_list_insert (afi, name);
+    plist = prefix_list_insert (afi, orf, name);
   return plist;
 }
 
@@ -334,6 +371,8 @@ prefix_list_delete (struct prefix_list *plist)
 
   if (plist->name)
     XFREE (MTYPE_PREFIX_LIST_STR, plist->name);
+
+  XFREE (MTYPE_PREFIX_LIST_TRIE, plist->trie);
 
   prefix_list_free (plist);
 
@@ -436,10 +475,87 @@ prefix_list_entry_lookup (struct prefix_list *plist, struct prefix *prefix,
 }
 
 static void
+trie_walk_affected (size_t validbits, struct pltrie_table *table, uint8_t byte,
+                    struct prefix_list_entry *object,
+                    void (*fn)(struct prefix_list_entry *object,
+                               struct prefix_list_entry **updptr))
+{
+  uint8_t mask;
+  uint16_t bwalk;
+
+  if (validbits > PLC_BITS)
+    {
+      fn (object, &table->entries[byte].final_chain);
+      return;
+    }
+
+  mask = (1 << (8 - validbits)) - 1;
+  for (bwalk = byte & ~mask; bwalk <= byte + mask; bwalk++)
+    {
+      fn (object, &table->entries[bwalk].up_chain);
+    }
+}
+
+static void trie_uninstall_fn (struct prefix_list_entry *object,
+                               struct prefix_list_entry **updptr)
+{
+  for (; *updptr; updptr = &(*updptr)->next_best)
+    if (*updptr == object)
+      {
+        *updptr = object->next_best;
+        break;
+      }
+}
+
+static int
+trie_table_empty (struct pltrie_table *table)
+{
+  size_t i;
+  for (i = 0; i < PLC_LEN; i++)
+    if (table->entries[i].next_table || table->entries[i].final_chain)
+      return 0;
+  return 1;
+}
+
+static void
+prefix_list_trie_del (struct prefix_list *plist,
+		      struct prefix_list_entry *pentry)
+{
+  size_t depth, maxdepth = plist->master->trie_depth;
+  uint8_t *bytes = &pentry->prefix.u.prefix;
+  size_t validbits = pentry->prefix.prefixlen;
+  struct pltrie_table *table, **tables[PLC_MAXLEVEL];
+
+  table = plist->trie;
+  for (depth = 0; validbits > PLC_BITS && depth < maxdepth - 1; depth++)
+    {
+      uint8_t byte = bytes[depth];
+      assert (table->entries[byte].next_table);
+
+      tables[depth + 1] = &table->entries[byte].next_table;
+      table = table->entries[byte].next_table;
+
+      validbits -= PLC_BITS;
+    }
+
+  trie_walk_affected (validbits, table, bytes[depth], pentry, trie_uninstall_fn);
+
+  for (; depth > 0; depth--)
+    if (trie_table_empty (*tables[depth]))
+      {
+        XFREE (MTYPE_PREFIX_LIST_TRIE, *tables[depth]);
+        *tables[depth] = NULL;
+      }
+}
+
+
+static void
 prefix_list_entry_delete (struct prefix_list *plist, 
 			  struct prefix_list_entry *pentry,
 			  int update_list)
 {
+  prefix_list_trie_del (plist, pentry);
+
   if (plist == NULL || pentry == NULL)
     return;
   if (pentry->prev)
@@ -468,6 +584,52 @@ prefix_list_entry_delete (struct prefix_list *plist,
     }
 }
 
+static void trie_install_fn (struct prefix_list_entry *object,
+                             struct prefix_list_entry **updptr)
+{
+  while (*updptr)
+    {
+      if (*updptr == object)
+        return;
+      if ((*updptr)->prefix.prefixlen < object->prefix.prefixlen)
+        break;
+      if ((*updptr)->seq > object->seq)
+        break;
+      updptr = &(*updptr)->next_best;
+    }
+
+  if (!object->next_best)
+    object->next_best = *updptr;
+  else
+    assert (object->next_best == *updptr || !*updptr);
+
+  *updptr = object;
+}
+
+static void
+prefix_list_trie_add (struct prefix_list *plist,
+		      struct prefix_list_entry *pentry)
+{
+  size_t depth = plist->master->trie_depth;
+  uint8_t *bytes = &pentry->prefix.u.prefix;
+  size_t validbits = pentry->prefix.prefixlen;
+  struct pltrie_table *table;
+
+  table = plist->trie;
+  while (validbits > PLC_BITS && depth > 1)
+    {
+      if (!table->entries[*bytes].next_table)
+        table->entries[*bytes].next_table = XCALLOC (MTYPE_PREFIX_LIST_TRIE,
+                sizeof(struct pltrie_table));
+      table = table->entries[*bytes].next_table;
+      bytes++;
+      depth--;
+      validbits -= PLC_BITS;
+    }
+
+  trie_walk_affected (validbits, table, *bytes, pentry, trie_install_fn);
+}
+
 static void
 prefix_list_entry_add (struct prefix_list *plist,
 		       struct prefix_list_entry *pentry)
@@ -479,15 +641,20 @@ prefix_list_entry_add (struct prefix_list *plist,
   if (pentry->seq == -1)
     pentry->seq = prefix_new_seq_get (plist);
 
-  /* Is there any same seq prefix list entry? */
-  replace = prefix_seq_check (plist, pentry->seq);
-  if (replace)
-    prefix_list_entry_delete (plist, replace, 0);
+  if (plist->tail && pentry->seq > plist->tail->seq)
+    point = NULL;
+  else
+    {
+      /* Is there any same seq prefix list entry? */
+      replace = prefix_seq_check (plist, pentry->seq);
+      if (replace)
+        prefix_list_entry_delete (plist, replace, 0);
 
-  /* Check insert point. */
-  for (point = plist->head; point; point = point->next)
-    if (point->seq >= pentry->seq)
-      break;
+      /* Check insert point. */
+      for (point = plist->head; point; point = point->next)
+        if (point->seq >= pentry->seq)
+          break;
+    }
 
   /* In case of this is the first element of the list. */
   pentry->next = point;
@@ -512,6 +679,8 @@ prefix_list_entry_add (struct prefix_list *plist,
       pentry->prev = plist->tail;
       plist->tail = pentry;
     }
+
+  prefix_list_trie_add (plist, pentry);
 
   /* Increment count. */
   plist->count++;
@@ -570,10 +739,13 @@ prefix_list_entry_match (struct prefix_list_entry *pentry, struct prefix *p)
 enum prefix_list_type
 prefix_list_apply (struct prefix_list *plist, void *object)
 {
-  struct prefix_list_entry *pentry;
-  struct prefix *p;
+  struct prefix_list_entry *pentry, *pbest = NULL;
 
-  p = (struct prefix *) object;
+  struct prefix *p = (struct prefix *) object;
+  uint8_t *byte = &p->u.prefix;
+  size_t depth = plist->master->trie_depth;
+  size_t validbits = p->prefixlen;
+  struct pltrie_table *table;
 
   if (plist == NULL)
     return PREFIX_DENY;
@@ -581,17 +753,45 @@ prefix_list_apply (struct prefix_list *plist, void *object)
   if (plist->count == 0)
     return PREFIX_PERMIT;
 
-  for (pentry = plist->head; pentry; pentry = pentry->next)
+  table = plist->trie;
+  while (1)
     {
-      pentry->refcnt++;
-      if (prefix_list_entry_match (pentry, p))
-	{
-	  pentry->hitcnt++;
-	  return pentry->type;
-	}
+      for (pentry = table->entries[*byte].up_chain; pentry; pentry = pentry->next_best)
+        {
+          if (pbest && pbest->seq < pentry->seq)
+            continue;
+          if (prefix_list_entry_match (pentry, p))
+            pbest = pentry;
+        }
+
+      if (validbits <= PLC_BITS)
+        break;
+      validbits -= PLC_BITS;
+
+      if (--depth)
+        {
+          if (!table->entries[*byte].next_table)
+            break;
+
+          table = table->entries[*byte].next_table;
+          byte++;
+          continue;
+        }
+
+      for (pentry = table->entries[*byte].final_chain; pentry; pentry = pentry->next_best)
+        {
+          if (pbest && pbest->seq < pentry->seq)
+            continue;
+          if (prefix_list_entry_match (pentry, p))
+            pbest = pentry;
+        }
+      break;
     }
 
-  return PREFIX_DENY;
+  if (pbest == NULL)
+    return PREFIX_DENY;
+
+  return pbest->type;
 }
 
 static void __attribute__ ((unused))
@@ -634,6 +834,10 @@ static struct prefix_list_entry *
 prefix_entry_dup_check (struct prefix_list *plist,
 			struct prefix_list_entry *new)
 {
+  size_t depth, maxdepth = plist->master->trie_depth;
+  uint8_t byte, *bytes = &new->prefix.u.prefix;
+  size_t validbits = new->prefix.prefixlen;
+  struct pltrie_table *table;
   struct prefix_list_entry *pentry;
   int seq = 0;
 
@@ -642,7 +846,24 @@ prefix_entry_dup_check (struct prefix_list *plist,
   else
     seq = new->seq;
 
-  for (pentry = plist->head; pentry; pentry = pentry->next)
+  table = plist->trie;
+  for (depth = 0; validbits > PLC_BITS && depth < maxdepth - 1; depth++)
+    {
+      byte = bytes[depth];
+      if (!table->entries[byte].next_table)
+        return NULL;
+
+      table = table->entries[byte].next_table;
+      validbits -= PLC_BITS;
+    }
+
+  byte = bytes[depth];
+  if (validbits > PLC_BITS)
+    pentry = table->entries[byte].final_chain;
+  else
+    pentry = table->entries[byte].up_chain;
+
+  for (; pentry; pentry = pentry->next_best)
     {
       if (prefix_same (&pentry->prefix, &new->prefix)
 	  && pentry->type == new->type
@@ -753,7 +974,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
     lenum = 0;
 
   /* Get prefix_list with name. */
-  plist = prefix_list_get (afi, name);
+  plist = prefix_list_get (afi, 0, name);
 
   /* Make prefix entry. */
   pentry = prefix_list_entry_make (&p, type, seqnum, lenum, genum, any);
@@ -1008,7 +1229,7 @@ vty_show_prefix_list (struct vty *vty, afi_t afi, const char *name,
   struct prefix_master *master;
   int seqnum = 0;
 
-  master = prefix_master_get (afi);
+  master = prefix_master_get (afi, 0);
   if (master == NULL)
     return CMD_WARNING;
 
@@ -1126,7 +1347,7 @@ vty_clear_prefix_list (struct vty *vty, afi_t afi, const char *name,
   int ret;
   struct prefix p;
 
-  master = prefix_master_get (afi);
+  master = prefix_master_get (afi, 0);
   if (master == NULL)
     return CMD_WARNING;
 
@@ -1581,7 +1802,7 @@ DEFUN (ip_prefix_list_description,
 {
   struct prefix_list *plist;
 
-  plist = prefix_list_get (AFI_IP, argv[0]);
+  plist = prefix_list_get (AFI_IP, 0, argv[0]);
   
   if (plist->desc)
     {
@@ -2177,7 +2398,7 @@ DEFUN (ipv6_prefix_list_description,
 {
   struct prefix_list *plist;
 
-  plist = prefix_list_get (AFI_IP6, argv[0]);
+  plist = prefix_list_get (AFI_IP6, 0, argv[0]);
   
   if (plist->desc)
     {
@@ -2372,7 +2593,7 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
   struct prefix_master *master;
   int write = 0;
 
-  master = prefix_master_get (afi);
+  master = prefix_master_get (afi, 0);
   if (master == NULL)
     return 0;
 
@@ -2515,7 +2736,7 @@ prefix_bgp_orf_set (char *name, afi_t afi, struct orf_prefix *orfp,
   if (orfp->ge && orfp->le == (afi == AFI_IP ? 32 : 128))
     orfp->le = 0;
 
-  plist = prefix_list_get (AFI_ORF_PREFIX, name);
+  plist = prefix_list_get (afi, 1, name);
   if (! plist)
     return CMD_WARNING;
 
@@ -2549,11 +2770,11 @@ prefix_bgp_orf_set (char *name, afi_t afi, struct orf_prefix *orfp,
 }
 
 void
-prefix_bgp_orf_remove_all (char *name)
+prefix_bgp_orf_remove_all (afi_t afi, char *name)
 {
   struct prefix_list *plist;
 
-  plist = prefix_list_lookup (AFI_ORF_PREFIX, name);
+  plist = prefix_bgp_orf_lookup (afi, name);
   if (plist)
     prefix_list_delete (plist);
 }
@@ -2568,7 +2789,7 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name, u_char use_
   json_object *json_prefix = NULL;
   json_object *json_list = NULL;
 
-  plist = prefix_list_lookup (AFI_ORF_PREFIX, name);
+  plist = prefix_bgp_orf_lookup (afi, name);
   if (! plist)
     return 0;
 
@@ -2639,13 +2860,13 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name, u_char use_
 }
 
 static void
-prefix_list_reset_orf (void)
+prefix_list_reset_afi (afi_t afi, int orf)
 {
   struct prefix_list *plist;
   struct prefix_list *next;
   struct prefix_master *master;
 
-  master = prefix_master_get (AFI_ORF_PREFIX);
+  master = prefix_master_get (afi, orf);
   if (master == NULL)
     return;
 
@@ -2683,38 +2904,6 @@ static int
 config_write_prefix_ipv4 (struct vty *vty)
 {
   return config_write_prefix_afi (AFI_IP, vty);
-}
-
-static void
-prefix_list_reset_ipv4 (void)
-{
-  struct prefix_list *plist;
-  struct prefix_list *next;
-  struct prefix_master *master;
-
-  master = prefix_master_get (AFI_IP);
-  if (master == NULL)
-    return;
-
-  for (plist = master->num.head; plist; plist = next)
-    {
-      next = plist->next;
-      prefix_list_delete (plist);
-    }
-  for (plist = master->str.head; plist; plist = next)
-    {
-      next = plist->next;
-      prefix_list_delete (plist);
-    }
-
-  assert (master->num.head == NULL);
-  assert (master->num.tail == NULL);
-
-  assert (master->str.head == NULL);
-  assert (master->str.tail == NULL);
-
-  master->seqnum = 1;
-  master->recent = NULL;
 }
 
 static void
@@ -2795,38 +2984,6 @@ config_write_prefix_ipv6 (struct vty *vty)
 }
 
 static void
-prefix_list_reset_ipv6 (void)
-{
-  struct prefix_list *plist;
-  struct prefix_list *next;
-  struct prefix_master *master;
-
-  master = prefix_master_get (AFI_IP6);
-  if (master == NULL)
-    return;
-
-  for (plist = master->num.head; plist; plist = next)
-    {
-      next = plist->next;
-      prefix_list_delete (plist);
-    }
-  for (plist = master->str.head; plist; plist = next)
-    {
-      next = plist->next;
-      prefix_list_delete (plist);
-    }
-
-  assert (master->num.head == NULL);
-  assert (master->num.tail == NULL);
-
-  assert (master->str.head == NULL);
-  assert (master->str.tail == NULL);
-
-  master->seqnum = 1;
-  master->recent = NULL;
-}
-
-static void
 prefix_list_init_ipv6 (void)
 {
   install_node (&prefix_ipv6_node, config_write_prefix_ipv6);
@@ -2901,9 +3058,8 @@ prefix_list_init ()
 void
 prefix_list_reset ()
 {
-  prefix_list_reset_ipv4 ();
-#ifdef HAVE_IPV6
-  prefix_list_reset_ipv6 ();
-#endif /* HAVE_IPV6 */
-  prefix_list_reset_orf ();
+  prefix_list_reset_afi (AFI_IP,  0);
+  prefix_list_reset_afi (AFI_IP6, 0);
+  prefix_list_reset_afi (AFI_IP,  1);
+  prefix_list_reset_afi (AFI_IP6, 1);
 }

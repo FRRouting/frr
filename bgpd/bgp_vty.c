@@ -643,26 +643,48 @@ DEFUN (router_bgp,
   struct bgp *bgp;
   const char *name = NULL;
 
-  VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
-
-  if (argc == 2)
-    name = argv[1];
-
-  ret = bgp_get (&bgp, &as, name);
-  switch (ret)
+  // "router bgp" without an ASN
+  if (argc < 1)
     {
-    case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
-      vty_out (vty, "Please specify 'bgp multiple-instance' first%s", 
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    case BGP_ERR_AS_MISMATCH:
-      vty_out (vty, "BGP is already running; AS is %u%s", as, VTY_NEWLINE);
-      return CMD_WARNING;
-    case BGP_ERR_INSTANCE_MISMATCH:
-      vty_out (vty, "BGP view name and AS number mismatch%s", VTY_NEWLINE);
-      vty_out (vty, "BGP instance is already running; AS is %u%s",
-	       as, VTY_NEWLINE);
-      return CMD_WARNING;
+      bgp = bgp_get_default();
+
+      if (bgp == NULL)
+        {
+          vty_out (vty, "%% No BGP process is configured%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+
+      if (listcount(bm->bgp) > 1)
+        {
+          vty_out (vty, "%% Multiple BGP processes are configured%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+
+  // "router bgp X"
+  else
+    {
+      VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
+
+      if (argc == 2)
+        name = argv[1];
+
+      ret = bgp_get (&bgp, &as, name);
+      switch (ret)
+        {
+        case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
+          vty_out (vty, "Please specify 'bgp multiple-instance' first%s",
+                   VTY_NEWLINE);
+          return CMD_WARNING;
+        case BGP_ERR_AS_MISMATCH:
+          vty_out (vty, "BGP is already running; AS is %u%s", as, VTY_NEWLINE);
+          return CMD_WARNING;
+        case BGP_ERR_INSTANCE_MISMATCH:
+          vty_out (vty, "BGP view name and AS number mismatch%s", VTY_NEWLINE);
+          vty_out (vty, "BGP instance is already running; AS is %u%s",
+                   as, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
     }
 
   vty->node = BGP_NODE;
@@ -679,6 +701,12 @@ ALIAS (router_bgp,
        AS_STR
        "BGP view\n"
        "view name\n")
+
+ALIAS (router_bgp,
+       router_bgp_noasn_cmd,
+       "router bgp",
+       ROUTER_STR
+       BGP_STR)
 
 /* "no router bgp" commands. */
 DEFUN (no_router_bgp,
@@ -12590,6 +12618,7 @@ bgp_vty_init (void)
   /* "router bgp" commands. */
   install_element (CONFIG_NODE, &router_bgp_cmd);
   install_element (CONFIG_NODE, &router_bgp_view_cmd);
+  install_element (CONFIG_NODE, &router_bgp_noasn_cmd);
 
   /* "no router bgp" commands. */
   install_element (CONFIG_NODE, &no_router_bgp_cmd);

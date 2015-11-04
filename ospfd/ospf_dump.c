@@ -1922,6 +1922,64 @@ DEFUN (no_debug_ospf_instance_nssa,
   return CMD_SUCCESS;
 }
 
+DEFUN (no_debug_ospf,
+       no_debug_ospf_cmd,
+       "no debug ospf",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR)
+{
+  int flag = OSPF_DEBUG_SEND | OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
+  int i;
+
+  if (vty->node == CONFIG_NODE)
+    {
+      CONF_DEBUG_OFF (event, EVENT);
+      CONF_DEBUG_OFF (nssa, NSSA);
+      DEBUG_OFF (ism, ISM_EVENTS);
+      DEBUG_OFF (ism, ISM_STATUS);
+      DEBUG_OFF (ism, ISM_TIMERS);
+      DEBUG_OFF (lsa, LSA);
+      DEBUG_OFF (lsa, LSA_FLOODING);
+      DEBUG_OFF (lsa, LSA_GENERATE);
+      DEBUG_OFF (lsa, LSA_INSTALL);
+      DEBUG_OFF (lsa, LSA_REFRESH);
+      DEBUG_OFF (nsm, NSM);
+      DEBUG_OFF (nsm, NSM_EVENTS);
+      DEBUG_OFF (nsm, NSM_STATUS);
+      DEBUG_OFF (nsm, NSM_TIMERS);
+      DEBUG_OFF (zebra, ZEBRA);
+      DEBUG_OFF (zebra, ZEBRA_INTERFACE);
+      DEBUG_OFF (zebra, ZEBRA_REDISTRIBUTE);
+
+      for (i = 0; i < 5; i++)
+        DEBUG_PACKET_OFF (i, flag);
+    }
+
+  for (i = 0; i < 5; i++)
+    TERM_DEBUG_PACKET_OFF (i, flag);
+
+  TERM_DEBUG_OFF (event, EVENT);
+  TERM_DEBUG_OFF (ism, ISM);
+  TERM_DEBUG_OFF (ism, ISM_EVENTS);
+  TERM_DEBUG_OFF (ism, ISM_STATUS);
+  TERM_DEBUG_OFF (ism, ISM_TIMERS);
+  TERM_DEBUG_OFF (lsa, LSA);
+  TERM_DEBUG_OFF (lsa, LSA_FLOODING);
+  TERM_DEBUG_OFF (lsa, LSA_GENERATE);
+  TERM_DEBUG_OFF (lsa, LSA_INSTALL);
+  TERM_DEBUG_OFF (lsa, LSA_REFRESH);
+  TERM_DEBUG_OFF (nsm, NSM);
+  TERM_DEBUG_OFF (nsm, NSM_EVENTS);
+  TERM_DEBUG_OFF (nsm, NSM_STATUS);
+  TERM_DEBUG_OFF (nsm, NSM_TIMERS);
+  TERM_DEBUG_OFF (nssa, NSSA);
+  TERM_DEBUG_OFF (zebra, ZEBRA);
+  TERM_DEBUG_OFF (zebra, ZEBRA_INTERFACE);
+  TERM_DEBUG_OFF (zebra, ZEBRA_REDISTRIBUTE);
+
+  return CMD_SUCCESS;
+}
 
 static int
 show_debugging_ospf_common (struct vty *vty, struct ospf *ospf)
@@ -2254,6 +2312,7 @@ debug_init ()
   install_element (ENABLE_NODE, &no_debug_ospf_instance_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_event_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_nssa_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf_cmd);
 
   install_element (CONFIG_NODE, &debug_ospf_packet_send_recv_detail_cmd);
   install_element (CONFIG_NODE, &debug_ospf_packet_send_recv_cmd);
@@ -2308,4 +2367,5 @@ debug_init ()
   install_element (CONFIG_NODE, &no_debug_ospf_instance_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_event_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_nssa_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf_cmd);
 }

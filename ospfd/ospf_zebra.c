@@ -1399,7 +1399,7 @@ ospf_prefix_list_update (struct prefix_list *plist)
     {
       /* Update filter-list in. */
       if (PREFIX_NAME_IN (area))
-        if (strcmp (PREFIX_NAME_IN (area), plist->name) == 0)
+        if (strcmp (PREFIX_NAME_IN (area), prefix_list_name (plist)) == 0)
           {
             PREFIX_LIST_IN (area) =
               prefix_list_lookup (AFI_IP, PREFIX_NAME_IN (area));
@@ -1408,7 +1408,7 @@ ospf_prefix_list_update (struct prefix_list *plist)
 
       /* Update filter-list out. */
       if (PREFIX_NAME_OUT (area))
-        if (strcmp (PREFIX_NAME_OUT (area), plist->name) == 0)
+        if (strcmp (PREFIX_NAME_OUT (area), prefix_list_name (plist)) == 0)
           {
             PREFIX_LIST_IN (area) =
               prefix_list_lookup (AFI_IP, PREFIX_NAME_OUT (area));

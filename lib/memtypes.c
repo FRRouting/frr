@@ -50,6 +50,7 @@ struct memory_list memory_list_lib[] =
   { MTYPE_PREFIX_LIST,		"Prefix List"			},
   { MTYPE_PREFIX_LIST_ENTRY,	"Prefix List Entry"		},
   { MTYPE_PREFIX_LIST_STR,	"Prefix List Str"		},
+  { MTYPE_PREFIX_LIST_TRIE,	"Prefix List Trie Table"	},
   { MTYPE_ROUTE_MAP,		"Route map"			},
   { MTYPE_ROUTE_MAP_NAME,	"Route map name"		},
   { MTYPE_ROUTE_MAP_INDEX,	"Route map index"		},
