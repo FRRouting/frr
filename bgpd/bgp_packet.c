@@ -1780,6 +1780,8 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   safi_t safi;
   struct stream *s;
   struct peer_af *paf;
+  struct update_group *updgrp;
+  struct peer *updgrp_peer;
 
   /* If peer does not have the capability, send notification. */
   if (! CHECK_FLAG (peer->cap, PEER_CAP_REFRESH_ADV))
@@ -1956,8 +1958,8 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 		      break;
 		    }
 		}
-	      peer->orf_plist[afi][safi] =
-		prefix_list_lookup (afi, name);
+
+	      peer->orf_plist[afi][safi] = prefix_bgp_orf_lookup (afi, name);
 	    }
 	  stream_forward_getp (s, orf_len);
 	}
@@ -1972,14 +1974,23 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   if (CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH))
     UNSET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_ORF_WAIT_REFRESH);
 
-  /* If the peer is configured for default-originate clear the
-   * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will re-advertise the
-   * default
-   */
   paf = peer_af_find (peer, afi, safi);
-  if (paf && paf->subgroup &&
-      CHECK_FLAG (paf->subgroup->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
-    UNSET_FLAG (paf->subgroup->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+  if (paf && paf->subgroup)
+    {
+      if (peer->orf_plist[afi][safi])
+        {
+          updgrp = PAF_UPDGRP(paf);
+          updgrp_peer = UPDGRP_PEER(updgrp);
+          updgrp_peer->orf_plist[afi][safi] = peer->orf_plist[afi][safi];
+        }
+
+      /* If the peer is configured for default-originate clear the
+       * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will re-advertise the
+       * default
+       */
+      if (CHECK_FLAG (paf->subgroup->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+        UNSET_FLAG (paf->subgroup->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+    }
 
   /* Perform route refreshment to the peer */
   bgp_announce_route (peer, afi, safi);

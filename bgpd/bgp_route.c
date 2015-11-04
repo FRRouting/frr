@@ -1296,6 +1296,11 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
       {
 	if (prefix_list_apply (peer->orf_plist[afi][safi], p) == PREFIX_DENY)
 	  {
+            if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+              zlog_debug ("%s [Update:SEND] %s/%d is filtered via ORF",
+                          peer->host,
+                          inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+                          p->prefixlen);
 	    return 0;
 	  }
       }

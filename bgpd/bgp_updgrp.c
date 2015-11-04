@@ -151,6 +151,7 @@ conf_copy (struct peer *dst, struct peer *src, afi_t afi, safi_t safi)
   dst->cap = src->cap;
   dst->af_cap[afi][safi] = src->af_cap[afi][safi];
   dst->afc_nego[afi][safi] = src->afc_nego[afi][safi];
+  dst->orf_plist[afi][safi] = src->orf_plist[afi][safi];
   dst->local_as = src->local_as;
   dst->change_local_as = src->change_local_as;
   dst->shared_network = src->shared_network;
@@ -372,12 +373,14 @@ updgrp_hash_key_make (void *p)
 		     key);
 
   /*
-   * Every peer configured to be a lonesoul gets its own update group.
-   *
-   * Every route server client gets its own update group as well. Optimize
-   * later.
+   * There are certain peers that must get their own update-group:
+   * - lonesoul peers
+   * - route server clients
+   * - peers that negotiated ORF
    */
   if (CHECK_FLAG (peer->flags, PEER_FLAG_LONESOUL) ||
+      CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV) ||
+      CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV) ||
       CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
     key = jhash_1word (jhash (peer->host, strlen (peer->host), SEED2), key);
 
@@ -488,6 +491,8 @@ updgrp_hash_cmp (const void *p1, const void *p2)
     return 0;
 
   if ((CHECK_FLAG (pe1->flags, PEER_FLAG_LONESOUL) ||
+       CHECK_FLAG (pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV) ||
+       CHECK_FLAG (pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV) ||
        CHECK_FLAG (pe1->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)) &&
       !sockunion_same (&pe1->su, &pe2->su))
     return 0;

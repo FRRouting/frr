@@ -174,6 +174,7 @@ peer_xfer_conn(struct peer *from_peer)
 	peer->afc_nego[afi][safi] = from_peer->afc_nego[afi][safi];
 	peer->afc_adv[afi][safi] = from_peer->afc_adv[afi][safi];
 	peer->afc_recv[afi][safi] = from_peer->afc_recv[afi][safi];
+	peer->orf_plist[afi][safi] = from_peer->orf_plist[afi][safi];
       }
 
   if (bgp_getsockname(peer) < 0)
