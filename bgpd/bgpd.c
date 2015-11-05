@@ -6281,7 +6281,12 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
   /* local-as */
   if (peer->change_local_as)
     {
-      if (! peer_group_active (peer))
+      if (! peer_group_active (peer)
+          || peer->change_local_as != g_peer->change_local_as
+          || (CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) !=
+              CHECK_FLAG (g_peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND))
+          || (CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) !=
+              CHECK_FLAG (g_peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)))
         {
           vty_out (vty, " neighbor %s local-as %u%s%s%s", addr,
                    peer->change_local_as,
