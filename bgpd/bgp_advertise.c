@@ -155,30 +155,29 @@ bgp_advertise_unintern (struct hash *hash, struct bgp_advertise_attr *baa)
     }
 }
 
-struct bgp_adj_out *
-bgp_adj_peer_lookup (struct peer *peer, struct bgp_node *rn)
-{
-  struct bgp_adj_out *adj;
-  struct peer_af *paf;
-
-  for (adj = rn->adj_out; adj; adj = adj->next)
-    SUBGRP_FOREACH_PEER(adj->subgroup, paf)
-      if (paf->peer == peer)
-	return adj;
-  return NULL;
-}
-
 int
-bgp_adj_out_lookup (struct peer *peer, struct prefix *p,
-		    afi_t afi, safi_t safi, struct bgp_node *rn)
+bgp_adj_out_lookup (struct peer *peer, struct bgp_node *rn,
+                    u_int32_t addpath_tx_id)
 {
   struct bgp_adj_out *adj;
   struct peer_af *paf;
+  afi_t afi;
+  safi_t safi;
+  int addpath_capable;
 
   for (adj = rn->adj_out; adj; adj = adj->next)
     SUBGRP_FOREACH_PEER(adj->subgroup, paf)
       if (paf->peer == peer)
 	{
+          afi = SUBGRP_AFI (adj->subgroup);
+          safi = SUBGRP_SAFI (adj->subgroup);
+          addpath_capable = bgp_addpath_encode_tx (peer, afi, safi);
+
+          /* Match on a specific addpath_tx_id if we are using addpath for this
+           * peer and if an addpath_tx_id was specified */
+          if (addpath_capable && addpath_tx_id && adj->addpath_tx_id != addpath_tx_id)
+            continue;
+
 	  return (adj->adv
 		  ? (adj->adv->baa ? 1 : 0)
 		  : (adj->attr ? 1 : 0));

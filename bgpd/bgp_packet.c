@@ -50,8 +50,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_updgrp.h"
 
-int stream_put_prefix (struct stream *, struct prefix *);
-
 /* Set up BGP packet marker and packet type. */
 int
 bgp_packet_set_marker (struct stream *s, u_char type)

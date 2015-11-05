@@ -82,6 +82,8 @@ struct bgp_adj_out
   /* Prefix information.  */
   struct bgp_node *rn;
 
+  u_int32_t addpath_tx_id;
+
   /* Advertised attribute.  */
   struct attr *attr;
 
@@ -168,9 +170,7 @@ struct bgp_synchronize
   ? NULL : (F)->next)
 
 /* Prototypes.  */
-extern int bgp_adj_out_lookup (struct peer *, struct prefix *, afi_t, safi_t,
-			struct bgp_node *);
-
+extern int bgp_adj_out_lookup (struct peer *, struct bgp_node *, u_int32_t);
 extern void bgp_adj_in_set (struct bgp_node *, struct peer *, struct attr *, u_int32_t);
 extern void bgp_adj_in_unset (struct bgp_node *, struct peer *, u_int32_t);
 extern void bgp_adj_in_remove (struct bgp_node *, struct bgp_adj_in *);
@@ -191,7 +191,5 @@ bgp_advertise_delete (struct bgp_advertise_attr *baa,
 		      struct bgp_advertise *adv);
 extern void
 bgp_advertise_unintern (struct hash *hash, struct bgp_advertise_attr *baa);
-extern struct bgp_adj_out *
-bgp_adj_peer_lookup (struct peer *peer, struct bgp_node *rn);
 
 #endif /* _QUAGGA_BGP_ADVERTISE_H */

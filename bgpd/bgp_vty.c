@@ -5771,6 +5771,38 @@ DEFUN (no_neighbor_ttl_security,
   return bgp_vty_return (vty, peer_ttl_security_hops_unset (peer));
 }
 
+DEFUN (neighbor_addpath_tx_all_paths,
+       neighbor_addpath_tx_all_paths_cmd,
+       NEIGHBOR_CMD2 "addpath-tx-all-paths",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Use addpath to advertise all paths to a neighbor\n")
+{
+  struct peer *peer;
+
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+			       bgp_node_safi (vty),
+			       PEER_FLAG_ADDPATH_TX_ALL_PATHS);
+}
+
+DEFUN (no_neighbor_addpath_tx_all_paths,
+       no_neighbor_addpath_tx_all_paths_cmd,
+       NO_NEIGHBOR_CMD2 "addpath-tx-all-paths",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Use addpath to advertise all paths to a neighbor\n")
+{
+  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+				 bgp_node_safi (vty),
+				 PEER_FLAG_ADDPATH_TX_ALL_PATHS);
+}
+
 /* Address family configuration.  */
 DEFUN (address_family_ipv4,
        address_family_ipv4_cmd,
@@ -8472,7 +8504,7 @@ bgp_adj_out_count (struct peer *peer, int afi, int safi)
   table = peer->bgp->rib[afi][safi];
   if (!table) return(0);
   for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-    if (bgp_adj_out_lookup(peer, NULL, afi, safi, rn))
+    if (bgp_adj_out_lookup(peer, rn, 0))
 	count++;
   return (count);
 }
@@ -9247,6 +9279,9 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
         json_object_boolean_true_add(json_addr, "privateAsNumsRemovedInUpdatesToNbr");
 
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
+        json_object_boolean_true_add(json_addr, "addpathTxAllPaths");
+
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_OVERRIDE))
         json_object_string_add(json_addr, "overrideASNsInOutboundUpdates", "ifAspathEqualRemoteAs");
 
@@ -9433,6 +9468,9 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
         vty_out (vty, "  Private AS numbers (all) removed in updates to this neighbor%s", VTY_NEWLINE);
       else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_REMOVE_PRIVATE_AS))
         vty_out (vty, "  Private AS numbers removed in updates to this neighbor%s", VTY_NEWLINE);
+
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
+        vty_out (vty, "  Advertise all paths via addpath%s", VTY_NEWLINE);
 
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_OVERRIDE))
         vty_out (vty, "  Override ASNs in outbound updates if aspath equals remote-as%s", VTY_NEWLINE);
@@ -13170,6 +13208,20 @@ bgp_vty_init (void)
   install_element (BGP_IPV6M_NODE, &no_neighbor_route_server_client_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_route_server_client_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_route_server_client_cmd);
+
+  /* "neighbor addpath-tx-all-paths" commands.*/
+  install_element (BGP_NODE, &neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_IPV6M_NODE, &neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_addpath_tx_all_paths_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
 
   /* "neighbor passive" commands. */
   install_element (BGP_NODE, &neighbor_passive_cmd);

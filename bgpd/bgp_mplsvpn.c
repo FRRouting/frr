@@ -93,7 +93,7 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
   u_char *tagpnt;
   afi_t afi;
   safi_t safi;
-  u_char addpath_encoded;
+  int addpath_encoded;
   u_int32_t addpath_id;
 
   /* Check peer status. */

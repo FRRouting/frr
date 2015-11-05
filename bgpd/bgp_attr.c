@@ -2140,8 +2140,6 @@ bgp_attr_check (struct peer *peer, struct attr *attr, bgp_size_t nlri_len)
   return BGP_ATTR_PARSE_PROCEED;
 }
 
-int stream_put_prefix (struct stream *, struct prefix *);
-
 size_t
 bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 			 struct bpacket_attr_vec_arr *vecarr,
@@ -2213,11 +2211,16 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 void
 bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
 			  struct prefix *p, struct prefix_rd *prd,
-			  u_char *tag)
+                          u_char *tag, int addpath_encode,
+                          u_int32_t addpath_tx_id)
 {
   switch (safi)
     {
     case SAFI_MPLS_VPN:
+      /* addpath TX ID */
+      if (addpath_encode)
+        stream_putl(s, addpath_tx_id);
+
       /* Tag, RD, Prefix write. */
       stream_putc (s, p->prefixlen + 88);
       stream_put (s, tag, 3);
@@ -2226,7 +2229,7 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
       break;
     default:
       /* Prefix write. */
-      stream_put_prefix (s, p);
+      stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
       break;
     }
 }
@@ -2245,7 +2248,9 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 		      struct stream *s, struct attr *attr,
 		      struct bpacket_attr_vec_arr *vecarr,
 		      struct prefix *p, afi_t afi, safi_t safi,
-		      struct peer *from, struct prefix_rd *prd, u_char *tag)
+		      struct peer *from, struct prefix_rd *prd, u_char *tag,
+                      int addpath_encode,
+                      u_int32_t addpath_tx_id)
 {
   size_t cp;
   size_t aspath_sizep;
@@ -2267,7 +2272,8 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi,
                                     (peer_cap_enhe(peer) ? AFI_IP6 : afi),
                                     vecarr, attr);
-      bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag);
+      bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
+                               addpath_encode, addpath_tx_id);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
     }
 
@@ -2635,17 +2641,22 @@ bgp_packet_mpunreach_start (struct stream *s, afi_t afi, safi_t safi)
 void
 bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     afi_t afi, safi_t safi, struct prefix_rd *prd,
-			     u_char *tag)
+			     u_char *tag, int addpath_encode,
+                             u_int32_t addpath_tx_id)
 {
   if (safi == SAFI_MPLS_VPN)
     {
+      /* addpath TX ID */
+      if (addpath_encode)
+        stream_putl(s, addpath_tx_id);
+
       stream_putc (s, p->prefixlen + 88);
       stream_put (s, tag, 3);
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
     }
   else
-    stream_put_prefix (s, p);
+    stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
 }
 
 void
@@ -2691,6 +2702,8 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
   unsigned long len;
   size_t aspath_lenp;
   struct aspath *aspath;
+  int addpath_encode = 0;
+  u_int32_t addpath_tx_id = 0;
 
   /* Remember current pointer. */
   cp = stream_get_endp (s);
@@ -2810,7 +2823,7 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
       stream_putc(s, 0);
 
       /* Prefix */
-      stream_put_prefix(s, prefix);
+      stream_put_prefix_addpath (s, prefix, addpath_encode, addpath_tx_id);
 
       /* Set MP attribute length. */
       stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);

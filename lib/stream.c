@@ -752,26 +752,48 @@ stream_put_in6_addr_at (struct stream *s, size_t putp, struct in6_addr *addr)
 
 /* Put prefix by nlri type format. */
 int
-stream_put_prefix (struct stream *s, struct prefix *p)
+stream_put_prefix_addpath (struct stream *s, struct prefix *p,
+                           int addpath_encode, u_int32_t addpath_tx_id)
 {
   size_t psize;
+  size_t psize_with_addpath;
   
   STREAM_VERIFY_SANE(s);
   
   psize = PSIZE (p->prefixlen);
+
+  if (addpath_encode)
+    psize_with_addpath = psize + 4;
+  else
+    psize_with_addpath = psize;
   
-  if (STREAM_WRITEABLE (s) < (psize + sizeof (u_char)))
+  if (STREAM_WRITEABLE (s) < (psize_with_addpath + sizeof (u_char)))
     {
       STREAM_BOUND_WARN (s, "put");
       return 0;
     }
   
+  if (addpath_encode)
+    {
+        s->data[s->endp++] = (u_char)(addpath_tx_id >> 24);
+        s->data[s->endp++] = (u_char)(addpath_tx_id >> 16);
+        s->data[s->endp++] = (u_char)(addpath_tx_id >>  8);
+        s->data[s->endp++] = (u_char)addpath_tx_id;
+    }
+
   s->data[s->endp++] = p->prefixlen;
   memcpy (s->data + s->endp, &p->u.prefix, psize);
   s->endp += psize;
   
   return psize;
 }
+
+int
+stream_put_prefix (struct stream *s, struct prefix *p)
+{
+  return stream_put_prefix_addpath (s, p, 0, 0);
+}
+
 
 /* Read size from fd. */
 int

@@ -1226,6 +1226,15 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
   bgp = SUBGRP_INST(subgrp);
   riattr = bgp_info_mpath_count (ri) ? bgp_info_mpath_attr (ri) : ri->attr;
 
+  /* With addpath we may be asked to TX all kinds of paths so make sure
+   * ri is valid */
+  if (!CHECK_FLAG (ri->flags, BGP_INFO_VALID) ||
+      CHECK_FLAG (ri->flags, BGP_INFO_HISTORY) ||
+      CHECK_FLAG (ri->flags, BGP_INFO_REMOVED))
+    {
+      return 0;
+    }
+
   /* Aggregate-address suppress check. */
   if (ri->extra && ri->extra->suppress)
     if (! UNSUPPRESS_MAP_NAME (filter))
@@ -1917,7 +1926,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 int
 subgroup_process_announce_selected (struct update_subgroup *subgrp,
 				    struct bgp_info *selected,
-				    struct bgp_node *rn)
+				    struct bgp_node *rn,
+                                    u_int32_t addpath_tx_id)
 {
   struct prefix *p;
   struct peer *onlypeer;
@@ -1945,20 +1955,37 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
       case BGP_TABLE_MAIN:
       /* Announcement to the subgroup.  If the route is filtered,
          withdraw it. */
-	if (selected && subgroup_announce_check(selected, subgrp, p, &attr))
-	  bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
-        else
-	  bgp_adj_out_unset_subgroup(rn, subgrp, 1);
+        if (selected)
+          {
+            if (subgroup_announce_check(selected, subgrp, p, &attr))
+              bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
+            else
+              bgp_adj_out_unset_subgroup(rn, subgrp, 1, selected->addpath_tx_id);
+          }
 
+        /* If selected is NULL we must withdraw the path using addpath_tx_id */
+        else
+          {
+            bgp_adj_out_unset_subgroup(rn, subgrp, 1, addpath_tx_id);
+          }
         break;
+
       case BGP_TABLE_RSCLIENT:
         /* Announcement to peer->conf.  If the route is filtered,
            withdraw it. */
-        if (selected &&
-            subgroup_announce_check_rsclient (selected, subgrp, p, &attr))
-          bgp_adj_out_set_subgroup (rn, subgrp, &attr, selected);
+        if (selected)
+          {
+            if (subgroup_announce_check_rsclient(selected, subgrp, p, &attr))
+              bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
+            else
+              bgp_adj_out_unset_subgroup(rn, subgrp, 1, selected->addpath_tx_id);
+          }
+
+        /* If selected is NULL we must withdraw the path using addpath_tx_id */
         else
-	  bgp_adj_out_unset_subgroup(rn, subgrp, 1);
+          {
+            bgp_adj_out_unset_subgroup(rn, subgrp, 1, addpath_tx_id);
+          }
         break;
     }
 
@@ -2033,7 +2060,7 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 	    subgrp = PAF_SUBGRP(paf);
 	    if (!subgrp) /* not an established session */
 	      continue;
-            subgroup_process_announce_selected (subgrp, new_select, rn);
+            subgroup_process_announce_selected (subgrp, new_select, rn, new_select->addpath_tx_id);
           }
     }
   else
@@ -2048,7 +2075,7 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 	}
       paf = peer_af_find(rsclient, afi, safi);
       if (paf && (subgrp = PAF_SUBGRP(paf))) /* if an established session */
-	subgroup_process_announce_selected (subgrp, new_select, rn);
+	subgroup_process_announce_selected (subgrp, new_select, rn, new_select->addpath_tx_id);
     }
 
   if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
@@ -2095,18 +2122,18 @@ bgp_process_main (struct work_queue *wq, void *data)
   new_select = old_and_new.new;
 
   /* Nothing to do. */
-  if (old_select && old_select == new_select && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR))
+  if (old_select && old_select == new_select &&
+      !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR) &&
+      !CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED) &&
+      !bgp->addpath_tx_used[afi][safi])
     {
-      if (! CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
-        {
-          if (CHECK_FLAG (old_select->flags, BGP_INFO_IGP_CHANGED) ||
-	      CHECK_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG))
-            bgp_zebra_announce (p, old_select, bgp, afi, safi);
+      if (CHECK_FLAG (old_select->flags, BGP_INFO_IGP_CHANGED) ||
+          CHECK_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG))
+        bgp_zebra_announce (p, old_select, bgp, afi, safi);
           
-	  UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
-          UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
-          return WQ_SUCCESS;
-        }
+      UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+      UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+      return WQ_SUCCESS;
     }
 
   /* If the user did "clear ip bgp prefix x.x.x.x" this flag will be set */
@@ -2157,7 +2184,7 @@ bgp_process_main (struct work_queue *wq, void *data)
 	}
     }
     
-  /* Reap old select bgp_info, it it has been removed */
+  /* Reap old select bgp_info, if it has been removed */
   if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
     bgp_info_reap (rn, old_select);
   
@@ -2433,6 +2460,7 @@ info_make (int type, int sub_type, u_short instance, struct peer *peer, struct a
   new->attr = attr;
   new->uptime = bgp_clock ();
   new->net = rn;
+  new->addpath_tx_id = ++peer->bgp->addpath_tx_id;
   return new;
 }
 
@@ -3032,7 +3060,6 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 
   /* Addpath ID */
   new->addpath_rx_id = addpath_id;
-  new->addpath_tx_id = 0;
 
   /* Increment prefix */
   bgp_aggregate_increment (bgp, p, new, afi, safi);
@@ -3527,17 +3554,6 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
           ain = ain_next;
         }
 
-      /*
-       * Can't do this anymore. adj-outs are not maintained per peer.
-       *
-      for (aout = rn->adj_out; aout; aout = aout->next)
-        if (aout->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
-          {
-            bgp_adj_out_remove (rn, aout, peer, afi, safi);
-            bgp_unlock_node (rn);
-            break;
-          }
-      */
       for (ri = rn->info; ri; ri = ri->next)
         if (ri->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
           {
@@ -3728,6 +3744,13 @@ bgp_reset (void)
   prefix_list_reset ();
 }
 
+static int
+bgp_addpath_encode_rx (struct peer *peer, afi_t afi, safi_t safi)
+{
+  return (CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) &&
+          CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV));
+}
+
 /* Parse NLRI stream.  Withdraw NLRI is recognized by NULL attr
    value. */
 int
@@ -3740,7 +3763,7 @@ bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet)
   int ret;
   afi_t afi;
   safi_t safi;
-  u_char addpath_encoded;
+  int addpath_encoded;
   u_int32_t addpath_id;
 
   /* Check peer status. */
@@ -3752,9 +3775,7 @@ bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet)
   afi = packet->afi;
   safi = packet->safi;
   addpath_id = 0;
-
-  addpath_encoded = (CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) &&
-                     CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV));
+  addpath_encoded = bgp_addpath_encode_rx (peer, afi, safi);
 
   for (; pnt < lim; pnt += psize)
     {
@@ -3856,13 +3877,11 @@ bgp_nlri_sanity_check (struct peer *peer, int afi, safi_t safi, u_char *pnt,
   u_char *end;
   u_char prefixlen;
   int psize;
-  u_char addpath_encoded;
+  int addpath_encoded;
 
   *numpfx = 0;
   end = pnt + length;
-
-  addpath_encoded = (CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) &&
-                     CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_RCV));
+  addpath_encoded = bgp_addpath_encode_rx (peer, afi, safi);
 
   /* RFC1771 6.3 The NLRI field in the UPDATE message is checked for
      syntactic validity.  If the field is syntactically incorrect,
@@ -7213,6 +7232,57 @@ flap_route_vty_out (struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 }
 
 static void
+route_vty_out_advertised_to (struct vty *vty, struct peer *peer, int *first,
+                             const char *header, json_object *json_adv_to)
+{
+  char buf1[INET6_ADDRSTRLEN];
+  json_object *json_peer = NULL;
+
+  if (json_adv_to)
+    {
+      /* 'advertised-to' is a dictionary of peers we have advertised this
+       * prefix too.  The key is the peer's IP or swpX, the value is the
+       * hostname if we know it and "" if not.
+       */
+      json_peer = json_object_new_object();
+
+      if (peer->hostname)
+        json_object_string_add(json_peer, "hostname", peer->hostname);
+
+      if (peer->conf_if)
+        json_object_object_add(json_adv_to, peer->conf_if, json_peer);
+      else
+        json_object_object_add(json_adv_to,
+                               sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN),
+                               json_peer);
+    }
+  else
+    {
+      if (*first)
+        {
+          vty_out (vty, "%s", header);
+          *first = 0;
+        }
+
+      if (peer->hostname && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
+        {
+          if (peer->conf_if)
+            vty_out (vty, " %s(%s)", peer->hostname, peer->conf_if);
+          else
+            vty_out (vty, " %s(%s)", peer->hostname,
+                     sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
+        }
+      else
+        {
+          if (peer->conf_if)
+            vty_out (vty, " %s", peer->conf_if);
+          else
+            vty_out (vty, " %s", sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
+        }
+    }
+}
+
+static void
 route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p, 
 		      struct bgp_info *binfo, afi_t afi, safi_t safi,
                       json_object *json_paths)
@@ -7235,6 +7305,12 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
   json_object *json_path = NULL;
   json_object *json_peer = NULL;
   json_object *json_string = NULL;
+  json_object *json_adv_to = NULL;
+  int first = 0;
+  struct listnode *node, *nnode;
+  struct peer *peer;
+  int addpath_capable;
+  int has_adj;
 
   if (json_paths)
     {
@@ -7775,6 +7851,45 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
             }
         }
 
+      /* If we used addpath to TX a non-bestpath we need to display
+       * "Advertised to" on a path-by-path basis */
+      if (bgp->addpath_tx_used[afi][safi])
+        {
+          first = 1;
+
+          for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+            {
+              addpath_capable = bgp_addpath_encode_tx (peer, afi, safi);
+              has_adj = bgp_adj_out_lookup (peer, binfo->net, binfo->addpath_tx_id);
+
+              if ((addpath_capable && has_adj) ||
+                  (!addpath_capable && has_adj && CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED)))
+                {
+                    if (json_path && !json_adv_to)
+                      json_adv_to = json_object_new_object();
+
+                    route_vty_out_advertised_to(vty, peer, &first,
+                                                "      Advertised to:",
+                                                json_adv_to);
+                }
+            }
+
+          if (json_path)
+            {
+              if (json_adv_to)
+                {
+                  json_object_object_add(json_path, "advertisedTo", json_adv_to);
+                }
+            }
+          else
+            {
+              if (!first)
+                {
+	          vty_out (vty, "%s", VTY_NEWLINE);
+                }
+            }
+        }
+
       /* Line 8 display Uptime */
 #ifdef HAVE_CLOCK_MONOTONIC
       tbuf = time(NULL) - (bgp_clock() - binfo->uptime);
@@ -8161,9 +8276,8 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   int no_export = 0;
   int no_advertise = 0;
   int local_as = 0;
-  int first = 0;
+  int first = 1;
   json_object *json_adv_to = NULL;
-  json_object *json_peer = NULL;
 
   p = &rn->p;
 
@@ -8226,69 +8340,37 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
       vty_out (vty, ")%s", VTY_NEWLINE);
     }
 
-  /* advertised peer */
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+  /* If we are not using addpath then we can display Advertised to and that will
+   * show what peers we advertised the bestpath to.  If we are using addpath
+   * though then we must display Advertised to on a path-by-path basis. */
+  if (!bgp->addpath_tx_used[afi][safi])
     {
-      if (bgp_adj_out_lookup (peer, p, afi, safi, rn))
-	{
-          if (json)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+        {
+          if (bgp_adj_out_lookup (peer, rn, 0))
             {
-              /* 'advertised-to' is a dictionary of peers we have advertised this
-               * prefix too.  The key is the peer's IP or swpX, the value is the
-               * hostname if we know it and "" if not.
-               */
-              json_peer = json_object_new_object();
-
-              if (peer->hostname)
-                json_object_string_add(json_peer, "hostname", peer->hostname);
-
-              if (!json_adv_to)
+              if (json && !json_adv_to)
                 json_adv_to = json_object_new_object();
 
-              if (peer->conf_if)
-                json_object_object_add(json_adv_to, peer->conf_if, json_peer);
-              else
-                json_object_object_add(json_adv_to,
-                                       sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN),
-                                       json_peer);
+              route_vty_out_advertised_to(vty, peer, &first,
+                                          "  Advertised to non peer-group peers:\n ",
+                                          json_adv_to);
             }
-          else
-            {
-	      if (! first)
-	        vty_out (vty, "  Advertised to non peer-group peers:%s ", VTY_NEWLINE);
-
-	      if (peer->hostname && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
-		{
-		  if (peer->conf_if)
-		    vty_out (vty, " %s(%s)", peer->hostname, peer->conf_if);
-		  else
-		    vty_out (vty, " %s(%s)", peer->hostname,
-			     sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
-		}
-	      else
-		{
-		  if (peer->conf_if)
-		    vty_out (vty, " %s", peer->conf_if);
-		  else
-		    vty_out (vty, " %s", sockunion2str (&peer->su, buf1, SU_ADDRSTRLEN));
-		}
-            }
-	    first = 1;
-	}
-    }
-
-  if (json)
-    {
-      if (first)
-        {
-          json_object_object_add(json, "advertisedTo", json_adv_to);
         }
-    }
-  else
-    {
-      if (!first)
-        vty_out (vty, "  Not advertised to any peer");
-      vty_out (vty, "%s", VTY_NEWLINE);
+
+      if (json)
+        {
+          if (json_adv_to)
+            {
+              json_object_object_add(json, "advertisedTo", json_adv_to);
+            }
+        }
+      else
+        {
+          if (first)
+            vty_out (vty, "  Not advertised to any peer");
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
     }
 }
 
@@ -12093,6 +12175,7 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
   json_object *json_scode = NULL;
   json_object *json_ocode = NULL;
   json_object *json_ar = NULL;
+  struct peer_af *paf;
 
   if (use_json)
     {
@@ -12206,46 +12289,49 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
         }
       else
         {
-          adj = bgp_adj_peer_lookup(peer, rn);
-          if (adj)
-            {
-              if (header1)
+          for (adj = rn->adj_out; adj; adj = adj->next)
+            SUBGRP_FOREACH_PEER(adj->subgroup, paf)
+              if (paf->peer == peer)
                 {
-                  if (use_json)
+                  if (header1)
                     {
-                      json_object_int_add(json, "bgpTableVersion", table->version);
-                      json_object_string_add(json, "bgpLocalRouterId", inet_ntoa (bgp->router_id));
-                      json_object_object_add(json, "bgpStatusCodes", json_scode);
-                      json_object_object_add(json, "bgpOriginCodes", json_ocode);
+                      if (use_json)
+                        {
+                          json_object_int_add(json, "bgpTableVersion", table->version);
+                          json_object_string_add(json, "bgpLocalRouterId", inet_ntoa (bgp->router_id));
+                          json_object_object_add(json, "bgpStatusCodes", json_scode);
+                          json_object_object_add(json, "bgpOriginCodes", json_ocode);
+                        }
+                      else
+                        {
+                          vty_out (vty, "BGP table version is %" PRIu64 ", local router ID is %s%s", table->version,
+                                   inet_ntoa (bgp->router_id), VTY_NEWLINE);
+                          vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+                          vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+                        }
+                      header1 = 0;
                     }
-                  else
+
+                  if (header2)
                     {
-                      vty_out (vty, "BGP table version is %" PRIu64 ", local router ID is %s%s", table->version,
-                               inet_ntoa (bgp->router_id), VTY_NEWLINE);
-                      vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
-                      vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+                      if (!use_json)
+                        vty_out (vty, BGP_SHOW_HEADER, VTY_NEWLINE);
+                      header2 = 0;
                     }
-                  header1 = 0;
-                }
-              if (header2)
-                {
-                  if (!use_json)
-                    vty_out (vty, BGP_SHOW_HEADER, VTY_NEWLINE);
-                  header2 = 0;
-                }
-              if (adj->attr)
-                {
-                  bgp_attr_dup(&attr, adj->attr);
-                  ret = bgp_output_modifier(peer, &rn->p, &attr, afi, safi, rmap_name);
-                  if (ret != RMAP_DENY)
+
+                  if (adj->attr)
                     {
-                      route_vty_out_tmp (vty, &rn->p, &attr, safi, use_json, json_ar);
-                      output_count++;
+                      bgp_attr_dup(&attr, adj->attr);
+                      ret = bgp_output_modifier(peer, &rn->p, &attr, afi, safi, rmap_name);
+                      if (ret != RMAP_DENY)
+                        {
+                          route_vty_out_tmp (vty, &rn->p, &attr, safi, use_json, json_ar);
+                          output_count++;
+                        }
+                      else
+                        filtered_count++;
                     }
-                  else
-                    filtered_count++;
                 }
-            }
         }
     }
   if (use_json)

@@ -315,6 +315,9 @@ struct bgp
 
   u_int32_t wpkt_quanta;  /* per peer packet quanta to write */
   u_int32_t coalesce_time;
+
+  u_int32_t addpath_tx_id;
+  int addpath_tx_used[AFI_MAX][SAFI_MAX];
 };
 
 #define BGP_ROUTE_ADV_HOLD(bgp) \
@@ -363,6 +366,8 @@ struct bgp_nexthop
 #define BGP_ADDPATH_RX     1
 #define BGP_ADDPATH_TX     2
 #define BGP_ADDPATH_ID_LEN 4
+
+#define BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE 1
 
 /* BGP router distinguisher value.  */
 #define BGP_RD_SIZE                8
@@ -648,6 +653,7 @@ struct peer
 #define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1 << 19) /* remove-private-as replace-as */
 #define PEER_FLAG_AS_OVERRIDE               (1 << 20) /* as-override */
 #define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1 << 21) /* remove-private-as all replace-as */
+#define PEER_FLAG_ADDPATH_TX_ALL_PATHS      (1 << 22) /* addpath-tx-all-paths */
 
   /* MD5 password */
   char *password;

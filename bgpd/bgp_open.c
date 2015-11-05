@@ -1188,6 +1188,7 @@ bgp_open_capability (struct stream *s, struct peer *peer)
   u_int32_t restart_time;
   u_char afi_safi_count = 0;
   struct utsname names;
+  int adv_addpath_tx = 0;
 
   /* Remember current pointer for Opt Parm Len. */
   cp = stream_get_endp (s);
@@ -1306,13 +1307,18 @@ bgp_open_capability (struct stream *s, struct peer *peer)
     local_as = peer->local_as;
   stream_putl (s, local_as );
 
-  /* AddPath
-   * For now we will only advertise RX support. TX support will be added later.
-   */
+  /* AddPath */
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
     for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
       if (peer->afc[afi][safi])
-        afi_safi_count++;
+        {
+          afi_safi_count++;
+
+          /* Only advertise addpath TX if a feature that will use it is
+           * configured */
+          if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
+            adv_addpath_tx = 1;
+        }
 
   SET_FLAG (peer->cap, PEER_CAP_ADDPATH_ADV);
   stream_putc (s, BGP_OPEN_OPT_CAP);
@@ -1326,8 +1332,19 @@ bgp_open_capability (struct stream *s, struct peer *peer)
         {
           stream_putw (s, afi);
           stream_putc (s, safi);
-          stream_putc (s, BGP_ADDPATH_RX);
-          SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV);
+
+          if (adv_addpath_tx)
+            {
+              stream_putc (s, BGP_ADDPATH_RX|BGP_ADDPATH_TX);
+              SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV);
+              SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV);
+            }
+          else
+            {
+              stream_putc (s, BGP_ADDPATH_RX);
+              SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV);
+              UNSET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV);
+            }
         }
 
   /* ORF capability. */

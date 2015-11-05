@@ -304,7 +304,8 @@ extern void route_vty_out_tmp (struct vty *, struct prefix *, struct attr *, saf
 extern int
 subgroup_process_announce_selected (struct update_subgroup *subgrp,
 				    struct bgp_info *selected,
-				    struct bgp_node *rn);
+                                    struct bgp_node *rn,
+                                    u_int32_t addpath_tx_id);
 
 extern int subgroup_announce_check(struct bgp_info *ri,
 				   struct update_subgroup *subgrp,

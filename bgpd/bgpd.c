@@ -2817,6 +2817,7 @@ bgp_create (as_t *as, const char *name)
   bgp_flag_set (bgp, BGP_FLAG_SHOW_HOSTNAME);
   bgp_flag_set (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
   bgp_flag_set (bgp, BGP_FLAG_DETERMINISTIC_MED);
+  bgp->addpath_tx_id = BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE;
 
   bgp->as = *as;
 
@@ -3460,25 +3461,29 @@ static const struct peer_flag_action peer_flag_action_list[] =
 
 static const struct peer_flag_action peer_af_flag_action_list[] =
   {
-    { PEER_FLAG_NEXTHOP_SELF,             1, peer_change_reset_out },
     { PEER_FLAG_SEND_COMMUNITY,           1, peer_change_reset_out },
     { PEER_FLAG_SEND_EXT_COMMUNITY,       1, peer_change_reset_out },
-    { PEER_FLAG_SOFT_RECONFIG,            0, peer_change_reset_in },
+    { PEER_FLAG_NEXTHOP_SELF,             1, peer_change_reset_out },
     { PEER_FLAG_REFLECTOR_CLIENT,         1, peer_change_reset },
     { PEER_FLAG_RSERVER_CLIENT,           1, peer_change_reset },
+    { PEER_FLAG_SOFT_RECONFIG,            0, peer_change_reset_in },
     { PEER_FLAG_AS_PATH_UNCHANGED,        1, peer_change_reset_out },
     { PEER_FLAG_NEXTHOP_UNCHANGED,        1, peer_change_reset_out },
     { PEER_FLAG_MED_UNCHANGED,            1, peer_change_reset_out },
+    // PEER_FLAG_DEFAULT_ORIGINATE
     { PEER_FLAG_REMOVE_PRIVATE_AS,        1, peer_change_reset_out },
-    { PEER_FLAG_REMOVE_PRIVATE_AS_ALL,    1, peer_change_reset_out },
-    { PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,1, peer_change_reset_out },
     { PEER_FLAG_ALLOWAS_IN,               0, peer_change_reset_in },
     { PEER_FLAG_ORF_PREFIX_SM,            1, peer_change_reset },
     { PEER_FLAG_ORF_PREFIX_RM,            1, peer_change_reset },
+    // PEER_FLAG_MAX_PREFIX
+    // PEER_FLAG_MAX_PREFIX_WARNING
     { PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED,  0, peer_change_reset_out },
     { PEER_FLAG_FORCE_NEXTHOP_SELF,       1, peer_change_reset_out },
+    { PEER_FLAG_REMOVE_PRIVATE_AS_ALL,    1, peer_change_reset_out },
+    { PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,1, peer_change_reset_out },
     { PEER_FLAG_AS_OVERRIDE,              1, peer_change_reset_out },
     { PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,1, peer_change_reset_out },
+    { PEER_FLAG_ADDPATH_TX_ALL_PATHS,     1, peer_change_reset },
     { 0, 0, 0 }
   };
 
@@ -3680,6 +3685,9 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
   struct listnode *node, *nnode;
   struct peer_group *group;
   struct peer_flag_action action;
+  struct peer *tmp_peer;
+  struct bgp *bgp;
+  int addpath_tx_used;
 
   memset (&action, 0, sizeof (struct peer_flag_action));
   size = sizeof peer_af_flag_action_list / sizeof (struct peer_flag_action);
@@ -3746,42 +3754,68 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
     {
       group = peer->group;
       
-      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, tmp_peer))
 	{
-	  if (! peer->af_group[afi][safi])
+	  if (! tmp_peer->af_group[afi][safi])
 	    continue;
 
-	  if (set && CHECK_FLAG (peer->af_flags[afi][safi], flag) == flag)
+	  if (set && CHECK_FLAG (tmp_peer->af_flags[afi][safi], flag) == flag)
 	    continue;
 
-	  if (! set && ! CHECK_FLAG (peer->af_flags[afi][safi], flag))
+	  if (! set && ! CHECK_FLAG (tmp_peer->af_flags[afi][safi], flag))
 	    continue;
 
 	  if (set)
-	    SET_FLAG (peer->af_flags[afi][safi], flag);
+	    SET_FLAG (tmp_peer->af_flags[afi][safi], flag);
 	  else
-	    UNSET_FLAG (peer->af_flags[afi][safi], flag);
+	    UNSET_FLAG (tmp_peer->af_flags[afi][safi], flag);
 
-	  if (peer->status == Established)
+	  if (tmp_peer->status == Established)
 	    {
 	      if (! set && flag == PEER_FLAG_SOFT_RECONFIG)
-		bgp_clear_adj_in (peer, afi, safi);
+		bgp_clear_adj_in (tmp_peer, afi, safi);
 	      else
                {
                  if (flag == PEER_FLAG_REFLECTOR_CLIENT)
-                   peer->last_reset = PEER_DOWN_RR_CLIENT_CHANGE;
+                   tmp_peer->last_reset = PEER_DOWN_RR_CLIENT_CHANGE;
                  else if (flag == PEER_FLAG_RSERVER_CLIENT)
-                   peer->last_reset = PEER_DOWN_RS_CLIENT_CHANGE;
+                   tmp_peer->last_reset = PEER_DOWN_RS_CLIENT_CHANGE;
                  else if (flag == PEER_FLAG_ORF_PREFIX_SM)
-                   peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+                   tmp_peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
                  else if (flag == PEER_FLAG_ORF_PREFIX_RM)
-                   peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+                   tmp_peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 
-                 peer_change_action (peer, afi, safi, action.type);
+                 peer_change_action (tmp_peer, afi, safi, action.type);
                }
 	    }
 	}
     }
+
+  /* Track if addpath TX is in use */
+  if (flag & PEER_FLAG_ADDPATH_TX_ALL_PATHS)
+    {
+      bgp = peer->bgp;
+      addpath_tx_used = 0;
+
+      if (set)
+        {
+          addpath_tx_used = 1;
+        }
+      else
+        {
+          for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, tmp_peer))
+            {
+              if (CHECK_FLAG (tmp_peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
+                {
+                  addpath_tx_used = 1;
+                  break;
+                }
+            }
+        }
+
+      bgp->addpath_tx_used[afi][safi] = addpath_tx_used;
+    }
+
   return 0;
 }
 
@@ -6509,6 +6543,11 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
                             "  neighbor %s activate%s",
                             addr, VTY_NEWLINE);
       }
+
+  /* addpath TX knobs */
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ADDPATH_TX_ALL_PATHS))
+    vty_out (vty, "  neighbor %s addpath-tx-all-paths%s", addr,
+	     VTY_NEWLINE);
 
   /* ORF capability.  */
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM) ||

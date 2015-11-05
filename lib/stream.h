@@ -175,6 +175,9 @@ extern int stream_put_ipv4 (struct stream *, u_int32_t);
 extern int stream_put_in_addr (struct stream *, struct in_addr *);
 extern int stream_put_in_addr_at (struct stream *, size_t, struct in_addr *);
 extern int stream_put_in6_addr_at (struct stream *, size_t, struct in6_addr *);
+extern int stream_put_prefix_addpath (struct stream *, struct prefix *,
+                                      int addpath_encode,
+                                      u_int32_t addpath_tx_id);
 extern int stream_put_prefix (struct stream *, struct prefix *);
 
 extern void stream_get (void *, struct stream *, size_t);

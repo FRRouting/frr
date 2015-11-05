@@ -49,6 +49,7 @@
 			      PEER_FLAG_REMOVE_PRIVATE_AS_ALL | \
 			      PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE | \
 			      PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE | \
+                              PEER_FLAG_ADDPATH_TX_ALL_PATHS | \
 			      PEER_FLAG_AS_OVERRIDE)
 
 #define PEER_UPDGRP_CAP_FLAGS (PEER_CAP_AS4_RCV)
@@ -454,7 +455,8 @@ extern void update_group_announce (struct bgp *bgp);
 extern void update_group_announce_rrclients (struct bgp *bgp);
 extern void peer_af_announce_route (struct peer_af *paf, int combine);
 extern struct bgp_adj_out *bgp_adj_out_alloc (struct update_subgroup *subgrp,
-					      struct bgp_node *rn);
+                                              struct bgp_node *rn,
+                                              u_int32_t addpath_tx_id);
 extern void bgp_adj_out_remove_subgroup (struct bgp_node *rn,
 					 struct bgp_adj_out *adj,
 					 struct update_subgroup *subgrp);
@@ -465,7 +467,8 @@ bgp_adj_out_set_subgroup (struct bgp_node *rn,
 extern void
 bgp_adj_out_unset_subgroup (struct bgp_node *rn,
 			    struct update_subgroup *subgrp,
-                            char withdraw);
+                            char withdraw,
+                            u_int32_t addpath_tx_id);
 void
 subgroup_announce_table (struct update_subgroup *subgrp,
 			 struct bgp_table *table, int rsclient);
@@ -476,6 +479,7 @@ extern int
 update_group_clear_update_dbg (struct update_group *updgrp, void *arg);
 
 extern void update_bgp_group_free(struct bgp *bgp);
+extern int bgp_addpath_encode_tx (struct peer *peer, afi_t afi, safi_t safi);
 
 /*
  * Inline functions

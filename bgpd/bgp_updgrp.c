@@ -1214,7 +1214,7 @@ update_subgroup_copy_adj_out (struct update_subgroup *source,
     /*
      * Copy the adj out.
      */
-    aout_copy = bgp_adj_out_alloc (dest, aout->rn);
+    aout_copy = bgp_adj_out_alloc (dest, aout->rn, aout->addpath_tx_id);
     aout_copy->attr = aout->attr ? bgp_attr_refcount (aout->attr) : NULL;
   }
 }
@@ -1953,4 +1953,11 @@ update_group_clear_update_dbg (struct update_group *updgrp, void *arg)
 {
   UPDGRP_PEER_DBG_OFF(updgrp);
   return UPDWALK_CONTINUE;
+}
+
+int
+bgp_addpath_encode_tx (struct peer *peer, afi_t afi, safi_t safi)
+{
+  return (CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV) &&
+          CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV));
 }
