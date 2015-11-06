@@ -1235,6 +1235,16 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
       return 0;
     }
 
+  /* If this is not the bestpath then check to see if there is an enabled addpath
+   * feature that requires us to advertise it */
+  if (! CHECK_FLAG (ri->flags, BGP_INFO_SELECTED))
+    {
+      if (! bgp_addpath_tx_path(peer, afi, safi, ri))
+        {
+          return 0;
+        }
+    }
+
   /* Aggregate-address suppress check. */
   if (ri->extra && ri->extra->suppress)
     if (! UNSUPPRESS_MAP_NAME (filter))
@@ -1782,50 +1792,64 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   /* bgp deterministic-med */
   new_select = NULL;
   if (bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
-    for (ri1 = rn->info; ri1; ri1 = ri1->next)
-      {
-	if (CHECK_FLAG (ri1->flags, BGP_INFO_DMED_CHECK))
-	  continue;
-	if (BGP_INFO_HOLDDOWN (ri1))
-	  continue;
-        if (ri1->peer && ri1->peer != bgp->peer_self)
-          if (ri1->peer->status != Established)
+    {
+
+      /* Clear BGP_INFO_DMED_SELECTED for all paths */
+      for (ri1 = rn->info; ri1; ri1 = ri1->next)
+        bgp_info_unset_flag (rn, ri1, BGP_INFO_DMED_SELECTED);
+
+      for (ri1 = rn->info; ri1; ri1 = ri1->next)
+        {
+          if (CHECK_FLAG (ri1->flags, BGP_INFO_DMED_CHECK))
             continue;
+          if (BGP_INFO_HOLDDOWN (ri1))
+            continue;
+          if (ri1->peer && ri1->peer != bgp->peer_self)
+            if (ri1->peer->status != Established)
+              continue;
 
-	new_select = ri1;
-	old_select = CHECK_FLAG (ri1->flags, BGP_INFO_SELECTED) ? ri1 : NULL;
-	if (ri1->next)
-	  for (ri2 = ri1->next; ri2; ri2 = ri2->next)
-	    {
-	      if (CHECK_FLAG (ri2->flags, BGP_INFO_DMED_CHECK))
-		continue;
-	      if (BGP_INFO_HOLDDOWN (ri2))
-		continue;
-              if (ri2->peer &&
-                  ri2->peer != bgp->peer_self &&
-                  !CHECK_FLAG (ri2->peer->sflags, PEER_STATUS_NSF_WAIT))
-                if (ri2->peer->status != Established)
-                  continue;
+          new_select = ri1;
+          old_select = CHECK_FLAG (ri1->flags, BGP_INFO_SELECTED) ? ri1 : NULL;
+          if (ri1->next)
+            {
+              for (ri2 = ri1->next; ri2; ri2 = ri2->next)
+                {
+                  if (CHECK_FLAG (ri2->flags, BGP_INFO_DMED_CHECK))
+                    continue;
+                  if (BGP_INFO_HOLDDOWN (ri2))
+                    continue;
+                  if (ri2->peer &&
+                      ri2->peer != bgp->peer_self &&
+                      !CHECK_FLAG (ri2->peer->sflags, PEER_STATUS_NSF_WAIT))
+                    if (ri2->peer->status != Established)
+                      continue;
 
-	      if (aspath_cmp_left (ri1->attr->aspath, ri2->attr->aspath)
-		  || aspath_cmp_left_confed (ri1->attr->aspath,
-					     ri2->attr->aspath))
-		{
-		  if (CHECK_FLAG (ri2->flags, BGP_INFO_SELECTED))
-		    old_select = ri2;
-		  if (bgp_info_cmp (bgp, ri2, new_select, &paths_eq,
-				    mpath_cfg, debug, pfx_buf))
-		    {
-		      bgp_info_unset_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
-		      new_select = ri2;
-		    }
+                  if (aspath_cmp_left (ri1->attr->aspath, ri2->attr->aspath)
+                      || aspath_cmp_left_confed (ri1->attr->aspath,
+                                                 ri2->attr->aspath))
+                    {
+                      if (CHECK_FLAG (ri2->flags, BGP_INFO_SELECTED))
+                        old_select = ri2;
+                      if (bgp_info_cmp (bgp, ri2, new_select, &paths_eq,
+                                        mpath_cfg, debug, pfx_buf))
+                        {
+                          bgp_info_unset_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
+                          new_select = ri2;
+                        }
 
-		  bgp_info_set_flag (rn, ri2, BGP_INFO_DMED_CHECK);
-		}
-	    }
-	bgp_info_set_flag (rn, new_select, BGP_INFO_DMED_CHECK);
-	bgp_info_set_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
-      }
+                      bgp_info_set_flag (rn, ri2, BGP_INFO_DMED_CHECK);
+                    }
+                }
+            }
+          bgp_info_set_flag (rn, new_select, BGP_INFO_DMED_CHECK);
+          bgp_info_set_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
+
+          if (debug)
+            zlog_debug("%s: path %s is the bestpath from AS %d",
+                       pfx_buf, new_select->peer->host,
+                       aspath_get_firstas(new_select->attr->aspath));
+        }
+    }
 
   /* Check old selected route and new selected route. */
   old_select = NULL;
@@ -1859,8 +1883,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 	  bgp_info_unset_flag (rn, ri, BGP_INFO_DMED_CHECK);
 	  continue;
         }
+
       bgp_info_unset_flag (rn, ri, BGP_INFO_DMED_CHECK);
-      bgp_info_unset_flag (rn, ri, BGP_INFO_DMED_SELECTED);
 
       if (bgp_info_cmp (bgp, ri, new_select, &paths_eq, mpath_cfg, debug, pfx_buf))
 	{
@@ -7311,6 +7335,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
   struct peer *peer;
   int addpath_capable;
   int has_adj;
+  int first_as;
 
   if (json_paths)
     {
@@ -7733,17 +7758,40 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	    vty_out (vty, ", multipath");
         }
 
+      // Mark the bestpath(s)
+      if (CHECK_FLAG (binfo->flags, BGP_INFO_DMED_SELECTED))
+        {
+          first_as = aspath_get_firstas(attr->aspath);
+
+          if (json_paths)
+            {
+              if (!json_bestpath)
+                json_bestpath = json_object_new_object();
+              json_object_int_add(json_bestpath, "bestpathFromAs", first_as);
+            }
+          else
+            {
+              if (first_as)
+	        vty_out (vty, ", bestpath-from-AS %d", first_as);
+              else
+	        vty_out (vty, ", bestpath-from-AS Local");
+            }
+        }
+
       if (CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED))
         {
           if (json_paths)
             {
-              json_bestpath = json_object_new_object();
+              if (!json_bestpath)
+                json_bestpath = json_object_new_object();
               json_object_boolean_true_add(json_bestpath, "overall");
-              json_object_object_add(json_path, "bestpath", json_bestpath);
             }
           else
 	    vty_out (vty, ", best");
         }
+
+      if (json_bestpath)
+        json_object_object_add(json_path, "bestpath", json_bestpath);
 
       if (!json_paths)
         vty_out (vty, "%s", VTY_NEWLINE);

@@ -155,16 +155,17 @@ group_announce_route_walkcb (struct update_group *updgrp, void *arg)
                     }
                 }
 
-              if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
+              for (ri = ctx->rn->info; ri; ri = ri->next)
                 {
-                  for (ri = ctx->rn->info; ri; ri = ri->next)
-                    {
-                      if (ri == ctx->ri)
-                          continue;
-                      subgroup_process_announce_selected (subgrp, ri, ctx->rn, ri->addpath_tx_id);
-                    }
+                  /* Skip the bestpath for now */
+                  if (ri == ctx->ri)
+                    continue;
+
+                  subgroup_process_announce_selected (subgrp, ri, ctx->rn, ri->addpath_tx_id);
                 }
 
+              /* Process the bestpath last so the "show ip bgp neighbor x.x.x.x advertised"
+               * output shows the attributes from the bestpath */
               if (ctx->ri)
                 subgroup_process_announce_selected (subgrp, ctx->ri, ctx->rn, ctx->ri->addpath_tx_id);
             }
@@ -613,8 +614,7 @@ subgroup_announce_table (struct update_subgroup *subgrp,
     for (ri = rn->info; ri; ri = ri->next)
 
       if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED) ||
-          (addpath_capable &&
-           CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS)))
+          (addpath_capable && bgp_addpath_tx_path(peer, afi, safi, ri)))
 	{
 	  if (!rsclient
 	      && subgroup_announce_check (ri, subgrp, &rn->p, &attr))

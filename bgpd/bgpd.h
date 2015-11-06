@@ -654,6 +654,7 @@ struct peer
 #define PEER_FLAG_AS_OVERRIDE               (1 << 20) /* as-override */
 #define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1 << 21) /* remove-private-as all replace-as */
 #define PEER_FLAG_ADDPATH_TX_ALL_PATHS      (1 << 22) /* addpath-tx-all-paths */
+#define PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS (1 << 23) /* addpath-tx-bestpath-per-AS */
 
   /* MD5 password */
   char *password;
@@ -1152,6 +1153,7 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 extern bgp_peer_sort_t peer_sort (struct peer *peer);
 extern int peer_active (struct peer *);
 extern int peer_active_nego (struct peer *);
+extern void bgp_recalculate_all_bestpaths (struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *, const char *, struct bgp *,
                                 as_t, as_t, int, afi_t, safi_t);
 extern struct peer *peer_create_accept (struct bgp *);

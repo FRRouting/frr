@@ -1316,7 +1316,8 @@ bgp_open_capability (struct stream *s, struct peer *peer)
 
           /* Only advertise addpath TX if a feature that will use it is
            * configured */
-          if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
+          if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS) ||
+              CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS))
             adv_addpath_tx = 1;
         }
 
