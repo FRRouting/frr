@@ -1278,7 +1278,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
   struct te_ipv4_reachability *te_ipreach;
   struct isis_adjacency *nei;
 #ifdef HAVE_IPV6
-  struct prefix_ipv6 *ipv6, *ip6prefix;
+  struct prefix_ipv6 *ipv6, ip6prefix;
   struct ipv6_reachability *ip6reach;
 #endif /* HAVE_IPV6 */
   struct tlvs tlv_data;
@@ -1535,14 +1535,14 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 
 	      ip6reach->control_info = 0;
 	      ip6reach->prefix_len = ipv6->prefixlen;
-	      memcpy (&ip6prefix, &ipv6, sizeof(ip6prefix));
-	      apply_mask_ipv6 (ip6prefix);
+	      memcpy(&ip6prefix, ipv6, sizeof(ip6prefix));
+	      apply_mask_ipv6(&ip6prefix);
 
-	      inet_ntop(AF_INET6, &ip6prefix->prefix.s6_addr, buf, sizeof(buf));
+	      inet_ntop(AF_INET6, &ip6prefix.prefix.s6_addr, buf, sizeof(buf));
 	      lsp_debug("ISIS (%s): Adding IPv6 reachability for %s/%d",
 	                area->area_tag, buf, ipv6->prefixlen);
 
-	      memcpy (ip6reach->prefix, ip6prefix->prefix.s6_addr,
+	      memcpy (ip6reach->prefix, ip6prefix.prefix.s6_addr,
 		      sizeof (ip6reach->prefix));
 	      listnode_add (tlv_data.ipv6_reachs, ip6reach);
 	    }
