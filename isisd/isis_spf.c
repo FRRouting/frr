@@ -189,11 +189,6 @@ isis_vertex_new (void *id, enum vertextype vtype)
   struct isis_vertex *vertex;
 
   vertex = XCALLOC (MTYPE_ISIS_VERTEX, sizeof (struct isis_vertex));
-  if (vertex == NULL)
-    {
-      zlog_err ("isis_vertex_new Out of memory!");
-      return NULL;
-    }
 
   vertex->type = vtype;
   switch (vtype)

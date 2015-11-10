@@ -579,12 +579,7 @@ lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
   struct isis_lsp *lsp;
 
   lsp = XCALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
-  if (!lsp)
-    {
-      /* FIXME: set lspdbol bit */
-      zlog_warn ("lsp_new(): out of memory");
-      return NULL;
-    }
+
   /* FIXME: Should be minimal mtu? */
   lsp->pdu = stream_new (1500);
   if (LSP_FRAGMENT (lsp_id) == 0)

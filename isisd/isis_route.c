@@ -67,10 +67,6 @@ isis_nexthop_create (struct in_addr *ip, unsigned int ifindex)
     }
 
   nexthop = XCALLOC (MTYPE_ISIS_NEXTHOP, sizeof (struct isis_nexthop));
-  if (!nexthop)
-    {
-      zlog_err ("ISIS-Rte: isis_nexthop_create: out of memory!");
-    }
 
   nexthop->ifindex = ifindex;
   memcpy (&nexthop->ip, ip, sizeof (struct in_addr));
@@ -139,10 +135,6 @@ isis_nexthop6_new (struct in6_addr *ip6, unsigned int ifindex)
   struct isis_nexthop6 *nexthop6;
 
   nexthop6 = XCALLOC (MTYPE_ISIS_NEXTHOP6, sizeof (struct isis_nexthop6));
-  if (!nexthop6)
-    {
-      zlog_err ("ISIS-Rte: isis_nexthop_create6: out of memory!");
-    }
 
   nexthop6->ifindex = ifindex;
   memcpy (&nexthop6->ip6, ip6, sizeof (struct in6_addr));
@@ -284,11 +276,6 @@ isis_route_info_new (struct prefix *prefix, uint32_t cost, uint32_t depth,
   struct listnode *node;
 
   rinfo = XCALLOC (MTYPE_ISIS_ROUTE_INFO, sizeof (struct isis_route_info));
-  if (!rinfo)
-    {
-      zlog_err ("ISIS-Rte: isis_route_info_new: out of memory!");
-      return NULL;
-    }
 
   if (prefix->family == AF_INET)
     {
@@ -424,12 +411,6 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
   prefix2str (prefix, buff, sizeof (buff));
 
   rinfo_new = isis_route_info_new (prefix, cost, depth, adjacencies);
-  if (!rinfo_new)
-    {
-      zlog_err ("ISIS-Rte (%s): isis_route_create: out of memory!",
-		area->area_tag);
-      return NULL;
-    }
 
   if (family == AF_INET)
     route_node = route_node_get (area->route_table[level - 1], prefix);
