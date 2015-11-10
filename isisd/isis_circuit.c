@@ -122,13 +122,13 @@ isis_circuit_configure (struct isis_circuit *circuit, struct isis_area *area)
   circuit->area = area;
 
   /*
-   * The level for the circuit is same as for the area, unless configured
-   * otherwise.
+   * Whenever the is-type of an area is changed, the is-type of each circuit
+   * in that area is updated to a non-empty subset of the area is-type.
+   * Inversely, when configuring a new circuit, this property should be
+   * ensured as well.
    */
-  if (area->is_type != IS_LEVEL_1_AND_2 && area->is_type != circuit->is_type)
-    zlog_warn ("circut %s is_type %d mismatch with area %s is_type %d",
-               circuit->interface->name, circuit->is_type,
-               circuit->area->area_tag, area->is_type);
+  if (area->is_type != IS_LEVEL_1_AND_2)
+    circuit->is_type = area->is_type;
 
   /*
    * Add the circuit into area

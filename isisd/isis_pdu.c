@@ -2420,6 +2420,13 @@ send_lan_l1_hello (struct thread *thread)
   assert (circuit);
   circuit->u.bc.t_send_lan_hello[0] = NULL;
 
+  if (!(circuit->area->is_type & IS_LEVEL_1))
+    {
+      zlog_warn ("ISIS-Hello (%s): Trying to send L1 IIH in L2-only area",
+		 circuit->area->area_tag);
+      return 1;
+    }
+
   if (circuit->u.bc.run_dr_elect[0])
     retval = isis_dr_elect (circuit, 1);
 
@@ -2442,6 +2449,13 @@ send_lan_l2_hello (struct thread *thread)
   circuit = THREAD_ARG (thread);
   assert (circuit);
   circuit->u.bc.t_send_lan_hello[1] = NULL;
+
+  if (!(circuit->area->is_type & IS_LEVEL_2))
+    {
+      zlog_warn ("ISIS-Hello (%s): Trying to send L2 IIH in L1 area",
+		 circuit->area->area_tag);
+      return 1;
+    }
 
   if (circuit->u.bc.run_dr_elect[1])
     retval = isis_dr_elect (circuit, 2);
