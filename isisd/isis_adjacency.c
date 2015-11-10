@@ -203,7 +203,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
       if (dyn)
 	adj_name = (const char *)dyn->name.name;
       else
-	adj_name = adj->sysid ? sysid_print (adj->sysid) : "unknown";
+	adj_name = sysid_print (adj->sysid);
 
       zlog_info ("%%ADJCHANGE: Adjacency to %s (%s) changed from %s to %s, %s",
 		 adj_name,
@@ -314,8 +314,8 @@ isis_adj_print (struct isis_adjacency *adj)
     zlog_debug ("%s", dyn->name.name);
 
   zlog_debug ("SystemId %20s SNPA %s, level %d\nHolding Time %d",
-	      adj->sysid ? sysid_print (adj->sysid) : "unknown",
-	      snpa_print (adj->snpa), adj->level, adj->hold_time);
+              sysid_print (adj->sysid), snpa_print (adj->snpa),
+              adj->level, adj->hold_time);
   if (adj->ipv4_addrs && listcount (adj->ipv4_addrs) > 0)
     {
       zlog_debug ("IPv4 Address(es):");

@@ -2504,7 +2504,7 @@ rip_update_process (int route_type)
 
 	  if (IS_RIP_DEBUG_EVENT) 
 	    zlog_debug("SEND UPDATE to %s ifindex %d",
-		       (ifp->name ? ifp->name : "_unknown_"), ifp->ifindex);
+		       ifp->name, ifp->ifindex);
 
           /* send update on each connected network */
 	  for (ALL_LIST_ELEMENTS (ifp->connected, ifnode, ifnnode, connected))
