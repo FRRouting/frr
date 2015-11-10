@@ -2398,14 +2398,14 @@ send_hello (struct isis_circuit *circuit, int level)
     {
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
-	  zlog_debug ("ISIS-Adj (%s): Sent L%d LAN IIH on %s, length %ld",
+	  zlog_debug ("ISIS-Adj (%s): Sending L%d LAN IIH on %s, length %ld",
 		      circuit->area->area_tag, level, circuit->interface->name,
 		      /* FIXME: use %z when we stop supporting old compilers. */
 		      length);
 	}
       else
 	{
-	  zlog_debug ("ISIS-Adj (%s): Sent P2P IIH on %s, length %ld",
+	  zlog_debug ("ISIS-Adj (%s): Sending P2P IIH on %s, length %ld",
 		      circuit->area->area_tag, circuit->interface->name,
 		      /* FIXME: use %z when we stop supporting old compilers. */
 		      length);
@@ -2731,7 +2731,7 @@ send_csnp (struct isis_circuit *circuit, int level)
 
       if (isis->debugs & DEBUG_SNP_PACKETS)
         {
-          zlog_debug ("ISIS-Snp (%s): Sent L%d CSNP on %s, length %zd",
+          zlog_debug ("ISIS-Snp (%s): Sending L%d CSNP on %s, length %zd",
                       circuit->area->area_tag, level, circuit->interface->name,
                       stream_get_endp (circuit->snd_stream));
           for (ALL_LIST_ELEMENTS_RO (list, node, lsp))
@@ -2977,7 +2977,7 @@ send_psnp (int level, struct isis_circuit *circuit)
 
       if (isis->debugs & DEBUG_SNP_PACKETS)
         {
-          zlog_debug ("ISIS-Snp (%s): Sent L%d PSNP on %s, length %zd",
+          zlog_debug ("ISIS-Snp (%s): Sending L%d PSNP on %s, length %zd",
                       circuit->area->area_tag, level,
                       circuit->interface->name,
                       stream_get_endp (circuit->snd_stream));
@@ -3109,7 +3109,7 @@ send_lsp (struct thread *thread)
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
       zlog_debug
-        ("ISIS-Upd (%s): Sent L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
+        ("ISIS-Upd (%s): Sending L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
          " lifetime %us on %s", circuit->area->area_tag, lsp->level,
          rawlspid_print (lsp->lsp_header->lsp_id),
          ntohl (lsp->lsp_header->seq_num),
