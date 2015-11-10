@@ -202,8 +202,7 @@ bgp_write_packet (struct peer *peer)
   if (peer->status != Established)
     return NULL;
 
-  if (peer->bgp && (peer->bgp->main_peers_update_hold ||
-                    peer->bgp->rsclient_peers_update_hold))
+  if (peer->bgp && peer->bgp->main_peers_update_hold)
     return NULL;
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -2084,7 +2083,7 @@ bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
               peer->afc_nego[afi][safi] = 0;
 
               if (peer_active_nego (peer))
-                bgp_clear_route (peer, afi, safi, BGP_CLEAR_ROUTE_NORMAL);
+                bgp_clear_route (peer, afi, safi);
               else
                 BGP_EVENT_ADD (peer, BGP_Stop);
             }

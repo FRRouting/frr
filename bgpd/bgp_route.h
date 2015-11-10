@@ -188,19 +188,8 @@ struct bgp_static
 #define ROUTE_MAP_OUT_NAME(F)   ((F)->map[RMAP_OUT].name)
 #define ROUTE_MAP_OUT(F)        ((F)->map[RMAP_OUT].map)
 
-#define ROUTE_MAP_IMPORT_NAME(F)    ((F)->map[RMAP_IMPORT].name)
-#define ROUTE_MAP_IMPORT(F)    ((F)->map[RMAP_IMPORT].map)
-#define ROUTE_MAP_EXPORT_NAME(F)    ((F)->map[RMAP_EXPORT].name)
-#define ROUTE_MAP_EXPORT(F)    ((F)->map[RMAP_EXPORT].map)
-
 #define UNSUPPRESS_MAP_NAME(F)  ((F)->usmap.name)
 #define UNSUPPRESS_MAP(F)       ((F)->usmap.map)
-
-enum bgp_clear_route_type
-{
-  BGP_CLEAR_ROUTE_NORMAL,
-  BGP_CLEAR_ROUTE_MY_RSCLIENT
-};
 
 enum bgp_path_type
 {
@@ -225,10 +214,7 @@ extern void bgp_stop_announce_route_timer(struct peer_af *paf);
 extern void bgp_announce_route_all (struct peer *);
 extern void bgp_default_originate (struct peer *, afi_t, safi_t, int);
 extern void bgp_soft_reconfig_in (struct peer *, afi_t, safi_t);
-extern void bgp_soft_reconfig_rsclient (struct peer *, afi_t, safi_t);
-extern void bgp_check_local_routes_rsclient (struct peer *rsclient, afi_t afi, safi_t safi);
-extern void bgp_clear_route (struct peer *, afi_t, safi_t,
-                             enum bgp_clear_route_type);
+extern void bgp_clear_route (struct peer *, afi_t, safi_t);
 extern void bgp_clear_route_all (struct peer *);
 extern void bgp_clear_adj_in (struct peer *, afi_t, safi_t);
 extern void bgp_clear_stale_route (struct peer *, afi_t, safi_t);
@@ -281,7 +267,7 @@ extern void bgp_process (struct bgp *, struct bgp_node *, afi_t, safi_t);
  * Add an end-of-initial-update marker to the process queue. This is just a
  * queue element with NULL bgp node.
  */
-extern void bgp_add_eoiu_mark (struct bgp *, bgp_table_t);
+extern void bgp_add_eoiu_mark (struct bgp *);
 extern int bgp_config_write_table_map (struct vty *, struct bgp *, afi_t, safi_t,
                                        int *);
 extern int bgp_config_write_network (struct vty *, struct bgp *, afi_t, safi_t, int *);

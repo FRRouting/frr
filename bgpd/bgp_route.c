@@ -246,9 +246,7 @@ bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
 
   table = bgp_node_table (rn);
 
-  /* Ignore 'pcount' for RS-client tables */
-  if (table->type != BGP_TABLE_MAIN
-      || ri->peer == ri->peer->bgp->peer_self)
+  if (ri->peer == ri->peer->bgp->peer_self)
     return;
     
   if (!BGP_INFO_COUNTABLE (ri)
@@ -1057,79 +1055,6 @@ bgp_output_modifier (struct peer *peer, struct prefix *p, struct attr *attr,
   return RMAP_PERMIT;
 }
 
-static int
-bgp_export_modifier (struct peer *rsclient, struct peer *peer,
-        struct prefix *p, struct attr *attr, afi_t afi, safi_t safi)
-{
-  struct bgp_filter *filter;
-  struct bgp_info info;
-  route_map_result_t ret;
-
-  filter = &peer->filter[afi][safi];
-
-  /* Route map apply. */
-  if (ROUTE_MAP_EXPORT_NAME (filter))
-    {
-      /* Duplicate current value to new strucutre for modification. */
-      info.peer = rsclient;
-      info.attr = attr;
-
-      SET_FLAG (rsclient->rmap_type, PEER_RMAP_TYPE_EXPORT);
-
-      /* Apply BGP route map to the attribute. */
-      ret = route_map_apply (ROUTE_MAP_EXPORT (filter), p, RMAP_BGP, &info);
-
-      rsclient->rmap_type = 0;
-
-      if (ret == RMAP_DENYMATCH)
-        {
-          /* Free newly generated AS path and community by route-map. */
-          bgp_attr_flush (attr);
-          return RMAP_DENY;
-        }
-    }
-  return RMAP_PERMIT;
-}
-
-static int
-bgp_import_modifier (struct peer *rsclient, struct peer *peer,
-        struct prefix *p, struct attr *attr, afi_t afi, safi_t safi)
-{
-  struct bgp_filter *filter;
-  struct bgp_info info;
-  route_map_result_t ret;
-
-  filter = &rsclient->filter[afi][safi];
-
-  /* Apply default weight value. */
-  if (peer->weight)
-    (bgp_attr_extra_get (attr))->weight = peer->weight;
-
-  /* Route map apply. */
-  if (ROUTE_MAP_IMPORT_NAME (filter))
-    {
-      /* Duplicate current value to new strucutre for modification. */
-      info.peer = peer;
-      info.attr = attr;
-
-      SET_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IMPORT);
-
-      /* Apply BGP route map to the attribute. */
-      ret = route_map_apply (ROUTE_MAP_IMPORT (filter), p, RMAP_BGP, &info);
-
-      peer->rmap_type = 0;
-
-      if (ret == RMAP_DENYMATCH)
-        {
-          /* Free newly generated AS path and community by route-map. */
-          bgp_attr_flush (attr);
-          return RMAP_DENY;
-        }
-    }
-  return RMAP_PERMIT;
-}
-
-
 /* If this is an EBGP peer with remove-private-AS */
 static void
 bgp_peer_remove_private_as(struct bgp *bgp, afi_t afi, safi_t safi,
@@ -1251,12 +1176,6 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
       {
 	return 0;
       }
-
-  /* Do not send announces to RS-clients from the 'normal' bgp_table. */
-  if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-    {
-      return 0;
-    }
 
   /* Do not send back route to sender. */
   if (onlypeer && from == onlypeer)
@@ -1556,209 +1475,6 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
   return 1;
 }
 
-static int
-subgroup_announce_check_rsclient (struct bgp_info *ri,
-				  struct update_subgroup *subgrp,
-				  struct prefix *p, struct attr *attr)
-{
-  int ret;
-  char buf[SU_ADDRSTRLEN];
-  struct bgp_filter *filter;
-  struct bgp_info info;
-  struct peer *from;
-  struct peer *rsclient;
-  struct peer *onlypeer;
-  struct attr *riattr;
-  struct bgp *bgp;
-  afi_t afi;
-  safi_t safi;
-
-  if (DISABLE_BGP_ANNOUNCE)
-    return 0;
-
-  afi = SUBGRP_AFI(subgrp);
-  safi = SUBGRP_SAFI(subgrp);
-  rsclient = SUBGRP_PEER(subgrp);
-  onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ?
-	      (SUBGRP_PFIRST(subgrp))->peer : NULL);
-  from = ri->peer;
-  filter = &rsclient->filter[afi][safi];
-  bgp = rsclient->bgp;
-  riattr = bgp_info_mpath_count (ri) ? bgp_info_mpath_attr (ri) : ri->attr;
-
-  /* Do not send back route to sender. */
-  if (onlypeer && (from == onlypeer))
-    return 0;
-
-  /* Aggregate-address suppress check. */
-  if (ri->extra && ri->extra->suppress)
-    if (! UNSUPPRESS_MAP_NAME (filter))
-      return 0;
-
-  /* Default route check.  */
-  if (subgrp && CHECK_FLAG (subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
-    {
-      if (p->family == AF_INET && p->u.prefix4.s_addr == INADDR_ANY)
-        return 0;
-#ifdef HAVE_IPV6
-      else if (p->family == AF_INET6 && p->prefixlen == 0)
-        return 0;
-#endif /* HAVE_IPV6 */
-    }
-
-  /* If the attribute has originator-id and it is same as remote
-     peer's id. */
-  if (onlypeer && riattr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID))
-    {
-      if (IPV4_ADDR_SAME (&onlypeer->remote_id,
-                          &riattr->extra->originator_id))
-        {
-          if (bgp_debug_update(rsclient, p, subgrp->update_group, 0))
-            zlog_debug ("%s [Update:SEND] %s/%d originator-id is same as remote router-id",
-                 onlypeer->host,
-                        inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                        p->prefixlen);
-         return 0;
-       }
-    }
-
-  /* ORF prefix-list filter check */
-  if (CHECK_FLAG (rsclient->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_ADV)
-      && (CHECK_FLAG (rsclient->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
-         || CHECK_FLAG (rsclient->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)))
-    if (rsclient->orf_plist[afi][safi])
-      {
-       if (prefix_list_apply (rsclient->orf_plist[afi][safi], p) == PREFIX_DENY)
-          return 0;
-      }
-
-  /* Output filter check. */
-  if (bgp_output_filter (rsclient, p, riattr, afi, safi) == FILTER_DENY)
-    {
-      if (bgp_debug_update(rsclient, p, subgrp->update_group, 0))
-        zlog_debug ("%s [Update:SEND] %s/%d is filtered",
-                    rsclient->host,
-                    inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                    p->prefixlen);
-      return 0;
-    }
-
-#ifdef BGP_SEND_ASPATH_CHECK
-  /* AS path loop check. */
-  if (onlypeer && aspath_loop_check (riattr->aspath, onlypeer->as))
-    {
-      if (bgp_debug_update(rsclient, p, subgrp->update_group, 0))
-        zlog_debug ("%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
-                    onlypeer->host, onlypeer->as);
-      return 0;
-    }
-#endif /* BGP_SEND_ASPATH_CHECK */
-
-  /* For modify attribute, copy it to temporary structure. */
-  bgp_attr_dup (attr, riattr);
-
-  /* next-hop-set */
-  if ((p->family == AF_INET && !peer_cap_enhe(rsclient)
-       && attr->nexthop.s_addr == 0)
-#ifdef HAVE_IPV6
-          || ((p->family == AF_INET6 || peer_cap_enhe(rsclient)) &&
-              IN6_IS_ADDR_UNSPECIFIED(&attr->extra->mp_nexthop_global))
-#endif /* HAVE_IPV6 */
-     )
-  {
-    /* Set IPv4 nexthop. */
-    if (p->family == AF_INET)
-      {
-        if (safi == SAFI_MPLS_VPN)
-          memcpy (&attr->extra->mp_nexthop_global_in, &rsclient->nexthop.v4,
-                  IPV4_MAX_BYTELEN);
-        else if (!peer_cap_enhe(rsclient))
-          memcpy (&attr->nexthop, &rsclient->nexthop.v4, IPV4_MAX_BYTELEN);
-      }
-#ifdef HAVE_IPV6
-    /* Set IPv6 nexthop. */
-    if (p->family == AF_INET6 || peer_cap_enhe(rsclient))
-      {
-        /* IPv6 global nexthop must be included. */
-        memcpy (&attr->extra->mp_nexthop_global, &rsclient->nexthop.v6_global,
-                IPV6_MAX_BYTELEN);
-        attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-      }
-#endif /* HAVE_IPV6 */
-  }
-
-#ifdef HAVE_IPV6
-  if (p->family == AF_INET6 || peer_cap_enhe(rsclient))
-    {
-      struct attr_extra *attre = attr->extra;
-
-      /* Left nexthop_local unchanged if so configured. */
-      if ( CHECK_FLAG (rsclient->af_flags[afi][safi],
-           PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) )
-        {
-          if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
-            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-          else
-            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-        }
-
-      /* Default nexthop_local treatment for RS-Clients */
-      else
-        {
-          /* Announcer and RS-Client are both in the same network */
-          if (rsclient->shared_network && from->shared_network &&
-              (rsclient->ifindex == from->ifindex))
-            {
-              if ( IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local) )
-                attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-              else
-                attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-            }
-
-          /* Set link-local address for shared network peer. */
-          else if (rsclient->shared_network
-              && IN6_IS_ADDR_LINKLOCAL (&rsclient->nexthop.v6_local))
-            {
-              memcpy (&attre->mp_nexthop_local, &rsclient->nexthop.v6_local,
-                      IPV6_MAX_BYTELEN);
-              attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-            }
-
-          else
-            attre->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-        }
-
-    }
-#endif /* HAVE_IPV6 */
-
-  bgp_peer_remove_private_as(bgp, afi, safi, rsclient, attr);
-  bgp_peer_as_override(bgp, afi, safi, rsclient, attr);
-
-  /* Route map & unsuppress-map apply. */
-  if (ROUTE_MAP_OUT_NAME (filter) || (ri->extra && ri->extra->suppress) )
-    {
-      info.peer = rsclient;
-      info.attr = attr;
-
-      SET_FLAG (rsclient->rmap_type, PEER_RMAP_TYPE_OUT);
-
-      if (ri->extra && ri->extra->suppress)
-        ret = route_map_apply (UNSUPPRESS_MAP (filter), p, RMAP_BGP, &info);
-      else
-        ret = route_map_apply (ROUTE_MAP_OUT (filter), p, RMAP_BGP, &info);
-
-      rsclient->rmap_type = 0;
-
-      if (ret == RMAP_DENYMATCH)
-       {
-         bgp_attr_flush (attr);
-         return 0;
-       }
-    }
-
-  return 1;
-}
-
 struct bgp_info_pair
 {
   struct bgp_info *old;
@@ -1971,46 +1687,22 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
 			      PEER_STATUS_ORF_WAIT_REFRESH))
     return 0;
 
-  /* It's initialized in bgp_announce_[check|check_rsclient]() */
+  /* It's initialized in bgp_announce_check() */
   attr.extra = &extra;
 
-  switch (bgp_node_table (rn)->type)
+  /* Announcement to the subgroup.  If the route is filtered withdraw it. */
+  if (selected)
     {
-      case BGP_TABLE_MAIN:
-      /* Announcement to the subgroup.  If the route is filtered,
-         withdraw it. */
-        if (selected)
-          {
-            if (subgroup_announce_check(selected, subgrp, p, &attr))
-              bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
-            else
-              bgp_adj_out_unset_subgroup(rn, subgrp, 1, selected->addpath_tx_id);
-          }
+      if (subgroup_announce_check(selected, subgrp, p, &attr))
+        bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
+      else
+        bgp_adj_out_unset_subgroup(rn, subgrp, 1, selected->addpath_tx_id);
+    }
 
-        /* If selected is NULL we must withdraw the path using addpath_tx_id */
-        else
-          {
-            bgp_adj_out_unset_subgroup(rn, subgrp, 1, addpath_tx_id);
-          }
-        break;
-
-      case BGP_TABLE_RSCLIENT:
-        /* Announcement to peer->conf.  If the route is filtered,
-           withdraw it. */
-        if (selected)
-          {
-            if (subgroup_announce_check_rsclient(selected, subgrp, p, &attr))
-              bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
-            else
-              bgp_adj_out_unset_subgroup(rn, subgrp, 1, selected->addpath_tx_id);
-          }
-
-        /* If selected is NULL we must withdraw the path using addpath_tx_id */
-        else
-          {
-            bgp_adj_out_unset_subgroup(rn, subgrp, 1, addpath_tx_id);
-          }
-        break;
+  /* If selected is NULL we must withdraw the path using addpath_tx_id */
+  else
+    {
+      bgp_adj_out_unset_subgroup(rn, subgrp, 1, addpath_tx_id);
     }
 
   return 0;
@@ -2023,91 +1715,6 @@ struct bgp_process_queue
   afi_t afi;
   safi_t safi;
 };
-
-static wq_item_status
-bgp_process_rsclient (struct work_queue *wq, void *data)
-{
-  struct bgp_process_queue *pq = data;
-  struct bgp *bgp = pq->bgp;
-  struct bgp_node *rn = pq->rn;
-  afi_t afi = pq->afi;
-  safi_t safi = pq->safi;
-  struct bgp_info *new_select;
-  struct bgp_info *old_select;
-  struct bgp_info_pair old_and_new;
-  struct listnode *node, *nnode;
-  struct peer *rsclient;
-  struct peer_af *paf;
-  struct update_subgroup *subgrp;
-
-  /* Is it end of initial update? (after startup) */
-  if (!rn)
-    {
-      /* This is just to keep the display sane in case all the peers are
-         rsclients only */
-      quagga_timestamp(3, bgp->update_delay_zebra_resume_time,
-                       sizeof(bgp->update_delay_zebra_resume_time));
-
-      bgp->rsclient_peers_update_hold = 0;
-      bgp_start_routeadv(bgp);
-      return WQ_SUCCESS;
-    }
-
-  rsclient = bgp_node_table (rn)->owner;
-
-  /* Best path selection. */
-  bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
-  new_select = old_and_new.new;
-  old_select = old_and_new.old;
-
-  if (CHECK_FLAG (rsclient->sflags, PEER_STATUS_GROUP))
-    {
-      if (rsclient->group)
-        for (ALL_LIST_ELEMENTS (rsclient->group->peer, node, nnode, rsclient))
-          {
-            /* Nothing to do. */
-            if (old_select && old_select == new_select)
-              if (!CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
-                continue;
-
-            if (old_select)
-              bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
-            if (new_select)
-              {
-                bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
-                bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
-		UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
-             }
-
-	    paf = peer_af_find(rsclient, afi, safi);
-	    assert(paf);
-	    subgrp = PAF_SUBGRP(paf);
-	    if (!subgrp) /* not an established session */
-	      continue;
-            subgroup_process_announce_selected (subgrp, new_select, rn, new_select->addpath_tx_id);
-          }
-    }
-  else
-    {
-      if (old_select)
-	bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
-      if (new_select)
-	{
-	  bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
-	  bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
-	  UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
-	}
-      paf = peer_af_find(rsclient, afi, safi);
-      if (paf && (subgrp = PAF_SUBGRP(paf))) /* if an established session */
-	subgroup_process_announce_selected (subgrp, new_select, rn, new_select->addpath_tx_id);
-    }
-
-  if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
-    bgp_info_reap (rn, old_select);
-
-  UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
-  return WQ_SUCCESS;
-}
 
 static wq_item_status
 bgp_process_main (struct work_queue *wq, void *data)
@@ -2239,18 +1846,12 @@ bgp_process_queue_init (void)
     {
       bm->process_main_queue
 	= work_queue_new (bm->master, "process_main_queue");
-    }
 
-  if (!bm->process_rsclient_queue)
-    {
-      bm->process_rsclient_queue
-	= work_queue_new (bm->master, "process_rsclient_queue");
-    }
-
-  if ( !(bm->process_main_queue && bm->process_rsclient_queue) )
-    {
-      zlog_err ("%s: Failed to allocate work queue", __func__);
-      exit (1);
+      if ( !bm->process_main_queue)
+        {
+          zlog_err ("%s: Failed to allocate work queue", __func__);
+          exit (1);
+        }
     }
   
   bm->process_main_queue->spec.workfunc = &bgp_process_main;
@@ -2259,13 +1860,6 @@ bgp_process_queue_init (void)
   bm->process_main_queue->spec.hold = 50;
   /* Use a higher yield value of 50ms for main queue processing */
   bm->process_main_queue->spec.yield = 50 * 1000L;
-  
-  bm->process_rsclient_queue->spec.workfunc = &bgp_process_rsclient;
-  bm->process_rsclient_queue->spec.del_item_data = &bgp_processq_del;
-  bm->process_rsclient_queue->spec.max_retries = 0;
-  bm->process_rsclient_queue->spec.hold = 50;
-  /* Use a higher yield value of 50ms for main queue processing */
-  bm->process_rsclient_queue->spec.yield = 50 * 1000L;
 }
 
 void
@@ -2277,8 +1871,7 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   if (CHECK_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED))
     return;
 
-  if ( (bm->process_main_queue == NULL) ||
-       (bm->process_rsclient_queue == NULL) )
+  if (bm->process_main_queue == NULL)
     bgp_process_queue_init ();
 
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE, 
@@ -2293,28 +1886,17 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   bgp_lock (bgp);
   pqnode->afi = afi;
   pqnode->safi = safi;
-  
-  switch (bgp_node_table (rn)->type)
-    {
-      case BGP_TABLE_MAIN:
-        work_queue_add (bm->process_main_queue, pqnode);
-        break;
-      case BGP_TABLE_RSCLIENT:
-        work_queue_add (bm->process_rsclient_queue, pqnode);
-        break;
-    }
-  
+  work_queue_add (bm->process_main_queue, pqnode);
   SET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return;
 }
 
 void
-bgp_add_eoiu_mark (struct bgp *bgp, bgp_table_t type)
+bgp_add_eoiu_mark (struct bgp *bgp)
 {
   struct bgp_process_queue *pqnode;
 
-  if ( (bm->process_main_queue == NULL) ||
-       (bm->process_rsclient_queue == NULL) )
+  if (bm->process_main_queue == NULL)
     bgp_process_queue_init ();
 
   pqnode = XCALLOC (MTYPE_BGP_PROCESS_QUEUE,
@@ -2325,17 +1907,7 @@ bgp_add_eoiu_mark (struct bgp *bgp, bgp_table_t type)
   pqnode->rn = NULL;
   pqnode->bgp = bgp;
   bgp_lock (bgp);
-  switch (type)
-    {
-      case BGP_TABLE_MAIN:
-        work_queue_add (bm->process_main_queue, pqnode);
-        break;
-      case BGP_TABLE_RSCLIENT:
-        work_queue_add (bm->process_rsclient_queue, pqnode);
-        break;
-    }
-
-  return;
+  work_queue_add (bm->process_main_queue, pqnode);
 }
 
 static int
@@ -2546,226 +2118,6 @@ bgp_update_martian_nexthop (afi_t afi, safi_t safi, struct attr *attr)
     }
 
   return ret;
-}
-
-static void
-bgp_update_rsclient (struct peer *rsclient, u_int32_t addpath_id,
-                     afi_t afi, safi_t safi, struct attr *attr,
-                     struct peer *peer, struct prefix *p, int type,
-                     int sub_type, struct prefix_rd *prd, u_char *tag)
-{
-  struct bgp_node *rn;
-  struct bgp *bgp;
-  struct attr new_attr;
-  struct attr_extra new_extra;
-  struct attr *attr_new;
-  struct attr *attr_new2;
-  struct bgp_info *ri;
-  struct bgp_info *new;
-  const char *reason;
-  char buf[SU_ADDRSTRLEN];
-  char buf2[30];
-
-  /* Do not insert announces from a rsclient into its own 'bgp_table'. */
-  if (peer == rsclient)
-    return;
-
-  bgp = peer->bgp;
-  rn = bgp_afi_node_get (rsclient->rib[afi][safi], afi, safi, p, prd);
-
-  /* Check previously received route. */
-  for (ri = rn->info; ri; ri = ri->next)
-    if (ri->peer == peer && ri->type == type && ri->sub_type == sub_type &&
-        ri->addpath_rx_id == addpath_id)
-      break;
-
-  /* AS path loop check. */
-  if (aspath_loop_check (attr->aspath, rsclient->as) > rsclient->allowas_in[afi][safi])
-    {
-      reason = "as-path contains our own AS;";
-      goto filtered;
-    }
-
-  /* Route reflector originator ID check.  */
-  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID)
-      && IPV4_ADDR_SAME (&rsclient->remote_id, &attr->extra->originator_id))
-    {
-      reason = "originator is us;";
-      goto filtered;
-    }
-  
-  new_attr.extra = &new_extra;
-  bgp_attr_dup (&new_attr, attr);
-
-  /* Apply export policy. */
-  if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT) &&
-        bgp_export_modifier (rsclient, peer, p, &new_attr, afi, safi) == RMAP_DENY)
-    {
-      reason = "export-policy;";
-      goto filtered;
-    }
-
-  attr_new2 = bgp_attr_intern (&new_attr);
-  
-  /* Apply import policy. */
-  if (bgp_import_modifier (rsclient, peer, p, &new_attr, afi, safi) == RMAP_DENY)
-    {
-      bgp_attr_unintern (&attr_new2);
-
-      reason = "import-policy;";
-      goto filtered;
-    }
-
-  attr_new = bgp_attr_intern (&new_attr);
-  bgp_attr_unintern (&attr_new2);
-
-  /* next hop check.  */
-  if (bgp_update_martian_nexthop (afi, safi, &new_attr))
-    {
-       bgp_attr_unintern (&attr_new);
-       reason = "martian next-hop;";
-       goto filtered;
-    }
-
-  /* If the update is implicit withdraw. */
-  if (ri)
-    {
-      ri->uptime = bgp_clock ();
-
-      /* Same attribute comes in. */
-      if (!CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)
-          && attrhash_cmp (ri->attr, attr_new))
-        {
-
-          if (bgp_debug_update(peer, p, NULL, 1))
-            {
-              bgp_info_addpath_rx_str(ri, buf2);
-              zlog_debug ("%s rcvd %s/%d%s for RS-client %s...duplicate ignored",
-                          peer->host,
-                          inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                          p->prefixlen, buf2, rsclient->host);
-            }
-
-          bgp_unlock_node (rn);
-          bgp_attr_unintern (&attr_new);
-
-          return;
-        }
-
-      /* Withdraw/Announce before we fully processed the withdraw */
-      if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
-        bgp_info_restore (rn, ri);
-      
-      /* Received Logging. */
-      if (bgp_debug_update(peer, p, NULL, 1))
-        {
-          bgp_info_addpath_rx_str(ri, buf2);
-          zlog_debug ("%s rcvd %s/%d%s for RS-client %s",
-                      peer->host,
-                      inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                      p->prefixlen, buf2, rsclient->host);
-        }
-
-      /* The attribute is changed. */
-      bgp_info_set_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
-
-      /* Update to new attribute.  */
-      bgp_attr_unintern (&ri->attr);
-      ri->attr = attr_new;
-
-      /* Update MPLS tag.  */
-      if (safi == SAFI_MPLS_VPN)
-        memcpy ((bgp_info_extra_get (ri))->tag, tag, 3);
-
-      bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
-
-      /* Process change. */
-      bgp_process (bgp, rn, afi, safi);
-      bgp_unlock_node (rn);
-
-      return;
-    }
-
-  /* Received Logging. */
-  if (bgp_debug_update(peer, p, NULL, 1))
-    {
-      bgp_info_addpath_rx_str(ri, buf2);
-      zlog_debug ("%s rcvd %s/%d%s for RS-client %s",
-                  peer->host,
-                  inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                  p->prefixlen, buf2, rsclient->host);
-    }
-
-  new = info_make(type, sub_type, 0, peer, attr_new, rn);
-
-  /* Update MPLS tag. */
-  if (safi == SAFI_MPLS_VPN)
-    memcpy ((bgp_info_extra_get (new))->tag, tag, 3);
-
-  bgp_info_set_flag (rn, new, BGP_INFO_VALID);
-
-  /* Register new BGP information. */
-  bgp_info_add (rn, new);
-  
-  /* route_node_get lock */
-  bgp_unlock_node (rn);
-  
-  /* Process change. */
-  bgp_process (bgp, rn, afi, safi);
-
-  return;
-
- filtered: 
-
-  /* This BGP update is filtered.  Log the reason then update BGP entry.  */
-  if (bgp_debug_update(peer, p, NULL, 1))
-    {
-      bgp_info_addpath_rx_str(ri, buf2);
-      zlog_debug ("%s rcvd UPDATE about %s/%d%s -- DENIED for RS-client %s due to: %s",
-                  peer->host,
-                  inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                  p->prefixlen, buf2, rsclient->host, reason);
-    }
-
-  if (ri)
-    bgp_rib_remove (rn, ri, peer, afi, safi);
-
-  bgp_unlock_node (rn);
-
-  return;
-}
-
-static void
-bgp_withdraw_rsclient (struct peer *rsclient, u_int32_t addpath_id,
-                       afi_t afi, safi_t safi, struct peer *peer,
-                       struct prefix *p, int type, int sub_type,
-                       struct prefix_rd *prd, u_char *tag)
-{
-  struct bgp_node *rn;
-  struct bgp_info *ri;
-  char buf[SU_ADDRSTRLEN];
-
-  if (rsclient == peer)
-    return;
-
-  rn = bgp_afi_node_get (rsclient->rib[afi][safi], afi, safi, p, prd);
-
-  /* Lookup withdrawn route. */
-  for (ri = rn->info; ri; ri = ri->next)
-    if (ri->peer == peer && ri->type == type && ri->sub_type == sub_type &&
-        ri->addpath_rx_id == addpath_id)
-      break;
-
-  /* Withdraw specified route from routing table. */
-  if (ri && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
-    bgp_rib_withdraw (rn, ri, peer, afi, safi);
-  else if (bgp_debug_update(peer, p, NULL, 1))
-    zlog_debug ("%s Can't find the route %s/%d", peer->host,
-                inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                p->prefixlen);
-
-  /* Unlock bgp_node_get() lock. */
-  bgp_unlock_node (rn);
 }
 
 static int
@@ -3135,25 +2487,8 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
             struct attr *attr, afi_t afi, safi_t safi, int type, int sub_type,
             struct prefix_rd *prd, u_char *tag, int soft_reconfig)
 {
-  struct peer *rsclient;
-  struct listnode *node, *nnode;
-  struct bgp *bgp;
-  int ret;
-
-  ret = bgp_update_main (peer, p, addpath_id, attr, afi, safi, type, sub_type,
-                         prd, tag, soft_reconfig);
-
-  bgp = peer->bgp;
-
-  /* Process the update for each RS-client. */
-  for (ALL_LIST_ELEMENTS (bgp->rsclient, node, nnode, rsclient))
-    {
-      if (CHECK_FLAG (rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-        bgp_update_rsclient (rsclient, addpath_id, afi, safi, attr, peer, p,
-                             type, sub_type, prd, tag);
-    }
-
-  return ret;
+  return bgp_update_main (peer, p, addpath_id, attr, afi, safi, type, sub_type,
+                          prd, tag, soft_reconfig);
 }
 
 int
@@ -3166,18 +2501,8 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   char buf2[30];
   struct bgp_node *rn;
   struct bgp_info *ri;
-  struct peer *rsclient;
-  struct listnode *node, *nnode;
 
   bgp = peer->bgp;
-
-  /* Process the withdraw for each RS-client. */
-  for (ALL_LIST_ELEMENTS (bgp->rsclient, node, nnode, rsclient))
-    {
-      if (CHECK_FLAG (rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-        bgp_withdraw_rsclient (rsclient, addpath_id, afi, safi, peer, p, type,
-                               sub_type, prd, tag);
-    }
 
   /* Lookup node. */
   rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, p, prd);
@@ -3325,51 +2650,6 @@ bgp_announce_route_all (struct peer *peer)
 }
 
 static void
-bgp_soft_reconfig_table_rsclient (struct peer *rsclient, afi_t afi,
-        safi_t safi, struct bgp_table *table, struct prefix_rd *prd)
-{
-  struct bgp_node *rn;
-  struct bgp_adj_in *ain;
-
-  if (! table)
-    table = rsclient->bgp->rib[afi][safi];
-
-  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
-    for (ain = rn->adj_in; ain; ain = ain->next)
-      {
-        struct bgp_info *ri = rn->info;
-        u_char *tag = (ri && ri->extra) ? ri->extra->tag : NULL;
-
-        bgp_update_rsclient (rsclient, ri->addpath_rx_id, afi, safi, ain->attr,
-                             ain->peer, &rn->p, ZEBRA_ROUTE_BGP,
-                             BGP_ROUTE_NORMAL, prd, tag);
-      }
-}
-
-void
-bgp_soft_reconfig_rsclient (struct peer *rsclient, afi_t afi, safi_t safi)
-{
-  struct bgp_table *table;
-  struct bgp_node *rn;
-  
-  if (safi != SAFI_MPLS_VPN)
-    bgp_soft_reconfig_table_rsclient (rsclient, afi, safi, NULL, NULL);
-
-  else
-    for (rn = bgp_table_top (rsclient->bgp->rib[afi][safi]); rn;
-            rn = bgp_route_next (rn))
-      if ((table = rn->info) != NULL)
-        {
-          struct prefix_rd prd;
-          prd.family = AF_UNSPEC;
-          prd.prefixlen = 64;
-          memcpy(&prd.val, rn->p.u.val, 8);
-
-          bgp_soft_reconfig_table_rsclient (rsclient, afi, safi, table, &prd);
-        }
-}
-
-static void
 bgp_soft_reconfig_table (struct peer *peer, afi_t afi, safi_t safi,
 			 struct bgp_table *table, struct prefix_rd *prd)
 {
@@ -3430,7 +2710,6 @@ bgp_soft_reconfig_in (struct peer *peer, afi_t afi, safi_t safi)
 struct bgp_clear_node_queue
 {
   struct bgp_node *rn;
-  enum bgp_clear_route_type purpose;
 };
 
 static wq_item_status
@@ -3449,7 +2728,7 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
    * if that peer is using AddPath.
    */
   for (ri = rn->info; ri; ri = ri->next)
-    if (ri->peer == peer || cnq->purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
+    if (ri->peer == peer)
       {
         /* graceful restart STALE flag set. */
         if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT)
@@ -3511,14 +2790,13 @@ bgp_clear_node_queue_init (struct peer *peer)
 
 static void
 bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
-                       struct bgp_table *table, struct peer *rsclient,
-                       enum bgp_clear_route_type purpose)
+                       struct bgp_table *table)
 {
   struct bgp_node *rn;
   
   
   if (! table)
-    table = (rsclient) ? rsclient->rib[afi][safi] : peer->bgp->rib[afi][safi];
+    table = peer->bgp->rib[afi][safi];
   
   /* If still no table => afi/safi isn't configured at all or smth. */
   if (! table)
@@ -3569,7 +2847,7 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
         {
           ain_next = ain->next;
 
-          if (ain->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
+          if (ain->peer == peer)
             {
               bgp_adj_in_remove (rn, ain);
               bgp_unlock_node (rn);
@@ -3579,7 +2857,7 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
         }
 
       for (ri = rn->info; ri; ri = ri->next)
-        if (ri->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
+        if (ri->peer == peer)
           {
             struct bgp_clear_node_queue *cnq;
 
@@ -3589,7 +2867,6 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
             cnq = XCALLOC (MTYPE_BGP_CLEAR_NODE_QUEUE,
                            sizeof (struct bgp_clear_node_queue));
             cnq->rn = rn;
-            cnq->purpose = purpose;
             work_queue_add (peer->clear_node_queue, cnq);
             break;
           }
@@ -3598,13 +2875,10 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
 }
 
 void
-bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi,
-                 enum bgp_clear_route_type purpose)
+bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct bgp_node *rn;
   struct bgp_table *table;
-  struct peer *rsclient;
-  struct listnode *node, *nnode;
 
   if (peer->clear_node_queue == NULL)
     bgp_clear_node_queue_init (peer);
@@ -3629,31 +2903,13 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi,
   if (!peer->clear_node_queue->thread)
     peer_lock (peer);
 
-  switch (purpose)
-    {
-    case BGP_CLEAR_ROUTE_NORMAL:
-      if (safi != SAFI_MPLS_VPN)
-        bgp_clear_route_table (peer, afi, safi, NULL, NULL, purpose);
-      else
-        for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
-             rn = bgp_route_next (rn))
-          if ((table = rn->info) != NULL)
-            bgp_clear_route_table (peer, afi, safi, table, NULL, purpose);
-
-      for (ALL_LIST_ELEMENTS (peer->bgp->rsclient, node, nnode, rsclient))
-        if (CHECK_FLAG(rsclient->af_flags[afi][safi],
-                       PEER_FLAG_RSERVER_CLIENT))
-          bgp_clear_route_table (peer, afi, safi, NULL, rsclient, purpose);
-      break;
-
-    case BGP_CLEAR_ROUTE_MY_RSCLIENT:
-      bgp_clear_route_table (peer, afi, safi, NULL, peer, purpose);
-      break;
-
-    default:
-      assert (0);
-      break;
-    }
+  if (safi != SAFI_MPLS_VPN)
+    bgp_clear_route_table (peer, afi, safi, NULL);
+  else
+    for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
+         rn = bgp_route_next (rn))
+      if ((table = rn->info) != NULL)
+        bgp_clear_route_table (peer, afi, safi, table);
 
   /* unlock if no nodes got added to the clear-node-queue. */
   if (!peer->clear_node_queue->thread)
@@ -3669,7 +2925,7 @@ bgp_clear_route_all (struct peer *peer)
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-      bgp_clear_route (peer, afi, safi, BGP_CLEAR_ROUTE_NORMAL);
+      bgp_clear_route (peer, afi, safi);
 }
 
 void
@@ -3988,238 +3244,6 @@ bgp_static_free (struct bgp_static *bgp_static)
 }
 
 static void
-bgp_static_withdraw_rsclient (struct bgp *bgp, struct peer *rsclient,
-        struct prefix *p, afi_t afi, safi_t safi)
-{
-  struct bgp_node *rn;
-  struct bgp_info *ri;
-
-  rn = bgp_afi_node_get (rsclient->rib[afi][safi], afi, safi, p, NULL);
-
-  /* Check selected route and self inserted route. */
-  for (ri = rn->info; ri; ri = ri->next)
-    if (ri->peer == bgp->peer_self
-       && ri->type == ZEBRA_ROUTE_BGP
-       && ri->sub_type == BGP_ROUTE_STATIC)
-      break;
-
-  /* Withdraw static BGP route from routing table. */
-  if (ri)
-    {
-      bgp_info_delete (rn, ri);
-      bgp_process (bgp, rn, afi, safi);
-    }
-
-  /* Unlock bgp_node_lookup. */
-  bgp_unlock_node (rn);
-}
-
-static void
-bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
-                            struct bgp_static *bgp_static,
-                            afi_t afi, safi_t safi)
-{
-  struct bgp_node *rn;
-  struct bgp_info *ri;
-  struct bgp_info *new;
-  struct bgp_info info;
-  struct attr *attr_new;
-  struct attr attr;
-  struct attr new_attr;
-  struct attr_extra new_extra;
-  struct bgp *bgp;
-  int ret;
-  char buf[SU_ADDRSTRLEN];
-
-  bgp = rsclient->bgp;
-
-  assert (bgp_static);
-  if (!bgp_static)
-    return;
-
-  rn = bgp_afi_node_get (rsclient->rib[afi][safi], afi, safi, p, NULL);
-
-  bgp_attr_default_set (&attr, BGP_ORIGIN_IGP);
-
-  attr.nexthop = bgp_static->igpnexthop;
-  attr.med = bgp_static->igpmetric;
-  attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
-  
-  if (bgp_static->atomic)
-    attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_ATOMIC_AGGREGATE);
-  
-  /* Apply network route-map for export to this rsclient. */
-  if (bgp_static->rmap.name)
-    {
-      struct attr attr_tmp = attr;
-      info.peer = rsclient;
-      info.attr = &attr_tmp;
-      
-      SET_FLAG (rsclient->rmap_type, PEER_RMAP_TYPE_EXPORT);
-      SET_FLAG (rsclient->rmap_type, PEER_RMAP_TYPE_NETWORK);
-
-      ret = route_map_apply (bgp_static->rmap.map, p, RMAP_BGP, &info);
-
-      rsclient->rmap_type = 0;
-
-      if (ret == RMAP_DENYMATCH)
-        {
-          /* Free uninterned attribute. */
-          bgp_attr_flush (&attr_tmp);
-
-          /* Unintern original. */
-          aspath_unintern (&attr.aspath);
-          bgp_static_withdraw_rsclient (bgp, rsclient, p, afi, safi);
-          bgp_attr_extra_free (&attr);
-          
-          return;
-        }
-      attr_new = bgp_attr_intern (&attr_tmp);
-    }
-  else
-    attr_new = bgp_attr_intern (&attr);
-
-  new_attr.extra = &new_extra;
-  bgp_attr_dup(&new_attr, attr_new);
-  
-  SET_FLAG (bgp->peer_self->rmap_type, PEER_RMAP_TYPE_NETWORK);
-
-  if (bgp_import_modifier (rsclient, bgp->peer_self, p, &new_attr, afi, safi) 
-        == RMAP_DENY)
-    {
-      /* This BGP update is filtered.  Log the reason then update BGP entry.  */
-      if (bgp_debug_update(rsclient, p, NULL, 1))
-        zlog_debug ("Static UPDATE about %s/%d -- DENIED for RS-client %s due to: import-policy",
-                    inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                    p->prefixlen, rsclient->host);
-
-      bgp->peer_self->rmap_type = 0;
-
-      bgp_attr_unintern (&attr_new);
-      aspath_unintern (&attr.aspath);
-      bgp_attr_extra_free (&attr);
-
-      bgp_static_withdraw_rsclient (bgp, rsclient, p, afi, safi);
-      
-      return;
-    }
-
-  bgp->peer_self->rmap_type = 0;
-
-  bgp_attr_unintern (&attr_new);
-  attr_new = bgp_attr_intern (&new_attr);
-
-  for (ri = rn->info; ri; ri = ri->next)
-    if (ri->peer == bgp->peer_self && ri->type == ZEBRA_ROUTE_BGP
-            && ri->sub_type == BGP_ROUTE_STATIC)
-      break;
-
-  if (ri)
-       {
-      if (attrhash_cmp (ri->attr, attr_new) &&
-	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED) &&
-	  !bgp_flag_check(bgp, BGP_FLAG_FORCE_STATIC_PROCESS))
-        {
-          bgp_unlock_node (rn);
-          bgp_attr_unintern (&attr_new);
-          aspath_unintern (&attr.aspath);
-          bgp_attr_extra_free (&attr);
-          return;
-       }
-      else
-        {
-          /* The attribute is changed. */
-          bgp_info_set_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
-
-          /* Rewrite BGP route information. */
-	  if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
-	    bgp_info_restore(rn, ri);
-          bgp_attr_unintern (&ri->attr);
-          ri->attr = attr_new;
-          ri->uptime = bgp_clock ();
-
-	  /* Nexthop reachability check. */
-	  if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
-	    {
-	      if (bgp_find_or_add_nexthop (bgp, afi, ri, NULL, 0))
-		bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
-	      else
-		{
-		  if (BGP_DEBUG(nht, NHT))
-		    {
-		      char buf1[INET6_ADDRSTRLEN];
-		      inet_ntop (p->family, &p->u.prefix, buf1,
-				 INET6_ADDRSTRLEN);
-		      zlog_debug("%s(%s): Route not in table, not advertising",
-				 __FUNCTION__, buf1);
-		    }
-		  bgp_info_unset_flag (rn, ri, BGP_INFO_VALID);
-		}
-	    }
-	  else
-	    {
-	      /* Delete the NHT structure if any, if we're toggling between
-	       * enabling/disabling import check. We deregister the route
-	       * from NHT to avoid overloading NHT and the process interaction
-	       */
-	      bgp_unlink_nexthop(ri);
-	      bgp_info_set_flag (rn, ri, BGP_INFO_VALID);
-	    }
-          /* Process change. */
-          bgp_process (bgp, rn, afi, safi);
-          bgp_unlock_node (rn);
-          aspath_unintern (&attr.aspath);
-          bgp_attr_extra_free (&attr);
-          return;
-        }
-    }
-
-  /* Make new BGP info. */
-  new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp->peer_self,
-		  attr_new, rn);
-  /* Nexthop reachability check. */
-  if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK))
-    {
-      if (bgp_find_or_add_nexthop (bgp, afi, new, NULL, 0))
-	bgp_info_set_flag (rn, new, BGP_INFO_VALID);
-      else
-	{
-	  if (BGP_DEBUG(nht, NHT))
-	    {
-	      char buf1[INET6_ADDRSTRLEN];
-	      inet_ntop(p->family, &p->u.prefix, buf1,
-			INET6_ADDRSTRLEN);
-	      zlog_debug("%s(%s): Route not in table, not advertising", __FUNCTION__,
-			 buf1);
-	    }
-	  bgp_info_unset_flag (rn, new, BGP_INFO_VALID);
-	}
-    }
-  else
-    {
-      /* Delete the NHT structure if any, if we're toggling between
-       * enabling/disabling import check. We deregister the route
-       * from NHT to avoid overloading NHT and the process interaction
-       */
-      bgp_unlink_nexthop(new);
-      bgp_info_set_flag (rn, new, BGP_INFO_VALID);
-    }
-
-  /* Register new BGP information. */
-  bgp_info_add (rn, new);
-  
-  /* route_node_get lock */
-  bgp_unlock_node (rn);
-  
-  /* Process change. */
-  bgp_process (bgp, rn, afi, safi);
-
-  /* Unintern original. */
-  aspath_unintern (&attr.aspath);
-  bgp_attr_extra_free (&attr);
-}
-
-static void
 bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 			struct bgp_static *bgp_static, afi_t afi, safi_t safi)
 {
@@ -4396,16 +3420,7 @@ void
 bgp_static_update (struct bgp *bgp, struct prefix *p,
                   struct bgp_static *bgp_static, afi_t afi, safi_t safi)
 {
-  struct peer *rsclient;
-  struct listnode *node, *nnode;
-
   bgp_static_update_main (bgp, p, bgp_static, afi, safi);
-
-  for (ALL_LIST_ELEMENTS (bgp->rsclient, node, nnode, rsclient))
-    {
-      if (CHECK_FLAG (rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-        bgp_static_update_rsclient (rsclient, p, bgp_static, afi, safi);
-    }
 }
 
 static void
@@ -4465,26 +3480,6 @@ bgp_static_withdraw (struct bgp *bgp, struct prefix *p, afi_t afi,
 
   /* Unlock bgp_node_lookup. */
   bgp_unlock_node (rn);
-}
-
-void
-bgp_check_local_routes_rsclient (struct peer *rsclient, afi_t afi, safi_t safi)
-{
-  struct bgp_static *bgp_static;
-  struct bgp *bgp;
-  struct bgp_node *rn;
-  struct prefix *p;
-
-  bgp = rsclient->bgp;
-
-  for (rn = bgp_table_top (bgp->route[afi][safi]); rn; rn = bgp_route_next (rn))
-    if ((bgp_static = rn->info) != NULL)
-      {
-        p = &rn->p;
-
-        bgp_static_update_rsclient (rsclient, p, bgp_static,
-                afi, safi);
-      }
 }
 
 static void
@@ -13618,426 +12613,6 @@ DEFUN (show_ip_bgp_ipv4_neighbor_routes,
 				  bgp_show_type_neighbor, use_json);
 }
 
-DEFUN (show_ip_bgp_view_rsclient,
-       show_ip_bgp_view_rsclient_cmd,
-       "show ip bgp view WORD rsclient (A.B.C.D|X:X::X:X|WORD)",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3)
-{
-  struct bgp_table *table;
-  struct peer *peer;
-
-  if (argc == 2)
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], 0);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], 0);
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP][SAFI_UNICAST])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP][SAFI_UNICAST],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  table = peer->rib[AFI_IP][SAFI_UNICAST];
-
-  return bgp_show_table (vty, table, &peer->remote_id, bgp_show_type_normal,
-			 NULL, 0);
-}
-
-ALIAS (show_ip_bgp_view_rsclient,
-       show_ip_bgp_rsclient_cmd,
-       "show ip bgp rsclient (A.B.C.D|X:X::X:X|WORD)",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3)
-
-DEFUN (show_bgp_view_ipv4_safi_rsclient,
-       show_bgp_view_ipv4_safi_rsclient_cmd,
-       "show bgp view WORD ipv4 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD)",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3)
-{
-  struct bgp_table *table;
-  struct peer *peer;
-  safi_t safi;
-
-  if (argc == 3) {
-    peer = peer_lookup_in_view (vty, argv[0], argv[2], 0);
-    safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  } else {
-    peer = peer_lookup_in_view (vty, NULL, argv[1], 0);
-    safi = (strncmp (argv[0], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  }
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP][safi])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP][safi],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  table = peer->rib[AFI_IP][safi];
-
-  return bgp_show_table (vty, table, &peer->remote_id, bgp_show_type_normal,
-			 NULL, 0);
-}
-
-ALIAS (show_bgp_view_ipv4_safi_rsclient,
-       show_bgp_ipv4_safi_rsclient_cmd,
-       "show bgp ipv4 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD)",
-       SHOW_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3)
-
-DEFUN (show_ip_bgp_view_rsclient_route,
-       show_ip_bgp_view_rsclient_route_cmd,
-       "show ip bgp view WORD rsclient (A.B.C.D|X:X::X:X|WORD) A.B.C.D",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "Network in the BGP routing table to display\n")
-{
-  struct bgp *bgp;
-  struct peer *peer;
-
-  /* BGP structure lookup. */
-  if (argc == 3)
-    {
-      bgp = bgp_lookup_by_name (argv[0]);
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-
-  if (argc == 3)
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], 0);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], 0);
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP][SAFI_UNICAST])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP][SAFI_UNICAST],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
- 
-  return bgp_show_route_in_table (vty, bgp, peer->rib[AFI_IP][SAFI_UNICAST], 
-                                  (argc == 3) ? argv[2] : argv[1],
-                                  AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, 0);
-}
-
-ALIAS (show_ip_bgp_view_rsclient_route,
-       show_ip_bgp_rsclient_route_cmd,
-       "show ip bgp rsclient (A.B.C.D|X:X::X:X|WORD) A.B.C.D",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "Network in the BGP routing table to display\n")
-
-DEFUN (show_bgp_view_ipv4_safi_rsclient_route,
-       show_bgp_view_ipv4_safi_rsclient_route_cmd,
-       "show bgp view WORD ipv4 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD) A.B.C.D",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "Network in the BGP routing table to display\n")
-{
-  struct bgp *bgp;
-  struct peer *peer;
-  safi_t safi;
-
-  /* BGP structure lookup. */
-  if (argc == 4)
-    {
-      bgp = bgp_lookup_by_name (argv[0]);
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-
-  if (argc == 4) {
-    peer = peer_lookup_in_view (vty, argv[0], argv[2], 0);
-    safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  } else {
-    peer = peer_lookup_in_view (vty, NULL, argv[1], 0);
-    safi = (strncmp (argv[0], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  }
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP][safi])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-}
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP][safi],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_show_route_in_table (vty, bgp, peer->rib[AFI_IP][safi],
-                                  (argc == 4) ? argv[3] : argv[2],
-                                  AFI_IP, safi, NULL, 0, BGP_PATH_ALL, 0);
-}
-
-ALIAS (show_bgp_view_ipv4_safi_rsclient_route,
-       show_bgp_ipv4_safi_rsclient_route_cmd,
-       "show bgp ipv4 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD) A.B.C.D",
-       SHOW_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "Network in the BGP routing table to display\n")
-
-DEFUN (show_ip_bgp_view_rsclient_prefix,
-       show_ip_bgp_view_rsclient_prefix_cmd,
-       "show ip bgp view WORD rsclient (A.B.C.D|X:X::X:X|WORD) A.B.C.D/M",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
-{
-  struct bgp *bgp;
-  struct peer *peer;
-
-  /* BGP structure lookup. */
-  if (argc == 3)
-    {
-      bgp = bgp_lookup_by_name (argv[0]);
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-
-  if (argc == 3)
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], 0);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], 0);
-
-  if (! peer)
-    return CMD_WARNING;
-    
-  if (! peer->afc[AFI_IP][SAFI_UNICAST])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-}
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP][SAFI_UNICAST],
-              PEER_FLAG_RSERVER_CLIENT))
-{
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-    return CMD_WARNING;
-    }
-    
-  return bgp_show_route_in_table (vty, bgp, peer->rib[AFI_IP][SAFI_UNICAST], 
-                                  (argc == 3) ? argv[2] : argv[1],
-                                  AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, 0);
-}
-
-ALIAS (show_ip_bgp_view_rsclient_prefix,
-       show_ip_bgp_rsclient_prefix_cmd,
-       "show ip bgp rsclient (A.B.C.D|X:X::X:X|WORD) A.B.C.D/M",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
-
-DEFUN (show_bgp_view_ipv4_safi_rsclient_prefix,
-       show_bgp_view_ipv4_safi_rsclient_prefix_cmd,
-       "show bgp view WORD ipv4 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD) A.B.C.D/M",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
-{
-  struct bgp *bgp;
-  struct peer *peer;
-  safi_t safi;
-
-  /* BGP structure lookup. */
-  if (argc == 4)
-    {
-      bgp = bgp_lookup_by_name (argv[0]);
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-
-  if (argc == 4) {
-    peer = peer_lookup_in_view (vty, argv[0], argv[2], 0);
-    safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  } else {
-    peer = peer_lookup_in_view (vty, NULL, argv[1], 0);
-    safi = (strncmp (argv[0], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  }
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP][safi])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-}
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP][safi],
-              PEER_FLAG_RSERVER_CLIENT))
-{
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-    return CMD_WARNING;
-    }
-
-  return bgp_show_route_in_table (vty, bgp, peer->rib[AFI_IP][safi],
-                                  (argc == 4) ? argv[3] : argv[2],
-                                  AFI_IP, safi, NULL, 1, BGP_PATH_ALL, 0);
-}
-
-ALIAS (show_bgp_view_ipv4_safi_rsclient_prefix,
-       show_bgp_ipv4_safi_rsclient_prefix_cmd,
-       "show bgp ipv4 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD) A.B.C.D/M",
-       SHOW_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
-
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_view_neighbor_routes,
        show_bgp_view_neighbor_routes_cmd,
@@ -14308,420 +12883,6 @@ ALIAS (show_bgp_view_neighbor_damp,
        "Neighbor on bgp configured interface\n"
        "Display the dampened routes received from neighbor\n"
        "JavaScript Object Notation\n")
-
-DEFUN (show_bgp_view_rsclient,
-       show_bgp_view_rsclient_cmd,
-       "show bgp view WORD rsclient (A.B.C.D|X:X::X:X|WORD)",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3)
-{
-  struct bgp_table *table;
-  struct peer *peer;
-
-  if (argc == 2)
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], 0);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], 0);
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP6][SAFI_UNICAST])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP6][SAFI_UNICAST],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  table = peer->rib[AFI_IP6][SAFI_UNICAST];
-
-  return bgp_show_table (vty, table, &peer->remote_id, bgp_show_type_normal,
-			 NULL, 0);
-}
-
-ALIAS (show_bgp_view_rsclient,
-       show_bgp_rsclient_cmd,
-       "show bgp rsclient (A.B.C.D|X:X::X:X|WORD)",
-       SHOW_STR
-       BGP_STR
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3)
-
-DEFUN (show_bgp_view_ipv6_safi_rsclient,
-       show_bgp_view_ipv6_safi_rsclient_cmd,
-       "show bgp view WORD ipv6 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD)",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3)
-{
-  struct bgp_table *table;
-  struct peer *peer;
-  safi_t safi;
-
-  if (argc == 3) {
-    peer = peer_lookup_in_view (vty, argv[0], argv[2], 0);
-    safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  } else {
-    peer = peer_lookup_in_view (vty, NULL, argv[1], 0);
-    safi = (strncmp (argv[0], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  }
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP6][safi])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP6][safi],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  table = peer->rib[AFI_IP6][safi];
-
-  return bgp_show_table (vty, table, &peer->remote_id, bgp_show_type_normal,
-			 NULL, 0);
-}
-
-ALIAS (show_bgp_view_ipv6_safi_rsclient,
-       show_bgp_ipv6_safi_rsclient_cmd,
-       "show bgp ipv6 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD)",
-       SHOW_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3)
-
-DEFUN (show_bgp_view_rsclient_route,
-       show_bgp_view_rsclient_route_cmd,
-       "show bgp view WORD rsclient (A.B.C.D|X:X::X:X|WORD) X:X::X:X",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "Network in the BGP routing table to display\n")
-{
-  struct bgp *bgp;
-  struct peer *peer;
-
-  /* BGP structure lookup. */
-  if (argc == 3)
-    {
-      bgp = bgp_lookup_by_name (argv[0]);
-      if (bgp == NULL)
-        {
-          vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-        {
-          vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  if (argc == 3)
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], 0);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], 0);
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP6][SAFI_UNICAST])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP6][SAFI_UNICAST],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_show_route_in_table (vty, bgp, peer->rib[AFI_IP6][SAFI_UNICAST],
-                                  (argc == 3) ? argv[2] : argv[1],
-                                  AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, 0);
-}
-
-ALIAS (show_bgp_view_rsclient_route,
-       show_bgp_rsclient_route_cmd,
-       "show bgp rsclient (A.B.C.D|X:X::X:X|WORD) X:X::X:X",
-       SHOW_STR
-       BGP_STR
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "Network in the BGP routing table to display\n")
-
-DEFUN (show_bgp_view_ipv6_safi_rsclient_route,
-       show_bgp_view_ipv6_safi_rsclient_route_cmd,
-       "show bgp view WORD ipv6 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD) X:X::X:X",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "Network in the BGP routing table to display\n")
-{
-  struct bgp *bgp;
-  struct peer *peer;
-  safi_t safi;
-
-  /* BGP structure lookup. */
-  if (argc == 4)
-    {
-      bgp = bgp_lookup_by_name (argv[0]);
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-
-  if (argc == 4) {
-    peer = peer_lookup_in_view (vty, argv[0], argv[2], 0);
-    safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  } else {
-    peer = peer_lookup_in_view (vty, NULL, argv[1], 0);
-    safi = (strncmp (argv[0], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  }
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP6][safi])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-}
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP6][safi],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_show_route_in_table (vty, bgp, peer->rib[AFI_IP6][safi],
-                                  (argc == 4) ? argv[3] : argv[2],
-                                  AFI_IP6, safi, NULL, 0, BGP_PATH_ALL, 0);
-}
-
-ALIAS (show_bgp_view_ipv6_safi_rsclient_route,
-       show_bgp_ipv6_safi_rsclient_route_cmd,
-       "show bgp ipv6 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD) X:X::X:X",
-       SHOW_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "Network in the BGP routing table to display\n")
-
-DEFUN (show_bgp_view_rsclient_prefix,
-       show_bgp_view_rsclient_prefix_cmd,
-       "show bgp view WORD rsclient (A.B.C.D|X:X::X:X|WORD) X:X::X:X/M",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n")
-{
-  struct bgp *bgp;
-  struct peer *peer;
-
-  /* BGP structure lookup. */
-  if (argc == 3)
-    {
-      bgp = bgp_lookup_by_name (argv[0]);
-      if (bgp == NULL)
-        {
-          vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-        {
-          vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  if (argc == 3)
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], 0);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], 0);
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP6][SAFI_UNICAST])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP6][SAFI_UNICAST],
-              PEER_FLAG_RSERVER_CLIENT))
-    {
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_show_route_in_table (vty, bgp, peer->rib[AFI_IP6][SAFI_UNICAST],
-                                  (argc == 3) ? argv[2] : argv[1],
-                                  AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, 0);
-}
-
-ALIAS (show_bgp_view_rsclient_prefix,
-       show_bgp_rsclient_prefix_cmd,
-       "show bgp rsclient (A.B.C.D|X:X::X:X|WORD) X:X::X:X/M",
-       SHOW_STR
-       BGP_STR
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n")
-
-DEFUN (show_bgp_view_ipv6_safi_rsclient_prefix,
-       show_bgp_view_ipv6_safi_rsclient_prefix_cmd,
-       "show bgp view WORD ipv6 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD) X:X::X:X/M",
-       SHOW_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "IP prefix <network>/<length>, e.g., 3ffe::/16\n")
-{
-  struct bgp *bgp;
-  struct peer *peer;
-  safi_t safi;
-
-  /* BGP structure lookup. */
-  if (argc == 4)
-    {
-      bgp = bgp_lookup_by_name (argv[0]);
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-      if (bgp == NULL)
-	{
-	  vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-
-  if (argc == 4) {
-    peer = peer_lookup_in_view (vty, argv[0], argv[2], 0);
-    safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  } else {
-    peer = peer_lookup_in_view (vty, NULL, argv[1], 0);
-    safi = (strncmp (argv[0], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  }
-
-  if (! peer)
-    return CMD_WARNING;
-
-  if (! peer->afc[AFI_IP6][safi])
-    {
-      vty_out (vty, "%% Activate the neighbor for the address family first%s",
-            VTY_NEWLINE);
-      return CMD_WARNING;
-}
-
-  if ( ! CHECK_FLAG (peer->af_flags[AFI_IP6][safi],
-              PEER_FLAG_RSERVER_CLIENT))
-{
-      vty_out (vty, "%% Neighbor is not a Route-Server client%s",
-            VTY_NEWLINE);
-    return CMD_WARNING;
-    }
-
-  return bgp_show_route_in_table (vty, bgp, peer->rib[AFI_IP6][safi],
-                                  (argc == 4) ? argv[3] : argv[2],
-                                  AFI_IP6, safi, NULL, 1, BGP_PATH_ALL, 0);
-}
-
-ALIAS (show_bgp_view_ipv6_safi_rsclient_prefix,
-       show_bgp_ipv6_safi_rsclient_prefix_cmd,
-       "show bgp ipv6 (unicast|multicast) rsclient (A.B.C.D|X:X::X:X|WORD) X:X::X:X/M",
-       SHOW_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Information about Route Server Client\n"
-       NEIGHBOR_ADDR_STR3
-       "IP prefix <network>/<length>, e.g., 3ffe::/16\n")
 
 #endif /* HAVE_IPV6 */
 
@@ -15634,20 +13795,8 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_flap_route_map_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_flap_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_damp_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_rsclient_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv4_safi_rsclient_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_rsclient_route_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv4_safi_rsclient_route_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_rsclient_prefix_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv4_safi_rsclient_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_received_routes_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_rsclient_cmd);
-  install_element (VIEW_NODE, &show_bgp_view_ipv4_safi_rsclient_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_rsclient_route_cmd);
-  install_element (VIEW_NODE, &show_bgp_view_ipv4_safi_rsclient_route_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_rsclient_prefix_cmd);
-  install_element (VIEW_NODE, &show_bgp_view_ipv4_safi_rsclient_prefix_cmd);
   
   /* Restricted node: VIEW_NODE - (set of dangerous commands) */
   install_element (RESTRICTED_NODE, &show_ip_bgp_route_cmd);
@@ -15687,14 +13836,6 @@ bgp_route_init (void)
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_community2_exact_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_community3_exact_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_community4_exact_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_rsclient_route_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_rsclient_route_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_rsclient_prefix_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_rsclient_prefix_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_view_rsclient_route_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_view_ipv4_safi_rsclient_route_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_view_rsclient_prefix_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_view_ipv4_safi_rsclient_prefix_cmd);
 
   install_element (ENABLE_NODE, &show_ip_bgp_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_cmd);
@@ -15781,20 +13922,8 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_flap_route_map_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_flap_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_damp_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_rsclient_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_safi_rsclient_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_rsclient_route_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_safi_rsclient_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_rsclient_prefix_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_safi_rsclient_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_advertised_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_received_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_rsclient_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_ipv4_safi_rsclient_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_rsclient_route_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_ipv4_safi_rsclient_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_rsclient_prefix_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_ipv4_safi_rsclient_prefix_cmd);
 
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);
@@ -15893,12 +14022,6 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv6_neighbor_flap_cmd);
   install_element (VIEW_NODE, &show_bgp_neighbor_damp_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_neighbor_damp_cmd);
-  install_element (VIEW_NODE, &show_bgp_rsclient_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv6_safi_rsclient_cmd);
-  install_element (VIEW_NODE, &show_bgp_rsclient_route_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv6_safi_rsclient_route_cmd);
-  install_element (VIEW_NODE, &show_bgp_rsclient_prefix_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv6_safi_rsclient_prefix_cmd);
   install_element (VIEW_NODE, &show_bgp_view_cmd);
   install_element (VIEW_NODE, &show_bgp_view_ipv6_cmd);
   install_element (VIEW_NODE, &show_bgp_view_route_cmd);
@@ -15917,12 +14040,6 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_bgp_view_ipv6_neighbor_flap_cmd);
   install_element (VIEW_NODE, &show_bgp_view_neighbor_damp_cmd);
   install_element (VIEW_NODE, &show_bgp_view_ipv6_neighbor_damp_cmd); 
-  install_element (VIEW_NODE, &show_bgp_view_rsclient_cmd);
-  install_element (VIEW_NODE, &show_bgp_view_ipv6_safi_rsclient_cmd);
-  install_element (VIEW_NODE, &show_bgp_view_rsclient_route_cmd);
-  install_element (VIEW_NODE, &show_bgp_view_ipv6_safi_rsclient_route_cmd);
-  install_element (VIEW_NODE, &show_bgp_view_rsclient_prefix_cmd);
-  install_element (VIEW_NODE, &show_bgp_view_ipv6_safi_rsclient_prefix_cmd);
   
   /* Restricted:
    * VIEW_NODE - (set of dangerous commands) - (commands dependent on prev) 
@@ -15955,20 +14072,12 @@ bgp_route_init (void)
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_community3_exact_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_community4_exact_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_community4_exact_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_rsclient_route_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_ipv6_safi_rsclient_route_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_rsclient_prefix_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_ipv6_safi_rsclient_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_route_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_ipv6_route_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_ipv6_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_neighbor_received_prefix_filter_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_ipv6_neighbor_received_prefix_filter_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_view_rsclient_route_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_view_ipv6_safi_rsclient_route_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_view_rsclient_prefix_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_view_ipv6_safi_rsclient_prefix_cmd);
 
   install_element (ENABLE_NODE, &show_bgp_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_cmd);
@@ -16029,12 +14138,6 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_flap_cmd);
   install_element (ENABLE_NODE, &show_bgp_neighbor_damp_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_damp_cmd);
-  install_element (ENABLE_NODE, &show_bgp_rsclient_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_safi_rsclient_cmd);
-  install_element (ENABLE_NODE, &show_bgp_rsclient_route_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_safi_rsclient_route_cmd);
-  install_element (ENABLE_NODE, &show_bgp_rsclient_prefix_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_safi_rsclient_prefix_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_route_cmd);
@@ -16053,12 +14156,6 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_neighbor_flap_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_neighbor_damp_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_neighbor_damp_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_rsclient_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_ipv6_safi_rsclient_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_rsclient_route_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_ipv6_safi_rsclient_route_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_rsclient_prefix_cmd);
-  install_element (ENABLE_NODE, &show_bgp_view_ipv6_safi_rsclient_prefix_cmd);
   
   /* Statistics */
   install_element (ENABLE_NODE, &show_bgp_statistics_cmd);

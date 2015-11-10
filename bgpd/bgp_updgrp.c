@@ -375,13 +375,11 @@ updgrp_hash_key_make (void *p)
   /*
    * There are certain peers that must get their own update-group:
    * - lonesoul peers
-   * - route server clients
    * - peers that negotiated ORF
    */
   if (CHECK_FLAG (peer->flags, PEER_FLAG_LONESOUL) ||
       CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV) ||
-      CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV) ||
-      CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+      CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV))
     key = jhash_1word (jhash (peer->host, strlen (peer->host), SEED2), key);
 
   return key;
@@ -492,8 +490,7 @@ updgrp_hash_cmp (const void *p1, const void *p2)
 
   if ((CHECK_FLAG (pe1->flags, PEER_FLAG_LONESOUL) ||
        CHECK_FLAG (pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV) ||
-       CHECK_FLAG (pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV) ||
-       CHECK_FLAG (pe1->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)) &&
+       CHECK_FLAG (pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_OLD_RCV)) &&
       !sockunion_same (&pe1->su, &pe2->su))
     return 0;
 

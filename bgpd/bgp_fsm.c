@@ -590,16 +590,13 @@ bgp_update_delay_end (struct bgp *bgp)
    *  3. Unblock the peer update writes. With that peer update packing with
    *     the prefixes should be at its maximum.
    */
-  bgp_add_eoiu_mark(bgp, BGP_TABLE_MAIN);
-  bgp_add_eoiu_mark(bgp, BGP_TABLE_RSCLIENT);
+  bgp_add_eoiu_mark(bgp);
   bgp->main_zebra_update_hold = 1;
   bgp->main_peers_update_hold = 1;
-  bgp->rsclient_peers_update_hold = 1;
 
   /* Resume the queue processing. This should trigger the event that would take
      care of processing any work that was queued during the read-only mode. */
   work_queue_unplug(bm->process_main_queue);
-  work_queue_unplug(bm->process_rsclient_queue);
 }
 
 /**
@@ -611,10 +608,10 @@ bgp_start_routeadv (struct bgp *bgp)
   struct listnode *node, *nnode;
   struct peer *peer;
 
-  zlog_info("bgp_start_routeadv(), update hold status - main: %d, rsclient: %d",
-             bgp->main_peers_update_hold, bgp->rsclient_peers_update_hold);
+  zlog_info("bgp_start_routeadv(), update hold status %d",
+             bgp->main_peers_update_hold);
 
-  if (bgp->main_peers_update_hold || bgp->rsclient_peers_update_hold)
+  if (bgp->main_peers_update_hold)
     return;
 
   quagga_timestamp(3, bgp->update_delay_peers_resume_time,
@@ -856,7 +853,6 @@ bgp_update_delay_begin (struct bgp *bgp)
 
   /* Stop the processing of queued work. Enqueue shall continue */
   work_queue_plug(bm->process_main_queue);
-  work_queue_plug(bm->process_rsclient_queue);
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     peer->update_delay_over = 0;

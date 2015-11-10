@@ -578,14 +578,13 @@ subgroup_clear_table (struct update_subgroup *subgrp)
  */
 void
 subgroup_announce_table (struct update_subgroup *subgrp,
-			 struct bgp_table *table, int rsclient)
+			 struct bgp_table *table)
 {
   struct bgp_node *rn;
   struct bgp_info *ri;
   struct attr attr;
   struct attr_extra extra;
   struct peer *peer;
-  struct peer *onlypeer;
   afi_t afi;
   safi_t safi;
   int addpath_capable;
@@ -595,19 +594,14 @@ subgroup_announce_table (struct update_subgroup *subgrp,
   safi = SUBGRP_SAFI (subgrp);
   addpath_capable = bgp_addpath_encode_tx (peer, afi, safi);
 
-  onlypeer = ((SUBGRP_PCOUNT (subgrp) == 1) ?
-	      (SUBGRP_PFIRST (subgrp))->peer : NULL);
-  if (rsclient)
-    assert(onlypeer);
-
   if (!table)
-    table = (rsclient) ? onlypeer->rib[afi][safi] : peer->bgp->rib[afi][safi];
+    table = peer->bgp->rib[afi][safi];
 
   if (safi != SAFI_MPLS_VPN
       && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
     subgroup_default_originate (subgrp, 0);
 
-  /* It's initialized in bgp_announce_[check|check_rsclient]() */
+  /* It's initialized in bgp_announce_check() */
   attr.extra = &extra;
 
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
@@ -616,8 +610,7 @@ subgroup_announce_table (struct update_subgroup *subgrp,
       if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED) ||
           (addpath_capable && bgp_addpath_tx_path(peer, afi, safi, ri)))
 	{
-	  if (!rsclient
-	      && subgroup_announce_check (ri, subgrp, &rn->p, &attr))
+	  if (subgroup_announce_check (ri, subgrp, &rn->p, &attr))
 	    bgp_adj_out_set_subgroup (rn, subgrp, &attr, ri);
 	  else
 	    bgp_adj_out_unset_subgroup (rn, subgrp, 1, ri->addpath_tx_id);
@@ -650,7 +643,6 @@ subgroup_announce_route (struct update_subgroup *subgrp)
   struct bgp_node *rn;
   struct bgp_table *table;
   struct peer *onlypeer;
-  struct peer *peer;
 
   if (update_subgroup_needs_refresh (subgrp))
     {
@@ -669,17 +661,12 @@ subgroup_announce_route (struct update_subgroup *subgrp)
     return;
 
   if (SUBGRP_SAFI (subgrp) != SAFI_MPLS_VPN)
-    subgroup_announce_table (subgrp, NULL, 0);
+    subgroup_announce_table (subgrp, NULL);
   else
     for (rn = bgp_table_top (update_subgroup_rib (subgrp)); rn;
 	 rn = bgp_route_next (rn))
       if ((table = (rn->info)) != NULL)
-	subgroup_announce_table (subgrp, table, 0);
-
-  peer = SUBGRP_PEER(subgrp);
-  if (CHECK_FLAG(peer->af_flags[SUBGRP_AFI(subgrp)][SUBGRP_SAFI(subgrp)],
-		 PEER_FLAG_RSERVER_CLIENT))
-    subgroup_announce_table (subgrp, NULL, 1);
+	subgroup_announce_table (subgrp, table);
 }
 
 void

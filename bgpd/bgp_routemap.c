@@ -2662,7 +2662,7 @@ bgp_route_set_delete (struct vty *vty, struct route_map_index *index,
 }
 
 /*
- * This is the workhorse routine for processing in/out/import/export routemap
+ * This is the workhorse routine for processing in/out routemap
  * modifications.
  */
 static void
@@ -2680,7 +2680,6 @@ bgp_route_map_process_peer (const char *rmap_name, struct route_map *map,
   filter = &peer->filter[afi][safi];
   /*
    * in is for non-route-server clients,
-   * import/export is for route-server clients,
    * out is for all peers
    */
   if (!CHECK_FLAG(peer->flags, PEER_FLAG_RSERVER_CLIENT))
@@ -2719,20 +2718,6 @@ bgp_route_map_process_peer (const char *rmap_name, struct route_map *map,
   if (CHECK_FLAG(peer->flags, PEER_FLAG_RSERVER_CLIENT))
     {
       update = 0;
-
-      if (filter->map[RMAP_IMPORT].name &&
-	  (strcmp(rmap_name, filter->map[RMAP_IMPORT].name) == 0))
-	{
-	  filter->map[RMAP_IMPORT].map = map;
-	  update = 1;
-	}
-
-      if (filter->map[RMAP_EXPORT].name &&
-	  (strcmp(rmap_name, filter->map[RMAP_EXPORT].name) == 0))
-	{
-	  filter->map[RMAP_EXPORT].map = map;
-	  update = 1;
-	}
 
       if (update && route_update && peer->status == Established)
 	{

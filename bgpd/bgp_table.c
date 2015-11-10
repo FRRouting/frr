@@ -118,7 +118,6 @@ bgp_table_init (afi_t afi, safi_t safi)
   rt->route_table->info = rt;
 
   bgp_table_lock (rt);
-  rt->type = BGP_TABLE_MAIN;
   rt->afi = afi;
   rt->safi = safi;
 

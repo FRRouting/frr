@@ -84,7 +84,6 @@ struct bgp_master
 
   /* work queues */
   struct work_queue *process_main_queue;
-  struct work_queue *process_rsclient_queue;
   
   /* Listening sockets */
   struct list *listen_sockets;
@@ -156,9 +155,6 @@ struct bgp
     /* The current number of BGP dynamic neighbors */
   int dynamic_neighbors_count;
 
-  /* BGP route-server-clients. */
-  struct list *rsclient;
-
   struct hash *update_groups[BGP_AF_MAX];
 
   /*
@@ -220,7 +216,6 @@ struct bgp
   u_char update_delay_over;
   u_char main_zebra_update_hold;
   u_char main_peers_update_hold;
-  u_char rsclient_peers_update_hold;
   u_int16_t v_update_delay;
   u_int16_t v_establish_wait;
   char update_delay_begin_time[64];
@@ -320,8 +315,7 @@ struct bgp
   int addpath_tx_used[AFI_MAX][SAFI_MAX];
 };
 
-#define BGP_ROUTE_ADV_HOLD(bgp) \
-        (bgp->main_peers_update_hold || bgp->rsclient_peers_update_hold)
+#define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
 
 /* BGP peer-group support. */
 struct peer_group
@@ -377,11 +371,9 @@ struct bgp_rd
   u_char val[BGP_RD_SIZE];
 };
 
-#define RMAP_IN           0
-#define RMAP_OUT        1
-#define RMAP_IMPORT   2
-#define RMAP_EXPORT   3
-#define RMAP_MAX        4
+#define RMAP_IN  0
+#define RMAP_OUT 1
+#define RMAP_MAX 2
 
 /* BGP filter structure. */
 struct bgp_filter
@@ -508,9 +500,6 @@ struct peer
 
   /* Local router ID. */
   struct in_addr local_id;
-
-  /* Peer specific RIB when configured as route-server-client. */
-  struct bgp_table *rib[AFI_MAX][SAFI_MAX];
 
   /* Packet receive and send buffer. */
   struct stream *ibuf;
@@ -1046,8 +1035,7 @@ enum bgp_clear_type
   BGP_CLEAR_SOFT_OUT,
   BGP_CLEAR_SOFT_IN,
   BGP_CLEAR_SOFT_BOTH,
-  BGP_CLEAR_SOFT_IN_ORF_PREFIX,
-  BGP_CLEAR_SOFT_RSCLIENT
+  BGP_CLEAR_SOFT_IN_ORF_PREFIX
 };
 
 /* Macros. */
@@ -1208,7 +1196,6 @@ extern int bgp_listen_limit_unset (struct bgp *);
 
 extern int bgp_update_delay_active (struct bgp *);
 extern int bgp_update_delay_configured (struct bgp *);
-extern int peer_rsclient_active (struct peer *);
 extern void peer_as_change (struct peer *, as_t, int);
 extern int peer_remote_as (struct bgp *, union sockunion *,const char *, as_t *,
                            int, afi_t, safi_t);
