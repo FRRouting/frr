@@ -322,6 +322,13 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 	  prefix2str (connected->address, buf, sizeof (buf));
 	  zlog_warn ("Nonexitant ip address %s removal attempt from \
                       circuit %d", buf, circuit->circuit_id);
+	  zlog_warn ("Current ip addresses on %s:", circuit->interface->name);
+	  for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node, ip))
+	    {
+	      prefix2str((struct prefix*)ip, (char *)buf, BUFSIZ);
+	      zlog_warn("  %s", buf);
+	    }
+	  zlog_warn("End of addresses");
 	}
 
       prefix_ipv4_free (ipv4);
@@ -365,6 +372,19 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 	  prefix2str (connected->address, buf, sizeof (buf));
 	  zlog_warn ("Nonexitant ip address %s removal attempt from \
 		      circuit %d", buf, circuit->circuit_id);
+	  zlog_warn ("Current ip addresses on %s:", circuit->interface->name);
+	  for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node, ip6))
+	    {
+	      prefix2str((struct prefix*)ip6, (char *)buf, BUFSIZ);
+	      zlog_warn("  %s", buf);
+	    }
+	  zlog_warn(" -----");
+	  for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node, ip6))
+	    {
+	      prefix2str((struct prefix*)ip6, (char *)buf, BUFSIZ);
+	      zlog_warn("  %s", buf);
+	    }
+	  zlog_warn("End of addresses");
 	}
       else if (circuit->area)
 	  lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
