@@ -273,7 +273,19 @@ lsp_compare (char *areatag, struct isis_lsp *lsp, u_int32_t seq_num,
       return LSP_EQUAL;
     }
 
-  if (ntohl (seq_num) >= ntohl (lsp->lsp_header->seq_num))
+  /*
+   * LSPs with identical checksums should only be treated as newer if:
+   * a) The current LSP has a remaining lifetime != 0 and the other LSP has a
+   *    remaining lifetime == 0. In this case, we should participate in the purge
+   *    and should not treat the current LSP with remaining lifetime == 0 as older.
+   * b) The LSP has an incorrect checksum. In this case, we need to react as given
+   *    in 7.3.16.2.
+   */
+   if (ntohl (seq_num) > ntohl (lsp->lsp_header->seq_num)
+      || (ntohl(seq_num) == ntohl(lsp->lsp_header->seq_num)
+          && (  (lsp->lsp_header->rem_lifetime != 0
+                 && rem_lifetime == 0)
+              || lsp->lsp_header->checksum != checksum)))
     {
       if (isis->debugs & DEBUG_SNP_PACKETS)
 	{

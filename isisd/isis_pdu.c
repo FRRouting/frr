@@ -1281,6 +1281,7 @@ process_lsp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
   u_char lspid[ISIS_SYS_ID_LEN + 2];
   struct isis_passwd *passwd;
   uint16_t pdu_len;
+  int lsp_confusion;
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
@@ -1455,6 +1456,21 @@ dontcheckadj:
 
   /* 7.3.15.1 a) 9 - OriginatingLSPBufferSize - not implemented  FIXME: do it */
 
+  /* 7.3.16.2 - If this is an LSP from another IS with identical seq_num but
+   *            wrong checksum, initiate a purge. */
+  if (lsp
+      && (lsp->lsp_header->seq_num == hdr->seq_num)
+      && (lsp->lsp_header->checksum != hdr->checksum))
+    {
+      zlog_warn("ISIS-Upd (%s): LSP %s seq 0x%08x with confused checksum received.",
+                circuit->area->area_tag, rawlspid_print(hdr->lsp_id),
+                ntohl(hdr->seq_num));
+      hdr->rem_lifetime = 0;
+      lsp_confusion = 1;
+    }
+  else
+    lsp_confusion = 0;
+
   /* 7.3.15.1 b) - If the remaining life time is 0, we perform 7.3.16.4 */
   if (hdr->rem_lifetime == 0)
     {
@@ -1477,14 +1493,20 @@ dontcheckadj:
                   lsp_update (lsp, circuit->rcv_stream, circuit->area, level);
 		  /* ii */
                   lsp_set_all_srmflags (lsp);
-		  /* iii */
-		  ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
 		  /* v */
 		  ISIS_FLAGS_CLEAR_ALL (lsp->SSNflags);	/* FIXME: OTHER than c */
-		  /* iv */
-		  if (circuit->circ_type != CIRCUIT_T_BROADCAST)
-		    ISIS_SET_FLAG (lsp->SSNflags, circuit);
 
+		  /* For the case of lsp confusion, flood the purge back to its
+		   * originator so that it can react. Otherwise, don't reflood
+		   * through incoming circuit as usual */
+		  if (!lsp_confusion)
+		    {
+		      /* iii */
+		      ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
+		      /* iv */
+		      if (circuit->circ_type != CIRCUIT_T_BROADCAST)
+		        ISIS_SET_FLAG (lsp->SSNflags, circuit);
+		    }
 		}		/* 7.3.16.4 b) 2) */
 	      else if (comp == LSP_EQUAL)
 		{
