@@ -1087,6 +1087,8 @@ lsp_rem_lifetime (struct isis_area *area, int level)
                               MAX_AGE_JITTER);
 
   /* No jitter if the max refresh will be less than configure gen interval */
+  /* N.B. this calucation is acceptable since rem_lifetime is in [332,65535] at
+   * this point */
   if (area->lsp_gen_interval[level - 1] > (rem_lifetime - 300))
     rem_lifetime = area->max_lsp_lifetime[level - 1];
 
@@ -1110,7 +1112,8 @@ lsp_refresh_time (struct isis_lsp *lsp, u_int16_t rem_lifetime)
       refresh_time > (rem_lifetime - 300))
     refresh_time = rem_lifetime - 300;
 
-  assert (area->lsp_gen_interval[level - 1] < refresh_time);
+  /* In cornercases, refresh_time might be <= lsp_gen_interval, however
+   * we accept this violation to satisfy refresh_time <= rem_lifetime - 300 */
 
   return refresh_time;
 }
