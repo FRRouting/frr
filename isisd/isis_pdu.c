@@ -1666,7 +1666,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
           pdu_len > ISO_MTU(circuit) ||
           pdu_len > stream_get_endp (circuit->rcv_stream))
 	{
-	  zlog_warn ("Received a CSNP with bogus length %d", pdu_len);
+	  zlog_warn ("Received a PSNP with bogus length %d", pdu_len);
 	  return ISIS_WARNING;
 	}
     }
