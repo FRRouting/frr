@@ -774,6 +774,8 @@ print_debug (struct vty *vty, int flags, int onoff)
     vty_out (vty, "IS-IS Packet dump debugging is %s%s", onoffs, VTY_NEWLINE);
   if (flags & DEBUG_LSP_GEN)
     vty_out (vty, "IS-IS LSP generation debugging is %s%s", onoffs, VTY_NEWLINE);
+  if (flags & DEBUG_LSP_SCHED)
+    vty_out (vty, "IS-IS LSP scheduling debugging is %s%s", onoffs, VTY_NEWLINE);
 }
 
 DEFUN (show_debugging,
@@ -864,6 +866,11 @@ config_write_debug (struct vty *vty)
   if (flags & DEBUG_LSP_GEN)
     {
       vty_out (vty, "debug isis lsp-gen%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_LSP_SCHED)
+    {
+      vty_out (vty, "debug isis lsp-sched%s", VTY_NEWLINE);
       write++;
     }
 
@@ -1204,6 +1211,32 @@ DEFUN (no_debug_isis_lsp_gen,
 {
   isis->debugs &= ~DEBUG_LSP_GEN;
   print_debug (vty, DEBUG_LSP_GEN, 0);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (debug_isis_lsp_sched,
+       debug_isis_lsp_sched_cmd,
+       "debug isis lsp-sched",
+       DEBUG_STR
+       "IS-IS information\n"
+       "IS-IS scheduling of LSP generation\n")
+{
+  isis->debugs |= DEBUG_LSP_SCHED;
+  print_debug (vty, DEBUG_LSP_SCHED, 1);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_isis_lsp_sched,
+       no_debug_isis_lsp_sched_cmd,
+       "no debug isis lsp-gen",
+       UNDEBUG_STR
+       "IS-IS information\n"
+       "IS-IS scheduling of LSP generation\n")
+{
+  isis->debugs &= ~DEBUG_LSP_SCHED;
+  print_debug (vty, DEBUG_LSP_SCHED, 0);
 
   return CMD_SUCCESS;
 }
@@ -3296,6 +3329,8 @@ isis_init ()
   install_element (ENABLE_NODE, &no_debug_isis_packet_dump_cmd);
   install_element (ENABLE_NODE, &debug_isis_lsp_gen_cmd);
   install_element (ENABLE_NODE, &no_debug_isis_lsp_gen_cmd);
+  install_element (ENABLE_NODE, &debug_isis_lsp_sched_cmd);
+  install_element (ENABLE_NODE, &no_debug_isis_lsp_sched_cmd);
 
   install_element (CONFIG_NODE, &debug_isis_adj_cmd);
   install_element (CONFIG_NODE, &no_debug_isis_adj_cmd);
@@ -3323,6 +3358,8 @@ isis_init ()
   install_element (CONFIG_NODE, &no_debug_isis_packet_dump_cmd);
   install_element (CONFIG_NODE, &debug_isis_lsp_gen_cmd);
   install_element (CONFIG_NODE, &no_debug_isis_lsp_gen_cmd);
+  install_element (CONFIG_NODE, &debug_isis_lsp_sched_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_lsp_sched_cmd);
 
   install_element (CONFIG_NODE, &router_isis_cmd);
   install_element (CONFIG_NODE, &no_router_isis_cmd);

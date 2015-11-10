@@ -99,6 +99,17 @@ struct isis_area
   struct flags flags;
   struct thread *t_tick;	/* LSP walker */
   struct thread *t_lsp_refresh[ISIS_LEVELS];
+  /* t_lsp_refresh is used in two ways:
+   * a) regular refresh of LSPs
+   * b) (possibly throttled) updates to LSPs
+   *
+   * The lsp_regenerate_pending flag tracks whether the timer is active
+   * for the a) or the b) case.
+   *
+   * It is of utmost importance to clear this flag when the timer is
+   * rescheduled for normal refresh, because otherwise, updates will
+   * be delayed until the next regular refresh.
+   */
   int lsp_regenerate_pending[ISIS_LEVELS];
 
   /*
@@ -169,11 +180,20 @@ extern struct thread_master *master;
 #define DEBUG_ZEBRA                      (1<<11)
 #define DEBUG_PACKET_DUMP                (1<<12)
 #define DEBUG_LSP_GEN                    (1<<13)
+#define DEBUG_LSP_SCHED                  (1<<14)
 
 #define lsp_debug(...) \
   do \
     { \
       if (isis->debugs & DEBUG_LSP_GEN) \
+        zlog_debug(__VA_ARGS__); \
+    } \
+  while (0)
+
+#define sched_debug(...) \
+  do \
+    { \
+      if (isis->debugs & DEBUG_LSP_SCHED) \
         zlog_debug(__VA_ARGS__); \
     } \
   while (0)

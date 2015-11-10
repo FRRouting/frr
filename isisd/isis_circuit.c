@@ -785,6 +785,8 @@ isis_circuit_down (struct isis_circuit *circuit)
       THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[1]);
       THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[0]);
       THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[1]);
+      circuit->lsp_regenerate_pending[0] = 0;
+      circuit->lsp_regenerate_pending[1] = 0;
     }
   else if (circuit->circ_type == CIRCUIT_T_P2P)
     {
