@@ -1529,7 +1529,7 @@ dontcheckadj:
       if (!lsp)
 	{
 	  /* 7.3.16.4: initiate a purge */
-	  lsp_purge_non_exist (hdr, circuit->area);
+	  lsp_purge_non_exist(level, hdr, circuit->area);
 	  return ISIS_OK;
 	}
       /* 7.3.15.1 d) - If this is our own lsp and we have it */

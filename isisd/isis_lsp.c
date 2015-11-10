@@ -2345,7 +2345,8 @@ lsp_purge_pseudo (u_char * id, struct isis_circuit *circuit, int level)
  * -> Do as in 7.3.16.4
  */
 void
-lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
+lsp_purge_non_exist (int level,
+		     struct isis_link_state_hdr *lsp_hdr,
 		     struct isis_area *area)
 {
   struct isis_lsp *lsp;
@@ -2355,8 +2356,7 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
    */
   lsp = XCALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
   lsp->area = area;
-  lsp->level = ((lsp_hdr->lsp_bits & LSPBIT_IST) == IS_LEVEL_1) ?
-    IS_LEVEL_1 : IS_LEVEL_2;
+  lsp->level = level;
   lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
   lsp->isis_header = (struct isis_fixed_hdr *) STREAM_DATA (lsp->pdu);
   fill_fixed_hdr (lsp->isis_header, (lsp->level == IS_LEVEL_1) ? L1_LINK_STATE
