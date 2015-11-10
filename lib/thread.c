@@ -766,6 +766,14 @@ strip_funcname (char *dest, const char *funcname)
   *e = tmp;
 }
 
+struct timeval
+thread_timer_remain(struct thread *thread)
+{
+  quagga_get_relative(NULL);
+
+  return timeval_subtract(thread->u.sands, relative_time);
+}
+
 /* Get new thread.  */
 static struct thread *
 thread_get (struct thread_master *m, u_char type,

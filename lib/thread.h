@@ -235,6 +235,7 @@ extern unsigned int thread_cancel_event (struct thread_master *, void *);
 extern struct thread *thread_fetch (struct thread_master *, struct thread *);
 extern void thread_call (struct thread *);
 extern unsigned long thread_timer_remain_second (struct thread *);
+extern struct timeval thread_timer_remain(struct thread*);
 extern int thread_should_yield (struct thread *);
 extern unsigned long timeval_elapsed (struct timeval a, struct timeval b);
 /* set yield time for thread */
