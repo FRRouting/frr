@@ -1485,26 +1485,14 @@ zread_ipv6_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
       for (i = 0; i < max_nh_if; i++)
         {
 	  if ((i < nh_count) && !IN6_IS_ADDR_UNSPECIFIED (&nexthops[i])) {
-            if ((i < if_count) && ifindices[i]) {
-              if (rib_bogus_ipv6 (rib->type, &p, &nexthops[i], ifindices[i], 0)) {
-                continue;
-              }
+            if ((i < if_count) && ifindices[i])
               nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
-            }
-            else {
-              if (rib_bogus_ipv6 (rib->type, &p, &nexthops[i], 0, 0)) {
-                continue;
-              }
+            else
 	      nexthop_ipv6_add (rib, &nexthops[i]);
-            }
           }
           else {
-            if ((i < if_count) && ifindices[i]) {
-              if (rib_bogus_ipv6 (rib->type, &p, NULL, ifindices[i], 0)) {
-                continue;
-              }
+            if ((i < if_count) && ifindices[i])
 	      nexthop_ifindex_add (rib, ifindices[i]);
-	    }
           }
 	}
     }

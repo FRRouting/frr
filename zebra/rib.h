@@ -416,9 +416,6 @@ extern struct nexthop *nexthop_ipv6_ifindex_add (struct rib *rib,
 extern struct nexthop *nexthop_ipv6_ifname_add (struct rib *rib,
 						struct in6_addr *ipv6,
 						char *ifname);
-extern int
-rib_bogus_ipv6 (int type, struct prefix_ipv6 *p,
-                struct in6_addr *gate, unsigned int ifindex, int table);
 
 extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t);
