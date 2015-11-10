@@ -1919,17 +1919,26 @@ DEFUN (no_bgp_bestpath_aspath_confed,
 /* "bgp bestpath as-path multipath-relax" configuration.  */
 DEFUN (bgp_bestpath_aspath_multipath_relax,
        bgp_bestpath_aspath_multipath_relax_cmd,
-       "bgp bestpath as-path multipath-relax",
+       "bgp bestpath as-path multipath-relax {as-set|no-as-set}",
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
-       "Allow load sharing across routes that have different AS paths (but same length)\n")
+       "Allow load sharing across routes that have different AS paths (but same length)\n"
+       "Generate an AS_SET\n"
+       "Do not generate an AS_SET\n")
 {
   struct bgp *bgp;
 
   bgp = vty->index;
   bgp_flag_set (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
-  bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET);
+
+  /* no-as-set is now the default behavior so we can silently
+   * ignore it */
+  if (argv[0] != NULL && strncmp (argv[0], "a", 1) == 0)
+    bgp_flag_set (bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
+  else
+    bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET) ;
+
   bgp_recalculate_all_bestpaths (bgp);
 
   return CMD_SUCCESS;
@@ -1937,58 +1946,20 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
 
 DEFUN (no_bgp_bestpath_aspath_multipath_relax,
        no_bgp_bestpath_aspath_multipath_relax_cmd,
-       "no bgp bestpath as-path multipath-relax",
-       NO_STR
-       "BGP specific commands\n"
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Allow load sharing across routes that have different AS paths (but same length)\n")
-{
-  struct bgp *bgp;
-
-  bgp = vty->index;
-  bgp_flag_unset (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
-  bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET);
-  bgp_recalculate_all_bestpaths (bgp);
-
-  return CMD_SUCCESS;
-}
-
-/* "bgp bestpath as-path multipath-relax no-as-set" configuration.  */
-DEFUN (bgp_bestpath_aspath_multipath_relax_no_as_set,
-       bgp_bestpath_aspath_multipath_relax_no_as_set_cmd,
-       "bgp bestpath as-path multipath-relax no-as-set",
-       "BGP specific commands\n"
-       "Change the default bestpath selection\n"
-       "AS-path attribute\n"
-       "Allow load sharing across routes that have different AS paths (but same length)\n"
-       "Do not generate an AS_SET\n")
-{
-  struct bgp *bgp;
-
-  bgp = vty->index;
-  bgp_flag_set (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
-  bgp_flag_set (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET);
-  bgp_recalculate_all_bestpaths (bgp);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_bgp_bestpath_aspath_multipath_relax_no_as_set,
-       no_bgp_bestpath_aspath_multipath_relax_no_as_set_cmd,
-       "no bgp bestpath as-path multipath-relax no-as-set",
+       "no bgp bestpath as-path multipath-relax {as-set|no-as-set}",
        NO_STR
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
        "Allow load sharing across routes that have different AS paths (but same length)\n"
+       "Generate an AS_SET\n"
        "Do not generate an AS_SET\n")
 {
   struct bgp *bgp;
 
   bgp = vty->index;
   bgp_flag_unset (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
-  bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET);
+  bgp_flag_unset (bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET);
   bgp_recalculate_all_bestpaths (bgp);
 
   return CMD_SUCCESS;
@@ -12164,10 +12135,6 @@ bgp_vty_init (void)
   /* "bgp bestpath as-path multipath-relax" commands */
   install_element (BGP_NODE, &bgp_bestpath_aspath_multipath_relax_cmd);
   install_element (BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_cmd);
-
-  /* "bgp bestpath as-path multipath-relax no-as-set" commands */
-  install_element (BGP_NODE, &bgp_bestpath_aspath_multipath_relax_no_as_set_cmd);
-  install_element (BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_no_as_set_cmd);
 
   /* "bgp log-neighbor-changes" commands */
   install_element (BGP_NODE, &bgp_log_neighbor_changes_cmd);

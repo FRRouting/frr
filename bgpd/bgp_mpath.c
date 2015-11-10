@@ -621,7 +621,7 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
   struct aspath *aspath;
   struct aspath *asmerge;
   struct attr *new_attr, *old_attr;
-  u_char origin, attr_chg;
+  u_char origin;
   struct community *community, *commerge;
   struct ecommunity *ecomm, *ecommerge;
   struct attr_extra *ae;
@@ -648,41 +648,10 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
       return;
     }
 
-  /*
-   * Bail out here if the following is true:
-   * - MULTIPATH_CHG bit is not set on new_best, and
-   * - No change in bestpath, and
-   * - ATTR_CHANGED bit is not set on new_best or any of the multipaths
-   */
-  if (!CHECK_FLAG (new_best->flags, BGP_INFO_MULTIPATH_CHG) &&
-      (old_best == new_best))
-    {
-      attr_chg = 0;
-
-      if (CHECK_FLAG (new_best->flags, BGP_INFO_ATTR_CHANGED))
-        attr_chg = 1;
-      else
-        for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
-             mpinfo = bgp_info_mpath_next (mpinfo))
-          {
-            if (CHECK_FLAG (mpinfo->flags, BGP_INFO_ATTR_CHANGED))
-              {
-                attr_chg = 1;
-                break;
-              }
-          }
-
-      if (!attr_chg)
-        {
-          assert (bgp_info_mpath_attr (new_best));
-          return;
-        }
-    }
-
   bgp_attr_dup (&attr, new_best->attr);
 
   if (new_best->peer &&
-      !bgp_flag_check (new_best->peer->bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET))
+      bgp_flag_check (new_best->peer->bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET))
     {
 
       /* aggregate attribute from multipath constituents */

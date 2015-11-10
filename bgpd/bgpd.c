@@ -2686,8 +2686,10 @@ bgp_create (as_t *as, const char *name)
 	bgp->route[afi][safi] = bgp_table_init (afi, safi);
 	bgp->aggregate[afi][safi] = bgp_table_init (afi, safi);
 	bgp->rib[afi][safi] = bgp_table_init (afi, safi);
-	bgp->maxpaths[afi][safi].maxpaths_ebgp = BGP_DEFAULT_MAXPATHS;
-	bgp->maxpaths[afi][safi].maxpaths_ibgp = BGP_DEFAULT_MAXPATHS;
+
+        /* Enable maximum-paths */
+        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_EBGP, BGP_DEFAULT_MAXPATHS, 0);
+        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_IBGP, BGP_DEFAULT_MAXPATHS, 0);
       }
 
   bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
@@ -6889,13 +6891,17 @@ bgp_config_write (struct vty *vty)
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_CONFED))
 	vty_out (vty, " bgp bestpath as-path confed%s", VTY_NEWLINE);
 
-      if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
-        if (bgp_flag_check (bgp, BGP_FLAG_MULTIPATH_RELAX_NO_AS_SET)) {
-	  vty_out (vty, " bgp bestpath as-path multipath-relax no-as-set%s", VTY_NEWLINE);
-        } else {
-	  vty_out (vty, " bgp bestpath as-path multipath-relax%s", VTY_NEWLINE);
+      if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX))
+        {
+          if (bgp_flag_check (bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET))
+            {
+              vty_out (vty, " bgp bestpath as-path multipath-relax as-set%s", VTY_NEWLINE);
+            }
         }
-      }
+     else
+        {
+	  vty_out (vty, " no bgp bestpath as-path multipath-relax%s", VTY_NEWLINE);
+        }
 
       if (bgp_flag_check (bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
 	vty_out (vty, " bgp route-reflector allow-outbound-policy%s",
