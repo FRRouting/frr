@@ -574,6 +574,29 @@ isis_circuit_update_all_srmflags (struct isis_circuit *circuit, int is_set)
     }
 }
 
+size_t
+isis_circuit_pdu_size(struct isis_circuit *circuit)
+{
+  return ISO_MTU(circuit);
+}
+
+void
+isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream)
+{
+  size_t stream_size = isis_circuit_pdu_size(circuit);
+
+  if (!*stream)
+    {
+      *stream = stream_new(stream_size);
+    }
+  else
+    {
+      if (STREAM_SIZE(*stream) != stream_size)
+        stream_resize(*stream, stream_size);
+      stream_reset(*stream);
+    }
+}
+
 int
 isis_circuit_up (struct isis_circuit *circuit)
 {
@@ -587,6 +610,15 @@ isis_circuit_up (struct isis_circuit *circuit)
 
   if (circuit->is_passive)
     return ISIS_OK;
+
+  if (circuit->area->lsp_mtu > isis_circuit_pdu_size(circuit))
+    {
+      zlog_err("Interface MTU %zu on %s is too low to support area lsp mtu %u!",
+               isis_circuit_pdu_size(circuit), circuit->interface->name,
+               circuit->area->lsp_mtu);
+      isis_circuit_down(circuit);
+      return ISIS_ERROR;
+    }
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
@@ -620,9 +652,6 @@ isis_circuit_up (struct isis_circuit *circuit)
       circuit->u.bc.adjdb[0] = list_new ();
       circuit->u.bc.adjdb[1] = list_new ();
 
-      if (circuit->area->min_bcast_mtu == 0 ||
-          ISO_MTU (circuit) < circuit->area->min_bcast_mtu)
-        circuit->area->min_bcast_mtu = ISO_MTU (circuit);
       /*
        * ISO 10589 - 8.4.1 Enabling of broadcast circuits
        */
@@ -684,11 +713,8 @@ isis_circuit_up (struct isis_circuit *circuit)
     }
 
   /* initialize the circuit streams after opening connection */
-  if (circuit->rcv_stream == NULL)
-    circuit->rcv_stream = stream_new (ISO_MTU (circuit));
-
-  if (circuit->snd_stream == NULL)
-    circuit->snd_stream = stream_new (ISO_MTU (circuit));
+  isis_circuit_stream(circuit, &circuit->rcv_stream);
+  isis_circuit_stream(circuit, &circuit->snd_stream);
 
 #ifdef GNU_LINUX
   THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
@@ -1192,6 +1218,7 @@ DEFUN (ip_router_isis,
   struct isis_circuit *circuit;
   struct interface *ifp;
   struct isis_area *area;
+  int rv;
 
   ifp = (struct interface *) vty->index;
   assert (ifp);
@@ -1220,16 +1247,25 @@ DEFUN (ip_router_isis,
   area = vty->index;
 
   circuit = isis_csm_state_change (ISIS_ENABLE, circuit, area);
-  isis_circuit_if_bind (circuit, ifp);
+  if (circuit->state != C_STATE_CONF && circuit->state != C_STATE_UP)
+    {
+      vty_out(vty, "Couldn't bring up interface, please check log.%s", VTY_NEWLINE);
+      rv = CMD_WARNING;
+    }
+  else
+    {
+      isis_circuit_if_bind (circuit, ifp);
 
-  circuit->ip_router = 1;
-  area->ip_circuits++;
-  circuit_update_nlpids (circuit);
+      circuit->ip_router = 1;
+      area->ip_circuits++;
+      circuit_update_nlpids (circuit);
+      rv = CMD_SUCCESS;
+    }
 
   vty->node = INTERFACE_NODE;
   vty->index = ifp;
 
-  return CMD_SUCCESS;
+  return rv;
 }
 
 DEFUN (no_ip_router_isis,
@@ -1290,6 +1326,7 @@ DEFUN (ipv6_router_isis,
   struct isis_circuit *circuit;
   struct interface *ifp;
   struct isis_area *area;
+  int rv;
 
   ifp = (struct interface *) vty->index;
   assert (ifp);
@@ -1318,16 +1355,25 @@ DEFUN (ipv6_router_isis,
   area = vty->index;
 
   circuit = isis_csm_state_change (ISIS_ENABLE, circuit, area);
-  isis_circuit_if_bind (circuit, ifp);
+  if (circuit->state != C_STATE_CONF && circuit->state != C_STATE_UP)
+    {
+      vty_out(vty, "Couldn't bring up interface, please check log.%s", VTY_NEWLINE);
+      rv = CMD_WARNING;
+    }
+  else
+    {
+      isis_circuit_if_bind (circuit, ifp);
 
-  circuit->ipv6_router = 1;
-  area->ipv6_circuits++;
-  circuit_update_nlpids (circuit);
+      circuit->ipv6_router = 1;
+      area->ipv6_circuits++;
+      circuit_update_nlpids (circuit);
+      rv = CMD_SUCCESS;
+    }
 
   vty->node = INTERFACE_NODE;
   vty->index = ifp;
 
-  return CMD_SUCCESS;
+  return rv;
 }
 
 DEFUN (no_ipv6_router_isis,

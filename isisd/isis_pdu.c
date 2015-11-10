@@ -1867,9 +1867,9 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	    if (entry->rem_lifetime && entry->checksum && entry->seq_num &&
 		memcmp (entry->lsp_id, isis->sysid, ISIS_SYS_ID_LEN))
 	      {
-		lsp = lsp_new (entry->lsp_id, ntohs (entry->rem_lifetime),
-			       0, 0, entry->checksum, level);
-		lsp->area = circuit->area;
+		lsp = lsp_new(circuit->area, entry->lsp_id,
+			      ntohs(entry->rem_lifetime),
+			      0, 0, entry->checksum, level);
 		lsp_insert (lsp, circuit->area->lspdb[level - 1]);
 		ISIS_FLAGS_CLEAR_ALL (lsp->SRMflags);
 		ISIS_SET_FLAG (lsp->SSNflags, circuit);
@@ -2093,10 +2093,7 @@ isis_receive (struct thread *thread)
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
-  if (circuit->rcv_stream == NULL)
-    circuit->rcv_stream = stream_new (ISO_MTU (circuit));
-  else
-    stream_reset (circuit->rcv_stream);
+  isis_circuit_stream(circuit, &circuit->rcv_stream);
 
   retval = circuit->rx (circuit, ssnpa);
   circuit->t_read = NULL;
@@ -2132,10 +2129,7 @@ isis_receive (struct thread *thread)
 
   circuit->t_read = NULL;
 
-  if (circuit->rcv_stream == NULL)
-    circuit->rcv_stream = stream_new (ISO_MTU (circuit));
-  else
-    stream_reset (circuit->rcv_stream);
+  isis_circuit_stream(circuit, &circuit->rcv_stream);
 
   retval = circuit->rx (circuit, ssnpa);
 
@@ -2240,10 +2234,7 @@ send_hello (struct isis_circuit *circuit, int level)
       return ISIS_WARNING;
     }
 
-  if (!circuit->snd_stream)
-    circuit->snd_stream = stream_new (ISO_MTU (circuit));
-  else
-    stream_reset (circuit->snd_stream);
+  isis_circuit_stream(circuit, &circuit->snd_stream);
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     if (level == IS_LEVEL_1)
@@ -2501,10 +2492,7 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
   unsigned long auth_tlv_offset = 0;
   int retval = ISIS_OK;
 
-  if (circuit->snd_stream == NULL)
-    circuit->snd_stream = stream_new (ISO_MTU (circuit));
-  else
-    stream_reset (circuit->snd_stream);
+  isis_circuit_stream(circuit, &circuit->snd_stream);
 
   if (level == IS_LEVEL_1)
     fill_fixed_hdr_andstream (&fixed_hdr, L1_COMPLETE_SEQ_NUM,
@@ -2828,10 +2816,7 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
   unsigned long auth_tlv_offset = 0;
   int retval = ISIS_OK;
 
-  if (circuit->snd_stream == NULL)
-    circuit->snd_stream = stream_new (ISO_MTU (circuit));
-  else
-    stream_reset (circuit->snd_stream);
+  isis_circuit_stream(circuit, &circuit->snd_stream);
 
   if (level == IS_LEVEL_1)
     fill_fixed_hdr_andstream (&fixed_hdr, L1_PARTIAL_SEQ_NUM,
@@ -3153,10 +3138,7 @@ ack_lsp (struct isis_link_state_hdr *hdr, struct isis_circuit *circuit,
   u_int16_t length;
   struct isis_fixed_hdr fixed_hdr;
 
-  if (!circuit->snd_stream)
-    circuit->snd_stream = stream_new (ISO_MTU (circuit));
-  else
-    stream_reset (circuit->snd_stream);
+  isis_circuit_stream(circuit, &circuit->snd_stream);
 
   //  fill_llc_hdr (stream);
   if (level == IS_LEVEL_1)

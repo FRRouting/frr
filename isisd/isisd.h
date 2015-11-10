@@ -93,7 +93,8 @@ struct isis_area
   struct isis_spftree *spftree6[ISIS_LEVELS];	  /* The v6 SPTs */
   struct route_table *route_table6[ISIS_LEVELS];  /* IPv6 routes */
 #endif
-  unsigned int min_bcast_mtu;
+#define DEFAULT_LSP_MTU 1497
+  unsigned int lsp_mtu;				  /* Size of LSPs to generate */
   struct list *circuit_list;	/* IS-IS circuits */
   struct flags flags;
   struct thread *t_tick;	/* LSP walker */

@@ -34,7 +34,6 @@
 #define ISO_SAP                       0xFE
 #define INTRADOMAIN_ROUTEING_SELECTOR 0
 #define SEQUENCE_MODULUS              4294967296
-#define RECEIVE_LSP_BUFFER_SIZE       1492
 
 /*
  * implementation specific jitter values

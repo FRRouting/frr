@@ -158,12 +158,10 @@ isis_area_create (const char *area_tag)
   area->oldmetric = 0;
   area->newmetric = 1;
   area->lsp_frag_threshold = 90;
+  area->lsp_mtu = DEFAULT_LSP_MTU;
 #ifdef TOPOLOGY_GENERATE
   memcpy (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
 #endif /* TOPOLOGY_GENERATE */
-
-  /* FIXME: Think of a better way... */
-  area->min_bcast_mtu = 1497;
 
   area->area_tag = strdup (area_tag);
   listnode_add (isis->area_list, area);
@@ -1545,6 +1543,76 @@ DEFUN (no_net,
 {
   return area_clear_net_title (vty, argv[0]);
 }
+
+static
+int area_set_lsp_mtu(struct vty *vty, struct isis_area *area, unsigned int lsp_mtu)
+{
+  struct isis_circuit *circuit;
+  struct listnode *node;
+
+  for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+    {
+      if(lsp_mtu > isis_circuit_pdu_size(circuit))
+        {
+          vty_out(vty, "ISIS area contains circuit %s, which has a maximum PDU size of %zu.%s",
+                  circuit->interface->name, isis_circuit_pdu_size(circuit),
+                  VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+    }
+
+  area->lsp_mtu = lsp_mtu;
+  lsp_regenerate_schedule(area, IS_LEVEL_1_AND_2, 1);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (area_lsp_mtu,
+       area_lsp_mtu_cmd,
+       "lsp-mtu <128-4352>",
+       "Configure the maximum size of generated LSPs\n"
+       "Maximum size of generated LSPs\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+  if (!area)
+    {
+      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  unsigned int lsp_mtu;
+
+  VTY_GET_INTEGER_RANGE("lsp-mtu", lsp_mtu, argv[0], 128, 4352);
+
+  return area_set_lsp_mtu(vty, area, lsp_mtu);
+}
+
+DEFUN(no_area_lsp_mtu,
+      no_area_lsp_mtu_cmd,
+      "no lsp-mtu",
+      NO_STR
+      "Configure the maximum size of generated LSPs\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+  if (!area)
+    {
+      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  return area_set_lsp_mtu(vty, area, DEFAULT_LSP_MTU);
+}
+
+ALIAS(no_area_lsp_mtu,
+      no_area_lsp_mtu_arg_cmd,
+      "no lsp-mtu <128-4352>",
+      NO_STR
+      "Configure the maximum size of generated LSPs\n"
+      "Maximum size of generated LSPs\n");
 
 DEFUN (area_passwd_md5,
        area_passwd_md5_cmd,
@@ -2991,6 +3059,12 @@ isis_config_write (struct vty *vty)
 		write++;
 	      }
 	  }
+	if (area->lsp_mtu != DEFAULT_LSP_MTU)
+	  {
+	    vty_out(vty, " lsp-mtu %u%s", area->lsp_mtu, VTY_NEWLINE);
+	    write++;
+	  }
+
 	/* Minimum SPF interval. */
 	if (area->min_spf_interval[0] == area->min_spf_interval[1])
 	  {
@@ -3223,6 +3297,10 @@ isis_init ()
 
   install_element (ISIS_NODE, &is_type_cmd);
   install_element (ISIS_NODE, &no_is_type_cmd);
+
+  install_element (ISIS_NODE, &area_lsp_mtu_cmd);
+  install_element (ISIS_NODE, &no_area_lsp_mtu_cmd);
+  install_element (ISIS_NODE, &no_area_lsp_mtu_arg_cmd);
 
   install_element (ISIS_NODE, &area_passwd_md5_cmd);
   install_element (ISIS_NODE, &area_passwd_md5_snpauth_cmd);

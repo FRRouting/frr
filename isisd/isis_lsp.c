@@ -575,15 +575,16 @@ lsp_new_from_stream_ptr (struct stream *stream,
 }
 
 struct isis_lsp *
-lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
-	 u_int8_t lsp_bits, u_int16_t checksum, int level)
+lsp_new(struct isis_area *area, u_char * lsp_id,
+	u_int16_t rem_lifetime, u_int32_t seq_num,
+	u_int8_t lsp_bits, u_int16_t checksum, int level)
 {
   struct isis_lsp *lsp;
 
   lsp = XCALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
+  lsp->area = area;
 
-  /* FIXME: Should be minimal mtu? */
-  lsp->pdu = stream_new (1500);
+  lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
   if (LSP_FRAGMENT (lsp_id) == 0)
     lsp->lspu.frags = list_new ();
   lsp->isis_header = (struct isis_fixed_hdr *) (STREAM_DATA (lsp->pdu));
@@ -1131,7 +1132,7 @@ lsp_next_frag (u_char frag_num, struct isis_lsp *lsp0, struct isis_area *area,
       lsp_clear_data (lsp);
       return lsp;
     }
-  lsp = lsp_new (frag_id, ntohs(lsp0->lsp_header->rem_lifetime), 0,
+  lsp = lsp_new (area, frag_id, ntohs(lsp0->lsp_header->rem_lifetime), 0,
                  lsp_bits_generate (level, area->overload_bit,
                  area->attached_bit), 0, level);
   lsp->area = area;
@@ -1593,7 +1594,7 @@ lsp_generate (struct isis_area *area, int level)
                               area->lspdb[level - 1]);
     }
   rem_lifetime = lsp_rem_lifetime (area, level);
-  newlsp = lsp_new (lspid, rem_lifetime, seq_num,
+  newlsp = lsp_new (area, lspid, rem_lifetime, seq_num,
                     area->is_type | area->overload_bit | area->attached_bit,
                     0, level);
   newlsp->area = area;
@@ -1966,7 +1967,7 @@ lsp_generate_pseudo (struct isis_circuit *circuit, int level)
 
   rem_lifetime = lsp_rem_lifetime (circuit->area, level);
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
-  lsp = lsp_new (lsp_id, rem_lifetime, 1,
+  lsp = lsp_new (circuit->area, lsp_id, rem_lifetime, 1,
                  circuit->area->is_type | circuit->area->attached_bit,
                  0, level);
   lsp->area = circuit->area;
@@ -2356,8 +2357,7 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
   lsp->area = area;
   lsp->level = ((lsp_hdr->lsp_bits & LSPBIT_IST) == IS_LEVEL_1) ?
     IS_LEVEL_1 : IS_LEVEL_2;
-  /* FIXME: Should be minimal mtu? */
-  lsp->pdu = stream_new (1500);
+  lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
   lsp->isis_header = (struct isis_fixed_hdr *) STREAM_DATA (lsp->pdu);
   fill_fixed_hdr (lsp->isis_header, (lsp->level == IS_LEVEL_1) ? L1_LINK_STATE
 		  : L2_LINK_STATE);
@@ -2479,11 +2479,11 @@ generate_topology_lsps (struct isis_area *area)
       lspid[ISIS_SYS_ID_LEN - 2] = ((i >> 8) & 0xFF);
 
       rem_lifetime = lsp_rem_lifetime (area, IS_LEVEL_1);
-      lsp = lsp_new (lspid, rem_lifetime, 1, IS_LEVEL_1 | area->overload_bit
-                     | area->attached_bit, 0, 1);
+      lsp = lsp_new (area, lspid, rem_lifetime, 1,
+                     IS_LEVEL_1 | area->overload_bit | area->attached_bit,
+                     0, 1);
       if (!lsp)
 	return;
-      lsp->area = area;
       lsp->from_topology = 1;
 
       /* Creating LSP data based on topology info. */
