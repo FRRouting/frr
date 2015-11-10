@@ -424,7 +424,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
   struct listnode *node;
   struct prefix_ipv6 prefix6;
 
-  if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
+  if (!CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
   api.vrf_id = VRF_DEFAULT;
