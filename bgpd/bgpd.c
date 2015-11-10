@@ -1362,6 +1362,28 @@ bgp_peer_conf_if_to_su_update (struct peer *peer)
   hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 }
 
+/* Force a bestpath recalculation for all prefixes.  This is used
+ * when 'bgp bestpath' commands are entered.
+ */
+void
+bgp_recalculate_all_bestpaths (struct bgp *bgp)
+{
+  afi_t afi;
+  safi_t safi;
+  struct bgp_node *rn;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+        {
+          for (rn = bgp_table_top (bgp->rib[afi][safi]); rn; rn = bgp_route_next (rn))
+            {
+              bgp_process (bgp, rn, afi, safi);
+            }
+        }
+    }
+}
+
 /* Create new BGP peer.  */
 struct peer *
 peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
@@ -3484,6 +3506,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] =
     { PEER_FLAG_AS_OVERRIDE,              1, peer_change_reset_out },
     { PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,1, peer_change_reset_out },
     { PEER_FLAG_ADDPATH_TX_ALL_PATHS,     1, peer_change_reset },
+    { PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS, 1, peer_change_reset },
     { 0, 0, 0 }
   };
 
@@ -3792,7 +3815,7 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
     }
 
   /* Track if addpath TX is in use */
-  if (flag & PEER_FLAG_ADDPATH_TX_ALL_PATHS)
+  if (flag & (PEER_FLAG_ADDPATH_TX_ALL_PATHS|PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS))
     {
       bgp = peer->bgp;
       addpath_tx_used = 0;
@@ -3800,12 +3823,25 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
       if (set)
         {
           addpath_tx_used = 1;
+
+          if (flag & PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)
+            {
+              if (!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
+                {
+                  zlog_warn("%s: enabling bgp deterministic-med, this is required"\
+                            " for addpath-tx-bestpath-per-AS",
+                            peer->host);
+                  bgp_flag_set (bgp, BGP_FLAG_DETERMINISTIC_MED);
+                  bgp_recalculate_all_bestpaths (bgp);
+                }
+            }
         }
       else
         {
           for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, tmp_peer))
             {
-              if (CHECK_FLAG (tmp_peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
+              if (CHECK_FLAG (tmp_peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS) ||
+                  CHECK_FLAG (tmp_peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS))
                 {
                   addpath_tx_used = 1;
                   break;
@@ -6281,7 +6317,12 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
   /* local-as */
   if (peer->change_local_as)
     {
-      if (! peer_group_active (peer))
+      if (! peer_group_active (peer)
+          || peer->change_local_as != g_peer->change_local_as
+          || (CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) !=
+              CHECK_FLAG (g_peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND))
+          || (CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) !=
+              CHECK_FLAG (g_peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)))
         {
           vty_out (vty, " neighbor %s local-as %u%s%s%s", addr,
                    peer->change_local_as,
@@ -6546,8 +6587,10 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
 
   /* addpath TX knobs */
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ADDPATH_TX_ALL_PATHS))
-    vty_out (vty, "  neighbor %s addpath-tx-all-paths%s", addr,
-	     VTY_NEWLINE);
+    vty_out (vty, "  neighbor %s addpath-tx-all-paths%s", addr, VTY_NEWLINE);
+
+  if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS))
+    vty_out (vty, "  neighbor %s addpath-tx-bestpath-per-AS%s", addr, VTY_NEWLINE);
 
   /* ORF capability.  */
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM) ||

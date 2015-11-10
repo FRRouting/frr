@@ -289,28 +289,6 @@ enum clear_sort
   clear_as
 };
 
-/* Force a bestpath recalculation for all prefixes.  This is used
- * when 'bgp bestpath' commands are entered.
- */
-static void
-bgp_recalculate_all_bestpaths (struct bgp *bgp)
-{
-  afi_t afi;
-  safi_t safi;
-  struct bgp_node *rn;
-
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    {
-      for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-        {
-          for (rn = bgp_table_top (bgp->rib[afi][safi]); rn; rn = bgp_route_next (rn))
-            {
-              bgp_process (bgp, rn, afi, safi);
-            }
-        }
-    }
-}
-
 static void
 bgp_clear_vty_error (struct vty *vty, struct peer *peer, afi_t afi,
 		     safi_t safi, int error)
@@ -1655,13 +1633,43 @@ DEFUN (no_bgp_deterministic_med,
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
   struct bgp *bgp;
+  int bestpath_per_as_used;
+  afi_t afi;
+  safi_t safi;
+  struct peer *peer;
+  struct listnode *node, *nnode;
 
   bgp = vty->index;
 
   if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED))
     {
-      bgp_flag_unset (bgp, BGP_FLAG_DETERMINISTIC_MED);
-      bgp_recalculate_all_bestpaths (bgp);
+      bestpath_per_as_used = 0;
+
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+        {
+          for (afi = AFI_IP; afi < AFI_MAX; afi++)
+            for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+              if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS))
+                {
+                  bestpath_per_as_used = 1;
+                  break;
+                }
+
+          if (bestpath_per_as_used)
+            break;
+        }
+
+      if (bestpath_per_as_used)
+        {
+          vty_out (vty, "bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use%s",
+                   VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      else
+        {
+          bgp_flag_unset (bgp, BGP_FLAG_DETERMINISTIC_MED);
+          bgp_recalculate_all_bestpaths (bgp);
+        }
     }
 
   return CMD_SUCCESS;
@@ -5803,6 +5811,38 @@ DEFUN (no_neighbor_addpath_tx_all_paths,
 				 PEER_FLAG_ADDPATH_TX_ALL_PATHS);
 }
 
+DEFUN (neighbor_addpath_tx_bestpath_per_as,
+       neighbor_addpath_tx_bestpath_per_as_cmd,
+       NEIGHBOR_CMD2 "addpath-tx-bestpath-per-AS",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Use addpath to advertise the bestpath per each neighboring AS\n")
+{
+  struct peer *peer;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+			       bgp_node_safi (vty),
+			       PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS);
+}
+
+DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
+       no_neighbor_addpath_tx_bestpath_per_as_cmd,
+       NO_NEIGHBOR_CMD2 "addpath-tx-bestpath-per-AS",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Use addpath to advertise the bestpath per each neighboring AS\n")
+{
+  return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+				 bgp_node_safi (vty),
+				 PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS);
+}
+
+
 /* Address family configuration.  */
 DEFUN (address_family_ipv4,
        address_family_ipv4_cmd,
@@ -9282,6 +9322,9 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
         json_object_boolean_true_add(json_addr, "addpathTxAllPaths");
 
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS))
+        json_object_boolean_true_add(json_addr, "addpathTxBestpathPerAS");
+
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_OVERRIDE))
         json_object_string_add(json_addr, "overrideASNsInOutboundUpdates", "ifAspathEqualRemoteAs");
 
@@ -9471,6 +9514,9 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
 
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_ALL_PATHS))
         vty_out (vty, "  Advertise all paths via addpath%s", VTY_NEWLINE);
+
+      if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS))
+        vty_out (vty, "  Advertise bestpath per AS via addpath%s", VTY_NEWLINE);
 
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_AS_OVERRIDE))
         vty_out (vty, "  Override ASNs in outbound updates if aspath equals remote-as%s", VTY_NEWLINE);
@@ -13222,6 +13268,20 @@ bgp_vty_init (void)
   install_element (BGP_IPV6M_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_addpath_tx_all_paths_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_addpath_tx_all_paths_cmd);
+
+  /* "neighbor addpath-tx-bestpath-per-AS" commands.*/
+  install_element (BGP_NODE, &neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_NODE, &no_neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_IPV6M_NODE, &neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_addpath_tx_bestpath_per_as_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_addpath_tx_bestpath_per_as_cmd);
 
   /* "neighbor passive" commands. */
   install_element (BGP_NODE, &neighbor_passive_cmd);

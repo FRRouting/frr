@@ -743,7 +743,7 @@ prefix_list_apply (struct prefix_list *plist, void *object)
 
   struct prefix *p = (struct prefix *) object;
   uint8_t *byte = &p->u.prefix;
-  size_t depth = plist->master->trie_depth;
+  size_t depth;
   size_t validbits = p->prefixlen;
   struct pltrie_table *table;
 
@@ -753,6 +753,7 @@ prefix_list_apply (struct prefix_list *plist, void *object)
   if (plist->count == 0)
     return PREFIX_PERMIT;
 
+  depth = plist->master->trie_depth;
   table = plist->trie;
   while (1)
     {
