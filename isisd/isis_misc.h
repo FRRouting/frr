@@ -41,14 +41,14 @@ int sysid2buff (u_char *, const char *);
 /*
  * Printing functions
  */
-const char *isonet_print (u_char *, int len);
-const char *sysid_print (u_char *);
-const char *snpa_print (u_char *);
-const char *rawlspid_print (u_char *);
+const char *isonet_print (const u_char *, int len);
+const char *sysid_print (const u_char *);
+const char *snpa_print (const u_char *);
+const char *rawlspid_print (const u_char *);
 const char *time2string (u_int32_t);
 /* typedef struct nlpids nlpids; */
 char *nlpid2string (struct nlpids *);
-const char *print_sys_hostname (u_char *sysid);
+const char *print_sys_hostname (const u_char *sysid);
 void zlog_dump_data (void *data, int len);
 
 /*

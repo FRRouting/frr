@@ -884,7 +884,7 @@ process_p2p_hello (struct isis_circuit *circuit)
  * Process IS-IS LAN Level 1/2 Hello PDU
  */
 static int
-process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
+process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
 {
   int retval = ISIS_OK;
   struct isis_lan_hello_hdr hdr;
@@ -1272,7 +1272,7 @@ out:
  * Section 7.3.15.1 - Action on receipt of a link state PDU
  */
 static int
-process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
+process_lsp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
 {
   struct isis_link_state_hdr *hdr;
   struct isis_adjacency *adj = NULL;
@@ -1621,7 +1621,7 @@ dontcheckadj:
 
 static int
 process_snp (int snp_type, int level, struct isis_circuit *circuit,
-	     u_char * ssnpa)
+	     const u_char *ssnpa)
 {
   int retval = ISIS_OK;
   int cmp, own_lsp;
@@ -1917,7 +1917,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 }
 
 static int
-process_csnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
+process_csnp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
 {
   if (isis->debugs & DEBUG_SNP_PACKETS)
     {
@@ -1941,7 +1941,7 @@ process_csnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 }
 
 static int
-process_psnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
+process_psnp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
 {
   if (isis->debugs & DEBUG_SNP_PACKETS)
     {

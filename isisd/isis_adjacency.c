@@ -52,7 +52,7 @@
 extern struct isis *isis;
 
 static struct isis_adjacency *
-adj_alloc (u_char * id)
+adj_alloc (const u_char *id)
 {
   struct isis_adjacency *adj;
 
@@ -63,7 +63,7 @@ adj_alloc (u_char * id)
 }
 
 struct isis_adjacency *
-isis_new_adj (u_char * id, u_char * snpa, int level,
+isis_new_adj (const u_char * id, const u_char * snpa, int level,
 	      struct isis_circuit *circuit)
 {
   struct isis_adjacency *adj;
@@ -104,7 +104,7 @@ isis_new_adj (u_char * id, u_char * snpa, int level,
 }
 
 struct isis_adjacency *
-isis_adj_lookup (u_char * sysid, struct list *adjdb)
+isis_adj_lookup (const u_char * sysid, struct list *adjdb)
 {
   struct isis_adjacency *adj;
   struct listnode *node;
@@ -117,7 +117,7 @@ isis_adj_lookup (u_char * sysid, struct list *adjdb)
 }
 
 struct isis_adjacency *
-isis_adj_lookup_snpa (u_char * ssnpa, struct list *adjdb)
+isis_adj_lookup_snpa (const u_char * ssnpa, struct list *adjdb)
 {
   struct listnode *node;
   struct isis_adjacency *adj;

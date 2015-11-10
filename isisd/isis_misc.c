@@ -63,7 +63,7 @@ char nlpidstring[30];
  * This converts the isonet to its printable format
  */
 const char *
-isonet_print (u_char * from, int len)
+isonet_print (const u_char * from, int len)
 {
   int i = 0;
   char *pos = isonet;
@@ -370,7 +370,7 @@ syst2string (int type)
  * Print functions - we print to static vars
  */
 const char *
-snpa_print (u_char * from)
+snpa_print (const u_char * from)
 {
   int i = 0;
   u_char *pos = (u_char *)snpa;
@@ -402,7 +402,7 @@ snpa_print (u_char * from)
 }
 
 const char *
-sysid_print (u_char * from)
+sysid_print (const u_char * from)
 {
   int i = 0;
   char *pos = sysid;
@@ -434,7 +434,7 @@ sysid_print (u_char * from)
 }
 
 const char *
-rawlspid_print (u_char * from)
+rawlspid_print (const u_char * from)
 {
   char *pos = lspid;
   if (!from)
@@ -553,7 +553,7 @@ unix_hostname (void)
  * If no dynamic hostname found then returns formatted system ID.
  */
 const char *
-print_sys_hostname (u_char *sysid)
+print_sys_hostname (const u_char *sysid)
 {
   struct isis_dynhn *dyn;
 

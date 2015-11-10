@@ -101,10 +101,10 @@ struct isis_adjacency
   struct isis_circuit *circuit;	/* back pointer */
 };
 
-struct isis_adjacency *isis_adj_lookup (u_char * sysid, struct list *adjdb);
-struct isis_adjacency *isis_adj_lookup_snpa (u_char * ssnpa,
+struct isis_adjacency *isis_adj_lookup (const u_char * sysid, struct list *adjdb);
+struct isis_adjacency *isis_adj_lookup_snpa (const u_char * ssnpa,
 					     struct list *adjdb);
-struct isis_adjacency *isis_new_adj (u_char * id, u_char * snpa, int level,
+struct isis_adjacency *isis_new_adj (const u_char * id, const u_char * snpa, int level,
 				     struct isis_circuit *circuit);
 void isis_delete_adj (void *adj);
 void isis_adj_state_change (struct isis_adjacency *adj,

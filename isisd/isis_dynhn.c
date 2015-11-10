@@ -78,7 +78,7 @@ dyn_cache_cleanup (struct thread *thread)
 }
 
 struct isis_dynhn *
-dynhn_find_by_id (u_char * id)
+dynhn_find_by_id (const u_char * id)
 {
   struct listnode *node = NULL;
   struct isis_dynhn *dyn = NULL;
@@ -104,7 +104,7 @@ dynhn_find_by_name (const char *hostname)
 }
 
 void
-isis_dynhn_insert (u_char * id, struct hostname *hostname, int level)
+isis_dynhn_insert (const u_char * id, struct hostname *hostname, int level)
 {
   struct isis_dynhn *dyn;
 
@@ -135,7 +135,7 @@ isis_dynhn_insert (u_char * id, struct hostname *hostname, int level)
 }
 
 void
-isis_dynhn_remove (u_char * id)
+isis_dynhn_remove (const u_char * id)
 {
   struct isis_dynhn *dyn;
 
