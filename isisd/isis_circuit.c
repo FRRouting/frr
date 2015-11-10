@@ -898,6 +898,10 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
 
   if (detail == ISIS_UI_LEVEL_DETAIL)
     {
+      struct listnode *node;
+      struct prefix *ip_addr;
+      u_char buf[BUFSIZ];
+
       vty_out (vty, "  Interface: %s", circuit->interface->name);
       vty_out (vty, ", State: %s", circuit_state2string (circuit->state));
       if (circuit->is_passive)
@@ -979,9 +983,6 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
         }
       if (circuit->ip_addrs && listcount (circuit->ip_addrs) > 0)
         {
-          struct listnode *node;
-          struct prefix *ip_addr;
-          char buf[PREFIX2STR_BUFFER];
           vty_out (vty, "    IP Prefix(es):%s", VTY_NEWLINE);
           for (ALL_LIST_ELEMENTS_RO (circuit->ip_addrs, node, ip_addr))
             {
@@ -989,6 +990,25 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
               vty_out (vty, "      %s%s", buf, VTY_NEWLINE);
             }
         }
+      if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0)
+        {
+          vty_out(vty, "    IPv6 Link-Locals:%s", VTY_NEWLINE);
+          for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node, ip_addr))
+            {
+              prefix2str(ip_addr, (char*)buf, BUFSIZ),
+              vty_out(vty, "      %s%s", buf, VTY_NEWLINE);
+            }
+        }
+      if (circuit->ipv6_link && listcount(circuit->ipv6_non_link) > 0)
+        {
+          vty_out(vty, "    IPv6 Prefixes:%s", VTY_NEWLINE);
+          for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node, ip_addr))
+            {
+              prefix2str(ip_addr, (char*)buf, BUFSIZ),
+              vty_out(vty, "      %s%s", buf, VTY_NEWLINE);
+            }
+        }
+
       vty_out (vty, "%s", VTY_NEWLINE);
     }
   return;
