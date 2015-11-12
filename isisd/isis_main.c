@@ -34,6 +34,7 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "filter.h"
+#include "plist.h"
 #include "zclient.h"
 #include "vrf.h"
 #include "systemd.h"
@@ -48,6 +49,7 @@
 #include "isisd/isis_dynhn.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_route.h"
+#include "isisd/isis_routemap.h"
 #include "isisd/isis_zebra.h"
 
 /* Default configuration file name */
@@ -339,9 +341,12 @@ main (int argc, char **argv, char **envp)
   memory_init ();
   access_list_init();
   vrf_init ();
+  prefix_list_init();
   isis_init ();
   isis_circuit_init ();
   isis_spf_cmds_init ();
+  isis_redist_init ();
+  isis_route_map_init();
 
   /* create the global 'isis' instance */
   isis_new (1);

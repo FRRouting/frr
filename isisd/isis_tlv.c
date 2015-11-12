@@ -992,8 +992,8 @@ tlv_add_lsp_entries (struct list *lsps, struct stream *stream)
   return add_tlv (LSP_ENTRIES, pos - value, value, stream);
 }
 
-int
-tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
+static int
+tlv_add_ipv4_reachs (u_char tag, struct list *ipv4_reachs, struct stream *stream)
 {
   struct listnode *node;
   struct ipv4_reachability *reach;
@@ -1006,7 +1006,7 @@ tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
       if (pos - value + IPV4_REACH_LEN > 255)
 	{
 	  retval =
-	    add_tlv (IPV4_INT_REACHABILITY, pos - value, value, stream);
+	    add_tlv (tag, pos - value, value, stream);
 	  if (retval != ISIS_OK)
 	    return retval;
 	  pos = value;
@@ -1025,8 +1025,21 @@ tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
       pos += IPV4_MAX_BYTELEN;
     }
 
-  return add_tlv (IPV4_INT_REACHABILITY, pos - value, value, stream);
+  return add_tlv (tag, pos - value, value, stream);
 }
+
+int
+tlv_add_ipv4_int_reachs (struct list *ipv4_reachs, struct stream *stream)
+{
+  return tlv_add_ipv4_reachs(IPV4_INT_REACHABILITY, ipv4_reachs, stream);
+}
+
+int
+tlv_add_ipv4_ext_reachs (struct list *ipv4_reachs, struct stream *stream)
+{
+  return tlv_add_ipv4_reachs(IPV4_EXT_REACHABILITY, ipv4_reachs, stream);
+}
+
 
 int
 tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream)

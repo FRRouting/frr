@@ -4,6 +4,7 @@
  * Copyright (C) 2001,2002   Sampo Saaristo
  *                           Tampere University of Technology      
  *                           Institute of Communications Engineering
+ * Copyright (C) 2013-2015   Christian Franke <chris@opensourcerouting.org>
  *
  * This program is free software; you can redistribute it and/or modify it 
  * under the terms of the GNU General Public Licenseas published by the Free 
@@ -32,6 +33,7 @@
 #include "zclient.h"
 #include "stream.h"
 #include "linklist.h"
+#include "nexthop.h"
 #include "vrf.h"
 
 #include "isisd/dict.h"
@@ -531,8 +533,10 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
   struct stream *stream;
   struct zapi_ipv4 api;
   struct prefix_ipv4 p;
+  struct prefix *p_generic = (struct prefix*)&p;
 
   stream = zclient->ibuf;
+  memset(&api, 0, sizeof(api));
   memset (&p, 0, sizeof (struct prefix_ipv4));
 
   api.type = stream_getc (stream);
@@ -558,32 +562,80 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
     api.distance = stream_getc (stream);
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_METRIC))
     api.metric = stream_getl (stream);
-  else
-    api.metric = 0;
+
+  /*
+   * Avoid advertising a false default reachability. (A default
+   * route installed by IS-IS gets redistributed from zebra back
+   * into IS-IS causing us to start advertising default reachabity
+   * without this check)
+   */
+  if (p.prefixlen == 0 && api.type == ZEBRA_ROUTE_ISIS)
+    command = ZEBRA_IPV4_ROUTE_DELETE;
 
   if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD)
-    {
-      if (isis->debugs & DEBUG_ZEBRA)
-	zlog_debug ("IPv4 Route add from Z");
-    }
+    isis_redist_add(api.type, p_generic, api.distance, api.metric);
+  else
+    isis_redist_delete(api.type, p_generic);
 
   return 0;
 }
 
-#ifdef HAVE_IPV6
 static int
 isis_zebra_read_ipv6 (int command, struct zclient *zclient,
 		      zebra_size_t length, vrf_id_t vrf_id)
 {
+  struct stream *stream;
+  struct zapi_ipv6 api;
+  struct prefix_ipv6 p;
+  struct prefix *p_generic = (struct prefix*)&p;
+  struct in6_addr nexthop;
+  unsigned long ifindex __attribute__((unused));
+
+  stream = zclient->ibuf;
+  memset(&api, 0, sizeof(api));
+  memset(&p, 0, sizeof(struct prefix_ipv6));
+  memset(&nexthop, 0, sizeof(nexthop));
+  ifindex = 0;
+
+  api.type = stream_getc(stream);
+  api.flags = stream_getc(stream);
+  api.message = stream_getc(stream);
+
+  p.family = AF_INET6;
+  p.prefixlen = stream_getc(stream);
+  stream_get(&p.prefix, stream, PSIZE(p.prefixlen));
+
+  if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP))
+    {
+      api.nexthop_num = stream_getc(stream); /* this is always 1 */
+      stream_get(&nexthop, stream, sizeof(nexthop));
+    }
+  if (CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX))
+    {
+      api.ifindex_num = stream_getc(stream);
+      ifindex = stream_getl(stream);
+    }
+  if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
+    api.distance = stream_getc(stream);
+  if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
+    api.metric = stream_getl(stream);
+
+  /*
+   * Avoid advertising a false default reachability. (A default
+   * route installed by IS-IS gets redistributed from zebra back
+   * into IS-IS causing us to start advertising default reachabity
+   * without this check)
+   */
+  if (p.prefixlen == 0 && api.type == ZEBRA_ROUTE_ISIS)
+    command = ZEBRA_IPV6_ROUTE_DELETE;
+
+  if (command == ZEBRA_IPV6_ROUTE_ADD)
+    isis_redist_add(api.type, p_generic, api.distance, api.metric);
+  else
+    isis_redist_delete(api.type, p_generic);
+
   return 0;
 }
-#endif
-
-#define ISIS_TYPE_IS_REDISTRIBUTED(T) \
-T == ZEBRA_ROUTE_MAX ? \
-  vrf_bitmap_check (zclient->default_information, VRF_DEFAULT) : \
-  (vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT) || \
-   vrf_bitmap_check (zclient->redist[AFI_IP6][type], VRF_DEFAULT)
 
 int
 isis_distribute_list_update (int routetype)
@@ -591,14 +643,23 @@ isis_distribute_list_update (int routetype)
   return 0;
 }
 
-#if 0 /* Not yet. */
-static int
-isis_redistribute_default_set (int routetype, int metric_type,
-			       int metric_value)
+void
+isis_zebra_redistribute_set(int type)
 {
-  return 0;
+  if (type == DEFAULT_ROUTE)
+    zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, VRF_DEFAULT);
+  else
+    zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0, VRF_DEFAULT);
 }
-#endif /* 0 */
+
+void
+isis_zebra_redistribute_unset(int type)
+{
+  if (type == DEFAULT_ROUTE)
+    zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, VRF_DEFAULT);
+  else
+    zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+}
 
 static void
 isis_zebra_connected (struct zclient *zclient)

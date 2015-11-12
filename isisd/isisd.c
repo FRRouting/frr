@@ -280,6 +280,8 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
     }
 #endif /* HAVE_IPV6 */
 
+  isis_redist_area_finish(area);
+
   for (ALL_LIST_ELEMENTS (area->area_addrs, node, nnode, addr))
     {
       list_delete_node (area->area_addrs, node);
@@ -3050,6 +3052,8 @@ isis_config_write (struct vty *vty)
 	    vty_out (vty, " is-type level-2-only%s", VTY_NEWLINE);
 	    write++;
 	  }
+	write += isis_redist_config_write(vty, area, AF_INET);
+	write += isis_redist_config_write(vty, area, AF_INET6);
 	/* ISIS - Lsp generation interval */
 	if (area->lsp_gen_interval[0] == area->lsp_gen_interval[1])
 	  {

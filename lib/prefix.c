@@ -187,6 +187,17 @@ prefix6_bit (const struct in6_addr *prefix, const u_char prefixlen)
   return prefix_bit((const u_char *) &prefix->s6_addr, prefixlen);
 }
 
+int
+str2family(const char *string)
+{
+  if (!strcmp("ipv4", string))
+    return AF_INET;
+  else if (!strcmp("ipv6", string))
+    return AF_INET6;
+  else
+    return -1;
+}
+
 /* Address Famiy Identifier to Address Family converter. */
 int
 afi2family (afi_t afi)

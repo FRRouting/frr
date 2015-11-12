@@ -27,15 +27,11 @@
 
 #define ISISD_VERSION "0.0.7"
 
+#include "isisd/isis_redist.h"
+
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */
 /* #define EXTREME_TLV_DEBUG */
-
-struct rmap
-{
-  char *name;
-  struct route_map *map;
-};
 
 struct isis
 {
@@ -55,30 +51,7 @@ struct isis
   time_t uptime;		/* when did we start */
   struct thread *t_dync_clean;	/* dynamic hostname cache cleanup thread */
 
-  /* Redistributed external information. */
-  struct route_table *external_info[ZEBRA_ROUTE_MAX + 1];
-  /* Redistribute metric info. */
-  struct
-  {
-    int type;			/* Internal or External  */
-    int value;			/* metric value */
-  } dmetric[ZEBRA_ROUTE_MAX + 1];
-
-  struct
-  {
-    char *name;
-    struct route_map *map;
-  } rmap[ZEBRA_ROUTE_MAX + 1];
-#ifdef HAVE_IPV6
-  struct
-  {
-    struct
-    {
-      char *name;
-      struct route_map *map;
-    } rmap[ZEBRA_ROUTE_MAX + 1];
-  } inet6_afmode;
-#endif
+  struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
 };
 
 extern struct isis *isis;
@@ -147,6 +120,9 @@ struct isis_area
 #endif				/* HAVE_IPV6 */
   /* Counters */
   u_int32_t circuit_state_changes;
+  struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
+                                    [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
+  struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
 
 #ifdef TOPOLOGY_GENERATE
   struct list *topology;
