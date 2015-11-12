@@ -103,7 +103,7 @@ bgp_maximum_paths_unset (struct bgp *bgp, afi_t afi, safi_t safi,
  * or greater than zero if bi1 is respectively less than, equal to,
  * or greater than bi2.
  */
-static int
+int
 bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
 {
   struct attr_extra *ae1, *ae2;

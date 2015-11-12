@@ -59,6 +59,7 @@ extern int bgp_maximum_paths_unset (struct bgp *, afi_t, safi_t, int);
 /* Functions used by bgp_best_selection to record current
  * multipath selections
  */
+extern int bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2);
 extern void bgp_mp_list_init (struct list *);
 extern void bgp_mp_list_clear (struct list *);
 extern void bgp_mp_list_add (struct list *, struct bgp_info *);

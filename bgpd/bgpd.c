@@ -6899,10 +6899,10 @@ bgp_config_write (struct vty *vty)
             {
               vty_out (vty, " bgp bestpath as-path multipath-relax as-set%s", VTY_NEWLINE);
             }
-        }
-     else
-        {
-	  vty_out (vty, " no bgp bestpath as-path multipath-relax%s", VTY_NEWLINE);
+          else
+            {
+              vty_out (vty, " bgp bestpath as-path multipath-relax%s", VTY_NEWLINE);
+            }
         }
 
       if (bgp_flag_check (bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {

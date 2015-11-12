@@ -1637,12 +1637,20 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
             if (ri->peer->status != Established)
               continue;
 
+          if (!bgp_info_nexthop_cmp (ri, new_select))
+            {
+              if (debug)
+                zlog_debug("%s: path %s has the same nexthop as the bestpath, skip it",
+                           pfx_buf, ri->peer->host);
+              continue;
+            }
+
           bgp_info_cmp (bgp, ri, new_select, &paths_eq, mpath_cfg, debug, pfx_buf);
 
           if (paths_eq)
             {
               if (debug)
-                zlog_debug("%s: %s path is equivalent to the bestpath, add to the multipath list",
+                zlog_debug("%s: path %s is equivalent to the bestpath, add to the multipath list",
                            pfx_buf, ri->peer->host);
 	      bgp_mp_list_add (&mp_list, ri);
             }
