@@ -380,7 +380,7 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
   up->join_state                 = 0;
   up->state_transition           = pim_time_monotonic_sec();
   up->channel_oil                = NULL;
-  up->sptbit                     = PIM_UPSTREAM_SPTBIT_TRUE;
+  up->sptbit                     = PIM_UPSTREAM_SPTBIT_FALSE;
 
   up->rpf.source_nexthop.interface                = 0;
   up->rpf.source_nexthop.mrib_nexthop_addr.s_addr = PIM_NET_INADDR_ANY;
