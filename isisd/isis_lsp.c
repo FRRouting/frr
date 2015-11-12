@@ -1222,12 +1222,19 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
   /* Dynamic Hostname */
   if (area->dynhostname)
     {
+      const char *hostname = unix_hostname();
+      size_t hostname_len = strlen(hostname);
+
       lsp->tlv_data.hostname = XMALLOC (MTYPE_ISIS_TLV,
 					sizeof (struct hostname));
 
-      memcpy (lsp->tlv_data.hostname->name, unix_hostname (),
-	      strlen (unix_hostname ()));
-      lsp->tlv_data.hostname->namelen = strlen (unix_hostname ());
+      strncpy((char *)lsp->tlv_data.hostname->name, hostname,
+              sizeof(lsp->tlv_data.hostname->name));
+      if (hostname_len <= MAX_TLV_LEN)
+        lsp->tlv_data.hostname->namelen = hostname_len;
+      else
+        lsp->tlv_data.hostname->namelen = MAX_TLV_LEN;
+
       tlv_add_dynamic_hostname (lsp->tlv_data.hostname, lsp->pdu);
     }
 

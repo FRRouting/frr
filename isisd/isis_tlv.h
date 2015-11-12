@@ -112,6 +112,8 @@
 
 #define AUTH_INFO_HDRLEN          3
 
+#define MAX_TLV_LEN 255
+
 #define IS_NEIGHBOURS_LEN (ISIS_SYS_ID_LEN + 5)
 #define LAN_NEIGHBOURS_LEN 6
 #define LSP_ENTRIES_LEN (10 + ISIS_SYS_ID_LEN)	/* FIXME: should be entry */
