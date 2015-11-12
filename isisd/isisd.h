@@ -168,5 +168,14 @@ extern struct thread_master *master;
 #define DEBUG_EVENTS                     (1<<10)
 #define DEBUG_ZEBRA                      (1<<11)
 #define DEBUG_PACKET_DUMP                (1<<12)
+#define DEBUG_LSP_GEN                    (1<<13)
+
+#define lsp_debug(...) \
+  do \
+    { \
+      if (isis->debugs & DEBUG_LSP_GEN) \
+        zlog_debug(__VA_ARGS__); \
+    } \
+  while (0)
 
 #endif /* ISISD_H */

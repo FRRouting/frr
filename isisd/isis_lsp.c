@@ -1170,6 +1170,9 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
   uint32_t metric;
   u_char zero_id[ISIS_SYS_ID_LEN + 1];
   int retval = ISIS_OK;
+  char buf[BUFSIZ];
+
+  lsp_debug("ISIS (%s): Constructing local system LSP for level %d", area->area_tag, level);
 
   /*
    * Building the zero lsp
@@ -1209,12 +1212,14 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
       lsp->tlv_data.nlpids->count = 0;
       if (area->ip_circuits > 0)
 	{
+	  lsp_debug("ISIS (%s): Found IPv4 circuit, adding IPv4 to NLPIDs", area->area_tag);
 	  lsp->tlv_data.nlpids->count++;
 	  lsp->tlv_data.nlpids->nlpids[0] = NLPID_IP;
 	}
 #ifdef HAVE_IPV6
       if (area->ipv6_circuits > 0)
 	{
+	  lsp_debug("ISIS (%s): Found IPv6 circuit, adding IPv6 to NLPIDs", area->area_tag);
 	  lsp->tlv_data.nlpids->count++;
 	  lsp->tlv_data.nlpids->nlpids[lsp->tlv_data.nlpids->count - 1] =
 	    NLPID_IPV6;
@@ -1239,7 +1244,13 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
       else
         lsp->tlv_data.hostname->namelen = MAX_TLV_LEN;
 
+      lsp_debug("ISIS (%s): Adding dynamic hostname '%.*s'", area->area_tag,
+                lsp->tlv_data.hostname->namelen, lsp->tlv_data.hostname->name);
       tlv_add_dynamic_hostname (lsp->tlv_data.hostname, lsp->pdu);
+    }
+  else
+    {
+      lsp_debug("ISIS (%s): Not adding dynamic hostname (disabled)", area->area_tag);
     }
 
   /* IPv4 address and TE router ID TLVs. In case of the first one we don't
@@ -1247,6 +1258,8 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
    * LSP and this address is same as router id. */
   if (isis->router_id != 0)
     {
+      inet_ntop(AF_INET, &isis->router_id, buf, sizeof(buf));
+      lsp_debug("ISIS (%s): Adding router ID %s as IPv4 tlv.", area->area_tag, buf);
       if (lsp->tlv_data.ipv4_addrs == NULL)
 	{
 	  lsp->tlv_data.ipv4_addrs = list_new ();
@@ -1262,12 +1275,17 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
        * TLV's are in use. */
       if (area->newmetric)
 	{
+          lsp_debug("ISIS (%s): Adding router ID also as TE router ID tlv.", area->area_tag);
 	  lsp->tlv_data.router_id = XMALLOC (MTYPE_ISIS_TLV,
 					     sizeof (struct in_addr));
 	  lsp->tlv_data.router_id->id.s_addr = isis->router_id;
 	  tlv_add_in_addr (&lsp->tlv_data.router_id->id, lsp->pdu,
                            TE_ROUTER_ID);
 	}
+    }
+  else
+    {
+      lsp_debug("ISIS (%s): Router ID is unset. Not adding tlv.", area->area_tag);
     }
 
   memset (&tlv_data, 0, sizeof (struct tlvs));
@@ -1295,13 +1313,25 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
     }
 #endif /* TOPOLOGY_GENERATE */
 
+  lsp_debug("ISIS (%s): Adding circuit specific information.", area->area_tag);
+
   /*
    * Then build lists of tlvs related to circuits
    */
   for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
     {
+      if (!circuit->interface)
+        lsp_debug("ISIS (%s): Processing %s circuit %p with unknown interface",
+                  area->area_tag, circuit_type2string(circuit->circ_type), circuit);
+      else
+        lsp_debug("ISIS (%s): Processing %s circuit %s",
+                  area->area_tag, circuit_type2string(circuit->circ_type), circuit->interface->name);
+
       if (circuit->state != C_STATE_UP)
-	continue;
+        {
+          lsp_debug("ISIS (%s): Circuit is not up, ignoring.", area->area_tag);
+          continue;
+        }
 
       /*
        * Add IPv4 internal reachability of this circuit
@@ -1309,6 +1339,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
       if (circuit->ip_router && circuit->ip_addrs &&
 	  circuit->ip_addrs->count > 0)
 	{
+	  lsp_debug("ISIS (%s): Circuit has IPv4 active, adding respective TLVs.", area->area_tag);
 	  if (area->oldmetric)
 	    {
 	      if (tlv_data.ipv4_int_reachs == NULL)
@@ -1324,6 +1355,9 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  masklen2ip (ipv4->prefixlen, &ipreach->mask);
 		  ipreach->prefix.s_addr = ((ipreach->mask.s_addr) &
 					    (ipv4->prefix.s_addr));
+		  inet_ntop(AF_INET, &ipreach->prefix.s_addr, buf, sizeof(buf));
+		  lsp_debug("ISIS (%s): Adding old-style IP reachability for %s/%d",
+		            area->area_tag, buf, ipv4->prefixlen);
 		  listnode_add (tlv_data.ipv4_int_reachs, ipreach);
 		}
 	    }
@@ -1349,6 +1383,9 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  te_ipreach->control = (ipv4->prefixlen & 0x3F);
 		  memcpy (&te_ipreach->prefix_start, &ipv4->prefix.s_addr,
 			  (ipv4->prefixlen + 7)/8);
+		  inet_ntop(AF_INET, &ipv4->prefix.s_addr, buf, sizeof(buf));
+		  lsp_debug("ISIS (%s): Adding te-style IP reachability for %s/%d",
+		            area->area_tag, buf, ipv4->prefixlen);
 		  listnode_add (tlv_data.te_ipv4_reachs, te_ipreach);
 		}
 	    }
@@ -1382,6 +1419,11 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 	      ip6reach->prefix_len = ipv6->prefixlen;
 	      memcpy (&ip6prefix, &ipv6, sizeof(ip6prefix));
 	      apply_mask_ipv6 (ip6prefix);
+
+	      inet_ntop(AF_INET6, &ip6prefix->prefix.s6_addr, buf, sizeof(buf));
+	      lsp_debug("ISIS (%s): Adding IPv6 reachability for %s/%d",
+	                area->area_tag, buf, ipv6->prefixlen);
+
 	      memcpy (ip6reach->prefix, ip6prefix->prefix.s6_addr,
 		      sizeof (ip6reach->prefix));
 	      listnode_add (tlv_data.ipv6_reachs, ip6reach);
@@ -1411,9 +1453,18 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  is_neigh->metrics = circuit->metrics[level - 1];
                   if (!memcmp (is_neigh->neigh_id, zero_id,
                                ISIS_SYS_ID_LEN + 1))
-                    XFREE (MTYPE_ISIS_TLV, is_neigh);
+                    {
+                      XFREE (MTYPE_ISIS_TLV, is_neigh);
+                      lsp_debug("ISIS (%s): No DIS for circuit, not adding old-style IS neighbor.",
+                                area->area_tag);
+                    }
                   else
-                    listnode_add (tlv_data.is_neighs, is_neigh);
+                    {
+                      listnode_add (tlv_data.is_neighs, is_neigh);
+                      lsp_debug("ISIS (%s): Adding DIS %s.%02x as old-style neighbor",
+                                area->area_tag, sysid_print(is_neigh->neigh_id),
+                                LSP_PSEUDO_ID(is_neigh->neigh_id));
+                    }
 		}
 	      if (area->newmetric)
 		{
@@ -1437,10 +1488,24 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  SET_TE_METRIC(te_is_neigh, metric);
                   if (!memcmp (te_is_neigh->neigh_id, zero_id,
                                ISIS_SYS_ID_LEN + 1))
-                    XFREE (MTYPE_ISIS_TLV, te_is_neigh);
+                    {
+                      XFREE (MTYPE_ISIS_TLV, te_is_neigh);
+                      lsp_debug("ISIS (%s): No DIS for circuit, not adding te-style IS neighbor.",
+                                area->area_tag);
+                    }
                   else
-                    listnode_add (tlv_data.te_is_neighs, te_is_neigh);
+                    {
+                      listnode_add (tlv_data.te_is_neighs, te_is_neigh);
+                      lsp_debug("ISIS (%s): Adding DIS %s.%02x as te-style neighbor",
+                                area->area_tag, sysid_print(te_is_neigh->neigh_id),
+                                LSP_PSEUDO_ID(te_is_neigh->neigh_id));
+                    }
 		}
+	    }
+	  else
+	    {
+	      lsp_debug("ISIS (%s): Circuit is not active for current level. Not adding IS neighbors",
+	                area->area_tag);
 	    }
 	  break;
 	case CIRCUIT_T_P2P:
@@ -1458,6 +1523,8 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  memcpy (is_neigh->neigh_id, nei->sysid, ISIS_SYS_ID_LEN);
 		  is_neigh->metrics = circuit->metrics[level - 1];
 		  listnode_add (tlv_data.is_neighs, is_neigh);
+		  lsp_debug("ISIS (%s): Adding old-style is reach for %s", area->area_tag,
+                            sysid_print(is_neigh->neigh_id));
 		}
 	      if (area->newmetric)
 		{
@@ -1474,8 +1541,15 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  metric = circuit->te_metric[level - 1];
 		  SET_TE_METRIC(te_is_neigh, metric);
 		  listnode_add (tlv_data.te_is_neighs, te_is_neigh);
+		  lsp_debug("ISIS (%s): Adding te-style is reach for %s", area->area_tag,
+                            sysid_print(te_is_neigh->neigh_id));
 		}
 	    }
+          else
+            {
+              lsp_debug("ISIS (%s): No adjacency for given level on this circuit. Not adding IS neighbors",
+              area->area_tag);
+            }
 	  break;
 	case CIRCUIT_T_LOOPBACK:
           break;
@@ -1483,6 +1557,8 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 	  zlog_warn ("lsp_area_create: unknown circuit type");
 	}
     }
+
+  lsp_debug("ISIS (%s): LSP construction is complete. Serializing...", area->area_tag);
 
   while (tlv_data.ipv4_int_reachs && listcount (tlv_data.ipv4_int_reachs))
     {
@@ -1833,6 +1909,11 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
   struct es_neigh *es_neigh;
   struct list *adj_list;
   struct listnode *node;
+  struct isis_area *area = circuit->area;
+
+  lsp_debug("ISIS (%s): Constructing pseudo LSP %s for interface %s level %d",
+            area->area_tag, rawlspid_print(lsp->lsp_header->lsp_id),
+            circuit->interface->name, level);
 
   lsp->level = level;
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
@@ -1853,6 +1934,9 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 
       memcpy (&is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
       listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+      lsp_debug("ISIS (%s): Adding %s.%02x as old-style neighbor (self)",
+                area->area_tag, sysid_print(is_neigh->neigh_id),
+                LSP_PSEUDO_ID(is_neigh->neigh_id));
     }
   if (circuit->area->newmetric)
     {
@@ -1865,6 +1949,9 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 
       memcpy (&te_is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
       listnode_add (lsp->tlv_data.te_is_neighs, te_is_neigh);
+      lsp_debug("ISIS (%s): Adding %s.%02x as te-style neighbor (self)",
+                area->area_tag, sysid_print(te_is_neigh->neigh_id),
+                LSP_PSEUDO_ID(te_is_neigh->neigh_id));
     }
 
   adj_list = list_new ();
@@ -1886,6 +1973,9 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 
 		  memcpy (&is_neigh->neigh_id, adj->sysid, ISIS_SYS_ID_LEN);
 		  listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+		  lsp_debug("ISIS (%s): Adding %s.%02x as old-style neighbor (peer)",
+		            area->area_tag, sysid_print(is_neigh->neigh_id),
+		            LSP_PSEUDO_ID(is_neigh->neigh_id));
 		}
 	      if (circuit->area->newmetric)
 		{
@@ -1893,6 +1983,9 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 					 sizeof (struct te_is_neigh));
 		  memcpy (&te_is_neigh->neigh_id, adj->sysid, ISIS_SYS_ID_LEN);
 		  listnode_add (lsp->tlv_data.te_is_neighs, te_is_neigh);
+		  lsp_debug("ISIS (%s): Adding %s.%02x as te-style neighbor (peer)",
+		            area->area_tag, sysid_print(te_is_neigh->neigh_id),
+		            LSP_PSEUDO_ID(te_is_neigh->neigh_id));
 		}
 	    }
 	  else if (level == IS_LEVEL_1 && adj->sys_type == ISIS_SYSTYPE_ES)
@@ -1908,10 +2001,24 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 	      
 	      memcpy (&es_neigh->first_es_neigh, adj->sysid, ISIS_SYS_ID_LEN);
 	      listnode_add (lsp->tlv_data.es_neighs, es_neigh);
+	      lsp_debug("ISIS (%s): Adding %s as ES neighbor (peer)",
+	                area->area_tag, sysid_print(es_neigh->first_es_neigh));
 	    }
+	  else
+	    {
+	      lsp_debug("ISIS (%s): Ignoring neighbor %s, level does not match",
+	                area->area_tag, sysid_print(adj->sysid));
+	    }
+	}
+      else
+        {
+	  lsp_debug("ISIS (%s): Ignoring neighbor %s, level does not intersect",
+	            area->area_tag, sysid_print(adj->sysid));
 	}
     }
   list_delete (adj_list);
+
+  lsp_debug("ISIS (%s): Pseudo LSP construction is complete.", area->area_tag);
 
   /* Reset endp of stream to overwrite only TLV part of it. */
   stream_reset (lsp->pdu);
