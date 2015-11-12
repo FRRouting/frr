@@ -26,6 +26,7 @@
 #include <netpacket/packet.h>
 
 #include "log.h"
+#include "network.h"
 #include "stream.h"
 #include "if.h"
 
@@ -367,8 +368,14 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   iov[1].iov_base = circuit->snd_stream->data;
   iov[1].iov_len = stream_get_endp (circuit->snd_stream);
 
-  sendmsg (circuit->fd, &msg, 0);
-
+  if (sendmsg(circuit->fd, &msg, 0) < 0)
+    {
+      zlog_warn("IS-IS pfpacket: could not transmit packet on %s: %s",
+                circuit->interface->name, safe_strerror(errno));
+      if (ERRNO_IO_RETRY(errno))
+        return ISIS_WARNING;
+      return ISIS_ERROR;
+    }
   return ISIS_OK;
 }
 
@@ -376,6 +383,7 @@ int
 isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
 {
   struct sockaddr_ll sa;
+  ssize_t rv;
 
   stream_set_getp (circuit->snd_stream, 0);
   memset (&sa, 0, sizeof (struct sockaddr_ll));
@@ -391,11 +399,18 @@ isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
 
   /* lets try correcting the protocol */
   sa.sll_protocol = htons (0x00FE);
-  sendto (circuit->fd, circuit->snd_stream->data,
-	  stream_get_endp (circuit->snd_stream), 0, 
-	  (struct sockaddr *) &sa,
-	  sizeof (struct sockaddr_ll));
-
+  rv = sendto(circuit->fd, circuit->snd_stream->data,
+	      stream_get_endp (circuit->snd_stream), 0,
+	      (struct sockaddr *) &sa,
+	      sizeof (struct sockaddr_ll));
+  if (rv < 0)
+    {
+      zlog_warn("IS-IS pfpacket: could not transmit packet on %s: %s",
+                circuit->interface->name, safe_strerror(errno));
+      if (ERRNO_IO_RETRY(errno))
+        return ISIS_WARNING;
+      return ISIS_ERROR;
+    }
   return ISIS_OK;
 }
 

@@ -3061,15 +3061,14 @@ send_lsp (struct thread *thread)
   struct isis_circuit *circuit;
   struct isis_lsp *lsp;
   struct listnode *node;
+  int clear_srm = 1;
   int retval = ISIS_OK;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
-  if (circuit->state != C_STATE_UP || circuit->is_passive == 1)
-  {
-    return retval;
-  }
+  if (!circuit->lsp_queue)
+    return ISIS_OK;
 
   node = listhead (circuit->lsp_queue);
 
@@ -3079,28 +3078,56 @@ send_lsp (struct thread *thread)
    * thread gets a chance to run.
    */
   if (!node)
-    {
-      return retval;
-    }
+    return ISIS_OK;
 
+  /*
+   * Delete LSP from lsp_queue. If it's still in queue, it is assumed
+   * as 'transmit pending', but send_lsp may never be called again.
+   * Retry will happen because SRM flag will not be cleared.
+   */
   lsp = listgetdata(node);
+  list_delete_node (circuit->lsp_queue, node);
+
+  /* Set the last-cleared time if the queue is empty. */
+  /* TODO: Is is possible that new lsps keep being added to the queue
+   * that the queue is never empty? */
+  if (list_isempty (circuit->lsp_queue))
+    circuit->lsp_queue_last_cleared = time (NULL);
+
+  if (circuit->state != C_STATE_UP || circuit->is_passive == 1)
+    goto out;
 
   /*
    * Do not send if levels do not match
    */
   if (!(lsp->level & circuit->is_type))
-    {
-      list_delete_node (circuit->lsp_queue, node);
-      return retval;
-    }
+    goto out;
 
   /*
    * Do not send if we do not have adjacencies in state up on the circuit
    */
   if (circuit->upadjcount[lsp->level - 1] == 0)
+    goto out;
+
+  /* stream_copy will assert and stop program execution if LSP is larger than
+   * the circuit's MTU. So handle and log this case here. */
+  if (stream_get_endp(lsp->pdu) > stream_get_size(circuit->snd_stream))
     {
-      list_delete_node (circuit->lsp_queue, node);
-      return retval;
+      zlog_err("ISIS-Upd (%s): Can't send L%d LSP %s, seq 0x%08x,"
+               " cksum 0x%04x, lifetime %us on %s. LSP Size is %zu"
+               " while interface stream size is %zu.",
+               circuit->area->area_tag, lsp->level,
+               rawlspid_print(lsp->lsp_header->lsp_id),
+               ntohl(lsp->lsp_header->seq_num),
+               ntohs(lsp->lsp_header->checksum),
+               ntohs(lsp->lsp_header->rem_lifetime),
+               circuit->interface->name,
+               stream_get_endp(lsp->pdu),
+               stream_get_size(circuit->snd_stream));
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data(STREAM_DATA(lsp->pdu), stream_get_endp(lsp->pdu));
+      retval = ISIS_ERROR;
+      goto out;
     }
 
   /* copy our lsp to the send buffer */
@@ -3121,32 +3148,29 @@ send_lsp (struct thread *thread)
                         stream_get_endp (circuit->snd_stream));
     }
 
+  clear_srm = 0;
   retval = circuit->tx (circuit, lsp->level);
   if (retval != ISIS_OK)
     {
-      zlog_err ("ISIS-Upd (%s): Send L%d LSP on %s failed",
+      zlog_err ("ISIS-Upd (%s): Send L%d LSP on %s failed %s",
                 circuit->area->area_tag, lsp->level,
-                circuit->interface->name);
-      return retval;
+                circuit->interface->name,
+                (retval == ISIS_WARNING) ? "temporarily" : "permanently");
     }
 
-  /*
-   * If the sending succeeded, we can del the lsp from circuits
-   * lsp_queue
-   */
-  list_delete_node (circuit->lsp_queue, node);
-
-  /* Set the last-cleared time if the queue is empty. */
-  /* TODO: Is is possible that new lsps keep being added to the queue
-   * that the queue is never empty? */
-  if (list_isempty (circuit->lsp_queue))
-    circuit->lsp_queue_last_cleared = time (NULL);
-
-  /*
-   * On broadcast circuits also the SRMflag can be cleared
-   */
-  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-    ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
+out:
+  if (clear_srm
+      || (retval == ISIS_OK && circuit->circ_type == CIRCUIT_T_BROADCAST)
+      || (retval != ISIS_OK && retval != ISIS_WARNING))
+    {
+      /* SRM flag will trigger retransmission. We will not retransmit if we
+       * encountered a fatal error.
+       * On success, they should only be cleared if it's a broadcast circuit.
+       * On a P2P circuit, we will wait for the ack from the neighbor to clear
+       * the fag.
+       */
+      ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
+    }
 
   return retval;
 }

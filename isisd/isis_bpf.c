@@ -29,6 +29,7 @@
 #include <net/bpf.h>
 
 #include "log.h"
+#include "network.h"
 #include "stream.h"
 #include "if.h"
 
@@ -338,8 +339,14 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
 
   /* now we can send this */
   written = write (circuit->fd, sock_buff, buflen);
-
-  return ISIS_OK;
+  if (written < 0)
+    {
+      zlog_warn("IS-IS bpf: could not transmit packet on %s: %s",
+                circuit->interface->name, safe_strerror(errno));
+      if (ERRNO_IO_RETRY(errno))
+        return ISIS_WARNING;
+      return ISIS_ERROR;
+    }
 }
 
 int

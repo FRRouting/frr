@@ -33,6 +33,7 @@
 #include <sys/pfmod.h>
 
 #include "log.h"
+#include "network.h"
 #include "stream.h"
 #include "if.h"
 
@@ -90,13 +91,14 @@ static u_short pf_filter[] =
  * interfaces plus the (optional; not needed) Solaris packet filter module.
  */
 
-static void
+static int
 dlpisend (int fd, const void *cbuf, size_t cbuflen,
   const void *dbuf, size_t dbuflen, int flags)
 {
   const struct strbuf *ctlptr = NULL;
   const struct strbuf *dataptr = NULL;
   struct strbuf ctlbuf, databuf;
+  int rv;
 
   if (cbuf != NULL)
     {
@@ -115,8 +117,16 @@ dlpisend (int fd, const void *cbuf, size_t cbuflen,
     }
 
   /* We assume this doesn't happen often and isn't operationally significant */
-  if (putmsg (fd, ctlptr, dataptr, flags) == -1)
-    zlog_debug ("%s: putmsg: %s", __func__, safe_strerror (errno));
+  rv = putmsg(fd, ctlptr, dataptr, flags);
+  if (rv == -1 && dbuf == NULL)
+    {
+      /*
+       * For actual PDU transmission - recognizable buf dbuf != NULL,
+       * the error is passed upwards and should not be printed here.
+       */
+      zlog_debug ("%s: putmsg: %s", __func__, safe_strerror (errno));
+    }
+  return rv;
 }
 
 static ssize_t
@@ -586,6 +596,7 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   char *dstaddr;
   u_short *dstsap;
   int buflen;
+  int rv;
 
   buflen = stream_get_endp (circuit->snd_stream) + LLC_LEN;
   if (buflen > sizeof (sock_buff))
@@ -625,8 +636,17 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   sock_buff[2] = 0x03;
   memcpy (sock_buff + LLC_LEN, circuit->snd_stream->data,
 	  stream_get_endp (circuit->snd_stream));
-  dlpisend (circuit->fd, dur, sizeof (*dur) + dur->dl_dest_addr_length,
-	    sock_buff, buflen, 0);
+  rv = dlpisend(circuit->fd, dur, sizeof (*dur) + dur->dl_dest_addr_length,
+                sock_buff, buflen, 0);
+  if (rv < 0)
+    {
+      zlog_warn("IS-IS dlpi: could not transmit packet on %s: %s",
+                circuit->interface->name, safe_strerror(errno));
+      if (ERRNO_IO_RETRY(errno))
+        return ISIS_WARNING;
+      return ISIS_ERROR;
+    }
+
   return ISIS_OK;
 }
 
