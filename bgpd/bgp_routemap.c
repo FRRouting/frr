@@ -3679,19 +3679,6 @@ DEFUN (set_ip_nexthop_unchanged,
   return bgp_route_set_add (vty, vty->index, "ip next-hop", "unchanged");
 }
 
-DEFUN_DEPRECATED (no_set_ip_nexthop_peer,
-       no_set_ip_nexthop_peer_cmd,
-       "no set ip next-hop peer-address",
-       NO_STR
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "Use peer address (for BGP only)\n")
-{
-  return bgp_route_set_delete (vty, vty->index, "ip next-hop", NULL);
-}
-
-
 DEFUN (no_set_ip_nexthop,
        no_set_ip_nexthop_cmd,
        "no set ip next-hop",
@@ -3713,6 +3700,15 @@ ALIAS (no_set_ip_nexthop,
        IP_STR
        "Next hop address\n"
        "IP address of next hop\n")
+
+ALIAS (no_set_ip_nexthop,
+       no_set_ip_nexthop_peer_cmd,
+       "no set ip next-hop peer-address",
+       NO_STR
+       SET_STR
+       IP_STR
+       "Next hop address\n"
+       "Use peer address (for BGP only)\n")
 
 DEFUN (set_metric,
        set_metric_cmd,
@@ -4594,65 +4590,6 @@ ALIAS (no_set_originator_id,
        "BGP originator ID attribute\n"
        "IP address of originator\n")
 
-DEFUN_DEPRECATED (set_pathlimit_ttl,
-       set_pathlimit_ttl_cmd,
-       "set pathlimit ttl <1-255>",
-       SET_STR
-       "BGP AS-Pathlimit attribute\n"
-       "Set AS-Path Hop-count TTL\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUN_DEPRECATED (no_set_pathlimit_ttl,
-       no_set_pathlimit_ttl_cmd,
-       "no set pathlimit ttl",
-       NO_STR
-       SET_STR
-       "BGP AS-Pathlimit attribute\n"
-       "Set AS-Path Hop-count TTL\n")
-{
-  return CMD_SUCCESS;
-}
-
-ALIAS (no_set_pathlimit_ttl,
-       no_set_pathlimit_ttl_val_cmd,
-       "no set pathlimit ttl <1-255>",
-       NO_STR
-       MATCH_STR
-       "BGP AS-Pathlimit attribute\n"
-       "Set AS-Path Hop-count TTL\n")
-
-DEFUN_DEPRECATED (match_pathlimit_as,
-       match_pathlimit_as_cmd,
-       "match pathlimit as <1-65535>",
-       MATCH_STR
-       "BGP AS-Pathlimit attribute\n"
-       "Match Pathlimit AS number\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUN_DEPRECATED (no_match_pathlimit_as,
-       no_match_pathlimit_as_cmd,
-       "no match pathlimit as",
-       NO_STR
-       MATCH_STR
-       "BGP AS-Pathlimit attribute\n"
-       "Match Pathlimit AS number\n")
-{
-  return CMD_SUCCESS;
-}
-
-ALIAS (no_match_pathlimit_as,
-       no_match_pathlimit_as_val_cmd,
-       "no match pathlimit as <1-65535>",
-       NO_STR
-       MATCH_STR
-       "BGP AS-Pathlimit attribute\n"
-       "Match Pathlimit ASN\n")
-
-
 /* Initialization of route map. */
 void
 bgp_route_map_init (void)
@@ -4757,6 +4694,7 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_ip_nexthop_unchanged_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);
+  install_element (RMAP_NODE, &no_set_ip_nexthop_peer_cmd);
   install_element (RMAP_NODE, &set_local_pref_cmd);
   install_element (RMAP_NODE, &no_set_local_pref_cmd);
   install_element (RMAP_NODE, &no_set_local_pref_val_cmd);
@@ -4828,16 +4766,6 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
 #endif /* HAVE_IPV6 */
-
-  /* AS-Pathlimit: functionality removed, commands kept for
-   * compatibility.
-   */
-  install_element (RMAP_NODE, &set_pathlimit_ttl_cmd);
-  install_element (RMAP_NODE, &no_set_pathlimit_ttl_cmd);
-  install_element (RMAP_NODE, &no_set_pathlimit_ttl_val_cmd);
-  install_element (RMAP_NODE, &match_pathlimit_as_cmd);
-  install_element (RMAP_NODE, &no_match_pathlimit_as_cmd);
-  install_element (RMAP_NODE, &no_match_pathlimit_as_val_cmd);
 }
 
 void
