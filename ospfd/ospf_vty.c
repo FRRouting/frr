@@ -2534,37 +2534,6 @@ DEFUN (ospf_timers_throttle_spf,
   return ospf_timers_spf_set (vty, delay, hold, max);
 }
 
-DEFUN_DEPRECATED (ospf_timers_spf,
-       ospf_timers_spf_cmd,
-       "timers spf <0-4294967295> <0-4294967295>",
-       "Adjust routing timers\n"
-       "OSPF SPF timers\n"
-       "Delay (s) between receiving a change to SPF calculation\n"
-       "Hold time (s) between consecutive SPF calculations\n")
-{
-  unsigned int delay, hold;
-  
-  if (argc != 2)
-    {
-      vty_out (vty, "Insufficient number of arguments%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  
-  VTY_GET_INTEGER ("SPF delay timer", delay, argv[0]);
-  VTY_GET_INTEGER ("SPF hold timer", hold, argv[1]);
-  
-  /* truncate down the second values if they're greater than 600000ms */
-  if (delay > (600000 / 1000))
-    delay = 600000;
-  else if (delay == 0)
-    /* 0s delay was probably specified because of lack of ms resolution */
-    delay = OSPF_SPF_DELAY_DEFAULT;
-  if (hold > (600000 / 1000))
-    hold = 600000;
-      
-  return ospf_timers_spf_set (vty, delay * 1000, hold * 1000, hold * 1000);
-}
-
 DEFUN (no_ospf_timers_throttle_spf,
        no_ospf_timers_throttle_spf_cmd,
        "no timers throttle spf",
@@ -2589,13 +2558,6 @@ ALIAS (no_ospf_timers_throttle_spf,
        "Delay (msec) from first change received till SPF calculation\n"
        "Initial hold time (msec) between consecutive SPF calculations\n"
        "Maximum hold time (msec)\n")
-
-ALIAS_DEPRECATED (no_ospf_timers_throttle_spf,
-                  no_ospf_timers_spf_cmd,
-                  "no timers spf",
-                  NO_STR
-                  "Adjust routing timers\n"
-                  "OSPF SPF timers\n")
 
 DEFUN (ospf_timers_lsa,
        ospf_timers_lsa_cmd,
@@ -10064,8 +10026,6 @@ ospf_vty_init (void)
   install_element (OSPF_NODE, &no_ospf_area_import_list_cmd);
   
   /* SPF timer commands */
-  install_element (OSPF_NODE, &ospf_timers_spf_cmd);
-  install_element (OSPF_NODE, &no_ospf_timers_spf_cmd);
   install_element (OSPF_NODE, &ospf_timers_throttle_spf_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_throttle_spf_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_throttle_spf_val_cmd);
