@@ -1702,8 +1702,9 @@ rib_process (struct route_node *rn)
               assert (fib);
               rib_uninstall_kernel (rn, fib);
             }
-	  /* if "select", the earlier redist delete wouldn't have happened */
-	  redistribute_delete(&rn->p, select);
+          /* if "select", the earlier redist delete wouldn't have happened */
+          if (fib)
+            redistribute_delete(&rn->p, fib);
 	}
       UNSET_FLAG(select->flags, ZEBRA_FLAG_CHANGED);
     }
