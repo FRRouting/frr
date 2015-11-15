@@ -1336,7 +1336,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
   if (peer->sort == BGP_PEER_EBGP
       && attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
     {
-      if (ri->peer != bgp->peer_self && ! transparent
+      if (from != bgp->peer_self && ! transparent
 	  && ! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
 	attr->flag &= ~(ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC));
     }
@@ -1360,6 +1360,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
    * the peer (group) is configured to receive link-local nexthop unchanged
    * and it is available in the prefix OR we're not reflecting the route and
    * the peer (group) to whom we're going to announce is on a shared network
+   * and this is either a self-originated route or the peer is EBGP.
    */
   if (p->family == AF_INET6 || peer_cap_enhe(peer))
     {
@@ -1367,7 +1368,8 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
       if ((CHECK_FLAG (peer->af_flags[afi][safi],
                        PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) &&
            IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_local)) ||
-          (!reflect && peer->shared_network))
+          (!reflect && peer->shared_network &&
+           (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP)))
         {
           attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
         }
@@ -1469,6 +1471,16 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
             }
           if (!paf)
             subgroup_announce_reset_nhop ((peer_cap_enhe(peer) ? AF_INET6 : p->family), attr);
+        }
+      /* If IPv6/MP and nexthop does not have any override and happens to
+       * be a link-local address, reset it so that we don't pass along the
+       * source's link-local IPv6 address to recipients who may not be on
+       * the same interface.
+       */
+      if (p->family == AF_INET6 || peer_cap_enhe(peer))
+        {
+          if (IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_global))
+            subgroup_announce_reset_nhop (AF_INET6, attr);
         }
     }
 

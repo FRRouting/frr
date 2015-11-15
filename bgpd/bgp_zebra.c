@@ -885,11 +885,24 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
       /* IPv6 nexthop*/
       ret = if_get_ipv6_global (ifp, &nexthop->v6_global);
 
-      /* There is no global nexthop. */
       if (!ret)
-	if_get_ipv6_local (ifp, &nexthop->v6_global);
+        {
+          /* There is no global nexthop. Use link-local address as both the
+           * global and link-local nexthop. In this scenario, the expectation
+           * for interop is that the network admin would use a route-map to
+           * specify the global IPv6 nexthop.
+           */
+          if_get_ipv6_local (ifp, &nexthop->v6_global);
+          memcpy (&nexthop->v6_local, &nexthop->v6_global,
+                  IPV6_MAX_BYTELEN);
+        }
       else
 	if_get_ipv6_local (ifp, &nexthop->v6_local);
+
+      if (if_lookup_by_ipv4 (&remote->sin.sin_addr))
+        peer->shared_network = 1;
+      else
+        peer->shared_network = 0;
 #endif /* HAVE_IPV6 */
     }
 
@@ -934,13 +947,13 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
           memcpy (&nexthop->v6_local, &local->sin6.sin6_addr,
                   IPV6_MAX_BYTELEN);
 	}
-    }
 
-  if (IN6_IS_ADDR_LINKLOCAL (&local->sin6.sin6_addr) ||
-      if_lookup_by_ipv6 (&remote->sin6.sin6_addr, remote->sin6.sin6_scope_id))
-    peer->shared_network = 1;
-  else
-    peer->shared_network = 0;
+      if (IN6_IS_ADDR_LINKLOCAL (&local->sin6.sin6_addr) ||
+          if_lookup_by_ipv6 (&remote->sin6.sin6_addr, remote->sin6.sin6_scope_id))
+        peer->shared_network = 1;
+      else
+        peer->shared_network = 0;
+    }
 
   /* KAME stack specific treatment.  */
 #ifdef KAME
