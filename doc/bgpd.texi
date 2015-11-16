@@ -1362,20 +1362,35 @@ log file bgpd.log
 @node Dump BGP packets and table
 @section Dump BGP packets and table
 
-@deffn Command {dump bgp all @var{path}} {}
-@deffnx Command {dump bgp all @var{path} @var{interval}} {}
+@deffn Command {dump bgp all @var{path} [@var{interval}]} {}
+@deffnx Command {dump bgp all-et @var{path} [@var{interval}]} {}
+@deffnx Command {no dump bgp all [@var{path}] [@var{interval}]} {}
 Dump all BGP packet and events to @var{path} file.
+If @var{interval} is set, a new file will be created for echo @var{interval} of seconds.
+The path @var{path} can be set with date and time formatting (strftime).
+The type ‘all-et’ enables support for Extended Timestamp Header (@pxref{Packet Binary Dump Format}).
+(@pxref{Packet Binary Dump Format})
 @end deffn 
 
-@deffn Command {dump bgp updates @var{path}} {}
-@deffnx Command {dump bgp updates @var{path} @var{interval}} {}
-Dump BGP updates to @var{path} file.
+@deffn Command {dump bgp updates @var{path} [@var{interval}]} {}
+@deffnx Command {dump bgp updates-et @var{path} [@var{interval}]} {}
+@deffnx Command {no dump bgp updates [@var{path}] [@var{interval}]} {}
+Dump only BGP updates messages to @var{path} file.
+If @var{interval} is set, a new file will be created for echo @var{interval} of seconds.
+The path @var{path} can be set with date and time formatting (strftime).
+The type ‘updates-et’ enables support for Extended Timestamp Header (@pxref{Packet Binary Dump Format}).
 @end deffn
 
-@deffn Command {dump bgp routes @var{path}} {}
-@deffnx Command {dump bgp routes @var{path}} {}
+@deffn Command {dump bgp routes-mrt @var{path}} {}
+@deffnx Command {dump bgp routes-mrt @var{path} @var{interval}} {}
+@deffnx Command {no dump bgp route-mrt [@var{path}] [@var{interval}]} {}
 Dump whole BGP routing table to @var{path}.  This is heavy process.
+The path @var{path} can be set with date and time formatting (strftime).
+If @var{interval} is set, a new file will be created for echo @var{interval} of seconds.
 @end deffn
+
+Note: the interval variable can also be set using hours and minutes: 04h20m00.
+
 
 @node BGP Configuration Examples
 @section BGP Configuration Examples

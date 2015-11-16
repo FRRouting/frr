@@ -192,6 +192,8 @@ main (int argc, char **argv)
 
       if (type == MSG_PROTOCOL_BGP4MP)
 	printf ("TYPE: BGP4MP");
+      else if (type == MSG_PROTOCOL_BGP4MP_ET)
+	printf ("TYPE: BGP4MP_ET");
       else if (type == MSG_TABLE_DUMP)
 	printf ("TYPE: MSG_TABLE_DUMP");
       else

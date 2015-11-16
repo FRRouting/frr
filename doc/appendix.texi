@@ -30,6 +30,25 @@ don't need to change header format.
 @end group
 @end example
 
+  If `type' is PROTOCOL_BGP4MP_ET, the common header format will
+contain an additional microsecond field (RFC6396 2011).
+
+@example
+@group
+0                   1                   2                   3
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                              Time                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|             Type              |            Subtype            |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Length                            |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                          Microsecond                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+@end group
+@end example
+
   If `type' is PROTOCOL_BGP4MP, `subtype' is BGP4MP_STATE_CHANGE, and
 Address Family == IP (version 4)
 
@@ -227,7 +246,8 @@ If `type' is PROTOCOL_BGP4MP and `subtype' is BGP4MP_SNAPSHOT,
 @group
 Constants:
   /* type value */
-  #define MSG_PROTOCOL_BGP4MP 16
+  #define MSG_PROTOCOL_BGP4MP    16
+  #define MSG_PROTOCOL_BGP4MP_ET 17
   /* subtype value */
   #define BGP4MP_STATE_CHANGE 0
   #define BGP4MP_MESSAGE 1
