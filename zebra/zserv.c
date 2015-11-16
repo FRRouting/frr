@@ -1069,7 +1069,7 @@ zread_ipv4_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
   struct stream *s;
   unsigned int ifindex;
   u_char ifname_len;
-  safi_t safi;	
+  safi_t safi;
   int ret;
 
   /* Get input stream.  */
@@ -1130,11 +1130,6 @@ zread_ipv4_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
             case ZEBRA_NEXTHOP_BLACKHOLE:
               nexthop_blackhole_add (rib);
               break;
-	    case ZEBRA_NEXTHOP_IPV4_ONLINK:
-	      nexthop.s_addr = stream_get_ipv4 (s);
-	      ifindex = stream_getl (s);
-	      nexthop_ipv4_ifindex_ol_add (rib, &nexthop, NULL, ifindex);
-	      break;
             }
 	}
     }

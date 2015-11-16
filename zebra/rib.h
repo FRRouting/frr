@@ -385,8 +385,6 @@ extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *nexthop_blackhole_add (struct rib *);
 extern struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *,
 					 struct in_addr *);
-extern struct nexthop * nexthop_ipv4_ifindex_ol_add (struct rib *, const struct in_addr *,
-						     const struct in_addr *, const unsigned);
 extern struct nexthop *nexthop_ipv4_ifindex_add (struct rib *,
                                                  struct in_addr *,
                                                  struct in_addr *,

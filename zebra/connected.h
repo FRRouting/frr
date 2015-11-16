@@ -55,4 +55,6 @@ extern void connected_down_ipv6 (struct interface *ifp, struct connected *);
 
 #endif /* HAVE_IPV6 */
 
+extern int connected_is_unnumbered (struct interface *);
+
 #endif /*_ZEBRA_CONNECTED_H */

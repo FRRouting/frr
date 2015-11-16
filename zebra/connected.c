@@ -544,3 +544,18 @@ connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
   rib_update_static(ifp->vrf_id);
 }
 #endif /* HAVE_IPV6 */
+
+int
+connected_is_unnumbered (struct interface *ifp)
+{
+  struct connected *connected;
+  struct listnode *node;
+
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
+    {
+      if (CHECK_FLAG (connected->conf, ZEBRA_IFC_REAL) &&
+	  connected->address->family == AF_INET)
+	return CHECK_FLAG(connected->flags, ZEBRA_IFA_UNNUMBERED);
+    }
+  return 0;
+}

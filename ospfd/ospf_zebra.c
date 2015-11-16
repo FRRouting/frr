@@ -387,38 +387,27 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
       for (ALL_LIST_ELEMENTS_RO (or->paths, node, path))
         {
 #ifdef HAVE_NETLINK
-          if (path->unnumbered)
-            {
-              stream_putc (s, ZEBRA_NEXTHOP_IPV4_ONLINK);
-              stream_put_in_addr (s, &path->nexthop);
-              if (path->ifindex)
-                stream_putl (s, path->ifindex);
-              else
-                stream_putl (s, 0);
-            }
-          else
-            {
-    	      if (path->nexthop.s_addr != INADDR_ANY &&
-		  path->ifindex != 0)
-		{
-		  stream_putc (s, ZEBRA_NEXTHOP_IPV4_IFINDEX);
-		  stream_put_in_addr (s, &path->nexthop);
-		  stream_putl (s, path->ifindex);
-		}
-	      else if (path->nexthop.s_addr != INADDR_ANY)
-                {
-                  stream_putc (s, ZEBRA_NEXTHOP_IPV4);
-                  stream_put_in_addr (s, &path->nexthop);
-                }
-              else
-                {
-                  stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
-                  if (path->ifindex)
-                    stream_putl (s, path->ifindex);
-                  else
-                    stream_putl (s, 0);
-                }
-            }
+	  if (path->unnumbered ||
+	      (path->nexthop.s_addr != INADDR_ANY &&
+	       path->ifindex != 0))
+	    {
+	      stream_putc (s, ZEBRA_NEXTHOP_IPV4_IFINDEX);
+	      stream_put_in_addr (s, &path->nexthop);
+	      stream_putl (s, path->ifindex);
+	    }
+	  else if (path->nexthop.s_addr != INADDR_ANY)
+	    {
+	      stream_putc (s, ZEBRA_NEXTHOP_IPV4);
+	      stream_put_in_addr (s, &path->nexthop);
+	    }
+	  else
+	    {
+	      stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+	      if (path->ifindex)
+		stream_putl (s, path->ifindex);
+	      else
+		stream_putl (s, 0);
+	    }
 #else  /* HAVE_NETLINK */
           if (path->nexthop.s_addr != INADDR_ANY &&
 	      path->ifindex != 0)

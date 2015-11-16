@@ -45,6 +45,7 @@
 #include "zebra/zebra_fpm.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/interface.h"
+#include "zebra/connected.h"
 
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
@@ -317,6 +318,7 @@ nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
                           struct in_addr *src, unsigned int ifindex)
 {
   struct nexthop *nexthop;
+  struct interface *ifp;
 
   nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
@@ -324,25 +326,13 @@ nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
   if (src)
     nexthop->src.ipv4 = *src;
   nexthop->ifindex = ifindex;
+  ifp = if_lookup_by_index (nexthop->ifindex);
+  if (connected_is_unnumbered(ifp)) {
+    SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
+   }
 
   nexthop_add (rib, nexthop);
 
-  return nexthop;
-}
-
-struct nexthop *
-nexthop_ipv4_ifindex_ol_add (struct rib *rib, const struct in_addr *ipv4,
-                             const struct in_addr *src, const unsigned int ifindex)
-{
-  struct nexthop *nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-
-  nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-  IPV4_ADDR_COPY (&nexthop->gate.ipv4, ipv4);
-  if (src)
-    IPV4_ADDR_COPY (&nexthop->src.ipv4, src);
-  nexthop->ifindex = ifindex;
-  SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
-  nexthop_add (rib, nexthop);
   return nexthop;
 }
 
@@ -456,15 +446,21 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
   if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FILTERED))
     return 0;
 
-  /* onlink flag is an indication that we need to only check that
-   * the link is up, we won't find the GW address in the routing
-   * table.
+  /*
+   * Check to see if we should trust the passed in information
+   * for UNNUMBERED interfaces as that we won't find the GW
+   * address in the routing table.
    */
   if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
     {
       ifp = if_lookup_by_index (nexthop->ifindex);
-      if (ifp && if_is_operative(ifp))
-	return 1;
+      if (ifp && connected_is_unnumbered(ifp))
+	{
+	  if (if_is_operative(ifp))
+	    return 1;
+	  else
+	    return 0;
+	}
       else
 	return 0;
     }
