@@ -178,9 +178,8 @@ struct bgp
 
   /* BGP configuration.  */
   u_int16_t config;
-#define BGP_CONFIG_ROUTER_ID              (1 << 0)
-#define BGP_CONFIG_CLUSTER_ID             (1 << 1)
-#define BGP_CONFIG_CONFEDERATION          (1 << 2)
+#define BGP_CONFIG_CLUSTER_ID             (1 << 0)
+#define BGP_CONFIG_CONFEDERATION          (1 << 1)
 
   /* BGP router identifier.  */
   struct in_addr router_id;

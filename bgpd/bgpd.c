@@ -210,12 +210,10 @@ bgp_router_id_set (struct bgp *bgp, struct in_addr *id)
   struct peer *peer;
   struct listnode *node, *nnode;
 
-  if (bgp_config_check (bgp, BGP_CONFIG_ROUTER_ID)
-      && IPV4_ADDR_SAME (&bgp->router_id, id))
+  if (IPV4_ADDR_SAME (&bgp->router_id, id))
     return 0;
 
   IPV4_ADDR_COPY (&bgp->router_id, id);
-  bgp_config_set (bgp, BGP_CONFIG_ROUTER_ID);
 
   /* Set all peer's local identifier with this value. */
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
@@ -6787,9 +6785,9 @@ bgp_config_write (struct vty *vty)
 	vty_out (vty, " no bgp fast-external-failover%s", VTY_NEWLINE); 
 
       /* BGP router ID. */
-      if (CHECK_FLAG (bgp->config, BGP_CONFIG_ROUTER_ID))
-	vty_out (vty, " bgp router-id %s%s", inet_ntoa (bgp->router_id), 
-		 VTY_NEWLINE);
+      if (bgp->router_id_static.s_addr != 0)
+	vty_out (vty, " bgp router-id %s%s",
+                 inet_ntoa (bgp->router_id_static), VTY_NEWLINE);
 
       /* BGP log-neighbor-changes. */
       if (!bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))

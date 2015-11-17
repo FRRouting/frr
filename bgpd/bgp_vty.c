@@ -738,6 +738,9 @@ DEFUN (bgp_router_id,
       return CMD_WARNING;
     }
 
+  if (IPV4_ADDR_SAME (&bgp->router_id_static, &id))
+    return CMD_SUCCESS;
+
   bgp->router_id_static = id;
   bgp_router_id_set (bgp, &id);
 
