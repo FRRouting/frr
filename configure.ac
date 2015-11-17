@@ -415,7 +415,10 @@ AC_DEFINE_UNQUOTED(LOGFILE_MASK, ${enable_logfile_mask}, Mask for log files)
 MULTIPATH_NUM=1
 
 case "${enable_multipath}" in
-  [[0-9]|[1-9][0-9]])
+  0)
+    MULTIPATH_NUM=64
+    ;;
+  [[1-9]|[1-9][0-9]])
     MULTIPATH_NUM="${enable_multipath}"
     ;;
   "")

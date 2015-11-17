@@ -1042,7 +1042,7 @@ zread_interface_delete (struct zserv *client, u_short length, vrf_id_t vrf_id)
 void
 zserv_nexthop_num_warn (const char *caller, const struct prefix *p, const u_char nexthop_num)
 {
-  if ((MULTIPATH_NUM != 0) && (nexthop_num > MULTIPATH_NUM))
+  if (nexthop_num > MULTIPATH_NUM)
     {
       char buff[80];
       prefix2str(p, buff, 80);

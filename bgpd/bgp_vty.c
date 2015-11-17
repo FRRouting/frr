@@ -1000,7 +1000,7 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
 
   bgp_recalculate_all_bestpaths (bgp);
 
-  if ((MULTIPATH_NUM != 0) && (maxpaths > MULTIPATH_NUM))
+  if (maxpaths > MULTIPATH_NUM)
     vty_out (vty,
 	     "%% Warning: maximum-paths set to %d is greater than %d that zebra is compiled to support%s",
 	     maxpaths, MULTIPATH_NUM, VTY_NEWLINE);
