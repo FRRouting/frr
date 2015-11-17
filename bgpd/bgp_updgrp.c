@@ -998,7 +998,7 @@ update_subgroup_find (struct update_group *updgrp, struct peer_af *paf)
  * Returns TRUE if this subgroup is in a state that allows it to be
  * merged into another subgroup.
  */
-static inline int
+static int
 update_subgroup_ready_for_merge (struct update_subgroup *subgrp)
 {
 
@@ -1032,7 +1032,7 @@ update_subgroup_ready_for_merge (struct update_subgroup *subgrp)
  * Returns TRUE if the first subgroup can merge into the second
  * subgroup.
  */
-static inline int
+static int
 update_subgroup_can_merge_into (struct update_subgroup *subgrp,
 				struct update_subgroup *target)
 {
@@ -1051,22 +1051,10 @@ update_subgroup_can_merge_into (struct update_subgroup *subgrp,
       CHECK_FLAG(target->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
     return 0;
 
-  /*
-   * If there are any adv entries on the target, then its adj-out (the
-   * set of advertised routes) does not match that of the other
-   * subgrp, and we cannot merge the two.
-   *
-   * The adj-out is used when generating a route refresh to a peer in
-   * a subgroup. If it is not accurate, say it is missing an entry, we
-   * may miss sending a withdraw for an entry as part of a refresh.
-   */
-  if (!advertise_list_is_empty (target))
+  if (subgrp->adj_count != target->adj_count)
     return 0;
 
-  if (update_subgroup_needs_refresh (target))
-    return 0;
-
-  return 1;
+  return update_subgroup_ready_for_merge (target);
 }
 
 /*
