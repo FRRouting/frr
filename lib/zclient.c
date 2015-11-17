@@ -611,23 +611,7 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   stream_write (s, (u_char *) & p->prefix, psize);
 
   /* Nexthop, ifindex, distance and metric information. */
-  /* ZAPI_MESSAGE_ONLINK implies interleaving */
-  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_ONLINK))
-    {
-      /* ZAPI_MESSAGE_NEXTHOP is required for proper receiving */
-      assert (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP));
-      /* 64-bit data units, interleaved between nexthop[] and ifindex[] */
-      assert (api->nexthop_num == api->ifindex_num);
-      stream_putc (s, api->nexthop_num * 2);
-      for (i = 0; i < api->nexthop_num; i++)
-        {
-          stream_putc (s, ZEBRA_NEXTHOP_IPV4_ONLINK);
-          stream_put_in_addr (s, api->nexthop[i]);
-          stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
-          stream_putl (s, api->ifindex[i]);
-        }
-    }
-  else if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
+  if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
      {
       /* traditional 32-bit data units */
       if (CHECK_FLAG (api->flags, ZEBRA_FLAG_BLACKHOLE))

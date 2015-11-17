@@ -1336,7 +1336,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
   if (peer->sort == BGP_PEER_EBGP
       && attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
     {
-      if (ri->peer != bgp->peer_self && ! transparent
+      if (from != bgp->peer_self && ! transparent
 	  && ! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
 	attr->flag &= ~(ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC));
     }
@@ -1360,6 +1360,7 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
    * the peer (group) is configured to receive link-local nexthop unchanged
    * and it is available in the prefix OR we're not reflecting the route and
    * the peer (group) to whom we're going to announce is on a shared network
+   * and this is either a self-originated route or the peer is EBGP.
    */
   if (p->family == AF_INET6 || peer_cap_enhe(peer))
     {
@@ -1367,7 +1368,8 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
       if ((CHECK_FLAG (peer->af_flags[afi][safi],
                        PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) &&
            IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_local)) ||
-          (!reflect && peer->shared_network))
+          (!reflect && peer->shared_network &&
+           (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP)))
         {
           attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
         }
@@ -1469,6 +1471,16 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
             }
           if (!paf)
             subgroup_announce_reset_nhop ((peer_cap_enhe(peer) ? AF_INET6 : p->family), attr);
+        }
+      /* If IPv6/MP and nexthop does not have any override and happens to
+       * be a link-local address, reset it so that we don't pass along the
+       * source's link-local IPv6 address to recipients who may not be on
+       * the same interface.
+       */
+      if (p->family == AF_INET6 || peer_cap_enhe(peer))
+        {
+          if (IN6_IS_ADDR_LINKLOCAL (&attr->extra->mp_nexthop_global))
+            subgroup_announce_reset_nhop (AF_INET6, attr);
         }
     }
 
@@ -1637,12 +1649,20 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
             if (ri->peer->status != Established)
               continue;
 
+          if (!bgp_info_nexthop_cmp (ri, new_select))
+            {
+              if (debug)
+                zlog_debug("%s: path %s has the same nexthop as the bestpath, skip it",
+                           pfx_buf, ri->peer->host);
+              continue;
+            }
+
           bgp_info_cmp (bgp, ri, new_select, &paths_eq, mpath_cfg, debug, pfx_buf);
 
           if (paths_eq)
             {
               if (debug)
-                zlog_debug("%s: %s path is equivalent to the bestpath, add to the multipath list",
+                zlog_debug("%s: path %s is equivalent to the bestpath, add to the multipath list",
                            pfx_buf, ri->peer->host);
 	      bgp_mp_list_add (&mp_list, ri);
             }
@@ -4260,129 +4280,6 @@ ALIAS (no_ipv6_bgp_network,
        BGP_STR
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n")
-#endif /* HAVE_IPV6 */
-
-/* stubs for removed AS-Pathlimit commands, kept for config compatibility */
-ALIAS_DEPRECATED (bgp_network,
-       bgp_network_ttl_cmd,
-       "network A.B.C.D/M pathlimit <0-255>",
-       "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (bgp_network_backdoor,
-       bgp_network_backdoor_ttl_cmd,
-       "network A.B.C.D/M backdoor pathlimit <0-255>",
-       "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Specify a BGP backdoor route\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (bgp_network_mask,
-       bgp_network_mask_ttl_cmd,
-       "network A.B.C.D mask A.B.C.D pathlimit <0-255>",
-       "Specify a network to announce via BGP\n"
-       "Network number\n"
-       "Network mask\n"
-       "Network mask\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (bgp_network_mask_backdoor,
-       bgp_network_mask_backdoor_ttl_cmd,
-       "network A.B.C.D mask A.B.C.D backdoor pathlimit <0-255>",
-       "Specify a network to announce via BGP\n"
-       "Network number\n"
-       "Network mask\n"
-       "Network mask\n"
-       "Specify a BGP backdoor route\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (bgp_network_mask_natural,
-       bgp_network_mask_natural_ttl_cmd,
-       "network A.B.C.D pathlimit <0-255>",
-       "Specify a network to announce via BGP\n"
-       "Network number\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (bgp_network_mask_natural_backdoor,
-       bgp_network_mask_natural_backdoor_ttl_cmd,
-       "network A.B.C.D backdoor pathlimit <1-255>",
-       "Specify a network to announce via BGP\n"
-       "Network number\n"
-       "Specify a BGP backdoor route\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (no_bgp_network,
-       no_bgp_network_ttl_cmd,
-       "no network A.B.C.D/M pathlimit <0-255>",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (no_bgp_network,
-       no_bgp_network_backdoor_ttl_cmd,
-       "no network A.B.C.D/M backdoor pathlimit <0-255>",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Specify a BGP backdoor route\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (no_bgp_network,
-       no_bgp_network_mask_ttl_cmd,
-       "no network A.B.C.D mask A.B.C.D pathlimit <0-255>",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "Network number\n"
-       "Network mask\n"
-       "Network mask\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (no_bgp_network_mask,
-       no_bgp_network_mask_backdoor_ttl_cmd,
-       "no network A.B.C.D mask A.B.C.D  backdoor pathlimit <0-255>",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "Network number\n"
-       "Network mask\n"
-       "Network mask\n"
-       "Specify a BGP backdoor route\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (no_bgp_network_mask_natural,
-       no_bgp_network_mask_natural_ttl_cmd,
-       "no network A.B.C.D pathlimit <0-255>",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "Network number\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (no_bgp_network_mask_natural,
-       no_bgp_network_mask_natural_backdoor_ttl_cmd,
-       "no network A.B.C.D backdoor pathlimit <0-255>",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "Network number\n"
-       "Specify a BGP backdoor route\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-#ifdef HAVE_IPV6
-ALIAS_DEPRECATED (ipv6_bgp_network,
-       ipv6_bgp_network_ttl_cmd,
-       "network X:X::X:X/M pathlimit <0-255>",
-       "Specify a network to announce via BGP\n"
-       "IPv6 prefix <network>/<length>\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
-ALIAS_DEPRECATED (no_ipv6_bgp_network,
-       no_ipv6_bgp_network_ttl_cmd,
-       "no network X:X::X:X/M pathlimit <0-255>",
-       NO_STR
-       "Specify a network to announce via BGP\n"
-       "IPv6 prefix <network>/<length>\n"
-       "AS-Path hopcount limit attribute\n"
-       "AS-Pathlimit TTL, in number of AS-Path hops\n")
 #endif /* HAVE_IPV6 */
 
 /* Aggreagete address:
@@ -7987,6 +7884,14 @@ DEFUN (show_bgp_ipv6_safi,
   return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json);
 }
 
+static void
+bgp_show_ipv6_bgp_deprecate_warning (struct vty *vty)
+{
+  vty_out (vty, "WARNING: The 'show ipv6 bgp' parse tree will be deprecated in our"
+           " next release%sPlese use 'show bgp ipv6' instead%s%s",
+           VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+}
+
 /* old command */
 DEFUN (show_ipv6_bgp,
        show_ipv6_bgp_cmd,
@@ -7997,6 +7902,7 @@ DEFUN (show_ipv6_bgp,
        "JavaScript Object Notation\n")
 {
   u_char use_json = (argv[0] != NULL);
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal,
                    NULL, use_json);
 }
@@ -8105,6 +8011,7 @@ DEFUN (show_ipv6_bgp_route,
        "JavaScript Object Notation\n")
 {
   u_char use_json = (argv[1] != NULL);
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json);
 }
 
@@ -8212,6 +8119,7 @@ DEFUN (show_ipv6_bgp_prefix,
        "JavaScript Object Notation\n")
 {
   u_char use_json = (argv[1] != NULL);
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json);
 }
 
@@ -8308,6 +8216,7 @@ DEFUN (show_ipv6_mbgp,
        "JavaScript Object Notation\n")
 {
   u_char use_json = (argv[0] != NULL);
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST, bgp_show_type_normal,
                    NULL, use_json);
 }
@@ -8323,6 +8232,7 @@ DEFUN (show_ipv6_mbgp_route,
        "JavaScript Object Notation\n")
 {
   u_char use_json = (argv[1] != NULL);
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, use_json);
 }
 
@@ -8337,6 +8247,7 @@ DEFUN (show_ipv6_mbgp_prefix,
        "JavaScript Object Notation\n")
 {
   u_char use_json = (argv[1] != NULL);
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, use_json);
 }
 #endif
@@ -8466,6 +8377,7 @@ DEFUN (show_ipv6_bgp_regexp,
        "Display routes matching the AS path regular expression\n"
        "A regular-expression to match the BGP AS paths\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_regexp (vty, argc, argv, AFI_IP6, SAFI_UNICAST,
 			  bgp_show_type_regexp);
 }
@@ -8480,6 +8392,7 @@ DEFUN (show_ipv6_mbgp_regexp,
        "Display routes matching the AS path regular expression\n"
        "A regular-expression to match the MBGP AS paths\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_regexp (vty, argc, argv, AFI_IP6, SAFI_MULTICAST,
 			  bgp_show_type_regexp);
 }
@@ -8581,6 +8494,7 @@ DEFUN (show_ipv6_bgp_prefix_list,
        "Display routes matching the prefix-list\n"
        "IPv6 prefix-list name\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_prefix_list (vty, argv[0], AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
@@ -8595,6 +8509,7 @@ DEFUN (show_ipv6_mbgp_prefix_list,
        "Display routes matching the prefix-list\n"
        "IPv6 prefix-list name\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_prefix_list (vty, argv[0], AFI_IP6, SAFI_MULTICAST,
 			       bgp_show_type_prefix_list);
 }
@@ -8695,6 +8610,7 @@ DEFUN (show_ipv6_bgp_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_filter_list (vty, argv[0], AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
@@ -8709,6 +8625,7 @@ DEFUN (show_ipv6_mbgp_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_filter_list (vty, argv[0], AFI_IP6, SAFI_MULTICAST,
 			       bgp_show_type_filter_list);
 }
@@ -8903,6 +8820,7 @@ DEFUN (show_ipv6_bgp_community_all,
        BGP_STR
        "Display routes matching the communities\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST,
 		   bgp_show_type_community_all, NULL, 0);
 }
@@ -8916,6 +8834,7 @@ DEFUN (show_ipv6_mbgp_community_all,
        MBGP_STR
        "Display routes matching the communities\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST,
 		   bgp_show_type_community_all, NULL, 0);
 }
@@ -9650,6 +9569,7 @@ DEFUN (show_ipv6_bgp_community,
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_community (vty, NULL, argc, argv, 0, AFI_IP6, SAFI_UNICAST);
 }
 
@@ -9881,6 +9801,7 @@ DEFUN (show_ipv6_bgp_community_exact,
        "Do not export to next AS (well-known community)\n"
        "Exact match of the communities")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_community (vty, NULL, argc, argv, 1, AFI_IP6, SAFI_UNICAST);
 }
 
@@ -9963,6 +9884,7 @@ DEFUN (show_ipv6_mbgp_community,
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_community (vty, NULL, argc, argv, 0, AFI_IP6, SAFI_MULTICAST);
 }
 
@@ -10043,6 +9965,7 @@ DEFUN (show_ipv6_mbgp_community_exact,
        "Do not export to next AS (well-known community)\n"
        "Exact match of the communities")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_community (vty, NULL, argc, argv, 1, AFI_IP6, SAFI_MULTICAST);
 }
 
@@ -10231,6 +10154,7 @@ DEFUN (show_ipv6_bgp_community_list,
        "Display routes matching the community-list\n"
        "community-list name\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_community_list (vty, argv[0], 0, AFI_IP6, SAFI_UNICAST);
 }
 
@@ -10244,6 +10168,7 @@ DEFUN (show_ipv6_mbgp_community_list,
        "Display routes matching the community-list\n"
        "community-list name\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_community_list (vty, argv[0], 0, AFI_IP6, SAFI_MULTICAST);
 }
 
@@ -10282,6 +10207,7 @@ DEFUN (show_ipv6_bgp_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_community_list (vty, argv[0], 1, AFI_IP6, SAFI_UNICAST);
 }
 
@@ -10296,6 +10222,7 @@ DEFUN (show_ipv6_mbgp_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_community_list (vty, argv[0], 1, AFI_IP6, SAFI_MULTICAST);
 }
 #endif /* HAVE_IPV6 */
@@ -10425,6 +10352,7 @@ DEFUN (show_ipv6_bgp_prefix_longer,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Display route and more specific routes\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_prefix_longer (vty, argv[0], AFI_IP6, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
@@ -10439,6 +10367,7 @@ DEFUN (show_ipv6_mbgp_prefix_longer,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Display route and more specific routes\n")
 {
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_prefix_longer (vty, argv[0], AFI_IP6, SAFI_MULTICAST,
 				 bgp_show_type_prefix_longer);
 }
@@ -11711,6 +11640,7 @@ DEFUN (ipv6_mbgp_neighbor_advertised_route,
   if (! peer)
     return CMD_WARNING;
 
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return peer_adj_routes (vty, peer, AFI_IP6, SAFI_MULTICAST, 0, NULL, use_json);
 }
 #endif /* HAVE_IPV6 */
@@ -12350,6 +12280,7 @@ DEFUN (ipv6_mbgp_neighbor_received_routes,
   if (! peer)
     return CMD_WARNING;
 
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return peer_adj_routes (vty, peer, AFI_IP6, SAFI_MULTICAST, 1, NULL,use_json);
 }
 
@@ -12830,6 +12761,7 @@ DEFUN (ipv6_mbgp_neighbor_routes,
   if (! peer)
     return CMD_WARNING;
  
+  bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_MULTICAST,
 				  bgp_show_type_neighbor, use_json);
 }
@@ -14276,54 +14208,6 @@ bgp_route_init (void)
   install_element (BGP_IPV4_NODE, &bgp_damp_set3_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_unset_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_unset2_cmd);
-  
-  /* Deprecated AS-Pathlimit commands */
-  install_element (BGP_NODE, &bgp_network_ttl_cmd);
-  install_element (BGP_NODE, &bgp_network_mask_ttl_cmd);
-  install_element (BGP_NODE, &bgp_network_mask_natural_ttl_cmd);
-  install_element (BGP_NODE, &bgp_network_backdoor_ttl_cmd);
-  install_element (BGP_NODE, &bgp_network_mask_backdoor_ttl_cmd);
-  install_element (BGP_NODE, &bgp_network_mask_natural_backdoor_ttl_cmd);
-  
-  install_element (BGP_NODE, &no_bgp_network_ttl_cmd);
-  install_element (BGP_NODE, &no_bgp_network_mask_ttl_cmd);
-  install_element (BGP_NODE, &no_bgp_network_mask_natural_ttl_cmd);
-  install_element (BGP_NODE, &no_bgp_network_backdoor_ttl_cmd);
-  install_element (BGP_NODE, &no_bgp_network_mask_backdoor_ttl_cmd);
-  install_element (BGP_NODE, &no_bgp_network_mask_natural_backdoor_ttl_cmd);
-  
-  install_element (BGP_IPV4_NODE, &bgp_network_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &bgp_network_mask_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &bgp_network_mask_natural_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &bgp_network_backdoor_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &bgp_network_mask_backdoor_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &bgp_network_mask_natural_backdoor_ttl_cmd);
-  
-  install_element (BGP_IPV4_NODE, &no_bgp_network_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &no_bgp_network_mask_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &no_bgp_network_mask_natural_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &no_bgp_network_backdoor_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &no_bgp_network_mask_backdoor_ttl_cmd);
-  install_element (BGP_IPV4_NODE, &no_bgp_network_mask_natural_backdoor_ttl_cmd);
-  
-  install_element (BGP_IPV4M_NODE, &bgp_network_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &bgp_network_mask_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &bgp_network_mask_natural_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &bgp_network_backdoor_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &bgp_network_mask_backdoor_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &bgp_network_mask_natural_backdoor_ttl_cmd);
-  
-  install_element (BGP_IPV4M_NODE, &no_bgp_network_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &no_bgp_network_mask_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &no_bgp_network_mask_natural_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &no_bgp_network_backdoor_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &no_bgp_network_mask_backdoor_ttl_cmd);
-  install_element (BGP_IPV4M_NODE, &no_bgp_network_mask_natural_backdoor_ttl_cmd);
-
-#ifdef HAVE_IPV6
-  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_ttl_cmd);
-  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_ttl_cmd);
-#endif
 }
 
 void

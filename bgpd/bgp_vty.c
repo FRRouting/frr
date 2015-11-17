@@ -597,17 +597,6 @@ DEFUN (no_auto_summary,
   return CMD_SUCCESS;
 }
 
-DEFUN_DEPRECATED (neighbor_version,
-		  neighbor_version_cmd,
-		  NEIGHBOR_CMD "version (4|4-)",
-		  NEIGHBOR_STR
-		  NEIGHBOR_ADDR_STR
-		  "Set the BGP version to match a neighbor\n"
-		  "Neighbor's BGP version\n")
-{
-  return CMD_SUCCESS;
-}
-
 /* "router bgp" commands. */
 DEFUN (router_bgp, 
        router_bgp_cmd, 
@@ -1011,7 +1000,7 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
 
   bgp_recalculate_all_bestpaths (bgp);
 
-  if ((MULTIPATH_NUM != 0) && (maxpaths > MULTIPATH_NUM))
+  if (maxpaths > MULTIPATH_NUM)
     vty_out (vty,
 	     "%% Warning: maximum-paths set to %d is greater than %d that zebra is compiled to support%s",
 	     maxpaths, MULTIPATH_NUM, VTY_NEWLINE);
@@ -3255,30 +3244,6 @@ DEFUN (no_neighbor_shutdown,
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_SHUTDOWN);
 }
 
-/* Deprecated neighbor capability route-refresh. */
-DEFUN_DEPRECATED (neighbor_capability_route_refresh,
-		  neighbor_capability_route_refresh_cmd,
-		  NEIGHBOR_CMD2 "capability route-refresh",
-		  NEIGHBOR_STR
-		  NEIGHBOR_ADDR_STR2
-		  "Advertise capability to the peer\n"
-		  "Advertise route-refresh capability to this neighbor\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUN_DEPRECATED (no_neighbor_capability_route_refresh,
-		  no_neighbor_capability_route_refresh_cmd,
-		  NO_NEIGHBOR_CMD2 "capability route-refresh",
-		  NO_STR
-		  NEIGHBOR_STR
-		  NEIGHBOR_ADDR_STR2
-		  "Advertise capability to the peer\n"
-		  "Advertise route-refresh capability to this neighbor\n")
-{
-  return CMD_SUCCESS;
-}
-
 /* neighbor capability dynamic. */
 DEFUN (neighbor_capability_dynamic,
        neighbor_capability_dynamic_cmd,
@@ -4154,31 +4119,6 @@ ALIAS (no_neighbor_attr_unchanged,
        "Med attribute\n"
        "As-path attribute\n"
        "Nexthop attribute\n")
-
-/* For old version Zebra compatibility.  */
-DEFUN_DEPRECATED (neighbor_transparent_as,
-		  neighbor_transparent_as_cmd,
-		  NEIGHBOR_CMD "transparent-as",
-		  NEIGHBOR_STR
-		  NEIGHBOR_ADDR_STR
-		  "Do not append my AS number even peer is EBGP peer\n")
-{
-  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
-			       bgp_node_safi (vty),
-			       PEER_FLAG_AS_PATH_UNCHANGED);
-}
-
-DEFUN_DEPRECATED (neighbor_transparent_nexthop,
-		  neighbor_transparent_nexthop_cmd,
-		  NEIGHBOR_CMD "transparent-nexthop",
-		  NEIGHBOR_STR
-		  NEIGHBOR_ADDR_STR
-		  "Do not change nexthop even peer is EBGP peer\n")
-{
-  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
-			       bgp_node_safi (vty),
-			       PEER_FLAG_NEXTHOP_UNCHANGED);
-}
 
 /* EBGP multihop configuration. */
 static int
@@ -12394,11 +12334,6 @@ bgp_vty_init (void)
   install_element (BGP_IPV6_NODE, &neighbor_nexthop_local_unchanged_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_nexthop_local_unchanged_cmd);
 
-  /* "transparent-as" and "transparent-nexthop" for old version
-     compatibility.  */
-  install_element (BGP_NODE, &neighbor_transparent_as_cmd);
-  install_element (BGP_NODE, &neighbor_transparent_nexthop_cmd);
-
   /* "neighbor next-hop-self" commands. */
   install_element (BGP_NODE, &neighbor_nexthop_self_cmd);
   install_element (BGP_NODE, &no_neighbor_nexthop_self_cmd);
@@ -12582,10 +12517,6 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &neighbor_shutdown_cmd);
   install_element (BGP_NODE, &no_neighbor_shutdown_cmd);
 
-  /* Deprecated "neighbor capability route-refresh" commands.*/
-  install_element (BGP_NODE, &neighbor_capability_route_refresh_cmd);
-  install_element (BGP_NODE, &no_neighbor_capability_route_refresh_cmd);
-
   /* "neighbor capability extended-nexthop" commands.*/
   install_element (BGP_NODE, &neighbor_capability_enhe_cmd);
   install_element (BGP_NODE, &no_neighbor_capability_enhe_cmd);
@@ -12684,9 +12615,6 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &neighbor_advertise_interval_cmd);
   install_element (BGP_NODE, &no_neighbor_advertise_interval_cmd);
   install_element (BGP_NODE, &no_neighbor_advertise_interval_val_cmd);
-
-  /* "neighbor version" commands. */
-  install_element (BGP_NODE, &neighbor_version_cmd);
 
   /* "neighbor interface" commands. */
   install_element (BGP_NODE, &neighbor_interface_cmd);
@@ -13249,6 +13177,26 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &no_bgp_redistribute_ipv4_ospf_rmap_metric_cmd);
   install_element (BGP_NODE, &bgp_redistribute_ipv4_ospf_metric_rmap_cmd);
   install_element (BGP_NODE, &no_bgp_redistribute_ipv4_ospf_metric_rmap_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_rmap_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_rmap_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_metric_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_metric_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_rmap_metric_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_metric_rmap_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_rmap_metric_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_metric_rmap_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_ospf_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_ospf_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_ospf_rmap_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_ospf_rmap_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_ospf_metric_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_ospf_metric_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_ospf_rmap_metric_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_ospf_rmap_metric_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_redistribute_ipv4_ospf_metric_rmap_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_redistribute_ipv4_ospf_metric_rmap_cmd);
 #ifdef HAVE_IPV6
   install_element (BGP_IPV6_NODE, &bgp_redistribute_ipv6_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_redistribute_ipv6_cmd);

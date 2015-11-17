@@ -191,13 +191,23 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
 	  UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 	}
     }
+  /* When nexthop is already known, but now requires 'connected' resolution,
+   * re-register it. The reverse scenario where the nexthop currently requires
+   * 'connected' resolution does not need a re-register (i.e., we treat
+   * 'connected-required' as an override) except in the scenario where this
+   * is actually a case of tracking a peer for connectivity (e.g., after
+   * disable connected-check).
+   * NOTE: We don't track the number of paths separately for 'connected-
+   * required' vs 'connected-not-required' as this change is not a common
+   * scenario.
+   */
   else if (connected && ! CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
     {
       SET_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED);
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
     }
-  else if (!connected && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+  else if (peer && !connected && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
     {
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED);
       UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
@@ -668,9 +678,11 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
       else if (path->extra)
 	path->extra->igpmetric = 0;
 
-      if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_METRIC_CHANGED) ||
-	  CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CHANGED))
+      if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ||
+	  CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 	SET_FLAG(path->flags, BGP_INFO_IGP_CHANGED);
+      else
+        UNSET_FLAG (path->flags, BGP_INFO_IGP_CHANGED);
 
       bgp_process(bgp, rn, afi, SAFI_UNICAST);
     }

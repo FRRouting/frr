@@ -1732,7 +1732,7 @@ DEFUN (debug_bgp_normal,
        DEBUG_STR
        BGP_STR)
 {
-  vty_out (vty, "%% Ignoring old debugging command, please use the enhanced bgp debugs%s",
+  vty_out (vty, "%% This command will be deprecated in our next release, please use 'debug bgp neighbor-events'%s",
 	   VTY_NEWLINE);
   return CMD_SUCCESS;
 }
@@ -1744,7 +1744,7 @@ DEFUN (debug_bgp_fsm,
        BGP_STR
        "deprecated BGP fsm command do not use")
 {
-  vty_out (vty, "%% Ignoring old debugging command, please use the enhanced bgp debugs%s",
+  vty_out (vty, "%% This command will be deprecated in our next release, please use 'debug bgp neighbor-events'%s",
 	   VTY_NEWLINE);
   return CMD_SUCCESS;
 }
@@ -1756,7 +1756,7 @@ DEFUN (debug_bgp_events,
        BGP_STR
        "deprecated BGP events command do not use")
 {
-  vty_out (vty, "%% Ignoring old debugging command, please use the enhanced bgp debugs%s",
+  vty_out (vty, "%% This command will be deprecated in our next release, please use 'debug bgp neighbor-events'%s",
 	   VTY_NEWLINE);
   return CMD_SUCCESS;
 }
@@ -1768,7 +1768,7 @@ DEFUN (debug_bgp_filter,
        BGP_STR
        "deprecated BGP filters command do not use")
 {
-  vty_out (vty, "%% Ignoring old debugging command, please use the enhanced bgp debugs%s",
+  vty_out (vty, "%% This command will be deprecated in our next release, please use 'debug bgp updates'%s",
 	   VTY_NEWLINE);
   return CMD_SUCCESS;
 }

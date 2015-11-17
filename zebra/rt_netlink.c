@@ -1987,7 +1987,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
       nexthop_num = 0;
       for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
         {
-          if (MULTIPATH_NUM != 0 && nexthop_num >= MULTIPATH_NUM)
+          if (nexthop_num >= MULTIPATH_NUM)
             break;
 
           if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))

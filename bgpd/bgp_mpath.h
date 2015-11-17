@@ -28,7 +28,7 @@
 #define BGP_MAXIMUM_MAXPATHS 255
 
 /* BGP default maximum-paths */
-#define BGP_DEFAULT_MAXPATHS 1
+#define BGP_DEFAULT_MAXPATHS MULTIPATH_NUM
 
 /* Supplemental information linked to bgp_info for keeping track of
  * multipath selections, lazily allocated to save memory
@@ -59,6 +59,7 @@ extern int bgp_maximum_paths_unset (struct bgp *, afi_t, safi_t, int);
 /* Functions used by bgp_best_selection to record current
  * multipath selections
  */
+extern int bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2);
 extern void bgp_mp_list_init (struct list *);
 extern void bgp_mp_list_clear (struct list *);
 extern void bgp_mp_list_add (struct list *, struct bgp_info *);
