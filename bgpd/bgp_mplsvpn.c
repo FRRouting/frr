@@ -760,12 +760,12 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
   union sockunion su;
   struct peer *peer;
   int ret;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -781,7 +781,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
   peer = peer_lookup (NULL, &su);
   if (! peer || ! peer->afc[AFI_IP][SAFI_MPLS_VPN])
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -794,7 +794,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
       return CMD_WARNING;
     }
 
-  return bgp_show_mpls_vpn (vty, NULL, bgp_show_type_neighbor, &su, 0, use_json);
+  return bgp_show_mpls_vpn (vty, NULL, bgp_show_type_neighbor, &su, 0, uj);
 }
 
 DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
@@ -815,12 +815,12 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
   union sockunion su;
   struct peer *peer;
   struct prefix_rd prd;
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
 
   ret = str2prefix_rd (argv[0], &prd);
   if (! ret)
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -836,7 +836,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
   ret = str2sockunion (argv[1], &su);
   if (ret < 0)
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -852,7 +852,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
   peer = peer_lookup (NULL, &su);
   if (! peer || ! peer->afc[AFI_IP][SAFI_MPLS_VPN])
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -865,7 +865,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
       return CMD_WARNING;
     }
 
-  return bgp_show_mpls_vpn (vty, &prd, bgp_show_type_neighbor, &su, 0, use_json);
+  return bgp_show_mpls_vpn (vty, &prd, bgp_show_type_neighbor, &su, 0, uj);
 }
 
 DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
@@ -884,12 +884,12 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
   int ret;
   struct peer *peer;
   union sockunion su;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -904,7 +904,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
   peer = peer_lookup (NULL, &su);
   if (! peer || ! peer->afc[AFI_IP][SAFI_MPLS_VPN])
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -917,7 +917,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
       return CMD_WARNING;
     }
 
-  return show_adj_route_vpn (vty, peer, NULL, use_json);
+  return show_adj_route_vpn (vty, peer, NULL, uj);
 }
 
 DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
@@ -938,12 +938,12 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
   struct peer *peer;
   struct prefix_rd prd;
   union sockunion su;
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
 
   ret = str2sockunion (argv[1], &su);
   if (ret < 0)
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -958,7 +958,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
   peer = peer_lookup (NULL, &su);
   if (! peer || ! peer->afc[AFI_IP][SAFI_MPLS_VPN])
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -974,7 +974,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
   ret = str2prefix_rd (argv[0], &prd);
   if (! ret)
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -987,7 +987,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
       return CMD_WARNING;
     }
 
-  return show_adj_route_vpn (vty, peer, &prd, use_json);
+  return show_adj_route_vpn (vty, peer, &prd, uj);
 }
 
 void

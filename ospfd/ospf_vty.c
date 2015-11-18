@@ -63,7 +63,6 @@ static const char *ospf_network_type_str[] =
   "LOOPBACK"
 };
 
-
 /* Utility functions. */
 static int
 ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
@@ -3517,12 +3516,12 @@ DEFUN (show_ip_ospf,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json = (argv[0] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return (show_ip_ospf_common(vty, ospf, use_json));
+  return (show_ip_ospf_common(vty, ospf, uj));
 }
 
 DEFUN (show_ip_ospf_instance,
@@ -3536,13 +3535,13 @@ DEFUN (show_ip_ospf_instance,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return (show_ip_ospf_common(vty, ospf, use_json));
+  return (show_ip_ospf_common(vty, ospf, uj));
 }
 
 static void
@@ -3912,18 +3911,12 @@ DEFUN (show_ip_ospf_interface,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json;
-
-  if ((argv[0] && strcmp(argv[0], "json") == 0) ||
-      (argv[1] && strcmp(argv[1], "json") == 0))
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 0, use_json);
+  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 0, uj);
 }
 
 DEFUN (show_ip_ospf_instance_interface,
@@ -3939,19 +3932,13 @@ DEFUN (show_ip_ospf_instance_interface,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json;
-
-  if ((argv[1] && strcmp(argv[1], "json") == 0) ||
-      (argv[2] && strcmp(argv[2], "json") == 0))
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 1, use_json);
+  return show_ip_ospf_interface_common(vty, ospf, argc, argv, 1, uj);
 }
 
 static void
@@ -4080,12 +4067,12 @@ DEFUN (show_ip_ospf_neighbor,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json = (argv[0] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_common(vty, ospf, use_json);
+  return show_ip_ospf_neighbor_common(vty, ospf, uj);
 }
 
 
@@ -4101,13 +4088,13 @@ DEFUN (show_ip_ospf_instance_neighbor,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_common(vty, ospf, use_json);
+  return show_ip_ospf_neighbor_common(vty, ospf, uj);
 }
 
 static int
@@ -4192,12 +4179,12 @@ DEFUN (show_ip_ospf_neighbor_all,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json = (argv[0] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_all_common(vty, ospf, use_json);
+  return show_ip_ospf_neighbor_all_common(vty, ospf, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_all,
@@ -4213,13 +4200,13 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_all_common(vty, ospf, use_json);
+  return show_ip_ospf_neighbor_all_common(vty, ospf, uj);
 }
 
 static int
@@ -4286,12 +4273,12 @@ DEFUN (show_ip_ospf_neighbor_int,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_int_common(vty, ospf, 0, argv, use_json);
+  return show_ip_ospf_neighbor_int_common(vty, ospf, 0, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_int,
@@ -4307,13 +4294,13 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_int_common(vty, ospf, 1, argv, use_json);
+  return show_ip_ospf_neighbor_int_common(vty, ospf, 1, argv, uj);
 }
 
 static void
@@ -4652,12 +4639,12 @@ DEFUN (show_ip_ospf_neighbor_id,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_id_common(vty, ospf, 0, argv, use_json);
+  return show_ip_ospf_neighbor_id_common(vty, ospf, 0, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_id,
@@ -4673,13 +4660,13 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_id_common(vty, ospf, 1, argv, use_json);
+  return show_ip_ospf_neighbor_id_common(vty, ospf, 1, argv, uj);
 }
 
 static int
@@ -4743,12 +4730,12 @@ DEFUN (show_ip_ospf_neighbor_detail,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json = (argv[0] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_detail_common(vty, ospf, use_json);
+  return show_ip_ospf_neighbor_detail_common(vty, ospf, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_detail,
@@ -4764,13 +4751,13 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_detail_common(vty, ospf, use_json);
+  return show_ip_ospf_neighbor_detail_common(vty, ospf, uj);
 }
 
 static int
@@ -4841,12 +4828,12 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json = (argv[0] != NULL);;
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_detail_all_common(vty, ospf, use_json);
+  return show_ip_ospf_neighbor_detail_all_common(vty, ospf, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_detail_all,
@@ -4863,13 +4850,13 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_detail_all_common(vty, ospf, use_json);
+  return show_ip_ospf_neighbor_detail_all_common(vty, ospf, uj);
 }
 
 static int
@@ -4943,12 +4930,12 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
        "JavaScript Object Notation\n")
 {
   struct ospf *ospf;
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 0, argv, use_json);
+  return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 0, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_int_detail,
@@ -4965,13 +4952,13 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
 {
   struct ospf *ospf;
   u_short instance = 0;
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
 
   VTY_GET_INTEGER ("Instance", instance, argv[0]);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
-  return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 1, argv, use_json);
+  return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 1, argv, uj);
 }
 
 /* Show functions */

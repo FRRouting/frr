@@ -7483,8 +7483,7 @@ DEFUN (show_ip_bgp,
        BGP_STR
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[0] != NULL);
-  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json);
+  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_ipv4,
@@ -7498,13 +7497,13 @@ DEFUN (show_ip_bgp_ipv4,
        "Address Family modifier\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST, bgp_show_type_normal,
-                     NULL, use_json);
+                     NULL, uj);
  
-  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json);
+  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4,
@@ -7526,8 +7525,7 @@ DEFUN (show_ip_bgp_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_route_pathtype,
@@ -7541,12 +7539,12 @@ DEFUN (show_ip_bgp_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if (strncmp (argv[1], "b", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, use_json);
+    return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, use_json);
+    return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 DEFUN (show_bgp_ipv4_safi_route_pathtype,
@@ -7562,18 +7560,18 @@ DEFUN (show_bgp_ipv4_safi_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[3] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if (strncmp (argv[0], "m", 1) == 0)
     if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
   else
     if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 DEFUN (show_ip_bgp_ipv4_route,
@@ -7588,12 +7586,12 @@ DEFUN (show_ip_bgp_ipv4_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, use_json);
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_route,
@@ -7618,8 +7616,7 @@ DEFUN (show_ip_bgp_vpnv4_all_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 
@@ -7637,7 +7634,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_route,
 {
   int ret;
   struct prefix_rd prd;
-  u_char use_json = (argv[2] != NULL);
+  u_char uj= use_json(argc, argv);
 
   ret = str2prefix_rd (argv[0], &prd);
   if (! ret)
@@ -7645,7 +7642,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_route,
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, uj);
 }
 
 DEFUN (show_ip_bgp_prefix,
@@ -7657,8 +7654,7 @@ DEFUN (show_ip_bgp_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_prefix_pathtype,
@@ -7672,11 +7668,11 @@ DEFUN (show_ip_bgp_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
   if (strncmp (argv[1], "b", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, use_json);
+    return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, use_json);
+    return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 DEFUN (show_ip_bgp_ipv4_prefix,
@@ -7691,12 +7687,12 @@ DEFUN (show_ip_bgp_ipv4_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, use_json);
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_prefix,
@@ -7724,18 +7720,18 @@ DEFUN (show_ip_bgp_ipv4_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[3] != NULL);
+  u_char uj = use_json(argc, argv);
 
   if (strncmp (argv[0], "m", 1) == 0)
     if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
   else
     if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_prefix_pathtype,
@@ -7762,8 +7758,7 @@ DEFUN (show_ip_bgp_vpnv4_all_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_MPLS_VPN, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP, SAFI_MPLS_VPN, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_vpnv4_rd_prefix,
@@ -7780,7 +7775,6 @@ DEFUN (show_ip_bgp_vpnv4_rd_prefix,
 {
   int ret;
   struct prefix_rd prd;
-  u_char use_json = (argv[2] != NULL);
 
   ret = str2prefix_rd (argv[0], &prd);
   if (! ret)
@@ -7788,7 +7782,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_prefix,
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_view,
@@ -7802,7 +7796,6 @@ DEFUN (show_ip_bgp_view,
        "JavaScript Object Notation\n")
 {
   struct bgp *bgp;
-  u_char use_json = (argv[1] != NULL);
 
   /* BGP structure lookup. */
   bgp = bgp_lookup_by_name (argv[0]);
@@ -7812,7 +7805,7 @@ DEFUN (show_ip_bgp_view,
 	  return CMD_WARNING;
 	}
 
-  return bgp_show (vty, bgp, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json);
+  return bgp_show (vty, bgp, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_view_route,
@@ -7826,8 +7819,7 @@ DEFUN (show_ip_bgp_view_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
-  return bgp_show_route (vty, argv[0], argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, argv[0], argv[1], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_view_prefix,
@@ -7841,8 +7833,7 @@ DEFUN (show_ip_bgp_view_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
-  return bgp_show_route (vty, argv[0], argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, argv[0], argv[1], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 #ifdef HAVE_IPV6
@@ -7853,9 +7844,8 @@ DEFUN (show_bgp,
        BGP_STR
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[0] != NULL);
   return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal,
-                   NULL, use_json);
+                   NULL, use_json(argc, argv));
 }
 
 ALIAS (show_bgp,
@@ -7876,12 +7866,12 @@ DEFUN (show_bgp_ipv6_safi,
        "Address Family modifier\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
+  u_char uj = use_json(argc, argv);
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST, bgp_show_type_normal,
-                     NULL, use_json);
+                     NULL, uj);
 
-  return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json);
+  return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal, NULL, uj);
 }
 
 static void
@@ -7901,10 +7891,9 @@ DEFUN (show_ipv6_bgp,
        BGP_STR
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[0] != NULL);
   bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal,
-                   NULL, use_json);
+                   NULL, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_route,
@@ -7915,8 +7904,7 @@ DEFUN (show_bgp_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 ALIAS (show_bgp_route,
@@ -7939,11 +7927,11 @@ DEFUN (show_bgp_ipv6_safi_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, use_json);
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, uj);
 }
 
 DEFUN (show_bgp_route_pathtype,
@@ -7956,11 +7944,11 @@ DEFUN (show_bgp_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
   if (strncmp (argv[1], "b", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, use_json);
+    return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, use_json);
+    return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 ALIAS (show_bgp_route_pathtype,
@@ -7987,17 +7975,17 @@ DEFUN (show_bgp_ipv6_safi_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[3] != NULL);
+  u_char uj = use_json(argc, argv);
   if (strncmp (argv[0], "m", 1) == 0)
     if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
   else
     if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 /* old command */
@@ -8010,9 +7998,8 @@ DEFUN (show_ipv6_bgp_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_prefix,
@@ -8023,8 +8010,7 @@ DEFUN (show_bgp_prefix,
        "IPv6 prefix <network>/<length>\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 ALIAS (show_bgp_prefix,
@@ -8047,11 +8033,11 @@ DEFUN (show_bgp_ipv6_safi_prefix,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, use_json);
+    return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, uj);
 }
 
 DEFUN (show_bgp_prefix_pathtype,
@@ -8064,11 +8050,11 @@ DEFUN (show_bgp_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
+  u_char uj = use_json(argc, argv);
   if (strncmp (argv[1], "b", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, use_json);
+    return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, use_json);
+    return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 ALIAS (show_bgp_prefix_pathtype,
@@ -8095,17 +8081,17 @@ DEFUN (show_bgp_ipv6_safi_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[3] != NULL);
+  u_char uj = use_json(argc, argv);
   if (strncmp (argv[0], "m", 1) == 0)
     if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
   else
     if (strncmp (argv[2], "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, use_json);
+      return bgp_show_route (vty, NULL, argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 /* old command */
@@ -8118,9 +8104,8 @@ DEFUN (show_ipv6_bgp_prefix,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_view,
@@ -8133,17 +8118,16 @@ DEFUN (show_bgp_view,
        "JavaScript Object Notation\n")
 {
   struct bgp *bgp;
-  u_char use_json = (argv[1] != NULL);
 
   /* BGP structure lookup. */
   bgp = bgp_lookup_by_name (argv[0]);
   if (bgp == NULL)
-	{
-	  vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-  
-  return bgp_show (vty, bgp, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json);
+    {
+      vty_out (vty, "Can't find BGP view %s%s", argv[0], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return bgp_show (vty, bgp, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json(argc, argv));
 }
 
 ALIAS (show_bgp_view,
@@ -8166,8 +8150,7 @@ DEFUN (show_bgp_view_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
-  return bgp_show_route (vty, argv[0], argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, argv[0], argv[1], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 ALIAS (show_bgp_view_route,
@@ -8191,8 +8174,7 @@ DEFUN (show_bgp_view_prefix,
        "IPv6 prefix <network>/<length>\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[2] != NULL);
-  return bgp_show_route (vty, argv[0], argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, argv[0], argv[1], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 ALIAS (show_bgp_view_prefix,
@@ -8215,10 +8197,9 @@ DEFUN (show_ipv6_mbgp,
        MBGP_STR
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[0] != NULL);
   bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST, bgp_show_type_normal,
-                   NULL, use_json);
+                   NULL, use_json(argc, argv));
 }
 
 /* old command */
@@ -8231,9 +8212,8 @@ DEFUN (show_ipv6_mbgp_route,
        "Network in the MBGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 /* old command */
@@ -8246,9 +8226,8 @@ DEFUN (show_ipv6_mbgp_prefix,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "JavaScript Object Notation\n")
 {
-  u_char use_json = (argv[1] != NULL);
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, use_json);
+  return bgp_show_route (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 #endif
 
@@ -11020,18 +10999,13 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer) 
     return CMD_WARNING;
  
-  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST, use_json);
+  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
@@ -11048,18 +11022,13 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer) 
     return CMD_WARNING;
  
-  return bgp_peer_counts (vty, peer, AFI_IP6, SAFI_UNICAST, use_json);
+  return bgp_peer_counts (vty, peer, AFI_IP6, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
@@ -11079,21 +11048,16 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[1], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[1], uj);
   if (! peer)
     return CMD_WARNING;
 
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MULTICAST, use_json);
+    return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MULTICAST, uj);
 
-  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST, use_json);
+  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
@@ -11113,18 +11077,13 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer)
     return CMD_WARNING;
   
-  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MPLS_VPN, use_json);
+  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MPLS_VPN, uj);
 }
 
 static void
@@ -11382,23 +11341,17 @@ DEFUN (show_ip_bgp_view_neighbor_advertised_route,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   if (argc == 3 || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], use_json);
+    peer = peer_lookup_in_view (vty, argv[0], argv[1], uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+    peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
 
   if (! peer) 
     return CMD_WARNING;
 
-  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0, NULL, use_json);
+  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0, NULL, uj);
 }
 
 DEFUN (show_ip_bgp_neighbor_advertised_route,
@@ -11417,14 +11370,9 @@ DEFUN (show_ip_bgp_neighbor_advertised_route,
 {
   struct peer *peer;
   const char *rmap_name = NULL;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
 
   if (! peer)
     return CMD_WARNING;
@@ -11433,7 +11381,7 @@ DEFUN (show_ip_bgp_neighbor_advertised_route,
       || (argc == 3))
     rmap_name = argv[1];
 
-  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0, rmap_name, use_json);
+  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0, rmap_name, uj);
 }
 
 ALIAS (show_ip_bgp_neighbor_advertised_route,
@@ -11467,14 +11415,9 @@ DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
 {
   struct peer *peer;
   const char *rmap_name = NULL;
-  u_char use_json;
+  u_char uj = use_json(argc, argv); 
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[1], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[1], uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -11482,9 +11425,9 @@ DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
     rmap_name = argv[2];
 
   if (strncmp (argv[0], "m", 1) == 0)
-    return peer_adj_routes (vty, peer, AFI_IP, SAFI_MULTICAST, 0, rmap_name, use_json);
+    return peer_adj_routes (vty, peer, AFI_IP, SAFI_MULTICAST, 0, rmap_name, uj);
   else
-    return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0, rmap_name, use_json);
+    return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0, rmap_name, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_neighbor_advertised_route,
@@ -11520,22 +11463,17 @@ DEFUN (show_bgp_view_neighbor_advertised_route,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   if (argc == 3 || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], use_json);
+    peer = peer_lookup_in_view (vty, argv[0], argv[1], uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+    peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
 
   if (! peer)
     return CMD_WARNING;
 
-  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 0, NULL, use_json);
+  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 0, NULL, uj);
 }
 
 ALIAS (show_bgp_view_neighbor_advertised_route,
@@ -11568,14 +11506,9 @@ DEFUN (show_bgp_neighbor_advertised_route,
 {
   struct peer *peer;
   const char *rmap_name = NULL;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
 
   if (!peer)
     return CMD_WARNING;
@@ -11583,7 +11516,7 @@ DEFUN (show_bgp_neighbor_advertised_route,
   if (argc == 3 || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
     rmap_name = argv[1];
 
-  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 0, rmap_name, use_json);
+  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 0, rmap_name, uj);
 }
 
 ALIAS (show_bgp_neighbor_advertised_route,
@@ -11629,19 +11562,14 @@ DEFUN (ipv6_mbgp_neighbor_advertised_route,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer)
     return CMD_WARNING;
 
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_MULTICAST, 0, NULL, use_json);
+  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_MULTICAST, 0, NULL, uj);
 }
 #endif /* HAVE_IPV6 */
 
@@ -11660,32 +11588,27 @@ DEFUN (show_bgp_view_neighbor_received_routes,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  if (use_json)
+  if (uj)
     {
       if (argc == 3)
-        peer = peer_lookup_in_view (vty, argv[0], argv[1], use_json);
+        peer = peer_lookup_in_view (vty, argv[0], argv[1], uj);
       else
-        peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+        peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
     }
   else
     {
       if (argc == 2)
-        peer = peer_lookup_in_view (vty, argv[0], argv[1], use_json);
+        peer = peer_lookup_in_view (vty, argv[0], argv[1], uj);
       else
-        peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+        peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
     }
 
   if (! peer)
     return CMD_WARNING;
 
-  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 1, NULL, use_json);
+  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 1, NULL, uj);
 }
 
 DEFUN (show_ip_bgp_view_neighbor_received_routes,
@@ -11704,22 +11627,17 @@ DEFUN (show_ip_bgp_view_neighbor_received_routes,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   if (argc == 3 || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], use_json);
+    peer = peer_lookup_in_view (vty, argv[0], argv[1], uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+    peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
 
   if (! peer)
     return CMD_WARNING;
 
-  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1, NULL, use_json);
+  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1, NULL, uj);
 }
 
 ALIAS (show_bgp_view_neighbor_received_routes,
@@ -11753,14 +11671,9 @@ DEFUN (show_ip_bgp_neighbor_received_routes,
 {
   struct peer *peer;
   const char *rmap_name = NULL;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
 
   if (! peer)
     return CMD_WARNING;
@@ -11768,7 +11681,7 @@ DEFUN (show_ip_bgp_neighbor_received_routes,
   if (argc == 3 || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
     rmap_name = argv[1];
 
-  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1, rmap_name, use_json);
+  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1, rmap_name, uj);
 }
 
 ALIAS (show_ip_bgp_neighbor_received_routes,
@@ -11802,14 +11715,9 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_routes,
 {
   struct peer *peer;
   const char *rmap_name = NULL;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[1], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[1], uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -11817,9 +11725,9 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_routes,
     rmap_name = argv[2];
 
   if (strncmp (argv[0], "m", 1) == 0)
-    return peer_adj_routes (vty, peer, AFI_IP, SAFI_MULTICAST, 1, rmap_name, use_json);
+    return peer_adj_routes (vty, peer, AFI_IP, SAFI_MULTICAST, 1, rmap_name, uj);
   else
-    return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1, rmap_name, use_json);
+    return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1, rmap_name, uj);
 }
 
 ALIAS (show_ip_bgp_ipv4_neighbor_received_routes,
@@ -11867,33 +11775,18 @@ DEFUN (show_bgp_view_afi_safi_neighbor_adv_recd_routes,
   int safi;
   int in;
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-#ifdef HAVE_IPV6
-    peer = peer_lookup_in_view (vty, argv[0], argv[3], use_json);
-#else
-    peer = peer_lookup_in_view (vty, argv[0], argv[2], use_json);
-#endif
+  peer = peer_lookup_in_view (vty, argv[0], argv[3], uj);
 
   if (! peer)
     return CMD_WARNING;
 
-#ifdef HAVE_IPV6
   afi = (strncmp (argv[1], "ipv6", 4) == 0) ? AFI_IP6 : AFI_IP;
   safi = (strncmp (argv[2], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
   in = (strncmp (argv[4], "r", 1) == 0) ? 1 : 0;
-#else
-  afi = AFI_IP;
-  safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  in = (strncmp (argv[3], "r", 1) == 0) ? 1 : 0;
-#endif
 
-  return peer_adj_routes (vty, peer, afi, safi, in, NULL, use_json);
+  return peer_adj_routes (vty, peer, afi, safi, in, NULL, uj);
 }
 
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
@@ -11914,12 +11807,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
   union sockunion su;
   struct peer *peer;
   int count, ret;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
@@ -11927,7 +11815,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
       peer = peer_lookup_by_conf_if (NULL, argv[0]);
       if (! peer)
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_object *json_sub = NULL;
@@ -11949,7 +11837,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
       peer = peer_lookup (NULL, &su);
       if (! peer)
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_no = json_object_new_object();
@@ -11964,16 +11852,16 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
     }
 
   sprintf (name, "%s.%d.%d", peer->host, AFI_IP, SAFI_UNICAST);
-  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, use_json);
+  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, uj);
   if (count)
     {
-      if (!use_json)
+      if (!uj)
         vty_out (vty, "Address family: IPv4 Unicast%s", VTY_NEWLINE);
-      prefix_bgp_show_prefix_list (vty, AFI_IP, name, use_json);
+      prefix_bgp_show_prefix_list (vty, AFI_IP, name, uj);
     }
   else
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -12009,12 +11897,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
   union sockunion su;
   struct peer *peer;
   int count, ret;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   ret = str2sockunion (argv[1], &su);
   if (ret < 0)
@@ -12022,7 +11905,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
       peer = peer_lookup_by_conf_if (NULL, argv[1]);
       if (! peer)
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_object *json_sub = NULL;
@@ -12044,7 +11927,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
       peer = peer_lookup (NULL, &su);
       if (! peer)
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_no = json_object_new_object();
@@ -12061,16 +11944,16 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
   if (strncmp (argv[0], "m", 1) == 0)
     {
       sprintf (name, "%s.%d.%d", peer->host, AFI_IP, SAFI_MULTICAST);
-      count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, use_json);
+      count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, uj);
       if (count)
         {
-          if (!use_json)
+          if (!uj)
             vty_out (vty, "Address family: IPv4 Multicast%s", VTY_NEWLINE);
-          prefix_bgp_show_prefix_list (vty, AFI_IP, name, use_json);
+          prefix_bgp_show_prefix_list (vty, AFI_IP, name, uj);
         }
       else
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_no = json_object_new_object();
@@ -12085,16 +11968,16 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
   else 
     {
       sprintf (name, "%s.%d.%d", peer->host, AFI_IP, SAFI_UNICAST);
-      count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, use_json);
+      count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, uj);
       if (count)
         {
-          if (!use_json)
+          if (!uj)
             vty_out (vty, "Address family: IPv4 Unicast%s", VTY_NEWLINE);
-          prefix_bgp_show_prefix_list (vty, AFI_IP, name, use_json);
+          prefix_bgp_show_prefix_list (vty, AFI_IP, name, uj);
         }
       else
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_no = json_object_new_object();
@@ -12152,12 +12035,7 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
   union sockunion su;
   struct peer *peer;
   int count, ret;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
@@ -12165,7 +12043,7 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
       peer = peer_lookup_by_conf_if (NULL, argv[0]);
       if (! peer)
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_object *json_sub = NULL;
@@ -12187,7 +12065,7 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
       peer = peer_lookup (NULL, &su);
       if (! peer)
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_no = json_object_new_object();
@@ -12202,16 +12080,16 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
     }
 
   sprintf (name, "%s.%d.%d", peer->host, AFI_IP6, SAFI_UNICAST);
-  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP6, name, use_json);
+  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP6, name, uj);
   if (count)
     {
-      if (!use_json)
+      if (!uj)
         vty_out (vty, "Address family: IPv6 Unicast%s", VTY_NEWLINE);
-      prefix_bgp_show_prefix_list (vty, AFI_IP6, name, use_json);
+      prefix_bgp_show_prefix_list (vty, AFI_IP6, name, uj);
     }
   else
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -12269,19 +12147,14 @@ DEFUN (ipv6_mbgp_neighbor_received_routes,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer)
     return CMD_WARNING;
 
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_MULTICAST, 1, NULL,use_json);
+  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_MULTICAST, 1, NULL, uj);
 }
 
 DEFUN (show_bgp_view_neighbor_received_prefix_filter,
@@ -12304,18 +12177,13 @@ DEFUN (show_bgp_view_neighbor_received_prefix_filter,
   struct peer *peer;
   struct bgp *bgp;
   int count, ret;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   /* BGP structure lookup. */
   bgp = bgp_lookup_by_name (argv[0]);
   if (bgp == NULL)
     {
-      if (use_json)
+      if (uj)
         {
           json_object *json_no = NULL;
           json_no = json_object_new_object();
@@ -12334,7 +12202,7 @@ DEFUN (show_bgp_view_neighbor_received_prefix_filter,
       peer = peer_lookup_by_conf_if (bgp, argv[1]);
       if (! peer)
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_object *json_sub = NULL;
@@ -12356,7 +12224,7 @@ DEFUN (show_bgp_view_neighbor_received_prefix_filter,
       peer = peer_lookup (bgp, &su);
       if (! peer)
         {
-          if (use_json)
+          if (uj)
             {
               json_object *json_no = NULL;
               json_no = json_object_new_object();
@@ -12372,12 +12240,12 @@ DEFUN (show_bgp_view_neighbor_received_prefix_filter,
     }
 
   sprintf (name, "%s.%d.%d", peer->host, AFI_IP6, SAFI_UNICAST);
-  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP6, name, use_json);
+  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP6, name, uj);
   if (count)
     {
-      if (!use_json)
+      if (!uj)
         vty_out (vty, "Address family: IPv6 Unicast%s", VTY_NEWLINE);
-      prefix_bgp_show_prefix_list (vty, AFI_IP6, name, use_json);
+      prefix_bgp_show_prefix_list (vty, AFI_IP6, name, uj);
     }
 
   return CMD_SUCCESS;
@@ -12435,19 +12303,14 @@ DEFUN (show_ip_bgp_neighbor_routes,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer)
     return CMD_WARNING;
     
   return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_neighbor, use_json);
+				  bgp_show_type_neighbor, uj);
 }
 
 DEFUN (show_ip_bgp_neighbor_flap,
@@ -12464,19 +12327,14 @@ DEFUN (show_ip_bgp_neighbor_flap,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer)
     return CMD_WARNING;
     
   return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_flap_neighbor, use_json);
+				  bgp_show_type_flap_neighbor, uj);
 }
 
 DEFUN (show_ip_bgp_neighbor_damp,
@@ -12493,19 +12351,14 @@ DEFUN (show_ip_bgp_neighbor_damp,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer)
     return CMD_WARNING;
     
   return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_damp_neighbor, use_json);
+				  bgp_show_type_damp_neighbor, uj);
 }
 
 DEFUN (show_ip_bgp_ipv4_neighbor_routes,
@@ -12525,23 +12378,18 @@ DEFUN (show_ip_bgp_ipv4_neighbor_routes,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[1], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[1], uj);
   if (! peer)
     return CMD_WARNING;
  
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_MULTICAST,
-				    bgp_show_type_neighbor, use_json);
+				    bgp_show_type_neighbor, uj);
 
   return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_neighbor, use_json);
+				  bgp_show_type_neighbor, uj);
 }
 
 #ifdef HAVE_IPV6
@@ -12560,24 +12408,19 @@ DEFUN (show_bgp_view_neighbor_routes,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   if ((argc == 3 && argv[2] && strcmp(argv[2], "json") == 0)
       || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], use_json);
+    peer = peer_lookup_in_view (vty, argv[0], argv[1], uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+    peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
    
   if (! peer)
     return CMD_WARNING;
 
   return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_UNICAST,
-				  bgp_show_type_neighbor, use_json);
+				  bgp_show_type_neighbor, uj);
 }
 
 ALIAS (show_bgp_view_neighbor_routes,
@@ -12610,24 +12453,19 @@ DEFUN (show_bgp_view_neighbor_damp,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   if ((argc == 3 && argv[2] && strcmp(argv[2], "json") == 0)
       || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], use_json);
+    peer = peer_lookup_in_view (vty, argv[0], argv[1], uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+    peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
 
   if (! peer)
     return CMD_WARNING;
 
   return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_UNICAST,
-				  bgp_show_type_damp_neighbor, use_json);
+				  bgp_show_type_damp_neighbor, uj);
 }
 
 ALIAS (show_bgp_view_neighbor_damp,
@@ -12660,24 +12498,19 @@ DEFUN (show_bgp_view_neighbor_flap,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
-
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
+  u_char uj = use_json(argc, argv);
 
   if ((argc == 3 && argv[2] && strcmp(argv[2], "json") == 0)
       || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[0], argv[1], use_json);
+    peer = peer_lookup_in_view (vty, argv[0], argv[1], uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+    peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
 
   if (! peer)
     return CMD_WARNING;
 
   return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_UNICAST,
-				  bgp_show_type_flap_neighbor, use_json);
+				  bgp_show_type_flap_neighbor, uj);
 }
 
 ALIAS (show_bgp_view_neighbor_flap,
@@ -12750,20 +12583,15 @@ DEFUN (ipv6_mbgp_neighbor_routes,
        "JavaScript Object Notation\n")
 {
   struct peer *peer;
-  u_char use_json;
+  u_char uj = use_json(argc, argv);
 
-  if (argv[argc - 1] && strcmp(argv[argc - 1], "json") == 0)
-    use_json = 1;
-  else
-    use_json = 0;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0], use_json);
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
   if (! peer)
     return CMD_WARNING;
  
   bgp_show_ipv6_bgp_deprecate_warning(vty);
   return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_MULTICAST,
-				  bgp_show_type_neighbor, use_json);
+				  bgp_show_type_neighbor, uj);
 }
 
 ALIAS (show_bgp_view_neighbor_flap,

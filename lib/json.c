@@ -19,7 +19,25 @@
  * 02111-1307, USA.
  */
 
+#include <string.h>
 #include "lib/json.h"
+
+/*
+ * This function assumes that the json keyword
+ * is the *last* keyword on the line no matter
+ * what.
+ */
+int
+use_json (const int argc, const char *argv[])
+{
+  if (argc == 0)
+    return 0;
+
+  if (argv[argc-1] && strcmp(argv[argc-1], "json") == 0)
+    return 1;
+
+  return 0;
+}
 
 void
 json_object_string_add(struct json_object* obj, const char *key,

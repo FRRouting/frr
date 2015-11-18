@@ -24,6 +24,7 @@
 
 #include <json/json.h>
 
+extern int use_json(const int argc, const char *argv[]);
 extern void json_object_string_add(struct json_object* obj, const char *key,
                                    const char *s);
 extern void json_object_int_add(struct json_object* obj, const char *key,
