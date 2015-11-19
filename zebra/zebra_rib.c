@@ -1292,7 +1292,10 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, int update)
         ret = kernel_add_ipv4 (&rn->p, rib);
       break;
     case AF_INET6:
-      ret = kernel_add_ipv6 (&rn->p, rib);
+      if (update)
+        ret = kernel_update_ipv6 (&rn->p, rib);
+      else
+        ret = kernel_add_ipv6 (&rn->p, rib);
       break;
     }
 
@@ -1427,7 +1430,6 @@ rib_process (struct route_node *rn)
   struct nexthop *nexthop = NULL, *tnexthop;
   int recursing;
   char buf[INET6_ADDRSTRLEN];
-  int update_ok = 0;
   
   assert (rn);
   
@@ -1560,30 +1562,21 @@ rib_process (struct route_node *rn)
         {
 	  zfpm_trigger_update (rn, "updating existing route");
 
-          if (! RIB_SYSTEM_ROUTE (select))
-            {
-              /* For v4, use the replace semantics of netlink. */
-              if (PREFIX_FAMILY (&rn->p) == AF_INET)
-		  update_ok = 1;
-              else
-                rib_uninstall_kernel (rn, select);
-            }
-
-
           /* Set real nexthop. */
 	  /* Need to check if any NHs are active to clear the
 	   * the selected flag
 	   */
           if (nexthop_active_update (rn, select, 1))
 	    {
-              /* Clear FIB flag for IPv4, install will set it */
-              if (update_ok)
+	      if (! RIB_SYSTEM_ROUTE (select))
                 {
+                  /* Clear FIB flag if performing a replace, will get set again
+                   * as part of install.
+                   */
                   for (nexthop = select->nexthop; nexthop; nexthop = nexthop->next)
                     UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+                  rib_install_kernel (rn, select, 1);
                 }
-	      if (! RIB_SYSTEM_ROUTE (select))
-		rib_install_kernel (rn, select, update_ok);
 
 	      /* assuming that the receiver knows how to dedup */
               redistribute_update (&rn->p, select, NULL);
@@ -1593,8 +1586,8 @@ rib_process (struct route_node *rn)
 	      /* Withdraw unreachable redistribute route */
 	      redistribute_delete(&rn->p, select);
 
-              /* For IPv4, do the uninstall here. */
-              if (update_ok)
+              /* Do the uninstall here, if not done earlier. */
+	      if (! RIB_SYSTEM_ROUTE (select))
                 rib_uninstall_kernel (rn, select);
 	      UNSET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
 	    }
@@ -1633,25 +1626,16 @@ rib_process (struct route_node *rn)
 
       zfpm_trigger_update (rn, "removing existing route");
 
-      /* If there's no route to replace this with, withdraw redistribute */
+      /* If there's no route to replace this with, withdraw redistribute and
+       * uninstall from kernel.
+       */
       if (!select)
-	redistribute_delete(&rn->p, fib);
-
-      if (! RIB_SYSTEM_ROUTE (fib))
         {
-          /* For v4, use the replace semantics of netlink -- only if there is
-           * another route to replace this with.
-           */
-          if (PREFIX_FAMILY (&rn->p) == AF_INET)
-            {
-              if (!select)
-                rib_uninstall_kernel (rn, fib);
-              else
-                update_ok = 1;
-            }
-            else
-              rib_uninstall_kernel (rn, fib);
+	  redistribute_delete(&rn->p, fib);
+          if (! RIB_SYSTEM_ROUTE (fib))
+            rib_uninstall_kernel (rn, fib);
         }
+
       UNSET_FLAG (fib->flags, ZEBRA_FLAG_SELECTED);
 
       /* Set real nexthop. */
@@ -1674,15 +1658,19 @@ rib_process (struct route_node *rn)
       /* Set real nexthop. */
       if (nexthop_active_update (rn, select, 1))
 	{
-          /* Clear FIB flag for IPv4 for previous installed route. */
-          if (update_ok)
+          if (! RIB_SYSTEM_ROUTE (select))
             {
-              assert (fib);
-              for (nexthop = fib->nexthop; nexthop; nexthop = nexthop->next)
-                UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+              /* Clear FIB flag if performing a replace, will get set again
+               * as part of install.
+               */
+              if (fib)
+                {
+                  for (nexthop = fib->nexthop; nexthop; nexthop = nexthop->next)
+                    UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+                }
+              rib_install_kernel (rn, select, fib? 1 : 0);
             }
-	  if (! RIB_SYSTEM_ROUTE (select))
-	    rib_install_kernel (rn, select, update_ok);
+
 	  SET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
 	  /* Unconditionally announce, this part is exercised by new routes */
 	  /* If we cannot add, for example route added is learnt by the */
@@ -1692,12 +1680,9 @@ rib_process (struct route_node *rn)
 	}
       else
 	{
-          /* For IPv4, uninstall prior route here, if any. */
-          if (update_ok)
-            {
-              assert (fib);
-              rib_uninstall_kernel (rn, fib);
-            }
+          /* Uninstall prior route here, if needed. */
+          if (fib && !RIB_SYSTEM_ROUTE (fib))
+            rib_uninstall_kernel (rn, fib);
           /* if "select", the earlier redist delete wouldn't have happened */
           if (fib)
             redistribute_delete(&rn->p, fib);
@@ -2864,31 +2849,17 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
       UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         {
-	  if (afi == AFI_IP)
-	    {
-	      /* If there are other active nexthops, do an update. */
-	      if (rib->nexthop_active_num > 1)
-		{
-		  rib_install_kernel (rn, rib, 1);
-		  redistribute_update (&rn->p, rib, NULL);
-		}
-	      else
-		{
-		  redistribute_delete (&rn->p, rib);
-		  rib_uninstall_kernel (rn, rib);
-		}
-	    }
-	  else
-	    {
-	      redistribute_delete (&rn->p, rib);
-	      rib_uninstall_kernel (rn, rib);
-	      /* Are there other active nexthops? */
-	      if (rib->nexthop_active_num > 1)
-		{
-		  rib_install_kernel (rn, rib, 0);
-		  redistribute_update (&rn->p, rib, NULL);
-		}
-	    }
+          /* If there are other active nexthops, do an update. */
+          if (rib->nexthop_active_num > 1)
+            {
+              rib_install_kernel (rn, rib, 1);
+              redistribute_update (&rn->p, rib, NULL);
+            }
+          else
+            {
+              redistribute_delete (&rn->p, rib);
+              rib_uninstall_kernel (rn, rib);
+            }
         }
 
       if (afi == AFI_IP)

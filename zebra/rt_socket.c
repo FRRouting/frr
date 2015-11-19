@@ -474,6 +474,13 @@ kernel_add_ipv6 (struct prefix *p, struct rib *rib)
 }
 
 int
+kernel_update_ipv6 (struct prefix *p, struct rib *rib)
+{
+  kernel_delete_ipv6 (p, rib);
+  return kernel_add_ipv6 (p, rib);
+}
+
+int
 kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
 {
   int route;
