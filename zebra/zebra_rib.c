@@ -1670,6 +1670,12 @@ rib_process (struct route_node *rn)
                 }
               rib_install_kernel (rn, select, fib? 1 : 0);
             }
+          else
+            {
+              /* Uninstall prior route here, if needed. */
+              if (fib && !RIB_SYSTEM_ROUTE (fib))
+                rib_uninstall_kernel (rn, fib);
+            }
 
 	  SET_FLAG (select->flags, ZEBRA_FLAG_SELECTED);
 	  /* Unconditionally announce, this part is exercised by new routes */
