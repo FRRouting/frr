@@ -3885,7 +3885,7 @@ rib_tables_iter_next (rib_tables_iter_t *iter)
     {
 
     case RIB_TABLES_ITER_S_INIT:
-      iter->vrf_id = 0;
+      iter->vrf_id = VRF_DEFAULT;
       iter->afi_safi_ix = -1;
 
       /* Fall through */
