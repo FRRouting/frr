@@ -113,7 +113,7 @@ group_announce_route_walkcb (struct update_group *updgrp, void *arg)
   afi_t afi;
   safi_t safi;
   struct peer *peer;
-  struct bgp_adj_out *adj;
+  struct bgp_adj_out *adj, *adj_next;
   int addpath_capable;
 
   afi = UPDGRP_AFI (updgrp);
@@ -136,8 +136,10 @@ group_announce_route_walkcb (struct update_group *updgrp, void *arg)
             {
               /* Look through all of the paths we have advertised for this rn and
                * send a withdraw for the ones that are no longer present */
-              for (adj = ctx->rn->adj_out; adj; adj = adj->next)
+              for (adj = ctx->rn->adj_out; adj; adj = adj_next)
                 {
+                  adj_next = adj->next;
+
                   if (adj->subgroup == subgrp)
                     {
                       for (ri = ctx->rn->info; ri; ri = ri->next)
@@ -181,8 +183,10 @@ group_announce_route_walkcb (struct update_group *updgrp, void *arg)
                 {
                   /* Find the addpath_tx_id of the path we had advertised and
                    * send a withdraw */
-                  for (adj = ctx->rn->adj_out; adj; adj = adj->next)
+                  for (adj = ctx->rn->adj_out; adj; adj = adj_next)
                     {
+                      adj_next = adj->next;
+
                       if (adj->subgroup == subgrp)
                         {
                           subgroup_process_announce_selected (subgrp, NULL, ctx->rn, adj->addpath_tx_id);
