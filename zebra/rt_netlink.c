@@ -575,8 +575,9 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (IS_ZEBRA_DEBUG_KERNEL)    /* remove this line to see initial ifcfg */
     {
       char buf[BUFSIZ];
-      zlog_debug ("netlink_interface_addr %s %s vrf %u:",
-                 lookup (nlmsg_str, h->nlmsg_type), ifp->name, vrf_id);
+      zlog_debug ("netlink_interface_addr %s %s vrf %u flags 0x%x:",
+                 lookup (nlmsg_str, h->nlmsg_type), ifp->name,
+                 vrf_id, ifa->ifa_flags);
       if (tb[IFA_LOCAL])
         zlog_debug ("  IFA_LOCAL     %s/%d",
 		    inet_ntop (ifa->ifa_family, RTA_DATA (tb[IFA_LOCAL]),
@@ -654,9 +655,15 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (ifa->ifa_family == AF_INET6)
     {
       if (h->nlmsg_type == RTM_NEWADDR)
-        connected_add_ipv6 (ifp, flags,
-                            (struct in6_addr *) addr, ifa->ifa_prefixlen,
-                            (struct in6_addr *) broad, label);
+        {
+          /* Only consider valid addresses; we'll not get a notification from
+           * the kernel till IPv6 DAD has completed, but at init time, Quagga
+           * does query for and will receive all addresses.
+           */
+          if (!(ifa->ifa_flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE)))
+            connected_add_ipv6 (ifp, flags, (struct in6_addr *) addr,
+                    ifa->ifa_prefixlen, (struct in6_addr *) broad, label);
+        }
       else
         connected_delete_ipv6 (ifp,
                                (struct in6_addr *) addr, ifa->ifa_prefixlen,
