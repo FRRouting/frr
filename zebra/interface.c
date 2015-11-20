@@ -48,11 +48,11 @@
 
 #define ZEBRA_PTM_SUPPORT
 
-#ifdef RTADV
+#if defined (HAVE_RTADV)
 /* Order is intentional.  Matches RFC4191.  This array is also used for
    command matching, so only modify with care. */
 const char *rtadv_pref_strs[] = { "medium", "high", "INVALID", "low", 0 };
-#endif /* RTADV */
+#endif /* HAVE_RTADV */
 
 /* Called when new interface is added. */
 static int
@@ -66,7 +66,7 @@ if_zebra_new_hook (struct interface *ifp)
   zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
 
   ifp->ptm_enable = zebra_ptm_get_enable_state();
-#ifdef RTADV
+#if defined (HAVE_RTADV)
   {
     /* Set default router advertise values. */
     struct rtadvconf *rtadv;
@@ -92,7 +92,7 @@ if_zebra_new_hook (struct interface *ifp)
 
     rtadv->AdvPrefixList = list_new ();
   }    
-#endif /* RTADV */
+#endif /* HAVE_RTADV */
 
   /* Initialize installed address chains tree. */
   zebra_if->ipv4_subnets = route_table_init ();
@@ -753,7 +753,7 @@ nbr_connected_dump_vty (struct vty *vty, struct nbr_connected *connected)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-#ifdef RTADV
+#if defined (HAVE_RTADV)
 /* Dump interface ND information to vty. */
 static void
 nd_dump_vty (struct vty *vty, struct interface *ifp)
@@ -814,7 +814,7 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 		 VTY_NEWLINE);
     }
 }
-#endif /* RTADV */
+#endif /* HAVE_RTADV */
 
 /* Interface's information print out to vty interface. */
 static void
@@ -924,9 +924,9 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	connected_dump_vty (vty, connected);
     }
 
-#ifdef RTADV
+#if defined (HAVE_RTADV)
   nd_dump_vty (vty, ifp);
-#endif /* RTADV */
+#endif /* HAVE_RTADV */
   if (listhead(ifp->nbr_connected))
     vty_out (vty, "  Neighbor address(s):%s", VTY_NEWLINE);
   for (ALL_LIST_ELEMENTS_RO (ifp->nbr_connected, node, nbr_connected))
@@ -1912,9 +1912,9 @@ if_config_write (struct vty *vty)
 		     VTY_NEWLINE);
 	}
 
-#ifdef RTADV
+#if defined (HAVE_RTADV)
       rtadv_config_write (vty, ifp);
-#endif /* RTADV */
+#endif /* HAVE_RTADV */
 
 #ifdef HAVE_IRDP
       irdp_config_write (vty, ifp);
