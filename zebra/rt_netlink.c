@@ -2113,6 +2113,12 @@ kernel_add_ipv6 (struct prefix *p, struct rib *rib)
 }
 
 int
+kernel_update_ipv6 (struct prefix *p, struct rib *rib)
+{
+  return netlink_route_multipath (RTM_NEWROUTE, p, rib, AF_INET6, 1);
+}
+
+int
 kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
 {
     {
