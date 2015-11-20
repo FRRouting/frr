@@ -238,7 +238,7 @@ zebra_vrf_enable (vrf_id_t vrf_id, void **info)
 
   assert (zvrf);
 
-#ifdef RTADV
+#if defined (HAVE_RTADV)
   rtadv_init (zvrf);
 #endif
   kernel_init (zvrf);
@@ -269,7 +269,7 @@ zebra_vrf_disable (vrf_id_t vrf_id, void **info)
         if_down (ifp);
     }
 
-#ifdef RTADV
+#if defined (HAVE_RTADV)
   rtadv_terminate (zvrf);
 #endif
   kernel_terminate (zvrf);
@@ -417,7 +417,7 @@ main (int argc, char **argv)
   zebra_vty_init ();
   access_list_init ();
   prefix_list_init ();
-#ifdef RTADV
+#if defined (HAVE_RTADV)
   rtadv_cmd_init ();
 #endif
 #ifdef HAVE_IRDP
