@@ -181,6 +181,15 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
   struct zserv *client;
   int send_redistribute;
   int afi;
+  char buf[INET6_ADDRSTRLEN];
+
+  if (IS_ZEBRA_DEBUG_RIB)
+    {
+      inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
+      zlog_debug ("%u:%s/%d: Redist update rib %p (type %d), old %p (type %d)",
+                  rib->vrf_id, buf, p->prefixlen, rib, rib->type,
+                  prev_rib, prev_rib ? prev_rib->type : -1);
+    }
 
   afi = family2afi(p->family);
   if (!afi)
@@ -254,6 +263,14 @@ redistribute_delete (struct prefix *p, struct rib *rib)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
+  char buf[INET6_ADDRSTRLEN];
+
+  if (IS_ZEBRA_DEBUG_RIB)
+    {
+      inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
+      zlog_debug ("%u:%s/%d: Redist delete rib %p (type %d)",
+                  rib->vrf_id, buf, p->prefixlen, rib, rib->type);
+    }
 
   /* Add DISTANCE_INFINITY check. */
   if (rib->distance == DISTANCE_INFINITY)

@@ -639,7 +639,7 @@ if_up (struct interface *ifp)
 	}
     }
 
-  if (IS_ZEBRA_DEBUG_RIB)
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%s: calling rib_update on interface %s up", __func__,
                 ifp->name);
 
@@ -677,7 +677,7 @@ if_down (struct interface *ifp)
     }
 
   /* Examine all static routes which direct to the interface. */
-  if (IS_ZEBRA_DEBUG_RIB)
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%s: calling rib_update_static on interface %s down", __func__,
                 ifp->name);
 
