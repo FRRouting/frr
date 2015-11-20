@@ -216,15 +216,6 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_PEER_FLAG_CONFLICT:
       str = "Can't set override-capability and strict-capability-match at the same time";
       break;
-    case BGP_ERR_PEER_GROUP_MEMBER_EXISTS:
-      str = "No activate for peergroup can be given only if peer-group has no members";
-      break;
-    case BGP_ERR_PEER_BELONGS_TO_GROUP:
-      str = "No activate for an individual peer-group member is invalid";
-      break;
-    case BGP_ERR_PEER_GROUP_AF_UNCONFIGURED:
-      str = "Activate the peer-group for the address family first";
-      break;
     case BGP_ERR_PEER_GROUP_NO_REMOTE_AS:
       str = "Specify remote-as or peer-group remote AS first";
       break;
@@ -408,7 +399,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 	      continue;
 	    }
 
-	  if (! peer->af_group[afi][safi])
+	  if (! peer->afc[afi][safi])
 	    continue;
 
 	  ret = peer_clear_soft (peer, afi, safi, stype);
@@ -3041,14 +3032,17 @@ DEFUN (neighbor_activate,
        NEIGHBOR_ADDR_STR2
        "Enable the Address Family for this Neighbor\n")
 {
+  int ret;
   struct peer *peer;
 
   peer = peer_and_group_lookup_vty (vty, argv[0]);
   if (! peer)
     return CMD_WARNING;
 
-  peer_activate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
+  ret = peer_activate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
 
+  if (ret)
+    return CMD_WARNING;
   return CMD_SUCCESS;
 }
 
@@ -3070,7 +3064,9 @@ DEFUN (no_neighbor_activate,
 
   ret = peer_deactivate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
 
-  return bgp_vty_return (vty, ret);
+  if (ret)
+    return CMD_WARNING;
+  return CMD_SUCCESS;
 }
 
 DEFUN (neighbor_set_peer_group,
@@ -3127,8 +3123,7 @@ DEFUN (neighbor_set_peer_group,
       return CMD_WARNING;
     }
 
-  ret = peer_group_bind (bgp, &su, peer, group, bgp_node_afi (vty),
-			 bgp_node_safi (vty), &as);
+  ret = peer_group_bind (bgp, &su, peer, group, &as);
 
   if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT)
     {
@@ -3166,8 +3161,7 @@ DEFUN (no_neighbor_set_peer_group,
       return CMD_WARNING;
     }
 
-  ret = peer_group_unbind (bgp, peer, group, bgp_node_afi (vty),
-			   bgp_node_safi (vty));
+  ret = peer_group_unbind (bgp, peer, group);
 
   return bgp_vty_return (vty, ret);
 }
@@ -8820,7 +8814,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       json_prefB = json_object_new_object();
       filter = &p->filter[afi][safi];
 
-      if (p->af_group[afi][safi])
+      if (peer_group_active(p))
         json_object_string_add(json_addr, "peerGroupMember", p->group->name);
 
       paf = peer_af_find(p, afi, safi);
@@ -9000,7 +8994,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       vty_out (vty, " For address family: %s%s", afi_safi_print (afi, safi),
 	       VTY_NEWLINE);
 
-      if (p->af_group[afi][safi])
+      if (peer_group_active(p))
         vty_out (vty, "  %s peer-group member%s", p->group->name, VTY_NEWLINE);
 
       paf = peer_af_find(p, afi, safi);
@@ -12147,14 +12141,19 @@ bgp_vty_init (void)
   install_element (BGP_IPV6M_NODE, &no_neighbor_activate_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_activate_cmd);
 
-  /* "neighbor peer-group set" commands. */
+  /* "neighbor peer-group" set commands.
+   * Long term we should only accept this command under BGP_NODE and not all of
+   * the afi/safi sub-contexts. For now though we need to accept it for backwards
+   * compatibility. This changed when we stopped requiring that peers be assigned
+   * to their peer-group under each address-family sub-context.
+   */
   install_element (BGP_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV6M_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_set_peer_group_cmd);
-  
+
   /* "no neighbor peer-group unset" commands. */
   install_element (BGP_NODE, &no_neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_set_peer_group_cmd);
