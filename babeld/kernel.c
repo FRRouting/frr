@@ -177,6 +177,7 @@ kernel_route_v4(int add,
     quagga_prefix.prefixlen = plen - 96; /* our plen is for v4mapped's addr */
     apply_mask_ipv4(&quagga_prefix);
 
+    api.vrf_id = VRF_DEFAULT;
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
@@ -229,6 +230,7 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
     quagga_prefix.prefixlen = plen;
     apply_mask_ipv6(&quagga_prefix);
 
+    api.vrf_id = VRF_DEFAULT;
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;

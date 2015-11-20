@@ -70,13 +70,14 @@ rip_zebra_ipv4_add (struct prefix_ipv4 *p, struct in_addr *nexthop,
 }
 
 void
-rip_zebra_ipv4_delete (struct prefix_ipv4 *p, struct in_addr *nexthop, 
+rip_zebra_ipv4_delete (struct prefix_ipv4 *p, struct in_addr *nexthop,
 		       u_int32_t metric)
 {
   struct zapi_ipv4 api;
 
   if (vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT))
     {
+      api.vrf_id = VRF_DEFAULT;
       api.type = ZEBRA_ROUTE_RIP;
       api.instance = 0;
       api.flags = 0;

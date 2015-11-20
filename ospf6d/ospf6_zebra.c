@@ -517,6 +517,7 @@ ospf6_zebra_add_discard (struct ospf6_route *request)
     {
       if (!CHECK_FLAG (request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED))
 	{
+	  api.vrf_id = VRF_DEFAULT;
 	  api.type = ZEBRA_ROUTE_OSPF6;
 	  api.flags = ZEBRA_FLAG_BLACKHOLE;
 	  api.instance = 0;
@@ -561,7 +562,7 @@ ospf6_zebra_delete_discard (struct ospf6_route *request)
     {
       if (CHECK_FLAG (request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED))
 	{
-
+	  api.vrf_id = VRF_DEFAULT;
 	  api.type = ZEBRA_ROUTE_OSPF6;
 	  api.flags = ZEBRA_FLAG_BLACKHOLE;
 	  api.instance = 0;
