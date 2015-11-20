@@ -478,7 +478,6 @@ if_delete_update (struct interface *ifp)
 
 		  UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
 		  UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
-                  connected_delete_ipv4_unnumbered(ifc);
 
 		  /* Remove from subnet chain. */
 		  list_delete_node (addr_list, anode);
