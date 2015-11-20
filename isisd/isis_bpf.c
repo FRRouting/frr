@@ -347,6 +347,8 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
         return ISIS_WARNING;
       return ISIS_ERROR;
     }
+
+  return ISIS_OK;
 }
 
 int
