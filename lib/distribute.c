@@ -69,10 +69,12 @@ distribute_lookup (const char *ifname)
   struct distribute *dist;
 
   /* temporary reference */
-  key.ifname = XSTRDUP(MTYPE_DISTRIBUTE_IFNAME, ifname);
+  key.ifname = (ifname) ? XSTRDUP(MTYPE_DISTRIBUTE_IFNAME, ifname) : NULL;
 
   dist = hash_lookup (disthash, &key);
-  XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
+
+  if (key.ifname)
+    XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
 
   return dist;
 }
@@ -110,11 +112,13 @@ distribute_get (const char *ifname)
   struct distribute *ret;
 
   /* temporary reference */
-  key.ifname = XSTRDUP(MTYPE_DISTRIBUTE_IFNAME, ifname);
+  key.ifname = (ifname) ? XSTRDUP(MTYPE_DISTRIBUTE_IFNAME, ifname) : NULL;
   
   ret = hash_get (disthash, &key, (void * (*) (void *))distribute_hash_alloc);
 
-  XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
+  if (key.ifname)
+    XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
+
   return ret;
 }
 

@@ -64,11 +64,13 @@ if_rmap_lookup (const char *ifname)
   struct if_rmap *if_rmap;
 
   /* temporary copy */
-  key.ifname = XSTRDUP (MTYPE_IF_RMAP_NAME, ifname);
+  key.ifname = (ifname) ? XSTRDUP (MTYPE_IF_RMAP_NAME, ifname) : NULL;
 
   if_rmap = hash_lookup (ifrmaphash, &key);
   
-  XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
+  if (key.ifname)
+    XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
+
   return if_rmap;
 }
 
@@ -103,9 +105,10 @@ if_rmap_get (const char *ifname)
   struct if_rmap *ret;
 
   /* temporary copy */
-  key.ifname = XSTRDUP (MTYPE_IF_RMAP_NAME, ifname);
+  key.ifname = (ifname) ? XSTRDUP (MTYPE_IF_RMAP_NAME, ifname) : NULL;
 
   ret = hash_get (ifrmaphash, &key, if_rmap_hash_alloc);
+
   if (key.ifname)
     XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
 
