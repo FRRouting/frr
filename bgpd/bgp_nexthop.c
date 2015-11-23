@@ -391,120 +391,77 @@ show_ip_bgp_nexthop_table (struct vty *vty, int detail)
 {
   struct bgp_node *rn;
   struct bgp_nexthop_cache *bnc;
-  char buf[INET6_ADDRSTRLEN];
+  char buf[PREFIX2STR_BUFFER];
   struct nexthop *nexthop;
   time_t tbuf;
+  afi_t afi;
 
   vty_out (vty, "Current BGP nexthop cache:%s", VTY_NEWLINE);
-  for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP]); rn; rn = bgp_route_next (rn))
-    if ((bnc = rn->info) != NULL)
-      {
-	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID))
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    {
+      for (rn = bgp_table_top (bgp_nexthop_cache_table[afi]); rn; rn = bgp_route_next (rn))
 	{
-	  vty_out (vty, " %s valid [IGP metric %d], #paths %d%s",
-		   inet_ntop (AF_INET, &rn->p.u.prefix4, buf, INET6_ADDRSTRLEN),
-		   bnc->metric, bnc->path_count, VTY_NEWLINE);
-	  if (detail)
-	    for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next)
-	      switch (nexthop->type)
+	  if ((bnc = rn->info) != NULL)
+	    {
+	      if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID))
 		{
-		case NEXTHOP_TYPE_IPV4:
-		  vty_out (vty, "  gate %s%s",
-			   inet_ntop (AF_INET, &nexthop->gate.ipv4, buf,
-				      INET6_ADDRSTRLEN), VTY_NEWLINE);
-		  break;
-		case NEXTHOP_TYPE_IFINDEX:
-		  vty_out (vty, "  if %s%s",
-			   ifindex2ifname(nexthop->ifindex), VTY_NEWLINE);
-		  break;
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-		  vty_out (vty, "  gate %s, if %s%s",
-			   inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
-				     INET6_ADDRSTRLEN),
-			   ifindex2ifname(nexthop->ifindex), VTY_NEWLINE);
-		  break;
-		default:
-		  vty_out (vty, "  invalid nexthop type %u%s",
-			   nexthop->type, VTY_NEWLINE);
+		  vty_out (vty, " %s valid [IGP metric %d], #paths %d%s",
+			   inet_ntop (rn->p.family, &rn->p.u.prefix, buf, sizeof (buf)),
+			   bnc->metric, bnc->path_count, VTY_NEWLINE);
+		  if (detail)
+		    for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next)
+		      switch (nexthop->type)
+			{
+			case NEXTHOP_TYPE_IPV6:
+			  vty_out (vty, "  gate %s%s",
+				   inet_ntop (AF_INET6, &nexthop->gate.ipv6,
+					      buf, sizeof (buf)), VTY_NEWLINE);
+			  break;
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+			  vty_out(vty, "  gate %s, if %s%s",
+				  inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+					    sizeof (buf)),
+				  ifindex2ifname(nexthop->ifindex),
+				  VTY_NEWLINE);
+			  break;
+			case NEXTHOP_TYPE_IPV4:
+			  vty_out (vty, "  gate %s%s",
+				   inet_ntop (AF_INET, &nexthop->gate.ipv4, buf,
+					      sizeof (buf)), VTY_NEWLINE);
+			  break;
+			case NEXTHOP_TYPE_IFINDEX:
+			  vty_out (vty, "  if %s%s",
+				   ifindex2ifname(nexthop->ifindex), VTY_NEWLINE);
+			  break;
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+			  vty_out (vty, "  gate %s, if %s%s",
+				   inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
+					     sizeof (buf)),
+				   ifindex2ifname(nexthop->ifindex), VTY_NEWLINE);
+			  break;
+			default:
+			  vty_out (vty, "  invalid nexthop type %u%s",
+				   nexthop->type, VTY_NEWLINE);
+			}
 		}
-	}
-	else
-          {
-	    vty_out (vty, " %s invalid%s",
-		     inet_ntop (AF_INET, &rn->p.u.prefix4, buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
-
-            if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
-              vty_out (vty, "  Must be Connected%s", VTY_NEWLINE);
-          }
+	      else
+		{
+		  vty_out (vty, " %s invalid%s",
+			   inet_ntop (rn->p.family, &rn->p.u.prefix,
+				      buf, sizeof (buf)), VTY_NEWLINE);
+		  if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+		    vty_out (vty, "  Must be Connected%s", VTY_NEWLINE);
+		}
 #ifdef HAVE_CLOCK_MONOTONIC
-	tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
-	vty_out (vty, "  Last update: %s", ctime(&tbuf));
+	      tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
+	      vty_out (vty, "  Last update: %s", ctime(&tbuf));
 #else
-	vty_out (vty, "  Last update: %s", ctime(&bnc->uptime));
+	      vty_out (vty, "  Last update: %s", ctime(&bnc->uptime));
 #endif /* HAVE_CLOCK_MONOTONIC */
-
-	vty_out(vty, "%s", VTY_NEWLINE);
-      }
-
-#ifdef HAVE_IPV6
-  {
-    for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP6]);
-         rn;
-         rn = bgp_route_next (rn))
-      if ((bnc = rn->info) != NULL)
-	{
-	  if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID))
-	  {
-	    vty_out (vty, " %s valid [IGP metric %d]%s",
-		     inet_ntop (AF_INET6, &rn->p.u.prefix6, buf,
-				INET6_ADDRSTRLEN),
-		     bnc->metric, VTY_NEWLINE);
-	    if (detail)
-	      for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next)
-		switch (nexthop->type)
-		  {
-		  case NEXTHOP_TYPE_IPV6:
-		    vty_out (vty, "  gate %s%s",
-			     inet_ntop (AF_INET6, &nexthop->gate.ipv6,
-					buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
-		    break;
-		  case NEXTHOP_TYPE_IPV6_IFINDEX:
-		    vty_out(vty, "  gate %s, if %s%s",
-			    inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
-				      INET6_ADDRSTRLEN),
-			    ifindex2ifname(nexthop->ifindex),
-			    VTY_NEWLINE);
-		    break;
-		  case NEXTHOP_TYPE_IFINDEX:
-		    vty_out (vty, "  if %s%s",
-                             ifindex2ifname(nexthop->ifindex),
-			     VTY_NEWLINE);
-		    break;
-		  default:
-		    vty_out (vty, "  invalid nexthop type %u%s",
-			     nexthop->type, VTY_NEWLINE);
-		  }
-	  }
-	  else
-            {
-	      vty_out (vty, " %s invalid%s",
-		       inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, INET6_ADDRSTRLEN),
-		       VTY_NEWLINE);
-
-              if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
-                vty_out (vty, "  Must be Connected%s", VTY_NEWLINE);
-            }
-#ifdef HAVE_CLOCK_MONOTONIC
-	  tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
-	  vty_out (vty, "  Last update: %s", ctime(&tbuf));
-#else
-	  vty_out (vty, "  Last update: %s", ctime(&bnc->uptime));
-#endif /* HAVE_CLOCK_MONOTONIC */
-
-	  vty_out(vty, "%s", VTY_NEWLINE);
+	      vty_out(vty, "%s", VTY_NEWLINE);
+	    }
 	}
-  }
-#endif /* HAVE_IPV6 */
+    }
   return CMD_SUCCESS;
 }
 
