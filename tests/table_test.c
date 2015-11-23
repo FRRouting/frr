@@ -112,7 +112,7 @@ add_nodes (struct route_table *table, ...)
 static void
 print_subtree (struct route_node *rn, const char *legend, int indent_level)
 {
-  char buf[INET_ADDRSTRLEN + 4];
+  char buf[PREFIX2STR_BUFFER];
   int i;
 
   /*
@@ -236,7 +236,7 @@ verify_next (struct route_table *table, const char *target, const char *next)
 {
   struct prefix_ipv4 target_pfx, next_pfx;
   struct route_node *rn;
-  char result_buf[INET_ADDRSTRLEN + 4];
+  char result_buf[PREFIX2STR_BUFFER];
 
   if (str2prefix_ipv4 (target, &target_pfx) <= 0)
     {

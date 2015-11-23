@@ -771,7 +771,7 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
           
           if (!lsa)
             {
-	      char buf[INET_ADDRSTRLEN + 3]; /* ipv4 and /XX */
+	      char buf[PREFIX2STR_BUFFER];
 	      
 	      prefix2str ((struct prefix *) p, buf, sizeof(buf));
 	      zlog_warn ("%s: Could not refresh %s to %s",
@@ -795,7 +795,7 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
       
       if (!lsa)
       	{
-      	  char buf[INET_ADDRSTRLEN + 3]; /* ipv4 and /XX */
+      	  char buf[PREFIX2STR_BUFFER];
       	  
       	  prefix2str ((struct prefix *)p, buf, sizeof(buf));
 	  zlog_warn ("%s: Could not originate %s to %s",
@@ -1162,7 +1162,7 @@ ospf_abr_announce_rtr_to_area (struct prefix_ipv4 *p, u_int32_t cost,
 	lsa = ospf_summary_asbr_lsa_originate (p, cost, area);
       if (!lsa)
         {
-          char buf[INET_ADDRSTRLEN + 3]; /* ipv4 and /XX */
+          char buf[PREFIX2STR_BUFFER];
           
           prefix2str ((struct prefix *)p, buf, sizeof(buf));
           zlog_warn ("%s: Could not refresh/originate %s to %s",

@@ -906,7 +906,7 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
   struct listnode *i, *j;
   int full_count = 0;
   unsigned short prefix_num = 0;
-  char buf[BUFSIZ];
+  char buf[PREFIX2STR_BUFFER];
   struct ospf6_route_table *route_advertise;
 
   oa = (struct ospf6_area *) THREAD_ARG (thread);
@@ -1059,7 +1059,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
   struct ospf6_link_lsa *link_lsa;
   char *start, *end, *current;
   u_int16_t type;
-  char buf[BUFSIZ];
+  char buf[PREFIX2STR_BUFFER];
 
   oi = (struct ospf6_interface *) THREAD_ARG (thread);
   oi->thread_intra_prefix_lsa = NULL;
@@ -1245,7 +1245,7 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
   int prefix_num;
   struct ospf6_prefix *op;
   char *start, *current, *end;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
   struct interface *ifp;
   int direct_connect = 0;
 
@@ -1368,7 +1368,7 @@ ospf6_intra_prefix_lsa_remove (struct ospf6_lsa *lsa)
   int prefix_num;
   struct ospf6_prefix *op;
   char *start, *current, *end;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
 
   if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
     zlog_debug ("%s disappearing", lsa->name);

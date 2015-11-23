@@ -179,6 +179,14 @@ extern void prefix_free (struct prefix *);
 extern const char *prefix_family_str (const struct prefix *);
 extern int prefix_blen (const struct prefix *);
 extern int str2prefix (const char *, struct prefix *);
+
+/*
+ * 8 groups of 4 bytes of hexadecimal + 7 seperators is 39
+ * /128 = 4 bytes
+ * Null = 1 byte
+ * 39 + 4 + 1 = 44 bytes
+ */
+#define PREFIX2STR_BUFFER  44
 extern const char *prefix2str (union prefix46constptr, char *, int);
 extern int prefix_match (const struct prefix *, const struct prefix *);
 extern int prefix_same (const struct prefix *, const struct prefix *);

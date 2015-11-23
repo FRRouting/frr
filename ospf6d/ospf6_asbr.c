@@ -62,7 +62,7 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
   struct ospf6_external_info *info = route->route_option;
 
   struct ospf6_as_external_lsa *as_external_lsa;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
   caddr_t p;
 
   if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE (AS_EXTERNAL))
@@ -153,7 +153,7 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
   struct ospf6_as_external_lsa *external;
   struct prefix asbr_id;
   struct ospf6_route *asbr_entry, *route;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
 
   external = (struct ospf6_as_external_lsa *)
     OSPF6_LSA_HEADER_END (lsa->header);
@@ -239,7 +239,7 @@ ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa)
   struct ospf6_as_external_lsa *external;
   struct prefix prefix;
   struct ospf6_route *route, *nroute;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
 
   external = (struct ospf6_as_external_lsa *)
     OSPF6_LSA_HEADER_END (lsa->header);
@@ -436,7 +436,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
   struct ospf6_external_info *info;
   struct prefix prefix_id;
   struct route_node *node;
-  char pbuf[64], ibuf[16];
+  char pbuf[PREFIX2STR_BUFFER], ibuf[16];
   struct listnode *lnode, *lnnode;
   struct ospf6_area *oa;
 
@@ -582,7 +582,7 @@ ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix)
   struct route_node *node;
   struct ospf6_lsa *lsa;
   struct prefix prefix_id;
-  char pbuf[64], ibuf[16];
+  char pbuf[PREFIX2STR_BUFFER], ibuf[16];
   struct listnode *lnode, *lnnode;
   struct ospf6_area *oa;
 
@@ -1286,7 +1286,7 @@ static void
 ospf6_asbr_external_route_show (struct vty *vty, struct ospf6_route *route)
 {
   struct ospf6_external_info *info = route->route_option;
-  char prefix[64], id[16], forwarding[64];
+  char prefix[PREFIX2STR_BUFFER], id[16], forwarding[64];
   u_int32_t tmp_id;
 
   prefix2str (&route->prefix, prefix, sizeof (prefix));

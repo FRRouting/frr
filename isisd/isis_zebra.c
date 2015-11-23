@@ -163,7 +163,7 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
 {
   struct connected *c;
   struct prefix *p;
-  char buf[BUFSIZ];
+  char buf[PREFIX2STR_BUFFER];
 
   c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD,
 				    zclient->ibuf, vrf_id);
@@ -173,7 +173,7 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
 
   p = c->address;
 
-  prefix2str (p, buf, BUFSIZ);
+  prefix2str (p, buf, sizeof (buf));
 #ifdef EXTREME_DEBUG
   if (p->family == AF_INET)
     zlog_debug ("connected IP address %s", buf);
@@ -196,7 +196,7 @@ isis_zebra_if_address_del (int command, struct zclient *client,
   struct interface *ifp;
 #ifdef EXTREME_DEBUG
   struct prefix *p;
-  u_char buf[BUFSIZ];
+  char buf[PREFIX2STR_BUFFER];
 #endif /* EXTREME_DEBUG */
 
   c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE,
@@ -209,7 +209,7 @@ isis_zebra_if_address_del (int command, struct zclient *client,
 
 #ifdef EXTREME_DEBUG
   p = c->address;
-  prefix2str (p, buf, BUFSIZ);
+  prefix2str (p, buf, sizeof (buf));
 
   if (p->family == AF_INET)
     zlog_debug ("disconnected IP address %s", buf);

@@ -2267,7 +2267,7 @@ void _rib_dump (const char * func,
 		union prefix46constptr pp, const struct rib * rib)
 {
   const struct prefix *p = pp.p;
-  char straddr[INET6_ADDRSTRLEN];
+  char straddr[PREFIX2STR_BUFFER];
   struct nexthop *nexthop, *tnexthop;
   int recursing;
 
@@ -2518,7 +2518,7 @@ rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
   struct rib *same = NULL;
   struct nexthop *nexthop, *tnexthop;
   int recursing;
-  char buf1[INET6_ADDRSTRLEN];
+  char buf1[PREFIX2STR_BUFFER];
   char buf2[INET6_ADDRSTRLEN];
 
   /* Lookup table.  */
@@ -3338,7 +3338,7 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
   struct rib *same = NULL;
   struct nexthop *nexthop, *tnexthop;
   int recursing;
-  char buf1[INET6_ADDRSTRLEN];
+  char buf1[PREFIX2STR_BUFFER];
   char buf2[INET6_ADDRSTRLEN];
 
   /* Apply mask. */

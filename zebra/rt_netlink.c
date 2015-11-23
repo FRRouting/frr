@@ -956,7 +956,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       if (IS_ZEBRA_DEBUG_KERNEL)
         {
-          char buf[BUFSIZ];
+          char buf[PREFIX2STR_BUFFER];
           zlog_debug ("%s %s vrf %u",
                       h->nlmsg_type == RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
                       prefix2str (&p, buf, sizeof(buf)), vrf_id);
@@ -1035,7 +1035,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (rtm->rtm_family == AF_INET6)
     {
       struct prefix_ipv6 p;
-      char buf[BUFSIZ];
+      char buf[PREFIX2STR_BUFFER];
 
       p.family = AF_INET6;
       memcpy (&p.prefix, dest, 16);

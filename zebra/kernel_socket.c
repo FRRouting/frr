@@ -868,7 +868,7 @@ rtm_read (struct rt_msghdr *rtm)
        */
       if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
       {
-        char buf[INET_ADDRSTRLEN], gate_buf[INET_ADDRSTRLEN];
+        char buf[PREFIX2STR_BUFFER], gate_buf[INET_ADDRSTRLEN];
         int ret;
         if (! IS_ZEBRA_DEBUG_RIB)
           return;

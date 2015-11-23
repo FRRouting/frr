@@ -236,7 +236,7 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
 
   if (BGP_DEBUG (zebra, ZEBRA))
     {
-      char buf[2][128];
+      char buf[2][PREFIX2STR_BUFFER];
       prefix2str(&dp, buf[0], sizeof(buf[0]));
       if (ifp)
         {

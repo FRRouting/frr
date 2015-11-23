@@ -416,12 +416,12 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
 {
   struct route_node *route_node;
   struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
-  u_char buff[BUFSIZ];
+  char buff[PREFIX2STR_BUFFER];
   u_char family;
 
   family = prefix->family;
   /* for debugs */
-  prefix2str (prefix, (char *) buff, BUFSIZ);
+  prefix2str (prefix, buff, sizeof (buff));
 
   rinfo_new = isis_route_info_new (prefix, cost, depth, adjacencies);
   if (!rinfo_new)
@@ -486,10 +486,10 @@ isis_route_delete (struct prefix *prefix, struct route_table *table)
 {
   struct route_node *rode;
   struct isis_route_info *rinfo;
-  char buff[BUFSIZ];
+  char buff[PREFIX2STR_BUFFER];
 
   /* for log */
-  prefix2str (prefix, buff, BUFSIZ);
+  prefix2str (prefix, buff, sizeof (buff));
 
 
   rode = route_node_get (table, prefix);
@@ -521,7 +521,7 @@ isis_route_validate_table (struct isis_area *area, struct route_table *table)
 {
   struct route_node *rnode, *drnode;
   struct isis_route_info *rinfo;
-  u_char buff[BUFSIZ];
+  char buff[PREFIX2STR_BUFFER];
 
   for (rnode = route_top (table); rnode; rnode = route_next (rnode))
     {
@@ -531,7 +531,7 @@ isis_route_validate_table (struct isis_area *area, struct route_table *table)
 
       if (isis->debugs & DEBUG_RTE_EVENTS)
 	{
-	  prefix2str (&rnode->p, (char *) buff, BUFSIZ);
+	  prefix2str (&rnode->p, buff, sizeof (buff));
 	  zlog_debug ("ISIS-Rte (%s): route validate: %s %s %s %s",
 		      area->area_tag,
 		      (CHECK_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED) ?

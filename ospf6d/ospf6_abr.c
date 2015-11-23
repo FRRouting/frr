@@ -159,7 +159,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
   struct ospf6_inter_router_lsa *router_lsa;
   struct ospf6_route_table *summary_table = NULL;
   u_int16_t type;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
   int is_debug = 0;
 
   /* Only destination type network, range or ASBR are considered */
@@ -722,7 +722,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   u_int8_t prefix_options = 0;
   u_int32_t cost = 0;
   u_char router_bits = 0;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
   int is_debug = 0;
   struct ospf6_inter_prefix_lsa *prefix_lsa = NULL;
   struct ospf6_inter_router_lsa *router_lsa = NULL;

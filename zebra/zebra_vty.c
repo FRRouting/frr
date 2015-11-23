@@ -5130,7 +5130,7 @@ static_config_ipv6 (struct vty *vty)
   struct route_node *rn;
   struct static_route *si;
   int write;
-  char buf[BUFSIZ];
+  char buf[PREFIX2STR_BUFFER];
   struct route_table *stable;
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;

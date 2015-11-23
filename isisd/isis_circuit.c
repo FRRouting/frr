@@ -225,12 +225,11 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
 {
   struct listnode *node;
   struct prefix_ipv4 *ipv4;
-  u_char buf[BUFSIZ];
-#ifdef HAVE_IPV6
+#if defined(EXTREME_DEBUG)
+  char buf[PREFIX2STR_BUFFER];
+#endif
   struct prefix_ipv6 *ipv6;
-#endif /* HAVE_IPV6 */
 
-  memset (&buf, 0, BUFSIZ);
   if (connected->address->family == AF_INET)
     {
       u_int32_t addr = connected->address->u.prefix4.s_addr;
@@ -253,12 +252,11 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
         lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
 
 #ifdef EXTREME_DEBUG
-      prefix2str (connected->address, buf, BUFSIZ);
+      prefix2str (connected->address, buf, sizeof (buf));
       zlog_debug ("Added IP address %s to circuit %d", buf,
 		 circuit->circuit_id);
 #endif /* EXTREME_DEBUG */
     }
-#ifdef HAVE_IPV6
   if (connected->address->family == AF_INET6)
     {
       if (IN6_IS_ADDR_LOOPBACK(&connected->address->u.prefix6))
@@ -283,12 +281,11 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
         lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
 
 #ifdef EXTREME_DEBUG
-      prefix2str (connected->address, buf, BUFSIZ);
+      prefix2str (connected->address, buf, sizeof (buf));
       zlog_debug ("Added IPv6 address %s to circuit %d", buf,
 		 circuit->circuit_id);
 #endif /* EXTREME_DEBUG */
     }
-#endif /* HAVE_IPV6 */
   return;
 }
 
@@ -298,13 +295,12 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 {
   struct prefix_ipv4 *ipv4, *ip = NULL;
   struct listnode *node;
-  u_char buf[BUFSIZ];
+  char buf[PREFIX2STR_BUFFER];
 #ifdef HAVE_IPV6
   struct prefix_ipv6 *ipv6, *ip6 = NULL;
   int found = 0;
 #endif /* HAVE_IPV6 */
 
-  memset (&buf, 0, BUFSIZ);
   if (connected->address->family == AF_INET)
     {
       ipv4 = prefix_ipv4_new ();
@@ -323,7 +319,7 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 	}
       else
 	{
-	  prefix2str (connected->address, (char *)buf, BUFSIZ);
+	  prefix2str (connected->address, buf, sizeof (buf));
 	  zlog_warn ("Nonexitant ip address %s removal attempt from \
                       circuit %d", buf, circuit->circuit_id);
 	}
@@ -366,7 +362,7 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 
       if (!found)
 	{
-	  prefix2str (connected->address, (char *)buf, BUFSIZ);
+	  prefix2str (connected->address, buf, sizeof (buf));
 	  zlog_warn ("Nonexitant ip address %s removal attempt from \
 		      circuit %d", buf, circuit->circuit_id);
 	}
@@ -937,11 +933,11 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
         {
           struct listnode *node;
           struct prefix *ip_addr;
-          u_char buf[BUFSIZ];
+          char buf[PREFIX2STR_BUFFER];
           vty_out (vty, "    IP Prefix(es):%s", VTY_NEWLINE);
           for (ALL_LIST_ELEMENTS_RO (circuit->ip_addrs, node, ip_addr))
             {
-              prefix2str (ip_addr, (char*)buf, BUFSIZ),
+              prefix2str (ip_addr, buf, sizeof (buf)),
               vty_out (vty, "      %s%s", buf, VTY_NEWLINE);
             }
         }

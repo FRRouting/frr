@@ -426,7 +426,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
   struct listnode *mp_node, *mp_next_node;
   struct bgp_info *cur_mpath, *new_mpath, *next_mpath, *prev_mpath;
   int mpath_changed, debug;
-  char pfx_buf[INET6_ADDRSTRLEN], nh_buf[2][INET6_ADDRSTRLEN];
+  char pfx_buf[PREFIX2STR_BUFFER], nh_buf[2][INET6_ADDRSTRLEN];
 
   mpath_changed = 0;
   maxpaths = BGP_DEFAULT_MAXPATHS;

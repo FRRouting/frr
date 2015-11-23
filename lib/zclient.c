@@ -1022,7 +1022,7 @@ zebra_interface_address_read (int type, struct stream *s, vrf_id_t vrf_id)
 	   else if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER))
 	     {
 	       /* carp interfaces on OpenBSD with 0.0.0.0/0 as "peer" */
-	       char buf[BUFSIZ];
+	       char buf[PREFIX2STR_BUFFER];
 	       prefix2str (ifc->address, buf, sizeof(buf));
 	       zlog_warn("warning: interface %s address %s "
 		    "with peer flag set, but no peer address!",

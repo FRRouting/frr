@@ -2507,7 +2507,7 @@ bgp_config_write_listen (struct vty *vty, struct bgp *bgp)
   struct listnode *node, *nnode, *rnode, *nrnode;
   struct prefix *range;
   afi_t afi;
-  char buf[128];
+  char buf[PREFIX2STR_BUFFER];
 
   if (bgp->dynamic_neighbors_limit != BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT)
       vty_out (vty, " bgp listen limit %d%s",
@@ -9210,7 +9210,7 @@ static void
 bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *json, json_object *json_neigh)
 {
   struct bgp *bgp;
-  char buf1[BUFSIZ], buf[SU_ADDRSTRLEN];
+  char buf1[PREFIX2STR_BUFFER], buf[SU_ADDRSTRLEN];
   char timebuf[BGP_UPTIME_LEN];
   char dn_flag[2];
   const char *subcode_str;
@@ -11022,7 +11022,7 @@ bgp_show_one_peer_group (struct vty *vty, struct peer_group *group)
   struct prefix *range;
   struct peer *conf;
   struct peer *peer;
-  char buf[128];
+  char buf[PREFIX2STR_BUFFER];
   afi_t afi;
   safi_t safi;
   const char *peer_status;

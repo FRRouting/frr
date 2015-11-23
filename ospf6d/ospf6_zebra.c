@@ -256,7 +256,7 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
 
   if (IS_OSPF6_DEBUG_ZEBRA (RECV))
     {
-      char prefixstr[128], nexthopstr[128];
+      char prefixstr[PREFIX2STR_BUFFER], nexthopstr[128];
       prefix2str ((struct prefix *)&p, prefixstr, sizeof (prefixstr));
       if (nexthop)
         inet_ntop (AF_INET6, nexthop, nexthopstr, sizeof (nexthopstr));
@@ -368,7 +368,7 @@ static void
 ospf6_zebra_route_update (int type, struct ospf6_route *request)
 {
   struct zapi_ipv6 api;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
   int nhcount;
   struct in6_addr **nexthops;
   unsigned int *ifindexes;

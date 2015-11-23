@@ -532,7 +532,7 @@ static void
 route_table_assert (struct ospf6_route_table *table)
 {
   struct ospf6_route *prev, *r, *next;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
   unsigned int link_error = 0, num = 0;
   
   r = ospf6_route_head (table);
@@ -582,7 +582,7 @@ ospf6_route_add (struct ospf6_route *route,
   struct route_node *node, *nextnode, *prevnode;
   struct ospf6_route *current = NULL;
   struct ospf6_route *prev = NULL, *old = NULL, *next = NULL;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
   struct timeval now;
 
   assert (route->rnode == NULL);
@@ -803,7 +803,7 @@ ospf6_route_remove (struct ospf6_route *route,
 {
   struct route_node *node;
   struct ospf6_route *current;
-  char buf[64];
+  char buf[PREFIX2STR_BUFFER];
 
   if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
     ospf6_linkstate_prefix2str (&route->prefix, buf, sizeof (buf));
@@ -1009,7 +1009,7 @@ void
 ospf6_route_show (struct vty *vty, struct ospf6_route *route)
 {
   int i;
-  char destination[64], nexthop[64];
+  char destination[PREFIX2STR_BUFFER], nexthop[64];
   char duration[16], ifname[IFNAMSIZ];
   struct timeval now, res;
   struct listnode *node;
@@ -1057,7 +1057,7 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
 void
 ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
 {
-  char destination[64], nexthop[64], ifname[IFNAMSIZ];
+  char destination[PREFIX2STR_BUFFER], nexthop[64], ifname[IFNAMSIZ];
   char area_id[16], id[16], adv_router[16], capa[16], options[16];
   struct timeval now, res;
   char duration[16];

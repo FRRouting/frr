@@ -590,7 +590,7 @@ ospf6_area_config_write (struct vty *vty)
   struct listnode *node;
   struct ospf6_area *oa;
   struct ospf6_route *range;
-  char buf[128];
+  char buf[PREFIX2STR_BUFFER];
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {

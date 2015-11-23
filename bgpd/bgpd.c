@@ -2483,7 +2483,7 @@ peer_group_listen_range_del (struct peer_group *group, struct prefix *range)
   struct listnode *node, *nnode;
   struct peer *peer;
   afi_t afi;
-  char buf[SU_ADDRSTRLEN];
+  char buf[PREFIX2STR_BUFFER];
 
   afi = family2afi(range->family);
 
@@ -3229,8 +3229,8 @@ peer_lookup_dynamic_neighbor (struct bgp *bgp, union sockunion *su)
   struct prefix *prefix;
   struct prefix *listen_range;
   int dncount;
-  char buf[SU_ADDRSTRLEN];
-  char buf1[SU_ADDRSTRLEN];
+  char buf[PREFIX2STR_BUFFER];
+  char buf1[PREFIX2STR_BUFFER];
 
   prefix = sockunion2hostprefix(su);
   if (!prefix) {

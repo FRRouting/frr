@@ -770,10 +770,11 @@ const char *
 prefix2str (union prefix46constptr pu, char *str, int size)
 {
   const struct prefix *p = pu.p;
-  char buf[BUFSIZ];
+  char buf[PREFIX2STR_BUFFER];
 
-  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ);
-  snprintf (str, size, "%s/%d", buf, p->prefixlen);
+  snprintf (str, size, "%s/%d",
+	    inet_ntop (p->family, &p->u.prefix, buf, PREFIX2STR_BUFFER),
+		       p->prefixlen);
   return str;
 }
 

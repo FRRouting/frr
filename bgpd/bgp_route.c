@@ -1506,7 +1506,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   struct bgp_info *nextri = NULL;
   int paths_eq, do_mpath, debug;
   struct list mp_list;
-  char pfx_buf[INET6_ADDRSTRLEN];
+  char pfx_buf[PREFIX2STR_BUFFER];
 
   bgp_mp_list_init (&mp_list);
   do_mpath = (mpath_cfg->maxpaths_ebgp > 1 || mpath_cfg->maxpaths_ibgp > 1);

@@ -210,7 +210,7 @@ ospf6_bfd_interface_dest_update (int command, struct zclient *zclient,
 
   if (IS_OSPF6_DEBUG_ZEBRA (RECV))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(&dp, buf, sizeof(buf));
       zlog_debug("Zebra: interface %s bfd destination %s %s", ifp->name, buf,
                  bfd_get_status_str(status));

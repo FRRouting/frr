@@ -103,7 +103,7 @@ bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length,
 
   if (BGP_DEBUG (zebra, ZEBRA))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(&router_id, buf, sizeof(buf));
       zlog_debug("Zebra rcvd: router id update %s", buf);
     }
@@ -333,7 +333,7 @@ bgp_interface_address_add (int command, struct zclient *zclient,
 
   if (bgp_debug_zebra(ifc->address))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(ifc->address, buf, sizeof(buf));
       zlog_debug("Zebra rcvd: interface %s address add %s",
 		 ifc->ifp->name, buf);
@@ -367,7 +367,7 @@ bgp_interface_address_delete (int command, struct zclient *zclient,
 
   if (bgp_debug_zebra(ifc->address))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(ifc->address, buf, sizeof(buf));
       zlog_debug("Zebra rcvd: interface %s address delete %s",
 		 ifc->ifp->name, buf);
@@ -394,7 +394,7 @@ bgp_interface_nbr_address_add (int command, struct zclient *zclient,
 
   if (bgp_debug_zebra(ifc->address))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(ifc->address, buf, sizeof(buf));
       zlog_debug("Zebra rcvd: interface %s nbr address add %s",
 		 ifc->ifp->name, buf);
@@ -419,7 +419,7 @@ bgp_interface_nbr_address_delete (int command, struct zclient *zclient,
 
   if (bgp_debug_zebra(ifc->address))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(ifc->address, buf, sizeof(buf));
       zlog_debug("Zebra rcvd: interface %s nbr address delete %s",
 		 ifc->ifp->name, buf);

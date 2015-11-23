@@ -238,7 +238,7 @@ ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id, u_int32_t adv_router,
   p = (struct prefix *) &key;
 
   {
-    char buf[64];
+    char buf[PREFIX2STR_BUFFER];
     prefix2str (p, buf, sizeof (buf));
     zlog_debug ("lsdb_lookup_next: key: %s", buf);
   }

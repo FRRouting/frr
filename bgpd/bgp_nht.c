@@ -82,9 +82,9 @@ bgp_unlink_nexthop (struct bgp_info *path)
     {
       if (BGP_DEBUG(nht, NHT))
 	{
-	  char buf[INET6_ADDRSTRLEN];
+	  char buf[PREFIX2STR_BUFFER];
 	  zlog_debug("bgp_unlink_nexthop: freeing bnc %s",
-		     bnc_str(bnc, buf, INET6_ADDRSTRLEN));
+		     bnc_str(bnc, buf, PREFIX2STR_BUFFER));
 	}
       unregister_zebra_rnh(bnc, CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE));
       bnc->node->info = NULL;
@@ -161,10 +161,10 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
       bgp_lock_node(rn);
       if (BGP_DEBUG(nht, NHT))
         {
-          char buf[INET6_ADDRSTRLEN];
+          char buf[PREFIX2STR_BUFFER];
 
            zlog_debug("Allocated bnc %s peer %p",
-                     bnc_str(bnc, buf, INET6_ADDRSTRLEN), peer);
+                     bnc_str(bnc, buf, PREFIX2STR_BUFFER), peer);
         }
     }
 
@@ -343,8 +343,8 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
     {
       if (BGP_DEBUG(nht, NHT))
 	{
-	  char buf[INET6_ADDRSTRLEN];
-	  prefix2str(&p, buf, INET6_ADDRSTRLEN);
+	  char buf[PREFIX2STR_BUFFER];
+	  prefix2str(&p, buf, sizeof(buf));
 	  zlog_debug("parse nexthop update(%s): rn not found", buf);
 	}
       if (rn)
@@ -362,8 +362,8 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
   /* debug print the input */
   if (BGP_DEBUG(nht, NHT))
     {
-      char buf[INET6_ADDRSTRLEN];
-      prefix2str(&p, buf, INET6_ADDRSTRLEN);
+      char buf[PREFIX2STR_BUFFER];
+      prefix2str(&p, buf, sizeof (buf));
       zlog_debug("parse nexthop update(%s): metric=%d, #nexthop=%d", buf,
 		 metric, nexthop_num);
     }

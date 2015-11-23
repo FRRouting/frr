@@ -154,7 +154,7 @@ vtype2string (enum vertextype vtype)
 }
 
 static const char *
-vid2string (struct isis_vertex *vertex, u_char * buff)
+vid2string (struct isis_vertex *vertex, char * buff, int size)
 {
   switch (vertex->type)
     {
@@ -174,7 +174,7 @@ vid2string (struct isis_vertex *vertex, u_char * buff)
     case VTYPE_IP6REACH_INTERNAL:
     case VTYPE_IP6REACH_EXTERNAL:
 #endif /* HAVE_IPV6 */
-      prefix2str ((struct prefix *) &vertex->N.prefix, (char *) buff, BUFSIZ);
+      prefix2str ((struct prefix *) &vertex->N.prefix, buff, size);
       break;
     default:
       return "UNKNOWN";
@@ -430,7 +430,7 @@ isis_spf_add_root (struct isis_spftree *spftree, int level, u_char *sysid)
   struct isis_vertex *vertex;
   struct isis_lsp *lsp;
 #ifdef EXTREME_DEBUG
-  u_char buff[BUFSIZ];
+  char buff[PREFIX2STR_BUFFER];
 #endif /* EXTREME_DEBUG */
 
   lsp = isis_root_system_lsp (spftree->area, level, sysid);
@@ -446,7 +446,7 @@ isis_spf_add_root (struct isis_spftree *spftree, int level, u_char *sysid)
 
 #ifdef EXTREME_DEBUG
   zlog_debug ("ISIS-Spf: added this IS  %s %s depth %d dist %d to PATHS",
-	      vtype2string (vertex->type), vid2string (vertex, buff),
+	      vtype2string (vertex->type), vid2string (vertex, buff, sizeof (buff)),
 	      vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
 
@@ -509,7 +509,7 @@ isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
   struct listnode *node;
   struct isis_adjacency *parent_adj;
 #ifdef EXTREME_DEBUG
-  u_char buff[BUFSIZ];
+  char buff[PREFIX2STR_BUFFER];
 #endif
 
   assert (isis_find_vertex (spftree->paths, id, vtype) == NULL);
@@ -534,7 +534,7 @@ isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
 #ifdef EXTREME_DEBUG
   zlog_debug ("ISIS-Spf: add to TENT %s %s %s depth %d dist %d adjcount %d",
               print_sys_hostname (vertex->N.id),
-	      vtype2string (vertex->type), vid2string (vertex, buff),
+	      vtype2string (vertex->type), vid2string (vertex, buff, sizeof (buff)),
 	      vertex->depth, vertex->d_N, listcount(vertex->Adj_N));
 #endif /* EXTREME_DEBUG */
 
@@ -620,7 +620,7 @@ process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
 {
   struct isis_vertex *vertex;
 #ifdef EXTREME_DEBUG
-  u_char buff[255];
+  char buff[PREFIX2STR_BUFFER];
 #endif
 
   assert (spftree && parent);
@@ -645,7 +645,7 @@ process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
 #ifdef EXTREME_DEBUG
       zlog_debug ("ISIS-Spf: process_N %s %s %s dist %d already found from PATH",
 	          print_sys_hostname (vertex->N.id),
-		  vtype2string (vtype), vid2string (vertex, buff), dist);
+		  vtype2string (vtype), vid2string (vertex, buff, sizeof (buff)), dist);
 #endif /* EXTREME_DEBUG */
       assert (dist >= vertex->d_N);
       return;
@@ -659,7 +659,7 @@ process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
 #ifdef EXTREME_DEBUG
       zlog_debug ("ISIS-Spf: process_N %s %s %s dist %d parent %s adjcount %d",
 	          print_sys_hostname (vertex->N.id),
-                  vtype2string (vtype), vid2string (vertex, buff), dist,
+                  vtype2string (vtype), vid2string (vertex, buff, sizeof (buff)), dist,
                   (parent ? print_sys_hostname (parent->N.id) : "null"),
                   (parent ? listcount (parent->Adj_N) : 0));
 #endif /* EXTREME_DEBUG */
@@ -1132,7 +1132,7 @@ static void
 add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
 	      int level)
 {
-  u_char buff[BUFSIZ];
+  char buff[PREFIX2STR_BUFFER];
 
   if (isis_find_vertex (spftree->paths, vertex->N.id, vertex->type))
     return;
@@ -1141,7 +1141,7 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
 #ifdef EXTREME_DEBUG
   zlog_debug ("ISIS-Spf: added %s %s %s depth %d dist %d to PATHS",
               print_sys_hostname (vertex->N.id),
-	      vtype2string (vertex->type), vid2string (vertex, buff),
+	      vtype2string (vertex->type), vid2string (vertex, buff, sizeof (buff)),
 	      vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
 
@@ -1152,7 +1152,7 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
 			   vertex->depth, vertex->Adj_N, spftree->area, level);
       else if (isis->debugs & DEBUG_SPF_EVENTS)
 	zlog_debug ("ISIS-Spf: no adjacencies do not install route for "
-                    "%s depth %d dist %d", vid2string (vertex, buff),
+                    "%s depth %d dist %d", vid2string (vertex, buff, sizeof (buff)),
                     vertex->depth, vertex->d_N);
     }
 
@@ -1492,7 +1492,7 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
   struct listnode *anode;
   struct isis_vertex *vertex;
   struct isis_adjacency *adj;
-  u_char buff[BUFSIZ];
+  char buff[PREFIX2STR_BUFFER];
 
   vty_out (vty, "Vertex               Type         Metric "
                 "Next-Hop             Interface Parent%s", VTY_NEWLINE);
@@ -1504,7 +1504,7 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
 	vty_out (vty, "%-30s", "");
       } else {
 	int rows = 0;
-	vty_out (vty, "%-20s %-12s %-6u ", vid2string (vertex, buff),
+	vty_out (vty, "%-20s %-12s %-6u ", vid2string (vertex, buff, sizeof (buff)),
 	         vtype2string (vertex->type), vertex->d_N);
 	for (ALL_LIST_ELEMENTS_RO (vertex->Adj_N, anode, adj)) {
 	  if (adj) {
@@ -1533,25 +1533,13 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
 	    vty_out (vty, "%-72s", "");
 	  }
 	  vty_out (vty, "%s(%d)",
-	           vid2string (pvertex, buff), pvertex->type);
+	           vid2string (pvertex, buff, sizeof (buff)), pvertex->type);
 	  ++rows;
 	}
       } else {
 	vty_out (vty, "  NULL ");
       }
 
-#if 0
-      if (listcount (vertex->children) > 0) {
-	  struct listnode *cnode;
-	  struct isis_vertex *cvertex;
-	  for (ALL_LIST_ELEMENTS_RO (vertex->children, cnode, cvertex)) {
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	      vty_out (vty, "%-72s", "");
-	      vty_out (vty, "%s(%d) ", 
-	               vid2string (cvertex, buff), cvertex->type);
-	    }
-	}
-#endif
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 }

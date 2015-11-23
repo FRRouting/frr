@@ -430,7 +430,7 @@ ospf6_interface_connected_route_update (struct interface *ifp)
         {
           struct prefix_list *plist;
           enum prefix_list_type ret;
-          char buf[128];
+          char buf[PREFIX2STR_BUFFER];
 
           prefix2str (c->address, buf, sizeof (buf));
           plist = prefix_list_lookup (AFI_IP6, oi->plist_name);
@@ -868,7 +868,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   struct connected *c;
   struct prefix *p;
   struct listnode *i;
-  char strbuf[64], drouter[32], bdrouter[32];
+  char strbuf[PREFIX2STR_BUFFER], drouter[32], bdrouter[32];
   const char *updown[3] = {"down", "up", NULL};
   const char *type;
   struct timeval res, now;

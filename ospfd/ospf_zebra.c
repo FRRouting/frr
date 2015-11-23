@@ -70,7 +70,7 @@ ospf_router_id_update_zebra (int command, struct zclient *zclient,
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(&router_id, buf, sizeof(buf));
       zlog_debug("Zebra rcvd: router id update %s", buf);
     }
@@ -266,7 +266,7 @@ ospf_interface_address_add (int command, struct zclient *zclient,
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(c->address, buf, sizeof(buf));
       zlog_debug("Zebra: interface %s address add %s", c->ifp->name, buf);
     }
@@ -297,7 +297,7 @@ ospf_interface_address_delete (int command, struct zclient *zclient,
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
     {
-      char buf[128];
+      char buf[PREFIX2STR_BUFFER];
       prefix2str(c->address, buf, sizeof(buf));
       zlog_debug("Zebra: interface %s address delete %s", c->ifp->name, buf);
     }

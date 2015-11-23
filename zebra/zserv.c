@@ -1044,8 +1044,8 @@ zserv_nexthop_num_warn (const char *caller, const struct prefix *p, const u_char
 {
   if (nexthop_num > MULTIPATH_NUM)
     {
-      char buff[80];
-      prefix2str(p, buff, 80);
+      char buff[PREFIX2STR_BUFFER];
+      prefix2str(p, buff, sizeof (buff));
       zlog_warn("%s: Prefix %s has %d nexthops, but we can only use the first %d",
 		caller, buff, nexthop_num, MULTIPATH_NUM);
     }
