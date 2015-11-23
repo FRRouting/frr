@@ -65,7 +65,7 @@ strcmp_safe (const char *s1, const char *s2)
 }
 
 static struct ripng_offset_list *
-ripng_offset_list_new ()
+ripng_offset_list_new (void)
 {
   struct ripng_offset_list *new;
 

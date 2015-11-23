@@ -32,7 +32,7 @@
 #include "ripngd/ripng_route.h"
 
 static struct ripng_aggregate *
-ripng_aggregate_new ()
+ripng_aggregate_new (void)
 {
   struct ripng_aggregate *new;
 

@@ -164,7 +164,7 @@ reload ()
       safe_strerror (errno));
 }
 
-static void
+static __attribute__((__noreturn__)) void
 terminate (int i)
 {
   exit (i);
@@ -183,14 +183,14 @@ sighup (void)
   return;
 }
 
-void
+__attribute__((__noreturn__)) void
 sigint (void)
 {
   zlog_notice ("Terminating on signal SIGINT");
   terminate (0);
 }
 
-void
+__attribute__((__noreturn__)) void
 sigterm (void)
 {
   zlog_notice ("Terminating on signal SIGTERM");

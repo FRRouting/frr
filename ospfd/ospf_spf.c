@@ -50,7 +50,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 static unsigned int spf_reason_flags = 0;
 
-static void ospf_clear_spf_reason_flags ()
+static void ospf_clear_spf_reason_flags (void )
 {
   spf_reason_flags = 0;
 }

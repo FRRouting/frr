@@ -116,7 +116,7 @@ struct vtysh_user
 struct list *userlist;
 
 struct vtysh_user *
-user_new ()
+user_new (void)
 {
   return XCALLOC (0, sizeof (struct vtysh_user));
 }

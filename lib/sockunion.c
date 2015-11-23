@@ -758,10 +758,10 @@ static int
 in6addr_cmp (struct in6_addr *addr1, struct in6_addr *addr2)
 {
   unsigned int i;
-  u_char *p1, *p2;
+  const u_char *p1, *p2;
 
-  p1 = (u_char *)addr1;
-  p2 = (u_char *)addr2;
+  p1 = (const u_char *)addr1;
+  p2 = (const u_char *)addr2;
 
   for (i = 0; i < sizeof (struct in6_addr); i++)
     {

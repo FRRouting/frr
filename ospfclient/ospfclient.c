@@ -250,7 +250,7 @@ nsm_change_callback (struct in_addr ifaddr, struct in_addr nbraddr,
  * ---------------------------------------------------------
  */
 
-static int usage()
+static int usage(void)
 {
   printf("Usage: ospfclient <ospfd> <lsatype> <opaquetype> <opaqueid> <ifaddr> <areaid>\n");
   printf("where ospfd     : router where API-enabled OSPF daemon is running\n");

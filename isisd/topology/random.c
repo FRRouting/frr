@@ -20,7 +20,7 @@ double randg01(void);
 long nrand(long);
 void free_arc(void *);
 
-unsigned long timer ()
+unsigned long timer (void)
    { struct tms hold;
 
         times(&hold);
@@ -88,7 +88,7 @@ long init_seed;
 #define  B   2147483647
 #define  BF  2147483647.
 
-static long irand ()
+static long irand (void)
 
 { internal_seed = ( internal_seed * A ) & B;
   return (long) internal_seed ;
@@ -107,7 +107,7 @@ static long irand ()
 #define A1   37252
 #define A2   29589
 
-static long xrand()
+static long xrand(void)
 
 { unsigned long is1, is2;
 
@@ -122,7 +122,7 @@ static long xrand()
 /*********************************************************************/
 
 
-double rand01()
+double rand01(void)
 
 { return  (double) (irand() / BF) ;
 }
@@ -131,7 +131,7 @@ double rand01()
 
 #define NK  12
 
-double randg01()
+double randg01(void)
 
 { int i;
   double sum = 0;

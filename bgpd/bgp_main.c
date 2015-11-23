@@ -192,7 +192,7 @@ sighup (void)
 }
 
 /* SIGINT handler. */
-void
+__attribute__((__noreturn__)) void
 sigint (void)
 {
   zlog_notice ("Terminating on signal");
@@ -218,7 +218,7 @@ sigusr1 (void)
   Zebra route removal and protocol teardown are not meant to be done here.
   For example, "retain_mode" may be set.
 */
-static void
+static __attribute__((__noreturn__)) void
 bgp_exit (int status)
 {
   struct bgp *bgp;

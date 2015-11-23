@@ -76,7 +76,7 @@ line_del (char *line)
 }
 
 struct config *
-config_new ()
+config_new (void)
 {
   struct config *config;
   config = XCALLOC (MTYPE_VTYSH_CONFIG, sizeof (struct config));
