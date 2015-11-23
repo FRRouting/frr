@@ -6336,8 +6336,9 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
     }
 
   /* advertisement-interval */
-  if (CHECK_FLAG (peer->config, PEER_CONFIG_ROUTEADV) &&
-      ! peer_group_active (peer))
+  if (CHECK_FLAG (peer->config, PEER_CONFIG_ROUTEADV)
+      && peer->v_routeadv != BGP_DEFAULT_EBGP_ROUTEADV
+      && ! peer_group_active (peer))
     {
       vty_out (vty, " neighbor %s advertisement-interval %d%s",
                addr, peer->v_routeadv, VTY_NEWLINE);
@@ -6345,6 +6346,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
 
   /* timers */
   if (CHECK_FLAG (peer->config, PEER_CONFIG_TIMER)
+      && (peer->keepalive != BGP_DEFAULT_KEEPALIVE || peer->holdtime != BGP_DEFAULT_HOLDTIME)
       && ! peer_group_active (peer))
     {
       vty_out (vty, " neighbor %s timers %d %d%s", addr,

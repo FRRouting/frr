@@ -312,16 +312,16 @@ community_list_entry_lookup (struct community_list *list, const void *arg,
       switch (entry->style)
         {
         case COMMUNITY_LIST_STANDARD:
-          if (community_cmp (entry->u.com, arg))
+          if (entry->direct == direct && community_cmp (entry->u.com, arg))
             return entry;
           break;
         case EXTCOMMUNITY_LIST_STANDARD:
-          if (ecommunity_cmp (entry->u.ecom, arg))
+          if (entry->direct == direct && ecommunity_cmp (entry->u.ecom, arg))
             return entry;
           break;
         case COMMUNITY_LIST_EXPANDED:
         case EXTCOMMUNITY_LIST_EXPANDED:
-          if (strcmp (entry->config, arg) == 0)
+          if (entry->direct == direct && strcmp (entry->config, arg) == 0)
             return entry;
           break;
         default:
@@ -765,17 +765,15 @@ community_list_set (struct community_list_handler *ch,
   return 0;
 }
 
-/* Unset community-list.  When str is NULL, delete all of
-   community-list entry belongs to the specified name.  */
+/* Unset community-list */
 int
 community_list_unset (struct community_list_handler *ch,
                       const char *name, const char *str, 
-                      int direct, int style)
+                      int direct, int style, int delete_all)
 {
   struct community_entry *entry = NULL;
   struct community_list *list;
   struct community *com = NULL;
-  regex_t *regex = NULL;
 
   /* Lookup community list.  */
   list = community_list_lookup (ch, name, COMMUNITY_LIST_MASTER);
@@ -783,7 +781,7 @@ community_list_unset (struct community_list_handler *ch,
     return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
   /* Delete all of entry belongs to this community-list.  */
-  if (!str)
+  if (delete_all)
     {
       community_list_delete (list);
       route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
@@ -791,22 +789,18 @@ community_list_unset (struct community_list_handler *ch,
     }
 
   if (style == COMMUNITY_LIST_STANDARD)
-    com = community_str2com (str);
-  else
-    regex = bgp_regcomp (str);
-
-  if (! com && ! regex)
-    return COMMUNITY_LIST_ERR_MALFORMED_VAL;
+    {
+      if (str)
+        com = community_str2com (str);
+    }
 
   if (com)
-    entry = community_list_entry_lookup (list, com, direct);
+    {
+      entry = community_list_entry_lookup (list, com, direct);
+      community_free (com);
+    }
   else
     entry = community_list_entry_lookup (list, str, direct);
-
-  if (com)
-    community_free (com);
-  if (regex)
-    bgp_regex_free (regex);
 
   if (!entry)
     return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
@@ -894,12 +888,11 @@ extcommunity_list_set (struct community_list_handler *ch,
 int
 extcommunity_list_unset (struct community_list_handler *ch,
                          const char *name, const char *str, 
-                         int direct, int style)
+                         int direct, int style, int delete_all)
 {
   struct community_entry *entry = NULL;
   struct community_list *list;
   struct ecommunity *ecom = NULL;
-  regex_t *regex = NULL;
 
   /* Lookup extcommunity list.  */
   list = community_list_lookup (ch, name, EXTCOMMUNITY_LIST_MASTER);
@@ -907,7 +900,7 @@ extcommunity_list_unset (struct community_list_handler *ch,
     return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
   /* Delete all of entry belongs to this extcommunity-list.  */
-  if (!str)
+  if (delete_all)
     {
       community_list_delete (list);
       route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
@@ -915,22 +908,18 @@ extcommunity_list_unset (struct community_list_handler *ch,
     }
 
   if (style == EXTCOMMUNITY_LIST_STANDARD)
-    ecom = ecommunity_str2com (str, 0, 1);
-  else
-    regex = bgp_regcomp (str);
-
-  if (! ecom && ! regex)
-    return COMMUNITY_LIST_ERR_MALFORMED_VAL;
+    {
+      if (str)
+        ecom = ecommunity_str2com (str, 0, 1);
+    }
 
   if (ecom)
-    entry = community_list_entry_lookup (list, ecom, direct);
+    {
+      entry = community_list_entry_lookup (list, ecom, direct);
+      ecommunity_free (&ecom);
+    }
   else
     entry = community_list_entry_lookup (list, str, direct);
-
-  if (ecom)
-    ecommunity_free (&ecom);
-  if (regex)
-    bgp_regex_free (regex);
 
   if (!entry)
     return COMMUNITY_LIST_ERR_CANT_FIND_LIST;

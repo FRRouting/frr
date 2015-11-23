@@ -158,9 +158,19 @@ do { \
   char *endptr = NULL; \
   errno = 0; \
   (V) = strtoul ((STR), &endptr, 10); \
-  if (*(STR) == '-' || *endptr != '\0' || errno) \
+  if (*(STR) == '-') \
     { \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE); \
+      vty_out (vty, "%% Invalid %s value (dash)%s", NAME, VTY_NEWLINE); \
+      return CMD_WARNING; \
+    } \
+  if (*endptr != '\0') \
+    { \
+      vty_out (vty, "%% Invalid %s value (%s)%s", NAME, endptr, VTY_NEWLINE); \
+      return CMD_WARNING; \
+    } \
+  if (errno) \
+    { \
+      vty_out (vty, "%% Invalid %s value (error %d)%s", NAME, errno, VTY_NEWLINE); \
       return CMD_WARNING; \
     } \
 } while (0)
@@ -171,9 +181,19 @@ do { \
   char *endptr = NULL; \
   errno = 0; \
   (V) = strtoull ((STR), &endptr, 10); \
-  if (*(STR) == '-' || *endptr != '\0' || errno) \
+  if (*(STR) == '-') \
     { \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE); \
+      vty_out (vty, "%% Invalid %s value (dash)%s", NAME, VTY_NEWLINE); \
+      return CMD_WARNING; \
+    } \
+  if (*endptr != '\0') \
+    { \
+      vty_out (vty, "%% Invalid %s value (%s)%s", NAME, endptr, VTY_NEWLINE); \
+      return CMD_WARNING; \
+    } \
+  if (errno) \
+    { \
+      vty_out (vty, "%% Invalid %s value (error %d)%s", NAME, errno, VTY_NEWLINE); \
       return CMD_WARNING; \
     } \
 } while (0)

@@ -424,6 +424,17 @@ DEFUN (no_ip_ospf_bfd,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_ip_ospf_bfd,
+       no_ip_ospf_bfd_param_cmd,
+       "no ip ospf bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Enables BFD support\n"
+       "Detect Multiplier\n"
+       "Required min receive interval\n"
+       "Desired min transmit interval\n")
+
 void
 ospf_bfd_init(void)
 {
@@ -435,4 +446,5 @@ ospf_bfd_init(void)
   install_element (INTERFACE_NODE, &ip_ospf_bfd_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_bfd_param_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_bfd_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_bfd_param_cmd);
 }
