@@ -312,7 +312,16 @@ static struct test_segment misc_segments[] =
     { 0x41, 0x4, 0xab, 0xcd, 0xef, 0x12 }, /* AS: 2882400018 */
     6, SHOULD_PARSE, 2882400018,
   },
-  /* 20 */
+  { "AS4",
+    "AS4 capability: short",
+    { 0x41, 0x4, 0xab, 0xcd, 0xef }, /* AS: 2882400018 */
+    5, SHOULD_ERR,
+  },
+  { "AS4",
+    "AS4 capability: long",
+    { 0x41, 0x4, 0xab, 0xcd, 0xef, 0x12, 0x12 },
+    7, SHOULD_ERR, 2882400018,
+  },
   { "GR",
     "GR capability",
     { /* hdr */		CAPABILITY_CODE_RESTART, 0xe,
@@ -329,7 +338,6 @@ static struct test_segment misc_segments[] =
     },
     16, SHOULD_PARSE,
   },
-  /* 21 */
   { "GR-short",
     "GR capability, but header length too short",
     { /* hdr */		0x40, 0xa,
@@ -344,9 +352,8 @@ static struct test_segment misc_segments[] =
       /* safi */	0x2,
       /* flags */	0x1,
     },
-    16, SHOULD_PARSE,
+    15 /* array is 16 though */, SHOULD_ERR,
   },
-  /* 22 */
   { "GR-long",
     "GR capability, but header length too long",
     { /* hdr */		0x40, 0xf,
@@ -359,6 +366,7 @@ static struct test_segment misc_segments[] =
       /* flags */	0x0,
       /* afi */		0x0, 0x2,
       /* safi */	0x2,
+      /* flags */	0x01,
     },
     16, SHOULD_ERR,
   },
