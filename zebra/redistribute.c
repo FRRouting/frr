@@ -544,7 +544,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib)
 
 	  /* Assuming these routes are never recursive */
 	  for (nhop = rib->nexthop; nhop; nhop = nhop->next)
-	    copy_nexthops(newrib, nhop);
+	    rib_copy_nexthops(newrib, nhop);
 
 	  rib_add_ipv4_multipath(&p4, newrib, SAFI_UNICAST);
 	}

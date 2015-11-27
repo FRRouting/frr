@@ -1,20 +1,20 @@
 /* A generic nexthop structure
  * Copyright (C) 2013 Cumulus Networks, Inc.
  *
- * This file is part of GNU Zebra.
+ * This file is part of Quagga.
  *
- * GNU Zebra is free software; you can redistribute it and/or modify it
+ * Quagga is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; either version 2, or (at your option) any
  * later version.
  *
- * GNU Zebra is distributed in the hope that it will be useful, but
+ * Quagga is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
+ * along with Quagga; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
@@ -97,4 +97,72 @@ nexthop_type_to_str (enum nexthop_types_t nh_type)
     return "<Invalid nh type>";
 
   return desc[nh_type];
+}
+
+struct nexthop *
+nexthop_new (void)
+{
+  return XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+}
+
+/* Add nexthop to the end of a nexthop list.  */
+void
+nexthop_add (struct nexthop **target, struct nexthop *nexthop)
+{
+  struct nexthop *last;
+
+  for (last = *target; last && last->next; last = last->next)
+    ;
+  if (last)
+    last->next = nexthop;
+  else
+    *target = nexthop;
+  nexthop->prev = last;
+}
+
+void
+copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
+{
+  struct nexthop *nexthop;
+  struct nexthop *nh1;
+
+  for (nh1 = nh; nh1; nh1 = nh1->next)
+    {
+      nexthop = nexthop_new();
+      nexthop->flags = nh->flags;
+      nexthop->type = nh->type;
+      nexthop->ifindex = nh->ifindex;
+      if (nh->ifname)
+	nexthop->ifname = XSTRDUP(0, nh->ifname);
+      memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
+      memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
+      nexthop_add(tnh, nexthop);
+
+      if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
+	copy_nexthops(&nexthop->resolved, nh1->resolved);
+    }
+}
+
+/* Free nexthop. */
+void
+nexthop_free (struct nexthop *nexthop)
+{
+  if (nexthop->ifname)
+    XFREE (0, nexthop->ifname);
+  if (nexthop->resolved)
+    nexthops_free(nexthop->resolved);
+  XFREE (MTYPE_NEXTHOP, nexthop);
+}
+
+/* Frees a list of nexthops */
+void
+nexthops_free (struct nexthop *nexthop)
+{
+  struct nexthop *nh, *next;
+
+  for (nh = nexthop; nh; nh = next)
+    {
+      next = nh->next;
+      nexthop_free (nh);
+    }
 }

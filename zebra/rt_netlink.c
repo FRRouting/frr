@@ -791,12 +791,12 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
               if (gate)
                 {
                   if (index)
-                    nexthop_ipv4_ifindex_add (rib, gate, src, index);
+                    rib_nexthop_ipv4_ifindex_add (rib, gate, src, index);
                   else
-                    nexthop_ipv4_add (rib, gate, src);
+                    rib_nexthop_ipv4_add (rib, gate, src);
                 }
               else
-                nexthop_ifindex_add (rib, index);
+                rib_nexthop_ifindex_add (rib, index);
 
               len -= NLMSG_ALIGN(rtnh->rtnh_len);
               rtnh = RTNH_NEXT(rtnh);
@@ -996,12 +996,12 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
                   if (gate)
                     {
                       if (index)
-                        nexthop_ipv4_ifindex_add (rib, gate, src, index);
+                        rib_nexthop_ipv4_ifindex_add (rib, gate, src, index);
                       else
-                        nexthop_ipv4_add (rib, gate, src);
+                        rib_nexthop_ipv4_add (rib, gate, src);
                     }
                   else
-                    nexthop_ifindex_add (rib, index);
+                    rib_nexthop_ifindex_add (rib, index);
 
                   len -= NLMSG_ALIGN(rtnh->rtnh_len);
                   rtnh = RTNH_NEXT(rtnh);

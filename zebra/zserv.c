@@ -1109,7 +1109,7 @@ zread_ipv4_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
 	    {
 	    case ZEBRA_NEXTHOP_IFINDEX:
 	      ifindex = stream_getl (s);
-	      nexthop_ifindex_add (rib, ifindex);
+	      rib_nexthop_ifindex_add (rib, ifindex);
 	      break;
 	    case ZEBRA_NEXTHOP_IFNAME:
 	      ifname_len = stream_getc (s);
@@ -1117,18 +1117,18 @@ zread_ipv4_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
-	      nexthop_ipv4_add (rib, &nexthop, NULL);
+	      rib_nexthop_ipv4_add (rib, &nexthop, NULL);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4_IFINDEX:
 	      nexthop.s_addr = stream_get_ipv4 (s);
 	      ifindex = stream_getl (s);
-	      nexthop_ipv4_ifindex_add (rib, &nexthop, NULL, ifindex);
+	      rib_nexthop_ipv4_ifindex_add (rib, &nexthop, NULL, ifindex);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
 	      break;
             case ZEBRA_NEXTHOP_BLACKHOLE:
-              nexthop_blackhole_add (rib);
+              rib_nexthop_blackhole_add (rib);
               break;
             }
 	}
@@ -1351,7 +1351,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length)
               }
 	      break;
             case ZEBRA_NEXTHOP_BLACKHOLE:
-              nexthop_blackhole_add (rib);
+              rib_nexthop_blackhole_add (rib);
               break;
 	    }
 	}
@@ -1361,15 +1361,15 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length)
         {
 	  if ((i < nh_count) && !IN6_IS_ADDR_UNSPECIFIED (&nexthops[i])) {
             if ((i < if_count) && ifindices[i]) {
-              nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
+              rib_nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
             }
             else {
-	      nexthop_ipv6_add (rib, &nexthops[i]);
+	      rib_nexthop_ipv6_add (rib, &nexthops[i]);
             }
           }
           else {
             if ((i < if_count) && ifindices[i]) {
-	      nexthop_ifindex_add (rib, ifindices[i]);
+	      rib_nexthop_ifindex_add (rib, ifindices[i]);
 	    }
           }
 	}
@@ -1471,7 +1471,7 @@ zread_ipv6_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
               }
 	      break;
             case ZEBRA_NEXTHOP_BLACKHOLE:
-              nexthop_blackhole_add (rib);
+              rib_nexthop_blackhole_add (rib);
               break;
 	    }
 	}
@@ -1481,13 +1481,13 @@ zread_ipv6_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
         {
 	  if ((i < nh_count) && !IN6_IS_ADDR_UNSPECIFIED (&nexthops[i])) {
             if ((i < if_count) && ifindices[i])
-              nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
+              rib_nexthop_ipv6_ifindex_add (rib, &nexthops[i], ifindices[i]);
             else
-	      nexthop_ipv6_add (rib, &nexthops[i]);
+	      rib_nexthop_ipv6_add (rib, &nexthops[i]);
           }
           else {
             if ((i < if_count) && ifindices[i])
-	      nexthop_ifindex_add (rib, ifindices[i]);
+	      rib_nexthop_ifindex_add (rib, ifindices[i]);
           }
 	}
     }
