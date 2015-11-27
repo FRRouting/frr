@@ -19,3 +19,6 @@ void zebra_register_rnh_static_nh(struct prefix *p, struct route_node *rn)
 
 void zebra_deregister_rnh_static_nh(struct prefix *p, struct route_node *rn)
 {}
+
+void zebra_deregister_rnh_static_nexthops (struct nexthop *nexthop, struct route_node *rn)
+{}

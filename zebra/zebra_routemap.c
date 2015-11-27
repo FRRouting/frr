@@ -746,6 +746,14 @@ DEFUN (no_zebra_route_map_timer,
   return (CMD_SUCCESS);
 }
 
+ALIAS (no_zebra_route_map_timer,
+       no_zebra_route_map_timer_val_cmd,
+       "no zebra route-map delay-timer <0-600>",
+       NO_STR
+       "Time to wait before route-map updates are processed\n"
+       "Reset delay-timer to default value, 30 secs\n"
+       "0 means event-driven updates are disabled\n")
+
 DEFUN (ip_protocol,
        ip_protocol_cmd,
        "ip protocol " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
@@ -1122,16 +1130,20 @@ DEFUN (no_ipv6_protocol_nht_rmap,
                VTY_NEWLINE);
      return CMD_WARNING;
     }
-  if (nht_rm[AFI_IP6][i])
-    XFREE (MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
 
-  if ((argc == 2 && strcmp(argv[1], nht_rm[AFI_IP6][i]) == 0) ||
-      (argc < 2))
+  if (nht_rm[AFI_IP6][i] && argc == 2 && strcmp(argv[1], nht_rm[AFI_IP6][i]))
+    {
+      vty_out (vty, "invalid route-map \"%s\"%s", argv[1], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (nht_rm[AFI_IP6][i])
     {
       XFREE (MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
       nht_rm[AFI_IP6][i] = NULL;
-      zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
     }
+
+  zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 
   return CMD_SUCCESS;
 }
@@ -1777,11 +1789,12 @@ zebra_route_map_init ()
   install_element (ENABLE_NODE, &show_ip_protocol_nht_cmd);
   install_element (CONFIG_NODE, &ipv6_protocol_nht_rmap_cmd);
   install_element (CONFIG_NODE, &no_ipv6_protocol_nht_rmap_cmd);
-  install_element (ENABLE_NODE, &no_ipv6_protocol_nht_rmap_val_cmd);
+  install_element (CONFIG_NODE, &no_ipv6_protocol_nht_rmap_val_cmd);
   install_element (VIEW_NODE, &show_ipv6_protocol_nht_cmd);
   install_element (ENABLE_NODE, &show_ipv6_protocol_nht_cmd);
   install_element (CONFIG_NODE, &zebra_route_map_timer_cmd);
   install_element (CONFIG_NODE, &no_zebra_route_map_timer_cmd);
+  install_element (CONFIG_NODE, &no_zebra_route_map_timer_val_cmd);
 
   route_map_init ();
   route_map_init_vty ();

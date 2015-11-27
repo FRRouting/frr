@@ -371,19 +371,17 @@ typedef struct rib_tables_iter_t_
   rib_tables_iter_state_t state;
 } rib_tables_iter_t;
 
-extern struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
-extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
-extern struct nexthop *nexthop_blackhole_add (struct rib *);
-extern struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *,
-					 struct in_addr *);
-extern struct nexthop *nexthop_ipv4_ifindex_add (struct rib *,
-                                                 struct in_addr *,
-                                                 struct in_addr *,
-                                                 unsigned int);
-extern void nexthop_free (struct nexthop *nexthop, struct route_node *);
-extern void nexthops_free (struct nexthop *nexthop, struct route_node *);
-extern void nexthop_add (struct rib *rib, struct nexthop *nexthop);
-extern void copy_nexthops (struct rib *rib, struct nexthop *nh);
+extern struct nexthop *rib_nexthop_ifindex_add (struct rib *, unsigned int);
+extern struct nexthop *rib_nexthop_ifname_add (struct rib *, char *);
+extern struct nexthop *rib_nexthop_blackhole_add (struct rib *);
+extern struct nexthop *rib_nexthop_ipv4_add (struct rib *, struct in_addr *,
+					     struct in_addr *);
+extern struct nexthop *rib_nexthop_ipv4_ifindex_add (struct rib *,
+						     struct in_addr *,
+						     struct in_addr *,
+						     unsigned int);
+extern void rib_nexthop_add (struct rib *rib, struct nexthop *nexthop);
+extern void rib_copy_nexthops (struct rib *rib, struct nexthop *nh);
 
 extern int nexthop_has_fib_child(struct nexthop *);
 extern void rib_lookup_and_dump (struct prefix_ipv4 *);
@@ -399,12 +397,13 @@ extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *,
 #define ZEBRA_RIB_FOUND_CONNECTED 2
 #define ZEBRA_RIB_NOTFOUND 3
 
-extern struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
-extern struct nexthop *nexthop_ipv6_ifindex_add (struct rib *rib,
-		        struct in6_addr *ipv6, unsigned int ifindex);
-extern struct nexthop *nexthop_ipv6_ifname_add (struct rib *rib,
-						struct in6_addr *ipv6,
-						char *ifname);
+extern struct nexthop *rib_nexthop_ipv6_add (struct rib *, struct in6_addr *);
+extern struct nexthop *rib_nexthop_ipv6_ifindex_add (struct rib *rib,
+						     struct in6_addr *ipv6,
+						     unsigned int ifindex);
+extern struct nexthop *rib_nexthop_ipv6_ifname_add (struct rib *rib,
+						    struct in6_addr *ipv6,
+						    char *ifname);
 
 extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t);

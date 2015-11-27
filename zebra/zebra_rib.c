@@ -80,31 +80,6 @@ static const struct
   /* no entry/default: 150 */
 };
 
-/*
- * nexthop_type_to_str
- */
-const char *
-nexthop_type_to_str (enum nexthop_types_t nh_type)
-{
-  static const char *desc[] = {
-    "none",
-    "Directly connected",
-    "Interface route",
-    "IPv4 nexthop",
-    "IPv4 nexthop with ifindex",
-    "IPv4 nexthop with ifname",
-    "IPv6 nexthop",
-    "IPv6 nexthop with ifindex",
-    "IPv6 nexthop with ifname",
-    "Null0 nexthop",
-  };
-
-  if (nh_type >= ZEBRA_NUM_OF (desc))
-    return "<Invalid nh type>";
-
-  return desc[nh_type];
-}
-
 int
 is_zebra_valid_kernel_table(u_int32_t table_id)
 {
@@ -150,57 +125,21 @@ zebra_check_addr (struct prefix *p)
   return 1;
 }
 
-/* Add nexthop to the end of a nexthop list.  */
-static void
-_nexthop_add (struct nexthop **target, struct nexthop *nexthop)
-{
-  struct nexthop *last;
-
-  for (last = *target; last && last->next; last = last->next)
-    ;
-  if (last)
-    last->next = nexthop;
-  else
-    *target = nexthop;
-  nexthop->prev = last;
-}
-
 /* Add nexthop to the end of a rib node's nexthop list */
 void
-nexthop_add (struct rib *rib, struct nexthop *nexthop)
+rib_nexthop_add (struct rib *rib, struct nexthop *nexthop)
 {
-  _nexthop_add(&rib->nexthop, nexthop);
+  nexthop_add(&rib->nexthop, nexthop);
   rib->nexthop_num++;
 }
 
-static void
-_copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
-{
-  struct nexthop *nexthop;
-  struct nexthop *nh1;
 
-  for (nh1 = nh; nh1; nh1 = nh1->next)
-    {
-      nexthop = nexthop_new();
-      nexthop->flags = nh->flags;
-      nexthop->type = nh->type;
-      nexthop->ifindex = nh->ifindex;
-      if (nh->ifname)
-	nexthop->ifname = XSTRDUP(0, nh->ifname);
-      memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
-      memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
-      _nexthop_add(tnh, nexthop);
-
-      if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
-	_copy_nexthops(&nexthop->resolved, nh1->resolved);
-    }
-}
 
 /**
  * copy_nexthop - copy a nexthop to the rib structure.
  */
 void
-copy_nexthops (struct rib *rib, struct nexthop *nh)
+rib_copy_nexthops (struct rib *rib, struct nexthop *nh)
 {
   struct nexthop *nexthop;
 
@@ -212,14 +151,14 @@ copy_nexthops (struct rib *rib, struct nexthop *nh)
     nexthop->ifname = XSTRDUP(0, nh->ifname);
   memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
   memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
-  nexthop_add(rib, nexthop);
+  rib_nexthop_add(rib, nexthop);
   if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
-    _copy_nexthops(&nexthop->resolved, nh->resolved);
+    copy_nexthops(&nexthop->resolved, nh->resolved);
 }
 
 /* Delete specified nexthop from the list. */
 static void
-nexthop_delete (struct rib *rib, struct nexthop *nexthop)
+rib_nexthop_delete (struct rib *rib, struct nexthop *nexthop)
 {
   if (nexthop->next)
     nexthop->next->prev = nexthop->prev;
@@ -230,97 +169,60 @@ nexthop_delete (struct rib *rib, struct nexthop *nexthop)
   rib->nexthop_num--;
 }
 
-/* Free nexthop. */
-void
-nexthop_free (struct nexthop *nexthop, struct route_node *rn)
-{
-  if (nexthop->ifname)
-    XFREE (0, nexthop->ifname);
-  if (nexthop->resolved)
-    nexthops_free(nexthop->resolved, rn);
-  XFREE (MTYPE_NEXTHOP, nexthop);
-}
 
-/* Frees a list of nexthops */
-void
-nexthops_free (struct nexthop *nexthop, struct route_node *rn)
-{
-  struct nexthop *nh, *next;
-  struct prefix nh_p;
-
-  for (nh = nexthop; nh; nh = next)
-    {
-      next = nh->next;
-      if (nh->type == NEXTHOP_TYPE_IPV4)
-	{
-	  nh_p.family = AF_INET;
-	  nh_p.prefixlen = IPV4_MAX_BITLEN;
-	  nh_p.u.prefix4 = nh->gate.ipv4;
-	  zebra_deregister_rnh_static_nh(&nh_p, rn);
-	}
-      else if (nh->type == NEXTHOP_TYPE_IPV6)
-	{
-	  nh_p.family = AF_INET6;
-	  nh_p.prefixlen = IPV6_MAX_BITLEN;
-	  nh_p.u.prefix6 = nh->gate.ipv6;
-	  zebra_deregister_rnh_static_nh(&nh_p, rn);
-	}
-      nexthop_free (nh, rn);
-    }
-}
 
 struct nexthop *
-nexthop_ifindex_add (struct rib *rib, unsigned int ifindex)
+rib_nexthop_ifindex_add (struct rib *rib, unsigned int ifindex)
 {
   struct nexthop *nexthop;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IFINDEX;
   nexthop->ifindex = ifindex;
 
-  nexthop_add (rib, nexthop);
+  rib_nexthop_add (rib, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-nexthop_ifname_add (struct rib *rib, char *ifname)
+rib_nexthop_ifname_add (struct rib *rib, char *ifname)
 {
   struct nexthop *nexthop;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IFNAME;
   nexthop->ifname = XSTRDUP (0, ifname);
 
-  nexthop_add (rib, nexthop);
+  rib_nexthop_add (rib, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src)
+rib_nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src)
 {
   struct nexthop *nexthop;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IPV4;
   nexthop->gate.ipv4 = *ipv4;
   if (src)
     nexthop->src.ipv4 = *src;
 
-  nexthop_add (rib, nexthop);
+  rib_nexthop_add (rib, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4, 
-                          struct in_addr *src, unsigned int ifindex)
+rib_nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
+			      struct in_addr *src, unsigned int ifindex)
 {
   struct nexthop *nexthop;
   struct interface *ifp;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
   nexthop->gate.ipv4 = *ipv4;
   if (src)
@@ -331,44 +233,44 @@ nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
     SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
    }
 
-  nexthop_add (rib, nexthop);
+  rib_nexthop_add (rib, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
+rib_nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
 {
   struct nexthop *nexthop;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IPV6;
   nexthop->gate.ipv6 = *ipv6;
 
-  nexthop_add (rib, nexthop);
+  rib_nexthop_add (rib, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-nexthop_ipv6_ifname_add (struct rib *rib, struct in6_addr *ipv6,
-			 char *ifname)
+rib_nexthop_ipv6_ifname_add (struct rib *rib, struct in6_addr *ipv6,
+			     char *ifname)
 {
   struct nexthop *nexthop;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IPV6_IFNAME;
   nexthop->gate.ipv6 = *ipv6;
   nexthop->ifname = XSTRDUP (0, ifname);
 
-  nexthop_add (rib, nexthop);
+  rib_nexthop_add (rib, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
-			  unsigned int ifindex)
+rib_nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
+			      unsigned int ifindex)
 {
   struct nexthop *nexthop;
 
@@ -377,21 +279,21 @@ nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
   nexthop->gate.ipv6 = *ipv6;
   nexthop->ifindex = ifindex;
 
-  nexthop_add (rib, nexthop);
+  rib_nexthop_add (rib, nexthop);
 
   return nexthop;
 }
 
 struct nexthop *
-nexthop_blackhole_add (struct rib *rib)
+rib_nexthop_blackhole_add (struct rib *rib)
 {
   struct nexthop *nexthop;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_BLACKHOLE;
   SET_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE);
 
-  nexthop_add (rib, nexthop);
+  rib_nexthop_add (rib, nexthop);
 
   return nexthop;
 }
@@ -436,7 +338,8 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
   if (set)
     {
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-      nexthops_free(nexthop->resolved, top);
+      zebra_deregister_rnh_static_nexthops(nexthop->resolved, top);
+      nexthops_free(nexthop->resolved);
       nexthop->resolved = NULL;
     }
 
@@ -574,7 +477,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			    resolved_hop->ifindex = newhop->ifindex;
 			  }
 
-			_nexthop_add(&nexthop->resolved, resolved_hop);
+			nexthop_add(&nexthop->resolved, resolved_hop);
 		      }
 		    resolved = 1;
 		  }
@@ -627,7 +530,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			    resolved_hop->ifindex = newhop->ifindex;
 			  }
 
-			_nexthop_add(&nexthop->resolved, resolved_hop);
+			nexthop_add(&nexthop->resolved, resolved_hop);
 		      }
 		    resolved = 1;
 		  }
@@ -663,7 +566,8 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
   if (set)
     {
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-      nexthops_free(nexthop->resolved, top);
+      zebra_deregister_rnh_static_nexthops (nexthop->resolved, top);
+      nexthops_free(nexthop->resolved);
       nexthop->resolved = NULL;
     }
 
@@ -774,7 +678,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 				resolved_hop->ifindex = newhop->ifindex;
 			  }
 
-			_nexthop_add(&nexthop->resolved, resolved_hop);
+			nexthop_add(&nexthop->resolved, resolved_hop);
 		      }
 		    resolved = 1;
 		  }
@@ -817,7 +721,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 				resolved_hop->ifindex = newhop->ifindex;
 			  }
 
-			_nexthop_add(&nexthop->resolved, resolved_hop);
+			nexthop_add(&nexthop->resolved, resolved_hop);
 		      }
 		    resolved = 1;
 		  }
@@ -2098,7 +2002,8 @@ rib_unlink (struct route_node *rn, struct rib *rib)
     }
 
   /* free RIB and nexthops */
-  nexthops_free(rib->nexthop, rn);
+  zebra_deregister_rnh_static_nexthops (rib->nexthop, rn);
+  nexthops_free(rib->nexthop);
   XFREE (MTYPE_RIB, rib);
 
 }
@@ -2221,12 +2126,12 @@ rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
   if (gate)
     {
       if (ifindex)
-	nexthop_ipv4_ifindex_add (rib, gate, src, ifindex);
+	rib_nexthop_ipv4_ifindex_add (rib, gate, src, ifindex);
       else
-	nexthop_ipv4_add (rib, gate, src);
+	rib_nexthop_ipv4_add (rib, gate, src);
     }
   else
-    nexthop_ifindex_add (rib, ifindex);
+    rib_nexthop_ifindex_add (rib, ifindex);
 
   /* If this route is kernel route, set FIB flag to the route. */
   if (type == ZEBRA_ROUTE_KERNEL || type == ZEBRA_ROUTE_CONNECT)
@@ -2688,30 +2593,30 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
       switch (si->type)
         {
 	case STATIC_IPV4_GATEWAY:
-	  nexthop_ipv4_add (rib, &si->addr.ipv4, NULL);
+	  rib_nexthop_ipv4_add (rib, &si->addr.ipv4, NULL);
 	  nh_p.family = AF_INET;
 	  nh_p.prefixlen = IPV4_MAX_BITLEN;
 	  nh_p.u.prefix4 = si->addr.ipv4;
 	  zebra_register_rnh_static_nh(&nh_p, rn);
 	  break;
 	case STATIC_IPV4_IFNAME:
-	  nexthop_ifname_add (rib, si->ifname);
+	  rib_nexthop_ifname_add (rib, si->ifname);
 	  break;
 	case STATIC_IPV4_BLACKHOLE:
-	  nexthop_blackhole_add (rib);
+	  rib_nexthop_blackhole_add (rib);
 	  break;
 	case STATIC_IPV6_GATEWAY:
-	  nexthop_ipv6_add (rib, &si->addr.ipv6);
+	  rib_nexthop_ipv6_add (rib, &si->addr.ipv6);
 	  nh_p.family = AF_INET6;
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = si->addr.ipv6;
 	  zebra_register_rnh_static_nh(&nh_p, rn);
 	  break;
 	case STATIC_IPV6_IFNAME:
-	  nexthop_ifname_add (rib, si->ifname);
+	  rib_nexthop_ifname_add (rib, si->ifname);
 	  break;
 	case STATIC_IPV6_GATEWAY_IFNAME:
-	  nexthop_ipv6_ifname_add (rib, &si->addr.ipv6, si->ifname);
+	  rib_nexthop_ipv6_ifname_add (rib, &si->addr.ipv6, si->ifname);
 	  break;
         }
 
@@ -2744,30 +2649,30 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
       switch (si->type)
         {
 	case STATIC_IPV4_GATEWAY:
-	  nexthop_ipv4_add (rib, &si->addr.ipv4, NULL);
+	  rib_nexthop_ipv4_add (rib, &si->addr.ipv4, NULL);
 	  nh_p.family = AF_INET;
 	  nh_p.prefixlen = IPV4_MAX_BITLEN;
 	  nh_p.u.prefix4 = si->addr.ipv4;
 	  zebra_register_rnh_static_nh(&nh_p, rn);
 	  break;
 	case STATIC_IPV4_IFNAME:
-	  nexthop_ifname_add (rib, si->ifname);
+	  rib_nexthop_ifname_add (rib, si->ifname);
 	  break;
 	case STATIC_IPV4_BLACKHOLE:
-	  nexthop_blackhole_add (rib);
+	  rib_nexthop_blackhole_add (rib);
 	  break;
 	case STATIC_IPV6_GATEWAY:
-	  nexthop_ipv6_add (rib, &si->addr.ipv6);
+	  rib_nexthop_ipv6_add (rib, &si->addr.ipv6);
 	  nh_p.family = AF_INET6;
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = si->addr.ipv6;
 	  zebra_register_rnh_static_nh(&nh_p, rn);
 	  break;
 	case STATIC_IPV6_IFNAME:
-	  nexthop_ifname_add (rib, si->ifname);
+	  rib_nexthop_ifname_add (rib, si->ifname);
 	  break;
 	case STATIC_IPV6_GATEWAY_IFNAME:
-	  nexthop_ipv6_ifname_add (rib, &si->addr.ipv6, si->ifname);
+	  rib_nexthop_ipv6_ifname_add (rib, &si->addr.ipv6, si->ifname);
 	  break;
         }
 
@@ -2915,9 +2820,9 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = nexthop->gate.ipv6;
 	}
-      nexthop_delete (rib, nexthop);
+      rib_nexthop_delete (rib, nexthop);
       zebra_deregister_rnh_static_nh(&nh_p, rn);
-      nexthop_free (nexthop, rn);
+      nexthop_free (nexthop);
     }
   /* Unlock node. */
   route_unlock_node (rn);
@@ -3163,12 +3068,12 @@ rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
   if (gate)
     {
       if (ifindex)
-	nexthop_ipv6_ifindex_add (rib, gate, ifindex);
+	rib_nexthop_ipv6_ifindex_add (rib, gate, ifindex);
       else
-	nexthop_ipv6_add (rib, gate);
+	rib_nexthop_ipv6_add (rib, gate);
     }
   else
-    nexthop_ifindex_add (rib, ifindex);
+    rib_nexthop_ifindex_add (rib, ifindex);
 
   /* If this route is kernel route, set FIB flag to the route. */
   if (type == ZEBRA_ROUTE_KERNEL || type == ZEBRA_ROUTE_CONNECT)

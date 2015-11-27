@@ -244,6 +244,30 @@ zebra_deregister_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
     zebra_delete_rnh(rnh, RNH_NEXTHOP_TYPE);
 }
 
+void
+zebra_deregister_rnh_static_nexthops (struct nexthop *nexthop, struct route_node *rn)
+{
+  struct nexthop *nh;
+  struct prefix nh_p;
+
+  for (nh = nexthop; nh ; nh = nh->next)
+    {
+      if (nh->type == NEXTHOP_TYPE_IPV4)
+        {
+          nh_p.family = AF_INET;
+          nh_p.prefixlen = IPV4_MAX_BITLEN;
+          nh_p.u.prefix4 = nh->gate.ipv4;
+        }
+      else if (nh->type == NEXTHOP_TYPE_IPV6)
+        {
+          nh_p.family = AF_INET6;
+          nh_p.prefixlen = IPV6_MAX_BITLEN;
+          nh_p.u.prefix6 = nh->gate.ipv6;
+        }
+      zebra_deregister_rnh_static_nh(&nh_p, rn);
+    }
+}
+
 static int
 zebra_evaluate_rnh_nexthops(int family, struct rib *rib, struct route_node *prn,
 			    int proto)
@@ -666,7 +690,8 @@ free_state (struct rib *rib, struct route_node *rn)
     return;
 
   /* free RIB and nexthops */
-  nexthops_free(rib->nexthop, rn);
+  nexthops_free(rib->nexthop);
+  zebra_deregister_rnh_static_nexthops (rib->nexthop, rn);
   XFREE (MTYPE_RIB, rib);
 }
 
@@ -690,7 +715,7 @@ copy_state (struct rnh *rnh, struct rib *rib, struct route_node *rn)
   state->metric = rib->metric;
 
   for (nh = rib->nexthop; nh; nh = nh->next)
-    copy_nexthops(state, nh);
+    rib_copy_nexthops(state, nh);
   rnh->state = state;
 }
 
