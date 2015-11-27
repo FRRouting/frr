@@ -1509,8 +1509,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   char pfx_buf[INET6_ADDRSTRLEN];
 
   bgp_mp_list_init (&mp_list);
-  do_mpath = (mpath_cfg->maxpaths_ebgp != BGP_DEFAULT_MAXPATHS ||
-	      mpath_cfg->maxpaths_ibgp != BGP_DEFAULT_MAXPATHS);
+  do_mpath = (mpath_cfg->maxpaths_ebgp > 1 || mpath_cfg->maxpaths_ibgp > 1);
 
   debug = bgp_debug_bestpath(&rn->p);
 
@@ -12991,6 +12990,14 @@ ALIAS (bgp_damp_unset,
        "Value to start suppressing a route\n"
        "Maximum duration to suppress a stable route\n")
 
+ALIAS (bgp_damp_unset,
+       bgp_damp_unset3_cmd,
+       "no bgp dampening <1-45>",
+       NO_STR
+       "BGP Specific commands\n"
+       "Enable route-flap dampening\n"
+       "Half-life time for the penalty\n")
+
 DEFUN (show_ip_bgp_dampened_paths,
        show_ip_bgp_dampened_paths_cmd,
        "show ip bgp dampened-paths",
@@ -14031,11 +14038,13 @@ bgp_route_init (void)
   install_element (BGP_NODE, &bgp_damp_set3_cmd);
   install_element (BGP_NODE, &bgp_damp_unset_cmd);
   install_element (BGP_NODE, &bgp_damp_unset2_cmd);
+  install_element (BGP_NODE, &bgp_damp_unset3_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_set_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_set2_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_set3_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_unset_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_unset2_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_damp_unset3_cmd);
 }
 
 void

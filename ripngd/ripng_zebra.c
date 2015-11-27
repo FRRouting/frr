@@ -69,6 +69,7 @@ ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop,
 
   if (vrf_bitmap_check (zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG], VRF_DEFAULT))
     {
+      api.vrf_id = VRF_DEFAULT;
       api.type = ZEBRA_ROUTE_RIPNG;
       api.instance = 0;
       api.flags = 0;

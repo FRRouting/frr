@@ -216,15 +216,6 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_PEER_FLAG_CONFLICT:
       str = "Can't set override-capability and strict-capability-match at the same time";
       break;
-    case BGP_ERR_PEER_GROUP_MEMBER_EXISTS:
-      str = "No activate for peergroup can be given only if peer-group has no members";
-      break;
-    case BGP_ERR_PEER_BELONGS_TO_GROUP:
-      str = "No activate for an individual peer-group member is invalid";
-      break;
-    case BGP_ERR_PEER_GROUP_AF_UNCONFIGURED:
-      str = "Activate the peer-group for the address family first";
-      break;
     case BGP_ERR_PEER_GROUP_NO_REMOTE_AS:
       str = "Specify remote-as or peer-group remote AS first";
       break;
@@ -408,7 +399,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 	      continue;
 	    }
 
-	  if (! peer->af_group[afi][safi])
+	  if (! peer->afc[afi][safi])
 	    continue;
 
 	  ret = peer_clear_soft (peer, afi, safi, stype);
@@ -578,6 +569,15 @@ DEFUN (no_bgp_config_type,
   bgp_option_unset (BGP_OPT_CONFIG_CISCO);
   return CMD_SUCCESS;
 }
+
+ALIAS (no_bgp_config_type,
+       no_bgp_config_type_val_cmd,
+       "no bgp config-type (cisco|zebra)",
+       NO_STR
+       BGP_STR
+       "Configuration type\n"
+       "cisco\n"
+       "zebra\n")
 
 DEFUN (no_synchronization,
        no_synchronization_cmd,
@@ -855,12 +855,20 @@ DEFUN (no_bgp_cluster_id,
 }
 
 ALIAS (no_bgp_cluster_id,
-       no_bgp_cluster_id_arg_cmd,
+       no_bgp_cluster_id_ip_cmd,
        "no bgp cluster-id A.B.C.D",
        NO_STR
        BGP_STR
        "Configure Route-Reflector Cluster-id\n"
        "Route-Reflector Cluster-id in IP address format\n")
+
+ALIAS (no_bgp_cluster_id,
+       no_bgp_cluster_id_decimal_cmd,
+       "no bgp cluster-id <1-4294967295>",
+       NO_STR
+       BGP_STR
+       "Configure Route-Reflector Cluster-id\n"
+       "Route-Reflector Cluster-id as 32 bit quantity\n")
 
 DEFUN (bgp_confederation_identifier,
        bgp_confederation_identifier_cmd,
@@ -2273,6 +2281,15 @@ DEFUN (no_bgp_default_subgroup_pkt_queue_max,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_bgp_default_subgroup_pkt_queue_max,
+       no_bgp_default_subgroup_pkt_queue_max_val_cmd,
+       "no bgp default subgroup-pkt-queue-max <20-100>",
+       NO_STR
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "subgroup-pkt-queue-max\n"
+       "Configure subgroup packet queue max\n")
+
 DEFUN (bgp_rr_allow_outbound_policy,
        bgp_rr_allow_outbound_policy_cmd,
        "bgp route-reflector allow-outbound-policy",
@@ -2353,6 +2370,14 @@ DEFUN (no_bgp_listen_limit,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_bgp_listen_limit,
+       no_bgp_listen_limit_val_cmd,
+       "no bgp listen limit " DYNAMIC_NEIGHBOR_LIMIT_RANGE,
+       NO_STR
+       "BGP specific commands\n"
+       "Configure BGP defaults\n"
+       "maximum number of BGP Dynamic Neighbors that can be created\n"
+       "Configure Dynamic Neighbors listen limit value\n")
 
 /*
  * Check if this listen range is already configured. Check for exact
@@ -3034,6 +3059,15 @@ DEFUN (no_neighbor_password,
   return bgp_vty_return (vty, ret);
 }
 
+ALIAS (no_neighbor_password,
+       no_neighbor_password_val_cmd,
+       NO_NEIGHBOR_CMD2 "password LINE",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Set a password\n"
+       "The password\n")
+
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
        NEIGHBOR_CMD2 "activate",
@@ -3041,14 +3075,17 @@ DEFUN (neighbor_activate,
        NEIGHBOR_ADDR_STR2
        "Enable the Address Family for this Neighbor\n")
 {
+  int ret;
   struct peer *peer;
 
   peer = peer_and_group_lookup_vty (vty, argv[0]);
   if (! peer)
     return CMD_WARNING;
 
-  peer_activate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
+  ret = peer_activate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
 
+  if (ret)
+    return CMD_WARNING;
   return CMD_SUCCESS;
 }
 
@@ -3070,7 +3107,9 @@ DEFUN (no_neighbor_activate,
 
   ret = peer_deactivate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
 
-  return bgp_vty_return (vty, ret);
+  if (ret)
+    return CMD_WARNING;
+  return CMD_SUCCESS;
 }
 
 DEFUN (neighbor_set_peer_group,
@@ -3127,8 +3166,7 @@ DEFUN (neighbor_set_peer_group,
       return CMD_WARNING;
     }
 
-  ret = peer_group_bind (bgp, &su, peer, group, bgp_node_afi (vty),
-			 bgp_node_safi (vty), &as);
+  ret = peer_group_bind (bgp, &su, peer, group, &as);
 
   if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT)
     {
@@ -3166,8 +3204,7 @@ DEFUN (no_neighbor_set_peer_group,
       return CMD_WARNING;
     }
 
-  ret = peer_group_unbind (bgp, peer, group, bgp_node_afi (vty),
-			   bgp_node_safi (vty));
+  ret = peer_group_unbind (bgp, peer, group);
 
   return bgp_vty_return (vty, ret);
 }
@@ -4645,6 +4682,16 @@ DEFUN (no_neighbor_timers,
   return peer_timers_unset_vty (vty, argv[0]);
 }
 
+ALIAS (no_neighbor_timers,
+       no_neighbor_timers_val_cmd,
+       NO_NEIGHBOR_CMD2 "timers <0-65535> <0-65535>",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "BGP per neighbor timers\n"
+       "Keepalive interval\n"
+       "Holdtime\n")
+
 static int
 peer_timers_connect_set_vty (struct vty *vty, const char *ip_str, 
                              const char *time_str)
@@ -5395,7 +5442,7 @@ ALIAS (no_neighbor_maximum_prefix,
 
 ALIAS (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_threshold_cmd,
-       NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> warning-only",
+       NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5501,6 +5548,15 @@ DEFUN (no_neighbor_allowas_in,
 
   return bgp_vty_return (vty, ret);
 }
+
+ALIAS (no_neighbor_allowas_in,
+       no_neighbor_allowas_in_val_cmd,
+       NO_NEIGHBOR_CMD2 "allowas-in <1-10>",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "allow local ASN appears in aspath attribute\n"
+       "Number of occurances of AS number\n")
 
 DEFUN (neighbor_ttl_security,
        neighbor_ttl_security_cmd,
@@ -8820,7 +8876,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       json_prefB = json_object_new_object();
       filter = &p->filter[afi][safi];
 
-      if (p->af_group[afi][safi])
+      if (peer_group_active(p))
         json_object_string_add(json_addr, "peerGroupMember", p->group->name);
 
       paf = peer_af_find(p, afi, safi);
@@ -9000,7 +9056,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       vty_out (vty, " For address family: %s%s", afi_safi_print (afi, safi),
 	       VTY_NEWLINE);
 
-      if (p->af_group[afi][safi])
+      if (peer_group_active(p))
         vty_out (vty, "  %s peer-group member%s", p->group->name, VTY_NEWLINE);
 
       paf = peer_af_find(p, afi, safi);
@@ -11916,7 +11972,7 @@ bgp_vty_init (void)
 
   /* "bgp config-type" commands. */
   install_element (CONFIG_NODE, &bgp_config_type_cmd);
-  install_element (CONFIG_NODE, &no_bgp_config_type_cmd);
+  install_element (CONFIG_NODE, &no_bgp_config_type_val_cmd);
 
   /* Dummy commands (Currently not supported) */
   install_element (BGP_NODE, &no_synchronization_cmd);
@@ -11940,7 +11996,8 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_cluster_id_cmd);
   install_element (BGP_NODE, &bgp_cluster_id32_cmd);
   install_element (BGP_NODE, &no_bgp_cluster_id_cmd);
-  install_element (BGP_NODE, &no_bgp_cluster_id_arg_cmd);
+  install_element (BGP_NODE, &no_bgp_cluster_id_ip_cmd);
+  install_element (BGP_NODE, &no_bgp_cluster_id_decimal_cmd);
 
   /* "bgp confederation" commands. */
   install_element (BGP_NODE, &bgp_confederation_identifier_cmd);
@@ -12089,6 +12146,7 @@ bgp_vty_init (void)
   /* "bgp default subgroup-pkt-queue-max" commands. */
   install_element (BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);
   install_element (BGP_NODE, &no_bgp_default_subgroup_pkt_queue_max_cmd);
+  install_element (BGP_NODE, &no_bgp_default_subgroup_pkt_queue_max_val_cmd);
 
   /* bgp ibgp-allow-policy-mods command */
   install_element (BGP_NODE, &bgp_rr_allow_outbound_policy_cmd);
@@ -12097,6 +12155,7 @@ bgp_vty_init (void)
   /* "bgp listen limit" commands. */
   install_element (BGP_NODE, &bgp_listen_limit_cmd);
   install_element (BGP_NODE, &no_bgp_listen_limit_cmd);
+  install_element (BGP_NODE, &no_bgp_listen_limit_val_cmd);
 
   /* "bgp listen range" commands. */
   install_element (BGP_NODE, &bgp_listen_range_cmd);
@@ -12130,6 +12189,7 @@ bgp_vty_init (void)
   /* "neighbor password" commands. */
   install_element (BGP_NODE, &neighbor_password_cmd);
   install_element (BGP_NODE, &no_neighbor_password_cmd);
+  install_element (BGP_NODE, &no_neighbor_password_val_cmd);
 
   /* "neighbor activate" commands. */
   install_element (BGP_NODE, &neighbor_activate_cmd);
@@ -12147,14 +12207,19 @@ bgp_vty_init (void)
   install_element (BGP_IPV6M_NODE, &no_neighbor_activate_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_activate_cmd);
 
-  /* "neighbor peer-group set" commands. */
+  /* "neighbor peer-group" set commands.
+   * Long term we should only accept this command under BGP_NODE and not all of
+   * the afi/safi sub-contexts. For now though we need to accept it for backwards
+   * compatibility. This changed when we stopped requiring that peers be assigned
+   * to their peer-group under each address-family sub-context.
+   */
   install_element (BGP_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV6M_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_set_peer_group_cmd);
-  
+
   /* "no neighbor peer-group unset" commands. */
   install_element (BGP_NODE, &no_neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_set_peer_group_cmd);
@@ -12586,6 +12651,7 @@ bgp_vty_init (void)
   /* "neighbor timers" commands. */
   install_element (BGP_NODE, &neighbor_timers_cmd);
   install_element (BGP_NODE, &no_neighbor_timers_cmd);
+  install_element (BGP_NODE, &no_neighbor_timers_val_cmd);
 
   /* "neighbor timers connect" commands. */
   install_element (BGP_NODE, &neighbor_timers_connect_cmd);
@@ -12755,21 +12821,27 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &neighbor_allowas_in_cmd);
   install_element (BGP_NODE, &neighbor_allowas_in_arg_cmd);
   install_element (BGP_NODE, &no_neighbor_allowas_in_cmd);
+  install_element (BGP_NODE, &no_neighbor_allowas_in_val_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_allowas_in_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_allowas_in_arg_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_allowas_in_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_allowas_in_val_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_allowas_in_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_allowas_in_arg_cmd);
   install_element (BGP_IPV4M_NODE, &no_neighbor_allowas_in_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_allowas_in_val_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_allowas_in_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_allowas_in_arg_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_allowas_in_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_allowas_in_val_cmd);
   install_element (BGP_IPV6M_NODE, &neighbor_allowas_in_cmd);
   install_element (BGP_IPV6M_NODE, &neighbor_allowas_in_arg_cmd);
   install_element (BGP_IPV6M_NODE, &no_neighbor_allowas_in_cmd);
+  install_element (BGP_IPV6M_NODE, &no_neighbor_allowas_in_val_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_allowas_in_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_allowas_in_arg_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_allowas_in_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_allowas_in_val_cmd);
 
   /* address-family commands. */
   install_element (BGP_NODE, &address_family_ipv4_cmd);
@@ -13308,7 +13380,7 @@ community_list_set_vty (struct vty *vty, int argc, const char **argv,
 /* Communiyt-list entry delete.  */
 static int
 community_list_unset_vty (struct vty *vty, int argc, const char **argv,
-			  int style)
+			  int style, int delete_all)
 {
   int ret;
   int direct = 0;
@@ -13333,7 +13405,7 @@ community_list_unset_vty (struct vty *vty, int argc, const char **argv,
     }
 
   /* Unset community list.  */
-  ret = community_list_unset (bgp_clist, argv[0], str, direct, style);
+  ret = community_list_unset (bgp_clist, argv[0], str, direct, style, delete_all);
 
   /* Free temporary community list string allocated by
      argv_concat().  */
@@ -13434,8 +13506,22 @@ DEFUN (no_ip_community_list_standard_all,
        COMMUNITY_LIST_STR
        "Community list number (standard)\n")
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD, 1);
 }
+
+DEFUN (no_ip_community_list_standard_direction,
+       no_ip_community_list_standard_direction_cmd,
+       "no ip community-list <1-99> (deny|permit)",
+       NO_STR
+       IP_STR
+       COMMUNITY_LIST_STR
+       "Community list number (standard)\n"
+       "Specify community to reject\n"
+       "Specify community to accept\n")
+{
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD, 0);
+}
+
 
 DEFUN (no_ip_community_list_expanded_all,
        no_ip_community_list_expanded_all_cmd,
@@ -13445,7 +13531,7 @@ DEFUN (no_ip_community_list_expanded_all,
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n")
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED, 1);
 }
 
 DEFUN (no_ip_community_list_name_standard_all,
@@ -13457,7 +13543,7 @@ DEFUN (no_ip_community_list_name_standard_all,
        "Add a standard community-list entry\n"
        "Community list name\n")
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD, 1);
 }
 
 DEFUN (no_ip_community_list_name_expanded_all,
@@ -13469,7 +13555,7 @@ DEFUN (no_ip_community_list_name_expanded_all,
        "Add an expanded community-list entry\n"
        "Community list name\n")
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED, 1);
 }
 
 DEFUN (no_ip_community_list_standard,
@@ -13483,7 +13569,7 @@ DEFUN (no_ip_community_list_standard,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD, 0);
 }
 
 DEFUN (no_ip_community_list_expanded,
@@ -13497,7 +13583,7 @@ DEFUN (no_ip_community_list_expanded,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED, 0);
 }
 
 DEFUN (no_ip_community_list_name_standard,
@@ -13512,7 +13598,21 @@ DEFUN (no_ip_community_list_name_standard,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD, 0);
+}
+
+DEFUN (no_ip_community_list_name_standard_brief,
+       no_ip_community_list_name_standard_brief_cmd,
+       "no ip community-list standard WORD (deny|permit)",
+       NO_STR
+       IP_STR
+       COMMUNITY_LIST_STR
+       "Specify a standard community-list\n"
+       "Community list name\n"
+       "Specify community to reject\n"
+       "Specify community to accept\n")
+{
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD, 0);
 }
 
 DEFUN (no_ip_community_list_name_expanded,
@@ -13527,7 +13627,7 @@ DEFUN (no_ip_community_list_name_expanded,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED, 0);
 }
 
 static void
@@ -13658,7 +13758,7 @@ extcommunity_list_set_vty (struct vty *vty, int argc, const char **argv,
 
 static int
 extcommunity_list_unset_vty (struct vty *vty, int argc, const char **argv,
-			     int style)
+			     int style, int delete_all)
 {
   int ret;
   int direct = 0;
@@ -13683,7 +13783,7 @@ extcommunity_list_unset_vty (struct vty *vty, int argc, const char **argv,
     }
 
   /* Unset community list.  */
-  ret = extcommunity_list_unset (bgp_clist, argv[0], str, direct, style);
+  ret = extcommunity_list_unset (bgp_clist, argv[0], str, direct, style, delete_all);
 
   /* Free temporary community list string allocated by
      argv_concat().  */
@@ -13784,7 +13884,20 @@ DEFUN (no_ip_extcommunity_list_standard_all,
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (standard)\n")
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD, 1);
+}
+
+DEFUN (no_ip_extcommunity_list_standard_direction,
+       no_ip_extcommunity_list_standard_direction_cmd,
+       "no ip extcommunity-list <1-99> (deny|permit)",
+       NO_STR
+       IP_STR
+       EXTCOMMUNITY_LIST_STR
+       "Extended Community list number (standard)\n"
+       "Specify community to reject\n"
+       "Specify community to accept\n")
+{
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD, 0);
 }
 
 DEFUN (no_ip_extcommunity_list_expanded_all,
@@ -13795,7 +13908,7 @@ DEFUN (no_ip_extcommunity_list_expanded_all,
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (expanded)\n")
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED, 1);
 }
 
 DEFUN (no_ip_extcommunity_list_name_standard_all,
@@ -13807,7 +13920,7 @@ DEFUN (no_ip_extcommunity_list_name_standard_all,
        "Specify standard extcommunity-list\n"
        "Extended Community list name\n")
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD, 1);
 }
 
 DEFUN (no_ip_extcommunity_list_name_expanded_all,
@@ -13819,7 +13932,7 @@ DEFUN (no_ip_extcommunity_list_name_expanded_all,
        "Specify expanded extcommunity-list\n"
        "Extended Community list name\n")
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED, 1);
 }
 
 DEFUN (no_ip_extcommunity_list_standard,
@@ -13833,7 +13946,7 @@ DEFUN (no_ip_extcommunity_list_standard,
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD, 0);
 }
 
 DEFUN (no_ip_extcommunity_list_expanded,
@@ -13847,7 +13960,7 @@ DEFUN (no_ip_extcommunity_list_expanded,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED, 0);
 }
 
 DEFUN (no_ip_extcommunity_list_name_standard,
@@ -13862,7 +13975,21 @@ DEFUN (no_ip_extcommunity_list_name_standard,
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD, 0);
+}
+
+DEFUN (no_ip_extcommunity_list_name_standard_brief,
+       no_ip_extcommunity_list_name_standard_brief_cmd,
+       "no ip extcommunity-list standard WORD (deny|permit)",
+       NO_STR
+       IP_STR
+       EXTCOMMUNITY_LIST_STR
+       "Specify standard extcommunity-list\n"
+       "Extended Community list name\n"
+       "Specify community to reject\n"
+       "Specify community to accept\n")
+{
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD, 0);
 }
 
 DEFUN (no_ip_extcommunity_list_name_expanded,
@@ -13877,7 +14004,7 @@ DEFUN (no_ip_extcommunity_list_name_expanded,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
-  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED, 0);
 }
 
 static void
@@ -14053,12 +14180,14 @@ community_list_vty (void)
   install_element (CONFIG_NODE, &ip_community_list_name_standard2_cmd);
   install_element (CONFIG_NODE, &ip_community_list_name_expanded_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_standard_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_community_list_standard_direction_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_expanded_all_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_name_standard_all_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_name_expanded_all_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_standard_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_expanded_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_name_standard_cmd);
+  install_element (CONFIG_NODE, &no_ip_community_list_name_standard_brief_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_name_expanded_cmd);
   install_element (VIEW_NODE, &show_ip_community_list_cmd);
   install_element (VIEW_NODE, &show_ip_community_list_arg_cmd);
@@ -14073,12 +14202,14 @@ community_list_vty (void)
   install_element (CONFIG_NODE, &ip_extcommunity_list_name_standard2_cmd);
   install_element (CONFIG_NODE, &ip_extcommunity_list_name_expanded_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_standard_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_extcommunity_list_standard_direction_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_expanded_all_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_standard_all_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_expanded_all_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_standard_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_expanded_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_standard_cmd);
+  install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_standard_brief_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_expanded_cmd);
   install_element (VIEW_NODE, &show_ip_extcommunity_list_cmd);
   install_element (VIEW_NODE, &show_ip_extcommunity_list_arg_cmd);

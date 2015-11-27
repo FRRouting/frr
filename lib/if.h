@@ -190,12 +190,6 @@ struct connected
      Note: destination may be NULL if ZEBRA_IFA_PEER is not set. */
   struct prefix *destination;
 
-  /* A list of unnumbered IFCs borrowing the address from me */
-  struct list *unnumbered;
-
-  /* Pointer to the anchor IFC if I'm unnumbered */
-  struct connected *anchor;
-
   /* Label for Linux 2.2.X and upper. */
   char *label;
 };
@@ -271,7 +265,6 @@ extern struct interface *if_lookup_by_index (unsigned int);
 extern struct interface *if_lookup_exact_address (void *matchaddr, int family);
 extern struct interface *if_lookup_address (void *matchaddr, int family);
 extern struct interface *if_lookup_prefix (struct prefix *prefix);
-extern struct connected *if_anchor_lookup_by_address (struct in_addr src);
 
 extern struct interface *if_create_vrf (const char *name, int namelen,
                                 vrf_id_t vrf_id);

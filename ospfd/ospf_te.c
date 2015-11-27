@@ -1417,8 +1417,8 @@ ospf_mpls_te_config_write_router (struct vty *vty)
 {
   if (OspfMplsTE.status == enabled)
     {
-      vty_out (vty, "  mpls-te%s", VTY_NEWLINE);
-      vty_out (vty, "  mpls-te router-address %s%s",
+      vty_out (vty, " mpls-te%s", VTY_NEWLINE);
+      vty_out (vty, " mpls-te router-address %s%s",
                inet_ntoa (OspfMplsTE.router_addr.value), VTY_NEWLINE);
     }
   return;
@@ -1535,6 +1535,13 @@ DEFUN (no_mpls_te,
 
   return CMD_SUCCESS;
 }
+
+ALIAS (no_mpls_te,
+       no_mpls_te_val_cmd,
+       "no mpls-te on",
+       NO_STR
+       "Configure MPLS-TE parameters\n"
+       "Disable the MPLS-TE functionality\n")
 
 DEFUN (mpls_te_router_addr,
        mpls_te_router_addr_cmd,
@@ -1908,6 +1915,7 @@ ospf_mpls_te_register_vty (void)
 
   install_element (OSPF_NODE, &mpls_te_cmd);
   install_element (OSPF_NODE, &no_mpls_te_cmd);
+  install_element (OSPF_NODE, &no_mpls_te_val_cmd);
   install_element (OSPF_NODE, &mpls_te_on_cmd);
   install_element (OSPF_NODE, &mpls_te_router_addr_cmd);
 

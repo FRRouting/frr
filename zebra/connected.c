@@ -79,20 +79,12 @@ connected_announce (struct interface *ifp, struct connected *ifc)
   if (!ifc)
     return;
 
-  if (ifc->address->family == AF_INET)
+  if (!if_is_loopback(ifp) && ifc->address->family == AF_INET)
     {
-      if ((ifc->anchor = if_anchor_lookup_by_address(ifc->address->u.prefix4)))
-	{
-	  /* found an anchor, so I'm unnumbered */
+      if (ifc->address->prefixlen == 32)
 	  SET_FLAG (ifc->flags, ZEBRA_IFA_UNNUMBERED);
-	  listnode_add (ifc->anchor->unnumbered, ifc);
-	}
       else
-	{
-	  /* I'm numbered */
 	  UNSET_FLAG (ifc->flags, ZEBRA_IFA_UNNUMBERED);
-	  ifc->unnumbered = list_new();
-	}
     }
 
   listnode_add (ifp->connected, ifc);
@@ -214,7 +206,7 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
   rib_add_ipv4 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, NULL, ifp->ifindex,
 	ifp->vrf_id, RT_TABLE_MAIN, ifp->metric, 0, SAFI_MULTICAST);
 
-  if (IS_ZEBRA_DEBUG_RIB)
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%s: calling rib_update", __func__);
 
   rib_update (ifp->vrf_id);
@@ -333,46 +325,10 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
   rib_delete_ipv4 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, ifp->ifindex, ifp->vrf_id, 0,
                    SAFI_MULTICAST);
 
-  if (IS_ZEBRA_DEBUG_RIB)
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%s: calling rib_update_static", __func__);
 
   rib_update_static (ifp->vrf_id);
-}
-
-void
-connected_delete_ipv4_unnumbered (struct connected *ifc)
-{
-  struct connected *new_anchor, *iter;
-  struct listnode *node;
-
-  if (CHECK_FLAG (ifc->flags, ZEBRA_IFA_UNNUMBERED))
-    {
-      listnode_delete (ifc->anchor->unnumbered, ifc);
-      ifc->anchor = NULL;
-    }
-  else /* I'm a numbered interface */
-    {
-      if (!list_isempty (ifc->unnumbered))
-        {
-          new_anchor = listgetdata (listhead (ifc->unnumbered));
-          new_anchor->unnumbered = ifc->unnumbered;
-          listnode_delete (new_anchor->unnumbered, new_anchor);
-          new_anchor->anchor = NULL;
-
-          /* new_anchor changed from unnumbered to numbered, notify clients */
-          zebra_interface_address_delete_update (new_anchor->ifp, new_anchor);
-          UNSET_FLAG (new_anchor->flags, ZEBRA_IFA_UNNUMBERED);
-          zebra_interface_address_add_update (new_anchor->ifp, new_anchor);
-
-          for (ALL_LIST_ELEMENTS_RO(new_anchor->unnumbered, node, iter))
-            iter->anchor = new_anchor;
-        }
-      else
-        {
-          list_free (ifc->unnumbered);
-          ifc->unnumbered = NULL;
-        }
-    }
 }
 
 /* Delete connected IPv4 route to the interface. */
@@ -392,11 +348,9 @@ connected_delete_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
   if (! ifc)
     return;
 
-  connected_delete_ipv4_unnumbered (ifc);
-
   connected_withdraw (ifc);
 
-  if (IS_ZEBRA_DEBUG_RIB)
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%s: calling rib_update_static", __func__);
 
   rib_update_static(ifp->vrf_id);
@@ -425,7 +379,7 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
   rib_add_ipv6 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, ifp->ifindex, ifp->vrf_id,
                 RT_TABLE_MAIN, ifp->metric, 0, SAFI_UNICAST);
 
-  if (IS_ZEBRA_DEBUG_RIB)
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%s: calling rib_update", __func__);
 
   rib_update (ifp->vrf_id);
@@ -514,7 +468,7 @@ connected_down_ipv6 (struct interface *ifp, struct connected *ifc)
   rib_delete_ipv6 (ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, ifp->ifindex,
                    ifp->vrf_id, 0, SAFI_UNICAST);
 
-  if (IS_ZEBRA_DEBUG_RIB)
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%s: calling rib_update_static", __func__);
 
   rib_update_static (ifp->vrf_id);
@@ -538,7 +492,7 @@ connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
 
   connected_withdraw (ifc);
 
-  if (IS_ZEBRA_DEBUG_RIB)
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%s: calling rib_update_static", __func__);
 
   rib_update_static(ifp->vrf_id);

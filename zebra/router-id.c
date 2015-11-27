@@ -257,8 +257,8 @@ DEFUN (no_router_id,
   rid.prefixlen = 0;
   rid.family = AF_INET;
 
-  if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+  if (argc > 1)
+    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
 
   router_id_set (&rid, vrf_id);
 
@@ -266,10 +266,18 @@ DEFUN (no_router_id,
 }
 
 ALIAS (no_router_id,
-       no_router_id_vrf_cmd,
-       "no router-id " VRF_CMD_STR,
+       no_router_id_val_cmd,
+       "no router-id A.B.C.D",
        NO_STR
        "Remove the manually configured router-id\n"
+       "IP address to use for router-id\n")
+
+ALIAS (no_router_id,
+       no_router_id_vrf_cmd,
+       "no router-id A.B.C.D " VRF_CMD_STR,
+       NO_STR
+       "Remove the manually configured router-id\n"
+       "IP address to use for router-id\n"
        VRF_CMD_HELP_STR)
 
 static int
@@ -287,6 +295,7 @@ router_id_cmd_init (void)
   install_element (CONFIG_NODE, &router_id_cmd);
   install_element (CONFIG_NODE, &no_router_id_cmd);
   install_element (CONFIG_NODE, &router_id_vrf_cmd);
+  install_element (CONFIG_NODE, &no_router_id_val_cmd);
   install_element (CONFIG_NODE, &no_router_id_vrf_cmd);
 }
 

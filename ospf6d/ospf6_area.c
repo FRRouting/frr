@@ -535,11 +535,11 @@ ALIAS (area_range,
 DEFUN (no_area_range,
        no_area_range_cmd,
        "no area A.B.C.D range X:X::X:X/M",
+       NO_STR
        "OSPF area parameters\n"
        OSPF6_AREA_ID_STR
        "Configured address range\n"
-       "Specify IPv6 prefix\n"
-       )
+       "Specify IPv6 prefix\n")
 {
   int ret;
   struct ospf6_area *oa;
@@ -584,6 +584,37 @@ DEFUN (no_area_range,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_area_range,
+       no_area_range_advertise_cmd,
+       "no area A.B.C.D range X:X::X:X/M (advertise|not-advertise)",
+       NO_STR
+       "OSPF area parameters\n"
+       OSPF6_AREA_ID_STR
+       "Configured address range\n"
+       "Specify IPv6 prefix\n")
+
+ALIAS (no_area_range,
+       no_area_range_cost_cmd,
+       "no area (A.B.C.D|<0-4294967295>) range X:X::X:X/M cost <0-16777215>",
+       NO_STR
+       "OSPF area parameters\n"
+       OSPF6_AREA_ID_STR
+       "Summarize routes matching address/mask (border routers only)\n"
+       "Area range prefix\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
+
+ALIAS (no_area_range,
+       no_area_range_advertise_cost_cmd,
+       "no area (A.B.C.D|<0-4294967295>) range X:X::X:X/M advertise cost <0-16777215>",
+       NO_STR
+       "OSPF area parameters\n"
+       OSPF6_AREA_ID_STR
+       "Summarize routes matching address/mask (border routers only)\n"
+       "Area range prefix\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
+
 void
 ospf6_area_config_write (struct vty *vty)
 {
@@ -598,7 +629,20 @@ ospf6_area_config_write (struct vty *vty)
            range = ospf6_route_next (range))
         {
           prefix2str (&range->prefix, buf, sizeof (buf));
-          vty_out (vty, " area %s range %s%s", oa->name, buf, VNL);
+          vty_out (vty, " area %s range %s", oa->name, buf);
+
+          if (CHECK_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE))
+            {
+              vty_out (vty, " not-advertise");
+            }
+          else
+            {
+              // "advertise" is the default so we do not display it
+              if (range->path.u.cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
+                vty_out (vty, " cost %d", range->path.u.cost_config);
+            }
+          vty_out (vty, "%s", VNL);
+
         }
       if (IS_AREA_STUB (oa))
 	{
@@ -1054,6 +1098,9 @@ ospf6_area_init (void)
   install_element (OSPF6_NODE, &area_range_cost_cmd);
   install_element (OSPF6_NODE, &area_range_advertise_cost_cmd);
   install_element (OSPF6_NODE, &no_area_range_cmd);
+  install_element (OSPF6_NODE, &no_area_range_advertise_cmd);
+  install_element (OSPF6_NODE, &no_area_range_cost_cmd);
+  install_element (OSPF6_NODE, &no_area_range_advertise_cost_cmd);
   install_element (OSPF6_NODE, &ospf6_area_stub_no_summary_cmd);
   install_element (OSPF6_NODE, &ospf6_area_stub_cmd);
   install_element (OSPF6_NODE, &no_ospf6_area_stub_no_summary_cmd);

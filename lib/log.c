@@ -1021,7 +1021,7 @@ zlog_hexdump (void *mem, unsigned int len) {
               if (j >= len) /* end of block, not really printing */
                 s += sprintf(s, " ");
 
-              else if(isprint(((char*)mem)[j])) /* printable char */
+              else if(isprint((int)((char*)mem)[j])) /* printable char */
                 s += sprintf(s, "%c", 0xFF & ((char*)mem)[j]);
 
               else /* other char */

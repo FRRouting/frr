@@ -1370,6 +1370,14 @@ DEFUN (no_auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_auto_cost_reference_bandwidth,
+       no_auto_cost_reference_bandwidth_val_cmd,
+       "no auto-cost reference-bandwidth <1-4294967>",
+       NO_STR
+       "Calculate OSPF interface cost according to bandwidth\n"
+       "Use reference bandwidth method to assign OSPF cost\n"
+       "The reference bandwidth in terms of Mbits per second\n")
+
 DEFUN (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
        "ipv6 ospf6 hello-interval <1-65535>",
@@ -1933,6 +1941,7 @@ ospf6_interface_init (void)
   /* reference bandwidth commands */
   install_element (OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);
   install_element (OSPF6_NODE, &no_auto_cost_reference_bandwidth_cmd);
+  install_element (OSPF6_NODE, &no_auto_cost_reference_bandwidth_val_cmd);
 }
 
 /* Clear the specified interface structure */

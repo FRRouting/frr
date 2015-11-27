@@ -2285,6 +2285,17 @@ DEFUN (config_table,
   return CMD_SUCCESS;
 }
 
+DEFUN (no_config_table,
+       no_config_table_cmd,
+       "no table TABLENO",
+       NO_STR
+       "Configure target kernel routing table\n"
+       "TABLE integer\n")
+{
+  zebrad.rtm_table_default = 0;
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_forwarding,
        ip_forwarding_cmd,
        "ip forwarding",
@@ -2529,6 +2540,7 @@ zebra_init (void)
   install_element (VIEW_NODE, &show_table_cmd);
   install_element (ENABLE_NODE, &show_table_cmd);
   install_element (CONFIG_NODE, &config_table_cmd);
+  install_element (CONFIG_NODE, &no_config_table_cmd);
 #endif /* HAVE_NETLINK */
 
 #ifdef HAVE_IPV6

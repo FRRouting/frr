@@ -34,7 +34,7 @@
 #define ZEBRA_DEBUG_KERNEL  0x01
 
 #define ZEBRA_DEBUG_RIB     0x01
-#define ZEBRA_DEBUG_RIB_Q   0x02
+#define ZEBRA_DEBUG_RIB_DETAILED   0x02
 
 #define ZEBRA_DEBUG_FPM     0x01
 #define ZEBRA_DEBUG_NHT     0x01
@@ -49,8 +49,9 @@
 
 #define IS_ZEBRA_DEBUG_KERNEL (zebra_debug_kernel & ZEBRA_DEBUG_KERNEL)
 
-#define IS_ZEBRA_DEBUG_RIB  (zebra_debug_rib & ZEBRA_DEBUG_RIB)
-#define IS_ZEBRA_DEBUG_RIB_Q  (zebra_debug_rib & ZEBRA_DEBUG_RIB_Q)
+#define IS_ZEBRA_DEBUG_RIB \
+        (zebra_debug_rib & (ZEBRA_DEBUG_RIB | ZEBRA_DEBUG_RIB_DETAILED))
+#define IS_ZEBRA_DEBUG_RIB_DETAILED  (zebra_debug_rib & ZEBRA_DEBUG_RIB_DETAILED)
 
 #define IS_ZEBRA_DEBUG_FPM (zebra_debug_fpm & ZEBRA_DEBUG_FPM)
 #define IS_ZEBRA_DEBUG_NHT  (zebra_debug_nht & ZEBRA_DEBUG_NHT)

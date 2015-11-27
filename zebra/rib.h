@@ -259,16 +259,7 @@ struct static_route
                                       : ((tnexthop) = (nexthop)->next)) \
                        : (((recursing) = 0),((tnexthop) = (tnexthop)->next)))
 
-/* Router advertisement feature. */
-#ifndef RTADV
-#if (defined(LINUX_IPV6) && (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1)) || defined(KAME)
-  #ifdef HAVE_RTADV
-    #define RTADV
-  #endif
-#endif
-#endif
-
-#if defined (RTADV)
+#if defined (HAVE_RTADV)
 /* Structure which hold status of router advertisement. */
 struct rtadv
 {
@@ -280,7 +271,7 @@ struct rtadv
   struct thread *ra_read;
   struct thread *ra_timer;
 };
-#endif /* RTADV */
+#endif /* HAVE_RTADV */
 
 #ifdef HAVE_NETLINK
 /* Socket interface to kernel */
@@ -338,9 +329,9 @@ struct zebra_vrf
   struct list *rid_lo_sorted_list;
   struct prefix rid_user_assigned;
 
-#if defined (RTADV)
+#if defined (HAVE_RTADV)
   struct rtadv rtadv;
-#endif /* RTADV */
+#endif /* HAVE_RTADV */
 };
 
 /*

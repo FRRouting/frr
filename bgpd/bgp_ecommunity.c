@@ -260,6 +260,12 @@ ecommunity_cmp (const void *arg1, const void *arg2)
 {
   const struct ecommunity *ecom1 = arg1;
   const struct ecommunity *ecom2 = arg2;
+
+  if (ecom1 == NULL && ecom2 == NULL)
+    return 1;
+
+  if (ecom1 == NULL || ecom2 == NULL)
+    return 0;
   
   return (ecom1->size == ecom2->size
 	  && memcmp (ecom1->val, ecom2->val, ecom1->size * ECOMMUNITY_SIZE) == 0);

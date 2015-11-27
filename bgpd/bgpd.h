@@ -476,7 +476,6 @@ struct peer
 
   /* BGP peer group.  */
   struct peer_group *group;
-  u_char af_group[AFI_MAX][SAFI_MAX];
   u_int64_t version[AFI_MAX][SAFI_MAX];
 
   /* BGP peer_af structures, per configured AF on this peer */
@@ -1054,36 +1053,33 @@ enum bgp_clear_type
 #define BGP_ERR_INVALID_BGP                      -4
 #define BGP_ERR_PEER_GROUP_MEMBER                -5
 #define BGP_ERR_MULTIPLE_INSTANCE_USED           -6
-#define BGP_ERR_PEER_GROUP_MEMBER_EXISTS         -7
-#define BGP_ERR_PEER_BELONGS_TO_GROUP            -8
-#define BGP_ERR_PEER_GROUP_AF_UNCONFIGURED       -9
-#define BGP_ERR_PEER_GROUP_NO_REMOTE_AS         -10
-#define BGP_ERR_PEER_GROUP_CANT_CHANGE          -11
-#define BGP_ERR_PEER_GROUP_MISMATCH             -12
-#define BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT  -13
-#define BGP_ERR_MULTIPLE_INSTANCE_NOT_SET       -14
-#define BGP_ERR_AS_MISMATCH                     -15
-#define BGP_ERR_PEER_FLAG_CONFLICT              -16
-#define BGP_ERR_PEER_GROUP_SHUTDOWN             -17
-#define BGP_ERR_PEER_FILTER_CONFLICT            -18
-#define BGP_ERR_NOT_INTERNAL_PEER               -19
-#define BGP_ERR_REMOVE_PRIVATE_AS               -20
-#define BGP_ERR_AF_UNCONFIGURED                 -21
-#define BGP_ERR_SOFT_RECONFIG_UNCONFIGURED      -22
-#define BGP_ERR_INSTANCE_MISMATCH               -23
-#define BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP  -24
-#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS    -25
-#define BGP_ERR_TCPSIG_FAILED			-26
-#define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-27
-#define BGP_ERR_NO_IBGP_WITH_TTLHACK		-28
-#define BGP_ERR_NO_INTERFACE_CONFIG             -29
-#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS    -30
-#define BGP_ERR_AS_OVERRIDE                     -31
-#define BGP_ERR_INVALID_DYNAMIC_NEIGHBORS_LIMIT -32
-#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS  -33
-#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND -34
-#define BGP_ERR_INVALID_FOR_DYNAMIC_PEER        -35
-#define BGP_ERR_MAX                             -36
+#define BGP_ERR_PEER_GROUP_NO_REMOTE_AS          -7
+#define BGP_ERR_PEER_GROUP_CANT_CHANGE           -8
+#define BGP_ERR_PEER_GROUP_MISMATCH              -9
+#define BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT  -10
+#define BGP_ERR_MULTIPLE_INSTANCE_NOT_SET       -11
+#define BGP_ERR_AS_MISMATCH                     -12
+#define BGP_ERR_PEER_FLAG_CONFLICT              -13
+#define BGP_ERR_PEER_GROUP_SHUTDOWN             -14
+#define BGP_ERR_PEER_FILTER_CONFLICT            -15
+#define BGP_ERR_NOT_INTERNAL_PEER               -16
+#define BGP_ERR_REMOVE_PRIVATE_AS               -17
+#define BGP_ERR_AF_UNCONFIGURED                 -18
+#define BGP_ERR_SOFT_RECONFIG_UNCONFIGURED      -19
+#define BGP_ERR_INSTANCE_MISMATCH               -20
+#define BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP  -21
+#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS    -22
+#define BGP_ERR_TCPSIG_FAILED			-23
+#define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-24
+#define BGP_ERR_NO_IBGP_WITH_TTLHACK		-25
+#define BGP_ERR_NO_INTERFACE_CONFIG             -26
+#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS    -27
+#define BGP_ERR_AS_OVERRIDE                     -28
+#define BGP_ERR_INVALID_DYNAMIC_NEIGHBORS_LIMIT -29
+#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS  -30
+#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND -31
+#define BGP_ERR_INVALID_FOR_DYNAMIC_PEER        -32
+#define BGP_ERR_MAX                             -33
 
 /*
  * Enumeration of different policy kinds a peer can be configured with.
@@ -1208,9 +1204,8 @@ extern int peer_activate (struct peer *, afi_t, safi_t);
 extern int peer_deactivate (struct peer *, afi_t, safi_t);
 
 extern int peer_group_bind (struct bgp *, union sockunion *, struct peer *,
-                            struct peer_group *, afi_t, safi_t, as_t *);
-extern int peer_group_unbind (struct bgp *, struct peer *, struct peer_group *,
-		       afi_t, safi_t);
+                            struct peer_group *, as_t *);
+extern int peer_group_unbind (struct bgp *, struct peer *, struct peer_group *);
 
 extern int peer_flag_set (struct peer *, u_int32_t);
 extern int peer_flag_unset (struct peer *, u_int32_t);
@@ -1339,15 +1334,11 @@ afindex (afi_t afi, safi_t safi)
     }
 }
 
-/* If peer is configured at least one address family return 1. */
+/* If the peer is not a peer-group but is bound to a peer-group return 1 */
 static inline int
 peer_group_active (struct peer *peer)
 {
-  if (peer->af_group[AFI_IP][SAFI_UNICAST]
-      || peer->af_group[AFI_IP][SAFI_MULTICAST]
-      || peer->af_group[AFI_IP][SAFI_MPLS_VPN]
-      || peer->af_group[AFI_IP6][SAFI_UNICAST]
-      || peer->af_group[AFI_IP6][SAFI_MULTICAST])
+  if (!CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP) && peer->group)
     return 1;
   return 0;
 }
