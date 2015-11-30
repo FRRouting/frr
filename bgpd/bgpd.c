@@ -83,7 +83,7 @@ struct bgp_master *bm;
 struct community_list_handler *bgp_clist;
 
 
-static inline void
+void
 bgp_session_reset(struct peer *peer)
 {
   if (peer->doppelganger && (peer->doppelganger->status != Deleted)
@@ -99,7 +99,7 @@ bgp_session_reset(struct peer *peer)
  * during walk of peer list, we would end up accessing the freed next
  * node. This function moves the next node along.
  */
-static inline void
+static void
 bgp_session_reset_safe(struct peer *peer, struct listnode **nnode)
 {
   struct listnode *n;
@@ -1434,46 +1434,6 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
   return peer;
 }
 
-struct peer *
-peer_conf_interface_get(struct bgp *bgp, const char *conf_if, afi_t afi,
-                        safi_t safi, int v6only)
-{
-  struct peer *peer;
-
-  peer = peer_lookup_by_conf_if (bgp, conf_if);
-  if (!peer)
-    {
-      if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4)
-          && afi == AFI_IP && safi == SAFI_UNICAST)
-        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, AS_UNSPECIFIED, 0, 0);
-      else
-        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, AS_UNSPECIFIED, afi, safi);
-
-      if (peer && v6only)
-	SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-    }
-  else if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) ||
-	   (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)))
-    {
-      if (v6only)
-	SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-      else
-	UNSET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-
-      /* v6only flag changed. Reset bgp seesion */
-      if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-	{
-	  peer->last_reset = PEER_DOWN_V6ONLY_CHANGE;
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE,
-			   BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-	}
-      else
-	bgp_session_reset(peer);
-    }
-
-  return peer;
-}
-
 /* Make accept BGP peer. This function is only called from the test code */
 struct peer *
 peer_create_accept (struct bgp *bgp)
@@ -2540,7 +2500,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
     {
       /* When the peer already belongs to peer group, check the consistency.  */
       if (peer_group_active (peer) && strcmp (peer->group->name, group->name) != 0)
-        return BGP_ERR_PEER_GROUP_MISMATCH;
+        return BGP_ERR_PEER_GROUP_CANT_CHANGE;
 
       /* The peer has not specified a remote-as, inherit it from the
        * peer-group */
@@ -6135,9 +6095,14 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
   if (peer->conf_if)
     {
       if (CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
-        vty_out (vty, " neighbor %s interface v6only %s", addr, VTY_NEWLINE);
+        vty_out (vty, " neighbor %s interface v6only", addr);
       else
-        vty_out (vty, " neighbor %s interface%s", addr, VTY_NEWLINE);
+        vty_out (vty, " neighbor %s interface", addr);
+
+      if (peer_group_active (peer))
+         vty_out (vty, " peer-group %s", peer->group->name);
+
+      vty_out (vty, "%s", VTY_NEWLINE);
     }
 
   /* remote-as and peer-group */
@@ -6163,8 +6128,11 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
             }
         }
 
-      vty_out (vty, " neighbor %s peer-group %s%s", addr,
-               peer->group->name, VTY_NEWLINE);
+      /* For swpX peers we displayed the peer-group
+       * via 'neighbor swpX interface peer-group WORD' */
+      if (!peer->conf_if)
+          vty_out (vty, " neighbor %s peer-group %s%s", addr,
+                   peer->group->name, VTY_NEWLINE);
     }
 
   /* peer is NOT a member of a peer-group */

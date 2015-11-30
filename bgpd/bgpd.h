@@ -1107,8 +1107,6 @@ extern struct bgp *bgp_lookup_by_name (const char *);
 extern struct peer *peer_lookup (struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if (struct bgp *, const char *);
 extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);
-extern struct peer *peer_conf_interface_get(struct bgp *, const char *, afi_t,
-                                            safi_t, int v6only);
 extern void  bgp_peer_conf_if_to_su_update (struct peer *);
 extern int peer_group_listen_range_del(struct peer_group *, struct prefix *);
 extern struct peer_group *peer_group_lookup (struct bgp *, const char *);
@@ -1150,6 +1148,7 @@ extern void bgp_master_init (void);
 
 extern void bgp_init (void);
 extern void bgp_route_map_init (void);
+extern void bgp_session_reset (struct peer *);
 
 extern int bgp_option_set (int);
 extern int bgp_option_unset (int);
