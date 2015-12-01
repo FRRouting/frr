@@ -690,8 +690,8 @@ free_state (struct rib *rib, struct route_node *rn)
     return;
 
   /* free RIB and nexthops */
-  nexthops_free(rib->nexthop);
   zebra_deregister_rnh_static_nexthops (rib->nexthop, rn);
+  nexthops_free(rib->nexthop);
   XFREE (MTYPE_RIB, rib);
 }
 
