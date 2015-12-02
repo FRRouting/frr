@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Christian Hammers <ch@debian.org>
 Uploaders: Florian Weimer <fw@debian.org>
-Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, po-debconf, autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath, libsnmp-dev
+Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, po-debconf, autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath, libsnmp-dev, git, dh-autoreconf, libjson0, libjson0-dev
 Standards-Version: 3.9.4
 Homepage: http://www.quagga.net/
 XS-Testsuite: autopkgtest
