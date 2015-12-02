@@ -175,6 +175,7 @@ Set the route's weight.
 @end deffn
 
 @deffn {Route-map Command} {set metric @var{metric}} {}
+@anchor{routemap set metric}
 Set the BGP attribute MED.
 @end deffn
 

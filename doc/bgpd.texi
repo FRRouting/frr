@@ -1,6 +1,8 @@
 @c -*-texinfo-*-
 @c This is part of the Quagga Manual.
 @c @value{COPYRIGHT_STR}
+@c Portions: 
+@c   Copyright @copyright{} 2015 Hewlett Packard Enterprise Development LP
 @c See file quagga.texi for copying conditions.
 @node BGP
 @chapter BGP
@@ -18,6 +20,7 @@ BGP-4.
 @menu
 * Starting BGP::                
 * BGP router::                  
+* BGP MED::
 * BGP network::                 
 * BGP Peer::                    
 * BGP Peer Group::              
@@ -53,6 +56,13 @@ Set the bgp protocol's port number.
 @item -r
 @itemx --retain
 When program terminates, retain BGP routes added by zebra.
+
+@item -l
+@itemx --listenon
+Specify a specific IP address for bgpd to listen on, rather than its 
+default of INADDR_ANY / IN6ADDR_ANY. This can be useful to constrain bgpd
+to an internal address, or to run multiple bgpd processes on one host.
+
 @end table
 
 @node BGP router
@@ -104,18 +114,65 @@ This command set distance value to
 @node BGP decision process
 @subsection BGP decision process
 
+The decision process Quagga BGP uses to select routes is as follows:
+
 @table @asis
 @item 1. Weight check
+prefer higher local weight routes to lower routes.
   
-@item 2. Local preference check.
+@item 2. Local preference check
+prefer higher local preference routes to lower.
 
-@item 3. Local route check.
+@item 3. Local route check
+Prefer local routes (statics, aggregates, redistributed) to received routes.
 
-@item 4. AS path length check.
+@item 4. AS path length check
+Prefer shortest hop-count AS_PATHs. 
 
-@item 5. Origin check.
+@item 5. Origin check
+Prefer the lowest origin type route.  That is, prefer IGP origin routes to
+EGP, to Incomplete routes. 
 
-@item 6. MED check.
+@item 6. MED check
+Where routes with a MED were received from the same AS,
+prefer the route with the lowest MED. @xref{BGP MED}.
+
+@item 7. External check
+Prefer the route received from an external, eBGP peer
+over routes received from other types of peers.
+
+@item 8. IGP cost check
+Prefer the route with the lower IGP cost.
+
+@item 9. Multi-path check
+If multi-pathing is enabled, then check whether
+the routes not yet distinguished in preference may be considered equal. If
+@ref{bgp bestpath as-path multipath-relax} is set, all such routes are
+considered equal, otherwise routes received via iBGP with identical AS_PATHs
+or routes received from eBGP neighbours in the same AS are considered equal.
+
+@item 10 Already-selected external check
+
+Where both routes were received from eBGP peers, then prefer the route which
+is already selected.  Note that this check is not applied if @ref{bgp
+bestpath compare-routerid} is configured.  This check can prevent some cases
+of oscillation.
+
+@item 11. Router-ID check
+Prefer the route with the lowest @w{router-ID}.  If the
+route has an @w{ORIGINATOR_ID} attribute, through iBGP reflection, then that
+router ID is used, otherwise the @w{router-ID} of the peer the route was
+received from is used.
+
+@item 12. Cluster-List length check
+The route with the shortest cluster-list
+length is used.  The cluster-list reflects the iBGP reflection path the
+route has taken.
+
+@item 13. Peer address
+Prefer the route received from the peer with the higher
+transport layer address, as a last-resort tie-breaker.
+
 @end table
 
 @deffn {BGP} {bgp bestpath as-path confed} {}
@@ -125,10 +182,35 @@ decision process.
 @end deffn
 
 @deffn {BGP} {bgp bestpath as-path multipath-relax} {}
+@anchor{bgp bestpath as-path multipath-relax}
 This command specifies that BGP decision process should consider paths
 of equal AS_PATH length candidates for multipath computation. Without
 the knob, the entire AS_PATH must match for multipath computation.
 @end deffn
+
+@deffn {BGP} {bgp bestpath compare-routerid} {}
+@anchor{bgp bestpath compare-routerid}
+
+Ensure that when comparing routes where both are equal on most metrics,
+including local-pref, AS_PATH length, IGP cost, MED, that the tie is broken
+based on router-ID.
+
+If this option is enabled, then the already-selected check, where
+already selected eBGP routes are preferred, is skipped.
+
+If a route has an @w{ORIGINATOR_ID} attribute because it has been reflected,
+that @w{ORIGINATOR_ID} will be used.  Otherwise, the router-ID of the peer the
+route was received from will be used.
+
+The advantage of this is that the route-selection (at this point) will be
+more deterministic.  The disadvantage is that a few or even one lowest-ID
+router may attract all trafic to otherwise-equal paths because of this
+check.  It may increase the possibility of MED or IGP oscillation, unless
+other measures were taken to avoid these.  The exact behaviour will be
+sensitive to the iBGP and reflection topology.
+
+@end deffn
+
 
 @node BGP route flap dampening
 @subsection BGP route flap dampening
@@ -150,6 +232,285 @@ Maximum duration to suppress a stable route
 The route-flap damping algorithm is compatible with @cite{RFC2439}. The use of this command
 is not recommended nowadays, see @uref{http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378}.
 @end deffn
+
+@node BGP MED
+@section BGP MED
+
+The BGP MED (Multi_Exit_Discriminator) attribute has properties which can
+cause subtle convergence problems in BGP.  These properties and problems
+have proven to be hard to understand, at least historically, and may still
+not be widely understood.  The following attempts to collect together and
+present what is known about MED, to help operators and Quagga users in
+designing and configuring their networks.
+
+The BGP @acronym{MED, Multi_Exit_Discriminator} attribute is intended to
+allow one AS to indicate its preferences for its ingress points to another
+AS.  The MED attribute will not be propagated on to another AS by the
+receiving AS - it is `non-transitive' in the BGP sense.
+
+E.g., if AS X and AS Y have 2 different BGP peering points, then AS X
+might set a MED of 100 on routes advertised at one and a MED of 200 at the
+other.  When AS Y selects between otherwise equal routes to or via
+AS X, AS Y should prefer to take the path via the lower MED peering of 100 with
+AS X.  Setting the MED allows an AS to influence the routing taken to it
+within another, neighbouring AS.
+
+In this use of MED it is not really meaningful to compare the MED value on
+routes where the next AS on the paths differs.  E.g., if AS Y also had a
+route for some destination via AS Z in addition to the routes from AS X, and
+AS Z had also set a MED, it wouldn't make sense for AS Y to compare AS Z's
+MED values to those of AS X.  The MED values have been set by different
+administrators, with different frames of reference.
+
+The default behaviour of BGP therefore is to not compare MED values across
+routes received from different neighbouring ASes.  In Quagga this is done by
+comparing the neighbouring, left-most AS in the received AS_PATHs of the
+routes and only comparing MED if those are the same.
+
+@c TeXInfo uses the old, non-UTF-8 capable, pdftex, and so 
+@c doesn't render TeX the unicode precedes character correctly in PDF, etc.
+@c Using a TeX code on the other hand doesn't work for non-TeX outputs
+@c (plaintext, e.g.). So, use an output-conditional macro.
+
+@iftex
+@macro mprec{}
+@math{\\prec}
+@end macro
+@end iftex
+
+@ifnottex
+@macro mprec{}
+@math{≺}
+@end macro
+@end ifnottex
+
+Unfortunately, this behaviour of MED, of sometimes being compared across
+routes and sometimes not, depending on the properties of those other routes,
+means MED can cause the order of preference over all the routes to be
+undefined.  That is, given routes A, B, and C, if A is preferred to B, and B
+is preferred to C, then a well-defined order should mean the preference is
+transitive (in the sense of orders @footnote{For some set of objects to have
+an order, there @emph{must} be some binary ordering relation that is defined
+for @emph{every} combination of those objects, and that relation @emph{must}
+be transitive.  I.e.@:, if the relation operator is @mprec{}, and if 
+a @mprec{} b and b @mprec{} c then that relation must carry over
+and it @emph{must} be that a @mprec{} c for the objects to have an
+order.  The ordering relation may allow for equality, i.e. 
+a @mprec{} b and b @mprec{} a may both be true amd imply that
+a and b are equal in the order and not distinguished by it, in
+which case the set has a partial order.  Otherwise, if there is an order,
+all the objects have a distinct place in the order and the set has a total
+order.}) and that A would be preferred to C.
+
+@c No longer need the precedes character definition
+@unmacro mprec
+
+However, when MED is involved this need not be the case.  With MED it is
+possible that C is actually preferred over A.  So A is preferred to B, B is
+preferred to C, but C is preferred to A.  This can be true even where BGP
+defines a deterministic ``most preferred'' route out of the full set of
+A,B,C.  With MED, for any given set of routes there may be a
+deterministically preferred route, but there need not be any way to arrange
+them into any order of preference.  With unmodified MED, the order of
+preference of routes literally becomes undefined.
+
+That MED can induce non-transitive preferences over routes can cause issues. 
+Firstly, it may be perceived to cause routing table churn locally at
+speakers; secondly, and more seriously, it may cause routing instability in
+iBGP topologies, where sets of speakers continually oscillate between
+different paths.
+
+The first issue arises from how speakers often implement routing decisions. 
+Though BGP defines a selection process that will deterministically select
+the same route as best at any given speaker, even with MED, that process
+requires evaluating all routes together.  For performance and ease of
+implementation reasons, many implementations evaluate route preferences in a
+pair-wise fashion instead.  Given there is no well-defined order when MED is
+involved, the best route that will be chosen becomes subject to
+implementation details, such as the order the routes are stored in.  That
+may be (locally) non-deterministic, e.g.@: it may be the order the routes
+were received in.  
+
+This indeterminism may be considered undesirable, though it need not cause
+problems.  It may mean additional routing churn is perceived, as sometimes
+more updates may be produced than at other times in reaction to some event .
+
+This first issue can be fixed with a more deterministic route selection that
+ensures routes are ordered by the neighbouring AS during selection. 
+@xref{bgp deterministic-med}.  This may reduce the number of updates as
+routes are received, and may in some cases reduce routing churn.  Though, it
+could equally deterministically produce the largest possible set of updates
+in response to the most common sequence of received updates.
+
+A deterministic order of evaluation tends to imply an additional overhead of
+sorting over any set of n routes to a destination.  The implementation of
+deterministic MED in Quagga scales significantly worse than most sorting
+algorithms at present, with the number of paths to a given destination. 
+That number is often low enough to not cause any issues, but where there are
+many paths, the deterministic comparison may quickly become increasingly
+expensive in terms of CPU.
+
+Deterministic local evaluation can @emph{not} fix the second, more major,
+issue of MED however.  Which is that the non-transitive preference of routes
+MED can cause may lead to routing instability or oscillation across multiple
+speakers in iBGP topologies.  This can occur with full-mesh iBGP, but is
+particularly problematic in non-full-mesh iBGP topologies that further
+reduce the routing information known to each speaker.  This has primarily
+been documented with iBGP route-reflection topologies.  However, any
+route-hiding technologies potentially could also exacerbate oscillation with
+MED.
+
+This second issue occurs where speakers each have only a subset of routes,
+and there are cycles in the preferences between different combinations of
+routes - as the undefined order of preference of MED allows - and the routes
+are distributed in a way that causes the BGP speakers to 'chase' those
+cycles.  This can occur even if all speakers use a deterministic order of
+evaluation in route selection.
+
+E.g., speaker 4 in AS A might receive a route from speaker 2 in AS X, and
+from speaker 3 in AS Y; while speaker 5 in AS A might receive that route
+from speaker 1 in AS Y.  AS Y might set a MED of 200 at speaker 1, and 100
+at speaker 3. I.e, using ASN:ID:MED to label the speakers:
+
+@example
+
+           /---------------\
+ X:2------|--A:4-------A:5--|-Y:1:200
+ Y:3:100--|-/               |
+           \---------------/
+
+@end example
+
+Assuming all other metrics are equal (AS_PATH, ORIGIN, 0 IGP costs), then
+based on the RFC4271 decision process speaker 4 will choose X:2 over
+Y:3:100, based on the lower ID of 2.  Speaker 4 advertises X:2 to speaker 5. 
+Speaker 5 will continue to prefer Y:1:200 based on the ID, and advertise
+this to speaker 4.  Speaker 4 will now have the full set of routes, and the
+Y:1:200 it receives from 5 will beat X:2, but when speaker 4 compares
+Y:1:200 to Y:3:100 the MED check now becomes active as the ASes match, and
+now Y:3:100 is preferred.  Speaker 4 therefore now advertises Y:3:100 to 5,
+which will also agrees that Y:3:100 is preferred to Y:1:200, and so
+withdraws the latter route from 4.  Speaker 4 now has only X:2 and Y:3:100,
+and X:2 beats Y:3:100, and so speaker 4 implicitly updates its route to
+speaker 5 to X:2.  Speaker 5 sees that Y:1:200 beats X:2 based on the ID,
+and advertises Y:1:200 to speaker 4, and the cycle continues.
+
+The root cause is the lack of a clear order of preference caused by how MED
+sometimes is and sometimes is not compared, leading to this cycle in the
+preferences between the routes:
+
+@example
+
+       /---> X:2 ---beats---> Y:3:100 --\
+      |                                  |
+      |                                  |
+       \---beats--- Y:1:200 <---beats---/
+
+@end example
+
+This particular type of oscillation in full-mesh iBGP topologies can  be
+avoided by speakers preferring already selected, external routes rather than
+choosing to update to new a route based on a post-MED metric (e.g. 
+router-ID), at the cost of a non-deterministic selection process.  Quagga
+implements this, as do many other implementations, so long as it is not
+overridden by setting @ref{bgp bestpath compare-routerid}, and see also
+@ref{BGP decision process}, .
+
+However, more complex and insidious cycles of oscillation are possible with
+iBGP route-reflection, which are not so easily avoided.  These have been
+documented in various places.  See, e.g., @cite{McPherson, D.  and Gill, V. 
+and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation
+Condition", IETF RFC3345}, and @cite{Flavel, A.  and M.  Roughan, "Stable
+and flexible iBGP", ACM SIGCOMM 2009}, and @cite{Griffin, T.  and G.  Wilfong, 
+"On the correctness of IBGP configuration", ACM SIGCOMM 2002} for concrete 
+examples and further references.
+
+There is as of this writing @emph{no} known way to use MED for its original
+purpose; @emph{and} reduce routing information in iBGP topologies;
+@emph{and} be sure to avoid the instability problems of MED due the
+non-transitive routing preferences it can induce; in general on arbitrary
+networks.
+
+There may be iBGP topology specific ways to reduce the instability risks,
+even while using MED, e.g.@: by constraining the reflection topology and by
+tuning IGP costs between route-reflector clusters, see RFC3345 for details. 
+In the near future, the Add-Path extension to BGP may also solve MED
+oscillation while still allowing MED to be used as intended, by distributing
+"best-paths per neighbour AS".  This would be at the cost of distributing at
+least as many routes to all speakers as a full-mesh iBGP would, if not more,
+while also imposing similar CPU overheads as the "Deterministic MED" feature
+at each Add-Path reflector.
+
+More generally, the instability problems that MED can introduce on more
+complex, non-full-mesh, iBGP topologies may be avoided either by:
+
+@itemize 
+
+@item
+Setting @ref{bgp always-compare-med}, however this allows MED to be compared
+across values set by different neighbour ASes, which may not produce
+coherent desirable results, of itself.
+
+@item 
+Effectively ignoring MED by setting MED to the same value (e.g.@: 0) using
+@ref{routemap set metric} on all received routes, in combination with
+setting @ref{bgp always-compare-med} on all speakers. This is the simplest
+and most performant way to avoid MED oscillation issues, where an AS is happy
+not to allow neighbours to inject this problematic metric.
+
+@end itemize
+
+As MED is evaluated after the AS_PATH length check, another possible use for
+MED is for intra-AS steering of routes with equal AS_PATH length, as an
+extension of the last case above.  As MED is evaluated before IGP metric,
+this can allow cold-potato routing to be implemented to send traffic to
+preferred hand-offs with neighbours, rather than the closest hand-off
+according to the IGP metric.
+
+Note that even if action is taken to address the MED non-transitivity
+issues, other oscillations may still be possible.  E.g., on IGP cost if
+iBGP and IGP topologies are at cross-purposes with each other - see the
+Flavel and Roughan paper above for an example.  Hence the guideline that the
+iBGP topology should follow the IGP topology.
+
+@deffn {BGP} {bgp deterministic-med} {}
+@anchor{bgp deterministic-med}
+
+Carry out route-selection in way that produces deterministic answers
+locally, even in the face of MED and the lack of a well-defined order of
+preference it can induce on routes.  Without this option the preferred route
+with MED may be determined largely by the order that routes were received
+in.
+
+Setting this option will have a performance cost that may be noticeable when
+there are many routes for each destination.  Currently in Quagga it is
+implemented in a way that scales poorly as the number of routes per
+destination increases.
+
+The default is that this option is not set.
+@end deffn
+
+Note that there are other sources of indeterminism in the route selection
+process, specifically, the preference for older and already selected routes
+from eBGP peers, @xref{BGP decision process}.
+
+@deffn {BGP} {bgp always-compare-med} {}
+@anchor{bgp always-compare-med}
+
+Always compare the MED on routes, even when they were received from
+different neighbouring ASes.  Setting this option makes the order of
+preference of routes more defined, and should eliminate MED induced
+oscillations.
+
+If using this option, it may also be desirable to use @ref{routemap set
+metric} to set MED to 0 on routes received from external neighbours.
+
+This option can be used, together with @ref{routemap set metric} to use MED
+as an intra-AS metric to steer equal-length AS_PATH routes to, e.g., desired
+exit points.
+@end deffn
+
+
 
 @node BGP network
 @section BGP network
@@ -188,7 +549,7 @@ This command specifies an aggregate address.
 @end deffn
 
 @deffn {BGP} {aggregate-address @var{A.B.C.D/M} as-set} {}
-This command specifies an aggregate address.  Resulting routes inlucde
+This command specifies an aggregate address.  Resulting routes include
 AS set.
 @end deffn
 
