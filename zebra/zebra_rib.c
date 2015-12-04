@@ -253,22 +253,6 @@ rib_nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
 }
 
 struct nexthop *
-rib_nexthop_ipv6_ifname_add (struct rib *rib, struct in6_addr *ipv6,
-			     char *ifname)
-{
-  struct nexthop *nexthop;
-
-  nexthop = nexthop_new();
-  nexthop->type = NEXTHOP_TYPE_IPV6_IFNAME;
-  nexthop->gate.ipv6 = *ipv6;
-  nexthop->ifname = XSTRDUP (0, ifname);
-
-  rib_nexthop_add (rib, nexthop);
-
-  return nexthop;
-}
-
-struct nexthop *
 rib_nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
 			      unsigned int ifindex)
 {
@@ -2599,8 +2583,8 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	  nh_p.u.prefix4 = si->addr.ipv4;
 	  zebra_register_rnh_static_nh(&nh_p, rn);
 	  break;
-	case STATIC_IPV4_IFNAME:
-	  rib_nexthop_ifname_add (rib, si->ifname);
+	case STATIC_IFINDEX:
+	  rib_nexthop_ifindex_add (rib, si->ifindex);
 	  break;
 	case STATIC_IPV4_BLACKHOLE:
 	  rib_nexthop_blackhole_add (rib);
@@ -2612,11 +2596,8 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	  nh_p.u.prefix6 = si->addr.ipv6;
 	  zebra_register_rnh_static_nh(&nh_p, rn);
 	  break;
-	case STATIC_IPV6_IFNAME:
-	  rib_nexthop_ifname_add (rib, si->ifname);
-	  break;
-	case STATIC_IPV6_GATEWAY_IFNAME:
-	  rib_nexthop_ipv6_ifname_add (rib, &si->addr.ipv6, si->ifname);
+	case STATIC_IPV6_GATEWAY_IFINDEX:
+	  rib_nexthop_ipv6_ifindex_add (rib, &si->addr.ipv6, si->ifindex);
 	  break;
         }
 
@@ -2655,8 +2636,8 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	  nh_p.u.prefix4 = si->addr.ipv4;
 	  zebra_register_rnh_static_nh(&nh_p, rn);
 	  break;
-	case STATIC_IPV4_IFNAME:
-	  rib_nexthop_ifname_add (rib, si->ifname);
+	case STATIC_IFINDEX:
+	  rib_nexthop_ifindex_add (rib, si->ifindex);
 	  break;
 	case STATIC_IPV4_BLACKHOLE:
 	  rib_nexthop_blackhole_add (rib);
@@ -2668,11 +2649,8 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	  nh_p.u.prefix6 = si->addr.ipv6;
 	  zebra_register_rnh_static_nh(&nh_p, rn);
 	  break;
-	case STATIC_IPV6_IFNAME:
-	  rib_nexthop_ifname_add (rib, si->ifname);
-	  break;
-	case STATIC_IPV6_GATEWAY_IFNAME:
-	  rib_nexthop_ipv6_ifname_add (rib, &si->addr.ipv6, si->ifname);
+	case STATIC_IPV6_GATEWAY_IFINDEX:
+	  rib_nexthop_ipv6_ifindex_add (rib, &si->addr.ipv6, si->ifindex);
 	  break;
         }
 
@@ -2701,9 +2679,9 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
       && si->type == STATIC_IPV4_GATEWAY
       && IPV4_ADDR_SAME (&nexthop->gate.ipv4, &si->addr.ipv4))
     return 1;
-  if (nexthop->type == NEXTHOP_TYPE_IFNAME
-      && si->type == STATIC_IPV4_IFNAME
-      && strcmp (nexthop->ifname, si->ifname) == 0)
+  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
+      && si->type == STATIC_IFINDEX
+      && nexthop->ifindex == si->ifindex)
     return 1;
   if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE
       && si->type == STATIC_IPV4_BLACKHOLE)
@@ -2712,14 +2690,10 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
       && si->type == STATIC_IPV6_GATEWAY
       && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6))
     return 1;
-  if (nexthop->type == NEXTHOP_TYPE_IFNAME
-      && si->type == STATIC_IPV6_IFNAME
-      && strcmp (nexthop->ifname, si->ifname) == 0)
-    return 1;
-  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
-      && si->type == STATIC_IPV6_GATEWAY_IFNAME
+  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
+      && si->type == STATIC_IPV6_GATEWAY_IFINDEX
       && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->addr.ipv6)
-      && strcmp (nexthop->ifname, si->ifname) == 0)
+      && nexthop->ifindex == si->ifindex)
     return 1;
   return 0;
 }
@@ -2830,7 +2804,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 
 /* Add static route into static route configuration. */
 int
-static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
+static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
 		 u_char flags, u_short tag, u_char distance, vrf_id_t vrf_id)
 {
   u_char type = 0;
@@ -2851,8 +2825,8 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
   /* Make flags. */
   if (gate)
     type = STATIC_IPV4_GATEWAY;
-  else if (ifname)
-    type = STATIC_IPV4_IFNAME;
+  else if (ifindex)
+    type = STATIC_IFINDEX;
   else
     type = STATIC_IPV4_BLACKHOLE;
 
@@ -2861,7 +2835,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
     {
       if (type == si->type
 	  && (! gate || IPV4_ADDR_SAME (gate, &si->addr.ipv4))
-	  && (! ifname || strcmp (ifname, si->ifname) == 0))
+	  && (! ifindex || ifindex == si->ifindex))
 	{
 	  if ((distance == si->distance) && (tag == si->tag))
 	    {
@@ -2875,7 +2849,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 
   /* Distance or tag changed. */
   if (update)
-    static_delete_ipv4 (p, gate, ifname, update->tag, update->distance, vrf_id);
+    static_delete_ipv4 (p, gate, ifindex, update->tag, update->distance, vrf_id);
 
   /* Make new static route structure. */
   si = XCALLOC (MTYPE_STATIC_ROUTE, sizeof (struct static_route));
@@ -2885,11 +2859,10 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
   si->flags = flags;
   si->tag = tag;
   si->vrf_id = vrf_id;
+  si->ifindex = ifindex;
 
   if (gate)
     si->addr.ipv4 = *gate;
-  if (ifname)
-    si->ifname = XSTRDUP (0, ifname);
 
   /* Add new static route information to the tree with sort by
      distance value and gateway address. */
@@ -2926,7 +2899,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 
 /* Delete static route from static route configuration. */
 int
-static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
+static_delete_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
 		    u_short tag, u_char distance, vrf_id_t vrf_id)
 {
   u_char type = 0;
@@ -2947,8 +2920,8 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
   /* Make flags. */
   if (gate)
     type = STATIC_IPV4_GATEWAY;
-  else if (ifname)
-    type = STATIC_IPV4_IFNAME;
+  else if (ifindex)
+    type = STATIC_IFINDEX;
   else
     type = STATIC_IPV4_BLACKHOLE;
 
@@ -2956,7 +2929,7 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
   for (si = rn->info; si; si = si->next)
     if (type == si->type
 	&& (! gate || IPV4_ADDR_SAME (gate, &si->addr.ipv4))
-	&& (! ifname || strcmp (ifname, si->ifname) == 0)
+	&& (! ifindex || ifindex == si->ifindex)
 	&& (! tag || (tag == si->tag)))
       break;
 
@@ -2980,8 +2953,6 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
   route_unlock_node (rn);
   
   /* Free static route configuration. */
-  if (ifname)
-    XFREE (0, si->ifname);
   XFREE (MTYPE_STATIC_ROUTE, si);
 
   route_unlock_node (rn);
@@ -3378,7 +3349,7 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 /* Add static route into static route configuration. */
 int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		 const char *ifname, u_char flags, u_short tag,
+		 unsigned int ifindex, u_char flags, u_short tag,
                  u_char distance, vrf_id_t vrf_id)
 {
   struct route_node *rn;
@@ -3393,11 +3364,11 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
     return -1;
     
   if (!gate &&
-      (type == STATIC_IPV6_GATEWAY || type == STATIC_IPV6_GATEWAY_IFNAME))
+      (type == STATIC_IPV6_GATEWAY || type == STATIC_IPV6_GATEWAY_IFINDEX))
     return -1;
   
-  if (!ifname && 
-      (type == STATIC_IPV6_GATEWAY_IFNAME || type == STATIC_IPV6_IFNAME))
+  if (!ifindex &&
+      (type == STATIC_IPV6_GATEWAY_IFINDEX || type == STATIC_IFINDEX))
     return -1;
 
   /* Lookup static route prefix. */
@@ -3408,7 +3379,7 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
     {
       if (type == si->type
 	  && (! gate || IPV6_ADDR_SAME (gate, &si->addr.ipv6))
-	  && (! ifname || strcmp (ifname, si->ifname) == 0))
+	  && (! ifindex || ifindex ==  si->ifindex))
 	{
 	  if ((distance == si->distance) && (tag == si->tag))
 	    {
@@ -3422,7 +3393,7 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 
   /* Distance or tag changed. */
   if (update)
-    static_delete_ipv6 (p, type, gate, ifname, update->tag, update->distance, vrf_id);
+    static_delete_ipv6 (p, type, gate, ifindex, update->tag, update->distance, vrf_id);
 
   /* Make new static route structure. */
   si = XCALLOC (MTYPE_STATIC_ROUTE, sizeof (struct static_route));
@@ -3432,18 +3403,15 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
   si->flags = flags;
   si->tag = tag;
   si->vrf_id = vrf_id;
+  si->ifindex = ifindex;
 
   switch (type)
     {
     case STATIC_IPV6_GATEWAY:
       si->addr.ipv6 = *gate;
       break;
-    case STATIC_IPV6_IFNAME:
-      si->ifname = XSTRDUP (0, ifname);
-      break;
-    case STATIC_IPV6_GATEWAY_IFNAME:
+    case STATIC_IPV6_GATEWAY_IFINDEX:
       si->addr.ipv6 = *gate;
-      si->ifname = XSTRDUP (0, ifname);
       break;
     }
 
@@ -3476,7 +3444,7 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 /* Delete static route from static route configuration. */
 int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		    const char *ifname, u_short tag, u_char distance,
+		    unsigned int ifindex, u_short tag, u_char distance,
                     vrf_id_t vrf_id)
 {
   struct route_node *rn;
@@ -3498,7 +3466,7 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
     if (distance == si->distance 
 	&& type == si->type
 	&& (! gate || IPV6_ADDR_SAME (gate, &si->addr.ipv6))
-	&& (! ifname || strcmp (ifname, si->ifname) == 0)
+	&& (! ifindex || ifindex == si->ifindex)
 	&& (! tag || (tag == si->tag)))
       break;
 
@@ -3521,8 +3489,6 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
     si->next->prev = si->prev;
   
   /* Free static route configuration. */
-  if (ifname)
-    XFREE (0, si->ifname);
   XFREE (MTYPE_STATIC_ROUTE, si);
 
   return 1;
