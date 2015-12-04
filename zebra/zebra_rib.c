@@ -147,8 +147,6 @@ rib_copy_nexthops (struct rib *rib, struct nexthop *nh)
   nexthop->flags = nh->flags;
   nexthop->type = nh->type;
   nexthop->ifindex = nh->ifindex;
-  if (nh->ifname)
-    nexthop->ifname = XSTRDUP(0, nh->ifname);
   memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
   memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
   rib_nexthop_add(rib, nexthop);
@@ -179,20 +177,6 @@ rib_nexthop_ifindex_add (struct rib *rib, unsigned int ifindex)
   nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IFINDEX;
   nexthop->ifindex = ifindex;
-
-  rib_nexthop_add (rib, nexthop);
-
-  return nexthop;
-}
-
-struct nexthop *
-rib_nexthop_ifname_add (struct rib *rib, char *ifname)
-{
-  struct nexthop *nexthop;
-
-  nexthop = nexthop_new();
-  nexthop->type = NEXTHOP_TYPE_IFNAME;
-  nexthop->ifname = XSTRDUP (0, ifname);
 
   rib_nexthop_add (rib, nexthop);
 
@@ -429,8 +413,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* If the resolving route specifies a gateway, use it */
 			if (newhop->type == NEXTHOP_TYPE_IPV4
-			    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IPV4_IFNAME)
+			    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 			  {
 			    resolved_hop->type = newhop->type;
 			    resolved_hop->gate.ipv4 = newhop->gate.ipv4;
@@ -452,8 +435,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			 *
 			 * On Linux, we have to set the onlink netlink flag because
 			 * otherwise, the kernel won't accept the route. */
-			if (newhop->type == NEXTHOP_TYPE_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IFNAME)
+			if (newhop->type == NEXTHOP_TYPE_IFINDEX)
 			  {
 			    resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 			    resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
@@ -481,8 +463,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* If the resolving route specifies a gateway, use it */
 			if (newhop->type == NEXTHOP_TYPE_IPV4
-			    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IPV4_IFNAME)
+			    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 			  {
 			    resolved_hop->type = newhop->type;
 			    resolved_hop->gate.ipv4 = newhop->gate.ipv4;
@@ -505,8 +486,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			 * On Linux, we have to set the onlink netlink flag because
 			 * otherwise, the kernel won't accept the route.
 			 */
-			if (newhop->type == NEXTHOP_TYPE_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IFNAME)
+			if (newhop->type == NEXTHOP_TYPE_IFINDEX)
 			  {
 			    resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 			    resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
@@ -640,8 +620,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 			/* See nexthop_active_ipv4 for a description how the
 			 * resolved nexthop is constructed. */
 			if (newhop->type == NEXTHOP_TYPE_IPV6
-			    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IPV6_IFNAME)
+			    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 			  {
 			    resolved_hop->type = newhop->type;
 			    resolved_hop->gate.ipv6 = newhop->gate.ipv6;
@@ -653,8 +632,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 			      }
 			  }
 
-			if (newhop->type == NEXTHOP_TYPE_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IFNAME)
+			if (newhop->type == NEXTHOP_TYPE_IFINDEX)
 			  {
 				resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 				resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
@@ -683,8 +661,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 			/* See nexthop_active_ipv4 for a description how the
 			 * resolved nexthop is constructed. */
 			if (newhop->type == NEXTHOP_TYPE_IPV6
-			    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IPV6_IFNAME)
+			    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 			  {
 			    resolved_hop->type = newhop->type;
 			    resolved_hop->gate.ipv6 = newhop->gate.ipv6;
@@ -696,8 +673,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 			      }
 			  }
 
-			if (newhop->type == NEXTHOP_TYPE_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IFNAME)
+			if (newhop->type == NEXTHOP_TYPE_IFINDEX)
 			  {
 				resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 				resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
@@ -1004,23 +980,6 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
       else
 	UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       break;
-    case NEXTHOP_TYPE_IPV6_IFNAME:
-      family = AFI_IP6;
-    case NEXTHOP_TYPE_IFNAME:
-      ifp = if_lookup_by_name_vrf (nexthop->ifname, rib->vrf_id);
-      if (ifp && if_is_operative(ifp))
-	{
-	  if (set)
-	    nexthop->ifindex = ifp->ifindex;
-	  SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-	}
-      else
-	{
-	  if (set)
-	    nexthop->ifindex = 0;
-	  UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-	}
-      break;
     case NEXTHOP_TYPE_IPV4:
     case NEXTHOP_TYPE_IPV4_IFINDEX:
       family = AFI_IP;
@@ -1092,7 +1051,8 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	{
 	  inet_ntop (rn->p.family, &rn->p.u.prefix, buf, sizeof (buf));
 	  zlog_debug("%u:%s/%d: Filtering out with NH out %s due to route map",
-		     rib->vrf_id, buf, rn->p.prefixlen, nexthop->ifname);
+		     rib->vrf_id, buf, rn->p.prefixlen,
+		     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	}
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
     }

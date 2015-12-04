@@ -50,23 +50,19 @@ nexthop_same_no_recurse (struct nexthop *next1, struct nexthop *next2)
 	return 0;
       break;
     case NEXTHOP_TYPE_IFINDEX:
-    case NEXTHOP_TYPE_IFNAME:
       if (next1->ifindex != next2->ifindex)
 	return 0;
       break;
-#ifdef HAVE_IPV6
     case NEXTHOP_TYPE_IPV6:
       if (! IPV6_ADDR_SAME (&next1->gate.ipv6, &next2->gate.ipv6))
 	return 0;
       break;
     case NEXTHOP_TYPE_IPV6_IFINDEX:
-    case NEXTHOP_TYPE_IPV6_IFNAME:
       if (! IPV6_ADDR_SAME (&next1->gate.ipv6, &next2->gate.ipv6))
 	return 0;
       if (next1->ifindex != next2->ifindex)
 	return 0;
       break;
-#endif /* HAVE_IPV6 */
     default:
       /* do nothing */
       break;
@@ -132,8 +128,6 @@ copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
       nexthop->flags = nh->flags;
       nexthop->type = nh->type;
       nexthop->ifindex = nh->ifindex;
-      if (nh->ifname)
-	nexthop->ifname = XSTRDUP(0, nh->ifname);
       memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
       memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
       nexthop_add(tnh, nexthop);
@@ -147,8 +141,6 @@ copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
 void
 nexthop_free (struct nexthop *nexthop)
 {
-  if (nexthop->ifname)
-    XFREE (0, nexthop->ifname);
   if (nexthop->resolved)
     nexthops_free(nexthop->resolved);
   XFREE (MTYPE_NEXTHOP, nexthop);

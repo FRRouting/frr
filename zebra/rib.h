@@ -371,7 +371,6 @@ typedef struct rib_tables_iter_t_
 } rib_tables_iter_t;
 
 extern struct nexthop *rib_nexthop_ifindex_add (struct rib *, unsigned int);
-extern struct nexthop *rib_nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *rib_nexthop_blackhole_add (struct rib *);
 extern struct nexthop *rib_nexthop_ipv4_add (struct rib *, struct in_addr *,
 					     struct in_addr *);
@@ -400,9 +399,6 @@ extern struct nexthop *rib_nexthop_ipv6_add (struct rib *, struct in6_addr *);
 extern struct nexthop *rib_nexthop_ipv6_ifindex_add (struct rib *rib,
 						     struct in6_addr *ipv6,
 						     unsigned int ifindex);
-extern struct nexthop *rib_nexthop_ipv6_ifname_add (struct rib *rib,
-						    struct in6_addr *ipv6,
-						    char *ifname);
 
 extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t);
