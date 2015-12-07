@@ -39,7 +39,7 @@ zebra_SOURCES = \
 testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
 	zebra_vty.c zebra_ptm.c zebra_routemap.c \
 	kernel_null.c  redistribute_null.c ioctl_null.c misc_null.c zebra_rnh_null.c \
-	zebra_ptm_null.c
+	zebra_ptm_null.c rtadv_null.c
 
 noinst_HEADERS = \
 	connected.h ioctl.h rib.h rt.h zserv.h redistribute.h debug.h rtadv.h \

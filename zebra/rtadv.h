@@ -100,8 +100,14 @@ extern const char *rtadv_pref_strs[];
 
 #endif /* HAVE_RTADV */
 
+typedef enum {
+  RA_ENABLE = 0,
+  RA_SUPPRESS,
+} ipv6_nd_suppress_ra_status;
+
 extern void rtadv_init (struct zebra_vrf *);
 extern void rtadv_terminate (struct zebra_vrf *);
 extern void rtadv_cmd_init (void);
+extern void ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status status);
 
 #endif /* _ZEBRA_RTADV_H */
