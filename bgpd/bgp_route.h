@@ -191,6 +191,9 @@ struct bgp_static
 #define UNSUPPRESS_MAP_NAME(F)  ((F)->usmap.name)
 #define UNSUPPRESS_MAP(F)       ((F)->usmap.map)
 
+/* path PREFIX (addpath rxid NUMBER) */
+#define PATH_ADDPATH_STR_BUFFER PREFIX2STR_BUFFER + 32
+
 enum bgp_path_type
 {
   BGP_PATH_ALL,
@@ -229,6 +232,7 @@ extern void bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri);
 extern struct bgp_info_extra *bgp_info_extra_get (struct bgp_info *);
 extern void bgp_info_set_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
 extern void bgp_info_unset_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
+extern void bgp_info_path_with_addpath_rx_str (struct bgp_info *ri, char *buf);
 
 extern int bgp_nlri_sanity_check (struct peer *, int, safi_t, u_char *, bgp_size_t, int *);
 extern int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *);
