@@ -27,9 +27,6 @@
 /* Limit on number of configured maxpaths */
 #define BGP_MAXIMUM_MAXPATHS 255
 
-/* BGP default maximum-paths */
-#define BGP_DEFAULT_MAXPATHS MULTIPATH_NUM
-
 /* Supplemental information linked to bgp_info for keeping track of
  * multipath selections, lazily allocated to save memory
  */

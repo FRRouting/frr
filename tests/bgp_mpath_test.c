@@ -113,8 +113,8 @@ bgp_create_fake (as_t *as, const char *name)
         bgp->route[afi][safi] = bgp_table_init (afi, safi);
         bgp->aggregate[afi][safi] = bgp_table_init (afi, safi);
         bgp->rib[afi][safi] = bgp_table_init (afi, safi);
-        bgp->maxpaths[afi][safi].maxpaths_ebgp = BGP_DEFAULT_MAXPATHS;
-        bgp->maxpaths[afi][safi].maxpaths_ibgp = BGP_DEFAULT_MAXPATHS;
+        bgp->maxpaths[afi][safi].maxpaths_ebgp = MULTIPATH_NUM;
+        bgp->maxpaths[afi][safi].maxpaths_ibgp = MULTIPATH_NUM;
       }
 
   bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
@@ -171,9 +171,9 @@ run_bgp_cfg_maximum_paths (testcase_t *t)
         api_result = bgp_maximum_paths_unset (bgp, afi, safi, BGP_PEER_IBGP);
         EXPECT_TRUE (api_result == 0, test_result);
         EXPECT_TRUE ((bgp->maxpaths[afi][safi].maxpaths_ebgp ==
-                      BGP_DEFAULT_MAXPATHS), test_result);
+                      MULTIPATH_NUM), test_result);
         EXPECT_TRUE ((bgp->maxpaths[afi][safi].maxpaths_ibgp ==
-                      BGP_DEFAULT_MAXPATHS), test_result);
+                      MULTIPATH_NUM), test_result);
       }
 
   return test_result;

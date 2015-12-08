@@ -1463,14 +1463,14 @@ int
 bgp_config_write_maxpaths (struct vty *vty, struct bgp *bgp, afi_t afi,
 			   safi_t safi, int *write)
 {
-  if (bgp->maxpaths[afi][safi].maxpaths_ebgp != BGP_DEFAULT_MAXPATHS)
+  if (bgp->maxpaths[afi][safi].maxpaths_ebgp != MULTIPATH_NUM)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
       vty_out (vty, "  maximum-paths %d%s",
 	       bgp->maxpaths[afi][safi].maxpaths_ebgp, VTY_NEWLINE);
     }
 
-  if (bgp->maxpaths[afi][safi].maxpaths_ibgp != BGP_DEFAULT_MAXPATHS)
+  if (bgp->maxpaths[afi][safi].maxpaths_ibgp != MULTIPATH_NUM)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
       vty_out (vty, "  maximum-paths ibgp %d",
