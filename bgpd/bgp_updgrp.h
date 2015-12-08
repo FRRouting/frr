@@ -58,6 +58,8 @@
 
 #define PEER_UPDGRP_AF_CAP_FLAGS (PEER_CAP_ORF_PREFIX_SM_RCV | \
 				  PEER_CAP_ORF_PREFIX_SM_OLD_RCV |\
+                                  PEER_CAP_ADDPATH_AF_TX_ADV |\
+                                  PEER_CAP_ADDPATH_AF_RX_RCV |\
                                   PEER_CAP_ENHE_AF_NEGO)
 
 typedef enum
