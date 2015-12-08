@@ -1730,6 +1730,8 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 
       /* Add to linked list. */
       listnode_add (ifp->connected, ifc);
+
+      ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
     }
 
   /* This address is configured from zebra. */
@@ -1763,6 +1765,20 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
     }
 
   return CMD_SUCCESS;
+}
+
+/* Return true if an ipv6 address is configured on ifp */
+int
+ipv6_address_configured (struct interface *ifp)
+{
+  struct connected *connected;
+  struct listnode *node;
+
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
+    if (CHECK_FLAG (connected->conf, ZEBRA_IFC_REAL) && (connected->address->family == AF_INET6))
+      return 1;
+
+  return 0;
 }
 
 static int
@@ -1813,6 +1829,10 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
 	       safe_strerror(errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
+
+  /* Enable RA suppression if there are no IPv6 addresses on this interface */
+  if (! ipv6_address_configured(ifp))
+    ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
 
   UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
   /* This information will be propagated to the zclients when the

@@ -707,6 +707,46 @@ rtadv_prefix_reset (struct zebra_if *zif, struct rtadv_prefix *rp)
     return 0;
 }
 
+void
+ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status status)
+{
+  struct zebra_if *zif;
+  struct zebra_vrf *zvrf;
+
+  zif = ifp->info;
+  zvrf = vrf_info_lookup (ifp->vrf_id);
+
+  if (status == RA_SUPPRESS)
+    {
+      /* RA is currently enabled */
+      if (zif->rtadv.AdvSendAdvertisements)
+        {
+          zif->rtadv.AdvSendAdvertisements = 0;
+          zif->rtadv.AdvIntervalTimer = 0;
+          zvrf->rtadv.adv_if_count--;
+
+          if_leave_all_router (zvrf->rtadv.sock, ifp);
+
+          if (zvrf->rtadv.adv_if_count == 0)
+            rtadv_event (zvrf, RTADV_STOP, 0);
+        }
+    }
+  else
+    {
+      if (! zif->rtadv.AdvSendAdvertisements)
+        {
+          zif->rtadv.AdvSendAdvertisements = 1;
+          zif->rtadv.AdvIntervalTimer = 0;
+          zvrf->rtadv.adv_if_count++;
+
+          if_join_all_router (zvrf->rtadv.sock, ifp);
+
+          if (zvrf->rtadv.adv_if_count == 1)
+            rtadv_event (zvrf, RTADV_START, zvrf->rtadv.sock);
+        }
+    }
+}
+
 DEFUN (ipv6_nd_suppress_ra,
        ipv6_nd_suppress_ra_cmd,
        "ipv6 nd suppress-ra",
@@ -715,12 +755,8 @@ DEFUN (ipv6_nd_suppress_ra,
        "Suppress Router Advertisement\n")
 {
   struct interface *ifp;
-  struct zebra_if *zif;
-  struct zebra_vrf *zvrf;
 
   ifp = vty->index;
-  zif = ifp->info;
-  zvrf = vrf_info_lookup (ifp->vrf_id);
 
   if (if_is_loopback (ifp))
     {
@@ -728,18 +764,7 @@ DEFUN (ipv6_nd_suppress_ra,
       return CMD_WARNING;
     }
 
-  if (zif->rtadv.AdvSendAdvertisements)
-    {
-      zif->rtadv.AdvSendAdvertisements = 0;
-      zif->rtadv.AdvIntervalTimer = 0;
-      zvrf->rtadv.adv_if_count--;
-
-      if_leave_all_router (zvrf->rtadv.sock, ifp);
-
-      if (zvrf->rtadv.adv_if_count == 0)
-        rtadv_event (zvrf, RTADV_STOP, 0);
-    }
-
+  ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
   return CMD_SUCCESS;
 }
 
@@ -752,12 +777,8 @@ DEFUN (no_ipv6_nd_suppress_ra,
        "Suppress Router Advertisement\n")
 {
   struct interface *ifp;
-  struct zebra_if *zif;
-  struct zebra_vrf *zvrf;
 
   ifp = vty->index;
-  zif = ifp->info;
-  zvrf = vrf_info_lookup (ifp->vrf_id);
 
   if (if_is_loopback (ifp))
     {
@@ -765,18 +786,7 @@ DEFUN (no_ipv6_nd_suppress_ra,
       return CMD_WARNING;
     }
 
-  if (! zif->rtadv.AdvSendAdvertisements)
-    {
-      zif->rtadv.AdvSendAdvertisements = 1;
-      zif->rtadv.AdvIntervalTimer = 0;
-      zvrf->rtadv.adv_if_count++;
-
-      if_join_all_router (zvrf->rtadv.sock, ifp);
-
-      if (zvrf->rtadv.adv_if_count == 1)
-        rtadv_event (zvrf, RTADV_START, zvrf->rtadv.sock);
-    }
-
+  ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
   return CMD_SUCCESS;
 }
 
@@ -1760,10 +1770,17 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
 
   if (! if_is_loopback (ifp))
     {
-      if (zif->rtadv.AdvSendAdvertisements)
-	vty_out (vty, " no ipv6 nd suppress-ra%s", VTY_NEWLINE);
+      if (ipv6_address_configured(ifp))
+        {
+          if (! zif->rtadv.AdvSendAdvertisements)
+            vty_out (vty, " ipv6 nd suppress-ra%s", VTY_NEWLINE);
+        }
+      else
+        {
+          if (zif->rtadv.AdvSendAdvertisements)
+            vty_out (vty, " no ipv6 nd suppress-ra%s", VTY_NEWLINE);
+        }
     }
-
   
   interval = zif->rtadv.MaxRtrAdvInterval;
   if (interval % 1000)

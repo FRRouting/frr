@@ -318,6 +318,15 @@ bgp_med_value (struct attr *attr, struct bgp *bgp)
     }
 }
 
+void
+bgp_info_path_with_addpath_rx_str (struct bgp_info *ri, char *buf)
+{
+  if (ri->addpath_rx_id)
+    sprintf(buf, "path %s (addpath rxid %d)", ri->peer->host, ri->addpath_rx_id);
+  else
+    sprintf(buf, "path %s", ri->peer->host);
+}
+
 /* Compare two bgp route entity.  If 'new' is preferable over 'exist' return 1. */
 static int
 bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
@@ -342,6 +351,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   int internal_as_route;
   int confed_as_route;
   int ret;
+  char new_buf[PATH_ADDPATH_STR_BUFFER];
+  char exist_buf[PATH_ADDPATH_STR_BUFFER];
 
   *paths_eq = 0;
 
@@ -353,13 +364,18 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       return 0;
     }
 
+  if (debug)
+    bgp_info_path_with_addpath_rx_str (new, new_buf);
+
   if (exist == NULL)
     {
       if (debug)
-        zlog_debug("%s: path %s is the initial bestpath",
-                   pfx_buf, new->peer->host);
+        zlog_debug("%s: %s is the initial bestpath", pfx_buf, new_buf);
       return 1;
     }
+
+  if (debug)
+    bgp_info_path_with_addpath_rx_str (exist, exist_buf);
 
   newattr = new->attr;
   existattr = exist->attr;
@@ -377,18 +393,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (new_weight > exist_weight)
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to weight %d > %d",
-                   pfx_buf, new->peer->host, exist->peer->host, new_weight,
-                   exist_weight);
+        zlog_debug("%s: %s wins over %s due to weight %d > %d",
+                   pfx_buf, new_buf, exist_buf, new_weight, exist_weight);
       return 1;
     }
 
   if (new_weight < exist_weight)
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to weight %d < %d",
-                   pfx_buf, new->peer->host, exist->peer->host, new_weight,
-                   exist_weight);
+        zlog_debug("%s: %s loses to %s due to weight %d < %d",
+                   pfx_buf, new_buf, exist_buf, new_weight, exist_weight);
       return 0;
     }
 
@@ -403,18 +417,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (new_pref > exist_pref)
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to localpref %d > %d",
-                   pfx_buf, new->peer->host, exist->peer->host, new_pref,
-                   exist_pref);
+        zlog_debug("%s: %s wins over %s due to localpref %d > %d",
+                   pfx_buf, new_buf, exist_buf, new_pref, exist_pref);
       return 1;
     }
 
   if (new_pref < exist_pref)
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to localpref %d < %d",
-                   pfx_buf, new->peer->host, exist->peer->host, new_pref,
-                   exist_pref);
+        zlog_debug("%s: %s loses to %s due to localpref %d < %d",
+                   pfx_buf, new_buf, exist_buf, new_pref, exist_pref);
       return 0;
     }
 
@@ -426,16 +438,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (! (new->sub_type == BGP_ROUTE_NORMAL))
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to preferred BGP_ROUTE type",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s wins over %s due to preferred BGP_ROUTE type",
+                   pfx_buf, new_buf, exist_buf);
       return 1;
     }
 
   if (! (exist->sub_type == BGP_ROUTE_NORMAL))
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to preferred BGP_ROUTE type",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s loses to %s due to preferred BGP_ROUTE type",
+                   pfx_buf, new_buf, exist_buf);
       return 0;
     }
 
@@ -455,8 +467,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	  if ( aspath_hops < (exist_hops + exist_confeds))
             {
               if (debug)
-                zlog_debug("%s: path %s wins over path %s due to aspath (with confeds) hopcount %d < %d",
-                           pfx_buf, new->peer->host, exist->peer->host,
+                zlog_debug("%s: %s wins over %s due to aspath (with confeds) hopcount %d < %d",
+                           pfx_buf, new_buf, exist_buf,
                            aspath_hops, (exist_hops + exist_confeds));
 	      return 1;
             }
@@ -464,8 +476,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	  if ( aspath_hops > (exist_hops + exist_confeds))
             {
               if (debug)
-                zlog_debug("%s: path %s loses to path %s due to aspath (with confeds) hopcount %d > %d",
-                           pfx_buf, new->peer->host, exist->peer->host,
+                zlog_debug("%s: %s loses to %s due to aspath (with confeds) hopcount %d > %d",
+                           pfx_buf, new_buf, exist_buf,
                            aspath_hops, (exist_hops + exist_confeds));
 	      return 0;
             }
@@ -477,18 +489,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	  if (newhops < exist_hops)
             {
               if (debug)
-                zlog_debug("%s: path %s wins over path %s due to aspath hopcount %d < %d",
-                           pfx_buf, new->peer->host, exist->peer->host,
-                           newhops, exist_hops);
+                zlog_debug("%s: %s wins over %s due to aspath hopcount %d < %d",
+                           pfx_buf, new_buf, exist_buf, newhops, exist_hops);
 	      return 1;
             }
 
           if (newhops > exist_hops)
             {
               if (debug)
-                zlog_debug("%s: path %s loses to path %s due to aspath hopcount %d > %d",
-                           pfx_buf, new->peer->host, exist->peer->host,
-                           newhops, exist_hops);
+                zlog_debug("%s: %s loses to %s due to aspath hopcount %d > %d",
+                           pfx_buf, new_buf, exist_buf, newhops, exist_hops);
 	      return 0;
             }
 	}
@@ -498,8 +508,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (newattr->origin < existattr->origin)
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to ORIGIN %s < %s",
-                   pfx_buf, new->peer->host, exist->peer->host,
+        zlog_debug("%s: %s wins over %s due to ORIGIN %s < %s",
+                   pfx_buf, new_buf, exist_buf,
                    bgp_origin_long_str[newattr->origin],
                    bgp_origin_long_str[existattr->origin]);
       return 1;
@@ -508,8 +518,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (newattr->origin > existattr->origin)
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to ORIGIN %s > %s",
-                   pfx_buf, new->peer->host, exist->peer->host,
+        zlog_debug("%s: %s loses to %s due to ORIGIN %s > %s",
+                   pfx_buf, new_buf, exist_buf,
                    bgp_origin_long_str[newattr->origin],
                    bgp_origin_long_str[existattr->origin]);
       return 0;
@@ -536,18 +546,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       if (new_med < exist_med)
         {
           if (debug)
-            zlog_debug("%s: path %s wins over path %s due to MED %d < %d",
-                       pfx_buf, new->peer->host, exist->peer->host, new_med,
-                       exist_med);
+            zlog_debug("%s: %s wins over %s due to MED %d < %d",
+                       pfx_buf, new_buf, exist_buf, new_med, exist_med);
 	  return 1;
         }
 
       if (new_med > exist_med)
         {
           if (debug)
-            zlog_debug("%s: path %s loses to path %s due to MED %d > %d",
-                       pfx_buf, new->peer->host, exist->peer->host, new_med,
-                       exist_med);
+            zlog_debug("%s: %s loses to %s due to MED %d > %d",
+                       pfx_buf, new_buf, exist_buf, new_med, exist_med);
 	  return 0;
         }
     }
@@ -560,8 +568,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       && (exist_sort == BGP_PEER_IBGP || exist_sort == BGP_PEER_CONFED))
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to eBGP peer > iBGP peer",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s wins over %s due to eBGP peer > iBGP peer",
+                   pfx_buf, new_buf, exist_buf);
       return 1;
     }
 
@@ -569,8 +577,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       && (new_sort == BGP_PEER_IBGP || new_sort == BGP_PEER_CONFED))
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to iBGP peer < eBGP peer",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s loses to %s due to iBGP peer < eBGP peer",
+                   pfx_buf, new_buf, exist_buf);
       return 0;
     }
 
@@ -585,16 +593,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (newm < existm)
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to IGP metric %d < %d",
-                   pfx_buf, new->peer->host, exist->peer->host, newm, existm);
+        zlog_debug("%s: %s wins over %s due to IGP metric %d < %d",
+                   pfx_buf, new_buf, exist_buf, newm, existm);
       ret = 1;
     }
 
   if (newm > existm)
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to IGP metric %d > %d",
-                   pfx_buf, new->peer->host, exist->peer->host, newm, existm);
+        zlog_debug("%s: %s loses to %s due to IGP metric %d > %d",
+                   pfx_buf, new_buf, exist_buf, newm, existm);
       ret = 0;
     }
 
@@ -615,18 +623,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	  if (newm < existm)
             {
               if (debug)
-                zlog_debug("%s: path %s wins over path %s due to CLUSTER_LIST length %d < %d",
-                           pfx_buf, new->peer->host, exist->peer->host, newm,
-                           existm);
+                zlog_debug("%s: %s wins over %s due to CLUSTER_LIST length %d < %d",
+                           pfx_buf, new_buf, exist_buf, newm, existm);
 	      ret = 1;
             }
 
 	  if (newm > existm)
             {
               if (debug)
-                zlog_debug("%s: path %s loses to path %s due to CLUSTER_LIST length %d > %d",
-                           pfx_buf, new->peer->host, exist->peer->host, newm,
-                           existm);
+                zlog_debug("%s: %s loses to %s due to CLUSTER_LIST length %d > %d",
+                           pfx_buf, new_buf, exist_buf, newm, existm);
 	      ret = 0;
             }
 	}
@@ -638,16 +644,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       if (new_sort == BGP_PEER_CONFED && exist_sort == BGP_PEER_IBGP)
         {
           if (debug)
-            zlog_debug("%s: path %s wins over path %s due to confed-external peer > confed-internal peer",
-                       pfx_buf, new->peer->host, exist->peer->host);
+            zlog_debug("%s: %s wins over %s due to confed-external peer > confed-internal peer",
+                       pfx_buf, new_buf, exist_buf);
           return 1;
         }
 
       if (exist_sort == BGP_PEER_CONFED && new_sort == BGP_PEER_IBGP)
         {
           if (debug)
-            zlog_debug("%s: path %s loses to path %s due to confed-internal peer < confed-external peer",
-                       pfx_buf, new->peer->host, exist->peer->host);
+            zlog_debug("%s: %s loses to %s due to confed-internal peer < confed-external peer",
+                       pfx_buf, new_buf, exist_buf);
           return 0;
         }
     }
@@ -669,8 +675,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	  *paths_eq = 1;
 
           if (debug)
-            zlog_debug("%s: path %s and path %s are equal via multipath-relax",
-                       pfx_buf, new->peer->host, exist->peer->host);
+            zlog_debug("%s: %s and %s are equal via multipath-relax",
+                       pfx_buf, new_buf, exist_buf);
         }
       else if (new->peer->sort == BGP_PEER_IBGP)
 	{
@@ -679,8 +685,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	      *paths_eq = 1;
 
               if (debug)
-                zlog_debug("%s: path %s and path %s are equal via matching aspaths",
-                           pfx_buf, new->peer->host, exist->peer->host);
+                zlog_debug("%s: %s and %s are equal via matching aspaths",
+                           pfx_buf, new_buf, exist_buf);
             }
 	}
       else if (new->peer->as == exist->peer->as)
@@ -688,8 +694,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	  *paths_eq = 1;
 
           if (debug)
-            zlog_debug("%s: path %s and path %s are equal via same remote-as",
-                       pfx_buf, new->peer->host, exist->peer->host);
+            zlog_debug("%s: %s and %s are equal via same remote-as",
+                       pfx_buf, new_buf, exist_buf);
         }
     }
   else
@@ -712,16 +718,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
       if (CHECK_FLAG (new->flags, BGP_INFO_SELECTED))
         {
           if (debug)
-              zlog_debug("%s: path %s wins over path %s due to oldest external",
-                         pfx_buf, new->peer->host, exist->peer->host);
+              zlog_debug("%s: %s wins over %s due to oldest external",
+                         pfx_buf, new_buf, exist_buf);
 	  return 1;
         }
 
       if (CHECK_FLAG (exist->flags, BGP_INFO_SELECTED))
         {
           if (debug)
-              zlog_debug("%s: path %s loses to path %s due to oldest external",
-                         pfx_buf, new->peer->host, exist->peer->host);
+              zlog_debug("%s: %s loses to %s due to oldest external",
+                         pfx_buf, new_buf, exist_buf);
 	  return 0;
         }
     }
@@ -743,16 +749,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (ntohl (new_id.s_addr) < ntohl (exist_id.s_addr))
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to Router-ID comparison",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s wins over %s due to Router-ID comparison",
+                   pfx_buf, new_buf, exist_buf);
       return 1;
     }
 
   if (ntohl (new_id.s_addr) > ntohl (exist_id.s_addr))
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to Router-ID comparison",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s loses to %s due to Router-ID comparison",
+                   pfx_buf, new_buf, exist_buf);
       return 0;
     }
 
@@ -763,18 +769,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (new_cluster < exist_cluster)
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to CLUSTER_LIST length %d < %d",
-                   pfx_buf, new->peer->host, exist->peer->host, new_cluster,
-                   exist_cluster);
+        zlog_debug("%s: %s wins over %s due to CLUSTER_LIST length %d < %d",
+                   pfx_buf, new_buf, exist_buf, new_cluster, exist_cluster);
       return 1;
     }
 
   if (new_cluster > exist_cluster)
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to CLUSTER_LIST length %d > %d",
-                   pfx_buf, new->peer->host, exist->peer->host, new_cluster,
-                   exist_cluster);
+        zlog_debug("%s: %s loses to %s due to CLUSTER_LIST length %d > %d",
+                   pfx_buf, new_buf, exist_buf, new_cluster, exist_cluster);
       return 0;
     }
 
@@ -785,16 +789,16 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (CHECK_FLAG (exist->flags, BGP_INFO_STALE))
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to latter path being STALE",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s wins over %s due to latter path being STALE",
+                   pfx_buf, new_buf, exist_buf);
       return 1;
     }
 
   if (CHECK_FLAG (new->flags, BGP_INFO_STALE))
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to former path being STALE",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s loses to %s due to former path being STALE",
+                   pfx_buf, new_buf, exist_buf);
       return 0;
     }
 
@@ -803,22 +807,22 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (ret == 1)
     {
       if (debug)
-        zlog_debug("%s: path %s loses to path %s due to Neighor IP comparison",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s loses to %s due to Neighor IP comparison",
+                   pfx_buf, new_buf, exist_buf);
       return 0;
     }
 
   if (ret == -1)
     {
       if (debug)
-        zlog_debug("%s: path %s wins over path %s due to Neighor IP comparison",
-                   pfx_buf, new->peer->host, exist->peer->host);
+        zlog_debug("%s: %s wins over %s due to Neighor IP comparison",
+                   pfx_buf, new_buf, exist_buf);
       return 1;
     }
 
   if (debug)
-    zlog_debug("%s: path %s wins over path %s due to nothing left to compare",
-               pfx_buf, new->peer->host, exist->peer->host);
+    zlog_debug("%s: %s wins over %s due to nothing left to compare",
+               pfx_buf, new_buf, exist_buf);
 
   return 1;
 }
@@ -1507,6 +1511,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   int paths_eq, do_mpath, debug;
   struct list mp_list;
   char pfx_buf[PREFIX2STR_BUFFER];
+  char path_buf[PATH_ADDPATH_STR_BUFFER];
 
   bgp_mp_list_init (&mp_list);
   do_mpath = (mpath_cfg->maxpaths_ebgp > 1 || mpath_cfg->maxpaths_ibgp > 1);
@@ -1572,9 +1577,11 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
           bgp_info_set_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
 
           if (debug)
-            zlog_debug("%s: path %s is the bestpath from AS %d",
-                       pfx_buf, new_select->peer->host,
-                       aspath_get_firstas(new_select->attr->aspath));
+            {
+              bgp_info_path_with_addpath_rx_str (new_select, path_buf);
+              zlog_debug("%s: %s is the bestpath from AS %d",
+                         pfx_buf, path_buf, aspath_get_firstas(new_select->attr->aspath));
+            }
         }
     }
 
@@ -1625,16 +1632,22 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   if (do_mpath && new_select)
     {
       if (debug)
-        zlog_debug("%s: path %s is the bestpath, now find multipaths",
-                   pfx_buf, new_select->peer->host);
+        {
+          bgp_info_path_with_addpath_rx_str (new_select, path_buf);
+          zlog_debug("%s: %s is the bestpath, now find multipaths", pfx_buf, path_buf);
+        }
 
       for (ri = rn->info; (ri != NULL) && (nextri = ri->next, 1); ri = nextri)
         {
+
+          if (debug)
+            bgp_info_path_with_addpath_rx_str (ri, path_buf);
+
           if (ri == new_select)
             {
               if (debug)
-                zlog_debug("%s: path %s is the bestpath, add to the multipath list",
-                           pfx_buf, ri->peer->host);
+                zlog_debug("%s: %s is the bestpath, add to the multipath list",
+                           pfx_buf, path_buf);
 	      bgp_mp_list_add (&mp_list, ri);
               continue;
             }
@@ -1651,8 +1664,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
           if (!bgp_info_nexthop_cmp (ri, new_select))
             {
               if (debug)
-                zlog_debug("%s: path %s has the same nexthop as the bestpath, skip it",
-                           pfx_buf, ri->peer->host);
+                zlog_debug("%s: %s has the same nexthop as the bestpath, skip it",
+                           pfx_buf, path_buf);
               continue;
             }
 
@@ -1661,8 +1674,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
           if (paths_eq)
             {
               if (debug)
-                zlog_debug("%s: path %s is equivalent to the bestpath, add to the multipath list",
-                           pfx_buf, ri->peer->host);
+                zlog_debug("%s: %s is equivalent to the bestpath, add to the multipath list",
+                           pfx_buf, path_buf);
 	      bgp_mp_list_add (&mp_list, ri);
             }
         }
@@ -2080,11 +2093,12 @@ info_make (int type, int sub_type, u_short instance, struct peer *peer, struct a
 }
 
 static void
-bgp_info_addpath_rx_str(struct bgp_info *ri, char *buf)
+bgp_info_addpath_rx_str(u_int32_t addpath_id, char *buf)
 {
-  if (ri && ri->addpath_rx_id)
-    sprintf(buf, " with addpath ID %d", ri->addpath_rx_id);
+  if (addpath_id)
+    sprintf(buf, " with addpath ID %d", addpath_id);
 }
+
 
 /* Check if received nexthop is valid or not. */
 static int
@@ -2258,7 +2272,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 	    {
 	      if (bgp_debug_update(peer, p, NULL, 1))
                 {
-                  bgp_info_addpath_rx_str(ri, buf2);
+                  bgp_info_addpath_rx_str(addpath_id, buf2);
 		  zlog_debug ("%s rcvd %s/%d%s",
 		              peer->host,
 		              inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2281,7 +2295,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
                     peer->rcvd_attr_printed = 1;
                   }
 
-                  bgp_info_addpath_rx_str(ri, buf2);
+                  bgp_info_addpath_rx_str(addpath_id, buf2);
 		  zlog_debug ("%s rcvd %s/%d%s...duplicate ignored",
 		              peer->host,
 		              inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2307,7 +2321,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
         {
           if (bgp_debug_update(peer, p, NULL, 1))
             {
-              bgp_info_addpath_rx_str(ri, buf2);
+              bgp_info_addpath_rx_str(addpath_id, buf2);
               zlog_debug ("%s rcvd %s/%d%s, flapped quicker than processing",
                           peer->host,
                           inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2319,7 +2333,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       /* Received Logging. */
       if (bgp_debug_update(peer, p, NULL, 1))
         {
-          bgp_info_addpath_rx_str(ri, buf2);
+          bgp_info_addpath_rx_str(addpath_id, buf2);
 	  zlog_debug ("%s rcvd %s/%d%s",
 	            peer->host,
 	            inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2413,7 +2427,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
           peer->rcvd_attr_printed = 1;
         }
 
-      bgp_info_addpath_rx_str(ri, buf2);
+      bgp_info_addpath_rx_str(addpath_id, buf2);
       zlog_debug ("%s rcvd %s/%d%s",
 	          peer->host,
 	          inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2486,7 +2500,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
           peer->rcvd_attr_printed = 1;
         }
 
-      bgp_info_addpath_rx_str(ri, buf2);
+      bgp_info_addpath_rx_str(addpath_id, buf2);
       zlog_debug ("%s rcvd UPDATE about %s/%d%s -- DENIED due to: %s",
                   peer->host,
                   inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -2541,7 +2555,7 @@ bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   /* Logging. */
   if (bgp_debug_update(peer, p, NULL, 1))
     {
-      bgp_info_addpath_rx_str(ri, buf2);
+      bgp_info_addpath_rx_str(addpath_id, buf2);
       zlog_debug ("%s rcvd UPDATE about %s/%d%s -- withdrawn",
 	        peer->host,
 	        inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),

@@ -427,6 +427,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
   struct bgp_info *cur_mpath, *new_mpath, *next_mpath, *prev_mpath;
   int mpath_changed, debug;
   char pfx_buf[PREFIX2STR_BUFFER], nh_buf[2][INET6_ADDRSTRLEN];
+  char path_buf[PATH_ADDPATH_STR_BUFFER];
 
   mpath_changed = 0;
   maxpaths = MULTIPATH_NUM;
@@ -500,11 +501,13 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
             {
               mpath_changed = 1;
               if (debug)
-                zlog_debug ("%s remove mpath nexthop %s peer %s", pfx_buf,
-                            inet_ntop (AF_INET, &cur_mpath->attr->nexthop,
-                                       nh_buf[0], sizeof (nh_buf[0])),
-                            sockunion2str (cur_mpath->peer->su_remote,
-                                           nh_buf[1], sizeof (nh_buf[1])));
+                {
+                  bgp_info_path_with_addpath_rx_str(cur_mpath, path_buf);
+                  zlog_debug ("%s remove mpath nexthop %s %s", pfx_buf,
+                              inet_ntop (AF_INET, &cur_mpath->attr->nexthop,
+                                         nh_buf[0], sizeof (nh_buf[0])),
+                              path_buf);
+                }
             }
           mp_node = mp_next_node;
           cur_mpath = next_mpath;
@@ -524,11 +527,13 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
           bgp_info_mpath_dequeue (cur_mpath);
           mpath_changed = 1;
           if (debug)
-            zlog_debug ("%s remove mpath nexthop %s peer %s", pfx_buf,
-                        inet_ntop (AF_INET, &cur_mpath->attr->nexthop,
-                                   nh_buf[0], sizeof (nh_buf[0])),
-                        sockunion2str (cur_mpath->peer->su_remote,
-                                       nh_buf[1], sizeof (nh_buf[1])));
+            {
+              bgp_info_path_with_addpath_rx_str(cur_mpath, path_buf);
+              zlog_debug ("%s remove mpath nexthop %s %s", pfx_buf,
+                          inet_ntop (AF_INET, &cur_mpath->attr->nexthop,
+                                     nh_buf[0], sizeof (nh_buf[0])),
+                          path_buf);
+            }
           cur_mpath = next_mpath;
         }
       else
@@ -558,11 +563,13 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
               mpath_changed = 1;
               mpath_count++;
               if (debug)
-                zlog_debug ("%s add mpath nexthop %s peer %s", pfx_buf,
-                            inet_ntop (AF_INET, &new_mpath->attr->nexthop,
-                                       nh_buf[0], sizeof (nh_buf[0])),
-                            sockunion2str (new_mpath->peer->su_remote,
-                                           nh_buf[1], sizeof (nh_buf[1])));
+                {
+                  bgp_info_path_with_addpath_rx_str(new_mpath, path_buf);
+                  zlog_debug ("%s add mpath nexthop %s %s", pfx_buf,
+                              inet_ntop (AF_INET, &new_mpath->attr->nexthop,
+                                         nh_buf[0], sizeof (nh_buf[0])),
+                              path_buf);
+                }
             }
           mp_node = mp_next_node;
         }

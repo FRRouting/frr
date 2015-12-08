@@ -1858,7 +1858,7 @@ rib_queue_init (struct zebra_t *zebra)
  
 /* Add RIB to head of the route node. */
 static void
-rib_link (struct route_node *rn, struct rib *rib)
+rib_link (struct route_node *rn, struct rib *rib, int process)
 {
   struct rib *head;
   rib_dest_t *dest;
@@ -1893,7 +1893,10 @@ rib_link (struct route_node *rn, struct rib *rib)
 
   /* Further processing only if entry is in main table */
   if ((rib->table == RT_TABLE_MAIN) || (rib->table == zebrad.rtm_table_default))
-    rib_queue_add (&zebrad, rn);
+    {
+      if (process)
+        rib_queue_add (&zebrad, rn);
+    }
   else
     {
       afi = (rn->p.family == AF_INET) ? AFI_IP :
@@ -1904,7 +1907,7 @@ rib_link (struct route_node *rn, struct rib *rib)
 }
 
 static void
-rib_addnode (struct route_node *rn, struct rib *rib)
+rib_addnode (struct route_node *rn, struct rib *rib, int process)
 {
   /* RIB node has been un-removed before route-node is processed. 
    * route_node must hence already be on the queue for processing.. 
@@ -1914,7 +1917,7 @@ rib_addnode (struct route_node *rn, struct rib *rib)
       UNSET_FLAG (rib->status, RIB_ENTRY_REMOVED);
       return;
     }
-  rib_link (rn, rib);
+  rib_link (rn, rib, process);
 }
 
 /*
@@ -2097,7 +2100,7 @@ rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
         rib_dump ((struct prefix *)p, rib);
     }
-  rib_addnode (rn, rib);
+  rib_addnode (rn, rib, 1);
   
   /* Free implicit route.*/
   if (same)
@@ -2340,7 +2343,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
         rib_dump ((struct prefix *)p, rib);
     }
-  rib_addnode (rn, rib);
+  rib_addnode (rn, rib, 1);
   ret = 1;
 
   /* Free implicit route.*/
@@ -2571,7 +2574,12 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
                           si->vrf_id, buf, p->prefixlen, rn, rib, rib->type);
             }
         }
-      rib_queue_add (&zebrad, rn);
+      /* Schedule route for processing or invoke NHT, as appropriate. */
+      if (si->type == STATIC_IPV4_GATEWAY ||
+          si->type == STATIC_IPV6_GATEWAY)
+        zebra_evaluate_rnh(si->vrf_id, nh_p.family, 1, RNH_NEXTHOP_TYPE, &nh_p);
+      else
+        rib_queue_add (&zebrad, rn);
     }
   else
     {
@@ -2617,7 +2625,6 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
       /* Save the flags of this static routes (reject, blackhole) */
       rib->flags = si->flags;
 
-      /* Link this rib to the tree. */
       if (IS_ZEBRA_DEBUG_RIB)
         {
           char buf[INET6_ADDRSTRLEN];
@@ -2628,7 +2635,17 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
                           si->vrf_id, buf, p->prefixlen, rn, rib, rib->type);
             }
         }
-      rib_addnode (rn, rib);
+      /* Link this rib to the tree. Schedule for processing or invoke NHT,
+       * as appropriate.
+       */
+      if (si->type == STATIC_IPV4_GATEWAY ||
+          si->type == STATIC_IPV6_GATEWAY)
+        {
+          rib_addnode (rn, rib, 0);
+          zebra_evaluate_rnh(si->vrf_id, nh_p.family, 1, RNH_NEXTHOP_TYPE, &nh_p);
+        }
+      else
+        rib_addnode (rn, rib, 1);
     }
 }
 
@@ -3026,7 +3043,7 @@ rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
         rib_dump ((struct prefix *)p, rib);
     }
-  rib_addnode (rn, rib);
+  rib_addnode (rn, rib, 1);
 
   /* Free implicit route.*/
   if (same)
@@ -3147,7 +3164,7 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
         rib_dump ((struct prefix *)p, rib);
     }
-  rib_addnode (rn, rib);
+  rib_addnode (rn, rib, 1);
   ret = 1;
 
   /* Free implicit route.*/

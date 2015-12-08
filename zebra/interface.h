@@ -217,6 +217,7 @@ extern void if_refresh (struct interface *);
 extern void if_flags_update (struct interface *, uint64_t);
 extern int if_subnet_add (struct interface *, struct connected *);
 extern int if_subnet_delete (struct interface *, struct connected *);
+extern int ipv6_address_configured (struct interface *ifp);
 
 #ifdef HAVE_PROC_NET_DEV
 extern void ifstat_update_proc (void);
