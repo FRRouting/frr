@@ -1380,7 +1380,7 @@ DEFUN (no_bgp_coalesce_time,
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
-       "maximum-paths <1-255>",
+       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
@@ -1389,7 +1389,7 @@ DEFUN (bgp_maxpaths,
 
 DEFUN (bgp_maxpaths_ibgp,
        bgp_maxpaths_ibgp_cmd,
-       "maximum-paths ibgp <1-255>",
+       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n")
@@ -1399,7 +1399,7 @@ DEFUN (bgp_maxpaths_ibgp,
 
 DEFUN (bgp_maxpaths_ibgp_cluster,
        bgp_maxpaths_ibgp_cluster_cmd,
-       "maximum-paths ibgp <1-255> equal-cluster-length",
+       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n"
@@ -1421,7 +1421,7 @@ DEFUN (no_bgp_maxpaths,
 
 ALIAS (no_bgp_maxpaths,
        no_bgp_maxpaths_arg_cmd,
-       "no maximum-paths <1-255>",
+       "no maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
        NO_STR
        "Forward packets over multiple paths\n"
        "Number of paths\n")
@@ -1439,7 +1439,7 @@ DEFUN (no_bgp_maxpaths_ibgp,
 
 ALIAS (no_bgp_maxpaths_ibgp,
        no_bgp_maxpaths_ibgp_arg_cmd,
-       "no maximum-paths ibgp <1-255>",
+       "no maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
        NO_STR
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
@@ -1447,7 +1447,7 @@ ALIAS (no_bgp_maxpaths_ibgp,
 
 ALIAS (no_bgp_maxpaths_ibgp,
        no_bgp_maxpaths_ibgp_cluster_cmd,
-       "no maximum-paths ibgp <1-255> equal-cluster-length",
+       "no maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
        NO_STR
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
@@ -4315,7 +4315,7 @@ DEFUN (neighbor_ebgp_multihop,
 
 DEFUN (neighbor_ebgp_multihop_ttl,
        neighbor_ebgp_multihop_ttl_cmd,
-       NEIGHBOR_CMD2 "ebgp-multihop <1-255>",
+       NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MULTIPATH_NUM),
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Allow EBGP neighbors not on directly connected networks\n"
@@ -4337,7 +4337,7 @@ DEFUN (no_neighbor_ebgp_multihop,
 
 ALIAS (no_neighbor_ebgp_multihop,
        no_neighbor_ebgp_multihop_ttl_cmd,
-       NO_NEIGHBOR_CMD2 "ebgp-multihop <1-255>",
+       NO_NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MULTIPATH_NUM),
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
