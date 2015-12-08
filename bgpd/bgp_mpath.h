@@ -24,9 +24,6 @@
 #ifndef _QUAGGA_BGP_MPATH_H
 #define _QUAGGA_BGP_MPATH_H
 
-/* Limit on number of configured maxpaths */
-#define BGP_MAXIMUM_MAXPATHS 255
-
 /* Supplemental information linked to bgp_info for keeping track of
  * multipath selections, lazily allocated to save memory
  */

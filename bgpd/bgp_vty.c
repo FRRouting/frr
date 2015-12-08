@@ -992,7 +992,7 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
   if (set)
     {
       VTY_GET_INTEGER_RANGE ("maximum-paths", maxpaths, mpaths, 1,
-                             BGP_MAXIMUM_MAXPATHS);
+                             MULTIPATH_NUM);
       ret = bgp_maximum_paths_set (bgp, afi, safi, peer_type, maxpaths,
 				   options);
     }
@@ -1010,11 +1010,6 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
     }
 
   bgp_recalculate_all_bestpaths (bgp);
-
-  if (maxpaths > MULTIPATH_NUM)
-    vty_out (vty,
-	     "%% Warning: maximum-paths set to %d is greater than %d that zebra is compiled to support%s",
-	     maxpaths, MULTIPATH_NUM, VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
