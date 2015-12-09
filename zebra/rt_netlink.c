@@ -1504,7 +1504,6 @@ _netlink_route_build_singlepath(
 
   if (rtmsg->rtm_family == AF_INET &&
       (nexthop->type == NEXTHOP_TYPE_IPV6
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
     {
       char buf[16] = "169.254.0.1";
@@ -1555,9 +1554,7 @@ _netlink_route_build_singlepath(
                    inet_ntoa (nexthop->gate.ipv4),
                    nexthop->ifindex);
     }
-#ifdef HAVE_IPV6
   if (nexthop->type == NEXTHOP_TYPE_IPV6
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
     {
       addattr_l (nlmsg, req_size, RTA_GATEWAY,
@@ -1580,9 +1577,7 @@ _netlink_route_build_singlepath(
                    inet6_ntoa (nexthop->gate.ipv6),
                    nexthop->ifindex);
     }
-#endif /* HAVE_IPV6 */
   if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-      || nexthop->type == NEXTHOP_TYPE_IFNAME
       || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
     {
       addattr32 (nlmsg, req_size, RTA_OIF, nexthop->ifindex);
@@ -1602,8 +1597,7 @@ _netlink_route_build_singlepath(
                    "nexthop via if %u", routedesc, nexthop->ifindex);
     }
 
-  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
+  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
     {
       addattr32 (nlmsg, req_size, RTA_OIF, nexthop->ifindex);
 
@@ -1656,7 +1650,6 @@ _netlink_route_build_multipath(
 
   if (rtmsg->rtm_family == AF_INET &&
       (nexthop->type == NEXTHOP_TYPE_IPV6
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX))
     {
       char buf[16] = "169.254.0.1";
@@ -1705,9 +1698,7 @@ _netlink_route_build_multipath(
                    inet_ntoa (nexthop->gate.ipv4),
                    nexthop->ifindex);
     }
-#ifdef HAVE_IPV6
   if (nexthop->type == NEXTHOP_TYPE_IPV6
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
     {
       rta_addattr_l (rta, NL_PKT_BUF_SIZE, RTA_GATEWAY,
@@ -1726,11 +1717,9 @@ _netlink_route_build_multipath(
                    inet6_ntoa (nexthop->gate.ipv6),
                    nexthop->ifindex);
     }
-#endif /* HAVE_IPV6 */
   /* ifindex */
   if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-      || nexthop->type == NEXTHOP_TYPE_IFINDEX
-      || nexthop->type == NEXTHOP_TYPE_IFNAME)
+      || nexthop->type == NEXTHOP_TYPE_IFINDEX)
     {
       rtnh->rtnh_ifindex = nexthop->ifindex;
 
@@ -1743,8 +1732,7 @@ _netlink_route_build_multipath(
         zlog_debug("netlink_route_multipath() (%s): "
                    "nexthop via if %u", routedesc, nexthop->ifindex);
     }
-  else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
+  else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
     {
       rtnh->rtnh_ifindex = nexthop->ifindex;
 

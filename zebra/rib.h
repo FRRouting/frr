@@ -186,23 +186,22 @@ struct static_route
 
   /* Flag for this static route's type. */
   u_char type;
-#define STATIC_IPV4_GATEWAY          1
-#define STATIC_IPV4_IFNAME           2
+#define STATIC_IFINDEX               1
+#define STATIC_IPV4_GATEWAY          2
 #define STATIC_IPV4_BLACKHOLE        3
 #define STATIC_IPV6_GATEWAY          4
-#define STATIC_IPV6_GATEWAY_IFNAME   5
-#define STATIC_IPV6_IFNAME           6
+#define STATIC_IPV6_GATEWAY_IFINDEX  5
 
   /*
    * Nexthop value.
    *
-   * Under IPv4 addr and ifname are
+   * Under IPv4 addr and ifindex are
    * used independentyly.
    * STATIC_IPV4_GATEWAY uses addr
-   * STATIC_IPV4_IFNAME uses ifname
+   * STATIC_IFINDEX uses ifindex
    */
   union g_addr addr;
-  char *ifname;
+  unsigned int ifindex;
 
   /* bit flags */
   u_char flags;
@@ -380,7 +379,6 @@ typedef enum
 } rib_update_event_t;
 
 extern struct nexthop *rib_nexthop_ifindex_add (struct rib *, unsigned int);
-extern struct nexthop *rib_nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *rib_nexthop_blackhole_add (struct rib *);
 extern struct nexthop *rib_nexthop_ipv4_add (struct rib *, struct in_addr *,
 					     struct in_addr *);
@@ -409,9 +407,6 @@ extern struct nexthop *rib_nexthop_ipv6_add (struct rib *, struct in6_addr *);
 extern struct nexthop *rib_nexthop_ipv6_ifindex_add (struct rib *rib,
 						     struct in6_addr *ipv6,
 						     unsigned int ifindex);
-extern struct nexthop *rib_nexthop_ipv6_ifname_add (struct rib *rib,
-						    struct in6_addr *ipv6,
-						    char *ifname);
 
 extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t);
@@ -453,11 +448,11 @@ extern void rib_queue_add (struct zebra_t *zebra, struct route_node *rn);
 
 
 extern int
-static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
+static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
                  u_char flags, u_short tag, u_char distance, vrf_id_t vrf_id);
 
 extern int
-static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
+static_delete_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
 		    u_short tag, u_char distance, vrf_id_t vrf_id);
 
 extern int
@@ -478,7 +473,7 @@ extern struct route_table *rib_table_ipv6;
 
 extern int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		 const char *ifname, u_char flags, u_short tag,
+		 unsigned int ifindex, u_char flags, u_short tag,
                  u_char distance, vrf_id_t vrf_id);
 
 extern int
@@ -487,7 +482,7 @@ rib_add_ipv6_multipath (struct prefix *, struct rib *, safi_t,
 
 extern int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		    const char *ifname, u_short tag, u_char distance,
+		    unsigned int ifindex, u_short tag, u_char distance,
                     vrf_id_t vrf_id);
 
 extern int rib_gc_dest (struct route_node *rn);

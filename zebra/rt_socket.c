@@ -123,7 +123,6 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 	      gate = 1;
 	    }
 	  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-	      || nexthop->type == NEXTHOP_TYPE_IFNAME
 	      || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 	    ifindex = nexthop->ifindex;
 	  if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
@@ -388,15 +387,12 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
 	      ))
 	{
 	  if (nexthop->type == NEXTHOP_TYPE_IPV6
-	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
 	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 	    {
 	      sin_gate.sin6_addr = nexthop->gate.ipv6;
 	      gate = 1;
 	    }
 	  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-	      || nexthop->type == NEXTHOP_TYPE_IFNAME
-	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
 	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 	    ifindex = nexthop->ifindex;
 

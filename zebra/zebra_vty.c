@@ -49,11 +49,11 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
   struct prefix p;
   struct in_addr gate;
   struct in_addr mask;
-  const char *ifname;
   u_char flag = 0;
   u_short tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
-  
+  unsigned int ifindex = 0;
+
   ret = str2prefix (dest_str, &p);
   if (ret <= 0)
     {
@@ -99,9 +99,9 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
           return CMD_WARNING;
         }
       if (add_cmd)
-        static_add_ipv4 (&p, NULL, NULL, ZEBRA_FLAG_BLACKHOLE, tag, distance, vrf_id);
+        static_add_ipv4 (&p, NULL, ifindex, ZEBRA_FLAG_BLACKHOLE, tag, distance, vrf_id);
       else
-        static_delete_ipv4 (&p, NULL, NULL, tag, distance, vrf_id);
+        static_delete_ipv4 (&p, NULL, ifindex, tag, distance, vrf_id);
       return CMD_SUCCESS;
     }
 
@@ -125,9 +125,9 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
   if (gate_str == NULL)
   {
     if (add_cmd)
-      static_add_ipv4 (&p, NULL, NULL, flag, tag, distance, vrf_id);
+      static_add_ipv4 (&p, NULL, ifindex, flag, tag, distance, vrf_id);
     else
-      static_delete_ipv4 (&p, NULL, NULL, tag, distance, vrf_id);
+      static_delete_ipv4 (&p, NULL, ifindex, tag, distance, vrf_id);
 
     return CMD_SUCCESS;
   }
@@ -135,15 +135,21 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
   /* When gateway is A.B.C.D format, gate is treated as nexthop
      address other case gate is treated as interface name. */
   ret = inet_aton (gate_str, &gate);
-  if (ret)
-    ifname = NULL;
-  else
-    ifname = gate_str;
+  if (!ret)
+    {
+      struct interface *ifp = if_lookup_by_name_vrf (gate_str, vrf_id);
+      if (!ifp)
+	{
+	  vty_out (vty, "%% Unknown interface: %s%s", gate_str, VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+      ifindex = ifp->ifindex;
+    }
 
   if (add_cmd)
-    static_add_ipv4 (&p, ifname ? NULL : &gate, ifname, flag, tag, distance, vrf_id);
+    static_add_ipv4 (&p, ifindex ? NULL : &gate, ifindex, flag, tag, distance, vrf_id);
   else
-    static_delete_ipv4 (&p, ifname ? NULL : &gate, ifname, tag, distance, vrf_id);
+    static_delete_ipv4 (&p, ifindex ? NULL : &gate, ifindex, tag, distance, vrf_id);
 
   return CMD_SUCCESS;
 }
@@ -1818,12 +1824,9 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 #ifdef HAVE_IPV6
 	    case NEXTHOP_TYPE_IPV6:
 	    case NEXTHOP_TYPE_IPV6_IFINDEX:
-	    case NEXTHOP_TYPE_IPV6_IFNAME:
 	      vty_out (vty, " %s",
 		       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
-	      if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
-		vty_out (vty, ", %s", nexthop->ifname);
-	      else if (nexthop->ifindex)
+	      if (nexthop->ifindex)
 		vty_out (vty, ", via %s",
                          ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	      break;
@@ -1831,9 +1834,6 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	    case NEXTHOP_TYPE_IFINDEX:
 	      vty_out (vty, " directly connected, %s",
 		       ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
-	      break;
-	    case NEXTHOP_TYPE_IFNAME:
-	      vty_out (vty, " directly connected, %s", nexthop->ifname);
 	      break;
       case NEXTHOP_TYPE_BLACKHOLE:
         vty_out (vty, " directly connected, Null0");
@@ -1854,7 +1854,6 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
             {
             case NEXTHOP_TYPE_IPV4:
             case NEXTHOP_TYPE_IPV4_IFINDEX:
-            case NEXTHOP_TYPE_IPV4_IFNAME:
               if (nexthop->src.ipv4.s_addr)
                 {
 		  if (inet_ntop(AF_INET, &nexthop->src.ipv4, addrstr,
@@ -1862,10 +1861,8 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
                     vty_out (vty, ", src %s", addrstr);
                 }
               break;
-#ifdef HAVE_IPV6
             case NEXTHOP_TYPE_IPV6:
             case NEXTHOP_TYPE_IPV6_IFINDEX:
-            case NEXTHOP_TYPE_IPV6_IFNAME:
               if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
                 {
 		  if (inet_ntop(AF_INET6, &nexthop->src.ipv6, addrstr,
@@ -1873,7 +1870,6 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
                     vty_out (vty, ", src %s", addrstr);
                 }
               break;
-#endif /* HAVE_IPV6 */
             default:
 	       break;
             }
@@ -1935,12 +1931,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 #ifdef HAVE_IPV6
         case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-	case NEXTHOP_TYPE_IPV6_IFNAME:
 	  vty_out (vty, " via %s",
 		   inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
-	  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
-	    vty_out (vty, ", %s", nexthop->ifname);
-	  else if (nexthop->ifindex)
+	  if (nexthop->ifindex)
 	    vty_out (vty, ", %s",
                      ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	  break;
@@ -1949,9 +1942,6 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	case NEXTHOP_TYPE_IFINDEX:
 	  vty_out (vty, " is directly connected, %s",
 		   ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
-	  break;
-	case NEXTHOP_TYPE_IFNAME:
-	  vty_out (vty, " is directly connected, %s", nexthop->ifname);
 	  break;
   case NEXTHOP_TYPE_BLACKHOLE:
     vty_out (vty, " is directly connected, Null0");
@@ -1972,7 +1962,6 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
         {
           case NEXTHOP_TYPE_IPV4:
           case NEXTHOP_TYPE_IPV4_IFINDEX:
-          case NEXTHOP_TYPE_IPV4_IFNAME:
             if (nexthop->src.ipv4.s_addr)
               {
 		if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf, sizeof buf))
@@ -1982,7 +1971,6 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 #ifdef HAVE_IPV6
           case NEXTHOP_TYPE_IPV6:
           case NEXTHOP_TYPE_IPV6_IFINDEX:
-          case NEXTHOP_TYPE_IPV6_IFNAME:
             if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
               {
 		if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf, sizeof buf))
@@ -3043,8 +3031,8 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               case STATIC_IPV4_GATEWAY:
                 vty_out (vty, " %s", inet_ntoa (si->addr.ipv4));
                 break;
-              case STATIC_IPV4_IFNAME:
-                vty_out (vty, " %s", si->ifname);
+              case STATIC_IFINDEX:
+                vty_out (vty, " %s", ifindex2ifname_vrf(si->ifindex, si->vrf_id));
                 break;
               case STATIC_IPV4_BLACKHOLE:
                 vty_out (vty, " Null0");
@@ -3178,6 +3166,8 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   vrf_id_t vrf_id = VRF_DEFAULT;
   u_char flag = 0;
   u_short tag = 0;
+  unsigned int ifindex = 0;
+  struct interface *ifp = NULL;
   
   ret = str2prefix (dest_str, &p);
   if (ret <= 0)
@@ -3229,8 +3219,15 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 	  vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
-      type = STATIC_IPV6_GATEWAY_IFNAME;
+      type = STATIC_IPV6_GATEWAY_IFINDEX;
       gate = &gate_addr;
+      ifp = if_lookup_by_name_vrf (ifname, vrf_id);
+      if (!ifp)
+	{
+	  vty_out (vty, "%% Malformed Interface name %s%s", ifname, VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+      ifindex = ifp->ifindex;
     }
   else
     {
@@ -3241,8 +3238,14 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 	}
       else
 	{
-	  type = STATIC_IPV6_IFNAME;
-	  ifname = gate_str;
+	  type = STATIC_IFINDEX;
+	  ifp = if_lookup_by_name_vrf (gate_str, vrf_id);
+	  if (!ifp)
+	    {
+	      vty_out (vty, "%% Malformed Interface name %s%s", gate_str, VTY_NEWLINE);
+	      return CMD_WARNING;
+	    }
+	  ifindex = ifp->ifindex;
 	}
     }
 
@@ -3251,9 +3254,9 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
     VTY_GET_INTEGER ("VRF ID", vrf_id, vrf_id_str);
 
   if (add_cmd)
-    static_add_ipv6 (&p, type, gate, ifname, flag, tag, distance, vrf_id);
+    static_add_ipv6 (&p, type, gate, ifindex, flag, tag, distance, vrf_id);
   else
-    static_delete_ipv6 (&p, type, gate, ifname, tag, distance, vrf_id);
+    static_delete_ipv6 (&p, type, gate, ifindex, tag, distance, vrf_id);
 
   return CMD_SUCCESS;
 }
@@ -4321,21 +4324,14 @@ vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
 	    {
 	    case NEXTHOP_TYPE_IPV6:
 	    case NEXTHOP_TYPE_IPV6_IFINDEX:
-	    case NEXTHOP_TYPE_IPV6_IFNAME:
 	      vty_out (vty, " %s",
 		       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
-	      if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
-		vty_out (vty, ", %s", nexthop->ifname);
-	      else if (nexthop->ifindex)
+	      if (nexthop->ifindex)
 		vty_out (vty, ", via %s", ifindex2ifname (nexthop->ifindex));
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
 	      vty_out (vty, " directly connected, %s",
 		       ifindex2ifname (nexthop->ifindex));
-	      break;
-	    case NEXTHOP_TYPE_IFNAME:
-	      vty_out (vty, " directly connected, %s",
-		       nexthop->ifname);
 	      break;
 	    default:
 	      break;
@@ -4395,21 +4391,14 @@ vty_show_ipv6_route (struct vty *vty, struct route_node *rn,
 	{
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-	case NEXTHOP_TYPE_IPV6_IFNAME:
 	  vty_out (vty, " via %s",
 		   inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
-	  if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
-	    vty_out (vty, ", %s", nexthop->ifname);
-	  else if (nexthop->ifindex)
+	  if (nexthop->ifindex)
 	    vty_out (vty, ", %s", ifindex2ifname (nexthop->ifindex));
 	  break;
 	case NEXTHOP_TYPE_IFINDEX:
 	  vty_out (vty, " is directly connected, %s",
 		   ifindex2ifname (nexthop->ifindex));
-	  break;
-	case NEXTHOP_TYPE_IFNAME:
-	  vty_out (vty, " is directly connected, %s",
-		   nexthop->ifname);
 	  break;
 	default:
 	  break;
@@ -5189,12 +5178,13 @@ static_config_ipv6 (struct vty *vty)
 	      case STATIC_IPV6_GATEWAY:
 		vty_out (vty, " %s", inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ));
 		break;
-	      case STATIC_IPV6_IFNAME:
-		vty_out (vty, " %s", si->ifname);
+	      case STATIC_IFINDEX:
+		vty_out (vty, " %s", ifindex2ifname_vrf (si->ifindex, si->vrf_id));
 		break;
-	      case STATIC_IPV6_GATEWAY_IFNAME:
+	      case STATIC_IPV6_GATEWAY_IFINDEX:
 		vty_out (vty, " %s %s",
-			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ), si->ifname);
+			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
+			 ifindex2ifname_vrf (si->ifindex, si->vrf_id));
 		break;
 	      }
 

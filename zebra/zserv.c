@@ -580,17 +580,14 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
               case NEXTHOP_TYPE_IPV4_IFINDEX:
                 stream_put_in_addr (s, &nexthop->gate.ipv4);
                 break;
-#ifdef HAVE_IPV6
               case NEXTHOP_TYPE_IPV6:
               case NEXTHOP_TYPE_IPV6_IFINDEX:
-              case NEXTHOP_TYPE_IPV6_IFNAME:
 		/* Only BGP supports IPv4 prefix with IPv6 NH, so kill this */
 		if (p->family == AF_INET)
 		  stream_put_in_addr(s, &dummy_nh.gate.ipv4);
 		else
 		  stream_write (s, (u_char *) &nexthop->gate.ipv6, 16);
                 break;
-#endif
               default:
                 if (cmd == ZEBRA_REDISTRIBUTE_IPV4_ADD
                     || cmd == ZEBRA_REDISTRIBUTE_IPV4_DEL)
@@ -685,12 +682,10 @@ zsend_ipv6_nexthop_lookup (struct zserv *client, struct in6_addr *addr,
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		break;
 	      case ZEBRA_NEXTHOP_IPV6_IFINDEX:
-	      case ZEBRA_NEXTHOP_IPV6_IFNAME:
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		stream_putl (s, nexthop->ifindex);
 		break;
 	      case ZEBRA_NEXTHOP_IFINDEX:
-	      case ZEBRA_NEXTHOP_IFNAME:
 		stream_putl (s, nexthop->ifindex);
 		break;
 	      default:
@@ -759,7 +754,6 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr,
 		stream_putl (s, nexthop->ifindex);
 		break;
 	      case ZEBRA_NEXTHOP_IFINDEX:
-	      case ZEBRA_NEXTHOP_IFNAME:
 		stream_putl (s, nexthop->ifindex);
 		break;
 	      default:
@@ -938,7 +932,6 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p,
 		stream_putl (s, nexthop->ifindex);
 		break;
 	      case ZEBRA_NEXTHOP_IFINDEX:
-	      case ZEBRA_NEXTHOP_IFNAME:
 		stream_putl (s, nexthop->ifindex);
 		break;
 	      default:
@@ -1068,7 +1061,6 @@ zread_ipv4_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
   u_char nexthop_type;
   struct stream *s;
   unsigned int ifindex;
-  u_char ifname_len;
   safi_t safi;
   int ret;
 
@@ -1110,10 +1102,6 @@ zread_ipv4_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
 	    case ZEBRA_NEXTHOP_IFINDEX:
 	      ifindex = stream_getl (s);
 	      rib_nexthop_ifindex_add (rib, ifindex);
-	      break;
-	    case ZEBRA_NEXTHOP_IFNAME:
-	      ifname_len = stream_getc (s);
-	      stream_forward_getp (s, ifname_len);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
@@ -1172,7 +1160,6 @@ zread_ipv4_delete (struct zserv *client, u_short length, vrf_id_t vrf_id)
   struct prefix_ipv4 p;
   u_char nexthop_num;
   u_char nexthop_type;
-  u_char ifname_len;
   
   s = client->ibuf;
   ifindex = 0;
@@ -1205,10 +1192,6 @@ zread_ipv4_delete (struct zserv *client, u_short length, vrf_id_t vrf_id)
 	    {
 	    case ZEBRA_NEXTHOP_IFINDEX:
 	      ifindex = stream_getl (s);
-	      break;
-	    case ZEBRA_NEXTHOP_IFNAME:
-	      ifname_len = stream_getc (s);
-	      stream_forward_getp (s, ifname_len);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);

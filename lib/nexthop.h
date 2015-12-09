@@ -34,13 +34,10 @@ union g_addr {
 enum nexthop_types_t
 {
   NEXTHOP_TYPE_IFINDEX = 1,      /* Directly connected.  */
-  NEXTHOP_TYPE_IFNAME,           /* Interface route.  */
   NEXTHOP_TYPE_IPV4,             /* IPv4 nexthop.  */
   NEXTHOP_TYPE_IPV4_IFINDEX,     /* IPv4 nexthop with ifindex.  */
-  NEXTHOP_TYPE_IPV4_IFNAME,      /* IPv4 nexthop with ifname.  */
   NEXTHOP_TYPE_IPV6,             /* IPv6 nexthop.  */
   NEXTHOP_TYPE_IPV6_IFINDEX,     /* IPv6 nexthop with ifindex.  */
-  NEXTHOP_TYPE_IPV6_IFNAME,      /* IPv6 nexthop with ifname.  */
   NEXTHOP_TYPE_BLACKHOLE,        /* Null0 nexthop.  */
 };
 
@@ -51,7 +48,6 @@ struct nexthop
   struct nexthop *prev;
 
   /* Interface index. */
-  char *ifname;
   unsigned int ifindex;
 
   enum nexthop_types_t type;

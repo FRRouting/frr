@@ -2728,8 +2728,8 @@ bgp_create (as_t *as, const char *name)
 	bgp->rib[afi][safi] = bgp_table_init (afi, safi);
 
         /* Enable maximum-paths */
-        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_EBGP, BGP_DEFAULT_MAXPATHS, 0);
-        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_IBGP, BGP_DEFAULT_MAXPATHS, 0);
+        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_EBGP, MULTIPATH_NUM, 0);
+        bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_IBGP, MULTIPATH_NUM, 0);
       }
 
   bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;

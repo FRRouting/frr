@@ -62,22 +62,22 @@ struct stream *bgp_ifindices_buf = NULL;
      1. maintain a linked-list and free it after zapi_*_route call
      2. use an array to avoid number of mallocs.
    Number of supported next-hops are finite, use of arrays should be ok. */
-struct attr attr_cp[BGP_MAXIMUM_MAXPATHS];
-struct attr_extra attr_extra_cp[BGP_MAXIMUM_MAXPATHS];
+struct attr attr_cp[MULTIPATH_NUM];
+struct attr_extra attr_extra_cp[MULTIPATH_NUM];
 int    attr_index = 0;
 
 /* Once per address-family initialization of the attribute array */
 #define BGP_INFO_ATTR_BUF_INIT()\
 do {\
-  memset(attr_cp, 0, BGP_MAXIMUM_MAXPATHS * sizeof(struct attr));\
-  memset(attr_extra_cp, 0, BGP_MAXIMUM_MAXPATHS * sizeof(struct attr_extra));\
+  memset(attr_cp, 0, MULTIPATH_NUM * sizeof(struct attr));\
+  memset(attr_extra_cp, 0, MULTIPATH_NUM * sizeof(struct attr_extra));\
   attr_index = 0;\
 } while (0)
 
 #define BGP_INFO_ATTR_BUF_COPY(info_src, info_dst)\
 do { \
   *info_dst = *info_src; \
-  assert(attr_index != BGP_MAXIMUM_MAXPATHS);\
+  assert(attr_index != MULTIPATH_NUM);\
   attr_cp[attr_index].extra = &attr_extra_cp[attr_index]; \
   bgp_attr_dup (&attr_cp[attr_index], info_src->attr); \
   bgp_attr_deep_dup (&attr_cp[attr_index], info_src->attr); \

@@ -493,8 +493,7 @@ ipFwTable (struct variable *v, oid objid[], size_t *objid_len,
       return (u_char *)&nexthop->ifindex;
       break;
     case IPFORWARDTYPE:
-      if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-	  || nexthop->type == NEXTHOP_TYPE_IFNAME)
+      if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
         result = 3;
       else
         result = 4;
