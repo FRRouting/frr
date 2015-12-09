@@ -534,8 +534,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib)
       if (rib->nexthop_num == 1)
 	{
 	  nhop = rib->nexthop;
-	  if ((nhop->type == NEXTHOP_TYPE_IFINDEX) ||
-	      (nhop->type == NEXTHOP_TYPE_IFNAME))
+	  if (nhop->type == NEXTHOP_TYPE_IFINDEX)
 	    gate = NULL;
 	  else
 	    gate = &nhop->gate.ipv4;

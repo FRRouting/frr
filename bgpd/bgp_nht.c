@@ -394,11 +394,9 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
 	      nexthop->gate.ipv4.s_addr = stream_get_ipv4 (s);
 	      break;
 	    case ZEBRA_NEXTHOP_IFINDEX:
-	    case ZEBRA_NEXTHOP_IFNAME:
 	      nexthop->ifindex = stream_getl (s);
 	      break;
             case ZEBRA_NEXTHOP_IPV4_IFINDEX:
-	    case ZEBRA_NEXTHOP_IPV4_IFNAME:
 	      nexthop->gate.ipv4.s_addr = stream_get_ipv4 (s);
 	      nexthop->ifindex = stream_getl (s);
 	      break;
@@ -407,7 +405,6 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
 	      stream_get (&nexthop->gate.ipv6, s, 16);
 	      break;
             case ZEBRA_NEXTHOP_IPV6_IFINDEX:
-	    case ZEBRA_NEXTHOP_IPV6_IFNAME:
 	      stream_get (&nexthop->gate.ipv6, s, 16);
 	      nexthop->ifindex = stream_getl (s);
 	      break;

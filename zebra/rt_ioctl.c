@@ -224,8 +224,7 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
 	      sin_gate.sin_addr = nexthop->gate.ipv4;
 	      rtentry.rt_flags |= RTF_GATEWAY;
 	    }
-	  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-	      || nexthop->type == NEXTHOP_TYPE_IFNAME)
+	  if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
 	    {
 	      ifp = if_lookup_by_index (nexthop->ifindex);
 	      if (ifp)
@@ -460,15 +459,12 @@ kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
 	      && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
 	{
 	  if (nexthop->type == NEXTHOP_TYPE_IPV6
-	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
 	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 	    {
 	      memcpy (&rtm.rtmsg_gateway, &nexthop->gate.ipv6,
 		      sizeof (struct in6_addr));
 	    }
 	  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-	      || nexthop->type == NEXTHOP_TYPE_IFNAME
-	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
 	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 	    rtm.rtmsg_ifindex = nexthop->ifindex;
 	  else

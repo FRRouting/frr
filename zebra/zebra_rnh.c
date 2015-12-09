@@ -796,11 +796,9 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		break;
 	      case ZEBRA_NEXTHOP_IFINDEX:
-	      case ZEBRA_NEXTHOP_IFNAME:
 		stream_putl (s, nexthop->ifindex);
 		break;
 	      case ZEBRA_NEXTHOP_IPV4_IFINDEX:
-	      case ZEBRA_NEXTHOP_IPV4_IFNAME:
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		stream_putl (s, nexthop->ifindex);
 		break;
@@ -809,7 +807,6 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		break;
 	      case ZEBRA_NEXTHOP_IPV6_IFINDEX:
-	      case ZEBRA_NEXTHOP_IPV6_IFNAME:
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		stream_putl (s, nexthop->ifindex);
 		break;
@@ -849,20 +846,14 @@ print_nh (struct nexthop *nexthop, struct vty *vty)
       break;
     case NEXTHOP_TYPE_IPV6:
     case NEXTHOP_TYPE_IPV6_IFINDEX:
-    case NEXTHOP_TYPE_IPV6_IFNAME:
       vty_out (vty, " %s",
 	       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
-      if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
-	vty_out (vty, ", %s", nexthop->ifname);
-      else if (nexthop->ifindex)
+      if (nexthop->ifindex)
 	vty_out (vty, ", via %s", ifindex2ifname (nexthop->ifindex));
       break;
     case NEXTHOP_TYPE_IFINDEX:
       vty_out (vty, " is directly connected, %s",
 	       ifindex2ifname (nexthop->ifindex));
-      break;
-    case NEXTHOP_TYPE_IFNAME:
-      vty_out (vty, " is directly connected, %s", nexthop->ifname);
       break;
     case NEXTHOP_TYPE_BLACKHOLE:
       vty_out (vty, " is directly connected, Null0");
