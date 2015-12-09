@@ -64,7 +64,7 @@ extern void zebra_deregister_rnh_static_nexthops (struct nexthop *nexthop, struc
 extern void zebra_deregister_rnh_static_nh(struct prefix *, struct route_node *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 				    rnh_type_t type);
-extern int zebra_evaluate_rnh(vrf_id_t vrfid, int family, int force, rnh_type_t type,
+extern void zebra_evaluate_rnh(vrf_id_t vrfid, int family, int force, rnh_type_t type,
 			      struct prefix *p);
 extern int zebra_dispatch_rnh_table(vrf_id_t vrfid, int family, struct zserv *cl, rnh_type_t);
 extern void zebra_print_rnh_table(vrf_id_t vrfid, int family, struct vty *vty, rnh_type_t);
