@@ -639,11 +639,9 @@ if_up (struct interface *ifp)
     }
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update on interface %s up", __func__,
-                ifp->name);
-
-  /* Examine all static routes. */
-  rib_update (ifp->vrf_id);
+    zlog_debug ("%u: IF %s up, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -675,12 +673,10 @@ if_down (struct interface *ifp)
 	}
     }
 
-  /* Examine all static routes which direct to the interface. */
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update_static on interface %s down", __func__,
-                ifp->name);
-
-  rib_update_static (ifp->vrf_id);
+    zlog_debug ("%u: IF %s down, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
   if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (ifp);
 

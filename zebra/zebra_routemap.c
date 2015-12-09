@@ -784,9 +784,10 @@ DEFUN (ip_protocol,
   proto_rm[AFI_IP][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update", __func__);
+    zlog_debug ("%u: IPv4 Routemap config for protocol %s, scheduling RIB processing",
+                VRF_DEFAULT, argv[0]);
 
-  rib_update(VRF_DEFAULT);
+  rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
   return CMD_SUCCESS;
 }
 
@@ -821,9 +822,9 @@ DEFUN (no_ip_protocol,
       proto_rm[AFI_IP][i] = NULL;
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-        zlog_debug ("%s: calling rib_update", __func__);
-
-      rib_update(VRF_DEFAULT);
+        zlog_debug ("%u: IPv4 Routemap unconfig for protocol %s, scheduling RIB processing",
+                    VRF_DEFAULT, argv[0]);
+      rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
     }
   return CMD_SUCCESS;
 }
@@ -896,9 +897,10 @@ DEFUN (ipv6_protocol,
   proto_rm[AFI_IP6][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update", __func__);
+    zlog_debug ("%u: IPv6 Routemap config for protocol %s, scheduling RIB processing",
+                VRF_DEFAULT, argv[0]);
 
-  rib_update(VRF_DEFAULT);
+  rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
   return CMD_SUCCESS;
 }
 
@@ -933,9 +935,10 @@ DEFUN (no_ipv6_protocol,
       proto_rm[AFI_IP6][i] = NULL;
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-        zlog_debug ("%s: calling rib_update", __func__);
+        zlog_debug ("%u: IPv6 Routemap unconfig for protocol %s, scheduling RIB processing",
+                    VRF_DEFAULT, argv[0]);
 
-      rib_update(VRF_DEFAULT);
+      rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
     }
   return CMD_SUCCESS;
 }
@@ -1611,9 +1614,10 @@ zebra_route_map_update_timer (struct thread *thread)
     zlog_debug("Event driven route-map update triggered");
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update", __func__);
+    zlog_debug ("%u: Routemap update-timer fired, scheduling RIB processing",
+                VRF_DEFAULT);
 
-  rib_update(VRF_DEFAULT);
+  rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
   zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
   zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 

@@ -371,6 +371,14 @@ typedef struct rib_tables_iter_t_
   rib_tables_iter_state_t state;
 } rib_tables_iter_t;
 
+/* Events/reasons triggering a RIB update. */
+typedef enum
+{
+  RIB_UPDATE_IF_CHANGE,
+  RIB_UPDATE_RMAP_CHANGE,
+  RIB_UPDATE_OTHER
+} rib_update_event_t;
+
 extern struct nexthop *rib_nexthop_ifindex_add (struct rib *, unsigned int);
 extern struct nexthop *rib_nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *rib_nexthop_blackhole_add (struct rib *);
@@ -433,8 +441,7 @@ extern struct rib *rib_match_ipv4 (struct in_addr, vrf_id_t);
 
 extern struct rib *rib_lookup_ipv4 (struct prefix_ipv4 *, vrf_id_t);
 
-extern void rib_update (vrf_id_t);
-extern void rib_update_static (vrf_id_t);
+extern void rib_update (vrf_id_t, rib_update_event_t);
 extern void rib_weed_tables (void);
 extern void rib_sweep_route (void);
 extern void rib_close_table (struct route_table *);
