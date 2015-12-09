@@ -215,9 +215,9 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
 	ifp->vrf_id, RT_TABLE_MAIN, ifp->metric, 0, SAFI_MULTICAST);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update", __func__);
-
-  rib_update (ifp->vrf_id);
+    zlog_debug ("%u: IF %s IPv4 address add/up, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
 /* Add connected IPv4 route to the interface. */
@@ -334,9 +334,10 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
                    SAFI_MULTICAST);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update_static", __func__);
+    zlog_debug ("%u: IF %s IPv4 address down, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
 
-  rib_update_static (ifp->vrf_id);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
 /* Delete connected IPv4 route to the interface. */
@@ -359,9 +360,10 @@ connected_delete_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
   connected_withdraw (ifc);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update_static", __func__);
+    zlog_debug ("%u: IF %s IPv4 address del, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
 
-  rib_update_static(ifp->vrf_id);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
 #ifdef HAVE_IPV6
@@ -388,9 +390,10 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
                 RT_TABLE_MAIN, ifp->metric, 0, SAFI_UNICAST);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update", __func__);
+    zlog_debug ("%u: IF %s IPv6 address down, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
 
-  rib_update (ifp->vrf_id);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
 /* Add connected IPv6 route to the interface. */
@@ -477,9 +480,10 @@ connected_down_ipv6 (struct interface *ifp, struct connected *ifc)
                    ifp->vrf_id, 0, SAFI_UNICAST);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update_static", __func__);
+    zlog_debug ("%u: IF %s IPv6 address down, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
 
-  rib_update_static (ifp->vrf_id);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
 void
@@ -501,9 +505,10 @@ connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
   connected_withdraw (ifc);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    zlog_debug ("%s: calling rib_update_static", __func__);
+    zlog_debug ("%u: IF %s IPv6 address del, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
 
-  rib_update_static(ifp->vrf_id);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 #endif /* HAVE_IPV6 */
 

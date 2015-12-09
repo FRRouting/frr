@@ -3471,55 +3471,82 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
   return 1;
 }
 
-/* RIB update function. */
-void
-rib_update_static (vrf_id_t vrf_id)
+/* Schedule routes of a particular table (address-family) based on event. */
+static void
+rib_update_table (struct route_table *table, rib_update_event_t event)
 {
   struct route_node *rn;
-  struct route_table *table;
   struct rib *rib, *next;
 
-  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
-  if (table)
-    for (rn = route_top (table); rn; rn = route_next (rn))
-      RNODE_FOREACH_RIB_SAFE (rn, rib, next)
-        if (rib->type == ZEBRA_ROUTE_STATIC)
-          {
-            rib_queue_add (&zebrad, rn);
-            break;
-          }
+  /* Walk all routes and queue for processing, if appropriate for
+   * the trigger event.
+   */
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    {
+      switch (event)
+        {
+        case RIB_UPDATE_IF_CHANGE:
+          /* Examine all routes that won't get processed by the protocol or
+           * triggered by nexthop evaluation (NHT). This would be system,
+           * kernel and certain static routes. Note that NHT will get
+           * triggered upon an interface event as connected routes always
+           * get queued for processing.
+           */
+          RNODE_FOREACH_RIB_SAFE (rn, rib, next)
+            {
+              if (rib->type == ZEBRA_ROUTE_OSPF ||
+                  rib->type == ZEBRA_ROUTE_OSPF6 ||
+                  rib->type == ZEBRA_ROUTE_BGP)
+                continue; /* protocol will handle. */
+              else if (rib->type == ZEBRA_ROUTE_STATIC)
+                {
+                  struct nexthop *nh;
+                  for (nh = rib->nexthop; nh; nh = nh->next)
+                    if (!(nh->type == NEXTHOP_TYPE_IPV4 ||
+                        nh->type == NEXTHOP_TYPE_IPV6))
+                      break;
 
-  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
-  if (table)
-    for (rn = route_top (table); rn; rn = route_next (rn))
-      RNODE_FOREACH_RIB_SAFE (rn, rib, next)
-        if (rib->type == ZEBRA_ROUTE_STATIC)
-          {
+                  /* If we only have nexthops to a gateway, NHT will
+                   * take care.
+                   */
+                  if (nh)
+                    rib_queue_add (&zebrad, rn);
+                }
+              else
+                  rib_queue_add (&zebrad, rn);
+            }
+          break;
+
+        case RIB_UPDATE_RMAP_CHANGE:
+        case RIB_UPDATE_OTHER:
+          /* Right now, examine all routes. Can restrict to a protocol in
+           * some cases (TODO).
+           */
+          if (rnode_to_ribs (rn))
             rib_queue_add (&zebrad, rn);
-            break;
-          }
+          break;
+
+        default:
+          break;
+        }
+    }
 }
 
 /* RIB update function. */
 void
-rib_update (vrf_id_t vrf_id)
+rib_update (vrf_id_t vrf_id, rib_update_event_t event)
 {
-  struct route_node *rn;
   struct route_table *table;
-  
+
+  /* Process routes of interested address-families. */
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (table)
-    for (rn = route_top (table); rn; rn = route_next (rn))
-      if (rnode_to_ribs (rn))
-        rib_queue_add (&zebrad, rn);
+    rib_update_table (table, event);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (table)
-    for (rn = route_top (table); rn; rn = route_next (rn))
-      if (rnode_to_ribs (rn))
-        rib_queue_add (&zebrad, rn);
+    rib_update_table (table, event);
 }
-
 
 /* Remove all routes which comes from non main table.  */
 static void
