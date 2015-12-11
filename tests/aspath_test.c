@@ -134,7 +134,7 @@ static struct test_segment {
     { 0x4,0x3, 0x01,0xc8, 0x00,0x7b, 0x03,0x15 },
     8,
     { "[123,456,789]",
-      "[123,456,789]",
+      "",
       0, 1, NOT_ALL_PRIVATE, 123, 1, NULL_ASN },
   },
   { /* 9 */
@@ -672,12 +672,12 @@ static struct tests {
   },
   { &test_segments[8], &test_segments[9],
     { "[123,456,789] (123 456 789) [111,222] 8722 {4196,48658}",
-      "[123,456,789] (123 456 789) [111,222] 8722 {4196,48658}",
+      "8722 {4196,48658}",
       2, 5, NOT_ALL_PRIVATE, 456, 1, NULL_ASN },
   },
   { &test_segments[9], &test_segments[8],
     { "(123 456 789) [111,222] 8722 {4196,48658} [123,456,789]",
-      "8722 {4196,48658} [123,456,789]",
+      "8722 {4196,48658}",
       2, 5, NOT_ALL_PRIVATE, 48658, 1, NULL_ASN },
   },
   { &test_segments[14], &test_segments[11],
@@ -969,8 +969,8 @@ validate (struct aspath *as, const struct test_spec *sp)
     {
       failed++;
       fails++;
-      printf ("confed_del: %s\n", aspath_print (asconfeddel));
-      printf ("should be: %s\n", sp->shouldbe_delete_confed);
+      printf ("as-path minus confeds is: %s\n", aspath_print (asconfeddel));
+      printf ("as-path minus confeds should be: %s\n", sp->shouldbe_delete_confed);
     }
       /* aspath_str2aspath test */
   if ((aspath_print (asstr) == NULL && sp->shouldbe != NULL)

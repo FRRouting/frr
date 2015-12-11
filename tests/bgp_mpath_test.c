@@ -104,9 +104,6 @@ bgp_create_fake (as_t *as, const char *name)
   bgp->group = list_new ();
   //bgp->group->cmp = (int (*)(void *, void *)) peer_group_cmp;
 
-  bgp->rsclient = list_new ();
-  //bgp->rsclient->cmp = (int (*)(void*, void*)) peer_cmp;
-
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {

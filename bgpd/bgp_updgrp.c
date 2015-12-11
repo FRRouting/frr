@@ -1577,8 +1577,11 @@ update_bgp_group_free (struct bgp *bgp)
 
   AF_FOREACH (afid)
     {
-      hash_free(bgp->update_groups[afid]);
-      bgp->update_groups[afid] = NULL;
+      if (bgp->update_groups[afid])
+        {
+          hash_free(bgp->update_groups[afid]);
+          bgp->update_groups[afid] = NULL;
+        }
     }
 }
 

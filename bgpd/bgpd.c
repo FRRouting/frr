@@ -2977,8 +2977,12 @@ bgp_free (struct bgp *bgp)
 
   list_delete (bgp->group);
   list_delete (bgp->peer);
-  hash_free(bgp->peerhash);
-  bgp->peerhash = NULL;
+
+  if (bgp->peerhash)
+    {
+      hash_free(bgp->peerhash);
+      bgp->peerhash = NULL;
+    }
 
   if (bgp->name)
     XFREE(MTYPE_BGP, bgp->name);
