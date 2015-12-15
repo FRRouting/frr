@@ -1770,9 +1770,6 @@ ipv6_address_configured (struct interface *ifp)
   struct connected *connected;
   struct listnode *node;
 
-  if (!ifp)
-    return 0;
-
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
     if (CHECK_FLAG (connected->conf, ZEBRA_IFC_REAL) && (connected->address->family == AF_INET6))
       return 1;

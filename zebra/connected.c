@@ -67,15 +67,15 @@ connected_withdraw (struct connected *ifc)
   /* The address is not in the kernel anymore, so clear the flag */
   UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
+  /* Enable RA suppression if there are no IPv6 addresses on this interface */
+  if (! ipv6_address_configured(ifc->ifp))
+    ipv6_nd_suppress_ra_set (ifc->ifp, RA_SUPPRESS);
+
   if (!CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
     {
       listnode_delete (ifc->ifp->connected, ifc);
       connected_free (ifc);
     }
-
-  /* Enable RA suppression if there are no IPv6 addresses on this interface */
-  if (! ipv6_address_configured(ifc->ifp))
-    ipv6_nd_suppress_ra_set (ifc->ifp, RA_SUPPRESS);
 }
 
 static void
