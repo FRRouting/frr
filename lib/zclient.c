@@ -140,6 +140,9 @@ redist_del_instance (struct redist_proto *red, u_short instance)
 void
 zclient_stop (struct zclient *zclient)
 {
+  afi_t afi;
+  int i;
+
   if (zclient_debug)
     zlog_debug ("zclient stopped");
 
@@ -162,6 +165,15 @@ zclient_stop (struct zclient *zclient)
       zclient->sock = -1;
     }
   zclient->fail = 0;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      {
+	vrf_bitmap_free(zclient->redist[afi][i]);
+	zclient->redist[afi][i] = VRF_BITMAP_NULL;
+      }
+  vrf_bitmap_free(zclient->default_information);
+  zclient->default_information = VRF_BITMAP_NULL;
 }
 
 void
