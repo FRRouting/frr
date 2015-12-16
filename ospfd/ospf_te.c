@@ -27,9 +27,6 @@
 #include <zebra.h>
 
 #ifdef HAVE_OSPF_TE
-#ifndef HAVE_OPAQUE_LSA
-#error "Wrong configure option"
-#endif /* HAVE_OPAQUE_LSA */
 
 #include "linklist.h"
 #include "prefix.h"

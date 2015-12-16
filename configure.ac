@@ -265,8 +265,6 @@ AC_ARG_WITH(libpam,
   AS_HELP_STRING([--with-libpam], [use libpam for PAM support in vtysh]))
 AC_ARG_ENABLE(tcp-zebra,
   AS_HELP_STRING([--enable-tcp-zebra], [enable TCP/IP socket connection between zebra and protocol daemon]))
-AC_ARG_ENABLE(opaque-lsa,
-  AS_HELP_STRING([--disable-opaque-lsa],[do not build OSPF Opaque-LSA with OSPFAPI support (RFC2370)]))
 AC_ARG_ENABLE(ospfapi,
   AS_HELP_STRING([--disable-ospfapi], [do not build OSPFAPI to access the OSPF LSA Database]))
 AC_ARG_ENABLE(ospfclient,
@@ -383,12 +381,7 @@ if test "${enable_tcp_zebra}" = "yes"; then
   AC_DEFINE(HAVE_TCP_ZEBRA,,Use TCP for zebra communication)
 fi
 
-if test "${enable_opaque_lsa}" != "no"; then
-  AC_DEFINE(HAVE_OPAQUE_LSA,,OSPF Opaque LSA)
-fi
-
 if test "${enable_ospf_te}" != "no"; then
-  AC_DEFINE(HAVE_OPAQUE_LSA,,OSPF Opaque LSA)
   AC_DEFINE(HAVE_OSPF_TE,,OSPF TE)
 fi
 
@@ -1245,16 +1238,14 @@ fi
 AM_CONDITIONAL(WATCHQUAGGA, test "x$WATCHQUAGGA" = "xwatchquagga")
 
 OSPFCLIENT=""
-if test "${enable_opaque_lsa}" != "no"; then
-  if test "${enable_ospfapi}" != "no";then
+if test "${enable_ospfapi}" != "no";then
     AC_DEFINE(SUPPORT_OSPF_API,,OSPFAPI)
 
-    if test "${enable_ospfclient}" != "no";then
+  if test "${enable_ospfclient}" != "no";then
       OSPFCLIENT="ospfclient"
-    fi
   fi
-
 fi
+
 AM_CONDITIONAL(OSPFCLIENT, test "x$OSPFCLIENT" = "xospfclient")
 
 case "${enable_ripngd}" in

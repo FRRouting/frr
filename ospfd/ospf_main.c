@@ -323,9 +323,7 @@ main (int argc, char **argv)
 #ifdef HAVE_SNMP
   ospf_snmp_init ();
 #endif /* HAVE_SNMP */
-#ifdef HAVE_OPAQUE_LSA
   ospf_opaque_init ();
-#endif /* HAVE_OPAQUE_LSA */
   
   /* Need to initialize the default ospf structure, so the interface mode
      commands can be duly processed if they are received before 'router ospf',

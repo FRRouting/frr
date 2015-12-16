@@ -162,11 +162,9 @@ struct ospf
 #define OSPF_LOG_ADJACENCY_CHANGES	(1 << 3)
 #define OSPF_LOG_ADJACENCY_DETAIL	(1 << 4)
 
-#ifdef HAVE_OPAQUE_LSA
   /* Opaque-LSA administrative flags. */
   u_char opaque;
 #define OPAQUE_OPERATION_READY_BIT	(1 << 0)
-#endif /* HAVE_OPAQUE_LSA */
 
   /* RFC3137 stub router. Configured time to stay stub / max-metric */
   unsigned int stub_router_startup_time;	/* seconds */
@@ -209,9 +207,7 @@ struct ospf
   int external_origin;			/* AS-external-LSA origin flag. */
   int ase_calc;				/* ASE calculation flag. */
 
-#ifdef HAVE_OPAQUE_LSA
   struct list *opaque_lsa_self;		/* Type-11 Opaque-LSAs */
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Routing tables. */
   struct route_table *old_table;        /* Old routing table. */
@@ -240,9 +236,7 @@ struct ospf
   struct thread *t_spf_calc;	        /* SPF calculation timer. */
   struct thread *t_ase_calc;		/* ASE calculation timer. */
   struct thread *t_external_lsa;	/* AS-external-LSA origin timer. */
-#ifdef HAVE_OPAQUE_LSA
   struct thread *t_opaque_lsa_self;	/* Type-11 Opaque-LSAs origin event. */
-#endif /* HAVE_OPAQUE_LSA */
 
   unsigned int maxage_delay;		/* Delay on Maxage remover timer, sec */
   struct thread *t_maxage;              /* MaxAge LSA remover timer. */
@@ -365,9 +359,7 @@ struct ospf_area
 
   /* Self-originated LSAs. */
   struct ospf_lsa *router_lsa_self;
-#ifdef HAVE_OPAQUE_LSA
   struct list *opaque_lsa_self;		/* Type-10 Opaque-LSAs */
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Area announce list. */
   struct 
@@ -409,9 +401,7 @@ struct ospf_area
 
   /* Threads. */
   struct thread *t_stub_router;    /* Stub-router timer */
-#ifdef HAVE_OPAQUE_LSA
   struct thread *t_opaque_lsa_self;	/* Type-10 Opaque-LSAs origin. */
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Statistics field. */
   u_int32_t spf_calculation;	/* SPF Calculation Count. */

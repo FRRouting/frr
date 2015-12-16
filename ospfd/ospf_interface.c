@@ -243,9 +243,7 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
 
   oi->crypt_seqnum = time (NULL);
 
-#ifdef HAVE_OPAQUE_LSA
   ospf_opaque_type9_lsa_init (oi);
-#endif /* HAVE_OPAQUE_LSA */
 
   oi->ospf = ospf;
   
@@ -307,9 +305,7 @@ ospf_if_free (struct ospf_interface *oi)
 
   assert (oi->state == ISM_Down);
 
-#ifdef HAVE_OPAQUE_LSA
   ospf_opaque_type9_lsa_term (oi);
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Free Pseudo Neighbour */
   ospf_nbr_delete (oi->nbr_self);
@@ -696,9 +692,7 @@ ospf_if_new_hook (struct interface *ifp)
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), auth_type);
   IF_DEF_PARAMS (ifp)->auth_type = OSPF_AUTH_NOTSET;
   
-#ifdef HAVE_OPAQUE_LSA
   rc = ospf_opaque_new_if (ifp);
-#endif /* HAVE_OPAQUE_LSA */
   return rc;
 }
 
@@ -707,9 +701,7 @@ ospf_if_delete_hook (struct interface *ifp)
 {
   int rc = 0;
   struct route_node *rn;
-#ifdef HAVE_OPAQUE_LSA
   rc = ospf_opaque_del_if (ifp);
-#endif /* HAVE_OPAQUE_LSA */
 
   route_table_finish (IF_OIFS (ifp));
 

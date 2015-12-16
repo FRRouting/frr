@@ -619,13 +619,11 @@ ospf_packet_ls_upd_dump (struct stream *s, u_int16_t length)
 	case OSPF_AS_NSSA_LSA:
 	  ospf_as_external_lsa_dump (s, length);
 	  break;
-#ifdef HAVE_OPAQUE_LSA
 	case OSPF_OPAQUE_LINK_LSA:
 	case OSPF_OPAQUE_AREA_LSA:
 	case OSPF_OPAQUE_AS_LSA:
 	  ospf_opaque_lsa_dump (s, length);
 	  break;
-#endif /* HAVE_OPAQUE_LSA */
 	default:
 	  break;
 	}

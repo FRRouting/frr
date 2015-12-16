@@ -27,11 +27,7 @@
 
 /* OSPF LSA Range definition. */
 #define OSPF_MIN_LSA		1  /* begin range here */
-#if defined (HAVE_OPAQUE_LSA)
 #define OSPF_MAX_LSA           12
-#else
-#define OSPF_MAX_LSA		8
-#endif
 
 /* OSPF LSA Type definition. */
 #define OSPF_UNKNOWN_LSA	      0
@@ -211,9 +207,7 @@ struct as_external_lsa
   } e[1];
 };
 
-#ifdef HAVE_OPAQUE_LSA
 #include "ospfd/ospf_opaque.h"
-#endif /* HAVE_OPAQUE_LSA */
 
 /* Macros. */
 #define GET_METRIC(x) get_metric(x)

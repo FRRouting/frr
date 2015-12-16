@@ -3265,7 +3265,6 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
                ospf_lsdb_checksum (area->lsdb, OSPF_AS_NSSA_LSA), VTY_NEWLINE);
     }
 
-#ifdef HAVE_OPAQUE_LSA
   if (use_json)
     {
       json_object_int_add(json_area, "lsaOpaqueLinkNumber", ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_LINK_LSA));
@@ -3282,7 +3281,6 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
                ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_AREA_LSA),
                ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_AREA_LSA), VTY_NEWLINE);
     }
-#endif /* HAVE_OPAQUE_LSA */
 
   if (use_json)
     json_object_object_add(json_areas, inet_ntoa (area->area_id), json_area);
@@ -3366,7 +3364,6 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
                "enabled" : "disabled", VTY_NEWLINE);
     }
 
-#ifdef HAVE_OPAQUE_LSA
   if (use_json)
     {
       if (CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE))
@@ -3380,7 +3377,6 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
                CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE) ? "enabled" : "disabled",
                VTY_NEWLINE);
     }
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Show stub-router configuration */
   if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED
@@ -3534,7 +3530,6 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
                ospf_lsdb_checksum (ospf->lsdb, OSPF_AS_EXTERNAL_LSA), VTY_NEWLINE);
     }
 
-#ifdef HAVE_OPAQUE_LSA
   if (use_json)
     {
        json_object_int_add(json, "lsaAsopaqueCounter",
@@ -3548,7 +3543,6 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
                ospf_lsdb_count (ospf->lsdb, OSPF_OPAQUE_AS_LSA),
                ospf_lsdb_checksum (ospf->lsdb, OSPF_OPAQUE_AS_LSA), VTY_NEWLINE);
     }
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Show number of areas attached. */
   if (use_json)
@@ -5095,11 +5089,9 @@ show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
 	    break;
 	  case OSPF_NETWORK_LSA:
 	  case OSPF_ASBR_SUMMARY_LSA:
-#ifdef HAVE_OPAQUE_LSA
 	  case OSPF_OPAQUE_LINK_LSA:
 	  case OSPF_OPAQUE_AREA_LSA:
 	  case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
 	  default:
 	    break;
 	  }
@@ -5119,12 +5111,10 @@ static const char *show_database_desc[] =
   "AS External Link States",
   "Group Membership LSA",
   "NSSA-external Link States",
-#ifdef HAVE_OPAQUE_LSA
   "Type-8 LSA",
   "Link-Local Opaque-LSA",
   "Area-Local Opaque-LSA",
   "AS-external Opaque-LSA",
-#endif /* HAVE_OPAQUE_LSA */
 };
 
 static const char *show_database_header[] =
@@ -5137,12 +5127,10 @@ static const char *show_database_header[] =
   "Link ID         ADV Router      Age  Seq#       CkSum  Route",
   " --- header for Group Member ----",
   "Link ID         ADV Router      Age  Seq#       CkSum  Route",
-#ifdef HAVE_OPAQUE_LSA
   " --- type-8 ---",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
-#endif /* HAVE_OPAQUE_LSA */
 };
 
 static void
@@ -5414,7 +5402,6 @@ show_func_dummy (struct vty *vty, struct ospf_lsa *lsa)
   return 0;
 }
 
-#ifdef HAVE_OPAQUE_LSA
 static int
 show_opaque_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
@@ -5427,7 +5414,6 @@ show_opaque_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
     }
   return 0;
 }
-#endif /* HAVE_OPAQUE_LSA */
 
 int (*show_function[])(struct vty *, struct ospf_lsa *) =
 {
@@ -5439,12 +5425,10 @@ int (*show_function[])(struct vty *, struct ospf_lsa *) =
   show_as_external_lsa_detail,
   show_func_dummy,
   show_as_nssa_lsa_detail,  /* almost same as external */
-#ifdef HAVE_OPAQUE_LSA
   NULL,				/* type-8 */
   show_opaque_lsa_detail,
   show_opaque_lsa_detail,
   show_opaque_lsa_detail,
-#endif /* HAVE_OPAQUE_LSA */
 };
 
 static void
@@ -5503,9 +5487,7 @@ show_lsa_detail (struct vty *vty, struct ospf *ospf, int type,
   switch (type)
     {
     case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
       vty_out (vty, "                %s %s%s",
                show_database_desc[type],
                VTY_NEWLINE, VTY_NEWLINE);
@@ -5552,9 +5534,7 @@ show_lsa_detail_adv_router (struct vty *vty, struct ospf *ospf, int type,
   switch (type)
     {
     case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
       vty_out (vty, "                %s %s%s",
                show_database_desc[type],
                VTY_NEWLINE, VTY_NEWLINE);
@@ -5590,9 +5570,7 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 	  switch (type)
 	    {
 	    case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
             case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
 	      continue;
 	    default:
 	      break;
@@ -5619,9 +5597,7 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
       switch (type)
         {
           case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
           case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
             break;
           default:
             continue;
@@ -5673,17 +5649,10 @@ show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 #define OSPF_LSA_TYPE_NSSA_DESC      "NSSA external link state\n"
 #define OSPF_LSA_TYPE_NSSA_CMD_STR   "|nssa-external"
 
-#ifdef HAVE_OPAQUE_LSA
 #define OSPF_LSA_TYPE_OPAQUE_LINK_DESC "Link local Opaque-LSA\n"
 #define OSPF_LSA_TYPE_OPAQUE_AREA_DESC "Link area Opaque-LSA\n"
 #define OSPF_LSA_TYPE_OPAQUE_AS_DESC   "Link AS Opaque-LSA\n"
 #define OSPF_LSA_TYPE_OPAQUE_CMD_STR   "|opaque-link|opaque-area|opaque-as"
-#else /* HAVE_OPAQUE_LSA */
-#define OSPF_LSA_TYPE_OPAQUE_LINK_DESC ""
-#define OSPF_LSA_TYPE_OPAQUE_AREA_DESC ""
-#define OSPF_LSA_TYPE_OPAQUE_AS_DESC   ""
-#define OSPF_LSA_TYPE_OPAQUE_CMD_STR   ""
-#endif /* HAVE_OPAQUE_LSA */
 
 #define OSPF_LSA_TYPES_CMD_STR                                                \
     "asbr-summary|external|network|router|summary"                            \
@@ -5745,14 +5714,12 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
       show_ip_ospf_database_maxage (vty, ospf);
       return CMD_SUCCESS;
     }
-#ifdef HAVE_OPAQUE_LSA
   else if (strncmp (argv[arg_base + 0], "opaque-l", 8) == 0)
     type = OSPF_OPAQUE_LINK_LSA;
   else if (strncmp (argv[arg_base + 0], "opaque-ar", 9) == 0)
     type = OSPF_OPAQUE_AREA_LSA;
   else if (strncmp (argv[arg_base + 0], "opaque-as", 9) == 0)
     type = OSPF_OPAQUE_AS_LSA;
-#endif /* HAVE_OPAQUE_LSA */
   else
     return CMD_WARNING;
 
@@ -5947,14 +5914,12 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
     type = OSPF_ASBR_SUMMARY_LSA;
   else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
     type = OSPF_AS_EXTERNAL_LSA;
-#ifdef HAVE_OPAQUE_LSA
   else if (strncmp (argv[arg_base + 0], "opaque-l", 8) == 0)
     type = OSPF_OPAQUE_LINK_LSA;
   else if (strncmp (argv[arg_base + 0], "opaque-ar", 9) == 0)
     type = OSPF_OPAQUE_AREA_LSA;
   else if (strncmp (argv[arg_base + 0], "opaque-as", 9) == 0)
     type = OSPF_OPAQUE_AS_LSA;
-#endif /* HAVE_OPAQUE_LSA */
   else
     return CMD_WARNING;
 
@@ -9489,9 +9454,7 @@ config_write_interface (struct vty *vty)
 	  }
       } while (rn);
       
-#ifdef HAVE_OPAQUE_LSA
       ospf_opaque_config_write_if (vty, ifp);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   return write;
@@ -9987,9 +9950,7 @@ ospf_config_write (struct vty *vty)
       /* Distance configuration. */
       config_write_ospf_distance (vty, ospf);
 
-#ifdef HAVE_OPAQUE_LSA
       ospf_opaque_config_write_router (vty, ospf);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   return write;

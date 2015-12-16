@@ -310,7 +310,6 @@ ospf_nbr_count (struct ospf_interface *oi, int state)
   return count;
 }
 
-#ifdef HAVE_OPAQUE_LSA
 int
 ospf_nbr_count_opaque_capable (struct ospf_interface *oi)
 {
@@ -327,7 +326,6 @@ ospf_nbr_count_opaque_capable (struct ospf_interface *oi)
 
   return count;
 }
-#endif /* HAVE_OPAQUE_LSA */
 
 /* lookup nbr by address - use this only if you know you must
  * otherwise use the ospf_nbr_lookup() wrapper, which deals
