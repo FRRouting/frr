@@ -26,8 +26,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_OSPF_TE
-
 #include "linklist.h"
 #include "prefix.h"
 #include "vrf.h"
@@ -1925,5 +1923,3 @@ ospf_mpls_te_register_vty (void)
 
   return;
 }
-
-#endif /* HAVE_OSPF_TE */

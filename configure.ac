@@ -270,8 +270,6 @@ AC_ARG_ENABLE(ospfapi,
 AC_ARG_ENABLE(ospfclient,
   AS_HELP_STRING([--disable-ospfclient], [do not build OSPFAPI client for OSPFAPI,
                           (this is the default if --disable-ospfapi is set)]))
-AC_ARG_ENABLE(ospf-te,
-  AS_HELP_STRING([--disable-ospf-te],[disable Traffic Engineering Extension to OSPF]))
 AC_ARG_ENABLE(multipath,
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
 AC_ARG_ENABLE(user,
@@ -379,10 +377,6 @@ fi
 
 if test "${enable_tcp_zebra}" = "yes"; then
   AC_DEFINE(HAVE_TCP_ZEBRA,,Use TCP for zebra communication)
-fi
-
-if test "${enable_ospf_te}" != "no"; then
-  AC_DEFINE(HAVE_OSPF_TE,,OSPF TE)
 fi
 
 if test "${enable_linux24_tcp_md5}" = "yes"; then
