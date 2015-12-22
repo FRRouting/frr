@@ -31,6 +31,7 @@
 #include "zebra_memory.h"
 #include "log.h"
 #include "vrf.h"
+#include "vty.h"
 
 #include "zebra/interface.h"
 #include "zebra/rib.h"

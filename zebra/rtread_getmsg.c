@@ -26,6 +26,7 @@
 #include "log.h"
 #include "if.h"
 #include "vrf.h"
+#include "vty.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
