@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include "log.h"
 #include "memory.h"
+#include "memory_vty.h"
 #include "hash.h"
 #include "queue.h"
 #include "filter.h"

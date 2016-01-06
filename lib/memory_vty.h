@@ -21,72 +21,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _ZEBRA_MEMORY_VTY_H
 #define _ZEBRA_MEMORY_VTY_H
 
-/* For pretty printing of memory allocate information. */
-struct memory_list
-{
-  int index;
-  const char *format;
-};
+#include "memory.h"
 
-struct mlist {
-  struct memory_list *list;
-  const char *name;
-};
- 
-#include "lib/memtypes.h"
-
-extern struct mlist mlists[];
-
-/* #define MEMORY_LOG */
-#ifdef MEMORY_LOG
-#define XMALLOC(mtype, size) \
-  mtype_zmalloc (__FILE__, __LINE__, (mtype), (size))
-#define XCALLOC(mtype, size) \
-  mtype_zcalloc (__FILE__, __LINE__, (mtype), (size))
-#define XREALLOC(mtype, ptr, size)  \
-  mtype_zrealloc (__FILE__, __LINE__, (mtype), (ptr), (size))
-#define XFREE(mtype, ptr) \
-  do { \
-    mtype_zfree (__FILE__, __LINE__, (mtype), (ptr)); \
-    ptr = NULL; } \
-  while (0)
-#define XSTRDUP(mtype, str) \
-  mtype_zstrdup (__FILE__, __LINE__, (mtype), (str))
-#else
-#define XMALLOC(mtype, size)       zmalloc ((mtype), (size))
-#define XCALLOC(mtype, size)       zcalloc ((mtype), (size))
-#define XREALLOC(mtype, ptr, size) zrealloc ((mtype), (ptr), (size))
-#define XFREE(mtype, ptr)          do { \
-                                     zfree ((mtype), (ptr)); \
-                                     ptr = NULL; } \
-                                   while (0)
-#define XSTRDUP(mtype, str)        zstrdup ((mtype), (str))
-#endif /* MEMORY_LOG */
-
-/* Prototypes of memory function. */
-extern void *zmalloc (int type, size_t size);
-extern void *zcalloc (int type, size_t size);
-extern void *zrealloc (int type, void *ptr, size_t size);
-extern void  zfree (int type, void *ptr);
-extern char *zstrdup (int type, const char *str);
-
-extern void *mtype_zmalloc (const char *file, int line, int type, size_t size);
-
-extern void *mtype_zcalloc (const char *file, int line, int type, size_t size);
-
-extern void *mtype_zrealloc (const char *file, int line, int type, void *ptr,
-		             size_t size);
-
-extern void mtype_zfree (const char *file, int line, int type,
-		         void *ptr);
-
-extern char *mtype_zstrdup (const char *file, int line, int type,
-		            const char *str);
 extern void memory_init (void);
 extern void log_memstats_stderr (const char *);
-
-/* return number of allocations outstanding for the type */
-extern unsigned long mtype_stats_alloc (int);
 
 /* Human friendly string for given byte count */
 #define MTYPE_MEMSTR_LEN 20

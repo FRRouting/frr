@@ -39,12 +39,12 @@ noinst_HEADERS = \
 EXTRA_DIST = \
 	regex.c regex-gnu.h \
 	queue.h \
-	memtypes.awk \
+	memtypes.pl \
 	route_types.pl route_types.txt \
 	gitversion.pl
 
-memtypes.h: $(srcdir)/memtypes.c $(srcdir)/memtypes.awk
-	($(GAWK) -f $(srcdir)/memtypes.awk $(srcdir)/memtypes.c > $@)
+memtypes.h: $(srcdir)/memtypes.c $(srcdir)/memtypes.pl
+	@PERL@ $(srcdir)/memtypes.pl < $(srcdir)/memtypes.c > $@
 
 route_types.h: $(srcdir)/route_types.txt $(srcdir)/route_types.pl
 	@PERL@ $(srcdir)/route_types.pl < $(srcdir)/route_types.txt > $@

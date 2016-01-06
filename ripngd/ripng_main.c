@@ -28,6 +28,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
+#include "memory_vty.h"
 #include "thread.h"
 #include "log.h"
 #include "prefix.h"

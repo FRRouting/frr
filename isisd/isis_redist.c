@@ -24,7 +24,6 @@
 #include "if.h"
 #include "linklist.h"
 #include "memory.h"
-#include "memtypes.h"
 #include "prefix.h"
 #include "routemap.h"
 #include "stream.h"

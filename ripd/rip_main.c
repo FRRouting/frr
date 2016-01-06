@@ -26,6 +26,7 @@
 #include "thread.h"
 #include "command.h"
 #include "memory.h"
+#include "memory_vty.h"
 #include "prefix.h"
 #include "filter.h"
 #include "keychain.h"

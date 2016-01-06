@@ -21,11 +21,6 @@
  * 02111-1307, USA.
  */
 
-/***** MTYPE definitions are not reflected to "memory.h" yet. *****/
-#define MTYPE_OSPF_OPAQUE_FUNCTAB	MTYPE_TMP
-#define MTYPE_OPAQUE_INFO_PER_TYPE	MTYPE_TMP
-#define MTYPE_OPAQUE_INFO_PER_ID	MTYPE_TMP
-
 #include <zebra.h>
 
 #include "linklist.h"
@@ -56,6 +51,10 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
+
+DEFINE_MTYPE_STATIC(OSPFD, OSPF_OPAQUE_FUNCTAB,  "OSPF opaque function table")
+DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_TYPE, "OSPF opaque per-type info")
+DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_ID,   "OSPF opaque per-ID info")
 
 /*------------------------------------------------------------------------*
  * Followings are initialize/terminate functions for Opaque-LSAs handling.

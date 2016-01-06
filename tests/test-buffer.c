@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 #include <memory.h>
+#include <memory_vty.h>
 #include <buffer.h>
 
 struct thread_master *master;

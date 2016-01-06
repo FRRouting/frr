@@ -150,7 +150,6 @@ extern void *qstrdup (struct memtype *mt, const char *str)
 extern void qfree (struct memtype *mt, void *ptr)
 	__attribute__ ((nonnull (1)));
 
-#if 0
 #define XMALLOC(mtype, size)		qmalloc(mtype, size)
 #define XCALLOC(mtype, size)		qcalloc(mtype, size)
 #define XREALLOC(mtype, ptr, size)	qrealloc(mtype, ptr, size)
@@ -162,9 +161,6 @@ static inline size_t mtype_stats_alloc(struct memtype *mt)
 {
 	return mt->n_alloc;
 }
-#endif
-/* still here until next commit */
-#include "memory_vty.h"
 
 /* NB: calls are ordered by memgroup; and there is a call with mt == NULL for
  * each memgroup (so that a header can be printed, and empty memgroups show)
@@ -175,5 +171,7 @@ typedef int qmem_walk_fn (void *arg, struct memgroup *mg, struct memtype *mt);
 extern int qmem_walk (qmem_walk_fn *func, void *arg);
 
 extern void memory_oom (size_t size, const char *name);
+
+#include "memtypes.h"
 
 #endif /* _QUAGGA_MEMORY_H */

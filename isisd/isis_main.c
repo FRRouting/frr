@@ -29,6 +29,7 @@
 #include "command.h"
 #include "vty.h"
 #include "memory.h"
+#include "memory_vty.h"
 #include "stream.h"
 #include "if.h"
 #include "privs.h"

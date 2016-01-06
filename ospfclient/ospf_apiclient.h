@@ -23,8 +23,6 @@
 #ifndef _OSPF_APICLIENT_H
 #define _OSPF_APICLIENT_H
 
-#define MTYPE_OSPF_APICLIENT MTYPE_TMP
-
 /* Structure for the OSPF API client */
 struct ospf_apiclient
 {
