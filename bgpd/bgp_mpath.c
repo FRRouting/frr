@@ -29,6 +29,7 @@
 #include "sockunion.h"
 #include "memory.h"
 #include "queue.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"

@@ -29,9 +29,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "linklist.h"
 #include "queue.h"
 #include "memory.h"
+#include "filter.h"
 
 #include "bgpd/bgp_table.h"
-
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"

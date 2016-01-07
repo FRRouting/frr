@@ -31,6 +31,7 @@
 #include "memory.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"

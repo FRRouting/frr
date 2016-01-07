@@ -34,6 +34,8 @@
 #include "vty.h"
 #include "bfd.h"
 #include "lib/json.h"
+#include "filter.h"
+
 #include "bgpd/bgpd.h"
 #include "bgp_fsm.h"
 #include "bgpd/bgp_bfd.h"

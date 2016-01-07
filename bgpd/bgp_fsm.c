@@ -32,6 +32,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "plist.h"
 #include "workqueue.h"
 #include "queue.h"
+#include "filter.h"
 
 #include "lib/json.h"
 #include "bgpd/bgpd.h"

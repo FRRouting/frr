@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "memory.h"
 #include "lib/json.h"
 #include "lib/bfd.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"

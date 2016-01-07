@@ -25,6 +25,11 @@
 
 #include "if.h"
 
+/* Filter direction.  */
+#define FILTER_IN                 0
+#define FILTER_OUT                1
+#define FILTER_MAX                2
+
 /* Filter type is made by `permit', `deny' and `dynamic'. */
 enum filter_type 
 {

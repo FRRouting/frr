@@ -37,6 +37,7 @@
 #include "linklist.h"
 #include "command.h"
 #include "memory.h"
+#include "filter.h"
 #include "vtysh/vtysh.h"
 #include "log.h"
 #include "bgpd/bgp_vty.h"

@@ -522,11 +522,6 @@ typedef enum {
 #define SAFI_ENCAP		  7 /* per IANA */
 #define SAFI_MAX                  8
 
-/* Filter direction.  */
-#define FILTER_IN                 0
-#define FILTER_OUT                1
-#define FILTER_MAX                2
-
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
 #define ZEBRA_CONNECT_DISTANCE_DEFAULT     0
