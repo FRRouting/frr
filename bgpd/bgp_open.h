@@ -89,7 +89,8 @@ struct capability_gr
 #define CAPABILITY_CODE_AS4_LEN         4
 #define CAPABILITY_CODE_ADDPATH_LEN     4
 #define CAPABILITY_CODE_ENHE_LEN        6 /* NRLI AFI = 2, SAFI = 2, Nexthop AFI = 2 */
-#define CAPABILITY_CODE_MIN_FQDN_LEN 2
+#define CAPABILITY_CODE_MIN_FQDN_LEN    2
+#define CAPABILITY_CODE_ORF_LEN         5
 
 /* Cooperative Route Filtering Capability.  */
 

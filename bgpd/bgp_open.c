@@ -175,23 +175,23 @@ bgp_afi_safi_valid_indices (afi_t afi, safi_t *safi)
 {
   switch (afi)
     {
-      case AFI_IP:
-#ifdef HAVE_IPV6
-      case AFI_IP6:
-#endif
-        switch (*safi)
-          {
-            /* BGP MPLS-labeled VPN SAFI isn't contigious with others, remap */
-            case SAFI_MPLS_LABELED_VPN:
-              *safi = SAFI_MPLS_VPN;
-            case SAFI_UNICAST:
-            case SAFI_MULTICAST:
-            case SAFI_MPLS_VPN:
-              return 1;
-          }
+    case AFI_IP:
+    case AFI_IP6:
+      switch (*safi)
+	{
+	  /* BGP MPLS-labeled VPN SAFI isn't contigious with others, remap */
+	case SAFI_MPLS_LABELED_VPN:
+	  *safi = SAFI_MPLS_VPN;
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_MPLS_VPN:
+	  return 1;
+	}
+      break;
     }
+
   zlog_debug ("unknown afi/safi (%u/%u)", afi, *safi);
-  
+
   return 0;
 }
 
@@ -287,7 +287,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
     }
   
   /* validate number field */
-  if (sizeof (struct capability_orf_entry) + (entry.num * 2) > hdr->length)
+  if (CAPABILITY_CODE_ORF_LEN + (entry.num * 2) > hdr->length)
     {
       zlog_info ("%s ORF Capability entry length error,"
                  " Cap length %u, num %u",
@@ -699,17 +699,17 @@ static const int capcode_str_max = array_size(capcode_str);
 /* Minimum sizes for length field of each cap (so not inc. the header) */
 static const size_t cap_minsizes[] = 
 {
-  [CAPABILITY_CODE_MP]		= sizeof (struct capability_mp_data),
+  [CAPABILITY_CODE_MP]		= CAPABILITY_CODE_MP_LEN,
   [CAPABILITY_CODE_REFRESH]	= CAPABILITY_CODE_REFRESH_LEN,
-  [CAPABILITY_CODE_ORF]		= sizeof (struct capability_orf_entry),
-  [CAPABILITY_CODE_RESTART]	= sizeof (struct capability_gr),
+  [CAPABILITY_CODE_ORF]		= CAPABILITY_CODE_ORF_LEN,
+  [CAPABILITY_CODE_RESTART]	= 6,
   [CAPABILITY_CODE_AS4]		= CAPABILITY_CODE_AS4_LEN,
   [CAPABILITY_CODE_ADDPATH]     = CAPABILITY_CODE_ADDPATH_LEN,
   [CAPABILITY_CODE_DYNAMIC]	= CAPABILITY_CODE_DYNAMIC_LEN,
   [CAPABILITY_CODE_DYNAMIC_OLD]	= CAPABILITY_CODE_DYNAMIC_LEN,
   [CAPABILITY_CODE_ENHE]        = CAPABILITY_CODE_ENHE_LEN,
   [CAPABILITY_CODE_REFRESH_OLD]	= CAPABILITY_CODE_REFRESH_LEN,
-  [CAPABILITY_CODE_ORF_OLD]	= sizeof (struct capability_orf_entry),
+  [CAPABILITY_CODE_ORF_OLD]	= CAPABILITY_CODE_ORF_LEN,
   [CAPABILITY_CODE_FQDN]        = CAPABILITY_CODE_MIN_FQDN_LEN,
 };
 

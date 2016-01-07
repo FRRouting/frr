@@ -922,8 +922,9 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
     }
 
   /* "any" is special token for matching any IPv4 addresses.  */
-  if (afi == AFI_IP)
+  switch (afi)
     {
+    case AFI_IP:
       if (strncmp ("any", prefix, strlen (prefix)) == 0)
 	{
 	  ret = str2prefix_ipv4 ("0.0.0.0/0", (struct prefix_ipv4 *) &p);
@@ -939,10 +940,8 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
 	  vty_out (vty, "%% Malformed IPv4 prefix%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
-    }
-#ifdef HAVE_IPV6
-  else if (afi == AFI_IP6)
-    {
+      break;
+    case AFI_IP6:
       if (strncmp ("any", prefix, strlen (prefix)) == 0)
 	{
 	  ret = str2prefix_ipv6 ("::/0", (struct prefix_ipv6 *) &p);
@@ -958,8 +957,8 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
 	  vty_out (vty, "%% Malformed IPv6 prefix%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
+      break;
     }
-#endif /* HAVE_IPV6 */
 
   /* ge and le check. */
   if (genum && (genum <= p.prefixlen))
