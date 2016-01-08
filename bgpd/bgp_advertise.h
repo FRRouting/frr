@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_ADVERTISE_H
 #define _QUAGGA_BGP_ADVERTISE_H
 
+#include <lib/fifo.h>
+
 struct update_subgroup;
 
 /* BGP advertise FIFO.  */

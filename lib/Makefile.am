@@ -30,7 +30,8 @@ pkginclude_HEADERS = \
 	plist.h zclient.h sockopt.h smux.h md5.h if_rmap.h keychain.h \
 	privs.h sigevent.h pqueue.h jhash.h zassert.h memtypes.h \
 	workqueue.h route_types.h libospf.h nexthop.h json.h \
-	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h
+	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
+	fifo.h
 
 noinst_HEADERS = \
 	plist_int.h

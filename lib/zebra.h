@@ -518,43 +518,4 @@ typedef u_int16_t zebra_command_t;
 /* VRF ID type. */
 typedef u_int16_t vrf_id_t;
 
-/* FIFO -- first in first out structure and macros.  */
-struct fifo
-{
-  struct fifo *next;
-  struct fifo *prev;
-};
-
-#define FIFO_INIT(F)                                  \
-  do {                                                \
-    struct fifo *Xfifo = (struct fifo *)(F);          \
-    Xfifo->next = Xfifo->prev = Xfifo;                \
-  } while (0)
-
-#define FIFO_ADD(F,N)                                 \
-  do {                                                \
-    struct fifo *Xfifo = (struct fifo *)(F);          \
-    struct fifo *Xnode = (struct fifo *)(N);          \
-    Xnode->next = Xfifo;                              \
-    Xnode->prev = Xfifo->prev;                        \
-    Xfifo->prev = Xfifo->prev->next = Xnode;          \
-  } while (0)
-
-#define FIFO_DEL(N)                                   \
-  do {                                                \
-    struct fifo *Xnode = (struct fifo *)(N);          \
-    Xnode->prev->next = Xnode->next;                  \
-    Xnode->next->prev = Xnode->prev;                  \
-  } while (0)
-
-#define FIFO_HEAD(F)                                  \
-  ((((struct fifo *)(F))->next == (struct fifo *)(F)) \
-  ? NULL : (F)->next)
-
-#define FIFO_EMPTY(F)                                 \
-  (((struct fifo *)(F))->next == (struct fifo *)(F))
-
-#define FIFO_TOP(F)                                   \
-  (FIFO_EMPTY(F) ? NULL : ((struct fifo *)(F))->next)
-
 #endif /* _ZEBRA_H */
