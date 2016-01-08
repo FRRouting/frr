@@ -918,6 +918,14 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   
   if (optlen != 0)
     {
+      /* If not enough bytes, it is an error. */
+      if (STREAM_READABLE(peer->ibuf) < optlen)
+        {
+          bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
+                           BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+          return -1;
+        }
+
       /* We need the as4 capability value *right now* because
        * if it is there, we have not got the remote_as yet, and without
        * that we do not know which peer is connecting to us now.
