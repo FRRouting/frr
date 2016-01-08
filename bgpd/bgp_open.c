@@ -559,23 +559,30 @@ bgp_capability_enhe (struct peer *peer, struct capability_header *hdr)
       afi_t nh_afi = stream_getw (s);
 
       if (bgp_debug_neighbor_events(peer))
-        zlog_debug ("%s   Received with value triple (afi/safi/next-hop afi): %u/%u/%u",
+        zlog_debug ("%s Received with afi/safi/next-hop afi: %u/%u/%u",
                     peer->host, afi, safi, nh_afi);
 
       if (!bgp_afi_safi_valid_indices (afi, &safi))
-        return -1;
-
-      if (afi != AFI_IP || nh_afi != AFI_IP6)
         {
-          zlog_warn ("%s Extended Next-hop capability, wrong afi/next-hop afi: %u/%u",
-                     peer->host, afi, nh_afi);
-          return -1;
+          if (bgp_debug_neighbor_events(peer))
+            zlog_debug ("%s Addr-family %d/%d(afi/safi) not supported."
+                        " Ignore the ENHE Attribute for this AFI/SAFI",
+                        peer->host, afi, safi);
+	  continue;
         }
 
-      /* Until SAFIs other than SAFI_UNICAST are supported */
-      if (safi != SAFI_UNICAST)
-        zlog_warn ("%s Extended Next-hop capability came with unsupported SAFI: %u",
-                   peer->host, safi);
+      /* RFC 5549 specifies use of this capability only for IPv4 AFI, with
+       * the Nexthop AFI being IPv6. A future spec may introduce other
+       * possibilities, so we ignore other values with a log. Also, only
+       * Unicast SAFI is currently supported (and expected).
+       */
+      if (afi != AFI_IP || safi != SAFI_UNICAST || nh_afi != AFI_IP6)
+        {
+          zlog_warn ("%s Unexpected afi/safi/next-hop afi: %u/%u/%u "
+                     "in Extended Next-hop capability, ignoring",
+                     peer->host, afi, safi, nh_afi);
+	  continue;
+        }
 
       SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ENHE_AF_RCV);
 
