@@ -6626,7 +6626,7 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
 	   != CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
       {
 	afi_header_vty_out (vty, afi, safi, write,
-                            "  neighbor %s maximum-prefix %ld",
+                            "  neighbor %s maximum-prefix %lu",
                             addr, peer->pmax[afi][safi]);
 	if (peer->pmax_threshold[afi][safi] != MAXIMUM_PREFIX_THRESHOLD_DEFAULT)
 	  vty_out (vty, " %d", peer->pmax_threshold[afi][safi]);
