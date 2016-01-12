@@ -3178,6 +3178,8 @@ bgp_delete (struct bgp *bgp)
   /* Free interfaces in this instance. */
   bgp_if_finish (bgp);
 
+  bgp_address_destroy (bgp);
+
   thread_master_free_unused(bm->master);
   bgp_unlock(bgp);  /* initial reference */
 

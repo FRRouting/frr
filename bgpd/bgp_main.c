@@ -227,7 +227,6 @@ bgp_exit (int status)
 {
   struct bgp *bgp;
   struct listnode *node, *nnode;
-  extern struct zclient *zclient;
 
   /* it only makes sense for this to be called on a clean exit */
   assert (status == 0);
@@ -277,8 +276,8 @@ bgp_exit (int status)
   bgp_vrf_terminate ();
   cmd_terminate ();
   vty_terminate ();
-  if (zclient)
-    zclient_free (zclient);
+
+  bgp_zebra_destroy();
   if (bgp_nexthop_buf)
     stream_free (bgp_nexthop_buf);
   if (bgp_ifindices_buf)
