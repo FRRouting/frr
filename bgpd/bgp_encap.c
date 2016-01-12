@@ -943,9 +943,8 @@ DEFUN (show_bgp_ipv6_encap_rd_neighbor_advertised_routes,
 void
 bgp_encap_init (void)
 {
-  //install_element (BGP_ENCAP_NODE, &encap_network_cmd);
-  //install_element (BGP_ENCAP_NODE, &no_encap_network_cmd);
-
+  install_element (BGP_ENCAP_NODE, &encap_network_cmd);
+  install_element (BGP_ENCAP_NODE, &no_encap_network_cmd);
 
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_encap_rd_cmd);
