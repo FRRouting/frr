@@ -873,7 +873,7 @@ vty_complete_command (struct vty *vty)
   if (isspace ((int) vty->buf[vty->length - 1]))
     vector_set (vline, NULL);
 
-  matched = cmd_complete_command (vline, vty, &ret);
+  matched = cmd_complete_command_lib (vline, vty, &ret, 1);
   
   cmd_free_strvec (vline);
 

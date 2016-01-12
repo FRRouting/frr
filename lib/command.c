@@ -2349,7 +2349,7 @@ cmd_complete_sort(vector matchvec)
 
 /* Command line completion support. */
 static char **
-cmd_complete_command_real (vector vline, struct vty *vty, int *status)
+cmd_complete_command_real (vector vline, struct vty *vty, int *status, int islib)
 {
   unsigned int i;
   vector cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
@@ -2434,13 +2434,14 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 
 	for (j = 0; j < vector_active (match_vector); j++)
 	  if ((token = vector_slot (match_vector, j)))
-		{
-		  if ((string = 
-		       cmd_entry_function (vector_slot (vline, index),
-					   token->cmd)))
-		    if (cmd_unique_string (matchvec, string))
-		      vector_set (matchvec, XSTRDUP (MTYPE_TMP, string));
-		}
+            {
+              string = cmd_entry_function (vector_slot (vline, index),
+                                           token->cmd);
+              if (string && cmd_unique_string (matchvec, string))
+                vector_set (matchvec, (islib != 0 ?
+                                      XSTRDUP (MTYPE_TMP, string) :
+                                      strdup (string) /* rl freed */));
+            }
       }
 
   /* We don't need cmd_vector any more. */
@@ -2485,7 +2486,9 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 	    {
 	      char *lcdstr;
 
-	      lcdstr = XMALLOC (MTYPE_TMP, lcd + 1);
+	      lcdstr = (islib != 0 ?
+                        XMALLOC (MTYPE_TMP, lcd + 1) :
+                        malloc(lcd + 1));
 	      memcpy (lcdstr, matchvec->index[0], lcd);
 	      lcdstr[lcd] = '\0';
 
@@ -2493,10 +2496,15 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 
 	      /* Free matchvec. */
 	      for (i = 0; i < vector_active (matchvec); i++)
-		{
-		  if (vector_slot (matchvec, i))
-		    XFREE (MTYPE_TMP, vector_slot (matchvec, i));
-		}
+                {
+                  if (vector_slot (matchvec, i))
+                    {
+                      if (islib != 0)
+                        XFREE (MTYPE_TMP, vector_slot (matchvec, i));
+                      else
+                        free (vector_slot (matchvec, i));
+                    }
+                }
 	      vector_free (matchvec);
 
 	      /* Make new matchvec. */
@@ -2519,7 +2527,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 }
 
 char **
-cmd_complete_command (vector vline, struct vty *vty, int *status)
+cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
 {
   char **ret;
 
@@ -2540,15 +2548,20 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
 	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
 	}
 
-      ret = cmd_complete_command_real (shifted_vline, vty, status);
+      ret = cmd_complete_command_real (shifted_vline, vty, status, islib);
 
       vector_free(shifted_vline);
       vty->node = onode;
       return ret;
   }
 
+  return cmd_complete_command_real (vline, vty, status, islib);
+}
 
-  return cmd_complete_command_real (vline, vty, status);
+char **
+cmd_complete_command (vector vline, struct vty *vty, int *status)
+{
+  return cmd_complete_command_lib (vline, vty, status, 0);
 }
 
 /* return parent node */
