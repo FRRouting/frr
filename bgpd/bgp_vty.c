@@ -63,12 +63,20 @@ listen_range_exists (struct bgp *bgp, struct prefix *range, int exact);
 afi_t
 bgp_node_afi (struct vty *vty)
 {
-  if (vty->node == BGP_IPV6_NODE ||
-      vty->node == BGP_IPV6M_NODE ||
-      vty->node == BGP_VPNV6_NODE ||
-      vty->node == BGP_ENCAPV6_NODE)
-    return AFI_IP6;
-  return AFI_IP;
+  afi_t afi;
+  switch (vty->node)
+    {
+    case BGP_IPV6_NODE:
+    case BGP_IPV6M_NODE:
+    case BGP_VPNV6_NODE:
+    case BGP_ENCAPV6_NODE:
+      afi = AFI_IP6;
+      break;
+    default:
+      afi = AFI_IP;
+      break;
+    }
+  return afi;
 }
 
 /* Utility function to get subsequent address family from current
@@ -76,13 +84,26 @@ bgp_node_afi (struct vty *vty)
 safi_t
 bgp_node_safi (struct vty *vty)
 {
-  if (vty->node == BGP_VPNV4_NODE || vty->node == BGP_VPNV6_NODE)
-    return SAFI_MPLS_VPN;
-  if (vty->node == BGP_ENCAP_NODE || vty->node == BGP_ENCAPV6_NODE)
-    return SAFI_ENCAP;
-  if (vty->node == BGP_IPV4M_NODE || vty->node == BGP_IPV6M_NODE)
-    return SAFI_MULTICAST;
-  return SAFI_UNICAST;
+  safi_t safi;
+  switch (vty->node)
+    {
+    case BGP_ENCAP_NODE:
+    case BGP_ENCAPV6_NODE:
+      safi = SAFI_ENCAP;
+      break;
+    case BGP_VPNV4_NODE:
+    case BGP_VPNV6_NODE:
+      safi = SAFI_MPLS_VPN;
+      break;
+    case BGP_IPV4M_NODE:
+    case BGP_IPV6M_NODE:
+      safi = SAFI_MULTICAST;
+      break;
+    default:
+      safi = SAFI_UNICAST;
+      break;
+  }
+  return safi;
 }
 
 int
