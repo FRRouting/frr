@@ -119,7 +119,7 @@ DEFUN (debug_zebra_packet,
 
 DEFUN (debug_zebra_packet_direct,
        debug_zebra_packet_direct_cmd,
-       "debug zebra packet (recv|send)",
+       "debug zebra packet (recv|send|detail)",
        DEBUG_STR
        "Zebra configuration\n"
        "Debug option set for zebra packet\n"
@@ -131,7 +131,8 @@ DEFUN (debug_zebra_packet_direct,
     zebra_debug_packet |= ZEBRA_DEBUG_SEND;
   if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
     zebra_debug_packet |= ZEBRA_DEBUG_RECV;
-  zebra_debug_packet &= ~ZEBRA_DEBUG_DETAIL;
+  if (strncmp ("detail", argv[0], strlen (argv[0])) == 0)
+    zebra_debug_packet |= ZEBRA_DEBUG_DETAIL;
   return CMD_SUCCESS;
 }
 
