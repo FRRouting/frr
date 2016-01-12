@@ -55,6 +55,7 @@ decode_label (u_char *pnt)
   return l;
 }
 
+/* type == RD_TYPE_AS */
 static void
 decode_rd_as (u_char *pnt, struct rd_as *rd_as)
 {
@@ -67,6 +68,20 @@ decode_rd_as (u_char *pnt, struct rd_as *rd_as)
   rd_as->val |= (u_int32_t) *pnt;
 }
 
+/* type == RD_TYPE_AS4 */
+static void
+decode_rd_as4 (u_char *pnt, struct rd_as *rd_as)
+{
+  rd_as->as  = (u_int32_t) *pnt++ << 24;
+  rd_as->as |= (u_int32_t) *pnt++ << 16;
+  rd_as->as |= (u_int32_t) *pnt++ << 8;
+  rd_as->as |= (u_int32_t) *pnt++;
+
+  rd_as->val  = ((u_int16_t) *pnt++ << 8);
+  rd_as->val |= (u_int16_t) *pnt;
+}
+
+/* type == RD_TYPE_IP */
 static void
 decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
 {
@@ -177,29 +192,31 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
       /* Decode RD type. */
       type = decode_rd_type (pnt + 3);
 
-      /* Decode RD value. */
-      if (type == RD_TYPE_AS)
-	decode_rd_as (pnt + 5, &rd_as);
-      else if (type == RD_TYPE_IP)
-	decode_rd_ip (pnt + 5, &rd_ip);
-      else
-	{
-	  zlog_err ("Invalid RD type %d", type);
-	  return -1;
-	}
+      switch (type)
+        {
+        case RD_TYPE_AS:
+          decode_rd_as (pnt + 5, &rd_as);
+          break;
+
+        case RD_TYPE_AS4:
+          decode_rd_as4 (pnt + 5, &rd_as);
+          break;
+
+        case RD_TYPE_IP:
+          decode_rd_ip (pnt + 5, &rd_ip);
+          break;
+
+        case RD_TYPE_EOI:
+          break;
+
+        default:
+          zlog_err ("Invalid RD type %d", type);
+          return -1;
+        }
 
       p.prefixlen = prefixlen - VPN_PREFIXLEN_MIN_BYTES*8;
       memcpy (&p.u.prefix, pnt + VPN_PREFIXLEN_MIN_BYTES, 
               psize - VPN_PREFIXLEN_MIN_BYTES);
-
-#if 0
-      if (type == RD_TYPE_AS)
-	zlog_info ("prefix %ld:%ld:%ld:%s/%d", label, rd_as.as, rd_as.val,
-		   inet_ntoa (p.u.prefix4), p.prefixlen);
-      else if (type == RD_TYPE_IP)
-	zlog_info ("prefix %ld:%s:%ld:%s/%d", label, inet_ntoa (rd_ip.ip),
-		   rd_ip.val, inet_ntoa (p.u.prefix4), p.prefixlen);
-#endif /* 0 */
 
       if (attr)
 	bgp_update (peer, &p, addpath_id, attr, AFI_IP, SAFI_MPLS_VPN,
@@ -319,10 +336,23 @@ prefix_rd2str (struct prefix_rd *prd, char *buf, size_t size)
       snprintf (buf, size, "%u:%d", rd_as.as, rd_as.val);
       return buf;
     }
+  else if (type == RD_TYPE_AS4)
+    {
+      decode_rd_as4 (pnt + 2, &rd_as);
+      snprintf (buf, size, "%u:%d", rd_as.as, rd_as.val);
+      return buf;
+    }
   else if (type == RD_TYPE_IP)
     {
       decode_rd_ip (pnt + 2, &rd_ip);
       snprintf (buf, size, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
+      return buf;
+    }
+  else if (type == RD_TYPE_EOI)
+    {
+      snprintf(buf, size, "LHI:%d, %02x:%02x:%02x:%02x:%02x:%02x",
+               pnt[1], /* LHI */
+               pnt[2], pnt[3], pnt[4], pnt[5], pnt[6], pnt[7]); /* MAC */
       return buf;
     }
 
@@ -472,13 +502,15 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                       /* Decode RD value. */
                       if (type == RD_TYPE_AS)
                         decode_rd_as (pnt + 2, &rd_as);
+                      else if (type == RD_TYPE_AS4)
+                        decode_rd_as4 (pnt + 2, &rd_as);
                       else if (type == RD_TYPE_IP)
                         decode_rd_ip (pnt + 2, &rd_ip);
 
                       if (use_json)
                         {
                           char buffer[BUFSIZ];
-                          if (type == RD_TYPE_AS)
+                          if (type == RD_TYPE_AS || type == RD_TYPE_AS4)
                             sprintf (buffer, "%u:%d", rd_as.as, rd_as.val);
                           else if (type == RD_TYPE_IP)
                             sprintf (buffer, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
@@ -488,7 +520,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                         {
                           vty_out (vty, "Route Distinguisher: ");
 
-                          if (type == RD_TYPE_AS)
+                          if (type == RD_TYPE_AS || type == RD_TYPE_AS4)
                             vty_out (vty, "%u:%d", rd_as.as, rd_as.val);
                           else if (type == RD_TYPE_IP)
                             vty_out (vty, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
@@ -653,13 +685,15 @@ bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type ty
 		      /* Decode RD value. */
 		      if (type == RD_TYPE_AS)
 		        decode_rd_as (pnt + 2, &rd_as);
+		      else if (type == RD_TYPE_AS4)
+		        decode_rd_as4 (pnt + 2, &rd_as);
 		      else if (type == RD_TYPE_IP)
 		        decode_rd_ip (pnt + 2, &rd_ip);
 
                       if (use_json)
                         {
                           char buffer[BUFSIZ];
-                          if (type == RD_TYPE_AS)
+                          if (type == RD_TYPE_AS || type == RD_TYPE_AS4)
                             sprintf (buffer, "%u:%d", rd_as.as, rd_as.val);
                           else if (type == RD_TYPE_IP)
                             sprintf (buffer, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
@@ -669,7 +703,7 @@ bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type ty
                         {
 		          vty_out (vty, "Route Distinguisher: ");
 
-		          if (type == RD_TYPE_AS)
+		          if (type == RD_TYPE_AS || type == RD_TYPE_AS4)
 		            vty_out (vty, "%u:%d", rd_as.as, rd_as.val);
 		          else if (type == RD_TYPE_IP)
 		            vty_out (vty, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
