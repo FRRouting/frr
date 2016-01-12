@@ -170,6 +170,7 @@ union prefix46constptr
 extern int str2family(const char *);
 extern int afi2family (afi_t);
 extern afi_t family2afi (int);
+extern const char *safi2str(safi_t safi);
 
 /* Check bit of the prefix. */
 extern unsigned int prefix_bit (const u_char *prefix, const u_char prefixlen);

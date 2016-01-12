@@ -223,6 +223,22 @@ family2afi (int family)
   return 0;
 }
 
+const char *
+safi2str(safi_t safi)
+{
+  switch (safi) {
+    case SAFI_UNICAST:
+	return "unicast";
+    case SAFI_MULTICAST:
+	return "multicast";
+    case SAFI_ENCAP:
+	return "encap";
+    case SAFI_MPLS_VPN:
+	return "vpn";
+  }
+  return NULL;
+}
+
 /* If n includes p prefix then return 1 else return 0. */
 int
 prefix_match (const struct prefix *n, const struct prefix *p)

@@ -536,7 +536,8 @@ extern const char *zserv_command_string (unsigned int command);
 #define SAFI_MULTICAST            2
 #define SAFI_RESERVED_3           3
 #define SAFI_MPLS_VPN             4
-#define SAFI_MAX                  5
+#define SAFI_ENCAP		  7 /* per IANA */
+#define SAFI_MAX                  8
 
 /* Filter direction.  */
 #define FILTER_IN                 0
