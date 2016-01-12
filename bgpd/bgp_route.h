@@ -306,4 +306,7 @@ extern int subgroup_announce_check(struct bgp_info *ri,
 				   struct update_subgroup *subgrp,
 				   struct prefix *p, struct attr *attr);
 
+extern void bgp_peer_clear_node_queue_drain_immediate (struct peer *peer);
+extern void bgp_process_queues_drain_immediate (void);
+
 #endif /* _QUAGGA_BGP_ROUTE_H */

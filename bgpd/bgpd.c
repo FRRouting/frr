@@ -2034,6 +2034,9 @@ peer_delete (struct peer *peer)
       XFREE(MTYPE_HOST, peer->domainname);
       peer->domainname = NULL;
     }
+  
+  if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETING))
+    bgp_peer_clear_node_queue_drain_immediate(peer);
 
   peer_unlock (peer); /* initial reference */
 
@@ -3044,6 +3047,8 @@ bgp_delete (struct bgp *bgp)
   afi_t afi;
   int i;
 
+  SET_FLAG(bgp->flags, BGP_FLAG_DELETING);
+
   THREAD_OFF (bgp->t_startup);
 
   if (BGP_DEBUG (zebra, ZEBRA))
@@ -3094,6 +3099,15 @@ bgp_delete (struct bgp *bgp)
   update_bgp_group_free (bgp);
 
   /* TODO - Other memory may need to be freed - e.g., NHT */
+
+  /*
+   * Free pending deleted routes. Unfortunately, it also has to process
+   * all the pending activity for other instances of struct bgp.
+   *
+   * This call was added to achieve clean memory allocation at exit,
+   * for the sake of valgrind.
+   */
+  bgp_process_queues_drain_immediate();
 
   /* Remove visibility via the master list - there may however still be
    * routes to be processed still referencing the struct bgp.

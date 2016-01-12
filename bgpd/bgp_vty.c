@@ -14801,9 +14801,9 @@ bgp_vty_init (void)
   install_element (BGP_IPV6M_NODE, &neighbor_unsuppress_map_cmd);
   install_element (BGP_IPV6M_NODE, &no_neighbor_unsuppress_map_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_unsuppress_map_cmd);
-  install_element (BGP_VPNV4_NODE, &no_neighbor_unsuppress_map_cmd);  
+  install_element (BGP_VPNV4_NODE, &no_neighbor_unsuppress_map_cmd);
   install_element (BGP_VPNV6_NODE, &neighbor_unsuppress_map_cmd);
-  install_element (BGP_VPNV6_NODE, &no_neighbor_unsuppress_map_cmd);  
+  install_element (BGP_VPNV6_NODE, &no_neighbor_unsuppress_map_cmd);
 
   /* "neighbor maximum-prefix" commands. */
   install_element (BGP_NODE, &neighbor_maximum_prefix_cmd);

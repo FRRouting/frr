@@ -361,7 +361,7 @@ vtysh_execute_func (const char *line, int pager)
    * to move into node in the vtysh where it succeeded. */
   if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON || ret == CMD_WARNING)
     {
-      if ((saved_node == BGP_VPNV4_NODE || saved_node == BGP_VPNV6_NODE 
+      if ((saved_node == BGP_VPNV4_NODE || saved_node == BGP_VPNV6_NODE
            || saved_node == BGP_IPV4_NODE
 	   || saved_node == BGP_IPV6_NODE || saved_node == BGP_IPV4M_NODE
 	   || saved_node == BGP_IPV6M_NODE)

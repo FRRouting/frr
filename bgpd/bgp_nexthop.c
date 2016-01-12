@@ -145,6 +145,14 @@ bgp_address_init (struct bgp *bgp)
                                   bgp_address_hash_cmp);
 }
 
+void
+bgp_address_destroy (struct bgp *bgp)
+{
+  hash_clean(bgp->address_hash, NULL);
+  hash_free(bgp->address_hash);
+  bgp->address_hash = NULL;
+}
+
 static void
 bgp_address_add (struct bgp *bgp, struct prefix *p)
 {
