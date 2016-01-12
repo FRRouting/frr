@@ -666,7 +666,8 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
       space_remaining = STREAM_CONCAT_REMAIN (s, snlri, STREAM_SIZE(s)) -
                         BGP_MAX_PACKET_SIZE_OVERFLOW;
-      space_needed = BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen);
+      space_needed = BGP_NLRI_LENGTH +
+                     bgp_packet_mpattr_prefix_size (afi, safi, &rn->p);
 
       /* When remaining space can't include NLRI and it's length.  */
       if (space_remaining < space_needed)
@@ -675,10 +676,18 @@ subgroup_update_packet (struct update_subgroup *subgrp)
       /* If packet is empty, set attribute. */
       if (stream_empty (s))
 	{
+	  struct prefix_rd *prd = NULL;
+	  u_char *tag = NULL;
 	  struct peer *from = NULL;
 
+	  if (rn->prn)
+	    prd = (struct prefix_rd *) &rn->prn->p;
 	  if (binfo)
-	    from = binfo->peer;
+            {
+              from = binfo->peer;
+              if (binfo->extra)
+                tag = binfo->extra->tag;
+            }
 
 	  /* 1: Write the BGP message header - 16 bytes marker, 2 bytes length,
 	   * one byte message type.
@@ -701,8 +710,8 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 	  /* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
 	  total_attr_len = bgp_packet_attribute (NULL, peer, s,
 						 adv->baa->attr, &vecarr,
-						 NULL, afi, safi,
-						 from, NULL, NULL, 0, 0);
+						 &rn->p, afi, safi,
+						 from, prd, tag, 0, 0);
 
           space_remaining = STREAM_CONCAT_REMAIN (s, snlri, STREAM_SIZE(s)) -
                             BGP_MAX_PACKET_SIZE_OVERFLOW;

@@ -24,7 +24,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define RD_TYPE_AS      0
 #define RD_TYPE_IP      1
 #define RD_TYPE_AS4     2
-#define RD_TYPE_EOI	0xff00
 
 #define RD_ADDRSTRLEN  28
 

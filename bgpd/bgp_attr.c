@@ -2208,8 +2208,9 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
   stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
   sizep = stream_get_endp (s);
   stream_putw (s, 0);	/* Marker: Attribute length. */
-  stream_putw (s, afi);	/* AFI */
-  stream_putc (s, safi);	/* SAFI */
+
+  stream_putw (s, afi);
+  stream_putc (s, (safi == SAFI_MPLS_VPN) ? SAFI_MPLS_LABELED_VPN : safi);
 
   /* Nexthop */
   switch (nh_afi)
@@ -2217,7 +2218,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
     case AFI_IP:
       switch (safi)
 	{
-	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 4);
@@ -2226,10 +2226,11 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	case SAFI_MPLS_VPN:
 	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 12);
-	  stream_putl (s, 0);
+	  stream_putl (s, 0);   /* RD = 0, per RFC */
 	  stream_putl (s, 0);
 	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
 	  break;
+	case SAFI_UNICAST:      /* invalid for IPv4 */
 	default:
 	  break;
 	}
@@ -2250,6 +2251,28 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 	    stream_put (s, &attre->mp_nexthop_local, IPV6_MAX_BYTELEN);
 	}
+	break;
+      case SAFI_MPLS_VPN:
+	{
+	  struct attr_extra *attre = attr->extra;
+
+	  assert (attr->extra);
+          if (attre->mp_nexthop_len == 16) {
+            stream_putc (s, 24);
+            stream_putl (s, 0);   /* RD = 0, per RFC */
+            stream_putl (s, 0);
+            stream_put (s, &attre->mp_nexthop_global, 16);
+          } else if (attre->mp_nexthop_len == 32) {
+            stream_putc (s, 48);
+            stream_putl (s, 0);   /* RD = 0, per RFC */
+            stream_putl (s, 0);
+            stream_put (s, &attre->mp_nexthop_global, 16);
+            stream_putl (s, 0);   /* RD = 0, per RFC */
+            stream_putl (s, 0);
+            stream_put (s, &attre->mp_nexthop_local, 16);
+          }
+        }
+	break;
       default:
 	break;
       }
@@ -2270,24 +2293,27 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
                           u_char *tag, int addpath_encode,
                           u_int32_t addpath_tx_id)
 {
-  switch (safi)
+  if (safi == SAFI_MPLS_VPN)
     {
-    case SAFI_MPLS_VPN:
-      /* addpath TX ID */
       if (addpath_encode)
         stream_putl(s, addpath_tx_id);
-
       /* Tag, RD, Prefix write. */
       stream_putc (s, p->prefixlen + 88);
       stream_put (s, tag, 3);
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
-      break;
-    default:
-      /* Prefix write. */
-      stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
-      break;
     }
+  else
+    stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
+}
+
+size_t
+bgp_packet_mpattr_prefix_size (afi_t afi, safi_t safi, struct prefix *p)
+{
+  int size = PSIZE (p->prefixlen);
+  if (safi == SAFI_MPLS_VPN)
+      size += 88;
+  return size;
 }
 
 void
@@ -2314,7 +2340,6 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   int send_as4_path = 0;
   int send_as4_aggregator = 0;
   int use32bit = (CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV)) ? 1 : 0;
-  size_t mpattrlen_pos = 0;
 
   if (! bgp)
     bgp = peer->bgp;
@@ -2325,6 +2350,8 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   if (p && !((afi == AFI_IP && safi == SAFI_UNICAST) &&
               !peer_cap_enhe(peer)))
     {
+      size_t mpattrlen_pos = 0;
+
       mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi,
                                     (peer_cap_enhe(peer) ? AFI_IP6 : afi),
                                     vecarr, attr);
@@ -2403,7 +2430,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       send_as4_path = 1; /* we'll do this later, at the correct place */
   
   /* Nexthop attribute. */
-  if (afi == AFI_IP && !peer_cap_enhe(peer))
+  if (afi == AFI_IP && safi == SAFI_UNICAST && !peer_cap_enhe(peer))
     {
       if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP))
         {
@@ -2689,8 +2716,7 @@ bgp_packet_mpunreach_start (struct stream *s, afi_t afi, safi_t safi)
   stream_putw (s, 0);		/* Length of this attribute. */
 
   stream_putw (s, afi);
-  safi = (safi == SAFI_MPLS_VPN) ? SAFI_MPLS_LABELED_VPN : safi;
-  stream_putc (s, safi);
+  stream_putc (s, (safi == SAFI_MPLS_VPN) ? SAFI_MPLS_LABELED_VPN : safi);
   return attrlen_pnt;
 }
 
@@ -2718,12 +2744,7 @@ bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 void
 bgp_packet_mpunreach_end (struct stream *s, size_t attrlen_pnt)
 {
-  bgp_size_t size;
-
-  /* Set MP attribute length. Don't count the (2) bytes used to encode
-     the attr length */
-  size = stream_get_endp (s) - attrlen_pnt - 2;
-  stream_putw_at (s, attrlen_pnt, size);
+  bgp_packet_mpattr_end (s, attrlen_pnt);
 }
 
 /* Initialization of attribute. */

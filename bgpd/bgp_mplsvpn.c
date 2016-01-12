@@ -206,13 +206,10 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
           decode_rd_ip (pnt + 5, &rd_ip);
           break;
 
-        case RD_TYPE_EOI:
-          break;
-
-        default:
-          zlog_err ("Invalid RD type %d", type);
-          return -1;
-        }
+	default:
+	  zlog_err ("Unknown RD type %d", type);
+          break;  /* just report */
+      }
 
       p.prefixlen = prefixlen - VPN_PREFIXLEN_MIN_BYTES*8;
       memcpy (&p.u.prefix, pnt + VPN_PREFIXLEN_MIN_BYTES, 
@@ -348,14 +345,6 @@ prefix_rd2str (struct prefix_rd *prd, char *buf, size_t size)
       snprintf (buf, size, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
       return buf;
     }
-  else if (type == RD_TYPE_EOI)
-    {
-      snprintf(buf, size, "LHI:%d, %02x:%02x:%02x:%02x:%02x:%02x",
-               pnt[1], /* LHI */
-               pnt[2], pnt[3], pnt[4], pnt[5], pnt[6], pnt[7]); /* MAC */
-      return buf;
-    }
-
   return NULL;
 }
 
