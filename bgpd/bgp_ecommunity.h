@@ -25,10 +25,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define ECOMMUNITY_ENCODE_AS                0x00
 #define ECOMMUNITY_ENCODE_IP                0x01
 #define ECOMMUNITY_ENCODE_AS4               0x02
+#define ECOMMUNITY_ENCODE_OPAQUE            0x03
 
-/* Low-order octet of the Extended Communityes type field.  */
+/* Low-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ROUTE_TARGET             0x02
 #define ECOMMUNITY_SITE_ORIGIN              0x03
+
+/* Low-order octet of the Extended Communities type field for OPAQUE types */
+#define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
 
 /* Extended communities attribute string format.  */
 #define ECOMMUNITY_FORMAT_ROUTE_MAP            0
