@@ -196,6 +196,34 @@ subtlv_encode_ipsec_ta(
     return new;
 }
 
+/* draft-rosen-idr-tunnel-encaps 2.1 */
+static struct bgp_attr_encap_subtlv *
+subtlv_encode_remote_endpoint(
+    struct bgp_tea_subtlv_remote_endpoint	*st)
+{
+    struct bgp_attr_encap_subtlv	*new;
+    uint8_t				*p;
+    
+    int	total = (st->family==AF_INET?8:20);
+
+    assert(total <= 0xff);
+
+    new = XCALLOC(MTYPE_ENCAP_TLV, sizeof(struct bgp_attr_encap_subtlv) - 1 + total);
+    assert(new);
+    new->type = BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT;
+    new->length = total;
+    p = new->value;
+    if (st->family == AF_INET) {
+        memcpy (p, &(st->ip_address.v4.s_addr), 4);
+        p+=4;
+    } else {
+        assert (st->family == AF_INET6);
+        memcpy (p, &(st->ip_address.v6.s6_addr), 16);
+        p+=16;
+    }
+    memcpy (p, &(st->as4), 4);
+    return new;
+}
 
 /***********************************************************************
  *		TUNNEL TYPE-SPECIFIC TLV ENCODE
@@ -235,6 +263,7 @@ bgp_encap_type_l2tpv3overip_to_tlv(
     ENC_SUBTLV(BGP_TEA_SUBTLV_ENCAP, subtlv_encode_encap_l2tpv3_over_ip, st_encap);
     ENC_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE, subtlv_encode_proto_type, st_proto);
     ENC_SUBTLV(BGP_TEA_SUBTLV_COLOR, subtlv_encode_color, st_color);
+    ENC_SUBTLV(BGP_TEA_SUBTLV_REMOTE_ENDPOINT, subtlv_encode_remote_endpoint, st_endpoint);
 }
 
 void
@@ -253,6 +282,7 @@ bgp_encap_type_gre_to_tlv(
     ENC_SUBTLV(BGP_TEA_SUBTLV_ENCAP, subtlv_encode_encap_gre, st_encap);
     ENC_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE, subtlv_encode_proto_type, st_proto);
     ENC_SUBTLV(BGP_TEA_SUBTLV_COLOR, subtlv_encode_color, st_color);
+    ENC_SUBTLV(BGP_TEA_SUBTLV_REMOTE_ENDPOINT, subtlv_encode_remote_endpoint, st_endpoint);
 }
 
 void
@@ -270,6 +300,7 @@ bgp_encap_type_ip_in_ip_to_tlv(
 
     ENC_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE, subtlv_encode_proto_type, st_proto);
     ENC_SUBTLV(BGP_TEA_SUBTLV_COLOR, subtlv_encode_color, st_color);
+    ENC_SUBTLV(BGP_TEA_SUBTLV_REMOTE_ENDPOINT, subtlv_encode_remote_endpoint, st_endpoint);
 }
 
 void
@@ -542,6 +573,36 @@ subtlv_decode_ipsec_ta(
     return 0;
 }
 
+/* draft-rosen-idr-tunnel-encaps 2.1 */
+static int
+subtlv_decode_remote_endpoint(
+    struct bgp_attr_encap_subtlv 	  *subtlv,
+    struct bgp_tea_subtlv_remote_endpoint *st)
+{
+   int i;
+   if (subtlv->length != 8 && subtlv->length != 20 ) {
+	zlog_debug("%s, subtlv length %d does not equal 8 or 20",
+	    __func__, subtlv->length);
+	return -1;
+    }
+    if (subtlv->length == 8) {
+        st->family = AF_INET;
+        st->ip_address.v4.s_addr = ((subtlv->value[0] << 24) |
+                                    (subtlv->value[1] << 16) |
+                                    (subtlv->value[2] << 8)  |
+                                    subtlv->value[3]);
+    } else {
+        st->family = AF_INET6;
+        memcpy (&(st->ip_address.v6.s6_addr), subtlv->value, 16);
+    }
+    i = subtlv->length - 4;
+    st->as4 = ((subtlv->value[i] << 24) |
+               (subtlv->value[i+1] << 16) |
+               (subtlv->value[i+2] << 8)  |
+               subtlv->value[i+3]);
+    return 0;
+}
+
 /***********************************************************************
  *		TUNNEL TYPE-SPECIFIC TLV DECODE
  ***********************************************************************/
@@ -558,17 +619,22 @@ tlv_to_bgp_encap_type_l2tpv3overip(
 	switch (st->type) {
 	    case BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION:
 		rc |= subtlv_decode_encap_l2tpv3_over_ip(st, &bet->st_encap);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_ENCAP;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_ENCAP);
 		break;
 
 	    case BGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE:
 		rc |= subtlv_decode_proto_type(st, &bet->st_proto);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_PROTO_TYPE;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_PROTO_TYPE);
 		break;
 
 	    case BGP_ENCAP_SUBTLV_TYPE_COLOR:
 		rc |= subtlv_decode_color(st, &bet->st_color);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_COLOR;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_COLOR);
+		break;
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
 		break;
 
 	    default:
@@ -592,17 +658,22 @@ tlv_to_bgp_encap_type_gre(
 	switch (st->type) {
 	    case BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION:
 		rc |= subtlv_decode_encap_gre(st, &bet->st_encap);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_ENCAP;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_ENCAP);
 		break;
 
 	    case BGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE:
 		rc |= subtlv_decode_proto_type(st, &bet->st_proto);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_PROTO_TYPE;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_PROTO_TYPE);
 		break;
 
 	    case BGP_ENCAP_SUBTLV_TYPE_COLOR:
 		rc |= subtlv_decode_color(st, &bet->st_color);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_COLOR;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_COLOR);
+		break;
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
 		break;
 
 	    default:
@@ -626,12 +697,17 @@ tlv_to_bgp_encap_type_ip_in_ip(
 	switch (st->type) {
 	    case BGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE:
 		rc |= subtlv_decode_proto_type(st, &bet->st_proto);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_PROTO_TYPE;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_PROTO_TYPE);
 		break;
 
 	    case BGP_ENCAP_SUBTLV_TYPE_COLOR:
 		rc |= subtlv_decode_color(st, &bet->st_color);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_COLOR;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_COLOR);
+		break;
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
 		break;
 
 	    default:
@@ -653,6 +729,12 @@ tlv_to_bgp_encap_type_transmit_tunnel_endpoint(
 
     for (st = stlv; st; st = st->next) {
 	switch (st->type) {
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
+		break;
+
 	    default:
 		zlog_debug("%s: unexpected subtlv type %d", __func__, st->type);
 		rc |= -1;
@@ -674,7 +756,12 @@ tlv_to_bgp_encap_type_ipsec_in_tunnel_mode(
 	switch (st->type) {
 	    case BGP_ENCAP_SUBTLV_TYPE_IPSEC_TA:
 		rc |= subtlv_decode_ipsec_ta(st, &bet->st_ipsec_ta);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_IPSEC_TA;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_IPSEC_TA);
+		break;
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
 		break;
 
 	    default:
@@ -698,7 +785,12 @@ tlv_to_bgp_encap_type_ip_in_ip_tunnel_with_ipsec_transport_mode(
 	switch (st->type) {
 	    case BGP_ENCAP_SUBTLV_TYPE_IPSEC_TA:
 		rc |= subtlv_decode_ipsec_ta(st, &bet->st_ipsec_ta);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_IPSEC_TA;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_IPSEC_TA);
+		break;
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
 		break;
 
 	    default:
@@ -722,7 +814,12 @@ tlv_to_bgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport_mode(
 	switch (st->type) {
 	    case BGP_ENCAP_SUBTLV_TYPE_IPSEC_TA:
 		rc |= subtlv_decode_ipsec_ta(st, &bet->st_ipsec_ta);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_IPSEC_TA;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_IPSEC_TA);
+		break;
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
 		break;
 
 	    default:
@@ -744,6 +841,12 @@ tlv_to_bgp_encap_type_vxlan(
 
     for (st = stlv; st; st = st->next) {
 	switch (st->type) {
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
+		break;
+
 	    default:
 		zlog_debug("%s: unexpected subtlv type %d", __func__, st->type);
 		rc |= -1;
@@ -763,6 +866,12 @@ tlv_to_bgp_encap_type_nvgre(
 
     for (st = stlv; st; st = st->next) {
 	switch (st->type) {
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
+		break;
+
 	    default:
 		zlog_debug("%s: unexpected subtlv type %d", __func__, st->type);
 		rc |= -1;
@@ -782,6 +891,12 @@ tlv_to_bgp_encap_type_mpls(
 
     for (st = stlv; st; st = st->next) {
 	switch (st->type) {
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
+		break;
+
 	    default:
 		zlog_debug("%s: unexpected subtlv type %d", __func__, st->type);
 		rc |= -1;
@@ -801,6 +916,12 @@ tlv_to_bgp_encap_type_mpls_in_gre(
 
     for (st = stlv; st; st = st->next) {
 	switch (st->type) {
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
+		break;
+
 	    default:
 		zlog_debug("%s: unexpected subtlv type %d", __func__, st->type);
 		rc |= -1;
@@ -820,6 +941,12 @@ tlv_to_bgp_encap_type_vxlan_gpe(
 
     for (st = stlv; st; st = st->next) {
 	switch (st->type) {
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
+		break;
+
 	    default:
 		zlog_debug("%s: unexpected subtlv type %d", __func__, st->type);
 		rc |= -1;
@@ -839,6 +966,12 @@ tlv_to_bgp_encap_type_mpls_in_udp(
 
     for (st = stlv; st; st = st->next) {
 	switch (st->type) {
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
+		break;
+
 	    default:
 		zlog_debug("%s: unexpected subtlv type %d", __func__, st->type);
 		rc |= -1;
@@ -860,7 +993,12 @@ tlv_to_bgp_encap_type_pbb(
 	switch (st->type) {
 	    case BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION:
 		rc |= subtlv_decode_encap_pbb(st, &bet->st_encap);
-		bet->valid_subtlvs |= BGP_TEA_SUBTLV_ENCAP;
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_ENCAP);
+		break;
+
+	    case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+		rc |= subtlv_decode_remote_endpoint(st, &bet->st_endpoint);
+		SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
 		break;
 
 	    default:

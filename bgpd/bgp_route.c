@@ -77,7 +77,7 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
   if (!table)
     return NULL;
   
-  if (safi == SAFI_MPLS_VPN)
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     {
       prn = bgp_node_get (table, (struct prefix *) prd);
 
@@ -90,7 +90,7 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
 
   rn = bgp_node_get (table, p);
 
-  if (safi == SAFI_MPLS_VPN)
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     rn->prn = prn;
 
   return rn;
@@ -1367,13 +1367,18 @@ subgroup_announce_check (struct bgp_info *ri, struct update_subgroup *subgrp,
     SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
 
 #ifdef HAVE_IPV6
+#define NEXTHOP_IS_V6 (\
+    (safi != SAFI_ENCAP && \
+     (p->family == AF_INET6 || peer_cap_enhe(peer))) || \
+    (safi == SAFI_ENCAP && attr->extra->mp_nexthop_len == 16))
+
   /* IPv6/MP starts with 1 nexthop. The link-local address is passed only if
    * the peer (group) is configured to receive link-local nexthop unchanged
    * and it is available in the prefix OR we're not reflecting the route and
    * the peer (group) to whom we're going to announce is on a shared network
    * and this is either a self-originated route or the peer is EBGP.
    */
-  if (p->family == AF_INET6 || peer_cap_enhe(peer))
+  if (NEXTHOP_IS_V6)
     {
       attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
       if ((CHECK_FLAG (peer->af_flags[afi][safi],
@@ -2645,7 +2650,6 @@ bgp_announce_route_timer_expired (struct thread *t)
   struct peer_af *paf;
   struct peer *peer;
 
-
   paf = THREAD_ARG (t);
   peer = paf->peer;
 
@@ -2759,7 +2763,7 @@ bgp_soft_reconfig_in (struct peer *peer, afi_t afi, safi_t safi)
   if (peer->status != Established)
     return;
 
-  if (safi != SAFI_MPLS_VPN)
+  if ((safi != SAFI_MPLS_VPN) && (safi != SAFI_ENCAP))
     bgp_soft_reconfig_table (peer, afi, safi, NULL, NULL);
   else
     for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
@@ -2972,7 +2976,7 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
   if (!peer->clear_node_queue->thread)
     peer_lock (peer);
 
-  if (safi != SAFI_MPLS_VPN)
+  if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP)
     bgp_clear_route_table (peer, afi, safi, NULL);
   else
     for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
@@ -3090,13 +3094,27 @@ bgp_cleanup_routes (void)
 	   */
 	  for (rn = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); rn;
                rn = bgp_route_next (rn))
-	    if (rn->info)
+	    {
+	      if (rn->info)
                 {
-                   bgp_cleanup_table((struct bgp_table *)(rn->info), SAFI_MPLS_VPN);
-                   bgp_table_finish ((struct bgp_table **)&(rn->info));
-		   rn->info = NULL;
-		   bgp_unlock_node(rn);
+		  bgp_cleanup_table((struct bgp_table *)(rn->info), SAFI_MPLS_VPN);
+		  bgp_table_finish ((struct bgp_table **)&(rn->info));
+		  rn->info = NULL;
+		  bgp_unlock_node(rn);
                 }
+	    }
+
+	  for (rn = bgp_table_top(bgp->rib[afi][SAFI_ENCAP]); rn;
+               rn = bgp_route_next (rn))
+	    {
+	      if (rn->info)
+		{
+		  bgp_cleanup_table((struct bgp_table *)(rn->info), SAFI_ENCAP);
+		  bgp_table_finish ((struct bgp_table **)&(rn->info));
+		  rn->info = NULL;
+		  bgp_unlock_node(rn);
+		}
+	    }
 	}
     }
 }
@@ -3255,6 +3273,7 @@ bgp_nlri_sanity_check (struct peer *peer, int afi, safi_t safi, u_char *pnt,
 
   while (pnt < end)
     {
+      int	badlength;
 
       /* If the NLRI is encoded using addpath then the first 4 bytes are
        * the addpath ID. */
@@ -3275,8 +3294,18 @@ bgp_nlri_sanity_check (struct peer *peer, int afi, safi_t safi, u_char *pnt,
       prefixlen = *pnt++;
       
       /* Prefix length check. */
-      if ((afi == AFI_IP && prefixlen > 32)
-	  || (afi == AFI_IP6 && prefixlen > 128))
+      badlength = 0;
+      if (safi == SAFI_ENCAP) {
+	if (prefixlen > 128)
+	  badlength = 1;
+      } else {
+        if ((afi == AFI_IP && prefixlen > 32) ||
+	    (afi == AFI_IP6 && prefixlen > 128)) {
+
+	    badlength = 1;
+	}
+      }
+      if (badlength)
 	{
 	  zlog_err ("%s [Error] Update packet error (wrong prefix length %d)",
 		    peer->host, prefixlen);
@@ -3880,7 +3909,7 @@ bgp_static_delete (struct bgp *bgp)
       for (rn = bgp_table_top (bgp->route[afi][safi]); rn; rn = bgp_route_next (rn))
 	if (rn->info != NULL)
 	  {      
-	    if (safi == SAFI_MPLS_VPN)
+	    if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
 	      {
 		table = rn->info;
 
@@ -4776,7 +4805,7 @@ bgp_aggregate_increment (struct bgp *bgp, struct prefix *p,
   struct bgp_table *table;
 
   /* MPLS-VPN aggregation is not yet supported. */
-  if (safi == SAFI_MPLS_VPN)
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     return;
 
   table = bgp->aggregate[afi][safi];
@@ -4813,7 +4842,7 @@ bgp_aggregate_decrement (struct bgp *bgp, struct prefix *p,
   struct bgp_table *table;
 
   /* MPLS-VPN aggregation is not yet supported. */
-  if (safi == SAFI_MPLS_VPN)
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     return;
 
   table = bgp->aggregate[afi][safi];
@@ -5812,10 +5841,40 @@ route_vty_out (struct vty *vty, struct prefix *p,
   attr = binfo->attr;
   if (attr) 
     {
+      /*
+       * For ENCAP routes, nexthop address family is not
+       * neccessarily the same as the prefix address family.
+       * Both SAFI_MPLS_VPN and SAFI_ENCAP use the MP nexthop field
+       */
+      if ((safi == SAFI_ENCAP) || (safi == SAFI_MPLS_VPN))
+        {
+	  if (attr->extra)
+            {
+	      char buf[BUFSIZ];
+              int af = NEXTHOP_FAMILY(attr->extra->mp_nexthop_len);
 
+              switch (af)
+                {
+                  case AF_INET:
+                    vty_out (vty, "%s", inet_ntop(af,
+                             &attr->extra->mp_nexthop_global_in, buf, BUFSIZ));
+                  break;
+#if HAVE_IPV6
+                  case AF_INET6:
+                    vty_out (vty, "%s", inet_ntop(af,
+                             &attr->extra->mp_nexthop_global, buf, BUFSIZ));
+                  break;
+#endif
+                  default:
+                    vty_out(vty, "?");
+                  break;
+                }
+            }
+          else
+            vty_out(vty, "?");
+        }
       /* IPv4 Next Hop */
-      if (p->family == AF_INET
-          && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
+      else if (p->family == AF_INET || !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 	{
           if (json_paths)
             {
@@ -5838,7 +5897,6 @@ route_vty_out (struct vty *vty, struct prefix *p,
 	        vty_out (vty, "%-16s", inet_ntoa (attr->nexthop));
             }
 	}
-
 #ifdef HAVE_IPV6
       /* IPv6 Next Hop */
       else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
@@ -6028,9 +6086,12 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
     {
       if (use_json)
         {
-          if (p->family == AF_INET && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
+          if (p->family == AF_INET &&
+              (safi == SAFI_MPLS_VPN ||
+               safi == SAFI_ENCAP ||
+               !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
             {
-              if (safi == SAFI_MPLS_VPN)
+              if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
                 json_object_string_add(json_net, "nextHop", inet_ntoa (attr->extra->mp_nexthop_global_in));
               else
                 json_object_string_add(json_net, "nextHop", inet_ntoa (attr->nexthop));
@@ -6065,9 +6126,12 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
         }
       else
         {
-          if (p->family == AF_INET && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
+          if (p->family == AF_INET &&
+              (safi == SAFI_MPLS_VPN ||
+               safi == SAFI_ENCAP ||
+               !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
             {
-              if (safi == SAFI_MPLS_VPN)
+              if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
                 vty_out (vty, "%-16s",
                          inet_ntoa (attr->extra->mp_nexthop_global_in));
               else
@@ -6156,7 +6220,7 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
       if (p->family == AF_INET
           && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
-	  if (safi == SAFI_MPLS_VPN)
+	  if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
             {
               if (json)
                 json_object_string_add(json_out, "mpNexthopGlobalIn", inet_ntoa (attr->extra->mp_nexthop_global_in));
@@ -6567,10 +6631,12 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	  
       /* Line2 display Next-hop, Neighbor, Router-id */
       /* Display the nexthop */
-      if (p->family == AF_INET
-          && (safi == SAFI_MPLS_VPN || !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
+      if (p->family == AF_INET &&
+          (safi == SAFI_MPLS_VPN ||
+           safi == SAFI_ENCAP ||
+           !BGP_ATTR_NEXTHOP_AFI_IP6(attr)))
 	{
-          if (safi == SAFI_MPLS_VPN)
+          if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
             {
               if (json_paths)
                 json_object_string_add(json_nexthop_global, "ip", inet_ntoa (attr->extra->mp_nexthop_global_in));
@@ -7553,7 +7619,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   else
     {
       vty_out (vty, "BGP routing table entry for %s%s%s/%d%s",
-	       (safi == SAFI_MPLS_VPN ?
+	       ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP) ?
 	       prefix_rd2str (prd, buf1, RD_ADDRSTRLEN) : ""),
 	       safi == SAFI_MPLS_VPN ? ":" : "",
 	       inet_ntop (p->family, &p->u.prefix, buf2, INET6_ADDRSTRLEN),
@@ -7673,7 +7739,7 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
       json_paths = json_object_new_array();
     }
 
-  if (safi == SAFI_MPLS_VPN)
+  if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
     {
       for (rn = bgp_table_top (rib); rn; rn = bgp_route_next (rn))
         {
@@ -7697,8 +7763,7 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
                       if (header)
                         {
                           route_vty_out_detail_header (vty, bgp, rm, (struct prefix_rd *)&rn->p,
-                                                       AFI_IP, SAFI_MPLS_VPN, json);
-
+                                                       AFI_IP, safi, json);
                           header = 0;
                         }
                       display++;
@@ -7707,7 +7772,7 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
                           (pathtype == BGP_PATH_BESTPATH && CHECK_FLAG (ri->flags, BGP_INFO_SELECTED)) ||
                           (pathtype == BGP_PATH_MULTIPATH &&
                            (CHECK_FLAG (ri->flags, BGP_INFO_MULTIPATH) || CHECK_FLAG (ri->flags, BGP_INFO_SELECTED))))
-                        route_vty_out_detail (vty, bgp, &rm->p, ri, AFI_IP, SAFI_MPLS_VPN, json_paths);
+                        route_vty_out_detail (vty, bgp, &rm->p, ri, AFI_IP, safi, json_paths);
                     }
 
                   bgp_unlock_node (rm);
@@ -11449,18 +11514,20 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
         safi = SAFI_MULTICAST;
       else if (strncmp (safi_str, "u", 1) == 0)
         safi = SAFI_UNICAST;
+      else if (strncmp (safi_str, "e", 1) == 0)
+        safi = SAFI_ENCAP;
       else if (strncmp (safi_str, "vpnv4", 5) == 0 || strncmp (safi_str, "vpnv6", 5) == 0)
         safi = SAFI_MPLS_VPN;
       else
         {
           vty_out (vty, "%% Invalid subsequent address family %s%s",
                    safi_str, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
+            return CMD_WARNING;
+      }
     }
   else
     {
-      vty_out (vty, "%% Invalid address family %s%s",
+      vty_out (vty, "%% Invalid address family \"%s\"%s",
                afi_str, VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -11470,11 +11537,13 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
 
 DEFUN (show_bgp_statistics,
        show_bgp_statistics_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) statistics",
+       "show bgp (ipv4|ipv6) (encap|multicast|unicast|vpn) statistics",
        SHOW_STR
        BGP_STR
        "Address family\n"
        "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "BGP RIB advertisement statistics\n")
@@ -11482,39 +11551,22 @@ DEFUN (show_bgp_statistics,
   return bgp_table_stats_vty (vty, NULL, argv[0], argv[1]);
 }
 
-ALIAS (show_bgp_statistics,
-       show_bgp_statistics_vpnv4_cmd,
-       "show bgp (ipv4) (vpnv4) statistics",
-       SHOW_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "BGP RIB advertisement statistics\n")
-
 DEFUN (show_bgp_statistics_view,
        show_bgp_statistics_view_cmd,
-       "show bgp " BGP_INSTANCE_CMD " (ipv4|ipv6) (unicast|multicast) statistics",
+       "show bgp " BGP_INSTANCE_CMD " (ipv4|ipv6) (unicast|multicast|vpn|encap) statistics",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
        "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
        "BGP RIB advertisement statistics\n")
 {
   return bgp_table_stats_vty (vty, NULL, argv[1], argv[2]);
 }
-
-ALIAS (show_bgp_statistics_view,
-       show_bgp_statistics_view_vpnv4_cmd,
-       "show bgp " BGP_INSTANCE_CMD " (ipv4) (vpnv4) statistics",
-       SHOW_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "BGP RIB advertisement statistics\n")
 
 enum bgp_pcounts
 {
@@ -13906,9 +13958,9 @@ bgp_clear_damp_route (struct vty *vty, const char *view_name,
 
   match.family = afi2family (afi);
 
-  if (safi == SAFI_MPLS_VPN)
+  if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
     {
-      for (rn = bgp_table_top (bgp->rib[AFI_IP][SAFI_MPLS_VPN]); rn; rn = bgp_route_next (rn))
+      for (rn = bgp_table_top (bgp->rib[AFI_IP][safi]); rn; rn = bgp_route_next (rn))
         {
           if (prd && memcmp (rn->p.u.val, prd->val, 8) != 0)
             continue;
@@ -14025,6 +14077,7 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
 			       SAFI_UNICAST, NULL, 0);
 }
 
+/* also used for encap safi */
 static int
 bgp_config_write_network_vpnv4 (struct vty *vty, struct bgp *bgp,
 				afi_t afi, safi_t safi, int *write)
@@ -14076,7 +14129,7 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
   struct bgp_aggregate *bgp_aggregate;
   char buf[SU_ADDRSTRLEN];
   
-  if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+  if (afi == AFI_IP && ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)))
     return bgp_config_write_network_vpnv4 (vty, bgp, afi, safi, write);
 
   /* Network configuration. */
@@ -14847,9 +14900,9 @@ bgp_route_init (void)
 
   /* Statistics */
   install_element (ENABLE_NODE, &show_bgp_statistics_cmd);
-  install_element (ENABLE_NODE, &show_bgp_statistics_vpnv4_cmd);
+  //install_element (ENABLE_NODE, &show_bgp_statistics_vpnv4_cmd);
   install_element (ENABLE_NODE, &show_bgp_statistics_view_cmd);
-  install_element (ENABLE_NODE, &show_bgp_statistics_view_vpnv4_cmd);
+  //install_element (ENABLE_NODE, &show_bgp_statistics_view_vpnv4_cmd);
   
   /* old command */
   install_element (VIEW_NODE, &show_ipv6_bgp_cmd);

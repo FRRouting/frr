@@ -602,6 +602,7 @@ subgroup_announce_table (struct update_subgroup *subgrp,
     table = peer->bgp->rib[afi][safi];
 
   if (safi != SAFI_MPLS_VPN
+      && safi != SAFI_ENCAP
       && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
     subgroup_default_originate (subgrp, 0);
 
@@ -664,7 +665,8 @@ subgroup_announce_route (struct update_subgroup *subgrp)
 		  PEER_STATUS_ORF_WAIT_REFRESH))
     return;
 
-  if (SUBGRP_SAFI (subgrp) != SAFI_MPLS_VPN)
+  if (SUBGRP_SAFI (subgrp) != SAFI_MPLS_VPN &&
+      SUBGRP_SAFI (subgrp) != SAFI_ENCAP)
     subgroup_announce_table (subgrp, NULL);
   else
     for (rn = bgp_table_top (update_subgroup_rib (subgrp)); rn;

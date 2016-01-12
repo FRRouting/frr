@@ -69,6 +69,8 @@ enum bgp_af_index
   BGP_AF_IPV6_UNICAST,
   BGP_AF_IPV6_MULTICAST,
   BGP_AF_IPV6_VPN,
+  BGP_AF_IPV4_ENCAP,
+  BGP_AF_IPV6_ENCAP,
   BGP_AF_MAX
 };
 
@@ -1348,6 +1350,9 @@ afindex (afi_t afi, safi_t safi)
 	case SAFI_MPLS_VPN:
 	  return BGP_AF_IPV4_VPN;
 	  break;
+	case SAFI_ENCAP:
+	  return BGP_AF_IPV4_ENCAP;
+	  break;
 	default:
 	  return BGP_AF_MAX;
 	  break;
@@ -1364,6 +1369,9 @@ afindex (afi_t afi, safi_t safi)
 	  break;
 	case SAFI_MPLS_VPN:
 	  return BGP_AF_IPV6_VPN;
+	  break;
+	case SAFI_ENCAP:
+	  return BGP_AF_IPV6_ENCAP;
 	  break;
 	default:
 	  return BGP_AF_MAX;
@@ -1391,7 +1399,8 @@ peer_afi_active_nego (const struct peer *peer, afi_t afi)
 {
   if (peer->afc_nego[afi][SAFI_UNICAST]
       || peer->afc_nego[afi][SAFI_MULTICAST]
-      || peer->afc_nego[afi][SAFI_MPLS_VPN])
+      || peer->afc_nego[afi][SAFI_MPLS_VPN]
+      || peer->afc_nego[afi][SAFI_ENCAP])
     return 1;
   return 0;
 }
@@ -1405,9 +1414,11 @@ peer_group_af_configured (struct peer_group *group)
   if (peer->afc[AFI_IP][SAFI_UNICAST]
       || peer->afc[AFI_IP][SAFI_MULTICAST]
       || peer->afc[AFI_IP][SAFI_MPLS_VPN]
+      || peer->afc[AFI_IP][SAFI_ENCAP]
       || peer->afc[AFI_IP6][SAFI_UNICAST]
       || peer->afc[AFI_IP6][SAFI_MULTICAST]
-      || peer->afc[AFI_IP6][SAFI_MPLS_VPN])
+      || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
+      || peer->afc[AFI_IP6][SAFI_ENCAP])
     return 1;
   return 0;
 }

@@ -6457,6 +6457,33 @@ ALIAS (clear_ip_bgp_all_vpnv4_soft_out,
        "Address Family Modifier\n"
        BGP_SOFT_OUT_STR)
 
+DEFUN (clear_ip_bgp_all_encap_soft_out,
+       clear_ip_bgp_all_encap_soft_out_cmd,
+       "clear ip bgp * encap unicast soft out",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear all peers\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig\n"
+       "Soft reconfig outbound update\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_all,
+			BGP_CLEAR_SOFT_OUT, NULL);
+}
+
+ALIAS (clear_ip_bgp_all_encap_soft_out,
+       clear_ip_bgp_all_encap_out_cmd,
+       "clear ip bgp * encap unicast out",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear all peers\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig outbound update\n")
+
 DEFUN (clear_bgp_all_soft_out,
        clear_bgp_all_soft_out_cmd,
        "clear bgp * soft out",
@@ -6727,6 +6754,33 @@ ALIAS (clear_ip_bgp_peer_vpnv4_soft_out,
        "Address family\n"
        "Address Family Modifier\n"
        BGP_SOFT_OUT_STR)
+
+DEFUN (clear_ip_bgp_peer_encap_soft_out,
+       clear_ip_bgp_peer_encap_soft_out_cmd,
+       "clear ip bgp A.B.C.D encap unicast soft out",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "BGP neighbor address to clear\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig\n"
+       "Soft reconfig outbound update\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_peer,
+			BGP_CLEAR_SOFT_OUT, argv[0]);
+}
+
+ALIAS (clear_ip_bgp_peer_encap_soft_out,
+       clear_ip_bgp_peer_encap_out_cmd,
+       "clear ip bgp A.B.C.D encap unicast out",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "BGP neighbor address to clear\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig outbound update\n")
 
 DEFUN (clear_bgp_peer_soft_out,
        clear_bgp_peer_soft_out_cmd,
@@ -7387,6 +7441,33 @@ ALIAS (clear_ip_bgp_as_vpnv4_soft_out,
        "Address Family modifier\n"
        BGP_SOFT_OUT_STR)
 
+DEFUN (clear_ip_bgp_as_encap_soft_out,
+       clear_ip_bgp_as_encap_soft_out_cmd,
+       "clear ip bgp " CMD_AS_RANGE " encap unicast soft out",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear peers with the AS number\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Soft reconfig\n"
+       "Soft reconfig outbound update\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_as,
+			BGP_CLEAR_SOFT_OUT, argv[0]);
+}
+
+ALIAS (clear_ip_bgp_as_encap_soft_out,
+       clear_ip_bgp_as_encap_out_cmd,
+       "clear ip bgp " CMD_AS_RANGE " encap unicast out",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear peers with the AS number\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Soft reconfig outbound update\n")
+
 DEFUN (clear_bgp_as_soft_out,
        clear_bgp_as_soft_out_cmd,
        "clear bgp " CMD_AS_RANGE " soft out",
@@ -7653,6 +7734,33 @@ ALIAS (clear_ip_bgp_all_vpnv4_soft_in,
        "Address family\n"
        "Address Family Modifier\n"
        BGP_SOFT_IN_STR)
+
+DEFUN (clear_ip_bgp_all_encap_soft_in,
+       clear_ip_bgp_all_encap_soft_in_cmd,
+       "clear ip bgp * encap unicast soft in",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear all peers\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig\n"
+       "Soft reconfig inbound update\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_all,
+			BGP_CLEAR_SOFT_IN, NULL);
+}
+
+ALIAS (clear_ip_bgp_all_encap_soft_in,
+       clear_ip_bgp_all_encap_in_cmd,
+       "clear ip bgp * encap unicast in",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear all peers\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig inbound update\n")
 
 DEFUN (clear_bgp_all_soft_in,
        clear_bgp_all_soft_in_cmd,
@@ -7950,6 +8058,33 @@ ALIAS (clear_ip_bgp_peer_vpnv4_soft_in,
        "Address family\n"
        "Address Family Modifier\n"
        BGP_SOFT_IN_STR)
+
+DEFUN (clear_ip_bgp_peer_encap_soft_in,
+       clear_ip_bgp_peer_encap_soft_in_cmd,
+       "clear ip bgp A.B.C.D encap unicast soft in",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "BGP neighbor address to clear\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig\n"
+       "Soft reconfig inbound update\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_peer,
+			BGP_CLEAR_SOFT_IN, argv[0]);
+}
+
+ALIAS (clear_ip_bgp_peer_encap_soft_in,
+       clear_ip_bgp_peer_encap_in_cmd,
+       "clear ip bgp A.B.C.D encap unicast in",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "BGP neighbor address to clear\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig inbound update\n")
 
 DEFUN (clear_bgp_peer_soft_in,
        clear_bgp_peer_soft_in_cmd,
@@ -8792,6 +8927,33 @@ ALIAS (clear_ip_bgp_as_vpnv4_soft_in,
        "Address Family modifier\n"
        BGP_SOFT_IN_STR)
 
+DEFUN (clear_ip_bgp_as_encap_soft_in,
+       clear_ip_bgp_as_encap_soft_in_cmd,
+       "clear ip bgp " CMD_AS_RANGE " encap unicast soft in",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear peers with the AS number\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Soft reconfig\n"
+       "Soft reconfig inbound update\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_as,
+			BGP_CLEAR_SOFT_IN, argv[0]);
+}
+
+ALIAS (clear_ip_bgp_as_encap_soft_in,
+       clear_ip_bgp_as_encap_in_cmd,
+       "clear ip bgp " CMD_AS_RANGE " encap unicast in",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear peers with the AS number\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Soft reconfig inbound update\n")
+
 DEFUN (clear_bgp_as_soft_in,
        clear_bgp_as_soft_in_cmd,
        "clear bgp " CMD_AS_RANGE " soft in",
@@ -8984,6 +9146,21 @@ DEFUN (clear_ip_bgp_all_vpnv4_soft,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
 
+DEFUN (clear_ip_bgp_all_encap_soft,
+       clear_ip_bgp_all_encap_soft_cmd,
+       "clear ip bgp * encap unicast soft",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear all peers\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_all,
+			BGP_CLEAR_SOFT_BOTH, argv[0]);
+}
+
 DEFUN (clear_bgp_all_soft,
        clear_bgp_all_soft_cmd,
        "clear bgp * soft",
@@ -9113,6 +9290,21 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft,
        BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_peer,
+			BGP_CLEAR_SOFT_BOTH, argv[0]);
+}
+
+DEFUN (clear_ip_bgp_peer_encap_soft,
+       clear_ip_bgp_peer_encap_soft_cmd,
+       "clear ip bgp A.B.C.D encap unicast soft",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "BGP neighbor address to clear\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_peer,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
 
@@ -9480,6 +9672,21 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft,
        BGP_SOFT_STR)
 {
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, clear_as,
+			BGP_CLEAR_SOFT_BOTH, argv[0]);
+}
+
+DEFUN (clear_ip_bgp_as_encap_soft,
+       clear_ip_bgp_as_encap_soft_cmd,
+       "clear ip bgp " CMD_AS_RANGE " encap unicast soft",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear peers with the AS number\n"
+       "Address family\n"
+       "Address Family Modifier\n"
+       "Soft reconfig\n")
+{
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_as,
 			BGP_CLEAR_SOFT_BOTH, argv[0]);
 }
 
@@ -15033,7 +15240,12 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_in_cmd);
-
+  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_soft_in_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_in_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_soft_in_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_in_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_in_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_in_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_in_cmd);
@@ -15138,7 +15350,12 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_out_cmd);
-
+  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_soft_out_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_out_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_soft_out_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_out_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_out_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_out_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_out_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_out_cmd);
@@ -15204,7 +15421,9 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_all_vpnv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_vpnv4_soft_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_vpnv4_soft_cmd);
-
+  install_element (ENABLE_NODE, &clear_ip_bgp_all_encap_soft_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_peer_encap_soft_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_as_encap_soft_cmd);
   install_element (ENABLE_NODE, &clear_bgp_all_soft_cmd);
   install_element (ENABLE_NODE, &clear_bgp_instance_all_soft_cmd);
   install_element (ENABLE_NODE, &clear_bgp_peer_soft_cmd);
