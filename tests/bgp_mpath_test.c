@@ -387,7 +387,8 @@ global_test_init (void)
 static int
 global_test_cleanup (void)
 {
-  zclient_free (zclient);
+  if (zclient != NULL)
+    zclient_free (zclient);
   thread_master_free (master);
   return 0;
 }

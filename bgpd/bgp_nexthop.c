@@ -148,6 +148,8 @@ bgp_address_init (struct bgp *bgp)
 void
 bgp_address_destroy (struct bgp *bgp)
 {
+  if (bgp->address_hash == NULL)
+    return;
   hash_clean(bgp->address_hash, NULL);
   hash_free(bgp->address_hash);
   bgp->address_hash = NULL;
