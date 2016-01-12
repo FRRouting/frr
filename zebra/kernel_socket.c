@@ -241,7 +241,9 @@ static const struct message rtm_flag_str[] =
   {RTF_CLONING,   "CLONING"},
 #endif /* RTF_CLONING */
   {RTF_XRESOLVE,  "XRESOLVE"},
+#ifdef RTF_LLINFO
   {RTF_LLINFO,    "LLINFO"},
+#endif /* RTF_LLINFO */
   {RTF_STATIC,    "STATIC"},
   {RTF_BLACKHOLE, "BLACKHOLE"},
 #ifdef RTF_PRIVATE
