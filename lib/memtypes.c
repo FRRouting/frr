@@ -175,6 +175,7 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_BGP_REDIST,           "BGP redistribution"            },
   { MTYPE_BGP_FILTER_NAME,      "BGP Filter Information"        },
   { MTYPE_BGP_DUMP_STR,         "BGP Dump String Information"   },
+  { MTYPE_ENCAP_TLV,		"ENCAP TLV",			},
   { -1, NULL }
 };
 

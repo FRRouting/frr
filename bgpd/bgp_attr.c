@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "hash.h"
 #include "jhash.h"
 #include "queue.h"
+#include "table.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -40,6 +41,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgp_encap_types.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str [] = 
@@ -63,6 +65,7 @@ static const struct message attr_str [] =
   { BGP_ATTR_AS4_PATH,         "AS4_PATH" }, 
   { BGP_ATTR_AS4_AGGREGATOR,   "AS4_AGGREGATOR" }, 
   { BGP_ATTR_AS_PATHLIMIT,     "AS_PATHLIMIT" },
+  { BGP_ATTR_ENCAP,            "ENCAP" },
 };
 static const int attr_str_max = array_size(attr_str);
 
@@ -207,6 +210,105 @@ cluster_finish (void)
   cluster_hash = NULL;
 }
 
+struct bgp_attr_encap_subtlv *
+encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
+{
+    struct bgp_attr_encap_subtlv *new;
+    struct bgp_attr_encap_subtlv *tail;
+    struct bgp_attr_encap_subtlv *p;
+
+    for (p = orig, tail = new = NULL; p; p = p->next) {
+	int size = sizeof(struct bgp_attr_encap_subtlv) - 1 + p->length;
+	if (tail) {
+	    tail->next = XCALLOC(MTYPE_ENCAP_TLV, size);
+	    tail = tail->next;
+	} else {
+	    tail = new = XCALLOC(MTYPE_ENCAP_TLV, size);
+	}
+	assert(tail);
+	memcpy(tail, p, size);
+	tail->next = NULL;
+    }
+
+    return new;
+}
+
+static void
+encap_free(struct bgp_attr_encap_subtlv *p)
+{
+    struct bgp_attr_encap_subtlv *next;
+    while (p) {
+        next    = p->next;
+        p->next = NULL;
+        XFREE(MTYPE_ENCAP_TLV, p);
+        p       = next;
+    }
+}
+
+void
+bgp_attr_flush_encap(struct attr *attr)
+{
+    if (!attr || !attr->extra)
+	return;
+
+    if (attr->extra->encap_subtlvs) {
+	encap_free(attr->extra->encap_subtlvs);
+	attr->extra->encap_subtlvs = NULL;
+    }
+}
+
+/*
+ * Compare encap sub-tlv chains
+ *
+ *	1 = equivalent
+ *	0 = not equivalent
+ *
+ * This algorithm could be made faster if needed
+ */
+static int
+encap_same(struct bgp_attr_encap_subtlv *h1, struct bgp_attr_encap_subtlv *h2)
+{
+    struct bgp_attr_encap_subtlv *p;
+    struct bgp_attr_encap_subtlv *q;
+
+    if (!h1 && !h2)
+	return 1;
+    if (h1 && !h2)
+	return 0;
+    if (!h1 && h2)
+	return 0;
+    if (h1 == h2)
+	return 1;
+
+    for (p = h1; p; p = p->next) {
+	for (q = h2; q; q = q->next) {
+	    if ((p->type == q->type) &&
+		(p->length == q->length) &&
+		!memcmp(p->value, q->value, p->length)) {
+
+		break;
+	    }
+	}
+	if (!q)
+	    return 0;
+    }
+
+    for (p = h2; p; p = p->next) {
+	for (q = h1; q; q = q->next) {
+	    if ((p->type == q->type) &&
+		(p->length == q->length) &&
+		!memcmp(p->value, q->value, p->length)) {
+
+		break;
+	    }
+	}
+	if (!q)
+	    return 0;
+    }
+
+    return 1;
+}
+
 /* Unknown transit attribute. */
 static struct hash *transit_hash;
 
@@ -314,6 +416,10 @@ bgp_attr_extra_free (struct attr *attr)
 {
   if (attr->extra)
     {
+      if (attr->extra->encap_subtlvs) {
+	encap_free(attr->extra->encap_subtlvs);
+	attr->extra->encap_subtlvs = NULL;
+      }
       XFREE (MTYPE_ATTR_EXTRA, attr->extra);
       attr->extra = NULL;
     }
@@ -349,13 +455,20 @@ bgp_attr_dup (struct attr *new, struct attr *orig)
     {
       new->extra = extra;
       memset(new->extra, 0, sizeof(struct attr_extra));
-      if (orig->extra)
+      if (orig->extra) {
         *new->extra = *orig->extra;
+        if (orig->extra->encap_subtlvs) {
+          new->extra->encap_subtlvs = encap_tlv_dup(orig->extra->encap_subtlvs);
+        }
+      }
     }
   else if (orig->extra)
     {
       new->extra = bgp_attr_extra_new();
       *new->extra = *orig->extra;
+      if (orig->extra->encap_subtlvs) {
+	new->extra->encap_subtlvs = encap_tlv_dup(orig->extra->encap_subtlvs);
+      }
     }
 }
 
@@ -495,6 +608,8 @@ attrhash_cmp (const void *p1, const void *p2)
           && ae1->ecommunity == ae2->ecommunity
           && ae1->cluster == ae2->cluster
           && ae1->transit == ae2->transit
+	  && (ae1->encap_tunneltype == ae2->encap_tunneltype)
+	  && encap_same(ae1->encap_subtlvs, ae2->encap_subtlvs)
           && IPV4_ADDR_SAME (&ae1->originator_id, &ae2->originator_id))
         return 1;
       else if (ae1 || ae2)
@@ -549,6 +664,10 @@ bgp_attr_hash_alloc (void *p)
     {
       attr->extra = bgp_attr_extra_new ();
       *attr->extra = *val->extra;
+
+      if (attr->extra->encap_subtlvs) {
+	attr->extra->encap_subtlvs = encap_tlv_dup(attr->extra->encap_subtlvs);
+      }
     }
   attr->refcnt = 0;
   return attr;
@@ -672,6 +791,9 @@ bgp_attr_default_intern (u_char origin)
 {
   struct attr attr;
   struct attr *new;
+
+  memset (&attr, 0, sizeof (struct attr));
+  bgp_attr_extra_get (&attr);
 
   bgp_attr_default_set(&attr, origin);
 
@@ -814,6 +936,8 @@ bgp_attr_flush (struct attr *attr)
         cluster_free (attre->cluster);
       if (attre->transit && ! attre->transit->refcnt)
         transit_free (attre->transit);
+      encap_free(attre->encap_subtlvs);
+      attre->encap_subtlvs = NULL;
     }
 }
 
@@ -1771,6 +1895,118 @@ bgp_attr_ext_communities (struct bgp_attr_parser_args *args)
   return BGP_ATTR_PARSE_PROCEED;
 }
 
+/* Parse Tunnel Encap attribute in an UPDATE */
+static int
+bgp_attr_encap(
+  uint8_t	type,
+  struct peer	*peer,	/* IN */
+  bgp_size_t	length,	/* IN: attr's length field */
+  struct attr	*attr,	/* IN: caller already allocated */
+  u_char	flag,	/* IN: attr's flags field */
+  u_char	*startp)
+{
+  bgp_size_t			total;
+  struct attr_extra		*attre = NULL;
+  struct bgp_attr_encap_subtlv	*stlv_last = NULL;
+  uint16_t			tunneltype;
+
+  total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
+
+  if (!CHECK_FLAG(flag, BGP_ATTR_FLAG_TRANS)
+       || !CHECK_FLAG(flag, BGP_ATTR_FLAG_OPTIONAL))
+    {
+      zlog_info ("Tunnel Encap attribute flag isn't optional and transitive %d", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+
+  if (BGP_ATTR_ENCAP == type) {
+    /* read outer TLV type and length */
+    uint16_t	tlv_length;
+
+    if (length < 4) {
+	zlog_info ("Tunnel Encap attribute not long enough to contain outer T,L");
+	bgp_notify_send_with_data(peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+				 startp, total);
+	return -1;
+    }
+    tunneltype = stream_getw (BGP_INPUT (peer));
+    tlv_length = stream_getw (BGP_INPUT (peer));
+    length -= 4;
+
+    if (tlv_length != length) {
+	zlog_info ("%s: tlv_length(%d) != length(%d)",
+	    __func__, tlv_length, length);
+    }
+  }
+
+  while (length >= 4) {
+    uint16_t	subtype;
+    uint16_t	sublength;
+    struct bgp_attr_encap_subtlv *tlv;
+
+    subtype = stream_getw (BGP_INPUT (peer));
+    sublength = stream_getw (BGP_INPUT (peer));
+    length -= 4;
+
+    if (sublength > length) {
+      zlog_info ("Tunnel Encap attribute sub-tlv length %d exceeds remaining length %d",
+	    sublength, length);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+				 startp, total);
+      return -1;
+    }
+
+    /* alloc and copy sub-tlv */
+    /* TBD make sure these are freed when attributes are released */
+    tlv = XCALLOC (MTYPE_ENCAP_TLV, sizeof(struct bgp_attr_encap_subtlv)-1+sublength);
+    tlv->type = subtype;
+    tlv->length = sublength;
+    stream_get(tlv->value, peer->ibuf, sublength);
+    length -= sublength;
+
+    /* attach tlv to encap chain */
+    if (!attre) {
+	attre = bgp_attr_extra_get(attr);
+	if (BGP_ATTR_ENCAP == type) {
+	    for (stlv_last = attre->encap_subtlvs; stlv_last && stlv_last->next;
+		stlv_last = stlv_last->next);
+	    if (stlv_last) {
+		stlv_last->next = tlv;
+	    } else {
+		attre->encap_subtlvs = tlv;
+	    }
+	}
+    } else {
+	stlv_last->next = tlv;
+    }
+    stlv_last = tlv;
+  }
+
+  if (attre && (BGP_ATTR_ENCAP == type)) {
+      attre->encap_tunneltype = tunneltype;
+  }
+
+  if (length) {
+    /* spurious leftover data */
+      zlog_info ("Tunnel Encap attribute length is bad: %d leftover octets", length);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+				 startp, total);
+      return -1;
+  }
+
+  return 0;
+}
+
 /* BGP unknown attribute treatment. */
 static bgp_attr_parse_ret_t
 bgp_attr_unknown (struct bgp_attr_parser_args *args)
@@ -2060,6 +2296,9 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	case BGP_ATTR_EXT_COMMUNITIES:
 	  ret = bgp_attr_ext_communities (&attr_args);
 	  break;
+        case BGP_ATTR_ENCAP:
+          ret = bgp_attr_encap (type, peer, length, attr, flag, startp);
+          break;
 	default:
 	  ret = bgp_attr_unknown (&attr_args);
 	  break;
@@ -2315,6 +2554,89 @@ bgp_packet_mpattr_prefix_size (afi_t afi, safi_t safi, struct prefix *p)
       size += 88;
   return size;
 }
+
+#if 0
+/*
+ * Encodes the tunnel encapsulation attribute
+ */
+static void
+bgp_packet_mpattr_tea(
+    struct bgp		*bgp,
+    struct peer		*peer,
+    struct stream	*s,
+    struct attr		*attr,
+    uint8_t		attrtype)
+{
+    unsigned int			attrlenfield = 0;
+    struct bgp_attr_encap_subtlv	*subtlvs;
+    struct bgp_attr_encap_subtlv	*st;
+    const char				*attrname;
+
+    if (!attr || !attr->extra)
+	return;
+
+    switch (attrtype) {
+	case BGP_ATTR_ENCAP:
+	    attrname = "Tunnel Encap";
+	    subtlvs = attr->extra->encap_subtlvs;
+
+	    /*
+	     * The tunnel encap attr has an "outer" tlv.
+	     * T = tunneltype,
+	     * L = total length of subtlvs,
+	     * V = concatenated subtlvs.
+	     */
+	    attrlenfield = 2 + 2;	/* T + L */
+	    break;
+
+	default:
+	    assert(0);
+    }
+
+
+    /* compute attr length */
+    for (st = subtlvs; st; st = st->next) {
+	attrlenfield += (4 + st->length);
+    }
+
+    /* if no tlvs, don't make attr */
+    if (!attrlenfield)
+	return;
+
+    if (attrlenfield > 0xffff) {
+	zlog_info ("%s attribute is too long (length=%d), can't send it",
+	    attrname,
+	    attrlenfield);
+	return;
+    }
+
+    if (attrlenfield > 0xff) {
+	/* 2-octet length field */
+	stream_putc (s,
+	    BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_EXTLEN);
+	stream_putc (s, attrtype);
+	stream_putw (s, attrlenfield & 0xffff);
+    } else {
+	/* 1-octet length field */
+	stream_putc (s, BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL);
+	stream_putc (s, attrtype);
+	stream_putc (s, attrlenfield & 0xff);
+    }
+
+    if (attrtype == BGP_ATTR_ENCAP) {
+	/* write outer T+L */
+	stream_putw(s, attr->extra->encap_tunneltype);
+	stream_putw(s, attrlenfield - 4);
+    }
+
+    /* write each sub-tlv */
+    for (st = subtlvs; st; st = st->next) {
+	stream_putw (s, st->type);
+	stream_putw (s, st->length);
+	stream_put (s, st->value, st->length);
+    }
+}
+#endif
 
 void
 bgp_packet_mpattr_end (struct stream *s, size_t sizep)

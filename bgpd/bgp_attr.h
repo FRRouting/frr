@@ -55,6 +55,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL       8+IPV6_MAX_BYTELEN
 #define BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ((8+IPV6_MAX_BYTELEN) * 2)
 
+
+struct bgp_attr_encap_subtlv {
+    struct bgp_attr_encap_subtlv	*next;		/* for chaining */
+    uint16_t				type;
+    uint16_t				length;
+    uint8_t				value[1];	/* will be extended */
+};
+
 /* Additional/uncommon BGP attributes.
  * lazily allocated as and when a struct attr
  * requires it.
@@ -93,6 +101,9 @@ struct attr_extra
 
   /* route tag */
   u_short tag;
+
+  uint16_t			encap_tunneltype;	/* grr */
+  struct bgp_attr_encap_subtlv *encap_subtlvs;		/* rfc5512 */
 };
 
 /* BGP core attribute structure. */
@@ -224,6 +235,12 @@ extern int bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
 			       struct bgp_nlri *);
 extern int bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
                                  struct bgp_nlri *);
+
+extern struct bgp_attr_encap_subtlv *
+encap_tlv_dup(struct bgp_attr_encap_subtlv *orig);
+
+extern void
+bgp_attr_flush_encap(struct attr *attr);
 
 /**
  * Set of functions to encode MP_REACH_NLRI and MP_UNREACH_NLRI attributes.

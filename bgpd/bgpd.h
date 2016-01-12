@@ -936,6 +936,7 @@ struct bgp_nlri
 #define BGP_ATTR_AS4_PATH                       17
 #define BGP_ATTR_AS4_AGGREGATOR                 18
 #define BGP_ATTR_AS_PATHLIMIT                   21
+#define BGP_ATTR_ENCAP                          23
 
 /* BGP update origin.  */
 #define BGP_ORIGIN_IGP                           0
