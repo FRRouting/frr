@@ -4070,6 +4070,37 @@ DEFUN (no_banner_motd,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_commandtree,
+       show_commandtree_cmd,
+       "show commandtree",
+       NO_STR
+       "Show command tree\n")
+{
+  /* TBD */
+  vector cmd_vector;
+  unsigned int i;
+
+  vty_out (vty, "Current node id: %d%s", vty->node, VTY_NEWLINE);
+
+  /* vector of all commands installed at this node */
+  cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
+
+  /* loop over all commands at this node */
+  for (i = 0; i < vector_active(cmd_vector); ++i)
+    {
+      struct cmd_element *cmd_element;
+
+      /* A cmd_element (seems to be) is an individual command */
+      if ((cmd_element = vector_slot (cmd_vector, i)) == NULL)
+        continue;
+
+      vty_out (vty, "    %s%s", cmd_element->string, VTY_NEWLINE);
+    }
+
+  vector_free (cmd_vector);
+  return CMD_SUCCESS;
+}
+
 /* Set config filename.  Called from vty.c */
 void
 host_config_set (const char *filename)
@@ -4137,6 +4168,7 @@ cmd_init (int terminal)
       install_element (VIEW_NODE, &config_terminal_length_cmd);
       install_element (VIEW_NODE, &config_terminal_no_length_cmd);
       install_element (VIEW_NODE, &show_logging_cmd);
+      install_element (VIEW_NODE, &show_commandtree_cmd);
       install_element (VIEW_NODE, &echo_cmd);
 
       install_element (RESTRICTED_NODE, &config_list_cmd);
@@ -4146,6 +4178,7 @@ cmd_init (int terminal)
       install_element (RESTRICTED_NODE, &config_enable_cmd);
       install_element (RESTRICTED_NODE, &config_terminal_length_cmd);
       install_element (RESTRICTED_NODE, &config_terminal_no_length_cmd);
+      install_element (RESTRICTED_NODE, &show_commandtree_cmd);
       install_element (RESTRICTED_NODE, &echo_cmd);
     }
 
@@ -4158,6 +4191,7 @@ cmd_init (int terminal)
     }
   install_element (ENABLE_NODE, &show_startup_config_cmd);
   install_element (ENABLE_NODE, &show_version_cmd);
+  install_element (ENABLE_NODE, &show_commandtree_cmd);
 
   if (terminal)
     {
@@ -4222,6 +4256,7 @@ cmd_init (int terminal)
 
       vrf_install_commands ();
     }
+  install_element (CONFIG_NODE, &show_commandtree_cmd);
   srandom(time(NULL));
 }
 
