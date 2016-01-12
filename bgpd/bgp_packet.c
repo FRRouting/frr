@@ -1528,12 +1528,12 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   if (peer->afc_nego[AFI_IP][SAFI_MULTICAST])
     {
       if (mp_update.length
-	  && mp_update.afi == AFI_IP 
+	  && mp_update.afi == AFI_IP
 	  && mp_update.safi == SAFI_MULTICAST)
 	bgp_nlri_parse (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length
-	  && mp_withdraw.afi == AFI_IP 
+	  && mp_withdraw.afi == AFI_IP
 	  && mp_withdraw.safi == SAFI_MULTICAST)
 	bgp_nlri_parse (peer, NULL, &mp_withdraw);
 
@@ -1631,12 +1631,12 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP 
 	  && mp_update.safi == SAFI_MPLS_LABELED_VPN)
-	bgp_nlri_parse_vpnv4 (peer, NLRI_ATTR_ARG, &mp_update);
+	bgp_nlri_parse_vpn (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length 
 	  && mp_withdraw.afi == AFI_IP 
 	  && mp_withdraw.safi == SAFI_MPLS_LABELED_VPN)
-	bgp_nlri_parse_vpnv4 (peer, NULL, &mp_withdraw);
+	bgp_nlri_parse_vpn (peer, NULL, &mp_withdraw);
 
       if (! withdraw_len
 	  && mp_withdraw.afi == AFI_IP
@@ -1654,6 +1654,35 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 
           if (bgp_debug_neighbor_events(peer))
 	    zlog_debug ("rcvd End-of-RIB for VPNv4 Unicast from %s", peer->host);
+	}
+    }
+  if (peer->afc[AFI_IP6][SAFI_MPLS_VPN])
+    {
+      if (mp_update.length
+	  && mp_update.afi == AFI_IP6
+	  && mp_update.safi == SAFI_MPLS_LABELED_VPN)
+	bgp_nlri_parse_vpn (peer, NLRI_ATTR_ARG, &mp_update);
+
+      if (mp_withdraw.length
+	  && mp_withdraw.afi == AFI_IP6
+	  && mp_withdraw.safi == SAFI_MPLS_LABELED_VPN)
+	bgp_nlri_parse_vpn (peer, NULL, &mp_withdraw);
+
+      if (! withdraw_len
+	  && mp_withdraw.afi == AFI_IP6
+	  && mp_withdraw.safi == SAFI_MPLS_LABELED_VPN
+	  && mp_withdraw.length == 0)
+	{
+          /* End-of-RIB received */
+          if (!CHECK_FLAG (peer->af_sflags[AFI_IP6][SAFI_MPLS_VPN],
+                           PEER_STATUS_EOR_RECEIVED))
+            {
+	      SET_FLAG (peer->af_sflags[AFI_IP6][SAFI_MPLS_VPN], PEER_STATUS_EOR_RECEIVED);
+              bgp_update_explicit_eors(peer);
+            }
+
+          if (bgp_debug_neighbor_events(peer))
+	    zlog_debug ("rcvd End-of-RIB for VPNv6 Unicast from %s", peer->host);
 	}
     }
 

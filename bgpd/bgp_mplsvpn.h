@@ -43,7 +43,7 @@ struct rd_ip
 };
 
 extern void bgp_mplsvpn_init (void);
-extern int bgp_nlri_parse_vpnv4 (struct peer *, struct attr *, struct bgp_nlri *);
+extern int bgp_nlri_parse_vpn (struct peer *, struct attr *, struct bgp_nlri *);
 extern u_int32_t decode_label (u_char *);
 extern int str2prefix_rd (const char *, struct prefix_rd *);
 extern int str2tag (const char *, u_char *);

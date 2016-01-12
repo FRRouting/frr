@@ -10460,11 +10460,13 @@ afi_safi_print (afi_t afi, safi_t safi)
   else if (afi == AFI_IP && safi == SAFI_MULTICAST)
     return "IPv4 Multicast";
   else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
-    return "VPNv4 Unicast";
+    return "VPN-IPv4 Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
     return "IPv6 Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
     return "IPv6 Multicast";
+  else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
+    return "VPN-IPv6 Unicast";
   else
     return "Unknown";
 }
@@ -11248,6 +11250,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 	  || p->afc_recv[AFI_IP6][SAFI_UNICAST]
 	  || p->afc_adv[AFI_IP6][SAFI_MULTICAST]
 	  || p->afc_recv[AFI_IP6][SAFI_MULTICAST]
+	  || p->afc_adv[AFI_IP6][SAFI_MPLS_VPN]
+	  || p->afc_recv[AFI_IP6][SAFI_MPLS_VPN]
 #endif /* HAVE_IPV6 */
 	  || p->afc_adv[AFI_IP][SAFI_MPLS_VPN]
 	  || p->afc_recv[AFI_IP][SAFI_MPLS_VPN])

@@ -93,13 +93,13 @@ decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
 }
 
 int
-bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr, 
-		      struct bgp_nlri *packet)
+bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
+                    struct bgp_nlri *packet)
 {
   u_char *pnt;
   u_char *lim;
   struct prefix p;
-  int psize;
+  int psize = 0;
   int prefixlen;
   u_int16_t type;
   struct rd_as rd_as;
@@ -219,10 +219,10 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
               psize - VPN_PREFIXLEN_MIN_BYTES);
 
       if (attr)
-	bgp_update (peer, &p, addpath_id, attr, AFI_IP, SAFI_MPLS_VPN,
+	bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
 		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
       else
-	bgp_withdraw (peer, &p, addpath_id, attr, AFI_IP, SAFI_MPLS_VPN,
+	bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
 		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
     }
   /* Packet length consistency check. */
@@ -572,6 +572,7 @@ static int
 bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type type,
 		   void *output_arg, int tags, u_char use_json)
 {
+  afi_t afi = AFI_IP;
   struct bgp *bgp;
   struct bgp_table *table;
   struct bgp_node *rn;
@@ -616,7 +617,13 @@ bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type ty
       json_object_string_add(json_ocode, "incomplete", "?");
     }
 
- for (rn = bgp_table_top (bgp->rib[AFI_IP][SAFI_MPLS_VPN]); rn; rn = bgp_route_next (rn))
+  if ((afi != AFI_IP) && (afi != AFI_IP6))
+    {
+      vty_out (vty, "Afi %d not supported%s", afi, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  for (rn = bgp_table_top (bgp->rib[afi][SAFI_MPLS_VPN]); rn; rn = bgp_route_next (rn))
     {
       if (prd && memcmp (rn->p.u.val, prd->val, 8) != 0)
 	continue;

@@ -1601,10 +1601,27 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
       break;
 #ifdef HAVE_IPV6
     case BGP_ATTR_NHLEN_IPV6_GLOBAL:
+    case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
+      if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL)
+        {
+          stream_getl (s); /* RD high */
+          stream_getl (s); /* RD low */
+        }
       stream_get (&attre->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
       break;
     case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
+    case BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL:
+      if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+        {
+          stream_getl (s); /* RD high */
+          stream_getl (s); /* RD low */
+        }
       stream_get (&attre->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
+      if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+        {
+          stream_getl (s); /* RD high */
+          stream_getl (s); /* RD low */
+        }
       stream_get (&attre->mp_nexthop_local, s, IPV6_MAX_BYTELEN);
       if (! IN6_IS_ADDR_LINKLOCAL (&attre->mp_nexthop_local))
 	{
