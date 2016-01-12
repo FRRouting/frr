@@ -780,7 +780,7 @@ bgp_socket (unsigned short port, const char *address)
   int sock;
   int socklen;
   struct sockaddr_in sin;
-  int ret, en;
+  int ret;
 
   sock = socket (AF_INET, SOCK_STREAM, 0);
   if (sock < 0)
