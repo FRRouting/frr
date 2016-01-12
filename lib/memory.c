@@ -108,6 +108,9 @@ zrealloc (int type, void *ptr, size_t size)
 {
   void *memory;
 
+  if (ptr == NULL)              /* is really alloc */
+      return zcalloc(type, size);
+
   memory = realloc (ptr, size);
   if (memory == NULL)
     zerror ("realloc", type, size);
