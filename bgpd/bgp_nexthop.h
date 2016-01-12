@@ -25,6 +25,15 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "queue.h"
 #include "prefix.h"
 
+#define NEXTHOP_FAMILY(nexthop_len) ( \
+  ((nexthop_len) ==  4 ||             \
+   (nexthop_len) == 12 ? AF_INET :    \
+  ((nexthop_len) == 16 ||             \
+   (nexthop_len) == 24 ||             \
+   (nexthop_len) == 48 ? AF_INET6 :   \
+  AF_UNSPEC))                         \
+)
+
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache
 {
