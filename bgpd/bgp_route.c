@@ -6036,7 +6036,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
         if (json_paths)
           json_object_int_add(json_path, "med", attr->med);
         else
-	  vty_out (vty, "%10u", attr->med);
+	  vty_out (vty, "%10u ", attr->med);
       else
         if (!json_paths)
 	  vty_out (vty, "          ");
@@ -6046,7 +6046,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
         if (json_paths)
           json_object_int_add(json_path, "localpref", attr->local_pref);
         else
-	  vty_out (vty, "%7u", attr->local_pref);
+	  vty_out (vty, "%7u ", attr->local_pref);
       else
         if (!json_paths)
 	  vty_out (vty, "       ");
@@ -6212,12 +6212,12 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
             }
 #endif /* HAVE_IPV6 */
           if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
-            vty_out (vty, "%10u", attr->med);
+            vty_out (vty, "%10u ", attr->med);
           else
             vty_out (vty, "          ");
 
           if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))
-            vty_out (vty, "%7u", attr->local_pref);
+            vty_out (vty, "%7u ", attr->local_pref);
           else
             vty_out (vty, "       ");
 
@@ -7310,6 +7310,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
   int header = 1;
   int display;
   unsigned long output_count;
+  unsigned long total_count;
   struct prefix *p;
   char buf[BUFSIZ];
   char buf2[BUFSIZ];
@@ -7328,6 +7329,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
 
   /* This is first entry point, so reset total line. */
   output_count = 0;
+  total_count  = 0;
 
   /* Start processing of routes. */
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn)) 
@@ -7342,6 +7344,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
 
         for (ri = rn->info; ri; ri = ri->next)
           {
+            total_count++;
             if (type == bgp_show_type_flap_statistics
                 || type == bgp_show_type_flap_address
                 || type == bgp_show_type_flap_prefix
@@ -7556,11 +7559,11 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
       if (output_count == 0)
         {
           if (type == bgp_show_type_normal)
-            vty_out (vty, "No BGP network exists%s", VTY_NEWLINE);
+            vty_out (vty, "No BGP prefixes displayed, %ld exist%s", total_count, VTY_NEWLINE);
         }
       else
-        vty_out (vty, "%sTotal number of prefixes %ld%s",
-                 VTY_NEWLINE, output_count, VTY_NEWLINE);
+        vty_out (vty, "%sDisplayed  %ld out of %ld total prefixes%s",
+                 VTY_NEWLINE, output_count, total_count, VTY_NEWLINE);
     }
 
   return CMD_SUCCESS;
@@ -11616,7 +11619,7 @@ bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
   
   if (!bgp->rib[afi][safi])
     {
-      vty_out (vty, "%% No RIB exist's for the AFI(%d)/SAFI(%d)%s",
+      vty_out (vty, "%% No RIB exists for the AFI(%d)/SAFI(%d)%s",
 	       afi, safi, VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -11708,7 +11711,7 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
 
   if (!bgp)
     {
-      vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
+      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (strncmp (afi_str, "ipv", 3) == 0)
