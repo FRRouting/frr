@@ -340,7 +340,22 @@ DEFUN (vpnv4_network,
        "BGP tag\n"
        "tag value\n")
 {
-  return bgp_static_set_vpnv4 (vty, argv[0], argv[1], argv[2]);
+  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2], NULL);
+}
+
+DEFUN (vpnv4_network_route_map,
+       vpnv4_network_route_map_cmd,
+       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn tag WORD route-map WORD",
+       "Specify a network to announce via BGP\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Specify Route Distinguisher\n"
+       "VPN Route Distinguisher\n"
+       "BGP tag\n"
+       "tag value\n"
+       "route map\n"
+       "route map name\n")
+{
+  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2], argv[3]);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
@@ -355,7 +370,7 @@ DEFUN (no_vpnv4_network,
        "BGP tag\n"
        "tag value\n")
 {
-  return bgp_static_unset_vpnv4 (vty, argv[0], argv[1], argv[2]);
+  return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2]);
 }
 
 static int
@@ -1020,6 +1035,7 @@ void
 bgp_mplsvpn_init (void)
 {
   install_element (BGP_VPNV4_NODE, &vpnv4_network_cmd);
+  install_element (BGP_VPNV4_NODE, &vpnv4_network_route_map_cmd);
   install_element (BGP_VPNV4_NODE, &no_vpnv4_network_cmd);
 
 
