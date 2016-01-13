@@ -299,11 +299,97 @@ bgp_dump_routes_index_table(struct bgp *bgp)
 }
 
 
+static struct bgp_info *
+bgp_dump_route_node_record (int afi, struct bgp_node *rn,
+			    struct bgp_info *info, unsigned int seq)
+{
+  struct stream *obuf;
+  size_t sizep;
+  size_t endp;
+
+  obuf = bgp_dump_obuf;
+  stream_reset (obuf);
+
+  /* MRT header */
+  if (afi == AFI_IP)
+    bgp_dump_header (obuf, MSG_TABLE_DUMP_V2, TABLE_DUMP_V2_RIB_IPV4_UNICAST,
+                     BGP_DUMP_ROUTES);
+  else if (afi == AFI_IP6)
+    bgp_dump_header (obuf, MSG_TABLE_DUMP_V2, TABLE_DUMP_V2_RIB_IPV6_UNICAST,
+                     BGP_DUMP_ROUTES);
+
+  /* Sequence number */
+  stream_putl (obuf, seq);
+
+  /* Prefix length */
+  stream_putc (obuf, rn->p.prefixlen);
+
+  /* Prefix */
+  if (afi == AFI_IP)
+    {
+      /* We'll dump only the useful bits (those not 0), but have to align on 8 bits */
+      stream_write (obuf, (u_char *)&rn->p.u.prefix4, (rn->p.prefixlen+7)/8);
+    }
+  else if (afi == AFI_IP6)
+    {
+      /* We'll dump only the useful bits (those not 0), but have to align on 8 bits */
+      stream_write (obuf, (u_char *)&rn->p.u.prefix6, (rn->p.prefixlen+7)/8);
+    }
+
+  /* Save where we are now, so we can overwride the entry count later */
+  sizep = stream_get_endp (obuf);
+
+  /* Entry count */
+  uint16_t entry_count = 0;
+
+  /* Entry count, note that this is overwritten later */
+  stream_putw (obuf, 0);
+
+  endp = stream_get_endp (obuf);
+  for (; info; info = info->next)
+  {
+    size_t cur_endp;
+
+    /* Peer index */
+    stream_putw (obuf, info->peer->table_dump_index);
+
+    /* Originated */
+#ifdef HAVE_CLOCK_MONOTONIC
+    stream_putl (obuf, time(NULL) - (bgp_clock() - info->uptime));
+#else
+    stream_putl (obuf, info->uptime);
+#endif /* HAVE_CLOCK_MONOTONIC */
+
+    /* Dump attribute. */
+    /* Skip prefix & AFI/SAFI for MP_NLRI */
+    bgp_dump_routes_attr (obuf, info->attr, &rn->p);
+
+    cur_endp = stream_get_endp (obuf);
+    if (cur_endp > BGP_MAX_PACKET_SIZE + BGP_DUMP_MSG_HEADER
+                   + BGP_DUMP_HEADER_SIZE)
+    {
+      stream_set_endp (obuf, endp);
+      break;
+    }
+
+    entry_count++;
+    endp = cur_endp;
+  }
+
+  /* Overwrite the entry count, now that we know the right number */
+  stream_putw_at (obuf, sizep, entry_count);
+
+  bgp_dump_set_size (obuf, MSG_TABLE_DUMP_V2);
+  fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_routes.fp);
+
+  return info;
+}
+
+
 /* Runs under child process. */
 static unsigned int
 bgp_dump_routes_func (int afi, int first_run, unsigned int seq)
 {
-  struct stream *obuf;
   struct bgp_info *info;
   struct bgp_node *rn;
   struct bgp *bgp;
@@ -319,84 +405,20 @@ bgp_dump_routes_func (int afi, int first_run, unsigned int seq)
   /* Note that bgp_dump_routes_index_table will do ipv4 and ipv6 peers,
      so this should only be done on the first call to bgp_dump_routes_func.
      ( this function will be called once for ipv4 and once for ipv6 ) */
-  if(first_run)
+  if (first_run)
     bgp_dump_routes_index_table(bgp);
-
-  obuf = bgp_dump_obuf;
-  stream_reset(obuf);
 
   /* Walk down each BGP route. */
   table = bgp->rib[afi][SAFI_UNICAST];
 
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
     {
-      if(!rn->info)
-        continue;
-
-      stream_reset(obuf);
-
-      /* MRT header */
-      if (afi == AFI_IP)
-	bgp_dump_header (obuf, MSG_TABLE_DUMP_V2, TABLE_DUMP_V2_RIB_IPV4_UNICAST,
-			 BGP_DUMP_ROUTES);
-      else if (afi == AFI_IP6)
-	bgp_dump_header (obuf, MSG_TABLE_DUMP_V2, TABLE_DUMP_V2_RIB_IPV6_UNICAST,
-			 BGP_DUMP_ROUTES);
-
-      /* Sequence number */
-      stream_putl(obuf, seq);
-
-      /* Prefix length */
-      stream_putc (obuf, rn->p.prefixlen);
-
-      /* Prefix */
-      if (afi == AFI_IP)
-        {
-          /* We'll dump only the useful bits (those not 0), but have to align on 8 bits */
-          stream_write(obuf, (u_char *)&rn->p.u.prefix4, (rn->p.prefixlen+7)/8);
-        }
-      else if (afi == AFI_IP6)
-        {
-          /* We'll dump only the useful bits (those not 0), but have to align on 8 bits */
-          stream_write (obuf, (u_char *)&rn->p.u.prefix6, (rn->p.prefixlen+7)/8);
-        }
-
-      /* Save where we are now, so we can overwride the entry count later */
-      int sizep = stream_get_endp(obuf);
-
-      /* Entry count */
-      uint16_t entry_count = 0;
-
-      /* Entry count, note that this is overwritten later */
-      stream_putw(obuf, 0);
-
-      for (info = rn->info; info; info = info->next)
-        {
-          entry_count++;
-
-          /* Peer index */
-          stream_putw(obuf, info->peer->table_dump_index);
-
-          /* Originated */
-#ifdef HAVE_CLOCK_MONOTONIC
-          stream_putl (obuf, time(NULL) - (bgp_clock() - info->uptime));
-#else
-          stream_putl (obuf, info->uptime);
-#endif /* HAVE_CLOCK_MONOTONIC */
-
-          /* Dump attribute. */
-          /* Skip prefix & AFI/SAFI for MP_NLRI */
-          bgp_dump_routes_attr (obuf, info->attr, &rn->p);
-        }
-
-      /* Overwrite the entry count, now that we know the right number */
-      stream_putw_at (obuf, sizep, entry_count);
-
-      seq++;
-
-      bgp_dump_set_size(obuf, MSG_TABLE_DUMP_V2);
-      fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_routes.fp);
-
+      info = rn->info;
+      while (info)
+      {
+        info = bgp_dump_route_node_record (afi, rn, info, seq);
+        seq++;
+      }
     }
 
   fflush (bgp_dump_routes.fp);
@@ -843,8 +865,8 @@ bgp_dump_init (void)
   memset (&bgp_dump_updates, 0, sizeof (struct bgp_dump));
   memset (&bgp_dump_routes, 0, sizeof (struct bgp_dump));
 
-  bgp_dump_obuf = stream_new (BGP_MAX_PACKET_SIZE + BGP_DUMP_MSG_HEADER
-                              + BGP_DUMP_HEADER_SIZE);
+  bgp_dump_obuf = stream_new ((BGP_MAX_PACKET_SIZE << 1)
+                              + BGP_DUMP_MSG_HEADER + BGP_DUMP_HEADER_SIZE);
 
   install_node (&bgp_dump_node, config_write_bgp_dump);
 
