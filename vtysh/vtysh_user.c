@@ -207,8 +207,18 @@ vtysh_auth ()
   return 0;
 }
 
+char *
+vtysh_get_home (void)
+{
+  struct passwd *passwd;
+
+  passwd = getpwuid (getuid ());
+
+  return passwd ? passwd->pw_dir : NULL;
+}
+
 void
-vtysh_user_init ()
+vtysh_user_init (void)
 {
   userlist = list_new ();
   install_element (CONFIG_NODE, &username_nopassword_cmd);
