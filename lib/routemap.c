@@ -1531,8 +1531,16 @@ DEFUN (rmap_onmatch_next,
   index = vty->index;
 
   if (index)
-    index->exitpolicy = RMAP_NEXT;
-
+    {
+      if (index->type == RMAP_DENY)
+        {
+	  /* Under a deny clause, match means it's finished. No need to set next */
+	  vty_out (vty, "on-match next not supported under route-map deny%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+        }
+      index->exitpolicy = RMAP_NEXT;
+    }
   return CMD_SUCCESS;
 }
 
@@ -1565,6 +1573,14 @@ DEFUN (rmap_onmatch_goto,
 
   if (index)
     {
+      if (index->type == RMAP_DENY)
+        {
+	  /* Under a deny clause, match means it's finished. No need to go anywhere */
+	  vty_out (vty, "on-match goto not supported under route-map deny%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+        }
+
       if (argc == 1 && argv[0])
         VTY_GET_INTEGER_RANGE("route-map index", d, argv[0], 1, 65536);
       else
