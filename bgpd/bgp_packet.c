@@ -918,6 +918,14 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   
   if (optlen != 0)
     {
+      /* If not enough bytes, it is an error. */
+      if (STREAM_READABLE(peer->ibuf) < optlen)
+        {
+          bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
+                           BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+          return -1;
+        }
+
       /* We need the as4 capability value *right now* because
        * if it is there, we have not got the remote_as yet, and without
        * that we do not know which peer is connecting to us now.
@@ -1491,9 +1499,10 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
         }
     }
 
-  /* NLRI is processed only when the peer is configured specific
-     Address Family and Subsequent Address Family. */
-  if (peer->afc[AFI_IP][SAFI_UNICAST])
+  /* NLRI is processed only when the the corresponding address-family
+   * has been negotiated with the peer.
+   */
+  if (peer->afc_nego[AFI_IP][SAFI_UNICAST])
     {
       if (withdraw.length)
 	bgp_nlri_parse (peer, NULL, &withdraw);
@@ -1530,7 +1539,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	    zlog_debug ("rcvd End-of-RIB for IPv4 Unicast from %s", peer->host);
 	}
     }
-  if (peer->afc[AFI_IP][SAFI_MULTICAST])
+  if (peer->afc_nego[AFI_IP][SAFI_MULTICAST])
     {
       if (mp_update.length
 	  && mp_update.afi == AFI_IP 
@@ -1564,7 +1573,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	    zlog_debug ("rcvd End-of-RIB for IPv4 Multicast from %s", peer->host);
 	}
     }
-  if (peer->afc[AFI_IP6][SAFI_UNICAST])
+  if (peer->afc_nego[AFI_IP6][SAFI_UNICAST])
     {
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP6 
@@ -1597,7 +1606,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	    zlog_debug ("rcvd End-of-RIB for IPv6 Unicast from %s", peer->host);
 	}
     }
-  if (peer->afc[AFI_IP6][SAFI_MULTICAST])
+  if (peer->afc_nego[AFI_IP6][SAFI_MULTICAST])
     {
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP6 
@@ -1631,7 +1640,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	    zlog_debug ("rcvd End-of-RIB for IPv6 Multicast from %s", peer->host);
 	}
     }
-  if (peer->afc[AFI_IP][SAFI_MPLS_VPN])
+  if (peer->afc_nego[AFI_IP][SAFI_MPLS_VPN])
     {
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP 

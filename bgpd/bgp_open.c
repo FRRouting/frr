@@ -292,7 +292,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
       zlog_info ("%s ORF Capability entry length error,"
                  " Cap length %u, num %u",
                  peer->host, hdr->length, entry.num);
-      bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+      bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
       return -1;
     }
 
@@ -559,23 +559,30 @@ bgp_capability_enhe (struct peer *peer, struct capability_header *hdr)
       afi_t nh_afi = stream_getw (s);
 
       if (bgp_debug_neighbor_events(peer))
-        zlog_debug ("%s   Received with value triple (afi/safi/next-hop afi): %u/%u/%u",
+        zlog_debug ("%s Received with afi/safi/next-hop afi: %u/%u/%u",
                     peer->host, afi, safi, nh_afi);
 
       if (!bgp_afi_safi_valid_indices (afi, &safi))
-        return -1;
-
-      if (afi != AFI_IP || nh_afi != AFI_IP6)
         {
-          zlog_warn ("%s Extended Next-hop capability, wrong afi/next-hop afi: %u/%u",
-                     peer->host, afi, nh_afi);
-          return -1;
+          if (bgp_debug_neighbor_events(peer))
+            zlog_debug ("%s Addr-family %d/%d(afi/safi) not supported."
+                        " Ignore the ENHE Attribute for this AFI/SAFI",
+                        peer->host, afi, safi);
+	  continue;
         }
 
-      /* Until SAFIs other than SAFI_UNICAST are supported */
-      if (safi != SAFI_UNICAST)
-        zlog_warn ("%s Extended Next-hop capability came with unsupported SAFI: %u",
-                   peer->host, safi);
+      /* RFC 5549 specifies use of this capability only for IPv4 AFI, with
+       * the Nexthop AFI being IPv6. A future spec may introduce other
+       * possibilities, so we ignore other values with a log. Also, only
+       * Unicast SAFI is currently supported (and expected).
+       */
+      if (afi != AFI_IP || safi != SAFI_UNICAST || nh_afi != AFI_IP6)
+        {
+          zlog_warn ("%s Unexpected afi/safi/next-hop afi: %u/%u/%u "
+                     "in Extended Next-hop capability, ignoring",
+                     peer->host, afi, safi, nh_afi);
+	  continue;
+        }
 
       SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_ENHE_AF_RCV);
 
@@ -732,7 +739,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
       if (stream_get_getp(s) + 2 > end)
 	{
 	  zlog_info ("%s Capability length error (< header)", peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
       
@@ -744,7 +751,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
       if (start + caphdr.length > end)
 	{
 	  zlog_info ("%s Capability length error (< length)", peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
       
@@ -778,7 +785,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                              LOOKUP (capcode_str, caphdr.code),
                              caphdr.length, 
 			     (unsigned) cap_minsizes[caphdr.code]);
-                  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+                  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
                   return -1;
                 }
           /* we deliberately ignore unknown codes, see below */
@@ -866,7 +873,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
 
       if (ret < 0)
 	{
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
       if (stream_get_getp(s) != (start + caphdr.length))
@@ -913,10 +920,6 @@ peek_for_as4_capability (struct peer *peer, u_char length)
   size_t end = orig_getp + length;
   as_t as4 = 0;
   
-  /* The full capability parser will better flag the error.. */
-  if (STREAM_READABLE(s) < length)
-    return 0;
-
   if (BGP_DEBUG (as4, AS4))
     zlog_info ("%s [AS4] rcv OPEN w/ OPTION parameter len: %u,"
                 " peeking for as4",
@@ -1009,7 +1012,7 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
       if (STREAM_READABLE(s) < 2)
 	{
 	  zlog_info ("%s Option length error", peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
 
@@ -1021,7 +1024,7 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
       if (STREAM_READABLE (s) < opt_length)
 	{
 	  zlog_info ("%s Option length error", peer->host);
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 	  return -1;
 	}
 
