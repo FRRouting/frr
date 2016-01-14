@@ -822,7 +822,7 @@ peer_global_config_reset (struct peer *peer)
 
   peer->weight = 0;
   peer->change_local_as = 0;
-  peer->ttl = (peer_sort (peer) == BGP_PEER_IBGP ? 255 : 1);
+  peer->ttl = (peer_sort (peer) == BGP_PEER_IBGP ? MAXTTL : 1);
   if (peer->update_source)
     {
       sockunion_free (peer->update_source);
@@ -1417,7 +1417,7 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
   peer->readtime = peer->resettime = bgp_clock ();
 
   /* Default TTL set. */
-  peer->ttl = (peer->sort == BGP_PEER_IBGP) ? 255 : 1;
+  peer->ttl = (peer->sort == BGP_PEER_IBGP) ? MAXTTL : 1;
 
   SET_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE);
 
@@ -1498,7 +1498,7 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
     }
   /* TTL reset */
   if (peer_sort (peer) == BGP_PEER_IBGP)
-    peer->ttl = 255;
+    peer->ttl = MAXTTL;
   else if (type == BGP_PEER_IBGP)
     peer->ttl = 1;
 
@@ -2563,7 +2563,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
 
           /* ebgp-multihop reset */
           if (peer_sort (group->conf) == BGP_PEER_IBGP)
-            group->conf->ttl = 255;
+            group->conf->ttl = MAXTTL;
 
           /* local-as reset */
           if (peer_sort (group->conf) != BGP_PEER_EBGP)

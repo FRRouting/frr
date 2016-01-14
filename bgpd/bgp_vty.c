@@ -4283,9 +4283,9 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
     return CMD_WARNING;
 
   if (! ttl_str)
-    ttl = TTL_MAX;
+    ttl = MAXTTL;
   else
-    VTY_GET_INTEGER_RANGE ("TTL", ttl, ttl_str, 1, 255);
+    VTY_GET_INTEGER_RANGE ("TTL", ttl, ttl_str, 1, MAXTTL);
 
   return bgp_vty_return (vty,  peer_ebgp_multihop_set (peer, ttl));
 }
@@ -4315,7 +4315,7 @@ DEFUN (neighbor_ebgp_multihop,
 
 DEFUN (neighbor_ebgp_multihop_ttl,
        neighbor_ebgp_multihop_ttl_cmd,
-       NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MULTIPATH_NUM),
+       NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MAXTTL),
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Allow EBGP neighbors not on directly connected networks\n"
@@ -4337,7 +4337,7 @@ DEFUN (no_neighbor_ebgp_multihop,
 
 ALIAS (no_neighbor_ebgp_multihop,
        no_neighbor_ebgp_multihop_ttl_cmd,
-       NO_NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MULTIPATH_NUM),
+       NO_NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MAXTTL),
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2

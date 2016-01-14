@@ -1008,9 +1008,6 @@ struct bgp_nlri
 /* RFC4364 */
 #define SAFI_MPLS_LABELED_VPN                  128
 
-/* Max TTL value.  */
-#define TTL_MAX                                255
-
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
 
