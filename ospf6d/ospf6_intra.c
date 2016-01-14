@@ -255,30 +255,6 @@ ospf6_router_lsa_originate (struct thread *thread)
               return 0;
             }
 
-          /* Fill LSA Header */
-          lsa_header->age = 0;
-          lsa_header->type = htons (OSPF6_LSTYPE_ROUTER);
-          lsa_header->id = htonl (link_state_id);
-          lsa_header->adv_router = oa->ospf6->router_id;
-          lsa_header->seqnum =
-            ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
-                                 lsa_header->adv_router, oa->lsdb);
-          lsa_header->length = htons ((caddr_t) lsdesc - (caddr_t) buffer);
-
-          /* LSA checksum */
-          ospf6_lsa_checksum (lsa_header);
-
-          /* create LSA */
-          lsa = ospf6_lsa_create (lsa_header);
-
-          /* Originate */
-          ospf6_lsa_originate_area (lsa, oa);
-
-          /* Reset setting for consecutive origination */
-          memset ((caddr_t) router_lsa + sizeof (struct ospf6_router_lsa),
-                  0, (caddr_t) lsdesc - (caddr_t) router_lsa);
-          lsdesc = (struct ospf6_router_lsdesc *)
-            ((caddr_t) router_lsa + sizeof (struct ospf6_router_lsa));
           link_state_id ++;
         }
 
