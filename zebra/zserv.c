@@ -668,8 +668,7 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
 	  break;
 	}
 
-      if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-          || nexthop_has_fib_child(nexthop))
+      if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
         {
           SET_FLAG (zapi_flags, ZAPI_MESSAGE_NEXTHOP);
           SET_FLAG (zapi_flags, ZAPI_MESSAGE_IFINDEX);
@@ -927,7 +926,7 @@ zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struc
        * are looking up. Therefore, we will just iterate over the top
        * chain of nexthops. */
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	    num += zsend_write_nexthop (s, nexthop);
     
       stream_putc_at (s, nump, num); /* store nexthop_num */
