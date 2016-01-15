@@ -899,7 +899,7 @@ rtm_read (struct rt_msghdr *rtm)
     return;
 #endif
 
-  if ((rtm->rtm_type == RTM_ADD) && ! (flags & RTF_UP))
+  if ((rtm->rtm_type == RTM_ADD || rtm->rtm_type == RTM_CHANGE) && ! (flags & RTF_UP))
     return;
 
   /* This is connected route. */
@@ -1115,14 +1115,14 @@ rtm_write (int message,
 
   ifp = if_lookup_by_index (index);
 
-  if (gate && message == RTM_ADD)
+  if (gate && (message == RTM_ADD || message == RTM_CHANGE))
     msg.rtm.rtm_flags |= RTF_GATEWAY;
 
   /* When RTF_CLONING is unavailable on BSD, should we set some
    * other flag instead?
    */
 #ifdef RTF_CLONING
-  if (! gate && message == RTM_ADD && ifp &&
+  if (! gate && (message == RTM_ADD || message == RTM_CHANGE) && ifp &&
       (ifp->flags & IFF_POINTOPOINT) == 0)
     msg.rtm.rtm_flags |= RTF_CLONING;
 #endif /* RTF_CLONING */
@@ -1147,7 +1147,7 @@ rtm_write (int message,
 
   if (mask)
     msg.rtm.rtm_addrs |= RTA_NETMASK;
-  else if (message == RTM_ADD) 
+  else if (message == RTM_ADD || message == RTM_CHANGE)
     msg.rtm.rtm_flags |= RTF_HOST;
 
 #ifdef __OpenBSD__

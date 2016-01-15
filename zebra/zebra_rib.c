@@ -1232,21 +1232,7 @@ rib_install_kernel (struct route_node *rn, struct rib *rib, int update)
    * the kernel.
    */
   zfpm_trigger_update (rn, "installing in kernel");
-  switch (PREFIX_FAMILY (&rn->p))
-    {
-    case AF_INET:
-      if (update)
-        ret = kernel_update_ipv4 (&rn->p, rib);
-      else
-        ret = kernel_add_ipv4 (&rn->p, rib);
-      break;
-    case AF_INET6:
-      if (update)
-        ret = kernel_update_ipv6 (&rn->p, rib);
-      else
-        ret = kernel_add_ipv6 (&rn->p, rib);
-      break;
-    }
+  ret = kernel_route_rib (&rn->p, update ? rib : NULL, rib);
 
   /* If install succeeds, update FIB flag for nexthops. */
   if (!ret)
@@ -1287,16 +1273,7 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
    * the kernel.
    */
   zfpm_trigger_update (rn, "uninstalling from kernel");
-
-  switch (PREFIX_FAMILY (&rn->p))
-    {
-    case AF_INET:
-      ret = kernel_delete_ipv4 (&rn->p, rib);
-      break;
-    case AF_INET6:
-      ret = kernel_delete_ipv6 (&rn->p, rib);
-      break;
-    }
+  ret = kernel_route_rib (&rn->p, rib, NULL);
 
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
     UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
