@@ -483,27 +483,16 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			  {
 			    resolved_hop->type = newhop->type;
 			    resolved_hop->gate.ipv4 = newhop->gate.ipv4;
-
-			    if (newhop->ifindex)
-			      {
-				resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-				resolved_hop->ifindex = newhop->ifindex;
-				if (newhop->flags & NEXTHOP_FLAG_ONLINK)
-				  resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
-			      }
+			    resolved_hop->ifindex = newhop->ifindex;
 			  }
 
-			/* If the resolving route is an interface route,
-			 * it means the gateway we are looking up is connected
-			 * to that interface. (The actual network is _not_ onlink).
-			 * Therefore, the resolved route should have the original
-			 * gateway as nexthop as it is directly connected.
-			 *
-			 * On Linux, we have to set the onlink netlink flag because
-			 * otherwise, the kernel won't accept the route. */
+			/* If the resolving route is an interface route, it
+			 * means the gateway we are looking up is connected
+			 * to that interface. Therefore, the resolved route
+			 * should have the original gateway as nexthop as it
+			 * is directly connected. */
 			if (newhop->type == NEXTHOP_TYPE_IFINDEX)
 			  {
-			    resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 			    resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 			    resolved_hop->gate.ipv4 = nexthop->gate.ipv4;
 			    resolved_hop->ifindex = newhop->ifindex;
