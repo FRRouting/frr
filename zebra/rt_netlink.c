@@ -20,6 +20,7 @@
  */
 
 #include <zebra.h>
+#include <net/if_arp.h>
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
@@ -523,6 +524,68 @@ netlink_interface_update_hw_addr (struct rtattr **tb, struct interface *ifp)
     }
 }
 
+static enum zebra_link_type
+netlink_to_zebra_link_type (unsigned int hwt)
+{
+  switch (hwt)
+  {
+    case ARPHRD_ETHER: return ZEBRA_LLT_ETHER;
+    case ARPHRD_EETHER: return ZEBRA_LLT_EETHER;
+    case ARPHRD_AX25: return ZEBRA_LLT_AX25;
+    case ARPHRD_PRONET: return ZEBRA_LLT_PRONET;
+    case ARPHRD_IEEE802: return ZEBRA_LLT_IEEE802;
+    case ARPHRD_ARCNET: return ZEBRA_LLT_ARCNET;
+    case ARPHRD_APPLETLK: return ZEBRA_LLT_APPLETLK;
+    case ARPHRD_DLCI: return ZEBRA_LLT_DLCI;
+    case ARPHRD_ATM: return ZEBRA_LLT_ATM;
+    case ARPHRD_METRICOM: return ZEBRA_LLT_METRICOM;
+    case ARPHRD_IEEE1394: return ZEBRA_LLT_IEEE1394;
+    case ARPHRD_EUI64: return ZEBRA_LLT_EUI64;
+    case ARPHRD_INFINIBAND: return ZEBRA_LLT_INFINIBAND;
+    case ARPHRD_SLIP: return ZEBRA_LLT_SLIP;
+    case ARPHRD_CSLIP: return ZEBRA_LLT_CSLIP;
+    case ARPHRD_SLIP6: return ZEBRA_LLT_SLIP6;
+    case ARPHRD_CSLIP6: return ZEBRA_LLT_CSLIP6;
+    case ARPHRD_RSRVD: return ZEBRA_LLT_RSRVD;
+    case ARPHRD_ADAPT: return ZEBRA_LLT_ADAPT;
+    case ARPHRD_ROSE: return ZEBRA_LLT_ROSE;
+    case ARPHRD_X25: return ZEBRA_LLT_X25;
+    case ARPHRD_PPP: return ZEBRA_LLT_PPP;
+    case ARPHRD_CISCO: return ZEBRA_LLT_CHDLC;
+    case ARPHRD_LAPB: return ZEBRA_LLT_LAPB;
+    case ARPHRD_RAWHDLC: return ZEBRA_LLT_RAWHDLC;
+    case ARPHRD_TUNNEL: return ZEBRA_LLT_IPIP;
+    case ARPHRD_TUNNEL6: return ZEBRA_LLT_IPIP6;
+    case ARPHRD_FRAD: return ZEBRA_LLT_FRAD;
+    case ARPHRD_SKIP: return ZEBRA_LLT_SKIP;
+    case ARPHRD_LOOPBACK: return ZEBRA_LLT_LOOPBACK;
+    case ARPHRD_LOCALTLK: return ZEBRA_LLT_LOCALTLK;
+    case ARPHRD_FDDI: return ZEBRA_LLT_FDDI;
+    case ARPHRD_SIT: return ZEBRA_LLT_SIT;
+    case ARPHRD_IPDDP: return ZEBRA_LLT_IPDDP;
+    case ARPHRD_IPGRE: return ZEBRA_LLT_IPGRE;
+    case ARPHRD_PIMREG: return ZEBRA_LLT_PIMREG;
+    case ARPHRD_HIPPI: return ZEBRA_LLT_HIPPI;
+    case ARPHRD_ECONET: return ZEBRA_LLT_ECONET;
+    case ARPHRD_IRDA: return ZEBRA_LLT_IRDA;
+    case ARPHRD_FCPP: return ZEBRA_LLT_FCPP;
+    case ARPHRD_FCAL: return ZEBRA_LLT_FCAL;
+    case ARPHRD_FCPL: return ZEBRA_LLT_FCPL;
+    case ARPHRD_FCFABRIC: return ZEBRA_LLT_FCFABRIC;
+    case ARPHRD_IEEE802_TR: return ZEBRA_LLT_IEEE802_TR;
+    case ARPHRD_IEEE80211: return ZEBRA_LLT_IEEE80211;
+    case ARPHRD_IEEE802154: return ZEBRA_LLT_IEEE802154;
+#ifdef ARPHRD_IP6GRE
+    case ARPHRD_IP6GRE: return ZEBRA_LLT_IP6GRE;
+#endif
+#ifdef ARPHRD_IEEE802154_PHY
+    case ARPHRD_IEEE802154_PHY: return ZEBRA_LLT_IEEE802154_PHY;
+#endif
+
+    default: return ZEBRA_LLT_UNKNOWN;
+  }
+}
+
 #define parse_rtattr_nested(tb, max, rta) \
           netlink_parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta))
 
@@ -698,7 +761,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
   ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
   /* Hardware type and address. */
-  ifp->hw_type = ifi->ifi_type;
+  ifp->ll_type = netlink_to_zebra_link_type (ifi->ifi_type);
   netlink_interface_update_hw_addr (tb, ifp);
 
   if_add_update (ifp);

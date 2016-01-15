@@ -20,6 +20,7 @@
  */
 
 #include <zebra.h>
+#include <net/if_types.h>
 
 #include "if.h"
 #include "prefix.h"
@@ -379,6 +380,29 @@ bsd_linkdetect_translate (struct if_msghdr *ifm)
 }
 #endif /* HAVE_BSD_IFI_LINK_STATE */
 
+static enum zebra_link_type
+sdl_to_zebra_link_type (unsigned int sdlt)
+{
+  switch (sdlt)
+  {
+    case IFT_ETHER: return ZEBRA_LLT_ETHER;
+    case IFT_X25: return ZEBRA_LLT_X25;
+    case IFT_FDDI: return ZEBRA_LLT_FDDI;
+    case IFT_PPP: return ZEBRA_LLT_PPP;
+    case IFT_LOOP: return ZEBRA_LLT_LOOPBACK;
+    case IFT_SLIP: return ZEBRA_LLT_SLIP;
+    case IFT_ARCNET: return ZEBRA_LLT_ARCNET;
+    case IFT_ATM: return ZEBRA_LLT_ATM;
+    case IFT_LOCALTALK: return ZEBRA_LLT_LOCALTLK;
+    case IFT_HIPPI: return ZEBRA_LLT_HIPPI;
+#ifdef IFT_IEEE1394
+    case IFT_IEEE1394: return ZEBRA_LLT_IEEE1394;
+#endif
+
+    default: return ZEBRA_LLT_UNKNOWN;
+  }
+}
+
 /*
  * Handle struct if_msghdr obtained from reading routing socket or
  * sysctl (from interface_list).  There may or may not be sockaddrs
@@ -535,14 +559,23 @@ ifm_read (struct if_msghdr *ifm)
        *    is fine here.
        * a nonzero ifnlen from RTA_NAME_GET() means sdl is valid
        */
+      ifp->ll_type = ZEBRA_LLT_UNKNOWN;
+      ifp->hw_addr_len = 0;
       if (ifnlen)
-      {
+        {
 #ifdef HAVE_STRUCT_SOCKADDR_DL_SDL_LEN
-	memcpy (&ifp->sdl, sdl, sdl->sdl_len);
+          memcpy (&((struct zebra_if *)ifp->info)->sdl, sdl, sdl->sdl_len);
 #else
-	memcpy (&ifp->sdl, sdl, sizeof (struct sockaddr_dl));
+          memcpy (&((struct zebra_if *)ifp->info)->sdl, sdl, sizeof (struct sockaddr_dl));
 #endif /* HAVE_STRUCT_SOCKADDR_DL_SDL_LEN */
-      }
+
+          ifp->ll_type = sdl_to_zebra_link_type (sdl->sdl_type);
+          if (sdl->sdl_alen <= sizeof(ifp->hw_addr))
+            {
+              memcpy (ifp->hw_addr, LLADDR(sdl), sdl->sdl_alen);
+              ifp->hw_addr_len = sdl->sdl_alen;
+            }
+        }
 
       if_add_update (ifp);
     }
@@ -1100,7 +1133,7 @@ rtm_write (int message,
             __func__, dest_buf, mask_buf, index);
           return -1;
         }
-      gate = (union sockunion *) & ifp->sdl;
+      gate = (union sockunion *) &((struct zebra_if *)ifp->info)->sdl;
     }
 
   if (mask)

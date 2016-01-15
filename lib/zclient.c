@@ -1118,13 +1118,10 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
   ifp->mtu = stream_getl (s);
   ifp->mtu6 = stream_getl (s);
   ifp->bandwidth = stream_getl (s);
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  stream_get (&ifp->sdl, s, sizeof (ifp->sdl_storage));
-#else
+  ifp->ll_type = stream_getl (s);
   ifp->hw_addr_len = stream_getl (s);
   if (ifp->hw_addr_len)
     stream_get (ifp->hw_addr, s, MIN(ifp->hw_addr_len, INTERFACE_HWADDR_MAX));
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
 }
 
 static int

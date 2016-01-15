@@ -1304,3 +1304,63 @@ if_terminate (struct list **intf_list)
   list_delete (*intf_list);
   *intf_list = NULL;
 }
+
+const char *
+if_link_type_str (enum zebra_link_type llt)
+{
+  switch (llt)
+    {
+#define llts(T,S) case (T): return (S)
+      llts(ZEBRA_LLT_UNKNOWN,               "Unknown");
+      llts(ZEBRA_LLT_ETHER,                 "Ethernet");
+      llts(ZEBRA_LLT_EETHER,                "Experimental Ethernet");
+      llts(ZEBRA_LLT_AX25,                  "AX.25 Level 2");
+      llts(ZEBRA_LLT_PRONET,                "PROnet token ring");
+      llts(ZEBRA_LLT_IEEE802,               "IEEE 802.2 Ethernet/TR/TB");
+      llts(ZEBRA_LLT_ARCNET,                "ARCnet");
+      llts(ZEBRA_LLT_APPLETLK,              "AppleTalk");
+      llts(ZEBRA_LLT_DLCI,                  "Frame Relay DLCI");
+      llts(ZEBRA_LLT_ATM,                   "ATM");
+      llts(ZEBRA_LLT_METRICOM,              "Metricom STRIP");
+      llts(ZEBRA_LLT_IEEE1394,              "IEEE 1394 IPv4");
+      llts(ZEBRA_LLT_EUI64,                 "EUI-64");
+      llts(ZEBRA_LLT_INFINIBAND,            "InfiniBand");
+      llts(ZEBRA_LLT_SLIP,                  "SLIP");
+      llts(ZEBRA_LLT_CSLIP,                 "Compressed SLIP");
+      llts(ZEBRA_LLT_SLIP6,                 "SLIPv6");
+      llts(ZEBRA_LLT_CSLIP6,                "Compressed SLIPv6");
+      llts(ZEBRA_LLT_ROSE,                  "ROSE packet radio");
+      llts(ZEBRA_LLT_X25,                   "CCITT X.25");
+      llts(ZEBRA_LLT_PPP,                   "PPP");
+      llts(ZEBRA_LLT_CHDLC,                 "Cisco HDLC");
+      llts(ZEBRA_LLT_RAWHDLC,               "Raw HDLC");
+      llts(ZEBRA_LLT_LAPB,                  "LAPB");
+      llts(ZEBRA_LLT_IPIP,                  "IPIP Tunnel");
+      llts(ZEBRA_LLT_IPIP6,                 "IPIP6 Tunnel");
+      llts(ZEBRA_LLT_FRAD,                  "FRAD");
+      llts(ZEBRA_LLT_SKIP,                  "SKIP vif");
+      llts(ZEBRA_LLT_LOOPBACK,              "Loopback");
+      llts(ZEBRA_LLT_LOCALTLK,              "Localtalk");
+      llts(ZEBRA_LLT_FDDI,                  "FDDI");
+      llts(ZEBRA_LLT_SIT,                   "IPv6-in-IPv4 SIT");
+      llts(ZEBRA_LLT_IPDDP,                 "IP-in-DDP tunnel");
+      llts(ZEBRA_LLT_IPGRE,                 "GRE over IP");
+      llts(ZEBRA_LLT_PIMREG,                "PIMSM registration");
+      llts(ZEBRA_LLT_HIPPI,                 "HiPPI");
+      llts(ZEBRA_LLT_IRDA,                  "IrDA");
+      llts(ZEBRA_LLT_FCPP,                  "Fibre-Channel PtP");
+      llts(ZEBRA_LLT_FCAL,                  "Fibre-Channel Arbitrated Loop");
+      llts(ZEBRA_LLT_FCPL,                  "Fibre-Channel Public Loop");
+      llts(ZEBRA_LLT_FCFABRIC,              "Fibre-Channel Fabric");
+      llts(ZEBRA_LLT_IEEE802_TR,            "IEEE 802.2 Token Ring");
+      llts(ZEBRA_LLT_IEEE80211,             "IEEE 802.11");
+      llts(ZEBRA_LLT_IEEE80211_RADIOTAP,    "IEEE 802.11 Radiotap");
+      llts(ZEBRA_LLT_IEEE802154,            "IEEE 802.15.4");
+      llts(ZEBRA_LLT_IEEE802154_PHY,        "IEEE 802.15.4 Phy");
+      default:
+        zlog_warn ("Unknown value %d", llt);
+        return "Unknown type!";
+#undef llts
+    }
+  return NULL;
+}

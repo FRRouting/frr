@@ -211,6 +211,16 @@ struct zebra_if
   struct irdp_interface irdp;
 #endif
 
+#ifdef HAVE_STRUCT_SOCKADDR_DL
+  union {
+    /* note that sdl_storage is never accessed, it only exists to make space.
+     * all actual uses refer to sdl - but use sizeof(sdl_storage)!  this fits
+     * best with C aliasing rules. */
+    struct sockaddr_dl sdl;
+    struct sockaddr_storage sdl_storage;
+  };
+#endif
+
 #ifdef SUNOS_5
   /* the real IFF_UP state of the primary interface.
    * need this to differentiate between all interfaces being

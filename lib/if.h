@@ -24,6 +24,66 @@ Boston, MA 02111-1307, USA.  */
 #include "zebra.h"
 #include "linklist.h"
 
+/* Interface link-layer type, if known. Derived from:
+ *
+ * net/if_arp.h on various platforms - Linux especially.
+ * http://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml
+ *
+ * Some of the more obviously defunct technologies left out.
+ */
+enum zebra_link_type {
+  ZEBRA_LLT_UNKNOWN = 0,
+  ZEBRA_LLT_ETHER,
+  ZEBRA_LLT_EETHER,
+  ZEBRA_LLT_AX25,
+  ZEBRA_LLT_PRONET,
+  ZEBRA_LLT_IEEE802,
+  ZEBRA_LLT_ARCNET,
+  ZEBRA_LLT_APPLETLK,
+  ZEBRA_LLT_DLCI,
+  ZEBRA_LLT_ATM,
+  ZEBRA_LLT_METRICOM,
+  ZEBRA_LLT_IEEE1394,
+  ZEBRA_LLT_EUI64,
+  ZEBRA_LLT_INFINIBAND,
+  ZEBRA_LLT_SLIP,
+  ZEBRA_LLT_CSLIP,
+  ZEBRA_LLT_SLIP6,
+  ZEBRA_LLT_CSLIP6,
+  ZEBRA_LLT_RSRVD,
+  ZEBRA_LLT_ADAPT,
+  ZEBRA_LLT_ROSE,
+  ZEBRA_LLT_X25,
+  ZEBRA_LLT_PPP,
+  ZEBRA_LLT_CHDLC,
+  ZEBRA_LLT_LAPB,
+  ZEBRA_LLT_RAWHDLC,
+  ZEBRA_LLT_IPIP,
+  ZEBRA_LLT_IPIP6,
+  ZEBRA_LLT_FRAD,
+  ZEBRA_LLT_SKIP,
+  ZEBRA_LLT_LOOPBACK,
+  ZEBRA_LLT_LOCALTLK,
+  ZEBRA_LLT_FDDI,
+  ZEBRA_LLT_SIT,
+  ZEBRA_LLT_IPDDP,
+  ZEBRA_LLT_IPGRE,
+  ZEBRA_LLT_IP6GRE,
+  ZEBRA_LLT_PIMREG,
+  ZEBRA_LLT_HIPPI,
+  ZEBRA_LLT_ECONET,
+  ZEBRA_LLT_IRDA,
+  ZEBRA_LLT_FCPP,
+  ZEBRA_LLT_FCAL,
+  ZEBRA_LLT_FCPL,
+  ZEBRA_LLT_FCFABRIC,
+  ZEBRA_LLT_IEEE802_TR,
+  ZEBRA_LLT_IEEE80211,
+  ZEBRA_LLT_IEEE80211_RADIOTAP,
+  ZEBRA_LLT_IEEE802154,
+  ZEBRA_LLT_IEEE802154_PHY,
+};
+
 /*
   Interface name length.
 
@@ -106,20 +166,10 @@ struct interface
   unsigned int mtu;    /* IPv4 MTU */
   unsigned int mtu6;   /* IPv6 MTU - probably, but not neccessarily same as mtu */
 
-  /* Hardware address. */
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  union {
-    /* note that sdl_storage is never accessed, it only exists to make space.
-     * all actual uses refer to sdl - but use sizeof(sdl_storage)!  this fits
-     * best with C aliasing rules. */
-    struct sockaddr_dl sdl;
-    struct sockaddr_storage sdl_storage;
-  };
-#else
-  unsigned short hw_type;
+  /* Link-layer information and hardware address */
+  enum zebra_link_type ll_type;
   u_char hw_addr[INTERFACE_HWADDR_MAX];
   int hw_addr_len;
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
 
   /* interface bandwidth, kbits */
   unsigned int bandwidth;
@@ -330,6 +380,7 @@ extern void if_init (struct list **);
 extern void if_terminate (struct list **);
 extern void if_dump_all (void);
 extern const char *if_flag_dump(unsigned long);
+extern const char *if_link_type_str (enum zebra_link_type);
 
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
