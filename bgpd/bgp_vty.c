@@ -1294,7 +1294,7 @@ bgp_wpkt_quanta_config_vty (struct vty *vty, const char *num, char set)
 
   if (set)
     VTY_GET_INTEGER_RANGE ("write-quanta", bgp->wpkt_quanta, num,
-			   1, 4294967295);
+			   1, 10000);
   else
     bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
 
@@ -1315,7 +1315,7 @@ bgp_config_write_wpkt_quanta (struct vty *vty, struct bgp *bgp)
 /* Update-delay configuration */
 DEFUN (bgp_wpkt_quanta,
        bgp_wpkt_quanta_cmd,
-       "write-quanta <1-4294967295>",
+       "write-quanta <1-10000>",
        "How many packets to write to peer socket per run\n"
        "Number of packets\n")
 {
@@ -1325,7 +1325,7 @@ DEFUN (bgp_wpkt_quanta,
 /* Update-delay deconfiguration */
 DEFUN (no_bgp_wpkt_quanta,
        no_bgp_wpkt_quanta_cmd,
-       "no write-quanta <1-4294967295>",
+       "no write-quanta <1-10000>",
        "How many packets to write to peer socket per run\n"
        "Number of packets\n")
 {
