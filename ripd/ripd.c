@@ -1579,7 +1579,7 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
 /* Add redistributed route to RIP table. */
 void
 rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p, 
-		      unsigned int ifindex, struct in_addr *nexthop,
+		      ifindex_t ifindex, struct in_addr *nexthop,
                       unsigned int metric, unsigned char distance)
 {
   int ret;
@@ -1653,7 +1653,7 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
 /* Delete redistributed route from RIP table. */
 void
 rip_redistribute_delete (int type, int sub_type, struct prefix_ipv4 *p, 
-			   unsigned int ifindex)
+			 ifindex_t ifindex)
 {
   int ret;
   struct route_node *rp;
@@ -1795,7 +1795,7 @@ setsockopt_pktinfo (int sock)
 /* Read RIP packet by recvmsg function. */
 int
 rip_recvmsg (int sock, u_char *buf, int size, struct sockaddr_in *from,
-	     int *ifindex)
+	     ifindex_t *ifindex)
 {
   int ret;
   struct msghdr msg;
@@ -1836,7 +1836,7 @@ rip_read_new (struct thread *t)
   int sock;
   char buf[RIP_PACKET_MAXSIZ];
   struct sockaddr_in from;
-  unsigned int ifindex;
+  ifindex_t ifindex;
   
   /* Fetch socket then register myself. */
   sock = THREAD_FD (t);

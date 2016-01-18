@@ -772,7 +772,7 @@ void pim_if_del_vif_all()
   }
 }
 
-struct interface *pim_if_find_by_vif_index(int vif_index)
+struct interface *pim_if_find_by_vif_index(ifindex_t vif_index)
 {
   struct listnode  *ifnode;
   struct interface *ifp;
@@ -784,6 +784,7 @@ struct interface *pim_if_find_by_vif_index(int vif_index)
     if (ifp->info) {
       struct pim_interface *pim_ifp;
       pim_ifp = ifp->info;
+
       if (vif_index == pim_ifp->mroute_vif_index)
 	return ifp;
     }
@@ -795,7 +796,7 @@ struct interface *pim_if_find_by_vif_index(int vif_index)
 /*
   pim_if_add_vif() uses ifindex as vif_index
  */
-int pim_if_find_vifindex_by_ifindex(int ifindex)
+int pim_if_find_vifindex_by_ifindex(ifindex_t ifindex)
 {
   struct pim_interface *pim_ifp;
   struct interface *ifp;
@@ -954,7 +955,7 @@ static struct igmp_join *igmp_join_find(struct list *join_list,
 }
 
 static int igmp_join_sock(const char *ifname,
-			  int ifindex,
+			  ifindex_t ifindex,
 			  struct in_addr group_addr,
 			  struct in_addr source_addr)
 {

@@ -48,7 +48,7 @@ extern struct zebra_privs_t ospfd_privs;
 /* Join to the OSPF ALL SPF ROUTERS multicast group. */
 int
 ospf_if_add_allspfrouters (struct ospf *top, struct prefix *p,
-			   unsigned int ifindex)
+			   ifindex_t ifindex)
 {
   int ret;
   
@@ -69,7 +69,7 @@ ospf_if_add_allspfrouters (struct ospf *top, struct prefix *p,
 
 int
 ospf_if_drop_allspfrouters (struct ospf *top, struct prefix *p,
-			    unsigned int ifindex)
+			    ifindex_t ifindex)
 {
   int ret;
 
@@ -89,8 +89,7 @@ ospf_if_drop_allspfrouters (struct ospf *top, struct prefix *p,
 
 /* Join to the OSPF ALL Designated ROUTERS multicast group. */
 int
-ospf_if_add_alldrouters (struct ospf *top, struct prefix *p, unsigned int
-			 ifindex)
+ospf_if_add_alldrouters (struct ospf *top, struct prefix *p, ifindex_t ifindex)
 {
   int ret;
 
@@ -110,8 +109,7 @@ ospf_if_add_alldrouters (struct ospf *top, struct prefix *p, unsigned int
 }
 
 int
-ospf_if_drop_alldrouters (struct ospf *top, struct prefix *p, unsigned int
-			  ifindex)
+ospf_if_drop_alldrouters (struct ospf *top, struct prefix *p, ifindex_t ifindex)
 {
   int ret;
 
@@ -130,7 +128,7 @@ ospf_if_drop_alldrouters (struct ospf *top, struct prefix *p, unsigned int
 }
 
 int
-ospf_if_ipmulticast (struct ospf *top, struct prefix *p, unsigned int ifindex)
+ospf_if_ipmulticast (struct ospf *top, struct prefix *p, ifindex_t ifindex)
 {
   u_char val;
   int ret, len;

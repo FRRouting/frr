@@ -2251,7 +2251,7 @@ ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p)
 void
 ospf_external_lsa_flush (struct ospf *ospf,
 			 u_char type, struct prefix_ipv4 *p,
-			 unsigned int ifindex /*, struct in_addr nexthop */)
+			 ifindex_t ifindex /*, struct in_addr nexthop */)
 {
   struct ospf_lsa *lsa;
 

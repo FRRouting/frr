@@ -41,7 +41,7 @@ extern unsigned char conf_debug_ospf6_route;
 struct ospf6_nexthop
 {
   /* Interface index */
-  unsigned int ifindex;
+  ifindex_t ifindex;
 
   /* IP address, if any */
   struct in6_addr address;
@@ -278,7 +278,7 @@ extern int ospf6_num_nexthops (struct list *nh_list);
 extern int ospf6_route_cmp_nexthops (struct ospf6_route *a,
 				     struct ospf6_route *b);
 extern void ospf6_route_zebra_copy_nexthops (struct ospf6_route *route,
-					     unsigned int *ifindices,
+					     ifindex_t *ifindices,
 					     struct in6_addr **addr,
 					     int entries);
 extern int ospf6_route_get_first_nh_index (struct ospf6_route *route);

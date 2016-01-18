@@ -21,12 +21,12 @@
 
 #include <zebra.h>
 
+#include "if.h"
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"
 #include "str.h"
 #include "command.h"
-#include "if.h"
 #include "log.h"
 #include "sockunion.h"
 #include "linklist.h"
@@ -210,7 +210,7 @@ rib_nexthop_delete (struct rib *rib, struct nexthop *nexthop)
 
 
 struct nexthop *
-rib_nexthop_ifindex_add (struct rib *rib, unsigned int ifindex)
+rib_nexthop_ifindex_add (struct rib *rib, ifindex_t ifindex)
 {
   struct nexthop *nexthop;
 
@@ -241,7 +241,7 @@ rib_nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src
 
 struct nexthop *
 rib_nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
-			      struct in_addr *src, unsigned int ifindex)
+			      struct in_addr *src, ifindex_t ifindex)
 {
   struct nexthop *nexthop;
   struct interface *ifp;
@@ -281,7 +281,7 @@ rib_nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
 
 struct nexthop *
 rib_nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
-			      unsigned int ifindex)
+			      ifindex_t ifindex)
 {
   struct nexthop *nexthop;
 
@@ -1199,8 +1199,8 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 {
   struct nexthop *nexthop;
   union g_addr prev_src;
-  unsigned int prev_active, prev_index, new_active, old_num_nh;
-
+  unsigned int prev_active, new_active, old_num_nh;
+  ifindex_t prev_index;
   old_num_nh = rib->nexthop_active_num;
 
   rib->nexthop_active_num = 0;
@@ -2413,7 +2413,7 @@ rib_delnode (struct route_node *rn, struct rib *rib)
 int
 rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 	      struct in_addr *gate, struct in_addr *src,
-	      unsigned int ifindex, vrf_id_t vrf_id, u_int32_t table_id,
+	      ifindex_t ifindex, vrf_id_t vrf_id, u_int32_t table_id,
 	      u_int32_t metric, u_char distance, safi_t safi)
 {
   struct rib *rib;
@@ -2770,7 +2770,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
 /* XXX factor with rib_delete_ipv6 */
 int
 rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
-		 struct in_addr *gate, unsigned int ifindex, vrf_id_t vrf_id,
+		 struct in_addr *gate, ifindex_t ifindex, vrf_id_t vrf_id,
 		 u_int32_t table_id, safi_t safi)
 {
   struct route_table *table;
@@ -3182,7 +3182,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 }
 
 int
-static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, unsigned int ifindex,
+static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex_t ifindex,
 		 const char *ifname, u_char flags, u_short tag,
 		 u_char distance, struct zebra_vrf *zvrf)
 {
@@ -3278,7 +3278,7 @@ static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, unsigned i
 }
 
 int
-static_delete_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, unsigned int ifindex,
+static_delete_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex_t ifindex,
 		    u_short tag, u_char distance, struct zebra_vrf *zvrf)
 {
   u_char type = 0;
@@ -3341,7 +3341,7 @@ static_delete_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, unsigne
 
 int
 rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
-	      struct in6_addr *gate, unsigned int ifindex, vrf_id_t vrf_id,
+	      struct in6_addr *gate, ifindex_t ifindex, vrf_id_t vrf_id,
               u_int32_t table_id, u_int32_t metric, u_char distance, safi_t safi)
 {
   struct rib *rib;
@@ -3450,7 +3450,7 @@ rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 
 int
 rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
-	                unsigned long ifindex)
+	                ifindex_t ifindex)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -3565,7 +3565,7 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
 
 int
 rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
-		 struct in6_addr *gate, unsigned int ifindex, vrf_id_t vrf_id,
+		 struct in6_addr *gate, ifindex_t ifindex, vrf_id_t vrf_id,
                  u_int32_t table_id, safi_t safi)
 {
   struct route_table *table;
@@ -3702,7 +3702,7 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 /* Add static route into static route configuration. */
 int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		 unsigned int ifindex, const char *ifname, u_char flags,
+		 ifindex_t ifindex, const char *ifname, u_char flags,
 		 u_short tag, u_char distance, struct zebra_vrf *zvrf)
 {
   struct route_node *rn;
@@ -3798,7 +3798,7 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 /* Delete static route from static route configuration. */
 int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		    unsigned int ifindex, u_short tag, u_char distance,
+		    ifindex_t ifindex, u_short tag, u_char distance,
                     struct zebra_vrf *zvrf)
 {
   struct route_node *rn;

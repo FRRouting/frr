@@ -74,7 +74,7 @@ static int
 ipv4_multicast_join (int sock, 
 		     struct in_addr group, 
 		     struct in_addr ifa,
-		     unsigned int ifindex)
+		     ifindex_t ifindex)
 {
   int ret;
 
@@ -96,7 +96,7 @@ static int
 ipv4_multicast_leave (int sock, 
 		      struct in_addr group, 
 		      struct in_addr ifa,
-		      unsigned int ifindex)
+		      ifindex_t ifindex)
 {
   int ret;
 

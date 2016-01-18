@@ -226,41 +226,41 @@ if_add_hook (int type, int (*func)(struct interface *ifp))
 
 /* Interface existance check by index. */
 struct interface *
-if_lookup_by_index_vrf (unsigned int index, vrf_id_t vrf_id)
+if_lookup_by_index_vrf (ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct listnode *node;
   struct interface *ifp;
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
     {
-      if (ifp->ifindex == index)
+      if (ifp->ifindex == ifindex)
 	return ifp;
     }
   return NULL;
 }
 
 struct interface *
-if_lookup_by_index (unsigned int index)
+if_lookup_by_index (ifindex_t ifindex)
 {
-  return if_lookup_by_index_vrf (index, VRF_DEFAULT);
+  return if_lookup_by_index_vrf (ifindex, VRF_DEFAULT);
 }
 
 const char *
-ifindex2ifname_vrf (unsigned int index, vrf_id_t vrf_id)
+ifindex2ifname_vrf (ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
-  return ((ifp = if_lookup_by_index_vrf (index, vrf_id)) != NULL) ?
+  return ((ifp = if_lookup_by_index_vrf (ifindex, vrf_id)) != NULL) ?
   	 ifp->name : "unknown";
 }
 
 const char *
-ifindex2ifname (unsigned int index)
+ifindex2ifname (ifindex_t ifindex)
 {
-  return ifindex2ifname_vrf (index, VRF_DEFAULT);
+  return ifindex2ifname_vrf (ifindex, VRF_DEFAULT);
 }
 
-unsigned int
+ifindex_t
 ifname2ifindex_vrf (const char *name, vrf_id_t vrf_id)
 {
   struct interface *ifp;
@@ -269,7 +269,7 @@ ifname2ifindex_vrf (const char *name, vrf_id_t vrf_id)
                                                    : IFINDEX_INTERNAL;
 }
 
-unsigned int
+ifindex_t
 ifname2ifindex (const char *name)
 {
   return ifname2ifindex_vrf (name, VRF_DEFAULT);
@@ -1167,7 +1167,7 @@ connected_add_by_prefix (struct interface *ifp, struct prefix *p,
 }
 
 #ifndef HAVE_IF_NAMETOINDEX
-unsigned int
+ifindex_t
 if_nametoindex (const char *name)
 {
   struct interface *ifp;
@@ -1179,7 +1179,7 @@ if_nametoindex (const char *name)
 
 #ifndef HAVE_IF_INDEXTONAME
 char *
-if_indextoname (unsigned int ifindex, char *name)
+if_indextoname (ifindex_t ifindex, char *name)
 {
   struct interface *ifp;
 
@@ -1244,7 +1244,7 @@ ifaddr_ipv4_delete (struct in_addr *ifaddr, struct interface *ifp)
 
 /* Lookup interface by interface's IP address or interface index. */
 static struct interface *
-ifaddr_ipv4_lookup (struct in_addr *addr, unsigned int ifindex)
+ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
 {
   struct prefix_ipv4 p;
   struct route_node *rn;

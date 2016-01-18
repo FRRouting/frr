@@ -70,7 +70,7 @@ static int if_join_all_router (int, struct interface *);
 static int if_leave_all_router (int, struct interface *);
 
 static int
-rtadv_increment_received(struct zebra_ns *zns, unsigned int *ifindex)
+rtadv_increment_received(struct zebra_ns *zns, ifindex_t *ifindex)
 {
   int ret = -1;
   struct interface *iface;
@@ -88,7 +88,7 @@ rtadv_increment_received(struct zebra_ns *zns, unsigned int *ifindex)
 
 static int
 rtadv_recv_packet (struct zebra_ns *zns, int sock, u_char *buf, int buflen,
-		   struct sockaddr_in6 *from, unsigned int *ifindex,
+		   struct sockaddr_in6 *from, ifindex_t *ifindex,
 		   int *hoplimit)
 {
   int ret;
@@ -534,7 +534,7 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
 
 
 static void
-rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int hoplimit,
+rtadv_process_packet (u_char *buf, unsigned int len, ifindex_t ifindex, int hoplimit,
                       struct sockaddr_in6 *from, struct zebra_ns *zns)
 {
   struct icmp6_hdr *icmph;
@@ -609,7 +609,7 @@ rtadv_read (struct thread *thread)
   int len;
   u_char buf[RTADV_MSG_SIZE];
   struct sockaddr_in6 from;
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
   int hoplimit = -1;
   struct zebra_ns *zns = THREAD_ARG (thread);
 

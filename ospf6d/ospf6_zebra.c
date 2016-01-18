@@ -377,7 +377,7 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
   char buf[PREFIX2STR_BUFFER];
   int nhcount;
   struct in6_addr **nexthops;
-  unsigned int *ifindexes;
+  ifindex_t *ifindexes;
   int ret = 0;
   struct prefix_ipv6 *dest;
 
@@ -443,7 +443,7 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
 
   /* allocate memory for ifindex_list */
   ifindexes = XCALLOC (MTYPE_OSPF6_OTHER,
-                       nhcount * sizeof (unsigned int));
+                       nhcount * sizeof (ifindex_t));
   if (ifindexes == NULL)
     {
       zlog_warn ("Can't send route to zebra: malloc failed");

@@ -333,7 +333,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
 {
   struct zapi_ipv6 api;
   struct in6_addr **nexthop_list;
-  unsigned int *ifindex_list;
+  ifindex_t *ifindex_list;
   struct isis_nexthop6 *nexthop6;
   int i, size;
   struct listnode *node;
@@ -370,7 +370,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
 
   /* allocate memory for ifindex_list */
   size = sizeof (unsigned int) * listcount (route_info->nexthops6);
-  ifindex_list = (unsigned int *) XMALLOC (MTYPE_ISIS_TMP, size);
+  ifindex_list = (ifindex_t *) XMALLOC (MTYPE_ISIS_TMP, size);
   if (!ifindex_list)
     {
       zlog_err ("isis_zebra_add_route_ipv6: out of memory!");
@@ -420,7 +420,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
 {
   struct zapi_ipv6 api;
   struct in6_addr **nexthop_list;
-  unsigned int *ifindex_list;
+  ifindex_t *ifindex_list;
   struct isis_nexthop6 *nexthop6;
   int i, size;
   struct listnode *node;
@@ -451,7 +451,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
 
   /* allocate memory for ifindex_list */
   size = sizeof (unsigned int) * listcount (route_info->nexthops6);
-  ifindex_list = (unsigned int *) XMALLOC (MTYPE_ISIS_TMP, size);
+  ifindex_list = (ifindex_t *) XMALLOC (MTYPE_ISIS_TMP, size);
   if (!ifindex_list)
     {
       zlog_err ("isis_zebra_route_del_ipv6: out of memory!");

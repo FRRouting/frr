@@ -42,7 +42,7 @@ static void
 ripng_zebra_ipv6_send (struct route_node *rp, u_char cmd)
 {
   static struct in6_addr **nexthops = NULL;
-  static unsigned int *ifindexes = NULL;
+  static ifindex_t *ifindexes = NULL;
   static unsigned int nexthops_len = 0;
 
   struct list *list = (struct list *)rp->info;

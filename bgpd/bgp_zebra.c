@@ -856,7 +856,7 @@ if_lookup_by_ipv4_exact (struct in_addr *addr, vrf_id_t vrf_id)
 
 #ifdef HAVE_IPV6
 struct interface *
-if_lookup_by_ipv6 (struct in6_addr *addr, unsigned int ifindex, vrf_id_t vrf_id)
+if_lookup_by_ipv6 (struct in6_addr *addr, ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct listnode *ifnode;
   struct listnode *cnode;
@@ -892,7 +892,7 @@ if_lookup_by_ipv6 (struct in6_addr *addr, unsigned int ifindex, vrf_id_t vrf_id)
 }
 
 struct interface *
-if_lookup_by_ipv6_exact (struct in6_addr *addr, unsigned int ifindex, vrf_id_t vrf_id)
+if_lookup_by_ipv6_exact (struct in6_addr *addr, ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct listnode *ifnode;
   struct listnode *cnode;
@@ -1381,7 +1381,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
   if (p->family == AF_INET6 ||
       (p->family == AF_INET && BGP_ATTR_NEXTHOP_AFI_IP6(info->attr)))
     {
-      unsigned int ifindex;
+      ifindex_t ifindex;
       struct in6_addr *nexthop;
       struct zapi_ipv6 api;
       int valid_nh_count = 0;
@@ -1527,7 +1527,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       api.nexthop = (struct in6_addr **)STREAM_DATA (bgp_nexthop_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
       api.ifindex_num = valid_nh_count;
-      api.ifindex = (unsigned int *)STREAM_DATA (bgp_ifindices_buf);
+      api.ifindex = (ifindex_t *)STREAM_DATA (bgp_ifindices_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = metric;
       api.tag = 0;

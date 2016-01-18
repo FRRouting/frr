@@ -2143,7 +2143,7 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
   int ret;
   struct ip *iph;
   u_int16_t ip_len;
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
   struct iovec iov;
   /* Header and data both require alignment. */
   char buff [CMSG_SPACE(SOPT_SIZE_CMSG_IFINDEX_IPV4())];

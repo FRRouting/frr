@@ -84,16 +84,16 @@ extern int setsockopt_ipv6_tclass (int, int);
                     ? SOPT_SIZE_CMSG_PKTINFO_IPV6())
 
 extern int setsockopt_ipv4_multicast_if(int sock, struct in_addr if_addr,
-			             unsigned int ifindex);
+					ifindex_t ifindex);
 extern int setsockopt_ipv4_multicast(int sock, int optname,
                                      struct in_addr if_addr,
                                      unsigned int mcast_addr,
-			             unsigned int ifindex);
+			             ifindex_t ifindex);
 extern int setsockopt_ipv4_tos(int sock, int tos);
 
 /* Ask for, and get, ifindex, by whatever method is supported. */
-extern int setsockopt_ifindex (int, int, int);
-extern int getsockopt_ifindex (int, struct msghdr *);
+extern int setsockopt_ifindex (int, int, ifindex_t);
+extern ifindex_t getsockopt_ifindex (int, struct msghdr *);
 
 /* swab the fields in iph between the host order and system order expected 
  * for IP_HDRINCL.

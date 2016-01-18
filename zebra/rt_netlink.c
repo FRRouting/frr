@@ -74,7 +74,7 @@ extern u_int32_t nl_rcvbufsize;
 /* Note: on netlink systems, there should be a 1-to-1 mapping between interface
    names and ifindex values. */
 static void
-set_ifindex(struct interface *ifp, unsigned int ifi_index)
+set_ifindex(struct interface *ifp, ifindex_t ifi_index)
 {
   struct interface *oifp;
   struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);

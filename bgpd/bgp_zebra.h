@@ -58,8 +58,8 @@ extern int bgp_redistribute_unreg (struct bgp *, afi_t, int, u_short);
 extern struct interface *if_lookup_by_ipv4 (struct in_addr *, vrf_id_t);
 extern struct interface *if_lookup_by_ipv4_exact (struct in_addr *, vrf_id_t);
 #ifdef HAVE_IPV6
-extern struct interface *if_lookup_by_ipv6 (struct in6_addr *, unsigned int, vrf_id_t);
-extern struct interface *if_lookup_by_ipv6_exact (struct in6_addr *, unsigned int, vrf_id_t);
+extern struct interface *if_lookup_by_ipv6 (struct in6_addr *, ifindex_t, vrf_id_t);
+extern struct interface *if_lookup_by_ipv6_exact (struct in6_addr *, ifindex_t, vrf_id_t);
 #endif /* HAVE_IPV6 */
 
 #endif /* _QUAGGA_BGP_ZEBRA_H */

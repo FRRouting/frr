@@ -46,7 +46,7 @@
 
 static void group_timer_off(struct igmp_group *group);
 
-static int igmp_sock_open(struct in_addr ifaddr, int ifindex, uint32_t pim_options)
+static int igmp_sock_open(struct in_addr ifaddr, ifindex_t ifindex, uint32_t pim_options)
 {
   int fd;
   int join = 0;
@@ -971,7 +971,7 @@ static int pim_igmp_read(struct thread *t)
   socklen_t tolen = sizeof(to);
   uint8_t buf[PIM_IGMP_BUFSIZE_READ];
   int len;
-  int ifindex = -1;
+  ifindex_t ifindex = -1;
   int result = -1; /* defaults to bad */
 
   zassert(t);
@@ -1009,7 +1009,7 @@ static int pim_igmp_read(struct thread *t)
 
 #ifdef PIM_CHECK_RECV_IFINDEX_SANITY
   /* ifindex sanity check */
-  if (ifindex != (int) igmp->interface->ifindex) {
+  if (ifindex != igmp->interface->ifindex) {
     char from_str[100];
     char to_str[100];
     struct interface *ifp;
@@ -1021,7 +1021,7 @@ static int pim_igmp_read(struct thread *t)
 
     ifp = if_lookup_by_index(ifindex);
     if (ifp) {
-      zassert(ifindex == (int) ifp->ifindex);
+      zassert(ifindex == ifp->ifindex);
     }
 
 #ifdef PIM_REPORT_RECV_IFINDEX_MISMATCH

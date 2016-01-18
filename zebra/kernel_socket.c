@@ -988,7 +988,7 @@ rtm_read (struct rt_msghdr *rtm)
       if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
         return;
       struct prefix_ipv6 p;
-      unsigned int ifindex = 0;
+      ifindex_t ifindex = 0;
 
       p.family = AF_INET6;
       p.prefix = dest.sin6.sin6_addr;

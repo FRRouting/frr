@@ -41,7 +41,7 @@ struct external_info
   struct prefix_ipv4 p;
 
   /* Interface index. */
-  unsigned int ifindex;
+  ifindex_t ifindex;
 
   /* Nexthop address. */
   struct in_addr nexthop;
@@ -63,7 +63,7 @@ extern int ospf_route_map_set_compare (struct route_map_set_values *,
 				struct route_map_set_values *);
 extern struct external_info *ospf_external_info_add (u_char, u_short,
                                               struct prefix_ipv4,
-					      unsigned int, 
+					      ifindex_t,
 					      struct in_addr,
 					      u_short);
 extern void ospf_external_info_delete (u_char, u_short, struct prefix_ipv4);

@@ -33,7 +33,7 @@ struct static_route {
    struct in_addr source;
 
    struct channel_oil c_oil;
-   unsigned int   iif;
+   ifindex_t          iif;
    unsigned char  oif_ttls[MAXVIFS];
 };
 

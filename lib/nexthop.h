@@ -48,7 +48,7 @@ struct nexthop
   struct nexthop *prev;
 
   /* Interface index. */
-  unsigned int ifindex;
+  ifindex_t ifindex;
 
   enum nexthop_types_t type;
 

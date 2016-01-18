@@ -266,7 +266,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
                     caddr_t lsdesc)
 {
   int i;
-  unsigned int ifindex;
+  ifindex_t ifindex;
   struct ospf6_interface *oi;
   u_int16_t type;
   u_int32_t adv_router;

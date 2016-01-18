@@ -579,7 +579,7 @@ bgp_update_source (struct peer *peer)
 int
 bgp_connect (struct peer *peer)
 {
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
 
   if (peer->conf_if && BGP_PEER_SU_UNSPEC(peer))
     {

@@ -31,7 +31,7 @@
 
 struct pim_zlookup_nexthop {
   struct in_addr nexthop_addr;
-  int            ifindex;
+  ifindex_t      ifindex;
   uint32_t       route_metric;
   uint8_t        protocol_distance;
 };

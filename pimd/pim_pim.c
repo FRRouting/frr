@@ -278,7 +278,7 @@ static int pim_sock_read(struct thread *t)
   socklen_t tolen = sizeof(to);
   uint8_t buf[PIM_PIM_BUFSIZE_READ];
   int len;
-  int ifindex = -1;
+  ifindex_t ifindex = -1;
   int result = -1; /* defaults to bad */
 
   zassert(t);
@@ -386,7 +386,7 @@ static void pim_sock_read_on(struct interface *ifp)
 		 pim_ifp->pim_sock_fd);
 }
 
-static int pim_sock_open(struct in_addr ifaddr, int ifindex)
+static int pim_sock_open(struct in_addr ifaddr, ifindex_t ifindex)
 {
   int fd;
 

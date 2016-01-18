@@ -61,7 +61,7 @@ const char *ospf6_interface_state_str[] =
 };
 
 struct ospf6_interface *
-ospf6_interface_lookup_by_ifindex (int ifindex)
+ospf6_interface_lookup_by_ifindex (ifindex_t ifindex)
 {
   struct ospf6_interface *oi;
   struct interface *ifp;

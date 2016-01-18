@@ -76,7 +76,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   int nexthop_num = 0;
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
   int gate = 0;
   int error;
   char prefix_buf[PREFIX_STRLEN];
@@ -287,7 +287,7 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   int nexthop_num = 0;
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
   int gate = 0;
   int error;
 

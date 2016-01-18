@@ -144,7 +144,7 @@ main (int argc, char **argv)
   size_t len;
   int source_as;
   int dest_as;
-  int ifindex;
+  ifindex_t ifindex;
   int family;
   struct in_addr sip;
   struct in_addr dip;

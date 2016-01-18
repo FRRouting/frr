@@ -533,7 +533,7 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
 {
   struct stream *s;
   struct zapi_ipv4 api;
-  unsigned long ifindex;
+  ifindex_t ifindex;
   struct in_addr nexthop;
   struct prefix_ipv4 p;
   int min_len = 4;
@@ -620,7 +620,7 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
     if (PIM_DEBUG_ZEBRA) {
       char buf[2][INET_ADDRSTRLEN];
       zlog_debug("%s: add %s %s/%d "
-		 "nexthop %s ifindex %ld metric%s %u distance%s %u",
+		 "nexthop %s ifindex %d metric%s %u distance%s %u",
 		 __PRETTY_FUNCTION__,
 		 zebra_route_string(api.type),
 		 inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
@@ -638,7 +638,7 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
     if (PIM_DEBUG_ZEBRA) {
       char buf[2][INET_ADDRSTRLEN];
       zlog_debug("%s: delete %s %s/%d "
-		 "nexthop %s ifindex %ld metric%s %u distance%s %u",
+		 "nexthop %s ifindex %d metric%s %u distance%s %u",
 		 __PRETTY_FUNCTION__,
 		 zebra_route_string(api.type),
 		 inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
@@ -763,7 +763,7 @@ static int fib_lookup_if_vif_index(struct in_addr addr)
   struct pim_zlookup_nexthop nexthop_tab[PIM_NEXTHOP_IFINDEX_TAB_SIZE];
   int num_ifindex;
   int vif_index;
-  int first_ifindex;
+  ifindex_t first_ifindex;
 
   num_ifindex = zclient_lookup_nexthop(qpim_zclient_lookup, nexthop_tab,
 				       PIM_NEXTHOP_IFINDEX_TAB_SIZE, addr,
