@@ -1142,7 +1142,7 @@ peer_xfer_config (struct peer *peer_dst, struct peer *peer_src)
   struct peer_af *paf;
   afi_t afi;
   safi_t safi;
-  enum bgp_af_index afindex;
+  int afidx;
 
   assert(peer_src);
   assert(peer_dst);
@@ -1185,8 +1185,12 @@ peer_xfer_config (struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->allowas_in[afi][safi] = peer_src->allowas_in[afi][safi];
     }
 
-  PEERAF_FOREACH(peer_src, paf, afindex)
-    peer_af_create(peer_dst, paf->afi, paf->safi);
+  for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++)
+    {
+      paf = peer_src->peer_af_array[afidx];
+      if (paf != NULL)
+        peer_af_create(peer_dst, paf->afi, paf->safi);
+    }
 
   /* update-source apply */
   if (peer_src->update_source)

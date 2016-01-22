@@ -528,9 +528,14 @@ static inline void
 update_group_adjust_peer_afs (struct peer *peer)
 {
   struct peer_af *paf;
-  enum bgp_af_index afi;
+  int afidx;
 
-  PEERAF_FOREACH (peer, paf, afi) update_group_adjust_peer (paf);
+  for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++)
+    {
+      paf = peer->peer_af_array[afidx];
+      if (paf != NULL)
+        update_group_adjust_peer (paf);
+    }
 }
 
 /*
@@ -542,10 +547,14 @@ static inline void
 update_group_remove_peer_afs (struct peer *peer)
 {
   struct peer_af *paf;
-  enum bgp_af_index afi;
+  int afidx;
 
-  PEERAF_FOREACH (peer, paf, afi)
-    update_subgroup_remove_peer (PAF_SUBGRP (paf), paf);
+  for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++)
+    {
+      paf = peer->peer_af_array[afidx];
+      if (paf != NULL)
+        update_subgroup_remove_peer (PAF_SUBGRP (paf), paf);
+    }
 }
 
 /*
@@ -592,9 +601,14 @@ static inline void
 bgp_announce_peer (struct peer *peer)
 {
   struct peer_af *paf;
-  enum bgp_af_index af;
+  int afidx;
 
-  PEERAF_FOREACH (peer, paf, af) subgroup_announce_all (PAF_SUBGRP (paf));
+  for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++)
+    {
+      paf = peer->peer_af_array[afidx];
+      if (paf != NULL)
+        subgroup_announce_all (PAF_SUBGRP (paf));
+    }
 }
 
 /**
