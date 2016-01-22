@@ -202,6 +202,7 @@ zclient_socket(void)
   ret = connect (sock, (struct sockaddr *) &serv, sizeof (serv));
   if (ret < 0)
     {
+      zlog_warn ("%s connect failure: %d", __PRETTY_FUNCTION__, errno);
       close (sock);
       return -1;
     }
@@ -237,6 +238,7 @@ zclient_socket_un (const char *path)
   ret = connect (sock, (struct sockaddr *) &addr, len);
   if (ret < 0)
     {
+      zlog_warn ("%s connect failure: %d", __PRETTY_FUNCTION__, errno);
       close (sock);
       return -1;
     }
@@ -443,11 +445,23 @@ zclient_start (struct zclient *zclient)
   if (zclient->t_connect)
     return 0;
 
-  if (zclient_socket_connect(zclient) < 0)
+  /*
+   * If we fail to connect to the socket on initialization,
+   * Let's wait a second and see if we can reconnect.
+   * Cause if we don't connect, we never attempt to
+   * reconnect.  On startup if zebra is slow we
+   * can get into this situation.
+   */
+  while (zclient_socket_connect(zclient) < 0 && zclient->fail < 5)
     {
       if (zclient_debug)
 	zlog_debug ("zclient connection fail");
       zclient->fail++;
+      sleep (1);
+    }
+
+  if (zclient->sock < 0)
+    {
       zclient_event (ZCLIENT_CONNECT, zclient);
       return -1;
     }
