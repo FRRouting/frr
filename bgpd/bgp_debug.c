@@ -1081,18 +1081,22 @@ DEFUN (debug_bgp_update_direct_peer,
     {
       struct peer *peer;
       struct peer_af *paf;
-      enum bgp_af_index af;
+      int afidx;
 
       bgp_debug_list_add_entry(bgp_debug_update_out_peers, host, NULL);
       peer = bgp_find_peer (vty, host);
 
       if (peer)
         {
-          PEERAF_FOREACH (peer, paf, af)
+          for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++)
             {
-              if (PAF_SUBGRP (paf))
+              paf = peer->peer_af_array[afidx];
+              if (paf != NULL)
                 {
-                  UPDGRP_PEER_DBG_EN(PAF_SUBGRP(paf)->update_group);
+                  if (PAF_SUBGRP (paf))
+                    {
+                      UPDGRP_PEER_DBG_EN(PAF_SUBGRP(paf)->update_group);
+                    }
                 }
             }
         }
@@ -1220,16 +1224,20 @@ DEFUN (no_debug_bgp_update_direct_peer,
 
       struct peer *peer;
       struct peer_af *paf;
-      enum bgp_af_index af;
+      int afidx;
       peer = bgp_find_peer (vty, host);
 
       if (peer)
         {
-          PEERAF_FOREACH (peer, paf, af)
+          for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++)
             {
-              if (PAF_SUBGRP (paf))
+              paf = peer->peer_af_array[afidx];
+              if (paf != NULL)
                 {
-                  UPDGRP_PEER_DBG_DIS(PAF_SUBGRP(paf)->update_group);
+                  if (PAF_SUBGRP (paf))
+                    {
+                      UPDGRP_PEER_DBG_DIS(PAF_SUBGRP(paf)->update_group);
+                    }
                 }
             }
         }

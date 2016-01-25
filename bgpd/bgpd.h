@@ -840,12 +840,6 @@ struct bgp_nlri
   bgp_size_t length;
 };
 
-#define PEERAF_FOREACH(peer, paf, afi)					\
-  for ((afi) = BGP_AF_START, (paf) = (peer)->peer_af_array[(afi)];	\
-       (afi) < BGP_AF_MAX;						\
-       (afi)++, (paf) = (peer)->peer_af_array[(afi)])			\
-    if ((paf) != NULL)							\
-
 /* BGP versions.  */
 #define BGP_VERSION_4		                 4
 
