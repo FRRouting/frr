@@ -708,8 +708,8 @@ DEFUN (dump_bgp_all,
        "dump bgp (all|all-et|updates|updates-et|routes-mrt) PATH [INTERVAL]",
        "Dump packet\n"
        "BGP packet dump\n"
-       "Dump all BGP packets\nDump all BGP packets (Extended Tiemstamp Header)\n"
-       "Dump BGP updates only\nDump BGP updates only (Extended Tiemstamp Header)\n"
+       "Dump all BGP packets\nDump all BGP packets (Extended Timestamp Header)\n"
+       "Dump BGP updates only\nDump BGP updates only (Extended Timestamp Header)\n"
        "Dump whole BGP routing table\n"
        "Output filename\n"
        "Interval of output\n")
