@@ -334,9 +334,6 @@ do { \
      } \
 } while (0)
 
-/* Count prefix size from mask length */
-#define PSIZE(a) (((a) + 7) / (8))
-
 /* Extern variables. */
 extern struct ripng *ripng;
 

@@ -127,9 +127,6 @@ struct zebra_t
   struct meta_queue *mq;
 };
 
-/* Count prefix size from mask length */
-#define PSIZE(a) (((a) + 7) / (8))
-
 /* Prototypes. */
 extern void zebra_init (void);
 extern void zebra_if_init (void);

@@ -1033,9 +1033,6 @@ enum bgp_clear_type
 #define BGP_IS_VALID_STATE_FOR_NOTIF(S)\
         (((S) == OpenSent) || ((S) == OpenConfirm) || ((S) == Established))
 
-/* Count prefix size from mask length */
-#define PSIZE(a) (((a) + 7) / (8))
-
 /* BGP error codes.  */
 #define BGP_SUCCESS                               0
 #define BGP_ERR_INVALID_VALUE                    -1
