@@ -10630,7 +10630,8 @@ bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
   
   if (!bgp->rib[afi][safi])
     {
-      vty_out (vty, "%% No RIB exist for the AFI/SAFI%s", VTY_NEWLINE);
+      vty_out (vty, "%% No RIB exist's for the AFI(%d)/SAFI(%d)%s",
+	       afi, safi, VTY_NEWLINE);
       return CMD_WARNING;
     }
   
@@ -10741,7 +10742,7 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
       else if (strncmp (safi_str, "u", 1) == 0)
         safi = SAFI_UNICAST;
       else if (strncmp (safi_str, "vpnv4", 5) == 0 || strncmp (safi_str, "vpnv6", 5) == 0)
-        safi = SAFI_MPLS_LABELED_VPN;
+        safi = SAFI_MPLS_VPN;
       else
         {
           vty_out (vty, "%% Invalid subsequent address family %s%s",
