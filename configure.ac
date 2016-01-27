@@ -418,7 +418,7 @@ case "${enable_multipath}" in
   0)
     MPATH_NUM=64
     ;;
-  [[1-9]|[1-9][0-9]])
+  [[1-9]|[1-9][0-9]|[1-9][0-9][0-9]])
     MPATH_NUM="${enable_multipath}"
     ;;
   "")

@@ -56,7 +56,7 @@ override_dh_auto_configure:
 		--enable-ipv6 \
 		--enable-ospfclient=yes \
 		--enable-ospfapi=yes \
-		--enable-multipath=64 \
+		--enable-multipath=256 \
 		--enable-user=quagga \
 		--enable-group=quagga \
 		--enable-vty-group=quaggavty \
