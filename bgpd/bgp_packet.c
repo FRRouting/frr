@@ -1393,15 +1393,14 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   /* Unfeasible Route packet format check. */
   if (withdraw_len > 0)
     {
-      ret = bgp_nlri_sanity_check (peer, AFI_IP, SAFI_UNICAST, stream_pnt (s),
-                                   withdraw_len, &num_pfx_wd);
-      if (ret < 0)
-	return -1;
-
       withdraw.afi = AFI_IP;
       withdraw.safi = SAFI_UNICAST;
       withdraw.nlri = stream_pnt (s);
       withdraw.length = withdraw_len;
+      ret = bgp_nlri_sanity_check (peer, &withdraw, &num_pfx_wd);
+      if (ret < 0)
+	return -1;
+
       stream_forward_getp (s, withdraw_len);
     }
   
@@ -1478,20 +1477,20 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 
   if (update_len)
     {
+      /* Set NLRI portion to structure. */
+      update.afi = AFI_IP;
+      update.safi = SAFI_UNICAST;
+      update.nlri = stream_pnt (s);
+      update.length = update_len;
+
       /* Check NLRI packet format and prefix length. */
-      ret = bgp_nlri_sanity_check (peer, AFI_IP, SAFI_UNICAST, stream_pnt (s),
-                                   update_len, &num_pfx_adv);
+      ret = bgp_nlri_sanity_check (peer, &update, &num_pfx_adv);
       if (ret < 0)
         {
           bgp_attr_unintern_sub (&attr);
 	  return -1;
 	}
 
-      /* Set NLRI portion to structure. */
-      update.afi = AFI_IP;
-      update.safi = SAFI_UNICAST;
-      update.nlri = stream_pnt (s);
-      update.length = update_len;
       stream_forward_getp (s, update_len);
     }
 

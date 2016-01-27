@@ -1860,23 +1860,19 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
                  __func__, peer->host);
       return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
     }
- 
-  if (safi != SAFI_MPLS_LABELED_VPN)
-    {
-      ret = bgp_nlri_sanity_check (peer, afi, safi, stream_pnt (s),
-                                   nlri_len, &num_mp_pfx);
-      if (ret < 0) 
-        {
-          zlog_info ("%s: (%s) NLRI doesn't pass sanity check",
-                     __func__, peer->host);
-	  return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
-	}
-    }
 
   mp_update->afi = afi;
   mp_update->safi = safi;
   mp_update->nlri = stream_pnt (s);
   mp_update->length = nlri_len;
+
+  ret = bgp_nlri_sanity_check (peer, mp_update, &num_mp_pfx);
+  if (ret < 0)
+    {
+      zlog_info ("%s: (%s) NLRI doesn't pass sanity check",
+                 __func__, peer->host);
+      return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
+    }
 
   stream_forward_getp (s, nlri_len);
 
@@ -1895,7 +1891,6 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
   afi_t afi;
   safi_t safi;
   u_int16_t withdraw_len;
-  int ret;
   int num_mp_pfx = 0;
   struct peer *const peer = args->peer;  
   struct attr *const attr = args->attr;
@@ -1912,18 +1907,13 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
   
   withdraw_len = length - BGP_MP_UNREACH_MIN_SIZE;
 
-  if (safi != SAFI_MPLS_LABELED_VPN)
-    {
-      ret = bgp_nlri_sanity_check (peer, afi, safi, stream_pnt (s),
-				   withdraw_len, &num_mp_pfx);
-      if (ret < 0)
-	return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
-    }
-
   mp_withdraw->afi = afi;
   mp_withdraw->safi = safi;
   mp_withdraw->nlri = stream_pnt (s);
   mp_withdraw->length = withdraw_len;
+
+  if (bgp_nlri_sanity_check (peer, mp_withdraw, &num_mp_pfx) < 0)
+    return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 
   stream_forward_getp (s, withdraw_len);
 

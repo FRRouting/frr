@@ -33,6 +33,9 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_route.h"
+#include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_nexthop.h"
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -310,8 +313,34 @@ static struct test_segment {
     SHOULD_ERR,
     AFI_IP, SAFI_UNICAST, VALID_AFI,
   },
-  { "IPv4-MLVPN",
-    "IPv4/MPLS-labeled VPN MP Reach, RD, Nexthop, 3 NLRIs", 
+  { "IPv4-VPNv4",
+    "IPv4/VPNv4 MP Reach, RD, Nexthop, 2 NLRIs", 
+    {
+      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* nexthop bytes */	12,
+      /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
+                                0, 0, 0, 0,
+      /* Nexthop */		192, 168,   0,  1, 
+      /* SNPA (defunct, MBZ) */	0x0,
+      /* NLRI tuples */		88 + 16,
+                                  0, 1, 2,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_AS */
+                                    0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+                                  10, 1,    /* 10.1/16 */
+                                88 + 17,
+                                  0xff, 0, 0,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_IP */
+                                    192, 168, 0, 1, /* IPv4 */
+                                  10, 2, 3,  /* 10.2.3/17 */
+    },
+    (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
+    SHOULD_PARSE,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+  },
+  { "IPv4-VPNv4-bogus-plen",
+    "IPv4/MPLS-labeled VPN MP Reach, RD, Nexthop, NLRI / bogus p'len", 
     {
       /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
       /* nexthop bytes */	12,
@@ -323,10 +352,169 @@ static struct test_segment {
                                 17, 10, 2, 3,  /* 10.2.3/17 */
                                 0, /* 0/0 */
     },
-    (4 + 12 + 1 + 3 + 4 + 1),
-    SHOULD_PARSE,
-    AFI_IP, SAFI_UNICAST, VALID_AFI,
+    (3 + 1 + 3*4 + 1 + 3 + 4 + 1),
+    SHOULD_ERR,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
   },
+  { "IPv4-VPNv4-plen1-short",
+    "IPv4/VPNv4 MP Reach, RD, Nexthop, 2 NLRIs, 1st plen short", 
+    {
+      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* nexthop bytes */	12,
+      /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
+                                0, 0, 0, 0,
+      /* Nexthop */		192, 168,   0,  1, 
+      /* SNPA (defunct, MBZ) */	0x0,
+      /* NLRI tuples */		88 + 1,
+                                  0, 1, 2,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_AS */
+                                    0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+                                  10, 1,    /* 10.1/16 */
+                                88 + 17,
+                                  0xff, 0, 0,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_IP */
+                                    192, 168, 0, 1, /* IPv4 */
+                                  10, 2, 3,  /* 10.2.3/17 */
+    },
+    (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
+    SHOULD_ERR,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+  },
+  { "IPv4-VPNv4-plen1-long",
+    "IPv4/VPNv4 MP Reach, RD, Nexthop, 2 NLRIs, 1st plen long", 
+    {
+      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* nexthop bytes */	12,
+      /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
+                                0, 0, 0, 0,
+      /* Nexthop */		192, 168,   0,  1, 
+      /* SNPA (defunct, MBZ) */	0x0,
+      /* NLRI tuples */		88 + 32,
+                                  0, 1, 2,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_AS */
+                                    0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+                                  10, 1,    /* 10.1/16 */
+                                88 + 17,
+                                  0xff, 0, 0,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_IP */
+                                    192, 168, 0, 1, /* IPv4 */
+                                  10, 2, 3,  /* 10.2.3/17 */
+    },
+    (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
+    SHOULD_ERR,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+  },
+  { "IPv4-VPNv4-plenn-long",
+    "IPv4/VPNv4 MP Reach, RD, Nexthop, 3 NLRIs, last plen long", 
+    {
+      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* nexthop bytes */	12,
+      /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
+                                0, 0, 0, 0,
+      /* Nexthop */		192, 168,   0,  1, 
+      /* SNPA (defunct, MBZ) */	0x0,
+      /* NLRI tuples */		88 + 16,
+                                  0, 1, 2,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_AS */
+                                    0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+                                  10, 1,    /* 10.1/16 */
+                                88 + 17,
+                                  0xff, 0, 0,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_IP */
+                                    192, 168, 0, 1, /* IPv4 */
+                                  10, 2, 3,  /* 10.2.3/17 */
+                                88 + 1, /* bogus */
+    },
+    (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3) + 1),
+    SHOULD_ERR,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+  },
+  { "IPv4-VPNv4-plenn-short",
+    "IPv4/VPNv4 MP Reach, RD, Nexthop, 2 NLRIs, last plen short", 
+    {
+      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* nexthop bytes */	12,
+      /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
+                                0, 0, 0, 0,
+      /* Nexthop */		192, 168,   0,  1, 
+      /* SNPA (defunct, MBZ) */	0x0,
+      /* NLRI tuples */		88 + 16,
+                                  0, 1, 2,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_AS */
+                                    0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+                                  10, 1,    /* 10.1/16 */
+                                88 + 2,
+                                  0xff, 0, 0,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_IP */
+                                    192, 168, 0, 1, /* IPv4 */
+                                  10, 2, 3,  /* 10.2.3/17 */
+    },
+    (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
+    SHOULD_ERR,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+  },
+  { "IPv4-VPNv4-bogus-rd-type",
+    "IPv4/VPNv4 MP Reach, RD, NH, 2 NLRI, unknown RD in 1st (log, but parse)", 
+    {
+      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* nexthop bytes */	12,
+      /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
+                                0, 0, 0, 0,
+      /* Nexthop */		192, 168,   0,  1, 
+      /* SNPA (defunct, MBZ) */	0x0,
+      /* NLRI tuples */		88 + 16,
+                                  0, 1, 2,   /* tag */
+                                  /* rd, 8 octets */
+                                    0xff, 0, /* Bogus RD */
+                                    0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+                                  10, 1,    /* 10.1/16 */
+                                88 + 17,
+                                  0xff, 0, 0,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_IP */
+                                    192, 168, 0, 1, /* IPv4 */
+                                  10, 2, 3,  /* 10.2.3/17 */
+    },
+    (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3)),
+    SHOULD_PARSE,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+  },
+  { "IPv4-VPNv4-0-nlri",
+    "IPv4/VPNv4 MP Reach, RD, Nexthop, 3 NLRI, 3rd 0 bogus", 
+    {
+      /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
+      /* nexthop bytes */	12,
+      /* RD */			0, 0, 0, 0, /* RD defined to be 0 */
+                                0, 0, 0, 0,
+      /* Nexthop */		192, 168,   0,  1, 
+      /* SNPA (defunct, MBZ) */	0x0,
+      /* NLRI tuples */		88 + 16,
+                                  0, 1, 2,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_AS */
+                                    0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+                                  10, 1,    /* 10.1/16 */
+                                88 + 17,
+                                  0xff, 0, 0,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_IP */
+                                    192, 168, 0, 1, /* IPv4 */
+                                  10, 2, 3,  /* 10.2.3/17 */
+                                0 /* 0/0, bogus for vpnv4 ?? */
+    },
+    (4 + 12 + 1 + (1+3+8+2) + (1+3+8+3) + 1),
+    SHOULD_ERR,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
+  },
+
   /* From bug #385 */
   { "IPv6-bug",
     "IPv6, global nexthop, 1 default NLRI", 
@@ -433,33 +621,79 @@ static struct test_segment mp_unreach_segments [] =
     SHOULD_ERR,
     AFI_IP, SAFI_UNICAST, VALID_AFI,
   },
-  { "IPv4-unreach-MLVPN",
+  { "IPv4-unreach-VPNv4",
     "IPv4/MPLS-labeled VPN MP Unreach, RD, 3 NLRIs", 
     {
       /* AFI / SAFI */		0x0, AFI_IP, SAFI_MPLS_LABELED_VPN,
-      /* nexthop bytes */	12,
-      /* RD */			0, 0, 1, 2,
-                                0, 0xff, 3, 4,
-      /* Nexthop */		192, 168,   0,  1, 
-      /* SNPA (defunct, MBZ) */	0x0,
-      /* NLRI tuples */		16, 10, 1,    /* 10.1/16 */
-                                17, 10, 2, 3,  /* 10.2.3/17 */
-                                0, /* 0/0 */
+      /* NLRI tuples */		88 + 16,
+                                  0, 1, 2,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_AS */
+                                    0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+                                  10, 1,    /* 10.1/16 */
+                                88 + 17,
+                                  0xff, 0, 0,   /* tag */
+                                  /* rd, 8 octets */
+                                    0, 0, /* RD_TYPE_IP */
+                                    192, 168, 0, 1, /* IPv4 */
+                                  10, 2, 3,  /* 10.2.3/17 */
     },
-    (3 + 3 + 4 + 1),
+    (3 + (1+3+8+2) + (1+3+8+3)),
     SHOULD_PARSE,
-    AFI_IP, SAFI_UNICAST, VALID_AFI,
+    AFI_IP, SAFI_MPLS_LABELED_VPN, VALID_AFI,
   },
   { NULL, NULL, {0}, 0, 0}
 };
 
+/* nlri_parse indicates 0 on successful parse, and -1 otherwise.
+ * attr_parse indicates BGP_ATTR_PARSE_PROCEED/0 on success,
+ * and BGP_ATTR_PARSE_ERROR/-1 or lower negative ret on err.
+ */
+static void
+handle_result (struct peer *peer, struct test_segment *t,
+               int parse_ret, int nlri_ret)
+{
+  int oldfailed = failed;
+  
+  if (!parse_ret)
+    {
+      safi_t safi = t->safi;
+      
+      if (bgp_afi_safi_valid_indices (t->afi, &safi) != t->afi_valid)
+        failed++;
+      
+      printf ("MP: %u/%u (%u): recv %u, nego %u\n",
+              t->afi, t->safi, safi,
+              peer->afc_recv[t->afi][safi],
+              peer->afc_nego[t->afi][safi]);
+    }
+  
+  printf ("mp attr parsed?: %s\n", parse_ret ? "no" : "yes");
+  if (!parse_ret)
+    printf ("nrli parsed?:  %s\n", nlri_ret ? "no" : "yes");
+  printf ("should parse?:  %s\n", t->parses ? "no" : "yes");
+  
+  if ((parse_ret != 0 || nlri_ret != 0) != (t->parses != 0))
+    failed++;
+  
+    
+  if (tty)
+    printf ("%s", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET 
+                                         : VT100_GREEN "OK" VT100_RESET);
+  else
+    printf ("%s", (failed > oldfailed) ? "failed!" : "OK" );
+  
+  if (failed)
+    printf (" (%u)", failed);
+  
+  printf ("\n\n");
+}
 
 /* basic parsing test */
 static void
 parse_test (struct peer *peer, struct test_segment *t, int type)
 {
-  int ret;
-  int oldfailed = failed;
+  int parse_ret = 0, nlri_ret = 0;
   struct attr attr = { };
   struct bgp_nlri nlri = { };
   struct bgp_attr_parser_args attr_args = {
@@ -467,7 +701,7 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
     .length = t->len,
     .total = 1,
     .attr = &attr,
-    .type = BGP_ATTR_MP_REACH_NLRI,
+    .type = type,
     .flags = BGP_ATTR_FLAG_OPTIONAL, 
     .startp = BGP_INPUT_PNT (peer),
   };
@@ -481,40 +715,29 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   
   printf ("%s: %s\n", t->name, t->desc);
   
-  
   if (type == BGP_ATTR_MP_REACH_NLRI)
-    ret = bgp_mp_reach_parse (&attr_args, &nlri);
+    parse_ret = bgp_mp_reach_parse (&attr_args, &nlri);
   else
-    ret = bgp_mp_unreach_parse (&attr_args, &nlri);
-
-  if (!ret)
+    parse_ret = bgp_mp_unreach_parse (&attr_args, &nlri);
+  
+  if (parse_ret == 0 && t->afi_valid == VALID_AFI)
+    assert (nlri.afi == t->afi && nlri.safi == t->safi);
+  
+  if (!parse_ret)
     {
-      safi_t safi = t->safi;
+      int (*f) (struct peer *, struct attr *, struct bgp_nlri *)
+        = bgp_nlri_parse;
       
-      if (bgp_afi_safi_valid_indices (t->afi, &safi) != t->afi_valid)
-        failed++;
+      if (t->safi == SAFI_MPLS_LABELED_VPN)
+        f = bgp_nlri_parse_vpn;
       
-      printf ("MP: %u/%u (%u): recv %u, nego %u\n",
-              t->afi, t->safi, safi,
-              peer->afc_recv[t->afi][safi],
-              peer->afc_nego[t->afi][safi]);
+      if (type == BGP_ATTR_MP_REACH_NLRI)
+        nlri_ret = f (peer, &attr, &nlri);
+      else
+        nlri_ret = f (peer, NULL, &nlri);
     }
   
-  printf ("parsed?: %s\n", ret ? "no" : "yes");
-  
-  if ((ret == 0) != (t->parses == 0))
-    failed++;
-  
-  if (tty)
-    printf ("%s", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET 
-                                         : VT100_GREEN "OK" VT100_RESET);
-  else
-    printf ("%s", (failed > oldfailed) ? "failed!" : "OK" );
-  
-  if (failed)
-    printf (" (%u)", failed);
-  
-  printf ("\n\n");
+  handle_result (peer, t, parse_ret, nlri_ret);
 }
 
 static struct bgp *bgp;
@@ -538,6 +761,7 @@ main (void)
   bgp_master_init ();
   vrf_init ();
   bgp_option_set (BGP_OPT_NO_LISTEN);
+  bgp_attr_init ();
   
   if (fileno (stdout) >= 0) 
     tty = isatty (fileno (stdout));
@@ -547,6 +771,7 @@ main (void)
   
   peer = peer_create_accept (bgp);
   peer->host = (char *)"foo";
+  peer->status = Established;
   
   for (i = AFI_IP; i < AFI_MAX; i++)
     for (j = SAFI_UNICAST; j < SAFI_MAX; j++)
