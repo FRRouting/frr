@@ -146,6 +146,7 @@ struct interface
   struct if_data stats;
 #endif /* HAVE_NET_RT_IFLIST */
 
+  struct route_node *node;
   vrf_id_t vrf_id;
 };
 
@@ -266,6 +267,8 @@ extern struct interface *if_lookup_exact_address (void *matchaddr, int family);
 extern struct interface *if_lookup_address (void *matchaddr, int family);
 extern struct interface *if_lookup_prefix (struct prefix *prefix);
 
+extern void if_update_vrf (struct interface *, const char *name, int namelen,
+                                vrf_id_t vrf_id);
 extern struct interface *if_create_vrf (const char *name, int namelen,
                                 vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index_vrf (unsigned int,
@@ -370,5 +373,7 @@ extern struct cmd_element no_interface_pseudo_cmd;
 extern struct cmd_element show_address_cmd;
 extern struct cmd_element show_address_vrf_cmd;
 extern struct cmd_element show_address_vrf_all_cmd;
+extern struct cmd_element vrf_cmd;
+extern struct cmd_element no_vrf_cmd;
 
 #endif /* _ZEBRA_IF_H */

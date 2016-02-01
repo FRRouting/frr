@@ -154,6 +154,31 @@ if_create (const char *name, int namelen)
   return if_create_vrf (name, namelen, VRF_DEFAULT);
 }
 
+/* Create new interface structure. */
+void
+if_update_vrf (struct interface *ifp, const char *name, int namelen, vrf_id_t vrf_id)
+{
+  struct list *intf_list = vrf_iflist_get (vrf_id);
+
+  /* remove interface from old master vrf list */
+  if (vrf_iflist (ifp->vrf_id))
+    listnode_delete (vrf_iflist (ifp->vrf_id), ifp);
+
+  assert (name);
+  assert (namelen <= INTERFACE_NAMSIZ);	/* Need space for '\0' at end. */
+  strncpy (ifp->name, name, namelen);
+  ifp->name[namelen] = '\0';
+  ifp->vrf_id = vrf_id;
+  if (if_lookup_by_name_vrf (ifp->name, vrf_id) == NULL)
+    listnode_add_sort (intf_list, ifp);
+  else
+    zlog_err("if_create(%s): corruption detected -- interface with this "
+             "name exists already in VRF %u!", ifp->name, vrf_id);
+
+  return;
+}
+
+
 /* Delete interface structure. */
 void
 if_delete_retain (struct interface *ifp)
@@ -682,8 +707,10 @@ DEFUN (interface,
       return CMD_WARNING;
     }
 
+/*Pending: need proper vrf name based lookup/(possible creation of VRF)
+ Imagine forward reference of a vrf by name in this interface config */
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
 #ifdef SUNOS_5
   ifp = if_sunwzebra_get (argv[0], sl, vrf_id);
@@ -716,7 +743,7 @@ DEFUN_NOSH (no_interface,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   ifp = if_lookup_by_name_vrf (argv[0], vrf_id);
 
@@ -746,6 +773,61 @@ ALIAS (no_interface,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 
+DEFUN (vrf,
+       vrf_cmd,
+       "vrf NAME",
+       "Select a VRF to configure\n"
+       "VRF's name\n")
+{
+  struct vrf *vrfp;
+  size_t sl;
+
+  if ((sl = strlen(argv[0])) > VRF_NAMSIZ)
+    {
+      vty_out (vty, "%% VRF name %s is invalid: length exceeds "
+		    "%d characters%s",
+	       argv[0], VRF_NAMSIZ, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  vrfp = vrf_get_by_name_len (argv[0], sl);
+
+  vty->index = vrfp;
+  vty->node = VRF_NODE;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (no_vrf,
+           no_vrf_cmd,
+           "no vrf NAME",
+           NO_STR
+           "Delete a pseudo VRF's configuration\n"
+           "VRF's name\n")
+{
+  struct vrf *vrfp;
+
+  vrfp = vrf_list_lookup_by_name (argv[0]);
+
+  if (vrfp == NULL)
+    {
+      vty_out (vty, "%% VRF %s does not exist%s", argv[0], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (CHECK_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE))
+    {
+      vty_out (vty, "%% Only inactive VRFs can be deleted%s",
+	      VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  vrf_delete(vrfp);
+
+  return CMD_SUCCESS;
+}
+
+
 /* For debug purpose. */
 DEFUN (show_address,
        show_address_cmd,
@@ -761,7 +843,7 @@ DEFUN (show_address,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
     {
