@@ -28,6 +28,7 @@
 #include "table.h"
 #include "queue.h"
 #include "nexthop.h"
+#include "vrf.h"
 
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
@@ -283,6 +284,21 @@ struct nlsock
 };
 #endif
 
+/* NetNS ID type. */
+typedef u_int16_t ns_id_t;
+
+struct zebra_ns
+{
+  /* net-ns name.  */
+  char name[VRF_NAMSIZ];
+
+  /* Identifier. */
+  ns_id_t ns_id;
+
+  struct route_table *if_table;
+};
+
+
 /* Routing table instance.  */
 struct zebra_vrf
 {
@@ -290,13 +306,15 @@ struct zebra_vrf
   vrf_id_t vrf_id;
 
   /* Routing table name.  */
-  char *name;
+  char name[VRF_NAMSIZ];
 
   /* Description.  */
   char *desc;
 
   /* FIB identifier.  */
   u_char fib_id;
+
+  u_int32_t table_id;
 
   /* Routing table.  */
   struct route_table *table[AFI_MAX][SAFI_MAX];
@@ -331,6 +349,11 @@ struct zebra_vrf
 #if defined (HAVE_RTADV)
   struct rtadv rtadv;
 #endif /* HAVE_RTADV */
+
+  /*
+   * Back pointer to the owning namespace.
+   */
+  struct zebra_ns *zns;
 };
 
 /*
