@@ -27,7 +27,7 @@
 
 /* Interface information read by netlink. */
 void
-interface_list (struct zebra_vrf *zvrf)
+interface_list (struct zebra_ns *zns)
 {
-  interface_lookup_netlink (zvrf);
+  interface_lookup_netlink (zns);
 }

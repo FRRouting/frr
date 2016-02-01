@@ -54,6 +54,8 @@
 const char *rtadv_pref_strs[] = { "medium", "high", "INVALID", "low", 0 };
 #endif /* HAVE_RTADV */
 
+struct zebra_ns *dzns;
+
 /* Called when new interface is added. */
 static int
 if_zebra_new_hook (struct interface *ifp)
@@ -120,6 +122,67 @@ if_zebra_delete_hook (struct interface *ifp)
 
   return 0;
 }
+
+/* Build the table key */
+static void
+if_build_key (u_int32_t ifindex, struct prefix *p)
+{
+  p->family = AF_INET;
+  p->prefixlen = IPV4_MAX_BITLEN;
+  p->u.prefix4.s_addr = ifindex;
+}
+
+/* Link an interface in a per NS interface tree */
+struct interface *
+if_link_per_ns (struct zebra_ns *ns, struct interface *ifp)
+{
+  struct prefix p;
+  struct route_node *rn;
+
+  if (ifp->ifindex == IFINDEX_INTERNAL)
+    return NULL;
+
+  if_build_key (ifp->ifindex, &p);
+  rn = route_node_get (ns->if_table, &p);
+  if (rn->info)
+    {
+      ifp = (struct interface *)rn->info;
+      route_unlock_node (rn); /* get */
+      return ifp;
+    }
+
+  rn->info = ifp;
+  ifp->node = rn;
+
+  return ifp;
+}
+
+/* Delete a VRF. This is called in vrf_terminate(). */
+void
+if_unlink_per_ns (struct interface *ifp)
+{
+  ifp->node->info = NULL;
+  route_unlock_node(ifp->node);
+}
+
+/* Look up an interface by identifier within a NS */
+struct interface *
+if_lookup_by_index_per_ns (struct zebra_ns *ns, u_int32_t ifindex)
+{
+  struct prefix p;
+  struct route_node *rn;
+  struct interface *ifp = NULL;
+
+  if_build_key (ifindex, &p);
+  rn = route_node_lookup (ns->if_table, &p);
+  if (rn)
+    {
+      ifp = (struct interface *)rn->info;
+      route_unlock_node (rn); /* lookup */
+    }
+  return ifp;
+}
+
 
 /* Tie an interface address to its derived subnet list of addresses. */
 int
@@ -374,6 +437,8 @@ if_add_update (struct interface *ifp)
 {
   struct zebra_if *if_data;
 
+  if_link_per_ns(dzns, ifp);
+
   if_data = ifp->info;
   if (if_data->multicast == IF_ZEBRA_MULTICAST_ON)
     if_set_flags (ifp, IFF_MULTICAST);
@@ -525,6 +590,8 @@ if_delete_update (struct interface *ifp)
     }
   zebra_interface_delete_update (ifp);
 
+  if_unlink_per_ns(ifp);
+
   /* Update ifindex after distributing the delete message.  This is in
      case any client needs to have the old value of ifindex available
      while processing the deletion.  Each client daemon is responsible
@@ -532,6 +599,52 @@ if_delete_update (struct interface *ifp)
      interface deletion message. */
   ifp->ifindex = IFINDEX_INTERNAL;
 }
+
+/* Handle VRF addition */
+void
+vrf_add_update (struct vrf *vrfp)
+{
+  zebra_vrf_add_update (vrfp);
+
+  if (! CHECK_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE))
+    {
+      SET_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE);
+
+     //Pending: Check if the equivalent of if_addr_wakeup (ifp) is needed here.
+
+      if (IS_ZEBRA_DEBUG_KERNEL)
+	zlog_debug ("VRF %s id %u becomes active.",
+		    vrfp->name, vrfp->vrf_id);
+    }
+  else
+    {
+      if (IS_ZEBRA_DEBUG_KERNEL)
+	zlog_debug ("VRF %s id %u is added.",
+		    vrfp->name, vrfp->vrf_id);
+    }
+}
+
+/* Handle an interface delete event */
+void 
+vrf_delete_update (struct vrf *vrfp)
+{
+  /* Mark VRF as inactive */
+  UNSET_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE);
+  
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("VRF %s id %u is now inactive.",
+                vrfp->name, vrfp->vrf_id);
+
+  zebra_vrf_delete_update (vrfp);
+
+  /* Pending: Update ifindex after distributing the delete message.  This is in
+     case any client needs to have the old value of ifindex available
+     while processing the deletion.  Each client daemon is responsible
+     for setting vrf-id to IFINDEX_INTERNAL after processing the
+     interface deletion message. */
+  vrfp->vrf_id = 0;
+}
+
 
 static void
 ipv6_ll_address_to_mac (struct in6_addr *address, u_char *mac)
@@ -1043,6 +1156,34 @@ struct cmd_node interface_node =
   1
 };
 
+/* Wrapper hook point for zebra daemon so that ifindex can be set 
+ * DEFUN macro not used as extract.pl HAS to ignore this
+ * See also interface_cmd in lib/if.c
+ */ 
+DEFUN_NOSH (zebra_vrf,
+	    zebra_vrf_cmd,
+	    "vrf NAME",
+	    "Select a VRF to configure\n"
+	    "VRF's name\n")
+{
+  int ret;
+  
+  /* Call lib vrf() */
+  if ((ret = vrf_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
+    return ret;
+
+  // vrfp = vty->index;  
+
+  return ret;
+}
+
+struct cmd_node vrf_node =
+{
+  VRF_NODE,
+  "%s(config-vrf)# ",
+  1
+};
+
 /* Show all interfaces to vty. */
 DEFUN (show_interface, show_interface_cmd,
        "show interface",
@@ -1063,7 +1204,7 @@ DEFUN (show_interface, show_interface_cmd,
 #endif /* HAVE_NET_RT_IFLIST */
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   /* All interface print. */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
@@ -1127,7 +1268,7 @@ DEFUN (show_interface_name, show_interface_name_cmd,
 #endif /* HAVE_NET_RT_IFLIST */
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   /* Specified interface print. */
   ifp = if_lookup_by_name_vrf (argv[0], vrf_id);
@@ -1242,7 +1383,7 @@ DEFUN (show_interface_desc,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   if_show_description (vty, vrf_id);
 
@@ -1874,13 +2015,15 @@ if_config_write (struct vty *vty)
       struct listnode *addrnode;
       struct connected *ifc;
       struct prefix *p;
+      struct vrf *vrf;
 
       if_data = ifp->info;
+      vrf = vrf_lookup(ifp->vrf_id);
 
       if (ifp->vrf_id == VRF_DEFAULT)
         vty_out (vty, "interface %s%s", ifp->name, VTY_NEWLINE);
       else
-        vty_out (vty, "interface %s vrf %u%s", ifp->name, ifp->vrf_id,
+        vty_out (vty, "interface %s vrf %s%s", ifp->name, vrf->name,
                  VTY_NEWLINE);
 
       if (if_data)
@@ -1940,6 +2083,23 @@ if_config_write (struct vty *vty)
   return 0;
 }
 
+static int
+vrf_config_write (struct vty *vty)
+{
+  struct listnode *node;
+  struct vrf *vrf;
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
+    {
+      if (strcmp(vrf->name, VRF_DEFAULT_NAME))
+        {
+          vty_out (vty, "vrf %s%s", vrf->name, VTY_NEWLINE);
+          vty_out (vty, "!%s", VTY_NEWLINE);
+        }
+    }
+  return 0;
+}
+
 /* Allocate and initialize interface vector. */
 void
 zebra_if_init (void)
@@ -1950,6 +2110,7 @@ zebra_if_init (void)
   
   /* Install configuration write function. */
   install_node (&interface_node, if_config_write);
+  install_node (&vrf_node, vrf_config_write);
 
   install_element (VIEW_NODE, &show_interface_cmd);
   install_element (VIEW_NODE, &show_interface_vrf_cmd);
@@ -1992,4 +2153,9 @@ zebra_if_init (void)
   install_element (INTERFACE_NODE, &ip_address_label_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_label_cmd);
 #endif /* HAVE_NETLINK */
+  
+  install_element (CONFIG_NODE, &zebra_vrf_cmd);
+  install_element (CONFIG_NODE, &no_vrf_cmd);
+  install_default (VRF_NODE);
+
 }

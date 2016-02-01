@@ -444,13 +444,11 @@ interface_info_ioctl ()
 
 /* Lookup all interface information. */
 void
-interface_list (struct zebra_vrf *zvrf)
+interface_list (struct zebra_ns *zns)
 {
-  if (zvrf->vrf_id != VRF_DEFAULT)
-    {
-      zlog_warn ("interface_list: ignore VRF %u", zvrf->vrf_id);
-      return;
-    }
+
+  zlog_info ("interface_list: NS %u", zns->ns_id);
+
   /* Linux can do both proc & ioctl, ioctl is the only way to get
      interface aliases in 2.2 series kernels. */
 #ifdef HAVE_PROC_NET_DEV

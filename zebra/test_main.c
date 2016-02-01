@@ -210,7 +210,7 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
 
   if (! zvrf)
     {
-      zvrf = zebra_vrf_alloc (vrf_id);
+      zvrf = zebra_vrf_alloc (vrf_id, name);
       *info = (void *)zvrf;
     }
 
@@ -224,9 +224,6 @@ zebra_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
   struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
 
   assert (zvrf);
-
-  kernel_init (zvrf);
-  route_read (zvrf);
 
   return 0;
 }
@@ -251,8 +248,6 @@ zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
       if (operative)
         if_down (ifp);
     }
-
-  kernel_terminate (zvrf);
 
   return 0;
 }

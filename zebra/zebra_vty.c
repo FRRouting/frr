@@ -88,7 +88,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
 
   /* VRF id */
   if (vrf_id_str)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, vrf_id_str);
+    VRF_GET_ID (vrf_id, vrf_id_str); //Pending: create VRF if the given vrf doesnt exist?
 
   /* Null0 static route.  */
   if ((gate_str != NULL) && (strncasecmp (gate_str, "Null0", strlen (gate_str)) == 0))
@@ -2030,8 +2030,12 @@ DEFUN (show_ip_route,
   struct route_node *rn;
   struct rib *rib;
   int first = 1;
+  vrf_id_t vrf_id = VRF_DEFAULT;
 
-  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+  if (argc)
+    VRF_GET_ID (vrf_id, argv[0]);
+
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
     return CMD_SUCCESS;
 
@@ -2056,9 +2060,22 @@ DEFUN (show_ip_nht,
        IP_STR
        "IP nexthop tracking table\n")
 {
-  zebra_print_rnh_table(0, AF_INET, vty, RNH_NEXTHOP_TYPE);
+  vrf_id_t vrf_id = VRF_DEFAULT;
+
+  if (argc)
+    VRF_GET_ID (vrf_id, argv[0]);
+
+  zebra_print_rnh_table(vrf_id, AF_INET, vty, RNH_NEXTHOP_TYPE);
   return CMD_SUCCESS;
 }
+
+ALIAS (show_ip_nht,
+       show_ip_nht_vrf_cmd,
+       "show ip nht " VRF_CMD_STR,
+       SHOW_STR
+       IP_STR
+       "IP nexthop tracking table\n"
+       VRF_CMD_HELP_STR)
 
 DEFUN (show_ipv6_nht,
        show_ipv6_nht_cmd,
@@ -2067,9 +2084,22 @@ DEFUN (show_ipv6_nht,
        IP_STR
        "IPv6 nexthop tracking table\n")
 {
-  zebra_print_rnh_table(0, AF_INET6, vty, RNH_NEXTHOP_TYPE);
+  vrf_id_t vrf_id = VRF_DEFAULT;
+
+  if (argc)
+    VRF_GET_ID (vrf_id, argv[0]);
+
+  zebra_print_rnh_table(vrf_id, AF_INET6, vty, RNH_NEXTHOP_TYPE);
   return CMD_SUCCESS;
 }
+
+ALIAS (show_ipv6_nht,
+       show_ipv6_nht_vrf_cmd,
+       "show ipv6 nht " VRF_CMD_STR,
+       SHOW_STR
+       IP_STR
+       "IPv6 nexthop tracking table\n"
+       VRF_CMD_HELP_STR)
 
 DEFUN (ip_nht_default_route,
        ip_nht_default_route_cmd,
@@ -2206,7 +2236,7 @@ DEFUN (show_ip_route_prefix_longer,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2253,7 +2283,7 @@ DEFUN (show_ip_route_supernets,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2312,7 +2342,7 @@ DEFUN (show_ip_route_protocol,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2400,7 +2430,7 @@ DEFUN (show_ip_route_addr,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2451,7 +2481,7 @@ DEFUN (show_ip_route_prefix,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2641,7 +2671,7 @@ DEFUN (show_ip_route_summary,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2675,7 +2705,7 @@ DEFUN (show_ip_route_summary_prefix,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3056,7 +3086,12 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               vty_out (vty, " %d", si->distance);
 
             if (si->vrf_id != VRF_DEFAULT)
-              vty_out (vty, " vrf %u", si->vrf_id);
+              {
+                struct vrf *vrf;
+
+                vrf = vrf_lookup(si->vrf_id);
+                vty_out (vty, " vrf %s", vrf ? vrf->name : "");
+              }
 
             vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -3084,7 +3119,7 @@ DEFUN (show_ip_mroute,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   table = zebra_vrf_table (AFI_IP, SAFI_MULTICAST, vrf_id);
   if (! table)
@@ -3251,7 +3286,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 
   /* VRF id */
   if (vrf_id_str)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, vrf_id_str);
+    VRF_GET_ID (vrf_id, vrf_id_str);
 
   if (add_cmd)
     static_add_ipv6 (&p, type, gate, ifindex, flag, tag, distance, vrf_id);
@@ -4459,7 +4494,7 @@ DEFUN (show_ipv6_route,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4551,7 +4586,7 @@ DEFUN (show_ipv6_route_prefix_longer,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4605,7 +4640,7 @@ DEFUN (show_ipv6_route_protocol,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4657,7 +4692,7 @@ DEFUN (show_ipv6_route_addr,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4708,7 +4743,7 @@ DEFUN (show_ipv6_route_prefix,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4750,7 +4785,7 @@ DEFUN (show_ipv6_route_summary,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4784,7 +4819,7 @@ DEFUN (show_ipv6_route_summary_prefix,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4824,7 +4859,7 @@ DEFUN (show_ipv6_mroute,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VTY_GET_INTEGER ("VRF ID", vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_MULTICAST, vrf_id);
   if (! table)
@@ -5232,6 +5267,31 @@ DEFUN (no_allow_external_route_update,
   return CMD_SUCCESS;
 }
 
+/* show vrf */
+DEFUN (show_vrf,
+       show_vrf_cmd,
+       "show vrf",
+       SHOW_STR
+       "VRF\n")
+{
+  struct zebra_vrf *zvrf;
+  vrf_iter_t iter;
+
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      if ((zvrf = vrf_iter2info (iter)) == NULL)
+        continue;
+      if (!zvrf->vrf_id)
+        continue;
+
+      vty_out (vty, "vrf %s id %u table %u%s",
+               zvrf->name, zvrf->vrf_id, zvrf->table_id, VTY_NEWLINE);
+
+    }
+
+  return CMD_SUCCESS;
+}
+
 /* Static ip route configuration write function. */
 static int
 zebra_ip_config (struct vty *vty)
@@ -5419,11 +5479,14 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_zebra_import_table_cmd);
   install_element (CONFIG_NODE, &no_ip_zebra_import_table_distance_cmd);
 
+  install_element (VIEW_NODE, &show_vrf_cmd);
   install_element (VIEW_NODE, &show_ip_route_cmd);
   install_element (VIEW_NODE, &show_ip_route_ospf_instance_cmd);
   install_element (VIEW_NODE, &show_ip_route_tag_cmd);
   install_element (VIEW_NODE, &show_ip_nht_cmd);
+  install_element (VIEW_NODE, &show_ip_nht_vrf_cmd);
   install_element (VIEW_NODE, &show_ipv6_nht_cmd);
+  install_element (VIEW_NODE, &show_ipv6_nht_vrf_cmd);
   install_element (VIEW_NODE, &show_ip_route_addr_cmd);
   install_element (VIEW_NODE, &show_ip_route_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_route_prefix_longer_cmd);
@@ -5431,11 +5494,13 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ip_route_supernets_cmd);
   install_element (VIEW_NODE, &show_ip_route_summary_cmd);
   install_element (VIEW_NODE, &show_ip_route_summary_prefix_cmd);
+  install_element (ENABLE_NODE, &show_vrf_cmd);
   install_element (ENABLE_NODE, &show_ip_route_cmd);
   install_element (ENABLE_NODE, &show_ip_route_ospf_instance_cmd);
   install_element (ENABLE_NODE, &show_ip_route_tag_cmd);
   install_element (ENABLE_NODE, &show_ip_nht_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_nht_cmd);
+  install_element (ENABLE_NODE, &show_ip_nht_vrf_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_nht_vrf_cmd);
   install_element (ENABLE_NODE, &show_ip_route_addr_cmd);
   install_element (ENABLE_NODE, &show_ip_route_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_route_prefix_longer_cmd);

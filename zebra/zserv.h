@@ -100,6 +100,8 @@ struct zserv
   u_int32_t bfd_peer_upd8_cnt;
   u_int32_t bfd_peer_del_cnt;
   u_int32_t bfd_peer_replay_cnt;
+  u_int32_t vrfadd_cnt;
+  u_int32_t vrfdel_cnt;
 
   time_t connect_time;
   time_t last_read_time;
@@ -133,13 +135,16 @@ extern void zebra_if_init (void);
 extern void zebra_zserv_socket_init (char *path);
 extern void hostinfo_get (void);
 extern void rib_init (void);
-extern void interface_list (struct zebra_vrf *);
-extern void route_read (struct zebra_vrf *);
-extern void kernel_init (struct zebra_vrf *);
-extern void kernel_terminate (struct zebra_vrf *);
+extern void interface_list (struct zebra_ns *);
+extern void route_read (struct zebra_ns *);
+extern void kernel_init (struct zebra_ns *);
+extern void kernel_terminate (struct zebra_ns *);
 extern void zebra_route_map_init (void);
 extern void zebra_snmp_init (void);
 extern void zebra_vty_init (void);
+
+extern int zsend_vrf_add (struct zserv *, struct vrf *);
+extern int zsend_vrf_delete (struct zserv *, struct vrf *);
 
 extern int zsend_interface_add (struct zserv *, struct interface *);
 extern int zsend_interface_delete (struct zserv *, struct interface *);

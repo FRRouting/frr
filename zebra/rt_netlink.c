@@ -44,6 +44,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/interface.h"
 #include "zebra/debug.h"
+#include "zebra/rtadv.h"
 
 #include "rt_netlink.h"
 
@@ -73,7 +74,7 @@ set_ifindex(struct interface *ifp, unsigned int ifi_index)
 {
   struct interface *oifp;
 
-  if (((oifp = if_lookup_by_index(ifi_index)) != NULL) && (oifp != ifp))
+  if (((oifp = if_lookup_by_index_per_ns (dzns, ifi_index)) != NULL) && (oifp != ifp))
     {
       if (ifi_index == IFINDEX_INTERNAL)
         zlog_err("Netlink is setting interface %s ifindex to reserved "
@@ -146,7 +147,7 @@ netlink_recvbuf (struct nlsock *nl, uint32_t newsize)
 
 /* Make socket for Linux netlink interface. */
 static int
-netlink_socket (struct nlsock *nl, unsigned long groups, vrf_id_t vrf_id)
+netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
 {
   int ret;
   struct sockaddr_nl snl;
@@ -160,7 +161,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups, vrf_id_t vrf_id)
       return -1;
     }
 
-  sock = vrf_socket (AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, vrf_id);
+  sock = vrf_socket (AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
   if (sock < 0)
     {
       zlog (NULL, LOG_ERR, "Can't open %s socket: %s", nl->name,
@@ -260,12 +261,33 @@ netlink_request (int family, int type, struct nlsock *nl)
   return 0;
 }
 
+/*
+Pending: create an efficient table_id (in a tree/hash) based lookup)
+ */
+static vrf_id_t
+vrf_lookup_by_table (u_int32_t table_id)
+{
+  struct zebra_vrf *zvrf;
+  vrf_iter_t iter;
+
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      if ((zvrf = vrf_iter2info (iter)) == NULL ||
+          (zvrf->table_id != table_id))
+        continue;
+
+      return zvrf->vrf_id;
+    }
+
+  return VRF_DEFAULT;
+}
+
 /* Receive message from netlink interface and pass those information
    to the given function. */
 static int
 netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
-                                   vrf_id_t),
-                    struct nlsock *nl, struct zebra_vrf *zvrf)
+                                   ns_id_t),
+                    struct nlsock *nl, struct zebra_ns *zns)
 {
   int status;
   int ret = 0;
@@ -354,7 +376,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
                 }
 
               /* Deal with errors that occur because of races in link handling */
-	      if (nl == &zvrf->netlink_cmd
+	      if (nl == &zns->netlink_cmd
 		  && ((msg_type == RTM_DELROUTE &&
 		       (-errnum == ENODEV || -errnum == ESRCH))
 		      || (msg_type == RTM_NEWROUTE && -errnum == EEXIST)))
@@ -367,7 +389,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 		  return 0;
 		}
 
-	      if (nl == &zvrf->netlink_cmd
+	      if (nl == &zns->netlink_cmd
 		  && msg_type == RTM_NEWROUTE && -errnum == ESRCH)
 		{
                   /* This is known to happen in some situations, don't log
@@ -398,17 +420,17 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
           /* skip unsolicited messages originating from command socket
            * linux sets the originators port-id for {NEW|DEL}ADDR messages,
            * so this has to be checked here. */
-          if (nl != &zvrf->netlink_cmd
-              && h->nlmsg_pid == zvrf->netlink_cmd.snl.nl_pid
+          if (nl != &zns->netlink_cmd
+              && h->nlmsg_pid == zns->netlink_cmd.snl.nl_pid
               && (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR))
             {
               if (IS_ZEBRA_DEBUG_KERNEL)
                 zlog_debug ("netlink_parse_info: %s packet comes from %s",
-                            zvrf->netlink_cmd.name, nl->name);
+                            zns->netlink_cmd.name, nl->name);
               continue;
             }
 
-          error = (*filter) (&snl, h, zvrf->vrf_id);
+          error = (*filter) (&snl, h, zns->ns_id);
           if (error < 0)
             {
               zlog (NULL, LOG_ERR, "%s filter function error", nl->name);
@@ -476,6 +498,98 @@ netlink_interface_update_hw_addr (struct rtattr **tb, struct interface *ifp)
     }
 }
 
+#define parse_rtattr_nested(tb, max, rta) \
+          netlink_parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta))
+
+static void
+netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
+{
+  struct ifinfomsg *ifi;
+  struct rtattr *linkinfo[IFLA_INFO_MAX+1];
+  struct rtattr *attr[IFLA_VRF_MAX+1];
+  struct vrf *vrf;
+  struct zebra_vrf *zvrf;
+  u_int32_t nl_table_id;
+
+  ifi = NLMSG_DATA (h);
+
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("%s: received VRF device message: %s", __func__, name);
+
+  parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
+
+  if (!linkinfo[IFLA_INFO_DATA]) {
+    if (IS_ZEBRA_DEBUG_KERNEL)
+      zlog_debug ("%s: IFLA_INFO_DATA missing from VRF message: %s", __func__, name);
+    return;
+  }
+
+  parse_rtattr_nested(attr, IFLA_VRF_MAX, linkinfo[IFLA_INFO_DATA]);
+  if (!attr[IFLA_VRF_TABLE]) {
+    if (IS_ZEBRA_DEBUG_KERNEL)
+      zlog_debug ("%s: IFLA_VRF_TABLE missing from VRF message: %s", __func__, name);
+    return;
+  }
+
+  nl_table_id = *(u_int32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]);
+
+  if (h->nlmsg_type == RTM_NEWLINK)
+    {
+
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug ("%s: RTM_NEWLINK for VRF  index %u, table %u", __func__,
+                    ifi->ifi_index, nl_table_id);
+
+      vrf = vrf_get((vrf_id_t)ifi->ifi_index, name); // It would create vrf
+      if (!vrf)
+        {
+          zlog_err ("VRF %s id %u not created", name, ifi->ifi_index);
+          return;
+        }
+
+      /* Enable the created VRF. */
+      if (!vrf_enable (vrf))
+        {
+          zlog_err ("Failed to enable VRF %s id %u", name, ifi->ifi_index);
+          return;
+        }
+
+      /*Pending: See if you want to optimize this code.. vrf, zvrf all have name */
+      zvrf = vrf->info;
+      zvrf->table_id = nl_table_id;
+
+      vrf_add_update(vrf);
+    }
+  else //h->nlmsg_type == RTM_DELLINK
+    {
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug ("%s: RTM_DELLINK for vrf id %u", __func__, ifi->ifi_index);
+
+      vrf = vrf_lookup ((vrf_id_t)ifi->ifi_index);
+
+      if (!vrf)
+        zlog_warn ("%s: vrf not found", __func__);
+
+      vrf_delete_update(vrf);
+
+      //Pending: keeping VRF around just like its for other links.
+      //vrf_delete (vrf);
+    }
+}
+
+static char *
+parse_link_kind (struct rtattr *tb)
+{
+  struct rtattr *linkinfo[IFLA_INFO_MAX+1];
+
+  memset (linkinfo, 0, sizeof(struct rtattr *)*(IFLA_INFO_MAX+1));
+  parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
+
+  if (linkinfo[IFLA_INFO_KIND])
+    return RTA_DATA(linkinfo[IFLA_INFO_KIND]);
+
+  return NULL;
+}
 /* Called from interface_lookup_netlink().  This function is only used
    during bootstrap. */
 static int
@@ -518,6 +632,20 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
     return -1;
   name = (char *) RTA_DATA (tb[IFLA_IFNAME]);
 
+  if (tb[IFLA_LINKINFO])
+    {
+      char *kind = parse_link_kind(tb[IFLA_LINKINFO]);
+
+      if (kind && strcmp(kind, "vrf") == 0)
+        {
+          netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
+          return 0;
+        }
+    }
+
+  if (tb[IFLA_MASTER])
+    vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+
   /* Add interface. */
   ifp = if_get_by_name_vrf (name, vrf_id);
   set_ifindex(ifp, ifi->ifi_index);
@@ -537,7 +665,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
 /* Lookup interface IPv4/IPv6 address. */
 static int
 netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    vrf_id_t vrf_id)
+    ns_id_t ns_id)
 {
   int len;
   struct ifaddrmsg *ifa;
@@ -547,6 +675,8 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
   void *broad;
   u_char flags = 0;
   char *label = NULL;
+
+  vrf_id_t vrf_id = ns_id;
 
   ifa = NLMSG_DATA (h);
 
@@ -567,7 +697,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
   memset (tb, 0, sizeof tb);
   netlink_parse_rtattr (tb, IFA_MAX, IFA_RTA (ifa), len);
 
-  ifp = if_lookup_by_index_vrf (ifa->ifa_index, vrf_id);
+  ifp = if_lookup_by_index_per_ns (dzns, ifa->ifa_index);
   if (ifp == NULL)
     {
       zlog_err ("netlink_interface_addr can't find interface by index %d vrf %u",
@@ -707,6 +837,8 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
   table = rtm->rtm_table;
   if (!is_zebra_valid_kernel_table(table) && !is_zebra_main_routing_table(table))
       return 0;
+
+  vrf_id = vrf_lookup_by_table(table);
 
   len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
   if (len < 0)
@@ -854,7 +986,7 @@ static const struct message rtproto_str[] = {
 /* Routing information change from the kernel. */
 static int
 netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    vrf_id_t vrf_id)
+                      ns_id_t ns_id)
 {
   int len;
   struct rtmsg *rtm;
@@ -870,6 +1002,8 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   void *dest;
   void *gate;
   void *src;
+
+  vrf_id_t vrf_id = ns_id;
 
   rtm = NLMSG_DATA (h);
 
@@ -899,6 +1033,8 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (!is_zebra_valid_kernel_table(table) && !is_zebra_main_routing_table(table))
       return 0;
 
+  vrf_id = vrf_lookup_by_table(table);
+ 
   len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
   if (len < 0)
     return -1;
@@ -1062,13 +1198,17 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 static int
 netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    vrf_id_t vrf_id)
+    ns_id_t ns_id)
 {
   int len;
   struct ifinfomsg *ifi;
   struct rtattr *tb[IFLA_MAX + 1];
   struct interface *ifp;
   char *name;
+  struct connected *ifc;
+  struct listnode *node;
+
+  vrf_id_t vrf_id = ns_id;
 
   ifi = NLMSG_DATA (h);
 
@@ -1106,20 +1246,57 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
     return -1;
   name = (char *) RTA_DATA (tb[IFLA_IFNAME]);
 
+  if (tb[IFLA_LINKINFO])
+    {
+      char *kind = parse_link_kind(tb[IFLA_LINKINFO]);
+
+      if (kind && strcmp(kind, "vrf") == 0)
+        {
+          netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
+          return 0;
+        }
+    }
+
   /* Add interface. */
   if (h->nlmsg_type == RTM_NEWLINK)
     {
-      ifp = if_lookup_by_name_vrf (name, vrf_id);
+      if (tb[IFLA_MASTER])
+        vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
 
-      if (ifp == NULL || !CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
+      /* clean up any old ifps in a different VRF */
+      ifp = if_lookup_by_index_per_ns (dzns, ifi->ifi_index);
+      if (ifp && ifp->vrf_id != vrf_id)
+        {
+          if_down (ifp); //Ideally, we should have down/delete come from kernel
+      //    if_delete_update (ifp); //Pending: see how best to make the old ifp unusable
+          for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
+            if (ifc->address->family == AF_INET6)
+              ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
+        }
+
+      if (ifp == NULL || !CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE) ||
+          ifp->vrf_id != vrf_id)
         {
           if (ifp == NULL)
             ifp = if_get_by_name_vrf (name, vrf_id);
+          else
+            {
+              if_update_vrf (ifp, name, strlen(name), vrf_id);
+
+              for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
+                if (ifc->address->family == AF_INET6)
+                  ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+            }
 
           set_ifindex(ifp, ifi->ifi_index);
           ifp->flags = ifi->ifi_flags & 0x0000fffff;
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 0;
+
+          if (IS_ZEBRA_DEBUG_KERNEL)
+                  zlog_debug ("%s: RTM_NEWLINK for %s vrf_id %u", __func__, name,
+                                  ifp->vrf_id);
+
 
           netlink_interface_update_hw_addr (tb, ifp);
 
@@ -1132,6 +1309,12 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
           set_ifindex(ifp, ifi->ifi_index);
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 0;
+
+          // Pending, handle the vrf_id change..
+
+          if (IS_ZEBRA_DEBUG_KERNEL)
+             zlog_debug ("%s: RTM_NEWLINK status for %s vrf_id %u", __func__, name,
+                                  ifp->vrf_id);
 
           netlink_interface_update_hw_addr (tb, ifp);
 
@@ -1154,6 +1337,9 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
     }
   else
     {
+      if (tb[IFLA_MASTER])
+        vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+
       /* RTM_DELLINK. */
       ifp = if_lookup_by_name_vrf (name, vrf_id);
 
@@ -1172,7 +1358,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 static int
 netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    vrf_id_t vrf_id)
+    ns_id_t ns_id)
 {
   /* JF: Ignore messages that aren't from the kernel */
   if ( snl->nl_pid != 0 )
@@ -1184,26 +1370,26 @@ netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
   switch (h->nlmsg_type)
     {
     case RTM_NEWROUTE:
-      return netlink_route_change (snl, h, vrf_id);
+      return netlink_route_change (snl, h, ns_id);
       break;
     case RTM_DELROUTE:
-      return netlink_route_change (snl, h, vrf_id);
+      return netlink_route_change (snl, h, ns_id);
       break;
     case RTM_NEWLINK:
-      return netlink_link_change (snl, h, vrf_id);
+      return netlink_link_change (snl, h, ns_id);
       break;
     case RTM_DELLINK:
-      return netlink_link_change (snl, h, vrf_id);
+      return netlink_link_change (snl, h, ns_id);
       break;
     case RTM_NEWADDR:
-      return netlink_interface_addr (snl, h, vrf_id);
+      return netlink_interface_addr (snl, h, ns_id);
       break;
     case RTM_DELADDR:
-      return netlink_interface_addr (snl, h, vrf_id);
+      return netlink_interface_addr (snl, h, ns_id);
       break;
     default:
       zlog_warn ("Unknown netlink nlmsg_type %d vrf %u\n", h->nlmsg_type,
-                 vrf_id);
+                 ns_id);
       break;
     }
   return 0;
@@ -1211,32 +1397,32 @@ netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 /* Interface lookup by netlink socket. */
 int
-interface_lookup_netlink (struct zebra_vrf *zvrf)
+interface_lookup_netlink (struct zebra_ns *zns)
 {
   int ret;
 
   /* Get interface information. */
-  ret = netlink_request (AF_PACKET, RTM_GETLINK, &zvrf->netlink_cmd);
+  ret = netlink_request (AF_PACKET, RTM_GETLINK, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface, &zvrf->netlink_cmd, zvrf);
+  ret = netlink_parse_info (netlink_interface, &zns->netlink_cmd, zns);
   if (ret < 0)
     return ret;
 
   /* Get IPv4 address of the interfaces. */
-  ret = netlink_request (AF_INET, RTM_GETADDR, &zvrf->netlink_cmd);
+  ret = netlink_request (AF_INET, RTM_GETADDR, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface_addr, &zvrf->netlink_cmd, zvrf);
+  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns);
   if (ret < 0)
     return ret;
 
 #ifdef HAVE_IPV6
   /* Get IPv6 address of the interfaces. */
-  ret = netlink_request (AF_INET6, RTM_GETADDR, &zvrf->netlink_cmd);
+  ret = netlink_request (AF_INET6, RTM_GETADDR, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface_addr, &zvrf->netlink_cmd, zvrf);
+  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns);
   if (ret < 0)
     return ret;
 #endif /* HAVE_IPV6 */
@@ -1247,24 +1433,24 @@ interface_lookup_netlink (struct zebra_vrf *zvrf)
 /* Routing table read function using netlink interface.  Only called
    bootstrap time. */
 int
-netlink_route_read (struct zebra_vrf *zvrf)
+netlink_route_read (struct zebra_ns *zns)
 {
   int ret;
 
   /* Get IPv4 routing table. */
-  ret = netlink_request (AF_INET, RTM_GETROUTE, &zvrf->netlink_cmd);
+  ret = netlink_request (AF_INET, RTM_GETROUTE, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_routing_table, &zvrf->netlink_cmd, zvrf);
+  ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns);
   if (ret < 0)
     return ret;
 
 #ifdef HAVE_IPV6
   /* Get IPv6 routing table. */
-  ret = netlink_request (AF_INET6, RTM_GETROUTE, &zvrf->netlink_cmd);
+  ret = netlink_request (AF_INET6, RTM_GETROUTE, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_routing_table, &zvrf->netlink_cmd, zvrf);
+  ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns);
   if (ret < 0)
     return ret;
 #endif /* HAVE_IPV6 */
@@ -1338,16 +1524,16 @@ addattr32 (struct nlmsghdr *n, unsigned int maxlen, int type, int data)
 
 static int
 netlink_talk_filter (struct sockaddr_nl *snl, struct nlmsghdr *h,
-    vrf_id_t vrf_id)
+    ns_id_t ns_id)
 {
-  zlog_warn ("netlink_talk: ignoring message type 0x%04x vrf %u", h->nlmsg_type,
-             vrf_id);
+  zlog_warn ("netlink_talk: ignoring message type 0x%04x NS %u", h->nlmsg_type,
+             ns_id);
   return 0;
 }
 
 /* sendmsg() to netlink socket then recvmsg(). */
 static int
-netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_vrf *zvrf)
+netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
 {
   int status;
   struct sockaddr_nl snl;
@@ -1397,7 +1583,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_vrf *zvrf)
    * Get reply from netlink socket. 
    * The reply should either be an acknowlegement or an error.
    */
-  return netlink_parse_info (netlink_talk_filter, nl, zvrf);
+  return netlink_parse_info (netlink_talk_filter, nl, zns);
 }
 
 /* Routing table change via netlink interface. */
@@ -1410,7 +1596,7 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
   struct sockaddr_nl snl;
   int discard;
 
-  struct zebra_vrf *zvrf = vrf_info_lookup (VRF_DEFAULT); //Pending
+  struct zebra_ns *zns = dzns;
 
   struct
   {
@@ -1473,7 +1659,7 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
   snl.nl_family = AF_NETLINK;
 
   /* Talk to netlink socket. */
-  ret = netlink_talk (&req.n, &zvrf->netlink_cmd, VRF_DEFAULT);
+  ret = netlink_talk (&req.n, &zns->netlink_cmd, NS_DEFAULT);
   if (ret < 0)
     return -1;
 
@@ -1789,7 +1975,7 @@ netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen)
       char                    buf[256];
   } req;
 
-  struct zebra_vrf *zvrf = vrf_info_lookup (VRF_DEFAULT); //Pending
+  struct zebra_ns *zns = dzns;
 
   memset(&req.n, 0, sizeof(req.n));
   memset(&req.ndm, 0, sizeof(req.ndm));
@@ -1805,7 +1991,7 @@ netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen)
   addattr_l(&req.n, sizeof(req), NDA_DST, &addr, 4);
   addattr_l(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
-  return netlink_talk (&req.n, &zvrf->netlink_cmd, VRF_DEFAULT);
+  return netlink_talk (&req.n, &zns->netlink_cmd, NS_DEFAULT);
 }
 
 /* Routing table change via netlink interface. */
@@ -1831,6 +2017,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
     char buf[NL_PKT_BUF_SIZE];
   } req;
 
+  struct zebra_ns *zns = dzns;
   struct zebra_vrf *zvrf = vrf_info_lookup (rib->vrf_id);
 
   memset (&req, 0, sizeof req - NL_PKT_BUF_SIZE);
@@ -2083,7 +2270,7 @@ skip:
   snl.nl_family = AF_NETLINK;
 
   /* Talk to netlink socket. */
-  return netlink_talk (&req.n, &zvrf->netlink_cmd, zvrf);
+  return netlink_talk (&req.n, &zns->netlink_cmd, zns);
 }
 
 int
@@ -2152,7 +2339,7 @@ netlink_address (int cmd, int family, struct interface *ifp,
     char buf[NL_PKT_BUF_SIZE];
   } req;
 
-  struct zebra_vrf *zvrf = vrf_info_lookup (ifp->vrf_id);
+  struct zebra_ns *zns = dzns; //vrf_info_lookup (ifp->vrf_id);
 
   p = ifc->address;
   memset (&req, 0, sizeof req - NL_PKT_BUF_SIZE);
@@ -2186,7 +2373,7 @@ netlink_address (int cmd, int family, struct interface *ifp,
     addattr_l (&req.n, sizeof req, IFA_LABEL, ifc->label,
                strlen (ifc->label) + 1);
 
-  return netlink_talk (&req.n, &zvrf->netlink_cmd, zvrf);
+  return netlink_talk (&req.n, &zns->netlink_cmd, zns);
 }
 
 int
@@ -2208,10 +2395,10 @@ extern struct thread_master *master;
 static int
 kernel_read (struct thread *thread)
 {
-  struct zebra_vrf *zvrf = (struct zebra_vrf *)THREAD_ARG (thread);
-  netlink_parse_info (netlink_information_fetch, &zvrf->netlink, zvrf);
-  zvrf->t_netlink = thread_add_read (zebrad.master, kernel_read, zvrf,
-                                     zvrf->netlink.sock);
+  struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG (thread);
+  netlink_parse_info (netlink_information_fetch, &zns->netlink, zns);
+  zns->t_netlink = thread_add_read (zebrad.master, kernel_read, zns,
+                                     zns->netlink.sock);
 
   return 0;
 }
@@ -2250,7 +2437,7 @@ static void netlink_install_filter (int sock, __u32 pid)
 /* Exported interface function.  This function simply calls
    netlink_socket (). */
 void
-kernel_init (struct zebra_vrf *zvrf)
+kernel_init (struct zebra_ns *zns)
 {
   unsigned long groups;
 
@@ -2258,42 +2445,42 @@ kernel_init (struct zebra_vrf *zvrf)
 #ifdef HAVE_IPV6
   groups |= RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR;
 #endif /* HAVE_IPV6 */
-  netlink_socket (&zvrf->netlink, groups, zvrf->vrf_id);
-  netlink_socket (&zvrf->netlink_cmd, 0, zvrf->vrf_id);
+  netlink_socket (&zns->netlink, groups, zns->ns_id);
+  netlink_socket (&zns->netlink_cmd, 0, zns->ns_id);
 
   /* Register kernel socket. */
-  if (zvrf->netlink.sock > 0)
+  if (zns->netlink.sock > 0)
     {
       /* Only want non-blocking on the netlink event socket */
-      if (fcntl (zvrf->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
-        zlog_err ("Can't set %s socket flags: %s", zvrf->netlink.name,
+      if (fcntl (zns->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
+        zlog_err ("Can't set %s socket flags: %s", zns->netlink.name,
                   safe_strerror (errno));
 
       /* Set receive buffer size if it's set from command line */
       if (nl_rcvbufsize)
-        netlink_recvbuf (&zvrf->netlink, nl_rcvbufsize);
+        netlink_recvbuf (&zns->netlink, nl_rcvbufsize);
 
-      netlink_install_filter (zvrf->netlink.sock, zvrf->netlink_cmd.snl.nl_pid);
-      zvrf->t_netlink = thread_add_read (zebrad.master, kernel_read, zvrf,
-                                         zvrf->netlink.sock);
+      netlink_install_filter (zns->netlink.sock, zns->netlink_cmd.snl.nl_pid);
+      zns->t_netlink = thread_add_read (zebrad.master, kernel_read, zns,
+                                         zns->netlink.sock);
     }
 }
 
 void
-kernel_terminate (struct zebra_vrf *zvrf)
+kernel_terminate (struct zebra_ns *zns)
 {
-  THREAD_READ_OFF (zvrf->t_netlink);
+  THREAD_READ_OFF (zns->t_netlink);
 
-  if (zvrf->netlink.sock >= 0)
+  if (zns->netlink.sock >= 0)
     {
-      close (zvrf->netlink.sock);
-      zvrf->netlink.sock = -1;
+      close (zns->netlink.sock);
+      zns->netlink.sock = -1;
     }
 
-  if (zvrf->netlink_cmd.sock >= 0)
+  if (zns->netlink_cmd.sock >= 0)
     {
-      close (zvrf->netlink_cmd.sock);
-      zvrf->netlink_cmd.sock = -1;
+      close (zns->netlink_cmd.sock);
+      zns->netlink_cmd.sock = -1;
     }
 }
 

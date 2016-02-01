@@ -443,7 +443,9 @@ struct in_pktinfo
 #define ZEBRA_REDISTRIBUTE_IPV6_ADD       40
 #define ZEBRA_REDISTRIBUTE_IPV6_DEL       41
 #define ZEBRA_VRF_UNREGISTER              42
-#define ZEBRA_MESSAGE_MAX                 43
+#define ZEBRA_VRF_ADD                     43
+#define ZEBRA_VRF_DELETE                  44
+#define ZEBRA_MESSAGE_MAX                 45
 
 /* Marker value used in new Zserv, in the byte location corresponding
  * the command value in the old zserv header. To allow old and new

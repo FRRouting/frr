@@ -171,6 +171,16 @@ zserv_encode_interface (struct stream *s, struct interface *ifp)
   stream_putw_at (s, 0, stream_get_endp (s));
 }
 
+static void
+zserv_encode_vrf (struct stream *s, struct vrf *vrfp)
+{
+  /* Interface information. */
+  stream_put (s, vrfp->name, VRF_NAMSIZ);
+
+  /* Write packet size. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+}
+
 /* Interface is added. Send ZEBRA_INTERFACE_ADD to client. */
 /*
  * This function is called in the following situations:
@@ -218,6 +228,37 @@ zsend_interface_delete (struct zserv *client, struct interface *ifp)
   zserv_encode_interface (s, ifp);
 
   client->ifdel_cnt++;
+  return zebra_server_send_message (client);
+}
+
+int
+zsend_vrf_add (struct zserv *client, struct vrf *vrfp)
+{
+  struct stream *s;
+
+  s = client->obuf;
+  stream_reset (s);
+
+  zserv_create_header (s, ZEBRA_VRF_ADD, vrfp->vrf_id);
+  zserv_encode_vrf (s, vrfp);
+
+  client->vrfadd_cnt++;
+  return zebra_server_send_message(client);
+}
+
+/* VRF deletion from zebra daemon. */
+int
+zsend_vrf_delete (struct zserv *client, struct vrf *vrfp)
+{
+  struct stream *s;
+
+  s = client->obuf;
+  stream_reset (s);
+
+  zserv_create_header (s, ZEBRA_VRF_DELETE, vrfp->vrf_id);
+  zserv_encode_vrf (s, vrfp);
+
+  client->vrfdel_cnt++;
   return zebra_server_send_message (client);
 }
 
@@ -819,7 +860,7 @@ zserv_rnh_register (struct zserv *client, int sock, u_short length,
 		   p.family);
 	  return -1;
 	}
-      rnh = zebra_add_rnh(&p, 0, type);
+      rnh = zebra_add_rnh(&p, vrf_id, type);
       if (type == RNH_NEXTHOP_TYPE)
 	{
 	  if (flags && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
@@ -837,7 +878,7 @@ zserv_rnh_register (struct zserv *client, int sock, u_short length,
 
       zebra_add_rnh_client(rnh, client, type, vrf_id);
       /* Anything not AF_INET/INET6 has been filtered out above */
-      zebra_evaluate_rnh(0, p.family, 1, type, &p);
+      zebra_evaluate_rnh(vrf_id, p.family, 1, type, &p);
     }
   return 0;
 }
@@ -845,7 +886,7 @@ zserv_rnh_register (struct zserv *client, int sock, u_short length,
 /* Nexthop register */
 static int
 zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
-		      rnh_type_t type)
+		      rnh_type_t type, vrf_id_t vrf_id)
 {
   struct rnh *rnh;
   struct stream *s;
@@ -880,7 +921,7 @@ zserv_rnh_unregister (struct zserv *client, int sock, u_short length,
 		   p.family);
 	  return -1;
 	}
-      rnh = zebra_lookup_rnh(&p, 0, type);
+      rnh = zebra_lookup_rnh(&p, vrf_id, type);
       if (rnh)
 	{
 	  client->nh_dereg_time = quagga_time(NULL);
@@ -1137,7 +1178,18 @@ zread_ipv4_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
     rib->tag = 0;
 
   /* Table */
-  rib->table=zebrad.rtm_table_default;
+  if (vrf_id)
+    {
+      struct zebra_vrf *zvrf;
+
+      zvrf = vrf_info_lookup (vrf_id);
+      if (zvrf)
+        rib->table = zvrf->table_id;
+    }
+  else
+    {
+      rib->table=zebrad.rtm_table_default;
+    }
   ret = rib_add_ipv4_multipath (&p, rib, safi);
 
   /* Stats */
@@ -1160,7 +1212,10 @@ zread_ipv4_delete (struct zserv *client, u_short length, vrf_id_t vrf_id)
   struct prefix_ipv4 p;
   u_char nexthop_num;
   u_char nexthop_type;
+  u_int32_t table_id;
   
+  table_id = client->rtm_table;
+
   s = client->ibuf;
   ifindex = 0;
   nexthop.s_addr = 0;
@@ -1227,8 +1282,21 @@ zread_ipv4_delete (struct zserv *client, u_short length, vrf_id_t vrf_id)
   else
     api.tag = 0;
 
+  if (vrf_id)
+    {
+      struct zebra_vrf *zvrf;
+
+      zvrf = vrf_info_lookup (vrf_id);
+      if (zvrf)
+        table_id = zvrf->table_id;
+    }
+  else
+    {
+      table_id = client->rtm_table;
+    }
+
   rib_delete_ipv4 (api.type, api.instance, api.flags, &p, nexthop_p, ifindex,
-		   vrf_id, client->rtm_table, api.safi);
+		   vrf_id, table_id, api.safi);
   client->v4_route_del_cnt++;
   return 0;
 }
@@ -1265,7 +1333,7 @@ zread_ipv4_import_lookup (struct zserv *client, u_short length,
 #ifdef HAVE_IPV6
 /* Zebra server IPv6 prefix add function. */
 static int
-zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length)
+zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
 {
   int i;
   struct stream *s;
@@ -1373,7 +1441,18 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length)
     rib->tag = 0;
 
   /* Table */
-  rib->table=zebrad.rtm_table_default;
+  if (vrf_id)
+    {
+      struct zebra_vrf *zvrf;
+
+      zvrf = vrf_info_lookup (vrf_id);
+      if (zvrf)
+        rib->table = zvrf->table_id;
+    }
+  else
+    {
+      rib->table=zebrad.rtm_table_default;
+    }
   ret = rib_add_ipv6_multipath ((struct prefix *)&p, rib, safi, ifindex);
   /* Stats */
   if (ret > 0)
@@ -1489,9 +1568,20 @@ zread_ipv6_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
   else
     rib->tag = 0;
 
-  /* Table */
-  rib->table=zebrad.rtm_table_default;
   rib->vrf_id = vrf_id;
+  /* Table */
+  if (vrf_id)
+    {
+      struct zebra_vrf *zvrf;
+
+      zvrf = vrf_info_lookup (vrf_id);
+      if (zvrf)
+        rib->table = zvrf->table_id;
+    }
+  else
+    {
+      rib->table=zebrad.rtm_table_default;
+    }
   ret = rib_add_ipv6_multipath ((struct prefix *)&p, rib, safi, ifindex);
   /* Stats */
   if (ret > 0)
@@ -1736,6 +1826,8 @@ zebra_client_create (int sock)
   
   /* Make new read thread. */
   zebra_event (ZEBRA_READ, sock, client);
+
+  zebra_vrf_update_all (client);
 }
 
 /* Handler of zebra service request. */
@@ -1870,7 +1962,7 @@ zebra_client_read (struct thread *thread)
       break;
 #ifdef HAVE_IPV6
     case ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD:
-      zread_ipv4_route_ipv6_nexthop_add (client, length);
+      zread_ipv4_route_ipv6_nexthop_add (client, length, vrf_id);
       break;
     case ZEBRA_IPV6_ROUTE_ADD:
       zread_ipv6_add (client, length, vrf_id);
@@ -1909,13 +2001,13 @@ zebra_client_read (struct thread *thread)
       zserv_rnh_register(client, sock, length, RNH_NEXTHOP_TYPE, vrf_id);
       break;
     case ZEBRA_NEXTHOP_UNREGISTER:
-      zserv_rnh_unregister(client, sock, length, RNH_NEXTHOP_TYPE);
+      zserv_rnh_unregister(client, sock, length, RNH_NEXTHOP_TYPE, vrf_id);
       break;
     case ZEBRA_IMPORT_ROUTE_REGISTER:
       zserv_rnh_register(client, sock, length, RNH_IMPORT_CHECK_TYPE, vrf_id);
       break;
     case ZEBRA_IMPORT_ROUTE_UNREGISTER:
-      zserv_rnh_unregister(client, sock, length, RNH_IMPORT_CHECK_TYPE);
+      zserv_rnh_unregister(client, sock, length, RNH_IMPORT_CHECK_TYPE, vrf_id);
       break;
     case ZEBRA_BFD_DEST_UPDATE:
     case ZEBRA_BFD_DEST_REGISTER:

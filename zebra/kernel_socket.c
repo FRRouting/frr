@@ -1263,11 +1263,8 @@ kernel_read (struct thread *thread)
 
 /* Make routing socket. */
 static void
-routing_socket (struct zebra_vrf *zvrf)
+routing_socket (struct zebra_ns *zns)
 {
-  if (zvrf->vrf_id != VRF_DEFAULT)
-    return;
-
   if ( zserv_privs.change (ZPRIVS_RAISE) )
     zlog_err ("routing_socket: Can't raise privileges");
 
@@ -1298,13 +1295,13 @@ routing_socket (struct zebra_vrf *zvrf)
 /* Exported interface function.  This function simply calls
    routing_socket (). */
 void
-kernel_init (struct zebra_vrf *zvrf)
+kernel_init (struct zebra_ns *zns)
 {
-  routing_socket (zvrf);
+  routing_socket (zns);
 }
 
 void
-kernel_terminate (struct zebra_vrf *zvrf)
+kernel_terminate (struct zebra_ns *zns)
 {
   return;
 }

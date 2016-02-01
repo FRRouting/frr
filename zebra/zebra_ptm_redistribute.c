@@ -100,7 +100,7 @@ zsend_bfd_peer_replay (int cmd, struct zserv *client)
   s = client->obuf;
   stream_reset (s);
 
-  zserv_create_header (s, cmd, VRF_DEFAULT); //Pending:
+  zserv_create_header (s, cmd, VRF_DEFAULT); //Pending: adjust when multi-vrf bfd work
 
   /* Write packet size. */
   stream_putw_at (s, 0, stream_get_endp (s));

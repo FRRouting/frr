@@ -26,6 +26,7 @@
 #include "table.h"
 #include "zserv.h"
 #include "vty.h"
+#include "vrf.h"
 
 extern void zebra_redistribute_add (int, struct zserv *, int, vrf_id_t);
 extern void zebra_redistribute_delete (int, struct zserv *, int, vrf_id_t);
@@ -41,6 +42,9 @@ extern void redistribute_delete (struct prefix *, struct rib *);
 extern void zebra_interface_up_update (struct interface *);
 extern void zebra_interface_down_update (struct interface *);
 
+extern void zebra_vrf_add_update (struct vrf *);
+extern void zebra_vrf_update_all (struct zserv *);
+extern void zebra_vrf_delete_update (struct vrf *);
 extern void zebra_interface_add_update (struct interface *);
 extern void zebra_interface_delete_update (struct interface *);
 

@@ -351,11 +351,11 @@ interface_info_ioctl (struct interface *ifp)
 
 /* Lookup all interface information. */
 void
-interface_list (struct zebra_vrf *zvrf)
+interface_list (struct zebra_ns *zns)
 {
-  if (zvrf->vrf_id != VRF_DEFAULT)
+  if (zns->ns_id != NS_DEFAULT)
     {
-      zlog_warn ("interface_list: ignore VRF %u", zvrf->vrf_id);
+      zlog_warn ("interface_list: ignore NS %u", zns->ns_id);
       return;
     }
   interface_list_ioctl (AF_INET);

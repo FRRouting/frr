@@ -213,19 +213,47 @@ struct quagga_signal_t zebra_signals[] =
     .handler = &sigint,
   },
 };
-
+ 
 /* Callback upon creating a new VRF. */
 static int
 zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct zebra_vrf *zvrf = *info;
 
+  zlog_info ("ZVRF %s with id %u", name, vrf_id);
+
   if (! zvrf)
     {
-      zvrf = zebra_vrf_alloc (vrf_id);
+      zvrf = zebra_vrf_alloc (vrf_id, name);
       *info = (void *)zvrf;
       router_id_init (zvrf);
     }
+
+  return 0;
+}
+
+static int
+zebra_ns_enable (ns_id_t ns_id, void **info)
+{
+  struct zebra_ns *zns = (struct zebra_ns *) (*info);
+#ifdef HAVE_NETLINK
+  char nl_name[64];
+#endif
+
+#ifdef HAVE_NETLINK
+  /* Initialize netlink sockets */
+  snprintf (nl_name, 64, "netlink-listen (NS %u)", ns_id);
+  zns->netlink.sock = -1;
+  zns->netlink.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
+ 
+  snprintf (nl_name, 64, "netlink-cmd (NS %u)", ns_id);
+  zns->netlink_cmd.sock = -1;
+  zns->netlink_cmd.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
+#endif
+  zns->if_table = route_table_init ();
+  kernel_init (zns);
+  interface_list (zns);
+  route_read (zns);
 
   return 0;
 }
@@ -241,12 +269,21 @@ zebra_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
 #if defined (HAVE_RTADV)
   rtadv_init (zvrf);
 #endif
-  kernel_init (zvrf);
-  interface_list (zvrf);
-  route_read (zvrf);
 
   return 0;
 }
+
+/*
+static int
+zebra_ns_disable (ns_id_t ns_id, void **info)
+{
+  struct zebra_ns *zns = (struct zebra_ns *) (*info);
+
+  kernel_terminate (zns);
+
+  return 0;
+}
+*/
 
 /* Callback upon disabling a VRF. */
 static int
@@ -272,7 +309,6 @@ zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
 #if defined (HAVE_RTADV)
   rtadv_terminate (zvrf);
 #endif
-  kernel_terminate (zvrf);
 
   list_delete_all_node (zvrf->rid_all_sorted_list);
   list_delete_all_node (zvrf->rid_lo_sorted_list);
@@ -284,10 +320,19 @@ zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
 static void
 zebra_vrf_init (void)
 {
+  struct zebra_ns *zns;
+
   vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
   vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
   vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
+  
+  /* Default NS initialization */
+  
+  zns = XCALLOC (MTYPE_ZEBRA_VRF, sizeof (struct zebra_ns));
+  dzns = zns; //Pending: Doing it all for the default namespace only for now.
+
   vrf_init ();
+  zebra_ns_enable (0, (void **)&zns);
 }
 
 /* Main startup routine. */

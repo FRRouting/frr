@@ -56,10 +56,10 @@ int netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llale
   return 0;
 }
 
-void kernel_init (struct zebra_vrf *zvrf) { return; }
-void kernel_terminate (struct zebra_vrf *zvrf) { return; }
+void kernel_init (struct zebra_ns *zns) { return; }
+void kernel_terminate (struct zebra_ns *zns) { return; }
 #ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
 #pragma weak route_read = kernel_init
 #else
-void route_read (struct zebra_vrf *zvrf) { return; }
+void route_read (struct zebra_ns *zns) { return; }
 #endif

@@ -23,6 +23,7 @@
 #define _ZEBRA_INTERFACE_H
 
 #include "redistribute.h"
+#include "vrf.h"
 
 #ifdef HAVE_IRDP
 #include "zebra/irdp.h"
@@ -206,6 +207,10 @@ struct zebra_if
 #endif /* SUNOS_5 */
 };
 
+
+extern struct interface *if_lookup_by_index_per_ns (struct zebra_ns *, u_int32_t);
+extern struct interface *if_link_per_ns (struct zebra_ns *, struct interface *);
+extern void if_unlink_per_ns (struct interface *);
 extern void if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
                                                   struct in6_addr *address, int add);
 extern void if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (struct interface *ifp);
@@ -218,6 +223,9 @@ extern void if_flags_update (struct interface *, uint64_t);
 extern int if_subnet_add (struct interface *, struct connected *);
 extern int if_subnet_delete (struct interface *, struct connected *);
 extern int ipv6_address_configured (struct interface *ifp);
+
+extern void vrf_delete_update (struct vrf *vrfp);
+extern void vrf_add_update (struct vrf *vrfp);
 
 #ifdef HAVE_PROC_NET_DEV
 extern void ifstat_update_proc (void);

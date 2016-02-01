@@ -93,7 +93,7 @@ ifstat_update_sysctl (void)
 
 /* Interface listing up function using sysctl(). */
 void
-interface_list (struct zebra_vrf *zvrf)
+interface_list (struct zebra_ns *zns)
 {
   caddr_t ref, buf, end;
   size_t bufsiz;
@@ -110,9 +110,9 @@ interface_list (struct zebra_vrf *zvrf)
     0 
   };
 
-  if (zvrf->vrf_id != VRF_DEFAULT)
+  if (zns->ns_id != NS_DEFAULT)
     {
-      zlog_warn ("interface_list: ignore VRF %u", zvrf->vrf_id);
+      zlog_warn ("interface_list: ignore NS %u", zns->ns_id);
       return;
     }
 

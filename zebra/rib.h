@@ -295,9 +295,14 @@ struct zebra_ns
   /* Identifier. */
   ns_id_t ns_id;
 
+#ifdef HAVE_NETLINK
+  struct nlsock netlink;     /* kernel messages */
+  struct nlsock netlink_cmd; /* command channel */
+  struct thread *t_netlink;
+#endif
+
   struct route_table *if_table;
 };
-
 
 /* Routing table instance.  */
 struct zebra_vrf
@@ -331,12 +336,6 @@ struct zebra_vrf
   /* Routing tables off of main table for redistribute table */
   struct route_table *other_table[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
-#ifdef HAVE_NETLINK
-  struct nlsock netlink;     /* kernel messages */
-  struct nlsock netlink_cmd; /* command channel */
-  struct thread *t_netlink;
-#endif
-
   /* 2nd pointer type used primarily to quell a warning on
    * ALL_LIST_ELEMENTS_RO
    */
@@ -355,6 +354,8 @@ struct zebra_vrf
    */
   struct zebra_ns *zns;
 };
+
+extern struct zebra_ns *dzns;
 
 /*
  * rib_table_info_t
@@ -413,8 +414,8 @@ extern void rib_nexthop_add (struct rib *rib, struct nexthop *nexthop);
 extern void rib_copy_nexthops (struct rib *rib, struct nexthop *nh);
 
 extern int nexthop_has_fib_child(struct nexthop *);
-extern void rib_lookup_and_dump (struct prefix_ipv4 *);
-extern void rib_lookup_and_pushup (struct prefix_ipv4 *);
+extern void rib_lookup_and_dump (struct prefix_ipv4 *, vrf_id_t);
+extern void rib_lookup_and_pushup (struct prefix_ipv4 *, vrf_id_t);
 #define rib_dump(prefix ,rib) _rib_dump(__func__, prefix, rib)
 extern void _rib_dump (const char *,
 		       union prefix46constptr, const struct rib *);
@@ -432,7 +433,7 @@ extern struct nexthop *rib_nexthop_ipv6_ifindex_add (struct rib *rib,
 						     unsigned int ifindex);
 
 extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
-extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t);
+extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t, const char *);
 extern struct route_table *zebra_vrf_table (afi_t, safi_t, vrf_id_t);
 extern struct route_table *zebra_vrf_static_table (afi_t, safi_t, vrf_id_t);
 extern struct route_table *zebra_vrf_other_route_table (afi_t afi, u_int32_t table_id,

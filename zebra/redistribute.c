@@ -456,6 +456,47 @@ zebra_interface_delete_update (struct interface *ifp)
       }
 }
 
+/* VRF information update. */
+void
+zebra_vrf_add_update (struct vrf *vrfp)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("MESSAGE: ZEBRA_VRF_ADD %s", vrfp->name);
+    
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    zsend_vrf_add (client, vrfp);
+}
+
+void
+zebra_vrf_delete_update (struct vrf *vrfp)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("MESSAGE: ZEBRA_VRF_DELETE %s", vrfp->name);
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    zsend_vrf_delete (client, vrfp);
+}
+
+void
+zebra_vrf_update_all (struct zserv *client)
+{
+  struct vrf *vrf;
+  vrf_iter_t iter;
+
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      if ((vrf = vrf_iter2vrf (iter)) && vrf->vrf_id)
+        zsend_vrf_add (client, vrf);
+    }
+}
+
+
 /* Interface address addition. */
 void
 zebra_interface_address_add_update (struct interface *ifp,

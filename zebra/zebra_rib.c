@@ -213,6 +213,9 @@ rib_nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
     nexthop->src.ipv4 = *src;
   nexthop->ifindex = ifindex;
   ifp = if_lookup_by_index (nexthop->ifindex);
+  /*Pending: need to think if null ifp here is ok during bootup?
+    There was a crash because ifp here was coming to be NULL */
+  if (ifp)
   if (connected_is_unnumbered(ifp)) {
     SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
    }
@@ -1891,19 +1894,13 @@ rib_link (struct route_node *rn, struct rib *rib, int process)
   rib->next = head;
   dest->routes = rib;
 
-  /* Further processing only if entry is in main table */
-  if ((rib->table == RT_TABLE_MAIN) || (rib->table == zebrad.rtm_table_default))
-    {
-      if (process)
-        rib_queue_add (&zebrad, rn);
-    }
+  afi = (rn->p.family == AF_INET) ? AFI_IP :
+    (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
+  if (is_zebra_import_table_enabled (afi, rib->table))
+    zebra_add_import_table_entry(rn, rib);
   else
-    {
-      afi = (rn->p.family == AF_INET) ? AFI_IP :
-	(rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-      if (is_zebra_import_table_enabled (afi, rib->table))
-	zebra_add_import_table_entry(rn, rib);
-    }
+    if (process)
+      rib_queue_add (&zebrad, rn);
 }
 
 static void
@@ -1962,14 +1959,11 @@ rib_delnode (struct route_node *rn, struct rib *rib)
 
   SET_FLAG (rib->status, RIB_ENTRY_REMOVED);
 
-  if ((rib->table == RT_TABLE_MAIN) || (rib->table == zebrad.rtm_table_default))
-    rib_queue_add (&zebrad, rn);
-  else
+  afi = (rn->p.family == AF_INET) ? AFI_IP :
+          (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
+  if (is_zebra_import_table_enabled (afi, rib->table))
     {
-      afi = (rn->p.family == AF_INET) ? AFI_IP :
-	(rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
-      if (is_zebra_import_table_enabled (afi, rib->table))
-	zebra_del_import_table_entry(rn, rib);
+      zebra_del_import_table_entry(rn, rib);
       /* Just clean up if non main table */
       if (IS_ZEBRA_DEBUG_RIB)
         {
@@ -1983,6 +1977,10 @@ rib_delnode (struct route_node *rn, struct rib *rib)
         }
 
       rib_unlink(rn, rib);
+    }
+  else
+    {
+      rib_queue_add (&zebrad, rn);
     }
 }
 
@@ -2174,7 +2172,7 @@ void _rib_dump (const char * func,
  * RIB entry found by rib_lookup_ipv4_route()
  */
 
-void rib_lookup_and_dump (struct prefix_ipv4 * p)
+void rib_lookup_and_dump (struct prefix_ipv4 * p, vrf_id_t vrf_id)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -2182,7 +2180,7 @@ void rib_lookup_and_dump (struct prefix_ipv4 * p)
   char prefix_buf[INET_ADDRSTRLEN];
 
   /* Lookup table.  */
-  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+  table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
   {
     zlog_err ("%s: zebra_vrf_table() returned NULL", __func__);
@@ -2224,14 +2222,14 @@ void rib_lookup_and_dump (struct prefix_ipv4 * p)
  * actions, if needed: remove such a route from FIB and deSELECT
  * corresponding RIB entry. Then put affected RN into RIBQ head.
  */
-void rib_lookup_and_pushup (struct prefix_ipv4 * p)
+void rib_lookup_and_pushup (struct prefix_ipv4 * p, vrf_id_t vrf_id)
 {
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
   unsigned changed = 0;
 
-  if (NULL == (table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT)))
+  if (NULL == (table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id)))
   {
     zlog_err ("%s: zebra_vrf_table() returned NULL", __func__);
     return;
@@ -2591,7 +2589,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
       rib->distance = si->distance;
       rib->metric = 0;
       rib->vrf_id = si->vrf_id;
-      rib->table = zebrad.rtm_table_default;
+      rib->table =  si->vrf_id ? (zebra_vrf_lookup(si->vrf_id))->table_id : zebrad.rtm_table_default;
       rib->nexthop_num = 0;
       rib->tag = si->tag;
 
@@ -3069,7 +3067,7 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
       if (!rib)
         return 0;
 
-      table = zebra_vrf_table (AFI_IP, safi, VRF_DEFAULT);
+      table = zebra_vrf_table (AFI_IP, safi, rib->vrf_id);
       if (!table)
         return 0;
       /* Make it sure prefixlen is applied to the prefix. */
@@ -3085,11 +3083,11 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
       /* Lookup table.  */
       if ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default))
         {
-          table = zebra_vrf_table (AFI_IP6, safi, VRF_DEFAULT);
+          table = zebra_vrf_table (AFI_IP6, safi, rib->vrf_id);
         }
       else
         {
-          table = zebra_vrf_other_route_table(AFI_IP6, table_id, VRF_DEFAULT);
+          table = zebra_vrf_other_route_table(AFI_IP6, table_id, rib->vrf_id);
         }
 
       if (! table)
@@ -3179,6 +3177,7 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
 }
 
 /* XXX factor with rib_delete_ipv6 */
+
 int
 rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 		 struct in6_addr *gate, unsigned int ifindex, vrf_id_t vrf_id,
@@ -3204,7 +3203,7 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
     }
   else
     {
-      table = zebra_vrf_other_route_table(AFI_IP6, table_id, VRF_DEFAULT);
+      table = zebra_vrf_other_route_table(AFI_IP6, table_id, vrf_id);
     }
   if (! table)
     return 0;
@@ -3845,12 +3844,9 @@ zebra_vrf_table_create (struct zebra_vrf *zvrf, afi_t afi, safi_t safi)
 
 /* Allocate new zebra VRF. */
 struct zebra_vrf *
-zebra_vrf_alloc (vrf_id_t vrf_id)
+zebra_vrf_alloc (vrf_id_t vrf_id, const char *name)
 {
   struct zebra_vrf *zvrf;
-#ifdef HAVE_NETLINK
-  char nl_name[64];
-#endif
 
   zvrf = XCALLOC (MTYPE_ZEBRA_VRF, sizeof (struct zebra_vrf));
 
@@ -3873,16 +3869,11 @@ zebra_vrf_alloc (vrf_id_t vrf_id)
   /* Set VRF ID */
   zvrf->vrf_id = vrf_id;
 
-#ifdef HAVE_NETLINK
-  /* Initialize netlink sockets */
-  snprintf (nl_name, 64, "netlink-listen (vrf %u)", vrf_id);
-  zvrf->netlink.sock = -1;
-  zvrf->netlink.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
-
-  snprintf (nl_name, 64, "netlink-cmd (vrf %u)", vrf_id);
-  zvrf->netlink_cmd.sock = -1;
-  zvrf->netlink_cmd.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
-#endif
+  if (name)
+    {
+      strncpy (zvrf->name, name, strlen(name));
+      zvrf->name[strlen(name)] = '\0';
+    }
 
   return zvrf;
 }
@@ -3939,12 +3930,22 @@ zebra_vrf_other_route_table (afi_t afi, u_int32_t table_id, vrf_id_t vrf_id)
   if (table_id >= ZEBRA_KERNEL_TABLE_MAX)
     return NULL;
 
+  /* Pending: This is a MUST-DO for import-table feature.
+      - Making it work like zebra_vrf_table() for now. Ideally, we want to
+     implement import table in a way, so that the other_table doesnt have to be
+     maintained separately.
+      - Need to explore how to provide import table concept
+        (May be only the default VRF?)
+      - How/if to provide some safety against picking a import table to be same as
+        a table associated/used in some other vrf.
   if (zvrf->other_table[afi][table_id] == NULL)
     {
       zvrf->other_table[afi][table_id] = route_table_init();
     }
-
   return (zvrf->other_table[afi][table_id]);
+    */
+
+  return zvrf->table[afi][SAFI_UNICAST];
 }
 
 
