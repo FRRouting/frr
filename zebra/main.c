@@ -216,7 +216,7 @@ struct quagga_signal_t zebra_signals[] =
 
 /* Callback upon creating a new VRF. */
 static int
-zebra_vrf_new (vrf_id_t vrf_id, void **info)
+zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct zebra_vrf *zvrf = *info;
 
@@ -232,7 +232,7 @@ zebra_vrf_new (vrf_id_t vrf_id, void **info)
 
 /* Callback upon enabling a VRF. */
 static int
-zebra_vrf_enable (vrf_id_t vrf_id, void **info)
+zebra_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
 
@@ -250,7 +250,7 @@ zebra_vrf_enable (vrf_id_t vrf_id, void **info)
 
 /* Callback upon disabling a VRF. */
 static int
-zebra_vrf_disable (vrf_id_t vrf_id, void **info)
+zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
   struct listnode *list_node;
