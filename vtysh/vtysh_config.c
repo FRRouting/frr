@@ -184,20 +184,9 @@ vtysh_config_parse_line (const char *line)
       /* Store line to current configuration. */
       if (config)
 	{
-	  if (strncmp (line, " address-family vpnv4",
-	      strlen (" address-family vpnv4")) == 0)
-	    config = config_get (BGP_VPNV4_NODE, line);
-	  else if (strncmp (line, " address-family ipv4 multicast",
-		   strlen (" address-family ipv4 multicast")) == 0)
-	    config = config_get (BGP_IPV4M_NODE, line);
-	  else if (strncmp (line, " address-family ipv4", strlen (" address-family ipv4")) == 0 ||
-	           strncmp (line, " address-family ipv4 unicast", strlen (" address-family ipv4 unicast")) == 0)
-	    config = config_get (BGP_IPV4_NODE, line);
-	  else if (strncmp (line, " address-family ipv6", strlen (" address-family ipv6")) == 0 ||
-	           strncmp (line, " address-family ipv6 unicast", strlen (" address-family ipv6 unicast")) == 0)
-	    config = config_get (BGP_IPV6_NODE, line);
-	  else if (config->index == RMAP_NODE ||
+	  if (config->index == RMAP_NODE ||
 	           config->index == INTERFACE_NODE ||
+	           config->index == VRF_NODE ||
 		   config->index == VTY_NODE)
 	    config_add_line_uniq (config->line, line);
 	  else
@@ -209,6 +198,8 @@ vtysh_config_parse_line (const char *line)
     default:
       if (strncmp (line, "interface", strlen ("interface")) == 0)
 	config = config_get (INTERFACE_NODE, line);
+      else if (strncmp (line, "vrf", strlen ("vrf")) == 0)
+	config = config_get (VRF_NODE, line);
       else if (strncmp (line, "router-id", strlen ("router-id")) == 0)
 	config = config_get (ZEBRA_NODE, line);
       else if (strncmp (line, "router rip", strlen ("router rip")) == 0)

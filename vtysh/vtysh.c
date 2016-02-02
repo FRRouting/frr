@@ -922,6 +922,12 @@ static struct cmd_node interface_node =
   "%s(config-if)# ",
 };
 
+static struct cmd_node vrf_node =
+{
+  VRF_NODE,
+  "%s(config-vrf)# ",
+};
+
 static struct cmd_node rmap_node =
 {
   RMAP_NODE,
@@ -1051,12 +1057,12 @@ ALIAS_SH (VTYSH_BGPD,
 ALIAS_SH (VTYSH_BGPD,
 	  router_bgp,
 	  router_bgp_view_cmd,
-	  "router bgp " CMD_AS_RANGE " view WORD",
+	  "router bgp " CMD_AS_RANGE " (view|vrf) WORD",
 	  ROUTER_STR
 	  BGP_STR
 	  AS_STR
-	  "BGP view\n"
-	  "view name\n")
+	  "BGP view\nBGP VRF\n"
+	  "View/VRF name\n")
 
 DEFUNSH (VTYSH_BGPD,
 	 address_family_vpnv4,
@@ -1308,6 +1314,7 @@ vtysh_exit (struct vty *vty)
       vty->node = ENABLE_NODE;
       break;
     case INTERFACE_NODE:
+    case VRF_NODE:
     case ZEBRA_NODE:
     case BGP_NODE:
     case RIP_NODE:
@@ -1511,8 +1518,8 @@ ALIAS_SH (VTYSH_ZEBRA,
 	 vtysh_interface_vrf_cmd,
 	 "interface IFNAME " VRF_CMD_STR,
 	 "Select an interface to configure\n"
-	 "Interface's name\n"
-	 VRF_CMD_HELP_STR)
+         "Interface's name\n"
+         VRF_CMD_HELP_STR)
 
 /* TODO Implement "no interface command in isisd. */
 DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
@@ -1529,6 +1536,38 @@ DEFSH (VTYSH_ZEBRA,
        "Delete a pseudo interface's configuration\n"
        "Interface's name\n"
        VRF_CMD_HELP_STR)
+
+DEFUNSH (VTYSH_VRF,
+	 vtysh_vrf,
+	 vtysh_vrf_cmd,
+	 "vrf NAME",
+	 "Select a VRF to configure\n"
+	 "VRF's name\n")
+{
+  vty->node = VRF_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFSH (VTYSH_ZEBRA,
+       vtysh_no_vrf_cmd,
+       "no vrf NAME",
+       NO_STR
+       "Delete a pseudo vrf's configuration\n"
+       "VRF's name\n")
+
+DEFUNSH (VTYSH_VRF,
+	 vtysh_exit_vrf,
+	 vtysh_exit_vrf_cmd,
+	 "exit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_vrf,
+       vtysh_quit_vrf_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
 
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
@@ -2703,6 +2742,7 @@ vtysh_init_vty (void)
   install_node (&bgp_node, NULL);
   install_node (&rip_node, NULL);
   install_node (&interface_node, NULL);
+  install_node (&vrf_node, NULL);
   install_node (&rmap_node, NULL);
   install_node (&zebra_node, NULL);
   install_node (&bgp_vpnv4_node, NULL);
@@ -2729,6 +2769,7 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_NODE);
   vtysh_install_default (RIP_NODE);
   vtysh_install_default (INTERFACE_NODE);
+  vtysh_install_default (VRF_NODE);
   vtysh_install_default (RMAP_NODE);
   vtysh_install_default (ZEBRA_NODE);
   vtysh_install_default (BGP_VPNV4_NODE);
@@ -2812,6 +2853,11 @@ vtysh_init_vty (void)
   install_element (INTERFACE_NODE, &vtysh_end_all_cmd);
   install_element (INTERFACE_NODE, &vtysh_exit_interface_cmd);
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);
+
+  install_element (VRF_NODE, &vtysh_end_all_cmd);
+  install_element (VRF_NODE, &vtysh_exit_vrf_cmd);
+  install_element (VRF_NODE, &vtysh_quit_vrf_cmd);
+
   install_element (CONFIG_NODE, &router_rip_cmd);
 #ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &router_ripng_cmd);
@@ -2855,6 +2901,9 @@ vtysh_init_vty (void)
   install_element (ENABLE_NODE, &vtysh_copy_runningconfig_startupconfig_cmd);
   install_element (ENABLE_NODE, &vtysh_write_file_cmd);
   install_element (ENABLE_NODE, &vtysh_write_cmd);
+
+  install_element (CONFIG_NODE, &vtysh_vrf_cmd);
+  install_element (CONFIG_NODE, &vtysh_no_vrf_cmd);
 
   /* "write terminal" command. */
   install_element (ENABLE_NODE, &vtysh_write_terminal_cmd);
