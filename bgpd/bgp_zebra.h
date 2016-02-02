@@ -29,6 +29,7 @@ extern struct stream *bgp_ifindices_buf;
 
 extern void bgp_zebra_init(struct thread_master *master);
 extern int bgp_if_update_all (void);
+extern void bgp_vrf_update (struct bgp *);
 extern int bgp_config_write_maxpaths (struct vty *, struct bgp *, afi_t,
 				      safi_t, int *);
 extern int bgp_config_write_redistribute (struct vty *, struct bgp *, afi_t, safi_t,
@@ -40,18 +41,19 @@ extern void bgp_zebra_withdraw (struct prefix *, struct bgp_info *, safi_t);
 
 extern struct bgp_redist *bgp_redist_lookup (struct bgp *, afi_t, u_char, u_short);
 extern struct bgp_redist *bgp_redist_add (struct bgp *, afi_t, u_char, u_short);
-extern int bgp_redistribute_set (afi_t, int, u_short);
+extern int bgp_redistribute_set (struct bgp *, afi_t, int, u_short);
 extern int bgp_redistribute_resend (struct bgp *, afi_t, int, u_short);
 extern int bgp_redistribute_rmap_set (struct bgp_redist *, const char *);
 extern int bgp_redistribute_metric_set(struct bgp *, struct bgp_redist *,
 				       afi_t, int, u_int32_t);
 extern int bgp_redistribute_unset (struct bgp *, afi_t, int, u_short);
+extern int bgp_redistribute_unreg (struct bgp *, afi_t, int, u_short);
 
-extern struct interface *if_lookup_by_ipv4 (struct in_addr *);
-extern struct interface *if_lookup_by_ipv4_exact (struct in_addr *);
+extern struct interface *if_lookup_by_ipv4 (struct in_addr *, vrf_id_t);
+extern struct interface *if_lookup_by_ipv4_exact (struct in_addr *, vrf_id_t);
 #ifdef HAVE_IPV6
-extern struct interface *if_lookup_by_ipv6 (struct in6_addr *, unsigned int ifindex);
-extern struct interface *if_lookup_by_ipv6_exact (struct in6_addr *, unsigned int ifindex);
+extern struct interface *if_lookup_by_ipv6 (struct in6_addr *, unsigned int, vrf_id_t);
+extern struct interface *if_lookup_by_ipv6_exact (struct in6_addr *, unsigned int, vrf_id_t);
 #endif /* HAVE_IPV6 */
 
 #endif /* _QUAGGA_BGP_ZEBRA_H */

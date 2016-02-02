@@ -239,12 +239,13 @@ extern int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *);
 
 extern int bgp_maximum_prefix_overflow (struct peer *, afi_t, safi_t, int);
 
-extern void bgp_redistribute_add (struct prefix *, const struct in_addr *,
+extern void bgp_redistribute_add (struct bgp *, struct prefix *, const struct in_addr *,
 				  const struct in6_addr *, unsigned int ifindex,
 				  u_int32_t, u_char, u_short, u_short);
-extern void bgp_redistribute_delete (struct prefix *, u_char, u_short);
+extern void bgp_redistribute_delete (struct bgp *, struct prefix *, u_char, u_short);
 extern void bgp_redistribute_withdraw (struct bgp *, afi_t, int, u_short);
 
+extern void bgp_static_add (struct bgp *);
 extern void bgp_static_delete (struct bgp *);
 extern void bgp_static_redo_import_check (struct bgp *);
 extern void bgp_static_update (struct bgp *, struct prefix *, struct bgp_static *,

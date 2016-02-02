@@ -59,17 +59,18 @@ struct bgp_nexthop_cache
 
 extern int bgp_nexthop_lookup (afi_t, struct peer *peer, struct bgp_info *,
 			int *, int *);
-extern void bgp_connected_add (struct connected *c);
-extern void bgp_connected_delete (struct connected *c);
+extern void bgp_connected_add (struct bgp *bgp, struct connected *c);
+extern void bgp_connected_delete (struct bgp *bgp, struct connected *c);
 extern int bgp_multiaccess_check_v4 (struct in_addr, struct peer *);
 extern int bgp_config_write_scan_time (struct vty *);
-extern int bgp_nexthop_self (struct attr *);
-extern void bgp_address_init (void);
+extern int bgp_nexthop_self (struct bgp *, struct attr *);
+extern void bgp_address_init (struct bgp *);
 extern struct bgp_nexthop_cache *bnc_new(void);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
 extern void bnc_nexthop_free(struct bgp_nexthop_cache *bnc);
 extern char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size);
-extern void bgp_scan_init(void);
+extern void bgp_scan_init(struct bgp *bgp);
+extern void bgp_scan_finish(struct bgp *bgp);
 extern void bgp_scan_vty_init(void);
 
 #endif /* _QUAGGA_BGP_NEXTHOP_H */

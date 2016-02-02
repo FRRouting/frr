@@ -42,8 +42,6 @@
 #include "bgpd/bgp_fsm.h"
 
 extern struct zclient *zclient;
-extern struct bgp_table *bgp_nexthop_cache_table[AFI_MAX];
-extern struct bgp_table *bgp_import_check_table[AFI_MAX];
 
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
 			   int is_bgp_static_route);
@@ -148,9 +146,9 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
     return 0;
 
   if (is_bgp_static_route)
-    rn = bgp_node_get (bgp_import_check_table[afi], &p);
+    rn = bgp_node_get (bgp->import_check_table[afi], &p);
   else
-    rn = bgp_node_get (bgp_nexthop_cache_table[afi], &p);
+    rn = bgp_node_get (bgp->nexthop_cache_table[afi], &p);
 
   if (!rn->info)
     {
@@ -267,7 +265,7 @@ bgp_delete_connected_nexthop (afi_t afi, struct peer *peer)
   else
     return;
 
-  rn = bgp_node_lookup(bgp_nexthop_cache_table[family2afi(p.family)], &p);
+  rn = bgp_node_lookup(peer->bgp->nexthop_cache_table[family2afi(p.family)], &p);
   if (!rn || !rn->info)
     {
       if (BGP_DEBUG(nht, NHT))
@@ -316,6 +314,14 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
   u_char nexthop_num;
   struct prefix p;
   int i;
+  struct bgp *bgp;
+
+  bgp = bgp_lookup_by_vrf_id (vrf_id);
+  if (!bgp)
+    {
+      zlog_err("parse nexthop update: instance not found for vrf_id %d", vrf_id);
+      return;
+    }
 
   s = zclient->ibuf;
 
@@ -335,9 +341,9 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
     }
 
   if (command == ZEBRA_NEXTHOP_UPDATE)
-    rn = bgp_node_lookup(bgp_nexthop_cache_table[family2afi(p.family)], &p);
+    rn = bgp_node_lookup(bgp->nexthop_cache_table[family2afi(p.family)], &p);
   else if (command == ZEBRA_IMPORT_CHECK_UPDATE)
-    rn = bgp_node_lookup(bgp_import_check_table[family2afi(p.family)], &p);
+    rn = bgp_node_lookup(bgp->import_check_table[family2afi(p.family)], &p);
 
   if (!rn || !rn->info)
     {
@@ -534,10 +540,11 @@ sendmsg_zebra_rnh (struct bgp_nexthop_cache *bnc, int command)
   /* Check socket. */
   if (!zclient || zclient->sock < 0)
     {
-      /* Pending: hiding this error now, because bgp_nht_register_all() is implemented.
+      /* Hiding this error now, because bgp_nht_register_all() is implemented.
          which tries it after zclient_connect()
          zlog_debug("%s: Can't send NH register, Zebra client not established",
 		 __FUNCTION__);
+         Pending: remove this comment after reviewing to see if no message is needed in this case
        */
       return;
     }
@@ -545,7 +552,7 @@ sendmsg_zebra_rnh (struct bgp_nexthop_cache *bnc, int command)
   p = &(bnc->node->p);
   s = zclient->obuf;
   stream_reset (s);
-  zclient_create_header (s, command, VRF_DEFAULT);
+  zclient_create_header (s, command, bnc->bgp->vrf_id);
   if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED) ||
       CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
     stream_putc(s, 1);
@@ -696,31 +703,39 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
 }
 
 void
-bgp_nht_register_all (void)
+bgp_nht_register_all (vrf_id_t vrf_id)
 {
   struct bgp_node *rn;
   struct bgp_nexthop_cache *bnc;
+  struct bgp *bgp;
 
-  for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP]); rn; rn = bgp_route_next (rn))
+  bgp = bgp_lookup_by_vrf_id (vrf_id);
+  if (!bgp)
+    {
+      zlog_err("bgp_nht_register_all: instance not found for vrf_id %d", vrf_id);
+      return;
+    }
+
+  for (rn = bgp_table_top (bgp->nexthop_cache_table[AFI_IP]); rn; rn = bgp_route_next (rn))
     if ((bnc = rn->info) != NULL &&
         !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
       {
         register_zebra_rnh(bnc, 0);
       }
-  for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP6]); rn; rn = bgp_route_next (rn))
+  for (rn = bgp_table_top (bgp->nexthop_cache_table[AFI_IP6]); rn; rn = bgp_route_next (rn))
     if ((bnc = rn->info) != NULL &&
         !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
       {
         register_zebra_rnh(bnc, 0);
       }
 
-  for (rn = bgp_table_top (bgp_import_check_table[AFI_IP]); rn; rn = bgp_route_next (rn))
+  for (rn = bgp_table_top (bgp->import_check_table[AFI_IP]); rn; rn = bgp_route_next (rn))
     if ((bnc = rn->info) != NULL &&
         !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
       {
         register_zebra_rnh(bnc, 1);
       }
-  for (rn = bgp_table_top (bgp_import_check_table[AFI_IP6]); rn; rn = bgp_route_next (rn))
+  for (rn = bgp_table_top (bgp->import_check_table[AFI_IP6]); rn; rn = bgp_route_next (rn))
     if ((bnc = rn->info) != NULL &&
         !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
       {

@@ -74,8 +74,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
 
-extern struct in_addr router_id_zebra;
-
 /* BGP process wide configuration pointer to export.  */
 struct bgp_master *bm;
 
@@ -2754,16 +2752,47 @@ bgp_create (as_t *as, const char *name)
   bgp->as = *as;
 
   if (name)
-    bgp->name = XSTRDUP(MTYPE_BGP, name);
+    {
+      bgp->name = XSTRDUP(MTYPE_BGP, name);
+    }
+  else
+    {
+      //Pending: See if calling bgp_instance_up() makes more sense.
+      THREAD_TIMER_ON (bm->master, bgp->t_startup, bgp_startup_timer_expire,
+                       bgp, bgp->restart_time);
+    }
 
   bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
   bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 
+  update_bgp_group_init(bgp);
+  return bgp;
+}
+
+void
+bgp_instance_up (struct bgp *bgp)
+{
+  struct peer *peer;
+  struct listnode *node, *next;
+  afi_t afi;
+  int i;
+
   THREAD_TIMER_ON (bm->master, bgp->t_startup, bgp_startup_timer_expire,
                    bgp, bgp->restart_time);
 
-  update_bgp_group_init(bgp);
-  return bgp;
+  /* Delete static route. */
+  bgp_static_add (bgp);
+
+  /* Set redistribution. */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++) 
+      if (i != ZEBRA_ROUTE_BGP && bgp_redist_lookup(bgp, afi, i, 0))
+	bgp_redistribute_set (bgp, afi, i, 0);
+
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
+    {
+      BGP_EVENT_ADD (peer, BGP_Start);
+    }
 }
 
 /* Return first entry of BGP. */
@@ -2800,6 +2829,20 @@ bgp_lookup_by_name (const char *name)
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     if ((bgp->name == NULL && name == NULL)
 	|| (bgp->name && name && strcmp (bgp->name, name) == 0))
+      return bgp;
+  return NULL;
+}
+
+/* Lookup BGP structure by view name. */
+//Pending: move this based on the vrf_hash lookup and find the linked bgp instance.
+struct bgp *
+bgp_lookup_by_vrf_id (vrf_id_t vrf_id)
+{
+  struct bgp *bgp;
+  struct listnode *node, *nnode;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    if (bgp->vrf_id == vrf_id)
       return bgp;
   return NULL;
 }
@@ -2852,7 +2895,9 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
     }
 
   bgp = bgp_create (as, name);
-  bgp_router_id_set(bgp, &router_id_zebra);
+  bgp_router_id_set(bgp, &bgp->router_id_zebra);
+  bgp_address_init (bgp);
+  bgp_scan_init (bgp);
   *bgp_val = bgp;
 
   bgp->t_rmap_def_originate_eval = NULL;
@@ -2869,12 +2914,14 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
 
   listnode_add (bm->bgp, bgp);
 
+  bgp_vrf_update (bgp);
+
   return 0;
 }
 
 /* Delete BGP instance. */
-int
-bgp_delete (struct bgp *bgp)
+void
+bgp_instance_down (struct bgp *bgp)
 {
   struct peer *peer;
   struct peer_group *group;
@@ -2906,7 +2953,7 @@ bgp_delete (struct bgp *bgp)
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (i = 0; i < ZEBRA_ROUTE_MAX; i++) 
       if (i != ZEBRA_ROUTE_BGP)
-	bgp_redistribute_unset (bgp, afi, i, 0);
+	bgp_redistribute_unreg (bgp, afi, i, 0);
 
   for (ALL_LIST_ELEMENTS (bgp->group, node, next, group))
     {
@@ -2918,7 +2965,6 @@ bgp_delete (struct bgp *bgp)
 	      bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
 	    }
 	}
-      peer_group_delete (group);
     }
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
@@ -2928,7 +2974,42 @@ bgp_delete (struct bgp *bgp)
 	  /* Send notify to remote peer. */
 	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
 	}
+    }
 
+  if (bgp->t_rmap_def_originate_eval)
+    {
+      BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+    }
+
+  return;
+}
+
+/* Delete BGP instance. */
+int
+bgp_delete (struct bgp *bgp)
+{
+  struct peer *peer;
+  struct peer_group *group;
+  struct listnode *node, *next;
+  afi_t afi;
+  int i;
+
+  /* Delete static route. */
+  bgp_static_delete (bgp);
+
+  /* Unset redistribution. */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++) 
+      if (i != ZEBRA_ROUTE_BGP)
+	bgp_redistribute_unset (bgp, afi, i, 0);
+
+  for (ALL_LIST_ELEMENTS (bgp->group, node, next, group))
+    {
+      peer_group_delete (group);
+    }
+
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
+    {
       peer_delete (peer);
     }
 
@@ -2939,7 +3020,6 @@ bgp_delete (struct bgp *bgp)
 
   if (bgp->t_rmap_def_originate_eval)
     {
-      BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
       bgp_unlock(bgp);
     }
 
@@ -3088,6 +3168,12 @@ peer_lookup (struct bgp *bgp, union sockunion *su)
   
       for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
         {
+          /*
+           * Don't have to cross the instance boundaries for VRFs.
+           */
+          if (bgp_flag_check(bgp, BGP_FLAG_INSTANCE_TYPE_VRF))
+            continue;
+
           peer = hash_lookup(bgp->peerhash, &tmp_peer);
 
           if (peer)
@@ -6812,7 +6898,8 @@ bgp_config_write (struct vty *vty)
       if (bgp_option_check (BGP_OPT_MULTIPLE_INSTANCE))
 	{
 	  if (bgp->name)
-	    vty_out (vty, " view %s", bgp->name);
+	    vty_out (vty, " %s %s", (bgp_flag_check(bgp, BGP_FLAG_INSTANCE_TYPE_VIEW) ? 
+                                     "view" : "vrf"), bgp->name);
 	}
       vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -7043,7 +7130,6 @@ bgp_init (void)
 {
 
   /* allocates some vital data structures used by peer commands in vty_init */
-  bgp_scan_init ();
 
   /* Init zebra. */
   bgp_zebra_init(bm->master);
@@ -7057,7 +7143,6 @@ bgp_init (void)
   bgp_dump_init ();
   bgp_route_init ();
   bgp_route_map_init ();
-  bgp_address_init ();
   bgp_scan_vty_init();
   bgp_mplsvpn_init ();
 

@@ -22,6 +22,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define _QUAGGA_BGPD_H
 
 #include "lib/json.h"
+#include "vrf.h"
+
 /* For union sockunion.  */
 #include "queue.h"
 #include "sockunion.h"
@@ -135,6 +137,8 @@ struct bgp
 
   /* Name of this BGP instance.  */
   char *name;
+
+  vrf_id_t vrf_id;
   
   /* Reference count to allow peer_delete to finish after bgp_delete */
   int lock;
@@ -184,6 +188,7 @@ struct bgp
   /* BGP router identifier.  */
   struct in_addr router_id;
   struct in_addr router_id_static;
+  struct in_addr router_id_zebra;
 
   /* BGP route reflector cluster ID.  */
   struct in_addr cluster_id;
@@ -251,10 +256,22 @@ struct bgp
 #define BGP_FLAG_MULTIPATH_RELAX_AS_SET   (1 << 17)
 #define BGP_FLAG_FORCE_STATIC_PROCESS     (1 << 18)
 #define BGP_FLAG_SHOW_HOSTNAME            (1 << 19)
+#define BGP_FLAG_INSTANCE_TYPE_VIEW       (1 << 20)
+#define BGP_FLAG_INSTANCE_TYPE_VRF        (1 << 21)
 
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING              (1 << 0)
+
+  /* Route table for next-hop lookup cache. */
+  struct bgp_table *nexthop_cache_table[AFI_MAX];
+
+  /* Route table for import-check */
+  struct bgp_table *import_check_table[AFI_MAX];
+
+  struct bgp_table *connected_table[AFI_MAX];
+
+  struct hash *address_hash;
 
   /* Static route configuration.  */
   struct bgp_table *route[AFI_MAX][SAFI_MAX];
@@ -1092,6 +1109,7 @@ extern int bgp_nexthop_set (union sockunion *, union sockunion *,
 extern struct bgp *bgp_get_default (void);
 extern struct bgp *bgp_lookup (as_t, const char *);
 extern struct bgp *bgp_lookup_by_name (const char *);
+extern struct bgp *bgp_lookup_by_vrf_id (vrf_id_t);
 extern struct peer *peer_lookup (struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if (struct bgp *, const char *);
 extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);
@@ -1143,6 +1161,8 @@ extern int bgp_option_unset (int);
 extern int bgp_option_check (int);
 
 extern int bgp_get (struct bgp **, as_t *, const char *);
+extern void bgp_instance_up (struct bgp *);
+extern void bgp_instance_down (struct bgp *);
 extern int bgp_delete (struct bgp *);
 
 extern int bgp_flag_set (struct bgp *, int);
@@ -1276,7 +1296,6 @@ extern struct peer_af * peer_af_create (struct peer *, afi_t, safi_t);
 extern struct peer_af * peer_af_find (struct peer *, afi_t, safi_t);
 extern int peer_af_delete (struct peer *, afi_t, safi_t);
 
-extern void bgp_scan_finish(void);
 extern void bgp_close(void);
 
 static inline int

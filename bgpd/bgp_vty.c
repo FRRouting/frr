@@ -55,8 +55,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 
-extern struct in_addr router_id_zebra;
-
 static struct peer_group *
 listen_range_exists (struct bgp *bgp, struct prefix *range, int exact);
 
@@ -82,16 +80,16 @@ bgp_node_safi (struct vty *vty)
 }
 
 static int
-peer_address_self_check (union sockunion *su)
+peer_address_self_check (struct bgp *bgp, union sockunion *su)
 {
   struct interface *ifp = NULL;
 
   if (su->sa.sa_family == AF_INET)
-    ifp = if_lookup_by_ipv4_exact (&su->sin.sin_addr);
+    ifp = if_lookup_by_ipv4_exact (&su->sin.sin_addr, bgp->vrf_id);
 #ifdef HAVE_IPV6
   else if (su->sa.sa_family == AF_INET6)
     ifp = if_lookup_by_ipv6_exact (&su->sin6.sin6_addr,
-				   su->sin6.sin6_scope_id);
+				   su->sin6.sin6_scope_id, bgp->vrf_id);
 #endif /* HAVE IPV6 */
 
   if (ifp)
@@ -471,7 +469,7 @@ bgp_clear_vty (struct vty *vty, const char *name, afi_t afi, safi_t safi,
       bgp = bgp_lookup_by_name (name);
       if (bgp == NULL)
         {
-          vty_out (vty, "Can't find BGP view %s%s", name, VTY_NEWLINE);
+          vty_out (vty, "Can't find BGP instance %s%s", name, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -613,6 +611,7 @@ DEFUN (router_bgp,
   // "router bgp" without an ASN
   if (argc < 1)
     {
+      //Pending: Make VRF option available for ASN less config
       bgp = bgp_get_default();
 
       if (bgp == NULL)
@@ -633,8 +632,8 @@ DEFUN (router_bgp,
     {
       VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
 
-      if (argc == 2)
-        name = argv[1];
+      if (argc == 3)
+        name = argv[2];
 
       ret = bgp_get (&bgp, &as, name);
       switch (ret)
@@ -647,11 +646,17 @@ DEFUN (router_bgp,
           vty_out (vty, "BGP is already running; AS is %u%s", as, VTY_NEWLINE);
           return CMD_WARNING;
         case BGP_ERR_INSTANCE_MISMATCH:
-          vty_out (vty, "BGP view name and AS number mismatch%s", VTY_NEWLINE);
+          vty_out (vty, "BGP instance name and AS number mismatch%s", VTY_NEWLINE);
           vty_out (vty, "BGP instance is already running; AS is %u%s",
                    as, VTY_NEWLINE);
           return CMD_WARNING;
         }
+
+      /* Pending: handle when user tries to change a view to vrf n vv. */
+      if (argc == 3 && !strcmp(argv[1], "vrf")) 
+        bgp_flag_set (bgp, BGP_FLAG_INSTANCE_TYPE_VRF);
+      if (argc == 3 && !strcmp(argv[1], "view")) 
+        bgp_flag_set (bgp, BGP_FLAG_INSTANCE_TYPE_VIEW);
     }
 
   vty->node = BGP_NODE;
@@ -661,12 +666,12 @@ DEFUN (router_bgp,
 }
 
 ALIAS (router_bgp,
-       router_bgp_view_cmd,
-       "router bgp " CMD_AS_RANGE " view WORD",
+       router_bgp_instance_cmd,
+       "router bgp " CMD_AS_RANGE " (view|vrf) WORD",
        ROUTER_STR
        BGP_STR
        AS_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n")
 
 ALIAS (router_bgp,
@@ -690,8 +695,8 @@ DEFUN (no_router_bgp,
 
   VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
 
-  if (argc == 2)
-    name = argv[1];
+  if (argc == 3)
+    name = argv[2];
 
   /* Lookup bgp structure. */
   bgp = bgp_lookup (as, name);
@@ -707,13 +712,13 @@ DEFUN (no_router_bgp,
 }
 
 ALIAS (no_router_bgp,
-       no_router_bgp_view_cmd,
-       "no router bgp " CMD_AS_RANGE " view WORD",
+       no_router_bgp_instance_cmd,
+       "no router bgp " CMD_AS_RANGE " (view|vrf) WORD",
        NO_STR
        ROUTER_STR
        BGP_STR
        AS_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n")
 
 /* BGP router-id.  */
@@ -777,7 +782,7 @@ DEFUN (no_bgp_router_id,
     }
 
   bgp->router_id_static.s_addr = 0;
-  bgp_router_id_set (bgp, &router_id_zebra);
+  bgp_router_id_set (bgp, &bgp->router_id_zebra);
 
   return CMD_SUCCESS;
 }
@@ -2639,7 +2644,7 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
     }
   else
     {
-      if (peer_address_self_check (&su))
+      if (peer_address_self_check (bgp, &su))
         {
           vty_out (vty, "%% Can not configure the local system as neighbor%s",
                    VTY_NEWLINE);
@@ -3252,7 +3257,7 @@ DEFUN (neighbor_set_peer_group,
     }
   else
     {
-      if (peer_address_self_check (&su))
+      if (peer_address_self_check (bgp, &su))
         {
           vty_out (vty, "%% Can not configure the local system as neighbor%s",
                    VTY_NEWLINE);
@@ -5870,7 +5875,7 @@ bgp_clear_prefix (struct vty *vty, char *view_name, const char *ip_str,
       bgp = bgp_lookup_by_name (view_name);
       if (bgp == NULL)
         {
-          vty_out (vty, "%% Can't find BGP view %s%s", view_name, VTY_NEWLINE);
+          vty_out (vty, "%% Can't find BGP instance %s%s", view_name, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -5940,8 +5945,8 @@ DEFUN (clear_ip_bgp_all,
        BGP_STR
        "Clear all peers\n")
 {
-  if (argc == 1)
-    return bgp_clear_vty (vty, argv[0], 0, 0, clear_all, BGP_CLEAR_SOFT_NONE, NULL);    
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[1], 0, 0, clear_all, BGP_CLEAR_SOFT_NONE, NULL);    
 
   return bgp_clear_vty (vty, NULL, 0, 0, clear_all, BGP_CLEAR_SOFT_NONE, NULL);
 }
@@ -5963,20 +5968,20 @@ ALIAS (clear_ip_bgp_all,
 
 ALIAS (clear_ip_bgp_all,
        clear_ip_bgp_instance_all_cmd,
-       "clear ip bgp view WORD *",
+       "clear ip bgp (view|vrf) WORD *",
        CLEAR_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n")
 
 ALIAS (clear_ip_bgp_all,
        clear_bgp_instance_all_cmd,
-       "clear bgp view WORD *",
+       "clear bgp (view|vrf) WORD *",
        CLEAR_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n")
 
@@ -6125,8 +6130,8 @@ DEFUN (clear_ip_bgp_all_soft_out,
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (argc == 1)
-    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
                           BGP_CLEAR_SOFT_OUT, NULL);
 
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
@@ -6144,12 +6149,12 @@ ALIAS (clear_ip_bgp_all_soft_out,
 
 ALIAS (clear_ip_bgp_all_soft_out,
        clear_ip_bgp_instance_all_soft_out_cmd,
-       "clear ip bgp view WORD * soft out",
+       "clear ip bgp (view|vrf) WORD * soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
-       "view name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Clear all peers\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
@@ -6189,11 +6194,11 @@ ALIAS (clear_ip_bgp_all_ipv4_soft_out,
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
        clear_ip_bgp_instance_all_ipv4_soft_out_cmd,
-       "clear ip bgp view WORD * ipv4 (unicast|multicast) soft out",
+       "clear ip bgp (view|vrf) WORD * ipv4 (unicast|multicast) soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        "Address family\n"
@@ -6201,8 +6206,8 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
        "Address Family modifier\n"
        BGP_SOFT_OUT_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST, clear_all,
+  if (strncmp (argv[2], "m", 1) == 0)
+    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_all,
                           BGP_CLEAR_SOFT_OUT, NULL);
 
   return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
@@ -6245,8 +6250,8 @@ DEFUN (clear_bgp_all_soft_out,
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (argc == 1)
-    return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_all,
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_all,
                           BGP_CLEAR_SOFT_OUT, NULL);
 
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
@@ -6255,10 +6260,10 @@ DEFUN (clear_bgp_all_soft_out,
 
 ALIAS (clear_bgp_all_soft_out,
        clear_bgp_instance_all_soft_out_cmd,
-       "clear bgp view WORD * soft out",
+       "clear bgp (view|vrf) WORD * soft out",
        CLEAR_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        BGP_SOFT_STR
@@ -6779,8 +6784,8 @@ DEFUN (clear_ip_bgp_all_soft_in,
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (argc == 1)
-    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
                           BGP_CLEAR_SOFT_IN, NULL);
 
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
@@ -6789,11 +6794,11 @@ DEFUN (clear_ip_bgp_all_soft_in,
 
 ALIAS (clear_ip_bgp_all_soft_in,
        clear_ip_bgp_instance_all_soft_in_cmd,
-       "clear ip bgp view WORD * soft in",
+       "clear ip bgp (view|vrf) WORD * soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        BGP_SOFT_STR
@@ -6818,8 +6823,8 @@ DEFUN (clear_ip_bgp_all_in_prefix_filter,
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
-  if (argc== 1)
-    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
+  if (argc== 2)
+    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
                           BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
@@ -6828,11 +6833,11 @@ DEFUN (clear_ip_bgp_all_in_prefix_filter,
 
 ALIAS (clear_ip_bgp_all_in_prefix_filter,
        clear_ip_bgp_instance_all_in_prefix_filter_cmd,
-       "clear ip bgp view WORD * in prefix-filter",
+       "clear ip bgp (view|vrf) WORD * in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        BGP_SOFT_IN_STR
@@ -6874,11 +6879,11 @@ ALIAS (clear_ip_bgp_all_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
        clear_ip_bgp_instance_all_ipv4_soft_in_cmd,
-       "clear ip bgp view WORD * ipv4 (unicast|multicast) soft in",
+       "clear ip bgp (view|vrf) WORD * ipv4 (unicast|multicast) soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        "Address family\n"
@@ -6887,11 +6892,11 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST, clear_all,
+  if (strncmp (argv[2], "m", 1) == 0)
+    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_all,
                           BGP_CLEAR_SOFT_IN, NULL);
 
-  return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
+  return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
                         BGP_CLEAR_SOFT_IN, NULL);
 }
 
@@ -6918,7 +6923,7 @@ DEFUN (clear_ip_bgp_all_ipv4_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_in_prefix_filter,
        clear_ip_bgp_instance_all_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp view WORD * ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp (view|vrf) WORD * ipv4 (unicast|multicast) in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6929,8 +6934,8 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_in_prefix_filter,
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST, clear_all,
+  if (strncmp (argv[2], "m", 1) == 0)
+    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_all,
                           BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 
   return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
@@ -6973,8 +6978,8 @@ DEFUN (clear_bgp_all_soft_in,
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (argc == 1)
-    return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_all,
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_all,
                         BGP_CLEAR_SOFT_IN, NULL);
 
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
@@ -6983,10 +6988,10 @@ DEFUN (clear_bgp_all_soft_in,
 
 ALIAS (clear_bgp_all_soft_in,
        clear_bgp_instance_all_soft_in_cmd,
-       "clear bgp view WORD * soft in",
+       "clear bgp (view|vrf) WORD * soft in",
        CLEAR_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        BGP_SOFT_STR
@@ -7754,8 +7759,8 @@ DEFUN (clear_ip_bgp_all_soft,
        "Clear all peers\n"
        BGP_SOFT_STR)
 {
-  if (argc == 1)
-    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
                         BGP_CLEAR_SOFT_BOTH, NULL);
 
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
@@ -7764,11 +7769,11 @@ DEFUN (clear_ip_bgp_all_soft,
 
 ALIAS (clear_ip_bgp_all_soft,
        clear_ip_bgp_instance_all_soft_cmd,
-       "clear ip bgp view WORD * soft",
+       "clear ip bgp (view|vrf) WORD * soft",
        CLEAR_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        BGP_SOFT_STR)
@@ -7796,11 +7801,11 @@ DEFUN (clear_ip_bgp_all_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft,
        clear_ip_bgp_instance_all_ipv4_soft_cmd,
-       "clear ip bgp view WORD * ipv4 (unicast|multicast) soft",
+       "clear ip bgp (view|vrf) WORD * ipv4 (unicast|multicast) soft",
        CLEAR_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        "Address family\n"
@@ -7808,8 +7813,8 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft,
        "Address Family Modifier\n"
        BGP_SOFT_STR)
 {
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, clear_all,
+  if (strncmp (argv[2], "m", 1) == 0)
+    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_MULTICAST, clear_all,
                           BGP_CLEAR_SOFT_BOTH, NULL);
 
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
@@ -7839,8 +7844,8 @@ DEFUN (clear_bgp_all_soft,
        "Clear all peers\n"
        BGP_SOFT_STR)
 {
-  if (argc == 1)
-    return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_all,
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_all,
                         BGP_CLEAR_SOFT_BOTH, argv[0]);
  
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
@@ -7849,10 +7854,10 @@ DEFUN (clear_bgp_all_soft,
 
 ALIAS (clear_bgp_all_soft,
        clear_bgp_instance_all_soft_cmd,
-       "clear bgp view WORD * soft",
+       "clear bgp (view|vrf) WORD * soft",
        CLEAR_STR
        BGP_STR
-       "BGP view\n"
+       "BGP view\nBGP VRF\n"
        "view name\n"
        "Clear all peers\n"
        BGP_SOFT_STR)
@@ -8348,12 +8353,21 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                 {
                   json_object_string_add(json, "routerId", inet_ntoa (bgp->router_id));
                   json_object_int_add(json, "as", bgp->as);
+
+                  if (bgp->vrf_id)
+                    json_object_int_add(json, "vrf-id", bgp->vrf_id);
+
                 }
               else
                 {
                   vty_out (vty,
-                           "BGP router identifier %s, local AS number %u%s",
-                           inet_ntoa (bgp->router_id), bgp->as, VTY_NEWLINE);
+                           "BGP router identifier %s, local AS number %u",
+                           inet_ntoa (bgp->router_id), bgp->as);
+
+                  if (bgp->vrf_id)
+                    vty_out (vty, " vrf-id %u", bgp->vrf_id);
+
+                  vty_out (vty, "%s", VTY_NEWLINE);
                 }
 
               if (bgp_update_delay_configured(bgp))
@@ -8657,17 +8671,17 @@ DEFUN (show_ip_bgp_summary,
 
 DEFUN (show_ip_bgp_instance_summary,
        show_ip_bgp_instance_summary_cmd,
-       "show ip bgp view WORD summary {json}",
+       "show ip bgp (view|vrf) WORD summary {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_bgp_ipv4_summary, 
@@ -8787,15 +8801,15 @@ DEFUN (show_bgp_summary,
 
 DEFUN (show_bgp_instance_summary,
        show_bgp_instance_summary_cmd,
-       "show bgp view WORD summary {json}",
+       "show bgp (view|vrf) WORD summary {json}",
        SHOW_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
 }
 
 ALIAS (show_bgp_summary, 
@@ -8808,11 +8822,11 @@ ALIAS (show_bgp_summary,
 
 ALIAS (show_bgp_instance_summary,
        show_bgp_instance_ipv6_summary_cmd,
-       "show bgp view WORD ipv6 summary {json}",
+       "show bgp (view|vrf) WORD ipv6 summary {json}",
        SHOW_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Address family\n"
        "Summary of BGP neighbor status\n")
 
@@ -8836,11 +8850,11 @@ DEFUN (show_bgp_ipv6_safi_summary,
 
 DEFUN (show_bgp_instance_ipv6_safi_summary,
        show_bgp_instance_ipv6_safi_summary_cmd,
-       "show bgp view WORD ipv6 (unicast|multicast) summary {json}",
+       "show bgp (view|vrf) WORD ipv6 (unicast|multicast) summary {json}",
        SHOW_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
@@ -8848,10 +8862,10 @@ DEFUN (show_bgp_instance_ipv6_safi_summary,
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[1], "m", 1) == 0)
-    return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_MULTICAST, uj);
+  if (strncmp (argv[2], "m", 1) == 0)
+    return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_MULTICAST, uj);
 
-  return bgp_show_summary_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, uj);
+  return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, uj);
 }
 
 /* old command */
@@ -10770,49 +10784,49 @@ ALIAS (show_ip_bgp_neighbors_peer,
 
 DEFUN (show_ip_bgp_instance_neighbors,
        show_ip_bgp_instance_neighbors_cmd,
-       "show ip bgp view WORD neighbors {json}",
+       "show ip bgp (view|vrf) WORD neighbors {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "JavaScript Object Notation\n")
 {
   u_char uj = use_json(argc, argv);
 
-  return bgp_show_neighbor_vty (vty, argv[0], show_all, NULL, uj);
+  return bgp_show_neighbor_vty (vty, argv[1], show_all, NULL, uj);
 }
 
 ALIAS (show_ip_bgp_instance_neighbors,
        show_bgp_instance_neighbors_cmd,
-       "show bgp view WORD neighbors {json}",
+       "show bgp (view|vrf) WORD neighbors {json}",
        SHOW_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "JavaScript Object Notation\n")
 
 ALIAS (show_ip_bgp_instance_neighbors,
        show_bgp_instance_ipv6_neighbors_cmd,
-       "show bgp view WORD ipv6 neighbors {json}",
+       "show bgp (view|vrf) WORD ipv6 neighbors {json}",
        SHOW_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Address family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "JavaScript Object Notation\n")
 
 DEFUN (show_ip_bgp_instance_neighbors_peer,
        show_ip_bgp_instance_neighbors_peer_cmd,
-       "show ip bgp view WORD neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
+       "show ip bgp (view|vrf) WORD neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        IP_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -10821,16 +10835,16 @@ DEFUN (show_ip_bgp_instance_neighbors_peer,
 {
   u_char uj = use_json(argc, argv);
 
-  return bgp_show_neighbor_vty (vty, argv[0], show_peer, argv[1], uj);
+  return bgp_show_neighbor_vty (vty, argv[1], show_peer, argv[2], uj);
 }
 
 ALIAS (show_ip_bgp_instance_neighbors_peer,
        show_bgp_instance_neighbors_peer_cmd,
-       "show bgp view WORD neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
+       "show bgp (view|vrf) WORD neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -10839,11 +10853,11 @@ ALIAS (show_ip_bgp_instance_neighbors_peer,
 
 ALIAS (show_ip_bgp_instance_neighbors_peer,
        show_bgp_instance_ipv6_neighbors_peer_cmd,
-       "show bgp view WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
+       "show bgp (view|vrf) WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) {json}",
        SHOW_STR
        BGP_STR
-       "BGP view\n"
-       "View name\n"
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Address family\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
@@ -11362,7 +11376,7 @@ DEFUN (show_ip_bgp_peer_groups,
 
 DEFUN (show_ip_bgp_instance_peer_groups,
        show_ip_bgp_instance_peer_groups_cmd,
-       "show ip bgp view WORD peer-group",
+       "show ip bgp (view|vrf) WORD peer-group",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11386,7 +11400,7 @@ DEFUN (show_ip_bgp_peer_group,
 
 DEFUN (show_ip_bgp_instance_peer_group,
        show_ip_bgp_instance_peer_group_cmd,
-       "show ip bgp view WORD peer-group WORD",
+       "show ip bgp (view|vrf) WORD peer-group WORD",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11414,7 +11428,7 @@ DEFUN (bgp_redistribute_ipv4,
       return CMD_WARNING;
     }
   bgp_redist_add(vty->index, AFI_IP, type, 0);
-  return bgp_redistribute_set (AFI_IP, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_rmap,
@@ -11437,7 +11451,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 
   red = bgp_redist_add(vty->index, AFI_IP, type, 0);
   bgp_redistribute_rmap_set (red, argv[1]);
-  return bgp_redistribute_set (AFI_IP, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_metric,
@@ -11462,7 +11476,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
 
   red = bgp_redist_add(vty->index, AFI_IP, type, 0);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP, type, metric);
-  return bgp_redistribute_set (AFI_IP, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
@@ -11490,7 +11504,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
   red = bgp_redist_add(vty->index, AFI_IP, type, 0);
   bgp_redistribute_rmap_set (red, argv[1]);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP, type, metric);
-  return bgp_redistribute_set (AFI_IP, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
@@ -11518,7 +11532,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
   red = bgp_redist_add(vty->index, AFI_IP, type, 0);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP, type, metric);
   bgp_redistribute_rmap_set (red, argv[2]);
-  return bgp_redistribute_set (AFI_IP, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf,
@@ -11540,7 +11554,7 @@ DEFUN (bgp_redistribute_ipv4_ospf,
     protocol = ZEBRA_ROUTE_TABLE;
 
   bgp_redist_add(vty->index, AFI_IP, protocol, instance);
-  return bgp_redistribute_set (AFI_IP, protocol, instance);
+  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap,
@@ -11565,7 +11579,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
   VTY_GET_INTEGER ("Instance ID", instance, argv[1]);
   red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
   bgp_redistribute_rmap_set (red, argv[2]);
-  return bgp_redistribute_set (AFI_IP, protocol, instance);
+  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric,
@@ -11593,7 +11607,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 
   red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP, protocol, metric);
-  return bgp_redistribute_set (AFI_IP, protocol, instance);
+  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
@@ -11624,7 +11638,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
   red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
   bgp_redistribute_rmap_set (red, argv[2]);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP, protocol, metric);
-  return bgp_redistribute_set (AFI_IP, protocol, instance);
+  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
 }
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
@@ -11655,7 +11669,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
   red = bgp_redist_add(vty->index, AFI_IP, protocol, instance);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP, protocol, metric);
   bgp_redistribute_rmap_set (red, argv[3]);
-  return bgp_redistribute_set (AFI_IP, protocol, instance);
+  return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
 }
 
 DEFUN (no_bgp_redistribute_ipv4_ospf,
@@ -11802,7 +11816,7 @@ DEFUN (bgp_redistribute_ipv6,
     }
 
   bgp_redist_add(vty->index, AFI_IP6, type, 0);
-  return bgp_redistribute_set (AFI_IP6, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_rmap,
@@ -11825,7 +11839,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 
   red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
   bgp_redistribute_rmap_set (red, argv[1]);
-  return bgp_redistribute_set (AFI_IP6, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_metric,
@@ -11850,7 +11864,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
 
   red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP6, type, metric);
-  return bgp_redistribute_set (AFI_IP6, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
@@ -11878,7 +11892,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
   red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
   bgp_redistribute_rmap_set (red, argv[1]);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP6, type, metric);
-  return bgp_redistribute_set (AFI_IP6, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
 }
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
@@ -11906,7 +11920,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
   red = bgp_redist_add(vty->index, AFI_IP6, type, 0);
   bgp_redistribute_metric_set(vty->index, red, AFI_IP6, SAFI_UNICAST, metric);
   bgp_redistribute_rmap_set (red, argv[2]);
-  return bgp_redistribute_set (AFI_IP6, type, 0);
+  return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
 }
 
 DEFUN (no_bgp_redistribute_ipv6,
@@ -12090,12 +12104,12 @@ bgp_vty_init (void)
 
   /* "router bgp" commands. */
   install_element (CONFIG_NODE, &router_bgp_cmd);
-  install_element (CONFIG_NODE, &router_bgp_view_cmd);
+  install_element (CONFIG_NODE, &router_bgp_instance_cmd);
   install_element (CONFIG_NODE, &router_bgp_noasn_cmd);
 
   /* "no router bgp" commands. */
   install_element (CONFIG_NODE, &no_router_bgp_cmd);
-  install_element (CONFIG_NODE, &no_router_bgp_view_cmd);
+  install_element (CONFIG_NODE, &no_router_bgp_instance_cmd);
 
   /* "bgp router-id" commands. */
   install_element (BGP_NODE, &bgp_router_id_cmd);

@@ -228,6 +228,10 @@ bgp_accept (struct thread *thread)
   struct peer *peer;
   struct peer *peer1;
   char buf[SU_ADDRSTRLEN];
+  struct bgp *bgp;
+  char name[VRF_NAMSIZ + 1];
+  int rc;
+  socklen_t name_len = VRF_NAMSIZ;
 
   sockunion_init (&su);
 
@@ -249,15 +253,48 @@ bgp_accept (struct thread *thread)
     }
   set_nonblocking (bgp_sock);
 
+  name[0] = '\0';
+  rc = getsockopt(bgp_sock, SOL_SOCKET, SO_BINDTODEVICE, name, &name_len);
+  if (rc != 0)
+    {
+      zlog_err ("[Error] BGP SO_BINDTODEVICE get failed (%s)", safe_strerror (errno));
+      return -1;
+    }
+  else if (name[0] != '\0')
+    {
+      /* Pending:
+         - Cleanup/add proper debugs in this area.
+         - Test/find a way to implement interface config within a VRF.
+       */
+      zlog_debug ("BGP accept vrf/interface %s, %u", name, name_len);
+      bgp = bgp_lookup_by_name (name);
+      if (bgp)
+        {
+          if (bgp->vrf_id)
+            zlog_debug ("BGP SO_BINDTODEVICE vrf-id in BGP %u", bgp->vrf_id);
+          else
+           {
+             zlog_debug ("BGP vrf not active!");
+             return -1;
+           }
+        }
+       /* if socket is interface bound, control may reach here, because name
+          may be equal to the interface name */
+    }
+  else
+    {
+      bgp = NULL;
+    }
+
   /* Set socket send buffer size */
   bgp_update_sock_send_buffer_size(bgp_sock);
 
   /* Check remote IP address */
-  peer1 = peer_lookup (NULL, &su);
+  peer1 = peer_lookup (bgp, &su);
 
   if (! peer1)
     {
-      peer1 = peer_lookup_dynamic_neighbor (NULL, &su);
+      peer1 = peer_lookup_dynamic_neighbor (bgp, &su);
       if (peer1)
         {
           /* Dynamic neighbor has been created, let it proceed */
@@ -382,10 +419,12 @@ bgp_bind (struct peer *peer)
   int ret;
   char *name;
 
-  if (! peer->ifname && !peer->conf_if)
+  if (!peer->bgp->vrf_id && ! peer->ifname && !peer->conf_if)
     return 0;
 
-  name = (peer->conf_if ? peer->conf_if : peer->ifname);
+  name = (peer->conf_if ? peer->conf_if : (peer->ifname ? peer->ifname : peer->bgp->name));
+
+  zlog_debug ("Binding to interface %s\n", name);
 
   if ( bgpd_privs.change (ZPRIVS_RAISE) )
   	zlog_err ("bgp_bind: could not raise privs");

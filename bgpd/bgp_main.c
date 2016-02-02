@@ -223,7 +223,6 @@ bgp_exit (int status)
 {
   struct bgp *bgp;
   struct listnode *node, *nnode;
-  struct interface *ifp;
   extern struct zclient *zclient;
 
   /* it only makes sense for this to be called on a clean exit */
@@ -239,6 +238,8 @@ bgp_exit (int status)
   /* reverse bgp_zebra_init/if_init */
   if (retain_mode)
     if_add_hook (IF_DELETE_HOOK, NULL);
+  /*Pending: Must-Do, this needs to be moved in a loop for all the instances..
+    Do the iflist lookup for vrf associated with the instance
   for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       struct listnode *c_node, *c_nnode;
@@ -247,6 +248,7 @@ bgp_exit (int status)
       for (ALL_LIST_ELEMENTS (ifp->connected, c_node, c_nnode, c))
         bgp_connected_delete (c);
     }
+    */
 
   /* reverse bgp_attr_init */
   bgp_attr_finish ();
@@ -287,9 +289,6 @@ bgp_exit (int status)
     stream_free (bgp_nexthop_buf);
   if (bgp_ifindices_buf)
     stream_free (bgp_ifindices_buf);
-
-  /* reverse bgp_scan_init */
-  bgp_scan_finish ();
 
   /* reverse bgp_master_init */
   if (bm->master)
