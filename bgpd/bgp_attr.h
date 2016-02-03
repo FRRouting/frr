@@ -60,10 +60,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 struct attr_extra
 {
   /* Multi-Protocol Nexthop, AFI IPv6 */
-#ifdef HAVE_IPV6
   struct in6_addr mp_nexthop_global;
   struct in6_addr mp_nexthop_local;
-#endif /* HAVE_IPV6 */
 
   /* Extended Communities attribute. */
   struct ecommunity *ecommunity;
@@ -75,7 +73,6 @@ struct attr_extra
   struct transit *transit;
 
   struct in_addr mp_nexthop_global_in;
-  struct in_addr mp_nexthop_local_in;
   
   /* Aggregator Router ID attribute */
   struct in_addr aggregator_addr;
