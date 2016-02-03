@@ -815,15 +815,6 @@ AC_CHECK_FUNCS([dup2 ftruncate getcwd gethostbyname getpagesize gettimeofday \
 	if_nametoindex if_indextoname getifaddrs \
 	uname fcntl])
 
-AC_CHECK_FUNCS(setproctitle, ,
-  [AC_CHECK_LIB(util, setproctitle, 
-     [LIBS="$LIBS -lutil"
-      AC_DEFINE(HAVE_SETPROCTITLE,, Have setproctitle)
-     ]
-   )
-  ]
-)
-
 dnl ------------------------------------
 dnl Determine routing get and set method
 dnl ------------------------------------
