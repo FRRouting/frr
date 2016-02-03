@@ -537,8 +537,8 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
     {
 
       if (IS_ZEBRA_DEBUG_KERNEL)
-        zlog_debug ("%s: RTM_NEWLINK for VRF  index %u, table %u", __func__,
-                    ifi->ifi_index, nl_table_id);
+        zlog_debug ("%s: RTM_NEWLINK for VRF(%s) index %u, table %u", __func__,
+                    name, ifi->ifi_index, nl_table_id);
 
       vrf = vrf_get((vrf_id_t)ifi->ifi_index, name); // It would create vrf
       if (!vrf)

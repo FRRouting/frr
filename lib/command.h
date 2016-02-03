@@ -70,6 +70,7 @@ enum node_type
   CONFIG_NODE,			/* Config node. Default mode of config file. */
   SERVICE_NODE, 		/* Service node. */
   DEBUG_NODE,			/* Debug node. */
+  VRF_DEBUG_NODE,               /* Vrf Debug node. */
   AAA_NODE,			/* AAA node. */
   KEYCHAIN_NODE,		/* Key-chain node. */
   KEYCHAIN_KEY_NODE,		/* Key-chain key node. */

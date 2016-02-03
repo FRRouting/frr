@@ -100,6 +100,9 @@ foreach (@ARGV) {
         elsif ($file =~ /lib\/routemap\.c$/) {
             $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
         }
+	elsif ($file =~ /lib\/vrf\.c$/) {
+	    $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
+	}
         elsif ($file =~ /lib\/filter\.c$/) {
             $protocol = "VTYSH_ALL";
         }

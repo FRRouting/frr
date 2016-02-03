@@ -28,6 +28,13 @@
 #include "table.h"
 #include "log.h"
 #include "memory.h"
+#include "command.h"
+
+/*
+ * Turn on/off debug code
+ * for vrf.
+ */
+int debug_vrf = 0;
 
 /* Holding VRF hooks  */
 struct vrf_master
@@ -160,15 +167,28 @@ vrf_get (vrf_id_t vrf_id, const char *name)
           if (vrf_list_lookup_by_name (vrf->name) == NULL)
             listnode_add_sort (vrf_list, vrf);
         }
+      if (debug_vrf)
+	zlog_debug ("VRF(%u) %s Found %p", vrf_id, (name) ? name : "(NULL)",
+		    vrf);
     }
   else
     {
       if (name)
         vrf = vrf_get_by_name(name);
 
-      if (!vrf)
-        vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-
+      if (vrf)
+	{
+	  if (debug_vrf)
+	    zlog_debug ("VRF(%u) %s lookup by name is successful",
+			vrf_id, (name) ? name : "(NULL)");
+	}
+      else
+	{
+	  vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
+	  if (debug_vrf)
+	    zlog_debug ("VRF(%u) %s is created.",
+			vrf_id, (name) ? name : "(NULL)");
+	}
       vrf->vrf_id = vrf_id;
       rn->info = vrf;
       vrf->node = rn;
@@ -176,11 +196,6 @@ vrf_get (vrf_id_t vrf_id, const char *name)
       /* Initialize interfaces. */
       if_init (vrf_id, &vrf->iflist);
     }
-
-  if (name)
-    zlog_info ("VRF %s with id %u is created.", name, vrf_id);
-  else
-    zlog_info ("VRF %u is created.", vrf_id);
 
   if (vrf_master.vrf_new_hook && name) {
     (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
@@ -195,7 +210,8 @@ vrf_get (vrf_id_t vrf_id, const char *name)
 void
 vrf_delete (struct vrf *vrf)
 {
-  zlog_info ("VRF %u is to be deleted.", vrf->vrf_id);
+  if (debug_vrf)
+    zlog_debug ("VRF %u is to be deleted.", vrf->vrf_id);
 
   if (vrf_is_enabled (vrf))
     vrf_disable (vrf);
@@ -264,7 +280,8 @@ vrf_enable (struct vrf *vrf)
 // /* Till now, only the default VRF can be enabled. */
 //  if (vrf->vrf_id == VRF_DEFAULT)
 //    {
-      zlog_info ("VRF %u is enabled.", vrf->vrf_id);
+  if (debug_vrf)
+    zlog_debug ("VRF %u is enabled.", vrf->vrf_id);
 
       if (vrf_master.vrf_enable_hook)
         (*vrf_master.vrf_enable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
@@ -285,7 +302,8 @@ vrf_disable (struct vrf *vrf)
 {
   if (vrf_is_enabled (vrf))
     {
-      zlog_info ("VRF %u is to be disabled.", vrf->vrf_id);
+      if (debug_vrf)
+	zlog_debug ("VRF %u is to be disabled.", vrf->vrf_id);
 
       /* Till now, nothing to be done for the default VRF. */
       //Pending: see why this statement.
@@ -300,6 +318,10 @@ vrf_disable (struct vrf *vrf)
 void
 vrf_add_hook (int type, int (*func)(vrf_id_t, const char *, void **))
 {
+  if (debug_vrf)
+    zlog_debug ("%s: Add Hook %d to function %p",  __PRETTY_FUNCTION__,
+		type, func);
+
   switch (type) {
   case VRF_NEW_HOOK:
     vrf_master.vrf_new_hook = func;
@@ -638,6 +660,9 @@ vrf_init (void)
 {
   struct vrf *default_vrf;
 
+  if (debug_vrf)
+    zlog_debug ("%s: Initializing VRF subsystem", __PRETTY_FUNCTION__);
+
   vrf_list = list_new ();
   vrf_list->cmp = (int (*)(void *, void *))vrf_cmp_func;
 
@@ -667,6 +692,9 @@ vrf_terminate (void)
   struct route_node *rn;
   struct vrf *vrf;
 
+  if (debug_vrf)
+    zlog_debug ("%s: Shutting down vrf subsystem", __PRETTY_FUNCTION__);
+
   for (rn = route_top (vrf_table); rn; rn = route_next (rn))
     if ((vrf = rn->info) != NULL)
       vrf_delete (vrf);
@@ -681,8 +709,60 @@ vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
 {
   int ret = -1;
 
-    ret = socket (domain, type, protocol);
+  ret = socket (domain, type, protocol);
 
   return ret;
 }
 
+/*
+ * Debug CLI for vrf's
+ */
+DEFUN (vrf_debug,
+      vrf_debug_cmd,
+      "debug vrf",
+      DEBUG_STR
+      "VRF Debugging\n")
+{
+  debug_vrf = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_vrf_debug,
+      no_vrf_debug_cmd,
+      "no debug vrf",
+      NO_STR
+      DEBUG_STR
+      "VRF Debugging\n")
+{
+  debug_vrf = 0;
+
+  return CMD_SUCCESS;
+}
+
+static int
+vrf_write_host (struct vty *vty)
+{
+  if (debug_vrf)
+    vty_out (vty, "debug vrf%s", VTY_NEWLINE);
+
+  return 1;
+}
+
+static struct cmd_node vrf_debug_node =
+{
+  VRF_DEBUG_NODE,
+  "",
+  1
+};
+
+void
+vrf_install_commands (void)
+{
+  install_node (&vrf_debug_node, vrf_write_host);
+
+  install_element (CONFIG_NODE, &vrf_debug_cmd);
+  install_element (ENABLE_NODE, &vrf_debug_cmd);
+  install_element (CONFIG_NODE, &no_vrf_debug_cmd);
+  install_element (ENABLE_NODE, &no_vrf_debug_cmd);
+}

@@ -208,5 +208,9 @@ extern void vrf_terminate (void);
 /* Create a socket serving for the given VRF */
 extern int vrf_socket (int, int, int, vrf_id_t);
 
+/*
+ * VRF Debugging
+ */
+extern void vrf_install_commands (void);
 #endif /*_ZEBRA_VRF_H*/
 
