@@ -1249,11 +1249,14 @@ DEFUN (show_interface_vrf_all, show_interface_vrf_all_cmd,
 }
 
 /* Show specified interface to vty. */
-DEFUN (show_interface_name, show_interface_name_cmd,
-       "show interface IFNAME",
+
+DEFUN (show_interface_name_vrf,
+       show_interface_name_vrf_cmd,
+       "show interface IFNAME " VRF_CMD_STR,
        SHOW_STR
        "Interface status and configuration\n"
-       "Inteface name\n")
+       "Interface name\n"
+       VRF_CMD_HELP_STR)
 {
   struct interface *ifp;
   vrf_id_t vrf_id = VRF_DEFAULT;
@@ -1283,20 +1286,12 @@ DEFUN (show_interface_name, show_interface_name_cmd,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_interface_name,
-       show_interface_name_vrf_cmd,
-       "show interface IFNAME " VRF_CMD_STR,
-       SHOW_STR
-       "Interface status and configuration\n"
-       "Inteface name\n"
-       VRF_CMD_HELP_STR)
-
 /* Show specified interface to vty. */
 DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
        "show interface IFNAME " VRF_ALL_CMD_STR,
        SHOW_STR
        "Interface status and configuration\n"
-       "Inteface name\n"
+       "Interface name\n"
        VRF_ALL_CMD_HELP_STR)
 {
   struct interface *ifp;
@@ -1332,6 +1327,12 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
 
   return CMD_SUCCESS;
 }
+
+ALIAS (show_interface_name_vrf_all, show_interface_name_cmd,
+       "show interface IFNAME",
+       SHOW_STR
+       "Interface status and configuration\n"
+       "Interface name\n")
 
 static void
 if_show_description (struct vty *vty, vrf_id_t vrf_id)
