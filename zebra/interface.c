@@ -936,6 +936,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   struct listnode *node;
   struct route_node *rn;
   struct zebra_if *zebra_if;
+  struct vrf *vrf;
 
   zebra_if = ifp->info;
 
@@ -957,7 +958,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 
   zebra_ptm_show_status(vty, ifp);
 
-  vty_out (vty, "  vrf: %u%s", ifp->vrf_id, VTY_NEWLINE);
+  vrf = vrf_lookup(ifp->vrf_id);
+  vty_out (vty, "  vrf: %s%s", vrf->name, VTY_NEWLINE);
 
   if (ifp->desc)
     vty_out (vty, "  Description: %s%s", ifp->desc,
