@@ -34,6 +34,7 @@
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_nexthop.h"
 
@@ -725,16 +726,10 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   
   if (!parse_ret)
     {
-      int (*f) (struct peer *, struct attr *, struct bgp_nlri *)
-        = bgp_nlri_parse;
-      
-      if (t->safi == SAFI_MPLS_LABELED_VPN)
-        f = bgp_nlri_parse_vpn;
-      
       if (type == BGP_ATTR_MP_REACH_NLRI)
-        nlri_ret = f (peer, &attr, &nlri);
+        nlri_ret = bgp_nlri_parse (peer, &attr, &nlri);
       else
-        nlri_ret = f (peer, NULL, &nlri);
+        nlri_ret = bgp_nlri_parse (peer, NULL, &nlri);
     }
   
   handle_result (peer, t, parse_ret, nlri_ret);
