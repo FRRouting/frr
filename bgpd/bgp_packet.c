@@ -1350,7 +1350,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   bgp_size_t attribute_len;
   bgp_size_t update_len;
   bgp_size_t withdraw_len;
-  int num_pfx_adv, num_pfx_wd;
 
   enum NLRI_TYPES {
     NLRI_UPDATE,
@@ -1375,7 +1374,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   memset (&extra, 0, sizeof (struct attr_extra));
   memset (&nlris, 0, sizeof (nlris));
   attr.extra = &extra;
-  num_pfx_adv = num_pfx_wd = 0;
   memset (peer->rcvd_attr_str, 0, BUFSIZ);
   peer->rcvd_attr_printed = 0;
 
@@ -1417,14 +1415,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       nlris[NLRI_WITHDRAW].safi = SAFI_UNICAST;
       nlris[NLRI_WITHDRAW].nlri = stream_pnt (s);
       nlris[NLRI_WITHDRAW].length = withdraw_len;
-
-      if (bgp_nlri_sanity_check (peer, &nlris[NLRI_WITHDRAW], &num_pfx_wd) < 0)
-        {
-          bgp_notify_send (peer, BGP_NOTIFY_UPDATE_ERR,
-                           BGP_NOTIFY_UPDATE_INVAL_NETWORK);
-          return -1;
-        }
-
       stream_forward_getp (s, withdraw_len);
     }
   
@@ -1506,24 +1496,12 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       nlris[NLRI_UPDATE].safi = SAFI_UNICAST;
       nlris[NLRI_UPDATE].nlri = stream_pnt (s);
       nlris[NLRI_UPDATE].length = update_len;
-
-      /* Check NLRI packet format and prefix length. */
-      ret = bgp_nlri_sanity_check (peer, &nlris[NLRI_UPDATE], &num_pfx_adv);
-      if (ret < 0)
-        {
-          bgp_notify_send (peer, BGP_NOTIFY_UPDATE_ERR,
-                           BGP_NOTIFY_UPDATE_INVAL_NETWORK);
-          bgp_attr_unintern_sub (&attr);
-	  return -1;
-	}
-
       stream_forward_getp (s, update_len);
     }
 
   if (BGP_DEBUG (update, UPDATE_IN))
-    zlog_debug("%s rcvd UPDATE wlen %d wpfx %d attrlen %d alen %d apfx %d",
-               peer->host, withdraw_len, num_pfx_wd, attribute_len,
-               update_len, num_pfx_adv);
+    zlog_debug("%s rcvd UPDATE wlen %d attrlen %d alen %d",
+               peer->host, withdraw_len, attribute_len, update_len);
 
   /* Parse any given NLRIs */
   for (int i = NLRI_UPDATE; i < NLRI_TYPE_MAX; i++)

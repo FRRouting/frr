@@ -264,7 +264,6 @@ extern void bgp_info_set_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
 extern void bgp_info_unset_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
 extern void bgp_info_path_with_addpath_rx_str (struct bgp_info *ri, char *buf);
 
-extern int bgp_nlri_sanity_check (struct peer *, struct bgp_nlri *, int *);
 extern int bgp_nlri_parse_ip (struct peer *, struct attr *, struct bgp_nlri *);
 
 extern int bgp_maximum_prefix_overflow (struct peer *, afi_t, safi_t, int);
