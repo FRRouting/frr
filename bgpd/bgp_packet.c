@@ -1705,12 +1705,12 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (mp_update.length
 	  && mp_update.afi == AFI_IP
 	  && mp_update.safi == SAFI_ENCAP)
-	bgp_nlri_parse_encap (mp_update.afi, peer, &attr, &mp_update, 0);
+	bgp_nlri_parse_encap (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length
 	  && mp_withdraw.afi == AFI_IP
 	  && mp_withdraw.safi == SAFI_ENCAP)
-	bgp_nlri_parse_encap (mp_withdraw.afi, peer, &attr, &mp_withdraw, 1);
+	bgp_nlri_parse_encap (peer, NULL, &mp_withdraw);
 
       if (! withdraw_len
 	  && mp_withdraw.afi == AFI_IP
@@ -1734,12 +1734,12 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP6 
 	  && mp_update.safi == SAFI_ENCAP)
-	bgp_nlri_parse_encap (mp_update.afi, peer, &attr, &mp_update, 0);
+	bgp_nlri_parse_encap (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length 
 	  && mp_withdraw.afi == AFI_IP6
 	  && mp_withdraw.safi == SAFI_ENCAP)
-	bgp_nlri_parse_encap (mp_withdraw.afi, peer, &attr, &mp_withdraw, 1);
+	bgp_nlri_parse_encap (peer, NULL, &mp_withdraw);
 
       if (! withdraw_len
 	  && mp_withdraw.afi == AFI_IP6
