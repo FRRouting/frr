@@ -962,9 +962,15 @@ void
 bgp_attr_flush (struct attr *attr)
 {
   if (attr->aspath && ! attr->aspath->refcnt)
-    aspath_free (attr->aspath);
+    {
+      aspath_free (attr->aspath);
+      attr->aspath = NULL;
+    }
   if (attr->community && ! attr->community->refcnt)
-    community_free (attr->community);
+    {
+      community_free (attr->community);
+      attr->community = NULL;
+    }
   if (attr->extra)
     {
       struct attr_extra *attre = attr->extra;
@@ -972,9 +978,15 @@ bgp_attr_flush (struct attr *attr)
       if (attre->ecommunity && ! attre->ecommunity->refcnt)
         ecommunity_free (&attre->ecommunity);
       if (attre->cluster && ! attre->cluster->refcnt)
-        cluster_free (attre->cluster);
+        {
+          cluster_free (attre->cluster);
+          attre->cluster = NULL;
+        }
       if (attre->transit && ! attre->transit->refcnt)
-        transit_free (attre->transit);
+        {
+          transit_free (attre->transit);
+          attre->transit = NULL;
+        }
       encap_free(attre->encap_subtlvs);
       attre->encap_subtlvs = NULL;
 #if ENABLE_BGP_VNC

@@ -2359,6 +2359,9 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   int vnc_implicit_withdraw = 0;
 #endif
 
+  memset (&new_attr, 0, sizeof(struct attr));
+  memset (&new_extra, 0, sizeof(struct attr_extra));
+
   bgp = peer->bgp;
   rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, p, prd);
   
