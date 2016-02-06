@@ -1255,6 +1255,19 @@ ALIAS (zebra_interface,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 
+static void
+interface_update_stats (void)
+{
+#ifdef HAVE_PROC_NET_DEV
+  /* If system has interface statistics via proc file system, update
+     statistics. */
+  ifstat_update_proc ();
+#endif /* HAVE_PROC_NET_DEV */
+#ifdef HAVE_NET_RT_IFLIST
+  ifstat_update_sysctl ();
+#endif /* HAVE_NET_RT_IFLIST */
+}
+
 struct cmd_node interface_node =
 {
   INTERFACE_NODE,
@@ -1300,14 +1313,7 @@ DEFUN (show_interface, show_interface_cmd,
   struct interface *ifp;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-#ifdef HAVE_PROC_NET_DEV
-  /* If system has interface statistics via proc file system, update
-     statistics. */
-  ifstat_update_proc ();
-#endif /* HAVE_PROC_NET_DEV */
-#ifdef HAVE_NET_RT_IFLIST
-  ifstat_update_sysctl ();
-#endif /* HAVE_NET_RT_IFLIST */
+  interface_update_stats ();
 
   if (argc > 0)
     VRF_GET_ID (vrf_id, argv[0]);
@@ -1337,14 +1343,7 @@ DEFUN (show_interface_vrf_all, show_interface_vrf_all_cmd,
   struct interface *ifp;
   vrf_iter_t iter;
 
-#ifdef HAVE_PROC_NET_DEV
-  /* If system has interface statistics via proc file system, update
-     statistics. */
-  ifstat_update_proc ();
-#endif /* HAVE_PROC_NET_DEV */
-#ifdef HAVE_NET_RT_IFLIST
-  ifstat_update_sysctl ();
-#endif /* HAVE_NET_RT_IFLIST */
+  interface_update_stats ();
 
   /* All interface print. */
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
@@ -1367,14 +1366,7 @@ DEFUN (show_interface_name_vrf,
   struct interface *ifp;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-#ifdef HAVE_PROC_NET_DEV
-  /* If system has interface statistics via proc file system, update
-     statistics. */
-  ifstat_update_proc ();
-#endif /* HAVE_PROC_NET_DEV */
-#ifdef HAVE_NET_RT_IFLIST
-  ifstat_update_sysctl ();
-#endif /* HAVE_NET_RT_IFLIST */
+  interface_update_stats ();
 
   if (argc > 1)
     VRF_GET_ID (vrf_id, argv[1]);
@@ -1404,14 +1396,7 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
   vrf_iter_t iter;
   int found = 0;
 
-#ifdef HAVE_PROC_NET_DEV
-  /* If system has interface statistics via proc file system, update
-     statistics. */
-  ifstat_update_proc ();
-#endif /* HAVE_PROC_NET_DEV */
-#ifdef HAVE_NET_RT_IFLIST
-  ifstat_update_sysctl ();
-#endif /* HAVE_NET_RT_IFLIST */
+  interface_update_stats ();
 
   /* All interface print. */
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
