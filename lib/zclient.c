@@ -1048,7 +1048,7 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
 #else
   ifp->hw_addr_len = stream_getl (s);
   if (ifp->hw_addr_len)
-    stream_get (ifp->hw_addr, s, ifp->hw_addr_len);
+    stream_get (ifp->hw_addr, s, MIN(ifp->hw_addr_len, INTERFACE_HWADDR_MAX));
 #endif /* HAVE_STRUCT_SOCKADDR_DL */
 }
 
