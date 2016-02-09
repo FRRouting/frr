@@ -570,7 +570,7 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
   api.message = stream_getc (stream);
 
   p.family = AF_INET;
-  p.prefixlen = stream_getc (stream);
+  p.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc (stream));
   stream_get (&p.prefix, stream, PSIZE (p.prefixlen));
 
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))

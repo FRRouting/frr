@@ -607,7 +607,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
   /* IPv4 prefix. */
   memset (&p, 0, sizeof (struct prefix_ipv4));
   p.family = AF_INET;
-  p.prefixlen = stream_getc (s);
+  p.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
 
   /* Nexthop, ifindex, distance, metric. */
@@ -722,7 +722,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
   /* IPv6 prefix. */
   memset (&p, 0, sizeof (struct prefix_ipv6));
   p.family = AF_INET6;
-  p.prefixlen = stream_getc (s);
+  p.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
 
   /* Nexthop, ifindex, distance, metric. */

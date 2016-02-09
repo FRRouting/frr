@@ -1070,7 +1070,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   /* IPv4 prefix. */
   memset (&p, 0, sizeof (struct prefix_ipv4));
   p.family = AF_INET;
-  p.prefixlen = stream_getc (s);
+  p.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc (s));
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
 
   if (IPV4_NET127(ntohl(p.prefix.s_addr)))
