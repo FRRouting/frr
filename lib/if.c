@@ -454,18 +454,50 @@ if_get_by_name (const char *name)
 }
 
 struct interface *
-if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id)
+if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id, int vty)
 {
   struct interface *ifp;
+  struct listnode *node;
+  struct vrf *vrf = NULL;
+  vrf_iter_t iter;
 
-  return ((ifp = if_lookup_by_name_len_vrf (name, namelen, vrf_id)) != NULL) ? \
-         ifp : if_create_vrf (name, namelen, vrf_id);
+  ifp = if_lookup_by_name_len_vrf (name, namelen, vrf_id);
+  if (ifp)
+    return ifp;
+
+  /* Didn't find the interface on that vrf. Defined on a different one? */ 
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      vrf = vrf_iter2vrf(iter);
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf->vrf_id), node, ifp))
+	{
+	  if (!memcmp(name, ifp->name, namelen) && (ifp->name[namelen] == '\0'))
+	    {
+	      /* Found a match.  If the interface command was entered in vty without a 
+	       * VRF (passed as VRF_DEFAULT), accept the ifp we found.   If a vrf was
+	       * entered and there is a mismatch, reject it if from vty. If it came 
+	       * from the kernel by way of zclient,  believe it and update
+	       * the ifp accordingly.
+	       */
+	      if (vrf_id == VRF_DEFAULT)
+		return ifp;
+	      if (vty)
+		return NULL;
+	      else
+		{
+		  if_update_vrf (ifp, name, namelen, vrf_id);
+		  return ifp;
+		}
+	    }
+	}
+    }
+  return (if_create_vrf (name, namelen, vrf_id));
 }
 
 struct interface *
 if_get_by_name_len (const char *name, size_t namelen)
 {
-  return if_get_by_name_len_vrf (name, namelen, VRF_DEFAULT);
+  return if_get_by_name_len_vrf (name, namelen, VRF_DEFAULT, 0);
 }
 
 /* Does interface up ? */
@@ -683,9 +715,9 @@ if_sunwzebra_get (const char *name, size_t nlen, vrf_id_t vrf_id)
   
   /* Wont catch seperator as last char, e.g. 'foo0:' but thats invalid */
   if (seppos < nlen)
-    return if_get_by_name_len_vrf (name, seppos, vrf_id);
+    return if_get_by_name_len_vrf (name, seppos, vrf_id, 1);
   else
-    return if_get_by_name_len_vrf (name, nlen, vrf_id);
+    return if_get_by_name_len_vrf (name, nlen, vrf_id, 1);
 }
 #endif /* SUNOS_5 */
 
@@ -715,9 +747,14 @@ DEFUN (interface,
 #ifdef SUNOS_5
   ifp = if_sunwzebra_get (argv[0], sl, vrf_id);
 #else
-  ifp = if_get_by_name_len_vrf (argv[0], sl, vrf_id);
+  ifp = if_get_by_name_len_vrf (argv[0], sl, vrf_id, 1);
 #endif /* SUNOS_5 */
 
+  if (!ifp)
+    {
+      vty_out (vty, "%% interface %s not in %s%s", argv[0], argv[1], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
   vty->index = ifp;
   vty->node = INTERFACE_NODE;
 

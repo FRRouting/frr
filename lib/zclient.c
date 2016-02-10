@@ -902,7 +902,7 @@ zebra_interface_add_read (struct stream *s, vrf_id_t vrf_id)
   /* Lookup/create interface by name. */
   ifp = if_get_by_name_len_vrf (ifname_tmp,
                                 strnlen (ifname_tmp, INTERFACE_NAMSIZ),
-                                vrf_id);
+                                vrf_id, 0);
 
   zebra_interface_if_set_value (s, ifp);
 

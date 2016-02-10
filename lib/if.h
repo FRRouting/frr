@@ -300,7 +300,7 @@ extern struct interface *if_get_by_name_len(const char *ifname,size_t namelen);
 extern struct interface *if_lookup_by_name_len_vrf(const char *ifname,
                                 size_t namelen, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name_len_vrf(const char *ifname,
-                                size_t namelen, vrf_id_t vrf_id);
+				size_t namelen, vrf_id_t vrf_id, int vty);
 
 
 /* Delete the interface, but do not free the structure, and leave it in the
