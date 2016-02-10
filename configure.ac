@@ -300,6 +300,8 @@ AC_ARG_ENABLE(pcreposix,
 [  --enable-pcreposix          enable using PCRE Posix libs for regex functions])
 AC_ARG_ENABLE(fpm,
 [  --enable-fpm            enable Forwarding Plane Manager support])
+AC_ARG_ENABLE(systemd,
+[  --enable-systemd 	enable Systemd support])
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 
@@ -322,6 +324,11 @@ if test x"${enable_time_check}" != x"no" ; then
   else
     AC_DEFINE_UNQUOTED(CONSUMED_TIME_CHECK,$enable_time_check,Consumed Time Check)
   fi
+fi
+
+if test x"${enable_systemd}" != x"no" ; then
+  AC_DEFINE(HAVE_SYSTEMD,,Compile systemd support in)
+  LIBS="$LIBS -lsystemd "
 fi
 
 if test "${enable_shell_access}" = "yes"; then
