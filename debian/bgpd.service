@@ -1,0 +1,19 @@
+[Unit]
+Description=Cumulus Linux Quagga BGP Daemon
+After=syslog.target networking.service zebra.service
+OnFailure=heartbeat-failed@%n.service
+
+[Service]
+Nice=-5
+EnvironmentFile=/etc/default/quagga
+Type=notify
+StartLimitInterval=3m
+StartLimitBurst=3
+TimeoutSec=1m
+WatchdogSec=60s
+RestartSec=5
+LimitNOFILE=1024
+ExecStart=/usr/lib/quagga/bgpd $BGPD_OPTIONS
+ExecStartPost=/usr/bin/vtysh -b -n
+[Install]
+WantedBy=network.target

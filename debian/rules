@@ -66,6 +66,7 @@ override_dh_auto_configure:
 		--enable-werror \
 		--enable-gcc-rdynamic \
 		--with-libpam \
+		--enable-systemd \
 		--enable-dependency-tracking; \
 	fi
 	if ! diff -b -IHAVE_SNMP -IHAVE_NETSNMP -IUCD_COMPAT -IGETIFADDR debian/my/config.h.reference config.h; then \
@@ -111,4 +112,26 @@ override_dh_auto_install:
 
 	# cleaning .la files
 	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
+
+override_dh_systemd_start:
+	dh_systemd_start quagga.service
+	dh_systemd_start babeld.service
+	dh_systemd_start bgpd.service
+	dh_systemd_start isisd.service
+	dh_systemd_start ospfd.service
+	dh_systemd_start ospf6d.service
+	dh_systemd_start ripd.service
+	dh_systemd_start ripngd.service
+	dh_systemd_start zebra.service
+
+override_dh_systemd_enable:
+	dh_systemd_enable --no-enable quagga.service
+	dh_systemd_enable --no-enable babeld.service
+	dh_systemd_enable --no-enable bgpd.service
+	dh_systemd_enable --no-enable isisd.service
+	dh_systemd_enable --no-enable ospfd.service
+	dh_systemd_enable --no-enable ospf6d.service
+	dh_systemd_enable --no-enable ripd.service
+	dh_systemd_enable --no-enable ripngd.service
+	dh_systemd_enable --no-enable zebra.service
 

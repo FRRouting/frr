@@ -1,0 +1,34 @@
+[Unit]
+Description=Cumulus Linux Quagga convenience service
+After=networking.service syslog.service
+
+[Service]
+EnvironmentFile=-/etc/default/quagga
+Type=simple
+RemainAfterExit=yes
+TimeoutSec=2m30s
+TimeoutStopSec=1m
+ExecStartPre=-/bin/systemctl start zebra.service
+ExecStartPre=-/bin/systemctl start babeld.service
+ExecStartPre=-/bin/systemctl start bgpd.service
+ExecStartPre=-/bin/systemctl start isisd.service
+ExecStartPre=-/bin/systemctl start ospfd.service
+ExecStartPre=-/bin/systemctl start ospf6d.service
+ExecStartPre=-/bin/systemctl start ripd.service
+ExecStartPre=-/bin/systemctl start ripngd.service
+ExecStartPost=-/usr/bin/vtysh -b -n
+#
+ExecStart=/bin/true
+ExecStop=/bin/true
+#
+ExecStopPost=-/bin/systemctl stop babeld.service
+ExecStopPost=-/bin/systemctl stop bgpd.service
+ExecStopPost=-/bin/systemctl stop isisd.service
+ExecStopPost=-/bin/systemctl stop ospfd.service
+ExecStopPost=-/bin/systemctl stop ospf6d.service
+ExecStopPost=-/bin/systemctl stop ripd.service
+ExecStopPost=-/bin/systemctl stop ripngd.service
+ExecStopPost=-/bin/systemctl stop zebra.service
+
+[Install]
+WantedBy=network.target

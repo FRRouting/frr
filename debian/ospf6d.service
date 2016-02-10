@@ -1,0 +1,19 @@
+[Unit]
+Description=OSPF routing daemon for IPv6
+After=syslog.target networking.service zebra.service
+OnFailure=heartbeat-failed@%n.service
+
+[Service]
+Nice=-5
+Type=notify
+EnvironmentFile=/etc/default/quagga
+StartLimitInterval=3m
+StartLimitBurst=3
+TimeoutSec=1m
+WatchdogSec=60s
+RestartSec=5
+Restart=on-abnormal
+ExecStart=/usr/lib/quagga/ospf6d $OSPF6D_OPTIONS
+ExecStartPost=/usr/bin/vtysh -b  -n
+[Install]
+WantedBy=network.target

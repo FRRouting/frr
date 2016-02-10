@@ -1,0 +1,20 @@
+[Unit]
+Description=RIP routing daemon for IPv6
+After=syslog.target networking.service zebra.service
+OnFailure=heartbeat-failed@%n.service
+
+[Service]
+Nice=-5
+Type=notify
+EnvironmentFile=/etc/default/quagga
+StartLimitInterval=3m
+StartLimitBurst=3
+TimeoutSec=1m
+WatchdogSec=60s
+RestartSec=5
+Restart=on-abnormal
+LimitNOFILE=1024
+ExecStart=/usr/lib/quagga/ripngd $RIPNGD_OPTIONS
+ExecStartPost=/usr/bin/vtysh -b -n
+[Install]
+WantedBy=network.target
