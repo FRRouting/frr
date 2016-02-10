@@ -326,7 +326,7 @@ if test x"${enable_time_check}" != x"no" ; then
   fi
 fi
 
-if test x"${enable_systemd}" != x"no" ; then
+if test "${enable_systemd}" = "yes" ; then
   AC_DEFINE(HAVE_SYSTEMD,,Compile systemd support in)
   LIBS="$LIBS -lsystemd "
 fi
