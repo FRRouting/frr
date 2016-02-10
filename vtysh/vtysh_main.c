@@ -451,7 +451,10 @@ main (int argc, char **argv, char **env)
 	{
 	  fprintf (stderr, "Can't open configuration file [%s]\n",
 		   integrate_default);
-	  exit (1);
+	  if (no_error)
+	    exit (0);
+	  else
+	    exit (1);
 	}
       else
 	exit (0);
