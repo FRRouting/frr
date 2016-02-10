@@ -8512,7 +8512,7 @@ DEFUN (no_ospf_distance_ospf,
 DEFUN (ospf_distance_ospf,
        ospf_distance_ospf_cmd,
        "distance ospf "
-         "(intra-area <1-255>|inter-area <1-255>|external <1-255>)",
+         "{intra-area <1-255>|inter-area <1-255>|external <1-255>}",
        "Define an administrative distance\n"
        "OSPF Administrative distance\n"
        "Intra-area routes\n"
