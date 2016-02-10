@@ -40,6 +40,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "systemd.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -366,6 +367,8 @@ main (int argc, char **argv)
     }
   /* Process id file create. */
   pid_output (pid_file);
+
+  systemd_send_started (master);
   vty_serv_sock (vty_addr, vty_port, vty_path);
 
   /* Print banner. */

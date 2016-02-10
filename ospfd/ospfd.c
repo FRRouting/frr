@@ -34,6 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "zclient.h"
 #include "plist.h"
 #include "sockopt.h"
+#include "systemd.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -395,7 +396,10 @@ ospf_deferred_shutdown_finish (struct ospf *ospf)
   /* ospfd being shut-down? If so, was this the last ospf instance? */
   if (CHECK_FLAG (om->options, OSPF_MASTER_SHUTDOWN)
       && (listcount (om->ospf) == 0))
-    exit (0);
+    {
+      systemd_send_stopping ();
+      exit (0);
+    }
 
   return;
 }
@@ -462,6 +466,7 @@ ospf_terminate (void)
   
   SET_FLAG (om->options, OSPF_MASTER_SHUTDOWN);
 
+  systemd_send_stopping ();
   /* exit immediately if OSPF not actually running */
   if (listcount(om->ospf) == 0)
     exit(0);

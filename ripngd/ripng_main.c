@@ -35,6 +35,7 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "vrf.h"
+#include "systemd.h"
 
 #include "ripngd/ripngd.h"
 
