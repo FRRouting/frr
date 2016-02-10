@@ -18,3 +18,5 @@ usr/share/man/man8/watchquagga.8
 usr/share/snmp/mibs/
 cumulus/etc/* etc/
 debian/watchquagga.rc   etc/cumulus/ssmonitor.d
+debian/*.service    lib/systemd/system
+debian/quagga.conf  usr/lib/tmpfiles.d

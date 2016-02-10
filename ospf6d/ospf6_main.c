@@ -37,6 +37,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "systemd.h"
 
 #include "ospf6d.h"
 #include "ospf6_top.h"
@@ -165,6 +166,7 @@ ospf6_exit (int status)
   if (zlog_default)
     closezlog (zlog_default);
 
+  systemd_send_stopping ();
   exit (status);
 }
 
@@ -345,6 +347,8 @@ main (int argc, char *argv[], char *envp[])
 
   /* pid file create */
   pid_output (pid_file);
+
+  systemd_send_started (master);
 
   /* Make ospf6 vty socket. */
   if (!vty_port)

@@ -38,6 +38,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "stream.h"
 #include "queue.h"
 #include "vrf.h"
+#include "systemd.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -297,6 +298,7 @@ bgp_exit (int status)
   if (zlog_default)
     closezlog (zlog_default);
 
+  systemd_send_stopping ();
   exit (status);
 }
 
@@ -433,6 +435,7 @@ main (int argc, char **argv)
   /* Process ID file creation. */
   pid_output (pid_file);
 
+  systemd_send_started (bm->master);
   /* Make bgp vty socket. */
   vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
 

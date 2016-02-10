@@ -1,0 +1,103 @@
+/* lib/systemd Code
+   Copyright (C) 2016 Cumulus Networks, Inc.
+   Donald Sharp
+
+This file is part of Quagga.
+
+Quagga is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+Quagga is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Quagga; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
+
+#include <zebra.h>
+
+#include "thread.h"
+#include "systemd.h"
+
+#if defined HAVE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
+
+/*
+ * Wrapper this silliness if we
+ * don't have systemd
+ */
+void
+systemd_send_information (const char *info)
+{
+#if defined HAVE_SYSTEMD
+  sd_notify (0, info);
+#else
+  return;
+#endif
+}
+
+/*
+ * A return of 0 means that we are not watchdoged
+ */
+static int
+systemd_get_watchdog_time (void)
+{
+#if defined HAVE_SYSTEMD
+  uint64_t usec;
+  int ret;
+
+  ret = sd_watchdog_enabled (0, &usec);
+
+  /*
+   * If return is 0 -> we don't want watchdog
+   * if return is < 0, some sort of failure occurred
+   */
+  if (ret <= 0)
+    return 0;
+
+  return (usec / 1000000)/ 3;
+#else
+  return 0;
+#endif
+}
+
+void
+systemd_send_stopping (void)
+{
+  systemd_send_information ("STOPPING=1");
+}
+
+/*
+ * How many seconds should we wait between watchdog sends
+ */
+int wsecs = 0;
+struct thread_master *systemd_master = NULL;
+
+static int
+systemd_send_watchdog (struct thread *t)
+{
+  systemd_send_information ("WATCHDOG=1");
+
+  thread_add_timer (systemd_master, systemd_send_watchdog, NULL, wsecs);
+
+  return 1;
+}
+
+void
+systemd_send_started (struct thread_master *m)
+{
+  assert (m != NULL);
+
+  wsecs = systemd_get_watchdog_time();
+  systemd_master = m;
+
+  systemd_send_information ("READY=1");
+  if (wsecs != 0)
+    thread_add_timer (m, systemd_send_watchdog, m, wsecs);
+}

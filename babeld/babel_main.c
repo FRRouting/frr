@@ -49,6 +49,7 @@ THE SOFTWARE.
 #include "command.h"
 #include "vty.h"
 #include "memory.h"
+#include "systemd.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -271,6 +272,7 @@ babel_init(int argc, char **argv)
         exit (1);
     };
 
+    systemd_send_started (master);
     /* init some quagga's dependencies, and babeld's commands */
     babeld_quagga_init();
     /* init zebra client's structure and it's commands */
@@ -304,6 +306,7 @@ babel_get_progname(char *argv_0) {
 static void
 babel_fail(void)
 {
+    systemd_send_stopping ();
     exit(1);
 }
 
@@ -462,6 +465,7 @@ babel_exit_properly(void)
         unlink(pidfile);
     debugf(BABEL_DEBUG_COMMON, "Done.");
 
+    systemd_send_stopping ();
     exit(0);
 }
 
