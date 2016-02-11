@@ -2994,6 +2994,11 @@ bgp_delete (struct bgp *bgp)
   afi_t afi;
   int i;
 
+  THREAD_OFF (bgp->t_startup);
+
+  if (bgp->t_rmap_update)
+    BGP_TIMER_OFF(bgp->t_rmap_update);
+
   /* Delete static route. */
   bgp_static_delete (bgp);
 
@@ -3020,6 +3025,7 @@ bgp_delete (struct bgp *bgp)
 
   if (bgp->t_rmap_def_originate_eval)
     {
+      BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
       bgp_unlock(bgp);
     }
 
