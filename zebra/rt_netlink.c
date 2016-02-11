@@ -600,7 +600,8 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
   struct ifinfomsg *ifi;
   struct rtattr *tb[IFLA_MAX + 1];
   struct interface *ifp;
-  char *name;
+  char *name = NULL;
+  char *kind = NULL;
 
   ifi = NLMSG_DATA (h);
 
@@ -634,7 +635,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   if (tb[IFLA_LINKINFO])
     {
-      char *kind = parse_link_kind(tb[IFLA_LINKINFO]);
+      kind = parse_link_kind(tb[IFLA_LINKINFO]);
 
       if (kind && strcmp(kind, "vrf") == 0)
         {
@@ -644,7 +645,12 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
     }
 
   if (tb[IFLA_MASTER])
-    vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+    {
+      if (kind && strcmp(kind, "vrf") == 0)
+        vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+      else
+	vrf_id = VRF_DEFAULT;
+    }
 
   /* Add interface. */
   ifp = if_get_by_name_vrf (name, vrf_id);
@@ -1204,7 +1210,8 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   struct ifinfomsg *ifi;
   struct rtattr *tb[IFLA_MAX + 1];
   struct interface *ifp;
-  char *name;
+  char *name = NULL;
+  char *kind = NULL;
   struct connected *ifc;
   struct listnode *node;
 
@@ -1248,7 +1255,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   if (tb[IFLA_LINKINFO])
     {
-      char *kind = parse_link_kind(tb[IFLA_LINKINFO]);
+      kind = parse_link_kind(tb[IFLA_LINKINFO]);
 
       if (kind && strcmp(kind, "vrf") == 0)
         {
@@ -1261,7 +1268,12 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (h->nlmsg_type == RTM_NEWLINK)
     {
       if (tb[IFLA_MASTER])
-        vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+	{
+	  if (kind && strcmp (kind, "vrf") == 0)
+            vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+	  else
+	    vrf_id = VRF_DEFAULT;
+	}
 
       /* clean up any old ifps in a different VRF */
       ifp = if_lookup_by_index_per_ns (dzns, ifi->ifi_index);
