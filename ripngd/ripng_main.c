@@ -155,6 +155,7 @@ sigint (void)
   if (! retain_mode)
     ripng_clean ();
 
+  systemd_send_stopping ();
   exit (0);
 }
 
@@ -298,6 +299,8 @@ main (int argc, char **argv)
       zlog_err("RIPNGd daemon failed: %s", strerror(errno));
       exit (1);
     }
+
+  systemd_send_started (master);
 
   /* Create VTY socket */
   vty_serv_sock (vty_addr, vty_port, RIPNG_VTYSH_PATH);
