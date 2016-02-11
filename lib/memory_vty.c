@@ -35,80 +35,6 @@
 #include "vty.h"
 #include "command.h"
 
-void
-log_memstats_stderr (const char *prefix)
-{
-#if 0
-  struct mlist *ml;
-  struct memory_list *m;
-  int i;
-  int j = 0;
-
-  for (ml = mlists; ml->list; ml++)
-    {
-      i = 0;
-
-      for (m = ml->list; m->index >= 0; m++)
-        if (m->index && mstat[m->index].alloc)
-          {
-            if (!i)
-              fprintf (stderr,
-                       "%s: memstats: Current memory utilization in module %s:\n",
-                       prefix,
-                       ml->name);
-            fprintf (stderr,
-                     "%s: memstats:  %-30s: %10ld%s\n",
-                     prefix,
-                     m->format,
-                     mstat[m->index].alloc,
-                     mstat[m->index].alloc < 0 ? " (REPORT THIS BUG!)" : "");
-            i = j = 1;
-          }
-    }
-
-  if (j)
-    fprintf (stderr,
-             "%s: memstats: NOTE: If configuration exists, utilization may be "
-             "expected.\n",
-             prefix);
-  else
-    fprintf (stderr,
-             "%s: memstats: No remaining tracked memory utilization.\n",
-             prefix);
-#endif
-}
-
-#if 0
-static void
-show_separator(struct vty *vty)
-{
-  vty_out (vty, "-----------------------------\r\n");
-}
-
-static int
-show_memory_vty (struct vty *vty, struct memory_list *list)
-{
-  struct memory_list *m;
-  int needsep = 0;
-
-  for (m = list; m->index >= 0; m++)
-    if (m->index == 0)
-      {
-	if (needsep)
-	  {
-	    show_separator (vty);
-	    needsep = 0;
-	  }
-      }
-    else if (mstat[m->index].alloc)
-      {
-	vty_out (vty, "%-30s: %10ld\r\n", m->format, mstat[m->index].alloc);
-	needsep = 1;
-      }
-  return needsep;
-}
-#endif
-
 #ifdef HAVE_MALLINFO
 static int
 show_memory_mallinfo (struct vty *vty)
@@ -174,22 +100,9 @@ DEFUN (show_memory,
        "Show running system information\n"
        "Memory statistics\n")
 {
-  int needsep = 0;
-  
 #ifdef HAVE_MALLINFO
-  needsep = show_memory_mallinfo (vty);
+  show_memory_mallinfo (vty);
 #endif /* HAVE_MALLINFO */
-
-  (void) needsep;
-#if 0
-  struct mlist *ml;
-  for (ml = mlists; ml->list; ml++)
-    {
-      if (needsep)
-	show_separator (vty);
-      needsep = show_memory_vty (vty, ml->list);
-    }
-#endif
 
   qmem_walk(qmem_walker, vty);
   return CMD_SUCCESS;

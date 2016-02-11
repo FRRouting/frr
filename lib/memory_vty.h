@@ -24,7 +24,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 
 extern void memory_init (void);
-extern void log_memstats_stderr (const char *);
 
 /* Human friendly string for given byte count */
 #define MTYPE_MEMSTR_LEN 20

@@ -112,3 +112,38 @@ qmem_walk (qmem_walk_fn *func, void *arg)
     }
   return 0;
 }
+
+struct exit_dump_args
+{
+  const char *prefix;
+  int error;
+};
+
+static int
+qmem_exit_walker (void *arg, struct memgroup *mg, struct memtype *mt)
+{
+  struct exit_dump_args *eda = arg;
+
+  if (!mt)
+    {
+      fprintf (stderr, "%s: showing active allocations in memory group %s\n",
+               eda->prefix, mg->name);
+    }
+  else if (mt->n_alloc)
+    {
+      char size[32];
+      eda->error++;
+      snprintf (size, sizeof (size), "%10zu", mt->size);
+      fprintf (stderr, "%s:  %-30s: %6zu * %s\n",
+               eda->prefix, mt->name, mt->n_alloc,
+               mt->size == SIZE_VAR ? "(variably sized)" : size);
+    }
+  return 0;
+}
+
+void
+log_memstats_stderr (const char *prefix)
+{
+  struct exit_dump_args eda = { .prefix = prefix, .error = 0 };
+  qmem_walk (qmem_exit_walker, &eda);
+}
