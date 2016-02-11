@@ -3,6 +3,9 @@
 # Some can be overriden on rpmbuild commandline with:
 # rpmbuild --define 'variable value'
 #
+# E.g. rpmbuild --define 'release_rev 02' may be useful if building
+# rpms again and again on the same day, so the newer rpms can be installed.
+# bumping the number each time.
 
 ####################### Quagga configure options #########################
 # with-feature options
@@ -14,7 +17,6 @@
 %{!?with_tcp_zebra:	%define	with_tcp_zebra	0 }
 %{!?with_vtysh:		%define	with_vtysh	1 }
 %{!?with_pam:		%define	with_pam	1 }
-%{!?with_ipv6:		%define	with_ipv6	1 }
 %{!?with_ospfclient:	%define	with_ospfclient 1 }
 %{!?with_ospfapi:	%define	with_ospfapi	1 }
 %{!?with_irdp:		%define	with_irdp	1 }
@@ -51,14 +53,6 @@
 # FC4 and 5 split texi2html out of tetex package.
 %define quagga_buildreqs %{expand:%{quagga_buildreqs}} texi2html
 
-# pam_stack was deprecated in FC5
-# default to pam_stack, default should be changed later.
-%if "%dist" == "fc4" || "%dist" == "fc3"
-%define	quagga_pam_source quagga.pam.stack
-%else
-%define	quagga_pam_source quagga.pam
-%endif
-
 # man page probably needs groff for groff_ms macros
 %define  quagga_buildreqs %{expand:%{quagga_buildreqs}} groff
 
@@ -69,11 +63,7 @@
 %{!?quagga_gid:		%define         quagga_gid      92 }
 %define		daemon_list	zebra ripd ospfd bgpd
 
-%if %{with_ipv6}
 %define		daemonv6_list	ripngd ospf6d
-%else
-%define		daemonv6_list	""
-%endif
 
 %if %{with_isisd}
 %define		daemon_other	isisd
@@ -161,9 +151,6 @@ developing OSPF-API and quagga applications.
 %if !%{with_shared}
 	--disable-shared \
 %endif
-%if %{with_ipv6}
-	--enable-ipv6 \
-%endif
 %if %{with_snmp}
 	--enable-snmp \
 %endif
@@ -247,7 +234,7 @@ for daemon in %{all_daemons} ; do
 			$RPM_BUILD_ROOT/etc/rc.d/init.d/${daemon}
 	fi
 done
-install -m644 %{zeb_rh_src}/%{quagga_pam_source} \
+install -m644 %{zeb_rh_src}/quagga.pam \
 	$RPM_BUILD_ROOT/etc/pam.d/quagga
 install -m644 %{zeb_rh_src}/quagga.logrotate \
 	$RPM_BUILD_ROOT/etc/logrotate.d/quagga
@@ -291,14 +278,10 @@ zebra_spec_add_service ()
 zebra_spec_add_service zebrasrv 2600/tcp "zebra service"
 zebra_spec_add_service zebra    2601/tcp "zebra vty"
 zebra_spec_add_service ripd     2602/tcp "RIPd vty"
-%if %{with_ipv6}
 zebra_spec_add_service ripngd   2603/tcp "RIPngd vty"
-%endif
 zebra_spec_add_service ospfd    2604/tcp "OSPFd vty"
 zebra_spec_add_service bgpd     2605/tcp "BGPd vty"
-%if %{with_ipv6}
 zebra_spec_add_service ospf6d   2606/tcp "OSPF6d vty"
-%endif
 %if %{with_ospfapi}
 zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
 %endif
@@ -408,9 +391,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
 %{_sbindir}/watchquagga
-%if %{with_ipv6}
 %{_sbindir}/ripngd
 %{_sbindir}/ospf6d
+%if %{with_pimd}
+%{_sbindir}/pimd
 %endif
 %if %{with_isisd}
 %{_sbindir}/isisd
@@ -451,6 +435,12 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 
 %changelog
+* Fri Sep 4 2015 Paul Jakma <paul@jakma.org> - %{version}
+- package the pimd binary
+- remove with_ipv6 conditionals, always build v6
+- Fix UTF-8 char in spec changelog
+- remove quagga.pam.stack, long deprecated.
+
 * Fri Sep 4 2015 Paul Jakma <paul@jakma.org> - %{version}
 - buildreq updates
 - add a default define for with_pimd
@@ -587,7 +577,7 @@ rm -rf $RPM_BUILD_ROOT
 * Thu Aug 09 2001 Elliot Lee <sopwith@redhat.com> 0.91a-6
 - Fix bug #51336
 
-* Wed Aug  1 2001 Trond Eivind Glomsrød <teg@redhat.com> 0.91a-5
+* Wed Aug  1 2001 Trond Eivind GlomsrÃ¸d  <teg@redhat.com> 0.91a-5
 - Use generic initscript strings instead of initscript specific
   ( "Starting foo: " -> "Starting $prog:" )
 
