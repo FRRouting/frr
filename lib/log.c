@@ -48,7 +48,6 @@ const char *zlog_proto_names[] =
   "BGP",
   "OSPF",
   "RIPNG",
-  "BABEL",
   "OSPF6",
   "ISIS",
   "MASC",
@@ -963,8 +962,6 @@ proto_redistnum(int afi, const char *s)
       else if (strncmp (s, "bg", 2) == 0)
 	return ZEBRA_ROUTE_BGP;
       else if (strncmp (s, "ba", 2) == 0)
-	return ZEBRA_ROUTE_BABEL;
-      else if (strncmp (s, "t", 1) == 0)
 	return ZEBRA_ROUTE_TABLE;
     }
   if (afi == AFI_IP6)
@@ -984,8 +981,6 @@ proto_redistnum(int afi, const char *s)
       else if (strncmp (s, "bg", 2) == 0)
 	return ZEBRA_ROUTE_BGP;
       else if (strncmp (s, "ba", 2) == 0)
-	return ZEBRA_ROUTE_BABEL;
-      else if (strncmp (s, "t", 1) == 0)
 	return ZEBRA_ROUTE_TABLE;
     }
   return -1;

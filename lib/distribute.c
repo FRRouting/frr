@@ -775,10 +775,9 @@ distribute_list_init (int node)
     install_element (node, &no_distribute_list_prefix_all_cmd);
     install_element (node, &distribute_list_prefix_cmd);
     install_element (node, &no_distribute_list_prefix_cmd);
-  } else if (node == RIPNG_NODE || node == BABEL_NODE) {
+  } else if (node == RIPNG_NODE) {
     /* WARNING: two identical commands installed do a crash, so be worry with
-     aliases. For this reason, and because all these commands are aliases, Babel
-     is not set with RIP. */
+     * aliases */
     install_element (node, &ipv6_distribute_list_all_cmd);
     install_element (node, &no_ipv6_distribute_list_all_cmd);
     install_element (node, &ipv6_distribute_list_cmd);

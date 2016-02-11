@@ -133,12 +133,6 @@ static struct cmd_node ospf6_node =
   "%s(config-ospf6)# "
 };
 
-static struct cmd_node babel_node =
-{
-  BABEL_NODE,
-  "%s(config-babel)# "
-};
-
 static struct cmd_node keychain_node =
 {
   KEYCHAIN_NODE,
@@ -217,7 +211,6 @@ test_init(void)
   install_node (&ospf_node, NULL);
   install_node (&ripng_node, NULL);
   install_node (&ospf6_node, NULL);
-  install_node (&babel_node, NULL);
   install_node (&keychain_node, NULL);
   install_node (&keychain_key_node, NULL);
   install_node (&isis_node, NULL);

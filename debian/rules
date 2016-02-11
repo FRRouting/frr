@@ -107,15 +107,11 @@ override_dh_auto_install:
 	# installing the Quagga specific SNMP MIB
 	install -D -m 644 ./zebra/GNOME-PRODUCT-ZEBRA-MIB debian/tmp/usr/share/snmp/mibs/GNOME-PRODUCT-ZEBRA-MIB
 
-	# installing custom man page
-	cp debian/my/babeld.8 debian/tmp/usr/share/man/man8/quagga-babeld.8
-
 	# cleaning .la files
 	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
 
 override_dh_systemd_start:
 	dh_systemd_start quagga.service
-	dh_systemd_start babeld.service
 	dh_systemd_start bgpd.service
 	dh_systemd_start isisd.service
 	dh_systemd_start ospfd.service
@@ -126,7 +122,6 @@ override_dh_systemd_start:
 
 override_dh_systemd_enable:
 	dh_systemd_enable --no-enable quagga.service
-	dh_systemd_enable --no-enable babeld.service
 	dh_systemd_enable --no-enable bgpd.service
 	dh_systemd_enable --no-enable isisd.service
 	dh_systemd_enable --no-enable ospfd.service

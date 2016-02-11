@@ -299,14 +299,14 @@ complete 'no neighbor VARIABLE maximum-prefix'@22: rv==7
   'maximum-prefix'
 describe 'no neighbor VARIABLE maximum-prefix'@22: rv==0
   'maximum-prefix' 'Maximum number of prefix accept from this peer'
-execute relaxed 'redistribute isis route-map VARIABLE metric 0 metric-type 2'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'isis', '0', '2', 'VARIABLE'
-execute strict 'redistribute isis route-map VARIABLE metric 0 metric-type 2'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'isis', '0', '2', 'VARIABLE'
+execute relaxed 'redistribute isis route-map VARIABLE metric 0 metric-type 2'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'isis', '0', '2', 'VARIABLE'
+execute strict 'redistribute isis route-map VARIABLE metric 0 metric-type 2'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'isis', '0', '2', 'VARIABLE'
 complete 'redistribute isis route-map VARIABLE metric 0 metric-type 2'@23: rv==7
   '2'
 describe 'redistribute isis route-map VARIABLE metric 0 metric-type 2'@23: rv==0
   '2' 'Set OSPF External Type 2 metrics'
-execute relaxed 'redistribute rip metric 0 route-map VARIABLE metric-type 1'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'rip', '0', '1', 'VARIABLE'
-execute strict 'redistribute rip metric 0 route-map VARIABLE metric-type 1'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'rip', '0', '1', 'VARIABLE'
+execute relaxed 'redistribute rip metric 0 route-map VARIABLE metric-type 1'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'rip', '0', '1', 'VARIABLE'
+execute strict 'redistribute rip metric 0 route-map VARIABLE metric-type 1'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'rip', '0', '1', 'VARIABLE'
 complete 'redistribute rip metric 0 route-map VARIABLE metric-type 1'@23: rv==7
   '1'
 describe 'redistribute rip metric 0 route-map VARIABLE metric-type 1'@23: rv==0
@@ -910,14 +910,14 @@ execute strict 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@4: rv==0, 'sh
 complete 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@4: rv==2
 describe 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@4: rv==0
   'AA:NN' 'community number'
-execute relaxed 'redistribute bgp'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp|babel)': 'bgp'
-execute strict 'redistribute bgp'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp|babel)': 'bgp'
+execute relaxed 'redistribute bgp'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp)': 'bgp'
+execute strict 'redistribute bgp'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp)': 'bgp'
 complete 'redistribute bgp'@14: rv==7
   'bgp'
 describe 'redistribute bgp'@14: rv==0
   'bgp' 'Border Gateway Protocol (BGP)'
-execute relaxed 'redistribute bgp'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp|babel)': 'bgp'
-execute strict 'redistribute bgp'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp|babel)': 'bgp'
+execute relaxed 'redistribute bgp'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp)': 'bgp'
+execute strict 'redistribute bgp'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp)': 'bgp'
 complete 'redistribute bgp'@15: rv==7
   'bgp'
 describe 'redistribute bgp'@15: rv==0
@@ -928,24 +928,24 @@ complete 'redistribute bgp'@16: rv==7
   'bgp'
 describe 'redistribute bgp'@16: rv==0
   'bgp' 'Border Gateway Protocol (BGP)'
-execute relaxed 'redistribute bgp'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '(null)', '(null)', '(null)'
-execute strict 'redistribute bgp'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '(null)', '(null)', '(null)'
+execute relaxed 'redistribute bgp'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '(null)', '(null)', '(null)'
+execute strict 'redistribute bgp'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '(null)', '(null)', '(null)'
 complete 'redistribute bgp'@23: rv==7
   'bgp'
 describe 'redistribute bgp'@23: rv==0
   'bgp' 'Border Gateway Protocol (BGP)'
-execute relaxed 'redistribute bgp'@24: rv==0, 'redistribute (kernel|connected|static|ripng|isis|bgp|babel)': 'bgp'
-execute strict 'redistribute bgp'@24: rv==0, 'redistribute (kernel|connected|static|ripng|isis|bgp|babel)': 'bgp'
+execute relaxed 'redistribute bgp'@24: rv==0, 'redistribute (kernel|connected|static|ripng|isis|bgp)': 'bgp'
+execute strict 'redistribute bgp'@24: rv==0, 'redistribute (kernel|connected|static|ripng|isis|bgp)': 'bgp'
 complete 'redistribute bgp'@24: rv==7
   'bgp'
 describe 'redistribute bgp'@24: rv==0
   'bgp' 'Border Gateway Protocol (BGP)'
-execute relaxed 'redistribute bgp m 10'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp|babel) metric <0-16>': 'bgp', '10'
+execute relaxed 'redistribute bgp m 10'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp) metric <0-16>': 'bgp', '10'
 execute strict 'redistribute bgp m 10'@14: rv==2
 complete 'redistribute bgp m 10'@14: rv==2
 describe 'redistribute bgp m 10'@14: rv==0
   '<0-16>' 'Metric value'
-execute relaxed 'redistribute bgp m 10'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp|babel) metric <0-16>': 'bgp', '10'
+execute relaxed 'redistribute bgp m 10'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp) metric <0-16>': 'bgp', '10'
 execute strict 'redistribute bgp m 10'@15: rv==2
 complete 'redistribute bgp m 10'@15: rv==2
 describe 'redistribute bgp m 10'@15: rv==0
@@ -954,29 +954,29 @@ execute relaxed 'redistribute bgp m 10'@23: rv==3
 execute strict 'redistribute bgp m 10'@23: rv==2
 complete 'redistribute bgp m 10'@23: rv==3
 describe 'redistribute bgp m 10'@23: rv==3
-execute relaxed 'redistribute bgp metric 10 metric-type 1'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '10', '1', '(null)'
-execute strict 'redistribute bgp metric 10 metric-type 1'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '10', '1', '(null)'
+execute relaxed 'redistribute bgp metric 10 metric-type 1'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '10', '1', '(null)'
+execute strict 'redistribute bgp metric 10 metric-type 1'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '10', '1', '(null)'
 complete 'redistribute bgp metric 10 metric-type 1'@23: rv==7
   '1'
 describe 'redistribute bgp metric 10 metric-type 1'@23: rv==0
   '1' 'Set OSPF External Type 1 metrics'
-execute relaxed 'redistribute bgp route-map RMAP_REDIST_BGP'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp|babel) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
-execute strict 'redistribute bgp route-map RMAP_REDIST_BGP'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp|babel) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
+execute relaxed 'redistribute bgp route-map RMAP_REDIST_BGP'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
+execute strict 'redistribute bgp route-map RMAP_REDIST_BGP'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
 complete 'redistribute bgp route-map RMAP_REDIST_BGP'@14: rv==2
 describe 'redistribute bgp route-map RMAP_REDIST_BGP'@14: rv==0
   'WORD' 'Pointer to route-map entries'
-execute relaxed 'redistribute bgp route-map RMAP_REDIST_BGP'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp|babel) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
-execute strict 'redistribute bgp route-map RMAP_REDIST_BGP'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp|babel) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
+execute relaxed 'redistribute bgp route-map RMAP_REDIST_BGP'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
+execute strict 'redistribute bgp route-map RMAP_REDIST_BGP'@15: rv==0, 'redistribute (kernel|connected|static|ospf6|isis|bgp) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
 complete 'redistribute bgp route-map RMAP_REDIST_BGP'@15: rv==2
 describe 'redistribute bgp route-map RMAP_REDIST_BGP'@15: rv==0
   'WORD' 'Pointer to route-map entries'
-execute relaxed 'redistribute bgp route-map RMAP_REDIST_BGP'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '(null)', '(null)', 'RMAP_REDIST_BGP'
-execute strict 'redistribute bgp route-map RMAP_REDIST_BGP'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp|babel) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '(null)', '(null)', 'RMAP_REDIST_BGP'
+execute relaxed 'redistribute bgp route-map RMAP_REDIST_BGP'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '(null)', '(null)', 'RMAP_REDIST_BGP'
+execute strict 'redistribute bgp route-map RMAP_REDIST_BGP'@23: rv==0, 'redistribute (kernel|connected|static|rip|isis|bgp) {metric <0-16777214>|metric-type (1|2)|route-map WORD}': 'bgp', '(null)', '(null)', 'RMAP_REDIST_BGP'
 complete 'redistribute bgp route-map RMAP_REDIST_BGP'@23: rv==2
 describe 'redistribute bgp route-map RMAP_REDIST_BGP'@23: rv==0
   'WORD' 'Pointer to route-map entries'
-execute relaxed 'redistribute bgp route-map RMAP_REDIST_BGP'@24: rv==0, 'redistribute (kernel|connected|static|ripng|isis|bgp|babel) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
-execute strict 'redistribute bgp route-map RMAP_REDIST_BGP'@24: rv==0, 'redistribute (kernel|connected|static|ripng|isis|bgp|babel) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
+execute relaxed 'redistribute bgp route-map RMAP_REDIST_BGP'@24: rv==0, 'redistribute (kernel|connected|static|ripng|isis|bgp) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
+execute strict 'redistribute bgp route-map RMAP_REDIST_BGP'@24: rv==0, 'redistribute (kernel|connected|static|ripng|isis|bgp) route-map WORD': 'bgp', 'RMAP_REDIST_BGP'
 complete 'redistribute bgp route-map RMAP_REDIST_BGP'@24: rv==2
 describe 'redistribute bgp route-map RMAP_REDIST_BGP'@24: rv==0
   'WORD' 'Route map name'

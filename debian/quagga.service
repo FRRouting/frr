@@ -9,7 +9,6 @@ RemainAfterExit=yes
 TimeoutSec=2m30s
 TimeoutStopSec=1m
 ExecStartPre=-/bin/systemctl start zebra.service
-ExecStartPre=-/bin/systemctl start babeld.service
 ExecStartPre=-/bin/systemctl start bgpd.service
 ExecStartPre=-/bin/systemctl start isisd.service
 ExecStartPre=-/bin/systemctl start ospfd.service
@@ -21,7 +20,6 @@ ExecStartPost=-/usr/bin/vtysh -b -n
 ExecStart=/bin/true
 ExecStop=/bin/true
 #
-ExecStopPost=-/bin/systemctl stop babeld.service
 ExecStopPost=-/bin/systemctl stop bgpd.service
 ExecStopPost=-/bin/systemctl stop isisd.service
 ExecStopPost=-/bin/systemctl stop ospfd.service

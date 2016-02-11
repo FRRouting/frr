@@ -13,7 +13,6 @@ usr/share/man/man8/ripd.8
 usr/share/man/man8/ripngd.8
 usr/share/man/man8/zebra.8
 usr/share/man/man8/isisd.8
-usr/share/man/man8/quagga-babeld.8
 usr/share/man/man8/watchquagga.8
 usr/share/snmp/mibs/
 cumulus/etc/* etc/

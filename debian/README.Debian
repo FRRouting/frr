@@ -108,9 +108,3 @@ See message #4525 from 2005-05-09 in the quagga-users mailing list.
 Check /etc/pam.d/quagga, it probably denies access to your user. The passwords
 configured in /etc/quagga/Quagga.conf are only for telnet access.
 
-* Where is the babeld.8 manpage?
-================================
-
-It conflicted with the one from the babeld package and was therefore be
-renamed to quagga-babeld.8.
-

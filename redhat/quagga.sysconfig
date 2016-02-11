@@ -1,7 +1,6 @@
 #
 # Default: Bind all daemon vtys to the loopback(s) only
 #
-BABELD_OPTS="-A 127.0.0.1"
 BGPD_OPTS="-A 127.0.0.1"
 ISISD_OPTS="-A ::1"
 OSPF6D_OPTS="-A ::1"

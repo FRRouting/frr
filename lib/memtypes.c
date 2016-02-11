@@ -199,13 +199,6 @@ struct memory_list memory_list_ripng[] =
   { -1, NULL }
 };
 
-struct memory_list memory_list_babel[] =
-{
-  { MTYPE_BABEL,              "Babel structure"			},
-  { MTYPE_BABEL_IF,           "Babel interface"			},
-  { -1, NULL }
-};
-
 struct memory_list memory_list_ospf[] =
 {
   { MTYPE_OSPF_TOP,           "OSPF top"			},

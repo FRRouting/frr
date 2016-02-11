@@ -68,7 +68,7 @@
 %define		daemon_list	zebra ripd ospfd bgpd
 
 %if %{with_ipv6}
-%define		daemonv6_list	ripngd babeld ospf6d
+%define		daemonv6_list	ripngd ospf6d
 %else
 %define		daemonv6_list	""
 %endif
@@ -406,7 +406,6 @@ rm -rf $RPM_BUILD_ROOT
 %if %{with_ipv6}
 %{_sbindir}/ripngd
 %{_sbindir}/ospf6d
-%{_sbindir}/babeld
 %endif
 %if %{with_isisd}
 %{_sbindir}/isisd

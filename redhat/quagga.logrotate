@@ -6,14 +6,6 @@
     endscript
 }
 
-/var/log/quagga/babeld.log {
-    notifempty
-    missingok
-    postrotate
-	/bin/kill -USR1 `cat /var/run/quagga/babeld.pid 2> /dev/null` 2> /dev/null || true
-    endscript
-}
-
 /var/log/quagga/bgpd.log {
     notifempty
     missingok

@@ -80,7 +80,6 @@ enum node_type
   TABLE_NODE,			/* rtm_table selection node. */
   RIP_NODE,			/* RIP protocol mode node. */ 
   RIPNG_NODE,			/* RIPng protocol mode node. */
-  BABEL_NODE,			/* Babel protocol mode node. */
   BGP_NODE,			/* BGP protocol mode which includes BGP4+ */
   BGP_VPNV4_NODE,		/* BGP MPLS-VPN PE exchange. */
   BGP_IPV4_NODE,		/* BGP IPv4 unicast address family.  */

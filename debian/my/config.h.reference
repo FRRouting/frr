@@ -4,9 +4,6 @@
 /* Define if building universal (internal helper macro) */
 /* #undef AC_APPLE_UNIVERSAL_BUILD */
 
-/* babeld vty socket */
-#define BABEL_VTYSH_PATH "/var/run/quagga/babeld.vty"
-
 /* bgpd vty socket */
 #define BGP_VTYSH_PATH "/var/run/quagga/bgpd.vty"
 
@@ -651,9 +648,6 @@
 
 /* Have openpam_ttyconv */
 #define PAM_CONV_FUNC misc_conv
-
-/* babeld PID */
-#define PATH_BABELD_PID "/var/run/quagga/babeld.pid"
 
 /* bgpd PID */
 #define PATH_BGPD_PID "/var/run/quagga/bgpd.pid"

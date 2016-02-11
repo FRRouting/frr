@@ -28,4 +28,3 @@ ospf6d=no
 ripd=no
 ripngd=no
 isisd=no
-babeld=no

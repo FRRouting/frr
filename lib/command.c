@@ -2935,7 +2935,6 @@ DEFUN (config_exit,
     case BGP_NODE:
     case RIP_NODE:
     case RIPNG_NODE:
-    case BABEL_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
     case ISIS_NODE:
@@ -2986,7 +2985,6 @@ DEFUN (config_end,
     case ZEBRA_NODE:
     case RIP_NODE:
     case RIPNG_NODE:
-    case BABEL_NODE:
     case BGP_NODE:
     case BGP_VPNV4_NODE:
     case BGP_IPV4_NODE:

@@ -6,7 +6,7 @@ set -e
 
 # modify config file to enable all daemons and copy config files
 CONFIG_FILE=/etc/quagga/daemons
-DAEMONS=("zebra" "bgpd" "ospfd" "ospf6d" "ripd" "ripngd" "isisd" "babeld")
+DAEMONS=("zebra" "bgpd" "ospfd" "ospf6d" "ripd" "ripngd" "isisd")
 
 for daemon in "${DAEMONS[@]}"
 do
