@@ -156,6 +156,7 @@ typedef struct zfpm_glob_t_
 
   zfpm_state_t state;
 
+  in_addr_t   fpm_server;
   /*
    * Port on which the FPM is running.
    */
@@ -1129,7 +1130,10 @@ zfpm_connect_cb (struct thread *t)
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   serv.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-  serv.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+  if (!zfpm_g->fpm_server)
+    serv.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+  else 
+    serv.sin_addr.s_addr = (zfpm_g->fpm_server);
 
   /*
    * Connect to the FPM.
@@ -1520,6 +1524,76 @@ DEFUN (clear_zebra_fpm_stats,
   return CMD_SUCCESS;
 }
 
+/*
+ * update fpm connection information 
+ */
+DEFUN ( fpm_remote_ip, 
+        fpm_remote_ip_cmd,
+        "fpm connection ip A.B.C.D port <1-65535>",
+        "fpm connection remote ip and port\n"
+        "Remote fpm server ip A.B.C.D\n"
+        "Enter ip ")
+{
+
+   in_addr_t fpm_server;
+   uint32_t port_no;
+
+   fpm_server = inet_addr (argv[0]);
+   if (fpm_server == INADDR_NONE)
+     return CMD_ERR_INCOMPLETE;
+
+   port_no = atoi (argv[1]);
+   if (port_no < TCP_MIN_PORT || port_no > TCP_MAX_PORT)
+     return CMD_ERR_INCOMPLETE;
+
+   zfpm_g->fpm_server = fpm_server;
+   zfpm_g->fpm_port = port_no;
+
+
+   return CMD_SUCCESS;
+}
+
+DEFUN ( no_fpm_remote_ip, 
+        no_fpm_remote_ip_cmd,
+        "no fpm connection ip A.B.C.D port <1-65535>",
+        "fpm connection remote ip and port\n"
+        "Connection\n"
+        "Remote fpm server ip A.B.C.D\n"
+        "Enter ip ")
+{
+   if (zfpm_g->fpm_server != inet_addr (argv[0]) || 
+              zfpm_g->fpm_port !=  atoi (argv[1]))
+       return CMD_ERR_NO_MATCH;
+
+   zfpm_g->fpm_server = FPM_DEFAULT_IP;
+   zfpm_g->fpm_port = FPM_DEFAULT_PORT;
+
+   return CMD_SUCCESS;
+}
+
+
+/**
+ * fpm_remote_srv_write 
+ *
+ * Module to write remote fpm connection 
+ *
+ * Returns ZERO on success.
+ */
+
+int fpm_remote_srv_write (struct vty *vty )
+{
+   struct in_addr in;
+
+   in.s_addr = zfpm_g->fpm_server;
+
+   if (zfpm_g->fpm_server != FPM_DEFAULT_IP || 
+          zfpm_g->fpm_port != FPM_DEFAULT_PORT)
+      vty_out (vty,"fpm connection ip %s port %d%s", inet_ntoa (in),zfpm_g->fpm_port,VTY_NEWLINE);
+
+   return 0;
+}
+
+
 /**
  * zfpm_init
  *
@@ -1563,10 +1637,15 @@ zfpm_init (struct thread_master *master, int enable, uint16_t port)
 
   install_element (ENABLE_NODE, &show_zebra_fpm_stats_cmd);
   install_element (ENABLE_NODE, &clear_zebra_fpm_stats_cmd);
+  install_element (CONFIG_NODE, &fpm_remote_ip_cmd);
+  install_element (CONFIG_NODE, &no_fpm_remote_ip_cmd);
 
   if (!enable) {
     return 1;
   }
+
+  if (!zfpm_g->fpm_server)
+     zfpm_g->fpm_server = FPM_DEFAULT_IP;
 
   if (!port)
     port = FPM_DEFAULT_PORT;

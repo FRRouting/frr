@@ -87,6 +87,14 @@
  * table(s) when it reconnects.
  */
 
+/*
+ * Local host as a default server for fpm connection 
+ */
+#define FPM_DEFAULT_IP              (htonl (INADDR_LOOPBACK))
+
+/*
+ * default port for fpm connections
+ */
 #define FPM_DEFAULT_PORT 2620
 
 /*
@@ -269,5 +277,11 @@ fpm_msg_ok (const fpm_msg_hdr_t *hdr, size_t len)
 
   return 1;
 }
+
+// tcp maximum range
+#define TCP_MAX_PORT   65535
+
+// tcp minimum range 
+#define TCP_MIN_PORT   1
 
 #endif /* _FPM_H */

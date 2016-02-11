@@ -30,5 +30,6 @@
  */
 extern int zfpm_init (struct thread_master *master, int enable, uint16_t port);
 extern void zfpm_trigger_update (struct route_node *rn, const char *reason);
+extern int fpm_remote_srv_write (struct vty *vty);
 
 #endif /* _ZEBRA_FPM_H */

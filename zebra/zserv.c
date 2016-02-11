@@ -2576,6 +2576,24 @@ static struct cmd_node forwarding_node =
   1
 };
 
+#ifdef HAVE_FPM
+/* function to write the fpm config info */
+static int 
+config_write_fpm (struct vty *vty)
+{
+  return 
+     fpm_remote_srv_write (vty);
+}
+
+/* Zebra node  */
+static struct cmd_node zebra_node = 
+{
+  ZEBRA_NODE,
+  "",
+  1
+};
+#endif
+
 
 /* Initialisation of zebra and installation of commands. */
 void
@@ -2587,6 +2605,9 @@ zebra_init (void)
   /* Install configuration write function. */
   install_node (&table_node, config_write_table);
   install_node (&forwarding_node, config_write_forwarding);
+#ifdef HAVE_FPM
+  install_node (&zebra_node, config_write_fpm);
+#endif
 
   install_element (VIEW_NODE, &show_ip_forwarding_cmd);
   install_element (ENABLE_NODE, &show_ip_forwarding_cmd);
