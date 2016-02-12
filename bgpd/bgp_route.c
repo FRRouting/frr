@@ -1828,8 +1828,9 @@ bgp_process_main (struct work_queue *wq, void *data)
   group_announce_route(bgp, afi, safi, rn, new_select);
 
   /* FIB update. */
-  if ((safi == SAFI_UNICAST || safi == SAFI_MULTICAST) && (! bgp_flag_check(bgp, BGP_FLAG_INSTANCE_TYPE_VIEW) &&
-      ! bgp_option_check (BGP_OPT_NO_FIB)))
+  if ((safi == SAFI_UNICAST || safi == SAFI_MULTICAST) &&
+      (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW) &&
+      !bgp_option_check (BGP_OPT_NO_FIB))
     {
       if (new_select 
 	  && new_select->type == ZEBRA_ROUTE_BGP 
@@ -3782,6 +3783,48 @@ bgp_static_redo_import_check (struct bgp *bgp)
 	    bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
 	  }
   bgp_flag_unset(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
+}
+
+static void
+bgp_purge_af_static_redist_routes (struct bgp *bgp, afi_t afi, safi_t safi)
+{
+  struct bgp_table *table;
+  struct bgp_node *rn;
+  struct bgp_info *ri;
+
+  table = bgp->rib[afi][safi];
+  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
+    {
+      for (ri = rn->info; ri; ri = ri->next)
+        {
+          if (ri->peer == bgp->peer_self &&
+              ((ri->type == ZEBRA_ROUTE_BGP &&
+                ri->sub_type == BGP_ROUTE_STATIC) ||
+               (ri->type != ZEBRA_ROUTE_BGP &&
+                ri->sub_type == BGP_ROUTE_REDISTRIBUTE)))
+            {
+              bgp_aggregate_decrement (bgp, &rn->p, ri, afi, safi);
+              bgp_unlink_nexthop(ri);
+              bgp_info_delete (rn, ri);
+              bgp_process (bgp, rn, afi, safi);
+            }
+        }
+    }
+}
+
+/*
+ * Purge all networks and redistributed routes from routing table.
+ * Invoked upon the instance going down.
+ */
+void
+bgp_purge_static_redist_routes (struct bgp *bgp)
+{
+  afi_t afi;
+  safi_t safi;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      bgp_purge_af_static_redist_routes (bgp, afi, safi);
 }
 
 int

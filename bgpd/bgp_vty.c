@@ -607,6 +607,7 @@ DEFUN (router_bgp,
   as_t as;
   struct bgp *bgp;
   const char *name = NULL;
+  enum bgp_instance_type inst_type;
 
   // "router bgp" without an ASN
   if (argc < 1)
@@ -632,10 +633,17 @@ DEFUN (router_bgp,
     {
       VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
 
+      inst_type = BGP_INSTANCE_TYPE_DEFAULT;
       if (argc == 3)
-        name = argv[2];
+        {
+          name = argv[2];
+          if (!strcmp(argv[1], "vrf")) 
+            inst_type = BGP_INSTANCE_TYPE_VRF;
+          else if (!strcmp(argv[1], "view")) 
+            inst_type = BGP_INSTANCE_TYPE_VIEW;
+        }
 
-      ret = bgp_get (&bgp, &as, name);
+      ret = bgp_get (&bgp, &as, name, inst_type);
       switch (ret)
         {
         case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
@@ -653,10 +661,6 @@ DEFUN (router_bgp,
         }
 
       /* Pending: handle when user tries to change a view to vrf n vv. */
-      if (argc == 3 && !strcmp(argv[1], "vrf")) 
-        bgp_flag_set (bgp, BGP_FLAG_INSTANCE_TYPE_VRF);
-      if (argc == 3 && !strcmp(argv[1], "view")) 
-        bgp_flag_set (bgp, BGP_FLAG_INSTANCE_TYPE_VIEW);
     }
 
   vty->node = BGP_NODE;
