@@ -16,4 +16,4 @@ Restart=on-abnormal
 ExecStart=/usr/lib/quagga/ospf6d $OSPF6D_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b  -n
 [Install]
-WantedBy=network.target
+WantedBy=network-online.target

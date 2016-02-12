@@ -29,4 +29,4 @@ ExecStopPost=-/bin/systemctl stop ripngd.service
 ExecStopPost=-/bin/systemctl stop zebra.service
 
 [Install]
-WantedBy=network.target
+WantedBy=network-online.target

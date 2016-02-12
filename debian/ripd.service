@@ -17,4 +17,4 @@ LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/ripd $RIPD_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b -n
 [Install]
-WantedBy=network.target
+WantedBy=network-online.target

@@ -1,6 +1,6 @@
 [Unit]
 Description=Cumulus Linux Quagga Zebra Daemon
-After=network.service syslog.service
+After=networking.service syslog.service
 OnFailure=heartbeat-failed@%n.service
 
 [Service]
@@ -17,4 +17,4 @@ LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/zebra $ZEBRA_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b -n
 [Install]
-WantedBy=network.target
+WantedBy=network-online.target

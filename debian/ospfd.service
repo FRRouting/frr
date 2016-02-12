@@ -17,4 +17,4 @@ LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/ospfd $OSPFD_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b  -n
 [Install]
-WantedBy=network.target
+WantedBy=networkonline.target
