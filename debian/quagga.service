@@ -17,6 +17,8 @@ ExecStartPre=-/bin/systemctl start ripd.service
 ExecStartPre=-/bin/systemctl start ripngd.service
 ExecStartPost=-/usr/bin/vtysh -b -n
 #
+ExecReload=/usr/lib/quagga/quagga-reload.py --reload /etc/quagga/Quagga.conf
+#
 ExecStart=/bin/true
 ExecStop=/bin/true
 #
