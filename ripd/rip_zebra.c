@@ -679,7 +679,7 @@ static struct cmd_node zebra_node =
 static void
 rip_zebra_connected (struct zclient *zclient)
 {
-  zclient_send_requests (zclient, VRF_DEFAULT);
+  zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
 
 void

@@ -651,7 +651,7 @@ DEFUN (no_redistribute_ospf6,
 static void
 ospf6_zebra_connected (struct zclient *zclient)
 {
-  zclient_send_requests (zclient, VRF_DEFAULT);
+  zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
 
 void

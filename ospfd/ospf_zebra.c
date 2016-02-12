@@ -1557,7 +1557,7 @@ ospf_distance_apply (struct prefix_ipv4 *p, struct ospf_route *or)
 static void
 ospf_zebra_connected (struct zclient *zclient)
 {
-  zclient_send_requests (zclient, VRF_DEFAULT);
+  zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
 
 void

@@ -239,9 +239,9 @@ bgp_vrf_add (int command, struct zclient *zclient, zebra_size_t length,
       bgp->vrf_id = vrf_id;
 
       if (BGP_DEBUG (zebra, ZEBRA) && vrf)
-        zlog_debug("zclient_send_requests %u", vrf_id);
+        zlog_debug("zclient_send_reg_requests %u", vrf_id);
 
-      zclient_send_requests (zclient, vrf_id);
+      zclient_send_reg_requests (zclient, vrf_id);
 
       bgp_instance_up (bgp);
       //Pending: See if the following can be moved inside bgp_instance_up ()
@@ -264,7 +264,7 @@ bgp_vrf_update (struct bgp *bgp)
         bgp->vrf_id = vrf->vrf_id;
     }
 
-  zclient_send_requests (zclient, bgp->vrf_id);
+  zclient_send_reg_requests (zclient, bgp->vrf_id);
   bgp_nht_register_all (bgp->vrf_id);
 }
 
