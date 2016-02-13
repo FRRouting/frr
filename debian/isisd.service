@@ -1,6 +1,7 @@
 [Unit]
 Description=IS-IS routing daemon
 After=syslog.target networking.service zebra.service
+Requires=zebra.service
 OnFailure=heartbeat-failed@%n.service
 
 [Service]

@@ -1,6 +1,7 @@
 [Unit]
 Description=RIP routing daemon for IPv6
 After=syslog.target networking.service zebra.service
+Requires=zebra.service
 OnFailure=heartbeat-failed@%n.service
 
 [Service]

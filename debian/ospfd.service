@@ -1,6 +1,7 @@
 [Unit]
 Description=OSPF routing daemon
 After=syslog.target networking.service zebra.service
+Requires=zebra.service
 OnFailure=heartbeat-failed@%n.service
 
 [Service]
@@ -17,4 +18,4 @@ LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/ospfd $OSPFD_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b  -n
 [Install]
-WantedBy=networkonline.target
+WantedBy=network-online.target
