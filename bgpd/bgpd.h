@@ -129,6 +129,21 @@ struct bgp_redist
   struct bgp_rmap rmap;
 };
 
+/*
+ * Type of 'struct bgp'.
+ * - Default: The default instance
+ * - VRF: A specific (non-default) VRF
+ * - View: An instance used for route exchange
+ * The "default" instance is treated separately to simplify the code. Note
+ * that if deployed in a Multi-VRF environment, it may not exist.
+ */
+enum bgp_instance_type
+{
+  BGP_INSTANCE_TYPE_DEFAULT,
+  BGP_INSTANCE_TYPE_VRF,
+  BGP_INSTANCE_TYPE_VIEW
+};
+
 /* BGP instance structure.  */
 struct bgp 
 {
@@ -138,6 +153,8 @@ struct bgp
   /* Name of this BGP instance.  */
   char *name;
 
+  /* Type of instance and VRF id. */
+  enum bgp_instance_type inst_type;
   vrf_id_t vrf_id;
   
   /* Reference count to allow peer_delete to finish after bgp_delete */
@@ -256,8 +273,6 @@ struct bgp
 #define BGP_FLAG_MULTIPATH_RELAX_AS_SET   (1 << 17)
 #define BGP_FLAG_FORCE_STATIC_PROCESS     (1 << 18)
 #define BGP_FLAG_SHOW_HOSTNAME            (1 << 19)
-#define BGP_FLAG_INSTANCE_TYPE_VIEW       (1 << 20)
-#define BGP_FLAG_INSTANCE_TYPE_VRF        (1 << 21)
 
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -332,6 +347,10 @@ struct bgp
 };
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
+
+#define IS_BGP_INST_KNOWN_TO_ZEBRA(bgp) \
+        (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT || \
+         (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp->vrf_id != VRF_DEFAULT))
 
 /* BGP peer-group support. */
 struct peer_group
@@ -837,6 +856,11 @@ u_char last_reset_cause[BGP_MAX_PACKET_SIZE];
   char *domainname;
 };
 
+/* Check if suppress start/restart of sessions to peer. */
+#define BGP_PEER_START_SUPPRESSED(P) \
+  (CHECK_FLAG ((P)->flags, PEER_FLAG_SHUTDOWN) \
+   || CHECK_FLAG ((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+
 #define PEER_PASSWORD_MINLEN	(1)
 #define PEER_PASSWORD_MAXLEN	(80)
 
@@ -1150,6 +1174,7 @@ extern char *peer_uptime (time_t, char *, size_t, u_char, json_object *);
 extern int bgp_config_write (struct vty *);
 extern void bgp_config_write_family_header (struct vty *, afi_t, safi_t, int *);
 
+extern void bgp_if_finish (void);
 extern void bgp_master_init (void);
 
 extern void bgp_init (void);
@@ -1160,7 +1185,7 @@ extern int bgp_option_set (int);
 extern int bgp_option_unset (int);
 extern int bgp_option_check (int);
 
-extern int bgp_get (struct bgp **, as_t *, const char *);
+extern int bgp_get (struct bgp **, as_t *, const char *, enum bgp_instance_type);
 extern void bgp_instance_up (struct bgp *);
 extern void bgp_instance_down (struct bgp *);
 extern int bgp_delete (struct bgp *);

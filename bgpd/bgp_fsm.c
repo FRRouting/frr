@@ -207,11 +207,6 @@ peer_xfer_conn(struct peer *from_peer)
   return(peer);
 }
 
-/* Check if suppress start/restart of sessions to peer. */
-#define BGP_PEER_START_SUPPRESSED(P) \
-  (CHECK_FLAG ((P)->flags, PEER_FLAG_SHUTDOWN) \
-   || CHECK_FLAG ((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW))
-
 /* Hook function called after bgp event is occered.  And vty's
    neighbor command invoke this function after making neighbor
    structure. */

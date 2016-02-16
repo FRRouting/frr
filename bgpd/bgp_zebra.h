@@ -29,7 +29,6 @@ extern struct stream *bgp_ifindices_buf;
 
 extern void bgp_zebra_init(struct thread_master *master);
 extern int bgp_if_update_all (void);
-extern void bgp_vrf_update (struct bgp *);
 extern int bgp_config_write_maxpaths (struct vty *, struct bgp *, afi_t,
 				      safi_t, int *);
 extern int bgp_config_write_redistribute (struct vty *, struct bgp *, afi_t, safi_t,
@@ -38,6 +37,9 @@ extern void bgp_zebra_announce (struct prefix *, struct bgp_info *, struct bgp *
                                 afi_t, safi_t);
 extern void bgp_zebra_announce_table (struct bgp *, afi_t, safi_t);
 extern void bgp_zebra_withdraw (struct prefix *, struct bgp_info *, safi_t);
+
+extern void bgp_zebra_instance_register (struct bgp *);
+extern void bgp_zebra_instance_deregister (struct bgp *);
 
 extern struct bgp_redist *bgp_redist_lookup (struct bgp *, afi_t, u_char, u_short);
 extern struct bgp_redist *bgp_redist_add (struct bgp *, afi_t, u_char, u_short);

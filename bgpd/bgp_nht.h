@@ -22,8 +22,6 @@
 #ifndef _BGP_NHT_H
 #define _BGP_NHT_H
 
-extern void bgp_nht_register_all (vrf_id_t);
-
 /**
  * bgp_parse_nexthop_update() - parse a nexthop update message from Zebra.
  */

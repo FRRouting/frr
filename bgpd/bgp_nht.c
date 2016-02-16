@@ -539,15 +539,11 @@ sendmsg_zebra_rnh (struct bgp_nexthop_cache *bnc, int command)
 
   /* Check socket. */
   if (!zclient || zclient->sock < 0)
-    {
-      /* Hiding this error now, because bgp_nht_register_all() is implemented.
-         which tries it after zclient_connect()
-         zlog_debug("%s: Can't send NH register, Zebra client not established",
-		 __FUNCTION__);
-         Pending: remove this comment after reviewing to see if no message is needed in this case
-       */
-      return;
-    }
+    return;
+
+  /* Don't try to register if Zebra doesn't know of this instance. */
+  if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bnc->bgp))
+    return;
 
   p = &(bnc->node->p);
   s = zclient->obuf;
@@ -700,48 +696,6 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
     }
 
   RESET_FLAG(bnc->change_flags);
-}
-
-void
-bgp_nht_register_all (vrf_id_t vrf_id)
-{
-  struct bgp_node *rn;
-  struct bgp_nexthop_cache *bnc;
-  struct bgp *bgp;
-
-  bgp = bgp_lookup_by_vrf_id (vrf_id);
-  if (!bgp)
-    {
-      zlog_err("bgp_nht_register_all: instance not found for vrf_id %d", vrf_id);
-      return;
-    }
-
-  for (rn = bgp_table_top (bgp->nexthop_cache_table[AFI_IP]); rn; rn = bgp_route_next (rn))
-    if ((bnc = rn->info) != NULL &&
-        !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
-      {
-        register_zebra_rnh(bnc, 0);
-      }
-  for (rn = bgp_table_top (bgp->nexthop_cache_table[AFI_IP6]); rn; rn = bgp_route_next (rn))
-    if ((bnc = rn->info) != NULL &&
-        !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
-      {
-        register_zebra_rnh(bnc, 0);
-      }
-
-  for (rn = bgp_table_top (bgp->import_check_table[AFI_IP]); rn; rn = bgp_route_next (rn))
-    if ((bnc = rn->info) != NULL &&
-        !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
-      {
-        register_zebra_rnh(bnc, 1);
-      }
-  for (rn = bgp_table_top (bgp->import_check_table[AFI_IP6]); rn; rn = bgp_route_next (rn))
-    if ((bnc = rn->info) != NULL &&
-        !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
-      {
-        register_zebra_rnh(bnc, 1);
-      }
-
 }
 
 /**

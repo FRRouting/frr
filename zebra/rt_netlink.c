@@ -599,9 +599,11 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
   int len;
   struct ifinfomsg *ifi;
   struct rtattr *tb[IFLA_MAX + 1];
+  struct rtattr *linkinfo[IFLA_MAX + 1];
   struct interface *ifp;
   char *name = NULL;
   char *kind = NULL;
+  char *slave_kind = NULL;
 
   ifi = NLMSG_DATA (h);
 
@@ -636,6 +638,10 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (tb[IFLA_LINKINFO])
     {
       kind = parse_link_kind(tb[IFLA_LINKINFO]);
+      parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+
+      if (linkinfo[IFLA_INFO_SLAVE_KIND])
+         slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
 
       if (kind && strcmp(kind, "vrf") == 0)
         {
@@ -646,7 +652,8 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   if (tb[IFLA_MASTER])
     {
-      if (kind && strcmp(kind, "vrf") == 0)
+      if ((kind && strcmp(kind, "vrf") == 0) ||
+          (slave_kind && strcmp(slave_kind, "vrf") == 0))
         vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
       else
 	vrf_id = VRF_DEFAULT;
@@ -1209,9 +1216,11 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   int len;
   struct ifinfomsg *ifi;
   struct rtattr *tb[IFLA_MAX + 1];
+  struct rtattr *linkinfo[IFLA_MAX + 1];
   struct interface *ifp;
   char *name = NULL;
   char *kind = NULL;
+  char *slave_kind = NULL;
   struct connected *ifc;
   struct listnode *node;
 
@@ -1256,6 +1265,10 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (tb[IFLA_LINKINFO])
     {
       kind = parse_link_kind(tb[IFLA_LINKINFO]);
+      parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+
+      if (linkinfo[IFLA_INFO_SLAVE_KIND])
+          slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
 
       if (kind && strcmp(kind, "vrf") == 0)
         {
@@ -1269,7 +1282,8 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
     {
       if (tb[IFLA_MASTER])
 	{
-	  if (kind && strcmp (kind, "vrf") == 0)
+          if ((kind && strcmp(kind, "vrf") == 0) ||
+              (slave_kind && strcmp(slave_kind, "vrf") == 0))
             vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
 	  else
 	    vrf_id = VRF_DEFAULT;

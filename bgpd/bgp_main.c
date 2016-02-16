@@ -236,20 +236,11 @@ bgp_exit (int status)
     bgp_delete (bgp);
   list_free (bm->bgp);
 
-  /* reverse bgp_zebra_init/if_init */
   if (retain_mode)
     if_add_hook (IF_DELETE_HOOK, NULL);
-  /*Pending: Must-Do, this needs to be moved in a loop for all the instances..
-    Do the iflist lookup for vrf associated with the instance
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
-    {
-      struct listnode *c_node, *c_nnode;
-      struct connected *c;
 
-      for (ALL_LIST_ELEMENTS (ifp->connected, c_node, c_nnode, c))
-        bgp_connected_delete (c);
-    }
-    */
+  /* free interface and connected route information. */
+  bgp_if_finish ();
 
   /* reverse bgp_attr_init */
   bgp_attr_finish ();

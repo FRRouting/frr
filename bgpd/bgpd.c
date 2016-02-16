@@ -80,6 +80,7 @@ struct bgp_master *bm;
 /* BGP community-list.  */
 struct community_list_handler *bgp_clist;
 
+extern struct zclient *zclient;
 
 void
 bgp_session_reset(struct peer *peer)
@@ -2698,10 +2699,9 @@ bgp_startup_timer_expire (struct thread *thread)
   return 0;
 }
 
-
 /* BGP instance creation by `router bgp' commands. */
 static struct bgp *
-bgp_create (as_t *as, const char *name)
+bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
 {
   struct bgp *bgp;
   afi_t afi;
@@ -2710,7 +2710,19 @@ bgp_create (as_t *as, const char *name)
   if ( (bgp = XCALLOC (MTYPE_BGP, sizeof (struct bgp))) == NULL)
     return NULL;
   
+  if (BGP_DEBUG (zebra, ZEBRA))
+    {
+      if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+        zlog_debug("Creating Default VRF, AS %u", *as);
+      else
+        zlog_debug("Creating %s %s, AS %u",
+                   (inst_type == BGP_INSTANCE_TYPE_VRF) ? "VRF" : "VIEW",
+                   name, *as);
+    }
+
   bgp_lock (bgp);
+  bgp->inst_type = inst_type;
+  bgp->vrf_id = VRF_DEFAULT; /* initialization. */
   bgp->peer_self = peer_new (bgp);
   if (bgp->peer_self->host)
     XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
@@ -2757,7 +2769,7 @@ bgp_create (as_t *as, const char *name)
     }
   else
     {
-      //Pending: See if calling bgp_instance_up() makes more sense.
+      /* TODO - The startup timer needs to be run for the whole of BGP */
       THREAD_TIMER_ON (bm->master, bgp->t_startup, bgp_startup_timer_expire,
                        bgp, bgp->restart_time);
     }
@@ -2769,38 +2781,16 @@ bgp_create (as_t *as, const char *name)
   return bgp;
 }
 
-void
-bgp_instance_up (struct bgp *bgp)
-{
-  struct peer *peer;
-  struct listnode *node, *next;
-  afi_t afi;
-  int i;
-
-  THREAD_TIMER_ON (bm->master, bgp->t_startup, bgp_startup_timer_expire,
-                   bgp, bgp->restart_time);
-
-  /* Delete static route. */
-  bgp_static_add (bgp);
-
-  /* Set redistribution. */
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (i = 0; i < ZEBRA_ROUTE_MAX; i++) 
-      if (i != ZEBRA_ROUTE_BGP && bgp_redist_lookup(bgp, afi, i, 0))
-	bgp_redistribute_set (bgp, afi, i, 0);
-
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
-    {
-      BGP_EVENT_ADD (peer, BGP_Start);
-    }
-}
-
-/* Return first entry of BGP. */
+/* Return the "default VRF" instance of BGP. */
 struct bgp *
 bgp_get_default (void)
 {
-  if (bm->bgp->head)
-    return (listgetdata (listhead (bm->bgp)));
+  struct bgp *bgp;
+  struct listnode *node, *nnode;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+      return bgp;
   return NULL;
 }
 
@@ -2833,8 +2823,7 @@ bgp_lookup_by_name (const char *name)
   return NULL;
 }
 
-/* Lookup BGP structure by view name. */
-//Pending: move this based on the vrf_hash lookup and find the linked bgp instance.
+/* Lookup BGP instance based on VRF id */
 struct bgp *
 bgp_lookup_by_vrf_id (vrf_id_t vrf_id)
 {
@@ -2847,9 +2836,34 @@ bgp_lookup_by_vrf_id (vrf_id_t vrf_id)
   return NULL;
 }
 
+/* Link BGP instance to VRF, if present. */
+static void
+bgp_vrf_link (struct bgp *bgp)
+{
+  struct vrf *vrf;
+
+  vrf = vrf_lookup_by_name(bgp->name);
+  if (!vrf)
+    return;
+  bgp->vrf_id = vrf->vrf_id;
+}
+
+/* Unlink BGP instance from VRF, if present. */
+static void
+bgp_vrf_unlink (struct bgp *bgp)
+{
+  struct vrf *vrf;
+
+  vrf = vrf_lookup (bgp->vrf_id);
+  if (!vrf)
+    return;
+  bgp->vrf_id = VRF_DEFAULT;
+}
+
 /* Called from VTY commands. */
 int
-bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
+bgp_get (struct bgp **bgp_val, as_t *as, const char *name,
+         enum bgp_instance_type inst_type)
 {
   struct bgp *bgp;
 
@@ -2869,6 +2883,8 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
 	      *as = bgp->as;
 	      return BGP_ERR_INSTANCE_MISMATCH;
 	    }
+          if (bgp->inst_type != inst_type)
+            return BGP_ERR_INSTANCE_MISMATCH;
 	  *bgp_val = bgp;
 	  return 0;
 	}
@@ -2894,7 +2910,7 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
 	}
     }
 
-  bgp = bgp_create (as, name);
+  bgp = bgp_create (as, name, inst_type);
   bgp_router_id_set(bgp, &bgp->router_id_zebra);
   bgp_address_init (bgp);
   bgp_scan_init (bgp);
@@ -2914,74 +2930,73 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
 
   listnode_add (bm->bgp, bgp);
 
-  bgp_vrf_update (bgp);
+  /* If VRF, link to the VRF structure, if present. */
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+    bgp_vrf_link (bgp);
+
+  /* Register with Zebra, if needed */
+  if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+    bgp_zebra_instance_register (bgp);
+
 
   return 0;
 }
 
-/* Delete BGP instance. */
+/*
+ * Make BGP instance "up". Applies only to VRFs (non-default) and
+ * implies the VRF has been learnt from Zebra.
+ */
+void
+bgp_instance_up (struct bgp *bgp)
+{
+  struct peer *peer;
+  struct listnode *node, *next;
+
+  /* Register with zebra. */
+  bgp_zebra_instance_register (bgp);
+
+  /* Kick off any peers that may have been configured. */
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
+    {
+      if (!BGP_PEER_START_SUPPRESSED (peer))
+        BGP_EVENT_ADD (peer, BGP_Start);
+    }
+
+  /* Process any networks that have been configured. */
+  bgp_static_add (bgp);
+}
+
+/*
+ * Make BGP instance "down". Applies only to VRFs (non-default) and
+ * implies the VRF has been deleted by Zebra.
+ */
 void
 bgp_instance_down (struct bgp *bgp)
 {
   struct peer *peer;
-  struct peer_group *group;
-  struct listnode *node, *pnode;
-  struct listnode *next, *pnext;
-  afi_t afi;
-  int i;
+  struct listnode *node;
+  struct listnode *next;
 
-  THREAD_OFF (bgp->t_startup);
-
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
-    {
-      if (peer->status == Established ||
-          peer->status == OpenSent ||
-          peer->status == OpenConfirm)
-        {
-            bgp_notify_send (peer, BGP_NOTIFY_CEASE,
-                             BGP_NOTIFY_CEASE_PEER_UNCONFIG);
-        }
-    }
-
+  /* Stop timers. */
   if (bgp->t_rmap_update)
     BGP_TIMER_OFF(bgp->t_rmap_update);
-
-  /* Delete static route. */
-  bgp_static_delete (bgp);
-
-  /* Unset redistribution. */
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (i = 0; i < ZEBRA_ROUTE_MAX; i++) 
-      if (i != ZEBRA_ROUTE_BGP)
-	bgp_redistribute_unreg (bgp, afi, i, 0);
-
-  for (ALL_LIST_ELEMENTS (bgp->group, node, next, group))
-    {
-      for (ALL_LIST_ELEMENTS (group->peer, pnode, pnext, peer))
-	{
-	  if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-	    {
-	      /* Send notify to remote peer. */
-	      bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
-	    }
-	}
-    }
-
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
-    {
-      if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-	{
-	  /* Send notify to remote peer. */
-	  bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
-	}
-    }
-
   if (bgp->t_rmap_def_originate_eval)
     {
       BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+      bgp_unlock(bgp);  /* TODO - This timer is started with a lock - why? */
     }
 
-  return;
+  /* Bring down peers, so corresponding routes are purged. */
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
+    {
+      if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+        bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+      else
+        bgp_session_reset(peer);
+    }
+
+  /* Purge network and redistributed routes. */
+  bgp_purge_static_redist_routes (bgp);
 }
 
 /* Delete BGP instance. */
@@ -2996,10 +3011,33 @@ bgp_delete (struct bgp *bgp)
 
   THREAD_OFF (bgp->t_startup);
 
+  if (BGP_DEBUG (zebra, ZEBRA))
+    {
+      if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+        zlog_debug("Deleting Default VRF");
+      else
+        zlog_debug("Deleting %s %s",
+                   (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) ? "VRF" : "VIEW",
+                   bgp->name);
+    }
+
+  /* Stop timers. */
   if (bgp->t_rmap_update)
     BGP_TIMER_OFF(bgp->t_rmap_update);
+  if (bgp->t_rmap_def_originate_eval)
+    {
+      BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
+      bgp_unlock(bgp);  /* TODO - This timer is started with a lock - why? */
+    }
 
-  /* Delete static route. */
+  /* Inform peers we're going down. */
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
+    {
+      if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+        bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+    }
+
+  /* Delete static routes (networks). */
   bgp_static_delete (bgp);
 
   /* Unset redistribution. */
@@ -3008,34 +3046,36 @@ bgp_delete (struct bgp *bgp)
       if (i != ZEBRA_ROUTE_BGP)
 	bgp_redistribute_unset (bgp, afi, i, 0);
 
+  /* Free peers and peer-groups. */
   for (ALL_LIST_ELEMENTS (bgp->group, node, next, group))
-    {
-      peer_group_delete (group);
-    }
+    peer_group_delete (group);
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
-    {
-      peer_delete (peer);
-    }
+    peer_delete (peer);
 
   if (bgp->peer_self) {
     peer_delete(bgp->peer_self);
     bgp->peer_self = NULL;
   }
 
-  if (bgp->t_rmap_def_originate_eval)
-    {
-      BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
-      bgp_unlock(bgp);
-    }
-
   update_bgp_group_free (bgp);
+
+  /* TODO - Other memory may need to be freed - e.g., NHT */
+
   /* Remove visibility via the master list - there may however still be
    * routes to be processed still referencing the struct bgp.
    */
   listnode_delete (bm->bgp, bgp);
   if (list_isempty(bm->bgp))
     bgp_close ();
+
+  /* Deregister from Zebra, if needed */
+  if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+    bgp_zebra_instance_deregister (bgp);
+
+  /* If VRF, unlink from the VRF structure. */
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+    bgp_vrf_unlink (bgp);
 
   thread_master_free_unused(bm->master);
   bgp_unlock(bgp);  /* initial reference */
@@ -3174,10 +3214,10 @@ peer_lookup (struct bgp *bgp, union sockunion *su)
   
       for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
         {
-          /*
-           * Don't have to cross the instance boundaries for VRFs.
+          /* Skip VRFs, this function will not be invoked without an instance
+           * when examining VRFs.
            */
-          if (bgp_flag_check(bgp, BGP_FLAG_INSTANCE_TYPE_VRF))
+          if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
             continue;
 
           peer = hash_lookup(bgp->peerhash, &tmp_peer);
@@ -6904,8 +6944,9 @@ bgp_config_write (struct vty *vty)
       if (bgp_option_check (BGP_OPT_MULTIPLE_INSTANCE))
 	{
 	  if (bgp->name)
-	    vty_out (vty, " %s %s", (bgp_flag_check(bgp, BGP_FLAG_INSTANCE_TYPE_VIEW) ? 
-                                     "view" : "vrf"), bgp->name);
+	    vty_out (vty, " %s %s",
+                     (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) ?
+                     "view" : "vrf", bgp->name);
 	}
       vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -7130,6 +7171,36 @@ bgp_master_init (void)
   bgp_process_queue_init();
 }
 
+/*
+ * Free up connected routes and interfaces; invoked upon bgp_exit()
+ */
+void
+bgp_if_finish (void)
+{
+  struct bgp *bgp;
+  struct listnode *node, *nnode;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    {
+      struct listnode *ifnode;
+      struct interface *ifp;
+  
+      if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+        continue;
+
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist(bgp->vrf_id), ifnode, ifp))
+        {
+          struct listnode *c_node, *c_nnode;
+          struct connected *c;
+
+          for (ALL_LIST_ELEMENTS (ifp->connected, c_node, c_nnode, c))
+            bgp_connected_delete (bgp, c);
+	    
+          if_delete (ifp);
+        }
+      list_free (vrf_iflist(bgp->vrf_id));
+    }
+}
 
 void
 bgp_init (void)
