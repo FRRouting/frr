@@ -52,6 +52,7 @@ redist_protocol(int family)
     return 1;
 
   assert(!"Unsupported address family!");
+  return 0;
 }
 
 static int
