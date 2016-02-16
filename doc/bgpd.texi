@@ -302,9 +302,6 @@ which case the set has a partial order.  Otherwise, if there is an order,
 all the objects have a distinct place in the order and the set has a total
 order.}) and that A would be preferred to C.
 
-@c No longer need the precedes character definition
-@unmacro mprec
-
 However, when MED is involved this need not be the case.  With MED it is
 possible that C is actually preferred over A.  So A is preferred to B, B is
 preferred to C, but C is preferred to A.  This can be true even where BGP
