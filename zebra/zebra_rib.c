@@ -3917,6 +3917,8 @@ struct route_table *
 zebra_vrf_other_route_table (afi_t afi, u_int32_t table_id, vrf_id_t vrf_id)
 {
   struct zebra_vrf *zvrf;
+  rib_table_info_t *info;
+  struct route_table *table;
 
   zvrf = vrf_info_lookup (vrf_id);
   if (! zvrf)
@@ -3928,22 +3930,21 @@ zebra_vrf_other_route_table (afi_t afi, u_int32_t table_id, vrf_id_t vrf_id)
   if (table_id >= ZEBRA_KERNEL_TABLE_MAX)
     return NULL;
 
-  /* Pending: This is a MUST-DO for import-table feature.
-      - Making it work like zebra_vrf_table() for now. Ideally, we want to
-     implement import table in a way, so that the other_table doesnt have to be
-     maintained separately.
-      - Need to explore how to provide import table concept
-        (May be only the default VRF?)
-      - How/if to provide some safety against picking a import table to be same as
-        a table associated/used in some other vrf.
-  if (zvrf->other_table[afi][table_id] == NULL)
+  if ((vrf_id == VRF_DEFAULT) && (table_id != RT_TABLE_MAIN) && (table_id != zebrad.rtm_table_default))
     {
-      zvrf->other_table[afi][table_id] = route_table_init();
-    }
-  return (zvrf->other_table[afi][table_id]);
-    */
+      if (zvrf->other_table[afi][table_id] == NULL)
+        {
+          table = route_table_init();
+          info = XCALLOC (MTYPE_RIB_TABLE_INFO, sizeof (*info));
+          info->zvrf = zvrf;
+          info->afi = afi;
+          info->safi = SAFI_UNICAST;
+          table->info = info;
+          zvrf->other_table[afi][table_id] = table;
+        }
 
+      return (zvrf->other_table[afi][table_id]);
+    }
+ 
   return zvrf->table[afi][SAFI_UNICAST];
 }
-
-
