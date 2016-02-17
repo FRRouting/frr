@@ -7182,13 +7182,13 @@ bgp_if_finish (void)
 
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
-      struct listnode *ifnode;
+      struct listnode *ifnode, *ifnnode;
       struct interface *ifp;
   
       if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
         continue;
 
-      for (ALL_LIST_ELEMENTS_RO (vrf_iflist(bgp->vrf_id), ifnode, ifp))
+      for (ALL_LIST_ELEMENTS (vrf_iflist(bgp->vrf_id), ifnode, ifnnode, ifp))
         {
           struct listnode *c_node, *c_nnode;
           struct connected *c;

@@ -231,16 +231,16 @@ bgp_exit (int status)
 
   bgp_close();
 
-  /* reverse bgp_master_init */
-  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
-    bgp_delete (bgp);
-  list_free (bm->bgp);
-
   if (retain_mode)
     if_add_hook (IF_DELETE_HOOK, NULL);
 
   /* free interface and connected route information. */
   bgp_if_finish ();
+
+  /* reverse bgp_master_init */
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    bgp_delete (bgp);
+  list_free (bm->bgp);
 
   /* reverse bgp_attr_init */
   bgp_attr_finish ();
