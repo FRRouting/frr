@@ -563,6 +563,8 @@ extern void host_config_set (const char *);
 
 extern void print_version (const char *);
 
+extern int cmd_banner_motd_file (const char *);
+
 /* struct host global, ick */
 extern struct host host; 
 

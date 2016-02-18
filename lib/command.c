@@ -4004,6 +4004,16 @@ DEFUN (no_config_log_timestamp_precision,
   return CMD_SUCCESS;
 }
 
+int
+cmd_banner_motd_file (const char *file)
+{
+  if (host.motdfile)
+    XFREE (MTYPE_HOST, host.motdfile);
+  host.motdfile = XSTRDUP (MTYPE_HOST, file);
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (banner_motd_file,
        banner_motd_file_cmd,
        "banner motd file [FILE]",
@@ -4012,11 +4022,7 @@ DEFUN (banner_motd_file,
        "Banner from a file\n"
        "Filename\n")
 {
-  if (host.motdfile)
-    XFREE (MTYPE_HOST, host.motdfile);
-  host.motdfile = XSTRDUP (MTYPE_HOST, argv[0]);
-
-  return CMD_SUCCESS;
+  return cmd_banner_motd_file (argv[0]);
 }
 
 DEFUN (banner_motd_default,
