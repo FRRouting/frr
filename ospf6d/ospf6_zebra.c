@@ -215,6 +215,9 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
   struct prefix_ipv6 p;
   struct in6_addr *nexthop;
 
+  if (ospf6 == NULL)
+    return 0;
+
   s = zclient->ibuf;
   ifindex = 0;
   nexthop = NULL;
