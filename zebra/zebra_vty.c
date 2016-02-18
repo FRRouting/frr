@@ -2079,7 +2079,7 @@ DEFUN (show_ipv6_nht,
        show_ipv6_nht_cmd,
        "show ipv6 nht",
        SHOW_STR
-       IP_STR
+       IPV6_STR
        "IPv6 nexthop tracking table\n")
 {
   vrf_id_t vrf_id = VRF_DEFAULT;
@@ -2095,7 +2095,7 @@ ALIAS (show_ipv6_nht,
        show_ipv6_nht_vrf_cmd,
        "show ipv6 nht " VRF_CMD_STR,
        SHOW_STR
-       IP_STR
+       IPV6_STR
        "IPv6 nexthop tracking table\n"
        VRF_CMD_HELP_STR)
 
@@ -5496,6 +5496,7 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_route_tag_cmd);
   install_element (ENABLE_NODE, &show_ip_nht_cmd);
   install_element (ENABLE_NODE, &show_ip_nht_vrf_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_nht_cmd);
   install_element (ENABLE_NODE, &show_ipv6_nht_vrf_cmd);
   install_element (ENABLE_NODE, &show_ip_route_addr_cmd);
   install_element (ENABLE_NODE, &show_ip_route_prefix_cmd);
