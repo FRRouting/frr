@@ -105,8 +105,8 @@ typedef enum {
   RA_SUPPRESS,
 } ipv6_nd_suppress_ra_status;
 
-extern void rtadv_init (struct zebra_vrf *);
-extern void rtadv_terminate (struct zebra_vrf *);
+extern void rtadv_init (struct zebra_ns *);
+extern void rtadv_terminate (struct zebra_ns *);
 extern void rtadv_cmd_init (void);
 extern void ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status status);
 

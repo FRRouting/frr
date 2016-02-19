@@ -124,6 +124,8 @@ char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 /* Process ID saved for use by init system */
 const char *pid_file = PATH_ZEBRA_PID;
 
+static int zebra_ns_disable (ns_id_t ns_id, void **info);
+
 /* Help information display. */
 static void
 usage (char *progname, int status)
@@ -185,6 +187,7 @@ sigint (void)
 #endif
 
   zebra_ptm_finish();
+  zebra_ns_disable (0, (void **)&dzns);
   systemd_send_stopping();
   exit (0);
 }
@@ -243,6 +246,10 @@ zebra_ns_enable (ns_id_t ns_id, void **info)
   char nl_name[64];
 #endif
 
+#if defined (HAVE_RTADV)
+  rtadv_init (zns);
+#endif
+
 #ifdef HAVE_NETLINK
   /* Initialize netlink sockets */
   snprintf (nl_name, 64, "netlink-listen (NS %u)", ns_id);
@@ -269,24 +276,22 @@ zebra_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
 
   assert (zvrf);
 
-#if defined (HAVE_RTADV)
-  rtadv_init (zvrf);
-#endif
-
   return 0;
 }
 
-/*
 static int
 zebra_ns_disable (ns_id_t ns_id, void **info)
 {
   struct zebra_ns *zns = (struct zebra_ns *) (*info);
 
+#if defined (HAVE_RTADV)
+  rtadv_terminate (zns);
+#endif
+
   kernel_terminate (zns);
 
   return 0;
 }
-*/
 
 /* Callback upon disabling a VRF. */
 static int
@@ -308,10 +313,6 @@ zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
       if (operative)
         if_down (ifp);
     }
-
-#if defined (HAVE_RTADV)
-  rtadv_terminate (zvrf);
-#endif
 
   list_delete_all_node (zvrf->rid_all_sorted_list);
   list_delete_all_node (zvrf->rid_lo_sorted_list);

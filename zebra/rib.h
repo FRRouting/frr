@@ -302,6 +302,10 @@ struct zebra_ns
 #endif
 
   struct route_table *if_table;
+
+#if defined (HAVE_RTADV)
+  struct rtadv rtadv;
+#endif /* HAVE_RTADV */
 };
 
 /* Routing table instance.  */
@@ -344,10 +348,6 @@ struct zebra_vrf
   struct list *rid_all_sorted_list;
   struct list *rid_lo_sorted_list;
   struct prefix rid_user_assigned;
-
-#if defined (HAVE_RTADV)
-  struct rtadv rtadv;
-#endif /* HAVE_RTADV */
 
   /*
    * Back pointer to the owning namespace.
