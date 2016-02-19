@@ -158,12 +158,13 @@ rtadv_send_packet (int sock, struct interface *ifp)
       adata = malloc(CMSG_SPACE(sizeof(struct in6_pktinfo)));
 	   
       if (adata == NULL)
-	zlog_err("rtadv_send_packet: can't malloc control data\n");
+	zlog_err("rtadv_send_packet: can't malloc control data");
     }
 
   /* Logging of packet. */
   if (IS_ZEBRA_DEBUG_PACKET)
-    zlog_debug ("Router advertisement send to %s", ifp->name);
+    zlog_debug ("%s(%u): Tx RA, socket %u",
+                ifp->name, ifp->ifindex, sock);
 
   /* Fill in sockaddr_in6. */
   memset (&addr, 0, sizeof (struct sockaddr_in6));
@@ -362,8 +363,8 @@ rtadv_send_packet (int sock, struct interface *ifp)
   ret = sendmsg (sock, &msg, 0);
   if (ret < 0)
     {
-      zlog_err ("rtadv_send_packet: sendmsg %d (%s)\n",
-		errno, safe_strerror(errno));
+      zlog_err ("%s(%u): Tx RA failed, socket %u error %d (%s)",
+                ifp->name, ifp->ifindex, sock, errno, safe_strerror(errno));
     }
 }
 
@@ -419,8 +420,6 @@ rtadv_process_solicit (struct interface *ifp)
   struct zebra_vrf *zvrf = vrf_info_lookup (ifp->vrf_id);
   struct zebra_ns *zns = zvrf->zns;
 
-  zlog_info ("Router solicitation received on %s vrf %u", ifp->name, zvrf->vrf_id);
-
   assert (zns);
   rtadv_send_packet (zns->rtadv.sock, ifp);
 }
@@ -437,17 +436,14 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
 
   inet_ntop (AF_INET6, &addr->sin6_addr, addr_str, INET6_ADDRSTRLEN);
 
-  if (IS_ZEBRA_DEBUG_PACKET)
-    zlog_debug ("Router advertisement received on %s from : %s", ifp->name, addr_str);
-
   if (len < sizeof(struct nd_router_advert)) {
-      zlog_warn("received icmpv6 RA packet with invalid length (%d) from %s",
-                len, addr_str);
+      zlog_warn("%s(%u): Rx RA with invalid length %d from %s",
+                ifp->name, ifp->ifindex, len, addr_str);
       return;
   }
   if (!IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) {
-      zlog_warn("received icmpv6 RA packet with non-linklocal source address from %s",
-                addr_str);
+      zlog_warn("%s(%u): Rx RA with non-linklocal source address from %s",
+                ifp->name, ifp->ifindex, addr_str);
       return;
   }
 
@@ -456,36 +452,36 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
   if ((radvert->nd_ra_curhoplimit && zif->rtadv.AdvCurHopLimit) &&
       (radvert->nd_ra_curhoplimit != zif->rtadv.AdvCurHopLimit))
     {
-      zlog_warn("our AdvCurHopLimit on %s doesn't agree with %s",
-                ifp->name, addr_str);
+      zlog_warn("%s(%u): Rx RA - our AdvCurHopLimit doesn't agree with %s",
+                ifp->name, ifp->ifindex, addr_str);
     }
 
   if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED) &&
       !zif->rtadv.AdvManagedFlag)
     {
-      zlog_warn("our AdvManagedFlag on %s doesn't agree with %s",
-                ifp->name, addr_str);
+      zlog_warn("%s(%u): Rx RA - our AdvManagedFlag doesn't agree with %s",
+                ifp->name, ifp->ifindex, addr_str);
     }
 
   if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_OTHER) &&
       !zif->rtadv.AdvOtherConfigFlag)
     {
-      zlog_warn("our AdvOtherConfigFlag on %s doesn't agree with %s",
-                ifp->name, addr_str);
+      zlog_warn("%s(%u): Rx RA - our AdvOtherConfigFlag doesn't agree with %s",
+                ifp->name, ifp->ifindex, addr_str);
     }
 
   if ((radvert->nd_ra_reachable && zif->rtadv.AdvReachableTime) &&
       (ntohl(radvert->nd_ra_reachable) != zif->rtadv.AdvReachableTime))
     {
-      zlog_warn("our AdvReachableTime on %s doesn't agree with %s",
-                ifp->name, addr_str);
+      zlog_warn("%s(%u): Rx RA - our AdvReachableTime doesn't agree with %s",
+                ifp->name, ifp->ifindex, addr_str);
     }
 
   if ((radvert->nd_ra_retransmit && zif->rtadv.AdvRetransTimer) &&
       (ntohl(radvert->nd_ra_retransmit) != (unsigned int)zif->rtadv.AdvRetransTimer))
     {
-      zlog_warn("our AdvRetransTimer on %s doesn't agree with %s",
-                ifp->name, addr_str);
+      zlog_warn("%s(%u): Rx RA - our AdvRetransTimer doesn't agree with %s",
+                ifp->name, ifp->ifindex, addr_str);
     }
 
   /* Currently supporting only P2P links, so any new RA source address is
@@ -507,14 +503,22 @@ rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int h
   struct icmp6_hdr *icmph;
   struct interface *ifp;
   struct zebra_if *zif;
+  char addr_str[INET6_ADDRSTRLEN];
+
+  inet_ntop (AF_INET6, &from->sin6_addr, addr_str, INET6_ADDRSTRLEN);
 
   /* Interface search. */
   ifp = if_lookup_by_index_per_ns (zns, ifindex);
   if (ifp == NULL)
     {
-      zlog_warn ("Unknown interface index: %d", ifindex);
+      zlog_warn ("RA/RS received on unknown IF %u from %s",
+                 ifindex, addr_str);
       return;
     }
+
+  if (IS_ZEBRA_DEBUG_PACKET)
+    zlog_debug ("%s(%u): Rx RA/RS len %d from %s",
+                ifp->name, ifp->ifindex, len, addr_str);
 
   if (if_is_loopback (ifp))
     return;
@@ -527,7 +531,8 @@ rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int h
   /* ICMP message length check. */
   if (len < sizeof (struct icmp6_hdr))
     {
-      zlog_warn ("Invalid ICMPV6 packet length: %d", len);
+      zlog_warn ("%s(%u): Rx RA with Invalid ICMPV6 packet length %d",
+                 ifp->name, ifp->ifindex, len);
       return;
     }
 
@@ -537,15 +542,16 @@ rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int h
   if (icmph->icmp6_type != ND_ROUTER_SOLICIT &&
       icmph->icmp6_type != ND_ROUTER_ADVERT)
     {
-      zlog_warn ("Unwanted ICMPV6 message type: %d", icmph->icmp6_type);
+      zlog_warn ("%s(%u): Rx RA - Unwanted ICMPV6 message type %d",
+                 ifp->name, ifp->ifindex, icmph->icmp6_type);
       return;
     }
 
   /* Hoplimit check. */
   if (hoplimit >= 0 && hoplimit != 255)
     {
-      zlog_warn ("Invalid hoplimit %d for router advertisement ICMP packet",
-		 hoplimit);
+      zlog_warn ("%s(%u): Rx RA - Invalid hoplimit %d",
+		 ifp->name, ifp->ifindex, hoplimit);
       return;
     }
 
@@ -579,7 +585,8 @@ rtadv_read (struct thread *thread)
 
   if (len < 0) 
     {
-      zlog_warn ("router solicitation recv failed: %s.", safe_strerror (errno));
+      zlog_warn ("RA/RS recv failed, socket %u error %s",
+                 sock, safe_strerror (errno));
       return len;
     }
 
@@ -2012,9 +2019,12 @@ if_join_all_router (int sock, struct interface *ifp)
   ret = setsockopt (sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, 
 		    (char *) &mreq, sizeof mreq);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IPV6_JOIN_GROUP: %s", safe_strerror (errno));
+    zlog_warn ("%s(%u): Failed to join group, socket %u error %s",
+               ifp->name, ifp->ifindex, sock, safe_strerror (errno));
 
-  zlog_info ("rtadv: %s join to all-routers multicast group", ifp->name);
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("%s(%u): Join All-Routers multicast group, socket %u",
+                ifp->name, ifp->ifindex, sock);
 
   return 0;
 }
@@ -2033,9 +2043,12 @@ if_leave_all_router (int sock, struct interface *ifp)
   ret = setsockopt (sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP, 
 		    (char *) &mreq, sizeof mreq);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IPV6_LEAVE_GROUP: %s", safe_strerror (errno));
+    zlog_warn ("%s(%u): Failed to leave group, socket %u error %s",
+               ifp->name, ifp->ifindex, sock,safe_strerror (errno));
 
-  zlog_info ("rtadv: %s leave from all-routers multicast group", ifp->name);
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("%s(%u): Leave All-Routers multicast group, socket %u",
+                ifp->name, ifp->ifindex, sock);
 
   return 0;
 }
