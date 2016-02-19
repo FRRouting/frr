@@ -577,19 +577,6 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
     }
 }
 
-static char *
-parse_link_kind (struct rtattr *tb)
-{
-  struct rtattr *linkinfo[IFLA_INFO_MAX+1];
-
-  memset (linkinfo, 0, sizeof(struct rtattr *)*(IFLA_INFO_MAX+1));
-  parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
-
-  if (linkinfo[IFLA_INFO_KIND])
-    return RTA_DATA(linkinfo[IFLA_INFO_KIND]);
-
-  return NULL;
-}
 /* Called from interface_lookup_netlink().  This function is only used
    during bootstrap. */
 static int
@@ -637,8 +624,11 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   if (tb[IFLA_LINKINFO])
     {
-      kind = parse_link_kind(tb[IFLA_LINKINFO]);
+      memset (linkinfo, 0, sizeof linkinfo);
       parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+
+      if (linkinfo[IFLA_INFO_KIND])
+        kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
 
       if (linkinfo[IFLA_INFO_SLAVE_KIND])
          slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
@@ -1262,8 +1252,11 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   if (tb[IFLA_LINKINFO])
     {
-      kind = parse_link_kind(tb[IFLA_LINKINFO]);
+      memset (linkinfo, 0, sizeof linkinfo);
       parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+
+      if (linkinfo[IFLA_INFO_KIND])
+        kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
 
       if (linkinfo[IFLA_INFO_SLAVE_KIND])
           slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
