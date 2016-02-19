@@ -16,5 +16,6 @@ Restart=on-abnormal
 LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/zebra $ZEBRA_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b -n
+ExecStopPost=/usr/bin/touch /var/run/quagga/zebra.was_running
 [Install]
 WantedBy=network-online.target
