@@ -161,7 +161,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups, ns_id_t ns_id)
       return -1;
     }
 
-  sock = vrf_socket (AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
+  sock = socket (AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
   if (sock < 0)
     {
       zlog (NULL, LOG_ERR, "Can't open %s socket: %s", nl->name,
