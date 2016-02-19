@@ -73,7 +73,7 @@ sin_masklen (struct in_addr mask)
 
 /* Interface between zebra message and rtm message. */
 static int
-kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
+kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib)
 
 {
   struct sockaddr_in *mask = NULL;
@@ -264,7 +264,7 @@ sin6_masklen (struct in6_addr mask)
 
 /* Interface between zebra message and rtm message. */
 static int
-kernel_rtm_ipv6 (int cmd, struct prefix *p, struct rib *rib, int family)
+kernel_rtm_ipv6 (int cmd, struct prefix *p, struct rib *rib)
 {
   struct sockaddr_in6 *mask;
   struct sockaddr_in6 sin_dest, sin_mask, sin_gate;
@@ -378,33 +378,32 @@ kernel_rtm_ipv6 (int cmd, struct prefix *p, struct rib *rib, int family)
   return 0; /*XXX*/
 }
 
+static int
+kernel_rtm (int cmd, struct prefix *p, struct rib *rib)
+{
+  switch (PREFIX_FAMILY(p))
+    {
+    case AF_INET:
+      return kernel_rtm_ipv4 (cmd, p, rib);
+    case AF_INET6:
+      return kernel_rtm_ipv6 (cmd, p, rib);
+    }
+  return 0;
+}
+
 int
 kernel_route_rib (struct prefix *p, struct rib *old, struct rib *new)
 {
-  struct rib *rib;
-  int route = 0, cmd;
-
-  if (!old && new)
-    cmd = RTM_ADD;
-  else if (old && !new)
-    cmd = RTM_DELETE;
-  else
-    cmd = RTM_CHANGE;
-
-  rib = new ? new : old;
+  int route = 0;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
     zlog (NULL, LOG_ERR, "Can't raise privileges");
 
-  switch (PREFIX_FAMILY(p))
-    {
-    case AF_INET:
-      route = kernel_rtm_ipv4 (cmd, p, rib, AF_INET);
-      break;
-    case AF_INET6:
-      route = kernel_rtm_ipv6 (cmd, p, rib, AF_INET6);
-      break;
-    }
+  if (old)
+    route |= kernel_rtm (RTM_DELETE, p, old);
+
+  if (new)
+    route |= kernel_rtm (RTM_ADD, p, new);
 
   if (zserv_privs.change(ZPRIVS_LOWER))
     zlog (NULL, LOG_ERR, "Can't lower privileges");
