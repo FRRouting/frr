@@ -68,8 +68,11 @@ connected_withdraw (struct connected *ifc)
   UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
   /* Enable RA suppression if there are no IPv6 addresses on this interface */
-  if (! ipv6_address_configured(ifc->ifp))
-    ipv6_nd_suppress_ra_set (ifc->ifp, RA_SUPPRESS);
+  if (interface_ipv6_auto_ra_allowed (ifc->ifp))
+    {
+      if (! ipv6_address_configured(ifc->ifp))
+        ipv6_nd_suppress_ra_set (ifc->ifp, RA_SUPPRESS);
+    }
 
   if (!CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
     {
@@ -99,7 +102,10 @@ connected_announce (struct interface *ifp, struct connected *ifc)
     if_subnet_add (ifp, ifc);
 
   else if (ifc->address->family == AF_INET6)
-    ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+    {
+      if (interface_ipv6_auto_ra_allowed (ifp))
+        ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+    }
 
   zebra_interface_address_add_update (ifp, ifc);
 

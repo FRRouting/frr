@@ -1221,8 +1221,6 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   char *name = NULL;
   char *kind = NULL;
   char *slave_kind = NULL;
-  struct connected *ifc;
-  struct listnode *node;
 
   vrf_id_t vrf_id = ns_id;
 
@@ -1295,9 +1293,11 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
         {
           if_down (ifp); //Ideally, we should have down/delete come from kernel
       //    if_delete_update (ifp); //Pending: see how best to make the old ifp unusable
-          for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-            if (ifc->address->family == AF_INET6)
-              ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
+          if (interface_ipv6_auto_ra_allowed (ifp))
+            {
+              if (ipv6_address_configured (ifp))
+                ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
+            }
         }
 
       if (ifp == NULL || !CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE) ||
@@ -1309,9 +1309,11 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
             {
               if_update_vrf (ifp, name, strlen(name), vrf_id);
 
-              for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-                if (ifc->address->family == AF_INET6)
-                  ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+              if (interface_ipv6_auto_ra_allowed (ifp))
+                {
+                  if (ipv6_address_configured (ifp))
+                    ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+                }
             }
 
           set_ifindex(ifp, ifi->ifi_index);

@@ -110,4 +110,20 @@ extern void rtadv_terminate (struct zebra_vrf *);
 extern void rtadv_cmd_init (void);
 extern void ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status status);
 
+
+/* Can we turn on IPv6 RAs automatically on this interface? */
+static inline int
+interface_ipv6_auto_ra_allowed (struct interface *ifp)
+{
+#if defined (HAVE_RTADV)
+  if ((strncmp (ifp->name, "eth", strlen("eth")) == 0) ||
+      (strncmp (ifp->name, "lo", strlen("lo")) == 0) ||
+      (strncmp (ifp->name, "switch", strlen("switch")) == 0))
+    return 0;
+  return 1;
+#else
+  return 0;
+#endif
+}
+
 #endif /* _ZEBRA_RTADV_H */
