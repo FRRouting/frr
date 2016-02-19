@@ -227,6 +227,7 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
   if (! zvrf)
     {
       zvrf = zebra_vrf_alloc (vrf_id, name);
+      zvrf->zns = dzns; /* Point to the global (single) NS */
       *info = (void *)zvrf;
       router_id_init (zvrf);
     }
