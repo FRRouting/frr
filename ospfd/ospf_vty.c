@@ -255,12 +255,6 @@ DEFUN (ospf_router_id,
   return CMD_SUCCESS;
 }
 
-ALIAS (ospf_router_id,
-       router_ospf_id_cmd,
-       "router-id A.B.C.D",
-       "router-id for the OSPF process\n"
-       "OSPF router-id in IP address format\n")
-
 DEFUN (no_ospf_router_id,
        no_ospf_router_id_cmd,
        "no ospf router-id",
@@ -291,10 +285,12 @@ DEFUN (no_ospf_router_id,
 }
 
 ALIAS (no_ospf_router_id,
-       no_router_ospf_id_cmd,
-       "no router-id",
+       no_ospf_router_id_val_cmd,
+       "no ospf router-id A.B.C.D",
        NO_STR
-       "router-id for the OSPF process\n")
+       "OSPF specific commands\n"
+       "router-id for the OSPF process\n"
+       "OSPF router-id in IP address format\n")
 
 static void
 ospf_passive_interface_default (struct ospf *ospf, u_char newval)
@@ -10272,8 +10268,7 @@ ospf_vty_init (void)
   /* "ospf router-id" commands. */
   install_element (OSPF_NODE, &ospf_router_id_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_cmd);
-  install_element (OSPF_NODE, &router_ospf_id_cmd);
-  install_element (OSPF_NODE, &no_router_ospf_id_cmd);
+  install_element (OSPF_NODE, &no_ospf_router_id_val_cmd);
 
   /* "passive-interface" commands. */
   install_element (OSPF_NODE, &ospf_passive_interface_addr_cmd);
