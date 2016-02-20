@@ -2823,41 +2823,18 @@ bgp_lookup_by_name (const char *name)
   return NULL;
 }
 
-/* Lookup BGP instance based on VRF id */
+/* Lookup BGP instance based on VRF id. */
+/* Note: Only to be used for incoming messages from Zebra. */
 struct bgp *
 bgp_lookup_by_vrf_id (vrf_id_t vrf_id)
 {
-  struct bgp *bgp;
-  struct listnode *node, *nnode;
-
-  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
-    if (bgp->vrf_id == vrf_id)
-      return bgp;
-  return NULL;
-}
-
-/* Link BGP instance to VRF, if present. */
-static void
-bgp_vrf_link (struct bgp *bgp)
-{
   struct vrf *vrf;
 
-  vrf = vrf_lookup_by_name(bgp->name);
+  /* Lookup VRF (in tree) and follow link. */
+  vrf = vrf_lookup (vrf_id);
   if (!vrf)
-    return;
-  bgp->vrf_id = vrf->vrf_id;
-}
-
-/* Unlink BGP instance from VRF, if present. */
-static void
-bgp_vrf_unlink (struct bgp *bgp)
-{
-  struct vrf *vrf;
-
-  vrf = vrf_lookup (bgp->vrf_id);
-  if (!vrf)
-    return;
-  bgp->vrf_id = VRF_DEFAULT;
+    return NULL;
+  return (vrf->info) ? (struct bgp *)vrf->info : NULL;
 }
 
 /* Called from VTY commands. */
@@ -2930,9 +2907,16 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name,
 
   listnode_add (bm->bgp, bgp);
 
-  /* If VRF, link to the VRF structure, if present. */
-  if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-    bgp_vrf_link (bgp);
+  /* If Default instance or VRF, link to the VRF structure, if present. */
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ||
+      bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+    {
+      struct vrf *vrf;
+
+      vrf = bgp_vrf_lookup_by_instance_type (bgp);
+      if (vrf)
+        bgp_vrf_link (bgp, vrf);
+    }
 
   /* Register with Zebra, if needed */
   if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
@@ -3006,6 +2990,7 @@ bgp_delete (struct bgp *bgp)
   struct peer *peer;
   struct peer_group *group;
   struct listnode *node, *next;
+  struct vrf *vrf;
   afi_t afi;
   int i;
 
@@ -3073,9 +3058,10 @@ bgp_delete (struct bgp *bgp)
   if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
     bgp_zebra_instance_deregister (bgp);
 
-  /* If VRF, unlink from the VRF structure. */
-  if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-    bgp_vrf_unlink (bgp);
+  /* If Default instance or VRF, unlink from the VRF structure. */
+  vrf = bgp_vrf_lookup_by_instance_type (bgp);
+  if (vrf)
+    bgp_vrf_unlink (bgp, vrf);
 
   thread_master_free_unused(bm->master);
   bgp_unlock(bgp);  /* initial reference */

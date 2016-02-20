@@ -252,8 +252,8 @@ bgp_vrf_add (int command, struct zclient *zclient, zebra_size_t length,
   bgp = bgp_lookup_by_name(vrf->name);
   if (bgp)
     {
-      /* We have instance configured, make it "up". */
-      bgp->vrf_id = vrf_id;
+      /* We have instance configured, link to VRF and make it "up". */
+      bgp_vrf_link (bgp, vrf);
       bgp_instance_up (bgp);
     }
 
@@ -281,8 +281,8 @@ bgp_vrf_delete (int command, struct zclient *zclient, zebra_size_t length,
   bgp = bgp_lookup_by_name(vrf->name);
   if (bgp)
     {
-      /* We have instance configured, make it "down". */
-      bgp->vrf_id = VRF_DEFAULT;
+      /* We have instance configured, unlink from VRF and make it "down". */
+      bgp_vrf_unlink (bgp, vrf);
       bgp_instance_down (bgp);
     }
 

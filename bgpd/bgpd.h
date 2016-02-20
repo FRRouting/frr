@@ -1438,4 +1438,39 @@ peer_cap_enhe (struct peer *peer)
   return (CHECK_FLAG(peer->af_cap[AFI_IP][SAFI_UNICAST], PEER_CAP_ENHE_AF_NEGO));
 }
 
+/* Lookup VRF for BGP instance based on its type. */
+static inline struct vrf *
+bgp_vrf_lookup_by_instance_type (struct bgp *bgp)
+{
+  struct vrf *vrf;
+
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+    vrf = vrf_lookup (VRF_DEFAULT);
+  else if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+    vrf = vrf_lookup_by_name (bgp->name);
+  else
+    vrf = NULL;
+
+  return vrf;
+}
+
+/* Link BGP instance to VRF. */
+static inline void
+bgp_vrf_link (struct bgp *bgp, struct vrf *vrf)
+{
+  bgp->vrf_id = vrf->vrf_id;
+  bgp_lock (bgp);
+  vrf->info = (void *)bgp;
+
+}
+
+/* Unlink BGP instance from VRF. */
+static inline void
+bgp_vrf_unlink (struct bgp *bgp, struct vrf *vrf)
+{
+  vrf->info = NULL;
+  bgp_unlock (bgp);
+  bgp->vrf_id = VRF_DEFAULT;
+}
+
 #endif /* _QUAGGA_BGPD_H */
