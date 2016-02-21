@@ -302,6 +302,8 @@ AC_ARG_ENABLE(systemd,
 [  --enable-systemd 	enable Systemd support])
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
+AC_ARG_ENABLE(cumulus,
+[  --enable-cumulus     enable Cumulus Switch Special Extensions])
 
 if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
@@ -327,6 +329,10 @@ fi
 if test "${enable_systemd}" = "yes" ; then
   AC_DEFINE(HAVE_SYSTEMD,,Compile systemd support in)
   LIBS="$LIBS -lsystemd "
+fi
+
+if test "${enable_cumulus}" = "yes" ; then
+  AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
 fi
 
 if test "${enable_shell_access}" = "yes"; then

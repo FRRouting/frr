@@ -116,10 +116,12 @@ static inline int
 interface_ipv6_auto_ra_allowed (struct interface *ifp)
 {
 #if defined (HAVE_RTADV)
+#if defined (HAVE_CUMULUS)
   if ((strncmp (ifp->name, "eth", strlen("eth")) == 0) ||
       (strncmp (ifp->name, "lo", strlen("lo")) == 0) ||
       (strncmp (ifp->name, "switch", strlen("switch")) == 0))
     return 0;
+#endif
   return 1;
 #else
   return 0;
