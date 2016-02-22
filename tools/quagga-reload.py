@@ -500,7 +500,7 @@ if __name__ == '__main__':
         print "'service integrated-vtysh-config' is not configured, this is required for 'service quagga reload'"
         sys.exit(1)
 
-    status_error = int(subprocess.call('service quagga status', shell=True))
+    status_error = int(subprocess.call('/usr/lib/quagga/quagga status', shell=True))
 
     if status_error:
         print "quagga is not running"
@@ -644,5 +644,5 @@ if __name__ == '__main__':
                     subprocess.call(cmd)
 
             if restart_bgp:
-                cmd = ['sudo', 'service', 'quagga', 'restart', 'bgpd']
+                cmd = ['sudo', 'systemctl', 'restart', 'bgpd']
                 subprocess.call(cmd)

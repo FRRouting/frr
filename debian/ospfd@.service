@@ -9,7 +9,7 @@ Type=notify
 Nice=-5
 EnvironmentFile=/etc/default/quagga
 StartLimitInterval=3m
-StartLimitBurst=3
+StartLimitBurst=15
 TimeoutSec=1m
 WatchdogSec=60s
 RestartSec=5
@@ -17,6 +17,6 @@ Restart=on-abnormal
 LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/ospfd $OSPFD_OPTIONS -n %I
 ExecStartPost=/usr/bin/vtysh -b  -n
-ExecStopPost=/bin/touch /var/run/quagga/ospfd.%I.was_running
+ExecStopPost=/bin/touch /var/run/quagga/ospfd@%I.was_running
 [Install]
 WantedBy=network-online.target

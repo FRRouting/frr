@@ -1,0 +1,74 @@
+#!/bin/bash
+
+startup()
+{
+    FILE="/var/run/quagga/$1.was_running"
+
+    /bin/systemctl reset-failed $1
+
+    if [ -e $FILE ]
+    then
+        rm $FILE
+        systemctl start $1
+    fi
+
+    /bin/systemctl is-enabled $1 > /dev/null 2>&1
+    if [ $? -eq 0 ]
+    then
+        systemctl start $1
+    fi
+}
+
+start_ospfd_multiinstance()
+{
+   for instance in $MI; do
+	echo "Starting $instance"
+       startup ospfd@$instance
+   done
+}
+
+start_daemons()
+{
+    startup zebra
+    startup bgpd
+    startup ospfd
+    startup ospf6d
+    startup ripd
+    startup ripngd
+    startup isisd
+    start_ospfd_multiinstance
+}
+
+stop_ospfd_multiinstance()
+{
+    for instance in $MI; do
+	echo "Stopping instance: $instance"
+        /bin/systemctl stop ospfd@$instance
+    done
+}
+
+stop_daemons()
+{
+    stop_ospfd_multiinstance
+    /bin/systemctl stop bgpd ospfd ospf6d ripd ripngd isisd zebra
+}
+
+MI=`systemctl list-units 'ospfd@*'| sed -n -e '/@/s/\..*//' -e 's/.*@//p'`
+case "$1" in
+     start)
+	 start_daemons
+	 ;;
+     stop)
+	 stop_daemons
+	 ;;
+     restart)
+	 stop_daemons
+	 start_daemons
+	 ;;
+     reload)
+	 /usr/lib/quagga/quagga-reload.py --reload /etc/quagga/Quagga.conf
+	 exit $?
+	 ;;
+esac
+
+exit 0
