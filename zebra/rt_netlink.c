@@ -649,7 +649,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
       if (kind && strcmp(kind, "vrf") == 0)
         {
           netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
-          return 0;
+          vrf_id = (vrf_id_t)ifi->ifi_index;
         }
     }
 
@@ -1277,7 +1277,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
       if (kind && strcmp(kind, "vrf") == 0)
         {
           netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
-          return 0;
+          vrf_id = (vrf_id_t)ifi->ifi_index;
         }
     }
 
