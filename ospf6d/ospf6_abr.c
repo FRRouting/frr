@@ -984,6 +984,14 @@ ospf6_abr_examin_brouter (u_int32_t router_id)
   else
     oa = listgetdata(listhead(ospf6->area_list));
 
+  /*
+   * It is possible to designate a non backbone
+   * area first.  If that is the case safely
+   * fall out of this function.
+   */
+  if (oa == NULL)
+    return;
+
   type = htons (OSPF6_LSTYPE_INTER_ROUTER);
   for (lsa = ospf6_lsdb_type_router_head (type, router_id, oa->lsdb); lsa;
        lsa = ospf6_lsdb_type_router_next (type, router_id, lsa))
