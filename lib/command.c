@@ -2163,7 +2163,7 @@ DEFUN (config_logmsg,
   if ((level = level_match(argv[idx_log_level]->arg)) == ZLOG_DISABLED)
     return CMD_ERR_NO_MATCH;
 
-  zlog(NULL, level, "%s", ((message = argv_concat(argv, argc, idx_message)) ? message : ""));
+  zlog(level, "%s", ((message = argv_concat(argv, argc, idx_message)) ? message : ""));
   if (message)
     XFREE(MTYPE_TMP, message);
 

@@ -119,18 +119,16 @@ extern void closezlog (struct zlog *zl);
 #endif /* __GNUC__ */
 
 /* Generic function for zlog. */
-extern void zlog (struct zlog *zl, int priority, const char *format, ...)
-  PRINTF_ATTRIBUTE(3, 4);
+extern void zlog (int priority, const char *format, ...)
+  PRINTF_ATTRIBUTE(2, 3);
 
 /* Handy zlog functions. */
-extern void vzlog (struct zlog *zl, int priority, const char *format, va_list args);
+extern void vzlog (int priority, const char *format, va_list args);
 extern void zlog_err (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_warn (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_notice (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-
-extern void vzlog (struct zlog *, int , const char *, va_list );
 
 extern void zlog_thread_info (int log_level);
 

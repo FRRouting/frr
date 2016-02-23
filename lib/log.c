@@ -185,16 +185,13 @@ time_print(FILE *fp, struct timestamp_control *ctl)
 
 /* va_list version of zlog. */
 void
-vzlog (struct zlog *zl, int priority, const char *format, va_list args)
+vzlog (int priority, const char *format, va_list args)
 {
   char proto_str[32];
   int original_errno = errno;
   struct timestamp_control tsctl;
   tsctl.already_rendered = 0;
-
-  /* If zlog is not specified, use default one. */
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   /* When zlog_default is also NULL, use stderr for logging. */
   if (zl == NULL)
@@ -639,7 +636,7 @@ void
 zlog_backtrace(int priority)
 {
 #ifndef HAVE_GLIBC_BACKTRACE
-  zlog(NULL, priority, "No backtrace available on this platform.");
+  zlog(priority, "No backtrace available on this platform.");
 #else
   void *array[20];
   int size, i;
@@ -653,29 +650,29 @@ zlog_backtrace(int priority)
 	       size, (unsigned long)(array_size(array)));
       return;
     }
-  zlog(NULL, priority, "Backtrace for %d stack frames:", size);
+  zlog(priority, "Backtrace for %d stack frames:", size);
   if (!(strings = backtrace_symbols(array, size)))
     {
       zlog_err("Cannot get backtrace symbols (out of memory?)");
       for (i = 0; i < size; i++)
-	zlog(NULL, priority, "[bt %d] %p",i,array[i]);
+	zlog(priority, "[bt %d] %p",i,array[i]);
     }
   else
     {
       for (i = 0; i < size; i++)
-	zlog(NULL, priority, "[bt %d] %s",i,strings[i]);
+	zlog(priority, "[bt %d] %s",i,strings[i]);
       free(strings);
     }
 #endif /* HAVE_GLIBC_BACKTRACE */
 }
 
 void
-zlog (struct zlog *zl, int priority, const char *format, ...)
+zlog (int priority, const char *format, ...)
 {
   va_list args;
 
   va_start(args, format);
-  vzlog (zl, priority, format, args);
+  vzlog (priority, format, args);
   va_end (args);
 }
 
@@ -685,7 +682,7 @@ FUNCNAME(const char *format, ...) \
 { \
   va_list args; \
   va_start(args, format); \
-  vzlog (NULL, PRIORITY, format, args); \
+  vzlog (PRIORITY, format, args); \
   va_end(args); \
 }
 
@@ -704,11 +701,11 @@ ZLOG_FUNC(zlog_debug, LOG_DEBUG)
 void zlog_thread_info (int log_level)
 {
   if (thread_current)
-    zlog(NULL, log_level, "Current thread function %s, scheduled from "
+    zlog(log_level, "Current thread function %s, scheduled from "
 	 "file %s, line %u", thread_current->funcname,
 	 thread_current->schedfrom, thread_current->schedfrom_line);
   else
-    zlog(NULL, log_level, "Current thread not known/applicable");
+    zlog(log_level, "Current thread not known/applicable");
 }
 
 void
@@ -720,7 +717,7 @@ _zlog_assert_failed (const char *assertion, const char *file,
       ((logfile_fd = open_crashlog()) >= 0) &&
       ((zlog_default->fp = fdopen(logfile_fd, "w")) != NULL))
     zlog_default->maxlvl[ZLOG_DEST_FILE] = LOG_ERR;
-  zlog(NULL, LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
+  zlog(LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
        assertion,file,line,(function ? function : "?"));
   zlog_backtrace(LOG_CRIT);
   zlog_thread_info(LOG_CRIT);
