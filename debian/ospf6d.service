@@ -16,6 +16,8 @@ RestartSec=5
 Restart=on-abnormal
 ExecStart=/usr/lib/quagga/ospf6d $OSPF6D_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b  -n
-ExecStopPost=/usr/bin/touch /var/run/quagga/ospf6d.was_running
+ExecStopPost=-/usr/bin/touch /var/run/quagga/ospf6d.was_running
+ExecStopPost=-/bin/rm -f /var/run/quagga/ospf6d.pid
+ExecStopPost=-/bin/rm -f /var/run/quagga/ospf6d.vty
 [Install]
 WantedBy=network-online.target

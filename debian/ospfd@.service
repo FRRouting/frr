@@ -17,6 +17,8 @@ Restart=on-abnormal
 LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/ospfd $OSPFD_OPTIONS -n %I
 ExecStartPost=/usr/bin/vtysh -b  -n
-ExecStopPost=/bin/touch /var/run/quagga/ospfd@%I.was_running
+ExecStopPost=-/bin/touch /var/run/quagga/ospfd@%I.was_running
+ExecStopPost=-/bin/rm -f /var/run/quagga/ospfd@%I.pid
+ExecStopPost=-/bin/rm -f /var/run/quagga/ospfd@%I.vty
 [Install]
 WantedBy=network-online.target

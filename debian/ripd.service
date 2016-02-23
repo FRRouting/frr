@@ -17,6 +17,8 @@ Restart=on-abnormal
 LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/ripd $RIPD_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b -n
-ExecStopPost=/usr/bin/touch /var/run/quagga/ripd.was_running
+ExecStopPost=-/usr/bin/touch /var/run/quagga/ripd.was_running
+ExecStopPost=-/bin/rm -f /var/run/quagga/ripd.pid
+ExecStopPost=-/bin/rm -f /var/run/quagga/ripd.vty
 [Install]
 WantedBy=network-online.target

@@ -22,7 +22,6 @@ startup()
 start_ospfd_multiinstance()
 {
    for instance in $MI; do
-	echo "Starting $instance"
        startup ospfd@$instance
    done
 }
@@ -42,7 +41,6 @@ start_daemons()
 stop_ospfd_multiinstance()
 {
     for instance in $MI; do
-	echo "Stopping instance: $instance"
         /bin/systemctl stop ospfd@$instance
     done
 }
