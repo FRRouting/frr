@@ -424,7 +424,8 @@ bgp_bind (struct peer *peer)
 
   name = (peer->conf_if ? peer->conf_if : (peer->ifname ? peer->ifname : peer->bgp->name));
 
-  zlog_debug ("Binding to interface %s\n", name);
+  if (bgp_debug_neighbor_events(peer))
+    zlog_debug ("%s Binding to interface %s", peer->host, name);
 
   if ( bgpd_privs.change (ZPRIVS_RAISE) )
   	zlog_err ("bgp_bind: could not raise privs");
