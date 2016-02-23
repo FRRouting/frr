@@ -17,6 +17,8 @@ Restart=on-abnormal
 LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/ripngd $RIPNGD_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b -n
-ExecStopPost=/bin/touch /var/run/quagga/ripngd.was_running
+ExecStopPost=-/bin/touch /var/run/quagga/ripngd.was_running
+ExecStopPost=-/bin/rm -f /var/run/quagga/ripngd.pid
+ExecStopPost=-/bin/rm -f /var/run/quagga/ripngd.vty
 [Install]
 WantedBy=network-online.target
