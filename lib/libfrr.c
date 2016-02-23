@@ -300,7 +300,7 @@ struct thread_master *frr_init(void)
 
 	srandom(time(NULL));
 
-	zlog_default = openzlog (di->progname, di->log_id, di->instance,
+	openzlog (di->progname, di->logname, di->instance,
 			LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 #if defined(HAVE_CUMULUS)
 	zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);

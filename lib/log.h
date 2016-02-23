@@ -42,28 +42,6 @@
  * please use LOG_ERR instead.
  */
 
-/*
- * This must be kept in the same order as
- * zlog_proto_names[]
- */
-typedef enum 
-{
-  ZLOG_NONE,
-  ZLOG_DEFAULT,
-  ZLOG_ZEBRA,
-  ZLOG_RIP,
-  ZLOG_BGP,
-  ZLOG_OSPF,
-  ZLOG_RIPNG,
-  ZLOG_OSPF6,
-  ZLOG_LDP,
-  ZLOG_ISIS,
-  ZLOG_PIM,
-  ZLOG_NHRP,
-  ZLOG_RFP,
-  ZLOG_WATCHFRR,
-} zlog_proto_t;
-
 /* If maxlvl is set to ZLOG_DISABLED, then no messages will be sent
    to that logging destination. */
 #define ZLOG_DISABLED	(LOG_EMERG-1)
@@ -80,7 +58,7 @@ typedef enum
 struct zlog 
 {
   const char *ident;	/* daemon name (first arg to openlog) */
-  zlog_proto_t protocol;
+  const char *protoname;
   u_short      instance;
   int maxlvl[ZLOG_NUM_DESTS];	/* maximum priority to send to associated
   				   logging destination */
@@ -105,11 +83,11 @@ struct message
 extern struct zlog *zlog_default;
 
 /* Open zlog function */
-extern struct zlog *openzlog (const char *progname, zlog_proto_t protocol,
-		              u_short instance, int syslog_options, int syslog_facility);
+extern void openzlog (const char *progname, const char *protoname,
+                      u_short instance, int syslog_options, int syslog_facility);
 
 /* Close zlog function. */
-extern void closezlog (struct zlog *zl);
+extern void closezlog (void);
 
 /* GCC have printf type attribute check.  */
 #ifdef __GNUC__
@@ -156,7 +134,6 @@ extern const char *mes_lookup (const struct message *meslist,
                                const char *no_item, const char *mesname);
 
 extern const char *zlog_priority[];
-extern const char *zlog_proto_names[];
 
 /* Safe version of strerror -- never returns NULL. */
 extern const char *safe_strerror(int errnum);

@@ -991,7 +991,7 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
   /* Print the name of the protocol */
   if (zlog_default)
   {
-    vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
+    vty_out (vty, "%s", zlog_default->protoname);
     if (zlog_default->instance)
       vty_out (vty, " %d", zlog_default->instance);
   }
@@ -1052,7 +1052,7 @@ vty_show_route_map (struct vty *vty, const char *name)
       else
         {
           if (zlog_default)
-            vty_out (vty, "%s", zlog_proto_names[zlog_default->protocol]);
+            vty_out (vty, "%s", zlog_default->protoname);
           if (zlog_default && zlog_default->instance)
             vty_out (vty, " %d", zlog_default->instance);
           vty_out (vty, ": 'route-map %s' not found%s", name, VTY_NEWLINE);

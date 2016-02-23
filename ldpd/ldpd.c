@@ -254,7 +254,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	zlog_default = openzlog(ldpd_di.progname, ZLOG_LDP, 0,
+	openzlog(ldpd_di.progname, "LDP", 0,
 	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
 	if (lflag)
@@ -407,7 +407,7 @@ ldpd_shutdown(void)
 	ldp_zebra_destroy();
 	zprivs_terminate(&ldpd_privs);
 	thread_master_free(master);
-	closezlog(zlog_default);
+	closezlog();
 
 	exit(0);
 }

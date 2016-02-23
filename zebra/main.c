@@ -168,8 +168,7 @@ sigint (void)
     work_queue_free (zebrad.lsp_process_q);
   meta_queue_free (zebrad.mq);
   thread_master_free (zebrad.master);
-  if (zlog_default)
-    closezlog (zlog_default);
+  closezlog ();
 
   exit (0);
 }

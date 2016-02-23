@@ -38,7 +38,7 @@ struct frr_daemon_info {
 
 	const char *progname;
 	const char *name;
-	zlog_proto_t log_id;
+	const char *logname;
 	unsigned short instance;
 
 	char *vty_addr;
@@ -73,7 +73,7 @@ struct frr_daemon_info {
 #define FRR_DAEMON_INFO(execname, constname, ...) \
 	static struct frr_daemon_info execname ##_di = { \
 		.name = # execname, \
-		.log_id = ZLOG_ ## constname, \
+		.logname = # constname, \
 		__VA_ARGS__ \
 	};
 

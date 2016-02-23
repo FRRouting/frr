@@ -1176,7 +1176,7 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
 
   /* Print the name of the protocol */
   if (zlog_default)
-      vty_out (vty, "%s: ", zlog_proto_names[zlog_default->protocol]);
+      vty_out (vty, "%s: ", zlog_default->protoname);
                                                                            
   if (dtype == normal_display)
     {

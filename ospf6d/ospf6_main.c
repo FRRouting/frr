@@ -116,8 +116,7 @@ ospf6_exit (int status)
   if (master)
     thread_master_free (master);
 
-  if (zlog_default)
-    closezlog (zlog_default);
+  closezlog ();
 
   exit (status);
 }

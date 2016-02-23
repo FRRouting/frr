@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 
   master = thread_master_create ();
 
-  zlog_default = openzlog ("grammar_sandbox", ZLOG_NONE, 0,
+  openzlog ("grammar_sandbox", "NONE", 0,
                            LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
   zlog_set_level (NULL, ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
   zlog_set_level (NULL, ZLOG_DEST_STDOUT, LOG_DEBUG);

@@ -240,8 +240,7 @@ bgp_exit (int status)
   if (bm->master)
     thread_master_free (bm->master);
 
-  if (zlog_default)
-    closezlog (zlog_default);
+  closezlog ();
 
   memset (bm, 0, sizeof (*bm));
 

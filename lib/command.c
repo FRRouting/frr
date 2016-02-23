@@ -2214,7 +2214,7 @@ DEFUN (show_logging,
   vty_out (vty, "%s", VTY_NEWLINE);
 
   vty_out (vty, "Protocol name: %s%s",
-           zlog_proto_names[zl->protocol], VTY_NEWLINE);
+           zl->protoname, VTY_NEWLINE);
   vty_out (vty, "Record priority: %s%s",
            (zl->record_priority ? "enabled" : "disabled"), VTY_NEWLINE);
   vty_out (vty, "Timestamp precision: %d%s",

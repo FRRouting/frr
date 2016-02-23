@@ -42,29 +42,6 @@ static int logfile_fd = -1;	/* Used in signal handler. */
 
 struct zlog *zlog_default = NULL;
 
-/*
- * This must be kept in the same order as the
- * zlog_proto_t enum
- */
-const char *zlog_proto_names[] = 
-{
-  "NONE",
-  "DEFAULT",
-  "ZEBRA",
-  "RIP",
-  "BGP",
-  "OSPF",
-  "RIPNG",
-  "OSPF6",
-  "LDP",
-  "ISIS",
-  "PIM",
-  "NHRP",
-  "RFP",
-  "WATCHFRR",
-  NULL,
-};
-
 const char *zlog_priority[] =
 {
   "emergencies",
@@ -219,9 +196,9 @@ vzlog (int priority, const char *format, va_list args)
     }
 
   if (zl->instance)
-   sprintf (proto_str, "%s[%d]: ", zlog_proto_names[zl->protocol], zl->instance);
+   sprintf (proto_str, "%s[%d]: ", zl->protoname, zl->instance);
   else
-   sprintf (proto_str, "%s: ", zlog_proto_names[zl->protocol]);
+   sprintf (proto_str, "%s: ", zl->protoname);
 
   /* File output. */
   if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
@@ -453,7 +430,7 @@ zlog_signal(int signo, const char *action
   time(&now);
   if (zlog_default)
     {
-      s = str_append(LOC,zlog_proto_names[zlog_default->protocol]);
+      s = str_append(LOC,zlog_default->protoname);
       *s++ = ':';
       *s++ = ' ';
       msgstart = s;
@@ -735,8 +712,8 @@ memory_oom (size_t size, const char *name)
 }
 
 /* Open log stream */
-struct zlog *
-openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
+void
+openzlog (const char *progname, const char *protoname, u_short instance,
 	  int syslog_flags, int syslog_facility)
 {
   struct zlog *zl;
@@ -745,7 +722,7 @@ openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
   zl = XCALLOC(MTYPE_ZLOG, sizeof (struct zlog));
 
   zl->ident = progname;
-  zl->protocol = protocol;
+  zl->protoname = protoname;
   zl->instance = instance;
   zl->facility = syslog_facility;
   zl->syslog_options = syslog_flags;
@@ -757,13 +734,14 @@ openzlog (const char *progname, zlog_proto_t protocol, u_short instance,
   zl->default_lvl = LOG_DEBUG;
 
   openlog (progname, syslog_flags, zl->facility);
-  
-  return zl;
+  zlog_default = zl;
 }
 
 void
-closezlog (struct zlog *zl)
+closezlog (void)
 {
+  struct zlog *zl = zlog_default;
+
   closelog();
 
   if (zl->fp != NULL)
@@ -773,6 +751,7 @@ closezlog (struct zlog *zl)
     XFREE(MTYPE_ZLOG, zl->filename);
 
   XFREE (MTYPE_ZLOG, zl);
+  zlog_default = NULL;
 }
 
 /* Called from command.c. */
