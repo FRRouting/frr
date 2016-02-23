@@ -163,7 +163,7 @@ sigint (void)
 void
 sigusr1 (void)
 {
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 /*

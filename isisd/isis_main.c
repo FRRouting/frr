@@ -155,7 +155,7 @@ void
 sigusr1 (void)
 {
   zlog_debug ("SIGUSR1 received");
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 struct quagga_signal_t isisd_signals[] =

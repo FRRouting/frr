@@ -111,7 +111,7 @@ sigint (void)
 static void
 sigusr1 (void)
 {
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 struct quagga_signal_t ripng_signals[] =

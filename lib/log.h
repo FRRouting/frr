@@ -114,15 +114,15 @@ extern void zlog_thread_info (int log_level);
    argument is ZLOG_DISABLED, then the destination is disabled.
    This function should not be used for file logging (use zlog_set_file
    or zlog_reset_file instead). */
-extern void zlog_set_level (struct zlog *zl, zlog_dest_t, int log_level);
+extern void zlog_set_level (zlog_dest_t, int log_level);
 
 /* Set logging to the given filename at the specified level. */
-extern int zlog_set_file (struct zlog *zl, const char *filename, int log_level);
+extern int zlog_set_file (const char *filename, int log_level);
 /* Disable file logging. */
-extern int zlog_reset_file (struct zlog *zl);
+extern int zlog_reset_file (void);
 
 /* Rotate log. */
-extern int zlog_rotate (struct zlog *);
+extern int zlog_rotate (void);
 
 /* For hackey message lookup and check */
 #define LOOKUP_DEF(x, y, def) mes_lookup(x, x ## _max, y, def, #x)
@@ -168,8 +168,7 @@ extern void zlog_hexdump(const void *mem, unsigned int len);
 extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in, size_t inlen);
 
 
-extern int 
-vzlog_test (struct zlog *zl, int priority);
+extern int vzlog_test (int priority);
 
 /* structure useful for avoiding repeated rendering of the same timestamp */
 struct timestamp_control {

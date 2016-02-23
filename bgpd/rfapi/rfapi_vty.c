@@ -411,7 +411,7 @@ rfapiStream2Vty (
       *fp = (int (*)(void *, const char *,...)) rfapiDebugPrintf;
       *outstream = NULL;
       *vty_newline = str_vty_newline (*vty);
-      return (vzlog_test (NULL, LOG_DEBUG));
+      return (vzlog_test (LOG_DEBUG));
     }
 
   if (((uintptr_t) stream == (uintptr_t) 1) ||

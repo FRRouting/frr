@@ -77,7 +77,7 @@ static void parse_arguments(int argc, char **argv)
 
 static void nhrp_sigusr1(void)
 {
-	zlog_rotate(NULL);
+	zlog_rotate();
 }
 
 static void nhrp_request_stop(void)
@@ -99,7 +99,7 @@ static void nhrp_request_stop(void)
 
 	debugf(NHRP_DEBUG_COMMON, "Done.");
 
-	closezlog(zlog_default);
+	closezlog();
 
 	exit(0);
 }

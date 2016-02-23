@@ -55,7 +55,7 @@ static void pim_sigterm()
 
 static void pim_sigusr1()
 {
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 struct quagga_signal_t pimd_signals[] =

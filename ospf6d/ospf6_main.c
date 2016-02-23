@@ -150,7 +150,7 @@ static void
 sigusr1 (void)
 {
   zlog_info ("SIGUSR1 received");
-  zlog_rotate (NULL);
+  zlog_rotate();
 }
 
 struct quagga_signal_t ospf6_signals[] =

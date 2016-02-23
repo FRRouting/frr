@@ -1274,16 +1274,16 @@ int main(int argc, char **argv)
 
 	master = frr_init();
 
-	zlog_set_level(NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 	if (watchfrr_di.daemon_mode) {
-		zlog_set_level(NULL, ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
+		zlog_set_level(ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
 		if (daemon (0, 0) < 0) {
 			fprintf(stderr, "Watchquagga daemon failed: %s",
 					strerror(errno));
 			exit (1);
 		}
 	} else
-		zlog_set_level(NULL, ZLOG_DEST_STDOUT, MIN(gs.loglevel, LOG_DEBUG));
+		zlog_set_level(ZLOG_DEST_STDOUT, MIN(gs.loglevel, LOG_DEBUG));
 
 	watchfrr_vty_init();
 

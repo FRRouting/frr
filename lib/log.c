@@ -239,11 +239,9 @@ vzlog (int priority, const char *format, va_list args)
 }
 
 int 
-vzlog_test (struct zlog *zl, int priority)
+vzlog_test (int priority)
 {
-  /* If zlog is not specified, use default one. */
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   /* When zlog_default is also NULL, use stderr for logging. */
   if (zl == NULL)
@@ -756,26 +754,20 @@ closezlog (void)
 
 /* Called from command.c. */
 void
-zlog_set_level (struct zlog *zl, zlog_dest_t dest, int log_level)
+zlog_set_level (zlog_dest_t dest, int log_level)
 {
-  if (zl == NULL)
-    zl = zlog_default;
-
-  zl->maxlvl[dest] = log_level;
+  zlog_default->maxlvl[dest] = log_level;
 }
 
 int
-zlog_set_file (struct zlog *zl, const char *filename, int log_level)
+zlog_set_file (const char *filename, int log_level)
 {
+  struct zlog *zl = zlog_default;
   FILE *fp;
   mode_t oldumask;
 
   /* There is opend file.  */
-  zlog_reset_file (zl);
-
-  /* Set default zl. */
-  if (zl == NULL)
-    zl = zlog_default;
+  zlog_reset_file ();
 
   /* Open file. */
   oldumask = umask (0777 & ~LOGFILE_MASK);
@@ -795,10 +787,9 @@ zlog_set_file (struct zlog *zl, const char *filename, int log_level)
 
 /* Reset opend file. */
 int
-zlog_reset_file (struct zlog *zl)
+zlog_reset_file (void)
 {
-  if (zl == NULL)
-    zl = zlog_default;
+  struct zlog *zl = zlog_default;
 
   if (zl->fp)
     fclose (zl->fp);
@@ -815,12 +806,10 @@ zlog_reset_file (struct zlog *zl)
 
 /* Reopen log file. */
 int
-zlog_rotate (struct zlog *zl)
+zlog_rotate (void)
 {
+  struct zlog *zl = zlog_default;
   int level;
-
-  if (zl == NULL)
-    zl = zlog_default;
 
   if (zl->fp)
     fclose (zl->fp);

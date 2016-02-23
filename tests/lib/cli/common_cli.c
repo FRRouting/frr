@@ -72,9 +72,9 @@ main (int argc, char **argv)
 
   openzlog("common-cli", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
            LOG_DAEMON);
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level (NULL, ZLOG_DEST_STDOUT, ZLOG_DISABLED);
-  zlog_set_level (NULL, ZLOG_DEST_MONITOR, LOG_DEBUG);
+  zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
+  zlog_set_level(ZLOG_DEST_STDOUT, ZLOG_DISABLED);
+  zlog_set_level(ZLOG_DEST_MONITOR, LOG_DEBUG);
 
   /* Library inits. */
   cmd_init (1);

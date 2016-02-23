@@ -50,9 +50,9 @@ main (void)
   signal_init (master, array_size(sigs), sigs);
 
   openzlog("testsegv", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level (NULL, ZLOG_DEST_STDOUT, LOG_DEBUG);
-  zlog_set_level (NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+  zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
+  zlog_set_level(ZLOG_DEST_STDOUT, LOG_DEBUG);
+  zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 
   thread_execute (master, threadfunc, 0, 0);
 
