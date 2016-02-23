@@ -545,7 +545,7 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
        * TODO: Status changes will be handled against the VRF "interface".
        */
       vrf = vrf_lookup ((vrf_id_t)ifi->ifi_index);
-      if (vrf)
+      if (vrf && vrf->info)
         {
           if (IS_ZEBRA_DEBUG_KERNEL)
             zlog_debug ("%s: RTM_NEWLINK status for VRF(%s) index %u - ignored",
@@ -649,7 +649,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
       if (kind && strcmp(kind, "vrf") == 0)
         {
           netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
-          return 0;
+          vrf_id = (vrf_id_t)ifi->ifi_index;
         }
     }
 
@@ -1277,7 +1277,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
       if (kind && strcmp(kind, "vrf") == 0)
         {
           netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
-          return 0;
+          vrf_id = (vrf_id_t)ifi->ifi_index;
         }
     }
 

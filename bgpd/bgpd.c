@@ -3058,6 +3058,9 @@ bgp_delete (struct bgp *bgp)
   if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
     bgp_zebra_instance_deregister (bgp);
 
+  /* Free interfaces in this instance. */
+  bgp_if_finish (bgp);
+
   /* If Default instance or VRF, unlink from the VRF structure. */
   vrf = bgp_vrf_lookup_by_instance_type (bgp);
   if (vrf)
@@ -7158,34 +7161,27 @@ bgp_master_init (void)
 }
 
 /*
- * Free up connected routes and interfaces; invoked upon bgp_exit()
+ * Free up connected routes and interfaces for a BGP instance. Invoked upon
+ * instance delete (non-default only) or BGP exit.
  */
 void
-bgp_if_finish (void)
+bgp_if_finish (struct bgp *bgp)
 {
-  struct bgp *bgp;
-  struct listnode *node, *nnode;
-
-  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
-    {
-      struct listnode *ifnode, *ifnnode;
-      struct interface *ifp;
+  struct listnode *ifnode, *ifnnode;
+  struct interface *ifp;
   
-      if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
-        continue;
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+    return;
 
-      for (ALL_LIST_ELEMENTS (vrf_iflist(bgp->vrf_id), ifnode, ifnnode, ifp))
-        {
-          struct listnode *c_node, *c_nnode;
-          struct connected *c;
+  for (ALL_LIST_ELEMENTS (vrf_iflist(bgp->vrf_id), ifnode, ifnnode, ifp))
+    {
+      struct listnode *c_node, *c_nnode;
+      struct connected *c;
 
-          for (ALL_LIST_ELEMENTS (ifp->connected, c_node, c_nnode, c))
-            bgp_connected_delete (bgp, c);
-	    
-          if_delete (ifp);
-        }
-      list_free (vrf_iflist(bgp->vrf_id));
+      for (ALL_LIST_ELEMENTS (ifp->connected, c_node, c_nnode, c))
+        bgp_connected_delete (bgp, c);
     }
+  vrf_iflist_terminate (bgp->vrf_id);
 }
 
 void

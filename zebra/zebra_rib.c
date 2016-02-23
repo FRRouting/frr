@@ -1656,10 +1656,25 @@ process_subq (struct list * subq, u_char qindex)
 static void
 meta_queue_process_complete (struct work_queue *dummy)
 {
-  zebra_evaluate_rnh(0, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
-  zebra_evaluate_rnh(0, AF_INET, 0, RNH_IMPORT_CHECK_TYPE, NULL);
-  zebra_evaluate_rnh(0, AF_INET6, 0, RNH_NEXTHOP_TYPE, NULL);
-  zebra_evaluate_rnh(0, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE, NULL);
+  vrf_iter_t iter;
+  struct zebra_vrf *zvrf;
+
+  /* Evaluate nexthops for those VRFs which underwent route processing. This
+   * should limit the evaluation to the necessary VRFs in most common
+   * situations.
+   */
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      if (((zvrf = vrf_iter2info (iter)) != NULL) &&
+          (zvrf->flags & ZEBRA_VRF_RIB_SCHEDULED))
+        {
+          zvrf->flags &= ~ZEBRA_VRF_RIB_SCHEDULED;
+          zebra_evaluate_rnh(zvrf->vrf_id, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
+          zebra_evaluate_rnh(zvrf->vrf_id, AF_INET, 0, RNH_IMPORT_CHECK_TYPE, NULL);
+          zebra_evaluate_rnh(zvrf->vrf_id, AF_INET6, 0, RNH_NEXTHOP_TYPE, NULL);
+          zebra_evaluate_rnh(zvrf->vrf_id, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE, NULL);
+        }
+    }
 }
 
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
@@ -1714,6 +1729,7 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
   RNODE_FOREACH_RIB (rn, rib)
     {
       u_char qindex = meta_queue_map[rib->type];
+      struct zebra_vrf *zvrf;
 
       /* Invariant: at this point we always have rn->info set. */
       if (CHECK_FLAG (rib_dest_from_rnode (rn)->flags,
@@ -1728,6 +1744,10 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 	zlog_debug ("%u:%s/%d: rn %p queued into sub-queue %u",
 		    rib->vrf_id, buf, rn->p.prefixlen, rn, qindex);
+
+      zvrf = zebra_vrf_lookup (rib->vrf_id);
+      if (zvrf)
+          zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
     }
 }
 

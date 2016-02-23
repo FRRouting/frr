@@ -183,6 +183,14 @@ if_lookup_by_index_per_ns (struct zebra_ns *ns, u_int32_t ifindex)
   return ifp;
 }
 
+const char *
+ifindex2ifname_per_ns (struct zebra_ns *zns, unsigned int ifindex)
+{
+  struct interface *ifp;
+
+  return ((ifp = if_lookup_by_index_per_ns (zns, ifindex)) != NULL) ?
+  	 ifp->name : "unknown";
+}
 
 /* Tie an interface address to its derived subnet list of addresses. */
 int

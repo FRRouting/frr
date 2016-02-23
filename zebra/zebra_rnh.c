@@ -44,6 +44,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/interface.h"
 
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
@@ -946,18 +947,18 @@ print_nh (struct nexthop *nexthop, struct vty *vty)
     case NEXTHOP_TYPE_IPV4_IFINDEX:
       vty_out (vty, " via %s", inet_ntoa (nexthop->gate.ipv4));
       if (nexthop->ifindex)
-	vty_out (vty, ", %s", ifindex2ifname (nexthop->ifindex));
+	vty_out (vty, ", %s", ifindex2ifname_per_ns (dzns, nexthop->ifindex));
       break;
     case NEXTHOP_TYPE_IPV6:
     case NEXTHOP_TYPE_IPV6_IFINDEX:
       vty_out (vty, " %s",
 	       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
       if (nexthop->ifindex)
-	vty_out (vty, ", via %s", ifindex2ifname (nexthop->ifindex));
+	vty_out (vty, ", via %s", ifindex2ifname_per_ns (dzns, nexthop->ifindex));
       break;
     case NEXTHOP_TYPE_IFINDEX:
       vty_out (vty, " is directly connected, %s",
-	       ifindex2ifname (nexthop->ifindex));
+	       ifindex2ifname_per_ns (dzns, nexthop->ifindex));
       break;
     case NEXTHOP_TYPE_BLACKHOLE:
       vty_out (vty, " is directly connected, Null0");

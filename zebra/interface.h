@@ -210,6 +210,8 @@ struct zebra_if
 
 extern struct interface *if_lookup_by_index_per_ns (struct zebra_ns *, u_int32_t);
 extern struct interface *if_link_per_ns (struct zebra_ns *, struct interface *);
+extern const char *ifindex2ifname_per_ns (struct zebra_ns *, unsigned int);
+
 extern void if_unlink_per_ns (struct interface *);
 extern void if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
                                                   struct in6_addr *address, int add);

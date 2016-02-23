@@ -323,6 +323,10 @@ struct zebra_vrf
   /* FIB identifier.  */
   u_char fib_id;
 
+  /* Flags. */
+  u_int16_t flags;
+#define ZEBRA_VRF_RIB_SCHEDULED   (1 << 0)
+
   u_int32_t table_id;
 
   /* Routing table.  */

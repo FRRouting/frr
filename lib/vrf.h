@@ -180,6 +180,8 @@ extern void *vrf_info_lookup (vrf_id_t);
 extern struct list *vrf_iflist (vrf_id_t);
 /* Get the interface list of the specified VRF. Create one if not find. */
 extern struct list *vrf_iflist_get (vrf_id_t);
+/* Free the interface list of the specified VRF. */
+extern void vrf_iflist_terminate (vrf_id_t vrf_id);
 
 /*
  * VRF bit-map: maintaining flags, one bit per VRF ID
