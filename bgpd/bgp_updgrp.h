@@ -249,7 +249,6 @@ struct update_subgroup
   u_int32_t merge_checks_triggered;
 
   uint64_t id;
-  struct zlog *log;
 
   u_int16_t sflags;
 

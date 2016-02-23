@@ -26,6 +26,7 @@
 
 #include "zclient.h"
 #include "log.h"
+#include "log_int.h"
 #include "memory.h"
 #include "command.h"
 #ifndef SUNOS_5
@@ -750,6 +751,12 @@ closezlog (void)
 
   XFREE (MTYPE_ZLOG, zl);
   zlog_default = NULL;
+}
+
+const char *
+zlog_protoname (void)
+{
+  return zlog_default ? zlog_default->protoname : "NONE";
 }
 
 /* Called from command.c. */

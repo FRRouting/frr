@@ -29,6 +29,7 @@
 #include "lib/memory.h"
 #include "lib/routemap.h"
 #include "lib/log.h"
+#include "lib/log_int.h"
 #include "lib/linklist.h"
 #include "lib/command.h"
 

@@ -24,6 +24,7 @@
 #include "log.h"
 
 #include <lib/log.h>
+#include <lib/log_int.h>
 #include "mpls.h"
 
 static const char * const procnames[] = {

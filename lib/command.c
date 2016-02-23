@@ -30,6 +30,7 @@
 
 #include "memory.h"
 #include "log.h"
+#include "log_int.h"
 #include <lib/version.h>
 #include "thread.h"
 #include "vector.h"

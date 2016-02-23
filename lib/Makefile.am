@@ -58,7 +58,8 @@ pkginclude_HEADERS = \
 	# end
 
 noinst_HEADERS = \
-	plist_int.h
+	plist_int.h \
+	log_int.h
 
 noinst_PROGRAMS = grammar_sandbox
 

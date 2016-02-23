@@ -457,10 +457,7 @@ vty_command (struct vty *vty, char *buf)
   ret = cmd_execute_command (vline, vty, NULL, 0);
 
   /* Get the name of the protocol if any */
-  if (zlog_default)
-      protocolname = zlog_default->protoname;
-  else
-      protocolname = "NONE";
+  protocolname = zlog_protoname();
 
 #ifdef CONSUMED_TIME_CHECK
     GETRUSAGE(&after);

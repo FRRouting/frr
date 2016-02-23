@@ -55,32 +55,12 @@ typedef enum
 } zlog_dest_t;
 #define ZLOG_NUM_DESTS		(ZLOG_DEST_FILE+1)
 
-struct zlog 
-{
-  const char *ident;	/* daemon name (first arg to openlog) */
-  const char *protoname;
-  u_short      instance;
-  int maxlvl[ZLOG_NUM_DESTS];	/* maximum priority to send to associated
-  				   logging destination */
-  int default_lvl;	/* maxlvl to use if none is specified */
-  FILE *fp;
-  char *filename;
-  int facility;		/* as per syslog facility */
-  int record_priority;	/* should messages logged through stdio include the
-  			   priority of the message? */
-  int syslog_options;	/* 2nd arg to openlog */
-  int timestamp_precision;	/* # of digits of subsecond precision */
-};
-
 /* Message structure. */
 struct message
 {
   int key;
   const char *str;
 };
-
-/* Default logging strucutre. */
-extern struct zlog *zlog_default;
 
 /* Open zlog function */
 extern void openzlog (const char *progname, const char *protoname,
@@ -89,6 +69,8 @@ extern void openzlog (const char *progname, const char *protoname,
 /* Close zlog function. */
 extern void closezlog (void);
 
+extern const char *zlog_protoname (void);
+
 /* GCC have printf type attribute check.  */
 #ifdef __GNUC__
 #define PRINTF_ATTRIBUTE(a,b) __attribute__ ((__format__ (__printf__, a, b)))
@@ -96,12 +78,7 @@ extern void closezlog (void);
 #define PRINTF_ATTRIBUTE(a,b)
 #endif /* __GNUC__ */
 
-/* Generic function for zlog. */
-extern void zlog (int priority, const char *format, ...)
-  PRINTF_ATTRIBUTE(2, 3);
-
 /* Handy zlog functions. */
-extern void vzlog (int priority, const char *format, va_list args);
 extern void zlog_err (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_warn (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
@@ -132,8 +109,6 @@ extern const char *lookup (const struct message *, int);
 extern const char *mes_lookup (const struct message *meslist, 
                                int max, int index,
                                const char *no_item, const char *mesname);
-
-extern const char *zlog_priority[];
 
 /* Safe version of strerror -- never returns NULL. */
 extern const char *safe_strerror(int errnum);

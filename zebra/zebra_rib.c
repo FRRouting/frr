@@ -28,6 +28,7 @@
 #include "zebra_memory.h"
 #include "command.h"
 #include "log.h"
+#include "log_int.h"
 #include "sockunion.h"
 #include "linklist.h"
 #include "thread.h"
