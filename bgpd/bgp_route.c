@@ -2154,11 +2154,11 @@ bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr
   return ret;
 }
 
-static int
-bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
-                 struct attr *attr, afi_t afi, safi_t safi, int type,
-                 int sub_type, struct prefix_rd *prd, u_char *tag,
-                 int soft_reconfig)
+int
+bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
+            struct attr *attr, afi_t afi, safi_t safi, int type,
+            int sub_type, struct prefix_rd *prd, u_char *tag,
+            int soft_reconfig)
 {
   int ret;
   int aspath_loop_count = 0;
@@ -2514,15 +2514,6 @@ bgp_update_main (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   bgp_unlock_node (rn);
 
   return 0;
-}
-
-int
-bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
-            struct attr *attr, afi_t afi, safi_t safi, int type, int sub_type,
-            struct prefix_rd *prd, u_char *tag, int soft_reconfig)
-{
-  return bgp_update_main (peer, p, addpath_id, attr, afi, safi, type, sub_type,
-                          prd, tag, soft_reconfig);
 }
 
 int
