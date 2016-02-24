@@ -1885,6 +1885,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
   int recursing;
   int len = 0;
   char buf[BUFSIZ];
+  struct zebra_vrf *zvrf;
 
   /* Nexthop information. */
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
@@ -1910,7 +1911,10 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 			    rib->metric);
 
           if (rib->vrf_id != VRF_DEFAULT)
-            len += vty_out (vty, " [vrf %u]", rib->vrf_id);
+            {
+              zvrf = vrf_info_lookup(rib->vrf_id);
+              len += vty_out (vty, " [vrf %s/table %u]", zvrf->name, zvrf->table_id);
+            }
 	}
       else
 	vty_out (vty, "  %c%*c",
@@ -2544,9 +2548,9 @@ vty_show_ip_route_summary (struct vty *vty, struct route_table *table)
 	    }
 	}
 
-  vty_out (vty, "%-20s %-20s %s  (vrf %u)%s",
+  vty_out (vty, "%-20s %-20s %s  (vrf %s)%s",
            "Route Source", "Routes", "FIB",
-           ((rib_table_info_t *)table->info)->zvrf->vrf_id,
+           ((rib_table_info_t *)table->info)->zvrf->name,
            VTY_NEWLINE);
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++) 
