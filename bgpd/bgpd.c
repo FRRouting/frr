@@ -80,6 +80,9 @@ struct bgp_master *bm;
 /* BGP community-list.  */
 struct community_list_handler *bgp_clist;
 
+static void bgp_if_init (struct bgp *bgp);
+static void bgp_if_finish (struct bgp *bgp);
+
 extern struct zclient *zclient;
 
 void
@@ -2915,7 +2918,10 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name,
 
       vrf = bgp_vrf_lookup_by_instance_type (bgp);
       if (vrf)
-        bgp_vrf_link (bgp, vrf);
+        {
+          bgp_vrf_link (bgp, vrf);
+          bgp_if_init (bgp);
+        }
     }
 
   /* Register with Zebra, if needed */
@@ -7161,10 +7167,23 @@ bgp_master_init (void)
 }
 
 /*
+ * Initialize interface list for instance, if needed. Invoked upon
+ * instance create.
+ */
+static void
+bgp_if_init (struct bgp *bgp)
+{
+  if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+    return;
+
+  vrf_iflist_create (bgp->vrf_id);
+}
+
+/*
  * Free up connected routes and interfaces for a BGP instance. Invoked upon
  * instance delete (non-default only) or BGP exit.
  */
-void
+static void
 bgp_if_finish (struct bgp *bgp)
 {
   struct listnode *ifnode, *ifnnode;

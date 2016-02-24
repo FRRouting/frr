@@ -495,6 +495,15 @@ vrf_iflist_get (vrf_id_t vrf_id)
    return vrf->iflist;
 }
 
+/* Create the interface list for the specified VRF, if needed. */
+void
+vrf_iflist_create (vrf_id_t vrf_id)
+{
+   struct vrf * vrf = vrf_lookup (vrf_id);
+   if (vrf && !vrf->iflist)
+     if_init (vrf_id, &vrf->iflist);
+}
+
 /* Free the interface list of the specified VRF. */
 void
 vrf_iflist_terminate (vrf_id_t vrf_id)
