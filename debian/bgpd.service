@@ -17,6 +17,8 @@ Restart=on-abnormal
 LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/bgpd $BGPD_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b -n
-ExecStopPost=/usr/bin/touch /var/run/quagga/bgpd.was_running
+ExecStopPost=-/usr/bin/touch /var/run/quagga/bgpd.was_running
+ExecStopPost=-/bin/rm -f /var/run/quagga/bgpd.pid
+ExecStopPost=-/bin/rm -f /var/run/quagga/bgpd.vty
 [Install]
 WantedBy=network-online.target
