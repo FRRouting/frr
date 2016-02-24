@@ -7550,6 +7550,14 @@ DEFUN (no_ip_ospf_priority,
 }
 
 ALIAS (no_ip_ospf_priority,
+       no_ip_ospf_priority_no_param_cmd,
+       "no ip ospf priority",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Router priority\n");
+
+ALIAS (no_ip_ospf_priority,
        no_ip_ospf_priority_cmd,
        "no ip ospf priority <0-255>",
        NO_STR
@@ -8832,6 +8840,14 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_ospf_max_metric_router_lsa_startup,
+       no_ospf_max_metric_router_lsa_startup_no_param_cmd,
+       "no max-metric router-lsa on-startup",
+       NO_STR
+       "OSPF maximum / infinite-distance metric\n"
+       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Automatically advertise stub Router-LSA on startup of OSPF\n");
+
 DEFUN (ospf_max_metric_router_lsa_shutdown,
        ospf_max_metric_router_lsa_shutdown_cmd,
        "max-metric router-lsa on-shutdown <5-100>",
@@ -8877,6 +8893,14 @@ DEFUN (no_ospf_max_metric_router_lsa_shutdown,
   
   return CMD_SUCCESS;
 }
+
+ALIAS (no_ospf_max_metric_router_lsa_shutdown,
+       no_ospf_max_metric_router_lsa_shutdown_no_param_cmd,
+       "no max-metric router-lsa on-shutdown",
+       NO_STR
+       "OSPF maximum / infinite-distance metric\n"
+       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Advertise stub-router prior to full shutdown of OSPF\n");
 
 static void
 config_write_stub_router (struct vty *vty, struct ospf *ospf)
@@ -10110,6 +10134,7 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &ip_ospf_priority_addr_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_priority_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_priority_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_priority_no_param_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_priority_addr_cmd);
 
   /* "ip ospf retransmit-interval" commands. */
@@ -10408,8 +10433,10 @@ ospf_vty_init (void)
   install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_admin_cmd);
   install_element (OSPF_NODE, &ospf_max_metric_router_lsa_startup_cmd);
   install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_startup_cmd);
+  install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_startup_no_param_cmd);
   install_element (OSPF_NODE, &ospf_max_metric_router_lsa_shutdown_cmd);
   install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_shutdown_cmd);
+  install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_shutdown_no_param_cmd);
   
   /* reference bandwidth commands */
   install_element (OSPF_NODE, &ospf_auto_cost_reference_bandwidth_cmd);
