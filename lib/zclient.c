@@ -1171,13 +1171,12 @@ zebra_interface_nbr_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   ifindex = stream_getl (s);
 
   /* Lookup index. */
-  ifp = if_lookup_by_index (ifindex);
+  ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
   if (ifp == NULL)
     {
-      zlog_warn ("zebra_nbr_interface_address_read(%s): "
-                 "Can't find interface by ifindex: %d ",
-                 (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD? "ADD" : "DELETE"),
-                 ifindex);
+      zlog_warn ("INTERFACE_NBR_%s: Cannot find IF %u in VRF %d",
+                 (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD) ? "ADD" : "DELETE",
+                 ifindex, vrf_id);
       return NULL;
     }
 
