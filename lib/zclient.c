@@ -984,10 +984,12 @@ zebra_interface_state_read (struct stream *s, vrf_id_t vrf_id)
   ifp = if_lookup_by_name_len_vrf (ifname_tmp,
                                    strnlen (ifname_tmp, INTERFACE_NAMSIZ),
                                    vrf_id);
-
-  /* If such interface does not exist, indicate an error */
-  if (! ifp)
-     return NULL;
+  if (ifp == NULL)
+    {
+      zlog_warn ("INTERFACE_STATE: Cannot find IF %s in VRF %d",
+                 ifname_tmp, vrf_id);
+      return NULL;
+    }
 
   zebra_interface_if_set_value (s, ifp);
 
@@ -1083,10 +1085,9 @@ zebra_interface_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
   if (ifp == NULL)
     {
-      zlog_warn ("zebra_interface_address_read(%s): "
-                 "Can't find interface by ifindex: %d ",
-                 (type == ZEBRA_INTERFACE_ADDRESS_ADD? "ADD" : "DELETE"),
-                 ifindex);
+      zlog_warn ("INTERFACE_ADDRESS_%s: Cannot find IF %u in VRF %d",
+                 (type == ZEBRA_INTERFACE_ADDRESS_ADD) ? "ADD" : "DEL",
+                 ifindex, vrf_id);
       return NULL;
     }
 
