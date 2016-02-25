@@ -102,6 +102,7 @@ struct zserv
   u_int32_t bfd_peer_replay_cnt;
   u_int32_t vrfadd_cnt;
   u_int32_t vrfdel_cnt;
+  u_int32_t if_vrfchg_cnt;
 
   time_t connect_time;
   time_t last_read_time;
@@ -148,6 +149,7 @@ extern int zsend_vrf_delete (struct zserv *, struct vrf *);
 
 extern int zsend_interface_add (struct zserv *, struct interface *);
 extern int zsend_interface_delete (struct zserv *, struct interface *);
+extern int zsend_interface_addresses (struct zserv *, struct interface *);
 extern int zsend_interface_address (int, struct zserv *, struct interface *,
                                     struct connected *);
 extern void nbr_connected_replacement_add_ipv6 (struct interface *,
@@ -158,6 +160,8 @@ extern int zsend_redistribute_route (int, struct zserv *, struct prefix *,
 				     struct rib *);
 extern int zsend_router_id_update (struct zserv *, struct prefix *,
                                    vrf_id_t);
+extern int zsend_interface_vrf_update (struct zserv *, struct interface *,
+                                       vrf_id_t);
 
 extern pid_t pid;
 

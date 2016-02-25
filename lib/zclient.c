@@ -1211,6 +1211,33 @@ zebra_interface_nbr_address_read (int type, struct stream *s, vrf_id_t vrf_id)
   return ifc;
 }
 
+struct interface *
+zebra_interface_vrf_update_read (struct stream *s, vrf_id_t vrf_id,
+                                 vrf_id_t *new_vrf_id)
+{
+  unsigned int ifindex;
+  struct interface *ifp;
+  vrf_id_t new_id = VRF_DEFAULT;
+
+  /* Get interface index. */
+  ifindex = stream_getl (s);
+
+  /* Lookup interface. */
+  ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
+  if (ifp == NULL)
+    {
+      zlog_warn ("INTERFACE_VRF_UPDATE: Cannot find IF %u in VRF %d",
+                 ifindex, vrf_id);
+      return NULL;
+    }
+
+  /* Fetch new VRF Id. */
+  new_id = stream_getw (s);
+
+  *new_vrf_id = new_id;
+  return ifp;
+}
+
 /* Zebra client message read function. */
 static int
 zclient_read (struct thread *thread)
@@ -1356,6 +1383,10 @@ zclient_read (struct thread *thread)
     case ZEBRA_INTERFACE_DOWN:
       if (zclient->interface_down)
 	(*zclient->interface_down) (command, zclient, length, vrf_id);
+      break;
+    case ZEBRA_INTERFACE_VRF_UPDATE:
+      if (zclient->interface_vrf_update)
+	(*zclient->interface_vrf_update) (command, zclient, length, vrf_id);
       break;
     case ZEBRA_IPV4_ROUTE_ADD:
       if (zclient->ipv4_route_add)

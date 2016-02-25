@@ -558,6 +558,74 @@ zebra_interface_address_delete_update (struct interface *ifp,
       }
 }
 
+/* Interface VRF change. May need to delete from clients not interested in
+ * the new VRF. Note that this function is invoked *prior* to the VRF change.
+ */
+void
+zebra_interface_vrf_update_del (struct interface *ifp, vrf_id_t new_vrf_id)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/DEL %s VRF Id %u -> %u",
+                ifp->name, ifp->vrf_id, new_vrf_id);
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    {
+      /* Skip clients not interested in both VRFs. */
+      if (!vrf_bitmap_check (client->ifinfo, ifp->vrf_id) &&
+          !vrf_bitmap_check (client->ifinfo, new_vrf_id))
+        continue;
+
+      if (!vrf_bitmap_check (client->ifinfo, new_vrf_id))
+        {
+          /* Need to delete if the client is not interested in the new VRF. */
+          zsend_interface_update (ZEBRA_INTERFACE_DOWN, client, ifp);
+          client->ifdel_cnt++;
+          zsend_interface_delete (client, ifp);
+        }
+      else if (vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
+        {
+          /* Client is interested in both VRFs, inform about the change. */
+          zsend_interface_vrf_update (client, ifp, new_vrf_id);
+        }
+    }
+}
+
+/* Interface VRF change. This function is invoked *post* VRF change and sends an
+ * add to clients who are interested in the new VRF but not in the old VRF.
+ */
+void
+zebra_interface_vrf_update_add (struct interface *ifp, vrf_id_t old_vrf_id)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/ADD %s VRF Id %u -> %u",
+                ifp->name, old_vrf_id, ifp->vrf_id);
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    {
+      /* Skip clients interested in both VRFs - they would've got an Update. */
+      if (vrf_bitmap_check (client->ifinfo, ifp->vrf_id) &&
+          vrf_bitmap_check (client->ifinfo, old_vrf_id))
+        continue;
+
+      /* Skip clients not interested in the new VRF - they would've
+       * got a Delete.
+       */
+      if (!vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
+        continue;
+
+      /* Need to add if the client is interested in the new VRF. */
+      client->ifadd_cnt++;
+      zsend_interface_add (client, ifp);
+      zsend_interface_addresses (client, ifp);
+    }
+}
+
 int
 zebra_add_import_table_entry (struct route_node *rn, struct rib *rib)
 {

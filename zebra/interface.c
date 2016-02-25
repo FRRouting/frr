@@ -54,6 +54,8 @@
 const char *rtadv_pref_strs[] = { "medium", "high", "INVALID", "low", 0 };
 #endif /* HAVE_RTADV */
 
+static void if_down_del_nbr_connected (struct interface *ifp);
+
 struct zebra_ns *dzns;
 
 /* Called when new interface is added. */
@@ -482,9 +484,56 @@ if_add_update (struct interface *ifp)
     }
 }
 
-/* Handle an interface delete event */
-void 
-if_delete_update (struct interface *ifp)
+/* Install connected routes corresponding to an interface. */
+static void
+if_install_connected (struct interface *ifp)
+{
+  struct listnode *node;
+  struct listnode *next;
+  struct connected *ifc;
+  struct prefix *p;
+
+  if (ifp->connected)
+    {
+      for (ALL_LIST_ELEMENTS (ifp->connected, node, next, ifc))
+	{
+	  p = ifc->address;
+
+	  if (p->family == AF_INET)
+	    connected_up_ipv4 (ifp, ifc);
+	  else if (p->family == AF_INET6)
+	    connected_up_ipv6 (ifp, ifc);
+	}
+    }
+}
+
+/* Uninstall connected routes corresponding to an interface. */
+static void
+if_uninstall_connected (struct interface *ifp)
+{
+  struct listnode *node;
+  struct listnode *next;
+  struct connected *ifc;
+  struct prefix *p;
+
+  if (ifp->connected)
+    {
+      for (ALL_LIST_ELEMENTS (ifp->connected, node, next, ifc))
+	{
+	  p = ifc->address;
+
+	  if (p->family == AF_INET)
+	    connected_down_ipv4 (ifp, ifc);
+	  else if (p->family == AF_INET6)
+	    connected_down_ipv6 (ifp, ifc);
+	}
+    }
+}
+
+/* Uninstall and delete connected routes corresponding to an interface. */
+/* TODO - Check why IPv4 handling here is different from install or if_down */
+static void
+if_delete_connected (struct interface *ifp)
 {
   struct connected *ifc;
   struct prefix *p;
@@ -493,21 +542,6 @@ if_delete_update (struct interface *ifp)
 
   zebra_if = ifp->info;
 
-  if (if_is_up(ifp))
-    {
-      zlog_err ("interface %s vrf %u index %d is still up while being deleted.",
-                ifp->name, ifp->vrf_id, ifp->ifindex);
-      return;
-    }
-
-  /* Mark interface as inactive */
-  UNSET_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE);
-  
-  if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("interface %s vrf %u index %d is now inactive.",
-                ifp->name, ifp->vrf_id, ifp->ifindex);
-
-  /* Delete connected routes from the kernel. */
   if (ifp->connected)
     {
       struct listnode *node;
@@ -571,7 +605,6 @@ if_delete_update (struct interface *ifp)
 	      rn->info = NULL;
 	      route_unlock_node (rn);
 	    }
-#ifdef HAVE_IPV6
 	  else if (p->family == AF_INET6)
 	    {
 	      connected_down_ipv6 (ifp, ifc);
@@ -589,13 +622,36 @@ if_delete_update (struct interface *ifp)
 		  connected_free (ifc);
 		}
 	    }
-#endif /* HAVE_IPV6 */
 	  else
 	    {
 	      last = node;
 	    }
 	}
     }
+}
+
+/* Handle an interface delete event */
+void
+if_delete_update (struct interface *ifp)
+{
+  if (if_is_up(ifp))
+    {
+      zlog_err ("interface %s vrf %u index %d is still up while being deleted.",
+                ifp->name, ifp->vrf_id, ifp->ifindex);
+      return;
+    }
+
+  /* Mark interface as inactive */
+  UNSET_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE);
+
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("interface %s vrf %u index %d is now inactive.",
+                ifp->name, ifp->vrf_id, ifp->ifindex);
+
+  /* Delete connected routes from the kernel. */
+  if_delete_connected (ifp);
+
+  /* Send out notification on interface delete. */
   zebra_interface_delete_update (ifp);
 
   if_unlink_per_ns(ifp);
@@ -607,6 +663,55 @@ if_delete_update (struct interface *ifp)
      interface deletion message. */
   ifp->ifindex = IFINDEX_INTERNAL;
 }
+
+/* VRF change for an interface */
+void
+if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
+{
+  vrf_id_t old_vrf_id;
+
+  old_vrf_id = ifp->vrf_id;
+
+  /* Uninstall connected routes. */
+  if_uninstall_connected (ifp);
+
+  /* Delete any IPv4 neighbors created to implement RFC 5549 */
+  if_nbr_ipv6ll_to_ipv4ll_neigh_del_all (ifp);
+
+  /* Delete all neighbor addresses learnt through IPv6 RA */
+  if_down_del_nbr_connected (ifp);
+
+  /* Suppress RAs on this interface, if enabled. */
+  ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
+
+  /* Send out notification on interface VRF change. */
+  /* This is to issue an UPDATE or a DELETE, as appropriate. */
+  zebra_interface_vrf_update_del (ifp, vrf_id);
+
+  /* update VRF */
+  if_update_vrf (ifp, ifp->name, strlen (ifp->name), vrf_id);
+
+  /* Send out notification on interface VRF change. */
+  /* This is to issue an ADD, if needed. */
+  zebra_interface_vrf_update_add (ifp, old_vrf_id);
+
+  /* Install connected routes (in new VRF). */
+  if_install_connected (ifp);
+
+  /* Enable RAs on this interface, if IPv6 addresses are present. */
+  if (ipv6_address_configured(ifp))
+    ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+
+  /* Due to connected route change, schedule RIB processing for both old
+   * and new VRF.
+   */
+  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+    zlog_debug ("%u: IF %s VRF change, scheduling RIB processing",
+                ifp->vrf_id, ifp->name);
+  rib_update (old_vrf_id, RIB_UPDATE_IF_CHANGE);
+  rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
+}
+
 
 /* Handle VRF addition */
 void
@@ -728,11 +833,6 @@ if_down_del_nbr_connected (struct interface *ifp)
 void
 if_up (struct interface *ifp)
 {
-  struct listnode *node;
-  struct listnode *next;
-  struct connected *ifc;
-  struct prefix *p;
-
   /* Notify the protocol daemons. */
   if (ifp->ptm_enable && (ifp->ptm_status == ZEBRA_PTM_STATUS_DOWN)) {
     zlog_warn("%s: interface %s hasn't passed ptm check\n", __func__,
@@ -744,20 +844,7 @@ if_up (struct interface *ifp)
   if_nbr_ipv6ll_to_ipv4ll_neigh_add_all (ifp);
 
   /* Install connected routes to the kernel. */
-  if (ifp->connected)
-    {
-      for (ALL_LIST_ELEMENTS (ifp->connected, node, next, ifc))
-	{
-	  p = ifc->address;
-
-	  if (p->family == AF_INET)
-	    connected_up_ipv4 (ifp, ifc);
-#ifdef HAVE_IPV6
-	  else if (p->family == AF_INET6)
-	    connected_up_ipv6 (ifp, ifc);
-#endif /* HAVE_IPV6 */
-	}
-    }
+  if_install_connected (ifp);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%u: IF %s up, scheduling RIB processing",
@@ -770,29 +857,11 @@ if_up (struct interface *ifp)
 void
 if_down (struct interface *ifp)
 {
-  struct listnode *node;
-  struct listnode *next;
-  struct connected *ifc;
-  struct prefix *p;
-
   /* Notify to the protocol daemons. */
   zebra_interface_down_update (ifp);
 
-  /* Delete connected routes from the kernel. */
-  if (ifp->connected)
-    {
-      for (ALL_LIST_ELEMENTS (ifp->connected, node, next, ifc))
-	{
-	  p = ifc->address;
-
-	  if (p->family == AF_INET)
-	    connected_down_ipv4 (ifp, ifc);
-#ifdef HAVE_IPV6
-	  else if (p->family == AF_INET6)
-	    connected_down_ipv6 (ifp, ifc);
-#endif /* HAVE_IPV6 */
-	}
-    }
+  /* Uninstall connected routes from the kernel. */
+  if_uninstall_connected (ifp);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%u: IF %s down, scheduling RIB processing",

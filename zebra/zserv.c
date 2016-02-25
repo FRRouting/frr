@@ -357,7 +357,7 @@ zsend_interface_nbr_address (int cmd, struct zserv *client,
   struct prefix *p;
 
   /* Check this client need interface information. */
-  if (! client->ifinfo)
+  if (! vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
     return 0;
 
   s = client->obuf;
@@ -431,6 +431,61 @@ zebra_interface_nbr_address_delete_update (struct interface *ifp,
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
     if (client->ifinfo)
       zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_DELETE, client, ifp, ifc);
+}
+
+/* Send addresses on interface to client */
+int
+zsend_interface_addresses (struct zserv *client, struct interface *ifp)
+{
+  struct listnode *cnode, *cnnode;
+  struct connected *c;
+  struct nbr_connected *nc;
+
+  /* Send interface addresses. */
+  for (ALL_LIST_ELEMENTS (ifp->connected, cnode, cnnode, c))
+    {
+      if (!CHECK_FLAG (c->conf, ZEBRA_IFC_REAL))
+        continue;
+
+      if (zsend_interface_address (ZEBRA_INTERFACE_ADDRESS_ADD, client,
+                                   ifp, c) < 0)
+        return -1;
+    }
+
+  /* Send interface neighbors. */
+  for (ALL_LIST_ELEMENTS (ifp->nbr_connected, cnode, cnnode, nc))
+    {
+      if (zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_ADD,
+                                       client, ifp, nc) < 0)
+        return -1;
+    }
+
+  return 0;
+}
+
+/* Notify client about interface moving from one VRF to another.
+ * Whether client is interested in old and new VRF is checked by caller.
+ */
+int
+zsend_interface_vrf_update (struct zserv *client, struct interface *ifp,
+                            vrf_id_t vrf_id)
+{
+  struct stream *s;
+
+  s = client->obuf;
+  stream_reset (s);
+
+  zserv_create_header (s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf_id);
+
+  /* Fill in the ifIndex of the interface and its new VRF (id) */
+  stream_putl (s, ifp->ifindex);
+  stream_putw (s, vrf_id);
+
+  /* Write packet size. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  client->if_vrfchg_cnt++;
+  return zebra_server_send_message(client);
 }
 
 /* Add new nbr connected IPv6 address if none exists already, or replace the
@@ -1030,10 +1085,7 @@ static int
 zread_interface_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
 {
   struct listnode *ifnode, *ifnnode;
-  struct listnode *cnode, *cnnode;
   struct interface *ifp;
-  struct connected *c;
-  struct nbr_connected *nc;
 
   /* Interface information is needed. */
   vrf_bitmap_set (client->ifinfo, vrf_id);
@@ -1047,20 +1099,8 @@ zread_interface_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
       if (zsend_interface_add (client, ifp) < 0)
         return -1;
 
-      for (ALL_LIST_ELEMENTS (ifp->connected, cnode, cnnode, c))
-	{
-	  if (CHECK_FLAG (c->conf, ZEBRA_IFC_REAL) &&
-	      (zsend_interface_address (ZEBRA_INTERFACE_ADDRESS_ADD, client, 
-				        ifp, c) < 0))
-	    return -1;
-	}
-      for (ALL_LIST_ELEMENTS (ifp->nbr_connected, cnode, cnnode, nc))
-	{
-	  if (zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_ADD, client,
-				        ifp, nc) < 0)
-	    return -1;
-	}
-
+      if (zsend_interface_addresses (client, ifp) < 0)
+        return -1;
     }
   return 0;
 }

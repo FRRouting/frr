@@ -63,6 +63,12 @@ void zebra_interface_address_delete_update (struct interface *a,
 { return; }
 #endif
 
+void zebra_interface_vrf_update_del (struct interface *a, vrf_id_t new_vrf_id)
+{ return; }
+
+void zebra_interface_vrf_update_add (struct interface *a, vrf_id_t old_vrf_id)
+{ return; }
+
 int zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t metric,
 			int add)
 { return 0; }
