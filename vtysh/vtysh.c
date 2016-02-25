@@ -1624,6 +1624,33 @@ DEFUN (vtysh_show_work_queues,
   return ret;
 }
 
+DEFUN (vtysh_show_work_queues_daemon,
+       vtysh_show_work_queues_daemon_cmd,
+       "show work-queues (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd)",
+       SHOW_STR
+       "Work Queue information\n"
+       "For the zebra daemon\n"
+       "For the rip daemon\n"
+       "For the ripng daemon\n"
+       "For the ospf daemon\n"
+       "For the ospfv6 daemon\n"
+       "For the bgp daemon\n"
+       "For the isis daemon\n")
+{
+  unsigned int i;
+  int ret = CMD_SUCCESS;
+
+  for (i = 0; i < array_size(vtysh_client); i++)
+    {
+      if (begins_with(vtysh_client[i].name, argv[0]))
+        break;
+    }
+
+  ret = vtysh_client_execute(&vtysh_client[i], "show work-queues\n", stdout);
+
+  return ret;
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -2883,7 +2910,7 @@ vtysh_init_vty (void)
   /* "write terminal" command. */
   install_element (ENABLE_NODE, &vtysh_write_terminal_cmd);
   install_element (ENABLE_NODE, &vtysh_write_terminal_daemon_cmd);
- 
+
   install_element (CONFIG_NODE, &vtysh_integrated_config_cmd);
   install_element (CONFIG_NODE, &no_vtysh_integrated_config_cmd);
 
@@ -2932,6 +2959,8 @@ vtysh_init_vty (void)
 
   install_element (VIEW_NODE, &vtysh_show_work_queues_cmd);
   install_element (ENABLE_NODE, &vtysh_show_work_queues_cmd);
+  install_element (ENABLE_NODE, &vtysh_show_work_queues_daemon_cmd);
+  install_element (VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
 
   install_element (VIEW_NODE, &vtysh_show_thread_cmd);
   install_element (ENABLE_NODE, &vtysh_show_thread_cmd);
