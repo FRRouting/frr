@@ -513,9 +513,6 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
 
   ifi = NLMSG_DATA (h);
 
-  if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("%s: received VRF device message: %s", __func__, name);
-
   parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb);
 
   if (!linkinfo[IFLA_INFO_DATA]) {
@@ -535,23 +532,16 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
 
   if (h->nlmsg_type == RTM_NEWLINK)
     {
-
-      if (IS_ZEBRA_DEBUG_KERNEL)
-        zlog_debug ("%s: RTM_NEWLINK for VRF(%s) index %u, table %u", __func__,
-                    name, ifi->ifi_index, nl_table_id);
-
-      /* If VRF already exists, we just return; status changes are ignored
-       * for now.
-       * TODO: Status changes will be handled against the VRF "interface".
+      /* If VRF already exists, we just return; status changes are handled
+       * against the VRF "interface".
        */
       vrf = vrf_lookup ((vrf_id_t)ifi->ifi_index);
       if (vrf && vrf->info)
-        {
-          if (IS_ZEBRA_DEBUG_KERNEL)
-            zlog_debug ("%s: RTM_NEWLINK status for VRF(%s) index %u - ignored",
-                        __func__, name, ifi->ifi_index);
-          return;
-        }
+        return;
+
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug ("RTM_NEWLINK for VRF %s(%u) table %u",
+                    name, ifi->ifi_index, nl_table_id);
 
       vrf = vrf_get((vrf_id_t)ifi->ifi_index, name); // It would create vrf
       if (!vrf)
@@ -576,7 +566,7 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
   else //h->nlmsg_type == RTM_DELLINK
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-        zlog_debug ("%s: RTM_DELLINK for vrf id %u", __func__, ifi->ifi_index);
+        zlog_debug ("RTM_DELLINK for VRF %s(%u)", name, ifi->ifi_index);
 
       vrf = vrf_lookup ((vrf_id_t)ifi->ifi_index);
 
@@ -584,9 +574,6 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
         zlog_warn ("%s: vrf not found", __func__);
 
       vrf_delete_update(vrf);
-
-      //Pending: keeping VRF around just like its for other links.
-      //vrf_delete (vrf);
     }
 }
 
@@ -1281,7 +1268,9 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
         }
     }
 
-  /* Add interface. */
+  /* See if interface is present. */
+  ifp = if_lookup_by_index_per_ns (dzns, ifi->ifi_index);
+
   if (h->nlmsg_type == RTM_NEWLINK)
     {
       if (tb[IFLA_MASTER])
@@ -1293,28 +1282,25 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 	    vrf_id = VRF_DEFAULT;
 	}
 
-      /* clean up any old ifps in a different VRF */
-      ifp = if_lookup_by_index_per_ns (dzns, ifi->ifi_index);
-      if (ifp && ifp->vrf_id != vrf_id)
+      if (ifp == NULL || !CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
         {
-          if_down (ifp); //Ideally, we should have down/delete come from kernel
-      //    if_delete_update (ifp); //Pending: see how best to make the old ifp unusable
-          if (interface_ipv6_auto_ra_allowed (ifp))
-            {
-              if (ipv6_address_configured (ifp))
-                ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
-            }
-        }
+          /* Add interface notification from kernel */
+          if (IS_ZEBRA_DEBUG_KERNEL)
+            zlog_debug ("RTM_NEWLINK for %s(%u) (ifp %p) vrf_id %u flags 0x%x",
+                        name, ifi->ifi_index, ifp, vrf_id, ifi->ifi_flags);
 
-      if (ifp == NULL || !CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE) ||
-          ifp->vrf_id != vrf_id)
-        {
           if (ifp == NULL)
-            ifp = if_get_by_name_vrf (name, vrf_id);
+            {
+              /* unknown interface */
+              ifp = if_get_by_name_vrf (name, vrf_id);
+            }
           else
             {
-              if_update_vrf (ifp, name, strlen(name), vrf_id);
+              /* pre-configured interface, learnt now */
+              if (ifp->vrf_id != vrf_id)
+                if_update_vrf (ifp, name, strlen(name), vrf_id);
 
+              /* Start IPv6 RA, if any IPv6 addresses on interface. */
               if (interface_ipv6_auto_ra_allowed (ifp))
                 {
                   if (ipv6_address_configured (ifp))
@@ -1322,33 +1308,38 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
                 }
             }
 
+          /* Update interface information. */
           set_ifindex(ifp, ifi->ifi_index);
           ifp->flags = ifi->ifi_flags & 0x0000fffff;
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 0;
 
-          if (IS_ZEBRA_DEBUG_KERNEL)
-                  zlog_debug ("%s: RTM_NEWLINK for %s vrf_id %u", __func__, name,
-                                  ifp->vrf_id);
-
-
           netlink_interface_update_hw_addr (tb, ifp);
 
-          /* If new link is added. */
+          /* Inform clients, install any configured addresses. */
           if_add_update (ifp);
+        }
+      else if (ifp->vrf_id != vrf_id)
+        {
+          /* VRF change for an interface. */
+          if (IS_ZEBRA_DEBUG_KERNEL)
+            zlog_debug ("RTM_NEWLINK vrf-change for %s(%u) "
+                        "vrf_id %u -> %u flags 0x%x",
+                        name, ifp->ifindex, ifp->vrf_id,
+                        vrf_id, ifi->ifi_flags);
+
+          if_handle_vrf_change (ifp, vrf_id);
         }
       else
         {
           /* Interface status change. */
+          if (IS_ZEBRA_DEBUG_KERNEL)
+             zlog_debug ("RTM_NEWLINK status for %s(%u) flags 0x%x",
+                          name, ifp->ifindex, ifi->ifi_flags);
+
           set_ifindex(ifp, ifi->ifi_index);
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 0;
-
-          // Pending, handle the vrf_id change..
-
-          if (IS_ZEBRA_DEBUG_KERNEL)
-             zlog_debug ("%s: RTM_NEWLINK status for %s vrf_id %u", __func__, name,
-                                  ifp->vrf_id);
 
           netlink_interface_update_hw_addr (tb, ifp);
 
@@ -1371,18 +1362,16 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
     }
   else
     {
-      if (tb[IFLA_MASTER])
-        vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
-
-      /* RTM_DELLINK. */
-      ifp = if_lookup_by_name_vrf (name, vrf_id);
-
+      /* Delete interface notification from kernel */
       if (ifp == NULL)
         {
-          zlog_warn ("interface %s vrf %u is deleted but can't find",
-                     name, vrf_id);
+          zlog_warn ("RTM_DELLINK for unknown interface %s(%u)",
+                     name, ifi->ifi_index);
           return 0;
         }
+
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug ("RTM_DELLINK for %s(%u)", name, ifp->ifindex);
 
       if_delete_update (ifp);
     }
