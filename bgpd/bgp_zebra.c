@@ -540,6 +540,67 @@ bgp_interface_nbr_address_delete (int command, struct zclient *zclient,
   return 0;
 }
 
+/* VRF update for an interface. */
+static int
+bgp_interface_vrf_update (int command, struct zclient *zclient, zebra_size_t length,
+    vrf_id_t vrf_id)
+{
+  struct interface *ifp;
+  vrf_id_t new_vrf_id;
+  struct connected *c;
+  struct nbr_connected *nc;
+  struct listnode *node, *nnode;
+  struct bgp *bgp;
+
+  ifp = zebra_interface_vrf_update_read (zclient->ibuf, vrf_id, &new_vrf_id);
+  if (! ifp)
+    return 0;
+
+  if (BGP_DEBUG (zebra, ZEBRA) && ifp)
+    zlog_debug("Rx Intf VRF change VRF %u IF %s NewVRF %u",
+               vrf_id, ifp->name, new_vrf_id);
+
+  bgp = bgp_lookup_by_vrf_id (vrf_id);
+  if (!bgp)
+    return 0;
+
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, c))
+    bgp_connected_delete (bgp, c);
+
+  for (ALL_LIST_ELEMENTS (ifp->nbr_connected, node, nnode, nc))
+    bgp_nbr_connected_delete (bgp, nc, 1);
+
+  /* Fast external-failover */
+  {
+    struct peer *peer;
+
+    if (CHECK_FLAG (bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER))
+      return 0;
+
+    for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+      {
+        if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
+          continue;
+
+        if (ifp == peer->nexthop.ifp)
+          BGP_EVENT_ADD (peer, BGP_Stop);
+      }
+  }
+
+  if_update_vrf (ifp, ifp->name, strlen (ifp->name), new_vrf_id);
+
+  bgp = bgp_lookup_by_vrf_id (new_vrf_id);
+  if (!bgp)
+    return 0;
+
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, c))
+    bgp_connected_add (bgp, c);
+
+  for (ALL_LIST_ELEMENTS (ifp->nbr_connected, node, nnode, nc))
+    bgp_nbr_connected_add (bgp, nc);
+  return 0;
+}
+
 /* Zebra route add and delete treatment. */
 static int
 zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
@@ -1993,6 +2054,7 @@ bgp_zebra_init (struct thread_master *master)
   zclient->interface_address_delete = bgp_interface_address_delete;
   zclient->interface_nbr_address_add = bgp_interface_nbr_address_add;
   zclient->interface_nbr_address_delete = bgp_interface_nbr_address_delete;
+  zclient->interface_vrf_update = bgp_interface_vrf_update;
   zclient->ipv4_route_add = zebra_read_ipv4;
   zclient->ipv4_route_delete = zebra_read_ipv4;
   zclient->redistribute_route_ipv4_add = zebra_read_ipv4;
