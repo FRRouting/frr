@@ -308,7 +308,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
   if (set)
     {
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-      zebra_deregister_rnh_static_nexthops(nexthop->resolved, top);
+      zebra_deregister_rnh_static_nexthops(rib->vrf_id, nexthop->resolved, top);
       nexthops_free(nexthop->resolved);
       nexthop->resolved = NULL;
     }
@@ -532,7 +532,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
   if (set)
     {
       UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-      zebra_deregister_rnh_static_nexthops (nexthop->resolved, top);
+      zebra_deregister_rnh_static_nexthops (rib->vrf_id, nexthop->resolved, top);
       nexthops_free(nexthop->resolved);
       nexthop->resolved = NULL;
     }
@@ -1964,7 +1964,7 @@ rib_unlink (struct route_node *rn, struct rib *rib)
     }
 
   /* free RIB and nexthops */
-  zebra_deregister_rnh_static_nexthops (rib->nexthop, rn);
+  zebra_deregister_rnh_static_nexthops (rib->vrf_id, rib->nexthop, rn);
   nexthops_free(rib->nexthop);
   XFREE (MTYPE_RIB, rib);
 
@@ -2560,7 +2560,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	  nh_p.family = AF_INET;
 	  nh_p.prefixlen = IPV4_MAX_BITLEN;
 	  nh_p.u.prefix4 = si->addr.ipv4;
-	  zebra_register_rnh_static_nh(&nh_p, rn);
+	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IFINDEX:
 	  rib_nexthop_ifindex_add (rib, si->ifindex);
@@ -2573,7 +2573,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	  nh_p.family = AF_INET6;
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = si->addr.ipv6;
-	  zebra_register_rnh_static_nh(&nh_p, rn);
+	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IPV6_GATEWAY_IFINDEX:
 	  rib_nexthop_ipv6_ifindex_add (rib, &si->addr.ipv6, si->ifindex);
@@ -2618,7 +2618,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	  nh_p.family = AF_INET;
 	  nh_p.prefixlen = IPV4_MAX_BITLEN;
 	  nh_p.u.prefix4 = si->addr.ipv4;
-	  zebra_register_rnh_static_nh(&nh_p, rn);
+	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IFINDEX:
 	  rib_nexthop_ifindex_add (rib, si->ifindex);
@@ -2631,7 +2631,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
 	  nh_p.family = AF_INET6;
 	  nh_p.prefixlen = IPV6_MAX_BITLEN;
 	  nh_p.u.prefix6 = si->addr.ipv6;
-	  zebra_register_rnh_static_nh(&nh_p, rn);
+	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IPV6_GATEWAY_IFINDEX:
 	  rib_nexthop_ipv6_ifindex_add (rib, &si->addr.ipv6, si->ifindex);
@@ -2788,7 +2788,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 	  nh_p.u.prefix6 = nexthop->gate.ipv6;
 	}
       rib_nexthop_delete (rib, nexthop);
-      zebra_deregister_rnh_static_nh(&nh_p, rn);
+      zebra_deregister_rnh_static_nh(si->vrf_id, &nh_p, rn);
       nexthop_free (nexthop);
     }
   /* Unlock node. */

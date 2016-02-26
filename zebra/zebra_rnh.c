@@ -49,7 +49,7 @@
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
 
-static void free_state(struct rib *rib, struct route_node *rn);
+static void free_state(vrf_id_t vrf_id, struct rib *rib, struct route_node *rn);
 static void copy_state(struct rnh *rnh, struct rib *rib,
 		       struct route_node *rn);
 #define lookup_rnh_table(v, f)		         \
@@ -127,6 +127,7 @@ zebra_add_rnh (struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
     {
       rnh = XCALLOC(MTYPE_RNH, sizeof(struct rnh));
       rnh->client_list = list_new();
+      rnh->vrf_id = vrfid;
       rnh->zebra_static_route_list = list_new();
       route_lock_node (rn);
       rn->info = rnh;
@@ -176,7 +177,7 @@ zebra_delete_rnh (struct rnh *rnh, rnh_type_t type)
   rnh->flags |= ZEBRA_NHT_DELETED;
   list_free(rnh->client_list);
   list_free(rnh->zebra_static_route_list);
-  free_state(rnh->state, rn);
+  free_state(rnh->vrf_id, rnh->state, rn);
   XFREE(MTYPE_RNH, rn->info);
   rn->info = NULL;
   route_unlock_node (rn);
@@ -218,11 +219,12 @@ zebra_remove_rnh_client (struct rnh *rnh, struct zserv *client, rnh_type_t type)
 }
 
 void
-zebra_register_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
+zebra_register_rnh_static_nh(vrf_id_t vrf_id, struct prefix *nh,
+                             struct route_node *static_rn)
 {
   struct rnh *rnh;
 
-  rnh = zebra_add_rnh(nh, 0, RNH_NEXTHOP_TYPE);
+  rnh = zebra_add_rnh(nh, vrf_id, RNH_NEXTHOP_TYPE);
   if (rnh && !listnode_lookup(rnh->zebra_static_route_list, static_rn))
     {
       listnode_add(rnh->zebra_static_route_list, static_rn);
@@ -230,11 +232,12 @@ zebra_register_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
 }
 
 void
-zebra_deregister_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
+zebra_deregister_rnh_static_nh(vrf_id_t vrf_id, struct prefix *nh,
+                               struct route_node *static_rn)
 {
   struct rnh *rnh;
 
-  rnh = zebra_lookup_rnh(nh, 0, RNH_NEXTHOP_TYPE);
+  rnh = zebra_lookup_rnh(nh, vrf_id, RNH_NEXTHOP_TYPE);
   if (!rnh || (rnh->flags & ZEBRA_NHT_DELETED))
     return;
 
@@ -246,7 +249,8 @@ zebra_deregister_rnh_static_nh(struct prefix *nh, struct route_node *static_rn)
 }
 
 void
-zebra_deregister_rnh_static_nexthops (struct nexthop *nexthop, struct route_node *rn)
+zebra_deregister_rnh_static_nexthops (vrf_id_t vrf_id, struct nexthop *nexthop,
+                                      struct route_node *rn)
 {
   struct nexthop *nh;
   struct prefix nh_p;
@@ -265,7 +269,7 @@ zebra_deregister_rnh_static_nexthops (struct nexthop *nexthop, struct route_node
           nh_p.prefixlen = IPV6_MAX_BITLEN;
           nh_p.u.prefix6 = nh->gate.ipv6;
         }
-      zebra_deregister_rnh_static_nh(&nh_p, rn);
+      zebra_deregister_rnh_static_nh(vrf_id, &nh_p, rn);
     }
 }
 
@@ -788,14 +792,14 @@ zebra_cleanup_rnh_client (vrf_id_t vrfid, int family, struct zserv *client,
  * free_state - free up the rib structure associated with the rnh.
  */
 static void
-free_state (struct rib *rib, struct route_node *rn)
+free_state (vrf_id_t vrf_id, struct rib *rib, struct route_node *rn)
 {
 
   if (!rib)
     return;
 
   /* free RIB and nexthops */
-  zebra_deregister_rnh_static_nexthops (rib->nexthop, rn);
+  zebra_deregister_rnh_static_nexthops (vrf_id, rib->nexthop, rn);
   nexthops_free(rib->nexthop);
   XFREE (MTYPE_RIB, rib);
 }
@@ -808,7 +812,7 @@ copy_state (struct rnh *rnh, struct rib *rib, struct route_node *rn)
 
   if (rnh->state)
     {
-      free_state(rnh->state, rn);
+      free_state(rnh->vrf_id, rnh->state, rn);
       rnh->state = NULL;
     }
 

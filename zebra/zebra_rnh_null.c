@@ -14,11 +14,12 @@ void zebra_print_rnh_table (vrf_id_t vrfid, int family, struct vty *vty,
 			    rnh_type_t type)
 {}
 
-void zebra_register_rnh_static_nh(struct prefix *p, struct route_node *rn)
+void zebra_register_rnh_static_nh(vrf_id_t vrfid, struct prefix *p, struct route_node *rn)
 {}
 
-void zebra_deregister_rnh_static_nh(struct prefix *p, struct route_node *rn)
+void zebra_deregister_rnh_static_nh(vrf_id_t vrfid, struct prefix *p, struct route_node *rn)
 {}
 
-void zebra_deregister_rnh_static_nexthops (struct nexthop *nexthop, struct route_node *rn)
+void zebra_deregister_rnh_static_nexthops (vrf_id_t vrfid, struct nexthop *nexthop,
+                                           struct route_node *rn)
 {}
