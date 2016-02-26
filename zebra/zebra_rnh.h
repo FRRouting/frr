@@ -70,7 +70,6 @@ extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 				    rnh_type_t type);
 extern void zebra_evaluate_rnh(vrf_id_t vrfid, int family, int force, rnh_type_t type,
 			      struct prefix *p);
-extern int zebra_dispatch_rnh_table(vrf_id_t vrfid, int family, struct zserv *cl, rnh_type_t);
 extern void zebra_print_rnh_table(vrf_id_t vrfid, int family, struct vty *vty, rnh_type_t);
 extern char *rnh_str(struct rnh *rnh, char *buf, int size);
 extern int zebra_cleanup_rnh_client(vrf_id_t vrf, int family, struct zserv *client,
