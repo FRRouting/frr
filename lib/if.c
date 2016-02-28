@@ -479,10 +479,12 @@ if_get_by_name_len_vrf (const char *name, size_t namelen, vrf_id_t vrf_id, int v
 	       * from the kernel by way of zclient,  believe it and update
 	       * the ifp accordingly.
 	       */
-	      if (vrf_id == VRF_DEFAULT)
-		return ifp;
-	      if (vty)
-		return NULL;
+              if (vty)
+                {
+                  if (vrf_id == VRF_DEFAULT)
+                    return ifp;
+                  return NULL;
+                }
 	      else
 		{
 		  if_update_vrf (ifp, name, namelen, vrf_id);
