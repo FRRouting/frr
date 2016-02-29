@@ -217,6 +217,65 @@ bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
   return ret;
 }
 
+/*
+ * Obtain the BGP instance that the incoming connection should be processed
+ * against. This is important because more than one VRF could be using the
+ * same IP address space. The instance is got by obtaining the device to
+ * which the incoming connection is bound to. This could either be a VRF
+ * or it could be an interface, which in turn determines the VRF.
+ */
+static int
+bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
+{
+  char name[VRF_NAMSIZ + 1];
+  socklen_t name_len = VRF_NAMSIZ;
+  struct bgp *bgp;
+  int rc;
+  struct listnode *node, *nnode;
+
+  *bgp_inst = NULL;
+  name[0] = '\0';
+  rc = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, name, &name_len);
+  if (rc != 0)
+    {
+      zlog_err ("[Error] BGP SO_BINDTODEVICE get failed (%s), sock %d",
+                safe_strerror (errno), sock);
+      return -1;
+    }
+
+  if (!strlen(name))
+    return 0; /* default instance. */
+
+  /* First try match to instance; if that fails, check for interfaces. */
+  bgp = bgp_lookup_by_name (name);
+  if (bgp)
+    {
+      if (!bgp->vrf_id) // unexpected
+        return -1;
+      *bgp_inst = bgp;
+      return 0;
+    }
+
+  /* TODO - This will be optimized once interfaces move into the NS */
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    {
+      struct interface *ifp;
+
+      if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+        continue;
+
+      ifp = if_lookup_by_name_vrf (name, bgp->vrf_id);
+      if (ifp)
+        {
+          *bgp_inst = bgp;
+          return 0;
+        }
+    }
+
+  /* We didn't match to either an instance or an interface. */
+  return -1;
+}
+
 /* Accept bgp connection. */
 static int
 bgp_accept (struct thread *thread)
@@ -228,10 +287,7 @@ bgp_accept (struct thread *thread)
   struct peer *peer;
   struct peer *peer1;
   char buf[SU_ADDRSTRLEN];
-  struct bgp *bgp;
-  char name[VRF_NAMSIZ + 1];
-  int rc;
-  socklen_t name_len = VRF_NAMSIZ;
+  struct bgp *bgp = NULL;
 
   sockunion_init (&su);
 
@@ -253,37 +309,13 @@ bgp_accept (struct thread *thread)
     }
   set_nonblocking (bgp_sock);
 
-  name[0] = '\0';
-  rc = getsockopt(bgp_sock, SOL_SOCKET, SO_BINDTODEVICE, name, &name_len);
-  if (rc != 0)
+  /* Obtain BGP instance this connection is meant for. */
+  if (bgp_get_instance_for_inc_conn (bgp_sock, &bgp))
     {
-      zlog_err ("[Error] BGP SO_BINDTODEVICE get failed (%s)", safe_strerror (errno));
+      zlog_err ("[Error] Could not get instance for incoming conn from %s",
+                inet_sutop (&su, buf));
+      close (bgp_sock);
       return -1;
-    }
-  else if (name[0] != '\0')
-    {
-      /* Pending:
-         - Cleanup/add proper debugs in this area.
-         - Test/find a way to implement interface config within a VRF.
-       */
-      zlog_debug ("BGP accept vrf/interface %s, %u", name, name_len);
-      bgp = bgp_lookup_by_name (name);
-      if (bgp)
-        {
-          if (bgp->vrf_id)
-            zlog_debug ("BGP SO_BINDTODEVICE vrf-id in BGP %u", bgp->vrf_id);
-          else
-           {
-             zlog_debug ("BGP vrf not active!");
-             return -1;
-           }
-        }
-       /* if socket is interface bound, control may reach here, because name
-          may be equal to the interface name */
-    }
-  else
-    {
-      bgp = NULL;
     }
 
   /* Set socket send buffer size */
@@ -417,12 +449,28 @@ bgp_bind (struct peer *peer)
 {
 #ifdef SO_BINDTODEVICE
   int ret;
-  char *name;
+  char *name = NULL;
 
+  /* If not bound to an interface or part of a VRF, we don't care. */
   if (!peer->bgp->vrf_id && ! peer->ifname && !peer->conf_if)
     return 0;
 
-  name = (peer->conf_if ? peer->conf_if : (peer->ifname ? peer->ifname : peer->bgp->name));
+  if (peer->su.sa.sa_family != AF_INET &&
+      peer->su.sa.sa_family != AF_INET6)
+    return 0;  // unexpected
+
+  /* For IPv6 peering, interface (unnumbered or link-local with interface)
+   * takes precedence over VRF. For IPv4 peering, explicit interface or
+   * VRF are the situations to bind.
+   */
+  if (peer->su.sa.sa_family == AF_INET6)
+    name = (peer->conf_if ? peer->conf_if : \
+           (peer->ifname ? peer->ifname : peer->bgp->name));
+  else
+    name = peer->ifname ? peer->ifname : peer->bgp->name;
+
+  if (!name)
+    return 0;
 
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s Binding to interface %s", peer->host, name);
@@ -491,7 +539,7 @@ bgp_update_source (struct peer *peer)
   /* Source is specified with interface name.  */
   if (peer->update_if)
     {
-      ifp = if_lookup_by_name (peer->update_if);
+      ifp = if_lookup_by_name_vrf (peer->update_if, peer->bgp->vrf_id);
       if (! ifp)
 	return -1;
 

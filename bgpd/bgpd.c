@@ -1316,7 +1316,7 @@ bgp_peer_conf_if_to_su_update (struct peer *peer)
     return;
 
   prev_family = peer->su.sa.sa_family;
-  if ((ifp = if_lookup_by_name(peer->conf_if)))
+  if ((ifp = if_lookup_by_name_vrf (peer->conf_if, peer->bgp->vrf_id)))
     {
       /* If BGP unnumbered is not "v6only", we first see if we can derive the
        * peer's IPv4 address.
