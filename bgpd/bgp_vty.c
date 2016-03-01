@@ -9510,11 +9510,23 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
   if (p->hostname)
     {
-      if (p->domainname && (p->domainname[0] != '\0'))
-        vty_out(vty, "Hostname: %s.%s%s", p->hostname, p->domainname,
-                VTY_NEWLINE);
+      if (use_json)
+        {
+          if (p->hostname)
+            json_object_string_add(json_neigh, "hostname", p->hostname);
+
+          if (p->domainname)
+            json_object_string_add(json_neigh, "domainname", p->domainname);
+        }
       else
-        vty_out(vty, "Hostname: %s%s", p->hostname, VTY_NEWLINE);
+        {
+          if (p->domainname && (p->domainname[0] != '\0'))
+            vty_out(vty, "Hostname: %s.%s%s", p->hostname, p->domainname,
+                    VTY_NEWLINE);
+          else
+            vty_out(vty, "Hostname: %s%s", p->hostname, VTY_NEWLINE);
+        }
+
     }
 
   /* Peer-group */
