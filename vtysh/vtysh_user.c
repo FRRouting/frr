@@ -175,8 +175,11 @@ user_get (const char *name)
 
 DEFUN (banner_motd_file,
        banner_motd_file_cmd,
-       "banner motd file [FILE]",
-       "\n\n\n\n")
+       "banner motd file FILE",
+       "Set banner\n"
+       "Banner for motd\n"
+       "Banner from a file\n"
+       "Filename\n")
 {
   return cmd_banner_motd_file (argv[0]);
 }

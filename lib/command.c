@@ -4016,7 +4016,7 @@ cmd_banner_motd_file (const char *file)
 
 DEFUN (banner_motd_file,
        banner_motd_file_cmd,
-       "banner motd file [FILE]",
+       "banner motd file FILE",
        "Set banner\n"
        "Banner for motd\n"
        "Banner from a file\n"
