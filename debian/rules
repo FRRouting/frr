@@ -101,8 +101,6 @@ override_dh_auto_install:
 
 	# install config files
 	mkdir -p debian/tmp/etc/quagga/
-	cp debian/my/debian.conf debian/tmp/etc/quagga/
-	cp debian/my/daemons debian/tmp/etc/quagga/
 	perl -pi -e 's#^!log file #!log file /var/log/quagga/#' debian/tmp/usr/share/doc/quagga/examples/*sample*
 
 	# installing the Quagga specific SNMP MIB
