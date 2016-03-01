@@ -14,7 +14,8 @@ libzebra_la_SOURCES = \
 	filter.c routemap.c distribute.c stream.c str.c log.c plist.c \
 	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c workqueue.c nexthop.c json.c \
-	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory.c memory_vty.c
+	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory.c memory_vty.c \
+	imsg-buffer.c imsg.c
 
 BUILT_SOURCES = route_types.h gitversion.h
 
@@ -31,7 +32,7 @@ pkginclude_HEADERS = \
 	privs.h sigevent.h pqueue.h jhash.h zassert.h \
 	workqueue.h route_types.h libospf.h nexthop.h json.h \
 	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
-	fifo.h memory_vty.h
+	fifo.h memory_vty.h mpls.h imsg.h openbsd-queue.h openbsd-tree.h
 
 noinst_HEADERS = \
 	plist_int.h

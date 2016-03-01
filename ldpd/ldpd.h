@@ -22,19 +22,14 @@
 #ifndef _LDPD_H_
 #define _LDPD_H_
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <event.h>
-#include <imsg.h>
+#include "openbsd-queue.h"
+#include "openbsd-tree.h"
+#include "imsg.h"
+#include "thread.h"
 
 #include "ldp.h"
 
 #define CONF_FILE		"/etc/ldpd.conf"
-#define	LDPD_SOCKET		"/var/run/ldpd.sock"
 #define LDPD_USER		"_ldpd"
 
 #define LDPD_OPT_VERBOSE	0x00000001
@@ -57,15 +52,18 @@
 #define	F_REDISTRIBUTED		0x0040
 
 struct evbuf {
-	struct msgbuf		wbuf;
-	struct event		ev;
+	struct msgbuf		 wbuf;
+	struct thread		*ev;
+	int			 (*handler)(struct thread *);
+	void			*arg;
 };
 
 struct imsgev {
 	struct imsgbuf		 ibuf;
-	void			(*handler)(int, short, void *);
-	struct event		 ev;
-	short			 events;
+	int			(*handler_write)(struct thread *);
+	struct thread		*ev_write;
+	int			(*handler_read)(struct thread *);
+	struct thread		*ev_read;
 };
 
 enum imsg_type {
@@ -73,7 +71,12 @@ enum imsg_type {
 	IMSG_CTL_RELOAD,
 	IMSG_CTL_SHOW_INTERFACE,
 	IMSG_CTL_SHOW_DISCOVERY,
+	IMSG_CTL_SHOW_DISC_IFACE,
+	IMSG_CTL_SHOW_DISC_TNBR,
+	IMSG_CTL_SHOW_DISC_ADJ,
 	IMSG_CTL_SHOW_NBR,
+	IMSG_CTL_SHOW_NBR_DISC,
+	IMSG_CTL_SHOW_NBR_END,
 	IMSG_CTL_SHOW_LIB,
 	IMSG_CTL_SHOW_L2VPN_PW,
 	IMSG_CTL_SHOW_L2VPN_BINDING,
@@ -92,6 +95,7 @@ enum imsg_type {
 	IMSG_IFSTATUS,
 	IMSG_NEWADDR,
 	IMSG_DELADDR,
+	IMSG_RTRID_UPDATE,
 	IMSG_LABEL_MAPPING,
 	IMSG_LABEL_MAPPING_FULL,
 	IMSG_LABEL_REQUEST,
@@ -126,7 +130,10 @@ enum imsg_type {
 	IMSG_RECONF_L2VPN,
 	IMSG_RECONF_L2VPN_IF,
 	IMSG_RECONF_L2VPN_PW,
-	IMSG_RECONF_END
+	IMSG_RECONF_L2VPN_IPW,
+	IMSG_RECONF_END,
+	IMSG_DEBUG_UPDATE,
+	IMSG_LOG
 };
 
 union ldpd_addr {
@@ -249,7 +256,7 @@ struct iface_af {
 	int			 state;
 	LIST_HEAD(, adj)	 adj_list;
 	time_t			 uptime;
-	struct event		 hello_timer;
+	struct thread		*hello_timer;
 	uint16_t		 hello_holdtime;
 	uint16_t		 hello_interval;
 };
@@ -261,9 +268,7 @@ struct iface {
 	struct if_addr_head	 addr_list;
 	struct in6_addr		 linklocal;
 	enum iface_type		 type;
-	uint8_t			 if_type;
 	uint16_t		 flags;
-	uint8_t			 linkstate;
 	struct iface_af		 ipv4;
 	struct iface_af		 ipv6;
 };
@@ -271,13 +276,11 @@ struct iface {
 /* source of targeted hellos */
 struct tnbr {
 	LIST_ENTRY(tnbr)	 entry;
-	struct event		 hello_timer;
+	struct thread		*hello_timer;
 	struct adj		*adj;
 	int			 af;
 	union ldpd_addr		 addr;
 	int			 state;
-	uint16_t		 hello_holdtime;
-	uint16_t		 hello_interval;
 	uint16_t		 pw_count;
 	uint8_t			 flags;
 };
@@ -313,7 +316,6 @@ struct l2vpn_if {
 	char			 ifname[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	uint16_t		 flags;
-	uint8_t			 link_state;
 };
 
 struct l2vpn_pw {
@@ -335,6 +337,7 @@ struct l2vpn_pw {
 #define F_PW_CWORD_CONF		0x04	/* control word configured */
 #define F_PW_CWORD		0x08	/* control word negotiated */
 #define F_PW_STATUS_UP		0x10	/* pseudowire is operational */
+#define F_PW_STATIC_NBR_ADDR	0x20	/* static neighbor address configured */
 
 struct l2vpn {
 	LIST_ENTRY(l2vpn)	 entry;
@@ -346,6 +349,7 @@ struct l2vpn {
 	unsigned int		 br_ifindex;
 	LIST_HEAD(, l2vpn_if)	 if_list;
 	LIST_HEAD(, l2vpn_pw)	 pw_list;
+	LIST_HEAD(, l2vpn_pw)	 pw_inactive_list;
 };
 #define L2VPN_TYPE_VPWS		1
 #define L2VPN_TYPE_VPLS		2
@@ -370,6 +374,8 @@ enum hello_type {
 
 struct ldpd_af_conf {
 	uint16_t		 keepalive;
+	uint16_t		 lhello_holdtime;
+	uint16_t		 lhello_interval;
 	uint16_t		 thello_holdtime;
 	uint16_t		 thello_interval;
 	union ldpd_addr		 trans_addr;
@@ -388,15 +394,20 @@ struct ldpd_conf {
 	LIST_HEAD(, tnbr)	 tnbr_list;
 	LIST_HEAD(, nbr_params)	 nbrp_list;
 	LIST_HEAD(, l2vpn)	 l2vpn_list;
+	uint16_t		 lhello_holdtime;
+	uint16_t		 lhello_interval;
+	uint16_t		 thello_holdtime;
+	uint16_t		 thello_interval;
 	uint16_t		 trans_pref;
 	int			 flags;
 };
 #define	F_LDPD_NO_FIB_UPDATE	0x0001
 #define	F_LDPD_DS_CISCO_INTEROP	0x0002
+#define	F_LDPD_ENABLED		0x0004
 
 struct ldpd_af_global {
-	struct event		 disc_ev;
-	struct event		 edisc_ev;
+	struct thread		*disc_ev;
+	struct thread		*edisc_ev;
 	int			 ldp_disc_socket;
 	int			 ldp_edisc_socket;
 	int			 ldp_session_socket;
@@ -405,6 +416,7 @@ struct ldpd_af_global {
 struct ldpd_global {
 	int			 cmd_opts;
 	time_t			 uptime;
+	struct in_addr		 rtr_id;
 	struct ldpd_af_global	 ipv4;
 	struct ldpd_af_global	 ipv6;
 	uint32_t		 conf_seqnum;
@@ -451,10 +463,7 @@ struct kif {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
 	int			 flags;
-	uint8_t			 link_state;
 	int			 mtu;
-	uint8_t			 if_type;
-	uint64_t		 baudrate;
 };
 
 /* control data structures */
@@ -464,13 +473,24 @@ struct ctl_iface {
 	unsigned int		 ifindex;
 	int			 state;
 	uint16_t		 flags;
-	uint8_t			 linkstate;
 	enum iface_type		 type;
-	uint8_t			 if_type;
 	uint16_t		 hello_holdtime;
 	uint16_t		 hello_interval;
 	time_t			 uptime;
 	uint16_t		 adj_cnt;
+};
+
+struct ctl_disc_if {
+	char			 name[IF_NAMESIZE];
+	int			 active_v4;
+	int			 active_v6;
+	int			 no_adj;
+};
+
+struct ctl_disc_tnbr {
+	int			 af;
+	union ldpd_addr		 addr;
+	int			 no_adj;
 };
 
 struct ctl_adj {
@@ -487,7 +507,10 @@ struct ctl_nbr {
 	int			 af;
 	struct in_addr		 id;
 	union ldpd_addr		 laddr;
+	in_port_t		 lport;
 	union ldpd_addr		 raddr;
+	in_port_t		 rport;
+	uint16_t		 holdtime;
 	time_t			 uptime;
 	int			 nbr_state;
 };
@@ -501,19 +524,23 @@ struct ctl_rt {
 	uint32_t		 remote_label;
 	uint8_t			 flags;
 	uint8_t			 in_use;
+	int			 first;
 };
 
 struct ctl_pw {
 	uint16_t		 type;
+	char			 l2vpn_name[L2VPN_NAME_LEN];
 	char			 ifname[IF_NAMESIZE];
 	uint32_t		 pwid;
 	struct in_addr		 lsr_id;
 	uint32_t		 local_label;
 	uint32_t		 local_gid;
 	uint16_t		 local_ifmtu;
+	uint8_t			 local_cword;
 	uint32_t		 remote_label;
 	uint32_t		 remote_gid;
 	uint16_t		 remote_ifmtu;
+	uint8_t			 remote_cword;
 	uint32_t		 status;
 };
 
@@ -525,19 +552,9 @@ struct ldpd_conf	*parse_config(char *);
 int			 cmdline_symset(char *);
 
 /* kroute.c */
-int		 kif_init(void);
-int		 kr_init(int);
 void		 kif_redistribute(const char *);
 int		 kr_change(struct kroute *);
 int		 kr_delete(struct kroute *);
-void		 kr_shutdown(void);
-void		 kr_fib_couple(void);
-void		 kr_fib_decouple(void);
-void		 kr_change_egress_label(int, int);
-void		 kr_show_route(struct imsg *);
-void		 kr_ifinfo(char *, pid_t);
-struct kif	*kif_findname(char *);
-void		 kif_clear(void);
 int		 kmpw_set(struct kpw *);
 int		 kmpw_unset(struct kpw *);
 
@@ -561,31 +578,46 @@ void		 recoverscope(struct sockaddr_in6 *);
 void		 addscope(struct sockaddr_in6 *, uint32_t);
 void		 clearscope(struct in6_addr *);
 struct sockaddr	*addr2sa(int af, union ldpd_addr *, uint16_t);
-void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *);
+void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
+		    in_port_t *);
+socklen_t	 sockaddr_len(struct sockaddr *);
 
 /* ldpd.c */
+int			 ldp_write_handler(struct thread *);
 void			 main_imsg_compose_ldpe(int, pid_t, void *, uint16_t);
 void			 main_imsg_compose_lde(int, pid_t, void *, uint16_t);
+int			 main_imsg_compose_both(enum imsg_type, void *,
+			    uint16_t);
 void			 imsg_event_add(struct imsgev *);
-int			 imsg_compose_event(struct imsgev *, uint16_t, uint32_t, pid_t,
-			    int, void *, uint16_t);
+int			 imsg_compose_event(struct imsgev *, uint16_t, uint32_t,
+			    pid_t, int, void *, uint16_t);
 void			 evbuf_enqueue(struct evbuf *, struct ibuf *);
 void			 evbuf_event_add(struct evbuf *);
-void			 evbuf_init(struct evbuf *, int, void (*)(int, short, void *), void *);
+void			 evbuf_init(struct evbuf *, int,
+			    int (*)(struct thread *), void *);
 void			 evbuf_clear(struct evbuf *);
 struct ldpd_af_conf	*ldp_af_conf_get(struct ldpd_conf *, int);
 struct ldpd_af_global	*ldp_af_global_get(struct ldpd_global *, int);
 int			 ldp_is_dual_stack(struct ldpd_conf *);
+in_addr_t		 ldp_rtr_id_get(struct ldpd_conf *);
+int			 ldp_reload(struct ldpd_conf *);
+struct ldpd_conf	*ldp_dup_config(struct ldpd_conf *);
+void			 ldp_clear_config(struct ldpd_conf *);
 void			 merge_config(struct ldpd_conf *, struct ldpd_conf *);
 struct ldpd_conf	*config_new_empty(void);
 void			 config_clear(struct ldpd_conf *);
 
 /* socket.c */
 int		 ldp_create_socket(int, enum socket_type);
+void		 sock_set_nonblock(int);
+void		 sock_set_cloexec(int);
 void		 sock_set_recvbuf(int);
 int		 sock_set_reuse(int, int);
 int		 sock_set_bindany(int, int);
+int		 sock_set_md5sig(int, int, union ldpd_addr *, const char *);
 int		 sock_set_ipv4_tos(int, int);
+int		 sock_set_ipv4_pktinfo(int, int);
+int		 sock_set_ipv4_recvdstaddr(int, int);
 int		 sock_set_ipv4_recvif(int, int);
 int		 sock_set_ipv4_minttl(int, int);
 int		 sock_set_ipv4_ucast_ttl(int fd, int);
@@ -600,7 +632,19 @@ int		 sock_set_ipv6_mcast_hops(int, int);
 int		 sock_set_ipv6_mcast(struct iface *);
 int		 sock_set_ipv6_mcast_loop(int);
 
-/* printconf.c */
-void	print_config(struct ldpd_conf *);
+/* quagga */
+extern struct thread_master	*master;
+
+/* ldp_zebra.c */
+void		ldp_zebra_init(struct thread_master *);
+
+/* compatibility */
+#ifndef __OpenBSD__
+#define __IPV6_ADDR_MC_SCOPE(a)		((a)->s6_addr[1] & 0x0f)
+#define __IPV6_ADDR_SCOPE_INTFACELOCAL	0x01
+#define	IN6_IS_ADDR_MC_INTFACELOCAL(a)	\
+	(IN6_IS_ADDR_MULTICAST(a) &&	\
+	(__IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_INTFACELOCAL))
+#endif
 
 #endif	/* _LDPD_H_ */

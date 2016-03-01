@@ -19,14 +19,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -37,13 +30,13 @@ static __inline int	 nbr_id_compare(struct nbr *, struct nbr *);
 static __inline int	 nbr_addr_compare(struct nbr *, struct nbr *);
 static __inline int	 nbr_pid_compare(struct nbr *, struct nbr *);
 static void		 nbr_update_peerid(struct nbr *);
-static void		 nbr_ktimer(int, short, void *);
+static int		 nbr_ktimer(struct thread *);
 static void		 nbr_start_ktimer(struct nbr *);
-static void		 nbr_ktimeout(int, short, void *);
+static int		 nbr_ktimeout(struct thread *);
 static void		 nbr_start_ktimeout(struct nbr *);
-static void		 nbr_itimeout(int, short, void *);
+static int		 nbr_itimeout(struct thread *);
 static void		 nbr_start_itimeout(struct nbr *);
-static void		 nbr_idtimer(int, short, void *);
+static int		 nbr_idtimer(struct thread *);
 static int		 nbr_act_session_operational(struct nbr *);
 static void		 nbr_send_labelmappings(struct nbr *);
 
@@ -266,15 +259,17 @@ nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
 	TAILQ_INIT(&nbr->release_list);
 	TAILQ_INIT(&nbr->abortreq_list);
 
-	/* set event structures */
-	evtimer_set(&nbr->keepalive_timeout, nbr_ktimeout, nbr);
-	evtimer_set(&nbr->keepalive_timer, nbr_ktimer, nbr);
-	evtimer_set(&nbr->init_timeout, nbr_itimeout, nbr);
-	evtimer_set(&nbr->initdelay_timer, nbr_idtimer, nbr);
-
 	nbrp = nbr_params_find(leconf, nbr->id);
-	if (nbrp && pfkey_establish(nbr, nbrp) == -1)
-		fatalx("pfkey setup failed");
+	if (nbrp) {
+#ifdef __OpenBSD__
+		if (pfkey_establish(nbr, nbrp) == -1)
+			fatalx("pfkey setup failed");
+#else
+		sock_set_md5sig(
+		    (ldp_af_global_get(&global, nbr->af))->ldp_session_socket,
+		    nbr->af, &nbr->raddr, nbrp->auth.md5key);
+#endif
+	}
 
 	pconn = pending_conn_find(nbr->af, &nbr->raddr);
 	if (pconn) {
@@ -291,10 +286,16 @@ nbr_del(struct nbr *nbr)
 	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
+#ifdef __OpenBSD__
 	pfkey_remove(nbr);
+#else
+	sock_set_md5sig(
+	    (ldp_af_global_get(&global, nbr->af))->ldp_session_socket,
+	    nbr->af, &nbr->raddr, NULL);
+#endif
 
 	if (nbr_pending_connect(nbr))
-		event_del(&nbr->ev_connect);
+		THREAD_WRITE_OFF(nbr->ev_connect);
 	nbr_stop_ktimer(nbr);
 	nbr_stop_ktimeout(nbr);
 	nbr_stop_itimeout(nbr);
@@ -382,176 +383,168 @@ nbr_session_active_role(struct nbr *nbr)
 
 /* Keepalive timer: timer to send keepalive message to neighbors */
 
-static void
-nbr_ktimer(int fd, short event, void *arg)
+static int
+nbr_ktimer(struct thread *thread)
 {
-	struct nbr	*nbr = arg;
+	struct nbr	*nbr = THREAD_ARG(thread);
 
+	nbr->keepalive_timer = NULL;
 	send_keepalive(nbr);
 	nbr_start_ktimer(nbr);
+
+	return (0);
 }
 
 static void
 nbr_start_ktimer(struct nbr *nbr)
 {
-	struct timeval	 tv;
+	int		 secs;
 
 	/* send three keepalives per period */
-	timerclear(&tv);
-	tv.tv_sec = (time_t)(nbr->keepalive / KEEPALIVE_PER_PERIOD);
-	if (evtimer_add(&nbr->keepalive_timer, &tv) == -1)
-		fatal(__func__);
+	secs = nbr->keepalive / KEEPALIVE_PER_PERIOD;
+	THREAD_TIMER_OFF(nbr->keepalive_timer);
+	nbr->keepalive_timer = thread_add_timer(master, nbr_ktimer, nbr, secs);
 }
 
 void
 nbr_stop_ktimer(struct nbr *nbr)
 {
-	if (evtimer_pending(&nbr->keepalive_timer, NULL) &&
-	    evtimer_del(&nbr->keepalive_timer) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(nbr->keepalive_timer);
 }
 
 /* Keepalive timeout: if the nbr hasn't sent keepalive */
 
-static void
-nbr_ktimeout(int fd, short event, void *arg)
+static int
+nbr_ktimeout(struct thread *thread)
 {
-	struct nbr *nbr = arg;
+	struct nbr *nbr = THREAD_ARG(thread);
+
+	nbr->keepalive_timeout = NULL;
 
 	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
 
 	session_shutdown(nbr, S_KEEPALIVE_TMR, 0, 0);
+
+	return (0);
 }
 
 static void
 nbr_start_ktimeout(struct nbr *nbr)
 {
-	struct timeval	tv;
-
-	timerclear(&tv);
-	tv.tv_sec = nbr->keepalive;
-
-	if (evtimer_add(&nbr->keepalive_timeout, &tv) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(nbr->keepalive_timeout);
+	nbr->keepalive_timeout = thread_add_timer(master, nbr_ktimeout, nbr,
+	    nbr->keepalive);
 }
 
 void
 nbr_stop_ktimeout(struct nbr *nbr)
 {
-	if (evtimer_pending(&nbr->keepalive_timeout, NULL) &&
-	    evtimer_del(&nbr->keepalive_timeout) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(nbr->keepalive_timeout);
 }
 
 /* Session initialization timeout: if nbr got stuck in the initialization FSM */
 
-static void
-nbr_itimeout(int fd, short event, void *arg)
+static int
+nbr_itimeout(struct thread *thread)
 {
-	struct nbr *nbr = arg;
+	struct nbr	*nbr = THREAD_ARG(thread);
 
 	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
+
+	return (0);
 }
 
 static void
 nbr_start_itimeout(struct nbr *nbr)
 {
-	struct timeval	 tv;
+	int		 secs;
 
-	timerclear(&tv);
-	tv.tv_sec = INIT_FSM_TIMEOUT;
-	if (evtimer_add(&nbr->init_timeout, &tv) == -1)
-		fatal(__func__);
+	secs = INIT_FSM_TIMEOUT;
+	THREAD_TIMER_OFF(nbr->init_timeout);
+	nbr->init_timeout = thread_add_timer(master, nbr_itimeout, nbr, secs);
 }
 
 void
 nbr_stop_itimeout(struct nbr *nbr)
 {
-	if (evtimer_pending(&nbr->init_timeout, NULL) &&
-	    evtimer_del(&nbr->init_timeout) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(nbr->init_timeout);
 }
 
 /* Init delay timer: timer to retry to iniziatize session */
 
-static void
-nbr_idtimer(int fd, short event, void *arg)
+static int
+nbr_idtimer(struct thread *thread)
 {
-	struct nbr *nbr = arg;
+	struct nbr *nbr = THREAD_ARG(thread);
+
+	nbr->initdelay_timer = NULL;
 
 	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
 
 	nbr_establish_connection(nbr);
+
+	return (0);
 }
 
 void
 nbr_start_idtimer(struct nbr *nbr)
 {
-	struct timeval	tv;
+	int	secs;
 
-	timerclear(&tv);
-
-	tv.tv_sec = INIT_DELAY_TMR;
+	secs = INIT_DELAY_TMR;
 	switch(nbr->idtimer_cnt) {
 	default:
 		/* do not further increase the counter */
-		tv.tv_sec = MAX_DELAY_TMR;
+		secs = MAX_DELAY_TMR;
 		break;
 	case 2:
-		tv.tv_sec *= 2;
+		secs *= 2;
 		/* FALLTHROUGH */
 	case 1:
-		tv.tv_sec *= 2;
+		secs *= 2;
 		/* FALLTHROUGH */
 	case 0:
 		nbr->idtimer_cnt++;
 		break;
 	}
 
-	if (evtimer_add(&nbr->initdelay_timer, &tv) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(nbr->initdelay_timer);
+	nbr->initdelay_timer = thread_add_timer(master, nbr_idtimer, nbr, secs);
 }
 
 void
 nbr_stop_idtimer(struct nbr *nbr)
 {
-	if (evtimer_pending(&nbr->initdelay_timer, NULL) &&
-	    evtimer_del(&nbr->initdelay_timer) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(nbr->initdelay_timer);
 }
 
 int
 nbr_pending_idtimer(struct nbr *nbr)
 {
-	if (evtimer_pending(&nbr->initdelay_timer, NULL))
-		return (1);
-
-	return (0);
+	return (nbr->initdelay_timer != NULL);
 }
 
 int
 nbr_pending_connect(struct nbr *nbr)
 {
-	if (event_initialized(&nbr->ev_connect) &&
-	    event_pending(&nbr->ev_connect, EV_WRITE, NULL))
-		return (1);
-
-	return (0);
+	return (nbr->ev_connect != NULL);
 }
 
-static void
-nbr_connect_cb(int fd, short event, void *arg)
+static int
+nbr_connect_cb(struct thread *thread)
 {
-	struct nbr	*nbr = arg;
+	struct nbr	*nbr = THREAD_ARG(thread);
 	int		 error;
 	socklen_t	 len;
+
+	nbr->ev_connect = NULL;
 
 	len = sizeof(error);
 	if (getsockopt(nbr->fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {
 		log_warn("%s: getsockopt SOL_SOCKET SO_ERROR", __func__);
-		return;
+		return (0);
 	}
 
 	if (error) {
@@ -559,10 +552,12 @@ nbr_connect_cb(int fd, short event, void *arg)
 		errno = error;
 		log_debug("%s: error while connecting to %s: %s", __func__,
 		    log_addr(nbr->af, &nbr->raddr), strerror(errno));
-		return;
+		return (0);
 	}
 
 	nbr_fsm(nbr, NBR_EVT_CONNECT_UP);
+
+	return (0);
 }
 
 int
@@ -572,17 +567,20 @@ nbr_establish_connection(struct nbr *nbr)
 	struct sockaddr_storage	 remote_sa;
 	struct adj		*adj;
 	struct nbr_params	*nbrp;
+#ifdef __OpenBSD__
 	int			 opt = 1;
+#endif
 
-	nbr->fd = socket(nbr->af,
-	    SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+	nbr->fd = socket(nbr->af, SOCK_STREAM, 0);
 	if (nbr->fd == -1) {
 		log_warn("%s: error while creating socket", __func__);
 		return (-1);
 	}
+	sock_set_nonblock(nbr->fd);
 
 	nbrp = nbr_params_find(leconf, nbr->id);
 	if (nbrp && nbrp->auth.method == AUTH_MD5SIG) {
+#ifdef __OpenBSD__
 		if (sysdep.no_pfkey || sysdep.no_md5sig) {
 			log_warnx("md5sig configured but not available");
 			close(nbr->fd);
@@ -594,6 +592,10 @@ nbr_establish_connection(struct nbr *nbr)
 			close(nbr->fd);
 			return (-1);
 		}
+#else
+		sock_set_md5sig(nbr->fd, nbr->af, &nbr->raddr,
+		    nbrp->auth.md5key);
+#endif
 	}
 
 	memcpy(&local_sa, addr2sa(nbr->af, &nbr->laddr, 0), sizeof(local_sa));
@@ -603,7 +605,7 @@ nbr_establish_connection(struct nbr *nbr)
 		addscope((struct sockaddr_in6 *)&remote_sa, nbr->raddr_scope);
 
 	if (bind(nbr->fd, (struct sockaddr *)&local_sa,
-	    local_sa.ss_len) == -1) {
+	    sockaddr_len((struct sockaddr *)&local_sa)) == -1) {
 		log_warn("%s: error while binding socket to %s", __func__,
 		    log_sockaddr((struct sockaddr *)&local_sa));
 		close(nbr->fd);
@@ -624,11 +626,10 @@ nbr_establish_connection(struct nbr *nbr)
 		    adj->source.target);
 
 	if (connect(nbr->fd, (struct sockaddr *)&remote_sa,
-	    remote_sa.ss_len) == -1) {
+	    sockaddr_len((struct sockaddr *)&remote_sa)) == -1) {
 		if (errno == EINPROGRESS) {
-			event_set(&nbr->ev_connect, nbr->fd, EV_WRITE,
-			    nbr_connect_cb, nbr);
-			event_add(&nbr->ev_connect, NULL);
+			THREAD_WRITE_ON(master, nbr->ev_connect, nbr_connect_cb,
+			    nbr, nbr->fd);
 			return (0);
 		}
 		log_warn("%s: error while connecting to %s", __func__,
@@ -682,8 +683,8 @@ nbr_gtsm_setup(int fd, int af, struct nbr_params *nbrp)
 			return (-1);
 		break;
 	case AF_INET6:
-		if (sock_set_ipv6_minhopcount(fd, ttl) == -1)
-			return (-1);
+		/* ignore any possible error */
+		sock_set_ipv6_minhopcount(fd, ttl);
 		ttl = 255;
 		if (sock_set_ipv6_ucast_hops(fd, ttl) == -1)
 			return (-1);
@@ -798,7 +799,10 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.af = nbr->af;
 	nctl.id = nbr->id;
 	nctl.laddr = nbr->laddr;
+	nctl.lport = nbr->tcp->lport;
 	nctl.raddr = nbr->raddr;
+	nctl.rport = nbr->tcp->rport;
+	nctl.holdtime = nbr->keepalive;
 	nctl.nbr_state = nbr->state;
 
 	gettimeofday(&now, NULL);

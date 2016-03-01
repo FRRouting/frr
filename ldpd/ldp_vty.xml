@@ -1,0 +1,379 @@
+<?xml version="1.0"?>
+<file init="ldp_vty_init" cmdprefix="ldp" header="ldp_vty.h">
+  <!-- address-family -->
+  <options name="address-family">
+    <option name="ipv4" help="IPv4 Address Family"/>
+    <option name="ipv6" help="IPv6 Address Family"/>
+  </options>
+
+  <!-- ipv4/ipv6 address -->
+  <options name="addr">
+    <option input="ipv4" help="IPv4 address"/>
+    <option input="ipv6" help="IPv6 address"/>
+  </options>
+
+  <!-- pseudowire control-word options -->
+  <options name="cword">
+    <option name="exclude" help="Exclude control-word in pseudowire packets"/>
+    <option name="include" help="Include control-word in pseudowire packets"/>
+  </options>
+
+  <!-- pseudowire types -->
+  <options name="pwtype">
+    <option name="ethernet" help="Ethernet (type 5)"/>
+    <option name="ethernet-tagged" help="Ethernet-tagged (type 4)"/>
+  </options>
+
+  <!-- packet direction -->
+  <options name="dir">
+    <option name="recv" help="Received messages"/>
+    <option name="sent" help="Sent messages"/>
+  </options>
+
+  <!-- shared subtrees -->
+  <subtree name="discovery_link">
+    <option name="discovery" help="Configure discovery parameters">
+      <option name="hello" arg="hello_type" help="LDP Link Hellos">
+        <option name="holdtime" help="Hello holdtime">
+          <option input="disc_time" arg="seconds" help="Time (seconds) - 65535 implies infinite" function="ldp_vty_disc_holdtime"/>
+        </option>
+        <option name="interval" help="Hello interval">
+          <option input="disc_time" arg="seconds" help="Time (seconds)" function="ldp_vty_disc_interval"/>
+        </option>
+      </option>
+    </option>
+  </subtree>
+
+  <subtree name="discovery_targeted">
+    <option name="discovery" help="Configure discovery parameters">
+      <option name="targeted-hello" arg="hello_type" help="LDP Targeted Hellos">
+        <option name="holdtime" help="Targeted hello holdtime">
+          <option input="disc_time" arg="seconds" help="Time (seconds) - 65535 implies infinite" function="ldp_vty_disc_holdtime"/>
+        </option>
+        <option name="interval" help="Targeted hello interval">
+          <option input="disc_time" arg="seconds" help="Time (seconds)" function="ldp_vty_disc_interval"/>
+        </option>
+      </option>
+    </option>
+  </subtree>
+
+  <subtree name="session_holdtime">
+    <option name="session" help="Configure session parameters">
+      <option name="holdtime" help="Configure session holdtime">
+        <option input="session_time" arg="seconds" help="Time (seconds)" function="ldp_vty_session_holdtime"/>
+      </option>
+    </option>
+  </subtree>
+
+  <subtree name="af_common">
+    <include subtree="discovery_link"/>
+    <include subtree="discovery_targeted"/>
+    <option name="discovery" help="Configure discovery parameters">
+      <option name="targeted-hello" arg="hello_type" help="LDP Targeted Hellos">
+        <option name="accept" help="Accept and respond to targeted hellos" function="ldp_vty_targeted_hello_accept"/>
+      </option>
+    </option>
+    <option name="label" help="Configure label control and policies">
+      <option name="local" help="Configure local label control and policies">
+        <option name="advertise" help="Configure outbound label advertisement control">
+          <option name="explicit-null" help="Configure explicit-null advertisement" function="ldp_vty_explicit_null"/>
+        </option>
+      </option>
+    </option>
+    <option name="ttl-security" help="LDP ttl security check">
+      <option name="disable" help="Disable ttl security" function="ldp_vty_ttl_security"/>
+    </option>
+    <include subtree="session_holdtime"/>
+    <option name="interface" help="Enable LDP on an interface and enter interface submode">
+      <option input="ifname" arg="ifname" help="Interface's name" function="ldp_vty_interface"/>
+    </option>
+  </subtree>
+
+  <!-- global -->
+  <subtree name="__global">
+    <option name="mpls" help="Global MPLS configuration subcommands">
+      <option name="ldp" help="Label Distribution Protocol" function="ldp_vty_mpls_ldp"/>
+    </option>
+    <option name="l2vpn" help="Configure l2vpn commands">
+      <option input="word" arg="name" help="L2VPN name">
+        <option name="type" help="L2VPN type">
+          <option name="vpls" help="Virtual Private LAN Service" function="ldp_vty_l2vpn"/>
+        </option>
+      </option>
+    </option>
+  </subtree>
+  <tree name="global">
+    <include subtree="__global"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+        <include subtree="__global"/>
+    </option>
+  </tree>
+
+  <!-- ldp node -->
+  <subtree name="__ldp_node">
+    <option name="address-family" help="Configure Address Family and its parameters">
+      <option name="ipv4" arg="address-family" help="IPv4" function="ldp_vty_address_family"/>
+      <option name="ipv6" arg="address-family" help="IPv6" function="ldp_vty_address_family"/>
+    </option>
+    <include subtree="discovery_link"/>
+    <include subtree="discovery_targeted"/>
+    <option name="dual-stack" help="Configure dual stack parameters">
+      <option name="transport-connection" help="Configure TCP transport parameters">
+        <option name="prefer" help="Configure prefered address family for TCP transport connection with neighbor">
+          <option name="ipv4" help="IPv4" function="ldp_vty_trans_pref_ipv4"/>
+        </option>
+      </option>
+      <option name="cisco-interop" help="Use Cisco non-compliant format to send and interpret the Dual-Stack capability TLV" function="ldp_vty_ds_cisco_interop"/>
+    </option>
+    <option name="neighbor" help="Configure neighbor parameters">
+      <option input="ipv4" arg="lsr_id" help="LDP Id of neighbor">
+        <option name="password" help="Configure password for MD5 authentication">
+          <option input="word" arg="password" help="The password" function="ldp_vty_neighbor_password"/>
+        </option>
+        <include subtree="session_holdtime"/>
+        <option name="ttl-security" help="LDP ttl security check">
+          <option name="disable" help="Disable ttl security" function="ldp_vty_neighbor_ttl_security"/>
+          <option name="hops" help="IP hops">
+            <option input="hops" arg="hops" help="maximum number of hops" function="ldp_vty_neighbor_ttl_security"/>
+          </option>
+        </option>
+      </option>
+    </option>
+    <option name="router-id" help="Configure router Id">
+      <option input="ipv4" arg="addr" help="LSR Id (in form of an IPv4 address)" function="ldp_vty_router_id"/>
+    </option>
+  </subtree>
+  <tree name="ldp_node">
+    <include subtree="__ldp_node"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+        <include subtree="__ldp_node"/>
+    </option>
+  </tree>
+
+  <!-- address-family ipv4 -->
+  <subtree name="__ldp_ipv4_node">
+    <include subtree="af_common"/>
+    <option name="discovery" help="Configure discovery parameters">
+      <option name="transport-address" help="Specify transport address for TCP connection">
+        <option input="ipv4" arg="addr" help="IP address to be used as transport address" function="ldp_vty_trans_addr"/>
+      </option>
+     </option>
+     <option name="neighbor" help="Configure neighbor parameters">
+       <option input="ipv4" arg="addr" help="IP address of neighbor">
+         <option name="targeted" help="Establish targeted session" function="ldp_vty_neighbor_targeted"/>
+       </option>
+     </option>
+  </subtree>
+  <tree name="ldp_ipv4_node">
+    <include subtree="__ldp_ipv4_node"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+      <include subtree="__ldp_ipv4_node"/>
+    </option>
+  </tree>
+
+  <!-- address-family ipv6 -->
+  <subtree name="__ldp_ipv6_node">
+    <include subtree="af_common"/>
+    <option name="discovery" help="Configure discovery parameters">
+      <option name="transport-address" help="Specify transport address for TCP connection">
+        <option input="ipv6" arg="addr" help="IPv6 address to be used as transport address" function="ldp_vty_trans_addr"/>
+      </option>
+    </option>
+     <option name="neighbor" help="Configure neighbor parameters">
+       <option input="ipv6" arg="addr" help="IPv6 address of neighbor">
+         <option name="targeted" help="Establish targeted session" function="ldp_vty_neighbor_targeted"/>
+       </option>
+     </option>
+  </subtree>
+  <tree name="ldp_ipv6_node">
+    <include subtree="__ldp_ipv6_node"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+      <include subtree="__ldp_ipv6_node"/>
+    </option>
+  </tree>
+
+  <!-- ldp ipv4 interface node -->
+  <subtree name="__ldp_ipv4_iface_node">
+    <include subtree="discovery_link"/>
+  </subtree>
+  <tree name="ldp_ipv4_iface_node">
+    <include subtree="__ldp_ipv4_iface_node"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+      <include subtree="__ldp_ipv4_iface_node"/>
+    </option>
+  </tree>
+
+  <!-- ldp ipv6 interface node -->
+  <subtree name="__ldp_ipv6_iface_node">
+    <include subtree="discovery_link"/>
+  </subtree>
+  <tree name="ldp_ipv6_iface_node">
+    <include subtree="__ldp_ipv6_iface_node"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+      <include subtree="__ldp_ipv6_iface_node"/>
+    </option>
+  </tree>
+
+  <!-- l2vpn -->
+  <subtree name="__ldp_l2vpn">
+    <option name="bridge" help="Bridge interface">
+      <option input="ifname" arg="ifname" help="Interface's name" function="ldp_vty_l2vpn_bridge"/>
+    </option>
+    <option name="mtu" help="set Maximum Transmission Unit">
+      <option input="mtu" arg="mtu" help="Maximum Transmission Unit value" function="ldp_vty_l2vpn_mtu"/>
+    </option>
+    <option name="member" help="L2VPN member configuration">
+      <option name="interface" help="Local interface">
+        <option input="ifname" arg="ifname" help="Interface's name" function="ldp_vty_l2vpn_interface"/>
+      </option>
+      <option name="pseudowire" help="Pseudowire interface">
+        <option input="ifname" arg="ifname" help="Interface's name" function="ldp_vty_l2vpn_pseudowire"/>
+      </option>
+    </option>
+    <option name="vc" help="Virtual Circuit options">
+      <option name="type" help="Virtual Circuit type to use">
+        <select options="pwtype" arg="type" function="ldp_vty_l2vpn_pwtype"/>
+      </option>
+    </option>
+  </subtree>
+  <tree name="ldp_l2vpn">
+    <include subtree="__ldp_l2vpn"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+      <include subtree="__ldp_l2vpn"/>
+    </option>
+  </tree>
+
+  <!-- l2vpn pseudowire -->
+  <subtree name="__ldp_pseudowire">
+    <option name="control-word" help="Control-word options">
+      <select options="cword" arg="preference" function="ldp_vty_l2vpn_pw_cword"/>
+    </option>
+    <option name="neighbor" help="Remote endpoint configuration">
+      <option name="address" help="Specify the IPv4 or IPv6 address of the remote endpoint">
+        <select options="addr" arg="addr" function="ldp_vty_l2vpn_pw_nbr_addr"/>
+      </option>
+      <option name="lsr-id" help="Specify the LSR-ID of the remote endpoint">
+        <option input="ipv4" arg="lsr-id" help="IPv4 address" function="ldp_vty_l2vpn_pw_nbr_id"/>
+      </option>
+    </option>
+    <option name="pw-id" help="Set the Virtual Circuit ID">
+      <option input="pwid" arg="pwid" help="Virtual Circuit ID value" function="ldp_vty_l2vpn_pw_pwid"/>
+    </option>
+    <option name="pw-status" help="Configure PW status">
+      <option name="disable" help="Disable PW status" function="ldp_vty_l2vpn_pw_pwstatus"/>
+    </option>
+  </subtree>
+  <tree name="ldp_pseudowire">
+    <include subtree="__ldp_pseudowire"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+      <include subtree="__ldp_pseudowire"/>
+    </option>
+  </tree>
+
+  <!-- exec mode commands -->
+  <subtree name="ldp_show_af">
+    <option name="binding" help="Label Information Base (LIB) information" function="ldp_vty_show_binding"/>
+    <option name="discovery" help="Discovery Hello Information" function="ldp_vty_show_discovery"/>
+    <option name="interface" help="interface information" function="ldp_vty_show_interface"/>
+  </subtree>
+  <tree name="ldp_exec">
+    <option name="show" help="Show running system information">
+      <option name="mpls" help="MPLS information">
+        <option name="ldp" help="Label Distribution Protocol">
+          <option name="neighbor" help="Neighbor information" function="ldp_vty_show_neighbor"/>
+          <include subtree="ldp_show_af"/>
+          <select options="address-family" arg="address-family">
+            <include subtree="ldp_show_af"/>
+          </select>
+        </option>
+      </option>
+      <option name="l2vpn" help="Show information about Layer2 VPN">
+        <option name="atom" help="Show Any Transport over MPLS information">
+          <option name="binding" help="Show AToM label binding information" function="ldp_vty_show_atom_binding"/>
+          <option name="vc" help="Show AToM virtual circuit information" function="ldp_vty_show_atom_vc"/>
+        </option>
+      </option>
+      <option name="debugging" help="Debugging functions">
+        <option name="mpls" help="MPLS information">
+          <option name="ldp" help="Label Distribution Protocol" function="ldp_vty_show_debugging"/>
+        </option>
+      </option>
+    </option>
+    <option name="clear" help="Reset functions">
+      <option name="mpls" help="Reset MPLS statistical information">
+        <option name="ldp" help="Clear LDP state">
+          <option name="neighbor" help="Clear LDP neighbor sessions" function="ldp_vty_clear_nbr">
+            <select options="addr" arg="addr" function="ldp_vty_clear_nbr"/>
+          </option>
+        </option>
+      </option>
+    </option>
+  </tree>
+
+  <!-- debug commands -->
+  <subtree name="__ldp_debug">
+    <option name="debug" help="Debugging functions">
+      <option name="mpls" help="MPLS information">
+        <option name="ldp" help="Label Distribution Protocol">
+          <option name="discovery" arg="type" help="Discovery messages">
+            <option name="hello" help="Discovery hello message">
+              <select options="dir" arg="dir" function="ldp_vty_debug"/>
+            </option>
+          </option>
+          <option name="errors" arg="type" help="Errors" function="ldp_vty_debug"/>
+          <option name="event" arg="type" help="LDP event information" function="ldp_vty_debug"/>
+          <option name="messages" arg="type" help="Messages">
+            <option name="recv" arg="dir" help="Received messages, excluding periodic Keep Alives" function="ldp_vty_debug">
+              <option name="all" arg="all" help="Received messages, including periodic Keep Alives" function="ldp_vty_debug"/>
+            </option>
+            <option name="sent" arg="dir" help="Sent messages, excluding periodic Keep Alives" function="ldp_vty_debug">
+              <option name="all" arg="all" help="Sent messages, including periodic Keep Alives" function="ldp_vty_debug"/>
+            </option>
+          </option>
+          <option name="zebra" arg="type" help="LDP zebra information" function="ldp_vty_debug"/>
+        </option>
+      </option>
+    </option>
+  </subtree>
+  <tree name="ldp_debug">
+    <include subtree="__ldp_debug"/>
+    <option name="no" arg="no" help="Negate a command or set its defaults">
+        <include subtree="__ldp_debug"/>
+    </option>
+  </tree>
+
+  <!-- nodes -->
+  <node name="CONFIG">
+    <include tree="global"/>
+    <include tree="ldp_debug"/>
+  </node>
+  <node install="1" install_default="1" config_write="ldp_config_write" name="LDP">
+    <include tree="ldp_node"/>
+  </node>
+  <node install="1" install_default="1" config_write="NULL" name="LDP_IPV4">
+    <include tree="ldp_ipv4_node"/>
+  </node>
+  <node install="1" install_default="1" config_write="NULL" name="LDP_IPV6">
+    <include tree="ldp_ipv6_node"/>
+  </node>
+  <node install="1" install_default="1" config_write="NULL" name="LDP_IPV4_IFACE">
+    <include tree="ldp_ipv4_iface_node"/>
+  </node>
+  <node install="1" install_default="1" config_write="NULL" name="LDP_IPV6_IFACE">
+    <include tree="ldp_ipv6_iface_node"/>
+  </node>
+  <node install="1" install_default="1" config_write="ldp_l2vpn_config_write" name="LDP_L2VPN">
+    <include tree="ldp_l2vpn"/>
+  </node>
+  <node install="1" install_default="1" config_write="NULL" name="LDP_PSEUDOWIRE">
+    <include tree="ldp_pseudowire"/>
+  </node>
+  <node install="1" config_write="ldp_debug_config_write" name="LDP_DEBUG"/>
+  <node name="ENABLE">
+    <include tree="ldp_exec"/>
+    <include tree="ldp_debug"/>
+  </node>
+  <node name="VIEW">
+    <include tree="ldp_exec"/>
+  </node>
+</file>

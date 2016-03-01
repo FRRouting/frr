@@ -19,31 +19,24 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netmpls/mpls.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <string.h>
-#include <pwd.h>
-#include <unistd.h>
-#include <limits.h>
+#include <zebra.h>
 
 #include "ldp.h"
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
 #include "lde.h"
+#include "ldp_debug.h"
 
-static void		 lde_sig_handler(int sig, short, void *);
-static __dead void	 lde_shutdown(void);
-static int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
-static void		 lde_dispatch_imsg(int, short, void *);
-static void		 lde_dispatch_parent(int, short, void *);
+#include <lib/log.h>
+#include "memory.h"
+#include "privs.h"
+#include "sigevent.h"
+#include "mpls.h"
+
+static void		 lde_shutdown(void);
+static int		 lde_dispatch_imsg(struct thread *);
+static int		 lde_dispatch_parent(struct thread *);
 static __inline		 int lde_nbr_compare(struct lde_nbr *,
 			    struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
@@ -65,89 +58,101 @@ struct nbr_tree		 lde_nbrs = RB_INITIALIZER(&lde_nbrs);
 static struct imsgev	*iev_ldpe;
 static struct imsgev	*iev_main;
 
-/* ARGSUSED */
-static void
-lde_sig_handler(int sig, short event, void *arg)
-{
-	/*
-	 * signal handler rules don't apply, libevent decouples for us
-	 */
+/* Master of threads. */
+struct thread_master *master;
 
-	switch (sig) {
-	case SIGINT:
-	case SIGTERM:
-		lde_shutdown();
-		/* NOTREACHED */
-	default:
-		fatalx("unexpected signal");
-	}
+/* lde privileges */
+static zebra_capabilities_t _caps_p [] =
+{
+	/* none */
+};
+
+static struct zebra_privs_t lde_privs =
+{
+#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
+	.user = QUAGGA_USER,
+	.group = QUAGGA_GROUP,
+#endif
+#if defined(VTY_GROUP)
+	.vty_group = VTY_GROUP,
+#endif
+	.caps_p = _caps_p,
+	.cap_num_p = array_size(_caps_p),
+	.cap_num_i = 0
+};
+
+/* SIGINT / SIGTERM handler. */
+static void
+sigint(void)
+{
+	lde_shutdown();
 }
+
+static struct quagga_signal_t lde_signals[] =
+{
+	{
+		.signal = SIGINT,
+		.handler = &sigint,
+	},
+	{
+		.signal = SIGTERM,
+		.handler = &sigint,
+	},
+};
 
 /* label decision engine */
 void
-lde(int debug, int verbose)
+lde(const char *user, const char *group)
 {
-	struct event		 ev_sigint, ev_sigterm;
+	struct thread		 thread;
 	struct timeval		 now;
-	struct passwd		*pw;
 
 	ldeconf = config_new_empty();
 
-	log_init(debug);
-	log_verbose(verbose);
-
+#ifdef HAVE_SETPROCTITLE
 	setproctitle("label decision engine");
+#endif
 	ldpd_process = PROC_LDE_ENGINE;
 
-	if ((pw = getpwnam(LDPD_USER)) == NULL)
-		fatal("getpwnam");
+	/* drop privileges */
+	if (user)
+		lde_privs.user = user;
+	if (group)
+		lde_privs.group = group;
+	zprivs_init(&lde_privs);
 
-	if (chroot(pw->pw_dir) == -1)
-		fatal("chroot");
-	if (chdir("/") == -1)
-		fatal("chdir(\"/\")");
-
-	if (setgroups(1, &pw->pw_gid) ||
-	    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) ||
-	    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid))
-		fatal("can't drop privileges");
-
+#ifdef HAVE_PLEDGE
 	if (pledge("stdio recvfd", NULL) == -1)
 		fatal("pledge");
+#endif
 
-	event_init();
+	master = thread_master_create();
 
 	/* setup signal handler */
-	signal_set(&ev_sigint, SIGINT, lde_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, lde_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGHUP, SIG_IGN);
+	signal_init(master, array_size(lde_signals), lde_signals);
 
 	/* setup pipe and event handler to the parent process */
 	if ((iev_main = malloc(sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, 3);
-	iev_main->handler = lde_dispatch_parent;
-	iev_main->events = EV_READ;
-	event_set(&iev_main->ev, iev_main->ibuf.fd, iev_main->events,
-	    iev_main->handler, iev_main);
-	event_add(&iev_main->ev, NULL);
+	iev_main->handler_read = lde_dispatch_parent;
+	iev_main->ev_read = thread_add_read(master, iev_main->handler_read,
+	    iev_main, iev_main->ibuf.fd);
+	iev_main->handler_write = ldp_write_handler;
+	iev_main->ev_write = NULL;
 
-	/* setup and start the LIB garbage collector */
-	evtimer_set(&gc_timer, lde_gc_timer, NULL);
+	/* start the LIB garbage collector */
 	lde_gc_start_timer();
 
 	gettimeofday(&now, NULL);
 	global.uptime = now.tv_sec;
 
-	event_dispatch();
-
-	lde_shutdown();
+	/* Fetch next active thread. */
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
 }
 
-static __dead void
+static void
 lde_shutdown(void)
 {
 	/* close pipes */
@@ -170,7 +175,7 @@ lde_shutdown(void)
 }
 
 /* imesg */
-static int
+int
 lde_imsg_compose_parent(int type, pid_t pid, void *data, uint16_t datalen)
 {
 	return (imsg_compose_event(iev_main, type, 0, pid, -1, data, datalen));
@@ -185,10 +190,10 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static void
-lde_dispatch_imsg(int fd, short event, void *bula)
+static int
+lde_dispatch_imsg(struct thread *thread)
 {
-	struct imsgev		*iev = bula;
+	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct lde_nbr		*ln;
@@ -196,20 +201,14 @@ lde_dispatch_imsg(int fd, short event, void *bula)
 	struct lde_addr		 lde_addr;
 	struct notify_msg	 nm;
 	ssize_t			 n;
-	int			 shut = 0, verbose;
+	int			 shut = 0;
 
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
-			fatal("imsg_read error");
-		if (n == 0)	/* connection closed */
-			shut = 1;
-	}
-	if (event & EV_WRITE) {
-		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
-			fatal("msgbuf_write");
-		if (n == 0)	/* connection closed */
-			shut = 1;
-	}
+	iev->ev_read = NULL;
+
+	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+		fatal("imsg_read error");
+	if (n == 0)	/* connection closed */
+		shut = 1;
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
@@ -353,11 +352,6 @@ lde_dispatch_imsg(int fd, short event, void *bula)
 			lde_imsg_compose_ldpe(IMSG_CTL_END, 0,
 			    imsg.hdr.pid, NULL, 0);
 			break;
-		case IMSG_CTL_LOG_VERBOSE:
-			/* already checked by ldpe */
-			memcpy(&verbose, imsg.data, sizeof(verbose));
-			log_verbose(verbose);
-			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
 			    imsg.hdr.type);
@@ -368,15 +362,18 @@ lde_dispatch_imsg(int fd, short event, void *bula)
 	if (!shut)
 		imsg_event_add(iev);
 	else {
-		/* this pipe is dead, so remove the event handler */
-		event_del(&iev->ev);
-		event_loopexit(NULL);
+		/* this pipe is dead, so remove the event handlers and exit */
+		THREAD_READ_OFF(iev->ev_read);
+		THREAD_WRITE_OFF(iev->ev_write);
+		lde_shutdown();
 	}
+
+	return (0);
 }
 
 /* ARGSUSED */
-static void
-lde_dispatch_parent(int fd, short event, void *bula)
+static int
+lde_dispatch_parent(struct thread *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*niface;
@@ -387,24 +384,19 @@ lde_dispatch_parent(int fd, short event, void *bula)
 	struct l2vpn_pw		*npw;
 	struct imsg		 imsg;
 	struct kroute		 kr;
-	struct imsgev		*iev = bula;
+	int			 fd = THREAD_FD(thread);
+	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	ssize_t			 n;
 	int			 shut = 0;
 	struct fec		 fec;
 
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
-			fatal("imsg_read error");
-		if (n == 0)	/* connection closed */
-			shut = 1;
-	}
-	if (event & EV_WRITE) {
-		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
-			fatal("msgbuf_write");
-		if (n == 0)	/* connection closed */
-			shut = 1;
-	}
+	iev->ev_read = NULL;
+
+	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+		fatal("imsg_read error");
+	if (n == 0)	/* connection closed */
+		shut = 1;
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
@@ -462,11 +454,11 @@ lde_dispatch_parent(int fd, short event, void *bula)
 			if ((iev_ldpe = malloc(sizeof(struct imsgev))) == NULL)
 				fatal(NULL);
 			imsg_init(&iev_ldpe->ibuf, fd);
-			iev_ldpe->handler = lde_dispatch_imsg;
-			iev_ldpe->events = EV_READ;
-			event_set(&iev_ldpe->ev, iev_ldpe->ibuf.fd,
-			    iev_ldpe->events, iev_ldpe->handler, iev_ldpe);
-			event_add(&iev_ldpe->ev, NULL);
+			iev_ldpe->handler_read = lde_dispatch_imsg;
+			iev_ldpe->ev_read = thread_add_read(master,
+			    iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd);
+			iev_ldpe->handler_write = ldp_write_handler;
+			iev_ldpe->ev_write = NULL;
 			break;
 		case IMSG_RECONF_CONF:
 			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
@@ -513,6 +505,7 @@ lde_dispatch_parent(int fd, short event, void *bula)
 
 			LIST_INIT(&nl2vpn->if_list);
 			LIST_INIT(&nl2vpn->pw_list);
+			LIST_INIT(&nl2vpn->pw_inactive_list);
 
 			LIST_INSERT_HEAD(&nconf->l2vpn_list, nl2vpn, entry);
 			break;
@@ -532,9 +525,25 @@ lde_dispatch_parent(int fd, short event, void *bula)
 			npw->l2vpn = nl2vpn;
 			LIST_INSERT_HEAD(&nl2vpn->pw_list, npw, entry);
 			break;
+		case IMSG_RECONF_L2VPN_IPW:
+			if ((npw = malloc(sizeof(struct l2vpn_pw))) == NULL)
+				fatal(NULL);
+			memcpy(npw, imsg.data, sizeof(struct l2vpn_pw));
+
+			npw->l2vpn = nl2vpn;
+			LIST_INSERT_HEAD(&nl2vpn->pw_inactive_list, npw, entry);
+			break;
 		case IMSG_RECONF_END:
 			merge_config(ldeconf, nconf);
 			nconf = NULL;
+			break;
+		case IMSG_DEBUG_UPDATE:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(ldp_debug)) {
+				log_warnx("%s: wrong imsg len", __func__);
+				break;
+			}
+			memcpy(&ldp_debug, imsg.data, sizeof(ldp_debug));
 			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
@@ -546,10 +555,13 @@ lde_dispatch_parent(int fd, short event, void *bula)
 	if (!shut)
 		imsg_event_add(iev);
 	else {
-		/* this pipe is dead, so remove the event handler */
-		event_del(&iev->ev);
-		event_loopexit(NULL);
+		/* this pipe is dead, so remove the event handlers and exit */
+		THREAD_READ_OFF(iev->ev_read);
+		THREAD_WRITE_OFF(iev->ev_write);
+		lde_shutdown();
 	}
+
+	return (0);
 }
 
 uint32_t
@@ -557,7 +569,10 @@ lde_assign_label(void)
 {
 	static uint32_t label = MPLS_LABEL_RESERVED_MAX;
 
-	/* XXX some checks needed */
+	/*
+	 * TODO: request label to zebra or define a range of labels for ldpd.
+	 */
+
 	label++;
 	return (label);
 }

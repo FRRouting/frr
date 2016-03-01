@@ -18,22 +18,20 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
+
+#include "sockopt.h"
 
 static struct if_addr	*if_addr_new(struct kaddr *);
 static struct if_addr	*if_addr_lookup(struct if_addr_head *, struct kaddr *);
 static int		 if_start(struct iface *, int);
 static int		 if_reset(struct iface *, int);
 static void		 if_update_af(struct iface_af *, int);
-static void		 if_hello_timer(int, short, void *);
+static int		 if_hello_timer(struct thread *);
 static void		 if_start_hello_timer(struct iface_af *);
 static void		 if_stop_hello_timer(struct iface_af *);
 static int		 if_join_ipv4_group(struct iface *, struct in_addr *);
@@ -50,20 +48,9 @@ if_new(struct kif *kif)
 		fatal("if_new: calloc");
 
 	strlcpy(iface->name, kif->ifname, sizeof(iface->name));
-
-	/* get type */
-	if (kif->flags & IFF_POINTOPOINT)
-		iface->type = IF_TYPE_POINTOPOINT;
-	if (kif->flags & IFF_BROADCAST &&
-	    kif->flags & IFF_MULTICAST)
-		iface->type = IF_TYPE_BROADCAST;
-
-	/* get index and flags */
 	LIST_INIT(&iface->addr_list);
-	iface->ifindex = kif->ifindex;
-	iface->flags = kif->flags;
-	iface->linkstate = kif->link_state;
-	iface->if_type = kif->if_type;
+	if (kif->ifindex)
+		if_update_info(iface, kif);
 
 	/* ipv4 */
 	iface->ipv4.af = AF_INET;
@@ -110,6 +97,33 @@ if_exit(struct iface *iface)
 		LIST_REMOVE(if_addr, entry);
 		free(if_addr);
 	}
+}
+
+struct iface *
+if_lookup_name(struct ldpd_conf *xconf, const char *ifname)
+{
+	struct iface *iface;
+
+	LIST_FOREACH(iface, &xconf->iface_list, entry)
+		if (strcmp(iface->name, ifname) == 0)
+			return (iface);
+
+	return (NULL);
+}
+
+void
+if_update_info(struct iface *iface, struct kif *kif)
+{
+	/* get type */
+	if (kif->flags & IFF_POINTOPOINT)
+		iface->type = IF_TYPE_POINTOPOINT;
+	if (kif->flags & IFF_BROADCAST &&
+	    kif->flags & IFF_MULTICAST)
+		iface->type = IF_TYPE_BROADCAST;
+
+	/* get index and flags */
+	iface->ifindex = kif->ifindex;
+	iface->flags = kif->flags;
 }
 
 struct iface_af *
@@ -258,7 +272,6 @@ if_start(struct iface *iface, int af)
 
 	send_hello(HELLO_LINK, ia, NULL);
 
-	evtimer_set(&ia->hello_timer, if_hello_timer, ia);
 	if_start_hello_timer(ia);
 	return (0);
 }
@@ -328,7 +341,7 @@ if_update_af(struct iface_af *ia, int link_ok)
 	else
 		socket_ok = 0;
 
-	if (leconf->rtr_id.s_addr != INADDR_ANY)
+	if (ldp_rtr_id_get(leconf) != INADDR_ANY)
 		rtr_id_ok = 1;
 	else
 		rtr_id_ok = 0;
@@ -354,8 +367,7 @@ if_update(struct iface *iface, int af)
 {
 	int			 link_ok;
 
-	link_ok = (iface->flags & IFF_UP) &&
-	    LINK_STATE_IS_UP(iface->linkstate);
+	link_ok = (iface->flags & IFF_UP) && (iface->flags & IFF_RUNNING);
 
 	if (af == AF_INET || af == AF_UNSPEC)
 		if_update_af(&iface->ipv4, link_ok);
@@ -372,34 +384,56 @@ if_update_all(int af)
 		if_update(iface, af);
 }
 
+uint16_t
+if_get_hello_holdtime(struct iface_af *ia)
+{
+	if (ia->hello_holdtime != 0)
+		return (ia->hello_holdtime);
+
+	if ((ldp_af_conf_get(leconf, ia->af))->lhello_holdtime != 0)
+		return ((ldp_af_conf_get(leconf, ia->af))->lhello_holdtime);
+
+	return (leconf->lhello_holdtime);
+}
+
+uint16_t
+if_get_hello_interval(struct iface_af *ia)
+{
+	if (ia->hello_interval != 0)
+		return (ia->hello_interval);
+
+	if ((ldp_af_conf_get(leconf, ia->af))->lhello_interval != 0)
+		return ((ldp_af_conf_get(leconf, ia->af))->lhello_interval);
+
+	return (leconf->lhello_interval);
+}
+
 /* timers */
 /* ARGSUSED */
-static void
-if_hello_timer(int fd, short event, void *arg)
+static int
+if_hello_timer(struct thread *thread)
 {
-	struct iface_af		*ia = arg;
+	struct iface_af		*ia = THREAD_ARG(thread);
 
+	ia->hello_timer = NULL;
 	send_hello(HELLO_LINK, ia, NULL);
 	if_start_hello_timer(ia);
+
+	return (0);
 }
 
 static void
 if_start_hello_timer(struct iface_af *ia)
 {
-	struct timeval		 tv;
-
-	timerclear(&tv);
-	tv.tv_sec = ia->hello_interval;
-	if (evtimer_add(&ia->hello_timer, &tv) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(ia->hello_timer);
+	ia->hello_timer = thread_add_timer(master, if_hello_timer, ia,
+	    if_get_hello_interval(ia));
 }
 
 static void
 if_stop_hello_timer(struct iface_af *ia)
 {
-	if (evtimer_pending(&ia->hello_timer, NULL) &&
-	    evtimer_del(&ia->hello_timer) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(ia->hello_timer);
 }
 
 struct ctl_iface *
@@ -414,11 +448,9 @@ if_to_ctl(struct iface_af *ia)
 	ictl.ifindex = ia->iface->ifindex;
 	ictl.state = ia->state;
 	ictl.flags = ia->iface->flags;
-	ictl.linkstate = ia->iface->linkstate;
 	ictl.type = ia->iface->type;
-	ictl.if_type = ia->iface->if_type;
-	ictl.hello_holdtime = ia->hello_holdtime;
-	ictl.hello_interval = ia->hello_interval;
+	ictl.hello_holdtime = if_get_hello_holdtime(ia);
+	ictl.hello_interval = if_get_hello_interval(ia);
 
 	gettimeofday(&now, NULL);
 	if (ia->state != IF_STA_DOWN &&
@@ -450,16 +482,15 @@ if_get_ipv4_addr(struct iface *iface)
 static int
 if_join_ipv4_group(struct iface *iface, struct in_addr *addr)
 {
-	struct ip_mreq		 mreq;
+	struct in_addr		 if_addr;
 
 	log_debug("%s: interface %s addr %s", __func__, iface->name,
 	    inet_ntoa(*addr));
 
-	mreq.imr_multiaddr = *addr;
-	mreq.imr_interface.s_addr = if_get_ipv4_addr(iface);
+	if_addr.s_addr = if_get_ipv4_addr(iface);
 
-	if (setsockopt(global.ipv4.ldp_disc_socket, IPPROTO_IP,
-	    IP_ADD_MEMBERSHIP, (void *)&mreq, sizeof(mreq)) < 0) {
+	if (setsockopt_ipv4_multicast(global.ipv4.ldp_disc_socket,
+	    IP_ADD_MEMBERSHIP, if_addr, addr->s_addr, iface->ifindex) < 0) {
 		log_warn("%s: error IP_ADD_MEMBERSHIP, interface %s address %s",
 		     __func__, iface->name, inet_ntoa(*addr));
 		return (-1);
@@ -470,16 +501,15 @@ if_join_ipv4_group(struct iface *iface, struct in_addr *addr)
 static int
 if_leave_ipv4_group(struct iface *iface, struct in_addr *addr)
 {
-	struct ip_mreq		 mreq;
+	struct in_addr		 if_addr;
 
 	log_debug("%s: interface %s addr %s", __func__, iface->name,
 	    inet_ntoa(*addr));
 
-	mreq.imr_multiaddr = *addr;
-	mreq.imr_interface.s_addr = if_get_ipv4_addr(iface);
+	if_addr.s_addr = if_get_ipv4_addr(iface);
 
-	if (setsockopt(global.ipv4.ldp_disc_socket, IPPROTO_IP,
-	    IP_DROP_MEMBERSHIP, (void *)&mreq, sizeof(mreq)) < 0) {
+	if (setsockopt_ipv4_multicast(global.ipv4.ldp_disc_socket,
+	    IP_DROP_MEMBERSHIP, if_addr, addr->s_addr, iface->ifindex) < 0) {
 		log_warn("%s: error IP_DROP_MEMBERSHIP, interface %s "
 		    "address %s", __func__, iface->name, inet_ntoa(*addr));
 		return (-1);

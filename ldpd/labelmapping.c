@@ -17,17 +17,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netmpls/mpls.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
+#include "ldp_debug.h"
+
+#include "mpls.h"
 
 static void	 enqueue_pdu(struct nbr *, struct ibuf *, uint16_t);
 static int	 gen_label_tlv(struct ibuf *, uint32_t);
@@ -127,8 +124,8 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 			return;
 		}
 
-		log_debug("msg-out: %s: lsr-id %s, fec %s, label %s",
-		    msg_name(type), inet_ntoa(nbr->id), log_map(&me->map),
+		debug_msg_send("%s: lsr-id %s fec %s label %s", msg_name(type),
+		    inet_ntoa(nbr->id), log_map(&me->map),
 		    log_label(me->map.label));
 
 		TAILQ_REMOVE(mh, me, entry);
@@ -399,7 +396,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		if (me->map.flags & F_MAP_REQ_ID)
 			me->map.requestid = reqid;
 
-		log_debug("msg-in: label mapping: lsr-id %s, fec %s, label %s",
+		debug_msg_recv("%s: lsr-id %s fec %s label %s", msg_name(type),
 		    inet_ntoa(nbr->id), log_map(&me->map),
 		    log_label(me->map.label));
 

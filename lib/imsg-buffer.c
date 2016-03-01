@@ -16,17 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/socket.h>
-#include <sys/uio.h>
+#include <zebra.h>
 
-#include <limits.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
+#include "openbsd-queue.h"
 #include "imsg.h"
 
 int	ibuf_realloc(struct ibuf *, size_t);
@@ -258,7 +250,7 @@ msgbuf_write(struct msgbuf *msgbuf)
 		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
 		cmsg->cmsg_level = SOL_SOCKET;
 		cmsg->cmsg_type = SCM_RIGHTS;
-		*(int *)CMSG_DATA(cmsg) = buf->fd;
+		memcpy(CMSG_DATA(cmsg), &buf->fd, sizeof(int));
 	}
 
 again:

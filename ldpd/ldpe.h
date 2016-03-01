@@ -21,10 +21,11 @@
 #ifndef _LDPE_H_
 #define _LDPE_H_
 
-#include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
+#include "openbsd-queue.h"
+#include "openbsd-tree.h"
+#ifdef __OpenBSD__
 #include <net/pfkeyv2.h>
+#endif
 
 #include "ldpd.h"
 
@@ -48,7 +49,7 @@ struct adj {
 	struct nbr		*nbr;
 	int			 ds_tlv;
 	struct hello_source	 source;
-	struct event		 inactivity_timer;
+	struct thread		*inactivity_timer;
 	uint16_t		 holdtime;
 	union ldpd_addr		 trans_addr;
 };
@@ -58,18 +59,20 @@ struct tcp_conn {
 	int			 fd;
 	struct ibuf_read	*rbuf;
 	struct evbuf		 wbuf;
-	struct event		 rev;
+	struct thread		*rev;
+	in_port_t		 lport;
+	in_port_t		 rport;
 };
 
 struct nbr {
 	RB_ENTRY(nbr)		 id_tree, addr_tree, pid_tree;
 	struct tcp_conn		*tcp;
 	LIST_HEAD(, adj)	 adj_list;	/* adjacencies */
-	struct event		 ev_connect;
-	struct event		 keepalive_timer;
-	struct event		 keepalive_timeout;
-	struct event		 init_timeout;
-	struct event		 initdelay_timer;
+	struct thread		*ev_connect;
+	struct thread		*keepalive_timer;
+	struct thread		*keepalive_timeout;
+	struct thread		*init_timeout;
+	struct thread		*initdelay_timer;
 
 	struct mapping_head	 mapping_list;
 	struct mapping_head	 withdraw_list;
@@ -117,7 +120,7 @@ struct pending_conn {
 	int				 fd;
 	int				 af;
 	union ldpd_addr			 addr;
-	struct event			 ev_timeout;
+	struct thread			*ev_timeout;
 };
 #define PENDING_CONN_TIMEOUT	5
 
@@ -139,7 +142,7 @@ extern struct nbr_pid_head	 nbrs_by_pid;
 
 /* accept.c */
 void	accept_init(void);
-int	accept_add(int, void (*)(int, short, void *), void *);
+int	accept_add(int, int (*)(struct thread *), void *);
 void	accept_del(int);
 void	accept_pause(void);
 void	accept_unpause(void);
@@ -180,7 +183,7 @@ int	 tlv_decode_fec_elm(struct nbr *, struct ldp_msg *, char *,
 	    uint16_t, struct map *);
 
 /* ldpe.c */
-void		 ldpe(int, int);
+void		 ldpe(const char *, const char *);
 int		 ldpe_imsg_compose_parent(int, pid_t, void *,
 		    uint16_t);
 int		 ldpe_imsg_compose_lde(int, uint32_t, pid_t, void *,
@@ -200,11 +203,15 @@ void		 mapping_list_clr(struct mapping_head *);
 struct iface	*if_new(struct kif *);
 void		 if_exit(struct iface *);
 struct iface	*if_lookup(struct ldpd_conf *, unsigned short);
+struct iface	*if_lookup_name(struct ldpd_conf *, const char *);
+void		 if_update_info(struct iface *, struct kif *);
 struct iface_af *iface_af_get(struct iface *, int);
 void		 if_addr_add(struct kaddr *);
 void		 if_addr_del(struct kaddr *);
 void		 if_update(struct iface *, int);
 void		 if_update_all(int);
+uint16_t	 if_get_hello_holdtime(struct iface_af *);
+uint16_t	 if_get_hello_interval(struct iface_af *);
 struct ctl_iface *if_to_ctl(struct iface_af *);
 in_addr_t	 if_get_ipv4_addr(struct iface *);
 
@@ -216,11 +223,13 @@ struct adj	*adj_find(struct hello_source *);
 int		 adj_get_af(struct adj *adj);
 void		 adj_start_itimer(struct adj *);
 void		 adj_stop_itimer(struct adj *);
-struct tnbr	*tnbr_new(struct ldpd_conf *, int, union ldpd_addr *);
+struct tnbr	*tnbr_new(int, union ldpd_addr *);
 struct tnbr	*tnbr_find(struct ldpd_conf *, int, union ldpd_addr *);
 struct tnbr	*tnbr_check(struct tnbr *);
 void		 tnbr_update(struct tnbr *);
 void		 tnbr_update_all(int);
+uint16_t	 tnbr_get_hello_holdtime(struct tnbr *);
+uint16_t	 tnbr_get_hello_interval(struct tnbr *);
 struct ctl_adj	*adj_to_ctl(struct adj *);
 
 /* neighbor.c */
@@ -255,8 +264,8 @@ int			 gen_ldp_hdr(struct ibuf *, uint16_t);
 int			 gen_msg_hdr(struct ibuf *, uint16_t, uint16_t);
 int			 send_packet(int, int, union ldpd_addr *,
 			    struct iface_af *, void *, size_t);
-void			 disc_recv_packet(int, short, void *);
-void			 session_accept(int, short, void *);
+int			 disc_recv_packet(struct thread *);
+int			 session_accept(struct thread *);
 void			 session_accept_nbr(struct nbr *, int);
 void			 session_shutdown(struct nbr *, uint32_t, uint32_t,
 			    uint32_t);
@@ -268,10 +277,12 @@ struct pending_conn	*pending_conn_find(int, union ldpd_addr *);
 char	*pkt_ptr;	/* packet buffer */
 
 /* pfkey.c */
+#ifdef __OpenBSD__
 int	pfkey_read(int, struct sadb_msg *);
 int	pfkey_establish(struct nbr *, struct nbr_params *);
 int	pfkey_remove(struct nbr *);
 int	pfkey_init(void);
+#endif
 
 /* l2vpn.c */
 void	ldpe_l2vpn_init(struct l2vpn *);

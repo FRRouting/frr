@@ -19,36 +19,40 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
+#include <zebra.h>
 #include <sys/wait.h>
-#include <err.h>
-#include <errno.h>
-#include <pwd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <unistd.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "lde.h"
 #include "log.h"
+#include "ldp_vty.h"
+#include "ldp_debug.h"
 
-static void		 main_sig_handler(int, short, void *);
-static __dead void	 usage(void);
-static __dead void	 ldpd_shutdown(void);
-static pid_t		 start_child(enum ldpd_process, char *, int, int, int);
-static void		 main_dispatch_ldpe(int, short, void *);
-static void		 main_dispatch_lde(int, short, void *);
-static int		 main_imsg_compose_both(enum imsg_type, void *,
-			    uint16_t);
+#include <lib/version.h>
+#include <lib/log.h>
+#include "getopt.h"
+#include "vty.h"
+#include "command.h"
+#include "memory.h"
+#include "privs.h"
+#include "sigevent.h"
+#include "zclient.h"
+#include "vrf.h"
+
+static void		 ldpd_shutdown(void);
+static pid_t		 start_child(enum ldpd_process, char *, int,
+			    const char *, const char *);
+static int		 main_dispatch_ldpe(struct thread *);
+static int		 main_dispatch_lde(struct thread *);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
 			    struct imsgbuf *);
 static void		 main_imsg_send_net_sockets(int);
 static void		 main_imsg_send_net_socket(int, enum socket_type);
 static int		 main_imsg_send_config(struct ldpd_conf *);
-static int		 ldp_reload(void);
+static void		 ldp_config_normalize(struct ldpd_conf *);
+static void		 ldp_config_reset_main(struct ldpd_conf *);
+static void		 ldp_config_reset_af(struct ldpd_conf *, int);
 static void		 merge_global(struct ldpd_conf *, struct ldpd_conf *);
 static void		 merge_af(int, struct ldpd_af_conf *,
 			    struct ldpd_af_conf *);
@@ -63,84 +67,216 @@ static void		 merge_l2vpn(struct ldpd_conf *, struct l2vpn *,
 struct ldpd_global	 global;
 struct ldpd_conf	*ldpd_conf;
 
-static char		*conffile;
 static struct imsgev	*iev_ldpe;
 static struct imsgev	*iev_lde;
 static pid_t		 ldpe_pid;
 static pid_t		 lde_pid;
 
-/* ARGSUSED */
-static void
-main_sig_handler(int sig, short event, void *arg)
+#define LDP_DEFAULT_CONFIG	"ldpd.conf"
+#define LDP_VTY_PORT		2612
+
+/* Master of threads. */
+struct thread_master *master;
+
+/* Process ID saved for use by init system */
+static const char *pid_file = PATH_LDPD_PID;
+
+/* Configuration filename and directory. */
+static char config_default[] = SYSCONFDIR LDP_DEFAULT_CONFIG;
+
+/* ldpd privileges */
+static zebra_capabilities_t _caps_p [] =
 {
-	/* signal handler rules don't apply, libevent decouples for us */
-	switch (sig) {
-	case SIGTERM:
-	case SIGINT:
-		ldpd_shutdown();
-		/* NOTREACHED */
-	case SIGHUP:
-		if (ldp_reload() == -1)
-			log_warnx("configuration reload failed");
-		else
-			log_debug("configuration reloaded");
-		break;
-	default:
-		fatalx("unexpected signal");
-		/* NOTREACHED */
+	ZCAP_BIND,
+	ZCAP_NET_ADMIN
+};
+
+struct zebra_privs_t ldpd_privs =
+{
+#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
+	.user = QUAGGA_USER,
+	.group = QUAGGA_GROUP,
+#endif
+#if defined(VTY_GROUP)
+	.vty_group = VTY_GROUP,
+#endif
+	.caps_p = _caps_p,
+	.cap_num_p = array_size(_caps_p),
+	.cap_num_i = 0
+};
+
+/* LDPd options. */
+static struct option longopts[] =
+{
+	{ "daemon",      no_argument,       NULL, 'd'},
+	{ "config_file", required_argument, NULL, 'f'},
+	{ "pid_file",    required_argument, NULL, 'i'},
+	{ "socket",      required_argument, NULL, 'z'},
+	{ "dryrun",      no_argument,       NULL, 'C'},
+	{ "help",        no_argument,       NULL, 'h'},
+	{ "vty_addr",    required_argument, NULL, 'A'},
+	{ "vty_port",    required_argument, NULL, 'P'},
+	{ "user",        required_argument, NULL, 'u'},
+	{ "group",       required_argument, NULL, 'g'},
+	{ "version",     no_argument,       NULL, 'v'},
+	{ 0 }
+};
+
+/* Help information display. */
+static void __attribute__ ((noreturn))
+usage(char *progname, int status)
+{
+	if (status != 0)
+		fprintf(stderr, "Try `%s --help' for more information.\n",
+		    progname);
+	else {
+		printf("Usage : %s [OPTION...]\n\
+Daemon which manages LDP.\n\n\
+-d, --daemon       Runs in daemon mode\n\
+-f, --config_file  Set configuration file name\n\
+-i, --pid_file     Set process identifier file name\n\
+-z, --socket       Set path of zebra socket\n\
+-A, --vty_addr     Set vty's bind address\n\
+-P, --vty_port     Set vty's port number\n\
+-u, --user         User to run as\n\
+-g, --group        Group to run as\n\
+-v, --version      Print program version\n\
+-C, --dryrun       Check configuration for validity and exit\n\
+-h, --help         Display this help and exit\n\
+\n\
+Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 	}
+
+	exit(status);
 }
 
-static __dead void
-usage(void)
+/* SIGHUP handler. */
+static void
+sighup(void)
 {
-	extern char *__progname;
-
-	fprintf(stderr, "usage: %s [-dnv] [-D macro=value] [-f file]\n",
-	    __progname);
-	exit(1);
+	log_info("SIGHUP received");
 }
+
+/* SIGINT / SIGTERM handler. */
+static void
+sigint(void)
+{
+	log_info("SIGINT received");
+	ldpd_shutdown();
+}
+
+/* SIGUSR1 handler. */
+static void
+sigusr1(void)
+{
+	zlog_rotate(NULL);
+}
+
+static struct quagga_signal_t ldp_signals[] =
+{
+	{
+		.signal = SIGHUP,
+		.handler = &sighup,
+	},
+	{
+		.signal = SIGINT,
+		.handler = &sigint,
+	},
+	{
+		.signal = SIGTERM,
+		.handler = &sigint,
+	},
+	{
+		.signal = SIGUSR1,
+		.handler = &sigusr1,
+	}
+};
 
 int
 main(int argc, char *argv[])
 {
-	struct event		 ev_sigint, ev_sigterm, ev_sighup;
 	char			*saved_argv0;
-	int			 ch;
-	int			 debug = 0, lflag = 0, eflag = 0;
+	int			 lflag = 0, eflag = 0;
 	int			 pipe_parent2ldpe[2];
 	int			 pipe_parent2lde[2];
+	char			*p;
+	char			*vty_addr = NULL;
+	int			 vty_port = LDP_VTY_PORT;
+	int			 daemon_mode = 0;
+	const char		*user = NULL;
+	const char		*group = NULL;
+	char			*config_file = NULL;
+	char			*progname;
+	struct thread		 thread;
+	int			 dryrun = 0;
 
-	conffile = CONF_FILE;
 	ldpd_process = PROC_MAIN;
 
-	log_init(1);	/* log to stderr until daemonized */
-	log_verbose(1);
+	/* Set umask before anything for security */
+	umask(0027);
+
+	/* get program name */
+	progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
 
 	saved_argv0 = argv[0];
 	if (saved_argv0 == NULL)
-		saved_argv0 = "ldpd";
+		saved_argv0 = (char *)"ldpd";
 
-	while ((ch = getopt(argc, argv, "dD:f:nvLE")) != -1) {
-		switch (ch) {
-		case 'd':
-			debug = 1;
+	while (1) {
+		int opt;
+
+		opt = getopt_long(argc, argv, "df:i:z:hA:P:u:g:vCLE",
+		    longopts, 0);
+
+		if (opt == EOF)
 			break;
-		case 'D':
-			if (cmdline_symset(optarg) < 0)
-				log_warnx("could not parse macro definition %s",
-				    optarg);
+
+		switch (opt) {
+		case 0:
+			break;
+		case 'd':
+			daemon_mode = 1;
 			break;
 		case 'f':
-			conffile = optarg;
+			config_file = optarg;
 			break;
-		case 'n':
-			global.cmd_opts |= LDPD_OPT_NOACTION;
+		case 'A':
+			vty_addr = optarg;
+			break;
+		case 'i':
+			pid_file = optarg;
+			break;
+		case 'z':
+			zclient_serv_path_set(optarg);
+			break;
+		case 'P':
+			/*
+			 * Deal with atoi() returning 0 on failure, and ldpd
+			 * not listening on ldpd port.
+			 */
+			if (strcmp(optarg, "0") == 0) {
+				vty_port = 0;
+				break;
+			}
+			vty_port = atoi(optarg);
+			if (vty_port <= 0 || vty_port > 0xffff)
+				vty_port = LDP_VTY_PORT;
+			break;
+		case 'u':
+			user = optarg;
+			break;
+		case 'g':
+			group = optarg;
 			break;
 		case 'v':
-			if (global.cmd_opts & LDPD_OPT_VERBOSE)
-				global.cmd_opts |= LDPD_OPT_VERBOSE2;
-			global.cmd_opts |= LDPD_OPT_VERBOSE;
+			print_version(progname);
+			exit(0);
+			break;
+		case 'C':
+			dryrun = 1;
+			break;
+		case 'h':
+			usage(progname, 0);
 			break;
 		case 'L':
 			lflag = 1;
@@ -149,125 +285,132 @@ main(int argc, char *argv[])
 			eflag = 1;
 			break;
 		default:
-			usage();
-			/* NOTREACHED */
+			usage(progname, 1);
+			break;
 		}
 	}
 
 	argc -= optind;
 	argv += optind;
 	if (argc > 0 || (lflag && eflag))
-		usage();
+		usage(progname, 1);
 
-	if (lflag)
-		lde(debug, global.cmd_opts & LDPD_OPT_VERBOSE);
-	else if (eflag)
-		ldpe(debug, global.cmd_opts & LDPD_OPT_VERBOSE);
-
-	/* fetch interfaces early */
-	kif_init();
-
-	/* parse config file */
-	if ((ldpd_conf = parse_config(conffile)) == NULL ) {
-		kif_clear();
+	/* check for root privileges  */
+	if (geteuid() != 0) {
+		errno = EPERM;
+		perror(progname);
 		exit(1);
 	}
 
-	if (global.cmd_opts & LDPD_OPT_NOACTION) {
-		if (global.cmd_opts & LDPD_OPT_VERBOSE)
-			print_config(ldpd_conf);
-		else
-			fprintf(stderr, "configuration OK\n");
-		kif_clear();
+	zlog_default = openzlog(progname, ZLOG_LDP, 0,
+	    LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+
+	if (lflag)
+		lde(user, group);
+	else if (eflag)
+		ldpe(user, group);
+
+  	master = thread_master_create();
+
+	cmd_init(1);
+	vty_init(master);
+	vrf_init();
+	ldp_vty_init();
+	ldp_vty_if_init();
+
+	/* Get configuration file. */
+	ldpd_conf = config_new_empty();
+	ldp_config_reset_main(ldpd_conf);
+	vty_read_config(config_file, config_default);
+
+	/* Start execution only if not in dry-run mode */
+	if (dryrun)
 		exit(0);
+
+	if (daemon_mode && daemon(0, 0) < 0) {
+		log_warn("LDPd daemon failed");
+		exit(1);
 	}
 
-	/* check for root privileges  */
-	if (geteuid())
-		errx(1, "need root privileges");
-
-	/* check for ldpd user */
-	if (getpwnam(LDPD_USER) == NULL)
-		errx(1, "unknown user %s", LDPD_USER);
-
-	log_init(debug);
-	log_verbose(global.cmd_opts & (LDPD_OPT_VERBOSE | LDPD_OPT_VERBOSE2));
-
-	if (!debug)
-		daemon(1, 0);
-
-	log_info("startup");
-
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
-	    PF_UNSPEC, pipe_parent2ldpe) == -1)
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2ldpe) == -1)
 		fatal("socketpair");
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC,
-	    PF_UNSPEC, pipe_parent2lde) == -1)
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2lde) == -1)
 		fatal("socketpair");
+	sock_set_nonblock(pipe_parent2ldpe[0]);
+	sock_set_cloexec(pipe_parent2ldpe[0]);
+	sock_set_nonblock(pipe_parent2ldpe[1]);
+	sock_set_cloexec(pipe_parent2ldpe[1]);
+	sock_set_nonblock(pipe_parent2lde[0]);
+	sock_set_cloexec(pipe_parent2lde[0]);
+	sock_set_nonblock(pipe_parent2lde[1]);
+	sock_set_cloexec(pipe_parent2lde[1]);
 
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
-	    pipe_parent2lde[1], debug, global.cmd_opts & LDPD_OPT_VERBOSE);
+	    pipe_parent2lde[1], user, group);
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
-	    pipe_parent2ldpe[1], debug, global.cmd_opts & LDPD_OPT_VERBOSE);
+	    pipe_parent2ldpe[1], user, group);
 
-	event_init();
+	/* drop privileges */
+	if (user)
+		ldpd_privs.user = user;
+	if (group)
+		ldpd_privs.group = group;
+	zprivs_init(&ldpd_privs);
 
 	/* setup signal handler */
-	signal_set(&ev_sigint, SIGINT, main_sig_handler, NULL);
-	signal_set(&ev_sigterm, SIGTERM, main_sig_handler, NULL);
-	signal_set(&ev_sighup, SIGHUP, main_sig_handler, NULL);
-	signal_add(&ev_sigint, NULL);
-	signal_add(&ev_sigterm, NULL);
-	signal_add(&ev_sighup, NULL);
-	signal(SIGPIPE, SIG_IGN);
+	signal_init(master, array_size(ldp_signals), ldp_signals);
+
+	/* library inits */
+	ldp_zebra_init(master);
 
 	/* setup pipes to children */
 	if ((iev_ldpe = malloc(sizeof(struct imsgev))) == NULL ||
 	    (iev_lde = malloc(sizeof(struct imsgev))) == NULL)
 		fatal(NULL);
 	imsg_init(&iev_ldpe->ibuf, pipe_parent2ldpe[0]);
-	iev_ldpe->handler = main_dispatch_ldpe;
+	iev_ldpe->handler_read = main_dispatch_ldpe;
+	iev_ldpe->ev_read = thread_add_read(master, iev_ldpe->handler_read,
+	    iev_ldpe, iev_ldpe->ibuf.fd);
+	iev_ldpe->handler_write = ldp_write_handler;
+	iev_ldpe->ev_write = NULL;
+
 	imsg_init(&iev_lde->ibuf, pipe_parent2lde[0]);
-	iev_lde->handler = main_dispatch_lde;
-
-	/* setup event handler */
-	iev_ldpe->events = EV_READ;
-	event_set(&iev_ldpe->ev, iev_ldpe->ibuf.fd, iev_ldpe->events,
-	    iev_ldpe->handler, iev_ldpe);
-	event_add(&iev_ldpe->ev, NULL);
-
-	iev_lde->events = EV_READ;
-	event_set(&iev_lde->ev, iev_lde->ibuf.fd, iev_lde->events,
-	    iev_lde->handler, iev_lde);
-	event_add(&iev_lde->ev, NULL);
+	iev_lde->handler_read = main_dispatch_lde;
+	iev_lde->ev_read = thread_add_read(master, iev_lde->handler_read,
+	    iev_lde, iev_lde->ibuf.fd);
+	iev_lde->handler_write = ldp_write_handler;
+	iev_lde->ev_write = NULL;
 
 	if (main_imsg_send_ipc_sockets(&iev_ldpe->ibuf, &iev_lde->ibuf))
 		fatal("could not establish imsg links");
+	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug,
+	    sizeof(ldp_debug));
 	main_imsg_send_config(ldpd_conf);
-
-	/* notify ldpe about existing interfaces and addresses */
-	kif_redistribute(NULL);
-
-	if (kr_init(!(ldpd_conf->flags & F_LDPD_NO_FIB_UPDATE)) == -1)
-		fatalx("kr_init failed");
 
 	if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
 		main_imsg_send_net_sockets(AF_INET);
 	if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
 		main_imsg_send_net_sockets(AF_INET6);
 
-	/* remove unneded stuff from config */
-		/* ... */
+	/* Process id file create. */
+	pid_output(pid_file);
 
-	event_dispatch();
+	/* Create VTY socket */
+	vty_serv_sock(vty_addr, vty_port, LDP_VTYSH_PATH);
 
-	ldpd_shutdown();
+	/* Print banner. */
+	log_notice("LDPd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
+
+	/* Fetch next active thread. */
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
+
 	/* NOTREACHED */
 	return (0);
 }
 
-static __dead void
+static void
 ldpd_shutdown(void)
 {
 	pid_t		 pid;
@@ -279,7 +422,6 @@ ldpd_shutdown(void)
 	msgbuf_clear(&iev_lde->ibuf.w);
 	close(iev_lde->ibuf.fd);
 
-	kr_shutdown();
 	config_clear(ldpd_conf);
 
 	log_debug("waiting for children to terminate");
@@ -302,9 +444,10 @@ ldpd_shutdown(void)
 }
 
 static pid_t
-start_child(enum ldpd_process p, char *argv0, int fd, int debug, int verbose)
+start_child(enum ldpd_process p, char *argv0, int fd, const char *user,
+    const char *group)
 {
-	char	*argv[5];
+	char	*argv[7];
 	int	 argc = 0;
 	pid_t	 pid;
 
@@ -326,16 +469,20 @@ start_child(enum ldpd_process p, char *argv0, int fd, int debug, int verbose)
 	case PROC_MAIN:
 		fatalx("Can not start main process");
 	case PROC_LDE_ENGINE:
-		argv[argc++] = "-L";
+		argv[argc++] = (char *)"-L";
 		break;
 	case PROC_LDP_ENGINE:
-		argv[argc++] = "-E";
+		argv[argc++] = (char *)"-E";
 		break;
 	}
-	if (debug)
-		argv[argc++] = "-d";
-	if (verbose)
-		argv[argc++] = "-v";
+	if (user) {
+		argv[argc++] = (char *)"-u";
+		argv[argc++] = (char *)user;
+	}
+	if (group) {
+		argv[argc++] = (char *)"-g";
+		argv[argc++] = (char *)group;
+	}
 	argv[argc++] = NULL;
 
 	execvp(argv0, argv);
@@ -344,28 +491,22 @@ start_child(enum ldpd_process p, char *argv0, int fd, int debug, int verbose)
 
 /* imsg handling */
 /* ARGSUSED */
-static void
-main_dispatch_ldpe(int fd, short event, void *bula)
+static int
+main_dispatch_ldpe(struct thread *thread)
 {
-	struct imsgev		*iev = bula;
+	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	int			 af;
 	ssize_t			 n;
-	int			 shut = 0, verbose;
+	int			 shut = 0;
 
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
-			fatal("imsg_read error");
-		if (n == 0)	/* connection closed */
-			shut = 1;
-	}
-	if (event & EV_WRITE) {
-		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
-			fatal("msgbuf_write");
-		if (n == 0)
-			shut = 1;
-	}
+	iev->ev_read = NULL;
+
+	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+		fatal("imsg_read error");
+	if (n == 0)	/* connection closed */
+		shut = 1;
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
@@ -375,38 +516,12 @@ main_dispatch_ldpe(int fd, short event, void *bula)
 			break;
 
 		switch (imsg.hdr.type) {
+		case IMSG_LOG:
+			logit(imsg.hdr.pid, "%s", (const char *)imsg.data);
+			break;
 		case IMSG_REQUEST_SOCKETS:
 			af = imsg.hdr.pid;
 			main_imsg_send_net_sockets(af);
-			break;
-		case IMSG_CTL_RELOAD:
-			if (ldp_reload() == -1)
-				log_warnx("configuration reload failed");
-			else
-				log_debug("configuration reloaded");
-			break;
-		case IMSG_CTL_FIB_COUPLE:
-			kr_fib_couple();
-			break;
-		case IMSG_CTL_FIB_DECOUPLE:
-			kr_fib_decouple();
-			break;
-		case IMSG_CTL_KROUTE:
-		case IMSG_CTL_KROUTE_ADDR:
-			kr_show_route(&imsg);
-			break;
-		case IMSG_CTL_IFINFO:
-			if (imsg.hdr.len == IMSG_HEADER_SIZE)
-				kr_ifinfo(NULL, imsg.hdr.pid);
-			else if (imsg.hdr.len == IMSG_HEADER_SIZE + IFNAMSIZ)
-				kr_ifinfo(imsg.data, imsg.hdr.pid);
-			else
-				log_warnx("IFINFO request with wrong len");
-			break;
-		case IMSG_CTL_LOG_VERBOSE:
-			/* already checked by ldpe */
-			memcpy(&verbose, imsg.data, sizeof(verbose));
-			log_verbose(verbose);
 			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
@@ -418,34 +533,35 @@ main_dispatch_ldpe(int fd, short event, void *bula)
 	if (!shut)
 		imsg_event_add(iev);
 	else {
-		/* this pipe is dead, so remove the event handler */
-		event_del(&iev->ev);
-		event_loopexit(NULL);
+		/* this pipe is dead, so remove the event handlers and exit */
+		THREAD_READ_OFF(iev->ev_read);
+		THREAD_WRITE_OFF(iev->ev_write);
+		ldpe_pid = 0;
+		if (lde_pid == 0)
+			ldpd_shutdown();
+		else
+			kill(lde_pid, SIGTERM);
 	}
+
+	return (0);
 }
 
 /* ARGSUSED */
-static void
-main_dispatch_lde(int fd, short event, void *bula)
+static int
+main_dispatch_lde(struct thread *thread)
 {
-	struct imsgev	*iev = bula;
+	struct imsgev	*iev = THREAD_ARG(thread);
 	struct imsgbuf	*ibuf = &iev->ibuf;
 	struct imsg	 imsg;
 	ssize_t		 n;
 	int		 shut = 0;
 
-	if (event & EV_READ) {
-		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
-			fatal("imsg_read error");
-		if (n == 0)	/* connection closed */
-			shut = 1;
-	}
-	if (event & EV_WRITE) {
-		if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
-			fatal("msgbuf_write");
-		if (n == 0)
-			shut = 1;
-	}
+	iev->ev_read = NULL;
+
+	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+		fatal("imsg_read error");
+	if (n == 0)	/* connection closed */
+		shut = 1;
 
 	for (;;) {
 		if ((n = imsg_get(ibuf, &imsg)) == -1)
@@ -455,6 +571,9 @@ main_dispatch_lde(int fd, short event, void *bula)
 			break;
 
 		switch (imsg.hdr.type) {
+		case IMSG_LOG:
+			logit(imsg.hdr.pid, "%s", (const char *)imsg.data);
+			break;
 		case IMSG_KLABEL_CHANGE:
 			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
 			    sizeof(struct kroute))
@@ -495,10 +614,41 @@ main_dispatch_lde(int fd, short event, void *bula)
 	if (!shut)
 		imsg_event_add(iev);
 	else {
-		/* this pipe is dead, so remove the event handler */
-		event_del(&iev->ev);
-		event_loopexit(NULL);
+		/* this pipe is dead, so remove the event handlers and exit */
+		THREAD_READ_OFF(iev->ev_read);
+		THREAD_WRITE_OFF(iev->ev_write);
+		lde_pid = 0;
+		if (ldpe_pid == 0)
+			ldpd_shutdown();
+		else
+			kill(ldpe_pid, SIGTERM);
 	}
+
+	return (0);
+}
+
+/* ARGSUSED */
+int
+ldp_write_handler(struct thread *thread)
+{
+	struct imsgev	*iev = THREAD_ARG(thread);
+	struct imsgbuf	*ibuf = &iev->ibuf;
+	ssize_t		 n;
+
+	iev->ev_write = NULL;
+
+	if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
+		fatal("msgbuf_write");
+	if (n == 0) {
+		/* this pipe is dead, so remove the event handlers */
+		THREAD_READ_OFF(iev->ev_read);
+		THREAD_WRITE_OFF(iev->ev_write);
+		return (0);
+	}
+
+	imsg_event_add(iev);
+
+	return (0);
 }
 
 void
@@ -515,9 +665,11 @@ main_imsg_compose_lde(int type, pid_t pid, void *data, uint16_t datalen)
 	imsg_compose_event(iev_lde, type, 0, pid, -1, data, datalen);
 }
 
-static int
+int
 main_imsg_compose_both(enum imsg_type type, void *buf, uint16_t len)
 {
+	if (iev_ldpe == NULL || iev_lde == NULL)
+		return (0);
 	if (imsg_compose_event(iev_ldpe, type, 0, 0, -1, buf, len) == -1)
 		return (-1);
 	if (imsg_compose_event(iev_lde, type, 0, 0, -1, buf, len) == -1)
@@ -528,13 +680,12 @@ main_imsg_compose_both(enum imsg_type type, void *buf, uint16_t len)
 void
 imsg_event_add(struct imsgev *iev)
 {
-	iev->events = EV_READ;
-	if (iev->ibuf.w.queued)
-		iev->events |= EV_WRITE;
+	THREAD_READ_ON(master, iev->ev_read, iev->handler_read, iev,
+	    iev->ibuf.fd);
 
-	event_del(&iev->ev);
-	event_set(&iev->ev, iev->ibuf.fd, iev->events, iev->handler, iev);
-	event_add(&iev->ev, NULL);
+	if (iev->ibuf.w.queued)
+		THREAD_WRITE_ON(master, iev->ev_write, iev->handler_write, iev,
+		    iev->ibuf.fd);
 }
 
 int
@@ -560,22 +711,24 @@ void
 evbuf_event_add(struct evbuf *eb)
 {
 	if (eb->wbuf.queued)
-		event_add(&eb->ev, NULL);
+		THREAD_WRITE_ON(master, eb->ev, eb->handler, eb->arg,
+		    eb->wbuf.fd);
 }
 
 void
-evbuf_init(struct evbuf *eb, int fd, void (*handler)(int, short, void *),
+evbuf_init(struct evbuf *eb, int fd, int (*handler)(struct thread *),
     void *arg)
 {
 	msgbuf_init(&eb->wbuf);
 	eb->wbuf.fd = fd;
-	event_set(&eb->ev, eb->wbuf.fd, EV_WRITE, handler, arg);
+	eb->handler = handler;
+	eb->arg = arg;
 }
 
 void
 evbuf_clear(struct evbuf *eb)
 {
-	event_del(&eb->ev);
+	THREAD_WRITE_OFF(eb->ev);
 	msgbuf_clear(&eb->wbuf);
 	eb->wbuf.fd = -1;
 }
@@ -585,9 +738,10 @@ main_imsg_send_ipc_sockets(struct imsgbuf *ldpe_buf, struct imsgbuf *lde_buf)
 {
 	int pipe_ldpe2lde[2];
 
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
-	    PF_UNSPEC, pipe_ldpe2lde) == -1)
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_ldpe2lde) == -1)
 		return (-1);
+	sock_set_nonblock(pipe_ldpe2lde[0]);
+	sock_set_nonblock(pipe_ldpe2lde[1]);
 
 	if (imsg_compose(ldpe_buf, IMSG_SOCKET_IPC, 0, 0, pipe_ldpe2lde[0],
 	    NULL, 0) == -1)
@@ -602,6 +756,9 @@ main_imsg_send_ipc_sockets(struct imsgbuf *ldpe_buf, struct imsgbuf *lde_buf)
 static void
 main_imsg_send_net_sockets(int af)
 {
+	if (!ldp_addrisset(af, &(ldp_af_conf_get(ldpd_conf, af))->trans_addr))
+		return;
+
 	main_imsg_send_net_socket(af, LDP_SOCKET_DISC);
 	main_imsg_send_net_socket(af, LDP_SOCKET_EDISC);
 	main_imsg_send_net_socket(af, LDP_SOCKET_SESSION);
@@ -657,6 +814,15 @@ ldp_is_dual_stack(struct ldpd_conf *xconf)
 	    (xconf->ipv6.flags & F_LDPD_AF_ENABLED));
 }
 
+in_addr_t
+ldp_rtr_id_get(struct ldpd_conf *xconf)
+{
+	if (xconf->rtr_id.s_addr != INADDR_ANY)
+		return (xconf->rtr_id.s_addr);
+	else
+		return (global.rtr_id.s_addr);
+}
+
 static int
 main_imsg_send_config(struct ldpd_conf *xconf)
 {
@@ -704,6 +870,11 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 			    sizeof(*pw)) == -1)
 				return (-1);
 		}
+		LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry) {
+			if (main_imsg_compose_both(IMSG_RECONF_L2VPN_IPW, pw,
+			    sizeof(*pw)) == -1)
+				return (-1);
+		}
 	}
 
 	if (main_imsg_compose_both(IMSG_RECONF_END, NULL, 0) == -1)
@@ -712,13 +883,10 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 	return (0);
 }
 
-static int
-ldp_reload(void)
+int
+ldp_reload(struct ldpd_conf *xconf)
 {
-	struct ldpd_conf	*xconf;
-
-	if ((xconf = parse_config(conffile)) == NULL)
-		return (-1);
+	ldp_config_normalize(xconf);
 
 	if (main_imsg_send_config(xconf) == -1)
 		return (-1);
@@ -726,6 +894,205 @@ ldp_reload(void)
 	merge_config(ldpd_conf, xconf);
 
 	return (0);
+}
+
+static void
+ldp_config_normalize(struct ldpd_conf *xconf)
+{
+	struct l2vpn		*l2vpn;
+	struct l2vpn_pw		*pw;
+
+	if (!(xconf->flags & F_LDPD_ENABLED))
+		ldp_config_reset_main(xconf);
+	else {
+		if (!(xconf->ipv4.flags & F_LDPD_AF_ENABLED))
+			ldp_config_reset_af(xconf, AF_INET);
+		if (!(xconf->ipv6.flags & F_LDPD_AF_ENABLED))
+			ldp_config_reset_af(xconf, AF_INET6);
+	}
+
+	LIST_FOREACH(l2vpn, &xconf->l2vpn_list, entry) {
+		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
+			if (pw->flags & F_PW_STATIC_NBR_ADDR)
+				continue;
+
+			pw->af = AF_INET;
+			pw->addr.v4 = pw->lsr_id;
+		}
+		LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry) {
+			if (pw->flags & F_PW_STATIC_NBR_ADDR)
+				continue;
+
+			pw->af = AF_INET;
+			pw->addr.v4 = pw->lsr_id;
+		}
+	}
+}
+
+static void
+ldp_config_reset_main(struct ldpd_conf *conf)
+{
+	struct iface		*iface;
+	struct nbr_params	*nbrp;
+
+	while ((iface = LIST_FIRST(&conf->iface_list)) != NULL) {
+		LIST_REMOVE(iface, entry);
+		free(iface);
+	}
+
+	while ((nbrp = LIST_FIRST(&conf->nbrp_list)) != NULL) {
+		LIST_REMOVE(nbrp, entry);
+		free(nbrp);
+	}
+
+	conf->rtr_id.s_addr = INADDR_ANY;
+	ldp_config_reset_af(conf, AF_INET);
+	ldp_config_reset_af(conf, AF_INET6);
+	conf->lhello_holdtime = LINK_DFLT_HOLDTIME;
+	conf->lhello_interval = DEFAULT_HELLO_INTERVAL;
+	conf->thello_holdtime = TARGETED_DFLT_HOLDTIME;
+	conf->thello_interval = DEFAULT_HELLO_INTERVAL;
+	conf->trans_pref = DUAL_STACK_LDPOV6;
+	conf->flags = 0;
+}
+
+static void
+ldp_config_reset_af(struct ldpd_conf *conf, int af)
+{
+	struct ldpd_af_conf	*af_conf;
+	struct iface		*iface;
+	struct iface_af		*ia;
+	struct tnbr		*tnbr, *ttmp;
+
+	LIST_FOREACH(iface, &conf->iface_list, entry) {
+		ia = iface_af_get(iface, af);
+		ia->enabled = 0;
+	}
+
+	LIST_FOREACH_SAFE(tnbr, &conf->tnbr_list, entry, ttmp) {
+		if (tnbr->af != af)
+			continue;
+
+		LIST_REMOVE(tnbr, entry);
+		free(tnbr);
+	}
+
+	af_conf = ldp_af_conf_get(conf, af);
+	af_conf->keepalive = 180;
+	af_conf->lhello_holdtime = 0;
+	af_conf->lhello_interval = 0;
+	af_conf->thello_holdtime = 0;
+	af_conf->thello_interval = 0;
+	memset(&af_conf->trans_addr, 0, sizeof(af_conf->trans_addr));
+	af_conf->flags = 0;
+}
+
+struct ldpd_conf *
+ldp_dup_config(struct ldpd_conf *conf)
+{
+	struct ldpd_conf	*xconf;
+	struct iface		*iface, *xi;
+	struct tnbr		*tnbr, *xt;
+	struct nbr_params	*nbrp, *xn;
+	struct l2vpn		*l2vpn, *xl;
+	struct l2vpn_if		*lif, *xf;
+	struct l2vpn_pw		*pw, *xp;
+
+	xconf = malloc(sizeof(*xconf));
+	*xconf = *conf;
+	LIST_INIT(&xconf->iface_list);
+	LIST_INIT(&xconf->tnbr_list);
+	LIST_INIT(&xconf->nbrp_list);
+	LIST_INIT(&xconf->l2vpn_list);
+
+	LIST_FOREACH(iface, &conf->iface_list, entry) {
+		xi = calloc(1, sizeof(*xi));
+		if (xi == NULL)
+			fatal(__func__);
+		*xi = *iface;
+		xi->ipv4.iface = xi;
+		xi->ipv6.iface = xi;
+		LIST_INSERT_HEAD(&xconf->iface_list, xi, entry);
+	}
+	LIST_FOREACH(tnbr, &conf->tnbr_list, entry) {
+		xt = calloc(1, sizeof(*xt));
+		if (xt == NULL)
+			fatal(__func__);
+		*xt = *tnbr;
+		LIST_INSERT_HEAD(&xconf->tnbr_list, xt, entry);
+	}
+	LIST_FOREACH(nbrp, &conf->nbrp_list, entry) {
+		xn = calloc(1, sizeof(*xn));
+		if (xn == NULL)
+			fatal(__func__);
+		*xn = *nbrp;
+		LIST_INSERT_HEAD(&xconf->nbrp_list, xn, entry);
+	}
+	LIST_FOREACH(l2vpn, &conf->l2vpn_list, entry) {
+		xl = calloc(1, sizeof(*xl));
+		if (xl == NULL)
+			fatal(__func__);
+		*xl = *l2vpn;
+		LIST_INIT(&xl->if_list);
+		LIST_INIT(&xl->pw_list);
+		LIST_INIT(&xl->pw_inactive_list);
+		LIST_INSERT_HEAD(&xconf->l2vpn_list, xl, entry);
+
+		LIST_FOREACH(lif, &l2vpn->if_list, entry) {
+			xf = calloc(1, sizeof(*xf));
+			if (xf == NULL)
+				fatal(__func__);
+			*xf = *lif;
+			xf->l2vpn = xl;
+			LIST_INSERT_HEAD(&xl->if_list, xf, entry);
+		}
+		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
+			xp = calloc(1, sizeof(*xp));
+			if (xp == NULL)
+				fatal(__func__);
+			*xp = *pw;
+			xp->l2vpn = xl;
+			LIST_INSERT_HEAD(&xl->pw_list, xp, entry);
+		}
+		LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry) {
+			xp = calloc(1, sizeof(*xp));
+			if (xp == NULL)
+				fatal(__func__);
+			*xp = *pw;
+			xp->l2vpn = xl;
+			LIST_INSERT_HEAD(&xl->pw_inactive_list, xp, entry);
+		}
+	}
+
+	return (xconf);
+}
+
+void
+ldp_clear_config(struct ldpd_conf *xconf)
+{
+	struct iface		*iface;
+	struct tnbr		*tnbr;
+	struct nbr_params	*nbrp;
+	struct l2vpn		*l2vpn;
+
+	while ((iface = LIST_FIRST(&xconf->iface_list)) != NULL) {
+		LIST_REMOVE(iface, entry);
+		free(iface);
+	}
+	while ((tnbr = LIST_FIRST(&xconf->tnbr_list)) != NULL) {
+		LIST_REMOVE(tnbr, entry);
+		free(tnbr);
+	}
+	while ((nbrp = LIST_FIRST(&xconf->nbrp_list)) != NULL) {
+		LIST_REMOVE(nbrp, entry);
+		free(nbrp);
+	}
+	while ((l2vpn = LIST_FIRST(&xconf->l2vpn_list)) != NULL) {
+		LIST_REMOVE(l2vpn, entry);
+		l2vpn_del(l2vpn);
+	}
+
+	free(xconf);
 }
 
 void
@@ -758,6 +1125,11 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		conf->rtr_id = xconf->rtr_id;
 	}
 
+	conf->lhello_holdtime = xconf->lhello_holdtime;
+	conf->lhello_interval = xconf->lhello_interval;
+	conf->thello_holdtime = xconf->thello_holdtime;
+	conf->thello_interval = xconf->thello_interval;
+
 	if (conf->trans_pref != xconf->trans_pref) {
 		if (ldpd_process == PROC_LDP_ENGINE)
 			ldpe_reset_ds_nbrs();
@@ -784,6 +1156,9 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 		if (ldpd_process == PROC_LDP_ENGINE)
 			ldpe_stop_init_backoff(af);
 	}
+
+	af_conf->lhello_holdtime = xa->lhello_holdtime;
+	af_conf->lhello_interval = xa->lhello_interval;
 	af_conf->thello_holdtime = xa->thello_holdtime;
 	af_conf->thello_interval = xa->thello_interval;
 
@@ -815,10 +1190,6 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 			lde_change_egress_label(af, af_conf->flags &
 			    F_LDPD_AF_EXPNULL);
 			break;
-		case PROC_MAIN:
-			kr_change_egress_label(af, af_conf->flags &
-			    F_LDPD_AF_EXPNULL);
-			break;
 		default:
 			break;
 		}
@@ -829,7 +1200,7 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 		update_sockets = 1;
 	}
 
-	if (ldpd_process == PROC_MAIN && update_sockets)
+	if (ldpd_process == PROC_MAIN && iev_ldpe && update_sockets)
 		imsg_compose_event(iev_ldpe, IMSG_CLOSE_SOCKETS, af, 0, -1,
 		    NULL, 0);
 }
@@ -841,7 +1212,7 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 
 	LIST_FOREACH_SAFE(iface, &conf->iface_list, entry, itmp) {
 		/* find deleted interfaces */
-		if ((xi = if_lookup(xconf, iface->ifindex)) == NULL) {
+		if ((xi = if_lookup_name(xconf, iface->name)) == NULL) {
 			LIST_REMOVE(iface, entry);
 			if (ldpd_process == PROC_LDP_ENGINE)
 				if_exit(iface);
@@ -850,7 +1221,7 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	}
 	LIST_FOREACH_SAFE(xi, &xconf->iface_list, entry, itmp) {
 		/* find new interfaces */
-		if ((iface = if_lookup(conf, xi->ifindex)) == NULL) {
+		if ((iface = if_lookup_name(conf, xi->name)) == NULL) {
 			LIST_REMOVE(xi, entry);
 			LIST_INSERT_HEAD(&conf->iface_list, xi, entry);
 
@@ -914,8 +1285,6 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		/* update existing tnbrs */
 		if (!(tnbr->flags & F_TNBR_CONFIGURED))
 			tnbr->flags |= F_TNBR_CONFIGURED;
-		tnbr->hello_holdtime = xt->hello_holdtime;
-		tnbr->hello_interval = xt->hello_interval;
 		LIST_REMOVE(xt, entry);
 		free(xt);
 	}
@@ -935,7 +1304,14 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 				nbr = nbr_find_ldpid(nbrp->lsr_id.s_addr);
 				if (nbr) {
 					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
+#ifdef __OpenBSD__
 					pfkey_remove(nbr);
+#else
+					sock_set_md5sig(
+					    (ldp_af_global_get(&global,
+					    nbr->af))->ldp_session_socket,
+					    nbr->af, &nbr->raddr, NULL);
+#endif
 					if (nbr_session_active_role(nbr))
 						nbr_establish_connection(nbr);
 				}
@@ -954,8 +1330,16 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 				nbr = nbr_find_ldpid(xn->lsr_id.s_addr);
 				if (nbr) {
 					session_shutdown(nbr, S_SHUTDOWN, 0, 0);
+#ifdef __OpenBSD__
 					if (pfkey_establish(nbr, xn) == -1)
 						fatalx("pfkey setup failed");
+#else
+					sock_set_md5sig(
+					    (ldp_af_global_get(&global,
+					    nbr->af))->ldp_session_socket,
+					    nbr->af, &nbr->raddr,
+					    xn->auth.md5key);
+#endif
 					if (nbr_session_active_role(nbr))
 						nbr_establish_connection(nbr);
 				}
@@ -987,9 +1371,15 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 			nbr = nbr_find_ldpid(nbrp->lsr_id.s_addr);
 			if (nbr && nbrp_changed) {
 				session_shutdown(nbr, S_SHUTDOWN, 0, 0);
+#ifdef __OpenBSD__
 				pfkey_remove(nbr);
 				if (pfkey_establish(nbr, nbrp) == -1)
 					fatalx("pfkey setup failed");
+#else
+				sock_set_md5sig((ldp_af_global_get(&global,
+				    nbr->af))->ldp_session_socket, nbr->af,
+				    &nbr->raddr, nbrp->auth.md5key);
+#endif
 				if (nbr_session_active_role(nbr))
 					nbr_establish_connection(nbr);
 			}
@@ -1055,6 +1445,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	struct l2vpn_pw		*pw, *ptmp, *xp;
 	struct nbr		*nbr;
 	int			 reset_nbr, reinstall_pwfec, reinstall_tnbr;
+	LIST_HEAD(, l2vpn_pw)	 pw_aux_list;
 	int			 previous_pw_type, previous_mtu;
 
 	previous_pw_type = l2vpn->pw_type;
@@ -1063,14 +1454,14 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 	/* merge intefaces */
 	LIST_FOREACH_SAFE(lif, &l2vpn->if_list, entry, ftmp) {
 		/* find deleted interfaces */
-		if ((xf = l2vpn_if_find(xl, lif->ifindex)) == NULL) {
+		if ((xf = l2vpn_if_find_name(xl, lif->ifname)) == NULL) {
 			LIST_REMOVE(lif, entry);
 			free(lif);
 		}
 	}
 	LIST_FOREACH_SAFE(xf, &xl->if_list, entry, ftmp) {
 		/* find new interfaces */
-		if ((lif = l2vpn_if_find(l2vpn, xf->ifindex)) == NULL) {
+		if ((lif = l2vpn_if_find_name(l2vpn, xf->ifname)) == NULL) {
 			LIST_REMOVE(xf, entry);
 			LIST_INSERT_HEAD(&l2vpn->if_list, xf, entry);
 			xf->l2vpn = l2vpn;
@@ -1081,10 +1472,11 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 		free(xf);
 	}
 
-	/* merge pseudowires */
+	/* merge active pseudowires */
+	LIST_INIT(&pw_aux_list);
 	LIST_FOREACH_SAFE(pw, &l2vpn->pw_list, entry, ptmp) {
-		/* find deleted pseudowires */
-		if ((xp = l2vpn_pw_find(xl, pw->ifindex)) == NULL) {
+		/* find deleted active pseudowires */
+		if ((xp = l2vpn_pw_find_name(xl, pw->ifname)) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				l2vpn_pw_exit(pw);
@@ -1101,8 +1493,8 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 		}
 	}
 	LIST_FOREACH_SAFE(xp, &xl->pw_list, entry, ptmp) {
-		/* find new pseudowires */
-		if ((pw = l2vpn_pw_find(l2vpn, xp->ifindex)) == NULL) {
+		/* find new active pseudowires */
+		if ((pw = l2vpn_pw_find_name(l2vpn, xp->ifname)) == NULL) {
 			LIST_REMOVE(xp, entry);
 			LIST_INSERT_HEAD(&l2vpn->pw_list, xp, entry);
 			xp->l2vpn = l2vpn;
@@ -1120,7 +1512,7 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			continue;
 		}
 
-		/* update existing pseudowire */
+		/* update existing active pseudowire */
     		if (pw->af != xp->af ||
 		    ldp_addrcmp(pw->af, &pw->addr, &xp->addr))
 			reinstall_tnbr = 1;
@@ -1140,6 +1532,28 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			reinstall_pwfec = 1;
 		else
 			reinstall_pwfec = 0;
+
+		/* check if the pseudowire should be disabled */
+		if (xp->lsr_id.s_addr == INADDR_ANY || xp->pwid == 0) {
+			reinstall_tnbr = 0;
+			reset_nbr = 0;
+			reinstall_pwfec = 0;
+
+			switch (ldpd_process) {
+			case PROC_LDE_ENGINE:
+				l2vpn_pw_exit(pw);
+				break;
+			case PROC_LDP_ENGINE:
+				ldpe_l2vpn_pw_exit(pw);
+				break;
+			case PROC_MAIN:
+				break;
+			}
+
+			/* remove from active list */
+			LIST_REMOVE(pw, entry);
+			LIST_INSERT_HEAD(&pw_aux_list, pw, entry);
+		}
 
 		if (ldpd_process == PROC_LDP_ENGINE) {
 			if (reinstall_tnbr)
@@ -1167,6 +1581,10 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 			pw->flags |= F_PW_STATUSTLV_CONF;
 		else
 			pw->flags &= ~F_PW_STATUSTLV_CONF;
+		if (xp->flags & F_PW_STATIC_NBR_ADDR)
+			pw->flags |= F_PW_STATIC_NBR_ADDR;
+		else
+			pw->flags &= ~F_PW_STATIC_NBR_ADDR;
 		if (ldpd_process == PROC_LDP_ENGINE && reinstall_tnbr)
 			ldpe_l2vpn_pw_init(pw);
 		if (ldpd_process == PROC_LDE_ENGINE &&
@@ -1180,6 +1598,60 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 
 		LIST_REMOVE(xp, entry);
 		free(xp);
+	}
+
+	/* merge inactive pseudowires */
+	LIST_FOREACH_SAFE(pw, &l2vpn->pw_inactive_list, entry, ptmp) {
+		/* find deleted inactive pseudowires */
+		if ((xp = l2vpn_pw_find_name(xl, pw->ifname)) == NULL) {
+			LIST_REMOVE(pw, entry);
+			free(pw);
+		}
+	}
+	LIST_FOREACH_SAFE(xp, &xl->pw_inactive_list, entry, ptmp) {
+		/* find new inactive pseudowires */
+		if ((pw = l2vpn_pw_find_name(l2vpn, xp->ifname)) == NULL) {
+			LIST_REMOVE(xp, entry);
+			LIST_INSERT_HEAD(&l2vpn->pw_inactive_list, xp, entry);
+			xp->l2vpn = l2vpn;
+			continue;
+		}
+
+		/* update existing inactive pseudowire */
+		pw->lsr_id.s_addr = xp->lsr_id.s_addr;
+		pw->af = xp->af;
+		pw->addr = xp->addr;
+		pw->pwid = xp->pwid;
+		strlcpy(pw->ifname, xp->ifname, sizeof(pw->ifname));
+		pw->ifindex = xp->ifindex;
+		pw->flags = xp->flags;
+
+		/* check if the pseudowire should be activated */
+		if (pw->lsr_id.s_addr != INADDR_ANY && pw->pwid != 0) {
+			/* remove from inactive list */
+			LIST_REMOVE(pw, entry);
+			LIST_INSERT_HEAD(&l2vpn->pw_list, pw, entry);
+
+			switch (ldpd_process) {
+			case PROC_LDE_ENGINE:
+				l2vpn_pw_init(pw);
+				break;
+			case PROC_LDP_ENGINE:
+				ldpe_l2vpn_pw_init(pw);
+				break;
+			case PROC_MAIN:
+				break;
+			}
+		}
+
+		LIST_REMOVE(xp, entry);
+		free(xp);
+	}
+
+	/* insert pseudowires that were disabled in the inactive list */
+	LIST_FOREACH_SAFE(pw, &pw_aux_list, entry, ptmp) {
+		LIST_REMOVE(pw, entry);
+		LIST_INSERT_HEAD(&l2vpn->pw_inactive_list, pw, entry);
 	}
 
 	l2vpn->pw_type = xl->pw_type;

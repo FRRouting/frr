@@ -17,16 +17,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netmpls/mpls.h>
-#include <stdlib.h>
-#include <string.h>
-#include <limits.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "lde.h"
 #include "log.h"
+
+#include "mpls.h"
 
 static __inline int	 fec_compare(struct fec *, struct fec *);
 static int		 lde_nbr_is_nexthop(struct fec_node *,
@@ -40,7 +37,7 @@ static void		 fec_nh_del(struct fec_nh *);
 RB_GENERATE(fec_tree, fec, entry, fec_compare)
 
 struct fec_tree		 ft = RB_INITIALIZER(&ft);
-struct event		 gc_timer;
+struct thread		*gc_timer;
 
 /* FEC tree functions */
 void
@@ -165,6 +162,7 @@ rt_dump(pid_t pid)
 		    LIST_EMPTY(&fn->downstream))
 			continue;
 
+		rtctl.first = 1;
 		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
 			rtctl.af = AF_INET;
@@ -188,6 +186,7 @@ rt_dump(pid_t pid)
 
 			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_LIB, 0, pid,
 			    &rtctl, sizeof(rtctl));
+			rtctl.first = 0;
 		}
 		if (LIST_EMPTY(&fn->downstream)) {
 			rtctl.in_use = 0;
@@ -338,9 +337,6 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 	if (fec_nh_find(fn, af, nexthop, priority) != NULL)
 		return;
 
-	log_debug("lde add fec %s nexthop %s",
-	    log_fec(&fn->fec), log_addr(af, nexthop));
-
 	if (fn->fec.type == FEC_TYPE_PWID)
 		fn->data = data;
 
@@ -395,9 +391,6 @@ lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
 	if (fnh == NULL)
 		/* route lost */
 		return;
-
-	log_debug("lde remove fec %s nexthop %s",
-	    log_fec(&fn->fec), log_addr(af, nexthop));
 
 	lde_send_delete_klabel(fn, fnh);
 	fec_nh_del(fnh);
@@ -738,8 +731,8 @@ lde_check_withdraw_wcard(struct map *map, struct lde_nbr *ln)
 /* gabage collector timer: timer to remove dead entries from the LIB */
 
 /* ARGSUSED */
-void
-lde_gc_timer(int fd, short event, void *arg)
+int
+lde_gc_timer(struct thread *thread)
 {
 	struct fec	*fec, *safe;
 	struct fec_node	*fn;
@@ -762,23 +755,20 @@ lde_gc_timer(int fd, short event, void *arg)
 		log_debug("%s: %u entries removed", __func__, count);
 
 	lde_gc_start_timer();
+
+	return (0);
 }
 
 void
 lde_gc_start_timer(void)
 {
-	struct timeval	 tv;
-
-	timerclear(&tv);
-	tv.tv_sec = LDE_GC_INTERVAL;
-	if (evtimer_add(&gc_timer, &tv) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(gc_timer);
+	gc_timer = thread_add_timer(master, lde_gc_timer, NULL,
+	    LDE_GC_INTERVAL);
 }
 
 void
 lde_gc_stop_timer(void)
 {
-	if (evtimer_pending(&gc_timer, NULL) &&
-	    evtimer_del(&gc_timer) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(gc_timer);
 }

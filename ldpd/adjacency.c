@@ -19,19 +19,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
 
-static void	 adj_del_single(struct adj *);
-static void	 adj_itimer(int, short, void *);
+static int	 adj_itimer(struct thread *);
 static void	 tnbr_del(struct tnbr *);
-static void	 tnbr_hello_timer(int, short, void *);
+static int	 tnbr_hello_timer(struct thread *);
 static void	 tnbr_start_hello_timer(struct tnbr *);
 static void	 tnbr_stop_hello_timer(struct tnbr *);
 
@@ -51,8 +47,6 @@ adj_new(struct in_addr lsr_id, struct hello_source *source,
 	adj->nbr = NULL;
 	adj->source = *source;
 	adj->trans_addr = *addr;
-
-	evtimer_set(&adj->inactivity_timer, adj_itimer, adj);
 
 	LIST_INSERT_HEAD(&global.adj_list, adj, global_entry);
 
@@ -154,10 +148,12 @@ adj_get_af(struct adj *adj)
 /* adjacency timers */
 
 /* ARGSUSED */
-static void
-adj_itimer(int fd, short event, void *arg)
+static int
+adj_itimer(struct thread *thread)
 {
-	struct adj *adj = arg;
+	struct adj *adj = THREAD_ARG(thread);
+
+	adj->inactivity_timer = NULL;
 
 	log_debug("%s: lsr-id %s", __func__, inet_ntoa(adj->lsr_id));
 
@@ -166,37 +162,34 @@ adj_itimer(int fd, short event, void *arg)
 		    adj->source.target->pw_count == 0) {
 			/* remove dynamic targeted neighbor */
 			tnbr_del(adj->source.target);
-			return;
+			return (0);
 		}
 		adj->source.target->adj = NULL;
 	}
 
 	adj_del(adj, S_HOLDTIME_EXP);
+
+	return (0);
 }
 
 void
 adj_start_itimer(struct adj *adj)
 {
-	struct timeval	tv;
-
-	timerclear(&tv);
-	tv.tv_sec = adj->holdtime;
-	if (evtimer_add(&adj->inactivity_timer, &tv) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(adj->inactivity_timer);
+	adj->inactivity_timer = thread_add_timer(master, adj_itimer, adj,
+	    adj->holdtime);
 }
 
 void
 adj_stop_itimer(struct adj *adj)
 {
-	if (evtimer_pending(&adj->inactivity_timer, NULL) &&
-	    evtimer_del(&adj->inactivity_timer) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(adj->inactivity_timer);
 }
 
 /* targeted neighbors */
 
 struct tnbr *
-tnbr_new(struct ldpd_conf *xconf, int af, union ldpd_addr *addr)
+tnbr_new(int af, union ldpd_addr *addr)
 {
 	struct tnbr		*tnbr;
 
@@ -206,8 +199,6 @@ tnbr_new(struct ldpd_conf *xconf, int af, union ldpd_addr *addr)
 	tnbr->af = af;
 	tnbr->addr = *addr;
 	tnbr->state = TNBR_STA_DOWN;
-	tnbr->hello_holdtime = (ldp_af_conf_get(xconf, af))->thello_holdtime;
-	tnbr->hello_interval = (ldp_af_conf_get(xconf, af))->thello_interval;
 
 	return (tnbr);
 }
@@ -257,7 +248,7 @@ tnbr_update(struct tnbr *tnbr)
 	else
 		socket_ok = 0;
 
-	if (leconf->rtr_id.s_addr != INADDR_ANY)
+	if (ldp_rtr_id_get(leconf) != INADDR_ANY)
 		rtr_id_ok = 1;
 	else
 		rtr_id_ok = 0;
@@ -269,7 +260,6 @@ tnbr_update(struct tnbr *tnbr)
 		tnbr->state = TNBR_STA_ACTIVE;
 		send_hello(HELLO_TARGETED, NULL, tnbr);
 
-		evtimer_set(&tnbr->hello_timer, tnbr_hello_timer, tnbr);
 		tnbr_start_hello_timer(tnbr);
 	} else if (tnbr->state == TNBR_STA_ACTIVE) {
 		if (socket_ok && rtr_id_ok)
@@ -291,35 +281,51 @@ tnbr_update_all(int af)
 			tnbr_update(tnbr);
 }
 
+uint16_t
+tnbr_get_hello_holdtime(struct tnbr *tnbr)
+{
+	if ((ldp_af_conf_get(leconf, tnbr->af))->thello_holdtime != 0)
+		return ((ldp_af_conf_get(leconf, tnbr->af))->thello_holdtime);
+
+	return (leconf->thello_holdtime);
+}
+
+uint16_t
+tnbr_get_hello_interval(struct tnbr *tnbr)
+{
+	if ((ldp_af_conf_get(leconf, tnbr->af))->thello_interval != 0)
+		return ((ldp_af_conf_get(leconf, tnbr->af))->thello_interval);
+
+	return (leconf->thello_interval);
+}
+
 /* target neighbors timers */
 
 /* ARGSUSED */
-static void
-tnbr_hello_timer(int fd, short event, void *arg)
+static int
+tnbr_hello_timer(struct thread *thread)
 {
-	struct tnbr	*tnbr = arg;
+	struct tnbr	*tnbr = THREAD_ARG(thread);
 
+	tnbr->hello_timer = NULL;
 	send_hello(HELLO_TARGETED, NULL, tnbr);
 	tnbr_start_hello_timer(tnbr);
+
+	return (0);
 }
 
 static void
 tnbr_start_hello_timer(struct tnbr *tnbr)
 {
-	struct timeval	 tv;
-
-	timerclear(&tv);
-	tv.tv_sec = tnbr->hello_interval;
-	if (evtimer_add(&tnbr->hello_timer, &tv) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(tnbr->hello_timer);
+	tnbr->hello_timer = thread_add_timer(master, tnbr_hello_timer, tnbr,
+	    tnbr_get_hello_interval(tnbr));
 }
 
 static void
 tnbr_stop_hello_timer(struct tnbr *tnbr)
 {
-	if (evtimer_pending(&tnbr->hello_timer, NULL) &&
-	    evtimer_del(&tnbr->hello_timer) == -1)
-		fatal(__func__);
+	THREAD_TIMER_OFF(tnbr->hello_timer);
 }
 
 struct ctl_adj *

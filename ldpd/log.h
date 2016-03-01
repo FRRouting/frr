@@ -26,8 +26,6 @@ union ldpd_addr;
 struct hello_source;
 struct fec;
 
-void		 log_init(int);
-void		 log_verbose(int);
 void		 logit(int, const char *, ...)
 			__attribute__((__format__ (printf, 2, 3)));
 void		 log_warn(const char *, ...)
@@ -36,17 +34,22 @@ void		 log_warnx(const char *, ...)
 			__attribute__((__format__ (printf, 1, 2)));
 void		 log_info(const char *, ...)
 			__attribute__((__format__ (printf, 1, 2)));
+void		 log_notice(const char *, ...)
+			__attribute__((__format__ (printf, 1, 2)));
 void		 log_debug(const char *, ...)
 			__attribute__((__format__ (printf, 1, 2)));
-void		 fatal(const char *) __dead
+void		 fatal(const char *)
+			__attribute__ ((noreturn))
 			__attribute__((__format__ (printf, 1, 0)));
-void		 fatalx(const char *) __dead
+void		 fatalx(const char *)
+			__attribute__ ((noreturn))
 			__attribute__((__format__ (printf, 1, 0)));
 const char	*log_sockaddr(void *);
 const char	*log_in6addr(const struct in6_addr *);
 const char	*log_in6addr_scope(const struct in6_addr *, unsigned int);
 const char	*log_addr(int, const union ldpd_addr *);
 char		*log_label(uint32_t);
+const char	*log_time(time_t);
 char		*log_hello_src(const struct hello_source *);
 const char	*log_map(const struct map *);
 const char	*log_fec(const struct fec *);
@@ -58,6 +61,5 @@ const char	*if_type_name(enum iface_type);
 const char	*msg_name(uint16_t);
 const char	*status_code_name(uint32_t);
 const char	*pw_type_name(uint16_t);
-void		 log_rtmsg(unsigned char);
 
 #endif /* _LOG_H_ */

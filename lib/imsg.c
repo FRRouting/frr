@@ -16,21 +16,48 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/socket.h>
-#include <sys/uio.h>
+#include <zebra.h>
 
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
+#include "openbsd-queue.h"
 #include "imsg.h"
 
 int	 imsg_fd_overhead = 0;
 
 int	 imsg_get_fd(struct imsgbuf *);
+
+#ifndef __OpenBSD__
+/*
+ * The original code calls getdtablecount() which is OpenBSD specific. Use
+ * available_fds() from OpenSMTPD instead.
+ */
+static int
+available_fds(unsigned int n)
+{
+	unsigned int	i;
+	int		ret, fds[256];
+
+	if (n > (sizeof(fds)/sizeof(fds[0])))
+		return (1);
+
+	ret = 0;
+	for (i = 0; i < n; i++) {
+		fds[i] = -1;
+		if ((fds[i] = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+			if (errno == EAFNOSUPPORT || errno == EPROTONOSUPPORT)
+				fds[i] = socket(AF_INET6, SOCK_DGRAM, 0);
+			if (fds[i] < 0) {
+				ret = 1;
+				break;
+			}
+		}
+	}
+
+	for (i = 0; i < n && fds[i] >= 0; i++)
+		close(fds[i]);
+
+	return (ret);
+}
+#endif
 
 void
 imsg_init(struct imsgbuf *ibuf, int fd)
@@ -71,9 +98,14 @@ imsg_read(struct imsgbuf *ibuf)
 		return (-1);
 
 again:
+#ifdef __OpenBSD__
 	if (getdtablecount() + imsg_fd_overhead +
 	    (int)((CMSG_SPACE(sizeof(int))-CMSG_SPACE(0))/sizeof(int))
 	    >= getdtablesize()) {
+#else
+	if (available_fds(imsg_fd_overhead +
+	    (CMSG_SPACE(sizeof(int))-CMSG_SPACE(0))/sizeof(int))) {
+#endif
 		errno = EAGAIN;
 		free(ifd);
 		return (-1);

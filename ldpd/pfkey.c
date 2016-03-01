@@ -17,7 +17,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifdef __OpenBSD__
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -464,3 +466,4 @@ pfkey_init(void)
 	}
 	return (fd);
 }
+#endif /* __OpenBSD__ */

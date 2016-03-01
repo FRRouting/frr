@@ -98,6 +98,13 @@ enum node_type
   BGP_ENCAPV6_NODE,		/* BGP ENCAP SAFI */
   OSPF_NODE,			/* OSPF protocol mode */
   OSPF6_NODE,			/* OSPF protocol for IPv6 mode */
+  LDP_NODE,			/* LDP protocol mode */
+  LDP_IPV4_NODE,		/* LDP IPv4 address family */
+  LDP_IPV6_NODE,		/* LDP IPv6 address family */
+  LDP_IPV4_IFACE_NODE,		/* LDP IPv4 Interface */
+  LDP_IPV6_IFACE_NODE,		/* LDP IPv6 Interface */
+  LDP_L2VPN_NODE,		/* LDP L2VPN node */
+  LDP_PSEUDOWIRE_NODE,		/* LDP Pseudowire node */
   ISIS_NODE,			/* ISIS protocol mode */
   PIM_NODE,			/* PIM protocol mode */
   MASC_NODE,			/* MASC for multicast.  */

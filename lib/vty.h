@@ -127,6 +127,14 @@ struct vty
   char address[SU_ADDRSTRLEN];
 };
 
+struct vty_arg
+{
+  const char *name;
+  const char *value;
+  const char **argv;
+  int argc;
+};
+
 /* Integrated configuration file. */
 #define INTEGRATE_DEFAULT_CONFIG "Quagga.conf"
 
@@ -291,5 +299,8 @@ extern void vty_hello (struct vty *);
 /* Send a fixed-size message to all vty terminal monitors; this should be
    an async-signal-safe function. */
 extern void vty_log_fixed (char *buf, size_t len);
+
+extern const char *vty_get_arg_value (struct vty_arg **, const char *);
+extern struct vty_arg *vty_get_arg (struct vty_arg **, const char *);
 
 #endif /* _ZEBRA_VTY_H */

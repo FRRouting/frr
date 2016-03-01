@@ -21,9 +21,8 @@
 #ifndef _LDE_H_
 #define _LDE_H_
 
-#include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/tree.h>
+#include "openbsd-queue.h"
+#include "openbsd-tree.h"
 
 enum fec_type {
 	FEC_TYPE_IPV4,
@@ -121,10 +120,11 @@ struct fec_node {
 extern struct ldpd_conf	*ldeconf;
 extern struct fec_tree	 ft;
 extern struct nbr_tree	 lde_nbrs;
-extern struct event	 gc_timer;
+extern struct thread	*gc_timer;
 
 /* lde.c */
-void		 lde(int, int);
+void		 lde(const char *, const char *);
+int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
 uint32_t	 lde_assign_label(void);
 void		 lde_send_change_klabel(struct fec_node *, struct fec_nh *);
@@ -173,7 +173,7 @@ void		 lde_check_release(struct map *, struct lde_nbr *);
 void		 lde_check_release_wcard(struct map *, struct lde_nbr *);
 void		 lde_check_withdraw(struct map *, struct lde_nbr *);
 void		 lde_check_withdraw_wcard(struct map *, struct lde_nbr *);
-void		 lde_gc_timer(int, short, void *);
+int		 lde_gc_timer(struct thread *);
 void		 lde_gc_start_timer(void);
 void		 lde_gc_stop_timer(void);
 
@@ -185,8 +185,10 @@ void		 l2vpn_init(struct l2vpn *);
 void		 l2vpn_exit(struct l2vpn *);
 struct l2vpn_if	*l2vpn_if_new(struct l2vpn *, struct kif *);
 struct l2vpn_if	*l2vpn_if_find(struct l2vpn *, unsigned int);
+struct l2vpn_if	*l2vpn_if_find_name(struct l2vpn *, const char *);
 struct l2vpn_pw	*l2vpn_pw_new(struct l2vpn *, struct kif *);
 struct l2vpn_pw *l2vpn_pw_find(struct l2vpn *, unsigned int);
+struct l2vpn_pw *l2vpn_pw_find_name(struct l2vpn *, const char *);
 void		 l2vpn_pw_init(struct l2vpn_pw *);
 void		 l2vpn_pw_exit(struct l2vpn_pw *);
 void		 l2vpn_pw_reset(struct l2vpn_pw *);

@@ -16,15 +16,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "lde.h"
 #include "log.h"
+#include "ldp_debug.h"
 
 static void	 send_address(struct nbr *, int, struct if_addr_head *,
 		    unsigned int, int);
@@ -94,7 +92,7 @@ send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
 		}
 
 		while ((if_addr = LIST_FIRST(addr_list)) != NULL) {
-			log_debug("msg-out: %s: lsr-id %s, address %s",
+			debug_msg_send("%s: lsr-id %s address %s",
 			    msg_name(msg_type), inet_ntoa(nbr->id),
 			    log_addr(af, &if_addr->addr));
 
@@ -225,9 +223,8 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 			fatalx("recv_address: unknown af");
 		}
 
-		log_debug("msg-in: %s: lsr-id %s, address %s",
-		    msg_name(msg_type), inet_ntoa(nbr->id),
-		    log_addr(lde_addr.af, &lde_addr.addr));
+		debug_msg_recv("%s: lsr-id %s address %s", msg_name(msg_type),
+		    inet_ntoa(nbr->id), log_addr(lde_addr.af, &lde_addr.addr));
 
 		ldpe_imsg_compose_lde(type, nbr->peerid, 0, &lde_addr,
 		    sizeof(lde_addr));

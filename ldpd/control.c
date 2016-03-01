@@ -16,13 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <zebra.h>
 #include <sys/un.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -31,11 +26,11 @@
 
 #define	CONTROL_BACKLOG	5
 
-static void		 control_accept(int, short, void *);
+static int		 control_accept(struct thread *);
 static struct ctl_conn	*control_connbyfd(int);
 static struct ctl_conn	*control_connbypid(pid_t);
 static void		 control_close(int);
-static void		 control_dispatch_imsg(int, short, void *);
+static int		 control_dispatch_imsg(struct thread *);
 
 struct ctl_conns	 ctl_conns;
 
@@ -48,11 +43,11 @@ control_init(void)
 	int			 fd;
 	mode_t			 old_umask;
 
-	if ((fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
-	    0)) == -1) {
+	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
 		log_warn("%s: socket", __func__);
 		return (-1);
 	}
+	sock_set_nonblock(fd);
 
 	memset(&s_un, 0, sizeof(s_un));
 	s_un.sun_family = AF_UNIX;
@@ -106,8 +101,8 @@ control_cleanup(void)
 }
 
 /* ARGSUSED */
-static void
-control_accept(int listenfd, short event, void *bula)
+static int
+control_accept(struct thread *thread)
 {
 	int			 connfd;
 	socklen_t		 len;
@@ -115,8 +110,8 @@ control_accept(int listenfd, short event, void *bula)
 	struct ctl_conn		*c;
 
 	len = sizeof(s_un);
-	if ((connfd = accept4(listenfd, (struct sockaddr *)&s_un, &len,
-	    SOCK_NONBLOCK | SOCK_CLOEXEC)) == -1) {
+	if ((connfd = accept(THREAD_FD(thread), (struct sockaddr *)&s_un,
+	    &len)) == -1) {
 		/*
 		 * Pause accept if we are out of file descriptors, or
 		 * libevent will haunt us here too.
@@ -125,24 +120,27 @@ control_accept(int listenfd, short event, void *bula)
 			accept_pause();
 		else if (errno != EWOULDBLOCK && errno != EINTR &&
 		    errno != ECONNABORTED)
-			log_warn("%s: accept4", __func__);
-		return;
+			log_warn("%s: accept", __func__);
+		return (0);
 	}
+	sock_set_nonblock(connfd);
 
 	if ((c = calloc(1, sizeof(struct ctl_conn))) == NULL) {
 		log_warn(__func__);
 		close(connfd);
-		return;
+		return (0);
 	}
 
 	imsg_init(&c->iev.ibuf, connfd);
-	c->iev.handler = control_dispatch_imsg;
-	c->iev.events = EV_READ;
-	event_set(&c->iev.ev, c->iev.ibuf.fd, c->iev.events,
-	    c->iev.handler, &c->iev);
-	event_add(&c->iev.ev, NULL);
+	c->iev.handler_read = control_dispatch_imsg;
+	c->iev.ev_read = thread_add_read(master, c->iev.handler_read,
+	    &c->iev, c->iev.ibuf.fd);
+	c->iev.handler_write = ldp_write_handler;
+	c->iev.ev_write = NULL;
 
 	TAILQ_INSERT_TAIL(&ctl_conns, c, entry);
+
+	return (0);
 }
 
 static struct ctl_conn *
@@ -182,45 +180,40 @@ control_close(int fd)
 	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
-	event_del(&c->iev.ev);
+	THREAD_READ_OFF(c->iev.ev_read);
+	THREAD_WRITE_OFF(c->iev.ev_write);
 	close(c->iev.ibuf.fd);
 	accept_unpause();
 	free(c);
 }
 
 /* ARGSUSED */
-static void
-control_dispatch_imsg(int fd, short event, void *bula)
+static int
+control_dispatch_imsg(struct thread *thread)
 {
+	int		 fd = THREAD_FD(thread);
 	struct ctl_conn	*c;
 	struct imsg	 imsg;
 	ssize_t		 n;
 	unsigned int	 ifidx;
-	int		 verbose;
 
 	if ((c = control_connbyfd(fd)) == NULL) {
 		log_warnx("%s: fd %d: not found", __func__, fd);
-		return;
+		return (0);
 	}
 
-	if (event & EV_READ) {
-		if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
-		    n == 0) {
-			control_close(fd);
-			return;
-		}
-	}
-	if (event & EV_WRITE) {
-		if (msgbuf_write(&c->iev.ibuf.w) <= 0 && errno != EAGAIN) {
-			control_close(fd);
-			return;
-		}
+	c->iev.ev_read = NULL;
+
+	if (((n = imsg_read(&c->iev.ibuf)) == -1 && errno != EAGAIN) ||
+	    n == 0) {
+		control_close(fd);
+		return (0);
 	}
 
 	for (;;) {
 		if ((n = imsg_get(&c->iev.ibuf, &imsg)) == -1) {
 			control_close(fd);
-			return;
+			return (0);
 		}
 
 		if (n == 0)
@@ -230,16 +223,10 @@ control_dispatch_imsg(int fd, short event, void *bula)
 		case IMSG_CTL_FIB_COUPLE:
 		case IMSG_CTL_FIB_DECOUPLE:
 		case IMSG_CTL_RELOAD:
-			c->iev.ibuf.pid = imsg.hdr.pid;
-			ldpe_imsg_compose_parent(imsg.hdr.type, 0, NULL, 0);
-			break;
 		case IMSG_CTL_KROUTE:
 		case IMSG_CTL_KROUTE_ADDR:
 		case IMSG_CTL_IFINFO:
-			c->iev.ibuf.pid = imsg.hdr.pid;
-			ldpe_imsg_compose_parent(imsg.hdr.type,
-			    imsg.hdr.pid, imsg.data,
-			    imsg.hdr.len - IMSG_HEADER_SIZE);
+			/* ignore */
 			break;
 		case IMSG_CTL_SHOW_INTERFACE:
 			if (imsg.hdr.len == IMSG_HEADER_SIZE +
@@ -271,18 +258,7 @@ control_dispatch_imsg(int fd, short event, void *bula)
 			nbr_clear_ctl(imsg.data);
 			break;
 		case IMSG_CTL_LOG_VERBOSE:
-			if (imsg.hdr.len != IMSG_HEADER_SIZE +
-			    sizeof(verbose))
-				break;
-
-			/* forward to other processes */
-			ldpe_imsg_compose_parent(imsg.hdr.type, imsg.hdr.pid,
-			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
-			ldpe_imsg_compose_lde(imsg.hdr.type, 0, imsg.hdr.pid,
-			    imsg.data, imsg.hdr.len - IMSG_HEADER_SIZE);
-
-			memcpy(&verbose, imsg.data, sizeof(verbose));
-			log_verbose(verbose);
+			/* ignore */
 			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
@@ -293,6 +269,8 @@ control_dispatch_imsg(int fd, short event, void *bula)
 	}
 
 	imsg_event_add(&c->iev);
+
+	return (0);
 }
 
 int

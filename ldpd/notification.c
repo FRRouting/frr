@@ -16,14 +16,13 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldp.h"
 #include "log.h"
 #include "ldpe.h"
+#include "ldp_debug.h"
 
 void
 send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
@@ -65,7 +64,7 @@ send_notification_full(struct tcp_conn *tcp, struct notify_msg *nm)
 	}
 
 	if (tcp->nbr)
-		log_debug("msg-out: notification: lsr-id %s, status %s%s",
+		debug_msg_send("notification: lsr-id %s status %s%s",
 		    inet_ntoa(tcp->nbr->id), status_code_name(nm->status_code),
 		    (nm->status_code & STATUS_FATAL) ? " (fatal)" : "");
 
@@ -199,8 +198,8 @@ recv_notification(struct nbr *nbr, char *buf, uint16_t len)
 		}
 	}
 
-	log_warnx("msg-in: notification: lsr-id %s, status %s%s",
-	    inet_ntoa(nbr->id), status_code_name(ntohl(st.status_code)),
+	debug_msg_recv("notification: lsr-id %s: %s%s", inet_ntoa(nbr->id),
+	    status_code_name(ntohl(st.status_code)),
 	    (st.status_code & htonl(STATUS_FATAL)) ? " (fatal)" : "");
 
 	if (st.status_code & htonl(STATUS_FATAL)) {

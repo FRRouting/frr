@@ -2550,6 +2550,19 @@ node_parent ( enum node_type node )
     case LINK_PARAMS_NODE:
       ret = INTERFACE_NODE;
       break;
+    case LDP_IPV4_NODE:
+    case LDP_IPV6_NODE:
+      ret = LDP_NODE;
+      break;
+    case LDP_IPV4_IFACE_NODE:
+      ret = LDP_IPV4_NODE;
+      break;
+    case LDP_IPV6_IFACE_NODE:
+      ret = LDP_IPV6_NODE;
+      break;
+    case LDP_PSEUDOWIRE_NODE:
+      ret = LDP_L2VPN_NODE;
+      break;
     default:
       ret = CONFIG_NODE;
       break;
@@ -2920,6 +2933,8 @@ DEFUN (config_exit,
     case RIPNG_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
+    case LDP_NODE:
+    case LDP_L2VPN_NODE:
     case ISIS_NODE:
     case KEYCHAIN_NODE:
     case MASC_NODE:
@@ -2937,6 +2952,19 @@ DEFUN (config_exit,
     case BGP_IPV6_NODE:
     case BGP_IPV6M_NODE:
       vty->node = BGP_NODE;
+      break;
+    case LDP_IPV4_NODE:
+    case LDP_IPV6_NODE:
+      vty->node = LDP_NODE;
+      break;
+    case LDP_IPV4_IFACE_NODE:
+      vty->node = LDP_IPV4_NODE;
+      break;
+    case LDP_IPV6_IFACE_NODE:
+      vty->node = LDP_IPV6_NODE;
+      break;
+    case LDP_PSEUDOWIRE_NODE:
+      vty->node = LDP_L2VPN_NODE;
       break;
     case KEYCHAIN_KEY_NODE:
       vty->node = KEYCHAIN_NODE;
@@ -2988,6 +3016,13 @@ DEFUN (config_end,
     case RMAP_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
+    case LDP_NODE:
+    case LDP_IPV4_NODE:
+    case LDP_IPV6_NODE:
+    case LDP_IPV4_IFACE_NODE:
+    case LDP_IPV6_IFACE_NODE:
+    case LDP_L2VPN_NODE:
+    case LDP_PSEUDOWIRE_NODE:
     case ISIS_NODE:
     case KEYCHAIN_NODE:
     case KEYCHAIN_KEY_NODE:

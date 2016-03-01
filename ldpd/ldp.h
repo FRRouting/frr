@@ -23,8 +23,6 @@
 #ifndef _LDP_H_
 #define _LDP_H_
 
-#include <sys/types.h>
-
 /* misc */
 #define LDP_VERSION		1
 #define LDP_PORT		646
@@ -106,7 +104,7 @@ struct ldp_hdr {
 	uint16_t	length;
 	uint32_t	lsr_id;
 	uint16_t	lspace_id;
-} __packed;
+} __attribute__ ((packed));
 
 #define	LDP_HDR_SIZE		10	/* actual size of the LDP header */
 #define	LDP_HDR_PDU_LEN		6	/* minimum "PDU Length" */
@@ -125,7 +123,7 @@ struct ldp_msg {
 	uint32_t	id;
 	/* Mandatory Parameters */
 	/* Optional Parameters */
-} __packed;
+} __attribute__ ((packed));
 
 #define LDP_MSG_SIZE		8	/* minimum size of LDP message */
 #define LDP_MSG_LEN		4	/* minimum "Message Length" */
@@ -212,7 +210,7 @@ struct sess_prms_tlv {
 	uint16_t	max_pdu_len;
 	uint32_t	lsr_id;
 	uint16_t	lspace_id;
-} __packed;
+} __attribute__ ((packed));
 
 #define SESS_PRMS_SIZE		18
 #define SESS_PRMS_LEN		14
@@ -223,7 +221,7 @@ struct status_tlv {
 	uint32_t	status_code;
 	uint32_t	msg_id;
 	uint16_t	msg_type;
-} __packed;
+} __attribute__ ((packed));
 
 #define STATUS_SIZE		14
 #define STATUS_TLV_LEN		10
@@ -237,7 +235,7 @@ struct address_list_tlv {
 	uint16_t	length;
 	uint16_t	family;
 	/* address entries */
-} __packed;
+} __attribute__ ((packed));
 
 #define ADDR_LIST_SIZE		6
 

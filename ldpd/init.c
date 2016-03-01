@@ -16,13 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
+#include "ldp_debug.h"
 
 static int	gen_init_prms_tlv(struct ibuf *, struct nbr *);
 
@@ -33,7 +32,7 @@ send_init(struct nbr *nbr)
 	uint16_t		 size;
 	int			 err = 0;
 
-	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
+	debug_msg_send("initialization: lsr-id %s", inet_ntoa(nbr->id));
 
 	size = LDP_HDR_SIZE + LDP_MSG_SIZE + SESS_PRMS_SIZE;
 	if ((buf = ibuf_open(size)) == NULL)
@@ -59,7 +58,7 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 	struct sess_prms_tlv	sess;
 	uint16_t		max_pdu_len;
 
-	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
+	debug_msg_recv("initialization: lsr-id %s", inet_ntoa(nbr->id));
 
 	memcpy(&msg, buf, sizeof(msg));
 	buf += LDP_MSG_SIZE;
@@ -82,7 +81,7 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 		session_shutdown(nbr, S_KEEPALIVE_BAD, msg.id, msg.type);
 		return (-1);
 	}
-	if (sess.lsr_id != leconf->rtr_id.s_addr ||
+	if (sess.lsr_id != ldp_rtr_id_get(leconf) ||
 	    ntohs(sess.lspace_id) != 0) {
 		session_shutdown(nbr, S_NO_HELLO, msg.id, msg.type);
 		return (-1);

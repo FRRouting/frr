@@ -19,10 +19,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <stdlib.h>
-#include <string.h>
-#include <limits.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -47,6 +44,7 @@ l2vpn_new(const char *name)
 
 	LIST_INIT(&l2vpn->if_list);
 	LIST_INIT(&l2vpn->pw_list);
+	LIST_INIT(&l2vpn->pw_inactive_list);
 
 	return (l2vpn);
 }
@@ -74,6 +72,10 @@ l2vpn_del(struct l2vpn *l2vpn)
 		free(lif);
 	}
 	while ((pw = LIST_FIRST(&l2vpn->pw_list)) != NULL) {
+		LIST_REMOVE(pw, entry);
+		free(pw);
+	}
+	while ((pw = LIST_FIRST(&l2vpn->pw_inactive_list)) != NULL) {
 		LIST_REMOVE(pw, entry);
 		free(pw);
 	}
@@ -111,7 +113,6 @@ l2vpn_if_new(struct l2vpn *l2vpn, struct kif *kif)
 	strlcpy(lif->ifname, kif->ifname, sizeof(lif->ifname));
 	lif->ifindex = kif->ifindex;
 	lif->flags = kif->flags;
-	lif->link_state = kif->link_state;
 
 	return (lif);
 }
@@ -127,6 +128,19 @@ l2vpn_if_find(struct l2vpn *l2vpn, unsigned int ifindex)
 
 	return (NULL);
 }
+
+struct l2vpn_if *
+l2vpn_if_find_name(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_if	*lif;
+
+	LIST_FOREACH(lif, &l2vpn->if_list, entry)
+		if (strcmp(lif->ifname, ifname) == 0)
+			return (lif);
+
+	return (NULL);
+}
+
 
 struct l2vpn_pw *
 l2vpn_pw_new(struct l2vpn *l2vpn, struct kif *kif)
@@ -150,6 +164,24 @@ l2vpn_pw_find(struct l2vpn *l2vpn, unsigned int ifindex)
 
 	LIST_FOREACH(pw, &l2vpn->pw_list, entry)
 		if (pw->ifindex == ifindex)
+			return (pw);
+	LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry)
+		if (pw->ifindex == ifindex)
+			return (pw);
+
+	return (NULL);
+}
+
+struct l2vpn_pw *
+l2vpn_pw_find_name(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw	*pw;
+
+	LIST_FOREACH(pw, &l2vpn->pw_list, entry)
+		if (strcmp(pw->ifname, ifname) == 0)
+			return (pw);
+	LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry)
+		if (strcmp(pw->ifname, ifname) == 0)
 			return (pw);
 
 	return (NULL);
@@ -399,6 +431,8 @@ l2vpn_pw_ctl(pid_t pid)
 	LIST_FOREACH(l2vpn, &ldeconf->l2vpn_list, entry)
 		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
 			memset(&pwctl, 0, sizeof(pwctl));
+			strlcpy(pwctl.l2vpn_name, pw->l2vpn->name,
+			    sizeof(pwctl.l2vpn_name));
 			strlcpy(pwctl.ifname, pw->ifname,
 			    sizeof(pwctl.ifname));
 			pwctl.pwid = pw->pwid;
@@ -438,6 +472,8 @@ l2vpn_binding_ctl(pid_t pid)
 			pwctl.local_label = fn->local_label;
 			pwctl.local_gid = 0;
 			pwctl.local_ifmtu = pw->l2vpn->mtu;
+			pwctl.local_cword = (pw->flags & F_PW_CWORD_CONF) ?
+			    1 : 0;
 		} else
 			pwctl.local_label = NO_LABEL;
 
@@ -450,6 +486,9 @@ l2vpn_binding_ctl(pid_t pid)
 			pwctl.remote_gid = me->map.fec.pwid.group_id;
 			if (me->map.flags & F_MAP_PW_IFMTU)
 				pwctl.remote_ifmtu = me->map.fec.pwid.ifmtu;
+			if (pw)
+				pwctl.remote_cword = (pw->flags & F_PW_CWORD) ?
+				    1 : 0;
 
 			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_BINDING,
 			    0, pid, &pwctl, sizeof(pwctl));
@@ -489,7 +528,7 @@ ldpe_l2vpn_pw_init(struct l2vpn_pw *pw)
 
 	tnbr = tnbr_find(leconf, pw->af, &pw->addr);
 	if (tnbr == NULL) {
-		tnbr = tnbr_new(leconf, pw->af, &pw->addr);
+		tnbr = tnbr_new(pw->af, &pw->addr);
 		tnbr_update(tnbr);
 		LIST_INSERT_HEAD(&leconf->tnbr_list, tnbr, entry);
 	}

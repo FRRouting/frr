@@ -19,8 +19,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "log.h"
@@ -44,7 +43,7 @@ mask2prefixlen6(struct sockaddr_in6 *sa_in6)
 	 * the possibly truncated sin6_addr struct.
 	 */
 	ap = (uint8_t *)&sa_in6->sin6_addr;
-	ep = (uint8_t *)sa_in6 + sa_in6->sin6_len;
+	ep = (uint8_t *)sa_in6 + sockaddr_len((struct sockaddr *)sa_in6);
 	for (; ap < ep; ap++) {
 		/* this "beauty" is adopted from sbin/route/show.c ... */
 		switch (*ap) {
@@ -317,13 +316,17 @@ addr2sa(int af, union ldpd_addr *addr, uint16_t port)
 	switch (af) {
 	case AF_INET:
 		sa_in->sin_family = AF_INET;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		sa_in->sin_len = sizeof(struct sockaddr_in);
+#endif
 		sa_in->sin_addr = addr->v4;
 		sa_in->sin_port = htons(port);
 		break;
 	case AF_INET6:
 		sa_in6->sin6_family = AF_INET6;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		sa_in6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 		sa_in6->sin6_addr = addr->v6;
 		sa_in6->sin6_port = htons(port);
 		break;
@@ -335,22 +338,48 @@ addr2sa(int af, union ldpd_addr *addr, uint16_t port)
 }
 
 void
-sa2addr(struct sockaddr *sa, int *af, union ldpd_addr *addr)
+sa2addr(struct sockaddr *sa, int *af, union ldpd_addr *addr, in_port_t *port)
 {
 	struct sockaddr_in		*sa_in = (struct sockaddr_in *)sa;
 	struct sockaddr_in6		*sa_in6 = (struct sockaddr_in6 *)sa;
 
-	memset(addr, 0, sizeof(*addr));
+	if (addr)
+		memset(addr, 0, sizeof(*addr));
 	switch (sa->sa_family) {
 	case AF_INET:
-		*af = AF_INET;
-		addr->v4 = sa_in->sin_addr;
+		if (af)
+			*af = AF_INET;
+		if (addr)
+			addr->v4 = sa_in->sin_addr;
+		if (port)
+			*port = sa_in->sin_port;
 		break;
 	case AF_INET6:
-		*af = AF_INET6;
-		addr->v6 = sa_in6->sin6_addr;
+		if (af)
+			*af = AF_INET6;
+		if (addr)
+			addr->v6 = sa_in6->sin6_addr;
+		if (port)
+			*port = sa_in6->sin6_port;
 		break;
 	default:
 		fatalx("sa2addr: unknown af");
 	}
+}
+
+socklen_t
+sockaddr_len(struct sockaddr *sa)
+{
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+	return (sa->sa_len);
+#else
+	switch (sa->sa_family) {
+	case AF_INET:
+		return (sizeof(struct sockaddr_in));
+	case AF_INET6:
+		return (sizeof(struct sockaddr_in6));
+	default:
+		fatalx("sockaddr_len: unknown af");
+	}
+#endif
 }

@@ -16,23 +16,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netmpls/mpls.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syslog.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <limits.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "lde.h"
 #include "log.h"
+
+#include <lib/log.h>
+#include "mpls.h"
 
 static const char * const procnames[] = {
 	"parent",
@@ -40,29 +32,7 @@ static const char * const procnames[] = {
 	"lde"
 };
 
-static void	 vlog(int, const char *, va_list);
-
-static int	 debug;
-static int	 verbose;
-
-void
-log_init(int n_debug)
-{
-	extern char	*__progname;
-
-	debug = n_debug;
-
-	if (!debug)
-		openlog(__progname, LOG_PID | LOG_NDELAY, LOG_DAEMON);
-
-	tzset();
-}
-
-void
-log_verbose(int v)
-{
-	verbose = v;
-}
+void		 vlog(int, const char *, va_list);
 
 void
 logit(int pri, const char *fmt, ...)
@@ -74,23 +44,24 @@ logit(int pri, const char *fmt, ...)
 	va_end(ap);
 }
 
-static void
+void
 vlog(int pri, const char *fmt, va_list ap)
 {
-	char	*nfmt;
+	char	 buf[1024];
 
-	if (debug) {
-		/* best effort in out of mem situations */
-		if (asprintf(&nfmt, "%s\n", fmt) == -1) {
-			vfprintf(stderr, fmt, ap);
-			fprintf(stderr, "\n");
-		} else {
-			vfprintf(stderr, nfmt, ap);
-			free(nfmt);
-		}
-		fflush(stderr);
-	} else
-		vsyslog(pri, fmt, ap);
+	switch (ldpd_process) {
+	case PROC_LDE_ENGINE:
+		vsnprintf(buf, sizeof(buf), fmt, ap);
+		lde_imsg_compose_parent(IMSG_LOG, pri, buf, strlen(buf) + 1);
+		break;
+	case PROC_LDP_ENGINE:
+		vsnprintf(buf, sizeof(buf), fmt, ap);
+		ldpe_imsg_compose_parent(IMSG_LOG, pri, buf, strlen(buf) + 1);
+		break;
+	case PROC_MAIN:
+		vzlog(NULL, pri, fmt, ap);
+		break;
+	}
 }
 
 void
@@ -138,15 +109,23 @@ log_info(const char *emsg, ...)
 }
 
 void
+log_notice(const char *emsg, ...)
+{
+	va_list	 ap;
+
+	va_start(ap, emsg);
+	vlog(LOG_NOTICE, emsg, ap);
+	va_end(ap);
+}
+
+void
 log_debug(const char *emsg, ...)
 {
 	va_list	 ap;
 
-	if (verbose & LDPD_OPT_VERBOSE) {
-		va_start(ap, emsg);
-		vlog(LOG_DEBUG, emsg, ap);
-		va_end(ap);
-	}
+	va_start(ap, emsg);
+	vlog(LOG_DEBUG, emsg, ap);
+	va_end(ap);
 }
 
 void
@@ -183,7 +162,7 @@ log_sockaddr(void *vp)
 
 	round = (round + 1) % NUM_LOGS;
 
-	if (getnameinfo(sa, sa->sa_len, buf[round], NI_MAXHOST, NULL, 0,
+	if (getnameinfo(sa, sockaddr_len(sa), buf[round], NI_MAXHOST, NULL, 0,
 	    NI_NUMERICHOST))
 		return ("(unknown)");
 	else
@@ -196,7 +175,9 @@ log_in6addr(const struct in6_addr *addr)
 	struct sockaddr_in6	sa_in6;
 
 	memset(&sa_in6, 0, sizeof(sa_in6));
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 	sa_in6.sin6_len = sizeof(sa_in6);
+#endif
 	sa_in6.sin6_family = AF_INET6;
 	sa_in6.sin6_addr = *addr;
 
@@ -211,7 +192,9 @@ log_in6addr_scope(const struct in6_addr *addr, unsigned int ifindex)
 	struct sockaddr_in6	sa_in6;
 
 	memset(&sa_in6, 0, sizeof(sa_in6));
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 	sa_in6.sin6_len = sizeof(sa_in6);
+#endif
 	sa_in6.sin6_family = AF_INET6;
 	sa_in6.sin6_addr = *addr;
 
@@ -271,6 +254,39 @@ log_label(uint32_t label)
 		snprintf(buf, TF_LEN, "%u", label);
 		break;
 	}
+
+	return (buf);
+}
+
+const char *
+log_time(time_t t)
+{
+	char		*buf;
+	static char	 tfbuf[TF_BUFS][TF_LEN];	/* ring buffer */
+	static int	 idx = 0;
+	unsigned int	 sec, min, hrs, day, week;
+
+	buf = tfbuf[idx++];
+	if (idx == TF_BUFS)
+		idx = 0;
+
+	week = t;
+
+	sec = week % 60;
+	week /= 60;
+	min = week % 60;
+	week /= 60;
+	hrs = week % 24;
+	week /= 24;
+	day = week % 7;
+	week /= 7;
+
+	if (week > 0)
+		snprintf(buf, TF_LEN, "%02uw%01ud%02uh", week, day, hrs);
+	else if (day > 0)
+		snprintf(buf, TF_LEN, "%01ud%02uh%02um", day, hrs, min);
+	else
+		snprintf(buf, TF_LEN, "%02u:%02u:%02u", hrs, min, sec);
 
 	return (buf);
 }
@@ -365,8 +381,10 @@ af_name(int af)
 		return ("ipv4");
 	case AF_INET6:
 		return ("ipv6");
+#ifdef AF_MPLS
 	case AF_MPLS:
 		return ("mpls");
+#endif
 	default:
 		return ("UNKNOWN");
 	}
@@ -563,38 +581,4 @@ pw_type_name(uint16_t pw_type)
 		snprintf(buf, sizeof(buf), "[%0x]", pw_type);
 		return (buf);
 	}
-}
-
-static char *msgtypes[] = {
-	"",
-	"RTM_ADD: Add Route",
-	"RTM_DELETE: Delete Route",
-	"RTM_CHANGE: Change Metrics or flags",
-	"RTM_GET: Report Metrics",
-	"RTM_LOSING: Kernel Suspects Partitioning",
-	"RTM_REDIRECT: Told to use different route",
-	"RTM_MISS: Lookup failed on this address",
-	"RTM_LOCK: fix specified metrics",
-	"RTM_OLDADD: caused by SIOCADDRT",
-	"RTM_OLDDEL: caused by SIOCDELRT",
-	"RTM_RESOLVE: Route created by cloning",
-	"RTM_NEWADDR: address being added to iface",
-	"RTM_DELADDR: address being removed from iface",
-	"RTM_IFINFO: iface status change",
-	"RTM_IFANNOUNCE: iface arrival/departure",
-	"RTM_DESYNC: route socket overflow",
-};
-
-void
-log_rtmsg(unsigned char rtm_type)
-{
-	if (!(verbose & LDPD_OPT_VERBOSE2))
-		return;
-
-	if (rtm_type > 0 &&
-	    rtm_type < sizeof(msgtypes)/sizeof(msgtypes[0]))
-		log_debug("kernel message: %s", msgtypes[rtm_type]);
-	else
-		log_debug("kernel message: rtm_type %d out of range",
-		    rtm_type);
 }

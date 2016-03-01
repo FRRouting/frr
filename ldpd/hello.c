@@ -17,13 +17,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
+#include "ldp_debug.h"
 
 static int	gen_hello_prms_tlv(struct ibuf *buf, uint16_t, uint16_t);
 static int	gen_opt4_hello_prms_tlv(struct ibuf *, uint16_t, uint32_t);
@@ -46,7 +45,7 @@ send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 	switch (type) {
 	case HELLO_LINK:
 		af = ia->af;
-		holdtime = ia->hello_holdtime;
+		holdtime = if_get_hello_holdtime(ia);
 		flags = 0;
 		fd = (ldp_af_global_get(&global, af))->ldp_disc_socket;
 
@@ -66,7 +65,7 @@ send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 		break;
 	case HELLO_TARGETED:
 		af = tnbr->af;
-		holdtime = tnbr->hello_holdtime;
+		holdtime = tnbr_get_hello_holdtime(tnbr);
 		flags = F_HELLO_TARGETED;
 		if ((tnbr->flags & F_TNBR_CONFIGURED) || tnbr->pw_count)
 			flags |= F_HELLO_REQ_TARG;
@@ -139,6 +138,20 @@ send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 		return (-1);
 	}
 
+	switch (type) {
+	case HELLO_LINK:
+		debug_hello_send("iface %s (%s) holdtime %u", ia->iface->name,
+		    af_name(ia->af), holdtime);
+		break;
+	case HELLO_TARGETED:
+		debug_hello_send("targeted-neighbor %s (%s) holdtime %u",
+		    log_addr(tnbr->af, &tnbr->addr), af_name(tnbr->af),
+		    holdtime);
+		break;
+	default:
+		fatalx("send_hello: unknown hello type");
+	}
+
 	send_packet(fd, af, &dst, ia, buf->buf, buf->wpos);
 	ibuf_free(buf);
 
@@ -152,7 +165,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 {
 	struct adj		*adj = NULL;
 	struct nbr		*nbr, *nbrt;
-	uint16_t		 holdtime, flags;
+	uint16_t		 holdtime = 0, flags = 0;
 	int			 tlvs_rcvd;
 	int			 ds_tlv;
 	union ldpd_addr		 trans_addr;
@@ -257,7 +270,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 			    F_LDPD_AF_THELLO_ACCEPT)))
 				return;
 
-			tnbr = tnbr_new(leconf, af, src);
+			tnbr = tnbr_new(af, src);
 			tnbr->flags |= F_TNBR_DYNAMIC;
 			tnbr_update(tnbr);
 			LIST_INSERT_HEAD(&leconf->tnbr_list, tnbr, entry);
@@ -387,18 +400,22 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		if (holdtime == 0)
 			holdtime = LINK_DFLT_HOLDTIME;
 
-		adj->holdtime = min(ia->hello_holdtime, holdtime);
+		adj->holdtime = min(if_get_hello_holdtime(ia), holdtime);
 		break;
 	case HELLO_TARGETED:
 		if (holdtime == 0)
 			holdtime = TARGETED_DFLT_HOLDTIME;
 
-		adj->holdtime = min(tnbr->hello_holdtime, holdtime);
+		adj->holdtime = min(tnbr_get_hello_holdtime(tnbr), holdtime);
 	}
 	if (adj->holdtime != INFINITE_HOLDTIME)
 		adj_start_itimer(adj);
 	else
 		adj_stop_itimer(adj);
+
+	debug_hello_recv("%s lsr-id %s transport-address %s holdtime %u%s",
+	    log_hello_src(&source), inet_ntoa(lsr_id), log_addr(af, &trans_addr),
+	     holdtime, (ds_tlv) ? " (dual stack TLV present)" : "");
 
 	if (nbr && nbr->state == NBR_STA_PRESENT && !nbr_pending_idtimer(nbr) &&
 	    nbr_session_active_role(nbr) && !nbr_pending_connect(nbr))

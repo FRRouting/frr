@@ -16,12 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <string.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
+#include "ldp_debug.h"
 
 void
 send_keepalive(struct nbr *nbr)
@@ -37,6 +37,8 @@ send_keepalive(struct nbr *nbr)
 	size -= LDP_HDR_SIZE;
 	gen_msg_hdr(buf, MSG_TYPE_KEEPALIVE, size);
 
+	debug_kalive_send("keepalive: lsr-id %s", inet_ntoa(nbr->id));
+
 	evbuf_enqueue(&nbr->tcp->wbuf, buf);
 }
 
@@ -50,6 +52,8 @@ recv_keepalive(struct nbr *nbr, char *buf, uint16_t len)
 		session_shutdown(nbr, S_BAD_MSG_LEN, msg.id, msg.type);
 		return (-1);
 	}
+
+	debug_kalive_recv("keepalive: lsr-id %s", inet_ntoa(nbr->id));
 
 	if (nbr->state != NBR_STA_OPER)
 		nbr_fsm(nbr, NBR_EVT_KEEPALIVE_RCVD);

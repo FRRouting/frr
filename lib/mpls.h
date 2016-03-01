@@ -169,4 +169,13 @@ label2str (mpls_label_t label, char *buf, int len)
   return(buf);
 }
 
+/* constants used by ldpd */
+#define MPLS_LABEL_IPV4NULL	0               /* IPv4 Explicit NULL Label */
+#define MPLS_LABEL_RTALERT	1               /* Router Alert Label       */
+#define MPLS_LABEL_IPV6NULL	2               /* IPv6 Explicit NULL Label */
+#define MPLS_LABEL_IMPLNULL	3               /* Implicit NULL Label      */
+/*      MPLS_LABEL_RESERVED	4-15 */		/* Values 4-15 are reserved */
+#define MPLS_LABEL_RESERVED_MAX 15
+#define MPLS_LABEL_MAX		((1 << 20) - 1)
+
 #endif

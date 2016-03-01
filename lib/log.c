@@ -51,6 +51,7 @@ const char *zlog_proto_names[] =
   "OSPF",
   "RIPNG",
   "OSPF6",
+  "LDP",
   "ISIS",
   "PIM",
   "MASC",
@@ -177,7 +178,7 @@ time_print(FILE *fp, struct timestamp_control *ctl)
   
 
 /* va_list version of zlog. */
-static void
+void
 vzlog (struct zlog *zl, int priority, const char *format, va_list args)
 {
   char proto_str[32];

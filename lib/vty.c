@@ -754,6 +754,13 @@ vty_end_config (struct vty *vty)
     case RMAP_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
+    case LDP_NODE:
+    case LDP_IPV4_NODE:
+    case LDP_IPV6_NODE:
+    case LDP_IPV4_IFACE_NODE:
+    case LDP_IPV6_IFACE_NODE:
+    case LDP_L2VPN_NODE:
+    case LDP_PSEUDOWIRE_NODE:
     case ISIS_NODE:
     case KEYCHAIN_NODE:
     case KEYCHAIN_KEY_NODE:
@@ -1158,6 +1165,13 @@ vty_stop_input (struct vty *vty)
     case RMAP_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
+    case LDP_NODE:
+    case LDP_IPV4_NODE:
+    case LDP_IPV6_NODE:
+    case LDP_IPV4_IFACE_NODE:
+    case LDP_IPV6_IFACE_NODE:
+    case LDP_L2VPN_NODE:
+    case LDP_PSEUDOWIRE_NODE:
     case ISIS_NODE:
     case KEYCHAIN_NODE:
     case KEYCHAIN_KEY_NODE:
@@ -3179,4 +3193,30 @@ vty_terminate (void)
       vector_free (vtyvec);
       vector_free (Vvty_serv_thread);
     }
+}
+
+/* Utility functions to get arguments from commands generated
+   by the xml2cli.pl script. */
+const char *
+vty_get_arg_value (struct vty_arg *args[], const char *arg)
+{
+  while (*args)
+    {
+      if (strcmp ((*args)->name, arg) == 0)
+        return (*args)->value;
+      args++;
+    }
+  return NULL;
+}
+
+struct vty_arg *
+vty_get_arg (struct vty_arg *args[], const char *arg)
+{
+  while (*args)
+    {
+      if (strcmp ((*args)->name, arg) == 0)
+        return *args;
+      args++;
+    }
+  return NULL;
 }

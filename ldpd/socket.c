@@ -19,17 +19,18 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
+
+#include "lib/log.h"
+#include "privs.h"
+#include "sockopt.h"
+
+extern struct zebra_privs_t	 ldpd_privs;
+extern struct zebra_privs_t	 ldpe_privs;
 
 int
 ldp_create_socket(int af, enum socket_type type)
@@ -37,7 +38,10 @@ ldp_create_socket(int af, enum socket_type type)
 	int			 fd, domain, proto;
 	union ldpd_addr		 addr;
 	struct sockaddr_storage	 local_sa;
+#ifdef __OpenBSD__
 	int			 opt;
+#endif
+	int			 save_errno;
 
 	/* create socket */
 	switch (type) {
@@ -53,11 +57,13 @@ ldp_create_socket(int af, enum socket_type type)
 	default:
 		fatalx("ldp_create_socket: unknown socket type");
 	}
-	fd = socket(af, domain | SOCK_NONBLOCK | SOCK_CLOEXEC, proto);
+	fd = socket(af, domain, proto);
 	if (fd == -1) {
 		log_warn("%s: error creating socket", __func__);
 		return (-1);
 	}
+	sock_set_nonblock(fd);
+	sockopt_v6only(af, fd);
 
 	/* bind to a local address/port */
 	switch (type) {
@@ -72,21 +78,28 @@ ldp_create_socket(int af, enum socket_type type)
 		addr = (ldp_af_conf_get(ldpd_conf, af))->trans_addr;
 		memcpy(&local_sa, addr2sa(af, &addr, LDP_PORT),
 		    sizeof(local_sa));
-		if (sock_set_bindany(fd, 1) == -1) {
-			close(fd);
-			return (-1);
-		}
+		/* ignore any possible error */
+		sock_set_bindany(fd, 1);
 		break;
 	}
+	if (ldpd_privs.change(ZPRIVS_RAISE))
+		log_warn("%s: could not raise privs", __func__);
 	if (sock_set_reuse(fd, 1) == -1) {
 		close(fd);
 		return (-1);
 	}
-	if (bind(fd, (struct sockaddr *)&local_sa, local_sa.ss_len) == -1) {
-		log_warn("%s: error binding socket", __func__);
+	if (bind(fd, (struct sockaddr *)&local_sa,
+	    sockaddr_len((struct sockaddr *)&local_sa)) == -1) {
+		save_errno = errno;
+		if (ldpd_privs.change(ZPRIVS_LOWER))
+			log_warn("%s: could not lower privs", __func__);
+		log_warnx("%s: error binding socket: %s", __func__,
+		    safe_strerror(save_errno));
 		close(fd);
 		return (-1);
 	}
+	if (ldpd_privs.change(ZPRIVS_LOWER))
+		log_warn("%s: could not lower privs", __func__);
 
 	/* set options */
 	switch (af) {
@@ -111,6 +124,21 @@ ldp_create_socket(int af, enum socket_type type)
 				close(fd);
 				return (-1);
 			}
+#ifndef MSG_MCAST
+#if defined(HAVE_IP_PKTINFO)
+			if (sock_set_ipv4_pktinfo(fd, 1) == -1) {
+				close(fd);
+				return (-1);
+			}
+#elif defined(HAVE_IP_RECVDSTADDR)
+			if (sock_set_ipv4_recvdstaddr(fd, 1) == -1) {
+				close(fd);
+				return (-1);
+			}
+#else
+#error "Unsupported socket API"
+#endif
+#endif /* MSG_MCAST */
 		}
 		if (type == LDP_SOCKET_SESSION) {
 			if (sock_set_ipv4_ucast_ttl(fd, 255) == -1) {
@@ -134,10 +162,8 @@ ldp_create_socket(int af, enum socket_type type)
 				return (-1);
 			}
 			if (!(ldpd_conf->ipv6.flags & F_LDPD_AF_NO_GTSM)) {
-				if (sock_set_ipv6_minhopcount(fd, 255) == -1) {
-					close(fd);
-					return (-1);
-				}
+				/* ignore any possible error */
+				sock_set_ipv6_minhopcount(fd, 255);
 			}
 		}
 		if (type == LDP_SOCKET_DISC || type == LDP_SOCKET_EDISC) {
@@ -163,6 +189,7 @@ ldp_create_socket(int af, enum socket_type type)
 		if (listen(fd, LDP_BACKLOG) == -1)
 			log_warn("%s: error listening on socket", __func__);
 
+#ifdef __OpenBSD__
 		opt = 1;
 		if (setsockopt(fd, IPPROTO_TCP, TCP_MD5SIG, &opt,
 		    sizeof(opt)) == -1) {
@@ -174,10 +201,39 @@ ldp_create_socket(int af, enum socket_type type)
 				return (-1);
 			}
 		}
+#endif
 		break;
 	}
 
 	return (fd);
+}
+
+void
+sock_set_nonblock(int fd)
+{
+	int	flags;
+
+	if ((flags = fcntl(fd, F_GETFL, 0)) == -1)
+		fatal("fcntl F_GETFL");
+
+	flags |= O_NONBLOCK;
+
+	if ((flags = fcntl(fd, F_SETFL, flags)) == -1)
+		fatal("fcntl F_SETFL");
+}
+
+void
+sock_set_cloexec(int fd)
+{
+	int	flags;
+
+	if ((flags = fcntl(fd, F_GETFD, 0)) == -1)
+		fatal("fcntl F_GETFD");
+
+	flags |= FD_CLOEXEC;
+
+	if ((flags = fcntl(fd, F_SETFD, flags)) == -1)
+		fatal("fcntl F_SETFD");
 }
 
 void
@@ -206,14 +262,67 @@ sock_set_reuse(int fd, int enable)
 int
 sock_set_bindany(int fd, int enable)
 {
+#ifdef HAVE_SO_BINDANY
+	if (ldpd_privs.change(ZPRIVS_RAISE))
+		log_warn("%s: could not raise privs", __func__);
 	if (setsockopt(fd, SOL_SOCKET, SO_BINDANY, &enable,
 	    sizeof(int)) < 0) {
+		if (ldpd_privs.change(ZPRIVS_LOWER))
+			log_warn("%s: could not lower privs", __func__);
 		log_warn("%s: error setting SO_BINDANY", __func__);
 		return (-1);
 	}
-
+	if (ldpd_privs.change(ZPRIVS_LOWER))
+		log_warn("%s: could not lower privs", __func__);
 	return (0);
+#elif defined(HAVE_IP_FREEBIND)
+	if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &enable, sizeof(int)) < 0) {
+		log_warn("%s: error setting IP_FREEBIND", __func__);
+		return (-1);
+	}
+	return (0);
+#else
+	log_warnx("%s: missing SO_BINDANY and IP_FREEBIND, unable to bind "
+	    "to a nonlocal IP address", __func__);
+	return (-1);
+#endif /* HAVE_SO_BINDANY */
 }
+
+#ifndef __OpenBSD__
+/*
+ * Set MD5 key for the socket, for the given peer address. If the password
+ * is NULL or zero-length, the option will be disabled.
+ */
+int
+sock_set_md5sig(int fd, int af, union ldpd_addr *addr, const char *password)
+{
+	int		 ret = -1;
+	int		 save_errno = ENOSYS;
+#if HAVE_DECL_TCP_MD5SIG
+	union sockunion	 su;
+#endif
+
+	if (fd == -1)
+		return (0);
+#if HAVE_DECL_TCP_MD5SIG
+	memcpy(&su, addr2sa(af, addr, 0), sizeof(su));
+
+	if (ldpe_privs.change(ZPRIVS_RAISE)) {
+		log_warn("%s: could not raise privs", __func__);
+		return (-1);
+	}
+	ret = sockopt_tcp_signature(fd, &su, password);
+	save_errno = errno;
+	if (ldpe_privs.change(ZPRIVS_LOWER))
+		log_warn("%s: could not lower privs", __func__);
+#endif /* HAVE_TCP_MD5SIG */
+	if (ret < 0)
+		log_warnx("%s: can't set TCP_MD5SIG option on fd %d: %s",
+		    __func__, fd, safe_strerror(save_errno));
+
+	return (ret);
+}
+#endif
 
 int
 sock_set_ipv4_tos(int fd, int tos)
@@ -229,23 +338,13 @@ sock_set_ipv4_tos(int fd, int tos)
 int
 sock_set_ipv4_recvif(int fd, int enable)
 {
-	if (setsockopt(fd, IPPROTO_IP, IP_RECVIF, &enable,
-	    sizeof(enable)) < 0) {
-		log_warn("%s: error setting IP_RECVIF", __func__);
-		return (-1);
-	}
-	return (0);
+	return (setsockopt_ifindex(AF_INET, fd, enable));
 }
 
 int
 sock_set_ipv4_minttl(int fd, int ttl)
 {
-	if (setsockopt(fd, IPPROTO_IP, IP_MINTTL, &ttl, sizeof(ttl)) < 0) {
-		log_warn("%s: error setting IP_MINTTL", __func__);
-		return (-1);
-	}
-
-	return (0);
+	return (sockopt_minttl(AF_INET, fd, ttl));
 }
 
 int
@@ -272,15 +371,45 @@ sock_set_ipv4_mcast_ttl(int fd, uint8_t ttl)
 	return (0);
 }
 
+#ifndef MSG_MCAST
+#if defined(HAVE_IP_PKTINFO)
+int
+sock_set_ipv4_pktinfo(int fd, int enable)
+{
+	if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &enable,
+	    sizeof(enable)) < 0) {
+		log_warn("%s: error setting IP_PKTINFO", __func__);
+		return (-1);
+	}
+
+	return (0);
+}
+#elif defined(HAVE_IP_RECVDSTADDR)
+int
+sock_set_ipv4_recvdstaddr(int fd, int enable)
+{
+	if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &enable,
+	    sizeof(enable)) < 0) {
+		log_warn("%s: error setting IP_RECVDSTADDR", __func__);
+		return (-1);
+	}
+
+	return (0);
+}
+#else
+#error "Unsupported socket API"
+#endif
+#endif /* MSG_MCAST */
+
 int
 sock_set_ipv4_mcast(struct iface *iface)
 {
-	in_addr_t		 addr;
+	struct in_addr		 if_addr;
 
-	addr = if_get_ipv4_addr(iface);
+	if_addr.s_addr = if_get_ipv4_addr(iface);
 
-	if (setsockopt(global.ipv4.ldp_disc_socket, IPPROTO_IP, IP_MULTICAST_IF,
-	    &addr, sizeof(addr)) < 0) {
+	if (setsockopt_ipv4_multicast_if(global.ipv4.ldp_disc_socket,
+	    if_addr, iface->ifindex) < 0) {
 		log_warn("%s: error setting IP_MULTICAST_IF, interface %s",
 		    __func__, iface->name);
 		return (-1);
@@ -330,13 +459,7 @@ sock_set_ipv6_pktinfo(int fd, int enable)
 int
 sock_set_ipv6_minhopcount(int fd, int hoplimit)
 {
-	if (setsockopt(fd, IPPROTO_IPV6, IPV6_MINHOPCOUNT,
-	    &hoplimit, sizeof(hoplimit)) < 0) {
-		log_warn("%s: error setting IPV6_MINHOPCOUNT", __func__);
-		return (-1);
-	}
-
-	return (0);
+	return (sockopt_minttl(AF_INET6, fd, hoplimit));
 }
 
 int

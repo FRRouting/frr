@@ -641,7 +641,7 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
     {
       /* We don't send any nexthops when there's a multipath */
-      if (rib->nexthop_active_num > 1)
+      if (rib->nexthop_active_num > 1 && client->proto != ZEBRA_ROUTE_LDP)
 	{
           SET_FLAG (zapi_flags, ZAPI_MESSAGE_NEXTHOP);
           SET_FLAG (zapi_flags, ZAPI_MESSAGE_IFINDEX);
@@ -713,7 +713,9 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
           stream_putc (s, 1);
           stream_putl (s, nexthop->ifindex);
 
-          break;
+	  /* ldpd needs all nexthops */
+	  if (client->proto != ZEBRA_ROUTE_LDP)
+	    break;
         }
     }
 

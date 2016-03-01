@@ -16,8 +16,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
-#include <stdlib.h>
+#include <zebra.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -25,31 +24,30 @@
 
 struct accept_ev {
 	LIST_ENTRY(accept_ev)	 entry;
-	struct event		 ev;
-	void			(*accept_cb)(int, short, void *);
+	struct thread		*ev;
+	int			(*accept_cb)(struct thread *);
 	void			*arg;
 	int			 fd;
 };
 
 struct {
-	LIST_HEAD(, accept_ev)	queue;
-	struct event		evt;
+	LIST_HEAD(, accept_ev)	 queue;
+	struct thread		*evt;
 } accept_queue;
 
 static void	accept_arm(void);
 static void	accept_unarm(void);
-static void	accept_cb(int, short, void *);
-static void	accept_timeout(int, short, void *);
+static int	accept_cb(struct thread *);
+static int	accept_timeout(struct thread *);
 
 void
 accept_init(void)
 {
 	LIST_INIT(&accept_queue.queue);
-	evtimer_set(&accept_queue.evt, accept_timeout, NULL);
 }
 
 int
-accept_add(int fd, void (*cb)(int, short, void *), void *arg)
+accept_add(int fd, int (*cb)(struct thread *), void *arg)
 {
 	struct accept_ev	*av;
 
@@ -60,8 +58,7 @@ accept_add(int fd, void (*cb)(int, short, void *), void *arg)
 	av->arg = arg;
 	LIST_INSERT_HEAD(&accept_queue.queue, av, entry);
 
-	event_set(&av->ev, av->fd, EV_READ, accept_cb, av);
-	event_add(&av->ev, NULL);
+	av->ev = thread_add_read(master, accept_cb, av, av->fd);
 
 	log_debug("%s: accepting on fd %d", __func__, fd);
 
@@ -76,7 +73,7 @@ accept_del(int fd)
 	LIST_FOREACH(av, &accept_queue.queue, entry)
 		if (av->fd == fd) {
 			log_debug("%s: %d removed from queue", __func__, fd);
-			event_del(&av->ev);
+			THREAD_READ_OFF(av->ev);
 			LIST_REMOVE(av, entry);
 			free(av);
 			return;
@@ -86,19 +83,17 @@ accept_del(int fd)
 void
 accept_pause(void)
 {
-	struct timeval evtpause = { 1, 0 };
-
 	log_debug(__func__);
 	accept_unarm();
-	evtimer_add(&accept_queue.evt, &evtpause);
+	accept_queue.evt = thread_add_timer(master, accept_timeout, NULL, 1);
 }
 
 void
 accept_unpause(void)
 {
-	if (evtimer_pending(&accept_queue.evt, NULL)) {
+	if (accept_queue.evt != NULL) {
 		log_debug(__func__);
-		evtimer_del(&accept_queue.evt);
+		THREAD_TIMER_OFF(accept_queue.evt);
 		accept_arm();
 	}
 }
@@ -108,7 +103,7 @@ accept_arm(void)
 {
 	struct accept_ev	*av;
 	LIST_FOREACH(av, &accept_queue.queue, entry)
-		event_add(&av->ev, NULL);
+		av->ev = thread_add_read(master, accept_cb, av, av->fd);
 }
 
 static void
@@ -116,20 +111,26 @@ accept_unarm(void)
 {
 	struct accept_ev	*av;
 	LIST_FOREACH(av, &accept_queue.queue, entry)
-		event_del(&av->ev);
+		THREAD_READ_OFF(av->ev);
 }
 
-static void
-accept_cb(int fd, short event, void *arg)
+static int
+accept_cb(struct thread *thread)
 {
-	struct accept_ev	*av = arg;
-	event_add(&av->ev, NULL);
-	av->accept_cb(fd, event, av->arg);
+	struct accept_ev	*av = THREAD_ARG(thread);
+	av->ev = thread_add_read(master, accept_cb, av, av->fd);
+	av->accept_cb(thread);
+
+	return (0);
 }
 
-static void
-accept_timeout(int fd, short event, void *bula)
+static int
+accept_timeout(struct thread *thread)
 {
+	accept_queue.evt = NULL;
+
 	log_debug(__func__);
 	accept_arm();
+
+	return (0);
 }

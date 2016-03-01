@@ -246,6 +246,8 @@ AC_ARG_ENABLE(ospfd,
   AS_HELP_STRING([--disable-ospfd], [do not build ospfd]))
 AC_ARG_ENABLE(ospf6d,
   AS_HELP_STRING([--disable-ospf6d], [do not build ospf6d]))
+AC_ARG_ENABLE(ldpd,
+  AS_HELP_STRING([--enable-ldpd], [build ldpd]))
 AC_ARG_ENABLE(watchquagga,
   AS_HELP_STRING([--disable-watchquagga], [do not build watchquagga]))
 AC_ARG_ENABLE(isisd,
@@ -838,7 +840,7 @@ AC_CHECK_FUNCS([dup2 ftruncate getcwd gethostbyname getpagesize gettimeofday \
 	strtol strtoul strlcat strlcpy \
 	daemon snprintf vsnprintf \
 	if_nametoindex if_indextoname getifaddrs \
-	uname fcntl getgrouplist])
+	uname fcntl getgrouplist pledge])
 
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
@@ -1231,6 +1233,13 @@ else
 fi
 AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
 
+if test "${enable_ldpd}" = "yes";then
+  LDPD="ldpd"
+else
+  LDPD=""
+fi
+AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
+
 if test "${enable_watchquagga}" = "no";then
   WATCHQUAGGA=""
 else
@@ -1286,6 +1295,7 @@ AC_SUBST(RIPD)
 AC_SUBST(RIPNGD)
 AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
+AC_SUBST(LDPD)
 AC_SUBST(WATCHQUAGGA)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
@@ -1428,6 +1438,32 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [
 ], [
   AC_MSG_RESULT(yes)
   AC_DEFINE(HAVE_IP_RECVIF, 1, [Have IP_RECVIF])
+], [
+  AC_MSG_RESULT(no)
+])
+
+dnl ----------------------
+dnl checking for SO_BINDANY
+dnl ----------------------
+AC_MSG_CHECKING(for SO_BINDANY)
+AC_TRY_COMPILE([#include <sys/socket.h>], [
+  int opt = SO_BINDANY;
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_SO_BINDANY, 1, [Have SO_BINDANY])
+], [
+  AC_MSG_RESULT(no)
+])
+
+dnl ----------------------
+dnl checking for IP_FREEBIND
+dnl ----------------------
+AC_MSG_CHECKING(for IP_FREEBIND)
+AC_TRY_COMPILE([#include <netinet/in.h>], [
+  int opt = IP_FREEBIND;
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_IP_FREEBIND, 1, [Have IP_FREEBIND])
 ], [
   AC_MSG_RESULT(no)
 ])
@@ -1580,6 +1616,8 @@ AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$quagga_statedir/ripngd.pid",ripngd PID)
 AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$quagga_statedir/bgpd.pid",bgpd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
+AC_DEFINE_UNQUOTED(PATH_LDPD_PID, "$quagga_statedir/ldpd.pid",ldpd PID)
+AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$quagga_statedir/ldpd.sock",ldpd control socket)
 AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$quagga_statedir/isisd.pid",isisd PID)
 AC_DEFINE_UNQUOTED(PATH_PIMD_PID, "$quagga_statedir/pimd.pid",pimd PID)
 AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$quagga_statedir/watchquagga.pid",watchquagga PID)
@@ -1590,6 +1628,7 @@ AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$quagga_statedir/ripngd.vty",ripng vty soc
 AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$quagga_statedir/bgpd.vty",bgpd vty socket)
 AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$quagga_statedir/ospfd.vty",ospfd vty socket)
 AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty socket)
+AC_DEFINE_UNQUOTED(LDP_VTYSH_PATH, "$quagga_statedir/ldpd.vty",ldpd vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
 AC_DEFINE_UNQUOTED(PIM_VTYSH_PATH, "$quagga_statedir/pimd.vty",pimd vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
@@ -1615,7 +1654,7 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile 
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchquagga/Makefile
-	  ospf6d/Makefile isisd/Makefile vtysh/Makefile
+	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
 	  pimd/Makefile
 	  tests/bgpd.tests/Makefile
