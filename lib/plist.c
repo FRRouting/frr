@@ -512,7 +512,7 @@ trie_table_empty (struct pltrie_table *table)
 {
   size_t i;
   for (i = 0; i < PLC_LEN; i++)
-    if (table->entries[i].next_table || table->entries[i].final_chain)
+    if (table->entries[i].next_table || table->entries[i].up_chain)
       return 0;
   return 1;
 }
