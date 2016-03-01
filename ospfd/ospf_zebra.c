@@ -747,7 +747,7 @@ ospf_is_type_redistributed (int type, u_short instance)
   return (DEFAULT_ROUTE_TYPE (type) ?
     vrf_bitmap_check (zclient->default_information, VRF_DEFAULT) :
     ((instance && redist_check_instance(&zclient->mi_redist[AFI_IP][type], instance))
-     || vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT)));
+     || (!instance && vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT))));
 }
 
 int
