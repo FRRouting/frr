@@ -255,6 +255,12 @@ DEFUN (ospf_router_id,
   return CMD_SUCCESS;
 }
 
+ALIAS_HIDDEN (ospf_router_id,
+              ospf_router_id_old_cmd,
+              "router-id A.B.C.D",
+              "router-id for the OSPF process\n"
+              "OSPF router-id in IP address format\n")
+
 DEFUN (no_ospf_router_id,
        no_ospf_router_id_cmd,
        "no ospf router-id",
@@ -6356,12 +6362,12 @@ ALIAS (ip_ospf_authentication_key,
        "Authentication password (key)\n"
        "The OSPF password (key)")
 
-ALIAS (ip_ospf_authentication_key,
-       ospf_authentication_key_cmd,
-       "ospf authentication-key AUTH_KEY",
-       "OSPF interface commands\n"
-       "Authentication password (key)\n"
-       "The OSPF password (key)")
+ALIAS_HIDDEN (ip_ospf_authentication_key,
+              ospf_authentication_key_cmd,
+              "ospf authentication-key AUTH_KEY",
+              "OSPF interface commands\n"
+              "Authentication password (key)\n"
+              "The OSPF password (key)")
 
 DEFUN (no_ip_ospf_authentication_key,
        no_ip_ospf_authentication_key_authkey_addr_cmd,
@@ -6510,14 +6516,14 @@ ALIAS (ip_ospf_message_digest_key,
        "Use MD5 algorithm\n"
        "The OSPF password (key)")
 
-ALIAS (ip_ospf_message_digest_key,
-       ospf_message_digest_key_cmd,
-       "ospf message-digest-key <1-255> md5 KEY",
-       "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
-       "Key ID\n"
-       "Use MD5 algorithm\n"
-       "The OSPF password (key)")
+ALIAS_HIDDEN (ip_ospf_message_digest_key,
+              ospf_message_digest_key_cmd,
+              "ospf message-digest-key <1-255> md5 KEY",
+              "OSPF interface commands\n"
+              "Message digest authentication password (key)\n"
+              "Key ID\n"
+              "Use MD5 algorithm\n"
+              "The OSPF password (key)")
 
 DEFUN (no_ip_ospf_message_digest_key_md5,
        no_ip_ospf_message_digest_key_md5_addr_cmd,
@@ -6713,20 +6719,20 @@ ALIAS (ip_ospf_cost,
        "Interface cost\n"
        "Cost")
 
-ALIAS (ip_ospf_cost,
-       ospf_cost_u32_cmd,
-       "ospf cost <1-65535>",
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost")
+ALIAS_HIDDEN (ip_ospf_cost,
+              ospf_cost_u32_cmd,
+              "ospf cost <1-65535>",
+              "OSPF interface commands\n"
+              "Interface cost\n"
+              "Cost")
 
-ALIAS (ip_ospf_cost,
-       ospf_cost_u32_inet4_cmd,
-       "ospf cost <1-65535> A.B.C.D",
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost\n"
-       "Address of interface")
+ALIAS_HIDDEN (ip_ospf_cost,
+              ospf_cost_u32_inet4_cmd,
+              "ospf cost <1-65535> A.B.C.D",
+              "OSPF interface commands\n"
+              "Interface cost\n"
+              "Cost\n"
+              "Address of interface")
 
 DEFUN (no_ip_ospf_cost,
        no_ip_ospf_cost_inet4_cmd,
@@ -7000,12 +7006,12 @@ ALIAS (ip_ospf_dead_interval,
        "Interval after which a neighbor is declared dead\n"
        "Seconds\n")
 
-ALIAS (ip_ospf_dead_interval,
-       ospf_dead_interval_cmd,
-       "ospf dead-interval <1-65535>",
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
-       "Seconds\n")
+ALIAS_HIDDEN (ip_ospf_dead_interval,
+              ospf_dead_interval_cmd,
+              "ospf dead-interval <1-65535>",
+              "OSPF interface commands\n"
+              "Interval after which a neighbor is declared dead\n"
+              "Seconds\n")
 
 DEFUN (ip_ospf_dead_interval_minimal,
        ip_ospf_dead_interval_minimal_addr_cmd,
@@ -7204,12 +7210,12 @@ ALIAS (ip_ospf_hello_interval,
        "Time between HELLO packets\n"
        "Seconds\n")
 
-ALIAS (ip_ospf_hello_interval,
-       ospf_hello_interval_cmd,
-       "ospf hello-interval <1-65535>",
-       "OSPF interface commands\n"
-       "Time between HELLO packets\n"
-       "Seconds\n")
+ALIAS_HIDDEN (ip_ospf_hello_interval,
+              ospf_hello_interval_cmd,
+              "ospf hello-interval <1-65535>",
+              "OSPF interface commands\n"
+              "Time between HELLO packets\n"
+              "Seconds\n")
 
 DEFUN (no_ip_ospf_hello_interval,
        no_ip_ospf_hello_interval_addr_cmd,
@@ -7335,15 +7341,15 @@ DEFUN (ip_ospf_network,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_network,
-       ospf_network_cmd,
-       "ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)",
-       "OSPF interface commands\n"
-       "Network type\n"
-       "Specify OSPF broadcast multi-access network\n"
-       "Specify OSPF NBMA network\n"
-       "Specify OSPF point-to-multipoint network\n"
-       "Specify OSPF point-to-point network\n")
+ALIAS_HIDDEN (ip_ospf_network,
+              ospf_network_cmd,
+              "ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)",
+              "OSPF interface commands\n"
+              "Network type\n"
+              "Specify OSPF broadcast multi-access network\n"
+              "Specify OSPF NBMA network\n"
+              "Specify OSPF point-to-multipoint network\n"
+              "Specify OSPF point-to-point network\n")
 
 DEFUN (no_ip_ospf_network,
        no_ip_ospf_network_cmd,
@@ -7481,12 +7487,12 @@ ALIAS (ip_ospf_priority,
        "Router priority\n"
        "Priority\n")
 
-ALIAS (ip_ospf_priority,
-       ospf_priority_cmd,
-       "ospf priority <0-255>",
-       "OSPF interface commands\n"
-       "Router priority\n"
-       "Priority\n")
+ALIAS_HIDDEN (ip_ospf_priority,
+              ospf_priority_cmd,
+              "ospf priority <0-255>",
+              "OSPF interface commands\n"
+              "Router priority\n"
+              "Priority\n")
 
 DEFUN (no_ip_ospf_priority,
        no_ip_ospf_priority_addr_cmd,
@@ -7629,12 +7635,12 @@ ALIAS (ip_ospf_retransmit_interval,
        "Time between retransmitting lost link state advertisements\n"
        "Seconds\n")
 
-ALIAS (ip_ospf_retransmit_interval,
-       ospf_retransmit_interval_cmd,
-       "ospf retransmit-interval <3-65535>",
-       "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n"
-       "Seconds\n")
+ALIAS_HIDDEN (ip_ospf_retransmit_interval,
+              ospf_retransmit_interval_cmd,
+              "ospf retransmit-interval <3-65535>",
+              "OSPF interface commands\n"
+              "Time between retransmitting lost link state advertisements\n"
+              "Seconds\n")
 
 DEFUN (no_ip_ospf_retransmit_interval,
        no_ip_ospf_retransmit_interval_addr_cmd,
@@ -7786,12 +7792,12 @@ ALIAS (ip_ospf_transmit_delay,
        "Link state transmit delay\n"
        "Seconds\n")
 
-ALIAS (ip_ospf_transmit_delay,
-       ospf_transmit_delay_cmd,
-       "ospf transmit-delay <1-65535>",
-       "OSPF interface commands\n"
-       "Link state transmit delay\n"
-       "Seconds\n")
+ALIAS_HIDDEN (ip_ospf_transmit_delay,
+              ospf_transmit_delay_cmd,
+              "ospf transmit-delay <1-65535>",
+              "OSPF interface commands\n"
+              "Link state transmit delay\n"
+              "Seconds\n")
 
 DEFUN (no_ip_ospf_transmit_delay,
        no_ip_ospf_transmit_delay_addr_cmd,
@@ -10292,6 +10298,7 @@ ospf_vty_init (void)
 
   /* "ospf router-id" commands. */
   install_element (OSPF_NODE, &ospf_router_id_cmd);
+  install_element (OSPF_NODE, &ospf_router_id_old_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_val_cmd);
 
