@@ -71,26 +71,39 @@ foreach (@ARGV) {
     $line = <FH>;
     close (FH);
 
-    @defun = ($line =~ /(?:DEFUN|ALIAS)\s*\((.+?)\);?\s?\s?\n/sg);
+    # ?: makes a group non-capturing
+    @defun = ($line =~ /((?:DEFUN|DEFUN_HIDDEN|ALIAS|ALIAS_HIDDEN)\s*\(.+?\));?\s?\s?\n/sg);
     @install = ($line =~ /install_element\s*\(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
 
     # DEFUN process
     foreach (@defun) {
-	my (@defun_array);
-	@defun_array = split (/,/);
-	$defun_array[0] = '';
+        # $_ will contain the entire string including the DEFUN, ALIAS, etc.
+        # We need to extract the DEFUN/ALIAS from everything in ()s.
+        # The /s at the end tells the regex to allow . to match newlines.
+        $_ =~ /^(.*?) \((.*)\)$/s;
 
+        my (@defun_array);
+        $defun_or_alias = $1;
+        @defun_array = split (/,/, $2);
 
-	# Actual input command string.
-	$str = "$defun_array[2]";
-	$str =~ s/^\s+//g;
-	$str =~ s/\s+$//g;
+        if ($defun_or_alias =~ /_HIDDEN/) {
+            $hidden = 1;
+        } else {
+            $hidden = 0;
+        }
 
-	# Get VTY command structure.  This is needed for searching
-	# install_element() command.
-	$cmd = "$defun_array[1]";
-	$cmd =~ s/^\s+//g;
-	$cmd =~ s/\s+$//g;
+        $defun_array[0] = '';
+
+        # Actual input command string.
+        $str = "$defun_array[2]";
+        $str =~ s/^\s+//g;
+        $str =~ s/\s+$//g;
+
+        # Get VTY command structure.  This is needed for searching
+        # install_element() command.
+        $cmd = "$defun_array[1]";
+        $cmd =~ s/^\s+//g;
+        $cmd =~ s/\s+$//g;
 
         # $protocol is VTYSH_PROTO format for redirection of user input
         if ($file =~ /lib\/keychain\.c$/) {
@@ -99,9 +112,9 @@ foreach (@ARGV) {
         elsif ($file =~ /lib\/routemap\.c$/) {
             $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
         }
-	elsif ($file =~ /lib\/vrf\.c$/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
-	}
+        elsif ($file =~ /lib\/vrf\.c$/) {
+            $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
+        }
         elsif ($file =~ /lib\/filter\.c$/) {
             $protocol = "VTYSH_ALL";
         }
@@ -129,46 +142,53 @@ foreach (@ARGV) {
         elsif ($file =~ /lib\/vty\.c$/) {
            $protocol = "VTYSH_ALL";
         }
-	else {
+        else {
            ($protocol) = ($file =~ /^.*\/([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
            $protocol = "VTYSH_" . uc $protocol;
         }
 
-	# Append _vtysh to structure then build DEFUN again
-	$defun_array[1] = $cmd . "_vtysh";
-	$defun_body = join (", ", @defun_array);
+        # Append _vtysh to structure then build DEFUN again
+        $defun_array[1] = $cmd . "_vtysh";
+        $defun_body = join (", ", @defun_array);
 
-	# $cmd -> $str hash for lookup
-	$cmd2str{$cmd} = $str;
-	$cmd2defun{$cmd} = $defun_body;
-	$cmd2proto{$cmd} = $protocol;
+        # $cmd -> $str hash for lookup
+        $cmd2str{$cmd} = $str;
+        $cmd2defun{$cmd} = $defun_body;
+        $cmd2proto{$cmd} = $protocol;
+        $cmd2hidden{$cmd} = $hidden;
     }
 
     # install_element() process
     foreach (@install) {
-	my (@element_array);
-	@element_array = split (/,/);
+        my (@element_array);
+        @element_array = split (/,/);
 
-	# Install node
-	$enode = $element_array[0];
-	$enode =~ s/^\s+//g;
-	$enode =~ s/\s+$//g;
-	($enode) = ($enode =~ /([0-9A-Z_]+)$/);
+        # Install node
+        $enode = $element_array[0];
+        $enode =~ s/^\s+//g;
+        $enode =~ s/\s+$//g;
+        ($enode) = ($enode =~ /([0-9A-Z_]+)$/);
 
-	# VTY command structure.
-	($ecmd) = ($element_array[1] =~ /&([^\)]+)/);
-	$ecmd =~ s/^\s+//g;
-	$ecmd =~ s/\s+$//g;
+        # VTY command structure.
+        ($ecmd) = ($element_array[1] =~ /&([^\)]+)/);
+        $ecmd =~ s/^\s+//g;
+        $ecmd =~ s/\s+$//g;
 
-	# Register $ecmd
-	if (defined ($cmd2str{$ecmd})
-	    && ! defined ($ignore{$cmd2str{$ecmd}})) {
-	    my ($key);
-	    $key = $enode . "," . $cmd2str{$ecmd};
-	    $ocmd{$key} = $ecmd;
-	    $odefun{$key} = $cmd2defun{$ecmd};
-	    push (@{$oproto{$key}}, $cmd2proto{$ecmd});
-	}
+        # Register $ecmd
+        if (defined ($cmd2str{$ecmd})
+            && ! defined ($ignore{$cmd2str{$ecmd}})) {
+            my ($key);
+            $key = $enode . "," . $cmd2str{$ecmd};
+            $ocmd{$key} = $ecmd;
+            $odefun{$key} = $cmd2defun{$ecmd};
+
+            if ($cmd2hidden{$ecmd}) {
+                $defsh{$key} = "DEFSH_HIDDEN"
+            } else {
+                $defsh{$key} = "DEFSH"
+            }
+            push (@{$oproto{$key}}, $cmd2proto{$ecmd});
+        }
     }
 }
 
@@ -185,7 +205,7 @@ foreach (keys %live) {
     my ($key);
     $key = $live{$_};
     $proto = join ("|", @{$oproto{$key}});
-    printf "DEFSH ($proto$odefun{$key})\n\n";
+    printf "$defsh{$key} ($proto$odefun{$key})\n\n";
 }
 
 # Output install_element

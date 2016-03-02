@@ -2191,7 +2191,9 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 
   /* Make description vector. */
   for (i = 0; i < vector_active (matches); i++) {
-    if ((cmd_element = vector_slot (cmd_vector, i)) != NULL)
+    if ((cmd_element = vector_slot (cmd_vector, i)) != NULL &&
+        !(cmd_element->attr == CMD_ATTR_DEPRECATED ||
+          cmd_element->attr == CMD_ATTR_HIDDEN))
       {
         unsigned int j;
         vector vline_trimmed;

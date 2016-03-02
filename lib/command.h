@@ -395,6 +395,9 @@ struct cmd_token
 #define DEFSH(daemon, cmdname, cmdstr, helpstr) \
   DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, 0, daemon) \
 
+#define DEFSH_HIDDEN(daemon, cmdname, cmdstr, helpstr) \
+  DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, daemon) \
+
 /* DEFUN + DEFSH */
 #define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr) \
   DEFUN_CMD_FUNC_DECL(funcname) \
