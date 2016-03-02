@@ -816,7 +816,7 @@ prefix_list_print (struct prefix_list *plist)
 	  
 	  p = &pentry->prefix;
 	  
-	  printf ("  seq %d %s %s/%d", 
+	  printf ("  seq %u %s %s/%d",
 		  pentry->seq,
 		  prefix_list_type_str (pentry),
 		  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
@@ -988,7 +988,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
       prefix_list_entry_free (pentry);
       vty_out (vty, "%% Insertion failed - prefix-list entry exists:%s",
 	       VTY_NEWLINE);
-      vty_out (vty, "   seq %d %s %s", dup->seq, typestr, prefix);
+      vty_out (vty, "   seq %u %s %s", dup->seq, typestr, prefix);
       if (! any && genum)
 	vty_out (vty, " ge %d", genum);
       if (! any && lenum)
@@ -1175,7 +1175,7 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
       if (plist->desc)
 	vty_out (vty, "   Description: %s%s", plist->desc, VTY_NEWLINE);
 
-      vty_out (vty, "   count: %d, range entries: %d, sequences: %d - %d%s",
+      vty_out (vty, "   count: %d, range entries: %d, sequences: %u - %u%s",
 	       plist->count, plist->rangecount, 
 	       plist->head ? plist->head->seq : 0, 
 	       plist->tail ? plist->tail->seq : 0,
@@ -1192,7 +1192,7 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
 	  vty_out (vty, "   ");
 
 	  if (master->seqnum)
-	    vty_out (vty, "seq %d ", pentry->seq);
+	    vty_out (vty, "seq %u ", pentry->seq);
 
 	  vty_out (vty, "%s ", prefix_list_type_str (pentry));
 
@@ -1304,7 +1304,7 @@ vty_show_prefix_list_prefix (struct vty *vty, afi_t afi, const char *name,
 
       if (match)
 	{
-	  vty_out (vty, "   seq %d %s ", 
+	  vty_out (vty, "   seq %u %s ",
 		   pentry->seq,
 		   prefix_list_type_str (pentry));
 
@@ -2622,7 +2622,7 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 		   plist->name);
 
 	  if (master->seqnum)
-	    vty_out (vty, "seq %d ", pentry->seq);
+	    vty_out (vty, "seq %u ", pentry->seq);
 	
 	  vty_out (vty, "%s ", prefix_list_type_str (pentry));
 
@@ -2665,7 +2665,7 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 		   plist->name);
 
 	  if (master->seqnum)
-	    vty_out (vty, "seq %d ", pentry->seq);
+	    vty_out (vty, "seq %u ", pentry->seq);
 
 	  vty_out (vty, "%s", prefix_list_type_str (pentry));
 
@@ -2844,7 +2844,7 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name, u_char use_
           struct prefix *p = &pentry->prefix;
           char buf[BUFSIZ];
 
-          vty_out (vty, "   seq %d %s %s/%d", pentry->seq,
+          vty_out (vty, "   seq %u %s %s/%d", pentry->seq,
                    prefix_list_type_str (pentry),
                    inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
                    p->prefixlen);
