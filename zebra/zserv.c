@@ -1791,14 +1791,31 @@ zread_vrf_unregister (struct zserv *client, u_short length, vrf_id_t vrf_id)
   return 0;
 }
 
+/* Cleanup registered nexthops (across VRFs) upon client disconnect. */
+static void
+zebra_client_close_cleanup_rnh (struct zserv *client)
+{
+  vrf_iter_t iter;
+  struct zebra_vrf *zvrf;
+
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      if ((zvrf = vrf_iter2info (iter)) != NULL)
+        {
+          zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET, client, RNH_NEXTHOP_TYPE);
+          zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET6, client, RNH_NEXTHOP_TYPE);
+          zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET, client, RNH_IMPORT_CHECK_TYPE);
+          zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET6, client, RNH_IMPORT_CHECK_TYPE);
+        }
+    }
+}
+
 /* Close zebra client. */
 static void
 zebra_client_close (struct zserv *client)
 {
-  zebra_cleanup_rnh_client(0, AF_INET, client, RNH_NEXTHOP_TYPE);
-  zebra_cleanup_rnh_client(0, AF_INET6, client, RNH_NEXTHOP_TYPE);
-  zebra_cleanup_rnh_client(0, AF_INET, client, RNH_IMPORT_CHECK_TYPE);
-  zebra_cleanup_rnh_client(0, AF_INET6, client, RNH_IMPORT_CHECK_TYPE);
+  /* Cleanup any registered nexthops - across all VRFs. */
+  zebra_client_close_cleanup_rnh (client);
 
   /* Close file descriptor. */
   if (client->sock)
