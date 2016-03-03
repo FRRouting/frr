@@ -67,6 +67,14 @@ case "$1" in
 	 /usr/lib/quagga/quagga-reload.py --reload /etc/quagga/Quagga.conf
 	 exit $?
 	 ;;
+     status)
+	 systemctl -l -o cat -n0 status zebra bgpd ospfd ospf6d ripd ripngd isisd
+	 exit $?
+         ;;
+     *)
+	 echo "Unknown option entered"
+	 exit -1
+	 ;;
 esac
 
 exit 0
