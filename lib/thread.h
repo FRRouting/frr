@@ -46,6 +46,12 @@ struct thread_list
 
 struct pqueue;
 
+/*
+ * Abstract it so we can use different methodologies to
+ * select on data.
+ */
+typedef fd_set thread_fd_set;
+
 /* Master of the theads. */
 struct thread_master
 {
@@ -57,9 +63,9 @@ struct thread_master
   struct thread_list unuse;
   struct pqueue *background;
   int fd_limit;
-  fd_set readfd;
-  fd_set writefd;
-  fd_set exceptfd;
+  thread_fd_set readfd;
+  thread_fd_set writefd;
+  thread_fd_set exceptfd;
   unsigned long alloc;
 };
 
