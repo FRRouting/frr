@@ -46,7 +46,6 @@ extern int agentx_enabled;
 #include <mach/mach_time.h>
 #endif
 
-
 /* Recent absolute time of day */
 struct timeval recent_time;
 static struct timeval last_recent_time;
@@ -799,17 +798,6 @@ fd_is_set (int fd, thread_fd_set *fdset)
 }
 
 static int
-fd_set_read_write (int fd, thread_fd_set *fdset)
-{
-  if (FD_ISSET (fd, fdset))
-    return 0;
-
-  FD_SET (fd, fdset);
-
-  return 1;
-}
-
-static int
 fd_clear_read_write (int fd, thread_fd_set *fdset)
 {
   if (!FD_ISSET (fd, fdset))
@@ -821,44 +809,31 @@ fd_clear_read_write (int fd, thread_fd_set *fdset)
 
 /* Add new read thread. */
 struct thread *
-funcname_thread_add_read (struct thread_master *m, 
-		 int (*func) (struct thread *), void *arg, int fd, const char* funcname)
+funcname_thread_add_read_write (int dir, struct thread_master *m,
+				int (*func) (struct thread *), void *arg, int fd, const char* funcname)
 {
-  struct thread *thread;
+  struct thread *thread = NULL;
+  thread_fd_set *fdset = NULL;
 
-  assert (m != NULL);
+  if (dir == THREAD_READ)
+    fdset = &m->readfd;
+  else
+    fdset = &m->writefd;
 
-  if (!fd_set_read_write (fd, &m->readfd))
+  if (FD_ISSET (fd, fdset))
     {
-      zlog (NULL, LOG_WARNING, "There is already read fd [%d]", fd);
+      zlog (NULL, LOG_WARNING, "There is already %s fd [%d]", (dir = THREAD_READ) ? "read" : "write", fd);
       return NULL;
     }
 
-  thread = thread_get (m, THREAD_READ, func, arg, funcname);
+  FD_SET (fd, fdset);
+
+  thread = thread_get (m, dir, func, arg, funcname);
   thread->u.fd = fd;
-  thread_add_fd (m->read, thread);
-
-  return thread;
-}
-
-/* Add new write thread. */
-struct thread *
-funcname_thread_add_write (struct thread_master *m,
-		 int (*func) (struct thread *), void *arg, int fd, const char* funcname)
-{
-  struct thread *thread;
-
-  assert (m != NULL);
-
-  if (!fd_set_read_write (fd, &m->writefd))
-    {
-      zlog (NULL, LOG_WARNING, "There is already write fd [%d]", fd);
-      return NULL;
-    }
-
-  thread = thread_get (m, THREAD_WRITE, func, arg, funcname);
-  thread->u.fd = fd;
-  thread_add_fd (m->write, thread);
+  if (dir == THREAD_READ)
+    thread_add_fd (m->read, thread);
+  else
+    thread_add_fd (m->write, thread);
 
   return thread;
 }

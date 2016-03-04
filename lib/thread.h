@@ -176,8 +176,8 @@ enum quagga_clkid {
 #define THREAD_WRITE_OFF(thread)  THREAD_OFF(thread)
 #define THREAD_TIMER_OFF(thread)  THREAD_OFF(thread)
 
-#define thread_add_read(m,f,a,v) funcname_thread_add_read(m,f,a,v,#f)
-#define thread_add_write(m,f,a,v) funcname_thread_add_write(m,f,a,v,#f)
+#define thread_add_read(m,f,a,v) funcname_thread_add_read_write(THREAD_READ,m,f,a,v,#f)
+#define thread_add_write(m,f,a,v) funcname_thread_add_read_write(THREAD_WRITE,m,f,a,v,#f)
 #define thread_add_timer(m,f,a,v) funcname_thread_add_timer(m,f,a,v,#f)
 #define thread_add_timer_msec(m,f,a,v) funcname_thread_add_timer_msec(m,f,a,v,#f)
 #define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f)
@@ -191,12 +191,9 @@ extern struct thread_master *thread_master_create (void);
 extern void thread_master_free (struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
-extern struct thread *funcname_thread_add_read (struct thread_master *, 
+extern struct thread *funcname_thread_add_read_write (int dir, struct thread_master *,
 				                int (*)(struct thread *),
 				                void *, int, const char*);
-extern struct thread *funcname_thread_add_write (struct thread_master *,
-				                 int (*)(struct thread *),
-				                 void *, int, const char*);
 extern struct thread *funcname_thread_add_timer (struct thread_master *,
 				                 int (*)(struct thread *),
 				                 void *, long, const char*);
