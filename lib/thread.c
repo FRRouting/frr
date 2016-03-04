@@ -1070,25 +1070,45 @@ thread_run (struct thread_master *m, struct thread *thread,
 }
 
 static int
-thread_process_fd (struct thread **thread_array, thread_fd_set *fdset,
-		   thread_fd_set *mfdset, int num, int fd_limit)
+thread_process_fds_helper (struct thread_master *m, struct thread *thread, thread_fd_set *fdset)
 {
-  struct thread *thread;
+  thread_fd_set *mfdset = NULL;
+  struct thread **thread_array;
+
+  if (!thread)
+    return 0;
+
+  if (thread->type == THREAD_READ)
+    {
+      mfdset = &m->readfd;
+      thread_array = m->read;
+    }
+  else
+    {
+      mfdset = &m->writefd;
+      thread_array = m->write;
+    }
+
+  if (fd_is_set (THREAD_FD (thread), fdset))
+    {
+      fd_clear_read_write (THREAD_FD (thread), mfdset);
+      thread_delete_fd (thread_array, thread);
+      thread_list_add (&m->ready, thread);
+      thread->type = THREAD_READY;
+      return 1;
+    }
+  return 0;
+}
+
+static int
+thread_process_fds (struct thread_master *m, thread_fd_set *rset, thread_fd_set *wset, int num)
+{
   int ready = 0, index;
 
-  assert (thread_array);
-  
-  for (index = 0; index < fd_limit && ready < num; ++index)
+  for (index = 0; index < m->fd_limit && ready < num; ++index)
     {
-      thread = thread_array[index];
-      if (thread && fd_is_set (THREAD_FD (thread), fdset))
-        {
-          assert (fd_clear_read_write (THREAD_FD (thread), mfdset));
-          thread_delete_fd (thread_array, thread);
-          thread_list_add (&thread->master->ready, thread);
-          thread->type = THREAD_READY;
-          ready++;
-        }
+      ready += thread_process_fds_helper (m, m->read[index], rset);
+      ready += thread_process_fds_helper (m, m->write[index], wset);
     }
   return num - ready;
 }
@@ -1217,7 +1237,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
           if (errno == EINTR)
             continue; /* signal received - process it */
           zlog_warn ("select() error: %s", safe_strerror (errno));
-            return NULL;
+          return NULL;
         }
 
 #if defined HAVE_SNMP && defined SNMP_AGENTX
@@ -1242,12 +1262,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       
       /* Got IO, process it */
       if (num > 0)
-        {
-          /* Normal priority read thread. */
-          num = thread_process_fd (m->read, &readfd, &m->readfd, num, m->fd_limit);
-          /* Write thread. */
-          num = thread_process_fd (m->write, &writefd, &m->writefd, num, m->fd_limit);
-        }
+        thread_process_fds (m, &readfd, &writefd, num);
 
 #if 0
       /* If any threads were made ready above (I/O or foreground timer),
