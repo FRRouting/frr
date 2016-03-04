@@ -13,12 +13,17 @@ import argparse
 import copy
 import logging
 import os
+import random
+import string
 import subprocess
 import sys
 from collections import OrderedDict
 from ipaddr import IPv6Address
+from pprint import pformat
+
 
 class Context(object):
+
     """
     A Context object represents a section of quagga configuration such as:
 !
@@ -57,6 +62,7 @@ ip forwarding
 
 
 class Config(object):
+
     """
     A quagga configuration is stored in a Config object. A Config object
     contains a dictionary of Context objects where the Context keys
@@ -76,10 +82,10 @@ class Config(object):
         logger.info('Loading Config object from file %s', filename)
 
         try:
-            file_output = subprocess.check_output(['vtysh', '-m', '-f', filename])
+            file_output = subprocess.check_output(['/usr/bin/vtysh', '-m', '-f', filename])
         except subprocess.CalledProcessError as e:
             logger.error('vtysh marking of config file %s failed with error %s:', filename, str(e))
-            print "vtysh marking of file %s failed with error: %s" %(filename, str(e))
+            print "vtysh marking of file %s failed with error: %s" % (filename, str(e))
             sys.exit(1)
 
         for line in file_output.split('\n'):
@@ -101,19 +107,20 @@ class Config(object):
         logger.info('Loading Config object from vtysh show running')
 
         try:
-            config_text = subprocess.check_output("vtysh -c 'show run' | tail -n +4 | vtysh -m -f -", shell=True)
+            config_text = subprocess.check_output(
+                "/usr/bin/vtysh -c 'show run' | /usr/bin/tail -n +4 | /usr/bin/vtysh -m -f -",
+                shell=True)
         except subprocess.CalledProcessError as e:
             logger.error('vtysh marking of running config failed with error %s:', str(e))
-            print "vtysh marking of running config failed with error %s:" %(str(e))
+            print "vtysh marking of running config failed with error %s:" % (str(e))
             sys.exit(1)
-
 
         for line in config_text.split('\n'):
             line = line.strip()
 
             if (line == 'Building configuration...' or
                 line == 'Current configuration:' or
-                not line):
+                    not line):
                 continue
 
             self.lines.append(line)
@@ -211,11 +218,9 @@ end
         # key of the context. So "router bgp 10" is the key for the non-address
         # family part of bgp, "router bgp 10, address-family ipv6 unicast" is
         # the key for the subcontext and so on.
-
         ctx_keys = []
         main_ctx_key = []
         new_ctx = True
-        number_of_lines = len(self.lines)
 
         # the keywords that we know are single line contexts. bgp in this case
         # is not the main router bgp block, but enabling multi-instance
@@ -236,7 +241,6 @@ end
                                 "username ",
                                 "zebra ")
 
-
         for line in self.lines:
 
             if not line:
@@ -251,7 +255,7 @@ end
 
                 # Start a new context
                 main_ctx_key = []
-                ctx_keys = [line,]
+                ctx_keys = [line, ]
                 current_context_lines = []
 
                 logger.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
@@ -280,7 +284,7 @@ end
 
             elif new_ctx is True:
                 if not main_ctx_key:
-                    ctx_keys = [line,]
+                    ctx_keys = [line, ]
                 else:
                     ctx_keys = copy.deepcopy(main_ctx_key)
                     main_ctx_key = []
@@ -313,9 +317,10 @@ end
         # Save the context of the last one
         self.save_contexts(ctx_keys, current_context_lines)
 
+
 def line_to_vtysh_conft(ctx_keys, line, delete):
     """
-    Spit out the vtysh command for the specified context line
+    Return the vtysh command for the specified context line
     """
 
     cmd = []
@@ -363,6 +368,48 @@ def line_to_vtysh_conft(ctx_keys, line, delete):
 
     return cmd
 
+
+def line_for_vtysh_file(ctx_keys, line, delete):
+    """
+    Return the command as it would appear in Quagga.conf
+    """
+    cmd = []
+
+    if line:
+        for (i, ctx_key) in enumerate(ctx_keys):
+            cmd.append(' ' * i + ctx_key)
+
+        line = line.lstrip()
+        indent = len(ctx_keys) * ' '
+
+        if delete:
+            if line.startswith('no '):
+                cmd.append('%s%s' % (indent, line[3:]))
+            else:
+                cmd.append('%sno %s' % (indent, line))
+
+        else:
+            cmd.append(indent + line)
+
+    # If line is None then we are typically deleting an entire
+    # context ('no router ospf' for example)
+    else:
+        if delete:
+
+            # Only put the 'no' on the last sub-context
+            for ctx_key in ctx_keys:
+
+                if ctx_key == ctx_keys[-1]:
+                    cmd.append('no %s' % ctx_key)
+                else:
+                    cmd.append('%s' % ctx_key)
+        else:
+            for ctx_key in ctx_keys:
+                cmd.append(ctx_key)
+
+    return '\n' + '\n'.join(cmd)
+
+
 def get_normalized_ipv6_line(line):
     """
     Return a normalized IPv6 line as produced by quagga,
@@ -382,6 +429,7 @@ def get_normalized_ipv6_line(line):
         norm_line = norm_line + " " + norm_word
 
     return norm_line.strip()
+
 
 def compare_context_objects(newconf, running):
     """
@@ -482,7 +530,6 @@ if __name__ == '__main__':
         print "Filename %s is an empty file" % args.filename
         sys.exit(1)
 
-
     # Verify that 'service integrated-vtysh-config' is configured
     vtysh_filename = '/etc/quagga/vtysh.conf'
     service_integrated_vtysh_config = False
@@ -498,12 +545,6 @@ if __name__ == '__main__':
 
     if not service_integrated_vtysh_config:
         print "'service integrated-vtysh-config' is not configured, this is required for 'service quagga reload'"
-        sys.exit(1)
-
-    status_error = int(subprocess.call('/usr/lib/quagga/quagga status', shell=True))
-
-    if status_error:
-        print "quagga is not running"
         sys.exit(1)
 
     if args.debug:
@@ -526,6 +567,7 @@ if __name__ == '__main__':
             running.load_from_show_running()
 
         (lines_to_add, lines_to_del, restart_bgp) = compare_context_objects(newconf, running)
+        lines_to_configure = []
 
         if lines_to_del:
             print "\nLines To Delete"
@@ -536,8 +578,8 @@ if __name__ == '__main__':
                 if line == '!':
                     continue
 
-                cmd = line_to_vtysh_conft(ctx_keys, line, True)
-                print cmd
+                cmd = line_for_vtysh_file(ctx_keys, line, True)
+                lines_to_configure.append(cmd)
 
         if lines_to_add:
             print "\nLines To Add"
@@ -548,11 +590,14 @@ if __name__ == '__main__':
                 if line == '!':
                     continue
 
-                cmd = line_to_vtysh_conft(ctx_keys, line, False)
-                print cmd
+                cmd = line_for_vtysh_file(ctx_keys, line, False)
+                lines_to_configure.append(cmd)
+
+        if lines_to_configure:
+            print '\n'.join(lines_to_configure)
 
         if restart_bgp:
-            print "BGP local AS changed, restarting bgpd\n"
+            print "BGP local AS changed, bgpd would restart"
 
     elif args.reload:
 
@@ -560,22 +605,22 @@ if __name__ == '__main__':
 
         # This looks a little odd but we have to do this twice...here is why
         # If the user had this running bgp config:
-
+        #
         # router bgp 10
         #  neighbor 1.1.1.1 remote-as 50
         #  neighbor 1.1.1.1 route-map FOO out
-
+        #
         # and this config in the newconf config file
-
+        #
         # router bgp 10
         #  neighbor 1.1.1.1 remote-as 999
         #  neighbor 1.1.1.1 route-map FOO out
-
-
+        #
+        #
         # Then the script will do
         # - no neighbor 1.1.1.1 remote-as 50
         # - neighbor 1.1.1.1 remote-as 999
-
+        #
         # The problem is the "no neighbor 1.1.1.1 remote-as 50" will also remove
         # the "neighbor 1.1.1.1 route-map FOO out" line...so we compare the
         # configs again to put this line back.
@@ -593,6 +638,9 @@ if __name__ == '__main__':
                     if line == '!':
                         continue
 
+                    # 'no' commands are tricky, we can't just put them in a file and
+                    # vtysh -f that file. See the next comment for an explanation
+                    # of their quirks
                     cmd = line_to_vtysh_conft(ctx_keys, line, True)
                     original_cmd = cmd
 
@@ -600,14 +648,15 @@ if __name__ == '__main__':
                     # OSPF is bad about this, you can't "no" the entire line, you have to "no"
                     # only the beginning. If we hit one of these command an exception will be
                     # thrown.  Catch it and remove the last '-c', 'FOO' from cmd and try again.
+                    #
                     # Example:
-                    #  quagga(config-if)# ip ospf authentication message-digest 1.1.1.1
-                    #  quagga(config-if)# no ip ospf authentication message-digest 1.1.1.1
+                    # quagga(config-if)# ip ospf authentication message-digest 1.1.1.1
+                    # quagga(config-if)# no ip ospf authentication message-digest 1.1.1.1
                     #  % Unknown command.
-                    #  quagga(config-if)# no ip ospf authentication message-digest
+                    # quagga(config-if)# no ip ospf authentication message-digest
                     #  % Unknown command.
-                    #  quagga(config-if)# no ip ospf authentication
-                    #  quagga(config-if)#
+                    # quagga(config-if)# no ip ospf authentication
+                    # quagga(config-if)#
 
                     while True:
                         try:
@@ -632,17 +681,30 @@ if __name__ == '__main__':
                             logger.info('Executed "%s"', ' '.join(cmd))
                             break
 
-
             if lines_to_add:
+                lines_to_configure = []
+
                 for (ctx_keys, line) in lines_to_add:
 
                     if line == '!':
                         continue
 
-                    cmd = line_to_vtysh_conft(ctx_keys, line, False)
-                    logger.info(' '.join(cmd))
-                    subprocess.call(cmd)
+                    cmd = line_for_vtysh_file(ctx_keys, line, False)
+                    lines_to_configure.append(cmd)
+
+                if lines_to_configure:
+                    random_string = ''.join(random.SystemRandom().choice(
+                                            string.ascii_uppercase +
+                                            string.digits) for _ in range(6))
+
+                    filename = "/var/run/quagga/reload-%s.txt" % random_string
+                    logger.info("%s content\n%s" % (filename, pformat(lines_to_configure)))
+
+                    with open(filename, 'w') as fh:
+                        for line in lines_to_configure:
+                            fh.write(line + '\n')
+                    subprocess.call(['/usr/bin/vtysh', '-f', filename])
+                    os.unlink(filename)
 
             if restart_bgp:
-                cmd = ['sudo', 'systemctl', 'restart', 'bgpd']
-                subprocess.call(cmd)
+                subprocess.call(['sudo', 'systemctl', 'restart', 'bgpd'])
