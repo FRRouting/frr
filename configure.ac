@@ -300,6 +300,8 @@ AC_ARG_ENABLE(fpm,
 [  --enable-fpm            enable Forwarding Plane Manager support])
 AC_ARG_ENABLE(systemd,
 [  --enable-systemd 	enable Systemd support])
+AC_ARG_ENABLE(poll,
+[  --enable-poll	enable usage of Poll instead of select])
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
@@ -329,6 +331,10 @@ fi
 if test "${enable_systemd}" = "yes" ; then
   AC_DEFINE(HAVE_SYSTEMD,,Compile systemd support in)
   LIBS="$LIBS -lsystemd "
+fi
+
+if test "${enable_poll}" = "yes" ; then
+  AC_DEFINE(HAVE_POLL,,Compile systemd support in)
 fi
 
 if test "${enable_cumulus}" = "yes" ; then

@@ -52,6 +52,27 @@ struct pqueue;
  */
 typedef fd_set thread_fd_set;
 
+#if defined(HAVE_POLL)
+#include <poll.h>
+struct fd_handler
+{
+  /* number of pfd stored in pfds */
+  nfds_t pfdcount;
+  /* number of pfd stored in pfds + number of snmp pfd */
+  nfds_t pfdcountsnmp;
+  /* number of pfd that fit in the allocated space of pfds */
+  nfds_t pfdsize;
+  struct pollfd *pfds;
+};
+#else
+struct fd_handler
+{
+  fd_set readfd;
+  fd_set writefd;
+  fd_set exceptfd;
+};
+#endif
+
 /* Master of the theads. */
 struct thread_master
 {
@@ -63,9 +84,7 @@ struct thread_master
   struct thread_list unuse;
   struct pqueue *background;
   int fd_limit;
-  thread_fd_set readfd;
-  thread_fd_set writefd;
-  thread_fd_set exceptfd;
+  struct fd_handler handler;
   unsigned long alloc;
 };
 
