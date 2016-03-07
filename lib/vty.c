@@ -2413,7 +2413,7 @@ vty_read_config (char *config_file,
         {
           ret = stat (integrate_default, &conf_stat);
           if (ret >= 0)
-	    return;
+	    goto tmp_free_and_out;
         }
 #endif /* VTYSH */
       confp = fopen (config_default_dir, "r");
@@ -2431,8 +2431,8 @@ vty_read_config (char *config_file,
           else
             {
               fprintf (stderr, "can't open configuration file [%s]\n",
-  		                 config_default_dir);
-  	          exit (1);
+		       config_default_dir);
+	      goto tmp_free_and_out;
             }
         }      
       else
@@ -2444,7 +2444,8 @@ vty_read_config (char *config_file,
   fclose (confp);
 
   host_config_set (fullpath);
-  
+
+tmp_free_and_out:
   if (tmp)
     XFREE (MTYPE_TMP, fullpath);
 }
