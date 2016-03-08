@@ -34,6 +34,7 @@
 #include "buffer.h"
 #include "zebra/zebra_ptm_redistribute.h"
 #include "bfd.h"
+#include "vrf.h"
 
 #define ZEBRA_PTM_RECONNECT_TIME_INITIAL 1 /* initial reconnect is 1s */
 #define ZEBRA_PTM_RECONNECT_TIME_MAX     300
@@ -56,8 +57,10 @@ const char ZEBRA_PTM_BFDSTATUS_UP_STR[] = "Up";
 const char ZEBRA_PTM_BFDSTATUS_DOWN_STR[] = "Down";
 const char ZEBRA_PTM_BFDDEST_STR[] = "peer";
 const char ZEBRA_PTM_BFDSRC_STR[] = "local";
+const char ZEBRA_PTM_BFDVRF_STR[] = "vrf";
 const char ZEBRA_PTM_INVALID_PORT_NAME[] = "N/A";
 const char ZEBRA_PTM_INVALID_SRC_IP[] = "N/A";
+const char ZEBRA_PTM_INVALID_VRF[] = "N/A";
 
 const char ZEBRA_PTM_BFD_DST_IP_FIELD[] = "dstIPaddr";
 const char ZEBRA_PTM_BFD_SRC_IP_FIELD[] = "srcIPaddr";
@@ -70,6 +73,7 @@ const char ZEBRA_PTM_BFD_SEQID_FIELD[] = "seqid";
 const char ZEBRA_PTM_BFD_IFNAME_FIELD[] = "ifName";
 const char ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD[] = "maxHopCnt";
 const char ZEBRA_PTM_BFD_SEND_EVENT[] = "sendEvent";
+const char ZEBRA_PTM_BFD_VRF_NAME_FIELD[] = "vrfName";
 
 extern struct zebra_t zebrad;
 
@@ -319,7 +323,7 @@ zebra_ptm_install_commands (void)
 /* BFD session goes down, send message to the protocols. */
 static void
 if_bfd_session_update (struct interface *ifp, struct prefix *dp,
-                      struct prefix *sp, int status)
+                      struct prefix *sp, int status, vrf_id_t vrf_id)
 {
   if (IS_ZEBRA_DEBUG_EVENT)
     {
@@ -336,15 +340,15 @@ if_bfd_session_update (struct interface *ifp, struct prefix *dp,
       else
         {
           zlog_debug ("MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d "
-                      "with src %s/%d %s event",
+                      "with src %s/%d and vrf %d %s event",
                   inet_ntop (dp->family, &dp->u.prefix, buf[0], INET6_ADDRSTRLEN),
                   dp->prefixlen,
                   inet_ntop (sp->family, &sp->u.prefix, buf[1], INET6_ADDRSTRLEN),
-                  sp->prefixlen, bfd_get_status_str(status));
+                  sp->prefixlen, vrf_id, bfd_get_status_str(status));
         }
     }
 
-  zebra_interface_bfd_update (ifp, dp, sp, status);
+  zebra_interface_bfd_update (ifp, dp, sp, status, vrf_id);
 }
 
 static int
@@ -353,6 +357,7 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
   char bfdst_str[32];
   char dest_str[64];
   char src_str[64];
+  char vrf_str[64];
   struct prefix dest_prefix;
   struct prefix src_prefix;
 
@@ -378,10 +383,18 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
     return -1;
   }
 
+  ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDVRF_STR, vrf_str);
+
+  if (vrf_str[0] == '\0') {
+    zlog_debug("%s: Key %s not found in PTM msg", __func__,
+               ZEBRA_PTM_BFDVRF_STR);
+    return -1;
+  }
+
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug("%s: Recv Port [%s] bfd status [%s] peer [%s] local [%s]",
+    zlog_debug("%s: Recv Port [%s] bfd status [%s] vrf [%s] peer [%s] local [%s]",
                   __func__, ifp ? ifp->name : "N/A", bfdst_str,
-                  dest_str, src_str);
+                  vrf_str, dest_str, src_str);
 
   if (str2prefix(dest_str, &dest_prefix) == 0) {
       zlog_err("%s: Peer addr %s not found", __func__,
@@ -399,9 +412,11 @@ zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt, struct interface *ifp)
   }
 
   if (!strcmp (bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
-    if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_DOWN);
+    if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_DOWN,
+                            vrf_name_to_id(vrf_str));
   } else {
-    if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_UP);
+    if_bfd_session_update(ifp, &dest_prefix, &src_prefix, BFD_STATUS_UP,
+                            vrf_name_to_id(vrf_str));
   }
 
   return 0;
@@ -540,7 +555,7 @@ zebra_ptm_sock_read (struct thread *thread)
 /* BFD peer/dst register/update */
 int
 zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
-                              int command)
+                              int command, vrf_id_t vrf_id)
 {
   struct stream *s;
   struct prefix src_p;
@@ -556,6 +571,7 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
   char buf[INET6_ADDRSTRLEN];
   char tmp_buf[64];
   int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
+  struct zebra_vrf *zvrf;
 
   if (command == ZEBRA_BFD_DEST_UPDATE)
     client->bfd_peer_upd8_cnt++;
@@ -652,6 +668,14 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
       sprintf(tmp_buf, "%d", multi_hop_cnt);
       ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD,
                           tmp_buf);
+
+      if (vrf_id)
+        {
+          zvrf = vrf_info_lookup (vrf_id);
+          if (zvrf)
+            ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
+                            zvrf->name);
+        }
     }
   else
     {
@@ -703,7 +727,8 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
 
 /* BFD peer/dst deregister */
 int
-zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length)
+zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
+                              vrf_id_t vrf_id)
 {
   struct stream *s;
   struct prefix src_p;
@@ -715,6 +740,7 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length)
   char tmp_buf[64];
   int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
   void *out_ctxt;
+  struct zebra_vrf *zvrf;
 
   client->bfd_peer_del_cnt++;
 
@@ -794,6 +820,13 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length)
                               ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
         }
 #endif /* HAVE_IPV6 */
+      if (vrf_id)
+        {
+          zvrf = vrf_info_lookup (vrf_id);
+          if (zvrf)
+            ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
+                                zvrf->name);
+        }
     }
   else
     {

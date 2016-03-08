@@ -24,7 +24,7 @@
 #include "zebra_ptm_redistribute.h"
 
 void zebra_interface_bfd_update (struct interface *a, struct prefix *dp,
-                                 struct prefix *sp, int status)
+                                 struct prefix *sp, int status, vrf_id_t vrf_id)
 { return; }
 
 void zebra_bfd_peer_replay_req (void)

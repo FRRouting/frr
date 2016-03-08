@@ -57,8 +57,9 @@ void zebra_ptm_write (struct vty *vty);
 int zebra_ptm_get_enable_state(void);
 
 int zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
-                                  int command);
-int zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length);
+                                  int command, vrf_id_t vrf_id);
+int zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock,
+                                  u_short length, vrf_id_t vrf_id);
 void
 zebra_ptm_show_status(struct vty *vty, struct interface *ifp);
 #endif

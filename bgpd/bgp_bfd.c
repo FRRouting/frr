@@ -88,21 +88,25 @@ static void
 bgp_bfd_peer_sendmsg (struct peer *peer, int command)
 {
   struct bfd_info *bfd_info;
+  vrf_id_t vrf_id = VRF_DEFAULT;
 
   bfd_info = (struct bfd_info *)peer->bfd_info;
+
+  if (peer->bgp && (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
+    vrf_id = peer->bgp->vrf_id;
 
   if (peer->su.sa.sa_family == AF_INET)
     bfd_peer_sendmsg (zclient, bfd_info, AF_INET,
                       &peer->su.sin.sin_addr,
                       (peer->su_local) ? &peer->su_local->sin.sin_addr : NULL,
                       (peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1, VRF_DEFAULT);
+                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1, vrf_id);
   else if (peer->su.sa.sa_family == AF_INET6)
     bfd_peer_sendmsg (zclient, bfd_info, AF_INET6,
                       &peer->su.sin6.sin6_addr,
                       (peer->su_local) ? &peer->su_local->sin6.sin6_addr : NULL,
                       (peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1, VRF_DEFAULT);
+                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1, vrf_id);
 }
 
 /*
@@ -305,6 +309,9 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
                 }
 #endif
               else
+                continue;
+
+              if ((vrf_id != VRF_DEFAULT) && (peer->bgp->vrf_id != vrf_id))
                 continue;
 
               bgp_bfd_peer_status_update(peer, status);
