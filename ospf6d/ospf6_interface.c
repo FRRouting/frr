@@ -88,7 +88,8 @@ ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa, unsigned int reason)
       case OSPF6_LSTYPE_LINK:
         if (oi->state == OSPF6_INTERFACE_DR)
           OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
-        ospf6_spf_schedule (oi->area->ospf6, reason);
+        if (oi->area)
+          ospf6_spf_schedule (oi->area->ospf6, reason);
         break;
 
       default:

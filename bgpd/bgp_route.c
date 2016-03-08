@@ -6986,6 +6986,27 @@ enum bgp_show_type
 };
 
 static int
+bgp_show_prefix_list (struct vty *vty, const char *name,
+                      const char *prefix_list_str, afi_t afi,
+                      safi_t safi, enum bgp_show_type type);
+static int
+bgp_show_filter_list (struct vty *vty, const char *name,
+                      const char *filter, afi_t afi,
+                      safi_t safi, enum bgp_show_type type);
+static int
+bgp_show_route_map (struct vty *vty, const char *name,
+                    const char *rmap_str, afi_t afi,
+                    safi_t safi, enum bgp_show_type type);
+static int
+bgp_show_community_list (struct vty *vty, const char *name,
+                         const char *com, int exact,
+                         afi_t afi, safi_t safi);
+static int
+bgp_show_prefix_longer (struct vty *vty, const char *name,
+                        const char *prefix, afi_t afi,
+                        safi_t safi, enum bgp_show_type type);
+
+static int
 bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router_id,
                 enum bgp_show_type type, void *output_arg, u_char use_json)
 {
@@ -7894,6 +7915,27 @@ DEFUN (show_ip_bgp_view_route,
   return bgp_show_route (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
+DEFUN (show_ip_bgp_view_route_pathtype,
+       show_ip_bgp_view_route_pathtype_cmd,
+       "show ip bgp (view|vrf) WORD A.B.C.D (bestpath|multipath) {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Network in the BGP routing table to display\n"
+       "Display only the bestpath\n"
+       "Display only multipaths\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+
+  if (strncmp (argv[3], "b", 1) == 0)
+    return bgp_show_route (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+  else
+    return bgp_show_route (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+}
+
 DEFUN (show_ip_bgp_view_prefix,
        show_ip_bgp_view_prefix_cmd,
        "show ip bgp (view|vrf) WORD A.B.C.D/M {json}",
@@ -7906,6 +7948,26 @@ DEFUN (show_ip_bgp_view_prefix,
        "JavaScript Object Notation\n")
 {
   return bgp_show_route (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
+}
+
+DEFUN (show_ip_bgp_view_prefix_pathtype,
+       show_ip_bgp_view_prefix_pathtype_cmd,
+       "show ip bgp (view|vrf) WORD A.B.C.D/M (bestpath|multipath) {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Display only the bestpath\n"
+       "Display only multipaths\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+  if (strncmp (argv[3], "b", 1) == 0)
+    return bgp_show_route (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+  else
+    return bgp_show_route (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 #ifdef HAVE_IPV6
@@ -8236,6 +8298,38 @@ ALIAS (show_bgp_view_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 
+DEFUN (show_bgp_view_route_pathtype,
+       show_bgp_view_route_pathtype_cmd,
+       "show bgp (view|vrf) WORD X:X::X:X (bestpath|multipath) {json}",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Network in the BGP routing table to display\n"
+       "Display only the bestpath\n"
+       "Display only multipaths\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+  if (strncmp (argv[3], "b", 1) == 0)
+    return bgp_show_route (vty, argv[1], argv[2], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+  else
+    return bgp_show_route (vty, argv[1], argv[2], AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+}
+
+ALIAS (show_bgp_view_route_pathtype,
+       show_bgp_view_ipv6_route_pathtype_cmd,
+       "show bgp (view|vrf) WORD ipv6 X:X::X:X (bestpath|multipath) {json}",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Address family\n"
+       "Network in the BGP routing table to display\n"
+       "Display only the bestpath\n"
+       "Display only multipaths\n"
+       "JavaScript Object Notation\n")
+
 DEFUN (show_bgp_view_prefix,
        show_bgp_view_prefix_cmd,
        "show bgp (view|vrf) WORD X:X::X:X/M {json}",
@@ -8259,6 +8353,164 @@ ALIAS (show_bgp_view_prefix,
        "Address family\n"
        "IPv6 prefix <network>/<length>\n"
        "JavaScript Object Notation\n")
+
+DEFUN (show_bgp_view_prefix_pathtype,
+       show_bgp_view_prefix_pathtype_cmd,
+       "show bgp (view|vrf) WORD X:X::X:X/M (bestpath|multipath) {json}",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "IPv6 prefix <network>/<length>\n"
+       "Display only the bestpath\n"
+       "Display only multipaths\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+  if (strncmp (argv[3], "b", 1) == 0)
+    return bgp_show_route (vty, argv[1], argv[2], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+  else
+    return bgp_show_route (vty, argv[1], argv[2], AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+}
+
+ALIAS (show_bgp_view_prefix_pathtype,
+       show_bgp_view_ipv6_prefix_pathtype_cmd,
+       "show bgp (view|vrf) WORD ipv6 X:X::X:X/M (bestpath|multipath) {json}",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Address family\n"
+       "IPv6 prefix <network>/<length>\n"
+       "Display only the bestpath\n"
+       "Display only multipaths\n"
+       "JavaScript Object Notation\n")
+
+DEFUN (show_bgp_view_prefix_list,
+       show_bgp_view_prefix_list_cmd,
+       "show bgp (view|vrf) WORD prefix-list WORD",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Display routes conforming to the prefix-list\n"
+       "IPv6 prefix-list name\n")
+{
+  return bgp_show_prefix_list (vty, argv[1], argv[2], AFI_IP6, SAFI_UNICAST,
+			       bgp_show_type_prefix_list);
+}
+
+ALIAS (show_bgp_view_prefix_list,
+       show_bgp_view_ipv6_prefix_list_cmd,
+       "show bgp (view|vrf) WORD ipv6 prefix-list WORD",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Address family\n"
+       "Display routes conforming to the prefix-list\n"
+       "IPv6 prefix-list name\n")
+
+DEFUN (show_bgp_view_filter_list,
+       show_bgp_view_filter_list_cmd,
+       "show bgp (view|vrf) WORD filter-list WORD",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Display routes conforming to the filter-list\n"
+       "Regular expression access list name\n")
+{
+  return bgp_show_filter_list (vty, argv[1], argv[2], AFI_IP6, SAFI_UNICAST,
+			       bgp_show_type_filter_list);
+}
+
+ALIAS (show_bgp_view_filter_list,
+       show_bgp_view_ipv6_filter_list_cmd,
+       "show bgp (view|vrf) WORD ipv6 filter-list WORD",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Address family\n"
+       "Display routes conforming to the filter-list\n"
+       "Regular expression access list name\n")
+
+DEFUN (show_bgp_view_route_map,
+       show_bgp_view_route_map_cmd,
+       "show bgp (view|vrf) WORD route-map WORD",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Display routes matching the route-map\n"
+       "A route-map to match on\n")
+{
+  return bgp_show_route_map (vty, argv[1], argv[2], AFI_IP6, SAFI_UNICAST,
+			     bgp_show_type_route_map);
+}
+
+ALIAS (show_bgp_view_route_map,
+       show_bgp_view_ipv6_route_map_cmd,
+       "show bgp (view|vrf) WORD ipv6 route-map WORD",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Address family\n"
+       "Display routes matching the route-map\n"
+       "A route-map to match on\n")
+
+DEFUN (show_bgp_view_community_list,
+       show_bgp_view_community_list_cmd,
+       "show bgp (view|vrf) WORD community-list (<1-500>|WORD)",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Display routes matching the community-list\n"
+       "community-list number\n"
+       "community-list name\n")
+{
+  return bgp_show_community_list (vty, argv[1], argv[2], 0, AFI_IP6, SAFI_UNICAST);
+}
+
+ALIAS (show_bgp_view_community_list,
+       show_bgp_view_ipv6_community_list_cmd,
+       "show bgp (view|vrf) WORD ipv6 community-list (<1-500>|WORD)",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Address family\n"
+       "Display routes matching the community-list\n"
+       "community-list number\n"
+       "community-list name\n")
+
+DEFUN (show_bgp_view_prefix_longer,
+       show_bgp_view_prefix_longer_cmd,
+       "show bgp (view|vrf) WORD X:X::X:X/M longer-prefixes",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "IPv6 prefix <network>/<length>\n"
+       "Display route and more specific routes\n")
+{
+  return bgp_show_prefix_longer (vty, argv[1], argv[2], AFI_IP6, SAFI_UNICAST,
+				 bgp_show_type_prefix_longer);
+}
+
+ALIAS (show_bgp_view_prefix_longer,
+       show_bgp_view_ipv6_prefix_longer_cmd,
+       "show bgp (view|vrf) WORD ipv6 X:X::X:X/M longer-prefixes",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Address family\n"
+       "IPv6 prefix <network>/<length>\n"
+       "Display route and more specific routes\n")
 
 /* old command */
 DEFUN (show_ipv6_mbgp,
@@ -8450,10 +8702,18 @@ DEFUN (show_ipv6_mbgp_regexp,
 #endif /* HAVE_IPV6 */
 
 static int
-bgp_show_prefix_list (struct vty *vty, const char *prefix_list_str, afi_t afi,
+bgp_show_prefix_list (struct vty *vty, const char *name,
+                      const char *prefix_list_str, afi_t afi,
 		      safi_t safi, enum bgp_show_type type)
 {
   struct prefix_list *plist;
+  struct bgp *bgp = NULL;
+
+  if (name && !(bgp = bgp_lookup_by_name(name)))
+    {
+      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   plist = prefix_list_lookup (afi, prefix_list_str);
   if (plist == NULL)
@@ -8463,7 +8723,7 @@ bgp_show_prefix_list (struct vty *vty, const char *prefix_list_str, afi_t afi,
       return CMD_WARNING;
     }
 
-  return bgp_show (vty, NULL, afi, safi, type, plist, 0);
+  return bgp_show (vty, bgp, afi, safi, type, plist, 0);
 }
 
 DEFUN (show_ip_bgp_prefix_list, 
@@ -8475,7 +8735,22 @@ DEFUN (show_ip_bgp_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IP prefix-list name\n")
 {
-  return bgp_show_prefix_list (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
+			       bgp_show_type_prefix_list);
+}
+
+DEFUN (show_ip_bgp_view_prefix_list,
+       show_ip_bgp_view_prefix_list_cmd,
+       "show ip bgp (view|vrf) WORD prefix-list WORD",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Display routes conforming to the prefix-list\n"
+       "IP prefix-list name\n")
+{
+  return bgp_show_prefix_list (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -8489,7 +8764,7 @@ DEFUN (show_ip_bgp_flap_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IP prefix-list name\n")
 {
-  return bgp_show_prefix_list (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_flap_prefix_list);
 }
 
@@ -8506,10 +8781,10 @@ DEFUN (show_ip_bgp_ipv4_prefix_list,
        "IP prefix-list name\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_prefix_list (vty, argv[1], AFI_IP, SAFI_MULTICAST,
+    return bgp_show_prefix_list (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST,
 			         bgp_show_type_prefix_list);
 
-  return bgp_show_prefix_list (vty, argv[1], AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -8522,7 +8797,7 @@ DEFUN (show_bgp_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IPv6 prefix-list name\n")
 {
-  return bgp_show_prefix_list (vty, argv[0], AFI_IP6, SAFI_UNICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -8546,7 +8821,7 @@ DEFUN (show_ipv6_bgp_prefix_list,
        "IPv6 prefix-list name\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_prefix_list (vty, argv[0], AFI_IP6, SAFI_UNICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -8561,16 +8836,24 @@ DEFUN (show_ipv6_mbgp_prefix_list,
        "IPv6 prefix-list name\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_prefix_list (vty, argv[0], AFI_IP6, SAFI_MULTICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST,
 			       bgp_show_type_prefix_list);
 }
 #endif /* HAVE_IPV6 */
 
 static int
-bgp_show_filter_list (struct vty *vty, const char *filter, afi_t afi,
+bgp_show_filter_list (struct vty *vty, const char *name,
+                      const char *filter, afi_t afi,
 		      safi_t safi, enum bgp_show_type type)
 {
   struct as_list *as_list;
+  struct bgp *bgp = NULL;
+
+  if (name && !(bgp = bgp_lookup_by_name(name)))
+    {
+      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   as_list = as_list_lookup (filter);
   if (as_list == NULL)
@@ -8579,7 +8862,7 @@ bgp_show_filter_list (struct vty *vty, const char *filter, afi_t afi,
       return CMD_WARNING;
     }
 
-  return bgp_show (vty, NULL, afi, safi, type, as_list, 0);
+  return bgp_show (vty, bgp, afi, safi, type, as_list, 0);
 }
 
 DEFUN (show_ip_bgp_filter_list, 
@@ -8591,7 +8874,22 @@ DEFUN (show_ip_bgp_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  return bgp_show_filter_list (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_filter_list (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
+			       bgp_show_type_filter_list);
+}
+
+DEFUN (show_ip_bgp_view_filter_list,
+       show_ip_bgp_view_filter_list_cmd,
+       "show ip bgp (view|vrf) WORD filter-list WORD",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Display routes conforming to the filter-list\n"
+       "Regular expression access list name\n")
+{
+  return bgp_show_filter_list (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -8605,7 +8903,7 @@ DEFUN (show_ip_bgp_flap_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  return bgp_show_filter_list (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_filter_list (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_flap_filter_list);
 }
 
@@ -8622,10 +8920,10 @@ DEFUN (show_ip_bgp_ipv4_filter_list,
        "Regular expression access list name\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_filter_list (vty, argv[1], AFI_IP, SAFI_MULTICAST,
+    return bgp_show_filter_list (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST,
 			         bgp_show_type_filter_list);
   
-  return bgp_show_filter_list (vty, argv[1], AFI_IP, SAFI_UNICAST,
+  return bgp_show_filter_list (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -8638,7 +8936,7 @@ DEFUN (show_bgp_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  return bgp_show_filter_list (vty, argv[0], AFI_IP6, SAFI_UNICAST,
+  return bgp_show_filter_list (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -8662,7 +8960,7 @@ DEFUN (show_ipv6_bgp_filter_list,
        "Regular expression access list name\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_filter_list (vty, argv[0], AFI_IP6, SAFI_UNICAST,
+  return bgp_show_filter_list (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -8677,16 +8975,24 @@ DEFUN (show_ipv6_mbgp_filter_list,
        "Regular expression access list name\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_filter_list (vty, argv[0], AFI_IP6, SAFI_MULTICAST,
+  return bgp_show_filter_list (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST,
 			       bgp_show_type_filter_list);
 }
 #endif /* HAVE_IPV6 */
 
 static int
-bgp_show_route_map (struct vty *vty, const char *rmap_str, afi_t afi,
+bgp_show_route_map (struct vty *vty, const char *name,
+                    const char *rmap_str, afi_t afi,
 		    safi_t safi, enum bgp_show_type type)
 {
   struct route_map *rmap;
+  struct bgp *bgp = NULL;
+
+  if (name && !(bgp = bgp_lookup_by_name(name)))
+    {
+      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   rmap = route_map_lookup_by_name (rmap_str);
   if (! rmap)
@@ -8696,7 +9002,7 @@ bgp_show_route_map (struct vty *vty, const char *rmap_str, afi_t afi,
       return CMD_WARNING;
     }
 
-  return bgp_show (vty, NULL, afi, safi, type, rmap, 0);
+  return bgp_show (vty, bgp, afi, safi, type, rmap, 0);
 }
 
 DEFUN (show_ip_bgp_route_map, 
@@ -8708,7 +9014,22 @@ DEFUN (show_ip_bgp_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  return bgp_show_route_map (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_route_map (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
+			     bgp_show_type_route_map);
+}
+
+DEFUN (show_ip_bgp_view_route_map,
+       show_ip_bgp_view_route_map_cmd,
+       "show ip bgp (view|vrf) WORD route-map WORD",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Display routes matching the route-map\n"
+       "A route-map to match on\n")
+{
+  return bgp_show_route_map (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST,
 			     bgp_show_type_route_map);
 }
 
@@ -8722,7 +9043,7 @@ DEFUN (show_ip_bgp_flap_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  return bgp_show_route_map (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_route_map (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
 			     bgp_show_type_flap_route_map);
 }
 
@@ -8739,10 +9060,10 @@ DEFUN (show_ip_bgp_ipv4_route_map,
        "A route-map to match on\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_route_map (vty, argv[1], AFI_IP, SAFI_MULTICAST,
+    return bgp_show_route_map (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST,
 			       bgp_show_type_route_map);
 
-  return bgp_show_route_map (vty, argv[1], AFI_IP, SAFI_UNICAST,
+  return bgp_show_route_map (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST,
 			     bgp_show_type_route_map);
 }
 
@@ -8754,7 +9075,7 @@ DEFUN (show_bgp_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  return bgp_show_route_map (vty, argv[0], AFI_IP6, SAFI_UNICAST,
+  return bgp_show_route_map (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST,
 			     bgp_show_type_route_map);
 }
 
@@ -10088,10 +10409,18 @@ ALIAS (show_ipv6_mbgp_community_exact,
 #endif /* HAVE_IPV6 */
 
 static int
-bgp_show_community_list (struct vty *vty, const char *com, int exact,
+bgp_show_community_list (struct vty *vty, const char *name,
+                         const char *com, int exact,
 			 afi_t afi, safi_t safi)
 {
   struct community_list *list;
+  struct bgp *bgp = NULL;
+
+  if (name && !(bgp = bgp_lookup_by_name(name)))
+    {
+      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   list = community_list_lookup (bgp_clist, com, COMMUNITY_LIST_MASTER);
   if (list == NULL)
@@ -10101,7 +10430,7 @@ bgp_show_community_list (struct vty *vty, const char *com, int exact,
       return CMD_WARNING;
     }
 
-  return bgp_show (vty, NULL, afi, safi,
+  return bgp_show (vty, bgp, afi, safi,
                    (exact ? bgp_show_type_community_list_exact :
 		    bgp_show_type_community_list), list, 0);
 }
@@ -10116,7 +10445,22 @@ DEFUN (show_ip_bgp_community_list,
        "community-list number\n"
        "community-list name\n")
 {
-  return bgp_show_community_list (vty, argv[0], 0, AFI_IP, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[0], 0, AFI_IP, SAFI_UNICAST);
+}
+
+DEFUN (show_ip_bgp_view_community_list,
+       show_ip_bgp_view_community_list_cmd,
+       "show ip bgp (view|vrf) WORD community-list (<1-500>|WORD)",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Display routes matching the community-list\n"
+       "community-list number\n"
+       "community-list name\n")
+{
+  return bgp_show_community_list (vty, argv[1], argv[2], 0, AFI_IP, SAFI_UNICAST);
 }
 
 DEFUN (show_ip_bgp_ipv4_community_list,
@@ -10133,9 +10477,9 @@ DEFUN (show_ip_bgp_ipv4_community_list,
        "community-list name\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_community_list (vty, argv[1], 0, AFI_IP, SAFI_MULTICAST);
+    return bgp_show_community_list (vty, NULL, argv[1], 0, AFI_IP, SAFI_MULTICAST);
   
-  return bgp_show_community_list (vty, argv[1], 0, AFI_IP, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[1], 0, AFI_IP, SAFI_UNICAST);
 }
 
 DEFUN (show_ip_bgp_community_list_exact,
@@ -10149,7 +10493,7 @@ DEFUN (show_ip_bgp_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
-  return bgp_show_community_list (vty, argv[0], 1, AFI_IP, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[0], 1, AFI_IP, SAFI_UNICAST);
 }
 
 DEFUN (show_ip_bgp_ipv4_community_list_exact,
@@ -10167,9 +10511,9 @@ DEFUN (show_ip_bgp_ipv4_community_list_exact,
        "Exact match of the communities\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_community_list (vty, argv[1], 1, AFI_IP, SAFI_MULTICAST);
+    return bgp_show_community_list (vty, NULL, argv[1], 1, AFI_IP, SAFI_MULTICAST);
  
-  return bgp_show_community_list (vty, argv[1], 1, AFI_IP, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[1], 1, AFI_IP, SAFI_UNICAST);
 }
 
 #ifdef HAVE_IPV6
@@ -10182,7 +10526,7 @@ DEFUN (show_bgp_community_list,
        "community-list number\n"
        "community-list name\n")
 {
-  return bgp_show_community_list (vty, argv[0], 0, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[0], 0, AFI_IP6, SAFI_UNICAST);
 }
 
 ALIAS (show_bgp_community_list,
@@ -10206,7 +10550,7 @@ DEFUN (show_ipv6_bgp_community_list,
        "community-list name\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_community_list (vty, argv[0], 0, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[0], 0, AFI_IP6, SAFI_UNICAST);
 }
 
 /* old command */
@@ -10220,7 +10564,7 @@ DEFUN (show_ipv6_mbgp_community_list,
        "community-list name\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_community_list (vty, argv[0], 0, AFI_IP6, SAFI_MULTICAST);
+  return bgp_show_community_list (vty, NULL, argv[0], 0, AFI_IP6, SAFI_MULTICAST);
 }
 
 DEFUN (show_bgp_community_list_exact,
@@ -10233,7 +10577,7 @@ DEFUN (show_bgp_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
-  return bgp_show_community_list (vty, argv[0], 1, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[0], 1, AFI_IP6, SAFI_UNICAST);
 }
 
 ALIAS (show_bgp_community_list_exact,
@@ -10259,7 +10603,7 @@ DEFUN (show_ipv6_bgp_community_list_exact,
        "Exact match of the communities\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_community_list (vty, argv[0], 1, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[0], 1, AFI_IP6, SAFI_UNICAST);
 }
 
 /* old command */
@@ -10274,16 +10618,24 @@ DEFUN (show_ipv6_mbgp_community_list_exact,
        "Exact match of the communities\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_community_list (vty, argv[0], 1, AFI_IP6, SAFI_MULTICAST);
+  return bgp_show_community_list (vty, NULL, argv[0], 1, AFI_IP6, SAFI_MULTICAST);
 }
 #endif /* HAVE_IPV6 */
 
 static int
-bgp_show_prefix_longer (struct vty *vty, const char *prefix, afi_t afi,
+bgp_show_prefix_longer (struct vty *vty, const char *name,
+                        const char *prefix, afi_t afi,
 			safi_t safi, enum bgp_show_type type)
 {
   int ret;
   struct prefix *p;
+  struct bgp *bgp = NULL;
+
+  if (name && !(bgp = bgp_lookup_by_name(name)))
+    {
+      vty_out (vty, "%% No such BGP instance exists%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   p = prefix_new();
 
@@ -10294,7 +10646,7 @@ bgp_show_prefix_longer (struct vty *vty, const char *prefix, afi_t afi,
       return CMD_WARNING;
     }
 
-  ret = bgp_show (vty, NULL, afi, safi, type, p, 0);
+  ret = bgp_show (vty, bgp, afi, safi, type, p, 0);
   prefix_free(p);
   return ret;
 }
@@ -10308,7 +10660,22 @@ DEFUN (show_ip_bgp_prefix_longer,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display route and more specific routes\n")
 {
-  return bgp_show_prefix_longer (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
+				 bgp_show_type_prefix_longer);
+}
+
+DEFUN (show_ip_bgp_view_prefix_longer,
+       show_ip_bgp_view_prefix_longer_cmd,
+       "show ip bgp (view|vrf) WORD A.B.C.D/M longer-prefixes",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       "Display route and more specific routes\n")
+{
+  return bgp_show_prefix_longer (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -10322,7 +10689,7 @@ DEFUN (show_ip_bgp_flap_prefix_longer,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display route and more specific routes\n")
 {
-  return bgp_show_prefix_longer (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_flap_prefix_longer);
 }
 
@@ -10339,10 +10706,10 @@ DEFUN (show_ip_bgp_ipv4_prefix_longer,
        "Display route and more specific routes\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show_prefix_longer (vty, argv[1], AFI_IP, SAFI_MULTICAST,
+    return bgp_show_prefix_longer (vty, NULL, argv[1], AFI_IP, SAFI_MULTICAST,
 				   bgp_show_type_prefix_longer);
 
-  return bgp_show_prefix_longer (vty, argv[1], AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[1], AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -10355,7 +10722,7 @@ DEFUN (show_ip_bgp_flap_address,
        "Display flap statistics of routes\n"
        "Network in the BGP routing table to display\n")
 {
-  return bgp_show_prefix_longer (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_flap_address);
 }
 
@@ -10368,7 +10735,7 @@ DEFUN (show_ip_bgp_flap_prefix,
        "Display flap statistics of routes\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  return bgp_show_prefix_longer (vty, argv[0], AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[0], AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_flap_prefix);
 }
 #ifdef HAVE_IPV6
@@ -10380,7 +10747,7 @@ DEFUN (show_bgp_prefix_longer,
        "IPv6 prefix <network>/<length>\n"
        "Display route and more specific routes\n")
 {
-  return bgp_show_prefix_longer (vty, argv[0], AFI_IP6, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -10404,7 +10771,7 @@ DEFUN (show_ipv6_bgp_prefix_longer,
        "Display route and more specific routes\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_prefix_longer (vty, argv[0], AFI_IP6, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[0], AFI_IP6, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -10419,7 +10786,7 @@ DEFUN (show_ipv6_mbgp_prefix_longer,
        "Display route and more specific routes\n")
 {
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_prefix_longer (vty, argv[0], AFI_IP6, SAFI_MULTICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[0], AFI_IP6, SAFI_MULTICAST,
 				 bgp_show_type_prefix_longer);
 }
 #endif /* HAVE_IPV6 */
@@ -11081,6 +11448,31 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
   return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST, uj);
 }
 
+DEFUN (show_ip_bgp_view_neighbor_prefix_counts,
+       show_ip_bgp_view_neighbor_prefix_counts_cmd,
+       "show ip bgp (view|vrf) WORD neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n"
+       "Display detailed prefix count information\n"
+       "JavaScript Object Notation\n")
+{
+  struct peer *peer;
+  u_char uj = use_json(argc, argv);
+
+  peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
+  if (! peer)
+    return CMD_WARNING;
+
+  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST, uj);
+}
+
 DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        show_bgp_ipv6_neighbor_prefix_counts_cmd,
        "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
@@ -11101,6 +11493,31 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
   if (! peer) 
     return CMD_WARNING;
  
+  return bgp_peer_counts (vty, peer, AFI_IP6, SAFI_UNICAST, uj);
+}
+
+DEFUN (show_bgp_view_ipv6_neighbor_prefix_counts,
+       show_bgp_view_ipv6_neighbor_prefix_counts_cmd,
+       "show bgp (view|vrf) WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
+       SHOW_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Address family\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n"
+       "Display detailed prefix count information\n"
+       "JavaScript Object Notation\n")
+{
+  struct peer *peer;
+  u_char uj = use_json(argc, argv);
+
+  peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
+  if (! peer)
+    return CMD_WARNING;
+
   return bgp_peer_counts (vty, peer, AFI_IP6, SAFI_UNICAST, uj);
 }
 
@@ -11470,6 +11887,20 @@ ALIAS (show_ip_bgp_neighbor_advertised_route,
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 
+ALIAS (show_ip_bgp_view_neighbor_advertised_route,
+       show_ip_bgp_view_neighbor_advertised_route_rmap_cmd,
+       "show ip bgp (view|vrf) WORD neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes route-map WORD {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n"
+       "Display the routes advertised to a BGP neighbor\n"
+       "JavaScript Object Notation\n")
 DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
        show_ip_bgp_ipv4_neighbor_advertised_route_cmd,
        "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
@@ -11663,21 +12094,7 @@ DEFUN (show_bgp_view_neighbor_received_routes,
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  if (uj)
-    {
-      if (argc == 4)
-        peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
-      else
-        peer = peer_lookup_in_view (vty, NULL, argv[1], uj);
-    }
-  else
-    {
-      if (argc == 3)
-        peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
-      else
-        peer = peer_lookup_in_view (vty, NULL, argv[1], uj);
-    }
-
+  peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -11702,11 +12119,7 @@ DEFUN (show_ip_bgp_view_neighbor_received_routes,
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  if (argc == 4 || (argc == 3 && argv[2] && strcmp(argv[2], "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[1], uj);
-
+  peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -11763,6 +12176,21 @@ ALIAS (show_ip_bgp_neighbor_received_routes,
        SHOW_STR
        IP_STR
        BGP_STR
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n"
+       "Display the received routes from neighbor\n"
+       "JavaScript Object Notation\n")
+
+ALIAS (show_ip_bgp_view_neighbor_received_routes,
+       show_ip_bgp_view_neighbor_received_routes_rmap_cmd,
+       "show ip bgp (view|vrf) WORD neighbors (A.B.C.D|X:X::X:X|WORD) received-routes route-map WORD {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -12066,7 +12494,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
   return CMD_SUCCESS;
 }
 #ifdef HAVE_IPV6
-ALIAS (show_bgp_view_neighbor_received_routes,
+DEFUN (show_bgp_neighbor_received_routes,
        show_bgp_neighbor_received_routes_cmd,
        "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
        SHOW_STR
@@ -12077,8 +12505,23 @@ ALIAS (show_bgp_view_neighbor_received_routes,
        "Neighbor on bgp configured interface\n"
        "Display the received routes from neighbor\n"
        "JavaScript Object Notation\n")
+{
+  struct peer *peer;
+  const char *rmap_name = NULL;
+  u_char uj = use_json(argc, argv);
 
-ALIAS (show_bgp_view_neighbor_received_routes,
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
+
+  if (! peer)
+    return CMD_WARNING;
+
+  if (argc == 3 || (argc == 2 && argv[1] && strcmp(argv[1], "json") != 0))
+    rmap_name = argv[1];
+
+  return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 1, rmap_name, uj);
+}
+
+ALIAS (show_bgp_neighbor_received_routes,
        show_bgp_ipv6_neighbor_received_routes_cmd,
        "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
        SHOW_STR
@@ -12192,7 +12635,7 @@ ALIAS (show_bgp_neighbor_received_prefix_filter,
        "JavaScript Object Notation\n")
 
 /* old command */
-ALIAS (show_bgp_view_neighbor_received_routes,
+ALIAS (show_bgp_neighbor_received_routes,
        ipv6_bgp_neighbor_received_routes_cmd,
        "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
        SHOW_STR
@@ -12386,6 +12829,32 @@ DEFUN (show_ip_bgp_neighbor_routes,
 				  bgp_show_type_neighbor, uj);
 }
 
+DEFUN (show_ip_bgp_view_neighbor_routes,
+       show_ip_bgp_view_neighbor_routes_cmd,
+       "show ip bgp (view|vrf) WORD neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on bgp configured interface\n"
+       "Display routes learned from neighbor\n"
+       "JavaScript Object Notation\n")
+{
+  struct peer *peer;
+  u_char uj = use_json(argc, argv);
+
+  peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
+  if (! peer)
+    return CMD_WARNING;
+
+  return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
+				  bgp_show_type_neighbor, uj);
+}
+
 DEFUN (show_ip_bgp_neighbor_flap,
        show_ip_bgp_neighbor_flap_cmd,
        "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics {json}",
@@ -12483,12 +12952,7 @@ DEFUN (show_bgp_view_neighbor_routes,
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  if ((argc == 4 && argv[3] && strcmp(argv[3], "json") == 0)
-      || (argc == 3 && argv[2] && strcmp(argv[2], "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[1], uj);
-   
+  peer = peer_lookup_in_view (vty, argv[1], argv[2], uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -12601,7 +13065,7 @@ ALIAS (show_bgp_view_neighbor_flap,
        "Display flap statistics of the routes learned from neighbor\n"
        "JavaScript Object Notation\n")
        
-ALIAS (show_bgp_view_neighbor_routes,
+DEFUN (show_bgp_neighbor_routes,
        show_bgp_neighbor_routes_cmd,
        "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
        SHOW_STR
@@ -12612,9 +13076,20 @@ ALIAS (show_bgp_view_neighbor_routes,
        "Neighbor on bgp configured interface\n"
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
+{
+  struct peer *peer;
+  u_char uj = use_json(argc, argv);
+
+  peer = peer_lookup_in_view (vty, NULL, argv[0], uj);
+  if (! peer)
+    return CMD_WARNING;
+
+  return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_UNICAST,
+				  bgp_show_type_neighbor, uj);
+}
 
 
-ALIAS (show_bgp_view_neighbor_routes,
+ALIAS (show_bgp_neighbor_routes,
        show_bgp_ipv6_neighbor_routes_cmd,
        "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
        SHOW_STR
@@ -12628,7 +13103,7 @@ ALIAS (show_bgp_view_neighbor_routes,
        "JavaScript Object Notation\n")
 
 /* old command */
-ALIAS (show_bgp_view_neighbor_routes,
+ALIAS (show_bgp_neighbor_routes,
        ipv6_bgp_neighbor_routes_cmd,
        "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
        SHOW_STR
@@ -13552,33 +14027,39 @@ bgp_route_init (void)
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_mask_summary_as_set_cmd);
 
   install_element (VIEW_NODE, &show_ip_bgp_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_pathtype_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_route_pathtype_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_route_pathtype_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_route_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_prefix_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_prefix_pathtype_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_prefix_pathtype_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_prefix_pathtype_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_prefix_pathtype_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_prefix_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_prefix_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_route_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_prefix_cmd);
+
   install_element (VIEW_NODE, &show_ip_bgp_regexp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_regexp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_prefix_list_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_prefix_list_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_prefix_list_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_filter_list_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_filter_list_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_filter_list_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_map_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_route_map_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_route_map_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_cidr_only_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cidr_only_cmd);
@@ -13606,21 +14087,28 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_community3_exact_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_community4_exact_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_community_list_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_community_list_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_community_list_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_community_list_exact_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_community_list_exact_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_prefix_longer_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_prefix_longer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_prefix_longer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_advertised_route_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_advertised_route_rmap_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_advertised_route_rmap_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_advertised_route_rmap_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_routes_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_received_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_routes_rmap_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_received_routes_rmap_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_received_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_received_routes_rmap_cmd);
   install_element (VIEW_NODE, &show_bgp_view_afi_safi_neighbor_adv_recd_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
@@ -13636,22 +14124,24 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_flap_route_map_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_flap_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_damp_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_advertised_route_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_received_routes_cmd);
   
   /* Restricted node: VIEW_NODE - (set of dangerous commands) */
   install_element (RESTRICTED_NODE, &show_ip_bgp_route_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_view_route_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_route_pathtype_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_view_route_pathtype_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_route_pathtype_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_route_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_route_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_vpnv4_rd_route_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_prefix_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_view_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_prefix_pathtype_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_prefix_pathtype_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_prefix_pathtype_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_view_prefix_pathtype_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_vpnv4_all_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_vpnv4_rd_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_view_route_cmd);
@@ -13679,33 +14169,39 @@ bgp_route_init (void)
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_community4_exact_cmd);
 
   install_element (ENABLE_NODE, &show_ip_bgp_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_route_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_route_pathtype_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_route_pathtype_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_route_pathtype_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_route_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_prefix_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_prefix_pathtype_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_prefix_pathtype_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_prefix_pathtype_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_prefix_pathtype_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_prefix_cmd);
+
   install_element (ENABLE_NODE, &show_ip_bgp_regexp_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_regexp_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_prefix_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_prefix_list_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_prefix_list_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_filter_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_filter_list_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_filter_list_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_route_map_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_route_map_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_route_map_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_cidr_only_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_cidr_only_cmd);
@@ -13733,21 +14229,28 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_community3_exact_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_community4_exact_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_community_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_community_list_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_community_list_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_community_list_exact_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_community_list_exact_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_prefix_longer_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_prefix_longer_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_prefix_longer_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_advertised_route_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_advertised_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_advertised_route_rmap_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_advertised_route_rmap_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_advertised_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_advertised_route_rmap_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_received_routes_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_received_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_received_routes_rmap_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_received_routes_rmap_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_received_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_received_routes_rmap_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_afi_safi_neighbor_adv_recd_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_routes_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
@@ -13763,8 +14266,6 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_flap_route_map_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_flap_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_damp_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_advertised_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_received_routes_cmd);
 
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);
@@ -13774,10 +14275,12 @@ bgp_route_init (void)
 
   /* prefix count */
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_prefix_counts_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_prefix_counts_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd);
 #ifdef HAVE_IPV6
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_prefix_counts_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_ipv6_neighbor_prefix_counts_cmd);
 
   /* New config IPv6 BGP commands.  */
   install_element (BGP_IPV6_NODE, &bgp_table_map_cmd);
@@ -13867,8 +14370,22 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_bgp_view_ipv6_cmd);
   install_element (VIEW_NODE, &show_bgp_view_route_cmd);
   install_element (VIEW_NODE, &show_bgp_view_ipv6_route_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_route_pathtype_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_ipv6_route_pathtype_cmd);
   install_element (VIEW_NODE, &show_bgp_view_prefix_cmd);
   install_element (VIEW_NODE, &show_bgp_view_ipv6_prefix_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_prefix_pathtype_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_ipv6_prefix_pathtype_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_prefix_list_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_ipv6_prefix_list_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_filter_list_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_ipv6_filter_list_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_route_map_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_ipv6_route_map_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_community_list_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_ipv6_community_list_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_prefix_longer_cmd);
+  install_element (VIEW_NODE, &show_bgp_view_ipv6_prefix_longer_cmd);
   install_element (VIEW_NODE, &show_bgp_view_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_bgp_view_ipv6_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_bgp_view_neighbor_received_routes_cmd);
@@ -13915,6 +14432,8 @@ bgp_route_init (void)
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_community4_exact_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_route_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_ipv6_route_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_view_route_pathtype_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_view_ipv6_route_pathtype_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_ipv6_prefix_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_view_neighbor_received_prefix_filter_cmd);
@@ -13983,8 +14502,22 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_route_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_route_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_route_pathtype_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_ipv6_route_pathtype_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_prefix_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_prefix_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_prefix_pathtype_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_ipv6_prefix_pathtype_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_prefix_list_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_ipv6_prefix_list_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_filter_list_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_ipv6_filter_list_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_route_map_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_ipv6_route_map_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_community_list_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_ipv6_community_list_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_prefix_longer_cmd);
+  install_element (ENABLE_NODE, &show_bgp_view_ipv6_prefix_longer_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_neighbor_advertised_route_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_neighbor_advertised_route_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_neighbor_received_routes_cmd);
@@ -13997,7 +14530,7 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_neighbor_flap_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_neighbor_damp_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_ipv6_neighbor_damp_cmd);
-  
+
   /* Statistics */
   install_element (ENABLE_NODE, &show_bgp_statistics_cmd);
   install_element (ENABLE_NODE, &show_bgp_statistics_vpnv4_cmd);

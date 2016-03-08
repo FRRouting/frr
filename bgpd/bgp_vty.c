@@ -10940,7 +10940,7 @@ DEFUN (show_ip_bgp_attr_info,
 }
 
 static int bgp_show_update_groups(int afi, int safi, struct vty *vty,
-				  u_int64_t subgrp_id)
+                                  u_int64_t subgrp_id)
 {
   struct bgp *bgp;
 

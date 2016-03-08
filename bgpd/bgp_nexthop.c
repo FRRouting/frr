@@ -483,6 +483,32 @@ DEFUN (show_ip_bgp_nexthop_detail,
   return show_ip_bgp_nexthop_table (vty, NULL, 1);
 }
 
+DEFUN (show_ip_bgp_view_nexthop,
+       show_ip_bgp_view_nexthop_cmd,
+       "show ip bgp (view|vrf) WORD nexthop",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "BGP nexthop table\n")
+{
+  return show_ip_bgp_nexthop_table (vty, argv[1], 0);
+}
+
+DEFUN (show_ip_bgp_view_nexthop_detail,
+       show_ip_bgp_view_nexthop_detail_cmd,
+       "show ip bgp (view|vrf) WORD nexthop detail",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\nBGP VRF\n"
+       "View/VRF name\n"
+       "BGP nexthop table\n")
+{
+  return show_ip_bgp_nexthop_table (vty, argv[1], 1);
+}
+
 void
 bgp_scan_init (struct bgp *bgp)
 {
@@ -505,6 +531,10 @@ bgp_scan_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_detail_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_nexthop_detail_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_nexthop_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_nexthop_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_nexthop_detail_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_nexthop_detail_cmd);
 }
 
 void
