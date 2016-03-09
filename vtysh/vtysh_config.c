@@ -365,10 +365,11 @@ vtysh_config_dump (FILE *fp)
 }
 
 /* Read up configuration file from file_name. */
-static void
+static int
 vtysh_read_file (FILE *confp)
 {
   struct vty *vty;
+  int ret;
 
   vty = vty_new ();
   vty->fd = 0;			/* stdout */
@@ -379,12 +380,14 @@ vtysh_read_file (FILE *confp)
   vtysh_execute_no_pager ("configure terminal");
 
   /* Execute configuration file. */
-  vtysh_config_from_file (vty, confp);
+  ret = vtysh_config_from_file (vty, confp);
 
   vtysh_execute_no_pager ("end");
   vtysh_execute_no_pager ("disable");
 
   vty_close (vty);
+
+  return (ret);
 }
 
 /* Read up configuration file from config_default_dir. */
@@ -392,16 +395,17 @@ int
 vtysh_read_config (const char *config_default_dir)
 {
   FILE *confp = NULL;
+  int ret;
 
   host_config_set (config_default_dir);
   confp = fopen (config_default_dir, "r");
   if (confp == NULL)
     return (1);
 
-  vtysh_read_file (confp);
+  ret = vtysh_read_file (confp);
   fclose (confp);
 
-  return (0);
+  return (ret);
 }
 
 /* We don't write vtysh specific into file from vtysh. vtysh.conf should

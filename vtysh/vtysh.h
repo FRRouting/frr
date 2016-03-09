@@ -36,6 +36,7 @@
 
 /* vtysh local configuration file. */
 #define VTYSH_DEFAULT_CONFIG "vtysh.conf"
+#define QUAGGA_DEFAULT_CONFIG "Quagga.conf"
 
 void vtysh_init_vty (void);
 void vtysh_init_cmd (void);
@@ -50,7 +51,7 @@ char *vtysh_prompt (void);
 
 void vtysh_config_write (void);
 
-void vtysh_config_from_file (struct vty *, FILE *);
+int vtysh_config_from_file (struct vty *, FILE *);
 
 int vtysh_mark_file(const char *filename);
 

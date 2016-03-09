@@ -675,12 +675,13 @@ vtysh_mark_file (const char *filename)
 }
 
 /* Configration make from file. */
-void
+int
 vtysh_config_from_file (struct vty *vty, FILE *fp)
 {
   int ret;
   struct cmd_element *cmd;
   int lineno = 0;
+  int retcode = CMD_SUCCESS;
 
   while (fgets (vty->buf, VTY_BUFSIZ, fp))
     {
@@ -693,15 +694,19 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	case CMD_WARNING:
 	  if (vty->type == VTY_FILE)
 	    fprintf (stdout,"line %d: Warning...: %s\n", lineno, vty->buf);
+	  retcode = 1;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stdout,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
+	  retcode = 1;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_ERR_NO_MATCH:
 	  fprintf (stdout,"line %d: %% Unknown command: %s", lineno, vty->buf);
+	  retcode = 1;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_ERR_INCOMPLETE:
 	  fprintf (stdout,"line %d: %% Command incomplete: %s\n", lineno, vty->buf);
+	  retcode = 1;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_SUCCESS_DAEMON:
 	  {
@@ -726,6 +731,8 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	  }
 	}
     }
+
+  return (retcode);
 }
 
 /* We don't care about the point of the cursor when '?' is typed. */

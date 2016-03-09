@@ -42,6 +42,7 @@ char *progname;
 
 /* Configuration file name and directory. */
 char config_default[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
+char quagga_config_default[] = SYSCONFDIR QUAGGA_DEFAULT_CONFIG;
 char history_file[MAXPATHLEN];
 
 /* Flag for indicate executing child command. */
@@ -232,6 +233,7 @@ main (int argc, char **argv, char **env)
   int echo_command = 0;
   int no_error = 0;
   int markfile = 0;
+  int ret = 0;
   char *homedir = NULL;
 
   /* Preserve name of myself. */
@@ -330,9 +332,13 @@ main (int argc, char **argv, char **env)
     {
       if (inputfile)
 	{
-	  vtysh_read_config(inputfile);
+	  ret = vtysh_read_config(inputfile);
 	}
-      return(0);
+      else
+	{
+	  ret = vtysh_read_config(quagga_config_default);
+	}
+      exit(ret);
     }
 
   /* Ignore error messages */
@@ -357,8 +363,8 @@ main (int argc, char **argv, char **env)
 
   if (inputfile)
     {
-      vtysh_read_config(inputfile);
-      exit(0);
+      ret = vtysh_read_config(inputfile);
+      exit(ret);
     }
 
   /*
