@@ -32,7 +32,7 @@ extern struct zebra_t zebrad;
 static int
 zsend_interface_bfd_update (int cmd, struct zserv *client,
                             struct interface *ifp, struct prefix *dp,
-                            struct prefix *sp, int status)
+                            struct prefix *sp, int status, vrf_id_t vrf_id)
 {
   int blen;
   struct stream *s;
@@ -44,7 +44,7 @@ zsend_interface_bfd_update (int cmd, struct zserv *client,
   s = client->obuf;
   stream_reset (s);
 
-  zserv_create_header (s, cmd, (ifp ? ifp->vrf_id : VRF_DEFAULT));
+  zserv_create_header (s, cmd, vrf_id);
   if (ifp)
     stream_putl (s, ifp->ifindex);
   else
@@ -74,7 +74,7 @@ zsend_interface_bfd_update (int cmd, struct zserv *client,
 
 void
 zebra_interface_bfd_update (struct interface *ifp, struct prefix *dp,
-                            struct prefix *sp, int status)
+                            struct prefix *sp, int status, vrf_id_t vrf_id)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
@@ -88,7 +88,7 @@ zebra_interface_bfd_update (struct interface *ifp, struct prefix *dp,
 
       /* Notify to the protocol daemons. */
       zsend_interface_bfd_update (ZEBRA_INTERFACE_BFD_DEST_UPDATE, client, ifp,
-                                    dp, sp, status);
+                                    dp, sp, status, vrf_id);
     }
 }
 

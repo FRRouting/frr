@@ -103,6 +103,7 @@ struct zserv
   u_int32_t vrfadd_cnt;
   u_int32_t vrfdel_cnt;
   u_int32_t if_vrfchg_cnt;
+  u_int32_t bfd_client_reg_cnt;
 
   time_t connect_time;
   time_t last_read_time;

@@ -42,6 +42,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_vty.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"	/* For ZEBRA_SERV_PATH. */
 
@@ -483,27 +484,25 @@ DEFUN (show_ip_bgp_nexthop_detail,
   return show_ip_bgp_nexthop_table (vty, NULL, 1);
 }
 
-DEFUN (show_ip_bgp_view_nexthop,
-       show_ip_bgp_view_nexthop_cmd,
-       "show ip bgp (view|vrf) WORD nexthop",
+DEFUN (show_ip_bgp_instance_nexthop,
+       show_ip_bgp_instance_nexthop_cmd,
+       "show ip bgp " BGP_INSTANCE_CMD " nexthop",
        SHOW_STR
        IP_STR
        BGP_STR
-       "BGP view\nBGP VRF\n"
-       "View/VRF name\n"
+       BGP_INSTANCE_HELP_STR
        "BGP nexthop table\n")
 {
   return show_ip_bgp_nexthop_table (vty, argv[1], 0);
 }
 
-DEFUN (show_ip_bgp_view_nexthop_detail,
-       show_ip_bgp_view_nexthop_detail_cmd,
-       "show ip bgp (view|vrf) WORD nexthop detail",
+DEFUN (show_ip_bgp_instance_nexthop_detail,
+       show_ip_bgp_instance_nexthop_detail_cmd,
+       "show ip bgp " BGP_INSTANCE_CMD " nexthop detail",
        SHOW_STR
        IP_STR
        BGP_STR
-       "BGP view\nBGP VRF\n"
-       "View/VRF name\n"
+       BGP_INSTANCE_HELP_STR
        "BGP nexthop table\n")
 {
   return show_ip_bgp_nexthop_table (vty, argv[1], 1);
@@ -531,10 +530,10 @@ bgp_scan_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_detail_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_nexthop_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_nexthop_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_nexthop_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_view_nexthop_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_view_nexthop_detail_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_nexthop_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_nexthop_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_nexthop_detail_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_nexthop_detail_cmd);
 }
 
 void
