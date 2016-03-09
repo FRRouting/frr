@@ -446,7 +446,8 @@ struct in_pktinfo
 #define ZEBRA_VRF_ADD                     43
 #define ZEBRA_VRF_DELETE                  44
 #define ZEBRA_INTERFACE_VRF_UPDATE        45
-#define ZEBRA_MESSAGE_MAX                 46
+#define ZEBRA_BFD_CLIENT_REGISTER         46
+#define ZEBRA_MESSAGE_MAX                 47
 
 /* Marker value used in new Zserv, in the byte location corresponding
  * the command value in the old zserv header. To allow old and new

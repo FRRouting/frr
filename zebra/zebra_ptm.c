@@ -45,6 +45,7 @@
 const char ZEBRA_PTM_GET_STATUS_CMD[] = "get-status";
 const char ZEBRA_PTM_BFD_START_CMD[] = "start-bfd-sess";
 const char ZEBRA_PTM_BFD_STOP_CMD[] = "stop-bfd-sess";
+const char ZEBRA_PTM_BFD_CLIENT_REG_CMD[] = "reg-bfd-client";
 
 const char ZEBRA_PTM_CMD_STR[] = "cmd";
 const char ZEBRA_PTM_CMD_STATUS_STR[] = "cmd_status";
@@ -572,6 +573,7 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
   char tmp_buf[64];
   int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
   struct zebra_vrf *zvrf;
+  unsigned int pid;
 
   if (command == ZEBRA_BFD_DEST_UPDATE)
     client->bfd_peer_upd8_cnt++;
@@ -592,14 +594,15 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
   ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
   sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_START_CMD);
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
-  sprintf(tmp_buf, "quagga");
+  sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
-                      tmp_buf);
-  sprintf(tmp_buf, "%d", ptm_cb.pid);
-  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
                       tmp_buf);
 
   s = client->ibuf;
+
+  pid = stream_getl(s);
+  sprintf(tmp_buf, "%d", pid);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD, tmp_buf);
 
   dst_p.family = stream_getw(s);
 
@@ -741,6 +744,7 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
   int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
   void *out_ctxt;
   struct zebra_vrf *zvrf;
+  unsigned int pid;
 
   client->bfd_peer_del_cnt++;
 
@@ -760,15 +764,15 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
   sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_STOP_CMD);
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
-  sprintf(tmp_buf, "%s", "quagga");
+  sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
                       tmp_buf);
 
-  sprintf(tmp_buf, "%d", ptm_cb.pid);
-  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
-                      tmp_buf);
-
   s = client->ibuf;
+
+  pid = stream_getl(s);
+  sprintf(tmp_buf, "%d", pid);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD, tmp_buf);
 
   dst_p.family = stream_getw(s);
 
@@ -869,6 +873,54 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
     zlog_debug ("%s: Sent message (%d) %s", __func__, data_len,
                   ptm_cb.out_data);
 
+  zebra_ptm_send_message(ptm_cb.out_data, data_len);
+  return 0;
+}
+
+/* BFD client register */
+int
+zebra_ptm_bfd_client_register (struct zserv *client, int sock, u_short length)
+{
+  struct stream *s;
+  unsigned int pid;
+  void *out_ctxt;
+  char tmp_buf[64];
+  int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
+
+  client->bfd_client_reg_cnt++;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug("bfd_client_register msg from client %s: length=%d",
+                zebra_route_string(client->proto), length);
+
+  if (ptm_cb.ptm_sock == -1)
+    {
+      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                             NULL, ptm_cb.reconnect_time);
+      return -1;
+    }
+
+  ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
+
+  sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_CLIENT_REG_CMD);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
+
+  sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
+                      tmp_buf);
+
+  s = client->ibuf;
+
+  pid = stream_getl(s);
+  sprintf(tmp_buf, "%d", pid);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
+                      tmp_buf);
+
+  ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
+
+  if (IS_ZEBRA_DEBUG_SEND)
+    zlog_debug ("%s: Sent message (%d) %s", __func__, data_len,
+                  ptm_cb.out_data);
   zebra_ptm_send_message(ptm_cb.out_data, data_len);
   return 0;
 }

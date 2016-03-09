@@ -138,6 +138,8 @@ bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
   stream_reset (s);
   zclient_create_header (s, command, vrf_id);
 
+  stream_putl(s, getpid());
+
   stream_putw(s, family);
   switch (family)
     {
@@ -435,4 +437,42 @@ bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
     json_object_object_add(json_obj, "peerBfdInfo", json_bfd);
   else
     vty_out (vty, "%s", VTY_NEWLINE);
+}
+
+/*
+ * bfd_client_sendmsg - Format and send a client register
+ *                    command to Zebra to be forwarded to BFD
+ */
+void
+bfd_client_sendmsg (struct zclient *zclient, int command)
+{
+  struct stream *s;
+  int ret;
+
+  /* Check socket. */
+  if (!zclient || zclient->sock < 0)
+    {
+      zlog_debug("%s: Can't send BFD client register, Zebra client not "
+                  "established", __FUNCTION__);
+      return;
+    }
+
+  s = zclient->obuf;
+  stream_reset (s);
+  zclient_create_header (s, command, VRF_DEFAULT);
+
+  stream_putl(s, getpid());
+
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  ret = zclient_send_message(zclient);
+
+  if (ret < 0)
+    {
+      zlog_warn("bfd_client_sendmsg %d: zclient_send_message() failed",
+                  getpid());
+      return;
+    }
+
+  return;
 }

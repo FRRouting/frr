@@ -185,6 +185,9 @@ bgp_bfd_dest_replay (int command, struct zclient *client, zebra_size_t length,
   if (BGP_DEBUG (zebra, ZEBRA))
     zlog_debug("Zebra: BFD Dest replay request");
 
+  /* Send the client registration */
+  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+
   /* Replay the peer, if BFD is enabled in BGP */
 
   for (ALL_LIST_ELEMENTS_RO (bm->bgp, mnode, bgp))
@@ -524,4 +527,7 @@ bgp_bfd_init(void)
   install_element (BGP_NODE, &neighbor_bfd_param_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_val_cmd);
+
+  /* Send the client registration */
+  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 }

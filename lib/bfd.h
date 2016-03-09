@@ -95,4 +95,7 @@ extern void
 bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
               int extra_space, u_char use_json, json_object *json_obj);
 
+extern void
+bfd_client_sendmsg (struct zclient *zclient, int command);
+
 #endif /* _ZEBRA_BFD_H */

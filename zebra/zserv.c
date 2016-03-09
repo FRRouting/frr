@@ -2076,6 +2076,9 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_VRF_UNREGISTER:
       zread_vrf_unregister (client, length, vrf_id);
       break;
+    case ZEBRA_BFD_CLIENT_REGISTER:
+      zebra_ptm_bfd_client_register(client, sock, length);
+      break;
     default:
       zlog_info ("Zebra received unknown command %d", command);
       break;
