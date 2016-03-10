@@ -73,6 +73,7 @@ case "$1" in
          ;;
      help)
 	 man -s 1 quagga
+         ;;
      *)
 	 echo "Unknown option entered"
 	 exit -1
