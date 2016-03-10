@@ -10637,7 +10637,8 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
           case show_peer:
             if (conf_if)
               {
-                if (peer->conf_if && !strcmp(peer->conf_if, conf_if))
+                if ((peer->conf_if && !strcmp(peer->conf_if, conf_if)) ||
+                    (peer->hostname && !strcmp(peer->hostname, conf_if)))
                   {
                     find = 1;
                     bgp_show_peer (vty, peer, use_json, json, json_neigh);
