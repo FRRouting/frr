@@ -1,0 +1,65 @@
+.TH Quagga 1 "27 July 2006" "Quagga Systemd Script" "Version 0.99.23.1"
+.SH NAME
+quagga \- a systemd interaction script
+.SH SYNOPSIS
+.B quagga
+[
+.B start
+]
+.br
+.B quagga
+[
+.B stop
+]
+.br
+.B quagga
+[
+.B reload
+]
+.br
+.B quagga
+[
+.B restart
+]
+.br
+.B quagga
+[
+.B status
+]
+.br
+.SH DESCRIPTION
+.B Quagga
+is a systemd interaction script for the
+.B Quagga
+routing engine.
+.SH OPTIONS
+Options available for the
+.B quagga
+command:
+.IP start
+Start enabled Quagga daemons
+.IP stop
+Stop enabled Quagga daemons
+.IP reload
+Reload modified configuration files
+.IP restart
+Stop all running daemons and then restart them
+.IP status
+Status of all the daemons
+.SH "SEE ALSO"
+.BR bgpd (8),
+.BR ripd (8),
+.BR ripngd (8),
+.BR ospfd (8),
+.BR ospf6d (8),
+.BR isisd (8),
+.BR zebra (8)
+.SH BUGS
+.B quagga
+eats bugs for breakfast. If you have food for the maintainers try 
+.BI http://bugzilla.quagga.net
+.SH AUTHORS
+See
+.BI http://www.quagga.net
+or the Info file for an accurate list of authors.
+

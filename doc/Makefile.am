@@ -61,7 +61,7 @@ quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi \
 .dia.png:
 	$(DIATOPNG) "$@" $<
 
-man_MANS = 
+man_MANS = quagga.1
 
 if BGPD
 man_MANS += bgpd.8

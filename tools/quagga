@@ -71,6 +71,8 @@ case "$1" in
 	 systemctl -l -o cat -n0 status zebra bgpd ospfd ospf6d ripd ripngd isisd
 	 exit $?
          ;;
+     help)
+	 man -s 1 quagga
      *)
 	 echo "Unknown option entered"
 	 exit -1
