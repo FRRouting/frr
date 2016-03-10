@@ -4,18 +4,18 @@ startup()
 {
     FILE="/var/run/quagga/$1.was_running"
 
-    /bin/systemctl reset-failed $1
+    /bin/systemctl reset-failed $1 > /dev/null 2>&1
 
     if [ -e $FILE ]
     then
         rm $FILE
-        systemctl start $1
+        /bin/systemctl start $1 > /dev/null 2>&1
     fi
 
     /bin/systemctl is-enabled $1 > /dev/null 2>&1
     if [ $? -eq 0 ]
     then
-        systemctl start $1
+        /bin/systemctl start $1 > /dev/null 2>&1
     fi
 }
 
@@ -41,14 +41,14 @@ start_daemons()
 stop_ospfd_multiinstance()
 {
     for instance in $MI; do
-        /bin/systemctl stop ospfd@$instance
+        /bin/systemctl stop ospfd@$instance > /dev/null 2>&1
     done
 }
 
 stop_daemons()
 {
     stop_ospfd_multiinstance
-    /bin/systemctl stop bgpd ospfd ospf6d ripd ripngd isisd zebra
+    /bin/systemctl stop bgpd ospfd ospf6d ripd ripngd isisd zebra > /dev/null 2>&1
 }
 
 MI=`systemctl list-units 'ospfd@*'| sed -n -e '/@/s/\..*//' -e 's/.*@//p'`
