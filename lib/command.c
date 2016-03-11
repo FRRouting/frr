@@ -718,6 +718,9 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
   vector_set (cnode->cmd_vector, cmd);
   if (cmd->tokens == NULL)
     cmd->tokens = cmd_parse_format(cmd->string, cmd->doc);
+
+  if (ntype == VIEW_NODE)
+    install_element (ENABLE_NODE, cmd);
 }
 
 static const unsigned char itoa64[] =
