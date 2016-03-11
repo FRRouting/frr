@@ -69,7 +69,6 @@ struct host
 enum node_type 
 {
   AUTH_NODE,			/* Authentication mode of vty interface. */
-  RESTRICTED_NODE,		/* Restricted view mode */ 
   VIEW_NODE,			/* View node. Default mode of vty interface. */
   AUTH_ENABLE_NODE,		/* Authentication mode for change enable. */
   ENABLE_NODE,			/* Enable node. */
