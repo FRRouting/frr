@@ -1720,67 +1720,6 @@ bgp_config_write_debug (struct vty *vty)
   return write;
 }
 
-/*
- * Backwards Compatibility commands:
- * 'debug bgp fsm'
- * 'debug bgp events'
- * 'debug bgp'
- * 'debug bgp filters'
- * When the bgp debug overhaul was put into place
- * there was no backwards compatibilty allowed.  Thus
- * if people upgrade to the new version of quagga
- * but still have old debug commands saved in their
- * cli files, it will cause quagga to be unhappy
- * So what we do here is accept the input but do nothing
- * to make it happy again.
- */
-DEFUN (debug_bgp_normal,
-       debug_bgp_normal_cmd,
-       "debug bgp",
-       DEBUG_STR
-       BGP_STR)
-{
-  vty_out (vty, "%% This command will be deprecated in our next release, please use 'debug bgp neighbor-events'%s",
-	   VTY_NEWLINE);
-  return CMD_SUCCESS;
-}
-
-DEFUN (debug_bgp_fsm,
-       debug_bgp_fsm_cmd,
-       "debug bgp fsm",
-       DEBUG_STR
-       BGP_STR
-       "deprecated BGP fsm command do not use")
-{
-  vty_out (vty, "%% This command will be deprecated in our next release, please use 'debug bgp neighbor-events'%s",
-	   VTY_NEWLINE);
-  return CMD_SUCCESS;
-}
-
-DEFUN (debug_bgp_events,
-       debug_bgp_events_cmd,
-       "debug bgp events",
-       DEBUG_STR
-       BGP_STR
-       "deprecated BGP events command do not use")
-{
-  vty_out (vty, "%% This command will be deprecated in our next release, please use 'debug bgp neighbor-events'%s",
-	   VTY_NEWLINE);
-  return CMD_SUCCESS;
-}
-
-DEFUN (debug_bgp_filter,
-       debug_bgp_filter_cmd,
-       "debug bgp filters",
-       DEBUG_STR
-       BGP_STR
-       "deprecated BGP filters command do not use")
-{
-  vty_out (vty, "%% This command will be deprecated in our next release, please use 'debug bgp updates'%s",
-	   VTY_NEWLINE);
-  return CMD_SUCCESS;
-}
-
 static struct cmd_node debug_node =
 {
   DEBUG_NODE,
@@ -1799,15 +1738,6 @@ bgp_debug_init (void)
   install_element (CONFIG_NODE, &debug_bgp_as4_cmd);
   install_element (ENABLE_NODE, &debug_bgp_as4_segment_cmd);
   install_element (CONFIG_NODE, &debug_bgp_as4_segment_cmd);
-
-  install_element (ENABLE_NODE, &debug_bgp_normal_cmd);
-  install_element (CONFIG_NODE, &debug_bgp_normal_cmd);
-  install_element (ENABLE_NODE, &debug_bgp_fsm_cmd);
-  install_element (CONFIG_NODE, &debug_bgp_fsm_cmd);
-  install_element (ENABLE_NODE, &debug_bgp_events_cmd);
-  install_element (CONFIG_NODE, &debug_bgp_events_cmd);
-  install_element (ENABLE_NODE, &debug_bgp_filter_cmd);
-  install_element (CONFIG_NODE, &debug_bgp_filter_cmd);
 
   install_element (ENABLE_NODE, &debug_bgp_neighbor_events_cmd);
   install_element (CONFIG_NODE, &debug_bgp_neighbor_events_cmd);
