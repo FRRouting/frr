@@ -567,16 +567,11 @@ bgp_scan_init (struct bgp *bgp)
 void
 bgp_scan_vty_init (void)
 {
-  install_element (ENABLE_NODE, &show_ip_bgp_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_nexthop_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_nexthop_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_nexthop_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_nexthop_detail_cmd);
 }
 
 void

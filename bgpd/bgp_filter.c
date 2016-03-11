@@ -695,8 +695,6 @@ bgp_filter_init (void)
 
   install_element (VIEW_NODE, &show_ip_as_path_access_list_cmd);
   install_element (VIEW_NODE, &show_ip_as_path_access_list_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_as_path_access_list_cmd);
-  install_element (ENABLE_NODE, &show_ip_as_path_access_list_all_cmd);
 }
 
 void

@@ -9976,10 +9976,8 @@ ospf_vty_show_init (void)
 {
   /* "show ip ospf" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_cmd);
 
   /* "show ip ospf database" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_database_type_cmd);
@@ -9989,13 +9987,6 @@ ospf_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_ospf_database_type_id_self_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_database_type_self_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_database_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_id_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_id_adv_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_adv_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_id_self_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_self_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_id_cmd);
@@ -10004,20 +9995,11 @@ ospf_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_id_self_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_self_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_id_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_id_adv_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_adv_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_id_self_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_self_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_cmd);
 
   /* "show ip ospf interface" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_interface_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_interface_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_interface_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_interface_cmd);
 
   /* "show ip ospf neighbor" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_neighbor_int_detail_cmd);
@@ -10027,13 +10009,6 @@ ospf_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_ospf_neighbor_detail_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_neighbor_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_neighbor_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_int_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_int_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_id_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_detail_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_neighbor_all_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_int_detail_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_int_cmd);
@@ -10042,24 +10017,13 @@ ospf_vty_show_init (void)
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_detail_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_neighbor_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_int_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_int_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_id_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_detail_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_neighbor_all_cmd);
 
   /* "show ip ospf route" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_route_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_border_routers_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_border_routers_cmd);
 
   install_element (VIEW_NODE, &show_ip_ospf_instance_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_route_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_border_routers_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_border_routers_cmd);
 }
 
 

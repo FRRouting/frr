@@ -2650,8 +2650,6 @@ ospf_mpls_te_register_vty (void)
 {
   install_element (VIEW_NODE, &show_ip_ospf_mpls_te_router_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_mpls_te_link_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_mpls_te_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_mpls_te_link_cmd);
 
   install_element (OSPF_NODE, &ospf_mpls_te_on_cmd);
   install_element (OSPF_NODE, &no_ospf_mpls_te_cmd);

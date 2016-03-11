@@ -2310,24 +2310,6 @@ isis_init ()
   install_element (VIEW_NODE, &show_database_detail_cmd);
   install_element (VIEW_NODE, &show_database_detail_arg_cmd);
 
-  install_element (ENABLE_NODE, &show_isis_summary_cmd);
-
-  install_element (ENABLE_NODE, &show_isis_interface_cmd);
-  install_element (ENABLE_NODE, &show_isis_interface_detail_cmd);
-  install_element (ENABLE_NODE, &show_isis_interface_arg_cmd);
-
-  install_element (ENABLE_NODE, &show_isis_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_isis_neighbor_detail_cmd);
-  install_element (ENABLE_NODE, &show_isis_neighbor_arg_cmd);
-  install_element (ENABLE_NODE, &clear_isis_neighbor_cmd);
-  install_element (ENABLE_NODE, &clear_isis_neighbor_arg_cmd);
-
-  install_element (ENABLE_NODE, &show_hostname_cmd);
-  install_element (ENABLE_NODE, &show_database_cmd);
-  install_element (ENABLE_NODE, &show_database_arg_cmd);
-  install_element (ENABLE_NODE, &show_database_arg_detail_cmd);
-  install_element (ENABLE_NODE, &show_database_detail_cmd);
-  install_element (ENABLE_NODE, &show_database_detail_arg_cmd);
   install_element (ENABLE_NODE, &show_debugging_isis_cmd);
 
   install_node (&debug_node, config_write_debug);
@@ -2408,6 +2390,5 @@ isis_init ()
   install_element (ISIS_NODE, &no_topology_baseis_cmd);
   install_element (ISIS_NODE, &no_topology_baseis_noid_cmd);
   install_element (VIEW_NODE, &show_isis_generated_topology_cmd);
-  install_element (ENABLE_NODE, &show_isis_generated_topology_cmd);
 #endif /* TOPOLOGY_GENERATE */
 }

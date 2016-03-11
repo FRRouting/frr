@@ -1279,17 +1279,4 @@ bgp_mplsvpn_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd);
-
-  install_element (ENABLE_NODE, &show_bgp_ipv4_vpn_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_vpn_rd_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_vpn_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_vpn_rd_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_tags_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_tags_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd);
 }

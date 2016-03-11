@@ -266,7 +266,6 @@ ripng_debug_init ()
 
   install_element (VIEW_NODE, &show_debugging_ripng_cmd);
 
-  install_element (ENABLE_NODE, &show_debugging_ripng_cmd);
   install_element (ENABLE_NODE, &debug_ripng_events_cmd);
   install_element (ENABLE_NODE, &debug_ripng_packet_cmd);
   install_element (ENABLE_NODE, &debug_ripng_packet_direct_cmd);

@@ -4226,17 +4226,10 @@ cmd_init (int terminal)
       install_element (ENABLE_NODE, &copy_runningconfig_startupconfig_cmd);
     }
   install_element (ENABLE_NODE, &show_startup_config_cmd);
-  install_element (ENABLE_NODE, &show_version_cmd);
-  install_element (ENABLE_NODE, &show_commandtree_cmd);
 
   if (terminal)
     {
-      install_element (ENABLE_NODE, &config_terminal_length_cmd);
-      install_element (ENABLE_NODE, &config_terminal_no_length_cmd);
-      install_element (ENABLE_NODE, &show_logging_cmd);
-      install_element (ENABLE_NODE, &echo_cmd);
       install_element (ENABLE_NODE, &config_logmsg_cmd);
-
       install_default (CONFIG_NODE);
     }
   
@@ -4283,11 +4276,9 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &no_service_terminal_length_cmd);
 
       install_element (VIEW_NODE, &show_thread_cpu_cmd);
-      install_element (ENABLE_NODE, &show_thread_cpu_cmd);
       
       install_element (ENABLE_NODE, &clear_thread_cpu_cmd);
       install_element (VIEW_NODE, &show_work_queues_cmd);
-      install_element (ENABLE_NODE, &show_work_queues_cmd);
 
       vrf_install_commands ();
     }

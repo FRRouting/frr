@@ -4942,44 +4942,13 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_ssmpingd_cmd);
   install_element (VIEW_NODE, &show_debugging_pim_cmd);
 
+  install_element (ENABLE_NODE, &show_ip_pim_address_cmd);
+
   install_element (ENABLE_NODE, &clear_ip_interfaces_cmd);
   install_element (ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);
   install_element (ENABLE_NODE, &clear_ip_mroute_cmd);
   install_element (ENABLE_NODE, &clear_ip_pim_interfaces_cmd);
   install_element (ENABLE_NODE, &clear_ip_pim_oil_cmd);
-
-  install_element (ENABLE_NODE, &show_ip_igmp_interface_cmd);
-  install_element (ENABLE_NODE, &show_ip_igmp_join_cmd);
-  install_element (ENABLE_NODE, &show_ip_igmp_parameters_cmd);
-  install_element (ENABLE_NODE, &show_ip_igmp_groups_cmd);
-  install_element (ENABLE_NODE, &show_ip_igmp_groups_retransmissions_cmd);
-  install_element (ENABLE_NODE, &show_ip_igmp_sources_cmd);
-  install_element (ENABLE_NODE, &show_ip_igmp_sources_retransmissions_cmd);
-  install_element (ENABLE_NODE, &show_ip_igmp_querier_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_address_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_assert_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_assert_internal_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_assert_metric_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_assert_winner_metric_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_dr_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_hello_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_interface_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_join_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_jp_override_interval_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_lan_prune_delay_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_local_membership_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_rpf_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_secondary_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_upstream_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_upstream_join_desired_cmd);
-  install_element (ENABLE_NODE, &show_ip_pim_upstream_rpf_cmd);
-  install_element (ENABLE_NODE, &show_ip_multicast_cmd);
-  install_element (ENABLE_NODE, &show_ip_mroute_cmd);
-  install_element (ENABLE_NODE, &show_ip_mroute_count_cmd);
-  install_element (ENABLE_NODE, &show_ip_rib_cmd);
-  install_element (ENABLE_NODE, &show_ip_ssmpingd_cmd);
-  install_element (ENABLE_NODE, &show_debugging_pim_cmd);
 
   install_element (ENABLE_NODE, &test_igmp_receive_report_cmd);
   install_element (ENABLE_NODE, &test_pim_receive_assert_cmd);

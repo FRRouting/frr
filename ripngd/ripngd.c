@@ -3032,9 +3032,6 @@ ripng_init ()
   install_element (VIEW_NODE, &show_ipv6_ripng_cmd);
   install_element (VIEW_NODE, &show_ipv6_ripng_status_cmd);
 
-  install_element (ENABLE_NODE, &show_ipv6_ripng_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ripng_status_cmd);
-
   install_element (CONFIG_NODE, &router_ripng_cmd);
   install_element (CONFIG_NODE, &no_router_ripng_cmd);
 

@@ -370,7 +370,6 @@
   </node>
   <node install="1" config_write="ldp_debug_config_write" name="LDP_DEBUG"/>
   <node name="ENABLE">
-    <include tree="ldp_exec"/>
     <include tree="ldp_debug"/>
   </node>
   <node name="VIEW">

@@ -6116,28 +6116,9 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ip_route_supernets_cmd);
   install_element (VIEW_NODE, &show_ip_route_summary_cmd);
   install_element (VIEW_NODE, &show_ip_route_summary_prefix_cmd);
-  install_element (ENABLE_NODE, &show_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_ospf_instance_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_tag_cmd);
-  install_element (ENABLE_NODE, &show_ip_nht_cmd);
-  install_element (ENABLE_NODE, &show_ip_nht_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ip_nht_vrf_all_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_nht_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_nht_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_nht_vrf_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_addr_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_supernets_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ip_rpf_cmd);
-  install_element (ENABLE_NODE, &show_ip_rpf_cmd);
   install_element (VIEW_NODE, &show_ip_rpf_addr_cmd);
-  install_element (ENABLE_NODE, &show_ip_rpf_addr_cmd);
 
   /* Commands for VRF */
 
@@ -6199,15 +6180,6 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ip_route_vrf_supernets_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_summary_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_summary_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_addr_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_tag_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_supernets_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_all_tag_cmd);
@@ -6218,15 +6190,6 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ip_route_vrf_all_supernets_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_all_summary_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_all_summary_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_tag_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_addr_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_supernets_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_all_summary_prefix_cmd);
 
 #ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &ipv6_route_cmd);
@@ -6273,17 +6236,8 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ipv6_route_addr_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_prefix_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_tag_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_addr_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_mroute_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_mroute_cmd);
 
   /* Commands for VRF */
 
@@ -6329,14 +6283,6 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ipv6_route_vrf_addr_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_prefix_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_tag_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_addr_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_tag_cmd);
@@ -6346,19 +6292,9 @@ zebra_vty_init (void)
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_addr_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_prefix_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_tag_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_addr_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_mroute_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_mroute_vrf_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_mroute_vrf_all_cmd);
 #endif /* HAVE_IPV6 */
 }

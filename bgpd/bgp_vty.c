@@ -15965,52 +15965,10 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
 #endif /* HAVE_IPV6 */
-  install_element (ENABLE_NODE, &show_ip_bgp_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_s_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_updgrps_s_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_s_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_updgrps_s_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_updgrps_s_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_adj_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_updgrps_adj_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_adj_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_updgrps_adj_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_updgrps_adj_s_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_updgrps_adj_s_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_adj_s_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
-  install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_safi_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_ipv4_safi_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
-#ifdef HAVE_IPV6
-  install_element (ENABLE_NODE, &show_bgp_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_all_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_safi_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
-#endif /* HAVE_IPV6 */
 
   install_element (VIEW_NODE, &show_bgp_ipv4_vpn_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_vpn_summary_cmd);
 
   install_element (VIEW_NODE, &show_bgp_ipv6_vpn_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_vpn_summary_cmd);
 
   /* "show ip bgp neighbors" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_cmd);
@@ -16024,17 +15982,6 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbors_peer_cmd);
 
 #ifdef HAVE_IPV6
   install_element (VIEW_NODE, &show_bgp_neighbors_cmd);
@@ -16045,20 +15992,10 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_neighbors_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_neighbors_peer_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_bgp_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_bgp_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_neighbors_peer_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_neighbors_peer_cmd);
 
   /* Old commands.  */
   install_element (VIEW_NODE, &show_ipv6_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_ipv6_mbgp_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_bgp_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_mbgp_summary_cmd);
 #endif /* HAVE_IPV6 */
 
   /* "show ip bgp peer-group" commands. */
@@ -16066,24 +16003,16 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_instance_peer_groups_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_peer_group_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_peer_group_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_peer_groups_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_peer_groups_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_peer_group_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_peer_group_cmd);
 
   /* "show ip bgp paths" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_paths_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_paths_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_paths_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_paths_cmd);
 
   /* "show ip bgp community" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_community_info_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_community_info_cmd);
 
   /* "show ip bgp attribute-info" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_attr_info_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_attr_info_cmd);
 
   /* "redistribute" commands.  */
   install_element (BGP_NODE, &bgp_redistribute_ipv4_cmd);
@@ -16145,15 +16074,12 @@ bgp_vty_init (void)
 
   /* "show bgp memory" commands. */
   install_element (VIEW_NODE, &show_bgp_memory_cmd);
-  install_element (ENABLE_NODE, &show_bgp_memory_cmd);
   
   /* "show bgp views" commands. */
   install_element (VIEW_NODE, &show_bgp_views_cmd);
-  install_element (ENABLE_NODE, &show_bgp_views_cmd);
   
   /* "show bgp vrfs" commands. */
   install_element (VIEW_NODE, &show_bgp_vrfs_cmd);
-  install_element (ENABLE_NODE, &show_bgp_vrfs_cmd);
   
   /* Community-list. */
   community_list_vty ();
@@ -17068,8 +16994,6 @@ community_list_vty (void)
   install_element (CONFIG_NODE, &no_ip_community_list_name_expanded_cmd);
   install_element (VIEW_NODE, &show_ip_community_list_cmd);
   install_element (VIEW_NODE, &show_ip_community_list_arg_cmd);
-  install_element (ENABLE_NODE, &show_ip_community_list_cmd);
-  install_element (ENABLE_NODE, &show_ip_community_list_arg_cmd);
 
   /* Extcommunity-list.  */
   install_element (CONFIG_NODE, &ip_extcommunity_list_standard_cmd);
@@ -17090,6 +17014,4 @@ community_list_vty (void)
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_expanded_cmd);
   install_element (VIEW_NODE, &show_ip_extcommunity_list_cmd);
   install_element (VIEW_NODE, &show_ip_extcommunity_list_arg_cmd);
-  install_element (ENABLE_NODE, &show_ip_extcommunity_list_cmd);
-  install_element (ENABLE_NODE, &show_ip_extcommunity_list_arg_cmd);
 }

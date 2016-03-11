@@ -1695,18 +1695,6 @@ ldp_vty_init (void)
   install_element (LDP_PSEUDOWIRE_NODE, &ldp_no_pw_id_pwid_cmd);
   install_element (LDP_PSEUDOWIRE_NODE, &ldp_no_pw_status_disable_cmd);
   install_node (&ldp_debug_node, ldp_debug_config_write);
-  install_element (ENABLE_NODE, &ldp_show_mpls_ldp_neighbor_cmd);
-  install_element (ENABLE_NODE, &ldp_show_mpls_ldp_binding_cmd);
-  install_element (ENABLE_NODE, &ldp_show_mpls_ldp_discovery_cmd);
-  install_element (ENABLE_NODE, &ldp_show_mpls_ldp_interface_cmd);
-  install_element (ENABLE_NODE, &ldp_show_mpls_ldp_address_family_binding_cmd);
-  install_element (ENABLE_NODE, &ldp_show_mpls_ldp_address_family_discovery_cmd);
-  install_element (ENABLE_NODE, &ldp_show_mpls_ldp_address_family_interface_cmd);
-  install_element (ENABLE_NODE, &ldp_show_l2vpn_atom_binding_cmd);
-  install_element (ENABLE_NODE, &ldp_show_l2vpn_atom_vc_cmd);
-  install_element (ENABLE_NODE, &ldp_show_debugging_mpls_ldp_cmd);
-  install_element (ENABLE_NODE, &ldp_clear_mpls_ldp_neighbor_cmd);
-  install_element (ENABLE_NODE, &ldp_clear_mpls_ldp_neighbor_addr_cmd);
   install_element (ENABLE_NODE, &ldp_debug_mpls_ldp_discovery_hello_dir_cmd);
   install_element (ENABLE_NODE, &ldp_debug_mpls_ldp_errors_cmd);
   install_element (ENABLE_NODE, &ldp_debug_mpls_ldp_event_cmd);

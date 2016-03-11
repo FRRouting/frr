@@ -700,7 +700,6 @@ ospf6_zebra_init (struct thread_master *master)
 
   /* Install command element for zebra node. */
   install_element (VIEW_NODE, &show_zebra_cmd);
-  install_element (ENABLE_NODE, &show_zebra_cmd);
   install_element (CONFIG_NODE, &router_zebra_cmd);
   install_element (CONFIG_NODE, &no_router_zebra_cmd);
 

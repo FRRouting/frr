@@ -3130,7 +3130,6 @@ vty_init (struct thread_master *master_thread)
 
   install_element (VIEW_NODE, &config_who_cmd);
   install_element (VIEW_NODE, &show_history_cmd);
-  install_element (ENABLE_NODE, &config_who_cmd);
   install_element (CONFIG_NODE, &line_vty_cmd);
   install_element (CONFIG_NODE, &service_advanced_vty_cmd);
   install_element (CONFIG_NODE, &no_service_advanced_vty_cmd);
@@ -3139,7 +3138,6 @@ vty_init (struct thread_master *master_thread)
   install_element (ENABLE_NODE, &terminal_monitor_cmd);
   install_element (ENABLE_NODE, &terminal_no_monitor_cmd);
   install_element (ENABLE_NODE, &no_terminal_monitor_cmd);
-  install_element (ENABLE_NODE, &show_history_cmd);
 
   install_default (VTY_NODE);
   install_element (VTY_NODE, &exec_timeout_min_cmd);

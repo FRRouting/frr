@@ -1621,8 +1621,6 @@ ospf_router_info_register_vty (void)
 {
   install_element (VIEW_NODE, &show_ip_ospf_router_info_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_router_info_pce_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_router_info_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_router_info_pce_cmd);
 
   install_element (OSPF_NODE, &router_info_area_cmd);
   install_element (OSPF_NODE, &router_info_as_cmd);

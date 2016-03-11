@@ -1799,21 +1799,14 @@ ospf6_init (void)
   install_element_ospf6_clear_interface ();
 
   install_element (VIEW_NODE, &show_version_ospf6_cmd);
-  install_element (ENABLE_NODE, &show_version_ospf6_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_border_routers_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_border_routers_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_border_routers_detail_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_router_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_network_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_router_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_network_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_detail_cmd);
 
 #define INSTALL(n,c) \
   install_element (n ## _NODE, &show_ipv6_ospf6_ ## c)

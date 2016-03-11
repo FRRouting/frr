@@ -2976,17 +2976,6 @@ prefix_list_init_ipv4 (void)
   install_element (VIEW_NODE, &show_ip_prefix_list_detail_cmd);
   install_element (VIEW_NODE, &show_ip_prefix_list_detail_name_cmd);
 
-  install_element (ENABLE_NODE, &show_ip_prefix_list_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_name_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_name_seq_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_prefix_first_match_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_summary_name_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_detail_cmd);
-  install_element (ENABLE_NODE, &show_ip_prefix_list_detail_name_cmd);
-
   install_element (ENABLE_NODE, &clear_ip_prefix_list_cmd);
   install_element (ENABLE_NODE, &clear_ip_prefix_list_name_cmd);
   install_element (ENABLE_NODE, &clear_ip_prefix_list_name_prefix_cmd);
@@ -3052,17 +3041,6 @@ prefix_list_init_ipv6 (void)
   install_element (VIEW_NODE, &show_ipv6_prefix_list_summary_name_cmd);
   install_element (VIEW_NODE, &show_ipv6_prefix_list_detail_cmd);
   install_element (VIEW_NODE, &show_ipv6_prefix_list_detail_name_cmd);
-
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_name_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_name_seq_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_prefix_first_match_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_summary_name_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_prefix_list_detail_name_cmd);
 
   install_element (ENABLE_NODE, &clear_ipv6_prefix_list_cmd);
   install_element (ENABLE_NODE, &clear_ipv6_prefix_list_name_cmd);

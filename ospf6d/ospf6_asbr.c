@@ -1525,7 +1525,6 @@ ospf6_asbr_init (void)
   ospf6_install_lsa_handler (&as_external_handler);
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_redistribute_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_redistribute_cmd);
 
   install_element (OSPF6_NODE, &ospf6_redistribute_cmd);
   install_element (OSPF6_NODE, &ospf6_redistribute_routemap_cmd);

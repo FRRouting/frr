@@ -4084,8 +4084,6 @@ rip_init (void)
   /* Install rip commands. */
   install_element (VIEW_NODE, &show_ip_rip_cmd);
   install_element (VIEW_NODE, &show_ip_rip_status_cmd);
-  install_element (ENABLE_NODE, &show_ip_rip_cmd);
-  install_element (ENABLE_NODE, &show_ip_rip_status_cmd);
   install_element (CONFIG_NODE, &router_rip_cmd);
   install_element (CONFIG_NODE, &no_router_rip_cmd);
 

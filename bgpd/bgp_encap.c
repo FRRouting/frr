@@ -932,27 +932,4 @@ bgp_encap_init (void)
   install_element (VIEW_NODE, &show_bgp_ipv6_encap_neighbor_advertised_routes_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_encap_rd_neighbor_advertised_routes_cmd);
 #endif
-
-
-  install_element (ENABLE_NODE, &show_bgp_ipv4_encap_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_encap_rd_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_encap_tags_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_encap_rd_tags_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_encap_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_encap_rd_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_encap_neighbor_advertised_routes_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_encap_rd_neighbor_advertised_routes_cmd);
-
-#ifdef HAVE_IPV6
-  install_element (ENABLE_NODE, &show_bgp_ipv6_encap_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_encap_rd_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_encap_tags_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_encap_rd_tags_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_encap_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_encap_rd_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_encap_neighbor_advertised_routes_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_encap_rd_neighbor_advertised_routes_cmd);
-#endif
-
-
 }

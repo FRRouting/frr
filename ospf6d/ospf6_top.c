@@ -1003,7 +1003,6 @@ ospf6_top_init (void)
   install_node (&ospf6_node, config_write_ospf6);
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_cmd);
   install_element (CONFIG_NODE, &router_ospf6_cmd);
   install_element (CONFIG_NODE, &no_router_ospf6_cmd);
 
@@ -1015,14 +1014,6 @@ ospf6_top_init (void)
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_longer_detail_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_longer_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
 
   install_default (OSPF6_NODE);
   install_element (OSPF6_NODE, &ospf6_router_id_cmd);
