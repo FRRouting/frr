@@ -384,10 +384,16 @@ struct in_pktinfo
 
 /* MAX / MIN are not commonly defined, but useful */
 #ifndef MAX
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#endif 
+#define MAX(a, b) \
+	({ typeof (a) _a = (a); \
+	   typeof (b) _b = (b); \
+	   _a > _b ? _a : _b; })
+#endif
 #ifndef MIN
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MIN(a, b) \
+	({ typeof (a) _a = (a); \
+	   typeof (b) _b = (b); \
+	   _a < _b ? _a : _b; })
 #endif
 
 #define ZEBRA_NUM_OF(x) (sizeof (x) / sizeof (x[0]))
