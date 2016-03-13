@@ -188,7 +188,16 @@ bgp_info_mpath_cmp (void *val1, void *val2)
   compare = bgp_info_nexthop_cmp (bi1, bi2);
 
   if (!compare)
-    compare = sockunion_cmp (bi1->peer->su_remote, bi2->peer->su_remote);
+    {
+      if (!bi1->peer->su_remote && !bi2->peer->su_remote)
+        compare = 0;
+      else if (!bi1->peer->su_remote)
+        compare = 1;
+      else if (!bi2->peer->su_remote)
+        compare = -1;
+      else
+        compare = sockunion_cmp (bi1->peer->su_remote, bi2->peer->su_remote);
+    }
 
   return compare;
 }
