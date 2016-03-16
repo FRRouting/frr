@@ -58,6 +58,9 @@ static const struct message nlmsg_str[] = {
   {RTM_NEWADDR,  "RTM_NEWADDR"},
   {RTM_DELADDR,  "RTM_DELADDR"},
   {RTM_GETADDR,  "RTM_GETADDR"},
+  {RTM_NEWNEIGH, "RTM_NEWNEIGH"},
+  {RTM_DELNEIGH, "RTM_DELNEIGH"},
+  {RTM_GETNEIGH, "RTM_GETNEIGH"},
   {0, NULL}
 };
 
@@ -389,8 +392,13 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 		  return 0;
 		}
 
-	      if (nl == &zns->netlink_cmd
-		  && msg_type == RTM_NEWROUTE && -errnum == ESRCH)
+              /* We see RTM_DELNEIGH when shutting down an interface with an IPv4
+               * link-local.  The kernel should have already deleted the neighbor
+               * so do not log these as an error.
+               */
+              if (msg_type == RTM_DELNEIGH ||
+                  (nl == &zns->netlink_cmd && msg_type == RTM_NEWROUTE &&
+                   (-errnum == ESRCH || -errnum == ENETUNREACH)))
 		{
                   /* This is known to happen in some situations, don't log
                    * as error.
