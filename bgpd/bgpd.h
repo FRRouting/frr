@@ -1458,17 +1458,22 @@ static inline void
 bgp_vrf_link (struct bgp *bgp, struct vrf *vrf)
 {
   bgp->vrf_id = vrf->vrf_id;
-  bgp_lock (bgp);
-  vrf->info = (void *)bgp;
-
+  if (vrf->info != (void *)bgp)
+    {
+      bgp_lock (bgp);
+      vrf->info = (void *)bgp;
+    }
 }
 
 /* Unlink BGP instance from VRF. */
 static inline void
 bgp_vrf_unlink (struct bgp *bgp, struct vrf *vrf)
 {
-  vrf->info = NULL;
-  bgp_unlock (bgp);
+  if (vrf->info == (void *)bgp)
+    {
+      vrf->info = NULL;
+      bgp_unlock (bgp);
+    }
   bgp->vrf_id = VRF_DEFAULT;
 }
 
