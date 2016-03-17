@@ -2819,7 +2819,7 @@ command_config_read_one_line (struct vty *vty, struct cmd_element **cmd, int use
            !(!use_daemon && ret == CMD_ERR_NOTHING_TODO) &&
 	   ret != CMD_SUCCESS &&
            ret != CMD_WARNING &&
-           vty->node != CONFIG_NODE) {
+           vty->node > CONFIG_NODE) {
       vty->node = node_parent(vty->node);
       ret = cmd_execute_command_strict (vline, vty, cmd);
     }
