@@ -2463,6 +2463,9 @@ DEFUN (ospf_timers_min_ls_interval,
   struct ospf *ospf = vty->index;
   unsigned int interval;
 
+  if (!ospf)
+    return CMD_SUCCESS;
+
   if (argc != 1)
     {
       vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
@@ -2512,6 +2515,9 @@ DEFUN (ospf_timers_min_ls_arrival,
   struct ospf *ospf = vty->index;
   unsigned int arrival;
 
+  if (!ospf)
+    return CMD_SUCCESS;
+
   if (argc != 1)
     {
       vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
@@ -2534,6 +2540,10 @@ DEFUN (no_ospf_timers_min_ls_arrival,
        "OSPF minimum arrival interval delay\n")
 {
   struct ospf *ospf = vty->index;
+
+  if (!ospf)
+    return CMD_SUCCESS;
+
   ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL;
 
   return CMD_SUCCESS;
@@ -8077,6 +8087,9 @@ DEFUN (ospf_redistribute_source,
   int metric = -1;
   struct ospf_redist *red;
 
+  if (!ospf)
+    return CMD_SUCCESS;
+
   if (argc < 4)
     return CMD_WARNING; /* should not happen */
 
@@ -8163,6 +8176,9 @@ DEFUN (ospf_redistribute_instance_source,
   int metric = -1;
   u_short instance;
   struct ospf_redist *red;
+
+  if (!ospf)
+    return CMD_SUCCESS;
 
   if (strncmp(argv[0], "o", 1) == 0)
     source = ZEBRA_ROUTE_OSPF;
@@ -8493,6 +8509,9 @@ DEFUN (no_ospf_distance_ospf,
 {
   struct ospf *ospf = vty->index;
 
+  if (!ospf)
+    return CMD_SUCCESS;
+
   if (argc < 3)
     return CMD_WARNING;
 
@@ -8533,6 +8552,9 @@ DEFUN (ospf_distance_ospf,
        "Distance for external routes\n")
 {
   struct ospf *ospf = vty->index;
+
+  if (!ospf)
+    return CMD_SUCCESS;
 
   if (argc < 3) /* should not happen */
     return CMD_WARNING;
