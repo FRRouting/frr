@@ -615,12 +615,13 @@ main (void)
   
   master = thread_master_create ();
   bgp_master_init ();
+  vrf_init ();
   bgp_option_set (BGP_OPT_NO_LISTEN);
   
   if (fileno (stdout) >= 0) 
     tty = isatty (fileno (stdout));
   
-  if (bgp_get (&bgp, &asn, NULL))
+  if (bgp_get (&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT))
     return -1;
   
   peer = peer_create_accept (bgp);
