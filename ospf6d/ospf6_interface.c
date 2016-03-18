@@ -750,7 +750,8 @@ interface_up (struct thread *thread)
   ospf6_interface_connected_route_update (oi->interface);
 
   /* Schedule Hello */
-  if (! CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE))
+  if (! CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE) &&
+      !if_is_loopback (oi->interface))
     oi->thread_send_hello = thread_add_event (master, ospf6_hello_send, oi, 0);
 
   /* decide next interface state */
