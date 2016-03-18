@@ -84,6 +84,7 @@ struct interface
      deleted interfaces). */
   unsigned int ifindex;
 #define IFINDEX_INTERNAL	0
+#define IFINDEX_DELETED         UINT_MAX
 
   /* Zebra internal interface status */
   u_char status;

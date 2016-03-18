@@ -492,7 +492,7 @@ rip_interface_delete (int command, struct zclient *zclient,
   
   /* To support pseudo interface do not free interface structure.  */
   /* if_delete(ifp); */
-  ifp->ifindex = IFINDEX_INTERNAL;
+  ifp->ifindex = IFINDEX_DELETED;
 
   return 0;
 }
@@ -1927,6 +1927,9 @@ rip_interface_config_write (struct vty *vty)
   for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       struct rip_interface *ri;
+
+      if (ifp->ifindex == IFINDEX_DELETED)
+        continue;
 
       ri = ifp->info;
 

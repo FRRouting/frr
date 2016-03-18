@@ -116,7 +116,7 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length,
      in case there is configuration info attached to it. */
   if_delete_retain(ifp);
 
-  ifp->ifindex = IFINDEX_INTERNAL;
+  ifp->ifindex = IFINDEX_DELETED;
 
   return 0;
 }

@@ -958,6 +958,9 @@ isis_interface_config_write (struct vty *vty)
 
   for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
+      if (ifp->ifindex == IFINDEX_DELETED)
+        continue;
+
       /* IF name */
       vty_out (vty, "interface %s%s", ifp->name, VTY_NEWLINE);
       write++;

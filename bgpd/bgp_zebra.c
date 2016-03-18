@@ -319,7 +319,7 @@ bgp_interface_delete (int command, struct zclient *zclient,
   if (! ifp) /* This may happen if we've just unregistered for a VRF. */
     return 0;
 
-  ifp->ifindex = IFINDEX_INTERNAL;
+  ifp->ifindex = IFINDEX_DELETED;
 
   if (BGP_DEBUG (zebra, ZEBRA))
     zlog_debug("Rx Intf del VRF %u IF %s", vrf_id, ifp->name);

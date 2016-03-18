@@ -320,7 +320,7 @@ ripng_interface_delete (int command, struct zclient *zclient,
 
   /* To support pseudo interface do not free interface structure.  */
   /* if_delete(ifp); */
-  ifp->ifindex = IFINDEX_INTERNAL;
+  ifp->ifindex = IFINDEX_DELETED;
 
   return 0;
 }

@@ -9285,6 +9285,9 @@ config_write_interface (struct vty *vty)
       if (memcmp (ifp->name, "VLINK", 5) == 0)
 	continue;
 
+      if (ifp->ifindex == IFINDEX_DELETED)
+        continue;
+
       vty_out (vty, "!%s", VTY_NEWLINE);
       vty_out (vty, "interface %s%s", ifp->name,
                VTY_NEWLINE);
