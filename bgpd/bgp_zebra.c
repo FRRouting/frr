@@ -1992,7 +1992,7 @@ void
 bgp_zebra_instance_register (struct bgp *bgp)
 {
   /* Don't try to register if we're not connected to Zebra */
-  if (zclient->sock < 0)
+  if (!zclient || zclient->sock < 0)
     return;
 
   if (BGP_DEBUG (zebra, ZEBRA))
