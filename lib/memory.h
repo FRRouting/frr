@@ -30,7 +30,7 @@
 #define SIZE_VAR ~0UL
 struct memtype
 {
-  struct memtype *next;
+  struct memtype *next, **ref;
   const char *name;
   size_t n_alloc;
   size_t size;
@@ -38,7 +38,7 @@ struct memtype
 
 struct memgroup
 {
-  struct memgroup *next;
+  struct memgroup *next, **ref;
   struct memtype *types, **insert;
   const char *name;
 };
@@ -54,6 +54,7 @@ struct memgroup
 # endif
 # if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
 #  define _CONSTRUCTOR(x) constructor(x)
+#  define _DESTRUCTOR(x)  destructor(x)
 #  define _ALLOC_SIZE(x)  alloc_size(x)
 # endif
 #endif
@@ -61,6 +62,7 @@ struct memgroup
 #ifdef __sun
 /* Solaris doesn't do constructor priorities due to linker restrictions */
 # undef _CONSTRUCTOR
+# undef _DESTRUCTOR
 #endif
 
 #ifndef _RET_NONNULL
@@ -68,6 +70,9 @@ struct memgroup
 #endif
 #ifndef _CONSTRUCTOR
 # define _CONSTRUCTOR(x) constructor
+#endif
+#ifndef _DESTRUCTOR
+# define _DESTRUCTOR(x) destructor
 #endif
 #ifndef _ALLOC_SIZE
 # define _ALLOC_SIZE(x)
@@ -104,14 +109,21 @@ struct memgroup
 	struct memgroup _mg_##mname \
 	__attribute__ ((section (".data.mgroups"))) = { \
 		.name = desc, \
-		.types = NULL, .next = NULL, .insert = NULL, \
+		.types = NULL, .next = NULL, .insert = NULL, .ref = NULL, \
 	}; \
 	static void _mginit_##mname (void) \
 	  __attribute__ ((_CONSTRUCTOR (1000))); \
 	static void _mginit_##mname (void) \
 	{	extern struct memgroup **mg_insert; \
+		_mg_##mname.ref = mg_insert; \
 		*mg_insert = &_mg_##mname; \
-		mg_insert =  &_mg_##mname.next; }
+		mg_insert =  &_mg_##mname.next; } \
+	static void _mgfini_##mname (void) \
+	  __attribute__ ((_DESTRUCTOR (1000))); \
+	static void _mgfini_##mname (void) \
+	{	if (_mg_##mname.next) \
+			_mg_##mname.next->ref = _mg_##mname.ref; \
+		*_mg_##mname.ref = _mg_##mname.next; }
 
 
 #define DECLARE_MTYPE(name) \
@@ -122,15 +134,22 @@ struct memgroup
 	attr struct memtype _mt_##mname \
 	__attribute__ ((section (".data.mtypes"))) = { \
 		.name = desc, \
-		.next = NULL, .n_alloc = 0, .size = 0, \
+		.next = NULL, .n_alloc = 0, .size = 0, .ref = NULL, \
 	}; \
 	static void _mtinit_##mname (void) \
 	  __attribute__ ((_CONSTRUCTOR (1001))); \
 	static void _mtinit_##mname (void) \
 	{	if (_mg_##group.insert == NULL) \
 			_mg_##group.insert = &_mg_##group.types; \
+		_mt_##mname.ref = _mg_##group.insert; \
 		*_mg_##group.insert = &_mt_##mname; \
-		_mg_##group.insert =  &_mt_##mname.next; }
+		_mg_##group.insert =  &_mt_##mname.next; } \
+	static void _mtfini_##mname (void) \
+	  __attribute__ ((_DESTRUCTOR (1001))); \
+	static void _mtfini_##mname (void) \
+	{	if (_mt_##mname.next) \
+			_mt_##mname.next->ref = _mt_##mname.ref; \
+		*_mt_##mname.ref = _mt_##mname.next; }
 
 #define DEFINE_MTYPE(group, name, desc) \
 	DEFINE_MTYPE_ATTR(group, name, , desc)
