@@ -581,7 +581,8 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
       if (!vrf)
         zlog_warn ("%s: vrf not found", __func__);
 
-      vrf_delete_update(vrf);
+      vrf_delete_update (vrf);
+      vrf_delete (vrf);
     }
 }
 
@@ -1528,7 +1529,7 @@ rta_addattr_l (struct rtattr *rta, int maxlen, int type, void *data, int alen)
 
   len = RTA_LENGTH (alen);
 
-  if (RTA_ALIGN (rta->rta_len) + len > maxlen)
+  if ((int)RTA_ALIGN (rta->rta_len) + len > maxlen)
     return -1;
 
   subrta = (struct rtattr *) (((char *) rta) + RTA_ALIGN (rta->rta_len));

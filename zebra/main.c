@@ -297,6 +297,12 @@ zebra_ns_disable (ns_id_t ns_id, void **info)
 static int
 zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
 {
+  return 0;
+}
+
+static int
+zebra_vrf_delete (vrf_id_t vrf_id, const char *name, void **info)
+{
   struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
   struct listnode *list_node;
   struct interface *ifp;
@@ -317,6 +323,8 @@ zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
   list_delete_all_node (zvrf->rid_all_sorted_list);
   list_delete_all_node (zvrf->rid_lo_sorted_list);
 
+  XFREE (MTYPE_ZEBRA_VRF, zvrf);
+
   return 0;
 }
 
@@ -329,6 +337,7 @@ zebra_vrf_init (void)
   vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
   vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
   vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
+  vrf_add_hook (VRF_DELETE_HOOK, zebra_vrf_delete);
   
   /* Default NS initialization */
   
