@@ -717,7 +717,7 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
 void
 vrf_add_update (struct vrf *vrfp)
 {
-  zebra_vrf_add_update (vrfp);
+  zebra_vrf_add_update (vrf_info_lookup (vrfp->vrf_id));
 
   if (! CHECK_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE))
     {
@@ -748,7 +748,7 @@ vrf_delete_update (struct vrf *vrfp)
     zlog_debug ("VRF %s id %u is now inactive.",
                 vrfp->name, vrfp->vrf_id);
 
-  zebra_vrf_delete_update (vrfp);
+  zebra_vrf_delete_update (vrf_info_lookup (vrfp->vrf_id));
 
   /* Pending: Update ifindex after distributing the delete message.  This is in
      case any client needs to have the old value of ifindex available

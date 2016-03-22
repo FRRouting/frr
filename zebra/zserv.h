@@ -145,8 +145,8 @@ extern void zebra_route_map_init (void);
 extern void zebra_snmp_init (void);
 extern void zebra_vty_init (void);
 
-extern int zsend_vrf_add (struct zserv *, struct vrf *);
-extern int zsend_vrf_delete (struct zserv *, struct vrf *);
+extern int zsend_vrf_add (struct zserv *, struct zebra_vrf *);
+extern int zsend_vrf_delete (struct zserv *, struct zebra_vrf *);
 
 extern int zsend_interface_add (struct zserv *, struct interface *);
 extern int zsend_interface_delete (struct zserv *, struct interface *);

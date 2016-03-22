@@ -47,9 +47,9 @@ void zebra_interface_delete_update (struct interface *a)
 { return; }
 #endif
 
-void zebra_vrf_add_update (struct vrf *a)
+void zebra_vrf_add_update (struct zebra_vrf *a)
 { return; }
-void zebra_vrf_delete_update (struct vrf *a)
+void zebra_vrf_delete_update (struct zebra_vrf *a)
 { return; }
 
 void zebra_interface_address_add_update (struct interface *a,

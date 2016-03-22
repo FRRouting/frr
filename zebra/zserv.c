@@ -172,10 +172,10 @@ zserv_encode_interface (struct stream *s, struct interface *ifp)
 }
 
 static void
-zserv_encode_vrf (struct stream *s, struct vrf *vrfp)
+zserv_encode_vrf (struct stream *s, struct zebra_vrf *zvrf)
 {
   /* Interface information. */
-  stream_put (s, vrfp->name, VRF_NAMSIZ);
+  stream_put (s, zvrf->name, VRF_NAMSIZ);
 
   /* Write packet size. */
   stream_putw_at (s, 0, stream_get_endp (s));
@@ -232,15 +232,15 @@ zsend_interface_delete (struct zserv *client, struct interface *ifp)
 }
 
 int
-zsend_vrf_add (struct zserv *client, struct vrf *vrfp)
+zsend_vrf_add (struct zserv *client, struct zebra_vrf *zvrf)
 {
   struct stream *s;
 
   s = client->obuf;
   stream_reset (s);
 
-  zserv_create_header (s, ZEBRA_VRF_ADD, vrfp->vrf_id);
-  zserv_encode_vrf (s, vrfp);
+  zserv_create_header (s, ZEBRA_VRF_ADD, zvrf->vrf_id);
+  zserv_encode_vrf (s, zvrf);
 
   client->vrfadd_cnt++;
   return zebra_server_send_message(client);
@@ -248,15 +248,15 @@ zsend_vrf_add (struct zserv *client, struct vrf *vrfp)
 
 /* VRF deletion from zebra daemon. */
 int
-zsend_vrf_delete (struct zserv *client, struct vrf *vrfp)
+zsend_vrf_delete (struct zserv *client, struct zebra_vrf *zvrf)
 {
   struct stream *s;
 
   s = client->obuf;
   stream_reset (s);
 
-  zserv_create_header (s, ZEBRA_VRF_DELETE, vrfp->vrf_id);
-  zserv_encode_vrf (s, vrfp);
+  zserv_create_header (s, ZEBRA_VRF_DELETE, zvrf->vrf_id);
+  zserv_encode_vrf (s, zvrf);
 
   client->vrfdel_cnt++;
   return zebra_server_send_message (client);

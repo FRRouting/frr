@@ -458,29 +458,29 @@ zebra_interface_delete_update (struct interface *ifp)
 
 /* VRF information update. */
 void
-zebra_vrf_add_update (struct vrf *vrfp)
+zebra_vrf_add_update (struct zebra_vrf *zvrf)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug ("MESSAGE: ZEBRA_VRF_ADD %s", vrfp->name);
+    zlog_debug ("MESSAGE: ZEBRA_VRF_ADD %s", zvrf->name);
     
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    zsend_vrf_add (client, vrfp);
+    zsend_vrf_add (client, zvrf);
 }
 
 void
-zebra_vrf_delete_update (struct vrf *vrfp)
+zebra_vrf_delete_update (struct zebra_vrf *zvrf)
 {
   struct listnode *node, *nnode;
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug ("MESSAGE: ZEBRA_VRF_DELETE %s", vrfp->name);
+    zlog_debug ("MESSAGE: ZEBRA_VRF_DELETE %s", zvrf->name);
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    zsend_vrf_delete (client, vrfp);
+    zsend_vrf_delete (client, zvrf);
 }
 
 void
@@ -492,7 +492,7 @@ zebra_vrf_update_all (struct zserv *client)
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
       if ((vrf = vrf_iter2vrf (iter)) && vrf->vrf_id)
-        zsend_vrf_add (client, vrf);
+        zsend_vrf_add (client, vrf_info_lookup (vrf->vrf_id));
     }
 }
 
