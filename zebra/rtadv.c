@@ -393,7 +393,9 @@ rtadv_timer (struct thread *thread)
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     for (ALL_LIST_ELEMENTS (vrf_iter2iflist (iter), node, nnode, ifp))
       {
-        if (if_is_loopback (ifp) || ! if_is_operative (ifp))
+        if (if_is_loopback (ifp) ||
+            CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK) ||
+            ! if_is_operative (ifp))
           continue;
 
         zif = ifp->info;
@@ -520,7 +522,8 @@ rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int h
     zlog_debug ("%s(%u): Rx RA/RS len %d from %s",
                 ifp->name, ifp->ifindex, len, addr_str);
 
-  if (if_is_loopback (ifp))
+  if (if_is_loopback (ifp) ||
+      CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK))
     return;
 
   /* Check interface configuration. */
@@ -770,9 +773,10 @@ DEFUN (ipv6_nd_suppress_ra,
 
   ifp = vty->index;
 
-  if (if_is_loopback (ifp))
+  if (if_is_loopback (ifp) ||
+      CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK))
     {
-      vty_out (vty, "Invalid interface%s", VTY_NEWLINE);
+      vty_out (vty, "Cannot configure IPv6 Router Advertisements on this  interface%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -792,9 +796,10 @@ DEFUN (no_ipv6_nd_suppress_ra,
 
   ifp = vty->index;
 
-  if (if_is_loopback (ifp))
+  if (if_is_loopback (ifp) ||
+      CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK))
     {
-      vty_out (vty, "Invalid interface%s", VTY_NEWLINE);
+      vty_out (vty, "Cannot configure IPv6 Router Advertisements on this interface%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1786,7 +1791,8 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
 
   zif = ifp->info;
 
-  if (! if_is_loopback (ifp))
+  if (!(if_is_loopback (ifp) ||
+        CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)))
     {
       if (ipv6_address_configured(ifp))
         {

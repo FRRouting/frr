@@ -599,6 +599,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
   char *name = NULL;
   char *kind = NULL;
   char *slave_kind = NULL;
+  int vrf_device = 0;
 
   ifi = NLMSG_DATA (h);
 
@@ -643,6 +644,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       if (kind && strcmp(kind, "vrf") == 0)
         {
+          vrf_device = 1;
           netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
           vrf_id = (vrf_id_t)ifi->ifi_index;
         }
@@ -661,6 +663,8 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
   ifp = if_get_by_name_vrf (name, vrf_id);
   set_ifindex(ifp, ifi->ifi_index);
   ifp->flags = ifi->ifi_flags & 0x0000fffff;
+  if (vrf_device)
+    SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
   ifp->mtu6 = ifp->mtu = *(uint32_t *) RTA_DATA (tb[IFLA_MTU]);
   ifp->metric = 0;
 
@@ -1219,6 +1223,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   char *name = NULL;
   char *kind = NULL;
   char *slave_kind = NULL;
+  int vrf_device = 0;
 
   vrf_id_t vrf_id = ns_id;
 
@@ -1271,6 +1276,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       if (kind && strcmp(kind, "vrf") == 0)
         {
+          vrf_device = 1;
           netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
           vrf_id = (vrf_id_t)ifi->ifi_index;
         }
@@ -1319,6 +1325,8 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
           /* Update interface information. */
           set_ifindex(ifp, ifi->ifi_index);
           ifp->flags = ifi->ifi_flags & 0x0000fffff;
+          if (vrf_device)
+            SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 0;
 
@@ -1381,6 +1389,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
       if (IS_ZEBRA_DEBUG_KERNEL)
         zlog_debug ("RTM_DELLINK for %s(%u)", name, ifp->ifindex);
 
+      UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
       if_delete_update (ifp);
     }
 
