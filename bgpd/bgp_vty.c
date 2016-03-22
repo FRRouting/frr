@@ -4943,21 +4943,19 @@ DEFUN (bgp_set_route_map_delay_timer,
        "0 disables the timer, no route updates happen when route-maps change\n")
 {
   u_int32_t rmap_delay_timer;
-  struct bgp *bgp;
 
-  bgp = vty->index;
   if (argv[0])
     {
       VTY_GET_INTEGER_RANGE ("delay-timer", rmap_delay_timer, argv[0], 0, 600);
-      bgp->rmap_update_timer = rmap_delay_timer;
+      bm->rmap_update_timer = rmap_delay_timer;
 
       /* if the dynamic update handling is being disabled, and a timer is
        * running, stop the timer and act as if the timer has already fired.
        */
-      if (!rmap_delay_timer && bgp->t_rmap_update )
+      if (!rmap_delay_timer && bm->t_rmap_update )
 	{
-	  BGP_TIMER_OFF(bgp->t_rmap_update);
-	  thread_execute (bm->master, bgp_route_map_update_timer, &bgp, 0);
+	  BGP_TIMER_OFF(bm->t_rmap_update);
+	  thread_execute (bm->master, bgp_route_map_update_timer, NULL, 0);
 	}
       return CMD_SUCCESS;
     }
@@ -4972,10 +4970,8 @@ DEFUN (no_bgp_set_route_map_delay_timer,
        "Default BGP route-map delay timer\n"
        "Reset to default time to wait for processing route-map changes\n")
 {
-  struct bgp *bgp;
 
-  bgp = vty->index;
-  bgp->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
+  bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 
   return CMD_SUCCESS;
 }
@@ -12340,6 +12336,11 @@ bgp_vty_init (void)
   install_element (CONFIG_NODE, &bgp_config_type_cmd);
   install_element (CONFIG_NODE, &no_bgp_config_type_val_cmd);
 
+  /* bgp route-map delay-timer commands. */
+  install_element (CONFIG_NODE, &bgp_set_route_map_delay_timer_cmd);
+  install_element (CONFIG_NODE, &no_bgp_set_route_map_delay_timer_cmd);
+  install_element (CONFIG_NODE, &no_bgp_set_route_map_delay_timer_val_cmd);
+
   /* Dummy commands (Currently not supported) */
   install_element (BGP_NODE, &no_synchronization_cmd);
   install_element (BGP_NODE, &no_auto_summary_cmd);
@@ -12432,7 +12433,7 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &no_bgp_timers_cmd);
   install_element (BGP_NODE, &no_bgp_timers_arg_cmd);
 
-  /* route-map delay-timer commands */
+  /* route-map delay-timer commands - per instance for backwards compat. */
   install_element (BGP_NODE, &bgp_set_route_map_delay_timer_cmd);
   install_element (BGP_NODE, &no_bgp_set_route_map_delay_timer_cmd);
   install_element (BGP_NODE, &no_bgp_set_route_map_delay_timer_val_cmd);

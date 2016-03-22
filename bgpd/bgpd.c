@@ -2897,8 +2897,6 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name,
   *bgp_val = bgp;
 
   bgp->t_rmap_def_originate_eval = NULL;
-  bgp->t_rmap_update = NULL;
-  bgp->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 
   /* Create BGP server socket, if first instance.  */
   if (list_isempty(bm->bgp)
@@ -2968,8 +2966,6 @@ bgp_instance_down (struct bgp *bgp)
   struct listnode *next;
 
   /* Stop timers. */
-  if (bgp->t_rmap_update)
-    BGP_TIMER_OFF(bgp->t_rmap_update);
   if (bgp->t_rmap_def_originate_eval)
     {
       BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
@@ -3013,8 +3009,6 @@ bgp_delete (struct bgp *bgp)
     }
 
   /* Stop timers. */
-  if (bgp->t_rmap_update)
-    BGP_TIMER_OFF(bgp->t_rmap_update);
   if (bgp->t_rmap_def_originate_eval)
     {
       BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
@@ -6927,6 +6921,10 @@ bgp_config_write (struct vty *vty)
       write++;
     }
 
+  if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
+    vty_out (vty, "bgp route-map delay-timer %d%s", bm->rmap_update_timer,
+             VTY_NEWLINE);
+
   /* BGP configuration. */
   for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
@@ -7104,10 +7102,6 @@ bgp_config_write (struct vty *vty)
 	vty_out (vty, " timers bgp %d %d%s", bgp->default_keepalive, 
 		 bgp->default_holdtime, VTY_NEWLINE);
 
-      if (bgp->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
-	vty_out (vty, " bgp route-map delay-timer %d%s", bgp->rmap_update_timer,
-		 VTY_NEWLINE);
-
       /* peer-group */
       for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
 	{
@@ -7162,6 +7156,8 @@ bgp_master_init (void)
   bm->port = BGP_PORT_DEFAULT;
   bm->master = thread_master_create ();
   bm->start_time = bgp_clock ();
+  bm->t_rmap_update = NULL;
+  bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 
   bgp_process_queue_init();
 }
@@ -7284,4 +7280,7 @@ bgp_terminate (void)
       work_queue_free (bm->process_main_queue);
       bm->process_main_queue = NULL;
     }
+
+  if (bm->t_rmap_update)
+    BGP_TIMER_OFF(bm->t_rmap_update);
 }

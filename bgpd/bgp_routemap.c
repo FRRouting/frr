@@ -2804,8 +2804,8 @@ bgp_route_map_update_peer_group(const char *rmap_name, struct route_map *map,
  * called for each route-map and within this function we walk the list of peers,
  * network statements, etc looking to see if they use this route-map.
  */
-static int
-bgp_route_map_process_update (void *arg, const char *rmap_name, int route_update)
+static void
+bgp_route_map_process_update (struct bgp *bgp, const char *rmap_name, int route_update)
 {
   int i;
   afi_t afi;
@@ -2813,13 +2813,9 @@ bgp_route_map_process_update (void *arg, const char *rmap_name, int route_update
   struct peer *peer;
   struct bgp_node *bn;
   struct bgp_static *bgp_static;
-  struct bgp *bgp = (struct bgp *)arg;
   struct listnode *node, *nnode;
   struct route_map *map;
   char buf[INET6_ADDRSTRLEN];
-
-  if (!bgp)
-    return (-1);
 
   map = route_map_lookup_by_name (rmap_name);
 
@@ -2918,24 +2914,26 @@ bgp_route_map_process_update (void *arg, const char *rmap_name, int route_update
               }
 	  }
       }
-
-  return (0);
 }
 
 static int
-bgp_route_map_process_update_cb (void *arg, char *rmap_name)
+bgp_route_map_process_update_cb (char *rmap_name)
 {
-  return bgp_route_map_process_update (arg, rmap_name, 1);
+  struct listnode *node, *nnode;
+  struct bgp *bgp;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    bgp_route_map_process_update(bgp, rmap_name, 1);
+
+  return 0;
 }
 
 int
 bgp_route_map_update_timer(struct thread *thread)
 {
-  struct bgp *bgp = THREAD_ARG(thread);
+  bm->t_rmap_update = NULL;
 
-  bgp->t_rmap_update = NULL;
-
-  route_map_walk_update_list((void *)bgp, bgp_route_map_process_update_cb);
+  route_map_walk_update_list(bgp_route_map_process_update_cb);
 
   return (0);
 }
@@ -2943,26 +2941,27 @@ bgp_route_map_update_timer(struct thread *thread)
 static void
 bgp_route_map_mark_update (const char *rmap_name)
 {
-  struct listnode *node, *nnode;
-  struct bgp *bgp;
-
-  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+  if (bm->t_rmap_update == NULL)
     {
+      struct listnode *node, *nnode;
+      struct bgp *bgp;
 
-      if (bgp->t_rmap_update == NULL)
-	{
-	  /* rmap_update_timer of 0 means don't do route updates */
-	  if (bgp->rmap_update_timer)
-            {
-               bgp->t_rmap_update =
-                 thread_add_timer(bm->master, bgp_route_map_update_timer, bgp,
-                                  bgp->rmap_update_timer);
-              /* Signal the groups that a route-map update event has started */
-              update_group_policy_update(bgp, BGP_POLICY_ROUTE_MAP, rmap_name, 1, 1);
-            }
-	  else
-	    bgp_route_map_process_update((void *)bgp, rmap_name, 0);
-	}
+      /* rmap_update_timer of 0 means don't do route updates */
+      if (bm->rmap_update_timer)
+        {
+          bm->t_rmap_update =
+            thread_add_timer(bm->master, bgp_route_map_update_timer, NULL,
+                             bm->rmap_update_timer);
+
+          /* Signal the groups that a route-map update event has started */
+          for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+            update_group_policy_update(bgp, BGP_POLICY_ROUTE_MAP, rmap_name, 1, 1);
+        }
+      else
+        {
+          for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+            bgp_route_map_process_update(bgp, rmap_name, 0);
+        }
     }
 }
 

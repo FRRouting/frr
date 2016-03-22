@@ -108,6 +108,11 @@ struct bgp_master
 
   u_int64_t updgrp_idspace;
   u_int64_t subgrp_idspace;
+
+  /* timer to dampen route map changes */
+  struct thread *t_rmap_update;   /* Handle route map updates */
+  u_int32_t rmap_update_timer;	  /* Route map update timer */
+#define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 };
 
 /* BGP route-map structure.  */
@@ -302,11 +307,6 @@ struct bgp
 
   /* BGP redistribute configuration. */
   struct list *redist[AFI_MAX][ZEBRA_ROUTE_MAX];
-
-  /* timer to dampen route map changes */
-  struct thread *t_rmap_update;   /* Handle route map updates */
-  u_int32_t rmap_update_timer;	  /* Route map update timer */
-#define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
   /* timer to re-evaluate neighbor default-originate route-maps */
   struct thread *t_rmap_def_originate_eval;

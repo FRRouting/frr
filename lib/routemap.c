@@ -323,8 +323,7 @@ route_map_get (const char *name)
 }
 
 void
-route_map_walk_update_list (void *arg,
-			    int (*route_map_update_fn) (void *arg, char *name))
+route_map_walk_update_list (int (*route_map_update_fn) (char *name))
 {
   struct route_map *node;
   struct route_map *nnode = NULL;
@@ -334,7 +333,7 @@ route_map_walk_update_list (void *arg,
       if (node->to_be_processed)
 	{
 	  /* DD: Should we add any thread yield code here */
-	  route_map_update_fn(arg, node->name);
+	  route_map_update_fn(node->name);
 	  nnode = node->next;
 	  route_map_clear_updated(node);
 	}
