@@ -949,7 +949,7 @@ route_match_interface (void *rule, struct prefix *prefix,
       if (!info || !info->attr)
 	return RMAP_NOMATCH;
 
-      ifp = if_lookup_by_name ((char *)rule);
+      ifp = if_lookup_by_name_all_vrf ((char *)rule);
 
       if (ifp == NULL || ifp->ifindex != info->attr->nh_ifindex)
 	return RMAP_NOMATCH;

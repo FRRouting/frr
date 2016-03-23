@@ -492,7 +492,7 @@ zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
   }
 
   if (strcmp(ZEBRA_PTM_INVALID_PORT_NAME, port_str)) {
-    ifp = if_lookup_by_name(port_str);
+    ifp = if_lookup_by_name_all_vrf(port_str);
 
     if (!ifp) {
       zlog_err("%s: %s not found in interface list", __func__, port_str);

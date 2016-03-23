@@ -291,6 +291,24 @@ if_lookup_by_name_vrf (const char *name, vrf_id_t vrf_id)
 }
 
 struct interface *
+if_lookup_by_name_all_vrf (const char *name)
+{
+  struct interface *ifp;
+  struct vrf *vrf = NULL;
+  vrf_iter_t iter;
+
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    {
+      vrf = vrf_iter2vrf (iter);
+      ifp = if_lookup_by_name_vrf (name, vrf->vrf_id);
+      if (ifp)
+	return ifp;
+    }
+
+  return NULL;
+}
+
+struct interface *
 if_lookup_by_name (const char *name)
 {
   return if_lookup_by_name_vrf (name, VRF_DEFAULT);
