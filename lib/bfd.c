@@ -253,7 +253,7 @@ bfd_get_command_dbg_str(int command)
  */
 struct interface *
 bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp,
-                    int *status)
+                    int *status, vrf_id_t vrf_id)
 {
   unsigned int ifindex;
   struct interface *ifp = NULL;
@@ -265,7 +265,7 @@ bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp,
   /* Lookup index. */
   if (ifindex != 0)
     {
-      ifp = if_lookup_by_index (ifindex);
+      ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
       if (ifp == NULL)
         {
           zlog_warn ("zebra_interface_bfd_read: "

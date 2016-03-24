@@ -206,7 +206,7 @@ ospf6_bfd_interface_dest_update (int command, struct zclient *zclient,
   struct bfd_info *bfd_info;
   struct timeval tv;
 
-  ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status);
+  ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status, vrf_id);
 
   if ((ifp == NULL) || (dp.family != AF_INET6))
     return 0;

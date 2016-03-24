@@ -217,7 +217,7 @@ ospf_bfd_interface_dest_update (int command, struct zclient *zclient,
   struct bfd_info *bfd_info;
   struct timeval tv;
 
-  ifp = bfd_get_peer_info (zclient->ibuf, &p, NULL, &status);
+  ifp = bfd_get_peer_info (zclient->ibuf, &p, NULL, &status, vrf_id);
 
   if ((ifp == NULL) || (p.family != AF_INET))
     return 0;

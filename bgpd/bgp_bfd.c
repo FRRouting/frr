@@ -239,7 +239,7 @@ bgp_bfd_dest_update (int command, struct zclient *zclient,
   struct prefix sp;
   int status;
 
-  ifp = bfd_get_peer_info (zclient->ibuf, &dp, &sp, &status);
+  ifp = bfd_get_peer_info (zclient->ibuf, &dp, &sp, &status, vrf_id);
 
   if (BGP_DEBUG (zebra, ZEBRA))
     {

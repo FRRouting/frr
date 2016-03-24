@@ -82,7 +82,7 @@ bfd_get_command_dbg_str(int command);
 
 extern struct interface *
 bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp,
-                   int *status);
+                   int *status, vrf_id_t vrf_id);
 
 const char *
 bfd_get_status_str(int status);
