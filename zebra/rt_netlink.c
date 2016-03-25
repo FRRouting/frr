@@ -850,12 +850,6 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (rtm->rtm_type != RTN_UNICAST)
     return 0;
 
-  table = rtm->rtm_table;
-  if (!is_zebra_valid_kernel_table(table) && !is_zebra_main_routing_table(table))
-      return 0;
-
-  vrf_id = vrf_lookup_by_table(table);
-
   len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
   if (len < 0)
     return -1;
@@ -872,6 +866,21 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   if (rtm->rtm_src_len != 0)
     return 0;
+
+  /* Table corresponding to route. */
+  if (tb[RTA_TABLE])
+    table = *(int *) RTA_DATA (tb[RTA_TABLE]);
+  else
+    table = rtm->rtm_table;
+
+  /* Map to VRF */
+  vrf_id = vrf_lookup_by_table(table);
+  if (vrf_id == VRF_DEFAULT)
+    {
+      if (!is_zebra_valid_kernel_table(table) &&
+          !is_zebra_main_routing_table(table))
+        return 0;
+    }
 
   /* Route which inserted by Zebra. */
   if (rtm->rtm_protocol == RTPROT_ZEBRA)
@@ -1045,12 +1054,6 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
       return 0;
     }
 
-  table = rtm->rtm_table;
-  if (!is_zebra_valid_kernel_table(table) && !is_zebra_main_routing_table(table))
-      return 0;
-
-  vrf_id = vrf_lookup_by_table(table);
- 
   len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
   if (len < 0)
     return -1;
@@ -1074,6 +1077,21 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
     {
       zlog_warn ("netlink_route_change(): no src len, vrf %u", vrf_id);
       return 0;
+    }
+
+  /* Table corresponding to route. */
+  if (tb[RTA_TABLE])
+    table = *(int *) RTA_DATA (tb[RTA_TABLE]);
+  else
+    table = rtm->rtm_table;
+
+  /* Map to VRF */
+  vrf_id = vrf_lookup_by_table(table);
+  if (vrf_id == VRF_DEFAULT)
+    {
+      if (!is_zebra_valid_kernel_table(table) &&
+          !is_zebra_main_routing_table(table))
+        return 0;
     }
 
   index = 0;
@@ -1654,7 +1672,6 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
   req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
   req.n.nlmsg_type = cmd;
   req.r.rtm_family = family;
-  req.r.rtm_table = table;
   req.r.rtm_dst_len = length;
   req.r.rtm_protocol = RTPROT_ZEBRA;
   req.r.rtm_scope = RT_SCOPE_UNIVERSE;
@@ -1686,6 +1703,15 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
 
   if (dest)
     addattr_l (&req.n, sizeof req, RTA_DST, dest, bytelen);
+
+  /* Table corresponding to this route. */
+  if (table < 256)
+    req.r.rtm_table = table;
+  else
+    {
+      req.r.rtm_table = RT_TABLE_UNSPEC;
+      addattr32(&req.n, sizeof req, RTA_TABLE, table);
+    }
 
   if (!discard)
     {
@@ -2071,7 +2097,6 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
     req.n.nlmsg_flags |= NLM_F_REPLACE;
   req.n.nlmsg_type = cmd;
   req.r.rtm_family = family;
-  req.r.rtm_table = rib->table;
   req.r.rtm_dst_len = p->prefixlen;
   req.r.rtm_protocol = RTPROT_ZEBRA;
   req.r.rtm_scope = RT_SCOPE_UNIVERSE;
@@ -2104,6 +2129,15 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
    * by the routing protocol and for communicating with protocol peers.
    */
   addattr32 (&req.n, sizeof req, RTA_PRIORITY, NL_DEFAULT_ROUTE_METRIC);
+
+  /* Table corresponding to this route. */
+  if (rib->table < 256)
+    req.r.rtm_table = rib->table;
+  else
+    {
+      req.r.rtm_table = RT_TABLE_UNSPEC;
+      addattr32(&req.n, sizeof req, RTA_TABLE, rib->table);
+    }
 
   if (discard)
     {
