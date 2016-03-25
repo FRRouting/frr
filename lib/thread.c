@@ -560,7 +560,7 @@ thread_master_create (void)
   rv->timer->update = rv->background->update = thread_timer_update;
 
 #if defined(HAVE_POLL)
-  rv->handler.pfdsize = 64;
+  rv->handler.pfdsize = rv->fd_limit;
   rv->handler.pfdcount = 0;
   rv->handler.pfds = (struct pollfd *) malloc (sizeof (struct pollfd) * rv->handler.pfdsize);
   memset (rv->handler.pfds, 0, sizeof (struct pollfd) * rv->handler.pfdsize);
@@ -795,25 +795,6 @@ thread_get (struct thread_master *m, u_char type,
 
 #define fd_copy_fd_set(X) (X)
 
-static short
-realloc_pfds (struct thread_master *m, int fd)
-{
-  size_t oldpfdlen = m->handler.pfdsize * sizeof(struct pollfd);
-  void *newpfd = NULL;
-
-  m->handler.pfdsize *= 2;
-  newpfd = XREALLOC (MTYPE_THREAD, m->handler.pfds, m->handler.pfdsize * sizeof(struct pollfd));
-  if (newpfd == NULL)
-    {
-      close(fd);
-      zlog (NULL, LOG_ERR, "failed to allocate space for pollfds");
-      return 0;
-    }
-  memset((struct pollfd*)newpfd + (m->handler.pfdsize / 2), 0, oldpfdlen);
-  m->handler.pfds = (struct pollfd*)newpfd;
-  return 1;
-}
-
 /* generic add thread function */
 static struct thread *
 generic_thread_add(struct thread_master *m, int (*func) (struct thread *),
@@ -845,9 +826,7 @@ generic_thread_add(struct thread_master *m, int (*func) (struct thread *),
       }
 
   /* is there enough space for a new fd? */
-  if (queuepos >= m->handler.pfdsize)
-    if (realloc_pfds(m, fd) == 0)
-      return NULL;
+  assert (queuepos < m->handler.pfdsize);
 
   thread = thread_get (m, type, func, arg, funcname);
   m->handler.pfds[queuepos].fd = fd;
@@ -1244,9 +1223,7 @@ add_snmp_pollfds(struct thread_master *m, fd_set *snmpfds, int fdsetsize)
     {
       if (FD_ISSET(i, snmpfds))
         {
-          if (m->handler.pfdcountsnmp > m->handler.pfdsize)
-            if (realloc_pfds(m, i) < 0)
-              return;
+          assert (m->handler.pfdcountsnmp <= m->handler.pfdsize);
 
           m->handler.pfds[m->handler.pfdcountsnmp].fd = i;
           m->handler.pfds[m->handler.pfdcountsnmp].events = POLLIN;
