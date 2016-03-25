@@ -2002,6 +2002,32 @@ rib_delnode (struct route_node *rn, struct rib *rib)
     }
 }
 
+/* Lookup the routing table in a VRF based on both VRF-Id and table-id.
+ * NOTE: Table-id is relevant only in the Default VRF.
+ */
+static struct route_table *
+zebra_vrf_table_with_table_id (afi_t afi, safi_t safi,
+                               vrf_id_t vrf_id, u_int32_t table_id)
+{
+  struct route_table *table = NULL;
+
+  if (afi >= AFI_MAX || safi >= SAFI_MAX)
+    return NULL;
+
+  if (vrf_id == VRF_DEFAULT)
+    {
+      if (table_id == RT_TABLE_MAIN ||
+          table_id == zebrad.rtm_table_default)
+        table = zebra_vrf_table (afi, safi, vrf_id);
+      else
+        table = zebra_vrf_other_route_table (afi, table_id, vrf_id);
+    }
+  else
+      table = zebra_vrf_table (afi, safi, vrf_id);
+
+  return table;
+}
+
 int
 rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 	      struct in_addr *gate, struct in_addr *src,
@@ -2015,14 +2041,7 @@ rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
   struct nexthop *nexthop;
 
   /* Lookup table.  */
-  if ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default))
-    {
-      table = zebra_vrf_table (AFI_IP, safi, vrf_id);
-    }
-  else
-    {
-      table = zebra_vrf_other_route_table (AFI_IP, table_id, vrf_id);
-    }
+  table = zebra_vrf_table_with_table_id (AFI_IP, safi, vrf_id, table_id);
   if (! table)
     return 0;
 
@@ -2298,14 +2317,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
   int ret = 0;
   
   /* Lookup table.  */
-  if ((rib->table == zebrad.rtm_table_default) || (rib->table == RT_TABLE_MAIN))
-    {
-      table = zebra_vrf_table (AFI_IP, safi, rib->vrf_id);
-    }
-  else
-    {
-      table = zebra_vrf_other_route_table (AFI_IP, rib->table, rib->vrf_id);
-    }
+  table = zebra_vrf_table_with_table_id (AFI_IP, safi, rib->vrf_id, rib->table);
   if (! table)
     return 0;
 
@@ -2390,14 +2402,7 @@ rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
   char buf2[INET6_ADDRSTRLEN];
 
   /* Lookup table.  */
-  if ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default))
-    {
-      table = zebra_vrf_table (AFI_IP, safi, vrf_id);
-    }
-  else
-    {
-      table = zebra_vrf_other_route_table(AFI_IP, table_id, vrf_id);
-    }
+  table = zebra_vrf_table_with_table_id (AFI_IP, safi, vrf_id, table_id);
   if (! table)
     return 0;
 
@@ -2966,14 +2971,7 @@ rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
   struct nexthop *nexthop;
 
   /* Lookup table.  */
-  if ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default))
-    {
-      table = zebra_vrf_table (AFI_IP6, safi, vrf_id);
-    }
-  else
-    {
-      table = zebra_vrf_other_route_table(AFI_IP6, table_id, vrf_id);
-    }
+  table = zebra_vrf_table_with_table_id (AFI_IP6, safi, vrf_id, table_id);
   if (! table)
     return 0;
 
@@ -3078,7 +3076,6 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
   struct rib *same = NULL;
   struct nexthop *nexthop;
   int ret = 0;
-  unsigned int table_id = 0;
 
   if (p->family == AF_INET)
     {
@@ -3093,21 +3090,11 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
     }
   else
     {
-      if (rib)
-        table_id = rib->table;
-      else
+      if (!rib)
         return 0;			/* why are we getting called with NULL rib */
 
       /* Lookup table.  */
-      if ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default))
-        {
-          table = zebra_vrf_table (AFI_IP6, safi, rib->vrf_id);
-        }
-      else
-        {
-          table = zebra_vrf_other_route_table(AFI_IP6, table_id, rib->vrf_id);
-        }
-
+      table = zebra_vrf_table_with_table_id (AFI_IP6, safi, rib->vrf_id, rib->table);
       if (! table)
         return 0;
 
@@ -3215,14 +3202,7 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
   apply_mask_ipv6 (p);
 
   /* Lookup table.  */
-  if ((table_id == RT_TABLE_MAIN) || (table_id == zebrad.rtm_table_default))
-    {
-      table = zebra_vrf_table (AFI_IP6, safi, vrf_id);
-    }
-  else
-    {
-      table = zebra_vrf_other_route_table(AFI_IP6, table_id, vrf_id);
-    }
+  table = zebra_vrf_table_with_table_id (AFI_IP6, safi, vrf_id, table_id);
   if (! table)
     return 0;
   

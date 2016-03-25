@@ -498,6 +498,7 @@ if_install_connected (struct interface *ifp)
       for (ALL_LIST_ELEMENTS (ifp->connected, node, next, ifc))
 	{
 	  p = ifc->address;
+	  zebra_interface_address_add_update (ifp, ifc);
 
 	  if (p->family == AF_INET)
 	    connected_up_ipv4 (ifp, ifc);
@@ -521,6 +522,7 @@ if_uninstall_connected (struct interface *ifp)
       for (ALL_LIST_ELEMENTS (ifp->connected, node, next, ifc))
 	{
 	  p = ifc->address;
+	  zebra_interface_address_delete_update (ifp, ifc);
 
 	  if (p->family == AF_INET)
 	    connected_down_ipv4 (ifp, ifc);
