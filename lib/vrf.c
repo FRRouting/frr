@@ -444,10 +444,10 @@ vrf_lookup_by_name (const char *name)
     {
       vrf = vrf_iter2vrf (iter);
       if (vrf && !strcmp(vrf->name, name))
-        break;
+        return vrf;
     }
 
-  return vrf;
+  return NULL;
 }
 
 vrf_id_t
