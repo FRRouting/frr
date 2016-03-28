@@ -1245,6 +1245,7 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
       if(m->handler.pfds[i].revents == 0)
         continue;
 
+      ready++;
       /* remove fd from list on POLLNVAL */
       if (m->handler.pfds[i].revents & POLLNVAL)
         {
@@ -1258,9 +1259,9 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
 
       /* POLLIN / POLLOUT process event */
       if (m->handler.pfds[i].revents & POLLIN)
-        ready += thread_process_fds_helper(m, m->read[m->handler.pfds[i].fd], NULL, POLLIN, i);
+        thread_process_fds_helper(m, m->read[m->handler.pfds[i].fd], NULL, POLLIN, i);
       if (m->handler.pfds[i].revents & POLLOUT)
-        ready += thread_process_fds_helper(m, m->write[m->handler.pfds[i].fd], NULL, POLLOUT, i);
+        thread_process_fds_helper(m, m->write[m->handler.pfds[i].fd], NULL, POLLOUT, i);
 
       /* remove fd from list on POLLHUP after other event is processed */
       if (m->handler.pfds[i].revents & POLLHUP)
@@ -1270,7 +1271,6 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
                    (m->handler.pfdsize-i-1) * sizeof(struct pollfd));
            m->handler.pfdcount--;
            i--;
-           ready++;
         }
       else
           m->handler.pfds[i].revents = 0;
