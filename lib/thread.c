@@ -791,26 +791,34 @@ thread_get (struct thread_master *m, u_char type,
   return thread;
 }
 
+#if defined (HAVE_POLL)
+
 #define fd_copy_fd_set(X) (X)
 
 /* generic add thread function */
 static struct thread *
-generic_thread_add (struct thread_master *m, int (*func) (struct thread *),
-		    void *arg, int fd, const char* funcname, int dir)
+generic_thread_add(struct thread_master *m, int (*func) (struct thread *),
+                  void *arg, int fd, const char* funcname, int dir)
 {
   struct thread *thread;
 
-#if defined (HAVE_POLL)
+  u_char type;
   short int event;
 
   if (dir == THREAD_READ)
-    event = (POLLIN | POLLHUP);
+    {
+      event = (POLLIN | POLLHUP);
+      type = THREAD_READ;
+    }
   else
-    event = (POLLOUT | POLLHUP);
+    {
+      event = (POLLOUT | POLLHUP);
+      type = THREAD_WRITE;
+    }
 
   nfds_t queuepos = m->handler.pfdcount;
   nfds_t i=0;
-  for (i=0; i < m->handler.pfdcount; i++)
+  for (i=0; i<m->handler.pfdcount; i++)
     if (m->handler.pfds[i].fd == fd)
       {
         queuepos = i;
@@ -820,28 +828,18 @@ generic_thread_add (struct thread_master *m, int (*func) (struct thread *),
   /* is there enough space for a new fd? */
   assert (queuepos < m->handler.pfdsize);
 
+  thread = thread_get (m, type, func, arg, funcname);
   m->handler.pfds[queuepos].fd = fd;
   m->handler.pfds[queuepos].events |= event;
   if (queuepos == m->handler.pfdcount)
     m->handler.pfdcount++;
-#else
-  if (dir == THREAD_READ)
-    fdset = &m->handler.readfd;
-  else
-    fdset = &m->handler.writefd;
 
-  if (FD_ISSET (fd, fdset))
-    {
-      zlog (NULL, LOG_WARNING, "There is already %s fd [%d]", (dir = THREAD_READ) ? "read" : "write", fd);
-      return NULL;
-    }
-
-  FD_SET (fd, fdset);
-#endif
-
-  thread = thread_get (m, dir, func, arg, funcname);
   return thread;
 }
+#else
+
+#define fd_copy_fd_set(X) (X)
+#endif
 
 static int
 fd_select (struct thread_master *m, int size, thread_fd_set *read, thread_fd_set *write, thread_fd_set *except, struct timeval *timer_wait)
@@ -877,7 +875,6 @@ fd_clear_read_write (struct thread *thread)
 {
 #if !defined(HAVE_POLL)
   thread_fd_set *fdset = NULL;
-
   int fd = THREAD_FD (thread);
 
   if (thread->type == THREAD_READ)
@@ -900,7 +897,29 @@ funcname_thread_add_read_write (int dir, struct thread_master *m,
 {
   struct thread *thread = NULL;
 
-  thread = generic_thread_add (m, func, arg, fd, funcname, dir);
+#if !defined(HAVE_POLL)
+  thread_fd_set *fdset = NULL;
+  if (dir == THREAD_READ)
+    fdset = &m->handler.readfd;
+  else
+    fdset = &m->handler.writefd;
+#endif
+
+#if defined (HAVE_POLL)
+  thread = generic_thread_add(m, func, arg, fd, funcname, dir);
+
+  if (thread == NULL)
+    return NULL;
+#else
+  if (FD_ISSET (fd, fdset))
+    {
+      zlog (NULL, LOG_WARNING, "There is already %s fd [%d]", (dir = THREAD_READ) ? "read" : "write", fd);
+      return NULL;
+    }
+
+  FD_SET (fd, fdset);
+  thread = thread_get (m, dir, func, arg, funcname);
+#endif
 
   thread->u.fd = fd;
   if (dir == THREAD_READ)
@@ -1220,9 +1239,7 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
 {
   nfds_t i = 0;
   int ready = 0;
-  int handled = 0;
-
-  for (i = 0; i < m->handler.pfdcount && handled < num ; ++i)
+  for (i = 0; i < m->handler.pfdcount && ready < num ; ++i)
     {
       /* no event for current fd? immideatly continue */
       if(m->handler.pfds[i].revents == 0)
@@ -1231,45 +1248,32 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
       /* remove fd from list on POLLNVAL */
       if (m->handler.pfds[i].revents & POLLNVAL)
         {
-	  memmove (m->handler.pfds+i,
-		   m->handler.pfds+i+1,
-		   (m->handler.pfdsize-i-1) * sizeof (struct pollfd));
-	  m->handler.pfdcount--;
-	  i--;
-	  continue;
+           memmove(m->handler.pfds+i,
+                   m->handler.pfds+i+1,
+                   (m->handler.pfdsize-i-1) * sizeof(struct pollfd));
+           m->handler.pfdcount--;
+           i--;
+           continue;
         }
 
       /* POLLIN / POLLOUT process event */
       if (m->handler.pfds[i].revents & POLLIN)
-	ready += thread_process_fds_helper (m, m->read[m->handler.pfds[i].fd], NULL, POLLIN, i);
+        ready += thread_process_fds_helper(m, m->read[m->handler.pfds[i].fd], NULL, POLLIN, i);
       if (m->handler.pfds[i].revents & POLLOUT)
-	ready += thread_process_fds_helper (m, m->write[m->handler.pfds[i].fd], NULL, POLLOUT, i);
+        ready += thread_process_fds_helper(m, m->write[m->handler.pfds[i].fd], NULL, POLLOUT, i);
 
       /* remove fd from list on POLLHUP after other event is processed */
       if (m->handler.pfds[i].revents & POLLHUP)
         {
-	  memmove (m->handler.pfds+i,
-		   m->handler.pfds+i+1,
-		   (m->handler.pfdsize-i-1) * sizeof (struct pollfd));
-	  m->handler.pfdcount--;
-	  i--;
-	  ready++;
+           memmove(m->handler.pfds+i,
+                   m->handler.pfds+i+1,
+                   (m->handler.pfdsize-i-1) * sizeof(struct pollfd));
+           m->handler.pfdcount--;
+           i--;
+           ready++;
         }
       else
-	m->handler.pfds[i].revents = 0;
-
-      /*
-       * WTF?  We get 1 event per revents being non 0
-       * But we could possibly be counting up multiple
-       * times for each revents handled.  So
-       * note that we've handled any revents and
-       * make it count once;
-       */
-      if (ready)
-	{
-	  handled++;
-	  ready = 0;
-	}
+          m->handler.pfds[i].revents = 0;
     }
 }
 #endif
