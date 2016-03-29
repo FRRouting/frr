@@ -4523,11 +4523,12 @@ vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
 	      vty_out (vty, " %s",
 		       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 	      if (nexthop->ifindex)
-		vty_out (vty, ", via %s", ifindex2ifname (nexthop->ifindex));
+		vty_out (vty, ", via %s",
+                         ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
 	      vty_out (vty, " directly connected, %s",
-		       ifindex2ifname (nexthop->ifindex));
+                       ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	      break;
 	    default:
 	      break;
@@ -4590,11 +4591,12 @@ vty_show_ipv6_route (struct vty *vty, struct route_node *rn,
 	  vty_out (vty, " via %s",
 		   inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 	  if (nexthop->ifindex)
-	    vty_out (vty, ", %s", ifindex2ifname (nexthop->ifindex));
+	    vty_out (vty, ", %s",
+                     ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	  break;
 	case NEXTHOP_TYPE_IFINDEX:
 	  vty_out (vty, " is directly connected, %s",
-		   ifindex2ifname (nexthop->ifindex));
+                   ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
 	  break;
 	default:
 	  break;
