@@ -206,9 +206,9 @@ router_id_write (struct vty *vty)
                      inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
                      VTY_NEWLINE);
           else
-            vty_out (vty, "router-id %s vrf %u%s",
+            vty_out (vty, "router-id %s vrf %s%s",
                      inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
-                     zvrf->vrf_id,
+                     zvrf->name,
                      VTY_NEWLINE);
         }
 }
