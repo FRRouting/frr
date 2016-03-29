@@ -44,7 +44,7 @@ static int		 control_fd;
 int
 control_init(void)
 {
-	struct sockaddr_un	 sun;
+	struct sockaddr_un	 s_un;
 	int			 fd;
 	mode_t			 old_umask;
 
@@ -54,9 +54,9 @@ control_init(void)
 		return (-1);
 	}
 
-	memset(&sun, 0, sizeof(sun));
-	sun.sun_family = AF_UNIX;
-	strlcpy(sun.sun_path, LDPD_SOCKET, sizeof(sun.sun_path));
+	memset(&s_un, 0, sizeof(s_un));
+	s_un.sun_family = AF_UNIX;
+	strlcpy(s_un.sun_path, LDPD_SOCKET, sizeof(s_un.sun_path));
 
 	if (unlink(LDPD_SOCKET) == -1)
 		if (errno != ENOENT) {
@@ -66,7 +66,7 @@ control_init(void)
 		}
 
 	old_umask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
-	if (bind(fd, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
+	if (bind(fd, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
 		log_warn("%s: bind: %s", __func__, LDPD_SOCKET);
 		close(fd);
 		umask(old_umask);
@@ -111,11 +111,11 @@ control_accept(int listenfd, short event, void *bula)
 {
 	int			 connfd;
 	socklen_t		 len;
-	struct sockaddr_un	 sun;
+	struct sockaddr_un	 s_un;
 	struct ctl_conn		*c;
 
-	len = sizeof(sun);
-	if ((connfd = accept4(listenfd, (struct sockaddr *)&sun, &len,
+	len = sizeof(s_un);
+	if ((connfd = accept4(listenfd, (struct sockaddr *)&s_un, &len,
 	    SOCK_NONBLOCK | SOCK_CLOEXEC)) == -1) {
 		/*
 		 * Pause accept if we are out of file descriptors, or
