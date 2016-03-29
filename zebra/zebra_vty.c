@@ -5507,7 +5507,10 @@ static_config_ipv6 (struct vty *vty)
               vty_out (vty, " %d", si->distance);
 
             if (si->vrf_id != VRF_DEFAULT)
-              vty_out (vty, " vrf %u", si->vrf_id);
+              {
+                zvrf = vrf_info_lookup (si->vrf_id);
+                vty_out (vty, " vrf %s", zvrf->name);
+              }
 
             vty_out (vty, "%s", VTY_NEWLINE);
 
