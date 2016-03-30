@@ -900,7 +900,7 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
     {
       struct listnode *node;
       struct prefix *ip_addr;
-      u_char buf[BUFSIZ];
+      char buf[BUFSIZ];
 
       vty_out (vty, "  Interface: %s", circuit->interface->name);
       vty_out (vty, ", State: %s", circuit_state2string (circuit->state));
