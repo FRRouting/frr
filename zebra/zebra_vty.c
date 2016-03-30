@@ -3401,6 +3401,10 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
      nexthop address other case gate is treated as interface name. */
   ret = inet_pton (AF_INET6, gate_str, &gate_addr);
 
+  /* VRF id */
+  if (vrf_id_str)
+    VRF_GET_ID (vrf_id, vrf_id_str);
+
   if (ifname)
     {
       /* When ifname is specified.  It must be come with gateway
@@ -3439,10 +3443,6 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 	  ifindex = ifp->ifindex;
 	}
     }
-
-  /* VRF id */
-  if (vrf_id_str)
-    VRF_GET_ID (vrf_id, vrf_id_str);
 
   if (add_cmd)
     static_add_ipv6 (&p, type, gate, ifindex, flag, tag, distance, vrf_id);
