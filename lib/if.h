@@ -262,7 +262,7 @@ struct nbr_connected
 #endif /* IFF_VIRTUAL */
 
 /* Prototypes. */
-extern int if_cmp_func (struct interface *, struct interface *);
+extern int if_cmp_name_func (char *, char *);
 extern struct interface *if_create (const char *name, int namelen);
 extern struct interface *if_lookup_by_index (unsigned int);
 extern struct interface *if_lookup_exact_address (void *matchaddr, int family);

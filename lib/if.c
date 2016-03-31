@@ -57,15 +57,11 @@ struct if_master
  * devpty0, de0 < del0
  */         
 int
-if_cmp_func (struct interface *ifp1, struct interface *ifp2)
+if_cmp_name_func (char *p1, char *p2)
 {
   unsigned int l1, l2;
   long int x1, x2;
-  char *p1, *p2;
   int res;
-
-  p1 = ifp1->name;
-  p2 = ifp2->name;
 
   while (*p1 && *p2) {
     /* look up to any number */
@@ -111,6 +107,12 @@ if_cmp_func (struct interface *ifp1, struct interface *ifp2)
   if (*p2)
     return -1;
   return 0;
+}
+
+static int
+if_cmp_func (struct interface *ifp1, struct interface *ifp2)
+{
+  return if_cmp_name_func (ifp1->name, ifp2->name);
 }
 
 /* Create new interface structure. */

@@ -606,7 +606,6 @@ vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
                      VRF_BITMAP_FLAG (offset)) ? 1 : 0;
 }
 
-//Pending: See if combining the common parts with if_cmp_func() make sense.
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
  * relationship between vrfp1 and vrfp2.  Interface names consist of an
@@ -615,61 +614,10 @@ vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
  * before all numbers.  Examples: de0 < de1, de100 < fxp0 < xl0, devpty <
  * devpty0, de0 < del0
  */
-int
+static int
 vrf_cmp_func (struct vrf *vrfp1, struct vrf *vrfp2)
 {
-  unsigned int l1, l2;
-  long int x1, x2;
-  char *p1, *p2;
-  int res;
-
-  p1 = vrfp1->name;
-  p2 = vrfp2->name;
-
-  while (*p1 && *p2) {
-    /* look up to any number */
-    l1 = strcspn(p1, "0123456789");
-    l2 = strcspn(p2, "0123456789");
-
-    /* name lengths are different -> compare names */
-    if (l1 != l2)
-      return (strcmp(p1, p2));
-
-    /* Note that this relies on all numbers being less than all letters, so
-     * that de0 < del0.
-     */
-    res = strncmp(p1, p2, l1);
-
-    /* names are different -> compare them */
-    if (res)
-      return res;
-
-    /* with identical name part, go to numeric part */
-    p1 += l1;
-    p2 += l1;
-
-    if (!*p1)
-      return -1;
-    if (!*p2)
-      return 1;
-
-    x1 = strtol(p1, &p1, 10);
-    x2 = strtol(p2, &p2, 10);
-
-    /* let's compare numbers now */
-    if (x1 < x2)
-      return -1;
-    if (x1 > x2)
-      return 1;
-
-    /* numbers were equal, lets do it again..
-    (it happens with name like "eth123.456:789") */
-  }
-  if (*p1)
-    return 1;
-  if (*p2)
-    return -1;
-  return 0;
+  return if_cmp_name_func (vrfp1->name, vrfp2->name);
 }
 
 /* Initialize VRF module. */

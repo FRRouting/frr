@@ -106,7 +106,6 @@ extern void vrf_add_hook (int, int (*)(vrf_id_t, const char *, void **));
 typedef void *              vrf_iter_t;
 #define VRF_ITER_INVALID    NULL    /* invalid value of the iterator */
 
-extern int vrf_cmp_func (struct vrf *, struct vrf *);
 extern struct vrf *vrf_lookup (vrf_id_t);
 extern struct vrf *vrf_lookup_by_name (const char *);
 extern struct vrf *vrf_list_lookup_by_name (const char *);
