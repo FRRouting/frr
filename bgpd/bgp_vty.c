@@ -2706,9 +2706,9 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
     {
       if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4)
           && afi == AFI_IP && safi == SAFI_UNICAST)
-        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, AS_UNSPECIFIED, 0, 0);
+        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, AS_UNSPECIFIED, 0, 0, NULL);
       else
-        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, AS_UNSPECIFIED, afi, safi);
+        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, AS_UNSPECIFIED, afi, safi, NULL);
 
       if (peer && v6only)
         SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);

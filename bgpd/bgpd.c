@@ -1379,7 +1379,7 @@ bgp_recalculate_all_bestpaths (struct bgp *bgp)
 /* Create new BGP peer.  */
 struct peer *
 peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
-             as_t local_as, as_t remote_as, int as_type, afi_t afi, safi_t safi)
+             as_t local_as, as_t remote_as, int as_type, afi_t afi, safi_t safi, struct peer_group *group)
 {
   int active;
   struct peer *peer;
@@ -1413,6 +1413,7 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
     peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 
   peer = peer_lock (peer); /* bgp peer list reference */
+  peer->group = group;
   listnode_add_sort (bgp->peer, peer);
   hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
@@ -1605,9 +1606,9 @@ peer_remote_as (struct bgp *bgp, union sockunion *su, const char *conf_if,
 
       if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4)
 	  && afi == AFI_IP && safi == SAFI_UNICAST)
-	peer = peer_create (su, conf_if, bgp, local_as, *as, as_type, 0, 0);
+	peer = peer_create (su, conf_if, bgp, local_as, *as, as_type, 0, 0, NULL);
       else
-	peer = peer_create (su, conf_if, bgp, local_as, *as, as_type, afi, safi);
+	peer = peer_create (su, conf_if, bgp, local_as, *as, as_type, afi, safi, NULL);
     }
 
   return 0;
@@ -2601,8 +2602,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
           return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
         }
 
-      peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, 0, 0);
-      peer->group = group;
+      peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, 0, 0, group);
 
       peer = peer_lock (peer); /* group->peer list reference */
       listnode_add (group->peer, peer);
@@ -3227,12 +3227,11 @@ peer_create_bind_dynamic_neighbor (struct bgp *bgp, union sockunion *su,
   safi_t safi;
 
   /* Create peer first; we've already checked group config is valid. */
-  peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, 0, 0);
+  peer = peer_create (su, NULL, bgp, bgp->as, group->conf->as, group->conf->as_type, 0, 0, group);
   if (!peer)
     return NULL;
 
   /* Link to group */
-  peer->group = group;
   peer = peer_lock (peer);
   listnode_add (group->peer, peer);
 

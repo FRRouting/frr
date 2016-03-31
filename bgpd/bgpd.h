@@ -1166,7 +1166,7 @@ extern int peer_active (struct peer *);
 extern int peer_active_nego (struct peer *);
 extern void bgp_recalculate_all_bestpaths (struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *, const char *, struct bgp *,
-                                as_t, as_t, int, afi_t, safi_t);
+                                as_t, as_t, int, afi_t, safi_t, struct peer_group *);
 extern struct peer *peer_create_accept (struct bgp *);
 extern void peer_xfer_config (struct peer *dst, struct peer *src);
 extern char *peer_uptime (time_t, char *, size_t, u_char, json_object *);
