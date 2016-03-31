@@ -290,11 +290,12 @@ vrf_lookup_by_table (u_int32_t table_id)
 static int
 netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
                                    ns_id_t),
-                    struct nlsock *nl, struct zebra_ns *zns)
+                    struct nlsock *nl, struct zebra_ns *zns, int count)
 {
   int status;
   int ret = 0;
   int error;
+  int read_in = 0;
 
   while (1)
     {
@@ -311,6 +312,9 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
         .msg_iovlen = 1
       };
       struct nlmsghdr *h;
+
+      if (count && read_in >= count)
+        return 0;
 
       status = recvmsg (nl->sock, &msg, 0);
       if (status < 0)
@@ -336,7 +340,8 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
                 nl->name, msg.msg_namelen);
           return -1;
         }
-      
+
+      read_in++;
       for (h = (struct nlmsghdr *) buf; NLMSG_OK (h, (unsigned int) status);
            h = NLMSG_NEXT (h, status))
         {
@@ -1464,7 +1469,7 @@ interface_lookup_netlink (struct zebra_ns *zns)
   ret = netlink_request (AF_PACKET, RTM_GETLINK, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface, &zns->netlink_cmd, zns);
+  ret = netlink_parse_info (netlink_interface, &zns->netlink_cmd, zns, 0);
   if (ret < 0)
     return ret;
 
@@ -1472,7 +1477,7 @@ interface_lookup_netlink (struct zebra_ns *zns)
   ret = netlink_request (AF_INET, RTM_GETADDR, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns);
+  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0);
   if (ret < 0)
     return ret;
 
@@ -1481,7 +1486,7 @@ interface_lookup_netlink (struct zebra_ns *zns)
   ret = netlink_request (AF_INET6, RTM_GETADDR, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns);
+  ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0);
   if (ret < 0)
     return ret;
 #endif /* HAVE_IPV6 */
@@ -1500,7 +1505,7 @@ netlink_route_read (struct zebra_ns *zns)
   ret = netlink_request (AF_INET, RTM_GETROUTE, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns);
+  ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns, 0);
   if (ret < 0)
     return ret;
 
@@ -1509,7 +1514,7 @@ netlink_route_read (struct zebra_ns *zns)
   ret = netlink_request (AF_INET6, RTM_GETROUTE, &zns->netlink_cmd);
   if (ret < 0)
     return ret;
-  ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns);
+  ret = netlink_parse_info (netlink_routing_table, &zns->netlink_cmd, zns, 0);
   if (ret < 0)
     return ret;
 #endif /* HAVE_IPV6 */
@@ -1642,7 +1647,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
    * Get reply from netlink socket. 
    * The reply should either be an acknowlegement or an error.
    */
-  return netlink_parse_info (netlink_talk_filter, nl, zns);
+  return netlink_parse_info (netlink_talk_filter, nl, zns, 0);
 }
 
 /* Routing table change via netlink interface. */
@@ -2471,7 +2476,7 @@ static int
 kernel_read (struct thread *thread)
 {
   struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG (thread);
-  netlink_parse_info (netlink_information_fetch, &zns->netlink, zns);
+  netlink_parse_info (netlink_information_fetch, &zns->netlink, zns, 5);
   zns->t_netlink = thread_add_read (zebrad.master, kernel_read, zns,
                                      zns->netlink.sock);
 
