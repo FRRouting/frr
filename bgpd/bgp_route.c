@@ -115,7 +115,7 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
 }
 
 /* Allocate bgp_info_extra */
-static struct bgp_info_extra *
+struct bgp_info_extra *
 bgp_info_extra_new (void)
 {
   struct bgp_info_extra *new;
@@ -2047,6 +2047,12 @@ bgp_process_vrf_main (struct work_queue *wq, void *data)
     {
       if (! CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
         {
+          /* case mpath number of entries changed */
+          if (CHECK_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG))
+            {
+              UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+              SET_FLAG (old_select->flags, BGP_INFO_MULTIPATH);
+            }
           /* no zebra announce */
 	  UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
           UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
@@ -2065,7 +2071,14 @@ bgp_process_vrf_main (struct work_queue *wq, void *data)
 
   if (old_select)
     {
-      bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
+      if( CHECK_FLAG (old_select->flags, BGP_INFO_SELECTED))
+        {
+          if(bgp_is_mpath_entry(old_select, new_select))
+            {
+              UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+              SET_FLAG (old_select->flags, BGP_INFO_MULTIPATH);
+            }
+        }
     }
   if (new_select)
     {
@@ -2305,6 +2318,7 @@ bgp_rib_remove (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
   if (!CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
     bgp_info_delete (rn, ri); /* keep historical info */
     
+  bgp_vrf_process_imports (peer->bgp, afi, safi, rn, ri, NULL);
   bgp_process (peer->bgp, rn, afi, safi);
 }
 
@@ -2355,7 +2369,7 @@ bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
   bgp_rib_remove (rn, ri, peer, afi, safi);
 }
 
-static struct bgp_info *
+struct bgp_info *
 info_make (int type, int sub_type, u_short instance, struct peer *peer, struct attr *attr,
 	   struct bgp_node *rn)
 {
@@ -2781,6 +2795,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       bgp_aggregate_increment (bgp, p, ri, afi, safi);
 
       bgp_process (bgp, rn, afi, safi);
+      bgp_vrf_process_imports(bgp, afi, safi, rn, (struct bgp_info *)0xffffffff, ri);
       bgp_unlock_node (rn);
 
       return 0;
@@ -2876,6 +2891,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
+  bgp_vrf_process_imports(peer->bgp, afi, safi, rn, NULL, new);
 
   return 0;
 
@@ -3812,6 +3828,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	  /* Process change. */
 	  bgp_aggregate_increment (bgp, p, ri, afi, safi);
 	  bgp_process (bgp, rn, afi, safi);
+	  bgp_vrf_process_imports(bgp, afi, safi, rn, (struct bgp_info *)0xffffffff, ri);
 	  bgp_unlock_node (rn);
 	  aspath_unintern (&attr.aspath);
 	  bgp_attr_extra_free (&attr);
@@ -3862,6 +3879,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
   
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
+  bgp_vrf_process_imports(bgp, afi, safi, rn, NULL, new);
 
   /* Unintern original. */
   aspath_unintern (&attr.aspath);
@@ -3897,6 +3915,7 @@ bgp_static_withdraw (struct bgp *bgp, struct prefix *p, afi_t afi,
       bgp_aggregate_decrement (bgp, p, ri, afi, safi);
       bgp_unlink_nexthop(ri);
       bgp_info_delete (rn, ri);
+      bgp_vrf_process_imports(bgp, afi, safi, rn, ri, NULL);
       bgp_process (bgp, rn, afi, safi);
     }
 
@@ -3940,6 +3959,7 @@ bgp_static_withdraw_safi (struct bgp *bgp, struct prefix *p, afi_t afi,
 #endif
       bgp_aggregate_decrement (bgp, p, ri, afi, safi);
       bgp_info_delete (rn, ri);
+      bgp_vrf_process_imports(bgp, afi, safi, rn, ri, NULL);
       bgp_process (bgp, rn, afi, safi);
     }
 
@@ -4082,6 +4102,8 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);
+
+  bgp_vrf_process_imports(bgp, afi, safi, rn, NULL, new);
 
 #if ENABLE_BGP_VNC
   rfapiProcessUpdate(new->peer, NULL, p, &bgp_static->prd,

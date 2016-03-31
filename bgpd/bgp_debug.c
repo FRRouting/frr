@@ -38,6 +38,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_vrf.h"
 
 unsigned long conf_bgp_debug_as4;
 unsigned long conf_bgp_debug_neighbor_events;
@@ -1695,6 +1696,10 @@ DEFUN (show_debugging_bgp,
 
   if (BGP_DEBUG (allow_martians, ALLOW_MARTIANS))
     vty_out (vty, "  BGP allow martian next hop debugging is on%s", VTY_NEWLINE);
+
+  if (BGP_DEBUG (bgp_vrf, BGPVRF))
+    vty_out (vty, "  BGP VRF debugging is on%s", VTY_NEWLINE);
+
   vty_out (vty, "%s", VTY_NEWLINE);
   return CMD_SUCCESS;
 }

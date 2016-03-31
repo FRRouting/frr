@@ -382,4 +382,11 @@ extern int
 bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
                 enum bgp_show_type type, void *output_arg, u_char use_json);
 
+extern struct bgp_info *
+info_make (int type, int sub_type, u_short instance, struct peer *peer, struct attr *attr,
+	   struct bgp_node *rn);
+
+extern struct bgp_info_extra *
+bgp_info_extra_new (void);
+
 #endif /* _QUAGGA_BGP_ROUTE_H */
