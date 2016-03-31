@@ -685,6 +685,26 @@ peer_af_delete (struct peer *peer, afi_t afi, safi_t safi)
 int
 peer_cmp (struct peer *p1, struct peer *p2)
 {
+  if (p1->group && !p2->group)
+    return -1;
+
+  if (!p1->group && p2->group)
+    return 1;
+
+  if (p1->group == p2->group)
+    {
+      if (p1->conf_if && !p2->conf_if)
+        return -1;
+
+      if (!p1->conf_if && p2->conf_if)
+        return 1;
+
+      if (p1->conf_if && p2->conf_if)
+        return if_cmp_name_func (p1->conf_if, p2->conf_if);
+    }
+  else
+    return strcmp (p1->group->name, p2->group->name);
+
   return sockunion_cmp (&p1->su, &p2->su);
 }
 
@@ -2550,7 +2570,11 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
         }
       else
         {
+          struct listnode *pn;
+          pn = listnode_lookup (bgp->peer, peer);
+          list_delete_node (bgp->peer, pn);
           peer->group = group;
+          listnode_add_sort (bgp->peer, peer);
 
           peer = peer_lock (peer); /* group->peer list reference */
           listnode_add (group->peer, peer);
