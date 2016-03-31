@@ -27,6 +27,7 @@
 #include "if.h"
 #include "qobj.h"
 #include "prefix.h"
+#include "ferr.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -178,18 +179,18 @@ struct isis_circuit *isis_circuit_create(struct isis_area *area,
 					 struct interface *ifp);
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 			 bool ipv6_router);
-int isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);
+ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);
 void isis_circuit_is_type_set(struct isis_circuit *circuit, int is_type);
-int isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type);
+ferr_r isis_circuit_circ_type_set (struct isis_circuit *circuit, int circ_type);
 
-int isis_circuit_metric_set(struct isis_circuit *circuit, int level,
-			    int metric);
+ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
+			       int metric);
 
-int isis_circuit_passwd_unset(struct isis_circuit *circuit);
-int isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit,
-				      const char *passwd);
-int isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
-				     const char *passwd);
+ferr_r isis_circuit_passwd_unset(struct isis_circuit *circuit);
+ferr_r isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit,
+					 const char *passwd);
+ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
+					const char *passwd);
 
 int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
 				bool enabled);
