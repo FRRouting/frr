@@ -107,11 +107,9 @@ vrf_create (const char *name, size_t namelen)
 
   UNSET_FLAG(vrfp->status, ZEBRA_VRF_ACTIVE);
 
-  /* Pending: - Make sure this 0 vrf-id isnt taken as default vrf
-              - See if calling the the new_hook here is ok, may need to make the attached callback re-entrant.
   if (vrf_master.vrf_new_hook)
     (*vrf_master.vrf_new_hook) (0, name, &vrfp->info);
-  */
+
   return vrfp;
 }
 

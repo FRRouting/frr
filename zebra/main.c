@@ -304,21 +304,11 @@ static int
 zebra_vrf_delete (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
-  struct listnode *list_node;
-  struct interface *ifp;
 
   assert (zvrf);
 
   rib_close_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
   rib_close_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
-
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), list_node, ifp))
-    {
-      int operative = if_is_operative (ifp);
-      UNSET_FLAG (ifp->flags, IFF_UP);
-      if (operative)
-        if_down (ifp);
-    }
 
   list_delete_all_node (zvrf->rid_all_sorted_list);
   list_delete_all_node (zvrf->rid_lo_sorted_list);
