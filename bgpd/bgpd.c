@@ -1409,6 +1409,7 @@ peer_create (union sockunion *su, const char *conf_if, struct bgp *bgp,
   if (conf_if)
     {
       peer->conf_if = XSTRDUP (MTYPE_PEER_CONF_IF, conf_if);
+      bgp_peer_conf_if_to_su_update(peer);
       if (peer->host)
 	XFREE(MTYPE_BGP_PEER_HOST, peer->host);
       peer->host = XSTRDUP (MTYPE_BGP_PEER_HOST, conf_if);
