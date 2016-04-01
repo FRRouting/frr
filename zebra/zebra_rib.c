@@ -3692,6 +3692,7 @@ rib_close (void)
   struct zebra_vrf *zvrf;
   struct listnode *node;
   struct interface *ifp;
+  u_int32_t table_id;
 
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
@@ -3702,6 +3703,18 @@ rib_close (void)
         }
       for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), node, ifp))
         if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
+    }
+
+  /* If we do multiple tables per vrf, need to move this to loop above */
+  zvrf = vrf_info_lookup (VRF_DEFAULT);
+
+  for (table_id = 0; table_id < ZEBRA_KERNEL_TABLE_MAX; table_id++)
+    {
+      if (zvrf->other_table[AFI_IP][table_id])
+        rib_close_table (zvrf->other_table[AFI_IP][table_id]);
+
+      if (zvrf->other_table[AFI_IP6][table_id])
+        rib_close_table (zvrf->other_table[AFI_IP6][table_id]);
     }
 }
 
