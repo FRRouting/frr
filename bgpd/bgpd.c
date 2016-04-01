@@ -6930,9 +6930,9 @@ bgp_config_write (struct vty *vty)
   struct listnode *mnode, *mnnode;
 
   /* BGP Multiple instance. */
-  if (bgp_option_check (BGP_OPT_MULTIPLE_INSTANCE))
+  if (!bgp_option_check (BGP_OPT_MULTIPLE_INSTANCE))
     {    
-      vty_out (vty, "bgp multiple-instance%s", VTY_NEWLINE);
+      vty_out (vty, "no bgp multiple-instance%s", VTY_NEWLINE);
       write++;
     }
 
@@ -7182,6 +7182,9 @@ bgp_master_init (void)
   bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 
   bgp_process_queue_init();
+
+  /* Enable multiple instances by default. */
+  bgp_option_set (BGP_OPT_MULTIPLE_INSTANCE);
 }
 
 /*
