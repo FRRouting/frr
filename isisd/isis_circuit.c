@@ -636,7 +636,7 @@ isis_circuit_up (struct isis_circuit *circuit)
       zlog_err("Interface MTU %zu on %s is too low to support area lsp mtu %u!",
                isis_circuit_pdu_size(circuit), circuit->interface->name,
                circuit->area->lsp_mtu);
-      isis_circuit_down(circuit);
+      isis_circuit_update_all_srmflags(circuit, 0);
       return ISIS_ERROR;
     }
 

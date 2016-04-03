@@ -147,10 +147,27 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	case IF_UP_FROM_Z:
 	  isis_circuit_if_add (circuit, (struct interface *) arg);
 	  if (isis_circuit_up (circuit) != ISIS_OK)
-            {
-              isis_circuit_if_del (circuit, (struct interface *) arg);
+	    {
+	      zlog_err("Could not bring up %s because of invalid config.",
+	               circuit->interface->name);
+	      zlog_err("Clearing config for %s. Please re-examine it.",
+	               circuit->interface->name);
+	      if (circuit->ip_router)
+	        {
+	          circuit->ip_router = 0;
+	          circuit->area->ip_circuits--;
+	        }
+	      if (circuit->ipv6_router)
+	        {
+	          circuit->ipv6_router = 0;
+	          circuit->area->ipv6_circuits--;
+	        }
+	      circuit_update_nlpids(circuit);
+	      isis_circuit_deconfigure(circuit, circuit->area);
+	      listnode_add (isis->init_circ_list, circuit);
+	      circuit->state = C_STATE_INIT;
 	      break;
-            }
+	    }
 	  circuit->state = C_STATE_UP;
 	  isis_event_circuit_state_change (circuit, circuit->area, 1);
 	  break;
