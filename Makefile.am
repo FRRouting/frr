@@ -1,10 +1,10 @@
 ## Process this file with automake to produce Makefile.in.
 
-SUBDIRS = lib qpb @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @LDPD@ \
+SUBDIRS = lib qpb fpm @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @LDPD@ \
          @ISISD@ @PIMD@ @WATCHQUAGGA@ @VTYSH@ @OSPFCLIENT@ @DOC@ m4 @pkgsrcdir@ \
          redhat @SOLARIS@ tests tools cumulus
 
-DIST_SUBDIRS = lib qpb zebra bgpd ripd ripngd ospfd ospf6d ldpd \
+DIST_SUBDIRS = lib qpb fpm zebra bgpd ripd ripngd ospfd ospf6d ldpd \
 	  isisd watchquagga vtysh ospfclient doc m4 pkgsrc redhat tests \
 	  solaris pimd tools cumulus
 
@@ -12,8 +12,7 @@ EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS INSTALL.quagga.txt \
 	update-autotools \
 	vtysh/Makefile.in vtysh/Makefile.am \
 	tools/rrcheck.pl tools/rrlookup.pl tools/zc.pl \
-	tools/zebra.el tools/multiple-bgpd.sh \
-	fpm/fpm.h
+	tools/zebra.el tools/multiple-bgpd.sh
 
 if HAVE_LATEX
 

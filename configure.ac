@@ -1730,6 +1730,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  tools/Makefile
 	  cumulus/Makefile
 	  pkgsrc/Makefile
+	  fpm/Makefile
 	  redhat/quagga.spec 
 	  lib/version.h
 	  doc/defines.texi

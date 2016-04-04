@@ -102,6 +102,10 @@
  */
 #define FPM_MAX_MSG_LEN 4096
 
+#ifdef __SUNPRO_C
+#pragma pack(1)
+#endif
+
 /*
  * Header that precedes each fpm message to/from the FPM.
  */
@@ -120,13 +124,13 @@ typedef struct fpm_msg_hdr_t_
   /*
    * Length of entire message, including the header, in network byte
    * order.
-   *
-   * Note that msg_len is rounded up to make sure that message is at
-   * the desired alignment. This means that some payloads may need
-   * padding at the end.
    */
   uint16_t msg_len;
-} fpm_msg_hdr_t;
+} __attribute__ ((packed)) fpm_msg_hdr_t;
+
+#ifdef __SUNPRO_C
+#pragma pack()
+#endif
 
 /*
  * The current version of the FPM protocol is 1.
@@ -139,8 +143,14 @@ typedef enum fpm_msg_type_e_ {
   /*
    * Indicates that the payload is a completely formed netlink
    * message.
+   *
+   * XXX Netlink cares about the alignment of messages. When any
+   * FPM_MSG_TYPE_NETLINK messages are sent over a channel, then all
+   * messages should be sized such that netlink alignment is
+   * maintained.
    */
   FPM_MSG_TYPE_NETLINK = 1,
+  FPM_MSG_TYPE_PROTOBUF = 2,
 } fpm_msg_type_e;
 
 /*
@@ -154,6 +164,8 @@ typedef enum fpm_msg_type_e_ {
  * fpm_msg_align
  *
  * Round up the given length to the desired alignment.
+ *
+ * **NB**: Alignment is required only when netlink messages are used.
  */
 static inline size_t
 fpm_msg_align (size_t len)
@@ -165,7 +177,13 @@ fpm_msg_align (size_t len)
  * The (rounded up) size of the FPM message header. This ensures that
  * the message payload always starts at an aligned address.
  */
-#define FPM_MSG_HDR_LEN (fpm_msg_align (sizeof (fpm_msg_hdr_t)))
+#define FPM_MSG_HDR_LEN (sizeof (fpm_msg_hdr_t))
+
+#ifndef COMPILE_ASSERT
+#define COMPILE_ASSERT(x) extern int __dummy[2 * !!(x) - 1]
+#endif
+
+COMPILE_ASSERT(FPM_MSG_ALIGNTO == FPM_MSG_HDR_LEN);
 
 /*
  * fpm_data_len_to_msg_len
@@ -176,7 +194,7 @@ fpm_msg_align (size_t len)
 static inline size_t
 fpm_data_len_to_msg_len (size_t data_len)
 {
-  return fpm_msg_align (data_len) + FPM_MSG_HDR_LEN;
+  return data_len + FPM_MSG_HDR_LEN;
 }
 
 /*
@@ -250,7 +268,11 @@ fpm_msg_hdr_ok (const fpm_msg_hdr_t *hdr)
   if (msg_len < FPM_MSG_HDR_LEN || msg_len > FPM_MAX_MSG_LEN)
     return 0;
 
-  if (fpm_msg_align (msg_len) != msg_len)
+  /*
+   * Netlink messages must be aligned properly.
+   */
+  if (hdr->msg_type == FPM_MSG_TYPE_NETLINK &&
+      fpm_msg_align (msg_len) != msg_len)
     return 0;
 
   return 1;
