@@ -32,6 +32,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "linklist.h"
 #include "network.h"
 #include "queue.h"
+#include "hash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_open.h"
@@ -410,6 +411,8 @@ bgp_accept (struct thread *thread)
   peer = peer_create (&su, peer1->conf_if, peer1->bgp, peer1->local_as,
 		      peer1->as, peer1->as_type, 0, 0, NULL);
   peer->su = su;
+  hash_release(peer->bgp->peerhash, peer);
+  hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
   peer_xfer_config(peer, peer1);
   UNSET_FLAG (peer->flags, PEER_FLAG_CONFIG_NODE);
