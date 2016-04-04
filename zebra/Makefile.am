@@ -1,3 +1,5 @@
+include ../common.am
+
 ## Process this file with automake to produce Makefile.in.
 
 AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
@@ -21,6 +23,10 @@ if HAVE_NETLINK
 othersrc = zebra_fpm_netlink.c
 endif
 
+if HAVE_PROTOBUF
+protobuf_srcs = zebra_fpm_protobuf.c
+endif
+
 AM_CFLAGS = $(WERROR)
 
 sbin_PROGRAMS = zebra
@@ -33,7 +39,8 @@ zebra_SOURCES = \
 	redistribute.c debug.c rtadv.c zebra_snmp.c zebra_vty.c \
 	irdp_main.c irdp_interface.c irdp_packet.c router-id.c zebra_fpm.c \
 	$(othersrc) zebra_ptm.c zebra_rnh.c zebra_ptm_redistribute.c \
-	zebra_ns.c zebra_vrf.c zebra_static.c zebra_mpls.c zebra_mpls_vty.c
+	zebra_ns.c zebra_vrf.c zebra_static.c zebra_mpls.c zebra_mpls_vty.c \
+	$(protobuf_srcs)
 
 testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
 	zebra_vty.c zebra_ptm.c zebra_routemap.c zebra_ns.c zebra_vrf.c \
@@ -49,7 +56,7 @@ noinst_HEADERS = \
 	zebra_ptm_redistribute.h zebra_ptm.h zebra_routemap.h \
 	zebra_ns.h zebra_vrf.h ioctl_solaris.h zebra_static.h zebra_mpls.h
 
-zebra_LDADD = $(otherobj) ../lib/libzebra.la $(LIBCAP)
+zebra_LDADD = $(otherobj) ../lib/libzebra.la $(LIBCAP) $(Q_FPM_PB_CLIENT_LDOPTS)
 
 testzebra_LDADD = ../lib/libzebra.la $(LIBCAP)
 
