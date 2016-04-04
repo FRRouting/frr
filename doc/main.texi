@@ -407,8 +407,32 @@ routes that it may have picked up from the kernel. The existing
 interaction of zebra with the kernel remains unchanged -- that is, the
 kernel continues to receive FIB updates as before.
 
-The format of the messages exchanged with the FPM is defined by the
-file @file{fpm/fpm.h} in the quagga tree.
+The encapsulation header for the messages exchanged with the FPM is
+defined by the file @file{fpm/fpm.h} in the quagga tree. The routes
+themselves are encoded in netlink or protobuf format, with netlink
+being the default.
+
+Protobuf is one of a number of new serialization formats wherein the
+message schema is expressed in a purpose-built language. Code for
+encoding/decoding to/from the wire format is generated from the
+schema. Protobuf messages can be extended easily while maintaining
+backward-compatibility with older code. Protobuf has the following
+advantages over netlink:
+
+@itemize
+@item
+Code for serialization/deserialization is generated
+automatically. This reduces the likelihood of bugs, allows third-party
+programs to be integrated quickly, and makes it easy to add fields.
+@item
+The message format is not tied to an OS (Linux), and can be evolved
+independently.
+@end itemize
+
+As mentioned before, zebra encodes routes sent to the FPM in netlink
+format by default. The format can be controlled via the
+@code{--fpm_format} command-line option to zebra, which currently
+takes the values @code{netlink} and @code{protobuf}.
 
 The zebra FPM interface uses replace semantics. That is, if a 'route
 add' message for a prefix is followed by another 'route add' message,
