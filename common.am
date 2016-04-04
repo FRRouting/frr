@@ -1,0 +1,41 @@
+#
+# Automake fragment intended to be shared by Makefile.am files in the
+# tree.
+#
+
+if HAVE_PROTOBUF
+
+# Uncomment to use an non-system version of libprotobuf-c.
+#
+# Q_PROTOBUF_C_CLIENT_INCLUDES = -I$(top_srcdir)/third-party/protobuf-c/src
+# Q_PROTOBUF_C_CLIENT_LDOPTS = $(top_builddir)/third-party/protobuf-c/src/libprotobuf-c.la
+
+Q_PROTOBUF_C_CLIENT_INCLUDES=
+Q_PROTOBUF_C_CLIENT_LDOPTS=-lprotobuf-c
+
+Q_PROTOC=protoc
+Q_PROTOC_C=protoc-c
+
+Q_PROTOBUF_CFILES = $(filter %.pb-c.c,$(SOURCES))
+
+Q_PROTOBUF_SRCS = $(Q_PROTOBUF_CFILES) $(Q_PROTOBUF_HFILES)
+
+# Rules
+%.pb.h: %.proto
+	$(Q_PROTOC) $(PROTOBUF_INCLUDES) --cpp_out=$(top_srcdir) $(top_srcdir)/$(PROTOBUF_PACKAGE)/$^
+
+%.pb-c.c %.pb-c.h: %.proto
+	$(Q_PROTOC_C) $(PROTOBUF_INCLUDES) --c_out=$(top_srcdir) $(top_srcdir)/$(PROTOBUF_PACKAGE)/$^
+
+#
+# Information about how to link to various libraries.
+#
+Q_QUAGGA_PB_CLIENT_LDOPTS = $(top_srcdir)/qpb/libquagga_pb.la $(Q_PROTOBUF_C_CLIENT_LDOPTS)
+
+Q_FPM_PB_CLIENT_LDOPTS = $(top_srcdir)/fpm/libfpm_pb.la $(Q_QUAGGA_PB_CLIENT_LDOPTS)
+
+endif  # HAVE_PROTOBUF
+
+Q_CLEANFILES = $(Q_PROTOBUF_SRCS)
+
+Q_BUILT_SRCS = $(Q_PROTOBUF_SRCS)

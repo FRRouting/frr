@@ -55,3 +55,6 @@ debian/quagga/
 debian/tmp/
 *.swp
 cscope.*
+*.pb.h
+*.pb-c.h
+*.pb-c.c

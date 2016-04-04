@@ -1,10 +1,10 @@
 ## Process this file with automake to produce Makefile.in.
 
-SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @LDPD@ \
+SUBDIRS = lib qpb @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @LDPD@ \
          @ISISD@ @PIMD@ @WATCHQUAGGA@ @VTYSH@ @OSPFCLIENT@ @DOC@ m4 @pkgsrcdir@ \
          redhat @SOLARIS@ tests tools cumulus
 
-DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d ldpd \
+DIST_SUBDIRS = lib qpb zebra bgpd ripd ripngd ospfd ospf6d ldpd \
 	  isisd watchquagga vtysh ospfclient doc m4 pkgsrc redhat tests \
 	  solaris pimd tools cumulus
 
