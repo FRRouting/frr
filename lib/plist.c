@@ -994,7 +994,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
       if (! any && lenum)
 	vty_out (vty, " le %d", lenum);
       vty_out (vty, "%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      return CMD_SUCCESS;
     }
 
   /* Install new filter to the access_list. */
