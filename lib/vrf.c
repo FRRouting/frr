@@ -150,6 +150,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
   struct prefix p;
   struct route_node *rn;
   struct vrf *vrf = NULL;
+  size_t namelen;
 
   vrf_build_key (vrf_id, &p);
   rn = route_node_get (vrf_table, &p);
@@ -172,7 +173,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
   else
     {
       if (name)
-        vrf = vrf_get_by_name(name);
+        vrf = vrf_list_lookup_by_name(name);
 
       if (vrf)
 	{
@@ -182,10 +183,27 @@ vrf_get (vrf_id_t vrf_id, const char *name)
 	}
       else
 	{
+          if (name)
+            {
+              namelen = strlen (name);
+              if (namelen > VRF_NAMSIZ)
+                {
+                  zlog_err("Attempt to get/create VRF %u name %s - name too long",
+                           vrf_id, name);
+                  return NULL;
+                }
+            }
+
 	  vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
 	  if (debug_vrf)
 	    zlog_debug ("VRF(%u) %s is created.",
 			vrf_id, (name) ? name : "(NULL)");
+          if (name)
+            {
+              strncpy (vrf->name, name, namelen);
+              vrf->name[namelen] = '\0';
+              listnode_add_sort (vrf_list, vrf);
+            }
 	}
       vrf->vrf_id = vrf_id;
       rn->info = vrf;
