@@ -150,7 +150,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
   struct prefix p;
   struct route_node *rn;
   struct vrf *vrf = NULL;
-  size_t namelen;
+  size_t namelen = 0;
 
   vrf_build_key (vrf_id, &p);
   rn = route_node_get (vrf_table, &p);
