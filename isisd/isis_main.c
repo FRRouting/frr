@@ -38,6 +38,7 @@
 #include "plist.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "qobj.h"
 
 #include "isisd/dict.h"
 #include "include-netbsd/iso.h"

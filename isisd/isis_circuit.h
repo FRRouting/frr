@@ -25,6 +25,7 @@
 
 #include "vty.h"
 #include "if.h"
+#include "qobj.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -140,7 +141,10 @@ struct isis_circuit
   u_int32_t ctrl_pdus_txed;	/* controlPDUsSent */
   u_int32_t desig_changes[2];	/* lanLxDesignatedIntermediateSystemChanges */
   u_int32_t rej_adjacencies;	/* rejectedAdjacencies */
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(isis_circuit)
 
 void isis_circuit_init (void);
 struct isis_circuit *isis_circuit_new (void);

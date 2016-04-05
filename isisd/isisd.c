@@ -34,6 +34,7 @@
 #include "stream.h"
 #include "prefix.h"
 #include "table.h"
+#include "qobj.h"
 
 #include "isisd/dict.h"
 #include "isisd/include-netbsd/iso.h"
@@ -62,6 +63,9 @@ u_char DEFAULT_TOPOLOGY_BASEIS[6] = { 0xFE, 0xED, 0xFE, 0xED, 0x00, 0x00 };
 #endif /* TOPOLOGY_GENERATE */
 
 struct isis *isis = NULL;
+
+DEFINE_QOBJ_TYPE(isis)
+DEFINE_QOBJ_TYPE(isis_area)
 
 /*
  * Prototypes.
@@ -100,6 +104,7 @@ isis_new (unsigned long process_id)
    */
   /* isis->debugs = 0xFFFF; */
   isisMplsTE.status = disable;            /* Only support TE metric */
+  QOBJ_REG (isis, isis);
 }
 
 struct isis_area *
@@ -169,6 +174,8 @@ isis_area_create (const char *area_tag)
   listnode_add (isis->area_list, area);
   area->isis = isis;
 
+  QOBJ_REG (area, isis_area);
+
   return area;
 }
 
@@ -227,6 +234,8 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
       return CMD_ERR_NO_MATCH;
     }
+
+  QOBJ_UNREG (area);
 
   if (area->circuit_list)
     {
