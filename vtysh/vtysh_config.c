@@ -400,7 +400,11 @@ vtysh_read_config (const char *config_default_dir)
   host_config_set (config_default_dir);
   confp = fopen (config_default_dir, "r");
   if (confp == NULL)
-    return (1);
+    {
+      fprintf (stderr, "%% Can't open configuration file %s due to '%s'.\n",
+               config_default_dir, safe_strerror (errno));
+      return (CMD_ERR_NO_FILE);
+    }
 
   ret = vtysh_read_file (confp);
   fclose (confp);

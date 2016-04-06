@@ -160,7 +160,8 @@ main (int argc, char **argv)
   fp = fopen (argv[1], "r");
   if (!fp)
     {
-      perror ("fopen");
+      fprintf (stdout,"%% Can't open configuration file %s due to '%s'.\n",
+              argv[1], safe_strerror(errno));
       exit (1);
     }
   

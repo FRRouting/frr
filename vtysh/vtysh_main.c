@@ -477,14 +477,15 @@ main (int argc, char **argv, char **env)
   /* Boot startup configuration file. */
   if (boot_flag)
     {
-      if (vtysh_read_config (integrate_default))
-	{
-	  fprintf (stderr, "Can't open configuration file [%s]\n",
-		   integrate_default);
+      int ret = vtysh_read_config (integrate_default);
+      if (ret)
+        {
+	  fprintf (stderr, "Configuration file[%s] processing failure: %d\n",
+		   integrate_default, ret);
 	  if (no_error)
 	    exit (0);
 	  else
-	    exit (1);
+	    exit (ret);
 	}
       else
 	exit (0);

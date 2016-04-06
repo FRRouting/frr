@@ -212,7 +212,8 @@ main (int argc, char **argv)
   fp = fopen (argv[1], "r");
   if (fp == NULL)
     {
-      fprintf (stderr, "can't open %s\n", argv[1]);
+      fprintf (stderr,"%% Can't open configuration file %s due to '%s'\n",
+               argv[1], safe_strerror(errno));
       exit (1);
     }
 

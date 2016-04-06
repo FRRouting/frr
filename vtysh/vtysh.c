@@ -541,7 +541,11 @@ vtysh_mark_file (const char *filename)
     confp = fopen (filename, "r");
 
   if (confp == NULL)
-    return (1);
+    {
+      fprintf (stderr, "%% Can't open config file %s due to '%s'.\n",
+               filename, safe_strerror (errno));
+      return (CMD_ERR_NO_FILE);
+    }
 
   vty = vty_new ();
   vty->fd = 0;			/* stdout */
@@ -621,22 +625,22 @@ vtysh_mark_file (const char *filename)
 	    fprintf (stderr,"line %d: Warning...: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
-	  return (1);
+	  return CMD_WARNING;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stderr,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
-	  return(1);
+	  return CMD_ERR_AMBIGUOUS;
 	case CMD_ERR_NO_MATCH:
 	  fprintf (stderr,"line %d: %% Unknown command: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
-	  return(1);
+	  return CMD_ERR_NO_MATCH;
 	case CMD_ERR_INCOMPLETE:
 	  fprintf (stderr,"line %d: %% Command incomplete: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
-	  return(1);
+	  return CMD_ERR_INCOMPLETE;
 	case CMD_SUCCESS:
 	  fprintf(stdout, "%s", vty->buf);
 	  break;
@@ -693,20 +697,20 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	{
 	case CMD_WARNING:
 	  if (vty->type == VTY_FILE)
-	    fprintf (stdout,"line %d: Warning...: %s\n", lineno, vty->buf);
-	  retcode = 1;		/* once we have an error, we remember & return that */
+	    fprintf (stderr,"line %d: Warning[%d]...: %s\n", lineno, vty->node, vty->buf);
+	  retcode = CMD_WARNING;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_ERR_AMBIGUOUS:
-	  fprintf (stdout,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
-	  retcode = 1;		/* once we have an error, we remember & return that */
+	  fprintf (stderr,"line %d: %% Ambiguous command[%d]: %s\n", lineno, vty->node, vty->buf);
+	  retcode = CMD_ERR_AMBIGUOUS;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_ERR_NO_MATCH:
-	  fprintf (stdout,"line %d: %% Unknown command: %s", lineno, vty->buf);
-	  retcode = 1;		/* once we have an error, we remember & return that */
+	  fprintf (stderr,"line %d: %% Unknown command[%d]: %s", lineno, vty->node, vty->buf);
+	  retcode = CMD_ERR_NO_MATCH;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_ERR_INCOMPLETE:
-	  fprintf (stdout,"line %d: %% Command incomplete: %s\n", lineno, vty->buf);
-	  retcode = 1;		/* once we have an error, we remember & return that */
+	  fprintf (stderr,"line %d: %% Command incomplete[%d]: %s\n", lineno, vty->node, vty->buf);
+	  retcode = CMD_ERR_INCOMPLETE;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_SUCCESS_DAEMON:
 	  {
@@ -720,7 +724,11 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 		    cmd_stat = vtysh_client_execute (&vtysh_client[i],
 						     vty->buf, stdout);
 		    if (cmd_stat != CMD_SUCCESS)
-		      break;
+                      {
+                        fprintf (stderr, "line %d: Failure to communicate[%d] to %s, line: %s\n",
+                                 lineno, cmd_stat, vtysh_client[i].name, vty->buf);
+		        break;
+                      }
 		  }
 	      }
 	    if (cmd_stat != CMD_SUCCESS)
@@ -2150,16 +2158,16 @@ write_config_integrated(void)
   fp = fopen (integrate_default, "w");
   if (fp == NULL)
     {
-      fprintf (stdout,"%% Can't open configuration file %s.\n",
-	       integrate_default);
+      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
+	       integrate_default, safe_strerror(errno));
       return CMD_SUCCESS;
     }
 
   fp1 = fopen (host.config, "w");
   if (fp1 == NULL)
     {
-      fprintf (stdout,"%% Can't open configuration file %s.\n",
-	       host.config);
+      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
+	       host.config, safe_strerror(errno));
       return CMD_SUCCESS;
     }
 
@@ -2177,8 +2185,8 @@ write_config_integrated(void)
 
   if (chmod (integrate_default, CONFIGFILE_MASK) != 0)
     {
-      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n", 
-	       integrate_default, safe_strerror(errno), errno);
+      fprintf (stdout,"%% Can't chmod configuration file %s: %s\n", 
+	       integrate_default, safe_strerror(errno));
       return CMD_WARNING;
     }
 
@@ -2221,8 +2229,8 @@ DEFUN (vtysh_write_memory,
   fp = fopen(host.config, "w");
   if (fp == NULL)
     {
-      fprintf (stdout,"%% Can't open configuration file %s.\n",
-	       host.config);
+      fprintf (stdout,"%% Can't open configuration file %s due to '%s'\n",
+	       host.config, safe_strerror(errno));
       return CMD_SUCCESS;
     }
 
@@ -2233,8 +2241,8 @@ DEFUN (vtysh_write_memory,
 
   if (chmod (host.config, CONFIGFILE_MASK) != 0)
     {
-      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n", 
-	       integrate_default, safe_strerror(errno), errno);
+      fprintf (stdout,"%% Can't chmod configuration file %s: %s\n", 
+	       integrate_default, safe_strerror(errno));
       return CMD_WARNING;
     }
 

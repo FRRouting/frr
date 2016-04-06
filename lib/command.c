@@ -3254,8 +3254,8 @@ DEFUN (show_startup_config,
   confp = fopen (host.config, "r");
   if (confp == NULL)
     {
-      vty_out (vty, "Can't open configuration file [%s]%s",
-	       host.config, VTY_NEWLINE);
+      vty_out (vty, "Can't open configuration file [%s] due to '%s'%s",
+	       host.config, safe_strerror(errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
 
