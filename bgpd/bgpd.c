@@ -6190,7 +6190,9 @@ bgp_config_write_filter (struct vty *vty, struct peer *peer,
                             addr, filter->map[RMAP_IN].name, VTY_NEWLINE);
       }
 
-  if (filter->map[RMAP_OUT].name && ! gfilter)
+  if (filter->map[RMAP_OUT].name)
+    if (! gfilter || ! gfilter->map[RMAP_OUT].name
+       || strcmp (filter->map[RMAP_OUT].name, gfilter->map[RMAP_OUT].name) != 0)
     {
       afi_header_vty_out (vty, afi, safi, write,
                           "  neighbor %s route-map %s out%s",
