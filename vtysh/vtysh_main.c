@@ -25,6 +25,8 @@
 #include <setjmp.h>
 #include <sys/wait.h>
 #include <pwd.h>
+#include <sys/file.h>
+#include <unistd.h>
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -235,6 +237,39 @@ static void log_it(const char *line)
   strftime(tod, sizeof tod, "%Y%m%d-%H:%M.%S", tmp);
   
   fprintf(logfile, "%s:%s %s\n", tod, user, line);
+}
+
+static int flock_fd;
+
+static void
+vtysh_flock_config (const char *flock_file)
+{
+  int count = 0;
+
+  flock_fd = open (flock_file, O_RDONLY | O_CREAT , 0644);
+  if (flock_fd < 0)
+    {
+      fprintf (stderr, "Unable to create lock file: %s, %s\n",
+	       flock_file, safe_strerror (errno));
+      return;
+    }
+
+  while (count < 400 && (flock (flock_fd, LOCK_EX | LOCK_NB) < 0))
+    {
+      count++;
+      usleep (500000);
+    }
+
+  if (count >= 400)
+    fprintf(stderr, "Flock of %s failed, continuing this may cause issues\n",
+            flock_file);
+}
+
+static void
+vtysh_unflock_config (void)
+{
+  flock (flock_fd, LOCK_UN);
+  close (flock_fd);
 }
 
 /* VTY shell main routine. */
@@ -477,7 +512,9 @@ main (int argc, char **argv, char **env)
   /* Boot startup configuration file. */
   if (boot_flag)
     {
+      vtysh_flock_config (integrate_default);
       int ret = vtysh_read_config (integrate_default);
+      vtysh_unflock_config ();
       if (ret)
         {
 	  fprintf (stderr, "Configuration file[%s] processing failure: %d\n",
