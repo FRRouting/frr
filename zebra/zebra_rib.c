@@ -3076,31 +3076,30 @@ rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
   struct rib *same = NULL;
   struct nexthop *nexthop;
   int ret = 0;
+  int family;
+
+  if (!rib)
+    return 0;
+
+  if (p->family == AF_INET)
+    family = AFI_IP;
+  else
+    family = AFI_IP6;
+
+  /* Lookup table.  */
+  table = zebra_vrf_table_with_table_id (family, safi, rib->vrf_id, rib->table);
+  if (! table)
+    return 0;
 
   if (p->family == AF_INET)
     {
-      if (!rib)
-        return 0;
-
-      table = zebra_vrf_table (AFI_IP, safi, rib->vrf_id);
-      if (!table)
-        return 0;
       /* Make it sure prefixlen is applied to the prefix. */
       apply_mask_ipv4 ((struct prefix_ipv4 *)p);
     }
   else
     {
-      if (!rib)
-        return 0;			/* why are we getting called with NULL rib */
-
-      /* Lookup table.  */
-      table = zebra_vrf_table_with_table_id (AFI_IP6, safi, rib->vrf_id, rib->table);
-      if (! table)
-        return 0;
-
       /* Make sure mask is applied. */
       apply_mask_ipv6 ((struct prefix_ipv6 *)p);
-
     }
 
   /* Set default distance by route type. */
