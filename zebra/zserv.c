@@ -1412,6 +1412,9 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, vrf_id_
   p.prefixlen = stream_getc (s);
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
 
+  /* VRF ID */
+  rib->vrf_id = vrf_id;
+
   /* We need to give nh-addr, nh-ifindex with the same next-hop object
    * to the rib to ensure that IPv6 multipathing works; need to coalesce
    * these. Clients should send the same number of paired set of
@@ -1608,7 +1611,9 @@ zread_ipv6_add (struct zserv *client, u_short length, vrf_id_t vrf_id)
   else
     rib->tag = 0;
 
+  /* VRF ID */
   rib->vrf_id = vrf_id;
+
   /* Table */
   if (vrf_id)
     {

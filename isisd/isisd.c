@@ -1620,6 +1620,8 @@ int area_set_lsp_mtu(struct vty *vty, struct isis_area *area, unsigned int lsp_m
 
   for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
     {
+      if(circuit->state != C_STATE_INIT && circuit->state != C_STATE_UP)
+        continue;
       if(lsp_mtu > isis_circuit_pdu_size(circuit))
         {
           vty_out(vty, "ISIS area contains circuit %s, which has a maximum PDU size of %zu.%s",
