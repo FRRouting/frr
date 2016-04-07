@@ -835,6 +835,12 @@ if_down_del_nbr_connected (struct interface *ifp)
 void
 if_up (struct interface *ifp)
 {
+  struct zebra_if *zif;
+
+  zif = ifp->info;
+  zif->up_count++;
+  quagga_timestamp (2, zif->up_last, sizeof (zif->up_last));
+
   /* Notify the protocol daemons. */
   if (ifp->ptm_enable && (ifp->ptm_status == ZEBRA_PTM_STATUS_DOWN)) {
     zlog_warn("%s: interface %s hasn't passed ptm check\n", __func__,
@@ -859,6 +865,12 @@ if_up (struct interface *ifp)
 void
 if_down (struct interface *ifp)
 {
+  struct zebra_if *zif;
+
+  zif = ifp->info;
+  zif->down_count++;
+  quagga_timestamp (2, zif->down_last, sizeof (zif->down_last));
+
   /* Notify to the protocol daemons. */
   zebra_interface_down_update (ifp);
 
@@ -1034,6 +1046,11 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   } else {
     vty_out (vty, "down%s", VTY_NEWLINE);
   }
+
+  vty_out (vty, "  Link ups:   %5u    last: %s%s", zebra_if->up_count,
+           zebra_if->up_last[0] ? zebra_if->up_last : "(never)", VTY_NEWLINE);
+  vty_out (vty, "  Link downs: %5u    last: %s%s", zebra_if->down_count,
+           zebra_if->down_last[0] ? zebra_if->down_last : "(never)", VTY_NEWLINE);
 
   zebra_ptm_show_status(vty, ifp);
 
