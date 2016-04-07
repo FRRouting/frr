@@ -70,23 +70,6 @@ vrf_list_lookup_by_name (const char *name)
   return NULL;
 }
 
-struct vrf *
-vrf_list_lookup_by_name_len (const char *name, size_t namelen)
-{
-  struct listnode *node;
-  struct vrf *vrfp;
-
-  if (namelen > INTERFACE_NAMSIZ)
-    return NULL;
-
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
-    {
-      if (!memcmp(name, vrfp->name, namelen) && (vrfp->name[namelen] == '\0'))
-	return vrfp;
-    }
-  return NULL;
-}
-
 /* Create new interface structure. */
 struct vrf *
 vrf_create (const char *name, size_t namelen)
@@ -111,15 +94,6 @@ vrf_create (const char *name, size_t namelen)
     (*vrf_master.vrf_new_hook) (0, name, &vrfp->info);
 
   return vrfp;
-}
-
-struct vrf *
-vrf_get_by_name_len (const char *name, size_t namelen)
-{
-  struct vrf *vrfp;
-
-  return ((vrfp = vrf_list_lookup_by_name_len (name, namelen)) != NULL) ? vrfp :
-          vrf_create (name, namelen);
 }
 
 struct vrf *
