@@ -208,7 +208,7 @@ vty_log_out (struct vty *vty, const char *level, const char *proto_str,
 void
 vty_time_print (struct vty *vty, int cr)
 {
-  char buf [25];
+  char buf[QUAGGA_TIMESTAMP_LEN];
   
   if (quagga_timestamp(0, buf, sizeof(buf)) == 0)
     {
