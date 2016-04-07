@@ -76,6 +76,7 @@ case "$1" in
          ;;
      *)
 	 echo "Unknown option entered"
+         man -s 1 quagga
 	 exit -1
 	 ;;
 esac
