@@ -75,7 +75,7 @@ struct vrf
 
   /* Zebra internal VRF status */
   u_char status;
-#define ZEBRA_VRF_ACTIVE     (1 << 0)
+#define VRF_ACTIVE     (1 << 0)
 
   struct route_node *node;
 

@@ -721,9 +721,9 @@ vrf_add_update (struct vrf *vrfp)
 {
   zebra_vrf_add_update (vrf_info_lookup (vrfp->vrf_id));
 
-  if (! CHECK_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE))
+  if (! CHECK_FLAG (vrfp->status, VRF_ACTIVE))
     {
-      SET_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE);
+      SET_FLAG (vrfp->status, VRF_ACTIVE);
 
      //Pending: Check if the equivalent of if_addr_wakeup (ifp) is needed here.
 
@@ -744,7 +744,7 @@ void
 vrf_delete_update (struct vrf *vrfp)
 {
   /* Mark VRF as inactive */
-  UNSET_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE);
+  UNSET_FLAG (vrfp->status, VRF_ACTIVE);
   
   if (IS_ZEBRA_DEBUG_KERNEL)
     zlog_debug ("VRF %s id %u is now inactive.",

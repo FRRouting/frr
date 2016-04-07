@@ -874,7 +874,7 @@ DEFUN_NOSH (no_vrf,
       return CMD_WARNING;
     }
 
-  if (CHECK_FLAG (vrfp->status, ZEBRA_VRF_ACTIVE))
+  if (CHECK_FLAG (vrfp->status, VRF_ACTIVE))
     {
       vty_out (vty, "%% Only inactive VRFs can be deleted%s",
 	      VTY_NEWLINE);

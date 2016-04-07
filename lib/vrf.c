@@ -88,7 +88,7 @@ vrf_create (const char *name, size_t namelen)
     zlog_err("vrf_create(%s): corruption detected -- vrf with this "
              "name exists already with vrf-id %u!", vrfp->name, vrfp->vrf_id);
 
-  UNSET_FLAG(vrfp->status, ZEBRA_VRF_ACTIVE);
+  UNSET_FLAG(vrfp->status, VRF_ACTIVE);
 
   if (vrf_master.vrf_new_hook)
     (*vrf_master.vrf_new_hook) (0, name, &vrfp->info);
@@ -209,7 +209,7 @@ vrf_delete (struct vrf *vrf)
   if (vrf_master.vrf_delete_hook)
     (*vrf_master.vrf_delete_hook) (vrf->vrf_id, vrf->name, &vrf->info);
 
-  if (CHECK_FLAG (vrf->status, ZEBRA_VRF_ACTIVE))
+  if (CHECK_FLAG (vrf->status, VRF_ACTIVE))
     if_terminate (vrf->vrf_id, &vrf->iflist);
 
   if (vrf->node)
@@ -249,7 +249,7 @@ vrf_lookup (vrf_id_t vrf_id)
 static int
 vrf_is_enabled (struct vrf *vrf)
 {
-  return vrf && CHECK_FLAG (vrf->status, ZEBRA_VRF_ACTIVE);
+  return vrf && CHECK_FLAG (vrf->status, VRF_ACTIVE);
 
   /*Pending: figure out the real use of this routine.. it used to be..
   return vrf && vrf->vrf_id == VRF_DEFAULT;
