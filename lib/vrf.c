@@ -72,16 +72,18 @@ vrf_list_lookup_by_name (const char *name)
 
 /* Create new vrf structure. */
 struct vrf *
-vrf_create (const char *name, size_t namelen)
+vrf_create (const char *name)
 {
   struct vrf *vrfp;
 
   vrfp = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
 
   assert (name);
-  assert (namelen <= VRF_NAMSIZ);	/* Need space for '\0' at end. */
-  strncpy (vrfp->name, name, namelen);
-  vrfp->name[namelen] = '\0';
+
+  zlog_debug ("Vrf_create: %s", name);
+  strncpy (vrfp->name, name, VRF_NAMSIZ);
+  vrfp->name[VRF_NAMSIZ] = '\0';
+
   if (vrf_list_lookup_by_name (vrfp->name) == NULL)
     listnode_add_sort (vrf_list, vrfp);
   else
@@ -102,7 +104,7 @@ vrf_get_by_name (const char *name)
   struct vrf *vrfp;
 
   return ((vrfp = vrf_list_lookup_by_name (name)) != NULL) ? vrfp :
-          vrf_create (name, strlen(name));
+          vrf_create (name);
 }
 
 /* Build the table key */

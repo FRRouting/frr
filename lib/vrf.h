@@ -111,7 +111,7 @@ extern struct vrf *vrf_lookup_by_name (const char *);
 extern struct vrf *vrf_list_lookup_by_name (const char *);
 extern struct vrf *vrf_get_by_name (const char *);
 extern struct vrf *vrf_get (vrf_id_t, const char *);
-extern struct vrf *vrf_create (const char *, size_t);
+extern struct vrf *vrf_create (const char *);
 extern void vrf_delete (struct vrf *);
 extern int vrf_enable (struct vrf *);
 extern vrf_id_t vrf_name_to_id (const char *);
