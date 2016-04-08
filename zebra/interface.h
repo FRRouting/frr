@@ -189,6 +189,12 @@ struct zebra_if
   /* Installed addresses chains tree. */
   struct route_table *ipv4_subnets;
 
+  /* Information about up/down changes */
+  unsigned int up_count;
+  char up_last[QUAGGA_TIMESTAMP_LEN];
+  unsigned int down_count;
+  char down_last[QUAGGA_TIMESTAMP_LEN];
+
 #if defined(HAVE_RTADV)
   struct rtadvconf rtadv;
 #endif /* HAVE_RTADV */
