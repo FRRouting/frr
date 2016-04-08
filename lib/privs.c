@@ -664,6 +664,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
   struct group *grentry = NULL;
   gid_t groups[NGROUPS_MAX];
   int i, ngroups = 0;
+  int found = 0;
 
   if (!zprivs)
     {
@@ -729,8 +730,17 @@ zprivs_init(struct zebra_privs_t *zprivs)
 
           for ( i = 0; i < ngroups; i++ )
             if ( groups[i] == zprivs_state.vtygrp )
-              break;
+              {
+                found++;
+                break;
+              }
 
+          if (!found)
+            {
+	      fprintf (stderr, "privs_init: user(%s) is not part of vty group specified(%s)\n",
+		       zprivs->user, zprivs->vty_group);
+              exit (1);
+            }
           if ( i >= ngroups && ngroups < (int) ZEBRA_NUM_OF(groups) )
             {
               groups[i] = zprivs_state.vtygrp;
