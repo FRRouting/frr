@@ -24,6 +24,7 @@ if ! getent passwd quagga >/dev/null; then
           --gecos "Quagga routing suite" \
           --shell /bin/false \
           quagga  >/dev/null
+        usermod -a -G quaggavty quagga >/dev/null
 fi
 
 # Do not change permissions when upgrading as it would violate policy.
