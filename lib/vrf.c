@@ -70,43 +70,6 @@ vrf_list_lookup_by_name (const char *name)
   return NULL;
 }
 
-/* Create new vrf structure. */
-struct vrf *
-vrf_create (const char *name)
-{
-  struct vrf *vrfp;
-
-  vrfp = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-
-  assert (name);
-
-  zlog_debug ("Vrf_create: %s", name);
-  strncpy (vrfp->name, name, VRF_NAMSIZ);
-  vrfp->name[VRF_NAMSIZ] = '\0';
-
-  if (vrf_list_lookup_by_name (vrfp->name) == NULL)
-    listnode_add_sort (vrf_list, vrfp);
-  else
-    zlog_err("vrf_create(%s): corruption detected -- vrf with this "
-             "name exists already with vrf-id %u!", vrfp->name, vrfp->vrf_id);
-
-  UNSET_FLAG(vrfp->status, VRF_ACTIVE);
-
-  if (vrf_master.vrf_new_hook)
-    (*vrf_master.vrf_new_hook) (0, name, &vrfp->info);
-
-  return vrfp;
-}
-
-struct vrf *
-vrf_get_by_name (const char *name)
-{
-  struct vrf *vrfp;
-
-  return ((vrfp = vrf_list_lookup_by_name (name)) != NULL) ? vrfp :
-          vrf_create (name);
-}
-
 /* Build the table key */
 static void
 vrf_build_key (vrf_id_t vrf_id, struct prefix *p)

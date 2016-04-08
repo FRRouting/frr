@@ -757,7 +757,7 @@ vrf_delete_update (struct vrf *vrfp)
      while processing the deletion.  Each client daemon is responsible
      for setting vrf-id to IFINDEX_INTERNAL after processing the
      interface deletion message. */
-  vrfp->vrf_id = 0;
+  vrfp->vrf_id = VRF_UNKNOWN;
 }
 
 
