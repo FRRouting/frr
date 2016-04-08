@@ -332,7 +332,7 @@ ripng_interface_clean (void)
   struct interface *ifp;
   struct ripng_interface *ri;
 
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
     {
       ri = ifp->info;
 
@@ -355,7 +355,7 @@ ripng_interface_reset (void)
   struct interface *ifp;
   struct ripng_interface *ri;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       ri = ifp->info;
 
@@ -812,7 +812,7 @@ ripng_enable_apply_all (void)
   struct interface *ifp;
   struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     ripng_enable_apply (ifp);
 }
 
@@ -877,7 +877,7 @@ ripng_passive_interface_apply_all (void)
   struct interface *ifp;
   struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     ripng_passive_interface_apply (ifp);
 }
 
@@ -1148,7 +1148,7 @@ interface_config_write (struct vty *vty)
   struct ripng_interface *ri;
   int write = 0;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       ri = ifp->info;
 

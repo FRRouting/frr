@@ -32,6 +32,7 @@
 
 #include "log.h"
 #include "memory.h"
+#include "vrf.h"
 #include "if.h"
 #include "linklist.h"
 #include "command.h"
@@ -1024,7 +1025,7 @@ isis_interface_config_write (struct vty *vty)
   struct isis_circuit *circuit;
   int i;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       if (ifp->ifindex == IFINDEX_DELETED)
         continue;

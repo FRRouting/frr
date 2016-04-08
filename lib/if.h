@@ -324,8 +324,8 @@ extern int if_is_broadcast (struct interface *);
 extern int if_is_pointopoint (struct interface *);
 extern int if_is_multicast (struct interface *);
 extern void if_add_hook (int, int (*)(struct interface *));
-extern void if_init (vrf_id_t, struct list **);
-extern void if_terminate (vrf_id_t, struct list **);
+extern void if_init (struct list **);
+extern void if_terminate (struct list **);
 extern void if_dump_all (void);
 extern const char *if_flag_dump(unsigned long);
 
@@ -364,7 +364,6 @@ extern char *if_indextoname (unsigned int, char *);
 #endif
 
 /* Exported variables. */
-extern struct list *iflist;
 extern struct cmd_element interface_desc_cmd;
 extern struct cmd_element no_interface_desc_cmd;
 extern struct cmd_element interface_cmd;

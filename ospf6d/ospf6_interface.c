@@ -1009,7 +1009,7 @@ DEFUN (show_ipv6_ospf6_interface,
     }
   else
     {
-      for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), i, ifp))
         ospf6_interface_show (vty, ifp);
     }
 
@@ -1102,7 +1102,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
   struct ospf6_interface *oi;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), i, ifp))
     {
       oi = (struct ospf6_interface *) ifp->info;
       if (oi == NULL)
@@ -1816,7 +1816,7 @@ config_write_ospf6_interface (struct vty *vty)
   struct ospf6_interface *oi;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), i, ifp))
     {
       oi = (struct ospf6_interface *) ifp->info;
       if (oi == NULL)
@@ -1984,7 +1984,7 @@ DEFUN (clear_ipv6_ospf6_interface,
 
   if (argc == 0) /* Clear all the ospfv3 interfaces. */
     {
-      for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         ospf6_interface_clear (vty, ifp);
     }
   else /* Interface name is specified. */

@@ -3927,7 +3927,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
   if (argc == (iface_argv + 1))
     {
       /* Show All Interfaces.*/
-      for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         {
           if (ospf_oi_count(ifp))
             {
@@ -3938,7 +3938,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
   else if (argv[iface_argv] && strcmp(argv[iface_argv], "json") == 0)
     {
       /* Show All Interfaces. */
-      for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         {
           if (ospf_oi_count(ifp))
             {
@@ -9280,7 +9280,7 @@ config_write_interface (struct vty *vty)
   struct ospf_if_params *params;
   struct ospf *ospf = ospf_lookup();
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, n1, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), n1, ifp))
     {
       if (memcmp (ifp->name, "VLINK", 5) == 0)
 	continue;
@@ -10284,7 +10284,7 @@ DEFUN (clear_ip_ospf_interface,
 
   if (argc == 0) /* Clear all the ospfv2 interfaces. */
     {
-      for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         ospf_interface_clear(ifp);
     }
   else /* Interface name is specified. */

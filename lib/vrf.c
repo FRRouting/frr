@@ -70,7 +70,7 @@ vrf_list_lookup_by_name (const char *name)
   return NULL;
 }
 
-/* Create new interface structure. */
+/* Create new vrf structure. */
 struct vrf *
 vrf_create (const char *name, size_t namelen)
 {
@@ -184,7 +184,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
       vrf->node = rn;
 
       /* Initialize interfaces. */
-      if_init (vrf_id, &vrf->iflist);
+      if_init (&vrf->iflist);
     }
 
   if (vrf_master.vrf_new_hook && name) {
@@ -210,7 +210,7 @@ vrf_delete (struct vrf *vrf)
     (*vrf_master.vrf_delete_hook) (vrf->vrf_id, vrf->name, &vrf->info);
 
   if (CHECK_FLAG (vrf->status, VRF_ACTIVE))
-    if_terminate (vrf->vrf_id, &vrf->iflist);
+    if_terminate (&vrf->iflist);
 
   if (vrf->node)
     {
@@ -491,7 +491,7 @@ vrf_iflist_create (vrf_id_t vrf_id)
 {
    struct vrf * vrf = vrf_lookup (vrf_id);
    if (vrf && !vrf->iflist)
-     if_init (vrf_id, &vrf->iflist);
+     if_init (&vrf->iflist);
 }
 
 /* Free the interface list of the specified VRF. */
@@ -500,7 +500,7 @@ vrf_iflist_terminate (vrf_id_t vrf_id)
 {
    struct vrf * vrf = vrf_lookup (vrf_id);
    if (vrf && vrf->iflist)
-     if_terminate (vrf->vrf_id, &vrf->iflist);
+     if_terminate (&vrf->iflist);
 }
 
 /*

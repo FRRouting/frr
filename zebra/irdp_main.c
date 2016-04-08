@@ -310,25 +310,27 @@ void irdp_finish()
   struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
+  vrf_iter_t iter;
 
   zlog_info("IRDP: Received shutdown notification.");
-  
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
-    {
-      zi = ifp->info;
-      
-      if (!zi) 
-        continue;
-      irdp = &zi->irdp;
-      if (!irdp) 
-        continue;
+ 
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter)) 
+    for (ALL_LIST_ELEMENTS (vrf_iter2iflist (iter), node, nnode, ifp))
+      {
+        zi = ifp->info;
 
-      if (irdp->flags & IF_ACTIVE ) 
-        {
-	  irdp->flags |= IF_SHUTDOWN;
-	  irdp_advert_off(ifp);
-        }
-    }
+        if (!zi) 
+          continue;
+        irdp = &zi->irdp;
+        if (!irdp) 
+          continue;
+
+        if (irdp->flags & IF_ACTIVE ) 
+          {
+	    irdp->flags |= IF_SHUTDOWN;
+	    irdp_advert_off(ifp);
+          }
+      }
 }
 
 #endif /* HAVE_IRDP */

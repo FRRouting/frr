@@ -161,7 +161,7 @@ ospf6_bfd_nbr_replay (int command, struct zclient *zclient, zebra_size_t length,
   bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
   /* Replay the neighbor, if BFD is enabled on the interface*/
-  for (ALL_LIST_ELEMENTS_RO (iflist, inode, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), inode, ifp))
     {
       oi = (struct ospf6_interface *) ifp->info;
 

@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 
+#include "vrf.h"
 #include "if.h"
 #include "command.h"
 #include "prefix.h"
@@ -343,7 +344,8 @@ rip_nexthop_check (struct in_addr *addr)
 
   /* If nexthop address matches local configured address then it is
      invalid nexthop. */
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, ifc))
 	{	    
@@ -2477,7 +2479,7 @@ rip_update_process (int route_type)
   struct prefix_ipv4 *p;
 
   /* Send RIP update to each interface. */
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       if (if_is_loopback (ifp))
 	continue;
@@ -3535,7 +3537,7 @@ DEFUN (show_ip_rip_status,
 
   vty_out (vty, "    Interface        Send  Recv   Key-chain%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       ri = ifp->info;
 
@@ -3567,7 +3569,7 @@ DEFUN (show_ip_rip_status,
 
   {
     int found_passive = 0;
-    for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+    for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
       {
 	ri = ifp->info;
 
@@ -3766,7 +3768,7 @@ rip_distribute_update_all (struct prefix_list *notused)
   struct interface *ifp;
   struct listnode *node, *nnode;
 
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
     rip_distribute_update_interface (ifp);
 }
 /* ARGSUSED */
@@ -3957,7 +3959,7 @@ rip_routemap_update (const char *notused)
   struct interface *ifp;
   struct listnode *node, *nnode;
 
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
     rip_if_rmap_update_interface (ifp);
 
   rip_routemap_update_redistribute ();

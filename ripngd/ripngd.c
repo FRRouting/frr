@@ -1449,7 +1449,7 @@ ripng_update (struct thread *t)
     zlog_debug ("RIPng update timer expired!");
 
   /* Supply routes to each interface. */
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       ri = ifp->info;
 
@@ -1532,7 +1532,7 @@ ripng_triggered_update (struct thread *t)
 
   /* Split Horizon processing is done when generating triggered
      updates as well as normal updates (see section 2.6). */
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       ri = ifp->info;
 
@@ -2143,7 +2143,7 @@ DEFUN (show_ipv6_ripng_status,
 
   vty_out (vty, "    Interface        Send  Recv%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       struct ripng_interface *ri;
       
@@ -2760,7 +2760,7 @@ ripng_distribute_update_all (struct prefix_list *notused)
   struct interface *ifp;
   struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     ripng_distribute_update_interface (ifp);
 }
 
@@ -2935,7 +2935,7 @@ ripng_routemap_update (const char *unused)
   struct interface *ifp;
   struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     ripng_if_rmap_update_interface (ifp);
 
   ripng_routemap_update_redistribute ();

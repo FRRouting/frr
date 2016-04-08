@@ -145,7 +145,7 @@ ospf6_exit (int status)
   if (ospf6)
     ospf6_delete (ospf6);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     if (ifp->info != NULL)
       ospf6_interface_delete(ifp->info);
 

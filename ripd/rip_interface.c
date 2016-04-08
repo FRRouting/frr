@@ -357,7 +357,7 @@ if_check_address (struct in_addr addr)
   struct listnode *node;
   struct interface *ifp;
   
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       struct listnode *cnode;
       struct connected *connected;
@@ -504,7 +504,7 @@ rip_interface_clean (void)
   struct interface *ifp;
   struct rip_interface *ri;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       ri = ifp->info;
 
@@ -527,7 +527,7 @@ rip_interface_reset (void)
   struct interface *ifp;
   struct rip_interface *ri;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       ri = ifp->info;
 
@@ -634,7 +634,7 @@ rip_if_down_all ()
   struct interface *ifp;
   struct listnode *node, *nnode;
 
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
     rip_if_down (ifp);
 }
 
@@ -1059,7 +1059,7 @@ rip_enable_apply_all ()
   struct listnode *node, *nnode;
 
   /* Check each interface. */
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
     rip_enable_apply (ifp);
 }
 
@@ -1180,7 +1180,7 @@ rip_passive_interface_apply_all (void)
   struct interface *ifp;
   struct listnode *node, *nnode;
 
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
     rip_passive_interface_apply (ifp);
 }
 
@@ -1924,7 +1924,7 @@ rip_interface_config_write (struct vty *vty)
   struct listnode *node;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       struct rip_interface *ri;
 

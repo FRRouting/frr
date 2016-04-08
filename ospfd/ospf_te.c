@@ -33,6 +33,7 @@
 
 #include "linklist.h"
 #include "prefix.h"
+#include "vrf.h"
 #include "if.h"
 #include "table.h"
 #include "memory.h"
@@ -1890,7 +1891,7 @@ DEFUN (show_mpls_te_link,
   /* Show All Interfaces. */
   if (argc == 0)
     {
-      for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+      for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
         show_mpls_te_link_sub (vty, ifp);
     }
   /* Interface name is specified. */

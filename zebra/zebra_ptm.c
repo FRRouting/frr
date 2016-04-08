@@ -246,16 +246,18 @@ DEFUN (zebra_ptm_enable,
 {
   struct listnode *i;
   struct interface *ifp;
+  vrf_iter_t iter;
 
   ptm_cb.ptm_enable = 1;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
-    if (!ifp->ptm_enable)
-      {
-	ifp->ptm_enable = 1;
-        /* Assign a default unknown status */
-	ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
-      }
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), i, ifp))
+      if (!ifp->ptm_enable)
+        {
+	  ifp->ptm_enable = 1;
+          /* Assign a default unknown status */
+	  ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
+        }
 
   zebra_ptm_connect(NULL);
 
@@ -984,25 +986,28 @@ zebra_ptm_reset_status(int ptm_disable)
   struct listnode *i;
   struct interface *ifp;
   int send_linkup;
+  vrf_iter_t iter;
 
-  for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
-    {
-      send_linkup = 0;
-      if (ifp->ptm_enable)
-	{
-	  if (!if_is_operative(ifp))
-	    send_linkup = 1;
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+    for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), i, ifp))
+      {
+        send_linkup = 0;
+        if (ifp->ptm_enable)
+	  {
+	    if (!if_is_operative(ifp))
+	      send_linkup = 1;
 
-          if (ptm_disable)
-	    ifp->ptm_enable = 0;
-          ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
+            if (ptm_disable)
+	      ifp->ptm_enable = 0;
+            ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
-	  if (if_is_operative (ifp) && send_linkup) {
-            if (IS_ZEBRA_DEBUG_EVENT)
-	      zlog_debug ("%s: Bringing up interface %s", __func__,
-			    ifp->name);
-	    if_up (ifp);
-	  }
-	}
-    }
+	    if (if_is_operative (ifp) && send_linkup)
+              {
+                 if (IS_ZEBRA_DEBUG_EVENT)
+	           zlog_debug ("%s: Bringing up interface %s", __func__,
+			       ifp->name);
+	         if_up (ifp);
+	      }
+          }
+      }
 }

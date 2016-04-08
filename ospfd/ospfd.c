@@ -539,7 +539,7 @@ ospf_finish_final (struct ospf *ospf)
   list_delete (ospf->vlinks);
 
   /* Remove any ospf interface config params */
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
       struct ospf_if_params *params;
 

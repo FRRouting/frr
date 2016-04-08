@@ -38,7 +38,6 @@
 #include "log.h"
 
 /* List of interfaces in only the default VRF */
-struct list *iflist;
 int ptm_enable = 0;
 
 /* One for each program.  This structure is needed to store hooks. */
@@ -1261,7 +1260,7 @@ ifaddr_ipv4_lookup (struct in_addr *addr, unsigned int ifindex)
 
 /* Initialize interface list. */
 void
-if_init (vrf_id_t vrf_id, struct list **intf_list)
+if_init (struct list **intf_list)
 {
   *intf_list = list_new ();
 #if 0
@@ -1269,13 +1268,10 @@ if_init (vrf_id_t vrf_id, struct list **intf_list)
 #endif /* ifaddr_ipv4_table */
 
   (*intf_list)->cmp = (int (*)(void *, void *))if_cmp_func;
-
-  if (vrf_id == VRF_DEFAULT)
-    iflist = *intf_list;
 }
 
 void
-if_terminate (vrf_id_t vrf_id, struct list **intf_list)
+if_terminate (struct list **intf_list)
 {
   for (;;)
     {
@@ -1290,7 +1286,4 @@ if_terminate (vrf_id_t vrf_id, struct list **intf_list)
 
   list_delete (*intf_list);
   *intf_list = NULL;
-
-  if (vrf_id == VRF_DEFAULT)
-    iflist = NULL;
 }
