@@ -255,6 +255,7 @@ vrf_enable (struct vrf *vrf)
 static void
 vrf_disable (struct vrf *vrf)
 {
+  UNSET_FLAG (vrf->status, VRF_ACTIVE);
   if (vrf_is_enabled (vrf))
     {
       if (debug_vrf)
@@ -266,6 +267,7 @@ vrf_disable (struct vrf *vrf)
       if (vrf_master.vrf_disable_hook)
         (*vrf_master.vrf_disable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
     }
+
 }
 
 

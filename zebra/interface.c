@@ -739,28 +739,6 @@ vrf_add_update (struct vrf *vrfp)
     }
 }
 
-/* Handle an interface delete event */
-void 
-vrf_delete_update (struct vrf *vrfp)
-{
-  /* Mark VRF as inactive */
-  UNSET_FLAG (vrfp->status, VRF_ACTIVE);
-  
-  if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("VRF %s id %u is now inactive.",
-                vrfp->name, vrfp->vrf_id);
-
-  zebra_vrf_delete_update (vrf_info_lookup (vrfp->vrf_id));
-
-  /* Pending: Update ifindex after distributing the delete message.  This is in
-     case any client needs to have the old value of ifindex available
-     while processing the deletion.  Each client daemon is responsible
-     for setting vrf-id to IFINDEX_INTERNAL after processing the
-     interface deletion message. */
-  vrfp->vrf_id = VRF_UNKNOWN;
-}
-
-
 static void
 ipv6_ll_address_to_mac (struct in6_addr *address, u_char *mac)
 {

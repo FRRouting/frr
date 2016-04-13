@@ -584,9 +584,11 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
       vrf = vrf_lookup ((vrf_id_t)ifi->ifi_index);
 
       if (!vrf)
-        zlog_warn ("%s: vrf not found", __func__);
+        {
+	  zlog_warn ("%s: vrf not found", __func__);
+	  return;
+	}
 
-      vrf_delete_update (vrf);
       vrf_delete (vrf);
     }
 }

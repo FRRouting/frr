@@ -297,6 +297,14 @@ zebra_ns_disable (ns_id_t ns_id, void **info)
 static int
 zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
 {
+  struct zebra_vrf *zvrf = (struct zebra_vrf *)(*info);
+
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("VRF %s id %u is now disabled.",
+                zvrf->name, zvrf->vrf_id);
+
+  zebra_vrf_delete_update (zvrf);
+
   return 0;
 }
 
