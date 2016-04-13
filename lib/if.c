@@ -848,7 +848,7 @@ DEFUN (vrf,
       return CMD_WARNING;
     }
 
-  vrfp = vrf_get_by_name (argv[0]);
+  vrfp = vrf_get (VRF_UNKNOWN, argv[0]);
 
   vty->index = vrfp;
   vty->node = VRF_NODE;

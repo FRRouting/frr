@@ -1284,7 +1284,7 @@ rib_process (struct route_node *rn)
   char buf[INET6_ADDRSTRLEN];
   rib_dest_t *dest;
   struct zebra_vrf *zvrf = NULL;
-  vrf_id_t vrf_id = 0;
+  vrf_id_t vrf_id = VRF_UNKNOWN;
 
   assert (rn);
   
