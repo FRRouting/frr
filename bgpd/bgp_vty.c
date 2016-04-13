@@ -9552,6 +9552,7 @@ DEFUN (show_bgp_vrfs,
       struct listnode *node, *nnode;
       int peers_cfg, peers_estb;
       json_object *json_vrf = NULL;
+      int vrf_id_ui;
 
       /* Skip Views. */
       if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
@@ -9586,10 +9587,11 @@ DEFUN (show_bgp_vrfs,
           type = "VRF";
         }
 
+      vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
       if (uj)
         {
           json_object_string_add(json_vrf, "type", type);
-          json_object_int_add(json_vrf, "vrfId", bgp->vrf_id);
+          json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
           json_object_string_add(json_vrf, "routerId", inet_ntoa (bgp->router_id));
           json_object_int_add(json_vrf, "numConfiguredPeers", peers_cfg);
           json_object_int_add(json_vrf, "numEstablishedPeers", peers_estb);
@@ -9597,8 +9599,8 @@ DEFUN (show_bgp_vrfs,
           json_object_object_add(json_vrfs, name, json_vrf);
         }
       else
-        vty_out (vty, "%4s  %-5u  %-16s  %9u  %10u  %s%s",
-                 type, bgp->vrf_id, inet_ntoa (bgp->router_id),
+        vty_out (vty, "%4s  %-5d  %-16s  %9u  %10u  %s%s",
+                 type, vrf_id_ui, inet_ntoa (bgp->router_id),
                  peers_cfg, peers_estb, name,
                  VTY_NEWLINE);
     }
@@ -9798,26 +9800,23 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
             {
               unsigned long ents;
               char memstrbuf[MTYPE_MEMSTR_LEN];
+              int vrf_id_ui;
+
+              vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
 
               /* Usage summary and header */
               if (use_json)
                 {
                   json_object_string_add(json, "routerId", inet_ntoa (bgp->router_id));
                   json_object_int_add(json, "as", bgp->as);
-
-                  if (bgp->vrf_id)
-                    json_object_int_add(json, "vrf-id", bgp->vrf_id);
+                  json_object_int_add(json, "vrf-id", vrf_id_ui);
 
                 }
               else
                 {
                   vty_out (vty,
-                           "BGP router identifier %s, local AS number %u",
-                           inet_ntoa (bgp->router_id), bgp->as);
-
-                  if (bgp->vrf_id)
-                    vty_out (vty, " vrf-id %u", bgp->vrf_id);
-
+                           "BGP router identifier %s, local AS number %u vrf-id %d",
+                           inet_ntoa (bgp->router_id), bgp->as, vrf_id_ui);
                   vty_out (vty, "%s", VTY_NEWLINE);
                 }
 

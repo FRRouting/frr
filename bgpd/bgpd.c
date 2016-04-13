@@ -2749,7 +2749,8 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
 
   bgp_lock (bgp);
   bgp->inst_type = inst_type;
-  bgp->vrf_id = VRF_DEFAULT; /* initialization. */
+  bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ?
+                VRF_DEFAULT : VRF_UNKNOWN;
   bgp->peer_self = peer_new (bgp);
   if (bgp->peer_self->host)
     XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
