@@ -231,20 +231,16 @@ vrf_is_enabled (struct vrf *vrf)
 int
 vrf_enable (struct vrf *vrf)
 {
-//Pending: see if VRF lib had a reason to leave it for default only
-// /* Till now, only the default VRF can be enabled. */
-//  if (vrf->vrf_id == VRF_DEFAULT)
-//    {
   if (debug_vrf)
     zlog_debug ("VRF %u is enabled.", vrf->vrf_id);
 
-      if (vrf_master.vrf_enable_hook)
-        (*vrf_master.vrf_enable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
+  if (!CHECK_FLAG (vrf->status, VRF_ACTIVE))
+    SET_FLAG (vrf->status, VRF_ACTIVE);
 
-      return 1;
-//    }
+  if (vrf_master.vrf_enable_hook)
+    (*vrf_master.vrf_enable_hook) (vrf->vrf_id, vrf->name, &vrf->info);
 
-//  return 0;
+  return 1;
 }
 
 /*

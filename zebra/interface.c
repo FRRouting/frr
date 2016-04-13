@@ -714,31 +714,6 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
   rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
-
-/* Handle VRF addition */
-void
-vrf_add_update (struct vrf *vrfp)
-{
-  zebra_vrf_add_update (vrf_info_lookup (vrfp->vrf_id));
-
-  if (! CHECK_FLAG (vrfp->status, VRF_ACTIVE))
-    {
-      SET_FLAG (vrfp->status, VRF_ACTIVE);
-
-     //Pending: Check if the equivalent of if_addr_wakeup (ifp) is needed here.
-
-      if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_debug ("VRF %s id %u becomes active.",
-		    vrfp->name, vrfp->vrf_id);
-    }
-  else
-    {
-      if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_debug ("VRF %s id %u is added.",
-		    vrfp->name, vrfp->vrf_id);
-    }
-}
-
 static void
 ipv6_ll_address_to_mac (struct in6_addr *address, u_char *mac)
 {

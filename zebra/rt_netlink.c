@@ -556,6 +556,9 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
         zlog_debug ("RTM_NEWLINK for VRF %s(%u) table %u",
                     name, ifi->ifi_index, nl_table_id);
 
+      /*
+       * vrf_get is implied creation if it does not exist
+       */
       vrf = vrf_get((vrf_id_t)ifi->ifi_index, name); // It would create vrf
       if (!vrf)
         {
@@ -570,11 +573,14 @@ netlink_vrf_change (struct nlmsghdr *h, struct rtattr *tb, const char *name)
           return;
         }
 
-      /*Pending: See if you want to optimize this code.. vrf, zvrf all have name */
-      zvrf = vrf->info;
+      /*
+       * This is the only place that we get the actual kernel table_id
+       * being used.  We need it to set the table_id of the routes
+       * we are passing to the kernel.... And to throw some totally
+       * awesome parties. that too.
+       */
+      zvrf = (struct zebra_vrf *)vrf->info;
       zvrf->table_id = nl_table_id;
-
-      vrf_add_update(vrf);
     }
   else //h->nlmsg_type == RTM_DELLINK
     {

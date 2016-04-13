@@ -43,6 +43,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_fpm.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/redistribute.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -275,6 +276,8 @@ zebra_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
   struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
 
   assert (zvrf);
+
+  zebra_vrf_add_update (zvrf);
 
   return 0;
 }
