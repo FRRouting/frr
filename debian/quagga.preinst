@@ -24,7 +24,14 @@ if ! getent passwd quagga >/dev/null; then
           --gecos "Quagga routing suite" \
           --shell /bin/false \
           quagga  >/dev/null
-        usermod -a -G quaggavty quagga >/dev/null
+fi
+
+# We may be installing over an older version of
+# quagga and as such we need to intelligently
+# check to see if the quagga user is in the quaggavty
+# group.
+if ! /usr/bin/id quagga | grep &>/dev/null 'quaggavty'; then
+    usermod -a -G quaggavty quagga >/dev/null
 fi
 
 # Do not change permissions when upgrading as it would violate policy.
