@@ -61,10 +61,6 @@
 #include "sockunion.h"
 #include "log.h"
 
-
-/* Master of threads. */
-extern struct zebra_t zebrad;
-
 extern int irdp_sock;
 
 static const char *

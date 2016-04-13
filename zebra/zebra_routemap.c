@@ -42,7 +42,6 @@ char *proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX+1];	/* "any" == ZEBRA_ROUTE_MAX */
 /* NH Tracking route map */
 char *nht_rm[AFI_MAX][ZEBRA_ROUTE_MAX+1];	/* "any" == ZEBRA_ROUTE_MAX */
 
-extern struct zebra_t zebrad;
 struct nh_rmap_obj
 {
   struct nexthop *nexthop;

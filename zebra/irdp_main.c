@@ -69,8 +69,6 @@
 
 extern struct zebra_privs_t zserv_privs;
 
-/* Master of threads. */
-extern struct zebra_t zebrad;
 struct thread *t_irdp_raw;
 
 /* Timer interval of irdp. */

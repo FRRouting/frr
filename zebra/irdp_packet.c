@@ -69,7 +69,6 @@
 
 int irdp_sock = -1;
 
-extern struct zebra_t zebrad;
 extern struct thread *t_irdp_raw;
 
 static void

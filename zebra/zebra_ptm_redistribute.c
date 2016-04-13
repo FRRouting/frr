@@ -26,9 +26,6 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_ptm_redistribute.h"
 
-/* master zebra server structure */
-extern struct zebra_t zebrad;
-
 static int
 zsend_interface_bfd_update (int cmd, struct zserv *client,
                             struct interface *ifp, struct prefix *dp,

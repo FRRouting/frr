@@ -58,8 +58,6 @@ extern struct zebra_privs_t zserv_privs;
 #define ALLNODE   "ff02::1"
 #define ALLROUTER "ff02::2"
 
-extern struct zebra_t zebrad;
-
 enum rtadv_event {RTADV_START, RTADV_STOP, RTADV_TIMER, 
 		  RTADV_TIMER_MSEC, RTADV_READ};
 

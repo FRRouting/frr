@@ -84,8 +84,6 @@
 #define IPADDRESS ASN_IPADDRESS
 #define OBJECTIDENTIFIER ASN_OBJECT_ID
 
-extern struct zebra_t zebrad;
-
 oid ipfw_oid [] = { IPFWMIB };
 
 /* Hook functions. */

@@ -76,8 +76,6 @@ const char ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD[] = "maxHopCnt";
 const char ZEBRA_PTM_BFD_SEND_EVENT[] = "sendEvent";
 const char ZEBRA_PTM_BFD_VRF_NAME_FIELD[] = "vrfName";
 
-extern struct zebra_t zebrad;
-
 static ptm_lib_handle_t *ptm_hdl;
 
 struct zebra_ptm_cb ptm_cb;

@@ -52,8 +52,6 @@
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
 
-extern struct zebra_t zebrad;
-
 static void zebra_event (enum event event, int sock, struct zserv *client);
 
 extern struct zebra_privs_t zserv_privs;

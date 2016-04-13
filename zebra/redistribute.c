@@ -40,10 +40,6 @@
 
 #define ZEBRA_PTM_SUPPORT
 
-
-/* master zebra server structure */
-extern struct zebra_t zebrad;
-
 /* array holding redistribute info about table redistribution */
 /* bit AFI is set if that AFI is redistributing routes from this table */
 static u_char zebra_import_table_used[ZEBRA_KERNEL_TABLE_MAX];

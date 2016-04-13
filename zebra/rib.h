@@ -471,8 +471,7 @@ extern void rib_close_table (struct route_table *);
 extern void rib_close (void);
 extern void rib_init (void);
 extern unsigned long rib_score_proto (u_char proto, u_short instance);
-struct zebra_t;
-extern void rib_queue_add (struct zebra_t *zebra, struct route_node *rn);
+extern void rib_queue_add (struct route_node *rn);
 
 
 extern int

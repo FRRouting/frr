@@ -37,7 +37,6 @@
 #include "zebra/interface.h"
 #include "zebra/connected.h"
 #include "zebra/rtadv.h"
-extern struct zebra_t zebrad;
 
 /* communicate the withdrawal of a connected address */
 static void

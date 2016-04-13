@@ -130,6 +130,7 @@ struct zebra_t
   struct work_queue *ribq;
   struct meta_queue *mq;
 };
+extern struct zebra_t zebrad;
 
 /* Prototypes. */
 extern void zebra_init (void);

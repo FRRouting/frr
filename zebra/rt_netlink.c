@@ -64,8 +64,6 @@ static const struct message nlmsg_str[] = {
   {0, NULL}
 };
 
-extern struct zebra_t zebrad;
-
 extern struct zebra_privs_t zserv_privs;
 
 extern u_int32_t nl_rcvbufsize;

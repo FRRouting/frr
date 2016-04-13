@@ -47,9 +47,6 @@
 #include "zebra/interface.h"
 #include "zebra/connected.h"
 
-/* Default rtm_table for all clients */
-extern struct zebra_t zebrad;
-
 /* Should we allow non Quagga processes to delete our routes */
 extern int allow_delete;
 
@@ -1753,9 +1750,9 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 
 /* Add route_node to work queue and schedule processing */
 void
-rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
+rib_queue_add (struct route_node *rn)
 {
-  assert (zebra && rn);
+  assert (rn);
   
   /* Pointless to queue a route_node with no RIB entries to add or remove */
   if (!rnode_to_ribs (rn))
@@ -1766,9 +1763,7 @@ rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
       return;
     }
 
-  assert (zebra);
-
-  if (zebra->ribq == NULL)
+  if (zebrad.ribq == NULL)
     {
       zlog_err ("%s: work_queue does not exist!", __func__);
       return;
@@ -1782,10 +1777,10 @@ rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
    * holder, if necessary, then push the work into it in any case.
    * This semantics was introduced after 0.99.9 release.
    */
-  if (!zebra->ribq->items->count)
-    work_queue_add (zebra->ribq, zebra->mq);
+  if (!zebrad.ribq->items->count)
+    work_queue_add (zebrad.ribq, zebrad.mq);
 
-  rib_meta_queue_add (zebra->mq, rn);
+  rib_meta_queue_add (zebrad.mq, rn);
 
   return;
 }
@@ -1918,7 +1913,7 @@ rib_link (struct route_node *rn, struct rib *rib, int process)
     zebra_add_import_table_entry(rn, rib);
   else
     if (process)
-      rib_queue_add (&zebrad, rn);
+      rib_queue_add (rn);
 }
 
 static void
@@ -1998,7 +1993,7 @@ rib_delnode (struct route_node *rn, struct rib *rib)
     }
   else
     {
-      rib_queue_add (&zebrad, rn);
+      rib_queue_add (rn);
     }
 }
 
@@ -2304,7 +2299,7 @@ void rib_lookup_and_pushup (struct prefix_ipv4 * p, vrf_id_t vrf_id)
     }
   }
   if (changed)
-    rib_queue_add (&zebrad, rn);
+    rib_queue_add (rn);
 }
 
 int
@@ -2600,7 +2595,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
           si->type == STATIC_IPV6_GATEWAY)
         zebra_evaluate_rnh(si->vrf_id, nh_p.family, 1, RNH_NEXTHOP_TYPE, &nh_p);
       else
-        rib_queue_add (&zebrad, rn);
+        rib_queue_add (rn);
     }
   else
     {
@@ -3506,10 +3501,10 @@ rib_update_table (struct route_table *table, rib_update_event_t event)
                    * take care.
                    */
                   if (nh)
-                    rib_queue_add (&zebrad, rn);
+                    rib_queue_add (rn);
                 }
               else
-                  rib_queue_add (&zebrad, rn);
+                  rib_queue_add (rn);
             }
           break;
 
@@ -3519,7 +3514,7 @@ rib_update_table (struct route_table *table, rib_update_event_t event)
            * some cases (TODO).
            */
           if (rnode_to_ribs (rn))
-            rib_queue_add (&zebrad, rn);
+            rib_queue_add (rn);
           break;
 
         default:

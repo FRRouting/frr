@@ -41,7 +41,6 @@
 #include "zebra/rib.h"
 
 extern struct zebra_privs_t zserv_privs;
-extern struct zebra_t zebrad;
 
 /*
  * Given a sockaddr length, round it up to include pad bytes following

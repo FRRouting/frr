@@ -46,9 +46,6 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/interface.h"
 
-/* Default rtm_table for all clients */
-extern struct zebra_t zebrad;
-
 static void free_state(vrf_id_t vrf_id, struct rib *rib, struct route_node *rn);
 static void copy_state(struct rnh *rnh, struct rib *rib,
 		       struct route_node *rn);
@@ -575,7 +572,7 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
 
       SET_FLAG(srib->flags, ZEBRA_FLAG_CHANGED);
       SET_FLAG(srib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
-      rib_queue_add(&zebrad, static_rn);
+      rib_queue_add(static_rn);
     }
 }
 
