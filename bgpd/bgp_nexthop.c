@@ -372,8 +372,8 @@ bgp_multiaccess_check_v4 (struct in_addr nexthop, struct peer *peer)
   return (ret);
 }
 
-static int
-show_ip_bgp_nexthop_table (struct vty *vty, const char *name, int detail)
+static void
+bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 {
   struct bgp_node *rn;
   struct bgp_nexthop_cache *bnc;
@@ -381,17 +381,6 @@ show_ip_bgp_nexthop_table (struct vty *vty, const char *name, int detail)
   struct nexthop *nexthop;
   time_t tbuf;
   afi_t afi;
- struct bgp *bgp;
-
- if (name)
-   bgp = bgp_lookup_by_name (name);
- else
-   bgp = bgp_get_default ();
- if (!bgp)
-   {
-     vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
-     return CMD_WARNING;
-   }
 
   vty_out (vty, "Current BGP nexthop cache:%s", VTY_NEWLINE);
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
@@ -459,7 +448,42 @@ show_ip_bgp_nexthop_table (struct vty *vty, const char *name, int detail)
 	    }
 	}
     }
+}
+
+static int
+show_ip_bgp_nexthop_table (struct vty *vty, const char *name, int detail)
+{
+  struct bgp *bgp;
+
+  if (name)
+    bgp = bgp_lookup_by_name (name);
+  else
+    bgp = bgp_get_default ();
+  if (!bgp)
+    {
+      vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  bgp_show_nexthops (vty, bgp, detail);
+
   return CMD_SUCCESS;
+}
+
+static void
+bgp_show_all_instances_nexthops_vty (struct vty *vty)
+{
+  struct listnode *node, *nnode;
+  struct bgp *bgp;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    {
+      vty_out (vty, "%sInstance %s:%s",
+               VTY_NEWLINE,
+               (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name,
+               VTY_NEWLINE);
+      bgp_show_nexthops (vty, bgp, 0);
+    }
 }
 
 DEFUN (show_ip_bgp_nexthop,
@@ -494,6 +518,19 @@ DEFUN (show_ip_bgp_instance_nexthop,
        "BGP nexthop table\n")
 {
   return show_ip_bgp_nexthop_table (vty, argv[1], 0);
+}
+
+DEFUN (show_ip_bgp_instance_all_nexthop,
+       show_ip_bgp_instance_all_nexthop_cmd,
+       "show ip bgp " BGP_INSTANCE_ALL_CMD " nexthop",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "BGP nexthop table\n")
+{
+  bgp_show_all_instances_nexthops_vty (vty);
+  return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_bgp_instance_nexthop_detail,
@@ -531,7 +568,9 @@ bgp_scan_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_nexthop_detail_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_nexthop_detail_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_nexthop_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_nexthop_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_all_nexthop_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_nexthop_detail_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_nexthop_detail_cmd);
 }
