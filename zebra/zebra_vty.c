@@ -31,6 +31,7 @@
 #include "vrf.h"
 
 #include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"

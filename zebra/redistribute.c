@@ -34,6 +34,8 @@
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_ns.h"
+#include "zebra/zebra_vrf.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
@@ -451,47 +453,6 @@ zebra_interface_delete_update (struct interface *ifp)
 	zsend_interface_delete (client, ifp);
       }
 }
-
-/* VRF information update. */
-void
-zebra_vrf_add_update (struct zebra_vrf *zvrf)
-{
-  struct listnode *node, *nnode;
-  struct zserv *client;
-
-  if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug ("MESSAGE: ZEBRA_VRF_ADD %s", zvrf->name);
-    
-  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    zsend_vrf_add (client, zvrf);
-}
-
-void
-zebra_vrf_delete_update (struct zebra_vrf *zvrf)
-{
-  struct listnode *node, *nnode;
-  struct zserv *client;
-
-  if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug ("MESSAGE: ZEBRA_VRF_DELETE %s", zvrf->name);
-
-  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    zsend_vrf_delete (client, zvrf);
-}
-
-void
-zebra_vrf_update_all (struct zserv *client)
-{
-  struct vrf *vrf;
-  vrf_iter_t iter;
-
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
-    {
-      if ((vrf = vrf_iter2vrf (iter)) && vrf->vrf_id)
-        zsend_vrf_add (client, vrf_info_lookup (vrf->vrf_id));
-    }
-}
-
 
 /* Interface address addition. */
 void

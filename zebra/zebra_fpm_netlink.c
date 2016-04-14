@@ -28,6 +28,9 @@
 #include "log.h"
 #include "rib.h"
 
+#include "zserv.h"
+#include "zebra_ns.h"
+#include "zebra_vrf.h"
 #include "rt_netlink.h"
 #include "nexthop.h"
 

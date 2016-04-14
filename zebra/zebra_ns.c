@@ -27,6 +27,7 @@
 
 #include "rtadv.h"
 #include "zebra_ns.h"
+#include "zebra_vrf.h"
 
 struct zebra_ns *dzns;
 

@@ -273,57 +273,6 @@ struct rtadv
 };
 #endif /* HAVE_RTADV */
 
-/* Routing table instance.  */
-struct zebra_vrf
-{
-  /* Identifier. */
-  vrf_id_t vrf_id;
-
-  /* Routing table name.  */
-  char name[VRF_NAMSIZ];
-
-  /* Description.  */
-  char *desc;
-
-  /* FIB identifier.  */
-  u_char fib_id;
-
-  /* Flags. */
-  u_int16_t flags;
-#define ZEBRA_VRF_RIB_SCHEDULED   (1 << 0)
-
-  u_int32_t table_id;
-
-  /* Routing table.  */
-  struct route_table *table[AFI_MAX][SAFI_MAX];
-
-  /* Static route configuration.  */
-  struct route_table *stable[AFI_MAX][SAFI_MAX];
-
-  /* Recursive Nexthop table */
-  struct route_table *rnh_table[AFI_MAX];
-
-  /* Import check table (used mostly by BGP */
-  struct route_table *import_check_table[AFI_MAX];
-
-  /* Routing tables off of main table for redistribute table */
-  struct route_table *other_table[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
-
-  /* 2nd pointer type used primarily to quell a warning on
-   * ALL_LIST_ELEMENTS_RO
-   */
-  struct list _rid_all_sorted_list;
-  struct list _rid_lo_sorted_list;
-  struct list *rid_all_sorted_list;
-  struct list *rid_lo_sorted_list;
-  struct prefix rid_user_assigned;
-
-  /*
-   * Back pointer to the owning namespace.
-   */
-  struct zebra_ns *zns;
-};
-
 /*
  * rib_table_info_t
  *
@@ -399,13 +348,6 @@ extern struct nexthop *rib_nexthop_ipv6_ifindex_add (struct rib *rib,
 						     struct in6_addr *ipv6,
 						     unsigned int ifindex);
 
-extern void zebra_vrf_init (void);
-extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
-extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t, const char *);
-extern struct route_table *zebra_vrf_table (afi_t, safi_t, vrf_id_t);
-extern struct route_table *zebra_vrf_static_table (afi_t, safi_t, vrf_id_t);
-extern struct route_table *zebra_vrf_other_route_table (afi_t afi, u_int32_t table_id,
-					        	vrf_id_t vrf_id);
 extern int is_zebra_valid_kernel_table(u_int32_t table_id);
 extern int is_zebra_main_routing_table(u_int32_t table_id);
 extern int zebra_check_addr (struct prefix *p);

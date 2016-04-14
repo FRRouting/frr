@@ -39,7 +39,9 @@
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_ns.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_fpm.h"
@@ -1997,32 +1999,6 @@ rib_delnode (struct route_node *rn, struct rib *rib)
     }
 }
 
-/* Lookup the routing table in a VRF based on both VRF-Id and table-id.
- * NOTE: Table-id is relevant only in the Default VRF.
- */
-static struct route_table *
-zebra_vrf_table_with_table_id (afi_t afi, safi_t safi,
-                               vrf_id_t vrf_id, u_int32_t table_id)
-{
-  struct route_table *table = NULL;
-
-  if (afi >= AFI_MAX || safi >= SAFI_MAX)
-    return NULL;
-
-  if (vrf_id == VRF_DEFAULT)
-    {
-      if (table_id == RT_TABLE_MAIN ||
-          table_id == zebrad.rtm_table_default)
-        table = zebra_vrf_table (afi, safi, vrf_id);
-      else
-        table = zebra_vrf_other_route_table (afi, table_id, vrf_id);
-    }
-  else
-      table = zebra_vrf_table (afi, safi, vrf_id);
-
-  return table;
-}
-
 int
 rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 	      struct in_addr *gate, struct in_addr *src,
@@ -3826,132 +3802,3 @@ rib_tables_iter_next (rib_tables_iter_t *iter)
   return table;
 }
 
-/*
- * Create a routing table for the specific AFI/SAFI in the given VRF.
- */
-static void
-zebra_vrf_table_create (struct zebra_vrf *zvrf, afi_t afi, safi_t safi)
-{
-  rib_table_info_t *info;
-  struct route_table *table;
-
-  assert (!zvrf->table[afi][safi]);
-
-  table = route_table_init ();
-  zvrf->table[afi][safi] = table;
-
-  info = XCALLOC (MTYPE_RIB_TABLE_INFO, sizeof (*info));
-  info->zvrf = zvrf;
-  info->afi = afi;
-  info->safi = safi;
-  table->info = info;
-}
-
-/* Allocate new zebra VRF. */
-struct zebra_vrf *
-zebra_vrf_alloc (vrf_id_t vrf_id, const char *name)
-{
-  struct zebra_vrf *zvrf;
-
-  zvrf = XCALLOC (MTYPE_ZEBRA_VRF, sizeof (struct zebra_vrf));
-
-  /* Allocate routing table and static table.  */
-  zebra_vrf_table_create (zvrf, AFI_IP, SAFI_UNICAST);
-  zebra_vrf_table_create (zvrf, AFI_IP6, SAFI_UNICAST);
-  zvrf->stable[AFI_IP][SAFI_UNICAST] = route_table_init ();
-  zvrf->stable[AFI_IP6][SAFI_UNICAST] = route_table_init ();
-  zebra_vrf_table_create (zvrf, AFI_IP, SAFI_MULTICAST);
-  zebra_vrf_table_create (zvrf, AFI_IP6, SAFI_MULTICAST);
-  zvrf->stable[AFI_IP][SAFI_MULTICAST] = route_table_init ();
-  zvrf->stable[AFI_IP6][SAFI_MULTICAST] = route_table_init ();
-
-  zvrf->rnh_table[AFI_IP] = route_table_init();
-  zvrf->rnh_table[AFI_IP6] = route_table_init();
-
-  zvrf->import_check_table[AFI_IP] = route_table_init();
-  zvrf->import_check_table[AFI_IP6] = route_table_init();
-
-  /* Set VRF ID */
-  zvrf->vrf_id = vrf_id;
-
-  if (name)
-    {
-      strncpy (zvrf->name, name, strlen(name));
-      zvrf->name[strlen(name)] = '\0';
-    }
-
-  return zvrf;
-}
-
-/* Lookup VRF by identifier.  */
-struct zebra_vrf *
-zebra_vrf_lookup (vrf_id_t vrf_id)
-{
-  return vrf_info_lookup (vrf_id);
-}
-
-/* Lookup the routing table in an enabled VRF. */
-struct route_table *
-zebra_vrf_table (afi_t afi, safi_t safi, vrf_id_t vrf_id)
-{
-  struct zebra_vrf *zvrf = vrf_info_lookup (vrf_id);
-
-  if (!zvrf)
-    return NULL;
-
-  if (afi >= AFI_MAX || safi >= SAFI_MAX)
-    return NULL;
-
-  return zvrf->table[afi][safi];
-}
-
-/* Lookup the static routing table in a VRF. */
-struct route_table *
-zebra_vrf_static_table (afi_t afi, safi_t safi, vrf_id_t vrf_id)
-{
-  struct zebra_vrf *zvrf = vrf_info_lookup (vrf_id);
-
-  if (!zvrf)
-    return NULL;
-
-  if (afi >= AFI_MAX || safi >= SAFI_MAX)
-    return NULL;
-
-  return zvrf->stable[afi][safi];
-}
-
-struct route_table *
-zebra_vrf_other_route_table (afi_t afi, u_int32_t table_id, vrf_id_t vrf_id)
-{
-  struct zebra_vrf *zvrf;
-  rib_table_info_t *info;
-  struct route_table *table;
-
-  zvrf = vrf_info_lookup (vrf_id);
-  if (! zvrf)
-    return NULL;
-
-  if(afi >= AFI_MAX)
-    return NULL;
-
-  if (table_id >= ZEBRA_KERNEL_TABLE_MAX)
-    return NULL;
-
-  if ((vrf_id == VRF_DEFAULT) && (table_id != RT_TABLE_MAIN) && (table_id != zebrad.rtm_table_default))
-    {
-      if (zvrf->other_table[afi][table_id] == NULL)
-        {
-          table = route_table_init();
-          info = XCALLOC (MTYPE_RIB_TABLE_INFO, sizeof (*info));
-          info->zvrf = zvrf;
-          info->afi = afi;
-          info->safi = SAFI_UNICAST;
-          table->info = info;
-          zvrf->other_table[afi][table_id] = table;
-        }
-
-      return (zvrf->other_table[afi][table_id]);
-    }
- 
-  return zvrf->table[afi][SAFI_UNICAST];
-}

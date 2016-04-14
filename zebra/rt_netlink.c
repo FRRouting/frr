@@ -41,6 +41,7 @@
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
+#include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"
 #include "zebra/redistribute.h"
 #include "zebra/interface.h"

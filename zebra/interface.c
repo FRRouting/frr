@@ -34,18 +34,17 @@
 #include "zclient.h"
 #include "vrf.h"
 
-#include "zebra/interface.h"
 #include "zebra/rtadv.h"
+#include "zebra_ns.h"
+#include "zebra/interface.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
-#include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/irdp.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
-#include "zebra/zebra_ns.h"
 
 #define ZEBRA_PTM_SUPPORT
 

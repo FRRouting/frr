@@ -32,7 +32,9 @@
 #include "vrf.h"
 
 #include "zebra/rib.h"
+#include "zebra/zebra_ns.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
 #include "zebra/interface.h"
@@ -201,67 +203,6 @@ struct quagga_signal_t zebra_signals[] =
     .handler = &sigint,
   },
 };
-
-/* Callback upon creating a new VRF. */
-static int
-zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
-{
-  struct zebra_vrf *zvrf = *info;
-
-  if (! zvrf)
-    {
-      zvrf = zebra_vrf_alloc (vrf_id, name);
-      *info = (void *)zvrf;
-    }
-
-  return 0;
-}
-
-/* Callback upon enabling a VRF. */
-static int
-zebra_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
-{
-  struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
-
-  assert (zvrf);
-
-  return 0;
-}
-
-/* Callback upon disabling a VRF. */
-static int
-zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
-{
-  struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
-  struct listnode *list_node;
-  struct interface *ifp;
-
-  assert (zvrf);
-
-  rib_close_table (zvrf->table[AFI_IP][SAFI_UNICAST]);
-  rib_close_table (zvrf->table[AFI_IP6][SAFI_UNICAST]);
-
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), list_node, ifp))
-    {
-      int operative = if_is_operative (ifp);
-      UNSET_FLAG (ifp->flags, IFF_UP);
-      if (operative)
-        if_down (ifp);
-    }
-
-  return 0;
-}
-
-/* Zebra VRF initialization. */
-void
-zebra_vrf_init (void)
-{
-  vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
-  vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
-  vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
-  vrf_init ();
-}
-
 /* Main startup routine. */
 int
 main (int argc, char **argv)

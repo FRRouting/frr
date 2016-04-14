@@ -35,6 +35,8 @@
 #include "zebra/zebra_ptm_redistribute.h"
 #include "bfd.h"
 #include "vrf.h"
+#include "rib.h"
+#include "zebra_vrf.h"
 
 #define ZEBRA_PTM_RECONNECT_TIME_INITIAL 1 /* initial reconnect is 1s */
 #define ZEBRA_PTM_RECONNECT_TIME_MAX     300

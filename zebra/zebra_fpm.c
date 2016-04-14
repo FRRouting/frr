@@ -31,6 +31,9 @@
 #include "command.h"
 
 #include "zebra/rib.h"
+#include "zebra/zserv.h"
+#include "zebra/zebra_ns.h"
+#include "zebra/zebra_vrf.h"
 
 #include "fpm/fpm.h"
 #include "zebra_fpm.h"

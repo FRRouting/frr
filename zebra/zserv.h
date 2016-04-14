@@ -30,6 +30,7 @@
 #include "zclient.h"
 #include "vrf.h"
 
+#include "zebra/zebra_ns.h"
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
 
