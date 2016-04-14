@@ -1859,9 +1859,9 @@ bgp_redistribute_resend (struct bgp *bgp, afi_t afi, int type, u_short instance)
 
   /* Send distribute add message to zebra. */
   zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type,
-                           instance, VRF_DEFAULT);
+                           instance, bgp->vrf_id);
   zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
-                           instance, VRF_DEFAULT);
+                           instance, bgp->vrf_id);
 
   return 0;
 }
