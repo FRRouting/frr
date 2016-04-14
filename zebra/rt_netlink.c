@@ -40,6 +40,7 @@
 #include "vrf.h"
 
 #include "zebra/zserv.h"
+#include "zebra/zebra_ns.h"
 #include "zebra/rt.h"
 #include "zebra/redistribute.h"
 #include "zebra/interface.h"
@@ -74,8 +75,9 @@ static void
 set_ifindex(struct interface *ifp, unsigned int ifi_index)
 {
   struct interface *oifp;
+  struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
 
-  if (((oifp = if_lookup_by_index_per_ns (dzns, ifi_index)) != NULL) && (oifp != ifp))
+  if (((oifp = if_lookup_by_index_per_ns (zns, ifi_index)) != NULL) && (oifp != ifp))
     {
       if (ifi_index == IFINDEX_INTERNAL)
         zlog_err("Netlink is setting interface %s ifindex to reserved "
@@ -724,7 +726,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h,
   memset (tb, 0, sizeof tb);
   netlink_parse_rtattr (tb, IFA_MAX, IFA_RTA (ifa), len);
 
-  ifp = if_lookup_by_index_per_ns (dzns, ifa->ifa_index);
+  ifp = if_lookup_by_index_per_ns (zebra_ns_lookup (ns_id), ifa->ifa_index);
   if (ifp == NULL)
     {
       zlog_err ("netlink_interface_addr can't find interface by index %d vrf %u",
@@ -1313,7 +1315,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
     }
 
   /* See if interface is present. */
-  ifp = if_lookup_by_index_per_ns (dzns, ifi->ifi_index);
+  ifp = if_lookup_by_index_per_ns (zebra_ns_lookup (NS_DEFAULT), ifi->ifi_index);
 
   if (h->nlmsg_type == RTM_NEWLINK)
     {
@@ -1666,7 +1668,7 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
   struct sockaddr_nl snl;
   int discard;
 
-  struct zebra_ns *zns = dzns;
+  struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
 
   struct
   {
@@ -2053,7 +2055,7 @@ netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen)
       char                    buf[256];
   } req;
 
-  struct zebra_ns *zns = dzns;
+  struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
 
   memset(&req.n, 0, sizeof(req.n));
   memset(&req.ndm, 0, sizeof(req.ndm));
@@ -2095,7 +2097,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
     char buf[NL_PKT_BUF_SIZE];
   } req;
 
-  struct zebra_ns *zns = dzns;
+  struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
   struct zebra_vrf *zvrf = vrf_info_lookup (rib->vrf_id);
 
   memset (&req, 0, sizeof req - NL_PKT_BUF_SIZE);
@@ -2425,7 +2427,7 @@ netlink_address (int cmd, int family, struct interface *ifp,
     char buf[NL_PKT_BUF_SIZE];
   } req;
 
-  struct zebra_ns *zns = dzns; //vrf_info_lookup (ifp->vrf_id);
+  struct zebra_ns *zns = zebra_ns_lookup (NS_DEFAULT);
 
   p = ifc->address;
   memset (&req, 0, sizeof req - NL_PKT_BUF_SIZE);

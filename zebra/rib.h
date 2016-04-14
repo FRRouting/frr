@@ -273,41 +273,6 @@ struct rtadv
 };
 #endif /* HAVE_RTADV */
 
-#ifdef HAVE_NETLINK
-/* Socket interface to kernel */
-struct nlsock
-{
-  int sock;
-  int seq;
-  struct sockaddr_nl snl;
-  const char *name;
-};
-#endif
-
-/* NetNS ID type. */
-typedef u_int16_t ns_id_t;
-
-struct zebra_ns
-{
-  /* net-ns name.  */
-  char name[VRF_NAMSIZ];
-
-  /* Identifier. */
-  ns_id_t ns_id;
-
-#ifdef HAVE_NETLINK
-  struct nlsock netlink;     /* kernel messages */
-  struct nlsock netlink_cmd; /* command channel */
-  struct thread *t_netlink;
-#endif
-
-  struct route_table *if_table;
-
-#if defined (HAVE_RTADV)
-  struct rtadv rtadv;
-#endif /* HAVE_RTADV */
-};
-
 /* Routing table instance.  */
 struct zebra_vrf
 {
@@ -358,8 +323,6 @@ struct zebra_vrf
    */
   struct zebra_ns *zns;
 };
-
-extern struct zebra_ns *dzns;
 
 /*
  * rib_table_info_t
@@ -436,6 +399,7 @@ extern struct nexthop *rib_nexthop_ipv6_ifindex_add (struct rib *rib,
 						     struct in6_addr *ipv6,
 						     unsigned int ifindex);
 
+extern void zebra_vrf_init (void);
 extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t, const char *);
 extern struct route_table *zebra_vrf_table (afi_t, safi_t, vrf_id_t);

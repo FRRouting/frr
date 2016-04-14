@@ -38,13 +38,14 @@
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/irdp.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
-#include "zebra/zserv.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_ns.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -55,8 +56,6 @@ const char *rtadv_pref_strs[] = { "medium", "high", "INVALID", "low", 0 };
 #endif /* HAVE_RTADV */
 
 static void if_down_del_nbr_connected (struct interface *ifp);
-
-struct zebra_ns *dzns;
 
 /* Called when new interface is added. */
 static int
@@ -447,7 +446,7 @@ if_add_update (struct interface *ifp)
 {
   struct zebra_if *if_data;
 
-  if_link_per_ns(dzns, ifp);
+  if_link_per_ns(zebra_ns_lookup (NS_DEFAULT), ifp);
 
   if_data = ifp->info;
   if (if_data->multicast == IF_ZEBRA_MULTICAST_ON)

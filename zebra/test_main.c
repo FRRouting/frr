@@ -253,7 +253,7 @@ zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
 }
 
 /* Zebra VRF initialization. */
-static void
+void
 zebra_vrf_init (void)
 {
   vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);

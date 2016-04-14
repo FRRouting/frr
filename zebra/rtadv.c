@@ -38,6 +38,7 @@
 #include "zebra/debug.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_ns.h"
 
 extern struct zebra_privs_t zserv_privs;
 

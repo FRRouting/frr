@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Cumulus Networks, Inc.
+ *                    Donald Sharp
  *
  * This file is part of Quagga.
  *
@@ -20,15 +21,12 @@
  */
 
 #include <zebra.h>
-#include <lib/prefix.h>
+
+#include <vrf.h>
+#include <prefix.h>
+
 #include <rtadv.h>
 #include <zebra_ns.h>
 
-void ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status status)
-{ return; }
-
-void rtadv_init (struct zebra_ns *zns)
-{ return; }
-
-void rtadv_terminate (struct zebra_ns *zns)
+void interface_list (struct zebra_ns *zns)
 { return; }

@@ -43,6 +43,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_fpm.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
 
 #define ZEBRA_PTM_SUPPORT
@@ -125,8 +126,6 @@ char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 /* Process ID saved for use by init system */
 const char *pid_file = PATH_ZEBRA_PID;
 
-static int zebra_ns_disable (ns_id_t ns_id, void **info);
-
 /* Help information display. */
 static void
 usage (char *progname, int status)
@@ -179,6 +178,8 @@ sighup (void)
 static void
 sigint (void)
 {
+  struct zebra_ns *zns;
+
   zlog_notice ("Terminating on signal");
 
   if (!retain_mode)
@@ -188,7 +189,9 @@ sigint (void)
 #endif
 
   zebra_ptm_finish();
-  zebra_ns_disable (0, (void **)&dzns);
+
+  zns = zebra_ns_lookup (NS_DEFAULT);
+  zebra_ns_disable (0, (void **)&zns);
   systemd_send_stopping();
   exit (0);
 }
@@ -231,40 +234,10 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
   if (! zvrf)
     {
       zvrf = zebra_vrf_alloc (vrf_id, name);
-      zvrf->zns = dzns; /* Point to the global (single) NS */
+      zvrf->zns = zebra_ns_lookup (NS_DEFAULT); /* Point to the global (single) NS */
       *info = (void *)zvrf;
       router_id_init (zvrf);
     }
-
-  return 0;
-}
-
-static int
-zebra_ns_enable (ns_id_t ns_id, void **info)
-{
-  struct zebra_ns *zns = (struct zebra_ns *) (*info);
-#ifdef HAVE_NETLINK
-  char nl_name[64];
-#endif
-
-#if defined (HAVE_RTADV)
-  rtadv_init (zns);
-#endif
-
-#ifdef HAVE_NETLINK
-  /* Initialize netlink sockets */
-  snprintf (nl_name, 64, "netlink-listen (NS %u)", ns_id);
-  zns->netlink.sock = -1;
-  zns->netlink.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
- 
-  snprintf (nl_name, 64, "netlink-cmd (NS %u)", ns_id);
-  zns->netlink_cmd.sock = -1;
-  zns->netlink_cmd.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
-#endif
-  zns->if_table = route_table_init ();
-  kernel_init (zns);
-  interface_list (zns);
-  route_read (zns);
 
   return 0;
 }
@@ -278,20 +251,6 @@ zebra_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
   assert (zvrf);
 
   zebra_vrf_add_update (zvrf);
-
-  return 0;
-}
-
-static int
-zebra_ns_disable (ns_id_t ns_id, void **info)
-{
-  struct zebra_ns *zns = (struct zebra_ns *) (*info);
-
-#if defined (HAVE_RTADV)
-  rtadv_terminate (zns);
-#endif
-
-  kernel_terminate (zns);
 
   return 0;
 }
@@ -330,23 +289,15 @@ zebra_vrf_delete (vrf_id_t vrf_id, const char *name, void **info)
 }
 
 /* Zebra VRF initialization. */
-static void
+void
 zebra_vrf_init (void)
 {
-  struct zebra_ns *zns;
-
   vrf_add_hook (VRF_NEW_HOOK, zebra_vrf_new);
   vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
   vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
   vrf_add_hook (VRF_DELETE_HOOK, zebra_vrf_delete);
-  
-  /* Default NS initialization */
-  
-  zns = XCALLOC (MTYPE_ZEBRA_VRF, sizeof (struct zebra_ns));
-  dzns = zns; //Pending: Doing it all for the default namespace only for now.
 
   vrf_init ();
-  zebra_ns_enable (0, (void **)&zns);
 }
 
 /* Main startup routine. */
@@ -490,8 +441,8 @@ main (int argc, char **argv)
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
-  /* Initialize VRF module, and make kernel routing socket. */
-  zebra_vrf_init ();
+  /* Initialize NS( and implicitly the VRF module), and make kernel routing socket. */
+  zebra_ns_init ();
 
 #ifdef HAVE_SNMP
   zebra_snmp_init ();
