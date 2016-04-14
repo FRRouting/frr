@@ -3907,7 +3907,7 @@ DEFUN (set_community,
        "set community .AA:NN",
        SET_STR
        "BGP community attribute\n"
-       "Community number in aa:nn format or local-AS|no-advertise|no-export|internet or additive\n")
+       COMMUNITY_VAL_STR)
 {
   int i;
   int first = 0;
@@ -4021,7 +4021,7 @@ ALIAS (no_set_community,
        NO_STR
        SET_STR
        "BGP community attribute\n"
-       "Community number in aa:nn format or local-AS|no-advertise|no-export|internet or additive\n")
+       COMMUNITY_VAL_STR)
 
 ALIAS (no_set_community,
        no_set_community_none_cmd,

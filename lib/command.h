@@ -502,6 +502,8 @@ struct cmd_token
 "(neighbor|interface|area|lsa|zebra|config|dbex|spf|route|lsdb|redistribute|hook|asbr|prefix|abr)"
 #define ISIS_STR "IS-IS information\n"
 #define AREA_TAG_STR "[area tag]\n"
+#define COMMUNITY_AANN_STR "Community number where AA and NN are <0-65535>\n"
+#define COMMUNITY_VAL_STR  "Community number in AA:NN format (where AA and NN are <0-65535>) or local-AS|no-advertise|no-export|internet or additive\n"
 
 #define CONF_BACKUP_EXT ".sav"
 

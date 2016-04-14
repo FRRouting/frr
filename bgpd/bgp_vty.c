@@ -15431,7 +15431,6 @@ community_list_unset_vty (struct vty *vty, int argc, const char **argv,
 
 /* "community-list" keyword help string.  */
 #define COMMUNITY_LIST_STR "Add a community list entry\n"
-#define COMMUNITY_VAL_STR  "Community number in aa:nn format or internet|local-AS|no-advertise|no-export\n"
 
 DEFUN (ip_community_list_standard,
        ip_community_list_standard_cmd,

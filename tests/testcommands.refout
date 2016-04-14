@@ -334,21 +334,21 @@ execute strict 'show bgp ipv6 community no-advertise no-export no-export no-expo
 complete 'show bgp ipv6 community no-advertise no-export no-export no-export'@1: rv==7
   'no-export'
 describe 'show bgp ipv6 community no-advertise no-export no-export no-export'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-export' 'Do not export to next AS (well-known community)'
 execute relaxed 'show bgp ipv6 community no-advertise no-export no-export no-export'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-export', 'no-export', 'no-export'
 execute strict 'show bgp ipv6 community no-advertise no-export no-export no-export'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-export', 'no-export', 'no-export'
 complete 'show bgp ipv6 community no-advertise no-export no-export no-export'@2: rv==7
   'no-export'
 describe 'show bgp ipv6 community no-advertise no-export no-export no-export'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-export' 'Do not export to next AS (well-known community)'
 execute relaxed 'show bgp ipv6 community no-advertise no-export no-export no-export'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-export', 'no-export', 'no-export'
 execute strict 'show bgp ipv6 community no-advertise no-export no-export no-export'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-export', 'no-export', 'no-export'
 complete 'show bgp ipv6 community no-advertise no-export no-export no-export'@4: rv==7
   'no-export'
 describe 'show bgp ipv6 community no-advertise no-export no-export no-export'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-export' 'Do not export to next AS (well-known community)'
 execute relaxed 'show bgp ipv6 community VARIABLE local-AS local-AS no-advertise exact-match'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'VARIABLE', 'local-AS', 'local-AS', 'no-advertise'
 execute strict 'show bgp ipv6 community VARIABLE local-AS local-AS no-advertise exact-match'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'VARIABLE', 'local-AS', 'local-AS', 'no-advertise'
@@ -405,110 +405,110 @@ execute relaxed 'show bgp view VARIABLE ipv4 multicast community no-export no-ex
 execute strict 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'no-export', 'no-export', 'local-AS', 'VARIABLE'
 complete 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@1: rv==2
 describe 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'no-export', 'no-export', 'local-AS', 'VARIABLE'
 execute strict 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'no-export', 'no-export', 'local-AS', 'VARIABLE'
 complete 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@2: rv==2
 describe 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'no-export', 'no-export', 'local-AS', 'VARIABLE'
 execute strict 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'no-export', 'no-export', 'local-AS', 'VARIABLE'
 complete 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@4: rv==2
 describe 'show bgp view VARIABLE ipv4 multicast community no-export no-export local-AS VARIABLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertise', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertise', 'no-advertise', 'local-AS'
 complete 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@1: rv==7
   'local-AS'
 describe 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertise', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertise', 'no-advertise', 'local-AS'
 complete 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@2: rv==7
   'local-AS'
 describe 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertise', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertise', 'no-advertise', 'local-AS'
 complete 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@4: rv==7
   'local-AS'
 describe 'show bgp view VARIABLE ipv4 unicast community local-AS no-advertise no-advertise local-AS'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'no-export', 'VARIABLE', 'no-advertise'
 execute strict 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'no-export', 'VARIABLE', 'no-advertise'
 complete 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@1: rv==7
   'no-advertise'
 describe 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-advertise' 'Do not advertise to any peer (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'no-export', 'VARIABLE', 'no-advertise'
 execute strict 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'no-export', 'VARIABLE', 'no-advertise'
 complete 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@2: rv==7
   'no-advertise'
 describe 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-advertise' 'Do not advertise to any peer (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'no-export', 'VARIABLE', 'no-advertise'
 execute strict 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'no-export', 'VARIABLE', 'no-advertise'
 complete 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@4: rv==7
   'no-advertise'
 describe 'show bgp view VARIABLE ipv4 unicast community no-export VARIABLE no-advertise'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-advertise' 'Do not advertise to any peer (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'VARIABLE', 'local-AS', 'no-export', 'VARIABLE'
 execute strict 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'VARIABLE', 'local-AS', 'no-export', 'VARIABLE'
 complete 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@1: rv==2
 describe 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'VARIABLE', 'local-AS', 'no-export', 'VARIABLE'
 execute strict 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'VARIABLE', 'local-AS', 'no-export', 'VARIABLE'
 complete 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@2: rv==2
 describe 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'VARIABLE', 'local-AS', 'no-export', 'VARIABLE'
 execute strict 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'unicast', 'VARIABLE', 'local-AS', 'no-export', 'VARIABLE'
 complete 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@4: rv==2
 describe 'show bgp view VARIABLE ipv4 unicast community VARIABLE local-AS no-export VARIABLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv6', 'multicast', 'no-advertise', 'VARIABLE', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv6', 'multicast', 'no-advertise', 'VARIABLE', 'no-advertise', 'local-AS'
 complete 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@1: rv==7
   'local-AS'
 describe 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv6', 'multicast', 'no-advertise', 'VARIABLE', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv6', 'multicast', 'no-advertise', 'VARIABLE', 'no-advertise', 'local-AS'
 complete 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@2: rv==7
   'local-AS'
 describe 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv6', 'multicast', 'no-advertise', 'VARIABLE', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv6', 'multicast', 'no-advertise', 'VARIABLE', 'no-advertise', 'local-AS'
 complete 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@4: rv==7
   'local-AS'
 describe 'show bgp view VARIABLE ipv6 multicast community no-advertise VARIABLE no-advertise local-AS'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@1: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'local-AS', 'no-advertise', 'VARIABLE'
 execute strict 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@1: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'local-AS', 'no-advertise', 'VARIABLE'
 complete 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@1: rv==2
 describe 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@2: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'local-AS', 'no-advertise', 'VARIABLE'
 execute strict 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@2: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'local-AS', 'no-advertise', 'VARIABLE'
 complete 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@2: rv==2
 describe 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@4: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'local-AS', 'no-advertise', 'VARIABLE'
 execute strict 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@4: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'local-AS', 'no-advertise', 'VARIABLE'
 complete 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@4: rv==2
 describe 'show ip bgp community no-advertise local-AS no-advertise VARIABLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp ipv4 unicast community no-advertise VARIABLE no-advertise local-AS exact-match'@1: rv==0, 'show ip bgp ipv4 (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'unicast', 'no-advertise', 'VARIABLE', 'no-advertise', 'local-AS'
 execute strict 'show ip bgp ipv4 unicast community no-advertise VARIABLE no-advertise local-AS exact-match'@1: rv==0, 'show ip bgp ipv4 (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'unicast', 'no-advertise', 'VARIABLE', 'no-advertise', 'local-AS'
 complete 'show ip bgp ipv4 unicast community no-advertise VARIABLE no-advertise local-AS exact-match'@1: rv==7
@@ -567,12 +567,12 @@ execute relaxed 'show ipv6 bgp community no-export no-export VARIABLE VARIABLE'@
 execute strict 'show ipv6 bgp community no-export no-export VARIABLE VARIABLE'@2: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'no-export', 'VARIABLE', 'VARIABLE'
 complete 'show ipv6 bgp community no-export no-export VARIABLE VARIABLE'@2: rv==2
 describe 'show ipv6 bgp community no-export no-export VARIABLE VARIABLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ipv6 bgp community no-export no-export VARIABLE VARIABLE'@4: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'no-export', 'VARIABLE', 'VARIABLE'
 execute strict 'show ipv6 bgp community no-export no-export VARIABLE VARIABLE'@4: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'no-export', 'VARIABLE', 'VARIABLE'
 complete 'show ipv6 bgp community no-export no-export VARIABLE VARIABLE'@4: rv==2
 describe 'show ipv6 bgp community no-export no-export VARIABLE VARIABLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ipv6 bgp community VARIABLE local-AS no-advertise no-advertise exact-match'@2: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'VARIABLE', 'local-AS', 'no-advertise', 'no-advertise'
 execute strict 'show ipv6 bgp community VARIABLE local-AS no-advertise no-advertise exact-match'@2: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'VARIABLE', 'local-AS', 'no-advertise', 'no-advertise'
 complete 'show ipv6 bgp community VARIABLE local-AS no-advertise no-advertise exact-match'@2: rv==7
@@ -684,170 +684,170 @@ execute relaxed 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@1
 execute strict 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'local-AS', 'no-expor', 'no-xport', 'VARIABCLE'
 complete 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@1: rv==2
 describe 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'local-AS', 'no-expor', 'no-xport', 'VARIABCLE'
 execute strict 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'local-AS', 'no-expor', 'no-xport', 'VARIABCLE'
 complete 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@2: rv==2
 describe 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'local-AS', 'no-expor', 'no-xport', 'VARIABCLE'
 execute strict 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'local-AS', 'no-expor', 'no-xport', 'VARIABCLE'
 complete 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@4: rv==2
 describe 'show bgp ipv6 community local-AS no-expor no-xport VARIABCLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-adsertise', 'local-AS', 'no8-advertise', 'VARIABLE'
 execute strict 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-adsertise', 'local-AS', 'no8-advertise', 'VARIABLE'
 complete 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@1: rv==2
 describe 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-adsertise', 'local-AS', 'no8-advertise', 'VARIABLE'
 execute strict 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-adsertise', 'local-AS', 'no8-advertise', 'VARIABLE'
 complete 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@2: rv==2
 describe 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-adsertise', 'local-AS', 'no8-advertise', 'VARIABLE'
 execute strict 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-adsertise', 'local-AS', 'no8-advertise', 'VARIABLE'
 complete 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@4: rv==2
 describe 'show bgp ipv6 community no-adsertise local-AS no8-advertise VARIABLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no6-export', 'lcal-AS', 'local-AS'
 execute strict 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no6-export', 'lcal-AS', 'local-AS'
 complete 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@1: rv==7
   'local-AS'
 describe 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no6-export', 'lcal-AS', 'local-AS'
 execute strict 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no6-export', 'lcal-AS', 'local-AS'
 complete 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@2: rv==7
   'local-AS'
 describe 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no6-export', 'lcal-AS', 'local-AS'
 execute strict 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no6-export', 'lcal-AS', 'local-AS'
 complete 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@4: rv==7
   'local-AS'
 describe 'show bgp ipv6 community no-advertise no6-export lcal-AS local-AS'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-advertise', 'no-advertiseno-xport', 'exact-math'
 execute strict 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-advertise', 'no-advertiseno-xport', 'exact-math'
 complete 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@1: rv==2
 describe 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-advertise', 'no-advertiseno-xport', 'exact-math'
 execute strict 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-advertise', 'no-advertiseno-xport', 'exact-math'
 complete 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@2: rv==2
 describe 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-advertise', 'no-advertiseno-xport', 'exact-math'
 execute strict 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-advertise', 'no-advertise', 'no-advertiseno-xport', 'exact-math'
 complete 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@4: rv==2
 describe 'show bgp ipv6 community no-advertise no-advertise no-advertiseno-xport exact-math'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'local-AS', 'no-adertise', 'no-adve-tie'
 execute strict 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'local-AS', 'no-adertise', 'no-adve-tie'
 complete 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@1: rv==2
 describe 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'local-AS', 'no-adertise', 'no-adve-tie'
 execute strict 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'local-AS', 'no-adertise', 'no-adve-tie'
 complete 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@2: rv==2
 describe 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'local-AS', 'no-adertise', 'no-adve-tie'
 execute strict 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'local-AS', 'no-adertise', 'no-adve-tie'
 complete 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@4: rv==2
 describe 'show bgp ipv6 community no-export local-AS no-adertise no-adve-tie'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'yno-advertis', 'VAyRIABLE', 'no-advertise', 'VARIABLE'
 execute strict 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@1: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'yno-advertis', 'VAyRIABLE', 'no-advertise', 'VARIABLE'
 complete 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@1: rv==2
 describe 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'yno-advertis', 'VAyRIABLE', 'no-advertise', 'VARIABLE'
 execute strict 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@2: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'yno-advertis', 'VAyRIABLE', 'no-advertise', 'VARIABLE'
 complete 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@2: rv==2
 describe 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'yno-advertis', 'VAyRIABLE', 'no-advertise', 'VARIABLE'
 execute strict 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@4: rv==0, 'show bgp ipv6 community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'yno-advertis', 'VAyRIABLE', 'no-advertise', 'VARIABLE'
 complete 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@4: rv==2
 describe 'show bgp ipv6 community yno-advertis VAyRIABLE no-advertise VARIABLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VAR0IABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertie', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VAR0IABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertie', 'no-advertise', 'local-AS'
 complete 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@1: rv==7
   'local-AS'
 describe 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VAR0IABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertie', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VAR0IABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertie', 'no-advertise', 'local-AS'
 complete 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@2: rv==7
   'local-AS'
 describe 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VAR0IABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertie', 'no-advertise', 'local-AS'
 execute strict 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VAR0IABLE', 'ipv4', 'unicast', 'local-AS', 'no-advertie', 'no-advertise', 'local-AS'
 complete 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@4: rv==7
   'local-AS'
 describe 'show bgp view VAR0IABLE ipv4 unicast community local-AS no-advertie no-advertise local-AS'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'local-AS' 'Do not send outside local AS (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'local-AS', 'VARIABLE', 'loqal-AS', 'no-export'
 execute strict 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@1: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'local-AS', 'VARIABLE', 'loqal-AS', 'no-export'
 complete 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@1: rv==7
   'no-export'
 describe 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-export' 'Do not export to next AS (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'local-AS', 'VARIABLE', 'loqal-AS', 'no-export'
 execute strict 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@2: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'local-AS', 'VARIABLE', 'loqal-AS', 'no-export'
 complete 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@2: rv==7
   'no-export'
 describe 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-export' 'Do not export to next AS (well-known community)'
 execute relaxed 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'local-AS', 'VARIABLE', 'loqal-AS', 'no-export'
 execute strict 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@4: rv==0, 'show bgp view WORD (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLE', 'ipv4', 'multicast', 'local-AS', 'VARIABLE', 'loqal-AS', 'no-export'
 complete 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@4: rv==7
   'no-export'
 describe 'show bgp view VARIABLE ipv4 multicast community local-AS VARIABLE loqal-AS no-export'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
   'no-export' 'Do not export to next AS (well-known community)'
 execute relaxed 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@1: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-expor', 'VARIABLEono-export', 'VARIAuBLE'
 execute strict 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@1: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-expor', 'VARIABLEono-export', 'VARIAuBLE'
 complete 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@1: rv==2
 describe 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@2: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-expor', 'VARIABLEono-export', 'VARIAuBLE'
 execute strict 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@2: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-expor', 'VARIABLEono-export', 'VARIAuBLE'
 complete 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@2: rv==2
 describe 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@4: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-expor', 'VARIABLEono-export', 'VARIAuBLE'
 execute strict 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@4: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-expor', 'VARIABLEono-export', 'VARIAuBLE'
 complete 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@4: rv==2
 describe 'show ip bgp community no-expor VARIABLEono-export VARIAuBLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@1: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLElocal-AS', 'no-advertise', 'local-AS', 'xack-match'
 execute strict 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@1: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLElocal-AS', 'no-advertise', 'local-AS', 'xack-match'
 complete 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@1: rv==2
 describe 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@1: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@2: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLElocal-AS', 'no-advertise', 'local-AS', 'xack-match'
 execute strict 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@2: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLElocal-AS', 'no-advertise', 'local-AS', 'xack-match'
 complete 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@2: rv==2
 describe 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@4: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLElocal-AS', 'no-advertise', 'local-AS', 'xack-match'
 execute strict 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@4: rv==0, 'show ip bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'VARIABLElocal-AS', 'no-advertise', 'local-AS', 'xack-match'
 complete 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@4: rv==2
 describe 'show ip bgp community VARIABLElocal-AS no-advertise local-AS xack-match'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ip bgp ipv4 unicast community no-advertise no-export no-advrtWise mno-export exact-match'@1: rv==0, 'show ip bgp ipv4 (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'unicast', 'no-advertise', 'no-export', 'no-advrtWise', 'mno-export'
 execute strict 'show ip bgp ipv4 unicast community no-advertise no-export no-advrtWise mno-export exact-match'@1: rv==0, 'show ip bgp ipv4 (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'unicast', 'no-advertise', 'no-export', 'no-advrtWise', 'mno-export'
 complete 'show ip bgp ipv4 unicast community no-advertise no-export no-advrtWise mno-export exact-match'@1: rv==7
@@ -882,12 +882,12 @@ execute relaxed 'show ipv6 bgp community no-export loal-AS noK-advertise VARIABL
 execute strict 'show ipv6 bgp community no-export loal-AS noK-advertise VARIABLE'@2: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'loal-AS', 'noK-advertise', 'VARIABLE'
 complete 'show ipv6 bgp community no-export loal-AS noK-advertise VARIABLE'@2: rv==2
 describe 'show ipv6 bgp community no-export loal-AS noK-advertise VARIABLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ipv6 bgp community no-export loal-AS noK-advertise VARIABLE'@4: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'loal-AS', 'noK-advertise', 'VARIABLE'
 execute strict 'show ipv6 bgp community no-export loal-AS noK-advertise VARIABLE'@4: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'no-export', 'loal-AS', 'noK-advertise', 'VARIABLE'
 complete 'show ipv6 bgp community no-export loal-AS noK-advertise VARIABLE'@4: rv==2
 describe 'show ipv6 bgp community no-export loal-AS noK-advertise VARIABLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ipv6 bgp community VARIABaE no-export no-adertise lo0cal-AS exact-match'@2: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'VARIABaE', 'no-export', 'no-adertise', 'lo0cal-AS'
 execute strict 'show ipv6 bgp community VARIABaE no-export no-adertise lo0cal-AS exact-match'@2: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) exact-match': 'VARIABaE', 'no-export', 'no-adertise', 'lo0cal-AS'
 complete 'show ipv6 bgp community VARIABaE no-export no-adertise lo0cal-AS exact-match'@2: rv==7
@@ -904,12 +904,12 @@ execute relaxed 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@2: rv==0, 's
 execute strict 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@2: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'wARIBLE', 'VARIABLE', '8ARIABLE'
 complete 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@2: rv==2
 describe 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@2: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@4: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'wARIBLE', 'VARIABLE', '8ARIABLE'
 execute strict 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@4: rv==0, 'show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export) (AA:NN|local-AS|no-advertise|no-export)': 'wARIBLE', 'VARIABLE', '8ARIABLE'
 complete 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@4: rv==2
 describe 'show ipv6 bgp community wARIBLE VARIABLE 8ARIABLE'@4: rv==0
-  'AA:NN' 'community number'
+  'AA:NN' 'Community number where AA and NN are <0-65535>'
 execute relaxed 'redistribute bgp'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp)': 'bgp'
 execute strict 'redistribute bgp'@14: rv==0, 'redistribute (kernel|connected|static|ospf|isis|bgp)': 'bgp'
 complete 'redistribute bgp'@14: rv==7
