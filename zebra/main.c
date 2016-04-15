@@ -46,6 +46,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
+#include "zebra/zebra_mpls.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -361,6 +362,8 @@ main (int argc, char **argv)
 #ifdef ZEBRA_PTM_SUPPORT
   zebra_ptm_init();
 #endif
+
+  zebra_mpls_init ();
 
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */

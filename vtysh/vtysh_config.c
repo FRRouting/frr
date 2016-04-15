@@ -256,6 +256,8 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (PROTOCOL_NODE, line);
       else if (strncmp (line, "ipv6 nht", strlen ("ipv6 nht")) == 0)
 	config = config_get (PROTOCOL_NODE, line);
+      else if (strncmp (line, "mpls", strlen ("mpls")) == 0)
+	config = config_get (MPLS_NODE, line);
       else
 	{
 	  if (strncmp (line, "log", strlen ("log")) == 0
@@ -300,7 +302,7 @@ vtysh_config_parse (char *line)
    || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || \
    (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE \
    || (I) == SERVICE_NODE || (I) == FORWARDING_NODE || (I) == DEBUG_NODE \
-   || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE)
+   || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
 void

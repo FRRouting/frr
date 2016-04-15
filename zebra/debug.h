@@ -41,6 +41,8 @@
 #define ZEBRA_DEBUG_FPM     0x01
 #define ZEBRA_DEBUG_NHT     0x01
 
+#define ZEBRA_DEBUG_MPLS    0x01
+
 /* Debug related macro. */
 #define IS_ZEBRA_DEBUG_EVENT  (zebra_debug_event & ZEBRA_DEBUG_EVENT)
 
@@ -61,6 +63,7 @@
 
 #define IS_ZEBRA_DEBUG_FPM (zebra_debug_fpm & ZEBRA_DEBUG_FPM)
 #define IS_ZEBRA_DEBUG_NHT  (zebra_debug_nht & ZEBRA_DEBUG_NHT)
+#define IS_ZEBRA_DEBUG_MPLS  (zebra_debug_mpls & ZEBRA_DEBUG_MPLS)
 
 extern unsigned long zebra_debug_event;
 extern unsigned long zebra_debug_packet;
@@ -68,6 +71,7 @@ extern unsigned long zebra_debug_kernel;
 extern unsigned long zebra_debug_rib;
 extern unsigned long zebra_debug_fpm;
 extern unsigned long zebra_debug_nht;
+extern unsigned long zebra_debug_mpls;
 
 extern void zebra_debug_init (void);
 

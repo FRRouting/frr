@@ -152,4 +152,60 @@ struct zebra_lsp_t_
 };
 
 
+/* Function declarations. */
+
+/*
+ * Check that the label values used in LSP creation are consistent. The
+ * main criteria is that if there is ECMP, the label operation must still
+ * be consistent - i.e., all paths either do a swap or do PHP. This is due
+ * to current HW restrictions.
+ */
+int
+zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
+                     mpls_label_t out_label, enum nexthop_types_t gtype,
+                     union g_addr *gate, char *ifname, ifindex_t ifindex);
+
+/*
+ * Add static LSP entry. This may be the first entry for this incoming label
+ * or an additional nexthop; an existing entry may also have outgoing label
+ * changed.
+ * Note: The label operation (swap or PHP) is common for the LSP entry (all
+ * NHLFEs).
+ */
+int
+zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
+                     mpls_label_t out_label, enum nexthop_types_t gtype,
+                     union g_addr *gate, char *ifname, ifindex_t ifindex);
+
+/*
+ * Delete static LSP entry. This may be the delete of one particular
+ * NHLFE for this incoming label or the delete of the entire entry (i.e.,
+ * all NHLFEs).
+ * NOTE: Delete of the only NHLFE will also end up deleting the entire
+ * LSP configuration.
+ */
+int
+zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
+                           enum nexthop_types_t gtype, union g_addr *gate,
+                           char *ifname, ifindex_t ifindex);
+
+/*
+ * Display MPLS LSP configuration of all static LSPs (VTY command handler).
+ */
+int
+zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf);
+
+/*
+ * Allocate MPLS tables for this VRF.
+ * NOTE: Currently supported only for default VRF.
+ */
+void
+zebra_mpls_init_tables (struct zebra_vrf *zvrf);
+
+/*
+ * Global MPLS initialization.
+ */
+void
+zebra_mpls_init (void);
+
 #endif /*_ZEBRA_MPLS_H */

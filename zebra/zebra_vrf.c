@@ -32,6 +32,7 @@
 #include "zebra/router-id.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_static.h"
+#include "zebra/zebra_mpls.h"
 
 extern struct zebra_t zebrad;
 struct list *zvrf_list;
@@ -331,6 +332,8 @@ zebra_vrf_alloc (vrf_id_t vrf_id, const char *name)
       strncpy (zvrf->name, name, strlen(name));
       zvrf->name[strlen(name)] = '\0';
     }
+
+  zebra_mpls_init_tables (zvrf);
 
   return zvrf;
 }
