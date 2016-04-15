@@ -422,7 +422,9 @@ main (int argc, char **argv, char **env)
 
   if (inputfile)
     {
+      vtysh_flock_config (inputfile);
       ret = vtysh_read_config(inputfile);
+      vtysh_unflock_config ();
       exit(ret);
     }
 
