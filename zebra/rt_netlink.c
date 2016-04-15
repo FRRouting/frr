@@ -654,8 +654,10 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
       if (linkinfo[IFLA_INFO_KIND])
         kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
 
+#if HAVE_DECL_IFLA_INFO_SLAVE_KIND
       if (linkinfo[IFLA_INFO_SLAVE_KIND])
          slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
+#endif
 
       if (kind && strcmp(kind, "vrf") == 0)
         {
@@ -1304,8 +1306,10 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
       if (linkinfo[IFLA_INFO_KIND])
         kind = RTA_DATA(linkinfo[IFLA_INFO_KIND]);
 
+#if HAVE_DECL_IFLA_INFO_SLAVE_KIND
       if (linkinfo[IFLA_INFO_SLAVE_KIND])
           slave_kind = RTA_DATA(linkinfo[IFLA_INFO_SLAVE_KIND]);
+#endif
 
       if (kind && strcmp(kind, "vrf") == 0)
         {
