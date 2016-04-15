@@ -7291,6 +7291,26 @@ bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
   return bgp_show_table (vty, table, &bgp->router_id, type, output_arg, use_json);
 }
 
+static void
+bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
+                                   u_char use_json)
+{
+  struct listnode *node, *nnode;
+  struct bgp *bgp;
+  struct bgp_table *table;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    {
+      vty_out (vty, "%sInstance %s:%s",
+               VTY_NEWLINE,
+               (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name,
+               VTY_NEWLINE);
+      table = bgp->rib[afi][safi];
+      bgp_show_table (vty, table, &bgp->router_id,
+                      bgp_show_type_normal, NULL, use_json);
+    }
+}
+
 /* Header of detailed BGP route information */
 static void
 route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
@@ -7901,6 +7921,21 @@ DEFUN (show_ip_bgp_view,
   return bgp_show (vty, bgp, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json(argc, argv));
 }
 
+DEFUN (show_ip_bgp_instance_all,
+       show_ip_bgp_instance_all_cmd,
+       "show ip bgp " BGP_INSTANCE_ALL_CMD " {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+
+  bgp_show_all_instances_routes_vty (vty, AFI_IP, SAFI_UNICAST, uj);
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_bgp_instance_route,
        show_ip_bgp_instance_route_cmd,
        "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D {json}",
@@ -8257,6 +8292,20 @@ DEFUN (show_bgp_view,
     }
 
   return bgp_show (vty, bgp, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal, NULL, use_json(argc, argv));
+}
+
+DEFUN (show_bgp_instance_all,
+       show_bgp_instance_all_cmd,
+       "show bgp " BGP_INSTANCE_ALL_CMD " {json}",
+       SHOW_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+
+  bgp_show_all_instances_routes_vty (vty, AFI_IP6, SAFI_UNICAST, uj);
+  return CMD_SUCCESS;
 }
 
 ALIAS (show_bgp_view,
@@ -9255,7 +9304,7 @@ DEFUN (show_ip_bgp_community,
        IP_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9270,11 +9319,11 @@ ALIAS (show_ip_bgp_community,
        IP_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9286,15 +9335,15 @@ ALIAS (show_ip_bgp_community,
        IP_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9306,19 +9355,19 @@ ALIAS (show_ip_bgp_community,
        IP_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9333,7 +9382,7 @@ DEFUN (show_ip_bgp_ipv4_community,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9354,11 +9403,11 @@ ALIAS (show_ip_bgp_ipv4_community,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9373,15 +9422,15 @@ ALIAS (show_ip_bgp_ipv4_community,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9396,19 +9445,19 @@ ALIAS (show_ip_bgp_ipv4_community,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9470,7 +9519,7 @@ DEFUN (show_bgp_instance_afi_safi_community,
        "Address family modifier\n"
        "Address family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9506,11 +9555,11 @@ ALIAS (show_bgp_instance_afi_safi_community,
        "Address family modifier\n"
        "Address family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9532,15 +9581,15 @@ ALIAS (show_bgp_instance_afi_safi_community,
        "Address family modifier\n"
        "Address family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9562,19 +9611,19 @@ ALIAS (show_bgp_instance_afi_safi_community,
        "Address family modifier\n"
        "Address family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9586,7 +9635,7 @@ DEFUN (show_ip_bgp_community_exact,
        IP_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9602,11 +9651,11 @@ ALIAS (show_ip_bgp_community_exact,
        IP_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9619,15 +9668,15 @@ ALIAS (show_ip_bgp_community_exact,
        IP_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9640,19 +9689,19 @@ ALIAS (show_ip_bgp_community_exact,
        IP_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9668,7 +9717,7 @@ DEFUN (show_ip_bgp_ipv4_community_exact,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9690,11 +9739,11 @@ ALIAS (show_ip_bgp_ipv4_community_exact,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9710,15 +9759,15 @@ ALIAS (show_ip_bgp_ipv4_community_exact,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9734,19 +9783,19 @@ ALIAS (show_ip_bgp_ipv4_community_exact,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9759,7 +9808,7 @@ DEFUN (show_bgp_community,
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9774,7 +9823,7 @@ ALIAS (show_bgp_community,
        BGP_STR
        "Address family\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9785,11 +9834,11 @@ ALIAS (show_bgp_community,
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9801,11 +9850,11 @@ ALIAS (show_bgp_community,
        BGP_STR
        "Address family\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9816,15 +9865,15 @@ ALIAS (show_bgp_community,
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9836,15 +9885,15 @@ ALIAS (show_bgp_community,
        BGP_STR
        "Address family\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9855,19 +9904,19 @@ ALIAS (show_bgp_community,
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9879,19 +9928,19 @@ ALIAS (show_bgp_community,
        BGP_STR
        "Address family\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9904,7 +9953,7 @@ DEFUN (show_ipv6_bgp_community,
        IPV6_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9921,11 +9970,11 @@ ALIAS (show_ipv6_bgp_community,
        IPV6_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9938,15 +9987,15 @@ ALIAS (show_ipv6_bgp_community,
        IPV6_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9959,19 +10008,19 @@ ALIAS (show_ipv6_bgp_community,
        IPV6_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -9982,7 +10031,7 @@ DEFUN (show_bgp_community_exact,
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -9998,7 +10047,7 @@ ALIAS (show_bgp_community_exact,
        BGP_STR
        "Address family\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10010,11 +10059,11 @@ ALIAS (show_bgp_community_exact,
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10027,11 +10076,11 @@ ALIAS (show_bgp_community_exact,
        BGP_STR
        "Address family\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10043,15 +10092,15 @@ ALIAS (show_bgp_community_exact,
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10064,15 +10113,15 @@ ALIAS (show_bgp_community_exact,
        BGP_STR
        "Address family\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10084,19 +10133,19 @@ ALIAS (show_bgp_community_exact,
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10109,19 +10158,19 @@ ALIAS (show_bgp_community_exact,
        BGP_STR
        "Address family\n"
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10135,7 +10184,7 @@ DEFUN (show_ipv6_bgp_community_exact,
        IPV6_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10153,11 +10202,11 @@ ALIAS (show_ipv6_bgp_community_exact,
        IPV6_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10171,15 +10220,15 @@ ALIAS (show_ipv6_bgp_community_exact,
        IPV6_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10193,19 +10242,19 @@ ALIAS (show_ipv6_bgp_community_exact,
        IPV6_STR
        BGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10219,7 +10268,7 @@ DEFUN (show_ipv6_mbgp_community,
        IPV6_STR
        MBGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -10236,11 +10285,11 @@ ALIAS (show_ipv6_mbgp_community,
        IPV6_STR
        MBGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -10253,15 +10302,15 @@ ALIAS (show_ipv6_mbgp_community,
        IPV6_STR
        MBGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -10274,19 +10323,19 @@ ALIAS (show_ipv6_mbgp_community,
        IPV6_STR
        MBGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
@@ -10299,7 +10348,7 @@ DEFUN (show_ipv6_mbgp_community_exact,
        IPV6_STR
        MBGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10317,11 +10366,11 @@ ALIAS (show_ipv6_mbgp_community_exact,
        IPV6_STR
        MBGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10335,15 +10384,15 @@ ALIAS (show_ipv6_mbgp_community_exact,
        IPV6_STR
        MBGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -10357,19 +10406,19 @@ ALIAS (show_ipv6_mbgp_community_exact,
        IPV6_STR
        MBGP_STR
        "Display routes matching the communities\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
-       "community number\n"
+       COMMUNITY_AANN_STR
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
@@ -13974,6 +14023,7 @@ bgp_route_init (void)
 
   install_element (VIEW_NODE, &show_ip_bgp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
@@ -14116,6 +14166,7 @@ bgp_route_init (void)
 
   install_element (ENABLE_NODE, &show_ip_bgp_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_route_cmd);
@@ -14313,6 +14364,7 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_bgp_neighbor_damp_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_neighbor_damp_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_route_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_route_cmd);
@@ -14445,6 +14497,7 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_bgp_neighbor_damp_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_damp_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_all_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_route_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_route_cmd);

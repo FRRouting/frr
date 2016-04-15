@@ -350,7 +350,7 @@ struct bgp
 
 #define IS_BGP_INST_KNOWN_TO_ZEBRA(bgp) \
         (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT || \
-         (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp->vrf_id != VRF_DEFAULT))
+         (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp->vrf_id != VRF_UNKNOWN))
 
 /* BGP peer-group support. */
 struct peer_group
@@ -1474,7 +1474,7 @@ bgp_vrf_unlink (struct bgp *bgp, struct vrf *vrf)
       vrf->info = NULL;
       bgp_unlock (bgp);
     }
-  bgp->vrf_id = VRF_DEFAULT;
+  bgp->vrf_id = VRF_UNKNOWN;
 }
 
 #endif /* _QUAGGA_BGPD_H */

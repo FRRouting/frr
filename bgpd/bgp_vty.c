@@ -4769,7 +4769,7 @@ peer_timers_unset_vty (struct vty *vty, const char *ip_str)
   int ret;
   struct peer *peer;
 
-  peer = peer_lookup_vty (vty, ip_str);
+  peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
@@ -9552,6 +9552,7 @@ DEFUN (show_bgp_vrfs,
       struct listnode *node, *nnode;
       int peers_cfg, peers_estb;
       json_object *json_vrf = NULL;
+      int vrf_id_ui;
 
       /* Skip Views. */
       if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
@@ -9586,10 +9587,11 @@ DEFUN (show_bgp_vrfs,
           type = "VRF";
         }
 
+      vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
       if (uj)
         {
           json_object_string_add(json_vrf, "type", type);
-          json_object_int_add(json_vrf, "vrfId", bgp->vrf_id);
+          json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
           json_object_string_add(json_vrf, "routerId", inet_ntoa (bgp->router_id));
           json_object_int_add(json_vrf, "numConfiguredPeers", peers_cfg);
           json_object_int_add(json_vrf, "numEstablishedPeers", peers_estb);
@@ -9597,8 +9599,8 @@ DEFUN (show_bgp_vrfs,
           json_object_object_add(json_vrfs, name, json_vrf);
         }
       else
-        vty_out (vty, "%4s  %-5u  %-16s  %9u  %10u  %s%s",
-                 type, bgp->vrf_id, inet_ntoa (bgp->router_id),
+        vty_out (vty, "%4s  %-5d  %-16s  %9u  %10u  %s%s",
+                 type, vrf_id_ui, inet_ntoa (bgp->router_id),
                  peers_cfg, peers_estb, name,
                  VTY_NEWLINE);
     }
@@ -9798,26 +9800,23 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
             {
               unsigned long ents;
               char memstrbuf[MTYPE_MEMSTR_LEN];
+              int vrf_id_ui;
+
+              vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
 
               /* Usage summary and header */
               if (use_json)
                 {
                   json_object_string_add(json, "routerId", inet_ntoa (bgp->router_id));
                   json_object_int_add(json, "as", bgp->as);
-
-                  if (bgp->vrf_id)
-                    json_object_int_add(json, "vrf-id", bgp->vrf_id);
+                  json_object_int_add(json, "vrf-id", vrf_id_ui);
 
                 }
               else
                 {
                   vty_out (vty,
-                           "BGP router identifier %s, local AS number %u",
-                           inet_ntoa (bgp->router_id), bgp->as);
-
-                  if (bgp->vrf_id)
-                    vty_out (vty, " vrf-id %u", bgp->vrf_id);
-
+                           "BGP router identifier %s, local AS number %u vrf-id %d",
+                           inet_ntoa (bgp->router_id), bgp->as, vrf_id_ui);
                   vty_out (vty, "%s", VTY_NEWLINE);
                 }
 
@@ -10105,6 +10104,23 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
   return CMD_SUCCESS;
 }
 
+static void
+bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
+                                    u_char use_json)
+{
+  struct listnode *node, *nnode;
+  struct bgp *bgp;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    {
+      vty_out (vty, "%sInstance %s:%s",
+               VTY_NEWLINE,
+               (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name,
+               VTY_NEWLINE);
+      bgp_show_summary (vty, bgp, afi, safi, use_json);
+    }
+}
+
 /* `show ip bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
@@ -10131,6 +10147,22 @@ DEFUN (show_ip_bgp_instance_summary,
 {
   u_char uj = use_json(argc, argv);
   return bgp_show_summary_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, uj);
+}
+
+DEFUN (show_ip_bgp_instance_all_summary,
+       show_ip_bgp_instance_all_summary_cmd,
+       "show ip bgp " BGP_INSTANCE_ALL_CMD " summary {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+
+  bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_UNICAST, uj);
+  return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_bgp_ipv4_summary, 
@@ -10258,6 +10290,21 @@ DEFUN (show_bgp_instance_summary,
        "JavaScript Object Notation\n")
 {
   return bgp_show_summary_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
+}
+
+DEFUN (show_bgp_instance_all_summary,
+       show_bgp_instance_all_summary_cmd,
+       "show bgp " BGP_INSTANCE_ALL_CMD " summary {json}",
+       SHOW_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "Summary of BGP neighbor status\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+
+  bgp_show_all_instances_summary_vty (vty, AFI_IP6, SAFI_UNICAST, uj);
+  return CMD_SUCCESS;
 }
 
 ALIAS (show_bgp_summary, 
@@ -12095,6 +12142,25 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
   return CMD_SUCCESS;
 }
 
+static void
+bgp_show_all_instances_neighbors_vty (struct vty *vty, u_char use_json)
+{
+  struct listnode *node, *nnode;
+  struct bgp *bgp;
+  json_object *json = NULL;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    {
+      vty_out (vty, "%sInstance %s:%s",
+               VTY_NEWLINE,
+               (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name,
+               VTY_NEWLINE);
+      if (use_json)
+        json = json_object_new_object();
+      bgp_show_neighbor (vty, bgp, show_all, NULL, NULL, use_json, json);
+    }
+}
+
 /* "show ip bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
@@ -12256,6 +12322,22 @@ DEFUN (show_ip_bgp_instance_neighbors,
   return bgp_show_neighbor_vty (vty, argv[1], show_all, NULL, uj);
 }
 
+DEFUN (show_ip_bgp_instance_all_neighbors,
+       show_ip_bgp_instance_all_neighbors_cmd,
+       "show ip bgp " BGP_INSTANCE_ALL_CMD " neighbors {json}",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "JavaScript Object Notation\n")
+{
+  u_char uj = use_json(argc, argv);
+
+  bgp_show_all_instances_neighbors_vty (vty, uj);
+  return CMD_SUCCESS;
+}
+
 ALIAS (show_ip_bgp_instance_neighbors,
        show_bgp_instance_neighbors_cmd,
        "show bgp " BGP_INSTANCE_CMD " neighbors {json}",
@@ -12410,6 +12492,22 @@ static int bgp_show_update_groups(struct vty *vty, const char *name,
   return CMD_SUCCESS;
 }
 
+static void
+bgp_show_all_instances_updgrps_vty (struct vty *vty, afi_t afi, safi_t safi)
+{
+  struct listnode *node, *nnode;
+  struct bgp *bgp;
+
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    {
+      vty_out (vty, "%sInstance %s:%s",
+               VTY_NEWLINE,
+               (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name,
+               VTY_NEWLINE);
+      update_group_show(bgp, afi, safi, vty, 0);
+    }
+}
+
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
        "show ip bgp update-groups",
@@ -12433,6 +12531,19 @@ DEFUN (show_ip_bgp_instance_updgrps,
   return (bgp_show_update_groups(vty, argv[1], AFI_IP, SAFI_UNICAST, 0));
 }
 
+DEFUN (show_ip_bgp_instance_all_updgrps,
+       show_ip_bgp_instance_all_updgrps_cmd,
+       "show ip bgp " BGP_INSTANCE_ALL_CMD " update-groups",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "Detailed info about dynamic update groups\n")
+{
+  bgp_show_all_instances_updgrps_vty (vty, AFI_IP, SAFI_UNICAST);
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_ipv6_updgrps,
        show_bgp_ipv6_updgrps_cmd,
        "show bgp update-groups",
@@ -12452,6 +12563,18 @@ DEFUN (show_bgp_instance_ipv6_updgrps,
        "Detailed info about v6 dynamic update groups\n")
 {
   return (bgp_show_update_groups(vty, argv[1], AFI_IP6, SAFI_UNICAST, 0));
+}
+
+DEFUN (show_bgp_instance_all_ipv6_updgrps,
+       show_bgp_instance_all_ipv6_updgrps_cmd,
+       "show bgp " BGP_INSTANCE_ALL_CMD " update-groups",
+       SHOW_STR
+       BGP_STR
+       BGP_INSTANCE_ALL_HELP_STR
+       "Detailed info about v6 dynamic update groups\n")
+{
+  bgp_show_all_instances_updgrps_vty (vty, AFI_IP6, SAFI_UNICAST);
+  return CMD_SUCCESS;
 }
 
 DEFUN (show_bgp_updgrps,
@@ -14889,9 +15012,11 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_all_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_updgrps_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_s_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_s_cmd);
@@ -14908,6 +15033,7 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_summary_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_all_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv4_safi_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
@@ -14917,6 +15043,7 @@ bgp_vty_init (void)
 #ifdef HAVE_IPV6
   install_element (VIEW_NODE, &show_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_all_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_safi_summary_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_ipv6_summary_cmd);
@@ -14925,9 +15052,11 @@ bgp_vty_init (void)
   install_element (RESTRICTED_NODE, &show_ip_bgp_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_updgrps_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_instance_all_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_instance_ipv6_updgrps_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_s_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_updgrps_s_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_s_cmd);
@@ -14944,6 +15073,7 @@ bgp_vty_init (void)
   install_element (RESTRICTED_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_summary_cmd);
+  install_element (RESTRICTED_NODE, &show_ip_bgp_instance_all_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv4_safi_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
@@ -14953,6 +15083,7 @@ bgp_vty_init (void)
 #ifdef HAVE_IPV6
   install_element (RESTRICTED_NODE, &show_bgp_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_instance_summary_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_instance_all_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_ipv6_safi_summary_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_instance_ipv6_summary_cmd);
@@ -14961,9 +15092,11 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_updgrps_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_updgrps_cmd);
   install_element (ENABLE_NODE, &show_bgp_updgrps_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_updgrps_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_updgrps_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_updgrps_s_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_updgrps_s_cmd);
   install_element (ENABLE_NODE, &show_bgp_updgrps_s_cmd);
@@ -14980,6 +15113,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_summary_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv4_safi_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
@@ -14989,6 +15123,7 @@ bgp_vty_init (void)
 #ifdef HAVE_IPV6
   install_element (ENABLE_NODE, &show_bgp_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_summary_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_all_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_safi_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_summary_cmd);
@@ -15005,6 +15140,7 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_neighbors_peer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_neighbors_peer_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbors_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbors_peer_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_neighbors_peer_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_neighbors_peer_cmd);
@@ -15020,6 +15156,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_neighbors_peer_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_neighbors_peer_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbors_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbors_peer_cmd);
 
 #ifdef HAVE_IPV6
@@ -15294,7 +15431,6 @@ community_list_unset_vty (struct vty *vty, int argc, const char **argv,
 
 /* "community-list" keyword help string.  */
 #define COMMUNITY_LIST_STR "Add a community list entry\n"
-#define COMMUNITY_VAL_STR  "Community number in aa:nn format or internet|local-AS|no-advertise|no-export\n"
 
 DEFUN (ip_community_list_standard,
        ip_community_list_standard_cmd,

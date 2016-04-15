@@ -583,6 +583,13 @@ community_gettoken (const char *buf, enum community_token *token,
 		{
 		  separator = 1;
 		  digit = 0;
+
+                  if (community_low > UINT16_MAX)
+                    {
+                      *token = community_token_unknown;
+                      return NULL;
+                    }
+
 		  community_high = community_low << 16;
 		  community_low = 0;
 		}
@@ -600,6 +607,13 @@ community_gettoken (const char *buf, enum community_token *token,
 	  *token = community_token_unknown;
 	  return NULL;
 	}
+
+      if (community_low > UINT16_MAX)
+        {
+          *token = community_token_unknown;
+          return NULL;
+        }
+
       *val = community_high + community_low;
       *token = community_token_val;
       return p;

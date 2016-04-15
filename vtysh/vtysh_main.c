@@ -246,7 +246,7 @@ vtysh_flock_config (const char *flock_file)
 {
   int count = 0;
 
-  flock_fd = open (flock_file, O_RDONLY | O_CREAT , 0644);
+  flock_fd = open (flock_file, O_RDONLY, 0644);
   if (flock_fd < 0)
     {
       fprintf (stderr, "Unable to create lock file: %s, %s\n",
