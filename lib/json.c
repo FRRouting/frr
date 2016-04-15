@@ -19,7 +19,8 @@
  * 02111-1307, USA.
  */
 
-#include <string.h>
+#include <zebra.h>
+
 #include "lib/json.h"
 
 /*
