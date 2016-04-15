@@ -234,64 +234,6 @@ bgp_nbr_connected_delete (struct bgp *bgp, struct nbr_connected *ifc, int del)
     }
 }
 
-/* VRF learnt from Zebra. */
-static int
-bgp_vrf_add (int command, struct zclient *zclient, zebra_size_t length,
-    vrf_id_t vrf_id)
-{
-  struct vrf *vrf;
-  struct bgp *bgp;
-
-  vrf = zebra_vrf_add_read (zclient->ibuf, vrf_id);
-  if (!vrf) // unexpected
-    return -1;
-
-  if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug("Rx VRF add %s id %d", vrf->name, vrf_id);
-
-  bgp = bgp_lookup_by_name(vrf->name);
-  if (bgp)
-    {
-      /* We have instance configured, link to VRF and make it "up". */
-      bgp_vrf_link (bgp, vrf);
-      bgp_instance_up (bgp);
-    }
-
-  return 0;
-}
-
-/* VRF deleted by Zebra. */
-static int
-bgp_vrf_delete (int command, struct zclient *zclient, zebra_size_t length,
-    vrf_id_t vrf_id)
-{
-  struct vrf *vrf;
-  struct bgp *bgp;
-
-  /* Default VRF cannot be deleted. */
-  assert (vrf_id != VRF_DEFAULT);
-
-  vrf = zebra_vrf_state_read (zclient->ibuf, vrf_id);
-  if (!vrf) // unexpected
-    return -1;
-
-  if (BGP_DEBUG (zebra, ZEBRA))
-    zlog_debug("Rx VRF del %s id %d", vrf->name, vrf_id);
-
-  bgp = bgp_lookup_by_name(vrf->name);
-  if (bgp)
-    {
-      /* We have instance configured, unlink from VRF and make it "down". */
-      bgp_vrf_unlink (bgp, vrf);
-      bgp_instance_down (bgp);
-    }
-
-  /* Note: This is a callback, the VRF will be deleted by the caller. */
-  return 0;
-}
-
-
-
 /* Inteface addition message from zebra. */
 static int
 bgp_interface_add (int command, struct zclient *zclient, zebra_size_t length,
@@ -2049,8 +1991,6 @@ bgp_zebra_init (struct thread_master *master)
   zclient_init (zclient, ZEBRA_ROUTE_BGP, 0);
   zclient->zebra_connected = bgp_zebra_connected;
   zclient->router_id_update = bgp_router_id_update;
-  zclient->vrf_add = bgp_vrf_add;
-  zclient->vrf_delete = bgp_vrf_delete;
   zclient->interface_add = bgp_interface_add;
   zclient->interface_delete = bgp_interface_delete;
   zclient->interface_address_add = bgp_interface_address_add;
@@ -2064,12 +2004,10 @@ bgp_zebra_init (struct thread_master *master)
   zclient->redistribute_route_ipv4_del = zebra_read_ipv4;
   zclient->interface_up = bgp_interface_up;
   zclient->interface_down = bgp_interface_down;
-#ifdef HAVE_IPV6
   zclient->ipv6_route_add = zebra_read_ipv6;
   zclient->ipv6_route_delete = zebra_read_ipv6;
   zclient->redistribute_route_ipv6_add = zebra_read_ipv6;
   zclient->redistribute_route_ipv6_del = zebra_read_ipv6;
-#endif /* HAVE_IPV6 */
   zclient->nexthop_update = bgp_read_nexthop_update;
   zclient->import_check_update = bgp_read_import_check_update;
 

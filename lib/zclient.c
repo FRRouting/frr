@@ -919,8 +919,8 @@ zebra_router_id_update_read (struct stream *s, struct prefix *rid)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-struct vrf *
-zebra_vrf_add_read (struct stream *s, vrf_id_t vrf_id)
+static void
+zclient_vrf_add (struct stream *s, vrf_id_t vrf_id)
 {
   struct vrf *vrf;
   char vrfname_tmp[VRF_NAMSIZ];
@@ -931,18 +931,18 @@ zebra_vrf_add_read (struct stream *s, vrf_id_t vrf_id)
   /* Lookup/create vrf by vrf_id. */
   vrf = vrf_get (vrf_id, vrfname_tmp);
 
-  return vrf;
+  vrf_enable (vrf);
 }
 
-struct vrf *
-zebra_vrf_state_read (struct stream *s, vrf_id_t vrf_id)
+static void
+zclient_vrf_delete (struct stream *s, vrf_id_t vrf_id)
 {
   struct vrf *vrf;
 
   /* Lookup vrf by vrf_id. */
   vrf = vrf_lookup (vrf_id);
 
-  return vrf;
+  vrf_delete (vrf);
 }
 
 struct interface *
@@ -1341,12 +1341,10 @@ zclient_read (struct thread *thread)
 	(*zclient->router_id_update) (command, zclient, length, vrf_id);
       break;
     case ZEBRA_VRF_ADD:
-      if (zclient->vrf_add)
-	(*zclient->vrf_add) (command, zclient, length, vrf_id);
+      zclient_vrf_add (zclient->ibuf, vrf_id);
       break;
     case ZEBRA_VRF_DELETE:
-      if (zclient->vrf_delete)
-	(*zclient->vrf_delete) (command, zclient, length, vrf_id);
+      zclient_vrf_delete (zclient->ibuf, vrf_id);
       break;
     case ZEBRA_INTERFACE_ADD:
       if (zclient->interface_add)

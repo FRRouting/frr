@@ -290,6 +290,87 @@ bgp_exit (int status)
   exit (status);
 }
 
+static int
+bgp_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
+{
+  if (BGP_DEBUG (zebra, ZEBRA))
+    zlog_debug ("VRF Created: %s(%d)", name, vrf_id);
+
+  return 0;
+}
+
+static int
+bgp_vrf_delete (vrf_id_t vrf_id, const char *name, void **info)
+{
+  if (BGP_DEBUG (zebra, ZEBRA))
+    zlog_debug ("VRF Deletion: %s(%d)", name, vrf_id);
+
+  return 0;
+}
+
+static int
+bgp_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
+{
+  struct vrf *vrf;
+  struct bgp *bgp;
+
+  vrf = vrf_lookup (vrf_id);
+  if (!vrf) // unexpected
+    return -1;
+
+  if (BGP_DEBUG (zebra, ZEBRA))
+    zlog_debug("VRF enable add %s id %d", name, vrf_id);
+
+  bgp = bgp_lookup_by_name(name);
+  if (bgp)
+    {
+      /* We have instance configured, link to VRF and make it "up". */
+      bgp_vrf_link (bgp, vrf);
+      bgp_instance_up (bgp);
+    }
+
+  return 0;
+}
+
+static int
+bgp_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
+{
+  struct vrf *vrf;
+  struct bgp *bgp;
+
+  if (vrf_id == VRF_DEFAULT)
+    return 0;
+
+  vrf = vrf_lookup (vrf_id);
+  if (!vrf) // unexpected
+    return -1;
+
+  if (BGP_DEBUG (zebra, ZEBRA))
+    zlog_debug("VRF disable %s id %d", name, vrf_id);
+
+  bgp = bgp_lookup_by_name(name);
+  if (bgp)
+    {
+      /* We have instance configured, unlink from VRF and make it "down". */
+      bgp_vrf_unlink (bgp, vrf);
+      bgp_instance_down (bgp);
+    }
+
+  /* Note: This is a callback, the VRF will be deleted by the caller. */
+  return 0;
+}
+
+static void
+bgp_vrf_init (void)
+{
+  vrf_add_hook (VRF_NEW_HOOK, bgp_vrf_new);
+  vrf_add_hook (VRF_ENABLE_HOOK, bgp_vrf_enable);
+  vrf_add_hook (VRF_DISABLE_HOOK, bgp_vrf_disable);
+  vrf_add_hook (VRF_DELETE_HOOK, bgp_vrf_delete);
+
+  vrf_init ();
+}
+
 /* Main routine of bgpd. Treatment of argument and start bgp finite
    state machine is handled at here. */
 int
@@ -400,7 +481,7 @@ main (int argc, char **argv)
   cmd_init (1);
   vty_init (bm->master);
   memory_init ();
-  vrf_init ();
+  bgp_vrf_init ();
 
   /* BGP related initialization.  */
   bgp_init ();
