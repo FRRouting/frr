@@ -17,7 +17,6 @@ Restart=on-abnormal
 LimitNOFILE=1024
 ExecStart=/usr/lib/quagga/ripd $RIPD_OPTIONS
 ExecStartPost=/usr/bin/vtysh -b -n
-ExecStopPost=-/usr/bin/touch /var/run/quagga/ripd.was_running
 ExecStopPost=-/bin/rm -f /var/run/quagga/ripd.pid
 ExecStopPost=-/bin/rm -f /var/run/quagga/ripd.vty
 ExecReload=/usr/lib/quagga/quagga-reload.py --reload /etc/quagga/Quagga.conf

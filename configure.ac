@@ -837,12 +837,7 @@ dnl Determine routing get and set method
 dnl ------------------------------------
 AC_MSG_CHECKING(zebra between kernel interface method)
 if test x"$opsys" = x"gnu-linux"; then
-  if test "${enable_netlink}" = "yes";then
-    AC_MSG_RESULT(netlink)
-    RT_METHOD=rt_netlink.o
-    AC_DEFINE(HAVE_NETLINK,,netlink)
-    netlink=yes
-  elif test "${enable_netlink}" = "no"; then
+  if test "${enable_netlink}" = "no"; then
     AC_MSG_RESULT(ioctl)
     RT_METHOD=rt_ioctl.o
     netlink=no
@@ -851,6 +846,7 @@ if test x"$opsys" = x"gnu-linux"; then
     RT_METHOD=rt_netlink.o
     AC_DEFINE(HAVE_NETLINK,,netlink)
     netlink=yes
+    AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
   fi
 elif test x"$opsys" = x"sol2-6";then
   AC_MSG_RESULT(Route socket)

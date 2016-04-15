@@ -3,7 +3,6 @@ usr/bin/vtysh
 usr/include/quagga/
 usr/lib/
 tools/quagga-reload.py usr/lib/quagga/
-tools/quagga usr/bin
 usr/share/doc/quagga/
 usr/share/man/man1/vtysh.1
 usr/share/man/man1/quagga.1
