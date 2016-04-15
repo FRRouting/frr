@@ -723,7 +723,15 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 		  {
 		    cmd_stat = vtysh_client_execute (&vtysh_client[i],
 						     vty->buf, stdout);
-		    if (cmd_stat != CMD_SUCCESS)
+		    /*
+		     * CMD_WARNING - Can mean that the command was
+		     * parsed successfully but it was already entered
+		     * in a few spots.  As such if we receive a
+		     * CMD_WARNING from a daemon we shouldn't stop
+		     * talking to the other daemons for the particular
+		     * command.
+		     */
+		    if (cmd_stat != CMD_SUCCESS && cmd_stat != CMD_WARNING)
                       {
                         fprintf (stderr, "line %d: Failure to communicate[%d] to %s, line: %s\n",
                                  lineno, cmd_stat, vtysh_client[i].name, vty->buf);
