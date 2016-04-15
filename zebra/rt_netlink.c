@@ -1647,14 +1647,14 @@ addattr_l (struct nlmsghdr *n, unsigned int maxlen, int type, void *data, int al
 
   len = RTA_LENGTH (alen);
 
-  if (NLMSG_ALIGN (n->nlmsg_len) + len > maxlen)
+  if (NLMSG_ALIGN (n->nlmsg_len) + RTA_ALIGN (len) > maxlen)
     return -1;
 
   rta = (struct rtattr *) (((char *) n) + NLMSG_ALIGN (n->nlmsg_len));
   rta->rta_type = type;
   rta->rta_len = len;
   memcpy (RTA_DATA (rta), data, alen);
-  n->nlmsg_len = NLMSG_ALIGN (n->nlmsg_len) + len;
+  n->nlmsg_len = NLMSG_ALIGN (n->nlmsg_len) + RTA_ALIGN (len);
 
   return 0;
 }
@@ -1667,14 +1667,14 @@ rta_addattr_l (struct rtattr *rta, int maxlen, int type, void *data, int alen)
 
   len = RTA_LENGTH (alen);
 
-  if ((int)RTA_ALIGN (rta->rta_len) + len > maxlen)
+  if (RTA_ALIGN (rta->rta_len) + RTA_ALIGN (len) > maxlen)
     return -1;
 
   subrta = (struct rtattr *) (((char *) rta) + RTA_ALIGN (rta->rta_len));
   subrta->rta_type = type;
   subrta->rta_len = len;
   memcpy (RTA_DATA (subrta), data, alen);
-  rta->rta_len = NLMSG_ALIGN (rta->rta_len) + len;
+  rta->rta_len = NLMSG_ALIGN (rta->rta_len) + RTA_ALIGN (len);
 
   return 0;
 }
@@ -1684,21 +1684,7 @@ rta_addattr_l (struct rtattr *rta, int maxlen, int type, void *data, int alen)
 int
 addattr32 (struct nlmsghdr *n, unsigned int maxlen, int type, int data)
 {
-  int len;
-  struct rtattr *rta;
-
-  len = RTA_LENGTH (4);
-
-  if (NLMSG_ALIGN (n->nlmsg_len) + len > maxlen)
-    return -1;
-
-  rta = (struct rtattr *) (((char *) n) + NLMSG_ALIGN (n->nlmsg_len));
-  rta->rta_type = type;
-  rta->rta_len = len;
-  memcpy (RTA_DATA (rta), &data, 4);
-  n->nlmsg_len = NLMSG_ALIGN (n->nlmsg_len) + len;
-
-  return 0;
+  return addattr_l(n, maxlen, type, &data, sizeof(u_int32_t));
 }
 
 static int
