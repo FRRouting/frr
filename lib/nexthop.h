@@ -25,6 +25,7 @@
 #define _LIB_NEXTHOP_H
 
 #include "prefix.h"
+#include "mpls.h"
 
 /* Maximum next hop string length - gateway + ifindex */
 #define NEXTHOP_STRLEN (INET6_ADDRSTRLEN + 30)
@@ -42,6 +43,14 @@ enum nexthop_types_t
   NEXTHOP_TYPE_IPV6,             /* IPv6 nexthop.  */
   NEXTHOP_TYPE_IPV6_IFINDEX,     /* IPv6 nexthop with ifindex.  */
   NEXTHOP_TYPE_BLACKHOLE,        /* Null0 nexthop.  */
+};
+
+/* Nexthop label structure. */
+struct nexthop_label
+{
+  u_int8_t num_labels;
+  u_int8_t reserved[3];
+  mpls_label_t label[0]; /* 1 or more labels. */
 };
 
 /* Nexthop structure. */
