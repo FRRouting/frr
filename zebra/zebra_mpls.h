@@ -190,10 +190,26 @@ zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
                            char *ifname, ifindex_t ifindex);
 
 /*
+ * Schedule all MPLS label forwarding entries for processing.
+ * Called upon changes that may affect one or more of them such as
+ * interface or nexthop state changes.
+ */
+void
+zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf);
+
+/*
  * Display MPLS LSP configuration of all static LSPs (VTY command handler).
  */
 int
 zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf);
+
+/*
+ * Called upon process exiting, need to delete LSP forwarding
+ * entries from the kernel.
+ * NOTE: Currently supported only for default VRF.
+ */
+void
+zebra_mpls_close_tables (struct zebra_vrf *zvrf);
 
 /*
  * Allocate MPLS tables for this VRF.
@@ -207,5 +223,35 @@ zebra_mpls_init_tables (struct zebra_vrf *zvrf);
  */
 void
 zebra_mpls_init (void);
+
+/* Inline functions. */
+
+/*
+ * Distance (priority) definition for LSP NHLFE.
+ */
+static inline u_char
+lsp_distance (enum lsp_types_t type)
+{
+  if (type == ZEBRA_LSP_STATIC)
+    return (route_distance (ZEBRA_ROUTE_STATIC));
+
+  return 150;
+}
+
+/*
+ * Map RIB type to LSP type. Used when labeled-routes from BGP
+ * are converted into LSPs.
+ */
+static inline enum lsp_types_t
+lsp_type_from_rib_type (int rib_type)
+{
+  switch (rib_type)
+    {
+      case ZEBRA_ROUTE_STATIC:
+        return ZEBRA_LSP_STATIC;
+      default:
+        return ZEBRA_LSP_INVALID;
+    }
+}
 
 #endif /*_ZEBRA_MPLS_H */

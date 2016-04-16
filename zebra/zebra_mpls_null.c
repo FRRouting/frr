@@ -28,10 +28,20 @@ zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
   return 0;
 }
 
+void
+zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf)
+{
+}
+
 int
 zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
 {
   return 0;
+}
+
+void
+zebra_mpls_close_tables (struct zebra_vrf *zvrf)
+{
 }
 
 void

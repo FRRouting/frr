@@ -32,8 +32,10 @@
 #include "thread.h"
 #include "prefix.h"
 #include "nexthop.h"
+#include "mpls.h"
 
-DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
+DEFINE_MTYPE_STATIC(LIB, NEXTHOP,	"Nexthop")
+DEFINE_MTYPE_STATIC(LIB, NH_LABEL,	"Nexthop label")
 
 /* check if nexthops are same, non-recursive */
 int
@@ -138,6 +140,7 @@ copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
 void
 nexthop_free (struct nexthop *nexthop)
 {
+  nexthop_del_labels (nexthop);
   if (nexthop->resolved)
     nexthops_free(nexthop->resolved);
   XFREE (MTYPE_NEXTHOP, nexthop);
@@ -154,6 +157,29 @@ nexthops_free (struct nexthop *nexthop)
       next = nh->next;
       nexthop_free (nh);
     }
+}
+
+/* Update nexthop with label information. */
+void
+nexthop_add_labels (struct nexthop *nexthop, u_int8_t num_labels,
+                    mpls_label_t *label)
+{
+  struct nexthop_label *nh_label;
+  int i;
+
+  nh_label = XCALLOC (MTYPE_NH_LABEL, sizeof (struct nexthop_label));
+  nh_label->num_labels = num_labels;
+  for (i = 0; i < num_labels; i++)
+    nh_label->label[i] = *(label + i);
+  nexthop->nh_label = nh_label;
+}
+
+/* Free label information of nexthop, if present. */
+void
+nexthop_del_labels (struct nexthop *nexthop)
+{
+  if (nexthop->nh_label)
+    XFREE (MTYPE_NH_LABEL, nexthop->nh_label);
 }
 
 const char *
