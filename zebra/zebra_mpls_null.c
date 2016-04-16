@@ -33,6 +33,16 @@ zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf)
 {
 }
 
+void
+zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label)
+{
+}
+
+void
+zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf)
+{
+}
+
 int
 zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
 {

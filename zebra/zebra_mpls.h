@@ -198,6 +198,19 @@ void
 zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf);
 
 /*
+ * Display MPLS label forwarding table for a specific LSP
+ * (VTY command handler).
+ */
+void
+zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label);
+
+/*
+ * Display MPLS label forwarding table (VTY command handler).
+ */
+void
+zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf);
+
+/*
  * Display MPLS LSP configuration of all static LSPs (VTY command handler).
  */
 int
@@ -251,6 +264,19 @@ lsp_type_from_rib_type (int rib_type)
         return ZEBRA_LSP_STATIC;
       default:
         return ZEBRA_LSP_INVALID;
+    }
+}
+
+/* NHLFE type as printable string. */
+static inline const char *
+nhlfe_type2str(enum lsp_types_t lsp_type)
+{
+  switch (lsp_type)
+    {
+      case ZEBRA_LSP_STATIC:
+        return "Static";
+      default:
+        return "Unknown";
     }
 }
 

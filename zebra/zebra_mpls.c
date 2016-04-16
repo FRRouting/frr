@@ -108,6 +108,12 @@ static_lsp_uninstall (struct zebra_vrf *zvrf, mpls_label_t in_label,
 static int
 static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label);
 static void
+nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty);
+static void
+lsp_print (zebra_lsp_t *lsp, void *ctxt);
+static void
+lsp_print_hash (struct hash_backet *backet, void *ctxt);
+static void
 lsp_config_write (struct hash_backet *backet, void *ctxt);
 static void *
 slsp_alloc (void *p);
@@ -963,6 +969,78 @@ static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label)
 }
 
 /*
+ * Print the NHLFE for a LSP forwarding entry.
+ */
+static void
+nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty)
+{
+  struct nexthop *nexthop;
+  char buf[BUFSIZ];
+
+  nexthop = nhlfe->nexthop;
+  if (!nexthop || !nexthop->nh_label) // unexpected
+    return;
+
+  vty_out(vty, " type: %s remote label: %s distance: %d%s",
+          nhlfe_type2str(nhlfe->type),
+          label2str(nexthop->nh_label->label[0], buf, BUFSIZ),
+          nhlfe->distance, VTY_NEWLINE);
+  switch (nexthop->type)
+    {
+    case NEXTHOP_TYPE_IPV4:
+      vty_out (vty, "  via %s", inet_ntoa (nexthop->gate.ipv4));
+      break;
+    case NEXTHOP_TYPE_IPV6:
+    case NEXTHOP_TYPE_IPV6_IFINDEX:
+      vty_out (vty, "  via %s",
+	       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+      if (nexthop->ifindex)
+        vty_out (vty, " dev %s", ifindex2ifname (nexthop->ifindex));
+      break;
+    default:
+      break;
+    }
+  vty_out(vty, "%s", CHECK_FLAG (nhlfe->flags, NHLFE_FLAG_INSTALLED) ?
+          " (installed)" : "");
+  vty_out(vty, "%s", VTY_NEWLINE);
+}
+
+/*
+ * Print an LSP forwarding entry.
+ */
+static void
+lsp_print (zebra_lsp_t *lsp, void *ctxt)
+{
+  zebra_nhlfe_t *nhlfe;
+  struct vty *vty;
+
+  vty = (struct vty *) ctxt;
+
+  vty_out(vty, "Local label: %u%s%s",
+          lsp->ile.in_label,
+          CHECK_FLAG (lsp->flags, LSP_FLAG_INSTALLED) ? " (installed)" : "",
+          VTY_NEWLINE);
+
+  for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next)
+    nhlfe_print (nhlfe, vty);
+}
+
+/*
+ * Print an LSP forwarding hash entry.
+ */
+static void
+lsp_print_hash (struct hash_backet *backet, void *ctxt)
+{
+  zebra_lsp_t *lsp;
+
+  lsp = (zebra_lsp_t *) backet->data;
+  if (!lsp)
+    return;
+
+  lsp_print (lsp, ctxt);
+}
+
+/*
  * Write out static LSP configuration.
  */
 static void
@@ -1406,6 +1484,40 @@ zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf)
   if (!zvrf)
     return;
   hash_iterate(zvrf->lsp_table, lsp_schedule, NULL);
+}
+
+/*
+ * Display MPLS label forwarding table for a specific LSP
+ * (VTY command handler).
+ */
+void
+zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label)
+{
+  struct hash *lsp_table;
+  zebra_lsp_t *lsp;
+  zebra_ile_t tmp_ile;
+
+  /* Lookup table. */
+  lsp_table = zvrf->lsp_table;
+  if (!lsp_table)
+    return;
+
+  /* If entry is not present, exit. */
+  tmp_ile.in_label = label;
+  lsp = hash_lookup (lsp_table, &tmp_ile);
+  if (!lsp)
+    return;
+
+  lsp_print (lsp, (void *)vty);
+}
+
+/*
+ * Display MPLS label forwarding table (VTY command handler).
+ */
+void
+zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf)
+{
+  hash_iterate(zvrf->lsp_table, lsp_print_hash, vty);
 }
 
 /*
