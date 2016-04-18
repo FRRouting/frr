@@ -604,20 +604,20 @@ nhlfe_nhop_match (zebra_nhlfe_t *nhlfe, enum nexthop_types_t gtype,
                   union g_addr *gate, char *ifname, ifindex_t ifindex)
 {
   struct nexthop *nhop;
-  u_char cmp = -1;
+  int cmp = 1;
 
   nhop = nhlfe->nexthop;
   if (!nhop)
-    return -1;
+    return 1;
 
   if (nhop->type != gtype)
-    return -1;
+    return 1;
 
   switch (nhop->type)
     {
     case NEXTHOP_TYPE_IPV4:
       cmp = memcmp(&(nhop->gate.ipv4), &(gate->ipv4),
-		   sizeof(struct in_addr));
+                   sizeof(struct in_addr));
       break;
     case NEXTHOP_TYPE_IPV6:
     case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -1086,10 +1086,10 @@ static int
 snhlfe_match (zebra_snhlfe_t *snhlfe, enum nexthop_types_t gtype,
               union g_addr *gate, char *ifname, ifindex_t ifindex)
 {
-  u_char cmp = -1;
+  int cmp = 1;
 
   if (snhlfe->gtype != gtype)
-    return -1;
+    return 1;
 
   switch (snhlfe->gtype)
     {
