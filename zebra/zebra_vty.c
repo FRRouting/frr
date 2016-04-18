@@ -5911,32 +5911,36 @@ zebra_mpls_config (struct vty *vty)
 
 DEFUN (show_mpls_table,
        show_mpls_table_cmd,
-       "show mpls table",
+       "show mpls table {json}",
        SHOW_STR
        MPLS_STR
-       "MPLS table\n")
+       "MPLS table\n"
+       "JavaScript Object Notation\n")
 {
   struct zebra_vrf *zvrf;
+  u_char use_json = (argv[0] != NULL);
 
   zvrf = vrf_info_lookup(VRF_DEFAULT);
-  zebra_mpls_print_lsp_table(vty, zvrf);
+  zebra_mpls_print_lsp_table(vty, zvrf, use_json);
   return CMD_SUCCESS;
 }
 
 DEFUN (show_mpls_table_lsp,
        show_mpls_table_lsp_cmd,
-       "show mpls table <16-1048575>",
+       "show mpls table <16-1048575> {json}",
        SHOW_STR
        MPLS_STR
        "MPLS table\n"
-       "LSP to display information about\n")
+       "LSP to display information about\n"
+       "JavaScript Object Notation\n")
 {
   u_int32_t label;
   struct zebra_vrf *zvrf;
+  u_char use_json = (argv[1] != NULL);
 
   zvrf = vrf_info_lookup(VRF_DEFAULT);
   label = atoi(argv[0]);
-  zebra_mpls_print_lsp (vty, zvrf, label);
+  zebra_mpls_print_lsp (vty, zvrf, label, use_json);
   return CMD_SUCCESS;
 }
 

@@ -203,13 +203,15 @@ zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf);
  * (VTY command handler).
  */
 void
-zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label);
+zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label,
+                      u_char use_json);
 
 /*
  * Display MPLS label forwarding table (VTY command handler).
  */
 void
-zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf);
+zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
+                            u_char use_json);
 
 /*
  * Display MPLS LSP configuration of all static LSPs (VTY command handler).

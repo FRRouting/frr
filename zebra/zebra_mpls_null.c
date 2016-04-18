@@ -34,12 +34,14 @@ zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf)
 }
 
 void
-zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label)
+zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label,
+                      u_char use_json)
 {
 }
 
 void
-zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf)
+zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
+                            u_char use_json)
 {
 }
 

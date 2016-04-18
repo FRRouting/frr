@@ -36,6 +36,7 @@
 #include "routemap.h"
 #include "stream.h"
 #include "nexthop.h"
+#include "lib/json.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
@@ -111,10 +112,6 @@ static void
 nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty);
 static void
 lsp_print (zebra_lsp_t *lsp, void *ctxt);
-static void
-lsp_print_hash (struct hash_backet *backet, void *ctxt);
-static void
-lsp_config_write (struct hash_backet *backet, void *ctxt);
 static void *
 slsp_alloc (void *p);
 static int
@@ -968,6 +965,41 @@ static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label)
   return 0;
 }
 
+static json_object *
+nhlfe_json (zebra_nhlfe_t *nhlfe)
+{
+  char buf[BUFSIZ];
+  json_object *json_nhlfe = NULL;
+  struct nexthop *nexthop = nhlfe->nexthop;
+
+  json_nhlfe = json_object_new_object();
+  json_object_string_add(json_nhlfe, "type", nhlfe_type2str(nhlfe->type));
+  json_object_int_add(json_nhlfe, "outLabel", nexthop->nh_label->label[0]);
+  json_object_int_add(json_nhlfe, "distance", nhlfe->distance);
+
+  if (CHECK_FLAG (nhlfe->flags, NHLFE_FLAG_INSTALLED))
+    json_object_boolean_true_add(json_nhlfe, "installed");
+
+  switch (nexthop->type)
+    {
+    case NEXTHOP_TYPE_IPV4:
+      json_object_string_add(json_nhlfe, "nexthop",
+                             inet_ntoa (nexthop->gate.ipv4));
+      break;
+    case NEXTHOP_TYPE_IPV6:
+    case NEXTHOP_TYPE_IPV6_IFINDEX:
+      json_object_string_add(json_nhlfe, "nexthop",
+                             inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+
+      if (nexthop->ifindex)
+        json_object_string_add(json_nhlfe, "interface", ifindex2ifname (nexthop->ifindex));
+      break;
+    default:
+      break;
+    }
+  return json_nhlfe;
+}
+
 /*
  * Print the NHLFE for a LSP forwarding entry.
  */
@@ -993,7 +1025,7 @@ nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty)
     case NEXTHOP_TYPE_IPV6:
     case NEXTHOP_TYPE_IPV6_IFINDEX:
       vty_out (vty, "  via %s",
-	       inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+               inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
       if (nexthop->ifindex)
         vty_out (vty, " dev %s", ifindex2ifname (nexthop->ifindex));
       break;
@@ -1026,43 +1058,58 @@ lsp_print (zebra_lsp_t *lsp, void *ctxt)
 }
 
 /*
- * Print an LSP forwarding hash entry.
+ * JSON objects for an LSP forwarding entry.
  */
-static void
-lsp_print_hash (struct hash_backet *backet, void *ctxt)
+static json_object *
+lsp_json (zebra_lsp_t *lsp)
 {
-  zebra_lsp_t *lsp;
+  zebra_nhlfe_t *nhlfe = NULL;
+  json_object *json = json_object_new_object();
+  json_object *json_nhlfe_list = json_object_new_array();
 
-  lsp = (zebra_lsp_t *) backet->data;
-  if (!lsp)
-    return;
+  json_object_int_add(json, "inLabel", lsp->ile.in_label);
 
-  lsp_print (lsp, ctxt);
+  if (CHECK_FLAG (lsp->flags, LSP_FLAG_INSTALLED))
+    json_object_boolean_true_add(json, "installed");
+
+  for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next)
+    json_object_array_add(json_nhlfe_list, nhlfe_json(nhlfe));
+
+  json_object_object_add(json, "nexthops", json_nhlfe_list);
+  return json;
+}
+
+
+/* Return a sorted linked list of the hash contents */
+static struct list *
+hash_get_sorted_list (struct hash *hash, void *cmp)
+{
+  unsigned int i;
+  struct hash_backet *hb;
+  struct list *sorted_list = list_new();
+
+  sorted_list->cmp = (int (*)(void *, void *)) cmp;
+
+  for (i = 0; i < hash->size; i++)
+    for (hb = hash->index[i]; hb; hb = hb->next)
+        listnode_add_sort(sorted_list, hb->data);
+
+  return sorted_list;
 }
 
 /*
- * Write out static LSP configuration.
+ * Compare two LSPs based on their label values.
  */
-static void
-lsp_config_write (struct hash_backet *backet, void *ctxt)
+static int
+lsp_cmp (zebra_lsp_t *lsp1, zebra_lsp_t *lsp2)
 {
-  zebra_slsp_t *slsp;
-  zebra_snhlfe_t *snhlfe;
-  struct vty *vty = (struct vty *) ctxt;
-  char buf[INET6_ADDRSTRLEN];
+  if (lsp1->ile.in_label < lsp2->ile.in_label)
+    return -1;
 
-  slsp = (zebra_slsp_t *) backet->data;
-  if (!slsp)
-    return;
+  if (lsp1->ile.in_label > lsp2->ile.in_label)
+    return 1;
 
-  for (snhlfe = slsp->snhlfe_list; snhlfe; snhlfe = snhlfe->next)
-    {
-      char lstr[30];
-      snhlfe2str (snhlfe, buf, BUFSIZ);
-      vty_out (vty, "mpls lsp %u %s %s%s",
-               slsp->ile.in_label, buf,
-               label2str(snhlfe->out_label, lstr, 30), VTY_NEWLINE);
-    }
+  return 0;
 }
 
 /*
@@ -1077,6 +1124,21 @@ slsp_alloc (void *p)
   slsp = XCALLOC (MTYPE_SLSP, sizeof(zebra_slsp_t));
   slsp->ile = *ile;
   return ((void *)slsp);
+}
+
+/*
+ * Compare two static LSPs based on their label values.
+ */
+static int
+slsp_cmp (zebra_slsp_t *slsp1, zebra_slsp_t *slsp2)
+{
+  if (slsp1->ile.in_label < slsp2->ile.in_label)
+    return -1;
+
+  if (slsp1->ile.in_label > slsp2->ile.in_label)
+    return 1;
+
+  return 0;
 }
 
 /*
@@ -1491,11 +1553,13 @@ zebra_mpls_lsp_schedule (struct zebra_vrf *zvrf)
  * (VTY command handler).
  */
 void
-zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label)
+zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t label,
+                      u_char use_json)
 {
   struct hash *lsp_table;
   zebra_lsp_t *lsp;
   zebra_ile_t tmp_ile;
+  json_object *json = NULL;
 
   /* Lookup table. */
   lsp_table = zvrf->lsp_table;
@@ -1508,16 +1572,76 @@ zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t labe
   if (!lsp)
     return;
 
-  lsp_print (lsp, (void *)vty);
+  if (use_json)
+    {
+      json = lsp_json(lsp);
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    lsp_print (lsp, (void *)vty);
 }
 
 /*
  * Display MPLS label forwarding table (VTY command handler).
  */
 void
-zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf)
+zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
+                            u_char use_json)
 {
-  hash_iterate(zvrf->lsp_table, lsp_print_hash, vty);
+  char buf[BUFSIZ];
+  json_object *json = NULL;
+  zebra_lsp_t *lsp = NULL;
+  zebra_nhlfe_t *nhlfe = NULL;
+  struct nexthop *nexthop = NULL;
+  struct listnode *node = NULL;
+  struct list *lsp_list = hash_get_sorted_list(zvrf->lsp_table, lsp_cmp);
+
+  if (use_json)
+    {
+      json  = json_object_new_object();
+
+      for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
+        json_object_object_add(json, label2str(lsp->ile.in_label, buf, BUFSIZ),
+                               lsp_json(lsp));
+
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    {
+      vty_out (vty, " Inbound                            Outbound%s", VTY_NEWLINE);
+      vty_out (vty, "   Label     Type          Nexthop     Label%s", VTY_NEWLINE);
+      vty_out (vty, "--------  -------  ---------------  --------%s", VTY_NEWLINE);
+
+      for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
+        {
+          for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next)
+            {
+              vty_out (vty, "%8d  %7s  ", lsp->ile.in_label, nhlfe_type2str(nhlfe->type));
+              nexthop = nhlfe->nexthop;
+
+              switch (nexthop->type)
+                {
+                case NEXTHOP_TYPE_IPV4:
+                  vty_out (vty, "%15s", inet_ntoa (nexthop->gate.ipv4));
+                  break;
+                case NEXTHOP_TYPE_IPV6:
+                case NEXTHOP_TYPE_IPV6_IFINDEX:
+                  vty_out (vty, "%15s", inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+                  break;
+                default:
+                  break;
+                }
+
+              vty_out (vty, "  %8d%s", nexthop->nh_label->label[0], VTY_NEWLINE);
+            }
+        }
+
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+
+  list_delete_all_node(lsp_list);
 }
 
 /*
@@ -1526,7 +1650,25 @@ zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf)
 int
 zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
 {
-  hash_iterate(zvrf->slsp_table, lsp_config_write, vty);
+  zebra_slsp_t *slsp;
+  zebra_snhlfe_t *snhlfe;
+  struct listnode *node;
+  char buf[INET6_ADDRSTRLEN];
+  struct list *slsp_list = hash_get_sorted_list(zvrf->slsp_table, slsp_cmp);
+
+  for (ALL_LIST_ELEMENTS_RO(slsp_list, node, slsp))
+      {
+        for (snhlfe = slsp->snhlfe_list; snhlfe; snhlfe = snhlfe->next)
+          {
+            char lstr[30];
+            snhlfe2str (snhlfe, buf, BUFSIZ);
+            vty_out (vty, "mpls lsp %u %s %s%s",
+                     slsp->ile.in_label, buf,
+                     label2str(snhlfe->out_label, lstr, 30), VTY_NEWLINE);
+          }
+      }
+
+  list_delete_all_node(slsp_list);
   return (zvrf->slsp_table->count ? 1 : 0);
 }
 
