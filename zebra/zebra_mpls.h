@@ -33,6 +33,7 @@
 #include "memory.h"
 #include "mpls.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
 
 
 /* Definitions and macros. */
@@ -278,6 +279,33 @@ nhlfe_type2str(enum lsp_types_t lsp_type)
       default:
         return "Unknown";
     }
+}
+
+static inline void
+mpls_mark_lsps_for_processing(struct zebra_vrf *zvrf)
+{
+  if (!zvrf)
+    return;
+
+  zvrf->mpls_flags |= MPLS_FLAG_SCHEDULE_LSPS;
+}
+
+static inline void
+mpls_unmark_lsps_for_processing(struct zebra_vrf *zvrf)
+{
+  if (!zvrf)
+    return;
+
+  zvrf->mpls_flags &= ~MPLS_FLAG_SCHEDULE_LSPS;
+}
+
+static inline int
+mpls_should_lsps_be_processed(struct zebra_vrf *zvrf)
+{
+  if (!zvrf)
+    return 0;
+
+  return ((zvrf->mpls_flags & MPLS_FLAG_SCHEDULE_LSPS) ? 1 : 0);
 }
 
 #endif /*_ZEBRA_MPLS_H */

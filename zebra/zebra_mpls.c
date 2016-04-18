@@ -1554,6 +1554,7 @@ zebra_mpls_init_tables (struct zebra_vrf *zvrf)
     return;
   zvrf->slsp_table = hash_create(label_hash, label_cmp);
   zvrf->lsp_table = hash_create(label_hash, label_cmp);
+  zvrf->mpls_flags = 0;
 }
 
 /*

@@ -2033,6 +2033,16 @@ meta_queue_process_complete (struct work_queue *dummy)
           zebra_evaluate_rnh(zvrf->vrf_id, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE, NULL);
         }
     }
+
+  /* Schedule LSPs for processing, if needed. */
+  zvrf = vrf_info_lookup(VRF_DEFAULT);
+  if (mpls_should_lsps_be_processed(zvrf))
+    {
+      if (IS_ZEBRA_DEBUG_MPLS)
+        zlog_debug ("%u: Scheduling all LSPs upon RIB completion", zvrf->vrf_id);
+      zebra_mpls_lsp_schedule (zvrf);
+      mpls_unmark_lsps_for_processing(zvrf);
+    }
 }
 
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
