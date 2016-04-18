@@ -5,6 +5,20 @@
 #include "zebra/zebra_mpls.h"
 
 int
+mpls_str2label (const char *label_str, u_int8_t *num_labels,
+                mpls_label_t *labels)
+{
+  return 0;
+}
+
+char *
+mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
+                char *buf, int len)
+{
+  return NULL;
+}
+
+int
 zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
                      mpls_label_t out_label, enum nexthop_types_t gtype,
                      union g_addr *gate, char *ifname, ifindex_t ifindex)

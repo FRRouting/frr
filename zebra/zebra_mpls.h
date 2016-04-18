@@ -38,6 +38,8 @@
 
 /* Definitions and macros. */
 
+#define MPLS_MAX_LABELS 2  /* Maximum # labels that can be pushed. */
+
 #define NHLFE_FAMILY(nhlfe)                        \
   (((nhlfe)->nexthop->type == NEXTHOP_TYPE_IPV6 || \
     (nhlfe)->nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) ? AF_INET6 : AF_INET)
@@ -154,6 +156,20 @@ struct zebra_lsp_t_
 
 
 /* Function declarations. */
+
+/*
+ * String to label conversion, labels separated by '/'.
+ */
+int
+mpls_str2label (const char *label_str, u_int8_t *num_labels,
+                mpls_label_t *labels);
+
+/*
+ * Label to string conversion, labels in string separated by '/'.
+ */
+char *
+mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
+                char *buf, int len);
 
 /*
  * Check that the label values used in LSP creation are consistent. The

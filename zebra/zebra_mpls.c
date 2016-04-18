@@ -1338,6 +1338,63 @@ mpls_processq_init (struct zebra_t *zebra)
 /* Public functions */
 
 /*
+ * String to label conversion, labels separated by '/'.
+ */
+int
+mpls_str2label (const char *label_str, u_int8_t *num_labels,
+                mpls_label_t *labels)
+{
+  char *endp;
+  int i;
+
+  *num_labels = 0;
+  for (i = 0; i < MPLS_MAX_LABELS; i++)
+    {
+      u_int32_t label;
+
+      label = strtoul(label_str, &endp, 0);
+
+      /* validity checks */
+      if (endp == label_str)
+        return -1;
+
+      if (!IS_MPLS_UNRESERVED_LABEL(label))
+        return -1;
+
+      labels[i] = label;
+      if (*endp == '\0')
+        {
+          *num_labels = i + 1;
+          return 0;
+        }
+
+      /* Check separator. */
+      if (*endp != '/')
+        return -1;
+
+      label_str = endp + 1;
+    }
+
+  /* Too many labels. */
+  return -1;
+}
+
+/*
+ * Label to string conversion, labels in string separated by '/'.
+ */
+char *
+mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
+                char *buf, int len)
+{
+  buf[0] = '\0';
+  if (num_labels == 1)
+    snprintf (buf, len, "%u", labels[0]);
+  else if (num_labels == 2)
+    snprintf (buf, len, "%u/%u", labels[0], labels[1]);
+  return buf;
+}
+
+/*
  * Check that the label values used in LSP creation are consistent. The
  * main criteria is that if there is ECMP, the label operation must still
  * be consistent - i.e., all paths either do a swap or do PHP. This is due
