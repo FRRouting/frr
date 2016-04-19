@@ -62,6 +62,7 @@
  *------------------------------------------------------------------------*/
 
 #include "ospfd/ospf_te.h"
+#include "ospfd/ospf_ri.h"
 
 #ifdef SUPPORT_OSPF_API
 int ospf_apiserver_init (void);
@@ -87,6 +88,9 @@ ospf_opaque_init (void)
   if (ospf_mpls_te_init () != 0)
     exit (1);
 
+  if (ospf_router_info_init () != 0)
+    exit (1);
+
 #ifdef SUPPORT_OSPF_API
   if ((ospf_apiserver_enable) && (ospf_apiserver_init () != 0))
     exit (1);
@@ -99,6 +103,8 @@ void
 ospf_opaque_term (void)
 {
   ospf_mpls_te_term ();
+
+  ospf_router_info_term ();
 
 #ifdef SUPPORT_OSPF_API
   ospf_apiserver_term ();
@@ -215,6 +221,9 @@ ospf_opaque_type_name (u_char opaque_type)
       break;
     case OPAQUE_TYPE_INTER_AS_LSA:
       name = "Inter-AS TE-v2 LSA";
+      break;
+    case OPAQUE_TYPE_ROUTER_INFORMATION_LSA:
+      name = "Router Information LSA";
       break;
     default:
       if (OPAQUE_TYPE_RANGE_UNASSIGNED (opaque_type))
