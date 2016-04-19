@@ -129,6 +129,9 @@ copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
       nexthop->ifindex = nh->ifindex;
       memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
       memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
+      if (nh->nh_label)
+        nexthop_add_labels (nexthop, nh->nh_label->num_labels,
+                            &nh->nh_label->label[0]);
       nexthop_add(tnh, nexthop);
 
       if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
