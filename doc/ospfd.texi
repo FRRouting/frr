@@ -1,3 +1,4 @@
+
 @cindex OSPFv2
 @node OSPFv2
 @chapter OSPFv2
@@ -18,6 +19,9 @@ networks.
 * OSPF interface::              
 * Redistribute routes to OSPF::  
 * Showing OSPF information::    
+* Opaque LSA::
+* OSPF Traffic Engineering::
+* Router Information::
 * Debugging OSPF::              
 * OSPF Configuration Examples::
 @end menu
@@ -616,35 +620,137 @@ interfaces if no interface is given.
 Show the OSPF routing table, as determined by the most recent SPF calculation.
 @end deffn
 
+@node Opaque LSA
+@section Opaque LSA
+
+@deffn {OSPF Command} {ospf opaque-lsa} {}
+@deffnx {OSPF Command} {capability opaque} {}
+@deffnx {OSPF Command} {no ospf opaque-lsa} {}
+@deffnx {OSPF Command} {no capability opaque} {}
+@command{ospfd} support Opaque LSA (RFC2370) as fondment for MPLS Traffic Engineering LSA. Prior to used MPLS TE, opaque-lsa must be enable in the configuration file. Alternate command could be "mpls-te on" (@ref{OSPF Traffic Engineering}).
+@end deffn
+
+@deffn {Command} {show ip ospf database (opaque-link|opaque-area|opaque-external)} {}
+@deffnx {Command} {show ip ospf database (opaque-link|opaque-area|opaque-external) @var{link-state-id}} {}
+@deffnx {Command} {show ip ospf database (opaque-link|opaque-area|opaque-external) @var{link-state-id} adv-router @var{adv-router}} {}
+@deffnx {Command} {show ip ospf database (opaque-link|opaque-area|opaque-external) adv-router @var{adv-router}} {}
+@deffnx {Command} {show ip ospf database (opaque-link|opaque-area|opaque-external) @var{link-state-id} self-originate} {}
+@deffnx {Command} {show ip ospf database (opaque-link|opaque-area|opaque-external) self-originate} {}
+Show Opaque LSA from the database.
+@end deffn
+
+@node OSPF Traffic Engineering
+@section Traffic Engineering
+
+@deffn {OSPF Command} {mpls-te on} {}
+@deffnx {OSPF Command} {no mpls-te} {}
+Enable Traffic Engineering LSA flooding.
+@end deffn
+
+@deffn {OSPF Command} {mpls-te router-address <A.B.C.D>} {}
+@deffnx {OSPF Command} {no mpls-te} {}
+Configure stable IP address for MPLS-TE. This IP address is then advertise in Opaque LSA Type-10 TLV=1 (TE)
+option 1 (Router-Address).
+@end deffn
+
+@deffn {OSPF Command} {mpls-te inter-as area <area-id>|as} {}
+@deffnx {OSPF Command} {no mpls-te inter-as} {}
+Enable RFC5392 suuport - Inter-AS TE v2 - to flood Traffic Engineering parameters of Inter-AS link.
+2 modes are supported: AREA and AS; LSA are flood in AREA <area-id> with Opaque Type-10,
+respectively in AS with Opaque Type-11. In all case, Opaque-LSA TLV=6.
+@end deffn
+
+@deffn {Command} {show ip ospf mpls-te interface} {}
+@deffnx {Command} {show ip ospf mpls-te interface @var{interface}} {}
+Show MPLS Traffic Engineering parameters for all or specified interface.
+@end deffn
+
+@deffn {Command} {show ip ospf mpls-te router} {}
+Show Traffic Engineering router parameters.
+@end deffn
+
+@node Router Information
+@section Router Information
+
+@deffn {OSPF Command} {router-info [as | area <A.B.C.D>]} {}
+@deffnx {OSPF Command} {no router-info} {}
+Enable Router Information (RFC4970) LSA advertisement with AS scope (default) or Area scope flooding
+when area is specified.
+@end deffn
+
+@deffn {OSPF Command} {pce address <A.B.C.D>} {}
+@deffnx {OSPF Command} {no pce address} {}
+@deffnx {OSPF Command} {pce domain as <0-65535>} {}
+@deffnx {OSPF Command} {no pce domain as <0-65535>} {}
+@deffnx {OSPF Command} {pce neighbor as <0-65535>} {}
+@deffnx {OSPF Command} {no pce neighbor as <0-65535>} {}
+@deffnx {OSPF Command} {pce flag BITPATTERN} {}
+@deffnx {OSPF Command} {no pce flag} {}
+@deffnx {OSPF Command} {pce scope BITPATTERN} {}
+@deffnx {OSPF Command} {no pce scope} {}
+The commands are conform to RFC 5088 and allow OSPF router announce Path Compuatation Elemenent (PCE) capabilities
+through the Router Information (RI) LSA. Router Information must be enable prior to this. The command set/unset
+respectively the PCE IP adress, Autonomous System (AS) numbers of controlled domains, neighbor ASs, flag and scope.
+For flag and scope, please refer to RFC5088 for the BITPATTERN recognition. Multiple 'pce neighbor' command could
+be specified in order to specify all PCE neighbours.
+@end deffn
+
+@deffn {Command} {show ip ospf router-info} {}
+Show Router Capabilities flag.
+@end deffn
+@deffn {Command} {show ip ospf router-info pce} {}
+Show Router Capabilities PCE parameters.
+@end deffn
+
 @node Debugging OSPF
 @section Debugging OSPF
 
 @deffn {Command} {debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]} {}
 @deffnx {Command} {no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]} {}
+Dump Packet for debugging
 @end deffn
 
 @deffn {Command} {debug ospf ism} {}
 @deffnx {Command} {debug ospf ism (status|events|timers)} {}
 @deffnx {Command} {no debug ospf ism} {}
 @deffnx {Command} {no debug ospf ism (status|events|timers)} {}
+Show debug information of Interface State Machine
 @end deffn
 
 @deffn {Command} {debug ospf nsm} {}
 @deffnx {Command} {debug ospf nsm (status|events|timers)} {}
 @deffnx {Command} {no debug ospf nsm} {}
 @deffnx {Command} {no debug ospf nsm (status|events|timers)} {}
+Show debug information of Network State Machine
+@end deffn
+
+@deffn {Command} {debug ospf event} {}
+@deffnx {Command} {no debug ospf event} {}
+Show debug information of OSPF event
+@end deffn
+
+@deffn {Command} {debug ospf nssa} {}
+@deffnx {Command} {no debug ospf nssa} {}
+Show debug information about Not So Stub Area
 @end deffn
 
 @deffn {Command} {debug ospf lsa} {}
 @deffnx {Command} {debug ospf lsa (generate|flooding|refresh)} {}
 @deffnx {Command} {no debug ospf lsa} {}
 @deffnx {Command} {no debug ospf lsa (generate|flooding|refresh)} {}
+Show debug detail of Link State messages
+@end deffn
+
+@deffn {Command} {debug ospf te} {}
+@deffnx {Command} {no debug ospf te} {}
+Show debug information about Traffic Engineering LSA
 @end deffn
 
 @deffn {Command} {debug ospf zebra} {}
 @deffnx {Command} {debug ospf zebra (interface|redistribute)} {}
 @deffnx {Command} {no debug ospf zebra} {}
 @deffnx {Command} {no debug ospf zebra (interface|redistribute)} {}
+Show debug information of ZEBRA API
 @end deffn
 
 @deffn {Command} {show debugging ospf} {}
@@ -699,6 +805,103 @@ router ospf
  area 0.0.0.0 range 192.168.0.0/24
  area 0.0.0.1 authentication message-digest
  area 0.0.0.1 range 10.2.0.0/16
+!
+@end group
+@end example
+
+A Traffic Engineering configuration, with Inter-ASv2 support.
+
+ - First, the 'zebra.conf' part:
+
+@example
+@group
+hostname HOSTNAME
+password PASSWORD
+log file /var/log/zebra.log
+!
+interface eth0
+ ip address 198.168.1.1/24
+ mpls-te on
+ mpls-te link metric 10
+ mpls-te link max-bw 1.25e+06
+ mpls-te link max-rsv-bw 1.25e+06
+ mpls-te link unrsv-bw 0 1.25e+06
+ mpls-te link unrsv-bw 1 1.25e+06
+ mpls-te link unrsv-bw 2 1.25e+06
+ mpls-te link unrsv-bw 3 1.25e+06
+ mpls-te link unrsv-bw 4 1.25e+06
+ mpls-te link unrsv-bw 5 1.25e+06
+ mpls-te link unrsv-bw 6 1.25e+06
+ mpls-te link unrsv-bw 7 1.25e+06
+ mpls-te link rsc-clsclr 0xab
+!
+interface eth1
+ ip address 192.168.2.1/24
+ mpls-te on
+ mpls-te link metric 10
+ mpls-te link max-bw 1.25e+06
+ mpls-te link max-rsv-bw 1.25e+06
+ mpls-te link unrsv-bw 0 1.25e+06
+ mpls-te link unrsv-bw 1 1.25e+06
+ mpls-te link unrsv-bw 2 1.25e+06
+ mpls-te link unrsv-bw 3 1.25e+06
+ mpls-te link unrsv-bw 4 1.25e+06
+ mpls-te link unrsv-bw 5 1.25e+06
+ mpls-te link unrsv-bw 6 1.25e+06
+ mpls-te link unrsv-bw 7 1.25e+06
+ mpls-te link rsc-clsclr 0xab
+ mpls-te neighbor 192.168.2.2 as 65000
+@end group
+@end example
+
+ - Then the 'ospfd.conf' itself:
+
+@example
+@group
+hostname HOSTNAME
+password PASSWORD
+log file /var/log/ospfd.log
+!
+!
+interface eth0
+ ip ospf hello-interval 60
+ ip ospf dead-interval 240
+!
+interface eth1
+ ip ospf hello-interval 60
+ ip ospf dead-interval 240
+!
+!
+router ospf
+ ospf router-id 192.168.1.1
+ network 192.168.0.0/16 area 1
+ ospf opaque-lsa
+  mpls-te
+  mpls-te router-address 192.168.1.1
+  mpls-te inter-as area 1
+!
+line vty
+@end group
+@end example
+
+A router information example with PCE advsertisement:
+
+@example
+@group
+!
+router ospf
+ ospf router-id 192.168.1.1
+ network 192.168.0.0/16 area 1
+ capability opaque
+  mpls-te
+  mpls-te router-address 192.168.1.1
+ router-info area 0.0.0.1
+  pce address 192.168.1.1
+  pce flag 0x80
+  pce domain as 65400
+  pce neighbor as 65500
+  pce neighbor as 65200
+  pce scope 0x80
 !
 @end group
 @end example

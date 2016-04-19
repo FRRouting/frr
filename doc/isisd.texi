@@ -1,0 +1,432 @@
+@cindex ISIS
+@node ISIS
+@chapter ISIS
+
+@acronym{ISIS,Intermediate System to Intermediate System} is a routing protocol
+which is described in @cite{ISO10589, RFC1195, RFC5308}.  ISIS is an
+@acronym{IGP,Interior Gateway Protocol}.  Compared with @acronym{RIP},
+@acronym{ISIS} can provide scalable network support and faster
+convergence times like @acronym{OSPF}. ISIS is widely used in large networks such as
+@acronym{ISP,Internet Service Provider} and carrier backbone networks.
+
+@menu
+* Configuring isisd::
+* ISIS router::
+* ISIS Timer::
+* ISIS region::
+* ISIS interface::
+* Showing ISIS information::
+* ISIS Traffic Engineering::
+* Debugging ISIS::
+* ISIS Configuration Examples::
+@end menu
+
+@node Configuring isisd
+@section Configuring isisd
+
+There are no @command{isisd} specific options.  Common options can be
+specified (@pxref{Common Invocation Options}) to @command{isisd}.
+@command{isisd} needs to acquire interface information from
+@command{zebra} in order to function. Therefore @command{zebra} must be
+running before invoking @command{isisd}. Also, if @command{zebra} is
+restarted then @command{isisd} must be too.
+
+Like other daemons, @command{isisd} configuration is done in @acronym{ISIS}
+specific configuration file @file{isisd.conf}.
+
+@node ISIS router
+@section ISIS router
+
+To start ISIS process you have to specify the ISIS router. As of this
+writing, @command{isisd} does not support multiple ISIS processes.
+
+@deffn Command {router isis WORD} {}
+@deffnx Command {no router isis WORD} {}
+@anchor{router isis WORD}Enable or disable the ISIS process by specifying the ISIS domain with 'WORD'.
+@command{isisd} does not yet support multiple ISIS processes but you must specify
+the name of ISIS process. The ISIS process name 'WORD' is then used for interface
+(see command @ref{ip router isis WORD}).
+@end deffn
+
+@deffn {ISIS Command} {net XX.XXXX. ... .XXX.XX} {}
+@deffnx {ISIS Command} {no net XX.XXXX. ... .XXX.XX} {}
+Set/Unset network entity title (NET) provided in ISO format.
+@end deffn
+
+@deffn {ISIS Command} {hostname dynamic} {}
+@deffnx {ISIS Command} {no hostname dynamic} {}
+Enable support for dynamic hostname.
+@end deffn
+
+@deffn {ISIS Command} {area-password [clear | md5] <password>} {}
+@deffnx {ISIS Command} {domain-password [clear | md5] <password>} {}
+@deffnx {ISIS Command} {no area-password} {}
+@deffnx {ISIS Command} {no domain-password} {}
+Configure the authentication password for an area, respectively a domain,
+as clear text or md5 one.
+@end deffn
+
+@deffn {ISIS Command} {log-adjacency-changes} {}
+@deffnx {ISIS Command} {no log-adjacency-changes} {}
+Log changes in adjacency state.
+@end deffn
+
+@deffn {ISIS Command} {metric-style [narrow | transition | wide]} {}
+@deffnx {ISIS Command} {no metric-style} {}
+@anchor{metric-style}Set old-style (ISO 10589) or new-style packet formats:
+  - narrow      Use old style of TLVs with narrow metric
+  - transition  Send and accept both styles of TLVs during transition
+  - wide        Use new style of TLVs to carry wider metric
+@end deffn
+
+@deffn {ISIS Command} {set-overload-bit} {}
+@deffnx {ISIS Command} {no set-overload-bit} {}
+Set overload bit to avoid any transit traffic.
+@end deffn
+
+@node ISIS Timer
+@section ISIS Timer
+
+@deffn {ISIS Command} {lsp-gen-interval <1-120>} {}
+@deffnx {ISIS Command} {lsp-gen-interval [level-1 | level-2] <1-120>} {}
+@deffnx {ISIS Command} {no lsp-gen-interval} {}
+@deffnx {ISIS Command} {no lsp-gen-interval [level-1 | level-2]} {}
+Set minimum interval in seconds between regenerating same LSP,
+globally, for an area (level-1) or a domain (level-2).
+@end deffn
+
+@deffn {ISIS Command} {lsp-refresh-interval <1-65235>} {}
+@deffnx {ISIS Command} {lsp-refresh-interval [level-1 | level-2] <1-65235>} {}
+@deffnx {ISIS Command} {no lsp-refresh-interval} {}
+@deffnx {ISIS Command} {no lsp-refresh-interval [level-1 | level-2]} {}
+Set LSP refresh interval in seconds, globally, for an area (level-1) or a domain (level-2).
+@end deffn
+
+@deffn {ISIS Command} {lsp-refresh-interval <1-65235>} {}
+@deffnx {ISIS Command} {lsp-refresh-interval [level-1 | level-2] <1-65235>} {}
+@deffnx {ISIS Command} {no lsp-refresh-interval} {}
+@deffnx {ISIS Command} {no lsp-refresh-interval [level-1 | level-2]} {}
+Set LSP refresh interval in seconds, globally, for an area (level-1) or a domain (level-2).
+@end deffn
+
+@deffn {ISIS Command} {max-lsp-lifetime <360-65535>} {}
+@deffnx {ISIS Command} {max-lsp-lifetime [level-1 | level-2] <360-65535>} {}
+@deffnx {ISIS Command} {no max-lsp-lifetime} {}
+@deffnx {ISIS Command} {no max-lsp-lifetime [level-1 | level-2]} {}
+Set LSP maximum LSP lifetime in seconds, globally, for an area (level-1) or a domain (level-2).
+@end deffn
+
+@deffn {ISIS Command} {spf-interval <1-120>} {}
+@deffnx {ISIS Command} {spf-interval [level-1 | level-2] <1-120>} {}
+@deffnx {ISIS Command} {no spf-interval} {}
+@deffnx {ISIS Command} {no spf-interval [level-1 | level-2]} {}
+Set minimum interval between consecutive SPF calculations in seconds.
+@end deffn
+
+@node ISIS region
+@section ISIS region
+
+@deffn {ISIS Command} {is-type [level-1 | level-1-2 | level-2-only]} {}
+@deffnx {ISIS Command} {no is-type} {}
+Define the ISIS router behavior:
+ - level-1       Act as a station router only
+ - level-1-2     Act as both a station router and an area router
+ - level-2-only  Act as an area router only
+@end deffn
+
+@node ISIS interface
+@section ISIS interface
+
+@deffn {Interface Command} {ip router isis WORD} {}
+@deffnx {Interface Command} {no ip router isis WORD} {}
+@anchor{ip router isis WORD}Activate ISIS adjacency on this interface. Note that the name
+of ISIS instance must be the same as the one used to configure the ISIS process
+(see command @ref{router isis WORD}).
+@end deffn
+
+@deffn {Interface Command} {isis circuit-type [level-1 | level-1-2 | level-2]} {}
+@deffnx {Interface Command} {no isis circuit-type} {}
+Configure circuit type for interface:
+  - level-1       Level-1 only adjacencies are formed
+  - level-1-2     Level-1-2 adjacencies are formed
+  - level-2-only  Level-2 only adjacencies are formed
+@end deffn
+
+@deffn {Interface Command} {isis csnp-interval <1-600>} {}
+@deffnx {Interface Command} {isis csnp-interval <1-600> [level-1 | level-2]} {}
+@deffnx {Interface Command} {no isis csnp-interval} {}
+@deffnx {Interface Command} {no isis csnp-interval [level-1 | level-2]} {}
+Set CSNP interval in seconds globally, for an area (level-1) or a domain (level-2).
+@end deffn
+
+@deffn {Interface Command} {isis hello padding} {}
+Add padding to IS-IS hello packets.
+@end deffn
+
+@deffn {Interface Command} {isis hello-interval <1-600>} {}
+@deffnx {Interface Command} {isis hello-interval <1-600> [level-1 | level-2]} {}
+@deffnx {Interface Command} {no isis hello-interval} {}
+@deffnx {Interface Command} {no isis hello-interval [level-1 | level-2]} {}
+Set Hello interval in seconds globally, for an area (level-1) or a domain (level-2).
+@end deffn
+
+@deffn {Interface Command} {isis hello-multiplier <2-100>} {}
+@deffnx {Interface Command} {isis hello-multiplier <2-100> [level-1 | level-2]} {}
+@deffnx {Interface Command} {no isis hello-multiplier} {}
+@deffnx {Interface Command} {no isis hello-multiplier [level-1 | level-2]} {}
+Set multiplier for Hello holding time globally, for an area (level-1) or a domain (level-2).
+@end deffn
+
+@deffn {Interface Command} {isis metric [<0-255> | <0-16777215>]} {}
+@deffnx {Interface Command} {isis metric [<0-255> | <0-16777215>] [level-1 | level-2]} {}
+@deffnx {Interface Command} {no isis metric} {}
+@deffnx {Interface Command} {no isis metric [level-1 | level-2]} {}
+Set default metric value globally, for an area (level-1) or a domain (level-2).
+Max value depend if metric support narrow or wide value (see command @ref{metric-style}).
+@end deffn
+
+@deffn {Interface Command} {isis network point-to-point} {}
+@deffnx {Interface Command} {no isis network point-to-point} {}
+Set network type to 'Point-to-Point' (broadcast by default).
+@end deffn
+
+@deffn {Interface Command} {isis passive} {}
+@deffnx {Interface Command} {no isis passive} {}
+Configure the passive mode for this interface.
+@end deffn
+
+@deffn {Interface Command} {isis password [clear | md5] <password>} {}
+@deffnx {Interface Command} {no isis password} {}
+Configure the authentication password (clear or encoded text) for the interface.
+@end deffn
+
+@deffn {Interface Command} {isis priority <0-127>} {}
+@deffnx {Interface Command} {isis priority <0-127> [level-1 | level-2]} {}
+@deffnx {Interface Command} {no isis priority} {}
+@deffnx {Interface Command} {no isis priority [level-1 | level-2]} {}
+Set priority for Designated Router election, globally, for the area (level-1)
+or the domain (level-2).
+@end deffn
+
+@deffn {Interface Command} {isis psnp-interval <1-120>} {}
+@deffnx {Interface Command} {isis psnp-interval <1-120> [level-1 | level-2]} {}
+@deffnx {Interface Command} {no isis psnp-interval} {}
+@deffnx {Interface Command} {no isis psnp-interval [level-1 | level-2]} {}
+Set PSNP interval in seconds globally, for an area (level-1) or a domain (level-2).
+@end deffn
+
+@node Showing ISIS information
+@section Showing ISIS information
+
+@deffn {Command} {show isis summary} {}
+Show summary information about ISIS.
+@end deffn
+
+@deffn {Command} {show isis hostname} {}
+Show information about ISIS node.
+@end deffn
+
+@deffn {Command} {show isis interface} {}
+@deffnx {Command} {show isis interface detail} {}
+@deffnx {Command} {show isis interface <interface name>} {}
+Show state and configuration of ISIS specified interface, or all
+interfaces if no interface is given with or without details.
+@end deffn
+
+@deffn {Command} {show isis neighbor} {}
+@deffnx {Command} {show isis neighbor <System Id>} {}
+@deffnx {Command} {show isis neighbor detail} {}
+Show state and information of ISIS specified neighbor, or all
+neighbors if no system id is given with or without details.
+@end deffn
+
+@deffn {Command} {show isis database} {}
+@deffnx {Command} {show isis database [detail]} {}
+@deffnx {Command} {show isis database <LSP id> [detail]} {}
+@deffnx {Command} {show isis database detail <LSP id>} {}
+Show the ISIS database globally, for a specific LSP id without or with details.
+@end deffn
+
+@deffn {Command} {show isis topology} {}
+@deffnx {Command} {show isis topology [level-1|level-2]} {}
+Show topology IS-IS paths to Intermediate Systems, globally,
+in area (level-1) or domain (level-2).
+@end deffn
+
+@deffn {Command} {show ip route isis} {}
+Show the ISIS routing table, as determined by the most recent SPF calculation.
+@end deffn
+
+@node ISIS Traffic Engineering
+@section Traffic Engineering
+
+@deffn {ISIS Command} {mpls-te on} {}
+@deffnx {ISIS Command} {no mpls-te} {}
+Enable Traffic Engineering LSP flooding.
+@end deffn
+
+@deffn {ISIS Command} {mpls-te router-address <A.B.C.D>} {}
+@deffnx {ISIS Command} {no mpls-te router-address} {}
+Configure stable IP address for MPLS-TE.
+@end deffn
+
+@deffn {Command} {show isis mpls-te interface} {}
+@deffnx {Command} {show isis mpls-te interface @var{interface}} {}
+Show MPLS Traffic Engineering parameters for all or specified interface.
+@end deffn
+
+@deffn {Command} {show isis mpls-te router} {}
+Show Traffic Engineering router parameters.
+@end deffn
+
+@node Debugging ISIS
+@section Debugging ISIS
+
+@deffn {Command} {debug isis adj-packets} {}
+@deffnx {Command} {no debug isis adj-packets} {}
+IS-IS Adjacency related packets.
+@end deffn
+
+@deffn {Command} {debug isis checksum-errors} {}
+@deffnx {Command} {no debug isis checksum-errors} {}
+IS-IS LSP checksum errors.
+@end deffn
+
+@deffn {Command} {debug isis events} {}
+@deffnx {Command} {no debug isis events} {}
+IS-IS Events.
+@end deffn
+
+@deffn {Command} {debug isis local-updates} {}
+@deffnx {Command} {no debug isis local-updates} {}
+IS-IS local update packets.
+@end deffn
+
+@deffn {Command} {debug isis packet-dump} {}
+@deffnx {Command} {no debug isis packet-dump} {}
+IS-IS packet dump.
+@end deffn
+
+@deffn {Command} {debug isis protocol-errors} {}
+@deffnx {Command} {no debug isis protocol-errors} {}
+IS-IS LSP protocol errors.
+@end deffn
+
+@deffn {Command} {debug isis route-events} {}
+@deffnx {Command} {no debug isis route-events} {}
+IS-IS Route related events.
+@end deffn
+
+@deffn {Command} {debug isis snp-packets} {}
+@deffnx {Command} {no debug isis snp-packets} {}
+IS-IS CSNP/PSNP packets.
+@end deffn
+
+@deffn {Command} {debug isis spf-events} {}
+@deffnx {Command} {debug isis spf-statistics} {}
+@deffnx {Command} {debug isis spf-triggers} {}
+@deffnx {Command} {no debug isis spf-events} {}
+@deffnx {Command} {no debug isis spf-statistics} {}
+@deffnx {Command} {no debug isis spf-triggers} {}
+IS-IS Shortest Path First Events, Timing and Statistic Data
+and triggering events.
+@end deffn
+
+@deffn {Command} {debug isis update-packets} {}
+@deffnx {Command} {no debug isis update-packets} {}
+Update related packets.
+@end deffn
+
+@deffn {Command} {show debugging isis} {}
+Print which ISIS debug level is activate.
+@end deffn
+
+@node ISIS Configuration Examples
+@section ISIS Configuration Examples
+A simple example, with MD5 authentication enabled:
+
+@example
+@group
+!
+interface eth0
+ ip router isis FOO
+ isis network point-to-point
+ isis circuit-type level-2-only
+!
+router isis FOO
+net 47.0023.0000.0000.0000.0000.0000.0000.1900.0004.00
+ metric-style wide
+ is-type level-2-only
+@end group
+@end example
+
+
+A Traffic Engineering configuration, with Inter-ASv2 support.
+
+ - First, the 'zebra.conf' part:
+
+@example
+@group
+hostname HOSTNAME
+password PASSWORD
+log file /var/log/zebra.log
+!
+interface eth0
+ ip address 10.2.2.2/24
+ mpls-te on
+ mpls-te link metric 10
+ mpls-te link max-bw 1.25e+06
+ mpls-te link max-rsv-bw 1.25e+06
+ mpls-te link unrsv-bw 0 1.25e+06
+ mpls-te link unrsv-bw 1 1.25e+06
+ mpls-te link unrsv-bw 2 1.25e+06
+ mpls-te link unrsv-bw 3 1.25e+06
+ mpls-te link unrsv-bw 4 1.25e+06
+ mpls-te link unrsv-bw 5 1.25e+06
+ mpls-te link unrsv-bw 6 1.25e+06
+ mpls-te link unrsv-bw 7 1.25e+06
+ mpls-te link rsc-clsclr 0xab
+!
+interface eth1
+ ip address 10.1.1.1/24
+ mpls-te on
+ mpls-te link metric 10
+ mpls-te link max-bw 1.25e+06
+ mpls-te link max-rsv-bw 1.25e+06
+ mpls-te link unrsv-bw 0 1.25e+06
+ mpls-te link unrsv-bw 1 1.25e+06
+ mpls-te link unrsv-bw 2 1.25e+06
+ mpls-te link unrsv-bw 3 1.25e+06
+ mpls-te link unrsv-bw 4 1.25e+06
+ mpls-te link unrsv-bw 5 1.25e+06
+ mpls-te link unrsv-bw 6 1.25e+06
+ mpls-te link unrsv-bw 7 1.25e+06
+ mpls-te link rsc-clsclr 0xab
+ mpls-te neighbor 10.1.1.2 as 65000
+@end group
+@end example
+
+ - Then the 'isisd.conf' itself:
+
+@example
+@group
+hostname HOSTNAME
+password PASSWORD
+log file /var/log/isisd.log
+!
+!
+interface eth0
+ ip router isis FOO
+!
+interface eth1
+ ip router isis FOO
+!
+!
+router isis FOO
+ isis net 47.0023.0000.0000.0000.0000.0000.0000.1900.0004.00
+  mpls-te on
+  mpls-te router-address 10.1.1.1
+!
+line vty
+@end group
+@end example

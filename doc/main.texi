@@ -42,6 +42,14 @@ When program terminates, retain routes added by zebra.
 @node Interface Commands
 @section Interface Commands
 
+@menu
+* Standard Commands::
+* Link Parameters Commands::
+@end menu
+
+@node Standard Commands
+@subsection Standard Commands
+
 @deffn Command {interface @var{ifname}} {}
 @end deffn
 
@@ -74,17 +82,70 @@ Enable or disables multicast flag for the interface.
 
 @deffn {Interface Command} {bandwidth <1-10000000>} {}
 @deffnx {Interface Command} {no bandwidth <1-10000000>} {}
-Set bandwidth value of the interface in kilobits/sec.  This is for 
-calculating OSPF cost. This command does not affect the actual device 
+Set bandwidth value of the interface in kilobits/sec.  This is for
+calculating OSPF cost. This command does not affect the actual device
 configuration.
 @end deffn
 
 @deffn {Interface Command} {link-detect} {}
 @deffnx {Interface Command} {no link-detect} {}
-Enable/disable link-detect on platforms which support this. Currently 
+Enable/disable link-detect on platforms which support this. Currently
 only Linux and Solaris, and only where network interface drivers support reporting
 link-state via the IFF_RUNNING flag.
 @end deffn
+
+@node Link Parameters Commands
+@subsection Link Parameters Commands
+
+@deffn {Interface Command} {link-params} {}
+@deffnx {Interface Command} {no link-param} {}
+Enter into the link parameters sub node. At least 'enable' must be set to activate the link parameters,
+and consequently Traffic Engineering on this interface. MPLS-TE must be enable at the OSPF (@ref{OSPF Traffic Engineering})
+or ISIS (@ref{ISIS Traffic Engineering}) router level in complement to this.
+Disable link parameters for this interface.
+@end deffn
+
+Under link parameter statement, the following commands set the different TE values:
+
+@deffn link-params {enable}
+Enable link parameters for this interface.
+@end deffn
+
+@deffn link-params {metric <0-4294967295>} {}
+@deffnx link-params {max-bw @var{bandwidth}} {}
+@deffnx link-params {max-rsv-bw @var{bandwidth}} {}
+@deffnx link-params {unrsv-bw <0-7> @var{bandwidth}} {}
+@deffnx link-params {admin-grp @var{bandwidth}} {}
+These commands specifies the Traffic Engineering parameters of the interface in conformity to RFC3630 (OSPF)
+or RFC5305 (ISIS).
+There are respectively the TE Metric (different from the OSPF or ISIS metric), Maximum Bandwidth (interface speed
+by default), Maximum Reservable Bandwidth, Unreserved Bandwidth for each 0-7 priority and Admin Group (ISIS) or
+Resource Class/Color (OSPF).
+
+Note that @var{bandwidth} are specified in IEEE floating point format and express in Bytes/second.
+@end deffn
+
+@deffn  link-param {delay <0-16777215> [min <0-16777215> | max <0-16777215>]} {}
+@deffnx  link-param {delay-variation <0-16777215>} {}
+@deffnx  link-param {packet-loss @var{percentage}} {}
+@deffnx  link-param {res-bw @var{bandwidth}} {}
+@deffnx  link-param {ava-bw @var{bandwidth}} {}
+@deffnx  link-param {use-bw @var{bandwidth}} {}
+These command specifies additionnal Traffic Engineering parameters of the interface in conformity to
+draft-ietf-ospf-te-metrics-extension-05.txt and draft-ietf-isis-te-metrics-extension-03.txt. There are
+respectively the delay, jitter, loss, available bandwidth, reservable bandwidth and utilized bandwidth.
+
+Note that @var{bandwidth} are specified in IEEE floating point format and express in Bytes/second.
+Delays and delay variation are express in micro-second (µs). Loss is specified in @var{percentage} ranging
+from 0 to 50.331642% by step of 0.000003.
+@end deffn
+
+@deffn link-param {neighbor <A.B.C.D> as <0-65535>} {}
+@deffnx link-param {no neighbor} {}
+Specifies the remote ASBR IP address and Autonomous System (AS) number for InterASv2 link in OSPF (RFC5392).
+Note that this option is not yet supported for ISIS (RFC5316).
+@end deffn
+
 
 @node Static Route Commands
 @section Static Route Commands
@@ -162,7 +223,7 @@ prevent traffic destined for a prefix to match less-specific routes (eg
 default) should the specified gateways not be reachable. Eg:
 
 @example
-zebra> show ip route 10.0.0.0/8             
+zebra> show ip route 10.0.0.0/8
 Routing entry for 10.0.0.0/8
   Known via "static", distance 1, metric 0
     10.0.0.2 inactive
@@ -182,7 +243,7 @@ These behave similarly to their ipv4 counterparts.
 @deffn Command {table @var{tableno}} {}
 Select the primary kernel routing table to be used.  This only works
 for kernels supporting multiple routing tables (like GNU/Linux 2.2.x
-and later).  After setting @var{tableno} with this command, 
+and later).  After setting @var{tableno} with this command,
 static routes defined after this are added to the specified table.
 @end deffn
 
@@ -365,8 +426,8 @@ Display current routes which zebra holds in its database.
 
 @example
 @group
-Router# show ip route 
-Codes: K - kernel route, C - connected, S - static, R - RIP, 
+Router# show ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP,
        B - BGP * - FIB route.
 
 K* 0.0.0.0/0              203.181.89.241
