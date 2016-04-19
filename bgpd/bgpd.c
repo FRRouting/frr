@@ -2110,19 +2110,12 @@ peer_group_get (struct bgp *bgp, const char *name)
 }
 
 static void 
-peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
-			     afi_t afi, safi_t safi)
+peer_group2peer_config_copy (struct peer_group *group, struct peer *peer)
 {
-  int in = FILTER_IN;
-  int out = FILTER_OUT;
   struct peer *conf;
-  struct bgp_filter *pfilter;
-  struct bgp_filter *gfilter;
   int v6only;
 
   conf = group->conf;
-  pfilter = &peer->filter[afi][safi];
-  gfilter = &conf->filter[afi][safi];
 
   /* remote-as */
   if (conf->as)
@@ -2150,8 +2143,6 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
   if (v6only)
     SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
 
-  /* peer af_flags apply */
-  peer->af_flags[afi][safi] = conf->af_flags[afi][safi];
   /* peer config apply */
   peer->config = conf->config;
 
@@ -2180,23 +2171,6 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
   if (! BGP_PEER_SU_UNSPEC(peer))
     bgp_md5_set (peer);
 
-  /* maximum-prefix */
-  peer->pmax[afi][safi] = conf->pmax[afi][safi];
-  peer->pmax_threshold[afi][safi] = conf->pmax_threshold[afi][safi];
-  peer->pmax_restart[afi][safi] = conf->pmax_restart[afi][safi];
-
-  /* allowas-in */
-  peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
-
-  /* default-originate route-map */
-  if (conf->default_rmap[afi][safi].name)
-    {
-      if (peer->default_rmap[afi][safi].name)
-	XFREE(MTYPE_BGP_FILTER_NAME, peer->default_rmap[afi][safi].name);
-      peer->default_rmap[afi][safi].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, conf->default_rmap[afi][safi].name);
-      peer->default_rmap[afi][safi].map = conf->default_rmap[afi][safi].map;
-    }
-
   /* update-source apply */
   if (conf->update_source)
     {
@@ -2220,6 +2194,41 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
 	}
       peer->update_if = XSTRDUP (MTYPE_PEER_UPDATE_SOURCE, conf->update_if);
     }
+}
+
+static void
+peer_group2peer_config_copy_af (struct peer_group *group, struct peer *peer,
+                                afi_t afi, safi_t safi)
+{
+  int in = FILTER_IN;
+  int out = FILTER_OUT;
+  struct peer *conf;
+  struct bgp_filter *pfilter;
+  struct bgp_filter *gfilter;
+
+  conf = group->conf;
+  pfilter = &peer->filter[afi][safi];
+  gfilter = &conf->filter[afi][safi];
+
+  /* peer af_flags apply */
+  peer->af_flags[afi][safi] = conf->af_flags[afi][safi];
+
+  /* maximum-prefix */
+  peer->pmax[afi][safi] = conf->pmax[afi][safi];
+  peer->pmax_threshold[afi][safi] = conf->pmax_threshold[afi][safi];
+  peer->pmax_restart[afi][safi] = conf->pmax_restart[afi][safi];
+
+  /* allowas-in */
+  peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
+
+  /* default-originate route-map */
+  if (conf->default_rmap[afi][safi].name)
+    {
+      if (peer->default_rmap[afi][safi].name)
+	XFREE(MTYPE_BGP_FILTER_NAME, peer->default_rmap[afi][safi].name);
+      peer->default_rmap[afi][safi].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, conf->default_rmap[afi][safi].name);
+      peer->default_rmap[afi][safi].map = conf->default_rmap[afi][safi].map;
+    }
 
   /* inbound filter apply */
   if (gfilter->dlist[in].name && ! pfilter->dlist[in].name)
@@ -2229,6 +2238,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->dlist[in].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->dlist[in].name);
       pfilter->dlist[in].alist = gfilter->dlist[in].alist;
     }
+
   if (gfilter->plist[in].name && ! pfilter->plist[in].name)
     {
       if (pfilter->plist[in].name)
@@ -2236,6 +2246,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->plist[in].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->plist[in].name);
       pfilter->plist[in].plist = gfilter->plist[in].plist;
     }
+
   if (gfilter->aslist[in].name && ! pfilter->aslist[in].name)
     {
       if (pfilter->aslist[in].name)
@@ -2243,6 +2254,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->aslist[in].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->aslist[in].name);
       pfilter->aslist[in].aslist = gfilter->aslist[in].aslist;
     }
+
   if (gfilter->map[RMAP_IN].name && ! pfilter->map[RMAP_IN].name)
     {
       if (pfilter->map[RMAP_IN].name)
@@ -2266,6 +2278,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->dlist[out].name = NULL;
       pfilter->dlist[out].alist = NULL;
     }
+
   if (gfilter->plist[out].name)
     {
       if (pfilter->plist[out].name)
@@ -2280,6 +2293,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->plist[out].name = NULL;
       pfilter->plist[out].plist = NULL;
     }
+
   if (gfilter->aslist[out].name)
     {
       if (pfilter->aslist[out].name)
@@ -2294,6 +2308,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->aslist[out].name = NULL;
       pfilter->aslist[out].aslist = NULL;
     }
+
   if (gfilter->map[RMAP_OUT].name)
     {
       if (pfilter->map[RMAP_OUT].name)
@@ -2551,6 +2566,8 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
             first_member = 1;
         }
 
+      peer_group2peer_config_copy(group, peer);
+
       for (afi = AFI_IP; afi < AFI_MAX; afi++)
         for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
           {
@@ -2560,7 +2577,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
 
                 if (peer_af_find(peer, afi, safi) || peer_af_create(peer, afi, safi))
                   {
-                    peer_group2peer_config_copy (group, peer, afi, safi);
+                    peer_group2peer_config_copy_af (group, peer, afi, safi);
                   }
               }
           }
@@ -2632,6 +2649,8 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
       peer = peer_lock (peer); /* group->peer list reference */
       listnode_add (group->peer, peer);
 
+      peer_group2peer_config_copy(group, peer);
+
       /* If the peer-group is active for this afi/safi then activate for this peer */
       for (afi = AFI_IP; afi < AFI_MAX; afi++)
         for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -2639,7 +2658,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
             {
               peer->afc[afi][safi] = 1;
               peer_af_create(peer, afi, safi);
-              peer_group2peer_config_copy (group, peer, afi, safi);
+              peer_group2peer_config_copy_af (group, peer, afi, safi);
             }
 
       SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
@@ -3261,6 +3280,8 @@ peer_create_bind_dynamic_neighbor (struct bgp *bgp, union sockunion *su,
   peer = peer_lock (peer);
   listnode_add (group->peer, peer);
 
+  peer_group2peer_config_copy(group, peer);
+
   /*
    * Bind peer for all AFs configured for the group. We don't call
    * peer_group_bind as that is sub-optimal and does some stuff we don't want.
@@ -3275,7 +3296,7 @@ peer_create_bind_dynamic_neighbor (struct bgp *bgp, union sockunion *su,
         if (!peer_af_find(peer, afi, safi))
           peer_af_create(peer, afi, safi);
 
-        peer_group2peer_config_copy (group, peer, afi, safi);
+        peer_group2peer_config_copy_af (group, peer, afi, safi);
       }
 
   /* Mark as dynamic, but also as a "config node" for other things to work. */
@@ -3671,6 +3692,7 @@ peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
   int found;
   int size;
   struct peer_group *group;
+  struct peer *tmp_peer;
   struct listnode *node, *nnode;
   struct peer_flag_action action;
 
@@ -3722,8 +3744,9 @@ peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
   /* peer-group member updates. */
   group = peer->group;
 
-  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, tmp_peer))
     {
+
       if (set && CHECK_FLAG (peer->flags, flag) == flag)
 	continue;
 
@@ -3731,12 +3754,12 @@ peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
 	continue;
 
       if (set)
-	SET_FLAG (peer->flags, flag);
+	SET_FLAG (tmp_peer->flags, flag);
       else
-	UNSET_FLAG (peer->flags, flag);
+	UNSET_FLAG (tmp_peer->flags, flag);
 
       if (action.type == peer_change_reset)
-	peer_flag_modify_action (peer, flag);
+	peer_flag_modify_action (tmp_peer, flag);
     }
   return 0;
 }
