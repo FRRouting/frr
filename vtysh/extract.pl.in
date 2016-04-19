@@ -36,6 +36,7 @@ EOF
 $ignore{'"interface IFNAME"'} = "ignore";
 $ignore{'"interface IFNAME " "vrf <0-65535>"'} = "ignore";
 $ignore{'"interface IFNAME " "vrf NAME"'} = "ignore";
+$ignore{'"link-params"'} = "ignore";
 $ignore{'"vrf NAME"'} = "ignore";
 $ignore{'"ip vrf NAME"'} = "ignore";
 $ignore{'"router rip"'} = "ignore";

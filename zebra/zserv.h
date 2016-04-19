@@ -165,6 +165,8 @@ extern int zsend_router_id_update (struct zserv *, struct prefix *,
 extern int zsend_interface_vrf_update (struct zserv *, struct interface *,
                                        vrf_id_t);
 
+extern int zsend_interface_link_params (struct zserv *, struct interface *);
+
 extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id);

@@ -37,4 +37,7 @@ extern int set_nonblocking(int fd);
 #define ERRNO_IO_RETRY(EN) \
 	(((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
 
+extern float htonf (float);
+extern float ntohf (float);
+
 #endif /* _ZEBRA_NETWORK_H */

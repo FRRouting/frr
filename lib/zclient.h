@@ -93,6 +93,7 @@ struct zclient
   int (*interface_down) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*interface_address_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*interface_address_delete) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*interface_link_params) (int, struct zclient *, uint16_t);
   int (*interface_bfd_dest_update) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*interface_nbr_address_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*interface_nbr_address_delete) (int, struct zclient *, uint16_t, vrf_id_t);
@@ -214,6 +215,9 @@ extern void zebra_router_id_update_read (struct stream *s, struct prefix *rid);
 extern int zapi_ipv4_route (u_char, struct zclient *, struct prefix_ipv4 *, 
                             struct zapi_ipv4 *);
 
+extern struct interface *zebra_interface_link_params_read (struct stream *);
+extern size_t zebra_interface_link_params_write (struct stream *,
+                                                 struct interface *);
 #ifdef HAVE_IPV6
 /* IPv6 prefix add and delete function prototype. */
 

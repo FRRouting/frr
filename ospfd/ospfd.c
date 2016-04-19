@@ -305,7 +305,7 @@ ospf_lookup ()
   if (listcount (om->ospf) == 0)
     return NULL;
 
-  return listgetdata (listhead (om->ospf));
+  return listgetdata ((struct listnode *)listhead (om->ospf));
 }
 
 struct ospf *

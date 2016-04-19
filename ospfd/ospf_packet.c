@@ -913,7 +913,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
   /* Compare options. */
 #define REJECT_IF_TBIT_ON	1 /* XXX */
 #ifdef REJECT_IF_TBIT_ON
-  if (CHECK_FLAG (hello->options, OSPF_OPTION_T))
+  if (CHECK_FLAG (hello->options, OSPF_OPTION_MT))
     {
       /*
        * This router does not support non-zero TOS.
@@ -1265,7 +1265,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
     }
 
 #ifdef REJECT_IF_TBIT_ON
-  if (CHECK_FLAG (dd->options, OSPF_OPTION_T))
+  if (CHECK_FLAG (dd->options, OSPF_OPTION_MT))
     {
       /*
        * In Hello protocol, optional capability must have checked

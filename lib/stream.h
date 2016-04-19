@@ -196,6 +196,12 @@ extern uint64_t stream_getq (struct stream *);
 extern uint64_t stream_getq_from (struct stream *, size_t);
 extern u_int32_t stream_get_ipv4 (struct stream *);
 
+/* IEEE-754 floats */
+extern float stream_getf (struct stream *);
+extern double stream_getd (struct stream *);
+extern int stream_putf (struct stream *, float);
+extern int stream_putd (struct stream *, double);
+
 #undef stream_read
 #undef stream_write
 

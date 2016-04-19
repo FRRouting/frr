@@ -1032,6 +1032,12 @@ static struct cmd_node keychain_key_node =
   "%s(config-keychain-key)# "
 };
 
+struct cmd_node link_params_node =
+{
+  LINK_PARAMS_NODE,
+  "%s(config-link-params)# ",
+};
+
 /* Defined in lib/vty.c */
 extern struct cmd_node vty_node;
 
@@ -1414,6 +1420,9 @@ vtysh_exit (struct vty *vty)
     case KEYCHAIN_KEY_NODE:
       vty->node = KEYCHAIN_NODE;
       break;
+    case LINK_PARAMS_NODE:
+      vty->node = INTERFACE_NODE;
+      break;
     default:
       break;
     }
@@ -1744,6 +1753,17 @@ DEFUN (vtysh_show_work_queues_daemon,
   ret = vtysh_client_execute(&vtysh_client[i], "show work-queues\n", stdout);
 
   return ret;
+}
+
+DEFUNSH (VTYSH_ZEBRA,
+         vtysh_link_params,
+         vtysh_link_params_cmd,
+         "link-params",
+         LINK_PARAMS_STR
+         )
+{
+  vty->node = LINK_PARAMS_NODE;
+  return CMD_SUCCESS;
 }
 
 /* Memory */
@@ -2843,6 +2863,7 @@ vtysh_init_vty (void)
   install_node (&bgp_node, NULL);
   install_node (&rip_node, NULL);
   install_node (&interface_node, NULL);
+  install_node (&link_params_node, NULL);
   install_node (&vrf_node, NULL);
   install_node (&rmap_node, NULL);
   install_node (&zebra_node, NULL);
@@ -2872,6 +2893,7 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_NODE);
   vtysh_install_default (RIP_NODE);
   vtysh_install_default (INTERFACE_NODE);
+  vtysh_install_default (LINK_PARAMS_NODE);
   vtysh_install_default (VRF_NODE);
   vtysh_install_default (RMAP_NODE);
   vtysh_install_default (ZEBRA_NODE);
@@ -2965,6 +2987,8 @@ vtysh_init_vty (void)
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &vtysh_end_all_cmd);
   install_element (INTERFACE_NODE, &vtysh_exit_interface_cmd);
+  install_element (LINK_PARAMS_NODE, &vtysh_end_all_cmd);
+  install_element (LINK_PARAMS_NODE, &vtysh_exit_interface_cmd);
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);
 
   install_element (VRF_NODE, &vtysh_end_all_cmd);
@@ -3015,6 +3039,7 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &vtysh_no_interface_cmd);
   install_element (CONFIG_NODE, &vtysh_interface_vrf_cmd);
   install_element (CONFIG_NODE, &vtysh_no_interface_vrf_cmd);
+  install_element (INTERFACE_NODE, &vtysh_link_params_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_daemon_cmd);
   install_element (ENABLE_NODE, &vtysh_copy_runningconfig_startupconfig_cmd);

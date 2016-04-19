@@ -385,9 +385,11 @@ zebra_interface_up_update (struct interface *ifp)
 
   if (ifp->ptm_status || !ifp->ptm_enable) {
     for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-      {
-	zsend_interface_update (ZEBRA_INTERFACE_UP, client, ifp);
-      }
+      if (client->ifinfo)
+	{
+	  zsend_interface_update (ZEBRA_INTERFACE_UP, client, ifp);
+	  zsend_interface_link_params (client, ifp);
+	}
   }
 }
 
@@ -418,10 +420,12 @@ zebra_interface_add_update (struct interface *ifp)
     zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADD %s[%d]", ifp->name, ifp->vrf_id);
     
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    {
-      client->ifadd_cnt++;
-       zsend_interface_add (client, ifp);
-    }
+    if (client->ifinfo)
+      {
+	client->ifadd_cnt++;
+	zsend_interface_add (client, ifp);
+        zsend_interface_link_params (client, ifp);
+      }
 }
 
 void
@@ -796,4 +800,19 @@ zebra_import_table_rm_update ()
     }
 
   return;
+}
+
+/* Interface parameters update */
+void
+zebra_interface_parameters_update (struct interface *ifp)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_LINK_PARAMS %s", ifp->name);
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    if (client->ifinfo)
+      zsend_interface_link_params (client, ifp);
 }

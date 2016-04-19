@@ -59,13 +59,14 @@
 #define OSPF_AUTH_CMD_NOTSEEN              -2
 
 /* OSPF options. */
-#define OSPF_OPTION_T                    0x01  /* TOS. */
+#define OSPF_OPTION_MT                   0x01  /* M/T */
 #define OSPF_OPTION_E                    0x02
 #define OSPF_OPTION_MC                   0x04
 #define OSPF_OPTION_NP                   0x08
 #define OSPF_OPTION_EA                   0x10
 #define OSPF_OPTION_DC                   0x20
 #define OSPF_OPTION_O                    0x40
+#define OSPF_OPTION_DN                   0x80
 
 /* OSPF Database Description flags. */
 #define OSPF_DD_FLAG_MS                  0x01

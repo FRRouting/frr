@@ -64,7 +64,7 @@ static const char *ospf_network_type_str[] =
 };
 
 /* Utility functions. */
-static int
+int
 ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
 {
   char *endptr = NULL;
