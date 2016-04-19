@@ -197,4 +197,8 @@ extern struct thread_master *master;
     } \
   while (0)
 
+#define DEBUG_TE                         (1<<13)
+
+#define IS_DEBUG_ISIS(x)                 (isis->debugs & x)
+
 #endif /* ISISD_H */

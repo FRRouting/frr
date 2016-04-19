@@ -112,13 +112,14 @@ struct isis_circuit
    */
   struct isis_passwd passwd;	/* Circuit rx/tx password */
   int is_type;	                /* circuit is type == level of circuit
-				 * diffrenciated from circuit type (media) */
+				 * differentiated from circuit type (media) */
   u_int32_t hello_interval[2];	/* l1HelloInterval in msecs */
   u_int16_t hello_multiplier[2];	/* l1HelloMultiplier */
   u_int16_t csnp_interval[2];	/* level-1 csnp-interval in seconds */
   u_int16_t psnp_interval[2];	/* level-1 psnp-interval in seconds */
   u_int8_t  metric[2];
   u_int32_t te_metric[2];
+  struct mpls_te_circuit *mtc; /* Support for MPLS-TE parameters - see isis_te.[c,h] */
   int ip_router;		/* Route IP ? */
   int is_passive;		/* Is Passive ? */
   struct list *ip_addrs;	/* our IP addresses */

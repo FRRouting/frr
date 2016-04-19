@@ -54,6 +54,7 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_te.h"
 
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
@@ -98,6 +99,7 @@ isis_new (unsigned long process_id)
    * uncomment the next line for full debugs
    */
   /* isis->debugs = 0xFFFF; */
+  isisMplsTE.status = disable;            /* Only support TE metric */
 }
 
 struct isis_area *
@@ -781,14 +783,16 @@ print_debug (struct vty *vty, int flags, int onoff)
 }
 
 DEFUN (show_debugging,
-       show_debugging_cmd,
+       show_debugging_isis_cmd,
        "show debugging isis",
        SHOW_STR
        "State of each debugging option\n"
        ISIS_STR)
 {
-  vty_out (vty, "IS-IS:%s", VTY_NEWLINE);
-  print_debug (vty, isis->debugs, 1);
+  if (isis->debugs) {
+      vty_out (vty, "IS-IS:%s", VTY_NEWLINE);
+      print_debug (vty, isis->debugs, 1);
+  }
   return CMD_SUCCESS;
 }
 
@@ -2282,6 +2286,7 @@ isis_config_write (struct vty *vty)
 #endif /* TOPOLOGY_GENERATE */
 
       }
+    isis_mpls_te_config_write_router(vty);
     }
 
   return write;
@@ -2336,7 +2341,7 @@ isis_init ()
   install_element (ENABLE_NODE, &show_database_arg_detail_cmd);
   install_element (ENABLE_NODE, &show_database_detail_cmd);
   install_element (ENABLE_NODE, &show_database_detail_arg_cmd);
-  install_element (ENABLE_NODE, &show_debugging_cmd);
+  install_element (ENABLE_NODE, &show_debugging_isis_cmd);
 
   install_node (&debug_node, config_write_debug);
 

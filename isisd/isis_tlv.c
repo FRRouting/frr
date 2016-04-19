@@ -42,6 +42,7 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_lsp.h"
+#include "isisd/isis_te.h"
 
 void
 free_tlv (void *val)
@@ -229,9 +230,23 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	      while (length > value_len)
 		{
 		  te_is_nei = (struct te_is_neigh *) pnt;
-		  value_len += 11;
-		  pnt += 11;
-		  /* FIXME - subtlvs are handled here, for now we skip */
+		  value_len += IS_NEIGHBOURS_LEN;
+		  pnt += IS_NEIGHBOURS_LEN;
+                  /* FIXME - subtlvs are handled here, for now we skip */
+		  /* FIXME: All TE SubTLVs are not necessary present in LSP PDU. */
+		  /* So, it must be copied in a new te_is_neigh structure        */
+		  /* rather than just initialize pointer to the original LSP PDU */
+		  /* to avoid consider the rest of lspdu as subTLVs or buffer overflow */
+		  if (IS_MPLS_TE(isisMplsTE))
+		    {
+		      struct te_is_neigh *new = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct te_is_neigh));
+		      memcpy(new->neigh_id, te_is_nei->neigh_id, ISIS_SYS_ID_LEN + 1);
+		      memcpy(new->te_metric, te_is_nei->te_metric, 3);
+		      new->sub_tlvs_length = te_is_nei->sub_tlvs_length;
+		      memcpy(new->sub_tlvs, pnt, te_is_nei->sub_tlvs_length);
+                      te_is_nei = new;
+                    }
+		  /* Skip SUB TLVs payload */
 		  value_len += te_is_nei->sub_tlvs_length;
 		  pnt += te_is_nei->sub_tlvs_length;
 
@@ -845,8 +860,8 @@ tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream)
 
   for (ALL_LIST_ELEMENTS_RO (te_is_neighs, node, te_is_neigh))
     {
-      /* FIXME: This will be wrong if we are going to add TE sub TLVs. */
-      if (pos - value + IS_NEIGHBOURS_LEN > 255)
+      /* FIXME: Check if Total SubTLVs size doesn't exceed 255 */
+      if (pos - value + IS_NEIGHBOURS_LEN + te_is_neigh->sub_tlvs_length > 255)
         {
           retval = add_tlv (TE_IS_NEIGHBOURS, pos - value, value, stream);
           if (retval != ISIS_OK)
@@ -858,9 +873,15 @@ tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream)
       pos += ISIS_SYS_ID_LEN + 1;
       memcpy (pos, te_is_neigh->te_metric, 3);
       pos += 3;
-      /* Sub TLVs length. */
-      *pos = 0;
+      /* Set the total size of Sub TLVs */
+      *pos = te_is_neigh->sub_tlvs_length;
       pos++;
+      /* Copy Sub TLVs if any */
+      if (te_is_neigh->sub_tlvs_length > 0)
+        {
+          memcpy (pos, te_is_neigh->sub_tlvs, te_is_neigh->sub_tlvs_length);
+          pos += te_is_neigh->sub_tlvs_length;
+        }
     }
 
   return add_tlv (TE_IS_NEIGHBOURS, pos - value, value, stream);

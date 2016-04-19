@@ -37,6 +37,7 @@
 #include "linklist.h"
 #include "command.h"
 #include "thread.h"
+#include "vty.h"
 #include "hash.h"
 #include "prefix.h"
 #include "stream.h"
@@ -58,6 +59,7 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_te.h"
 
 /*
  * Prototypes.
@@ -95,6 +97,8 @@ isis_circuit_new ()
       circuit->metric[i] = DEFAULT_CIRCUIT_METRIC;
       circuit->te_metric[i] = DEFAULT_CIRCUIT_METRIC;
     }
+
+  circuit->mtc = mpls_te_circuit_new();
 
   return circuit;
 }
@@ -222,6 +226,10 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
       ipv4->prefixlen = connected->address->prefixlen;
       ipv4->prefix = connected->address->u.prefix4;
       listnode_add (circuit->ip_addrs, ipv4);
+
+      /* Update MPLS TE Local IP address parameter */
+      set_circuitparams_local_ipaddr (circuit->mtc, ipv4->prefix);
+
       if (circuit->area)
         lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
 
@@ -518,6 +526,7 @@ isis_circuit_if_bind (struct isis_circuit *circuit, struct interface *ifp)
     assert (ifp->info == circuit);
   else
     ifp->info = circuit;
+  isis_link_params_update (circuit, ifp);
 }
 
 void

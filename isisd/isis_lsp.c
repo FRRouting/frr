@@ -52,6 +52,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_spf.h"
+#include "isisd/isis_te.h"
 
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
@@ -981,6 +982,8 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
       lspid_print (te_is_neigh->neigh_id, LSPid, dynhost, 0);
       vty_out (vty, "  Metric      : %-8d IS-Extended   : %s%s",
 	       GET_TE_METRIC(te_is_neigh), LSPid, VTY_NEWLINE);
+      if (IS_MPLS_TE(isisMplsTE))
+        mpls_te_print_detail(vty, te_is_neigh);
     }
 
   /* TE IPv4 tlv */
@@ -1086,6 +1089,64 @@ lsp_tlv_fit (struct isis_lsp *lsp, struct list **from, struct list **to,
 	  listnode_delete (*from, listgetdata (listhead (*from)));
 	}
       tlv_build_func (*to, lsp->pdu);
+    }
+  lsp->lsp_header->pdu_len = htons (stream_get_endp (lsp->pdu));
+  return;
+}
+
+/* Process IS_NEIGHBOURS TLV with TE subTLVs */
+void
+lsp_te_tlv_fit (struct isis_lsp *lsp, struct list **from, struct list **to, int frag_thold)
+{
+  int count, size = 0;
+  struct listnode *node, *nextnode;
+  struct te_is_neigh *elem;
+
+  /* Start computing real size of TLVs */
+  for (ALL_LIST_ELEMENTS (*from, node, nextnode, elem))
+    size = size + elem->sub_tlvs_length + IS_NEIGHBOURS_LEN;
+
+  /* can we fit all ? */
+  if (!FRAG_NEEDED (lsp->pdu, frag_thold, size))
+    {
+      tlv_add_te_is_neighs (*from, lsp->pdu);
+      if (listcount (*to) != 0)
+        {
+          for (ALL_LIST_ELEMENTS (*from, node, nextnode, elem))
+            {
+              listnode_add (*to, elem);
+              list_delete_node (*from, node);
+            }
+        }
+      else
+        {
+          list_free (*to);
+          *to = *from;
+          *from = NULL;
+        }
+    }
+  else
+    {
+      /* fit all we can */
+      /* Compute remaining place in LSP PDU */
+      count = FRAG_THOLD (lsp->pdu, frag_thold) - 2 -
+        (STREAM_SIZE (lsp->pdu) - STREAM_REMAIN (lsp->pdu));
+      /* Determine size of TE SubTLVs */
+      elem = (struct te_is_neigh *)listgetdata ((struct listnode *)listhead (*from));
+      count = count - elem->sub_tlvs_length - IS_NEIGHBOURS_LEN;
+      if (count > 0)
+        {
+          while (count > 0)
+            {
+              listnode_add (*to, listgetdata ((struct listnode *)listhead (*from)));
+              listnode_delete (*from, listgetdata ((struct listnode *)listhead (*from)));
+
+              elem = (struct te_is_neigh *)listgetdata ((struct listnode *)listhead (*from));
+              count = count - elem->sub_tlvs_length - IS_NEIGHBOURS_LEN;
+            }
+
+          tlv_add_te_is_neighs (*to, lsp->pdu);
+        }
     }
   lsp->lsp_header->pdu_len = htons (stream_get_endp (lsp->pdu));
   return;
@@ -1631,6 +1692,14 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
                     }
                   else
                     {
+                      /* Check if MPLS_TE is activate */
+                      if (IS_MPLS_TE(isisMplsTE) && HAS_LINK_PARAMS(circuit->interface))
+                        /* Add SubTLVs & Adjust real size of SubTLVs */
+                        te_is_neigh->sub_tlvs_length = add_te_subtlvs(te_is_neigh->sub_tlvs, circuit->mtc);
+                      else
+                        /* Or keep only TE metric with no SubTLVs if MPLS_TE is off */
+                        te_is_neigh->sub_tlvs_length = 0;
+
                       listnode_add (tlv_data.te_is_neighs, te_is_neigh);
                       lsp_debug("ISIS (%s): Adding DIS %s.%02x as te-style neighbor",
                                 area->area_tag, sysid_print(te_is_neigh->neigh_id),
@@ -1679,6 +1748,18 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  memcpy (te_is_neigh->neigh_id, nei->sysid, ISIS_SYS_ID_LEN);
 		  metric = circuit->te_metric[level - 1];
 		  SET_TE_METRIC(te_is_neigh, metric);
+		  /* Check if MPLS_TE is activate */
+                  if (IS_MPLS_TE(isisMplsTE) && HAS_LINK_PARAMS(circuit->interface))
+                    /* Update Local and Remote IP address for MPLS TE circuit parameters */
+                    /* NOTE sure that it is the pertinent place for that updates */
+                    /* Local IP address could be updated in isis_circuit.c - isis_circuit_add_addr() */
+                    /* But, where update remote IP address ? in isis_pdu.c - process_p2p_hello() ? */
+
+                    /* Add SubTLVs & Adjust real size of SubTLVs */
+                    te_is_neigh->sub_tlvs_length = add_te_subtlvs(te_is_neigh->sub_tlvs, circuit->mtc);
+                  else
+                    /* Or keep only TE metric with no SubTLVs if MPLS_TE is off */
+                    te_is_neigh->sub_tlvs_length = 0;
 		  listnode_add (tlv_data.te_is_neighs, te_is_neigh);
 		  lsp_debug("ISIS (%s): Adding te-style is reach for %s", area->area_tag,
                             sysid_print(te_is_neigh->neigh_id));
