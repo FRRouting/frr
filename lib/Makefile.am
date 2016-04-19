@@ -15,7 +15,7 @@ libzebra_la_SOURCES = \
 	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c workqueue.c nexthop.c json.c \
 	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory.c memory_vty.c \
-	imsg-buffer.c imsg.c
+	imsg-buffer.c imsg.c skiplist.c
 
 BUILT_SOURCES = route_types.h gitversion.h
 
@@ -32,7 +32,8 @@ pkginclude_HEADERS = \
 	privs.h sigevent.h pqueue.h jhash.h zassert.h \
 	workqueue.h route_types.h libospf.h nexthop.h json.h \
 	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
-	fifo.h memory_vty.h mpls.h imsg.h openbsd-queue.h openbsd-tree.h
+	fifo.h memory_vty.h mpls.h imsg.h openbsd-queue.h openbsd-tree.h \
+	skiplist.h
 
 noinst_HEADERS = \
 	plist_int.h
@@ -60,7 +61,7 @@ GITH=gitversion.h
 gitversion.h.tmp: $(srcdir)/../.git
 	@PERL@ $(srcdir)/gitversion.pl $(srcdir) > ${GITH}.tmp
 gitversion.h: gitversion.h.tmp
-	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp -v ${GITH}.tmp ${GITH}
+	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp -v ${GITH}.tmp ${GITH} 
 
 else
 .PHONY: gitversion.h
