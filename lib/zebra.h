@@ -502,7 +502,8 @@ extern const char *zserv_command_string (unsigned int command);
 typedef enum {
   AFI_IP  = 1,
   AFI_IP6 = 2,
-#define AFI_MAX 3
+  AFI_ETHER = 3,                /* RFC 1700 has "6" for 802.* */
+  AFI_MAX = 4
 } afi_t;
 
 /* Subsequent Address Family Identifier. */
