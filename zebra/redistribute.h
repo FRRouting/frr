@@ -28,13 +28,13 @@
 #include "vty.h"
 #include "vrf.h"
 
-extern void zebra_redistribute_add (int, struct zserv *, int, vrf_id_t);
-extern void zebra_redistribute_delete (int, struct zserv *, int, vrf_id_t);
+extern void zebra_redistribute_add (int, struct zserv *, int, struct zebra_vrf *zvrf);
+extern void zebra_redistribute_delete (int, struct zserv *, int, struct zebra_vrf *zvrf);
 
 extern void zebra_redistribute_default_add (int, struct zserv *, int,
-    vrf_id_t);
+					    struct zebra_vrf *zvrf);
 extern void zebra_redistribute_default_delete (int, struct zserv *, int,
-    vrf_id_t);
+					       struct zebra_vrf *zvrf);
 
 extern void redistribute_update (struct prefix *, struct rib *, struct rib *);
 extern void redistribute_delete (struct prefix *, struct rib *);

@@ -558,7 +558,7 @@ zebra_ptm_sock_read (struct thread *thread)
 /* BFD peer/dst register/update */
 int
 zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
-                              int command, vrf_id_t vrf_id)
+			    int command, struct zebra_vrf *zvrf)
 {
   struct stream *s;
   struct prefix src_p;
@@ -574,7 +574,6 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
   char buf[INET6_ADDRSTRLEN];
   char tmp_buf[64];
   int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
-  struct zebra_vrf *zvrf;
   unsigned int pid;
 
   if (command == ZEBRA_BFD_DEST_UPDATE)
@@ -674,13 +673,8 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
       ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD,
                           tmp_buf);
 
-      if (vrf_id)
-        {
-          zvrf = vrf_info_lookup (vrf_id);
-          if (zvrf)
-            ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
-                            zvrf->name);
-        }
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
+			 zvrf->name);
     }
   else
     {
@@ -733,7 +727,7 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
 /* BFD peer/dst deregister */
 int
 zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
-                              vrf_id_t vrf_id)
+                              struct zebra_vrf *zvrf)
 {
   struct stream *s;
   struct prefix src_p;
@@ -745,7 +739,6 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
   char tmp_buf[64];
   int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
   void *out_ctxt;
-  struct zebra_vrf *zvrf;
   unsigned int pid;
 
   client->bfd_peer_del_cnt++;
@@ -826,13 +819,8 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
                               ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
         }
 #endif /* HAVE_IPV6 */
-      if (vrf_id)
-        {
-          zvrf = vrf_info_lookup (vrf_id);
-          if (zvrf)
-            ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
-                                zvrf->name);
-        }
+      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
+			 zvrf->name);
     }
   else
     {

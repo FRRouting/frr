@@ -321,7 +321,7 @@ redistribute_delete (struct prefix *p, struct rib *rib)
 
 void
 zebra_redistribute_add (int command, struct zserv *client, int length,
-    vrf_id_t vrf_id)
+			struct zebra_vrf *zvrf)
 {
   afi_t afi;
   int type;
@@ -337,19 +337,19 @@ zebra_redistribute_add (int command, struct zserv *client, int length,
   if (instance && !redist_check_instance(&client->mi_redist[afi][type], instance))
     {
       redist_add_instance(&client->mi_redist[afi][type], instance);
-      zebra_redistribute (client, type, instance, vrf_id);
+      zebra_redistribute (client, type, instance, zvrf->vrf_id);
     }
   else
-    if (! vrf_bitmap_check (client->redist[afi][type], vrf_id))
+    if (! vrf_bitmap_check (client->redist[afi][type], zvrf->vrf_id))
       {
-        vrf_bitmap_set (client->redist[afi][type], vrf_id);
-        zebra_redistribute (client, type, 0, vrf_id);
+        vrf_bitmap_set (client->redist[afi][type], zvrf->vrf_id);
+        zebra_redistribute (client, type, 0, zvrf->vrf_id);
       }
 }
 
 void
 zebra_redistribute_delete (int command, struct zserv *client, int length,
-    vrf_id_t vrf_id)
+			   struct zebra_vrf *zvrf)
 {
   afi_t afi;
   int type;
@@ -367,22 +367,22 @@ zebra_redistribute_delete (int command, struct zserv *client, int length,
       redist_del_instance(&client->mi_redist[afi][type], instance);
       //Pending: why no reaction here?
     }
-  vrf_bitmap_unset (client->redist[afi][type], vrf_id);
+  vrf_bitmap_unset (client->redist[afi][type], zvrf->vrf_id);
 }
 
 void
 zebra_redistribute_default_add (int command, struct zserv *client, int length,
-    vrf_id_t vrf_id)
+				struct zebra_vrf *zvrf)
 {
-  vrf_bitmap_set (client->redist_default, vrf_id);
-  zebra_redistribute_default (client, vrf_id);
+  vrf_bitmap_set (client->redist_default, zvrf->vrf_id);
+  zebra_redistribute_default (client, zvrf->vrf_id);
 }     
 
 void
 zebra_redistribute_default_delete (int command, struct zserv *client,
-    int length, vrf_id_t vrf_id)
+				   int length, struct zebra_vrf *zvrf)
 {
-  vrf_bitmap_unset (client->redist_default, vrf_id);
+  vrf_bitmap_unset (client->redist_default, zvrf->vrf_id);
 }     
 
 /* Interface up information. */
