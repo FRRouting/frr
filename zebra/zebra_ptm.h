@@ -50,6 +50,11 @@ struct zebra_ptm_cb
 #define ZEBRA_PTM_STATUS_UP 1
 #define ZEBRA_PTM_STATUS_UNKNOWN 2
 
+/* For interface ptm-enable configuration. */
+#define ZEBRA_IF_PTM_ENABLE_OFF    0
+#define ZEBRA_IF_PTM_ENABLE_ON     1
+#define ZEBRA_IF_PTM_ENABLE_UNSPEC 2
+
 void zebra_ptm_init (void);
 void zebra_ptm_finish(void);
 int zebra_ptm_connect (struct thread *t);
@@ -64,4 +69,7 @@ void
 zebra_ptm_show_status(struct vty *vty, struct interface *ifp);
 int zebra_ptm_bfd_client_register (struct zserv *client, int sock,
                                     u_short length);
+void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
+void zebra_ptm_if_set_ptm_state(struct interface *ifp, struct zebra_if *zebra_ifp);
+void zebra_ptm_if_write (struct vty *vty, struct zebra_if *zebra_ifp);
 #endif

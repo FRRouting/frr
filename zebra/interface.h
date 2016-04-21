@@ -211,6 +211,9 @@ struct zebra_if
    */
   u_char primary_state;
 #endif /* SUNOS_5 */
+
+  /* ptm enable configuration */
+  u_char ptm_enable;
 };
 
 

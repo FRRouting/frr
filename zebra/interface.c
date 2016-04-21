@@ -66,6 +66,7 @@ if_zebra_new_hook (struct interface *ifp)
 
   zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
   zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
+  zebra_ptm_if_init(zebra_if);
 
   ifp->ptm_enable = zebra_ptm_get_enable_state();
 #if defined (HAVE_RTADV)
@@ -452,6 +453,8 @@ if_add_update (struct interface *ifp)
     if_set_flags (ifp, IFF_MULTICAST);
   else if (if_data->multicast == IF_ZEBRA_MULTICAST_OFF)
     if_unset_flags (ifp, IFF_MULTICAST);
+
+  zebra_ptm_if_set_ptm_state(ifp, if_data);
 
   zebra_interface_add_update (ifp);
 
@@ -1842,6 +1845,7 @@ DEFUN (no_ip_address,
   return ip_address_uninstall (vty, vty->index, argv[0], NULL, NULL);
 }
 
+
 #ifdef HAVE_NETLINK
 DEFUN (ip_address_label,
        ip_address_label_cmd,
@@ -2085,6 +2089,8 @@ if_config_write (struct vty *vty)
 	{
 	  if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
 	    vty_out (vty, " shutdown%s", VTY_NEWLINE);
+
+          zebra_ptm_if_write(vty, if_data);
 	}
 
       if (ifp->desc)
