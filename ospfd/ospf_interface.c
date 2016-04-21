@@ -234,8 +234,8 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
   /* Set default values. */
   ospf_if_reset_variables (oi);
 
-  /* Add pseudo neighbor. */
-  oi->nbr_self = ospf_nbr_new (oi);
+  /* Set pseudo neighbor to Null */
+  oi->nbr_self = NULL;
 
   oi->ls_upd_queue = route_table_init ();
   oi->t_ls_upd_event = NULL;
@@ -925,7 +925,9 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_vl_new(): set associated area to the backbone");
 
-  ospf_nbr_add_self (voi);
+  /* Add pseudo neighbor. */
+  ospf_nbr_self_reset (voi);
+
   ospf_area_add_if (voi->area, voi);
 
   ospf_if_stream_set (voi);
