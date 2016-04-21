@@ -14,6 +14,7 @@ import copy
 import logging
 import os
 import random
+import re
 import string
 import subprocess
 import sys
@@ -431,6 +432,64 @@ def get_normalized_ipv6_line(line):
     return norm_line.strip()
 
 
+def line_exist(lines, target_ctx_keys, target_line):
+    for (ctx_keys, line) in lines:
+        if ctx_keys == target_ctx_keys and line == target_line:
+            return True
+    return False
+
+
+def ignore_bgp_swpx_peergroup(lines_to_add, lines_to_del):
+    '''
+    BGP changed how it displays swpX peers that are part of peer-group. Older
+    versions of quagga would display these on separate lines:
+        neighbor swp1 interface
+        neighbor swp1 peer-group FOO
+
+    but today we display via a single line
+        neighbor swp1 interface peer-group FOO
+
+    This change confuses quagga-reload.py so check to see if we are deleting
+        neighbor swp1 interface peer-group FOO
+
+    and adding
+        neighbor swp1 interface
+        neighbor swp1 peer-group FOO
+
+    If so then chop the del line and the corresponding add lines
+    '''
+
+    # Quite possibly the most confusing (while accurate) variable names in history
+    lines_to_add_to_del = []
+    lines_to_del_to_del = []
+
+    for (ctx_keys, line) in lines_to_del:
+        if ctx_keys[0].startswith('router bgp') and line.startswith('neighbor '):
+            re_swpx_int_peergroup = re.search('neighbor (\S+) interface peer-group (\S+)', line)
+
+            if re_swpx_int_peergroup:
+                swpx = re_swpx_int_peergroup.group(1)
+                peergroup = re_swpx_int_peergroup.group(2)
+                swpx_interface = "neighbor %s interface" % swpx
+                swpx_peergroup = "neighbor %s peer-group %s" % (swpx, peergroup)
+
+                found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
+                found_add_swpx_peergroup = line_exist(lines_to_add, ctx_keys, swpx_peergroup)
+
+                if found_add_swpx_interface and found_add_swpx_peergroup:
+                    lines_to_del_to_del.append((ctx_keys, line))
+                    lines_to_add_to_del.append((ctx_keys, swpx_interface))
+                    lines_to_add_to_del.append((ctx_keys, swpx_peergroup))
+
+    for (ctx_keys, line) in lines_to_del_to_del:
+        lines_to_del.remove((ctx_keys, line))
+
+    for (ctx_keys, line) in lines_to_add_to_del:
+        lines_to_add.remove((ctx_keys, line))
+
+    return (lines_to_add, lines_to_del)
+
+
 def compare_context_objects(newconf, running):
     """
     Create a context diff for the two specified contexts
@@ -488,6 +547,8 @@ def compare_context_objects(newconf, running):
 
             for line in newconf_ctx.lines:
                 lines_to_add.append((newconf_ctx_keys, line))
+
+    (lines_to_add, lines_to_del) = ignore_bgp_swpx_peergroup(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del, restart_bgpd)
 
@@ -580,6 +641,7 @@ if __name__ == '__main__':
 
                 cmd = line_for_vtysh_file(ctx_keys, line, True)
                 lines_to_configure.append(cmd)
+                print cmd
 
         if lines_to_add:
             print "\nLines To Add"
@@ -592,9 +654,7 @@ if __name__ == '__main__':
 
                 cmd = line_for_vtysh_file(ctx_keys, line, False)
                 lines_to_configure.append(cmd)
-
-        if lines_to_configure:
-            print '\n'.join(lines_to_configure)
+                print cmd
 
         if restart_bgp:
             print "BGP local AS changed, bgpd would restart"
