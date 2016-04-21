@@ -490,7 +490,8 @@ bgp_bind (struct peer *peer)
 
   if (ret < 0)
     {
-      zlog_info ("bind to interface %s failed", name);
+      if (bgp_debug_neighbor_events (peer))
+        zlog_debug ("bind to interface %s failed", name);
       return ret;
     }
 #endif /* SO_BINDTODEVICE */
