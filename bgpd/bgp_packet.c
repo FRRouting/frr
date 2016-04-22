@@ -1506,6 +1506,9 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   /* Parse any given NLRIs */
   for (int i = NLRI_UPDATE; i < NLRI_TYPE_MAX; i++)
     {
+      if (!nlris[i].nlri)
+        continue;
+
       /* We use afi and safi as indices into tables and what not. It would
        * be impossible, at this time, to support unknown afi/safis. And
        * anyway, the peer needs to be configured to enable the afi/safi
