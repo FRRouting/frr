@@ -197,10 +197,6 @@ zsend_interface_add (struct zserv *client, struct interface *ifp)
 {
   struct stream *s;
 
-  /* Check this client need interface information. */
-  if (! vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
-    return 0;
-
   s = client->obuf;
   stream_reset (s);
 
@@ -216,10 +212,6 @@ int
 zsend_interface_delete (struct zserv *client, struct interface *ifp)
 {
   struct stream *s;
-
-  /* Check this client need interface information. */
-  if (! vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
-    return 0;
 
   s = client->obuf;
   stream_reset (s);
@@ -308,10 +300,6 @@ zsend_interface_address (int cmd, struct zserv *client,
   struct stream *s;
   struct prefix *p;
 
-  /* Check this client need interface information. */
-  if (! vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
-    return 0;
-
   s = client->obuf;
   stream_reset (s);
   
@@ -355,10 +343,6 @@ zsend_interface_nbr_address (int cmd, struct zserv *client,
   int blen;
   struct stream *s;
   struct prefix *p;
-
-  /* Check this client need interface information. */
-  if (! vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
-    return 0;
 
   s = client->obuf;
   stream_reset (s);
@@ -405,8 +389,7 @@ zebra_interface_nbr_address_add_update (struct interface *ifp,
     }
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    if (client->ifinfo)
-      zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_ADD, client, ifp, ifc);
+    zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_ADD, client, ifp, ifc);
 }
 
 /* Interface address deletion. */
@@ -429,8 +412,7 @@ zebra_interface_nbr_address_delete_update (struct interface *ifp,
     }
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    if (client->ifinfo)
-      zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_DELETE, client, ifp, ifc);
+    zsend_interface_nbr_address (ZEBRA_INTERFACE_NBR_ADDRESS_DELETE, client, ifp, ifc);
 }
 
 /* Send addresses on interface to client */
@@ -558,10 +540,6 @@ int
 zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
 {
   struct stream *s;
-
-  /* Check this client need interface information. */
-  if (! vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
-    return 0;
 
   s = client->obuf;
   stream_reset (s);
@@ -1085,22 +1063,28 @@ static int
 zread_interface_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
   struct listnode *ifnode, *ifnnode;
+  vrf_iter_t iter;
   struct interface *ifp;
+  struct zebra_vrf *zvrf_iter;
 
   /* Interface information is needed. */
   vrf_bitmap_set (client->ifinfo, zvrf->vrf_id);
 
-  for (ALL_LIST_ELEMENTS (vrf_iflist (zvrf->vrf_id), ifnode, ifnnode, ifp))
+  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
-      /* Skip pseudo interface. */
-      if (! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
-	continue;
+      zvrf_iter = vrf_iter2info (iter);
+      for (ALL_LIST_ELEMENTS (vrf_iflist (zvrf_iter->vrf_id), ifnode, ifnnode, ifp))
+        {
+          /* Skip pseudo interface. */
+          if (! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
+	    continue;
 
-      if (zsend_interface_add (client, ifp) < 0)
-        return -1;
+          if (zsend_interface_add (client, ifp) < 0)
+            return -1;
 
-      if (zsend_interface_addresses (client, ifp) < 0)
-        return -1;
+          if (zsend_interface_addresses (client, ifp) < 0)
+            return -1;
+        }
     }
   return 0;
 }

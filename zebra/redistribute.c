@@ -427,14 +427,13 @@ zebra_interface_add_update (struct interface *ifp)
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADD %s", ifp->name);
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADD %s[%d]", ifp->name, ifp->vrf_id);
     
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    if (client->ifinfo)
-      {
-	client->ifadd_cnt++;
-	zsend_interface_add (client, ifp);
-      }
+    {
+      client->ifadd_cnt++;
+       zsend_interface_add (client, ifp);
+    }
 }
 
 void
@@ -447,11 +446,10 @@ zebra_interface_delete_update (struct interface *ifp)
     zlog_debug ("MESSAGE: ZEBRA_INTERFACE_DELETE %s", ifp->name);
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    if (client->ifinfo)
-      {
-	client->ifdel_cnt++;
-	zsend_interface_delete (client, ifp);
-      }
+    {
+      client->ifdel_cnt++;
+      zsend_interface_delete (client, ifp);
+    }
 }
 
 /* Interface address addition. */
@@ -479,7 +477,7 @@ zebra_interface_address_add_update (struct interface *ifp,
   router_id_add_address(ifc);
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    if (client->ifinfo && CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
+    if (CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
       {
 	client->connected_rt_add_cnt++;
 	zsend_interface_address (ZEBRA_INTERFACE_ADDRESS_ADD, client, ifp, ifc);
@@ -508,7 +506,7 @@ zebra_interface_address_delete_update (struct interface *ifp,
   router_id_del_address(ifc);
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    if (client->ifinfo && CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
+    if (CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
       {
 	client->connected_rt_del_cnt++;
 	zsend_interface_address (ZEBRA_INTERFACE_ADDRESS_DELETE, client, ifp, ifc);
@@ -530,23 +528,11 @@ zebra_interface_vrf_update_del (struct interface *ifp, vrf_id_t new_vrf_id)
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
     {
-      /* Skip clients not interested in both VRFs. */
-      if (!vrf_bitmap_check (client->ifinfo, ifp->vrf_id) &&
-          !vrf_bitmap_check (client->ifinfo, new_vrf_id))
-        continue;
-
-      if (!vrf_bitmap_check (client->ifinfo, new_vrf_id))
-        {
-          /* Need to delete if the client is not interested in the new VRF. */
-          zsend_interface_update (ZEBRA_INTERFACE_DOWN, client, ifp);
-          client->ifdel_cnt++;
-          zsend_interface_delete (client, ifp);
-        }
-      else if (vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
-        {
-          /* Client is interested in both VRFs, inform about the change. */
-          zsend_interface_vrf_update (client, ifp, new_vrf_id);
-        }
+      /* Need to delete if the client is not interested in the new VRF. */
+      zsend_interface_update (ZEBRA_INTERFACE_DOWN, client, ifp);
+      client->ifdel_cnt++;
+      zsend_interface_delete (client, ifp);
+      zsend_interface_vrf_update (client, ifp, new_vrf_id);
     }
 }
 
@@ -565,17 +551,6 @@ zebra_interface_vrf_update_add (struct interface *ifp, vrf_id_t old_vrf_id)
 
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
     {
-      /* Skip clients interested in both VRFs - they would've got an Update. */
-      if (vrf_bitmap_check (client->ifinfo, ifp->vrf_id) &&
-          vrf_bitmap_check (client->ifinfo, old_vrf_id))
-        continue;
-
-      /* Skip clients not interested in the new VRF - they would've
-       * got a Delete.
-       */
-      if (!vrf_bitmap_check (client->ifinfo, ifp->vrf_id))
-        continue;
-
       /* Need to add if the client is interested in the new VRF. */
       client->ifadd_cnt++;
       zsend_interface_add (client, ifp);
