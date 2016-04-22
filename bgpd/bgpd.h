@@ -834,6 +834,8 @@ struct peer
 #define PEER_DOWN_NSF_CLOSE_SESSION     22 /* NSF tcp session close */
 #define PEER_DOWN_V6ONLY_CHANGE         23 /* if-based peering v6only toggled */
 #define PEER_DOWN_BFD_DOWN              24 /* BFD down */
+#define PEER_DOWN_IF_DOWN               25 /* Interface down */
+#define PEER_DOWN_NBR_ADDR_DEL          26 /* Peer address lost */
 unsigned long last_reset_cause_size;
 u_char last_reset_cause[BGP_MAX_PACKET_SIZE];
 

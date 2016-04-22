@@ -222,6 +222,7 @@ bgp_nbr_connected_delete (struct bgp *bgp, struct nbr_connected *ifc, int del)
     {
       if (peer->conf_if && (strcmp (peer->conf_if, ifc->ifp->name) == 0))
         {
+          peer->last_reset = PEER_DOWN_NBR_ADDR_DEL;
           BGP_EVENT_ADD (peer, BGP_Stop);
         }
     }
@@ -344,7 +345,10 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length,
           continue;
 
         if (ifp == peer->nexthop.ifp)
-          BGP_EVENT_ADD (peer, BGP_Stop);
+          {
+            BGP_EVENT_ADD (peer, BGP_Stop);
+            peer->last_reset = PEER_DOWN_IF_DOWN;
+          }
       }
   }
 
