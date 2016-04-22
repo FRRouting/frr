@@ -45,6 +45,7 @@ bfd_info_create(void)
   assert(bfd_info);
 
   bfd_info->status = BFD_STATUS_UNKNOWN;
+  bfd_info->type = BFD_TYPE_NOT_CONFIGURED;
   bfd_info->last_update = 0;
   return bfd_info;
 }

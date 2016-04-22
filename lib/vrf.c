@@ -87,77 +87,86 @@ struct vrf *
 vrf_get (vrf_id_t vrf_id, const char *name)
 {
   struct prefix p;
-  struct route_node *rn;
+  struct route_node *rn = NULL;
   struct vrf *vrf = NULL;
   size_t namelen = 0;
 
-  vrf_build_key (vrf_id, &p);
-  rn = route_node_get (vrf_table, &p);
-  if (rn->info)
+  /* Only create a route node if the vrf was learned from the kernel */
+  if (vrf_id != VRF_UNKNOWN)
     {
-      vrf = (struct vrf *)rn->info;
-      route_unlock_node (rn); /* get */
+      vrf_build_key (vrf_id, &p);
+      rn = route_node_get (vrf_table, &p);
 
-      if (name)
+      if (rn->info)
         {
-          strncpy (vrf->name, name, strlen(name));
-          vrf->name[strlen(name)] = '\0';
-          if (vrf_list_lookup_by_name (vrf->name) == NULL)
-            listnode_add_sort (vrf_list, vrf);
+          vrf = (struct vrf *)rn->info;
+          route_unlock_node (rn); /* get */
+
+          if (name)
+            {
+              strncpy (vrf->name, name, strlen(name));
+              vrf->name[strlen(name)] = '\0';
+              if (vrf_list_lookup_by_name (vrf->name) == NULL)
+                listnode_add_sort (vrf_list, vrf);
+            }
+          if (debug_vrf)
+	    zlog_debug ("VRF(%u) %s Found %p", vrf_id, (name) ? name : "(NULL)",
+			vrf);
         }
+    }
+
+  if (name && !vrf)
+    vrf = vrf_list_lookup_by_name(name);
+
+  if (vrf)
+    {
       if (debug_vrf)
-	zlog_debug ("VRF(%u) %s Found %p", vrf_id, (name) ? name : "(NULL)",
-		    vrf);
+        zlog_debug ("VRF(%u) %s lookup by name is successful",
+		    vrf_id, (name) ? name : "(NULL)");
     }
   else
     {
       if (name)
-        vrf = vrf_list_lookup_by_name(name);
-
-      if (vrf)
-	{
-	  if (debug_vrf)
-	    zlog_debug ("VRF(%u) %s lookup by name is successful",
-			vrf_id, (name) ? name : "(NULL)");
-	}
-      else
-	{
-          if (name)
+        {
+          namelen = strlen (name);
+          if (namelen > VRF_NAMSIZ)
             {
-              namelen = strlen (name);
-              if (namelen > VRF_NAMSIZ)
-                {
-                  zlog_err("Attempt to get/create VRF %u name %s - name too long",
-                           vrf_id, name);
-                  return NULL;
-                }
+              zlog_err("Attempt to get/create VRF %u name %s - name too long",
+                       vrf_id, name);
+              return NULL;
             }
+        }
 
-	  vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-	  if (debug_vrf)
-	    zlog_debug ("VRF(%u) %s is created.",
-			vrf_id, (name) ? name : "(NULL)");
-          if (name)
-            {
-              strncpy (vrf->name, name, namelen);
-              vrf->name[namelen] = '\0';
-              listnode_add_sort (vrf_list, vrf);
-            }
-	}
+      vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
+      if (debug_vrf)
+        zlog_debug ("VRF(%u) %s is created.",
+		    vrf_id, (name) ? name : "(NULL)");
+      if (name)
+        {
+          strncpy (vrf->name, name, namelen);
+          vrf->name[namelen] = '\0';
+          listnode_add_sort (vrf_list, vrf);
+        }
+
+      if ((vrf_id != VRF_UNKNOWN) && (rn != NULL))
+        {
+          rn->info = vrf;
+          vrf->node = rn;
+        }
       vrf->vrf_id = vrf_id;
-      rn->info = vrf;
-      vrf->node = rn;
 
       /* Initialize interfaces. */
       if_init (&vrf->iflist);
     }
 
-  if (vrf_master.vrf_new_hook && name) {
-    (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+  if (vrf_master.vrf_new_hook && name)
+    {
+      (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
 
-    if (vrf->info)
-      zlog_info ("zvrf is created.");
-  }
+      if (vrf->info)
+        zlog_info ("zvrf is created.");
+    }
+
   return vrf;
 }
 

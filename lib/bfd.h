@@ -29,6 +29,7 @@
 #define BFD_CMD_DETECT_MULT_RANGE "<2-255> "
 #define BFD_CMD_MIN_RX_RANGE "<50-60000> "
 #define BFD_CMD_MIN_TX_RANGE "<50-60000>"
+#define BFD_CMD_TYPE "(multihop|singlehop)"
 
 #define BFD_DEF_MIN_RX 300
 #define BFD_MIN_MIN_RX 50
@@ -42,19 +43,27 @@
 
 #define BFD_FLAG_PARAM_CFG (1 << 0) /* parameters have been configured */
 #define BFD_FLAG_BFD_REG   (1 << 1) /* Peer registered with BFD */
+#define BFD_FLAG_BFD_TYPE_MULTIHOP (1 << 2) /* Peer registered with BFD as multihop */
 
 #define BFD_STATUS_UNKNOWN (1 << 0) /* BFD session status never received */
 #define BFD_STATUS_DOWN    (1 << 1) /* BFD session status is down */
 #define BFD_STATUS_UP      (1 << 2) /* BFD session status is up */
 
+enum bfd_sess_type {
+  BFD_TYPE_NOT_CONFIGURED,
+  BFD_TYPE_SINGLEHOP,
+  BFD_TYPE_MULTIHOP
+};
+
 struct bfd_info
 {
-  u_int16_t flags;
-  u_int8_t  detect_mult;
-  u_int32_t desired_min_tx;
-  u_int32_t required_min_rx;
-  time_t    last_update;
-  u_int8_t  status;
+  u_int16_t           flags;
+  u_int8_t            detect_mult;
+  u_int32_t           desired_min_tx;
+  u_int32_t           required_min_rx;
+  time_t              last_update;
+  u_int8_t            status;
+  enum bfd_sess_type  type;
 };
 
 extern struct bfd_info *

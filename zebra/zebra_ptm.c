@@ -227,13 +227,15 @@ zebra_ptm_connect (struct thread *t)
     }
     zebra_ptm_send_status_req();
     ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
-  } else {
+  } else if (ptm_cb.reconnect_time < ZEBRA_PTM_RECONNECT_TIME_MAX){
     ptm_cb.reconnect_time *= 2;
     if (ptm_cb.reconnect_time > ZEBRA_PTM_RECONNECT_TIME_MAX)
       ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_MAX;
 
     ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect, NULL,
 					 ptm_cb.reconnect_time);
+  } else if (ptm_cb.reconnect_time >= ZEBRA_PTM_RECONNECT_TIME_MAX){
+    ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
   }
 
   return(errno);
@@ -246,17 +248,23 @@ DEFUN (zebra_ptm_enable,
 {
   struct listnode *i;
   struct interface *ifp;
+  struct zebra_if *if_data;
   vrf_iter_t iter;
 
-  ptm_cb.ptm_enable = 1;
+  ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
 
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     for (ALL_LIST_ELEMENTS_RO (vrf_iter2iflist (iter), i, ifp))
       if (!ifp->ptm_enable)
         {
-	  ifp->ptm_enable = 1;
+          if_data = (struct zebra_if *)ifp->info;
+          if (if_data &&
+               (if_data->ptm_enable == ZEBRA_IF_PTM_ENABLE_UNSPEC))
+            {
+              ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
+            }
           /* Assign a default unknown status */
-	  ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
+          ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
         }
 
   zebra_ptm_connect(NULL);
@@ -270,10 +278,83 @@ DEFUN (no_zebra_ptm_enable,
        NO_STR
        "Enable neighbor check with specified topology\n")
 {
-  ptm_cb.ptm_enable = 0;
+  ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
   zebra_ptm_reset_status(1);
   return CMD_SUCCESS;
 }
+
+DEFUN (zebra_ptm_enable_if,
+       zebra_ptm_enable_if_cmd,
+       "ptm-enable",
+       "Enable neighbor check with specified topology\n")
+{
+  struct interface *ifp;
+  struct zebra_if *if_data;
+  int old_ptm_enable;
+  int send_linkdown = 0;
+
+  ifp = (struct interface *) vty->index;
+  if (ifp->ifindex == IFINDEX_INTERNAL)
+    {
+      return CMD_SUCCESS;
+    }
+
+  old_ptm_enable = ifp->ptm_enable;
+  ifp->ptm_enable = ptm_cb.ptm_enable;
+
+  if (if_is_no_ptm_operative(ifp))
+    send_linkdown = 1;
+
+  if (!old_ptm_enable && ptm_cb.ptm_enable)
+    {
+      if (!if_is_operative (ifp) && send_linkdown)
+        {
+	  if (IS_ZEBRA_DEBUG_EVENT)
+	    zlog_debug ("%s: Bringing down interface %s\n", __func__,
+                    ifp->name);
+          if_down (ifp);
+        }
+    }
+
+  if_data = ifp->info;
+  if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_UNSPEC;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_zebra_ptm_enable_if,
+       no_zebra_ptm_enable_if_cmd,
+       "no ptm-enable",
+       NO_STR
+       "Enable neighbor check with specified topology\n")
+{
+  struct interface *ifp;
+  int send_linkup = 0;
+  struct zebra_if *if_data;
+
+  ifp = (struct interface *) vty->index;
+
+  if ((ifp->ifindex != IFINDEX_INTERNAL) && (ifp->ptm_enable))
+    {
+      if (!if_is_operative(ifp))
+        send_linkup = 1;
+
+      ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
+      if (if_is_no_ptm_operative (ifp) && send_linkup)
+        {
+	  if (IS_ZEBRA_DEBUG_EVENT)
+	    zlog_debug ("%s: Bringing up interface %s\n", __func__,
+                    ifp->name);
+          if_up (ifp);
+        }
+    }
+
+  if_data = ifp->info;
+  if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
+
+  return CMD_SUCCESS;
+}
+
 
 void
 zebra_ptm_write (struct vty *vty)
@@ -307,7 +388,8 @@ zebra_ptm_socket_init (void)
                 sizeof (addr.sun_family)+sizeof (ZEBRA_PTM_SOCK_NAME)-1);
   if (ret < 0)
     {
-      zlog_warn("%s: Unable to connect to socket %s [%s]",
+      if (IS_ZEBRA_DEBUG_EVENT)
+        zlog_debug("%s: Unable to connect to socket %s [%s]",
 	              __func__, ZEBRA_PTM_SOCK_NAME, safe_strerror(errno));
       close (sock);
       return -1;
@@ -321,6 +403,8 @@ zebra_ptm_install_commands (void)
 {
   install_element (CONFIG_NODE, &zebra_ptm_enable_cmd);
   install_element (CONFIG_NODE, &no_zebra_ptm_enable_cmd);
+  install_element (INTERFACE_NODE, &zebra_ptm_enable_if_cmd);
+  install_element (INTERFACE_NODE, &no_zebra_ptm_enable_if_cmd);
 }
 
 /* BFD session goes down, send message to the protocols. */
@@ -981,21 +1065,41 @@ zebra_ptm_reset_status(int ptm_disable)
       {
         send_linkup = 0;
         if (ifp->ptm_enable)
-	  {
-	    if (!if_is_operative(ifp))
-	      send_linkup = 1;
+          {
+            if (!if_is_operative(ifp))
+              send_linkup = 1;
 
             if (ptm_disable)
-	      ifp->ptm_enable = 0;
+              ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
             ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
-	    if (if_is_operative (ifp) && send_linkup)
-              {
-                 if (IS_ZEBRA_DEBUG_EVENT)
-	           zlog_debug ("%s: Bringing up interface %s", __func__,
-			       ifp->name);
-	         if_up (ifp);
+            if (if_is_operative (ifp) && send_linkup)
+	      {
+		if (IS_ZEBRA_DEBUG_EVENT)
+		  zlog_debug ("%s: Bringing up interface %s", __func__,
+				ifp->name);
+		if_up (ifp);
 	      }
           }
       }
+}
+
+void
+zebra_ptm_if_init(struct zebra_if *zebra_ifp)
+{
+  zebra_ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_UNSPEC;
+}
+
+void
+zebra_ptm_if_set_ptm_state(struct interface *ifp, struct zebra_if *zebra_ifp)
+{
+  if (zebra_ifp && zebra_ifp->ptm_enable != ZEBRA_IF_PTM_ENABLE_UNSPEC)
+    ifp->ptm_enable = zebra_ifp->ptm_enable;
+}
+
+void
+zebra_ptm_if_write (struct vty *vty, struct zebra_if *zebra_ifp)
+{
+  if (zebra_ifp->ptm_enable == ZEBRA_IF_PTM_ENABLE_OFF)
+    vty_out (vty, " no ptm-enable%s", VTY_NEWLINE);
 }

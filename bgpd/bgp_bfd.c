@@ -65,6 +65,7 @@ bgp_bfd_peer_group2peer_copy(struct peer *conf, struct peer *peer)
   bfd_info->required_min_rx = conf_bfd_info->required_min_rx;
   bfd_info->desired_min_tx = conf_bfd_info->desired_min_tx;
   bfd_info->detect_mult = conf_bfd_info->detect_mult;
+  bfd_info->type = conf_bfd_info->type;
 }
 
 /*
@@ -73,8 +74,16 @@ bgp_bfd_peer_group2peer_copy(struct peer *conf, struct peer *peer)
 static int
 bgp_bfd_is_peer_multihop(struct peer *peer)
 {
-  if((peer->conf_if == NULL) && ((peer->sort == BGP_PEER_IBGP) ||
-                          is_ebgp_multihop_configured(peer)))
+  struct bfd_info *bfd_info;
+
+  bfd_info = (struct bfd_info *)peer->bfd_info;
+
+  if (!bfd_info)
+    return 0;
+
+  if((bfd_info->type == BFD_TYPE_MULTIHOP) ||
+      ((peer->sort == BGP_PEER_IBGP) && !peer->shared_network) ||
+      is_ebgp_multihop_configured(peer))
     return 1;
   else
     return 0;
@@ -89,24 +98,37 @@ bgp_bfd_peer_sendmsg (struct peer *peer, int command)
 {
   struct bfd_info *bfd_info;
   vrf_id_t vrf_id = VRF_DEFAULT;
+  int multihop;
 
   bfd_info = (struct bfd_info *)peer->bfd_info;
 
   if (peer->bgp && (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
     vrf_id = peer->bgp->vrf_id;
 
+  if (command == ZEBRA_BFD_DEST_DEREGISTER)
+    {
+      multihop = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP);
+      UNSET_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP);
+    }
+  else
+    {
+      multihop = bgp_bfd_is_peer_multihop(peer);
+      if ((command == ZEBRA_BFD_DEST_REGISTER) && multihop)
+        SET_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP);
+    }
+
   if (peer->su.sa.sa_family == AF_INET)
     bfd_peer_sendmsg (zclient, bfd_info, AF_INET,
                       &peer->su.sin.sin_addr,
                       (peer->su_local) ? &peer->su_local->sin.sin_addr : NULL,
                       (peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1, vrf_id);
+                      peer->ttl, multihop, command, 1, vrf_id);
   else if (peer->su.sa.sa_family == AF_INET6)
     bfd_peer_sendmsg (zclient, bfd_info, AF_INET6,
                       &peer->su.sin6.sin6_addr,
                       (peer->su_local) ? &peer->su_local->sin6.sin6_addr : NULL,
                       (peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-                      peer->ttl, bgp_bfd_is_peer_multihop(peer), command, 1, vrf_id);
+                      peer->ttl, multihop, command, 1, vrf_id);
 }
 
 /*
@@ -168,6 +190,46 @@ bgp_bfd_update_peer (struct peer *peer)
     return;
 
   bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_UPDATE);
+}
+
+/*
+ * bgp_bfd_update_type - update session type with BFD through zebra.
+ */
+static void
+bgp_bfd_update_type (struct peer *peer)
+{
+  struct bfd_info *bfd_info;
+  int multihop;
+
+  if (!peer->bfd_info)
+    return;
+  bfd_info = (struct bfd_info *)peer->bfd_info;
+
+  /* Check if the peer has been registered with BFD*/
+  if (!CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_REG))
+    return;
+
+  if (bfd_info->type == BFD_TYPE_NOT_CONFIGURED)
+    {
+      multihop = bgp_bfd_is_peer_multihop(peer);
+      if ((multihop && !CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP)) ||
+            (!multihop && CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP)))
+        {
+          bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_DEREGISTER);
+          bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_REGISTER);
+        }
+    }
+  else
+    {
+      if ((bfd_info->type == BFD_TYPE_MULTIHOP &&
+            !CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP)) ||
+          (bfd_info->type == BFD_TYPE_SINGLEHOP &&
+            CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP)))
+        {
+          bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_DEREGISTER);
+          bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_REGISTER);
+        }
+    }
 }
 
 /*
@@ -367,7 +429,7 @@ bgp_bfd_peer_param_set (struct peer *peer, u_int32_t min_rx, u_int32_t min_tx,
 }
 
 /*
- * bgp_bfd_peer_param_unset - Unset the configured BFD paramter values for peer.
+ * bgp_bfd_peer_param_unset - Delete the configured BFD paramter values for peer.
  */
 static int
 bgp_bfd_peer_param_unset (struct peer *peer)
@@ -397,6 +459,61 @@ bgp_bfd_peer_param_unset (struct peer *peer)
 }
 
 /*
+ * bgp_bfd_peer_param_type_set - set the BFD session type (multihop or singlehop)
+ */
+static int
+bgp_bfd_peer_param_type_set (struct peer *peer, enum bfd_sess_type type)
+{
+  struct peer_group *group;
+  struct listnode *node, *nnode;
+  int command = 0;
+  struct bfd_info *bfd_info;
+
+  if (!peer->bfd_info)
+    bfd_set_param((struct bfd_info **)&(peer->bfd_info), BFD_DEF_MIN_RX,
+                    BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT, 1, &command);
+
+  bfd_info = (struct bfd_info *)peer->bfd_info;
+  bfd_info->type = type;
+
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      group = peer->group;
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+        {
+          command = 0;
+          if (!peer->bfd_info)
+            bfd_set_param((struct bfd_info **)&(peer->bfd_info),
+                           BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
+                           BFD_DEF_DETECT_MULT, 1, &command);
+
+          bfd_info = (struct bfd_info *)peer->bfd_info;
+          bfd_info->type = type;
+
+          if (peer->status == Established)
+            {
+              if (command == ZEBRA_BFD_DEST_REGISTER)
+                bgp_bfd_register_peer(peer);
+              else
+                bgp_bfd_update_type(peer);
+            }
+        }
+    }
+  else
+    {
+      if (peer->status == Established)
+        {
+          if (command == ZEBRA_BFD_DEST_REGISTER)
+            bgp_bfd_register_peer(peer);
+          else
+            bgp_bfd_update_type(peer);
+        }
+    }
+
+  return 0;
+}
+
+/*
  * bgp_bfd_peer_config_write - Write the peer BFD configuration.
  */
 void
@@ -413,7 +530,14 @@ bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
     vty_out (vty, " neighbor %s bfd %d %d %d%s", addr,
       bfd_info->detect_mult, bfd_info->required_min_rx,
       bfd_info->desired_min_tx, VTY_NEWLINE);
-  else
+
+  if (bfd_info->type != BFD_TYPE_NOT_CONFIGURED)
+    vty_out (vty, " neighbor %s bfd %s%s", addr,
+      (bfd_info->type == BFD_TYPE_MULTIHOP) ? "multihop" : "singlehop",
+      VTY_NEWLINE);
+
+  if (!CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG) &&
+        (bfd_info->type == BFD_TYPE_NOT_CONFIGURED))
     vty_out (vty, " neighbor %s bfd%s", addr, VTY_NEWLINE);
 }
 
@@ -482,6 +606,36 @@ DEFUN (neighbor_bfd_param,
 
 }
 
+DEFUN_HIDDEN (neighbor_bfd_type,
+       neighbor_bfd_type_cmd,
+       NEIGHBOR_CMD2 "bfd " BFD_CMD_TYPE,
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enables BFD support\n"
+       "Session type\n")
+{
+  struct peer *peer;
+  enum bfd_sess_type type;
+  int ret;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (!peer)
+    return CMD_WARNING;
+
+  if (!strcmp(argv[1], "singlehop"))
+    type = BFD_TYPE_SINGLEHOP;
+  else if (!strcmp(argv[1], "multihop"))
+    type = BFD_TYPE_MULTIHOP;
+  else
+    return CMD_WARNING;
+
+  ret = bgp_bfd_peer_param_type_set (peer, type);
+  if (ret != 0)
+    return bgp_vty_return (vty, ret);
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
        NO_NEIGHBOR_CMD2 "bfd",
@@ -515,6 +669,32 @@ ALIAS (no_neighbor_bfd,
        "Required min receive interval\n"
        "Desired min transmit interval\n")
 
+DEFUN_HIDDEN (no_neighbor_bfd_type,
+       no_neighbor_bfd_type_cmd,
+       NO_NEIGHBOR_CMD2 "bfd " BFD_CMD_TYPE,
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Disables BFD support\n"
+       "Session type\n")
+{
+  struct peer *peer;
+  int ret;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  if (!peer->bfd_info)
+    return 0;
+
+  ret = bgp_bfd_peer_param_type_set(peer, BFD_TYPE_NOT_CONFIGURED);
+  if (ret != 0)
+    return bgp_vty_return (vty, ret);
+
+  return CMD_SUCCESS;
+}
+
 void
 bgp_bfd_init(void)
 {
@@ -525,8 +705,10 @@ bgp_bfd_init(void)
   /* "neighbor bfd" commands. */
   install_element (BGP_NODE, &neighbor_bfd_cmd);
   install_element (BGP_NODE, &neighbor_bfd_param_cmd);
+  install_element (BGP_NODE, &neighbor_bfd_type_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_val_cmd);
+  install_element (BGP_NODE, &no_neighbor_bfd_type_cmd);
 
   /* Send the client registration */
   bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
