@@ -33,6 +33,8 @@
 #include "vty.h"
 #include "bfd.h"
 
+int bfd_debug = 0;
+
 /*
  * bfd_info_create - Allocate the BFD information
  */
@@ -130,8 +132,9 @@ bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
   /* Check socket. */
   if (!zclient || zclient->sock < 0)
     {
-      zlog_debug("%s: Can't send BFD peer register, Zebra client not "
-                  "established", __FUNCTION__);
+      if (bfd_debug)
+	zlog_debug("%s: Can't send BFD peer register, Zebra client not "
+		   "established", __FUNCTION__);
       return;
     }
 
@@ -214,7 +217,8 @@ bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
 
   if (ret < 0)
     {
-      zlog_warn("bfd_peer_sendmsg: zclient_send_message() failed");
+      if (bfd_debug)
+	zlog_debug("bfd_peer_sendmsg: zclient_send_message() failed");
       return;
     }
 
@@ -269,8 +273,9 @@ bfd_get_peer_info (struct stream *s, struct prefix *dp, struct prefix *sp,
       ifp = if_lookup_by_index_vrf (ifindex, vrf_id);
       if (ifp == NULL)
         {
-          zlog_warn ("zebra_interface_bfd_read: "
-                     "Can't find interface by ifindex: %d ", ifindex);
+	  if (bfd_debug)
+	    zlog_debug ("zebra_interface_bfd_read: "
+			"Can't find interface by ifindex: %d ", ifindex);
           return NULL;
         }
     }
@@ -453,8 +458,9 @@ bfd_client_sendmsg (struct zclient *zclient, int command)
   /* Check socket. */
   if (!zclient || zclient->sock < 0)
     {
-      zlog_debug("%s: Can't send BFD client register, Zebra client not "
-                  "established", __FUNCTION__);
+      if (bfd_debug)
+	zlog_debug ("%s: Can't send BFD client register, Zebra client not "
+		   "established", __FUNCTION__);
       return;
     }
 
@@ -470,8 +476,9 @@ bfd_client_sendmsg (struct zclient *zclient, int command)
 
   if (ret < 0)
     {
-      zlog_warn("bfd_client_sendmsg %d: zclient_send_message() failed",
-                  getpid());
+      if (bfd_debug)
+	zlog_debug ("bfd_client_sendmsg %d: zclient_send_message() failed",
+		   getpid());
       return;
     }
 
