@@ -1290,8 +1290,9 @@ bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
               return 1;
             }
           else
-            zlog_warn("%s: IPv4 interface address is not /30 or /31, v4 session not started",
-                      peer->conf_if);
+            if (bgp_debug_neighbor_events(peer))
+              zlog_debug("%s: IPv4 interface address is not /30 or /31, v4 session not started",
+                         peer->conf_if);
         }
     }
 
