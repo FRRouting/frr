@@ -767,5 +767,5 @@ if __name__ == '__main__':
                     os.unlink(filename)
 
             if restart_bgp:
-                subprocess.call(['sudo', 'systemctl', 'reset-failed', 'bgpd'])
-                subprocess.call(['sudo', 'systemctl', '--no-block', 'restart', 'bgpd'])
+                subprocess.call(['sudo', 'systemctl', 'reset-failed', 'quagga'])
+                subprocess.call(['sudo', 'systemctl', '--no-block', 'restart', 'quagga'])

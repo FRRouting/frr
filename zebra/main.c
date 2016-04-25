@@ -33,7 +33,6 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "vrf.h"
-#include "systemd.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -192,7 +191,6 @@ sigint (void)
 
   zns = zebra_ns_lookup (NS_DEFAULT);
   zebra_ns_disable (0, (void **)&zns);
-  systemd_send_stopping();
   exit (0);
 }
 
@@ -401,14 +399,12 @@ main (int argc, char **argv)
   if (daemon_mode && daemon (0, 0) < 0)
     {
       zlog_err("Zebra daemon failed: %s", strerror(errno));
-      systemd_send_stopping ();
       exit (1);
     }
 
   /* Output pid of zebra. */
   pid_output (pid_file);
 
-  systemd_send_started (zebrad.master);
   /* After we have successfully acquired the pidfile, we can be sure
   *  about being the only copy of zebra process, which is submitting
   *  changes to the FIB.

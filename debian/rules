@@ -12,11 +12,11 @@ else
 endif
 
 %:
-	dh $@ --parallel --with autoreconf --dbg-package=quagga-dbg --list-missing
+	dh $@ --with=systemd --parallel --with autoreconf --dbg-package=quagga-dbg --list-missing
 	if [ -e config.status ]; then \
-		dh $@ --parallel  --dbg-package=quagga-dbg --list-missing; \
+		dh $@ --with=systemd --parallel  --dbg-package=quagga-dbg --list-missing; \
 	else \
-		dh $@ --parallel  --with autoreconf --dbg-package=quagga-dbg --list-missing; \
+		dh $@ --with=systemd --parallel  --with autoreconf --dbg-package=quagga-dbg --list-missing; \
 	fi
 
 override_dh_auto_clean:
@@ -102,6 +102,8 @@ override_dh_auto_install:
 
 	# install config files
 	mkdir -p debian/tmp/etc/quagga/
+	cp debian/my/debian.conf debian/tmp/etc/quagga/
+	cp debian/my/daemons debian/tmp/etc/quagga/
 	perl -pi -e 's#^!log file #!log file /var/log/quagga/#' debian/tmp/usr/share/doc/quagga/examples/*sample*
 
 	# installing the Quagga specific SNMP MIB
@@ -111,20 +113,8 @@ override_dh_auto_install:
 	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
 
 override_dh_systemd_start:
-	dh_systemd_start bgpd.service
-	dh_systemd_start isisd.service
-	dh_systemd_start ospfd.service
-	dh_systemd_start ospf6d.service
-	dh_systemd_start ripd.service
-	dh_systemd_start ripngd.service
-	dh_systemd_start zebra.service
+	dh_systemd_start quagga.service
 
 override_dh_systemd_enable:
-	dh_systemd_enable --no-enable bgpd.service
-	dh_systemd_enable --no-enable isisd.service
-	dh_systemd_enable --no-enable ospfd.service
-	dh_systemd_enable --no-enable ospf6d.service
-	dh_systemd_enable --no-enable ripd.service
-	dh_systemd_enable --no-enable ripngd.service
-	dh_systemd_enable --no-enable zebra.service
+	dh_systemd_enable quagga.service
 

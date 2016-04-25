@@ -34,7 +34,6 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
-#include "systemd.h"
 
 #include "ripd/ripd.h"
 
@@ -156,7 +155,6 @@ sigint (void)
   if (! retain_mode)
     rip_clean ();
 
-  systemd_send_stopping ();
   exit (0);
 }
 
@@ -304,8 +302,6 @@ main (int argc, char **argv)
       zlog_err("RIPd daemon failed: %s", strerror(errno));
       exit (1);
     }
-
-  systemd_send_started (master);
 
   /* Pid file create. */
   pid_output (pid_file);

@@ -28,6 +28,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <memory.h>
+#include <systemd.h>
 
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
@@ -985,6 +986,7 @@ static void
 sigint(void)
 {
   zlog_notice("Terminating on signal");
+  systemd_send_stopping ();
   exit(0);
 }
 
@@ -1275,6 +1277,7 @@ main(int argc, char **argv)
       
   gs.restart.interval = gs.min_restart_interval;
   master = thread_master_create();
+  systemd_send_started (master, 0);
   signal_init (master, array_size(my_signals), my_signals);
   srandom(time(NULL));
 
@@ -1374,6 +1377,7 @@ main(int argc, char **argv)
       thread_call (&thread);
   }
 
+  systemd_send_stopping ();
   /* Not reached. */
   return 0;
 }
