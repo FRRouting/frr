@@ -757,8 +757,9 @@ zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
       ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD,
                           tmp_buf);
 
-      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
-			 zvrf->name);
+      if (zvrf->vrf_id != VRF_DEFAULT)
+	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
+			   zvrf->name);
     }
   else
     {
@@ -903,8 +904,9 @@ zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock, u_short length,
                               ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
         }
 #endif /* HAVE_IPV6 */
-      ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
-			 zvrf->name);
+      if (zvrf->vrf_id != VRF_DEFAULT)
+	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_VRF_NAME_FIELD,
+			   zvrf->name);
     }
   else
     {
