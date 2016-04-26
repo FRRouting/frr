@@ -3748,10 +3748,10 @@ peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
   for (ALL_LIST_ELEMENTS (group->peer, node, nnode, tmp_peer))
     {
 
-      if (set && CHECK_FLAG (peer->flags, flag) == flag)
+      if (set && CHECK_FLAG (tmp_peer->flags, flag) == flag)
 	continue;
 
-      if (! set && ! CHECK_FLAG (peer->flags, flag))
+      if (! set && ! CHECK_FLAG (tmp_peer->flags, flag))
 	continue;
 
       if (set)
