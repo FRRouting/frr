@@ -3121,9 +3121,10 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex
   struct route_node *rn;
   struct static_route *si;
   struct route_table *stable;
+  struct zebra_vrf *zvrf = vrf_info_lookup (vrf_id);
 
   /* Lookup table.  */
-  stable = zebra_vrf_static_table (AFI_IP, SAFI_UNICAST, vrf_id);
+  stable = zebra_vrf_static_table (AFI_IP, SAFI_UNICAST, zvrf);
   if (! stable)
     return -1;
 
@@ -3640,9 +3641,10 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
   struct route_node *rn;
   struct static_route *si;
   struct route_table *stable;
+  struct zebra_vrf *zvrf = vrf_info_lookup (vrf_id);
 
   /* Lookup table.  */
-  stable = zebra_vrf_static_table (AFI_IP6, SAFI_UNICAST, vrf_id);
+  stable = zebra_vrf_static_table (AFI_IP6, SAFI_UNICAST, zvrf);
   if (! stable)
     return -1;
 

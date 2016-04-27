@@ -244,10 +244,8 @@ zebra_vrf_table (afi_t afi, safi_t safi, vrf_id_t vrf_id)
 
 /* Lookup the static routing table in a VRF. */
 struct route_table *
-zebra_vrf_static_table (afi_t afi, safi_t safi, vrf_id_t vrf_id)
+zebra_vrf_static_table (afi_t afi, safi_t safi, struct zebra_vrf *zvrf)
 {
-  struct zebra_vrf *zvrf = vrf_info_lookup (vrf_id);
-
   if (!zvrf)
     return NULL;
 
