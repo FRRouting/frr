@@ -30,5 +30,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  */
 void systemd_send_information (const char *info);
 void systemd_send_stopping (void);
-void systemd_send_started (struct thread_master *);
+
+/*
+ *  master - The struct thread_master * to use to schedule ourself
+ *  the_process - Should we send watchdog if we are not the requested
+ *                process?
+ */
+void systemd_send_started (struct thread_master *master, int the_process);
 

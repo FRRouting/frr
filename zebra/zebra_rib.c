@@ -1347,10 +1347,28 @@ rib_process (struct route_node *rn)
        * recursive NHs.
        */
       if (!CHECK_FLAG(rib->flags, ZEBRA_FLAG_CHANGED) &&
-	  ! nexthop_active_update (rn, rib, 0))
-        continue;
+          ! nexthop_active_update (rn, rib, 0))
+        {
+          if (rib->type == ZEBRA_ROUTE_TABLE)
+            {
+              /* This entry was denied by the 'ip protocol table' route-map, we
+               * need to delete it */
+	      if (rib != fib)
+		{
+		  if (IS_ZEBRA_DEBUG_RIB)
+		    zlog_debug ("%s: %s/%d: imported via import-table but denied "
+				"by the ip protocol table route-map",
+				__func__, buf, rn->p.prefixlen);
+		  rib_unlink (rn, rib);
+		}
+	      else
+		del = rib;
+            }
 
-      /* Infinit distance. */
+          continue;
+        }
+
+      /* Infinite distance. */
       if (rib->distance == DISTANCE_INFINITY)
         {
           UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);

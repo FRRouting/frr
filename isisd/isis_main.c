@@ -37,7 +37,6 @@
 #include "plist.h"
 #include "zclient.h"
 #include "vrf.h"
-#include "systemd.h"
 
 #include "isisd/dict.h"
 #include "include-netbsd/iso.h"
@@ -170,7 +169,6 @@ reload ()
 static __attribute__((__noreturn__)) void
 terminate (int i)
 {
-  systemd_send_stopping ();
   exit (i);
 }
 
@@ -371,8 +369,6 @@ main (int argc, char **argv, char **envp)
   /* Process ID file creation. */
   if (pid_file[0] != '\0')
     pid_output (pid_file);
-
-  systemd_send_started (master);
 
   /* Make isis vty socket. */
   vty_serv_sock (vty_addr, vty_port, ISIS_VTYSH_PATH);

@@ -2631,8 +2631,7 @@ vty_show_ip_route_summary (struct vty *vty, struct route_table *table)
           if (i == ZEBRA_ROUTE_BGP)
             {
               vty_out (vty, "%-20s %-20d %-20d %s", "ebgp",
-                       rib_cnt[ZEBRA_ROUTE_BGP] - rib_cnt[ZEBRA_ROUTE_IBGP],
-                       fib_cnt[ZEBRA_ROUTE_BGP] - fib_cnt[ZEBRA_ROUTE_IBGP],
+                       rib_cnt[ZEBRA_ROUTE_BGP], fib_cnt[ZEBRA_ROUTE_BGP],
                        VTY_NEWLINE);
               vty_out (vty, "%-20s %-20d %-20d %s", "ibgp",
                        rib_cnt[ZEBRA_ROUTE_IBGP], fib_cnt[ZEBRA_ROUTE_IBGP],

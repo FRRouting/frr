@@ -46,10 +46,11 @@ systemd_send_information (const char *info)
  * A return of 0 means that we are not watchdoged
  */
 static int
-systemd_get_watchdog_time (void)
+systemd_get_watchdog_time (int the_process)
 {
 #if defined HAVE_SYSTEMD
   uint64_t usec;
+  char *watchdog = NULL;
   int ret;
 
   ret = sd_watchdog_enabled (0, &usec);
@@ -58,8 +59,27 @@ systemd_get_watchdog_time (void)
    * If return is 0 -> we don't want watchdog
    * if return is < 0, some sort of failure occurred
    */
-  if (ret <= 0)
+  if (ret < 0)
     return 0;
+
+  /*
+   * systemd can return that this process
+   * is not the expected sender of the watchdog timer
+   * If we set the_process = 0 then we expect to
+   * be able to send the watchdog to systemd
+   * irrelevant of the pid of this process.
+   */
+  if (ret == 0 && the_process)
+    return 0;
+
+  if (ret == 0 && !the_process)
+    {
+      watchdog = getenv ("WATCHDOG_USEC");
+      if (!watchdog)
+	return 0;
+
+      usec = atol (watchdog);
+    }
 
   return (usec / 1000000)/ 3;
 #else
@@ -90,11 +110,11 @@ systemd_send_watchdog (struct thread *t)
 }
 
 void
-systemd_send_started (struct thread_master *m)
+systemd_send_started (struct thread_master *m, int the_process)
 {
   assert (m != NULL);
 
-  wsecs = systemd_get_watchdog_time();
+  wsecs = systemd_get_watchdog_time(the_process);
   systemd_master = m;
 
   systemd_send_information ("READY=1");
