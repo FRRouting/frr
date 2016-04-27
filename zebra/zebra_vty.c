@@ -38,6 +38,26 @@
 
 extern int allow_delete;
 
+static struct zebra_vrf *
+zebra_vty_vrf_lookup (const char *vrf_id_str)
+{
+  struct vrf *vrf = NULL;
+
+  if (vrf_id_str)
+    {
+      vrf = vrf_list_lookup_by_name (vrf_id_str); //Pending: create VRF if the given vrf doesnt exist?
+    }
+  else
+    {
+      vrf = vrf_list_lookup_by_name (VRF_DEFAULT_NAME);
+    }
+
+  if (vrf)
+    return (struct zebra_vrf *)vrf->info;
+
+  return NULL;
+}
+
 /* General fucntion for static route. */
 static int
 zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
@@ -52,7 +72,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
   struct in_addr mask;
   u_char flag = 0;
   u_short tag = 0;
-  vrf_id_t vrf_id = VRF_DEFAULT;
+  struct zebra_vrf *zvrf = NULL;
   unsigned int ifindex = 0;
 
   ret = str2prefix (dest_str, &p);
@@ -88,8 +108,13 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
     tag = atoi(tag_str);
 
   /* VRF id */
-  if (vrf_id_str)
-    VRF_GET_ID (vrf_id, vrf_id_str); //Pending: create VRF if the given vrf doesnt exist?
+  zvrf = zebra_vty_vrf_lookup (vrf_id_str);
+
+  if (!zvrf)
+    {
+      vty_out (vty, "%% vrf %s is not defined%s", vrf_id_str, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   /* Null0 static route.  */
   if ((gate_str != NULL) && (strncasecmp (gate_str, "Null0", strlen (gate_str)) == 0))
@@ -100,9 +125,9 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
           return CMD_WARNING;
         }
       if (add_cmd)
-        static_add_ipv4 (&p, NULL, ifindex, ZEBRA_FLAG_BLACKHOLE, tag, distance, vrf_id);
+        static_add_ipv4 (&p, NULL, ifindex, ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf);
       else
-        static_delete_ipv4 (&p, NULL, ifindex, tag, distance, vrf_id);
+        static_delete_ipv4 (&p, NULL, ifindex, tag, distance, zvrf);
       return CMD_SUCCESS;
     }
 
@@ -126,9 +151,9 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
   if (gate_str == NULL)
   {
     if (add_cmd)
-      static_add_ipv4 (&p, NULL, ifindex, flag, tag, distance, vrf_id);
+      static_add_ipv4 (&p, NULL, ifindex, flag, tag, distance, zvrf);
     else
-      static_delete_ipv4 (&p, NULL, ifindex, tag, distance, vrf_id);
+      static_delete_ipv4 (&p, NULL, ifindex, tag, distance, zvrf);
 
     return CMD_SUCCESS;
   }
@@ -138,7 +163,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
   ret = inet_aton (gate_str, &gate);
   if (!ret)
     {
-      struct interface *ifp = if_lookup_by_name_vrf (gate_str, vrf_id);
+      struct interface *ifp = if_lookup_by_name_vrf (gate_str, zvrf->vrf_id);
       if (!ifp)
 	{
 	  vty_out (vty, "%% Unknown interface: %s%s", gate_str, VTY_NEWLINE);
@@ -148,9 +173,9 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
     }
 
   if (add_cmd)
-    static_add_ipv4 (&p, ifindex ? NULL : &gate, ifindex, flag, tag, distance, vrf_id);
+    static_add_ipv4 (&p, ifindex ? NULL : &gate, ifindex, flag, tag, distance, zvrf);
   else
-    static_delete_ipv4 (&p, ifindex ? NULL : &gate, ifindex, tag, distance, vrf_id);
+    static_delete_ipv4 (&p, ifindex ? NULL : &gate, ifindex, tag, distance, zvrf);
 
   return CMD_SUCCESS;
 }
@@ -3196,14 +3221,13 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
   struct static_route *si;
   struct route_table *stable;
   struct zebra_vrf *zvrf;
-  vrf_iter_t iter;
-  int write;
+  int write =0;
+  struct listnode *node;
+  struct vrf *vrfp;
 
-  write = 0;
-
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
     {
-      if ((zvrf = vrf_iter2info (iter)) == NULL ||
+      if ((zvrf = vrfp->info)  == NULL ||
           (stable = zvrf->stable[AFI_IP][safi]) == NULL)
         continue;
 
@@ -3243,12 +3267,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               vty_out (vty, " %d", si->distance);
 
             if (si->vrf_id != VRF_DEFAULT)
-              {
-                struct vrf *vrf;
-
-                vrf = vrf_lookup(si->vrf_id);
-                vty_out (vty, " vrf %s", vrf ? vrf->name : "");
-              }
+                vty_out (vty, " vrf %s", vrfp ? vrfp->name : "");
 
             vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -3355,11 +3374,11 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   struct in6_addr *gate = NULL;
   struct in6_addr gate_addr;
   u_char type = 0;
-  vrf_id_t vrf_id = VRF_DEFAULT;
   u_char flag = 0;
   u_short tag = 0;
   unsigned int ifindex = 0;
   struct interface *ifp = NULL;
+  struct zebra_vrf *zvrf;
   
   ret = str2prefix (dest_str, &p);
   if (ret <= 0)
@@ -3403,8 +3422,13 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   ret = inet_pton (AF_INET6, gate_str, &gate_addr);
 
   /* VRF id */
-  if (vrf_id_str)
-    VRF_GET_ID (vrf_id, vrf_id_str);
+  zvrf = zebra_vty_vrf_lookup (vrf_id_str);
+
+  if (!zvrf)
+    {
+      vty_out (vty, "%% vrf %s is not defined%s", vrf_id_str, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   if (ifname)
     {
@@ -3417,7 +3441,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 	}
       type = STATIC_IPV6_GATEWAY_IFINDEX;
       gate = &gate_addr;
-      ifp = if_lookup_by_name_vrf (ifname, vrf_id);
+      ifp = if_lookup_by_name_vrf (ifname, zvrf->vrf_id);
       if (!ifp)
 	{
 	  vty_out (vty, "%% Malformed Interface name %s%s", ifname, VTY_NEWLINE);
@@ -3435,7 +3459,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       else
 	{
 	  type = STATIC_IFINDEX;
-	  ifp = if_lookup_by_name_vrf (gate_str, vrf_id);
+	  ifp = if_lookup_by_name_vrf (gate_str, zvrf->vrf_id);
 	  if (!ifp)
 	    {
 	      vty_out (vty, "%% Malformed Interface name %s%s", gate_str, VTY_NEWLINE);
@@ -3446,9 +3470,9 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
     }
 
   if (add_cmd)
-    static_add_ipv6 (&p, type, gate, ifindex, flag, tag, distance, vrf_id);
+    static_add_ipv6 (&p, type, gate, ifindex, flag, tag, distance, zvrf);
   else
-    static_delete_ipv6 (&p, type, gate, ifindex, tag, distance, vrf_id);
+    static_delete_ipv6 (&p, type, gate, ifindex, tag, distance, zvrf);
 
   return CMD_SUCCESS;
 }
