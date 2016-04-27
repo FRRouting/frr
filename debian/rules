@@ -11,6 +11,14 @@ else
   $(warning "DEBIAN: SNMP disabled, see README.Debian")
 endif
 
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+  DEBIAN_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+endif
+
+ifdef DEBIAN_JOBS
+MAKEFLAGS += -j$(DEBIAN_JOBS)
+endif
+
 %:
 	dh $@ --with=systemd --parallel --with autoreconf --dbg-package=quagga-dbg --list-missing
 	if [ -e config.status ]; then \
