@@ -402,13 +402,27 @@ rtadv_timer (struct thread *thread)
 
         if (zif->rtadv.AdvSendAdvertisements)
           {
-            zif->rtadv.AdvIntervalTimer -= period;
-            if (zif->rtadv.AdvIntervalTimer <= 0)
+            if (zif->rtadv.inFastRexmit)
               {
-                /* FIXME: using MaxRtrAdvInterval each time isn't what section
-                6.2.4 of RFC4861 tells to do. */
-                zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+                /* We assume we fast rexmit every sec so no additional vars */
+                if (--zif->rtadv.NumFastReXmitsRemain <= 0)
+                  zif->rtadv.inFastRexmit = 0;
+
+                if (IS_ZEBRA_DEBUG_SEND)
+                  zlog_debug("Fast RA Rexmit on interface %s", ifp->name);
+
                 rtadv_send_packet (zns->rtadv.sock, ifp);
+              }
+            else
+              {
+                zif->rtadv.AdvIntervalTimer -= period;
+                if (zif->rtadv.AdvIntervalTimer <= 0)
+                  {
+                    /* FIXME: using MaxRtrAdvInterval each time isn't what section
+                       6.2.4 of RFC4861 tells to do. */
+                    zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+                    rtadv_send_packet (zns->rtadv.sock, ifp);
+                  }
               }
           }
       }
@@ -753,6 +767,13 @@ ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status statu
           zif->rtadv.AdvSendAdvertisements = 1;
           zif->rtadv.AdvIntervalTimer = 0;
           zns->rtadv.adv_if_count++;
+
+          if (zif->rtadv.MaxRtrAdvInterval >= 1000)
+            {
+              /* Enable Fast RA only when RA interval is in secs */
+              zif->rtadv.inFastRexmit = 1;
+              zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
+            }
 
           if_join_all_router (zns->rtadv.sock, ifp);
 
@@ -1889,10 +1910,10 @@ rtadv_event (struct zebra_ns *zns, enum rtadv_event event, int val)
     {
     case RTADV_START:
       if (! rtadv->ra_read)
-	rtadv->ra_read = thread_add_read (zebrad.master, rtadv_read, zns, val);
+       rtadv->ra_read = thread_add_read (zebrad.master, rtadv_read, zns, val);
       if (! rtadv->ra_timer)
-	rtadv->ra_timer = thread_add_event (zebrad.master, rtadv_timer,
-	                                    zns, 0);
+       rtadv->ra_timer = thread_add_event (zebrad.master, rtadv_timer,
+                                           zns, 0);
       break;
     case RTADV_STOP:
       if (rtadv->ra_timer)

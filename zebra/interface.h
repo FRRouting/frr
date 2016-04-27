@@ -170,6 +170,12 @@ struct rtadvconf
      Default: 0 (medium) */
   int DefaultPreference;
 #define RTADV_PREF_MEDIUM 0x0 /* Per RFC4191. */
+
+  u_char inFastRexmit;          /* True if we're rexmits faster than usual */
+  int NumFastReXmitsRemain;     /* Loaded first with number of fast rexmits to do */
+
+#define RTADV_FAST_REXMIT_PERIOD 1 /* 1 sec */
+#define RTADV_NUM_FAST_REXMITS   4 /* Fast Rexmit RA 4 times on certain events */
 };
 
 #endif /* HAVE_RTADV */
