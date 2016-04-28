@@ -9769,14 +9769,13 @@ DEFUN (show_bgp_memory,
 /* Show BGP peer's summary information. */
 static int
 bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
-                  u_char use_json)
+                  u_char use_json, json_object *json)
 {
   struct peer *peer;
   struct listnode *node, *nnode;
   unsigned int count = 0, dn_count = 0;
   char timebuf[BGP_UPTIME_LEN], dn_flag[2];
   int len;
-  json_object *json = NULL;
   json_object *json_peer = NULL;
   json_object *json_peers = NULL;
 
@@ -9785,7 +9784,9 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
 
   if (use_json)
     {
-      json = json_object_new_object();
+      if (json == NULL)
+        json = json_object_new_object();
+
       json_peers = json_object_new_object();
     }
 
@@ -9809,8 +9810,10 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                 {
                   json_object_string_add(json, "routerId", inet_ntoa (bgp->router_id));
                   json_object_int_add(json, "as", bgp->as);
-                  json_object_int_add(json, "vrf-id", vrf_id_ui);
-
+                  json_object_int_add(json, "vrfId", vrf_id_ui);
+                  json_object_string_add(json, "vrfName",
+                                         (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+                                         ? "Default" : bgp->name);
                 }
               else
                 {
@@ -10061,10 +10064,16 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
         vty_out (vty, "%sTotal number of neighbors %d%s", VTY_NEWLINE,
                 count, VTY_NEWLINE);
       else
-        vty_out (vty, "No %s neighbor is configured%s",
-                afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+        {
+          if (use_json)
+            vty_out(vty, "{\"error\": {\"message\": \"No %s neighbor configured\"}}%s",
+                    afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+          else
+            vty_out (vty, "No %s neighbor is configured%s",
+                     afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+        }
 
-      if (dn_count)
+      if (dn_count && ! use_json)
         {
           vty_out(vty, "* - dynamic neighbor%s", VTY_NEWLINE);
           vty_out(vty,
@@ -10092,14 +10101,14 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 	  return CMD_WARNING;
 	}
 
-      bgp_show_summary (vty, bgp, afi, safi, use_json);
+      bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
       return CMD_SUCCESS;
     }
 
   bgp = bgp_get_default ();
 
   if (bgp)
-    bgp_show_summary (vty, bgp, afi, safi, use_json);
+    bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
 
   return CMD_SUCCESS;
 }
@@ -10110,15 +10119,46 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
 {
   struct listnode *node, *nnode;
   struct bgp *bgp;
+  json_object *json = NULL;
+  int is_first = 1;
+
+  if (use_json)
+    vty_out (vty, "{%s", VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
-      vty_out (vty, "%sInstance %s:%s",
-               VTY_NEWLINE,
-               (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name,
-               VTY_NEWLINE);
-      bgp_show_summary (vty, bgp, afi, safi, use_json);
+      if (use_json)
+        {
+          if (!(json = json_object_new_object()))
+            {
+              zlog_err("Unable to allocate memory for JSON object");
+              vty_out (vty,
+                       "{\"error\": {\"message:\": \"Unable to allocate memory for JSON object\"}}}%s",
+                       VTY_NEWLINE);
+              return;
+            }
+
+          if (! is_first)
+            vty_out (vty, ",%s", VTY_NEWLINE);
+          else
+            is_first = 0;
+
+          vty_out(vty, "\"%s\":", (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+                  ? "Default" : bgp->name);
+        }
+      else
+        {
+          vty_out (vty, "%sInstance %s:%s",
+                   VTY_NEWLINE,
+                   (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+                   ? "Default" : bgp->name, VTY_NEWLINE);
+        }
+      bgp_show_summary (vty, bgp, afi, safi, use_json, json);
     }
+
+  if (use_json)
+    vty_out (vty, "}%s", VTY_NEWLINE);
+
 }
 
 /* `show ip bgp summary' commands. */
@@ -12091,14 +12131,14 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
 
 static int 
 bgp_show_neighbor_vty (struct vty *vty, const char *name, 
-                       enum show_type type, const char *ip_str, u_char use_json)
+                       enum show_type type, const char *ip_str, u_char use_json,
+                       json_object *json)
 {
   int ret;
   struct bgp *bgp;
   union sockunion su;
-  json_object *json = NULL;
 
-  if (use_json)
+  if (use_json && (json == NULL))
     json = json_object_new_object();
 
   if (name)
@@ -12148,17 +12188,52 @@ bgp_show_all_instances_neighbors_vty (struct vty *vty, u_char use_json)
   struct listnode *node, *nnode;
   struct bgp *bgp;
   json_object *json = NULL;
+  int is_first = 1;
+
+  if (use_json)
+    vty_out (vty, "{%s", VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
-      vty_out (vty, "%sInstance %s:%s",
-               VTY_NEWLINE,
-               (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name,
-               VTY_NEWLINE);
       if (use_json)
-        json = json_object_new_object();
+        {
+          if (!(json = json_object_new_object()))
+            {
+              zlog_err("Unable to allocate memory for JSON object");
+              vty_out (vty,
+                       "{\"error\": {\"message:\": \"Unable to allocate memory for JSON object\"}}}%s",
+                       VTY_NEWLINE);
+              return;
+            }
+
+          json_object_int_add(json, "vrfId",
+                              (bgp->vrf_id == VRF_UNKNOWN)
+                              ? -1 : bgp->vrf_id);
+          json_object_string_add(json, "vrfName",
+                                 (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+                                 ? "Default" : bgp->name);
+
+          if (! is_first)
+            vty_out (vty, ",%s", VTY_NEWLINE);
+          else
+            is_first = 0;
+
+          vty_out(vty, "\"%s\":", (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+                  ? "Default" : bgp->name);
+        }
+      else
+        {
+          vty_out (vty, "%sInstance %s:%s",
+                   VTY_NEWLINE,
+                   (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+                   ? "Default" : bgp->name,
+                   VTY_NEWLINE);
+        }
       bgp_show_neighbor (vty, bgp, show_all, NULL, NULL, use_json, json);
     }
+
+  if (use_json)
+    vty_out (vty, "}%s", VTY_NEWLINE);
 }
 
 /* "show ip bgp neighbors" commands.  */
@@ -12173,7 +12248,7 @@ DEFUN (show_ip_bgp_neighbors,
 {
   u_char uj = use_json(argc, argv);
 
-  return bgp_show_neighbor_vty (vty, NULL, show_all, NULL, uj);
+  return bgp_show_neighbor_vty (vty, NULL, show_all, NULL, uj, NULL);
 }
 
 ALIAS (show_ip_bgp_neighbors,
@@ -12242,7 +12317,7 @@ DEFUN (show_ip_bgp_neighbors_peer,
 {
   u_char uj = use_json(argc, argv);
 
-  return bgp_show_neighbor_vty (vty, NULL, show_peer, argv[argc - 2], uj);
+  return bgp_show_neighbor_vty (vty, NULL, show_peer, argv[argc - 2], uj, NULL);
 }
 
 ALIAS (show_ip_bgp_neighbors_peer,
@@ -12319,7 +12394,7 @@ DEFUN (show_ip_bgp_instance_neighbors,
 {
   u_char uj = use_json(argc, argv);
 
-  return bgp_show_neighbor_vty (vty, argv[1], show_all, NULL, uj);
+  return bgp_show_neighbor_vty (vty, argv[1], show_all, NULL, uj, NULL);
 }
 
 DEFUN (show_ip_bgp_instance_all_neighbors,
@@ -12372,7 +12447,7 @@ DEFUN (show_ip_bgp_instance_neighbors_peer,
 {
   u_char uj = use_json(argc, argv);
 
-  return bgp_show_neighbor_vty (vty, argv[1], show_peer, argv[2], uj);
+  return bgp_show_neighbor_vty (vty, argv[1], show_peer, argv[2], uj, NULL);
 }
 
 ALIAS (show_ip_bgp_instance_neighbors_peer,
