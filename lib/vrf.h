@@ -123,7 +123,7 @@ extern vrf_id_t vrf_name_to_id (const char *);
           vty_out (vty, "%% VRF %s not found%s", NAME, VTY_NEWLINE);\
           return CMD_WARNING;                                       \
         }                                               \
-      if (!vrf->vrf_id) \
+      if (vrf->vrf_id == VRF_UNKNOWN) \
         { \
           vty_out (vty, "%% VRF %s not active%s", NAME, VTY_NEWLINE);\
           return CMD_WARNING;                                       \
