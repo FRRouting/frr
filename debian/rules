@@ -20,25 +20,7 @@ MAKEFLAGS += -j$(DEBIAN_JOBS)
 endif
 
 %:
-	dh $@ --with=systemd --parallel --with autoreconf --dbg-package=quagga-dbg --list-missing
-	if [ -e config.status ]; then \
-		dh $@ --with=systemd --parallel  --dbg-package=quagga-dbg --list-missing; \
-	else \
-		dh $@ --with=systemd --parallel  --with autoreconf --dbg-package=quagga-dbg --list-missing; \
-	fi
-
-override_dh_auto_clean:
-	#dh_auto_clean
-
-	#@echo "BEGIN CRUFT"
-	#@rm -vf */Makefile doc/quagga.fns doc/quagga.info doc/quagga.kys doc/quagga.tmp doc/quagga.pdf doc/quagga.info-*
-	#@rm -vf lib/version.c doc/stamp-vti
-	#@rm -vf vtysh/vtysh_cmd.c
-	#@rm -vf doc/fig*.pdf doc/version.texi
-	#@echo "END CRUFT"
-
-	# why?
-	#@if [ -e config.log ]; then echo "CONFIG.LOG STILL THERE"; rm config.log; fi
+	dh $@ --with=systemd,autoreconf --parallel --dbg-package=quagga-dbg --list-missing
 
 override_dh_auto_configure:
 	# Quagga needs /proc to check some BSD vs Linux specific stuff.
@@ -79,12 +61,6 @@ override_dh_auto_configure:
 		--enable-cumulus=yes \
 		--enable-dependency-tracking; \
 	fi
-	if ! diff -b -IHAVE_SNMP -IHAVE_NETSNMP -IUCD_COMPAT -IGETIFADDR debian/my/config.h.reference config.h; then \
-		echo; \
-		echo "WARNING: Please compare with debian/my/config.h.reference"; \
-		echo; \
-		if [ "`hostname`" = "james" ]; then exit 1; fi; \
-	fi
 
 override_dh_auto_build:
 	#dh_auto_build
@@ -110,8 +86,6 @@ override_dh_auto_install:
 
 	# install config files
 	mkdir -p debian/tmp/etc/quagga/
-	cp debian/my/debian.conf debian/tmp/etc/quagga/
-	cp debian/my/daemons debian/tmp/etc/quagga/
 	perl -pi -e 's#^!log file #!log file /var/log/quagga/#' debian/tmp/usr/share/doc/quagga/examples/*sample*
 
 	# installing the Quagga specific SNMP MIB

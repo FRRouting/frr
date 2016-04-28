@@ -1,8 +1,8 @@
-quagga (0.99.23.1-1+cl3.0) CumulusLinux-0.0; urgency=low
+quagga (0.99.23.1-1+cl3u1) PreRelease; urgency=low
 
   * Cumulus Networks patches
 
- -- Donald <sharpd@monster-01.cumulusnetworks.com>  Tue, 19 May 2015 16:22:52 -0700
+ -- Donald <sharpd@cumulusnetworks.com>  Tue, 19 May 2015 16:22:52 -0700
 
 quagga (0.99.23.1-1) unstable; urgency=medium
 

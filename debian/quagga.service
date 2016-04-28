@@ -1,5 +1,5 @@
 [Unit]
-Description=Cumulus Linux Quagga BGP Daemon
+Description=Cumulus Linux Quagga
 After=syslog.target networking.service
 OnFailure=heartbeat-failed@%n.service
 
