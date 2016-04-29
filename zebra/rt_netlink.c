@@ -2167,7 +2167,6 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
              */
             if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
               continue;
-            SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
           }
       goto skip;
     }
@@ -2238,10 +2237,6 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
               _netlink_route_build_singlepath(routedesc, bytelen,
                                               nexthop, &req.n, &req.r,
                                               sizeof req, cmd);
-
-              if (cmd == RTM_NEWROUTE)
-                SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
-
               nexthop_num++;
               break;
             }
@@ -2319,9 +2314,6 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
               _netlink_route_build_multipath(routedesc, bytelen,
                                              nexthop, rta, rtnh, &req.r, &src1);
               rtnh = RTNH_NEXT (rtnh);
-
-              if (cmd == RTM_NEWROUTE)
-                SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
 
 	      if (!setsrc && src1)
 		{
