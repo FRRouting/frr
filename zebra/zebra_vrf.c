@@ -88,6 +88,9 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
       router_id_init (zvrf);
     }
 
+  if (zvrf->vrf_id == VRF_UNKNOWN)
+    zvrf->vrf_id = vrf_id;
+
   return 0;
 }
 
