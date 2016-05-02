@@ -2712,6 +2712,14 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
 
       if (peer && v6only)
         SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+
+      /* Request zebra to initiate IPv6 RAs on this interface. We do this
+       * any unnumbered peer in order to not worry about run-time transitions
+       * (e.g., peering is initially IPv4, but the IPv4 /30 or /31 address
+       * gets deleted later etc.)
+       */
+      if (peer->ifp)
+        bgp_zebra_initiate_radv (bgp, peer);
     }
   else if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) ||
            (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)))
@@ -2842,6 +2850,9 @@ DEFUN (no_neighbor,
       peer = peer_lookup_by_conf_if (vty->index, argv[0]);
       if (peer)
         {
+          /* Request zebra to terminate IPv6 RAs on this interface. */
+          if (peer->ifp)
+            bgp_zebra_terminate_radv (peer->bgp, peer);
           peer_delete (peer);
           return CMD_SUCCESS;
         }
@@ -2900,6 +2911,9 @@ DEFUN (no_neighbor_interface_config,
   peer = peer_lookup_by_conf_if (vty->index, argv[0]);
   if (peer)
     {
+      /* Request zebra to terminate IPv6 RAs on this interface. */
+      if (peer->ifp)
+        bgp_zebra_terminate_radv (peer->bgp, peer);
       peer_delete (peer);
     }
   else

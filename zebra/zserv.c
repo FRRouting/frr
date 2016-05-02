@@ -50,6 +50,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/rtadv.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -2025,6 +2026,12 @@ zebra_client_read (struct thread *thread)
       break;
     case ZEBRA_BFD_CLIENT_REGISTER:
       zebra_ptm_bfd_client_register(client, sock, length);
+      break;
+    case ZEBRA_INTERFACE_ENABLE_RADV:
+      zebra_interface_radv_set (client, sock, length, zvrf, 1);
+      break;
+    case ZEBRA_INTERFACE_DISABLE_RADV:
+      zebra_interface_radv_set (client, sock, length, zvrf, 0);
       break;
     default:
       zlog_info ("Zebra received unknown command %d", command);

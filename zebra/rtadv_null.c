@@ -24,7 +24,8 @@
 #include <rtadv.h>
 #include <zebra_ns.h>
 
-void ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status status)
+void zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
+                          struct zebra_vrf *zvrf, int enable)
 { return; }
 
 void rtadv_init (struct zebra_ns *zns)

@@ -26,6 +26,7 @@
 #include "sockopt.h"
 #include "thread.h"
 #include "if.h"
+#include "stream.h"
 #include "log.h"
 #include "prefix.h"
 #include "linklist.h"
@@ -734,7 +735,7 @@ rtadv_prefix_reset (struct zebra_if *zif, struct rtadv_prefix *rp)
     return 0;
 }
 
-void
+static void
 ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status status)
 {
   struct zebra_if *zif;
@@ -783,6 +784,58 @@ ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status statu
     }
 }
 
+/*
+ * Handle client (BGP) message to enable or disable IPv6 RA on an interface.
+ * Note that while the client could request RA on an interface on which the
+ * operator has not enabled RA, RA won't be disabled upon client request
+ * if the operator has explicitly enabled RA.
+ */
+void
+zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
+                          struct zebra_vrf *zvrf, int enable)
+{
+  struct stream *s;
+  unsigned int ifindex;
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  s = client->ibuf;
+
+  /* Get interface index. */
+  ifindex = stream_getl (s);
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug("%u: IF %u RA %s from client %s",
+               zvrf->vrf_id, ifindex, enable ? "enable" : "disable",
+               zebra_route_string(client->proto));
+
+  /* Locate interface and check VRF match. */
+  ifp = if_lookup_by_index_per_ns (zebra_ns_lookup (NS_DEFAULT), ifindex);
+  if (!ifp)
+    {
+      zlog_warn("%u: IF %u RA %s client %s - interface unknown",
+               zvrf->vrf_id, ifindex, enable ? "enable" : "disable",
+               zebra_route_string(client->proto));
+      return;
+    }
+  if (ifp->vrf_id != zvrf->vrf_id)
+    {
+      zlog_warn("%u: IF %u RA %s client %s - VRF mismatch, IF VRF %u",
+               zvrf->vrf_id, ifindex, enable ? "enable" : "disable",
+               zebra_route_string(client->proto), ifp->vrf_id);
+      return;
+    }
+
+  zif = ifp->info;
+  if (enable)
+    ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+  else
+    {
+      if (!zif->rtadv.configured)
+        ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
+    }
+}
+
 DEFUN (ipv6_nd_suppress_ra,
        ipv6_nd_suppress_ra_cmd,
        "ipv6 nd suppress-ra",
@@ -791,6 +844,7 @@ DEFUN (ipv6_nd_suppress_ra,
        "Suppress Router Advertisement\n")
 {
   struct interface *ifp;
+  struct zebra_if *zif;
 
   ifp = vty->index;
 
@@ -802,6 +856,8 @@ DEFUN (ipv6_nd_suppress_ra,
     }
 
   ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
+  zif = ifp->info;
+  zif->rtadv.configured = 0;
   return CMD_SUCCESS;
 }
 
@@ -814,6 +870,7 @@ DEFUN (no_ipv6_nd_suppress_ra,
        "Suppress Router Advertisement\n")
 {
   struct interface *ifp;
+  struct zebra_if *zif;
 
   ifp = vty->index;
 
@@ -825,6 +882,8 @@ DEFUN (no_ipv6_nd_suppress_ra,
     }
 
   ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+  zif = ifp->info;
+  zif->rtadv.configured = 1;
   return CMD_SUCCESS;
 }
 

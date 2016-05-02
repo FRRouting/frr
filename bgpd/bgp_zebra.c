@@ -167,6 +167,31 @@ bgp_read_import_check_update(int command, struct zclient *zclient,
   return 0;
 }
 
+/* Set or clear interface on which unnumbered neighbor is configured. This
+ * would in turn cause BGP to initiate or turn off IPv6 RAs on this
+ * interface.
+ */
+static void
+bgp_update_interface_nbrs (struct bgp *bgp, struct interface *ifp,
+                           struct interface *upd_ifp)
+{
+  struct listnode *node, *nnode;
+  struct peer *peer;
+
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+    {
+      if (peer->conf_if &&
+          (strcmp (peer->conf_if, ifp->name) == 0))
+        {
+          peer->ifp = upd_ifp;
+          if (upd_ifp)
+            bgp_zebra_initiate_radv (bgp, peer);
+          else
+            bgp_zebra_terminate_radv (bgp, peer);
+        }
+    }
+}
+
 static void
 bgp_start_interface_nbrs (struct bgp *bgp, struct interface *ifp)
 {
@@ -241,12 +266,20 @@ bgp_interface_add (int command, struct zclient *zclient, zebra_size_t length,
     vrf_id_t vrf_id)
 {
   struct interface *ifp;
+  struct bgp *bgp;
 
   ifp = zebra_interface_add_read (zclient->ibuf, vrf_id);
+  if (!ifp) // unexpected
+    return 0;
 
   if (BGP_DEBUG (zebra, ZEBRA) && ifp)
     zlog_debug("Rx Intf add VRF %u IF %s", vrf_id, ifp->name);
 
+  bgp = bgp_lookup_by_vrf_id (vrf_id);
+  if (!bgp)
+    return 0;
+
+  bgp_update_interface_nbrs (bgp, ifp, ifp);
   return 0;
 }
 
@@ -256,10 +289,11 @@ bgp_interface_delete (int command, struct zclient *zclient,
 {
   struct stream *s;
   struct interface *ifp;
+  struct bgp *bgp;
 
   s = zclient->ibuf;
   ifp = zebra_interface_state_read (s, vrf_id);
-  if (! ifp) /* This may happen if we've just unregistered for a VRF. */
+  if (!ifp) /* This may happen if we've just unregistered for a VRF. */
     return 0;
 
   ifp->ifindex = IFINDEX_DELETED;
@@ -267,6 +301,11 @@ bgp_interface_delete (int command, struct zclient *zclient,
   if (BGP_DEBUG (zebra, ZEBRA))
     zlog_debug("Rx Intf del VRF %u IF %s", vrf_id, ifp->name);
 
+  bgp = bgp_lookup_by_vrf_id (vrf_id);
+  if (!bgp)
+    return 0;
+
+  bgp_update_interface_nbrs (bgp, ifp, NULL);
   return 0;
 }
 
@@ -1963,6 +2002,32 @@ bgp_zebra_instance_deregister (struct bgp *bgp)
 
   /* Deregister for router-id, interfaces, redistributed routes. */
   zclient_send_dereg_requests (zclient, bgp->vrf_id);
+}
+
+void
+bgp_zebra_initiate_radv (struct bgp *bgp, struct peer *peer)
+{
+  /* Don't try to initiate if we're not connected to Zebra */
+  if (zclient->sock < 0)
+    return;
+
+  if (BGP_DEBUG (zebra, ZEBRA))
+    zlog_debug("%u: Initiating RA for peer %s", bgp->vrf_id, peer->host);
+
+  zclient_send_interface_radv_req (zclient, bgp->vrf_id, peer->ifp, 1);
+}
+
+void
+bgp_zebra_terminate_radv (struct bgp *bgp, struct peer *peer)
+{
+  /* Don't try to terminate if we're not connected to Zebra */
+  if (zclient->sock < 0)
+    return;
+
+  if (BGP_DEBUG (zebra, ZEBRA))
+    zlog_debug("%u: Terminating RA for peer %s", bgp->vrf_id, peer->host);
+
+  zclient_send_interface_radv_req (zclient, bgp->vrf_id, peer->ifp, 0);
 }
 
 /* BGP has established connection with Zebra. */

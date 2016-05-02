@@ -108,26 +108,8 @@ typedef enum {
 extern void rtadv_init (struct zebra_ns *);
 extern void rtadv_terminate (struct zebra_ns *);
 extern void rtadv_cmd_init (void);
-extern void ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status status);
+extern void zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
+                          struct zebra_vrf *zvrf, int enable);
 
-
-/* Can we turn on IPv6 RAs automatically on this interface? */
-static inline int
-interface_ipv6_auto_ra_allowed (struct interface *ifp)
-{
-#if defined (HAVE_RTADV)
-  if (if_is_loopback (ifp) ||
-      CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK))
-    return 0;
-#if defined (HAVE_CUMULUS)
-  if ((strncmp (ifp->name, "eth", strlen("eth")) == 0) ||
-      (strncmp (ifp->name, "switch", strlen("switch")) == 0))
-    return 0;
-#endif
-  return 1;
-#else
-  return 0;
-#endif
-}
 
 #endif /* _ZEBRA_RTADV_H */

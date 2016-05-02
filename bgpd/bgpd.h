@@ -578,6 +578,7 @@ struct peer
   
   unsigned int ifindex;		/* ifindex of the BGP connection. */
   char *conf_if;                /* neighbor interface config name. */
+  struct interface *ifp;        /* corresponding interface */
   char *ifname;			/* bind interface name. */
   char *update_if;
   union sockunion *update_source;

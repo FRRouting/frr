@@ -684,9 +684,6 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
   /* Delete all neighbor addresses learnt through IPv6 RA */
   if_down_del_nbr_connected (ifp);
 
-  /* Suppress RAs on this interface, if enabled. */
-  ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
-
   /* Send out notification on interface VRF change. */
   /* This is to issue an UPDATE or a DELETE, as appropriate. */
   zebra_interface_vrf_update_del (ifp, vrf_id);
@@ -700,10 +697,6 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
 
   /* Install connected routes (in new VRF). */
   if_install_connected (ifp);
-
-  /* Enable RAs on this interface, if IPv6 addresses are present. */
-  if (ipv6_address_configured(ifp))
-    ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
 
   /* Due to connected route change, schedule RIB processing for both old
    * and new VRF.
@@ -1929,10 +1922,6 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 
       /* Add to linked list. */
       listnode_add (ifp->connected, ifc);
-
-      /* Enable RA on this interface */
-      if (interface_ipv6_auto_ra_allowed (ifp))
-        ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
     }
 
   /* This address is configured from zebra. */
@@ -2029,13 +2018,6 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
       vty_out (vty, "%% Can't unset interface IP address: %s.%s", 
 	       safe_strerror(errno), VTY_NEWLINE);
       return CMD_WARNING;
-    }
-
-  /* Enable RA suppression if there are no IPv6 addresses on this interface */
-  if (interface_ipv6_auto_ra_allowed (ifp))
-    {
-      if (! ipv6_address_configured(ifp))
-        ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
     }
 
   UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);

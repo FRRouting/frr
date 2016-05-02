@@ -481,6 +481,37 @@ zclient_send_dereg_requests (struct zclient *zclient, vrf_id_t vrf_id)
     zebra_message_send (zclient, ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, vrf_id);
 }
 
+/* Send request to zebra daemon to start or stop RA. */
+void
+zclient_send_interface_radv_req (struct zclient *zclient, vrf_id_t vrf_id,
+                                 struct interface *ifp, int enable)
+{
+  struct stream *s;
+
+  /* zclient is disabled. */
+  if (!zclient->enable)
+    return;
+
+  /* If not connected to the zebra yet. */
+  if (zclient->sock < 0)
+    return;
+
+  /* Form and send message. */
+  s = zclient->obuf;
+  stream_reset (s);
+
+  if (enable)
+    zclient_create_header (s, ZEBRA_INTERFACE_ENABLE_RADV, vrf_id);
+  else
+    zclient_create_header (s, ZEBRA_INTERFACE_DISABLE_RADV, vrf_id);
+
+  stream_putl (s, ifp->ifindex);
+
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  zclient_send_message(zclient);
+}
+
 /* Make connection to zebra daemon. */
 int
 zclient_start (struct zclient *zclient)

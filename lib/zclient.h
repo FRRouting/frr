@@ -175,6 +175,9 @@ extern void redist_del_instance (struct redist_proto *, u_short);
 extern void zclient_send_reg_requests (struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests (struct zclient *, vrf_id_t);
 
+extern void zclient_send_interface_radv_req (struct zclient *zclient, vrf_id_t vrf_id,
+                                 struct interface *ifp, int enable);
+
 /* Send redistribute command to zebra daemon. Do not update zclient state. */
 extern int zebra_redistribute_send (int command, struct zclient *, afi_t, int type, u_short instance, vrf_id_t vrf_id);
 

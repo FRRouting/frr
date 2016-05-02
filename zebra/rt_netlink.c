@@ -1350,13 +1350,6 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
               /* pre-configured interface, learnt now */
               if (ifp->vrf_id != vrf_id)
                 if_update_vrf (ifp, name, strlen(name), vrf_id);
-
-              /* Start IPv6 RA, if any IPv6 addresses on interface. */
-              if (interface_ipv6_auto_ra_allowed (ifp))
-                {
-                  if (ipv6_address_configured (ifp))
-                    ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
-                }
             }
 
           /* Update interface information. */

@@ -66,13 +66,6 @@ connected_withdraw (struct connected *ifc)
   /* The address is not in the kernel anymore, so clear the flag */
   UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
-  /* Enable RA suppression if there are no IPv6 addresses on this interface */
-  if (interface_ipv6_auto_ra_allowed (ifc->ifp))
-    {
-      if (! ipv6_address_configured(ifc->ifp))
-        ipv6_nd_suppress_ra_set (ifc->ifp, RA_SUPPRESS);
-    }
-
   if (!CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
     {
       listnode_delete (ifc->ifp->connected, ifc);
@@ -99,12 +92,6 @@ connected_announce (struct interface *ifp, struct connected *ifc)
   /* Update interface address information to protocol daemon. */
   if (ifc->address->family == AF_INET)
     if_subnet_add (ifp, ifc);
-
-  else if (ifc->address->family == AF_INET6)
-    {
-      if (interface_ipv6_auto_ra_allowed (ifp))
-        ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
-    }
 
   zebra_interface_address_add_update (ifp, ifc);
 
