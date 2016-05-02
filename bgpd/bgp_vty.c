@@ -2163,7 +2163,7 @@ DEFUN (no_bgp_default_show_hostname,
   return CMD_SUCCESS;
 }
 
-/* "bgp import-check" configuration.  */
+/* "bgp network import-check" configuration.  */
 DEFUN (bgp_network_import_check,
        bgp_network_import_check_cmd,
        "bgp network import-check",
@@ -2182,6 +2182,14 @@ DEFUN (bgp_network_import_check,
 
   return CMD_SUCCESS;
 }
+
+ALIAS_HIDDEN (bgp_network_import_check,
+              bgp_network_import_check_exact_cmd,
+              "bgp network import-check exact",
+              "BGP specific commands\n"
+              "BGP network command\n"
+              "Check BGP network route exists in IGP\n"
+              "Match route precisely\n")
 
 DEFUN (no_bgp_network_import_check,
        no_bgp_network_import_check_cmd,
@@ -14080,6 +14088,7 @@ bgp_vty_init (void)
   
   /* "bgp network import-check" commands. */
   install_element (BGP_NODE, &bgp_network_import_check_cmd);
+  install_element (BGP_NODE, &bgp_network_import_check_exact_cmd);
   install_element (BGP_NODE, &no_bgp_network_import_check_cmd);
 
   /* "bgp default local-preference" commands. */
