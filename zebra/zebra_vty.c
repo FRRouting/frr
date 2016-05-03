@@ -5485,17 +5485,16 @@ static_config_ipv6 (struct vty *vty)
 {
   struct route_node *rn;
   struct static_route *si;
-  int write;
+  int write = 0;
   char buf[PREFIX2STR_BUFFER];
   struct route_table *stable;
   struct zebra_vrf *zvrf;
-  vrf_iter_t iter;
+  struct listnode *node;
+  struct vrf *vrfp;
 
-  write = 0;
-
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
     {
-      if ((zvrf = vrf_iter2info (iter)) == NULL ||
+      if ((zvrf = vrfp->info)  == NULL ||
           (stable = zvrf->stable[AFI_IP6][SAFI_UNICAST]) == NULL)
         continue;
 
@@ -5534,7 +5533,7 @@ static_config_ipv6 (struct vty *vty)
             if (si->vrf_id != VRF_DEFAULT)
               {
                 zvrf = vrf_info_lookup (si->vrf_id);
-                vty_out (vty, " vrf %s", zvrf->name);
+                vty_out (vty, " vrf %s", vrfp->name);
               }
 
             vty_out (vty, "%s", VTY_NEWLINE);
@@ -5574,17 +5573,22 @@ DEFUN (show_vrf,
        "VRF\n")
 {
   struct zebra_vrf *zvrf;
-  vrf_iter_t iter;
+  struct listnode *node;
+  struct vrf *vrfp;
 
-  for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
+  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
     {
-      if ((zvrf = vrf_iter2info (iter)) == NULL)
+      if ((zvrf = vrfp->info)  == NULL)
         continue;
       if (!zvrf->vrf_id)
         continue;
 
-      vty_out (vty, "vrf %s id %u table %u%s",
-               zvrf->name, zvrf->vrf_id, zvrf->table_id, VTY_NEWLINE);
+     vty_out (vty, "vrf %s ", zvrf->name);
+     if (zvrf->vrf_id == VRF_UNKNOWN)
+       vty_out (vty, "inactive");
+     else
+       vty_out (vty, "id %u table %u", zvrf->vrf_id, zvrf->table_id);
+     vty_out (vty, "%s", VTY_NEWLINE);
 
     }
 
