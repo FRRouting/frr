@@ -471,21 +471,16 @@ zsend_interface_vrf_update (struct zserv *client, struct interface *ifp,
   return zebra_server_send_message(client);
 }
 
-/* Add new nbr connected IPv6 address if none exists already, or replace the
-   existing one if an ifc entry is found on the interface. */
+/* Add new nbr connected IPv6 address */
 void
-nbr_connected_replacement_add_ipv6 (struct interface *ifp, struct in6_addr *address,
-                                    u_char prefixlen)
+nbr_connected_add_ipv6 (struct interface *ifp, struct in6_addr *address)
 {
   struct nbr_connected *ifc;
   struct prefix p;
 
   p.family = AF_INET6;
   IPV6_ADDR_COPY (&p.u.prefix, address);
-  p.prefixlen = prefixlen;
-
-  if (nbr_connected_check(ifp, &p))
-    return;
+  p.prefixlen = IPV6_MAX_PREFIXLEN;
 
   if (!(ifc = listnode_head(ifp->nbr_connected)))
     {
@@ -504,15 +499,14 @@ nbr_connected_replacement_add_ipv6 (struct interface *ifp, struct in6_addr *addr
 }
 
 void
-nbr_connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
-                           u_char prefixlen)
+nbr_connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address)
 {
   struct nbr_connected *ifc;
   struct prefix p;
 
   p.family = AF_INET6;
   IPV6_ADDR_COPY (&p.u.prefix, address);
-  p.prefixlen = prefixlen;
+  p.prefixlen = IPV6_MAX_PREFIXLEN;
 
   ifc = nbr_connected_check(ifp, &p);
   if (!ifc)
