@@ -183,11 +183,16 @@ bgp_update_interface_nbrs (struct bgp *bgp, struct interface *ifp,
       if (peer->conf_if &&
           (strcmp (peer->conf_if, ifp->name) == 0))
         {
-          peer->ifp = upd_ifp;
           if (upd_ifp)
-            bgp_zebra_initiate_radv (bgp, peer);
+	    {
+	      peer->ifp = upd_ifp;
+	      bgp_zebra_initiate_radv (bgp, peer);
+	    }
           else
-            bgp_zebra_terminate_radv (bgp, peer);
+	    {
+	      bgp_zebra_terminate_radv (bgp, peer);
+	      peer->ifp = upd_ifp;
+	    }
         }
     }
 }
