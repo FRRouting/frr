@@ -439,47 +439,107 @@ def line_exist(lines, target_ctx_keys, target_line):
     return False
 
 
-def ignore_bgp_swpx_peergroup(lines_to_add, lines_to_del):
-    '''
-    BGP changed how it displays swpX peers that are part of peer-group. Older
-    versions of quagga would display these on separate lines:
-        neighbor swp1 interface
-        neighbor swp1 peer-group FOO
-
-    but today we display via a single line
-        neighbor swp1 interface peer-group FOO
-
-    This change confuses quagga-reload.py so check to see if we are deleting
-        neighbor swp1 interface peer-group FOO
-
-    and adding
-        neighbor swp1 interface
-        neighbor swp1 peer-group FOO
-
-    If so then chop the del line and the corresponding add lines
-    '''
+def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
     # Quite possibly the most confusing (while accurate) variable names in history
     lines_to_add_to_del = []
     lines_to_del_to_del = []
 
     for (ctx_keys, line) in lines_to_del:
+        deleted = False
+
         if ctx_keys[0].startswith('router bgp') and line.startswith('neighbor '):
+            """
+            BGP changed how it displays swpX peers that are part of peer-group. Older
+            versions of quagga would display these on separate lines:
+                neighbor swp1 interface
+                neighbor swp1 peer-group FOO
+
+            but today we display via a single line
+                neighbor swp1 interface peer-group FOO
+
+            This change confuses quagga-reload.py so check to see if we are deleting
+                neighbor swp1 interface peer-group FOO
+
+            and adding
+                neighbor swp1 interface
+                neighbor swp1 peer-group FOO
+
+            If so then chop the del line and the corresponding add lines
+            """
+
             re_swpx_int_peergroup = re.search('neighbor (\S+) interface peer-group (\S+)', line)
+            re_swpx_int_v6only_peergroup = re.search('neighbor (\S+) interface v6only peer-group (\S+)', line)
 
-            if re_swpx_int_peergroup:
-                swpx = re_swpx_int_peergroup.group(1)
-                peergroup = re_swpx_int_peergroup.group(2)
-                swpx_interface = "neighbor %s interface" % swpx
+            if re_swpx_int_peergroup or re_swpx_int_v6only_peergroup:
+                swpx_interface = None
+                swpx_peergroup = None
+
+                if re_swpx_int_peergroup:
+                    swpx = re_swpx_int_peergroup.group(1)
+                    peergroup = re_swpx_int_peergroup.group(2)
+                    swpx_interface = "neighbor %s interface" % swpx
+                elif re_swpx_int_v6only_peergroup:
+                    swpx = re_swpx_int_v6only_peergroup.group(1)
+                    peergroup = re_swpx_int_v6only_peergroup.group(2)
+                    swpx_interface = "neighbor %s interface v6only" % swpx
+
                 swpx_peergroup = "neighbor %s peer-group %s" % (swpx, peergroup)
-
                 found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
                 found_add_swpx_peergroup = line_exist(lines_to_add, ctx_keys, swpx_peergroup)
+                tmp_ctx_keys = list(ctx_keys)
+
+                if not found_add_swpx_peergroup:
+                    tmp_ctx_keys = list(ctx_keys)
+                    tmp_ctx_keys.append('address-family ipv4 unicast')
+                    tmp_ctx_keys = tuple(tmp_ctx_keys)
+                    found_add_swpx_peergroup = line_exist(lines_to_add, tmp_ctx_keys, swpx_peergroup)
+
+                    if not found_add_swpx_peergroup:
+                        tmp_ctx_keys = list(ctx_keys)
+                        tmp_ctx_keys.append('address-family ipv6 unicast')
+                        tmp_ctx_keys = tuple(tmp_ctx_keys)
+                        found_add_swpx_peergroup = line_exist(lines_to_add, tmp_ctx_keys, swpx_peergroup)
 
                 if found_add_swpx_interface and found_add_swpx_peergroup:
+                    deleted = True
                     lines_to_del_to_del.append((ctx_keys, line))
                     lines_to_add_to_del.append((ctx_keys, swpx_interface))
-                    lines_to_add_to_del.append((ctx_keys, swpx_peergroup))
+                    lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
+
+        if not deleted:
+            found_add_line = line_exist(lines_to_add, ctx_keys, line)
+
+            if found_add_line:
+                lines_to_del_to_del.append((ctx_keys, line))
+                lines_to_add_to_del.append((ctx_keys, line))
+            else:
+                '''
+                We have commands that used to be displayed in the global part
+                of 'router bgp' that are now displayed under 'address-family ipv4 unicast'
+
+                # old way
+                router bgp 64900
+                  neighbor ISL advertisement-interval 0
+
+                vs.
+
+                # new way
+                router bgp 64900
+                  address-family ipv4 unicast
+                    neighbor ISL advertisement-interval 0
+
+                Look to see if we are deleting it in one format just to add it back in the other
+                '''
+                if ctx_keys[0].startswith('router bgp') and len(ctx_keys) > 1 and ctx_keys[1] == 'address-family ipv4 unicast':
+                    tmp_ctx_keys = list(ctx_keys)[:-1]
+                    tmp_ctx_keys = tuple(tmp_ctx_keys)
+
+                    found_add_line = line_exist(lines_to_add, tmp_ctx_keys, line)
+
+                    if found_add_line:
+                        lines_to_del_to_del.append((ctx_keys, line))
+                        lines_to_add_to_del.append((tmp_ctx_keys, line))
 
     for (ctx_keys, line) in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))
@@ -548,7 +608,7 @@ def compare_context_objects(newconf, running):
             for line in newconf_ctx.lines:
                 lines_to_add.append((newconf_ctx_keys, line))
 
-    (lines_to_add, lines_to_del) = ignore_bgp_swpx_peergroup(lines_to_add, lines_to_del)
+    (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del, restart_bgpd)
 
