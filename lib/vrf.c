@@ -80,94 +80,182 @@ vrf_build_key (vrf_id_t vrf_id, struct prefix *p)
 }
 
 /* Get a VRF. If not found, create one.
- * Arg: name
+ * Arg:
+ *   name   - The name of the vrf.  May be NULL if unknown.
+ *   vrf_id - The vrf_id of the vrf.  May be VRF_UNKNOWN if unknown
  * Description: Please note that this routine can be called with just the name
-   and 0 vrf-id */
+ * and 0 vrf-id
+ */
 struct vrf *
 vrf_get (vrf_id_t vrf_id, const char *name)
 {
   struct prefix p;
   struct route_node *rn = NULL;
   struct vrf *vrf = NULL;
-  size_t namelen = 0;
 
-  /* Only create a route node if the vrf was learned from the kernel */
-  if (vrf_id != VRF_UNKNOWN)
+  if (debug_vrf)
+    zlog_debug ("VRF_GET: %s(%d)", name, vrf_id);
+
+  /*
+   * Nothing to see, move along here
+   */
+  if (!name && vrf_id == VRF_UNKNOWN)
+    return NULL;
+
+  /*
+   * Valid vrf name and unknown vrf_id case
+   *
+   * This is called when we are configured from
+   * the cli but we have no kernel information yet.
+   */
+  if (name && vrf_id == VRF_UNKNOWN)
     {
-      vrf_build_key (vrf_id, &p);
-      rn = route_node_get (vrf_table, &p);
-
-      if (rn->info)
-        {
-          vrf = (struct vrf *)rn->info;
-          route_unlock_node (rn); /* get */
-
-          if (name)
-            {
-              strncpy (vrf->name, name, strlen(name));
-              vrf->name[strlen(name)] = '\0';
-              if (vrf_list_lookup_by_name (vrf->name) == NULL)
-                listnode_add_sort (vrf_list, vrf);
-            }
-          if (debug_vrf)
-	    zlog_debug ("VRF(%u) %s Found %p", vrf_id, (name) ? name : "(NULL)",
-			vrf);
-        }
-    }
-
-  if (name && !vrf)
-    vrf = vrf_list_lookup_by_name(name);
-
-  if (vrf)
-    {
-      if (debug_vrf)
-        zlog_debug ("VRF(%u) %s lookup by name is successful",
-		    vrf_id, (name) ? name : "(NULL)");
-    }
-  else
-    {
-      if (name)
-        {
-          namelen = strlen (name);
-          if (namelen > VRF_NAMSIZ)
-            {
-              zlog_err("Attempt to get/create VRF %u name %s - name too long",
-                       vrf_id, name);
-              return NULL;
-            }
-        }
+      vrf = vrf_list_lookup_by_name (name);
+      if (vrf)
+	return vrf;
 
       vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
       if (debug_vrf)
         zlog_debug ("VRF(%u) %s is created.",
 		    vrf_id, (name) ? name : "(NULL)");
-      if (name)
-        {
-          strncpy (vrf->name, name, namelen);
-          vrf->name[namelen] = '\0';
-          listnode_add_sort (vrf_list, vrf);
-        }
-
-      if ((vrf_id != VRF_UNKNOWN) && (rn != NULL))
-        {
-          rn->info = vrf;
-          vrf->node = rn;
-        }
-      vrf->vrf_id = vrf_id;
-
-      /* Initialize interfaces. */
+      strcpy (vrf->name, name);
+      listnode_add_sort (vrf_list, vrf);
       if_init (&vrf->iflist);
-    }
+      if (vrf_master.vrf_new_hook)
+	{
+	  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
 
-  if (vrf_master.vrf_new_hook && name)
+	  if (debug_vrf && vrf->info)
+	    zlog_info ("zvrf is created.");
+	}
+      if (debug_vrf)
+        zlog_debug("Vrf Created: %p", vrf);
+      return vrf;
+    }
+  /*
+   * Valid vrf name and valid vrf_id case
+   *
+   * This can be passed from the kernel
+   */
+  else if (name && vrf_id != VRF_UNKNOWN)
     {
-      (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+      vrf = vrf_list_lookup_by_name (name);
+      if (vrf)
+	{
+          /*
+           * If the passed in vrf_id and name match
+	   * return, nothing to do here.
+           */
+	  if (vrf->vrf_id == vrf_id)
+	    return vrf;
 
-      if (vrf->info)
-        zlog_info ("zvrf is created.");
+	  /*
+	   * Now we have a situation where we've had a
+	   * vrf created, but not yet created the vrf_id route
+	   * node, let's do so and match the code up.
+           */
+	  vrf_build_key (vrf_id, &p);
+	  rn = route_node_get (vrf_table, &p);
+
+	  rn->info = vrf;
+	  vrf->node = rn;
+	  vrf->vrf_id = vrf_id;
+	  if (vrf_master.vrf_new_hook)
+	    (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+
+          if (debug_vrf)
+            zlog_debug("Vrf found matched stuff up: %p", vrf);
+
+	  return vrf;
+	}
+      else
+	{
+	  /*
+	   * We can have 1 of two situations here
+	   * We've already been told about the vrf_id
+	   * or we haven't.
+	   */
+	  vrf_build_key (vrf_id, &p);
+          rn = route_node_get (vrf_table, &p);
+	  if (rn->info)
+	    {
+	      vrf = rn->info;
+	      route_unlock_node (rn);
+	      /*
+	       * We know at this point that the vrf->name is not
+	       * right because we would have caught it above.
+	       * so let's set it.
+	       */
+	      strcpy (vrf->name, name);
+	      listnode_add_sort (vrf_list, vrf);
+	      if (vrf_master.vrf_new_hook)
+		{
+		  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+
+		  if (debug_vrf && vrf->info)
+		    zlog_info ("zvrf is created.");
+		}
+	      if (debug_vrf)
+		zlog_debug("Vrf Created: %p", vrf);
+	      return vrf;
+	    }
+	  else
+	    {
+	      vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
+
+	      rn->info = vrf;
+	      vrf->node = rn;
+	      vrf->vrf_id = vrf_id;
+	      strcpy (vrf->name, name);
+	      listnode_add_sort (vrf_list, vrf);
+	      if_init (&vrf->iflist);
+	      if (vrf_master.vrf_new_hook)
+		{
+		  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
+
+		  if (debug_vrf && vrf->info)
+		    zlog_info ("zvrf is created.");
+		}
+	      if (debug_vrf)
+		zlog_debug("Vrf Created: %p", vrf);
+	      return vrf;
+	    }
+	}
+    }
+  /*
+   * The final case, we've been passed a valid vrf_id
+   * but no name.  So we create the route node
+   * if it hasn't already been created.
+   */
+  else if (!name)
+    {
+      vrf_build_key (vrf_id, &p);
+      rn = route_node_get (vrf_table, &p);
+      zlog_debug("Vrf found: %p", rn->info);
+
+      if (rn->info)
+        {
+           route_unlock_node (rn);
+	   return (rn->info);
+	}
+      else
+	{
+	  vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
+          rn->info = vrf;
+	  vrf->node = rn;
+	  vrf->vrf_id = vrf_id;
+          if_init (&vrf->iflist);
+	  if (debug_vrf)
+            zlog_debug("Vrf Created: %p", vrf);
+	  return vrf;
+        }
     }
 
-  return vrf;
+  /*
+   * We shouldn't get here and if we do
+   * something has gone wrong.
+   */
+  return NULL;
 }
 
 /* Delete a VRF. This is called in vrf_terminate(). */
