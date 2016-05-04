@@ -94,16 +94,93 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
   return 0;
 }
 
+/*
+ * Moving an interface amongst different vrf's
+ * causes the interface to get a new ifindex
+ * so we need to find static routes with
+ * the old ifindex and replace with new
+ * ifindex to insert back into the table
+ */
+void
+zebra_vrf_static_route_interface_fixup (struct interface *ifp)
+{
+  afi_t afi;
+  safi_t safi;
+  struct zebra_vrf *zvrf = zebra_vrf_lookup (ifp->vrf_id);
+  struct route_table *stable = NULL;
+  struct route_node *rn = NULL;
+  struct static_route *si = NULL;
+
+  if (!zvrf)
+    return;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+        {
+          stable = zvrf->stable[afi][safi];
+          if (stable)
+	    for (rn = route_top (stable); rn; rn = route_next (rn))
+	      {
+		if (rn->info)
+		  {
+		    si = rn->info;
+		    if ((strcmp (si->ifname, ifp->name) == 0) &&
+			(si->ifindex != ifp->ifindex))
+		      {
+			si->ifindex = ifp->ifindex;
+			static_install_route (afi, safi, &rn->p, si);
+		      }	  
+		  }
+	      }
+	}
+    }
+  
+}
+
 /* Callback upon enabling a VRF. */
 static int
 zebra_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct zebra_vrf *zvrf = (struct zebra_vrf *) (*info);
+  struct route_table *stable = NULL;
+  struct route_node *rn = NULL;
+  struct static_route *si = NULL;
+  struct interface *ifp = NULL;
+  afi_t afi;
+  safi_t safi;
 
   assert (zvrf);
 
   zebra_vrf_add_update (zvrf);
 
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	{
+	  stable = zvrf->stable[afi][safi];
+	  if (stable)
+	    {
+	      for (rn = route_top (stable); rn; rn = route_next (rn))
+		{
+		  if (rn->info)
+		    {
+		      si = rn->info;
+		      si->vrf_id = vrf_id;
+		      if (si->ifindex)
+		        {
+                          ifp = if_lookup_by_name_vrf (si->ifname, si->vrf_id);
+			  if (ifp)
+                            si->ifindex = ifp->ifindex;
+                          else
+			    continue;
+                        }
+		      static_install_route (afi, safi, &rn->p, si);
+		    }
+		}
+	    }
+	}
+    }
   return 0;
 }
 
@@ -112,11 +189,30 @@ static int
 zebra_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct zebra_vrf *zvrf = (struct zebra_vrf *)(*info);
+  struct route_table *stable = NULL;
+  struct route_node *rn = NULL;
+  afi_t afi;
+  safi_t safi;
 
   if (IS_ZEBRA_DEBUG_KERNEL)
     zlog_debug ("VRF %s id %u is now disabled.",
                 zvrf->name, zvrf->vrf_id);
 
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	{
+	  stable = zvrf->stable[afi][safi];
+	  if (stable)
+	    {
+	      for (rn = route_top (stable); rn; rn = route_next (rn))
+		{
+                  if (rn->info)
+		    static_uninstall_route(afi, safi, &rn->p, rn->info);
+		}
+	    }
+	}
+    }
   return 0;
 }
 

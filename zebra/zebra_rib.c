@@ -2742,7 +2742,7 @@ rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
 }
 
 /* Install static route into rib. */
-static void
+void
 static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si)
 {
   struct rib *rib;
@@ -2914,7 +2914,7 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
 }
 
 /* Uninstall static route from RIB. */
-static void
+void
 static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si)
 {
   struct route_node *rn;
@@ -3074,6 +3074,8 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
   si->tag = tag;
   si->vrf_id = zvrf->vrf_id;
   si->ifindex = ifindex;
+  if (si->ifindex)
+    strcpy(si->ifname, ifindex2ifname_vrf (si->ifindex, si->vrf_id));
 
   if (gate)
     si->addr.ipv4 = *gate;

@@ -706,6 +706,8 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
                 ifp->vrf_id, ifp->name);
   rib_update (old_vrf_id, RIB_UPDATE_IF_CHANGE);
   rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
+
+  zebra_vrf_static_route_interface_fixup (ifp);
 }
 
 static void

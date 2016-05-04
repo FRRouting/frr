@@ -29,6 +29,7 @@
 #include "queue.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "if.h"
 
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
@@ -203,6 +204,8 @@ struct static_route
    */
   union g_addr addr;
   unsigned int ifindex;
+
+  char ifname[INTERFACE_NAMSIZ + 1];
 
   /* bit flags */
   u_char flags;
@@ -379,6 +382,10 @@ extern void rib_init (void);
 extern unsigned long rib_score_proto (u_char proto, u_short instance);
 extern void rib_queue_add (struct route_node *rn);
 
+extern void
+static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si);
+extern void
+static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_route *si);
 
 extern int
 static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,

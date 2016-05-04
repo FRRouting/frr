@@ -3243,7 +3243,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
                 vty_out (vty, " %s", inet_ntoa (si->addr.ipv4));
                 break;
               case STATIC_IFINDEX:
-                vty_out (vty, " %s", ifindex2ifname_vrf(si->ifindex, si->vrf_id));
+                vty_out (vty, " %s", si->ifname);
                 break;
               case STATIC_IPV4_BLACKHOLE:
                 vty_out (vty, " Null0");
@@ -5509,7 +5509,7 @@ static_config_ipv6 (struct vty *vty)
 		vty_out (vty, " %s", inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ));
 		break;
 	      case STATIC_IFINDEX:
-		vty_out (vty, " %s", ifindex2ifname_vrf (si->ifindex, si->vrf_id));
+		vty_out (vty, " %s", si->ifname);
 		break;
 	      case STATIC_IPV6_GATEWAY_IFINDEX:
 		vty_out (vty, " %s %s",
