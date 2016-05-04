@@ -3223,12 +3223,10 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
   struct zebra_vrf *zvrf;
   int write =0;
   struct listnode *node;
-  struct vrf *vrfp;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
+  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
     {
-      if ((zvrf = vrfp->info)  == NULL ||
-          (stable = zvrf->stable[AFI_IP][safi]) == NULL)
+      if ((stable = zvrf->stable[AFI_IP][safi]) == NULL)
         continue;
 
       for (rn = route_top (stable); rn; rn = route_next (rn))
@@ -3267,7 +3265,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               vty_out (vty, " %d", si->distance);
 
             if (si->vrf_id != VRF_DEFAULT)
-                vty_out (vty, " vrf %s", vrfp ? vrfp->name : "");
+                vty_out (vty, " vrf %s", zvrf ? zvrf->name : "");
 
             vty_out (vty, "%s", VTY_NEWLINE);
 
@@ -5490,12 +5488,10 @@ static_config_ipv6 (struct vty *vty)
   struct route_table *stable;
   struct zebra_vrf *zvrf;
   struct listnode *node;
-  struct vrf *vrfp;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
+  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
     {
-      if ((zvrf = vrfp->info)  == NULL ||
-          (stable = zvrf->stable[AFI_IP6][SAFI_UNICAST]) == NULL)
+      if ((stable = zvrf->stable[AFI_IP6][SAFI_UNICAST]) == NULL)
         continue;
 
       for (rn = route_top (stable); rn; rn = route_next (rn))
@@ -5532,8 +5528,7 @@ static_config_ipv6 (struct vty *vty)
 
             if (si->vrf_id != VRF_DEFAULT)
               {
-                zvrf = vrf_info_lookup (si->vrf_id);
-                vty_out (vty, " vrf %s", vrfp->name);
+                vty_out (vty, " vrf %s", zvrf->name);
               }
 
             vty_out (vty, "%s", VTY_NEWLINE);
@@ -5574,12 +5569,9 @@ DEFUN (show_vrf,
 {
   struct zebra_vrf *zvrf;
   struct listnode *node;
-  struct vrf *vrfp;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrfp))
+  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
     {
-      if ((zvrf = vrfp->info)  == NULL)
-        continue;
       if (!zvrf->vrf_id)
         continue;
 

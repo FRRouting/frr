@@ -36,6 +36,7 @@
 
 #include "zebra/rtadv.h"
 #include "zebra_ns.h"
+#include "zebra_vrf.h"
 #include "zebra/interface.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -2140,13 +2141,13 @@ static int
 vrf_config_write (struct vty *vty)
 {
   struct listnode *node;
-  struct vrf *vrf;
+  struct zebra_vrf *zvrf;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_list, node, vrf))
+  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
     {
-      if (strcmp(vrf->name, VRF_DEFAULT_NAME))
+      if (strcmp(zvrf->name, VRF_DEFAULT_NAME))
         {
-          vty_out (vty, "vrf %s%s", vrf->name, VTY_NEWLINE);
+          vty_out (vty, "vrf %s%s", zvrf->name, VTY_NEWLINE);
           vty_out (vty, "!%s", VTY_NEWLINE);
         }
     }
