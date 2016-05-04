@@ -83,6 +83,7 @@ zebra_vrf_table_with_table_id (afi_t afi, safi_t safi,
 extern void zebra_vrf_static_route_interface_fixup (struct interface *ifp);
 extern void zebra_vrf_update_all (struct zserv *client);
 extern struct zebra_vrf *zebra_vrf_lookup (vrf_id_t vrf_id);
+extern struct zebra_vrf *zebra_vrf_list_lookup_by_name (const char *);
 extern struct zebra_vrf *zebra_vrf_alloc (vrf_id_t, const char *);
 extern struct route_table *zebra_vrf_table (afi_t, safi_t, vrf_id_t);
 extern struct route_table *zebra_vrf_static_table (afi_t, safi_t, struct zebra_vrf *zvrf);

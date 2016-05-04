@@ -31,6 +31,7 @@
 #include "zebra/router-id.h"
 
 extern struct zebra_t zebrad;
+struct list *zvrf_list;
 
 /* VRF information update. */
 static void
@@ -82,10 +83,20 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
 
   if (! zvrf)
     {
-      zvrf = zebra_vrf_alloc (vrf_id, name);
-      zvrf->zns = zebra_ns_lookup (NS_DEFAULT); /* Point to the global (single) NS */
-      *info = (void *)zvrf;
-      router_id_init (zvrf);
+      zvrf = zebra_vrf_list_lookup_by_name (name);
+      if (!zvrf)
+	{
+	  zvrf = zebra_vrf_alloc (vrf_id, name);
+	  zvrf->zns = zebra_ns_lookup (NS_DEFAULT); /* Point to the global (single) NS */
+	  *info = (void *)zvrf;
+	  router_id_init (zvrf);
+	  listnode_add_sort (zvrf_list, zvrf);
+	}
+      else
+        {
+          *info = (void *)zvrf;
+	  router_id_init (zvrf);
+        }
     }
 
   if (zvrf->vrf_id == VRF_UNKNOWN)
@@ -231,8 +242,9 @@ zebra_vrf_delete (vrf_id_t vrf_id, const char *name, void **info)
   list_delete_all_node (zvrf->rid_all_sorted_list);
   list_delete_all_node (zvrf->rid_lo_sorted_list);
 
-  XFREE (MTYPE_ZEBRA_VRF, zvrf);
+  zvrf->vrf_id = VRF_UNKNOWN;
 
+  *info = NULL;
   return 0;
 }
 
@@ -326,6 +338,22 @@ zebra_vrf_lookup (vrf_id_t vrf_id)
   return vrf_info_lookup (vrf_id);
 }
 
+/* Lookup the zvrf in the zvrf_list. */
+struct zebra_vrf *
+zebra_vrf_list_lookup_by_name (const char *name)
+{
+  struct listnode *node;
+  struct zebra_vrf *zvrf;
+
+  if (name)
+    for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
+      {
+        if (strcmp(name, zvrf->name) == 0)
+          return zvrf;
+      }
+  return NULL;
+}
+
 /* Lookup the routing table in an enabled VRF. */
 struct route_table *
 zebra_vrf_table (afi_t afi, safi_t safi, vrf_id_t vrf_id)
@@ -398,6 +426,8 @@ zebra_vrf_init (void)
   vrf_add_hook (VRF_ENABLE_HOOK, zebra_vrf_enable);
   vrf_add_hook (VRF_DISABLE_HOOK, zebra_vrf_disable);
   vrf_add_hook (VRF_DELETE_HOOK, zebra_vrf_delete);
+
+  zvrf_list = list_new ();
 
   vrf_init ();
 }
