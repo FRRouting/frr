@@ -2055,9 +2055,24 @@ DEFUN (show_ip_route,
   struct rib *rib;
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
+  struct zebra_vrf *zvrf = NULL;
 
   if (argc)
-    VRF_GET_ID (vrf_id, argv[0]);
+    {
+     if (!(zvrf = zebra_vrf_list_lookup_by_name (argv[0])))
+        {
+          vty_out (vty, "vrf %s not defined%s", argv[0], VTY_NEWLINE);
+          return CMD_SUCCESS;
+        }
+
+      if (zvrf->vrf_id == VRF_UNKNOWN)
+        {
+          vty_out (vty, "vrf %s inactive%s", argv[0], VTY_NEWLINE);
+          return CMD_SUCCESS;
+        }
+      else
+        vrf_id = zvrf->vrf_id;
+    }
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4677,9 +4692,24 @@ DEFUN (show_ipv6_route,
   struct rib *rib;
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
+  struct zebra_vrf *zvrf = NULL;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    {
+     if (!(zvrf = zebra_vrf_list_lookup_by_name (argv[0])))
+        {
+          vty_out (vty, "vrf %s not defined%s", argv[0], VTY_NEWLINE);
+          return CMD_SUCCESS;
+        }
+
+      if (zvrf->vrf_id == VRF_UNKNOWN)
+        {
+          vty_out (vty, "vrf %s inactive%s", argv[0], VTY_NEWLINE);
+          return CMD_SUCCESS;
+        }
+      else
+        vrf_id = zvrf->vrf_id;
+    }
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
