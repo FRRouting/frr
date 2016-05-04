@@ -1,8 +1,490 @@
-quagga (0.99.23.1-1+cl3u1) PreRelease; urgency=low
+quagga (0.99.23.1-1+cl3u2) Release; urgency=medium
 
-  * Cumulus Networks patches
+  * New. Enabled:  zebra_vrf lookup fix in upstream VRF patches
+  * New. Enabled:  zebra: show routes in a specified VRF or all VRFs
+  * New. Enabled:  zebra: show interfaces in a specified VRF or all VRFs
+  * New. Enabled:  zebra: set vrf-id on vrf slave interfaces
+  * New. Enabled:  zebra: maintain the router-id per VRF
+  * New. Enabled:  zebra: maintain RTADV per VRF
+  * New. Enabled:  zebra: lookup the address in all VRFs when set the route-map rule "set src"
+  * New. Enabled:  zebra: let the route-map rule "match interface" work for VRFs
+  * New. Enabled:  zebra: let FIB stand for its respective VRF
+  * New. Enabled:  zebra: fix creation of "other table" for rdnbrd
+  * New. Enabled:  zebra: count iface up/down events
+  * New. Enabled:  zebra: configure static routes in any VRF
+  * New. Enabled:  zebra: combine static_ipv[4|6]_nexthop_same into one function
+  * New. Enabled:  zebra: add hooks upon enabling / disabling a VRF
+  * New. Enabled:  zebra: Stop passing around vrf_id for static_XXX functions
+  * New. Enabled:  zebra: Remove STATIC_XXX_IFNAME and use _IFINDEX  When we
+  * New. Enabled:  zebra: Remove HAVE_IPV6 from rib.h and zebra_rib.c
+  * New. Enabled:  zebra: Refactor zebra_vrf_static_table
+  * New. Enabled:  zebra: Refactor zebra_vrf  Move zebra_vrf_XXX functionality
+  * New. Enabled:  zebra: Refactor struct zebra_t
+  * New. Enabled:  zebra: Fix non usage of VRF_DEFAULT
+  * New. Enabled:  zebra: Fix crash in connected.c due to RA change
+  * New. Enabled:  zebra: Fix change of distance on ipv6 route creating
+  * New. Enabled:  zebra: Fix 'show ipv6 nht' to actually work
+  * New. Enabled:  zebra: Combine static_uninstall_ipv[4|6] into one function
+  * New. Enabled:  zebra: Combine static_install_ipv[4|6]
+  * New. Enabled:  zebra: Collapse struct static_ipv[4|6] into struct
+  * New. Enabled:  zebra: All slave devices were being treated as vrfs
+  * New. Enabled:  zebra: Add the 'struct zebra_ns' data structure
+  * New. Enabled:  zebra, lib/memtypes.c: the netlink sockets work per VRF
+  * New. Enabled:  zebra, bgp: Remove some missed values
+  * New. Enabled:  vtysh: Set an erroneous exit code if dry run fails
+  * New. Enabled:  vtysh: Modify -b option to work with -n option
+  * New. Enabled:  vtysh: Add file locking to Quagga.conf
+  * New. Enabled:  vtysh: Add ability to only look at one processes work queue
+  * New. Enabled:  vtysh: Add VRF sub-mode
+  * New. Enabled:  tools: Make quagga script be more helpful
+  * New. Enabled:  tools: Fix runtime error in quagga script
+  * New. Enabled:  tests: Fixup startup of tests so they don't core
+  * New. Enabled:  sockunion: add hash function
+  * New. Enabled:  ripd, isisd: fix warnings that make the build fail
+  * New. Enabled:  quagga: Setup the proper version number in quagga
+  * New. Enabled:  quagga: Fix version string  Modify cl3.0 -> cl3u1
+  * New. Enabled:  quagga: Check for existence of IFLA_INFO_SLAVE_KIND
+  * New. Enabled:  quagga: Additional centos 6 -enable-werror fixes
+  * New. Enabled:  quagga errors parsing a valid config
+  * New. Enabled:  quagga crashes on 'show run bgp'
+  * New. Enabled:  privs: fix privilege dropping to use system defined groups
+  * New. Enabled:  ospfd: Fix some missing 'no XXX' commands
+  * New. Enabled:  ospf6d: Stop sending hello's out loopback interface
+  * New. Enabled:  ospf6d: Fix double increment of Sequence Number
+  * New. Enabled:  ospf6d: Ensure that ospf6d is actually running before
+  * New. Enabled:  lib: zlog_hexdump actually output printable ascii
+  * New. Enabled:  lib: zclient.c remove extern struct thread_master *
+  * New. Enabled:  lib: zclient can overflow (struct interface) hw_addr if
+  * New. Enabled:  lib: use trie structure for prefix list matching  Prefix
+  * New. Enabled:  lib: use constant to replace magic value for length of
+  * New. Enabled:  lib: straighten out ORF prefix list support
+  * New. Enabled:  lib: passing in vrf string length is not needed
+  * New. Enabled:  lib: optimise prefix list setup
+  * New. Enabled:  lib: move the interface list into "struct vrf"
+  * New. Enabled:  lib: hide internal prefix list structures
+  * New. Enabled:  lib: fix vty.c and smux.c static variable clash
+  * New. Enabled:  lib: fix MIN/MAX macros to not double-eval
+  * New. Enabled:  lib: fix "sockunion: add hash function" for BSD
+  * New. Enabled:  lib: bfd debug fixup
+  * New. Enabled:  lib: add getgrouplist() for Solaris
+  * New. Enabled:  lib: add function to get precise remaining time of timer
+  * New. Enabled:  lib: VRF_GET_ID should respect VRF_UNKNOWN
+  * New. Enabled:  lib: Refactore thread_process_fd
+  * New. Enabled:  lib: Refactor read/write functionality
+  * New. Enabled:  lib: Really fix handling of poll
+  * New. Enabled:  lib: Improve error reporting from broken config files
+  * New. Enabled:  lib: Fixup a compiler warning on netbsd
+  * New. Enabled:  lib: Fix priviledge modification for vty group specified
+  * New. Enabled:  lib: Fix missing plist_int.h
+  * New. Enabled:  lib: Fix json.c compile on older platforms
+  * New. Enabled:  lib: Fix crash when deleting multiple statements
+  * New. Enabled:  lib: Fix POSIX capabilities on SunOS platforms
+  * New. Enabled:  lib: Allow zclient do-over of connect on initial attempt
+  * New. Enabled:  lib: Allow vrf under the cli  Add the infrastructure to
+  * New. Enabled:  lib: Add library code to interact with systemd
+  * New. Enabled:  lib: Add callbacks for vrf changes into protocol side
+  * New. Enabled:  lib: Add ability to use poll() instead of select
+  * New. Enabled:  lib: Add CMD_RANGE_STR macro to command.h
+  * New. Enabled:  lib: Abstract fd set operations
+  * New. Enabled:  lib/vrf: enable / disable a VRF
+  * New. Enabled:  lib/privs: display more info if cap_set_proc fails.
+  * New. Enabled:  lib/privs: Don't use CAP_NET_BROADCAST
+  * New. Enabled:  lib, zebra: move "struct vrf" to be a lib module
+  * New. Enabled:  lib, zebra: add "vrf_id" into the "struct interface"
+  * New. Enabled:  lib, zebra: The Bulk of the conversion over to NS and VRF
+  * New. Enabled:  lib, zebra: Rework zebra_ns to be a bit more modular
+  * New. Enabled:  lib, zebra: Rework vrf_add_update
+  * New. Enabled:  lib, zebra: Refactor vrf creation a bit more
+  * New. Enabled:  lib, zebra: Rearrange vrf_delete_update
+  * New. Enabled:  lib, zebra: Abstract vrf.c to handle both vrf_id_t and char
+  * New. Enabled:  lib, zebra, vtysh: configure an interface in non-default
+  * New. Enabled:  lib, vtysh: Return actual problem further up
+  * New. Enabled:  lib, vtysh: Rehook the motd command back into vtysh
+  * New. Enabled:  lib, bgpd: Refactor vrf handling through zclient
+  * New. Enabled:  isisd: work around route table asserts for deleting node
+  * New. Enabled:  isisd: show interface's ipv6 addreses
+  * New. Enabled:  isisd: remove superfluous checks after XMALLOC etc.
+  * New. Enabled:  isisd: purge on correct level
+  * New. Enabled:  isisd: provide more detailed log for failed address removal
+  * New. Enabled:  isisd: make sure that all interface addresses are
+  * New. Enabled:  isisd: make send_lsp more robust
+  * New. Enabled:  isisd: initialize circuit to match area is_type
+  * New. Enabled:  isisd: ignore unknown interfaces when adjusting IS-IS mtu
+  * New. Enabled:  isisd: handle lsp confusion (ISO/IEC 10589:2002 7.3.16.2)
+  * New. Enabled:  isisd: fix misleading wording in log
+  * New. Enabled:  isisd: fix assertion in LSP refresh timer calculation
+  * New. Enabled:  isisd: fix a typo in a log message
+  * New. Enabled:  isisd: fix a crash due to an lsp-mtu issue
+  * New. Enabled:  isisd: fix IPv6 mask application
+  * New. Enabled:  isisd: don't corrupt memory for long hostnames
+  * New. Enabled:  isisd: do remove ipv6 routes from Zebra  We can abort
+  * New. Enabled:  isisd: annotate some function arguments with const
+  * New. Enabled:  isisd: allow to adjust lsp-mtu
+  * New. Enabled:  isisd: add support to import routes from other protocols
+  * New. Enabled:  isisd: add a slight delay to lsp_regenerate_schedule  isisd
+  * New. Enabled:  isisd: add a debug mode that traces LSP construction
+  * New. Enabled:  isisd: Fix more compiler warnings
+  * New. Enabled:  isisd: Fix LSPs not being regenerated after adjacency
+  * New. Enabled:  isisd: Drop packet received on multiple interfaces due to
+  * New. Enabled:  isisd: Attached-bit in LSP header  Set/reset attached-bit
+  * New. Enabled:  isisd, lib: Fix some more compiler warnings  A couple
+  * New. Enabled:  git: add (generated) cscope files to .gitignore
+  * New. Enabled:  doc, vtysh: Fixup of history handling  This fix does two
+  * New. Enabled:  debian: Turn on Poll usage
+  * New. Enabled:  debian: Temporary fix to get quagga services running
+  * New. Enabled:  debian: Remove unnecessary dependency on cl-utilties
+  * New. Enabled:  debian: Remove 'Do you want to stop Quagga' Question
+  * New. Enabled:  debian: Modify preinst to add quagga user to quaggavty
+  * New. Enabled:  debian: Debian fixups
+  * New. Enabled:  debian: Attempt to fix parrelization
+  * New. Enabled:  debian: Add the creation of the quagga user to quaggavty
+  * New. Enabled:  debian: Add ability to call reload from systemctl
+  * New. Enabled:  debian: Add Systemd integration to control files
+  * New. Enabled:  debian, config, zebra: Ensure Cumulus Extensions are not
+  * New. Enabled:  config: Remove unused library check
+  * New. Enabled:  build: Make MULTIPATH_NUM a config.h value
+  * New. Enabled:  bgpd: fix using of two pointers for struct thread_master
+  * New. Enabled:  bgpd: backout change of bm->master and master
+  * New. Enabled:  bgpd: Use actual MULTIPATH_NUM as the limitor
+  * New. Enabled:  bgpd: Removed unused variable from 'struct attr_extra'
+  * New. Enabled:  bgpd: Remove expensive prefix count from json.
+  * New. Enabled:  bgpd: Refactor some code for nexthop handling
+  * New. Enabled:  bgpd: Modify maxpaths cli's to use MULTIPATH_NUM for range
+  * New. Enabled:  bgpd: Fix work-quanta to be a reasonable value
+  * New. Enabled:  bgpd: Fix initialization check for bgp tests
+  * New. Enabled:  bgpd: Fix function indirection when none is needed
+  * New. Enabled:  bgpd: Fix description of the command "dump bgp ..."
+  * New. Enabled:  bgpd: Fix call bgp_zebra_terminate_radv  The call into
+  * New. Enabled:  bgpd: Fix buffer overflow error in bgp_dump_routes_func
+  * New. Enabled:  bgpd: Fix bgp_btoa to compile  bgp_btoa was abandoned at
+  * New. Enabled:  bgpd: Fix VU#270232, VPNv4 NLRI parser memcpys to stack on
+  * New. Enabled:  bgpd: Fix 'show bgp ipv4 vpnv4 statistics' cli
+  * New. Enabled:  bgpd: Convert BGP_MAXIMUM_MAXPATHS to MULTIPATH_NUM
+  * New. Enabled:  bgpd: Add the ability to use a VRF to bgp
+  * New. Enabled:  bgpd, ripngd, zebra: Remove duplicate PSIZE define
+  * New. Enabled:  bgpd, lib, zebra: Add ability to retrieve ifp without
+  * New. Enabled:  bgpd, lib, ospfd, ospf6d: Fix bfd interface lookup
+  * New. Enabled:  bgp: Anti-Yammer Patch  When you shutdown interfaces with
+  * New. Enabled:  Zebra: crash in zebra_deregister_rnh_static_nexthops
+  * New. Enabled:  Zebra: Link VRF to corresponding NS
+  * New. Enabled:  Zebra: Ignore status change for VRF
+  * New. Enabled:  Zebra: Add IPv6 protocol filtering support & Setting Src of
+  * New. Enabled:  ZEBRA: Remove NEXTHOP_TYPE_XXX_IFNAME
+  * New. Enabled:  Variable reuse in bgpd.c
+  * New. Enabled:  Update ripng_zebra.c
+  * New. Enabled:  Update last reset reason on interface down or neighbor addr loss.
+  * New. Enabled:  Replace lists with arrays to store read and write threads
+  * New. Enabled:  Remove unused variable
+  * New. Enabled:  Remove unused 'show memory XXX' functionality
+  * New. Enabled:  Remove BGP's asorig timer, it is no longer used
+  * New. Enabled:  Quagga: prefix2str fixup
+  * New. Enabled:  Quagga: Set MULTIPATH_NUM to 64 when user specifies 0 from
+  * New. Enabled:  Quagga: Nexthop refactoring
+  * New. Enabled:  Quagga: Fixup some compile warnings
+  * New. Enabled:  Quagga: Fix some more compile warnings
+  * New. Enabled:  Quagga: Fix compile warnings for GCC4.9
+  * New. Enabled:  Quagga: Cleanup RTADV define
+  * New. Enabled:  OSPF distance command does not accept "external <1-255>"
+  * New. Enabled:  Makfile issues to compile better
+  * New. Enabled:  Make duplicate ospf commands hidden
+  * New. Enabled:  Lower the default MRAI timer for iBGP peers to 0
+  * New. Enabled:  Lower the default MRAI timer for EBGP peers to zero
+  * New. Enabled:  Lower the default 'timers connect' in BGP to 10 seconds
+  * New. Enabled:  Fixing a space before VRF_CMD_STR in ip route commands.
+  * New. Enabled:  Fixing a few compile errors
+  * New. Enabled:  Fixes Quagga Bugzilla #842 - ospfd uses non-zero metric
+  * New. Enabled:  Fix memory leak in lib/routemap.c
+  * New. Enabled:  Fix location of some of the commands in integrated config
+  * New. Enabled:  Fix arm compilation failures of sockunion_hash issues
+  * New. Enabled:  Debian: Track dependencies so that rebuilds can work right
+  * New. Enabled:  Debian: Fixup build issues with switch to 3.0  Modify the
+  * New. Enabled:  Build was broken if systemd was not installed
+  * New. Enabled:  BGP: Update dump to allow Extended Time Format  Allow the
+  * New. Enabled:  *: call if_init()/if_terminate() from vrf_init()/vrf_terminate()
+  * New. Enabled:  *: add VRF ID in the API message header  The API messages
+  * New. Enabled:  *: Modify protocols to have systemd integration  Modify the
+  * New. Enabled:  'systemctl restart zebra' was blocking if the BGP ASN
+  * New. Enabled:  Zebra: Add IPv6 protocol filtering support & Setting Src of IPv6 routes
 
- -- Donald <sharpd@cumulusnetworks.com>  Tue, 19 May 2015 16:22:52 -0700
+  * Closes: CM-10435 Addition on hidden command "bfd multihop/singlehop" and "ptm-enable" per interface command
+  * Closes: CM-10694  "bgp network import-check" needs hidden "exact" option
+  * Closes: CM-10693  quagga-reload broken when comparing Quagga.conf in 2.5 format vs 3.0 format
+  * Closes: CM-10644  Fix BGP JSON output
+  * Closes: CM-10640  BGP: Trigger IPv6 router advertisements upon config of unnumbered neighbor
+  * Closes: CM-10634  quagga: Fixup startup to allow consistency between sysV and systemd
+  * Closes: CM-10612  "show ip route summary" has negative values for ebgp counters
+  * Closes: CM-10581  zebra: Fix PTM to not pass a default vrf name
+  * Closes: CM-10565  no neighbor peergrp shutdown no longer works
+  * Closes: CM-10494  bgpd: debug protect a log message
+  * Closes: CM-10482  zebra: Fix zebra_rnh_register crash
+  * Closes: CM-10481  zebra: Only create vrf route-node if in the kernel
+  * Closes: CM-10456  debian: Remove /usr/bin/quagga from distribution
+  * Closes: CM-10438  BGP: cannot "no neighbor ISL timers 3 10" for peer-group
+  * Closes: CM-10435  Addition on hidden command "bfd multihop/singlehop" and "ptm-enable" per interface command
+  * Closes: CM-10428  vtysh -f needs to flock the file
+  * Closes: CM-10427  zebra: Change interface handling so non-vrf aware protocols correctly handle them
+  * Closes: CM-10423  BGP: Use VRF_UNKNOWN for initialization
+  * Closes: CM-10403  stop/start of zebra creates empty Quagga.conf file when "no service integrated-vtysh-config"
+  * Closes: CM-10402  BGP: Implement key show commands for all VRFs
+  * Closes: CM-10393  vtysh: Allow file read in to continue in more cases
+  * Closes: CM-10361  zebra: Implement recovery for route install failure
+  * Closes: CM-10338  quagga: Remove iflist global variable
+  * Closes: CM-10338  lib: Refactor XX_name_len away
+  * Closes: CM-10338  lib, zebra: Rename ZEBRA_VRF_ACTIVE
+  * Closes: CM-10328  quagga-reload broken for 'neighbor swpX interface peer-group FOO'
+  * Closes: CM-10311  BGP: Register with correct VRF id for redistribution
+  * Closes: CM-10290  BGP: Certain peer-group parameters (e.g., enhe, local-as) are not taking effect
+  * Closes: CM-10260  Addition on hidden command "bfd multihop/singlehop" and "ptm-enable" per interface command
+  * Closes: CM-10258  lib: Initialize variable
+  * Closes: CM-10258  lib: Ensure VRF is created with correct id
+  * Closes: CM-10248  lib: plist should not CMD_WARNING when command has already been entered
+  * Closes: CM-10247  Zebra: Fix VRF-id and table for BGP unnumbered (RFC 5549)
+  * Closes: CM-10217  vtysh: Make vtysh run as quagga user
+  * Closes: CM-10212  bgpd: Another hash_get crash fix
+  * Closes: CM-10212  bgp: Fix crash in hash_get for peer
+  * Closes: CM-10184  lib: Combine name comparison function
+  * Closes: CM-10184  bgpd: Add group pointer to peer_create function.
+  * Closes: CM-10184  bgp: Order neighbor information in show run
+  * Closes: CM-10169  Zebra: Fix IPv6 static route config in a VRF
+  * Closes: CM-10139  zebra: Allow vrfs to be defined and displayed before netlink vrf add
+  * Closes: CM-10135  Zebra: Fix nexthops in IPv6 route display
+  * Closes: CM-10126  zebra: Use vrf name instead of vrf-id for ipv6 static route configuration
+  * Closes: CM-10106  zebra: Use vrf name instead of vrf-id for router-id definition
+  * Closes: CM-10100  lib, zebra: Fix vrf new hook callback.
+  * Closes: CM-10098  Quagga: Fix VRF lookup by name
+  * Closes: CM-10091  Zebra: Fix handling of larger table-ids
+  * Closes: CM-10087  Zebra: Fix handling of larger table-ids
+  * Closes: CM-10077  lib: Size the pollfds array once
+  * Closes: CM-10077  lib: Fix handling of poll
+  * Closes: CM-10070  BGP: Enable multiple instance support by default
+  * Closes: CM-10058  bgpd: Resolve ability to add route-map out to peer-group member
+  * Closes: CM-10028  BGP: Fix BGP unnumbered peerings across VRFs
+  * Closes: CM-10002  quagga: "set community x:y" needs bounds checking
+  * Closes: CM-9992  zebra: Fix Startup with > 1k interfaces
+  * Closes: CM-9974  Get route counts right for show ip route summary
+  * Closes: CM-9945  BGP: Enhance clear commands for VRFs
+  * Closes: CM-9918  Quagga: Make routemap updates or deletes work for VRFs
+  * Closes: CM-9898  RDNBRD: Change default distance of imported table routes to 15
+  * Closes: CM-9852  lib: Fix assert in node_parent()
+  * Closes: CM-9849  Zebra: Restrict IPv6 RA to valid interfaces
+  * Closes: CM-9838  BGP: remove deprecated debugs from the parser
+  * Closes: CM-9786  BGP memory leak in peer hostname
+  * Closes: CM-9749  tools: Fixup quagga systemd script to be less chatty
+  * Closes: CM-9748  doc: Update man page for Quagga systemctl script
+  * Closes: CM-9725  ospfd: Fix Dereference of Null Pointer during config
+  * Closes: CM-9714  lib: Allow daemons to startup without an actual conf file
+  * Closes: CM-9674  quagga-reload should not call vtysh for every command that needs to be added
+  * Closes: CM-9671  BGP: Check in multipath comparison before invoking sockunion_cmp
+  * Closes: CM-9646  vtysh: make HIDDEN commands work
+  * Closes: CM-9616  show bgp neighbor should accept peer hostname
+  * Closes: CM-9611  "show ip bgp neighbor json" displays "Hostname: ", invalidates json format
+  * Closes: CM-9597  BGP: Perform cleanup upon instance delete
+  * Closes: CM-9581  debian: Remove some unnecesary files from debian directory.
+  * Closes: CM-9579  Quagga: Fix interface move from VRF to default VRF
+  * Closes: CM-9543  ospfd: Fix MI redistribution
+  * Closes: CM-9527  Zebra: Fix neighbor address notification to clients
+  * Closes: CM-9527  Quagga: Implement VRF change semantics for an interface
+  * Closes: CM-9501  quagga: Netlink error message following Notification send
+  * Closes: CM-9492  debian: Fixup install location of quagga
+  * Closes: CM-9488  Zebra: Cleanup registered nexthops upon client exit
+  * Closes: CM-9466  BGP: Fix interface list upon instance creation/deletion
+  * Closes: CM-9464  Zebra: Improve output of show ip route vrf all
+  * Closes: CM-9463  BGPD: Make "Bind to connect" messages conditional no debug
+  * Closes: CM-9462  BGP: Handle unknown interface at delete
+  * Closes: CM-9458  Zebra: Zebra: Display interface info for NHT in a VRF
+  * Closes: CM-9457  Zebra: Fix static NHT to work properly in a VRF
+  * Closes: CM-9457  Zebra: Fix static NHT to work properly in a VRF
+  * Closes: CM-9445  debian: Revamp startup again
+  * Closes: CM-9437  Zebra: Fix ignoring status for VRF device
+  * Closes: CM-9431  lib, vtysh: Fix 'banner motd file' command
+  * Closes: CM-9419  BGP: Fix linkage between BGP instance and VRF structure
+  * Closes: CM-9412  zebra: Some small modifications to actually delete the vrf
+  * Closes: CM-9412  zebra: Replace vrf with zebra_vrf in a few places
+  * Closes: CM-9410  BGP: Cleanup interfaces properly on instance delete or exit
+  * Closes: CM-9386  zebra: close all tables when quagga is stopped
+  * Closes: CM-9384  debian: Fixup 'systemctl restart quagga'
+  * Closes: CM-9358  Zebra: Restrict automatic RA enable to relevant interfaces
+  * Closes: CM-9340  BGP: Ensure correct sequence of processing at exit
+  * Closes: CM-9311  BGP: Unnumbered peering in a VRF
+  * Closes: CM-9298  debian: Fix up some issues Dave pointed out and Fix Multi-Instance OSPF
+  * Closes: CM-9295  Redistribute table related configs fail for BGP and OSPF
+  * Closes: CM-9293  debian: Fixup removal of .pid and .vty files
+  * Closes: CM-9286  debian: Add reload ability
+  * Closes: CM-9285  OSPFv2 has both "router-id x.x.x.x" and "ospf router-id x.x.x.x"
+  * Closes: CM-9278  Zebra: Fix vrf setting based on netlink messages
+  * Closes: CM-9277  Zebra: Enable VRF as an interface creation
+  * Closes: CM-9274  quagga: remove babel
+  * Closes: CM-9270  ripd: Fix crash when a default route is passed to rip
+  * Closes: CM-9269  quagga: remove "cn321" passwords from the default conf file for each daemon
+  * Closes: CM-9268  bgpd: Add exclamation point separators between address-family blocks
+  * Closes: CM-9268  Exclamation points are missing at the end of an address-family sub-context
+  * Closes: CM-9267  ripngd: Add missing systemd notifications
+  * Closes: CM-9265  quagga: delete interface from default table when moved to vrf
+  * Closes: CM-9255  BGPD crash around bgp_config_write ()
+  * Closes: CM-9247  BGP: Update commands for VRF support
+  * Closes: CM-9206  Zebra: Tweak netlink socket creation function
+  * Closes: CM-9206  Zebra: Make RA socket operation on a per-NS basis
+  * Closes: CM-9206  Zebra: Cleanup and update RA debugs
+  * Closes: CM-9175  Zebra: Perform NHT evaluation for VRFs
+  * Closes: CM-9134  ospf6d: Fix for crash when non area 0 network entered first
+  * Closes: CM-9131  zebra: display_vrf_name_on_interface
+  * Closes: CM-9128,  BGP: VRF registration and cleanup
+  * Closes: CM-9128  Quagga: Support VRF unregister for clients
+  * Closes: CM-9122  BGP: Link BGP instance to corresponding VRF
+  * Closes: CM-9114  Zebra: Move VRF keyword in show ip route commands
+  * Closes: CM-9110  zebra: show_interface_name_vrf fix
+  * Closes: CM-9076  vtysh: Fix vrf submode to call correct daemons
+  * Closes: CM-9074  zebra: add or delete router-id when interface moves vrfs
+  * Closes: CM-9073  zebra: fix interface lookup for vrf configuration
+  * Closes: CM-9063  lib, vtysh, zebra: Better VRF debug handling
+  * Closes: CM-8934  OSPFv3: Check area before scheduling SPF
+  * Closes: CM-8889  BGP: Rework iteration of peer_af_array
+  * Closes: CM-8806  BGP peers remain in active while rdnbrd is running.
+  * Closes: CM-8788  BGP: ebgp-multihop should accept a value up to 255
+  * Closes: CM-8514  zebra: Crash upon disabling a link
+  * Closes: CM-8480  BGP: Fix maximum-prefix output in running-config
+  * Closes: CM-8475  BGP: update-group needs to consider addpath capability flags
+  * Closes: CM-8472  Quagga: make check is broken with addpath changes
+  * Closes: CM-8459  BGP bestpath debugs need to display the addpath RX ID
+  * Closes: CM-8450  Zebra and bgpd: VRF support for BFD
+  * Closes: CM-8321  BGP: 'neighbor swpX interface peer-group FOO' is needed to simplify swpX configuration
+  * Closes: CM-8295  BGP crash in group_announce_route_walkcb
+  * Closes: CM-8287  Quagga: vrf_id not being set correctly
+  * Closes: CM-8278  Quagga: Fixup cli and json keyword
+  * Closes: CM-8271  BGP: extcommunity-list are displayed before community-list
+  * Closes: CM-8220  BGP: Handle router-id correctly in config and display.
+  * Closes: CM-8191  BGP: crash in update_subgroup_merge()
+  * Closes: CM-8164  BGP: "redistribute" is missing from the "address-family ipv4 unicast" sub-context
+  * Closes: CM-8152  Zebra: Remove dependency on rib_bogus_ipv6
+  * Closes: CM-8145  Zebra: Remove reliance on NEXTHOP_TYPE_IPV4_ONLINK
+  * Closes: CM-8144  BGP: Remove deprecated commands and add warning that "show ipv6 bgp" will be deprecated in the future
+  * Closes: CM-8142  OSPF: remove deprecated commands
+  * Closes: CM-8141  BGP: Handle change to nexthop correctly
+  * Closes: CM-8130  Quagga crash in prefix_list_apply
+  * Closes: CM-8129  bgp may add multiple path entries with the same nexthop
+  * Closes: CM-8122  BGP: route-server will now use addpath...chop the _rsclient code
+  * Closes: CM-8114  BGP: Implement "neighbor x.x.x.x addpath-tx-bestpath-per-AS"
+  * Closes: CM-8112  Zebra: Ensure correct route is used for redistribute delete.
+  * Closes: CM-8110  Zebra: Cleanup RIB debugs
+  * Closes: CM-8106  debian: Modify Quagga cumulus version in debian packaging
+  * Closes: CM-8100  BGP: changing remote-as from external to external resets connection
+  * Closes: CM-8099  Quagga default: BGP enable "maximum-paths 64"
+  * Closes: CM-8098  debian: Use 256 multipaths
+  * Closes: CM-8077  BGP: Handle router-id correctly in config and display.
+  * Closes: CM-8045  Zebra: Ignore bridge address family netlink notifications
+  * Closes: CM-8043  BGP: Fix the setting of link-local nexthops in some situations
+  * Closes: CM-8039  lib: Fixup of NULL calls to XSTRDUP
+  * Closes: CM-8027  Quagga: Man pages have wrong paths
+  * Closes: CM-8023  ip/ipv6 prefix-list seq number range needs to be fixed
+  * Closes: CM-8016  Quagga: Fixup decision about what an unnumbered interface is
+  * Closes: CM-8015  lib: Memory reporting fails over 2GB
+  * Closes: CM-8014  BGP: support for addpath TX
+  * Closes: CM-8013  BGP: Fix nexthop registration churn
+  * Closes: CM-8006  BGP: enable deterministic-med by default
+  * Closes: CM-8005,  BGP: Fix nexthop registration churn
+  * Closes: CM-7941  Enable OSPF "log-adjacency-changes" by default
+  * Closes: CM-7933  BGP: peer-group restrictions should be relaxed, update-groups determine outbound policy anyway
+  * Closes: CM-7932  Enable IPv6 ND RA for interfaces that have an IPv6 address
+  * Closes: CM-7931  Add zlog_hexdump() for debugging
+  * Closes: CM-7928  Quagga default: BGP "no-as-set" should be the default for "bgp as-path multipath-relax"
+  * Closes: CM-7926  BGP: crash from not NULLing freed pointers
+  * Closes: CM-7911  OSPFv3: Check area before scheduling SPF
+  * Closes: CM-7904  BGP: crash in list_delete_all_node when shutting down BGP
+  * Closes: CM-7903  Remove BGP_ERROR_START_TIMER, it was no longer used
+  * Closes: CM-7902  Enable "bgp default show-hostname" by default
+  * Closes: CM-7901  Lower the default OSPF spf timers to '0 50 5000'
+  * Closes: CM-7900  Lower BGP's default keepalive/holdtime to 3s/9s
+  * Closes: CM-7899  Enable "bgp log-neighbor-changes" by default
+  * Closes: CM-7875  Do not allow a timers connect of 0, this can hammer the CPU
+  * Closes: CM-7861  bgpd: fix using of two pointers for struct thread_master
+  * Closes: CM-7846  BGP: Fix the setting of link-local nexthops in some situations
+  * Closes: CM-7789  BGP peers remain in active while rdnbrd is running.
+  * Closes: CM-7773  Support for multi-client and client reg msg
+  * Closes: CM-7757  'service quagga reload' breaks with four top level keywords
+  * Closes: CM-7744  BGP: "remote-as internal" need not be displayed if peer is member of peer-group
+  * Closes: CM-7737  bgpd: Fix neighbor command with internal or external keyword and interface
+  * Closes: CM-7700  BGP: Correctly display local-as for peer-group member
+  * Closes: CM-7662  Zebra: Schedule RIB processing based on trigger event
+  * Closes: CM-7649  Fix for IPv6 OSPF BFD session staying down when ifdown/ifup on logical interfaces
+  * Closes: CM-7625  vtysh: Fix Quagga.conf file read in.
+  * Closes: CM-7615  Support for multi-client and client reg msg
+  * Closes: CM-7597  vtysh: Allow display of individual daemons configs
+  * Closes: CM-7593  BGP: Fix source route type in redistributed route
+  * Closes: CM-7578  BGP: Do appropriate cleanup on receipt of redistribute update
+  * Closes: CM-7566  lib:removed onmatch next and onmatch goto from route-map deny
+  * Closes: CM-7534  OSPF: Fix zlog_warn to zlog_debug in some unlikely scenarios
+  * Closes: CM-7486  'service quagga reload' should not dump so much output to the log file
+  * Closes: CM-7482  Zebra: Fix static NHT for multiple routes scenario
+  * Closes: CM-7475  BGP: "show ip bgp json" should return empty "routes : {}" if the table is empty
+  * Closes: CM-7456  Addition of missing zebra command descriptions
+  * Closes: CM-7439  BGP: Display the right reason code for session reset
+  * Closes: CM-7420  Zebra: On a link down, schedule static routes only.
+  * Closes: CM-7407  BGP: route-map scale - use a hash to store the route-maps
+  * Closes: CM-7388  OSPF needs to handle the previously added redist update
+  * Closes: CM-7380  quagga netlink buffer size increase
+  * Closes: CM-7358  Fix bgp_exit crash
+  * Closes: CM-7339  Multiple redistribute commands with different metric fail
+  * Closes: CM-7309  Zebra: Redistribute replace handling corner cases
+  * Closes: CM-7305  'service quagga reload' is no longer experimental
+  * Closes: CM-7233  Quagga needs better debugs in lib/sockunion.c
+  * Closes: CM-7204  Zebra: Fix log related to delete notification for IPv6 route
+  * Closes: CM-7203  BGP: VRF registration and cleanup
+  * Closes: CM-7177  Fixup code to use correct XMALLOC operators
+  * Closes: CM-7176  Zebra: Handle IPv6 address status during initialization
+  * Closes: CM-7152  Zebra: Fix replace route for uninstall scenario
+  * Closes: CM-7146  'service quagga reload' fails if /etc/quagga/vtysh.conf does not exist
+  * Closes: CM-7145  BGP ORF fails to filter prefixes correctly
+  * Closes: CM-7140  BGP: Do not get out of bgp_start() if peer's IP address isn't known
+  * Closes: CM-7135  Add missing vtysh commands
+  * Closes: CM-7132  Quagga: Display useful info when doing service quagga status
+  * Closes: CM-7113  BGP: Ensure default-originate works with update-groups
+  * Closes: CM-7104  bgpd: Remove extra stream duplications
+  * Closes: CM-7076  Add support for fast rexmit of RA on link transitions.
+  * Closes: CM-7026  Create override for quagga reinstall of originated routes
+  * Closes: CM-7012  Fix neighbor coming up without an as specified
+  * Closes: CM-6970  Quagga: Make routemap updates or deletes work for VRFs
+  * Closes: CM-6952  Support of BFD status in Quagga
+  * Closes: CM-6926  Quagga: Restrict Shell Access
+  * Closes: CM-6888  BGP: Display the interface name used to resolve a nexthop.
+  * Closes: CM-6883  BGP: Handle interface or local address failure
+  * Closes: CM-6856  Fix dryrun capability to output line # of failed read
+  * Closes: CM-6854  Zebra: Fix setting source for 5549-learnt routes via ip protocol
+  * Closes: CM-6812  Fix Quagga ptm status per interface to show more meaningful status
+  * Closes: CM-6802  Support of BFD status in Quagga
+  * Closes: CM-6790  Bgpd: aspath json memory leak fix
+  * Closes: CM-6789  Added json formating support to show-...-neighbors-...  bgp commands.
+  * Closes: CM-6768  Zebra: Make redistribute do replace instead of del/add for better convergence
+  * Closes: CM-6739  Display the BGP ipv4 unicast configuration under "address-family ipv4 unicast".
+  * Closes: CM-6690  Fix for PTM cable status change notification not being handeled in Zebra
+  * Closes: CM-6680  Warn user in various max path edge cases
+  * Closes: CM-6669  Fix watchquagga to watch just one daemon
+  * Closes: CM-6659  Fix optional arguments with description interactions
+  * Closes: CM-6649  Enable "bgp network import-check exact" by default.
+  * Closes: CM-6534  Fix dynamic sessions with multiple bgp instances
+  * Closes: CM-6517  BGP: Do not error upon duplicate listen range
+  * Closes: CM-6505  Removing neighbor command is silently ignored if interface v6only option is used
+  * Closes: CM-6369  BGP: Fix MD5 authentication for unnumbered neighbors
+  * Closes: CM-6281  Deactivate BGP peer via "no neighbor x.x.x.x activate" removes other config
+  * Closes: CM-6192  BGP: Fix warning message when interface has IPv4 address for unnumbered
+  * Closes: CM-5975  BGP: Ignore unexpected values in ENHE capability
+  * Closes: CM-5974  BGP: Fix Notification for errors in OPEN message
+  * Closes: CM-5816  Should be able to "no" the full text of any config line
+  * Closes: CM-5674  BGP: vtysh should accept just "router bgp" if the AS is already defined
+  * Closes: CM-5673  Print an error when user tries to change a previously configured area.
+  * Closes: CM-5660  bgpd: Exchange hostname capability and display hostnames in output
+  * Closes: CM-5599  zebra: Reorganize NHT code
+  * Closes: CM-5597  Zebra: Implement route replace for IPv6
+  * Closes: CM-5594  BGP: Only accept prefixes for negotiated address families
+  * Closes: CM-5370  Use a hash to store BGP peer structures
+  * Closes: CM-5153  BGP: Check for duplicate and overlapping listen ranges
+  * Closes: CM-4573  Zebra: Eliminate unnecessary del-add upon static route addition
+  * Closes: CM-4541  Addition on hidden command "bfd multihop/singlehop" and "ptm-enable" per interface command
+  * Closes: CM-4109  Fix some more memory issues in Quagga
+  * Closes: CM-4010  Add "no debug ospf" and "no debug ospf6" commands to disable all ospf debugging
+  * Closes: CM-3917  OSPFv3: Do not display default network type.
+  * Closes: CM-3868  BGP: Remove the requirement to rebind a peer to its peer-group under the address-family
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Wed, 04 May 2016 16:22:52 -0700
 
 quagga (0.99.23.1-1) unstable; urgency=medium
 
