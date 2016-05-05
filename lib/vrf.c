@@ -349,9 +349,10 @@ vrf_enable (struct vrf *vrf)
 static void
 vrf_disable (struct vrf *vrf)
 {
-  UNSET_FLAG (vrf->status, VRF_ACTIVE);
   if (vrf_is_enabled (vrf))
     {
+      UNSET_FLAG (vrf->status, VRF_ACTIVE);
+
       if (debug_vrf)
 	zlog_debug ("VRF %u is to be disabled.", vrf->vrf_id);
 
