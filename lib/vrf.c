@@ -231,7 +231,8 @@ vrf_get (vrf_id_t vrf_id, const char *name)
     {
       vrf_build_key (vrf_id, &p);
       rn = route_node_get (vrf_table, &p);
-      zlog_debug("Vrf found: %p", rn->info);
+      if (debug_vrf)
+        zlog_debug("Vrf found: %p", rn->info);
 
       if (rn->info)
         {
