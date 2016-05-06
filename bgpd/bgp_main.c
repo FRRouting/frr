@@ -204,6 +204,8 @@ sigint (void)
 
   zprivs_terminate (&bgpd_privs);
   bgp_exit (0);
+
+  exit (0);
 }
 
 /* SIGUSR1 handler. */
