@@ -6088,46 +6088,30 @@ peer_uptime (time_t uptime2, char *buf, size_t len, u_char use_json, json_object
 
   if (use_json)
     {
-      int time_store;
-      int day_msec = 86400000;
-      int hour_msec = 3600000;
-      int minute_msec = 60000;
-      int sec_msec = 1000;
+      unsigned long time_store;
+      unsigned long day_msec    = 86400000;
+      unsigned long hour_msec   = 3600000;
+      unsigned long minute_msec = 60000;
+      unsigned long sec_msec    = 1000;
 
-      if (uptime1 < ONE_DAY_SECOND)
-        {
-          time_store = hour_msec * tm->tm_hour + minute_msec * tm->tm_min + sec_msec * tm->tm_sec;
-          json_object_int_add(json, "peerUptimeMsec", time_store);
-          snprintf (buf, len, "%02d:%02d:%02d",
-	            tm->tm_hour, tm->tm_min, tm->tm_sec);
-        }
-      else if (uptime1 < ONE_WEEK_SECOND)
-        {
-          time_store = day_msec * tm->tm_yday + hour_msec * tm->tm_hour + minute_msec * tm->tm_min + sec_msec * tm->tm_sec;
-          json_object_int_add(json, "peerUptimeMsec", time_store);
-          snprintf (buf, len, "%dd%02dh%02dm",
-	            tm->tm_yday, tm->tm_hour, tm->tm_min);
-        }
-      else
-        {
-          time_store = day_msec * tm->tm_yday + hour_msec * tm->tm_hour + minute_msec * tm->tm_min + sec_msec * tm->tm_sec;
-          json_object_int_add(json, "peerUptimeMsec", time_store);
-          snprintf (buf, len, "%02dw%dd%02dh",
-                    tm->tm_yday/7, tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
-        }
+      time_store =
+	day_msec * tm->tm_yday +
+	hour_msec * tm->tm_hour +
+	minute_msec * tm->tm_min +
+	sec_msec * tm->tm_sec;
+      json_object_int_add(json, "peerUptimeMsec", time_store);
     }
+
+  if (uptime1 < ONE_DAY_SECOND)
+    snprintf (buf, len, "%02d:%02d:%02d",
+	      tm->tm_hour, tm->tm_min, tm->tm_sec);
+  else if (uptime1 < ONE_WEEK_SECOND)
+    snprintf (buf, len, "%dd%02dh%02dm",
+	      tm->tm_yday, tm->tm_hour, tm->tm_min);
   else
-    {
-      if (uptime1 < ONE_DAY_SECOND)
-        snprintf (buf, len, "%02d:%02d:%02d",
-	          tm->tm_hour, tm->tm_min, tm->tm_sec);
-      else if (uptime1 < ONE_WEEK_SECOND)
-        snprintf (buf, len, "%dd%02dh%02dm",
-	          tm->tm_yday, tm->tm_hour, tm->tm_min);
-      else
-        snprintf (buf, len, "%02dw%dd%02dh",
-	          tm->tm_yday/7, tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
-    }
+    snprintf (buf, len, "%02dw%dd%02dh",
+	      tm->tm_yday/7, tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
+
   return buf;
 }
 
