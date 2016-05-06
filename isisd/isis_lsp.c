@@ -962,7 +962,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
       memcpy (in6.s6_addr, ipv6_reach->prefix,
 	      PSIZE (ipv6_reach->prefix_len));
       inet_ntop (AF_INET6, &in6, (char *)buff, BUFSIZ);
-      if ((ipv6_reach->control_info &&
+      if ((ipv6_reach->control_info &
 	   CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
 	vty_out (vty, "  Metric      : %-8d IPv6-Internal : %s/%d%s",
 		 ntohl (ipv6_reach->metric),
