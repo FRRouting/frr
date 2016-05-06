@@ -49,7 +49,7 @@ dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
 
-LIBS="$LIBS -L/usr/include/json/ -ljson"
+LIBS="$LIBS -L/usr/include/json/ -ljson-c"
 
 dnl ------------
 dnl Check CFLAGS
@@ -1572,22 +1572,6 @@ if test "${enable_capabilities}" != "no"; then
   fi
 fi
 AC_SUBST(LIBCAP)
-
-dnl ---------------------------------------------------------------------------
-dnl http://www.gnu.org/software/autoconf-archive/ax_sys_weak_alias.html
-dnl Check for and set one of the following = 1
-dnl   HAVE_SYS_WEAK_ALIAS_ATTRIBUTE
-dnl   HAVE_SYS_WEAK_ALIAS_PRAGMA
-dnl   HAVE_SYS_WEAK_ALIAS_HPSECONDARY
-dnl   HAVE_SYS_WEAK_ALIAS_CRIDUPLICATE
-dnl If any scheme is found, set
-dnl   HAVE_SYS_WEAK_ALIAS=1
-dnl The following variable is set to text value
-dnl   WEAK_ALIAS = "attribute" || "pragma" || "hpsecondary" || "criduplicate" || "no"
-dnl If weak alias can cross object file boundaries
-dnl   WEAK_ALIAS_CROSSFILE = "yes" || "no"
-dnl ---------------------------------------------------------------------------
-AX_SYS_WEAK_ALIAS
 
 dnl ---------------------------
 dnl check for glibc 'backtrace'

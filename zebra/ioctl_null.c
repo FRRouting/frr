@@ -19,29 +19,14 @@ int if_unset_prefix (struct interface *a, struct connected *b)
 }
 
 int if_prefix_add_ipv6 (struct interface *a, struct connected *b) { return 0; }
-#ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
-#pragma weak if_prefix_delete_ipv6 = if_prefix_add_ipv6
-#else
 int if_prefix_delete_ipv6 (struct interface *a, struct connected *b) { return 0; }
-#endif
 
 int if_ioctl (u_long a, caddr_t b) { return 0; }
 
 int if_set_flags (struct interface *a, uint64_t b) { return 0; }
-#ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
-#pragma weak if_unset_flags = if_set_flags
-#else
 int if_unset_flags (struct interface *a, uint64_t b) { return 0; }
-#endif
 
 void if_get_flags (struct interface *a) { return; }
-#ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
-#pragma weak if_get_metric = if_get_flags
-#pragma weak if_get_mtu = if_get_flags
-#else
-/* void if_get_metric (struct interface *a) { return; } */
-/* void if_get_mtu (struct interface *a) { return; } */
-#endif
 
 #ifdef SOLARIS_IPV6
 #pragma weak if_ioctl_ipv6 = if_ioctl

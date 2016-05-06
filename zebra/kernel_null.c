@@ -12,19 +12,11 @@
 
 int kernel_add_ipv4 (struct prefix *a, struct rib *b) { return 0; }
 int kernel_update_ipv4 (struct prefix *a, struct rib *b) { return 0; }
-#ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
-#pragma weak kernel_delete_ipv4 = kernel_add_ipv4
-#else
 int kernel_delete_ipv4 (struct prefix *a, struct rib *b) { return 0; }
-#endif
 
 int kernel_add_ipv6 (struct prefix *a, struct rib *b) { return 0; }
 int kernel_update_ipv6 (struct prefix *a, struct rib *b) { return 0; }
-#ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
-#pragma weak kernel_delete_ipv6 = kernel_add_ipv6
-#else
 int kernel_delete_ipv6 (struct prefix *a, struct rib *b) { return 0; }
-#endif
 
 int kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
                             unsigned int index, int flags, int table)
@@ -58,8 +50,4 @@ int netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llale
 
 void kernel_init (struct zebra_ns *zns) { return; }
 void kernel_terminate (struct zebra_ns *zns) { return; }
-#ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
-#pragma weak route_read = kernel_init
-#else
 void route_read (struct zebra_ns *zns) { return; }
-#endif
