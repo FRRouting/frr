@@ -931,7 +931,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
 	       "disabled" : "enabled", VNL);
       inet_ntop (AF_INET, &oi->area->area_id,
                  strbuf, sizeof (strbuf));
-      vty_out (vty, "  Area ID %s, Cost %hu%s", strbuf, oi->cost,
+      vty_out (vty, "  Area ID %s, Cost %u%s", strbuf, oi->cost,
 	       VNL);
     }
   else
