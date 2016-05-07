@@ -1,0 +1,1584 @@
+@c -*-texinfo-*-
+@c This is part of the Quagga Manual.
+@c @value{COPYRIGHT_STR}
+@c See file quagga.texi for copying conditions.
+
+@node VNC and VNC-GW
+@chapter VNC and VNC-GW
+This chapter describes how to use
+Virtual Network Control (@acronym{VNC}) services,
+including Network Virtualization Authority (@acronym{NVA}) and 
+VNC Gateway (@acronym{VNC-GW}) functions.
+Background information on NVAs, 
+Network Virtualization Edges (@acronym{NVE}s), underlay networks (@acronym{UN}s),
+and virtual networks (@acronym{VN}s) is available from the  
+@url{https://datatracker.ietf.org/wg/nvo3,IETF Network Virtualization Overlays (@acronym{NVO3}) Working Group}.
+VNC Gateways (@acronym{VNC-GW}s) support the import/export of routing
+information between VNC and customer edge routers (@acronym{CE}s)
+operating within a VN.  Both IP/Layer 3 (L3) VNs, and IP with
+Ethernet/Layer 2 (L2) VNs are supported.
+
+BGP, with IP VPNs and Tunnel Encapsulation, is used to distribute VN
+information between NVAs. BGP based IP VPN support is defined in
+@cite{RFC4364, BGP/MPLS IP Virtual Private Networks (VPNs)}, and
+@cite{RFC4659, BGP-MPLS IP Virtual Private Network (VPN) Extension for
+IPv6 VPN }.  Both the Encapsulation Subsequent Address Family Identifier
+(SAFI) and the Tunnel Encapsulation Attribute, @cite{RFC5512, The BGP
+Encapsulation Subsequent Address Family Identifier (SAFI) and the BGP
+Tunnel Encapsulation Attribute}, are supported.
+
+The protocol that is used to communicate routing and Ethernet / Layer 2
+(L2) forwarding information between NVAs and NVEs is referred to as the
+Remote Forwarder Protocol (RFP). @code{OpenFlow} is an example
+RFP.  Specific RFP implementations may choose to implement either a
+@code{hard-state} or @code{soft-state} prefix and address registration
+model.  To support a @code{soft-state} refresh model, a @var{lifetime}
+in seconds is associated with all registrations and responses.
+
+The chapter also provides sample configurations for basic example scenarios.  
+
+@menu
+* Configuring VNC Services::
+* Manual Address Control::
+* Other VNC-Related Commands::
+* Example VNC and VNC-GW Configurations::
+* Release Notes::
+@end menu
+
+@node Configuring VNC Services
+@section Configuring VNC
+
+Virtual Network Control (@acronym{VNC}) service configuration commands
+appear in the @code{router bgp} section of the BGPD configuration file
+(@pxref{BGP Configuration Examples}). The commands are broken down into
+the following areas:
+
+@menu
+* General VNC Configuration::
+* RFP Related Configuration::
+* VNC Defaults Configuration::
+* VNC NVE Group Configuration::
+* VNC L2 Group Configuration::
+* Configuring Redistribution of Routes from Other Routing Protocols::
+* Configuring Export of Routes to Other Routing Protocols::
+@end menu
+
+@code{General VNC} configuration applies to general VNC operation and is
+primarily used to control the method used to advertise tunnel
+information.  
+
+@code{Remote Forwarder Protocol (RFP)} configuration relates to the
+protocol used between NVAs and NVEs.  
+
+@code{VNC Defaults} provides default parameters for registered NVEs.
+
+@code{VNC NVE Group} provides for configuration of a specific set of 
+registered NVEs and overrides default parameters.
+
+@code{Redistribution} and @code{Export} control VNC-GW operation, i.e.,
+the  import/export of routing
+information between VNC and customer edge routers (@acronym{CE}s)
+operating within a VN.
+
+@node General VNC Configuration
+@subsection General VNC Configuration
+
+@deffn {VNC} {vnc advertise-un-method encap-safi|encap-attr} {}
+Advertise NVE underlay-network IP addresses using the encapsulation SAFI
+(@code{encap-safi}) or the UN address sub-TLV of the Tunnel Encapsulation attribute
+(@code{encap-attr}). When @code{encap-safi} is used, neighbors under 
+@code{address-family encap} and/or @code{address-family encapv6} must be
+configured.  The default is @code{encap-attr}. 
+@end deffn
+
+@node RFP Related Configuration
+@subsection RFP Related Configuration 
+
+The protocol that is used to communicate routing and Ethernet / L2
+forwarding information between NVAs and NVEs is referred to as the
+Remote Forwarder Protocol (RFP).  Currently, only a simple example RFP
+is included in Quagga.  Developers may use this example as a starting
+point to integrate Quagga with an RFP of their choosing, e.g.,
+@code{OpenFlow}.  The example code includes the following sample
+configuration: 
+
+@deffn {RFP} {rfp example-config-value @var{VALUE}} 
+This is a simple example configuration parameter included as part of the
+RFP example code.  @code{VALUE} must be in the range of 0 to 4294967295.
+@end deffn
+
+@node VNC Defaults Configuration
+@subsection VNC Defaults Configuration
+
+The VNC Defaults section allows the user to specify default values for
+configuration parameters for all registered NVEs.
+Default values are overridden by @ref{VNC NVE Group Configuration}. 
+
+@deffn {VNC} {vnc defaults} {}
+Enter VNC configuration mode for specifying VNC default behaviors.  Use
+@code{exit-vnc} to leave VNC configuration mode.  @code{vnc
+defaults} is optional.
+
+@example
+vnc defaults
+  ... various VNC defaults
+exit-vnc
+@end example
+@end deffn
+
+These are the statements that can appear between @code{vnc defaults}
+and @code{exit-vnc}.
+
+@deffn {VNC} {rt import @var{rt-list}} {}
+@deffnx {VNC} {rt export @var{rt-list}} {}
+@deffnx {VNC} {rt both @var{rt-list}} {}
+
+Specify default route target import and export lists.  @var{rt-list} is a
+space-separated list of route targets, each element of which is
+in one of the following forms:
+@itemize
+@item @var{IPv4-address}:@var{two-byte-integer}
+@item @var{four-byte-autonomous-system-number}:@var{two-byte-integer}
+@item @var{two-byte-autonomous-system-number}:@var{four-byte-integer}
+@end itemize
+
+If no default import RT list is specified, then the default import RT
+list is empty.
+If no default export RT list is specified, then the default export RT
+list is empty.
+
+A complete definition of these parameters is
+given below (@pxref{VNC NVE Group Configuration}).
+
+@end deffn
+
+@deffn {VNC} {rd @var{route-distinguisher}}
+
+Specify the default route distinguisher (RD) for routes advertised via BGP
+VPNs.  The route distinguisher must be in one of four forms:
+@itemize
+@item @var{IPv4-address}:@var{two-byte-integer}
+@item @var{four-byte-autonomous-system-number}:@var{two-byte-integer}
+@item @var{two-byte-autonomous-system-number}:@var{four-byte-integer}
+@item auto:vn:@var{two-byte-integer}
+@end itemize
+
+If RD is specified in the defaults section, the default RD
+value is @var{two-byte-autonomous-system-number=0}:@var{four-byte-integer=0}.
+
+A complete definition of this parameter is
+given below (@pxref{VNC NVE Group Configuration}).
+@end deffn
+
+@deffn {VNC} {l2rd @var{nve-id-value}}
+Set the value used to distinguish NVEs connected to the same logical
+Ethernet segment (i.e., L2VPN).
+
+A complete definition of this parameter is
+given below (@pxref{VNC NVE Group Configuration}).
+@end deffn
+
+@deffn {VNC} {response-lifetime @var{lifetime}|infinite} {}
+Specify the default lifetime to be included in RFP
+response messages sent to NVEs.
+
+A complete definition of this parameter is
+given below (@pxref{VNC NVE Group Configuration}).
+
+@end deffn
+
+@deffn {VNC} {export bgp|zebra route-map MAP-NAME}
+Specify that the named route-map should be applied to routes
+being exported to bgp or zebra.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra no route-map}
+Specify that no route-map should be applied to routes
+being exported to bgp or zebra.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME}
+Specify that the named prefix-list filter should be applied to
+routes being exported to bgp or zebra.
+Prefix-lists for ipv4 and ipv6 are independent of each other.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra no ipv4|ipv6 prefix-list}
+Specify that no prefix-list filter should be applied to
+routes being exported to bgp or zebra.
+@end deffn
+
+@deffn {VNC} {exit-vnc} {}
+Exit VNC configuration mode.
+@end deffn
+
+@c The following example @code{vnc defaults} defines a route target import-export
+@c list for the route targets 1000:1 and 1000:2; a default route
+@c distinguisher, 4444:10; and a default response lifetime of 500
+@c seconds.
+@c 
+@c @example
+@c vnc defaults
+@c     rt both 1000:1 1000:2
+@c     rd 4444:10
+@c     response-lifetime 500
+@c exit-vnc
+@c @end example
+
+@node VNC NVE Group Configuration
+@subsection VNC NVE Group Configuration
+
+A NVE Group corresponds to a specific set of NVEs.  A Client NVE is
+assigned to an NVE Group based on whether there is a match for either
+its virtual or underlay network address against the VN and/or UN address
+prefixes specified in the NVE Group definition.  When an NVE Group
+definition specifies both VN and UN address prefixes, then an NVE must
+match both prefixes in order to be assigned to the NVE Group.  In the
+event that multiple NVE Groups match based on VN and/or UN addresses,
+the NVE is assigned to the first NVE Group listed in the configuration.  
+If an NVE is not assigned to an NVE Group, its messages will be ignored.
+
+Configuration values specified for an NVE group apply to all
+member NVEs and override configuration values specified in the VNC
+Defaults section.
+
+@strong{At least one @code{nve-group} is mandatory for useful VNC
+operation.}
+
+@deffn {VNC} {vnc nve-group @var{name}} {}
+Enter VNC configuration mode for defining the NVE group @var{name}.  
+Use @code{exit} or @code{exit-vnc} to exit group configuration mode.
+
+@example
+vnc nve-group group1
+  ... configuration commands
+exit-vnc
+@end example
+@end deffn
+
+@deffn {VNC} {no vnc nve-group @var{name}} {}
+Delete the NVE group named @var{name}.
+@end deffn
+
+The following statements are valid in an NVE group definition:
+
+@deffn {VNC} {l2rd @var{nve-id-value}}
+Set the value used to distinguish NVEs connected to the same physical
+Ethernet segment (i.e., at the same location)@footnote{The nve-id is
+carried in the route
+distinguisher.  It is the second octet of the eight-octet route
+distinguisher generated for Ethernet / L2 advertisements.
+The first octet is a constant 0xFF, and the third through eighth
+octets are set to the L2 ethernet address being advertised.}
+
+The nve-id subfield may be specified as either a literal value
+in the range 1-255, or it may be specified as @code{auto:vn}, which
+means to use the least-significant octet of the originating
+NVE's VN address.
+@end deffn
+
+@deffn {VNC} {prefix vn|un A.B.C.D/M|X:X::X:X/M} {}
+@anchor{prefix}
+Specify the matching prefix for this NVE group by either virtual-network address
+(@code{vn}) or underlay-network address (@code{un}). Either or both virtual-network
+and underlay-network prefixes may be specified.  Subsequent virtual-network or
+underlay-network values within a @code{vnc nve-group} @code{exit-vnc}
+block override their respective previous values.
+
+These prefixes are used only for determining assignments of NVEs
+to NVE Groups.
+@end deffn
+
+@deffn {VNC} {rd @var{route-distinguisher}}
+Specify the route distinguisher for routes advertised via BGP
+VPNs.  The route distinguisher must be in one of these forms:
+@itemize
+@item @var{IPv4-address}:@var{two-byte-integer}
+@item @var{four-byte-autonomous-system-number}:@var{two-byte-integer}
+@item @var{two-byte-autonomous-system-number}:@var{four-byte-integer}
+@item auto:vn:@var{two-byte-integer}
+@end itemize
+
+Routes originated by NVEs in the NVE group will use
+the group's specified @var{route-distinguisher} when they are
+advertised via BGP. 
+If the @code{auto} form is specified, it means that a matching NVE has
+its RD set to
+@var{rd_type=IP=1}:@var{IPv4-address=VN-address}:@var{two-byte-integer},
+for IPv4 VN addresses and
+@var{rd_type=IP=1}:@var{IPv4-address=Last-four-bytes-of-VN-address}:@var{two-byte-integer},
+for IPv6 VN addresses.
+
+If the NVE group definition does not specify a @var{route-distinguisher},
+then the default @var{route-distinguisher} is used.
+If neither a group nor a default @var{route-distinguisher} is
+configured, then the advertised RD is set to
+@var{two-byte-autonomous-system-number=0}:@var{four-byte-integer=0}.
+@end deffn
+
+@deffn {VNC} {response-lifetime @var{lifetime}|infinite} {}
+Specify the response lifetime, in seconds, to be included in RFP
+response messages sent to NVEs.  If the value
+``infinite'' is given, an infinite lifetime will be used.
+
+Note that this parameter is not the same as the lifetime supplied by
+NVEs in RFP registration messages. This parameter does not affect
+the lifetime value attached to routes sent by this server via BGP.
+
+If the NVE group definition does not specify a @var{response-lifetime},
+the default @var{response-lifetime} will be used.
+If neither a group nor a default @var{response-lifetime} is configured,
+the value 3600 will be used.  The maximum response lifetime is 2147483647.
+@end deffn
+
+@deffn {VNC} {rt export @var{rt-list}} {}
+@deffnx {VNC} {rt import @var{rt-list}} {}
+@deffnx {VNC} {rt both @var{rt-list}} {}
+Specify route target import and export lists.  @var{rt-list} is a
+space-separated list of route targets, each element of which is
+in one of the following forms:
+@itemize
+@item @var{IPv4-address}:@var{two-byte-integer}
+@item @var{four-byte-autonomous-system-number}:@var{two-byte-integer}
+@item @var{two-byte-autonomous-system-number}:@var{four-byte-integer}
+@end itemize
+
+The first form, @code{rt export}, specifies an @var{export rt-list}.
+The @var{export rt-list} will be attached to routes originated by
+NVEs in the NVE group when they are advertised via BGP. 
+If the NVE group definition does not specify an @var{export rt-list},
+then the default @var{export rt-list} is used.
+If neither a group nor a default @var{export rt-list} is configured,
+then no RT list will be sent; in turn, these routes will probably
+not be processed
+by receiving NVAs.
+
+The second form, @code{rt import} specifies an @var{import rt-list},
+which is a filter for incoming routes.
+In order to be made available to NVEs in the group,
+incoming BGP VPN and @w{ENCAP} @w{SAFI} (when @code{vnc
+advertise-un-method encap-safi} is set) routes must have
+RT lists that have at least one route target in common with the
+group's @var{import rt-list}.
+
+If the NVE group definition does not specify an import filter,
+then the default @var{import rt-list} is used.
+If neither a group nor a default @var{import rt-list} is configured,
+there can be no RT intersections when receiving BGP routes and
+therefore no incoming BGP routes will be processed for the group.
+
+The third, @code{rt both}, is a shorthand way of specifying both
+lists simultaneously, and is equivalent to @code{rt export @var{rt-list}}
+followed by @code{rt import @var{rt-list}}.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra route-map MAP-NAME}
+Specify that the named route-map should be applied to routes
+being exported to bgp or zebra. 
+This paramter is used in conjunction with 
+@ref{Configuring Export of Routes to Other Routing Protocols}.
+This item is optional.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra no route-map}
+Specify that no route-map should be applied to routes
+being exported to bgp or zebra. 
+This paramter is used in conjunction with 
+@ref{Configuring Export of Routes to Other Routing Protocols}.
+This item is optional.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME}
+Specify that the named prefix-list filter should be applied to
+routes being exported to bgp or zebra.
+Prefix-lists for ipv4 and ipv6 are independent of each other. 
+This paramter is used in conjunction with 
+@ref{Configuring Export of Routes to Other Routing Protocols}.
+This item is optional.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra no ipv4|ipv6 prefix-list}
+Specify that no prefix-list filter should be applied to
+routes being exported to bgp or zebra. 
+This paramter is used in conjunction with 
+@ref{Configuring Export of Routes to Other Routing Protocols}.
+This item is optional.
+@end deffn
+
+@c The following example shows two @code{vnc nve-group} definitions.  The first one,
+@c ``group1'', applies to the IPV4 virtual-network route prefix 172.16/16.  It
+@c sets the response lifetime to 200 seconds.  It defines a route target
+@c import-export filter for the route targets 1000:1 and 1000:2
+@c 
+@c The second @code{vnc nve-group} definition, ``group2'', applies to the IPV6
+@c underlay-network route prefix 10.0.2/24.  It defines the same response
+@c lifetime and import-export filter as ``group1''.
+@c 
+@c @example
+@c vnc nve-group group1
+@c     prefix vn 172.16/16
+@c     response-lifetime 200
+@c     rt both 1000:1 1000:2
+@c exit-vnc
+@c 
+@c vnc nve-group group2
+@c     prefix un 10.0.2/24
+@c     response-lifetime 200
+@c     rt both 1000:1 1000:2
+@c exit-vnc
+@c @end example
+
+@node VNC L2 Group Configuration
+@subsection VNC L2 Group Configuration
+
+The route targets advertised with prefixes and addresses registered by
+an NVE are determined based on the NVE's associated VNC NVE Group
+Configuration, @pxref{VNC NVE Group Configuration}.  Layer 2 (L2) Groups
+are used to override the route targets for an NVE's Ethernet
+registrations based on the Logical Network Identifier and label value.
+A Logical Network Identifier is used to uniquely identify a logical
+Ethernet segment and is conceptually similar to the Ethernet Segment
+Identifier defined in @cite{RFC7432, BGP MPLS-Based Ethernet VPN}.  Both
+the Logical Network Identifier and Label are passed to VNC via RFP
+prefix and address registration.
+
+Note that a corresponding NVE group configuration must be present, and
+that other NVE associated configuration information, notably RD, is
+not impacted by L2 Group Configuration.
+
+@deffn {VNC} {vnc l2-group @var{name}} {}
+Enter VNC configuration mode for defining the L2 group @var{name}.  
+Use @code{exit} or @code{exit-vnc} to exit group configuration mode.
+
+@example
+vnc l2-group group1
+  ... configuration commands
+exit-vnc
+@end example
+@end deffn
+
+@deffn {VNC} {no vnc l2-group @var{name}} {}
+Delete the L2 group named @var{name}.
+@end deffn
+
+The following statements are valid in a L2 group definition:
+
+@deffn {VNC} {logical-network-id @var{VALUE}}
+Define the Logical Network Identifier with a value in the range of
+0-4294967295 that identifies the logical Ethernet segment. 
+@end deffn
+
+@deffn {VNC} {labels @var{label-list}}
+@deffnx {VNC} {no labels @var{label-list}}
+Add or remove labels associated with the group.  @var{label-list} is a
+space separated list of label values in the range of 0-1048575.
+@end deffn
+
+@deffn {VNC} {rt import @var{rt-target}} {}
+@deffnx {VNC} {rt export @var{rt-target}} {}
+@deffnx {VNC} {rt both @var{rt-target}} {}
+Specify the route target import and export value associated with the
+group. A complete definition of these parameters is given above,
+@pxref{VNC NVE Group Configuration}.
+@end deffn
+
+
+@node Configuring Redistribution of Routes from Other Routing Protocols
+@subsection Configuring Redistribution of Routes from Other Routing Protocols
+
+Routes from other protocols (including BGP) can be provided to VNC (both
+for RFP and for redistribution via BGP)
+from three sources: the zebra kernel routing process;
+directly from the main (default) unicast BGP RIB; or directly
+from a designated BGP unicast exterior routing RIB instance.
+
+The protocol named in the @code{vnc redistribute} command indicates
+the route source:
+@code{bgp-direct} routes come directly from the main (default)
+unicast BGP RIB and are available for RFP and are redistributed via BGP;
+@code{bgp-direct-to-nve-groups} routes come directly from a designated
+BGP unicast routing RIB and are made available only to RFP;
+and routes from other protocols come from the zebra kernel
+routing process.
+Note that the zebra process does not need to be active if
+only @code{bgp-direct} or @code{bgp-direct-to-nve-groups} routes are used.
+
+@subsubsection @code{zebra} routes
+
+Routes originating from protocols other than BGP must be obtained
+via the zebra routing process.
+Redistribution of these routes into VNC does not support policy mechanisms
+such as prefix-lists or route-maps.
+
+@subsubsection @code{bgp-direct} routes
+
+@code{bgp-direct} redistribution supports policy via
+prefix lists and route-maps. This policy is applied to incoming
+original unicast routes before the redistribution translations
+(described below) are performed.
+
+Redistribution of @code{bgp-direct} routes is performed in one of three
+possible modes: @code{plain}, @code{nve-group}, or @code{resolve-nve}.
+The default mode is @code{plain}.
+These modes indicate the kind of translations applied to routes before
+they are added to the VNC RIB.
+
+In @code{plain} mode, the route's next hop is unchanged and the RD is set
+based on the next hop.
+For @code{bgp-direct} redistribution, the following translations are performed:
+@itemize @bullet
+@item
+The VN address is set to the original unicast route's next hop address.
+@item
+The UN address is NOT set. (VN->UN mapping will occur via
+ENCAP route or attribute, based on @code{vnc advertise-un-method}
+setting, generated by the RFP registration of the actual NVE) 
+@item
+The RD is set to as if auto:vn:0 were specified (i.e.,
+@var{rd_type=IP=1}:@var{IPv4-address=VN-address}:@var{two-byte-integer=0})
+@item
+The RT list is included in the extended community list copied from the
+original unicast route (i.e., it must be set in the original unicast route).
+@end itemize
+
+
+
+In @code{nve-group} mode, routes are registered with VNC as
+if they came from an NVE in the nve-group designated in the
+@code{vnc redistribute nve-group} command. The following
+translations are performed:
+
+@itemize @bullet
+@item
+The next hop/VN address is set to the VN prefix configured for the
+redistribute nve-group.
+@item
+The UN address is set to the UN prefix configured for the
+redistribute nve-group.
+@item
+The RD is set to the RD configured for the redistribute nve-group.
+@item
+The RT list is set to the RT list configured for the redistribute nve-group.
+If @code{bgp-direct} routes are being redistributed, 
+any extended communities present in the original unicast route
+will also be included.
+@end itemize
+
+
+In @code{resolve-nve} mode, the next hop of the original BGP route is
+typically the address of an NVE connected router (CE) connected by one or
+more NVEs.
+Each of the connected NVEs will register, via RFP, a VNC host route
+to the CE.
+This mode may be though of as a mechanism to proxy RFP registrations
+of BGP unicast routes on behalf of registering NVEs.
+
+Multiple copies of the BGP route, one per matching NVE host route, will be
+added to VNC.
+In other words, for a given BGP unicast route, each instance of a
+RFP-registered host route to the unicast route's next hop will result
+in an instance of an imported VNC route.
+Each such imported VNC route will have a prefix equal to the original
+BGP unicast route's prefix, and a next hop equal to the next hop of the
+matching RFP-registered host route.
+If there is no RFP-registered host route to the next hop of the BGP unicast
+route, no corresponding VNC route will be imported.
+
+The following translations are applied:
+
+@itemize @bullet
+@item
+The Next Hop is set to the next hop of the NVE route (i.e., the
+VN address of the NVE).
+
+@item
+The extended community list in the new route is set to the 
+union of:
+@itemize @minus
+@item
+Any extended communities in the original BGP route
+@item
+Any extended communities in the NVE route
+@item
+An added route-origin extended community with the next hop of the
+original BGP route
+is added to the new route.
+The value of the local administrator field defaults 5226 but may
+be configured by the user via the @code{roo-ec-local-admin} parameter.
+@end itemize
+
+@item
+The Tunnel Encapsulation attribute is set to the value of the Tunnel
+Encapsulation attribute of the NVE route, if any.
+
+@end itemize
+
+@subsubsection @code{bgp-direct-to-nve-groups} routes
+
+Unicast routes from the main or a designated instance of BGP
+may be redistributed to VNC as bgp-direct-to-nve-groups routes. These
+routes are NOT announced via BGP,
+but they are made available for local RFP lookup in response to
+queries from NVEs.
+
+A non-main/default BGP instance is configured using the
+@code{bgp multiple-instance} and @code{router bgp AS view NAME}
+commands as described elsewhere in this document.
+
+In order for a route in the unicast BGP RIB to be made
+available to a querying NVE, there must already be, available to
+that NVE, an (interior) VNC route matching the next hop address
+of the unicast route.
+When the unicast route is provided to the NVE, its next hop 
+is replaced by the next hop of the corresponding
+NVE. If there are multiple longest-prefix-match VNC routes,
+the unicast route will be replicated for each.
+
+There is currently no policy (prefix-list or route-map) support
+for @code{bgp-direct-to-nve-groups} routes.
+
+@subsubsection Redistribution Command Syntax
+
+@deffn {VNC} {vnc redistribute ipv4|ipv6 bgp|bgp-direct|ipv6 bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static} {}
+@deffnx {VNC} {vnc redistribute ipv4|ipv6 bgp-direct-to-nve-groups view @var{VIEWNAME}} {}
+@deffnx {VNC} {no vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static} {}
+Import (or do not import) prefixes from another routing
+protocols. Specify both the address family to import (@code{ipv4} or
+@code{ipv6}) and the protocol (@code{bgp}, @code{bgp-direct},
+@code{bgp-direct-to-nve-groups}, @code{connected},
+@code{kernel}, @code{ospf}, @code{rip}, or @code{static}).  Repeat
+this statement as needed for each combination of address family and
+routing protocol.
+Prefixes from protocol @code{bgp-direct} are imported from unicast BGP
+in the same bgpd process.
+Prefixes from all other protocols (including @code{bgp}) are imported
+via the @code{zebra} kernel routing process.
+@end deffn
+
+@deffn {VNC} {vnc redistribute mode plain|nve-group|resolve-nve}
+Redistribute routes from other protocols into VNC using the
+specified mode.
+Not all combinations of modes and protocols are supported.
+@end deffn
+
+@deffn {VNC} {vnc redistribute nve-group @var{group-name}} {}
+@deffnx {VNC} {no vnc redistribute nve-group @var{group-name}} {}
+When using @code{nve-group} mode,
+assign (or do not assign) the NVE group @var{group-name} to routes
+redistributed from another routing protocol.  @var{group-name}
+must be configured using @code{vnc nve-group}.
+
+The VN and UN prefixes of the nve-group must both be configured,
+and each prefix must be specified as a full-length (/32 for IPv4,
+/128 for IPv6) prefix.
+@end deffn
+
+@deffn {VNC} {vnc redistribute lifetime @var{lifetime}|infinite} {}
+Assign a registration lifetime, either @var{lifetime} seconds or
+@code{infinite}, to prefixes redistributed from other routing
+protocols as if they had been received via RFP registration messages
+from an NVE.  @var{lifetime} can be any integer between 1 and
+4294967295, inclusive. 
+@end deffn
+
+@deffn {VNC} {vnc redistribute resolve-nve roo-ec-local-admin @var{0-65536}}
+Assign a value to the local-administrator subfield used in the
+Route Origin extended community that is assigned to routes exported 
+under the @code{resolve-nve} mode. The default value is @var{5226}.
+@end deffn
+
+The following four @code{prefix-list} and @code{route-map} commands
+may be specified in the context of an nve-group or not.
+If they are specified in the context of an nve-group, they
+apply only if the redistribution mode is @code{nve-group},
+and then only for routes being redistributed from
+@code{bgp-direct}.
+If they are specified outside the context of an nve-group, then
+they apply only for redistribution modes @code{plain} and @code{resolve-nve},
+and then only for routes being redistributed from @code{bgp-direct}.
+
+@deffn {VNC} {vnc redistribute bgp-direct (ipv4|ipv6) prefix-list @var{LIST-NAME}}
+When redistributing @code{bgp-direct} routes,
+specifies that the named prefix-list should be applied.
+@end deffn
+
+@deffn {VNC} {vnc redistribute bgp-direct no (ipv4|ipv6) prefix-list}
+When redistributing @code{bgp-direct} routes,
+specifies that no prefix-list should be applied.
+@end deffn
+
+@deffn {VNC} {vnc redistribute bgp-direct route-map  @var{MAP-NAME}}
+When redistributing @code{bgp-direct} routes,
+specifies that the named route-map should be applied.
+@end deffn
+
+@deffn {VNC} {vnc redistribute bgp-direct no route-map}
+When redistributing @code{bgp-direct} routes,
+specifies that no route-map should be applied.
+@end deffn
+
+@node Configuring Export of Routes to Other Routing Protocols
+@subsection Configuring Export of Routes to Other Routing Protocols
+
+Routes from VNC (both for RFP and for redistribution via BGP) can be
+provided to other protocols, either via zebra or directly to BGP.
+
+It is important to note that when exporting routes to other protocols,
+the downstream protocol must also be configured to import the routes.
+For example, when VNC routes are exported to unicast BGP, the BGP
+configuration must include a corresponding @code{redistribute vpn}
+statement.
+
+@deffn {VNC} {export bgp|zebra mode none|group-nve|registering-nve|ce}
+Specify how routes should be exported to bgp or zebra.
+If the mode is @code{none}, routes are not exported.
+If the mode is @code{group-nve}, routes are exported according
+to nve-group configuration (@pxref{VNC NVE Group Configuration}): if a group is configured to
+allow export, then each prefix visible to the group is exported
+with next hops set to the currently-registered NVEs.
+If the mode is @code{registering-nve}, then all VNC routes are
+exported with their original next hops.
+If the mode is @code{ce}, only VNC routes that have an NVE connected CE Router
+encoded in a Route Origin Extended Community are exported.
+This extended community must have an administrative value that
+matches the configured @code{roo-ec-local-admin} value.
+The next hop of the exported route is set to the encoded
+NVE connected CE Router.
+
+The default for both bgp and zebra is mode @code{none}.
+@end deffn
+
+@deffn {VNC} {vnc export bgp|zebra group-nve group @var{group-name}}
+@deffnx {VNC} {vnc export bgp|zebra group-nve no group @var{group-name}}
+When export mode is @code{group-nve},
+export (or do not export) prefixes from the specified nve-group
+to unicast BGP or to zebra.
+Repeat this statement as needed for each nve-group to be exported.
+Each VNC prefix that is exported will result in N exported routes to the
+prefix, each with a next hop corresponding to one of the N NVEs currently
+associated with the nve-group.
+@end deffn
+
+@deffn {VNC} export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME
+When export mode is @code{ce} or @code{registering-nve},
+specifies that the named prefix-list should be applied to routes
+being exported to bgp or zebra.
+Prefix-lists for ipv4 and ipv6 are independent of each other.
+@end deffn
+
+@deffn {VNC} export bgp|zebra no ipv4|ipv6 prefix-list
+When export mode is @code{ce} or @code{registering-nve},
+specifies that no prefix-list should be applied to routes
+being exported to bgp or zebra.
+@end deffn
+
+@deffn {VNC} export bgp|zebra route-map MAP-NAME
+When export mode is @code{ce} or @code{registering-nve},
+specifies that the named route-map should be applied to routes
+being exported to bgp or zebra.
+@end deffn
+
+@deffn {VNC} export bgp|zebra no route-map
+When export mode is @code{ce} or @code{registering-nve},
+specifies that no route-map should be applied to routes
+being exported to bgp or zebra.
+@end deffn
+
+When the export mode is @code{group-nve}, policy for exported
+routes is specified per-NVE-group inside a @code{nve-group} @var{RFG-NAME} block
+via the following commands(@pxref{VNC NVE Group Configuration}):
+
+@deffn {VNC} {export bgp|zebra route-map MAP-NAME}
+This command is valid inside a @code{nve-group} @var{RFG-NAME} block.
+It specifies that the named route-map should be applied to routes
+being exported to bgp or zebra.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra no route-map}
+This command is valid inside a @code{nve-group} @var{RFG-NAME} block.
+It specifies that no route-map should be applied to routes
+being exported to bgp or zebra.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME}
+This command is valid inside a @code{nve-group} @var{RFG-NAME} block.
+It specifies that the named prefix-list filter should be applied to
+routes being exported to bgp or zebra.
+Prefix-lists for ipv4 and ipv6 are independent of each other.
+@end deffn
+
+@deffn {VNC} {export bgp|zebra no ipv4|ipv6 prefix-list}
+This command is valid inside a @code{nve-group} @var{RFG-NAME} block.
+It specifies that no prefix-list filter should be applied to
+routes being exported to bgp or zebra.
+@end deffn
+
+@node Manual Address Control
+@section Manual Address Control
+
+The commands in this section can be used to augment normal dynamic VNC.
+The @code{add vnc} commands can be used to manually add IP prefix or
+Ethernet MAC address forwarding information.  The @code{clear vnc}
+commands can be used to remove manually and dynamically added
+information.
+
+@deffn {Command} {add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [cost <0-255>] [lifetime (infinite|<1-4294967295>)] [local-next-hop (A.B.C.D|X:X::X:X) [local-cost <0-255>]]} {}
+Register an IP prefix on behalf of the NVE identified by the VN and UN
+addresses.  The @code{cost} parameter provides the administrative
+preference of the forwarding information for remote advertisement.  If
+omitted, it defaults to 255 (lowest preference).  The @code{lifetime}
+parameter identifies the period, in seconds, that the information
+remains valid.  If omitted, it defaults to @var{infinite}.  The optional
+@code{local-next-hop} parameter is used to configure a nexthop to be
+used by an NVE to reach the prefix via a locally connected CE router.
+This information remains local to the NVA, i.e., not passed to other
+NVAs, and is only passed to registered NVEs. When specified, it is also
+possible to provide a @code{local-cost} parameter to provide a
+forwarding preference.  If omitted, it defaults to 255 (lowest
+preference).
+@end deffn
+
+
+@deffn {Command} {add vnc mac xx:xx:xx:xx:xx:xx virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [prefix (A.B.C.D/M|X:X::X:X/M)] [cost <0-255>] [lifetime (infinite|<1-4294967295>)]} {}
+Register a MAC address for a logical Ethernet (L2VPN) on behalf of the
+NVE identified by the VN and UN addresses.
+The optional @code{prefix} parameter is to support enable IP address
+mediation for the given prefix.   The @code{cost} parameter provides the administrative
+preference of the forwarding information.  If omitted, it defaults to
+255.  The @code{lifetime} parameter identifies the period, in seconds,
+that the information remains valid.  If omitted, it defaults to
+@var{infinite}. 
+@end deffn
+
+@deffn {Command} {clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) (*|[(vn|un) (A.B.C.D|X:X::X:X|*) [(un|vn) (A.B.C.D|X:X::X:X|*)] [mac xx:xx:xx:xx:xx:xx] [local-next-hop (A.B.C.D|X:X::X:X)])} {}
+Delete the information identified by prefix, VN address, and UN address.
+Any or all of these parameters may be wilcarded to (potentially) match
+more than one registration.
+The optional @code{mac} parameter specifies a layer-2 MAC address
+that must match the registration(s) to be deleted.
+The optional @code{local-next-hop} parameter is used to
+delete specific local nexthop information.
+@end deffn
+
+@deffn {Command} {clear vnc mac (*|xx:xx:xx:xx:xx:xx) virtual-network-identifier (*|<1-4294967295>) (*|[(vn|un) (A.B.C.D|X:X::X:X|*) [(un|vn) (A.B.C.D|X:X::X:X|*)] [prefix (*|A.B.C.D/M|X:X::X:X/M)])} {}
+Delete mac forwarding information.
+Any or all of these parameters may be wilcarded to (potentially) match
+more than one registration.
+The default value for the @code{prefix} parameter is the wildcard value @var{*}.
+@end deffn
+
+@deffn {Command} {clear vnc nve (*|((vn|un) (A.B.C.D|X:X::X:X) [(un|vn) (A.B.C.D|X:X::X:X)])) } {}
+Delete prefixes associated with the NVE specified by the given VN and UN
+addresses.
+It is permissible to specify only one of VN or UN, in which case
+any matching registration will be deleted.
+It is also permissible to specify @code{*} in lieu of any VN or UN
+address, in which case all registrations will match.
+@end deffn
+
+@node Other VNC-Related Commands
+@section Other VNC-Related Commands
+
+Note: VNC-Related configuration can be obtained via the @code{show
+running-configuration} command when in @code{enable} mode.
+
+The following commands are used to clear and display 
+Virtual Network Control related information:
+
+@deffn {COMMAND} {clear vnc counters} {}
+Reset the counter values stored by the NVA. Counter
+values can be seen using the @code{show vnc} commands listed above. This
+command is only available in @code{enable} mode.
+@end deffn
+
+@deffn {Command} {show vnc summary} {}
+Print counter values and other general information 
+about the NVA. Counter values can be reset 
+using the @code{clear vnc counters} command listed below.
+@end deffn
+
+@deffn {Command} {show vnc nves} {}
+@deffnx {Command} {show vnc nves vn|un @var{address}} {}
+Display the NVA's current clients. Specifying @var{address}
+limits the output to the NVEs whose addresses match @var{address}.
+The time since the NVA last communicated with the NVE, per-NVE
+summary counters and each NVE's addresses will be displayed.
+@end deffn
+
+@deffn {Command} {show vnc queries} {}
+@deffnx {Command} {show vnc queries @var{prefix}} {}
+Display active Query information.  Queries remain valid for the default
+Response Lifetime (@pxref{VNC Defaults Configuration}) or NVE-group
+Response Lifetime (@pxref{VNC NVE Group Configuration}).  Specifying
+@var{prefix} limits the output to Query Targets that fall within
+@var{prefix}.
+
+Query information is provided for each querying NVE, and includes the
+Query Target and the time remaining before the information is removed.
+@end deffn
+
+@deffn {Command} {show vnc registrations [all|local|remote|holddown|imported]} {}
+@deffnx {Command} {show vnc registrations [all|local|remote|holddown|imported] @var{prefix}} {}
+Display local, remote, holddown, and/or imported registration information.
+Local registrations are routes received via RFP, which are present in the
+NVA Registrations Cache.
+Remote registrations are routes received via BGP (VPN SAFIs), which
+are present in the NVE-group import tables.
+Holddown registrations are local and remote routes that have been
+withdrawn but whose holddown timeouts have not yet elapsed.
+Imported information represents routes that are imported into NVA and
+are made available to querying NVEs.  Depending on configuration,
+imported routes may also be advertised via BGP.
+Specifying @var{prefix} limits the output to the registered prefixes that
+fall within @var{prefix}.
+
+Registration information includes the registered prefix, the registering
+NVE addresses, the registered administrative cost, the registration
+lifetime and the time since the information was registered or, in the
+case of Holddown registrations, the amount of time remaining before the
+information is removed.
+@end deffn
+
+@deffn {Command} {show vnc responses [active|removed]} {}
+@deffnx {Command} {show vnc responses [active|removed] @var{prefix}} {}
+Display all, active and/or removed response information which are
+present in the NVA Responses Cache. Responses remain valid for the
+default Response Lifetime (@pxref{VNC Defaults Configuration}) or
+NVE-group Response Lifetime (@pxref{VNC NVE Group Configuration}.)
+When Removal Responses are enabled (@pxref{General VNC Configuration}),
+such responses are listed for the Response Lifetime.  Specifying
+@var{prefix} limits the output to the addresses that fall within
+@var{prefix}.
+
+Response information is provided for each querying NVE, and includes
+the response prefix, the prefix-associated registering NVE addresses,
+the administrative cost, the provided response lifetime and the time
+remaining before the information is to be removed or will become inactive.
+@end deffn
+
+@deffn {Command} {show memory vnc} {}
+Print the number of memory items allocated by the NVA.
+@end deffn
+
+@node Example VNC and VNC-GW Configurations
+@section Example VNC and VNC-GW Configurations
+
+@menu
+* Mesh NVA Configuration::
+* Mesh NVA and VNC-GW Configuration::
+* VNC with Quagga Route Reflector Configuration::
+* VNC with Commercial Route Reflector Configuration::
+* VNC with Redundant Route Reflectors Configuration::
+@c * Interfacing VNC to an IGP::
+@end menu
+
+@node  Mesh NVA Configuration
+@subsection  Mesh NVA Configuration
+
+This example includes three NVAs, nine NVEs, and two NVE groups. Note
+that while not shown, a single physical device may support multiple
+logical NVEs.  @ref{fig:fig-vnc-mesh} shows @code{NVA 1}
+(192.168.1.100), @code{NVA 2} (192.168.1.101), and @code{NVA 3}
+(192.168.1.102), which are connected in a full mesh.  Each is a
+member of the autonomous system 64512.  Each NVA provides VNC
+services to three NVE clients in the 172.16.0.0/16 virtual-network
+address range.  The 172.16.0.0/16 address range is partitioned into
+two NVE groups, @code{group1} (172.16.0.0/17) and @code{group2}
+(172.16.128.0/17).
+
+Each NVE belongs to either NVE group @code{group1} or NVE group
+@code{group2}.  The NVEs @code{NVE 1}, @code{NVE 2}, @code{NVE
+4}, @code{NVE 7}, and @code{NVE 8} are members of the NVE group
+@code{group1}.  The NVEs @code{NVE 3}, @code{NVE 5}, @code{NVE
+6}, and @code{NVE 9} are members of the NVE group @code{group2}.
+
+Each NVA advertises NVE underlay-network IP addresses using the
+Tunnel Encapsulation Attribute.
+
+@float Figure,fig:fig-vnc-mesh
+@center @image{fig-vnc-mesh,400pt,,Three-way Mesh}
+@caption{A three-way full mesh with three NVEs per NVA}
+@end float
+
+@file{bgpd.conf} for @code{NVA 1} (192.168.1.100)
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.100
+
+    neighbor 192.168.1.101  remote-as 64512
+    neighbor 192.168.1.102  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.101 activate
+        neighbor 192.168.1.102 activate
+    exit-address-family
+
+    vnc defaults
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+
+    vnc nve-group group1
+        prefix vn 172.16.0.0/17
+        rt both 1000:1 
+    exit-vnc
+
+    vnc nve-group group2
+        prefix vn 172.16.128.0/17
+        rt both 1000:2
+    exit-vnc
+
+exit
+@end verbatim
+
+@file{bgpd.conf} for @code{NVA 2} (192.168.1.101):
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.101
+
+    neighbor 192.168.1.100  remote-as 64512
+    neighbor 192.168.1.102  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.100 activate
+        neighbor 192.168.1.102 activate
+    exit-address-family
+
+    vnc nve-group group1
+        prefix vn 172.16.0.0/17
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+exit
+@end verbatim
+
+@file{bgpd.conf} for @code{NVA 3} (192.168.1.102):
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.102
+
+    neighbor 192.168.1.101  remote-as 64512
+    neighbor 192.168.1.102  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.100 activate
+        neighbor 192.168.1.101 activate
+    exit-address-family
+
+    vnc defaults
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+
+    vnc nve-group group1
+        prefix vn 172.16.128.0/17
+    exit-vnc
+exit
+@end verbatim
+
+@node Mesh NVA and VNC-GW Configuration
+@subsection Mesh NVA and VNC-GW Configuration
+
+This example includes two NVAs, each with two associated NVEs, and two
+VNC-GWs, each supporting two CE routers physically attached to the four
+NVEs.  Note that this example is showing a more complex configuration
+where VNC-GW is separated from normal NVA functions; it is equally
+possible to simplify the configuration and combine NVA and VNC-GW
+functions in a single quagga instance.
+
+@float Figure,fig:fig-vnc-gw
+@center @image{fig-vnc-gw,400pt,,Quagga VNC Gateway}
+@caption{Meshed NVEs and VNC-GWs}
+@end float
+
+As shown in @ref{fig:fig-vnc-gw}, NVAs and VNC-GWs are connected in a
+full iBGP mesh.  The VNC-GWs each have two CEs configured as
+route-reflector clients.  Each client provides BGP updates with unicast
+routes that the VNC-GW reflects to the other client.  The VNC-GW also
+imports these unicast routes into VPN routes to be shared with the other
+VNC-GW and the two NVAs.  This route importation is controlled with the
+@code{vnc redistribute} statements shown in the configuration.
+Similarly, registrations sent by NVEs via RFP to the NVAs are exported
+by the VNC-GWs to the route-reflector clients as unicast routes.  RFP
+registrations exported this way have a next-hop address of the CE behind
+the connected (registering) NVE.  Exporting VNC routes as IPv4 unicast
+is enabled with the @code{vnc export} command below.
+
+The configuration for @code{VNC-GW 1} is shown below.
+@verbatim
+router bgp 64512
+ bgp router-id 192.168.1.101
+ bgp cluster-id 1.2.3.4
+ redistribute vpn
+ neighbor 192.168.1.102 remote-as 64512
+ no neighbor 192.168.1.102 activate
+ neighbor 192.168.1.103 remote-as 64512
+ no neighbor 192.168.1.103 activate
+ neighbor 192.168.1.104 remote-as 64512
+ no neighbor 192.168.1.104 activate
+ neighbor 172.16.1.2 remote-as 64512
+ neighbor 172.16.1.2 route-reflector-client
+ neighbor 172.16.2.2 remote-as 64512
+ neighbor 172.16.2.2 route-reflector-client
+!
+ address-family vpnv4 unicast
+   neighbor 192.168.1.102 activate
+   neighbor 192.168.1.103 activate
+   neighbor 192.168.1.104 activate
+ exit-address-family
+ vnc export bgp mode ce
+ vnc redistribute mode resolve-nve
+ vnc redistribute ipv4 bgp-direct
+ exit
+@end verbatim
+
+Note that in the VNC-GW configuration, the neighboring VNC-GW and
+NVAs each have a statement disabling the IPv4 unicast address family.
+IPv4 unicast is on by default and this prevents the other VNC-GW and
+NVAs from learning unicast routes advertised by the route-reflector clients.
+
+Configuration for @code{NVA 2}:
+@verbatim
+router bgp 64512
+ bgp router-id 192.168.1.104
+ neighbor 192.168.1.101 remote-as 64512
+ no neighbor 192.168.1.101 activate
+ neighbor 192.168.1.102 remote-as 64512
+ no neighbor 192.168.1.102 activate
+ neighbor 192.168.1.103 remote-as 64512
+ no neighbor 192.168.1.103 activate
+ address-family vpnv4 unicast
+   neighbor 192.168.1.101 activate
+   neighbor 192.168.1.102 activate
+   neighbor 192.168.1.103 activate
+ exit-address-family
+ vnc defaults
+  response-lifetime 3600
+  exit-vnc
+ vnc nve-group nve1
+  prefix vn 172.16.1.1/32
+  response-lifetime 3600
+  rt both 1000:1 1000:2
+  exit-vnc
+ vnc nve-group nve2
+  prefix vn 172.16.2.1/32
+  response-lifetime 3600
+  rt both 1000:1 1000:2
+  exit-vnc
+ exit
+@end verbatim
+
+@c TBD make this its own example:
+@c 
+@c @float Figure,fig:fig-vnc-gw-rr
+@c @center @image{fig-vnc-gw-rr,400pt,,Quagga VNC Gateway with RR}
+@c @end float
+@c An NVA can also import unicast routes from BGP without advertising the
+@c imported routes as VPN routes.  Such imported routes, while not
+@c distributed to other NVAs or VNC-GWs, are are available to NVEs via
+@c RFP query messages sent to the NVA. @ref{fig:fig-vnc-gw-rr}
+@c shows an example topology where unicast routes are imported into NVAs
+@c from a Route Reflector.  (@pxref{Route Reflector} for route reflector
+@c configuration details.)  The following three lines can be added to the
+@c @code{NVA 1} and @code{NVA 2} configurations to import routes into VNC
+@c for local VNC use:
+@c 
+@c @verbatim
+@c  neighbor 192.168.1.105 remote-as 64512
+@c  vnc redistribute mode plain
+@c  vnc redistribute ipv4 bgp-direct-to-nve-groups
+@c @end verbatim
+
+@node VNC with Quagga Route Reflector Configuration
+@subsection VNC with Quagga Route Reflector Configuration
+A route reflector eliminates the need for a fully meshed NVA
+network by acting as the hub between NVAs.
+@ref{fig:fig-vnc-quagga-route-reflector} shows BGP route reflector
+@code{BGP Route Reflector 1} (192.168.1.100) as a route reflector for
+NVAs @code{NVA 2}(192.168.1.101) and @code{NVA 3}
+(192.168.1.102).
+
+@float Figure,fig:fig-vnc-quagga-route-reflector
+@center @image{fig-vnc-quagga-route-reflector,400pt,,Quagga Route Reflector}
+@caption{Two NVAs and a BGP Route Reflector} 
+@end float
+
+@code{NVA 2} and @code{NVA 3} 
+advertise NVE underlay-network IP addresses using the Tunnel Encapsulation Attribute.
+@code{BGP Route Reflector 1} ``reflects'' advertisements from
+@code{NVA 2} to @code{NVA 3} and vice versa.
+
+As in the example of @ref{Mesh NVA Configuration}, there are two NVE groups.
+The 172.16.0.0/16 address range is partitioned into two NVE groups,
+@code{group1} (172.16.0.0/17) and @code{group2} (172.16.128.0/17).
+The NVE @code{NVE 4}, @code{NVE 7}, and @code{NVE 8} are
+members of the NVE group @code{group1}.  The NVEs @code{NVE 5},
+@code{NVE 6}, and @code{NVE 9} are members of the NVE group
+@code{group2}.
+
+@file{bgpd.conf} for @code{BGP Route Reflector 1} on 192.168.1.100:
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.100
+
+    neighbor 192.168.1.101 remote-as 64512
+    neighbor 192.168.1.101 port 7179
+    neighbor 192.168.1.101 description iBGP-client-192-168-1-101
+    neighbor 192.168.1.101 route-reflector-client
+
+    neighbor 192.168.1.102 remote-as 64512
+    neighbor 192.168.1.102 port 7179
+    neighbor 192.168.1.102 description iBGP-client-192-168-1-102
+    neighbor 192.168.1.102 route-reflector-client
+
+    address-family vpnv4
+        neighbor 192.168.1.101 activate
+        neighbor 192.168.1.102 activate
+
+        neighbor 192.168.1.101 route-reflector-client
+        neighbor 192.168.1.102 route-reflector-client
+    exit-address-family
+
+exit
+@end verbatim
+
+@file{bgpd.conf} for @code{NVA 2} on 192.168.1.101:
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.101
+
+    neighbor 192.168.1.100  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.100 activate
+    exit-address-family
+
+    vnc nve-group group1
+        prefix vn 172.16.0.0/17
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+exit
+@end verbatim
+
+@file{bgpd.conf} for @code{NVA 2} on 192.168.1.102:
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.102
+
+    neighbor 192.168.1.100  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.100 activate
+    exit-address-family
+
+    vnc defaults
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+
+    vnc nve-group group1
+        prefix vn 172.16.128.0/17
+    exit-vnc
+exit
+@end verbatim
+
+While not shown, an NVA can also be configured as a route reflector.
+
+@node VNC with Commercial Route Reflector Configuration
+@subsection VNC with Commercial Route Reflector Configuration
+This example is identical to @ref{VNC with Quagga Route Reflector
+Configuration} with the exception that the route reflector is a
+commercial router.  Only the
+VNC-relevant configuration is provided. 
+
+@float Figure,fig:fig-vnc-commercial-route-reflector
+@center @image{fig-vnc-commercial-route-reflector,400pt,,Commercial Route Reflector}
+@caption{Two NVAs with a commercial route reflector}
+@end float
+
+@file{bgpd.conf} for BGP route reflector @code{Commercial Router} on 192.168.1.104:
+@verbatim
+version 8.5R1.13;
+routing-options {
+    rib inet.0 {
+        static {
+            route 172.16.0.0/16 next-hop 192.168.1.104;
+        }
+    }
+    autonomous-system 64512;
+    resolution {
+        rib inet.3 {
+            resolution-ribs inet.0;
+        }
+        rib bgp.l3vpn.0 {
+            resolution-ribs inet.0;
+        }
+    }
+}
+protocols {
+    bgp {
+        advertise-inactive;
+        family inet {
+            labeled-unicast;
+        }
+       group 1 {
+            type internal;
+            advertise-inactive;
+            advertise-peer-as;
+            import h;
+            family inet {
+                unicast;
+            }
+            family inet-vpn {
+                unicast;
+            }
+            cluster 192.168.1.104;
+            neighbor 192.168.1.101;
+            neighbor 192.168.1.102;
+        }
+    }
+}
+policy-options {
+    policy-statement h {
+        from protocol bgp;
+        then {
+            as-path-prepend 64512;
+            accept;
+        }
+    }
+}
+@end verbatim
+
+@file{bgpd.conf} for @code{NVA 2} on 192.168.1.101:
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.101
+
+    neighbor 192.168.1.100  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.100 activate
+    exit-address-family
+
+    vnc nve-group group1
+        prefix vn 172.16.0.0/17
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+exit
+@end verbatim
+
+@file{bgpd.conf} for @code{NVA 3} on 192.168.1.102:
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.102
+
+    neighbor 192.168.1.100  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.100 activate
+    exit-address-family
+
+    vnc defaults
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+
+    vnc nve-group group1
+        prefix vn 172.16.128.0/17
+    exit-vnc
+exit
+@end verbatim
+
+@node VNC with Redundant Route Reflectors Configuration
+@subsection VNC with Redundant Route Reflectors Configuration
+This example combines the previous two (@ref{VNC with Quagga Route
+Reflector Configuration} and @ref{VNC with Commercial Route Reflector
+Configuration}) into a redundant route reflector configuration.  BGP
+route reflectors @code{BGP Route Reflector 1} and @code{Commercial Router}
+are the route reflectors for NVAs @code{NVA 2} and
+@code{NVA 3}.  The two NVAs have connections to both
+route reflectors.
+
+@float Figure,fig:fig-vnc-redundant-route-reflectors
+@center @image{fig-vnc-redundant-route-reflectors,400pt,,Redundant Route Reflectors}
+@caption{Quagga-based NVA with redundant route reflectors}
+@end float
+
+@file{bgpd.conf} for @code{Bgpd Route Reflector 1} on 192.168.1.100:
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.100
+    bgp cluster-id 192.168.1.100
+
+    neighbor 192.168.1.104 remote-as 64512
+
+    neighbor 192.168.1.101 remote-as 64512
+    neighbor 192.168.1.101 description iBGP-client-192-168-1-101
+    neighbor 192.168.1.101 route-reflector-client
+
+    neighbor 192.168.1.102 remote-as 64512
+    neighbor 192.168.1.102 description iBGP-client-192-168-1-102
+    neighbor 192.168.1.102 route-reflector-client
+
+    address-family vpnv4
+	neighbor 192.168.1.101 activate
+	neighbor 192.168.1.102 activate
+	neighbor 192.168.1.104 activate
+
+	neighbor 192.168.1.101 route-reflector-client
+	neighbor 192.168.1.102 route-reflector-client
+    exit-address-family
+exit
+@end verbatim
+
+@file{bgpd.conf} for @code{NVA 2} on 192.168.1.101:
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.101
+
+    neighbor 192.168.1.100  remote-as 64512
+    neighbor 192.168.1.104  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.100 activate
+        neighbor 192.168.1.104 activate
+    exit-address-family
+
+    vnc nve-group group1
+        prefix vn 172.16.0.0/17
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+exit
+@end verbatim
+
+@file{bgpd.conf} for @code{NVA 3} on 192.168.1.102:
+@verbatim
+router bgp 64512
+
+    bgp router-id 192.168.1.102
+
+    neighbor 192.168.1.100  remote-as 64512
+    neighbor 192.168.1.104  remote-as 64512
+
+    address-family vpnv4
+        neighbor 192.168.1.100 activate
+        neighbor 192.168.1.104 activate
+    exit-address-family
+
+    vnc defaults
+        rd 64512:1
+        response-lifetime 200
+        rt both 1000:1 1000:2
+    exit-vnc
+
+    vnc nve-group group1
+        prefix vn 172.16.128.0/17
+    exit-vnc
+exit
+@end verbatim
+
+@file{bgpd.conf} for the Commercial Router route reflector on
+192.168.1.104:
+@verbatim
+routing-options {
+    rib inet.0 {
+        static {
+            route 172.16.0.0/16 next-hop 192.168.1.104;
+        }
+    }
+    autonomous-system 64512;
+    resolution {
+        rib inet.3 {
+            resolution-ribs inet.0;
+        }
+        rib bgp.l3vpn.0 {
+            resolution-ribs inet.0;
+        }
+    }
+}
+protocols {
+    bgp {
+        advertise-inactive;
+        family inet {
+            labeled-unicast;
+        }
+       group 1 {
+            type internal;
+            advertise-inactive;
+            advertise-peer-as;
+            import h;
+            family inet {
+                unicast;
+            }
+            family inet-vpn {
+                unicast;
+            }
+            cluster 192.168.1.104;
+            neighbor 192.168.1.101;
+            neighbor 192.168.1.102;
+        }
+
+       group 2 {
+            type internal;
+            advertise-inactive;
+            advertise-peer-as;
+            import h;
+            family inet {
+                unicast;
+            }
+            family inet-vpn {
+                unicast;
+            }
+            neighbor 192.168.1.100;
+        }
+
+    }
+}
+policy-options {
+    policy-statement h {
+        from protocol bgp;
+        then {
+            as-path-prepend 64512;
+            accept;
+        }
+    }
+}
+@end verbatim
+
+@node Release Notes
+@section Release Notes
+
+@c A paragraph that introduces our release notes.
+
+@c outer list, one item per VNC release, items preceded by bullet
+@itemize @bullet 
+@item
+
+@c @item
+@end itemize
+
+@evenheading @thispage@|@|@thistitle
+@oddheading @thischapter@|@|@thispage
+@everyfooting 
+

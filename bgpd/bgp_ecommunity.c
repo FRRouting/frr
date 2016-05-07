@@ -35,7 +35,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 static struct hash *ecomhash;
 
 /* Allocate a new ecommunities.  */
-static struct ecommunity *
+struct ecommunity *
 ecommunity_new (void)
 {
   return (struct ecommunity *) XCALLOC (MTYPE_ECOMMUNITY,
@@ -59,7 +59,7 @@ ecommunity_free (struct ecommunity **ecom)
    structure, we don't add the value.  Newly added value is sorted by
    numerical order.  When the value is added to the structure return 1
    else return 0.  */
-static int
+int
 ecommunity_add_val (struct ecommunity *ecom, struct ecommunity_val *eval)
 {
   u_int8_t *p;

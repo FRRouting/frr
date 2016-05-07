@@ -1,0 +1,89 @@
+hostname H192.1.1.1
+password zebra
+#enable password zebra
+log stdout notifications
+log monitor notifications
+#debug bgp
+
+line vty
+exec-timeout 1000
+exit
+
+
+router bgp 64512
+
+    # Must set a router-id if no zebra (default 0.0.0.0)
+    bgp router-id 192.1.1.1
+
+    neighbor 192.1.1.2 remote-as 64512
+    neighbor 192.1.1.2 description H192.1.1.2
+    neighbor 192.1.1.2 update-source 192.1.1.1
+    neighbor 192.1.1.2 advertisement-interval 1
+    no neighbor 192.1.1.2 activate
+
+    neighbor 192.1.1.3 remote-as 64512
+    neighbor 192.1.1.3 description H192.1.1.3
+    neighbor 192.1.1.3 update-source 192.1.1.1
+    neighbor 192.1.1.3 advertisement-interval 1
+    no neighbor 192.1.1.3 activate
+
+    address-family vpnv4
+        neighbor 192.1.1.2 activate
+        neighbor 192.1.1.3 activate
+        exit-address-family
+
+    address-family vpnv6
+        neighbor 192.1.1.2 activate
+        neighbor 192.1.1.3 activate
+        exit-address-family
+
+    vnc defaults
+       rd auto:vn:5226
+       response-lifetime 45
+       rt both 1000:1 1000:2
+       exit-vnc
+
+    vnc nve-group group1
+       prefix vn 172.16.0.0/16
+       exit-vnc
+
+    vnc nve-group red
+       prefix vn 10.0.0.0/8
+       rd auto:vn:10
+       rt both 1000:10
+       exit-vnc
+
+    vnc nve-group blue
+       prefix vn 20.0.0.0/8
+       rd auto:vn:20
+       rt both 1000:20
+       exit-vnc
+
+    vnc nve-group green
+       prefix vn 30.0.0.0/8
+       rd auto:vn:20
+       rt both 1000:30
+       exit-vnc
+
+    vnc nve-group rfc4291v6c
+       prefix vn ::ac10:0/112
+       rd auto:vn:5227
+       rt both 2000:1
+       exit-vnc
+
+    vnc nve-group rfc4291v6m
+       prefix vn ::ffff:ac10:0/112
+       rd auto:vn:5528
+       rt both 3000:1
+       exit-vnc
+
+    vnc nve-group rfc6052v6
+       prefix vn 64:ff9b::ac10:0/112
+       rd auto:vn:5529
+       rt both 4000:1
+       exit-vnc
+
+exit
+
+
+

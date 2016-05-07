@@ -1942,6 +1942,12 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD:
       zread_ipv4_route_ipv6_nexthop_add (client, length, zvrf);
       break;
+    case ZEBRA_IPV4_NEXTHOP_ADD:
+      zread_ipv4_add(client, length, zvrf); /* LB: r1.0 merge - id was 1 */
+      break;
+    case ZEBRA_IPV4_NEXTHOP_DELETE:
+      zread_ipv4_delete(client, length, zvrf); /* LB: r1.0 merge - id was 1 */
+      break;
     case ZEBRA_IPV6_ROUTE_ADD:
       zread_ipv6_add (client, length, zvrf);
       break;

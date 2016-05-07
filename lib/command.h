@@ -77,6 +77,7 @@ enum node_type
   SERVICE_NODE, 		/* Service node. */
   DEBUG_NODE,			/* Debug node. */
   VRF_DEBUG_NODE,               /* Vrf Debug node. */
+  DEBUG_VNC_NODE,		/* Debug VNC node. */
   AAA_NODE,			/* AAA node. */
   KEYCHAIN_NODE,		/* Key-chain node. */
   KEYCHAIN_KEY_NODE,		/* Key-chain key node. */
@@ -96,6 +97,10 @@ enum node_type
   BGP_IPV6M_NODE,		/* BGP IPv6 multicast address family. */
   BGP_ENCAP_NODE,		/* BGP ENCAP SAFI */
   BGP_ENCAPV6_NODE,		/* BGP ENCAP SAFI */
+  BGP_VNC_DEFAULTS_NODE,	/* BGP VNC nve defaults */
+  BGP_VNC_NVE_GROUP_NODE,	/* BGP VNC nve group */
+  BGP_VNC_L2_GROUP_NODE,	/* BGP VNC L2 group */
+  RFP_DEFAULTS_NODE,	/* RFP defaults node */
   OSPF_NODE,			/* OSPF protocol mode */
   OSPF6_NODE,			/* OSPF protocol for IPv6 mode */
   LDP_NODE,			/* LDP protocol mode */

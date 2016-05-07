@@ -409,9 +409,7 @@ bgp_encap_type_mpls_to_tlv(
     struct bgp_encap_type_mpls	*bet,	/* input structure */
     struct attr				*attr)
 {
-    struct attr_extra			*extra = bgp_attr_extra_get(attr);
-
-    extra->encap_tunneltype = BGP_ENCAP_TYPE_MPLS;
+    return;                     /* no encap attribute for MPLS */
 }
 
 void

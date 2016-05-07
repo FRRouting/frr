@@ -61,6 +61,16 @@ ZEBRA_ROUTE_HSLS,       hsls,      hslsd,  'H', 0, 0, "HSLS"
 ZEBRA_ROUTE_OLSR,       olsr,      olsrd,  'o', 0, 0, "OLSR"
 ZEBRA_ROUTE_TABLE,      table,     zebra,  'T', 1, 1, "Table"
 ZEBRA_ROUTE_LDP,        ldp,       ldpd,   'L', 0, 0, "LDP"
+#vnc when sent to zebra 
+ZEBRA_ROUTE_VNC,        vnc,       NULL,   'v', 1, 1, "VNC"
+# vnc when sent to bgp
+ZEBRA_ROUTE_VNC_DIRECT, vpn,       NULL,   'V', 1, 1, "VPN"
+# vnc when sent to bgp (remote next hop?)
+ZEBRA_ROUTE_VNC_DIRECT_RH, vpn-rh, NULL,   'V', 0, 0, "VPN"
+#  bgp unicast -> vnc 
+ZEBRA_ROUTE_BGP_DIRECT, bgp-direct, NULL,  'b', 0, 0, "BGP-Direct"
+#  bgp unicast -> vnc 
+ZEBRA_ROUTE_BGP_DIRECT_EXT, bgp-direct-to-nve-groups, NULL, 'e', 0, 0, "BGP2VNC"
 
 ## help strings
 ZEBRA_ROUTE_SYSTEM, "Reserved route type, for internal use only"
@@ -75,6 +85,8 @@ ZEBRA_ROUTE_ISIS,   "Intermediate System to Intermediate System (IS-IS)"
 ZEBRA_ROUTE_BGP,    "Border Gateway Protocol (BGP)"
 ZEBRA_ROUTE_PIM,    "Protocol Independent Multicast (PIM)"
 ZEBRA_ROUTE_HSLS,   "Hazy-Sighted Link State Protocol (HSLS)"
+ZEBRA_ROUTE_VNC,    "Virtual Network Control (VNC)"
 ZEBRA_ROUTE_OLSR,   "Optimised Link State Routing (OLSR)"
 ZEBRA_ROUTE_TABLE,  "Non-main Kernel Routing Table"
 ZEBRA_ROUTE_LDP,    "Label Distribution Protocol (LDP)"
+ZEBRA_ROUTE_VNC_DIRECT,    "VPN routes(VPN)"

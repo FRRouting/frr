@@ -34,6 +34,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
   AF_UNSPEC))                         \
 )
 
+#define BGP_MP_NEXTHOP_FAMILY NEXTHOP_FAMILY
+
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache
 {

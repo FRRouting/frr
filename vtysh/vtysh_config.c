@@ -173,10 +173,36 @@ vtysh_config_parse_line (const char *line)
       /* Store line to current configuration. */
       if (config)
 	{
-	  if (config->index == RMAP_NODE ||
+          if (strncmp (line, " address-family vpnv4",
+	      strlen (" address-family vpnv4")) == 0)
+	    config = config_get (BGP_VPNV4_NODE, line);
+	  else if (strncmp (line, " address-family vpn6",
+	      strlen (" address-family vpn6")) == 0)
+	    config = config_get (BGP_VPNV6_NODE, line);
+	  else if (strncmp (line, " address-family encapv6",
+	      strlen (" address-family encapv6")) == 0)
+	    config = config_get (BGP_ENCAPV6_NODE, line);
+	  else if (strncmp (line, " address-family encap",
+	      strlen (" address-family encap")) == 0)
+	    config = config_get (BGP_ENCAP_NODE, line);
+	  else if (strncmp (line, " address-family ipv4 multicast",
+		   strlen (" address-family ipv4 multicast")) == 0)
+	    config = config_get (BGP_IPV4M_NODE, line);
+	  else if (strncmp (line, " address-family ipv6",
+		   strlen (" address-family ipv6")) == 0)
+	    config = config_get (BGP_IPV6_NODE, line);
+	  else if (strncmp (line, " vnc defaults",
+		   strlen (" vnc defaults")) == 0)
+	    config = config_get (BGP_VNC_DEFAULTS_NODE, line);
+	  else if (strncmp (line, " vnc nve-group",
+		   strlen (" vnc nve-group")) == 0)
+	    config = config_get (BGP_VNC_NVE_GROUP_NODE, line);
+	  else if (strncmp (line, " vnc l2-group",
+		   strlen (" vnc l2-group")) == 0)
+	    config = config_get (BGP_VNC_L2_GROUP_NODE, line);
+	  else if (config->index == RMAP_NODE ||
 	           config->index == INTERFACE_NODE ||
 		   config->index == NS_NODE ||
-	           config->index == VRF_NODE ||
 		   config->index == VTY_NODE)
 	    config_add_line_uniq (config->line, line);
 	  else

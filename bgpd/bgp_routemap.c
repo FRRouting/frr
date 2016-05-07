@@ -58,6 +58,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_debug.h"
 
+#if ENABLE_BGP_VNC
+# include "bgp_rfapi_cfg.h"
+#endif
 
 /* Memo of route-map commands.
 
@@ -2924,6 +2927,10 @@ bgp_route_map_process_update_cb (char *rmap_name)
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     bgp_route_map_process_update(bgp, rmap_name, 1);
 
+#if ENABLE_BGP_VNC
+  zlog_debug("%s: calling vnc_routemap_update", __func__);
+  vnc_routemap_update(bgp, __func__);
+#endif
   return 0;
 }
 
@@ -2960,6 +2967,10 @@ bgp_route_map_mark_update (const char *rmap_name)
         {
           for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
             bgp_route_map_process_update(bgp, rmap_name, 0);
+ #if ENABLE_BGP_VNC
+          zlog_debug("%s: calling vnc_routemap_update", __func__);
+          vnc_routemap_update(bgp, __func__);
+#endif
         }
     }
 }

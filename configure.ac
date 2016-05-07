@@ -258,6 +258,10 @@ AC_ARG_ENABLE(pimd,
   AS_HELP_STRING([--disable-pimd], [do not build pimd]))
 AC_ARG_ENABLE(bgp-announce,
   AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
+AC_ARG_ENABLE(bgp-vnc,
+  AS_HELP_STRING([--enable-bgp-vnc],[turn on BGP VNC support]))
+AC_ARG_WITH(rfp-path,
+  AS_HELP_STRING([--with-rfp-path[=DIR]],[path to replaced stub RFP used with BGP VNC]))
 AC_ARG_ENABLE(snmp,
   AS_HELP_STRING([--enable-snmp=ARG], [enable SNMP support (smux or agentx)]))
 AC_ARG_WITH(libpam,
@@ -1362,8 +1366,32 @@ else
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,0,Disable BGP installation to zebra)
 fi
 
+if test "${with_rfp_path}" = "yes" || test x"${with_rfp_path}" = x""; then
+  with_rfp_path="bgpd/rfp-example"
+fi
+if test "${with_rfp_path}" != "no"; then
+  VNC_RFP_PATH="${with_rfp_path}"
+  AC_SUBST(VNC_RFP_PATH)
+fi
+
+if test "${enable_bgp_vnc}" = "yes";then
+  AC_DEFINE(ENABLE_BGP_VNC,1,Enable BGP VNC support)
+  RFPTEST="${with_rfp_path}/rfptest"
+  LIBRFP="${with_rfp_path}/librfp"
+  RFPINC="${with_rfp_path}/librfp"
+else
+  RFPTEST=
+  LIBRFP=
+  RFPINC="bgpd/rfp-example/librfp"
+fi
+# set 
+AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} = xyes])
+
 AC_SUBST(DOC)
 AC_SUBST(ZEBRA)
+AC_SUBST(RFPTEST)
+AC_SUBST(LIBRFP)
+AC_SUBST(RFPINC)
 AC_SUBST(BGPD)
 AC_SUBST(RIPD)
 AC_SUBST(RIPNGD)
@@ -1744,9 +1772,19 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  isisd/topology/Makefile
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
+
+if test "${enable_bgp_vnc}" = "yes"; then
+   if test "${with_rfp_path}" = "bgpd/rfp-example" ; then 
+     AC_CONFIG_FILES([bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile])
+   else
+     AC_CONFIG_FILES([${with_rfp_path}/rfptest/Makefile ${with_rfp_path}/librfp/Makefile])
+   fi
+fi
+
 AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
+
 ## Hack, but working solution to avoid rebuilding of quagga.info.
 ## It's already in CVS until texinfo 4.7 is more common.
 AC_OUTPUT

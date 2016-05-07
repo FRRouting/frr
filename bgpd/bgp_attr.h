@@ -63,6 +63,21 @@ struct bgp_attr_encap_subtlv {
     uint8_t				value[1];	/* will be extended */
 };
 
+#if ENABLE_BGP_VNC
+/*
+ * old rfp<->rfapi representation
+ */
+struct bgp_tea_options {
+    struct bgp_tea_options *next;
+    uint8_t               options_count;
+    uint16_t              options_length; /* each TLV may be 256 in length */
+    uint8_t               type;
+    uint8_t               length;
+    void                 *value; /* pointer to data */
+};
+
+#endif
+
 /* Additional/uncommon BGP attributes.
  * lazily allocated as and when a struct attr
  * requires it.
@@ -107,6 +122,10 @@ struct attr_extra
 
   uint16_t			encap_tunneltype;	/* grr */
   struct bgp_attr_encap_subtlv *encap_subtlvs;		/* rfc5512 */
+
+#if ENABLE_BGP_VNC
+  struct bgp_attr_encap_subtlv *vnc_subtlvs;		/* VNC-specific */
+#endif
 };
 
 /* BGP core attribute structure. */

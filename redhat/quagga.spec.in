@@ -24,6 +24,7 @@
 %{!?vty_group:			%global	vty_group		quaggavty }
 %{!?with_fpm:			%global	with_fpm 		0 }
 %{!?with_watchquagga:		%global	with_watchquagga 	1 }
+%{!?with_bgp_vnc:		%global	with_bgp_vnc 		0 }
 
 # path defines
 %define		_sysconfdir	/etc/quagga
@@ -235,6 +236,11 @@ developing OSPF-API and quagga applications.
 	--enable-watchquagga \
 %else
 	--disable-watchquagga \
+%endif
+%if %{with_bgp_vnc}
+	--enable-bgp-vnc \
+%else
+	--disable-bgp-vnc \
 %endif
 	--enable-gcc-rdynamic \
 	--enable-isisd=yes \

@@ -54,6 +54,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_zebra.h"
 
+#ifdef ENABLE_BGP_VNC
+#include "rfapi_backend.h"
+#endif
+
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = 
 {
@@ -282,7 +286,9 @@ bgp_exit (int status)
   bgp_vrf_terminate ();
   cmd_terminate ();
   vty_terminate ();
-
+#if ENABLE_BGP_VNC
+  vnc_zebra_destroy();
+#endif
   bgp_zebra_destroy();
   if (bgp_nexthop_buf)
     stream_free (bgp_nexthop_buf);

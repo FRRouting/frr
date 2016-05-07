@@ -25,6 +25,12 @@ else
 TESTS_BGPD =
 endif
 
+if ENABLE_BGP_VNC
+BGP_VNC_RFP_LIB=@top_srcdir@/$(LIBRFP)/librfp.a 
+else
+BGP_VNC_RFP_LIB =
+endif
+
 check_PROGRAMS = testsig testsegv testbuffer testmemory heavy heavywq heavythread \
 		testprivs teststream testchecksum tabletest testnexthopiter \
 		testcommands test-timer-correctness test-timer-performance \
@@ -77,12 +83,12 @@ teststream_LDADD = ../lib/libzebra.la @LIBCAP@
 heavy_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
 heavywq_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
 heavythread_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
-aspathtest_LDADD = ../bgpd/libbgp.a ../lib/libzebra.la @LIBCAP@ -lm
-testbgpcap_LDADD = ../bgpd/libbgp.a ../lib/libzebra.la @LIBCAP@ -lm
-ecommtest_LDADD = ../bgpd/libbgp.a ../lib/libzebra.la @LIBCAP@ -lm
-testbgpmpattr_LDADD = ../bgpd/libbgp.a ../lib/libzebra.la @LIBCAP@ -lm
+aspathtest_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
+testbgpcap_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
+ecommtest_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
+testbgpmpattr_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
 testchecksum_LDADD = ../lib/libzebra.la @LIBCAP@ 
-testbgpmpath_LDADD = ../bgpd/libbgp.a ../lib/libzebra.la @LIBCAP@ -lm
+testbgpmpath_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libzebra.la @LIBCAP@ -lm
 tabletest_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
 testnexthopiter_LDADD = ../lib/libzebra.la @LIBCAP@
 testcommands_LDADD = ../lib/libzebra.la @LIBCAP@

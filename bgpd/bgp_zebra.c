@@ -46,6 +46,10 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
+#if ENABLE_BGP_VNC
+# include "rfapi_backend.h"
+# include "vnc_export_bgp.h"
+#endif
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -1806,6 +1810,13 @@ bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type, u_short instance)
       if (vrf_bitmap_check (zclient->redist[afi][type], bgp->vrf_id))
         return CMD_WARNING;
 
+#if ENABLE_BGP_VNC
+      if (bgp->vrf_id == VRF_DEFAULT &&
+          type == ZEBRA_ROUTE_VNC_DIRECT) {
+        vnc_export_bgp_enable(bgp, afi);	/* only enables if mode bits cfg'd */
+      }
+#endif
+
       vrf_bitmap_set (zclient->redist[afi][type], bgp->vrf_id);
     }
 
@@ -1932,6 +1943,13 @@ bgp_redistribute_unreg (struct bgp *bgp, afi_t afi, int type, u_short instance)
         return CMD_WARNING;
       vrf_bitmap_unset (zclient->redist[afi][type], bgp->vrf_id);
     }
+
+#if ENABLE_BGP_VNC
+  if (bgp->vrf_id == VRF_DEFAULT &&
+      type == ZEBRA_ROUTE_VNC_DIRECT) {
+    vnc_export_bgp_disable(bgp, afi);
+  }
+#endif
 
   if (bgp_install_info_to_zebra (bgp))
     {

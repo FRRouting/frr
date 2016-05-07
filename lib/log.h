@@ -53,6 +53,7 @@ typedef enum
   ZLOG_OSPF6,
   ZLOG_LDP,
   ZLOG_ISIS,
+  ZLOG_RFP,
   ZLOG_PIM,
   ZLOG_MASC
 } zlog_proto_t;
@@ -183,6 +184,10 @@ extern size_t quagga_timestamp(int timestamp_precision /* # subsecond digits */,
 			       char *buf, size_t buflen);
 
 extern void zlog_hexdump(const void *mem, unsigned int len);
+
+
+extern int 
+vzlog_test (struct zlog *zl, int priority);
 
 /* structure useful for avoiding repeated rendering of the same timestamp */
 struct timestamp_control {

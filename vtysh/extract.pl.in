@@ -65,6 +65,9 @@ $ignore{'"address-family encapv6"'} = "ignore";
 $ignore{'"address-family vpnv6"'} = "ignore";
 $ignore{'"address-family vpnv6 unicast"'} = "ignore";
 $ignore{'"exit-address-family"'} = "ignore";
+$ignore{'"vnc defaults"'} = "ignore";
+$ignore{'"vnc nve-group NAME"'} = "ignore";
+$ignore{'"exit-vnc"'} = "ignore";
 $ignore{'"key chain WORD"'} = "ignore";
 $ignore{'"key <0-2147483647>"'} = "ignore";
 $ignore{'"route-map WORD (deny|permit) <1-65535>"'} = "ignore";
@@ -80,7 +83,7 @@ my $cli_stomp = 0;
 foreach (@ARGV) {
     $file = $_;
 
-    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -DHAVE_IPV6 -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/isisd/topology @CPPFLAGS@ $file |");
+    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -DHAVE_IPV6 -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/isisd/topology -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
     local $/; undef $/;
     $line = <FH>;
     close (FH);
@@ -159,7 +162,10 @@ foreach (@ARGV) {
         elsif ($file =~ /lib\/vty\.c$/) {
            $protocol = "VTYSH_ALL";
         }
-        else {
+        elsif ($file =~ /librfp\/.*\.c$/ || $file =~ /rfapi\/.*\.c$/) {
+           $protocol = "VTYSH_BGPD";
+        }
+	else {
            ($protocol) = ($file =~ /^.*\/([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
            $protocol = "VTYSH_" . uc $protocol;
         }

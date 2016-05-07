@@ -1,6 +1,23 @@
 ## Process this file with Automake to create Makefile.in
 
-AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
+
+if ENABLE_BGP_VNC
+BGP_VNC_RFP_SRCDIR   = @top_srcdir@/@LIBRFP@
+BGP_VNC_RFP_INCDIR   = -I$(BGP_VNC_RFP_SRCDIR)
+BGP_VNC_RFP_SRC      = $(BGP_VNC_RFP_SRCDIR)/*.c
+BGP_VNC_RFAPI_SRCDIR = @top_srcdir@/bgpd/rfapi
+BGP_VNC_RFAPI_INCDIR = -I$(BGP_VNC_RFAPI_SRCDIR) -I$(top_srcdir)/bgpd
+BGP_VNC_RFAPI_SRC    = $(BGP_VNC_RFAPI_SRCDIR)/*.c
+else
+BGP_VNC_RFP_INCDIR   =
+BGP_VNC_RFP_SRCDIR   =
+BGP_VNC_RFP_SRC      =
+BGP_VNC_RFAPI_INCDIR =
+BGP_VNC_RFAPI_SRCDIR =
+BGP_VNC_RFAPI_SRC    =
+endif
+AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
+	$(BGP_VNC_RFAPI_INCDIR) $(BGP_VNC_RFP_INCDIR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
 LIBS = @LIBS@ @CURSES@ @LIBPAM@
@@ -68,7 +85,8 @@ vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/zebra/zebra_routemap.c \
 	          $(top_srcdir)/zebra/zebra_fpm.c \
 		  $(top_srcdir)/zebra/zebra_ptm.c \
-		  $(top_srcdir)/zebra/zebra_mpls_vty.c
+		  $(top_srcdir)/zebra/zebra_mpls_vty.c \
+	          $(BGP_VNC_RFAPI_SRC) $(BGP_VNC_RFP_SRC)
 
 vtysh_cmd.c: $(vtysh_cmd_FILES) extract.pl
 	./extract.pl $(vtysh_cmd_FILES) > vtysh_cmd.c

@@ -248,6 +248,7 @@ static struct {
   {ZEBRA_ROUTE_STATIC,  1, "static"},
   {ZEBRA_ROUTE_OSPF,    1, "ospf"},
   {ZEBRA_ROUTE_BGP,     2, "bgp"},
+  {ZEBRA_ROUTE_VNC,     1, "vnc"},
   {0, 0, NULL}
 };
 
