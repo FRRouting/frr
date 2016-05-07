@@ -79,6 +79,7 @@ void sigint (void);
 void sigusr1 (void);
 
 static void bgp_exit (int);
+static void bgp_vrf_terminate (void);
 
 static struct quagga_signal_t bgp_signals[] = 
 {
@@ -268,7 +269,7 @@ bgp_exit (int status)
   /* reverse community_list_init */
   community_list_terminate (bgp_clist);
 
-  vrf_terminate ();
+  bgp_vrf_terminate ();
   cmd_terminate ();
   vty_terminate ();
   if (zclient)
@@ -367,6 +368,17 @@ bgp_vrf_init (void)
   vrf_add_hook (VRF_DELETE_HOOK, bgp_vrf_delete);
 
   vrf_init ();
+}
+
+static void
+bgp_vrf_terminate (void)
+{
+  vrf_add_hook (VRF_NEW_HOOK, NULL);
+  vrf_add_hook (VRF_ENABLE_HOOK, NULL);
+  vrf_add_hook (VRF_DISABLE_HOOK, NULL);
+  vrf_add_hook (VRF_DELETE_HOOK, NULL);
+
+  vrf_terminate ();
 }
 
 /* Main routine of bgpd. Treatment of argument and start bgp finite
