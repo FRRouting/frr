@@ -1542,7 +1542,6 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
               continue;
 
           new_select = ri1;
-          old_select = CHECK_FLAG (ri1->flags, BGP_INFO_SELECTED) ? ri1 : NULL;
           if (ri1->next)
             {
               for (ri2 = ri1->next; ri2; ri2 = ri2->next)
@@ -1561,8 +1560,6 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
                       || aspath_cmp_left_confed (ri1->attr->aspath,
                                                  ri2->attr->aspath))
                     {
-                      if (CHECK_FLAG (ri2->flags, BGP_INFO_SELECTED))
-                        old_select = ri2;
                       if (bgp_info_cmp (bgp, ri2, new_select, &paths_eq,
                                         mpath_cfg, debug, pfx_buf))
                         {

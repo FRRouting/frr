@@ -564,7 +564,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
               bgp_info_nexthop_cmp (prev_mpath, new_mpath))
             {
               if (new_mpath == next_mpath)
-                next_mpath = bgp_info_mpath_next (new_mpath);
+                bgp_info_mpath_next (new_mpath);
               bgp_info_mpath_dequeue (new_mpath);
 
               bgp_info_mpath_enqueue (prev_mpath, new_mpath);

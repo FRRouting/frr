@@ -1045,19 +1045,14 @@ struct aspath *
 aspath_aggregate (struct aspath *as1, struct aspath *as2)
 {
   int i;
-  int minlen;
-  int match;
+  int minlen = 0;
+  int match = 0;
   int from;
   struct assegment *seg1 = as1->segments;
   struct assegment *seg2 = as2->segments;
   struct aspath *aspath = NULL;
-  struct assegment *asset;
+  struct assegment *asset = NULL;
   struct assegment *prevseg = NULL;
-
-  match = 0;
-  minlen = 0;
-  aspath = NULL;
-  asset = NULL;
 
   /* First of all check common leading sequence. */
   while (seg1 && seg2)

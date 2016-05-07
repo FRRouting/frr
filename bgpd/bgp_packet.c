@@ -2348,7 +2348,7 @@ bgp_read (struct thread *thread)
     goto done;
 
   /* Get size and type again. */
-  size = stream_getw_from (peer->ibuf, BGP_MARKER_SIZE);
+  (void)stream_getw_from (peer->ibuf, BGP_MARKER_SIZE);
   type = stream_getc_from (peer->ibuf, BGP_MARKER_SIZE + 2);
 
   /* BGP packet dump function. */

@@ -993,13 +993,12 @@ end:
 int
 bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
 {
-  int ret;
+  int ret = 0;
   u_char *error;
   u_char error_data[BGP_MAX_PACKET_SIZE];
   struct stream *s = BGP_INPUT(peer);
   size_t end = stream_get_getp (s) + length;
 
-  ret = 0;
   error = error_data;
 
   if (bgp_debug_neighbor_events(peer))

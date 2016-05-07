@@ -393,7 +393,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 	{
 	  if (stype == BGP_CLEAR_SOFT_NONE)
 	    {
-	      ret = peer_clear (peer, NULL);
+	      peer_clear (peer, NULL);
 	      continue;
 	    }
 

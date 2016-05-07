@@ -1048,7 +1048,7 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
   unsigned long attrlen_pos = 0;
   unsigned long cp;
   bgp_size_t unfeasible_len;
-  bgp_size_t total_attr_len;
+  bgp_size_t total_attr_len = 0;
   size_t mp_start = 0;
   size_t mplen_pos = 0;
   afi_t afi;
@@ -1069,8 +1069,6 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
   else
     str2prefix ("::/0", &p);
 #endif /* HAVE_IPV6 */
-
-  total_attr_len = 0;
 
   if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
     {
