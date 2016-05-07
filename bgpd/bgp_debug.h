@@ -66,6 +66,7 @@ extern unsigned long conf_bgp_debug_keepalive;
 extern unsigned long conf_bgp_debug_update;
 extern unsigned long conf_bgp_debug_bestpath;
 extern unsigned long conf_bgp_debug_zebra;
+extern unsigned long conf_bgp_debug_allow_martians;
 extern unsigned long conf_bgp_debug_nht;
 extern unsigned long conf_bgp_debug_update_groups;
 
@@ -76,6 +77,7 @@ extern unsigned long term_bgp_debug_keepalive;
 extern unsigned long term_bgp_debug_update;
 extern unsigned long term_bgp_debug_bestpath;
 extern unsigned long term_bgp_debug_zebra;
+extern unsigned long term_bgp_debug_allow_martians;
 extern unsigned long term_bgp_debug_nht;
 extern unsigned long term_bgp_debug_update_groups;
 
@@ -104,6 +106,7 @@ struct bgp_debug_filter
 #define BGP_DEBUG_UPDATE_OUT          0x02
 #define BGP_DEBUG_UPDATE_PREFIX       0x04
 #define BGP_DEBUG_ZEBRA               0x01
+#define BGP_DEBUG_ALLOW_MARTIANS      0x01
 #define BGP_DEBUG_NHT                 0x01
 #define BGP_DEBUG_UPDATE_GROUPS       0x01
 

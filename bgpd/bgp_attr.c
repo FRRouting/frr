@@ -1315,7 +1315,8 @@ bgp_attr_nexthop (struct bgp_attr_parser_args *args)
      gets ignored in any of these cases. */
   nexthop_n = stream_get_ipv4 (peer->ibuf);
   nexthop_h = ntohl (nexthop_n);
-  if (IPV4_NET0 (nexthop_h) || IPV4_NET127 (nexthop_h) || IPV4_CLASS_DE (nexthop_h))
+  if ((IPV4_NET0 (nexthop_h) || IPV4_NET127 (nexthop_h) || IPV4_CLASS_DE (nexthop_h))
+      && !BGP_DEBUG (allow_martians, ALLOW_MARTIANS)) /* loopbacks may be used in testing */
     {
       char buf[INET_ADDRSTRLEN];
       inet_ntop (AF_INET, &nexthop_n, buf, INET_ADDRSTRLEN);
