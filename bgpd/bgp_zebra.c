@@ -1363,6 +1363,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = metric;
+      api.tag = 0;
 
       if (tag)
         {
@@ -1549,6 +1550,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       api.ifindex = (unsigned int *)STREAM_DATA (bgp_ifindices_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = metric;
+      api.tag = 0;
 
       if (tag)
         {
@@ -1676,6 +1678,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
+      api.tag = 0;
 
       if ((info->attr->extra) && (info->attr->extra->tag != 0))
         {
@@ -1715,6 +1718,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
+      api.tag = 0;
 
       if ((info->attr->extra) && (info->attr->extra->tag != 0))
         {
