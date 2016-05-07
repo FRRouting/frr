@@ -441,7 +441,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                     {
                       u_int16_t type;
                       struct rd_as rd_as;
-                      struct rd_ip rd_ip;
+                      struct rd_ip rd_ip = { 0, { 0 }, 0};
                       u_char *pnt;
 
                       pnt = rn->p.u.val;
@@ -460,7 +460,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                           if (type == RD_TYPE_AS)
                             sprintf (buffer, "%u:%d", rd_as.as, rd_as.val);
                           else if (type == RD_TYPE_IP)
-                            sprintf (buffer, "%u:%d", rd_as.as, rd_as.val);
+                            sprintf (buffer, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
                           json_object_string_add(json_routes, "routeDistinguisher", buffer);
                         }
                       else
@@ -622,7 +622,7 @@ bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type ty
 		    {
 		      u_int16_t type;
 		      struct rd_as rd_as;
-		      struct rd_ip rd_ip;
+		      struct rd_ip rd_ip = { 0, { 0 }, 0};
 		      u_char *pnt;
 
 		      pnt = rn->p.u.val;
