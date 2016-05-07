@@ -308,8 +308,7 @@ cpu_record_hash_print(struct hash_backet *bucket,
   struct vty *vty = args[1];
   thread_type *filter = args[2];
   struct cpu_thread_history *a = bucket->data;
-  
-  a = bucket->data;
+
   if ( !(a->types & *filter) )
        return;
   vty_out_cpu_thread_history(vty,a);
@@ -417,8 +416,7 @@ cpu_record_hash_clear (struct hash_backet *bucket,
 {
   thread_type *filter = args;
   struct cpu_thread_history *a = bucket->data;
-  
-  a = bucket->data;
+
   if ( !(a->types & *filter) )
        return;
   

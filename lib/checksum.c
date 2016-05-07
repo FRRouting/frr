@@ -58,13 +58,10 @@ fletcher_checksum(u_char * buffer, const size_t len, const uint16_t offset)
 {
   u_int8_t *p;
   int x, y, c0, c1;
-  u_int16_t checksum;
+  u_int16_t checksum = 0;
   u_int16_t *csum;
   size_t partial_len, i, left = len;
   
-  checksum = 0;
-
-
   if (offset != FLETCHER_CHECKSUM_VALIDATE)
     /* Zero the csum in the packet. */
     {
