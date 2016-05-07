@@ -581,7 +581,6 @@ if_delete_connected (struct interface *ifp)
 		  next = anode->next;
 
 		  ifc = listgetdata (anode);
-		  p = ifc->address;
 		  connected_down_ipv4 (ifp, ifc);
 
 		  /* XXX: We have to send notifications here explicitly, because we destroy
