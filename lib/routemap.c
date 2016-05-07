@@ -1207,7 +1207,7 @@ route_map_dep_update (struct hash *dephash, const char *dep_name,
 		      const char *rmap_name,
 		      route_map_event_t type)
 {
-  struct route_map_dep *dep;
+  struct route_map_dep *dep = NULL;
   char *ret_map_name;
   char *dname, *rname;
   int ret = 0;
