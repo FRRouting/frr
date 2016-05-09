@@ -34,6 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "zclient.h"
 #include "plist.h"
 #include "sockopt.h"
+#include "bfd.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -468,6 +469,7 @@ ospf_terminate (void)
   if (listcount(om->ospf) == 0)
     exit(0);
 
+  bfd_gbl_exit();
   for (ALL_LIST_ELEMENTS (om->ospf, node, nnode, ospf))
     ospf_finish (ospf);
 

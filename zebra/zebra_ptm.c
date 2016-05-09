@@ -48,6 +48,7 @@ const char ZEBRA_PTM_GET_STATUS_CMD[] = "get-status";
 const char ZEBRA_PTM_BFD_START_CMD[] = "start-bfd-sess";
 const char ZEBRA_PTM_BFD_STOP_CMD[] = "stop-bfd-sess";
 const char ZEBRA_PTM_BFD_CLIENT_REG_CMD[] = "reg-bfd-client";
+const char ZEBRA_PTM_BFD_CLIENT_DEREG_CMD[] = "dereg-bfd-client";
 
 const char ZEBRA_PTM_CMD_STR[] = "cmd";
 const char ZEBRA_PTM_CMD_STATUS_STR[] = "cmd_status";
@@ -999,6 +1000,46 @@ zebra_ptm_bfd_client_register (struct zserv *client, int sock, u_short length)
                   ptm_cb.out_data);
   zebra_ptm_send_message(ptm_cb.out_data, data_len);
   return 0;
+}
+
+/* BFD client deregister */
+void
+zebra_ptm_bfd_client_deregister (struct zserv *client)
+{
+  void *out_ctxt;
+  char tmp_buf[64];
+  int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
+
+  if (client->proto != ZEBRA_ROUTE_OSPF && client->proto != ZEBRA_ROUTE_BGP
+      && client->proto != ZEBRA_ROUTE_OSPF6)
+    return;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug("bfd_client_deregister msg for client %s",
+                zebra_route_string(client->proto));
+
+  if (ptm_cb.ptm_sock == -1)
+    {
+      ptm_cb.t_timer = thread_add_timer (zebrad.master, zebra_ptm_connect,
+                                             NULL, ptm_cb.reconnect_time);
+      return;
+    }
+
+  ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
+
+  sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_CLIENT_DEREG_CMD);
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
+
+  sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+  ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
+                      tmp_buf);
+
+  ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
+
+  if (IS_ZEBRA_DEBUG_SEND)
+    zlog_debug ("%s: Sent message (%d) %s", __func__, data_len,
+                  ptm_cb.out_data);
+  zebra_ptm_send_message(ptm_cb.out_data, data_len);
 }
 
 int

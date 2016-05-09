@@ -37,6 +37,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "bfd.h"
 
 #include "ospf6d.h"
 #include "ospf6_top.h"
@@ -143,6 +144,8 @@ ospf6_exit (int status)
 
   if (ospf6)
     ospf6_delete (ospf6);
+
+  bfd_gbl_exit();
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     if (ifp->info != NULL)

@@ -72,4 +72,5 @@ int zebra_ptm_bfd_client_register (struct zserv *client, int sock,
 void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
 void zebra_ptm_if_set_ptm_state(struct interface *ifp, struct zebra_if *zebra_ifp);
 void zebra_ptm_if_write (struct vty *vty, struct zebra_if *zebra_ifp);
+void zebra_ptm_bfd_client_deregister (struct zserv *client);
 #endif

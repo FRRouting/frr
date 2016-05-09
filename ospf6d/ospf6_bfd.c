@@ -410,6 +410,8 @@ DEFUN (no_ipv6_ospf6_bfd,
 void
 ospf6_bfd_init(void)
 {
+  bfd_gbl_init();
+
   /* Initialize BFD client functions */
   zclient->interface_bfd_dest_update = ospf6_bfd_interface_dest_update;
   zclient->bfd_dest_replay = ospf6_bfd_nbr_replay;

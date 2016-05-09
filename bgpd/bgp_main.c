@@ -38,6 +38,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "stream.h"
 #include "queue.h"
 #include "vrf.h"
+#include "bfd.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -228,6 +229,8 @@ bgp_exit (int status)
 
   /* it only makes sense for this to be called on a clean exit */
   assert (status == 0);
+
+  bfd_gbl_exit();
 
   bgp_close();
 

@@ -41,6 +41,12 @@
 #define BFD_MIN_DETECT_MULT 2
 #define BFD_MAX_DETECT_MULT 255
 
+#define BFD_GBL_FLAG_IN_SHUTDOWN (1 << 0) /* The daemon in shutdown */
+struct bfd_gbl
+{
+  u_int16_t           flags;
+};
+
 #define BFD_FLAG_PARAM_CFG (1 << 0) /* parameters have been configured */
 #define BFD_FLAG_BFD_REG   (1 << 1) /* Peer registered with BFD */
 #define BFD_FLAG_BFD_TYPE_MULTIHOP (1 << 2) /* Peer registered with BFD as multihop */
@@ -106,5 +112,11 @@ bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
 
 extern void
 bfd_client_sendmsg (struct zclient *zclient, int command);
+
+extern void
+bfd_gbl_init(void);
+
+extern void
+bfd_gbl_exit(void);
 
 #endif /* _ZEBRA_BFD_H */

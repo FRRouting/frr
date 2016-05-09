@@ -47,6 +47,7 @@
 #include "zebra/interface.h"
 #include "zebra/debug.h"
 #include "zebra/rtadv.h"
+#include "zebra/zebra_ptm.h"
 
 #include "rt_netlink.h"
 
@@ -684,6 +685,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
     SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
   ifp->mtu6 = ifp->mtu = *(uint32_t *) RTA_DATA (tb[IFLA_MTU]);
   ifp->metric = 0;
+  ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
   /* Hardware type and address. */
   ifp->hw_type = ifi->ifi_type;
@@ -1359,6 +1361,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
             SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 0;
+          ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
           netlink_interface_update_hw_addr (tb, ifp);
 

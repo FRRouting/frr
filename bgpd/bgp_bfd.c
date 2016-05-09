@@ -698,6 +698,8 @@ DEFUN_HIDDEN (no_neighbor_bfd_type,
 void
 bgp_bfd_init(void)
 {
+  bfd_gbl_init();
+
   /* Initialize BFD client functions */
   zclient->interface_bfd_dest_update = bgp_bfd_dest_update;
   zclient->bfd_dest_replay = bgp_bfd_dest_replay;

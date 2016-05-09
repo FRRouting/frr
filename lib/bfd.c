@@ -34,6 +34,25 @@
 #include "bfd.h"
 
 int bfd_debug = 0;
+struct bfd_gbl bfd_gbl;
+
+/*
+ * bfd_gbl_init - Initialize the BFD global structure
+ */
+void
+bfd_gbl_init(void)
+{
+  memset(&bfd_gbl, 0, sizeof (struct bfd_gbl));
+}
+
+/*
+ * bfd_gbl_exit - Called when daemon exits
+ */
+void
+bfd_gbl_exit(void)
+{
+  SET_FLAG (bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN);
+}
 
 /*
  * bfd_info_create - Allocate the BFD information
@@ -128,6 +147,14 @@ bfd_peer_sendmsg (struct zclient *zclient, struct bfd_info *bfd_info,
   struct stream *s;
   int ret;
   int len;
+
+  /* Individual reg/dereg messages are supressed during shutdown. */
+  if (CHECK_FLAG (bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN))
+    {
+      if (bfd_debug)
+	zlog_debug("%s: Suppressing BFD peer reg/dereg messages", __FUNCTION__);
+      return;
+    }
 
   /* Check socket. */
   if (!zclient || zclient->sock < 0)

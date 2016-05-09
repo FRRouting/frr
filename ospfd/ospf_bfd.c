@@ -441,6 +441,8 @@ ALIAS (no_ip_ospf_bfd,
 void
 ospf_bfd_init(void)
 {
+  bfd_gbl_init();
+
   /* Initialize BFD client functions */
   zclient->interface_bfd_dest_update = ospf_bfd_interface_dest_update;
   zclient->bfd_dest_replay = ospf_bfd_nbr_replay;

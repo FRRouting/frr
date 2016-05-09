@@ -1751,6 +1751,9 @@ zebra_client_close_cleanup_rnh (struct zserv *client)
 static void
 zebra_client_close (struct zserv *client)
 {
+  /* Send client de-registration to BFD */
+  zebra_ptm_bfd_client_deregister(client);
+
   /* Cleanup any registered nexthops - across all VRFs. */
   zebra_client_close_cleanup_rnh (client);
 
