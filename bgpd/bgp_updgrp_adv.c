@@ -704,7 +704,6 @@ subgroup_default_originate (struct update_subgroup *subgrp, int withdraw)
   bgp_attr_default_set (&attr, BGP_ORIGIN_IGP);
   aspath = attr.aspath;
   attr.local_pref = bgp->default_local_pref;
-  memcpy (&attr.nexthop, &peer->nexthop.v4, IPV4_MAX_BYTELEN);
 
   if (afi == AFI_IP)
     str2prefix ("0.0.0.0/0", &p);
@@ -716,19 +715,13 @@ subgroup_default_originate (struct update_subgroup *subgrp, int withdraw)
       str2prefix ("::/0", &p);
 
       /* IPv6 global nexthop must be included. */
-      memcpy (&ae->mp_nexthop_global, &peer->nexthop.v6_global,
-	      IPV6_MAX_BYTELEN);
       ae->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
       /* If the peer is on shared nextwork and we have link-local
          nexthop set it. */
       if (peer->shared_network
 	  && !IN6_IS_ADDR_UNSPECIFIED (&peer->nexthop.v6_local))
-	{
-	  memcpy (&ae->mp_nexthop_local, &peer->nexthop.v6_local,
-		  IPV6_MAX_BYTELEN);
-	  ae->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-	}
+        ae->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
     }
 #endif /* HAVE_IPV6 */
 
