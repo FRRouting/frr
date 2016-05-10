@@ -345,12 +345,14 @@ zebra_vrf_list_lookup_by_name (const char *name)
   struct listnode *node;
   struct zebra_vrf *zvrf;
 
-  if (name)
-    for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
-      {
-        if (strcmp(name, zvrf->name) == 0)
-          return zvrf;
-      }
+  if (!name)
+    name = VRF_DEFAULT_NAME;
+
+  for (ALL_LIST_ELEMENTS_RO (zvrf_list, node, zvrf))
+    {
+      if (strcmp(name, zvrf->name) == 0)
+        return zvrf;
+    }
   return NULL;
 }
 

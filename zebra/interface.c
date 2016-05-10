@@ -102,6 +102,8 @@ if_zebra_new_hook (struct interface *ifp)
   zebra_if->ipv4_subnets = route_table_init ();
 
   ifp->info = zebra_if;
+
+  zebra_vrf_static_route_interface_fixup (ifp);
   return 0;
 }
 
@@ -816,6 +818,8 @@ if_up (struct interface *ifp)
     zlog_debug ("%u: IF %s up, scheduling RIB processing",
                 ifp->vrf_id, ifp->name);
   rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
+
+  zebra_vrf_static_route_interface_fixup (ifp);
 }
 
 /* Interface goes down.  We have to manage different behavior of based

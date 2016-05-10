@@ -389,7 +389,8 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 
 extern int
 static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
-                 u_char flags, u_short tag, u_char distance, struct zebra_vrf *zvrf);
+                 const char *ifname, u_char flags, u_short tag,
+		 u_char distance, struct zebra_vrf *zvrf);
 
 extern int
 static_delete_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
@@ -413,8 +414,8 @@ extern struct route_table *rib_table_ipv6;
 
 extern int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		 unsigned int ifindex, u_char flags, u_short tag,
-                 u_char distance, struct zebra_vrf *zvrf);
+		 unsigned int ifindex, const char *ifname, u_char flags,
+		 u_short tag, u_char distance, struct zebra_vrf *zvrf);
 
 extern int
 rib_add_ipv6_multipath (struct prefix *, struct rib *, safi_t,

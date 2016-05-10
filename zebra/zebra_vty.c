@@ -38,26 +38,6 @@
 
 extern int allow_delete;
 
-static struct zebra_vrf *
-zebra_vty_vrf_lookup (const char *vrf_id_str)
-{
-  struct vrf *vrf = NULL;
-
-  if (vrf_id_str)
-    {
-      vrf = vrf_list_lookup_by_name (vrf_id_str); //Pending: create VRF if the given vrf doesnt exist?
-    }
-  else
-    {
-      vrf = vrf_list_lookup_by_name (VRF_DEFAULT_NAME);
-    }
-
-  if (vrf)
-    return (struct zebra_vrf *)vrf->info;
-
-  return NULL;
-}
-
 /* General fucntion for static route. */
 static int
 zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
@@ -74,6 +54,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
   u_short tag = 0;
   struct zebra_vrf *zvrf = NULL;
   unsigned int ifindex = 0;
+  const char *ifname = NULL;
 
   ret = str2prefix (dest_str, &p);
   if (ret <= 0)
@@ -108,7 +89,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
     tag = atoi(tag_str);
 
   /* VRF id */
-  zvrf = zebra_vty_vrf_lookup (vrf_id_str);
+  zvrf = zebra_vrf_list_lookup_by_name (vrf_id_str);
 
   if (!zvrf)
     {
@@ -125,7 +106,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
           return CMD_WARNING;
         }
       if (add_cmd)
-        static_add_ipv4 (&p, NULL, ifindex, ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf);
+        static_add_ipv4 (&p, NULL, ifindex, ifname, ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf);
       else
         static_delete_ipv4 (&p, NULL, ifindex, tag, distance, zvrf);
       return CMD_SUCCESS;
@@ -151,7 +132,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
   if (gate_str == NULL)
   {
     if (add_cmd)
-      static_add_ipv4 (&p, NULL, ifindex, flag, tag, distance, zvrf);
+      static_add_ipv4 (&p, NULL, ifindex, ifname, flag, tag, distance, zvrf);
     else
       static_delete_ipv4 (&p, NULL, ifindex, tag, distance, zvrf);
 
@@ -165,15 +146,17 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
     {
       struct interface *ifp = if_lookup_by_name_vrf (gate_str, zvrf->vrf_id);
       if (!ifp)
-	{
+        {
 	  vty_out (vty, "%% Unknown interface: %s%s", gate_str, VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-      ifindex = ifp->ifindex;
+          ifindex = IFINDEX_DELETED;
+        }
+      else
+        ifindex = ifp->ifindex;
+      ifname = gate_str;
     }
 
   if (add_cmd)
-    static_add_ipv4 (&p, ifindex ? NULL : &gate, ifindex, flag, tag, distance, zvrf);
+    static_add_ipv4 (&p, ifindex ? NULL : &gate, ifindex, ifname, flag, tag, distance, zvrf);
   else
     static_delete_ipv4 (&p, ifindex ? NULL : &gate, ifindex, tag, distance, zvrf);
 
@@ -3435,7 +3418,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   ret = inet_pton (AF_INET6, gate_str, &gate_addr);
 
   /* VRF id */
-  zvrf = zebra_vty_vrf_lookup (vrf_id_str);
+  zvrf = zebra_vrf_list_lookup_by_name (vrf_id_str);
 
   if (!zvrf)
     {
@@ -3476,14 +3459,16 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 	  if (!ifp)
 	    {
 	      vty_out (vty, "%% Malformed Interface name %s%s", gate_str, VTY_NEWLINE);
-	      return CMD_WARNING;
+              ifindex = IFINDEX_DELETED;
 	    }
-	  ifindex = ifp->ifindex;
+          else
+	    ifindex = ifp->ifindex;
+	  ifname = gate_str;
 	}
     }
 
   if (add_cmd)
-    static_add_ipv6 (&p, type, gate, ifindex, flag, tag, distance, zvrf);
+    static_add_ipv6 (&p, type, gate, ifindex, ifname, flag, tag, distance, zvrf);
   else
     static_delete_ipv6 (&p, type, gate, ifindex, tag, distance, zvrf);
 
