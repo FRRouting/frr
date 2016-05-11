@@ -2997,8 +2997,8 @@ DEFUN (match_peer,
        "match peer (A.B.C.D|X:X::X:X)",
        MATCH_STR
        "Match peer address\n"
-       "IPv6 address of peer\n"
-       "IP address of peer\n")
+       "IP address of peer\n"
+       "IPv6 address of peer\n")
 {
   return bgp_route_match_add (vty, vty->index, "peer", argv[0],
 			      RMAP_EVENT_MATCH_ADDED);
@@ -3036,8 +3036,8 @@ ALIAS (no_match_peer,
        NO_STR
        MATCH_STR
        "Match peer address\n"
-       "IPv6 address of peer\n"
-       "IP address of peer\n")
+       "IP address of peer\n"
+       "IPv6 address of peer\n")
 
 ALIAS (no_match_peer,
        no_match_peer_local_cmd,
