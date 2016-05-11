@@ -228,7 +228,7 @@ bgp_dump_routes_index_table(struct bgp *bgp)
 {
   struct peer *peer;
   struct listnode *node;
-  uint16_t peerno = 0;
+  uint16_t peerno = 1;
   struct stream *obuf;
 
   obuf = bgp_dump_obuf;
@@ -252,8 +252,18 @@ bgp_dump_routes_index_table(struct bgp *bgp)
       stream_putw(obuf, 0);
     }
 
-  /* Peer count */
-  stream_putw (obuf, listcount(bgp->peer));
+  /* Peer count ( plus one extra internal peer ) */
+  stream_putw (obuf, listcount(bgp->peer) + 1);
+
+  /* Populate fake peer at index 0, for locally originated routes */
+  /* Peer type (IPv4) */
+  stream_putc (obuf, TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4+TABLE_DUMP_V2_PEER_INDEX_TABLE_IP);
+  /* Peer BGP ID (0.0.0.0) */
+  stream_putl (obuf, 0);
+  /* Peer IP address (0.0.0.0) */
+  stream_putl (obuf, 0);
+  /* Peer ASN (0) */
+  stream_putl (obuf, 0);
 
   /* Walk down all peers */
   for(ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
