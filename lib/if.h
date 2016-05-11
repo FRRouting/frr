@@ -350,8 +350,8 @@ extern struct connected  *connected_add_by_prefix (struct interface *,
                                             struct prefix *);
 extern struct connected  *connected_delete_by_prefix (struct interface *, 
                                                struct prefix *);
-extern struct connected  *connected_lookup_address (struct interface *, 
-                                             struct in_addr);
+extern struct connected  *connected_lookup_prefix (struct interface *,
+                                                   struct prefix *);
 extern struct nbr_connected *nbr_connected_new (void);
 extern void nbr_connected_free (struct nbr_connected *);
 struct nbr_connected *nbr_connected_check (struct interface *, struct prefix *);

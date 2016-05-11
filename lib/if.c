@@ -1103,26 +1103,21 @@ connected_delete_by_prefix (struct interface *ifp, struct prefix *p)
   return NULL;
 }
 
-/* Find the IPv4 address on our side that will be used when packets
+/* Find the address on our side that will be used when packets
    are sent to dst. */
 struct connected *
-connected_lookup_address (struct interface *ifp, struct in_addr dst)
+connected_lookup_prefix (struct interface *ifp, struct prefix *addr)
 {
-  struct prefix addr;
   struct listnode *cnode;
   struct connected *c;
   struct connected *match;
-
-  addr.family = AF_INET;
-  addr.u.prefix4 = dst;
-  addr.prefixlen = IPV4_MAX_BITLEN;
 
   match = NULL;
 
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
     {
-      if (c->address && (c->address->family == AF_INET) &&
-	  prefix_match(CONNECTED_PREFIX(c), &addr) &&
+      if (c->address && (c->address->family == addr->family) &&
+	  prefix_match(CONNECTED_PREFIX(c), addr) &&
 	  (!match || (c->address->prefixlen > match->address->prefixlen)))
 	match = c;
     }

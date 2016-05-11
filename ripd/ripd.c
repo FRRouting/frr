@@ -1817,6 +1817,7 @@ rip_read (struct thread *t)
   struct interface *ifp;
   struct connected *ifc;
   struct rip_interface *ri;
+  struct prefix p;
 
   /* Fetch socket then register myself. */
   sock = THREAD_FD (t);
@@ -1861,8 +1862,12 @@ rip_read (struct thread *t)
 		 inet_ntoa(from.sin_addr), ntohs (from.sin_port));
       return -1;
     }
-  
-  ifc = connected_lookup_address (ifp, from.sin_addr);
+
+  p.family = AF_INET;
+  p.u.prefix4 = from.sin_addr;
+  p.prefixlen = IPV4_MAX_BITLEN;
+
+  ifc = connected_lookup_prefix (ifp, &p);
   
   if (ifc == NULL)
     {
@@ -2476,7 +2481,7 @@ rip_update_process (int route_type)
   struct rip_interface *ri;
   struct route_node *rp;
   struct sockaddr_in to;
-  struct prefix_ipv4 *p;
+  struct prefix *p;
 
   /* Send RIP update to each interface. */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
@@ -2526,26 +2531,26 @@ rip_update_process (int route_type)
   for (rp = route_top (rip->neighbor); rp; rp = route_next (rp))
     if (rp->info != NULL)
       {
-	p = (struct prefix_ipv4 *) &rp->p;
+	p = &rp->p;
 
-	ifp = if_lookup_address ((void *)&p->prefix, AF_INET);
+	ifp = if_lookup_prefix (p);
 	if (! ifp)
 	  {
 	    zlog_warn ("Neighbor %s doesnt have connected interface!",
-		       inet_ntoa (p->prefix));
+		       inet_ntoa (p->u.prefix4));
 	    continue;
 	  }
         
-        if ( (connected = connected_lookup_address (ifp, p->prefix)) == NULL)
+        if ( (connected = connected_lookup_prefix (ifp, p)) == NULL)
           {
             zlog_warn ("Neighbor %s doesnt have connected network",
-                       inet_ntoa (p->prefix));
+                       inet_ntoa (p->u.prefix4));
             continue;
           }
         
 	/* Set destination address and port */
 	memset (&to, 0, sizeof (struct sockaddr_in));
-	to.sin_addr = p->prefix;
+	to.sin_addr = p->u.prefix4;
 	to.sin_port = htons (RIP_PORT_DEFAULT);
 
 	/* RIP version is rip's configuration. */
