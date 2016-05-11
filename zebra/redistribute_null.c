@@ -65,11 +65,11 @@ void zebra_interface_vrf_update_del (struct interface *a, vrf_id_t new_vrf_id)
 void zebra_interface_vrf_update_add (struct interface *a, vrf_id_t old_vrf_id)
 { return; }
 
-int zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t metric,
-			int add)
+int zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t distance,
+			const char *rmap_name, int add)
 { return 0; }
 
-int zebra_add_import_table_entry (struct route_node *rn, struct rib *rib)
+int zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char *rmap_name)
 { return 0; }
 
 int zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
@@ -80,3 +80,6 @@ int is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
 
 int zebra_import_table_config(struct vty *vty)
 { return 0; }
+
+void zebra_import_table_rm_update()
+{ return; }

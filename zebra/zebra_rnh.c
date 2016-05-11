@@ -46,6 +46,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/zebra_routemap.h"
 #include "zebra/interface.h"
 
 static void free_state(vrf_id_t vrf_id, struct rib *rib, struct route_node *rn);

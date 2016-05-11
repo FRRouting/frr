@@ -43,6 +43,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/redistribute.h"
+#include "zebra/zebra_routemap.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_fpm.h"
 #include "zebra/zebra_rnh.h"
@@ -2130,6 +2131,7 @@ rib_link (struct route_node *rn, struct rib *rib, int process)
   rib_dest_t *dest;
   char buf[INET6_ADDRSTRLEN];
   afi_t afi;
+  const char *rmap_name;
 
   assert (rib && rn);
   
@@ -2160,7 +2162,10 @@ rib_link (struct route_node *rn, struct rib *rib, int process)
   afi = (rn->p.family == AF_INET) ? AFI_IP :
     (rn->p.family == AF_INET6) ? AFI_IP6 : AFI_MAX;
   if (is_zebra_import_table_enabled (afi, rib->table))
-    zebra_add_import_table_entry(rn, rib);
+    {
+      rmap_name = zebra_get_import_table_route_map (afi, rib->table);
+      zebra_add_import_table_entry(rn, rib, rmap_name);
+    }
   else
     if (process)
       rib_queue_add (rn);

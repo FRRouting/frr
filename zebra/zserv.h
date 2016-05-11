@@ -171,16 +171,4 @@ extern void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id)
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *, const u_char);
 extern int zebra_server_send_message(struct zserv *client);
 
-extern void zebra_route_map_write_delay_timer(struct vty *);
-extern route_map_result_t zebra_route_map_check (int family, int rib_type,
-						 struct prefix *p,
-						 struct nexthop *nexthop,
-                                                 vrf_id_t vrf_id,
-                                                 u_short tag);
-extern route_map_result_t zebra_nht_route_map_check (int family,
-						     int client_proto,
-						     struct prefix *p,
-						     struct rib *,
-						     struct nexthop *nexthop);
-
 #endif /* _ZEBRA_ZEBRA_H */

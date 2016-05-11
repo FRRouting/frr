@@ -51,16 +51,19 @@ extern void zebra_interface_address_delete_update (struct interface *,
 						   struct connected *c);
 extern void zebra_interface_vrf_update_del (struct interface *, vrf_id_t new_vrf_id);
 extern void zebra_interface_vrf_update_add (struct interface *, vrf_id_t old_vrf_id);
+
 extern int zebra_import_table (afi_t afi, u_int32_t table_id,
-			       u_int32_t metric, int add);
+			       u_int32_t distance, const char *rmap_name, int add);
 
 extern int zebra_add_import_table_entry (struct route_node *rn,
-					 struct rib *rib);
+					 struct rib *rib, const char *rmap_name);
 extern int zebra_del_import_table_entry (struct route_node *rn,
 					 struct rib *rib);
 extern int is_zebra_import_table_enabled(afi_t, u_int32_t table_id);
 
 extern int zebra_import_table_config(struct vty *);
+
+extern void zebra_import_table_rm_update(void);
 
 extern int is_default (struct prefix *);
 

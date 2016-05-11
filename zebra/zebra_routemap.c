@@ -32,6 +32,7 @@
 #include "vrf.h"
 
 #include "zebra/zserv.h"
+#include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
@@ -41,6 +42,7 @@ static struct thread *zebra_t_rmap_update = NULL;
 char *proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX+1];	/* "any" == ZEBRA_ROUTE_MAX */
 /* NH Tracking route map */
 char *nht_rm[AFI_MAX][ZEBRA_ROUTE_MAX+1];	/* "any" == ZEBRA_ROUTE_MAX */
+char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct nh_rmap_obj
 {
@@ -1610,6 +1612,7 @@ zebra_route_map_update_timer (struct thread *thread)
     zlog_debug ("%u: Routemap update-timer fired, scheduling RIB processing",
                 VRF_DEFAULT);
 
+  zebra_import_table_rm_update ();
   rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
   zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
   zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
@@ -1657,6 +1660,47 @@ zebra_route_map_check (int family, int rib_type, struct prefix *p,
     rmap = route_map_lookup_by_name (proto_rm[family][rib_type]);
   if (!rmap && proto_rm[family][ZEBRA_ROUTE_MAX])
     rmap = route_map_lookup_by_name (proto_rm[family][ZEBRA_ROUTE_MAX]);
+  if (rmap) {
+      ret = route_map_apply(rmap, p, RMAP_ZEBRA, &nh_obj);
+  }
+
+  return (ret);
+}
+
+char *
+zebra_get_import_table_route_map (afi_t afi, uint32_t table)
+{
+  return zebra_import_table_routemap[afi][table];
+}
+
+void
+zebra_add_import_table_route_map (afi_t afi, const char *rmap_name, uint32_t table)
+{
+  zebra_import_table_routemap[afi][table] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, rmap_name);
+}
+
+void
+zebra_del_import_table_route_map (afi_t afi, uint32_t table)
+{
+  XFREE (MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
+}
+
+route_map_result_t
+zebra_import_table_route_map_check (int family, int rib_type, struct prefix *p,
+                struct nexthop *nexthop, vrf_id_t vrf_id, u_short tag, const char *rmap_name)
+{
+  struct route_map *rmap = NULL;
+  route_map_result_t ret = RMAP_DENYMATCH;
+  struct nh_rmap_obj nh_obj;
+
+  nh_obj.nexthop = nexthop;
+  nh_obj.vrf_id = vrf_id;
+  nh_obj.source_protocol = rib_type;
+  nh_obj.metric = 0;
+  nh_obj.tag = tag;
+
+  if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX)
+    rmap = route_map_lookup_by_name (rmap_name);
   if (rmap) {
       ret = route_map_apply(rmap, p, RMAP_ZEBRA, &nh_obj);
   }
