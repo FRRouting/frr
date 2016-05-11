@@ -156,16 +156,21 @@ for my $daemon (sort keys %daemons) {
 		my ($names, $help) = collect($daemon, 1, 1, 0);
 		printf "#define QUAGGA_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define QUAGGA_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
+
 		($names, $help) = collect($daemon, 1, 0, 0);
 		printf "#define QUAGGA_IP_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define QUAGGA_IP_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
+
 		($names, $help) = collect($daemon, 0, 1, 0);
 		printf "#define QUAGGA_IP6_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define QUAGGA_IP6_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
-		($names, $help) = collect($daemon, 0, 1, 1);
+
 		if ($daemon eq "zebra") {
+			($names, $help) = collect($daemon, 1, 0, 1);
 			printf "#define QUAGGA_IP_PROTOCOL_MAP_STR_%s \\\n  %s\n", uc $daemon, $names;
 			printf "#define QUAGGA_IP_PROTOCOL_MAP_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
+
+			($names, $help) = collect($daemon, 0, 1, 1);
 			printf "#define QUAGGA_IP6_PROTOCOL_MAP_STR_%s \\\n  %s\n", uc $daemon, $names;
 			printf "#define QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
 		}
