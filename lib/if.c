@@ -1082,6 +1082,24 @@ connected_same_prefix (struct prefix *p1, struct prefix *p2)
 }
 
 struct connected *
+connected_lookup_prefix_exact (struct interface *ifp, struct prefix *p)
+{
+  struct listnode *node;
+  struct listnode *next;
+  struct connected *ifc;
+
+  for (node = listhead (ifp->connected); node; node = next)
+    {
+      ifc = listgetdata (node);
+      next = node->next;
+
+      if (connected_same_prefix (ifc->address, p))
+        return ifc;
+    }
+  return NULL;
+}
+
+struct connected *
 connected_delete_by_prefix (struct interface *ifp, struct prefix *p)
 {
   struct listnode *node;

@@ -1138,17 +1138,14 @@ zebra_interface_address_read (int type, struct stream *s, vrf_id_t vrf_id)
 
   if (type == ZEBRA_INTERFACE_ADDRESS_ADD) 
     {
-      /* We have situations where the address may be replayed more than once.
-       * Check and delete older matching address, first.
-       */
-      ifc = connected_delete_by_prefix(ifp, &p);
-      if (ifc)
-        connected_free (ifc);
-
-       /* N.B. NULL destination pointers are encoded as all zeroes */
-       ifc = connected_add_by_prefix(ifp, &p,(memconstant(&d.u.prefix,0,plen) ?
-					      NULL : &d));
-       if (ifc != NULL)
+      ifc = connected_lookup_prefix_exact (ifp, &p);
+      if (!ifc)
+        {
+          /* N.B. NULL destination pointers are encoded as all zeroes */
+          ifc = connected_add_by_prefix(ifp, &p, (memconstant(&d.u.prefix,0,plen) ?
+					         NULL : &d));
+        }
+       if (ifc)
 	 {
 	   ifc->flags = ifc_flags;
 	   if (ifc->destination)
