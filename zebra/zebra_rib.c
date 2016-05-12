@@ -1307,8 +1307,9 @@ rib_process_add_route (struct zebra_vrf *zvrf, struct route_node *rn,
       if (rib_install_kernel (rn, select, 0))
         {
           installed = 0;
-          zlog_debug ("%u:%s/%d: Route install failed",
-                       zvrf->vrf_id, buf, rn->p.prefixlen);
+          inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
+          zlog_warn ("%u:%s/%d: Route install failed",
+                     zvrf->vrf_id, buf, rn->p.prefixlen);
         }
     }
 
@@ -1393,8 +1394,9 @@ rib_process_update_route (struct zebra_vrf *zvrf, struct route_node *rn,
               if (rib_install_kernel (rn, select, 1))
                 {
                   installed = 0;
-                  zlog_debug ("%u:%s/%d: Route install failed",
-                               zvrf->vrf_id, buf, rn->p.prefixlen);
+                  inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
+                  zlog_warn ("%u:%s/%d: Route install failed",
+                             zvrf->vrf_id, buf, rn->p.prefixlen);
                 }
             }
 
