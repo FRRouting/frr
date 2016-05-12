@@ -259,18 +259,38 @@ zebra_deregister_rnh_static_nexthops (vrf_id_t vrf_id, struct nexthop *nexthop,
 
   for (nh = nexthop; nh ; nh = nh->next)
     {
-      if (nh->type == NEXTHOP_TYPE_IPV4)
-        {
+      switch (nh->type)
+      {
+        case NEXTHOP_TYPE_IPV4:
+        case NEXTHOP_TYPE_IPV4_IFINDEX:
           nh_p.family = AF_INET;
           nh_p.prefixlen = IPV4_MAX_BITLEN;
           nh_p.u.prefix4 = nh->gate.ipv4;
-        }
-      else if (nh->type == NEXTHOP_TYPE_IPV6)
-        {
+          break;
+        case NEXTHOP_TYPE_IPV6:
+        case NEXTHOP_TYPE_IPV6_IFINDEX:
           nh_p.family = AF_INET6;
           nh_p.prefixlen = IPV6_MAX_BITLEN;
           nh_p.u.prefix6 = nh->gate.ipv6;
-        }
+          break;
+        /*
+         * Not sure what really to do here, we are not
+         * supposed to have either of these for NHT
+         * and the code has no way to know what prefix
+         * to use.  So I'm going to just continue
+         * for the moment, which is preferable to
+         * what is currently happening which is a
+         * CRASH and BURN.
+         * Some simple testing shows that we
+         * are not leaving slag around for these
+         * skipped static routes.  Since
+         * they don't appear to be installed
+         */
+        case NEXTHOP_TYPE_IFINDEX:
+        case NEXTHOP_TYPE_BLACKHOLE:
+          continue;
+          break;
+      }
       zebra_deregister_rnh_static_nh(vrf_id, &nh_p, rn);
     }
 }
