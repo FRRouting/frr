@@ -2012,6 +2012,8 @@ bgp_zebra_instance_deregister (struct bgp *bgp)
 void
 bgp_zebra_initiate_radv (struct bgp *bgp, struct peer *peer)
 {
+  int ra_interval = BGP_UNNUM_DEFAULT_RA_INTERVAL;
+
   /* Don't try to initiate if we're not connected to Zebra */
   if (zclient->sock < 0)
     return;
@@ -2019,7 +2021,7 @@ bgp_zebra_initiate_radv (struct bgp *bgp, struct peer *peer)
   if (BGP_DEBUG (zebra, ZEBRA))
     zlog_debug("%u: Initiating RA for peer %s", bgp->vrf_id, peer->host);
 
-  zclient_send_interface_radv_req (zclient, bgp->vrf_id, peer->ifp, 1);
+  zclient_send_interface_radv_req (zclient, bgp->vrf_id, peer->ifp, 1, ra_interval);
 }
 
 void
@@ -2032,7 +2034,7 @@ bgp_zebra_terminate_radv (struct bgp *bgp, struct peer *peer)
   if (BGP_DEBUG (zebra, ZEBRA))
     zlog_debug("%u: Terminating RA for peer %s", bgp->vrf_id, peer->host);
 
-  zclient_send_interface_radv_req (zclient, bgp->vrf_id, peer->ifp, 0);
+  zclient_send_interface_radv_req (zclient, bgp->vrf_id, peer->ifp, 0, 0);
 }
 
 /* BGP has established connection with Zebra. */

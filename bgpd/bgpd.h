@@ -32,6 +32,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 
+/* Default interval for IPv6 RAs when triggered by BGP unnumbered neighbor. */
+#define BGP_UNNUM_DEFAULT_RA_INTERVAL 10
+
 struct update_subgroup;
 struct bpacket;
 

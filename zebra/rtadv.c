@@ -799,7 +799,8 @@ ipv6_nd_suppress_ra_set (struct interface *ifp, ipv6_nd_suppress_ra_status statu
  * Handle client (BGP) message to enable or disable IPv6 RA on an interface.
  * Note that while the client could request RA on an interface on which the
  * operator has not enabled RA, RA won't be disabled upon client request
- * if the operator has explicitly enabled RA.
+ * if the operator has explicitly enabled RA. The enable request can also
+ * specify a RA interval (in seconds).
  */
 void
 zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
@@ -809,16 +810,18 @@ zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
   unsigned int ifindex;
   struct interface *ifp;
   struct zebra_if *zif;
+  int ra_interval;
 
   s = client->ibuf;
 
-  /* Get interface index. */
+  /* Get interface index and RA interval. */
   ifindex = stream_getl (s);
+  ra_interval = stream_getl (s);
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug("%u: IF %u RA %s from client %s",
+    zlog_debug("%u: IF %u RA %s from client %s, interval %ds",
                zvrf->vrf_id, ifindex, enable ? "enable" : "disable",
-               zebra_route_string(client->proto));
+               zebra_route_string(client->proto), ra_interval);
 
   /* Locate interface and check VRF match. */
   ifp = if_lookup_by_index_per_ns (zebra_ns_lookup (NS_DEFAULT), ifindex);
@@ -839,11 +842,19 @@ zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
 
   zif = ifp->info;
   if (enable)
-    ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+    {
+      ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
+      if (ra_interval &&
+          (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval)
+        zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
+    }
   else
     {
       if (!zif->rtadv.configured)
-        ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
+        {
+          zif->rtadv.MaxRtrAdvInterval = RTADV_MAX_RTR_ADV_INTERVAL;
+          ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
+        }
     }
 }
 

@@ -484,7 +484,7 @@ zclient_send_dereg_requests (struct zclient *zclient, vrf_id_t vrf_id)
 /* Send request to zebra daemon to start or stop RA. */
 void
 zclient_send_interface_radv_req (struct zclient *zclient, vrf_id_t vrf_id,
-                                 struct interface *ifp, int enable)
+                                 struct interface *ifp, int enable, int ra_interval)
 {
   struct stream *s;
 
@@ -506,6 +506,7 @@ zclient_send_interface_radv_req (struct zclient *zclient, vrf_id_t vrf_id,
     zclient_create_header (s, ZEBRA_INTERFACE_DISABLE_RADV, vrf_id);
 
   stream_putl (s, ifp->ifindex);
+  stream_putl (s, ra_interval);
 
   stream_putw_at (s, 0, stream_get_endp (s));
 
