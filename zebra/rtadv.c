@@ -448,6 +448,7 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
   struct nd_router_advert *radvert;
   char addr_str[INET6_ADDRSTRLEN];
   struct zebra_if *zif;
+  struct prefix p;
 
   zif = ifp->info;
 
@@ -501,15 +502,13 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
                 ifp->name, ifp->ifindex, addr_str);
     }
 
-  /* Currently supporting only P2P links, so any new RA source address is
-     considered as the replacement of the previously learnt Link-Local address.
-     As per the RFC, lifetime zero is to be considered a delete */
-  if (ntohs(radvert->nd_ra_router_lifetime))
-     nbr_connected_replacement_add_ipv6(ifp, &addr->sin6_addr, 128);
-  else
-     nbr_connected_delete_ipv6(ifp, &addr->sin6_addr, 128);
+  /* Create entry for neighbor if not known. */
+  p.family = AF_INET6;
+  IPV6_ADDR_COPY (&p.u.prefix, &addr->sin6_addr);
+  p.prefixlen = IPV6_MAX_PREFIXLEN;
 
-  return;
+  if (!nbr_connected_check(ifp, &p))
+    nbr_connected_add_ipv6 (ifp, &addr->sin6_addr);
 }
 
 
