@@ -3471,7 +3471,7 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
       /* Show write multiplier values */
       json_object_int_add(json, "writeMultiplier", ospf->write_oi_count);
       /* Show refresh parameters. */
-      json_object_int_add(json, "refreshTimerMsecs", ospf->lsa_refresh_interval / 1000);
+      json_object_int_add(json, "refreshTimerMsecs", ospf->lsa_refresh_interval * 1000);
     }
   else
     {
