@@ -189,14 +189,8 @@ rtadv_send_packet (int sock, struct interface *ifp)
   rtadv->nd_ra_curhoplimit = 64;
 
   /* RFC4191: Default Router Preference is 0 if Router Lifetime is 0. */
-#if defined(HAVE_CUMULUS)
-  /* Uninitialized (default) lifetime means 0. */
-  rtadv->nd_ra_flags_reserved =
-    zif->rtadv.AdvDefaultLifetime <= 0 ? 0 : zif->rtadv.DefaultPreference;
-#else
   rtadv->nd_ra_flags_reserved =
     zif->rtadv.AdvDefaultLifetime == 0 ? 0 : zif->rtadv.DefaultPreference;
-#endif
   rtadv->nd_ra_flags_reserved <<= 3;
 
   if (zif->rtadv.AdvManagedFlag)
@@ -213,15 +207,9 @@ rtadv_send_packet (int sock, struct interface *ifp)
    * value for this field.  To prevent this, routers SHOULD keep
    * AdvDefaultLifetime in at least one second, even if the use of
    * MaxRtrAdvInterval would result in a smaller value. -- RFC6275, 7.5 */
-#if defined(HAVE_CUMULUS)
-  /* Uninitialized (default) lifetime means 0. */
-  pkt_RouterLifetime = zif->rtadv.AdvDefaultLifetime != -1 ?
-    zif->rtadv.AdvDefaultLifetime : 0;
-#else
   pkt_RouterLifetime = zif->rtadv.AdvDefaultLifetime != -1 ?
     zif->rtadv.AdvDefaultLifetime :
     MAX (1, 0.003 * zif->rtadv.MaxRtrAdvInterval);
-#endif
   rtadv->nd_ra_router_lifetime = htons (pkt_RouterLifetime);
   rtadv->nd_ra_reachable = htonl (zif->rtadv.AdvReachableTime);
   rtadv->nd_ra_retransmit = htonl (0);
@@ -460,7 +448,6 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
   struct nd_router_advert *radvert;
   char addr_str[INET6_ADDRSTRLEN];
   struct zebra_if *zif;
-  struct prefix p;
 
   zif = ifp->info;
 
@@ -514,13 +501,15 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
                 ifp->name, ifp->ifindex, addr_str);
     }
 
-  /* Create entry for neighbor if not known. */
-  p.family = AF_INET6;
-  IPV6_ADDR_COPY (&p.u.prefix, &addr->sin6_addr);
-  p.prefixlen = IPV6_MAX_PREFIXLEN;
+  /* Currently supporting only P2P links, so any new RA source address is
+     considered as the replacement of the previously learnt Link-Local address.
+     As per the RFC, lifetime zero is to be considered a delete */
+  if (ntohs(radvert->nd_ra_router_lifetime))
+     nbr_connected_replacement_add_ipv6(ifp, &addr->sin6_addr, 128);
+  else
+     nbr_connected_delete_ipv6(ifp, &addr->sin6_addr, 128);
 
-  if (!nbr_connected_check(ifp, &p))
-    nbr_connected_add_ipv6 (ifp, &addr->sin6_addr);
+  return;
 }
 
 
