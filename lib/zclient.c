@@ -974,6 +974,14 @@ zclient_vrf_delete (struct stream *s, vrf_id_t vrf_id)
   /* Lookup vrf by vrf_id. */
   vrf = vrf_lookup (vrf_id);
 
+  /*
+   * If a routing protocol doesn't know about a
+   * vrf that is about to be deleted.  There is
+   * no point in attempting to delete it.
+   */
+  if (!vrf)
+    return;
+
   vrf_delete (vrf);
 }
 
