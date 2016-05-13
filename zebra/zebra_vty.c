@@ -2649,7 +2649,8 @@ vty_show_ip_route_summary (struct vty *vty, struct route_table *table)
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     {
-      if (rib_cnt[i] > 0)
+      if ((rib_cnt[i] > 0) ||
+	  (i == ZEBRA_ROUTE_BGP && rib_cnt[ZEBRA_ROUTE_IBGP] > 0))
         {
           if (i == ZEBRA_ROUTE_BGP)
             {
