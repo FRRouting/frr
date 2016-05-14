@@ -3144,9 +3144,6 @@ bgp_free (struct bgp *bgp)
       bgp->peerhash = NULL;
     }
 
-  if (bgp->name)
-    XFREE(MTYPE_BGP, bgp->name);
-  
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
@@ -3163,6 +3160,9 @@ bgp_free (struct bgp *bgp)
   if (vrf)
     bgp_vrf_unlink (bgp, vrf);
 
+  if (bgp->name)
+    XFREE(MTYPE_BGP, bgp->name);
+  
   XFREE (MTYPE_BGP, bgp);
 }
 
