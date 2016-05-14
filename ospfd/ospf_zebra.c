@@ -1264,8 +1264,8 @@ ospf_distribute_list_update (struct ospf *ospf, uintptr_t type,
 
   /* Set timer. */
   ospf->t_distribute_update =
-    thread_add_timer (master, ospf_distribute_list_update_timer,
-                      (void *) type, ospf->min_ls_interval);
+    thread_add_timer_msec (master, ospf_distribute_list_update_timer,
+                           (void *) type, ospf->min_ls_interval);
 }
 
 /* If access-list is updated, apply some check. */
