@@ -3038,7 +3038,6 @@ bgp_delete (struct bgp *bgp)
   struct peer *peer;
   struct peer_group *group;
   struct listnode *node, *next;
-  struct vrf *vrf;
   afi_t afi;
   int i;
 
@@ -3107,11 +3106,6 @@ bgp_delete (struct bgp *bgp)
   /* Free interfaces in this instance. */
   bgp_if_finish (bgp);
 
-  /* If Default instance or VRF, unlink from the VRF structure. */
-  vrf = bgp_vrf_lookup_by_instance_type (bgp);
-  if (vrf)
-    bgp_vrf_unlink (bgp, vrf);
-
   thread_master_free_unused(bm->master);
   bgp_unlock(bgp);  /* initial reference */
 
@@ -3139,6 +3133,7 @@ bgp_free (struct bgp *bgp)
 {
   afi_t afi;
   safi_t safi;
+  struct vrf *vrf;
 
   list_delete (bgp->group);
   list_delete (bgp->peer);
@@ -3162,6 +3157,12 @@ bgp_free (struct bgp *bgp)
 	if (bgp->rib[afi][safi])
           bgp_table_finish (&bgp->rib[afi][safi]);
       }
+
+  /* If Default instance or VRF, unlink from the VRF structure. */
+  vrf = bgp_vrf_lookup_by_instance_type (bgp);
+  if (vrf)
+    bgp_vrf_unlink (bgp, vrf);
+
   XFREE (MTYPE_BGP, bgp);
 }
 
