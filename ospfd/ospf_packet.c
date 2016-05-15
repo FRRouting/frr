@@ -4022,7 +4022,7 @@ ospf_proactively_arp (struct ospf_neighbor *nbr)
     char *str_ptr;
     int  ret;
 
-    if (!nbr || !nbr->oi || !nbr->oi->ifp || !nbr->oi->ifp->name)
+    if (!nbr || !nbr->oi || !nbr->oi->ifp)
        return;
 
     str_ptr = strcpy (ping_nbr, "ping -c 1 -I ");

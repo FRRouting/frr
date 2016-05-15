@@ -361,7 +361,7 @@ DEFUN (ospf_passive_interface,
        "Interface's name\n")
 {
   struct interface *ifp;
-  struct in_addr addr;
+  struct in_addr addr = { .s_addr = INADDR_ANY };
   int ret;
   struct ospf_if_params *params;
   struct route_node *rn;
@@ -440,7 +440,7 @@ DEFUN (no_ospf_passive_interface,
        "Interface's name\n")
 {
   struct interface *ifp;
-  struct in_addr addr;
+  struct in_addr addr = { .s_addr = INADDR_ANY };
   struct ospf_if_params *params;
   int ret;
   struct route_node *rn;
