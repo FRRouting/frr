@@ -377,14 +377,8 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
   dyn = dynhn_find_by_id (adj->sysid);
   if (dyn)
     vty_out (vty, "  %-20s", dyn->name.name);
-  else if (adj->sysid)
-    {
-      vty_out (vty, "  %-20s", sysid_print (adj->sysid));
-    }
   else
-    {
-      vty_out (vty, "  unknown ");
-    }
+    vty_out (vty, "  %-20s", sysid_print (adj->sysid));
 
   if (detail == ISIS_UI_LEVEL_BRIEF)
     {
