@@ -74,7 +74,6 @@ static const struct message attr_flag_str[] =
   /* bgp_attr_flags_diagnose() relies on this bit being last in this list */
   { BGP_ATTR_FLAG_EXTLEN,   "Extended Length" },
 };
-static const size_t attr_flag_str_max = array_size(attr_flag_str);
 
 static struct hash *cluster_hash;
 
