@@ -25,28 +25,11 @@
 
 #include "privs.h"
 
-#if 0
-union sockunion {
-  struct sockinet {
-    u_char si_len;
-    u_char si_family;
-    u_short si_port;
-  } su_si;
-  struct sockaddr_in  su_sin;
-  struct sockaddr_in6 su_sin6;
-};
-#define su_len                su_si.si_len
-#define su_family     su_si.si_family
-#define su_port               su_si.si_port
-#endif /* 0 */
-
 union sockunion 
 {
   struct sockaddr sa;
   struct sockaddr_in sin;
-#ifdef HAVE_IPV6
   struct sockaddr_in6 sin6;
-#endif /* HAVE_IPV6 */
 };
 
 enum connect_result
