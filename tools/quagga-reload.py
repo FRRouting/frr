@@ -487,7 +487,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 swpx_peergroup = "neighbor %s peer-group %s" % (swpx, peergroup)
                 found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
                 found_add_swpx_peergroup = line_exist(lines_to_add, ctx_keys, swpx_peergroup)
-                tmp_ctx_keys = list(ctx_keys)
+                tmp_ctx_keys = tuple(list(ctx_keys))
 
                 if not found_add_swpx_peergroup:
                     tmp_ctx_keys = list(ctx_keys)
