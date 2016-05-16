@@ -768,11 +768,11 @@ vtysh_rl_describe (void)
   if (vline == NULL)
     {
       vline = vector_init (1);
-      vector_set (vline, '\0');
+      vector_set (vline, NULL);
     }
   else 
     if (rl_end && isspace ((int) rl_line_buffer[rl_end - 1]))
-      vector_set (vline, '\0');
+      vector_set (vline, NULL);
 
   describe = cmd_describe_command (vline, vty, &ret);
 
@@ -862,7 +862,7 @@ command_generator (const char *text, int state)
 	return NULL;
 
       if (rl_end && isspace ((int) rl_line_buffer[rl_end - 1]))
-	vector_set (vline, '\0');
+	vector_set (vline, NULL);
 
       matched = cmd_complete_command (vline, vty, &complete_status);
     }
@@ -890,34 +890,6 @@ new_completion (char *text, int start, int end)
 
   return matches;
 }
-
-#if 0
-/* This function is not actually being used. */
-static char **
-vtysh_completion (char *text, int start, int end)
-{
-  int ret;
-  vector vline;
-  char **matched = NULL;
-
-  if (vty->node == AUTH_NODE || vty->node == AUTH_ENABLE_NODE)
-    return NULL;
-
-  vline = cmd_make_strvec (rl_line_buffer);
-  if (vline == NULL)
-    return NULL;
-
-  /* In case of 'help \t'. */
-  if (rl_end && isspace ((int) rl_line_buffer[rl_end - 1]))
-    vector_set (vline, '\0');
-
-  matched = cmd_complete_command (vline, vty, &ret);
-
-  cmd_free_strvec (vline);
-
-  return (char **) matched;
-}
-#endif
 
 /* Vty node structures. */
 static struct cmd_node bgp_node =
