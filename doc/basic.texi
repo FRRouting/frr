@@ -185,6 +185,13 @@ In this example, the precision is set to provide timestamps with
 millisecond accuracy.
 @end deffn
 
+@deffn Command {log commands} {}
+This command enables the logging of all commands typed by a user to
+all enabled log destinations.  The note that logging includes full
+command lines, including passwords.  Once set, command logging can only
+be turned off by restarting the daemon.
+@end deffn  
+
 @deffn Command {service password-encryption} {}
 Encrypt password.
 @end deffn
