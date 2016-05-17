@@ -1673,6 +1673,31 @@ DEFUN (no_bgp_graceful_restart_restart_time,
   return CMD_SUCCESS;
 }
 
+DEFUN (bgp_graceful_restart_preserve_fw,
+       bgp_graceful_restart_preserve_fw_cmd,
+       "bgp graceful-restart preserve-fw-state",
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n"
+       "Sets F-bit indication that fib is preserved while doing Graceful Restart\n")
+{
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+  bgp_flag_set(bgp, BGP_FLAG_GR_PRESERVE_FWD);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_graceful_restart_preserve_fw,
+       no_bgp_graceful_restart_preserve_fw_cmd,
+       "no bgp graceful-restart preserve-fw-state",
+       NO_STR
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n"
+       "Unsets F-bit indication that fib is preserved while doing Graceful Restart\n")
+{
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+  bgp_flag_unset(bgp, BGP_FLAG_GR_PRESERVE_FWD);
+  return CMD_SUCCESS;
+}
+
 /* "bgp fast-external-failover" configuration. */
 DEFUN (bgp_fast_external_failover,
        bgp_fast_external_failover_cmd,
@@ -9852,6 +9877,9 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_graceful_restart_restart_time_cmd);
   install_element (BGP_NODE, &no_bgp_graceful_restart_restart_time_cmd);
 
+  install_element (BGP_NODE, &bgp_graceful_restart_preserve_fw_cmd);
+  install_element (BGP_NODE, &no_bgp_graceful_restart_preserve_fw_cmd);
+ 
   /* "bgp fast-external-failover" commands */
   install_element (BGP_NODE, &bgp_fast_external_failover_cmd);
   install_element (BGP_NODE, &no_bgp_fast_external_failover_cmd);
