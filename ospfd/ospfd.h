@@ -284,7 +284,7 @@ struct ospf
 
 #define OSPF_LSA_REFRESHER_GRANULARITY 10
 #define OSPF_LSA_REFRESHER_SLOTS ((OSPF_LS_REFRESH_TIME + \
-                                  OSPF_LS_REFRESH_SHIFT)/10 + 1)
+                                  OSPF_LS_REFRESH_SHIFT)/OSPF_LSA_REFRESHER_GRANULARITY + 1)
   struct
   {
     u_int16_t index;

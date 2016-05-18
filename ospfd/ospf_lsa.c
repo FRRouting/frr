@@ -3729,18 +3729,14 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
   if (lsa->refresh_list < 0)
     {
       int delay;
+      int min_delay = OSPF_LS_REFRESH_TIME - (2 * OSPF_LS_REFRESH_JITTER);
+      int max_delay = OSPF_LS_REFRESH_TIME - OSPF_LS_REFRESH_JITTER;
 
-      if (LS_AGE (lsa) == 0 &&
-	  ntohl (lsa->data->ls_seqnum) == OSPF_INITIAL_SEQUENCE_NUMBER)
-	/* Randomize first update by  OSPF_LS_REFRESH_SHIFT factor */ 
-	delay = OSPF_LS_REFRESH_SHIFT + (random () % OSPF_LS_REFRESH_TIME);
-      else
-	/* Randomize another updates by +-OSPF_LS_REFRESH_JITTER factor */
-	delay = OSPF_LS_REFRESH_TIME - LS_AGE (lsa) - OSPF_LS_REFRESH_JITTER
-	  + (random () % (2*OSPF_LS_REFRESH_JITTER)); 
-
-      if (delay < 0)
-	delay = 0;
+      /* We want to refresh the LSA within OSPF_LS_REFRESH_TIME which is
+       * 1800s. Use jitter so that we send the LSA sometime between 1680s
+       * and 1740s.
+       */
+      delay = (random() % (max_delay - min_delay)) + min_delay;
 
       current_index = ospf->lsa_refresh_queue.index + (quagga_time (NULL)
                 - ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER_GRANULARITY;
@@ -3749,17 +3745,20 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
 	      % (OSPF_LSA_REFRESHER_SLOTS);
 
       if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
-	zlog_debug ("LSA[Refresh]: lsa %s with age %d added to index %d",
-		   inet_ntoa (lsa->data->id), LS_AGE (lsa), index);
+	zlog_debug ("LSA[Refresh:Type%d:%s]: age %d, added to index %d",
+		    lsa->data->type, inet_ntoa (lsa->data->id), LS_AGE (lsa), index);
+
       if (!ospf->lsa_refresh_queue.qs[index])
 	ospf->lsa_refresh_queue.qs[index] = list_new ();
+
       listnode_add (ospf->lsa_refresh_queue.qs[index],
                     ospf_lsa_lock (lsa)); /* lsa_refresh_queue */
       lsa->refresh_list = index;
+
       if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
-        zlog_debug ("LSA[Refresh:%s]: ospf_refresher_register_lsa(): "
-                   "setting refresh_list on lsa %p (slod %d)", 
-                   inet_ntoa (lsa->data->id), lsa, index);
+        zlog_debug ("LSA[Refresh:Type%d:%s]: ospf_refresher_register_lsa() "
+                   "setting refresh_list on lsa %p (slot %d)",
+                   lsa->data->type, inet_ntoa (lsa->data->id), lsa, index);
     }
 }
 
@@ -3793,7 +3792,7 @@ ospf_lsa_refresh_walker (struct thread *t)
   struct list *lsa_to_refresh = list_new ();
 
   if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
-    zlog_debug ("LSA[Refresh]:ospf_lsa_refresh_walker(): start");
+    zlog_debug ("LSA[Refresh]: ospf_lsa_refresh_walker(): start");
 
   
   i = ospf->lsa_refresh_queue.index;
@@ -3829,9 +3828,9 @@ ospf_lsa_refresh_walker (struct thread *t)
 	  for (ALL_LIST_ELEMENTS (refresh_list, node, nnode, lsa))
 	    {
 	      if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
-		zlog_debug ("LSA[Refresh:%s]: ospf_lsa_refresh_walker(): "
+		zlog_debug ("LSA[Refresh:Type%d:%s]: ospf_lsa_refresh_walker(): "
 		           "refresh lsa %p (slot %d)", 
-		           inet_ntoa (lsa->data->id), lsa, i);
+		           lsa->data->type, inet_ntoa (lsa->data->id), lsa, i);
 	      
 	      assert (lsa->lock > 0);
 	      list_delete_node (refresh_list, node);

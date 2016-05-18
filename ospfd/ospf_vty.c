@@ -2838,7 +2838,7 @@ DEFUN (ospf_refresh_timer, ospf_refresh_timer_cmd,
     return CMD_SUCCESS;
 
   VTY_GET_INTEGER_RANGE ("refresh timer", interval, argv[0], 10, 1800);
-  interval = (interval / 10) * 10;
+  interval = (interval / OSPF_LSA_REFRESHER_GRANULARITY) * OSPF_LSA_REFRESHER_GRANULARITY;
 
   ospf_timers_refresh_set (ospf, interval);
 
