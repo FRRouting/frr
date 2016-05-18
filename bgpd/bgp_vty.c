@@ -10948,7 +10948,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
 }
 
 static void
-bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *json, json_object *json_neigh)
+bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *json)
 {
   struct bgp *bgp;
   char buf1[PREFIX2STR_BUFFER], buf[SU_ADDRSTRLEN];
@@ -10960,8 +10960,12 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
   safi_t safi;
   u_int16_t i;
   u_char *msg;
+  json_object *json_neigh = NULL;
 
   bgp = p->bgp;
+
+  if (use_json)
+    json_neigh = json_object_new_object();
 
   if (!use_json)
     {
@@ -11909,7 +11913,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
         {
           if (use_json)
             {
-              json_object_string_add(json_hold, "reducePrefixNumFrom", p->host);
+              json_object_boolean_true_add(json_hold, "reducePrefixNumFrom");
               json_object_int_add(json_hold, "restartInTimerMsec", thread_timer_remain_second (p->t_pmax_restart) * 1000);
             }
           else
@@ -11920,7 +11924,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
       else
         {
           if (use_json)
-            json_object_string_add(json_hold, "reducePrefixNumAndClearIpBgp", p->host);
+            json_object_boolean_true_add(json_hold, "reducePrefixNumAndClearIpBgp");
           else
             vty_out (vty, "  Reduce the no. of prefix and clear ip bgp %s to restore peering%s",
 	             p->host, VTY_NEWLINE);
@@ -12093,10 +12097,6 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
   struct listnode *node, *nnode;
   struct peer *peer;
   int find = 0;
-  json_object *json_neigh = NULL;
-
-  if (use_json)
-    json_neigh = json_object_new_object();
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
@@ -12106,7 +12106,7 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
       switch (type)
         {
           case show_all:
-            bgp_show_peer (vty, peer, use_json, json, json_neigh);
+            bgp_show_peer (vty, peer, use_json, json);
           break;
           case show_peer:
             if (conf_if)
@@ -12115,7 +12115,7 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
                     (peer->hostname && !strcmp(peer->hostname, conf_if)))
                   {
                     find = 1;
-                    bgp_show_peer (vty, peer, use_json, json, json_neigh);
+                    bgp_show_peer (vty, peer, use_json, json);
                   }
               }
             else
@@ -12123,7 +12123,7 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
                if (sockunion_same (&peer->su, su))
                  {
                    find = 1;
-                   bgp_show_peer (vty, peer, use_json, json, json_neigh);
+                   bgp_show_peer (vty, peer, use_json, json);
                  }
               }
           break;
