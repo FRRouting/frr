@@ -163,13 +163,23 @@ route_map_add (const char *name)
   /* Add map to the hash */
   hash_get(route_map_master_hash, map, hash_alloc_intern);
 
-  map->next = NULL;
-  map->prev = list->tail;
-  if (list->tail)
-    list->tail->next = map;
-  else
-    list->head = map;
-  list->tail = map;
+  /* Add new entry to the head of the list to match how it is added in the
+   * hash table. This is to ensure that if the same route-map has been
+   * created more than once and then marked for deletion (which can happen
+   * if prior deletions haven't completed as BGP hasn't yet done the
+   * route-map processing), the order of the entities is the same in both
+   * the list and the hash table. Otherwise, since there is nothing to
+   * distinguish between the two entries, the wrong entry could get freed.
+   * TODO: This needs to be re-examined to handle it better - e.g., revive
+   * a deleted entry if the route-map is created again.
+   */
+  map->prev = NULL;
+  map->next = list->head;
+  if (list->head)
+    list->head->prev = map;
+  list->head = map;
+  if (!list->tail)
+    list->tail = map;
 
   /* Execute hook. */
   if (route_map_master.add_hook)
