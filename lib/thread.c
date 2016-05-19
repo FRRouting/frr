@@ -1046,7 +1046,7 @@ funcname_thread_add_event (struct thread_master *m,
 }
 
 static void
-thread_cancel_read_write (struct thread *thread)
+thread_cancel_read_or_write (struct thread *thread, short int state)
 {
 #if defined(HAVE_POLL)
   nfds_t i;
@@ -1054,12 +1054,17 @@ thread_cancel_read_write (struct thread *thread)
   for (i=0;i<thread->master->handler.pfdcount;++i)
     if (thread->master->handler.pfds[i].fd == thread->u.fd)
       {
+        thread->master->handler.pfds[i].events &= ~(state);
+
         /* remove thread fds from pfd list */
-        memmove(thread->master->handler.pfds+i,
-                thread->master->handler.pfds+i+1,
-                (thread->master->handler.pfdsize-i-1) * sizeof(struct pollfd));
-        i--;
-        thread->master->handler.pfdcount--;
+        if (thread->master->handler.pfds[i].events == 0)
+          {
+            memmove(thread->master->handler.pfds+i,
+                    thread->master->handler.pfds+i+1,
+                    (thread->master->handler.pfdsize-i-1) * sizeof(struct pollfd));
+            thread->master->handler.pfdcount--;
+            return;
+          }
       }
 #endif
 
@@ -1077,11 +1082,19 @@ thread_cancel (struct thread *thread)
   switch (thread->type)
     {
     case THREAD_READ:
-      thread_cancel_read_write (thread);
+#if defined (HAVE_POLL)
+      thread_cancel_read_or_write (thread, POLLIN | POLLHUP);
+#else
+      thread_cancel_read_or_write (thread, 0);
+#endif
       thread_array = thread->master->read;
       break;
     case THREAD_WRITE:
-      thread_cancel_read_write (thread);
+#if defined (HAVE_POLL)
+      thread_cancel_read_or_write (thread, POLLOUT | POLLHUP);
+#else
+      thread_cancel_read_or_write (thread, 0);
+#endif
       thread_array = thread->master->write;
       break;
     case THREAD_TIMER:
@@ -1254,16 +1267,6 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
         continue;
 
       ready++;
-      /* remove fd from list on POLLNVAL */
-      if (m->handler.pfds[i].revents & POLLNVAL)
-        {
-           memmove(m->handler.pfds+i,
-                   m->handler.pfds+i+1,
-                   (m->handler.pfdsize-i-1) * sizeof(struct pollfd));
-           m->handler.pfdcount--;
-           i--;
-           continue;
-        }
 
       /* POLLIN / POLLOUT process event */
       if (m->handler.pfds[i].revents & POLLIN)
@@ -1271,8 +1274,9 @@ check_pollfds(struct thread_master *m, fd_set *readfd, int num)
       if (m->handler.pfds[i].revents & POLLOUT)
         thread_process_fds_helper(m, m->write[m->handler.pfds[i].fd], NULL, POLLOUT, i);
 
-      /* remove fd from list on POLLHUP after other event is processed */
-      if (m->handler.pfds[i].revents & POLLHUP)
+      /* remove fd from list on POLLNVAL */
+      if (m->handler.pfds[i].revents & POLLNVAL ||
+          m->handler.pfds[i].revents & POLLHUP)
         {
            memmove(m->handler.pfds+i,
                    m->handler.pfds+i+1,
