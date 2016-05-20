@@ -267,7 +267,7 @@ csv_encode_record (csv_t *csv,
   va_list list;
   char *str;
   char *col;
-  csv_field_t *fld;
+  csv_field_t *fld = NULL;
   int i;
 
   va_start(list, count);
