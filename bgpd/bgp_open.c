@@ -1537,7 +1537,10 @@ bgp_open_capability (struct stream *s, struct peer *peer)
             {
               stream_putw (s, afi);
               stream_putc (s, (safi == SAFI_MPLS_VPN) ? SAFI_MPLS_LABELED_VPN : safi);
-              stream_putc (s, 0); //Forwarding is not retained as of now.
+              if (bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD))
+                stream_putc (s, RESTART_F_BIT);
+              else
+                stream_putc (s, 0);
             }
     }
 
