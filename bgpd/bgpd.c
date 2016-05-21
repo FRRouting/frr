@@ -2199,6 +2199,8 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer)
 	}
       peer->update_if = XSTRDUP (MTYPE_PEER_UPDATE_SOURCE, conf->update_if);
     }
+
+  bgp_bfd_peer_group2peer_copy(conf, peer);
 }
 
 static void
@@ -2343,8 +2345,6 @@ peer_group2peer_config_copy_af (struct peer_group *group, struct peer *peer,
       pfilter->usmap.name = NULL;
       pfilter->usmap.map = NULL;
     }
-
-  bgp_bfd_peer_group2peer_copy(conf, peer);
 } 
 
 /* Peer group's remote AS configuration.  */
