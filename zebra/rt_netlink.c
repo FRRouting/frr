@@ -327,6 +327,12 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
             break;
           zlog (NULL, LOG_ERR, "%s recvmsg overrun: %s",
 	  	nl->name, safe_strerror(errno));
+          /*
+           *  In this case we are screwed.
+           *  There is no good way to
+           *  recover zebra at this point.
+           */
+          exit (-1);
           continue;
         }
 
