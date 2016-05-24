@@ -1816,6 +1816,26 @@ DEFUN (bgp_graceful_restart_stalepath_time,
   return CMD_SUCCESS;
 }
 
+DEFUN (bgp_graceful_restart_restart_time,
+       bgp_graceful_restart_restart_time_cmd,
+       "bgp graceful-restart restart-time <1-3600>",
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n"
+       "Set the time to wait to delete stale routes before a BGP open message is received\n"
+       "Delay value (seconds)\n")
+{
+  struct bgp *bgp;
+  u_int32_t restart;
+
+  bgp = vty->index;
+  if (! bgp)
+    return CMD_WARNING;
+
+  VTY_GET_INTEGER_RANGE ("restart-time", restart, argv[0], 1, 3600);
+  bgp->restart_time = restart;
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_bgp_graceful_restart_stalepath_time,
        no_bgp_graceful_restart_stalepath_time_cmd,
        "no bgp graceful-restart stalepath-time",
@@ -1834,6 +1854,24 @@ DEFUN (no_bgp_graceful_restart_stalepath_time,
   return CMD_SUCCESS;
 }
 
+DEFUN (no_bgp_graceful_restart_restart_time,
+       no_bgp_graceful_restart_restart_time_cmd,
+       "no bgp graceful-restart restart-time",
+       NO_STR
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n"
+       "Set the time to wait to delete stale routes before a BGP open message is received\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  if (! bgp)
+    return CMD_WARNING;
+
+  bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
+  return CMD_SUCCESS;
+}
+
 ALIAS (no_bgp_graceful_restart_stalepath_time,
        no_bgp_graceful_restart_stalepath_time_val_cmd,
        "no bgp graceful-restart stalepath-time <1-3600>",
@@ -1841,6 +1879,15 @@ ALIAS (no_bgp_graceful_restart_stalepath_time,
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
        "Set the max time to hold onto restarting peer's stale paths\n"
+       "Delay value (seconds)\n")
+
+ALIAS (no_bgp_graceful_restart_restart_time,
+       no_bgp_graceful_restart_restart_time_val_cmd,
+       "no bgp graceful-restart restart-time <1-3600>",
+       NO_STR
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n"
+       "Set the time to wait to delete stale routes before a BGP open message is received\n"
        "Delay value (seconds)\n")
 
 /* "bgp fast-external-failover" configuration. */
@@ -14532,6 +14579,9 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_graceful_restart_stalepath_time_cmd);
   install_element (BGP_NODE, &no_bgp_graceful_restart_stalepath_time_cmd);
   install_element (BGP_NODE, &no_bgp_graceful_restart_stalepath_time_val_cmd);
+  install_element (BGP_NODE, &bgp_graceful_restart_restart_time_cmd);
+  install_element (BGP_NODE, &no_bgp_graceful_restart_restart_time_cmd);
+  install_element (BGP_NODE, &no_bgp_graceful_restart_restart_time_val_cmd);
  
   /* "bgp fast-external-failover" commands */
   install_element (BGP_NODE, &bgp_fast_external_failover_cmd);

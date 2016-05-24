@@ -7221,6 +7221,9 @@ bgp_config_write (struct vty *vty)
       if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
 	vty_out (vty, " bgp graceful-restart stalepath-time %d%s",
 		 bgp->stalepath_time, VTY_NEWLINE);
+      if (bgp->restart_time != BGP_DEFAULT_RESTART_TIME)
+	vty_out (vty, " bgp graceful-restart restart-time %d%s",
+		 bgp->restart_time, VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_GRACEFUL_RESTART))
        vty_out (vty, " bgp graceful-restart%s", VTY_NEWLINE);
 
