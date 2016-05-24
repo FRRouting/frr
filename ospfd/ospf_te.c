@@ -1179,7 +1179,7 @@ build_link_tlv (struct stream *s, struct mpls_te_link *lp)
   build_link_subtlv (s, &lp->pkt_loss.header);
   build_link_subtlv (s, &lp->res_bw.header);
   build_link_subtlv (s, &lp->ava_bw.header);
-  build_link_subtlv (s, &lp->res_bw.header);
+  build_link_subtlv (s, &lp->use_bw.header);
 
   return;
 }
