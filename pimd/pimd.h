@@ -72,7 +72,7 @@ const char *const PIM_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS;
 
-struct thread_master     *master;
+extern struct thread_master     *master;
 uint32_t                  qpim_debugs;
 int                       qpim_mroute_socket_fd;
 int64_t                   qpim_mroute_socket_creation; /* timestamp of creation */

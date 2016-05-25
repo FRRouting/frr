@@ -70,7 +70,7 @@ static void zclient_broken(struct zclient *zclient)
 
 /* Router-id update message from zebra. */
 static int pim_router_id_update_zebra(int command, struct zclient *zclient,
-				      zebra_size_t length)
+				      zebra_size_t length, vrf_id_t vrf_id)
 {
   struct prefix router_id;
 
@@ -80,7 +80,7 @@ static int pim_router_id_update_zebra(int command, struct zclient *zclient,
 }
 
 static int pim_zebra_if_add(int command, struct zclient *zclient,
-			    zebra_size_t length)
+			    zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
@@ -88,7 +88,7 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
     zebra api adds/dels interfaces using the same call
     interface_add_read below, see comments in lib/zclient.c
   */
-  ifp = zebra_interface_add_read(zclient->ibuf);
+  ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
   if (!ifp)
     return 0;
 
@@ -106,7 +106,7 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 }
 
 static int pim_zebra_if_del(int command, struct zclient *zclient,
-			    zebra_size_t length)
+			    zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
@@ -120,7 +120,7 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
     pimd to assert. Other clients use zebra_interface_state_read
     and it appears to work just fine.
   */
-  ifp = zebra_interface_state_read(zclient->ibuf);
+  ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
   if (!ifp)
     return 0;
 
@@ -138,7 +138,7 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 }
 
 static int pim_zebra_if_state_up(int command, struct zclient *zclient,
-				 zebra_size_t length)
+				 zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
@@ -146,7 +146,7 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
     zebra api notifies interface up/down events by using the same call
     zebra_interface_state_read below, see comments in lib/zclient.c
   */
-  ifp = zebra_interface_state_read(zclient->ibuf);
+  ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
   if (!ifp)
     return 0;
 
@@ -170,7 +170,7 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 }
 
 static int pim_zebra_if_state_down(int command, struct zclient *zclient,
-				   zebra_size_t length)
+				   zebra_size_t length, vrf_id_t vrf_id)
 {
   struct interface *ifp;
 
@@ -178,7 +178,7 @@ static int pim_zebra_if_state_down(int command, struct zclient *zclient,
     zebra api notifies interface up/down events by using the same call
     zebra_interface_state_read below, see comments in lib/zclient.c
   */
-  ifp = zebra_interface_state_read(zclient->ibuf);
+  ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
   if (!ifp)
     return 0;
 
@@ -237,7 +237,7 @@ static void dump_if_address(struct interface *ifp)
 #endif
 
 static int pim_zebra_if_address_add(int command, struct zclient *zclient,
-				    zebra_size_t length)
+				    zebra_size_t length, vrf_id_t vrf_id)
 {
   struct connected *c;
   struct prefix *p;
@@ -252,7 +252,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
     will add address to interface list by calling
     connected_add_by_prefix()
   */
-  c = zebra_interface_address_read(command, zclient->ibuf);
+  c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
   if (!c)
     return 0;
 
@@ -299,7 +299,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 }
 
 static int pim_zebra_if_address_del(int command, struct zclient *client,
-				    zebra_size_t length)
+				    zebra_size_t length, vrf_id_t vrf_id)
 {
   struct connected *c;
   struct prefix *p;
@@ -314,7 +314,7 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
     will remove address from interface list by calling
     connected_delete_by_prefix()
   */
-  c = zebra_interface_address_read(command, client->ibuf);
+  c = zebra_interface_address_read(command, client->ibuf, vrf_id);
   if (!c)
     return 0;
   
@@ -526,7 +526,7 @@ static void sched_rpf_cache_refresh()
 }
 
 static int redist_read_ipv4_route(int command, struct zclient *zclient,
-				  zebra_size_t length)
+				  zebra_size_t length, vrf_id_t vrf_id)
 {
   struct stream *s;
   struct zapi_ipv4 api;
@@ -664,7 +664,7 @@ void pim_zebra_init(char *zebra_sock_path)
 #endif
 
   /* Socket for receiving updates from Zebra daemon */
-  qpim_zclient_update = zclient_new();
+  qpim_zclient_update = zclient_new (master);
 
   qpim_zclient_update->router_id_update         = pim_router_id_update_zebra;
   qpim_zclient_update->interface_add            = pim_zebra_if_add;
@@ -676,7 +676,7 @@ void pim_zebra_init(char *zebra_sock_path)
   qpim_zclient_update->ipv4_route_add           = redist_read_ipv4_route;
   qpim_zclient_update->ipv4_route_delete        = redist_read_ipv4_route;
 
-  zclient_init(qpim_zclient_update, ZEBRA_ROUTE_PIM);
+  zclient_init(qpim_zclient_update, ZEBRA_ROUTE_PIM, 0);
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_info("zclient_init cleared redistribution request");
   }
@@ -687,7 +687,7 @@ void pim_zebra_init(char *zebra_sock_path)
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
     if (i == qpim_zclient_update->redist_default)
       continue;
-    qpim_zclient_update->redist[i] = 1;
+    vrf_bitmap_set (qpim_zclient_update->redist[AFI_IP][i], VRF_DEFAULT);;
     if (PIM_DEBUG_PIM_TRACE) {
       zlog_debug("%s: requesting redistribution for %s (%i)", 
 		 __PRETTY_FUNCTION__, zebra_route_string(i), i);

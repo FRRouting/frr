@@ -157,7 +157,7 @@ static void pim_show_assert(struct vty *vty)
 	  "Interface Address         Source          Group           State  Winner          Uptime   Timer%s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO(vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *ch_node;
@@ -218,7 +218,7 @@ static void pim_show_assert_internal(struct vty *vty)
 	  "Interface Address         Source          Group           CA  eCA ATD eATD%s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO(vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *ch_node;
@@ -262,7 +262,7 @@ static void pim_show_assert_metric(struct vty *vty)
 	  "Interface Address         Source          Group           RPT Pref Metric Address        %s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *ch_node;
@@ -313,7 +313,7 @@ static void pim_show_assert_winner_metric(struct vty *vty)
 	  "Interface Address         Source          Group           RPT Pref Metric Address        %s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *ch_node;
@@ -376,7 +376,7 @@ static void pim_show_membership(struct vty *vty)
 	  "Interface Address         Source          Group           Membership%s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *ch_node;
@@ -423,7 +423,7 @@ static void igmp_show_interfaces(struct vty *vty)
 	  "Interface Address         ifIndex Socket Uptime   Multi Broad MLoop AllMu Prmsc Del%s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct listnode *sock_node;
     struct igmp_sock *igmp;
@@ -470,7 +470,7 @@ static void igmp_show_interface_join(struct vty *vty)
 	  "Interface Address         Source          Group           Socket Uptime  %s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct listnode *join_node;
     struct igmp_join *ij;
@@ -520,7 +520,7 @@ static void show_interface_address(struct vty *vty)
 	  "Interface Primary         Secondary      %s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifpnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifpnode, ifp)) {
     struct listnode  *ifcnode;
     struct connected *ifc;
     struct in_addr    pri_addr;
@@ -567,7 +567,7 @@ static void pim_show_dr(struct vty *vty)
   
   vty_out(vty, "Interface Address         DR              Uptime   Elections Changes NonPri%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     char dr_str[100];
@@ -611,7 +611,7 @@ static void pim_show_hello(struct vty *vty)
   
   vty_out(vty, "Interface Address         Period Timer StatStart Recv Rfail Send Sfail%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     char hello_period[10];
@@ -656,7 +656,7 @@ static void pim_show_interfaces(struct vty *vty)
 
   vty_out(vty, "Interface Address         ifIndex Socket Uptime   Multi Broad MLoop AllMu Prmsc Del%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     char uptime[10];
@@ -704,7 +704,7 @@ static void pim_show_join(struct vty *vty)
 	  "Interface Address         Source          Group           State  Uptime   Expire Prune%s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *ch_node;
@@ -765,7 +765,7 @@ static void pim_show_neighbors(struct vty *vty)
 
   vty_out(vty, "Interface Address         Neighbor        Uptime   Timer Holdt DrPri GenId    Recv  %s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *neighnode;
@@ -833,7 +833,7 @@ static void pim_show_lan_prune_delay(struct vty *vty)
 
   vty_out(vty, "Interface Address         PrDly OvInt NoDly HiDly HiInt T | Neighbor        LPD PrDly OvInt T%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *neighnode;
@@ -889,7 +889,7 @@ static void pim_show_jp_override_interval(struct vty *vty)
 
   vty_out(vty, "Interface Address         LAN_Delay EffPDelay EffOvrInt JPOvrInt%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
 
@@ -921,7 +921,7 @@ static void pim_show_neighbors_secondary(struct vty *vty)
 
   vty_out(vty, "Interface Address         Neighbor        Secondary      %s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct listnode *neighnode;
@@ -1015,7 +1015,7 @@ static void pim_show_join_desired(struct vty *vty)
 	  VTY_NEWLINE);
 
   /* scan all interfaces */
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     pim_ifp = ifp->info;
     if (!pim_ifp)
       continue;
@@ -1163,7 +1163,7 @@ static void igmp_show_querier(struct vty *vty)
 
   vty_out(vty, "Interface Address         Querier StartCount Query-Timer Other-Timer%s", VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp = ifp->info;
     struct listnode  *sock_node;
     struct igmp_sock *igmp;
@@ -1201,7 +1201,7 @@ static void igmp_show_groups(struct vty *vty)
   vty_out(vty, "Interface Address         Group           Mode Timer    Srcs V Uptime  %s", VTY_NEWLINE);
 
   /* scan interfaces */
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp = ifp->info;
     struct listnode  *sock_node;
     struct igmp_sock *igmp;
@@ -1251,7 +1251,7 @@ static void igmp_show_group_retransmission(struct vty *vty)
   vty_out(vty, "Interface Address         Group           RetTimer Counter RetSrcs%s", VTY_NEWLINE);
 
   /* scan interfaces */
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp = ifp->info;
     struct listnode  *sock_node;
     struct igmp_sock *igmp;
@@ -1317,7 +1317,7 @@ static void igmp_show_parameters(struct vty *vty)
 	  VTY_NEWLINE);
 
   /* scan interfaces */
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp = ifp->info;
     struct listnode  *sock_node;
     struct igmp_sock *igmp;
@@ -1385,7 +1385,7 @@ static void igmp_show_sources(struct vty *vty)
   vty_out(vty, "Interface Address         Group           Source          Timer Fwd Uptime  %s", VTY_NEWLINE);
 
   /* scan interfaces */
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp = ifp->info;
     struct listnode  *sock_node;
     struct igmp_sock *igmp;
@@ -1445,7 +1445,7 @@ static void igmp_show_source_retransmission(struct vty *vty)
   vty_out(vty, "Interface Address         Group           Source          Counter%s", VTY_NEWLINE);
 
   /* scan interfaces */
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp = ifp->info;
     struct listnode  *sock_node;
     struct igmp_sock *igmp;
@@ -1495,11 +1495,11 @@ static void clear_igmp_interfaces()
   struct listnode  *ifnextnode;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS(iflist, ifnode, ifnextnode, ifp)) {
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp)) {
     pim_if_addr_del_all_igmp(ifp);
   }
 
-  for (ALL_LIST_ELEMENTS(iflist, ifnode, ifnextnode, ifp)) {
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp)) {
     pim_if_addr_add_all(ifp);
   }
 }
@@ -1510,7 +1510,7 @@ static void clear_pim_interfaces()
   struct listnode  *ifnextnode;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS(iflist, ifnode, ifnextnode, ifp)) {
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp)) {
     if (ifp->info) {
       pim_neighbor_delete_all(ifp, "interface cleared");
     }
@@ -2015,7 +2015,7 @@ static void show_multicast_interfaces(struct vty *vty)
   vty_out(vty, "Interface Address         ifi Vif  PktsIn PktsOut    BytesIn   BytesOut%s",
 	  VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
     struct in_addr ifaddr;
     struct sioc_vif_req vreq;
@@ -3535,7 +3535,7 @@ static struct igmp_sock *find_igmp_sock_by_fd(int fd)
   struct interface *ifp;
 
   /* scan all interfaces */
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     struct pim_interface *pim_ifp;
     struct igmp_sock     *igmp;
     

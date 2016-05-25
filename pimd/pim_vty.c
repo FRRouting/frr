@@ -24,6 +24,7 @@
 
 #include "if.h"
 #include "linklist.h"
+#include "vrf.h"
 
 #include "pimd.h"
 #include "pim_vty.h"
@@ -119,7 +120,7 @@ int pim_interface_config_write(struct vty *vty)
   struct listnode *node;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
 
     /* IF name */
     vty_out(vty, "interface %s%s", ifp->name, VTY_NEWLINE);

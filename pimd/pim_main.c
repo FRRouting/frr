@@ -132,7 +132,7 @@ int main(int argc, char** argv, char** envp) {
  
   progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
  
-  zlog_default = openzlog(progname, ZLOG_PIM,
+  zlog_default = openzlog(progname, ZLOG_PIM, 0,
 			  LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
      
   /* this while just reads the options */                       

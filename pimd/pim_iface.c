@@ -26,6 +26,7 @@
 #include "vty.h"
 #include "memory.h"
 #include "prefix.h"
+#include "vrf.h"
 
 #include "pimd.h"
 #include "pim_iface.h"
@@ -45,7 +46,7 @@ static void pim_if_igmp_join_del_all(struct interface *ifp);
 
 void pim_if_init()
 {
-  if_init();
+  vrf_iflist_create(VRF_DEFAULT);
 }
 
 static void *if_list_clean(struct pim_interface *pim_ifp)
@@ -702,7 +703,7 @@ static int iflist_find_highest_vif_index()
   struct pim_interface *pim_ifp;
   int                   highest_vif_index = -1;
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     pim_ifp = ifp->info;
     if (!pim_ifp)
       continue;
@@ -754,7 +755,7 @@ void pim_if_add_vif_all()
   struct listnode  *ifnextnode;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS(iflist, ifnode, ifnextnode, ifp)) {
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp)) {
     if (!ifp->info)
       continue;
 
@@ -768,7 +769,7 @@ void pim_if_del_vif_all()
   struct listnode  *ifnextnode;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS(iflist, ifnode, ifnextnode, ifp)) {
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp)) {
     if (!ifp->info)
       continue;
 
@@ -781,7 +782,7 @@ struct interface *pim_if_find_by_vif_index(int vif_index)
   struct listnode  *ifnode;
   struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     if (ifp->info) {
       struct pim_interface *pim_ifp;
       pim_ifp = ifp->info;

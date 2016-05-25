@@ -122,7 +122,7 @@ struct zclient *zclient_lookup_new()
 {
   struct zclient *zlookup;
 
-  zlookup = zclient_new();
+  zlookup = zclient_new (master);
   if (!zlookup) {
     zlog_err("%s: zclient_new() failure",
 	     __PRETTY_FUNCTION__);
@@ -252,7 +252,6 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 
     switch (nexthop_type) {
     case ZEBRA_NEXTHOP_IFINDEX:
-    case ZEBRA_NEXTHOP_IFNAME:
     case ZEBRA_NEXTHOP_IPV4_IFINDEX:
       if (num_ifindex >= tab_size) {
 	char addr_str[100];
@@ -346,7 +345,7 @@ static int zclient_lookup_nexthop_once(struct zclient *zlookup,
   
   s = zlookup->obuf;
   stream_reset(s);
-  zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB);
+  zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, VRF_DEFAULT);
   stream_put_in_addr(s, &addr);
   stream_putw_at(s, 0, stream_get_endp(s));
   

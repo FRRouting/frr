@@ -42,7 +42,7 @@ const char *const PIM_ALL_ROUTERS      = MCAST_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS  = MCAST_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS = MCAST_ALL_IGMP_ROUTERS;
 
-struct thread_master     *master = 0;
+struct thread_master     *master = NULL;
 uint32_t                  qpim_debugs = 0;
 int                       qpim_mroute_socket_fd = -1;
 int64_t                   qpim_mroute_socket_creation = 0; /* timestamp of creation */
