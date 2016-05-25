@@ -308,7 +308,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
     break;
   case IGMPMSG_WHOLEPKT:
     zlog_hexdump(buf, buf_size);
-    return pim_mroute_msg_wholepkt(fd, ifp, msg, src_str, grp_str);
+    return pim_mroute_msg_wholepkt(fd, ifp, (const char *)msg, src_str, grp_str);
     break;
   default:
     break;

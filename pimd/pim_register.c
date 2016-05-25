@@ -86,7 +86,7 @@ pim_register_send (const struct ip *ip_hdr, struct pim_rpf *rpg)
   b1 = buffer + PIM_MSG_REGISTER_LEN;
 
   plen = ntohs(ip_hdr->ip_len);
-  memcpy(b1, (unsigned char *)ip_hdr, plen);
+  memcpy(b1, (const unsigned char *)ip_hdr, plen);
 
   pim_msg_build_header(buffer, plen + PIM_MSG_HEADER_LEN, PIM_MSG_TYPE_REGISTER);
 
@@ -155,10 +155,10 @@ pim_register_recv (struct interface *ifp,
 {
   int sentRegisterStop = 0;
   struct ip *ip_hdr;
-  size_t hlen;
+  //size_t hlen;
   struct in_addr group = { .s_addr = 0 };
   struct in_addr source = { .s_addr = 0 };
-  uint8_t *msg;
+  //uint8_t *msg;
   uint32_t *bits;
 
   if (!pim_check_is_my_ip_address (dest_addr)) {
@@ -194,8 +194,8 @@ pim_register_recv (struct interface *ifp,
    */
   bits = (uint32_t *)tlv_buf;
   ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_LEN);
-  hlen = (ip_hdr->ip_hl << 2) | PIM_MSG_REGISTER_LEN;
-  msg = (uint8_t *)tlv_buf + hlen;
+  //hlen = (ip_hdr->ip_hl << 2) | PIM_MSG_REGISTER_LEN;
+  //msg = (uint8_t *)tlv_buf + hlen;
   source = ip_hdr->ip_src;
   group = ip_hdr->ip_dst;
 
