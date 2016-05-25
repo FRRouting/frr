@@ -273,9 +273,8 @@ AC_ARG_ENABLE(configfile_mask,
 [  --enable-configfile-mask=ARG  set mask for config files])
 AC_ARG_ENABLE(logfile_mask,
 [  --enable-logfile-mask=ARG     set mask for log files])
-AC_ARG_ENABLE(shell_access
+AC_ARG_ENABLE(shell_access,
 [  --enable-shell-access    Allow users to access shell/telnet/ssh])
-
 AC_ARG_ENABLE(rtadv,
 [  --disable-rtadv               disable IPV6 router advertisement feature])
 AC_ARG_ENABLE(irdp,
