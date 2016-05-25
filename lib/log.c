@@ -992,7 +992,7 @@ proto_redistnum(int afi, const char *s)
 }
 
 void
-zlog_hexdump (void *mem, unsigned int len) {
+zlog_hexdump (const void *mem, unsigned int len) {
   unsigned long i = 0;
   unsigned int j = 0;
   unsigned int columns = 8;
@@ -1007,7 +1007,7 @@ zlog_hexdump (void *mem, unsigned int len) {
 
       /* print hex data */
       if (i < len)
-        s += sprintf(s, "%02x ", 0xFF & ((char*)mem)[i]);
+        s += sprintf(s, "%02x ", 0xFF & ((const char*)mem)[i]);
 
       /* end of block, just aligning for ASCII dump */
       else
@@ -1021,8 +1021,8 @@ zlog_hexdump (void *mem, unsigned int len) {
               if (j >= len) /* end of block, not really printing */
                 s += sprintf(s, " ");
 
-              else if(isprint((int)((char*)mem)[j])) /* printable char */
-                s += sprintf(s, "%c", 0xFF & ((char*)mem)[j]);
+              else if(isprint((int)((const char *)mem)[j])) /* printable char */
+                s += sprintf(s, "%c", 0xFF & ((const char *)mem)[j]);
 
               else /* other char */
                 s += sprintf(s, ".");
