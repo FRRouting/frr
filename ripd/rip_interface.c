@@ -112,6 +112,8 @@ ipv4_multicast_leave (int sock,
   return ret;
 }
 
+static void rip_interface_reset (struct rip_interface *);
+
 /* Allocate new RIP's interface configuration. */
 static struct rip_interface *
 rip_interface_new (void)
@@ -119,19 +121,9 @@ rip_interface_new (void)
   struct rip_interface *ri;
 
   ri = XCALLOC (MTYPE_RIP_INTERFACE, sizeof (struct rip_interface));
-
-  /* Default authentication type is simple password for Cisco
-     compatibility. */
-  ri->auth_type = RIP_NO_AUTH;
-  ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
-
-  /* Set default split-horizon behavior.  If the interface is Frame
-     Relay or SMDS is enabled, the default value for split-horizon is
-     off.  But currently Zebra does detect Frame Relay or SMDS
-     interface.  So all interface is set to split horizon.  */
-  ri->split_horizon_default = RIP_SPLIT_HORIZON;
-  ri->split_horizon = ri->split_horizon_default;
-
+  
+  rip_interface_reset (ri);
+  
   return ri;
 }
 
@@ -503,81 +495,82 @@ rip_interface_delete (int command, struct zclient *zclient,
   return 0;
 }
 
-void
-rip_interface_clean (void)
+static void
+rip_interface_clean (struct rip_interface *ri)
 {
-  struct listnode *node;
-  struct interface *ifp;
-  struct rip_interface *ri;
+  ri->enable_network = 0;
+  ri->enable_interface = 0;
+  ri->running = 0;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
+  if (ri->t_wakeup)
     {
-      ri = ifp->info;
-
-      ri->enable_network = 0;
-      ri->enable_interface = 0;
-      ri->running = 0;
-
-      if (ri->t_wakeup)
-	{
-	  thread_cancel (ri->t_wakeup);
-	  ri->t_wakeup = NULL;
-	}
+      thread_cancel (ri->t_wakeup);
+      ri->t_wakeup = NULL;
     }
 }
 
 void
-rip_interface_reset (void)
+rip_interfaces_clean (void)
 {
   struct listnode *node;
   struct interface *ifp;
-  struct rip_interface *ri;
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
+    rip_interface_clean (ifp->info);
+}
+
+static void
+rip_interface_reset (struct rip_interface *ri)
+{
+  /* Default authentication type is simple password for Cisco
+     compatibility. */
+  ri->auth_type = RIP_NO_AUTH;
+  ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
+
+  /* Set default split-horizon behavior.  If the interface is Frame
+     Relay or SMDS is enabled, the default value for split-horizon is
+     off.  But currently Zebra does detect Frame Relay or SMDS
+     interface.  So all interface is set to split horizon.  */
+  ri->split_horizon_default = RIP_SPLIT_HORIZON;
+  ri->split_horizon = ri->split_horizon_default;
+
+  ri->ri_send = RI_RIP_UNSPEC;
+  ri->ri_receive = RI_RIP_UNSPEC;
+  
+  if (ri->auth_str)
     {
-      ri = ifp->info;
-
-      ri->enable_network = 0;
-      ri->enable_interface = 0;
-      ri->running = 0;
-
-      ri->ri_send = RI_RIP_UNSPEC;
-      ri->ri_receive = RI_RIP_UNSPEC;
-
-      ri->auth_type = RIP_NO_AUTH;
-
-      if (ri->auth_str)
-	{
-	  free (ri->auth_str);
-	  ri->auth_str = NULL;
-	}
-      if (ri->key_chain)
-	{
-	  free (ri->key_chain);
-	  ri->key_chain = NULL;
-	}
-
-      ri->split_horizon = RIP_NO_SPLIT_HORIZON;
-      ri->split_horizon_default = RIP_NO_SPLIT_HORIZON;
-
-      ri->list[RIP_FILTER_IN] = NULL;
-      ri->list[RIP_FILTER_OUT] = NULL;
-
-      ri->prefix[RIP_FILTER_IN] = NULL;
-      ri->prefix[RIP_FILTER_OUT] = NULL;
-      
-      if (ri->t_wakeup)
-	{
-	  thread_cancel (ri->t_wakeup);
-	  ri->t_wakeup = NULL;
-	}
-
-      ri->recv_badpackets = 0;
-      ri->recv_badroutes = 0;
-      ri->sent_updates = 0;
-
-      ri->passive = 0;
+      free (ri->auth_str);
+      ri->auth_str = NULL;
     }
+  if (ri->key_chain)
+    {
+      free (ri->key_chain);
+      ri->key_chain = NULL;
+    }
+
+  ri->list[RIP_FILTER_IN] = NULL;
+  ri->list[RIP_FILTER_OUT] = NULL;
+
+  ri->prefix[RIP_FILTER_IN] = NULL;
+  ri->prefix[RIP_FILTER_OUT] = NULL;
+  
+  ri->recv_badpackets = 0;
+  ri->recv_badroutes = 0;
+  ri->sent_updates = 0;
+
+  ri->passive = 0;
+  
+  rip_interface_clean (ri);
+}
+
+void
+rip_interfaces_reset (void)
+{
+  struct listnode *node;
+  struct interface *ifp;
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
+    rip_interface_reset (ifp->info);
 }
 
 int
