@@ -650,6 +650,11 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
   return 0;
 }
 
+static void
+pim_zebra_connected (struct zclient *zclient)
+{
+  zclient_send_reg_requests (zclient, VRF_DEFAULT);
+}
 void pim_zebra_init(char *zebra_sock_path)
 {
   int i;
@@ -666,6 +671,7 @@ void pim_zebra_init(char *zebra_sock_path)
   /* Socket for receiving updates from Zebra daemon */
   qpim_zclient_update = zclient_new (master);
 
+  qpim_zclient_update->zebra_connected          = pim_zebra_connected;
   qpim_zclient_update->router_id_update         = pim_router_id_update_zebra;
   qpim_zclient_update->interface_add            = pim_zebra_if_add;
   qpim_zclient_update->interface_delete         = pim_zebra_if_del;

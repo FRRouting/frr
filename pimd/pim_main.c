@@ -35,6 +35,7 @@
 #include "vty.h"
 #include "sigevent.h"
 #include "version.h"
+#include "vrf.h"
 
 #include "pimd.h"
 #include "pim_version.h"
@@ -197,6 +198,7 @@ int main(int argc, char** argv, char** envp) {
   cmd_init(1);
   vty_init(master);
   memory_init();
+  vrf_init ();
   access_list_init();
   pim_init();
 
