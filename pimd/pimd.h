@@ -169,4 +169,6 @@ extern int32_t qpim_register_probe_time;
 void pim_init(void);
 void pim_terminate(void);
 
+extern void pim_route_map_init (void);
+
 #endif /* PIMD_H */

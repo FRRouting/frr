@@ -53,7 +53,7 @@ libpim_a_SOURCES = \
 	pim_hello.c pim_ifchannel.c pim_join.c pim_assert.c \
 	pim_msg.c pim_upstream.c pim_rpf.c pim_macro.c \
 	pim_igmp_join.c pim_ssmpingd.c pim_int.c pim_rp.c \
-	pim_static.c pim_br.c pim_register.c
+	pim_static.c pim_br.c pim_register.c pim_routemap.c
 
 noinst_HEADERS = \
 	pimd.h pim_version.h pim_cmd.h pim_signals.h pim_iface.h \
