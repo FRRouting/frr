@@ -904,7 +904,7 @@ route_match_probability (void *rule, struct prefix *prefix,
     case 0: break;
     case RAND_MAX: return RMAP_MATCH;
     default:
-      if (r < *(long *) rule)
+      if (r < *(unsigned long *) rule)
         {
           return RMAP_MATCH;
         }
