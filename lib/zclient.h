@@ -198,7 +198,7 @@ extern int zclient_send_message(struct zclient *);
 extern void zclient_create_header (struct stream *, uint16_t, vrf_id_t);
 extern int zclient_read_header (struct stream *s, int sock, u_int16_t *size,
 				u_char *marker, u_char *version,
-				u_int16_t *vrf_id, u_int16_t *cmd);
+				vrf_id_t *vrf_id, u_int16_t *cmd);
 
 extern struct interface *zebra_interface_add_read (struct stream *, vrf_id_t);
 extern struct interface *zebra_interface_state_read (struct stream *s, vrf_id_t);

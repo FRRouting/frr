@@ -153,7 +153,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
   uint16_t length;
   u_char marker;
   u_char version;
-  uint16_t vrf_id;
+  vrf_id_t vrf_id;
   uint16_t command;
   struct in_addr raddr;
   uint8_t distance;
@@ -173,7 +173,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
   stream_reset(s);
 
   err = zclient_read_header (s, zlookup->sock, &length, &marker, &version,
-                             &vrf_id, &command);
+			     &vrf_id, &command);
   if (err < 0) {
     zlog_err("%s %s: zclient_read_header() failed",
 	     __FILE__, __PRETTY_FUNCTION__);

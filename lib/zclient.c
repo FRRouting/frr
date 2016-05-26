@@ -336,7 +336,7 @@ zclient_create_header (struct stream *s, uint16_t command, vrf_id_t vrf_id)
 
 int
 zclient_read_header (struct stream *s, int sock, u_int16_t *size, u_char *marker,
-                     u_char *version, u_int16_t *vrf_id, u_int16_t *cmd)
+                     u_char *version, vrf_id_t *vrf_id, u_int16_t *cmd)
 {
   if (stream_read (s, sock, ZEBRA_HEADER_SIZE) != ZEBRA_HEADER_SIZE)
     return -1;
