@@ -53,7 +53,7 @@
 #define PIM_IF_DONT_IGMP_LISTEN_ALLROUTERS(options) ((options) &= ~PIM_IF_MASK_IGMP_LISTEN_ALLROUTERS)
 #define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPRESSION(options) ((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPRESSION)
 
-#define PIM_I_am_DR(pim_ifp) ((pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr)
+#define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
 
 enum pim_interface_type {
   PIM_INTERFACE_SSM,
