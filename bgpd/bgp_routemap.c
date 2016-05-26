@@ -1435,7 +1435,6 @@ route_set_aspath_prepend (void *rule, struct prefix *prefix, route_map_object_t 
 
   if (type == RMAP_BGP)
     {
-      aspath = rule;
       binfo = object;
     
       if (binfo->attr->aspath->refcnt)
@@ -1443,20 +1442,50 @@ route_set_aspath_prepend (void *rule, struct prefix *prefix, route_map_object_t 
       else
 	new = binfo->attr->aspath;
 
-      aspath_prepend (aspath, new);
+      if ((uintptr_t)rule > 10)
+      {
+	aspath = rule;
+	aspath_prepend (aspath, new);
+      }
+      else
+      {
+	as_t as = aspath_leftmost(new);
+	if (!as) as = binfo->peer->as;
+	new = aspath_add_seq_n (new, as, (uintptr_t) rule);
+      }
+
       binfo->attr->aspath = new;
     }
 
   return RMAP_OKAY;
 }
 
+static void *
+route_set_aspath_prepend_compile (const char *arg)
+{
+  unsigned int num;
+
+  if (sscanf(arg, "last-as %u", &num) == 1 && num > 0 && num < 10)
+    return (void*)(uintptr_t)num;
+
+  return route_aspath_compile(arg);
+}
+
+static void
+route_set_aspath_prepend_free (void *rule)
+{
+  if ((uintptr_t)rule > 10)
+    route_aspath_free(rule);
+}
+
+
 /* Set as-path prepend rule structure. */
 struct route_map_rule_cmd route_set_aspath_prepend_cmd = 
 {
   "as-path prepend",
   route_set_aspath_prepend,
-  route_aspath_compile,
-  route_aspath_free,
+  route_set_aspath_prepend_compile,
+  route_set_aspath_prepend_free,
 };
 
 /* `set as-path exclude ASn' */
@@ -3803,6 +3832,15 @@ DEFUN (set_aspath_prepend,
   return ret;
 }
 
+ALIAS (set_aspath_prepend,
+       set_aspath_prepend_lastas_cmd,
+       "set as-path prepend (last-as) <1-10>",
+       SET_STR
+       "Transform BGP AS_PATH attribute\n"
+       "Prepend to the as-path\n"
+       "Use the peer's AS-number\n"
+       "Number of times to insert");
+
 DEFUN (no_set_aspath_prepend,
        no_set_aspath_prepend_cmd,
        "no set as-path prepend",
@@ -4681,6 +4719,7 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_cmd);
+  install_element (RMAP_NODE, &set_aspath_prepend_lastas_cmd);
   install_element (RMAP_NODE, &set_aspath_exclude_cmd);
   install_element (RMAP_NODE, &no_set_aspath_prepend_cmd);
   install_element (RMAP_NODE, &no_set_aspath_prepend_val_cmd);

@@ -84,6 +84,7 @@ extern struct aspath *aspath_dup (struct aspath *);
 extern struct aspath *aspath_aggregate (struct aspath *, struct aspath *);
 extern struct aspath *aspath_prepend (struct aspath *, struct aspath *);
 extern struct aspath *aspath_filter_exclude (struct aspath *, struct aspath *);
+extern struct aspath *aspath_add_seq_n (struct aspath *, as_t, unsigned);
 extern struct aspath *aspath_add_seq (struct aspath *, as_t);
 extern struct aspath *aspath_add_confed_seq (struct aspath *, as_t);
 extern int aspath_cmp (const void *, const void *);
@@ -115,6 +116,7 @@ extern unsigned int aspath_count_hops (const struct aspath *);
 extern unsigned int aspath_count_confeds (struct aspath *);
 extern unsigned int aspath_size (struct aspath *);
 extern as_t aspath_highest (struct aspath *);
+extern as_t aspath_leftmost (struct aspath *);
 extern size_t aspath_put (struct stream *, struct aspath *, int);
 
 extern struct aspath *aspath_reconcile_as4 (struct aspath *, struct aspath *);
