@@ -202,7 +202,7 @@ pim_register_recv (struct interface *ifp,
   if (I_am_RP (group) && (dest_addr.s_addr == ((RP (group))->rpf_addr.s_addr))) {
     sentRegisterStop = 0;
 
-    if (*bits && PIM_REGISTER_BORDER_BIT) {
+    if (*bits & PIM_REGISTER_BORDER_BIT) {
       struct in_addr pimbr = pim_br_get_pmbr (source, group);
       if (PIM_DEBUG_PIM_PACKETS)
 	zlog_debug("%s: Received Register message with Border bit set", __func__);
@@ -243,7 +243,7 @@ pim_register_recv (struct interface *ifp,
     }
 
     if (!(upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) &&
-	!(*bits && PIM_REGISTER_NR_BIT)) {
+	!(*bits & PIM_REGISTER_NR_BIT)) {
       //decapsulate and forward the iner packet to
       //inherited_olist(S,G,rpt)
     }
