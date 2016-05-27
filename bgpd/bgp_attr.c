@@ -1817,7 +1817,7 @@ bgp_attr_unknown (struct bgp_attr_parser_args *args)
 
 /* Well-known attribute check. */
 static int
-bgp_attr_check (struct peer *peer, struct attr *attr, bgp_size_t nlri_len)
+bgp_attr_check (struct peer *peer, struct attr *attr)
 {
   u_char type = 0;
 
@@ -1840,13 +1840,12 @@ bgp_attr_check (struct peer *peer, struct attr *attr, bgp_size_t nlri_len)
   if (! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AS_PATH)))
     type = BGP_ATTR_AS_PATH;
 
-  /* As per RFC 2858, NEXT_HOP is needed only if the update contains NLRI
-   * other than in MP_REACH. In fact, if only MP_REACH_NLRI is present, the
-   * update should not contain NEXT_HOP but it should be ignored, if recvd.
+  /* RFC 2858 makes Next-Hop optional/ignored, if MP_REACH_NLRI is present and
+   * NLRI is empty. We can't easily check NLRI empty here though.
    */
-  if (nlri_len)
-    if (! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP)))
-      type = BGP_ATTR_NEXT_HOP;
+  if (!CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP))
+      && !CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_MP_REACH_NLRI)))
+    type = BGP_ATTR_NEXT_HOP;
 
   if (peer->sort == BGP_PEER_IBGP
       && ! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))
@@ -1854,7 +1853,8 @@ bgp_attr_check (struct peer *peer, struct attr *attr, bgp_size_t nlri_len)
 
   if (type)
     {
-      zlog_warn ("%s Missing well-known attribute %d.", peer->host, type);
+      zlog_warn ("%s Missing well-known attribute %s.", peer->host,
+                 LOOKUP (attr_str, type));
       bgp_notify_send_with_data (peer,
 				 BGP_NOTIFY_UPDATE_ERR,
 				 BGP_NOTIFY_UPDATE_MISS_ATTR,
@@ -1868,8 +1868,7 @@ bgp_attr_check (struct peer *peer, struct attr *attr, bgp_size_t nlri_len)
    bgp_update_receive() in bgp_packet.c.  */
 bgp_attr_parse_ret_t
 bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
-		struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw,
-                bgp_size_t nlri_len)
+		struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw)
 {
   int ret;
   u_char flag = 0;
@@ -2108,7 +2107,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
   /* Check all mandatory well-known attributes are present */
   {
     bgp_attr_parse_ret_t ret;
-    if ((ret = bgp_attr_check (peer, attr, nlri_len)) < 0)
+    if ((ret = bgp_attr_check (peer, attr)) < 0)
       {
         if (as4_path)
           aspath_unintern (&as4_path);

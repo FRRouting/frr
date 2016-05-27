@@ -1430,7 +1430,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   if (attribute_len)
     {
       attr_parse_ret = bgp_attr_parse (peer, &attr, attribute_len, 
-			    &mp_update, &mp_withdraw, update.length);
+			    &mp_update, &mp_withdraw);
       if (attr_parse_ret == BGP_ATTR_PARSE_ERROR)
 	{
 	  bgp_attr_unintern_sub (&attr);
