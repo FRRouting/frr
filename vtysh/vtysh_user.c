@@ -44,7 +44,9 @@
  * The DEFUNSH and DEFUN macro's are messing with the
  * compiler I believe.  This is just to make it happy.
  */
+#ifdef USE_PAM
 static int vtysh_pam(const char *);
+#endif
 struct vtysh_user *user_new(void);
 void user_free(struct vtysh_user *);
 struct vtysh_user *user_lookup(const char *);
