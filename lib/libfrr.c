@@ -28,6 +28,7 @@
 #include "memory_vty.h"
 #include "zclient.h"
 #include "log_int.h"
+#include "module.h"
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 const char frr_vtydir[] = DAEMON_VTY_DIR;
@@ -64,14 +65,16 @@ static const struct option lo_always[] = {
 	{ "help",        no_argument,       NULL, 'h' },
 	{ "version",     no_argument,       NULL, 'v' },
 	{ "daemon",      no_argument,       NULL, 'd' },
+	{ "module",      no_argument,       NULL, 'M' },
 	{ "vty_socket",  required_argument, NULL, OPTION_VTYSOCK },
 	{ NULL }
 };
 static const struct optspec os_always = {
-	"hvdi:",
+	"hvdM:",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
+	"  -M, --module       Load specified module\n"
 	"      --vty_socket   Override vty socket path\n",
 	lo_always
 };
@@ -184,12 +187,18 @@ void frr_help_exit(int status)
 	exit(status);
 }
 
+struct option_chain {
+	struct option_chain *next;
+	const char *arg;
+};
+static struct option_chain *modules = NULL, **modnext = &modules;
 static int errors = 0;
 
 static int frr_opt(int opt)
 {
 	static int vty_port_set = 0;
 	static int vty_addr_set = 0;
+	struct option_chain *oc;
 	char *err;
 
 	switch (opt) {
@@ -202,6 +211,13 @@ static int frr_opt(int opt)
 		break;
 	case 'd':
 		di->daemon_mode = 1;
+		break;
+	case 'M':
+		oc = XMALLOC(MTYPE_TMP, sizeof(*oc));
+		oc->arg = optarg;
+		oc->next = NULL;
+		*modnext = oc;
+		modnext = &oc->next;
 		break;
 	case 'i':
 		if (di->flags & FRR_NO_CFG_PID_DRY)
@@ -298,6 +314,9 @@ int frr_getopt(int argc, char * const argv[], int *longindex)
 struct thread_master *frr_init(void)
 {
 	struct thread_master *master;
+	struct option_chain *oc;
+	struct frrmod_runtime *module;
+	char moderr[256];
 
 	srandom(time(NULL));
 
@@ -306,6 +325,17 @@ struct thread_master *frr_init(void)
 #if defined(HAVE_CUMULUS)
 	zlog_set_level (ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 #endif
+
+	frrmod_init(di->module);
+	while (modules) {
+		modules = (oc = modules)->next;
+		module = frrmod_load(oc->arg, moderr, sizeof(moderr));
+		if (!module) {
+			fprintf(stderr, "%s\n", moderr);
+			exit(1);
+		}
+		XFREE(MTYPE_TMP, oc);
+	}
 
 	zprivs_init(di->privs);
 

@@ -31,7 +31,9 @@ libfrr_la_SOURCES = \
 	spf_backoff.c \
 	libfrr.c \
 	strlcpy.c \
-	strlcat.c
+	strlcat.c \
+	module.c \
+	# end
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
 
@@ -54,6 +56,7 @@ pkginclude_HEADERS = \
 	monotime.h \
 	spf_backoff.h \
 	srcdest_table.h \
+	module.h \
 	libfrr.h \
 	# end
 

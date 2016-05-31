@@ -55,6 +55,13 @@ dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
 
+AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directory (${libdir}/frr/modules)])], [
+	moduledir="$withval"
+], [
+	moduledir="\${libdir}/frr/modules"
+])
+AC_SUBST([moduledir], [$moduledir])
+
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -1347,6 +1354,14 @@ int main(void);
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi
 
+dnl ------
+dnl dlopen
+dnl ------
+AC_SEARCH_LIBS(dlopen, [dl dld], [], [
+  AC_MSG_ERROR([unable to find the dlopen()])
+])
+
+
 dnl ---------------------------
 dnl sockaddr and netinet checks
 dnl ---------------------------
@@ -1646,14 +1661,18 @@ AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
+CFG_MODULE="$moduledir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
+	eval CFG_MODULE="\"$CFG_MODULE\""
 done
 AC_SUBST(CFG_SYSCONF)
 AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
+AC_SUBST(CFG_MODULE)
+AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
 
 dnl ---------------------------
 dnl Check htonl works correctly
@@ -1728,6 +1747,7 @@ linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
+module directory        : ${CFG_MODULE}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}
