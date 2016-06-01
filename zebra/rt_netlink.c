@@ -2240,7 +2240,8 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 	    addattr_l (&req.n, sizeof req, RTA_PREFSRC, &src.ipv4, bytelen);
 	  else if (family == AF_INET6)
 	    addattr_l (&req.n, sizeof req, RTA_PREFSRC, &src.ipv6, bytelen);
-	  zlog_debug("Setting source");
+          if (IS_ZEBRA_DEBUG_KERNEL)
+	    zlog_debug("Setting source");
 	}
 
       if (rta->rta_len > RTA_LENGTH (0))
