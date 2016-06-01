@@ -2062,7 +2062,7 @@ DEFUN (vtysh_write_terminal,
 
 DEFUN (vtysh_write_terminal_daemon,
        vtysh_write_terminal_daemon_cmd,
-       "write terminal (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd)",
+       "write terminal (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd)",
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n"
        "For the zebra daemon\n"
@@ -2071,7 +2071,8 @@ DEFUN (vtysh_write_terminal_daemon,
        "For the ospf daemon\n"
        "For the ospfv6 daemon\n"
        "For the bgp daemon\n"
-       "For the isis daemon\n")
+       "For the isis daemon\n"
+       "For the pim daemon\n")
 {
   unsigned int i;
   int ret = CMD_SUCCESS;
@@ -2258,7 +2259,7 @@ ALIAS (vtysh_write_terminal,
 
 ALIAS (vtysh_write_terminal_daemon,
        vtysh_show_running_config_daemon_cmd,
-       "show running-config (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd)",
+       "show running-config (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd)",
        SHOW_STR
        "Current operating configuration\n"
        "For the zebra daemon\n"
@@ -2267,7 +2268,8 @@ ALIAS (vtysh_write_terminal_daemon,
        "For the ospf daemon\n"
        "For the ospfv6 daemon\n"
        "For the bgp daemon\n"
-       "For the isis daemon\n")
+       "For the isis daemon\n"
+       "For the pim daemon\n")
 
 DEFUN (vtysh_terminal_length,
        vtysh_terminal_length_cmd,
