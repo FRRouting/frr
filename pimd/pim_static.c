@@ -20,6 +20,10 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
+#include <zebra.h>
+
+#include "vty.h"
+
 #include "pim_static.h"
 #include "pim_time.h"
 #include "pim_str.h"
@@ -302,4 +306,33 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
    }
 
    return 0;
+}
+
+int
+pim_static_write_mroute (struct vty *vty, struct interface *ifp)
+{
+  struct listnode *node;
+  struct static_route *sroute;
+  int count = 0;
+  char sbuf[100];
+  char gbuf[100];
+
+  for (ALL_LIST_ELEMENTS_RO (qpim_static_route_list, node, sroute))
+    {
+      pim_inet4_dump ("<ifaddr?>", sroute->group, gbuf, sizeof (gbuf));
+      pim_inet4_dump ("<ifaddr?>", sroute->source, sbuf, sizeof (sbuf));
+      if (sroute->iif == ifp->ifindex)
+	{
+	  int i;
+	  for (i = 0; i < MAXVIFS; i++)
+	    if (sroute->oif_ttls[i])
+	      {
+		struct interface *oifp = if_lookup_by_index (i);
+		vty_out (vty, " ip mroute %s %s %s%s", oifp->name, gbuf, sbuf, VTY_NEWLINE);
+		count ++;
+	      }
+	}
+    }
+
+  return count;
 }

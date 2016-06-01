@@ -33,6 +33,7 @@
 #include "pim_str.h"
 #include "pim_ssmpingd.h"
 #include "pim_pim.h"
+#include "pim_static.h"
 
 int pim_debug_config_write(struct vty *vty)
 {
@@ -200,6 +201,8 @@ int pim_interface_config_write(struct vty *vty)
 	  ++writes;
 	}
       }
+
+	writes += pim_static_write_mroute (vty, ifp);
     }
     vty_out(vty, "!%s", VTY_NEWLINE);
     ++writes;
