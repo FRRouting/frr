@@ -75,7 +75,16 @@ typedef unsigned int mpls_lse_t;
 /* MPLS label value as a 32-bit (mostly we only care about the label value). */
 typedef unsigned int mpls_label_t;
 
+#define MPLS_NO_LABEL                      0xFFFFFFFF
 #define MPLS_INVALID_LABEL                 0xFFFFFFFF
+
+/* LSP types. */
+enum lsp_types_t
+{
+  ZEBRA_LSP_NONE = 0,        /* No LSP. */
+  ZEBRA_LSP_STATIC = 1,      /* Static LSP. */
+  ZEBRA_LSP_LDP = 2          /* LDP LSP. */
+};
 
 /* Functions for basic label operations. */
 

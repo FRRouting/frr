@@ -422,6 +422,8 @@ typedef enum {
   ZEBRA_INTERFACE_DISABLE_RADV,
   ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
   ZEBRA_INTERFACE_LINK_PARAMS,
+  ZEBRA_MPLS_LABELS_ADD,
+  ZEBRA_MPLS_LABELS_DELETE,
 } zebra_message_types_t;
 
 /* Marker value used in new Zserv, in the byte location corresponding

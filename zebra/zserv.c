@@ -52,6 +52,7 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/rtadv.h"
+#include "zebra/zebra_mpls.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -1630,6 +1631,65 @@ zread_vrf_unregister (struct zserv *client, u_short length, struct zebra_vrf *zv
   return 0;
 }
 
+static void
+zread_mpls_labels (int command, struct zserv *client, u_short length,
+		   vrf_id_t vrf_id)
+{
+  struct stream *s;
+  enum lsp_types_t type;
+  struct prefix prefix;
+  enum nexthop_types_t gtype;
+  union g_addr gate;
+  mpls_label_t in_label, out_label;
+  u_int8_t distance;
+  struct zebra_vrf *zvrf;
+
+  zvrf = vrf_info_lookup (vrf_id);
+  if (!zvrf)
+    return;
+
+  /* Get input stream.  */
+  s = client->ibuf;
+
+  /* Get data. */
+  type = stream_getc (s);
+  prefix.family = stream_getl (s);
+  switch (prefix.family)
+    {
+    case AF_INET:
+      prefix.u.prefix4.s_addr = stream_get_ipv4 (s);
+      prefix.prefixlen = stream_getc (s);
+      gtype = NEXTHOP_TYPE_IPV4;
+      gate.ipv4.s_addr = stream_get_ipv4 (s);
+      break;
+    case AF_INET6:
+      stream_get (&prefix.u.prefix6, s, 16);
+      prefix.prefixlen = stream_getc (s);
+      gtype = NEXTHOP_TYPE_IPV6;
+      stream_get (&gate.ipv6, s, 16);
+      break;
+    default:
+      return;
+    }
+  distance = stream_getc (s);
+  in_label = stream_getl (s);
+  out_label = stream_getl (s);
+
+  if (command == ZEBRA_MPLS_LABELS_ADD)
+    {
+      mpls_lsp_install (zvrf, type, in_label, out_label, gtype, &gate,
+			NULL, 0);
+      if (out_label != MPLS_IMP_NULL_LABEL)
+	mpls_ftn_update (1, zvrf, type, &prefix, &gate, distance, out_label);
+    }
+  else if (command == ZEBRA_MPLS_LABELS_DELETE)
+    {
+      mpls_lsp_uninstall (zvrf, type, in_label, gtype, &gate, NULL, 0);
+      if (out_label != MPLS_IMP_NULL_LABEL)
+	mpls_ftn_update (0, zvrf, type, &prefix, &gate, distance, out_label);
+    }
+}
+
 /* Cleanup registered nexthops (across VRFs) upon client disconnect. */
 static void
 zebra_client_close_cleanup_rnh (struct zserv *client)
@@ -1645,6 +1705,13 @@ zebra_client_close_cleanup_rnh (struct zserv *client)
           zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET6, client, RNH_NEXTHOP_TYPE);
           zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET, client, RNH_IMPORT_CHECK_TYPE);
           zebra_cleanup_rnh_client(zvrf->vrf_id, AF_INET6, client, RNH_IMPORT_CHECK_TYPE);
+	  if (client->proto == ZEBRA_ROUTE_LDP)
+	    {
+	      hash_iterate(zvrf->lsp_table, mpls_ldp_lsp_uninstall_all,
+			   zvrf->lsp_table);
+	      mpls_ldp_ftn_uninstall_all (zvrf, AFI_IP);
+	      mpls_ldp_ftn_uninstall_all (zvrf, AFI_IP6);
+	    }
         }
     }
 }
@@ -1925,6 +1992,10 @@ zebra_client_read (struct thread *thread)
       break;
     case ZEBRA_INTERFACE_DISABLE_RADV:
       zebra_interface_radv_set (client, sock, length, zvrf, 0);
+      break;
+    case ZEBRA_MPLS_LABELS_ADD:
+    case ZEBRA_MPLS_LABELS_DELETE:
+      zread_mpls_labels (command, client, length, vrf_id);
       break;
     default:
       zlog_info ("Zebra received unknown command %d", command);

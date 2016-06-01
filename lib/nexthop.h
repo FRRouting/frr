@@ -85,6 +85,9 @@ struct nexthop
    * Only one level of recursive resolution is currently supported. */
   struct nexthop *resolved;
 
+  /* Type of label(s), if any */
+  enum lsp_types_t nh_label_type;
+
   /* Label(s) associated with this nexthop. */
   struct nexthop_label *nh_label;
 };
@@ -109,7 +112,7 @@ void copy_nexthops (struct nexthop **tnh, struct nexthop *nh);
 void nexthop_free (struct nexthop *nexthop);
 void nexthops_free (struct nexthop *nexthop);
 
-void nexthop_add_labels (struct nexthop *, u_int8_t, mpls_label_t *);
+void nexthop_add_labels (struct nexthop *, enum lsp_types_t, u_int8_t, mpls_label_t *);
 void nexthop_del_labels (struct nexthop *);
 
 extern const char *nexthop_type_to_str (enum nexthop_types_t nh_type);

@@ -28,6 +28,7 @@
 #include "command.h"
 #include "network.h"
 #include "linklist.h"
+#include "mpls.h"
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -38,6 +39,7 @@
 static void	 ifp2kif(struct interface *, struct kif *);
 static void	 ifc2kaddr(struct interface *, struct connected *,
 		    struct kaddr *);
+static int	 zebra_send_mpls_labels(int, struct kroute *);
 static int	 ldp_router_id_update(int, struct zclient *, zebra_size_t,
 		    vrf_id_t);
 static int	 ldp_interface_add(int, struct zclient *, zebra_size_t,
@@ -89,18 +91,62 @@ ifc2kaddr(struct interface *ifp, struct connected *ifc, struct kaddr *ka)
 	}
 }
 
+static int
+zebra_send_mpls_labels(int cmd, struct kroute *kr)
+{
+	struct stream		*s;
+
+	if (kr->local_label < MPLS_LABEL_RESERVED_MAX ||
+	    kr->remote_label == NO_LABEL)
+		return (0);
+
+	debug_zebra_out("prefix %s/%u nexthop %s labels %s/%s (%s)",
+	    log_addr(kr->af, &kr->prefix), kr->prefixlen,
+	    log_addr(kr->af, &kr->nexthop), log_label(kr->local_label),
+	    log_label(kr->remote_label),
+	    (cmd == ZEBRA_MPLS_LABELS_ADD) ? "add" : "delete");
+
+	/* Reset stream. */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putc(s, ZEBRA_LSP_LDP);
+	stream_putl(s, kr->af);
+	switch (kr->af) {
+	case AF_INET:
+		stream_put_in_addr(s, &kr->prefix.v4);
+		stream_putc(s, kr->prefixlen);
+		stream_put_in_addr(s, &kr->nexthop.v4);
+		break;
+	case AF_INET6:
+		stream_write(s, (u_char *)&kr->prefix.v6, 16);
+		stream_putc(s, kr->prefixlen);
+		stream_write(s, (u_char *)&kr->nexthop.v6, 16);
+		break;
+	default:
+		fatalx("kr_change: unknown af");
+	}
+	stream_putc(s, kr->priority);
+	stream_putl(s, kr->local_label);
+	stream_putl(s, kr->remote_label);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return (zclient_send_message(zclient));
+}
+
 int
 kr_change(struct kroute *kr)
 {
-	/* TODO */
-	return (0);
+	return (zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_ADD, kr));
 }
 
 int
 kr_delete(struct kroute *kr)
 {
-	/* TODO */
-	return (0);
+	return (zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_DELETE, kr));
 }
 
 int

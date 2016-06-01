@@ -205,7 +205,7 @@ rib_copy_nexthops (struct rib *rib, struct nexthop *nh)
   memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
   memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
   if (nh->nh_label)
-    nexthop_add_labels (nexthop, nh->nh_label->num_labels,
+    nexthop_add_labels (nexthop, nh->nh_label_type, nh->nh_label->num_labels,
                         &nh->nh_label->label[0]);
   rib_nexthop_add(rib, nexthop);
   if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))

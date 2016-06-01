@@ -53,13 +53,6 @@ typedef struct zebra_slsp_t_ zebra_slsp_t;
 typedef struct zebra_nhlfe_t_ zebra_nhlfe_t;
 typedef struct zebra_lsp_t_ zebra_lsp_t;
 
-/* LSP types. */
-enum lsp_types_t
-{
-  ZEBRA_LSP_INVALID = 0,     /* Invalid. */
-  ZEBRA_LSP_STATIC = 1,      /* Static LSP. */
-};
-
 /*
  * (Outgoing) nexthop label forwarding entry configuration
  */
@@ -172,6 +165,47 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
                 char *buf, int len);
 
 /*
+ * Install/uninstall a FEC-To-NHLFE (FTN) binding.
+ */
+int
+mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
+		 struct prefix *prefix, union g_addr *gate, u_int8_t distance,
+		 mpls_label_t out_label);
+
+/*
+ * Install/update a NHLFE for an LSP in the forwarding table. This may be
+ * a new LSP entry or a new NHLFE for an existing in-label or an update of
+ * the out-label for an existing NHLFE (update case).
+ */
+int
+mpls_lsp_install (struct zebra_vrf *zvrf, enum lsp_types_t type,
+		  mpls_label_t in_label, mpls_label_t out_label,
+		  enum nexthop_types_t gtype, union g_addr *gate,
+		  char *ifname, ifindex_t ifindex);
+
+/*
+ * Uninstall a particular NHLFE in the forwarding table. If this is
+ * the only NHLFE, the entire LSP forwarding entry has to be deleted.
+ */
+int
+mpls_lsp_uninstall (struct zebra_vrf *zvrf, enum lsp_types_t type,
+		    mpls_label_t in_label, enum nexthop_types_t gtype,
+		    union g_addr *gate, char *ifname, ifindex_t ifindex);
+
+/*
+ * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
+ * If no other NHLFEs exist, the entry would be deleted.
+ */
+void
+mpls_ldp_lsp_uninstall_all (struct hash_backet *backet, void *ctxt);
+
+/*
+ * Uninstall all LDP FEC-To-NHLFE (FTN) bindings of the given address-family.
+ */
+void
+mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi);
+
+/*
  * Check that the label values used in LSP creation are consistent. The
  * main criteria is that if there is ECMP, the label operation must still
  * be consistent - i.e., all paths either do a swap or do PHP. This is due
@@ -282,7 +316,7 @@ lsp_type_from_rib_type (int rib_type)
       case ZEBRA_ROUTE_STATIC:
         return ZEBRA_LSP_STATIC;
       default:
-        return ZEBRA_LSP_INVALID;
+        return ZEBRA_LSP_NONE;
     }
 }
 
@@ -294,6 +328,8 @@ nhlfe_type2str(enum lsp_types_t lsp_type)
     {
       case ZEBRA_LSP_STATIC:
         return "Static";
+      case ZEBRA_LSP_LDP:
+        return "LDP";
       default:
         return "Unknown";
     }

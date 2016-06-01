@@ -99,15 +99,10 @@ nhlfe_add (zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 static int
 nhlfe_del (zebra_nhlfe_t *snhlfe);
 static int
-static_lsp_install (struct zebra_vrf *zvrf, mpls_label_t in_label,
-                    mpls_label_t out_label, enum nexthop_types_t gtype,
-                    union g_addr *gate, char *ifname, ifindex_t ifindex);
+mpls_lsp_uninstall_all (struct hash *lsp_table, zebra_lsp_t *lsp,
+			enum lsp_types_t type);
 static int
-static_lsp_uninstall (struct zebra_vrf *zvrf, mpls_label_t in_label,
-                      enum nexthop_types_t gtype, union g_addr *gate,
-                      char *ifname, ifindex_t ifindex);
-static int
-static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label);
+mpls_static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label);
 static void
 nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty);
 static void
@@ -684,7 +679,7 @@ nhlfe_add (zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
       XFREE (MTYPE_NHLFE, nhlfe);
       return NULL;
     }
-  nexthop_add_labels (nexthop, 1, &out_label);
+  nexthop_add_labels (nexthop, lsp_type, 1, &out_label);
 
   nexthop->type = gtype;
   switch (nexthop->type)
@@ -746,175 +741,13 @@ nhlfe_del (zebra_nhlfe_t *nhlfe)
   return 0;
 }
 
-
-/*
- * Install/update a static NHLFE for an LSP in the forwarding table. This may
- * be a new LSP entry or a new NHLFE for an existing in-label or an update of
- * the out-label for an existing NHLFE (update case).
- */
 static int
-static_lsp_install (struct zebra_vrf *zvrf, mpls_label_t in_label,
-                    mpls_label_t out_label, enum nexthop_types_t gtype,
-                    union g_addr *gate, char *ifname, ifindex_t ifindex)
+mpls_lsp_uninstall_all (struct hash *lsp_table, zebra_lsp_t *lsp,
+			enum lsp_types_t type)
 {
-  struct hash *lsp_table;
-  zebra_ile_t tmp_ile;
-  zebra_lsp_t *lsp;
-  zebra_nhlfe_t *nhlfe;
-  char buf[BUFSIZ];
-
-  /* Lookup table. */
-  lsp_table = zvrf->lsp_table;
-  if (!lsp_table)
-    return -1;
-
-  /* If entry is present, exit. */
-  tmp_ile.in_label = in_label;
-  lsp = hash_get (lsp_table, &tmp_ile, lsp_alloc);
-  if (!lsp)
-    return -1;
-  nhlfe = nhlfe_find (lsp, ZEBRA_LSP_STATIC, gtype, gate, ifname, ifindex);
-  if (nhlfe)
-    {
-      struct nexthop *nh = nhlfe->nexthop;
-
-      assert (nh);
-      assert (nh->nh_label);
-
-      /* Clear deleted flag (in case it was set) */
-      UNSET_FLAG (nhlfe->flags, NHLFE_FLAG_DELETED);
-      if (nh->nh_label->label[0] == out_label)
-        /* No change */
-        return 0;
-
-      if (IS_ZEBRA_DEBUG_MPLS)
-        {
-          nhlfe2str (nhlfe, buf, BUFSIZ);
-          zlog_debug ("LSP in-label %u type %d nexthop %s "
-                      "out-label changed to %u (old %u)",
-                      in_label, ZEBRA_LSP_STATIC, buf,
-                      out_label, nh->nh_label->label[0]);
-        }
-
-      /* Update out label, trigger processing. */
-      nh->nh_label->label[0] = out_label;
-    }
-  else
-    {
-      /* Add LSP entry to this nexthop */
-      nhlfe = nhlfe_add (lsp, ZEBRA_LSP_STATIC, gtype, gate,
-                         ifname, ifindex, out_label);
-      if (!nhlfe)
-        return -1;
-
-      if (IS_ZEBRA_DEBUG_MPLS)
-        {
-          nhlfe2str (nhlfe, buf, BUFSIZ);
-          zlog_debug ("Add LSP in-label %u type %d nexthop %s "
-                      "out-label %u",
-                      in_label, ZEBRA_LSP_STATIC, buf,
-                      out_label);
-        }
-
-      lsp->addr_family = NHLFE_FAMILY (nhlfe);
-    }
-
-  /* Mark NHLFE, queue LSP for processing. */
-  SET_FLAG(nhlfe->flags, NHLFE_FLAG_CHANGED);
-  if (lsp_processq_add (lsp))
-    return -1;
-
-  return 0;
-}
-
-/*
- * Uninstall a particular static NHLFE in the forwarding table. If this is
- * the only NHLFE, the entire LSP forwarding entry has to be deleted.
- */
-static int
-static_lsp_uninstall (struct zebra_vrf *zvrf, mpls_label_t in_label,
-                      enum nexthop_types_t gtype, union g_addr *gate,
-                      char *ifname, ifindex_t ifindex)
-{
-  struct hash *lsp_table;
-  zebra_ile_t tmp_ile;
-  zebra_lsp_t *lsp;
-  zebra_nhlfe_t *nhlfe;
-  char buf[BUFSIZ];
-
-  /* Lookup table. */
-  lsp_table = zvrf->lsp_table;
-  if (!lsp_table)
-    return -1;
-
-  /* If entry is not present, exit. */
-  tmp_ile.in_label = in_label;
-  lsp = hash_lookup (lsp_table, &tmp_ile);
-  if (!lsp)
-    return 0;
-  nhlfe = nhlfe_find (lsp, ZEBRA_LSP_STATIC, gtype, gate, ifname, ifindex);
-  if (!nhlfe)
-    return 0;
-
-  if (IS_ZEBRA_DEBUG_MPLS)
-    {
-      nhlfe2str (nhlfe, buf, BUFSIZ);
-      zlog_debug ("Del LSP in-label %u type %d nexthop %s flags 0x%x",
-                  in_label, ZEBRA_LSP_STATIC, buf, nhlfe->flags);
-    }
-
-  /* Mark NHLFE for delete or directly delete, as appropriate. */
-  if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))
-    {
-      UNSET_FLAG (nhlfe->flags, NHLFE_FLAG_CHANGED);
-      SET_FLAG (nhlfe->flags, NHLFE_FLAG_DELETED);
-      if (lsp_processq_add (lsp))
-        return -1;
-    }
-  else
-    {
-      nhlfe_del (nhlfe);
-
-      /* Free LSP entry if no other NHLFEs and not scheduled. */
-      if (!lsp->nhlfe_list &&
-          !CHECK_FLAG (lsp->flags, LSP_FLAG_SCHEDULED))
-        {
-          if (IS_ZEBRA_DEBUG_MPLS)
-            zlog_debug ("Free LSP in-label %u flags 0x%x",
-                        lsp->ile.in_label, lsp->flags);
-
-          lsp = hash_release(lsp_table, &lsp->ile);
-          if (lsp)
-            XFREE(MTYPE_LSP, lsp);
-        }
-    }
-  return 0;
-}
-
-/*
- * Uninstall all static NHLFEs for a particular LSP forwarding entry.
- * If no other NHLFEs exist, the entry would be deleted.
- */
-static int
-static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label)
-{
-  struct hash *lsp_table;
-  zebra_ile_t tmp_ile;
-  zebra_lsp_t *lsp;
   zebra_nhlfe_t *nhlfe, *nhlfe_next;
   int schedule_lsp = 0;
   char buf[BUFSIZ];
-
-  /* Lookup table. */
-  lsp_table = zvrf->lsp_table;
-  if (!lsp_table)
-    return -1;
-
-  /* If entry is not present, exit. */
-  tmp_ile.in_label = in_label;
-  lsp = hash_lookup (lsp_table, &tmp_ile);
-  if (!lsp || !lsp->nhlfe_list)
-    return 0;
 
   /* Mark NHLFEs for delete or directly delete, as appropriate. */
   for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe_next)
@@ -922,14 +755,14 @@ static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label)
       nhlfe_next = nhlfe->next;
 
       /* Skip non-static NHLFEs */
-      if (nhlfe->type != ZEBRA_LSP_STATIC)
+      if (nhlfe->type != type)
         continue;
 
       if (IS_ZEBRA_DEBUG_MPLS)
         {
           nhlfe2str (nhlfe, buf, BUFSIZ);
           zlog_debug ("Del LSP in-label %u type %d nexthop %s flags 0x%x",
-                      in_label, ZEBRA_LSP_STATIC, buf, nhlfe->flags);
+                      lsp->ile.in_label, type, buf, nhlfe->flags);
         }
 
       if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))
@@ -963,6 +796,31 @@ static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label)
     }
 
   return 0;
+}
+
+/*
+ * Uninstall all static NHLFEs for a particular LSP forwarding entry.
+ * If no other NHLFEs exist, the entry would be deleted.
+ */
+static int
+mpls_static_lsp_uninstall_all (struct zebra_vrf *zvrf, mpls_label_t in_label)
+{
+  struct hash *lsp_table;
+  zebra_ile_t tmp_ile;
+  zebra_lsp_t *lsp;
+
+  /* Lookup table. */
+  lsp_table = zvrf->lsp_table;
+  if (!lsp_table)
+    return -1;
+
+  /* If entry is not present, exit. */
+  tmp_ile.in_label = in_label;
+  lsp = hash_lookup (lsp_table, &tmp_ile);
+  if (!lsp || !lsp->nhlfe_list)
+    return 0;
+
+  return mpls_lsp_uninstall_all (lsp_table, lsp, ZEBRA_LSP_STATIC);
 }
 
 static json_object *
@@ -1395,6 +1253,274 @@ mpls_label2str (u_int8_t num_labels, mpls_label_t *labels,
 }
 
 /*
+ * Install/uninstall a FEC-To-NHLFE (FTN) binding.
+ */
+int
+mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
+		 struct prefix *prefix, union g_addr *gate, u_int8_t distance,
+		 mpls_label_t out_label)
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct rib *rib;
+  struct nexthop *nexthop;
+
+  /* Lookup table.  */
+  table = zebra_vrf_table (family2afi(prefix->family), SAFI_UNICAST, zvrf->vrf_id);
+  if (! table)
+    return -1;
+
+  /* Lookup existing route */
+  rn = route_node_get (table, prefix);
+  RNODE_FOREACH_RIB (rn, rib)
+    {
+       if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+         continue;
+       if (rib->distance == distance)
+         break;
+    }
+
+  if (rib == NULL)
+    return -1;
+
+  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+    switch (prefix->family)
+      {
+	case AF_INET:
+	  if (nexthop->type != NEXTHOP_TYPE_IPV4 &&
+	      nexthop->type != NEXTHOP_TYPE_IPV4_IFINDEX)
+	    continue;
+	  if (! IPV4_ADDR_SAME (&nexthop->gate.ipv4, &gate->ipv4))
+	    continue;
+	  goto found;
+	  break;
+	case AF_INET6:
+	  if (nexthop->type != NEXTHOP_TYPE_IPV6 &&
+	      nexthop->type != NEXTHOP_TYPE_IPV6_IFINDEX)
+	    continue;
+	  if (! IPV6_ADDR_SAME (&nexthop->gate.ipv6, &gate->ipv6))
+	    continue;
+	  goto found;
+	  break;
+	default:
+	  break;
+      }
+  /* nexthop not found */
+  return -1;
+
+ found:
+  if (add)
+    nexthop_add_labels (nexthop, type, 1, &out_label);
+  else
+    nexthop_del_labels (nexthop);
+
+  SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
+  SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+  rib_queue_add (rn);
+
+  return 0;
+}
+
+/*
+ * Install/update a NHLFE for an LSP in the forwarding table. This may be
+ * a new LSP entry or a new NHLFE for an existing in-label or an update of
+ * the out-label for an existing NHLFE (update case).
+ */
+int
+mpls_lsp_install (struct zebra_vrf *zvrf, enum lsp_types_t type,
+		  mpls_label_t in_label, mpls_label_t out_label,
+		  enum nexthop_types_t gtype, union g_addr *gate,
+		  char *ifname, ifindex_t ifindex)
+{
+  struct hash *lsp_table;
+  zebra_ile_t tmp_ile;
+  zebra_lsp_t *lsp;
+  zebra_nhlfe_t *nhlfe;
+  char buf[BUFSIZ];
+
+  /* Lookup table. */
+  lsp_table = zvrf->lsp_table;
+  if (!lsp_table)
+    return -1;
+
+  /* If entry is present, exit. */
+  tmp_ile.in_label = in_label;
+  lsp = hash_get (lsp_table, &tmp_ile, lsp_alloc);
+  if (!lsp)
+    return -1;
+  nhlfe = nhlfe_find (lsp, type, gtype, gate, ifname, ifindex);
+  if (nhlfe)
+    {
+      struct nexthop *nh = nhlfe->nexthop;
+
+      assert (nh);
+      assert (nh->nh_label);
+
+      /* Clear deleted flag (in case it was set) */
+      UNSET_FLAG (nhlfe->flags, NHLFE_FLAG_DELETED);
+      if (nh->nh_label->label[0] == out_label)
+        /* No change */
+        return 0;
+
+      if (IS_ZEBRA_DEBUG_MPLS)
+        {
+          nhlfe2str (nhlfe, buf, BUFSIZ);
+          zlog_debug ("LSP in-label %u type %d nexthop %s "
+                      "out-label changed to %u (old %u)",
+                      in_label, type, buf,
+                      out_label, nh->nh_label->label[0]);
+        }
+
+      /* Update out label, trigger processing. */
+      nh->nh_label->label[0] = out_label;
+    }
+  else
+    {
+      /* Add LSP entry to this nexthop */
+      nhlfe = nhlfe_add (lsp, type, gtype, gate,
+                         ifname, ifindex, out_label);
+      if (!nhlfe)
+        return -1;
+
+      if (IS_ZEBRA_DEBUG_MPLS)
+        {
+          nhlfe2str (nhlfe, buf, BUFSIZ);
+          zlog_debug ("Add LSP in-label %u type %d nexthop %s "
+                      "out-label %u", in_label, type, buf, out_label);
+        }
+
+      lsp->addr_family = NHLFE_FAMILY (nhlfe);
+    }
+
+  /* Mark NHLFE, queue LSP for processing. */
+  SET_FLAG(nhlfe->flags, NHLFE_FLAG_CHANGED);
+  if (lsp_processq_add (lsp))
+    return -1;
+
+  return 0;
+}
+
+/*
+ * Uninstall a particular NHLFE in the forwarding table. If this is
+ * the only NHLFE, the entire LSP forwarding entry has to be deleted.
+ */
+int
+mpls_lsp_uninstall (struct zebra_vrf *zvrf, enum lsp_types_t type,
+		    mpls_label_t in_label, enum nexthop_types_t gtype,
+		    union g_addr *gate, char *ifname, ifindex_t ifindex)
+{
+  struct hash *lsp_table;
+  zebra_ile_t tmp_ile;
+  zebra_lsp_t *lsp;
+  zebra_nhlfe_t *nhlfe;
+  char buf[BUFSIZ];
+
+  /* Lookup table. */
+  lsp_table = zvrf->lsp_table;
+  if (!lsp_table)
+    return -1;
+
+  /* If entry is not present, exit. */
+  tmp_ile.in_label = in_label;
+  lsp = hash_lookup (lsp_table, &tmp_ile);
+  if (!lsp)
+    return 0;
+  nhlfe = nhlfe_find (lsp, type, gtype, gate, ifname, ifindex);
+  if (!nhlfe)
+    return 0;
+
+  if (IS_ZEBRA_DEBUG_MPLS)
+    {
+      nhlfe2str (nhlfe, buf, BUFSIZ);
+      zlog_debug ("Del LSP in-label %u type %d nexthop %s flags 0x%x",
+                  in_label, type, buf, nhlfe->flags);
+    }
+
+  /* Mark NHLFE for delete or directly delete, as appropriate. */
+  if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))
+    {
+      UNSET_FLAG (nhlfe->flags, NHLFE_FLAG_CHANGED);
+      SET_FLAG (nhlfe->flags, NHLFE_FLAG_DELETED);
+      if (lsp_processq_add (lsp))
+        return -1;
+    }
+  else
+    {
+      nhlfe_del (nhlfe);
+
+      /* Free LSP entry if no other NHLFEs and not scheduled. */
+      if (!lsp->nhlfe_list &&
+          !CHECK_FLAG (lsp->flags, LSP_FLAG_SCHEDULED))
+        {
+          if (IS_ZEBRA_DEBUG_MPLS)
+            zlog_debug ("Free LSP in-label %u flags 0x%x",
+                        lsp->ile.in_label, lsp->flags);
+
+          lsp = hash_release(lsp_table, &lsp->ile);
+          if (lsp)
+            XFREE(MTYPE_LSP, lsp);
+        }
+    }
+  return 0;
+}
+
+/*
+ * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
+ * If no other NHLFEs exist, the entry would be deleted.
+ */
+void
+mpls_ldp_lsp_uninstall_all (struct hash_backet *backet, void *ctxt)
+{
+  zebra_lsp_t *lsp;
+  struct hash *lsp_table;
+
+  lsp = (zebra_lsp_t *) backet->data;
+  if (!lsp || !lsp->nhlfe_list)
+    return;
+
+  lsp_table = ctxt;
+  if (!lsp_table)
+    return;
+
+  mpls_lsp_uninstall_all (lsp_table, lsp, ZEBRA_LSP_LDP);
+}
+
+/*
+ * Uninstall all LDP FEC-To-NHLFE (FTN) bindings of the given address-family.
+ */
+void
+mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi)
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct rib *rib;
+  struct nexthop *nexthop;
+  int update;
+
+  /* Process routes of interested address-families. */
+  table = zebra_vrf_table (afi, SAFI_UNICAST, zvrf->vrf_id);
+  if (!table)
+    return;
+
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    {
+      update = 0;
+      RNODE_FOREACH_RIB (rn, rib)
+	for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+	  if (nexthop->nh_label_type == ZEBRA_LSP_LDP)
+	    {
+	      nexthop_del_labels (nexthop);
+	      SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
+	      SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+	      update = 1;
+	    }
+
+      if (update)
+	rib_queue_add (rn);
+    }
+}
+
+/*
  * Check that the label values used in LSP creation are consistent. The
  * main criteria is that if there is ECMP, the label operation must still
  * be consistent - i.e., all paths either do a swap or do PHP. This is due
@@ -1511,8 +1637,8 @@ zebra_mpls_static_lsp_add (struct zebra_vrf *zvrf, mpls_label_t in_label,
     }
 
   /* (Re)Install LSP in the main table. */
-  if (static_lsp_install (zvrf, in_label, out_label, gtype,
-                          gate, ifname, ifindex))
+  if (mpls_lsp_install (zvrf, ZEBRA_LSP_STATIC, in_label, out_label, gtype,
+      gate, ifname, ifindex))
     return -1;
 
   return 0;
@@ -1553,7 +1679,7 @@ zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
         zlog_debug ("Del static LSP in-label %u", in_label);
 
       /* Uninstall entire LSP from the main table. */
-      static_lsp_uninstall_all (zvrf, in_label);
+      mpls_static_lsp_uninstall_all (zvrf, in_label);
 
       /* Delete all static NHLFEs */
       snhlfe_del_all (slsp);
@@ -1574,8 +1700,8 @@ zebra_mpls_static_lsp_del (struct zebra_vrf *zvrf, mpls_label_t in_label,
         }
 
       /* Uninstall LSP from the main table. */
-      static_lsp_uninstall (zvrf, in_label, gtype,
-                            gate, ifname, ifindex);
+      mpls_lsp_uninstall (zvrf, ZEBRA_LSP_STATIC, in_label, gtype, gate,
+			  ifname, ifindex);
 
       /* Delete static LSP NHLFE */
       snhlfe_del (snhlfe);

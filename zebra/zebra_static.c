@@ -98,7 +98,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
         }
       /* Update label(s), if present. */
       if (si->snh_label.num_labels)
-	nexthop_add_labels (nexthop, si->snh_label.num_labels,
+	nexthop_add_labels (nexthop, ZEBRA_LSP_STATIC, si->snh_label.num_labels,
 			    &si->snh_label.label[0]);
 
       if (IS_ZEBRA_DEBUG_RIB)
@@ -162,7 +162,7 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p, struct static_ro
         }
       /* Update label(s), if present. */
       if (si->snh_label.num_labels)
-	nexthop_add_labels (nexthop, si->snh_label.num_labels,
+	nexthop_add_labels (nexthop, ZEBRA_LSP_STATIC, si->snh_label.num_labels,
 			    &si->snh_label.label[0]);
 
       /* Save the flags of this static routes (reject, blackhole) */
