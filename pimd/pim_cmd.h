@@ -30,6 +30,7 @@
 #define CONF_SSMPINGD_STR                      "Enable ssmpingd operation\n"
 #define SHOW_SSMPINGD_STR                      "ssmpingd operation\n"
 #define IFACE_PIM_STR                          "Enable PIM SSM operation\n"
+#define IFACE_PIM_SM_STR                       "Enable PIM SM operation\n"
 #define IFACE_PIM_HELLO_STR                    "Hello Interval\n"
 #define IFACE_PIM_HELLO_TIME_STR               "Time in seconds for Hello Interval\n"
 #define IFACE_PIM_HELLO_HOLD_STR               "Time in seconds for Hold Interval\n"

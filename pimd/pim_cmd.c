@@ -3273,7 +3273,7 @@ DEFUN (interface_ip_pim_sm,
        "ip pim sm",
        IP_STR
        PIM_STR
-       IFACE_PIM_STR)
+       IFACE_PIM_SM_STR)
 {
   struct interface *ifp;
 
@@ -3344,7 +3344,7 @@ DEFUN (interface_no_ip_pim_sm,
        NO_STR
        IP_STR
        PIM_STR
-       IFACE_PIM_STR)
+       IFACE_PIM_SM_STR)
 {
   struct interface *ifp;
 
@@ -4917,7 +4917,7 @@ void pim_cmd_init()
   install_element (INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
   install_element (INTERFACE_NODE, &interface_ip_pim_sm_cmd);
-  install_element (INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
+  install_element (INTERFACE_NODE, &interface_no_ip_pim_sm_cmd);
   install_element (INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
   install_element (INTERFACE_NODE, &interface_ip_pim_hello_cmd);
