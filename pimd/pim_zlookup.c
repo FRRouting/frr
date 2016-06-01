@@ -154,7 +154,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
   u_char marker;
   u_char version;
   vrf_id_t vrf_id;
-  uint16_t command;
+  uint16_t command = 0;
   struct in_addr raddr;
   uint8_t distance;
   uint32_t metric;
@@ -170,36 +170,33 @@ static int zclient_read_nexthop(struct zclient *zlookup,
   }
 
   s = zlookup->ibuf;
-  stream_reset(s);
 
-  err = zclient_read_header (s, zlookup->sock, &length, &marker, &version,
-			     &vrf_id, &command);
-  if (err < 0) {
-    zlog_err("%s %s: zclient_read_header() failed",
-	     __FILE__, __PRETTY_FUNCTION__);
-    zclient_lookup_failed(zlookup);
-    return -1;
-  }
+  while (command != ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB)
+    {
+      stream_reset(s);
+      err = zclient_read_header (s, zlookup->sock, &length, &marker, &version,
+				 &vrf_id, &command);
+      if (err < 0) {
+	zlog_err("%s %s: zclient_read_header() failed",
+		 __FILE__, __PRETTY_FUNCTION__);
+	zclient_lookup_failed(zlookup);
+	return -1;
+      }
 
-  if (length < MIN_LEN) {
-    zlog_err("%s %s: failure reading zclient lookup socket: len=%d < MIN_LEN=%d",
-	     __FILE__, __PRETTY_FUNCTION__, length, MIN_LEN);
-    zclient_lookup_failed(zlookup);
-    return -2;
-  }
+      if (length < MIN_LEN) {
+	zlog_err("%s %s: failure reading zclient lookup socket: len=%d < MIN_LEN=%d",
+		 __FILE__, __PRETTY_FUNCTION__, length, MIN_LEN);
+	zclient_lookup_failed(zlookup);
+	return -2;
+      }
   
-  if (version != ZSERV_VERSION || marker != ZEBRA_HEADER_MARKER) {
-    zlog_err("%s: socket %d version mismatch, marker %d, version %d",
-	     __func__, zlookup->sock, marker, version);
-    zclient_lookup_failed(zlookup);
-    return -4;
-  }
-    
-  if (command != ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB) {
-    zlog_err("%s: socket %d command mismatch: %d",
-            __func__, zlookup->sock, command);
-    return -5;
-  }
+      if (version != ZSERV_VERSION || marker != ZEBRA_HEADER_MARKER) {
+	zlog_err("%s: socket %d version mismatch, marker %d, version %d",
+		 __func__, zlookup->sock, marker, version);
+	zclient_lookup_failed(zlookup);
+	return -4;
+      }
+    }
 
   raddr.s_addr = stream_get_ipv4(s);
 
