@@ -21,6 +21,9 @@
 
 #include <zebra.h>
 #include <net/if_types.h>
+#if defined HAVE_MPLS && defined __OpenBSD__
+#include <netmpls/mpls.h>
+#endif
 
 #include "if.h"
 #include "prefix.h"
@@ -1068,6 +1071,7 @@ rtm_write (int message,
 	   union sockunion *dest,
 	   union sockunion *mask,
 	   union sockunion *gate,
+	   union sockunion *mpls,
 	   unsigned int index,
 	   int zebra_flags,
 	   int metric)
@@ -1097,6 +1101,10 @@ rtm_write (int message,
   msg.rtm.rtm_addrs = RTA_DST;
   msg.rtm.rtm_addrs |= RTA_GATEWAY;
   msg.rtm.rtm_flags = RTF_UP;
+#if defined HAVE_MPLS && defined __OpenBSD__
+  msg.rtm.rtm_flags |= RTF_MPATH;
+  msg.rtm.rtm_fmask = RTF_MPLS;
+#endif
   msg.rtm.rtm_index = index;
 
   if (metric != 0)
@@ -1142,6 +1150,17 @@ rtm_write (int message,
   else if (message == RTM_ADD) 
     msg.rtm.rtm_flags |= RTF_HOST;
 
+#if defined HAVE_MPLS && defined __OpenBSD__
+  if (mpls)
+    {
+      msg.rtm.rtm_addrs |= RTA_SRC;
+      msg.rtm.rtm_flags |= RTF_MPLS;
+
+      if (mpls->smpls.smpls_label != htonl (MPLS_IMP_NULL_LABEL << MPLS_LABEL_OFFSET))
+	msg.rtm.rtm_mpls = MPLS_OP_PUSH;
+    }
+#endif
+
   /* Tagging route with flags */
   msg.rtm.rtm_flags |= (RTF_PROTO1);
 
@@ -1166,6 +1185,9 @@ rtm_write (int message,
   SOCKADDRSET (dest, RTA_DST);
   SOCKADDRSET (gate, RTA_GATEWAY);
   SOCKADDRSET (mask, RTA_NETMASK);
+#if defined HAVE_MPLS && defined __OpenBSD__
+  SOCKADDRSET (mpls, RTA_SRC);
+#endif
 
   msg.rtm.rtm_msglen = pnt - (caddr_t) &msg;
 

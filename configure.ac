@@ -374,6 +374,11 @@ if test "x${enable_mpls}" = "xyes"; then
         MPLS_METHOD="zebra_mpls_netlink.o"
         AC_MSG_RESULT(Linux MPLS)
     ;;
+    *-openbsd*)
+        AC_DEFINE(HAVE_MPLS,,Enable MPLS)
+        MPLS_METHOD="zebra_mpls_openbsd.o"
+        AC_MSG_RESULT(OpenBSD MPLS)
+    ;;
     *)
         AC_MSG_RESULT(Unsupported kernel)
         MPLS_METHOD="zebra_mpls_null.o"

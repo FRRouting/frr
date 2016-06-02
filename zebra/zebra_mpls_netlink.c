@@ -76,3 +76,5 @@ kernel_del_lsp (zebra_lsp_t *lsp)
 
   return 0;
 }
+
+void mpls_kernel_init (void) {};
