@@ -531,6 +531,7 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
 
   /* Type, flags, message. */
   api.type = stream_getc(s);
+  api.instance = stream_getw (s);
   api.flags = stream_getc(s);
   api.message = stream_getc(s);
 
@@ -588,7 +589,13 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
     stream_getl(s) :
     0;
 
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
+    api.tag = stream_getw (s);
+  else
+    api.tag = 0;
+
   switch (command) {
+  case ZEBRA_REDISTRIBUTE_IPV4_ADD:
   case ZEBRA_IPV4_ROUTE_ADD:
     if (PIM_DEBUG_ZEBRA) {
       char buf[2][INET_ADDRSTRLEN];
@@ -606,6 +613,7 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
 		 api.distance);
     }
     break;
+  case ZEBRA_REDISTRIBUTE_IPV4_DEL:
   case ZEBRA_IPV4_ROUTE_DELETE:
     if (PIM_DEBUG_ZEBRA) {
       char buf[2][INET_ADDRSTRLEN];
@@ -664,6 +672,8 @@ void pim_zebra_init(char *zebra_sock_path)
   qpim_zclient_update->interface_address_delete = pim_zebra_if_address_del;
   qpim_zclient_update->ipv4_route_add           = redist_read_ipv4_route;
   qpim_zclient_update->ipv4_route_delete        = redist_read_ipv4_route;
+  qpim_zclient_update->redistribute_route_ipv4_add    = redist_read_ipv4_route;
+  qpim_zclient_update->redistribute_route_ipv4_del    = redist_read_ipv4_route;
 
   zclient_init(qpim_zclient_update, ZEBRA_ROUTE_PIM, 0);
   if (PIM_DEBUG_PIM_TRACE) {
