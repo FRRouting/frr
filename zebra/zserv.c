@@ -108,7 +108,7 @@ zebra_server_send_message(struct zserv *client)
     return -1;
 
   stream_set_getp(client->obuf, 0);
-  client->last_write_cmd = stream_getw_from(client->obuf, 4);
+  client->last_write_cmd = stream_getw_from(client->obuf, 6);
   switch (buffer_write(client->wb, client->sock, STREAM_DATA(client->obuf),
 		       stream_get_endp(client->obuf)))
     {
