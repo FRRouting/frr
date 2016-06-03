@@ -87,7 +87,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
    */
   if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
-      (!PIM_I_am_DR(pim_ifp)) ||
+      (!(PIM_I_am_DR(pim_ifp))) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM))
     return 0;
 
@@ -154,7 +154,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 
   if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
-      (!PIM_I_am_DR(pim_ifp)) ||
+      (!(PIM_I_am_DR(pim_ifp))) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM)) {
     if (PIM_DEBUG_PIM_TRACE) {
       zlog_debug("%s: Failed Check send packet", __PRETTY_FUNCTION__);
