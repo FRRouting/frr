@@ -328,10 +328,16 @@ if test x"${enable_time_check}" != x"no" ; then
   fi
 fi
 
-if test "${enable_systemd}" = "yes" ; then
-  AC_DEFINE(HAVE_SYSTEMD,,Compile systemd support in)
-  LIBS="$LIBS -lsystemd "
-fi
+case "${enable_systemd}" in
+  "no") ;;
+  "yes")
+  AC_CHECK_LIB(systemd, sd_notify, LIBS="$LIBS -lsystemd")
+  if test $ac_cv_lib_systemd_sd_notify = no; then
+    AC_MSG_ERROR([enable systemd has been specified but systemd development env not found on your system])
+  fi
+  ;;
+  "*") ;;
+esac
 
 if test "${enable_poll}" = "yes" ; then
   AC_DEFINE(HAVE_POLL,,Compile systemd support in)
