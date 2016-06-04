@@ -813,7 +813,7 @@ generic_thread_add(struct thread_master *m, int (*func) (struct thread *),
   /* is there enough space for a new fd? */
   assert (queuepos < m->handler.pfdsize);
 
-  thread = thread_get (m, type, func, arg, funcname, debugargpass);
+  thread = thread_get (m, type, func, arg, debugargpass);
   m->handler.pfds[queuepos].fd = fd;
   m->handler.pfds[queuepos].events |= event;
   if (queuepos == m->handler.pfdcount)

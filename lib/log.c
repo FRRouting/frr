@@ -474,7 +474,7 @@ zlog_signal(int signo, const char *action
       s = str_append (LOC, "\n");
     }
 
-#define DUMP(FD) write(FD, buf, s-buf);
+#define DUMP(FD) write_wrapper(FD, buf, s-buf);
   /* If no file logging configured, try to write to fallback log file. */
   if (logfile_fd >= 0)
     DUMP(logfile_fd)
