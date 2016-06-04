@@ -38,13 +38,6 @@ override_dh_auto_configure:
 		--sbindir=/usr/lib/quagga \
 		--sysconfdir=/etc/quagga \
 		$(USE_SNMP) \
-		--enable-vtysh \
-		--enable-isisd \
-		--enable-watchquagga \
-		--enable-ospf-te \
-		--enable-opaque-lsa \
-		--enable-ipv6 \
-		--enable-ospfclient=yes \
 		--enable-ospfapi=yes \
 		--enable-multipath=256 \
 		--enable-user=quagga \
@@ -52,7 +45,6 @@ override_dh_auto_configure:
 		--enable-vty-group=quaggavty \
 		--enable-configfile-mask=0640 \
 		--enable-logfile-mask=0640 \
-		--enable-rtadv \
 		--enable-werror \
 		--enable-gcc-rdynamic \
 		--with-libpam \
