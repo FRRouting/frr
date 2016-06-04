@@ -22,7 +22,11 @@
 #ifndef _QUAGGA_JSON_H
 #define _QUAGGA_JSON_H
 
+#if defined(HAVE_JSON_C_JSON_H)
+#include <json-c/json.h>
+#else
 #include <json/json.h>
+#endif
 
 extern int use_json(const int argc, const char *argv[]);
 extern void json_object_string_add(struct json_object* obj, const char *key,

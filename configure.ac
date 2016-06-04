@@ -52,8 +52,6 @@ dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
 
-LIBS="$LIBS -L/usr/include/json/ -ljson-c"
-
 dnl ------------
 dnl Check CFLAGS
 dnl ------------
@@ -322,6 +320,12 @@ AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
+
+AC_CHECK_HEADERS(json-c/json.h)
+AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
+if test $ac_cv_lib_json_c_json_object_get = no; then
+  AC_MSG_ERROR([lib json is needed to compile])
+fi
 
 if test x"${enable_gcc_rdynamic}" != x"no" ; then
   if test x"${enable_gcc_rdynamic}" = x"yes" -o x"$COMPILER" = x"GCC"; then
