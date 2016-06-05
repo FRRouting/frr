@@ -10,10 +10,8 @@
 
 ####################### Quagga configure options #########################
 # with-feature options
-%{!?with_snmp:			%global with_snmp		1 }
 %{!?with_vtysh:			%global	with_vtysh		1 }
 %{!?with_tcp_zebra:		%global	with_tcp_zebra		0 }
-%{!?with_vtysh:			%global	with_vtysh		1 }
 %{!?with_pam:			%global	with_pam		1 }
 %{!?with_ospfclient:		%global	with_ospfclient 	1 }
 %{!?with_ospfapi:		%global	with_ospfapi		1 }
@@ -24,7 +22,7 @@
 %{!?with_shared:		%global	with_shared		1 }
 %{!?with_multipath:		%global	with_multipath		64 }
 %{!?quagga_user:		%global	quagga_user		quagga }
-%{!?vty_group:			%global	vty_group		quaggavt }
+%{!?vty_group:			%global	vty_group		quaggavty }
 %{!?with_fpm:			%global	with_fpm 		0 }
 %{!?with_watchquagga:		%global	with_watchquagga 	1 }
 
@@ -114,10 +112,6 @@ Requires(pre):	/sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post):	/sbin/install-info
 BuildRequires:	texi2html texinfo autoconf patch libcap-devel groff
-%if %{with_snmp}
-BuildRequires:	net-snmp-devel
-Requires:		net-snmp
-%endif
 %if %{with_vtysh}
 BuildRequires:	readline readline-devel ncurses ncurses-devel
 Requires:		ncurses
@@ -191,9 +185,6 @@ developing OSPF-API and quagga applications.
 	--disable-werror \
 %if !%{with_shared}
 	--disable-shared \
-%endif
-%if %{with_snmp}
-	--enable-snmp \
 %endif
 %if %{with_multipath}
 	--enable-multipath=%{with_multipath} \
