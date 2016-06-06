@@ -817,7 +817,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                              caphdr.length,
 			     (unsigned) cap_modsizes[caphdr.code]);
                   bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
-                                         BGP_NOTIFY_OPEN_UNSPECIFIC);
+                                   BGP_NOTIFY_OPEN_MALFORMED_ATTR);
                   return -1;
                 }
           /* we deliberately ignore unknown codes, see below */
