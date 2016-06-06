@@ -542,12 +542,11 @@ static void allow(struct igmp_sock *igmp, struct in_addr from,
 		  struct in_addr group_addr,
 		  int num_sources, struct in_addr *sources)
 {
-  struct interface *ifp = igmp->interface;
   struct igmp_group *group;
   int    i;
 
   /* non-existant group is created as INCLUDE {empty} */
-  group = igmp_add_group_by_addr(igmp, group_addr, ifp->name);
+  group = igmp_add_group_by_addr(igmp, group_addr);
   if (!group) {
     return;
   }
@@ -688,7 +687,7 @@ void igmpv3_report_isex(struct igmp_sock *igmp, struct in_addr from,
 	   ifp, from, group_addr, num_sources, sources);
 
   /* non-existant group is created as INCLUDE {empty} */
-  group = igmp_add_group_by_addr(igmp, group_addr, ifp->name);
+  group = igmp_add_group_by_addr(igmp, group_addr);
   if (!group) {
     return;
   }
@@ -810,7 +809,7 @@ void igmpv3_report_toin(struct igmp_sock *igmp, struct in_addr from,
 	   ifp, from, group_addr, num_sources, sources);
 
   /* non-existant group is created as INCLUDE {empty} */
-  group = igmp_add_group_by_addr(igmp, group_addr, ifp->name);
+  group = igmp_add_group_by_addr(igmp, group_addr);
   if (!group) {
     return;
   }
@@ -960,7 +959,7 @@ void igmpv3_report_toex(struct igmp_sock *igmp, struct in_addr from,
 	   ifp, from, group_addr, num_sources, sources);
 
   /* non-existant group is created as INCLUDE {empty} */
-  group = igmp_add_group_by_addr(igmp, group_addr, ifp->name);
+  group = igmp_add_group_by_addr(igmp, group_addr);
   if (!group) {
     return;
   }
@@ -1481,7 +1480,7 @@ void igmpv3_report_block(struct igmp_sock *igmp, struct in_addr from,
 	   ifp, from, group_addr, num_sources, sources);
 
   /* non-existant group is created as INCLUDE {empty} */
-  group = igmp_add_group_by_addr(igmp, group_addr, ifp->name);
+  group = igmp_add_group_by_addr(igmp, group_addr);
   if (!group) {
     return;
   }

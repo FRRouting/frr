@@ -163,8 +163,7 @@ struct igmp_group {
 };
 
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
-					  struct in_addr group_addr,
-					  const char *ifname);
+					  struct in_addr group_addr);
 
 void igmp_group_delete_empty_include(struct igmp_group *group);
 
