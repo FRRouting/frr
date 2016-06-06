@@ -163,8 +163,7 @@ struct igmp_group {
 };
 
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
-					  struct in_addr group_addr,
-					  const char *ifname);
+					  struct in_addr group_addr);
 
 void igmp_group_delete_empty_include(struct igmp_group *group);
 
@@ -173,4 +172,7 @@ void igmp_startup_mode_on(struct igmp_sock *igmp);
 void igmp_group_timer_on(struct igmp_group *group,
 			 long interval_msec, const char *ifname);
 
+struct igmp_source *
+source_new (struct igmp_group *group,
+	    struct in_addr src_addr);
 #endif /* PIM_IGMP_H */
