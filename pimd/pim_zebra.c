@@ -702,14 +702,20 @@ void pim_zebra_init(char *zebra_sock_path)
 
 void igmp_anysource_forward_start(struct igmp_group *group)
 {
+  struct igmp_source *source;
+  struct in_addr src_addr = { .s_addr = 0 };
   /* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
   zassert(group->group_filtermode_isexcl);
   zassert(listcount(group->group_source_list) < 1);
 
-  if (PIM_DEBUG_IGMP_TRACE) {
-    zlog_debug("%s %s: UNIMPLEMENTED",
-	       __FILE__, __PRETTY_FUNCTION__);
-  }
+  source = source_new (group, src_addr);
+  if (!source)
+    {
+      zlog_warn ("%s: Failure to create * source", __PRETTY_FUNCTION__);
+      return;
+    }
+
+  igmp_source_forward_start (source);
 }
 
 void igmp_anysource_forward_stop(struct igmp_group *group)
