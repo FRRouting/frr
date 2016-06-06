@@ -477,9 +477,9 @@ struct igmp_source *igmp_find_source_by_addr(struct igmp_group *group,
   return 0;
 }
 
-static struct igmp_source *source_new(struct igmp_group *group,
-				      struct in_addr src_addr,
-				      const char *ifname)
+struct igmp_source *
+source_new (struct igmp_group *group,
+	    struct in_addr src_addr)
 {
   struct igmp_source *src;
 
@@ -491,7 +491,7 @@ static struct igmp_source *source_new(struct igmp_group *group,
     zlog_debug("Creating new IGMP source %s for group %s on socket %d interface %s",
 	       source_str, group_str,
 	       group->group_igmp_sock->fd,
-	       ifname);
+	       group->group_igmp_sock->interface->name);
   }
 
   src = XMALLOC(MTYPE_PIM_IGMP_GROUP_SOURCE, sizeof(*src));
@@ -501,13 +501,13 @@ static struct igmp_source *source_new(struct igmp_group *group,
     return 0; /* error, not found, could not create */
   }
   
-  src->t_source_timer                = 0;
+  src->t_source_timer                = NULL;
   src->source_group                  = group; /* back pointer */
   src->source_addr                   = src_addr;
   src->source_creation               = pim_time_monotonic_sec();
   src->source_flags                  = 0;
   src->source_query_retransmit_count = 0;
-  src->source_channel_oil            = 0;
+  src->source_channel_oil            = NULL;
 
   listnode_add(group->group_source_list, src);
 
@@ -521,8 +521,7 @@ static struct igmp_source *source_new(struct igmp_group *group,
 
 static struct igmp_source *add_source_by_addr(struct igmp_sock *igmp,
 					      struct igmp_group *group,
-					      struct in_addr src_addr,
-					      const char *ifname)
+					      struct in_addr src_addr)
 {
   struct igmp_source *src;
 
@@ -531,7 +530,7 @@ static struct igmp_source *add_source_by_addr(struct igmp_sock *igmp,
     return src;
   }
 
-  src = source_new(group, src_addr, ifname);
+  src = source_new(group, src_addr);
   if (!src) {
     return 0;
   }
@@ -560,7 +559,7 @@ static void allow(struct igmp_sock *igmp, struct in_addr from,
 
     src_addr = sources + i;
 
-    source = add_source_by_addr(igmp, group, *src_addr,	ifp->name);
+    source = add_source_by_addr(igmp, group, *src_addr);
     if (!source) {
       continue;
     }
@@ -616,8 +615,7 @@ static void isex_excl(struct igmp_group *group,
     }
     else {
       /* E.4: if not found, create source with timer=GMI: (A-X-Y) */
-      source = source_new(group, *src_addr,
-			  group->group_igmp_sock->interface->name);
+      source = source_new(group, *src_addr);
       if (!source) {
 	/* ugh, internal malloc failure, skip source */
 	continue;
@@ -659,8 +657,7 @@ static void isex_incl(struct igmp_group *group,
     }
     else {
       /* I.4: if not found, create source with timer=0 (B-A) */
-      source = source_new(group, *src_addr,
-			  group->group_igmp_sock->interface->name);
+      source = source_new(group, *src_addr);
       if (!source) {
 	/* ugh, internal malloc failure, skip source */
 	continue;
@@ -737,8 +734,7 @@ static void toin_incl(struct igmp_group *group,
     }
     else {
       /* If not found, create new source */
-      source = source_new(group, *src_addr,
-			  group->group_igmp_sock->interface->name);
+      source = source_new(group, *src_addr);
       if (!source) {
 	/* ugh, internal malloc failure, skip source */
 	continue;
@@ -783,8 +779,7 @@ static void toin_excl(struct igmp_group *group,
     }
     else {
       /* If not found, create new source */
-      source = source_new(group, *src_addr,
-			  group->group_igmp_sock->interface->name);
+      source = source_new(group, *src_addr);
       if (!source) {
 	/* ugh, internal malloc failure, skip source */
 	continue;
@@ -862,8 +857,7 @@ static void toex_incl(struct igmp_group *group,
     }
     else {
       /* If source not found, create source with timer=0: (B-A)=0 */
-      source = source_new(group, *src_addr,
-			  group->group_igmp_sock->interface->name);
+      source = source_new(group, *src_addr);
       if (!source) {
 	/* ugh, internal malloc failure, skip source */
 	continue;
@@ -916,8 +910,7 @@ static void toex_excl(struct igmp_group *group,
     else {
       /* if not found, create source with Group Timer: (A-X-Y)=Group Timer */
       long group_timer_msec;
-      source = source_new(group, *src_addr,
-			  group->group_igmp_sock->interface->name);
+      source = source_new(group, *src_addr);
       if (!source) {
 	/* ugh, internal malloc failure, skip source */
 	continue;
@@ -1421,8 +1414,7 @@ static void block_excl(struct igmp_group *group,
     if (!source) {
       /* 3: if not found, create source with Group Timer: (A-X-Y)=Group Timer */
       long group_timer_msec;
-      source = source_new(group, *src_addr,
-			  group->group_igmp_sock->interface->name);
+      source = source_new(group, *src_addr);
       if (!source) {
 	/* ugh, internal malloc failure, skip source */
 	continue;
