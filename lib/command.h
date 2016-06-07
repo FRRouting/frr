@@ -82,6 +82,7 @@ enum node_type
   RIPNG_NODE,			/* RIPng protocol mode node. */
   BGP_NODE,			/* BGP protocol mode which includes BGP4+ */
   BGP_VPNV4_NODE,		/* BGP MPLS-VPN PE exchange. */
+  BGP_VPNV6_NODE,		/* BGP MPLS-VPN PE exchange. */
   BGP_IPV4_NODE,		/* BGP IPv4 unicast address family.  */
   BGP_IPV4M_NODE,		/* BGP IPv4 multicast address family.  */
   BGP_IPV6_NODE,		/* BGP IPv6 address family */
