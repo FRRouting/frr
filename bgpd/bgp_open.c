@@ -725,9 +725,13 @@ static const size_t cap_modsizes[] =
   [CAPABILITY_CODE_ORF]         = 1,
   [CAPABILITY_CODE_RESTART]     = 1,
   [CAPABILITY_CODE_AS4]         = 4,
+  [CAPABILITY_CODE_ADDPATH]     = 4,
   [CAPABILITY_CODE_DYNAMIC]     = 1,
+  [CAPABILITY_CODE_DYNAMIC_OLD] = 1,
+  [CAPABILITY_CODE_ENHE]        = 6,
   [CAPABILITY_CODE_REFRESH_OLD] = 1,
   [CAPABILITY_CODE_ORF_OLD]     = 1,
+  [CAPABILITY_CODE_FQDN]        = 1,
 };
 
 /**
