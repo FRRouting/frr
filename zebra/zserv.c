@@ -1161,7 +1161,7 @@ zread_interface_delete (struct zserv *client, u_short length, struct zebra_vrf *
 }
 
 void
-zserv_nexthop_num_warn (const char *caller, const struct prefix *p, const u_char nexthop_num)
+zserv_nexthop_num_warn (const char *caller, const struct prefix *p, const unsigned int nexthop_num)
 {
   if (nexthop_num > MULTIPATH_NUM)
     {
