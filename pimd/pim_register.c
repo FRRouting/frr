@@ -88,7 +88,7 @@ pim_register_send (const struct ip *ip_hdr, struct pim_rpf *rpg)
   plen = ntohs(ip_hdr->ip_len);
   memcpy(b1, (const unsigned char *)ip_hdr, plen);
 
-  pim_msg_build_header(buffer, plen + PIM_MSG_HEADER_LEN, PIM_MSG_TYPE_REGISTER);
+  pim_msg_build_header(buffer, plen + PIM_MSG_REGISTER_LEN, PIM_MSG_TYPE_REGISTER);
 
   if (pim_msg_send(pinfo->pim_sock_fd,
 		   rpg->rpf_addr,
