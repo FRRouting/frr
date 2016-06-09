@@ -115,6 +115,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
   pim_ifp->igmp_socket_list = 0;
   pim_ifp->pim_neighbor_list = 0;
   pim_ifp->pim_ifchannel_list = 0;
+  pim_ifp->pim_generation_id = 0;
 
   /* list of struct igmp_sock */
   pim_ifp->igmp_socket_list = list_new();

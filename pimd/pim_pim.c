@@ -481,14 +481,9 @@ int pim_msg_send(int fd,
 	       *(uint16_t *) PIM_MSG_HDR_OFFSET_CHECKSUM(pim_msg));
   }
 
-#if 0
   memset(&to, 0, sizeof(to));
-#endif
   to.sin_family = AF_INET;
   to.sin_addr = dst;
-#if 0
-  to.sin_port = htons(0);
-#endif
   tolen = sizeof(to);
 
   if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
