@@ -243,7 +243,7 @@ main (int argc, char *argv[], char *envp[])
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
   /* Seed random number for LSA ID */
-  srand (time(NULL));
+  srandom (time(NULL));
 
   /* Command line argument treatment. */
   while (1) 

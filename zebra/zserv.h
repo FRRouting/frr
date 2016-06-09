@@ -168,7 +168,7 @@ extern int zsend_interface_vrf_update (struct zserv *, struct interface *,
 extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id);
-extern void zserv_nexthop_num_warn(const char *, const struct prefix *, const u_char);
+extern void zserv_nexthop_num_warn(const char *, const struct prefix *, const unsigned int);
 extern int zebra_server_send_message(struct zserv *client);
 
 #endif /* _ZEBRA_ZEBRA_H */

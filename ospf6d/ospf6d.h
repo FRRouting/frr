@@ -30,12 +30,6 @@
 /* global variables */
 extern struct thread_master *master;
 
-#ifdef INRIA_IPV6
-#ifndef IPV6_PKTINFO
-#define IPV6_PKTINFO IPV6_RECVPKTINFO
-#endif /* IPV6_PKTINFO */
-#endif /* INRIA_IPV6 */
-
 /* Historical for KAME.  */
 #ifndef IPV6_JOIN_GROUP
 #ifdef IPV6_ADD_MEMBERSHIP
@@ -77,19 +71,19 @@ extern struct thread_master *master;
       }                                               \
   } while (0)
 #endif /*timersub*/
-#define timerstring(tv, buf, size)                    \
-  do {                                                \
-    if ((tv)->tv_sec / 60 / 60 / 24)                  \
-      snprintf (buf, size, "%ldd%02ld:%02ld:%02ld",   \
-                (tv)->tv_sec / 60 / 60 / 24,          \
-                (tv)->tv_sec / 60 / 60 % 24,          \
-                (tv)->tv_sec / 60 % 60,               \
-                (tv)->tv_sec % 60);                   \
-    else                                              \
-      snprintf (buf, size, "%02ld:%02ld:%02ld",       \
-                (tv)->tv_sec / 60 / 60 % 24,          \
-                (tv)->tv_sec / 60 % 60,               \
-                (tv)->tv_sec % 60);                   \
+#define timerstring(tv, buf, size)                      \
+  do {                                                  \
+    if ((tv)->tv_sec / 60 / 60 / 24)                    \
+      snprintf (buf, size, "%lldd%02lld:%02lld:%02lld", \
+                (tv)->tv_sec / 60LL / 60 / 24,          \
+                (tv)->tv_sec / 60LL / 60 % 24,          \
+                (tv)->tv_sec / 60LL % 60,               \
+                (tv)->tv_sec % 60LL);                   \
+    else                                                \
+      snprintf (buf, size, "%02lld:%02lld:%02lld",      \
+                (tv)->tv_sec / 60LL / 60 % 24,          \
+                (tv)->tv_sec / 60LL % 60,               \
+                (tv)->tv_sec % 60LL);                   \
   } while (0)
 #define timerstring_local(tv, buf, size)                  \
   do {                                                    \

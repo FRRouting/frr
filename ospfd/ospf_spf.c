@@ -590,8 +590,7 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
 
           if (l->m[0].type == LSA_LINK_TYPE_POINTOPOINT)
             {
-	      struct in_addr nexthop;
-	      nexthop.s_addr = 0;
+              struct in_addr nexthop = { .s_addr = 0 };
 
               /* If the destination is a router which connects to
                  the calculating router via a Point-to-MultiPoint
@@ -1008,7 +1007,7 @@ ospf_spf_dump (struct vertex *v, int i)
     for (ALL_LIST_ELEMENTS_RO (v->parents, nnode, parent))
       {
         zlog_debug (" nexthop %p %s %s", 
-                    parent->nexthop,
+                    (void *)parent->nexthop,
                     inet_ntoa (parent->nexthop->router),
                     parent->nexthop->oi ? IF_NAME(parent->nexthop->oi)
                                         : "NULL");
@@ -1438,7 +1437,7 @@ ospf_spf_calculate_schedule (struct ospf *ospf, ospf_spf_reason_t reason)
     {
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("SPF: calculation timer is already scheduled: %p",
-                   ospf->t_spf_calc);
+                    (void *)ospf->t_spf_calc);
       return;
     }
   

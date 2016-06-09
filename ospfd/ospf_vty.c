@@ -3373,16 +3373,11 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
         {
           json_object_boolean_true_add(json, "opaqueCapable");
         }
-      if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (ospf->opaque))
-        {
-          json_object_boolean_true_add(json, "lsaOpaqueOriginationBlocked");
-        }
     }
   else
     {
-      vty_out (vty, " OpaqueCapability flag is %s%s%s",
+      vty_out (vty, " OpaqueCapability flag is %s%s",
                CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE) ? "enabled" : "disabled",
-               IS_OPAQUE_LSA_ORIGINATION_BLOCKED (ospf->opaque) ? " (origination blocked)" : "",
                VTY_NEWLINE);
     }
 #endif /* HAVE_OPAQUE_LSA */

@@ -52,23 +52,6 @@ static int del_oif(struct channel_oil *channel_oil,
 		   struct interface *oif,
 		   uint32_t proto_mask);
 
-#if 0
-static void zclient_broken(struct zclient *zclient)
-{
-  struct listnode  *ifnode;
-  struct interface *ifp;
-
-  zlog_warn("%s %s: broken zclient connection",
-	    __FILE__, __PRETTY_FUNCTION__);
-
-  for (ALL_LIST_ELEMENTS_RO(iflist, ifnode, ifp)) {
-    pim_if_addr_del_all(ifp);
-  }
-
-  /* upon return, zclient will discard connected addresses */
-}
-#endif
-
 /* Router-id update message from zebra. */
 static int pim_router_id_update_zebra(int command, struct zclient *zclient,
 				      zebra_size_t length, vrf_id_t vrf_id)
@@ -548,6 +531,7 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
 
   /* Type, flags, message. */
   api.type = stream_getc(s);
+  api.instance = stream_getw (s);
   api.flags = stream_getc(s);
   api.message = stream_getc(s);
 
@@ -605,7 +589,13 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
     stream_getl(s) :
     0;
 
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
+    api.tag = stream_getw (s);
+  else
+    api.tag = 0;
+
   switch (command) {
+  case ZEBRA_REDISTRIBUTE_IPV4_ADD:
   case ZEBRA_IPV4_ROUTE_ADD:
     if (PIM_DEBUG_ZEBRA) {
       char buf[2][INET_ADDRSTRLEN];
@@ -623,6 +613,7 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
 		 api.distance);
     }
     break;
+  case ZEBRA_REDISTRIBUTE_IPV4_DEL:
   case ZEBRA_IPV4_ROUTE_DELETE:
     if (PIM_DEBUG_ZEBRA) {
       char buf[2][INET_ADDRSTRLEN];
@@ -681,6 +672,8 @@ void pim_zebra_init(char *zebra_sock_path)
   qpim_zclient_update->interface_address_delete = pim_zebra_if_address_del;
   qpim_zclient_update->ipv4_route_add           = redist_read_ipv4_route;
   qpim_zclient_update->ipv4_route_delete        = redist_read_ipv4_route;
+  qpim_zclient_update->redistribute_route_ipv4_add    = redist_read_ipv4_route;
+  qpim_zclient_update->redistribute_route_ipv4_del    = redist_read_ipv4_route;
 
   zclient_init(qpim_zclient_update, ZEBRA_ROUTE_PIM, 0);
   if (PIM_DEBUG_PIM_TRACE) {
@@ -719,14 +712,20 @@ void pim_zebra_init(char *zebra_sock_path)
 
 void igmp_anysource_forward_start(struct igmp_group *group)
 {
+  struct igmp_source *source;
+  struct in_addr src_addr = { .s_addr = 0 };
   /* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
   zassert(group->group_filtermode_isexcl);
   zassert(listcount(group->group_source_list) < 1);
 
-  if (PIM_DEBUG_IGMP_TRACE) {
-    zlog_debug("%s %s: UNIMPLEMENTED",
-	       __FILE__, __PRETTY_FUNCTION__);
-  }
+  source = source_new (group, src_addr);
+  if (!source)
+    {
+      zlog_warn ("%s: Failure to create * source", __PRETTY_FUNCTION__);
+      return;
+    }
+
+  igmp_source_forward_start (source);
 }
 
 void igmp_anysource_forward_stop(struct igmp_group *group)

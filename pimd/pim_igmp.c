@@ -621,7 +621,7 @@ static int igmp_v2_report(struct igmp_sock *igmp,
   memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
   /* non-existant group is created as INCLUDE {empty} */
-  group = igmp_add_group_by_addr(igmp, group_addr, ifp->name);
+  group = igmp_add_group_by_addr(igmp, group_addr);
   if (!group) {
     return -1;
   }
@@ -678,7 +678,7 @@ static int igmp_v1_report(struct igmp_sock *igmp,
   memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
   /* non-existant group is created as INCLUDE {empty} */
-  group = igmp_add_group_by_addr(igmp, group_addr, ifp->name);
+  group = igmp_add_group_by_addr(igmp, group_addr);
   if (!group) {
     return -1;
   }
@@ -1356,8 +1356,7 @@ static struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
 }
 
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
-					  struct in_addr group_addr,
-					  const char *ifname)
+					  struct in_addr group_addr)
 {
   struct igmp_group *group;
 
@@ -1395,8 +1394,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
   }
   group->group_source_list->del = (void (*)(void *)) igmp_source_free;
 
-  group->t_group_timer                         = 0;
-  group->t_group_query_retransmit_timer        = 0;
+  group->t_group_timer                         = NULL;
+  group->t_group_query_retransmit_timer        = NULL;
   group->group_specific_query_retransmit_count = 0;
   group->group_addr                            = group_addr;
   group->group_igmp_sock                       = igmp;
@@ -1413,7 +1412,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
     char group_str[100];
     pim_inet4_dump("<group?>", group->group_addr, group_str, sizeof(group_str));
     zlog_debug("Creating new IGMP group %s on socket %d interface %s",
-	       group_str, group->group_igmp_sock->fd, ifname);
+	       group_str, igmp->fd, igmp->interface->name);
   }
 
   /*

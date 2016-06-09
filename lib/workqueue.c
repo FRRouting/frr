@@ -108,6 +108,12 @@ work_queue_free (struct work_queue *wq)
   return;
 }
 
+bool
+work_queue_is_scheduled (struct work_queue *wq)
+{
+  return (wq->thread != NULL);
+}
+
 static int
 work_queue_schedule (struct work_queue *wq, unsigned int delay)
 {

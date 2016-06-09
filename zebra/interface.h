@@ -259,8 +259,4 @@ extern int interface_list_proc (void);
 extern int ifaddr_proc_ipv6 (void);
 #endif /* HAVE_PROC_NET_IF_INET6 */
 
-#ifdef BSDI
-extern int if_kvm_get_mtu (struct interface *);
-#endif /* BSDI */
-
 #endif /* _ZEBRA_INTERFACE_H */

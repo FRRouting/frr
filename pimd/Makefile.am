@@ -34,7 +34,7 @@ PIM_DEFS += -DPIM_ZCLIENT_DEBUG
 PIM_DEFS += -DPIM_ENFORCE_LOOPFREE_MFC
 #PIM_DEFS += -DPIM_UNEXPECTED_KERNEL_UPCALL
 
-INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
+AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" $(PIM_DEFS)
 INSTALL_SDATA=@INSTALL@ -m 600
 LIBS = @LIBS@

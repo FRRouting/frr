@@ -246,20 +246,6 @@ typedef int socklen_t;
 #include <execinfo.h>
 #endif /* HAVE_GLIBC_BACKTRACE */
 
-#ifdef BSDI_NRL
-
-#ifdef HAVE_NETINET6_IN6_H
-#include <netinet6/in6.h>
-#endif /* HAVE_NETINET6_IN6_H */
-
-#ifdef NRL
-#include <netinet6/in6.h>
-#endif /* NRL */
-
-#define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
-
-#endif /* BSDI_NRL */
-
 /* Local includes: */
 #if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL)) 
 #define __attribute__(x)
@@ -489,11 +475,6 @@ extern int proto_redistnum(int afi, const char *s);
 
 extern const char *zserv_command_string (unsigned int command);
 
-/* Zebra's family types. */
-#define ZEBRA_FAMILY_IPV4                1
-#define ZEBRA_FAMILY_IPV6                2
-#define ZEBRA_FAMILY_MAX                 3
-
 /* Error codes of zebra. */
 #define ZEBRA_ERR_NOERROR                0
 #define ZEBRA_ERR_RTEXIST               -1
@@ -527,9 +508,11 @@ extern const char *zserv_command_string (unsigned int command);
 #endif
 
 /* Address family numbers from RFC1700. */
-#define AFI_IP                    1
-#define AFI_IP6                   2
-#define AFI_MAX                   3
+typedef enum {
+  AFI_IP  = 1,
+  AFI_IP6 = 2,
+#define AFI_MAX 3
+} afi_t;
 
 /* Subsequent Address Family Identifier. */
 #define SAFI_UNICAST              1
@@ -563,8 +546,6 @@ extern const char *zserv_command_string (unsigned int command);
 #define UNSET_FLAG(V,F)      (V) &= ~(F)
 #define RESET_FLAG(V)        (V) = 0
 
-/* AFI and SAFI type. */
-typedef u_int16_t afi_t;
 typedef u_int8_t safi_t;
 
 /* Zebra types. Used in Zserv message header. */

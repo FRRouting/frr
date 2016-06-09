@@ -7,7 +7,9 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(Quagga, 0.99.23.1+cl3u2, [https://bugzilla.quagga.net])
+AC_INIT(Quagga, 0.99.24+cl3u2, [https://bugzilla.quagga.net])
+CONFIG_ARGS="$*"
+AC_SUBST(CONFIG_ARGS)
 AC_CONFIG_SRCDIR(lib/zebra.h)
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -33,7 +35,7 @@ AC_ARG_VAR([GAWK],[GNU AWK])
 dnl default is to match previous behavior
 exampledir=${sysconfdir}
 AC_ARG_ENABLE([exampledir],
-	  AC_HELP_STRING([--enable-exampledir],
+	  AS_HELP_STRING([--enable-exampledir],
 			 [specify alternate directory for examples]),
 			 exampledir="$enableval",)
 dnl XXX add --exampledir to autoconf standard directory list somehow
@@ -43,7 +45,7 @@ dnl default is to match previous behavior
 pkgsrcrcdir=""
 pkgsrcdir=""
 AC_ARG_ENABLE([pkgsrcrcdir],
-	  AC_HELP_STRING([--enable-pkgsrcrcdir],
+	  AS_HELP_STRING([--enable-pkgsrcrcdir],
 			 [specify directory for rc.d scripts]),
 			 pkgsrcrcdir="$enableval"; pkgsrcdir="pkgsrc",)
 dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
@@ -98,20 +100,7 @@ else
 fi
 AM_CONDITIONAL([HAVE_LATEX], [test "x$HAVE_LATEX" = "xtrue"])
 
-dnl ------------------------------------------------------------------
-dnl Intel compiler check. Although Intel tries really hard to make icc
-dnl look like gcc, there are some differences. It's very verbose with
-dnl -Wall and it doesn't support the individual -W options.
-dnl ------------------------------------------------------------------
-if test "x${GCC}" = "xyes" ; then
-  COMPILER="GCC"
-  AC_MSG_CHECKING([whether we are using the Intel compiler])
-  AC_EGREP_CPP([^__INTEL_COMPILER], [__INTEL_COMPILER],
-      [AC_MSG_RESULT([no])],
-      [COMPILER="ICC"
-       AC_MSG_RESULT([yes])]
-  )
-else
+if test "x${GCC}" != "xyes" ; then
   AC_MSG_CHECKING([whether we are using SunPro compiler])
   AC_EGREP_CPP([^__SUNPRO_C.*0x5(7|8|9)], ["__SUNPRO_C" __SUNPRO_C],
       [AC_MSG_RESULT([no])],
@@ -127,41 +116,73 @@ dnl already, eg "-O2 -g" for gcc, "-g" for others
 dnl (Wall is gcc specific... have to make sure
 dnl  gcc is being used before setting it)
 dnl
-dnl Intel icc 8.0 also sets __GNUC__, 
-dnl but doesn't support all these fancy -W options.
-dnl Intel compiler warnings we ignore:
-dnl 279: controlling expression is constant.
-dnl 869: parameter "xxx" was never referenced - to avoid massive warnings
-dnl      about "self", "vty", "argc" and "argv" never referenced in DEFUN
-dnl      macro.
-dnl 981: operands are evaluated in unspecified order.
-dnl
 dnl Sun Studio 10 / SunPro 5.7 is also supported,
 dnl so lets set some sane CFLAGS for it.
 dnl ---------------------------------------------
 
+AC_USE_SYSTEM_EXTENSIONS()
+AC_DEFUN([AC_C_FLAG], [{
+	AC_LANG_PUSH(C)
+	ac_c_flag_save="$CFLAGS"
+	CFLAGS="$CFLAGS $1"
+	AC_MSG_CHECKING([[whether $CC supports $1]])
+	AC_COMPILE_IFELSE(
+		[AC_LANG_PROGRAM([[]])],
+		[
+			AC_MSG_RESULT([yes])
+			m4_if([$3], [], [], [
+				CFLAGS="$ac_c_flag_save"
+				$3
+			])
+		], [
+			CFLAGS="$ac_c_flag_save"
+			AC_MSG_RESULT([no])
+			$2
+		])
+	AC_LANG_POP(C)
+	}])
+
 AC_MSG_CHECKING([whether to set a default CFLAGS])
 if test "x${cflags_specified}" = "x" ; then
   case ${COMPILER} in
-    "ICC")
-        CFLAGS="-Os -g -Wall"
-        AC_MSG_RESULT([Intel default])
-        ;;
-    "GCC")
-  	CFLAGS="-Os -fno-omit-frame-pointer -g -std=gnu99 -Wall"
-  	CFLAGS="${CFLAGS} -Wsign-compare -Wpointer-arith"
-  	CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
-  	CFLAGS="${CFLAGS} -Wmissing-prototypes -Wmissing-declarations"
-  	CFLAGS="${CFLAGS} -Wchar-subscripts -Wcast-qual"
-  	# TODO: conditionally addd -Wpacked if handled
-  	AC_MSG_RESULT([gcc default])
-  	;;
     "SUNPRO")
-  	CFLAGS="-xO4 -v -g -xspace -xcode=pic32 -xstrconst -xc99"
-  	AC_MSG_RESULT([SunPro default])
-  	;;
+        CFLAGS="-xO4 -v -g -xspace -xcode=pic32 -xstrconst -xc99"
+        AC_MSG_RESULT([SunPro default])
+        ;;
     *)
-        AC_MSG_RESULT([unknown compiler])
+        AC_MSG_RESULT([autodetecting])
+
+        AC_C_FLAG([-diag-error 10006])
+        AC_C_FLAG([-std=gnu99])
+        AC_C_FLAG([-g])
+        AC_C_FLAG([-Os], [
+          AC_C_FLAG([-O2])
+        ])
+        AC_C_FLAG([-fno-omit-frame-pointer])
+        AC_C_FLAG([-Wall])
+        AC_C_FLAG([-Wextra])
+        AC_C_FLAG([-Wmissing-prototypes])
+        AC_C_FLAG([-Wmissing-declarations])
+        AC_C_FLAG([-Wpointer-arith])
+        AC_C_FLAG([-Wbad-function-cast])
+        AC_C_FLAG([-Wwrite-strings])
+        if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
+          AC_C_FLAG([-Wcast-qual])
+          AC_C_FLAG([-Wstrict-prototypes])
+          AC_C_FLAG([-Wmissing-noreturn])
+          AC_C_FLAG([-Wmissing-format-attribute])
+          AC_C_FLAG([-Wunreachable-code])
+          AC_C_FLAG([-Wpacked])
+          AC_C_FLAG([-Wpadded])
+        else
+          AC_C_FLAG([-Wno-unused-result])
+        fi
+        AC_C_FLAG([-Wno-unused-parameter])
+        AC_C_FLAG([-Wno-missing-field-initializers])
+        # ICC emits a broken warning for const char *x = a ? "b" : "c";
+        # for some reason the string consts get 'promoted' to char *,
+        # triggering a const to non-const conversion warning.
+        AC_C_FLAG([-diag-disable 3179])
         ;;
   esac
 else
@@ -217,105 +238,90 @@ AC_ARG_WITH(pkg-git-version,
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
 	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
 AC_ARG_ENABLE(vtysh,
-[  --disable-vtysh          do not build integrated vty shell for Quagga])
-AC_ARG_ENABLE(ipv6,
-[  --disable-ipv6          turn off IPv6 related features and daemons])
+  AS_HELP_STRING([--disable-vtysh], [do not build integrated vty shell for Quagga]))
 AC_ARG_ENABLE(doc,
-[  --disable-doc           do not build docs])
+  AS_HELP_STRING([--disable-doc], [do not build docs]))
 AC_ARG_ENABLE(zebra,
-[  --disable-zebra         do not build zebra daemon])
+  AS_HELP_STRING([--disable-zebra], [do not build zebra daemon]))
 AC_ARG_ENABLE(bgpd,
-[  --disable-bgpd          do not build bgpd])
+  AS_HELP_STRING([--disable-bgpd], [do not build bgpd]))
 AC_ARG_ENABLE(ripd,
-[  --disable-ripd          do not build ripd])
+  AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE(ripngd,
-[  --disable-ripngd        do not build ripngd])
+  AS_HELP_STRING([--disable-ripngd], [do not build ripngd]))
 AC_ARG_ENABLE(ospfd,
-[  --disable-ospfd         do not build ospfd])
+  AS_HELP_STRING([--disable-ospfd], [do not build ospfd]))
 AC_ARG_ENABLE(ospf6d,
-[  --disable-ospf6d        do not build ospf6d])
+  AS_HELP_STRING([--disable-ospf6d], [do not build ospf6d]))
 AC_ARG_ENABLE(watchquagga,
-[  --disable-watchquagga   do not build watchquagga])
+  AS_HELP_STRING([--disable-watchquagga], [do not build watchquagga]))
 AC_ARG_ENABLE(isisd,
-[  --enable-isisd          build isisd])
+  AS_HELP_STRING([--disable-isisd], [do not build isisd]))
 AC_ARG_ENABLE(pimd,
-[  --disable-pimd           do not build pimd])
-AC_ARG_ENABLE(solaris,
-[  --enable-solaris          build solaris])
+  AS_HELP_STRING([--disable-pimd], [do not build pimd]))
 AC_ARG_ENABLE(bgp-announce,
-[  --disable-bgp-announce, turn off BGP route announcement])
-AC_ARG_ENABLE(netlink,
-[  --enable-netlink        force to use Linux netlink interface])
-AC_ARG_ENABLE(broken-aliases,
-[  --enable-broken-aliases enable aliases as distinct interfaces for Linux 2.2.X])
+  AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
 AC_ARG_ENABLE(snmp,
-[  --enable-snmp=ARG       enable SNMP support (smux or agentx)])
+  AS_HELP_STRING([--enable-snmp=ARG], [enable SNMP support (smux or agentx)]))
 AC_ARG_WITH(libpam,
-[  --with-libpam           use libpam for PAM support in vtysh])
+  AS_HELP_STRING([--with-libpam], [use libpam for PAM support in vtysh]))
 AC_ARG_ENABLE(tcp-zebra,
-[  --enable-tcp-zebra      enable TCP/IP socket connection between zebra and protocol daemon])
+  AS_HELP_STRING([--enable-tcp-zebra], [enable TCP/IP socket connection between zebra and protocol daemon]))
 AC_ARG_ENABLE(opaque-lsa,
-  AC_HELP_STRING([--disable-opaque-lsa],[do not build OSPF Opaque-LSA with OSPFAPI support (RFC2370)]))
+  AS_HELP_STRING([--disable-opaque-lsa],[do not build OSPF Opaque-LSA with OSPFAPI support (RFC2370)]))
 AC_ARG_ENABLE(ospfapi,
-[  --disable-ospfapi       do not build OSPFAPI to access the OSPF LSA Database])
+  AS_HELP_STRING([--disable-ospfapi], [do not build OSPFAPI to access the OSPF LSA Database]))
 AC_ARG_ENABLE(ospfclient,
-[  --disable-ospfclient    do not build OSPFAPI client for OSPFAPI, 
-                          (this is the default if --disable-ospfapi is set)])
+  AS_HELP_STRING([--disable-ospfclient], [do not build OSPFAPI client for OSPFAPI,
+                          (this is the default if --disable-ospfapi is set)]))
 AC_ARG_ENABLE(ospf-te,
-  AC_HELP_STRING([--disable-ospf-te],[disable Traffic Engineering Extension to OSPF]))
+  AS_HELP_STRING([--disable-ospf-te],[disable Traffic Engineering Extension to OSPF]))
 AC_ARG_ENABLE(multipath,
-[  --enable-multipath=ARG  enable multipath function, ARG must be digit])
+  AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
 AC_ARG_ENABLE(user,
-  AC_HELP_STRING([--enable-user=user], [user to run Quagga suite as (default quagga)]))
+  AS_HELP_STRING([--enable-user=USER], [user to run Quagga suite as (default quagga)]))
 AC_ARG_ENABLE(group,
-  AC_HELP_STRING([--enable-group=group], [group to run Quagga suite as (default quagga)]))
+  AS_HELP_STRING([--enable-group=GROUP], [group to run Quagga suite as (default quagga)]))
 AC_ARG_ENABLE(vty_group,
-[  --enable-vty-group=ARG  set vty sockets to have specified group as owner])
+  AS_HELP_STRING([--enable-vty-group=ARG], [set vty sockets to have specified group as owner]))
 AC_ARG_ENABLE(configfile_mask,
-[  --enable-configfile-mask=ARG  set mask for config files])
+  AS_HELP_STRING([--enable-configfile-mask=ARG], [set mask for config files]))
 AC_ARG_ENABLE(logfile_mask,
-[  --enable-logfile-mask=ARG     set mask for log files])
+  AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
 AC_ARG_ENABLE(shell_access,
-[  --enable-shell-access    Allow users to access shell/telnet/ssh])
+  AS_HELP_STRING([--enable-shell-access], [Allow users to access shell/telnet/ssh]))
 AC_ARG_ENABLE(rtadv,
-[  --disable-rtadv               disable IPV6 router advertisement feature])
+  AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE(irdp,
-[  --enable-irdp                 enable IRDP server support in zebra])
+  AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
 AC_ARG_ENABLE(isis_topology,
-[  --enable-isis-topology        enable IS-IS topology generator])
+  AS_HELP_STRING([--enable-isis-topology], [enable IS-IS topology generator]))
 AC_ARG_ENABLE(capabilities,
-[  --disable-capabilities        disable using POSIX capabilities])
+  AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE(rusage,
-[  --disable-rusage              disable using getrusage])
+  AS_HELP_STRING([--disable-rusage], [disable using getrusage]))
 AC_ARG_ENABLE(gcc_ultra_verbose,
-[  --enable-gcc-ultra-verbose    enable ultra verbose GCC warnings])
+  AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE(linux24_tcp_md5,
-[  --enable-linux24-tcp-md5  enable support for old, Linux-2.4 RFC2385 patch])
+  AS_HELP_STRING([--enable-linux24-tcp-md5], [enable support for old, Linux-2.4 RFC2385 patch]))
 AC_ARG_ENABLE(gcc-rdynamic,
-[  --enable-gcc-rdynamic         enable linking with -rdynamic for better backtraces (default if gcc)])
+  AS_HELP_STRING([--enable-gcc-rdynamic], [enable linking with -rdynamic for better backtraces (default if gcc)]))
 AC_ARG_ENABLE(backtrace,
-[  --disable-backtrace,          disable crash backtraces (default autodetect)])
+  AS_HELP_STRING([--disable-backtrace,], [disable crash backtraces (default autodetect)]))
 AC_ARG_ENABLE(time-check,
-[  --disable-time-check          disable slow thread warning messages])
+  AS_HELP_STRING([--disable-time-check], [disable slow thread warning messages]))
 AC_ARG_ENABLE(pcreposix,
-[  --enable-pcreposix          enable using PCRE Posix libs for regex functions])
+  AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE(fpm,
-[  --enable-fpm            enable Forwarding Plane Manager support])
+  AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
 AC_ARG_ENABLE(systemd,
-[  --enable-systemd 	enable Systemd support])
+  AS_HELP_STRING([--enable-systemd], [enable Systemd support]))
 AC_ARG_ENABLE(poll,
-[  --enable-poll	enable usage of Poll instead of select])
+  AS_HELP_STRING([--enable-poll], [enable usage of Poll instead of select]))
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
-[  --enable-cumulus     enable Cumulus Switch Special Extensions])
-
-if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
-  CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
-  CFLAGS="${CFLAGS} -Wmissing-declarations -Wmissing-noreturn"
-  CFLAGS="${CFLAGS} -Wmissing-format-attribute -Wunreachable-code"
-  CFLAGS="${CFLAGS} -Wpacked -Wpadded"
-fi
+  AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
 
 if test x"${enable_gcc_rdynamic}" != x"no" ; then
   if test x"${enable_gcc_rdynamic}" = x"yes" -o x"$COMPILER" = x"GCC"; then
@@ -352,15 +358,6 @@ if test "${enable_fpm}" = "yes"; then
    AC_DEFINE(HAVE_FPM,,Forwarding Plane Manager support)
 fi
 
-if test "${enable_broken_aliases}" = "yes"; then
-  if test "${enable_netlink}" = "yes"
-  then
-    AC_MSG_FAILURE([Sorry you can not use netlink with broken aliases])
-  fi
-  AC_DEFINE(HAVE_BROKEN_ALIASES,,Broken Alias)
-  enable_netlink=no
-fi
-
 if test "${enable_tcp_zebra}" = "yes"; then
   AC_DEFINE(HAVE_TCP_ZEBRA,,Use TCP for zebra communication)
 fi
@@ -390,7 +387,7 @@ if test "${enable_irdp}" = "yes"; then
   AC_DEFINE(HAVE_IRDP,, IRDP )
 fi
 
-if test "${enable_isisd}" = "yes" && test "${enable_isis_topology}" = yes; then
+if test "${enable_isisd}" != "no" && test "${enable_isis_topology}" = yes; then
   AC_DEFINE(TOPOLOGY_GENERATE,,Enable IS-IS topology generator code)
   ISIS_TOPOLOGY_INCLUDES="-I\$(srcdir)/topology"
   ISIS_TOPOLOGY_DIR="topology"
@@ -484,7 +481,6 @@ dnl AC_TYPE_PID_T
 AC_TYPE_UID_T
 AC_TYPE_MODE_T
 AC_TYPE_SIZE_T
-AC_TYPE_SIGNAL
 AC_STRUCT_TM
 
 dnl -------------------------
@@ -637,6 +633,7 @@ case "$host" in
       AC_DEFINE(SUNOS_5, 1, SunOS 5)
       AC_CHECK_LIB(xnet, main)
       CURSES=-lcurses
+      SOLARIS="solaris"
   ;;
   [*-sunos5.[8-9]] \
   | [*-sunos5.1[0-9]] \
@@ -655,33 +652,22 @@ case "$host" in
       	 AC_DEFINE([HAVE_STACK_TRACE],1,[Stack symbols decode functionality])
       	])
       CURSES=-lcurses
+      SOLARIS="solaris"
   ;;
   *-sunos5* | *-solaris2*)
       AC_DEFINE(SUNOS_5,,SunOS 5, Unknown SunOS)
       AC_CHECK_LIB(socket, main)
       AC_CHECK_LIB(nsl, main)
       CURSES=-lcurses
+      SOLARIS="solaris"
   ;;
   *-linux*)
       opsys=gnu-linux
       AC_DEFINE(GNU_LINUX,,GNU Linux)
   ;;
-  *-nec-sysv4*)
-      AC_CHECK_LIB(nsl, gethostbyname)
-      AC_CHECK_LIB(socket, socket)
-  ;;
   *-openbsd*)
       opsys=openbsd
       AC_DEFINE(OPEN_BSD,,OpenBSD)
-  ;;
-  *-bsdi*)
-      opsys=bsdi
-      OTHER_METHOD="mtu_kvm.o"
-      AC_CHECK_LIB(kvm, main)
-  ;;
-  *-irix6.5)
-      opsys=irix
-      AC_DEFINE(IRIX_65,,IRIX 6.5)
   ;;
 esac
 
@@ -853,55 +839,18 @@ dnl Determine routing get and set method
 dnl ------------------------------------
 AC_MSG_CHECKING(zebra between kernel interface method)
 if test x"$opsys" = x"gnu-linux"; then
-  if test "${enable_netlink}" = "no"; then
-    AC_MSG_RESULT(ioctl)
-    RT_METHOD=rt_ioctl.o
-    netlink=no
-  else
-    AC_MSG_RESULT(netlink)
-    RT_METHOD=rt_netlink.o
-    AC_DEFINE(HAVE_NETLINK,,netlink)
-    netlink=yes
-    AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
-  fi
-elif test x"$opsys" = x"sol2-6";then
-  AC_MSG_RESULT(Route socket)
-  KERNEL_METHOD="kernel_socket.o"
-  RT_METHOD="rt_socket.o"
-elif test x"$opsys" = x"sol8";then
-  AC_MSG_RESULT(Route socket)
-  KERNEL_METHOD="kernel_socket.o"
-  RT_METHOD="rt_socket.o"
-elif test "$opsys" = "irix" ; then
-  AC_MSG_RESULT(Route socket)
-  KERNEL_METHOD="kernel_socket.o"
-  RT_METHOD="rt_socket.o"
+  AC_MSG_RESULT(netlink)
+  RT_METHOD=rt_netlink.o
+  AC_DEFINE(HAVE_NETLINK,,netlink)
+  netlink=yes
+  AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
 else
-  AC_TRY_RUN([#include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-main ()
-{
-  int ac_sock;
-
-  ac_sock = socket (AF_ROUTE, SOCK_RAW, 0);
-  if (ac_sock < 0 && errno == EINVAL)
-    exit (1);
-  exit (0);
-}],
-  [KERNEL_METHOD=kernel_socket.o
-   RT_METHOD=rt_socket.o
-   AC_MSG_RESULT(socket)],
-  [RT_METHOD=rt_ioctl.o
-   AC_MSG_RESULT(ioctl)],
-  [KERNEL_METHOD=kernel_socket.o
-   RT_METHOD=rt_socket.o
-   AC_MSG_RESULT(socket)])
+  AC_MSG_RESULT(Route socket)
+  KERNEL_METHOD="kernel_socket.o"
+  RT_METHOD="rt_socket.o"
 fi
 AC_SUBST(RT_METHOD)
 AC_SUBST(KERNEL_METHOD)
-AC_SUBST(OTHER_METHOD)
 AM_CONDITIONAL([HAVE_NETLINK], [test "x$netlink" = "xyes"])
 
 dnl --------------------------
@@ -976,12 +925,11 @@ AC_CACHE_CHECK([route read method], [quagga_cv_rtread_method],
 [if test "x$netlink" = xyes; then
   quagga_cv_rtread_method="netlink"
 else
-for quagga_cv_rtread_method in /proc/net/route /dev/ip /dev/null;
+for quagga_cv_rtread_method in /dev/ip /dev/null;
 do
   test x`ls $quagga_cv_rtread_method 2>/dev/null` = x"$quagga_cv_rtread_method" && break
 done
 case $quagga_cv_rtread_method in
-  "/proc/net/route") quagga_cv_rtread_method="proc";;
   "/dev/ip")
                      case "$host" in
                        *-freebsd*)    quagga_cv_rtread_method="sysctl";;
@@ -1009,9 +957,6 @@ elif test "$opsys" = "sol8";then
   AC_MSG_RESULT(Solaris GLIF)
   IF_METHOD=if_ioctl_solaris.o
   IOCTL_METHOD=ioctl_solaris.o
-elif test "$opsys" = "irix" ; then
-  AC_MSG_RESULT(IRIX)
-  IF_METHOD=if_ioctl.o
 elif test "$opsys" = "openbsd";then
   AC_MSG_RESULT(openbsd)
   IF_METHOD=if_ioctl.o
@@ -1103,21 +1048,6 @@ if test $ac_cv_have_decl_TCP_MD5SIG = no; then
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
 fi
 
-dnl -----------------------
-dnl check proc file system.
-dnl -----------------------
-if test "$netlink" != yes; then
-  if test -r /proc/net/dev; then
-    AC_DEFINE(HAVE_PROC_NET_DEV,,/proc/net/dev)
-    IF_PROC=if_proc.o
-  fi
-  if test -r /proc/net/if_inet6; then
-    AC_DEFINE(HAVE_PROC_NET_IF_INET6,,/proc/net/if_inet6)
-    IF_PROC=if_proc.o
-  fi
-fi
-AC_SUBST(IF_PROC)
-
 dnl -----------------------------
 dnl check ipforward detect method
 dnl -----------------------------
@@ -1138,7 +1068,6 @@ case $quagga_cv_ipforward_method in
   "/proc/net/snmp")  quagga_cv_ipforward_method="proc";;
   "/dev/ip")         
                      case "$host" in
-                       *-nec-sysv4*)  quagga_cv_ipforward_method="ews";;
                        *-freebsd*)    quagga_cv_ipforward_method="sysctl";;
                        *)             quagga_cv_ipforward_method="solaris";;
                      esac;;
@@ -1153,111 +1082,22 @@ dnl ----------
 dnl IPv6 check
 dnl ----------
 AC_MSG_CHECKING(whether does this OS have IPv6 stack)
-if test "${enable_ipv6}" = "no"; then
-  AC_MSG_RESULT(disabled)
-else
-dnl ----------
-dnl INRIA IPv6
-dnl ----------
-  if grep IPV6_INRIA_VERSION /usr/include/netinet/in.h >/dev/null 2>&1; then
-    zebra_cv_ipv6=yes
-    AC_DEFINE(HAVE_IPV6,1,INRIA IPv6)
-    AC_DEFINE(INRIA_IPV6,1,INRIA IPv6)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    LIB_IPV6=""
-    AC_MSG_RESULT(INRIA IPv6)
 dnl ---------
 dnl KAME IPv6
 dnl ---------
-  elif grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
-    zebra_cv_ipv6=yes
-    AC_DEFINE(HAVE_IPV6,1,KAME IPv6)
+  if grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
     AC_DEFINE(KAME,1,KAME IPv6)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    if test -d /usr/local/v6/lib -a -f /usr/local/v6/lib/libinet6.a; then
-      LIB_IPV6="-L/usr/local/v6/lib -linet6"
-    fi
     AC_MSG_RESULT(KAME)
-dnl -------------------------
-dnl MUSICA IPv6
-dnl  default host check
-dnl  It is not used by Kheops
-dnl -------------------------
-  elif grep MUSICA /usr/include6/netinet6/in6.h >/dev/null 2>&1; then
-    zebra_cv_ipv6=yes
-    AC_DEFINE(HAVE_IPV6,1,Musicia IPv6)
-    AC_DEFINE(MUSICA,1,Musica IPv6 stack)
-    AC_DEFINE(KAME,1,KAME IPv6 stack)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    if test -d /usr/local/v6/lib -a -f /usr/local/v6/lib/libinet6.a; then
-      LIB_IPV6="-L/usr/local/v6/lib -linet6"
-    fi
-    AC_MSG_RESULT(MUSICA)
-dnl ---------
-dnl NRL check
-dnl ---------
-  elif grep NRL /usr/include/netinet6/in6.h >/dev/null 2>&1; then
-    zebra_cv_ipv6=yes
-    AC_DEFINE(HAVE_IPV6,1,NRL IPv6)
-    AC_DEFINE(NRL,1,NRL)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    if test x"$opsys" = x"bsdi";then
-      AC_DEFINE(BSDI_NRL,,BSDI)
-      AC_MSG_RESULT(BSDI_NRL)
-    else
-      AC_MSG_RESULT(NRL)
-    fi
 dnl ------------------------------------
 dnl Solaris 9, 10 and potentially higher
 dnl ------------------------------------
   elif test x"$opsys" = x"sol8"; then
-    zebra_cv_ipv6=yes;
-    AC_DEFINE(HAVE_IPV6, 1, IPv6)
     AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
     AC_MSG_RESULT(Solaris IPv6)
 dnl ----------
 dnl Linux IPv6
 dnl ----------
-  elif test "${enable_ipv6}" = "yes"; then
-    AC_EGREP_CPP(yes, [
-      #include <linux/version.h>
-      /* 2.1.128 or later */
-      #if LINUX_VERSION_CODE >= 0x020180
-      yes
-      #endif],
-      [zebra_cv_ipv6=yes
-       zebra_cv_linux_ipv6=yes
-       AC_MSG_RESULT(Linux IPv6)])
-  else
-    if test x`ls /proc/net/ipv6_route 2>/dev/null` = x"/proc/net/ipv6_route"
-     then
-      zebra_cv_ipv6=yes
-      zebra_cv_linux_ipv6=yes
-      AC_MSG_RESULT(Linux IPv6)
-    fi
-  fi
-
-  if test "$zebra_cv_linux_ipv6" = "yes";then
-    AC_MSG_CHECKING(whether libc has IPv6 support)
-    AC_TRY_LINK([#include <netinet/in.h>
-    ],[ int a; a = (int) in6addr_any.s6_addr[0]; if (a != 12345) return a; ],
-    [AC_MSG_RESULT(yes)
-      zebra_cv_ipv6=yes
-      zebra_cv_linux_ipv6=yes],
-    [AC_MSG_RESULT(no)
-      zebra_cv_ipv6=no
-      zebra_cv_linux_ipv6=no])
-  fi
-
-  if test "$zebra_cv_linux_ipv6" = "yes";then
-    AC_MSG_CHECKING(for GNU libc >= 2.1)
-    AC_DEFINE(HAVE_IPV6,1,Linux IPv6)
+  elif test x"$opsys" = x"gnu-linux"; then
     AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
     dnl Linux has a compilation problem with mixing
     dnl netinet/in.h and linux/in6.h they are not
@@ -1265,45 +1105,20 @@ dnl ----------
     dnl how to fix it but no real progress on implementation
     dnl when they fix it, remove this
     AC_DEFINE(IPV6_MINHOPCOUNT, 73, Linux ipv6 Min Hop Count)
-
-    AC_EGREP_CPP(yes, [
-#include <features.h>
-#if __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1
-  yes
-#endif], 
-      [glibc=yes
-       AC_MSG_RESULT(yes)], 
-      AC_MSG_RESULT(no)
-    )
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    if test "$glibc" != "yes"; then
-      if test x`ls /usr/inet6/lib/libinet6.a 2>/dev/null` != x;then
-         INCLUDES="-I/usr/inet6/include"
-         LIB_IPV6="-L/usr/inet6/lib -linet6"
-      fi
-    fi
+    AC_MSG_RESULT(Linux IPv6)
+  else
+    AC_MSG_ERROR([Failed to detect IPv6 stack])
   fi
 
-dnl -----------------------
-dnl Set IPv6 related values
-dnl -----------------------
-  LIBS="$LIB_IPV6 $LIBS"
-  AC_SUBST(LIB_IPV6)
-
-  if test x"$RIPNGD" = x""; then
-    AC_MSG_RESULT(IPv4 only)
-  fi
-fi
+dnl this is unconditial, for compatibility
+AC_DEFINE(HAVE_IPV6,1,IPv6)
 
 dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
-if test "x${zebra_cv_ipv6}" = "xyes"; then
 AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h netinet/icmp6.h \
 	netinet6/in6_var.h netinet6/nd6.h], [], [],
 	QUAGGA_INCLUDES)
-fi
 
 m4_define([QUAGGA_INCLUDES],dnl
 QUAGGA_INCLUDES
@@ -1383,23 +1198,20 @@ fi
 AM_CONDITIONAL(OSPFCLIENT, test "x$OSPFCLIENT" = "xospfclient")
 
 case "${enable_ripngd}" in
-  "yes") RIPNGD="ripngd";;
   "no" ) RIPNGD="";;
-  *    ) ;;
+  *    ) RIPNGD="ripngd";;
 esac
 AM_CONDITIONAL(RIPNGD, test "x$RIPNGD" = "xripngd")
 
 case "${enable_ospf6d}" in
-  "yes") OSPF6D="ospf6d";;
   "no" ) OSPF6D="";;
-  *    ) ;;
+  *    ) OSPF6D="ospf6d";;
 esac
 AM_CONDITIONAL(OSPF6D, test "x$OSPF6D" = "xospf6d")
 
 case "${enable_isisd}" in
-  "yes") ISISD="isisd";;
   "no" ) ISISD="";;
-  *    ) ;;
+  *    ) ISISD="isisd";;
 esac
 AM_CONDITIONAL(ISISD, test "x$ISISD" = "xisisd")
 
@@ -1408,13 +1220,6 @@ case "${enable_pimd}" in
   *    ) PIMD="pimd";;
 esac
 AM_CONDITIONAL(PIMD, test "x$PIMD" = "xpimd")
-
-# XXX Perhaps auto-enable on Solaris, but that's messy for cross builds.
-case "${enable_solaris}" in
-  "yes") SOLARIS="solaris";;
-  "no" ) SOLARIS="";;
-  *    ) ;;
-esac
 
 if test "${enable_bgp_announce}" = "no";then
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,1,Disable BGP installation to zebra)
@@ -1434,7 +1239,6 @@ AC_SUBST(ISISD)
 AC_SUBST(PIMD)
 AC_SUBST(SOLARIS)
 AC_SUBST(VTYSH)
-AC_SUBST(INCLUDES)
 AC_SUBST(CURSES)
 AC_SUBST(OSPFCLIENT)
 AC_SUBST(OSPFAPI)
@@ -1788,7 +1592,6 @@ source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 make                    : ${MAKE-make}
-includes                : ${INCLUDES}
 linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${quagga_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``

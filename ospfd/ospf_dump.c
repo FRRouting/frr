@@ -299,13 +299,13 @@ ospf_timeval_dump (struct timeval *t, char *buf, size_t size)
   else if (d)
     snprintf (buf, size, "%1ldd%02ldh%02ldm", d, h, m);
   else if (h)
-    snprintf (buf, size, "%ldh%02ldm%02lds", h, m, t->tv_sec);
+    snprintf (buf, size, "%ldh%02ldm%02lds", h, m, (long)t->tv_sec);
   else if (m)
-    snprintf (buf, size, "%ldm%02lds", m, t->tv_sec);
+    snprintf (buf, size, "%ldm%02lds", m, (long)t->tv_sec);
   else if (ms)
-    snprintf (buf, size, "%ld.%03lds", t->tv_sec, ms);
+    snprintf (buf, size, "%ld.%03lds", (long)t->tv_sec, ms);
   else
-    snprintf (buf, size, "%ld usecs", t->tv_usec);
+    snprintf (buf, size, "%ld usecs", (long)t->tv_usec);
 
   return buf;
 }

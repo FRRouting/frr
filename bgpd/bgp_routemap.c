@@ -108,6 +108,108 @@ o Local extensions
 
 */ 
 
+ /* generic value manipulation to be shared in multiple rules */
+
+#define RMAP_VALUE_SET 0
+#define RMAP_VALUE_ADD 1
+#define RMAP_VALUE_SUB 2
+
+struct rmap_value
+{
+  u_int8_t action;
+  u_int8_t variable;
+  u_int32_t value;
+};
+
+static int
+route_value_match (struct rmap_value *rv, u_int32_t value)
+{
+  if (rv->variable == 0 && value == rv->value)
+    return RMAP_MATCH;
+
+  return RMAP_NOMATCH;
+}
+
+static u_int32_t
+route_value_adjust (struct rmap_value *rv, u_int32_t current, struct peer *peer)
+{
+  u_int32_t value;
+
+  switch (rv->variable)
+    {
+    case 1:
+      value = peer->rtt;
+      break;
+    default:
+      value = rv->value;
+      break;
+    }
+
+  switch (rv->action)
+    {
+    case RMAP_VALUE_ADD:
+      if (current > UINT32_MAX-value)
+        return UINT32_MAX;
+      return current + value;
+    case RMAP_VALUE_SUB:
+      if (current <= value)
+        return 0;
+      return current - value;
+    default:
+      return value;
+    }
+}
+
+static void *
+route_value_compile (const char *arg)
+{
+  u_int8_t action = RMAP_VALUE_SET, var = 0;
+  unsigned long larg = 0;
+  char *endptr = NULL;
+  struct rmap_value *rv;
+
+  if (arg[0] == '+')
+    {
+      action = RMAP_VALUE_ADD;
+      arg++;
+    }
+  else if (arg[0] == '-')
+    {
+      action = RMAP_VALUE_SUB;
+      arg++;
+    }
+
+  if (all_digit(arg))
+    {
+      errno = 0;
+      larg = strtoul (arg, &endptr, 10);
+      if (*arg == 0 || *endptr != 0 || errno || larg > UINT32_MAX)
+        return NULL;
+    }
+  else
+    {
+      if (strcmp(arg, "rtt") == 0)
+        var = 1;
+      else
+        return NULL;
+    }
+
+  rv = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_value));
+  if (!rv)
+    return NULL;
+
+  rv->action = action;
+  rv->variable = var;
+  rv->value = larg;
+  return rv;
+}
+
+static void
+route_value_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
  /* generic as path object to be shared in multiple rules */
 
 static void *
@@ -138,8 +240,8 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
       void *object)
 {
   union sockunion *su;
-  union sockunion su_def = { .sin.sin_family = AF_INET,
-                             .sin.sin_addr.s_addr = INADDR_ANY };
+  union sockunion su_def = { .sin = { .sin_family = AF_INET,
+                                      .sin_addr.s_addr = INADDR_ANY } };
   struct peer_group *group;
   struct peer *peer;
   struct listnode *node, *nnode;
@@ -591,53 +693,16 @@ static route_map_result_t
 route_match_metric (void *rule, struct prefix *prefix, 
 		    route_map_object_t type, void *object)
 {
-  u_int32_t *med;
+  struct rmap_value *rv;
   struct bgp_info *bgp_info;
 
   if (type == RMAP_BGP)
     {
-      med = rule;
+      rv = rule;
       bgp_info = object;
-    
-      if (bgp_info->attr->med == *med)
-	return RMAP_MATCH;
-      else
-	return RMAP_NOMATCH;
+      return route_value_match(rv, bgp_info->attr->med);
     }
   return RMAP_NOMATCH;
-}
-
-/* Route map `match metric' match statement. `arg' is MED value */
-static void *
-route_match_metric_compile (const char *arg)
-{
-  u_int32_t *med;
-  char *endptr = NULL;
-  unsigned long tmpval;
-
-  /* Metric value shoud be integer. */
-  if (! all_digit (arg))
-    return NULL;
-
-  errno = 0;
-  tmpval = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
-    return NULL;
-    
-  med = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
-  
-  if (!med)
-    return med;
-  
-  *med = tmpval;
-  return med;
-}
-
-/* Free route map's compiled `match metric' value. */
-static void
-route_match_metric_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
 /* Route map commands for metric matching. */
@@ -645,8 +710,8 @@ struct route_map_rule_cmd route_match_metric_cmd =
 {
   "metric",
   route_match_metric,
-  route_match_metric_compile,
-  route_match_metric_free
+  route_value_compile,
+  route_value_free,
 };
 
 /* `match as-path ASPATH' */
@@ -892,19 +957,14 @@ static route_map_result_t
 route_match_probability (void *rule, struct prefix *prefix,
 		    route_map_object_t type, void *object)
 {
-  unsigned long r;
-#if _SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE >= 500
-  r = random();
-#else
-  r = (unsigned long) rand();
-#endif
+  long r = random();
 
   switch (*(long *) rule)
   {
     case 0: break;
     case RAND_MAX: return RMAP_MATCH;
     default:
-      if (r < *(unsigned long *) rule)
+      if (r < *(long *) rule)
         {
           return RMAP_MATCH;
         }
@@ -918,12 +978,6 @@ route_match_probability_compile (const char *arg)
 {
   long *lobule;
   unsigned  perc;
-
-#if _SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE >= 500
-  srandom (time (NULL));
-#else
-  srand (time (NULL));
-#endif
 
   perc    = atoi (arg);
   lobule  = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (long));
@@ -1197,55 +1251,25 @@ static route_map_result_t
 route_set_local_pref (void *rule, struct prefix *prefix,
 		      route_map_object_t type, void *object)
 {
-  u_int32_t *local_pref;
+  struct rmap_value *rv;
   struct bgp_info *bgp_info;
+  u_int32_t locpref = 0;
 
   if (type == RMAP_BGP)
     {
       /* Fetch routemap's rule information. */
-      local_pref = rule;
+      rv = rule;
       bgp_info = object;
     
       /* Set local preference value. */ 
+      if (bgp_info->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))
+	locpref = bgp_info->attr->local_pref;
+
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF);
-      bgp_info->attr->local_pref = *local_pref;
+      bgp_info->attr->local_pref = route_value_adjust(rv, locpref, bgp_info->peer);
     }
 
   return RMAP_OKAY;
-}
-
-/* set local preference compilation. */
-static void *
-route_set_local_pref_compile (const char *arg)
-{
-  unsigned long tmp;
-  u_int32_t *local_pref;
-  char *endptr = NULL;
-
-  /* Local preference value shoud be integer. */
-  if (! all_digit (arg))
-    return NULL;
-  
-  errno = 0;
-  tmp = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || errno || tmp > UINT32_MAX)
-    return NULL;
-   
-  local_pref = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t)); 
-  
-  if (!local_pref)
-    return local_pref;
-  
-  *local_pref = tmp;
-  
-  return local_pref;
-}
-
-/* Free route map's local preference value. */
-static void
-route_set_local_pref_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
 /* Set local preference rule structure. */
@@ -1253,8 +1277,8 @@ struct route_map_rule_cmd route_set_local_pref_cmd =
 {
   "local-preference",
   route_set_local_pref,
-  route_set_local_pref_compile,
-  route_set_local_pref_free,
+  route_value_compile,
+  route_value_free,
 };
 
 /* `set weight WEIGHT' */
@@ -1264,18 +1288,20 @@ static route_map_result_t
 route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
 		  void *object)
 {
-  u_int32_t *weight;
+  struct rmap_value *rv;
   struct bgp_info *bgp_info;
+  u_int32_t weight;
 
   if (type == RMAP_BGP)
     {
       /* Fetch routemap's rule information. */
-      weight = rule;
+      rv = rule;
       bgp_info = object;
     
       /* Set weight value. */ 
-      if (*weight)
-        (bgp_attr_extra_get (bgp_info->attr))->weight = *weight;
+      weight = route_value_adjust(rv, 0, bgp_info->peer);
+      if (weight)
+        (bgp_attr_extra_get (bgp_info->attr))->weight = weight;
       else if (bgp_info->attr->extra)
         bgp_info->attr->extra->weight = 0;
     }
@@ -1283,47 +1309,13 @@ route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
   return RMAP_OKAY;
 }
 
-/* set local preference compilation. */
-static void *
-route_set_weight_compile (const char *arg)
-{
-  unsigned long tmp;
-  u_int32_t *weight;
-  char *endptr = NULL;
-
-  /* Local preference value shoud be integer. */
-  if (! all_digit (arg))
-    return NULL;
-
-  errno = 0;
-  tmp = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || errno || tmp > UINT32_MAX)
-    return NULL;
-  
-  weight = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
-  
-  if (weight == NULL)
-    return weight;
-  
-  *weight = tmp;  
-  
-  return weight;
-}
-
-/* Free route map's local preference value. */
-static void
-route_set_weight_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
-}
-
 /* Set local preference rule structure. */
 struct route_map_rule_cmd route_set_weight_cmd = 
 {
   "weight",
   route_set_weight,
-  route_set_weight_compile,
-  route_set_weight_free,
+  route_value_compile,
+  route_value_free,
 };
 
 /* `set metric METRIC' */
@@ -1333,85 +1325,23 @@ static route_map_result_t
 route_set_metric (void *rule, struct prefix *prefix, 
 		  route_map_object_t type, void *object)
 {
-  char *metric;
-  u_int32_t metric_val;
+  struct rmap_value *rv;
   struct bgp_info *bgp_info;
+  u_int32_t med = 0;
 
   if (type == RMAP_BGP)
     {
       /* Fetch routemap's rule information. */
-      metric = rule;
+      rv = rule;
       bgp_info = object;
 
-      if (! (bgp_info->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC)))
-	bgp_info->attr->med = 0;
+      if (bgp_info->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
+	med = bgp_info->attr->med;
+
+      bgp_info->attr->med = route_value_adjust(rv, med, bgp_info->peer);
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
-
-      if (all_digit (metric))
-	{
-	  metric_val = strtoul (metric, (char **)NULL, 10);
-	  bgp_info->attr->med = metric_val;
-	}
-      else
-	{
-	  metric_val = strtoul (metric+1, (char **)NULL, 10);
-
-	  if (strncmp (metric, "+", 1) == 0)
-	    {
-	      if (bgp_info->attr->med/2 + metric_val/2 > BGP_MED_MAX/2)
-	        bgp_info->attr->med = BGP_MED_MAX - 1;
-	      else
-	        bgp_info->attr->med += metric_val;
-	    }
-	  else if (strncmp (metric, "-", 1) == 0)
-	    {
-	      if (bgp_info->attr->med <= metric_val)
-	        bgp_info->attr->med = 0;
-	      else
-	        bgp_info->attr->med -= metric_val;
-	    }
-	}
     }
   return RMAP_OKAY;
-}
-
-/* set metric compilation. */
-static void *
-route_set_metric_compile (const char *arg)
-{
-  unsigned long larg;
-  char *endptr = NULL;
-
-  if (all_digit (arg))
-    {
-      /* set metric value check*/
-      errno = 0;
-      larg = strtoul (arg, &endptr, 10);
-      if (*endptr != '\0' || errno || larg > UINT32_MAX)
-        return NULL;
-    }
-  else
-    {
-      /* set metric <+/-metric> check */
-      if ((strncmp (arg, "+", 1) != 0
-	   && strncmp (arg, "-", 1) != 0)
-	   || (! all_digit (arg+1)))
-	return NULL;
-
-      errno = 0;
-      larg = strtoul (arg+1, &endptr, 10);
-      if (*endptr != '\0' || errno || larg > UINT32_MAX)
-	return NULL;
-    }
-
-  return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
-}
-
-/* Free route map's compiled `set metric' value. */
-static void
-route_set_metric_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
 /* Set metric rule structure. */
@@ -1419,8 +1349,8 @@ struct route_map_rule_cmd route_set_metric_cmd =
 {
   "metric",
   route_set_metric,
-  route_set_metric_compile,
-  route_set_metric_free,
+  route_value_compile,
+  route_value_free,
 };
 
 /* `set as-path prepend ASPATH' */
@@ -3732,6 +3662,15 @@ ALIAS (set_metric,
        "Metric value for destination routing protocol\n"
        "Add or subtract metric\n")
 
+ALIAS (set_metric,
+       set_metric_rtt_cmd,
+       "set metric (rtt|+rtt|-rtt)",
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Assign round trip time\n"
+       "Add round trip time\n"
+       "Subtract round trip time\n")
+
 DEFUN (no_set_metric,
        no_set_metric_cmd,
        "no set metric",
@@ -4717,6 +4656,7 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_set_weight_val_cmd);
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &set_metric_addsub_cmd);
+  install_element (RMAP_NODE, &set_metric_rtt_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_cmd);

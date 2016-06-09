@@ -175,23 +175,23 @@ bgp_afi_safi_valid_indices (afi_t afi, safi_t *safi)
 {
   switch (afi)
     {
-      case AFI_IP:
-#ifdef HAVE_IPV6
-      case AFI_IP6:
-#endif
-        switch (*safi)
-          {
-            /* BGP MPLS-labeled VPN SAFI isn't contigious with others, remap */
-            case SAFI_MPLS_LABELED_VPN:
-              *safi = SAFI_MPLS_VPN;
-            case SAFI_UNICAST:
-            case SAFI_MULTICAST:
-            case SAFI_MPLS_VPN:
-              return 1;
-          }
+    case AFI_IP:
+    case AFI_IP6:
+      switch (*safi)
+	{
+	  /* BGP MPLS-labeled VPN SAFI isn't contigious with others, remap */
+	case SAFI_MPLS_LABELED_VPN:
+	  *safi = SAFI_MPLS_VPN;
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	case SAFI_MPLS_VPN:
+	  return 1;
+	}
+      break;
     }
+
   zlog_debug ("unknown afi/safi (%u/%u)", afi, *safi);
-  
+
   return 0;
 }
 
@@ -287,7 +287,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
     }
   
   /* validate number field */
-  if (sizeof (struct capability_orf_entry) + (entry.num * 2) > hdr->length)
+  if (CAPABILITY_CODE_ORF_LEN + (entry.num * 2) > hdr->length)
     {
       zlog_info ("%s ORF Capability entry length error,"
                  " Cap length %u, num %u",
@@ -699,18 +699,39 @@ static const int capcode_str_max = array_size(capcode_str);
 /* Minimum sizes for length field of each cap (so not inc. the header) */
 static const size_t cap_minsizes[] = 
 {
-  [CAPABILITY_CODE_MP]		= sizeof (struct capability_mp_data),
+  [CAPABILITY_CODE_MP]		= CAPABILITY_CODE_MP_LEN,
   [CAPABILITY_CODE_REFRESH]	= CAPABILITY_CODE_REFRESH_LEN,
-  [CAPABILITY_CODE_ORF]		= sizeof (struct capability_orf_entry),
-  [CAPABILITY_CODE_RESTART]	= sizeof (struct capability_gr),
+  [CAPABILITY_CODE_ORF]		= CAPABILITY_CODE_ORF_LEN,
+  [CAPABILITY_CODE_RESTART]	= CAPABILITY_CODE_RESTART_LEN,
   [CAPABILITY_CODE_AS4]		= CAPABILITY_CODE_AS4_LEN,
   [CAPABILITY_CODE_ADDPATH]     = CAPABILITY_CODE_ADDPATH_LEN,
   [CAPABILITY_CODE_DYNAMIC]	= CAPABILITY_CODE_DYNAMIC_LEN,
   [CAPABILITY_CODE_DYNAMIC_OLD]	= CAPABILITY_CODE_DYNAMIC_LEN,
   [CAPABILITY_CODE_ENHE]        = CAPABILITY_CODE_ENHE_LEN,
   [CAPABILITY_CODE_REFRESH_OLD]	= CAPABILITY_CODE_REFRESH_LEN,
-  [CAPABILITY_CODE_ORF_OLD]	= sizeof (struct capability_orf_entry),
+  [CAPABILITY_CODE_ORF_OLD]	= CAPABILITY_CODE_ORF_LEN,
   [CAPABILITY_CODE_FQDN]        = CAPABILITY_CODE_MIN_FQDN_LEN,
+};
+
+/* value the capability must be a multiple of.
+ * 0-data capabilities won't be checked against this.
+ * Other capabilities whose data doesn't fall on convenient boundaries for this
+ * table should be set to 1.
+ */
+static const size_t cap_modsizes[] =
+{
+  [CAPABILITY_CODE_MP]          = 4,
+  [CAPABILITY_CODE_REFRESH]     = 1,
+  [CAPABILITY_CODE_ORF]         = 1,
+  [CAPABILITY_CODE_RESTART]     = 1,
+  [CAPABILITY_CODE_AS4]         = 4,
+  [CAPABILITY_CODE_ADDPATH]     = 4,
+  [CAPABILITY_CODE_DYNAMIC]     = 1,
+  [CAPABILITY_CODE_DYNAMIC_OLD] = 1,
+  [CAPABILITY_CODE_ENHE]        = 6,
+  [CAPABILITY_CODE_REFRESH_OLD] = 1,
+  [CAPABILITY_CODE_ORF_OLD]     = 1,
+  [CAPABILITY_CODE_FQDN]        = 1,
 };
 
 /**
@@ -788,6 +809,19 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                              caphdr.length, 
 			     (unsigned) cap_minsizes[caphdr.code]);
                   bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
+                  return -1;
+                }
+              if (caphdr.length
+                  && caphdr.length % cap_modsizes[caphdr.code] != 0)
+                {
+                  zlog_info ("%s %s Capability length error: got %u,"
+                             " expected a multiple of %u",
+                             peer->host,
+                             LOOKUP (capcode_str, caphdr.code),
+                             caphdr.length,
+			     (unsigned) cap_modsizes[caphdr.code]);
+                  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
+                                   BGP_NOTIFY_OPEN_MALFORMED_ATTR);
                   return -1;
                 }
           /* we deliberately ignore unknown codes, see below */
@@ -1094,7 +1128,8 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
 	  && ! peer->afc_nego[AFI_IP][SAFI_MULTICAST]
 	  && ! peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
 	  && ! peer->afc_nego[AFI_IP6][SAFI_UNICAST]
-	  && ! peer->afc_nego[AFI_IP6][SAFI_MULTICAST])
+	  && ! peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
+	  && ! peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN])
 	{
 	  zlog_err ("%s [Error] Configured AFI/SAFIs do not "
 		    "overlap with received MP capabilities",
@@ -1285,6 +1320,18 @@ bgp_open_capability (struct stream *s, struct peer *peer)
       stream_putw (s, AFI_IP6);
       stream_putc (s, 0);
       stream_putc (s, SAFI_MULTICAST);
+    }
+  /* IPv6 VPN. */
+  if (peer->afc[AFI_IP6][SAFI_MPLS_VPN])
+    {
+      peer->afc_adv[AFI_IP6][SAFI_MPLS_VPN] = 1;
+      stream_putc (s, BGP_OPEN_OPT_CAP);
+      stream_putc (s, CAPABILITY_CODE_MP_LEN + 2);
+      stream_putc (s, CAPABILITY_CODE_MP);
+      stream_putc (s, CAPABILITY_CODE_MP_LEN);
+      stream_putw (s, AFI_IP6);
+      stream_putc (s, 0);
+      stream_putc (s, SAFI_MPLS_LABELED_VPN);
     }
 #endif /* HAVE_IPV6 */
 

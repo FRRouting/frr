@@ -40,7 +40,7 @@ ripng_aggregate_new (void)
   return new;
 }
 
-static void
+void
 ripng_aggregate_free (struct ripng_aggregate *aggregate)
 {
   XFREE (MTYPE_RIPNG_AGGREGATE, aggregate);
@@ -76,6 +76,23 @@ ripng_aggregate_decrement (struct route_node *child, struct ripng_info *rinfo)
       }
 }
 
+/* Aggregate count decrement check for a list. */
+void
+ripng_aggregate_decrement_list (struct route_node *child, struct list *list)
+{
+  struct route_node *np;
+  struct ripng_aggregate *aggregate;
+  struct ripng_info *rinfo = NULL;
+  struct listnode *node = NULL;
+
+  for (np = child; np; np = np->parent)
+    if ((aggregate = np->aggregate) != NULL)
+      aggregate->count -= listcount (list);
+
+  for (ALL_LIST_ELEMENTS_RO (list, node, rinfo))
+    rinfo->suppress--;
+}
+
 /* RIPng routes treatment. */
 int
 ripng_aggregate_add (struct prefix *p)
@@ -85,6 +102,8 @@ ripng_aggregate_add (struct prefix *p)
   struct ripng_info *rinfo;
   struct ripng_aggregate *aggregate;
   struct ripng_aggregate *sub;
+  struct list *list = NULL;
+  struct listnode *node = NULL;
 
   /* Get top node for aggregation. */
   top = route_node_get (ripng->table, p);
@@ -99,11 +118,12 @@ ripng_aggregate_add (struct prefix *p)
   for (rp = route_lock_node (top); rp; rp = route_next_until (rp, top))
     {
       /* Suppress normal route. */
-      if ((rinfo = rp->info) != NULL)
-	{
-	  aggregate->count++;
-	  rinfo->suppress++;
-	}
+      if ((list = rp->info) != NULL)
+        for (ALL_LIST_ELEMENTS_RO (list, node, rinfo))
+          {
+            aggregate->count++;
+            rinfo->suppress++;
+          }
       /* Suppress aggregate route.  This may not need. */
       if (rp != top && (sub = rp->aggregate) != NULL)
 	{
@@ -124,6 +144,8 @@ ripng_aggregate_delete (struct prefix *p)
   struct ripng_info *rinfo;
   struct ripng_aggregate *aggregate;
   struct ripng_aggregate *sub;
+  struct list *list = NULL;
+  struct listnode *node = NULL;
 
   /* Get top node for aggregation. */
   top = route_node_get (ripng->table, p);
@@ -135,11 +157,12 @@ ripng_aggregate_delete (struct prefix *p)
   for (rp = route_lock_node (top); rp; rp = route_next_until (rp, top))
     {
       /* Suppress normal route. */
-      if ((rinfo = rp->info) != NULL)
-	{
-	  aggregate->count--;
-	  rinfo->suppress--;
-	}
+      if ((list = rp->info) != NULL)
+        for (ALL_LIST_ELEMENTS_RO (list, node, rinfo))
+          {
+            aggregate->count--;
+            rinfo->suppress--;
+          }
 
       if (rp != top && (sub = rp->aggregate) != NULL)
 	{

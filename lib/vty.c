@@ -38,6 +38,7 @@
 #include "network.h"
 
 #include <arpa/telnet.h>
+#include <termios.h>
 
 /* Vty events */
 enum event 
@@ -184,7 +185,7 @@ vty_log_out (struct vty *vty, const char *level, const char *proto_str,
   buf[len++] = '\r';
   buf[len++] = '\n';
 
-  if (write(vty->fd, buf, len) < 0)
+  if (write(vty->wfd, buf, len) < 0)
     {
       if (ERRNO_IO_RETRY(errno))
 	/* Kernel buffer is full, probably too much debugging output, so just
@@ -703,6 +704,7 @@ vty_end_config (struct vty *vty)
     case RIPNG_NODE:
     case BGP_NODE:
     case BGP_VPNV4_NODE:
+    case BGP_VPNV6_NODE:
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
@@ -873,7 +875,7 @@ vty_complete_command (struct vty *vty)
   if (isspace ((int) vty->buf[vty->length - 1]))
     vector_set (vline, NULL);
 
-  matched = cmd_complete_command (vline, vty, &ret);
+  matched = cmd_complete_command_lib (vline, vty, &ret, 1);
   
   cmd_free_strvec (vline);
 
@@ -1363,8 +1365,8 @@ vty_read (struct thread *thread)
 	  vty->monitor = 0; /* disable monitoring to avoid infinite recursion */
 	  zlog_warn("%s: read error on vty client fd %d, closing: %s",
 		    __func__, vty->fd, safe_strerror(errno));
+          buffer_reset(vty->obuf);
 	}
-      buffer_reset(vty->obuf);
       vty->status = VTY_CLOSE;
     }
 
@@ -1542,7 +1544,7 @@ vty_read (struct thread *thread)
     vty_close (vty);
   else
     {
-      vty_event (VTY_WRITE, vty_sock, vty);
+      vty_event (VTY_WRITE, vty->wfd, vty);
       vty_event (VTY_READ, vty_sock, vty);
     }
   return 0;
@@ -1571,12 +1573,12 @@ vty_flush (struct thread *thread)
 
   /* N.B. if width is 0, that means we don't know the window size. */
   if ((vty->lines == 0) || (vty->width == 0))
-    flushrc = buffer_flush_available(vty->obuf, vty->fd);
+    flushrc = buffer_flush_available(vty->obuf, vty_sock);
   else if (vty->status == VTY_MORELINE)
-    flushrc = buffer_flush_window(vty->obuf, vty->fd, vty->width,
+    flushrc = buffer_flush_window(vty->obuf, vty_sock, vty->width,
 				  1, erase, 0);
   else
-    flushrc = buffer_flush_window(vty->obuf, vty->fd, vty->width,
+    flushrc = buffer_flush_window(vty->obuf, vty_sock, vty->width,
 				  vty->lines >= 0 ? vty->lines :
 						    vty->height,
 				  erase, 0);
@@ -1610,6 +1612,34 @@ vty_flush (struct thread *thread)
   return 0;
 }
 
+/* allocate and initialise vty */
+static struct vty *
+vty_new_init (int vty_sock)
+{
+  struct vty *vty;
+
+  vty = vty_new ();
+  vty->fd = vty_sock;
+  vty->wfd = vty_sock;
+  vty->type = VTY_TERM;
+  vty->node = AUTH_NODE;
+  vty->fail = 0;
+  vty->cp = 0;
+  vty_clear_buf (vty);
+  vty->length = 0;
+  memset (vty->hist, 0, sizeof (vty->hist));
+  vty->hp = 0;
+  vty->hindex = 0;
+  vector_set_index (vtyvec, vty_sock, vty);
+  vty->status = VTY_NORMAL;
+  vty->lines = -1;
+  vty->iac = 0;
+  vty->iac_sb_in_progress = 0;
+  vty->sb_len = 0;
+
+  return vty;
+}
+
 /* Create new vty structure. */
 static struct vty *
 vty_create (int vty_sock, union sockunion *su)
@@ -1620,9 +1650,10 @@ vty_create (int vty_sock, union sockunion *su)
   sockunion2str(su, buf, SU_ADDRSTRLEN);
 
   /* Allocate new vty structure and set up default values. */
-  vty = vty_new ();
-  vty->fd = vty_sock;
-  vty->type = VTY_TERM;
+  vty = vty_new_init (vty_sock);
+
+  /* configurable parameters not part of basic init */
+  vty->v_timeout = vty_timeout_val;
   strcpy (vty->address, buf);
   if (no_password_check)
     {
@@ -1633,25 +1664,8 @@ vty_create (int vty_sock, union sockunion *su)
       else
 	vty->node = VIEW_NODE;
     }
-  else
-    vty->node = AUTH_NODE;
-  vty->fail = 0;
-  vty->cp = 0;
-  vty_clear_buf (vty);
-  vty->length = 0;
-  memset (vty->hist, 0, sizeof (vty->hist));
-  vty->hp = 0;
-  vty->hindex = 0;
-  vector_set_index (vtyvec, vty_sock, vty);
-  vty->status = VTY_NORMAL;
-  vty->v_timeout = vty_timeout_val;
   if (host.lines >= 0)
     vty->lines = host.lines;
-  else
-    vty->lines = -1;
-  vty->iac = 0;
-  vty->iac_sb_in_progress = 0;
-  vty->sb_len = 0;
 
   if (! no_password_check)
     {
@@ -1683,6 +1697,66 @@ vty_create (int vty_sock, union sockunion *su)
   /* Add read/write thread. */
   vty_event (VTY_WRITE, vty_sock, vty);
   vty_event (VTY_READ, vty_sock, vty);
+
+  return vty;
+}
+
+/* create vty for stdio */
+static struct termios stdio_orig_termios;
+static struct vty *stdio_vty = NULL;
+static void (*stdio_vty_atclose)(void);
+
+static void
+vty_stdio_reset (void)
+{
+  if (stdio_vty)
+    {
+      tcsetattr (0, TCSANOW, &stdio_orig_termios);
+      stdio_vty = NULL;
+
+      if (stdio_vty_atclose)
+        stdio_vty_atclose ();
+      stdio_vty_atclose = NULL;
+    }
+}
+
+struct vty *
+vty_stdio (void (*atclose)())
+{
+  struct vty *vty;
+  struct termios termios;
+
+  /* refuse creating two vtys on stdio */
+  if (stdio_vty)
+    return NULL;
+
+  vty = stdio_vty = vty_new_init (0);
+  stdio_vty_atclose = atclose;
+  vty->wfd = 1;
+
+  /* always have stdio vty in a known _unchangeable_ state, don't want config
+   * to have any effect here to make sure scripting this works as intended */
+  vty->node = ENABLE_NODE;
+  vty->v_timeout = 0;
+  strcpy (vty->address, "console");
+
+  if (!tcgetattr (0, &stdio_orig_termios))
+    {
+      termios = stdio_orig_termios;
+      termios.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
+                           | INLCR | IGNCR | ICRNL | IXON);
+      termios.c_oflag &= ~OPOST;
+      termios.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+      termios.c_cflag &= ~(CSIZE | PARENB);
+      termios.c_cflag |= CS8;
+      tcsetattr (0, TCSANOW, &termios);
+    }
+
+  vty_prompt (vty);
+
+  /* Add read/write thread. */
+  vty_event (VTY_WRITE, 1, vty);
+  vty_event (VTY_READ, 0, vty);
 
   return vty;
 }
@@ -1775,7 +1849,7 @@ vty_accept (struct thread *thread)
   return 0;
 }
 
-#if defined(HAVE_IPV6) && !defined(NRL)
+#ifdef HAVE_IPV6
 static void
 vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 {
@@ -1840,7 +1914,7 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 
   freeaddrinfo (ainfo_save);
 }
-#else /* HAVE_IPV6 && ! NRL */
+#else /* HAVE_IPV6 */
 
 /* Make vty server socket. */
 static void
@@ -1908,7 +1982,7 @@ vty_serv_sock_family (const char* addr, unsigned short port, int family)
   /* Add vty server event. */
   vty_event (VTY_SERV, accept_sock, NULL);
 }
-#endif /* HAVE_IPV6 && ! NRL */
+#endif /* HAVE_IPV6 */
 
 #ifdef VTYSH
 /* For sockaddr_un. */
@@ -2022,6 +2096,7 @@ vtysh_accept (struct thread *thread)
 
   vty = vty_new ();
   vty->fd = sock;
+  vty->wfd = sock;
   vty->type = VTY_SHELL_SERV;
   vty->node = VIEW_NODE;
 
@@ -2033,10 +2108,10 @@ vtysh_accept (struct thread *thread)
 static int
 vtysh_flush(struct vty *vty)
 {
-  switch (buffer_flush_available(vty->obuf, vty->fd))
+  switch (buffer_flush_available(vty->obuf, vty->wfd))
     {
     case BUFFER_PENDING:
-      vty_event(VTYSH_WRITE, vty->fd, vty);
+      vty_event(VTYSH_WRITE, vty->wfd, vty);
       break;
     case BUFFER_ERROR:
       vty->monitor = 0; /* disable monitoring to avoid infinite recursion */
@@ -2143,12 +2218,7 @@ vty_serv_sock (const char *addr, unsigned short port, const char *path)
     {
 
 #ifdef HAVE_IPV6
-#ifdef NRL
-      vty_serv_sock_family (addr, port, AF_INET);
-      vty_serv_sock_family (addr, port, AF_INET6);
-#else /* ! NRL */
       vty_serv_sock_addrinfo (addr, port);
-#endif /* NRL*/
 #else /* ! HAVE_IPV6 */
       vty_serv_sock_family (addr,port, AF_INET);
 #endif /* HAVE_IPV6 */
@@ -2177,7 +2247,7 @@ vty_close (struct vty *vty)
     thread_cancel (vty->t_timeout);
 
   /* Flush buffer. */
-  buffer_flush_all (vty->obuf, vty->fd);
+  buffer_flush_all (vty->obuf, vty->wfd);
 
   /* Free input buffer. */
   buffer_free (vty->obuf);
@@ -2193,6 +2263,8 @@ vty_close (struct vty *vty)
   /* Close socket. */
   if (vty->fd > 0)
     close (vty->fd);
+  else
+    vty_stdio_reset ();
 
   if (vty->buf)
     XFREE (MTYPE_VTY, vty->buf);
@@ -2237,12 +2309,13 @@ vty_read_file (FILE *confp)
   unsigned int line_num = 0;
 
   vty = vty_new ();
-  vty->fd = dup(STDERR_FILENO); /* vty_close() will close this */
-  if (vty->fd < 0)
+  vty->wfd = dup(STDERR_FILENO); /* vty_close() will close this */
+  if (vty->wfd < 0)
   {
     /* Fine, we couldn't make a new fd. vty_close doesn't close stdout. */
-    vty->fd = STDOUT_FILENO;
+    vty->wfd = STDOUT_FILENO;
   }
+  vty->fd = STDIN_FILENO;
   vty->type = VTY_FILE;
   vty->node = CONFIG_NODE;
   
@@ -2497,7 +2570,7 @@ vty_log_fixed (char *buf, size_t len)
       if (((vty = vector_slot (vtyvec, i)) != NULL) && vty->monitor)
 	/* N.B. We don't care about the return code, since process is
 	   most likely just about to die anyway. */
-	if (writev(vty->fd, iov, 2) == -1)
+	if (writev(vty->wfd, iov, 2) == -1)
 	  {
 	    fprintf(stderr, "Failure to writev: %d\n", errno);
 	    exit(-1);
@@ -3004,6 +3077,8 @@ vty_init (struct thread_master *master_thread)
   vtyvec = vector_init (VECTOR_MIN_SIZE);
 
   vty_master = master_thread;
+
+  atexit (vty_stdio_reset);
 
   /* Initilize server thread vector. */
   Vvty_serv_thread = vector_init (VECTOR_MIN_SIZE);

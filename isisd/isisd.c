@@ -1364,8 +1364,8 @@ DEFUN (show_isis_summary,
       vty_out_timestr(vty, spftree->last_run_timestamp);
       vty_out (vty, "%s", VTY_NEWLINE);
 
-      vty_out (vty, "      last run duration : %ld msec%s",
-               spftree->last_run_duration, VTY_NEWLINE);
+      vty_out (vty, "      last run duration : %llu msec%s",
+               (unsigned long long)spftree->last_run_duration, VTY_NEWLINE);
 
       vty_out (vty, "      run count         : %d%s",
           spftree->runcount, VTY_NEWLINE);

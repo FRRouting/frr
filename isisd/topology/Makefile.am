@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in.
 
-INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
+AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
 AM_CFLAGS = $(PICFLAGS)
@@ -17,8 +17,5 @@ libtopology_a_LIBADD = @LIB_REGEX@ ../../lib/libzebra.la
 
 noinst_HEADERS = \
 	spgrid.h
-
-depend:
-	@$(CPP) -MM $(INCLUDES) $(LDFLAGS) *.c
 
 ## File dependency.

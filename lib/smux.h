@@ -25,6 +25,8 @@
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/snmp_vars.h>
 
+#include "thread.h"
+
 /* Structures here are mostly compatible with UCD SNMP 4.1.1 */
 #define MATCH_FAILED     (-1)
 #define MATCH_SUCCEEDED  0

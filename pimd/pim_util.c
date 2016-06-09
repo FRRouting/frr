@@ -100,23 +100,8 @@ uint16_t igmp_msg_decode8to16(uint8_t code)
 
 void pim_pkt_dump(const char *label, const uint8_t *buf, int size)
 {
-  char dump_buf[1000];
-  int i = 0;
-  int j = 0;
-
-  for (; i < size; ++i, j += 2) {
-    int left = sizeof(dump_buf) - j;
-    if (left < 4) {
-      if (left > 1) {
-	strcat(dump_buf + j, "!"); /* mark as truncated */
-      }
-      break;
-    }
-    snprintf(dump_buf + j, left, "%02x", buf[i]);
-  }
-
-  zlog_debug("%s: pkt dump size=%d: %s",
+  zlog_debug("%s: pkt dump size=%d",
 	     label,
-	     size,
-	     dump_buf);
+	     size);
+  zlog_hexdump(buf, size);
 }

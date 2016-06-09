@@ -1,23 +1,20 @@
 ## Process this file with automake to produce Makefile.in.
 
-INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
+AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 
-LIB_IPV6 = @LIB_IPV6@
 LIBCAP = @LIBCAP@
 
 ipforward = @IPFORWARD@
 if_method = @IF_METHOD@
-if_proc = @IF_PROC@
 rt_method = @RT_METHOD@
 rtread_method = @RTREAD_METHOD@
 kernel_method = @KERNEL_METHOD@
-other_method = @OTHER_METHOD@
 ioctl_method = @IOCTL_METHOD@
 
-otherobj = $(ioctl_method) $(ipforward) $(if_method) $(if_proc) \
-	$(rt_method) $(rtread_method) $(kernel_method) $(other_method)
+otherobj = $(ioctl_method) $(ipforward) $(if_method) \
+	$(rt_method) $(rtread_method) $(kernel_method)
 
 if HAVE_NETLINK
 othersrc = zebra_fpm_netlink.c
@@ -48,17 +45,17 @@ noinst_HEADERS = \
 	zebra_ptm_redistribute.h zebra_ptm.h zebra_routemap.h \
 	zebra_ns.h zebra_vrf.h
 
-zebra_LDADD = $(otherobj) ../lib/libzebra.la $(LIBCAP) $(LIB_IPV6)
+zebra_LDADD = $(otherobj) ../lib/libzebra.la $(LIBCAP)
 
-testzebra_LDADD = ../lib/libzebra.la $(LIBCAP) $(LIB_IPV6)
+testzebra_LDADD = ../lib/libzebra.la $(LIBCAP)
 
 zebra_DEPENDENCIES = $(otherobj)
 
-EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c if_proc.c \
-        if_sysctl.c ipforward_aix.c ipforward_ews.c ipforward_proc.c \
-	ipforward_solaris.c ipforward_sysctl.c rt_ioctl.c rt_netlink.c \
-	rt_socket.c rtread_netlink.c rtread_proc.c rtread_sysctl.c \
-	rtread_getmsg.c kernel_socket.c kernel_netlink.c mtu_kvm.c \
+EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c \
+        if_sysctl.c ipforward_proc.c \
+	ipforward_solaris.c ipforward_sysctl.c rt_netlink.c \
+	rt_socket.c rtread_netlink.c rtread_sysctl.c \
+	rtread_getmsg.c kernel_socket.c kernel_netlink.c \
 	ioctl.c ioctl_solaris.c \
 	GNOME-SMI GNOME-PRODUCT-ZEBRA-MIB
 

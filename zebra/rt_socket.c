@@ -263,13 +263,8 @@ sin6_masklen (struct in6_addr mask)
   char *p, *lim;
   int len;
 
-#if defined (INRIA)
-  if (IN_ANYADDR6 (mask)) 
-    return sizeof (long);
-#else /* ! INRIA */
   if (IN6_IS_ADDR_UNSPECIFIED (&mask)) 
     return sizeof (long);
-#endif /* ! INRIA */
 
   sin6.sin6_addr = mask;
   len = sizeof (struct sockaddr_in6);
@@ -283,67 +278,6 @@ sin6_masklen (struct in6_addr mask)
   return len;
 }
 #endif /* SIN6_LEN */
-
-/* Interface between zebra message and rtm message. */
-static int
-kernel_rtm_ipv6 (int message, struct prefix_ipv6 *dest,
-		 struct in6_addr *gate, int index, int flags)
-{
-  struct sockaddr_in6 *mask;
-  struct sockaddr_in6 sin_dest, sin_mask, sin_gate;
-
-  memset (&sin_dest, 0, sizeof (struct sockaddr_in6));
-  sin_dest.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-  sin_dest.sin6_len = sizeof (struct sockaddr_in6);
-#endif /* SIN6_LEN */
-
-  memset (&sin_mask, 0, sizeof (struct sockaddr_in6));
-
-  memset (&sin_gate, 0, sizeof (struct sockaddr_in6));
-  sin_gate.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-  sin_gate.sin6_len = sizeof (struct sockaddr_in6);
-#endif /* SIN6_LEN */
-
-  sin_dest.sin6_addr = dest->prefix;
-
-  if (gate)
-    memcpy (&sin_gate.sin6_addr, gate, sizeof (struct in6_addr));
-
-  /* Under kame set interface index to link local address. */
-#ifdef KAME
-
-#define SET_IN6_LINKLOCAL_IFINDEX(a, i) \
-  do { \
-    (a).s6_addr[2] = ((i) >> 8) & 0xff; \
-    (a).s6_addr[3] = (i) & 0xff; \
-  } while (0)
-
-  if (gate && IN6_IS_ADDR_LINKLOCAL(gate))
-    SET_IN6_LINKLOCAL_IFINDEX (sin_gate.sin6_addr, index);
-#endif /* KAME */
-
-  if (gate && dest->prefixlen == 128)
-    mask = NULL;
-  else
-    {
-      masklen2ip6 (dest->prefixlen, &sin_mask.sin6_addr);
-      sin_mask.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-      sin_mask.sin6_len = sin6_masklen (sin_mask.sin6_addr);
-#endif /* SIN6_LEN */
-      mask = &sin_mask;
-    }
-
-  return rtm_write (message, 
-		    (union sockunion *) &sin_dest,
-		    (union sockunion *) mask,
-		    gate ? (union sockunion *)&sin_gate : NULL,
-		    index,
-		    flags,
-		    0);
-}
 
 /* Interface between zebra message and rtm message. */
 static int

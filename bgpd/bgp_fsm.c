@@ -940,7 +940,7 @@ bgp_fsm_change_status (struct peer *peer, int status)
        * the state change that happens below, so peer will be in Clearing
        * (or Deleted).
        */
-      if (!peer->clear_node_queue->thread)
+      if (!work_queue_is_scheduled (peer->clear_node_queue))
         BGP_EVENT_ADD (peer, Clearing_Completed);
     }
   

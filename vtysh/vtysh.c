@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "linklist.h"
 #include "command.h"
 #include "memory.h"
 #include "vtysh/vtysh.h"
@@ -68,21 +69,6 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
 };
-
-/* 
- * Compiler is warning about prototypes not being declared.
- * The DEFUNSH and DEFUN macro's are messing with the
- * compiler I believe.  This is just to make it happy.
- */
-int vtysh_end(void);
-int vtysh_rl_describe(void);
-void vtysh_exit_ripd_only(void);
-int vtysh_connect_all_instances(struct vtysh_client *);
-
-
-/* We need direct access to ripd to implement vtysh_exit_ripd_only. */
-static struct vtysh_client *ripd_client = NULL;
- 
 
 /* Using integrated config from Quagga.conf. Default is no. */
 int vtysh_writeconfig_integrated = 0;
@@ -324,14 +310,6 @@ vtysh_client_execute (struct vtysh_client *head_client, const char *line, FILE *
 }
 
 void
-vtysh_exit_ripd_only (void)
-{
-  if (ripd_client)
-    vtysh_client_execute (ripd_client, "exit", stdout);
-}
-
-
-void
 vtysh_pager_init (void)
 {
   char *pager_defined;
@@ -383,7 +361,8 @@ vtysh_execute_func (const char *line, int pager)
    * to move into node in the vtysh where it succeeded. */
   if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON || ret == CMD_WARNING)
     {
-      if ((saved_node == BGP_VPNV4_NODE || saved_node == BGP_IPV4_NODE
+      if ((saved_node == BGP_VPNV4_NODE || saved_node == BGP_VPNV6_NODE 
+           || saved_node == BGP_IPV4_NODE
 	   || saved_node == BGP_IPV6_NODE || saved_node == BGP_IPV4M_NODE
 	   || saved_node == BGP_IPV6M_NODE)
 	  && (tried == 1))
@@ -753,7 +732,7 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 }
 
 /* We don't care about the point of the cursor when '?' is typed. */
-int
+static int
 vtysh_rl_describe (void)
 {
   int ret;
@@ -941,6 +920,12 @@ static struct cmd_node bgp_vpnv4_node =
   "%s(config-router-af)# "
 };
 
+static struct cmd_node bgp_vpnv6_node =
+{
+  BGP_VPNV6_NODE,
+  "%s(config-router-af)# "
+};
+
 static struct cmd_node bgp_ipv4_node =
 {
   BGP_IPV4_NODE,
@@ -999,7 +984,7 @@ static struct cmd_node keychain_key_node =
 extern struct cmd_node vty_node;
 
 /* When '^Z' is received from vty, move down to the enable mode. */
-int
+static int
 vtysh_end (void)
 {
   switch (vty->node)
@@ -1073,6 +1058,29 @@ DEFUNSH (VTYSH_BGPD,
 	 "Address Family Modifier\n")
 {
   vty->node = BGP_VPNV4_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+	 address_family_vpnv6,
+	 address_family_vpnv6_cmd,
+	 "address-family vpnv6",
+	 "Enter Address Family command mode\n"
+	 "Address family\n")
+{
+  vty->node = BGP_VPNV6_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+	 address_family_vpnv6_unicast,
+	 address_family_vpnv6_unicast_cmd,
+	 "address-family vpnv6 unicast",
+	 "Enter Address Family command mode\n"
+	 "Address family\n"
+	 "Address Family Modifier\n")
+{
+  vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
 }
 
@@ -1309,6 +1317,7 @@ vtysh_exit (struct vty *vty)
       vty->node = CONFIG_NODE;
       break;
     case BGP_VPNV4_NODE:
+    case BGP_VPNV6_NODE:
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
@@ -1347,6 +1356,7 @@ DEFUNSH (VTYSH_BGPD,
   if (vty->node == BGP_IPV4_NODE
       || vty->node == BGP_IPV4M_NODE
       || vty->node == BGP_VPNV4_NODE
+      || vty->node == BGP_VPNV6_NODE
       || vty->node == BGP_IPV6_NODE
       || vty->node == BGP_IPV6M_NODE)
     vty->node = BGP_NODE;
@@ -2648,7 +2658,7 @@ vtysh_update_all_insances(struct vtysh_client * head_client)
     }
 }
 
-int
+static int
 vtysh_connect_all_instances (struct vtysh_client *head_client)
 {
   struct vtysh_client *client;
@@ -2681,9 +2691,6 @@ vtysh_connect_all(const char *daemon_name)
 	  matches++;
 	  if (vtysh_connect(&vtysh_client[i]) == 0)
 	    rc++;
-	  /* We need direct access to ripd in vtysh_exit_ripd_only. */
-	  if (vtysh_client[i].flag == VTYSH_RIPD)
-	    ripd_client = &vtysh_client[i];
 
           rc += vtysh_connect_all_instances(&vtysh_client[i]);
        }
@@ -2750,6 +2757,7 @@ vtysh_init_vty (void)
   install_node (&rmap_node, NULL);
   install_node (&zebra_node, NULL);
   install_node (&bgp_vpnv4_node, NULL);
+  install_node (&bgp_vpnv6_node, NULL);
   install_node (&bgp_ipv4_node, NULL);
   install_node (&bgp_ipv4m_node, NULL);
 /* #ifdef HAVE_IPV6 */
@@ -2776,6 +2784,7 @@ vtysh_init_vty (void)
   vtysh_install_default (RMAP_NODE);
   vtysh_install_default (ZEBRA_NODE);
   vtysh_install_default (BGP_VPNV4_NODE);
+  vtysh_install_default (BGP_VPNV6_NODE);
   vtysh_install_default (BGP_IPV4_NODE);
   vtysh_install_default (BGP_IPV4M_NODE);
   vtysh_install_default (BGP_IPV6_NODE);
@@ -2811,6 +2820,8 @@ vtysh_init_vty (void)
   install_element (BGP_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_quit_bgpd_cmd);
+  install_element (BGP_VPNV6_NODE, &vtysh_exit_bgpd_cmd);
+  install_element (BGP_VPNV6_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV4_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV4_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV4M_NODE, &vtysh_exit_bgpd_cmd);
@@ -2841,6 +2852,7 @@ vtysh_init_vty (void)
   install_element (BGP_IPV4_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV4M_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_end_all_cmd);
+  install_element (BGP_VPNV6_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6M_NODE, &vtysh_end_all_cmd);
   install_element (ISIS_NODE, &vtysh_end_all_cmd);
@@ -2874,6 +2886,8 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &router_bgp_view_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_unicast_cmd);
+  install_element (BGP_NODE, &address_family_vpnv6_cmd);
+  install_element (BGP_NODE, &address_family_vpnv6_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv4_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv4_multicast_cmd);
 #ifdef HAVE_IPV6
@@ -2882,6 +2896,7 @@ vtysh_init_vty (void)
   install_element (BGP_NODE, &address_family_ipv6_multicast_cmd);
 #endif
   install_element (BGP_VPNV4_NODE, &exit_address_family_cmd);
+  install_element (BGP_VPNV6_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV4_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV4M_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV6_NODE, &exit_address_family_cmd);

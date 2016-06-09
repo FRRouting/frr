@@ -158,7 +158,7 @@ ospf_lsdb_delete (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
       if (lsa)
         zlog_warn ("LSA[Type%d:%s]: LSA %p, lsa->lsdb %p",
                    lsa->data->type, inet_ntoa (lsa->data->id),
-                   lsa, lsa->lsdb);
+                   (void *)lsa, (void *)lsa->lsdb);
       return;
     }
   

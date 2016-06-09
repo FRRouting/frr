@@ -389,7 +389,7 @@ restart_kill(struct thread *t_kill)
   time_elapsed(&delay,&restart->time);
   zlog_warn("Warning: %s %s child process %d still running after "
 	    "%ld seconds, sending signal %d",
-	    restart->what,restart->name,(int)restart->pid,delay.tv_sec,
+	    restart->what,restart->name,(int)restart->pid, (long)delay.tv_sec,
 	    (restart->kills ? SIGKILL : SIGTERM));
   kill(-restart->pid,(restart->kills ? SIGKILL : SIGTERM));
   restart->kills++;
@@ -662,15 +662,17 @@ handle_read(struct thread *t_read)
 	{
 	  dmn->state = DAEMON_UP;
 	  zlog_warn("%s state -> up : echo response received after %ld.%06ld "
-		    "seconds", dmn->name,delay.tv_sec,delay.tv_usec);
+		    "seconds", dmn->name,
+		    (long)delay.tv_sec, (long)delay.tv_usec);
 	}
       else
 	zlog_warn("%s: slow echo response finally received after %ld.%06ld "
-		  "seconds", dmn->name,delay.tv_sec,delay.tv_usec);
+		  "seconds", dmn->name,
+		  (long)delay.tv_sec, (long)delay.tv_usec);
     }
   else if (gs.loglevel > LOG_DEBUG+1)
     zlog_debug("%s: echo response received after %ld.%06ld seconds",
-	       dmn->name,delay.tv_sec,delay.tv_usec);
+	       dmn->name, (long)delay.tv_sec, (long)delay.tv_usec);
 
   SET_READ_HANDLER(dmn);
   if (dmn->t_wakeup)

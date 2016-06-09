@@ -251,14 +251,13 @@ extern const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 
 #define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 
-/* XXX: This gives GCC heartburn aboutbreaking aliasing rules. */
 #define ospf6_linkstate_prefix_adv_router(x) \
-  ((x)->u.prefix4.s_addr)
+  ((x)->u.lp.id.s_addr)
 #define ospf6_linkstate_prefix_id(x) \
-  ((x)->u.prefix6.s6_addr32[1])
+  ((x)->u.lp.adv_router.s_addr)
 
 #define ADV_ROUTER_IN_PREFIX(x) \
-  ((x)->u.prefix4.s_addr)
+  ((x)->u.lp.id.s_addr)
 
 /* Function prototype */
 extern void ospf6_linkstate_prefix (u_int32_t adv_router, u_int32_t id,

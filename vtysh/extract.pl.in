@@ -25,7 +25,10 @@
 
 print <<EOF;
 #include <zebra.h>
+
 #include "command.h"
+#include "linklist.h"
+
 #include "vtysh.h"
 
 EOF
@@ -62,6 +65,8 @@ $ignore{'"who"'} = "ignore";
 $ignore{'"terminal monitor"'} = "ignore";
 $ignore{'"terminal no monitor"'} = "ignore";
 $ignore{'"show history"'} = "ignore";
+
+my $cli_stomp = 0;
 
 foreach (@ARGV) {
     $file = $_;
@@ -151,7 +156,13 @@ foreach (@ARGV) {
         $defun_array[1] = $cmd . "_vtysh";
         $defun_body = join (", ", @defun_array);
 
-        # $cmd -> $str hash for lookup
+	# $cmd -> $str hash for lookup
+	if (exists($cmd2str{$cmd})) {
+	    warn "Duplicate CLI Function: $cmd\n";
+	    warn "\tFrom cli: $cmd2str{$cmd} to New cli: $str\n";
+	    warn "\tOriginal Protocol: $cmd2proto{$cmd} to New Protocol: $protocol\n";
+	    $cli_stomp++;
+	}
         $cmd2str{$cmd} = $str;
         $cmd2defun{$cmd} = $defun_body;
         $cmd2proto{$cmd} = $protocol;
@@ -190,6 +201,27 @@ foreach (@ARGV) {
             push (@{$oproto{$key}}, $cmd2proto{$ecmd});
         }
     }
+}
+
+my $bad_cli_stomps = 109;
+# Currently we have $bad_cli_stomps.  This was determined by
+# running this script and counting up the collisions from what
+# was returned.
+#
+# When we have cli commands that map to the same function name, we
+# can introduce subtle bugs due to code not being called when
+# we think it is.
+#
+# If extract.pl fails with a error message and you've been
+# modifying the cli, then go back and fix your code to
+# not have cli command function collisions.
+#
+# If you've removed a cli overwrite, you can safely subtract
+# one from $bad_cli_stomps.  If you've added to the problem
+# please fix your code before submittal
+if ($cli_stomp != $bad_cli_stomps) {
+    warn "Expected $bad_cli_stomps command line stomps, but got $cli_stomp instead\n";
+    exit $cli_stomp;
 }
 
 # Check finaly alive $cmd;

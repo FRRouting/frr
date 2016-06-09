@@ -302,13 +302,14 @@ int
 isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
 {
   struct ether_header *eth;
-  int written, buflen;
+  ssize_t written;
+  size_t buflen;
 
   buflen = stream_get_endp (circuit->snd_stream) + LLC_LEN + ETHER_HDR_LEN;
   if (buflen > sizeof (sock_buff))
     {
-      zlog_warn ("isis_send_pdu_bcast: sock_buff size %lu is less than "
-		 "output pdu size %d on circuit %s",
+      zlog_warn ("isis_send_pdu_bcast: sock_buff size %zu is less than "
+		 "output pdu size %zu on circuit %s",
 		 sizeof (sock_buff), buflen, circuit->interface->name);
       return ISIS_WARNING;
     }

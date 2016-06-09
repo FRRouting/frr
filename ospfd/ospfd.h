@@ -169,9 +169,6 @@ struct ospf
   /* Opaque-LSA administrative flags. */
   u_char opaque;
 #define OPAQUE_OPERATION_READY_BIT	(1 << 0)
-#define OPAQUE_BLOCK_TYPE_09_LSA_BIT	(1 << 1)
-#define OPAQUE_BLOCK_TYPE_10_LSA_BIT	(1 << 2)
-#define OPAQUE_BLOCK_TYPE_11_LSA_BIT	(1 << 3)
 #endif /* HAVE_OPAQUE_LSA */
 
   /* RFC3137 stub router. Configured time to stay stub / max-metric */

@@ -145,6 +145,9 @@ struct bgp_static
     struct route_map *map;
   } rmap;
 
+  /* Route Distinguisher */
+  struct prefix_rd     prd;
+
   /* MPLS label.  */
   u_char tag[3];
 };
@@ -253,10 +256,10 @@ extern void bgp_static_update (struct bgp *, struct prefix *, struct bgp_static 
 			afi_t, safi_t);
 extern void bgp_static_withdraw (struct bgp *, struct prefix *, afi_t, safi_t);
                      
-extern int bgp_static_set_vpnv4 (struct vty *vty, const char *, 
-                          const char *, const char *);
+extern int bgp_static_set_safi (safi_t safi, struct vty *vty, const char *,
+                          const char *, const char *, const char *);
 
-extern int bgp_static_unset_vpnv4 (struct vty *, const char *, 
+extern int bgp_static_unset_safi (safi_t safi, struct vty *, const char *,
                             const char *, const char *);
 
 /* this is primarily for MPLS-VPN */

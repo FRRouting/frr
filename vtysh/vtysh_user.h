@@ -22,7 +22,8 @@
 #ifndef _VTYSH_USER_H
 #define _VTYSH_USER_H
 
-int vtysh_auth ();
+int vtysh_auth (void);
+void vtysh_user_init (void);
 void user_config_write(void);
 
 char *vtysh_get_home (void);

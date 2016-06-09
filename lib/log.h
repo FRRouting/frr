@@ -121,6 +121,8 @@ extern void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_notice (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
+extern void zlog_thread_info (int log_level);
+
 /* Set logging level for the given destination.  If the log_level
    argument is ZLOG_DISABLED, then the destination is disabled.
    This function should not be used for file logging (use zlog_set_file

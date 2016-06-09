@@ -40,6 +40,8 @@
 #include "ospf6_interface.h"
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
+#include "ospf6_abr.h"
+#include "ospf6_asbr.h"
 #include "ospf6d.h"
 #include "ospf6_snmp.h"
 

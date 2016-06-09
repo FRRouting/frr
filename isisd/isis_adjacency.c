@@ -390,7 +390,8 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       vty_out (vty, "%-13s", adj_state2string (adj->adj_state));
       now = time (NULL);
       if (adj->last_upd)
-	vty_out (vty, "%-9lu", adj->last_upd + adj->hold_time - now);
+        vty_out (vty, "%-9llu",
+                 (unsigned long long)adj->last_upd + adj->hold_time - now);
       else
 	vty_out (vty, "-        ");
       vty_out (vty, "%-10s", snpa_print (adj->snpa));

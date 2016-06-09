@@ -117,7 +117,7 @@ inet_ntop (int family, const void *addrptr, char *strptr, size_t len)
 #endif /* ! HAVE_INET_NTOP */
 
 const char *
-inet_sutop (union sockunion *su, char *str)
+inet_sutop (const union sockunion *su, char *str)
 {
   switch (su->sa.sa_family)
     {
@@ -164,7 +164,7 @@ str2sockunion (const char *str, union sockunion *su)
 }
 
 const char *
-sockunion2str (union sockunion *su, char *buf, size_t len)
+sockunion2str (const union sockunion *su, char *buf, size_t len)
 {
   switch (sockunion_family(su))
     {
@@ -215,7 +215,7 @@ sockunion_normalise_mapped (union sockunion *su)
 
 /* return sockunion structure : this function should be revised. */
 static const char *
-sockunion_log (union sockunion *su, char *buf, size_t len)
+sockunion_log (const union sockunion *su, char *buf, size_t len)
 {
   switch (su->sa.sa_family)
     {
@@ -234,7 +234,7 @@ sockunion_log (union sockunion *su, char *buf, size_t len)
 
 /* Return socket of sockunion. */
 int
-sockunion_socket (union sockunion *su)
+sockunion_socket (const union sockunion *su)
 {
   int sock;
 
@@ -266,7 +266,7 @@ sockunion_accept (int sock, union sockunion *su)
 
 /* Return sizeof union sockunion.  */
 static int
-sockunion_sizeof (union sockunion *su)
+sockunion_sizeof (const union sockunion *su)
 {
   int ret;
 
@@ -290,7 +290,7 @@ sockunion_sizeof (union sockunion *su)
    0 : connect success
    1 : connect is in progress */
 enum connect_result
-sockunion_connect (int fd, union sockunion *peersu, unsigned short port,
+sockunion_connect (int fd, const union sockunion *peersu, unsigned short port,
 		   unsigned int ifindex)
 {
   int ret;
@@ -312,13 +312,8 @@ sockunion_connect (int fd, union sockunion *peersu, unsigned short port,
 	{
 #ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
 	  su.sin6.sin6_scope_id = ifindex;
-#ifdef MUSICA
-	  su.sin6.sin6_scope_id = ifindex; 
-#endif
 #endif /* HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID */
-#ifndef MUSICA
 	  SET_IN6_LINKLOCAL_IFINDEX (su.sin6.sin6_addr, ifindex);
-#endif
 	}
 #endif /* KAME */
       break;
@@ -402,7 +397,7 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
 #endif /* SIN6_LEN */
       if (su_addr == NULL)
 	{
-#if defined(LINUX_IPV6) || defined(NRL)
+#ifdef LINUX_IPV6
 	  memset (&su->sin6.sin6_addr, 0, sizeof (struct in6_addr));
 #else
 	  su->sin6.sin6_addr = in6addr_any;
@@ -779,7 +774,7 @@ sockunion_getpeername (int fd)
 
 /* Print sockunion structure */
 static void __attribute__ ((unused))
-sockunion_print (union sockunion *su)
+sockunion_print (const union sockunion *su)
 {
   if (su == NULL)
     return;
@@ -818,7 +813,7 @@ sockunion_print (union sockunion *su)
 
 #ifdef HAVE_IPV6
 static int
-in6addr_cmp (struct in6_addr *addr1, struct in6_addr *addr2)
+in6addr_cmp (const struct in6_addr *addr1, const struct in6_addr *addr2)
 {
   unsigned int i;
   const u_char *p1, *p2;
@@ -838,7 +833,7 @@ in6addr_cmp (struct in6_addr *addr1, struct in6_addr *addr2)
 #endif /* HAVE_IPV6 */
 
 int
-sockunion_cmp (union sockunion *su1, union sockunion *su2)
+sockunion_cmp (const union sockunion *su1, const union sockunion *su2)
 {
   if (su1->sa.sa_family > su2->sa.sa_family)
     return 1;
@@ -863,7 +858,7 @@ sockunion_cmp (union sockunion *su1, union sockunion *su2)
 
 /* Duplicate sockunion. */
 union sockunion *
-sockunion_dup (union sockunion *su)
+sockunion_dup (const union sockunion *su)
 {
   union sockunion *dup = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
   memcpy (dup, su, sizeof (union sockunion));

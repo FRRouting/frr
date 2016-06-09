@@ -1,6 +1,6 @@
 ## Automake.am for OSPF API client
 
-INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
+AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 AM_CFLAGS = $(WERROR)
 
 lib_LTLIBRARIES = libospfapiclient.la

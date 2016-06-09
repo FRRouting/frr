@@ -36,6 +36,7 @@
 #include "command.h"
 #include "memory.h"
 #include "privs.h"
+#include "linklist.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
@@ -123,10 +124,9 @@ sigint (int sig)
 
 /* Signale wrapper for vtysh. We don't use sigevent because
  * vtysh doesn't use threads. TODO */
-static RETSIGTYPE *
+static void
 vtysh_signal_set (int signo, void (*func)(int))
 {
-  int ret;
   struct sigaction sig;
   struct sigaction osig;
 
@@ -137,12 +137,7 @@ vtysh_signal_set (int signo, void (*func)(int))
   sig.sa_flags |= SA_RESTART;
 #endif /* SA_RESTART */
 
-  ret = sigaction (signo, &sig, &osig);
-
-  if (ret < 0) 
-    return (SIG_ERR);
-  else
-    return (osig.sa_handler);
+  sigaction (signo, &sig, &osig);
 }
 
 /* Initialization of signal handles. */
@@ -231,8 +226,11 @@ static void log_it(const char *line)
 {
   time_t t = time(NULL);
   struct tm *tmp = localtime(&t);
-  const char *user = getenv("USER") ? : "boot";
+  const char *user = getenv("USER");
   char tod[64];
+
+  if (!user)
+    user = "boot";
 
   strftime(tod, sizeof tod, "%Y%m%d-%H:%M.%S", tmp);
   

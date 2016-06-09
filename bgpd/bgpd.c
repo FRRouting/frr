@@ -27,6 +27,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "stream.h"
 #include "command.h"
 #include "sockunion.h"
+#include "sockopt.h"
 #include "network.h"
 #include "memory.h"
 #include "filter.h"
@@ -1543,6 +1544,8 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_UNICAST],
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_MULTICAST],
+		  PEER_FLAG_REFLECTOR_CLIENT);
+      UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_MPLS_VPN],
 		  PEER_FLAG_REFLECTOR_CLIENT);
     }
 
@@ -3460,7 +3463,8 @@ peer_active (struct peer *peer)
       || peer->afc[AFI_IP][SAFI_MULTICAST]
       || peer->afc[AFI_IP][SAFI_MPLS_VPN]
       || peer->afc[AFI_IP6][SAFI_UNICAST]
-      || peer->afc[AFI_IP6][SAFI_MULTICAST])
+      || peer->afc[AFI_IP6][SAFI_MULTICAST]
+      || peer->afc[AFI_IP6][SAFI_MPLS_VPN])
     return 1;
   return 0;
 }
@@ -3473,7 +3477,8 @@ peer_active_nego (struct peer *peer)
       || peer->afc_nego[AFI_IP][SAFI_MULTICAST]
       || peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
       || peer->afc_nego[AFI_IP6][SAFI_UNICAST]
-      || peer->afc_nego[AFI_IP6][SAFI_MULTICAST])
+      || peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
+      || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN])
     return 1;
   return 0;
 }
@@ -5982,6 +5987,8 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
   if (! peer->afc[afi][safi])
     return BGP_ERR_AF_UNCONFIGURED;
 
+  peer->rtt = sockopt_tcp_rtt (peer->fd);
+
   if (stype == BGP_CLEAR_SOFT_OUT || stype == BGP_CLEAR_SOFT_BOTH)
     {
       /* Clear the "neighbor x.x.x.x default-originate" flag */
@@ -6897,6 +6904,8 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
 	vty_out (vty, "ipv6 unicast");
       else if (safi == SAFI_MULTICAST)
         vty_out (vty, "ipv6 multicast");
+      else if (safi == SAFI_MPLS_VPN)
+	vty_out (vty, "vpnv6");
     }
 
   vty_out (vty, "%s", VTY_NEWLINE);
@@ -7183,6 +7192,9 @@ bgp_config_write (struct vty *vty)
 
       /* IPv6 multicast configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP6, SAFI_MULTICAST);
+
+      /* IPv6 VPN configuration.  */
+      write += bgp_config_write_family (vty, bgp, AFI_IP6, SAFI_MPLS_VPN);
 
       write++;
     }

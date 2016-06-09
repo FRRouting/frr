@@ -82,7 +82,8 @@ static const struct
 /* RPF lookup behaviour */
 static enum multicast_mode ipv4_multicast_mode = MCAST_NO_CONFIG;
 
-static void
+
+static void __attribute__((format (printf, 5, 6)))
 _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn, int priority,
 	    const char *msgfmt, ...)
 {
@@ -1678,7 +1679,8 @@ rib_process (struct route_node *rn)
           if (rib != fib)
             {
               if (IS_ZEBRA_DEBUG_RIB)
-		rnode_debug (rn, vrf_id, "rn %p, removing rib %p", rn, rib);
+		rnode_debug (rn, vrf_id, "rn %p, removing rib %p",
+			     (void *)rn, (void *)rib);
 	      rib_unlink (rn, rib);
             }
           else
@@ -1813,7 +1815,7 @@ rib_process (struct route_node *rn)
     {
       if (IS_ZEBRA_DEBUG_RIB)
 	rnode_debug (rn, vrf_id, "Updating existing route, select %p, fib %p",
-		     select, fib);
+                     (void *)select, (void *)fib);
       if (CHECK_FLAG (select->flags, ZEBRA_FLAG_CHANGED))
         {
           if (info->safi == SAFI_UNICAST)
@@ -1886,7 +1888,7 @@ rib_process (struct route_node *rn)
   if (fib)
     {
       if (IS_ZEBRA_DEBUG_RIB)
-	rnode_debug (rn, vrf_id, "Removing existing route, fib %p", fib);
+        rnode_debug (rn, vrf_id, "Removing existing route, fib %p", (void *)fib);
 
       if (info->safi == SAFI_UNICAST)
         zfpm_trigger_update (rn, "removing existing route");
@@ -1919,7 +1921,7 @@ rib_process (struct route_node *rn)
   if (select)
     {
       if (IS_ZEBRA_DEBUG_RIB)
-	rnode_debug (rn, "Adding route, select %p", select);
+        rnode_debug (rn, "Adding route, select %p", (void *)select);
 
       if (info->safi == SAFI_UNICAST)
         zfpm_trigger_update (rn, "new route selected");
@@ -1987,7 +1989,7 @@ rib_process (struct route_node *rn)
   if (del)
     {
       if (IS_ZEBRA_DEBUG_RIB)
-        rnode_debug (rn, vrf_id, "Deleting fib %p, rn %p", del, rn);
+	rnode_debug (rn, vrf_id, "Deleting fib %p, rn %p", (void *)del, (void *)rn);
       rib_unlink (rn, del);
     }
 
@@ -2126,7 +2128,7 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 	{
 	  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 	    rnode_debug (rn, rib->vrf_id,  "rn %p is already queued in sub-queue %u",
-			 rn, qindex);
+			 (void *)rn, qindex);
 	  continue;
 	}
 
@@ -2137,7 +2139,7 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 	rnode_debug (rn, rib->vrf_id, "queued rn %p into sub-queue %u",
-		     rn, qindex);
+		     (void *)rn, qindex);
 
       zvrf = zebra_vrf_lookup (rib->vrf_id);
       if (zvrf)
@@ -2155,7 +2157,7 @@ rib_queue_add (struct route_node *rn)
   if (!rnode_to_ribs (rn))
     {
       zlog_debug ("%s: called for route_node (%p, %d) with no ribs",
-                  __func__, rn, rn->lock);
+                  __func__, (void *)rn, rn->lock);
       zlog_backtrace(LOG_DEBUG);
       return;
     }
@@ -2321,7 +2323,7 @@ rib_addnode (struct route_node *rn, struct rib *rib, int process)
   if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
     {
       if (IS_ZEBRA_DEBUG_RIB)
-        rnode_debug (rn, rib->vrf_id, "rn %p, un-removed rib %p", rn, rib);
+	  rnode_debug (rn, rib->vrf_id, "rn %p, un-removed rib %p", (void *)rn, (void *)rib);
 
       UNSET_FLAG (rib->status, RIB_ENTRY_REMOVED);
       return;
@@ -2346,7 +2348,7 @@ rib_unlink (struct route_node *rn, struct rib *rib)
   assert (rn && rib);
 
   if (IS_ZEBRA_DEBUG_RIB)
-    rnode_debug (rn, rib->vrf_id, "rn %p, rib %p", rn, rib);
+	  rnode_debug (rn, rib->vrf_id, "rn %p, rib %p", (void *)rn, (void *)rib);
 
   dest = rib_dest_from_rnode (rn);
 
@@ -2373,7 +2375,7 @@ rib_delnode (struct route_node *rn, struct rib *rib)
   afi_t afi;
 
   if (IS_ZEBRA_DEBUG_RIB)
-    rnode_debug (rn, rib->vrf_id, "rn %p, rib %p, removing", rn, rib);
+    rnode_debug (rn, rib->vrf_id, "rn %p, rib %p, removing", (void *)rn, (void *)rib);
   SET_FLAG (rib->status, RIB_ENTRY_REMOVED);
 
   afi = (rn->p.family == AF_INET) ? AFI_IP :
@@ -2502,7 +2504,7 @@ rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
           inet_ntop (p->family, &p->prefix, buf, INET6_ADDRSTRLEN);
           zlog_debug ("%u:%s/%d: Inserting route rn %p, rib %p (type %d) "
                       "existing %p",
-                      vrf_id, buf, p->prefixlen, rn, rib, rib->type, same);
+                      vrf_id, buf, p->prefixlen, (void *)rn, (void *)rib, rib->type, (void *)same);
         }
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
@@ -2531,7 +2533,7 @@ void _rib_dump (const char * func,
   struct nexthop *nexthop, *tnexthop;
   int recursing;
 
-  zlog_debug ("%s: dumping RIB entry %p for %s vrf %u", func, rib,
+  zlog_debug ("%s: dumping RIB entry %p for %s vrf %u", func, (const void *)rib,
               prefix2str(pp, straddr, sizeof(straddr)), rib->vrf_id);
   zlog_debug
   (
@@ -2618,8 +2620,8 @@ void rib_lookup_and_dump (struct prefix_ipv4 * p, vrf_id_t vrf_id)
     (
       "%s: rn %p, rib %p: %s, %s",
       __func__,
-      rn,
-      rib,
+      (void *)rn,
+      (void *)rib,
       (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED) ? "removed" : "NOT removed"),
       (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED) ? "selected" : "NOT selected")
     );
@@ -2738,7 +2740,8 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
           inet_ntop (p->family, &p->prefix, buf, INET6_ADDRSTRLEN);
           zlog_debug ("%u:%s/%d: Inserting route rn %p, rib %p (type %d) "
                       "existing %p",
-                      rib->vrf_id, buf, p->prefixlen, rn, rib, rib->type, same);
+                      rib->vrf_id, buf, p->prefixlen, (void *)rn,
+		      (void *)rib, rib->type, (void *)same);
         }
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
@@ -3423,7 +3426,8 @@ rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
           inet_ntop (p->family, &p->prefix, buf, INET6_ADDRSTRLEN);
           zlog_debug ("%u:%s/%d: Inserting route rn %p, rib %p (type %d) "
                       "existing %p",
-                      vrf_id, buf, p->prefixlen, rn, rib, rib->type, same);
+                      vrf_id, buf, p->prefixlen, (void *)rn,
+		      (void *)rib, rib->type, (void *)same);
         }
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)

@@ -148,7 +148,7 @@ buffer_add (struct buffer *b)
 {
   struct buffer_data *d;
 
-  d = XMALLOC(MTYPE_BUFFER_DATA, offsetof(struct buffer_data, data[b->size]));
+  d = XMALLOC(MTYPE_BUFFER_DATA, offsetof(struct buffer_data, data) + b->size);
   d->cp = d->sp = 0;
   d->next = NULL;
 
@@ -322,7 +322,8 @@ buffer_flush_window (struct buffer *b, int fd, int width, int height,
 	      /* This should absolutely never occur. */
 	      zlog_err("%s: corruption detected: iov_small overflowed; "
 		       "head %p, tail %p, head->next %p",
-		       __func__, b->head, b->tail, b->head->next);
+		       __func__, (void *)b->head, (void *)b->tail,
+		       (void *)b->head->next);
 	      iov = XMALLOC(MTYPE_TMP, iov_alloc*sizeof(*iov));
 	      memcpy(iov, small_iov, sizeof(small_iov));
 	    }

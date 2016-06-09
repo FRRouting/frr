@@ -108,7 +108,7 @@ zebra_server_send_message(struct zserv *client)
     return -1;
 
   stream_set_getp(client->obuf, 0);
-  client->last_write_cmd = stream_getw_from(client->obuf, 4);
+  client->last_write_cmd = stream_getw_from(client->obuf, 6);
   switch (buffer_write(client->wb, client->sock, STREAM_DATA(client->obuf),
 		       stream_get_endp(client->obuf)))
     {
@@ -1161,7 +1161,7 @@ zread_interface_delete (struct zserv *client, u_short length, struct zebra_vrf *
 }
 
 void
-zserv_nexthop_num_warn (const char *caller, const struct prefix *p, const u_char nexthop_num)
+zserv_nexthop_num_warn (const char *caller, const struct prefix *p, const unsigned int nexthop_num)
 {
   if (nexthop_num > MULTIPATH_NUM)
     {
