@@ -7251,7 +7251,6 @@ bgp_if_finish (struct bgp *bgp)
       for (ALL_LIST_ELEMENTS (ifp->connected, c_node, c_nnode, c))
         bgp_connected_delete (bgp, c);
     }
-  vrf_iflist_terminate (bgp->vrf_id);
 }
 
 void
