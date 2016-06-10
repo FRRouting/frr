@@ -347,6 +347,8 @@ case "${enable_systemd}" in
   AC_CHECK_LIB(systemd, sd_notify, LIBS="$LIBS -lsystemd")
   if test $ac_cv_lib_systemd_sd_notify = no; then
     AC_MSG_ERROR([enable systemd has been specified but systemd development env not found on your system])
+  else
+    AC_DEFINE(HAVE_SYSTEMD,,Compile systemd support in)
   fi
   ;;
   "*") ;;
