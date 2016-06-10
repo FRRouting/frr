@@ -254,6 +254,9 @@ ospf_nbr_add_self (struct ospf_interface *oi)
   struct prefix p;
   struct route_node *rn;
 
+  if (!oi->nbr_self)
+    oi->nbr_self = ospf_nbr_new (oi);
+
   /* Initial state */
   oi->nbr_self->address = *oi->address;
   oi->nbr_self->priority = OSPF_IF_PARAM (oi, priority);
