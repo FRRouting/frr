@@ -22,10 +22,11 @@
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
-#include <stdio.h>
-#include <unistd.h>
 
 #include <zebra.h>
+
+#include <stdio.h>
+#include <unistd.h>
 
 #include "thread.h"
 #include "pqueue.h"

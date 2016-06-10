@@ -1144,7 +1144,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       if (IS_ZEBRA_DEBUG_KERNEL)
         {
-          char buf[PREFIX2STR_BUFFER];
+          char buf[PREFIX_STRLEN];
           zlog_debug ("%s %s vrf %u",
                       h->nlmsg_type == RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
                       prefix2str (&p, buf, sizeof(buf)), vrf_id);
@@ -1223,7 +1223,6 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   if (rtm->rtm_family == AF_INET6)
     {
       struct prefix_ipv6 p;
-      char buf[PREFIX2STR_BUFFER];
 
       p.family = AF_INET6;
       memcpy (&p.prefix, dest, 16);
@@ -1231,6 +1230,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       if (IS_ZEBRA_DEBUG_KERNEL)
         {
+	  char buf[PREFIX_STRLEN];
           zlog_debug ("%s %s vrf %u",
                       h->nlmsg_type == RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
                       prefix2str (&p, buf, sizeof(buf)), vrf_id);
@@ -1946,16 +1946,12 @@ _netlink_route_debug(
 {
   if (IS_ZEBRA_DEBUG_KERNEL)
     {
-      zlog_debug ("netlink_route_multipath() (%s): %s %s/%d vrf %u type %s",
-         routedesc,
-         lookup (nlmsg_str, cmd),
-#ifdef HAVE_IPV6
-         (family == AF_INET) ? inet_ntoa (p->u.prefix4) :
-         inet6_ntoa (p->u.prefix6),
-#else
-         inet_ntoa (p->u.prefix4),
-#endif /* HAVE_IPV6 */
-         p->prefixlen, zvrf->vrf_id, nexthop_type_to_str (nexthop->type));
+      char buf[PREFIX_STRLEN];
+      zlog_debug ("netlink_route_multipath() (%s): %s %s vrf %u type %s",
+		  routedesc,
+		  lookup (nlmsg_str, cmd),
+		  prefix2str (p, buf, sizeof(buf)),
+		  zvrf->vrf_id, nexthop_type_to_str (nexthop->type));
     }
 }
 

@@ -79,10 +79,10 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
   unsigned int ifindex = 0;
   int gate = 0;
   int error;
-  char prefix_buf[INET_ADDRSTRLEN];
+  char prefix_buf[PREFIX_STRLEN];
 
   if (IS_ZEBRA_DEBUG_RIB)
-    inet_ntop (AF_INET, &p->u.prefix, prefix_buf, INET_ADDRSTRLEN);
+    prefix2str (p, prefix_buf, sizeof(prefix_buf));
   memset (&sin_dest, 0, sizeof (struct sockaddr_in));
   sin_dest.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -159,8 +159,8 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
            {
              if (!gate)
              {
-               zlog_debug ("%s: %s/%d: attention! gate not found for rib %p",
-                 __func__, prefix_buf, p->prefixlen, rib);
+               zlog_debug ("%s: %s: attention! gate not found for rib %p",
+                 __func__, prefix_buf, rib);
                rib_dump (p, rib);
              }
              else
@@ -173,8 +173,8 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
              case ZEBRA_ERR_NOERROR:
                nexthop_num++;
                if (IS_ZEBRA_DEBUG_RIB)
-                 zlog_debug ("%s: %s/%d: successfully did NH %s",
-                   __func__, prefix_buf, p->prefixlen, gate_buf);
+                 zlog_debug ("%s: %s: successfully did NH %s",
+                   __func__, prefix_buf, gate_buf);
                if (cmd == RTM_ADD)
                  SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
                break;
@@ -196,11 +196,9 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
              case ZEBRA_ERR_RTNOEXIST:
              case ZEBRA_ERR_RTUNREACH:
              default:
-               /* This point is reachable regardless of debugging mode. */
-               if (!IS_ZEBRA_DEBUG_RIB)
-                 inet_ntop (AF_INET, &p->u.prefix, prefix_buf, INET_ADDRSTRLEN);
-               zlog_err ("%s: %s/%d: rtm_write() unexpectedly returned %d for command %s",
-                 __func__, prefix_buf, p->prefixlen, error, lookup (rtm_type_str, cmd));
+               zlog_err ("%s: %s: rtm_write() unexpectedly returned %d for command %s",
+                 __func__, prefix2str(p, prefix_buf, sizeof(prefix_buf)),
+                 error, lookup (rtm_type_str, cmd));
                break;
            }
          } /* if (cmd and flags make sense) */

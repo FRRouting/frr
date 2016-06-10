@@ -2116,10 +2116,9 @@ if_config_write (struct vty *vty)
 	      {
 		char buf[INET6_ADDRSTRLEN];
 		p = ifc->address;
-		vty_out (vty, " ip%s address %s/%d",
+		vty_out (vty, " ip%s address %s",
 			 p->family == AF_INET ? "" : "v6",
-			 inet_ntop (p->family, &p->u.prefix, buf, sizeof(buf)),
-			 p->prefixlen);
+			 prefix2str (p, buf, sizeof(buf)));
 
 		if (ifc->label)
 		  vty_out (vty, " label %s", ifc->label);

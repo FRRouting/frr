@@ -33,10 +33,9 @@
 #include "vrf.h"
 
 #include "zebra/interface.h"
+#include "zebra/ioctl_solaris.h"
 #include "zebra/rib.h"
 
-void lifreq_set_name (struct lifreq *, const char *);
-int if_get_flags_direct (const char *, uint64_t *, unsigned int af);
 static int if_get_addr (struct interface *, struct sockaddr *, const char *);
 static void interface_info_ioctl (struct interface *);
 extern struct zebra_privs_t zserv_privs;

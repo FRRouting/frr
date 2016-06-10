@@ -30,10 +30,6 @@
 # define _NO_PROTO
 #endif
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
 #include <zebra.h>
 
 #if !defined __STDC__ || !__STDC__

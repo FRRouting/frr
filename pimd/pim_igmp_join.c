@@ -20,6 +20,8 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
+#include <zebra.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>

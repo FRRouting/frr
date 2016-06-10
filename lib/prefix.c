@@ -714,13 +714,13 @@ sockunion2prefix (const union sockunion *dest,
 
 /* Utility function of convert between struct prefix <=> union sockunion. */
 struct prefix *
-sockunion2hostprefix (const union sockunion *su)
+sockunion2hostprefix (const union sockunion *su, struct prefix *prefix)
 {
   if (su->sa.sa_family == AF_INET)
     {
       struct prefix_ipv4 *p;
 
-      p = prefix_ipv4_new ();
+      p = prefix ? (struct prefix_ipv4 *) prefix : prefix_ipv4_new ();
       p->family = AF_INET;
       p->prefix = su->sin.sin_addr;
       p->prefixlen = IPV4_MAX_BITLEN;
@@ -731,7 +731,7 @@ sockunion2hostprefix (const union sockunion *su)
     {
       struct prefix_ipv6 *p;
 
-      p = prefix_ipv6_new ();
+      p = prefix ? (struct prefix_ipv6 *) prefix : prefix_ipv6_new ();
       p->family = AF_INET6;
       p->prefixlen = IPV6_MAX_BITLEN;
       memcpy (&p->prefix, &su->sin6.sin6_addr, sizeof (struct in6_addr));

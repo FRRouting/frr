@@ -223,6 +223,11 @@ static struct pim_ifchannel *pim_ifchannel_new(struct interface *ifp,
   ch->t_ifjoin_prune_pending_timer = 0;
   ch->ifjoin_creation              = 0;
 
+  ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
+  ch->ifassert_winner_metric = pim_macro_ch_my_assert_metric_eval (ch);
+
+  ch->ifassert_winner.s_addr = 0;
+
   /* Assert state */
   ch->t_ifassert_timer   = 0;
   reset_ifassert_state(ch);
@@ -235,8 +240,6 @@ static struct pim_ifchannel *pim_ifchannel_new(struct interface *ifp,
     PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);
   else
     PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
-
-  ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
 
   /* Attach to list */
   listnode_add(pim_ifp->pim_ifchannel_list, ch);

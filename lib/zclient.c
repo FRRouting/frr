@@ -347,6 +347,13 @@ zclient_read_header (struct stream *s, int sock, u_int16_t *size, u_char *marker
   *vrf_id = stream_getw (s);
   *cmd = stream_getw (s);
 
+  if (*version != ZSERV_VERSION || *marker != ZEBRA_HEADER_MARKER)
+    {
+      zlog_err("%s: socket %d version mismatch, marker %d, version %d",
+               __func__, sock, *marker, *version);
+      return -1;
+    }
+
   if (*size && stream_read (s, sock, *size) != *size)
     return -1;
 
@@ -1181,11 +1188,11 @@ zebra_interface_address_read (int type, struct stream *s, vrf_id_t vrf_id)
 	   else if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER))
 	     {
 	       /* carp interfaces on OpenBSD with 0.0.0.0/0 as "peer" */
-	       char buf[PREFIX2STR_BUFFER];
-	       prefix2str (ifc->address, buf, sizeof(buf));
+	       char buf[PREFIX_STRLEN];
 	       zlog_warn("warning: interface %s address %s "
 		    "with peer flag set, but no peer address!",
-		    ifp->name, buf);
+		    ifp->name,
+		    prefix2str (ifc->address, buf, sizeof buf));
 	       UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 	     }
 	 }

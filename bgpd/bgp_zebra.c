@@ -1038,7 +1038,7 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
       if (IN6_IS_ADDR_LINKLOCAL (&local->sin6.sin6_addr))
 	{
 	  if (peer->conf_if || peer->ifname)
-	    ifp = if_lookup_by_index_vrf (if_nametoindex (peer->conf_if ? peer->conf_if : peer->ifname), peer->bgp->vrf_id);
+	    ifp = if_lookup_by_name_vrf (peer->conf_if ? peer->conf_if : peer->ifname, peer->bgp->vrf_id);
 	}
       else if (peer->update_if)
         ifp = if_lookup_by_name_vrf (peer->update_if, peer->bgp->vrf_id);
@@ -1513,7 +1513,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
           if (!ifindex)
 	    {
 	      if (mpinfo->peer->conf_if || mpinfo->peer->ifname)
-		ifindex = if_nametoindex (mpinfo->peer->conf_if ? mpinfo->peer->conf_if : mpinfo->peer->ifname);
+		ifindex = ifname2ifindex (mpinfo->peer->conf_if ? mpinfo->peer->conf_if : mpinfo->peer->ifname);
 	      else if (mpinfo->peer->nexthop.ifp)
 		ifindex = mpinfo->peer->nexthop.ifp->ifindex;
 	    }
@@ -1705,7 +1705,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       struct zapi_ipv6 api;
       
       assert (info->attr->extra);
-      
+
       api.vrf_id = peer->bgp->vrf_id;
       api.flags = flags;
       api.type = ZEBRA_ROUTE_BGP;

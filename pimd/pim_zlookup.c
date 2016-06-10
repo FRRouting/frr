@@ -189,13 +189,6 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 	zclient_lookup_failed(zlookup);
 	return -2;
       }
-  
-      if (version != ZSERV_VERSION || marker != ZEBRA_HEADER_MARKER) {
-	zlog_err("%s: socket %d version mismatch, marker %d, version %d",
-		 __func__, zlookup->sock, marker, version);
-	zclient_lookup_failed(zlookup);
-	return -4;
-      }
     }
 
   raddr.s_addr = stream_get_ipv4(s);

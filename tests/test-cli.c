@@ -20,6 +20,8 @@
  * 02111-1307, USA.
  */
 
+#include <zebra.h>
+
 #include "common-cli.h"
 
 DUMMY_DEFUN(cmd0,  "arg ipv4 A.B.C.D");

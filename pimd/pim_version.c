@@ -20,6 +20,8 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
+#include <zebra.h>
+
 #include "pim_version.h"
 
 const char * const PIMD_VERSION = PIMD_VERSION_STR;

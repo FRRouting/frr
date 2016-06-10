@@ -645,8 +645,8 @@ ospf_write (struct thread *thread)
   struct listnode *node;
 #ifdef WANT_OSPF_WRITE_FRAGMENT
   static u_int16_t ipid = 0;
-#endif /* WANT_OSPF_WRITE_FRAGMENT */
   u_int16_t maxdatasize;
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
 #define OSPF_WRITE_IPHL_SHIFT 2
   int pkt_count = 0;
   
@@ -675,9 +675,10 @@ ospf_write (struct thread *thread)
        * and reliability - not more data, than our
        * socket can accept
        */
+#ifdef WANT_OSPF_WRITE_FRAGMENT
       maxdatasize = MIN (oi->ifp->mtu, ospf->maxsndbuflen) -
         sizeof (struct ip);
-
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
       /* Get one packet from queue. */
       op = ospf_fifo_head (oi->obuf);
       assert (op);
@@ -2080,7 +2081,7 @@ ospf_ls_upd (struct ospf *ospf, struct ip *iph, struct ospf_header *ospfh,
 	      quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
 	      
 	      if (tv_cmp (tv_sub (now, current->tv_orig), 
-			  intms2tv (oi->ospf->min_ls_arrival)) >= 0)
+			  msec2tv (ospf->min_ls_arrival)) >= 0)
 		/* Trap NSSA type later.*/
 		ospf_ls_upd_send_lsa (nbr, current, OSPF_SEND_PACKET_DIRECT);
 	      DISCARD_LSA (lsa, 8);

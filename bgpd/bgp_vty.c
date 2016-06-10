@@ -11117,11 +11117,10 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
           if (dn_flag[0])
             {
-              struct prefix *prefix = NULL, *range = NULL;
+              struct prefix prefix, *range = NULL;
 
-              prefix = sockunion2hostprefix(&(p->su));
-              if (prefix)
-                range = peer_group_lookup_dynamic_neighbor_range (p->group, prefix);
+              sockunion2hostprefix(&(p->su), &prefix);
+	      range = peer_group_lookup_dynamic_neighbor_range (p->group, &prefix);
 
               if (range)
                 {
@@ -11137,11 +11136,10 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
           if (dn_flag[0])
             {
-              struct prefix *prefix = NULL, *range = NULL;
+              struct prefix prefix, *range = NULL;
 
-              prefix = sockunion2hostprefix(&(p->su));
-              if (prefix)
-                range = peer_group_lookup_dynamic_neighbor_range (p->group, prefix);
+              sockunion2hostprefix(&(p->su), &prefix);
+	      range = peer_group_lookup_dynamic_neighbor_range (p->group, &prefix);
 
               if (range)
                 {
@@ -12056,14 +12054,11 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
         }
     }
 
-  /* TCP metrics. */
-  if (p->status == Established && p->rtt)
-    vty_out (vty, "Estimated round trip time: %d ms%s",
-	     p->rtt, VTY_NEWLINE);
-
   /* Timer information. */
   if (use_json)
     {
+      if (p->status == Established && p->rtt)
+        json_object_int_add(json_neigh, "estimatedRttInMsecs", p->rtt);
       if (p->t_start)
         json_object_int_add(json_neigh, "nextStartTimerDueInMsecs", thread_timer_remain_second (p->t_start) * 1000);
       if (p->t_connect)
@@ -12085,6 +12080,10 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
     }
   else
     {
+      /* TCP metrics. */
+      if (p->status == Established && p->rtt)
+        vty_out (vty, "Estimated round trip time: %d ms%s",
+                 p->rtt, VTY_NEWLINE);
       if (p->t_start)
         vty_out (vty, "Next start timer due in %ld seconds%s",
                  thread_timer_remain_second (p->t_start), VTY_NEWLINE);

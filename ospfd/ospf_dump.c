@@ -955,7 +955,7 @@ no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
       else if (strncmp (argv[arg_base + 1], "r", 1) == 0)
 	flag = OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
       else if (strncmp (argv[arg_base + 1], "d", 1) == 0)
-	flag = OSPF_DEBUG_DETAIL;
+	flag = OSPF_DEBUG_DETAIL | OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
     }
 
   /* detail. */

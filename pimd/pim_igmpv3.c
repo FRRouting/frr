@@ -1661,14 +1661,9 @@ void pim_igmp_send_membership_query(struct igmp_group *group,
 	       querier_query_interval, qqic, checksum);
   }
 
-#if 0
   memset(&to, 0, sizeof(to));
-#endif
   to.sin_family = AF_INET;
   to.sin_addr = dst_addr;
-#if 0
-  to.sin_port = htons(0);
-#endif
   tolen = sizeof(to);
 
   sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,

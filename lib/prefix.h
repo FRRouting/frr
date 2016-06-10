@@ -129,6 +129,9 @@ union prefix46constptr
 #define INET6_BUFSIZ 51
 #endif /* INET6_BUFSIZ */
 
+/* Maximum prefix string length (IPv6) */
+#define PREFIX_STRLEN 51
+
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
 #define IPV4_MAX_BITLEN    32
@@ -199,7 +202,7 @@ extern void apply_mask (struct prefix *);
 
 extern struct prefix *sockunion2prefix (const union sockunion *dest,
                                         const union sockunion *mask);
-extern struct prefix *sockunion2hostprefix (const union sockunion *);
+extern struct prefix *sockunion2hostprefix (const union sockunion *, struct prefix *p);
 extern void prefix2sockunion (const struct prefix *, union sockunion *);
 
 extern struct prefix_ipv4 *prefix_ipv4_new (void);

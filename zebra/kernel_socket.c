@@ -640,50 +640,32 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
 
   if (IS_ZEBRA_DEBUG_KERNEL)
     {
-      switch (sockunion_family(addr))
+      int family = sockunion_family(addr);
+      switch (family)
         {
 	case AF_INET:
+#ifdef HAVE_IPV6
+	case AF_INET6:
+#endif
 	  {
-	    char buf[4][INET_ADDRSTRLEN];
+	    char buf[4][INET6_ADDRSTRLEN];
 	    zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x, "
 			"ifam_flags 0x%x, addr %s/%d broad %s dst %s "
 			"gateway %s",
 			__func__, ifm->ifam_index,
 			(ifnlen ? ifname : "(nil)"), ifm->ifam_addrs,
 			ifm->ifam_flags,
-			inet_ntop(AF_INET,&addr->sin.sin_addr,
+			inet_ntop(family,&addr->sin.sin_addr,
 			          buf[0],sizeof(buf[0])),
 			ip_masklen(mask->sin.sin_addr),
-			inet_ntop(AF_INET,&brd->sin.sin_addr,
+			inet_ntop(family,&brd->sin.sin_addr,
 			          buf[1],sizeof(buf[1])),
-			inet_ntop(AF_INET,&dst.sin.sin_addr,
+			inet_ntop(family,&dst.sin.sin_addr,
 			          buf[2],sizeof(buf[2])),
-			inet_ntop(AF_INET,&gateway.sin.sin_addr,
+			inet_ntop(family,&gateway.sin.sin_addr,
 			          buf[3],sizeof(buf[3])));
 	  }
 	  break;
-#ifdef HAVE_IPV6
-	case AF_INET6:
-	  {
-	    char buf[4][INET6_ADDRSTRLEN];
-	    zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x, "
-			"ifam_flags 0x%x, addr %s/%d broad %s dst %s "
-			"gateway %s",
-			__func__, ifm->ifam_index, 
-			(ifnlen ? ifname : "(nil)"), ifm->ifam_addrs,
-			ifm->ifam_flags,
-			inet_ntop(AF_INET6,&addr->sin6.sin6_addr,
-			          buf[0],sizeof(buf[0])),
-			ip6_masklen(mask->sin6.sin6_addr),
-			inet_ntop(AF_INET6,&brd->sin6.sin6_addr,
-			          buf[1],sizeof(buf[1])),
-			inet_ntop(AF_INET6,&dst.sin6.sin6_addr,
-			          buf[2],sizeof(buf[2])),
-			inet_ntop(AF_INET6,&gateway.sin6.sin6_addr,
-			          buf[3],sizeof(buf[3])));
-	  }
-	  break;
-#endif /* HAVE_IPV6 */
         default:
 	  zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x",
 		      __func__, ifm->ifam_index, 
@@ -915,7 +897,7 @@ rtm_read (struct rt_msghdr *rtm)
        */
       if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
       {
-        char buf[PREFIX2STR_BUFFER], gate_buf[INET_ADDRSTRLEN];
+        char buf[PREFIX_STRLEN], gate_buf[INET_ADDRSTRLEN];
         int ret;
         if (! IS_ZEBRA_DEBUG_RIB)
           return;
@@ -931,18 +913,18 @@ rtm_read (struct rt_msghdr *rtm)
             switch (ret)
             {
               case ZEBRA_RIB_NOTFOUND:
-                zlog_debug ("%s: %s %s/%d: desync: RR isn't yet in RIB, while already in FIB",
-                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                zlog_debug ("%s: %s %s: desync: RR isn't yet in RIB, while already in FIB",
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
                 break;
               case ZEBRA_RIB_FOUND_CONNECTED:
               case ZEBRA_RIB_FOUND_NOGATE:
                 inet_ntop (AF_INET, &gate.sin.sin_addr, gate_buf, INET_ADDRSTRLEN);
-                zlog_debug ("%s: %s %s/%d: desync: RR is in RIB, but gate differs (ours is %s)",
-                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen, gate_buf);
+                zlog_debug ("%s: %s %s: desync: RR is in RIB, but gate differs (ours is %s)",
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, gate_buf);
                 break;
               case ZEBRA_RIB_FOUND_EXACT: /* RIB RR == FIB RR */
-                zlog_debug ("%s: %s %s/%d: done Ok",
-                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                zlog_debug ("%s: %s %s: done Ok",
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
                 rib_lookup_and_dump (&p);
                 return;
                 break;
@@ -954,27 +936,27 @@ rtm_read (struct rt_msghdr *rtm)
             switch (ret)
             {
               case ZEBRA_RIB_FOUND_EXACT:
-                zlog_debug ("%s: %s %s/%d: desync: RR is still in RIB, while already not in FIB",
-                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                zlog_debug ("%s: %s %s: desync: RR is still in RIB, while already not in FIB",
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
                 rib_lookup_and_dump (&p);
                 break;
               case ZEBRA_RIB_FOUND_CONNECTED:
               case ZEBRA_RIB_FOUND_NOGATE:
-                zlog_debug ("%s: %s %s/%d: desync: RR is still in RIB, plus gate differs",
-                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                zlog_debug ("%s: %s %s: desync: RR is still in RIB, plus gate differs",
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
                 rib_lookup_and_dump (&p);
                 break;
               case ZEBRA_RIB_NOTFOUND: /* RIB RR == FIB RR */
-                zlog_debug ("%s: %s %s/%d: done Ok",
-                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                zlog_debug ("%s: %s %s: done Ok",
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
                 rib_lookup_and_dump (&p);
                 return;
                 break;
             }
             break;
           default:
-            zlog_debug ("%s: %s/%d: warning: loopback RTM of type %s received",
-              __func__, buf, p.prefixlen, lookup (rtm_type_str, rtm->rtm_type));
+            zlog_debug ("%s: %s: warning: loopback RTM of type %s received",
+              __func__, buf, lookup (rtm_type_str, rtm->rtm_type));
         }
         return;
       }
@@ -990,7 +972,7 @@ rtm_read (struct rt_msghdr *rtm)
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      &p, &gate.sin.sin_addr, NULL, 0, VRF_DEFAULT, 0, 0, SAFI_UNICAST);
+		      &p, &gate.sin.sin_addr, NULL, 0, VRF_DEFAULT, 0, 0, 0, SAFI_UNICAST);
       else
 	rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0 zebra_flags,
 		      &p, &gate.sin.sin_addr, 0, VRF_DEFAULT, SAFI_UNICAST);

@@ -90,6 +90,7 @@ static u_char restricted_mode = 0;
 /* Integrated configuration file path */
 char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
+static int do_log_commands = 0;
 
 /* VTY standard output function. */
 int
@@ -111,7 +112,7 @@ vty_out (struct vty *vty, const char *format, ...)
     {
       /* Try to write to initial buffer.  */
       va_start (args, format);
-      len = vsnprintf (buf, sizeof buf, format, args);
+      len = vsnprintf (buf, sizeof(buf), format, args);
       va_end (args);
 
       /* Initial buffer is not enough.  */
@@ -402,7 +403,42 @@ vty_command (struct vty *vty, char *buf)
   int ret;
   vector vline;
   const char *protocolname;
+  char *cp = NULL;
 
+  /*
+   * Log non empty command lines
+   */
+  if (do_log_commands)
+    cp = buf;
+  if (cp != NULL)
+    {
+      /* Skip white spaces. */
+      while (isspace ((int) *cp) && *cp != '\0')
+        cp++;
+    }
+  if (cp != NULL && *cp != '\0')
+    {
+      unsigned i;
+      char	vty_str[VTY_BUFSIZ];
+      char        prompt_str[VTY_BUFSIZ];
+
+      /* format the base vty info */
+      snprintf(vty_str, sizeof(vty_str), "vty[??]@%s", vty->address);
+      if (vty)
+        for (i = 0; i < vector_active (vtyvec); i++)
+          if (vty == vector_slot (vtyvec, i))
+            {
+              snprintf(vty_str, sizeof(vty_str), "vty[%d]@%s",
+                                                 i, vty->address);
+              break;
+            }
+
+      /* format the prompt */
+      snprintf(prompt_str, sizeof(prompt_str), cmd_prompt (vty->node), vty_str);
+
+      /* now log the command */
+      zlog(NULL, LOG_ERR, "%s%s", prompt_str, buf);
+    }
   /* Split readline string up into the vector */
   vline = cmd_make_strvec (buf);
 
@@ -1572,7 +1608,7 @@ vty_flush (struct thread *thread)
   erase = ((vty->status == VTY_MORE || vty->status == VTY_MORELINE));
 
   /* N.B. if width is 0, that means we don't know the window size. */
-  if ((vty->lines == 0) || (vty->width == 0))
+  if ((vty->lines == 0) || (vty->width == 0) || (vty->height == 0))
     flushrc = buffer_flush_available(vty->obuf, vty_sock);
   else if (vty->status == VTY_MORELINE)
     flushrc = buffer_flush_window(vty->obuf, vty_sock, vty->width,
@@ -1770,7 +1806,7 @@ vty_accept (struct thread *thread)
   int ret;
   unsigned int on;
   int accept_sock;
-  struct prefix *p = NULL;
+  struct prefix p;
   struct access_list *acl = NULL;
   char buf[SU_ADDRSTRLEN];
 
@@ -1790,13 +1826,13 @@ vty_accept (struct thread *thread)
     }
   set_nonblocking(vty_sock);
 
-  p = sockunion2hostprefix (&su);
+  sockunion2hostprefix (&su, &p);
 
   /* VTY's accesslist apply. */
-  if (p->family == AF_INET && vty_accesslist_name)
+  if (p.family == AF_INET && vty_accesslist_name)
     {
       if ((acl = access_list_lookup (AFI_IP, vty_accesslist_name)) &&
-	  (access_list_apply (acl, p) == FILTER_DENY))
+	  (access_list_apply (acl, &p) == FILTER_DENY))
 	{
 	  zlog (NULL, LOG_INFO, "Vty connection refused from %s",
 		sockunion2str (&su, buf, SU_ADDRSTRLEN));
@@ -1805,18 +1841,16 @@ vty_accept (struct thread *thread)
 	  /* continue accepting connections */
 	  vty_event (VTY_SERV, accept_sock, NULL);
 	  
-	  prefix_free (p);
-
 	  return 0;
 	}
     }
 
 #ifdef HAVE_IPV6
   /* VTY's ipv6 accesslist apply. */
-  if (p->family == AF_INET6 && vty_ipv6_accesslist_name)
+  if (p.family == AF_INET6 && vty_ipv6_accesslist_name)
     {
       if ((acl = access_list_lookup (AFI_IP6, vty_ipv6_accesslist_name)) &&
-	  (access_list_apply (acl, p) == FILTER_DENY))
+	  (access_list_apply (acl, &p) == FILTER_DENY))
 	{
 	  zlog (NULL, LOG_INFO, "Vty connection refused from %s",
 		sockunion2str (&su, buf, SU_ADDRSTRLEN));
@@ -1825,15 +1859,11 @@ vty_accept (struct thread *thread)
 	  /* continue accepting connections */
 	  vty_event (VTY_SERV, accept_sock, NULL);
 	  
-	  prefix_free (p);
-
 	  return 0;
 	}
     }
 #endif /* HAVE_IPV6 */
   
-  prefix_free (p);
-
   on = 1;
   ret = setsockopt (vty_sock, IPPROTO_TCP, TCP_NODELAY, 
 		    (char *) &on, sizeof (on));
@@ -2929,6 +2959,17 @@ DEFUN (show_history,
   return CMD_SUCCESS;
 }
 
+/* vty login. */
+DEFUN (log_commands,
+       log_commands_cmd,
+       "log commands",
+       "Logging control\n"
+       "Log all commands (can't be unset without restart)\n")
+{
+  do_log_commands = 1;
+  return CMD_SUCCESS;
+}
+
 /* Display current configuration. */
 static int
 vty_config_write (struct vty *vty)
@@ -2960,7 +3001,10 @@ vty_config_write (struct vty *vty)
       else
         vty_out (vty, " anonymous restricted%s", VTY_NEWLINE);
     }
-  
+
+  if (do_log_commands)
+    vty_out (vty, "log commands%s", VTY_NEWLINE);
+    
   vty_out (vty, "!%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
@@ -3095,6 +3139,7 @@ vty_init (struct thread_master *master_thread)
   install_element (CONFIG_NODE, &service_advanced_vty_cmd);
   install_element (CONFIG_NODE, &no_service_advanced_vty_cmd);
   install_element (CONFIG_NODE, &show_history_cmd);
+  install_element (CONFIG_NODE, &log_commands_cmd);
   install_element (ENABLE_NODE, &terminal_monitor_cmd);
   install_element (ENABLE_NODE, &terminal_no_monitor_cmd);
   install_element (ENABLE_NODE, &no_terminal_monitor_cmd);

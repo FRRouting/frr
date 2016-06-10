@@ -502,28 +502,27 @@ static int
 bgp_update_address (struct interface *ifp, const union sockunion *dst,
 		    union sockunion *addr)
 {
-  struct prefix *p, *sel, *d;
+  struct prefix *p, *sel, d;
   struct connected *connected;
   struct listnode *node;
   int common;
 
-  d = sockunion2hostprefix (dst);
+  sockunion2hostprefix (dst, &d);
   sel = NULL;
   common = -1;
 
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
     {
       p = connected->address;
-      if (p->family != d->family)
+      if (p->family != d.family)
 	continue;
-      if (prefix_common_bits (p, d) > common)
+      if (prefix_common_bits (p, &d) > common)
 	{
 	  sel = p;
-	  common = prefix_common_bits (sel, d);
+	  common = prefix_common_bits (sel, &d);
 	}
     }
 
-  prefix_free (d);
   if (!sel)
     return 1;
 
@@ -620,7 +619,7 @@ bgp_connect (struct peer *peer)
 
 #ifdef HAVE_IPV6
   if (peer->conf_if || peer->ifname)
-    ifindex = if_nametoindex (peer->conf_if ? peer->conf_if : peer->ifname);
+    ifindex = ifname2ifindex (peer->conf_if ? peer->conf_if : peer->ifname);
 #endif /* HAVE_IPV6 */
 
   if (bgp_debug_neighbor_events(peer))

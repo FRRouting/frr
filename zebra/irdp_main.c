@@ -178,6 +178,7 @@ irdp_send(struct interface *ifp, struct prefix *p, struct stream *s)
 {
   struct zebra_if *zi=ifp->info;
   struct irdp_interface *irdp=&zi->irdp;
+  char buf[PREFIX_STRLEN];
   u_int32_t dst;
   u_int32_t ttl=1;
 
@@ -189,10 +190,9 @@ irdp_send(struct interface *ifp, struct prefix *p, struct stream *s)
     dst = htonl(INADDR_ALLHOSTS_GROUP);
 
   if(irdp->flags & IF_DEBUG_MESSAGES) 
-    zlog_debug("IRDP: TX Advert on %s %s/%d Holdtime=%d Preference=%d", 
+    zlog_debug("IRDP: TX Advert on %s %s Holdtime=%d Preference=%d",
 	      ifp->name,
-	      inet_ntoa(p->u.prefix4), 
-	      p->prefixlen,
+	      prefix2str(p, buf, sizeof buf),
 	      irdp->flags & IF_SHUTDOWN? 0 : irdp->Lifetime,
 	      get_pref(irdp, p));
 
