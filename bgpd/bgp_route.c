@@ -2997,56 +2997,6 @@ bgp_clear_route_all (struct peer *peer)
       bgp_clear_route (peer, afi, safi);
 }
 
-/*
- * Finish freeing things when exiting
- */
-static void
-bgp_drain_workqueue_immediate (struct work_queue *wq)
-{
-  if (!wq)
-    return;
-
-  if (!wq->thread)
-    {
-      /*
-       * no thread implies no queued items
-       */
-      assert(!wq->items->count);
-      return;
-    }
-
-   while (wq->items->count)
-     {
-       if (wq->thread)
-         thread_cancel(wq->thread);
-       work_queue_run(wq->thread);
-     }
-}
-
-/*
- * Special function to process clear node queue when bgpd is exiting
- * and the thread scheduler is no longer running.
- */
-void
-bgp_peer_clear_node_queue_drain_immediate(struct peer *peer)
-{
-  if (!peer)
-    return;
-
-  bgp_drain_workqueue_immediate(peer->clear_node_queue);
-}
-
-/*
- * The work queues are not specific to a BGP instance, but the
- * items in them refer to BGP instances, so this should be called
- * before each BGP instance is deleted.
- */
-void
-bgp_process_queues_drain_immediate(void)
-{
-  bgp_drain_workqueue_immediate(bm->process_main_queue);
-}
-
 void
 bgp_clear_adj_in (struct peer *peer, afi_t afi, safi_t safi)
 {

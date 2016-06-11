@@ -575,7 +575,7 @@ vtysh_mark_file (const char *filename)
 	{
 	  if ((prev_node == BGP_VPNV4_NODE || prev_node == BGP_IPV4_NODE
 	       || prev_node == BGP_IPV6_NODE || prev_node == BGP_IPV4M_NODE
-	       || prev_node == BGP_IPV6M_NODE)
+	       || prev_node == BGP_IPV6M_NODE || prev_node == BGP_VPNV6_NODE)
 	      && (tried == 1))
 	    {
 	      fprintf(stdout, "exit-address-family\n");

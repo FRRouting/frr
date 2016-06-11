@@ -1167,7 +1167,8 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
         }
     }
   if (peer->afc_nego[AFI_IP6][SAFI_UNICAST] ||
-      peer->afc_nego[AFI_IP6][SAFI_MULTICAST])
+      peer->afc_nego[AFI_IP6][SAFI_MULTICAST] ||
+      peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN])
     {
       if (IN6_IS_ADDR_UNSPECIFIED (&peer->nexthop.v6_global))
         {

@@ -41,7 +41,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_updgrp.h"
-#include "bgp_encap_types.h"
+#include "bgpd/bgp_encap_types.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str [] = 
@@ -2457,6 +2457,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
     case AFI_IP:
       switch (safi)
 	{
+	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 4);
@@ -2469,7 +2470,6 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  stream_putl (s, 0);
 	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
 	  break;
-	case SAFI_UNICAST:      /* invalid for IPv4 */
 	default:
 	  break;
 	}
@@ -2496,19 +2496,19 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  struct attr_extra *attre = attr->extra;
 
 	  assert (attr->extra);
-          if (attre->mp_nexthop_len == 16) {
+          if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
             stream_putc (s, 24);
             stream_putl (s, 0);   /* RD = 0, per RFC */
             stream_putl (s, 0);
-            stream_put (s, &attre->mp_nexthop_global, 16);
-          } else if (attre->mp_nexthop_len == 32) {
+            stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
+          } else if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
             stream_putc (s, 48);
             stream_putl (s, 0);   /* RD = 0, per RFC */
             stream_putl (s, 0);
-            stream_put (s, &attre->mp_nexthop_global, 16);
+            stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
             stream_putl (s, 0);   /* RD = 0, per RFC */
             stream_putl (s, 0);
-            stream_put (s, &attre->mp_nexthop_local, 16);
+            stream_put (s, &attre->mp_nexthop_local, IPV6_MAX_BYTELEN);
           }
         }
 	break;

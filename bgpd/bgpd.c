@@ -3044,8 +3044,6 @@ bgp_delete (struct bgp *bgp)
   afi_t afi;
   int i;
 
-  SET_FLAG(bgp->flags, BGP_FLAG_DELETING);
-
   THREAD_OFF (bgp->t_startup);
 
   if (BGP_DEBUG (zebra, ZEBRA))
