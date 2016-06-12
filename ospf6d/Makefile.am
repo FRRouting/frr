@@ -7,6 +7,7 @@ INSTALL_SDATA=@INSTALL@ -m 600
 AM_CFLAGS = $(WERROR)
 
 noinst_LIBRARIES = libospf6.a
+module_LTLIBRARIES =
 sbin_PROGRAMS = ospf6d
 
 libospf6_a_SOURCES = \
@@ -14,7 +15,7 @@ libospf6_a_SOURCES = \
 	ospf6_network.c ospf6_message.c ospf6_lsa.c ospf6_lsdb.c \
 	ospf6_top.c ospf6_area.c ospf6_interface.c ospf6_neighbor.c \
 	ospf6_flood.c ospf6_route.c ospf6_intra.c ospf6_zebra.c \
-	ospf6_spf.c ospf6_proto.c ospf6_asbr.c ospf6_abr.c ospf6_snmp.c \
+	ospf6_spf.c ospf6_proto.c ospf6_asbr.c ospf6_abr.c \
 	ospf6d.c ospf6_bfd.c
 
 noinst_HEADERS = \
@@ -28,7 +29,14 @@ noinst_HEADERS = \
 ospf6d_SOURCES = \
 	ospf6_main.c $(libospf6_a_SOURCES)
 
-ospf6d_LDADD = ../lib/libfrr.la ../lib/libfrrsnmp.la @LIBCAP@
+ospf6d_LDADD = ../lib/libfrr.la @LIBCAP@
+
+if SNMP
+module_LTLIBRARIES += ospf6d_snmp.la
+endif
+ospf6d_snmp_la_SOURCES = ospf6_snmp.c
+ospf6d_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ospf6d_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 
 examplesdir = $(exampledir)
 dist_examples_DATA = ospf6d.conf.sample

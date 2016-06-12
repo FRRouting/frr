@@ -25,7 +25,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
@@ -36,6 +35,9 @@
 #include "smux.h"
 #include "table.h"
 #include "vrf.h"
+#include "hook.h"
+#include "libfrr.h"
+#include "version.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -571,10 +573,24 @@ ipCidrTable (struct variable *v, oid objid[], size_t *objid_len,
   return NULL;
 }
 
-void
-zebra_snmp_init ()
+static int
+zebra_snmp_init (struct thread_master *tm)
 {
-  smux_init (zebrad.master);
+  smux_init (tm);
   REGISTER_MIB("mibII/ipforward", zebra_variables, variable, ipfw_oid);
+  return 0;
 }
-#endif /* HAVE_SNMP */
+
+static int
+zebra_snmp_module_init (void)
+{
+  hook_register(frr_late_init, zebra_snmp_init);
+  return 0;
+}
+
+FRR_MODULE_SETUP(
+	.name = "zebra_snmp",
+	.version = FRR_VERSION,
+	.description = "zebra AgentX SNMP module",
+	.init = zebra_snmp_module_init,
+)

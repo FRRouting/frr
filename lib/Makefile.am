@@ -10,7 +10,7 @@ command_lex.h: command_lex.c
 	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) command_lex.c; else :; fi
 command_parse.lo: command_lex.h
 
-lib_LTLIBRARIES = libfrr.la libfrrsnmp.la
+lib_LTLIBRARIES = libfrr.la
 libfrr_la_LDFLAGS = -version-info 0:0:0 
 
 libfrr_la_SOURCES = \
@@ -39,6 +39,10 @@ libfrr_la_SOURCES = \
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
 
 libfrr_la_LIBADD = @LIBCAP@
+
+if SNMP
+lib_LTLIBRARIES +=  libfrrsnmp.la
+endif
 
 libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
 libfrrsnmp_la_LDFLAGS = -version-info 0:0:0

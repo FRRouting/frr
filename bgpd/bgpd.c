@@ -7694,10 +7694,6 @@ bgp_init (void)
   /* Community list initialize. */
   bgp_clist = community_list_init ();
 
-#ifdef HAVE_SNMP
-  bgp_snmp_init ();
-#endif /* HAVE_SNMP */
-
   /* BFD init */
   bgp_bfd_init();
 }

@@ -20,7 +20,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
-#ifdef HAVE_SNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
@@ -31,6 +30,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include "smux.h"
 #include "filter.h"
+#include "hook.h"
+#include "libfrr.h"
+#include "version.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -881,15 +883,26 @@ bgpTrapBackwardTransition (struct peer *peer)
   return 0;
 }
 
-void bgp_snmp_init (void);
+static int
+bgp_snmp_init (struct thread_master *tm)
+{
+  smux_init (tm);
+  REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
+  return 0;
+}
 
-void
-bgp_snmp_init (void)
+static int
+bgp_snmp_module_init (void)
 {
   hook_register(peer_established, bgpTrapEstablished);
   hook_register(peer_backward_transition, bgpTrapBackwardTransition);
-
-  smux_init (bm->master);
-  REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
+  hook_register(frr_late_init, bgp_snmp_init);
+  return 0;
 }
-#endif /* HAVE_SNMP */
+
+FRR_MODULE_SETUP(
+	.name = "bgpd_snmp",
+	.version = FRR_VERSION,
+	.description = "bgpd AgentX SNMP module",
+	.init = bgp_snmp_module_init
+)

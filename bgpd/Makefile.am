@@ -67,6 +67,7 @@ INSTALL_SDATA=@INSTALL@ -m 600
 AM_CFLAGS = $(WERROR)
 
 noinst_LIBRARIES = libbgp.a
+module_LTLIBRARIES =
 sbin_PROGRAMS = bgpd
 bin_PROGRAMS = bgp_btoa
 
@@ -75,7 +76,7 @@ libbgp_a_SOURCES = \
 	bgpd.c bgp_fsm.c bgp_aspath.c bgp_community.c bgp_attr.c \
 	bgp_debug.c bgp_route.c bgp_zebra.c bgp_open.c bgp_routemap.c \
 	bgp_packet.c bgp_network.c bgp_filter.c bgp_regex.c bgp_clist.c \
-	bgp_dump.c bgp_snmp.c bgp_ecommunity.c bgp_lcommunity.c \
+	bgp_dump.c bgp_ecommunity.c bgp_lcommunity.c \
 	bgp_mplsvpn.c bgp_nexthop.c \
 	bgp_damp.c bgp_table.c bgp_advertise.c bgp_vty.c bgp_mpath.c \
 	bgp_nht.c bgp_updgrp.c bgp_updgrp_packet.c bgp_updgrp_adv.c bgp_bfd.c \
@@ -94,12 +95,20 @@ noinst_HEADERS = \
 	$(BGP_VNC_RFAPI_HD) bgp_attr_evpn.h bgp_evpn.h bgp_evpn_vty.h bgp_vpn.h
 
 bgpd_SOURCES = bgp_main.c
-bgpd_LDADD = libbgp.a  $(BGP_VNC_RFP_LIB) ../lib/libfrr.la ../lib/libfrrsnmp.la @LIBCAP@ @LIBM@
+bgpd_LDADD = libbgp.a  $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ @LIBM@
 bgpd_LDFLAGS = $(BGP_VNC_RFP_LD_FLAGS)
 
 bgp_btoa_SOURCES = bgp_btoa.c
-bgp_btoa_LDADD = libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libfrr.la ../lib/libfrrsnmp.la @LIBCAP@ @LIBM@
+bgp_btoa_LDADD = libbgp.a $(BGP_VNC_RFP_LIB) ../lib/libfrr.la @LIBCAP@ @LIBM@
 bgp_btoa_LDFLAGS = $(BGP_VNC_RFP_LD_FLAGS)
+
+if SNMP
+module_LTLIBRARIES += bgpd_snmp.la
+endif
+
+bgpd_snmp_la_SOURCES = bgp_snmp.c
+bgpd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+bgpd_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 
 examplesdir = $(exampledir)
 dist_examples_DATA = bgpd.conf.sample bgpd.conf.sample2 \

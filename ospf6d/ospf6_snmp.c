@@ -21,8 +21,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SNMP
-
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
@@ -32,6 +30,8 @@
 #include "vector.h"
 #include "vrf.h"
 #include "smux.h"
+#include "libfrr.h"
+#include "version.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -45,8 +45,6 @@
 #include "ospf6_abr.h"
 #include "ospf6_asbr.h"
 #include "ospf6d.h"
-
-void ospf6_snmp_init (struct thread_master *master);
 
 /* OSPFv3-MIB */
 #define OSPFv3MIB 1,3,6,1,2,1,191
@@ -1194,15 +1192,26 @@ ospf6TrapIfStateChange (struct ospf6_interface *oi,
 }
 
 /* Register OSPFv3-MIB. */
-void
+static int
 ospf6_snmp_init (struct thread_master *master)
+{
+  smux_init (master);
+  REGISTER_MIB ("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);
+  return 0;
+}
+
+static int
+ospf6_snmp_module_init (void)
 {
   hook_register(ospf6_interface_change, ospf6TrapIfStateChange);
   hook_register(ospf6_neighbor_change, ospf6TrapNbrStateChange);
-
-  smux_init (master);
-  REGISTER_MIB ("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);
+  hook_register(frr_late_init, ospf6_snmp_init);
+  return 0;
 }
 
-#endif /* HAVE_SNMP */
-
+FRR_MODULE_SETUP(
+	.name = "ospf6d_snmp",
+	.version = FRR_VERSION,
+	.description = "ospf6d AgentX SNMP module",
+	.init = ospf6_snmp_module_init,
+)

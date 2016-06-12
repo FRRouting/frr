@@ -34,13 +34,13 @@ endif
 AM_CFLAGS = $(WERROR)
 
 sbin_PROGRAMS = zebra
-
 noinst_PROGRAMS = testzebra
+module_LTLIBRARIES =
 
 zebra_SOURCES = \
 	zebra_memory.c \
 	zserv.c main.c interface.c connected.c zebra_rib.c zebra_routemap.c \
-	redistribute.c debug.c rtadv.c zebra_snmp.c zebra_vty.c \
+	redistribute.c debug.c rtadv.c zebra_vty.c \
 	irdp_main.c irdp_interface.c irdp_packet.c router-id.c zebra_fpm.c \
 	$(othersrc) zebra_ptm.c zebra_rnh.c zebra_ptm_redistribute.c \
 	zebra_ns.c zebra_vrf.c zebra_static.c zebra_mpls.c zebra_mpls_vty.c \
@@ -62,11 +62,18 @@ noinst_HEADERS = \
 	zebra_ns.h zebra_vrf.h ioctl_solaris.h zebra_static.h zebra_mpls.h \
 	kernel_netlink.h if_netlink.h zebra_mroute.h label_manager.h
 
-zebra_LDADD = $(otherobj) ../lib/libfrr.la ../lib/libfrrsnmp.la $(LIBCAP) $(Q_FPM_PB_CLIENT_LDOPTS)
+zebra_LDADD = $(otherobj) ../lib/libfrr.la $(LIBCAP) $(Q_FPM_PB_CLIENT_LDOPTS)
 
 testzebra_LDADD = ../lib/libfrr.la $(LIBCAP)
 
 zebra_DEPENDENCIES = $(otherobj)
+
+if SNMP
+module_LTLIBRARIES += zebra_snmp.la
+endif
+zebra_snmp_la_SOURCES = zebra_snmp.c
+zebra_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 
 EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c \
         if_sysctl.c ipforward_proc.c \

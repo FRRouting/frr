@@ -6,13 +6,14 @@ DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 
 noinst_LIBRARIES = libfrrospf.a
+module_LTLIBRARIES =
 sbin_PROGRAMS = ospfd
 
 libfrrospf_a_SOURCES = \
 	ospfd.c ospf_zebra.c ospf_interface.c ospf_ism.c ospf_neighbor.c \
 	ospf_nsm.c ospf_dump.c ospf_network.c ospf_packet.c ospf_lsa.c \
 	ospf_spf.c ospf_route.c ospf_ase.c ospf_abr.c ospf_ia.c ospf_flood.c \
-	ospf_lsdb.c ospf_asbr.c ospf_routemap.c ospf_snmp.c \
+	ospf_lsdb.c ospf_asbr.c ospf_routemap.c \
 	ospf_opaque.c ospf_te.c ospf_ri.c ospf_vty.c ospf_api.c ospf_apiserver.c \
 	ospf_bfd.c ospf_memory.c ospf_dump_api.c
 
@@ -31,7 +32,14 @@ noinst_HEADERS = \
 
 ospfd_SOURCES = ospf_main.c
 
-ospfd_LDADD = libfrrospf.a ../lib/libfrr.la ../lib/libfrrsnmp.la @LIBCAP@ @LIBM@
+ospfd_LDADD = libfrrospf.a ../lib/libfrr.la @LIBCAP@ @LIBM@
+
+if SNMP
+module_LTLIBRARIES += ospfd_snmp.la
+endif
+ospfd_snmp_la_SOURCES = ospf_snmp.c
+ospfd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ospfd_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 
 EXTRA_DIST = OSPF-MIB.txt OSPF-TRAP-MIB.txt ChangeLog.opaque.txt
 

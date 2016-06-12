@@ -329,10 +329,6 @@ main (int argc, char **argv)
   /* Initialize NS( and implicitly the VRF module), and make kernel routing socket. */
   zebra_ns_init ();
 
-#ifdef HAVE_SNMP
-  zebra_snmp_init ();
-#endif /* HAVE_SNMP */
-
 #ifdef HAVE_FPM
   zfpm_init (zebrad.master, 1, 0, fpm_format);
 #else

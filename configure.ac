@@ -1337,7 +1337,6 @@ int main(void);
 ])],[AC_MSG_RESULT(yes)],[
      AC_MSG_RESULT(no)
      AC_MSG_ERROR([--enable-snmp given but not usable])])
-   AC_DEFINE(HAVE_SNMP,,SNMP)
    case "${enable_snmp}" in
      yes)
       SNMP_METHOD=agentx

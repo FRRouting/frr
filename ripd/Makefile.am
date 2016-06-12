@@ -7,11 +7,12 @@ INSTALL_SDATA=@INSTALL@ -m 600
 AM_CFLAGS = $(WERROR)
 
 noinst_LIBRARIES = librip.a
+module_LTLIBRARIES =
 sbin_PROGRAMS = ripd
 
 librip_a_SOURCES = \
 	rip_memory.c \
-	ripd.c rip_zebra.c rip_interface.c rip_debug.c rip_snmp.c \
+	ripd.c rip_zebra.c rip_interface.c rip_debug.c \
 	rip_routemap.c rip_peer.c rip_offset.c
 
 noinst_HEADERS = \
@@ -21,7 +22,14 @@ noinst_HEADERS = \
 ripd_SOURCES = \
 	rip_main.c $(librip_a_SOURCES)
 
-ripd_LDADD = ../lib/libfrr.la ../lib/libfrrsnmp.la @LIBCAP@
+ripd_LDADD = ../lib/libfrr.la @LIBCAP@
+
+if SNMP
+module_LTLIBRARIES += ripd_snmp.la
+endif
+ripd_snmp_la_SOURCES = rip_snmp.c
+ripd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ripd_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 
 examplesdir = $(exampledir)
 dist_examples_DATA = ripd.conf.sample

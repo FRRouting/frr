@@ -24,7 +24,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
@@ -35,6 +34,8 @@
 #include "command.h"
 #include "memory.h"
 #include "smux.h"
+#include "libfrr.h"
+#include "version.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -2781,8 +2782,18 @@ ospf_snmp_ism_change (struct ospf_interface *oi,
 }
 
 /* Register OSPF2-MIB. */
-void
-ospf_snmp_init ()
+static int
+ospf_snmp_init (struct thread_master *tm)
+{
+  ospf_snmp_iflist = list_new ();
+  ospf_snmp_vl_table = route_table_init ();
+  smux_init (tm);
+  REGISTER_MIB("mibII/ospf", ospf_variables, variable, ospf_oid);
+  return 0;
+}
+
+static int
+ospf_snmp_module_init (void)
 {
   hook_register(ospf_if_update, ospf_snmp_if_update);
   hook_register(ospf_if_delete, ospf_snmp_if_delete);
@@ -2791,9 +2802,13 @@ ospf_snmp_init ()
   hook_register(ospf_ism_change, ospf_snmp_ism_change);
   hook_register(ospf_nsm_change, ospf_snmp_nsm_change);
 
-  ospf_snmp_iflist = list_new ();
-  ospf_snmp_vl_table = route_table_init ();
-  smux_init (om->master);
-  REGISTER_MIB("mibII/ospf", ospf_variables, variable, ospf_oid);
+  hook_register(frr_late_init, ospf_snmp_init);
+  return 0;
 }
-#endif /* HAVE_SNMP */
+
+FRR_MODULE_SETUP(
+	.name = "ospfd_snmp",
+	.version = FRR_VERSION,
+	.description = "ospfd AgentX SNMP module",
+	.init = ospf_snmp_module_init,
+)

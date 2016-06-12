@@ -21,7 +21,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
@@ -32,6 +31,8 @@
 #include "command.h"
 #include "table.h"
 #include "smux.h"
+#include "libfrr.h"
+#include "version.h"
 
 #include "ripd/ripd.h"
 
@@ -587,14 +588,29 @@ rip2PeerTable (struct variable *v, oid name[], size_t *length,
 }
 
 /* Register RIPv2-MIB. */
-void
-rip_snmp_init ()
+static int
+rip_snmp_init (struct thread_master *master)
 {
   rip_ifaddr_table = route_table_init ();
-  hook_register(rip_ifaddr_add, rip_snmp_ifaddr_add);
-  hook_register(rip_ifaddr_del, rip_snmp_ifaddr_del);
 
   smux_init (master);
   REGISTER_MIB("mibII/rip", rip_variables, variable, rip_oid);
+  return 0;
 }
-#endif /* HAVE_SNMP */
+
+static int
+rip_snmp_module_init (void)
+{
+  hook_register(rip_ifaddr_add, rip_snmp_ifaddr_add);
+  hook_register(rip_ifaddr_del, rip_snmp_ifaddr_del);
+
+  hook_register(frr_late_init, rip_snmp_init);
+  return 0;
+}
+
+FRR_MODULE_SETUP(
+	.name = "ripd_snmp",
+	.version = FRR_VERSION,
+	.description = "ripd AgentX SNMP module",
+	.init = rip_snmp_module_init,
+)
