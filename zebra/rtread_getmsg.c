@@ -31,6 +31,10 @@
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
 
+/* Thank you, Solaris, for polluting application symbol namespace. */
+#undef hook_register
+#undef hook_unregister
+
 #include <sys/stream.h>
 #include <sys/tihdr.h>
 

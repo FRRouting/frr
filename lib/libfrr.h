@@ -27,6 +27,7 @@
 #include "log.h"
 #include "getopt.h"
 #include "module.h"
+#include "hook.h"
 
 #define FRR_NO_PRIVSEP		(1 << 0)
 #define FRR_NO_TCPVTY		(1 << 1)
@@ -95,6 +96,7 @@ extern void frr_help_exit(int status);
 
 extern struct thread_master *frr_init(void);
 
+DECLARE_HOOK(frr_late_init, (struct thread_master *tm), (tm))
 extern void frr_config_fork(void);
 
 extern void frr_vty_serv(void);

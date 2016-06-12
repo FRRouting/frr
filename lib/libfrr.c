@@ -30,6 +30,8 @@
 #include "log_int.h"
 #include "module.h"
 
+DEFINE_HOOK(frr_late_init, (struct thread_master *tm), (tm))
+
 const char frr_sysconfdir[] = SYSCONFDIR;
 const char frr_vtydir[] = DAEMON_VTY_DIR;
 
@@ -311,9 +313,9 @@ int frr_getopt(int argc, char * const argv[], int *longindex)
 	return opt;
 }
 
+static struct thread_master *master;
 struct thread_master *frr_init(void)
 {
-	struct thread_master *master;
 	struct option_chain *oc;
 	struct frrmod_runtime *module;
 	char moderr[256];
@@ -354,6 +356,8 @@ struct thread_master *frr_init(void)
 
 void frr_config_fork(void)
 {
+	hook_call(frr_late_init, master);
+
 	if (di->instance) {
 		snprintf(config_default, sizeof(config_default), "%s/%s-%d.conf",
 				frr_sysconfdir, di->name, di->instance);

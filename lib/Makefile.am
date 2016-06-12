@@ -33,6 +33,7 @@ libfrr_la_SOURCES = \
 	strlcpy.c \
 	strlcat.c \
 	module.c \
+	hook.c \
 	# end
 
 BUILT_SOURCES = route_types.h gitversion.h command_parse.h command_lex.h
@@ -57,6 +58,7 @@ pkginclude_HEADERS = \
 	spf_backoff.h \
 	srcdest_table.h \
 	module.h \
+	hook.h \
 	libfrr.h \
 	# end
 
