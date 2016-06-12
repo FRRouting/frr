@@ -45,7 +45,8 @@
 #include "ospf6_abr.h"
 #include "ospf6_asbr.h"
 #include "ospf6d.h"
-#include "ospf6_snmp.h"
+
+void ospf6_snmp_init (struct thread_master *master);
 
 /* OSPFv3-MIB */
 #define OSPFv3MIB 1,3,6,1,2,1,191
@@ -1139,10 +1140,17 @@ static struct trap_object ospf6IfTrapList[] =
   {4, {1, 7, 1, OSPFv3IFAREAID}}
 };
 
-void
-ospf6TrapNbrStateChange (struct ospf6_neighbor *on)
+static int
+ospf6TrapNbrStateChange (struct ospf6_neighbor *on,
+                         int next_state, int prev_state)
 {
   oid index[3];
+
+  /* Terminal state or regression */ 
+  if ((next_state != OSPF6_NEIGHBOR_FULL)  &&
+      (next_state != OSPF6_NEIGHBOR_TWOWAY) &&
+      (next_state >= prev_state))
+    return 0;
 
   index[0] = on->ospf6_if->interface->ifindex;
   index[1] = on->ospf6_if->instance_id;
@@ -1155,12 +1163,22 @@ ospf6TrapNbrStateChange (struct ospf6_neighbor *on)
              ospf6NbrTrapList, 
              sizeof ospf6NbrTrapList / sizeof (struct trap_object),
              NBRSTATECHANGE);
+  return 0;
 }
 
-void
-ospf6TrapIfStateChange (struct ospf6_interface *oi)
+static int
+ospf6TrapIfStateChange (struct ospf6_interface *oi,
+                        int next_state, int prev_state)
 {
   oid index[2];
+
+  /* Terminal state or regression */ 
+  if ((next_state != OSPF6_INTERFACE_POINTTOPOINT) &&
+      (next_state != OSPF6_INTERFACE_DROTHER) &&
+      (next_state != OSPF6_INTERFACE_BDR) &&
+      (next_state != OSPF6_INTERFACE_DR) &&
+      (next_state >= prev_state))
+    return 0;
 
   index[0] = oi->interface->ifindex;
   index[1] = oi->instance_id;
@@ -1172,12 +1190,16 @@ ospf6TrapIfStateChange (struct ospf6_interface *oi)
              ospf6IfTrapList, 
              sizeof ospf6IfTrapList / sizeof (struct trap_object),
              IFSTATECHANGE);
+  return 0;
 }
 
 /* Register OSPFv3-MIB. */
 void
 ospf6_snmp_init (struct thread_master *master)
 {
+  hook_register(ospf6_interface_change, ospf6TrapIfStateChange);
+  hook_register(ospf6_neighbor_change, ospf6TrapNbrStateChange);
+
   smux_init (master);
   REGISTER_MIB ("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);
 }

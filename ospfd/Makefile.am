@@ -26,7 +26,7 @@ ospfdheader_HEADERS = \
 noinst_HEADERS = \
 	ospf_interface.h ospf_neighbor.h ospf_network.h ospf_packet.h \
 	ospf_zebra.h ospf_spf.h ospf_route.h ospf_ase.h ospf_abr.h ospf_ia.h \
-	ospf_flood.h ospf_snmp.h ospf_te.h ospf_ri.h ospf_vty.h ospf_apiserver.h \
+	ospf_flood.h ospf_te.h ospf_ri.h ospf_vty.h ospf_apiserver.h \
 	ospf_bfd.h ospf_memory.h
 
 ospfd_SOURCES = ospf_main.c

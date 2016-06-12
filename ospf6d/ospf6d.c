@@ -46,7 +46,7 @@
 #include "ospf6_bfd.h"
 
 #ifdef HAVE_SNMP
-#include "ospf6_snmp.h"
+extern void ospf6_snmp_init (struct thread_master *);
 #endif /*HAVE_SNMP*/
 
 char ospf6_daemon_version[] = OSPF6_DAEMON_VERSION;

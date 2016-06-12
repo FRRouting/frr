@@ -47,7 +47,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_dump.h"
-#include "ospfd/ospf_snmp.h"
+#include "ospfd/ospf_zebra.h"
 
 /* OSPF2-MIB. */
 #define OSPF2MIB 1,3,6,1,2,1,14
@@ -204,6 +204,10 @@
 #define TIMETICKS   ASN_TIMETICKS
 #define IPADDRESS   ASN_IPADDRESS
 #define STRING      ASN_OCTET_STR
+
+/* Because DR/DROther values are exhanged wrt RFC */
+#define ISM_SNMP(x) (((x) == ISM_DROther) ? ISM_DR : \
+                     ((x) == ISM_DR) ? ISM_DROther : (x))
 
 /* Declare static local variables for convenience. */
 SNMP_LOCAL_VARIABLES
@@ -1429,7 +1433,7 @@ ospf_snmp_if_free (struct ospf_snmp_if *osif)
   XFREE (MTYPE_TMP, osif);
 }
 
-void
+static int
 ospf_snmp_if_delete (struct interface *ifp)
 {
   struct listnode *node, *nnode;
@@ -1441,12 +1445,13 @@ ospf_snmp_if_delete (struct interface *ifp)
 	{
 	  list_delete_node (ospf_snmp_iflist, node);
 	  ospf_snmp_if_free (osif);
-	  return;
+	  break;
 	}
     }
+  return 0;
 }
 
-void
+static int
 ospf_snmp_if_update (struct interface *ifp)
 {
   struct listnode *node;
@@ -1511,6 +1516,7 @@ ospf_snmp_if_update (struct interface *ifp)
   osif->ifp = ifp;
 
   listnode_add_after (ospf_snmp_iflist, pn, osif);
+  return 0;
 }
 
 static int
@@ -1914,7 +1920,7 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
 
 static struct route_table *ospf_snmp_vl_table;
 
-void
+static int
 ospf_snmp_vl_add (struct ospf_vl_data *vl_data)
 {
   struct prefix_ls lp;
@@ -1931,9 +1937,10 @@ ospf_snmp_vl_add (struct ospf_vl_data *vl_data)
     route_unlock_node (rn);
 
   rn->info = vl_data;
+  return 0;
 }
 
-void
+static int
 ospf_snmp_vl_delete (struct ospf_vl_data *vl_data)
 {
   struct prefix_ls lp;
@@ -1947,10 +1954,11 @@ ospf_snmp_vl_delete (struct ospf_vl_data *vl_data)
 
   rn = route_node_lookup (ospf_snmp_vl_table, (struct prefix *) &lp);
   if (! rn)
-    return;
+    return 0;
   rn->info = NULL;
   route_unlock_node (rn);
   route_unlock_node (rn);
+  return 0;
 }
 
 static struct ospf_vl_data *
@@ -2651,7 +2659,7 @@ static struct trap_object ospfVirtIfTrapList[] =
   {3, {9, 1, OSPFVIRTIFSTATE}}
 };
 
-void
+static void
 ospfTrapNbrStateChange (struct ospf_neighbor *on)
 {
   oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
@@ -2673,7 +2681,7 @@ ospfTrapNbrStateChange (struct ospf_neighbor *on)
              NBRSTATECHANGE);
 }
 
-void
+static void
 ospfTrapVirtNbrStateChange (struct ospf_neighbor *on)
 {
   oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
@@ -2692,7 +2700,29 @@ ospfTrapVirtNbrStateChange (struct ospf_neighbor *on)
              VIRTNBRSTATECHANGE);
 }
 
-void
+static int
+ospf_snmp_nsm_change (struct ospf_neighbor *nbr,
+                      int next_state, int old_state)
+{
+  /* Terminal state or regression */
+  if ((next_state == NSM_Full)
+          || (next_state == NSM_TwoWay)
+          || (next_state < old_state))
+  {
+      /* ospfVirtNbrStateChange */
+      if (nbr->oi->type == OSPF_IFTYPE_VIRTUALLINK)
+        ospfTrapVirtNbrStateChange(nbr);
+      /* ospfNbrStateChange trap  */
+      else
+        /* To/From FULL, only managed by DR */
+        if (((next_state != NSM_Full) && (nbr->state != NSM_Full))
+            || (nbr->oi->state == ISM_DR))
+          ospfTrapNbrStateChange(nbr);
+  }
+  return 0;
+}
+
+static void
 ospfTrapIfStateChange (struct ospf_interface *oi)
 {
   oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
@@ -2713,7 +2743,7 @@ ospfTrapIfStateChange (struct ospf_interface *oi)
              IFSTATECHANGE);
 }
 
-void
+static void
 ospfTrapVirtIfStateChange (struct ospf_interface *oi)
 {
   oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
@@ -2731,10 +2761,36 @@ ospfTrapVirtIfStateChange (struct ospf_interface *oi)
              sizeof ospfVirtIfTrapList / sizeof (struct trap_object),
              VIRTIFSTATECHANGE);
 }
+
+static int
+ospf_snmp_ism_change (struct ospf_interface *oi,
+                      int state, int old_state)
+{
+  /* Terminal state or regression */
+  if ((state == ISM_DR) || (state == ISM_Backup) || (state == ISM_DROther) ||
+      (state == ISM_PointToPoint) || (state < old_state))
+    {
+      /* ospfVirtIfStateChange */
+      if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+        ospfTrapVirtIfStateChange (oi);
+      /* ospfIfStateChange */
+      else
+        ospfTrapIfStateChange (oi);
+    }
+  return 0;
+}
+
 /* Register OSPF2-MIB. */
 void
 ospf_snmp_init ()
 {
+  hook_register(ospf_if_update, ospf_snmp_if_update);
+  hook_register(ospf_if_delete, ospf_snmp_if_delete);
+  hook_register(ospf_vl_add,    ospf_snmp_vl_add);
+  hook_register(ospf_vl_delete, ospf_snmp_vl_delete);
+  hook_register(ospf_ism_change, ospf_snmp_ism_change);
+  hook_register(ospf_nsm_change, ospf_snmp_nsm_change);
+
   ospf_snmp_iflist = list_new ();
   ospf_snmp_vl_table = route_table_init ();
   smux_init (om->master);

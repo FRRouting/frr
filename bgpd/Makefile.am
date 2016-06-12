@@ -89,7 +89,7 @@ noinst_HEADERS = \
 	bgpd.h bgp_filter.h bgp_clist.h bgp_dump.h bgp_zebra.h \
 	bgp_ecommunity.h bgp_lcommunity.h \
 	bgp_mplsvpn.h bgp_nexthop.h bgp_damp.h bgp_table.h \
-	bgp_advertise.h bgp_snmp.h bgp_vty.h bgp_mpath.h bgp_nht.h \
+	bgp_advertise.h bgp_vty.h bgp_mpath.h bgp_nht.h \
 	bgp_updgrp.h bgp_bfd.h bgp_encap.h bgp_encap_tlv.h bgp_encap_types.h \
 	$(BGP_VNC_RFAPI_HD) bgp_attr_evpn.h bgp_evpn.h bgp_evpn_vty.h bgp_vpn.h
 

@@ -72,9 +72,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nht.h"
-#ifdef HAVE_SNMP
-#include "bgpd/bgp_snmp.h"
-#endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
@@ -7646,6 +7643,8 @@ bgp_if_finish (struct bgp *bgp)
         bgp_connected_delete (bgp, c);
     }
 }
+
+extern void bgp_snmp_init (void);
 
 void
 bgp_init (void)

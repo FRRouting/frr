@@ -43,7 +43,10 @@
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_abr.h"
-#include "ospfd/ospf_snmp.h"
+
+DEFINE_HOOK(ospf_ism_change,
+		(struct ospf_interface *oi, int state, int oldstate),
+		(oi, state, oldstate))
 
 /* elect DR and BDR. Refer to RFC2319 section 9.4 */
 static struct ospf_neighbor *
@@ -545,19 +548,7 @@ ism_change_state (struct ospf_interface *oi, int state)
   oi->state = state;
   oi->state_change++;
 
-#ifdef HAVE_SNMP
-  /* Terminal state or regression */ 
-  if ((state == ISM_DR) || (state == ISM_Backup) || (state == ISM_DROther) ||
-      (state == ISM_PointToPoint) || (state < old_state))
-    {
-      /* ospfVirtIfStateChange */
-      if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-        ospfTrapVirtIfStateChange (oi);
-      /* ospfIfStateChange */
-      else
-        ospfTrapIfStateChange (oi);
-    }
-#endif
+  hook_call(ospf_ism_change, oi, state, old_state);
 
   /* Set multicast memberships appropriately for new state. */
   ospf_if_set_multicast(oi);

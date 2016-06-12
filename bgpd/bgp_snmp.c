@@ -38,7 +38,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_fsm.h"
-#include "bgpd/bgp_snmp.h"
 
 /* BGP4-MIB described in RFC1657. */
 #define BGP4MIB 1,3,6,1,2,1,15
@@ -838,7 +837,7 @@ static struct trap_object bgpTrapList[] =
   {3, {3, 1, BGPPEERSTATE}}
 };
 
-void
+static int
 bgpTrapEstablished (struct peer *peer)
 {
   int ret;
@@ -847,7 +846,7 @@ bgpTrapEstablished (struct peer *peer)
 
   ret = inet_aton (peer->host, &addr);
   if (ret == 0)
-    return;
+    return 0;
 
   oid_copy_addr (index, &addr, IN_ADDR_SIZE);
 
@@ -857,9 +856,10 @@ bgpTrapEstablished (struct peer *peer)
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
 	     BGPESTABLISHED);
+  return 0;
 }
 
-void
+static int
 bgpTrapBackwardTransition (struct peer *peer)
 {
   int ret;
@@ -868,7 +868,7 @@ bgpTrapBackwardTransition (struct peer *peer)
 
   ret = inet_aton (peer->host, &addr);
   if (ret == 0)
-    return;
+    return 0;
 
   oid_copy_addr (index, &addr, IN_ADDR_SIZE);
 
@@ -878,11 +878,17 @@ bgpTrapBackwardTransition (struct peer *peer)
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
 	     BGPBACKWARDTRANSITION);
+  return 0;
 }
+
+void bgp_snmp_init (void);
 
 void
 bgp_snmp_init (void)
 {
+  hook_register(peer_established, bgpTrapEstablished);
+  hook_register(peer_backward_transition, bgpTrapBackwardTransition);
+
   smux_init (bm->master);
   REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
 }

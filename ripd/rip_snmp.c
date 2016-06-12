@@ -175,24 +175,27 @@ rip2Globals (struct variable *v, oid name[], size_t *length,
   return NULL;
 }
 
-void
-rip_ifaddr_add (struct interface *ifp, struct connected *ifc)
+static int
+rip_snmp_ifaddr_add (struct connected *ifc)
 {
+  struct interface *ifp = ifc->ifp;
   struct prefix *p;
   struct route_node *rn;
 
   p = ifc->address;
 
   if (p->family != AF_INET)
-    return;
+    return 0;
 
   rn = route_node_get (rip_ifaddr_table, p);
   rn->info = ifp;
+  return 0;
 }
 
-void
-rip_ifaddr_delete (struct interface *ifp, struct connected *ifc)
+static int
+rip_snmp_ifaddr_del (struct connected *ifc)
 {
+  struct interface *ifp = ifc->ifp;
   struct prefix *p;
   struct route_node *rn;
   struct interface *i;
@@ -200,11 +203,11 @@ rip_ifaddr_delete (struct interface *ifp, struct connected *ifc)
   p = ifc->address;
 
   if (p->family != AF_INET)
-    return;
+    return 0;
 
   rn = route_node_lookup (rip_ifaddr_table, p);
   if (! rn)
-    return;
+    return 0;
   i = rn->info;
   if (rn && !strncmp(i->name,ifp->name,INTERFACE_NAMSIZ))
     {
@@ -212,6 +215,7 @@ rip_ifaddr_delete (struct interface *ifp, struct connected *ifc)
       route_unlock_node (rn);
       route_unlock_node (rn);
     }
+  return 0;
 }
 
 static struct interface *
@@ -587,6 +591,8 @@ void
 rip_snmp_init ()
 {
   rip_ifaddr_table = route_table_init ();
+  hook_register(rip_ifaddr_add, rip_snmp_ifaddr_add);
+  hook_register(rip_ifaddr_del, rip_snmp_ifaddr_del);
 
   smux_init (master);
   REGISTER_MIB("mibII/rip", rip_variables, variable, rip_oid);
