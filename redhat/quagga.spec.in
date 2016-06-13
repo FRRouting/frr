@@ -66,9 +66,7 @@
 %{!?quagga_gid:		%define         quagga_gid      92 }
 %{!?vty_gid:		%define		vty_gid		85 }
 
-%define		daemon_list	zebra ripd ospfd bgpd isisd pimd
-
-%define		daemonv6_list	ripngd ospf6d
+%define		daemon_list	zebra ripd ospfd bgpd isisd pimd ripngd ospfd6d
 
 
 %if %{with_watchquagga}
@@ -77,7 +75,7 @@
 %define		daemon_watchquagga	""
 %endif
 
-%define		all_daemons	%{daemon_list} %{daemonv6_list}  %{daemon_watchquagga}
+%define		all_daemons	%{daemon_list} %{daemon_watchquagga}
 
 # allow build dir to be kept
 %{!?keep_build:		%global		keep_build	0 }
