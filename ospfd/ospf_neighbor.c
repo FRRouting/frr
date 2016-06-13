@@ -185,6 +185,35 @@ ospf_nbr_delete (struct ospf_neighbor *nbr)
 
       route_unlock_node (rn);
     }
+  else
+    {
+      /*
+       * This neighbor was not found, but before we move on and
+       * free the neighbor structre, make sure that it was not
+       * indexed incorrectly and ended up in the "worng" place
+       */
+
+      /* Reverse the lookup rules */
+      if (oi->type == OSPF_IFTYPE_VIRTUALLINK ||
+	  oi->type == OSPF_IFTYPE_POINTOPOINT)
+	p.u.prefix4 = nbr->src;
+      else
+	p.u.prefix4 = nbr->router_id;
+
+      rn = route_node_lookup (oi->nbrs, &p);
+      if (rn){
+	/* We found the neighbor!
+	 * Now make sure it is not the exact same neighbor
+	 * structure that we are about to free
+	 */
+	if (nbr == rn->info){
+	  /* Same neighbor, drop the reference to it */
+	  rn->info = NULL;
+	  route_unlock_node (rn);
+	}
+	route_unlock_node (rn);
+      }
+    }
 
   /* Free ospf_neighbor structure. */
   ospf_nbr_free (nbr);
@@ -211,7 +240,9 @@ ospf_nbr_bidirectional (struct in_addr *router_id,
 void
 ospf_nbr_self_reset (struct ospf_interface *oi)
 {
-  ospf_nbr_delete (oi->nbr_self);
+  if (oi->nbr_self)
+    ospf_nbr_delete (oi->nbr_self);
+
   oi->nbr_self = ospf_nbr_new (oi);
   ospf_nbr_add_self (oi);
 }
@@ -222,6 +253,9 @@ ospf_nbr_add_self (struct ospf_interface *oi)
 {
   struct prefix p;
   struct route_node *rn;
+
+  if (!oi->nbr_self)
+    oi->nbr_self = ospf_nbr_new (oi);
 
   /* Initial state */
   oi->nbr_self->address = *oi->address;

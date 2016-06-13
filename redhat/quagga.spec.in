@@ -10,21 +10,16 @@
 
 ####################### Quagga configure options #########################
 # with-feature options
-%{!?with_snmp:			%global with_snmp		1 }
-%{!?with_vtysh:			%global	with_vtysh		1 }
 %{!?with_tcp_zebra:		%global	with_tcp_zebra		0 }
-%{!?with_vtysh:			%global	with_vtysh		1 }
 %{!?with_pam:			%global	with_pam		1 }
 %{!?with_ospfclient:		%global	with_ospfclient 	1 }
 %{!?with_ospfapi:		%global	with_ospfapi		1 }
 %{!?with_irdp:			%global	with_irdp		1 }
 %{!?with_rtadv:			%global	with_rtadv		1 }
-%{!?with_isisd:			%global	with_isisd		1 }
-%{!?with_pimd:			%global	with_pimd		1 }
 %{!?with_shared:		%global	with_shared		1 }
 %{!?with_multipath:		%global	with_multipath		64 }
 %{!?quagga_user:		%global	quagga_user		quagga }
-%{!?vty_group:			%global	vty_group		quaggavt }
+%{!?vty_group:			%global	vty_group		quaggavty }
 %{!?with_fpm:			%global	with_fpm 		0 }
 %{!?with_watchquagga:		%global	with_watchquagga 	1 }
 
@@ -40,12 +35,12 @@
 
 #### Version String tweak
 # Remove invalid characters form version string and replace with _
-%{expand: %%define rpmversion %(echo '@VERSION@' | tr [:blank:]- _ )}
+%{expand: %%global rpmversion %(echo '@VERSION@' | tr [:blank:]- _ )}
 %define         quaggaversion   @VERSION@
 
 #### Check version of texi2html 
 # Old versions don't support "--number-footnotes" option.
-%{expand: %%global texi2htmlversion %(rpm -q --qf '%%{VERSION}' texi2html | cut -d. -f1 )}
+%{expand: %%global texi2htmlversion %(/usr/bin/texi2html --version | cut -d. -f1)}
 
 #### Check for systemd or init.d (upstart)
 # Check for init.d (upstart) as used in CentOS 6 or systemd (ie CentOS 7)
@@ -71,21 +66,10 @@
 %{!?quagga_gid:		%define         quagga_gid      92 }
 %{!?vty_gid:		%define		vty_gid		85 }
 
-%define		daemon_list	zebra ripd ospfd bgpd
+%define		daemon_list	zebra ripd ospfd bgpd isisd pimd
 
 %define		daemonv6_list	ripngd ospf6d
 
-%if %{with_isisd}
-%define		daemon_isisd	isisd
-%else
-%define		daemon_isisd	""
-%endif
-
-%if %{with_pimd}
-%define         daemon_pimd	pimd
-%else
-%define		daemon_pimd	""
-%endif
 
 %if %{with_watchquagga}
 %define         daemon_watchquagga	watchquagga
@@ -93,7 +77,7 @@
 %define		daemon_watchquagga	""
 %endif
 
-%define		all_daemons	%{daemon_list} %{daemonv6_list} %{daemon_isisd} %{daemon_pimd} %{daemon_watchquagga}
+%define		all_daemons	%{daemon_list} %{daemonv6_list}  %{daemon_watchquagga}
 
 # allow build dir to be kept
 %{!?keep_build:		%global		keep_build	0 }
@@ -114,14 +98,8 @@ Requires(pre):	/sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post):	/sbin/install-info
 BuildRequires:	texi2html texinfo autoconf patch libcap-devel groff
-%if %{with_snmp}
-BuildRequires:	net-snmp-devel
-Requires:		net-snmp
-%endif
-%if %{with_vtysh}
 BuildRequires:	readline readline-devel ncurses ncurses-devel
 Requires:		ncurses
-%endif
 %if %{with_pam}
 BuildRequires:	pam-devel
 Requires:		pam
@@ -192,18 +170,13 @@ developing OSPF-API and quagga applications.
 %if !%{with_shared}
 	--disable-shared \
 %endif
-%if %{with_snmp}
-	--enable-snmp \
-%endif
 %if %{with_multipath}
 	--enable-multipath=%{with_multipath} \
 %endif
 %if %{with_tcp_zebra}
 	--enable-tcp-zebra \
 %endif
-%if %{with_vtysh}
 	--enable-vtysh \
-%endif
 %if %{with_ospfclient}
 	--enable-ospfclient=yes \
 %else
@@ -223,11 +196,6 @@ developing OSPF-API and quagga applications.
 	--enable-rtadv=yes \
 %else
 	--enable-rtadv=no \
-%endif
-%if %{with_isisd}
-	--enable-isisd \
-%else
-	--disable-isisd \
 %endif
 %if %{with_pam}
 	--with-libpam \
@@ -339,12 +307,8 @@ zebra_spec_add_service ospf6d   2606/tcp "OSPF6d vty"
 %if %{with_ospfapi}
 zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
 %endif
-%if %{with_isisd}
 zebra_spec_add_service isisd    2608/tcp "ISISd vty"
-%endif
-%if %{with_pimd}
 zebra_spec_add_service pimd     2611/tcp "PIMd vty"
-%endif
 
 %if "%{initsystem}" == "systemd"
 for daemon in %all_daemons ; do
@@ -516,19 +480,13 @@ rm -rf %{buildroot}
 %endif
 %{_sbindir}/ripngd
 %{_sbindir}/ospf6d
-%if %{with_pimd}
 %{_sbindir}/pimd
-%endif
-%if %{with_isisd}
 %{_sbindir}/isisd
-%endif
 %if %{with_shared}
 %attr(755,root,root) %{_libdir}/lib*.so
 %attr(755,root,root) %{_libdir}/lib*.so.*
 %endif
-%if %{with_vtysh}
 %{_bindir}/*
-%endif
 %config /etc/quagga/[!v]*
 %if "%{initsystem}" == "systemd"
 	%config %{_unitdir}/*.service
@@ -542,12 +500,8 @@ rm -rf %{buildroot}
 	%config /etc/rc.d/init.d/bgpd
 	%config /etc/rc.d/init.d/ripngd
 	%config /etc/rc.d/init.d/ospf6d
-	%if %{with_isisd}
-		%config /etc/rc.d/init.d/isisd
-	%endif
-	%if %{with_pimd}
-		%config /etc/rc.d/init.d/pimd
-	%endif
+	%config /etc/rc.d/init.d/isisd
+	%config /etc/rc.d/init.d/pimd
 %endif
 %config(noreplace) /etc/sysconfig/quagga
 %config(noreplace) /etc/pam.d/quagga

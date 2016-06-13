@@ -41,7 +41,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_updgrp.h"
-#include "bgp_encap_types.h"
+#include "bgpd/bgp_encap_types.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str [] = 
@@ -1950,9 +1950,11 @@ bgp_attr_encap(
     uint16_t	sublength;
     struct bgp_attr_encap_subtlv *tlv;
 
-    subtype = stream_getw (BGP_INPUT (peer));
-    sublength = stream_getw (BGP_INPUT (peer));
-    length -= 4;
+    if (BGP_ATTR_ENCAP == type) {
+        subtype   = stream_getc (BGP_INPUT (peer));
+        sublength = stream_getc (BGP_INPUT (peer));
+        length   -= 2;
+    }
 
     if (sublength > length) {
       zlog_info ("Tunnel Encap attribute sub-tlv length %d exceeds remaining length %d",
@@ -2457,6 +2459,7 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
     case AFI_IP:
       switch (safi)
 	{
+	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 	  bpacket_attr_vec_arr_set_vec (vecarr, BGP_ATTR_VEC_NH, s, attr);
 	  stream_putc (s, 4);
@@ -2469,7 +2472,10 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  stream_putl (s, 0);
 	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
 	  break;
-	case SAFI_UNICAST:      /* invalid for IPv4 */
+	case SAFI_ENCAP:
+	  stream_putc (s, 4);
+	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
+	  break;
 	default:
 	  break;
 	}
@@ -2496,22 +2502,27 @@ bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi, afi_t nh_afi,
 	  struct attr_extra *attre = attr->extra;
 
 	  assert (attr->extra);
-          if (attre->mp_nexthop_len == 16) {
+          if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
             stream_putc (s, 24);
             stream_putl (s, 0);   /* RD = 0, per RFC */
             stream_putl (s, 0);
-            stream_put (s, &attre->mp_nexthop_global, 16);
-          } else if (attre->mp_nexthop_len == 32) {
+            stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
+          } else if (attre->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
             stream_putc (s, 48);
             stream_putl (s, 0);   /* RD = 0, per RFC */
             stream_putl (s, 0);
-            stream_put (s, &attre->mp_nexthop_global, 16);
+            stream_put (s, &attre->mp_nexthop_global, IPV6_MAX_BYTELEN);
             stream_putl (s, 0);   /* RD = 0, per RFC */
             stream_putl (s, 0);
-            stream_put (s, &attre->mp_nexthop_local, 16);
+            stream_put (s, &attre->mp_nexthop_local, IPV6_MAX_BYTELEN);
           }
         }
 	break;
+	case SAFI_ENCAP:
+          assert (attr->extra);
+          stream_putc (s, IPV6_MAX_BYTELEN);
+	  stream_put (s, &attr->extra->mp_nexthop_global, IPV6_MAX_BYTELEN);
+	  break;
       default:
 	break;
       }
@@ -2555,7 +2566,6 @@ bgp_packet_mpattr_prefix_size (afi_t afi, safi_t safi, struct prefix *p)
   return size;
 }
 
-#if 0
 /*
  * Encodes the tunnel encapsulation attribute
  */
@@ -2568,6 +2578,7 @@ bgp_packet_mpattr_tea(
     uint8_t		attrtype)
 {
     unsigned int			attrlenfield = 0;
+    unsigned int			attrhdrlen   = 0;
     struct bgp_attr_encap_subtlv	*subtlvs;
     struct bgp_attr_encap_subtlv	*st;
     const char				*attrname;
@@ -2587,6 +2598,7 @@ bgp_packet_mpattr_tea(
 	     * V = concatenated subtlvs.
 	     */
 	    attrlenfield = 2 + 2;	/* T + L */
+            attrhdrlen   = 1 + 1;	/* subTLV T + L */
 	    break;
 
 	default:
@@ -2594,14 +2606,14 @@ bgp_packet_mpattr_tea(
     }
 
 
+    /* if no tlvs, don't make attr */
+    if (subtlvs == NULL)
+	return;
+
     /* compute attr length */
     for (st = subtlvs; st; st = st->next) {
-	attrlenfield += (4 + st->length);
+	attrlenfield += (attrhdrlen + st->length);
     }
-
-    /* if no tlvs, don't make attr */
-    if (!attrlenfield)
-	return;
 
     if (attrlenfield > 0xffff) {
 	zlog_info ("%s attribute is too long (length=%d), can't send it",
@@ -2631,12 +2643,13 @@ bgp_packet_mpattr_tea(
 
     /* write each sub-tlv */
     for (st = subtlvs; st; st = st->next) {
-	stream_putw (s, st->type);
-	stream_putw (s, st->length);
+        if (attrtype == BGP_ATTR_ENCAP) {
+            stream_putc (s, st->type);
+            stream_putc (s, st->length);
+        }
 	stream_put (s, st->value, st->length);
     }
 }
-#endif
 
 void
 bgp_packet_mpattr_end (struct stream *s, size_t sizep)
@@ -3016,7 +3029,14 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       stream_putl (s, attr->extra->aggregator_as);
       stream_put_ipv4 (s, attr->extra->aggregator_addr.s_addr);
     }
-  
+
+  if ((afi == AFI_IP || afi == AFI_IP6) &&
+      (safi == SAFI_ENCAP || safi == SAFI_MPLS_VPN))
+    {
+	/* Tunnel Encap attribute */
+	bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_ENCAP);
+    }
+
   /* Unknown transit attribute. */
   if (attr->extra && attr->extra->transit)
     stream_put (s, attr->extra->transit->val, attr->extra->transit->length);
