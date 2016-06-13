@@ -11477,7 +11477,13 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
       uptime = bgp_clock();
       uptime -= p->last_write;
       tm = gmtime(&uptime);
-      json_object_int_add(json_neigh, "bgpTimerLastRead", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+      json_object_int_add(json_neigh, "bgpTimerLastWrite", (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
+
+      uptime = bgp_clock();
+      uptime -= p->update_time;
+      tm = gmtime(&uptime);
+      json_object_int_add(json_neigh, "bgpInUpdateElapsedTimeMsecs",
+                          (tm->tm_sec * 1000) + (tm->tm_min * 60000) + (tm->tm_hour * 3600000));
 
       /* Configured timer values. */
       json_object_int_add(json_neigh, "bgpTimerHoldTimeMsecs", p->v_holdtime * 1000);
@@ -12157,10 +12163,9 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           json_object_string_add(json_hold, "lastResetDueTo", peer_down_str[(int) p->last_reset]);
           if (p->last_reset_cause_size)
             {
-              msg = p->last_reset_cause;
-              char adapter[BUFSIZ];
-              sprintf(adapter, "%s", msg);
-              json_object_string_add(json_hold, "messageReceivedThatCausedBgpNotification", adapter);
+              char errorcodesubcode_hexstr[5];
+              sprintf(errorcodesubcode_hexstr, "%02X%02X", p->notify.code, p->notify.subcode);
+              json_object_string_add(json_hold, "lastErrorCodeSubcode", errorcodesubcode_hexstr);
             }
         }
       else
@@ -12339,6 +12344,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
   /* Timer information. */
   if (use_json)
     {
+      json_object_int_add(json_neigh, "connectRetryTimer", p->v_connect);
       if (p->status == Established && p->rtt)
         json_object_int_add(json_neigh, "estimatedRttInMsecs", p->rtt);
       if (p->t_start)
@@ -12362,7 +12368,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
     }
   else
     {
-      /* TCP metrics. */
+      vty_out (vty, "BGP Connect Retry Timer in Seconds: %d%s",
+	       p->v_connect, VTY_NEWLINE);
       if (p->status == Established && p->rtt)
         vty_out (vty, "Estimated round trip time: %d ms%s",
                  p->rtt, VTY_NEWLINE);

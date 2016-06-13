@@ -6010,6 +6010,11 @@ route_vty_out (struct vty *vty, struct prefix *p,
       else
         vty_out (vty, "%7u ", (attr->extra ? attr->extra->weight : 0));
 
+      if (json_paths) {
+	char buf[BUFSIZ];
+	json_object_string_add(json_path, "peerId", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
+      }
+
       /* Print aspath */
       if (attr->aspath)
         {
