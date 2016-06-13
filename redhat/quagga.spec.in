@@ -11,13 +11,13 @@
 ####################### Quagga configure options #########################
 # with-feature options
 %{!?with_tcp_zebra:		%global	with_tcp_zebra		0 }
-%{!?with_pam:			%global	with_pam		1 }
+%{!?with_pam:			%global	with_pam	        0 }
 %{!?with_ospfclient:		%global	with_ospfclient 	1 }
 %{!?with_ospfapi:		%global	with_ospfapi		1 }
 %{!?with_irdp:			%global	with_irdp		1 }
 %{!?with_rtadv:			%global	with_rtadv		1 }
 %{!?with_shared:		%global	with_shared		1 }
-%{!?with_multipath:		%global	with_multipath		64 }
+%{!?with_multipath:		%global	with_multipath		256 }
 %{!?quagga_user:		%global	quagga_user		quagga }
 %{!?vty_group:			%global	vty_group		quaggavty }
 %{!?with_fpm:			%global	with_fpm 		0 }
@@ -25,9 +25,12 @@
 
 # path defines
 %define		_sysconfdir	/etc/quagga
+%define         _sbindir        /usr/lib/quagga
 %define		zeb_src		%{_builddir}/%{name}-%{quaggaversion}
 %define		zeb_rh_src	%{zeb_src}/redhat
 %define		zeb_docs	%{zeb_src}/doc
+%define         quagga_tools    %{zeb_src}/tools
+%define         cumulus_dir     %{zeb_src}/cumulus/etc
 
 # defines for configure
 %define		_localstatedir	/var/run/quagga
@@ -52,7 +55,7 @@
 	# Note: For systems with systemd, watchquagga will NOT be built. Systemd
 	# takes over the role of restarting crashed processes. Value will
 	# be overwritten with 0 below for systemd independent on the setting here
-	%global	with_watchquagga 0
+	%global	with_watchquagga 1
 %endif
 
 # if FPM is enabled, then enable tcp_zebra as well
@@ -62,9 +65,9 @@
 %endif
 
 # misc internal defines
-%{!?quagga_uid:		%define         quagga_uid      92 }
-%{!?quagga_gid:		%define         quagga_gid      92 }
-%{!?vty_gid:		%define		vty_gid		85 }
+%{!?quagga_uid:		%global         quagga_uid      92 }
+%{!?quagga_gid:		%global         quagga_gid      92 }
+%{!?vty_gid:		%global		vty_gid		85 }
 
 %define		daemon_list	zebra ripd ospfd bgpd isisd pimd ripngd ospfd6d
 
@@ -81,7 +84,7 @@
 %{!?keep_build:		%global		keep_build	0 }
 
 #release sub-revision (the two digits after the CONFDATE)
-%{!?release_rev:	%define		release_rev	01 }
+%{!?release_rev:	%global		release_rev	01 }
 
 Summary: Routing daemon
 Name:			quagga
@@ -160,6 +163,7 @@ developing OSPF-API and quagga applications.
 #CFLAGS="${CFLAGS} -Wpacked -Wpadded"
 
 %configure \
+    --sbindir=%{_sbindir} \
     --sysconfdir=%{_sysconfdir} \
     --libdir=%{_libdir} \
     --libexecdir=%{_libexecdir} \
@@ -215,7 +219,9 @@ developing OSPF-API and quagga applications.
 %else
 	--disable-watchquagga \
 %endif
-	--enable-gcc-rdynamic
+	--enable-gcc-rdynamic \
+	--enable-systemd=yes \
+	--enable-poll=yes
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
@@ -228,22 +234,19 @@ texi2html --number-footnotes  --number-sections quagga.texi
 popd
 
 %install
-mkdir -p %{buildroot}/etc/{quagga,sysconfig,logrotate.d,pam.d} \
+mkdir -p %{buildroot}/etc/{quagga,sysconfig,logrotate.d,pam.d,default} \
          %{buildroot}/var/log/quagga %{buildroot}%{_infodir}
 make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" install
 
 # Remove this file, as it is uninstalled and causes errors when building on RH9
 rm -rf %{buildroot}/usr/share/info/dir
 
+
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-for daemon in %{all_daemons} ; do
-	if [ x"${daemon}" != x"" ] ; then
-		install %{zeb_rh_src}/${daemon}.service \
-			%{buildroot}%{_unitdir}/${daemon}.service
-	fi
-done
+install %{quagga_tools}/quagga.service \
+	%{buildroot}%{_unitdir}/quagga.service
 %else
 mkdir -p %{buildroot}/etc/rc.d/init.d
 for daemon in %{all_daemons} ; do
@@ -254,12 +257,13 @@ for daemon in %{all_daemons} ; do
 done
 %endif
 
+install %{cumulus_dir}/quagga/debian.conf %{buildroot}/etc/quagga
+install %{cumulus_dir}/quagga/daemons %{buildroot}/etc/quagga
+install -m644 %{cumulus_dir}/default/quagga %{buildroot}/etc/default
 install -m644 %{zeb_rh_src}/quagga.pam \
 	%{buildroot}/etc/pam.d/quagga
 install -m644 %{zeb_rh_src}/quagga.logrotate \
 	%{buildroot}/etc/logrotate.d/quagga
-install -m644 %{zeb_rh_src}/quagga.sysconfig \
-	%{buildroot}/etc/sysconfig/quagga
 install -d -m750  %{buildroot}/var/run/quagga
 
 %pre
@@ -310,7 +314,7 @@ zebra_spec_add_service pimd     2611/tcp "PIMd vty"
 
 %if "%{initsystem}" == "systemd"
 for daemon in %all_daemons ; do
-	%systemd_post ${daemon}.service
+	%systemd_post quagga.service
 done
 %else
 for daemon in %all_daemons ; do
@@ -473,6 +477,11 @@ rm -rf %{buildroot}
 %{_sbindir}/ospfd
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
+%{_sbindir}/ssd
+%{_sbindir}/quagga
+%{_sbindir}/quagga-reload.py
+%{_sbindir}/quagga-reload.pyc
+%{_sbindir}/quagga-reload.pyo
 %if %{with_watchquagga}
 	%{_sbindir}/watchquagga
 %endif
@@ -487,7 +496,7 @@ rm -rf %{buildroot}
 %{_bindir}/*
 %config /etc/quagga/[!v]*
 %if "%{initsystem}" == "systemd"
-	%config %{_unitdir}/*.service
+	%config %{_unitdir}/quagga.service
 %else
 	%config /etc/rc.d/init.d/zebra
 	%if %{with_watchquagga}
@@ -501,7 +510,7 @@ rm -rf %{buildroot}
 	%config /etc/rc.d/init.d/isisd
 	%config /etc/rc.d/init.d/pimd
 %endif
-%config(noreplace) /etc/sysconfig/quagga
+%config(noreplace) /etc/default/quagga
 %config(noreplace) /etc/pam.d/quagga
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
