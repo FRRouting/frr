@@ -18,5 +18,5 @@ usr/share/man/man8/isisd.8
 usr/share/man/man8/watchquagga.8
 usr/share/snmp/mibs/
 cumulus/etc/* etc/
-debian/*.service    lib/systemd/system
+tools/*.service    lib/systemd/system
 debian/quagga.conf  usr/lib/tmpfiles.d
