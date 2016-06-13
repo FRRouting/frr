@@ -28,7 +28,7 @@ noinst_HEADERS = \
 ospf6d_SOURCES = \
 	ospf6_main.c $(libospf6_a_SOURCES)
 
-ospf6d_LDADD = ../lib/libfrr.la @LIBCAP@
+ospf6d_LDADD = ../lib/libfrr.la ../lib/libfrrsnmp.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = ospf6d.conf.sample

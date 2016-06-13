@@ -31,7 +31,7 @@ noinst_HEADERS = \
 
 ospfd_SOURCES = ospf_main.c
 
-ospfd_LDADD = libfrrospf.a ../lib/libfrr.la @LIBCAP@ @LIBM@
+ospfd_LDADD = libfrrospf.a ../lib/libfrr.la ../lib/libfrrsnmp.la @LIBCAP@ @LIBM@
 
 EXTRA_DIST = OSPF-MIB.txt OSPF-TRAP-MIB.txt ChangeLog.opaque.txt
 

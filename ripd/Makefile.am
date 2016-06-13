@@ -21,7 +21,7 @@ noinst_HEADERS = \
 ripd_SOURCES = \
 	rip_main.c $(librip_a_SOURCES)
 
-ripd_LDADD = ../lib/libfrr.la @LIBCAP@
+ripd_LDADD = ../lib/libfrr.la ../lib/libfrrsnmp.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = ripd.conf.sample

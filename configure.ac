@@ -1324,8 +1324,8 @@ if test "${enable_snmp}" != ""; then
    if test x"$NETSNMP_CONFIG" = x"no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
    fi
-   LIBS="$LIBS `${NETSNMP_CONFIG} --agent-libs`"
-   CFLAGS="`${NETSNMP_CONFIG} --base-cflags` $CFLAGS"
+   SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
+   SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([
 int main(void);
@@ -1353,6 +1353,9 @@ int main(void);
    AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi
+AM_CONDITIONAL([SNMP], [test "x${SNMP_METHOD}" != "x"])
+AC_SUBST(SNMP_LIBS)
+AC_SUBST(SNMP_CFLAGS)
 
 dnl ---------------
 dnl dlopen & dlinfo

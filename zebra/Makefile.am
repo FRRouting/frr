@@ -62,7 +62,7 @@ noinst_HEADERS = \
 	zebra_ns.h zebra_vrf.h ioctl_solaris.h zebra_static.h zebra_mpls.h \
 	kernel_netlink.h if_netlink.h zebra_mroute.h label_manager.h
 
-zebra_LDADD = $(otherobj) ../lib/libfrr.la $(LIBCAP) $(Q_FPM_PB_CLIENT_LDOPTS)
+zebra_LDADD = $(otherobj) ../lib/libfrr.la ../lib/libfrrsnmp.la $(LIBCAP) $(Q_FPM_PB_CLIENT_LDOPTS)
 
 testzebra_LDADD = ../lib/libfrr.la $(LIBCAP)
 
