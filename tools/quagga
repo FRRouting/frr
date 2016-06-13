@@ -27,6 +27,13 @@ RELOAD_SCRIPT=/usr/lib/quagga/quagga-reload.py
 
 . /lib/lsb/init-functions
 
+if [ -f /usr/lib/quagga/ssd ]; then
+    SSD=/usr/lib/quagga/ssd
+else
+    SSD=`which start-stop-daemon`
+fi
+
+echo ${SSD}
 # Print the name of the pidfile.
 pidfile()
 {
@@ -107,7 +114,7 @@ start()
                echo -n " $1"
            fi
 
-            start-stop-daemon \
+            ${SSD} \
                 --start \
                 --pidfile=`pidfile $1` \
                 --exec "$D_PATH/$1" \
@@ -120,7 +127,7 @@ start()
               return;
           fi
 
-           start-stop-daemon \
+           ${SSD} \
                --start \
                --pidfile=`pidfile $1-$2` \
                --exec "$D_PATH/$1" \
@@ -133,7 +140,7 @@ start()
                return;
            fi
 
-           start-stop-daemon \
+           ${SSD} \
                --start \
                --pidfile=`pidfile $1` \
                --exec "$D_PATH/$1" \
@@ -159,7 +166,7 @@ stop()
     else
         PIDFILE=`pidfile $inst`
         PID=`cat $PIDFILE 2>/dev/null`
-        start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --oknodo --pidfile "$PIDFILE" --exec "$D_PATH/$1"
+        ${SSD} --stop --quiet --retry=TERM/30/KILL/5 --oknodo --pidfile "$PIDFILE" --exec "$D_PATH/$1"
         #
         #       Now we have to wait until $DAEMON has _really_ stopped.
         #
@@ -322,7 +329,7 @@ stop_prio()
            fi
             for pidfile in $file_list_suffix.pid; do
                PID=`cat $pidfile 2>/dev/null`
-               start-stop-daemon --stop --quiet --oknodo --pidfile "$pidfile"
+               ${SSD} --stop --quiet --oknodo --pidfile "$pidfile"
                echo -n "."
                rm -rf "$pidfile"
             done
@@ -374,7 +381,7 @@ start_prio()
                       # to MI version
                       if started "$daemon_name"; then
                           PIDFILE=`pidfile $daemon_name`
-                          start-stop-daemon \
+                          ${SSD} \
                               --stop --quiet --oknodo \
                               --pidfile "$PIDFILE" \
                               --exec "$D_PATH/$daemon_name"
@@ -395,7 +402,7 @@ start_prio()
                       # single instance to MI version
                       eval "file_list_suffix="$V_PATH"/"$daemon_name-*""
                       for pidfile in $file_list_suffix.pid; do
-                          start-stop-daemon --stop --quiet --oknodo --pidfile "$pidfile"
+                          ${SSD} --stop --quiet --oknodo --pidfile "$pidfile"
                           echo -n "."
                           rm -rf "$pidfile"
                       done
