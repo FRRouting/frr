@@ -74,7 +74,7 @@
 %define		daemon_watchquagga	""
 %endif
 
-%define		all_daemons	%{daemon_list} %{daemonv6_list}  %{daemon_watchquagga}
+%define		all_daemons	%{daemon_list} %{daemon_watchquagga}
 
 # allow build dir to be kept
 %{!?keep_build:		%global		keep_build	0 }
