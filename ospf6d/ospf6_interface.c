@@ -1339,10 +1339,10 @@ DEFUN (auto_cost_reference_bandwidth,
     }
 
   /* If reference bandwidth is changed. */
-  if ((refbw * 1000) == o->ref_bandwidth)
+  if ((refbw) == o->ref_bandwidth)
     return CMD_SUCCESS;
 
-  o->ref_bandwidth = refbw * 1000;
+  o->ref_bandwidth = refbw;
   for (ALL_LIST_ELEMENTS_RO (o->area_list, i, oa))
       for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
           ospf6_interface_recalculate_cost (oi);

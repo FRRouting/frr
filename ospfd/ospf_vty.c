@@ -2912,10 +2912,10 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
     }
 
   /* If reference bandwidth is changed. */
-  if ((refbw * 1000) == ospf->ref_bandwidth)
+  if ((refbw) == ospf->ref_bandwidth)
     return CMD_SUCCESS;
   
-  ospf->ref_bandwidth = refbw * 1000;
+  ospf->ref_bandwidth = refbw;
   for (ALL_LIST_ELEMENTS_RO (om->iflist, node, ifp))
     ospf_if_recalculate_output_cost (ifp);
   
@@ -3646,14 +3646,14 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
 
       json_object_int_add(json_interface_sub, "ifIndex", ifp->ifindex);
       json_object_int_add(json_interface_sub, "mtuBytes", ifp->mtu);
-      json_object_int_add(json_interface_sub, "bandwidthKbit", ifp->bandwidth);
+      json_object_int_add(json_interface_sub, "bandwidthMbit", ifp->bandwidth);
       json_object_string_add(json_interface_sub, "ifFlags", if_flag_dump(ifp->flags));
     }
   else
     {
       vty_out (vty, "%s is %s%s", ifp->name,
                ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
-      vty_out (vty, "  ifindex %u, MTU %u bytes, BW %u Kbit %s%s",
+      vty_out (vty, "  ifindex %u, MTU %u bytes, BW %u Mbit %s%s",
                ifp->ifindex, ifp->mtu, ifp->bandwidth, if_flag_dump(ifp->flags),
                VTY_NEWLINE);
     }
@@ -9899,7 +9899,7 @@ ospf_config_write (struct vty *vty)
           vty_out (vty, "! Important: ensure reference bandwidth "
                         "is consistent across all routers%s", VTY_NEWLINE);
           vty_out (vty, " auto-cost reference-bandwidth %d%s",
-		   ospf->ref_bandwidth / 1000, VTY_NEWLINE);
+		   ospf->ref_bandwidth, VTY_NEWLINE);
         }
 
       /* SPF timers print. */

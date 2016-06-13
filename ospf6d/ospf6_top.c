@@ -964,7 +964,7 @@ config_write_ospf6 (struct vty *vty)
     }
 
   if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
-    vty_out (vty, " auto-cost reference-bandwidth %d%s", ospf6->ref_bandwidth / 1000,
+    vty_out (vty, " auto-cost reference-bandwidth %d%s", ospf6->ref_bandwidth,
              VNL);
 
   /* LSA timers print. */

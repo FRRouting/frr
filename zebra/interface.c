@@ -1070,10 +1070,10 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
     }
 #endif /* HAVE_STRUCT_SOCKADDR_DL */
   
-  /* Bandwidth in kbps */
+  /* Bandwidth in Mbps */
   if (ifp->bandwidth != 0)
     {
-      vty_out(vty, "  bandwidth %u kbps", ifp->bandwidth);
+      vty_out(vty, "  bandwidth %u Mbps", ifp->bandwidth);
       vty_out(vty, "%s", VTY_NEWLINE);
     }
 
@@ -1645,9 +1645,9 @@ DEFUN (no_shutdown_if,
 
 DEFUN (bandwidth_if,
        bandwidth_if_cmd,
-       "bandwidth <1-10000000>",
+       "bandwidth <1-100000>",
        "Set bandwidth informational parameter\n"
-       "Bandwidth in kilobits\n")
+       "Bandwidth in megabits\n")
 {
   struct interface *ifp;   
   unsigned int bandwidth;
@@ -1655,8 +1655,8 @@ DEFUN (bandwidth_if,
   ifp = (struct interface *) vty->index;
   bandwidth = strtol(argv[0], NULL, 10);
 
-  /* bandwidth range is <1-10000000> */
-  if (bandwidth < 1 || bandwidth > 10000000)
+  /* bandwidth range is <1-100000> */
+  if (bandwidth < 1 || bandwidth > 100000)
     {
       vty_out (vty, "Bandwidth is invalid%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -1692,10 +1692,10 @@ DEFUN (no_bandwidth_if,
 
 ALIAS (no_bandwidth_if,
        no_bandwidth_if_val_cmd,
-       "no bandwidth <1-10000000>",
+       "no bandwidth <1-100000>",
        NO_STR
        "Set bandwidth informational parameter\n"
-       "Bandwidth in kilobits\n")
+       "Bandwidth in megabits\n")
 
 static int
 ip_address_install (struct vty *vty, struct interface *ifp,
