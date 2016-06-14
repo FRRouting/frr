@@ -1143,8 +1143,7 @@ const u_int8_t attr_flags_values [] = {
   [BGP_ATTR_AS4_PATH] =         BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
   [BGP_ATTR_AS4_AGGREGATOR] =   BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 };
-static const size_t attr_flags_values_max =
-  sizeof (attr_flags_values) / sizeof (attr_flags_values[0]);
+static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
 static int
 bgp_attr_flag_invalid (struct bgp_attr_parser_args *args)
