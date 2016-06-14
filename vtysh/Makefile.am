@@ -37,6 +37,5 @@ vtysh_cmd_FILES = $(top_srcdir)/bgpd/*.c $(top_srcdir)/isisd/*.c \
 	          $(top_srcdir)/zebra/zebra_fpm.c \
 		  $(top_srcdir)/zebra/zebra_ptm.c
 
-vtysh_cmd.c: $(vtysh_cmd_FILES)
-	./$(EXTRA_DIST) $(vtysh_cmd_FILES) > vtysh_cmd.c
-
+vtysh_cmd.c: $(vtysh_cmd_FILES) extract.pl
+	./extract.pl $(vtysh_cmd_FILES) > vtysh_cmd.c
