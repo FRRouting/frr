@@ -198,6 +198,10 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
          pim_static_route_free(s_route);
       }
 
+      if (original_s_route) {
+         pim_static_route_free(original_s_route);
+      }
+
       return -1;
    }
 
