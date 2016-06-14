@@ -2409,6 +2409,9 @@ DEFUN (vtysh_write_terminal_daemon,
 	break;
     }
 
+  if (i == array_size(vtysh_client))
+    return CMD_ERR_NO_MATCH;
+
   ret = vtysh_client_execute(&vtysh_client[i], "show running-config\n", stdout);
 
   return ret;
