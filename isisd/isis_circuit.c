@@ -979,7 +979,7 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
               vty_out(vty, "      %s%s", buf, VTY_NEWLINE);
             }
         }
-      if (circuit->ipv6_link && listcount(circuit->ipv6_non_link) > 0)
+      if (circuit->ipv6_non_link && listcount(circuit->ipv6_non_link) > 0)
         {
           vty_out(vty, "    IPv6 Prefixes:%s", VTY_NEWLINE);
           for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node, ip_addr))
