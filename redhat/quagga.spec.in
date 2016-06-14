@@ -99,7 +99,7 @@ Requires(preun): /sbin/install-info
 Requires(post):	/sbin/install-info
 BuildRequires:	texi2html texinfo autoconf patch libcap-devel groff
 BuildRequires:	readline readline-devel ncurses ncurses-devel
-Requires:		ncurses
+Requires:		ncurses initscripts
 %if %{with_pam}
 BuildRequires:	pam-devel
 Requires:		pam
@@ -284,7 +284,11 @@ if getent passwd %quagga_user >/dev/null ; then : ; else \
   -M -r -s /sbin/nologin -c "Quagga routing suite" \
   -d %_localstatedir %quagga_user 2> /dev/null || : ; \
 fi
+%if 0%{?vty_group:1}
+/usr/sbin/usermod -a -G %vty_group %quagga_user
 %endif
+%endif
+
 
 %post
 # zebra_spec_add_service <service name> <port/proto> <comment>
