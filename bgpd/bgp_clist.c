@@ -403,17 +403,22 @@ community_str_get (struct community *com, int i)
 static int
 community_regexp_include (regex_t * reg, struct community *com, int i)
 {
-  const char *str;
+  char *str;
+  int rv;
 
   /* When there is no communities attribute it is treated as empty
  *      string.  */
   if (com == NULL || com->size == 0)
-    str = "";
+    str = XSTRDUP(MTYPE_COMMUNITY_STR, "");
   else
     str = community_str_get (com, i);
 
   /* Regular expression match.  */
-  if (regexec (reg, str, 0, NULL, 0) == 0)
+  rv = regexec (reg, str, 0, NULL, 0);
+
+  XFREE(MTYPE_COMMUNITY_STR, str);
+
+  if (rv == 0)
     return 1;
 
   /* No match.  */
