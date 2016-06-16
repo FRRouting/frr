@@ -1848,43 +1848,6 @@ ospf6_init (void)
   INSTALL (VIEW, database_type_self_originated_linkstate_id_cmd);
   INSTALL (VIEW, database_type_self_originated_linkstate_id_detail_cmd);
 
-  INSTALL (ENABLE, database_cmd);
-  INSTALL (ENABLE, database_detail_cmd);
-  INSTALL (ENABLE, database_type_cmd);
-  INSTALL (ENABLE, database_type_detail_cmd);
-  INSTALL (ENABLE, database_id_cmd);
-  INSTALL (ENABLE, database_id_detail_cmd);
-  INSTALL (ENABLE, database_linkstate_id_cmd);
-  INSTALL (ENABLE, database_linkstate_id_detail_cmd);
-  INSTALL (ENABLE, database_router_cmd);
-  INSTALL (ENABLE, database_router_detail_cmd);
-  INSTALL (ENABLE, database_adv_router_cmd);
-  INSTALL (ENABLE, database_adv_router_detail_cmd);
-  INSTALL (ENABLE, database_type_id_cmd);
-  INSTALL (ENABLE, database_type_id_detail_cmd);
-  INSTALL (ENABLE, database_type_linkstate_id_cmd);
-  INSTALL (ENABLE, database_type_linkstate_id_detail_cmd);
-  INSTALL (ENABLE, database_type_router_cmd);
-  INSTALL (ENABLE, database_type_router_detail_cmd);
-  INSTALL (ENABLE, database_type_adv_router_cmd);
-  INSTALL (ENABLE, database_type_adv_router_detail_cmd);
-  INSTALL (ENABLE, database_adv_router_linkstate_id_cmd);
-  INSTALL (ENABLE, database_adv_router_linkstate_id_detail_cmd);
-  INSTALL (ENABLE, database_id_router_cmd);
-  INSTALL (ENABLE, database_id_router_detail_cmd);
-  INSTALL (ENABLE, database_type_id_router_cmd);
-  INSTALL (ENABLE, database_type_id_router_detail_cmd);
-  INSTALL (ENABLE, database_type_adv_router_linkstate_id_cmd);
-  INSTALL (ENABLE, database_type_adv_router_linkstate_id_detail_cmd);
-  INSTALL (ENABLE, database_self_originated_cmd);
-  INSTALL (ENABLE, database_self_originated_detail_cmd);
-  INSTALL (ENABLE, database_type_self_originated_cmd);
-  INSTALL (ENABLE, database_type_self_originated_detail_cmd);
-  INSTALL (ENABLE, database_type_id_self_originated_cmd);
-  INSTALL (ENABLE, database_type_id_self_originated_detail_cmd);
-  INSTALL (ENABLE, database_type_self_originated_linkstate_id_cmd);
-  INSTALL (ENABLE, database_type_self_originated_linkstate_id_detail_cmd);
-
   /* Make ospf protocol socket. */
   ospf6_serv_sock ();
   thread_add_read (master, ospf6_receive, NULL, ospf6_sock);
