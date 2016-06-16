@@ -429,7 +429,7 @@ format_parser_end_multiple(struct format_parser_state *state)
   char *dummy;
 
   if (!state->in_multiple)
-    format_parser_error(state, "Unepexted ')'");
+    format_parser_error(state, "Unexpected ')'");
 
   if (vector_active(state->curvect) == 0)
     format_parser_error(state, "Empty multiple section");
@@ -754,54 +754,6 @@ cmd_node_vector (vector v, enum node_type ntype)
   return cnode->cmd_vector;
 }
 
-#if 0
-/* Filter command vector by symbol.  This function is not actually used;
- * should it be deleted? */
-static int
-cmd_filter_by_symbol (char *command, char *symbol)
-{
-  int i, lim;
-
-  if (strcmp (symbol, "IPV4_ADDRESS") == 0)
-    {
-      i = 0;
-      lim = strlen (command);
-      while (i < lim)
-	{
-	  if (! (isdigit ((int) command[i]) || command[i] == '.' || command[i] == '/'))
-	    return 1;
-	  i++;
-	}
-      return 0;
-    }
-  if (strcmp (symbol, "STRING") == 0)
-    {
-      i = 0;
-      lim = strlen (command);
-      while (i < lim)
-	{
-	  if (! (isalpha ((int) command[i]) || command[i] == '_' || command[i] == '-'))
-	    return 1;
-	  i++;
-	}
-      return 0;
-    }
-  if (strcmp (symbol, "IFNAME") == 0)
-    {
-      i = 0;
-      lim = strlen (command);
-      while (i < lim)
-	{
-	  if (! isalnum ((int) command[i]))
-	    return 1;
-	  i++;
-	}
-      return 0;
-    }
-  return 0;
-}
-#endif
-
 /* Completion match types. */
 enum match_type 
 {
@@ -1114,14 +1066,6 @@ cmd_ipv6_prefix_match (const char *str)
   if (mask < 0 || mask > 128)
     return no_match;
   
-/* I don't know why mask < 13 makes command match partly.
-   Forgive me to make this comments. I Want to set static default route
-   because of lack of function to originate default in ospf6d; sorry
-       yasu
-  if (mask < 13)
-    return partly_match;
-*/
-
   return exact_match;
 }
 
@@ -2428,15 +2372,6 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status, int islib
 	  *status = CMD_ERR_AMBIGUOUS;
 	  return NULL;
 	}
-      /*
-	   else if (ret == 2)
-	   {
-	   vector_free (cmd_vector);
-	   cmd_matches_free(&matches);
-	   *status = CMD_ERR_NO_MATCH;
-	   return NULL;
-	   }
-	 */
     }
   
   /* Prepare match vector. */
@@ -2508,8 +2443,6 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status, int islib
                         malloc(lcd + 1));
 	      memcpy (lcdstr, matchvec->index[0], lcd);
 	      lcdstr[lcd] = '\0';
-
-	      /* match_str = (char **) &lcdstr; */
 
 	      /* Free matchvec. */
 	      for (i = 0; i < vector_active (matchvec); i++)
