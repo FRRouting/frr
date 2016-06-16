@@ -45,51 +45,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_encap.h"
 
-static u_int16_t
-decode_rd_type (u_char *pnt)
-{
-  u_int16_t v;
-  
-  v = ((u_int16_t) *pnt++ << 8);
-  v |= (u_int16_t) *pnt;
-  return v;
-}
-
-
-static void
-decode_rd_as (u_char *pnt, struct rd_as *rd_as)
-{
-  rd_as->as  = (u_int16_t) *pnt++ << 8;
-  rd_as->as |= (u_int16_t) *pnt++;
-  
-  rd_as->val  = ((u_int32_t) *pnt++) << 24;
-  rd_as->val |= ((u_int32_t) *pnt++) << 16;
-  rd_as->val |= ((u_int32_t) *pnt++) << 8;
-  rd_as->val |= (u_int32_t) *pnt;
-}
-
-static void
-decode_rd_as4 (u_char *pnt, struct rd_as *rd_as)
-{
-  rd_as->as  = (u_int32_t) *pnt++ << 24;
-  rd_as->as |= (u_int32_t) *pnt++ << 16;
-  rd_as->as |= (u_int32_t) *pnt++ << 8;
-  rd_as->as |= (u_int32_t) *pnt++;
-  
-  rd_as->val  = ((u_int32_t) *pnt++ << 8);
-  rd_as->val |= (u_int32_t) *pnt;
-}
-
-static void
-decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
-{
-  memcpy (&rd_ip->ip, pnt, 4);
-  pnt += 4;
-  
-  rd_ip->val = ((u_int16_t) *pnt++ << 8);
-  rd_ip->val |= (u_int16_t) *pnt;
-}
-
 static void
 ecom2prd(struct ecommunity *ecom, struct prefix_rd *prd)
 {

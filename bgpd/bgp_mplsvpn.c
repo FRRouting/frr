@@ -35,7 +35,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
 
-static u_int16_t
+u_int16_t
 decode_rd_type (u_char *pnt)
 {
   u_int16_t v;
@@ -57,7 +57,7 @@ decode_label (u_char *pnt)
 }
 
 /* type == RD_TYPE_AS */
-static void
+void
 decode_rd_as (u_char *pnt, struct rd_as *rd_as)
 {
   rd_as->as = (u_int16_t) *pnt++ << 8;
@@ -70,7 +70,7 @@ decode_rd_as (u_char *pnt, struct rd_as *rd_as)
 }
 
 /* type == RD_TYPE_AS4 */
-static void
+void
 decode_rd_as4 (u_char *pnt, struct rd_as *rd_as)
 {
   rd_as->as  = (u_int32_t) *pnt++ << 24;
@@ -83,7 +83,7 @@ decode_rd_as4 (u_char *pnt, struct rd_as *rd_as)
 }
 
 /* type == RD_TYPE_IP */
-static void
+void
 decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
 {
   memcpy (&rd_ip->ip, pnt, 4);
