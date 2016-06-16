@@ -224,6 +224,18 @@ argv_concat (const char **argv, int argc, int shift)
   return str;
 }
 
+static unsigned int
+cmd_hash_key (void *p)
+{
+  return (uintptr_t) p;
+}
+
+static int
+cmd_hash_cmp (const void *a, const void *b)
+{
+  return a == b;
+}
+
 /* Install top node of command vector. */
 void
 install_node (struct cmd_node *node, 
@@ -232,6 +244,7 @@ install_node (struct cmd_node *node,
   vector_set_index (cmdvec, node->node, node);
   node->func = func;
   node->cmd_vector = vector_init (VECTOR_MIN_SIZE);
+  node->cmd_hash = hash_create (cmd_hash_key, cmd_hash_cmp);
 }
 
 /* Breaking up string into each command piece. I assume given
@@ -704,7 +717,11 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
   
   /* cmd_init hasn't been called */
   if (!cmdvec)
-    return;
+    {
+      fprintf (stderr, "%s called before cmd_init, breakage likely\n",
+               __func__);
+      return;
+    }
   
   cnode = vector_slot (cmdvec, ntype);
 
@@ -714,7 +731,17 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
 	       ntype);
       exit (1);
     }
-
+  
+  if (hash_lookup (cnode->cmd_hash, cmd) != NULL)
+    {
+      fprintf (stderr, 
+               "Multiple command installs to node %d of command:\n%s\n",
+               ntype, cmd->string);
+      return;
+    }
+  
+  assert (hash_get (cnode->cmd_hash, cmd, hash_alloc_intern));
+  
   vector_set (cnode->cmd_vector, cmd);
   if (cmd->tokens == NULL)
     cmd->tokens = cmd_parse_format(cmd->string, cmd->doc);
@@ -4364,6 +4391,9 @@ cmd_terminate ()
                 cmd_terminate_element(cmd_element);
 
             vector_free (cmd_node_v);
+            hash_clean (cmd_node->cmd_hash, NULL);
+            hash_free (cmd_node->cmd_hash);
+            cmd_node->cmd_hash = NULL;
           }
 
       vector_free (cmdvec);
