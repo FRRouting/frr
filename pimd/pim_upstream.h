@@ -115,7 +115,8 @@ void pim_upstream_delete(struct pim_upstream *up);
 struct pim_upstream *pim_upstream_find(struct in_addr source_addr,
 				       struct in_addr group_addr);
 struct pim_upstream *pim_upstream_add(struct in_addr source_addr,
-				      struct in_addr group_addr);
+				      struct in_addr group_addr,
+				      struct interface *ifp);
 void pim_upstream_del(struct pim_upstream *up);
 
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up);

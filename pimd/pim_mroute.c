@@ -96,7 +96,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 	       __PRETTY_FUNCTION__, grp_str, src_str);
   }
 
-  up = pim_upstream_add(msg->im_src, msg->im_dst);
+  up = pim_upstream_add(msg->im_src, msg->im_dst, ifp);
   if (!up) {
     if (PIM_DEBUG_PIM_TRACE) {
       zlog_debug("%s: Failure to add upstream information for (%s,%s)",

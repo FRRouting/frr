@@ -2404,7 +2404,7 @@ DEFUN (show_ip_rib,
     return CMD_WARNING;
   }
 
-  if (pim_nexthop_lookup(&nexthop, addr)) {
+  if (pim_nexthop_lookup(&nexthop, addr, NULL)) {
     vty_out(vty, "Failure querying RIB nexthop for unicast address %s%s",
 	    addr_str, VTY_NEWLINE);
     return CMD_WARNING;
@@ -2496,7 +2496,7 @@ DEFUN (ip_pim_rp,
     return CMD_WARNING;
   }
 
-  if (pim_nexthop_lookup(&qpim_rp.source_nexthop, qpim_rp.rpf_addr) != 0) {
+  if (pim_nexthop_lookup(&qpim_rp.source_nexthop, qpim_rp.rpf_addr, NULL) != 0) {
     vty_out(vty, "%% No Path to RP address specified: %s", argv[0]);
     return CMD_WARNING;
   }

@@ -350,7 +350,8 @@ static void pim_upstream_switch(struct pim_upstream *up,
 
 
 static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
-					     struct in_addr group_addr)
+					     struct in_addr group_addr,
+					     struct interface *incoming)
 {
   struct pim_upstream *up;
   enum pim_rpf_result rpf_result;
@@ -388,7 +389,7 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
   up->rpf.source_nexthop.mrib_route_metric        = qpim_infinite_assert_metric.route_metric;
   up->rpf.rpf_addr.s_addr                         = PIM_NET_INADDR_ANY;
 
-  rpf_result = pim_rpf_update(up, 0);
+  rpf_result = pim_rpf_update(up, 0, incoming);
   if (rpf_result == PIM_RPF_FAILURE) {
     XFREE(MTYPE_PIM_UPSTREAM, up);
     return NULL;
@@ -418,7 +419,8 @@ struct pim_upstream *pim_upstream_find(struct in_addr source_addr,
 }
 
 struct pim_upstream *pim_upstream_add(struct in_addr source_addr,
-				      struct in_addr group_addr)
+				      struct in_addr group_addr,
+				      struct interface *incoming)
 {
   struct pim_upstream *up;
 
@@ -427,7 +429,7 @@ struct pim_upstream *pim_upstream_add(struct in_addr source_addr,
     ++up->ref_count;
   }
   else {
-    up = pim_upstream_new(source_addr, group_addr);
+    up = pim_upstream_new(source_addr, group_addr, incoming);
   }
 
   return up;

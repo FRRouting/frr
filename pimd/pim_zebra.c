@@ -333,7 +333,7 @@ static void scan_upstream_rpf_cache()
     struct in_addr      old_rpf_addr;
     enum pim_rpf_result rpf_result;
 
-    rpf_result = pim_rpf_update(up, &old_rpf_addr);
+    rpf_result = pim_rpf_update(up, &old_rpf_addr, NULL);
     if (rpf_result == PIM_RPF_FAILURE)
       continue;
 
