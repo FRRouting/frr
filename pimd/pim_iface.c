@@ -649,7 +649,7 @@ int pim_if_add_vif(struct interface *ifp)
     return -4;
   }
 
-  flags = (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF) ? VIFF_REGISTER : 0;
+  flags = (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF) ? VIFF_REGISTER : VIFF_USE_IFINDEX;
   if (pim_mroute_add_vif(ifp->ifindex, ifaddr, flags)) {
     /* pim_mroute_add_vif reported error */
     return -5;
