@@ -1395,7 +1395,10 @@ bgp_recalculate_all_bestpaths (struct bgp *bgp)
         {
           for (rn = bgp_table_top (bgp->rib[afi][safi]); rn; rn = bgp_route_next (rn))
             {
-              bgp_process (bgp, rn, afi, safi);
+              if (rn->info != NULL)
+                {
+                  bgp_process (bgp, rn, afi, safi);
+                }
             }
         }
     }
