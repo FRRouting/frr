@@ -1525,17 +1525,6 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   char pfx_buf[PREFIX2STR_BUFFER];
   char path_buf[PATH_ADDPATH_STR_BUFFER];
 
-  result->old = result->new = NULL;
-  
-  if (rn->info == NULL)
-    {
-      char buf[PREFIX2STR_BUFFER];
-      zlog_warn ("%s: Called for route_node %s with no routing entries!",
-                 __func__,
-                 prefix2str (&(bgp_node_to_rnode (rn)->p), buf, sizeof(buf)));
-      return;
-    }
-  
   bgp_mp_list_init (&mp_list);
   do_mpath = (mpath_cfg->maxpaths_ebgp > 1 || mpath_cfg->maxpaths_ibgp > 1);
 
@@ -1924,19 +1913,6 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   if (CHECK_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED))
     return;
 
-  if (rn->info == NULL)
-    {
-      /* XXX: Perhaps remove before next release, after we've flushed out
-       * any obvious cases
-       */
-      assert (rn->info != NULL);
-      char buf[PREFIX2STR_BUFFER];
-      zlog_warn ("%s: Called for route_node %s with no routing entries!",
-                 __func__,
-                 prefix2str (&(bgp_node_to_rnode (rn)->p), buf, sizeof(buf)));
-      return;
-    }
-  
   if (bm->process_main_queue == NULL)
     bgp_process_queue_init ();
 
