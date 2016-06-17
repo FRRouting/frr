@@ -418,18 +418,6 @@ DEFUN (show_memory,
   return CMD_SUCCESS;
 }
 
-
-DEFUN (show_memory_pim,
-       show_memory_pim_cmd,
-       "show memory pim",
-       SHOW_STR
-       "Memory statistics\n"
-       "PIM memory\n")
-{
-  show_memory_vty (vty, memory_list_pim);
-  return CMD_SUCCESS;
-}
-
 void
 memory_init (void)
 {
