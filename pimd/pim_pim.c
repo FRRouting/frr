@@ -374,7 +374,7 @@ static void pim_sock_read_on(struct interface *ifp)
 
   pim_ifp = ifp->info;
 
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     zlog_debug("Scheduling READ event on PIM socket fd=%d",
 	       pim_ifp->pim_sock_fd);
   }
