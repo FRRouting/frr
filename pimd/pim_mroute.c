@@ -462,10 +462,10 @@ int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr, unsigned char flags
 
   memset(&vc, 0, sizeof(vc));
   vc.vifc_vifi = vif_index;
+  vc.vifc_lcl_ifindex = vif_index;
   vc.vifc_flags = flags;
   vc.vifc_threshold = PIM_MROUTE_MIN_TTL;
   vc.vifc_rate_limit = 0;
-  memcpy(&vc.vifc_lcl_addr, &ifaddr, sizeof(vc.vifc_lcl_addr));
 
 #ifdef PIM_DVMRP_TUNNEL  
   if (vc.vifc_flags & VIFF_TUNNEL) {
