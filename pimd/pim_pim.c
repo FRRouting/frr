@@ -584,6 +584,9 @@ static int pim_hello_send(struct interface *ifp,
   pim_ifp = ifp->info;
   zassert(pim_ifp);
 
+  if (if_is_loopback (ifp))
+    return 0;
+
   if (hello_send(ifp, holdtime)) {
     ++pim_ifp->pim_ifstat_hello_sendfail;
 
