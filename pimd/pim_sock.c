@@ -21,7 +21,6 @@
 */
 
 #include <zebra.h>
-#include "pim_mroute.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -34,8 +33,10 @@
 
 #include "log.h"
 #include "privs.h"
+#include "if.h"
 
 #include "pimd.h"
+#include "pim_mroute.h"
 #include "pim_sock.h"
 #include "pim_str.h"
 #include "pim_igmp_join.h"

@@ -24,6 +24,7 @@
 
 #include "log.h"
 #include "memory.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_cmd.h"

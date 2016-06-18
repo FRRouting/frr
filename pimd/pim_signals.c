@@ -27,6 +27,7 @@
 #include "sigevent.h"
 #include "memory.h"
 #include "log.h"
+#include "if.h"
 
 #include "pim_signals.h"
 #include "pimd.h"

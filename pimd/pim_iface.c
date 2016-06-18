@@ -607,9 +607,9 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
   return find_first_nonsec_addr(ifp);
 }
 
-static pim_iface_vif_index = 0;
+static int pim_iface_vif_index = 0;
 
-int
+static int
 pim_iface_next_vif_index (struct interface *ifp)
 {
   /*
