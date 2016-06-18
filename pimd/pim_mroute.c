@@ -23,6 +23,7 @@
 #include <zebra.h>
 #include "log.h"
 #include "privs.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -449,8 +450,9 @@ int pim_mroute_socket_disable()
   would be used for multicast forwarding, a corresponding multicast
   interface must be added to the kernel.
  */
-int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr, unsigned char flags)
+int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned char flags)
 {
+  struct pim_interface *pim_ifp = ifp->info;
   struct vifctl vc;
   int err;
 
@@ -461,8 +463,8 @@ int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr, unsigned char flags
   }
 
   memset(&vc, 0, sizeof(vc));
-  vc.vifc_vifi = vif_index;
-  vc.vifc_lcl_ifindex = vif_index;
+  vc.vifc_vifi = pim_ifp->mroute_vif_index;
+  vc.vifc_lcl_ifindex = ifp->ifindex;
   vc.vifc_flags = flags;
   vc.vifc_threshold = PIM_MROUTE_MIN_TTL;
   vc.vifc_rate_limit = 0;
@@ -482,7 +484,7 @@ int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr, unsigned char flags
 
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
 	      __FILE__, __PRETTY_FUNCTION__,
-	      qpim_mroute_socket_fd, vif_index, ifaddr_str, flags,
+	      qpim_mroute_socket_fd, ifp->ifindex, ifaddr_str, flags,
 	      e, safe_strerror(e));
     errno = e;
     return -2;

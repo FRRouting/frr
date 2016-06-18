@@ -607,6 +607,22 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
   return find_first_nonsec_addr(ifp);
 }
 
+static pim_iface_vif_index = 0;
+
+int
+pim_iface_next_vif_index (struct interface *ifp)
+{
+  /*
+   * The pimreg vif is always going to be in index 0
+   * of the table.
+   */
+  if (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF)
+    return 0;
+
+  pim_iface_vif_index++;
+  return pim_iface_vif_index;
+}
+
 /*
   pim_if_add_vif() uses ifindex as vif_index
 
@@ -634,13 +650,6 @@ int pim_if_add_vif(struct interface *ifp)
     return -2;
   }
 
-  if (ifp->ifindex >= MAXVIFS) {
-    zlog_warn("%s: ifindex=%d >= MAXVIFS=%d on interface %s",
-	      __PRETTY_FUNCTION__,
-	      ifp->ifindex, MAXVIFS, ifp->name);
-    return -3;
-  }
-
   ifaddr = pim_ifp->primary_address;
   if (ifp->ifindex != PIM_OIF_PIM_REGISTER_VIF && PIM_INADDR_IS_ANY(ifaddr)) {
     zlog_warn("%s: could not get address for interface %s ifindex=%d",
@@ -649,13 +658,22 @@ int pim_if_add_vif(struct interface *ifp)
     return -4;
   }
 
-  flags = (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF) ? VIFF_REGISTER : VIFF_USE_IFINDEX;
-  if (pim_mroute_add_vif(ifp->ifindex, ifaddr, flags)) {
+  pim_ifp->mroute_vif_index = pim_iface_next_vif_index (ifp);
+
+  if (pim_ifp->mroute_vif_index >= MAXVIFS)
+    {
+      zlog_warn("%s: Attempting to configure more than MAXVIFS=%d on pim enabled interface %s",
+		__PRETTY_FUNCTION__,
+		MAXVIFS, ifp->name);
+      return -3;
+    }
+
+  flags = (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF) ?
+    VIFF_REGISTER : VIFF_USE_IFINDEX;
+  if (pim_mroute_add_vif(ifp, ifaddr, flags)) {
     /* pim_mroute_add_vif reported error */
     return -5;
   }
-
-  pim_ifp->mroute_vif_index = ifp->ifindex;
 
   /*
     Update highest vif_index

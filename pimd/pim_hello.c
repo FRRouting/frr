@@ -23,6 +23,7 @@
 #include <zebra.h>
 
 #include "log.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_pim.h"

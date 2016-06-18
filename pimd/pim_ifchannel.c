@@ -25,6 +25,7 @@
 #include "linklist.h"
 #include "thread.h"
 #include "memory.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_str.h"

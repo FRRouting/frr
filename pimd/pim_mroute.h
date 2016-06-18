@@ -166,7 +166,7 @@ struct igmpmsg
 int pim_mroute_socket_enable(void);
 int pim_mroute_socket_disable(void);
 
-int pim_mroute_add_vif(int vif_index, struct in_addr ifaddr, unsigned char flags);
+int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned char flags);
 int pim_mroute_del_vif(int vif_index);
 
 int pim_mroute_add(struct mfcctl *mc);

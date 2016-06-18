@@ -25,6 +25,7 @@
 #include "log.h"
 #include "memory.h"
 #include "linklist.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_oil.h"

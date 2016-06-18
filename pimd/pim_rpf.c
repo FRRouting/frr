@@ -22,6 +22,8 @@
 
 #include <zebra.h>
 
+#include "if.h"
+
 #include "log.h"
 #include "prefix.h"
 #include "memory.h"

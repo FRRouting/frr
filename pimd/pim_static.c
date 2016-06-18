@@ -23,6 +23,7 @@
 #include <zebra.h>
 
 #include "vty.h"
+#include "if.h"
 
 #include "pim_static.h"
 #include "pim_time.h"

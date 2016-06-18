@@ -22,6 +22,7 @@
 
 #include "log.h"
 #include "network.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_str.h"

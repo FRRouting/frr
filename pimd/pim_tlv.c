@@ -24,6 +24,7 @@
 
 #include "log.h"
 #include "prefix.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_int.h"

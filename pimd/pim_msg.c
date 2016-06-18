@@ -22,6 +22,8 @@
 
 #include <zebra.h>
 
+#include "if.h"
+
 #include "pimd.h"
 #include "pim_pim.h"
 #include "pim_msg.h"

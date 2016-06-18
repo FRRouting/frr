@@ -21,6 +21,7 @@
  */
 #include <zebra.h>
 
+#include "if.h"
 #include "routemap.h"
 
 #include "pimd.h"

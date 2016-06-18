@@ -25,6 +25,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "memory.h"
+#include "if.h"
 
 #include "pimd.h"
 #include "pim_neighbor.h"
