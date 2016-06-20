@@ -204,6 +204,7 @@ struct zebra_if
 
 #if defined(HAVE_RTADV)
   struct rtadvconf rtadv;
+  unsigned int ra_sent, ra_rcvd;
 #endif /* HAVE_RTADV */
 
 #ifdef HAVE_IRDP

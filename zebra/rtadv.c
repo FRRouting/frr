@@ -69,6 +69,20 @@ static void rtadv_event (struct zebra_ns *, enum rtadv_event, int);
 static int if_join_all_router (int, struct interface *);
 static int if_leave_all_router (int, struct interface *);
 
+static int rtadv_increment_received(unsigned int *ifindex) {
+  int ret = -1;
+  struct interface *iface;
+  struct zebra_if *zif;
+
+  iface = if_lookup_by_index_vrf(*ifindex, VRF_DEFAULT);
+  if (iface && iface->info) {
+    zif = iface->info;
+    zif->ra_rcvd++;
+    ret = 0;
+  }
+  return ret;
+}
+
 static int
 rtadv_recv_packet (int sock, u_char *buf, int buflen,
 		   struct sockaddr_in6 *from, unsigned int *ifindex,
@@ -119,6 +133,10 @@ rtadv_recv_packet (int sock, u_char *buf, int buflen,
 	  *hoplimit = *hoptr;
 	}
     }
+
+  if(rtadv_increment_received(ifindex) < 0)
+    zlog_err("%s: could not increment RA received counter", __func__);
+
   return ret;
 }
 
@@ -367,6 +385,8 @@ rtadv_send_packet (int sock, struct interface *ifp)
       zlog_err ("%s(%u): Tx RA failed, socket %u error %d (%s)",
                 ifp->name, ifp->ifindex, sock, errno, safe_strerror(errno));
     }
+  else
+    zif->ra_sent++;
 }
 
 static int

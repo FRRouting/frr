@@ -933,6 +933,8 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 	       rtadv->AdvReachableTime, VTY_NEWLINE);
       vty_out (vty, "  ND advertised retransmit interval is %d milliseconds%s",
 	       rtadv->AdvRetransTimer, VTY_NEWLINE);
+      vty_out (vty, "  ND router advertisements sent: %d rcvd: %d%s",
+	       zif->ra_sent, zif->ra_rcvd, VTY_NEWLINE);
       interval = rtadv->MaxRtrAdvInterval;
       if (interval % 1000)
         vty_out (vty, "  ND router advertisements are sent every "
