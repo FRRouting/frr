@@ -112,8 +112,8 @@ DEFUN (debug_zebra_packet,
        "Debug option set for zebra packet\n")
 {
   zebra_debug_packet = ZEBRA_DEBUG_PACKET;
-  zebra_debug_packet |= ZEBRA_DEBUG_SEND;
-  zebra_debug_packet |= ZEBRA_DEBUG_RECV;
+  SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
+  SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
   return CMD_SUCCESS;
 }
 
@@ -128,11 +128,11 @@ DEFUN (debug_zebra_packet_direct,
 {
   zebra_debug_packet = ZEBRA_DEBUG_PACKET;
   if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
-    zebra_debug_packet |= ZEBRA_DEBUG_SEND;
+    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
   if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
-    zebra_debug_packet |= ZEBRA_DEBUG_RECV;
+    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
   if (strncmp ("detail", argv[0], strlen (argv[0])) == 0)
-    zebra_debug_packet |= ZEBRA_DEBUG_DETAIL;
+    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
   return CMD_SUCCESS;
 }
 
@@ -148,10 +148,10 @@ DEFUN (debug_zebra_packet_detail,
 {
   zebra_debug_packet = ZEBRA_DEBUG_PACKET;
   if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
-    zebra_debug_packet |= ZEBRA_DEBUG_SEND;
+    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
   if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
-    zebra_debug_packet |= ZEBRA_DEBUG_RECV;
-  zebra_debug_packet |= ZEBRA_DEBUG_DETAIL;
+    SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
+  SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
   return CMD_SUCCESS;
 }
 
@@ -247,9 +247,9 @@ DEFUN (no_debug_zebra_packet_direct,
        "Debug option set for send packet\n")
 {
   if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
-    zebra_debug_packet &= ~ZEBRA_DEBUG_SEND;
+    UNSET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
   if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
-    zebra_debug_packet &= ~ZEBRA_DEBUG_RECV;
+    UNSET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
   return CMD_SUCCESS;
 }
 
