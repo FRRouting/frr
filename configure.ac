@@ -304,6 +304,8 @@ AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
 [  --enable-cumulus     enable Cumulus Switch Special Extensions])
+AC_ARG_ENABLE(rr-semantics,
+  AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 
 if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
@@ -344,6 +346,10 @@ case "${enable_systemd}" in
   ;;
   "*") ;;
 esac
+
+if test "${enable_rr_semantics}" != "no" ; then
+  AC_DEFINE(HAVE_V6_RR_SEMANTICS,, Compile in v6 Route Replacement Semantics)
+fi
 
 if test "${enable_poll}" = "yes" ; then
   AC_DEFINE(HAVE_POLL,,Compile systemd support in)

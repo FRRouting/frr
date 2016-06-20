@@ -2390,7 +2390,12 @@ kernel_add_ipv6 (struct prefix *p, struct rib *rib)
 int
 kernel_update_ipv6 (struct prefix *p, struct rib *rib)
 {
+#if defined (HAVE_V6_RR_SEMANTICS)
   return netlink_route_multipath (RTM_NEWROUTE, p, rib, AF_INET6, 1);
+#else
+  kernel_delete_ipv6 (p, rib);
+  return kernel_add_ipv6 (p, rib);
+#endif
 }
 
 int
