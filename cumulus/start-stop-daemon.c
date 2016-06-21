@@ -107,7 +107,7 @@ LIST_HEAD(namespace_head, namespace);
 
 struct namespace {
 	LIST_ENTRY(namespace) list;
-	char *path;
+	const char *path;
 	int nstype;
 };
 
@@ -222,12 +222,12 @@ clear(struct pid_list **list)
 	*list = NULL;
 }
 
-static char *
+static const char *
 next_dirname(const char *s)
 {
-	char *cur;
+	const char *cur;
 
-	cur = (char *)s;
+	cur = (const char *)s;
 
 	if (*cur != '\0') {
 		for (; *cur != '/'; ++cur)
@@ -248,7 +248,7 @@ add_namespace(const char *path)
 	const char *nsdirname, *nsname, *cur;
 	struct namespace *namespace;
 
-	cur = (char *)path;
+	cur = (const char *)path;
 	nsdirname = nsname = "";
 
 	while ((cur = next_dirname(cur))[0] != '\0') {
@@ -266,7 +266,7 @@ add_namespace(const char *path)
 		badusage("invalid namepspace path");
 
 	namespace = xmalloc(sizeof(*namespace));
-	namespace->path = (char *)path;
+	namespace->path = (const char *)path;
 	namespace->nstype = nstype;
 	LIST_INSERT_HEAD(&namespace_head, namespace, list);
 }
