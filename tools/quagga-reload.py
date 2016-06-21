@@ -567,7 +567,11 @@ def compare_context_objects(newconf, running):
         if running_ctx_keys not in newconf.contexts:
 
             # Check if bgp's local ASN has changed. If yes, just restart it
-            if "router bgp" in running_ctx_keys[0]:
+            # We check that the len is 1 here so that we only look at ('router bgp 10')
+            # and not ('router bgp 10', 'address-family ipv4 unicast'). The
+            # latter could cause a false restart_bgpd positive if ipv4 unicast is in
+            # running but not in newconf.
+            if "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) == 1:
                 restart_bgpd = True
                 continue
 
