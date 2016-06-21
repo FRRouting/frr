@@ -34,6 +34,7 @@
 #include "filter.h"
 #include "plist.h"
 #include "log.h"
+#include "lib/bfd.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -1557,6 +1558,9 @@ ospf_distance_apply (struct prefix_ipv4 *p, struct ospf_route *or)
 static void
 ospf_zebra_connected (struct zclient *zclient)
 {
+  /* Send the client registration */
+  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+
   zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
 

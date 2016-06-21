@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "queue.h"
 #include "memory.h"
 #include "lib/json.h"
+#include "lib/bfd.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -43,7 +44,6 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
-#include "bgpd/bgp_bfd.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -2052,6 +2052,9 @@ bgp_zebra_connected (struct zclient *zclient)
     return;
 
   bgp_zebra_instance_register (bgp);
+
+  /* Send the client registration */
+  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
   /* TODO - What if we have peers and networks configured, do we have to
    * kick-start them?

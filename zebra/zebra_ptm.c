@@ -131,11 +131,13 @@ zebra_ptm_init (void)
 void
 zebra_ptm_finish(void)
 {
-  if (ptm_cb.ptm_sock != -1)
-    close(ptm_cb.ptm_sock);
+  int proto;
 
-  if (ptm_cb.wb)
-    buffer_free(ptm_cb.wb);
+  for (proto = 0; proto < ZEBRA_ROUTE_MAX; proto++)
+    if (CHECK_FLAG(ptm_cb.client_flags[proto], ZEBRA_PTM_BFD_CLIENT_FLAG_REG))
+      zebra_ptm_bfd_client_deregister(proto);
+
+  buffer_flush_all(ptm_cb.wb, ptm_cb.ptm_sock);
 
   if (ptm_cb.out_data)
     free(ptm_cb.out_data);
@@ -150,6 +152,12 @@ zebra_ptm_finish(void)
     thread_cancel (ptm_cb.t_write);
   if (ptm_cb.t_timer)
     thread_cancel (ptm_cb.t_timer);
+
+  if (ptm_cb.wb)
+    buffer_free(ptm_cb.wb);
+
+  if (ptm_cb.ptm_sock != -1)
+    close(ptm_cb.ptm_sock);
 }
 
 static int
@@ -999,24 +1007,26 @@ zebra_ptm_bfd_client_register (struct zserv *client, int sock, u_short length)
     zlog_debug ("%s: Sent message (%d) %s", __func__, data_len,
                   ptm_cb.out_data);
   zebra_ptm_send_message(ptm_cb.out_data, data_len);
+
+  SET_FLAG(ptm_cb.client_flags[client->proto], ZEBRA_PTM_BFD_CLIENT_FLAG_REG);
   return 0;
 }
 
 /* BFD client deregister */
 void
-zebra_ptm_bfd_client_deregister (struct zserv *client)
+zebra_ptm_bfd_client_deregister (int proto)
 {
   void *out_ctxt;
   char tmp_buf[64];
   int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 
-  if (client->proto != ZEBRA_ROUTE_OSPF && client->proto != ZEBRA_ROUTE_BGP
-      && client->proto != ZEBRA_ROUTE_OSPF6)
+  if (proto != ZEBRA_ROUTE_OSPF && proto != ZEBRA_ROUTE_BGP
+      && proto != ZEBRA_ROUTE_OSPF6)
     return;
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_debug("bfd_client_deregister msg for client %s",
-                zebra_route_string(client->proto));
+    zlog_err("bfd_client_deregister msg for client %s",
+                zebra_route_string(proto));
 
   if (ptm_cb.ptm_sock == -1)
     {
@@ -1030,7 +1040,7 @@ zebra_ptm_bfd_client_deregister (struct zserv *client)
   sprintf(tmp_buf, "%s", ZEBRA_PTM_BFD_CLIENT_DEREG_CMD);
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_CMD_STR, tmp_buf);
 
-  sprintf(tmp_buf, "%s", zebra_route_string(client->proto));
+  sprintf(tmp_buf, "%s", zebra_route_string(proto));
   ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
                       tmp_buf);
 
@@ -1039,7 +1049,9 @@ zebra_ptm_bfd_client_deregister (struct zserv *client)
   if (IS_ZEBRA_DEBUG_SEND)
     zlog_debug ("%s: Sent message (%d) %s", __func__, data_len,
                   ptm_cb.out_data);
+
   zebra_ptm_send_message(ptm_cb.out_data, data_len);
+  UNSET_FLAG(ptm_cb.client_flags[proto], ZEBRA_PTM_BFD_CLIENT_FLAG_REG);
 }
 
 int

@@ -711,7 +711,4 @@ bgp_bfd_init(void)
   install_element (BGP_NODE, &no_neighbor_bfd_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_val_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_type_cmd);
-
-  /* Send the client registration */
-  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 }
