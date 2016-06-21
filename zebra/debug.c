@@ -67,6 +67,10 @@ DEFUN (show_debugging_zebra,
 
   if (IS_ZEBRA_DEBUG_KERNEL)
     vty_out (vty, "  Zebra kernel debugging is on%s", VTY_NEWLINE);
+  if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
+    vty_out (vty, "  Zebra kernel netlink message dumps (send) are on%s", VTY_NEWLINE);
+  if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
+    vty_out (vty, "  Zebra kernel netlink message dumps (recv) are on%s", VTY_NEWLINE);
 
   /* Check here using flags as the 'macro' does an OR */
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB))
@@ -162,7 +166,24 @@ DEFUN (debug_zebra_kernel,
        "Zebra configuration\n"
        "Debug option set for zebra between kernel interface\n")
 {
-  zebra_debug_kernel = ZEBRA_DEBUG_KERNEL;
+  SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
+  return CMD_SUCCESS;
+}
+
+DEFUN (debug_zebra_kernel_msgdump,
+       debug_zebra_kernel_msgdump_cmd,
+       "debug zebra kernel msgdump {recv|send}",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug option set for zebra between kernel interface\n"
+       "Dump raw netlink messages, sent and received\n"
+       "Dump raw netlink messages received\n"
+       "Dump raw netlink messages sent\n")
+{
+  if (!argv[1] || (argv[0] && strncmp(argv[0], "recv", strlen(argv[0])) == 0))
+    SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+  if (!argv[0] || (argv[1] && strncmp(argv[1], "send", strlen(argv[1])) == 0))
+    SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
   return CMD_SUCCESS;
 }
 
@@ -261,7 +282,24 @@ DEFUN (no_debug_zebra_kernel,
        "Zebra configuration\n"
        "Debug option set for zebra between kernel interface\n")
 {
-  zebra_debug_kernel = 0;
+  UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_zebra_kernel_msgdump,
+       no_debug_zebra_kernel_msgdump_cmd,
+       "no debug zebra kernel msgdump {recv|send}",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug option set for zebra between kernel interface\n"
+       "Dump raw netlink messages, sent and received\n"
+       "Dump raw netlink messages received\n"
+       "Dump raw netlink messages sent\n")
+{
+  if (!argv[1] || (argv[0] && strncmp(argv[0], "recv", strlen(argv[0])) == 0))
+    UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+  if (!argv[0] || (argv[1] && strncmp(argv[1], "send", strlen(argv[1])) == 0))
+    UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
   return CMD_SUCCESS;
 }
 
@@ -386,6 +424,7 @@ zebra_debug_init (void)
   install_element (ENABLE_NODE, &debug_zebra_packet_direct_cmd);
   install_element (ENABLE_NODE, &debug_zebra_packet_detail_cmd);
   install_element (ENABLE_NODE, &debug_zebra_kernel_cmd);
+  install_element (ENABLE_NODE, &debug_zebra_kernel_msgdump_cmd);
   install_element (ENABLE_NODE, &debug_zebra_rib_cmd);
   install_element (ENABLE_NODE, &debug_zebra_rib_detailed_cmd);
   install_element (ENABLE_NODE, &debug_zebra_fpm_cmd);
@@ -393,6 +432,7 @@ zebra_debug_init (void)
   install_element (ENABLE_NODE, &no_debug_zebra_nht_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_packet_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_kernel_cmd);
+  install_element (ENABLE_NODE, &no_debug_zebra_kernel_msgdump_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_rib_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_rib_detailed_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_fpm_cmd);
@@ -403,6 +443,7 @@ zebra_debug_init (void)
   install_element (CONFIG_NODE, &debug_zebra_packet_direct_cmd);
   install_element (CONFIG_NODE, &debug_zebra_packet_detail_cmd);
   install_element (CONFIG_NODE, &debug_zebra_kernel_cmd);
+  install_element (CONFIG_NODE, &debug_zebra_kernel_msgdump_cmd);
   install_element (CONFIG_NODE, &debug_zebra_rib_cmd);
   install_element (CONFIG_NODE, &debug_zebra_rib_detailed_cmd);
   install_element (CONFIG_NODE, &debug_zebra_fpm_cmd);
@@ -410,6 +451,7 @@ zebra_debug_init (void)
   install_element (CONFIG_NODE, &no_debug_zebra_nht_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_packet_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_kernel_cmd);
+  install_element (CONFIG_NODE, &no_debug_zebra_kernel_msgdump_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_rib_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_rib_detailed_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_fpm_cmd);

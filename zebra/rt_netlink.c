@@ -349,6 +349,12 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
           return -1;
         }
 
+      if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
+        {
+          zlog_debug("%s: << netlink message dump [recv]", __func__);
+          zlog_hexdump(&msg, sizeof(msg));
+        }
+
       read_in++;
       for (h = (struct nlmsghdr *) buf; NLMSG_OK (h, (unsigned int) status);
            h = NLMSG_NEXT (h, status))
@@ -378,9 +384,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
                   /* return if not a multipart message, otherwise continue */
                   if (!(h->nlmsg_flags & NLM_F_MULTI))
-                    {
-                      return 0;
-                    }
+                    return 0;
                   continue;
                 }
 
@@ -1649,6 +1653,12 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
   save_errno = errno;
   if (zserv_privs.change (ZPRIVS_LOWER))
     zlog (NULL, LOG_ERR, "Can't lower privileges");
+
+  if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
+    {
+      zlog_debug("%s: >> netlink message dump [sent]", __func__);
+      zlog_hexdump(&msg, sizeof(msg));
+    }
 
   if (status < 0)
     {
