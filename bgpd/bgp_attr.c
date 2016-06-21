@@ -1947,7 +1947,7 @@ bgp_attr_encap(
 
   while (length >= 4) {
     uint16_t	subtype;
-    uint16_t	sublength;
+    uint16_t	sublength = 0;
     struct bgp_attr_encap_subtlv *tlv;
 
     if (BGP_ATTR_ENCAP == type) {
