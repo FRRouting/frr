@@ -135,7 +135,8 @@ rtadv_recv_packet (int sock, u_char *buf, int buflen,
     }
 
   if(rtadv_increment_received(ifindex) < 0)
-    zlog_err("%s: could not increment RA received counter", __func__);
+    zlog_err("%s: could not increment RA received counter on ifindex %d",
+             __func__, *ifindex);
 
   return ret;
 }
