@@ -196,8 +196,8 @@ pim_register_recv (struct interface *ifp,
   ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_LEN);
   //hlen = (ip_hdr->ip_hl << 2) | PIM_MSG_REGISTER_LEN;
   //msg = (uint8_t *)tlv_buf + hlen;
-  source = ip_hdr->ip_src;
-  group = ip_hdr->ip_dst;
+  group = ip_hdr->ip_src;
+  source = ip_hdr->ip_dst;
 
   if (I_am_RP (group) && (dest_addr.s_addr == ((RP (group))->rpf_addr.s_addr))) {
     sentRegisterStop = 0;
