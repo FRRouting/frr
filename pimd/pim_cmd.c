@@ -52,6 +52,7 @@
 #include "pim_ssmpingd.h"
 #include "pim_zebra.h"
 #include "pim_static.h"
+#include "pim_rp.h"
 
 static struct cmd_node pim_global_node = {
   PIM_NODE,
@@ -3230,6 +3231,7 @@ static int
 pim_cmd_interface_add (struct interface *ifp, enum pim_interface_type itype)
 {
   struct pim_interface *pim_ifp = ifp->info;
+  struct in_addr null = { .s_addr = 0 };
 
   if (!pim_ifp) {
     pim_ifp = pim_if_new(ifp, 0 /* igmp=false */, 1 /* pim=true */);
@@ -3245,6 +3247,7 @@ pim_cmd_interface_add (struct interface *ifp, enum pim_interface_type itype)
   pim_if_addr_add_all(ifp);
   pim_if_membership_refresh(ifp);
 
+  pim_rp_check_rp (null, pim_ifp->primary_address);
   return 1;
 }
 
