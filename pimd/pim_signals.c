@@ -57,7 +57,6 @@ static void pim_sigterm()
 
 static void pim_sigusr1()
 {
-  zlog_info ("SIGUSR1 received");
   zlog_rotate (NULL);
 }
 
