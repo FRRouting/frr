@@ -26,6 +26,7 @@
 #include "openbsd-tree.h"
 #include "imsg.h"
 #include "thread.h"
+#include "qobj.h"
 
 #include "ldp.h"
 
@@ -272,7 +273,9 @@ struct iface {
 	uint16_t		 flags;
 	struct iface_af		 ipv4;
 	struct iface_af		 ipv6;
+	QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(iface)
 
 /* source of targeted hellos */
 struct tnbr {
@@ -284,7 +287,9 @@ struct tnbr {
 	int			 state;
 	uint16_t		 pw_count;
 	uint8_t			 flags;
+	QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(tnbr)
 #define F_TNBR_CONFIGURED	 0x01
 #define F_TNBR_DYNAMIC		 0x02
 
@@ -306,7 +311,9 @@ struct nbr_params {
 		uint8_t			 md5key_len;
 	} auth;
 	uint8_t			 flags;
+	QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(nbr_params)
 #define F_NBRP_KEEPALIVE	 0x01
 #define F_NBRP_GTSM		 0x02
 #define F_NBRP_GTSM_HOPS	 0x04
@@ -317,7 +324,9 @@ struct l2vpn_if {
 	char			 ifname[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	uint16_t		 flags;
+	QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(l2vpn_if)
 
 struct l2vpn_pw {
 	LIST_ENTRY(l2vpn_pw)	 entry;
@@ -332,7 +341,9 @@ struct l2vpn_pw {
 	uint16_t		 remote_mtu;
 	uint32_t		 remote_status;
 	uint8_t			 flags;
+	QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(l2vpn_pw)
 #define F_PW_STATUSTLV_CONF	0x01	/* status tlv configured */
 #define F_PW_STATUSTLV		0x02	/* status tlv negotiated */
 #define F_PW_CWORD_CONF		0x04	/* control word configured */
@@ -351,7 +362,9 @@ struct l2vpn {
 	LIST_HEAD(, l2vpn_if)	 if_list;
 	LIST_HEAD(, l2vpn_pw)	 pw_list;
 	LIST_HEAD(, l2vpn_pw)	 pw_inactive_list;
+	QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(l2vpn)
 #define L2VPN_TYPE_VPWS		1
 #define L2VPN_TYPE_VPLS		2
 
@@ -401,7 +414,9 @@ struct ldpd_conf {
 	uint16_t		 thello_interval;
 	uint16_t		 trans_pref;
 	int			 flags;
+	QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(ldpd_conf)
 #define	F_LDPD_NO_FIB_UPDATE	0x0001
 #define	F_LDPD_DS_CISCO_INTEROP	0x0002
 #define	F_LDPD_ENABLED		0x0004
