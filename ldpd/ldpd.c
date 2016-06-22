@@ -50,19 +50,20 @@ static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
 static void		 main_imsg_send_net_sockets(int);
 static void		 main_imsg_send_net_socket(int, enum socket_type);
 static int		 main_imsg_send_config(struct ldpd_conf *);
-static void		 ldp_config_normalize(struct ldpd_conf *);
-static void		 ldp_config_reset_main(struct ldpd_conf *);
-static void		 ldp_config_reset_af(struct ldpd_conf *, int);
+static void		 ldp_config_normalize(struct ldpd_conf *, void **);
+static void		 ldp_config_reset_main(struct ldpd_conf *, void **);
+static void		 ldp_config_reset_af(struct ldpd_conf *, int, void **);
+static void		 merge_config_ref(struct ldpd_conf *, struct ldpd_conf *, void **);
 static void		 merge_global(struct ldpd_conf *, struct ldpd_conf *);
 static void		 merge_af(int, struct ldpd_af_conf *,
 			    struct ldpd_af_conf *);
-static void		 merge_ifaces(struct ldpd_conf *, struct ldpd_conf *);
+static void		 merge_ifaces(struct ldpd_conf *, struct ldpd_conf *, void **);
 static void		 merge_iface_af(struct iface_af *, struct iface_af *);
-static void		 merge_tnbrs(struct ldpd_conf *, struct ldpd_conf *);
-static void		 merge_nbrps(struct ldpd_conf *, struct ldpd_conf *);
-static void		 merge_l2vpns(struct ldpd_conf *, struct ldpd_conf *);
+static void		 merge_tnbrs(struct ldpd_conf *, struct ldpd_conf *, void **);
+static void		 merge_nbrps(struct ldpd_conf *, struct ldpd_conf *, void **);
+static void		 merge_l2vpns(struct ldpd_conf *, struct ldpd_conf *, void **);
 static void		 merge_l2vpn(struct ldpd_conf *, struct l2vpn *,
-			    struct l2vpn *);
+			    struct l2vpn *, void **);
 
 struct ldpd_global	 global;
 struct ldpd_conf	*ldpd_conf;
@@ -320,7 +321,7 @@ main(int argc, char *argv[])
 
 	/* Get configuration file. */
 	ldpd_conf = config_new_empty();
-	ldp_config_reset_main(ldpd_conf);
+	ldp_config_reset_main(ldpd_conf, NULL);
 	vty_read_config(config_file, config_default);
 
 	/* Start execution only if not in dry-run mode */
@@ -884,31 +885,37 @@ main_imsg_send_config(struct ldpd_conf *xconf)
 }
 
 int
-ldp_reload(struct ldpd_conf *xconf)
+ldp_reload_ref(struct ldpd_conf *xconf, void **ref)
 {
-	ldp_config_normalize(xconf);
+	ldp_config_normalize(xconf, ref);
 
 	if (main_imsg_send_config(xconf) == -1)
 		return (-1);
 
-	merge_config(ldpd_conf, xconf);
+	merge_config_ref(ldpd_conf, xconf, ref);
 
 	return (0);
 }
 
+int
+ldp_reload(struct ldpd_conf *xconf)
+{
+	return ldp_reload_ref(xconf, NULL);
+}
+
 static void
-ldp_config_normalize(struct ldpd_conf *xconf)
+ldp_config_normalize(struct ldpd_conf *xconf, void **ref)
 {
 	struct l2vpn		*l2vpn;
 	struct l2vpn_pw		*pw;
 
 	if (!(xconf->flags & F_LDPD_ENABLED))
-		ldp_config_reset_main(xconf);
+		ldp_config_reset_main(xconf, ref);
 	else {
 		if (!(xconf->ipv4.flags & F_LDPD_AF_ENABLED))
-			ldp_config_reset_af(xconf, AF_INET);
+			ldp_config_reset_af(xconf, AF_INET, ref);
 		if (!(xconf->ipv6.flags & F_LDPD_AF_ENABLED))
-			ldp_config_reset_af(xconf, AF_INET6);
+			ldp_config_reset_af(xconf, AF_INET6, ref);
 	}
 
 	LIST_FOREACH(l2vpn, &xconf->l2vpn_list, entry) {
@@ -930,24 +937,28 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 }
 
 static void
-ldp_config_reset_main(struct ldpd_conf *conf)
+ldp_config_reset_main(struct ldpd_conf *conf, void **ref)
 {
 	struct iface		*iface;
 	struct nbr_params	*nbrp;
 
 	while ((iface = LIST_FIRST(&conf->iface_list)) != NULL) {
+		if (ref && *ref == iface)
+			*ref = NULL;
 		LIST_REMOVE(iface, entry);
 		free(iface);
 	}
 
 	while ((nbrp = LIST_FIRST(&conf->nbrp_list)) != NULL) {
+		if (ref && *ref == nbrp)
+			*ref = NULL;
 		LIST_REMOVE(nbrp, entry);
 		free(nbrp);
 	}
 
 	conf->rtr_id.s_addr = INADDR_ANY;
-	ldp_config_reset_af(conf, AF_INET);
-	ldp_config_reset_af(conf, AF_INET6);
+	ldp_config_reset_af(conf, AF_INET, ref);
+	ldp_config_reset_af(conf, AF_INET6, ref);
 	conf->lhello_holdtime = LINK_DFLT_HOLDTIME;
 	conf->lhello_interval = DEFAULT_HELLO_INTERVAL;
 	conf->thello_holdtime = TARGETED_DFLT_HOLDTIME;
@@ -957,7 +968,7 @@ ldp_config_reset_main(struct ldpd_conf *conf)
 }
 
 static void
-ldp_config_reset_af(struct ldpd_conf *conf, int af)
+ldp_config_reset_af(struct ldpd_conf *conf, int af, void **ref)
 {
 	struct ldpd_af_conf	*af_conf;
 	struct iface		*iface;
@@ -973,6 +984,8 @@ ldp_config_reset_af(struct ldpd_conf *conf, int af)
 		if (tnbr->af != af)
 			continue;
 
+		if (ref && *ref == tnbr)
+			*ref = NULL;
 		LIST_REMOVE(tnbr, entry);
 		free(tnbr);
 	}
@@ -988,7 +1001,7 @@ ldp_config_reset_af(struct ldpd_conf *conf, int af)
 }
 
 struct ldpd_conf *
-ldp_dup_config(struct ldpd_conf *conf)
+ldp_dup_config_ref(struct ldpd_conf *conf, void **ref)
 {
 	struct ldpd_conf	*xconf;
 	struct iface		*iface, *xi;
@@ -998,73 +1011,66 @@ ldp_dup_config(struct ldpd_conf *conf)
 	struct l2vpn_if		*lif, *xf;
 	struct l2vpn_pw		*pw, *xp;
 
-	xconf = malloc(sizeof(*xconf));
-	*xconf = *conf;
+#define COPY(a, b) do { \
+		a = calloc(1, sizeof(*a)); \
+		if (a == NULL) \
+			fatal(__func__); \
+		*a = *b; \
+		if (ref && *ref == b) *ref = a; \
+	} while (0)
+
+	COPY(xconf, conf);
 	LIST_INIT(&xconf->iface_list);
 	LIST_INIT(&xconf->tnbr_list);
 	LIST_INIT(&xconf->nbrp_list);
 	LIST_INIT(&xconf->l2vpn_list);
 
 	LIST_FOREACH(iface, &conf->iface_list, entry) {
-		xi = calloc(1, sizeof(*xi));
-		if (xi == NULL)
-			fatal(__func__);
-		*xi = *iface;
+		COPY(xi, iface);
 		xi->ipv4.iface = xi;
 		xi->ipv6.iface = xi;
 		LIST_INSERT_HEAD(&xconf->iface_list, xi, entry);
 	}
 	LIST_FOREACH(tnbr, &conf->tnbr_list, entry) {
-		xt = calloc(1, sizeof(*xt));
-		if (xt == NULL)
-			fatal(__func__);
-		*xt = *tnbr;
+		COPY(xt, tnbr);
 		LIST_INSERT_HEAD(&xconf->tnbr_list, xt, entry);
 	}
 	LIST_FOREACH(nbrp, &conf->nbrp_list, entry) {
-		xn = calloc(1, sizeof(*xn));
-		if (xn == NULL)
-			fatal(__func__);
-		*xn = *nbrp;
+		COPY(xn, nbrp);
 		LIST_INSERT_HEAD(&xconf->nbrp_list, xn, entry);
 	}
 	LIST_FOREACH(l2vpn, &conf->l2vpn_list, entry) {
-		xl = calloc(1, sizeof(*xl));
-		if (xl == NULL)
-			fatal(__func__);
-		*xl = *l2vpn;
+		COPY(xl, l2vpn);
 		LIST_INIT(&xl->if_list);
 		LIST_INIT(&xl->pw_list);
 		LIST_INIT(&xl->pw_inactive_list);
 		LIST_INSERT_HEAD(&xconf->l2vpn_list, xl, entry);
 
 		LIST_FOREACH(lif, &l2vpn->if_list, entry) {
-			xf = calloc(1, sizeof(*xf));
-			if (xf == NULL)
-				fatal(__func__);
-			*xf = *lif;
+			COPY(xf, lif);
 			xf->l2vpn = xl;
 			LIST_INSERT_HEAD(&xl->if_list, xf, entry);
 		}
 		LIST_FOREACH(pw, &l2vpn->pw_list, entry) {
-			xp = calloc(1, sizeof(*xp));
-			if (xp == NULL)
-				fatal(__func__);
-			*xp = *pw;
+			COPY(xp, pw);
 			xp->l2vpn = xl;
 			LIST_INSERT_HEAD(&xl->pw_list, xp, entry);
 		}
 		LIST_FOREACH(pw, &l2vpn->pw_inactive_list, entry) {
-			xp = calloc(1, sizeof(*xp));
-			if (xp == NULL)
-				fatal(__func__);
-			*xp = *pw;
+			COPY(xp, pw);
 			xp->l2vpn = xl;
 			LIST_INSERT_HEAD(&xl->pw_inactive_list, xp, entry);
 		}
 	}
+#undef COPY
 
 	return (xconf);
+}
+
+struct ldpd_conf *
+ldp_dup_config(struct ldpd_conf *conf)
+{
+	return ldp_dup_config_ref(conf, NULL);
 }
 
 void
@@ -1095,17 +1101,25 @@ ldp_clear_config(struct ldpd_conf *xconf)
 	free(xconf);
 }
 
-void
-merge_config(struct ldpd_conf *conf, struct ldpd_conf *xconf)
+static void
+merge_config_ref(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 {
 	merge_global(conf, xconf);
 	merge_af(AF_INET, &conf->ipv4, &xconf->ipv4);
 	merge_af(AF_INET6, &conf->ipv6, &xconf->ipv6);
-	merge_ifaces(conf, xconf);
-	merge_tnbrs(conf, xconf);
-	merge_nbrps(conf, xconf);
-	merge_l2vpns(conf, xconf);
+	merge_ifaces(conf, xconf, ref);
+	merge_tnbrs(conf, xconf, ref);
+	merge_nbrps(conf, xconf, ref);
+	merge_l2vpns(conf, xconf, ref);
+	if (ref && *ref == xconf)
+		*ref = conf;
 	free(xconf);
+}
+
+void
+merge_config(struct ldpd_conf *conf, struct ldpd_conf *xconf)
+{
+	merge_config_ref(conf, xconf, NULL);
 }
 
 static void
@@ -1206,7 +1220,7 @@ merge_af(int af, struct ldpd_af_conf *af_conf, struct ldpd_af_conf *xa)
 }
 
 static void
-merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
+merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 {
 	struct iface		*iface, *itmp, *xi;
 
@@ -1235,6 +1249,8 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		merge_iface_af(&iface->ipv4, &xi->ipv4);
 		merge_iface_af(&iface->ipv6, &xi->ipv6);
 		LIST_REMOVE(xi, entry);
+		if (ref && *ref == xi)
+			*ref = iface;
 		free(xi);
 	}
 }
@@ -1252,7 +1268,7 @@ merge_iface_af(struct iface_af *ia, struct iface_af *xi)
 }
 
 static void
-merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf)
+merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 {
 	struct tnbr		*tnbr, *ttmp, *xt;
 
@@ -1286,12 +1302,14 @@ merge_tnbrs(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		if (!(tnbr->flags & F_TNBR_CONFIGURED))
 			tnbr->flags |= F_TNBR_CONFIGURED;
 		LIST_REMOVE(xt, entry);
+		if (ref && *ref == xt)
+			*ref = tnbr;
 		free(xt);
 	}
 }
 
 static void
-merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
+merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 {
 	struct nbr_params	*nbrp, *ntmp, *xn;
 	struct nbr		*nbr;
@@ -1385,12 +1403,14 @@ merge_nbrps(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 			}
 		}
 		LIST_REMOVE(xn, entry);
+		if (ref && *ref == xn)
+			*ref = nbrp;
 		free(xn);
 	}
 }
 
 static void
-merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
+merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf, void **ref)
 {
 	struct l2vpn		*l2vpn, *ltmp, *xl;
 
@@ -1432,14 +1452,16 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		}
 
 		/* update existing l2vpns */
-		merge_l2vpn(conf, l2vpn, xl);
+		merge_l2vpn(conf, l2vpn, xl, ref);
 		LIST_REMOVE(xl, entry);
+		if (ref && *ref == xl)
+			*ref = l2vpn;
 		free(xl);
 	}
 }
 
 static void
-merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
+merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl, void **ref)
 {
 	struct l2vpn_if		*lif, *ftmp, *xf;
 	struct l2vpn_pw		*pw, *ptmp, *xp;
@@ -1469,6 +1491,8 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 		}
 
 		LIST_REMOVE(xf, entry);
+		if (ref && *ref == xf)
+			*ref = lif;
 		free(xf);
 	}
 
@@ -1597,6 +1621,8 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 		}
 
 		LIST_REMOVE(xp, entry);
+		if (ref && *ref == xp)
+			*ref = pw;
 		free(xp);
 	}
 
@@ -1645,6 +1671,8 @@ merge_l2vpn(struct ldpd_conf *xconf, struct l2vpn *l2vpn, struct l2vpn *xl)
 		}
 
 		LIST_REMOVE(xp, entry);
+		if (ref && *ref == xp)
+			*ref = pw;
 		free(xp);
 	}
 
