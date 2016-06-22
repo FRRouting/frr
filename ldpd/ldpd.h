@@ -610,6 +610,26 @@ void			 merge_config(struct ldpd_conf *, struct ldpd_conf *);
 struct ldpd_conf	*config_new_empty(void);
 void			 config_clear(struct ldpd_conf *);
 
+/* ldp_vty_conf.c */
+/* NOTE: the parameters' names should be preserved because of codegen */
+struct iface		*iface_new_api(struct ldpd_conf *cfg,
+			    const char *name);
+void			 iface_del_api(struct iface *iface);
+struct tnbr		*tnbr_new_api(struct ldpd_conf *cfg, int af,
+			    union ldpd_addr *addr);
+void			 tnbr_del_api(struct tnbr *tnbr);
+struct nbr_params	*nbrp_new_api(struct ldpd_conf *cfg,
+			    struct in_addr lsr_id);
+void			 nbrp_del_api(struct nbr_params *nbrp);
+struct l2vpn		*l2vpn_new_api(struct ldpd_conf *cfg, const char *name);
+void			 l2vpn_del_api(struct l2vpn *l2vpn);
+struct l2vpn_if		*l2vpn_if_new_api(struct ldpd_conf *conf,
+			    struct l2vpn *l2vpn, const char *ifname);
+void			 l2vpn_if_del_api(struct l2vpn_if *lif);
+struct l2vpn_pw		*l2vpn_pw_new_api(struct ldpd_conf *conf,
+			    struct l2vpn *l2vpn, const char *ifname);
+void			 l2vpn_pw_del_api(struct l2vpn_pw *pw);
+
 /* socket.c */
 int		 ldp_create_socket(int, enum socket_type);
 void		 sock_set_nonblock(int);

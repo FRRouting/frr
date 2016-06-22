@@ -1637,3 +1637,177 @@ ldp_vty_if_init(void)
 	install_element(INTERFACE_NODE, &interface_desc_cmd);
 	install_element(INTERFACE_NODE, &no_interface_desc_cmd);
 }
+
+struct iface *
+iface_new_api(struct ldpd_conf *conf, const char *name)
+{
+	const char		*ifname = name;
+	struct iface		*iface;
+	struct interface	*ifp;
+	struct kif		 kif;
+
+	if (ldp_iface_is_configured(conf, ifname))
+		return NULL;
+
+	memset(&kif, 0, sizeof(kif));
+	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
+	ifp = if_lookup_by_name(ifname);
+	if (ifp) {
+		kif.ifindex = ifp->ifindex;
+		kif.flags = ifp->flags;
+	}
+
+	iface = if_new(&kif);
+	LIST_INSERT_HEAD(&conf->iface_list, iface, entry);
+	return (iface);
+}
+
+void
+iface_del_api(struct iface *iface)
+{
+	LIST_REMOVE(iface, entry);
+	free(iface);
+}
+
+struct tnbr *
+tnbr_new_api(struct ldpd_conf *conf, int af, union ldpd_addr *addr)
+{
+	struct tnbr		*tnbr;
+
+	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&addr->v6))
+		return (NULL);
+
+	if (tnbr_find(conf, af, addr))
+		return (NULL);
+
+	tnbr = tnbr_new(af, addr);
+	tnbr->flags |= F_TNBR_CONFIGURED;
+	LIST_INSERT_HEAD(&conf->tnbr_list, tnbr, entry);
+	return (tnbr);
+}
+
+void
+tnbr_del_api(struct tnbr *tnbr)
+{
+	LIST_REMOVE(tnbr, entry);
+	free(tnbr);
+}
+
+struct nbr_params *
+nbrp_new_api(struct ldpd_conf *conf, struct in_addr lsr_id)
+{
+	struct nbr_params	*nbrp;
+
+	if (nbr_params_find(conf, lsr_id))
+		return (NULL);
+
+	nbrp = nbr_params_new(lsr_id);
+	LIST_INSERT_HEAD(&conf->nbrp_list, nbrp, entry);
+	return (nbrp);
+}
+
+void
+nbrp_del_api(struct nbr_params *nbrp)
+{
+	LIST_REMOVE(nbrp, entry);
+	free(nbrp);
+}
+
+struct l2vpn *
+l2vpn_new_api(struct ldpd_conf *conf, const char *name)
+{
+	struct l2vpn		*l2vpn;
+
+	if (l2vpn_find(conf, name))
+		return (NULL);
+
+	l2vpn = l2vpn_new(name);
+	l2vpn->type = L2VPN_TYPE_VPLS;
+	LIST_INSERT_HEAD(&conf->l2vpn_list, l2vpn, entry);
+	return (l2vpn);
+}
+
+void
+l2vpn_del_api(struct l2vpn *l2vpn)
+{
+	struct l2vpn_if		*lif;
+	struct l2vpn_pw		*pw;
+
+	while ((lif = LIST_FIRST(&l2vpn->if_list)) != NULL) {
+		LIST_REMOVE(lif, entry);
+		free(lif);
+	}
+	while ((pw = LIST_FIRST(&l2vpn->pw_list)) != NULL) {
+		LIST_REMOVE(pw, entry);
+		free(pw);
+	}
+	while ((pw = LIST_FIRST(&l2vpn->pw_inactive_list)) != NULL) {
+		LIST_REMOVE(pw, entry);
+		free(pw);
+	}
+	LIST_REMOVE(l2vpn, entry);
+	free(l2vpn);
+}
+
+struct l2vpn_if *
+l2vpn_if_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
+    const char *ifname)
+{
+	struct l2vpn_if		*lif;
+	struct interface	*ifp;
+	struct kif		 kif;
+
+	if (ldp_iface_is_configured(conf, ifname))
+		return (NULL);
+
+	memset(&kif, 0, sizeof(kif));
+	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
+	ifp = if_lookup_by_name(ifname);
+	if (ifp) {
+		kif.ifindex = ifp->ifindex;
+		kif.flags = ifp->flags;
+	}
+
+	lif = l2vpn_if_new(l2vpn, &kif);
+	LIST_INSERT_HEAD(&l2vpn->if_list, lif, entry);
+	return (lif);
+}
+
+void
+l2vpn_if_del_api(struct l2vpn_if *lif)
+{
+	LIST_REMOVE(lif, entry);
+	free(lif);
+}
+
+struct l2vpn_pw *
+l2vpn_pw_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
+    const char *ifname)
+{
+	struct l2vpn_pw		*pw;
+	struct interface	*ifp;
+	struct kif		 kif;
+
+	if (ldp_iface_is_configured(conf, ifname))
+		return (NULL);
+
+	memset(&kif, 0, sizeof(kif));
+	strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
+	ifp = if_lookup_by_name(ifname);
+	if (ifp) {
+		kif.ifindex = ifp->ifindex;
+		kif.flags = ifp->flags;
+	}
+
+	pw = l2vpn_pw_new(l2vpn, &kif);
+	pw->flags = F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF;
+	LIST_INSERT_HEAD(&l2vpn->pw_inactive_list, pw, entry);
+	return (pw);
+}
+
+void
+l2vpn_pw_del_api(struct l2vpn_pw *pw)
+{
+	LIST_REMOVE(pw, entry);
+	free(pw);
+}
