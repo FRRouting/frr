@@ -934,7 +934,7 @@ static void igmp_read_on(struct igmp_sock *igmp)
 {
   zassert(igmp);
 
-  if (PIM_DEBUG_IGMP_TRACE) {
+  if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
     zlog_debug("Scheduling READ event on IGMP socket fd=%d",
 	       igmp->fd);
   }
@@ -1033,7 +1033,7 @@ static void sock_close(struct igmp_sock *igmp)
   pim_igmp_other_querier_timer_off(igmp);
   pim_igmp_general_query_off(igmp);
 
-  if (PIM_DEBUG_IGMP_TRACE) {
+  if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
     if (igmp->t_igmp_read) {
       zlog_debug("Cancelling READ event on IGMP socket %s fd=%d on interface %s",
 		 inet_ntoa(igmp->ifaddr), igmp->fd,
@@ -1049,7 +1049,7 @@ static void sock_close(struct igmp_sock *igmp)
 	     errno, safe_strerror(errno));
   }
   
-  if (PIM_DEBUG_IGMP_TRACE) {
+  if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
     zlog_debug("Deleted IGMP socket %s fd=%d on interface %s",
 	       inet_ntoa(igmp->ifaddr), igmp->fd, igmp->interface->name);
   }
