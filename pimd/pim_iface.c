@@ -772,6 +772,9 @@ struct interface *pim_if_find_by_vif_index(int vif_index)
   struct listnode  *ifnode;
   struct interface *ifp;
 
+  if (vif_index == 0)
+    return if_lookup_by_name_vrf ("pimreg", VRF_DEFAULT);
+
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
     if (ifp->info) {
       struct pim_interface *pim_ifp;
@@ -789,7 +792,15 @@ struct interface *pim_if_find_by_vif_index(int vif_index)
  */
 int pim_if_find_vifindex_by_ifindex(int ifindex)
 {
-  return ifindex;
+  struct pim_interface *pim_ifp;
+  struct interface *ifp;
+
+  ifp = if_lookup_by_index_vrf (ifindex, VRF_DEFAULT);
+  pim_ifp = ifp->info;
+  if (!pim_ifp)
+    return -1;
+
+  return pim_ifp->mroute_vif_index;
 }
 
 int pim_if_lan_delay_enabled(struct interface *ifp)

@@ -779,7 +779,7 @@ static int fib_lookup_if_vif_index(struct in_addr addr)
 
   vif_index = pim_if_find_vifindex_by_ifindex(first_ifindex);
 
-  if (vif_index < 1) {
+  if (vif_index < 0) {
     char addr_str[100];
     pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
     zlog_warn("%s %s: low vif_index=%d < 1 nexthop for address %s",
