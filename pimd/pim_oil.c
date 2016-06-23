@@ -163,13 +163,6 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
 	       proto_mask, oif->name, pim_ifp->mroute_vif_index);
   }
 
-  if (pim_ifp->mroute_vif_index < 1) {
-    zlog_warn("%s %s: interface %s vif_index=%d < 1",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      oif->name, pim_ifp->mroute_vif_index);
-    return -1;
-  }
-
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
   /*
     Prevent creating MFC entry with OIF=IIF.
