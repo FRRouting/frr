@@ -2599,7 +2599,7 @@ cmd_execute_command_real (vector vline,
 int
 cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
 		     int vtysh) {
-  int ret, saved_ret, tried = 0;
+  int ret, saved_ret = 0;
   enum node_type onode, try_node;
 
   onode = try_node = vty->node;
@@ -2615,9 +2615,7 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
       shifted_vline = vector_init (vector_count(vline));
       /* use memcpy? */
       for (index = 1; index < vector_active (vline); index++) 
-	{
-	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
-	}
+        vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
 
       ret = cmd_execute_command_real (shifted_vline, FILTER_RELAXED, vty, cmd);
 
@@ -2632,24 +2630,22 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
   if (vtysh)
     return saved_ret;
 
-  /* This assumes all nodes above CONFIG_NODE are childs of CONFIG_NODE */
-  while ( ret != CMD_SUCCESS && ret != CMD_WARNING 
-	  && vty->node > CONFIG_NODE )
+  if (ret != CMD_SUCCESS && ret != CMD_WARNING)
     {
-      try_node = node_parent(try_node);
-      vty->node = try_node;
-      ret = cmd_execute_command_real (vline, FILTER_RELAXED, vty, cmd);
-      tried = 1;
-      if (ret == CMD_SUCCESS || ret == CMD_WARNING)
-	{
-	  /* succesfull command, leave the node as is */
-	  return ret;
-	}
+      /* This assumes all nodes above CONFIG_NODE are childs of CONFIG_NODE */
+      while (vty->node > CONFIG_NODE)
+        {
+          try_node = node_parent(try_node);
+          vty->node = try_node;
+          ret = cmd_execute_command_real (vline, FILTER_RELAXED, vty, cmd);
+          if (ret == CMD_SUCCESS || ret == CMD_WARNING)
+            return ret;
+        }
+      /* no command succeeded, reset the vty to the original node */
+      vty->node = onode;
     }
-  /* no command succeeded, reset the vty to the original node and
-     return the error for this node */
-  if ( tried )
-    vty->node = onode;
+
+  /* return command status for original node */
   return saved_ret;
 }
 
