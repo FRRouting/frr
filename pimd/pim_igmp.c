@@ -1078,11 +1078,6 @@ void igmp_startup_mode_on(struct igmp_sock *igmp)
 
 static void igmp_group_free(struct igmp_group *group)
 {
-  zassert(!group->t_group_query_retransmit_timer);
-  zassert(!group->t_group_timer);
-  zassert(group->group_source_list);
-  zassert(!listcount(group->group_source_list));
-
   list_free(group->group_source_list);
 
   XFREE(MTYPE_PIM_IGMP_GROUP, group);
@@ -1109,7 +1104,6 @@ static void igmp_group_delete(struct igmp_group *group)
 
   if (group->t_group_query_retransmit_timer) {
     THREAD_OFF(group->t_group_query_retransmit_timer);
-    zassert(!group->t_group_query_retransmit_timer);
   }
 
   group_timer_off(group);
@@ -1275,7 +1269,7 @@ static int igmp_group_timer(struct thread *t)
 
   zassert(group->group_filtermode_isexcl);
 
-  group->t_group_timer = 0;
+  group->t_group_timer = NULL;
   group->group_filtermode_isexcl = 0;
 
   /* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
