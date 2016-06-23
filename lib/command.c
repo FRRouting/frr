@@ -34,6 +34,8 @@ Boston, MA 02111-1307, USA.  */
 #include "workqueue.h"
 #include "vrf.h"
 
+#include "grammar_sandbox.c"
+
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
 vector cmdvec = NULL;
@@ -4078,6 +4080,10 @@ cmd_init (int terminal)
   install_element (ENABLE_NODE, &show_startup_config_cmd);
   install_element (ENABLE_NODE, &show_version_cmd);
   install_element (ENABLE_NODE, &show_commandtree_cmd);
+
+  /**/
+  grammar_sandbox_init();
+  /**/
 
   if (terminal)
     {
