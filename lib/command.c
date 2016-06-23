@@ -41,12 +41,19 @@ vector cmdvec = NULL;
 struct cmd_token token_cr;
 char *command_cr = NULL;
 
+/**
+ * Filter types. These tell the parser whether to allow
+ * partial matching on tokens.
+ */
 enum filter_type
 {
   FILTER_RELAXED,
   FILTER_STRICT
 };
 
+/**
+ * Command matcher result value.
+ */
 enum matcher_rv
 {
   MATCHER_OK,
@@ -57,6 +64,11 @@ enum matcher_rv
   MATCHER_EXCEED_ARGC_MAX
 };
 
+/**
+ * Defines which matcher_rv values constitute
+ * an error. Should be used against matcher_rv
+ * return values to do basic error checking.
+ */
 #define MATCHER_ERROR(matcher_rv) \
   (   (matcher_rv) == MATCHER_INCOMPLETE \
    || (matcher_rv) == MATCHER_NO_MATCH \
@@ -292,24 +304,29 @@ cmd_free_strvec (vector v)
   vector_free (v);
 }
 
+/**
+ * State structure for command format parser. Tracks
+ * parse tree position and miscellaneous state variables.
+ * Used when building a command vector from format strings.
+ */
 struct format_parser_state
 {
-  vector topvect; /* Top level vector */
-  vector intvect; /* Intermediate level vector, used when there's
-                   * a multiple in a keyword. */
-  vector curvect; /* current vector where read tokens should be
-                     appended. */
+  vector topvect;       /* Top level vector */
+  vector intvect;       /* Intermediate level vector, used when there's
+                           a multiple in a keyword. */
+  vector curvect;       /* current vector where read tokens should be
+                           appended. */
 
-  const char *string; /* pointer to command string, not modified */
-  const char *cp; /* pointer in command string, moved along while
-                     parsing */
-  const char *dp;  /* pointer in description string, moved along while
-                     parsing */
+  const char *string;   /* pointer to command string, not modified */
+  const char *cp;       /* pointer in command string, moved along while
+                           parsing */
+  const char *dp;       /* pointer in description string, moved along while
+                           parsing */
 
-  int in_keyword; /* flag to remember if we are in a keyword group */
-  int in_multiple; /* flag to remember if we are in a multiple group */
-  int just_read_word; /* flag to remember if the last thing we red was a
-                       * real word and not some abstract token */
+  int in_keyword;       /* flag to remember if we are in a keyword group */
+  int in_multiple;      /* flag to remember if we are in a multiple group */
+  int just_read_word;   /* flag to remember if the last thing we read was a
+                           real word and not some abstract token */
 };
 
 static void
@@ -324,6 +341,14 @@ format_parser_error(struct format_parser_state *state, const char *message)
   exit(1);
 }
 
+/**
+ * Reads out one section of a help string from state->dp.
+ * Leading whitespace is trimmed and the string is read until
+ * a newline is reached.
+ *
+ * @param[out] state format parser state
+ * @return the help string token read
+ */
 static char *
 format_parser_desc_str(struct format_parser_state *state)
 {
@@ -359,6 +384,21 @@ format_parser_desc_str(struct format_parser_state *state)
   return token;
 }
 
+/**
+ * Transitions format parser state into keyword parsing mode.
+ * A cmd_token struct, `token`, representing this keyword token is initialized
+ * and appended to state->curvect. token->keyword is initialized as a vector of
+ * vector, a new vector is initialized and added to token->keyword, and
+ * state->curvect is set to point at this vector. When control returns to the
+ * caller newly parsed tokens will be added to this vector.
+ *
+ * In short:
+ *   state->curvect[HEAD]               = new cmd_token
+ *   state->curvect[HEAD]->keyword[0]   = new vector
+ *   state->curvect                     = state->curvect[HEAD]->keyword[0]
+ *
+ * @param[out] state state struct to transition
+ */
 static void
 format_parser_begin_keyword(struct format_parser_state *state)
 {
@@ -383,6 +423,23 @@ format_parser_begin_keyword(struct format_parser_state *state)
   state->curvect = keyword_vect;
 }
 
+/**
+ * Transitions format parser state into multiple parsing mode.
+ * A cmd_token struct, `token`, representing this multiple token is initialized
+ * and appended to state->curvect. token->multiple is initialized as a vector
+ * of cmd_token and state->curvect is set to point at token->multiple. If
+ * state->curvect != state->topvect (i.e. this multiple token is nested inside
+ * another composite token) then a pointer to state->curvect is saved in
+ * state->intvect.
+ *
+ * In short:
+ *   state->curvect[HEAD]               = new cmd_token
+ *   state->curvect[HEAD]->multiple     = new vector
+ *   state->intvect                     = state->curvect IFF nested token
+ *   state->curvect                     = state->curvect[HEAD]->multiple
+ *
+ * @param[out] state state struct to transition
+ */
 static void
 format_parser_begin_multiple(struct format_parser_state *state)
 {
@@ -408,6 +465,14 @@ format_parser_begin_multiple(struct format_parser_state *state)
   state->curvect = token->multiple;
 }
 
+/**
+ * Transition format parser state out of keyword parsing mode.
+ * This function is called upon encountering '}'.
+ * state->curvect is reassigned to the top level vector (as
+ * keywords cannot be nested) and state flags are set appropriately.
+ *
+ * @param[out] state state struct to transition
+ */
 static void
 format_parser_end_keyword(struct format_parser_state *state)
 {
@@ -423,6 +488,15 @@ format_parser_end_keyword(struct format_parser_state *state)
   state->curvect = state->topvect;
 }
 
+/**
+ * Transition format parser state out of multiple parsing mode.
+ * This function is called upon encountering ')'.
+ * state->curvect is reassigned to its parent vector (state->intvect
+ * if the multiple token being exited was nested inside another token,
+ * state->topvect otherwise) and state flags are set appropriately.
+ *
+ * @param[out] state state struct to transition
+ */
 static void
 format_parser_end_multiple(struct format_parser_state *state)
 {
@@ -457,6 +531,21 @@ format_parser_end_multiple(struct format_parser_state *state)
     state->curvect = state->topvect;
 }
 
+/**
+ * Format parser handler for pipe '|' character.
+ * This character separates subtokens in multiple and keyword type tokens.
+ * If the current token is a multiple keyword, the position pointer is
+ * simply moved past the pipe and state flags are set appropriately.
+ * If the current token is a keyword token, the position pointer is moved
+ * past the pipe. Then the cmd_token struct for the keyword is fetched and
+ * a new vector of cmd_token is appended to its vector of vector. Finally
+ * state->curvect is set to point at this new vector.
+ *
+ * In short:
+ *   state->curvect = state->topvect[HEAD]->keyword[HEAD] = new vector
+ *
+ * @param[out] state state struct to transition
+ */
 static void
 format_parser_handle_pipe(struct format_parser_state *state)
 {
@@ -485,6 +574,13 @@ format_parser_handle_pipe(struct format_parser_state *state)
     }
 }
 
+/**
+ * Format parser handler for terminal tokens.
+ * Parses the token, appends it to state->curvect, and sets
+ * state flags appropriately.
+ *
+ * @param[out] state state struct for current format parser state
+ */
 static void
 format_parser_read_word(struct format_parser_state *state)
 {
