@@ -267,7 +267,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
     return;
   }
 
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     char src_str[100];
     pim_inet4_dump("<src?>", neigh->source_addr, src_str, sizeof(src_str));
     zlog_debug("%s: starting %u sec timer for neighbor %s on %s",
