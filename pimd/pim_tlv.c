@@ -139,7 +139,7 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
     option_len += ucast_ipv4_encoding_len; 
   }
 
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     zlog_debug("%s: number of encoded secondary unicast IPv4 addresses: %zu",
 	       __PRETTY_FUNCTION__,
 	       option_len / ucast_ipv4_encoding_len);

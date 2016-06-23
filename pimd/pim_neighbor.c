@@ -241,7 +241,7 @@ static int on_neighbor_timer(struct thread *t)
 
 static void neighbor_timer_off(struct pim_neighbor *neigh)
 {
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
     if (neigh->t_expire_timer) {
       char src_str[100];
       pim_inet4_dump("<src?>", neigh->source_addr, src_str, sizeof(src_str));
