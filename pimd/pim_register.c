@@ -193,11 +193,18 @@ pim_register_recv (struct interface *ifp,
    * We need to know the inner source and dest
    */
   bits = (uint32_t *)tlv_buf;
-  ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_LEN);
+
+  /*
+   * tlv_buf points to the start of the |B|N|... Reserved
+   * Line above.  So we need to add 4 bytes to get to the
+   * start of the actual Encapsulated data.
+   */
+#define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
+  ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
   //hlen = (ip_hdr->ip_hl << 2) | PIM_MSG_REGISTER_LEN;
   //msg = (uint8_t *)tlv_buf + hlen;
-  group = ip_hdr->ip_src;
-  source = ip_hdr->ip_dst;
+  source = ip_hdr->ip_src;
+  group = ip_hdr->ip_dst;
 
   if (I_am_RP (group) && (dest_addr.s_addr == ((RP (group))->rpf_addr.s_addr))) {
     sentRegisterStop = 0;
