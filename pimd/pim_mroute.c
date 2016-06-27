@@ -524,6 +524,7 @@ int pim_mroute_del_vif(int vif_index)
 int pim_mroute_add(struct mfcctl *mc)
 {
   int err;
+  int orig;
 
   qpim_mroute_add_last = pim_time_monotonic_sec();
   ++qpim_mroute_add_events;
@@ -534,8 +535,22 @@ int pim_mroute_add(struct mfcctl *mc)
     return -1;
   }
 
+  /* The linux kernel *expects* the incoming
+   * vif to be part of the outgoing list
+   * in the case of a (*,G).
+   */
+  if (mc->mfcc_origin.s_addr == INADDR_ANY)
+    {
+      orig = mc->mfcc_ttls[mc->mfcc_parent];
+      mc->mfcc_ttls[mc->mfcc_parent] = 1;
+    }
+
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_MFC,
 		   mc, sizeof(*mc));
+
+  if (mc->mfcc_origin.s_addr == INADDR_ANY)
+      mc->mfcc_ttls[mc->mfcc_parent] = orig;
+
   if (err) {
     int e = errno;
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_MFC): errno=%d: %s",
