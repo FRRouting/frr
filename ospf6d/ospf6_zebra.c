@@ -202,6 +202,8 @@ ospf6_zebra_if_address_update_delete (int command, struct zclient *zclient,
       ospf6_interface_state_update (c->ifp);
     }
 
+  connected_free (c);
+
   return 0;
 }
 

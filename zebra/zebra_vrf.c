@@ -79,7 +79,8 @@ zebra_vrf_new (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct zebra_vrf *zvrf = *info;
 
-  zlog_info ("ZVRF %s with id %u", name, vrf_id);
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_info ("ZVRF %s with id %u", name, vrf_id);
 
   if (! zvrf)
     {

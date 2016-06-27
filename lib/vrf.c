@@ -272,8 +272,7 @@ vrf_delete (struct vrf *vrf)
   if (vrf_master.vrf_delete_hook)
     (*vrf_master.vrf_delete_hook) (vrf->vrf_id, vrf->name, &vrf->info);
 
-  if (CHECK_FLAG (vrf->status, VRF_ACTIVE))
-    if_terminate (&vrf->iflist);
+  if_terminate (&vrf->iflist);
 
   if (vrf->node)
     {

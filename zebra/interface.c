@@ -120,6 +120,13 @@ if_zebra_delete_hook (struct interface *ifp)
       /* Free installed address chains tree. */
       if (zebra_if->ipv4_subnets)
 	route_table_finish (zebra_if->ipv4_subnets);
+ #if defined (HAVE_RTADV)
+
+      struct rtadvconf *rtadv;
+
+      rtadv = &zebra_if->rtadv;
+      list_free (rtadv->AdvPrefixList);
+ #endif /* HAVE_RTADV */
 
       XFREE (MTYPE_TMP, zebra_if);
     }

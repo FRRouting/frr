@@ -1292,6 +1292,12 @@ if_terminate (struct list **intf_list)
       if (ifp == NULL)
 	break;
 
+      if (ifp->node)
+        {
+          ifp->node->info = NULL;
+          route_unlock_node (ifp->node);
+        }
+
       if_delete (ifp);
     }
 

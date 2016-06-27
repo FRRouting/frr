@@ -158,6 +158,7 @@ ospf6_vertex_create (struct ospf6_lsa *lsa)
 static void
 ospf6_vertex_delete (struct ospf6_vertex *v)
 {
+  list_delete(v->nh_list);
   list_delete (v->child_list);
   XFREE (MTYPE_OSPF6_VERTEX, v);
 }

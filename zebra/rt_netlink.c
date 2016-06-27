@@ -1433,7 +1433,9 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
         zlog_debug ("RTM_DELLINK for %s(%u)", name, ifp->ifindex);
 
       UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
-      if_delete_update (ifp);
+
+      if (!vrf_device)
+        if_delete_update (ifp);
     }
 
   return 0;
