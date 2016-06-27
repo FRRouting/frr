@@ -1001,8 +1001,8 @@ cmd_ipv4_prefix_match (const char *str)
   return exact_match;
 }
 
-#define IPV6_ADDR_STR       "0123456789abcdefABCDEF:.%"
-#define IPV6_PREFIX_STR     "0123456789abcdefABCDEF:.%/"
+#define IPV6_ADDR_STR       "0123456789abcdefABCDEF:."
+#define IPV6_PREFIX_STR     "0123456789abcdefABCDEF:./"
 
 #ifdef HAVE_IPV6
 
