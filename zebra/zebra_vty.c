@@ -2227,13 +2227,16 @@ do_show_ip_route(struct vty *vty, const char *vrf_name, safi_t safi)
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route,
+DEFUN (show_ip_route_vrf,
        show_ip_route_vrf_cmd,
        "show ip route  " VRF_CMD_STR,
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR)
+{
+  return do_show_ip_route (vty, argv[0], SAFI_UNICAST);
+}
 
 DEFUN (show_ip_nht,
        show_ip_nht_cmd,
