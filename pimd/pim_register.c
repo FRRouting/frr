@@ -35,6 +35,10 @@
 #include "pim_register.h"
 #include "pim_upstream.h"
 #include "pim_br.h"
+#include "pim_rpf.h"
+#include "pim_oil.h"
+#include "pim_zebra.h"
+#include "pim_join.h"
 
 struct thread *send_test_packet_timer = NULL;
 
@@ -250,10 +254,25 @@ pim_register_recv (struct interface *ifp,
     }
 
     if (!(upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) &&
-	!(*bits & PIM_REGISTER_NR_BIT)) {
-      //decapsulate and forward the iner packet to
-      //inherited_olist(S,G,rpt)
-    }
+	!(*bits & PIM_REGISTER_NR_BIT))
+      {
+	pim_rp_set_upstream_addr (&upstream->upstream_addr, source);
+	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
+			    upstream->upstream_addr, NULL);
+	upstream->rpf.source_nexthop.interface = ifp;
+	upstream->source_addr.s_addr = source.s_addr;
+	upstream->rpf.rpf_addr.s_addr = source.s_addr;
+	upstream->channel_oil->oil.mfcc_origin = source;
+	pim_scan_individual_oil (upstream->channel_oil);
+	pim_joinprune_send(upstream->rpf.source_nexthop.interface,
+			   upstream->rpf.source_nexthop.mrib_nexthop_addr,
+			   upstream->source_addr,
+			   upstream->group_addr,
+			   1);
+
+	//decapsulate and forward the iner packet to
+	//inherited_olist(S,G,rpt)
+      }
   } else {
     pim_register_stop_send(src_addr);
   }

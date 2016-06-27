@@ -524,7 +524,7 @@ int pim_mroute_del_vif(int vif_index)
 int pim_mroute_add(struct mfcctl *mc)
 {
   int err;
-  int orig;
+  int orig = 0;
 
   qpim_mroute_add_last = pim_time_monotonic_sec();
   ++qpim_mroute_add_events;
