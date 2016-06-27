@@ -865,59 +865,29 @@ enum match_type
   exact_match 
 };
 
+#define IPV4_ADDR_STR       "0123456789."
+#define IPV4_PREFIX_STR     "0123456789./"
+
+/**
+ * Determines whether a string is a valid ipv4 token.
+ *
+ * @param[in] str the string to match
+ * @return exact_match if the string is an exact match, no_match/partly_match
+ *         otherwise
+ */
 static enum match_type
 cmd_ipv4_match (const char *str)
 {
-  const char *sp;
-  int dots = 0, nums = 0;
-  char buf[4];
+  struct sockaddr_in sin_dummy;
 
   if (str == NULL)
     return partly_match;
 
-  for (;;)
-    {
-      memset (buf, 0, sizeof (buf));
-      sp = str;
-      while (*str != '\0')
-	{
-	  if (*str == '.')
-	    {
-	      if (dots >= 3)
-		return no_match;
+  if (strspn (str, IPV4_ADDR_STR) != strlen (str))
+    return no_match;
 
-	      if (*(str + 1) == '.')
-		return no_match;
-
-	      if (*(str + 1) == '\0')
-		return partly_match;
-
-	      dots++;
-	      break;
-	    }
-	  if (!isdigit ((int) *str))
-	    return no_match;
-
-	  str++;
-	}
-
-      if (str - sp > 3)
-	return no_match;
-
-      strncpy (buf, sp, str - sp);
-      if (atoi (buf) > 255)
-	return no_match;
-
-      nums++;
-
-      if (*str == '\0')
-	break;
-
-      str++;
-    }
-
-  if (nums < 4)
-    return partly_match;
+  if (inet_pton(AF_INET, str, &sin_dummy.sin_addr) != 1)
+    return no_match;
 
   return exact_match;
 }
@@ -925,78 +895,36 @@ cmd_ipv4_match (const char *str)
 static enum match_type
 cmd_ipv4_prefix_match (const char *str)
 {
-  const char *sp;
-  int dots = 0;
-  char buf[4];
+  struct sockaddr_in sin_dummy;
+  const char *delim = "/\0";
+  char *dupe, *prefix, *mask, *context, *endptr;
+  int nmask = -1;
 
   if (str == NULL)
     return partly_match;
 
-  for (;;)
-    {
-      memset (buf, 0, sizeof (buf));
-      sp = str;
-      while (*str != '\0' && *str != '/')
-	{
-	  if (*str == '.')
-	    {
-	      if (dots == 3)
-		return no_match;
-
-	      if (*(str + 1) == '.' || *(str + 1) == '/')
-		return no_match;
-
-	      if (*(str + 1) == '\0')
-		return partly_match;
-
-	      dots++;
-	      break;
-	    }
-
-	  if (!isdigit ((int) *str))
-	    return no_match;
-
-	  str++;
-	}
-
-      if (str - sp > 3)
-	return no_match;
-
-      strncpy (buf, sp, str - sp);
-      if (atoi (buf) > 255)
-	return no_match;
-
-      if (dots == 3)
-	{
-	  if (*str == '/')
-	    {
-	      if (*(str + 1) == '\0')
-		return partly_match;
-
-	      str++;
-	      break;
-	    }
-	  else if (*str == '\0')
-	    return partly_match;
-	}
-
-      if (*str == '\0')
-	return partly_match;
-
-      str++;
-    }
-
-  sp = str;
-  while (*str != '\0')
-    {
-      if (!isdigit ((int) *str))
-	return no_match;
-
-      str++;
-    }
-
-  if (atoi (sp) > 32)
+  if (strspn (str, IPV4_PREFIX_STR) != strlen (str))
     return no_match;
+
+  /* tokenize to address + mask */
+  dupe = XMALLOC(MTYPE_TMP, strlen(str)+1);
+  strncpy(dupe, str, strlen(str)+1);
+  prefix = strtok_r(dupe, delim, &context);
+  mask   = strtok_r(NULL, delim, &context);
+
+  if (!mask)
+    return partly_match;
+
+  /* validate prefix */
+  if (inet_pton(AF_INET, prefix, &sin_dummy.sin_addr) != 1)
+    return no_match;
+
+  /* validate mask */
+  nmask = strtol (mask, &endptr, 10);
+  if (*endptr != '\0' || nmask < 0 || nmask > 32)
+    return no_match;
+
+  XFREE(MTYPE_TMP, dupe);
 
   return exact_match;
 }
