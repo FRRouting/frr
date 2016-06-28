@@ -383,19 +383,14 @@ static void scan_upstream_rpf_cache()
   
 }
 
-void pim_scan_oil()
+void
+pim_scan_individual_oil (struct channel_oil *c_oil)
 {
-  struct listnode    *node;
-  struct listnode    *nextnode;
-  struct channel_oil *c_oil;
+  int old_vif_index;
+  int input_iface_vif_index = fib_lookup_if_vif_index(c_oil->oil.mfcc_origin);
 
-  qpim_scan_oil_last = pim_time_monotonic_sec();
-  ++qpim_scan_oil_events;
-
-  for (ALL_LIST_ELEMENTS(qpim_channel_oil_list, node, nextnode, c_oil)) {
-    int old_vif_index;
-    int input_iface_vif_index = fib_lookup_if_vif_index(c_oil->oil.mfcc_origin);
-    if (input_iface_vif_index < 1) {
+  if (input_iface_vif_index < 1)
+    {
       char source_str[100];
       char group_str[100];
       pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
@@ -403,15 +398,17 @@ void pim_scan_oil()
       zlog_warn("%s %s: could not find input interface for (S,G)=(%s,%s)",
 		__FILE__, __PRETTY_FUNCTION__,
 		source_str, group_str);
-      continue;
+      return;
     }
 
-    if (input_iface_vif_index == c_oil->oil.mfcc_parent) {
+  if (input_iface_vif_index == c_oil->oil.mfcc_parent)
+    {
       /* RPF unchanged */
-      continue;
+      return;
     }
 
-    if (PIM_DEBUG_ZEBRA) {
+  if (PIM_DEBUG_ZEBRA)
+    {
       struct interface *old_iif = pim_if_find_by_vif_index(c_oil->oil.mfcc_parent);
       struct interface *new_iif = pim_if_find_by_vif_index(input_iface_vif_index);
       char source_str[100];
@@ -425,8 +422,9 @@ void pim_scan_oil()
 		 new_iif ? new_iif->name : "<new_iif?>", input_iface_vif_index);
     }
 
-    /* new iif loops to existing oif ? */
-    if (c_oil->oil.mfcc_ttls[input_iface_vif_index]) {
+  /* new iif loops to existing oif ? */
+  if (c_oil->oil.mfcc_ttls[input_iface_vif_index])
+    {
       struct interface *new_iif = pim_if_find_by_vif_index(input_iface_vif_index);
 
       if (PIM_DEBUG_ZEBRA) {
@@ -447,8 +445,10 @@ void pim_scan_oil()
     old_vif_index = c_oil->oil.mfcc_parent;
     c_oil->oil.mfcc_parent = input_iface_vif_index;
 
+    zlog_debug ("FF");
     /* update kernel multicast forwarding cache (MFC) */
-    if (pim_mroute_add(&c_oil->oil)) {
+    if (pim_mroute_add(&c_oil->oil))
+      {
       /* just log warning */
       struct interface *old_iif = pim_if_find_by_vif_index(old_vif_index);
       struct interface *new_iif = pim_if_find_by_vif_index(input_iface_vif_index);
@@ -457,14 +457,24 @@ void pim_scan_oil()
       pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
       pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
       zlog_warn("%s %s: (S,G)=(%s,%s) failure updating input interface from %s vif_index=%d to %s vif_index=%d",
-		 __FILE__, __PRETTY_FUNCTION__,
-		 source_str, group_str,
-		 old_iif ? old_iif->name : "<old_iif?>", c_oil->oil.mfcc_parent,
-		 new_iif ? new_iif->name : "<new_iif?>", input_iface_vif_index);
-      continue;
+		__FILE__, __PRETTY_FUNCTION__,
+		source_str, group_str,
+		old_iif ? old_iif->name : "<old_iif?>", c_oil->oil.mfcc_parent,
+		new_iif ? new_iif->name : "<new_iif?>", input_iface_vif_index);
     }
+}
 
-  } /* for (qpim_channel_oil_list) */
+void pim_scan_oil()
+{
+  struct listnode    *node;
+  struct listnode    *nextnode;
+  struct channel_oil *c_oil;
+
+  qpim_scan_oil_last = pim_time_monotonic_sec();
+  ++qpim_scan_oil_events;
+
+  for (ALL_LIST_ELEMENTS(qpim_channel_oil_list, node, nextnode, c_oil))
+    pim_scan_individual_oil (c_oil);
 }
 
 static int on_rpf_cache_refresh(struct thread *t)

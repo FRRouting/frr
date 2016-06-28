@@ -1,1 +1,15 @@
 Defaults env_keep += VTYSH_PAGER
+
+# Allow user in  group quagga to run vtysh show commands
+# without a password by uncommenting the "%quagga" line below.
+
+# Subshell commands need to be disallowed, including
+# preventing the user passing command line args like 'start-shell'
+# Since vtysh allows minimum non-conflicting prefix'es, that means
+# anything beginning with the string "st" in any arg.  That's a bit
+# restrictive.
+# Instead, use NOEXEC, to prevent any exec'ed commands.
+
+Cmnd_Alias  VTY_SHOW   = /usr/bin/vtysh -c show *
+# %quagga ALL = (root) NOPASSWD:NOEXEC: VTY_SHOW
+
