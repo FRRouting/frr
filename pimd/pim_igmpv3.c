@@ -592,6 +592,7 @@ void igmpv3_report_isin(struct igmp_sock *igmp, struct in_addr from,
 static void isex_excl(struct igmp_group *group,
 		      int num_sources, struct in_addr *sources)
 {
+  struct igmp_source *source;
   int     i;
 
   /* EXCLUDE mode */
@@ -602,7 +603,6 @@ static void isex_excl(struct igmp_group *group,
 
   /* scan received sources (A) */
   for (i = 0; i < num_sources; ++i) {
-    struct igmp_source *source;
     struct in_addr     *src_addr;
 
     src_addr = sources + i;
@@ -626,6 +626,20 @@ static void isex_excl(struct igmp_group *group,
     }
 
   } /* scan received sources */
+
+  /*
+   * If we are in isexcl mode and num_sources == 0
+   * than that means we have a *,g entry that
+   * needs to be handled
+   */
+  if (group->group_filtermode_isexcl && num_sources == 0)
+    {
+       struct in_addr star = { .s_addr = INADDR_ANY };
+       source = igmp_find_source_by_addr (group, star);
+       if (source)
+         IGMP_SOURCE_DONT_DELETE(source->source_flags);
+       igmp_source_reset_gmi (group->group_igmp_sock, group, source);
+    }
 
   /* E.5: delete all sources marked with deletion flag: (X-A) and (Y-A) */
   source_delete_by_flag(group->group_source_list);
