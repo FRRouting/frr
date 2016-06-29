@@ -54,7 +54,7 @@ static int igmp_sock_open(struct in_addr ifaddr, int ifindex, uint32_t pim_optio
   int join = 0;
   struct in_addr group;
 
-  fd = pim_socket_mcast(IPPROTO_IGMP, ifaddr, 1 /* loop=true */);
+  fd = pim_socket_mcast(IPPROTO_IGMP, ifaddr, ifindex, 1 /* loop=true */);
   if (fd < 0)
     return -1;
 

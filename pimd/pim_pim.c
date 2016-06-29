@@ -389,7 +389,7 @@ static int pim_sock_open(struct in_addr ifaddr, int ifindex)
 {
   int fd;
 
-  fd = pim_socket_mcast(IPPROTO_PIM, ifaddr, 0 /* loop=false */);
+  fd = pim_socket_mcast(IPPROTO_PIM, ifaddr, ifindex, 0 /* loop=false */);
   if (fd < 0)
     return -1;
 
