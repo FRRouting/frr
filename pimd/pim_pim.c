@@ -349,8 +349,9 @@ static int pim_sock_read(struct thread *t)
 
   int fail = pim_pim_packet(ifp, buf, len);
   if (fail) {
-    zlog_warn("%s: pim_pim_packet() return=%d",
-              __PRETTY_FUNCTION__, fail);
+    if (PIM_DEBUG_PIM_PACKETS)
+      zlog_debug("%s: pim_pim_packet() return=%d",
+		 __PRETTY_FUNCTION__, fail);
     goto done;
   }
 
