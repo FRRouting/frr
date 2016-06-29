@@ -24,6 +24,7 @@
 #include "log.h"
 #include "privs.h"
 #include "if.h"
+#include "prefix.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -66,6 +67,29 @@ static int pim_mroute_set(int fd, int enable)
   return 0;
 }
 
+static int
+pim_mroute_connected_to_source (struct interface *ifp, struct in_addr src)
+{
+  struct listnode *cnode;
+  struct connected *c;
+  struct prefix p;
+
+  p.family = AF_INET;
+  p.u.prefix4 = src;
+  p.prefixlen = IPV4_MAX_BITLEN;
+
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
+    {
+      if ((c->address->family == AF_INET) &&
+         prefix_match (CONNECTED_PREFIX (c), &p))
+       {
+	 return 1;
+       }
+    }
+
+  return 0;
+}
+
 static const char *igmpmsgtype2str[IGMPMSG_WHOLEPKT + 1] = {
   "<unknown_upcall?>",
   "NOCACHE",
@@ -77,8 +101,8 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 			const char *src_str, const char *grp_str)
 {
   struct pim_interface *pim_ifp = ifp->info;
-  struct pim_rpf *rpg;
   struct pim_upstream *up;
+  struct pim_rpf *rpg;
 
   rpg = RP(msg->im_dst);
   /*
@@ -91,6 +115,18 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
       (!(PIM_I_am_DR(pim_ifp))) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM))
     return 0;
+
+  /*
+   * If we've received a multicast packet that isn't connected to
+   * us
+   */
+  if (!pim_mroute_connected_to_source (ifp, msg->im_src))
+    {
+      if (PIM_DEBUG_PIM_TRACE)
+       zlog_debug ("%s: Received incoming packet that does originate on our seg",
+		   __PRETTY_FUNCTION__);
+      return 0;
+    }
 
   if (PIM_DEBUG_PIM_TRACE) {
     zlog_debug("%s: Adding a Route for %s from %s for WHOLEPKT consumption",
