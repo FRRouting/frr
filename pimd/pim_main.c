@@ -134,10 +134,12 @@ int main(int argc, char** argv, char** envp) {
   umask(0027);
  
   progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
- 
+
   zlog_default = openzlog(progname, ZLOG_PIM, 0,
 			  LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-     
+  zlog_set_file (NULL, "/var/log/quagga/Quagga.log",
+		 zlog_default->default_lvl);
+
   /* this while just reads the options */                       
   while (1) {
     int opt;
