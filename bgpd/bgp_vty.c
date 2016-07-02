@@ -3404,6 +3404,16 @@ peer_flag_modify_vty (struct vty *vty, const char *ip_str,
   if (! peer)
     return CMD_WARNING;
 
+  /*
+   * If 'neighbor <interface>', then this is for directly connected peers,
+   * we should not accept disable-connected-check.
+   */
+  if (peer->conf_if && (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
+    vty_out (vty, "%s is directly connected peer, cannot accept disable-"
+                  "connected-check%s", ip_str, VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+
   if (set)
     ret = peer_flag_set (peer, flag);
   else
@@ -5753,6 +5763,16 @@ DEFUN (neighbor_ttl_security,
     return CMD_WARNING;
     
   VTY_GET_INTEGER_RANGE ("", gtsm_hops, argv[1], 1, 254);
+
+  /*
+   * If 'neighbor swpX', then this is for directly connected peers,
+   * we should not accept a ttl-security hops value greater than 1.
+   */
+  if (peer->conf_if && (gtsm_hops > 1)) {
+    vty_out (vty, "%s is directly connected peer, hops cannot exceed 1%s",
+                  argv[0], VTY_NEWLINE);
+    return CMD_WARNING;
+  }
 
   return bgp_vty_return (vty, peer_ttl_security_hops_set (peer, gtsm_hops));
 }
