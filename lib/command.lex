@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "command.tab.h"
+#include "command.h"
 %}
 
 WORD            [a-z][-_a-z0-9]+
