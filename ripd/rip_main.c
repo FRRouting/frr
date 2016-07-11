@@ -204,6 +204,8 @@ main (int argc, char **argv)
   /* First of all we need logging init. */
   zlog_default = openzlog (progname, ZLOG_RIP, 0,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  zprivs_init (&ripd_privs);
+  zlog_set_file (NULL, LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
 
   /* Command line option parse. */
   while (1) 
@@ -275,7 +277,6 @@ main (int argc, char **argv)
   master = thread_master_create ();
 
   /* Library initialization. */
-  zprivs_init (&ripd_privs);
   signal_init (master, array_size(ripd_signals), ripd_signals);
   cmd_init (1);
   vty_init (master);

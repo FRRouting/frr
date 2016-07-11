@@ -407,6 +407,8 @@ main (int argc, char **argv)
 
   zlog_default = openzlog (progname, ZLOG_BGP, 0,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  zprivs_init (&bgpd_privs);
+  zlog_set_file (NULL, LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
 
   /* BGP master init. */
   bgp_master_init ();
@@ -492,7 +494,6 @@ main (int argc, char **argv)
   /* Initializations. */
   srandom (time (NULL));
   signal_init (bm->master, array_size(bgp_signals), bgp_signals);
-  zprivs_init (&bgpd_privs);
   cmd_init (1);
   vty_init (bm->master);
   memory_init ();

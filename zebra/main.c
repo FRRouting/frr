@@ -244,6 +244,8 @@ main (int argc, char **argv)
 
   zlog_default = openzlog (progname, ZLOG_ZEBRA, 0,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  zprivs_init (&zserv_privs);
+  zlog_set_file (NULL, LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
 
   while (1) 
     {
@@ -329,9 +331,6 @@ main (int argc, char **argv)
 
   /* Make master thread emulator. */
   zebrad.master = thread_master_create ();
-
-  /* privs initialise */
-  zprivs_init (&zserv_privs);
 
   /* Vty related initialize. */
   signal_init (zebrad.master, array_size(zebra_signals), zebra_signals);

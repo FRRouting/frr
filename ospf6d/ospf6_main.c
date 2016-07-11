@@ -321,6 +321,8 @@ main (int argc, char *argv[], char *envp[])
                            LOG_CONS|LOG_NDELAY|LOG_PID,
                            LOG_DAEMON);
   zprivs_init (&ospf6d_privs);
+  zlog_set_file (NULL, LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
+
   /* initialize zebra libraries */
   signal_init (master, array_size(ospf6_signals), ospf6_signals);
   cmd_init (1);

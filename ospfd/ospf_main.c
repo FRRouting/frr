@@ -287,6 +287,8 @@ main (int argc, char **argv)
 
   zlog_default = openzlog (progname, ZLOG_OSPF, instance,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  zprivs_init (&ospfd_privs);
+  zlog_set_file (NULL, LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
 
   /* OSPF master init. */
   ospf_master_init ();
@@ -295,7 +297,6 @@ main (int argc, char **argv)
   master = om->master;
 
   /* Library inits. */
-  zprivs_init (&ospfd_privs);
   signal_init (master, array_size(ospf_signals), ospf_signals);
   cmd_init (1);
   debug_init ();

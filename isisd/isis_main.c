@@ -244,6 +244,8 @@ main (int argc, char **argv, char **envp)
 
   zlog_default = openzlog (progname, ZLOG_ISIS, 0,
 			   LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+  zprivs_init (&isisd_privs);
+  zlog_set_file (NULL, LOG_DEFAULT_FILENAME , zlog_default->default_lvl);
 
   /* for reload */
   _argc = argc;
@@ -332,7 +334,6 @@ main (int argc, char **argv, char **envp)
   /*
    *  initializations
    */
-  zprivs_init (&isisd_privs);
   signal_init (master, array_size (isisd_signals), isisd_signals);
   cmd_init (1);
   vty_init (master);

@@ -203,6 +203,8 @@ main (int argc, char **argv)
 
   zlog_default = openzlog(progname, ZLOG_RIPNG, 0,
 			  LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  zprivs_init (&ripngd_privs);
+  zlog_set_file (NULL, LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
 
   while (1) 
     {
@@ -272,7 +274,6 @@ main (int argc, char **argv)
   master = thread_master_create ();
 
   /* Library inits. */
-  zprivs_init (&ripngd_privs);
   signal_init (master, array_size(ripng_signals), ripng_signals);
   cmd_init (1);
   vty_init (master);
