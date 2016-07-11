@@ -43,6 +43,7 @@
 #include "pim_zlookup.h"
 #include "pim_ifchannel.h"
 #include "pim_rp.h"
+#include "pim_igmpv3.h"
 
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
@@ -740,13 +741,12 @@ void igmp_anysource_forward_start(struct igmp_group *group)
 
 void igmp_anysource_forward_stop(struct igmp_group *group)
 {
-  /* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
-  zassert((!group->group_filtermode_isexcl) || (listcount(group->group_source_list) > 0));
+  struct igmp_source *source;
+  struct in_addr star = { .s_addr = 0 };
 
-  if (PIM_DEBUG_IGMP_TRACE) {
-    zlog_debug("%s %s: UNIMPLEMENTED",
-	       __FILE__, __PRETTY_FUNCTION__);
-  }
+  source = igmp_find_source_by_addr (group, star);
+  if (source)
+    igmp_source_forward_stop (source);
 }
 
 static int fib_lookup_if_vif_index(struct in_addr addr)
