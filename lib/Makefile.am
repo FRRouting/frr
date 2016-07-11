@@ -3,28 +3,33 @@
 AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 AM_CFLAGS = $(WERROR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
+AM_YFLAGS = -d
 
 lib_LTLIBRARIES = libzebra.la
 libzebra_la_LDFLAGS = -version-info 0:0:0 
 
 libzebra_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c daemon.c \
-	checksum.c vector.c linklist.c vty.c command.c \
+	checksum.c vector.c linklist.c vty.c \
+	cmdtree.c command_parse.y command_lex.l \
+	command.c \
 	sockunion.c prefix.c thread.c if.c memory.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c str.c log.c plist.c \
 	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c memtypes.c workqueue.c nexthop.c json.c \
 	ptm_lib.c csv.c bfd.c vrf.c systemd.c
 
-BUILT_SOURCES = memtypes.h route_types.h gitversion.h
+BUILT_SOURCES = memtypes.h route_types.h gitversion.h command_parse.h
 
 libzebra_la_DEPENDENCIES = @LIB_REGEX@
 
 libzebra_la_LIBADD = @LIB_REGEX@ @LIBCAP@
 
 pkginclude_HEADERS = \
-	buffer.h checksum.h command.h filter.h getopt.h hash.h \
+	buffer.h checksum.h filter.h getopt.h hash.h \
 	if.h linklist.h log.h \
+	cmdtree.h \
+	command.h \
 	memory.h network.h prefix.h routemap.h distribute.h sockunion.h \
 	str.h stream.h table.h thread.h vector.h version.h vty.h zebra.h \
 	plist.h zclient.h sockopt.h smux.h md5.h if_rmap.h keychain.h \

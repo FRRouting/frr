@@ -1416,6 +1416,17 @@ AC_CHECK_DECL(CLOCK_MONOTONIC,
 	 AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
 ], [AC_MSG_RESULT(no)], [QUAGGA_INCLUDES])
 
+dnl --------------------------------------
+dnl checking for flex and bison
+dnl --------------------------------------
+AM_PROG_LEX
+if test "x$LEX" != xflex; then
+    LEX="$SHELL $missing_dir/missing flex"
+    AC_SUBST([LEX_OUTPUT_ROOT], [lex.yy])
+    AC_SUBST([LEXLIB], [''])
+fi
+AC_PROG_YACC
+
 dnl -------------------
 dnl capabilities checks
 dnl -------------------
