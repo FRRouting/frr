@@ -1,8 +1,7 @@
 %{
-#include <string.h>
-#include <stdlib.h>
+#include "command_parse.h"
 
-#include "command.h"
+extern void set_buffer_string(const char *);
 %}
 
 WORD            [a-z][-_a-z0-9]+
@@ -17,11 +16,11 @@ RANGE           \({NUMBER}\-{NUMBER}\)
 /* yytext shall be a pointer */
 %pointer
 %option noyywrap
+%option nounput
+%option noinput
+%option outfile="command_lex.c"
 
 %%
-"<"             return '<';
-">"             return '>';
-
 [ /t]           /* ignore whitespace */;
 {WORD}          {yylval.string = strdup(yytext); return WORD;}
 {IPV4}          {yylval.string = strdup(yytext); return IPV4;}
@@ -33,3 +32,9 @@ RANGE           \({NUMBER}\-{NUMBER}\)
 {RANGE}         {yylval.string = strdup(yytext); return RANGE;}
 .               {return yytext[0];}
 %%
+
+void
+set_buffer_string(const char *string)
+{
+  yy_scan_string(string);
+}

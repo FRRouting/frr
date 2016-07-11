@@ -1,3 +1,4 @@
+#include "vty.h"
 #include "vector.h"
 
 enum graph_node_type
@@ -20,14 +21,14 @@ struct graph_node
   enum graph_node_type type;
   vector children;
   int is_leaf, is_root;
-  // int (*func(struct cmd_info *, struct vty *, int, const char *[]));
+  int (*func)(struct vty *, int, const char *[]);
 };
 
 /*
  * Adds a child to a node. If the node already has the exact same
  * child, nothing is done.
  */
-struct graph_node *
+extern struct graph_node *
 add_node(struct graph_node *, struct graph_node *);
 
 /*
@@ -36,8 +37,8 @@ add_node(struct graph_node *, struct graph_node *);
  * node type.
  * @return 0 if equal, nonzero otherwise.
  */
-int
+extern int
 cmp_node(struct graph_node *first, struct graph_node *second);
 
-struct graph_node *
+extern struct graph_node *
 new_node(enum graph_node_type type);

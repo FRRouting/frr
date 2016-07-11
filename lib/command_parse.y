@@ -1,13 +1,12 @@
 %{
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include "cmdtree.h"
 
 extern int yylex(void);
-void yyerror(const char *);
+extern void yyerror(const char *);
+extern int cmd_parse_format(const char *, const char *);
+extern void set_buffer_string(const char *);
 
-// turn on debug
+// compile with debugging facilities
 #define YYDEBUG 1
 %}
 
@@ -19,10 +18,16 @@ void yyerror(const char *);
 
 %{
 // last top-level node
-struct graph_node *topnode,
-// 
-                  *optnode,
-                  *selnode;
+struct graph_node *topnode,         // command root node
+                  *currnode;        // current node
+
+struct graph_node *optnode_start,   // start node for option set
+                  *optnode_end,     // end node for option set
+                  *optnode_el;      // start node for an option set element
+
+struct graph_node *selnode_start,   // start node for selector set
+                  *selnode_end,     // end node for selector set
+                  *selnode_el;      // start node for an selector set element
 %}
 
 %token <string>  WORD
@@ -36,7 +41,6 @@ struct graph_node *topnode,
 
 %type <node> start
 %type <node> sentence_root
-%type <node> cmd_token
 %type <node> literal_token
 %type <node> placeholder_token
 %type <node> option_token
@@ -46,8 +50,8 @@ struct graph_node *topnode,
 %type <node> selector_token_seq
 %type <node> option_token_seq
 
-%output "command.c"
-%defines
+%defines "command_parse.h"
+%output "command_parse.c"
 
 /* grammar proper */
 %%
@@ -55,17 +59,29 @@ struct graph_node *topnode,
 start: sentence_root
        cmd_token_seq;
 
-sentence_root: WORD                     {
-                                          currnode = new_node(WORD_GN);
-                                          currnode->is_root = 1;
-                                        };
+sentence_root: WORD
+  {
+    currnode = new_node(WORD_GN);
+    currnode->is_root = 1;
+    add_node(topnode, currnode);
+  };
 
 /* valid top level tokens */
 cmd_token:
   placeholder_token
+  { currnode = add_node(currnode, $1); }
 | literal_token
+  { currnode = add_node(currnode, $1); }
 | selector
+  {
+    add_node(currnode, selnode_start);
+    currnode = selnode_end;
+  }
 | option
+  {
+    add_node(currnode, optnode_start);
+    currnode = optnode_end;
+  }
 ;
 
 cmd_token_seq:
@@ -90,13 +106,14 @@ literal_token:
 /* <selector|token> productions */
 selector:
   '<' selector_part '|'
-      selector_element '>'              {
-                                        //$$ = new_node(SELECTOR_GN);
-                                        //add_node($$, $4);
-                                        };
+      selector_element '>'
+{
+  $$ = new_node(SELECTOR_GN);
+  // attach subtree here
+};
 
 selector_part:
-  selector_part '|' selector_element    
+  selector_part '|' selector_element
 | selector_element
 ;
 
@@ -104,11 +121,11 @@ selector_element:
   WORD selector_token_seq;
 
 selector_token_seq:
-  %empty
-| selector_token_seq selector_token     {
-                                        //add_node(currnode, $2);
-                                        //currnode = $2;
-                                        }
+  %empty                                {$$ = NULL;}
+| selector_token_seq selector_token
+{
+  currnode = add_node(currnode, $2);
+}
 ;
 
 selector_token:
@@ -118,7 +135,11 @@ selector_token:
 ;
 
 /* [option|set] productions */
-option: '[' option_part ']';
+option: '[' option_part ']'
+{
+  $$ = new_node(OPTION_GN);
+  // attach subtree here
+};
 
 option_part:
   option_part '|' option_token_seq
@@ -126,13 +147,34 @@ option_part:
 ;
 
 option_token_seq:
-  option_token
-| option_token_seq option_token
+  option_token_seq option_token
+| option_token
+{
+  printf("Matched singular option token in sequence, type: %d\n", $1->type);
+}
 ;
 
 option_token:
   literal_token
+{
+  // optnode_el points to root of option element
+  if (optnode_el == NULL) {
+    optnode_el = $1;
+    currnode = $1;
+  }
+  else
+    add_node(currnode, $1);
+}
 | placeholder_token
+{
+  // optnode_el points to root of option element
+  if (optnode_el == NULL) {
+    optnode_el = $1;
+    currnode = $1;
+  }
+  else
+    add_node(currnode, $1);
+}
 ;
 
 %%
@@ -154,9 +196,12 @@ void yyerror(char const *message) {
 int
 cmd_parse_format(const char *string, const char *desc)
 {
-  yy_scan_string(string);
+  // make flex read from a string
+  set_buffer_string(string);
+  // initialize the start node of this command dfa
+  topnode = new_node(NUL_GN);
+  // parse command into DFA
   yyparse();
+  // topnode points to command DFA
   return 0;
 }
-
-
