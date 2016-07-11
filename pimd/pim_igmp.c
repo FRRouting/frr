@@ -23,6 +23,7 @@
 #include <zebra.h>
 
 #include "memory.h"
+#include "prefix.h"
 #include "if.h"
 
 #include "pimd.h"
@@ -471,6 +472,7 @@ static int igmp_v3_report(struct igmp_sock *igmp,
   uint8_t          *report_pastend = (uint8_t *) igmp_msg + igmp_msg_len;
   struct interface *ifp = igmp->interface;
   int               i;
+  int               local_ncb = 0;
 
   if (igmp_msg_len < IGMP_V3_MSG_MIN_SIZE) {
     zlog_warn("Recv IGMP report v3 from %s on %s: size=%d shorter than minimum=%d",
@@ -513,6 +515,8 @@ static int igmp_v3_report(struct igmp_sock *igmp,
     int             rec_auxdatalen;
     int             rec_num_sources;
     int             j;
+    struct prefix   lncb;
+    struct prefix   g;
 
     if ((group_record + IGMP_V3_GROUP_RECORD_MIN_SIZE) > report_pastend) {
       zlog_warn("Recv IGMP report v3 from %s on %s: group record beyond report end",
@@ -555,31 +559,48 @@ static int igmp_v3_report(struct igmp_sock *igmp,
       }
     } /* for (sources) */
 
-    switch (rec_type) {
-    case IGMP_GRP_REC_TYPE_MODE_IS_INCLUDE:
-      igmpv3_report_isin(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
-      break;
-    case IGMP_GRP_REC_TYPE_MODE_IS_EXCLUDE:
-      igmpv3_report_isex(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
-      break;
-    case IGMP_GRP_REC_TYPE_CHANGE_TO_INCLUDE_MODE:
-      igmpv3_report_toin(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
-      break;
-    case IGMP_GRP_REC_TYPE_CHANGE_TO_EXCLUDE_MODE:
-      igmpv3_report_toex(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
-      break;
-    case IGMP_GRP_REC_TYPE_ALLOW_NEW_SOURCES:
-      igmpv3_report_allow(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
-      break;
-    case IGMP_GRP_REC_TYPE_BLOCK_OLD_SOURCES:
-      igmpv3_report_block(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
-      break;
-    default:
-      zlog_warn("Recv IGMP report v3 from %s on %s: unknown record type: type=%d",
-		from_str, ifp->name, rec_type);
-    }
+
+    lncb.family = AF_INET;
+    lncb.u.prefix4.s_addr = 0x000000E0;
+    lncb.prefixlen = 24;
+
+    g.family = AF_INET;
+    g.u.prefix4 = rec_group;
+    g.prefixlen = 32;
+    /*
+     * If we receive a igmp report with the group in 224.0.0.0/24
+     * then we should ignore it
+     */
+    if (prefix_match(&lncb, &g))
+      local_ncb = 1;
+
+    if (!local_ncb)
+      switch (rec_type) {
+      case IGMP_GRP_REC_TYPE_MODE_IS_INCLUDE:
+	igmpv3_report_isin(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
+	break;
+      case IGMP_GRP_REC_TYPE_MODE_IS_EXCLUDE:
+	igmpv3_report_isex(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
+	break;
+      case IGMP_GRP_REC_TYPE_CHANGE_TO_INCLUDE_MODE:
+	igmpv3_report_toin(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
+	break;
+      case IGMP_GRP_REC_TYPE_CHANGE_TO_EXCLUDE_MODE:
+	igmpv3_report_toex(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
+	break;
+      case IGMP_GRP_REC_TYPE_ALLOW_NEW_SOURCES:
+	igmpv3_report_allow(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
+	break;
+      case IGMP_GRP_REC_TYPE_BLOCK_OLD_SOURCES:
+	igmpv3_report_block(igmp, from, rec_group, rec_num_sources, (struct in_addr *) sources);
+	break;
+      default:
+	zlog_warn("Recv IGMP report v3 from %s on %s: unknown record type: type=%d",
+		  from_str, ifp->name, rec_type);
+      }
 
     group_record += 8 + (rec_num_sources << 2) + (rec_auxdatalen << 2);
+    local_ncb = 0;
 
   } /* for (group records) */
 
