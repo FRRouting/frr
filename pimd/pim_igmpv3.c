@@ -834,11 +834,26 @@ void igmpv3_report_toin(struct igmp_sock *igmp, struct in_addr from,
   on_trace(__PRETTY_FUNCTION__,
 	   ifp, from, group_addr, num_sources, sources);
 
-  /* non-existant group is created as INCLUDE {empty} */
-  group = igmp_add_group_by_addr(igmp, group_addr);
-  if (!group) {
-    return;
-  }
+  /*
+   * If the requested filter mode is INCLUDE *and* the requested source
+   * list is empty, then the entry corresponding to the requested
+   * interface and multicast address is deleted if present.  If no such
+   * entry is present, the request is ignored.
+   */
+  if (num_sources)
+    {
+      /* non-existant group is created as INCLUDE {empty} */
+      group = igmp_add_group_by_addr(igmp, group_addr);
+      if (!group) {
+	return;
+      }
+    }
+  else
+    {
+      group = find_group_by_addr (igmp, group_addr);
+      if (!group)
+	return;
+    }
 
   if (group->group_filtermode_isexcl) {
     /* EXCLUDE mode */

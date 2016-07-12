@@ -46,9 +46,6 @@
 
 static void group_timer_off(struct igmp_group *group);
 
-static struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
-					     struct in_addr group_addr);
-
 static int igmp_sock_open(struct in_addr ifaddr, int ifindex, uint32_t pim_options)
 {
   int fd;
@@ -1358,8 +1355,9 @@ void igmp_group_timer_on(struct igmp_group *group,
 		       group, interval_msec);
 }
 
-static struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
-					     struct in_addr group_addr)
+struct igmp_group *
+find_group_by_addr (struct igmp_sock *igmp,
+		   struct in_addr group_addr)
 {
   struct igmp_group *group;
   struct listnode   *node;

@@ -162,6 +162,8 @@ struct igmp_group {
   int64_t           last_igmp_v2_report_dsec;
 };
 
+struct igmp_group *find_group_by_addr (struct igmp_sock *igmp,
+				       struct in_addr group_addr);
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 					  struct in_addr group_addr);
 
