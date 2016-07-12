@@ -348,6 +348,7 @@ bgp_vrf_lookup_per_name (struct bgp *bgp, const char *name, int create)
     return NULL;
   QOBJ_REG (vrf, bgp_vrf);
   vrf->bgp = bgp;
+  vrf->max_mpath = bgp->maxpaths[AFI_IP][SAFI_MPLS_VPN].maxpaths_ibgp;
   vrf->name = strdup (name);
   vrf->flag |= BGP_VRF_RD_UNSET;
 
@@ -1080,6 +1081,46 @@ DEFUN (no_debug_bgp_vrf,
   return CMD_SUCCESS;
 }
 
+DEFUN (bgp_vrf_maximum_path,
+       bgp_vrf_maximum_path_cmd,
+       "maximum-path [1-64]",
+       "Maximum number of multipath routes\n"
+       "Maximum number of multipath routes\n"
+)
+{
+  VTY_DECLVAR_CONTEXT_SUB (bgp_vrf, vrf);
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+  int max_mpath;
+
+  max_mpath = atoi(argv[1]->arg);
+
+  /* some values for maximum path aren't acceptable */
+  if ( BGP_VRF_MINIMUM_PATH > max_mpath || max_mpath > BGP_VRF_MAXIMUM_PATH)
+    {
+      vty_out (vty, "%% Invalid maximum multipath '%d'%s", max_mpath, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* update max_mpath field in struct bgp_vrf */
+  vrf->max_mpath = max_mpath;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_vrf_maximum_path,
+       no_bgp_vrf_maximum_path_cmd,
+       "no maximum-path",
+       NO_STR
+       "maximum path\n"
+)
+{
+  VTY_DECLVAR_CONTEXT_SUB (bgp_vrf, vrf);
+
+  /* reset maximum mpath to default value */
+  vrf->max_mpath = BGP_VRF_MINIMUM_PATH;
+
+  return CMD_SUCCESS;
+}
+
 /* BGP VRF init/delete/ show running */
 void
 bgp_bgpvrf_init (struct bgp *bgp)
@@ -1105,6 +1146,8 @@ void bgp_bgpvrf_vty (void)
   install_element (BGP_VRF_NODE, &no_bgp_vrf_rt_import_cmd);
   install_element (BGP_VRF_NODE, &no_bgp_vrf_rt_export_cmd);
   install_element (BGP_VRF_NODE, &no_bgp_vrf_rt_both_cmd);
+  install_element (BGP_VRF_NODE, &bgp_vrf_maximum_path_cmd);
+  install_element (BGP_VRF_NODE, &no_bgp_vrf_maximum_path_cmd);
   install_element (BGP_VRF_NODE, &exit_bgp_vrf_cmd);
 
   install_element (VIEW_NODE, &show_ip_bgp_vrf_cmd);
@@ -1165,6 +1208,8 @@ void bgp_config_write_bgpvrf (struct vty *vty, struct bgp *bgp)
               XFREE (MTYPE_ECOMMUNITY_STR, str2_p);
             }
         }
+      if (vrf->max_mpath != BGP_VRF_MINIMUM_PATH)
+        vty_out (vty, "  maximum-path %u%s", vrf->max_mpath, VTY_NEWLINE);
       vty_out (vty, " exit%s", VTY_NEWLINE);
     }
 }

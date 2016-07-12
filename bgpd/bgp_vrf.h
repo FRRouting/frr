@@ -38,6 +38,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* for debugging */
 #define BGP_DEBUG_BGPVRF                 0x01
 
+/* for vrf multipath */
+#define BGP_VRF_MAXIMUM_PATH 64
+#define BGP_VRF_MINIMUM_PATH 1
+
 
 struct bgp_rt_sub
 {
@@ -64,6 +68,9 @@ struct bgp_vrf
 
   /* Static route configuration.  */
   struct bgp_table *route[AFI_MAX];
+
+  /* maximum multipath entries for the VRF */
+  uint32_t max_mpath;
 
   /* internal flag */
 #define BGP_VRF_RD_UNSET 1
