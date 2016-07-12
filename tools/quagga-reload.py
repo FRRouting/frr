@@ -624,13 +624,14 @@ if __name__ == '__main__':
     group.add_argument('--reload', action='store_true', help='Apply the deltas', default=False)
     group.add_argument('--test', action='store_true', help='Show the deltas', default=False)
     parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
+    parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
     parser.add_argument('filename', help='Location of new quagga config file')
     args = parser.parse_args()
 
     # Logging
     # For --test log to stdout
     # For --reload log to /var/log/quagga/quagga-reload.log
-    if args.test:
+    if args.test or args.stdout:
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)5s: %(message)s')
     elif args.reload:
