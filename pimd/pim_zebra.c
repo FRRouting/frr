@@ -448,7 +448,7 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
 
     zlog_debug ("FF");
     /* update kernel multicast forwarding cache (MFC) */
-    if (pim_mroute_add(&c_oil->oil))
+    if (pim_mroute_add(c_oil))
       {
       /* just log warning */
       struct interface *old_iif = pim_if_find_by_vif_index(old_vif_index);
@@ -900,7 +900,7 @@ static int del_oif(struct channel_oil *channel_oil,
 
   channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = 0;
 
-  if (pim_mroute_add(&channel_oil->oil)) {
+  if (pim_mroute_add(channel_oil)) {
     char group_str[100]; 
     char source_str[100];
     pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
@@ -917,7 +917,7 @@ static int del_oif(struct channel_oil *channel_oil,
   --channel_oil->oil_size;
 
   if (channel_oil->oil_size < 1) {
-    if (pim_mroute_del(&channel_oil->oil)) {
+    if (pim_mroute_del(channel_oil)) {
       /* just log a warning in case of failure */
       char group_str[100]; 
       char source_str[100];

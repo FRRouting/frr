@@ -557,7 +557,7 @@ int pim_mroute_del_vif(int vif_index)
   return 0;
 }
 
-int pim_mroute_add(struct mfcctl *mc)
+int pim_mroute_add(struct channel_oil *c_oil)
 {
   int err;
   int orig = 0;
@@ -575,17 +575,17 @@ int pim_mroute_add(struct mfcctl *mc)
    * vif to be part of the outgoing list
    * in the case of a (*,G).
    */
-  if (mc->mfcc_origin.s_addr == INADDR_ANY)
+  if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
     {
-      orig = mc->mfcc_ttls[mc->mfcc_parent];
-      mc->mfcc_ttls[mc->mfcc_parent] = 1;
+      orig = c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent];
+      c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent] = 1;
     }
 
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_MFC,
-		   mc, sizeof(*mc));
+		   &c_oil->oil, sizeof(c_oil->oil));
 
-  if (mc->mfcc_origin.s_addr == INADDR_ANY)
-      mc->mfcc_ttls[mc->mfcc_parent] = orig;
+  if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+      c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent] = orig;
 
   if (err) {
     int e = errno;
@@ -600,7 +600,7 @@ int pim_mroute_add(struct mfcctl *mc)
   return 0;
 }
 
-int pim_mroute_del(struct mfcctl *mc)
+int pim_mroute_del (struct channel_oil *c_oil)
 {
   int err;
 
@@ -613,7 +613,7 @@ int pim_mroute_del(struct mfcctl *mc)
     return -1;
   }
 
-  err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_MFC, mc, sizeof(*mc));
+  err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_MFC, &c_oil->oil, sizeof(c_oil->oil));
   if (err) {
     int e = errno;
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC): errno=%d: %s",
