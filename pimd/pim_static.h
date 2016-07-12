@@ -32,11 +32,9 @@ struct static_route {
    struct in_addr group;
    struct in_addr source;
 
+   struct channel_oil c_oil;
    unsigned int   iif;
    unsigned char  oif_ttls[MAXVIFS];
-   int            oif_count;
-   struct mfcctl  mc;
-   time_t         creation[MAXVIFS];
 };
 
 void pim_static_route_free(struct static_route *s_route);

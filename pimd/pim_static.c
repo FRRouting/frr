@@ -24,15 +24,16 @@
 
 #include "vty.h"
 #include "if.h"
-
-#include "pim_static.h"
-#include "pim_time.h"
-#include "pim_str.h"
-#include "pimd.h"
-#include "pim_iface.h"
 #include "log.h"
 #include "memory.h"
 #include "linklist.h"
+
+#include "pimd.h"
+#include "pim_oil.h"
+#include "pim_static.h"
+#include "pim_time.h"
+#include "pim_str.h"
+#include "pim_iface.h"
 
 void pim_static_route_free(struct static_route *s_route)
 {
@@ -66,12 +67,12 @@ static struct static_route *static_route_new(unsigned int   iif,
   s_route->source            = source;
   s_route->iif               = iif;
   s_route->oif_ttls[oif]     = 1;
-  s_route->oif_count         = 1;
-  s_route->mc.mfcc_origin    = source;
-  s_route->mc.mfcc_mcastgrp  = group;
-  s_route->mc.mfcc_parent    = iif;
-  s_route->mc.mfcc_ttls[oif] = 1;
-  s_route->creation[oif] = pim_time_monotonic_sec();
+  s_route->c_oil.oil_ref_count         = 1;
+  s_route->c_oil.oil.mfcc_origin    = source;
+  s_route->c_oil.oil.mfcc_mcastgrp  = group;
+  s_route->c_oil.oil.mfcc_parent    = iif;
+  s_route->c_oil.oil.mfcc_ttls[oif] = 1;
+  s_route->c_oil.oif_creation[oif] = pim_time_monotonic_sec();
 
   return s_route;
 }
@@ -138,30 +139,30 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
          /* Route exists and has the same input interface, but adding a new output interface */
          if (s_route->iif == iif_index) {
             s_route->oif_ttls[oif_index] = 1;
-            s_route->mc.mfcc_ttls[oif_index] = 1;
-            s_route->creation[oif_index] = pim_time_monotonic_sec();
-            ++s_route->oif_count;
+            s_route->c_oil.oil.mfcc_ttls[oif_index] = 1;
+            s_route->c_oil.oif_creation[oif_index] = pim_time_monotonic_sec();
+            ++s_route->c_oil.oil_ref_count;
          } else {
             /* input interface changed */
             s_route->iif = iif_index;
-            s_route->mc.mfcc_parent = iif_index;
+            s_route->c_oil.oil.mfcc_parent = iif_index;
 
 #ifdef PIM_ENFORCE_LOOPFREE_MFC
             /* check to make sure the new input was not an old output */
             if (s_route->oif_ttls[iif_index]) {
                s_route->oif_ttls[iif_index] = 0;
-               s_route->creation[iif_index] = 0;
-               s_route->mc.mfcc_ttls[iif_index] = 0;
-               --s_route->oif_count;
+               s_route->c_oil.oif_creation[iif_index] = 0;
+               s_route->c_oil.oil.mfcc_ttls[iif_index] = 0;
+               --s_route->c_oil.oil_ref_count;
             }
 #endif
 
             /* now add the new output, if it is new */
             if (!s_route->oif_ttls[oif_index]) {
                s_route->oif_ttls[oif_index] = 1;
-               s_route->creation[oif_index] = pim_time_monotonic_sec();
-               s_route->mc.mfcc_ttls[oif_index] = 1;
-               ++s_route->oif_count;
+               s_route->c_oil.oif_creation[oif_index] = pim_time_monotonic_sec();
+               s_route->c_oil.oil.mfcc_ttls[oif_index] = 1;
+               ++s_route->c_oil.oil_ref_count;
             }
          }
 
@@ -175,7 +176,7 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
       listnode_add(qpim_static_route_list, s_route);
    }
 
-   if (pim_mroute_add(&(s_route->mc)))
+   if (pim_mroute_add(&s_route->c_oil.oil))
    {
       char gifaddr_str[100];
       char sifaddr_str[100];
@@ -245,11 +246,12 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
           s_route->source.s_addr == source.s_addr &&
           s_route->oif_ttls[oif_index]) {
          s_route->oif_ttls[oif_index] = 0;
-         s_route->mc.mfcc_ttls[oif_index] = 0;
-         --s_route->oif_count;
+         s_route->c_oil.oil.mfcc_ttls[oif_index] = 0;
+         --s_route->c_oil.oil_ref_count;
 
          /* If there are no more outputs then delete the whole route, otherwise set the route with the new outputs */
-         if (s_route->oif_count <= 0 ? pim_mroute_del(&s_route->mc) : pim_mroute_add(&s_route->mc)) {
+         if (s_route->c_oil.oil_ref_count <= 0 ?
+                 pim_mroute_del(&s_route->c_oil.oil) : pim_mroute_add(&s_route->c_oil.oil)) {
             char gifaddr_str[100];
             char sifaddr_str[100];
             pim_inet4_dump("<ifaddr?>", group, gifaddr_str, sizeof(gifaddr_str));
@@ -262,15 +264,15 @@ int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr 
                      sifaddr_str);
 
             s_route->oif_ttls[oif_index] = 1;
-            s_route->mc.mfcc_ttls[oif_index] = 1;
-            ++s_route->oif_count;
+            s_route->c_oil.oil.mfcc_ttls[oif_index] = 1;
+            ++s_route->c_oil.oil_ref_count;
 
             return -1;
          }
 
-         s_route->creation[oif_index] = 0;
+         s_route->c_oil.oif_creation[oif_index] = 0;
 
-         if (s_route->oif_count <= 0) {
+         if (s_route->c_oil.oil_ref_count <= 0) {
             listnode_delete(qpim_static_route_list, s_route);
             pim_static_route_free(s_route);
          }

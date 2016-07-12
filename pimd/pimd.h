@@ -25,7 +25,6 @@
 
 #include <stdint.h>
 
-#include "pim_mroute.h"
 #include "pim_assert.h"
 
 #define PIMD_PROGNAME       "pimd"

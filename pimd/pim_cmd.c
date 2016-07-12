@@ -30,6 +30,7 @@
 #include "zclient.h"
 
 #include "pimd.h"
+#include "pim_mroute.h"
 #include "pim_cmd.h"
 #include "pim_iface.h"
 #include "pim_vty.h"
@@ -1637,12 +1638,12 @@ static void static_mroute_add_all()
   struct static_route *s_route;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-    if (pim_mroute_add(&s_route->mc)) {
+    if (pim_mroute_add(&s_route->c_oil.oil)) {
       /* just log warning */
       char source_str[100];
       char group_str[100];
-      pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
-      pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
+      pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
+      pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
       zlog_warn("%s %s: (S,G)=(%s,%s) failure writing MFC",
       __FILE__, __PRETTY_FUNCTION__,
       source_str, group_str);
@@ -1656,12 +1657,12 @@ static void static_mroute_del_all()
    struct static_route *s_route;
 
    for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-     if (pim_mroute_del(&s_route->mc)) {
+     if (pim_mroute_del(&s_route->c_oil.oil)) {
        /* just log warning */
        char source_str[100];
        char group_str[100];
-       pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
-       pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
+       pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
+       pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
        zlog_warn("%s %s: (S,G)=(%s,%s) failure clearing MFC",
        __FILE__, __PRETTY_FUNCTION__,
        source_str, group_str);
@@ -2256,7 +2257,7 @@ static void show_mroute(struct vty *vty)
       ifp_in  = pim_if_find_by_vif_index(s_route->iif);
       ifp_out = pim_if_find_by_vif_index(oif_vif_index);
 
-      pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - s_route->creation[oif_vif_index]);
+      pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - s_route->c_oil.oif_creation[oif_vif_index]);
 
       proto[0] = '\0';
       strcat(proto, "S");
@@ -2340,11 +2341,11 @@ static void show_mroute_count(struct vty *vty)
     struct sioc_sg_req sgreq;
 
     memset(&sgreq, 0, sizeof(sgreq));
-    sgreq.src = s_route->mc.mfcc_origin;
-    sgreq.grp = s_route->mc.mfcc_mcastgrp;
+    sgreq.src = s_route->c_oil.oil.mfcc_origin;
+    sgreq.grp = s_route->c_oil.oil.mfcc_mcastgrp;
 
-    pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
-    pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
+    pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
 
     if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
       int e = errno;
