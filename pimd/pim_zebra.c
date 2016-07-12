@@ -387,18 +387,27 @@ static void scan_upstream_rpf_cache()
 void
 pim_scan_individual_oil (struct channel_oil *c_oil)
 {
+  struct in_addr vif_source;
+  int input_iface_vif_index;
   int old_vif_index;
-  int input_iface_vif_index = fib_lookup_if_vif_index(c_oil->oil.mfcc_origin);
 
+  if (!pim_rp_set_upstream_addr (&vif_source, c_oil->oil.mfcc_origin))
+    return;
+
+  input_iface_vif_index = fib_lookup_if_vif_index (vif_source);
   if (input_iface_vif_index < 1)
     {
-      char source_str[100];
-      char group_str[100];
-      pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-      pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-      zlog_warn("%s %s: could not find input interface for (S,G)=(%s,%s)",
-		__FILE__, __PRETTY_FUNCTION__,
-		source_str, group_str);
+      if (PIM_DEBUG_ZEBRA)
+        {
+          char source_str[100];
+          char group_str[100];
+          pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+          pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+          zlog_debug("%s %s: could not find input interface(%d) for (S,G)=(%s,%s)",
+		     __FILE__, __PRETTY_FUNCTION__, c_oil->oil.mfcc_parent,
+		     source_str, group_str);
+        }
+      pim_mroute_del (c_oil);
       return;
     }
 
