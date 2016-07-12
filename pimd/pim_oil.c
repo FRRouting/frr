@@ -79,6 +79,7 @@ static struct channel_oil *channel_oil_new(struct in_addr group_addr,
   c_oil->oil.mfcc_origin   = source_addr;
   c_oil->oil.mfcc_parent   = input_vif_index;
   c_oil->oil_ref_count     = 1;
+  c_oil->installed         = 0;
 
   zassert(c_oil->oil_size == 0);
 

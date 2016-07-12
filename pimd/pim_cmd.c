@@ -2190,6 +2190,9 @@ static void show_mroute(struct vty *vty)
     char source_str[100];
     int oif_vif_index;
 
+    if (!c_oil->installed)
+      continue;
+
     pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
     
@@ -2239,6 +2242,9 @@ static void show_mroute(struct vty *vty)
     char group_str[100];
     char source_str[100];
     int oif_vif_index;
+
+    if (!s_route->c_oil.installed)
+      continue;
 
     pim_inet4_dump("<group?>", s_route->group, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", s_route->source, source_str, sizeof(source_str));
@@ -2305,6 +2311,9 @@ static void show_mroute_count(struct vty *vty)
     char source_str[100];
     struct sioc_sg_req sgreq;
 
+    if (!c_oil->installed)
+      continue;
+
     memset(&sgreq, 0, sizeof(sgreq));
     sgreq.src = c_oil->oil.mfcc_origin;
     sgreq.grp = c_oil->oil.mfcc_mcastgrp;
@@ -2339,6 +2348,9 @@ static void show_mroute_count(struct vty *vty)
     char group_str[100];
     char source_str[100];
     struct sioc_sg_req sgreq;
+
+    if (!s_route->c_oil.installed)
+      continue;
 
     memset(&sgreq, 0, sizeof(sgreq));
     sgreq.src = s_route->c_oil.oil.mfcc_origin;

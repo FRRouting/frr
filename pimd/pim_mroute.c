@@ -597,6 +597,7 @@ int pim_mroute_add(struct channel_oil *c_oil)
     return -2;
   }
 
+  c_oil->installed = 1;
   return 0;
 }
 
@@ -623,6 +624,8 @@ int pim_mroute_del (struct channel_oil *c_oil)
     errno = e;
     return -2;
   }
+
+  c_oil->installed = 0;
 
   return 0;
 }
