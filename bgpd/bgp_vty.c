@@ -304,6 +304,9 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_INVALID_FOR_DYNAMIC_PEER:
       str = "Operation not allowed on a dynamic neighbor";
       break;
+    case BGP_ERR_INVALID_FOR_DIRECT_PEER:
+      str = "Operation not allowed on a directly connected neighbor";
+      break;
     }
   if (str)
     {
@@ -4433,6 +4436,9 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
+
+  if (peer->conf_if)
+    return bgp_vty_return (vty, BGP_ERR_INVALID_FOR_DIRECT_PEER);
 
   if (! ttl_str)
     ttl = MAXTTL;
