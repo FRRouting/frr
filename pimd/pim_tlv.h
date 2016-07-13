@@ -115,17 +115,13 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 			    uint16_t option_len,
 			    const uint8_t *tlv_curr);
 
-int pim_parse_addr_ucast(const char *ifname, struct in_addr src_addr,
-			 struct prefix *p,
-			 const uint8_t *buf,
-			 int buf_size);
-int pim_parse_addr_group(const char *ifname, struct in_addr src_addr,
-			 struct prefix *p,
-			 const uint8_t *buf,
-			 int buf_size);
-int pim_parse_addr_source(const char *ifname,
-			  struct in_addr src_addr,
-			  struct prefix *p,
+int pim_parse_addr_ucast (struct prefix *p,
+			  const uint8_t *buf,
+			  int buf_size);
+int pim_parse_addr_group (struct prefix *p,
+			  const uint8_t *buf,
+			  int buf_size);
+int pim_parse_addr_source(struct prefix *p,
 			  uint8_t *flags,
 			  const uint8_t *buf,
 			  int buf_size);

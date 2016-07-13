@@ -127,14 +127,8 @@ int pim_joinprune_recv(struct interface *ifp,
   /*
     Parse ucast addr
   */
-  addr_offset = pim_parse_addr_ucast(ifp->name, src_addr,
-				     &msg_upstream_addr,
-				     buf, pastend - buf);
-#if 0
-  zlog_warn("%s: pim_parse_addr_ucast addr_offset=%d",
-            __PRETTY_FUNCTION__,
-            addr_offset);
-#endif
+  addr_offset = pim_parse_addr_ucast (&msg_upstream_addr,
+				      buf, pastend - buf);
   if (addr_offset < 1) {
     char src_str[100];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
@@ -197,14 +191,8 @@ int pim_joinprune_recv(struct interface *ifp,
     uint16_t      msg_num_pruned_sources;
     int           source;
 
-    addr_offset = pim_parse_addr_group(ifp->name, src_addr,
-				       &msg_group_addr,
-				       buf, pastend - buf);
-#if 0
-    zlog_warn("%s: pim_parse_addr_group addr_offset=%d",
-              __PRETTY_FUNCTION__,
-              addr_offset);
-#endif
+    addr_offset = pim_parse_addr_group (&msg_group_addr,
+					buf, pastend - buf);
     if (addr_offset < 1) {
       return -5;
     }
@@ -243,15 +231,9 @@ int pim_joinprune_recv(struct interface *ifp,
 
     /* Scan joined sources */
     for (source = 0; source < msg_num_joined_sources; ++source) {
-      addr_offset = pim_parse_addr_source(ifp->name, src_addr,
-					  &msg_source_addr,
-					  &msg_source_flags,
-					  buf, pastend - buf);
-#if 0
-      zlog_warn("%s: pim_parse_addr_source addr_offset=%d",
-                __PRETTY_FUNCTION__,
-                addr_offset);
-#endif
+      addr_offset = pim_parse_addr_source (&msg_source_addr,
+					   &msg_source_flags,
+					   buf, pastend - buf);
       if (addr_offset < 1) {
 	return -7;
       }
@@ -267,10 +249,9 @@ int pim_joinprune_recv(struct interface *ifp,
 
     /* Scan pruned sources */
     for (source = 0; source < msg_num_pruned_sources; ++source) {
-      addr_offset = pim_parse_addr_source(ifp->name, src_addr,
-					  &msg_source_addr,
-					  &msg_source_flags,
-					  buf, pastend - buf);
+      addr_offset = pim_parse_addr_source (&msg_source_addr,
+					   &msg_source_flags,
+					   buf, pastend - buf);
       if (addr_offset < 1) {
 	return -8;
       }
