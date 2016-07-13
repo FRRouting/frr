@@ -22,8 +22,6 @@
 
 #include <zebra.h>
 
-#include <sys/ioctl.h>
-
 #include "command.h"
 #include "if.h"
 #include "prefix.h"
@@ -2309,37 +2307,21 @@ static void show_mroute_count(struct vty *vty)
   for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
     char group_str[100]; 
     char source_str[100];
-    struct sioc_sg_req sgreq;
 
     if (!c_oil->installed)
       continue;
 
-    memset(&sgreq, 0, sizeof(sgreq));
-    sgreq.src = c_oil->oil.mfcc_origin;
-    sgreq.grp = c_oil->oil.mfcc_mcastgrp;
+    pim_mroute_update_counters (c_oil);
 
     pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 
-    if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
-      int e = errno;
-      vty_out(vty,
-	      "ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s%s",
-	      (unsigned long)SIOCGETSGCNT,
-	      source_str,
-	      group_str,
-	      e,
-	      safe_strerror(e),
-	      VTY_NEWLINE);	      
-      continue;
-    }
-    
     vty_out(vty, "%-15s %-15s %7ld %10ld %7ld %s",
 	    source_str,
 	    group_str,
-	    sgreq.pktcnt,
-	    sgreq.bytecnt,
-	    sgreq.wrong_if,
+	    c_oil->cc.pktcnt,
+	    c_oil->cc.bytecnt,
+	    c_oil->cc.wrong_if,
 	    VTY_NEWLINE);
   }
 
@@ -2347,40 +2329,21 @@ static void show_mroute_count(struct vty *vty)
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
     char group_str[100];
     char source_str[100];
-    struct sioc_sg_req sgreq;
 
     if (!s_route->c_oil.installed)
       continue;
 
-    memset(&sgreq, 0, sizeof(sgreq));
-    sgreq.src = s_route->c_oil.oil.mfcc_origin;
-    sgreq.grp = s_route->c_oil.oil.mfcc_mcastgrp;
+    pim_mroute_update_counters (&s_route->c_oil);
 
     pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
 
-    if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
-      int e = errno;
-      vty_out(vty,
-         "ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s%s",
-         /* note that typeof ioctl defs can vary across platforms, from
-          * int, to unsigned int, to long unsigned int
-          */
-         (unsigned long)SIOCGETSGCNT,
-         source_str,
-         group_str,
-         e,
-         safe_strerror(e),
-         VTY_NEWLINE);
-      continue;
-    }
-
     vty_out(vty, "%-15s %-15s %7ld %10ld %7ld %s",
        source_str,
        group_str,
-       sgreq.pktcnt,
-       sgreq.bytecnt,
-       sgreq.wrong_if,
+       s_route->c_oil.cc.pktcnt,
+       s_route->c_oil.cc.bytecnt,
+       s_route->c_oil.cc.wrong_if,
        VTY_NEWLINE);
   }
 }

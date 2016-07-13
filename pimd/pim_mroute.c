@@ -143,6 +143,8 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     return 0;
   }
 
+  pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
+
   up->channel_oil = pim_channel_oil_add(msg->im_dst,
 					msg->im_src,
 					pim_ifp->mroute_vif_index);
@@ -628,4 +630,41 @@ int pim_mroute_del (struct channel_oil *c_oil)
   c_oil->installed = 0;
 
   return 0;
+}
+
+void
+pim_mroute_update_counters (struct channel_oil *c_oil)
+{
+  struct sioc_sg_req sgreq;
+
+  memset (&sgreq, 0, sizeof(sgreq));
+  sgreq.src = c_oil->oil.mfcc_origin;
+  sgreq.grp = c_oil->oil.mfcc_mcastgrp;
+
+  c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
+  c_oil->cc.oldbytecnt = c_oil->cc.bytecnt;
+  c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
+
+  if (ioctl (qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq))
+    {
+      char group_str[100];
+      char source_str[100];
+
+      pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+      pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+
+      zlog_warn ("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s",
+		 (unsigned long)SIOCGETSGCNT,
+		 source_str,
+		 group_str,
+		 errno,
+		 safe_strerror(errno));
+      return;
+    }
+
+  c_oil->cc.pktcnt = sgreq.pktcnt;
+  c_oil->cc.bytecnt = sgreq.bytecnt;
+  c_oil->cc.wrong_if = sgreq.wrong_if;
+
+  return;
 }

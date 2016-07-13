@@ -50,6 +50,17 @@
 #define PIM_OIF_PIM_REGISTER_VIF   (MAXVIFS - 1)
 #define PIM_MAX_USABLE_VIFS        (MAXVIFS - 2)
 
+
+struct channel_counts
+{
+  unsigned long pktcnt;
+  unsigned long oldpktcnt;
+  unsigned long bytecnt;
+  unsigned long oldbytecnt;
+  unsigned long wrong_if;
+  unsigned long oldwrong_if;
+};
+
 /*
   qpim_channel_oil_list holds a list of struct channel_oil.
 
@@ -64,6 +75,7 @@ struct channel_oil {
   int           oil_ref_count;
   time_t        oif_creation[MAXVIFS];
   uint32_t      oif_flags[MAXVIFS];
+  struct channel_counts cc;
 };
 
 void pim_channel_oil_free(struct channel_oil *c_oil);

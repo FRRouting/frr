@@ -174,4 +174,5 @@ int pim_mroute_del(struct channel_oil *c_oil);
 
 int pim_mroute_msg(int fd, const char *buf, int buf_size);
 
+void pim_mroute_update_counters (struct channel_oil *c_oil);
 #endif /* PIM_MROUTE_H */
