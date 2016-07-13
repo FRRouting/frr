@@ -29,6 +29,7 @@
 #define PIM_REGISTER_NR_BIT     0x40000000
 
 #define PIM_MSG_REGISTER_LEN   (8)
+#define PIM_MSG_REGISTER_STOP_LEN (4)
 
 void pim_register_send_test_packet_start (struct in_addr source,
 					  struct in_addr group,
