@@ -156,6 +156,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     }
     return 0;
   }
+  up->channel_oil->cc.pktcnt++;
 
   pim_channel_add_oif(up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_SOURCE);
 
