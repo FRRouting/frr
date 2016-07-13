@@ -314,7 +314,6 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
       pim_inet4_dump("<grp?>", ip_hdr->ip_dst, grp_str, sizeof(grp_str));
       zlog_debug("%s: not a kernel upcall proto=%d src: %s dst: %s msg_size=%d",
 		 __PRETTY_FUNCTION__, ip_hdr->ip_p, src_str, grp_str, buf_size);
-      //zlog_hexdump(buf, buf_size);
     }
     return 0;
   }
@@ -346,7 +345,6 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
     return pim_mroute_msg_nocache(fd, ifp, msg, src_str, grp_str);
     break;
   case IGMPMSG_WHOLEPKT:
-    zlog_hexdump(buf, buf_size);
     return pim_mroute_msg_wholepkt(fd, ifp, (const char *)msg, src_str, grp_str);
     break;
   default:
