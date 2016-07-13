@@ -111,6 +111,9 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 			    uint16_t option_len,
 			    const uint8_t *tlv_curr);
 
+int pim_encode_addr_ucast (uint8_t *buf, struct prefix *p);
+int pim_encode_addr_group (uint8_t *buf, afi_t afi, int bidir, int scope, struct in_addr group);
+
 int pim_parse_addr_ucast (struct prefix *p,
 			  const uint8_t *buf,
 			  int buf_size);

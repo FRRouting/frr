@@ -97,8 +97,8 @@ uint8_t *pim_tlv_append_uint32(uint8_t *buf,
 
 #define ucast_ipv4_encoding_len (2 + sizeof(struct in_addr))
 
-static int
-pim_encode_unicast_address (uint8_t *buf, struct prefix *p)
+int
+pim_encode_addr_ucast (uint8_t *buf, struct prefix *p)
 {
   switch (p->family)
     {
@@ -109,6 +109,79 @@ pim_encode_unicast_address (uint8_t *buf, struct prefix *p)
       ++buf;
       memcpy (buf, &p->u.prefix4, sizeof (struct in_addr));
       return ucast_ipv4_encoding_len;
+      break;
+    default:
+      return 0;
+      break;
+    }
+}
+
+#define group_ipv4_encoding_len (4 + sizeof (struct in_addr))
+
+/*
+ * Encoded-Group addresses take the following format:
+ *
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |  Addr Family  | Encoding Type |B| Reserved  |Z|  Mask Len     |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                Group multicast Address
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...
+ *
+ *  Addr Family
+ *       Described above.
+ *
+ *  Encoding Type
+ *       Described above.
+ *
+ *  [B]idirectional PIM
+ *       Indicates the group range should use Bidirectional PIM [13].
+ *       For PIM-SM defined in this specification, this bit MUST be zero.
+ *
+ *  Reserved
+ *       Transmitted as zero.  Ignored upon receipt.
+ *
+ *  Admin Scope [Z]one
+ *       indicates the group range is an admin scope zone.  This is used
+ *       in the Bootstrap Router Mechanism [11] only.  For all other
+ *       purposes, this bit is set to zero and ignored on receipt.
+ *
+ *  Mask Len
+ *       The Mask length field is 8 bits.  The value is the number of
+ *       contiguous one bits that are left justified and used as a mask;
+ *       when combined with the group address, it describes a range of
+ *       groups.  It is less than or equal to the address length in bits
+ *       for the given Address Family and Encoding Type.  If the message
+ *       is sent for a single group, then the Mask length must equal the
+ *       address length in bits for the given Address Family and Encoding
+ *       Type (e.g., 32 for IPv4 native encoding, 128 for IPv6 native
+ *       encoding).
+ *
+ *  Group multicast Address
+ *       Contains the group address.
+ */
+int
+pim_encode_addr_group (uint8_t *buf, afi_t afi, int bidir, int scope, struct in_addr group)
+{
+  uint8_t flags = 0;
+
+  flags |= bidir << 8;
+  flags |= scope;
+
+  switch (afi)
+    {
+    case AFI_IP:
+      *(uint8_t *)buf = PIM_MSG_ADDRESS_FAMILY_IPV4;
+      ++buf;
+      *(uint8_t *)buf = 0;
+      ++buf;
+      *(uint8_t *)buf = flags;
+      ++buf;
+      *(uint8_t *)buf = 32;
+      ++buf;
+      memcpy (buf, &group, sizeof (struct in_addr));
+      return group_ipv4_encoding_len;
       break;
     default:
       return 0;
@@ -145,7 +218,7 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf,
     if ((curr + ucast_ipv4_encoding_len) > buf_pastend)
       return 0;
 
-    l_encode = pim_encode_unicast_address (curr, p);
+    l_encode = pim_encode_addr_ucast (curr, p);
     curr += l_encode;
     option_len += l_encode;
   }
