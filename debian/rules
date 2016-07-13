@@ -39,6 +39,8 @@ override_dh_auto_configure:
 		--sysconfdir=/etc/quagga \
 		$(USE_SNMP) \
 		--enable-ospfapi=yes \
+		--enable-vtysh=yes \
+		--enable-isisd=yes \
 		--enable-multipath=256 \
 		--enable-user=quagga \
 		--enable-group=quagga \

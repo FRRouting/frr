@@ -329,6 +329,12 @@ if test $ac_cv_lib_json_c_json_object_get = no; then
   AC_MSG_ERROR([lib json is needed to compile])
 fi
 
+AC_CHECK_HEADERS(json-c/json.h)
+AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
+if test $ac_cv_lib_json_c_json_object_get = no; then
+  AC_MSG_ERROR([lib json is needed to compile])
+fi
+
 if test x"${enable_gcc_rdynamic}" != x"no" ; then
   if test x"${enable_gcc_rdynamic}" = x"yes" -o x"$COMPILER" = x"GCC"; then
     LDFLAGS="${LDFLAGS} -rdynamic"

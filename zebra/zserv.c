@@ -1832,7 +1832,7 @@ static void
 zebra_client_close (struct zserv *client)
 {
   /* Send client de-registration to BFD */
-  zebra_ptm_bfd_client_deregister(client);
+  zebra_ptm_bfd_client_deregister(client->proto);
 
   /* Cleanup any registered nexthops - across all VRFs. */
   zebra_client_close_cleanup_rnh (client);

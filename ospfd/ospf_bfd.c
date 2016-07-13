@@ -452,7 +452,4 @@ ospf_bfd_init(void)
   install_element (INTERFACE_NODE, &ip_ospf_bfd_param_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_bfd_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_bfd_param_cmd);
-
-  /* Send the client registration */
-  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 }

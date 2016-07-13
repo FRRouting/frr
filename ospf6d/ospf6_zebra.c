@@ -28,6 +28,7 @@
 #include "stream.h"
 #include "zclient.h"
 #include "memory.h"
+#include "lib/bfd.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_top.h"
@@ -656,6 +657,9 @@ DEFUN (no_redistribute_ospf6,
 static void
 ospf6_zebra_connected (struct zclient *zclient)
 {
+  /* Send the client registration */
+  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+
   zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
 
