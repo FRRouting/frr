@@ -65,8 +65,9 @@ pim_check_is_my_ip_address (struct in_addr dest_addr)
 }
 
 static void
-pim_register_stop_send (struct in_addr src)
+pim_register_stop_send (struct in_addr source, struct in_addr group, struct in_addr originator)
 {
+  zlog_debug ("Send Register Stop");
   return;
 }
 
@@ -205,8 +206,6 @@ pim_register_recv (struct interface *ifp,
    */
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
   ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
-  //hlen = (ip_hdr->ip_hl << 2) | PIM_MSG_REGISTER_LEN;
-  //msg = (uint8_t *)tlv_buf + hlen;
   source = ip_hdr->ip_src;
   group = ip_hdr->ip_dst;
 
@@ -221,7 +220,7 @@ pim_register_recv (struct interface *ifp,
       if (pimbr.s_addr == pim_br_unknown.s_addr)
 	pim_br_set_pmbr(source, group, src_addr);
       else if (src_addr.s_addr != pimbr.s_addr) {
-	pim_register_stop_send(src_addr);
+	pim_register_stop_send(source, group, src_addr);
 	if (PIM_DEBUG_PIM_PACKETS)
 	  zlog_debug("%s: Sending register-Stop to %s and dropping mr. packet",
 	    __func__, "Sender");
@@ -235,12 +234,15 @@ pim_register_recv (struct interface *ifp,
      * If we don't have a place to send ignore the packet
      */
     if (!upstream)
-      return 1;
+      {
+	pim_register_stop_send (source, group, src_addr);
+	return 1;
+      }
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	((SwitchToSptDesired(source, group)) &&
 	 (inherited_olist(source, group) == NULL))) {
-      pim_register_stop_send(src_addr);
+      pim_register_stop_send(source, group, src_addr);
       sentRegisterStop = 1;
     }
 
@@ -274,7 +276,7 @@ pim_register_recv (struct interface *ifp,
 	//inherited_olist(S,G,rpt)
       }
   } else {
-    pim_register_stop_send(src_addr);
+    pim_register_stop_send(source, group, src_addr);
   }
 
   return 1;
