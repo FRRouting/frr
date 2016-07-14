@@ -745,17 +745,39 @@ DEFUN (no_router_bgp,
   struct bgp *bgp;
   const char *name = NULL;
 
-  VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
 
-  if (argc == 3)
-    name = argv[2];
-
-  /* Lookup bgp structure. */
-  bgp = bgp_lookup (as, name);
-  if (! bgp)
+  // "no router bgp" without an ASN
+  if (argc < 1)
     {
-      vty_out (vty, "%% Can't find BGP instance%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      //Pending: Make VRF option available for ASN less config
+      bgp = bgp_get_default();
+
+      if (bgp == NULL)
+        {
+          vty_out (vty, "%% No BGP process is configured%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+
+      if (listcount(bm->bgp) > 1)
+        {
+          vty_out (vty, "%% Multiple BGP processes are configured%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  else
+    {
+      VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
+
+      if (argc == 3)
+        name = argv[2];
+
+      /* Lookup bgp structure. */
+      bgp = bgp_lookup (as, name);
+      if (! bgp)
+        {
+          vty_out (vty, "%% Can't find BGP instance%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
     }
 
   bgp_delete (bgp);
@@ -772,6 +794,13 @@ ALIAS (no_router_bgp,
        AS_STR
        "BGP view\nBGP VRF\n"
        "View/VRF name\n")
+
+ALIAS (no_router_bgp,
+       no_router_bgp_noasn_cmd,
+       "no router bgp",
+       NO_STR
+       ROUTER_STR
+       BGP_STR)
 
 /* BGP router-id.  */
 
@@ -14382,6 +14411,7 @@ bgp_vty_init (void)
   /* "no router bgp" commands. */
   install_element (CONFIG_NODE, &no_router_bgp_cmd);
   install_element (CONFIG_NODE, &no_router_bgp_instance_cmd);
+  install_element (CONFIG_NODE, &no_router_bgp_noasn_cmd);
 
   /* "bgp router-id" commands. */
   install_element (BGP_NODE, &bgp_router_id_cmd);
