@@ -24,6 +24,7 @@
 #include "log.h"
 #include "if.h"
 #include "thread.h"
+#include "prefix.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -39,6 +40,7 @@
 #include "pim_oil.h"
 #include "pim_zebra.h"
 #include "pim_join.h"
+#include "pim_util.h"
 
 struct thread *send_test_packet_timer = NULL;
 
@@ -65,10 +67,48 @@ pim_check_is_my_ip_address (struct in_addr dest_addr)
 }
 
 static void
-pim_register_stop_send (struct in_addr source, struct in_addr group, struct in_addr originator)
+pim_register_stop_send (struct interface *ifp, struct in_addr source,
+			struct in_addr group, struct in_addr originator)
 {
-  zlog_debug ("Send Register Stop");
-  return;
+  struct pim_interface *pinfo;
+  unsigned char buffer[3000];
+  unsigned int b1length = 0;
+  unsigned int length;
+  uint8_t *b1;
+  struct prefix p;
+
+  memset (buffer, 0, 3000);
+  b1 = (uint8_t *)buffer + PIM_MSG_REGISTER_STOP_LEN;
+
+  length = pim_encode_addr_group (b1, AFI_IP, 0, 0, group);
+  b1length += length;
+  b1 += length;
+
+  p.family = AF_INET;
+  p.u.prefix4 = source;
+  p.prefixlen = 32;
+  length = pim_encode_addr_ucast (b1, &p);
+  b1length += length;
+
+  pim_msg_build_header (buffer, b1length + PIM_MSG_REGISTER_STOP_LEN, PIM_MSG_TYPE_REG_STOP);
+
+  pinfo = (struct pim_interface *)ifp->info;
+  if (!pinfo)
+    {
+      if (PIM_DEBUG_PIM_TRACE)
+        zlog_debug ("%s: No pinfo!\n", __PRETTY_FUNCTION__);
+      return;
+    }
+  if (pim_msg_send (pinfo->pim_sock_fd, originator,
+		    buffer, b1length + PIM_MSG_REGISTER_STOP_LEN,
+		    ifp->name))
+    {
+      if (PIM_DEBUG_PIM_TRACE)
+	{
+	  zlog_debug ("%s: could not send PIM register stop message on interface %s",
+		      __PRETTY_FUNCTION__, ifp->name);
+	}
+    }
 }
 
 void
@@ -220,7 +260,7 @@ pim_register_recv (struct interface *ifp,
       if (pimbr.s_addr == pim_br_unknown.s_addr)
 	pim_br_set_pmbr(source, group, src_addr);
       else if (src_addr.s_addr != pimbr.s_addr) {
-	pim_register_stop_send(source, group, src_addr);
+	pim_register_stop_send (ifp, source, group, src_addr);
 	if (PIM_DEBUG_PIM_PACKETS)
 	  zlog_debug("%s: Sending register-Stop to %s and dropping mr. packet",
 	    __func__, "Sender");
@@ -235,14 +275,14 @@ pim_register_recv (struct interface *ifp,
      */
     if (!upstream)
       {
-	pim_register_stop_send (source, group, src_addr);
+	pim_register_stop_send (ifp, source, group, src_addr);
 	return 1;
       }
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	((SwitchToSptDesired(source, group)) &&
 	 (inherited_olist(source, group) == NULL))) {
-      pim_register_stop_send(source, group, src_addr);
+      pim_register_stop_send (ifp, source, group, src_addr);
       sentRegisterStop = 1;
     }
 
@@ -276,7 +316,7 @@ pim_register_recv (struct interface *ifp,
 	//inherited_olist(S,G,rpt)
       }
   } else {
-    pim_register_stop_send(source, group, src_addr);
+    pim_register_stop_send (ifp, source, group, src_addr);
   }
 
   return 1;
