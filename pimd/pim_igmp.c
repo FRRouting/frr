@@ -171,7 +171,7 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 	       ifaddr_str);
   }
 
-  igmp->t_other_querier_timer = 0;
+  igmp->t_other_querier_timer = NULL;
 
   /*
     We are the current querier, then
@@ -212,7 +212,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
   else {
     /*
       We are the current querier, then stop sending general queries:
-      igmp->t_igmp_query_timer = 0;
+      igmp->t_igmp_query_timer = NULL;
     */
     pim_igmp_general_query_off(igmp);
   }
@@ -864,7 +864,7 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 	       startup_mode ? "startup" : "non-startup",
 	       igmp->fd);
   }
-  igmp->t_igmp_query_timer = 0;
+  igmp->t_igmp_query_timer = NULL;
   zassert(!igmp->t_igmp_query_timer);
   THREAD_TIMER_ON(master, igmp->t_igmp_query_timer,
 		  pim_igmp_general_query,
@@ -956,7 +956,7 @@ static void igmp_read_on(struct igmp_sock *igmp)
     zlog_debug("Scheduling READ event on IGMP socket fd=%d",
 	       igmp->fd);
   }
-  igmp->t_igmp_read = 0;
+  igmp->t_igmp_read = NULL;
   zassert(!igmp->t_igmp_read);
   THREAD_READ_ON(master, igmp->t_igmp_read, pim_igmp_read, igmp, igmp->fd);
 }
@@ -1202,9 +1202,9 @@ static struct igmp_sock *igmp_sock_new(int fd,
   igmp->fd                          = fd;
   igmp->interface                   = ifp;
   igmp->ifaddr                      = ifaddr;
-  igmp->t_igmp_read                 = 0;
-  igmp->t_igmp_query_timer          = 0;
-  igmp->t_other_querier_timer       = 0; /* no other querier present */
+  igmp->t_igmp_read                 = NULL;
+  igmp->t_igmp_query_timer          = NULL;
+  igmp->t_other_querier_timer       = NULL; /* no other querier present */
   igmp->querier_robustness_variable = pim_ifp->igmp_default_robustness_variable;
   igmp->sock_creation               = pim_time_monotonic_sec();
 

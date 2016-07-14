@@ -222,7 +222,7 @@ static int on_neighbor_timer(struct thread *t)
 	       neigh->holdtime, src_str, ifp->name);
   }
 
-  neigh->t_expire_timer = 0;
+  neigh->t_expire_timer = NULL;
 
   snprintf(msg, sizeof(msg), "%d-sec holdtime expired", neigh->holdtime);
   pim_neighbor_delete(ifp, neigh, msg);
@@ -313,7 +313,7 @@ static struct pim_neighbor *pim_neighbor_new(struct interface *ifp,
   neigh->dr_priority            = dr_priority;
   neigh->generation_id          = generation_id;
   neigh->prefix_list            = addr_list;
-  neigh->t_expire_timer         = 0;
+  neigh->t_expire_timer         = NULL;
   neigh->interface              = ifp;
 
   pim_neighbor_timer_reset(neigh, holdtime);

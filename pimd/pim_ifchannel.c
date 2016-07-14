@@ -202,14 +202,14 @@ static struct pim_ifchannel *pim_ifchannel_new(struct interface *ifp,
     zlog_err("%s: could not attach upstream (S,G)=(%s,%s) on interface %s",
 	     __PRETTY_FUNCTION__,
 	     src_str, grp_str, ifp->name);
-    return 0;
+    return NULL;
   }
 
   ch = XMALLOC(MTYPE_PIM_IFCHANNEL, sizeof(*ch));
   if (!ch) {
     zlog_err("%s: PIM XMALLOC(%zu) failure",
 	     __PRETTY_FUNCTION__, sizeof(*ch));
-    return 0;
+    return NULL;
   }
 
   ch->flags                        = 0;
@@ -220,8 +220,8 @@ static struct pim_ifchannel *pim_ifchannel_new(struct interface *ifp,
   ch->local_ifmembership           = PIM_IFMEMBERSHIP_NOINFO;
 
   ch->ifjoin_state                 = PIM_IFJOIN_NOINFO;
-  ch->t_ifjoin_expiry_timer        = 0;
-  ch->t_ifjoin_prune_pending_timer = 0;
+  ch->t_ifjoin_expiry_timer        = NULL;
+  ch->t_ifjoin_prune_pending_timer = NULL;
   ch->ifjoin_creation              = 0;
 
   ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
@@ -230,7 +230,7 @@ static struct pim_ifchannel *pim_ifchannel_new(struct interface *ifp,
   ch->ifassert_winner.s_addr = 0;
 
   /* Assert state */
-  ch->t_ifassert_timer   = 0;
+  ch->t_ifassert_timer   = NULL;
   reset_ifassert_state(ch);
   if (pim_macro_ch_could_assert_eval(ch))
     PIM_IF_FLAG_SET_COULD_ASSERT(ch->flags);
@@ -363,7 +363,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	    __PRETTY_FUNCTION__,
 	    src_str, grp_str, ifp->name);
 
-  return 0;
+  return NULL;
 }
 
 static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
@@ -381,7 +381,7 @@ static int on_ifjoin_expiry_timer(struct thread *t)
   ch = THREAD_ARG(t);
   zassert(ch);
 
-  ch->t_ifjoin_expiry_timer = 0;
+  ch->t_ifjoin_expiry_timer = NULL;
 
   zassert(ch->ifjoin_state == PIM_IFJOIN_JOIN);
 
@@ -431,7 +431,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   ch = THREAD_ARG(t);
   zassert(ch);
 
-  ch->t_ifjoin_prune_pending_timer = 0;
+  ch->t_ifjoin_prune_pending_timer = NULL;
 
   zassert(ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING);
 

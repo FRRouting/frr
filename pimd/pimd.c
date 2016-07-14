@@ -47,21 +47,21 @@ struct thread_master     *master = NULL;
 uint32_t                  qpim_debugs = 0;
 int                       qpim_mroute_socket_fd = -1;
 int64_t                   qpim_mroute_socket_creation = 0; /* timestamp of creation */
-struct thread            *qpim_mroute_socket_reader = 0;
+struct thread            *qpim_mroute_socket_reader = NULL;
 int                       qpim_mroute_oif_highest_vif_index = -1;
-struct list              *qpim_channel_oil_list = 0;
+struct list              *qpim_channel_oil_list = NULL;
 int                       qpim_t_periodic = PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
-struct list              *qpim_upstream_list = 0;
-struct zclient           *qpim_zclient_update = 0;
-struct zclient           *qpim_zclient_lookup = 0;
+struct list              *qpim_upstream_list = NULL;
+struct zclient           *qpim_zclient_update = NULL;
+struct zclient           *qpim_zclient_lookup = NULL;
 struct pim_assert_metric  qpim_infinite_assert_metric;
 long                      qpim_rpf_cache_refresh_delay_msec = 10000;
-struct thread            *qpim_rpf_cache_refresher = 0;
+struct thread            *qpim_rpf_cache_refresher = NULL;
 int64_t                   qpim_rpf_cache_refresh_requests = 0;
 int64_t                   qpim_rpf_cache_refresh_events = 0;
 int64_t                   qpim_rpf_cache_refresh_last =  0;
 struct in_addr            qpim_inaddr_any;
-struct list              *qpim_ssmpingd_list = 0;
+struct list              *qpim_ssmpingd_list = NULL;
 struct in_addr            qpim_ssmpingd_group_addr;
 int64_t                   qpim_scan_oil_events = 0;
 int64_t                   qpim_scan_oil_last = 0;
@@ -69,7 +69,7 @@ int64_t                   qpim_mroute_add_events = 0;
 int64_t                   qpim_mroute_add_last = 0;
 int64_t                   qpim_mroute_del_events = 0;
 int64_t                   qpim_mroute_del_last = 0;
-struct list              *qpim_static_route_list = 0;
+struct list              *qpim_static_route_list = NULL;
 struct pim_rpf            qpim_rp = { .rpf_addr.s_addr = INADDR_NONE };
 
 int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;

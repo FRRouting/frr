@@ -80,11 +80,11 @@ static struct static_route *static_route_new(unsigned int   iif,
 
 int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr group, struct in_addr source)
 {
-   struct listnode *node = 0;
-   struct static_route *s_route = 0;
-   struct static_route *original_s_route = 0;
-   struct pim_interface *pim_iif = iif ? iif->info : 0;
-   struct pim_interface *pim_oif = oif ? oif->info : 0;
+   struct listnode *node = NULL;
+   struct static_route *s_route = NULL;
+   struct static_route *original_s_route = NULL;
+   struct pim_interface *pim_iif = iif ? iif->info : NULL;
+   struct pim_interface *pim_oif = oif ? oif->info : NULL;
    ifindex_t iif_index = pim_iif ? pim_iif->mroute_vif_index : 0;
    ifindex_t oif_index = pim_oif ? pim_oif->mroute_vif_index : 0;
 
@@ -228,9 +228,9 @@ int pim_static_add(struct interface *iif, struct interface *oif, struct in_addr 
 
 int pim_static_del(struct interface *iif, struct interface *oif, struct in_addr group, struct in_addr source)
 {
-   struct listnode *node = 0;
-   struct listnode *nextnode = 0;
-   struct static_route *s_route = 0;
+   struct listnode *node = NULL;
+   struct listnode *nextnode = NULL;
+   struct static_route *s_route = NULL;
    struct pim_interface *pim_iif = iif ? iif->info : 0;
    struct pim_interface *pim_oif = oif ? oif->info : 0;
    ifindex_t iif_index = pim_iif ? pim_iif->mroute_vif_index : 0;

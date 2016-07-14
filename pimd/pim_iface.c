@@ -111,10 +111,10 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
   PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(pim_ifp->options);
 #endif
 
-  pim_ifp->igmp_join_list = 0;
-  pim_ifp->igmp_socket_list = 0;
-  pim_ifp->pim_neighbor_list = 0;
-  pim_ifp->pim_ifchannel_list = 0;
+  pim_ifp->igmp_join_list = NULL;
+  pim_ifp->igmp_socket_list = NULL;
+  pim_ifp->pim_neighbor_list = NULL;
+  pim_ifp->pim_ifchannel_list = NULL;
   pim_ifp->pim_generation_id = 0;
 
   /* list of struct igmp_sock */
@@ -187,7 +187,7 @@ void pim_if_delete(struct interface *ifp)
 
   XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
-  ifp->info = 0;
+  ifp->info = NULL;
 }
 
 void pim_if_update_could_assert(struct interface *ifp)

@@ -552,7 +552,7 @@ static int on_assert_timer(struct thread *t)
 	       src_str, grp_str, ifp->name);
   }
 
-  ch->t_ifassert_timer = 0;
+  ch->t_ifassert_timer = NULL;
 
   switch (ch->ifassert_state) {
   case PIM_IFASSERT_I_AM_WINNER:

@@ -377,7 +377,7 @@ static void pim_sock_read_on(struct interface *ifp)
     zlog_debug("Scheduling READ event on PIM socket fd=%d",
 	       pim_ifp->pim_sock_fd);
   }
-  pim_ifp->t_pim_sock_read = 0;
+  pim_ifp->t_pim_sock_read = NULL;
   zassert(!pim_ifp->t_pim_sock_read);
   THREAD_READ_ON(master, pim_ifp->t_pim_sock_read, pim_sock_read, ifp,
 		 pim_ifp->pim_sock_fd);
@@ -430,9 +430,9 @@ void pim_sock_reset(struct interface *ifp)
 
   pim_ifp->pim_sock_fd       = -1;
   pim_ifp->pim_sock_creation = 0;
-  pim_ifp->t_pim_sock_read   = 0;
+  pim_ifp->t_pim_sock_read   = NULL;
 
-  pim_ifp->t_pim_hello_timer          = 0;
+  pim_ifp->t_pim_hello_timer          = NULL;
   pim_ifp->pim_hello_period           = PIM_DEFAULT_HELLO_PERIOD;
   pim_ifp->pim_default_holdtime       = -1; /* unset: means 3.5 * pim_hello_period */
   pim_ifp->pim_triggered_hello_delay  = PIM_DEFAULT_TRIGGERED_HELLO_DELAY;
@@ -634,7 +634,7 @@ static int on_pim_hello_send(struct thread *t)
   /*
    * Schedule next hello
    */
-  pim_ifp->t_pim_hello_timer = 0;
+  pim_ifp->t_pim_hello_timer = NULL;
   hello_resched(ifp);
 
   /*
@@ -701,9 +701,8 @@ void pim_hello_restart_triggered(struct interface *ifp)
     }
 
     THREAD_OFF(pim_ifp->t_pim_hello_timer);
-    pim_ifp->t_pim_hello_timer = 0;
+    pim_ifp->t_pim_hello_timer = NULL;
   }
-  zassert(!pim_ifp->t_pim_hello_timer);
 
   random_msec = random() % (triggered_hello_delay_msec + 1);
 
@@ -741,7 +740,7 @@ int pim_sock_add(struct interface *ifp)
     return -2;
   }
 
-  pim_ifp->t_pim_sock_read   = 0;
+  pim_ifp->t_pim_sock_read   = NULL;
   pim_ifp->pim_sock_creation = pim_time_monotonic_sec();
 
   /*
