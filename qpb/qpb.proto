@@ -5,37 +5,6 @@
  *
  * @author Avneesh Sachdev <avneesh@sproute.com>
  *
- * Permission is granted to use, copy, modify and/or distribute this
- * software under either one of the licenses below.
- *
- * Note that if you use other files from the Quagga tree directly or
- * indirectly, then the licenses in those files still apply.
- *
- * Please retain both licenses below when modifying this code in the
- * Quagga tree.
- */
-
-/*
- * License Option 1: GPL
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
- */
-
-/*
- * License Option 2: ISC License
- *
  * Permission to use, copy, modify, and/or distribute this software
  * for any purpose with or without fee is hereby granted, provided
  * that the above copyright notice and this permission notice appear
