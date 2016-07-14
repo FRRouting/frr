@@ -111,6 +111,13 @@ pim_register_stop_send (struct interface *ifp, struct in_addr source,
     }
 }
 
+int
+pim_register_stop_recv (void)
+{
+  zlog_debug ("Received Register Stop");
+  return 0;
+}
+
 void
 pim_register_send (const struct ip *ip_hdr, struct pim_rpf *rpg)
 {

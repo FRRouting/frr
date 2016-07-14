@@ -208,60 +208,57 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	       pim_version, pim_type, pim_msg_len, checksum);
   }
 
-  if (pim_type == PIM_MSG_TYPE_REG_STOP  ||
-      pim_type == PIM_MSG_TYPE_BOOTSTRAP ||
-      pim_type == PIM_MSG_TYPE_GRAFT     ||
-      pim_type == PIM_MSG_TYPE_GRAFT_ACK ||
-      pim_type == PIM_MSG_TYPE_CANDIDATE)
+  switch (pim_type)
     {
+    case PIM_MSG_TYPE_HELLO:
+      return pim_hello_recv (ifp,
+			     ip_hdr->ip_src,
+			     pim_msg + PIM_MSG_HEADER_LEN,
+			     pim_msg_len - PIM_MSG_HEADER_LEN);
+      break;
+    case PIM_MSG_TYPE_REGISTER:
+      return pim_register_recv (ifp,
+				ip_hdr->ip_dst,
+				ip_hdr->ip_src,
+				pim_msg + PIM_MSG_HEADER_LEN,
+				pim_msg_len - PIM_MSG_HEADER_LEN);
+      break;
+    case PIM_MSG_TYPE_REG_STOP:
+      return pim_register_stop_recv ();
+      break;
+    case PIM_MSG_TYPE_JOIN_PRUNE:
+      neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);
+      if (!neigh) {
+	zlog_warn("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
+		  __FILE__, __PRETTY_FUNCTION__,
+		  pim_type, src_str, ifp->name);
+	return -1;
+      }
+      return pim_joinprune_recv(ifp, neigh,
+				ip_hdr->ip_src,
+				pim_msg + PIM_MSG_HEADER_LEN,
+				pim_msg_len - PIM_MSG_HEADER_LEN);
+      break;
+    case PIM_MSG_TYPE_ASSERT:
+      neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);
+      if (!neigh) {
+	zlog_warn("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
+		  __FILE__, __PRETTY_FUNCTION__,
+		  pim_type, src_str, ifp->name);
+	return -1;
+      }
+      return pim_assert_recv(ifp, neigh,
+			     ip_hdr->ip_src,
+			     pim_msg + PIM_MSG_HEADER_LEN,
+			     pim_msg_len - PIM_MSG_HEADER_LEN);
+      break;
+    default:
       if (PIM_DEBUG_PIM_PACKETS) {
 	zlog_debug("Recv PIM packet type %d which is not currently understood",
 		   pim_type);
       }
       return -1;
     }
-
-  if (pim_type == PIM_MSG_TYPE_HELLO) {
-    return pim_hello_recv(ifp,
-			  ip_hdr->ip_src,
-			  pim_msg + PIM_MSG_HEADER_LEN,
-			  pim_msg_len - PIM_MSG_HEADER_LEN);
-  } else if (pim_type == PIM_MSG_TYPE_REGISTER) {
-    return pim_register_recv(ifp,
-			     ip_hdr->ip_dst,
-			     ip_hdr->ip_src,
-			     pim_msg + PIM_MSG_HEADER_LEN,
-			     pim_msg_len - PIM_MSG_HEADER_LEN);
-  }
-
-  neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);
-  if (!neigh) {
-    zlog_warn("%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      pim_type, src_str, ifp->name);
-    return -1;
-  }
-
-  switch (pim_type) {
-  case PIM_MSG_TYPE_JOIN_PRUNE:
-    return pim_joinprune_recv(ifp, neigh,
-			      ip_hdr->ip_src,
-			      pim_msg + PIM_MSG_HEADER_LEN,
-			      pim_msg_len - PIM_MSG_HEADER_LEN);
-    break;
-  case PIM_MSG_TYPE_ASSERT:
-    return pim_assert_recv(ifp, neigh,
-			   ip_hdr->ip_src,
-			   pim_msg + PIM_MSG_HEADER_LEN,
-			   pim_msg_len - PIM_MSG_HEADER_LEN);
-    break;
-  default:
-    zlog_warn("%s %s: unsupported PIM message type=%d from %s on %s",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      pim_type, src_str, ifp->name);
-    break;
-  }
-
   return -1;
 }
 
