@@ -495,14 +495,13 @@ int pim_msg_send(int fd,
   sent = sendto(fd, pim_msg, pim_msg_size, MSG_DONTWAIT,
                 (struct sockaddr *)&to, tolen);
   if (sent != (ssize_t) pim_msg_size) {
-    int e = errno;
     char dst_str[100];
     pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
     if (sent < 0) {
       zlog_warn("%s: sendto() failure to %s on %s: fd=%d msg_size=%d: errno=%d: %s",
 		__PRETTY_FUNCTION__,
 		dst_str, ifname, fd, pim_msg_size,
-		e, safe_strerror(e));
+		errno, safe_strerror(errno));
     }
     else {
       zlog_warn("%s: sendto() partial to %s on %s: fd=%d msg_size=%d: sent=%zd",

@@ -267,7 +267,6 @@ int pim_socket_join_source(int fd, ifindex_t ifindex,
 			   const char *ifname)
 {
   if (pim_igmp_join_source(fd, ifindex, group_addr, source_addr)) {
-    int e = errno;
     char group_str[100];
     char source_str[100];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
@@ -275,7 +274,7 @@ int pim_socket_join_source(int fd, ifindex_t ifindex,
     zlog_warn("%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
 	      __PRETTY_FUNCTION__,
 	      fd, group_str, source_str, ifindex, ifname,
-	      e, safe_strerror(e));
+	      errno, safe_strerror(errno));
     return -1;
   }
 

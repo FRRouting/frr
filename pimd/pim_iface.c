@@ -1119,14 +1119,13 @@ int pim_if_igmp_join_del(struct interface *ifp,
   }
 
   if (close(ij->sock_fd)) {
-    int e = errno;
     char group_str[100];
     char source_str[100];
     pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: failure closing sock_fd=%d for IGMP group %s source %s on interface %s: errno=%d: %s",
 	      __PRETTY_FUNCTION__,
-	      ij->sock_fd, group_str, source_str, ifp->name, e, safe_strerror(e));
+	      ij->sock_fd, group_str, source_str, ifp->name, errno, safe_strerror(errno));
     /* warning only */
   }
   listnode_delete(pim_ifp->igmp_join_list, ij);

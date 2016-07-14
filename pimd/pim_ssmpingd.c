@@ -197,12 +197,11 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
   THREAD_OFF(ss->t_sock_read);
 
   if (close(ss->sock_fd)) {
-    int e = errno;
     char source_str[100];
     pim_inet4_dump("<src?>", ss->source_addr, source_str, sizeof(source_str));
     zlog_warn("%s: failure closing ssmpingd sock_fd=%d for source %s: errno=%d: %s",
 	      __PRETTY_FUNCTION__,
-	      ss->sock_fd, source_str, e, safe_strerror(e));
+	      ss->sock_fd, source_str, errno, safe_strerror(errno));
     /* warning only */
   }
 
@@ -221,14 +220,13 @@ static void ssmpingd_sendto(struct ssmpingd_sock *ss,
   sent = sendto(ss->sock_fd, buf, len, MSG_DONTWAIT,
                 (struct sockaddr *)&to, tolen);
   if (sent != len) {
-    int e = errno;
     char to_str[100];
     pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
     if (sent < 0) {
       zlog_warn("%s: sendto() failure to %s,%d: fd=%d len=%d: errno=%d: %s",
 		__PRETTY_FUNCTION__,
 		to_str, ntohs(to.sin_port), ss->sock_fd, len,
-		e, safe_strerror(e));
+		errno, safe_strerror(errno));
     }
     else {
       zlog_warn("%s: sendto() partial to %s,%d: fd=%d len=%d: sent=%d",

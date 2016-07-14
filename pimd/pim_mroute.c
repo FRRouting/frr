@@ -50,19 +50,11 @@ static int pim_mroute_set(int fd, int enable)
 
   err = setsockopt(fd, IPPROTO_IP, opt, &opt, opt_len);
   if (err) {
-    int e = errno;
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
 	      __FILE__, __PRETTY_FUNCTION__,
-	      fd, enable ? "MRT_INIT" : "MRT_DONE", opt, e, safe_strerror(e));
-    errno = e;
+	      fd, enable ? "MRT_INIT" : "MRT_DONE", opt, errno, safe_strerror(errno));
     return -1;
   }
-
-#if 0
-  zlog_info("%s %s: setsockopt(fd=%d,IPPROTO_IP,MRT_INIT,opt=%d): ok",
-	    __FILE__, __PRETTY_FUNCTION__,
-	    fd, opt);
-#endif
 
   return 0;
 }
@@ -452,8 +444,6 @@ int pim_mroute_socket_enable()
   qpim_mroute_socket_creation = pim_time_monotonic_sec();
   mroute_read_on();
 
-  zassert(PIM_MROUTE_IS_ENABLED);
-
   return 0;
 }
 
@@ -476,8 +466,6 @@ int pim_mroute_socket_disable()
 
   mroute_read_off();
   qpim_mroute_socket_fd = -1;
-
-  zassert(PIM_MROUTE_IS_DISABLED);
 
   return 0;
 }
@@ -524,15 +512,13 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned ch
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_VIF, (void*) &vc, sizeof(vc));
   if (err) {
     char ifaddr_str[100];
-    int e = errno;
 
     pim_inet4_dump("<ifaddr?>", ifaddr, ifaddr_str, sizeof(ifaddr_str));
 
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
 	      __FILE__, __PRETTY_FUNCTION__,
 	      qpim_mroute_socket_fd, ifp->ifindex, ifaddr_str, flags,
-	      e, safe_strerror(e));
-    errno = e;
+	      errno, safe_strerror(errno));
     return -2;
   }
 
@@ -555,12 +541,10 @@ int pim_mroute_del_vif(int vif_index)
 
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_VIF, (void*) &vc, sizeof(vc)); 
   if (err) {
-    int e = errno;
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_VIF,vif_index=%d): errno=%d: %s",
 	      __FILE__, __PRETTY_FUNCTION__,
 	      qpim_mroute_socket_fd, vif_index,
-	      e, safe_strerror(e));
-    errno = e;
+	      errno, safe_strerror(errno));
     return -2;
   }
 
@@ -598,12 +582,10 @@ int pim_mroute_add(struct channel_oil *c_oil)
       c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent] = orig;
 
   if (err) {
-    int e = errno;
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_MFC): errno=%d: %s",
 	      __FILE__, __PRETTY_FUNCTION__,
 	      qpim_mroute_socket_fd,
-	      e, safe_strerror(e));
-    errno = e;
+	      errno, safe_strerror(errno));
     return -2;
   }
 
@@ -626,12 +608,10 @@ int pim_mroute_del (struct channel_oil *c_oil)
 
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_MFC, &c_oil->oil, sizeof(c_oil->oil));
   if (err) {
-    int e = errno;
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC): errno=%d: %s",
 	      __FILE__, __PRETTY_FUNCTION__,
 	      qpim_mroute_socket_fd,
-	      e, safe_strerror(e));
-    errno = e;
+	      errno, safe_strerror(errno));
     return -2;
   }
 

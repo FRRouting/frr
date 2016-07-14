@@ -1710,7 +1710,6 @@ void pim_igmp_send_membership_query(struct igmp_group *group,
   sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
                 (struct sockaddr *)&to, tolen);
   if (sent != (ssize_t) msg_size) {
-    int e = errno;
     char dst_str[100];
     char group_str[100];
     pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
@@ -1719,7 +1718,7 @@ void pim_igmp_send_membership_query(struct igmp_group *group,
       zlog_warn("%s: sendto() failure to %s on %s: group=%s msg_size=%zd: errno=%d: %s",
 		__PRETTY_FUNCTION__,
 		dst_str, ifname, group_str, msg_size,
-		e, safe_strerror(e));
+		errno, safe_strerror(errno));
     }
     else {
       zlog_warn("%s: sendto() partial to %s on %s: group=%s msg_size=%zd: sent=%zd",
