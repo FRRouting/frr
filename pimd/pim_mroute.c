@@ -194,7 +194,12 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
     return 0;
   }
 
-  pim_register_send((const struct ip *)(buf + sizeof(struct ip)), rpg);
+  /*
+   * If we've received a register suppress
+   */
+  if (!up->t_rs_timer)
+    pim_register_send((const struct ip *)(buf + sizeof(struct ip)), rpg);
+
   return 0;
 }
 
