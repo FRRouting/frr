@@ -182,74 +182,6 @@ void reset_ifassert_state(struct pim_ifchannel *ch)
 			  qpim_infinite_assert_metric);
 }
 
-static struct pim_ifchannel *pim_ifchannel_new(struct interface *ifp,
-					       struct in_addr source_addr,
-					       struct in_addr group_addr)
-{
-  struct pim_ifchannel *ch;
-  struct pim_interface *pim_ifp;
-  struct pim_upstream  *up;
-
-  pim_ifp = ifp->info;
-  zassert(pim_ifp);
-
-  up = pim_upstream_add(source_addr, group_addr, NULL);
-  if (!up) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_err("%s: could not attach upstream (S,G)=(%s,%s) on interface %s",
-	     __PRETTY_FUNCTION__,
-	     src_str, grp_str, ifp->name);
-    return NULL;
-  }
-
-  ch = XMALLOC(MTYPE_PIM_IFCHANNEL, sizeof(*ch));
-  if (!ch) {
-    zlog_err("%s: PIM XMALLOC(%zu) failure",
-	     __PRETTY_FUNCTION__, sizeof(*ch));
-    return NULL;
-  }
-
-  ch->flags                        = 0;
-  ch->upstream                     = up;
-  ch->interface                    = ifp;
-  ch->source_addr                  = source_addr;
-  ch->group_addr                   = group_addr;
-  ch->local_ifmembership           = PIM_IFMEMBERSHIP_NOINFO;
-
-  ch->ifjoin_state                 = PIM_IFJOIN_NOINFO;
-  ch->t_ifjoin_expiry_timer        = NULL;
-  ch->t_ifjoin_prune_pending_timer = NULL;
-  ch->ifjoin_creation              = 0;
-
-  ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
-  ch->ifassert_winner_metric = pim_macro_ch_my_assert_metric_eval (ch);
-
-  ch->ifassert_winner.s_addr = 0;
-
-  /* Assert state */
-  ch->t_ifassert_timer   = NULL;
-  reset_ifassert_state(ch);
-  if (pim_macro_ch_could_assert_eval(ch))
-    PIM_IF_FLAG_SET_COULD_ASSERT(ch->flags);
-  else
-    PIM_IF_FLAG_UNSET_COULD_ASSERT(ch->flags);
-
-  if (pim_macro_assert_tracking_desired_eval(ch))
-    PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);
-  else
-    PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
-
-  /* Attach to list */
-  listnode_add(pim_ifp->pim_ifchannel_list, ch);
-
-  zassert(IFCHANNEL_NOINFO(ch));
-
-  return ch;
-}
-
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 					 struct in_addr source_addr,
 					 struct in_addr group_addr)
@@ -345,7 +277,9 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 					struct in_addr source_addr,
 					struct in_addr group_addr)
 {
+  struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
+  struct pim_upstream *up;
   char src_str[100];
   char grp_str[100];
 
@@ -353,17 +287,68 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
   if (ch)
     return ch;
 
-  ch = pim_ifchannel_new(ifp, source_addr, group_addr);
-  if (ch)
-    return ch;
-    
-  pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-  pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-  zlog_warn("%s: pim_ifchannel_new() failure for (S,G)=(%s,%s) on interface %s",
-	    __PRETTY_FUNCTION__,
-	    src_str, grp_str, ifp->name);
+  pim_ifp = ifp->info;
+  zassert(pim_ifp);
 
-  return NULL;
+  up = pim_upstream_add(source_addr, group_addr, NULL);
+  if (!up) {
+    char src_str[100];
+    char grp_str[100];
+    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
+    zlog_err("%s: could not attach upstream (S,G)=(%s,%s) on interface %s",
+	     __PRETTY_FUNCTION__,
+	     src_str, grp_str, ifp->name);
+    return NULL;
+  }
+
+  ch = XMALLOC(MTYPE_PIM_IFCHANNEL, sizeof(*ch));
+  if (!ch) {
+    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
+    zlog_warn("%s: pim_ifchannel_new() failure for (S,G)=(%s,%s) on interface %s",
+	      __PRETTY_FUNCTION__,
+	      src_str, grp_str, ifp->name);
+    
+    return NULL;
+  }
+
+  ch->flags                        = 0;
+  ch->upstream                     = up;
+  ch->interface                    = ifp;
+  ch->source_addr                  = source_addr;
+  ch->group_addr                   = group_addr;
+  ch->local_ifmembership           = PIM_IFMEMBERSHIP_NOINFO;
+
+  ch->ifjoin_state                 = PIM_IFJOIN_NOINFO;
+  ch->t_ifjoin_expiry_timer        = NULL;
+  ch->t_ifjoin_prune_pending_timer = NULL;
+  ch->ifjoin_creation              = 0;
+
+  ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
+  ch->ifassert_winner_metric = pim_macro_ch_my_assert_metric_eval (ch);
+
+  ch->ifassert_winner.s_addr = 0;
+
+  /* Assert state */
+  ch->t_ifassert_timer   = NULL;
+  reset_ifassert_state(ch);
+  if (pim_macro_ch_could_assert_eval(ch))
+    PIM_IF_FLAG_SET_COULD_ASSERT(ch->flags);
+  else
+    PIM_IF_FLAG_UNSET_COULD_ASSERT(ch->flags);
+
+  if (pim_macro_assert_tracking_desired_eval(ch))
+    PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);
+  else
+    PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
+
+  /* Attach to list */
+  listnode_add(pim_ifp->pim_ifchannel_list, ch);
+
+  zassert(IFCHANNEL_NOINFO(ch));
+
+  return ch;
 }
 
 static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
