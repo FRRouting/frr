@@ -119,7 +119,7 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
   struct prefix group;
   int l;
 
-  if (PIM_DEBUG_PACKETS)
+  if (PIM_DEBUG_PIM_PACKETDUMP_RECV)
     pim_pkt_dump ("Received Register Stop", buf, buf_size);
 
   l = pim_parse_addr_group (&group, buf, buf_size);
