@@ -224,7 +224,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 				pim_msg_len - PIM_MSG_HEADER_LEN);
       break;
     case PIM_MSG_TYPE_REG_STOP:
-      return pim_register_stop_recv ();
+      return pim_register_stop_recv (pim_msg + PIM_MSG_HEADER_LEN,
+				     pim_msg_len - PIM_MSG_HEADER_LEN);
       break;
     case PIM_MSG_TYPE_JOIN_PRUNE:
       neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);

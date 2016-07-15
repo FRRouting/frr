@@ -112,9 +112,41 @@ pim_register_stop_send (struct interface *ifp, struct in_addr source,
 }
 
 int
-pim_register_stop_recv (void)
+pim_register_stop_recv (uint8_t *buf, int buf_size)
 {
-  zlog_debug ("Received Register Stop");
+  struct pim_upstream *upstream = NULL;
+  struct prefix source;
+  struct prefix group;
+  int l;
+
+  if (PIM_DEBUG_PACKETS)
+    pim_pkt_dump ("Received Register Stop", buf, buf_size);
+
+  l = pim_parse_addr_group (&group, buf, buf_size);
+  buf += l;
+  buf_size -= l;
+  l = pim_parse_addr_ucast (&source, buf, buf_size);
+  upstream = pim_upstream_find (source.u.prefix4, group.u.prefix4);
+  if (!upstream)
+    {
+      return 0;
+    }
+
+  switch (upstream->join_state)
+    {
+    case PIM_UPSTREAM_NOTJOINED:
+    case PIM_UPSTREAM_PRUNE:
+      return 0;
+      break;
+    case PIM_UPSTREAM_JOINED:
+    case PIM_UPSTREAM_JOIN_PENDING:
+      upstream->join_state = PIM_UPSTREAM_PRUNE;
+      pim_upstream_start_register_stop_timer (upstream, 0);
+      pim_channel_del_oif (upstream->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+      return 0;
+      break;
+    }
+
   return 0;
 }
 
@@ -313,11 +345,7 @@ pim_register_recv (struct interface *ifp,
 	upstream->rpf.rpf_addr.s_addr = source.s_addr;
 	upstream->channel_oil->oil.mfcc_origin = source;
 	pim_scan_individual_oil (upstream->channel_oil);
-	pim_joinprune_send(upstream->rpf.source_nexthop.interface,
-			   upstream->rpf.source_nexthop.mrib_nexthop_addr,
-			   upstream->source_addr,
-			   upstream->group_addr,
-			   1);
+        pim_upstream_send_join (upstream);
 
 	//decapsulate and forward the iner packet to
 	//inherited_olist(S,G,rpt)

@@ -148,6 +148,7 @@ const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state)
 {
   switch (ifjoin_state) {
   case PIM_IFJOIN_NOINFO:        return "NOINFO";
+  case PIM_IFJOIN_JOIN_PIMREG:   return "REGT";
   case PIM_IFJOIN_JOIN:          return "JOIN";
   case PIM_IFJOIN_PRUNE_PENDING: return "PRUNEP";
   }
@@ -627,6 +628,8 @@ void pim_ifchannel_join_add(struct interface *ifp,
     THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
     pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN);
     break;
+  case PIM_IFJOIN_JOIN_PIMREG:
+    zlog_warn("Received Incorrect new state");
   }
 
   zassert(!IFCHANNEL_NOINFO(ch));
@@ -660,6 +663,7 @@ void pim_ifchannel_prune(struct interface *ifp,
   switch (ch->ifjoin_state) {
   case PIM_IFJOIN_NOINFO:
   case PIM_IFJOIN_PRUNE_PENDING:
+  case PIM_IFJOIN_JOIN_PIMREG:
     /* nothing to do */
     break;
   case PIM_IFJOIN_JOIN:

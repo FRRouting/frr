@@ -36,6 +36,7 @@
 #include "pim_rp.h"
 #include "pim_oil.h"
 #include "pim_register.h"
+#include "pim_ifchannel.h"
 
 /* GLOBAL VARS */
 extern struct zebra_privs_t pimd_privs;
@@ -93,6 +94,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 			const char *src_str, const char *grp_str)
 {
   struct pim_interface *pim_ifp = ifp->info;
+  struct pim_ifchannel *ch;
   struct pim_upstream *up;
   struct pim_rpf *rpg;
 
@@ -149,8 +151,10 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     return 0;
   }
   up->channel_oil->cc.pktcnt++;
-
-  pim_channel_add_oif(up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_SOURCE);
+  up->fhr = 1;
+  ch = pim_ifchannel_add (pim_regiface, msg->im_src, msg->im_dst);
+  pim_ifchannel_ifjoin_switch (__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN_PIMREG);
+  up->join_state = PIM_UPSTREAM_JOINED;
 
   return 0;
 }

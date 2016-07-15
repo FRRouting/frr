@@ -37,7 +37,8 @@ enum pim_ifmembership {
 enum pim_ifjoin_state {
   PIM_IFJOIN_NOINFO,
   PIM_IFJOIN_JOIN,
-  PIM_IFJOIN_PRUNE_PENDING
+  PIM_IFJOIN_PRUNE_PENDING,
+  PIM_IFJOIN_JOIN_PIMREG,
 };
 
 enum pim_ifassert_state {

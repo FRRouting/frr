@@ -82,25 +82,34 @@ void pim_upstream_delete(struct pim_upstream *up)
   pim_upstream_free(up);
 }
 
-static void send_join(struct pim_upstream *up)
+void
+pim_upstream_send_join (struct pim_upstream *up)
 {
-  zassert(up->join_state == PIM_UPSTREAM_JOINED);
-
-  
   if (PIM_DEBUG_PIM_TRACE) {
+    char src_str[100];
+    char grp_str[100];
+    char rpf_str[100];
+    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
+    zlog_debug ("%s: RPF'(%s,%s)=%s(%s) for Interface %s", __PRETTY_FUNCTION__,
+		src_str, grp_str, rpf_str, pim_upstream_state2str (up),
+		up->rpf.source_nexthop.interface->name);
     if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr)) {
-      char src_str[100];
-      char grp_str[100];
-      char rpf_str[100];
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-      pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
-      zlog_warn("%s: can't send join upstream: RPF'(%s,%s)=%s",
-		__PRETTY_FUNCTION__,
-		src_str, grp_str, rpf_str);
+      zlog_debug("%s: can't send join upstream: RPF'(%s,%s)=%s",
+		 __PRETTY_FUNCTION__,
+		 src_str, grp_str, rpf_str);
       /* warning only */
     }
   }
+
+  /*
+   * In the case of a FHR we will not have anyone to send this to.
+   */
+  if (up->fhr)
+    return;
+
+  zassert(up->join_state == PIM_UPSTREAM_JOINED);
   
   /* send Join(S,G) to the current upstream neighbor */
   pim_joinprune_send(up->rpf.source_nexthop.interface,
@@ -118,7 +127,7 @@ static int on_join_timer(struct thread *t)
   up = THREAD_ARG(t);
   zassert(up);
 
-  send_join(up);
+  pim_upstream_send_join (up);
 
   up->t_join_timer = NULL;
   join_timer_start(up);
@@ -334,7 +343,7 @@ static void pim_upstream_switch(struct pim_upstream *up,
 
   if (new_state == PIM_UPSTREAM_JOINED) {
     forward_on(up);
-    send_join(up);
+    pim_upstream_send_join (up);
     join_timer_start(up);
   }
   else {

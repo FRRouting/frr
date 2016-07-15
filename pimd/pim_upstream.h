@@ -87,6 +87,7 @@ enum pim_upstream_sptbit {
   See RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Message
 */
 struct pim_upstream {
+  int                      fhr;
   struct in_addr           upstream_addr;/* Who we are talking to */
   struct in_addr           source_addr;  /* (S,G) source key */
   struct in_addr           group_addr;   /* (S,G) group key */
@@ -151,6 +152,8 @@ int pim_upstream_switch_to_spt_desired (struct in_addr source, struct in_addr gr
 #define SwitchToSptDesired(S,G) pim_upstream_switch_to_spt_desired ((S), (G))
 
 void pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_register);
+
+void pim_upstream_send_join (struct pim_upstream *up);
 
 const char *pim_upstream_state2str (struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */
