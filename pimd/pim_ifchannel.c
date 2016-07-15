@@ -391,33 +391,6 @@ static int on_ifjoin_expiry_timer(struct thread *t)
   return 0;
 }
 
-static void prune_echo(struct interface *ifp,
-		       struct in_addr source_addr,
-		       struct in_addr group_addr)
-{
-  struct pim_interface *pim_ifp;
-  struct in_addr neigh_dst_addr;
-
-  pim_ifp = ifp->info;
-  zassert(pim_ifp);
-
-  neigh_dst_addr = pim_ifp->primary_address;
-
-  if (PIM_DEBUG_PIM_EVENTS) {
-    char source_str[100];
-    char group_str[100];
-    char neigh_dst_str[100];
-    pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
-    pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
-    pim_inet4_dump("<neigh?>", neigh_dst_addr, neigh_dst_str, sizeof(neigh_dst_str));
-    zlog_debug("%s: sending PruneEcho(S,G)=(%s,%s) to upstream=%s on interface %s",
-	       __PRETTY_FUNCTION__, source_str, group_str, neigh_dst_str, ifp->name);
-  }
-
-  pim_joinprune_send(ifp, neigh_dst_addr, source_addr, group_addr,
-		     0 /* boolean: send_join=false (prune) */);
-}
-
 static int on_ifjoin_prune_pending_timer(struct thread *t)
 {
   struct pim_ifchannel *ch;
@@ -448,7 +421,8 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   /* from here ch may have been deleted */
 
   if (send_prune_echo)
-    prune_echo(ifp, ch_source, ch_group);
+    pim_joinprune_send (ifp, pim_ifp->primary_address,
+			ch_source, ch_group, 0);
 
   return 0;
 }
