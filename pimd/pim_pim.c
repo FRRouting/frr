@@ -46,6 +46,25 @@ static int on_pim_hello_send(struct thread *t);
 static int pim_hello_send(struct interface *ifp,
 			  uint16_t holdtime);
 
+static
+const char *pim_pim_msgtype2str (enum pim_msg_type type)
+{
+  switch (type)
+    {
+    case PIM_MSG_TYPE_HELLO:      return "HELLO";
+    case PIM_MSG_TYPE_REGISTER:   return "REGISTER";
+    case PIM_MSG_TYPE_REG_STOP:   return "REGSTOP";
+    case PIM_MSG_TYPE_JOIN_PRUNE: return "JP";
+    case PIM_MSG_TYPE_BOOTSTRAP:  return "BOOT";
+    case PIM_MSG_TYPE_ASSERT:     return "ASSERT";
+    case PIM_MSG_TYPE_GRAFT:      return "GRAFT";
+    case PIM_MSG_TYPE_GRAFT_ACK:  return "GACK";
+    case PIM_MSG_TYPE_CANDIDATE:  return "CANDIDATE";
+    }
+
+  return "UNKNOWN";
+}
+
 static void sock_close(struct interface *ifp)
 {
   struct pim_interface *pim_ifp = ifp->info;
@@ -121,7 +140,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   uint8_t *pim_msg;
   int pim_msg_len;
   uint8_t pim_version;
-  uint8_t pim_type;
+  enum pim_msg_type pim_type;
   uint16_t pim_checksum; /* received checksum */
   uint16_t checksum;     /* computed checksum */
   struct pim_neighbor *neigh;
@@ -203,9 +222,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
   }
 
   if (PIM_DEBUG_PIM_PACKETS) {
-    zlog_debug("Recv PIM packet from %s to %s on %s: ttl=%d pim_version=%d pim_type=%d pim_msg_size=%d checksum=%x",
-	       src_str, dst_str, ifp->name, ip_hdr->ip_ttl,
-	       pim_version, pim_type, pim_msg_len, checksum);
+    zlog_debug("Recv PIM %s packet from %s to %s on %s: ttl=%d pim_version=%d pim_msg_size=%d checksum=%x",
+	       pim_pim_msgtype2str (pim_type), src_str, dst_str, ifp->name,
+	       ip_hdr->ip_ttl, pim_version, pim_msg_len, checksum);
   }
 
   switch (pim_type)
