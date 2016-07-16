@@ -54,7 +54,7 @@ const char *pim_pim_msgtype2str (enum pim_msg_type type)
     case PIM_MSG_TYPE_HELLO:      return "HELLO";
     case PIM_MSG_TYPE_REGISTER:   return "REGISTER";
     case PIM_MSG_TYPE_REG_STOP:   return "REGSTOP";
-    case PIM_MSG_TYPE_JOIN_PRUNE: return "JP";
+    case PIM_MSG_TYPE_JOIN_PRUNE: return "JOINPRUNE";
     case PIM_MSG_TYPE_BOOTSTRAP:  return "BOOT";
     case PIM_MSG_TYPE_ASSERT:     return "ASSERT";
     case PIM_MSG_TYPE_GRAFT:      return "GRAFT";
