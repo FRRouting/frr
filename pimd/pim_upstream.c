@@ -318,8 +318,9 @@ static void forward_off(struct pim_upstream *up)
   } /* scan iflist */
 }
 
-static void pim_upstream_switch(struct pim_upstream *up,
-				enum pim_upstream_state new_state)
+void
+pim_upstream_switch(struct pim_upstream *up,
+		    enum pim_upstream_state new_state)
 {
   enum pim_upstream_state old_state = up->join_state;
 
@@ -353,12 +354,10 @@ static void pim_upstream_switch(struct pim_upstream *up,
 		       up->source_addr,
 		       up->group_addr,
 		       0 /* prune */);
-    zassert(up->t_join_timer);
-    THREAD_OFF(up->t_join_timer);
+    if (up->t_join_timer)
+      THREAD_OFF(up->t_join_timer);
   }
-
 }
-
 
 static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
 					     struct in_addr group_addr,
