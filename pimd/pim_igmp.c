@@ -1184,9 +1184,9 @@ static struct igmp_sock *igmp_sock_new(int fd,
 	       fd, inet_ntoa(ifaddr), ifp->name);
   }
 
-  igmp = XMALLOC(MTYPE_PIM_IGMP_SOCKET, sizeof(*igmp));
+  igmp = XCALLOC(MTYPE_PIM_IGMP_SOCKET, sizeof(*igmp));
   if (!igmp) {
-    zlog_warn("%s %s: XMALLOC() failure",
+    zlog_warn("%s %s: XCALLOC() failure",
               __FILE__, __PRETTY_FUNCTION__);
     return 0;
   }
@@ -1392,9 +1392,9 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
     of INCLUDE and an empty source list.
   */
 
-  group = XMALLOC(MTYPE_PIM_IGMP_GROUP, sizeof(*group));
+  group = XCALLOC(MTYPE_PIM_IGMP_GROUP, sizeof(*group));
   if (!group) {
-    zlog_warn("%s %s: XMALLOC() failure",
+    zlog_warn("%s %s: XCALLOC() failure",
 	      __FILE__, __PRETTY_FUNCTION__);
     return 0; /* error, not found, could not create */
   }

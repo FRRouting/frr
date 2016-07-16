@@ -364,11 +364,11 @@ static struct ssmpingd_sock *ssmpingd_new(struct in_addr source_addr)
     return 0;
   }
 
-  ss = XMALLOC(MTYPE_PIM_SSMPINGD, sizeof(*ss));
+  ss = XCALLOC(MTYPE_PIM_SSMPINGD, sizeof(*ss));
   if (!ss) {
     char source_str[100];
     pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
-    zlog_err("%s: XMALLOC(%zu) failure for ssmpingd source %s",
+    zlog_err("%s: XCALLOC(%zu) failure for ssmpingd source %s",
 	     __PRETTY_FUNCTION__,
 	     sizeof(*ss), source_str);
     close(sock_fd);

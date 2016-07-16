@@ -298,9 +298,9 @@ static struct pim_neighbor *pim_neighbor_new(struct interface *ifp,
   pim_ifp = ifp->info;
   zassert(pim_ifp);
 
-  neigh = XMALLOC(MTYPE_PIM_NEIGHBOR, sizeof(*neigh));
+  neigh = XCALLOC(MTYPE_PIM_NEIGHBOR, sizeof(*neigh));
   if (!neigh) {
-    zlog_err("%s: PIM XMALLOC(%zu) failure",
+    zlog_err("%s: PIM XCALLOC(%zu) failure",
 	     __PRETTY_FUNCTION__, sizeof(*neigh));
     return 0;
   }

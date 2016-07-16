@@ -495,9 +495,9 @@ source_new (struct igmp_group *group,
 	       group->group_igmp_sock->interface->name);
   }
 
-  src = XMALLOC(MTYPE_PIM_IGMP_GROUP_SOURCE, sizeof(*src));
+  src = XCALLOC(MTYPE_PIM_IGMP_GROUP_SOURCE, sizeof(*src));
   if (!src) {
-    zlog_warn("%s %s: XMALLOC() failure",
+    zlog_warn("%s %s: XCALLOC() failure",
 	      __FILE__, __PRETTY_FUNCTION__);
     return 0; /* error, not found, could not create */
   }

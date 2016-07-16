@@ -367,9 +367,9 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
   struct pim_upstream *up;
   enum pim_rpf_result rpf_result;
 
-  up = XMALLOC(MTYPE_PIM_UPSTREAM, sizeof(*up));
+  up = XCALLOC(MTYPE_PIM_UPSTREAM, sizeof(*up));
   if (!up) {
-    zlog_err("%s: PIM XMALLOC(%zu) failure",
+    zlog_err("%s: PIM XCALLOC(%zu) failure",
 	     __PRETTY_FUNCTION__, sizeof(*up));
     return NULL;
   }
