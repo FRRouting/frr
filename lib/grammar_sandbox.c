@@ -1,53 +1,33 @@
 #include "command.h"
+#include "command_parse.h"
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
-DEFUN (grammar_midkey_test,
-       grammar_midkey_test_cmd,
-       "grammar {one|two} test",
+DEFUN (grammar_test,
+       grammar_test_cmd,
+       "grammar .COMMAND",
        GRAMMAR_STR
-       "First option\n"
-       "Second option\n"
-       "Test parameter to end string\n")
+       "command to pass to new parser\n")
 {
-   return CMD_SUCCESS;
-}
+  size_t linesize = 0;
+  for (int i = 0; i < argc; i++)
+    linesize += strlen(argv[i]) + 1;
 
-DEFUN (grammar_onemidkey_test,
-       grammar_onemidkey_test_cmd,
-       "grammar {onekey} test",
-       GRAMMAR_STR
-       "First option\n"
-       "Test parameter to end string\n")
-{
-   return CMD_SUCCESS;
-}
+  char* cat = malloc(linesize);
+  cat[0] = '\0';
+  for (int i = 0; i < argc; i++) {
+    strcat(cat, argv[i]);
+    if (i != argc)
+      strcat(cat, " ");
+  }
 
-DEFUN (grammar_smashmouth_test,
-       grammar_smashmouth_test_cmd,
-       "grammar {smash MOUTH} test",
-       GRAMMAR_STR
-       "It ain't easy bein' cheesy\n"
-       "Test parameter to end string\n")
-{
-   return CMD_SUCCESS;
-}
+  cmd_parse_format_new((const char*) cat, "lol");
 
-DEFUN (grammar_midopt_test,
-       grammar_midopt_test_cmd,
-       "grammar [option] test",
-       GRAMMAR_STR
-       "optional argument\n"
-       "Test parameter to end string\n")
-{
-   return CMD_SUCCESS;
+  return CMD_SUCCESS;
 }
 
 
 void grammar_sandbox_init(void);
 void grammar_sandbox_init() {
-  install_element (ENABLE_NODE, &grammar_midkey_test_cmd);
-  install_element (ENABLE_NODE, &grammar_onemidkey_test_cmd);
-  install_element (ENABLE_NODE, &grammar_midopt_test_cmd);
-  install_element (ENABLE_NODE, &grammar_smashmouth_test_cmd);
+  install_element (ENABLE_NODE, &grammar_test_cmd);
 }
