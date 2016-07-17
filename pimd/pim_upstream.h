@@ -69,7 +69,9 @@ enum pim_rpf_result {
 
 enum pim_upstream_state {
   PIM_UPSTREAM_NOTJOINED,
-  PIM_UPSTREAM_JOINED
+  PIM_UPSTREAM_JOINED,
+  PIM_UPSTREAM_JOIN_PENDING,
+  PIM_UPSTREAM_PRUNE,
 };
 
 enum pim_upstream_sptbit {
@@ -148,4 +150,5 @@ void pim_upstream_keep_alive_timer_start (struct pim_upstream *up, uint32_t time
 int pim_upstream_switch_to_spt_desired (struct in_addr source, struct in_addr group);
 #define SwitchToSptDesired(S,G) pim_upstream_switch_to_spt_desired ((S), (G))
 
+const char *pim_upstream_state2str (struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */

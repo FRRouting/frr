@@ -996,7 +996,7 @@ static void pim_show_upstream(struct vty *vty)
 	      up->rpf.source_nexthop.interface->name,
 	      src_str,
 	      grp_str,
-	      up->join_state == PIM_UPSTREAM_JOINED ? "Jnd" : "NtJnd",
+	      pim_upstream_state2str (up),
 	      uptime,
 	      join_timer,
 	      up->ref_count,

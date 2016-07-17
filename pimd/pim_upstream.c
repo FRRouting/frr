@@ -415,7 +415,7 @@ struct pim_upstream *pim_upstream_find(struct in_addr source_addr,
     }
   }
 
-  return 0;
+  return NULL;
 }
 
 struct pim_upstream *pim_upstream_add(struct in_addr source_addr,
@@ -783,4 +783,25 @@ int
 pim_upstream_switch_to_spt_desired (struct in_addr source, struct in_addr group)
 {
   return 0;
+}
+
+const char *
+pim_upstream_state2str (struct pim_upstream *up)
+{
+  switch (up->join_state)
+    {
+    case PIM_UPSTREAM_NOTJOINED:
+      return "NtJnd";
+      break;
+    case PIM_UPSTREAM_JOINED:
+      return "Jnd";
+      break;
+    case PIM_UPSTREAM_JOIN_PENDING:
+      return "JPend";
+      break;
+    case PIM_UPSTREAM_PRUNE:
+      return "Prune";
+      break;
+    }
+  return "Unkwn";
 }
