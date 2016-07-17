@@ -142,6 +142,92 @@ void pim_channel_oil_del(struct channel_oil *c_oil)
   }
 }
 
+int
+pim_channel_del_oif (struct channel_oil *channel_oil,
+		     struct interface *oif,
+		     uint32_t proto_mask)
+{
+  struct pim_interface *pim_ifp;
+
+  zassert (channel_oil);
+  zassert (oif);
+
+  pim_ifp = oif->info;
+
+  if (PIM_DEBUG_MROUTE)
+    {
+      char group_str[100];
+      char source_str[100];
+      pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+      pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+      zlog_debug("%s %s: (S,G)=(%s,%s): proto_mask=%u OIF=%s vif_index=%d",
+		 __FILE__, __PRETTY_FUNCTION__,
+		 source_str, group_str,
+		 proto_mask, oif->name, pim_ifp->mroute_vif_index);
+    }
+
+  /*
+   * Don't do anything if we've been asked to remove a source
+   * that is not actually on it.
+   */
+  if (!(channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask))
+    {
+      if (PIM_DEBUG_MROUTE)
+	{
+	  char group_str[100];
+	  char source_str[100];
+	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+	  zlog_debug("%s %s: no existing protocol mask %u(%u) for requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     proto_mask, channel_oil->oif_flags[pim_ifp->mroute_vif_index],
+		     oif->name, pim_ifp->mroute_vif_index,
+		     channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
+		     source_str, group_str);
+	}
+      return 0;
+    }
+
+  channel_oil->oif_flags[pim_ifp->mroute_vif_index] &= ~proto_mask;
+
+  if (channel_oil->oif_flags[pim_ifp->mroute_vif_index])
+    {
+      if (PIM_DEBUG_MROUTE)
+	{
+	  char group_str[100];
+	  char source_str[100];
+	  pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+	  pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+	  zlog_debug("%s %s: other protocol masks remain for requested OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     oif->name, pim_ifp->mroute_vif_index,
+		     channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
+		     source_str, group_str);
+	}
+      return 0;
+    }
+
+  channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = 0;
+
+  if (pim_mroute_add (channel_oil)) {
+    if (PIM_DEBUG_MROUTE)
+      {
+        char group_str[100];
+        char source_str[100];
+        pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+        pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+        zlog_debug("%s %s: could not remove output interface %s (vif_index=%d) for channel (S,G)=(%s,%s)",
+                   __FILE__, __PRETTY_FUNCTION__,
+                   oif->name, pim_ifp->mroute_vif_index,
+                   source_str, group_str);
+      }
+    return -1;
+  }
+
+  return 0;
+}
+
+
 int pim_channel_add_oif(struct channel_oil *channel_oil,
 		   struct interface *oif,
 		   uint32_t proto_mask)
