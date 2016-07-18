@@ -523,7 +523,7 @@ bgp_clear_vty (struct vty *vty, const char *name, afi_t afi, safi_t safi,
     }
   else
     {
-      bgp = bgp_get_default ();
+      bgp = (vty->index) ? vty->index : bgp_get_default ();
       if (bgp == NULL)
         {
           vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
