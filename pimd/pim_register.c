@@ -119,13 +119,12 @@ pim_register_stop_recv (void)
 }
 
 void
-pim_register_send (const struct ip *ip_hdr, struct pim_rpf *rpg)
+pim_register_send (const uint8_t *buf, int buf_size, struct pim_rpf *rpg, int null_register)
 {
   unsigned char buffer[3000];
   unsigned char *b1;
   struct pim_interface *pinfo;
   struct interface *ifp;
-  uint32_t plen;
 
   ifp = rpg->source_nexthop.interface;
   pinfo = (struct pim_interface *)ifp->info;
@@ -135,17 +134,18 @@ pim_register_send (const struct ip *ip_hdr, struct pim_rpf *rpg)
   }
 
   memset(buffer, 0, 3000);
+  b1 = buffer + PIM_MSG_HEADER_LEN;
+  *b1 |= null_register << 31;
   b1 = buffer + PIM_MSG_REGISTER_LEN;
 
-  plen = ntohs(ip_hdr->ip_len);
-  memcpy(b1, (const unsigned char *)ip_hdr, plen);
+  memcpy(b1, (const unsigned char *)buf, buf_size);
 
-  pim_msg_build_header(buffer, plen + PIM_MSG_REGISTER_LEN, PIM_MSG_TYPE_REGISTER);
+  pim_msg_build_header(buffer, buf_size + PIM_MSG_REGISTER_LEN, PIM_MSG_TYPE_REGISTER);
 
   if (pim_msg_send(pinfo->pim_sock_fd,
 		   rpg->rpf_addr,
 		   buffer,
-		   plen + PIM_MSG_REGISTER_LEN,
+		   buf_size + PIM_MSG_REGISTER_LEN,
 		   ifp->name)) {
     if (PIM_DEBUG_PIM_TRACE) {
       zlog_debug("%s: could not send PIM register message on interface %s",
