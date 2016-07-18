@@ -1,5 +1,6 @@
 #include "command.h"
 #include "command_parse.h"
+#include "cmdtree.h"
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
@@ -21,8 +22,12 @@ DEFUN (grammar_test,
       strcat(cat, " ");
   }
 
-  cmd_parse_format_new((const char*) cat, "lol");
-
+  struct graph_node *result = new_node(NUL_GN);
+  /* cmd_parse_format_new((const char*) cat, "lol", result);*/
+  cmd_parse_format_new ("test <command|options> lol", "lol", result);
+  cmd_parse_format_new ("test <command|options> lol", "lol", result);
+  walk_graph(result, 0);
+  
   return CMD_SUCCESS;
 }
 

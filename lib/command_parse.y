@@ -8,7 +8,7 @@ extern void yyerror(const char *);
 #define YYDEBUG 1
 %}
 %code provides {
-extern struct graph_node *cmd_parse_format_new(const char *, const char *);
+extern struct graph_node *cmd_parse_format_new(const char *, const char *, struct graph_node *);
 extern void set_buffer_string(const char *);
 }
 
@@ -19,18 +19,16 @@ extern void set_buffer_string(const char *);
 }
 
 %{
-// last top-level node
 struct graph_node *startnode,       // command root node
                   *currnode,        // current node
-                  *tmpnode,         // temp node pointer
                   *seqhead;         // sequence head
 
 
-struct graph_node *optnode_start = NULL,   // start node for option set
-                  *optnode_end = NULL;     // end node for option set
+struct graph_node *optnode_start,   // start node for option set
+                  *optnode_end;     // end node for option set
 
-struct graph_node *selnode_start = NULL,   // start node for selector set
-                  *selnode_end = NULL;     // end node for selector set
+struct graph_node *selnode_start,   // start node for selector set
+                  *selnode_end;     // end node for selector set
 %}
 
 %token <node> WORD
@@ -65,7 +63,12 @@ start: sentence_root
 
 sentence_root: WORD
 {
-  currnode = new_node(WORD_GN);
+  $$ = new_node(WORD_GN);
+  $$->text = strdup(yylval.string);
+  fprintf(stderr, ">>>>>>>> YYLVAL.STRING: %s\n", yylval.string);
+  fprintf(stderr, ">>>>>>>> TEXT: %s\n", $$->text);
+
+  currnode = $$;
   currnode->is_root = 1;
   add_node(startnode, currnode);
 };
@@ -98,18 +101,34 @@ cmd_token_seq:
 
 placeholder_token:
   IPV4
-{ $$ = new_node(IPV4_GN); }
+{
+  $$ = new_node(IPV4_GN);
+  $$->text = strdup(yylval.string);
+}
 | IPV4_PREFIX
-{ $$ = new_node(IPV4_PREFIX_GN); }
+{ 
+  $$ = new_node(IPV4_PREFIX_GN);
+  $$->text = strdup(yylval.string);
+}
 | IPV6
-{ $$ = new_node(IPV6_GN); }
+{ 
+  $$ = new_node(IPV6_GN);
+  $$->text = strdup(yylval.string);
+}
 | IPV6_PREFIX
-{ $$ = new_node(IPV6_PREFIX_GN); }
+{ 
+  $$ = new_node(IPV6_PREFIX_GN);
+  $$->text = strdup(yylval.string);
+}
 | VARIABLE
-{ $$ = new_node(VARIABLE_GN); }
+{ 
+  $$ = new_node(VARIABLE_GN);
+  $$->text = strdup(yylval.string);
+}
 | RANGE
 {
   $$ = new_node(RANGE_GN);
+  $$->text = strdup(yylval.string);
 
   // get the numbers out
   strsep(&yylval.string, "(-)");
@@ -128,6 +147,8 @@ literal_token:
 {
   $$ = new_node(WORD_GN);
   $$->text = strdup(yylval.string);
+  fprintf(stderr, ">>>>>>>> YYLVAL.STRING: %s\n", yylval.string);
+  fprintf(stderr, ">>>>>>>> TEXT: %s\n", $$->text);
 }
 | NUMBER
 {
@@ -136,7 +157,7 @@ literal_token:
 }
 ;
 
-/* <selector|token> productions */
+/* <selector|set> productions */
 selector:
   '<' selector_part '|' selector_element '>'
 {
@@ -201,7 +222,14 @@ selector_token:
 
 /* [option|set] productions */
 option: '[' option_part ']'
-{ $$ = optnode_start; };
+{
+  // add null path
+  struct graph_node *nullpath = new_node(NUL_GN);
+  add_node(optnode_start, nullpath);
+  add_node(nullpath, optnode_end);
+
+  $$ = optnode_start;
+};
 
 option_part:
   option_part '|' option_element
@@ -234,30 +262,28 @@ option_token:
 ;
 
 %%
-/*
-int
-main (void)
-{
-  const char* input = "show [random conf NAME] thing";
-  printf("Parsing:\n\t%s\n", input);
-  return cmd_parse_format_new(input, "description");
-}
-*/
+
 void yyerror(char const *message) {
   printf("Grammar error: %s\n", message);
   exit(EXIT_FAILURE);
 }
 
 struct graph_node *
-cmd_parse_format_new(const char *string, const char *desc)
+cmd_parse_format_new(const char *string, const char *desc, struct graph_node *start)
 {
   fprintf(stderr, "parsing: %s\n", string);
 
+  /* clear state pointers */
+  startnode = currnode = seqhead = NULL;
+  selnode_start = selnode_end = NULL;
+  optnode_start = optnode_end = NULL;
+
+  // trace parser
   yydebug = 1;
   // make flex read from a string
   set_buffer_string(string);
   // initialize the start node of this command dfa
-  startnode = new_node(NUL_GN);
+  startnode = start;
   // parse command into DFA
   yyparse();
   // startnode points to command DFA

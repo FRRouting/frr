@@ -53,3 +53,6 @@ cmp_node(struct graph_node *first, struct graph_node *second);
 
 extern struct graph_node *
 new_node(enum graph_node_type type);
+
+extern void
+walk_graph(struct graph_node *, int);

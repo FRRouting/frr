@@ -29,7 +29,7 @@ add_node(struct graph_node *parent, struct graph_node *child)
 int
 cmp_node(struct graph_node *first, struct graph_node *second)
 {
-  return 1;
+  return 0;
 }
 
 struct graph_node *
@@ -43,4 +43,56 @@ new_node(enum graph_node_type type)
   node->func = NULL;
 
   return node;
+}
+
+void
+walk_graph(struct graph_node *start, int level)
+{
+  // print this node
+  switch (start->type) {
+    case WORD_GN:
+    case IPV4_GN:
+    case IPV4_PREFIX_GN:
+    case IPV6_GN:
+    case IPV6_PREFIX_GN:
+    case VARIABLE_GN:
+    case RANGE_GN:
+      fprintf(stderr, "%s", start->text);
+      break;
+    case NUMBER_GN:
+      fprintf(stderr, "%d", start->value);
+      break;
+    case SELECTOR_GN:
+      fprintf(stderr, "<>");
+      break;
+    case OPTION_GN:
+      fprintf(stderr, "[]");
+      break;
+    case NUL_GN:
+      fprintf(stderr, "NUL");
+      break;
+    default:
+      fprintf(stderr, "ERROR");
+  }
+  fprintf(stderr, "[%d] ", vector_active(start->children));
+
+  if (vector_active(start->children))
+    for (unsigned int i = 0; i < vector_active(start->children); i++) {
+      struct graph_node *r = vector_slot(start->children, i);
+      if (!r) {
+        fprintf(stderr, "Child seems null?\n");
+        break;
+      }
+      else {
+        if (start->type == OPTION_GN || start->type == SELECTOR_GN) {
+          fprintf(stderr, "\n");
+          for (int i = 0; i < level+1; i++)
+            fprintf(stderr, "\t");
+        }
+        walk_graph(r, level+1);
+      }
+    }
+  else {
+    fprintf(stderr, "\n");
+  }
 }
