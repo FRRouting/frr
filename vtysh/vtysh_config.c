@@ -318,7 +318,14 @@ vtysh_config_dump (FILE *fp)
     if ((master = vector_slot (configvec, i)) != NULL)
       {
 	for (ALL_LIST_ELEMENTS (master, node, nnode, config))
-	  {
+    {
+      /* Don't print empty sections for interface/vrf. Route maps on the
+       * other hand could have a legitimate empty section at the end.
+       */
+      if ((config->index == INTERFACE_NODE || (config->index == VRF_NODE))
+          && list_isempty (config->line))
+        continue;
+
 	    fprintf (fp, "%s\n", config->name);
 	    fflush (fp);
 
