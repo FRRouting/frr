@@ -412,8 +412,8 @@ vtysh_config_write ()
       sprintf (line, "hostname %s", host.name);
       vtysh_config_parse_line(line);
     }
-  if (vtysh_writeconfig_integrated)
-    vtysh_config_parse_line ("service integrated-vtysh-config");
+  if (!vtysh_writeconfig_integrated)
+    vtysh_config_parse_line ("no service integrated-vtysh-config");
 
   user_config_write ();
 }
