@@ -150,5 +150,7 @@ void pim_upstream_keep_alive_timer_start (struct pim_upstream *up, uint32_t time
 int pim_upstream_switch_to_spt_desired (struct in_addr source, struct in_addr group);
 #define SwitchToSptDesired(S,G) pim_upstream_switch_to_spt_desired ((S), (G))
 
+void pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_register);
+
 const char *pim_upstream_state2str (struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */

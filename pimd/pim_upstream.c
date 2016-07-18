@@ -46,6 +46,7 @@
 #include "pim_macro.h"
 #include "pim_rp.h"
 #include "pim_br.h"
+#include "pim_register.h"
 
 static void join_timer_start(struct pim_upstream *up);
 static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
@@ -804,4 +805,89 @@ pim_upstream_state2str (struct pim_upstream *up)
       break;
     }
   return "Unkwn";
+}
+
+static int
+pim_upstream_register_stop_timer (struct thread *t)
+{
+  struct pim_upstream *up;
+  struct pim_rpf *rpg;
+  struct ip ip_hdr;
+
+  up = THREAD_ARG (t);
+
+  up->t_rs_timer = NULL;
+
+  if (PIM_DEBUG_TRACE)
+    {
+      char src_str[100];
+      char grp_str[100];
+
+      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
+      zlog_debug ("%s: (S,G)=(%s,%s) upstream register stop timer %d",
+		  __PRETTY_FUNCTION__, src_str, grp_str, up->join_state);
+    }
+
+  switch (up->join_state)
+    {
+    case PIM_UPSTREAM_JOIN_PENDING:
+      up->join_state = PIM_UPSTREAM_JOINED;
+      break;
+    case PIM_UPSTREAM_PRUNE:
+      up->join_state = PIM_UPSTREAM_JOIN_PENDING;
+      pim_upstream_start_register_stop_timer (up, 1);
+
+      rpg = RP (up->group_addr);
+      memset (&ip_hdr, 0, sizeof (struct ip));
+      ip_hdr.ip_p = PIM_IP_PROTO_PIM;
+      ip_hdr.ip_hl = 5;
+      ip_hdr.ip_v = 4;
+      ip_hdr.ip_src = up->source_addr;
+      ip_hdr.ip_dst = up->group_addr;
+      ip_hdr.ip_len = 20;
+      // checksum is broken
+      pim_register_send ((uint8_t *)&ip_hdr, sizeof (struct ip), rpg, 1);
+      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+      break;
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+void
+pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_register)
+{
+  uint32_t time;
+
+  if (up->t_rs_timer)
+    {
+      THREAD_TIMER_OFF (up->t_rs_timer);
+      up->t_rs_timer = NULL;
+    }
+
+  if (!null_register)
+    {
+      uint32_t lower = (0.5 * PIM_REGISTER_SUPPRESSION_PERIOD);
+      uint32_t upper = (1.5 * PIM_REGISTER_SUPPRESSION_PERIOD);
+      time = lower + (random () % (upper - lower + 1)) - PIM_REGISTER_PROBE_PERIOD;
+    }
+  else
+    time = PIM_REGISTER_PROBE_PERIOD;
+
+  if (PIM_DEBUG_TRACE)
+    {
+      char src_str[100];
+      char grp_str[100];
+
+      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
+      zlog_debug ("%s: (S,G)=(%s,%s) Starting upstream register stop timer %d",
+                 __PRETTY_FUNCTION__, src_str, grp_str, time);
+    }
+  THREAD_TIMER_ON (master, up->t_rs_timer,
+		   pim_upstream_register_stop_timer,
+		   up, time);
 }
