@@ -68,6 +68,7 @@ void pim_upstream_delete(struct pim_upstream *up)
 {
   THREAD_OFF(up->t_join_timer);
   THREAD_OFF(up->t_ka_timer);
+  THREAD_OFF(up->t_rs_timer);
 
   upstream_channel_oil_detach(up);
 
@@ -379,6 +380,7 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
   up->ref_count                  = 1;
   up->t_join_timer               = NULL;
   up->t_ka_timer                 = NULL;
+  up->t_rs_timer                 = NULL;
   up->join_state                 = 0;
   up->state_transition           = pim_time_monotonic_sec();
   up->channel_oil                = NULL;
