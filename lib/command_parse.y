@@ -1,5 +1,15 @@
+/*
+ * Command format string parser.
+ *
+ * Turns a command definition into a DFA that together with the functions
+ * provided in command_match.c may be used to map command line input to a
+ * function.
+ *
+ * @author Quentin Young <qlyoung@cumulusnetworks.com>
+ */
+
 %{
-#include "cmdtree.h"
+#include "command_graph.h"
 
 extern int yylex(void);
 extern void yyerror(const char *);
@@ -8,16 +18,22 @@ extern void yyerror(const char *);
 #define YYDEBUG 1
 %}
 %code provides {
-extern struct graph_node *cmd_parse_format_new(const char *, const char *, struct graph_node *);
-extern void set_buffer_string(const char *);
+extern struct
+graph_node *cmd_parse_format(const char *,
+                             const char *,
+                             struct graph_node *);
+extern void
+set_buffer_string(const char *);
 }
 
+/* valid types for tokens */
 %union{
   int integer;
   char *string;
   struct graph_node *node;
 }
 
+/* some helpful state variables */
 %{
 struct graph_node *startnode,       // command root node
                   *currnode,        // current node
@@ -66,7 +82,7 @@ sentence_root: WORD
   $$ = new_node(WORD_GN);
   $$->text = strdup(yylval.string);
   fprintf(stderr, ">>>>>>>> YYLVAL.STRING: %s\n", yylval.string);
-  fprintf(stderr, ">>>>>>>> TEXT: %s\n", $$->text);
+  fprintf(stderr, ">>>>>>>>          TEXT: %s\n", $$->text);
 
   currnode = $$;
   currnode->is_root = 1;
@@ -270,7 +286,7 @@ void yyerror(char const *message) {
 }
 
 struct graph_node *
-cmd_parse_format_new(const char *string, const char *desc, struct graph_node *start)
+cmd_parse_format(const char *string, const char *desc, struct graph_node *start)
 {
   fprintf(stderr, "parsing: %s\n", string);
 

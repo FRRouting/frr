@@ -11,7 +11,7 @@ libzebra_la_LDFLAGS = -version-info 0:0:0
 libzebra_la_SOURCES = \
 	network.c pid_output.c getopt.c getopt1.c daemon.c \
 	checksum.c vector.c linklist.c vty.c \
-	cmdtree.c command_parse.y command_lex.l \
+	command_graph.c command_parse.y command_lex.l command_match.c grammar_sandbox.c \
 	command.c \
 	sockunion.c prefix.c thread.c if.c memory.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c str.c log.c plist.c \
@@ -28,7 +28,7 @@ libzebra_la_LIBADD = @LIB_REGEX@ @LIBCAP@
 pkginclude_HEADERS = \
 	buffer.h checksum.h filter.h getopt.h hash.h \
 	if.h linklist.h log.h \
-	cmdtree.h \
+	command_graph.h command_match.h grammar_sandbox.h \
 	command.h \
 	memory.h network.h prefix.h routemap.h distribute.h sockunion.h \
 	str.h stream.h table.h thread.h vector.h version.h vty.h zebra.h \

@@ -1,3 +1,6 @@
+#ifndef COMMAND_GRAPH_H
+#define COMMAND_GRAPH_H
+
 #include "vty.h"
 #include "vector.h"
 
@@ -78,3 +81,5 @@ new_node(enum graph_node_type);
  */
 extern void
 walk_graph(struct graph_node *, int);
+
+#endif

@@ -42,6 +42,8 @@
 #include "bgpd/bgp_vty.h"
 #include "vrf.h"
 
+#include "lib/grammar_sandbox.h"
+
 /* Struct VTY. */
 struct vty *vty;
 
@@ -3076,4 +3078,6 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &vtysh_enable_password_text_cmd);
   install_element (CONFIG_NODE, &no_vtysh_enable_password_cmd);
 
+  /* grammar sandbox */
+  grammar_sandbox_init();
 }

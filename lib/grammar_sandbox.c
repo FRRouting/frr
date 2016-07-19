@@ -1,17 +1,14 @@
 #include "command.h"
+#include "command_graph.h"
 #include "command_parse.h"
-#include "cmdtree.h"
+#include "command_match.h"
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
 struct graph_node * nodegraph;
 
-DEFUN (grammar_test,
-       grammar_test_cmd,
-       "grammar parse .COMMAND",
-       GRAMMAR_STR
-       "command to pass to new parser\n")
-{
+/*
+char* combine_vararg(char* argv, int argc) {
   size_t linesize = 0;
   for (int i = 0; i < argc; i++)
     linesize += strlen(argv[i]) + 1;
@@ -24,8 +21,19 @@ DEFUN (grammar_test,
       strcat(cat, " ");
   }
 
-  //struct graph_node *result = new_node(NUL_GN);
-  cmd_parse_format_new((const char*) cat, "lol", nodegraph);
+  return cat;
+}
+*/
+
+DEFUN (grammar_test,
+       grammar_test_cmd,
+       "grammar parse .COMMAND",
+       GRAMMAR_STR
+       "command to pass to new parser\n")
+{
+
+  const char* command = argv_concat(argv, argc, 0);
+  cmd_parse_format(command, "lol", nodegraph);
   walk_graph(nodegraph, 0);
 
   return CMD_SUCCESS;
@@ -37,8 +45,20 @@ DEFUN (grammar_test_show,
        GRAMMAR_STR
        "print current accumulated DFA\n")
 {
-   walk_graph(nodegraph, 0);
-   return CMD_SUCCESS;
+  walk_graph(nodegraph, 0);
+  return CMD_SUCCESS;
+}
+
+DEFUN (grammar_test_match,
+       grammar_test_match_cmd,
+       "grammar match .COMMAND",
+       GRAMMAR_STR
+       "attempt to match input on DFA\n"
+       "command to match")
+{
+  const char* command = argv_concat(argv, argc, 0);
+  match_command(nodegraph, FILTER_STRICT, command);
+  return CMD_SUCCESS;
 }
 
 
@@ -48,4 +68,5 @@ void grammar_sandbox_init() {
   nodegraph = new_node(NUL_GN);
   install_element (ENABLE_NODE, &grammar_test_cmd);
   install_element (ENABLE_NODE, &grammar_test_show_cmd);
+  install_element (ENABLE_NODE, &grammar_test_match_cmd);
 }

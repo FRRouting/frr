@@ -7,7 +7,7 @@
  */
 
 #include <zebra.h>
-#include "cmdtree.h"
+#include "command_graph.h"
 #include "memory.h"
 
 struct graph_node *
