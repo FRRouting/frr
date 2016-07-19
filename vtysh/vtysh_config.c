@@ -318,7 +318,14 @@ vtysh_config_dump (FILE *fp)
     if ((master = vector_slot (configvec, i)) != NULL)
       {
 	for (ALL_LIST_ELEMENTS (master, node, nnode, config))
-	  {
+    {
+      /* Don't print empty sections for interface/vrf. Route maps on the
+       * other hand could have a legitimate empty section at the end.
+       */
+      if ((config->index == INTERFACE_NODE || (config->index == VRF_NODE))
+          && list_isempty (config->line))
+        continue;
+
 	    fprintf (fp, "%s\n", config->name);
 	    fflush (fp);
 
@@ -412,8 +419,8 @@ vtysh_config_write ()
       sprintf (line, "hostname %s", host.name);
       vtysh_config_parse_line(line);
     }
-  if (vtysh_writeconfig_integrated)
-    vtysh_config_parse_line ("service integrated-vtysh-config");
+  if (!vtysh_writeconfig_integrated)
+    vtysh_config_parse_line ("no service integrated-vtysh-config");
 
   user_config_write ();
 }

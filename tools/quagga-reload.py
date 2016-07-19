@@ -507,6 +507,56 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_add_to_del.append((ctx_keys, swpx_interface))
                     lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
 
+            """
+            In 3.0.1 we changed how we display neighbor interface command. Older
+            versions of quagga would display the following:
+                neighbor swp1 interface
+                neighbor swp1 remote-as external
+                neighbor swp1 capability extended-nexthop
+
+            but today we display via a single line
+                neighbor swp1 interface remote-as external
+
+            and capability extended-nexthop is no longer needed because we
+            automatically enable it when the neighbor is of type interface.
+
+            This change confuses quagga-reload.py so check to see if we are deleting
+                neighbor swp1 interface remote-as (external|internal|ASNUM)
+
+            and adding
+                neighbor swp1 interface
+                neighbor swp1 remote-as (external|internal|ASNUM)
+                neighbor swp1 capability extended-nexthop
+
+            If so then chop the del line and the corresponding add lines
+            """
+            re_swpx_int_remoteas = re.search('neighbor (\S+) interface remote-as (\S+)', line)
+            re_swpx_int_v6only_remoteas = re.search('neighbor (\S+) interface v6only remote-as (\S+)', line)
+
+            if re_swpx_int_remoteas or re_swpx_int_v6only_remoteas:
+                swpx_interface = None
+                swpx_remoteas = None
+
+                if re_swpx_int_remoteas:
+                    swpx = re_swpx_int_remoteas.group(1)
+                    remoteas = re_swpx_int_remoteas.group(2)
+                    swpx_interface = "neighbor %s interface" % swpx
+                elif re_swpx_int_v6only_remoteas:
+                    swpx = re_swpx_int_v6only_remoteas.group(1)
+                    remoteas = re_swpx_int_v6only_remoteas.group(2)
+                    swpx_interface = "neighbor %s interface v6only" % swpx
+
+                swpx_remoteas = "neighbor %s remote-as %s" % (swpx, remoteas)
+                found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
+                found_add_swpx_remoteas = line_exist(lines_to_add, ctx_keys, swpx_remoteas)
+                tmp_ctx_keys = tuple(list(ctx_keys))
+
+                if found_add_swpx_interface and found_add_swpx_remoteas:
+                    deleted = True
+                    lines_to_del_to_del.append((ctx_keys, line))
+                    lines_to_add_to_del.append((ctx_keys, swpx_interface))
+                    lines_to_add_to_del.append((tmp_ctx_keys, swpx_remoteas))
+
         if not deleted:
             found_add_line = line_exist(lines_to_add, ctx_keys, line)
 

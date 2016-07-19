@@ -2097,7 +2097,8 @@ DEFUN (vtysh_write_terminal,
   vty_out (vty, "!%s", VTY_NEWLINE);
 
   for (i = 0; i < array_size(vtysh_client); i++)
-    vtysh_client_config (&vtysh_client[i], line);
+    if ((argc < 1 ) || (begins_with(vtysh_client[i].name, argv[0])))
+      vtysh_client_config (&vtysh_client[i], line);
 
   /* Integrate vtysh specific configuration. */
   vtysh_config_write ();
@@ -2317,7 +2318,7 @@ ALIAS (vtysh_write_terminal,
        SHOW_STR
        "Current operating configuration\n")
 
-ALIAS (vtysh_write_terminal_daemon,
+ALIAS (vtysh_write_terminal,
        vtysh_show_running_config_daemon_cmd,
        "show running-config (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd)",
        SHOW_STR

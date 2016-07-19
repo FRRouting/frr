@@ -523,7 +523,7 @@ bgp_clear_vty (struct vty *vty, const char *name, afi_t afi, safi_t safi,
     }
   else
     {
-      bgp = bgp_get_default ();
+      bgp = (vty->index) ? vty->index : bgp_get_default ();
       if (bgp == NULL)
         {
           vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
@@ -2834,9 +2834,11 @@ DEFUN (neighbor_remote_as,
 
 static int
 peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
-                         safi_t safi, int v6only, const char *peer_group_name)
+                         safi_t safi, int v6only, const char *peer_group_name,
+                         const char *as_str)
 {
-  as_t as;
+  as_t as = 0;
+  int as_type = AS_UNSPECIFIED;
   struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
@@ -2852,14 +2854,34 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
       return CMD_WARNING;
     }
 
+  if (as_str)
+    {
+      if (strncmp(as_str, "internal", strlen("internal")) == 0)
+        {
+          as_type = AS_INTERNAL;
+        }
+      else if (strncmp(as_str, "external", strlen("external")) == 0)
+        {
+          as_type = AS_EXTERNAL;
+        }
+      else
+        {
+          /* Get AS number.  */
+          VTY_GET_INTEGER_RANGE ("AS", as, as_str, 1, BGP_AS4_MAX);
+          as_type = AS_SPECIFIED;
+        }
+    }
+
   peer = peer_lookup_by_conf_if (bgp, conf_if);
   if (!peer)
     {
       if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4)
           && afi == AFI_IP && safi == SAFI_UNICAST)
-        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, AS_UNSPECIFIED, 0, 0, NULL);
+        peer = peer_create (NULL, conf_if, bgp, bgp->as, as, as_type, 0, 0,
+                            NULL);
       else
-        peer = peer_create (NULL, conf_if, bgp, bgp->as, 0, AS_UNSPECIFIED, afi, safi, NULL);
+        peer = peer_create (NULL, conf_if, bgp, bgp->as, as, as_type, afi, safi,
+                            NULL);
 
       if (peer && v6only)
         SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
@@ -2870,7 +2892,10 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
        * gets deleted later etc.)
        */
       if (peer->ifp)
-        bgp_zebra_initiate_radv (bgp, peer);
+        {
+          bgp_zebra_initiate_radv (bgp, peer);
+        }
+      peer_flag_set (peer, PEER_FLAG_CAPABILITY_ENHE);
     }
   else if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) ||
            (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)))
@@ -2917,9 +2942,11 @@ DEFUN (neighbor_interface_config,
        "Enable BGP on interface\n")
 {
   if (argc == 2)
-    return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 0, argv[1]);
+    return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 0,
+                                    argv[1], NULL);
   else
-    return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 0, NULL);
+    return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 0,
+                                    NULL, NULL);
 }
 
 ALIAS (neighbor_interface_config,
@@ -2940,9 +2967,11 @@ DEFUN (neighbor_interface_config_v6only,
        "Enable BGP with v6 link-local only\n")
 {
   if (argc == 2)
-    return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 1, argv[1]);
+    return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 1,
+                                    argv[1], NULL);
   else
-    return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 1, NULL);
+    return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 1,
+                                    NULL, NULL);
 }
 
 ALIAS (neighbor_interface_config_v6only,
@@ -2954,6 +2983,30 @@ ALIAS (neighbor_interface_config_v6only,
        "Enable BGP with v6 link-local only\n"
        "Member of the peer-group\n"
        "peer-group name\n")
+
+DEFUN (neighbor_interface_config_remote_as,
+       neighbor_interface_config_remote_as_cmd,
+       "neighbor WORD interface remote-as (" CMD_AS_RANGE "|external|internal)",
+       NEIGHBOR_STR
+       "Interface name or neighbor tag\n"
+       "Enable BGP on interface\n"
+       AS_STR)
+{
+  return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 0,
+                                  NULL, argv[1]);
+}
+
+DEFUN (neighbor_interface_v6only_config_remote_as,
+       neighbor_interface_v6only_config_remote_as_cmd,
+       "neighbor WORD interface v6only remote-as (" CMD_AS_RANGE "|external|internal)",
+       NEIGHBOR_STR
+       "Interface name or neighbor tag\n"
+       "Enable BGP on interface\n"
+       AS_STR)
+{
+  return peer_conf_interface_get (vty, argv[0], AFI_IP, SAFI_UNICAST, 1,
+                                  NULL, argv[1]);
+}
 
 DEFUN (neighbor_peer_group,
        neighbor_peer_group_cmd,
@@ -3105,6 +3158,24 @@ ALIAS (no_neighbor_interface_config,
        "Member of the peer-group\n"
        "peer-group name\n")
 
+ALIAS (no_neighbor_interface_config,
+       no_neighbor_interface_config_remote_as_cmd,
+       "no neighbor WORD interface remote-as (" CMD_AS_RANGE "|internal|external)",
+       NO_STR
+       NEIGHBOR_STR
+       "Interface name\n"
+       "Configure BGP on interface\n"
+       AS_STR)
+
+ALIAS (no_neighbor_interface_config,
+       no_neighbor_interface_config_v6only_remote_as_cmd,
+       "no neighbor WORD interface v6only remote-as (" CMD_AS_RANGE "|internal|external)",
+       NO_STR
+       NEIGHBOR_STR
+       "Interface name\n"
+       "Configure BGP on interface\n"
+       "Enable BGP with v6 link-local only\n"
+       AS_STR)
 
 DEFUN (no_neighbor_peer_group,
        no_neighbor_peer_group_cmd,
@@ -14596,12 +14667,16 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &neighbor_interface_config_v6only_cmd);
   install_element (BGP_NODE, &neighbor_interface_config_peergroup_cmd);
   install_element (BGP_NODE, &neighbor_interface_config_v6only_peergroup_cmd);
+  install_element (BGP_NODE, &neighbor_interface_config_remote_as_cmd);
+  install_element (BGP_NODE, &neighbor_interface_v6only_config_remote_as_cmd);
   install_element (BGP_NODE, &no_neighbor_cmd);
   install_element (BGP_NODE, &no_neighbor_remote_as_cmd);
   install_element (BGP_NODE, &no_neighbor_interface_config_cmd);
   install_element (BGP_NODE, &no_neighbor_interface_config_v6only_cmd);
   install_element (BGP_NODE, &no_neighbor_interface_config_peergroup_cmd);
   install_element (BGP_NODE, &no_neighbor_interface_config_v6only_peergroup_cmd);
+  install_element (BGP_NODE, &no_neighbor_interface_config_remote_as_cmd);
+  install_element (BGP_NODE, &no_neighbor_interface_config_v6only_remote_as_cmd);
 
   /* "neighbor peer-group" commands. */
   install_element (BGP_NODE, &neighbor_peer_group_cmd);
