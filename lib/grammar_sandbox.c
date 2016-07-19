@@ -4,9 +4,11 @@
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
+struct graph_node * nodegraph;
+
 DEFUN (grammar_test,
        grammar_test_cmd,
-       "grammar .COMMAND",
+       "grammar parse .COMMAND",
        GRAMMAR_STR
        "command to pass to new parser\n")
 {
@@ -22,17 +24,28 @@ DEFUN (grammar_test,
       strcat(cat, " ");
   }
 
-  struct graph_node *result = new_node(NUL_GN);
-  /* cmd_parse_format_new((const char*) cat, "lol", result);*/
-  cmd_parse_format_new ("test <command|options> lol", "lol", result);
-  cmd_parse_format_new ("test <command|options> lol", "lol", result);
-  walk_graph(result, 0);
-  
+  //struct graph_node *result = new_node(NUL_GN);
+  cmd_parse_format_new((const char*) cat, "lol", nodegraph);
+  walk_graph(nodegraph, 0);
+
   return CMD_SUCCESS;
+}
+
+DEFUN (grammar_test_show,
+       grammar_test_show_cmd,
+       "grammar tree",
+       GRAMMAR_STR
+       "print current accumulated DFA\n")
+{
+   walk_graph(nodegraph, 0);
+   return CMD_SUCCESS;
 }
 
 
 void grammar_sandbox_init(void);
 void grammar_sandbox_init() {
+  fprintf(stderr, "reinitializing graph\n");
+  nodegraph = new_node(NUL_GN);
   install_element (ENABLE_NODE, &grammar_test_cmd);
+  install_element (ENABLE_NODE, &grammar_test_show_cmd);
 }

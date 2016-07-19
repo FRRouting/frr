@@ -48,7 +48,7 @@ struct graph_node *selnode_start,   // start node for selector set
 %type <node> option_token
 %type <node> option_token_seq
 %type <node> selector
-%type <node> selector_root
+%type <node> selector_element_root
 %type <node> selector_token
 %type <node> selector_token_seq
 
@@ -70,7 +70,7 @@ sentence_root: WORD
 
   currnode = $$;
   currnode->is_root = 1;
-  add_node(startnode, currnode);
+  currnode = add_node(startnode, currnode);
 };
 
 /* valid top level tokens */
@@ -106,22 +106,22 @@ placeholder_token:
   $$->text = strdup(yylval.string);
 }
 | IPV4_PREFIX
-{ 
+{
   $$ = new_node(IPV4_PREFIX_GN);
   $$->text = strdup(yylval.string);
 }
 | IPV6
-{ 
+{
   $$ = new_node(IPV6_GN);
   $$->text = strdup(yylval.string);
 }
 | IPV6_PREFIX
-{ 
+{
   $$ = new_node(IPV6_PREFIX_GN);
   $$->text = strdup(yylval.string);
 }
 | VARIABLE
-{ 
+{
   $$ = new_node(VARIABLE_GN);
   $$->text = strdup(yylval.string);
 }
@@ -132,9 +132,9 @@ placeholder_token:
 
   // get the numbers out
   strsep(&yylval.string, "(-)");
-  $$->start = atoi( strsep(&yylval.string, "(-)") );
+  $$->min = atoi( strsep(&yylval.string, "(-)") );
   strsep(&yylval.string, "(-)");
-  $$->end   = atoi( strsep(&yylval.string, "(-)") );
+  $$->max = atoi( strsep(&yylval.string, "(-)") );
 
   // we could do this a variety of ways with either
   // the lexer or the parser, but this is the simplest
@@ -148,7 +148,7 @@ literal_token:
   $$ = new_node(WORD_GN);
   $$->text = strdup(yylval.string);
   fprintf(stderr, ">>>>>>>> YYLVAL.STRING: %s\n", yylval.string);
-  fprintf(stderr, ">>>>>>>> TEXT: %s\n", $$->text);
+  fprintf(stderr, ">>>>>>>>          TEXT: %s\n", $$->text);
 }
 | NUMBER
 {
@@ -172,13 +172,14 @@ selector_part:
 ;
 
 selector_element:
-  selector_root selector_token_seq
+  selector_element_root selector_token_seq
 {
   // if the selector start and end do not exist, create them
   if (!selnode_start || !selnode_end) {     // if one is null
     assert(!selnode_start && !selnode_end); // both should be null
     selnode_start = new_node(SELECTOR_GN);  // diverging node
     selnode_end = new_node(NUL_GN);         // converging node
+    selnode_start->end = selnode_end;       // duh
   }
 
   // add element head as a child of the selector
@@ -210,13 +211,13 @@ selector_token_seq:
 }
 ;
 
-selector_root:
+selector_element_root:
   literal_token
 | placeholder_token
 ;
 
 selector_token:
-  selector_root
+  selector_element_root
 | option
 ;
 
