@@ -238,18 +238,18 @@ ospf_nbr_bidirectional (struct in_addr *router_id,
 
 /* reset nbr_self */
 void
-ospf_nbr_self_reset (struct ospf_interface *oi)
+ospf_nbr_self_reset (struct ospf_interface *oi, struct in_addr router_id)
 {
   if (oi->nbr_self)
     ospf_nbr_delete (oi->nbr_self);
 
   oi->nbr_self = ospf_nbr_new (oi);
-  ospf_nbr_add_self (oi);
+  ospf_nbr_add_self (oi, router_id);
 }
 
 /* Add self to nbr list. */
 void
-ospf_nbr_add_self (struct ospf_interface *oi)
+ospf_nbr_add_self (struct ospf_interface *oi, struct in_addr router_id)
 {
   struct prefix p;
   struct route_node *rn;
@@ -260,7 +260,7 @@ ospf_nbr_add_self (struct ospf_interface *oi)
   /* Initial state */
   oi->nbr_self->address = *oi->address;
   oi->nbr_self->priority = OSPF_IF_PARAM (oi, priority);
-  oi->nbr_self->router_id = oi->ospf->router_id;
+  oi->nbr_self->router_id = router_id;
   oi->nbr_self->src = oi->address->u.prefix4;
   oi->nbr_self->state = NSM_TwoWay;
   

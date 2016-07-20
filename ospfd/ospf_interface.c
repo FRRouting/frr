@@ -297,7 +297,7 @@ ospf_if_cleanup (struct ospf_interface *oi)
   ospf_ls_upd_queue_empty (oi);
   
   /* Reset pseudo neighbor. */
-  ospf_nbr_self_reset (oi);
+  ospf_nbr_self_reset (oi, oi->ospf->router_id);
 }
 
 void
@@ -926,7 +926,7 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
     zlog_debug ("ospf_vl_new(): set associated area to the backbone");
 
   /* Add pseudo neighbor. */
-  ospf_nbr_self_reset (voi);
+  ospf_nbr_self_reset (voi, voi->ospf->router_id);
 
   ospf_area_add_if (voi->area, voi);
 

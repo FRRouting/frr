@@ -124,7 +124,7 @@ ospf_router_id_update (struct ospf *ospf)
 	   * oi->nbr_self->router_id = router_id for
 	   * !(virtual | ptop) links
 	   */
-	  ospf_nbr_self_reset (oi);
+	  ospf_nbr_self_reset (oi, router_id);
 	}
 
       /* If AS-external-LSA is queued, then flush those LSAs. */
@@ -888,7 +888,7 @@ add_ospf_interface (struct interface *ifp, struct ospf_area *area,
   oi->type = IF_DEF_PARAMS (ifp)->type;
 
   /* Add pseudo neighbor. */
-  ospf_nbr_self_reset (oi);
+  ospf_nbr_self_reset (oi, oi->ospf->router_id);
 
   ospf_area_add_if (oi->area, oi);
 
@@ -1160,7 +1160,7 @@ ospf_network_run_interface (struct prefix *p, struct ospf_area *area,
             oi->output_cost = ospf_if_get_output_cost (oi);
             
             /* Add pseudo neighbor. */
-            ospf_nbr_add_self (oi);
+            ospf_nbr_add_self (oi, oi->ospf->router_id);
 
             /* Relate ospf interface to ospf instance. */
             oi->ospf = area->ospf;
