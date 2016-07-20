@@ -7634,7 +7634,9 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
         {
           vty_out (vty, ", best #%d", best);
           if (safi == SAFI_UNICAST)
-	    vty_out (vty, ", table Default-IP-Routing-Table");
+            vty_out (vty, ", table %s",
+                     (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+                     ? "Default-IP-Routing-Table" : bgp->name);
         }
       else
         vty_out (vty, ", no best path");
