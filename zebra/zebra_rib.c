@@ -405,6 +405,10 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 	{
 	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
 	    continue;
+
+          /* if the next hop is imported from another table, skip it */
+          if (match->type == ZEBRA_ROUTE_TABLE)
+            continue;
 	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
 	    break;
 	}
