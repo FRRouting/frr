@@ -71,7 +71,7 @@ struct vtysh_client vtysh_client[] =
 };
 
 /* Using integrated config from Quagga.conf. Default is no. */
-int vtysh_writeconfig_integrated = 0;
+int vtysh_writeconfig_integrated = 1;
 
 extern char config_default[];
 

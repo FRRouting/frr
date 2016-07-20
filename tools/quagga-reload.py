@@ -708,15 +708,15 @@ if __name__ == '__main__':
 
     # Verify that 'service integrated-vtysh-config' is configured
     vtysh_filename = '/etc/quagga/vtysh.conf'
-    service_integrated_vtysh_config = False
+    service_integrated_vtysh_config = True
 
     if os.path.isfile(vtysh_filename):
         with open(vtysh_filename, 'r') as fh:
             for line in fh.readlines():
                 line = line.strip()
 
-                if line == 'service integrated-vtysh-config':
-                    service_integrated_vtysh_config = True
+                if line == 'no service integrated-vtysh-config':
+                    service_integrated_vtysh_config = False
                     break
 
     if not service_integrated_vtysh_config:
