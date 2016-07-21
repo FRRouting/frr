@@ -2,28 +2,11 @@
 #include "command_graph.h"
 #include "command_parse.h"
 #include "command_match.h"
+#include "linklist.h"
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
 struct graph_node * nodegraph;
-
-/*
-char* combine_vararg(char* argv, int argc) {
-  size_t linesize = 0;
-  for (int i = 0; i < argc; i++)
-    linesize += strlen(argv[i]) + 1;
-
-  char* cat = malloc(linesize);
-  cat[0] = '\0';
-  for (int i = 0; i < argc; i++) {
-    strcat(cat, argv[i]);
-    if (i != argc)
-      strcat(cat, " ");
-  }
-
-  return cat;
-}
-*/
 
 DEFUN (grammar_test,
        grammar_test_cmd,
@@ -57,7 +40,26 @@ DEFUN (grammar_test_match,
        "command to match")
 {
   const char* command = argv_concat(argv, argc, 0);
-  match_command(nodegraph, FILTER_STRICT, command);
+  struct list **result = match_command(nodegraph, FILTER_STRICT, command);
+  struct list *matched = result[0];
+  struct list *next    = result[1];
+
+  if (matched->count == 0) // the last token tried yielded no matches
+    fprintf(stderr, "%% Unknown command\n");
+  else
+  {
+    fprintf(stderr, "%% Matched full input, possible completions:\n");
+    struct listnode *node;
+    struct graph_node *cnode;
+    // iterate through currently matched nodes to see if any are leaves
+    for (ALL_LIST_ELEMENTS_RO(matched,node,cnode))
+      if (cnode->is_leaf)
+        fprintf(stderr, "<cr>\n");
+    // print possible next hops, if any
+    for (ALL_LIST_ELEMENTS_RO(next,node,cnode))
+      fprintf(stderr, "%s\n",describe_node(cnode));
+  }
+
   return CMD_SUCCESS;
 }
 

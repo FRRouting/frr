@@ -2,6 +2,7 @@
 #define COMMAND_MATCH_H
 
 #include "command_graph.h"
+#include "linklist.h"
 
 /**
  * Filter types. These tell the parser whether to allow
@@ -27,11 +28,11 @@ enum matcher_rv
 };
 
 /* Completion match types. */
-enum match_type 
+enum match_type
 {
   no_match,
   partly_match,
-  exact_match 
+  exact_match
 };
 /**
  * Defines which matcher_rv values constitute
@@ -63,7 +64,7 @@ cmd_range_match (struct graph_node *, const char *str);
 enum match_type
 cmd_word_match (struct graph_node *, enum filter_type, const char *);
 
-enum match_type
+struct list**
 match_command (struct graph_node *, enum filter_type, const char *);
 
 #endif

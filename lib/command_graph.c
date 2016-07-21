@@ -78,11 +78,19 @@ new_node(enum graph_node_type type)
   return node;
 }
 
-void
-walk_graph(struct graph_node *start, int level)
+const char *
+describe_node(struct graph_node *node)
 {
+  const char *desc = NULL;
+  char num[21];
+
+  if (node == NULL) {
+    desc = "(null node)";
+    return desc;
+  }
+
   // print this node
-  switch (start->type) {
+  switch (node->type) {
     case WORD_GN:
     case IPV4_GN:
     case IPV4_PREFIX_GN:
@@ -90,44 +98,46 @@ walk_graph(struct graph_node *start, int level)
     case IPV6_PREFIX_GN:
     case VARIABLE_GN:
     case RANGE_GN:
-      fprintf(stderr, "%s", start->text);
+      desc = node->text;
       break;
     case NUMBER_GN:
-      fprintf(stderr, "%d", start->value);
+      sprintf(num, "%d", node->value);
       break;
     case SELECTOR_GN:
-      fprintf(stderr, "<>");
+      desc = "<>";
       break;
     case OPTION_GN:
-      fprintf(stderr, "[]");
+      desc = "[]";
       break;
     case NUL_GN:
-      fprintf(stderr, "NUL");
+      desc = "NUL";
       break;
     default:
-      fprintf(stderr, "ERROR");
+      desc = "ERROR";
   }
-  fprintf(stderr, "[%d] ", vector_active(start->children));
+  return desc;
+}
 
-  if (vector_active(start->children))
-    for (unsigned int i = 0; i < vector_active(start->children); i++)
-    {
-      struct graph_node *r = vector_slot(start->children, i);
-      if (!r) {
-        fprintf(stderr, "Child seems null?\n");
-        break;
-      }
-      else {
-        if (vector_active(start->children) > 1) {
-          fprintf(stderr, "\n");
-          for (int i = 0; i < level+1; i++)
-            fprintf(stderr, "    ");
-          walk_graph(r, level+1);
-        }
-        else
-          walk_graph(r, level);
+
+void
+walk_graph(struct graph_node *start, int level)
+{
+  // print this node
+  fprintf(stderr, "%s[%d] ", describe_node(start), vector_active(start->children));
+
+  if (vector_active(start->children)) {
+    if (vector_active(start->children) == 1)
+      walk_graph(vector_slot(start->children, 0), level);
+    else {
+      fprintf(stderr, "\n");
+      for (unsigned int i = 0; i < vector_active(start->children); i++) {
+        struct graph_node *r = vector_slot(start->children, i);
+        for (int j = 0; j < level+1; j++)
+          fprintf(stderr, "    ");
+        walk_graph(r, level+1);
       }
     }
-  if (level == 0)
+  }
+  else
     fprintf(stderr, "\n");
 }

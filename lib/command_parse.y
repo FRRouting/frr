@@ -19,9 +19,7 @@ extern void yyerror(const char *);
 %}
 %code provides {
 extern struct
-graph_node *cmd_parse_format(const char *,
-                             const char *,
-                             struct graph_node *);
+graph_node *cmd_parse_format(const char *, const char *, struct graph_node *);
 extern void
 set_buffer_string(const char *);
 }

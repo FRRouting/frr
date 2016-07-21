@@ -82,4 +82,11 @@ new_node(enum graph_node_type);
 extern void
 walk_graph(struct graph_node *, int);
 
+/**
+ * Returns a string representation of the given node.
+ * @param[in] the node to describe
+ * @return pointer to description string
+ */
+extern const char *
+describe_node(struct graph_node *);
 #endif
