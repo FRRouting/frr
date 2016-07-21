@@ -2371,6 +2371,21 @@ zebra_show_client_brief (struct vty *vty, struct zserv *client)
 
 }
 
+struct zserv *
+zebra_find_client (u_char proto)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    {
+      if (client->proto == proto)
+        return client;
+    }
+
+  return NULL;
+}
+
 
 /* Display default rtm_table for all clients. */
 DEFUN (show_table,
