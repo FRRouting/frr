@@ -314,6 +314,12 @@ pim_register_recv (struct interface *ifp,
      */
     if (!upstream)
       {
+	upstream = pim_upstream_add (source, group, ifp);
+	pim_upstream_switch (upstream, PIM_UPSTREAM_PRUNE);
+      }
+
+    if (upstream->join_state == PIM_UPSTREAM_PRUNE)
+      {
 	pim_register_stop_send (ifp, source, group, src_addr);
 	return 1;
       }
