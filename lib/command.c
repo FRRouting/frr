@@ -3912,11 +3912,25 @@ DEFUN (no_config_log_timestamp_precision,
 int
 cmd_banner_motd_file (const char *file)
 {
-  if (host.motdfile)
-    XFREE (MTYPE_HOST, host.motdfile);
-  host.motdfile = XSTRDUP (MTYPE_HOST, file);
+  int success = CMD_SUCCESS;
+  char p[PATH_MAX];
+  char *rpath;
+  char *in;
 
-  return CMD_SUCCESS;
+  rpath = realpath (file, p);
+  if (!rpath)
+    return CMD_ERR_NO_FILE;
+  in = strstr (rpath, SYSCONFDIR);
+  if (in == rpath)
+    {
+      if (host.motdfile)
+	XFREE (MTYPE_HOST, host.motdfile);
+      host.motdfile = XSTRDUP (MTYPE_HOST, file);
+    }
+  else
+    success = CMD_WARNING;
+
+  return success;
 }
 
 DEFUN (banner_motd_file,
@@ -3927,7 +3941,15 @@ DEFUN (banner_motd_file,
        "Banner from a file\n"
        "Filename\n")
 {
-  return cmd_banner_motd_file (argv[0]);
+  int cmd = cmd_banner_motd_file (argv[0]);
+
+  if (cmd == CMD_ERR_NO_FILE)
+    vty_out (vty, "%s does not exist", argv[0]);
+  else if (cmd == CMD_WARNING)
+    vty_out (vty, "%s must be in %s",
+	     argv[0], SYSCONFDIR);
+
+  return cmd;
 }
 
 DEFUN (banner_motd_default,
