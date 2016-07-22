@@ -16,7 +16,8 @@ enum graph_node_type
   NUMBER_GN,
   SELECTOR_GN,
   OPTION_GN,
-  NUL_GN
+  NUL_GN,
+  END_GN
 };
 
 struct graph_node
@@ -24,15 +25,15 @@ struct graph_node
   enum graph_node_type type;
   vector children;
   int is_root;              // true if first token in command
-  int is_leaf;              // true if last token in command
-  struct graph_node * end;  // pointer to end for selector & option
+  struct graph_node * end;  // pointer to end for SELECTOR_GN & OPTION_GN
 
-  int (*func)(struct vty *, int, const char *[]);
+  // cmd_element struct pointer, only valid for END_GN
+  struct cmd_element *element;
 
   /* various data fields for nodes */
-  char* text;       // for words and variables
-  int value;        // for numbers
-  int min, max;     // for ranges
+  char* text;       // for WORD_GN and VARIABLE_GN
+  int value;        // for NUMBER_GN
+  int min, max;     // for RANGE_GN
 };
 
 /*
@@ -85,8 +86,9 @@ walk_graph(struct graph_node *, int);
 /**
  * Returns a string representation of the given node.
  * @param[in] the node to describe
+ * @param[out] the buffer to write the description into
  * @return pointer to description string
  */
-extern const char *
-describe_node(struct graph_node *);
+extern char *
+describe_node(struct graph_node *, char *, unsigned int);
 #endif

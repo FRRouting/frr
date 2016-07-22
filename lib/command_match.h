@@ -46,25 +46,7 @@ enum match_type
    || (matcher_rv) == MATCHER_EXCEED_ARGC_MAX \
   )
 
-enum match_type
-cmd_ipv4_match (const char *);
-
-enum match_type
-cmd_ipv4_prefix_match (const char *);
-
-enum match_type
-cmd_ipv6_match (const char *);
-
-enum match_type
-cmd_ipv6_prefix_match (const char *);
-
-enum match_type
-cmd_range_match (struct graph_node *, const char *str);
-
-enum match_type
-cmd_word_match (struct graph_node *, enum filter_type, const char *);
-
-struct list**
+struct list *
 match_command (struct graph_node *, enum filter_type, const char *);
 
 #endif

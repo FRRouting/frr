@@ -53,6 +53,9 @@ cmp_node(struct graph_node *first, struct graph_node *second)
     case SELECTOR_GN:
     case OPTION_GN:
       return 0;
+    // end nodes are always considered equal, since each node may only
+    // have one at a time
+    case END_GN:
     default:
       break;
   }
@@ -66,27 +69,23 @@ new_node(enum graph_node_type type)
   struct graph_node *node = malloc(sizeof(struct graph_node));
   node->type = type;
   node->children = vector_init(VECTOR_MIN_SIZE);
-  node->is_leaf = 0;
   node->is_root = 0;
   node->end = NULL;
   node->text = NULL;
   node->value = 0;
   node->min   = 0;
   node->max   = 0;
-  node->func = NULL;
+  node->element = NULL;
 
   return node;
 }
 
-const char *
-describe_node(struct graph_node *node)
+char *
+describe_node(struct graph_node *node, char* buffer, unsigned int bufsize)
 {
-  const char *desc = NULL;
-  char num[21];
-
   if (node == NULL) {
-    desc = "(null node)";
-    return desc;
+    snprintf(buffer, bufsize, "(null node)");
+    return buffer;
   }
 
   // print this node
@@ -98,32 +97,38 @@ describe_node(struct graph_node *node)
     case IPV6_PREFIX_GN:
     case VARIABLE_GN:
     case RANGE_GN:
-      desc = node->text;
+      snprintf(buffer, bufsize, node->text);
       break;
     case NUMBER_GN:
-      sprintf(num, "%d", node->value);
+      snprintf(buffer, bufsize, "%d", node->value);
       break;
     case SELECTOR_GN:
-      desc = "<>";
+      snprintf(buffer, bufsize, "<>");
       break;
     case OPTION_GN:
-      desc = "[]";
+      snprintf(buffer, bufsize, "[]");
       break;
     case NUL_GN:
-      desc = "NUL";
+      snprintf(buffer, bufsize, "NUL");
+      break;
+    case END_GN:
+      snprintf(buffer, bufsize, "END");
       break;
     default:
-      desc = "ERROR";
+      snprintf(buffer, bufsize, "ERROR");
   }
-  return desc;
+
+  return buffer;
 }
 
 
 void
 walk_graph(struct graph_node *start, int level)
 {
+  char* desc = malloc(50);
   // print this node
-  fprintf(stderr, "%s[%d] ", describe_node(start), vector_active(start->children));
+  fprintf(stderr, "%s[%d] ", describe_node(start, desc, 50), vector_active(start->children));
+  free(desc);
 
   if (vector_active(start->children)) {
     if (vector_active(start->children) == 1)

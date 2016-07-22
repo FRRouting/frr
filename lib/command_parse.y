@@ -43,6 +43,8 @@ struct graph_node *optnode_start,   // start node for option set
 
 struct graph_node *selnode_start,   // start node for selector set
                   *selnode_end;     // end node for selector set
+
+const char *input;
 %}
 
 %token <node> WORD
@@ -73,7 +75,24 @@ struct graph_node *selnode_start,   // start node for selector set
 %%
 
 start: sentence_root
-       cmd_token_seq;
+       cmd_token_seq
+{
+  // this should never happen...
+  if (currnode->type == END_GN)
+    yyerror("Unexpected leaf\n");
+
+  // create function pointer node
+  struct graph_node *end = new_node(END_GN);
+
+  // set cmd_element
+  // <set>
+
+  // add node
+  add_node(currnode, end);
+
+  // check that we did not get back an existing node
+  // <check>
+}
 
 sentence_root: WORD
 {
@@ -279,6 +298,7 @@ option_token:
 %%
 
 void yyerror(char const *message) {
+  // fail on bad parse
   printf("Grammar error: %s\n", message);
   exit(EXIT_FAILURE);
 }
@@ -296,7 +316,8 @@ cmd_parse_format(const char *string, const char *desc, struct graph_node *start)
   // trace parser
   yydebug = 1;
   // make flex read from a string
-  set_buffer_string(string);
+  input = string;
+  set_buffer_string(input);
   // initialize the start node of this command dfa
   startnode = start;
   // parse command into DFA

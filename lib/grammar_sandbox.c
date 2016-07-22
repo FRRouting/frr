@@ -40,25 +40,26 @@ DEFUN (grammar_test_match,
        "command to match")
 {
   const char* command = argv_concat(argv, argc, 0);
-  struct list **result = match_command(nodegraph, FILTER_STRICT, command);
-  struct list *matched = result[0];
-  struct list *next    = result[1];
+  struct list *result = match_command(nodegraph, FILTER_STRICT, command);
 
-  if (matched->count == 0) // the last token tried yielded no matches
+  if (result->count == 0) // invalid command
     fprintf(stderr, "%% Unknown command\n");
   else
   {
     fprintf(stderr, "%% Matched full input, possible completions:\n");
+    char* desc = malloc(50);
     struct listnode *node;
     struct graph_node *cnode;
-    // iterate through currently matched nodes to see if any are leaves
-    for (ALL_LIST_ELEMENTS_RO(matched,node,cnode))
-      if (cnode->is_leaf)
-        fprintf(stderr, "<cr>\n");
     // print possible next hops, if any
-    for (ALL_LIST_ELEMENTS_RO(next,node,cnode))
-      fprintf(stderr, "%s\n",describe_node(cnode));
+    for (ALL_LIST_ELEMENTS_RO(result,node,cnode)) {
+      if (cnode->type == END_GN)
+        fprintf(stderr, "<cr>");
+      else
+        fprintf(stderr, "%s\n", describe_node(cnode, desc, 50));
+    }
+    free(desc);
   }
+  list_free(result);
 
   return CMD_SUCCESS;
 }
