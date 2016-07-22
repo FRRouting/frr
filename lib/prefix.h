@@ -134,6 +134,14 @@ struct prefix_ptr
   uintptr_t prefix __attribute__ ((aligned (8)));
 };
 
+struct prefix_sg
+{
+  u_char family;
+  u_char prefixlen;
+  struct in_addr src __attribute ((aligned (8)));
+  struct in_addr grp;
+};
+
 /* helper to get type safety/avoid casts on calls
  * (w/o this, functions accepting all prefix types need casts on the caller
  * side, which strips type safety since the cast will accept any pointer
