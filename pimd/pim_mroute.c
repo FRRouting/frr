@@ -97,6 +97,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   struct pim_ifchannel *ch;
   struct pim_upstream *up;
   struct pim_rpf *rpg;
+  struct prefix sg;
 
   rpg = RP(msg->im_dst);
   /*
@@ -127,6 +128,8 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 	       __PRETTY_FUNCTION__, grp_str, src_str);
   }
 
+  sg.u.sg.src = msg->im_src;
+  sg.u.sg.grp = msg->im_dst;
   up = pim_upstream_add(msg->im_src, msg->im_dst, ifp);
   if (!up) {
     if (PIM_DEBUG_PIM_TRACE) {
@@ -139,8 +142,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 
   pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
 
-  up->channel_oil = pim_channel_oil_add(msg->im_dst,
-					msg->im_src,
+  up->channel_oil = pim_channel_oil_add(&sg,
 					pim_ifp->mroute_vif_index);
   if (!up->channel_oil) {
     if (PIM_DEBUG_PIM_TRACE) {

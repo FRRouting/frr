@@ -383,8 +383,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   int send_prune_echo; /* boolean */
   struct interface *ifp;
   struct pim_interface *pim_ifp;
-  struct in_addr ch_source;
-  struct in_addr ch_group;
+  struct prefix sg;
 
   zassert(t);
   ch = THREAD_ARG(t);
@@ -400,15 +399,14 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   send_prune_echo = (listcount(pim_ifp->pim_neighbor_list) > 1);
 
   /* Save (S,G) */
-  ch_source = ch->sg.u.sg.src;
-  ch_group = ch->sg.u.sg.grp;
+  sg = ch->sg;
 
   ifjoin_to_noinfo(ch);
   /* from here ch may have been deleted */
 
   if (send_prune_echo)
     pim_joinprune_send (ifp, pim_ifp->primary_address,
-			ch_source, ch_group, 0);
+			&sg, 0);
 
   return 0;
 }

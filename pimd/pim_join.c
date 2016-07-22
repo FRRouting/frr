@@ -272,8 +272,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
 int pim_joinprune_send(struct interface *ifp,
 		       struct in_addr upstream_addr,
-		       struct in_addr source_addr,
-		       struct in_addr group_addr,
+		       struct prefix *sg,
 		       int send_join)
 {
   struct pim_interface *pim_ifp;
@@ -295,30 +294,22 @@ int pim_joinprune_send(struct interface *ifp,
   }
 
   if (PIM_DEBUG_PIM_TRACE) {
-    char source_str[100];
-    char group_str[100];
     char dst_str[100];
-    pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
-    pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
     pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
-    zlog_debug("%s: sending %s(S,G)=(%s,%s) to upstream=%s on interface %s",
+    zlog_debug("%s: sending %s(S,G)=%s to upstream=%s on interface %s",
 	       __PRETTY_FUNCTION__,
 	       send_join ? "Join" : "Prune",
-	       source_str, group_str, dst_str, ifp->name);
+	       pim_str_sg_dump (sg), dst_str, ifp->name);
   }
 
   if (PIM_INADDR_IS_ANY(upstream_addr)) {
     if (PIM_DEBUG_PIM_TRACE) {
-      char source_str[100];
-      char group_str[100];
       char dst_str[100];
-      pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
-      pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
       pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
-      zlog_debug("%s: %s(S,G)=(%s,%s): upstream=%s is myself on interface %s",
+      zlog_debug("%s: %s(S,G)=%s: upstream=%s is myself on interface %s",
 		 __PRETTY_FUNCTION__,
 		 send_join ? "Join" : "Prune",
-		 source_str, group_str, dst_str, ifp->name);
+		 pim_str_sg_dump (sg), dst_str, ifp->name);
     }
     return 0;
   }
@@ -368,10 +359,10 @@ int pim_joinprune_send(struct interface *ifp,
   remain = pastend - pim_msg_curr;
   pim_msg_curr = pim_msg_addr_encode_ipv4_group(pim_msg_curr,
 						remain,
-						group_addr);
+						sg->u.sg.grp);
   if (!pim_msg_curr) {
     char group_str[100];
-    pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
+    pim_inet4_dump("<grp?>", sg->u.sg.grp, group_str, sizeof(group_str));
     zlog_warn("%s: failure encoding group address %s: space left=%d",
 	      __PRETTY_FUNCTION__, group_str, remain);
     return -5;
@@ -397,10 +388,10 @@ int pim_joinprune_send(struct interface *ifp,
   remain = pastend - pim_msg_curr;
   pim_msg_curr = pim_msg_addr_encode_ipv4_source(pim_msg_curr,
 						 remain,
-						 source_addr);
+						 sg->u.sg.src);
   if (!pim_msg_curr) {
     char source_str[100];
-    pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
+    pim_inet4_dump("<src?>", sg->u.sg.src, source_str, sizeof(source_str));
     zlog_warn("%s: failure encoding source address %s: space left=%d",
 	      __PRETTY_FUNCTION__, source_str, remain);
     return -7;

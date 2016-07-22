@@ -24,6 +24,7 @@
 #define PIM_UPSTREAM_H
 
 #include <zebra.h>
+#include <prefix.h>
 
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED         (1 << 0)
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED (2 << 0)
@@ -89,8 +90,9 @@ enum pim_upstream_sptbit {
 struct pim_upstream {
   int                      fhr;
   struct in_addr           upstream_addr;/* Who we are talking to */
-  struct in_addr           source_addr;  /* (S,G) source key */
-  struct in_addr           group_addr;   /* (S,G) group key */
+  struct prefix            sg;
+  //struct in_addr           source_addr;  /* (S,G) source key */
+  //struct in_addr           group_addr;   /* (S,G) group key */
   uint32_t                 flags;
   struct channel_oil      *channel_oil;
 

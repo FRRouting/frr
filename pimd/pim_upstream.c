@@ -86,19 +86,15 @@ void
 pim_upstream_send_join (struct pim_upstream *up)
 {
   if (PIM_DEBUG_PIM_TRACE) {
-    char src_str[100];
-    char grp_str[100];
     char rpf_str[100];
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
     pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
-    zlog_debug ("%s: RPF'(%s,%s)=%s(%s) for Interface %s", __PRETTY_FUNCTION__,
-		src_str, grp_str, rpf_str, pim_upstream_state2str (up),
+    zlog_debug ("%s: RPF'%s=%s(%s) for Interface %s", __PRETTY_FUNCTION__,
+		pim_str_sg_dump (&up->sg), rpf_str, pim_upstream_state2str (up),
 		up->rpf.source_nexthop.interface->name);
     if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr)) {
-      zlog_debug("%s: can't send join upstream: RPF'(%s,%s)=%s",
+      zlog_debug("%s: can't send join upstream: RPF'%s=%s",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str, rpf_str);
+		 pim_str_sg_dump (&up->sg), rpf_str);
       /* warning only */
     }
   }
@@ -114,8 +110,7 @@ pim_upstream_send_join (struct pim_upstream *up)
   /* send Join(S,G) to the current upstream neighbor */
   pim_joinprune_send(up->rpf.source_nexthop.interface,
   		     up->rpf.rpf_addr,
-		     up->source_addr,
-		     up->group_addr,
+		     &up->sg,
 		     1 /* join */);
 }
 
@@ -138,14 +133,10 @@ static int on_join_timer(struct thread *t)
 static void join_timer_start(struct pim_upstream *up)
 {
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-    zlog_debug("%s: starting %d sec timer for upstream (S,G)=(%s,%s)",
+    zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s",
 	       __PRETTY_FUNCTION__,
 	       qpim_t_periodic,
-	       src_str, grp_str);
+	       pim_str_sg_dump (&up->sg));
   }
 
   zassert(!up->t_join_timer);
@@ -165,14 +156,10 @@ static void pim_upstream_join_timer_restart_msec(struct pim_upstream *up,
 						 int interval_msec)
 {
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-    zlog_debug("%s: restarting %d msec timer for upstream (S,G)=(%s,%s)",
+    zlog_debug("%s: restarting %d msec timer for upstream (S,G)=%s",
 	       __PRETTY_FUNCTION__,
 	       interval_msec,
-	       src_str, grp_str);
+	       pim_str_sg_dump (&up->sg));
   }
 
   THREAD_OFF(up->t_join_timer);
@@ -194,28 +181,20 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
   join_timer_remain_msec = pim_time_timer_remain_msec(up->t_join_timer);
 
   if (PIM_DEBUG_PIM_TRACE) {
-    char src_str[100];
-    char grp_str[100];
     char rpf_str[100];
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
     pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
-    zlog_debug("%s %s: detected Join(%s,%s) to RPF'(S,G)=%s: join_timer=%ld msec t_joinsuppress=%ld msec",
+    zlog_debug("%s %s: detected Join%s to RPF'(S,G)=%s: join_timer=%ld msec t_joinsuppress=%ld msec",
 	       __FILE__, __PRETTY_FUNCTION__, 
-	       src_str, grp_str,
+	       pim_str_sg_dump (&up->sg),
 	       rpf_str,
 	       join_timer_remain_msec, t_joinsuppress_msec);
   }
 
   if (join_timer_remain_msec < t_joinsuppress_msec) {
     if (PIM_DEBUG_PIM_TRACE) {
-      char src_str[100];
-      char grp_str[100];
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-      zlog_debug("%s %s: suppressing Join(S,G)=(%s,%s) for %ld msec",
+      zlog_debug("%s %s: suppressing Join(S,G)=%s for %ld msec",
 		 __FILE__, __PRETTY_FUNCTION__, 
-		 src_str, grp_str, t_joinsuppress_msec);
+		 pim_str_sg_dump (&up->sg), t_joinsuppress_msec);
     }
 
     pim_upstream_join_timer_restart_msec(up, t_joinsuppress_msec);
@@ -233,27 +212,19 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
   t_override_msec = pim_if_t_override_msec(up->rpf.source_nexthop.interface);
 
   if (PIM_DEBUG_PIM_TRACE) {
-    char src_str[100];
-    char grp_str[100];
     char rpf_str[100];
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
     pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
-    zlog_debug("%s: to RPF'(%s,%s)=%s: join_timer=%ld msec t_override=%d msec",
+    zlog_debug("%s: to RPF'%s=%s: join_timer=%ld msec t_override=%d msec",
 	       debug_label,
-	       src_str, grp_str, rpf_str,
+	       pim_str_sg_dump (&up->sg), rpf_str,
 	       join_timer_remain_msec, t_override_msec);
   }
     
   if (join_timer_remain_msec > t_override_msec) {
     if (PIM_DEBUG_PIM_TRACE) {
-      char src_str[100];
-      char grp_str[100];
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-      zlog_debug("%s: decreasing (S,G)=(%s,%s) join timer to t_override=%d msec",
+      zlog_debug("%s: decreasing (S,G)=%s join timer to t_override=%d msec",
 		 debug_label,
-		 src_str, grp_str,
+		 pim_str_sg_dump (&up->sg),
 		 t_override_msec);
     }
 
@@ -330,14 +301,10 @@ pim_upstream_switch(struct pim_upstream *up,
   up->state_transition = pim_time_monotonic_sec();
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-    zlog_debug("%s: PIM_UPSTREAM_%s: (S,G)=(%s,%s)",
+    zlog_debug("%s: PIM_UPSTREAM_%s: (S,G)=%s",
 	       __PRETTY_FUNCTION__,
 	       ((new_state == PIM_UPSTREAM_JOINED) ? "JOINED" : "NOTJOINED"),
-	       src_str, grp_str);
+	       pim_str_sg_dump (&up->sg));
   }
 
   pim_upstream_update_assert_tracking_desired(up);
@@ -351,8 +318,7 @@ pim_upstream_switch(struct pim_upstream *up,
     forward_off(up);
     pim_joinprune_send(up->rpf.source_nexthop.interface,
 		       up->rpf.rpf_addr,
-		       up->source_addr,
-		       up->group_addr,
+		       &up->sg,
 		       0 /* prune */);
     if (up->t_join_timer)
       THREAD_OFF(up->t_join_timer);
@@ -373,7 +339,7 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
     return NULL;
   }
   
-  up->source_addr                = source_addr;
+  up->sg.u.sg.src                 = source_addr;
   if (!pim_rp_set_upstream_addr (&up->upstream_addr, source_addr))
     {
       if (PIM_DEBUG_PIM_TRACE)
@@ -383,7 +349,7 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
       return NULL;
     }
 
-  up->group_addr                 = group_addr;
+  up->sg.u.sg.grp                = group_addr;
   up->flags                      = 0;
   up->ref_count                  = 1;
   up->t_join_timer               = NULL;
@@ -418,9 +384,9 @@ struct pim_upstream *pim_upstream_find(struct in_addr source_addr,
   struct pim_upstream *up;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, up_node, up)) {
-    if (group_addr.s_addr == up->group_addr.s_addr) {
-      if ((up->source_addr.s_addr == INADDR_ANY) ||
-	  (source_addr.s_addr == up->source_addr.s_addr)) {
+    if (group_addr.s_addr == up->sg.u.sg.grp.s_addr) {
+      if ((up->sg.u.sg.src.s_addr == INADDR_ANY) ||
+	  (source_addr.s_addr == up->sg.u.sg.src.s_addr)) {
 	return up;
       }
     }
@@ -563,16 +529,12 @@ void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr)
 
     if (PIM_DEBUG_PIM_TRACE) {
       char neigh_str[100];
-      char src_str[100];
-      char grp_str[100];
       char rpf_addr_str[100];
       pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
       pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
-      zlog_debug("%s: matching neigh=%s against upstream (S,G)=(%s,%s) joined=%d rpf_addr=%s",
+      zlog_debug("%s: matching neigh=%s against upstream (S,G)=%s joined=%d rpf_addr=%s",
 		 __PRETTY_FUNCTION__,
-		 neigh_str, src_str, grp_str,
+		 neigh_str, pim_str_sg_dump (&up->sg),
 		 up->join_state == PIM_UPSTREAM_JOINED,
 		 rpf_addr_str);
     }
@@ -726,9 +688,9 @@ pim_upstream_keep_alive_timer (struct thread *t)
 
   up = THREAD_ARG(t);
 
-  if (I_am_RP (up->group_addr))
+  if (I_am_RP (up->sg.u.sg.grp))
     {
-      pim_br_clear_pmbr (up->source_addr, up->group_addr);
+      pim_br_clear_pmbr (up->sg.u.sg.src, up->sg.u.sg.grp);
       /*
        * We need to do more here :)
        * But this is the start.
@@ -830,13 +792,8 @@ pim_upstream_register_stop_timer (struct thread *t)
 
   if (PIM_DEBUG_TRACE)
     {
-      char src_str[100];
-      char grp_str[100];
-
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-      zlog_debug ("%s: (S,G)=(%s,%s) upstream register stop timer %d",
-		  __PRETTY_FUNCTION__, src_str, grp_str, up->join_state);
+      zlog_debug ("%s: (S,G)=%s upstream register stop timer %d",
+		  __PRETTY_FUNCTION__, pim_str_sg_dump (&up->sg), up->join_state);
     }
 
   switch (up->join_state)
@@ -848,13 +805,13 @@ pim_upstream_register_stop_timer (struct thread *t)
       up->join_state = PIM_UPSTREAM_JOIN_PENDING;
       pim_upstream_start_register_stop_timer (up, 1);
 
-      rpg = RP (up->group_addr);
+      rpg = RP (up->sg.u.sg.grp);
       memset (&ip_hdr, 0, sizeof (struct ip));
       ip_hdr.ip_p = PIM_IP_PROTO_PIM;
       ip_hdr.ip_hl = 5;
       ip_hdr.ip_v = 4;
-      ip_hdr.ip_src = up->source_addr;
-      ip_hdr.ip_dst = up->group_addr;
+      ip_hdr.ip_src = up->sg.u.sg.src;
+      ip_hdr.ip_dst = up->sg.u.sg.grp;
       ip_hdr.ip_len = 20;
       // checksum is broken
       pim_register_send ((uint8_t *)&ip_hdr, sizeof (struct ip), rpg, 1);
@@ -889,13 +846,8 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
 
   if (PIM_DEBUG_TRACE)
     {
-      char src_str[100];
-      char grp_str[100];
-
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-      zlog_debug ("%s: (S,G)=(%s,%s) Starting upstream register stop timer %d",
-                 __PRETTY_FUNCTION__, src_str, grp_str, time);
+      zlog_debug ("%s: (S,G)=%s Starting upstream register stop timer %d",
+		  __PRETTY_FUNCTION__, pim_str_sg_dump (&up->sg), time);
     }
   THREAD_TIMER_ON (master, up->t_rs_timer,
 		   pim_upstream_register_stop_timer,

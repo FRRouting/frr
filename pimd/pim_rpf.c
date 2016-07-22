@@ -151,13 +151,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
   rpf->rpf_addr = pim_rpf_find_rpf_addr(up);
   if (PIM_INADDR_IS_ANY(rpf->rpf_addr) && PIM_DEBUG_PIM_EVENTS) {
     /* RPF'(S,G) not found */
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-    zlog_debug("%s %s: RPF'(%s,%s) not found: won't send join upstream",
+    zlog_debug("%s %s: RPF'%s not found: won't send join upstream",
 	       __FILE__, __PRETTY_FUNCTION__,
-	       src_str, grp_str);
+	       pim_str_sg_dump (&up->sg));
     /* warning only */
   }
 
@@ -165,15 +161,11 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
   if (nexthop_mismatch(&rpf->source_nexthop, &save_nexthop)) {
 
     if (PIM_DEBUG_PIM_EVENTS) {
-      char src_str[100];
-      char grp_str[100];
       char nhaddr_str[100];
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
       pim_inet4_dump("<addr?>", rpf->source_nexthop.mrib_nexthop_addr, nhaddr_str, sizeof(nhaddr_str));
-      zlog_debug("%s %s: (S,G)=(%s,%s) source nexthop now is: interface=%s address=%s pref=%d metric=%d",
+      zlog_debug("%s %s: (S,G)=%s source nexthop now is: interface=%s address=%s pref=%d metric=%d",
 		 __FILE__, __PRETTY_FUNCTION__,
-		 src_str, grp_str,
+		 pim_str_sg_dump (&up->sg),
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<ifname?>",
 		 nhaddr_str,
 		 rpf->source_nexthop.mrib_metric_preference,
@@ -189,13 +181,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
   if (save_nexthop.interface != rpf->source_nexthop.interface) {
 
     if (PIM_DEBUG_PIM_EVENTS) {
-      char src_str[100];
-      char grp_str[100];
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-      zlog_debug("%s %s: (S,G)=(%s,%s) RPF_interface(S) changed from %s to %s",
+      zlog_debug("%s %s: (S,G)=%s RPF_interface(S) changed from %s to %s",
 		 __FILE__, __PRETTY_FUNCTION__,
-		 src_str, grp_str,
+		 pim_str_sg_dump (&up->sg),
 		 save_nexthop.interface ? save_nexthop.interface->name : "<oldif?>",
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<newif?>");
       /* warning only */
@@ -239,20 +227,16 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
   struct in_addr rpf_addr;
 
   if (!up->rpf.source_nexthop.interface) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: missing RPF interface for upstream (S,G)=(%s,%s)",
+    zlog_warn("%s: missing RPF interface for upstream (S,G)=%s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str);
+	      pim_str_sg_dump (&up->sg));
 
     rpf_addr.s_addr = PIM_NET_INADDR_ANY;
     return rpf_addr;
   }
 
   rpf_ch = pim_ifchannel_find(up->rpf.source_nexthop.interface,
-			      up->source_addr, up->group_addr);
+			      up->sg.u.sg.src, up->sg.u.sg.grp);
   if (rpf_ch) {
     if (rpf_ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
       return rpf_ch->ifassert_winner;

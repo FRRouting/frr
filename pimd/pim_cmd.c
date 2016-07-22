@@ -987,8 +987,8 @@ static void pim_show_upstream(struct vty *vty)
       char uptime[10];
       char join_timer[10];
 
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
+      pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
       pim_time_uptime(uptime, sizeof(uptime), now - up->state_transition);
       pim_time_timer_to_hhmmss(join_timer, sizeof(join_timer), up->t_join_timer);
 
@@ -1028,8 +1028,8 @@ static void pim_show_join_desired(struct vty *vty)
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, chnode, ch)) {
       struct pim_upstream *up = ch->upstream;
 
-      pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
+      pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
 
       vty_out(vty, "%-9s %-15s %-15s %-10s %-5s %-10s %-11s %-6s%s",
 	      ifp->name,
@@ -1064,8 +1064,8 @@ static void pim_show_upstream_rpf(struct vty *vty)
     
     rpf = &up->rpf;
     
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<nexthop?>", rpf->source_nexthop.mrib_nexthop_addr, rpf_nexthop_str, sizeof(rpf_nexthop_str));
     pim_inet4_dump("<rpf?>", rpf->rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
     
@@ -1141,8 +1141,8 @@ static void pim_show_rpf(struct vty *vty)
     const char *rpf_ifname;
     struct pim_rpf  *rpf = &up->rpf;
     
-    pim_inet4_dump("<src?>", up->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->group_addr, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<rpf?>", rpf->rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
     pim_inet4_dump("<nexthop?>", rpf->source_nexthop.mrib_nexthop_addr, rib_nexthop_str, sizeof(rib_nexthop_str));
     
