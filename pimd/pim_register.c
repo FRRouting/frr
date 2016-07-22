@@ -348,7 +348,7 @@ pim_register_recv (struct interface *ifp,
 			    upstream->upstream_addr, NULL);
 	upstream->rpf.source_nexthop.interface = ifp;
 	upstream->source_addr.s_addr = source.s_addr;
-	upstream->rpf.rpf_addr.s_addr = source.s_addr;
+	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
 	upstream->channel_oil->oil.mfcc_origin = source;
 	pim_scan_individual_oil (upstream->channel_oil);
         pim_upstream_send_join (upstream);
