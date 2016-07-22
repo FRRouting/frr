@@ -1130,8 +1130,8 @@ void pim_forward_start(struct pim_ifchannel *ch)
     char group_str[100]; 
     char upstream_str[100];
 
-    pim_inet4_dump("<source?>", ch->source_addr, source_str, sizeof(source_str));
-    pim_inet4_dump("<group?>", ch->group_addr, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", ch->sg.u.sg.src, source_str, sizeof(source_str));
+    pim_inet4_dump("<group?>", ch->sg.u.sg.grp, group_str, sizeof(group_str));
     pim_inet4_dump("<upstream?>", up->upstream_addr, upstream_str, sizeof(upstream_str));
     zlog_debug("%s: (S,G)=(%s,%s) oif=%s(%s)",
 	       __PRETTY_FUNCTION__,
@@ -1175,8 +1175,8 @@ void pim_forward_stop(struct pim_ifchannel *ch)
   if (PIM_DEBUG_PIM_TRACE) {
     char source_str[100];
     char group_str[100]; 
-    pim_inet4_dump("<source?>", ch->source_addr, source_str, sizeof(source_str));
-    pim_inet4_dump("<group?>", ch->group_addr, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", ch->sg.u.sg.src, source_str, sizeof(source_str));
+    pim_inet4_dump("<group?>", ch->sg.u.sg.grp, group_str, sizeof(group_str));
     zlog_debug("%s: (S,G)=(%s,%s) oif=%s",
 	       __PRETTY_FUNCTION__,
 	       source_str, group_str, ch->interface->name);
@@ -1185,8 +1185,8 @@ void pim_forward_stop(struct pim_ifchannel *ch)
   if (!up->channel_oil) {
     char source_str[100];
     char group_str[100]; 
-    pim_inet4_dump("<source?>", ch->source_addr, source_str, sizeof(source_str));
-    pim_inet4_dump("<group?>", ch->group_addr, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", ch->sg.u.sg.src, source_str, sizeof(source_str));
+    pim_inet4_dump("<group?>", ch->sg.u.sg.grp, group_str, sizeof(group_str));
     zlog_warn("%s: (S,G)=(%s,%s) oif=%s missing channel OIL",
 	       __PRETTY_FUNCTION__,
 	       source_str, group_str, ch->interface->name);

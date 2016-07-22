@@ -126,8 +126,8 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
     if (PIM_DEBUG_PIM_EVENTS) {
       char src_str[100];
       char grp_str[100];
-      pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
+      pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
       zlog_debug("PIM_IFCHANNEL_%s: (S,G)=(%s,%s) on interface %s",
 		 ((new_state == PIM_IFJOIN_NOINFO) ? "DOWN" : "UP"),
 		 src_str, grp_str, ch->interface->name);
@@ -209,8 +209,8 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
     if (
-	(source_addr.s_addr == ch->source_addr.s_addr) &&
-	(group_addr.s_addr == ch->group_addr.s_addr)
+	(source_addr.s_addr == ch->sg.u.sg.src.s_addr) &&
+	(group_addr.s_addr == ch->sg.u.sg.grp.s_addr)
 	) {
       return ch;
     }
@@ -228,8 +228,8 @@ static void ifmembership_set(struct pim_ifchannel *ch,
   if (PIM_DEBUG_PIM_EVENTS) {
     char src_str[100];
     char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: (S,G)=(%s,%s) membership now is %s on interface %s",
 	       __PRETTY_FUNCTION__,
 	       src_str, grp_str,
@@ -317,8 +317,8 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
   ch->flags                        = 0;
   ch->upstream                     = up;
   ch->interface                    = ifp;
-  ch->source_addr                  = source_addr;
-  ch->group_addr                   = group_addr;
+  ch->sg.u.sg.src                  = source_addr;
+  ch->sg.u.sg.grp                  = group_addr;
   ch->local_ifmembership           = PIM_IFMEMBERSHIP_NOINFO;
 
   ch->ifjoin_state                 = PIM_IFJOIN_NOINFO;
@@ -400,8 +400,8 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   send_prune_echo = (listcount(pim_ifp->pim_neighbor_list) > 1);
 
   /* Save (S,G) */
-  ch_source = ch->source_addr;
-  ch_group = ch->group_addr;
+  ch_source = ch->sg.u.sg.src;
+  ch_group = ch->sg.u.sg.grp;
 
   ifjoin_to_noinfo(ch);
   /* from here ch may have been deleted */
@@ -759,8 +759,8 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
   if (PIM_DEBUG_PIM_EVENTS) {
     char src_str[100];
     char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: CouldAssert(%s,%s,%s) changed from %d to %d",
 	       __PRETTY_FUNCTION__,
 	       src_str, grp_str, ch->interface->name,
@@ -803,8 +803,8 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch)
     char grp_str[100];
     char old_addr_str[100];
     char new_addr_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<old_addr?>", ch->ifassert_my_metric.ip_address, old_addr_str, sizeof(old_addr_str));
     pim_inet4_dump("<new_addr?>", my_metric_new.ip_address, new_addr_str, sizeof(new_addr_str));
     zlog_debug("%s: my_assert_metric(%s,%s,%s) changed from %u,%u,%u,%s to %u,%u,%u,%s",
@@ -839,8 +839,8 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
   if (PIM_DEBUG_PIM_EVENTS) {
     char src_str[100];
     char grp_str[100];
-    pim_inet4_dump("<src?>", ch->source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->group_addr, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: AssertTrackingDesired(%s,%s,%s) changed from %d to %d",
 	       __PRETTY_FUNCTION__,
 	       src_str, grp_str, ch->interface->name,

@@ -26,6 +26,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "prefix.h"
 
 #include "pim_upstream.h"
 
@@ -73,8 +74,7 @@ struct pim_assert_metric {
   Per-interface (S,G) state
 */
 struct pim_ifchannel {
-  struct in_addr            source_addr; /* (S,G) source key */
-  struct in_addr            group_addr;  /* (S,G) group key */
+  struct prefix             sg;
   struct interface         *interface;   /* backpointer to interface */
   uint32_t                  flags;
 

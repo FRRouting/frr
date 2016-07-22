@@ -27,6 +27,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include <prefix.h>
+
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf, int buf_size);
+char *pim_str_sg_dump (const struct prefix *sg);
 
 #endif

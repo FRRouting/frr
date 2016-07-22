@@ -43,3 +43,16 @@ void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf, int buf_
 
   errno = save_errno;
 }
+
+char *
+pim_str_sg_dump (const struct prefix *sg)
+{
+  char src_str[100];
+  char grp_str[100];
+  static char sg_str[200];
+
+  pim_inet4_dump ("<src?>", sg->u.sg.src, src_str, sizeof(src_str));
+  pim_inet4_dump ("<grp?>", sg->u.sg.grp, grp_str, sizeof(grp_str));
+  snprintf (sg_str, 200, "(%s,%s)", src_str, grp_str);
+  return sg_str;
+}
