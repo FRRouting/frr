@@ -30,8 +30,7 @@
 #include "linklist.h"
 
 struct pim_br {
-  struct in_addr source;
-  struct in_addr group;
+  struct prefix sg;
   struct in_addr pmbr;
 };
 
@@ -40,14 +39,14 @@ struct in_addr pim_br_unknown = { .s_addr = 0 };
 static struct list *pim_br_list = NULL;
 
 struct in_addr
-pim_br_get_pmbr (struct in_addr source, struct in_addr group)
+pim_br_get_pmbr (struct prefix *sg)
 {
   struct listnode *node;
   struct pim_br   *pim_br;
 
   for (ALL_LIST_ELEMENTS_RO (pim_br_list, node, pim_br)) {
-    if (source.s_addr == pim_br->source.s_addr &&
-	group.s_addr == pim_br->group.s_addr)
+    if (sg->u.sg.src.s_addr == pim_br->sg.u.sg.src.s_addr &&
+	sg->u.sg.grp.s_addr == pim_br->sg.u.sg.grp.s_addr)
       return pim_br->pmbr;
   }
 
@@ -55,14 +54,14 @@ pim_br_get_pmbr (struct in_addr source, struct in_addr group)
 }
 
 void
-pim_br_set_pmbr (struct in_addr source, struct in_addr group, struct in_addr br)
+pim_br_set_pmbr (struct prefix *sg, struct in_addr br)
 {
   struct listnode *node, *next;
   struct pim_br *pim_br;
 
   for (ALL_LIST_ELEMENTS (pim_br_list, node, next, pim_br)) {
-    if (source.s_addr == pim_br->source.s_addr &&
-	group.s_addr == pim_br->group.s_addr)
+    if (sg->u.sg.src.s_addr == pim_br->sg.u.sg.src.s_addr &&
+	sg->u.sg.grp.s_addr == pim_br->sg.u.sg.grp.s_addr)
       break;
   }
 
@@ -73,8 +72,7 @@ pim_br_set_pmbr (struct in_addr source, struct in_addr group, struct in_addr br)
       return;
     }
 
-    pim_br->source = source;
-    pim_br->group = group;
+    pim_br->sg = *sg;
 
     listnode_add(pim_br_list, pim_br);
   }
@@ -86,14 +84,14 @@ pim_br_set_pmbr (struct in_addr source, struct in_addr group, struct in_addr br)
  * Remove the (S,G) from the stored values
  */
 void
-pim_br_clear_pmbr (struct in_addr source, struct in_addr group)
+pim_br_clear_pmbr (struct prefix *sg)
 {
   struct listnode *node, *next;
   struct pim_br *pim_br;
 
   for (ALL_LIST_ELEMENTS (pim_br_list, node, next, pim_br)) {
-    if (source.s_addr == pim_br->source.s_addr &&
-	group.s_addr == pim_br->group.s_addr)
+    if (sg->u.sg.src.s_addr == pim_br->sg.u.sg.src.s_addr &&
+	sg->u.sg.grp.s_addr == pim_br->sg.u.sg.grp.s_addr)
       break;
   }
 

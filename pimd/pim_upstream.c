@@ -686,7 +686,7 @@ pim_upstream_keep_alive_timer (struct thread *t)
 
   if (I_am_RP (up->sg.u.sg.grp))
     {
-      pim_br_clear_pmbr (up->sg.u.sg.src, up->sg.u.sg.grp);
+      pim_br_clear_pmbr (&up->sg);
       /*
        * We need to do more here :)
        * But this is the start.

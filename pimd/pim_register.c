@@ -67,8 +67,8 @@ pim_check_is_my_ip_address (struct in_addr dest_addr)
 }
 
 static void
-pim_register_stop_send (struct interface *ifp, struct in_addr source,
-			struct in_addr group, struct in_addr originator)
+pim_register_stop_send (struct interface *ifp, struct prefix *sg,
+			struct in_addr originator)
 {
   struct pim_interface *pinfo;
   unsigned char buffer[3000];
@@ -80,12 +80,12 @@ pim_register_stop_send (struct interface *ifp, struct in_addr source,
   memset (buffer, 0, 3000);
   b1 = (uint8_t *)buffer + PIM_MSG_REGISTER_STOP_LEN;
 
-  length = pim_encode_addr_group (b1, AFI_IP, 0, 0, group);
+  length = pim_encode_addr_group (b1, AFI_IP, 0, 0, sg->u.sg.grp);
   b1length += length;
   b1 += length;
 
   p.family = AF_INET;
-  p.u.prefix4 = source;
+  p.u.prefix4 = sg->u.sg.src;
   p.prefixlen = 32;
   length = pim_encode_addr_ucast (b1, &p);
   b1length += length;
@@ -243,8 +243,6 @@ pim_register_recv (struct interface *ifp,
 {
   int sentRegisterStop = 0;
   struct ip *ip_hdr;
-  struct in_addr group = { .s_addr = 0 };
-  struct in_addr source = { .s_addr = 0 };
   struct prefix sg;
   uint32_t *bits;
 
@@ -288,21 +286,22 @@ pim_register_recv (struct interface *ifp,
    */
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
   ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
-  source = ip_hdr->ip_src;
-  group = ip_hdr->ip_dst;
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = ip_hdr->ip_src;
+  sg.u.sg.grp = ip_hdr->ip_dst;
 
-  if (I_am_RP (group) && (dest_addr.s_addr == ((RP (group))->rpf_addr.s_addr))) {
+  if (I_am_RP (sg.u.sg.grp) && (dest_addr.s_addr == ((RP (sg.u.sg.grp))->rpf_addr.s_addr))) {
     sentRegisterStop = 0;
 
     if (*bits & PIM_REGISTER_BORDER_BIT) {
-      struct in_addr pimbr = pim_br_get_pmbr (source, group);
+      struct in_addr pimbr = pim_br_get_pmbr (&sg);
       if (PIM_DEBUG_PIM_PACKETS)
 	zlog_debug("%s: Received Register message with Border bit set", __func__);
 
       if (pimbr.s_addr == pim_br_unknown.s_addr)
-	pim_br_set_pmbr(source, group, src_addr);
+	pim_br_set_pmbr(&sg, src_addr);
       else if (src_addr.s_addr != pimbr.s_addr) {
-	pim_register_stop_send (ifp, source, group, src_addr);
+	pim_register_stop_send (ifp, &sg, src_addr);
 	if (PIM_DEBUG_PIM_PACKETS)
 	  zlog_debug("%s: Sending register-Stop to %s and dropping mr. packet",
 	    __func__, "Sender");
@@ -311,9 +310,6 @@ pim_register_recv (struct interface *ifp,
       }
     }
 
-    memset (&sg, 0, sizeof (struct prefix));
-    sg.u.sg.src = source;
-    sg.u.sg.grp = group;
     struct pim_upstream *upstream = pim_upstream_find (&sg);
     /*
      * If we don't have a place to send ignore the packet
@@ -326,14 +322,14 @@ pim_register_recv (struct interface *ifp,
 
     if (upstream->join_state == PIM_UPSTREAM_PRUNE)
       {
-	pim_register_stop_send (ifp, source, group, src_addr);
+	pim_register_stop_send (ifp, &sg, src_addr);
 	return 1;
       }
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	((SwitchToSptDesired(&sg)) &&
 	 (inherited_olist(source, group) == NULL))) {
-      pim_register_stop_send (ifp, source, group, src_addr);
+      pim_register_stop_send (ifp, &sg, src_addr);
       sentRegisterStop = 1;
     }
 
@@ -349,13 +345,13 @@ pim_register_recv (struct interface *ifp,
     if (!(upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) &&
 	!(*bits & PIM_REGISTER_NR_BIT))
       {
-	pim_rp_set_upstream_addr (&upstream->upstream_addr, source);
+	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.u.sg.src);
 	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
 			    upstream->upstream_addr, NULL);
 	upstream->rpf.source_nexthop.interface = ifp;
-	upstream->sg.u.sg.src.s_addr = source.s_addr;
+	upstream->sg.u.sg.src = sg.u.sg.src;
 	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
-	upstream->channel_oil->oil.mfcc_origin = source;
+	upstream->channel_oil->oil.mfcc_origin = sg.u.sg.src;
 	pim_scan_individual_oil (upstream->channel_oil);
         pim_upstream_send_join (upstream);
 
@@ -363,7 +359,7 @@ pim_register_recv (struct interface *ifp,
 	//inherited_olist(S,G,rpt)
       }
   } else {
-    pim_register_stop_send (ifp, source, group, src_addr);
+    pim_register_stop_send (ifp, &sg, src_addr);
   }
 
   return 1;

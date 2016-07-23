@@ -21,10 +21,10 @@
 #ifndef PIM_BR_H
 #define PIM_BR_H
 
-struct in_addr pim_br_get_pmbr (struct in_addr source, struct in_addr group);
+struct in_addr pim_br_get_pmbr (struct prefix *sg);
 
-void pim_br_set_pmbr (struct in_addr source, struct in_addr group, struct in_addr value);
-void pim_br_clear_pmbr (struct in_addr source, struct in_addr group);
+void pim_br_set_pmbr (struct prefix *sg, struct in_addr value);
+void pim_br_clear_pmbr (struct prefix *sg);
 
 void pim_br_init (void);
 
