@@ -849,3 +849,15 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
 		   pim_upstream_register_stop_timer,
 		   up, time);
 }
+
+/*
+ * For a given upstream, determine the inherited_olist
+ * and apply it.
+ * return 1 if there are any output interfaces
+ * return 0 if there are not any output interfaces
+ */
+int
+pim_upstream_inherited_olist (struct pim_upstream *up)
+{
+  return 0;
+}

@@ -257,7 +257,6 @@ pim_register_recv (struct interface *ifp,
     return 0;
   }
 
-#define inherited_olist(S,G) NULL
   /*
    * Please note this is not drawn to get the correct bit/data size
    *
@@ -322,7 +321,7 @@ pim_register_recv (struct interface *ifp,
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	((SwitchToSptDesired(&sg)) &&
-	 (inherited_olist(source, group) == NULL))) {
+	 pim_upstream_inherited_olist (upstream) == 0)) {
       pim_register_stop_send (ifp, &sg, src_addr);
       sentRegisterStop = 1;
     }
