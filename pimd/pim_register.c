@@ -331,14 +331,14 @@ pim_register_recv (struct interface *ifp,
       }
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
-	((SwitchToSptDesired(source, group)) &&
+	((SwitchToSptDesired(&sg)) &&
 	 (inherited_olist(source, group) == NULL))) {
       pim_register_stop_send (ifp, source, group, src_addr);
       sentRegisterStop = 1;
     }
 
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
-	(SwitchToSptDesired(source, group))) {
+	(SwitchToSptDesired(&sg))) {
       if (sentRegisterStop) {
 	pim_upstream_keep_alive_timer_start (upstream, PIM_RP_KEEPALIVE_PERIOD);
       } else {

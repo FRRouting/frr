@@ -749,7 +749,7 @@ pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
  *  received for the source and group.
  */
 int
-pim_upstream_switch_to_spt_desired (struct in_addr source, struct in_addr group)
+pim_upstream_switch_to_spt_desired (struct prefix *sg)
 {
   return 0;
 }

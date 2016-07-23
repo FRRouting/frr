@@ -146,8 +146,8 @@ void pim_upstream_update_my_assert_metric(struct pim_upstream *up);
 
 void pim_upstream_keep_alive_timer_start (struct pim_upstream *up, uint32_t time);
 
-int pim_upstream_switch_to_spt_desired (struct in_addr source, struct in_addr group);
-#define SwitchToSptDesired(S,G) pim_upstream_switch_to_spt_desired ((S), (G))
+int pim_upstream_switch_to_spt_desired (struct prefix *sg);
+#define SwitchToSptDesired(sg) pim_upstream_switch_to_spt_desired (sg)
 
 void pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_register);
 
