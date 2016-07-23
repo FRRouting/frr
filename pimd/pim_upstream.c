@@ -381,12 +381,9 @@ struct pim_upstream *pim_upstream_find(struct prefix *sg)
   struct pim_upstream *up;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, up_node, up)) {
-    if (sg->u.sg.grp.s_addr == up->sg.u.sg.grp.s_addr) {
-      if ((up->sg.u.sg.src.s_addr == INADDR_ANY) ||
-	  (sg->u.sg.src.s_addr == up->sg.u.sg.src.s_addr)) {
-	return up;
-      }
-    }
+    if ((sg->u.sg.grp.s_addr == up->sg.u.sg.grp.s_addr) &&
+	(sg->u.sg.src.s_addr == up->sg.u.sg.src.s_addr))
+      return up;
   }
 
   return NULL;
@@ -751,6 +748,9 @@ pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
 int
 pim_upstream_switch_to_spt_desired (struct prefix *sg)
 {
+  if (I_am_RP (sg->u.sg.grp))
+    return 1;
+
   return 0;
 }
 
