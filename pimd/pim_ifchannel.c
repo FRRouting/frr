@@ -617,25 +617,19 @@ void pim_ifchannel_join_add(struct interface *ifp,
 
 void pim_ifchannel_prune(struct interface *ifp,
 			 struct in_addr upstream,
-			 struct in_addr source_addr,
-			 struct in_addr group_addr,
+			 struct prefix *sg,
 			 uint8_t source_flags,
 			 uint16_t holdtime)
 {
   struct pim_ifchannel *ch;
   int jp_override_interval_msec;
-  struct prefix sg;
-
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = source_addr;
-  sg.u.sg.grp = group_addr;
 
   if (nonlocal_upstream(0 /* prune */, ifp, upstream,
-			source_addr, group_addr, source_flags, holdtime)) {
+			sg->u.sg.src, sg->u.sg.grp, source_flags, holdtime)) {
     return;
   }
 
-  ch = pim_ifchannel_add(ifp, &sg);
+  ch = pim_ifchannel_add(ifp, sg);
   if (!ch)
     return;
 
