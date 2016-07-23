@@ -391,19 +391,14 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 static void check_recv_upstream(int is_join,
 				struct interface *recv_ifp,
 				struct in_addr upstream,
-				struct in_addr source_addr,
-				struct in_addr group_addr,
+				struct prefix *sg,
 				uint8_t source_flags,
 				int holdtime)
 {
   struct pim_upstream *up;
-  struct prefix sg;
 
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = source_addr;
-  sg.u.sg.grp = group_addr;
   /* Upstream (S,G) in Joined state ? */
-  up = pim_upstream_find(&sg);
+  up = pim_upstream_find(sg);
   if (!up)
     return;
   if (up->join_state != PIM_UPSTREAM_JOINED)
@@ -413,29 +408,21 @@ static void check_recv_upstream(int is_join,
 
   if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr)) {
     /* RPF'(S,G) not found */
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s %s: RPF'(%s,%s) not found",
+    zlog_warn("%s %s: RPF'%s not found",
 	      __FILE__, __PRETTY_FUNCTION__, 
-	      src_str, grp_str);
+	      pim_str_sg_dump (sg));
     return;
   }
 
   /* upstream directed to RPF'(S,G) ? */
   if (upstream.s_addr != up->rpf.rpf_addr.s_addr) {
-    char src_str[100];
-    char grp_str[100];
     char up_str[100];
     char rpf_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
     pim_inet4_dump("<up?>", upstream, up_str, sizeof(up_str));
     pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
-    zlog_warn("%s %s: (S,G)=(%s,%s) upstream=%s not directed to RPF'(S,G)=%s on interface %s",
+    zlog_warn("%s %s: (S,G)=%s upstream=%s not directed to RPF'(S,G)=%s on interface %s",
 	      __FILE__, __PRETTY_FUNCTION__, 
-	      src_str, grp_str,
+	      pim_str_sg_dump (sg),
 	      up_str, rpf_str, recv_ifp->name);
     return;
   }
@@ -471,8 +458,7 @@ static void check_recv_upstream(int is_join,
 static int nonlocal_upstream(int is_join,
 			     struct interface *recv_ifp,
 			     struct in_addr upstream,
-			     struct in_addr source_addr,
-			     struct in_addr group_addr,
+			     struct prefix *sg,
 			     uint8_t source_flags,
 			     uint16_t holdtime)
 {
@@ -486,15 +472,11 @@ static int nonlocal_upstream(int is_join,
   
   if (PIM_DEBUG_PIM_TRACE) {
     char up_str[100];
-    char src_str[100];
-    char grp_str[100];
     pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: recv %s (S,G)=(%s,%s) to %s upstream=%s on %s",
+    zlog_warn("%s: recv %s (S,G)=%s to %s upstream=%s on %s",
 	      __PRETTY_FUNCTION__,
 	      is_join ? "join" : "prune",
-	      src_str, grp_str,
+	      pim_str_sg_dump (sg),
 	      is_local ? "local" : "non-local",
 	      up_str, recv_ifp->name);
   }
@@ -506,7 +488,7 @@ static int nonlocal_upstream(int is_join,
     Since recv upstream addr was not directed to our primary
     address, check if we should react to it in any way.
   */
-  check_recv_upstream(is_join, recv_ifp, upstream, source_addr, group_addr,
+  check_recv_upstream(is_join, recv_ifp, upstream, sg,
 		      source_flags, holdtime);
 
   return 1; /* non-local */
@@ -523,7 +505,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
   struct pim_ifchannel *ch;
 
   if (nonlocal_upstream(1 /* join */, ifp, upstream,
-			sg->u.sg.src, sg->u.sg.grp, source_flags, holdtime)) {
+			sg, source_flags, holdtime)) {
     return;
   }
 
@@ -625,7 +607,7 @@ void pim_ifchannel_prune(struct interface *ifp,
   int jp_override_interval_msec;
 
   if (nonlocal_upstream(0 /* prune */, ifp, upstream,
-			sg->u.sg.src, sg->u.sg.grp, source_flags, holdtime)) {
+			sg, source_flags, holdtime)) {
     return;
   }
 
