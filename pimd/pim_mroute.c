@@ -128,14 +128,15 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 	       __PRETTY_FUNCTION__, grp_str, src_str);
   }
 
+  memset (&sg, 0, sizeof (struct prefix));
   sg.u.sg.src = msg->im_src;
   sg.u.sg.grp = msg->im_dst;
-  up = pim_upstream_add(msg->im_src, msg->im_dst, ifp);
+  up = pim_upstream_add (&sg, ifp);
   if (!up) {
     if (PIM_DEBUG_PIM_TRACE) {
-      zlog_debug("%s: Failure to add upstream information for (%s,%s)",
+      zlog_debug("%s: Failure to add upstream information for %s",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str);
+		 pim_str_sg_dump (&sg));
     }
     return 0;
   }
@@ -154,7 +155,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   }
   up->channel_oil->cc.pktcnt++;
   up->fhr = 1;
-  ch = pim_ifchannel_add (pim_regiface, msg->im_src, msg->im_dst);
+  ch = pim_ifchannel_add (pim_regiface, &sg);
   pim_ifchannel_ifjoin_switch (__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN_PIMREG);
   up->join_state = PIM_UPSTREAM_JOINED;
 
@@ -166,29 +167,29 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 			 const char *src_str, const char *grp_str)
 {
   struct pim_interface *pim_ifp;
-  struct in_addr group;
-  struct in_addr src;
+  struct prefix sg;
   struct pim_rpf *rpg;
   const struct ip *ip_hdr;
   struct pim_upstream *up;
 
   ip_hdr = (const struct ip *)buf;
 
-  src = ip_hdr->ip_src;
-  group = ip_hdr->ip_dst;
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = ip_hdr->ip_src;
+  sg.u.sg.grp = ip_hdr->ip_dst;
 
-  up = pim_upstream_find(src, group);
+  up = pim_upstream_find(&sg);
   if (!up) {
     if (PIM_DEBUG_PIM_TRACE) {
-      zlog_debug("%s: Unable to find upstream channel WHOLEPKT(%s,%s)",
-		 __PRETTY_FUNCTION__, src_str, grp_str);
+      zlog_debug("%s: Unable to find upstream channel WHOLEPKT%s",
+		 __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
     }
     return 0;
   }
 
   pim_ifp = up->rpf.source_nexthop.interface->info;
 
-  rpg = RP(group);
+  rpg = RP(sg.u.sg.grp);
 
   if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
@@ -215,6 +216,7 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
+  struct prefix sg;
 
   /*
     Send Assert(S,G) on iif as response to WRONGVIF kernel upcall.
@@ -246,7 +248,10 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
     return -2;
   }
 
-  ch = pim_ifchannel_find(ifp, msg->im_src, msg->im_dst);
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = msg->im_src;
+  sg.u.sg.grp = msg->im_dst;
+  ch = pim_ifchannel_find(ifp, &sg);
   if (!ch) {
     if (PIM_DEBUG_PIM_TRACE) {
       zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) could not find channel on interface %s",

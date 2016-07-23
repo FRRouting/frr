@@ -117,6 +117,7 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
   struct pim_upstream *upstream = NULL;
   struct prefix source;
   struct prefix group;
+  struct prefix sg;
   int l;
 
   if (PIM_DEBUG_PIM_PACKETDUMP_RECV)
@@ -126,7 +127,10 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
   buf += l;
   buf_size -= l;
   l = pim_parse_addr_ucast (&source, buf, buf_size);
-  upstream = pim_upstream_find (source.u.prefix4, group.u.prefix4);
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source.u.prefix4;
+  sg.u.sg.grp = group.u.prefix4;
+  upstream = pim_upstream_find (&sg);
   if (!upstream)
     {
       return 0;
@@ -239,10 +243,9 @@ pim_register_recv (struct interface *ifp,
 {
   int sentRegisterStop = 0;
   struct ip *ip_hdr;
-  //size_t hlen;
   struct in_addr group = { .s_addr = 0 };
   struct in_addr source = { .s_addr = 0 };
-  //uint8_t *msg;
+  struct prefix sg;
   uint32_t *bits;
 
   if (!pim_check_is_my_ip_address (dest_addr)) {
@@ -308,13 +311,16 @@ pim_register_recv (struct interface *ifp,
       }
     }
 
-    struct pim_upstream *upstream = pim_upstream_find (source, group);
+    memset (&sg, 0, sizeof (struct prefix));
+    sg.u.sg.src = source;
+    sg.u.sg.grp = group;
+    struct pim_upstream *upstream = pim_upstream_find (&sg);
     /*
      * If we don't have a place to send ignore the packet
      */
     if (!upstream)
       {
-	upstream = pim_upstream_add (source, group, ifp);
+	upstream = pim_upstream_add (&sg, ifp);
 	pim_upstream_switch (upstream, PIM_UPSTREAM_PRUNE);
       }
 

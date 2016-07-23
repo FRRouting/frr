@@ -146,16 +146,16 @@ static int dispatch_assert(struct interface *ifp,
 			   struct pim_assert_metric recv_metric)
 {
   struct pim_ifchannel *ch;
+  struct prefix sg;
 
-  ch = pim_ifchannel_add(ifp, source_addr, group_addr);
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source_addr;
+  sg.u.sg.grp = group_addr;
+  ch = pim_ifchannel_add(ifp, &sg);
   if (!ch) {
-    char source_str[100];
-    char group_str[100];
-    pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
-    pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
-    zlog_warn("%s: (S,G)=(%s,%s) failure creating channel on interface %s",
+    zlog_warn("%s: (S,G)=%s failure creating channel on interface %s",
 	      __PRETTY_FUNCTION__,
-	      source_str, group_str, ifp->name);
+	      pim_str_sg_dump (&sg), ifp->name);
     return -1;
   }
 
@@ -212,13 +212,9 @@ static int dispatch_assert(struct interface *ifp,
     break;
   default:
     {
-      char source_str[100];
-      char group_str[100];
-      pim_inet4_dump("<src?>", source_addr, source_str, sizeof(source_str));
-      pim_inet4_dump("<grp?>", group_addr, group_str, sizeof(group_str));
-      zlog_warn("%s: (S,G)=(%s,%s) invalid assert state %d on interface %s",
+      zlog_warn("%s: (S,G)=%s invalid assert state %d on interface %s",
 		__PRETTY_FUNCTION__,
-		source_str, group_str, ch->ifassert_state, ifp->name);
+		pim_str_sg_dump (&sg), ch->ifassert_state, ifp->name);
     }
     return -2;
   }

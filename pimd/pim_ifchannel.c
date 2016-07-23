@@ -184,8 +184,7 @@ void reset_ifassert_state(struct pim_ifchannel *ch)
 }
 
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
-					 struct in_addr source_addr,
-					 struct in_addr group_addr)
+					 struct prefix *sg)
 {
   struct pim_interface *pim_ifp;
   struct listnode      *ch_node;
@@ -196,21 +195,17 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
   pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: (S,G)=(%s,%s): multicast not enabled on interface %s",
+    zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str,
+	      pim_str_sg_dump (sg),
 	      ifp->name);
     return 0;
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
     if (
-	(source_addr.s_addr == ch->sg.u.sg.src.s_addr) &&
-	(group_addr.s_addr == ch->sg.u.sg.grp.s_addr)
+	(sg->u.sg.src.s_addr == ch->sg.u.sg.src.s_addr) &&
+	(sg->u.sg.grp.s_addr == ch->sg.u.sg.grp.s_addr)
 	) {
       return ch;
     }
@@ -275,41 +270,32 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
 }
 
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr)
+					struct prefix *sg)
 {
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
   struct pim_upstream *up;
-  char src_str[100];
-  char grp_str[100];
 
-  ch = pim_ifchannel_find(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_find(ifp, sg);
   if (ch)
     return ch;
 
   pim_ifp = ifp->info;
   zassert(pim_ifp);
 
-  up = pim_upstream_add(source_addr, group_addr, NULL);
+  up = pim_upstream_add(sg, NULL);
   if (!up) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_err("%s: could not attach upstream (S,G)=(%s,%s) on interface %s",
+    zlog_err("%s: could not attach upstream (S,G)=%s on interface %s",
 	     __PRETTY_FUNCTION__,
-	     src_str, grp_str, ifp->name);
+	     pim_str_sg_dump (sg), ifp->name);
     return NULL;
   }
 
   ch = XMALLOC(MTYPE_PIM_IFCHANNEL, sizeof(*ch));
   if (!ch) {
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
-    zlog_warn("%s: pim_ifchannel_new() failure for (S,G)=(%s,%s) on interface %s",
+    zlog_warn("%s: pim_ifchannel_new() failure for (S,G)=%s on interface %s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str, ifp->name);
+	      pim_str_sg_dump (sg), ifp->name);
     
     return NULL;
   }
@@ -317,8 +303,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
   ch->flags                        = 0;
   ch->upstream                     = up;
   ch->interface                    = ifp;
-  ch->sg.u.sg.src                  = source_addr;
-  ch->sg.u.sg.grp                  = group_addr;
+  ch->sg                           = *sg;
   ch->local_ifmembership           = PIM_IFMEMBERSHIP_NOINFO;
 
   ch->ifjoin_state                 = PIM_IFJOIN_NOINFO;
@@ -420,9 +405,13 @@ static void check_recv_upstream(int is_join,
 				int holdtime)
 {
   struct pim_upstream *up;
+  struct prefix sg;
 
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source_addr;
+  sg.u.sg.grp = group_addr;
   /* Upstream (S,G) in Joined state ? */
-  up = pim_upstream_find(source_addr, group_addr);
+  up = pim_upstream_find(&sg);
   if (!up)
     return;
   if (up->join_state != PIM_UPSTREAM_JOINED)
@@ -541,13 +530,17 @@ void pim_ifchannel_join_add(struct interface *ifp,
 {
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
+  struct prefix sg;
 
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source_addr;
+  sg.u.sg.grp = group_addr;
   if (nonlocal_upstream(1 /* join */, ifp, upstream,
 			source_addr, group_addr, source_flags, holdtime)) {
     return;
   }
 
-  ch = pim_ifchannel_add(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_add(ifp, &sg);
   if (!ch)
     return;
 
@@ -568,15 +561,11 @@ void pim_ifchannel_join_add(struct interface *ifp,
     address of the join message is our primary address.
    */
   if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
-    char src_str[100];
-    char grp_str[100];
     char neigh_str[100];
-    pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group_addr, grp_str, sizeof(grp_str));
     pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
-    zlog_warn("%s: Assert Loser recv Join(%s,%s) from %s on %s",
+    zlog_warn("%s: Assert Loser recv Join%s from %s on %s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str, neigh_str, ifp->name);
+	      pim_str_sg_dump (&sg), neigh_str, ifp->name);
 
     assert_action_a5(ch);
   }
@@ -648,13 +637,18 @@ void pim_ifchannel_prune(struct interface *ifp,
 {
   struct pim_ifchannel *ch;
   int jp_override_interval_msec;
+  struct prefix sg;
+
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source_addr;
+  sg.u.sg.grp = group_addr;
 
   if (nonlocal_upstream(0 /* prune */, ifp, upstream,
 			source_addr, group_addr, source_flags, holdtime)) {
     return;
   }
 
-  ch = pim_ifchannel_add(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_add(ifp, &sg);
   if (!ch)
     return;
 
@@ -705,6 +699,11 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
+  struct prefix sg;
+
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source_addr;
+  sg.u.sg.grp = group_addr;
 
   /* PIM enabled on interface? */
   pim_ifp = ifp->info;
@@ -713,7 +712,7 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
     return;
 
-  ch = pim_ifchannel_add(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_add(ifp, &sg);
   if (!ch) {
     return;
   }
@@ -729,6 +728,11 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
+  struct prefix sg;
+
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source_addr;
+  sg.u.sg.grp = group_addr;
 
   /* PIM enabled on interface? */
   pim_ifp = ifp->info;
@@ -737,7 +741,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
     return;
 
-  ch = pim_ifchannel_find(ifp, source_addr, group_addr);
+  ch = pim_ifchannel_find(ifp, &sg);
   if (!ch)
     return;
 

@@ -236,7 +236,7 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
   }
 
   rpf_ch = pim_ifchannel_find(up->rpf.source_nexthop.interface,
-			      up->sg.u.sg.src, up->sg.u.sg.grp);
+			      &up->sg);
   if (rpf_ch) {
     if (rpf_ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
       return rpf_ch->ifassert_winner;

@@ -325,8 +325,7 @@ pim_upstream_switch(struct pim_upstream *up,
   }
 }
 
-static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
-					     struct in_addr group_addr,
+static struct pim_upstream *pim_upstream_new(struct prefix *sg,
 					     struct interface *incoming)
 {
   struct pim_upstream *up;
@@ -339,8 +338,8 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
     return NULL;
   }
   
-  up->sg.u.sg.src                 = source_addr;
-  if (!pim_rp_set_upstream_addr (&up->upstream_addr, source_addr))
+  up->sg                          = *sg;
+  if (!pim_rp_set_upstream_addr (&up->upstream_addr, sg->u.sg.src))
     {
       if (PIM_DEBUG_PIM_TRACE)
 	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);
@@ -349,7 +348,6 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
       return NULL;
     }
 
-  up->sg.u.sg.grp                = group_addr;
   up->flags                      = 0;
   up->ref_count                  = 1;
   up->t_join_timer               = NULL;
@@ -377,16 +375,15 @@ static struct pim_upstream *pim_upstream_new(struct in_addr source_addr,
   return up;
 }
 
-struct pim_upstream *pim_upstream_find(struct in_addr source_addr,
-				       struct in_addr group_addr)
+struct pim_upstream *pim_upstream_find(struct prefix *sg)
 {
   struct listnode     *up_node;
   struct pim_upstream *up;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, up_node, up)) {
-    if (group_addr.s_addr == up->sg.u.sg.grp.s_addr) {
+    if (sg->u.sg.grp.s_addr == up->sg.u.sg.grp.s_addr) {
       if ((up->sg.u.sg.src.s_addr == INADDR_ANY) ||
-	  (source_addr.s_addr == up->sg.u.sg.src.s_addr)) {
+	  (sg->u.sg.src.s_addr == up->sg.u.sg.src.s_addr)) {
 	return up;
       }
     }
@@ -395,18 +392,17 @@ struct pim_upstream *pim_upstream_find(struct in_addr source_addr,
   return NULL;
 }
 
-struct pim_upstream *pim_upstream_add(struct in_addr source_addr,
-				      struct in_addr group_addr,
+struct pim_upstream *pim_upstream_add(struct prefix *sg,
 				      struct interface *incoming)
 {
   struct pim_upstream *up;
 
-  up = pim_upstream_find(source_addr, group_addr);
+  up = pim_upstream_find(sg);
   if (up) {
     ++up->ref_count;
   }
   else {
-    up = pim_upstream_new(source_addr, group_addr, incoming);
+    up = pim_upstream_new(sg, incoming);
   }
 
   return up;

@@ -90,9 +90,7 @@ enum pim_upstream_sptbit {
 struct pim_upstream {
   int                      fhr;
   struct in_addr           upstream_addr;/* Who we are talking to */
-  struct prefix            sg;
-  //struct in_addr           source_addr;  /* (S,G) source key */
-  //struct in_addr           group_addr;   /* (S,G) group key */
+  struct prefix            sg;           /* (S,G) group key */
   uint32_t                 flags;
   struct channel_oil      *channel_oil;
 
@@ -124,10 +122,8 @@ struct pim_upstream {
 
 void pim_upstream_free(struct pim_upstream *up);
 void pim_upstream_delete(struct pim_upstream *up);
-struct pim_upstream *pim_upstream_find(struct in_addr source_addr,
-				       struct in_addr group_addr);
-struct pim_upstream *pim_upstream_add(struct in_addr source_addr,
-				      struct in_addr group_addr,
+struct pim_upstream *pim_upstream_find (struct prefix *sg);
+struct pim_upstream *pim_upstream_add (struct prefix *sg,
 				      struct interface *ifp);
 void pim_upstream_del(struct pim_upstream *up);
 
