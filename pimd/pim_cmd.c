@@ -129,9 +129,12 @@ static void pim_if_membership_refresh(struct interface *ifp)
       for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src)) {
 
 	if (IGMP_SOURCE_TEST_FORWARDING(src->source_flags)) {
-	  pim_ifchannel_local_membership_add(ifp,
-					     src->source_addr,
-					     grp->group_addr);
+	  struct prefix sg;
+
+	  memset (&sg, 0, sizeof (struct prefix));
+	  sg.u.sg.src = src->source_addr;
+	  sg.u.sg.grp = grp->group_addr;
+	  pim_ifchannel_local_membership_add(ifp, &sg);
 	}
 	
       } /* scan group sources */

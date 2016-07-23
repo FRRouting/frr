@@ -1044,8 +1044,7 @@ void igmp_source_forward_start(struct igmp_source *source)
     Feed IGMPv3-gathered local membership information into PIM
     per-interface (S,G) state.
    */
-  pim_ifchannel_local_membership_add(group->group_igmp_sock->interface,
-				     source->source_addr, group->group_addr);
+  pim_ifchannel_local_membership_add(group->group_igmp_sock->interface, &sg);
 
   IGMP_SOURCE_DO_FORWARDING(source->source_flags);
 }

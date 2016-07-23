@@ -119,8 +119,7 @@ void pim_ifchannel_prune(struct interface *ifp,
 			 uint8_t source_flags,
 			 uint16_t holdtime);
 void pim_ifchannel_local_membership_add(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr);
+					struct prefix *sg);
 void pim_ifchannel_local_membership_del(struct interface *ifp,
 					struct in_addr source_addr,
 					struct in_addr group_addr);
