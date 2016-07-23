@@ -34,6 +34,8 @@
 #include "pim_iface.h"
 #include "pim_hello.h"
 #include "pim_ifchannel.h"
+#include "pim_rpf.h"
+#include "pim_rp.h"
 
 static void on_trace(const char *label,
 		     struct interface *ifp, struct in_addr src)
@@ -76,6 +78,25 @@ static void recv_join(struct interface *ifp,
   /* Restart join expiry timer */
   pim_ifchannel_join_add(ifp, neigh->source_addr, upstream,
 			 &sg, source_flags, holdtime);
+
+  if (I_am_RP (group) && source.s_addr == INADDR_ANY)
+    {
+      struct pim_upstream *up;
+
+      up = pim_upstream_find_non_any (&sg);
+
+      if (up)
+        {
+	  zlog_debug("%s %s: Join(S,G)=%s from %s",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     pim_str_sg_dump (&up->sg), pim_str_sg_dump (&sg));
+
+	  pim_rp_set_upstream_addr (&up->upstream_addr, up->sg.u.sg.src);
+	  pim_nexthop_lookup (&up->rpf.source_nexthop, up->upstream_addr, NULL);
+	  pim_ifchannel_join_add (ifp, neigh->source_addr, upstream, &up->sg, source_flags, holdtime);
+        }
+    }
+
 }
 
 static void recv_prune(struct interface *ifp,
@@ -106,6 +127,22 @@ static void recv_prune(struct interface *ifp,
   }
   
   pim_ifchannel_prune(ifp, upstream, &sg, source_flags, holdtime);
+
+  if (I_am_RP (group) && source.s_addr == INADDR_ANY)
+    {
+      struct pim_upstream *up;
+
+      up = pim_upstream_find_non_any (&sg);
+
+      if (up)
+        {
+	  zlog_debug("%s %s: Prune(S,G)=%s from %s",
+		     __FILE__, __PRETTY_FUNCTION__,
+		     pim_str_sg_dump (&up->sg), pim_str_sg_dump (&sg));
+	  pim_ifchannel_prune (ifp, upstream, &up->sg, source_flags, holdtime);
+        }
+    }
+
 }
 
 int pim_joinprune_recv(struct interface *ifp,

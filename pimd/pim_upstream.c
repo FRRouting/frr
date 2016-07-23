@@ -374,6 +374,27 @@ static struct pim_upstream *pim_upstream_new(struct prefix *sg,
   return up;
 }
 
+/*
+ * For a given sg, find any non * source
+ */
+struct pim_upstream *pim_upstream_find_non_any (struct prefix *sg)
+{
+  struct listnode *up_node;
+  struct prefix any = *sg;
+  struct pim_upstream *up;
+
+  any.u.sg.src.s_addr = INADDR_ANY;
+
+  for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, up))
+    {
+      if ((any.u.sg.grp.s_addr == up->sg.u.sg.grp.s_addr) &&
+          (up->sg.u.sg.src.s_addr != any.u.sg.src.s_addr))
+        return up;
+    }
+
+  return NULL;
+}
+
 struct pim_upstream *pim_upstream_find(struct prefix *sg)
 {
   struct listnode     *up_node;

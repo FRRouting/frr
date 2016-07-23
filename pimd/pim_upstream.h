@@ -122,6 +122,7 @@ struct pim_upstream {
 void pim_upstream_free(struct pim_upstream *up);
 void pim_upstream_delete(struct pim_upstream *up);
 struct pim_upstream *pim_upstream_find (struct prefix *sg);
+struct pim_upstream *pim_upstream_find_non_any (struct prefix *sg);
 struct pim_upstream *pim_upstream_add (struct prefix *sg,
 				      struct interface *ifp);
 void pim_upstream_del(struct pim_upstream *up);
