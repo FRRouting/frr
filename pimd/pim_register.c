@@ -320,12 +320,6 @@ pim_register_recv (struct interface *ifp,
 	pim_upstream_switch (upstream, PIM_UPSTREAM_PRUNE);
       }
 
-    if (upstream->join_state == PIM_UPSTREAM_PRUNE)
-      {
-	pim_register_stop_send (ifp, &sg, src_addr);
-	return 1;
-      }
-
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	((SwitchToSptDesired(&sg)) &&
 	 (inherited_olist(source, group) == NULL))) {
