@@ -55,18 +55,20 @@ static void recv_join(struct interface *ifp,
 		      struct in_addr source,
 		      uint8_t source_flags)
 {
+  struct prefix sg;
+
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source;
+  sg.u.sg.grp = group;
+
   if (PIM_DEBUG_PIM_TRACE) {
     char up_str[100];
-    char src_str[100];
-    char grp_str[100];
     char neigh_str[100];
     pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
-    pim_inet4_dump("<src?>", source, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", group, grp_str, sizeof(grp_str));
     pim_inet4_dump("<neigh?>", neigh->source_addr, neigh_str, sizeof(neigh_str));
-    zlog_warn("%s: join (S,G)=(%s,%s) rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
+    zlog_warn("%s: join (S,G)=%s rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
 	      __PRETTY_FUNCTION__,
-	      src_str, grp_str,
+	      pim_str_sg_dump (&sg),
 	      source_flags & PIM_RPT_BIT_MASK,
 	      source_flags & PIM_WILDCARD_BIT_MASK,
 	      up_str, holdtime, neigh_str, ifp->name);
@@ -74,7 +76,7 @@ static void recv_join(struct interface *ifp,
   
   /* Restart join expiry timer */
   pim_ifchannel_join_add(ifp, neigh->source_addr, upstream,
-			 source, group, source_flags, holdtime);
+			 &sg, source_flags, holdtime);
 }
 
 static void recv_prune(struct interface *ifp,

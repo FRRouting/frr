@@ -124,13 +124,9 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
       ) {
 
     if (PIM_DEBUG_PIM_EVENTS) {
-      char src_str[100];
-      char grp_str[100];
-      pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
-      zlog_debug("PIM_IFCHANNEL_%s: (S,G)=(%s,%s) on interface %s",
+      zlog_debug("PIM_IFCHANNEL_%s: (S,G)=%s on interface %s",
 		 ((new_state == PIM_IFJOIN_NOINFO) ? "DOWN" : "UP"),
-		 src_str, grp_str, ch->interface->name);
+		 pim_str_sg_dump (&ch->sg), ch->interface->name);
     }
 
     /*
@@ -221,13 +217,9 @@ static void ifmembership_set(struct pim_ifchannel *ch,
     return;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    char src_str[100];
-    char grp_str[100];
-    pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
-    zlog_debug("%s: (S,G)=(%s,%s) membership now is %s on interface %s",
+    zlog_debug("%s: (S,G)=%s membership now is %s on interface %s",
 	       __PRETTY_FUNCTION__,
-	       src_str, grp_str,
+	       pim_str_sg_dump (&ch->sg),
 	       membership == PIM_IFMEMBERSHIP_INCLUDE ? "INCLUDE" : "NOINFO",
 	       ch->interface->name);
   }
@@ -523,24 +515,19 @@ static int nonlocal_upstream(int is_join,
 void pim_ifchannel_join_add(struct interface *ifp,
 			    struct in_addr neigh_addr,
 			    struct in_addr upstream,
-			    struct in_addr source_addr,
-			    struct in_addr group_addr,
+			    struct prefix *sg,
 			    uint8_t source_flags,
 			    uint16_t holdtime)
 {
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
-  struct prefix sg;
 
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = source_addr;
-  sg.u.sg.grp = group_addr;
   if (nonlocal_upstream(1 /* join */, ifp, upstream,
-			source_addr, group_addr, source_flags, holdtime)) {
+			sg->u.sg.src, sg->u.sg.grp, source_flags, holdtime)) {
     return;
   }
 
-  ch = pim_ifchannel_add(ifp, &sg);
+  ch = pim_ifchannel_add(ifp, sg);
   if (!ch)
     return;
 
@@ -565,7 +552,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
     pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
     zlog_warn("%s: Assert Loser recv Join%s from %s on %s",
 	      __PRETTY_FUNCTION__,
-	      pim_str_sg_dump (&sg), neigh_str, ifp->name);
+	      pim_str_sg_dump (sg), neigh_str, ifp->name);
 
     assert_action_a5(ch);
   }
