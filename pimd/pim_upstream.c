@@ -852,11 +852,61 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
 /*
  * For a given upstream, determine the inherited_olist
  * and apply it.
+ *
+ * inherited_olist(S,G,rpt) =
+ *           ( joins(*,*,RP(G)) (+) joins(*,G) (-) prunes(S,G,rpt) )
+ *      (+) ( pim_include(*,G) (-) pim_exclude(S,G))
+ *      (-) ( lost_assert(*,G) (+) lost_assert(S,G,rpt) )
+ *
+ *  inherited_olist(S,G) =
+ *      inherited_olist(S,G,rpt) (+)
+ *      joins(S,G) (+) pim_include(S,G) (-) lost_assert(S,G)
+ *
  * return 1 if there are any output interfaces
  * return 0 if there are not any output interfaces
  */
 int
 pim_upstream_inherited_olist (struct pim_upstream *up)
 {
-  return 0;
+  struct pim_upstream *anysrc_up;
+  struct pim_interface *pim_ifp;
+  struct listnode *ifnextnode;
+  struct listnode *chnextnode;
+  struct pim_ifchannel *ch;
+  struct listnode *chnode;
+  struct listnode *ifnode;
+  struct interface *ifp;
+  struct prefix anysrc;
+  int output_intf = 0;
+
+  anysrc = up->sg;
+  anysrc.u.sg.src.s_addr = INADDR_ANY;
+
+  anysrc_up = pim_upstream_find (&anysrc);
+  if (anysrc_up)
+    {
+      for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp))
+	{
+	  pim_ifp = ifp->info;
+	  if (!pim_ifp)
+	    continue;
+
+	  for (ALL_LIST_ELEMENTS (pim_ifp->pim_ifchannel_list, chnode, chnextnode, ch))
+	    {
+	      if (ch->upstream != anysrc_up)
+		continue;
+
+	      if (ch->ifjoin_state == PIM_IFJOIN_JOIN)
+		{
+		  pim_ifchannel_add (ifp, &up->sg);
+		  output_intf++;
+		}
+	    }
+	}
+    }
+
+  if (output_intf)
+    pim_upstream_send_join (up);
+
+  return output_intf;
 }
