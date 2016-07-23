@@ -338,6 +338,7 @@ pim_register_recv (struct interface *ifp,
     if (!(upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) &&
 	!(*bits & PIM_REGISTER_NR_BIT))
       {
+#if 0
 	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.u.sg.src);
 	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
 			    upstream->upstream_addr, NULL);
@@ -347,7 +348,7 @@ pim_register_recv (struct interface *ifp,
 	upstream->channel_oil->oil.mfcc_origin = sg.u.sg.src;
 	pim_scan_individual_oil (upstream->channel_oil);
         pim_upstream_send_join (upstream);
-
+#endif
 	//decapsulate and forward the iner packet to
 	//inherited_olist(S,G,rpt)
       }
