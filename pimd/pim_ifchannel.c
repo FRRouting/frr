@@ -698,16 +698,10 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
 }
 
 void pim_ifchannel_local_membership_del(struct interface *ifp,
-					struct in_addr source_addr,
-					struct in_addr group_addr)
+					struct prefix *sg)
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
-  struct prefix sg;
-
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = source_addr;
-  sg.u.sg.grp = group_addr;
 
   /* PIM enabled on interface? */
   pim_ifp = ifp->info;
@@ -716,7 +710,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
     return;
 
-  ch = pim_ifchannel_find(ifp, &sg);
+  ch = pim_ifchannel_find(ifp, sg);
   if (!ch)
     return;
 

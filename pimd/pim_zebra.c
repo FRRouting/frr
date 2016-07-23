@@ -952,6 +952,7 @@ void igmp_source_forward_start(struct igmp_source *source)
   struct prefix sg;
   int result;
 
+  memset (&sg, 0, sizeof (struct prefix));
   sg.u.sg.src = source->source_addr;
   sg.u.sg.grp = source->source_group->group_addr;
 
@@ -1056,16 +1057,17 @@ void igmp_source_forward_start(struct igmp_source *source)
 void igmp_source_forward_stop(struct igmp_source *source)
 {
   struct igmp_group *group;
+  struct prefix sg;
   int result;
 
+  memset (&sg, 0, sizeof (struct prefix));
+  sg.u.sg.src = source->source_addr;
+  sg.u.sg.grp = source->source_group->group_addr;
+
   if (PIM_DEBUG_IGMP_TRACE) {
-    char source_str[100];
-    char group_str[100]; 
-    pim_inet4_dump("<source?>", source->source_addr, source_str, sizeof(source_str));
-    pim_inet4_dump("<group?>", source->source_group->group_addr, group_str, sizeof(group_str));
-    zlog_debug("%s: (S,G)=(%s,%s) igmp_sock=%d oif=%s fwd=%d",
+    zlog_debug("%s: (S,G)=%s igmp_sock=%d oif=%s fwd=%d",
 	       __PRETTY_FUNCTION__,
-	       source_str, group_str,
+	       pim_str_sg_dump (&sg),
 	       source->source_group->group_igmp_sock->fd,
 	       source->source_group->group_igmp_sock->interface->name,
 	       IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
@@ -1104,7 +1106,7 @@ void igmp_source_forward_stop(struct igmp_source *source)
     per-interface (S,G) state.
    */
   pim_ifchannel_local_membership_del(group->group_igmp_sock->interface,
-				     source->source_addr, group->group_addr);
+				     &sg);
 
   IGMP_SOURCE_DONT_FORWARDING(source->source_flags);
 }
