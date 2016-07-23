@@ -37,8 +37,9 @@
 #include "pim_rpf.h"
 #include "pim_rp.h"
 
-static void on_trace(const char *label,
-		     struct interface *ifp, struct in_addr src)
+static void
+on_trace (const char *label,
+	  struct interface *ifp, struct in_addr src)
 {
   if (PIM_DEBUG_PIM_TRACE) {
     char src_str[100];
@@ -183,7 +184,7 @@ int pim_joinprune_recv(struct interface *ifp,
     Check upstream address family
    */
   if (msg_upstream_addr.family != AF_INET) {
-    if (PIM_DEBUG_PIM_TRACE) {
+    if (PIM_DEBUG_PIM_J_P) {
       char src_str[100];
       pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
       zlog_warn("%s: ignoring join/prune directed to unexpected addr family=%d from %s on %s",
@@ -210,16 +211,16 @@ int pim_joinprune_recv(struct interface *ifp,
   ++buf;
   ++buf;
 
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_PIM_J_P) {
     char src_str[100];
     char upstream_str[100];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
     pim_inet4_dump("<addr?>", msg_upstream_addr.u.prefix4,
 		   upstream_str, sizeof(upstream_str));
-    zlog_warn("%s: join/prune upstream=%s groups=%d holdtime=%d from %s on %s",
-	      __PRETTY_FUNCTION__,
-	      upstream_str, msg_num_groups, msg_holdtime,
-	      src_str, ifp->name);
+    zlog_debug ("%s: join/prune upstream=%s groups=%d holdtime=%d from %s on %s",
+		__PRETTY_FUNCTION__,
+		upstream_str, msg_num_groups, msg_holdtime,
+		src_str, ifp->name);
   }
 
   /* Scan groups */
@@ -253,7 +254,7 @@ int pim_joinprune_recv(struct interface *ifp,
     msg_num_pruned_sources = ntohs(*(const uint16_t *) buf);
     buf += 2;
 
-    if (PIM_DEBUG_PIM_TRACE) {
+    if (PIM_DEBUG_PIM_J_P) {
       char src_str[100];
       char upstream_str[100];
       char group_str[100];
@@ -322,6 +323,8 @@ int pim_joinprune_send(struct interface *ifp,
   int pim_msg_size;
   int remain;
 
+  on_trace (__PRETTY_FUNCTION__, ifp, upstream_addr);
+
   zassert(ifp);
 
   pim_ifp = ifp->info;
@@ -333,7 +336,7 @@ int pim_joinprune_send(struct interface *ifp,
     return -1;
   }
 
-  if (PIM_DEBUG_PIM_TRACE) {
+  if (PIM_DEBUG_PIM_J_P) {
     char dst_str[100];
     pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
     zlog_debug("%s: sending %s(S,G)=%s to upstream=%s on interface %s",
@@ -343,7 +346,7 @@ int pim_joinprune_send(struct interface *ifp,
   }
 
   if (PIM_INADDR_IS_ANY(upstream_addr)) {
-    if (PIM_DEBUG_PIM_TRACE) {
+    if (PIM_DEBUG_PIM_J_P) {
       char dst_str[100];
       pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
       zlog_debug("%s: %s(S,G)=%s: upstream=%s is myself on interface %s",
