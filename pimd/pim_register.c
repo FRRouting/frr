@@ -316,6 +316,14 @@ pim_register_recv (struct interface *ifp,
     if (!upstream)
       {
 	upstream = pim_upstream_add (&sg, ifp);
+
+	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.u.sg.src);
+	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
+			    upstream->upstream_addr, NULL);
+	upstream->rpf.source_nexthop.interface = ifp;
+	upstream->sg.u.sg.src = sg.u.sg.src;
+	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
+
 	pim_upstream_switch (upstream, PIM_UPSTREAM_PRUNE);
 
       }
@@ -323,14 +331,7 @@ pim_register_recv (struct interface *ifp,
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	((SwitchToSptDesired(&sg)) &&
 	 pim_upstream_inherited_olist (upstream) == 0)) {
-      pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.u.sg.src);
-      pim_nexthop_lookup (&upstream->rpf.source_nexthop,
-			    upstream->upstream_addr, NULL);
-      upstream->rpf.source_nexthop.interface = ifp;
-      upstream->sg.u.sg.src = sg.u.sg.src;
-      upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
-      upstream->channel_oil->oil.mfcc_origin = sg.u.sg.src;
-      pim_scan_individual_oil (upstream->channel_oil);
+      //pim_scan_individual_oil (upstream->channel_oil);
       pim_register_stop_send (ifp, &sg, src_addr);
       sentRegisterStop = 1;
     }

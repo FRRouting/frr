@@ -507,7 +507,8 @@ void pim_upstream_update_join_desired(struct pim_upstream *up)
 
   /* switched from false to true */
   if (is_join_desired && !was_join_desired) {
-    zassert(up->join_state == PIM_UPSTREAM_NOTJOINED);
+    zassert(up->join_state == PIM_UPSTREAM_NOTJOINED ||
+	    up->join_state == PIM_UPSTREAM_PRUNE);
     pim_upstream_switch(up, PIM_UPSTREAM_JOINED);
     return;
   }
@@ -914,12 +915,16 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
 
 	  for (ALL_LIST_ELEMENTS (pim_ifp->pim_ifchannel_list, chnode, chnextnode, ch))
 	    {
+	      struct pim_ifchannel *nch;
+
 	      if (ch->upstream != anysrc_up)
 		continue;
 
 	      if (ch->ifjoin_state == PIM_IFJOIN_JOIN)
 		{
-		  pim_ifchannel_add (ifp, &up->sg);
+		  nch = pim_ifchannel_add (ifp, &up->sg);
+		  pim_ifchannel_ifjoin_switch (__PRETTY_FUNCTION__, nch, PIM_IFJOIN_JOIN);
+		  pim_forward_start (ch);
 		  output_intf++;
 		}
 	    }
@@ -927,7 +932,8 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
     }
 
   if (output_intf)
-    pim_upstream_send_join (up);
+    if (up->join_state != PIM_UPSTREAM_JOINED)
+      pim_upstream_switch (up, PIM_UPSTREAM_JOINED);
 
   return output_intf;
 }
