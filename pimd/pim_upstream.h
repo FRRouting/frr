@@ -87,6 +87,7 @@ enum pim_upstream_sptbit {
   See RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Message
 */
 struct pim_upstream {
+  struct pim_upstream      *parent;
   int                      fhr;
   struct in_addr           upstream_addr;/* Who we are talking to */
   struct prefix            sg;           /* (S,G) group key */

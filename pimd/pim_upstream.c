@@ -50,6 +50,36 @@
 static void join_timer_start(struct pim_upstream *up);
 static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
 
+/*
+ * If we have a (*,*) || (S,*) there is no parent
+ * If we have a (S,G), find the (*,G)
+ * If we have a (*,G), find the (*,*)
+ */
+static struct pim_upstream *
+pim_upstream_find_parent (struct prefix *sg)
+{
+  struct prefix any = *sg;
+
+  // (*,*) || (S,*)
+  if (((sg->u.sg.src.s_addr == INADDR_ANY) &&
+       (sg->u.sg.grp.s_addr == INADDR_ANY)) ||
+      ((sg->u.sg.src.s_addr != INADDR_ANY) &&
+       (sg->u.sg.grp.s_addr == INADDR_ANY)))
+    return NULL;
+
+  // (S,G)
+  if ((sg->u.sg.src.s_addr != INADDR_ANY) &&
+      (sg->u.sg.grp.s_addr != INADDR_ANY))
+    {
+      any.u.sg.src.s_addr = INADDR_ANY;
+      return pim_upstream_find (&any);
+    }
+
+  // (*,G)
+  any.u.sg.grp.s_addr = INADDR_ANY;
+  return pim_upstream_find (&any);
+}
+
 void pim_upstream_free(struct pim_upstream *up)
 {
   XFREE(MTYPE_PIM_UPSTREAM, up);
@@ -347,6 +377,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix *sg,
       return NULL;
     }
 
+  up->parent                     = pim_upstream_find_parent (sg);
   up->flags                      = 0;
   up->ref_count                  = 1;
   up->t_join_timer               = NULL;
