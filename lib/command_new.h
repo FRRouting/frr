@@ -127,9 +127,7 @@ struct cmd_node
   int (*func) (struct vty *);
 
   /* Start of this node's command graph */
-  struct graph_node * commands;
-  /* Vector of this node's command list.
-  vector cmd_vector;*/
+  struct graph_node * cmd_graph;
 };
 
 enum
@@ -209,7 +207,7 @@ struct cmd_element
  * cmdstr
  * ======
  * The cmdstr defines the command syntax. It is used by the vty subsystem
- * and vtysh to perform matching and completion in the CLI. 
+ * and vtysh to perform matching and completion in the CLI.
  *
  * Syntax Summary
  * ----------------

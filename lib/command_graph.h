@@ -32,8 +32,8 @@ struct graph_node
 
   /* various data fields for nodes */
   char* text;       // for WORD_GN and VARIABLE_GN
-  int value;        // for NUMBER_GN
-  int min, max;     // for RANGE_GN
+  long value;        // for NUMBER_GN
+  long min, max;     // for RANGE_GN
 };
 
 /*

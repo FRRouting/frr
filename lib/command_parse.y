@@ -10,6 +10,7 @@
 
 %{
 #include "command_graph.h"
+#include "command_new.h"
 
 extern int yylex(void);
 extern void yyerror(const char *);
@@ -44,7 +45,7 @@ struct graph_node *optnode_start,   // start node for option set
 struct graph_node *selnode_start,   // start node for selector set
                   *selnode_end;     // end node for selector set
 
-const char *input;
+const struct cmd_element *command;  // command we're parsing
 %}
 
 %token <node> WORD
@@ -79,19 +80,18 @@ start: sentence_root
 {
   // this should never happen...
   if (currnode->type == END_GN)
-    yyerror("Unexpected leaf\n");
+    yyerror("Unexpected leaf");
 
   // create function pointer node
   struct graph_node *end = new_node(END_GN);
-
-  // set cmd_element
-  // <set>
+  end->element = command;
 
   // add node
-  add_node(currnode, end);
+  end = add_node(currnode, end);
 
   // check that we did not get back an existing node
-  // <check>
+  if (!strcmp(command->string, end->element->string)
+    yyerror("Duplicate command.");
 }
 
 sentence_root: WORD
@@ -304,7 +304,7 @@ void yyerror(char const *message) {
 }
 
 struct graph_node *
-cmd_parse_format(const char *string, const char *desc, struct graph_node *start)
+cmd_parse_format(struct graph_node *start, struct cmd_element *cmd)
 {
   fprintf(stderr, "parsing: %s\n", string);
 
@@ -315,8 +315,9 @@ cmd_parse_format(const char *string, const char *desc, struct graph_node *start)
 
   // trace parser
   yydebug = 1;
+  // command string
+  command = cmd;
   // make flex read from a string
-  input = string;
   set_buffer_string(input);
   // initialize the start node of this command dfa
   startnode = start;
