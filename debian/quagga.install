@@ -1,6 +1,5 @@
 etc/quagga/
 usr/bin/vtysh
-usr/bin/test_igmpv3_join
 usr/include/quagga/
 usr/lib/
 tools/quagga-reload.py usr/lib/quagga/
