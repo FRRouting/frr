@@ -1891,16 +1891,30 @@ bgp_redistribute_metric_set (struct bgp *bgp, struct bgp_redist *red, afi_t afi,
   red->redist_metric_flag = 1;
   red->redist_metric = metric;
 
-  for (rn = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); rn; rn = bgp_route_next(rn)) {
-    for (ri = rn->info; ri; ri = ri->next) {
-      if (ri->sub_type == BGP_ROUTE_REDISTRIBUTE && ri->type == type &&
-	  ri->instance == red->instance) {
-	  ri->attr->med = red->redist_metric;
-	  bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
-	  bgp_process(bgp, rn, afi, SAFI_UNICAST);
-      }
+  for (rn = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); rn; rn = bgp_route_next(rn))
+    {
+      for (ri = rn->info; ri; ri = ri->next)
+        {
+          if (ri->sub_type == BGP_ROUTE_REDISTRIBUTE &&
+              ri->type == type &&
+              ri->instance == red->instance)
+            {
+              struct attr *old_attr;
+              struct attr new_attr;
+              struct attr_extra new_extra;
+
+              new_attr.extra = &new_extra;
+              bgp_attr_dup (&new_attr, ri->attr);
+              new_attr.med = red->redist_metric;
+              old_attr = ri->attr;
+              ri->attr = bgp_attr_intern (&new_attr);
+              bgp_attr_unintern (&old_attr);
+
+              bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
+              bgp_process(bgp, rn, afi, SAFI_UNICAST);
+            }
+        }
     }
-  }
 
   return 1;
 }
