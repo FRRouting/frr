@@ -1427,6 +1427,7 @@ cmd_matcher_build_keyword_args(struct cmd_matcher *matcher,
             {
               word_token = vector_slot(keyword_vector, 0);
               arg = word_token->cmd;
+              XFREE (MTYPE_TMP, keyword_args);
             }
           else
             {
