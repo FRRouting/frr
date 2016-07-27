@@ -96,6 +96,33 @@ uint8_t *pim_tlv_append_uint32(uint8_t *buf,
 
 #define ucast_ipv4_encoding_len (2 + sizeof(struct in_addr))
 
+/*
+ * An Encoded-Unicast address takes the following format:
+ *
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |  Addr Family  | Encoding Type |     Unicast Address
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...
+ *
+ *  Addr Family
+ *       The PIM address family of the 'Unicast Address' field of this
+ *       address.
+ *
+ *       Values 0-127 are as assigned by the IANA for Internet Address   *       Families in [7].  Values 128-250 are reserved to be assigned by
+ *       the IANA for PIM-specific Address Families.  Values 251 though
+ *       255 are designated for private use.  As there is no assignment
+ *       authority for this space, collisions should be expected.
+ *
+ *  Encoding Type
+ *       The type of encoding used within a specific Address Family.  The
+ *       value '0' is reserved for this field and represents the native
+ *       encoding of the Address Family.
+ *
+ *  Unicast Address
+ *       The unicast address as represented by the given Address Family
+ *       and Encoding Type.
+ */
 int
 pim_encode_addr_ucast (uint8_t *buf, struct prefix *p)
 {

@@ -4624,7 +4624,8 @@ static int recv_joinprune(struct vty *vty,
   remain = buf_pastend - pim_msg_curr;
   pim_msg_curr = pim_msg_addr_encode_ipv4_source(pim_msg_curr,
 						 remain,
-						 source_addr);
+						 source_addr,
+						 PIM_ENCODE_SPARSE_BIT);
   if (!pim_msg_curr) {
     vty_out(vty, "Failure encoding source address %s: space left=%d%s",
 	    source_str, remain, VTY_NEWLINE);

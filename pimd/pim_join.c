@@ -431,7 +431,8 @@ int pim_joinprune_send(struct interface *ifp,
   remain = pastend - pim_msg_curr;
   pim_msg_curr = pim_msg_addr_encode_ipv4_source(pim_msg_curr,
 						 remain,
-						 sg->u.sg.src);
+						 sg->u.sg.src,
+						 PIM_ENCODE_SPARSE_BIT);
   if (!pim_msg_curr) {
     char source_str[100];
     pim_inet4_dump("<src?>", sg->u.sg.src, source_str, sizeof(source_str));

@@ -87,9 +87,9 @@ uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf,
   return buf + ENCODED_IPV4_GROUP_SIZE;
 }
 
-uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf,
-					 int buf_size,
-					 struct in_addr addr)
+uint8_t *
+pim_msg_addr_encode_ipv4_source(uint8_t *buf, int buf_size,
+				struct in_addr addr, uint8_t bits)
 {
   const int ENCODED_IPV4_SOURCE_SIZE = 8;
 
@@ -99,7 +99,7 @@ uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf,
 
   buf[0] = PIM_MSG_ADDRESS_FAMILY_IPV4; /* addr family */
   buf[1] = '\0';    /* native encoding */
-  buf[2] = 4;       /* reserved = 0 | S bit = 1 | W bit = 0 | R bit = 0 */
+  buf[2] = bits;
   buf[3] = 32;      /* mask len */
   memcpy(buf+4, &addr, sizeof(struct in_addr));
 

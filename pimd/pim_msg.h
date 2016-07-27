@@ -44,8 +44,13 @@ uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf,
 uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf,
 					int buf_size,
 					struct in_addr addr);
+
+#define PIM_ENCODE_SPARSE_BIT      0x04
+#define PIM_ENCODE_WC_BIT          0x02
+#define PIM_ENCODE_RPT_BIT         0x01
 uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf,
 					 int buf_size,
-					 struct in_addr addr);
+					 struct in_addr addr,
+					 uint8_t bits);
 
 #endif /* PIM_MSG_H */
