@@ -32,18 +32,18 @@ cmp_node(struct graph_node *first, struct graph_node *second)
   if (first->type != second->type) return 0;
 
   switch (first->type) {
-    case WORD_GN:       // words and variables are equal if their
-    case VARIABLE_GN:   // text value is equal
+    case WORD_GN:
+    case VARIABLE_GN:
       if (first->text && second->text) {
         if (strcmp(first->text, second->text)) return 0;
       }
       else if (first->text != second->text) return 0;
       break;
-    case RANGE_GN:      // ranges are equal if their bounds are equal
+    case RANGE_GN:
       if (first->min != second->min || first->max != second->max)
         return 0;
       break;
-    case NUMBER_GN:     // numbers are equal if their values are equal
+    case NUMBER_GN:
       if (first->value != second->value) return 0;
       break;
     /* selectors and options should be equal if all paths are equal,
@@ -53,8 +53,10 @@ cmp_node(struct graph_node *first, struct graph_node *second)
     case SELECTOR_GN:
     case OPTION_GN:
       return 0;
-    // end nodes are always considered equal, since each node may only
-    // have one at a time
+    /* end nodes are always considered equal, since each node may only
+     * have one at a time
+     */
+    case START_GN:
     case END_GN:
     default:
       break;
@@ -66,18 +68,32 @@ cmp_node(struct graph_node *first, struct graph_node *second)
 struct graph_node *
 new_node(enum graph_node_type type)
 {
-  struct graph_node *node = malloc(sizeof(struct graph_node));
+  struct graph_node *node =
+     XMALLOC(MTYPE_CMD_TOKENS, sizeof(struct graph_node));
+
   node->type = type;
   node->children = vector_init(VECTOR_MIN_SIZE);
-  node->is_root = 0;
-  node->end = NULL;
-  node->text = NULL;
-  node->value = 0;
-  node->min   = 0;
-  node->max   = 0;
-  node->element = NULL;
+  node->is_start = 0;
+  node->end      = NULL;
+  node->text     = NULL;
+  node->value    = 0;
+  node->min      = 0;
+  node->max      = 0;
+  node->element  = NULL;
 
   return node;
+}
+
+void
+free_node (struct graph_node *node)
+{
+  if (!node) return;
+  free_node (node->end);
+  vector_free (node->children);
+  free (node->text);
+  free (node->arg);
+  free (node->element);
+  free (node);
 }
 
 char *
@@ -114,6 +130,9 @@ describe_node(struct graph_node *node, char* buffer, unsigned int bufsize)
     case END_GN:
       snprintf(buffer, bufsize, "END");
       break;
+    case START_GN:
+      snprintf(buffer, bufsize, "START");
+      break;
     default:
       snprintf(buffer, bufsize, "ERROR");
   }
@@ -146,3 +165,4 @@ walk_graph(struct graph_node *start, int level)
   else
     fprintf(stderr, "\n");
 }
+

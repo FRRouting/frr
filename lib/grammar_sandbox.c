@@ -101,7 +101,7 @@ DEFUN (grammar_test_match,
 void grammar_sandbox_init(void);
 void grammar_sandbox_init() {
   fprintf(stderr, "reinitializing graph\n");
-  nodegraph = new_node(NUL_GN);
+  nodegraph = new_node(START_GN);
   install_element (ENABLE_NODE, &grammar_test_cmd);
   install_element (ENABLE_NODE, &grammar_test_show_cmd);
   install_element (ENABLE_NODE, &grammar_test_match_cmd);

@@ -16,6 +16,7 @@ enum graph_node_type
   SELECTOR_GN,
   OPTION_GN,
   NUL_GN,
+  START_GN,
   END_GN
 };
 
@@ -26,9 +27,9 @@ struct graph_node
   vector children;          // this node's children
   struct graph_node * end;  // pointer to end for SELECTOR_GN & OPTION_GN
 
-  char* text;       // for WORD_GN and VARIABLE_GN
-  long value;       // for NUMBER_GN
-  long min, max;    // for RANGE_GN
+  char* text;               // for WORD_GN and VARIABLE_GN
+  long value;               // for NUMBER_GN
+  long min, max;            // for RANGE_GN
 
   /* cmd_element struct pointer, only valid for END_GN */
   struct cmd_element *element;
@@ -37,14 +38,14 @@ struct graph_node
 };
 
 /*
- * Adds a child to a node.
- * If the node already has the exact same child, nothing is done. This is
- * decided with cmp_node.
+ * Adds a node as a child of another node.
+ * If the new parent has a child that is equal to the prospective child, as
+ * determined by cmp_node, then a pointer to the existing node is returned and
+ * the prospective child is not added. Otherwise the return value is NULL.
  *
  * @param[in] parent node
  * @param[in] child node
- * @return the new child, or the existing child if the parent already has the
- *         new child
+ * @return pointer to child if it is added, pointer to existing child otherwise
  */
 extern struct graph_node *
 add_node(struct graph_node *, struct graph_node *);

@@ -18,6 +18,7 @@ extern void yyerror(const char *);
 %code requires {
   #include "command.h"
   #include "command_graph.h"
+  #include "memory.h"
 }
 %code provides {
   extern void
@@ -50,14 +51,14 @@ struct graph_node *selnode_start,   // start node for selector set
 struct cmd_element *command;        // command we're parsing
 %}
 
-%token <node> WORD
-%token <node> IPV4
-%token <node> IPV4_PREFIX
-%token <node> IPV6
-%token <node> IPV6_PREFIX
-%token <node> VARIABLE
-%token <node> RANGE
-%token <node> NUMBER
+%token <string> WORD
+%token <string> IPV4
+%token <string> IPV4_PREFIX
+%token <string> IPV6
+%token <string> IPV6_PREFIX
+%token <string> VARIABLE
+%token <string> RANGE
+%token <integer> NUMBER
 
 %type <node> start
 %type <node> sentence_root
@@ -80,44 +81,45 @@ struct cmd_element *command;        // command we're parsing
 start: sentence_root
        cmd_token_seq
 {
-  // this should never happen...
-  if (currnode->type == END_GN)
-    yyerror("Unexpected leaf");
-
-  // create function pointer node
+  // create leaf node
   struct graph_node *end = new_node(END_GN);
   end->element = command;
 
-  // ensure there are no END_GN children
-  for (unsigned int i = 0; i < vector_active(currnode->children); i++)
-  {
-    struct graph_node *child = vector_slot(currnode->children, i);
-    if (child->type == END_GN)
-      yyerror("Duplicate command.");
-  }
-
   // add node
-  end = add_node(currnode, end);
+  if (add_node(currnode, end) != end)
+  {
+    yyerror("Duplicate command.");
+    YYABORT;
+  }
 }
 
 sentence_root: WORD
 {
-  $$ = new_node(WORD_GN);
-  $$->text = strdup(yylval.string);
-  fprintf(stderr, ">>>>>>>> YYLVAL.STRING: %s\n", yylval.string);
-  fprintf(stderr, ">>>>>>>>          TEXT: %s\n", $$->text);
+  struct graph_node *root = new_node(WORD_GN);
+  root->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
 
-  currnode = $$;
-  currnode->is_root = 1;
-  currnode = add_node(startnode, currnode);
+  currnode = add_node(startnode, root);
+  if (currnode != root)
+    free (root);
+
+  free ($1);
+  $$ = currnode;
 };
 
 /* valid top level tokens */
 cmd_token:
   placeholder_token
-{ currnode = add_node(currnode, $1); }
+{
+  currnode = add_node(currnode, $1);
+  if (currnode != $1)
+    free_node ($1);
+}
 | literal_token
-{ currnode = add_node(currnode, $1); }
+{
+  currnode = add_node(currnode, $1);
+  if (currnode != $1)
+    free_node ($1);
+}
 /* selectors and options are subgraphs with start and end nodes */
 | selector
 {
@@ -142,37 +144,44 @@ placeholder_token:
   IPV4
 {
   $$ = new_node(IPV4_GN);
-  $$->text = strdup(yylval.string);
+  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  free ($1);
 }
 | IPV4_PREFIX
 {
   $$ = new_node(IPV4_PREFIX_GN);
-  $$->text = strdup(yylval.string);
+  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  free ($1);
 }
 | IPV6
 {
   $$ = new_node(IPV6_GN);
-  $$->text = strdup(yylval.string);
+  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  free ($1);
 }
 | IPV6_PREFIX
 {
   $$ = new_node(IPV6_PREFIX_GN);
-  $$->text = strdup(yylval.string);
+  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  free ($1);
 }
 | VARIABLE
 {
   $$ = new_node(VARIABLE_GN);
-  $$->text = strdup(yylval.string);
+  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  free ($1);
 }
 | RANGE
 {
   $$ = new_node(RANGE_GN);
-  $$->text = strdup(yylval.string);
+  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
 
   // get the numbers out
   strsep(&yylval.string, "(-)");
   $$->min = atoi( strsep(&yylval.string, "(-)") );
   $$->max = atoi( strsep(&yylval.string, "(-)") );
+
+  free ($1);
 }
 ;
 
@@ -180,9 +189,8 @@ literal_token:
   WORD
 {
   $$ = new_node(WORD_GN);
-  $$->text = strdup(yylval.string);
-  fprintf(stderr, ">>>>>>>> YYLVAL.STRING: %s\n", yylval.string);
-  fprintf(stderr, ">>>>>>>>          TEXT: %s\n", $$->text);
+  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  free ($1);
 }
 | NUMBER
 {
@@ -300,8 +308,7 @@ option_token:
 
 void yyerror(char const *message) {
   // fail on bad parse
-  printf("Grammar error: %s\n", message);
-  exit(EXIT_FAILURE);
+  fprintf(stderr, "Grammar error: %s\n", message);
 }
 
 struct graph_node *
@@ -310,7 +317,8 @@ parse_command_format(struct graph_node *start, struct cmd_element *cmd)
   fprintf(stderr, "parsing: %s\n", cmd->string);
 
   /* clear state pointers */
-  startnode = currnode = seqhead = NULL;
+  startnode = start;
+  currnode = seqhead = NULL;
   selnode_start = selnode_end = NULL;
   optnode_start = optnode_end = NULL;
 
@@ -320,8 +328,6 @@ parse_command_format(struct graph_node *start, struct cmd_element *cmd)
   command = cmd;
   // make flex read from a string
   set_buffer_string(command->string);
-  // initialize the start node of this command dfa
-  startnode = start;
   // parse command into DFA
   yyparse();
   // startnode points to command DFA
