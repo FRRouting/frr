@@ -35,7 +35,8 @@
 #include "pim_oil.h"
 #include "pim_static.h"
 
-int pim_debug_config_write(struct vty *vty)
+int
+pim_debug_config_write (struct vty *vty)
 {
   int writes = 0;
 
@@ -49,6 +50,10 @@ int pim_debug_config_write(struct vty *vty)
   }
   if (PIM_DEBUG_IGMP_TRACE) {
     vty_out(vty, "debug igmp trace%s", VTY_NEWLINE);
+    ++writes;
+  }
+  if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
+    vty_out(vty, "debug igmp trace detail%s", VTY_NEWLINE);
     ++writes;
   }
 
@@ -73,8 +78,13 @@ int pim_debug_config_write(struct vty *vty)
     vty_out(vty, "debug pim packet-dump receive%s", VTY_NEWLINE);
     ++writes;
   }
+
   if (PIM_DEBUG_PIM_TRACE) {
     vty_out(vty, "debug pim trace%s", VTY_NEWLINE);
+    ++writes;
+  }
+  if (PIM_DEBUG_PIM_TRACE_DETAIL) {
+    vty_out(vty, "debug pim trace detail%s", VTY_NEWLINE);
     ++writes;
   }
 
@@ -85,6 +95,21 @@ int pim_debug_config_write(struct vty *vty)
 
   if (PIM_DEBUG_SSMPINGD) {
     vty_out(vty, "debug ssmpingd%s", VTY_NEWLINE);
+    ++writes;
+  }
+
+  if (PIM_DEBUG_PIM_HELLO) {
+    vty_out (vty, "debug pim packets hello%s", VTY_NEWLINE);
+    ++writes;
+  }
+
+  if (PIM_DEBUG_PIM_J_P) {
+    vty_out (vty, "debug pim packets join%s", VTY_NEWLINE);
+    ++writes;
+  }
+
+  if (PIM_DEBUG_STATIC) {
+    vty_out (vty, "debug pim static%s", VTY_NEWLINE);
     ++writes;
   }
 
