@@ -37,7 +37,8 @@ void pim_channel_oil_free(struct channel_oil *c_oil)
   XFREE(MTYPE_PIM_CHANNEL_OIL, c_oil);
 }
 
-static void pim_channel_oil_delete(struct channel_oil *c_oil)
+static void
+pim_del_channel_oil (struct channel_oil *c_oil)
 {
   /*
     notice that listnode_delete() can't be moved
@@ -49,14 +50,15 @@ static void pim_channel_oil_delete(struct channel_oil *c_oil)
   pim_channel_oil_free(c_oil);
 }
 
-static struct channel_oil *channel_oil_new(struct prefix *sg,
-					   int input_vif_index)
+static struct channel_oil *
+pim_add_channel_oil (struct prefix *sg,
+		    int input_vif_index)
 {
   struct channel_oil *c_oil;
-  struct interface *ifp_in;
+  struct interface *ifp;
 
-  ifp_in = pim_if_find_by_vif_index(input_vif_index);
-  if (!ifp_in) {
+  ifp = pim_if_find_by_vif_index(input_vif_index);
+  if (!ifp) {
     /* warning only */
     zlog_warn("%s: (S,G)=%s could not find input interface for input_vif_index=%d",
 	      __PRETTY_FUNCTION__,
@@ -66,7 +68,7 @@ static struct channel_oil *channel_oil_new(struct prefix *sg,
   c_oil = XCALLOC(MTYPE_PIM_CHANNEL_OIL, sizeof(*c_oil));
   if (!c_oil) {
     zlog_err("PIM XCALLOC(%zu) failure", sizeof(*c_oil));
-    return 0;
+    return NULL;
   }
 
   c_oil->oil.mfcc_mcastgrp = sg->u.sg.grp;
@@ -74,22 +76,6 @@ static struct channel_oil *channel_oil_new(struct prefix *sg,
   c_oil->oil.mfcc_parent   = input_vif_index;
   c_oil->oil_ref_count     = 1;
   c_oil->installed         = 0;
-
-  zassert(c_oil->oil_size == 0);
-
-  return c_oil;
-}
-
-static struct channel_oil *pim_add_channel_oil(struct prefix *sg,
-					       int input_vif_index)
-{
-  struct channel_oil *c_oil;
-
-  c_oil = channel_oil_new(sg, input_vif_index);
-  if (!c_oil) {
-    zlog_warn("PIM XCALLOC(%zu) failure", sizeof(*c_oil));
-    return 0;
-  }
 
   listnode_add(qpim_channel_oil_list, c_oil);
 
@@ -129,7 +115,7 @@ void pim_channel_oil_del(struct channel_oil *c_oil)
   --c_oil->oil_ref_count;
 
   if (c_oil->oil_ref_count < 1) {
-    pim_channel_oil_delete(c_oil);
+    pim_del_channel_oil(c_oil);
   }
 }
 
