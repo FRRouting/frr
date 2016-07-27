@@ -47,6 +47,39 @@ struct ethaddr {
 } __packed;
 
 
+/* length is the number of valuable bits of prefix structure 
+* 18 bytes is current length in structure, if address is ipv4
+* 30 bytes is in case of ipv6
+*/
+#define PREFIX_LEN_ROUTE_TYPE_5_IPV4 (18*8)
+#define PREFIX_LEN_ROUTE_TYPE_5_IPV6 (30*8)
+
+/* EVPN address (RFC 7432) */
+struct evpn_addr
+{
+  u_char route_type;
+  u_char flags;
+#define IP_ADDR_NONE      0x0
+#define IP_ADDR_V4        0x1
+#define IP_ADDR_V6        0x2
+  struct ethaddr mac;
+  uint32_t eth_tag;
+  u_char ip_prefix_length;
+  union
+  {
+    struct in_addr v4_addr;
+    struct in6_addr v6_addr;
+  } ip;
+};
+
+/* EVPN prefix structure. */
+struct prefix_evpn
+{
+  u_char family;
+  u_char prefixlen;
+  struct evpn_addr prefix __attribute__ ((aligned (8)));
+};
+
 /*
  * A struct prefix contains an address family, a prefix length, and an
  * address.  This can represent either a 'network prefix' as defined
@@ -83,6 +116,9 @@ struct prefix
     struct ethaddr prefix_eth;	/* AF_ETHERNET */
     u_char val[8];
     uintptr_t ptr;
+#if defined(HAVE_EVPN)
+    struct evpn_addr prefix_evpn;
+#endif
   } u __attribute__ ((aligned (8)));
 };
 
