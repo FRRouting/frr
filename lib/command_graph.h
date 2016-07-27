@@ -1,8 +1,7 @@
 #ifndef COMMAND_GRAPH_H
 #define COMMAND_GRAPH_H
 
-#include "vty.h"
-#include "vector.h"
+#include "command.h"
 
 enum graph_node_type
 {
@@ -22,18 +21,19 @@ enum graph_node_type
 
 struct graph_node
 {
-  enum graph_node_type type;
-  vector children;
-  int is_root;              // true if first token in command
+  enum graph_node_type type;// data type this node matches or holds
+  int is_start;             // whether this node is a start node
+  vector children;          // this node's children
   struct graph_node * end;  // pointer to end for SELECTOR_GN & OPTION_GN
 
-  // cmd_element struct pointer, only valid for END_GN
-  struct cmd_element *element;
-
-  /* various data fields for nodes */
   char* text;       // for WORD_GN and VARIABLE_GN
-  long value;        // for NUMBER_GN
-  long min, max;     // for RANGE_GN
+  long value;       // for NUMBER_GN
+  long min, max;    // for RANGE_GN
+
+  /* cmd_element struct pointer, only valid for END_GN */
+  struct cmd_element *element;
+  /* used for passing arguments to command functions */
+  char *arg;
 };
 
 /*
@@ -91,4 +91,11 @@ walk_graph(struct graph_node *, int);
  */
 extern char *
 describe_node(struct graph_node *, char *, unsigned int);
+
+/**
+ * Frees the data associated with a graph_node.
+ * @param[out] pointer to graph_node to free
+ */
+void
+free_node(struct graph_node *);
 #endif

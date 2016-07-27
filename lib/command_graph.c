@@ -6,8 +6,8 @@
  * @author Quentin Young <qlyoung@cumulusnetworks.com>
  */
 
-#include <zebra.h>
 #include "command_graph.h"
+#include <zebra.h>
 #include "memory.h"
 
 struct graph_node *
@@ -100,7 +100,7 @@ describe_node(struct graph_node *node, char* buffer, unsigned int bufsize)
       snprintf(buffer, bufsize, node->text);
       break;
     case NUMBER_GN:
-      snprintf(buffer, bufsize, "%d", node->value);
+      snprintf(buffer, bufsize, "%ld", node->value);
       break;
     case SELECTOR_GN:
       snprintf(buffer, bufsize, "<>");

@@ -1,56 +1,55 @@
+#include "command_match.h"
+#include "command_parse.h"
 #include <zebra.h>
 #include "memory.h"
-#include "vector.h"
-#include "command_match.h"
 
-/* prototypes */
+/* matcher helper prototypes */
 static int
 add_nexthops(struct list *, struct graph_node *);
 
+static struct list *
+match_build_argv_r (struct graph_node *start, vector vline, unsigned int n);
+
+/* token matcher prototypes */
 static enum match_type
-cmd_ipv4_match (const char *);
+match_ipv4 (const char *);
 
 static enum match_type
-cmd_ipv4_prefix_match (const char *);
+match_ipv4_prefix (const char *);
 
 static enum match_type
-cmd_ipv6_match (const char *);
+match_ipv6 (const char *);
 
 static enum match_type
-cmd_ipv6_prefix_match (const char *);
+match_ipv6_prefix (const char *);
 
 static enum match_type
-cmd_range_match (struct graph_node *, const char *str);
+match_range (struct graph_node *, const char *str);
 
 static enum match_type
-cmd_word_match (struct graph_node *, enum filter_type, const char *);
+match_word (struct graph_node *, enum filter_type, const char *);
 
-static vector
-cmd_make_strvec (const char *);
+static enum match_type
+match_number (struct graph_node *, const char *);
+
+static enum match_type
+match_variable (struct graph_node *, const char *);
 
 static enum match_type
 match_token (struct graph_node *, char *, enum filter_type);
 
-static vector
-cmd_make_strvec (const char *);
-
 /* matching functions */
 
-/**
- * Attempt to find an exact command match for a line of user input.
- *
- * @return cmd_element found, or NULL if there is no match.
- */
-struct cmd_element
-match_command (struct graph_node *start, vector *command, enum filter_type filter)
+struct cmd_element *
+match_command (struct graph_node *start, const char *line, enum filter_type filter)
 {
   // get all possible completions
-  struct list completions = match_command_complete (start, command, filter);
+  struct list *completions = match_command_complete (start, line, filter);
 
   // one of them should be END_GN if this command matches
   struct graph_node *gn;
   struct listnode *node;
-  for (ALL_LIST_ELEMENTS_RO(current,node,gn))
+  for (ALL_LIST_ELEMENTS_RO(completions,node,gn))
   {
     if (gn->type == END_GN)
       break;
@@ -59,32 +58,11 @@ match_command (struct graph_node *start, vector *command, enum filter_type filte
   return gn ? gn->element : NULL;
 }
 
-/**
- * Compiles next-hops for a given line of user input.
- *
- * Given a string of input and a start node for a matching DFA, runs the input
- * against the DFA until the input is exhausted or a mismatch is encountered.
- *
- * This function returns all valid next hops away from the current node.
- *  - If the input is a valid prefix to a longer command(s), the set of next
- *    hops determines what tokens are valid to follow the prefix. In other words,
- *    the returned list is a list of possible completions.
- *  - If the input matched a full command, exactly one of the next hops will be
- *    a node of type END_GN and its function pointer will be set.
- *  - If the input did not match any valid token sequence, the returned list
- *    will be empty (there are no transitions away from a nonexistent state).
- *
- * @param[in] start the start node of the DFA to match against
- * @param[in] filter the filtering method
- * @param[in] input the input string
- * @return pointer to linked list with all possible next hops from the last
- *         matched token. If this is empty, the input did not match any command.
- */
 struct list *
-match_command_complete (struct graph_node *start, const char *input, enum filter_type filter)
+match_command_complete (struct graph_node *start, const char *line, enum filter_type filter)
 {
-  // break command
-  vector command = cmd_make_strvec (input);
+  // vectorize command line
+  vector vline = cmd_make_strvec (line);
 
   // pointer to next input token to match
   char *token;
@@ -101,13 +79,13 @@ match_command_complete (struct graph_node *start, const char *input, enum filter
   add_nexthops(next, start);
 
   unsigned int idx;
-  for (idx = 0; idx < vector_active(command) && next->count > 0; idx++)
+  for (idx = 0; idx < vector_active(vline) && next->count > 0; idx++)
   {
     list_free (current);
     current = next;
     next = list_new();
 
-    token = vector_slot(command, idx);
+    token = vector_slot(vline, idx);
 
     list_delete_all_node(matched);
 
@@ -131,14 +109,15 @@ match_command_complete (struct graph_node *start, const char *input, enum filter
   list_free (current);
   list_free (matched);
 
+  cmd_free_strvec(vline);
+
   return next;
 }
 
 /**
  * Adds all children that are reachable by one parser hop
  * to the given list. NUL_GN, SELECTOR_GN, and OPTION_GN
- * nodes are treated as though their children are attached
- * to their parent.
+ * nodes are treated as transparent.
  *
  * @param[out] l the list to add the children to
  * @param[in] node the node to get the children of
@@ -166,24 +145,73 @@ add_nexthops(struct list *l, struct graph_node *node)
   return added;
 }
 
-/**
- * Build the appropriate argv for a matched command.
- *
- * @param[in] command the command element
- * @param[in] the input line matching this command
- * @param[out] argv
- * @return argc
- *
-int
-match_build_argv (struct cmd_element *command, vector *input, char *argv)
+struct list *
+match_build_argv (const char *line, struct cmd_element *element)
 {
-  // build individual command graph
-  struct graph_node *start = new_node(NUL_GN);
-  cmd_parse_format(start, command->string);
-  
-}
-*/
+  struct list *argv = NULL;
 
+  // parse command
+  struct graph_node *start = new_node(NUL_GN);
+  parse_command_format(start, element);
+
+  vector vline = cmd_make_strvec (line);
+
+  for (unsigned int i = 0; i < vector_active(start->children); i++)
+  {
+    // call recursive builder on each starting child
+    argv = match_build_argv_r (vector_slot(start->children, i), vline, 0);
+    // if any of them succeed, return their argv (there should only be one)
+    if (argv) break;
+  }
+
+  return argv;
+}
+
+static struct list *
+match_build_argv_r (struct graph_node *start, vector vline, unsigned int n)
+{
+  // if we don't match this node, die
+  if (match_token(start, vector_slot(vline, n), FILTER_STRICT) == no_match)
+    return NULL;
+
+  // some stuffs we need
+  struct list *argv = list_new();
+  struct graph_node *gn;
+  struct listnode   *ln;
+
+  // append current arg
+  start->arg = strdup(vector_slot(vline, n));
+  listnode_add(argv, start);
+
+  // get all possible nexthops
+  struct list *next = list_new();
+  add_nexthops(next, start);
+
+  // check if one of them is END_GN
+  for (ALL_LIST_ELEMENTS_RO(next,ln,gn))
+  {
+    if (gn->type == END_GN){
+      fprintf(stderr, "Hit END_GN while searching next set of node with text %s\n", start->text);
+      return argv;
+    }
+  }
+
+  // if we have no more input, why even live?
+  if (n+1 >= vector_active(vline)) return NULL;
+
+  // otherwise recurse on all nexthops
+  for (ALL_LIST_ELEMENTS_RO(next,ln,gn))
+  {
+    for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
+    fprintf(stderr, "Recursing on node %s for token %s\n", gn->text, (char*) vector_slot(vline, n+1));
+    struct list *result = match_build_argv_r (gn, vline, n+1);
+    if (result != NULL) {
+      list_add_list (argv, result);
+      return argv;
+    }
+  }
+  return NULL;
+}
 
 /* matching utility functions */
 
@@ -192,21 +220,22 @@ match_token (struct graph_node *node, char *token, enum filter_type filter)
 {
   switch (node->type) {
     case WORD_GN:
-      return cmd_word_match (node, filter, token);
+      return match_word (node, filter, token);
     case IPV4_GN:
-      return cmd_ipv4_match (token);
+      return match_ipv4 (token);
     case IPV4_PREFIX_GN:
-      return cmd_ipv4_prefix_match (token);
+      return match_ipv4_prefix (token);
     case IPV6_GN:
-      return cmd_ipv6_match (token);
+      return match_ipv6 (token);
     case IPV6_PREFIX_GN:
-      return cmd_ipv6_prefix_match (token);
+      return match_ipv6_prefix (token);
     case RANGE_GN:
-      return cmd_range_match (node, token);
+      return match_range (node, token);
     case NUMBER_GN:
-      return cmd_number_match (node, token);
+      return match_number (node, token);
     case VARIABLE_GN:
-      return cmd_variable_match (node, token);
+      return match_variable (node, token);
+    case END_GN:
     default:
       return no_match;
   }
@@ -216,7 +245,7 @@ match_token (struct graph_node *node, char *token, enum filter_type filter)
 #define IPV4_PREFIX_STR "0123456789./"
 
 static enum match_type
-cmd_ipv4_match (const char *str)
+match_ipv4 (const char *str)
 {
   struct sockaddr_in sin_dummy;
 
@@ -233,7 +262,7 @@ cmd_ipv4_match (const char *str)
 }
 
 static enum match_type
-cmd_ipv4_prefix_match (const char *str)
+match_ipv4_prefix (const char *str)
 {
   struct sockaddr_in sin_dummy;
   const char *delim = "/\0";
@@ -274,7 +303,7 @@ cmd_ipv4_prefix_match (const char *str)
 #define IPV6_PREFIX_STR "0123456789abcdefABCDEF:./"
 
 static enum match_type
-cmd_ipv6_match (const char *str)
+match_ipv6 (const char *str)
 {
   struct sockaddr_in6 sin6_dummy;
   int ret;
@@ -294,7 +323,7 @@ cmd_ipv6_match (const char *str)
 }
 
 static enum match_type
-cmd_ipv6_prefix_match (const char *str)
+match_ipv6_prefix (const char *str)
 {
   struct sockaddr_in6 sin6_dummy;
   const char *delim = "/\0";
@@ -332,10 +361,10 @@ cmd_ipv6_prefix_match (const char *str)
 #endif
 
 static enum match_type
-cmd_range_match (struct graph_node *rangenode, const char *str)
+match_range (struct graph_node *rangenode, const char *str)
 {
   char *endptr = NULL;
-  signed long long val;
+  signed long val;
 
   if (str == NULL)
     return 1;
@@ -352,11 +381,10 @@ cmd_range_match (struct graph_node *rangenode, const char *str)
 }
 
 static enum match_type
-cmd_word_match(struct graph_node *wordnode,
-               enum filter_type filter,
-               const char *word)
+match_word(struct graph_node *wordnode,
+           enum filter_type filter,
+           const char *word)
 {
-
   if (filter == FILTER_RELAXED)
   {
     if (!word || !strlen(word))
@@ -375,7 +403,8 @@ cmd_word_match(struct graph_node *wordnode,
   }
 }
 
-cmd_number_match(struct graph_node *numnode, const char *word)
+static enum match_type
+match_number(struct graph_node *numnode, const char *word)
 {
   if (!strcmp("\0", word)) return no_match;
   char *endptr;
@@ -384,57 +413,11 @@ cmd_number_match(struct graph_node *numnode, const char *word)
   return num == numnode->value ? exact_match : no_match;
 }
 
-cmd_variable_match(struct graph_node *varnode, const char *word)
+#define VARIABLE_ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890"
+
+static enum match_type
+match_variable(struct graph_node *varnode, const char *word)
 {
-  // I guess this matches whatever?
-  return exact_match;
-}
-
-static vector
-cmd_make_strvec (const char *string)
-{
-  const char *cp, *start;
-  char *token;
-  int strlen;
-  vector strvec;
-
-  if (string == NULL)
-    return NULL;
-
-  cp = string;
-
-  /* Skip white spaces. */
-  while (isspace ((int) *cp) && *cp != '\0')
-    cp++;
-
-  /* Return if there is only white spaces */
-  if (*cp == '\0')
-    return NULL;
-
-  if (*cp == '!' || *cp == '#')
-    return NULL;
-
-  /* Prepare return vector. */
-  strvec = vector_init (VECTOR_MIN_SIZE);
-
-  /* Copy each command piece and set into vector. */
-  while (1)
-    {
-      start = cp;
-      while (!(isspace ((int) *cp) || *cp == '\r' || *cp == '\n') &&
-            *cp != '\0')
-         cp++;
-      strlen = cp - start;
-      token = XMALLOC (MTYPE_STRVEC, strlen + 1);
-      memcpy (token, start, strlen);
-      *(token + strlen) = '\0';
-      vector_set (strvec, token);
-
-      while ((isspace ((int) *cp) || *cp == '\n' || *cp == '\r') &&
-            *cp != '\0')
-         cp++;
-
-      if (*cp == '\0')
-        return strvec;
-    }
+  return strlen(word) == strspn(word, VARIABLE_ALPHABET) && isalpha(word[0]) ?
+     exact_match : no_match;
 }

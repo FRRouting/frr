@@ -9,21 +9,23 @@
  */
 
 %{
-#include "command_graph.h"
-#include "command_new.h"
-
 extern int yylex(void);
 extern void yyerror(const char *);
 
 // compile with debugging facilities
 #define YYDEBUG 1
 %}
-%code provides {
-extern struct
-graph_node *cmd_parse_format(const char *, const char *, struct graph_node *);
-extern void
-set_buffer_string(const char *);
+%code requires {
+  #include "command.h"
+  #include "command_graph.h"
 }
+%code provides {
+  extern void
+  set_buffer_string(const char *);
+  struct graph_node *
+  parse_command_format(struct graph_node *, struct cmd_element *);
+}
+
 
 /* valid types for tokens */
 %union{
@@ -45,7 +47,7 @@ struct graph_node *optnode_start,   // start node for option set
 struct graph_node *selnode_start,   // start node for selector set
                   *selnode_end;     // end node for selector set
 
-const struct cmd_element *command;  // command we're parsing
+struct cmd_element *command;        // command we're parsing
 %}
 
 %token <node> WORD
@@ -86,12 +88,16 @@ start: sentence_root
   struct graph_node *end = new_node(END_GN);
   end->element = command;
 
+  // ensure there are no END_GN children
+  for (unsigned int i = 0; i < vector_active(currnode->children); i++)
+  {
+    struct graph_node *child = vector_slot(currnode->children, i);
+    if (child->type == END_GN)
+      yyerror("Duplicate command.");
+  }
+
   // add node
   end = add_node(currnode, end);
-
-  // check that we did not get back an existing node
-  if (!strcmp(command->string, end->element->string)
-    yyerror("Duplicate command.");
 }
 
 sentence_root: WORD
@@ -166,12 +172,7 @@ placeholder_token:
   // get the numbers out
   strsep(&yylval.string, "(-)");
   $$->min = atoi( strsep(&yylval.string, "(-)") );
-  strsep(&yylval.string, "(-)");
   $$->max = atoi( strsep(&yylval.string, "(-)") );
-
-  // we could do this a variety of ways with either
-  // the lexer or the parser, but this is the simplest
-  // and involves the least amount of free()
 }
 ;
 
@@ -304,9 +305,9 @@ void yyerror(char const *message) {
 }
 
 struct graph_node *
-cmd_parse_format(struct graph_node *start, struct cmd_element *cmd)
+parse_command_format(struct graph_node *start, struct cmd_element *cmd)
 {
-  fprintf(stderr, "parsing: %s\n", string);
+  fprintf(stderr, "parsing: %s\n", cmd->string);
 
   /* clear state pointers */
   startnode = currnode = seqhead = NULL;
@@ -318,7 +319,7 @@ cmd_parse_format(struct graph_node *start, struct cmd_element *cmd)
   // command string
   command = cmd;
   // make flex read from a string
-  set_buffer_string(input);
+  set_buffer_string(command->string);
   // initialize the start node of this command dfa
   startnode = start;
   // parse command into DFA
