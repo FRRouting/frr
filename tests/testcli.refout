@@ -272,6 +272,7 @@ Current configuration:
 !
 hostname test
 !
+!
 line vty
 !
 end
@@ -282,6 +283,7 @@ foohost(config)# do show run
 Current configuration:
 !
 hostname foohost
+!
 !
 line vty
 !
