@@ -4474,7 +4474,6 @@ static int recv_joinprune(struct vty *vty,
   uint8_t           buf[1000];
   const uint8_t    *buf_pastend = buf + sizeof(buf);
   uint8_t          *pim_msg;
-  uint8_t          *pim_msg_curr;
   int               pim_msg_size;
   struct ip        *ip_hdr;
   size_t            ip_hlen; /* ip header length in bytes */
@@ -4491,9 +4490,6 @@ static int recv_joinprune(struct vty *vty,
   const char       *ifname;
   struct interface *ifp;
   int               result;
-  int               remain;
-  uint16_t          num_joined;
-  uint16_t          num_pruned;
 
   /* Find interface */
   ifname = argv[0]->arg;
@@ -4557,87 +4553,9 @@ static int recv_joinprune(struct vty *vty,
   */
   pim_msg = buf + ip_hlen;
 
-  /* skip room for pim header */
-  pim_msg_curr = pim_msg + PIM_MSG_HEADER_LEN;
-
-  remain = buf_pastend - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_ucast(pim_msg_curr,
-						remain,
-						neigh_dst_addr);
-  if (!pim_msg_curr) {
-    vty_out(vty, "Failure encoding destination address %s: space left=%d%s",
-	    neigh_dst_str, remain, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  remain = buf_pastend - pim_msg_curr;
-  if (remain < 4) {
-    vty_out(vty, "Group will not fit: space left=%d%s",
-	    remain, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  *pim_msg_curr = 0; /* reserved */
-  ++pim_msg_curr;
-  *pim_msg_curr = 1; /* number of groups */
-  ++pim_msg_curr;
-  *((uint16_t *) pim_msg_curr) = htons(neigh_holdtime);
-  ++pim_msg_curr;
-  ++pim_msg_curr;
-
-  remain = buf_pastend - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_group(pim_msg_curr,
-						remain,
-						group_addr);
-  if (!pim_msg_curr) {
-    vty_out(vty, "Failure encoding group address %s: space left=%d%s",
-	    group_str, remain, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  remain = buf_pastend - pim_msg_curr;
-  if (remain < 4) {
-    vty_out(vty, "Sources will not fit: space left=%d%s",
-	    remain, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  if (src_is_join) {
-    num_joined = 1;
-    num_pruned = 0;
-  }
-  else {
-    num_joined = 0;
-    num_pruned = 1;
-  }
-
-  /* number of joined sources */
-  *((uint16_t *) pim_msg_curr) = htons(num_joined);
-  ++pim_msg_curr;
-  ++pim_msg_curr;
-
-  /* number of pruned sources */
-  *((uint16_t *) pim_msg_curr) = htons(num_pruned);
-  ++pim_msg_curr;
-  ++pim_msg_curr;
-
-  remain = buf_pastend - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_source(pim_msg_curr,
-						 remain,
-						 source_addr,
-						 PIM_ENCODE_SPARSE_BIT);
-  if (!pim_msg_curr) {
-    vty_out(vty, "Failure encoding source address %s: space left=%d%s",
-	    source_str, remain, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  /* Add PIM header */
-
-  pim_msg_size = pim_msg_curr - pim_msg;
-
-  pim_msg_build_header(pim_msg, pim_msg_size,
-		       PIM_MSG_TYPE_JOIN_PRUNE);
+  pim_msg_size = pim_msg_join_prune_encode (pim_msg, buf_pastend - pim_msg, src_is_join,
+					    source_addr, group_addr, neigh_dst_addr,
+					    neigh_holdtime);
 
   /*
     "Receive" message

@@ -75,7 +75,26 @@ static void recv_join(struct interface *ifp,
 	      source_flags & PIM_WILDCARD_BIT_MASK,
 	      up_str, holdtime, neigh_str, ifp->name);
   }
-  
+
+  /*
+   * If the RPT and WC are set it's a (*,G)
+   * and the source is the RP
+   */
+  if ((source_flags & PIM_RPT_BIT_MASK) &&
+      (source_flags & PIM_WILDCARD_BIT_MASK))
+    {
+      struct pim_rpf *rp = RP (sg.u.sg.grp);
+
+      /*
+       * If the RP sent in the message is not
+       * our RP for the group, drop the message
+       */
+      if (sg.u.sg.src.s_addr != rp->rpf_addr.s_addr)
+	return;
+
+      sg.u.sg.src.s_addr = INADDR_ANY;
+    }
+
   /* Restart join expiry timer */
   pim_ifchannel_join_add(ifp, neigh->source_addr, upstream,
 			 &sg, source_flags, holdtime);
@@ -318,10 +337,7 @@ int pim_joinprune_send(struct interface *ifp,
 {
   struct pim_interface *pim_ifp;
   uint8_t pim_msg[1000];
-  const uint8_t *pastend = pim_msg + sizeof(pim_msg);
-  uint8_t *pim_msg_curr = pim_msg + PIM_MSG_HEADER_LEN; /* room for pim header */
   int pim_msg_size;
-  int remain;
 
   on_trace (__PRETTY_FUNCTION__, ifp, upstream_addr);
 
@@ -371,82 +387,12 @@ int pim_joinprune_send(struct interface *ifp,
   /*
     Build PIM message
   */
+  pim_msg_size = pim_msg_join_prune_encode (pim_msg, 1000, send_join,
+					    sg->u.sg.src, sg->u.sg.grp,
+					    upstream_addr, PIM_JP_HOLDTIME);
 
-  remain = pastend - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_ucast(pim_msg_curr,
-						remain,
-						upstream_addr);
-  if (!pim_msg_curr) {
-    char dst_str[100];
-    pim_inet4_dump("<dst?>", upstream_addr, dst_str, sizeof(dst_str));
-    zlog_warn("%s: failure encoding destination address %s: space left=%d",
-	      __PRETTY_FUNCTION__, dst_str, remain);
-    return -3;
-  }
-
-  remain = pastend - pim_msg_curr;
-  if (remain < 4) {
-    zlog_warn("%s: group will not fit: space left=%d",
-	    __PRETTY_FUNCTION__, remain);
-    return -4;
-  }
-
-  *pim_msg_curr = 0; /* reserved */
-  ++pim_msg_curr;
-  *pim_msg_curr = 1; /* number of groups */
-  ++pim_msg_curr;
-  *((uint16_t *) pim_msg_curr) = htons(PIM_JP_HOLDTIME);
-  ++pim_msg_curr;
-  ++pim_msg_curr;
-
-  remain = pastend - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_group(pim_msg_curr,
-						remain,
-						sg->u.sg.grp);
-  if (!pim_msg_curr) {
-    char group_str[100];
-    pim_inet4_dump("<grp?>", sg->u.sg.grp, group_str, sizeof(group_str));
-    zlog_warn("%s: failure encoding group address %s: space left=%d",
-	      __PRETTY_FUNCTION__, group_str, remain);
-    return -5;
-  }
-
-  remain = pastend - pim_msg_curr;
-  if (remain < 4) {
-    zlog_warn("%s: sources will not fit: space left=%d",
-	      __PRETTY_FUNCTION__, remain);
-    return -6;
-  }
-
-  /* number of joined sources */
-  *((uint16_t *) pim_msg_curr) = htons(send_join ? 1 : 0);
-  ++pim_msg_curr;
-  ++pim_msg_curr;
-
-  /* number of pruned sources */
-  *((uint16_t *) pim_msg_curr) = htons(send_join ? 0 : 1);
-  ++pim_msg_curr;
-  ++pim_msg_curr;
-
-  remain = pastend - pim_msg_curr;
-  pim_msg_curr = pim_msg_addr_encode_ipv4_source(pim_msg_curr,
-						 remain,
-						 sg->u.sg.src,
-						 PIM_ENCODE_SPARSE_BIT);
-  if (!pim_msg_curr) {
-    char source_str[100];
-    pim_inet4_dump("<src?>", sg->u.sg.src, source_str, sizeof(source_str));
-    zlog_warn("%s: failure encoding source address %s: space left=%d",
-	      __PRETTY_FUNCTION__, source_str, remain);
-    return -7;
-  }
-
-  /* Add PIM header */
-
-  pim_msg_size = pim_msg_curr - pim_msg;
-
-  pim_msg_build_header(pim_msg, pim_msg_size,
-		       PIM_MSG_TYPE_JOIN_PRUNE);
+  if (pim_msg_size < 0)
+    return pim_msg_size;
 
   if (pim_msg_send(pim_ifp->pim_sock_fd,
 		   qpim_all_pim_routers_addr,

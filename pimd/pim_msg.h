@@ -53,4 +53,8 @@ uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf,
 					 struct in_addr addr,
 					 uint8_t bits);
 
+
+int pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
+			       struct in_addr source, struct in_addr group,
+			       struct in_addr upstream, int holdtime);
 #endif /* PIM_MSG_H */
