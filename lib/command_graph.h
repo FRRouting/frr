@@ -5,14 +5,14 @@
 
 enum graph_node_type
 {
-  WORD_GN,
   IPV4_GN,
   IPV4_PREFIX_GN,
   IPV6_GN,
   IPV6_PREFIX_GN,
-  VARIABLE_GN,
+  WORD_GN,
   RANGE_GN,
   NUMBER_GN,
+  VARIABLE_GN,
   SELECTOR_GN,
   OPTION_GN,
   NUL_GN,
@@ -41,7 +41,7 @@ struct graph_node
  * Adds a node as a child of another node.
  * If the new parent has a child that is equal to the prospective child, as
  * determined by cmp_node, then a pointer to the existing node is returned and
- * the prospective child is not added. Otherwise the return value is NULL.
+ * the prospective child is not added. Otherwise the child node is returned.
  *
  * @param[in] parent node
  * @param[in] child node

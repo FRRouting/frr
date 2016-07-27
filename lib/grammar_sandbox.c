@@ -82,18 +82,13 @@ DEFUN (grammar_test_match,
   }
 
   struct list *argvv = match_build_argv (command, element);
-  fprintf(stderr, "num args: %d\n", argvv->count);
-
-  struct listnode *ln;
-  struct graph_node *gn;
-  for (ALL_LIST_ELEMENTS_RO(argvv,ln,gn)) {
-    fprintf(stderr, "node text: %s\n", gn->text);
-    if (gn->arg)
-      fprintf(stderr, "node arg: %s\n", gn->arg);
-    else
-      fprintf(stderr, "No arg.\n");
+  if (!argvv) fprintf(stderr, "Failed to build argv.\n");
+  else {
+    struct listnode *ln;
+    struct graph_node *gn;
+    for (ALL_LIST_ELEMENTS_RO(argvv,ln,gn))
+      fprintf(stderr, "%s -- %s\n", gn->text, gn->arg);
   }
-
   return CMD_SUCCESS;
 }
 
