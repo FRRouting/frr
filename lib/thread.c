@@ -33,10 +33,22 @@
 #include "sigevent.h"
 
 #if defined HAVE_SNMP && defined SNMP_AGENTX
+
+#ifdef HAVE_POLL
+#define QUAGGA_HAVE_POLL
+#endif
+
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/snmp_vars.h>
+
+#ifdef HAVE_POLL
+#undef HAVE_POLL
+#endif
+#ifdef QUAGGA_HAVE_POLL
+#define HAVE_POLL
+#endif
 
 extern int agentx_enabled;
 #endif

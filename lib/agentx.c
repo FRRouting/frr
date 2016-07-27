@@ -27,6 +27,7 @@
 
 #include "command.h"
 #include "smux.h"
+#include "memory.h"
 
 int agentx_enabled = 0;
 

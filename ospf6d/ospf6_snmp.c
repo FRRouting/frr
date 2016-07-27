@@ -29,6 +29,8 @@
 #include "log.h"
 #include "vty.h"
 #include "linklist.h"
+#include "vector.h"
+#include "vrf.h"
 #include "smux.h"
 
 #include "ospf6_proto.h"
@@ -749,7 +751,7 @@ ospfv3WwLsdbEntry (struct variable *v, oid *name, size_t *length,
           ifslist = list_new ();
           if (!ifslist) return NULL;
           ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
-          for (ALL_LIST_ELEMENTS_RO (iflist, node, iif))
+          for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, iif))
             listnode_add_sort (ifslist, iif);
           
           for (ALL_LIST_ELEMENTS_RO (ifslist, node, iif))
@@ -887,7 +889,7 @@ ospfv3IfEntry (struct variable *v, oid *name, size_t *length,
       ifslist = list_new ();
       if (!ifslist) return NULL;
       ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
-      for (ALL_LIST_ELEMENTS_RO (iflist, i, iif))
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), i, iif))
 	listnode_add_sort (ifslist, iif);
 
       for (ALL_LIST_ELEMENTS_RO (ifslist, i, iif))
@@ -1047,7 +1049,7 @@ ospfv3NbrEntry (struct variable *v, oid *name, size_t *length,
       ifslist = list_new ();
       if (!ifslist) return NULL;
       ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
-      for (ALL_LIST_ELEMENTS_RO (iflist, i, iif))
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), i, iif))
 	listnode_add_sort (ifslist, iif);
 
       for (ALL_LIST_ELEMENTS_RO (ifslist, i, iif))
