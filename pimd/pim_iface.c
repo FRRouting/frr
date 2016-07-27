@@ -41,6 +41,19 @@
 #include "pim_time.h"
 #include "pim_ssmpingd.h"
 
+#ifndef VIFF_USE_IFINDEX
+# ifdef linux
+/* make it work compile-time - whether it works runtime depends on the user
+ * having 2.6.32 or newer */
+#  define VIFF_USE_IFINDEX        0x8
+# else
+#  error no VIFF_USE_IFINDEX on this system, code needs porting
+/* NB: without VIFF_USE_IFINDEX, the local IP address is used to identify
+ * interfaces, which means it's impossible to support multiple interfaces that
+ * have the same or no IP address (e.g. unnumbered) */
+# endif
+#endif
+
 struct interface *pim_regiface = NULL;
 
 static void pim_if_igmp_join_del_all(struct interface *ifp);
