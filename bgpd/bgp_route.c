@@ -2030,10 +2030,57 @@ bgp_process_vrf_main (struct work_queue *wq, void *data)
 {
   struct bgp_process_queue *pq = data;
   struct bgp_node *rn = pq->rn;
+  struct bgp *bgp = pq->bgp;
+  afi_t afi = pq->afi;
+  safi_t safi = pq->safi;
+  struct bgp_info *new_select;
+  struct bgp_info *old_select;
+  struct bgp_info_pair old_and_new;
 
-  if (rn)
-    UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+  /* Best path selection. */
+  bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
+  old_select = old_and_new.old;
+  new_select = old_and_new.new;
+
+  /* Nothing to do. */
+  if (old_select && old_select == new_select)
+    {
+      if (! CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
+        {
+          /* no zebra announce */
+	  UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+          UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+          return WQ_SUCCESS;
+        }
+    }
+  if (old_select && new_select)
+    {
+      if(!CHECK_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG) &&
+         !CHECK_FLAG (new_select->flags, BGP_INFO_ATTR_CHANGED))
+        {
+          UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+          return WQ_SUCCESS;
+        }
+    }
+
+  if (old_select)
+    {
+      bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
+    }
+  if (new_select)
+    {
+      bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
+      bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
+      UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
+    }
+
+  /* Reap old select bgp_info, if it has been removed */
+  if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
+    bgp_info_reap (rn, old_select);
+
+  UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return WQ_SUCCESS;
+  /* no announce */
 }
 
 static void
