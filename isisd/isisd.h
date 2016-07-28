@@ -148,6 +148,8 @@ void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit);
 void isis_area_dynhostname_set(struct isis_area *area, bool dynhostname);
 void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
 			       bool new_metric);
+void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu);
+void isis_area_is_type_set(struct isis_area *area, int is_type);
 
 void isis_vty_init (void);
 

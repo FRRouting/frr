@@ -1521,6 +1521,125 @@ DEFUN (no_dynamic_hostname,
   return CMD_SUCCESS;
 }
 
+static int area_lsp_mtu_set(struct vty *vty, unsigned int lsp_mtu)
+{
+  struct isis_area *area = vty->index;
+  struct listnode *node;
+  struct isis_circuit *circuit;
+
+  if (!area)
+    {
+      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+    {
+      if(circuit->state != C_STATE_INIT && circuit->state != C_STATE_UP)
+        continue;
+      if(lsp_mtu > isis_circuit_pdu_size(circuit))
+        {
+          vty_out(vty, "ISIS area contains circuit %s, which has a maximum PDU size of %zu.%s",
+                  circuit->interface->name, isis_circuit_pdu_size(circuit),
+                  VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+    }
+
+  isis_area_lsp_mtu_set(area, lsp_mtu);
+  return CMD_SUCCESS;
+}
+
+DEFUN (area_lsp_mtu,
+       area_lsp_mtu_cmd,
+       "lsp-mtu <128-4352>",
+       "Configure the maximum size of generated LSPs\n"
+       "Maximum size of generated LSPs\n")
+{
+  unsigned int lsp_mtu;
+
+  VTY_GET_INTEGER_RANGE("lsp-mtu", lsp_mtu, argv[0], 128, 4352);
+
+  return area_lsp_mtu_set(vty, lsp_mtu);
+}
+
+DEFUN(no_area_lsp_mtu,
+      no_area_lsp_mtu_cmd,
+      "no lsp-mtu",
+      NO_STR
+      "Configure the maximum size of generated LSPs\n")
+{
+  return area_lsp_mtu_set(vty, DEFAULT_LSP_MTU);
+}
+
+ALIAS(no_area_lsp_mtu,
+      no_area_lsp_mtu_arg_cmd,
+      "no lsp-mtu <128-4352>",
+      NO_STR
+      "Configure the maximum size of generated LSPs\n"
+      "Maximum size of generated LSPs\n");
+
+DEFUN (is_type,
+       is_type_cmd,
+       "is-type (level-1|level-1-2|level-2-only)",
+       "IS Level for this routing process (OSI only)\n"
+       "Act as a station router only\n"
+       "Act as both a station router and an area router\n"
+       "Act as an area router only\n")
+{
+  struct isis_area *area;
+  int type;
+
+  area = vty->index;
+
+  if (!area)
+    {
+      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  type = string2circuit_t (argv[0]);
+  if (!type)
+    {
+      vty_out (vty, "Unknown IS level %s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
+
+  isis_area_is_type_set(area, type);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_is_type,
+       no_is_type_cmd,
+       "no is-type (level-1|level-1-2|level-2-only)",
+       NO_STR
+       "IS Level for this routing process (OSI only)\n"
+       "Act as a station router only\n"
+       "Act as both a station router and an area router\n"
+       "Act as an area router only\n")
+{
+  struct isis_area *area;
+  int type;
+
+  area = vty->index;
+  assert (area);
+
+  /*
+   * Put the is-type back to defaults:
+   * - level-1-2 on first area
+   * - level-1 for the rest
+   */
+  if (listgetdata (listhead (isis->area_list)) == area)
+    type = IS_LEVEL_1_AND_2;
+  else
+    type = IS_LEVEL_1;
+
+  isis_area_is_type_set(area, type);
+
+  return CMD_SUCCESS;
+}
+
 void
 isis_vty_init (void)
 {
@@ -1614,4 +1733,11 @@ isis_vty_init (void)
 
   install_element (ISIS_NODE, &dynamic_hostname_cmd);
   install_element (ISIS_NODE, &no_dynamic_hostname_cmd);
+
+  install_element (ISIS_NODE, &area_lsp_mtu_cmd);
+  install_element (ISIS_NODE, &no_area_lsp_mtu_cmd);
+  install_element (ISIS_NODE, &no_area_lsp_mtu_arg_cmd);
+
+  install_element (ISIS_NODE, &is_type_cmd);
+  install_element (ISIS_NODE, &no_is_type_cmd);
 }

@@ -1612,77 +1612,11 @@ DEFUN (no_net,
   return area_clear_net_title (vty, argv[0]);
 }
 
-static
-int area_set_lsp_mtu(struct vty *vty, struct isis_area *area, unsigned int lsp_mtu)
+void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 {
-  struct isis_circuit *circuit;
-  struct listnode *node;
-
-  for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
-    {
-      if(circuit->state != C_STATE_INIT && circuit->state != C_STATE_UP)
-        continue;
-      if(lsp_mtu > isis_circuit_pdu_size(circuit))
-        {
-          vty_out(vty, "ISIS area contains circuit %s, which has a maximum PDU size of %zu.%s",
-                  circuit->interface->name, isis_circuit_pdu_size(circuit),
-                  VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
-    }
-
   area->lsp_mtu = lsp_mtu;
   lsp_regenerate_schedule(area, IS_LEVEL_1_AND_2, 1);
-
-  return CMD_SUCCESS;
 }
-
-DEFUN (area_lsp_mtu,
-       area_lsp_mtu_cmd,
-       "lsp-mtu <128-4352>",
-       "Configure the maximum size of generated LSPs\n"
-       "Maximum size of generated LSPs\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  unsigned int lsp_mtu;
-
-  VTY_GET_INTEGER_RANGE("lsp-mtu", lsp_mtu, argv[0], 128, 4352);
-
-  return area_set_lsp_mtu(vty, area, lsp_mtu);
-}
-
-DEFUN(no_area_lsp_mtu,
-      no_area_lsp_mtu_cmd,
-      "no lsp-mtu",
-      NO_STR
-      "Configure the maximum size of generated LSPs\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  return area_set_lsp_mtu(vty, area, DEFAULT_LSP_MTU);
-}
-
-ALIAS(no_area_lsp_mtu,
-      no_area_lsp_mtu_arg_cmd,
-      "no lsp-mtu <128-4352>",
-      NO_STR
-      "Configure the maximum size of generated LSPs\n"
-      "Maximum size of generated LSPs\n");
 
 DEFUN (area_passwd_md5,
        area_passwd_md5_cmd,
@@ -1960,65 +1894,117 @@ DEFUN (no_domain_passwd,
   return CMD_SUCCESS;
 }
 
-DEFUN (is_type,
-       is_type_cmd,
-       "is-type (level-1|level-1-2|level-2-only)",
-       "IS Level for this routing process (OSI only)\n"
-       "Act as a station router only\n"
-       "Act as both a station router and an area router\n"
-       "Act as an area router only\n")
+static void
+area_resign_level (struct isis_area *area, int level)
 {
-  struct isis_area *area;
-  int type;
-
-  area = vty->index;
-
-  if (!area)
+  if (area->lspdb[level - 1])
     {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
+      lsp_db_destroy (area->lspdb[level - 1]);
+      area->lspdb[level - 1] = NULL;
     }
-
-  type = string2circuit_t (argv[0]);
-  if (!type)
+  if (area->spftree[level - 1])
     {
-      vty_out (vty, "Unknown IS level %s", VTY_NEWLINE);
-      return CMD_SUCCESS;
+      isis_spftree_del (area->spftree[level - 1]);
+      area->spftree[level - 1] = NULL;
     }
+#ifdef HAVE_IPV6
+  if (area->spftree6[level - 1])
+    {
+      isis_spftree_del (area->spftree6[level - 1]);
+      area->spftree6[level - 1] = NULL;
+    }
+#endif
+  if (area->route_table[level - 1])
+    {
+      route_table_finish (area->route_table[level - 1]);
+      area->route_table[level - 1] = NULL;
+    }
+#ifdef HAVE_IPV6
+  if (area->route_table6[level - 1])
+    {
+      route_table_finish (area->route_table6[level - 1]);
+      area->route_table6[level - 1] = NULL;
+    }
+#endif /* HAVE_IPV6 */
 
-  isis_event_system_type_change (area, type);
-
-  return CMD_SUCCESS;
+  sched_debug("ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
+              area->area_tag, level);
+  THREAD_TIMER_OFF (area->t_lsp_refresh[level - 1]);
+  area->lsp_regenerate_pending[level - 1] = 0;
 }
 
-DEFUN (no_is_type,
-       no_is_type_cmd,
-       "no is-type (level-1|level-1-2|level-2-only)",
-       NO_STR
-       "IS Level for this routing process (OSI only)\n"
-       "Act as a station router only\n"
-       "Act as both a station router and an area router\n"
-       "Act as an area router only\n")
+void
+isis_area_is_type_set(struct isis_area *area, int is_type)
 {
-  struct isis_area *area;
-  int type;
+  struct listnode *node;
+  struct isis_circuit *circuit;
 
-  area = vty->index;
-  assert (area);
+  if (isis->debugs & DEBUG_EVENTS)
+    zlog_debug ("ISIS-Evt (%s) system type change %s -> %s", area->area_tag,
+	       circuit_t2string (area->is_type), circuit_t2string (is_type));
 
-  /*
-   * Put the is-type back to defaults:
-   * - level-1-2 on first area
-   * - level-1 for the rest
-   */
-  if (listgetdata (listhead (isis->area_list)) == area)
-    type = IS_LEVEL_1_AND_2;
-  else
-    type = IS_LEVEL_1;
+  if (area->is_type == is_type)
+    return;			/* No change */
 
-  isis_event_system_type_change (area, type);
+  switch (area->is_type)
+  {
+    case IS_LEVEL_1:
+      if (is_type == IS_LEVEL_2)
+        area_resign_level (area, IS_LEVEL_1);
 
-  return CMD_SUCCESS;
+      if (area->lspdb[1] == NULL)
+        area->lspdb[1] = lsp_db_init ();
+      if (area->route_table[1] == NULL)
+        area->route_table[1] = route_table_init ();
+#ifdef HAVE_IPV6
+      if (area->route_table6[1] == NULL)
+        area->route_table6[1] = route_table_init ();
+#endif /* HAVE_IPV6 */
+      break;
+
+    case IS_LEVEL_1_AND_2:
+      if (is_type == IS_LEVEL_1)
+        area_resign_level (area, IS_LEVEL_2);
+      else
+        area_resign_level (area, IS_LEVEL_1);
+      break;
+
+    case IS_LEVEL_2:
+      if (is_type == IS_LEVEL_1)
+        area_resign_level (area, IS_LEVEL_2);
+
+      if (area->lspdb[0] == NULL)
+        area->lspdb[0] = lsp_db_init ();
+      if (area->route_table[0] == NULL)
+        area->route_table[0] = route_table_init ();
+#ifdef HAVE_IPV6
+      if (area->route_table6[0] == NULL)
+        area->route_table6[0] = route_table_init ();
+#endif /* HAVE_IPV6 */
+      break;
+
+    default:
+      break;
+  }
+
+  area->is_type = is_type;
+
+  /* override circuit's is_type */
+  if (area->is_type != IS_LEVEL_1_AND_2)
+  {
+    for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
+      isis_event_circuit_type_change (circuit, is_type);
+  }
+
+  spftree_area_init (area);
+
+  if (is_type & IS_LEVEL_1)
+    lsp_generate (area, IS_LEVEL_1);
+  if (is_type & IS_LEVEL_2)
+    lsp_generate (area, IS_LEVEL_2);
+  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
+
+  return;
 }
 
 static int
@@ -3208,13 +3194,6 @@ isis_init ()
 
   install_element (ISIS_NODE, &net_cmd);
   install_element (ISIS_NODE, &no_net_cmd);
-
-  install_element (ISIS_NODE, &is_type_cmd);
-  install_element (ISIS_NODE, &no_is_type_cmd);
-
-  install_element (ISIS_NODE, &area_lsp_mtu_cmd);
-  install_element (ISIS_NODE, &no_area_lsp_mtu_cmd);
-  install_element (ISIS_NODE, &no_area_lsp_mtu_arg_cmd);
 
   install_element (ISIS_NODE, &area_passwd_md5_cmd);
   install_element (ISIS_NODE, &area_passwd_md5_snpauth_cmd);
