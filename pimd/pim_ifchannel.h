@@ -73,6 +73,7 @@ struct pim_assert_metric {
   Per-interface (S,G) state
 */
 struct pim_ifchannel {
+  struct pim_ifchannel     *parent;
   struct prefix             sg;
   struct interface         *interface;   /* backpointer to interface */
   uint32_t                  flags;
