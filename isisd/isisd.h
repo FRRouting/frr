@@ -150,6 +150,10 @@ void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
 			       bool new_metric);
 void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu);
 void isis_area_is_type_set(struct isis_area *area, int is_type);
+void isis_area_max_lsp_lifetime_set(struct isis_area *area, int level,
+			            uint16_t max_lsp_lifetime);
+void isis_area_lsp_refresh_set(struct isis_area *area, int level,
+			       uint16_t lsp_refresh);
 
 void isis_vty_init (void);
 

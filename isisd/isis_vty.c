@@ -1640,6 +1640,531 @@ DEFUN (no_is_type,
   return CMD_SUCCESS;
 }
 
+static int
+set_lsp_gen_interval (struct vty *vty, struct isis_area *area,
+                      uint16_t interval, int level)
+{
+  int lvl;
+
+  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+    {
+      if (!(lvl & level))
+        continue;
+
+      if (interval >= area->lsp_refresh[lvl-1])
+        {
+          vty_out (vty, "LSP gen interval %us must be less than "
+                   "the LSP refresh interval %us%s",
+                   interval, area->lsp_refresh[lvl-1], VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+    }
+
+  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+    {
+      if (!(lvl & level))
+        continue;
+      area->lsp_gen_interval[lvl-1] = interval;
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (lsp_gen_interval,
+       lsp_gen_interval_cmd,
+       "lsp-gen-interval <1-120>",
+       "Minimum interval between regenerating same LSP\n"
+       "Minimum interval in seconds\n")
+{
+  struct isis_area *area;
+  uint16_t interval;
+  int level;
+
+  area = vty->index;
+  interval = atoi (argv[0]);
+  level = IS_LEVEL_1 | IS_LEVEL_2;
+  return set_lsp_gen_interval (vty, area, interval, level);
+}
+
+DEFUN (no_lsp_gen_interval,
+       no_lsp_gen_interval_cmd,
+       "no lsp-gen-interval",
+       NO_STR
+       "Minimum interval between regenerating same LSP\n")
+{
+  struct isis_area *area;
+  uint16_t interval;
+  int level;
+
+  area = vty->index;
+  interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
+  level = IS_LEVEL_1 | IS_LEVEL_2;
+  return set_lsp_gen_interval (vty, area, interval, level);
+}
+
+ALIAS (no_lsp_gen_interval,
+       no_lsp_gen_interval_arg_cmd,
+       "no lsp-gen-interval <1-120>",
+       NO_STR
+       "Minimum interval between regenerating same LSP\n"
+       "Minimum interval in seconds\n")
+
+DEFUN (lsp_gen_interval_l1,
+       lsp_gen_interval_l1_cmd,
+       "lsp-gen-interval level-1 <1-120>",
+       "Minimum interval between regenerating same LSP\n"
+       "Set interval for level 1 only\n"
+       "Minimum interval in seconds\n")
+{
+  struct isis_area *area;
+  uint16_t interval;
+  int level;
+
+  area = vty->index;
+  interval = atoi (argv[0]);
+  level = IS_LEVEL_1;
+  return set_lsp_gen_interval (vty, area, interval, level);
+}
+
+DEFUN (no_lsp_gen_interval_l1,
+       no_lsp_gen_interval_l1_cmd,
+       "no lsp-gen-interval level-1",
+       NO_STR
+       "Minimum interval between regenerating same LSP\n"
+       "Set interval for level 1 only\n")
+{
+  struct isis_area *area;
+  uint16_t interval;
+  int level;
+
+  area = vty->index;
+  interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
+  level = IS_LEVEL_1;
+  return set_lsp_gen_interval (vty, area, interval, level);
+}
+
+ALIAS (no_lsp_gen_interval_l1,
+       no_lsp_gen_interval_l1_arg_cmd,
+       "no lsp-gen-interval level-1 <1-120>",
+       NO_STR
+       "Minimum interval between regenerating same LSP\n"
+       "Set interval for level 1 only\n"
+       "Minimum interval in seconds\n")
+
+DEFUN (lsp_gen_interval_l2,
+       lsp_gen_interval_l2_cmd,
+       "lsp-gen-interval level-2 <1-120>",
+       "Minimum interval between regenerating same LSP\n"
+       "Set interval for level 2 only\n"
+       "Minimum interval in seconds\n")
+{
+  struct isis_area *area;
+  uint16_t interval;
+  int level;
+
+  area = vty->index;
+  interval = atoi (argv[0]);
+  level = IS_LEVEL_2;
+  return set_lsp_gen_interval (vty, area, interval, level);
+}
+
+DEFUN (no_lsp_gen_interval_l2,
+       no_lsp_gen_interval_l2_cmd,
+       "no lsp-gen-interval level-2",
+       NO_STR
+       "Minimum interval between regenerating same LSP\n"
+       "Set interval for level 2 only\n")
+{
+  struct isis_area *area;
+  uint16_t interval;
+  int level;
+
+  area = vty->index;
+  interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
+  level = IS_LEVEL_2;
+  return set_lsp_gen_interval (vty, area, interval, level);
+}
+
+ALIAS (no_lsp_gen_interval_l2,
+       no_lsp_gen_interval_l2_arg_cmd,
+       "no lsp-gen-interval level-2 <1-120>",
+       NO_STR
+       "Minimum interval between regenerating same LSP\n"
+       "Set interval for level 2 only\n"
+       "Minimum interval in seconds\n")
+
+DEFUN (spf_interval,
+       spf_interval_cmd,
+       "spf-interval <1-120>",
+       "Minimum interval between SPF calculations\n"
+       "Minimum interval between consecutive SPFs in seconds\n")
+{
+  struct isis_area *area;
+  u_int16_t interval;
+
+  area = vty->index;
+  interval = atoi (argv[0]);
+  area->min_spf_interval[0] = interval;
+  area->min_spf_interval[1] = interval;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_spf_interval,
+       no_spf_interval_cmd,
+       "no spf-interval",
+       NO_STR
+       "Minimum interval between SPF calculations\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+
+  area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
+  area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_spf_interval,
+       no_spf_interval_arg_cmd,
+       "no spf-interval <1-120>",
+       NO_STR
+       "Minimum interval between SPF calculations\n"
+       "Minimum interval between consecutive SPFs in seconds\n")
+
+DEFUN (spf_interval_l1,
+       spf_interval_l1_cmd,
+       "spf-interval level-1 <1-120>",
+       "Minimum interval between SPF calculations\n"
+       "Set interval for level 1 only\n"
+       "Minimum interval between consecutive SPFs in seconds\n")
+{
+  struct isis_area *area;
+  u_int16_t interval;
+
+  area = vty->index;
+  interval = atoi (argv[0]);
+  area->min_spf_interval[0] = interval;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_spf_interval_l1,
+       no_spf_interval_l1_cmd,
+       "no spf-interval level-1",
+       NO_STR
+       "Minimum interval between SPF calculations\n"
+       "Set interval for level 1 only\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+
+  area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_spf_interval,
+       no_spf_interval_l1_arg_cmd,
+       "no spf-interval level-1 <1-120>",
+       NO_STR
+       "Minimum interval between SPF calculations\n"
+       "Set interval for level 1 only\n"
+       "Minimum interval between consecutive SPFs in seconds\n")
+
+DEFUN (spf_interval_l2,
+       spf_interval_l2_cmd,
+       "spf-interval level-2 <1-120>",
+       "Minimum interval between SPF calculations\n"
+       "Set interval for level 2 only\n"
+       "Minimum interval between consecutive SPFs in seconds\n")
+{
+  struct isis_area *area;
+  u_int16_t interval;
+
+  area = vty->index;
+  interval = atoi (argv[0]);
+  area->min_spf_interval[1] = interval;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_spf_interval_l2,
+       no_spf_interval_l2_cmd,
+       "no spf-interval level-2",
+       NO_STR
+       "Minimum interval between SPF calculations\n"
+       "Set interval for level 2 only\n")
+{
+  struct isis_area *area;
+
+  area = vty->index;
+
+  area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_spf_interval,
+       no_spf_interval_l2_arg_cmd,
+       "no spf-interval level-2 <1-120>",
+       NO_STR
+       "Minimum interval between SPF calculations\n"
+       "Set interval for level 2 only\n"
+       "Minimum interval between consecutive SPFs in seconds\n")
+
+static int
+area_max_lsp_lifetime_set(struct vty *vty, int level,
+			  uint16_t interval)
+{
+  struct isis_area *area = vty->index;
+  int lvl;
+  uint16_t refresh_interval = interval - 300;
+  int set_refresh_interval[ISIS_LEVELS] = {0, 0};
+
+  if (!area)
+    {
+      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
+    {
+      if (!(lvl & level))
+        continue;
+
+      if (refresh_interval < area->lsp_refresh[lvl-1])
+        {
+          vty_out (vty, "Level %d Max LSP lifetime %us must be 300s greater than "
+                   "the configured LSP refresh interval %us%s",
+                   lvl, interval, area->lsp_refresh[lvl-1], VTY_NEWLINE);
+          vty_out (vty, "Automatically reducing level %d LSP refresh interval "
+                   "to %us%s", lvl, refresh_interval, VTY_NEWLINE);
+          set_refresh_interval[lvl-1] = 1;
+
+          if (refresh_interval <= area->lsp_gen_interval[lvl-1])
+            {
+              vty_out (vty, "LSP refresh interval %us must be greater than "
+                       "the configured LSP gen interval %us%s",
+                       refresh_interval, area->lsp_gen_interval[lvl-1],
+                       VTY_NEWLINE);
+              return CMD_ERR_AMBIGUOUS;
+            }
+        }
+    }
+
+  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
+    {
+      if (!(lvl & level))
+        continue;
+      isis_area_max_lsp_lifetime_set(area, lvl, interval);
+      if (set_refresh_interval[lvl-1])
+        isis_area_lsp_refresh_set(area, lvl, refresh_interval);
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (max_lsp_lifetime,
+       max_lsp_lifetime_cmd,
+       "max-lsp-lifetime <350-65535>",
+       "Maximum LSP lifetime\n"
+       "LSP lifetime in seconds\n")
+{
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2, atoi(argv[0]));
+}
+
+DEFUN (no_max_lsp_lifetime,
+       no_max_lsp_lifetime_cmd,
+       "no max-lsp-lifetime",
+       NO_STR
+       "LSP lifetime in seconds\n")
+{
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2,
+				   DEFAULT_LSP_LIFETIME);
+}
+
+ALIAS (no_max_lsp_lifetime,
+       no_max_lsp_lifetime_arg_cmd,
+       "no max-lsp-lifetime <350-65535>",
+       NO_STR
+       "Maximum LSP lifetime\n"
+       "LSP lifetime in seconds\n")
+
+DEFUN (max_lsp_lifetime_l1,
+       max_lsp_lifetime_l1_cmd,
+       "max-lsp-lifetime level-1 <350-65535>",
+       "Maximum LSP lifetime for Level 1 only\n"
+       "LSP lifetime for Level 1 only in seconds\n")
+{
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1, atoi(argv[0]));
+}
+
+DEFUN (no_max_lsp_lifetime_l1,
+       no_max_lsp_lifetime_l1_cmd,
+       "no max-lsp-lifetime level-1",
+       NO_STR
+       "LSP lifetime for Level 1 only in seconds\n")
+{
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1, DEFAULT_LSP_LIFETIME);
+}
+
+ALIAS (no_max_lsp_lifetime_l1,
+       no_max_lsp_lifetime_l1_arg_cmd,
+       "no max-lsp-lifetime level-1 <350-65535>",
+       NO_STR
+       "Maximum LSP lifetime for Level 1 only\n"
+       "LSP lifetime for Level 1 only in seconds\n")
+
+DEFUN (max_lsp_lifetime_l2,
+       max_lsp_lifetime_l2_cmd,
+       "max-lsp-lifetime level-2 <350-65535>",
+       "Maximum LSP lifetime for Level 2 only\n"
+       "LSP lifetime for Level 2 only in seconds\n")
+{
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_2, atoi(argv[0]));
+}
+
+DEFUN (no_max_lsp_lifetime_l2,
+       no_max_lsp_lifetime_l2_cmd,
+       "no max-lsp-lifetime level-2",
+       NO_STR
+       "LSP lifetime for Level 2 only in seconds\n")
+{
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_2, DEFAULT_LSP_LIFETIME);
+}
+
+ALIAS (no_max_lsp_lifetime_l2,
+       no_max_lsp_lifetime_l2_arg_cmd,
+       "no max-lsp-lifetime level-2 <350-65535>",
+       NO_STR
+       "Maximum LSP lifetime for Level 2 only\n"
+       "LSP lifetime for Level 2 only in seconds\n")
+
+static int
+area_lsp_refresh_interval_set(struct vty *vty, int level, uint16_t interval)
+{
+  struct isis_area *area = vty->index;
+  int lvl;
+
+  if (!area)
+    {
+      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+    {
+      if (!(lvl & level))
+        continue;
+      if (interval <= area->lsp_gen_interval[lvl-1])
+        {
+          vty_out (vty, "LSP refresh interval %us must be greater than "
+                   "the configured LSP gen interval %us%s",
+                   interval, area->lsp_gen_interval[lvl-1],
+                   VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+      if (interval > (area->max_lsp_lifetime[lvl-1] - 300))
+        {
+          vty_out (vty, "LSP refresh interval %us must be less than "
+                   "the configured LSP lifetime %us less 300%s",
+                   interval, area->max_lsp_lifetime[lvl-1],
+                   VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+    }
+
+  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+    {
+      if (!(lvl & level))
+        continue;
+      isis_area_lsp_refresh_set(area, lvl, interval);
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (lsp_refresh_interval,
+       lsp_refresh_interval_cmd,
+       "lsp-refresh-interval <1-65235>",
+       "LSP refresh interval\n"
+       "LSP refresh interval in seconds\n")
+{
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1_AND_2, atoi(argv[0]));
+}
+
+DEFUN (no_lsp_refresh_interval,
+       no_lsp_refresh_interval_cmd,
+       "no lsp-refresh-interval",
+       NO_STR
+       "LSP refresh interval in seconds\n")
+{
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1_AND_2,
+				       DEFAULT_MAX_LSP_GEN_INTERVAL);
+}
+
+ALIAS (no_lsp_refresh_interval,
+       no_lsp_refresh_interval_arg_cmd,
+       "no lsp-refresh-interval <1-65235>",
+       NO_STR
+       "LSP refresh interval\n"
+       "LSP refresh interval in seconds\n")
+
+DEFUN (lsp_refresh_interval_l1,
+       lsp_refresh_interval_l1_cmd,
+       "lsp-refresh-interval level-1 <1-65235>",
+       "LSP refresh interval for Level 1 only\n"
+       "LSP refresh interval for Level 1 only in seconds\n")
+{
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1, atoi(argv[0]));
+}
+
+DEFUN (no_lsp_refresh_interval_l1,
+       no_lsp_refresh_interval_l1_cmd,
+       "no lsp-refresh-interval level-1",
+       NO_STR
+       "LSP refresh interval for Level 1 only in seconds\n")
+{
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1,
+				       DEFAULT_MAX_LSP_GEN_INTERVAL);
+}
+
+ALIAS (no_lsp_refresh_interval_l1,
+       no_lsp_refresh_interval_l1_arg_cmd,
+       "no lsp-refresh-interval level-1 <1-65235>",
+       NO_STR
+       "LSP refresh interval for Level 1 only\n"
+       "LSP refresh interval for Level 1 only in seconds\n")
+
+DEFUN (lsp_refresh_interval_l2,
+       lsp_refresh_interval_l2_cmd,
+       "lsp-refresh-interval level-2 <1-65235>",
+       "LSP refresh interval for Level 2 only\n"
+       "LSP refresh interval for Level 2 only in seconds\n")
+{
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_2, atoi(argv[0]));
+}
+
+DEFUN (no_lsp_refresh_interval_l2,
+       no_lsp_refresh_interval_l2_cmd,
+       "no lsp-refresh-interval level-2",
+       NO_STR
+       "LSP refresh interval for Level 2 only in seconds\n")
+{
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_2,
+				       DEFAULT_MAX_LSP_GEN_INTERVAL);
+}
+
+ALIAS (no_lsp_refresh_interval_l2,
+       no_lsp_refresh_interval_l2_arg_cmd,
+       "no lsp-refresh-interval level-2 <1-65235>",
+       NO_STR
+       "LSP refresh interval for Level 2 only\n"
+       "LSP refresh interval for Level 2 only in seconds\n")
+
 void
 isis_vty_init (void)
 {
@@ -1740,4 +2265,44 @@ isis_vty_init (void)
 
   install_element (ISIS_NODE, &is_type_cmd);
   install_element (ISIS_NODE, &no_is_type_cmd);
+
+  install_element (ISIS_NODE, &lsp_gen_interval_cmd);
+  install_element (ISIS_NODE, &no_lsp_gen_interval_cmd);
+  install_element (ISIS_NODE, &no_lsp_gen_interval_arg_cmd);
+  install_element (ISIS_NODE, &lsp_gen_interval_l1_cmd);
+  install_element (ISIS_NODE, &no_lsp_gen_interval_l1_cmd);
+  install_element (ISIS_NODE, &no_lsp_gen_interval_l1_arg_cmd);
+  install_element (ISIS_NODE, &lsp_gen_interval_l2_cmd);
+  install_element (ISIS_NODE, &no_lsp_gen_interval_l2_cmd);
+  install_element (ISIS_NODE, &no_lsp_gen_interval_l2_arg_cmd);
+
+  install_element (ISIS_NODE, &spf_interval_cmd);
+  install_element (ISIS_NODE, &no_spf_interval_cmd);
+  install_element (ISIS_NODE, &no_spf_interval_arg_cmd);
+  install_element (ISIS_NODE, &spf_interval_l1_cmd);
+  install_element (ISIS_NODE, &no_spf_interval_l1_cmd);
+  install_element (ISIS_NODE, &no_spf_interval_l1_arg_cmd);
+  install_element (ISIS_NODE, &spf_interval_l2_cmd);
+  install_element (ISIS_NODE, &no_spf_interval_l2_cmd);
+  install_element (ISIS_NODE, &no_spf_interval_l2_arg_cmd);
+
+  install_element (ISIS_NODE, &max_lsp_lifetime_cmd);
+  install_element (ISIS_NODE, &no_max_lsp_lifetime_cmd);
+  install_element (ISIS_NODE, &no_max_lsp_lifetime_arg_cmd);
+  install_element (ISIS_NODE, &max_lsp_lifetime_l1_cmd);
+  install_element (ISIS_NODE, &no_max_lsp_lifetime_l1_cmd);
+  install_element (ISIS_NODE, &no_max_lsp_lifetime_l1_arg_cmd);
+  install_element (ISIS_NODE, &max_lsp_lifetime_l2_cmd);
+  install_element (ISIS_NODE, &no_max_lsp_lifetime_l2_cmd);
+  install_element (ISIS_NODE, &no_max_lsp_lifetime_l2_arg_cmd);
+
+  install_element (ISIS_NODE, &lsp_refresh_interval_cmd);
+  install_element (ISIS_NODE, &no_lsp_refresh_interval_cmd);
+  install_element (ISIS_NODE, &no_lsp_refresh_interval_arg_cmd);
+  install_element (ISIS_NODE, &lsp_refresh_interval_l1_cmd);
+  install_element (ISIS_NODE, &no_lsp_refresh_interval_l1_cmd);
+  install_element (ISIS_NODE, &no_lsp_refresh_interval_l1_arg_cmd);
+  install_element (ISIS_NODE, &lsp_refresh_interval_l2_cmd);
+  install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_cmd);
+  install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_arg_cmd);
 }

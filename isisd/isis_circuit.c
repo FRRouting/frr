@@ -196,30 +196,6 @@ circuit_scan_by_ifp (struct interface *ifp)
   return circuit_lookup_by_ifp (ifp, isis->init_circ_list);
 }
 
-static struct isis_circuit *
-isis_circuit_lookup (struct vty *vty)
-{
-  struct interface *ifp;
-  struct isis_circuit *circuit;
-
-  ifp = (struct interface *) vty->index;
-  if (!ifp)
-    {
-      vty_out (vty, "Invalid interface %s", VTY_NEWLINE);
-      return NULL;
-    }
-
-  circuit = circuit_scan_by_ifp (ifp);
-  if (!circuit)
-    {
-      vty_out (vty, "ISIS is not enabled on circuit %s%s",
-               ifp->name, VTY_NEWLINE);
-      return NULL;
-    }
-
-  return circuit;
-}
-
 void
 isis_circuit_add_addr (struct isis_circuit *circuit,
 		       struct connected *connected)
