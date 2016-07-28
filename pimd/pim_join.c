@@ -107,9 +107,11 @@ static void recv_join(struct interface *ifp,
 
       if (up)
         {
+	  char buff[100];
+	  strcpy (buff, pim_str_sg_dump (&up->sg));
 	  zlog_debug("%s %s: Join(S,G)=%s from %s",
 		     __FILE__, __PRETTY_FUNCTION__,
-		     pim_str_sg_dump (&up->sg), pim_str_sg_dump (&sg));
+		     buff, pim_str_sg_dump (&sg));
 
 	  pim_rp_set_upstream_addr (&up->upstream_addr, up->sg.u.sg.src);
 	  pim_nexthop_lookup (&up->rpf.source_nexthop, up->upstream_addr, NULL);
@@ -168,9 +170,11 @@ static void recv_prune(struct interface *ifp,
 
       if (up)
         {
+	  char buff[100];
+	  strcpy (buff, pim_str_sg_dump (&up->sg));
 	  zlog_debug("%s %s: Prune(S,G)=%s from %s",
 		     __FILE__, __PRETTY_FUNCTION__,
-		     pim_str_sg_dump (&up->sg), pim_str_sg_dump (&sg));
+		     buff, pim_str_sg_dump (&sg));
 	  pim_ifchannel_prune (ifp, upstream, &up->sg, source_flags, holdtime);
         }
     }
