@@ -2174,213 +2174,47 @@ ALIAS (no_lsp_gen_interval_l2,
        "Set interval for level 2 only\n"
        "Minimum interval in seconds\n")
 
-static int
-validate_metric_style_narrow (struct vty *vty, struct isis_area *area)
+void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
+			       bool new_metric)
 {
-  struct isis_circuit *circuit;
-  struct listnode *node;
-  
-  if (! vty)
-    return CMD_ERR_AMBIGUOUS;
-
-  if (! area)
+  if (area->oldmetric != old_metric
+      || area->newmetric != new_metric)
     {
-      vty_out (vty, "ISIS area is invalid%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
+      area->oldmetric = old_metric;
+      area->newmetric = new_metric;
+      lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
     }
+}
 
-  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
+void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
+{
+  char new_overload_bit = overload_bit ? LSPBIT_OL : 0;
+
+  if (new_overload_bit != area->overload_bit)
     {
-      if ((area->is_type & IS_LEVEL_1) &&
-          (circuit->is_type & IS_LEVEL_1) &&
-          (circuit->te_metric[0] > MAX_NARROW_LINK_METRIC))
-        {
-          vty_out (vty, "ISIS circuit %s metric is invalid%s",
-                   circuit->interface->name, VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
-      if ((area->is_type & IS_LEVEL_2) &&
-          (circuit->is_type & IS_LEVEL_2) &&
-          (circuit->te_metric[1] > MAX_NARROW_LINK_METRIC))
-        {
-          vty_out (vty, "ISIS circuit %s metric is invalid%s",
-                   circuit->interface->name, VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
+      area->overload_bit = new_overload_bit;
+      lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
     }
-
-  return CMD_SUCCESS;
 }
 
-DEFUN (metric_style,
-       metric_style_cmd,
-       "metric-style (narrow|transition|wide)",
-       "Use old-style (ISO 10589) or new-style packet formats\n"
-       "Use old style of TLVs with narrow metric\n"
-       "Send and accept both styles of TLVs during transition\n"
-       "Use new style of TLVs to carry wider metric\n")
+void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit)
 {
-  struct isis_area *area;
-  int ret;
+  char new_attached_bit = attached_bit ? LSPBIT_ATT : 0;
 
-  area = vty->index;
-  assert (area);
-
-  if (strncmp (argv[0], "w", 1) == 0)
+  if (new_attached_bit != area->attached_bit)
     {
-      area->newmetric = 1;
-      area->oldmetric = 0;
+      area->attached_bit = new_attached_bit;
+      lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
     }
-  else
+}
+
+void isis_area_dynhostname_set(struct isis_area *area, bool dynhostname)
+{
+  if (area->dynhostname != dynhostname)
     {
-      ret = validate_metric_style_narrow (vty, area);
-      if (ret != CMD_SUCCESS)
-        return ret;
-
-      if (strncmp (argv[0], "t", 1) == 0)
-	{
-	  area->newmetric = 1;
-	  area->oldmetric = 1;
-	}
-      else if (strncmp (argv[0], "n", 1) == 0)
-	{
-	  area->newmetric = 0;
-	  area->oldmetric = 1;
-	}
+      area->dynhostname = dynhostname;
+      lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
     }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_metric_style,
-       no_metric_style_cmd,
-       "no metric-style",
-       NO_STR
-       "Use old-style (ISO 10589) or new-style packet formats\n")
-{
-  struct isis_area *area;
-  int ret;
-
-  area = vty->index;
-  assert (area);
-
-  ret = validate_metric_style_narrow (vty, area);
-  if (ret != CMD_SUCCESS)
-    return ret;
-
-  /* Default is narrow metric. */
-  area->newmetric = 0;
-  area->oldmetric = 1;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (set_overload_bit,
-       set_overload_bit_cmd,
-       "set-overload-bit",
-       "Set overload bit to avoid any transit traffic\n"
-       "Set overload bit\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  area->overload_bit = LSPBIT_OL;
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_set_overload_bit,
-       no_set_overload_bit_cmd,
-       "no set-overload-bit",
-       "Reset overload bit to accept transit traffic\n"
-       "Reset overload bit\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  area->overload_bit = 0;
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (set_attached_bit,
-       set_attached_bit_cmd,
-       "set-attached-bit",
-       "Set attached bit to identify as L1/L2 router for inter-area traffic\n"
-       "Set attached bit\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  area->attached_bit = LSPBIT_ATT;
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_set_attached_bit,
-       no_set_attached_bit_cmd,
-       "no set-attached-bit",
-       "Reset attached bit\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  area->attached_bit = 0;
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (dynamic_hostname,
-       dynamic_hostname_cmd,
-       "hostname dynamic",
-       "Dynamic hostname for IS-IS\n"
-       "Dynamic hostname\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  if (!area->dynhostname)
-   {
-     area->dynhostname = 1;
-     lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-   }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_dynamic_hostname,
-       no_dynamic_hostname_cmd,
-       "no hostname dynamic",
-       NO_STR
-       "Dynamic hostname for IS-IS\n"
-       "Dynamic hostname\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  if (area->dynhostname)
-    {
-      area->dynhostname = 0;
-      lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-    }
-
-  return CMD_SUCCESS;
 }
 
 DEFUN (spf_interval,
@@ -3433,18 +3267,6 @@ isis_init ()
   install_element (ISIS_NODE, &lsp_refresh_interval_l2_cmd);
   install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_cmd);
   install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_arg_cmd);
-
-  install_element (ISIS_NODE, &set_overload_bit_cmd);
-  install_element (ISIS_NODE, &no_set_overload_bit_cmd);
-
-  install_element (ISIS_NODE, &set_attached_bit_cmd);
-  install_element (ISIS_NODE, &no_set_attached_bit_cmd);
-
-  install_element (ISIS_NODE, &dynamic_hostname_cmd);
-  install_element (ISIS_NODE, &no_dynamic_hostname_cmd);
-
-  install_element (ISIS_NODE, &metric_style_cmd);
-  install_element (ISIS_NODE, &no_metric_style_cmd);
 
   install_element (ISIS_NODE, &log_adj_changes_cmd);
   install_element (ISIS_NODE, &no_log_adj_changes_cmd);

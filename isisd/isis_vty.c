@@ -641,6 +641,172 @@ ALIAS (no_isis_metric_l2,
        "Specify metric for level-2 routing\n")
 /* end of metrics */
 
+static int
+validate_metric_style_narrow (struct vty *vty, struct isis_area *area)
+{
+  struct isis_circuit *circuit;
+  struct listnode *node;
+
+  if (! vty)
+    return CMD_ERR_AMBIGUOUS;
+
+  if (! area)
+    {
+      vty_out (vty, "ISIS area is invalid%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
+    {
+      if ((area->is_type & IS_LEVEL_1) &&
+          (circuit->is_type & IS_LEVEL_1) &&
+          (circuit->te_metric[0] > MAX_NARROW_LINK_METRIC))
+        {
+          vty_out (vty, "ISIS circuit %s metric is invalid%s",
+                   circuit->interface->name, VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+      if ((area->is_type & IS_LEVEL_2) &&
+          (circuit->is_type & IS_LEVEL_2) &&
+          (circuit->te_metric[1] > MAX_NARROW_LINK_METRIC))
+        {
+          vty_out (vty, "ISIS circuit %s metric is invalid%s",
+                   circuit->interface->name, VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (metric_style,
+       metric_style_cmd,
+       "metric-style (narrow|transition|wide)",
+       "Use old-style (ISO 10589) or new-style packet formats\n"
+       "Use old style of TLVs with narrow metric\n"
+       "Send and accept both styles of TLVs during transition\n"
+       "Use new style of TLVs to carry wider metric\n")
+{
+  struct isis_area *area = vty->index;
+  int ret;
+
+  assert(area);
+
+  if (strncmp (argv[0], "w", 1) == 0)
+    {
+      isis_area_metricstyle_set(area, false, true);
+      return CMD_SUCCESS;
+    }
+
+  ret = validate_metric_style_narrow (vty, area);
+  if (ret != CMD_SUCCESS)
+    return ret;
+
+  if (strncmp (argv[0], "t", 1) == 0)
+    isis_area_metricstyle_set(area, true, true);
+  else if (strncmp (argv[0], "n", 1) == 0)
+    isis_area_metricstyle_set(area, true, false);
+      return CMD_SUCCESS;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_metric_style,
+       no_metric_style_cmd,
+       "no metric-style",
+       NO_STR
+       "Use old-style (ISO 10589) or new-style packet formats\n")
+{
+  struct isis_area *area = vty->index;
+  int ret;
+
+  assert (area);
+  ret = validate_metric_style_narrow (vty, area);
+  if (ret != CMD_SUCCESS)
+    return ret;
+
+  isis_area_metricstyle_set(area, true, false);
+  return CMD_SUCCESS;
+}
+
+DEFUN (set_overload_bit,
+       set_overload_bit_cmd,
+       "set-overload-bit",
+       "Set overload bit to avoid any transit traffic\n"
+       "Set overload bit\n")
+{
+  struct isis_area *area = vty->index;
+  assert (area);
+
+  isis_area_overload_bit_set(area, true);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_set_overload_bit,
+       no_set_overload_bit_cmd,
+       "no set-overload-bit",
+       "Reset overload bit to accept transit traffic\n"
+       "Reset overload bit\n")
+{
+  struct isis_area *area = vty->index;
+  assert (area);
+
+  isis_area_overload_bit_set(area, false);
+  return CMD_SUCCESS;
+}
+
+DEFUN (set_attached_bit,
+       set_attached_bit_cmd,
+       "set-attached-bit",
+       "Set attached bit to identify as L1/L2 router for inter-area traffic\n"
+       "Set attached bit\n")
+{
+  struct isis_area *area = vty->index;
+  assert (area);
+
+  isis_area_attached_bit_set(area, true);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_set_attached_bit,
+       no_set_attached_bit_cmd,
+       "no set-attached-bit",
+       "Reset attached bit\n")
+{
+  struct isis_area *area = vty->index;
+  assert (area);
+
+  isis_area_attached_bit_set(area, false);
+  return CMD_SUCCESS;
+}
+
+DEFUN (dynamic_hostname,
+       dynamic_hostname_cmd,
+       "hostname dynamic",
+       "Dynamic hostname for IS-IS\n"
+       "Dynamic hostname\n")
+{
+  struct isis_area *area = vty->index;
+  assert(area);
+
+  isis_area_dynhostname_set(area, true);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_dynamic_hostname,
+       no_dynamic_hostname_cmd,
+       "no hostname dynamic",
+       NO_STR
+       "Dynamic hostname for IS-IS\n"
+       "Dynamic hostname\n")
+{
+  struct isis_area *area = vty->index;
+  assert(area);
+
+  isis_area_dynhostname_set(area, false);
+  return CMD_SUCCESS;
+}
+
 void
 isis_vty_init (void)
 {
@@ -675,4 +841,16 @@ isis_vty_init (void)
   install_element (INTERFACE_NODE, &isis_metric_l2_cmd);
   install_element (INTERFACE_NODE, &no_isis_metric_l2_cmd);
   install_element (INTERFACE_NODE, &no_isis_metric_l2_arg_cmd);
+
+  install_element (ISIS_NODE, &metric_style_cmd);
+  install_element (ISIS_NODE, &no_metric_style_cmd);
+
+  install_element (ISIS_NODE, &set_overload_bit_cmd);
+  install_element (ISIS_NODE, &no_set_overload_bit_cmd);
+
+  install_element (ISIS_NODE, &set_attached_bit_cmd);
+  install_element (ISIS_NODE, &no_set_attached_bit_cmd);
+
+  install_element (ISIS_NODE, &dynamic_hostname_cmd);
+  install_element (ISIS_NODE, &no_dynamic_hostname_cmd);
 }

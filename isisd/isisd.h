@@ -143,6 +143,12 @@ struct isis_area *isis_area_lookup (const char *);
 int isis_area_get (struct vty *vty, const char *area_tag);
 void print_debug(struct vty *, int, int);
 
+void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
+void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit);
+void isis_area_dynhostname_set(struct isis_area *area, bool dynhostname);
+void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
+			       bool new_metric);
+
 void isis_vty_init (void);
 
 /* Master of threads. */
