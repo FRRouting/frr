@@ -113,44 +113,6 @@ bgp_node_table (struct bgp_node *node)
 }
 
 /*
- * bgp_node_info
- *
- * Returns the 'info' pointer corresponding to a bgp node.
- */
-static inline void *
-bgp_node_info (const struct bgp_node *node)
-{
-  return node->info;
-}
-
-/*
- * bgp_node_set_info
- */
-static inline void
-bgp_node_set_info (struct bgp_node *node, void *info)
-{
-  node->info = info;
-}
-
-/*
- * bgp_node_prefix
- */
-static inline struct prefix *
-bgp_node_prefix (struct bgp_node *node)
-{
-  return &node->p;
-}
-
-/*
- * bgp_node_prefixlen
- */
-static inline u_char
-bgp_node_prefixlen (struct bgp_node *node)
-{
-  return bgp_node_prefix (node)->prefixlen;
-}
-
-/*
  * bgp_node_parent_nolock
  *
  * Gets the parent node of the given node without locking it.
