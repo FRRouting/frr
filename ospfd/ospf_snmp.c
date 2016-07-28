@@ -209,8 +209,8 @@
 SNMP_LOCAL_VARIABLES
 
 /* OSPF-MIB instances. */
-oid ospf_oid [] = { OSPF2MIB };
-oid ospf_trap_oid [] = { OSPF2MIB, 16, 2 }; /* Not reverse mappable! */
+static oid ospf_oid [] = { OSPF2MIB };
+static oid ospf_trap_oid [] = { OSPF2MIB, 16, 2 }; /* Not reverse mappable! */
 
 /* IP address 0.0.0.0. */
 static struct in_addr ospf_empty_addr = { .s_addr = 0 };
@@ -243,7 +243,7 @@ static u_char *ospfExtLsdbEntry (struct variable *, oid *, size_t *, int,
 static u_char *ospfAreaAggregateEntry (struct variable *, oid *, size_t *,
 				       int, size_t *, WriteMethod **);
 
-struct variable ospf_variables[] = 
+static struct variable ospf_variables[] =
 {
   /* OSPF general variables */
   {OSPFROUTERID,              IPADDRESS, RWRITE, ospfGeneralGroup,
@@ -1408,7 +1408,7 @@ ospfHostEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct list *ospf_snmp_iflist;
+static struct list *ospf_snmp_iflist;
 
 struct ospf_snmp_if
 {
@@ -1912,7 +1912,7 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct route_table *ospf_snmp_vl_table;
+static struct route_table *ospf_snmp_vl_table;
 
 void
 ospf_snmp_vl_add (struct ospf_vl_data *vl_data)
@@ -2618,7 +2618,7 @@ ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
 #define NBRSTATECHANGE      2
 #define VIRTNBRSTATECHANGE  3
 
-struct trap_object ospfNbrTrapList[] =
+static struct trap_object ospfNbrTrapList[] =
 {
   {-2, {1, OSPFROUTERID}},
   {3, {10, 1, OSPFNBRIPADDR}},
@@ -2627,7 +2627,7 @@ struct trap_object ospfNbrTrapList[] =
 };
 
 
-struct trap_object ospfVirtNbrTrapList[] =
+static struct trap_object ospfVirtNbrTrapList[] =
 {
   {-2, {1, 1}},
   {3, {11, 1, OSPFVIRTNBRAREA}},
@@ -2635,7 +2635,7 @@ struct trap_object ospfVirtNbrTrapList[] =
   {3, {11, 1, OSPFVIRTNBRSTATE}}
 };
 
-struct trap_object ospfIfTrapList[] =
+static struct trap_object ospfIfTrapList[] =
 {
   {-2, {1, OSPFROUTERID}},
   {3, {7, 1, OSPFIFIPADDRESS}},
@@ -2643,7 +2643,7 @@ struct trap_object ospfIfTrapList[] =
   {3, {7, 1, OSPFIFSTATE}}
 };
 
-struct trap_object ospfVirtIfTrapList[] =
+static struct trap_object ospfVirtIfTrapList[] =
 {
   {-2, {1, OSPFROUTERID}},
   {3, {9, 1, OSPFVIRTIFAREAID}},

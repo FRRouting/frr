@@ -207,8 +207,8 @@
 SNMP_LOCAL_VARIABLES
 
 /* OSPFv3-MIB instances. */
-oid ospfv3_oid [] = { OSPFv3MIB };
-oid ospfv3_trap_oid [] = { OSPFv3MIB, 0 };
+static oid ospfv3_oid [] = { OSPFv3MIB };
+static oid ospfv3_trap_oid [] = { OSPFv3MIB, 0 };
 
 /* Hook functions. */
 static u_char *ospfv3GeneralGroup (struct variable *, oid *, size_t *,
@@ -222,7 +222,7 @@ static u_char *ospfv3NbrEntry (struct variable *, oid *, size_t *,
 static u_char *ospfv3IfEntry (struct variable *, oid *, size_t *,
 			      int, size_t *, WriteMethod **);
 
-struct variable ospfv3_variables[] =
+static struct variable ospfv3_variables[] =
 {
   /* OSPF general variables */
   {OSPFv3ROUTERID,             UNSIGNED,   RWRITE, ospfv3GeneralGroup,
