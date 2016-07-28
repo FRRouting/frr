@@ -159,6 +159,44 @@ listnode_add_after (struct list *list, struct listnode *pp, void *val)
   list->count++;
 }
 
+struct listnode *
+listnode_add_before (struct list *list, struct listnode *pp, void *val)
+{
+  struct listnode *nn;
+
+  assert (val != NULL);
+
+  nn = listnode_new ();
+  nn->data = val;
+
+  if (pp == NULL)
+    {
+      if (list->tail)
+        list->tail->next = nn;
+      else
+        list->head = nn;
+
+      nn->prev = list->tail;
+      nn->next = pp;
+
+      list->tail = nn;
+    }
+  else
+    {
+      if (pp->prev)
+	pp->prev->next = nn;
+      else
+	list->head = nn;
+
+      nn->prev = pp->prev;
+      nn->next = pp;
+
+      pp->prev = nn;
+    }
+  list->count++;
+  return nn;
+}
+
 /* Move given listnode to tail of the list */
 void
 listnode_move_to_tail (struct list *l, struct listnode *n)
