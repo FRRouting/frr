@@ -406,16 +406,22 @@ AC_SUBST(ISIS_TOPOLOGY_INCLUDES)
 AC_SUBST(ISIS_TOPOLOGY_DIR)
 AC_SUBST(ISIS_TOPOLOGY_LIB)
 
-if test "${enable_user}" = "yes" || test x"${enable_user}" = x""; then
-  enable_user="quagga"
-elif test "${enable_user}" = "no"; then
-  enable_user="root"
+if test x"${enable_user}" = x"no"; then
+  enable_user=""
+else
+  if test x"${enable_user}" = x"yes" || test x"${enable_user}" = x""; then
+    enable_user="quagga"
+  fi
+  AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
 fi
 
-if test "${enable_group}" = "yes" || test x"${enable_group}" = x""; then
-  enable_group="quagga"
-elif test "${enable_group}" = "no"; then
-  enable_group="root"
+if test x"${enable_group}" = x"no"; then
+  enable_group=""
+else
+  if test x"${enable_group}" = x"yes" || test x"${enable_group}" = x""; then
+    enable_group="quagga"
+  fi
+  AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
 fi
 
 if test x"${enable_vty_group}" = x"yes" ; then
@@ -428,8 +434,6 @@ fi
 AC_SUBST([enable_user])
 AC_SUBST([enable_group])
 AC_SUBST([enable_vty_group])
-AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
-AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
 
 enable_configfile_mask=${enable_configfile_mask:-0600}
 AC_DEFINE_UNQUOTED(CONFIGFILE_MASK, ${enable_configfile_mask}, Mask for config files)
