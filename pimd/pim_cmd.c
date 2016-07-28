@@ -2438,10 +2438,11 @@ DEFUN (ip_pim_rp,
     return CMD_WARNING;
   }
 
-  if (pim_nexthop_lookup(&qpim_rp.source_nexthop, qpim_rp.rpf_addr, NULL) != 0) {
-    vty_out(vty, "%% No Path to RP address specified: %s", argv[idx_ipv4]->arg);
-    return CMD_WARNING;
-  }
+  if (!pim_rp_setup ())
+    {
+      vty_out(vty, "%% No Path to RP address specified: %s", argv[idx_ipv4]->arg);
+      return CMD_WARNING;
+    }
 
   return CMD_SUCCESS;
 }

@@ -29,8 +29,37 @@
 #include "pim_rp.h"
 #include "pim_str.h"
 #include "pim_rpf.h"
+#include "pim_sock.h"
 
 static int i_am_rp = 0;
+
+/*
+ * The Raw socket to pump packets down
+ * if we are the RP
+ */
+static int fd_rp = -1;
+
+static void
+pim_rp_create_socket (void)
+{
+  fd_rp = pim_socket_raw (IPPROTO_RAW);
+  if (pim_socket_bind (fd_rp, qpim_rp.source_nexthop.interface) != 0)
+    zlog_debug ("Unable to Bind to a particular socket");
+}
+
+int
+pim_rp_setup (void)
+{
+  if (pim_nexthop_lookup (&qpim_rp.source_nexthop, qpim_rp.rpf_addr, NULL) != 0)
+    {
+      zlog_err ("Unable to lookup nexthop for rp specified");
+      return 0;
+    }
+
+  pim_rp_create_socket ();
+
+  return 1;
+}
 
 /*
  * Checks to see if we should elect ourself the actual RP
@@ -54,6 +83,7 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
   if (new.s_addr == qpim_rp.rpf_addr.s_addr)
     {
       i_am_rp = 1;
+      pim_rp_create_socket();
       return;
     }
 
