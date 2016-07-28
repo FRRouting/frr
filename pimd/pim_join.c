@@ -99,7 +99,7 @@ static void recv_join(struct interface *ifp,
   pim_ifchannel_join_add(ifp, neigh->source_addr, upstream,
 			 &sg, source_flags, holdtime);
 
-  if (I_am_RP (group) && source.s_addr == INADDR_ANY)
+  if (I_am_RP (group) && sg.u.sg.src.s_addr == INADDR_ANY)
     {
       struct pim_upstream *up;
 
@@ -145,10 +145,22 @@ static void recv_prune(struct interface *ifp,
 	      source_flags & PIM_WILDCARD_BIT_MASK,
 	      up_str, holdtime, neigh_str, ifp->name);
   }
+
+  if ((source_flags & PIM_RPT_BIT_MASK) &&
+      (source_flags & PIM_WILDCARD_BIT_MASK))
+    {
+      struct pim_rpf *rp = RP (sg.u.sg.grp);
+
+      // Ignoring Prune *,G's at the moment.
+      if (sg.u.sg.src.s_addr != rp->rpf_addr.s_addr)
+	return;
+
+      sg.u.sg.src.s_addr = INADDR_ANY;
+    }
   
   pim_ifchannel_prune(ifp, upstream, &sg, source_flags, holdtime);
 
-  if (I_am_RP (group) && source.s_addr == INADDR_ANY)
+  if (I_am_RP (group) && sg.u.sg.src.s_addr == INADDR_ANY)
     {
       struct pim_upstream *up;
 
