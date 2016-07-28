@@ -1220,7 +1220,7 @@ extern int bgp_confederation_peers_check (struct bgp *, as_t);
 extern int bgp_confederation_peers_add (struct bgp *, as_t);
 extern int bgp_confederation_peers_remove (struct bgp *, as_t);
 
-extern int bgp_timers_set (struct bgp *, u_int32_t, u_int32_t);
+extern int bgp_timers_set (struct bgp *, u_int32_t keepalive, u_int32_t holdtime);
 extern int bgp_timers_unset (struct bgp *);
 
 extern int bgp_default_local_preference_set (struct bgp *, u_int32_t);
@@ -1245,6 +1245,7 @@ extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);
 
 extern int peer_activate (struct peer *, afi_t, safi_t);
 extern int peer_deactivate (struct peer *, afi_t, safi_t);
+extern int peer_afc_set (struct peer *, afi_t, safi_t, int);
 
 extern int peer_group_bind (struct bgp *, union sockunion *, struct peer *,
                             struct peer_group *, as_t *);
@@ -1261,11 +1262,11 @@ extern int peer_ebgp_multihop_set (struct peer *, int);
 extern int peer_ebgp_multihop_unset (struct peer *);
 extern int is_ebgp_multihop_configured (struct peer *peer);
 
-extern int peer_description_set (struct peer *, char *);
+extern int peer_description_set (struct peer *, const char *);
 extern int peer_description_unset (struct peer *);
 
 extern int peer_update_source_if_set (struct peer *, const char *);
-extern int peer_update_source_addr_set (struct peer *, union sockunion *);
+extern int peer_update_source_addr_set (struct peer *, const union sockunion *);
 extern int peer_update_source_unset (struct peer *);
 
 extern int peer_default_originate_set (struct peer *, afi_t, safi_t, const char *);
@@ -1277,7 +1278,7 @@ extern int peer_port_unset (struct peer *);
 extern int peer_weight_set (struct peer *, u_int16_t);
 extern int peer_weight_unset (struct peer *);
 
-extern int peer_timers_set (struct peer *, u_int32_t, u_int32_t);
+extern int peer_timers_set (struct peer *, u_int32_t keepalive, u_int32_t holdtime);
 extern int peer_timers_unset (struct peer *);
 
 extern int peer_timers_connect_set (struct peer *, u_int32_t);
