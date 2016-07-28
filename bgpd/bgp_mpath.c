@@ -40,6 +40,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_vrf.h"
 
 /*
  * bgp_maximum_paths_set
@@ -325,9 +326,13 @@ bgp_info_mpath_enqueue (struct bgp_info *prev_info, struct bgp_info *binfo)
 void
 bgp_info_mpath_dequeue (struct bgp_info *binfo)
 {
-  struct bgp_info_mpath *mpath = binfo->mpath;
+  struct bgp_info_mpath *mpath;
+  if (!binfo)
+    return;
+  mpath = binfo->mpath;
   if (!mpath)
     return;
+
   if (mpath->mp_prev)
     mpath->mp_prev->mp_next = mpath->mp_next;
   if (mpath->mp_next)
@@ -438,6 +443,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
   int mpath_changed, debug;
   char pfx_buf[PREFIX2STR_BUFFER], nh_buf[2][INET6_ADDRSTRLEN];
   char path_buf[PATH_ADDPATH_STR_BUFFER];
+  struct bgp_vrf *vrf = NULL;
 
   mpath_changed = 0;
   maxpaths = MULTIPATH_NUM;
@@ -458,6 +464,17 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
         bgp_info_mpath_dequeue (new_best);
       maxpaths = (new_best->peer->sort == BGP_PEER_IBGP) ?
         mpath_cfg->maxpaths_ibgp : mpath_cfg->maxpaths_ebgp;
+    }
+
+  if (bgp_node_table (rn)->type == BGP_TABLE_VRF)
+    {
+      struct prefix_rd *prd = &bgp_node_table (rn)->prd;
+      if (new_best)
+        vrf = bgp_vrf_lookup (new_best->peer->bgp, prd);
+      else if (old_best)
+        vrf = bgp_vrf_lookup (old_best->peer->bgp, prd);
+      if (vrf)
+        maxpaths = vrf->max_mpath;
     }
 
   if (old_best)
