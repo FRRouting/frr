@@ -237,6 +237,14 @@ quagga_gettime (enum quagga_clkid clkid, struct timeval *tv)
     }
 }
 
+time_t
+quagga_monotime (void)
+{
+  struct timeval tv;
+  quagga_get_relative(&tv);
+  return tv.tv_sec;
+}
+
 /* time_t value in terms of stabilised absolute time. 
  * replacement for POSIX time()
  */

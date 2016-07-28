@@ -253,6 +253,7 @@ extern struct cmd_element clear_thread_cpu_cmd;
  * all systems, and fully monotonic on /some/ systems.
  */
 extern int quagga_gettime (enum quagga_clkid, struct timeval *);
+extern time_t quagga_monotime (void);
 extern time_t quagga_time (time_t *);
 
 /* Returns elapsed real (wall clock) time. */
