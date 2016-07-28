@@ -783,7 +783,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   if (state == NSM_ExStart)
     {
       if (nbr->dd_seqnum == 0)
-	nbr->dd_seqnum = quagga_time (NULL);
+	nbr->dd_seqnum = (uint32_t)random ();
       else
 	nbr->dd_seqnum++;
 
