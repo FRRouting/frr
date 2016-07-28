@@ -373,6 +373,47 @@ stream_getw_from (struct stream *s, size_t from)
   return w;
 }
 
+/* Get next 3-byte from the stream. */
+u_int32_t
+stream_get3_from (struct stream *s, size_t from)
+{
+  u_int32_t l;
+
+  STREAM_VERIFY_SANE(s);
+  
+  if (!GETP_VALID (s, from + 3))
+    {
+      STREAM_BOUND_WARN (s, "get 3byte");
+      return 0;
+    }
+  
+  l  = s->data[from++] << 16;
+  l |= s->data[from++] << 8;
+  l |= s->data[from];
+  
+  return l;
+}
+
+u_int32_t
+stream_get3 (struct stream *s)
+{
+  u_int32_t l;
+
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_READABLE (s) < 3)
+    {
+      STREAM_BOUND_WARN (s, "get 3byte");
+      return 0;
+    }
+  
+  l  = s->data[s->getp++] << 16;
+  l |= s->data[s->getp++] << 8;
+  l |= s->data[s->getp++];
+  
+  return l;
+}
+
 /* Get next long word from the stream. */
 u_int32_t
 stream_getl_from (struct stream *s, size_t from)
@@ -568,6 +609,25 @@ stream_putw (struct stream *s, u_int16_t w)
 
 /* Put long word to the stream. */
 int
+stream_put3 (struct stream *s, u_int32_t l)
+{
+  STREAM_VERIFY_SANE (s);
+
+  if (STREAM_WRITEABLE (s) < 3)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
+  s->data[s->endp++] = (u_char)(l >> 16);
+  s->data[s->endp++] = (u_char)(l >>  8);
+  s->data[s->endp++] = (u_char)l;
+
+  return 3;
+}
+
+/* Put long word to the stream. */
+int
 stream_putl (struct stream *s, u_int32_t l)
 {
   STREAM_VERIFY_SANE (s);
@@ -641,6 +701,23 @@ stream_putw_at (struct stream *s, size_t putp, u_int16_t w)
   s->data[putp + 1] = (u_char) w;
   
   return 2;
+}
+
+int
+stream_put3_at (struct stream *s, size_t putp, u_int32_t l)
+{
+  STREAM_VERIFY_SANE(s);
+  
+  if (!PUT_AT_VALID (s, putp + 3))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  s->data[putp] = (u_char)(l >> 16);
+  s->data[putp + 1] = (u_char)(l >>  8);
+  s->data[putp + 2] = (u_char)l;
+  
+  return 3;
 }
 
 int
