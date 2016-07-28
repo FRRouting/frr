@@ -941,6 +941,17 @@ funcname_thread_add_timer_msec (struct thread_master *m,
                                             arg, &trel, debugargpass);
 }
 
+/* Add timer event thread with "millisecond" resolution */
+struct thread *
+funcname_thread_add_timer_tv (struct thread_master *m,
+                              int (*func) (struct thread *),
+                              void *arg, struct timeval *tv,
+                              debugargdef)
+{
+  return funcname_thread_add_timer_timeval (m, func, THREAD_TIMER,
+                                            arg, tv, debugargpass);
+}
+
 /* Add a background thread, with an optional millisec delay */
 struct thread *
 funcname_thread_add_background (struct thread_master *m,
