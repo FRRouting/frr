@@ -22,9 +22,9 @@
  */
 
 /***** MTYPE definitions are not reflected to "memory.h" yet. *****/
-#define MTYPE_OSPF_OPAQUE_FUNCTAB	0
-#define MTYPE_OPAQUE_INFO_PER_TYPE	0
-#define MTYPE_OPAQUE_INFO_PER_ID	0
+#define MTYPE_OSPF_OPAQUE_FUNCTAB	MTYPE_TMP
+#define MTYPE_OPAQUE_INFO_PER_TYPE	MTYPE_TMP
+#define MTYPE_OPAQUE_INFO_PER_ID	MTYPE_TMP
 
 #include <zebra.h>
 #ifdef HAVE_OPAQUE_LSA

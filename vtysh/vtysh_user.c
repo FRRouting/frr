@@ -116,7 +116,7 @@ struct list *userlist;
 static struct vtysh_user *
 user_new (void)
 {
-  return XCALLOC (0, sizeof (struct vtysh_user));
+  return XCALLOC (MTYPE_TMP, sizeof (struct vtysh_user));
 }
 
 static struct vtysh_user *

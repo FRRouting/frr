@@ -22,7 +22,7 @@
  */
 
 /***** MTYPE definition is not reflected to "memory.h" yet. *****/
-#define MTYPE_OSPF_MPLS_TE_LINKPARAMS	0
+#define MTYPE_OSPF_MPLS_TE_LINKPARAMS	MTYPE_TMP
 
 #include <zebra.h>
 

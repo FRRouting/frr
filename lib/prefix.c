@@ -572,7 +572,7 @@ str2prefix_ipv6 (const char *str, struct prefix_ipv6 *p)
     {
       int plen;
 
-      cp = XMALLOC (0, (pnt - str) + 1);
+      cp = XMALLOC (MTYPE_TMP, (pnt - str) + 1);
       strncpy (cp, str, pnt - str);
       *(cp + (pnt - str)) = '\0';
       ret = inet_pton (AF_INET6, cp, &p->prefix);
