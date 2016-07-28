@@ -109,8 +109,6 @@ bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length,
     vrf_id_t vrf_id)
 {
   struct prefix router_id;
-  struct listnode *node, *nnode;
-  struct bgp *bgp;
 
   zebra_router_id_update_read(zclient->ibuf,&router_id);
 
@@ -121,32 +119,7 @@ bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length,
       zlog_debug("Rx Router Id update VRF %u Id %s", vrf_id, buf);
     }
 
-  if (vrf_id == VRF_DEFAULT)
-    {
-      /* Router-id change for default VRF has to also update all views. */
-      for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
-        {
-          if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-            continue;
-
-          bgp->router_id_zebra = router_id.u.prefix4;
-
-          if (!bgp->router_id_static.s_addr)
-            bgp_router_id_set (bgp, &router_id.u.prefix4);
-        }
-    }
-  else
-    {
-      bgp = bgp_lookup_by_vrf_id (vrf_id);
-      if (bgp)
-        {
-          bgp->router_id_zebra = router_id.u.prefix4;
-
-          if (!bgp->router_id_static.s_addr)
-            bgp_router_id_set (bgp, &router_id.u.prefix4);
-        }
-    }
-
+  bgp_router_id_zebra_bump (vrf_id, &router_id);
   return 0;
 }
 

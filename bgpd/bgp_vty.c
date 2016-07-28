@@ -820,11 +820,7 @@ DEFUN (bgp_router_id,
       return CMD_WARNING;
     }
 
-  if (IPV4_ADDR_SAME (&bgp->router_id_static, &id))
-    return CMD_SUCCESS;
-
-  bgp->router_id_static = id;
-  bgp_router_id_set (bgp, &id);
+  bgp_router_id_static_set (bgp, id);
 
   return CMD_SUCCESS;
 }
@@ -874,8 +870,8 @@ DEFUN (no_bgp_router_id,
       }
     }
 
-  bgp->router_id_static.s_addr = 0;
-  bgp_router_id_set (bgp, &bgp->router_id_zebra);
+  id.s_addr = 0;
+  bgp_router_id_static_set (bgp, id);
 
   return CMD_SUCCESS;
 }
@@ -919,10 +915,7 @@ DEFUN (bgp_router_id_interface,
 
     if (p && (p->family == AF_INET))
     {
-      if (IPV4_ADDR_SAME (&bgp->router_id_static, &p->u.prefix4))
-        return CMD_SUCCESS;
-      bgp->router_id_static = p->u.prefix4;
-      bgp_router_id_set (bgp, &p->u.prefix4);
+      bgp_router_id_static_set(bgp, p->u.prefix4);
       return CMD_SUCCESS;
     }
   }
