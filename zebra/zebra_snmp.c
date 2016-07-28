@@ -39,6 +39,7 @@
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
 
 #define IPFWMIB 1,3,6,1,2,1,4,24
 
