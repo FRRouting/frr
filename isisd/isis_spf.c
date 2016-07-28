@@ -545,13 +545,13 @@ isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
       v = listgetdata (node);
       if (v->d_N > vertex->d_N)
 	{
-	  list_add_node_prev (spftree->tents, node, vertex);
+	  listnode_add_before (spftree->tents, node, vertex);
 	  break;
 	}
       else if (v->d_N == vertex->d_N && v->type > vertex->type)
 	{
 	  /*  Tie break, add according to type */
-          list_add_node_prev (spftree->tents, node, vertex);
+          listnode_add_before (spftree->tents, node, vertex);
 	  break;
 	}
     }

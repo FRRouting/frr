@@ -122,7 +122,7 @@ listnode_add_sort (struct list *list, void *val)
   list->count++;
 }
 
-void
+struct listnode *
 listnode_add_after (struct list *list, struct listnode *pp, void *val)
 {
   struct listnode *nn;
@@ -157,6 +157,7 @@ listnode_add_after (struct list *list, struct listnode *pp, void *val)
       pp->next = nn;
     }
   list->count++;
+  return nn;
 }
 
 struct listnode *
@@ -302,52 +303,6 @@ list_delete_node (struct list *list, struct listnode *node)
     list->tail = node->prev;
   list->count--;
   listnode_free (node);
-}
-
-/* ospf_spf.c */
-void
-list_add_node_prev (struct list *list, struct listnode *current, void *val)
-{
-  struct listnode *node;
-  
-  assert (val != NULL);
-  
-  node = listnode_new ();
-  node->next = current;
-  node->data = val;
-
-  if (current->prev == NULL)
-    list->head = node;
-  else
-    current->prev->next = node;
-
-  node->prev = current->prev;
-  current->prev = node;
-
-  list->count++;
-}
-
-/* ospf_spf.c */
-void
-list_add_node_next (struct list *list, struct listnode *current, void *val)
-{
-  struct listnode *node;
-  
-  assert (val != NULL);
-  
-  node = listnode_new ();
-  node->prev = current;
-  node->data = val;
-
-  if (current->next == NULL)
-    list->tail = node;
-  else
-    current->next->prev = node;
-
-  node->next = current->next;
-  current->next = node;
-
-  list->count++;
 }
 
 /* ospf_spf.c */
