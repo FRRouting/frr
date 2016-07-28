@@ -2165,6 +2165,117 @@ ALIAS (no_lsp_refresh_interval_l2,
        "LSP refresh interval for Level 2 only\n"
        "LSP refresh interval for Level 2 only in seconds\n")
 
+static int
+area_passwd_set(struct vty *vty, int level,
+                int (*type_set)(struct isis_area *area, int level,
+                                const char *passwd, u_char snp_auth),
+                const char *passwd, u_char snp_auth)
+{
+  struct isis_area *area = vty->index;
+
+  if (!area)
+    {
+      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  if (passwd && strlen(passwd) > 254)
+    {
+      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  type_set(area, level, passwd, snp_auth);
+  return CMD_SUCCESS;
+}
+
+DEFUN (area_passwd_md5,
+       area_passwd_md5_cmd,
+       "(area-password|domain-password) md5 WORD",
+       "Configure the authentication password for an area\n"
+       "Set the authentication password for a routing domain\n"
+       "Authentication type\n"
+       "Level-wide password\n")
+{
+  u_char snp_auth = 0;
+  int level = (argv[0][0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+
+  if (argc > 2)
+    {
+      snp_auth = SNP_AUTH_SEND;
+      if (strncmp(argv[2], "v", 1) == 0)
+        snp_auth |= SNP_AUTH_RECV;
+    }
+
+  return area_passwd_set(vty, level, isis_area_passwd_hmac_md5_set,
+                         argv[1], snp_auth);
+}
+
+ALIAS (area_passwd_md5,
+       area_passwd_md5_snpauth_cmd,
+       "(area-password|domain-password) md5 WORD authenticate snp (send-only|validate)",
+       "Configure the authentication password for an area\n"
+       "Set the authentication password for a routing domain\n"
+       "Authentication type\n"
+       "Level-wide password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n")
+
+DEFUN (area_passwd_clear,
+       area_passwd_clear_cmd,
+       "(area-password|domain-password) clear WORD",
+       "Configure the authentication password for an area\n"
+       "Set the authentication password for a routing domain\n"
+       "Authentication type\n"
+       "Area password\n")
+{
+  u_char snp_auth = 0;
+  int level = (argv[0][0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+
+  if (argc > 2)
+    {
+      snp_auth = SNP_AUTH_SEND;
+      if (strncmp(argv[2], "v", 1) == 0)
+        snp_auth |= SNP_AUTH_RECV;
+    }
+
+  return area_passwd_set(vty, level, isis_area_passwd_cleartext_set,
+                         argv[1], snp_auth);
+}
+
+ALIAS (area_passwd_clear,
+       area_passwd_clear_snpauth_cmd,
+       "(area-password|domain-password) clear WORD authenticate snp (send-only|validate)",
+       "Configure the authentication password for an area\n"
+       "Set the authentication password for a routing domain\n"
+       "Authentication type\n"
+       "Area password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n")
+
+DEFUN (no_area_passwd,
+       no_area_passwd_cmd,
+       "no (area-password|domain-password)",
+       NO_STR
+       "Configure the authentication password for an area\n"
+       "Set the authentication password for a routing domain\n")
+{
+  int level = (argv[0][0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+  struct isis_area *area = vty->index;
+
+  if (!area)
+    {
+      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  return isis_area_passwd_unset (area, level);
+}
+
 void
 isis_vty_init (void)
 {
@@ -2305,4 +2416,10 @@ isis_vty_init (void)
   install_element (ISIS_NODE, &lsp_refresh_interval_l2_cmd);
   install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_cmd);
   install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_arg_cmd);
+
+  install_element (ISIS_NODE, &area_passwd_md5_cmd);
+  install_element (ISIS_NODE, &area_passwd_md5_snpauth_cmd);
+  install_element (ISIS_NODE, &area_passwd_clear_cmd);
+  install_element (ISIS_NODE, &area_passwd_clear_snpauth_cmd);
+  install_element (ISIS_NODE, &no_area_passwd_cmd);
 }

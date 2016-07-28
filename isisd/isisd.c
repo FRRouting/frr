@@ -1618,280 +1618,62 @@ void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
   lsp_regenerate_schedule(area, IS_LEVEL_1_AND_2, 1);
 }
 
-DEFUN (area_passwd_md5,
-       area_passwd_md5_cmd,
-       "area-password md5 WORD",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Area password\n")
+static int
+isis_area_passwd_set(struct isis_area *area, int level, u_char passwd_type,
+		     const char *passwd, u_char snp_auth)
 {
-  struct isis_area *area;
+  struct isis_passwd *dest;
+  struct isis_passwd modified;
   int len;
 
-  area = vty->index;
+  assert((level == IS_LEVEL_1) || (level == IS_LEVEL_2));
+  dest = (level == IS_LEVEL_1) ? &area->area_passwd : &area->domain_passwd;
+  memset(&modified, 0, sizeof(modified));
 
-  if (!area)
+  if (passwd_type != ISIS_PASSWD_TYPE_UNUSED)
     {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
+      if (!passwd)
+        return -1;
+
+      len = strlen(passwd);
+      if (len > 254)
+        return -1;
+
+      modified.len = len;
+      strncpy((char*)modified.passwd, passwd, 255);
+      modified.type = passwd_type;
+      modified.snp_auth = snp_auth;
     }
 
-  len = strlen (argv[0]);
-  if (len > 254)
+  if (memcmp(&modified, dest, sizeof(modified)))
     {
-      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
+      memcpy(dest, &modified, sizeof(modified));
+      lsp_regenerate_schedule(area, IS_LEVEL_1|IS_LEVEL_2, 1);
     }
 
-  area->area_passwd.len = (u_char) len;
-  area->area_passwd.type = ISIS_PASSWD_TYPE_HMAC_MD5;
-  strncpy ((char *)area->area_passwd.passwd, argv[0], 255);
-
-  if (argc > 1)
-    {
-      SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
-      if (strncmp(argv[1], "v", 1) == 0)
-	SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-      else
-	UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  else
-    {
-      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
-      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
+  return 0;
 }
 
-ALIAS (area_passwd_md5,
-       area_passwd_md5_snpauth_cmd,
-       "area-password md5 WORD authenticate snp (send-only|validate)",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Area password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-
-DEFUN (area_passwd_clear,
-       area_passwd_clear_cmd,
-       "area-password clear WORD",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Area password\n")
+int
+isis_area_passwd_unset (struct isis_area *area, int level)
 {
-  struct isis_area *area;
-  int len;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  len = strlen (argv[0]);
-  if (len > 254)
-    {
-      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-
-  area->area_passwd.len = (u_char) len;
-  area->area_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
-  strncpy ((char *)area->area_passwd.passwd, argv[0], 255);
-
-  if (argc > 1)
-    {
-      SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
-      if (strncmp(argv[1], "v", 1) == 0)
-	SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-      else
-	UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  else
-    {
-      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
-      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
+  return isis_area_passwd_set (area, level, ISIS_PASSWD_TYPE_UNUSED, NULL, 0);
 }
 
-ALIAS (area_passwd_clear,
-       area_passwd_clear_snpauth_cmd,
-       "area-password clear WORD authenticate snp (send-only|validate)",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Area password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-
-DEFUN (no_area_passwd,
-       no_area_passwd_cmd,
-       "no area-password",
-       NO_STR
-       "Configure the authentication password for an area\n")
+int
+isis_area_passwd_cleartext_set (struct isis_area *area, int level,
+                                const char *passwd, u_char snp_auth)
 {
-  struct isis_area *area;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  memset (&area->area_passwd, 0, sizeof (struct isis_passwd));
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
+  return isis_area_passwd_set (area, level, ISIS_PASSWD_TYPE_CLEARTXT,
+                               passwd, snp_auth);
 }
 
-DEFUN (domain_passwd_md5,
-       domain_passwd_md5_cmd,
-       "domain-password md5 WORD",
-       "Set the authentication password for a routing domain\n"
-       "Authentication type\n"
-       "Routing domain password\n")
+int
+isis_area_passwd_hmac_md5_set (struct isis_area *area, int level,
+                               const char *passwd, u_char snp_auth)
 {
-  struct isis_area *area;
-  int len;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  len = strlen (argv[0]);
-  if (len > 254)
-    {
-      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-
-  area->domain_passwd.len = (u_char) len;
-  area->domain_passwd.type = ISIS_PASSWD_TYPE_HMAC_MD5;
-  strncpy ((char *)area->domain_passwd.passwd, argv[0], 255);
-
-  if (argc > 1)
-    {
-      SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
-      if (strncmp(argv[1], "v", 1) == 0)
-	SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-      else
-	UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  else
-    {
-      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
-      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (domain_passwd_md5,
-       domain_passwd_md5_snpauth_cmd,
-       "domain-password md5 WORD authenticate snp (send-only|validate)",
-       "Set the authentication password for a routing domain\n"
-       "Authentication type\n"
-       "Routing domain password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-
-DEFUN (domain_passwd_clear,
-       domain_passwd_clear_cmd,
-       "domain-password clear WORD",
-       "Set the authentication password for a routing domain\n"
-       "Authentication type\n"
-       "Routing domain password\n")
-{
-  struct isis_area *area;
-  int len;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  len = strlen (argv[0]);
-  if (len > 254)
-    {
-      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-
-  area->domain_passwd.len = (u_char) len;
-  area->domain_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
-  strncpy ((char *)area->domain_passwd.passwd, argv[0], 255);
-
-  if (argc > 1)
-    {
-      SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
-      if (strncmp(argv[1], "v", 1) == 0)
-	SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-      else
-	UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  else
-    {
-      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
-      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (domain_passwd_clear,
-       domain_passwd_clear_snpauth_cmd,
-       "domain-password clear WORD authenticate snp (send-only|validate)",
-       "Set the authentication password for a routing domain\n"
-       "Authentication type\n"
-       "Routing domain password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-
-DEFUN (no_domain_passwd,
-       no_domain_passwd_cmd,
-       "no domain-password",
-       NO_STR
-       "Set the authentication password for a routing domain\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  memset (&area->domain_passwd, 0, sizeof (struct isis_passwd));
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
+  return isis_area_passwd_set (area, level, ISIS_PASSWD_TYPE_HMAC_MD5,
+                               passwd, snp_auth);
 }
 
 static void
@@ -2623,18 +2405,6 @@ isis_init ()
 
   install_element (ISIS_NODE, &net_cmd);
   install_element (ISIS_NODE, &no_net_cmd);
-
-  install_element (ISIS_NODE, &area_passwd_md5_cmd);
-  install_element (ISIS_NODE, &area_passwd_md5_snpauth_cmd);
-  install_element (ISIS_NODE, &area_passwd_clear_cmd);
-  install_element (ISIS_NODE, &area_passwd_clear_snpauth_cmd);
-  install_element (ISIS_NODE, &no_area_passwd_cmd);
-
-  install_element (ISIS_NODE, &domain_passwd_md5_cmd);
-  install_element (ISIS_NODE, &domain_passwd_md5_snpauth_cmd);
-  install_element (ISIS_NODE, &domain_passwd_clear_cmd);
-  install_element (ISIS_NODE, &domain_passwd_clear_snpauth_cmd);
-  install_element (ISIS_NODE, &no_domain_passwd_cmd);
 
   install_element (ISIS_NODE, &log_adj_changes_cmd);
   install_element (ISIS_NODE, &no_log_adj_changes_cmd);

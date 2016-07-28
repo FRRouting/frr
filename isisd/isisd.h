@@ -154,7 +154,12 @@ void isis_area_max_lsp_lifetime_set(struct isis_area *area, int level,
 			            uint16_t max_lsp_lifetime);
 void isis_area_lsp_refresh_set(struct isis_area *area, int level,
 			       uint16_t lsp_refresh);
-
+/* IS_LEVEL_1 sets area_passwd, IS_LEVEL_2 domain_passwd */
+int isis_area_passwd_unset (struct isis_area *area, int level);
+int isis_area_passwd_cleartext_set (struct isis_area *area, int level,
+                                    const char *passwd, u_char snp_auth);
+int isis_area_passwd_hmac_md5_set (struct isis_area *area, int level,
+                                   const char *passwd, u_char snp_auth);
 void isis_vty_init (void);
 
 /* Master of threads. */
