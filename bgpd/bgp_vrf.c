@@ -368,6 +368,60 @@ static bool rd_same (const struct prefix_rd *a, const struct prefix_rd *b)
   return !memcmp(&a->val, &b->val, sizeof(a->val));
 }
 
+/* messages sent to ODL to signify that an entry
+ * has been selected, or unselected
+ */
+void
+bgp_vrf_update (struct bgp_vrf *vrf, afi_t afi, struct bgp_node *rn,
+                struct bgp_info *selected, uint8_t announce)
+{
+  if(!vrf || (rn && bgp_node_table (rn)->type != BGP_TABLE_VRF))
+    return;
+  if (announce == true)
+    {
+      if(CHECK_FLAG (selected->flags, BGP_INFO_UPDATE_SENT))
+        return;
+      SET_FLAG (selected->flags, BGP_INFO_UPDATE_SENT);
+      UNSET_FLAG (selected->flags, BGP_INFO_WITHDRAW_SENT);
+    }
+  else
+    {
+      /* if not already sent, do nothing */
+      if(!CHECK_FLAG (selected->flags, BGP_INFO_UPDATE_SENT))
+        return;
+      if(CHECK_FLAG (selected->flags, BGP_INFO_WITHDRAW_SENT))
+        return;
+      SET_FLAG (selected->flags, BGP_INFO_WITHDRAW_SENT);
+      UNSET_FLAG (selected->flags, BGP_INFO_UPDATE_SENT);
+    }
+  if (BGP_DEBUG (bgp_vrf, BGPVRF))
+    {
+      char vrf_rd_str[RD_ADDRSTRLEN], rd_str[RD_ADDRSTRLEN], pfx_str[INET6_BUFSIZ];
+      char nh_str[BUFSIZ] = "<?>";
+      uint32_t label;
+
+      prefix_rd2str(&vrf->outbound_rd, vrf_rd_str, sizeof(vrf_rd_str));
+      prefix_rd2str(&selected->extra->vrf_rd, rd_str, sizeof(rd_str));
+      prefix2str(&rn->p, pfx_str, sizeof(pfx_str));
+      label = decode_label (selected->extra->tag);
+
+      if (selected->attr && selected->attr->extra)
+        {
+          if (afi == AFI_IP)
+            strcpy (nh_str, inet_ntoa (selected->attr->extra->mp_nexthop_global_in));
+          else if (afi == AFI_IP6)
+            inet_ntop (AF_INET6, &selected->attr->extra->mp_nexthop_global, nh_str, BUFSIZ);
+        }
+
+      if (announce)
+        zlog_info ("vrf[%s] %s: prefix updated, best RD %s label %u nexthop %s",
+                   vrf_rd_str, pfx_str, rd_str, label, nh_str);
+      else
+        zlog_info ("vrf[%s] %s: prefix withdrawn nh %s label %u",
+                    vrf_rd_str, pfx_str, nh_str, label);
+    }
+}
+
 /* VRF import processing */
 /* updates selected bgp_info structure to bgp vrf rib table
  * most of the cases, processing consists in adding or removing entries in RIB tables

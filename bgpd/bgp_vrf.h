@@ -101,5 +101,9 @@ bgp_vrf_process_imports (struct bgp *bgp, afi_t afi, safi_t safi,
                          struct bgp_info *old_select,
                          struct bgp_info *new_select);
 
+extern void
+bgp_vrf_update (struct bgp_vrf *vrf, afi_t afi, struct bgp_node *rn,
+                struct bgp_info *selected, uint8_t announce);
+
 #endif /* _QUAGGA_BGP_VRF */
 

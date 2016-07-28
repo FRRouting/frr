@@ -2033,9 +2033,13 @@ bgp_process_vrf_main (struct work_queue *wq, void *data)
   struct bgp *bgp = pq->bgp;
   afi_t afi = pq->afi;
   safi_t safi = pq->safi;
-  struct bgp_info *new_select;
+  struct bgp_info *new_select, *ri;
   struct bgp_info *old_select;
   struct bgp_info_pair old_and_new;
+  struct bgp_vrf *vrf = NULL;
+
+  if(rn)
+    vrf = bgp_vrf_lookup_per_rn(bgp, afi, rn);
 
   /* Best path selection. */
   bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
@@ -2052,6 +2056,13 @@ bgp_process_vrf_main (struct work_queue *wq, void *data)
             {
               UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
               SET_FLAG (old_select->flags, BGP_INFO_MULTIPATH);
+              for(ri = rn->info; ri; ri = ri->next)
+                {
+                  if(ri == old_select)
+                    continue;
+                  if(!bgp_is_mpath_entry(ri, new_select))
+                    bgp_vrf_update(vrf, afi, rn, ri, false);
+                }
             }
           /* no zebra announce */
 	  UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
@@ -2073,18 +2084,53 @@ bgp_process_vrf_main (struct work_queue *wq, void *data)
     {
       if( CHECK_FLAG (old_select->flags, BGP_INFO_SELECTED))
         {
-          if(bgp_is_mpath_entry(old_select, new_select))
+          if(!bgp_is_mpath_entry(old_select, new_select))
+            {
+              bgp_vrf_update(vrf, afi, rn, old_select, false);
+            }
+          else
             {
               UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
               SET_FLAG (old_select->flags, BGP_INFO_MULTIPATH);
             }
         }
+      /* withdraw mp entries which could have been removed
+       * and that a update has previously been sent
+       */
+      for(ri = rn->info; ri; ri = ri->next)
+        {
+          if(ri == old_select || (ri == new_select) )
+            continue;
+          if(!bgp_is_mpath_entry(ri, new_select))
+            {
+              bgp_vrf_update(vrf, afi, rn, ri, false);
+            }
+        }
+      bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
     }
   if (new_select)
     {
+      if(!CHECK_FLAG (new_select->flags, BGP_INFO_SELECTED) ||
+         CHECK_FLAG (new_select->flags, BGP_INFO_MULTIPATH) ||
+         CHECK_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG))
+        {
+          bgp_vrf_update(vrf, afi, rn, new_select, true);
+        }
       bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
       bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
       UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
+      /* append mp entries which could have been added 
+       * and that a update has not been sent
+       */
+      for(ri = rn->info; ri; ri = ri->next)
+        {
+          if( (ri == new_select) || ( ri == old_select))
+            continue;
+          if(bgp_is_mpath_entry(ri, new_select))
+            {
+              bgp_vrf_update(vrf, afi, rn, ri, true);
+            }
+        }
     }
 
   /* Reap old select bgp_info, if it has been removed */
@@ -2321,6 +2367,7 @@ bgp_rib_remove (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
   bgp_vrf_process_imports (peer->bgp, afi, safi, rn, ri, NULL);
   bgp_process (peer->bgp, rn, afi, safi);
 }
+
 
 static void
 bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
