@@ -117,7 +117,7 @@ struct isis_circuit
   u_int16_t hello_multiplier[2];	/* l1HelloMultiplier */
   u_int16_t csnp_interval[2];	/* level-1 csnp-interval in seconds */
   u_int16_t psnp_interval[2];	/* level-1 psnp-interval in seconds */
-  struct metric metrics[2];	/* l1XxxMetric */
+  u_int8_t  metric[2];
   u_int32_t te_metric[2];
   int ip_router;		/* Route IP ? */
   int is_passive;		/* Is Passive ? */

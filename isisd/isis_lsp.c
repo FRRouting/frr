@@ -1481,7 +1481,10 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		{
 		  ipreach =
 		    XMALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
-		  ipreach->metrics = circuit->metrics[level - 1];
+		  ipreach->metrics.metric_default = circuit->metric[level - 1];
+		  ipreach->metrics.metric_expense = METRICS_UNSUPPORTED;
+		  ipreach->metrics.metric_error = METRICS_UNSUPPORTED;
+		  ipreach->metrics.metric_delay = METRICS_UNSUPPORTED;
 		  masklen2ip (ipv4->prefixlen, &ipreach->mask);
 		  ipreach->prefix.s_addr = ((ipreach->mask.s_addr) &
 					    (ipv4->prefix.s_addr));
@@ -1506,7 +1509,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 					((ipv4->prefixlen + 7)/8) - 1);
 
 		  if (area->oldmetric)
-		    te_ipreach->te_metric = htonl (circuit->metrics[level - 1].metric_default);
+		    te_ipreach->te_metric = htonl (circuit->metric[level - 1]);
 		  else
 		    te_ipreach->te_metric = htonl (circuit->te_metric[level - 1]);
 
@@ -1541,7 +1544,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 
 	      if (area->oldmetric)
 		ip6reach->metric =
-			  htonl (circuit->metrics[level - 1].metric_default);
+			  htonl (circuit->metric[level - 1]);
 	      else
 		  ip6reach->metric = htonl (circuit->te_metric[level - 1]);
 
@@ -1580,7 +1583,10 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		  else
 		    memcpy (is_neigh->neigh_id,
 			    circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
-		  is_neigh->metrics = circuit->metrics[level - 1];
+		  is_neigh->metrics.metric_default = circuit->metric[level - 1];
+		  is_neigh->metrics.metric_expense = METRICS_UNSUPPORTED;
+		  is_neigh->metrics.metric_error = METRICS_UNSUPPORTED;
+		  is_neigh->metrics.metric_delay = METRICS_UNSUPPORTED;
                   if (!memcmp (is_neigh->neigh_id, zero_id,
                                ISIS_SYS_ID_LEN + 1))
                     {
@@ -1612,7 +1618,7 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		    memcpy (te_is_neigh->neigh_id,
 			    circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
 		  if (area->oldmetric)
-		    metric = circuit->metrics[level - 1].metric_default;
+		    metric = circuit->metric[level - 1];
 		  else
 		    metric = circuit->te_metric[level - 1];
 		  SET_TE_METRIC(te_is_neigh, metric);
@@ -1651,7 +1657,10 @@ lsp_build (struct isis_lsp *lsp, struct isis_area *area)
 		    }
 		  is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 		  memcpy (is_neigh->neigh_id, nei->sysid, ISIS_SYS_ID_LEN);
-		  is_neigh->metrics = circuit->metrics[level - 1];
+		  is_neigh->metrics.metric_default = circuit->metric[level - 1];
+		  is_neigh->metrics.metric_expense = METRICS_UNSUPPORTED;
+		  is_neigh->metrics.metric_error = METRICS_UNSUPPORTED;
+		  is_neigh->metrics.metric_delay = METRICS_UNSUPPORTED;
 		  listnode_add (tlv_data.is_neighs, is_neigh);
 		  lsp_debug("ISIS (%s): Adding old-style is reach for %s", area->area_tag,
                             sysid_print(is_neigh->neigh_id));
