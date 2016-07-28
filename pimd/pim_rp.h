@@ -26,6 +26,7 @@ void pim_rp_check_rp (struct in_addr old, struct in_addr new);
 int pim_rp_i_am_rp (struct in_addr group);
 int pim_rp_set_upstream_addr (struct in_addr *up, struct in_addr source);
 struct pim_rpf *pim_rp_g (struct in_addr group);
+void pim_rp_forward_packet (struct ip *ip_hdr);
 
 #define I_am_RP(G)  pim_rp_i_am_rp ((G))
 #define RP(G)       pim_rp_g ((G))

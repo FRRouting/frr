@@ -45,7 +45,8 @@
 /* GLOBAL VARS */
 extern struct zebra_privs_t pimd_privs;
 
-int pim_socket_raw(int protocol)
+int
+pim_socket_raw (int protocol)
 {
   int fd;
 
@@ -68,11 +69,31 @@ int pim_socket_raw(int protocol)
   return fd;
 }
 
+int
+pim_socket_ip_hdr (int fd)
+{
+  const int on = 1;
+  int ret;
+
+  if (pimd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs, %s",
+	      __PRETTY_FUNCTION__, safe_strerror (errno));
+
+  ret = setsockopt (fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on));
+
+  if (pimd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs, %s",
+	      __PRETTY_FUNCTION__, safe_strerror (errno));
+
+  return ret;
+}
+
 /*
  * Given a socket and a interface,
  * Bind that socket to that interface
  */
-int pim_socket_bind (int fd, struct interface *ifp)
+int
+pim_socket_bind (int fd, struct interface *ifp)
 {
   int ret;
 

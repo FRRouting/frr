@@ -38,6 +38,7 @@
 #define PIM_SOCK_ERR_BIND    (-11) /* Can't bind to interface */
 
 int pim_socket_bind (int fd, struct interface *ifp);
+int pim_socket_ip_hdr (int fd);
 int pim_socket_raw(int protocol);
 int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char loop);
 int pim_socket_join(int fd, struct in_addr group,
