@@ -68,6 +68,28 @@ int pim_socket_raw(int protocol)
   return fd;
 }
 
+/*
+ * Given a socket and a interface,
+ * Bind that socket to that interface
+ */
+int pim_socket_bind (int fd, struct interface *ifp)
+{
+  int ret;
+
+  if (pimd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs, %s",
+	      __PRETTY_FUNCTION__, safe_strerror (errno));
+
+  ret = setsockopt (fd, SOL_SOCKET,
+		    SO_BINDTODEVICE, ifp->name, strlen (ifp->name));
+
+  if (pimd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs, %s",
+	      __PRETTY_FUNCTION__, safe_strerror (errno));
+
+  return ret;
+}
+
 int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char loop)
 {
   int fd;
@@ -87,17 +109,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, u_char lo
 
       ifp = if_lookup_by_index_vrf (ifindex, VRF_DEFAULT);
 
-      if (pimd_privs.change (ZPRIVS_RAISE))
-	zlog_err ("%s: could not raise privs, %s",
-		  __PRETTY_FUNCTION__, safe_strerror (errno));
-
-      ret = setsockopt (fd, SOL_SOCKET,
-			SO_BINDTODEVICE, ifp->name, strlen (ifp->name));
-
-      if (pimd_privs.change (ZPRIVS_LOWER))
-	zlog_err ("%s: could not lower privs, %s",
-		  __PRETTY_FUNCTION__, safe_strerror (errno));
-
+      ret = pim_socket_bind (fd, ifp);
       if (ret)
 	{
 	  zlog_warn("Could not set fd: %d for interface: %s to device",
