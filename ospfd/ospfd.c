@@ -1939,5 +1939,4 @@ ospf_master_init ()
   om = &ospf_master;
   om->ospf = list_new ();
   om->master = thread_master_create ();
-  om->start_time = quagga_time (NULL);
 }

@@ -90,12 +90,6 @@ struct route_external
 
 struct ospf_route
 {
-  /* Create time. */
-  time_t ctime;
-
-  /* Modified time. */
-  time_t mtime;
-
   /* Destination Type. */
   u_char type;
 
