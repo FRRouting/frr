@@ -20,10 +20,37 @@ dist_examples_DATA = vtysh.conf.sample
 
 EXTRA_DIST = extract.pl
 
-vtysh_cmd_FILES = $(top_srcdir)/bgpd/*.c $(top_srcdir)/isisd/*.c \
-		  $(top_srcdir)/ospfd/*.c $(top_srcdir)/ospf6d/*.c \
-		  $(top_srcdir)/ripd/*.c $(top_srcdir)/ripngd/*.c \
-		  $(top_srcdir)/pimd/pim_cmd.c \
+vtysh_scan =
+
+if PIMD
+vtysh_scan += $(top_srcdir)/pimd/pim_cmd.c
+endif
+
+if BGPD
+vtysh_scan += $(top_srcdir)/bgpd/*.c
+endif
+
+if ISISD
+vtysh_scan += $(top_srcdir)/isisd/*.c
+endif
+
+if OSPFD
+vtysh_scan += $(top_srcdir)/ospfd/*.c
+endif
+
+if OSPF6D
+vtysh_scan += $(top_srcdir)/ospf6d/*.c
+endif
+
+if RIPD
+vtysh_scan += $(top_srcdir)/ripd/*.c
+endif
+
+if RIPNGD
+vtysh_scan += $(top_srcdir)/ripngd/*.c
+endif
+
+vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
 		  $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c \
 		  $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c \
