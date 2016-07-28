@@ -179,4 +179,8 @@ int  isis_circuit_circ_type_set (struct isis_circuit *circuit, int circ_type);
 
 int  isis_circuit_metric_set (struct isis_circuit *circuit, int level, int metric);
 
+int  isis_circuit_passwd_unset (struct isis_circuit *circuit);
+int  isis_circuit_passwd_cleartext_set (struct isis_circuit *circuit, const char *passwd);
+int  isis_circuit_passwd_hmac_md5_set (struct isis_circuit *circuit, const char *passwd);
+
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

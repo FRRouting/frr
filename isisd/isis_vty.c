@@ -293,6 +293,59 @@ DEFUN (no_isis_network,
   return CMD_SUCCESS;
 }
 
+DEFUN (isis_passwd,
+       isis_passwd_cmd,
+       "isis password (md5|clear) WORD",
+       "IS-IS commands\n"
+       "Configure the authentication password for a circuit\n"
+       "HMAC-MD5 authentication\n"
+       "Cleartext password\n"
+       "Circuit password\n")
+{
+  struct isis_circuit *circuit = isis_circuit_lookup (vty);
+  int rv;
+  if (!circuit)
+    return CMD_ERR_NO_MATCH;
+
+  if (argv[0][0] == 'm')
+    rv = isis_circuit_passwd_hmac_md5_set(circuit, argv[1]);
+  else
+    rv = isis_circuit_passwd_cleartext_set(circuit, argv[1]);
+  if (rv)
+    {
+      vty_out (vty, "Too long circuit password (>254)%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_isis_passwd,
+       no_isis_passwd_cmd,
+       "no isis password",
+       NO_STR
+       "IS-IS commands\n"
+       "Configure the authentication password for a circuit\n")
+{
+  struct isis_circuit *circuit = isis_circuit_lookup (vty);
+  if (!circuit)
+    return CMD_ERR_NO_MATCH;
+
+  isis_circuit_passwd_unset(circuit);
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_isis_passwd,
+       no_isis_passwd_arg_cmd,
+       "no isis password (md5|clear) WORD",
+       NO_STR
+       "IS-IS commands\n"
+       "Configure the authentication password for a circuit\n"
+       "HMAC-MD5 authentication\n"
+       "Cleartext password\n"
+       "Circuit password\n")
+
 DEFUN (isis_priority,
        isis_priority_cmd,
        "isis priority <0-127>",
@@ -821,6 +874,10 @@ isis_vty_init (void)
 
   install_element (INTERFACE_NODE, &isis_network_cmd);
   install_element (INTERFACE_NODE, &no_isis_network_cmd);
+
+  install_element (INTERFACE_NODE, &isis_passwd_cmd);
+  install_element (INTERFACE_NODE, &no_isis_passwd_cmd);
+  install_element (INTERFACE_NODE, &no_isis_passwd_arg_cmd);
 
   install_element (INTERFACE_NODE, &isis_priority_cmd);
   install_element (INTERFACE_NODE, &no_isis_priority_cmd);

@@ -1334,72 +1334,41 @@ isis_circuit_metric_set (struct isis_circuit *circuit, int level, int metric)
   return 0;
 }
 
-DEFUN (isis_passwd_md5,
-       isis_passwd_md5_cmd,
-       "isis password md5 WORD",
-       "IS-IS commands\n"
-       "Configure the authentication password for a circuit\n"
-       "Authentication type\n"
-       "Circuit password\n")
+int
+isis_circuit_passwd_unset (struct isis_circuit *circuit)
 {
-  int len;
-  struct isis_circuit *circuit = isis_circuit_lookup (vty);
-  if (!circuit)
-    return CMD_ERR_NO_MATCH;
-
-  len = strlen (argv[0]);
-  if (len > 254)
-    {
-      vty_out (vty, "Too long circuit password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-  circuit->passwd.len = len;
-  circuit->passwd.type = ISIS_PASSWD_TYPE_HMAC_MD5;
-  strncpy ((char *)circuit->passwd.passwd, argv[0], 255);
-
-  return CMD_SUCCESS;
+  memset(&circuit->passwd, 0, sizeof(circuit->passwd));
+  return 0;
 }
 
-DEFUN (isis_passwd_clear,
-       isis_passwd_clear_cmd,
-       "isis password clear WORD",
-       "IS-IS commands\n"
-       "Configure the authentication password for a circuit\n"
-       "Authentication type\n"
-       "Circuit password\n")
+static int
+isis_circuit_passwd_set (struct isis_circuit *circuit, u_char passwd_type, const char *passwd)
 {
   int len;
-  struct isis_circuit *circuit = isis_circuit_lookup (vty);
-  if (!circuit)
-    return CMD_ERR_NO_MATCH;
 
-  len = strlen (argv[0]);
+  if (!passwd)
+    return -1;
+
+  len = strlen(passwd);
   if (len > 254)
-    {
-      vty_out (vty, "Too long circuit password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-  circuit->passwd.len = len;
-  circuit->passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
-  strncpy ((char *)circuit->passwd.passwd, argv[0], 255);
+    return -1;
 
-  return CMD_SUCCESS;
+  circuit->passwd.len = len;
+  strncpy((char *)circuit->passwd.passwd, passwd, 255);
+  circuit->passwd.type = passwd_type;
+  return 0;
 }
 
-DEFUN (no_isis_passwd,
-       no_isis_passwd_cmd,
-       "no isis password",
-       NO_STR
-       "IS-IS commands\n"
-       "Configure the authentication password for a circuit\n")
+int
+isis_circuit_passwd_cleartext_set (struct isis_circuit *circuit, const char *passwd)
 {
-  struct isis_circuit *circuit = isis_circuit_lookup (vty);
-  if (!circuit)
-    return CMD_ERR_NO_MATCH;
+  return isis_circuit_passwd_set (circuit, ISIS_PASSWD_TYPE_CLEARTXT, passwd);
+}
 
-  memset (&circuit->passwd, 0, sizeof (struct isis_passwd));
-
-  return CMD_SUCCESS;
+int
+isis_circuit_passwd_hmac_md5_set (struct isis_circuit *circuit, const char *passwd)
+{
+  return isis_circuit_passwd_set (circuit, ISIS_PASSWD_TYPE_HMAC_MD5, passwd);
 }
 
 DEFUN (isis_hello_interval,
@@ -2144,10 +2113,6 @@ isis_circuit_init ()
   install_default (INTERFACE_NODE);
   install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
-
-  install_element (INTERFACE_NODE, &isis_passwd_clear_cmd);
-  install_element (INTERFACE_NODE, &isis_passwd_md5_cmd);
-  install_element (INTERFACE_NODE, &no_isis_passwd_cmd);
 
   install_element (INTERFACE_NODE, &isis_hello_interval_cmd);
   install_element (INTERFACE_NODE, &no_isis_hello_interval_cmd);
