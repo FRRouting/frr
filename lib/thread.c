@@ -60,12 +60,8 @@ extern int agentx_enabled;
 
 /* Recent absolute time of day */
 struct timeval recent_time;
-static struct timeval last_recent_time;
 /* Relative time, since startup */
 static struct timeval relative_time;
-static struct timeval relative_time_base;
-/* init flag */
-static unsigned short timers_inited;
 
 static struct hash *cpu_record = NULL;
 
@@ -118,27 +114,6 @@ timeval_elapsed (struct timeval a, struct timeval b)
 	  + (a.tv_usec - b.tv_usec));
 }
 
-#if !defined(HAVE_CLOCK_MONOTONIC) && !defined(__APPLE__)
-static void
-quagga_gettimeofday_relative_adjust (void)
-{
-  struct timeval diff;
-  if (timeval_cmp (recent_time, last_recent_time) < 0)
-    {
-      relative_time.tv_sec++;
-      relative_time.tv_usec = 0;
-    }
-  else
-    {
-      diff = timeval_subtract (recent_time, last_recent_time);
-      relative_time.tv_sec += diff.tv_sec;
-      relative_time.tv_usec += diff.tv_usec;
-      relative_time = timeval_adjust (relative_time);
-    }
-  last_recent_time = recent_time;
-}
-#endif /* !HAVE_CLOCK_MONOTONIC && !__APPLE__ */
-
 /* gettimeofday wrapper, to keep recent_time updated */
 static int
 quagga_gettimeofday (struct timeval *tv)
@@ -149,12 +124,6 @@ quagga_gettimeofday (struct timeval *tv)
   
   if (!(ret = gettimeofday (&recent_time, NULL)))
     {
-      /* init... */
-      if (!timers_inited)
-        {
-          relative_time_base = last_recent_time = recent_time;
-          timers_inited = 1;
-        }
       /* avoid copy if user passed recent_time pointer.. */
       if (tv != &recent_time)
         *tv = recent_time;
@@ -194,26 +163,13 @@ quagga_get_relative (struct timeval *tv)
     return 0;
   }
 #else /* !HAVE_CLOCK_MONOTONIC && !__APPLE__ */
-  if (!(ret = quagga_gettimeofday (&recent_time)))
-    quagga_gettimeofday_relative_adjust();
+#error no monotonic clock on this system
 #endif /* HAVE_CLOCK_MONOTONIC */
 
   if (tv)
     *tv = relative_time;
 
   return ret;
-}
-
-/* Get absolute time stamp, but in terms of the internal timer
- * Could be wrong, but at least won't go back.
- */
-static void
-quagga_real_stabilised (struct timeval *tv)
-{
-  *tv = relative_time_base;
-  tv->tv_sec += relative_time.tv_sec;
-  tv->tv_usec += relative_time.tv_usec;
-  *tv = timeval_adjust (*tv);
 }
 
 /* Exported Quagga timestamp function.
@@ -224,13 +180,8 @@ quagga_gettime (enum quagga_clkid clkid, struct timeval *tv)
 {
   switch (clkid)
     {
-      case QUAGGA_CLK_REALTIME:
-        return quagga_gettimeofday (tv);
       case QUAGGA_CLK_MONOTONIC:
         return quagga_get_relative (tv);
-      case QUAGGA_CLK_REALTIME_STABILISED:
-        quagga_real_stabilised (tv);
-        return 0;
       default:
         errno = EINVAL;
         return -1;
@@ -242,19 +193,6 @@ quagga_monotime (void)
 {
   struct timeval tv;
   quagga_get_relative(&tv);
-  return tv.tv_sec;
-}
-
-/* time_t value in terms of stabilised absolute time. 
- * replacement for POSIX time()
- */
-time_t
-quagga_time (time_t *t)
-{
-  struct timeval tv;
-  quagga_real_stabilised (&tv);
-  if (t)
-    *t = tv.tv_sec;
   return tv.tv_sec;
 }
 
