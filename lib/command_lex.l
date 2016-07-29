@@ -22,14 +22,14 @@ RANGE           \({NUMBER}\-{NUMBER}\)
 
 %%
 [ /t]           /* ignore whitespace */;
-{WORD}          {yylval.string = strdup(yytext); return WORD;}
-{IPV4}          {yylval.string = strdup(yytext); return IPV4;}
-{IPV4_PREFIX}   {yylval.string = strdup(yytext); return IPV4_PREFIX;}
-{IPV6}          {yylval.string = strdup(yytext); return IPV6;}
-{IPV6_PREFIX}   {yylval.string = strdup(yytext); return IPV6_PREFIX;}
-{VARIABLE}      {yylval.string = strdup(yytext); return VARIABLE;}
+{WORD}          {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return WORD;}
+{IPV4}          {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV4;}
+{IPV4_PREFIX}   {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV4_PREFIX;}
+{IPV6}          {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV6;}
+{IPV6_PREFIX}   {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV6_PREFIX;}
+{VARIABLE}      {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return VARIABLE;}
 {NUMBER}        {yylval.integer = atoi(yytext); return NUMBER;}
-{RANGE}         {yylval.string = strdup(yytext); return RANGE;}
+{RANGE}         {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return RANGE;}
 .               {return yytext[0];}
 %%
 

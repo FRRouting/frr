@@ -48,10 +48,13 @@ enum match_type
 /**
  * Attempt to find an exact command match for a line of user input.
  *
+ * @param DFA to match against
+ * @param input string
+ * @param pointer to argv pointer
  * @return cmd_element found, or NULL if there is no match.
  */
 struct cmd_element *
-match_command (struct graph_node *, const char *, enum filter_type);
+match_command (struct graph_node *, const char *, struct list **);
 
 /**
  * Compiles next-hops for a given line of user input.
@@ -76,15 +79,5 @@ match_command (struct graph_node *, const char *, enum filter_type);
  */
 struct list *
 match_command_complete (struct graph_node *, const char *, enum filter_type);
-
-/**
- * Builds an argument list given a cmd_element and a matching input line.
- *
- * @param[in] input line
- * @param[in] cmd_element struct
- * @return pointer to argument linked list
- */
-struct list *
-match_build_argv (const char *, struct cmd_element *);
 
 #endif

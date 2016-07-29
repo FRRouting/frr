@@ -35,6 +35,9 @@ struct graph_node
   struct cmd_element *element;
   /* used for passing arguments to command functions */
   char *arg;
+
+  /* refcount for node parents */
+  int refs;
 };
 
 /*
@@ -47,7 +50,7 @@ struct graph_node
  * @param[in] child node
  * @return pointer to child if it is added, pointer to existing child otherwise
  */
-extern struct graph_node *
+struct graph_node *
 add_node(struct graph_node *, struct graph_node *);
 
 /*
@@ -61,7 +64,7 @@ add_node(struct graph_node *, struct graph_node *);
  * @param[in] second node to compare
  * @return 1 if equal, zero otherwise.
  */
-extern int
+int
 cmp_node(struct graph_node *, struct graph_node *);
 
 /*
@@ -71,8 +74,35 @@ cmp_node(struct graph_node *, struct graph_node *);
  * @param[in] node type
  * @return pointer to the newly allocated node
  */
-extern struct graph_node *
+struct graph_node *
 new_node(enum graph_node_type);
+
+/**
+ * Copies a node.
+ * The children vector is copied, but the pointers the vector
+ * holds point to the same data as the original vector.
+ * The element, if it exists, is copied.
+ *
+ * @param[in] pointer to node to copy
+ * @return pointer to copied node
+ */
+struct graph_node *
+copy_node(struct graph_node *);
+
+/**
+ * Frees the data associated with a graph_node.
+ * @param[out] pointer to graph_node to free
+ */
+void
+free_node(struct graph_node *);
+
+/**
+ * Recursively calls free_node on a graph node
+ * and all its children.
+ * @param[out] graph to free
+ */
+void
+free_graph(struct graph_node *);
 
 /**
  * Walks a command DFA, printing structure to stdout.
@@ -81,7 +111,7 @@ new_node(enum graph_node_type);
  * @param[in] start node of graph to walk
  * @param[in] graph depth for recursion, caller passes 0
  */
-extern void
+void
 walk_graph(struct graph_node *, int);
 
 /**
@@ -90,13 +120,9 @@ walk_graph(struct graph_node *, int);
  * @param[out] the buffer to write the description into
  * @return pointer to description string
  */
-extern char *
+char *
 describe_node(struct graph_node *, char *, unsigned int);
 
-/**
- * Frees the data associated with a graph_node.
- * @param[out] pointer to graph_node to free
- */
 void
-free_node(struct graph_node *);
+dump_node (struct graph_node *);
 #endif

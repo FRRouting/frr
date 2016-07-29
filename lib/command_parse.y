@@ -91,6 +91,7 @@ start: sentence_root
     yyerror("Duplicate command.");
     YYABORT;
   }
+  fprintf(stderr, "Added END_GN with active children: %d\n", vector_active(end->children));
 }
 
 sentence_root: WORD
@@ -323,7 +324,7 @@ parse_command_format(struct graph_node *start, struct cmd_element *cmd)
   optnode_start = optnode_end = NULL;
 
   // trace parser
-  yydebug = 1;
+  yydebug = 0;
   // command string
   command = cmd;
   // make flex read from a string

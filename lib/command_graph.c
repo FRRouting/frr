@@ -22,6 +22,7 @@ add_node(struct graph_node *parent, struct graph_node *child)
       return p_child;
   }
   vector_set(parent->children, child);
+  child->refs++;
   return child;
 }
 
@@ -58,6 +59,7 @@ cmp_node(struct graph_node *first, struct graph_node *second)
      */
     case START_GN:
     case END_GN:
+    case NUL_GN:
     default:
       break;
   }
@@ -73,27 +75,59 @@ new_node(enum graph_node_type type)
 
   node->type = type;
   node->children = vector_init(VECTOR_MIN_SIZE);
-  node->is_start = 0;
   node->end      = NULL;
   node->text     = NULL;
+  node->element  = NULL;
+  node->arg      = NULL;
+  node->is_start = 0;
   node->value    = 0;
   node->min      = 0;
   node->max      = 0;
-  node->element  = NULL;
+  node->refs     = 0;
 
   return node;
+}
+
+struct graph_node *
+copy_node (struct graph_node *node)
+{
+  struct graph_node *new = new_node(node->type);
+  new->children = vector_copy (node->children);
+  new->is_start = node->is_start;
+  new->end      = node->end;
+  new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
+  new->value    = node->value;
+  new->min      = node->min;
+  new->max      = node->max;
+  new->element  = node->element ? copy_cmd_element(node->element) : NULL;
+  new->arg      = node->arg ? XSTRDUP(MTYPE_CMD_TOKENS, node->arg) : NULL;
+  new->refs     = 0;
+  return new;
 }
 
 void
 free_node (struct graph_node *node)
 {
   if (!node) return;
-  free_node (node->end);
   vector_free (node->children);
+  free_cmd_element (node->element);
   free (node->text);
   free (node->arg);
-  free (node->element);
   free (node);
+}
+
+void
+free_graph (struct graph_node *start)
+{
+  if (start && start->children && vector_active(start->children) > 0) {
+    for (unsigned int i = 0; i < vector_active(start->children); i++) {
+      free_graph (vector_slot(start->children, i));
+      vector_unset(start->children, i);
+    }
+  }
+
+  if (--(start->refs) == 0)
+    free_node (start);
 }
 
 char *
@@ -166,3 +200,18 @@ walk_graph(struct graph_node *start, int level)
     fprintf(stderr, "\n");
 }
 
+void
+dump_node (struct graph_node *node)
+{
+  char buf[50];
+  describe_node(node, buf, 50);
+  fprintf(stderr, "%s[%d]\n", buf, node->type);
+  fprintf(stderr, "\t->text: %s\n", node->text);
+  fprintf(stderr, "\t->value: %ld\n", node->value);
+  fprintf(stderr, "\t->is_start: %d\n", node->is_start);
+  fprintf(stderr, "\t->element: %p\n", node->element);
+  fprintf(stderr, "\t->min: %ld\n->max: %ld\n", node->min, node->max);
+  fprintf(stderr, "\t->arg: %s\n", node->arg);
+  fprintf(stderr, "\t->refs: %d\n", node->refs);
+  fprintf(stderr, "\tnum children: %d\n", vector_active(node->children));
+}

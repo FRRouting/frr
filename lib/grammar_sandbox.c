@@ -18,7 +18,6 @@ DEFUN (grammar_test,
   struct cmd_element *cmd = malloc(sizeof(struct cmd_element));
   cmd->string = command;
   parse_command_format(nodegraph, cmd);
-  walk_graph(nodegraph, 0);
   return CMD_SUCCESS;
 }
 
@@ -28,6 +27,10 @@ DEFUN (grammar_test_show,
        GRAMMAR_STR
        "print current accumulated DFA\n")
 {
+  if (!nodegraph)
+    fprintf(stderr, "!nodegraph\n");
+  fprintf(stderr, "trying to print nodegraph->type\n");
+  fprintf(stderr, "%d\n", nodegraph->type);
   walk_graph(nodegraph, 0);
   return CMD_SUCCESS;
 }
@@ -59,7 +62,7 @@ DEFUN (grammar_test_complete,
     }
     free(desc);
   }
-  list_free(result);
+  list_delete(result);
 
   return CMD_SUCCESS;
 }
@@ -71,24 +74,22 @@ DEFUN (grammar_test_match,
        "attempt to match input on DFA\n"
        "command to match")
 {
-  const char* command = argv_concat(argv, argc, 0);
-  struct cmd_element *element = match_command (nodegraph, command, FILTER_STRICT);
+  struct list *argvv = NULL;
+  const char *command = argv_concat(argv, argc, 0);
+  struct cmd_element *element = match_command (nodegraph, command, &argvv);
 
-  if (element)
+  if (element) {
     fprintf(stderr, "Matched: %s\n", element->string);
-  else {
-    fprintf(stderr, "Returned NULL\n");
-    return CMD_SUCCESS;
-  }
-
-  struct list *argvv = match_build_argv (command, element);
-  if (!argvv) fprintf(stderr, "Failed to build argv.\n");
-  else {
     struct listnode *ln;
     struct graph_node *gn;
     for (ALL_LIST_ELEMENTS_RO(argvv,ln,gn))
       fprintf(stderr, "%s -- %s\n", gn->text, gn->arg);
   }
+  else {
+    fprintf(stderr, "Returned NULL\n");
+    return CMD_SUCCESS;
+  }
+
   return CMD_SUCCESS;
 }
 

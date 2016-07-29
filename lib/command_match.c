@@ -8,7 +8,7 @@ static int
 add_nexthops(struct list *, struct graph_node *);
 
 static struct list *
-match_build_argv_r (struct graph_node *, vector, unsigned int);
+match_command_r (struct graph_node *, vector, unsigned int);
 
 static int
 score_precedence (struct graph_node *);
@@ -43,27 +43,198 @@ match_token (struct graph_node *, char *, enum filter_type);
 
 /* matching functions */
 
-struct cmd_element *
-match_command (struct graph_node *start, const char *line, enum filter_type filter)
-{
-  // get all possible completions
-  struct list *completions = match_command_complete (start, line, filter);
+static void
+free_nodelist (void *node) {
+  free_node ((struct graph_node *) node);
+}
 
-  // one of them should be END_GN if this command matches
-  struct graph_node *gn;
-  struct listnode *node;
-  for (ALL_LIST_ELEMENTS_RO(completions,node,gn))
+struct cmd_element *
+match_command (struct graph_node *start, const char *line, struct list **argv)
+{
+  // parse command
+  vector vline = cmd_make_strvec (line);
+
+  for (unsigned int i = 0; i < vector_active(start->children); i++)
   {
-    if (gn->type == END_GN)
-      break;
-    gn = NULL;
+    // call recursive builder on each starting child
+    *argv = match_command_r(vector_slot(start->children, i), vline, 0);
+    // if any of them succeed, return their argv
+    // since all command DFA's must begin with a word, there can only be
+    // one valid return value
+    if (*argv) break;
   }
-  return gn ? gn->element : NULL;
+
+  if (*argv) {
+    // copy the nodes we need
+    struct listnode *ln;
+    struct graph_node *gn;
+    char buf[50];
+    for (ALL_LIST_ELEMENTS_RO(*argv,ln,gn)) {
+      describe_node(gn, buf, 50);
+      fprintf(stderr, "%s[%d]\n", buf, gn->type);
+      if (gn->type == END_GN)
+        return gn->element;
+    }
+    assert(0);
+  }
+
+  return NULL;
+}
+
+/**
+ * Matches a given input line against a DFA.
+ *
+ * Builds an argument list given a DFA and a matching input line. This function
+ * should be passed the start node of the DFA, a matching input line, and the
+ * index of the first token in the input line.
+ *
+ * First the function determines if the node it is passed matches the first
+ * token of input. If it does not, it returns NULL. If it does match, then it
+ * saves the input token as the head of an argument list.
+ *
+ * The next step is to see if there is further input in the input line. If
+ * there is not, the current node's children are searched to see if any of them
+ * are leaves (type END_GN). If this is the case, then the bottom of the
+ * recursion stack has been reached, and the argument list (with one node) is
+ * returned. If it is not the case, NULL is returned, indicating that there is
+ * no match for the input along this path.
+ *
+ * If there is further input, then the function recurses on each of the current
+ * node's children, passing them the input line minus the token that was just
+ * matched. For each child, the return value of the recursive call is
+ * inspected. If it is null, then there is no match for the input along the
+ * subgraph headed by that child. If it is not null, then there is at least one
+ * input match in that subgraph (more on this in a moment).
+ *
+ * If a recursive call on a child returns a non-null value, then it has matched
+ * the input given it on the subgraph that starts with that child. However, due
+ * to the flexibility of the grammar, it is sometimes the case that two or more
+ * child graphs match the same input (two or more of the recursive calls have
+ * non-NULL return values). This is not a valid state, since only one true
+ * match is possible. In order to resolve this conflict, the function keeps a
+ * reference to the child node that most specifically matches the input. This
+ * is done by assigning each node type a precedence. If a child is found to
+ * match the remaining input, then the precedence values of the current
+ * best-matching child and this new match are compared. The node with higher
+ * precedence is kept, and the other match is discarded. Due to the recursive
+ * nature of this function, it is only necessary to compare the precedence of
+ * immediate children, since all subsequent children will already have been
+ * disambiguated in this way.
+ *
+ * In the event that two children are found to match with the same precedence,
+ * then the input is ambiguous for the passed cmd_element and NULL is returned.
+ *
+ * The ultimate return value is an ordered linked list of nodes that comprise
+ * the best match for the command, each with their `arg` fields pointing to the
+ * matching token string.
+ *
+ * @param[out] start the start node.
+ * @param[in] vline the vectorized input line.
+ * @param[in] n the index of the first input token. Should be 0 for external
+ * callers.
+ */
+static struct list *
+match_command_r (struct graph_node *start, vector vline, unsigned int n)
+{
+  // if we don't match this node, die
+  if (match_token(start, vector_slot(vline, n), FILTER_STRICT) != exact_match)
+    return NULL;
+
+  // arg list for this subgraph
+  struct list *argv;
+
+  // pointers for iterating linklist
+  struct graph_node *gn;
+  struct listnode   *ln;
+
+  // get all possible nexthops
+  struct list *next = list_new();
+  add_nexthops(next, start);
+
+  // if we're at the end of input, need END_GN or no match
+  if (n+1 == vector_active (vline)) {
+    for (ALL_LIST_ELEMENTS_RO(next,ln,gn)) {
+      if (gn->type == END_GN) {
+        // delete nexthops, we don't need them
+        list_delete (next);
+        // dupe current node, set arg field, and return
+        struct graph_node *curr = copy_node(start);
+        curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
+        fprintf(stderr, ">> Matched END_GN on node %s for token %s\n", curr->text, curr->arg);
+        // initialize a new argument list
+        argv = list_new();
+        argv->del = &free_nodelist;
+        listnode_add(argv, curr);
+        listnode_add(argv, copy_node(gn));
+        return argv;
+      }
+    }
+    // no END_GN found, free resources and return null
+    list_delete (next);
+    return NULL;
+  }
+
+  // otherwise recurse on all nexthops
+  struct list *bestmatch = NULL;
+  for (ALL_LIST_ELEMENTS_RO(next,ln,gn))
+    {
+      if (gn->type == END_GN) // skip END_GN since we aren't at end of input
+        continue;
+
+      // get the result of the next node
+      for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
+      fprintf(stderr, "Recursing on node %s for token %s\n", gn->text, (char*) vector_slot(vline, n+1));
+      struct list *result = match_command_r (gn, vline, n+1);
+
+      // compare to our current best match, and save if it's better
+      if (result) {
+        if (bestmatch) {
+          int currprec = score_precedence (listgetdata(listhead(bestmatch)));
+          int rsltprec = score_precedence (gn);
+          if (currprec < rsltprec)
+            list_delete (result);
+          if (currprec > rsltprec) {
+            for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
+            fprintf(stderr, ">> Overwriting bestmatch with: %s\n", gn->text);
+            list_delete (bestmatch);
+            bestmatch = result;
+          }
+          if (currprec == rsltprec) {
+            fprintf(stderr, ">> Ambiguous match. Abort.\n");
+            list_delete (bestmatch);
+            list_delete (result);
+            list_delete (next);
+            return NULL;
+          }
+        }
+        else {
+          bestmatch = result;
+          for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
+          fprintf(stderr, ">> Setting bestmatch with: %s\n", gn->text);
+        }
+      }
+    }
+
+  if (bestmatch) {
+    argv = list_new();
+    listnode_add(argv, start);
+    list_add_list(argv, bestmatch);
+    list_free (bestmatch);
+    list_delete (next);
+    start->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
+    if (start->type == VARIABLE_GN)
+      fprintf(stderr, "Setting variable %s->arg with text %s\n", start->text, start->arg);
+    return argv;
+  }
+  else
+    return NULL;
 }
 
 struct list *
 match_command_complete (struct graph_node *start, const char *line, enum filter_type filter)
 {
+  enum match_type minmatch = filter + 1;
+
   // vectorize command line
   vector vline = cmd_make_strvec (line);
 
@@ -94,7 +265,7 @@ match_command_complete (struct graph_node *start, const char *line, enum filter_
 
     for (ALL_LIST_ELEMENTS_RO(current,node,gn))
     {
-      if (match_token(gn, token, filter) == exact_match) {
+      if (match_token(gn, token, filter) >= minmatch) {
         listnode_add(matched, gn);
         add_nexthops(next, gn);
       }
@@ -148,171 +319,6 @@ add_nexthops(struct list *l, struct graph_node *node)
   return added;
 }
 
-struct list *
-match_build_argv (const char *line, struct cmd_element *element)
-{
-  struct list *argv = NULL;
-
-  // parse command
-  struct graph_node *start = new_node(NUL_GN);
-  parse_command_format(start, element);
-
-  vector vline = cmd_make_strvec (line);
-
-  for (unsigned int i = 0; i < vector_active(start->children); i++)
-  {
-    // call recursive builder on each starting child
-    argv = match_build_argv_r (vector_slot(start->children, i), vline, 0);
-    // if any of them succeed, return their argv
-    // since all command DFA's must begin with a word and these are deduplicated,
-    // no need to check precedence
-    if (argv) break;
-  }
-
-  return argv;
-}
-
-/**
- * Builds an argument list given a DFA and a matching input line.
- * This function should be passed the start node of the DFA, a matching
- * input line, and the index of the first input token in the input line.
- *
- * First the function determines if the node it is passed matches the
- * first token of input. If it does not, it returns NULL. If it does
- * match, then it saves the input token as the head of an argument list.
- *
- * The next step is to see if there is further input in the input line.
- * If there is not, the current node's children are searched to see if
- * any of them are leaves (type END_GN). If this is the case, then the
- * bottom of the recursion stack has been reached, and the argument list
- * (with one node) is returned. If it is not the case, NULL is returned,
- * indicating that there is no match for the input along this path.
- *
- * If there is further input, then the function recurses on each of the
- * current node's children, passing them the input line minus the token
- * that was just matched. For each child, the return value of the recursive
- * call is inspected. If it is null, then there is no match for the input along
- * the subgraph headed by that child. If it is not null, then there is at least
- * one input match in that subgraph (more on this in a moment).
- *
- * If a recursive call on a child returns a non-null value, then it has matched
- * the input given it on the subgraph that starts with that child. However, due
- * to the flexibility of the grammar, it is sometimes the case that two or more
- * child graphs match the same input (two or more of the recursive calls have
- * non-NULL return values). This is not a valid state, since only one
- * true match is possible. In order to resolve this conflict, the function
- * keeps a reference to the child node that most specifically matches the
- * input. This is done by assigning each node type a precedence. If a child is
- * found to match the remaining input, then the precedence values of the
- * current best-matching child and this new match are compared. The node with
- * higher precedence is kept, and the other match is discarded. Due to the
- * recursive nature of this function, it is only necessary to compare the
- * precedence of immediate children, since all subsequent children will already
- * have been disambiguated in this way.
- *
- * In the event that two children are found to match with the same precedence,
- * then this command is totally ambiguous (how did you even match it in the first
- * place?) and NULL is returned.
- *
- * The ultimate return value is an ordered linked list of nodes that comprise
- * the best match for the command, each with their `arg` fields pointing to the
- * matching token string.
- *
- * @param[out] start the start node.
- * @param[in] vline the vectorized input line.
- * @param[in] n the index of the first input token. Should be 0 for external
- * callers.
- */
-static struct list *
-match_build_argv_r (struct graph_node *start, vector vline, unsigned int n)
-{
-  // if we don't match this node, die
-  if (match_token(start, vector_slot(vline, n), FILTER_STRICT) != exact_match)
-    return NULL;
-
-  // arg list for this subgraph
-  struct list *argv = list_new();
-
-  // pointers for iterating linklist
-  struct graph_node *gn;
-  struct listnode   *ln;
-
-  // append current arg
-  listnode_add(argv, start);
-
-  // get all possible nexthops
-  struct list *next = list_new();
-  add_nexthops(next, start);
-
-  // if we're at the end of input, need END_GN or no match
-  if (n+1 == vector_active (vline)) {
-    for (ALL_LIST_ELEMENTS_RO(next,ln,gn)) {
-      if (gn->type == END_GN) {
-        list_delete (next);
-        start->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
-        if (start->type == VARIABLE_GN)
-          fprintf(stderr, "Setting variable %s->arg with text %s\n", start->text, start->arg);
-        return argv;
-      }
-    }
-    list_free (next);
-    return NULL;
-  }
-
-  // otherwise recurse on all nexthops
-  struct list *bestmatch = NULL;
-  for (ALL_LIST_ELEMENTS_RO(next,ln,gn))
-    {
-      if (gn->type == END_GN) // skip END_GN since we aren't at end of input
-        continue;
-
-      // get the result of the next node
-      for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
-      fprintf(stderr, "Recursing on node %s for token %s\n", gn->text, (char*) vector_slot(vline, n+1));
-      struct list *result = match_build_argv_r (gn, vline, n+1);
-
-      // compare to our current best match, and save if it's better
-      if (result) {
-        if (bestmatch) {
-          int currprec = score_precedence (listgetdata(listhead(bestmatch)));
-          int rsltprec = score_precedence (gn);
-          if (currprec < rsltprec)
-            list_delete (result);
-          if (currprec > rsltprec) {
-            for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
-            fprintf(stderr, ">> Overwriting bestmatch with: %s\n", gn->text);
-            list_delete (bestmatch);
-            bestmatch = result;
-          }
-          if (currprec == rsltprec) {
-            fprintf(stderr, ">> Ambiguous match. Abort.\n");
-            list_delete (bestmatch);
-            list_delete (result);
-            list_delete (argv);
-            return NULL;
-          }
-        }
-        else {
-          bestmatch = result;
-          for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
-          fprintf(stderr, ">> Setting bestmatch with: %s\n", gn->text);
-        }
-      }
-    }
-
-  if (bestmatch) {
-    list_add_list(argv, bestmatch);
-    list_delete (bestmatch);
-    start->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
-    if (start->type == VARIABLE_GN)
-      fprintf(stderr, "Setting variable %s->arg with text %s\n", start->text, start->arg);
-    return argv;
-  }
-  else {
-    list_delete (argv);
-    return NULL;
-  }
-}
 
 /* matching utility functions */
 

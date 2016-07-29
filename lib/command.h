@@ -571,6 +571,12 @@ extern int cmd_execute_command_strict (vector, struct vty *, struct cmd_element 
 extern void cmd_init (int);
 extern void cmd_terminate (void);
 
+/* memory management for cmd_element */
+void
+free_cmd_element(struct cmd_element *);
+struct cmd_element *
+copy_cmd_element(struct cmd_element *cmd);
+
 /* Export typical functions. */
 extern struct cmd_element config_end_cmd;
 extern struct cmd_element config_exit_cmd;

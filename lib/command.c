@@ -4191,6 +4191,30 @@ cmd_terminate_element(struct cmd_element *cmd)
 }
 
 void
+free_cmd_element(struct cmd_element *cmd)
+{
+  if (!cmd) return;
+  free ((char*) cmd->string);
+  free ((char*) cmd->doc);
+  cmd_terminate_element(cmd);
+  free (cmd);
+}
+
+struct cmd_element *
+copy_cmd_element(struct cmd_element *cmd)
+{
+  struct cmd_element *el = XMALLOC(MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
+  el->string = cmd->string ? XSTRDUP(MTYPE_CMD_TOKENS, cmd->string) : NULL;
+  el->func = cmd->func;
+  el->doc = cmd->doc ? XSTRDUP(MTYPE_CMD_TOKENS, cmd->doc) : NULL;
+  el->daemon = cmd->daemon;
+  el->tokens = cmd->tokens ? vector_copy(cmd->tokens) : NULL;
+  el->attr = cmd->attr;
+  fprintf(stderr, "successful copy\n");
+  return el;
+}
+
+void
 cmd_terminate ()
 {
   unsigned int i, j;
