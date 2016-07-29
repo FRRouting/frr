@@ -379,38 +379,38 @@ match_ipv4 (const char *str)
       memset (buf, 0, sizeof (buf));
       sp = str;
       while (*str != '\0')
-	{
-	  if (*str == '.')
-	    {
-	      if (dots >= 3)
-		return no_match;
+        {
+          if (*str == '.')
+            {
+              if (dots >= 3)
+                return no_match;
 
-	      if (*(str + 1) == '.')
-		return no_match;
+              if (*(str + 1) == '.')
+                return no_match;
 
-	      if (*(str + 1) == '\0')
-		return partly_match;
+              if (*(str + 1) == '\0')
+                return partly_match;
 
-	      dots++;
-	      break;
-	    }
-	  if (!isdigit ((int) *str))
-	    return no_match;
+              dots++;
+              break;
+            }
+          if (!isdigit ((int) *str))
+            return no_match;
 
-	  str++;
-	}
+          str++;
+        }
 
       if (str - sp > 3)
-	return no_match;
+        return no_match;
 
       strncpy (buf, sp, str - sp);
       if (atoi (buf) > 255)
-	return no_match;
+        return no_match;
 
       nums++;
 
       if (*str == '\0')
-	break;
+        break;
 
       str++;
     }
@@ -436,51 +436,51 @@ match_ipv4_prefix (const char *str)
       memset (buf, 0, sizeof (buf));
       sp = str;
       while (*str != '\0' && *str != '/')
-	{
-	  if (*str == '.')
-	    {
-	      if (dots == 3)
-		return no_match;
+        {
+          if (*str == '.')
+            {
+              if (dots == 3)
+                return no_match;
 
-	      if (*(str + 1) == '.' || *(str + 1) == '/')
-		return no_match;
+              if (*(str + 1) == '.' || *(str + 1) == '/')
+                return no_match;
 
-	      if (*(str + 1) == '\0')
-		return partly_match;
+              if (*(str + 1) == '\0')
+                return partly_match;
 
-	      dots++;
-	      break;
-	    }
+              dots++;
+              break;
+            }
 
-	  if (!isdigit ((int) *str))
-	    return no_match;
+          if (!isdigit ((int) *str))
+            return no_match;
 
-	  str++;
-	}
+          str++;
+        }
 
       if (str - sp > 3)
-	return no_match;
+        return no_match;
 
       strncpy (buf, sp, str - sp);
       if (atoi (buf) > 255)
-	return no_match;
+        return no_match;
 
       if (dots == 3)
-	{
-	  if (*str == '/')
-	    {
-	      if (*(str + 1) == '\0')
-		return partly_match;
+        {
+          if (*str == '/')
+            {
+              if (*(str + 1) == '\0')
+                return partly_match;
 
-	      str++;
-	      break;
-	    }
-	  else if (*str == '\0')
-	    return partly_match;
-	}
+              str++;
+              break;
+            }
+          else if (*str == '\0')
+            return partly_match;
+        }
 
       if (*str == '\0')
-	return partly_match;
+        return partly_match;
 
       str++;
     }
@@ -489,7 +489,7 @@ match_ipv4_prefix (const char *str)
   while (*str != '\0')
     {
       if (!isdigit ((int) *str))
-	return no_match;
+        return no_match;
 
       str++;
     }
