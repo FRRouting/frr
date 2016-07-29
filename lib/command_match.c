@@ -43,6 +43,7 @@ match_token (struct graph_node *, char *, enum filter_type);
 
 /* matching functions */
 
+/* Linked list data deletion callback */
 static void
 free_nodelist (void *node) {
   free_node ((struct graph_node *) node);
@@ -155,17 +156,17 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
   if (n+1 == vector_active (vline)) {
     for (ALL_LIST_ELEMENTS_RO(next,ln,gn)) {
       if (gn->type == END_GN) {
-        // delete nexthops, we don't need them
-        list_delete (next);
-        // dupe current node, set arg field, and return
         struct graph_node *curr = copy_node(start);
         curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
-        fprintf(stderr, ">> Matched END_GN on node %s for token %s\n", curr->text, curr->arg);
         // initialize a new argument list
         argv = list_new();
         argv->del = &free_nodelist;
+        // push the currnode
         listnode_add(argv, curr);
+        // push the endnode
         listnode_add(argv, copy_node(gn));
+        // clean up
+        list_delete (next);
         return argv;
       }
     }
@@ -182,8 +183,6 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
         continue;
 
       // get the result of the next node
-      for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
-      fprintf(stderr, "Recursing on node %s for token %s\n", gn->text, (char*) vector_slot(vline, n+1));
       struct list *result = match_command_r (gn, vline, n+1);
 
       // compare to our current best match, and save if it's better
@@ -194,24 +193,18 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
           if (currprec < rsltprec)
             list_delete (result);
           if (currprec > rsltprec) {
-            for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
-            fprintf(stderr, ">> Overwriting bestmatch with: %s\n", gn->text);
             list_delete (bestmatch);
             bestmatch = result;
           }
           if (currprec == rsltprec) {
-            fprintf(stderr, ">> Ambiguous match. Abort.\n");
             list_delete (bestmatch);
             list_delete (result);
             list_delete (next);
             return NULL;
           }
         }
-        else {
+        else
           bestmatch = result;
-          for (unsigned int i = 0; i < n; i++) fprintf(stderr, "\t");
-          fprintf(stderr, ">> Setting bestmatch with: %s\n", gn->text);
-        }
       }
     }
 
@@ -222,8 +215,6 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
     list_free (bestmatch);
     list_delete (next);
     start->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
-    if (start->type == VARIABLE_GN)
-      fprintf(stderr, "Setting variable %s->arg with text %s\n", start->text, start->arg);
     return argv;
   }
   else
@@ -349,15 +340,15 @@ match_token (struct graph_node *node, char *token, enum filter_type filter)
 {
   switch (node->type) {
     case WORD_GN:
-      return match_word (node, filter, token);
+      return match_word (node, token, filter);
     case IPV4_GN:
       return match_ipv4 (token);
     case IPV4_PREFIX_GN:
-      return match_ipv4_prefix (token);
+      return match_ipv4_prefix (token, filter);
     case IPV6_GN:
-      return match_ipv6 (token);
+      return match_ipv6 (token, filter);
     case IPV6_PREFIX_GN:
-      return match_ipv6_prefix (token);
+      return match_ipv6_prefix (token, filter);
     case RANGE_GN:
       return match_range (node, token);
     case NUMBER_GN:
@@ -376,16 +367,56 @@ match_token (struct graph_node *node, char *token, enum filter_type filter)
 static enum match_type
 match_ipv4 (const char *str)
 {
-  struct sockaddr_in sin_dummy;
+  const char *sp;
+  int dots = 0, nums = 0;
+  char buf[4];
 
   if (str == NULL)
     return partly_match;
 
-  if (strspn (str, IPV4_ADDR_STR) != strlen (str))
-    return no_match;
+  for (;;)
+    {
+      memset (buf, 0, sizeof (buf));
+      sp = str;
+      while (*str != '\0')
+	{
+	  if (*str == '.')
+	    {
+	      if (dots >= 3)
+		return no_match;
 
-  if (inet_pton(AF_INET, str, &sin_dummy.sin_addr) != 1)
-    return no_match;
+	      if (*(str + 1) == '.')
+		return no_match;
+
+	      if (*(str + 1) == '\0')
+		return partly_match;
+
+	      dots++;
+	      break;
+	    }
+	  if (!isdigit ((int) *str))
+	    return no_match;
+
+	  str++;
+	}
+
+      if (str - sp > 3)
+	return no_match;
+
+      strncpy (buf, sp, str - sp);
+      if (atoi (buf) > 255)
+	return no_match;
+
+      nums++;
+
+      if (*str == '\0')
+	break;
+
+      str++;
+    }
+
+  if (nums < 4)
+    return partly_match;
 
   return exact_match;
 }
@@ -393,36 +424,78 @@ match_ipv4 (const char *str)
 static enum match_type
 match_ipv4_prefix (const char *str)
 {
-  struct sockaddr_in sin_dummy;
-  const char *delim = "/\0";
-  char *dupe, *prefix, *mask, *context, *endptr;
-  int nmask = -1;
+  const char *sp;
+  int dots = 0;
+  char buf[4];
 
   if (str == NULL)
     return partly_match;
 
-  if (strspn (str, IPV4_PREFIX_STR) != strlen (str))
+  for (;;)
+    {
+      memset (buf, 0, sizeof (buf));
+      sp = str;
+      while (*str != '\0' && *str != '/')
+	{
+	  if (*str == '.')
+	    {
+	      if (dots == 3)
+		return no_match;
+
+	      if (*(str + 1) == '.' || *(str + 1) == '/')
+		return no_match;
+
+	      if (*(str + 1) == '\0')
+		return partly_match;
+
+	      dots++;
+	      break;
+	    }
+
+	  if (!isdigit ((int) *str))
+	    return no_match;
+
+	  str++;
+	}
+
+      if (str - sp > 3)
+	return no_match;
+
+      strncpy (buf, sp, str - sp);
+      if (atoi (buf) > 255)
+	return no_match;
+
+      if (dots == 3)
+	{
+	  if (*str == '/')
+	    {
+	      if (*(str + 1) == '\0')
+		return partly_match;
+
+	      str++;
+	      break;
+	    }
+	  else if (*str == '\0')
+	    return partly_match;
+	}
+
+      if (*str == '\0')
+	return partly_match;
+
+      str++;
+    }
+
+  sp = str;
+  while (*str != '\0')
+    {
+      if (!isdigit ((int) *str))
+	return no_match;
+
+      str++;
+    }
+
+  if (atoi (sp) > 32)
     return no_match;
-
-  /* tokenize to address + mask */
-  dupe = XMALLOC(MTYPE_TMP, strlen(str)+1);
-  strncpy(dupe, str, strlen(str)+1);
-  prefix = strtok_r(dupe, delim, &context);
-  mask   = strtok_r(NULL, delim, &context);
-
-  if (!mask)
-    return partly_match;
-
-  /* validate prefix */
-  if (inet_pton(AF_INET, prefix, &sin_dummy.sin_addr) != 1)
-    return no_match;
-
-  /* validate mask */
-  nmask = strtol (mask, &endptr, 10);
-  if (*endptr != '\0' || nmask < 0 || nmask > 32)
-    return no_match;
-
-  XFREE(MTYPE_TMP, dupe);
 
   return exact_match;
 }
