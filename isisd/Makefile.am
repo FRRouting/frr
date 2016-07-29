@@ -16,7 +16,8 @@ libisis_a_SOURCES = \
 	isis_adjacency.c isis_lsp.c dict.c isis_circuit.c isis_pdu.c \
 	isis_tlv.c isisd.c isis_misc.c isis_zebra.c isis_dr.c \
 	isis_flags.c isis_dynhn.c iso_checksum.c isis_csm.c isis_events.c \
-	isis_spf.c isis_redist.c isis_route.c isis_routemap.c
+	isis_spf.c isis_redist.c isis_route.c isis_routemap.c \
+	isis_vty.c
 
 
 noinst_HEADERS = \

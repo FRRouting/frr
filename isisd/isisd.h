@@ -27,7 +27,11 @@
 
 #define ISISD_VERSION "0.0.7"
 
+#include "isisd/isis_constants.h"
+#include "isisd/isis_common.h"
 #include "isisd/isis_redist.h"
+#include "isis_flags.h"
+#include "dict.h"
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */
@@ -138,6 +142,8 @@ struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup (const char *);
 int isis_area_get (struct vty *vty, const char *area_tag);
 void print_debug(struct vty *, int, int);
+
+void isis_vty_init (void);
 
 /* Master of threads. */
 extern struct thread_master *master;
