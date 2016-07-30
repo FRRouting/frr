@@ -73,6 +73,7 @@ struct pim_interface {
   struct list *igmp_join_list;                              /* list of struct igmp_join */
 
   int            pim_sock_fd;       /* PIM socket file descriptor */
+  int            pim_raw_fd;        /* RP forwarding */
   struct thread *t_pim_sock_read;   /* thread for reading PIM socket */
   int64_t        pim_sock_creation; /* timestamp of PIM socket creation */
 

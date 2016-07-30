@@ -87,6 +87,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 
   pim_ifp->options                           = 0;
   pim_ifp->mroute_vif_index                  = -1;
+  pim_ifp->pim_raw_fd                        = -1;
 
   pim_ifp->igmp_default_robustness_variable           = IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
   pim_ifp->igmp_default_query_interval                = IGMP_GENERAL_QUERY_INTERVAL;
@@ -161,6 +162,12 @@ void pim_if_delete(struct interface *ifp)
   zassert(ifp);
   pim_ifp = ifp->info;
   zassert(pim_ifp);
+
+  if (pim_ifp->pim_raw_fd == -1)
+    {
+      close (pim_ifp->pim_raw_fd);
+      pim_ifp->pim_raw_fd = -1;
+    }
 
   if (pim_ifp->igmp_join_list) {
     pim_if_igmp_join_del_all(ifp);
