@@ -28,16 +28,19 @@
 #include "pim_str.h"
 #include "pim_iface.h"
 #include "pim_ifchannel.h"
+#include "pim_rp.h"
 
 /*
   DownstreamJPState(S,G,I) is the per-interface state machine for
   receiving (S,G) Join/Prune messages.
 
-  DownstreamJPState(S,G,I) is either Join or Prune-Pending ?
+  DownstreamJPState(S,G,I) is either Join or Prune-Pending
+  DownstreamJPState(*,G,I) is either Join or Prune-Pending
 */
 static int downstream_jpstate_isjoined(const struct pim_ifchannel *ch)
 {
-  return ch->ifjoin_state != PIM_IFJOIN_NOINFO;
+  return (ch->ifjoin_state == PIM_IFJOIN_NOINFO ||
+	  ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING);
 }
 
 /*
