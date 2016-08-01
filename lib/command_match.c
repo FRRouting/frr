@@ -33,7 +33,7 @@ static enum match_type
 match_range (struct graph_node *, const char *str);
 
 static enum match_type
-match_word (struct graph_node *, const char *, enum filter_type);
+match_word (struct graph_node *, const char *);
 
 static enum match_type
 match_number (struct graph_node *, const char *);
@@ -42,7 +42,7 @@ static enum match_type
 match_variable (struct graph_node *, const char *);
 
 static enum match_type
-match_token (struct graph_node *, char *, enum filter_type);
+match_token (struct graph_node *, char *);
 
 /* matching functions */
 
@@ -66,7 +66,7 @@ copy_node (struct graph_node *node)
 
 /* Linked list data deletion callback */
 static void
-free_nodelist (void *node) {
+delete_nodelist (void *node) {
   free_node ((struct graph_node *) node);
 }
 
@@ -161,8 +161,11 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
   // get the minimum match level that can count as a full match
   enum match_type minmatch = min_match_level(start->type);
 
+  // get the current operating token
+  char *token = vector_slot(vline, n);
+
   // if we don't match this node, die
-  if (match_token(start, vector_slot(vline, n), FILTER_RELAXED) < minmatch)
+  if (match_token(start, token) < minmatch)
     return NULL;
 
   // pointers for iterating linklist
@@ -177,14 +180,14 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
   if (n+1 == vector_active (vline)) {
     for (ALL_LIST_ELEMENTS_RO(next,ln,gn)) {
       if (gn->type == END_GN) {
-        struct graph_node *curr = copy_node(start);
-        curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
-        // initialize a new argument list
+        // we have a match, so build an argv and pass it back up the chain
         struct list *argv = list_new();
-        argv->del = &free_nodelist;
+        argv->del = &delete_nodelist;
+        struct graph_node *curr = copy_node(start);
+        curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
         // add the current node
-        listnode_add(argv, copy_node(curr));
-        // push the end node
+        listnode_add(argv, curr);
+        // add the end node
         listnode_add(argv, copy_node(gn));
         // clean up
         list_delete (next);
@@ -230,8 +233,10 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
     }
 
   if (bestmatch) {
+    // if we have a best match, prepend this node + matching token
+    // to argv and pass it up the chain
     struct graph_node *curr = copy_node(start);
-    curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
+    curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
     list_add_node_prev (bestmatch, bestmatch->head, curr);
     // cleanup
     list_delete (next);
@@ -242,10 +247,8 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
 }
 
 struct list *
-match_command_complete (struct graph_node *start, const char *line, enum filter_type filter)
+match_command_complete (struct graph_node *start, const char *line)
 {
-  enum match_type minmatch = filter + 1;
-
   // vectorize command line
   vector vline = cmd_make_strvec (line);
 
@@ -253,7 +256,6 @@ match_command_complete (struct graph_node *start, const char *line, enum filter_
   char *token;
 
   struct list *current  = list_new(), // current nodes to match input token against
-              *matched  = list_new(), // current nodes that match the input token
               *next     = list_new(); // possible next hops to current input token
 
   // pointers used for iterating lists
@@ -272,13 +274,17 @@ match_command_complete (struct graph_node *start, const char *line, enum filter_
 
     token = vector_slot(vline, idx);
 
-    list_delete_all_node(matched);
-
     for (ALL_LIST_ELEMENTS_RO(current,node,gn))
     {
-      if (match_token(gn, token, filter) >= minmatch) {
-        listnode_add(matched, gn);
-        add_nexthops(next, gn);
+      switch (match_token(gn, token)) {
+        case partly_match: // if it's a partial match, add this node to possible next hops
+          listnode_add(next, gn);
+          break;
+        case exact_match: // if it's an exact match, add this node's children to next hops
+          add_nexthops(next, gn);
+          break;
+        default: // otherwise do nothing
+          break;
       }
     }
   }
@@ -292,7 +298,6 @@ match_command_complete (struct graph_node *start, const char *line, enum filter_
    * next     = set of all nodes reachable from all nodes in `matched`
    */
   list_free (current);
-  list_free (matched);
 
   cmd_free_strvec(vline);
 
@@ -374,11 +379,11 @@ score_precedence (struct graph_node *node)
 }
 
 static enum match_type
-match_token (struct graph_node *node, char *token, enum filter_type filter)
+match_token (struct graph_node *node, char *token)
 {
   switch (node->type) {
     case WORD_GN:
-      return match_word (node, token, filter);
+      return match_word (node, token);
     case IPV4_GN:
       return match_ipv4 (token);
     case IPV4_PREFIX_GN:
@@ -621,26 +626,21 @@ match_range (struct graph_node *rangenode, const char *str)
 }
 
 static enum match_type
-match_word(struct graph_node *wordnode,
-           const char *word,
-           enum filter_type filter)
+match_word(struct graph_node *wordnode, const char *word)
 {
-  if (filter == FILTER_RELAXED)
-  {
-    if (!word || !strlen(word))
-      return partly_match;
-    else if (!strncmp(wordnode->text, word, strlen(word)))
-      return !strcmp(wordnode->text, word) ? exact_match : partly_match;
-    else
-      return no_match;
-  }
-  else
-  {
-     if (!word)
-       return no_match;
-     else
-       return !strcmp(wordnode->text, word) ? exact_match : no_match;
-  }
+  // if the passed token is null or 0 length, partly match
+  if (!word || !strlen(word))
+    return partly_match;
+
+  // if the passed token is strictly a prefix of the full word, partly match
+  if (strlen(word) < strlen(wordnode->text))
+    return !strncmp(wordnode->text, word, strlen(word)) ? partly_match : no_match;
+
+  // if they are the same length and exactly equal, exact match
+  else if (strlen(word) == strlen(wordnode->text))
+    return !strncmp(wordnode->text, word, strlen(word)) ? exact_match : no_match;
+
+  return no_match;
 }
 
 static enum match_type

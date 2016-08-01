@@ -78,6 +78,6 @@ match_command (struct graph_node *, const char *, struct list **);
  *         matched token. If this is empty, the input did not match any command.
  */
 struct list *
-match_command_complete (struct graph_node *, const char *, enum filter_type);
+match_command_complete (struct graph_node *, const char *);
 
 #endif

@@ -19,6 +19,7 @@ DEFUN (grammar_test,
   cmd->string = command;
   cmd->doc = NULL;
   cmd->func = NULL;
+  cmd->tokens = vector_init(VECTOR_MIN_SIZE);
   parse_command_format(nodegraph, cmd);
   return CMD_SUCCESS;
 }
@@ -45,7 +46,7 @@ DEFUN (grammar_test_complete,
        "command to complete")
 {
   const char* command = argv_concat(argv, argc, 0);
-  struct list *result = match_command_complete (nodegraph, command, FILTER_STRICT);
+  struct list *result = match_command_complete (nodegraph, command);
 
   if (result->count == 0) // invalid command
     fprintf(stderr, "%% Unknown command\n");
@@ -61,9 +62,6 @@ DEFUN (grammar_test_complete,
         fprintf(stderr, "<cr> %p\n", cnode->element->func);
       else
         fprintf(stderr, "%s\n", describe_node(cnode, desc, 50));
-
-      if (cnode->type == RANGE_GN)
-         fprintf(stderr, "%lld - %lld\n", cnode->min, cnode->max);
     }
     free(desc);
   }
