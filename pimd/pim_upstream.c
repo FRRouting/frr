@@ -932,6 +932,10 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
   struct prefix anysrc;
   int output_intf = 0;
 
+  pim_ifp = up->rpf.source_nexthop.interface->info;
+  zlog_debug ("Channel Oil%s: %p", pim_str_sg_dump (&up->sg), up->channel_oil);
+  if (!up->channel_oil)
+    up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
   anysrc = up->sg;
   anysrc.u.sg.src.s_addr = INADDR_ANY;
 
@@ -946,16 +950,17 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
 
 	  for (ALL_LIST_ELEMENTS (pim_ifp->pim_ifchannel_list, chnode, chnextnode, ch))
 	    {
-	      struct pim_ifchannel *nch;
+	      //struct pim_ifchannel *nch;
 
 	      if (ch->upstream != anysrc_up)
 		continue;
 
 	      if (ch->ifjoin_state == PIM_IFJOIN_JOIN)
 		{
-		  nch = pim_ifchannel_add (ifp, &up->sg);
-		  pim_ifchannel_ifjoin_switch (__PRETTY_FUNCTION__, nch, PIM_IFJOIN_JOIN);
-		  pim_forward_start (ch);
+		  pim_channel_add_oif (up->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+		  //nch = pim_ifchannel_add (ifp, &up->sg);
+		  //pim_ifchannel_ifjoin_switch (__PRETTY_FUNCTION__, nch, PIM_IFJOIN_JOIN);
+		  //pim_forward_start (ch);
 		  output_intf++;
 		}
 	    }

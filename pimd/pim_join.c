@@ -31,6 +31,7 @@
 #include "pim_msg.h"
 #include "pim_pim.h"
 #include "pim_join.h"
+#include "pim_oil.h"
 #include "pim_iface.h"
 #include "pim_hello.h"
 #include "pim_ifchannel.h"
@@ -99,23 +100,24 @@ static void recv_join(struct interface *ifp,
   pim_ifchannel_join_add(ifp, neigh->source_addr, upstream,
 			 &sg, source_flags, holdtime);
 
-  if (I_am_RP (group) && sg.u.sg.src.s_addr == INADDR_ANY)
+  if (sg.u.sg.src.s_addr == INADDR_ANY)
     {
-      struct pim_upstream *up;
+      struct pim_upstream *up = pim_upstream_find (&sg);
+      struct pim_upstream *child;
+      struct listnode *up_node;
 
-      up = pim_upstream_find_non_any (&sg);
-
-      if (up)
+      for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, child))
         {
-	  char buff[100];
-	  strcpy (buff, pim_str_sg_dump (&up->sg));
-	  zlog_debug("%s %s: Join(S,G)=%s from %s",
-		     __FILE__, __PRETTY_FUNCTION__,
-		     buff, pim_str_sg_dump (&sg));
+          if (child->parent == up)
+            {
+	      char buff[100];
+	      strcpy (buff, pim_str_sg_dump (&up->sg));
+	      zlog_debug("%s %s: Join(S,G)=%s from %s",
+		         __FILE__, __PRETTY_FUNCTION__,
+		         buff, pim_str_sg_dump (&sg));
 
-	  pim_rp_set_upstream_addr (&up->upstream_addr, up->sg.u.sg.src);
-	  pim_nexthop_lookup (&up->rpf.source_nexthop, up->upstream_addr, NULL);
-	  pim_ifchannel_join_add (ifp, neigh->source_addr, upstream, &up->sg, source_flags, holdtime);
+              pim_channel_add_oif (up->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+            }
         }
     }
 
@@ -162,20 +164,23 @@ static void recv_prune(struct interface *ifp,
   
   pim_ifchannel_prune(ifp, upstream, &sg, source_flags, holdtime);
 
-  if (I_am_RP (group) && sg.u.sg.src.s_addr == INADDR_ANY)
+  if (sg.u.sg.src.s_addr == INADDR_ANY)
     {
-      struct pim_upstream *up;
+      struct pim_upstream *up = pim_upstream_find (&sg);
+      struct pim_upstream *child;
+      struct listnode *up_node;
 
-      up = pim_upstream_find_non_any (&sg);
-
-      if (up)
+      for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, child))
         {
-	  char buff[100];
-	  strcpy (buff, pim_str_sg_dump (&up->sg));
-	  zlog_debug("%s %s: Prune(S,G)=%s from %s",
-		     __FILE__, __PRETTY_FUNCTION__,
-		     buff, pim_str_sg_dump (&sg));
-	  pim_ifchannel_prune (ifp, upstream, &up->sg, source_flags, holdtime);
+          if (child->parent == up)
+            {
+	      char buff[100];
+	      strcpy (buff, pim_str_sg_dump (&up->sg));
+	      zlog_debug("%s %s: Prune(S,G)=%s from %s",
+		         __FILE__, __PRETTY_FUNCTION__,
+		         buff, pim_str_sg_dump (&sg));
+	      pim_channel_del_oif (up->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+	    }
         }
     }
 
