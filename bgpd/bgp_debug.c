@@ -1663,7 +1663,7 @@ bgp_config_write_debug (struct vty *vty)
 
   if (CONF_BGP_DEBUG (keepalive, KEEPALIVE))
     {
-      write += bgp_debug_list_conf_print (vty, "debug bgp keepalive",
+      write += bgp_debug_list_conf_print (vty, "debug bgp keepalives",
                                           bgp_debug_keepalive_peers);
     }
 
