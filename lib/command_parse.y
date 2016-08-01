@@ -310,6 +310,11 @@ option_token:
 void yyerror(char const *message) {
   // fail on bad parse
   fprintf(stderr, "Grammar error: %s\n", message);
+  fprintf(stderr, "Token on error: ");
+  if (yylval.string) fprintf(stderr, "%s\n", yylval.string);
+  else if (yylval.node) fprintf(stderr, "%s\n", yylval.node->text);
+  else fprintf(stderr, "%d\n", yylval.integer);
+
 }
 
 struct graph_node *

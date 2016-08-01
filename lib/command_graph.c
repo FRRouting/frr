@@ -88,29 +88,12 @@ new_node(enum graph_node_type type)
   return node;
 }
 
-struct graph_node *
-copy_node (struct graph_node *node)
-{
-  struct graph_node *new = new_node(node->type);
-  new->children = NULL;
-  new->is_start = node->is_start;
-  new->end      = node->end;
-  new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
-  new->value    = node->value;
-  new->min      = node->min;
-  new->max      = node->max;
-  new->element  = node->element ? copy_cmd_element(node->element) : NULL;
-  new->arg      = node->arg ? XSTRDUP(MTYPE_CMD_TOKENS, node->arg) : NULL;
-  new->refs     = 0;
-  return new;
-}
-
 void
 free_node (struct graph_node *node)
 {
   if (!node) return;
-  vector_free (node->children);
-  free_cmd_element (node->element);
+  if (node->children) vector_free (node->children);
+  if (node->element) free_cmd_element (node->element);
   free (node->text);
   free (node->arg);
   free (node);

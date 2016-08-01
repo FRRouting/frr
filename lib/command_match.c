@@ -46,6 +46,24 @@ match_token (struct graph_node *, char *, enum filter_type);
 
 /* matching functions */
 
+static struct graph_node *
+copy_node (struct graph_node *node)
+{
+  struct graph_node *new = new_node(node->type);
+  new->children = NULL;
+  new->is_start = node->is_start;
+  new->end      = NULL;
+  new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
+  new->value    = node->value;
+  new->min      = node->min;
+  new->max      = node->max;
+  new->element  = node->element ? copy_cmd_element(node->element) : NULL;
+  new->arg      = node->arg ? XSTRDUP(MTYPE_CMD_TOKENS, node->arg) : NULL;
+  new->refs     = 0;
+  return new;
+}
+
+
 /* Linked list data deletion callback */
 static void
 free_nodelist (void *node) {
@@ -68,8 +86,8 @@ match_command (struct graph_node *start, const char *line, struct list **argv)
     if (*argv) break;
   }
 
+  // walk the list, find the END_GN, return that
   if (*argv) {
-    // copy the nodes we need
     struct listnode *ln;
     struct graph_node *gn;
     char buf[50];
@@ -147,9 +165,6 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
   if (match_token(start, vector_slot(vline, n), FILTER_RELAXED) < minmatch)
     return NULL;
 
-  // arg list for this subgraph
-  struct list *argv;
-
   // pointers for iterating linklist
   struct graph_node *gn;
   struct listnode   *ln;
@@ -165,11 +180,11 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
         struct graph_node *curr = copy_node(start);
         curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
         // initialize a new argument list
-        argv = list_new();
+        struct list *argv = list_new();
         argv->del = &free_nodelist;
-        // push the currnode
-        listnode_add(argv, curr);
-        // push the endnode
+        // add the current node
+        listnode_add(argv, copy_node(curr));
+        // push the end node
         listnode_add(argv, copy_node(gn));
         // clean up
         list_delete (next);
@@ -215,13 +230,12 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
     }
 
   if (bestmatch) {
-    argv = list_new();
-    listnode_add(argv, start);
-    list_add_list(argv, bestmatch);
-    list_free (bestmatch);
+    struct graph_node *curr = copy_node(start);
+    curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
+    list_add_node_prev (bestmatch, bestmatch->head, curr);
+    // cleanup
     list_delete (next);
-    start->arg = XSTRDUP(MTYPE_CMD_TOKENS, vector_slot(vline, n));
-    return argv;
+    return bestmatch;
   }
   else
     return NULL;

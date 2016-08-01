@@ -78,18 +78,6 @@ struct graph_node *
 new_node(enum graph_node_type);
 
 /**
- * Copies a node.
- * The children vector is copied, but the pointers the vector
- * holds point to the same data as the original vector.
- * The element, if it exists, is copied.
- *
- * @param[in] pointer to node to copy
- * @return pointer to copied node
- */
-struct graph_node *
-copy_node(struct graph_node *);
-
-/**
  * Frees the data associated with a graph_node.
  * @param[out] pointer to graph_node to free
  */

@@ -4,12 +4,12 @@
 extern void set_buffer_string(const char *);
 %}
 
-WORD            [a-z][-_a-z0-9]+
+WORD            [-+a-z\*][-+_a-zA-Z0-9\*]*
 IPV4            A\.B\.C\.D
 IPV4_PREFIX     A\.B\.C\.D\/M
 IPV6            X:X::X:X
 IPV6_PREFIX     X:X::X:X\/M
-VARIABLE        [A-Z][A-Z_:]+
+VARIABLE        [A-Z][-_a-zA-Z:0-9]+
 NUMBER          [0-9]{1,20}
 RANGE           \({NUMBER}\-{NUMBER}\)
 
