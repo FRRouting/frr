@@ -933,6 +933,16 @@ static void toex_excl(struct igmp_group *group,
   /* clear off SEND flag from all known sources (X,Y) */
   source_clear_send_flag(group->group_source_list);
 
+  if (num_sources == 0)
+    {
+      struct igmp_source *source;
+      struct in_addr any = { .s_addr = INADDR_ANY };
+
+      source = igmp_find_source_by_addr (group, any);
+      if (source)
+        IGMP_SOURCE_DONT_DELETE(source->source_flags);
+    }
+
   /* scan received sources (A) */
   for (i = 0; i < num_sources; ++i) {
     struct igmp_source *source;
