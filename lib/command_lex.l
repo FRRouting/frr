@@ -9,7 +9,7 @@ IPV4            A\.B\.C\.D
 IPV4_PREFIX     A\.B\.C\.D\/M
 IPV6            X:X::X:X
 IPV6_PREFIX     X:X::X:X\/M
-VARIABLE        [A-Z][A-Z_]+
+VARIABLE        [A-Z][A-Z_:]+
 NUMBER          [0-9]{1,20}
 RANGE           \({NUMBER}\-{NUMBER}\)
 

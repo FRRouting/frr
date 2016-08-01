@@ -56,7 +56,7 @@ DEFUN (grammar_test_complete,
     // print possible next hops, if any
     for (ALL_LIST_ELEMENTS_RO(result,node,cnode)) {
       if (cnode->type == END_GN)
-        fprintf(stderr, "<cr>\n");
+        fprintf(stderr, "<cr> %p\n", cnode->element->func);
       else
         fprintf(stderr, "%s\n", describe_node(cnode, desc, 50));
     }

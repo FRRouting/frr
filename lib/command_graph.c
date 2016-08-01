@@ -92,7 +92,7 @@ struct graph_node *
 copy_node (struct graph_node *node)
 {
   struct graph_node *new = new_node(node->type);
-  new->children = vector_copy (node->children);
+  new->children = NULL;
   new->is_start = node->is_start;
   new->end      = node->end;
   new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;

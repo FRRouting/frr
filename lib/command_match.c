@@ -13,6 +13,9 @@ match_command_r (struct graph_node *, vector, unsigned int);
 static int
 score_precedence (struct graph_node *);
 
+static enum match_type
+min_match_level(enum node_type type);
+
 /* token matcher prototypes */
 static enum match_type
 match_ipv4 (const char *);
@@ -30,7 +33,7 @@ static enum match_type
 match_range (struct graph_node *, const char *str);
 
 static enum match_type
-match_word (struct graph_node *, enum filter_type, const char *);
+match_word (struct graph_node *, const char *, enum filter_type);
 
 static enum match_type
 match_number (struct graph_node *, const char *);
@@ -137,8 +140,11 @@ match_command (struct graph_node *start, const char *line, struct list **argv)
 static struct list *
 match_command_r (struct graph_node *start, vector vline, unsigned int n)
 {
+  // get the minimum match level that can count as a full match
+  enum match_type minmatch = min_match_level(start->type);
+
   // if we don't match this node, die
-  if (match_token(start, vector_slot(vline, n), FILTER_STRICT) != exact_match)
+  if (match_token(start, vector_slot(vline, n), FILTER_RELAXED) < minmatch)
     return NULL;
 
   // arg list for this subgraph
@@ -313,12 +319,30 @@ add_nexthops(struct list *l, struct graph_node *node)
 
 /* matching utility functions */
 
+/**
+ * Determines the minimum acceptable matching level
+ * for a given node type that can be accepted as a
+ * full match. Used for things like abbreviating
+ * commands, e.g. `conf t`.
+ */
+static enum match_type
+min_match_level(enum node_type type)
+{
+  switch (type) {
+    case WORD_GN:
+      return partly_match;
+    default:
+      return exact_match;
+  }
+}
+
 static int
 score_precedence (struct graph_node *node)
 {
   switch (node->type)
   {
-    // these should be mutually exclusive
+    // these should be mutually exclusive,
+    // or never compared
     case IPV4_GN:
     case IPV4_PREFIX_GN:
     case IPV6_GN:
@@ -344,11 +368,11 @@ match_token (struct graph_node *node, char *token, enum filter_type filter)
     case IPV4_GN:
       return match_ipv4 (token);
     case IPV4_PREFIX_GN:
-      return match_ipv4_prefix (token, filter);
+      return match_ipv4_prefix (token);
     case IPV6_GN:
-      return match_ipv6 (token, filter);
+      return match_ipv6 (token);
     case IPV6_PREFIX_GN:
-      return match_ipv6_prefix (token, filter);
+      return match_ipv6_prefix (token);
     case RANGE_GN:
       return match_range (node, token);
     case NUMBER_GN:
@@ -584,8 +608,8 @@ match_range (struct graph_node *rangenode, const char *str)
 
 static enum match_type
 match_word(struct graph_node *wordnode,
-           enum filter_type filter,
-           const char *word)
+           const char *word,
+           enum filter_type filter)
 {
   if (filter == FILTER_RELAXED)
   {
