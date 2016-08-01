@@ -604,7 +604,7 @@ static enum match_type
 match_range (struct graph_node *rangenode, const char *str)
 {
   char *endptr = NULL;
-  signed long val;
+  signed long long val;
 
   if (str == NULL)
     return 1;
@@ -653,11 +653,11 @@ match_number(struct graph_node *numnode, const char *word)
   return num == numnode->value ? exact_match : no_match;
 }
 
-#define VARIABLE_ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890"
+#define VARIABLE_ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:"
 
 static enum match_type
 match_variable(struct graph_node *varnode, const char *word)
 {
-  return strlen(word) == strspn(word, VARIABLE_ALPHABET) && isalpha(word[0]) ?
+  return strlen(word) == strspn(word, VARIABLE_ALPHABET) ?
      exact_match : no_match;
 }

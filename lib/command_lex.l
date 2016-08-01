@@ -28,7 +28,11 @@ RANGE           \({NUMBER}\-{NUMBER}\)
 {IPV6}          {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV6;}
 {IPV6_PREFIX}   {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return IPV6_PREFIX;}
 {VARIABLE}      {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return VARIABLE;}
-{NUMBER}        {yylval.integer = atoi(yytext); return NUMBER;}
+{NUMBER}        {
+                    char *endptr;
+                    yylval.integer = strtoll(yytext, &endptr, 10);
+                    return NUMBER;
+                }
 {RANGE}         {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return RANGE;}
 .               {return yytext[0];}
 %%

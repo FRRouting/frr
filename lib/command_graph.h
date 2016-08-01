@@ -29,7 +29,7 @@ struct graph_node
 
   char* text;               // for WORD_GN and VARIABLE_GN
   long value;               // for NUMBER_GN
-  long min, max;            // for RANGE_GN
+  signed long long min, max;// for RANGE_GN
 
   /* cmd_element struct pointer, only valid for END_GN */
   struct cmd_element *element;

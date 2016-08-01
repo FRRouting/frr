@@ -17,6 +17,8 @@ DEFUN (grammar_test,
   char* command = argv_concat(argv, argc, 0);
   struct cmd_element *cmd = malloc(sizeof(struct cmd_element));
   cmd->string = command;
+  cmd->doc = NULL;
+  cmd->func = NULL;
   parse_command_format(nodegraph, cmd);
   return CMD_SUCCESS;
 }
@@ -59,6 +61,9 @@ DEFUN (grammar_test_complete,
         fprintf(stderr, "<cr> %p\n", cnode->element->func);
       else
         fprintf(stderr, "%s\n", describe_node(cnode, desc, 50));
+
+      if (cnode->type == RANGE_GN)
+         fprintf(stderr, "%lld - %lld\n", cnode->min, cnode->max);
     }
     free(desc);
   }

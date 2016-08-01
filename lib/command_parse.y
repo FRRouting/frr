@@ -30,7 +30,7 @@ extern void yyerror(const char *);
 
 /* valid types for tokens */
 %union{
-  int integer;
+  signed long long integer;
   char *string;
   struct graph_node *node;
 }
@@ -91,7 +91,7 @@ start: sentence_root
     yyerror("Duplicate command.");
     YYABORT;
   }
-  fprintf(stderr, "Added END_GN with active children: %d\n", vector_active(end->children));
+  fprintf(stderr, "Parsed full command successfully.\n");
 }
 
 sentence_root: WORD
@@ -179,8 +179,9 @@ placeholder_token:
 
   // get the numbers out
   strsep(&yylval.string, "(-)");
-  $$->min = atoi( strsep(&yylval.string, "(-)") );
-  $$->max = atoi( strsep(&yylval.string, "(-)") );
+  char *endptr;
+  $$->min = strtoll( strsep(&yylval.string, "(-)"), &endptr, 10 );
+  $$->max = strtoll( strsep(&yylval.string, "(-)"), &endptr, 10 );
 
   free ($1);
 }
@@ -313,7 +314,7 @@ void yyerror(char const *message) {
   fprintf(stderr, "Token on error: ");
   if (yylval.string) fprintf(stderr, "%s\n", yylval.string);
   else if (yylval.node) fprintf(stderr, "%s\n", yylval.node->text);
-  else fprintf(stderr, "%d\n", yylval.integer);
+  else fprintf(stderr, "%lld\n", yylval.integer);
 
 }
 
