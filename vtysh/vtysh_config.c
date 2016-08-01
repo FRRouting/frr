@@ -202,6 +202,10 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (OSPF_NODE, line);
       else if (strncmp (line, "router ospf6", strlen ("router ospf6")) == 0)
 	config = config_get (OSPF6_NODE, line);
+      else if (strncmp (line, "mpls ldp", strlen ("mpls ldp")) == 0)
+	config = config_get (LDP_NODE, line);
+      else if (strncmp (line, "l2vpn", strlen ("l2vpn")) == 0)
+	config = config_get (LDP_L2VPN_NODE, line);
       else if (strncmp (line, "router bgp", strlen ("router bgp")) == 0)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "router isis", strlen ("router isis")) == 0)

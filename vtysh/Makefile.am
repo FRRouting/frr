@@ -42,6 +42,10 @@ if OSPF6D
 vtysh_scan += $(top_srcdir)/ospf6d/*.c
 endif
 
+if LDPD
+vtysh_scan += $(top_srcdir)/ldpd/ldp_vty_cmds.c
+endif
+
 if RIPD
 vtysh_scan += $(top_srcdir)/ripd/*.c
 endif

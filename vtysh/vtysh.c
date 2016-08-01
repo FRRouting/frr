@@ -69,6 +69,7 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .path = RIPNG_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .path = OSPF_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .path = OSPF6_VTYSH_PATH, .next = NULL},
+  { .fd = -1, .name = "ldpd", .flag = VTYSH_LDPD, .path = LDP_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .path = BGP_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .path = ISIS_VTYSH_PATH, .next = NULL},
   { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
@@ -1032,6 +1033,48 @@ static struct cmd_node ospf6_node =
   "%s(config-ospf6)# "
 };
 
+static struct cmd_node ldp_node =
+{
+  LDP_NODE,
+  "%s(config-ldp)# "
+};
+
+static struct cmd_node ldp_ipv4_node =
+{
+  LDP_IPV4_NODE,
+  "%s(config-ldp-af)# "
+};
+
+static struct cmd_node ldp_ipv6_node =
+{
+  LDP_IPV6_NODE,
+  "%s(config-ldp-af)# "
+};
+
+static struct cmd_node ldp_ipv4_iface_node =
+{
+  LDP_IPV4_IFACE_NODE,
+  "%s(config-ldp-af-if)# "
+};
+
+static struct cmd_node ldp_ipv6_iface_node =
+{
+  LDP_IPV6_IFACE_NODE,
+  "%s(config-ldp-af-if)# "
+};
+
+static struct cmd_node ldp_l2vpn_node =
+{
+  LDP_L2VPN_NODE,
+  "%s(config-l2vpn)# "
+};
+
+static struct cmd_node ldp_pseudowire_node =
+{
+  LDP_PSEUDOWIRE_NODE,
+  "%s(config-l2vpn-pw)# "
+};
+
 static struct cmd_node keychain_node =
 {
   KEYCHAIN_NODE,
@@ -1321,6 +1364,86 @@ DEFUNSH (VTYSH_OSPF6D,
   return CMD_SUCCESS;
 }
 
+DEFUNSH (VTYSH_LDPD,
+	 ldp_mpls_ldp,
+	 ldp_mpls_ldp_cmd,
+	 "mpls ldp",
+	 "Global MPLS configuration subcommands\n"
+	 "Label Distribution Protocol\n")
+{
+  vty->node = LDP_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_LDPD,
+	 ldp_address_family_ipv4,
+	 ldp_address_family_ipv4_cmd,
+	 "address-family ipv4",
+	 "Configure Address Family and its parameters\n"
+	 "IPv4\n")
+{
+  vty->node = LDP_IPV4_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_LDPD,
+	 ldp_address_family_ipv6,
+	 ldp_address_family_ipv6_cmd,
+	 "address-family ipv6",
+	 "Configure Address Family and its parameters\n"
+	 "IPv6\n")
+{
+  vty->node = LDP_IPV6_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_LDPD,
+	 ldp_interface_ifname,
+	 ldp_interface_ifname_cmd,
+	 "interface IFNAME",
+	 "Enable LDP on an interface and enter interface submode\n"
+	 "Interface's name\n")
+{
+  switch (vty->node)
+    {
+      case LDP_IPV4_NODE:
+	vty->node = LDP_IPV4_IFACE_NODE;
+	break;
+      case LDP_IPV6_NODE:
+	vty->node = LDP_IPV6_IFACE_NODE;
+	break;
+      default:
+	break;
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_LDPD,
+	 ldp_l2vpn_word_type_vpls,
+	 ldp_l2vpn_word_type_vpls_cmd,
+	 "l2vpn WORD type vpls",
+	 "Configure l2vpn commands\n"
+	 "L2VPN name\n"
+	 "L2VPN type\n"
+	 "Virtual Private LAN Service\n")
+{
+  vty->node = LDP_L2VPN_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_LDPD,
+	 ldp_member_pseudowire_ifname,
+	 ldp_member_pseudowire_ifname_cmd,
+	 "member pseudowire IFNAME",
+	 "L2VPN member configuration\n"
+	 "Pseudowire interface\n"
+	 "Interface's name\n")
+{
+  vty->node = LDP_PSEUDOWIRE_NODE;
+  return CMD_SUCCESS;
+}
+
 DEFUNSH (VTYSH_ISISD,
 	 router_isis,
 	 router_isis_cmd,
@@ -1411,6 +1534,8 @@ vtysh_exit (struct vty *vty)
     case RIPNG_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
+    case LDP_NODE:
+    case LDP_L2VPN_NODE:
     case ISIS_NODE:
     case MASC_NODE:
     case RMAP_NODE:
@@ -1429,6 +1554,19 @@ vtysh_exit (struct vty *vty)
     case BGP_IPV6_NODE:
     case BGP_IPV6M_NODE:
       vty->node = BGP_NODE;
+      break;
+    case LDP_IPV4_NODE:
+    case LDP_IPV6_NODE:
+      vty->node = LDP_NODE;
+      break;
+    case LDP_IPV4_IFACE_NODE:
+      vty->node = LDP_IPV4_NODE;
+      break;
+    case LDP_IPV6_IFACE_NODE:
+      vty->node = LDP_IPV6_NODE;
+      break;
+    case LDP_PSEUDOWIRE_NODE:
+      vty->node = LDP_L2VPN_NODE;
       break;
     case KEYCHAIN_KEY_NODE:
       vty->node = KEYCHAIN_NODE;
@@ -1572,6 +1710,20 @@ ALIAS (vtysh_exit_ospf6d,
        "quit",
        "Exit current mode and down to previous mode\n")
 
+DEFUNSH (VTYSH_LDPD,
+	 vtysh_exit_ldpd,
+	 vtysh_exit_ldpd_cmd,
+	 "exit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_ldpd,
+       vtysh_quit_ldpd_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
+
 DEFUNSH (VTYSH_ISISD,
 	 vtysh_exit_isisd,
 	 vtysh_exit_isisd_cmd,
@@ -1620,7 +1772,7 @@ ALIAS_SH (VTYSH_ZEBRA,
          VRF_CMD_HELP_STR)
 
 /* TODO Implement "no interface command in isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD,
        vtysh_no_interface_cmd,
        "no interface IFNAME",
        NO_STR
@@ -1696,7 +1848,7 @@ ALIAS (vtysh_exit_vrf,
 
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
-DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_LDPD,
        interface_desc_cmd,
        "description .LINE",
        "Interface specific description\n"
@@ -2222,7 +2374,7 @@ DEFUN (vtysh_write_terminal,
 
 DEFUN (vtysh_write_terminal_daemon,
        vtysh_write_terminal_daemon_cmd,
-       "write terminal (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd)",
+       "write terminal (zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|pimd)",
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n"
        "For the zebra daemon\n"
@@ -2230,6 +2382,7 @@ DEFUN (vtysh_write_terminal_daemon,
        "For the ripng daemon\n"
        "For the ospf daemon\n"
        "For the ospfv6 daemon\n"
+       "For the ldp daemon\n"
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the pim daemon\n")
@@ -2419,7 +2572,7 @@ ALIAS (vtysh_write_terminal,
 
 ALIAS (vtysh_write_terminal,
        vtysh_show_running_config_daemon_cmd,
-       "show running-config (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd)",
+       "show running-config (zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|pimd)",
        SHOW_STR
        "Current operating configuration\n"
        "For the zebra daemon\n"
@@ -2427,6 +2580,7 @@ ALIAS (vtysh_write_terminal,
        "For the ripng daemon\n"
        "For the ospf daemon\n"
        "For the ospfv6 daemon\n"
+       "For the ldp daemon\n"
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the pim daemon\n")
@@ -2923,6 +3077,13 @@ vtysh_init_vty (void)
   install_node (&ripng_node, NULL);
   install_node (&ospf6_node, NULL);
 /* #endif */
+  install_node (&ldp_node, NULL);
+  install_node (&ldp_ipv4_node, NULL);
+  install_node (&ldp_ipv6_node, NULL);
+  install_node (&ldp_ipv4_iface_node, NULL);
+  install_node (&ldp_ipv6_iface_node, NULL);
+  install_node (&ldp_l2vpn_node, NULL);
+  install_node (&ldp_pseudowire_node, NULL);
   install_node (&keychain_node, NULL);
   install_node (&keychain_key_node, NULL);
   install_node (&isis_node, NULL);
@@ -2950,6 +3111,13 @@ vtysh_init_vty (void)
   vtysh_install_default (OSPF_NODE);
   vtysh_install_default (RIPNG_NODE);
   vtysh_install_default (OSPF6_NODE);
+  vtysh_install_default (LDP_NODE);
+  vtysh_install_default (LDP_IPV4_NODE);
+  vtysh_install_default (LDP_IPV6_NODE);
+  vtysh_install_default (LDP_IPV4_IFACE_NODE);
+  vtysh_install_default (LDP_IPV6_IFACE_NODE);
+  vtysh_install_default (LDP_L2VPN_NODE);
+  vtysh_install_default (LDP_PSEUDOWIRE_NODE);
   vtysh_install_default (ISIS_NODE);
   vtysh_install_default (KEYCHAIN_NODE);
   vtysh_install_default (KEYCHAIN_KEY_NODE);
@@ -2974,6 +3142,20 @@ vtysh_init_vty (void)
   install_element (OSPF_NODE, &vtysh_quit_ospfd_cmd);
   install_element (OSPF6_NODE, &vtysh_exit_ospf6d_cmd);
   install_element (OSPF6_NODE, &vtysh_quit_ospf6d_cmd);
+  install_element (LDP_NODE, &vtysh_exit_ldpd_cmd);
+  install_element (LDP_NODE, &vtysh_quit_ldpd_cmd);
+  install_element (LDP_IPV4_NODE, &vtysh_exit_ldpd_cmd);
+  install_element (LDP_IPV4_NODE, &vtysh_quit_ldpd_cmd);
+  install_element (LDP_IPV6_NODE, &vtysh_exit_ldpd_cmd);
+  install_element (LDP_IPV6_NODE, &vtysh_quit_ldpd_cmd);
+  install_element (LDP_IPV4_IFACE_NODE, &vtysh_exit_ldpd_cmd);
+  install_element (LDP_IPV4_IFACE_NODE, &vtysh_quit_ldpd_cmd);
+  install_element (LDP_IPV6_IFACE_NODE, &vtysh_exit_ldpd_cmd);
+  install_element (LDP_IPV6_IFACE_NODE, &vtysh_quit_ldpd_cmd);
+  install_element (LDP_L2VPN_NODE, &vtysh_exit_ldpd_cmd);
+  install_element (LDP_L2VPN_NODE, &vtysh_quit_ldpd_cmd);
+  install_element (LDP_PSEUDOWIRE_NODE, &vtysh_exit_ldpd_cmd);
+  install_element (LDP_PSEUDOWIRE_NODE, &vtysh_quit_ldpd_cmd);
   install_element (BGP_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_exit_bgpd_cmd);
@@ -3010,6 +3192,13 @@ vtysh_init_vty (void)
   install_element (RIPNG_NODE, &vtysh_end_all_cmd);
   install_element (OSPF_NODE, &vtysh_end_all_cmd);
   install_element (OSPF6_NODE, &vtysh_end_all_cmd);
+  install_element (LDP_NODE, &vtysh_end_all_cmd);
+  install_element (LDP_IPV4_NODE, &vtysh_end_all_cmd);
+  install_element (LDP_IPV6_NODE, &vtysh_end_all_cmd);
+  install_element (LDP_IPV4_IFACE_NODE, &vtysh_end_all_cmd);
+  install_element (LDP_IPV6_IFACE_NODE, &vtysh_end_all_cmd);
+  install_element (LDP_L2VPN_NODE, &vtysh_end_all_cmd);
+  install_element (LDP_PSEUDOWIRE_NODE, &vtysh_end_all_cmd);
   install_element (BGP_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV4_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV4M_NODE, &vtysh_end_all_cmd);
@@ -3050,6 +3239,13 @@ vtysh_init_vty (void)
 #ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &router_ospf6_cmd);
 #endif
+  install_element (CONFIG_NODE, &ldp_mpls_ldp_cmd);
+  install_element (LDP_NODE, &ldp_address_family_ipv4_cmd);
+  install_element (LDP_NODE, &ldp_address_family_ipv6_cmd);
+  install_element (LDP_IPV4_NODE, &ldp_interface_ifname_cmd);
+  install_element (LDP_IPV6_NODE, &ldp_interface_ifname_cmd);
+  install_element (CONFIG_NODE, &ldp_l2vpn_word_type_vpls_cmd);
+  install_element (LDP_L2VPN_NODE, &ldp_member_pseudowire_ifname_cmd);
   install_element (CONFIG_NODE, &router_isis_cmd);
   install_element (CONFIG_NODE, &router_bgp_cmd);
   install_element (CONFIG_NODE, &router_bgp_asn_cmd);
