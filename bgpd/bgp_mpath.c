@@ -777,3 +777,18 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
   else
     bgp_attr_unintern (&new_attr);
 }
+
+/* returns 1 if ri is part of the mpath list from new_select */
+int bgp_is_mpath_entry(struct bgp_info *ri, struct bgp_info *curr)
+{
+  struct bgp_info *mpinfo;
+
+  /* not a multipath entry */
+  if(!curr || !curr->mpath)
+    return 0;
+  for (mpinfo = bgp_info_mpath_first (curr); mpinfo;
+       mpinfo = bgp_info_mpath_next (mpinfo))
+    if(mpinfo == ri)
+      return 1;
+  return 0;
+}
