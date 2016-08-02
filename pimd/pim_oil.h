@@ -78,7 +78,7 @@ struct channel_oil {
 };
 
 void pim_channel_oil_free(struct channel_oil *c_oil);
-struct channel_oil *pim_channel_oil_add(struct prefix *sg,
+struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
 					int input_vif_index);
 void pim_channel_oil_del(struct channel_oil *c_oil);
 

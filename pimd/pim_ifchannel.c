@@ -51,13 +51,13 @@ pim_ifchannel_remove_children (struct pim_ifchannel *ch)
   struct pim_ifchannel *child;
 
   // Basic sanity, (*,*) not currently supported
-  if ((ch->sg.u.sg.src.s_addr == INADDR_ANY) &&
-      (ch->sg.u.sg.grp.s_addr == INADDR_ANY))
+  if ((ch->sg.src.s_addr == INADDR_ANY) &&
+      (ch->sg.grp.s_addr == INADDR_ANY))
     return;
 
   // Basic sanity (S,G) have no children
-  if ((ch->sg.u.sg.src.s_addr != INADDR_ANY) &&
-      (ch->sg.u.sg.grp.s_addr != INADDR_ANY))
+  if ((ch->sg.src.s_addr != INADDR_ANY) &&
+      (ch->sg.grp.s_addr != INADDR_ANY))
     return;
 
   for (ALL_LIST_ELEMENTS_RO (pim_ifp->pim_ifchannel_list, ch_node, child))
@@ -80,18 +80,18 @@ pim_ifchannel_find_new_children (struct pim_ifchannel *ch)
   struct listnode *ch_node;
 
   // Basic Sanity that we are not being silly
-  if ((ch->sg.u.sg.src.s_addr != INADDR_ANY) &&
-      (ch->sg.u.sg.grp.s_addr != INADDR_ANY))
+  if ((ch->sg.src.s_addr != INADDR_ANY) &&
+      (ch->sg.grp.s_addr != INADDR_ANY))
     return;
 
-  if ((ch->sg.u.sg.src.s_addr == INADDR_ANY) &&
-      (ch->sg.u.sg.grp.s_addr == INADDR_ANY))
+  if ((ch->sg.src.s_addr == INADDR_ANY) &&
+      (ch->sg.grp.s_addr == INADDR_ANY))
     return;
 
   for (ALL_LIST_ELEMENTS_RO (pim_ifp->pim_ifchannel_list, ch_node, child))
     {
-      if ((ch->sg.u.sg.grp.s_addr != INADDR_ANY) &&
-	  (child->sg.u.sg.grp.s_addr == ch->sg.u.sg.grp.s_addr) &&
+      if ((ch->sg.grp.s_addr != INADDR_ANY) &&
+	  (child->sg.grp.s_addr == ch->sg.grp.s_addr) &&
 	  (child != ch))
 	child->parent = ch;
     }
@@ -244,7 +244,7 @@ void reset_ifassert_state(struct pim_ifchannel *ch)
 }
 
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
-					 struct prefix *sg)
+					 struct prefix_sg *sg)
 {
   struct pim_interface *pim_ifp;
   struct listnode      *ch_node;
@@ -264,8 +264,8 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, ch_node, ch)) {
     if (
-	(sg->u.sg.src.s_addr == ch->sg.u.sg.src.s_addr) &&
-	(sg->u.sg.grp.s_addr == ch->sg.u.sg.grp.s_addr)
+	(sg->src.s_addr == ch->sg.src.s_addr) &&
+	(sg->grp.s_addr == ch->sg.grp.s_addr)
 	) {
       return ch;
     }
@@ -333,33 +333,33 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
  */
 static struct pim_ifchannel *
 pim_ifchannel_find_parent (struct interface *ifp,
-			   struct prefix *sg)
+			   struct prefix_sg *sg)
 {
-  struct prefix parent_sg = *sg;
+  struct prefix_sg parent_sg = *sg;
 
   // (*,*) || (S,*)
-  if (((sg->u.sg.src.s_addr == INADDR_ANY) &&
-       (sg->u.sg.grp.s_addr == INADDR_ANY)) ||
-      ((sg->u.sg.src.s_addr != INADDR_ANY) &&
-       (sg->u.sg.grp.s_addr == INADDR_ANY)))
+  if (((sg->src.s_addr == INADDR_ANY) &&
+       (sg->grp.s_addr == INADDR_ANY)) ||
+      ((sg->src.s_addr != INADDR_ANY) &&
+       (sg->grp.s_addr == INADDR_ANY)))
     return NULL;
 
   // (S,G)
-  if ((sg->u.sg.src.s_addr != INADDR_ANY) &&
-      (sg->u.sg.grp.s_addr != INADDR_ANY))
+  if ((sg->src.s_addr != INADDR_ANY) &&
+      (sg->grp.s_addr != INADDR_ANY))
     {
-      parent_sg.u.sg.src.s_addr = INADDR_ANY;
+      parent_sg.src.s_addr = INADDR_ANY;
       return pim_ifchannel_find (ifp, &parent_sg);
     }
 
   // (*,G) -- Not going to find anything currently
-  parent_sg.u.sg.grp.s_addr = INADDR_ANY;
+  parent_sg.grp.s_addr = INADDR_ANY;
   return pim_ifchannel_find (ifp, &parent_sg);
 }
 
 struct pim_ifchannel *
 pim_ifchannel_add(struct interface *ifp,
-		  struct prefix *sg)
+		  struct prefix_sg *sg)
 {
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
@@ -459,7 +459,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
   int send_prune_echo; /* boolean */
   struct interface *ifp;
   struct pim_interface *pim_ifp;
-  struct prefix sg;
+  struct prefix_sg sg;
 
   zassert(t);
   ch = THREAD_ARG(t);
@@ -490,7 +490,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 static void check_recv_upstream(int is_join,
 				struct interface *recv_ifp,
 				struct in_addr upstream,
-				struct prefix *sg,
+				struct prefix_sg *sg,
 				uint8_t source_flags,
 				int holdtime)
 {
@@ -557,7 +557,7 @@ static void check_recv_upstream(int is_join,
 static int nonlocal_upstream(int is_join,
 			     struct interface *recv_ifp,
 			     struct in_addr upstream,
-			     struct prefix *sg,
+			     struct prefix_sg *sg,
 			     uint8_t source_flags,
 			     uint16_t holdtime)
 {
@@ -596,7 +596,7 @@ static int nonlocal_upstream(int is_join,
 void pim_ifchannel_join_add(struct interface *ifp,
 			    struct in_addr neigh_addr,
 			    struct in_addr upstream,
-			    struct prefix *sg,
+			    struct prefix_sg *sg,
 			    uint8_t source_flags,
 			    uint16_t holdtime)
 {
@@ -696,7 +696,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
 
 void pim_ifchannel_prune(struct interface *ifp,
 			 struct in_addr upstream,
-			 struct prefix *sg,
+			 struct prefix_sg *sg,
 			 uint8_t source_flags,
 			 uint16_t holdtime)
 {
@@ -753,7 +753,7 @@ void pim_ifchannel_prune(struct interface *ifp,
 }
 
 void pim_ifchannel_local_membership_add(struct interface *ifp,
-					struct prefix *sg)
+					struct prefix_sg *sg)
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
@@ -776,7 +776,7 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
 }
 
 void pim_ifchannel_local_membership_del(struct interface *ifp,
-					struct prefix *sg)
+					struct prefix_sg *sg)
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
@@ -808,8 +808,8 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
   if (PIM_DEBUG_PIM_EVENTS) {
     char src_str[100];
     char grp_str[100];
-    pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: CouldAssert(%s,%s,%s) changed from %d to %d",
 	       __PRETTY_FUNCTION__,
 	       src_str, grp_str, ch->interface->name,
@@ -852,8 +852,8 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch)
     char grp_str[100];
     char old_addr_str[100];
     char new_addr_str[100];
-    pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<old_addr?>", ch->ifassert_my_metric.ip_address, old_addr_str, sizeof(old_addr_str));
     pim_inet4_dump("<new_addr?>", my_metric_new.ip_address, new_addr_str, sizeof(new_addr_str));
     zlog_debug("%s: my_assert_metric(%s,%s,%s) changed from %u,%u,%u,%s to %u,%u,%u,%s",
@@ -888,8 +888,8 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
   if (PIM_DEBUG_PIM_EVENTS) {
     char src_str[100];
     char grp_str[100];
-    pim_inet4_dump("<src?>", ch->sg.u.sg.src, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", ch->sg.u.sg.grp, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
     zlog_debug("%s: AssertTrackingDesired(%s,%s,%s) changed from %d to %d",
 	       __PRETTY_FUNCTION__,
 	       src_str, grp_str, ch->interface->name,

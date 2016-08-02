@@ -62,13 +62,13 @@ pim_upstream_remove_children (struct pim_upstream *up)
   struct pim_upstream *child;
 
   // Basic sanity, (*,*) not currently supported
-  if ((up->sg.u.sg.src.s_addr == INADDR_ANY) &&
-      (up->sg.u.sg.grp.s_addr == INADDR_ANY))
+  if ((up->sg.src.s_addr == INADDR_ANY) &&
+      (up->sg.grp.s_addr == INADDR_ANY))
     return;
 
   // Basic sanity (S,G) have no children
-  if ((up->sg.u.sg.src.s_addr != INADDR_ANY) &&
-      (up->sg.u.sg.grp.s_addr != INADDR_ANY))
+  if ((up->sg.src.s_addr != INADDR_ANY) &&
+      (up->sg.grp.s_addr != INADDR_ANY))
     return;
 
   for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, ch_node, child))
@@ -89,18 +89,18 @@ pim_upstream_find_new_children (struct pim_upstream *up)
   struct pim_upstream *child;
   struct listnode *ch_node;
 
-  if ((up->sg.u.sg.src.s_addr != INADDR_ANY) &&
-      (up->sg.u.sg.grp.s_addr != INADDR_ANY))
+  if ((up->sg.src.s_addr != INADDR_ANY) &&
+      (up->sg.grp.s_addr != INADDR_ANY))
     return;
 
-  if ((up->sg.u.sg.src.s_addr == INADDR_ANY) &&
-      (up->sg.u.sg.grp.s_addr == INADDR_ANY))
+  if ((up->sg.src.s_addr == INADDR_ANY) &&
+      (up->sg.grp.s_addr == INADDR_ANY))
     return;
 
   for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, ch_node, child))
     {
-      if ((up->sg.u.sg.grp.s_addr != INADDR_ANY) &&
-          (child->sg.u.sg.grp.s_addr == up->sg.u.sg.grp.s_addr) &&
+      if ((up->sg.grp.s_addr != INADDR_ANY) &&
+          (child->sg.grp.s_addr == up->sg.grp.s_addr) &&
 	  (child != up))
         child->parent = up;
     }
@@ -112,27 +112,27 @@ pim_upstream_find_new_children (struct pim_upstream *up)
  * If we have a (*,G), find the (*,*)
  */
 static struct pim_upstream *
-pim_upstream_find_parent (struct prefix *sg)
+pim_upstream_find_parent (struct prefix_sg *sg)
 {
-  struct prefix any = *sg;
+  struct prefix_sg any = *sg;
 
   // (*,*) || (S,*)
-  if (((sg->u.sg.src.s_addr == INADDR_ANY) &&
-       (sg->u.sg.grp.s_addr == INADDR_ANY)) ||
-      ((sg->u.sg.src.s_addr != INADDR_ANY) &&
-       (sg->u.sg.grp.s_addr == INADDR_ANY)))
+  if (((sg->src.s_addr == INADDR_ANY) &&
+       (sg->grp.s_addr == INADDR_ANY)) ||
+      ((sg->src.s_addr != INADDR_ANY) &&
+       (sg->grp.s_addr == INADDR_ANY)))
     return NULL;
 
   // (S,G)
-  if ((sg->u.sg.src.s_addr != INADDR_ANY) &&
-      (sg->u.sg.grp.s_addr != INADDR_ANY))
+  if ((sg->src.s_addr != INADDR_ANY) &&
+      (sg->grp.s_addr != INADDR_ANY))
     {
-      any.u.sg.src.s_addr = INADDR_ANY;
+      any.src.s_addr = INADDR_ANY;
       return pim_upstream_find (&any);
     }
 
   // (*,G)
-  any.u.sg.grp.s_addr = INADDR_ANY;
+  any.grp.s_addr = INADDR_ANY;
   return pim_upstream_find (&any);
 }
 
@@ -416,7 +416,7 @@ pim_upstream_switch(struct pim_upstream *up,
   }
 }
 
-static struct pim_upstream *pim_upstream_new(struct prefix *sg,
+static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
 					     struct interface *incoming)
 {
   struct pim_upstream *up;
@@ -430,7 +430,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix *sg,
   }
   
   up->sg                          = *sg;
-  if (!pim_rp_set_upstream_addr (&up->upstream_addr, sg->u.sg.src))
+  if (!pim_rp_set_upstream_addr (&up->upstream_addr, sg->src))
     {
       if (PIM_DEBUG_PIM_TRACE)
 	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);
@@ -471,39 +471,39 @@ static struct pim_upstream *pim_upstream_new(struct prefix *sg,
 /*
  * For a given sg, find any non * source
  */
-struct pim_upstream *pim_upstream_find_non_any (struct prefix *sg)
+struct pim_upstream *pim_upstream_find_non_any (struct prefix_sg *sg)
 {
   struct listnode *up_node;
-  struct prefix any = *sg;
+  struct prefix_sg any = *sg;
   struct pim_upstream *up;
 
-  any.u.sg.src.s_addr = INADDR_ANY;
+  any.src.s_addr = INADDR_ANY;
 
   for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, up))
     {
-      if ((any.u.sg.grp.s_addr == up->sg.u.sg.grp.s_addr) &&
-          (up->sg.u.sg.src.s_addr != any.u.sg.src.s_addr))
+      if ((any.grp.s_addr == up->sg.grp.s_addr) &&
+          (up->sg.src.s_addr != any.src.s_addr))
         return up;
     }
 
   return NULL;
 }
 
-struct pim_upstream *pim_upstream_find(struct prefix *sg)
+struct pim_upstream *pim_upstream_find(struct prefix_sg *sg)
 {
   struct listnode     *up_node;
   struct pim_upstream *up;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, up_node, up)) {
-    if ((sg->u.sg.grp.s_addr == up->sg.u.sg.grp.s_addr) &&
-	(sg->u.sg.src.s_addr == up->sg.u.sg.src.s_addr))
+    if ((sg->grp.s_addr == up->sg.grp.s_addr) &&
+	(sg->src.s_addr == up->sg.src.s_addr))
       return up;
   }
 
   return NULL;
 }
 
-struct pim_upstream *pim_upstream_add(struct prefix *sg,
+struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
 				      struct interface *incoming)
 {
   struct pim_upstream *up;
@@ -794,7 +794,7 @@ pim_upstream_keep_alive_timer (struct thread *t)
 
   up = THREAD_ARG(t);
 
-  if (I_am_RP (up->sg.u.sg.grp))
+  if (I_am_RP (up->sg.grp))
     {
       pim_br_clear_pmbr (&up->sg);
       /*
@@ -859,9 +859,9 @@ pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
  *  received for the source and group.
  */
 int
-pim_upstream_switch_to_spt_desired (struct prefix *sg)
+pim_upstream_switch_to_spt_desired (struct prefix_sg *sg)
 {
-  if (I_am_RP (sg->u.sg.grp))
+  if (I_am_RP (sg->grp))
     return 1;
 
   return 0;
@@ -914,13 +914,13 @@ pim_upstream_register_stop_timer (struct thread *t)
       up->join_state = PIM_UPSTREAM_JOIN_PENDING;
       pim_upstream_start_register_stop_timer (up, 1);
 
-      rpg = RP (up->sg.u.sg.grp);
+      rpg = RP (up->sg.grp);
       memset (&ip_hdr, 0, sizeof (struct ip));
       ip_hdr.ip_p = PIM_IP_PROTO_PIM;
       ip_hdr.ip_hl = 5;
       ip_hdr.ip_v = 4;
-      ip_hdr.ip_src = up->sg.u.sg.src;
-      ip_hdr.ip_dst = up->sg.u.sg.grp;
+      ip_hdr.ip_src = up->sg.src;
+      ip_hdr.ip_dst = up->sg.grp;
       ip_hdr.ip_len = 20;
       // checksum is broken
       pim_register_send ((uint8_t *)&ip_hdr, sizeof (struct ip), rpg, 1);
@@ -990,7 +990,7 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
   struct listnode *chnode;
   struct listnode *ifnode;
   struct interface *ifp;
-  struct prefix anysrc;
+  struct prefix_sg anysrc;
   int output_intf = 0;
 
   pim_ifp = up->rpf.source_nexthop.interface->info;
@@ -998,7 +998,7 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
   if (!up->channel_oil)
     up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
   anysrc = up->sg;
-  anysrc.u.sg.src.s_addr = INADDR_ANY;
+  anysrc.src.s_addr = INADDR_ANY;
 
   anysrc_up = pim_upstream_find (&anysrc);
   if (anysrc_up)

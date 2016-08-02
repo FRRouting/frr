@@ -73,7 +73,7 @@ struct pim_assert_metric {
 */
 struct pim_ifchannel {
   struct pim_ifchannel     *parent;
-  struct prefix             sg;
+  struct prefix_sg          sg;
   struct interface         *interface;   /* backpointer to interface */
   uint32_t                  flags;
 
@@ -103,24 +103,24 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch);
 void pim_ifchannel_membership_clear(struct interface *ifp);
 void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
-					 struct prefix *sg);
+					 struct prefix_sg *sg);
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct prefix *sg);
+					struct prefix_sg *sg);
 void pim_ifchannel_join_add(struct interface *ifp,
 			    struct in_addr neigh_addr,
 			    struct in_addr upstream,
-			    struct prefix *sg,
+			    struct prefix_sg *sg,
 			    uint8_t source_flags,
 			    uint16_t holdtime);
 void pim_ifchannel_prune(struct interface *ifp,
 			 struct in_addr upstream,
-			 struct prefix *sg,
+			 struct prefix_sg *sg,
 			 uint8_t source_flags,
 			 uint16_t holdtime);
 void pim_ifchannel_local_membership_add(struct interface *ifp,
-					struct prefix *sg);
+					struct prefix_sg *sg);
 void pim_ifchannel_local_membership_del(struct interface *ifp,
-					struct prefix *sg);
+					struct prefix_sg *sg);
 
 void pim_ifchannel_ifjoin_switch(const char *caller,
 				 struct pim_ifchannel *ch,

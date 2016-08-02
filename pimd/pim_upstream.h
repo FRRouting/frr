@@ -90,7 +90,7 @@ struct pim_upstream {
   struct pim_upstream      *parent;
   int                      fhr;
   struct in_addr           upstream_addr;/* Who we are talking to */
-  struct prefix            sg;           /* (S,G) group key */
+  struct prefix_sg         sg;           /* (S,G) group key */
   uint32_t                 flags;
   struct channel_oil      *channel_oil;
 
@@ -122,9 +122,9 @@ struct pim_upstream {
 
 void pim_upstream_free(struct pim_upstream *up);
 void pim_upstream_delete(struct pim_upstream *up);
-struct pim_upstream *pim_upstream_find (struct prefix *sg);
-struct pim_upstream *pim_upstream_find_non_any (struct prefix *sg);
-struct pim_upstream *pim_upstream_add (struct prefix *sg,
+struct pim_upstream *pim_upstream_find (struct prefix_sg *sg);
+struct pim_upstream *pim_upstream_find_non_any (struct prefix_sg *sg);
+struct pim_upstream *pim_upstream_add (struct prefix_sg *sg,
 				      struct interface *ifp);
 void pim_upstream_del(struct pim_upstream *up);
 
@@ -147,7 +147,7 @@ void pim_upstream_update_my_assert_metric(struct pim_upstream *up);
 
 void pim_upstream_keep_alive_timer_start (struct pim_upstream *up, uint32_t time);
 
-int pim_upstream_switch_to_spt_desired (struct prefix *sg);
+int pim_upstream_switch_to_spt_desired (struct prefix_sg *sg);
 #define SwitchToSptDesired(sg) pim_upstream_switch_to_spt_desired (sg)
 
 void pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_register);

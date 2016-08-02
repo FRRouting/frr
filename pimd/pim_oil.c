@@ -51,7 +51,7 @@ pim_del_channel_oil (struct channel_oil *c_oil)
 }
 
 static struct channel_oil *
-pim_add_channel_oil (struct prefix *sg,
+pim_add_channel_oil (struct prefix_sg *sg,
 		    int input_vif_index)
 {
   struct channel_oil *c_oil;
@@ -71,8 +71,8 @@ pim_add_channel_oil (struct prefix *sg,
     return NULL;
   }
 
-  c_oil->oil.mfcc_mcastgrp = sg->u.sg.grp;
-  c_oil->oil.mfcc_origin   = sg->u.sg.src;
+  c_oil->oil.mfcc_mcastgrp = sg->grp;
+  c_oil->oil.mfcc_origin   = sg->src;
   c_oil->oil.mfcc_parent   = input_vif_index;
   c_oil->oil_ref_count     = 1;
   c_oil->installed         = 0;
@@ -82,21 +82,21 @@ pim_add_channel_oil (struct prefix *sg,
   return c_oil;
 }
 
-static struct channel_oil *pim_find_channel_oil(struct prefix *sg)
+static struct channel_oil *pim_find_channel_oil(struct prefix_sg *sg)
 {
   struct listnode    *node;
   struct channel_oil *c_oil;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
-    if ((sg->u.sg.grp.s_addr == c_oil->oil.mfcc_mcastgrp.s_addr) &&
-	(sg->u.sg.src.s_addr == c_oil->oil.mfcc_origin.s_addr))
+    if ((sg->grp.s_addr == c_oil->oil.mfcc_mcastgrp.s_addr) &&
+	(sg->src.s_addr == c_oil->oil.mfcc_origin.s_addr))
       return c_oil;
   }
   
   return 0;
 }
 
-struct channel_oil *pim_channel_oil_add(struct prefix *sg,
+struct channel_oil *pim_channel_oil_add(struct prefix_sg *sg,
 					int input_vif_index)
 {
   struct channel_oil *c_oil;

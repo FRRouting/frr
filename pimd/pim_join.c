@@ -58,11 +58,11 @@ static void recv_join(struct interface *ifp,
 		      struct in_addr source,
 		      uint8_t source_flags)
 {
-  struct prefix sg;
+  struct prefix_sg sg;
 
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = source;
-  sg.u.sg.grp = group;
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = source;
+  sg.grp = group;
 
   if (PIM_DEBUG_PIM_TRACE) {
     char up_str[100];
@@ -84,23 +84,23 @@ static void recv_join(struct interface *ifp,
   if ((source_flags & PIM_RPT_BIT_MASK) &&
       (source_flags & PIM_WILDCARD_BIT_MASK))
     {
-      struct pim_rpf *rp = RP (sg.u.sg.grp);
+      struct pim_rpf *rp = RP (sg.grp);
 
       /*
        * If the RP sent in the message is not
        * our RP for the group, drop the message
        */
-      if (sg.u.sg.src.s_addr != rp->rpf_addr.s_addr)
+      if (sg.src.s_addr != rp->rpf_addr.s_addr)
 	return;
 
-      sg.u.sg.src.s_addr = INADDR_ANY;
+      sg.src.s_addr = INADDR_ANY;
     }
 
   /* Restart join expiry timer */
   pim_ifchannel_join_add(ifp, neigh->source_addr, upstream,
 			 &sg, source_flags, holdtime);
 
-  if (sg.u.sg.src.s_addr == INADDR_ANY)
+  if (sg.src.s_addr == INADDR_ANY)
     {
       struct pim_upstream *up = pim_upstream_find (&sg);
       struct pim_upstream *child;
@@ -133,11 +133,11 @@ static void recv_prune(struct interface *ifp,
 		       struct in_addr source,
 		       uint8_t source_flags)
 {
-  struct prefix sg;
+  struct prefix_sg sg;
 
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = source;
-  sg.u.sg.grp = group;
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = source;
+  sg.grp = group;
 
   if (PIM_DEBUG_PIM_TRACE) {
     char up_str[100];
@@ -155,18 +155,18 @@ static void recv_prune(struct interface *ifp,
   if ((source_flags & PIM_RPT_BIT_MASK) &&
       (source_flags & PIM_WILDCARD_BIT_MASK))
     {
-      struct pim_rpf *rp = RP (sg.u.sg.grp);
+      struct pim_rpf *rp = RP (sg.grp);
 
       // Ignoring Prune *,G's at the moment.
-      if (sg.u.sg.src.s_addr != rp->rpf_addr.s_addr)
+      if (sg.src.s_addr != rp->rpf_addr.s_addr)
 	return;
 
-      sg.u.sg.src.s_addr = INADDR_ANY;
+      sg.src.s_addr = INADDR_ANY;
     }
   
   pim_ifchannel_prune(ifp, upstream, &sg, source_flags, holdtime);
 
-  if (sg.u.sg.src.s_addr == INADDR_ANY)
+  if (sg.src.s_addr == INADDR_ANY)
     {
       struct pim_upstream *up = pim_upstream_find (&sg);
       struct pim_upstream *child;
@@ -355,7 +355,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
 int pim_joinprune_send(struct interface *ifp,
 		       struct in_addr upstream_addr,
-		       struct prefix *sg,
+		       struct prefix_sg *sg,
 		       int send_join)
 {
   struct pim_interface *pim_ifp;
@@ -411,7 +411,7 @@ int pim_joinprune_send(struct interface *ifp,
     Build PIM message
   */
   pim_msg_size = pim_msg_join_prune_encode (pim_msg, 1000, send_join,
-					    sg->u.sg.src, sg->u.sg.grp,
+					    sg->src, sg->grp,
 					    upstream_addr, PIM_JP_HOLDTIME);
 
   if (pim_msg_size < 0)

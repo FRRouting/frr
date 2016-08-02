@@ -95,7 +95,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   struct pim_interface *pim_ifp = ifp->info;
   struct pim_upstream *up;
   struct pim_rpf *rpg;
-  struct prefix sg;
+  struct prefix_sg sg;
 
   rpg = RP(msg->im_dst);
   /*
@@ -126,9 +126,9 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 	       __PRETTY_FUNCTION__, grp_str, src_str);
   }
 
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = msg->im_src;
-  sg.u.sg.grp = msg->im_dst;
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = msg->im_src;
+  sg.grp = msg->im_dst;
   up = pim_upstream_add (&sg, ifp);
   if (!up) {
     if (PIM_DEBUG_MROUTE) {
@@ -164,16 +164,16 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 			 const char *src_str, const char *grp_str)
 {
   struct pim_interface *pim_ifp;
-  struct prefix sg;
+  struct prefix_sg sg;
   struct pim_rpf *rpg;
   const struct ip *ip_hdr;
   struct pim_upstream *up;
 
   ip_hdr = (const struct ip *)buf;
 
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = ip_hdr->ip_src;
-  sg.u.sg.grp = ip_hdr->ip_dst;
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = ip_hdr->ip_src;
+  sg.grp = ip_hdr->ip_dst;
 
   up = pim_upstream_find(&sg);
   if (!up) {
@@ -186,7 +186,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 
   pim_ifp = up->rpf.source_nexthop.interface->info;
 
-  rpg = RP(sg.u.sg.grp);
+  rpg = RP(sg.grp);
 
   if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
       (!pim_ifp) ||
@@ -213,7 +213,7 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
-  struct prefix sg;
+  struct prefix_sg sg;
 
   /*
     Send Assert(S,G) on iif as response to WRONGVIF kernel upcall.
@@ -245,9 +245,9 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
     return -2;
   }
 
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = msg->im_src;
-  sg.u.sg.grp = msg->im_dst;
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = msg->im_src;
+  sg.grp = msg->im_dst;
   ch = pim_ifchannel_find(ifp, &sg);
   if (!ch) {
     if (PIM_DEBUG_MROUTE) {

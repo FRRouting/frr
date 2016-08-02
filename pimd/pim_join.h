@@ -35,7 +35,7 @@ int pim_joinprune_recv(struct interface *ifp,
 
 int pim_joinprune_send(struct interface *ifp,
 		       struct in_addr upstream_addr,
-		       struct prefix *sg,
+		       struct prefix_sg *sg,
 		       int send_join);
 
 #endif /* PIM_JOIN_H */

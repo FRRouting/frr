@@ -128,11 +128,11 @@ static void pim_if_membership_refresh(struct interface *ifp)
       for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src)) {
 
 	if (IGMP_SOURCE_TEST_FORWARDING(src->source_flags)) {
-	  struct prefix sg;
+	  struct prefix_sg sg;
 
-	  memset (&sg, 0, sizeof (struct prefix));
-	  sg.u.sg.src = src->source_addr;
-	  sg.u.sg.grp = grp->group_addr;
+	  memset (&sg, 0, sizeof (struct prefix_sg));
+	  sg.src = src->source_addr;
+	  sg.grp = grp->group_addr;
 	  pim_ifchannel_local_membership_add(ifp, &sg);
 	}
 	
@@ -180,9 +180,9 @@ static void pim_show_assert(struct vty *vty)
       char uptime[10];
       char timer[10];
 
-      pim_inet4_dump("<ch_src?>", ch->sg.u.sg.src,
+      pim_inet4_dump("<ch_src?>", ch->sg.src,
 		     ch_src_str, sizeof(ch_src_str));
-      pim_inet4_dump("<ch_grp?>", ch->sg.u.sg.grp,
+      pim_inet4_dump("<ch_grp?>", ch->sg.grp,
 		     ch_grp_str, sizeof(ch_grp_str));
       pim_inet4_dump("<assrt_win?>", ch->ifassert_winner,
 		     winner_str, sizeof(winner_str));
@@ -238,9 +238,9 @@ static void pim_show_assert_internal(struct vty *vty)
       char ch_src_str[100];
       char ch_grp_str[100];
 
-      pim_inet4_dump("<ch_src?>", ch->sg.u.sg.src,
+      pim_inet4_dump("<ch_src?>", ch->sg.src,
 		     ch_src_str, sizeof(ch_src_str));
-      pim_inet4_dump("<ch_grp?>", ch->sg.u.sg.grp,
+      pim_inet4_dump("<ch_grp?>", ch->sg.grp,
 		     ch_grp_str, sizeof(ch_grp_str));
       vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %-3s %-3s %-4s%s",
 	      ifp->name,
@@ -286,9 +286,9 @@ static void pim_show_assert_metric(struct vty *vty)
 
       am = pim_macro_spt_assert_metric(&ch->upstream->rpf, pim_ifp->primary_address);
 
-      pim_inet4_dump("<ch_src?>", ch->sg.u.sg.src,
+      pim_inet4_dump("<ch_src?>", ch->sg.src,
 		     ch_src_str, sizeof(ch_src_str));
-      pim_inet4_dump("<ch_grp?>", ch->sg.u.sg.grp,
+      pim_inet4_dump("<ch_grp?>", ch->sg.grp,
 		     ch_grp_str, sizeof(ch_grp_str));
       pim_inet4_dump("<addr?>", am.ip_address,
 		     addr_str, sizeof(addr_str));
@@ -339,9 +339,9 @@ static void pim_show_assert_winner_metric(struct vty *vty)
 
       am = &ch->ifassert_winner_metric;
 
-      pim_inet4_dump("<ch_src?>", ch->sg.u.sg.src,
+      pim_inet4_dump("<ch_src?>", ch->sg.src,
 		     ch_src_str, sizeof(ch_src_str));
-      pim_inet4_dump("<ch_grp?>", ch->sg.u.sg.grp,
+      pim_inet4_dump("<ch_grp?>", ch->sg.grp,
 		     ch_grp_str, sizeof(ch_grp_str));
       pim_inet4_dump("<addr?>", am->ip_address,
 		     addr_str, sizeof(addr_str));
@@ -396,9 +396,9 @@ static void pim_show_membership(struct vty *vty)
       char ch_src_str[100];
       char ch_grp_str[100];
 
-      pim_inet4_dump("<ch_src?>", ch->sg.u.sg.src,
+      pim_inet4_dump("<ch_src?>", ch->sg.src,
 		     ch_src_str, sizeof(ch_src_str));
-      pim_inet4_dump("<ch_grp?>", ch->sg.u.sg.grp,
+      pim_inet4_dump("<ch_grp?>", ch->sg.grp,
 		     ch_grp_str, sizeof(ch_grp_str));
 
       vty_out(vty, "%-9s %-15s %-15s %-15s %-10s%s",
@@ -730,9 +730,9 @@ static void pim_show_join(struct vty *vty)
       char expire[10];
       char prune[10];
 
-      pim_inet4_dump("<ch_src?>", ch->sg.u.sg.src,
+      pim_inet4_dump("<ch_src?>", ch->sg.src,
 		     ch_src_str, sizeof(ch_src_str));
-      pim_inet4_dump("<ch_grp?>", ch->sg.u.sg.grp,
+      pim_inet4_dump("<ch_grp?>", ch->sg.grp,
 		     ch_grp_str, sizeof(ch_grp_str));
 
       pim_time_uptime_begin(uptime, sizeof(uptime), now, ch->ifjoin_creation);
@@ -991,8 +991,8 @@ static void pim_show_upstream(struct vty *vty)
       char join_timer[10];
       char rs_timer[10];
 
-      pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
+      pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
       pim_time_uptime(uptime, sizeof(uptime), now - up->state_transition);
       pim_time_timer_to_hhmmss(join_timer, sizeof(join_timer), up->t_join_timer);
       pim_time_timer_to_hhmmss (rs_timer, sizeof (rs_timer), up->t_rs_timer);
@@ -1034,8 +1034,8 @@ static void pim_show_join_desired(struct vty *vty)
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list, chnode, ch)) {
       struct pim_upstream *up = ch->upstream;
 
-      pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
-      pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
+      pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+      pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
 
       vty_out(vty, "%-9s %-15s %-15s %-10s %-5s %-10s %-11s %-6s%s",
 	      ifp->name,
@@ -1070,8 +1070,8 @@ static void pim_show_upstream_rpf(struct vty *vty)
     
     rpf = &up->rpf;
     
-    pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<nexthop?>", rpf->source_nexthop.mrib_nexthop_addr, rpf_nexthop_str, sizeof(rpf_nexthop_str));
     pim_inet4_dump("<rpf?>", rpf->rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
     
@@ -1147,8 +1147,8 @@ static void pim_show_rpf(struct vty *vty)
     const char *rpf_ifname;
     struct pim_rpf  *rpf = &up->rpf;
     
-    pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
-    pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+    pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
     pim_inet4_dump("<rpf?>", rpf->rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
     pim_inet4_dump("<nexthop?>", rpf->source_nexthop.mrib_nexthop_addr, rib_nexthop_str, sizeof(rib_nexthop_str));
     

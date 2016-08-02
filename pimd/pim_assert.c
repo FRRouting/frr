@@ -145,11 +145,11 @@ static int dispatch_assert(struct interface *ifp,
 			   struct pim_assert_metric recv_metric)
 {
   struct pim_ifchannel *ch;
-  struct prefix sg;
+  struct prefix_sg sg;
 
-  memset (&sg, 0, sizeof (struct prefix));
-  sg.u.sg.src = source_addr;
-  sg.u.sg.grp = group_addr;
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = source_addr;
+  sg.grp = group_addr;
   ch = pim_ifchannel_add(ifp, &sg);
   if (!ch) {
     zlog_warn("%s: (S,G)=%s failure creating channel on interface %s",
@@ -443,7 +443,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
   }
 
   pim_msg_size = pim_assert_build_msg(pim_msg, sizeof(pim_msg), ifp,
-				      ch->sg.u.sg.grp, ch->sg.u.sg.src,
+				      ch->sg.grp, ch->sg.src,
 				      metric.metric_preference,
 				      metric.route_metric,
 				      metric.rpt_bit_flag);
@@ -504,7 +504,7 @@ static int pim_assert_cancel(struct pim_ifchannel *ch)
   metric.rpt_bit_flag      = 0;
   metric.metric_preference = PIM_ASSERT_METRIC_PREFERENCE_MAX;
   metric.route_metric      = PIM_ASSERT_ROUTE_METRIC_MAX;
-  metric.ip_address        = ch->sg.u.sg.src;
+  metric.ip_address        = ch->sg.src;
 
   return pim_assert_do(ch, metric);
 }
