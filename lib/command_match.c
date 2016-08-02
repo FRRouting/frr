@@ -11,12 +11,21 @@ static struct list *
 match_command_r (struct graph_node *, vector, unsigned int);
 
 static int
-score_precedence (struct graph_node *);
+score_precedence (enum graph_node_type);
 
 static enum match_type
-min_match_level(enum node_type type);
+min_match_level(enum node_type);
+
+static struct graph_node *
+copy_node (struct graph_node *);
+
+static void
+delete_nodelist (void *);
 
 /* token matcher prototypes */
+static enum match_type
+match_token (struct graph_node *, char *);
+
 static enum match_type
 match_ipv4 (const char *);
 
@@ -30,7 +39,7 @@ static enum match_type
 match_ipv6_prefix (const char *);
 
 static enum match_type
-match_range (struct graph_node *, const char *str);
+match_range (struct graph_node *, const char *);
 
 static enum match_type
 match_word (struct graph_node *, const char *);
@@ -41,34 +50,7 @@ match_number (struct graph_node *, const char *);
 static enum match_type
 match_variable (struct graph_node *, const char *);
 
-static enum match_type
-match_token (struct graph_node *, char *);
-
 /* matching functions */
-
-static struct graph_node *
-copy_node (struct graph_node *node)
-{
-  struct graph_node *new = new_node(node->type);
-  new->children = NULL;
-  new->is_start = node->is_start;
-  new->end      = NULL;
-  new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
-  new->value    = node->value;
-  new->min      = node->min;
-  new->max      = node->max;
-  new->element  = node->element ? copy_cmd_element(node->element) : NULL;
-  new->arg      = node->arg ? XSTRDUP(MTYPE_CMD_TOKENS, node->arg) : NULL;
-  new->refs     = 0;
-  return new;
-}
-
-
-/* Linked list data deletion callback */
-static void
-delete_nodelist (void *node) {
-  free_node ((struct graph_node *) node);
-}
 
 struct cmd_element *
 match_command (struct graph_node *start, const char *line, struct list **argv)
@@ -176,74 +158,58 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
   struct list *next = list_new();
   add_nexthops(next, start);
 
-  // if we're at the end of input, need END_GN or no match
-  if (n+1 == vector_active (vline)) {
-    for (ALL_LIST_ELEMENTS_RO(next,ln,gn)) {
-      if (gn->type == END_GN) {
-        // we have a match, so build an argv and pass it back up the chain
-        struct list *argv = list_new();
-        argv->del = &delete_nodelist;
-        struct graph_node *curr = copy_node(start);
-        curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
-        // add the current node
-        listnode_add(argv, curr);
-        // add the end node
-        listnode_add(argv, copy_node(gn));
-        // clean up
-        list_delete (next);
-        return argv;
-      }
-    }
-    // no END_GN found, free resources and return null
-    list_delete (next);
-    return NULL;
-  }
-
-  // otherwise recurse on all nexthops
+  // determine the best match
   struct list *bestmatch = NULL;
   for (ALL_LIST_ELEMENTS_RO(next,ln,gn))
-    {
-      if (gn->type == END_GN) // skip END_GN since we aren't at end of input
-        continue;
-
-      // get the result of the next node
-      struct list *result = match_command_r (gn, vline, n+1);
-
-      // compare to our current best match, and save if it's better
-      if (result) {
-        if (bestmatch) {
-          int currprec = score_precedence (listgetdata(listhead(bestmatch)));
-          int rsltprec = score_precedence (gn);
-          if (currprec < rsltprec)
-            list_delete (result);
-          if (currprec > rsltprec) {
-            list_delete (bestmatch);
-            bestmatch = result;
-          }
-          if (currprec == rsltprec) {
-            list_delete (bestmatch);
-            list_delete (result);
-            list_delete (next);
-            return NULL;
-          }
-        }
-        else
-          bestmatch = result;
+  {
+    // if we've matched all input we're looking for END_GN
+    if (n+1 == vector_active (vline)) {
+      if (gn->type == END_GN) {
+        bestmatch = list_new();
+        listnode_add(bestmatch, copy_node(gn));
+        break;
       }
+      else continue;
     }
 
+    // else recurse on node
+    struct list *result = match_command_r (gn, vline, n+1);
+
+    if (result) {
+      if (bestmatch) {
+        struct graph_node *head = listgetdata(bestmatch->head);
+        int currprec = score_precedence (head->type);
+        int rsltprec = score_precedence (gn->type);
+        if (currprec < rsltprec)    // old match is better
+          list_delete (result);
+        if (currprec > rsltprec) {  // new match is better
+          list_delete (bestmatch);
+          bestmatch = result;
+        }
+        if (currprec == rsltprec) { // match is ambiguous
+          list_delete (bestmatch);
+          list_delete (result);
+          bestmatch = NULL;
+          break;
+        }
+      }
+      else
+        bestmatch = result;
+    }
+  }
+
   if (bestmatch) {
-    // if we have a best match, prepend this node + matching token
-    // to argv and pass it up the chain
+    // copy current node, set arg and prepend to bestmatch
     struct graph_node *curr = copy_node(start);
     curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
     list_add_node_prev (bestmatch, bestmatch->head, curr);
-    // cleanup
-    list_delete (next);
-    return bestmatch;
+    bestmatch->del = &delete_nodelist;
   }
-  else
-    return NULL;
+
+  // cleanup
+  list_delete (next);
+
+  return bestmatch;
 }
 
 struct list *
@@ -255,8 +221,8 @@ match_command_complete (struct graph_node *start, const char *line)
   // pointer to next input token to match
   char *token;
 
-  struct list *current  = list_new(), // current nodes to match input token against
-              *next     = list_new(); // possible next hops to current input token
+  struct list *current = list_new(), // current nodes to match input token against
+                 *next = list_new(); // possible next hops after current input token
 
   // pointers used for iterating lists
   struct graph_node *gn;
@@ -277,13 +243,15 @@ match_command_complete (struct graph_node *start, const char *line)
     for (ALL_LIST_ELEMENTS_RO(current,node,gn))
     {
       switch (match_token(gn, token)) {
-        case partly_match: // if it's a partial match, add this node to possible next hops
-          listnode_add(next, gn);
-          break;
-        case exact_match: // if it's an exact match, add this node's children to next hops
+        case partly_match:
+          if (idx == vector_active(vline) - 1) {
+            listnode_add(next, gn);
+            break;
+          }
+        case exact_match:
           add_nexthops(next, gn);
           break;
-        default: // otherwise do nothing
+        default:
           break;
       }
     }
@@ -294,7 +262,6 @@ match_command_complete (struct graph_node *start, const char *line)
    * token    = last input token processed
    * idx      = index in `command` of last token processed
    * current  = set of all transitions from the previous input token
-   * matched  = set of all nodes reachable with current input
    * next     = set of all nodes reachable from all nodes in `matched`
    */
   list_free (current);
@@ -335,14 +302,16 @@ add_nexthops(struct list *l, struct graph_node *node)
   return added;
 }
 
-
-/* matching utility functions */
+/* Linked list data deletion callback */
+static void
+delete_nodelist (void *node)
+{
+  free_node ((struct graph_node *) node);
+}
 
 /**
- * Determines the minimum acceptable matching level
- * for a given node type that can be accepted as a
- * full match. Used for things like abbreviating
- * commands, e.g. `conf t`.
+ * Determines for which nodes a partial
+ * match may count as a full match.
  */
 static enum match_type
 min_match_level(enum node_type type)
@@ -355,10 +324,13 @@ min_match_level(enum node_type type)
   }
 }
 
+/**
+ * Precedence score used to disambiguate matches.
+ */
 static int
-score_precedence (struct graph_node *node)
+score_precedence (enum graph_node_type type)
 {
-  switch (node->type)
+  switch (type)
   {
     // these should be mutually exclusive,
     // or never compared
@@ -376,6 +348,23 @@ score_precedence (struct graph_node *node)
     default:
       return 10;
   }
+}
+
+static struct graph_node *
+copy_node (struct graph_node *node)
+{
+  struct graph_node *new = new_node(node->type);
+  new->children = NULL;
+  new->is_start = node->is_start;
+  new->end      = NULL;
+  new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
+  new->value    = node->value;
+  new->min      = node->min;
+  new->max      = node->max;
+  new->element  = node->element ? copy_cmd_element(node->element) : NULL;
+  new->arg      = node->arg ? XSTRDUP(MTYPE_CMD_TOKENS, node->arg) : NULL;
+  new->refs     = 0;
+  return new;
 }
 
 static enum match_type
