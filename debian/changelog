@@ -1,3 +1,9 @@
+quagga (0.99.24+cl3u3) Release; urgency=medium
+
+  * New Enabled: Merge up-to 0.99.24 code from upstream
+  * New Enabled: Additional CLI simplification
+  * New Enabled: Various Bug Fixes
+
 quagga (0.99.23.1-1+cl3u2) Release; urgency=medium
 
   * New Enabled: VRF - See Documentation for how to use 
