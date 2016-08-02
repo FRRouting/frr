@@ -614,7 +614,7 @@ static void pim_show_hello(struct vty *vty)
   
   now = pim_time_monotonic_sec();
   
-  vty_out(vty, "Interface Address         Period Timer StatStart Recv Rfail Send Sfail%s", VTY_NEWLINE);
+  vty_out(vty, "Interface Address         Period Timer StatStart Recv Rfail Send Sfail   LGenid%s", VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
@@ -637,7 +637,7 @@ static void pim_show_hello(struct vty *vty)
     pim_time_mmss(hello_period, sizeof(hello_period), pim_ifp->pim_hello_period);
     pim_time_uptime(stat_uptime, sizeof(stat_uptime), now - pim_ifp->pim_ifstat_start);
 
-    vty_out(vty, "%-9s %-15s %6s %5s %9s %4u %5u %4u %5u%s",
+    vty_out(vty, "%-9s %-15s %6s %5s %9s %4u %5u %4u %5u %08x%s",
 	    ifp->name,
 	    inet_ntoa(ifaddr),
 	    hello_period,
@@ -647,6 +647,7 @@ static void pim_show_hello(struct vty *vty)
 	    pim_ifp->pim_ifstat_hello_recvfail,
 	    pim_ifp->pim_ifstat_hello_sent,
 	    pim_ifp->pim_ifstat_hello_sendfail,
+            pim_ifp->pim_generation_id,
 	    VTY_NEWLINE);
   }
 }
