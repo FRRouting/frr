@@ -51,6 +51,62 @@ static void join_timer_start(struct pim_upstream *up);
 static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
 
 /*
+ * A (*,G) or a (*,*) is going away
+ * remove the parent pointer from
+ * those pointing at us
+ */
+static void
+pim_upstream_remove_children (struct pim_upstream *up)
+{
+  struct listnode *ch_node;
+  struct pim_upstream *child;
+
+  // Basic sanity, (*,*) not currently supported
+  if ((up->sg.u.sg.src.s_addr == INADDR_ANY) &&
+      (up->sg.u.sg.grp.s_addr == INADDR_ANY))
+    return;
+
+  // Basic sanity (S,G) have no children
+  if ((up->sg.u.sg.src.s_addr != INADDR_ANY) &&
+      (up->sg.u.sg.grp.s_addr != INADDR_ANY))
+    return;
+
+  for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, ch_node, child))
+    {
+      if (child->parent == up)
+        child->parent = NULL;
+    }
+}
+
+/*
+ * A (*,G) or a (*,*) is being created
+ * Find the children that would point
+ * at us.
+ */
+static void
+pim_upstream_find_new_children (struct pim_upstream *up)
+{
+  struct pim_upstream *child;
+  struct listnode *ch_node;
+
+  if ((up->sg.u.sg.src.s_addr != INADDR_ANY) &&
+      (up->sg.u.sg.grp.s_addr != INADDR_ANY))
+    return;
+
+  if ((up->sg.u.sg.src.s_addr == INADDR_ANY) &&
+      (up->sg.u.sg.grp.s_addr == INADDR_ANY))
+    return;
+
+  for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, ch_node, child))
+    {
+      if ((up->sg.u.sg.grp.s_addr != INADDR_ANY) &&
+          (child->sg.u.sg.grp.s_addr == up->sg.u.sg.grp.s_addr) &&
+	  (child != up))
+        child->parent = up;
+    }
+}
+
+/*
  * If we have a (*,*) || (S,*) there is no parent
  * If we have a (S,G), find the (*,G)
  * If we have a (*,G), find the (*,*)
@@ -99,6 +155,7 @@ void pim_upstream_delete(struct pim_upstream *up)
   THREAD_OFF(up->t_ka_timer);
   THREAD_OFF(up->t_rs_timer);
 
+  pim_upstream_remove_children (up);
   upstream_channel_oil_detach(up);
 
   /*
@@ -378,6 +435,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix *sg,
     }
 
   up->parent                     = pim_upstream_find_parent (sg);
+  pim_upstream_find_new_children (up);
   up->flags                      = 0;
   up->ref_count                  = 1;
   up->t_join_timer               = NULL;
