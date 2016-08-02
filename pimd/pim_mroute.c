@@ -93,7 +93,6 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 			const char *src_str, const char *grp_str)
 {
   struct pim_interface *pim_ifp = ifp->info;
-  struct pim_ifchannel *ch;
   struct pim_upstream *up;
   struct pim_rpf *rpg;
   struct prefix sg;
@@ -154,8 +153,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   }
   up->channel_oil->cc.pktcnt++;
   up->fhr = 1;
-  ch = pim_ifchannel_add (pim_regiface, &sg);
-  pim_ifchannel_ifjoin_switch (__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN_PIMREG);
+  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
   up->join_state = PIM_UPSTREAM_JOINED;
 
   return 0;
