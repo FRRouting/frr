@@ -78,9 +78,32 @@ struct cmd_element *command;        // command we're parsing
 /* grammar proper */
 %%
 
-start: sentence_root
-       cmd_token_seq
+start:
+  sentence_root cmd_token_seq
 {
+  // create leaf node
+  struct graph_node *end = new_node(END_GN);
+  end->element = command;
+
+  // add node
+  if (add_node(currnode, end) != end)
+  {
+    yyerror("Duplicate command.");
+    YYABORT;
+  }
+  fprintf(stderr, "Parsed full command successfully.\n");
+}
+| sentence_root cmd_token_seq '.' placeholder_token
+{
+  currnode = add_node(currnode, $4);
+  if (currnode != $4)
+    free_node ($4);
+
+  // since varargs may match any number of the last token,
+  // simply add this node as a child of itself and proceed
+  // wth normal command termination procedure
+  add_node(currnode, currnode);
+
   // create leaf node
   struct graph_node *end = new_node(END_GN);
   end->element = command;
