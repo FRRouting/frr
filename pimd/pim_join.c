@@ -116,7 +116,9 @@ static void recv_join(struct interface *ifp,
 		         __FILE__, __PRETTY_FUNCTION__,
 		         buff, pim_str_sg_dump (&sg));
 
-              pim_channel_add_oif (up->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+              pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+              if (child->join_state != PIM_UPSTREAM_JOINED)
+                pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
             }
         }
     }
