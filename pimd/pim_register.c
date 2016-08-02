@@ -348,9 +348,9 @@ pim_register_recv (struct interface *ifp,
     if (!(upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) &&
 	!(*bits & PIM_REGISTER_NR_BIT))
       {
-	pim_rp_forward_packet (ip_hdr);
 	//decapsulate and forward the iner packet to
 	//inherited_olist(S,G,rpt)
+	// This is taken care of by the kernel for us
       }
   } else {
     pim_register_stop_send (ifp, &sg, src_addr);

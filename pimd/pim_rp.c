@@ -33,38 +33,6 @@
 
 static int i_am_rp = 0;
 
-/*
- * The Raw socket to pump packets down
- * if we are the RP
- */
-static int fd_rp = -1;
-
-void
-pim_rp_forward_packet (struct ip *ip_hdr)
-{
-  struct sockaddr_in sin;
-
-  sin.sin_family = AF_INET;
-  sin.sin_addr.s_addr = ip_hdr->ip_dst.s_addr;
-
-  zlog_debug ("Sending Packet");
-  if (sendto (fd_rp, ip_hdr, ntohs (ip_hdr->ip_len), 0, (struct sockaddr *)&sin, sizeof (struct sockaddr)) < 0)
-    {
-      zlog_debug ("Failure to send packet: %s", safe_strerror (errno));
-    }
-}
-
-static void
-pim_rp_create_socket (void)
-{
-  fd_rp = pim_socket_raw (IPPROTO_RAW);
-
-  if (pim_socket_ip_hdr (fd_rp) != 0)
-    zlog_debug ("Unable to setup socket for ip hdr inclusion");
-
-  if (pim_socket_bind (fd_rp, qpim_rp.source_nexthop.interface) != 0)
-    zlog_debug ("Unable to Bind to a particular socket");
-}
 
 int
 pim_rp_setup (void)
@@ -74,8 +42,6 @@ pim_rp_setup (void)
       zlog_err ("Unable to lookup nexthop for rp specified");
       return 0;
     }
-
-  pim_rp_create_socket ();
 
   return 1;
 }
@@ -102,7 +68,6 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
   if (new.s_addr == qpim_rp.rpf_addr.s_addr)
     {
       i_am_rp = 1;
-      pim_rp_create_socket();
       return;
     }
 
