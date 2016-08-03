@@ -264,7 +264,7 @@ pim_register_recv (struct interface *ifp,
   uint32_t *bits;
 
   if (!pim_check_is_my_ip_address (dest_addr)) {
-    if (PIM_DEBUG_PIM_PACKETS) {
+    if (PIM_DEBUG_PIM_REG) {
       char dest[100];
 
       pim_inet4_dump ("<dst?>", dest_addr, dest, sizeof(dest));
