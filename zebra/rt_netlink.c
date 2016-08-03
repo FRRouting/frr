@@ -303,9 +303,17 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
   return 0;
 }
 
+static const struct message family_str[] = {
+  {AF_INET,           "ipv4"},
+  {AF_INET6,          "ipv6"},
+  {RTNL_FAMILY_IPMR,  "ipv4MR"},
+  {RTNL_FAMILY_IP6MR, "ipv6MR"},
+  {0,                 NULL},
+};
+
 /* Routing information change from the kernel. */
-int
-netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
+static int
+netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
                       ns_id_t ns_id)
 {
   int len;
@@ -327,35 +335,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
   rtm = NLMSG_DATA (h);
 
-  if (!(h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE))
-    {
-      /* If this is not route add/delete message print warning. */
-      zlog_warn ("Kernel message: %d", h->nlmsg_type);
-      return 0;
-    }
-
-  /* Connected route. */
-  if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("%s %s %s proto %s",
-               h->nlmsg_type ==
-               RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
-               rtm->rtm_family == AF_INET ? "ipv4" : "ipv6",
-               rtm->rtm_type == RTN_UNICAST ? "unicast" : "multicast",
-               nl_rtproto_to_str (rtm->rtm_protocol));
-
-  if (rtm->rtm_type != RTN_UNICAST)
-    {
-      return 0;
-    }
-
-  /* We don't care about change notifications for the MPLS table. */
-  /* TODO: Revisit this. */
-  if (rtm->rtm_family == AF_MPLS)
-    return 0;
-
   len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
-  if (len < 0)
-    return -1;
 
   memset (tb, 0, sizeof tb);
   netlink_parse_rtattr (tb, RTA_MAX, RTM_RTA (rtm), len);
@@ -539,6 +519,76 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
       else
         rib_delete (AFI_IP6, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
 		    0, zebra_flags, &p, gate, index, table);
+    }
+
+  return 0;
+}
+
+static int
+netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
+				     ns_id_t ns_id)
+{
+  int len;
+  struct rtmsg *rtm;
+  struct rtattr *tb[RTA_MAX + 1];
+
+  rtm = NLMSG_DATA (h);
+
+  len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
+
+  memset (tb, 0, sizeof tb);
+  netlink_parse_rtattr (tb, RTA_MAX, RTM_RTA (rtm), len);
+
+  return 0;
+}
+
+int
+netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
+		      ns_id_t ns_id)
+{
+  int len;
+  vrf_id_t vrf_id = ns_id;
+  struct rtmsg *rtm;
+
+  rtm = NLMSG_DATA (h);
+
+  if (!(h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE))
+    {
+      /* If this is not route add/delete message print warning. */
+      zlog_warn ("Kernel message: %d vrf %u\n", h->nlmsg_type, vrf_id);
+      return 0;
+    }
+
+  /* Connected route. */
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("%s %s %s proto %s vrf %u",
+               h->nlmsg_type ==
+               RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
+               lookup (family_str, rtm->rtm_family),
+               rtm->rtm_type == RTN_UNICAST ? "unicast" : "multicast",
+		nl_rtproto_to_str (rtm->rtm_protocol),
+               vrf_id);
+
+  /* We don't care about change notifications for the MPLS table. */
+  /* TODO: Revisit this. */
+  if (rtm->rtm_family == AF_MPLS)
+    return 0;
+
+  len = h->nlmsg_len - NLMSG_LENGTH (sizeof (struct rtmsg));
+  if (len < 0)
+    return -1;
+
+  switch (rtm->rtm_type)
+    {
+    case RTN_UNICAST:
+      netlink_route_change_read_unicast (snl, h, ns_id);
+      break;
+    case RTN_MULTICAST:
+      netlink_route_change_read_multicast (snl, h, ns_id);
+      break;
+    default:
+      return 0;
+      break;
     }
 
   return 0;
