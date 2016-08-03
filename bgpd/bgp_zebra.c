@@ -1136,12 +1136,18 @@ bgp_info_to_ipv6_nexthop (struct bgp_info *info)
   /* If both global and link-local address present. */
   if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
     {
-      /* Workaround for Cisco's nexthop bug.  */
-      if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
-          && info->peer->su_remote->sa.sa_family == AF_INET6)
-        nexthop = &info->peer->su_remote->sin6.sin6_addr;
+      /* Check if route-map is set to prefer global over link-local */
+      if (info->attr->extra->mp_nexthop_prefer_global)
+        nexthop = &info->attr->extra->mp_nexthop_global;
       else
-        nexthop = &info->attr->extra->mp_nexthop_local;
+        {
+          /* Workaround for Cisco's nexthop bug.  */
+          if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
+              && info->peer->su_remote->sa.sa_family == AF_INET6)
+            nexthop = &info->peer->su_remote->sin6.sin6_addr;
+          else
+            nexthop = &info->attr->extra->mp_nexthop_local;
+        }
     }
 
   return nexthop;

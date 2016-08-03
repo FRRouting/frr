@@ -103,6 +103,7 @@ o Cisco route-map
 o Local extensions
 
   set ipv6 next-hop global: Done
+  set ipv6 next-hop prefer-global: Done
   set ipv6 next-hop local : Done
   set as-path exclude     : Done
 
@@ -2190,6 +2191,61 @@ struct route_map_rule_cmd route_set_ipv6_nexthop_global_cmd =
   route_set_ipv6_nexthop_global,
   route_set_ipv6_nexthop_global_compile,
   route_set_ipv6_nexthop_global_free
+};
+
+/* Set next-hop preference value. */
+static route_map_result_t
+route_set_ipv6_nexthop_prefer_global (void *rule, struct prefix *prefix,
+			              route_map_object_t type, void *object)
+{
+  struct bgp_info *bgp_info;
+  struct peer *peer;
+
+  if (type == RMAP_BGP)
+    {
+      /* Fetch routemap's rule information. */
+      bgp_info = object;
+      peer = bgp_info->peer;
+
+      if ((CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IN) ||
+           CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IMPORT))
+	  && peer->su_remote
+	  && sockunion_family (peer->su_remote) == AF_INET6)
+	{
+          /* Set next hop preference to global */
+          bgp_info->attr->extra->mp_nexthop_prefer_global = TRUE;
+          SET_FLAG(bgp_info->attr->rmap_change_flags,
+                   BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED);
+	}
+    }
+ return RMAP_OKAY;
+}
+
+static void *
+route_set_ipv6_nexthop_prefer_global_compile (const char *arg)
+{
+  int *rins = NULL;
+
+  rins = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (int));
+  *rins = 1;
+
+  return rins;
+}
+
+/* Free route map's compiled `ip next-hop' value. */
+static void
+route_set_ipv6_nexthop_prefer_global_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for ip nexthop set preferred. */
+struct route_map_rule_cmd route_set_ipv6_nexthop_prefer_global_cmd =
+{
+  "ipv6 next-hop prefer-global",
+  route_set_ipv6_nexthop_prefer_global,
+  route_set_ipv6_nexthop_prefer_global_compile,
+  route_set_ipv6_nexthop_prefer_global_free
 };
 
 /* `set ipv6 nexthop local IP_ADDRESS' */
@@ -4366,9 +4422,32 @@ DEFUN (no_set_ipv6_nexthop_peer,
        SET_STR
        IPV6_STR
        "IPv6 next-hop address\n"
-       )
+       "Use peer address (for BGP only)\n")
 {
   return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop peer-address", NULL);
+}
+
+DEFUN (set_ipv6_nexthop_prefer_global,
+       set_ipv6_nexthop_prefer_global_cmd,
+       "set ipv6 next-hop prefer-global",
+       SET_STR
+       IPV6_STR
+       "IPv6 next-hop address\n"
+       "Prefer global over link-local if both exist\n")
+{
+  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop prefer-global", NULL);;
+}
+
+DEFUN (no_set_ipv6_nexthop_prefer_global,
+       no_set_ipv6_nexthop_prefer_global_cmd,
+       "no set ipv6 next-hop prefer-global",
+       NO_STR
+       SET_STR
+       IPV6_STR
+       "IPv6 next-hop address\n"
+       "Prefer global over link-local if both exist\n")
+{
+  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop prefer-global", NULL);
 }
 
 DEFUN (set_ipv6_nexthop_global,
@@ -4704,6 +4783,7 @@ bgp_route_map_init (void)
   route_map_install_match (&route_match_ipv6_next_hop_cmd);
   route_map_install_match (&route_match_ipv6_address_prefix_list_cmd);
   route_map_install_set (&route_set_ipv6_nexthop_global_cmd);
+  route_map_install_set (&route_set_ipv6_nexthop_prefer_global_cmd);
   route_map_install_set (&route_set_ipv6_nexthop_local_cmd);
   route_map_install_set (&route_set_ipv6_nexthop_peer_cmd);
 
@@ -4716,6 +4796,8 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &set_ipv6_nexthop_global_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_global_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_global_val_cmd);
+  install_element (RMAP_NODE, &set_ipv6_nexthop_prefer_global_cmd);
+  install_element (RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_local_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_val_cmd);
