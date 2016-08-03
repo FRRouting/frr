@@ -982,26 +982,29 @@ static void pim_show_upstream(struct vty *vty)
 
   now = pim_time_monotonic_sec();
 
-  vty_out(vty, "Iif       Source          Group           State Uptime   JoinTimer RefCnt%s", VTY_NEWLINE);
+  vty_out(vty, "Iif       Source          Group           State Uptime   JoinTimer RSTimer   RefCnt%s", VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, upnode, up)) {
       char src_str[100];
       char grp_str[100];
       char uptime[10];
       char join_timer[10];
+      char rs_timer[10];
 
       pim_inet4_dump("<src?>", up->sg.u.sg.src, src_str, sizeof(src_str));
       pim_inet4_dump("<grp?>", up->sg.u.sg.grp, grp_str, sizeof(grp_str));
       pim_time_uptime(uptime, sizeof(uptime), now - up->state_transition);
       pim_time_timer_to_hhmmss(join_timer, sizeof(join_timer), up->t_join_timer);
+      pim_time_timer_to_hhmmss (rs_timer, sizeof (rs_timer), up->t_rs_timer);
 
-      vty_out(vty, "%-10s%-15s %-15s %-5s %-8s %-9s %6d%s",
+      vty_out(vty, "%-10s%-15s %-15s %-5s %-8s %-9s %-9s %6d%s",
 	      up->rpf.source_nexthop.interface->name,
 	      src_str,
 	      grp_str,
 	      pim_upstream_state2str (up),
 	      uptime,
 	      join_timer,
+	      rs_timer,
 	      up->ref_count,
 	      VTY_NEWLINE);
   }
