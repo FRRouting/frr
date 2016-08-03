@@ -22,6 +22,9 @@ copy_node (struct graph_node *);
 static void
 delete_nodelist (void *);
 
+static struct graph_node *
+disambiguate (struct graph_node *, struct graph_node *, char *);
+
 /* token matcher prototypes */
 static enum match_type
 match_token (struct graph_node *, char *);
@@ -159,6 +162,7 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
   add_nexthops(next, start);
 
   // determine the best match
+  int ambiguous = 0;
   struct list *bestmatch = NULL;
   for (ALL_LIST_ELEMENTS_RO(next,ln,gn))
   {
@@ -167,6 +171,7 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
       if (gn->type == END_GN) {
         bestmatch = list_new();
         listnode_add(bestmatch, copy_node(gn));
+        bestmatch->del = &delete_nodelist;
         break;
       }
       else continue;
@@ -175,27 +180,29 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
     // else recurse on node
     struct list *result = match_command_r (gn, vline, n+1);
 
+    // save the best match, subtle logic at play here
     if (result) {
       if (bestmatch) {
-        struct graph_node *head = listgetdata(bestmatch->head);
-        int currprec = score_precedence (head->type);
-        int rsltprec = score_precedence (gn->type);
-        if (currprec < rsltprec)    // old match is better
-          list_delete (result);
-        if (currprec > rsltprec) {  // new match is better
-          list_delete (bestmatch);
+        struct list *to_delete = result;
+        struct graph_node *new = listgetdata(result->head),
+                          *old = listgetdata(bestmatch->head);
+        char *nextoken = vector_slot (vline, n+1);
+        struct graph_node *best = disambiguate(new, old, nextoken);
+        ambiguous = !best || (ambiguous && best == old);
+        if (best == new) {
+          to_delete = bestmatch;
           bestmatch = result;
         }
-        if (currprec == rsltprec) { // match is ambiguous
-          list_delete (bestmatch);
-          list_delete (result);
-          bestmatch = NULL;
-          break;
-        }
+        list_delete (to_delete);
       }
       else
         bestmatch = result;
     }
+  }
+
+  if (ambiguous) {
+    list_delete(bestmatch);
+    bestmatch = NULL;
   }
 
   if (bestmatch) {
@@ -203,7 +210,6 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
     struct graph_node *curr = copy_node(start);
     curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
     list_add_node_prev (bestmatch, bestmatch->head, curr);
-    bestmatch->del = &delete_nodelist;
   }
 
   // cleanup
@@ -302,16 +308,9 @@ add_nexthops(struct list *l, struct graph_node *node)
   return added;
 }
 
-/* Linked list data deletion callback */
-static void
-delete_nodelist (void *node)
-{
-  free_node ((struct graph_node *) node);
-}
-
 /**
- * Determines for which nodes a partial
- * match may count as a full match.
+ * Determines the node types for which a partial match may count as a full
+ * match. Enables command abbrevations.
  */
 static enum match_type
 min_match_level(enum node_type type)
@@ -324,30 +323,50 @@ min_match_level(enum node_type type)
   }
 }
 
-/**
- * Precedence score used to disambiguate matches.
- */
+/* Precedence score used to disambiguate matches. */
 static int
 score_precedence (enum graph_node_type type)
 {
   switch (type)
   {
-    // these should be mutually exclusive,
-    // or never compared
+    // some of these are mutually exclusive, order is important
     case IPV4_GN:
     case IPV4_PREFIX_GN:
     case IPV6_GN:
     case IPV6_PREFIX_GN:
     case RANGE_GN:
     case NUMBER_GN:
-      return 1;
-    case WORD_GN:
       return 2;
-    case VARIABLE_GN:
+    case WORD_GN:
       return 3;
+    case VARIABLE_GN:
+      return 4;
     default:
       return 10;
   }
+}
+
+/* Disambiguation logic to pick the best of two possible matches */
+static struct graph_node *
+disambiguate (struct graph_node *first, struct graph_node *second, char *token)
+{
+  // if the types are different, simply go off of type precedence
+  if (first->type != second->type) {
+    int firstprec = score_precedence(first->type);
+    int secndprec = score_precedence(second->type);
+    if (firstprec != secndprec)
+      return firstprec < secndprec ? first : second;
+    else
+      return NULL;
+  }
+
+  // if they're the same, return the more exact match
+  enum match_type fmtype = match_token (first, token);
+  enum match_type smtype = match_token (second, token);
+  if (fmtype != smtype)
+    return fmtype > smtype ? first : second;
+
+  return NULL;
 }
 
 static struct graph_node *
@@ -366,6 +385,16 @@ copy_node (struct graph_node *node)
   new->refs     = 0;
   return new;
 }
+
+/* Linked list data deletion callback */
+static void
+delete_nodelist (void *node)
+{
+  free_node ((struct graph_node *) node);
+}
+
+
+/* token level matching functions */
 
 static enum match_type
 match_token (struct graph_node *node, char *token)
