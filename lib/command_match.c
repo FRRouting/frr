@@ -272,13 +272,14 @@ match_command_complete (struct graph_node *start, const char *line)
    * current  = set of all transitions from the previous input token
    * next     = set of all nodes reachable from all nodes in `matched`
    */
-  list_free (current);
-  cmd_free_strvec(vline);
 
   matcher_result_value =
      idx + 1 == vector_active(vline) && next->count ?
      MATCHER_OK :
      MATCHER_NO_MATCH;
+
+  list_free (current);
+  cmd_free_strvec(vline);
 
   return next;
 }
