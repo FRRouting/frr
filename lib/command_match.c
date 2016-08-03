@@ -54,46 +54,41 @@ static enum match_type
 match_variable (struct graph_node *, const char *);
 
 /* matching functions */
+static enum matcher_rv matcher_result_value;
 
-struct cmd_element *
-match_command (struct graph_node *start, const char *line, struct list **argv)
+enum matcher_rv
+match_command (struct graph_node *start,
+               const char *line,
+               struct list **argvv,
+               struct cmd_element **el)
 {
+  matcher_result_value = MATCHER_NO_MATCH;
   // parse command
   vector vline = cmd_make_strvec (line);
 
   for (unsigned int i = 0; i < vector_active(start->children); i++)
   {
-    // call recursive builder on each starting child
-    *argv = match_command_r(vector_slot(start->children, i), vline, 0);
-    // if any of them succeed, return their argv
-    // since all command DFA's must begin with a word, there can only be
-    // one valid return value
-    if (*argv) break;
+    // call recursive matcher on each starting child
+    *argvv = match_command_r(vector_slot(start->children, i), vline, 0);
+    if (*argvv) break;
   }
 
-  // walk the list, find the END_GN, return that
-  if (*argv) {
+  if (*argvv) {
     struct listnode *ln;
     struct graph_node *gn;
-    char buf[50];
-    for (ALL_LIST_ELEMENTS_RO(*argv,ln,gn)) {
-      describe_node(gn, buf, 50);
-      fprintf(stderr, "%s[%d]\n", buf, gn->type);
-      if (gn->type == END_GN)
-        return gn->element;
-    }
-    assert(0);
+    for (ALL_LIST_ELEMENTS_RO(*argvv,ln,gn))
+      if (gn->type == END_GN) {
+        *el = gn->element;
+        break;
+      }
+    assert(el);
   }
 
-  return NULL;
+  return matcher_result_value;
 }
 
 /**
- * Matches a given input line against a DFA.
- *
- * Builds an argument list given a DFA and a matching input line. This function
- * should be passed the start node of the DFA, a matching input line, and the
- * index of the first token in the input line.
+ * Builds an argument list given a DFA and a matching input line.
  *
  * First the function determines if the node it is passed matches the first
  * token of input. If it does not, it returns NULL. If it does match, then it
@@ -177,7 +172,7 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
       else continue;
     }
 
-    // else recurse on node
+    // else recurse on candidate child node
     struct list *result = match_command_r (gn, vline, n+1);
 
     // save the best match, subtle logic at play here
@@ -200,16 +195,23 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
     }
   }
 
-  if (ambiguous) {
-    list_delete(bestmatch);
-    bestmatch = NULL;
-  }
-
   if (bestmatch) {
-    // copy current node, set arg and prepend to bestmatch
-    struct graph_node *curr = copy_node(start);
-    curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
-    list_add_node_prev (bestmatch, bestmatch->head, curr);
+    if (ambiguous) {
+      list_delete(bestmatch);
+      bestmatch = NULL;
+      matcher_result_value = MATCHER_AMBIGUOUS;
+    }
+    else {
+      // copy current node, set arg and prepend to bestmatch
+      struct graph_node *curr = copy_node(start);
+      curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
+      list_add_node_prev (bestmatch, bestmatch->head, curr);
+      matcher_result_value = MATCHER_OK;
+    }
+  }
+  else {
+    if (n+1 == vector_active(vline) && matcher_result_value == MATCHER_NO_MATCH)
+      matcher_result_value = MATCHER_INCOMPLETE;
   }
 
   // cleanup
@@ -271,8 +273,12 @@ match_command_complete (struct graph_node *start, const char *line)
    * next     = set of all nodes reachable from all nodes in `matched`
    */
   list_free (current);
-
   cmd_free_strvec(vline);
+
+  matcher_result_value =
+     idx + 1 == vector_active(vline) && next->count ?
+     MATCHER_OK :
+     MATCHER_NO_MATCH;
 
   return next;
 }
@@ -329,13 +335,15 @@ score_precedence (enum graph_node_type type)
 {
   switch (type)
   {
-    // some of these are mutually exclusive, order is important
+    // some of these are mutually exclusive, so they share
+    // the same precedence value
     case IPV4_GN:
     case IPV4_PREFIX_GN:
     case IPV6_GN:
     case IPV6_PREFIX_GN:
-    case RANGE_GN:
     case NUMBER_GN:
+      return 1;
+    case RANGE_GN:
       return 2;
     case WORD_GN:
       return 3;

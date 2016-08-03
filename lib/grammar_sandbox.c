@@ -77,9 +77,11 @@ DEFUN (grammar_test_match,
        "attempt to match input on DFA\n"
        "command to match")
 {
+  const char *line = argv_concat(argv, argc, 0);
+
   struct list *argvv = NULL;
-  const char *command = argv_concat(argv, argc, 0);
-  struct cmd_element *element = match_command (nodegraph, command, &argvv);
+  struct cmd_element *element = NULL;
+  enum matcher_rv result = match_command (nodegraph, line, &argvv, &element);
 
   if (element) {
     fprintf(stderr, "Matched: %s\n", element->string);
@@ -89,8 +91,20 @@ DEFUN (grammar_test_match,
       fprintf(stderr, "%s -- %s\n", gn->text, gn->arg);
   }
   else {
-    fprintf(stderr, "Returned NULL\n");
-    return CMD_SUCCESS;
+     switch (result) {
+       case MATCHER_NO_MATCH:
+          fprintf(stderr, "%% Unknown command\n");
+          break;
+       case MATCHER_INCOMPLETE:
+          fprintf(stderr, "%% Incomplete command\n");
+          break;
+       case MATCHER_AMBIGUOUS:
+          fprintf(stderr, "%% Ambiguous command\n");
+          break;
+       default:
+          fprintf(stderr, "%% Unknown error\n");
+          break;
+     }
   }
 
   return CMD_SUCCESS;

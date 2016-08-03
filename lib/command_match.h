@@ -18,12 +18,10 @@ enum filter_type
 /* matcher result value. */
 enum matcher_rv
 {
-  MATCHER_OK,
-  MATCHER_COMPLETE,
-  MATCHER_INCOMPLETE,
   MATCHER_NO_MATCH,
+  MATCHER_INCOMPLETE,
   MATCHER_AMBIGUOUS,
-  MATCHER_EXCEED_ARGC_MAX
+  MATCHER_OK,
 };
 
 /* Completion match types. */
@@ -42,7 +40,6 @@ enum match_type
   (   (matcher_rv) == MATCHER_INCOMPLETE \
    || (matcher_rv) == MATCHER_NO_MATCH \
    || (matcher_rv) == MATCHER_AMBIGUOUS \
-   || (matcher_rv) == MATCHER_EXCEED_ARGC_MAX \
   )
 
 /**
@@ -50,11 +47,12 @@ enum match_type
  *
  * @param DFA to match against
  * @param input string
- * @param pointer to argv pointer
- * @return cmd_element found, or NULL if there is no match.
+ * @param pointer which will be pointed at argv upon match
+ * @param pointer which will be pointed at matching cmd_element upon match
+ * @return result of matcher run
  */
-struct cmd_element *
-match_command (struct graph_node *, const char *, struct list **);
+enum matcher_rv
+match_command (struct graph_node *, const char *, struct list **, struct cmd_element **);
 
 /**
  * Compiles next-hops for a given line of user input.
