@@ -381,8 +381,6 @@ pim_upstream_switch(struct pim_upstream *up,
 {
   enum pim_upstream_state old_state = up->join_state;
 
-  zassert(old_state != new_state);
-  
   up->join_state       = new_state;
   up->state_transition = pim_time_monotonic_sec();
 
@@ -396,9 +394,16 @@ pim_upstream_switch(struct pim_upstream *up,
   pim_upstream_update_assert_tracking_desired(up);
 
   if (new_state == PIM_UPSTREAM_JOINED) {
-    forward_on(up);
-    pim_upstream_send_join (up);
-    join_timer_start(up);
+    if (old_state != PIM_UPSTREAM_JOINED)
+      {
+        forward_on(up);
+        pim_upstream_send_join (up);
+        join_timer_start(up);
+      }
+    else
+      {
+        forward_on (up);
+      }
   }
   else {
     forward_off(up);
@@ -596,8 +601,6 @@ void pim_upstream_update_join_desired(struct pim_upstream *up)
 
   /* switched from false to true */
   if (is_join_desired && !was_join_desired) {
-    zassert(up->join_state == PIM_UPSTREAM_NOTJOINED ||
-	    up->join_state == PIM_UPSTREAM_PRUNE);
     pim_upstream_switch(up, PIM_UPSTREAM_JOINED);
     return;
   }
