@@ -69,6 +69,7 @@
 #define PIM_MASK_PIM_HELLO           (1 << 14)
 #define PIM_MASK_PIM_J_P             (1 << 15)
 #define PIM_MASK_STATIC              (1 << 16)
+#define PIM_MASK_PIM_REG             (1 << 17)
 
 const char *const PIM_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS;
@@ -135,6 +136,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DEBUG_MROUTE              (qpim_debugs & PIM_MASK_MROUTE)
 #define PIM_DEBUG_PIM_HELLO           (qpim_debugs & PIM_MASK_PIM_HELLO)
 #define PIM_DEBUG_PIM_J_P             (qpim_debugs & PIM_MASK_PIM_J_P)
+#define PIM_DEBUG_PIM_REG             (qpim_debugs & PIM_MASK_PIM_REG)
 #define PIM_DEBUG_STATIC              (qpim_debugs & PIM_MASK_STATIC)
 
 #define PIM_DEBUG_EVENTS       (qpim_debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS))
@@ -155,6 +157,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DO_DEBUG_MROUTE              (qpim_debugs |= PIM_MASK_MROUTE)
 #define PIM_DO_DEBUG_PIM_HELLO           (qpim_debugs |= PIM_MASK_PIM_HELLO)
 #define PIM_DO_DEBUG_PIM_J_P             (qpim_debugs |= PIM_MASK_PIM_J_P)
+#define PIM_DO_DEBUG_PIM_REG             (qpim_debugs |= PIM_MASK_PIM_REG)
 #define PIM_DO_DEBUG_STATIC              (qpim_debugs |= PIM_MASK_STATIC)
 
 #define PIM_DONT_DEBUG_PIM_EVENTS          (qpim_debugs &= ~PIM_MASK_PIM_EVENTS)
@@ -171,6 +174,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MROUTE              (qpim_debugs &= ~PIM_MASK_MROUTE)
 #define PIM_DONT_DEBUG_PIM_HELLO           (qpim_debugs &= ~PIM_MASK_PIM_HELLO)
 #define PIM_DONT_DEBUG_PIM_J_P             (qpim_debugs &= ~PIM_MASK_PIM_J_P)
+#define PIM_DONT_DEBUG_PIM_REG             (qpim_debugs &= ~PIM_MASK_PIM_REG)
 #define PIM_DONT_DEBUG_STATIC              (qpim_debugs &= ~PIM_MASK_STATIC)
 
 void pim_init(void);

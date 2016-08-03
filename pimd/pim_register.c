@@ -77,6 +77,12 @@ pim_register_stop_send (struct interface *ifp, struct prefix *sg,
   uint8_t *b1;
   struct prefix p;
 
+  if (PIM_DEBUG_PIM_REG)
+    {
+      zlog_debug ("Sending Register stop for %s to %s on %s",
+		  pim_str_sg_dump (sg), inet_ntoa(originator), ifp->name);
+    }
+
   memset (buffer, 0, 3000);
   b1 = (uint8_t *)buffer + PIM_MSG_REGISTER_STOP_LEN;
 
@@ -120,9 +126,6 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
   struct prefix sg;
   int l;
 
-  if (PIM_DEBUG_PIM_PACKETDUMP_RECV)
-    pim_pkt_dump ("Received Register Stop", buf, buf_size);
-
   l = pim_parse_addr_group (&group, buf, buf_size);
   buf += l;
   buf_size -= l;
@@ -130,6 +133,13 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
   memset (&sg, 0, sizeof (struct prefix));
   sg.u.sg.src = source.u.prefix4;
   sg.u.sg.grp = group.u.prefix4;
+
+  if (PIM_DEBUG_PIM_REG)
+    {
+      zlog_debug ("Received Register stop for %s",
+		  pim_str_sg_dump (&sg));
+    }
+
   upstream = pim_upstream_find (&sg);
   if (!upstream)
     {
@@ -161,6 +171,13 @@ pim_register_send (const uint8_t *buf, int buf_size, struct pim_rpf *rpg, int nu
   unsigned char *b1;
   struct pim_interface *pinfo;
   struct interface *ifp;
+
+  if (PIM_DEBUG_PIM_REG)
+    {
+       char rp_str[100];
+       strcpy (rp_str, inet_ntoa (rpg->rpf_addr));
+       zlog_debug ("Sending %sRegister Packet to %s", null_register ? "NULL " : "", rp_str);
+    }
 
   ifp = rpg->source_nexthop.interface;
   pinfo = (struct pim_interface *)ifp->info;
@@ -256,6 +273,14 @@ pim_register_recv (struct interface *ifp,
     }
     return 0;
   }
+
+  if (PIM_DEBUG_PIM_REG)
+    {
+      char src_str[100];
+
+      pim_inet4_dump ("<src?>", src_addr, src_str, sizeof (src_str));
+      zlog_debug ("Received Register message from %s on %s", src_str, ifp->name);
+    }
 
   /*
    * Please note this is not drawn to get the correct bit/data size

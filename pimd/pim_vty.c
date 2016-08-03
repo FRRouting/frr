@@ -108,6 +108,11 @@ pim_debug_config_write (struct vty *vty)
     ++writes;
   }
 
+  if (PIM_DEBUG_PIM_REG) {
+    vty_out (vty, "debug pim packets register%s", VTY_NEWLINE);
+    ++writes;
+  }
+
   if (PIM_DEBUG_STATIC) {
     vty_out (vty, "debug pim static%s", VTY_NEWLINE);
     ++writes;
