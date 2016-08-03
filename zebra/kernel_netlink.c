@@ -91,6 +91,7 @@ static const struct message rtproto_str[] = {
 #ifdef RTPROT_BIRD
   {RTPROT_BIRD,     "BIRD"},
 #endif /* RTPROT_BIRD */
+  {RTPROT_MROUTED,  "mroute"},
   {0,               NULL}
 };
 
@@ -718,7 +719,8 @@ kernel_init (struct zebra_ns *zns)
 
   /* Initialize netlink sockets */
   groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR |
-	   RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR;
+    RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR |
+    RTMGRP_IPV4_MROUTE;
 
   snprintf (zns->netlink.name, sizeof (zns->netlink.name),
 	    "netlink-listen (NS %u)", zns->ns_id);
