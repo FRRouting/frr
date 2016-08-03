@@ -584,6 +584,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
                                      nh_buf[0], sizeof (nh_buf[0])),
                           mpath_count);
             }
+          mp_node = mp_next_node;
           cur_mpath = next_mpath;
         }
       else
