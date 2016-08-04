@@ -1973,7 +1973,7 @@ _netlink_route_debug(
     }
 }
 
-int
+static int
 netlink_neigh_update (int cmd, int ifindex, uint32_t addr, char *lla, int llalen)
 {
   struct {
@@ -2392,6 +2392,12 @@ kernel_address_delete_ipv4 (struct interface *ifp, struct connected *ifc)
   return netlink_address (RTM_DELADDR, AF_INET, ifp, ifc);
 }
 
+int
+kernel_neigh_update (int add, int ifindex, uint32_t addr, char *lla, int llalen)
+{
+  return netlink_neigh_update(add ? RTM_NEWNEIGH : RTM_DELNEIGH, ifindex, addr,
+			      lla, llalen);
+}
 
 extern struct thread_master *master;
 

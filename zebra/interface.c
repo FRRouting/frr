@@ -39,6 +39,7 @@
 #include "zebra_vrf.h"
 #include "zebra/interface.h"
 #include "zebra/rib.h"
+#include "zebra/rt.h"
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
@@ -744,8 +745,7 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
   inet_pton (AF_INET, buf, &ipv4_ll);
 
   ipv6_ll_address_to_mac(address, (u_char *)mac);
-  netlink_neigh_update (add ? RTM_NEWNEIGH : RTM_DELNEIGH,
-                        ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+  kernel_neigh_update (add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
 }
 
 static void

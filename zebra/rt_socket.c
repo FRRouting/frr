@@ -428,3 +428,10 @@ kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
   return route;
 }
 #endif /* HAVE_IPV6 */
+
+int
+kernel_neigh_update (int add, int ifindex, uint32_t addr, char *lla, int llalen)
+{
+  /* TODO */
+  return 0;
+}
