@@ -181,7 +181,7 @@ static void recv_prune(struct interface *ifp,
 	      zlog_debug("%s %s: Prune(S,G)=%s from %s",
 		         __FILE__, __PRETTY_FUNCTION__,
 		         buff, pim_str_sg_dump (&sg));
-	      pim_channel_del_oif (up->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+	      pim_channel_del_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
 	    }
         }
     }
