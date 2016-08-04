@@ -219,6 +219,7 @@ setsockopt_ipv6_tclass(int sock, int tclass)
 int
 setsockopt_ipv4_multicast(int sock,
 			int optname, 
+			struct in_addr if_addr,
 			unsigned int mcast_addr,
 			unsigned int ifindex)
 {
@@ -279,18 +280,20 @@ setsockopt_ipv4_multicast(int sock,
 #elif defined(HAVE_BSD_STRUCT_IP_MREQ_HACK) /* #if OS_TYPE */ 
   /* standard BSD API */
 
-  struct in_addr m;
   struct ip_mreq mreq;
   int ret;
 
   assert(optname == IP_ADD_MEMBERSHIP || optname == IP_DROP_MEMBERSHIP);
 
-  m.s_addr = htonl(ifindex);
 
   memset (&mreq, 0, sizeof(mreq));
   mreq.imr_multiaddr.s_addr = mcast_addr;
-  mreq.imr_interface = m;
-  
+#if !defined __OpenBSD__
+  mreq.imr_interface.s_addr = htonl (ifindex);
+#else
+  mreq.imr_interface.s_addr = if_addr.s_addr;
+#endif
+
   ret = setsockopt (sock, IPPROTO_IP, optname, (void *)&mreq, sizeof(mreq));
   if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
     {
@@ -318,7 +321,7 @@ setsockopt_ipv4_multicast(int sock,
  * Set IP_MULTICAST_IF socket option in an OS-dependent manner.
  */
 int
-setsockopt_ipv4_multicast_if(int sock,
+setsockopt_ipv4_multicast_if(int sock, struct in_addr if_addr,
 			unsigned int ifindex)
 {
 
@@ -336,7 +339,11 @@ setsockopt_ipv4_multicast_if(int sock,
 #elif defined(HAVE_BSD_STRUCT_IP_MREQ_HACK)
   struct in_addr m;
 
-  m.s_addr = htonl(ifindex);
+#if !defined __OpenBSD__
+  m.s_addr = htonl (ifindex);
+#else
+  m.s_addr = if_addr.s_addr;
+#endif
 
   return setsockopt (sock, IPPROTO_IP, IP_MULTICAST_IF, (void *)&m, sizeof(m));
 #else

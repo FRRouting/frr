@@ -83,9 +83,10 @@ extern int setsockopt_ipv6_tclass (int, int);
   (((af) == AF_INET) : SOPT_SIZE_CMSG_IFINDEX_IPV4() \
                     ? SOPT_SIZE_CMSG_PKTINFO_IPV6())
 
-extern int setsockopt_ipv4_multicast_if(int sock,
+extern int setsockopt_ipv4_multicast_if(int sock, struct in_addr if_addr,
 			             unsigned int ifindex);
 extern int setsockopt_ipv4_multicast(int sock, int optname,
+                                     struct in_addr if_addr,
                                      unsigned int mcast_addr,
 			             unsigned int ifindex);
 extern int setsockopt_ipv4_tos(int sock, int tos);

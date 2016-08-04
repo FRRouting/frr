@@ -53,7 +53,7 @@ ospf_if_add_allspfrouters (struct ospf *top, struct prefix *p,
   int ret;
   
   ret = setsockopt_ipv4_multicast (top->fd, IP_ADD_MEMBERSHIP,
-                                   htonl (OSPF_ALLSPFROUTERS),
+                                   p->u.prefix4, htonl (OSPF_ALLSPFROUTERS),
                                    ifindex);
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
@@ -74,7 +74,7 @@ ospf_if_drop_allspfrouters (struct ospf *top, struct prefix *p,
   int ret;
 
   ret = setsockopt_ipv4_multicast (top->fd, IP_DROP_MEMBERSHIP,
-                                   htonl (OSPF_ALLSPFROUTERS),
+                                   p->u.prefix4, htonl (OSPF_ALLSPFROUTERS),
                                    ifindex);
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
@@ -95,7 +95,7 @@ ospf_if_add_alldrouters (struct ospf *top, struct prefix *p, unsigned int
   int ret;
 
   ret = setsockopt_ipv4_multicast (top->fd, IP_ADD_MEMBERSHIP,
-                                   htonl (OSPF_ALLDROUTERS),
+                                   p->u.prefix4, htonl (OSPF_ALLDROUTERS),
                                    ifindex);
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
@@ -116,7 +116,7 @@ ospf_if_drop_alldrouters (struct ospf *top, struct prefix *p, unsigned int
   int ret;
 
   ret = setsockopt_ipv4_multicast (top->fd, IP_DROP_MEMBERSHIP,
-                                   htonl (OSPF_ALLDROUTERS),
+                                   p->u.prefix4, htonl (OSPF_ALLDROUTERS),
                                    ifindex);
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
@@ -151,7 +151,7 @@ ospf_if_ipmulticast (struct ospf *top, struct prefix *p, unsigned int ifindex)
     zlog_warn ("can't setsockopt IP_MULTICAST_TTL(1) for fd %d: %s",
 	       top->fd, safe_strerror (errno));
 
-  ret = setsockopt_ipv4_multicast_if (top->fd, ifindex);
+  ret = setsockopt_ipv4_multicast_if (top->fd, p->u.prefix4, ifindex);
   if (ret < 0)
     zlog_warn("can't setsockopt IP_MULTICAST_IF(fd %d, addr %s, "
 	      "ifindex %u): %s",
