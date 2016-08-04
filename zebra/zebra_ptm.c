@@ -31,6 +31,7 @@
 #include "command.h"
 #include "stream.h"
 #include "ptm_lib.h"
+#include "network.h"
 #include "buffer.h"
 #include "zebra/zebra_ptm_redistribute.h"
 #include "bfd.h"
@@ -383,8 +384,10 @@ zebra_ptm_socket_init (void)
 
   ptm_cb.ptm_sock = -1;
 
-  sock = socket (PF_UNIX, (SOCK_STREAM | SOCK_NONBLOCK), 0);
+  sock = socket (PF_UNIX, SOCK_STREAM, 0);
   if (sock < 0)
+    return -1;
+  if (set_nonblocking(sock) < 0)
     return -1;
 
   /* Make server socket. */

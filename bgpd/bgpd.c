@@ -1315,7 +1315,7 @@ bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
               else if (s_addr % 4 == 2)
                 peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-              peer->su->sin.sin_len = sizeof(struct sockaddr_in);
+              peer->su.sin.sin_len = sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
               return 1;
             }
@@ -1328,7 +1328,7 @@ bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
               else
                 peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-              peer->su->sin.sin_len = sizeof(struct sockaddr_in);
+              peer->su.sin.sin_len = sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
               return 1;
             }

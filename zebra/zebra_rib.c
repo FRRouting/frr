@@ -119,13 +119,17 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn, int prior
 int
 is_zebra_valid_kernel_table(u_int32_t table_id)
 {
-  if ((table_id > ZEBRA_KERNEL_TABLE_MAX) ||
-      (table_id == RT_TABLE_UNSPEC) ||
+  if ((table_id > ZEBRA_KERNEL_TABLE_MAX))
+    return 0;
+
+#ifdef linux
+  if ((table_id == RT_TABLE_UNSPEC) ||
       (table_id == RT_TABLE_LOCAL) ||
       (table_id == RT_TABLE_COMPAT))
     return 0;
-  else
-    return 1;
+#endif
+
+  return 1;
 }
 
 int

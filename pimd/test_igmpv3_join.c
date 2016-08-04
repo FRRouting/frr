@@ -20,6 +20,8 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
+#include <zebra.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>

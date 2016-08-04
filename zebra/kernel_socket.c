@@ -927,7 +927,7 @@ rtm_read (struct rt_msghdr *rtm)
               case ZEBRA_RIB_FOUND_EXACT: /* RIB RR == FIB RR */
                 zlog_debug ("%s: %s %s: done Ok",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p);
+                rib_lookup_and_dump (&p, VRF_DEFAULT);
                 return;
                 break;
             }
@@ -940,18 +940,18 @@ rtm_read (struct rt_msghdr *rtm)
               case ZEBRA_RIB_FOUND_EXACT:
                 zlog_debug ("%s: %s %s: desync: RR is still in RIB, while already not in FIB",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p);
+                rib_lookup_and_dump (&p, VRF_DEFAULT);
                 break;
               case ZEBRA_RIB_FOUND_CONNECTED:
               case ZEBRA_RIB_FOUND_NOGATE:
                 zlog_debug ("%s: %s %s: desync: RR is still in RIB, plus gate differs",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p);
+                rib_lookup_and_dump (&p, VRF_DEFAULT);
                 break;
               case ZEBRA_RIB_NOTFOUND: /* RIB RR == FIB RR */
                 zlog_debug ("%s: %s %s: done Ok",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p);
+                rib_lookup_and_dump (&p, VRF_DEFAULT);
                 return;
                 break;
             }
@@ -968,7 +968,7 @@ rtm_read (struct rt_msghdr *rtm)
        */
       if (rtm->rtm_type == RTM_CHANGE)
         rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
-                         NULL, 0, VRF_DEFAULT, SAFI_UNICAST);
+                         NULL, 0, VRF_DEFAULT, 0, SAFI_UNICAST);
       
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
@@ -976,8 +976,8 @@ rtm_read (struct rt_msghdr *rtm)
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
 		      &p, &gate.sin.sin_addr, NULL, 0, VRF_DEFAULT, 0, 0, 0, SAFI_UNICAST);
       else
-	rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0 zebra_flags,
-		      &p, &gate.sin.sin_addr, 0, VRF_DEFAULT, SAFI_UNICAST);
+	rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
+		      &p, &gate.sin.sin_addr, 0, VRF_DEFAULT, 0, SAFI_UNICAST);
     }
 #ifdef HAVE_IPV6
   if (dest.sa.sa_family == AF_INET6)
@@ -1010,16 +1010,16 @@ rtm_read (struct rt_msghdr *rtm)
        */
       if (rtm->rtm_type == RTM_CHANGE)
         rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
-                         NULL, 0, VRF_DEFAULT, SAFI_UNICAST);
+                         NULL, 0, VRF_DEFAULT, 0, SAFI_UNICAST);
       
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
 	rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      &p, &gate.sin6.sin6_addr, ifindex, VRF_DEFAULT, 0, 0, SAFI_UNICAST);
+		      &p, &gate.sin6.sin6_addr, ifindex, VRF_DEFAULT, 0, 0, 0, SAFI_UNICAST);
       else
 	rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-			 &p, &gate.sin6.sin6_addr, ifindex, VRF_DEFAULT, SAFI_UNICAST);
+			 &p, &gate.sin6.sin6_addr, ifindex, VRF_DEFAULT, 0, SAFI_UNICAST);
     }
 #endif /* HAVE_IPV6 */
 }
