@@ -240,7 +240,9 @@ static const struct message rtm_flag_str[] =
 #ifdef RTF_CLONING
   {RTF_CLONING,   "CLONING"},
 #endif /* RTF_CLONING */
+#ifdef RTF_XRESOLVE
   {RTF_XRESOLVE,  "XRESOLVE"},
+#endif /* RTF_XRESOLVE */
 #ifdef RTF_LLINFO
   {RTF_LLINFO,    "LLINFO"},
 #endif /* RTF_LLINFO */
