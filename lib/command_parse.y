@@ -206,7 +206,11 @@ placeholder_token:
 
   // get the numbers out
   $$->min = strtoimax( yylval.string+1, &yylval.string, 10 );
-  $$->max = strtoimax( yylval.string+1, &yylval.string, 10 );
+  strsep (&yylval.string, "-");
+  $$->max = strtoimax( yylval.string, &yylval.string, 10 );
+
+  // validate range
+  if ($$->min >= $$->max) yyerror("Invalid range.");
 
   free ($1);
 }
