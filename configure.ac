@@ -1098,6 +1098,11 @@ AC_SUBST(IPFORWARD)
 
 AC_CHECK_FUNCS(getaddrinfo, [have_getaddrinfo=yes], [have_getaddrinfo=no])
 
+dnl ----------------------------------------------------------------------------
+dnl figure out if domainname is available in the utsname struct (GNU extension).
+dnl ----------------------------------------------------------------------------
+AC_CHECK_MEMBERS([struct utsname.domainname], [], [], [#include <sys/utsname.h>])
+
 dnl ----------
 dnl IPv6 check
 dnl ----------

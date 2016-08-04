@@ -1473,7 +1473,7 @@ bgp_open_capability (struct stream *s, struct peer *peer)
 
       stream_putc(s, len);
       stream_put(s, names.nodename, len);
-#ifdef _GNU_SOURCE
+#ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
       if ((names.domainname[0] != '\0') &&
 	  (strcmp(names.domainname, "(none)") != 0))
 	{
@@ -1497,8 +1497,13 @@ bgp_open_capability (struct stream *s, struct peer *peer)
       stream_putc_at(s, capp, len);
 
       if (bgp_debug_neighbor_events(peer))
+#ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
 	zlog_debug("%s Sending hostname cap with hn = %s, dn = %s",
 		   peer->host, names.nodename, names.domainname);
+#else
+	zlog_debug("%s Sending hostname cap with hn = %s", peer->host,
+		   names.nodename);
+#endif
     }
 
   /* Sending base graceful-restart capability irrespective of the config */
