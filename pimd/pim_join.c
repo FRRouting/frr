@@ -111,14 +111,17 @@ static void recv_join(struct interface *ifp,
           if (child->parent == up)
             {
 	      char buff[100];
+
 	      strcpy (buff, pim_str_sg_dump (&up->sg));
 	      zlog_debug("%s %s: Join(S,G)=%s from %s",
 		         __FILE__, __PRETTY_FUNCTION__,
 		         buff, pim_str_sg_dump (&sg));
 
-              pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
-              if (child->join_state != PIM_UPSTREAM_JOINED)
-                pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
+              if (pim_upstream_evaluate_join_desired (child))
+                {
+                  pim_channel_add_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+                  pim_upstream_switch (child, PIM_UPSTREAM_JOINED);
+                }
             }
         }
     }
@@ -181,7 +184,9 @@ static void recv_prune(struct interface *ifp,
 	      zlog_debug("%s %s: Prune(S,G)=%s from %s",
 		         __FILE__, __PRETTY_FUNCTION__,
 		         buff, pim_str_sg_dump (&sg));
-	      pim_channel_del_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+
+	      if (!pim_upstream_evaluate_join_desired (child))
+	        pim_channel_del_oif (child->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
 	    }
         }
     }

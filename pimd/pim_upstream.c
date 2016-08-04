@@ -528,6 +528,29 @@ void pim_upstream_del(struct pim_upstream *up)
   }
 }
 
+static int
+pim_upstream_evaluate_join_desired_interface (struct pim_upstream *up,
+					      struct pim_ifchannel *ch)
+{
+  struct pim_upstream *parent = up->parent;
+
+  if (ch->upstream == up)
+    {
+      if (!pim_macro_ch_lost_assert(ch) && pim_macro_chisin_joins_or_include(ch))
+	return 1;
+    }
+  /*
+   * joins (*,G)
+   */
+  if (parent && ch->upstream == parent)
+    {
+      if (!pim_macro_ch_lost_assert (ch) && pim_macro_chisin_joins_or_include (ch))
+	return 1;
+    }
+
+  return 0;
+}
+
 /*
   Evaluate JoinDesired(S,G):
 
@@ -560,6 +583,7 @@ int pim_upstream_evaluate_join_desired(struct pim_upstream *up)
   struct interface     *ifp;
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
+  int                  ret = 0;
 
   /* scan all interfaces */
   for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp)) {
@@ -568,19 +592,13 @@ int pim_upstream_evaluate_join_desired(struct pim_upstream *up)
       continue;
 
     /* scan per-interface (S,G) state */
-    for (ALL_LIST_ELEMENTS(pim_ifp->pim_ifchannel_list, chnode, chnextnode, ch)) {
-      if (ch->upstream != up)
-	continue;
-
-      if (pim_macro_ch_lost_assert(ch))
-	continue; /* keep searching */
-
-      if (pim_macro_chisin_joins_or_include(ch))
-	return 1; /* true */
-    } /* scan iface channel list */
+    for (ALL_LIST_ELEMENTS(pim_ifp->pim_ifchannel_list, chnode, chnextnode, ch))
+      {
+	ret += pim_upstream_evaluate_join_desired_interface (up, ch);
+      } /* scan iface channel list */
   } /* scan iflist */
 
-  return 0; /* false */
+  return ret; /* false */
 }
 
 /*
@@ -982,7 +1000,6 @@ pim_upstream_start_register_stop_timer (struct pim_upstream *up, int null_regist
 int
 pim_upstream_inherited_olist (struct pim_upstream *up)
 {
-  struct pim_upstream *anysrc_up;
   struct pim_interface *pim_ifp;
   struct listnode *ifnextnode;
   struct listnode *chnextnode;
@@ -990,47 +1007,31 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
   struct listnode *chnode;
   struct listnode *ifnode;
   struct interface *ifp;
-  struct prefix_sg anysrc;
   int output_intf = 0;
 
   pim_ifp = up->rpf.source_nexthop.interface->info;
   zlog_debug ("Channel Oil%s: %p", pim_str_sg_dump (&up->sg), up->channel_oil);
   if (!up->channel_oil)
     up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
-  anysrc = up->sg;
-  anysrc.src.s_addr = INADDR_ANY;
 
-  anysrc_up = pim_upstream_find (&anysrc);
-  if (anysrc_up)
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp))
     {
-      for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp))
+      pim_ifp = ifp->info;
+      if (!pim_ifp)
+	continue;
+
+      for (ALL_LIST_ELEMENTS (pim_ifp->pim_ifchannel_list, chnode, chnextnode, ch))
 	{
-	  pim_ifp = ifp->info;
-	  if (!pim_ifp)
-	    continue;
-
-	  for (ALL_LIST_ELEMENTS (pim_ifp->pim_ifchannel_list, chnode, chnextnode, ch))
+	  if (pim_upstream_evaluate_join_desired_interface (up, ch))
 	    {
-	      //struct pim_ifchannel *nch;
-
-	      if (ch->upstream != anysrc_up)
-		continue;
-
-	      if (ch->ifjoin_state == PIM_IFJOIN_JOIN)
-		{
-		  pim_channel_add_oif (up->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
-		  //nch = pim_ifchannel_add (ifp, &up->sg);
-		  //pim_ifchannel_ifjoin_switch (__PRETTY_FUNCTION__, nch, PIM_IFJOIN_JOIN);
-		  //pim_forward_start (ch);
-		  output_intf++;
-		}
+	      pim_channel_add_oif (up->channel_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
+	      output_intf++;
 	    }
 	}
     }
 
   if (output_intf)
-    if (up->join_state != PIM_UPSTREAM_JOINED)
-      pim_upstream_switch (up, PIM_UPSTREAM_JOINED);
+    pim_upstream_switch (up, PIM_UPSTREAM_JOINED);
 
   return output_intf;
 }
