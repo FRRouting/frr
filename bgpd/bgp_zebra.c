@@ -877,7 +877,7 @@ if_lookup_by_ipv6 (struct in6_addr *addr, unsigned int ifindex, vrf_id_t vrf_id)
 	  if (cp->family == AF_INET6)
 	    if (prefix_match (cp, (struct prefix *)&p))
 	      {
-		if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6.s6_addr32[0]))
+		if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6))
 		  {
 		    if (ifindex == ifp->ifindex)
 		      return ifp;
