@@ -42,13 +42,10 @@ struct graph_node
 
 /*
  * Adds a node as a child of another node.
- * If the new parent has a child that is equal to the prospective child, as
- * determined by cmp_node, then a pointer to the existing node is returned and
- * the prospective child is not added. Otherwise the child node is returned.
  *
  * @param[in] parent node
  * @param[in] child node
- * @return pointer to child if it is added, pointer to existing child otherwise
+ * @return child node, for convenience
  */
 struct graph_node *
 add_node(struct graph_node *, struct graph_node *);

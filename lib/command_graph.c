@@ -13,14 +13,6 @@
 struct graph_node *
 add_node(struct graph_node *parent, struct graph_node *child)
 {
-  struct graph_node *p_child;
-
-  for (unsigned int i = 0; i < vector_active(parent->children); i++)
-  {
-    p_child = vector_slot(parent->children, i);
-    if (cmp_node(child, p_child))
-      return p_child;
-  }
   vector_set(parent->children, child);
   child->refs++;
   return child;

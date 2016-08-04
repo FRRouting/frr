@@ -10,7 +10,11 @@
 
 %{
 extern int yylex(void);
-extern void yyerror(const char *);
+void yyerror(const char *);
+struct graph_node *
+node_exists(struct graph_node *, struct graph_node *);
+struct graph_node *
+node_replace(struct graph_node *, struct graph_node *);
 
 // compile with debugging facilities
 #define YYDEBUG 1
@@ -86,34 +90,35 @@ start:
   end->element = command;
 
   // add node
-  if (add_node(currnode, end) != end)
+  if (node_exists(currnode, end))
   {
     yyerror("Duplicate command.");
     YYABORT;
   }
+  add_node(currnode, end);
   fprintf(stderr, "Parsed full command successfully.\n");
 }
 | sentence_root cmd_token_seq '.' placeholder_token
 {
-  currnode = add_node(currnode, $4);
-  if (currnode != $4)
+  if ((currnode = node_replace(currnode, $4)) != $4)
     free_node ($4);
 
   // since varargs may match any number of the last token,
   // simply add this node as a child of itself and proceed
   // wth normal command termination procedure
-  add_node(currnode, currnode);
+  node_replace(currnode, currnode);
 
   // create leaf node
   struct graph_node *end = new_node(END_GN);
   end->element = command;
 
   // add node
-  if (add_node(currnode, end) != end)
+  if (node_exists(currnode, end))
   {
     yyerror("Duplicate command.");
     YYABORT;
   }
+  add_node(currnode, end);
   fprintf(stderr, "Parsed full command successfully.\n");
 }
 
@@ -122,8 +127,7 @@ sentence_root: WORD
   struct graph_node *root = new_node(WORD_GN);
   root->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
 
-  currnode = add_node(startnode, root);
-  if (currnode != root)
+  if ((currnode = node_replace(startnode, root)) != root)
     free (root);
 
   free ($1);
@@ -134,14 +138,12 @@ sentence_root: WORD
 cmd_token:
   placeholder_token
 {
-  currnode = add_node(currnode, $1);
-  if (currnode != $1)
+  if ((currnode = node_replace(currnode, $1)) != $1)
     free_node ($1);
 }
 | literal_token
 {
-  currnode = add_node(currnode, $1);
-  if (currnode != $1)
+  if ((currnode = node_replace(currnode, $1)) != $1)
     free_node ($1);
 }
 /* selectors and options are subgraphs with start and end nodes */
@@ -226,7 +228,7 @@ literal_token:
 
 /* <selector|set> productions */
 selector:
-  '<' selector_part '|' selector_element '>'
+  '<' selector_part '>'
 {
   // all the graph building is done in selector_element,
   // so just return the selector subgraph head
@@ -235,7 +237,7 @@ selector:
 
 selector_part:
   selector_part '|' selector_element
-| selector_element
+| selector_element '|' selector_element
 ;
 
 selector_element:
@@ -292,10 +294,7 @@ selector_token:
 option: '[' option_part ']'
 {
   // add null path
-  struct graph_node *nullpath = new_node(NUL_GN);
-  add_node(optnode_start, nullpath);
-  add_node(nullpath, optnode_end);
-
+  add_node(optnode_start, optnode_end);
   $$ = optnode_start;
 };
 
@@ -353,7 +352,7 @@ parse_command_format(struct graph_node *start, struct cmd_element *cmd)
   optnode_start = optnode_end = NULL;
 
   // trace parser
-  yydebug = 0;
+  yydebug = 1;
   // command string
   command = cmd;
   // make flex read from a string
@@ -362,4 +361,27 @@ parse_command_format(struct graph_node *start, struct cmd_element *cmd)
   yyparse();
   // startnode points to command DFA
   return startnode;
+}
+
+struct graph_node *
+node_exists(struct graph_node *parent, struct graph_node *child)
+{
+  struct graph_node *p_child;
+  for (unsigned int i = 0; i < vector_active(parent->children); i++)
+  {
+    p_child = vector_slot(parent->children, i);
+    if (cmp_node(child, p_child))
+      return p_child;
+  }
+  return NULL;
+}
+
+struct graph_node *
+node_replace(struct graph_node *parent, struct graph_node *child)
+{
+  struct graph_node *existing = node_exists (parent, child);
+  if (!existing)
+    existing = add_node(parent, child);
+
+  return existing;
 }
