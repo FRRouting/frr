@@ -16,6 +16,8 @@ node_exists(struct graph_node *, struct graph_node *);
 struct graph_node *
 node_replace(struct graph_node *, struct graph_node *);
 
+#define DECIMAL_STRLEN_MAX 20
+
 // compile with debugging facilities
 #define YYDEBUG 1
 %}
@@ -34,7 +36,7 @@ node_replace(struct graph_node *, struct graph_node *);
 
 /* valid types for tokens */
 %union{
-  signed long long integer;
+  signed int integer;
   char *string;
   struct graph_node *node;
 }
@@ -203,10 +205,8 @@ placeholder_token:
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
 
   // get the numbers out
-  strsep(&yylval.string, "(-)");
-  char *endptr;
-  $$->min = strtoll( strsep(&yylval.string, "(-)"), &endptr, 10 );
-  $$->max = strtoll( strsep(&yylval.string, "(-)"), &endptr, 10 );
+  $$->min = strtoimax( yylval.string+1, &yylval.string, 10 );
+  $$->max = strtoimax( yylval.string+1, &yylval.string, 10 );
 
   free ($1);
 }
@@ -333,11 +333,7 @@ option_token:
 void yyerror(char const *message) {
   // fail on bad parse
   fprintf(stderr, "Grammar error: %s\n", message);
-  fprintf(stderr, "Token on error: ");
-  if (yylval.string) fprintf(stderr, "%s\n", yylval.string);
-  else if (yylval.node) fprintf(stderr, "%s\n", yylval.node->text);
-  else fprintf(stderr, "%lld\n", yylval.integer);
-
+  exit(EXIT_FAILURE);
 }
 
 struct graph_node *

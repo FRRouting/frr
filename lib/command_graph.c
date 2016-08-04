@@ -185,7 +185,7 @@ dump_node (struct graph_node *node)
   fprintf(stderr, "\t->value: %ld\n", node->value);
   fprintf(stderr, "\t->is_start: %d\n", node->is_start);
   fprintf(stderr, "\t->element: %p\n", node->element);
-  fprintf(stderr, "\t->min: %lld\n->max: %lld\n", node->min, node->max);
+  fprintf(stderr, "\t->min: %d\n->max: %d\n", node->min, node->max);
   fprintf(stderr, "\t->arg: %s\n", node->arg);
   fprintf(stderr, "\t->refs: %d\n", node->refs);
   fprintf(stderr, "\tnum children: %d\n", vector_active(node->children));

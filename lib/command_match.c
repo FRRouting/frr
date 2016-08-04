@@ -622,7 +622,7 @@ match_ipv6_prefix (const char *str)
     return no_match;
 
   /* validate mask */
-  nmask = strtol (mask, &endptr, 10);
+  nmask = strtoimax (mask, &endptr, 10);
   if (*endptr != '\0' || nmask < 0 || nmask > 128)
     return no_match;
 
@@ -636,15 +636,14 @@ static enum match_type
 match_range (struct graph_node *rangenode, const char *str)
 {
   char *endptr = NULL;
-  signed long long val;
+  signed int val;
 
   if (str == NULL)
     return 1;
 
-  val = strtoll (str, &endptr, 10);
+  val = strtoimax (str, &endptr, 10);
   if (*endptr != '\0')
     return 0;
-  val = llabs(val);
 
   if (val < rangenode->min || val > rangenode->max)
     return no_match;
@@ -675,7 +674,7 @@ match_number(struct graph_node *numnode, const char *word)
 {
   if (!strcmp("\0", word)) return no_match;
   char *endptr;
-  long num = strtol(word, &endptr, 10);
+  int num = strtoimax(word, &endptr, 10);
   if (endptr != '\0') return no_match;
   return num == numnode->value ? exact_match : no_match;
 }
