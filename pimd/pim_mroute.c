@@ -56,6 +56,20 @@ static int pim_mroute_set(int fd, int enable)
     return -1;
   }
 
+  if (enable)
+    {
+      int upcalls = IGMPMSG_WRVIFWHOLE;
+      opt = MRT_PIM;
+    
+      err = setsockopt (fd, IPPROTO_IP, opt, &upcalls, sizeof (upcalls));
+      if (err)
+        {
+          zlog_warn ("Failure to register for VIFWHOLE and WRONGVIF upcalls %d %s",
+		     errno, safe_strerror (errno));
+          return -1;
+        }
+    }
+  
   return 0;
 }
 

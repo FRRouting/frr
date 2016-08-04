@@ -158,6 +158,10 @@ struct igmpmsg
 #endif
 #endif
 
+#ifndef IGMPMSG_WRVIFWHOLE
+#define IGMPMSG_WRVIFWHOLE      4
+#endif
+
 /*
   Above: from <linux/mroute.h>
 */
