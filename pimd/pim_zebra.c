@@ -951,7 +951,7 @@ void igmp_source_forward_start(struct igmp_source *source)
   struct prefix_sg sg;
   int result;
 
-  memset (&sg, 0, sizeof (struct prefix));
+  memset (&sg, 0, sizeof (struct prefix_sg));
   sg.src = source->source_addr;
   sg.grp = source->source_group->group_addr;
 
@@ -1059,7 +1059,7 @@ void igmp_source_forward_stop(struct igmp_source *source)
   struct prefix_sg sg;
   int result;
 
-  memset (&sg, 0, sizeof (struct prefix));
+  memset (&sg, 0, sizeof (struct prefix_sg));
   sg.src = source->source_addr;
   sg.grp = source->source_group->group_addr;
 
