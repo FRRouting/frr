@@ -1974,7 +1974,7 @@ _netlink_route_debug(
 }
 
 int
-netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen)
+netlink_neigh_update (int cmd, int ifindex, uint32_t addr, char *lla, int llalen)
 {
   struct {
       struct nlmsghdr         n;
