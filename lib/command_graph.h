@@ -23,13 +23,13 @@ enum graph_node_type
 struct graph_node
 {
   enum graph_node_type type;// data type this node matches or holds
-  int is_start;             // whether this node is a start node
+  unsigned int is_start;    // whether this node is a start node
   vector children;          // this node's children
   struct graph_node * end;  // pointer to end for SELECTOR_GN & OPTION_GN
 
   char* text;               // for WORD_GN and VARIABLE_GN
-  long value;               // for NUMBER_GN
-  int min, max;             // for RANGE_GN
+  long long value;          // for NUMBER_GN
+  long long min, max;       // for RANGE_GN
 
   /* cmd_element struct pointer, only valid for END_GN */
   struct cmd_element *element;
@@ -37,7 +37,7 @@ struct graph_node
   char *arg;
 
   /* refcount for node parents */
-  int refs;
+  unsigned int refs;
 };
 
 /*

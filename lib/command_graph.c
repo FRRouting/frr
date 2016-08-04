@@ -125,7 +125,7 @@ describe_node(struct graph_node *node, char* buffer, unsigned int bufsize)
       snprintf(buffer, bufsize, node->text);
       break;
     case NUMBER_GN:
-      snprintf(buffer, bufsize, "%ld", node->value);
+      snprintf(buffer, bufsize, "%lld", node->value);
       break;
     case SELECTOR_GN:
       snprintf(buffer, bufsize, "<>");
@@ -182,10 +182,10 @@ dump_node (struct graph_node *node)
   describe_node(node, buf, 50);
   fprintf(stderr, "%s[%d]\n", buf, node->type);
   fprintf(stderr, "\t->text: %s\n", node->text);
-  fprintf(stderr, "\t->value: %ld\n", node->value);
+  fprintf(stderr, "\t->value: %lld\n", node->value);
   fprintf(stderr, "\t->is_start: %d\n", node->is_start);
   fprintf(stderr, "\t->element: %p\n", node->element);
-  fprintf(stderr, "\t->min: %d\n->max: %d\n", node->min, node->max);
+  fprintf(stderr, "\t->min: %lld\n->max: %lld\n", node->min, node->max);
   fprintf(stderr, "\t->arg: %s\n", node->arg);
   fprintf(stderr, "\t->refs: %d\n", node->refs);
   fprintf(stderr, "\tnum children: %d\n", vector_active(node->children));

@@ -36,7 +36,7 @@ node_replace(struct graph_node *, struct graph_node *);
 
 /* valid types for tokens */
 %union{
-  signed int integer;
+  long long integer;
   char *string;
   struct graph_node *node;
 }
@@ -205,9 +205,10 @@ placeholder_token:
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
 
   // get the numbers out
-  $$->min = strtoimax( yylval.string+1, &yylval.string, 10 );
+  yylval.string++;
+  $$->min = strtoll( yylval.string, &yylval.string, 10 );
   strsep (&yylval.string, "-");
-  $$->max = strtoimax( yylval.string, &yylval.string, 10 );
+  $$->max = strtoll( yylval.string, &yylval.string, 10 );
 
   // validate range
   if ($$->min >= $$->max) yyerror("Invalid range.");
@@ -352,7 +353,7 @@ parse_command_format(struct graph_node *start, struct cmd_element *cmd)
   optnode_start = optnode_end = NULL;
 
   // trace parser
-  yydebug = 1;
+  yydebug = 0;
   // command string
   command = cmd;
   // make flex read from a string

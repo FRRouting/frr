@@ -32,9 +32,8 @@ DEFUN (grammar_test_show,
 {
   if (!nodegraph)
     fprintf(stderr, "!nodegraph\n");
-  fprintf(stderr, "trying to print nodegraph->type\n");
-  fprintf(stderr, "%d\n", nodegraph->type);
-  walk_graph(nodegraph, 0);
+  else
+    walk_graph(nodegraph, 0);
   return CMD_SUCCESS;
 }
 

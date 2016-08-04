@@ -4,13 +4,13 @@
 extern void set_buffer_string(const char *);
 %}
 
-WORD            [-|+]?[a-z\*][-+_a-zA-Z0-9\*]*
+WORD            (\-|\+)?[a-z\*][-+_a-zA-Z0-9\*]*
 IPV4            A\.B\.C\.D
 IPV4_PREFIX     A\.B\.C\.D\/M
 IPV6            X:X::X:X
 IPV6_PREFIX     X:X::X:X\/M
 VARIABLE        [A-Z][-_a-zA-Z:0-9]+
-NUMBER          [-|+]?[0-9]{1,20}
+NUMBER          (\-|\+)?[0-9]{1,20}
 RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 
 /* yytext shall be a pointer */

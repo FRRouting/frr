@@ -636,12 +636,12 @@ static enum match_type
 match_range (struct graph_node *rangenode, const char *str)
 {
   char *endptr = NULL;
-  signed int val;
+  long long val;
 
   if (str == NULL)
     return 1;
 
-  val = strtoimax (str, &endptr, 10);
+  val = strtoll (str, &endptr, 10);
   if (*endptr != '\0')
     return 0;
 
@@ -674,7 +674,7 @@ match_number(struct graph_node *numnode, const char *word)
 {
   if (!strcmp("\0", word)) return no_match;
   char *endptr;
-  int num = strtoimax(word, &endptr, 10);
+  long long num = strtoll (word, &endptr, 10);
   if (endptr != '\0') return no_match;
   return num == numnode->value ? exact_match : no_match;
 }
