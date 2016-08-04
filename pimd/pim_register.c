@@ -188,7 +188,7 @@ pim_register_send (const uint8_t *buf, int buf_size, struct pim_rpf *rpg, int nu
 
   memset(buffer, 0, 3000);
   b1 = buffer + PIM_MSG_HEADER_LEN;
-  *b1 |= null_register << 31;
+  *b1 |= null_register << 6;
   b1 = buffer + PIM_MSG_REGISTER_LEN;
 
   memcpy(b1, (const unsigned char *)buf, buf_size);

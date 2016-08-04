@@ -939,7 +939,7 @@ pim_upstream_register_stop_timer (struct thread *t)
       ip_hdr.ip_v = 4;
       ip_hdr.ip_src = up->sg.src;
       ip_hdr.ip_dst = up->sg.grp;
-      ip_hdr.ip_len = 20;
+      ip_hdr.ip_len = htons (20);
       // checksum is broken
       pim_register_send ((uint8_t *)&ip_hdr, sizeof (struct ip), rpg, 1);
       pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
