@@ -54,26 +54,34 @@ snprintf(char *str, size_t size, const char *format, ...)
 #endif
 
 #ifndef HAVE_STRLCPY
-/**
- * Like strncpy but does not 0 fill the buffer and always null 
- * terminates.
- *
- * @param bufsize is the size of the destination buffer.
- *
- * @return index of the terminating byte.
- **/
+/*
+ * Copy string src to buffer dst of size dsize.  At most dsize-1
+ * chars will be copied.  Always NUL terminates (unless dsize == 0).
+ * Returns strlen(src); if retval >= dsize, truncation occurred.
+ */
 size_t
-strlcpy(char *d, const char *s, size_t bufsize)
+strlcpy(char *dst, const char *src, size_t dsize)
 {
-	size_t len = strlen(s);
-	size_t ret = len;
-	if (bufsize > 0) {
-		if (len >= bufsize)
-			len = bufsize-1;
-		memcpy(d, s, len);
-		d[len] = 0;
+	const char *osrc = src;
+	size_t nleft = dsize;
+
+	/* Copy as many bytes as will fit. */
+	if (nleft != 0) {
+		while (--nleft != 0) {
+			if ((*dst++ = *src++) == '\0')
+				break;
+		}
 	}
-	return ret;
+
+	/* Not enough room in dst, add NUL and traverse rest of src. */
+	if (nleft == 0) {
+		if (dsize != 0)
+			*dst = '\0';		/* NUL-terminate dst */
+		while (*src++)
+			;
+	}
+
+	return(src - osrc - 1);	/* count does not include NUL */
 }
 #endif
 
