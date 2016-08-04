@@ -501,7 +501,16 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned ch
 
   memset(&vc, 0, sizeof(vc));
   vc.vifc_vifi = pim_ifp->mroute_vif_index;
+#ifdef VIFF_USE_IFINDEX
   vc.vifc_lcl_ifindex = ifp->ifindex;
+#else
+  if (ifaddr.s_addr == INADDR_ANY) {
+    zlog_warn("%s: unnumbered interfaces are not supported on this platform",
+	      __PRETTY_FUNCTION__);
+    return -1;
+  }
+  memcpy(&vc.vifc_lcl_addr, &ifaddr, sizeof(vc.vifc_lcl_addr));
+#endif
   vc.vifc_flags = flags;
   vc.vifc_threshold = PIM_MROUTE_MIN_TTL;
   vc.vifc_rate_limit = 0;

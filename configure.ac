@@ -996,11 +996,46 @@ dnl figure out how to specify an interface in multicast sockets API
 dnl ---------------------------------------------------------------
 AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], QUAGGA_INCLUDES)
 
-AC_CHECK_HEADERS([linux/mroute.h], [], [],
-[
-#if HAVE_NETINET_IN_H
-#include<netinet/in.h>
-#endif])
+AC_CHECK_HEADERS([linux/mroute.h], [], [],[
+	#ifdef HAVE_SYS_SOCKET_H
+	# include <sys/socket.h>
+	#endif
+	#ifdef HAVE_NETINET_IN_H
+	# include <netinet/in.h>
+	#endif
+	#define _LINUX_IN_H             /* For Linux <= 2.6.25 */
+	#include <linux/types.h>
+])
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_LINUX_MROUTE_H
+# include <linux/mroute.h>
+#endif
+])dnl
+
+AC_CHECK_HEADERS([netinet/ip_mroute.h], [], [],[
+	#ifdef HAVE_SYS_SOCKET_H
+	# include <sys/socket.h>
+	#endif
+	#ifdef HAVE_SYS_TYPES_H
+	# include <sys/types.h>
+	#endif
+	#ifdef HAVE_NETINET_IN_H
+	# include <netinet/in.h>
+	#endif
+	#ifdef HAVE_NET_ROUTE_H
+	# include <net/route.h>
+	#endif
+])
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_NETINET_IP_MROUTE_H
+# include <netinet/ip_mroute.h>
+#endif
+])dnl
+
 AC_MSG_CHECKING([for BSD struct ip_mreq hack])
 AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
