@@ -388,7 +388,7 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
   int input_iface_vif_index;
   int old_vif_index;
 
-  if (!pim_rp_set_upstream_addr (&vif_source, c_oil->oil.mfcc_origin))
+  if (!pim_rp_set_upstream_addr (&vif_source, c_oil->oil.mfcc_origin, c_oil->oil.mfcc_mcastgrp))
     return;
 
   input_iface_vif_index = fib_lookup_if_vif_index (vif_source);
@@ -976,7 +976,7 @@ void igmp_source_forward_start(struct igmp_source *source)
     struct in_addr vif_source;
     struct pim_interface *pim_oif;
 
-    if (!pim_rp_set_upstream_addr (&vif_source, source->source_addr))
+    if (!pim_rp_set_upstream_addr (&vif_source, source->source_addr, sg.grp))
       return;
 
     int input_iface_vif_index = fib_lookup_if_vif_index(vif_source);

@@ -321,7 +321,7 @@ pim_register_recv (struct interface *ifp,
       {
 	upstream = pim_upstream_add (&sg, ifp);
 
-	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src);
+	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
 	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
 			    upstream->upstream_addr, NULL);
 	upstream->rpf.source_nexthop.interface = ifp;

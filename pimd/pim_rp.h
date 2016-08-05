@@ -21,6 +21,9 @@
 #ifndef PIM_RP_H
 #define PIM_RP_H
 
+void pim_rp_init (void);
+void pim_rp_free (void);
+
 int pim_rp_new (const char *rp, const char *group);
 int pim_rp_del (const char *rp, const char *group);
 
@@ -33,7 +36,7 @@ int pim_rp_i_am_rp (struct in_addr group);
 
 int pim_rp_check_is_my_ip_address (struct in_addr group, struct in_addr dest_addr);
 
-int pim_rp_set_upstream_addr (struct in_addr *up, struct in_addr source);
+int pim_rp_set_upstream_addr (struct in_addr *up, struct in_addr source, struct in_addr group);
 
 struct pim_rpf *pim_rp_g (struct in_addr group);
 

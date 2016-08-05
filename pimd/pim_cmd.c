@@ -2425,6 +2425,33 @@ DEFUN (show_ip_ssmpingd,
   return CMD_SUCCESS;
 }
 
+static int
+pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group)
+{
+  int result;
+  result = pim_rp_new (rp, group);
+
+  if (result == -1)
+    {
+      vty_out (vty, "%% Bad RP/group address specified: %s", rp);
+      return CMD_WARNING;
+    }
+
+  if (result == -2)
+    {
+      vty_out (vty, "%% No Path to RP address specified: %s", rp);
+            return CMD_WARNING;
+    }
+
+  if (result == -3)
+    {
+      vty_out (vty, "%% Group range specified cannot overlap");
+      return CMD_ERR_NO_MATCH;
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_rp,
        ip_pim_rp_cmd,
        "ip pim rp A.B.C.D [A.B.C.D/M]",
@@ -2434,19 +2461,23 @@ DEFUN (ip_pim_rp,
        "ip address of RP\n")
 {
   int idx_ipv4 = 3;
-  int result;
+  return pim_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg);
+}
 
-  result = pim_rp_new (argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg);
+static int
+pim_no_rp_cmd_worker (struct vty *vty, const char *rp, const char *group)
+{
+  int result = pim_rp_del (rp, group);
 
   if (result == -1)
     {
-      vty_out(vty, "%% Bad RP address specified: %s", argv[idx_ipv4]->arg);
-      return CMD_ERR_NO_MATCH;
+      vty_out (vty, "%% Unable to Decode specified RP");
+      return CMD_WARNING;
     }
 
   if (result == -2)
     {
-      vty_out(vty, "%% No Path to RP address specified: %s", argv[idx_ipv4]->arg);
+      vty_out (vty, "%% Unable to find specified RP");
       return CMD_WARNING;
     }
 
@@ -2463,9 +2494,7 @@ DEFUN (no_ip_pim_rp,
        "ip address of RP\n")
 {
   int idx_ipv4 = 4;
-  pim_rp_del (argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg);
-
-  return CMD_SUCCESS;
+  return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg);
 }
 
 DEFUN (ip_multicast_routing,

@@ -430,7 +430,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
   }
   
   up->sg                          = *sg;
-  if (!pim_rp_set_upstream_addr (&up->upstream_addr, sg->src))
+  if (!pim_rp_set_upstream_addr (&up->upstream_addr, sg->src, sg->grp))
     {
       if (PIM_DEBUG_PIM_TRACE)
 	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);
