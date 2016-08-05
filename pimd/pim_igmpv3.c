@@ -1134,9 +1134,6 @@ static int group_retransmit_sources(struct igmp_group *group,
   struct igmp_source   *src;
   int                   num_retransmit_sources_left = 0;
   
-  query_buf1_max_sources = (sizeof(query_buf1) - IGMP_V3_SOURCES_OFFSET) >> 2;
-  query_buf2_max_sources = (sizeof(query_buf2) - IGMP_V3_SOURCES_OFFSET) >> 2;
-  
   source_addr1 = (struct in_addr *)(query_buf1 + IGMP_V3_SOURCES_OFFSET);
   source_addr2 = (struct in_addr *)(query_buf2 + IGMP_V3_SOURCES_OFFSET);
 

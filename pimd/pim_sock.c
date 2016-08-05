@@ -334,7 +334,7 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
     
     ((struct sockaddr_in *) to)->sin_family = AF_INET;
 
-    if (pim_socket_getsockname(fd, (struct sockaddr *) &si, &si_len)) {
+    if (pim_socket_getsockname(fd, (struct sockaddr *) &si, &si_len) != PIM_SOCK_ERR_NONE) {
       ((struct sockaddr_in *) to)->sin_port        = ntohs(0);
       ((struct sockaddr_in *) to)->sin_addr.s_addr = ntohl(0);
     }

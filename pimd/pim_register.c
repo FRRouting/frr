@@ -107,7 +107,7 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
   l = pim_parse_addr_group (&group, buf, buf_size);
   buf += l;
   buf_size -= l;
-  l = pim_parse_addr_ucast (&source, buf, buf_size);
+  pim_parse_addr_ucast (&source, buf, buf_size);
   memset (&sg, 0, sizeof (struct prefix_sg));
   sg.src = source.u.prefix4;
   sg.grp = group.u.prefix4;
