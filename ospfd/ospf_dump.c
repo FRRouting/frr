@@ -2133,6 +2133,7 @@ config_write_debug (struct vty *vty)
 
   struct ospf *ospf;
   char str[16];
+  memset (str, 0, 16);
 
   if ((ospf = ospf_lookup()) == NULL)
     return CMD_SUCCESS;
