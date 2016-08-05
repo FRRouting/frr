@@ -24,6 +24,33 @@ DEFUN (grammar_test,
   return CMD_SUCCESS;
 }
 
+DEFUN (grammar_test_doc,
+       grammar_test_doc_cmd,
+       "grammar test docstring",
+       GRAMMAR_STR
+       "Test function for docstring\n"
+       "Command end\n")
+{
+  struct cmd_element *cmd = malloc(sizeof(struct cmd_element));
+  cmd->string = "test docstring <example|selector follow> (1-255) end VARIABLE [OPTION|set lol] . VARARG";
+  cmd->doc = "Test stuff\n"
+             "docstring thing\n"
+             "first example\n"
+             "second example\n"
+             "follow\n"
+             "random range\n"
+             "end thingy\n"
+             "variable\n"
+             "optional variable\n"
+             "optional set\n"
+             "optional lol\n"
+             "vararg!\n";
+  cmd->func = NULL;
+  cmd->tokens = vector_init(VECTOR_MIN_SIZE);
+  parse_command_format(nodegraph, cmd);
+  return CMD_SUCCESS;
+}
+
 DEFUN (grammar_test_show,
        grammar_test_show_cmd,
        "grammar tree",
@@ -52,7 +79,7 @@ DEFUN (grammar_test_complete,
   else
   {
     fprintf(stderr, "%% Matched full input, possible completions:\n");
-    char* desc = malloc(50);
+    char* desc = malloc(30);
     struct listnode *node;
     struct graph_node *cnode;
     // print possible next hops, if any
@@ -60,7 +87,7 @@ DEFUN (grammar_test_complete,
       if (cnode->type == END_GN)
         fprintf(stderr, "<cr> %p\n", cnode->element->func);
       else
-        fprintf(stderr, "%s\n", describe_node(cnode, desc, 50));
+        fprintf(stderr, "%-30s%s\n", describe_node(cnode, desc, 30), cnode->doc);
     }
     free(desc);
   }
@@ -118,4 +145,5 @@ void grammar_sandbox_init() {
   install_element (ENABLE_NODE, &grammar_test_show_cmd);
   install_element (ENABLE_NODE, &grammar_test_match_cmd);
   install_element (ENABLE_NODE, &grammar_test_complete_cmd);
+  install_element (ENABLE_NODE, &grammar_test_doc_cmd);
 }

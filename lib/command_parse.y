@@ -15,6 +15,8 @@ struct graph_node *
 node_exists(struct graph_node *, struct graph_node *);
 struct graph_node *
 node_replace(struct graph_node *, struct graph_node *);
+char *
+doc_next(void);
 
 #define DECIMAL_STRLEN_MAX 20
 
@@ -55,6 +57,7 @@ struct graph_node *selnode_start,   // start node for selector set
                   *selnode_end;     // end node for selector set
 
 struct cmd_element *command;        // command we're parsing
+char *docstring;
 %}
 
 %token <string> WORD
@@ -128,6 +131,7 @@ sentence_root: WORD
 {
   struct graph_node *root = new_node(WORD_GN);
   root->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  root->doc = doc_next();
 
   if ((currnode = node_replace(startnode, root)) != root)
     free (root);
@@ -173,36 +177,42 @@ placeholder_token:
 {
   $$ = new_node(IPV4_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  $$->doc = doc_next();
   free ($1);
 }
 | IPV4_PREFIX
 {
   $$ = new_node(IPV4_PREFIX_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  $$->doc = doc_next();
   free ($1);
 }
 | IPV6
 {
   $$ = new_node(IPV6_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  $$->doc = doc_next();
   free ($1);
 }
 | IPV6_PREFIX
 {
   $$ = new_node(IPV6_PREFIX_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  $$->doc = doc_next();
   free ($1);
 }
 | VARIABLE
 {
   $$ = new_node(VARIABLE_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  $$->doc = doc_next();
   free ($1);
 }
 | RANGE
 {
   $$ = new_node(RANGE_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  $$->doc = doc_next();
 
   // get the numbers out
   yylval.string++;
@@ -222,12 +232,16 @@ literal_token:
 {
   $$ = new_node(WORD_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
+  $$->doc = doc_next();
   free ($1);
 }
 | NUMBER
 {
   $$ = new_node(NUMBER_GN);
   $$->value = yylval.integer;
+  $$->text = XCALLOC(MTYPE_CMD_TOKENS, DECIMAL_STRLEN_MAX+1);
+  snprintf($$->text, DECIMAL_STRLEN_MAX, "%lld", $$->value);
+  $$->doc = doc_next();
 }
 ;
 
@@ -354,12 +368,17 @@ parse_command_format(struct graph_node *start, struct cmd_element *cmd)
 
   // trace parser
   yydebug = 0;
-  // command string
+  // command element
   command = cmd;
+  // copy docstring and keep a pointer to the copy
+  char *doc = docstring = cmd->doc ? XSTRDUP(MTYPE_TMP, cmd->doc) : NULL;
   // make flex read from a string
   set_buffer_string(command->string);
   // parse command into DFA
   yyparse();
+  // cleanup
+  free (doc);
+  doc = NULL;
   // startnode points to command DFA
   return startnode;
 }
@@ -385,4 +404,13 @@ node_replace(struct graph_node *parent, struct graph_node *child)
     existing = add_node(parent, child);
 
   return existing;
+}
+
+char *
+doc_next()
+{
+  char *piece = NULL;
+  if (!docstring || !(piece = strsep(&docstring, "\n")))
+    return NULL;
+  return XSTRDUP(MTYPE_CMD_TOKENS, piece);
 }

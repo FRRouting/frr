@@ -27,7 +27,8 @@ struct graph_node
   vector children;          // this node's children
   struct graph_node * end;  // pointer to end for SELECTOR_GN & OPTION_GN
 
-  char* text;               // for WORD_GN and VARIABLE_GN
+  char *text;               // original format text
+  char *doc;                // docstring for this node
   long long value;          // for NUMBER_GN
   long long min, max;       // for RANGE_GN
 
