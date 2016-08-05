@@ -30,7 +30,7 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 {VARIABLE}      {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return VARIABLE;}
 {NUMBER}        {
                     char *endptr;
-                    yylval.integer = strtoimax(yytext, &endptr, 10);
+                    yylval.number = strtoimax(yytext, &endptr, 10);
                     return NUMBER;
                 }
 {RANGE}         {yylval.string = XSTRDUP(MTYPE_TMP, yytext); return RANGE;}

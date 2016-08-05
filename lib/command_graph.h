@@ -41,29 +41,15 @@ struct graph_node
   unsigned int refs;
 };
 
-/*
+/**
  * Adds a node as a child of another node.
  *
  * @param[in] parent node
  * @param[in] child node
- * @return child node, for convenience
+ * @return child node
  */
 struct graph_node *
 add_node(struct graph_node *, struct graph_node *);
-
-/*
- * Compares two nodes for parsing equivalence.
- * Equivalence in this case means that a single user input token
- * should be able to unambiguously match one of the two nodes.
- * For example, two nodes which have all fields equal except their
- * function pointers would be considered equal.
- *
- * @param[in] first node to compare
- * @param[in] second node to compare
- * @return 1 if equal, zero otherwise.
- */
-int
-cmp_node(struct graph_node *, struct graph_node *);
 
 /*
  * Create a new node.

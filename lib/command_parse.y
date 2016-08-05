@@ -9,57 +9,43 @@
  */
 
 %{
-extern int yylex(void);
-void yyerror(const char *);
-struct graph_node *
-node_exists(struct graph_node *, struct graph_node *);
-struct graph_node *
-node_replace(struct graph_node *, struct graph_node *);
-char *
-doc_next(void);
-
-#define DECIMAL_STRLEN_MAX 20
-
-// compile with debugging facilities
-#define YYDEBUG 1
+#define YYDEBUG 1   // compile with debugging facilities
 %}
+
+/* names for generated header and parser files */
+%defines "command_parse.h"
+%output  "command_parse.c"
+
+/* required external units */
 %code requires {
   #include "command.h"
   #include "command_graph.h"
   #include "memory.h"
-}
-%code provides {
+
+  extern int
+  yylex(void);
+
   extern void
   set_buffer_string(const char *);
-  struct graph_node *
-  parse_command_format(struct graph_node *, struct cmd_element *);
 }
 
+/* functionality this unit exports */
+%code provides {
+  struct graph_node *
+  parse_command_format(struct graph_node *, struct cmd_element *);
 
-/* valid types for tokens */
-%union{
-  long long integer;
+  /* maximum length of a number, lexer will not match anything longer */
+  #define DECIMAL_STRLEN_MAX 20
+}
+
+/* valid semantic types for tokens and rules */
+%union {
+  long long number;
   char *string;
   struct graph_node *node;
 }
 
-/* some helpful state variables */
-%{
-struct graph_node *startnode,       // command root node
-                  *currnode,        // current node
-                  *seqhead;         // sequence head
-
-
-struct graph_node *optnode_start,   // start node for option set
-                  *optnode_end;     // end node for option set
-
-struct graph_node *selnode_start,   // start node for selector set
-                  *selnode_end;     // end node for selector set
-
-struct cmd_element *command;        // command we're parsing
-char *docstring;
-%}
-
+/* union types for lexed tokens */
 %token <string> WORD
 %token <string> IPV4
 %token <string> IPV4_PREFIX
@@ -67,8 +53,9 @@ char *docstring;
 %token <string> IPV6_PREFIX
 %token <string> VARIABLE
 %token <string> RANGE
-%token <integer> NUMBER
+%token <number> NUMBER
 
+/* union types for parsed rules */
 %type <node> start
 %type <node> sentence_root
 %type <node> literal_token
@@ -81,27 +68,73 @@ char *docstring;
 %type <node> selector_token
 %type <node> selector_token_seq
 
-%defines "command_parse.h"
-%output "command_parse.c"
+%code {
+  /* bison declarations */
+  void
+  yyerror(struct cmd_element *el, struct graph_node *sn, char const *msg);
 
-/* grammar proper */
+  /* state variables for a single parser run */
+  struct graph_node *currnode,        // current position in DFA
+                    *seqhead;         // sequence head
+
+  struct graph_node *optnode_start,   // start node for option set
+                    *optnode_end;     // end node for option set
+
+  struct graph_node *selnode_start,   // start node for selector set
+                    *selnode_end;     // end node for selector set
+
+  char *docstr_start, *docstr;        // pointers to copy of command docstring
+
+  /* helper functions for parser */
+  static char *
+  doc_next(void);
+
+  static struct graph_node *
+  node_exists(struct graph_node *, struct graph_node *);
+
+  static struct graph_node *
+  node_replace(struct graph_node *, struct graph_node *);
+
+  static int
+  cmp_node(struct graph_node *, struct graph_node *);
+
+  static void
+  terminate_graph (struct graph_node *,
+                   struct graph_node *,
+                   struct cmd_element *);
+
+  static void
+  cleanup(void);
+}
+
+/* yyparse parameters */
+%parse-param { struct cmd_element *element }
+%parse-param { struct graph_node *startnode }
+
+/* called automatically before yyparse */
+%initial-action {
+  /* clear state pointers */
+  seqhead = NULL;
+  currnode = NULL;
+  selnode_start = selnode_end = NULL;
+  optnode_start = optnode_end = NULL;
+
+  /* set string to parse */
+  set_buffer_string(element->string);
+
+  /* copy docstring and keep a pointer to the copy */
+  docstr = element->doc ? XSTRDUP(MTYPE_TMP, element->doc) : NULL;
+  docstr_start = docstr;
+}
+
 %%
 
 start:
   sentence_root cmd_token_seq
 {
-  // create leaf node
-  struct graph_node *end = new_node(END_GN);
-  end->element = command;
-
-  // add node
-  if (node_exists(currnode, end))
-  {
-    yyerror("Duplicate command.");
-    YYABORT;
-  }
-  add_node(currnode, end);
-  fprintf(stderr, "Parsed full command successfully.\n");
+  // tack on the command element
+  terminate_graph (startnode, currnode, element);
+  cleanup();
 }
 | sentence_root cmd_token_seq '.' placeholder_token
 {
@@ -113,18 +146,9 @@ start:
   // wth normal command termination procedure
   node_replace(currnode, currnode);
 
-  // create leaf node
-  struct graph_node *end = new_node(END_GN);
-  end->element = command;
-
-  // add node
-  if (node_exists(currnode, end))
-  {
-    yyerror("Duplicate command.");
-    YYABORT;
-  }
-  add_node(currnode, end);
-  fprintf(stderr, "Parsed full command successfully.\n");
+  // tack on the command element
+  terminate_graph (startnode, currnode, element);
+  cleanup();
 }
 
 sentence_root: WORD
@@ -140,7 +164,6 @@ sentence_root: WORD
   $$ = currnode;
 };
 
-/* valid top level tokens */
 cmd_token:
   placeholder_token
 {
@@ -221,7 +244,7 @@ placeholder_token:
   $$->max = strtoll( yylval.string, &yylval.string, 10 );
 
   // validate range
-  if ($$->min >= $$->max) yyerror("Invalid range.");
+  if ($$->min >= $$->max) yyerror(element, startnode, "Invalid range.");
 
   free ($1);
 }
@@ -238,7 +261,7 @@ literal_token:
 | NUMBER
 {
   $$ = new_node(NUMBER_GN);
-  $$->value = yylval.integer;
+  $$->value = yylval.number;
   $$->text = XCALLOC(MTYPE_CMD_TOKENS, DECIMAL_STRLEN_MAX+1);
   snprintf($$->text, DECIMAL_STRLEN_MAX, "%lld", $$->value);
   $$->doc = doc_next();
@@ -246,8 +269,7 @@ literal_token:
 ;
 
 /* <selector|set> productions */
-selector:
-  '<' selector_part '>'
+selector: '<' selector_part '>'
 {
   // all the graph building is done in selector_element,
   // so just return the selector subgraph head
@@ -259,8 +281,7 @@ selector_part:
 | selector_element '|' selector_element
 ;
 
-selector_element:
-  selector_element_root selector_token_seq
+selector_element: selector_element_root selector_token_seq
 {
   // if the selector start and end do not exist, create them
   if (!selnode_start || !selnode_end) {     // if one is null
@@ -349,41 +370,63 @@ option_token:
 
 %%
 
-void yyerror(char const *message) {
-  // fail on bad parse
-  fprintf(stderr, "Grammar error: %s\n", message);
-  exit(EXIT_FAILURE);
-}
-
 struct graph_node *
 parse_command_format(struct graph_node *start, struct cmd_element *cmd)
 {
-  fprintf(stderr, "parsing: %s\n", cmd->string);
-
-  /* clear state pointers */
-  startnode = start;
-  currnode = seqhead = NULL;
-  selnode_start = selnode_end = NULL;
-  optnode_start = optnode_end = NULL;
-
-  // trace parser
   yydebug = 0;
-  // command element
-  command = cmd;
-  // copy docstring and keep a pointer to the copy
-  char *doc = docstring = cmd->doc ? XSTRDUP(MTYPE_TMP, cmd->doc) : NULL;
-  // make flex read from a string
-  set_buffer_string(command->string);
+
   // parse command into DFA
-  yyparse();
-  // cleanup
-  free (doc);
-  doc = NULL;
-  // startnode points to command DFA
-  return startnode;
+  yyparse(cmd, start);
+
+  return start;
 }
 
-struct graph_node *
+/* parser helper functions */
+
+void
+yyerror(struct cmd_element *el, struct graph_node *sn, char const *msg)
+{
+  fprintf(stderr, "Grammar error: %s\n", msg);
+  exit(EXIT_FAILURE);
+}
+
+static void
+cleanup()
+{
+  /* free resources */
+  free (docstr_start);
+
+  /* clear state pointers */
+  seqhead = NULL;
+  currnode = NULL;
+  docstr_start = docstr = NULL;
+  selnode_start = selnode_end = NULL;
+  optnode_start = optnode_end = NULL;
+}
+
+static void
+terminate_graph (struct graph_node *startnode,
+                 struct graph_node *finalnode,
+                 struct cmd_element *element)
+{
+  struct graph_node *end = new_node(END_GN);
+  end->element = element;
+  if (node_exists(finalnode, end))
+    yyerror(element, startnode, "Duplicate command.");
+  else
+    add_node(finalnode, end);
+}
+
+static char *
+doc_next()
+{
+  char *piece = NULL;
+  if (!docstr || !(piece = strsep(&docstr, "\n")))
+    return NULL;
+  return XSTRDUP(MTYPE_CMD_TOKENS, piece);
+}
+
+static struct graph_node *
 node_exists(struct graph_node *parent, struct graph_node *child)
 {
   struct graph_node *p_child;
@@ -396,21 +439,50 @@ node_exists(struct graph_node *parent, struct graph_node *child)
   return NULL;
 }
 
-struct graph_node *
+static struct graph_node *
 node_replace(struct graph_node *parent, struct graph_node *child)
 {
   struct graph_node *existing = node_exists (parent, child);
-  if (!existing)
-    existing = add_node(parent, child);
-
-  return existing;
+  return existing ? existing : add_node(parent, child);
 }
 
-char *
-doc_next()
+static int
+cmp_node(struct graph_node *first, struct graph_node *second)
 {
-  char *piece = NULL;
-  if (!docstring || !(piece = strsep(&docstring, "\n")))
-    return NULL;
-  return XSTRDUP(MTYPE_CMD_TOKENS, piece);
+  // compare types
+  if (first->type != second->type) return 0;
+
+  switch (first->type) {
+    case WORD_GN:
+    case VARIABLE_GN:
+      if (first->text && second->text) {
+        if (strcmp(first->text, second->text)) return 0;
+      }
+      else if (first->text != second->text) return 0;
+      break;
+    case RANGE_GN:
+      if (first->min != second->min || first->max != second->max)
+        return 0;
+      break;
+    case NUMBER_GN:
+      if (first->value != second->value) return 0;
+      break;
+    /* selectors and options should be equal if all paths are equal,
+     * but the graph isomorphism problem is not solvable in polynomial
+     * time so we consider selectors and options inequal in all cases;
+     * ultimately this forks the graph
+     */
+    case SELECTOR_GN:
+    case OPTION_GN:
+      return 0;
+    /* end nodes are always considered equal, since each node may only
+     * have one at a time
+     */
+    case START_GN:
+    case END_GN:
+    case NUL_GN:
+    default:
+      break;
+  }
+  return 1;
 }

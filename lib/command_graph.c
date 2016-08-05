@@ -18,47 +18,6 @@ add_node(struct graph_node *parent, struct graph_node *child)
   return child;
 }
 
-int
-cmp_node(struct graph_node *first, struct graph_node *second)
-{
-  // compare types
-  if (first->type != second->type) return 0;
-
-  switch (first->type) {
-    case WORD_GN:
-    case VARIABLE_GN:
-      if (first->text && second->text) {
-        if (strcmp(first->text, second->text)) return 0;
-      }
-      else if (first->text != second->text) return 0;
-      break;
-    case RANGE_GN:
-      if (first->min != second->min || first->max != second->max)
-        return 0;
-      break;
-    case NUMBER_GN:
-      if (first->value != second->value) return 0;
-      break;
-    /* selectors and options should be equal if all paths are equal,
-     * but the graph isomorphism problem is not solvable in polynomial
-     * time so we consider selectors and options inequal in all cases
-     */
-    case SELECTOR_GN:
-    case OPTION_GN:
-      return 0;
-    /* end nodes are always considered equal, since each node may only
-     * have one at a time
-     */
-    case START_GN:
-    case END_GN:
-    case NUL_GN:
-    default:
-      break;
-  }
-
-  return 1;
-}
-
 struct graph_node *
 new_node(enum graph_node_type type)
 {
@@ -148,7 +107,6 @@ describe_node(struct graph_node *node, char* buffer, unsigned int bufsize)
 
   return buffer;
 }
-
 
 void
 walk_graph(struct graph_node *start, int level)
