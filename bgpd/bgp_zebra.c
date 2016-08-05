@@ -1965,6 +1965,24 @@ bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type, u_short instance)
   return CMD_SUCCESS;
 }
 
+/* Update redistribute vrf bitmap during triggers like
+   restart networking or delete/add VRFs */
+void
+bgp_update_redist_vrf_bitmaps (struct bgp *bgp, vrf_id_t old_vrf_id)
+{
+  int i;
+  afi_t afi;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      if (vrf_bitmap_check (zclient->redist[afi][i], old_vrf_id))
+        {
+          vrf_bitmap_unset (zclient->redist[afi][i], old_vrf_id);
+          vrf_bitmap_set (zclient->redist[afi][i], bgp->vrf_id);
+        }
+  return;
+}
+
 void
 bgp_zclient_reset (void)
 {
