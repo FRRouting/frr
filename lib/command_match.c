@@ -25,6 +25,9 @@ delete_nodelist (void *);
 static struct graph_node *
 disambiguate (struct graph_node *, struct graph_node *, char *);
 
+static struct list *
+disambiguate_nodelist (struct list *, struct list *, vector, unsigned int);
+
 /* token matcher prototypes */
 static enum match_type
 match_token (struct graph_node *, char *);
@@ -81,7 +84,7 @@ match_command (struct graph_node *start,
         *el = gn->element;
         break;
       }
-    assert(el);
+    assert(*el);
   }
 
   return matcher_result_value;
@@ -91,15 +94,16 @@ match_command (struct graph_node *start,
  * Builds an argument list given a DFA and a matching input line.
  *
  * First the function determines if the node it is passed matches the first
- * token of input. If it does not, it returns NULL. If it does match, then it
- * saves the input token as the head of an argument list.
+ * token of input. If it does not, it returns NULL (MATCHER_NO_MATCH). If it
+ * does match, then it saves the input token as the head of an argument list.
  *
  * The next step is to see if there is further input in the input line. If
  * there is not, the current node's children are searched to see if any of them
  * are leaves (type END_GN). If this is the case, then the bottom of the
- * recursion stack has been reached, and the argument list (with one node) is
- * returned. If it is not the case, NULL is returned, indicating that there is
- * no match for the input along this path.
+ * recursion stack has been reached, the leaf is pushed onto the argument list,
+ * the current node is pushed, and the resulting argument list is
+ * returned (MATCHER_OK). If it is not the case, NULL is returned, indicating
+ * that there is no match for the input along this path (MATCHER_INCOMPLETE).
  *
  * If there is further input, then the function recurses on each of the current
  * node's children, passing them the input line minus the token that was just
@@ -158,15 +162,15 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
 
   // determine the best match
   int ambiguous = 0;
-  struct list *bestmatch = NULL;
+  struct list *currbest = NULL;
   for (ALL_LIST_ELEMENTS_RO(next,ln,gn))
   {
     // if we've matched all input we're looking for END_GN
     if (n+1 == vector_active (vline)) {
       if (gn->type == END_GN) {
-        bestmatch = list_new();
-        listnode_add(bestmatch, copy_node(gn));
-        bestmatch->del = &delete_nodelist;
+        currbest = list_new();
+        listnode_add(currbest, copy_node(gn));
+        currbest->del = &delete_nodelist;
         break;
       }
       else continue;
@@ -176,36 +180,27 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
     struct list *result = match_command_r (gn, vline, n+1);
 
     // save the best match, subtle logic at play here
-    if (result) {
-      if (bestmatch) {
-        struct list *to_delete = result;
-        struct graph_node *new = listgetdata(result->head),
-                          *old = listgetdata(bestmatch->head);
-        char *nextoken = vector_slot (vline, n+1);
-        struct graph_node *best = disambiguate(new, old, nextoken);
-        ambiguous = !best || (ambiguous && best == old);
-        if (best == new) {
-          to_delete = bestmatch;
-          bestmatch = result;
-        }
-        list_delete (to_delete);
-      }
-      else
-        bestmatch = result;
+    if (result && currbest) {
+      struct list *newbest = disambiguate_nodelist(currbest, result, vline, n+1);
+      ambiguous = !newbest || (ambiguous && newbest == currbest);
+      list_delete ((newbest && newbest == result) ? currbest : result);
+      currbest = newbest ? newbest : currbest;
     }
+    else if (result)
+      currbest = result;
   }
 
-  if (bestmatch) {
+  if (currbest) {
     if (ambiguous) {
-      list_delete(bestmatch);
-      bestmatch = NULL;
+      list_delete(currbest);
+      currbest = NULL;
       matcher_result_value = MATCHER_AMBIGUOUS;
     }
     else {
-      // copy current node, set arg and prepend to bestmatch
+      // copy current node, set arg and prepend to currbest
       struct graph_node *curr = copy_node(start);
       curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
-      list_add_node_prev (bestmatch, bestmatch->head, curr);
+      list_add_node_prev (currbest, currbest->head, curr);
       matcher_result_value = MATCHER_OK;
     }
   }
@@ -217,7 +212,7 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
   // cleanup
   list_delete (next);
 
-  return bestmatch;
+  return currbest;
 }
 
 struct list *
@@ -374,6 +369,34 @@ disambiguate (struct graph_node *first, struct graph_node *second, char *token)
   enum match_type smtype = match_token (second, token);
   if (fmtype != smtype)
     return fmtype > smtype ? first : second;
+
+  return NULL;
+}
+
+static struct list *
+disambiguate_nodelist (struct list *first, struct list *second, vector vline, unsigned int n)
+{
+  fprintf(stderr, "%d --- %d\n", first->count, n);
+
+  // doesn't make sense for these to be inequal length
+  assert(first->count == second->count);
+  assert(first->count == vector_active(vline) - n+1);
+
+  struct listnode *fnode = listhead(first),
+                  *snode = listhead(second);
+  struct graph_node *fgn = listgetdata(fnode),
+                    *sgn = listgetdata(snode),
+                    *best = NULL;
+
+  // compare each node, if one matches better use that one
+  for (unsigned int i = n; i < vector_active(vline); i++) {
+    if ((best = disambiguate (fgn, sgn, (char*) vector_slot(vline, i))))
+      return best == fgn ? first : second;
+    fnode = listnextnode(fnode);
+    fgn = (struct graph_node *) listgetdata (fnode);
+    snode = listnextnode(snode);
+    sgn = (struct graph_node *) listgetdata (snode);
+  }
 
   return NULL;
 }
