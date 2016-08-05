@@ -25,10 +25,12 @@
 #include "log.h"
 
 #include "pimd.h"
+#include "pim_vty.h"
 #include "pim_pim.h"
 #include "pim_msg.h"
 #include "pim_util.h"
 #include "pim_str.h"
+#include "pim_rp.h"
 
 void pim_msg_build_header(uint8_t *pim_msg, int pim_msg_size,
 			  uint8_t pim_msg_type)
@@ -177,8 +179,9 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
   remain = end - pim_msg_curr;
   if (source.s_addr == INADDR_ANY)
     {
+      struct pim_rpf *rpf = pim_rp_g (group);
       bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT | PIM_ENCODE_RPT_BIT;
-      stosend = qpim_rp.rpf_addr;
+      stosend = rpf->rpf_addr;
     }
   else
     {

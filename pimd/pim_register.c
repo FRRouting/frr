@@ -44,28 +44,6 @@
 
 struct thread *send_test_packet_timer = NULL;
 
-/*
- * This seems stupidly expensive.  A list lookup.  Why is this
- * not a hash?
- */
-static int
-pim_check_is_my_ip_address (struct in_addr dest_addr)
-{
-  /*
-   * See if we can short-cut some?
-   * This might not make sense if we ever leave a static RP
-   * type of configuration.
-   * Note - Premature optimization might bite our patooeys' here.
-   */
-  if (I_am_RP(dest_addr) && (dest_addr.s_addr == qpim_rp.rpf_addr.s_addr))
-    return 1;
-
-  if (if_lookup_exact_address (&dest_addr, AF_INET))
-    return 1;
-
-  return 0;
-}
-
 static void
 pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg,
 			struct in_addr originator)
@@ -263,7 +241,10 @@ pim_register_recv (struct interface *ifp,
   struct prefix_sg sg;
   uint32_t *bits;
 
-  if (!pim_check_is_my_ip_address (dest_addr)) {
+#define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
+  ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
+
+  if (!pim_rp_check_is_my_ip_address (ip_hdr->ip_dst, dest_addr)) {
     if (PIM_DEBUG_PIM_REG) {
       char dest[100];
 
@@ -308,8 +289,6 @@ pim_register_recv (struct interface *ifp,
    * Line above.  So we need to add 4 bytes to get to the
    * start of the actual Encapsulated data.
    */
-#define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
-  ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
   memset (&sg, 0, sizeof (struct prefix_sg));
   sg.src = ip_hdr->ip_src;
   sg.grp = ip_hdr->ip_dst;

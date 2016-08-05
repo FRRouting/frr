@@ -2427,7 +2427,7 @@ DEFUN (show_ip_ssmpingd,
 
 DEFUN (ip_pim_rp,
        ip_pim_rp_cmd,
-       "ip pim rp A.B.C.D",
+       "ip pim rp A.B.C.D [A.B.C.D/M]",
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
@@ -2436,13 +2436,15 @@ DEFUN (ip_pim_rp,
   int idx_ipv4 = 3;
   int result;
 
-  result = inet_pton(AF_INET, argv[idx_ipv4]->arg, &qpim_rp.rpf_addr.s_addr);
-  if (result <= 0) {
-    vty_out(vty, "%% Bad RP address specified: %s", argv[idx_ipv4]->arg);
-    return CMD_WARNING;
-  }
+  result = pim_rp_new (argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg);
 
-  if (!pim_rp_setup ())
+  if (result == -1)
+    {
+      vty_out(vty, "%% Bad RP address specified: %s", argv[idx_ipv4]->arg);
+      return CMD_ERR_NO_MATCH;
+    }
+
+  if (result == -2)
     {
       vty_out(vty, "%% No Path to RP address specified: %s", argv[idx_ipv4]->arg);
       return CMD_WARNING;
@@ -2453,14 +2455,15 @@ DEFUN (ip_pim_rp,
 
 DEFUN (no_ip_pim_rp,
        no_ip_pim_rp_cmd,
-       "no ip pim rp [A.B.C.D]",
+       "no ip pim rp A.B.C.D [A.B.C.D/M]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
        "ip address of RP\n")
 {
-  qpim_rp.rpf_addr.s_addr = INADDR_NONE;
+  int idx_ipv4 = 4;
+  pim_rp_del (argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg);
 
   return CMD_SUCCESS;
 }

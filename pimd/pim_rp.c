@@ -25,6 +25,7 @@
 #include "if.h"
 
 #include "pimd.h"
+#include "pim_vty.h"
 #include "pim_str.h"
 #include "pim_rp.h"
 #include "pim_str.h"
@@ -33,6 +34,30 @@
 
 static int i_am_rp = 0;
 
+static struct pim_rpf  qpim_rp = { .rpf_addr.s_addr = INADDR_NONE };
+
+int
+pim_rp_new (const char *rp, const char *group_range)
+{
+  int result;
+
+  result = inet_pton (AF_INET, rp, &qpim_rp.rpf_addr.s_addr);
+  if (result <= 0)
+    return -1;
+
+  if (!pim_rp_setup ())
+    return -2;
+
+  return 0;
+}
+
+int
+pim_rp_del (const char *rp, const char *group_range)
+{
+  qpim_rp.rpf_addr.s_addr = INADDR_NONE;
+
+  return 0;
+}
 
 int
 pim_rp_setup (void)
@@ -126,4 +151,39 @@ pim_rp_set_upstream_addr (struct in_addr *up, struct in_addr source)
   *up = (source.s_addr == INADDR_ANY) ? qpim_rp.rpf_addr : source;
 
   return 1;
+}
+
+int
+pim_rp_config_write (struct vty *vty)
+{
+  char buffer[32];
+
+  if (qpim_rp.rpf_addr.s_addr != INADDR_NONE)
+    {
+      vty_out(vty, "ip pim rp %s%s", inet_ntop(AF_INET, &qpim_rp.rpf_addr, buffer, 32), VTY_NEWLINE);
+      return 1;
+    }
+
+  return 0;
+}
+
+int
+pim_rp_check_is_my_ip_address (struct in_addr group, struct in_addr dest_addr)
+{
+  /*
+   * See if we can short-cut some?
+   * This might not make sense if we ever leave a static RP
+   * type of configuration.
+   * Note - Premature optimization might bite our patooeys' here.
+   */
+  if (I_am_RP(group))
+    {
+     if (dest_addr.s_addr == qpim_rp.rpf_addr.s_addr)
+       return 1;
+    }
+
+  if (if_lookup_exact_address (&dest_addr, AF_INET))
+    return 1;
+    
+  return 0;
 }

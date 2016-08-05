@@ -34,6 +34,7 @@
 #include "pim_pim.h"
 #include "pim_oil.h"
 #include "pim_static.h"
+#include "pim_rp.h"
 
 int
 pim_debug_config_write (struct vty *vty)
@@ -124,16 +125,13 @@ pim_debug_config_write (struct vty *vty)
 int pim_global_config_write(struct vty *vty)
 {
   int writes = 0;
-  char buffer[32];
 
   if (PIM_MROUTE_IS_ENABLED) {
     vty_out(vty, "ip multicast-routing%s", VTY_NEWLINE);
     ++writes;
   }
-  if (qpim_rp.rpf_addr.s_addr != INADDR_NONE) {
-    vty_out(vty, "ip pim rp %s%s", inet_ntop(AF_INET, &qpim_rp.rpf_addr, buffer, 32), VTY_NEWLINE);
-    ++writes;
-  }
+
+  writes += pim_rp_config_write (vty);
 
   if (qpim_ssmpingd_list) {
     struct listnode *node;

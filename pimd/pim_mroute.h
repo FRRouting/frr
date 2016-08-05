@@ -159,7 +159,7 @@ struct igmpmsg
 #endif
 
 #ifndef IGMPMSG_WRVIFWHOLE
-#define IGMPMSG_WRVIFWHOLE      4
+#define IGMPMSG_WRVIFWHOLE      4               /* For PIM processing */
 #endif
 
 /*
