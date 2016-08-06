@@ -350,7 +350,8 @@ int pim_hello_recv(struct interface *ifp,
 			     hello_option_override_interval,
 			     hello_option_dr_priority,
 			     hello_option_generation_id,
-			     hello_option_addr_list);
+			     hello_option_addr_list,
+			     PIM_NEIGHBOR_SEND_DELAY);
     if (!neigh) {
       if (PIM_DEBUG_PIM_HELLO) {
 	char src_str[100];
@@ -374,11 +375,6 @@ int pim_hello_recv(struct interface *ifp,
     /* GenID mismatch ? */
     if (!PIM_OPTION_IS_SET(neigh->hello_options, PIM_OPTION_MASK_GENERATION_ID) ||
 	(hello_option_generation_id != neigh->generation_id)) {
-
-      /* GenID changed */
-
-      pim_upstream_rpf_genid_changed(neigh->source_addr);
-
       /* GenID mismatch, then replace neighbor */
       
       if (PIM_DEBUG_PIM_HELLO) {
@@ -401,7 +397,8 @@ int pim_hello_recv(struct interface *ifp,
 			       hello_option_override_interval,
 			       hello_option_dr_priority,
 			       hello_option_generation_id,
-			       hello_option_addr_list);
+			       hello_option_addr_list,
+			       PIM_NEIGHBOR_SEND_NOW);
       if (!neigh) {
 	if (PIM_DEBUG_PIM_HELLO) {
 	  char src_str[100];

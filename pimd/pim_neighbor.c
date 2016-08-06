@@ -411,7 +411,8 @@ struct pim_neighbor *pim_neighbor_add(struct interface *ifp,
 				      uint16_t override_interval,
 				      uint32_t dr_priority,
 				      uint32_t generation_id,
-				      struct list *addr_list)
+				      struct list *addr_list,
+				      int send_hello_now)
 {
   struct pim_interface *pim_ifp;
   struct pim_neighbor *neigh;
@@ -450,8 +451,16 @@ struct pim_neighbor *pim_neighbor_add(struct interface *ifp,
     message with a new GenID is received from an existing neighbor, a
     new Hello message should be sent on this interface after a
     randomized delay between 0 and Triggered_Hello_Delay.
+
+    This is a bit silly to do it that way.  If I get a new
+    genid we need to send the hello *now* because we've
+    lined up a bunch of join/prune messages to go out the
+    interface.
   */
-  pim_hello_restart_triggered(neigh->interface);
+  if (send_hello_now)
+    pim_hello_restart_now (ifp);
+  else
+    pim_hello_restart_triggered(neigh->interface);
 
   return neigh;
 }
