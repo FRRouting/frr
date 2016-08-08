@@ -353,7 +353,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 	      fd,
 	      src_str,
 	      grp_str,
-	      ifp ? ifp->name : "<ifname?>",
+	      ifp->name,
 	      msg->im_vif);
   }
 

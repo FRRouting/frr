@@ -647,8 +647,10 @@ static void isex_excl(struct igmp_group *group,
        struct in_addr star = { .s_addr = INADDR_ANY };
        source = igmp_find_source_by_addr (group, star);
        if (source)
-         IGMP_SOURCE_DONT_DELETE(source->source_flags);
-       igmp_source_reset_gmi (group->group_igmp_sock, group, source);
+         {
+           IGMP_SOURCE_DONT_DELETE(source->source_flags);
+           igmp_source_reset_gmi (group->group_igmp_sock, group, source);
+         }
     }
 
   /* E.5: delete all sources marked with deletion flag: (X-A) and (Y-A) */
