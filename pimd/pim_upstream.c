@@ -820,21 +820,20 @@ pim_upstream_keep_alive_timer (struct thread *t)
        * But this is the start.
        */
     }
+
+  pim_mroute_update_counters (up->channel_oil);
+
+  if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt)
+    {
+      pim_mroute_del (up->channel_oil);
+      pim_upstream_delete (up);
+    }
   else
     {
-      pim_mroute_update_counters (up->channel_oil);
-
-      if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt)
-	{
-	  pim_mroute_del (up->channel_oil);
-	  pim_upstream_delete (up);
-	}
-      else
-	{
-	  up->t_ka_timer = NULL;
-	  pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
-	}
+      up->t_ka_timer = NULL;
+      pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
     }
+
   return 1;
 }
 
