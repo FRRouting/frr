@@ -1,39 +1,74 @@
-#ifndef COMMAND_GRAPH_H
-#define COMMAND_GRAPH_H
+/*
+ * Graph data structure and companion routines for CLI backend.
+ *
+ * --
+ * Copyright (C) 2016 Cumulus Networks, Inc.
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GNU Zebra; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ */
+
+#ifndef _ZEBRA_COMMAND_GRAPH_H
+#define _ZEBRA_COMMAND_GRAPH_H
 
 #include "command.h"
 
+/**
+ * Types for graph nodes.
+ *
+ * The node type determines what kind of data the node can match (in the
+ * matching use case) or hold (in the argv use case).
+ */
 enum graph_node_type
 {
-  IPV4_GN,
-  IPV4_PREFIX_GN,
-  IPV6_GN,
-  IPV6_PREFIX_GN,
-  WORD_GN,
-  RANGE_GN,
-  NUMBER_GN,
-  VARIABLE_GN,
-  SELECTOR_GN,
-  OPTION_GN,
-  NUL_GN,
-  START_GN,
-  END_GN
+  IPV4_GN,          // IPV4 addresses
+  IPV4_PREFIX_GN,   // IPV4 network prefixes
+  IPV6_GN,          // IPV6 prefixes
+  IPV6_PREFIX_GN,   // IPV6 network prefixes
+  WORD_GN,          // words
+  RANGE_GN,         // integer ranges
+  NUMBER_GN,        // numbers
+  VARIABLE_GN,      // almost anything
+  /* plumbing types */
+  SELECTOR_GN,      // marks beginning of selector subgraph
+  OPTION_GN,        // marks beginning of option subgraph
+  NUL_GN,           // transparent node with various uses
+  START_GN,         // first node in the graph (has no parents)
+  END_GN            // leaf node in the graph, has pointer to cmd_element
 };
 
+/**
+ * Command graph node.
+ * Used for matching and passing arguments to vtysh commands.
+ */
 struct graph_node
 {
-  enum graph_node_type type;// data type this node matches or holds
-  unsigned int is_start;    // whether this node is a start node
-  vector children;          // this node's children
-  struct graph_node * end;  // pointer to end for SELECTOR_GN & OPTION_GN
+  enum graph_node_type type;    // data type this node matches or holds
+  vector children;              // this node's children
+  struct graph_node *end;       // pointer to end for SELECTOR_GN & OPTION_GN
 
-  char *text;               // original format text
-  char *doc;                // docstring for this node
-  long long value;          // for NUMBER_GN
-  long long min, max;       // for RANGE_GN
+  char *text;                   // original format text
+  char *doc;                    // docstring for this node
+  long long value;              // for NUMBER_GN
+  long long min, max;           // for RANGE_GN
 
   /* cmd_element struct pointer, only valid for END_GN */
   struct cmd_element *element;
+
   /* used for passing arguments to command functions */
   char *arg;
 
@@ -49,52 +84,33 @@ struct graph_node
  * @return child node
  */
 struct graph_node *
-add_node(struct graph_node *, struct graph_node *);
+add_node (struct graph_node *parent, struct graph_node *child);
 
-/*
- * Create a new node.
- * Initializes all fields to default values and sets the node type.
+/**
+ * Creates a new node, initializes all fields to default values and sets the
+ * node type.
  *
- * @param[in] node type
- * @return pointer to the newly allocated node
+ * @param[in] type node type
+ * @return pointer to the created node
  */
 struct graph_node *
-new_node(enum graph_node_type);
+new_node (enum graph_node_type type);
 
 /**
- * Frees the data associated with a graph_node.
- * @param[out] pointer to graph_node to free
- */
-void
-free_node(struct graph_node *);
-
-/**
- * Recursively calls free_node on a graph node
- * and all its children.
- * @param[out] graph to free
- */
-void
-free_graph(struct graph_node *);
-
-/**
- * Walks a command DFA, printing structure to stdout.
- * For debugging.
+ * Deletes a graph node without deleting its children.
  *
- * @param[in] start node of graph to walk
- * @param[in] graph depth for recursion, caller passes 0
+ * @param[out] node pointer to node to delete
  */
 void
-walk_graph(struct graph_node *, int);
+delete_node (struct graph_node *node);
 
 /**
- * Returns a string representation of the given node.
- * @param[in] the node to describe
- * @param[out] the buffer to write the description into
- * @return pointer to description string
+ * Deletes a graph node and recursively deletes all its direct and indirect
+ * children.
+ *
+ * @param[out] node start node of graph to free
  */
-char *
-describe_node(struct graph_node *, char *, unsigned int);
-
 void
-dump_node (struct graph_node *);
-#endif
+delete_graph (struct graph_node *node);
+
+#endif /* _ZEBRA_COMMAND_GRAPH_H */

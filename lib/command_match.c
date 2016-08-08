@@ -1,11 +1,35 @@
+/*
+ * Input matching routines for CLI backend.
+ *
+ * --
+ * Copyright (C) 2016 Cumulus Networks, Inc.
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GNU Zebra; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ */
+
+#include <zebra.h>
 #include "command_match.h"
 #include "command_parse.h"
-#include <zebra.h>
 #include "memory.h"
 
 /* matcher helper prototypes */
 static int
-add_nexthops(struct list *, struct graph_node *);
+add_nexthops (struct list *, struct graph_node *);
 
 static struct list *
 match_command_r (struct graph_node *, vector, unsigned int);
@@ -14,7 +38,7 @@ static int
 score_precedence (enum graph_node_type);
 
 static enum match_type
-min_match_level(enum node_type);
+min_match_level (enum node_type);
 
 static struct graph_node *
 copy_node (struct graph_node *);
@@ -23,10 +47,10 @@ static void
 delete_nodelist (void *);
 
 static struct graph_node *
-disambiguate (struct graph_node *, struct graph_node *, char *);
+disambiguate_nodes (struct graph_node *, struct graph_node *, char *);
 
 static struct list *
-disambiguate_nodelist (struct list *, struct list *, vector, unsigned int);
+disambiguate (struct list *, struct list *, vector, unsigned int);
 
 /* token matcher prototypes */
 static enum match_type
@@ -54,40 +78,33 @@ static enum match_type
 match_number (struct graph_node *, const char *);
 
 static enum match_type
-match_variable (struct graph_node *, const char *);
+match_variable (struct graph_node *node, const char *word);
 
 /* matching functions */
-static enum matcher_rv matcher_result_value;
+static enum matcher_rv matcher_rv;
 
 enum matcher_rv
 match_command (struct graph_node *start,
-               const char *line,
-               struct list **argvv,
+               vector vline,
+               struct list **argv,
                struct cmd_element **el)
 {
-  matcher_result_value = MATCHER_NO_MATCH;
-  // parse command
-  vector vline = cmd_make_strvec (line);
+  matcher_rv = MATCHER_NO_MATCH;
 
-  for (unsigned int i = 0; i < vector_active(start->children); i++)
-  {
-    // call recursive matcher on each starting child
-    *argvv = match_command_r(vector_slot(start->children, i), vline, 0);
-    if (*argvv) break;
-  }
+  // call recursive matcher on each starting child
+  for (unsigned int i = 0; i < vector_active (start->children); i++)
+    {
+      *argv = match_command_r (vector_slot (start->children, i), vline, 0);
+      if (*argv) // successful match
+        {
+          struct graph_node *end = listgetdata (listtail (*argv));
+          *el = end->element;
+          assert (*el);
+          break;
+        }
+    }
 
-  if (*argvv) {
-    struct listnode *ln;
-    struct graph_node *gn;
-    for (ALL_LIST_ELEMENTS_RO(*argvv,ln,gn))
-      if (gn->type == END_GN) {
-        *el = gn->element;
-        break;
-      }
-    assert(*el);
-  }
-
-  return matcher_result_value;
+  return matcher_rv;
 }
 
 /**
@@ -134,80 +151,83 @@ match_command (struct graph_node *start,
  * the best match for the command, each with their `arg` fields pointing to the
  * matching token string.
  *
- * @param[out] start the start node.
+ * @param[in] start the start node.
  * @param[in] vline the vectorized input line.
- * @param[in] n the index of the first input token. Should be 0 for external
- * callers.
+ * @param[in] n the index of the first input token.
  */
 static struct list *
 match_command_r (struct graph_node *start, vector vline, unsigned int n)
 {
   // get the minimum match level that can count as a full match
-  enum match_type minmatch = min_match_level(start->type);
+  enum match_type minmatch = min_match_level (start->type);
 
   // get the current operating token
-  char *token = vector_slot(vline, n);
+  char *token = vector_slot (vline, n);
 
   // if we don't match this node, die
-  if (match_token(start, token) < minmatch)
+  if (match_token (start, token) < minmatch)
     return NULL;
 
   // pointers for iterating linklist
+  struct listnode *ln;
   struct graph_node *gn;
-  struct listnode   *ln;
 
   // get all possible nexthops
   struct list *next = list_new();
-  add_nexthops(next, start);
+  add_nexthops (next, start);
 
   // determine the best match
   int ambiguous = 0;
   struct list *currbest = NULL;
-  for (ALL_LIST_ELEMENTS_RO(next,ln,gn))
-  {
-    // if we've matched all input we're looking for END_GN
-    if (n+1 == vector_active (vline)) {
-      if (gn->type == END_GN) {
-        currbest = list_new();
-        listnode_add(currbest, copy_node(gn));
-        currbest->del = &delete_nodelist;
-        break;
-      }
-      else continue;
+  for (ALL_LIST_ELEMENTS_RO (next,ln,gn))
+    {
+      // if we've matched all input we're looking for END_GN
+      if (n+1 == vector_active (vline))
+        {
+          if (gn->type == END_GN)
+            {
+              currbest = list_new();
+              listnode_add (currbest, copy_node(gn));
+              currbest->del = &delete_nodelist;
+              break;
+            }
+          else continue;
+        }
+
+      // else recurse on candidate child node
+      struct list *result = match_command_r (gn, vline, n+1);
+
+      // save the best match
+      if (result && currbest)
+        {
+          struct list *newbest = disambiguate (currbest, result, vline, n+1);
+          ambiguous = !newbest || (ambiguous && newbest == currbest);
+          list_delete ((newbest && newbest == result) ? currbest : result);
+          currbest = newbest ? newbest : currbest;
+        }
+      else if (result)
+        currbest = result;
     }
 
-    // else recurse on candidate child node
-    struct list *result = match_command_r (gn, vline, n+1);
-
-    // save the best match, subtle logic at play here
-    if (result && currbest) {
-      struct list *newbest = disambiguate_nodelist(currbest, result, vline, n+1);
-      ambiguous = !newbest || (ambiguous && newbest == currbest);
-      list_delete ((newbest && newbest == result) ? currbest : result);
-      currbest = newbest ? newbest : currbest;
+  if (currbest)
+    {
+      if (ambiguous)
+        {
+          list_delete (currbest);
+          currbest = NULL;
+          matcher_rv = MATCHER_AMBIGUOUS;
+        }
+      else
+        {
+          // copy current node, set arg and prepend to currbest
+          struct graph_node *curr = copy_node (start);
+          curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
+          list_add_node_prev (currbest, currbest->head, curr);
+          matcher_rv = MATCHER_OK;
+        }
     }
-    else if (result)
-      currbest = result;
-  }
-
-  if (currbest) {
-    if (ambiguous) {
-      list_delete(currbest);
-      currbest = NULL;
-      matcher_result_value = MATCHER_AMBIGUOUS;
-    }
-    else {
-      // copy current node, set arg and prepend to currbest
-      struct graph_node *curr = copy_node(start);
-      curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
-      list_add_node_prev (currbest, currbest->head, curr);
-      matcher_result_value = MATCHER_OK;
-    }
-  }
-  else {
-    if (n+1 == vector_active(vline) && matcher_result_value == MATCHER_NO_MATCH)
-      matcher_result_value = MATCHER_INCOMPLETE;
-  }
+  else if (n+1 == vector_active (vline) && matcher_rv == MATCHER_NO_MATCH)
+    matcher_rv = MATCHER_INCOMPLETE;
 
   // cleanup
   list_delete (next);
@@ -215,12 +235,9 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
   return currbest;
 }
 
-struct list *
-match_command_complete (struct graph_node *start, const char *line)
+enum matcher_rv
+match_command_complete (struct graph_node *start, vector vline, struct list **completions)
 {
-  // vectorize command line
-  vector vline = cmd_make_strvec (line);
-
   // pointer to next input token to match
   char *token;
 
@@ -232,33 +249,35 @@ match_command_complete (struct graph_node *start, const char *line)
   struct listnode *node;
 
   // add all children of start node to list
-  add_nexthops(next, start);
+  add_nexthops (next, start);
 
   unsigned int idx;
-  for (idx = 0; idx < vector_active(vline) && next->count > 0; idx++)
-  {
-    list_free (current);
-    current = next;
-    next = list_new();
-
-    token = vector_slot(vline, idx);
-
-    for (ALL_LIST_ELEMENTS_RO(current,node,gn))
+  for (idx = 0; idx < vector_active (vline) && next->count > 0; idx++)
     {
-      switch (match_token(gn, token)) {
-        case partly_match:
-          if (idx == vector_active(vline) - 1) {
-            listnode_add(next, gn);
-            break;
-          }
-        case exact_match:
-          add_nexthops(next, gn);
-          break;
-        default:
-          break;
-      }
+      list_free (current);
+      current = next;
+      next = list_new();
+
+      token = vector_slot (vline, idx);
+
+      for (ALL_LIST_ELEMENTS_RO (current,node,gn))
+        {
+          switch (match_token (gn, token))
+            {
+              case partly_match:
+                if (idx == vector_active (vline) - 1)
+                  {
+                    listnode_add (next, gn);
+                    break;
+                  }
+              case exact_match:
+                add_nexthops (next, gn);
+                break;
+              default:
+                break;
+            }
+        }
     }
-  }
 
   /* Variable summary
    * -----------------------------------------------------------------
@@ -268,101 +287,122 @@ match_command_complete (struct graph_node *start, const char *line)
    * next     = set of all nodes reachable from all nodes in `matched`
    */
 
-  matcher_result_value =
+  matcher_rv =
      idx + 1 == vector_active(vline) && next->count ?
      MATCHER_OK :
      MATCHER_NO_MATCH;
 
   list_free (current);
-  cmd_free_strvec(vline);
+  *completions = next;
 
-  return next;
+  return matcher_rv;
 }
 
 /**
- * Adds all children that are reachable by one parser hop
- * to the given list. NUL_GN, SELECTOR_GN, and OPTION_GN
- * nodes are treated as transparent.
+ * Adds all children that are reachable by one parser hop to the given list.
+ * NUL_GN, SELECTOR_GN, and OPTION_GN nodes are treated as transparent.
  *
- * @param[out] l the list to add the children to
- * @param[in] node the node to get the children of
+ * @param[in] list to add the nexthops to
+ * @param[in] node to start calculating nexthops from
  * @return the number of children added to the list
  */
 static int
-add_nexthops(struct list *l, struct graph_node *node)
+add_nexthops (struct list *list, struct graph_node *node)
 {
   int added = 0;
   struct graph_node *child;
-  for (unsigned int i = 0; i < vector_active(node->children); i++)
-  {
-    child = vector_slot(node->children, i);
-    switch (child->type) {
-      case OPTION_GN:
-      case SELECTOR_GN:
-      case NUL_GN:
-        added += add_nexthops(l, child);
-        break;
-      default:
-        listnode_add(l, child);
-        added++;
+  for (unsigned int i = 0; i < vector_active (node->children); i++)
+    {
+      child = vector_slot (node->children, i);
+      switch (child->type)
+        {
+          case OPTION_GN:
+          case SELECTOR_GN:
+          case NUL_GN:
+            added += add_nexthops (list, child);
+            break;
+          default:
+            listnode_add (list, child);
+            added++;
+        }
     }
-  }
+
   return added;
 }
 
 /**
  * Determines the node types for which a partial match may count as a full
  * match. Enables command abbrevations.
+ *
+ * @param[in] type node type
+ * @return minimum match level needed to for a token to fully match
  */
 static enum match_type
-min_match_level(enum node_type type)
+min_match_level (enum node_type type)
 {
-  switch (type) {
-    case WORD_GN:
-      return partly_match;
-    default:
-      return exact_match;
-  }
+  switch (type)
+    {
+      // allowing words to partly match enables command abbreviation
+      case WORD_GN:
+        return partly_match;
+      default:
+        return exact_match;
+    }
 }
 
-/* Precedence score used to disambiguate matches. */
+/**
+ * Assigns precedence scores to node types.
+ *
+ * @param[in] type node type to score
+ * @return precedence score
+ */
 static int
 score_precedence (enum graph_node_type type)
 {
   switch (type)
-  {
-    // some of these are mutually exclusive, so they share
-    // the same precedence value
-    case IPV4_GN:
-    case IPV4_PREFIX_GN:
-    case IPV6_GN:
-    case IPV6_PREFIX_GN:
-    case NUMBER_GN:
-      return 1;
-    case RANGE_GN:
-      return 2;
-    case WORD_GN:
-      return 3;
-    case VARIABLE_GN:
-      return 4;
-    default:
-      return 10;
-  }
+    {
+      // some of these are mutually exclusive, so they share
+      // the same precedence value
+      case IPV4_GN:
+      case IPV4_PREFIX_GN:
+      case IPV6_GN:
+      case IPV6_PREFIX_GN:
+      case NUMBER_GN:
+        return 1;
+      case RANGE_GN:
+        return 2;
+      case WORD_GN:
+        return 3;
+      case VARIABLE_GN:
+        return 4;
+      default:
+        return 10;
+    }
 }
 
-/* Disambiguation logic to pick the best of two possible matches */
+/**
+ * Picks the better of two possible matches for a token.
+ *
+ * @param[in] first candidate node matching token
+ * @param[in] second candidate node matching token
+ * @param[in] token the token being matched
+ * @return the best-matching node, or NULL if the two are entirely ambiguous
+ */
 static struct graph_node *
-disambiguate (struct graph_node *first, struct graph_node *second, char *token)
+disambiguate_nodes (struct graph_node *first,
+                    struct graph_node *second,
+                    char *token)
 {
   // if the types are different, simply go off of type precedence
-  if (first->type != second->type) {
-    int firstprec = score_precedence(first->type);
-    int secndprec = score_precedence(second->type);
-    if (firstprec != secndprec)
-      return firstprec < secndprec ? first : second;
-    else
-      return NULL;
-  }
+  if (first->type != second->type)
+    {
+      int firstprec = score_precedence (first->type);
+      int secndprec = score_precedence (second->type);
+      if (firstprec != secndprec)
+        return firstprec < secndprec ? first : second;
+      else
+        return NULL;
+    }
 
   // if they're the same, return the more exact match
   enum match_type fmtype = match_token (first, token);
@@ -373,40 +413,60 @@ disambiguate (struct graph_node *first, struct graph_node *second, char *token)
   return NULL;
 }
 
+/**
+ * Picks the better of two possible matches for an input line.
+ *
+ * @param[in] first candidate list of graph_node matching vline
+ * @param[in] second candidate list of graph_node matching vline
+ * @param[in] vline the input line being matched
+ * @param[in] n index into vline to start comparing at
+ * @return the best-matching list, or NULL if the two are entirely ambiguous
+ */
 static struct list *
-disambiguate_nodelist (struct list *first, struct list *second, vector vline, unsigned int n)
+disambiguate (struct list *first,
+              struct list *second,
+              vector vline,
+              unsigned int n)
 {
-  fprintf(stderr, "%d --- %d\n", first->count, n);
-
   // doesn't make sense for these to be inequal length
-  assert(first->count == second->count);
-  assert(first->count == vector_active(vline) - n+1);
+  assert (first->count == second->count);
+  assert (first->count == vector_active (vline) - n+1);
 
-  struct listnode *fnode = listhead(first),
-                  *snode = listhead(second);
-  struct graph_node *fgn = listgetdata(fnode),
-                    *sgn = listgetdata(snode),
+  struct listnode *fnode = listhead (first),
+                  *snode = listhead (second);
+  struct graph_node *fgn = listgetdata (fnode),
+                    *sgn = listgetdata (snode),
                     *best = NULL;
 
   // compare each node, if one matches better use that one
-  for (unsigned int i = n; i < vector_active(vline); i++) {
-    if ((best = disambiguate (fgn, sgn, (char*) vector_slot(vline, i))))
-      return best == fgn ? first : second;
-    fnode = listnextnode(fnode);
-    fgn = (struct graph_node *) listgetdata (fnode);
-    snode = listnextnode(snode);
-    sgn = (struct graph_node *) listgetdata (snode);
-  }
+  for (unsigned int i = n; i < vector_active (vline); i++)
+    {
+      char *token = vector_slot(vline, i);
+      if ((best = disambiguate_nodes (fgn, sgn, token)))
+        return best == fgn ? first : second;
+      fnode = listnextnode (fnode);
+      snode = listnextnode (snode);
+      fgn = (struct graph_node *) listgetdata (fnode);
+      sgn = (struct graph_node *) listgetdata (snode);
+    }
 
   return NULL;
 }
 
+/**
+ * Performs a deep copy on a node.
+ * Used to build argv node lists that can be safely deleted or modified by
+ * endpoint functions. Everything is copied except the children vector,
+ * subgraph end pointer and reference count.
+ *
+ * @param[in] node to copy
+ * @return the copy
+ */
 static struct graph_node *
 copy_node (struct graph_node *node)
 {
   struct graph_node *new = new_node(node->type);
   new->children = NULL;
-  new->is_start = node->is_start;
   new->end      = NULL;
   new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
   new->value    = node->value;
@@ -418,11 +478,13 @@ copy_node (struct graph_node *node)
   return new;
 }
 
-/* Linked list data deletion callback */
+/**
+ * List deletion callback for argv lists.
+ */
 static void
 delete_nodelist (void *node)
 {
-  free_node ((struct graph_node *) node);
+  delete_node ((struct graph_node *) node);
 }
 
 
@@ -632,7 +694,7 @@ match_ipv6_prefix (const char *str)
     return no_match;
 
   /* tokenize to address + mask */
-  dupe = XMALLOC(MTYPE_TMP, strlen(str)+1);
+  dupe = XCALLOC(MTYPE_TMP, strlen(str)+1);
   strncpy(dupe, str, strlen(str)+1);
   prefix = strtok_r(dupe, delim, &context);
   mask   = strtok_r(NULL, delim, &context);
@@ -656,8 +718,10 @@ match_ipv6_prefix (const char *str)
 #endif
 
 static enum match_type
-match_range (struct graph_node *rangenode, const char *str)
+match_range (struct graph_node *node, const char *str)
 {
+  assert (node->type == RANGE_GN);
+
   char *endptr = NULL;
   long long val;
 
@@ -668,45 +732,54 @@ match_range (struct graph_node *rangenode, const char *str)
   if (*endptr != '\0')
     return 0;
 
-  if (val < rangenode->min || val > rangenode->max)
+  if (val < node->min || val > node->max)
     return no_match;
   else
     return exact_match;
 }
 
 static enum match_type
-match_word(struct graph_node *wordnode, const char *word)
+match_word (struct graph_node *node, const char *word)
 {
+  assert (node->type == WORD_GN);
+
   // if the passed token is null or 0 length, partly match
   if (!word || !strlen(word))
     return partly_match;
 
   // if the passed token is strictly a prefix of the full word, partly match
-  if (strlen(word) < strlen(wordnode->text))
-    return !strncmp(wordnode->text, word, strlen(word)) ? partly_match : no_match;
+  if (strlen (word) < strlen (node->text))
+    return !strncmp (node->text, word, strlen (word)) ?
+       partly_match :
+       no_match;
 
   // if they are the same length and exactly equal, exact match
-  else if (strlen(word) == strlen(wordnode->text))
-    return !strncmp(wordnode->text, word, strlen(word)) ? exact_match : no_match;
+  else if (strlen (word) == strlen (node->text))
+    return !strncmp (node->text, word, strlen (word)) ? exact_match : no_match;
 
   return no_match;
 }
 
 static enum match_type
-match_number(struct graph_node *numnode, const char *word)
+match_number (struct graph_node *node, const char *word)
 {
-  if (!strcmp("\0", word)) return no_match;
+  assert (node->type == NUMBER_GN);
+
+  if (!strcmp ("\0", word)) return no_match;
   char *endptr;
   long long num = strtoll (word, &endptr, 10);
   if (endptr != '\0') return no_match;
-  return num == numnode->value ? exact_match : no_match;
+  return num == node->value ? exact_match : no_match;
 }
 
-#define VARIABLE_ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:"
+#define VARIABLE_ALPHABET \
+"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:"
 
 static enum match_type
-match_variable(struct graph_node *varnode, const char *word)
+match_variable (struct graph_node *node, const char *word)
 {
-  return strlen(word) == strspn(word, VARIABLE_ALPHABET) ?
+  assert (node->type == VARIABLE_GN);
+
+  return strlen (word) == strspn(word, VARIABLE_ALPHABET) ?
      exact_match : no_match;
 }

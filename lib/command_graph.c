@@ -1,46 +1,52 @@
 /*
- * Command DFA module.
- * Provides a DFA data structure and associated functions for manipulating it.
- * Used to match user command line input.
+ * Graph data structure and companion routines for CLI backend.
  *
- * @author Quentin Young <qlyoung@cumulusnetworks.com>
+ * --
+ * Copyright (C) 2016 Cumulus Networks, Inc.
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GNU Zebra; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
-
-#include "command_graph.h"
 #include <zebra.h>
+#include "command_graph.h"
 #include "memory.h"
 
 struct graph_node *
-add_node(struct graph_node *parent, struct graph_node *child)
+add_node (struct graph_node *parent, struct graph_node *child)
 {
-  vector_set(parent->children, child);
+  vector_set (parent->children, child);
   child->refs++;
   return child;
 }
 
 struct graph_node *
-new_node(enum graph_node_type type)
+new_node (enum graph_node_type type)
 {
   struct graph_node *node =
-     XMALLOC(MTYPE_CMD_TOKENS, sizeof(struct graph_node));
+     XCALLOC(MTYPE_CMD_TOKENS, sizeof(struct graph_node));
 
   node->type = type;
   node->children = vector_init(VECTOR_MIN_SIZE);
-  node->end      = NULL;
-  node->text     = NULL;
-  node->element  = NULL;
-  node->arg      = NULL;
-  node->is_start = 0;
-  node->value    = 0;
-  node->min      = 0;
-  node->max      = 0;
-  node->refs     = 0;
 
   return node;
 }
 
 void
-free_node (struct graph_node *node)
+delete_node (struct graph_node *node)
 {
   if (!node) return;
   if (node->children) vector_free (node->children);
@@ -51,100 +57,17 @@ free_node (struct graph_node *node)
 }
 
 void
-free_graph (struct graph_node *start)
+delete_graph (struct graph_node *start)
 {
-  if (start && start->children && vector_active(start->children) > 0) {
-    for (unsigned int i = 0; i < vector_active(start->children); i++) {
-      free_graph (vector_slot(start->children, i));
-      vector_unset(start->children, i);
+  if (start && start->children && vector_active (start->children) > 0)
+    {
+      for (unsigned int i = 0; i < vector_active (start->children); i++)
+        {
+          delete_graph (vector_slot(start->children, i));
+          vector_unset (start->children, i);
+        }
     }
-  }
 
   if (--(start->refs) == 0)
-    free_node (start);
-}
-
-char *
-describe_node(struct graph_node *node, char* buffer, unsigned int bufsize)
-{
-  if (node == NULL) {
-    snprintf(buffer, bufsize, "(null node)");
-    return buffer;
-  }
-
-  // print this node
-  switch (node->type) {
-    case WORD_GN:
-    case IPV4_GN:
-    case IPV4_PREFIX_GN:
-    case IPV6_GN:
-    case IPV6_PREFIX_GN:
-    case VARIABLE_GN:
-    case RANGE_GN:
-      snprintf(buffer, bufsize, node->text);
-      break;
-    case NUMBER_GN:
-      snprintf(buffer, bufsize, "%lld", node->value);
-      break;
-    case SELECTOR_GN:
-      snprintf(buffer, bufsize, "<>");
-      break;
-    case OPTION_GN:
-      snprintf(buffer, bufsize, "[]");
-      break;
-    case NUL_GN:
-      snprintf(buffer, bufsize, "NUL");
-      break;
-    case END_GN:
-      snprintf(buffer, bufsize, "END");
-      break;
-    case START_GN:
-      snprintf(buffer, bufsize, "START");
-      break;
-    default:
-      snprintf(buffer, bufsize, "ERROR");
-  }
-
-  return buffer;
-}
-
-void
-walk_graph(struct graph_node *start, int level)
-{
-  char* desc = malloc(50);
-  // print this node
-  fprintf(stderr, "%s[%d] ", describe_node(start, desc, 50), vector_active(start->children));
-  free(desc);
-
-  if (vector_active(start->children)) {
-    if (vector_active(start->children) == 1)
-      walk_graph(vector_slot(start->children, 0), level);
-    else {
-      fprintf(stderr, "\n");
-      for (unsigned int i = 0; i < vector_active(start->children); i++) {
-        struct graph_node *r = vector_slot(start->children, i);
-        for (int j = 0; j < level+1; j++)
-          fprintf(stderr, "    ");
-        walk_graph(r, level+1);
-      }
-    }
-  }
-  else
-    fprintf(stderr, "\n");
-}
-
-void
-dump_node (struct graph_node *node)
-{
-  char buf[50];
-  describe_node(node, buf, 50);
-  fprintf(stderr, "%s[%d]\n", buf, node->type);
-  fprintf(stderr, "\t->text: %s\n", node->text);
-  fprintf(stderr, "\t->value: %lld\n", node->value);
-  fprintf(stderr, "\t->is_start: %d\n", node->is_start);
-  fprintf(stderr, "\t->element: %p\n", node->element);
-  fprintf(stderr, "\t->min: %lld\n->max: %lld\n", node->min, node->max);
-  fprintf(stderr, "\t->arg: %s\n", node->arg);
-  fprintf(stderr, "\t->refs: %d\n", node->refs);
-  fprintf(stderr, "\tnum children: %d\n", vector_active(node->children));
+    delete_node (start);
 }

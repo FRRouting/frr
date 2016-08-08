@@ -1,21 +1,45 @@
-#ifndef COMMAND_MATCH_H
-#define COMMAND_MATCH_H
+/*
+ * Input matching routines for CLI backend.
+ *
+ * --
+ * Copyright (C) 2016 Cumulus Networks, Inc.
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GNU Zebra; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ */
+
+#ifndef _ZEBRA_COMMAND_MATCH_H
+#define _ZEBRA_COMMAND_MATCH_H
 
 #include "command.h"
 #include "command_graph.h"
 #include "linklist.h"
 
 
-/** These definitions exist in command.c in
- * the current engine but will be relocated
- * here in the new engine*/
+/* These definitions exist in command.c in the current engine but should be
+ * relocated here in the new engine
+ */
 enum filter_type
 {
   FILTER_RELAXED,
   FILTER_STRICT
 };
 
-/* matcher result value. */
+/* matcher result value */
 enum matcher_rv
 {
   MATCHER_NO_MATCH,
@@ -24,7 +48,7 @@ enum matcher_rv
   MATCHER_OK,
 };
 
-/* Completion match types. */
+/* completion match types */
 enum match_type
 {
   no_match,
@@ -32,9 +56,8 @@ enum match_type
   exact_match
 };
 
-/* Defines which matcher_rv values constitute
- * an error. Should be used against matcher_rv
- * return values to do basic error checking.
+/* Defines which matcher_rv values constitute an error. Should be used with
+ * matcher_rv return values to do basic error checking.
  */
 #define MATCHER_ERROR(matcher_rv) \
   (   (matcher_rv) == MATCHER_INCOMPLETE \
@@ -45,37 +68,29 @@ enum match_type
 /**
  * Attempt to find an exact command match for a line of user input.
  *
- * @param DFA to match against
- * @param input string
- * @param pointer which will be pointed at argv upon match
- * @param pointer which will be pointed at matching cmd_element upon match
- * @return result of matcher run
+ * @param[in] start start node of command graph to match against
+ * @param[in] vline vectorized input string
+ * @param[out] argv pointer to argument list if successful match
+ * @param[out] element pointer to matched cmd_element if successful match
+ * @return matcher status
  */
 enum matcher_rv
-match_command (struct graph_node *, const char *, struct list **, struct cmd_element **);
+match_command (struct graph_node *start,
+               vector vline,
+               struct list **argv,
+               struct cmd_element **element);
 
 /**
- * Compiles next-hops for a given line of user input.
- *
- * Given a string of input and a start node for a matching DFA, runs the input
- * against the DFA until the input is exhausted or a mismatch is encountered.
- *
- * This function returns all valid next hops away from the current node.
- *  - If the input is a valid prefix to a longer command(s), the set of next
- *    hops determines what tokens are valid to follow the prefix. In other words,
- *    the returned list is a list of possible completions.
- *  - If the input matched a full command, exactly one of the next hops will be
- *    a node of type END_GN and its function pointer will be set.
- *  - If the input did not match any valid token sequence, the returned list
- *    will be empty (there are no transitions away from a nonexistent state).
+ * Compiles possible completions for a given line of user input.
  *
  * @param[in] start the start node of the DFA to match against
- * @param[in] filter the filtering method
- * @param[in] input the input string
- * @return pointer to linked list with all possible next hops from the last
- *         matched token. If this is empty, the input did not match any command.
+ * @param[in] vline vectorized input string
+ * @param[in] completions pointer to possible completions
+ * @return matcher status
  */
-struct list *
-match_command_complete (struct graph_node *, const char *);
+enum matcher_rv
+match_command_complete (struct graph_node *start,
+                        vector vline,
+                        struct list **completions);
 
-#endif
+#endif /* _ZEBRA_COMMAND_MATCH_H */
