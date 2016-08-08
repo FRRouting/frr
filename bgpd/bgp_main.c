@@ -317,6 +317,7 @@ bgp_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct vrf *vrf;
   struct bgp *bgp;
+  vrf_id_t old_vrf_id;
 
   vrf = vrf_lookup (vrf_id);
   if (!vrf) // unexpected
@@ -328,8 +329,13 @@ bgp_vrf_enable (vrf_id_t vrf_id, const char *name, void **info)
   bgp = bgp_lookup_by_name(name);
   if (bgp)
     {
+      old_vrf_id = bgp->vrf_id;
       /* We have instance configured, link to VRF and make it "up". */
       bgp_vrf_link (bgp, vrf);
+
+      /* Update any redistribute vrf bitmaps if the vrf_id changed */
+      if (old_vrf_id != bgp->vrf_id)
+        bgp_update_redist_vrf_bitmaps(bgp, old_vrf_id);
       bgp_instance_up (bgp);
     }
 
@@ -341,6 +347,7 @@ bgp_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
 {
   struct vrf *vrf;
   struct bgp *bgp;
+  vrf_id_t old_vrf_id;
 
   if (vrf_id == VRF_DEFAULT)
     return 0;
@@ -355,8 +362,12 @@ bgp_vrf_disable (vrf_id_t vrf_id, const char *name, void **info)
   bgp = bgp_lookup_by_name(name);
   if (bgp)
     {
+      old_vrf_id = bgp->vrf_id;
       /* We have instance configured, unlink from VRF and make it "down". */
       bgp_vrf_unlink (bgp, vrf);
+      /* Update any redistribute vrf bitmaps if the vrf_id changed */
+      if (old_vrf_id != bgp->vrf_id)
+        bgp_update_redist_vrf_bitmaps(bgp, old_vrf_id);
       bgp_instance_down (bgp);
     }
 

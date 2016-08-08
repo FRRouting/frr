@@ -99,6 +99,9 @@ struct attr_extra
   /* MP Nexthop length */
   u_char mp_nexthop_len;
 
+  /* MP Nexthop preference */
+  u_char mp_nexthop_prefer_global;
+
   /* route tag */
   u_short tag;
 

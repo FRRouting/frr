@@ -1504,4 +1504,5 @@ bgp_vrf_unlink (struct bgp *bgp, struct vrf *vrf)
   bgp->vrf_id = VRF_UNKNOWN;
 }
 
+extern void bgp_update_redist_vrf_bitmaps (struct bgp*, vrf_id_t);
 #endif /* _QUAGGA_BGPD_H */

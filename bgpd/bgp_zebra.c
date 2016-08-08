@@ -1136,12 +1136,18 @@ bgp_info_to_ipv6_nexthop (struct bgp_info *info)
   /* If both global and link-local address present. */
   if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
     {
-      /* Workaround for Cisco's nexthop bug.  */
-      if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
-          && info->peer->su_remote->sa.sa_family == AF_INET6)
-        nexthop = &info->peer->su_remote->sin6.sin6_addr;
+      /* Check if route-map is set to prefer global over link-local */
+      if (info->attr->extra->mp_nexthop_prefer_global)
+        nexthop = &info->attr->extra->mp_nexthop_global;
       else
-        nexthop = &info->attr->extra->mp_nexthop_local;
+        {
+          /* Workaround for Cisco's nexthop bug.  */
+          if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
+              && info->peer->su_remote->sa.sa_family == AF_INET6)
+            nexthop = &info->peer->su_remote->sin6.sin6_addr;
+          else
+            nexthop = &info->attr->extra->mp_nexthop_local;
+        }
     }
 
   return nexthop;
@@ -1957,6 +1963,24 @@ bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type, u_short instance)
   bgp_redist_del(bgp, afi, type, instance);
 
   return CMD_SUCCESS;
+}
+
+/* Update redistribute vrf bitmap during triggers like
+   restart networking or delete/add VRFs */
+void
+bgp_update_redist_vrf_bitmaps (struct bgp *bgp, vrf_id_t old_vrf_id)
+{
+  int i;
+  afi_t afi;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      if (vrf_bitmap_check (zclient->redist[afi][i], old_vrf_id))
+        {
+          vrf_bitmap_unset (zclient->redist[afi][i], old_vrf_id);
+          vrf_bitmap_set (zclient->redist[afi][i], bgp->vrf_id);
+        }
+  return;
 }
 
 void

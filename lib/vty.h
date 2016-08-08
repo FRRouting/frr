@@ -220,7 +220,7 @@ do {                                                            \
 
 #define VTY_GET_INTEGER_RANGE(NAME,V,STR,MIN,MAX)               \
 do {                                                            \
-  unsigned long tmpl;                                           \
+  unsigned long long tmpl;                                      \
   VTY_GET_INTEGER_RANGE_HEART(NAME,tmpl,STR,MIN,MAX);           \
   (V) = tmpl;                                                   \
 } while (0)
