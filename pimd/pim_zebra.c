@@ -425,8 +425,8 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
       zlog_debug("%s %s: (S,G)=(%s,%s) input interface changed from %s vif_index=%d to %s vif_index=%d",
 		 __FILE__, __PRETTY_FUNCTION__,
 		 source_str, group_str,
-		 old_iif ? old_iif->name : "<old_iif?>", c_oil->oil.mfcc_parent,
-		 new_iif ? new_iif->name : "<new_iif?>", input_iface_vif_index);
+		 old_iif->name, c_oil->oil.mfcc_parent,
+		 new_iif->name, input_iface_vif_index);
     }
 
   /* new iif loops to existing oif ? */
@@ -442,7 +442,7 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
 	zlog_debug("%s %s: (S,G)=(%s,%s) new iif loops to existing oif: %s vif_index=%d",
 		   __FILE__, __PRETTY_FUNCTION__,
 		   source_str, group_str,
-		   new_iif ? new_iif->name : "<new_iif?>", input_iface_vif_index);
+		   new_iif->name, input_iface_vif_index);
       }
 
       del_oif(c_oil, new_iif, PIM_OIF_FLAG_PROTO_ANY);
