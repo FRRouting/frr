@@ -35,12 +35,13 @@ struct pim_zlookup_nexthop {
   uint8_t        protocol_distance;
 };
 
-struct zclient *zclient_lookup_new(void);
+void zclient_lookup_new (void);
 
-int zclient_lookup_nexthop(struct zclient *zlookup,
-			   struct pim_zlookup_nexthop nexthop_tab[],
+int zclient_lookup_nexthop(struct pim_zlookup_nexthop nexthop_tab[],
 			   const int tab_size,
 			   struct in_addr addr,
 			   int max_lookup);
+
+void pim_zlookup_show_ip_multicast (struct vty *vty);
 
 #endif /* PIM_ZLOOKUP_H */

@@ -49,7 +49,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop,
 
   if (!incoming)
     {
-      num_ifindex = zclient_lookup_nexthop(qpim_zclient_lookup, nexthop_tab,
+      num_ifindex = zclient_lookup_nexthop(nexthop_tab,
 					   PIM_NEXTHOP_IFINDEX_TAB_SIZE,
 					   addr, PIM_NEXTHOP_LOOKUP_MAX);
       if (num_ifindex < 1) {

@@ -53,7 +53,6 @@ struct list              *qpim_channel_oil_list = NULL;
 int                       qpim_t_periodic = PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
 struct list              *qpim_upstream_list = NULL;
 struct zclient           *qpim_zclient_update = NULL;
-struct zclient           *qpim_zclient_lookup = NULL;
 struct pim_assert_metric  qpim_infinite_assert_metric;
 long                      qpim_rpf_cache_refresh_delay_msec = 10000;
 struct thread            *qpim_rpf_cache_refresher = NULL;

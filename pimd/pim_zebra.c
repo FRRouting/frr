@@ -718,9 +718,7 @@ void pim_zebra_init(char *zebra_sock_path)
 		__PRETTY_FUNCTION__);
   }
 
-  zassert(!qpim_zclient_lookup);
-  qpim_zclient_lookup = zclient_lookup_new();
-  zassert(qpim_zclient_lookup);
+  zclient_lookup_new();
 }
 
 void igmp_anysource_forward_start(struct igmp_group *group)
@@ -758,7 +756,7 @@ static int fib_lookup_if_vif_index(struct in_addr addr)
   int vif_index;
   ifindex_t first_ifindex;
 
-  num_ifindex = zclient_lookup_nexthop(qpim_zclient_lookup, nexthop_tab,
+  num_ifindex = zclient_lookup_nexthop(nexthop_tab,
 				       PIM_NEXTHOP_IFINDEX_TAB_SIZE, addr,
 				       PIM_NEXTHOP_LOOKUP_MAX);
   if (num_ifindex < 1) {

@@ -51,6 +51,7 @@
 #include "pim_zebra.h"
 #include "pim_static.h"
 #include "pim_rp.h"
+#include "pim_zlookup.h"
 
 static struct cmd_node pim_global_node = {
   PIM_NODE,
@@ -2099,14 +2100,8 @@ DEFUN (show_ip_multicast,
   else {
     vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
   }
-  vty_out(vty, "Zclient lookup socket: ");
-  if (qpim_zclient_lookup) {
-    vty_out(vty, "%d failures=%d%s", qpim_zclient_lookup->sock,
-	    qpim_zclient_lookup->fail, VTY_NEWLINE);
-  }
-  else {
-    vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
-  }
+
+  pim_zlookup_show_ip_multicast (vty);
 
   vty_out(vty, "%s", VTY_NEWLINE);
   vty_out(vty, "Current highest VifIndex: %d%s",

@@ -28,6 +28,7 @@
 #include "stream.h"
 #include "network.h"
 #include "thread.h"
+#include "vty.h"
 
 #include "pimd.h"
 #include "pim_pim.h"
@@ -35,6 +36,8 @@
 #include "pim_zlookup.h"
 
 extern int zclient_debug;
+
+static struct zclient *zlookup = NULL;
 
 static void zclient_lookup_sched(struct zclient *zlookup, int delay);
 
@@ -117,15 +120,14 @@ static void zclient_lookup_failed(struct zclient *zlookup)
   zclient_lookup_reconnect(zlookup);
 }
 
-struct zclient *zclient_lookup_new()
+void
+zclient_lookup_new (void)
 {
-  struct zclient *zlookup;
-
   zlookup = zclient_new (master);
   if (!zlookup) {
     zlog_err("%s: zclient_new() failure",
 	     __PRETTY_FUNCTION__);
-    return 0;
+    return;
   }
 
   zlookup->sock = -1;
@@ -138,7 +140,6 @@ struct zclient *zclient_lookup_new()
   zlog_notice("%s: zclient lookup socket initialized",
 	      __PRETTY_FUNCTION__);
 
-  return zlookup;
 }
 
 static int zclient_read_nexthop(struct zclient *zlookup,
@@ -296,10 +297,10 @@ static int zclient_read_nexthop(struct zclient *zlookup,
   return num_ifindex;
 }
 
-static int zclient_lookup_nexthop_once(struct zclient *zlookup,
-				       struct pim_zlookup_nexthop nexthop_tab[],
-				       const int tab_size,
-				       struct in_addr addr)
+static int
+zclient_lookup_nexthop_once (struct pim_zlookup_nexthop nexthop_tab[],
+			     const int tab_size,
+			     struct in_addr addr)
 {
   struct stream *s;
   int ret;
@@ -344,11 +345,11 @@ static int zclient_lookup_nexthop_once(struct zclient *zlookup,
 			      tab_size, addr);
 }
 
-int zclient_lookup_nexthop(struct zclient *zlookup,
-			   struct pim_zlookup_nexthop nexthop_tab[],
-			   const int tab_size,
-			   struct in_addr addr,
-			   int max_lookup)
+int
+zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
+			const int tab_size,
+			struct in_addr addr,
+			int max_lookup)
 {
   int lookup;
   uint32_t route_metric = 0xFFFFFFFF;
@@ -359,7 +360,7 @@ int zclient_lookup_nexthop(struct zclient *zlookup,
     int first_ifindex;
     struct in_addr nexthop_addr;
 
-    num_ifindex = zclient_lookup_nexthop_once(qpim_zclient_lookup, nexthop_tab,
+    num_ifindex = zclient_lookup_nexthop_once(nexthop_tab,
 					      PIM_NEXTHOP_IFINDEX_TAB_SIZE, addr);
     if (num_ifindex < 1) {
       if (PIM_DEBUG_ZEBRA) {
@@ -436,4 +437,17 @@ int zclient_lookup_nexthop(struct zclient *zlookup,
   }
 
   return -2;
+}
+
+void
+pim_zlookup_show_ip_multicast (struct vty *vty)
+{
+  vty_out(vty, "Zclient lookup socket: ");
+  if (zlookup) {
+    vty_out(vty, "%d failures=%d%s", zlookup->sock,
+            zlookup->fail, VTY_NEWLINE);
+  }
+  else {
+    vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
+  }
 }
