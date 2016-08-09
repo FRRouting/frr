@@ -435,27 +435,14 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 
 static int mroute_read_msg(int fd)
 {
-  const int msg_min_size = MAX(sizeof(struct ip), sizeof(struct igmpmsg));
-  char buf[1000];
+  char buf[2000];
   int rd;
-
-  if (((int) sizeof(buf)) < msg_min_size) {
-    zlog_err("%s: fd=%d: buf size=%zu lower than msg_min=%d",
-	     __PRETTY_FUNCTION__, fd, sizeof(buf), msg_min_size);
-    return -1;
-  }
 
   rd = read(fd, buf, sizeof(buf));
   if (rd < 0) {
     zlog_warn("%s: failure reading fd=%d: errno=%d: %s",
 	      __PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
-    return -2;
-  }
-
-  if (rd < msg_min_size) {
-    zlog_warn("%s: short message reading fd=%d: read=%d msg_min=%d",
-	      __PRETTY_FUNCTION__, fd, rd, msg_min_size);
-    return -3;
+    return -1;
   }
 
   return pim_mroute_msg(fd, buf, rd);
