@@ -469,7 +469,6 @@ copy_node (struct graph_node *node)
 {
   struct graph_node *new = new_node(node->type);
   new->children = NULL;
-  new->end      = NULL;
   new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
   new->value    = node->value;
   new->min      = node->min;

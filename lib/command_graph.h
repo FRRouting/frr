@@ -59,7 +59,6 @@ struct graph_node
 {
   enum graph_node_type type;    // data type this node matches or holds
   vector children;              // this node's children
-  struct graph_node *end;       // pointer to end for SELECTOR_GN & OPTION_GN
 
   char *text;                   // original format text
   char *doc;                    // docstring for this node

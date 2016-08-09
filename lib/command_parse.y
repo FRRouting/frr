@@ -303,7 +303,6 @@ selector_element: selector_element_root selector_token_seq
     assert(!selnode_start && !selnode_end); // both should be null
     selnode_start = new_node (SELECTOR_GN);  // diverging node
     selnode_end = new_node (NUL_GN);         // converging node
-    selnode_start->end = selnode_end;       // duh
   }
 
   // add element head as a child of the selector
