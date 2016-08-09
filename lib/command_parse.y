@@ -478,8 +478,11 @@ cmp_node (struct graph_node *first, struct graph_node *second)
   switch (first->type) {
     case WORD_GN:
     case VARIABLE_GN:
-      if (first->text && second->text && strcmp (first->text, second->text))
-        return 0;
+      if (first->text && second->text)
+        {
+          if (strcmp (first->text, second->text))
+          return 0;
+        }
       else if (first->text != second->text) return 0;
       break;
     case RANGE_GN:
