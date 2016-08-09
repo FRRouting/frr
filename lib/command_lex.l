@@ -66,7 +66,7 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 void
 set_lexer_string (const char *string)
 {
-  buffer = yy_scan_string (XSTRDUP(MTYPE_TMP, string));
+  buffer = yy_scan_string (string);
 }
 
 void
