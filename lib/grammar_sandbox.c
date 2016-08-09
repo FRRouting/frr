@@ -251,7 +251,13 @@ pretty_print_graph (struct graph_node *start, int level)
   if (vector_active (start->children))
     {
       if (vector_active (start->children) == 1)
-        pretty_print_graph (vector_slot (start->children, 0), level);
+        {
+          struct graph_node *child = vector_slot (start->children, 0);
+          if (child == start)
+            fprintf (stdout, "*");
+          else
+            pretty_print_graph (vector_slot (start->children, 0), level);
+        }
       else
         {
           fprintf(stdout, "\n");
@@ -260,7 +266,10 @@ pretty_print_graph (struct graph_node *start, int level)
               struct graph_node *r = vector_slot (start->children, i);
               for (int j = 0; j < level+1; j++)
                 fprintf (stdout, "    ");
-              pretty_print_graph (r, level+1);
+              if (r == start)
+                fprintf (stdout, "*");
+              else
+                pretty_print_graph (r, level+1);
             }
         }
     }
