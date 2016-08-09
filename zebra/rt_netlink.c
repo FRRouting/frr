@@ -1160,7 +1160,7 @@ netlink_neigh_update (int cmd, int ifindex, uint32_t addr, char *lla, int llalen
   addattr_l(&req.n, sizeof(req), NDA_DST, &addr, 4);
   addattr_l(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
-  return netlink_talk (&req.n, &zns->netlink_cmd, zns);
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns);
 }
 
 /* Routing table change via netlink interface. */
@@ -1455,7 +1455,7 @@ skip:
   snl.nl_family = AF_NETLINK;
 
   /* Talk to netlink socket. */
-  return netlink_talk (&req.n, &zns->netlink_cmd, zns);
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns);
 }
 
 int
@@ -1645,7 +1645,7 @@ netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp)
     }
 
   /* Talk to netlink socket. */
-  return netlink_talk (&req.n, &zns->netlink_cmd, zns);
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns);
 }
 
 /*
