@@ -100,7 +100,7 @@ extern u_int32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
-static int
+int
 netlink_talk_filter (struct sockaddr_nl *snl, struct nlmsghdr *h,
     ns_id_t ns_id)
 {
@@ -593,7 +593,9 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 
 /* sendmsg() to netlink socket then recvmsg(). */
 int
-netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
+netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
+			     ns_id_t),
+	      struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
 {
   int status;
   struct sockaddr_nl snl;
@@ -649,7 +651,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns)
    * Get reply from netlink socket.
    * The reply should either be an acknowlegement or an error.
    */
-  return netlink_parse_info (netlink_talk_filter, nl, zns, 0);
+  return netlink_parse_info (filter, nl, zns, 0);
 }
 
 /* Get type specified information from netlink. */

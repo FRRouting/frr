@@ -44,7 +44,11 @@ extern const char * nl_rtproto_to_str (u_char rtproto);
 extern int netlink_parse_info (int (*filter) (struct sockaddr_nl *,
                                struct nlmsghdr *, ns_id_t), struct nlsock *nl,
                                struct zebra_ns *zns, int count);
-extern int netlink_talk (struct nlmsghdr *n, struct nlsock *nl,
+extern int netlink_talk_filter (struct sockaddr_nl *, struct nlmsghdr *,
+				ns_id_t);
+extern int netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
+					ns_id_t),
+			 struct nlmsghdr *n, struct nlsock *nl,
                          struct zebra_ns *zns);
 extern int netlink_request (int family, int type, struct nlsock *nl);
 
