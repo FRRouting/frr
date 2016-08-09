@@ -3782,7 +3782,7 @@ DEFUN (debug_rfapi_show_import,
   for (it = h->imports; it; it = it->next)
     {
       s = ecommunity_ecom2str (it->rt_import_list,
-                               ECOMMUNITY_FORMAT_ROUTE_MAP);
+                               ECOMMUNITY_FORMAT_ROUTE_MAP, ECOMMUNITY_ROUTE_TARGET);
       vty_out (vty, "Import Table %p, RTs: %s%s", it, s, VTY_NEWLINE);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
 

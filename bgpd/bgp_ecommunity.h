@@ -26,6 +26,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define ECOMMUNITY_ENCODE_IP                0x01
 #define ECOMMUNITY_ENCODE_AS4               0x02
 #define ECOMMUNITY_ENCODE_OPAQUE            0x03
+#define ECOMMUNITY_ENCODE_EVPN              0x06
 
 /* Low-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ROUTE_TARGET             0x02
@@ -87,10 +88,11 @@ extern int ecommunity_cmp (const void *, const void *);
 extern void ecommunity_unintern (struct ecommunity **);
 extern unsigned int ecommunity_hash_make (void *);
 extern struct ecommunity *ecommunity_str2com (const char *, int, int);
-extern char *ecommunity_ecom2str (struct ecommunity *, int);
+extern char *ecommunity_ecom2str (struct ecommunity *, int, int);
 extern int ecommunity_match (const struct ecommunity *, const struct ecommunity *);
 extern char *ecommunity_str (struct ecommunity *);
 extern struct ecommunity_val *ecommunity_lookup (const struct ecommunity *, uint8_t, uint8_t );
+extern int ecommunity_add_val (struct ecommunity *ecom, struct ecommunity_val *eval);
 
 /* for vpn */
 extern struct ecommunity *ecommunity_new (void);

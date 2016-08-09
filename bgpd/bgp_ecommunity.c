@@ -174,7 +174,7 @@ char *
 ecommunity_str (struct ecommunity *ecom)
 {
   if (! ecom->str)
-    ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY);
+    ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
   return ecom->str;
 }
 
@@ -212,7 +212,7 @@ ecommunity_intern (struct ecommunity *ecom)
   find->refcnt++;
 
   if (! find->str)
-    find->str = ecommunity_ecom2str (find, ECOMMUNITY_FORMAT_DISPLAY);
+    find->str = ecommunity_ecom2str (find, ECOMMUNITY_FORMAT_DISPLAY, 0);
 
   return find;
 }
@@ -600,9 +600,12 @@ ecommunity_str2com (const char *str, int type, int keyword_included)
    ECOMMUNITY_FORMAT_ROUTE_MAP
    ECOMMUNITY_FORMAT_COMMUNITY_LIST
    ECOMMUNITY_FORMAT_DISPLAY
+
+   Filter is added to display only ECOMMUNITY_ROUTE_TARGET in some cases. 
+   0 value displays all
 */
 char *
-ecommunity_ecom2str (struct ecommunity *ecom, int format)
+ecommunity_ecom2str (struct ecommunity *ecom, int format, int filter)
 {
   int i;
   u_int8_t *pnt;
@@ -667,6 +670,11 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
           break;
 
         case ECOMMUNITY_ENCODE_OPAQUE:
+          if(filter == ECOMMUNITY_ROUTE_TARGET)
+            {
+              first = 0;
+              continue;
+            }
           if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP)
             {
               uint16_t tunneltype;
@@ -677,8 +685,32 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
               first = 0;
               continue;
             }
-            /* fall through */
-
+          len = sprintf (str_buf + str_pnt, "?");
+          str_pnt += len;
+          first = 0;
+          continue;
+        case ECOMMUNITY_ENCODE_EVPN:
+          if(filter == ECOMMUNITY_ROUTE_TARGET)
+            {
+              first = 0;
+              continue;
+            }
+          if (*pnt == ECOMMUNITY_SITE_ORIGIN)
+            {
+              char macaddr[6];
+              pnt++;
+              memcpy(&macaddr, pnt, 6);
+              len = sprintf(str_buf + str_pnt, "EVPN:%02x:%02x:%02x:%02x:%02x:%02x",
+                            macaddr[0], macaddr[1], macaddr[2],
+                            macaddr[3], macaddr[4], macaddr[5]);
+              str_pnt += len;
+              first = 0;
+              continue;
+            }
+          len = sprintf (str_buf + str_pnt, "?");
+          str_pnt += len;
+          first = 0;
+          continue;
         default:
           len = sprintf (str_buf + str_pnt, "?");
           str_pnt += len;
