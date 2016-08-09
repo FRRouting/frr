@@ -152,7 +152,6 @@ start:
 {
   // tack on the command element
   terminate_graph (startnode, currnode, element);
-  cleanup();
 }
 | sentence_root cmd_token_seq '.' placeholder_token
 {
@@ -165,7 +164,6 @@ start:
 
   // tack on the command element
   terminate_graph (startnode, currnode, element);
-  cleanup();
 }
 
 sentence_root: WORD
@@ -394,7 +392,10 @@ parse_command_format(struct graph_node *start, struct cmd_element *cmd)
   yydebug = 0;
 
   // parse command into DFA
-  yyparse(cmd, start);
+  yyparse (cmd, start);
+
+  /* cleanup */
+  cleanup ();
 
   return start;
 }
@@ -416,7 +417,7 @@ cleanup()
   free (docstr_start);
 
   /* cleanup lexer */
-  cleanup_lexer();
+  cleanup_lexer ();
 
   /* clear state pointers */
   seqhead = NULL;
