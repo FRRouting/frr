@@ -103,8 +103,7 @@ static const char *igmpmsgtype2str[IGMPMSG_WHOLEPKT + 1] = {
   "WHOLEPKT", };
 
 static int
-pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg,
-			const char *src_str, const char *grp_str)
+pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg)
 {
   struct pim_interface *pim_ifp = ifp->info;
   struct pim_upstream *up;
@@ -135,14 +134,15 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
       return 0;
     }
 
-  if (PIM_DEBUG_MROUTE) {
-    zlog_debug("%s: Adding a Route for %s from %s for WHOLEPKT consumption",
-	       __PRETTY_FUNCTION__, grp_str, src_str);
-  }
-
   memset (&sg, 0, sizeof (struct prefix_sg));
   sg.src = msg->im_src;
   sg.grp = msg->im_dst;
+
+  if (PIM_DEBUG_MROUTE) {
+    zlog_debug("%s: Adding a Route %s for WHOLEPKT consumption",
+	       __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
+  }
+
   up = pim_upstream_add (&sg, ifp);
   if (!up) {
     if (PIM_DEBUG_MROUTE) {
@@ -159,9 +159,9 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 					pim_ifp->mroute_vif_index);
   if (!up->channel_oil) {
     if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: Failure to add channel oil for (%s,%s)",
+      zlog_debug("%s: Failure to add channel oil for %s",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str);
+		 pim_str_sg_dump (&sg));
     }
     return 0;
   }
@@ -174,8 +174,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 }
 
 static int
-pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
-			 const char *src_str, const char *grp_str)
+pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
 {
   struct pim_interface *pim_ifp;
   struct prefix_sg sg;
@@ -222,12 +221,15 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf,
 }
 
 static int
-pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *msg,
-			 const char *src_str, const char *grp_str)
+pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *msg)
 {
   struct pim_ifchannel *ch;
   struct pim_interface *pim_ifp;
   struct prefix_sg sg;
+
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = msg->im_src;
+  sg.grp = msg->im_dst;
 
   /*
     Send Assert(S,G) on iif as response to WRONGVIF kernel upcall.
@@ -242,9 +244,9 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
 
   if (!ifp) {
     if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) could not find input interface for input_vif_index=%d",
+      zlog_debug("%s: WRONGVIF (S,G)=%s could not find input interface for input_vif_index=%d",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str, msg->im_vif);
+		 pim_str_sg_dump (&sg), msg->im_vif);
     }
     return -1;
   }
@@ -252,22 +254,19 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
   pim_ifp = ifp->info;
   if (!pim_ifp) {
     if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) multicast not enabled on interface %s",
+      zlog_debug("%s: WRONGVIF (S,G)=%s multicast not enabled on interface %s",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str, ifp->name);
+		 pim_str_sg_dump (&sg), ifp->name);
     }
     return -2;
   }
 
-  memset (&sg, 0, sizeof (struct prefix_sg));
-  sg.src = msg->im_src;
-  sg.grp = msg->im_dst;
   ch = pim_ifchannel_find(ifp, &sg);
   if (!ch) {
     if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) could not find channel on interface %s",
+      zlog_debug("%s: WRONGVIF (S,G)=%s could not find channel on interface %s",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str, ifp->name);
+		 pim_str_sg_dump (&sg), ifp->name);
     }
     return -3;
   }
@@ -288,27 +287,27 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
 
   if (ch->ifassert_state != PIM_IFASSERT_NOINFO) {
     if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) channel is not on Assert NoInfo state for interface %s",
+      zlog_debug("%s: WRONGVIF (S,G)=%s channel is not on Assert NoInfo state for interface %s",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str, ifp->name);
+		 pim_str_sg_dump (&sg), ifp->name);
     }
     return -4;
   }
 
   if (!PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)) {
     if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) interface %s is not downstream for channel",
+      zlog_debug("%s: WRONGVIF (S,G)=%s interface %s is not downstream for channel",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str, ifp->name);
+		 pim_str_sg_dump (&sg), ifp->name);
     }
     return -5;
   }
 
   if (assert_action_a1(ch)) {
     if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: WRONGVIF (S,G)=(%s,%s) assert_action_a1 failure on interface %s",
+      zlog_debug("%s: WRONGVIF (S,G)=%s assert_action_a1 failure on interface %s",
 		 __PRETTY_FUNCTION__,
-		 src_str, grp_str, ifp->name);
+		 pim_str_sg_dump (&sg), ifp->name);
     }
     return -6;
   }
@@ -359,13 +358,13 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 
   switch (msg->im_msgtype) {
   case IGMPMSG_WRONGVIF:
-    return pim_mroute_msg_wrongvif(fd, ifp, msg, src_str, grp_str);
+    return pim_mroute_msg_wrongvif(fd, ifp, msg);
     break;
   case IGMPMSG_NOCACHE:
-    return pim_mroute_msg_nocache(fd, ifp, msg, src_str, grp_str);
+    return pim_mroute_msg_nocache(fd, ifp, msg);
     break;
   case IGMPMSG_WHOLEPKT:
-    return pim_mroute_msg_wholepkt(fd, ifp, (const char *)msg, src_str, grp_str);
+    return pim_mroute_msg_wholepkt(fd, ifp, (const char *)msg);
     break;
   default:
     break;
