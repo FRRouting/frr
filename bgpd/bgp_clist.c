@@ -1166,14 +1166,14 @@ extcommunity_list_set (struct community_list_handler *ch,
     }
 
   if (ecom)
-    ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY);
+    ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
 
   entry = community_entry_new ();
   entry->direct = direct;
   entry->style = style;
   entry->any = (str ? 0 : 1);
   if (ecom)
-    entry->config = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST);
+    entry->config = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
   else if (regex)
     entry->config = XSTRDUP (MTYPE_COMMUNITY_LIST_CONFIG, str);
   else

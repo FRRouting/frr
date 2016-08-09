@@ -1091,8 +1091,8 @@ rfapiEcommunitiesIntersect (struct ecommunity *e1, struct ecommunity *e2)
 
   {
     char *s1, *s2;
-    s1 = ecommunity_ecom2str (e1, ECOMMUNITY_FORMAT_DISPLAY);
-    s2 = ecommunity_ecom2str (e2, ECOMMUNITY_FORMAT_DISPLAY);
+    s1 = ecommunity_ecom2str (e1, ECOMMUNITY_FORMAT_DISPLAY, ECOMMUNITY_ROUTE_TARGET);
+    s2 = ecommunity_ecom2str (e2, ECOMMUNITY_FORMAT_DISPLAY, ECOMMUNITY_ROUTE_TARGET);
     vnc_zlog_debug_verbose ("%s: e1[%s], e2[%s]", __func__, s1, s2);
     XFREE (MTYPE_ECOMMUNITY_STR, s1);
     XFREE (MTYPE_ECOMMUNITY_STR, s2);
