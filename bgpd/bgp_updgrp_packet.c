@@ -53,6 +53,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_mplsvpn.h"
 
 /********************
  * PRIVATE FUNCTIONS
@@ -617,6 +618,7 @@ static void
 bgp_info_addpath_tx_str (int addpath_encode, u_int32_t addpath_tx_id,
                          char *buf)
 {
+  buf[0] = '\0';
   if (addpath_encode)
     sprintf(buf, " with addpath ID %d", addpath_tx_id);
 }
@@ -648,6 +650,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
   int num_pfx = 0;
   int addpath_encode = 0;
   u_int32_t addpath_tx_id = 0;
+  struct prefix_rd *prd = NULL;
 
   if (!subgrp)
     return NULL;
@@ -751,7 +754,6 @@ subgroup_update_packet (struct update_subgroup *subgrp)
       else
 	{
 	  /* Encode the prefix in MP_REACH_NLRI attribute */
-	  struct prefix_rd *prd = NULL;
 	  u_char *tag = NULL;
 
 	  if (rn->prn)
@@ -772,8 +774,7 @@ subgroup_update_packet (struct update_subgroup *subgrp)
 
       if (bgp_debug_update(NULL, &rn->p, subgrp->update_group, 0))
 	{
-          char buf[INET6_BUFSIZ];
-          char tx_id_buf[30];
+          char pfx_buf[BGP_PRD_PATH_STRLEN];
 
           if (!send_attr_printed)
             {
@@ -782,11 +783,11 @@ subgroup_update_packet (struct update_subgroup *subgrp)
               send_attr_printed = 1;
             }
 
-          bgp_info_addpath_tx_str (addpath_encode, addpath_tx_id, tx_id_buf);
-          zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s/%d%s",
+          zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
                       subgrp->update_group->id, subgrp->id,
-                      inet_ntop (rn->p.family, &(rn->p.u.prefix), buf, INET6_BUFSIZ),
-                      rn->p.prefixlen, tx_id_buf);
+                      bgp_debug_rdpfxpath2str (prd, &rn->p, addpath_encode,
+                                               addpath_tx_id,
+                                               pfx_buf, sizeof (pfx_buf)));
 	}
 
       /* Synchnorize attribute.  */
@@ -863,6 +864,8 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
   int num_pfx = 0;
   int addpath_encode = 0;
   u_int32_t addpath_tx_id = 0;
+  struct prefix_rd *prd = NULL;
+
 
   if (!subgrp)
     return NULL;
@@ -905,8 +908,6 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 	stream_put_prefix_addpath (s, &rn->p, addpath_encode, addpath_tx_id);
       else
 	{
-	  struct prefix_rd *prd = NULL;
-
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
 
@@ -928,13 +929,13 @@ subgroup_withdraw_packet (struct update_subgroup *subgrp)
 
       if (bgp_debug_update(NULL, &rn->p, subgrp->update_group, 0))
 	{
-          char buf[INET6_BUFSIZ];
-          char tx_id_buf[30];
-          bgp_info_addpath_tx_str (addpath_encode, addpath_tx_id, tx_id_buf);
-	  zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s/%d%s -- unreachable",
+          char pfx_buf[BGP_PRD_PATH_STRLEN];
+
+	  zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s -- unreachable",
                       subgrp->update_group->id, subgrp->id,
-                      inet_ntop (rn->p.family, &(rn->p.u.prefix), buf, INET6_BUFSIZ),
-                      rn->p.prefixlen, tx_id_buf);
+                      bgp_debug_rdpfxpath2str (prd, &rn->p,
+                                               addpath_encode, addpath_tx_id,
+                                               pfx_buf, sizeof (pfx_buf)));
 	}
 
       subgrp->scount--;
@@ -1010,16 +1011,16 @@ subgroup_default_update_packet (struct update_subgroup *subgrp,
   if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
     {
       char attrstr[BUFSIZ];
-      char buf[INET6_BUFSIZ];
+      char buf[PREFIX_STRLEN];
       char tx_id_buf[30];
       attrstr[0] = '\0';
 
       bgp_dump_attr (peer, attr, attrstr, BUFSIZ);
       bgp_info_addpath_tx_str (addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, tx_id_buf);
-      zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s/%d%s %s",
+      zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s%s %s",
                   (SUBGRP_UPDGRP (subgrp))->id, subgrp->id,
-                  inet_ntop (p.family, &(p.u.prefix), buf, INET6_BUFSIZ),
-                  p.prefixlen, tx_id_buf, attrstr);
+                  prefix2str (&p, buf, sizeof (buf)),
+                  tx_id_buf, attrstr);
     }
 
   s = stream_new (BGP_MAX_PACKET_SIZE);
@@ -1084,14 +1085,13 @@ subgroup_default_withdraw_packet (struct update_subgroup *subgrp)
 
   if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
     {
-      char buf[INET6_BUFSIZ];
+      char buf[PREFIX_STRLEN];
       char tx_id_buf[INET6_BUFSIZ];
 
       bgp_info_addpath_tx_str (addpath_encode, BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, tx_id_buf);
-      zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s/%d%s -- unreachable",
+      zlog_debug ("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s%s -- unreachable",
                   (SUBGRP_UPDGRP (subgrp))->id, subgrp->id,
-                  inet_ntop (p.family, &(p.u.prefix), buf, INET6_BUFSIZ),
-                  p.prefixlen, tx_id_buf);
+                  prefix2str (&p, buf, sizeof (buf)), tx_id_buf);
     }
 
   s = stream_new (BGP_MAX_PACKET_SIZE);
