@@ -41,7 +41,10 @@
   yylex (void);
 
   extern void
-  set_buffer_string (const char *);
+  set_lexer_string (const char *);
+
+  extern void
+  cleanup_lexer (void);
 }
 
 /* functionality this unit exports */
@@ -135,7 +138,7 @@
   optnode_start = optnode_end = NULL;
 
   /* set string to parse */
-  set_buffer_string (element->string);
+  set_lexer_string (element->string);
 
   /* copy docstring and keep a pointer to the copy */
   docstr = element->doc ? XSTRDUP(MTYPE_TMP, element->doc) : NULL;
@@ -341,7 +344,6 @@ selector_element_root:
 
 selector_token:
   selector_element_root
-| option
 ;
 
 /* [option|set] productions */
@@ -368,6 +370,7 @@ option_element:
 
   add_node (optnode_start, seqhead);
   add_node ($1, optnode_end);
+  seqhead = NULL;
 }
 
 option_token_seq:
@@ -411,6 +414,9 @@ cleanup()
 {
   /* free resources */
   free (docstr_start);
+
+  /* cleanup lexer */
+  cleanup_lexer();
 
   /* clear state pointers */
   seqhead = NULL;

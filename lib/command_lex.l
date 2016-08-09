@@ -25,7 +25,9 @@
 %{
 #include "command_parse.h"
 
-extern void set_buffer_string(const char *);
+extern void set_lexer_string (const char *);
+extern void cleanup_lexer (void);
+YY_BUFFER_STATE buffer;
 %}
 
 WORD            (\-|\+)?[a-z\*][-+_a-zA-Z0-9\*]*
@@ -62,7 +64,13 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 %%
 
 void
-set_buffer_string(const char *string)
+set_lexer_string (const char *string)
 {
-  yy_scan_string(string);
+  buffer = yy_scan_string (XSTRDUP(MTYPE_TMP, string));
+}
+
+void
+cleanup_lexer ()
+{
+  yy_delete_buffer (buffer);
 }

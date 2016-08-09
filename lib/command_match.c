@@ -158,6 +158,8 @@ match_command (struct graph_node *start,
 static struct list *
 match_command_r (struct graph_node *start, vector vline, unsigned int n)
 {
+  assert (n < vector_active (vline));
+
   // get the minimum match level that can count as a full match
   enum match_type minmatch = min_match_level (start->type);
 

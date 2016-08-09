@@ -63,7 +63,7 @@ DEFUN (grammar_test,
 
   // initialize a pretend cmd_element
   struct cmd_element *cmd = XCALLOC(MTYPE_CMD_TOKENS, sizeof(struct cmd_element));
-  cmd->string = command;
+  cmd->string = XSTRDUP(MTYPE_TMP, command);
   cmd->doc = NULL;
   cmd->func = NULL;
   cmd->tokens = vector_init(VECTOR_MIN_SIZE);
@@ -132,6 +132,9 @@ DEFUN (grammar_test_match,
        "command to match")
 {
   char *cmdstr = argv_concat(argv, argc, 0);
+  if (cmdstr[0] == '#')
+    return CMD_SUCCESS;
+
   vector command = cmd_make_strvec (cmdstr);
 
   struct list *argvv = NULL;
@@ -145,7 +148,7 @@ DEFUN (grammar_test_match,
       struct listnode *ln;
       struct graph_node *gn;
       for (ALL_LIST_ELEMENTS_RO(argvv,ln,gn))
-        if (gn->type != END_GN)
+        if (gn->type == END_GN)
           zlog_info ("func: %p", gn->element->func);
         else
           zlog_info ("%s -- %s", gn->text, gn->arg);
