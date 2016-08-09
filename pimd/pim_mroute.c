@@ -96,11 +96,12 @@ pim_mroute_connected_to_source (struct interface *ifp, struct in_addr src)
   return 0;
 }
 
-static const char *igmpmsgtype2str[IGMPMSG_WHOLEPKT + 1] = {
+static const char *igmpmsgtype2str[IGMPMSG_WRVIFWHOLE + 1] = {
   "<unknown_upcall?>",
   "NOCACHE",
   "WRONGVIF",
-  "WHOLEPKT", };
+  "WHOLEPKT",
+  "WRVIFWHOLE" };
 
 static int
 pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg)
@@ -315,6 +316,62 @@ pim_mroute_msg_wrongvif (int fd, struct interface *ifp, const struct igmpmsg *ms
   return 0;
 }
 
+static int
+pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
+{
+  const struct ip *ip_hdr = (const struct ip *)buf;
+  struct pim_interface *pim_ifp;
+  struct pim_ifchannel *ch;
+  struct pim_upstream *up;
+  struct prefix_sg sg;
+
+  memset (&sg, 0, sizeof (struct prefix_sg));
+  sg.src = ip_hdr->ip_src;
+  sg.grp = ip_hdr->ip_dst;
+
+  if (PIM_DEBUG_MROUTE)
+    zlog_debug ("Received WHOLEPKT Wrong Vif for %s on %s",
+		pim_str_sg_dump (&sg), ifp->name);
+
+  ch = pim_ifchannel_find(ifp, &sg);
+  if (ch)
+    {
+      if (PIM_DEBUG_MROUTE)
+	zlog_debug ("WRVIFWHOLE (S,G)=%s found ifchannel on interface %s",
+		    pim_str_sg_dump (&sg), ifp->name);
+      return -1;
+    }
+
+  if (PIM_DEBUG_MROUTE)
+    zlog_debug ("If channel: %p", ch);
+
+  up = pim_upstream_add (&sg, ifp);
+
+  if (!up)
+    {
+      if (PIM_DEBUG_MROUTE)
+	zlog_debug ("%s: WRONGVIF%s unable to create upstream on interface",
+		    pim_str_sg_dump (&sg), ifp->name);
+      return -2;
+    }
+
+  if (pim_mroute_connected_to_source (ifp, sg.src))
+    up->fhr = 1;
+
+  pim_ifp = ifp->info;
+  pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
+  up->channel_oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
+  up->channel_oil->cc.pktcnt++;
+  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+  up->join_state = PIM_UPSTREAM_JOINED;
+  pim_upstream_inherited_olist (up);
+
+  // Send the packet to the RP
+  pim_mroute_msg_wholepkt (fd, ifp, buf);
+
+  return 0;
+}
+
 int pim_mroute_msg(int fd, const char *buf, int buf_size)
 {
   struct interface     *ifp;
@@ -365,6 +422,9 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
     break;
   case IGMPMSG_WHOLEPKT:
     return pim_mroute_msg_wholepkt(fd, ifp, (const char *)msg);
+    break;
+  case IGMPMSG_WRVIFWHOLE:
+    return pim_mroute_msg_wrvifwhole (fd, ifp, (const char *)msg);
     break;
   default:
     break;
