@@ -69,6 +69,7 @@ struct evpn_addr
   u_char ip_prefix_length;
   union
   {
+    u_char addr;
     struct in_addr v4_addr;
     struct in6_addr v6_addr;
   } ip;
@@ -185,18 +186,20 @@ struct prefix_sg
  * side, which strips type safety since the cast will accept any pointer
  * type.)
  */
-union prefix46ptr
+union prefixptr
 {
   struct prefix *p;
   struct prefix_ipv4 *p4;
   struct prefix_ipv6 *p6;
+  struct prefix_evpn *evp;
 } __attribute__ ((transparent_union));
 
-union prefix46constptr
+union prefixconstptr
 {
   const struct prefix *p;
   const struct prefix_ipv4 *p4;
   const struct prefix_ipv6 *p6;
+  const struct prefix_evpn *evp;
 } __attribute__ ((transparent_union));
 
 #ifndef INET_ADDRSTRLEN
@@ -270,7 +273,7 @@ extern int str2prefix (const char *, struct prefix *);
 
 #define PREFIX2STR_BUFFER  PREFIX_STRLEN
 
-extern const char *prefix2str (union prefix46constptr, char *, int);
+extern const char *prefix2str (union prefixconstptr, char *, int);
 extern int prefix_match (const struct prefix *, const struct prefix *);
 extern int prefix_same (const struct prefix *, const struct prefix *);
 extern int prefix_cmp (const struct prefix *, const struct prefix *);

@@ -314,8 +314,8 @@ extern void rib_lookup_and_dump (struct prefix_ipv4 *, vrf_id_t);
 extern void rib_lookup_and_pushup (struct prefix_ipv4 *, vrf_id_t);
 #define rib_dump(prefix, src, rib) _rib_dump(__func__, prefix, src, rib)
 extern void _rib_dump (const char *,
-		       union prefix46constptr,
-		       union prefix46constptr, const struct rib *);
+		       union prefixconstptr,
+		       union prefixconstptr, const struct rib *);
 extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *,
                                   vrf_id_t);
 #define ZEBRA_RIB_LOOKUP_ERROR -1

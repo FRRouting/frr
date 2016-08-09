@@ -2135,8 +2135,8 @@ rib_delnode (struct route_node *rn, struct rib *rib)
  */
 
 void _rib_dump (const char * func,
-                union prefix46constptr pp,
-                union prefix46constptr src_pp,
+                union prefixconstptr pp,
+                union prefixconstptr src_pp,
                 const struct rib * rib)
 {
   const struct prefix *p = pp.p;

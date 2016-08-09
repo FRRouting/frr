@@ -242,7 +242,7 @@ srcdest_route_next(struct route_node *rn)
 }
 
 struct route_node *
-srcdest_rnode_get (struct route_table *table, union prefix46ptr dst_pu,
+srcdest_rnode_get (struct route_table *table, union prefixptr dst_pu,
                   struct prefix_ipv6 *src_p)
 {
   struct prefix_ipv6 *dst_p = dst_pu.p6;
@@ -253,7 +253,7 @@ srcdest_rnode_get (struct route_table *table, union prefix46ptr dst_pu,
 }
 
 struct route_node *
-srcdest_rnode_lookup (struct route_table *table, union prefix46ptr dst_pu,
+srcdest_rnode_lookup (struct route_table *table, union prefixptr dst_pu,
                       struct prefix_ipv6 *src_p)
 {
   struct prefix_ipv6 *dst_p = dst_pu.p6;
