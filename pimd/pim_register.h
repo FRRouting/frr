@@ -43,5 +43,6 @@ int pim_register_recv (struct interface *ifp,
 		       uint8_t *tlv_buf, int tlv_buf_size);
 
 void pim_register_send (const uint8_t *buf, int buf_size, struct pim_rpf *rpg, int null_register);
+void pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg, struct in_addr originator);
 
 #endif

@@ -225,8 +225,7 @@ static void join_timer_start(struct pim_upstream *up)
 	       pim_str_sg_dump (&up->sg));
   }
 
-  zassert(!up->t_join_timer);
-
+  THREAD_OFF (up->t_join_timer);
   THREAD_TIMER_ON(master, up->t_join_timer,
 		  on_join_timer,
 		  up, qpim_t_periodic);

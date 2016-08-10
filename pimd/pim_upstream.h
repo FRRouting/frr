@@ -90,6 +90,7 @@ struct pim_upstream {
   struct pim_upstream      *parent;
   int                      fhr;
   struct in_addr           upstream_addr;/* Who we are talking to */
+  struct in_addr           upstream_register; /*Who we received a register from*/
   struct prefix_sg         sg;           /* (S,G) group key */
   uint32_t                 flags;
   struct channel_oil      *channel_oil;

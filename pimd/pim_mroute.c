@@ -26,6 +26,7 @@
 #include "prefix.h"
 
 #include "pimd.h"
+#include "pim_rpf.h"
 #include "pim_mroute.h"
 #include "pim_oil.h"
 #include "pim_str.h"
@@ -344,6 +345,17 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 
   if (PIM_DEBUG_MROUTE)
     zlog_debug ("If channel: %p", ch);
+
+  up = pim_upstream_find (&sg);
+  if (up)
+    {
+      struct pim_nexthop source;
+      //No if channel, but upstream we are at the RP.
+      pim_nexthop_lookup (&source, up->upstream_register, NULL);
+      pim_register_stop_send(source.interface, &sg, up->upstream_register);
+      //Send S bit down the join.
+      return 0;
+    }
 
   up = pim_upstream_add (&sg, ifp);
 
