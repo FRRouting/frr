@@ -489,6 +489,9 @@ typedef enum {
 #define IANA_AFI_RESERVED             0
 #define IANA_AFI_IPV4                 1
 #define IANA_AFI_IPV6                 2
+#define IANA_AFI_L2VPN                25
+#define IANA_AFI_IPMR                 128
+#define IANA_AFI_IP6MR                129
 
 #define IANA_SAFI_RESERVED            0
 #define IANA_SAFI_UNICAST             1

@@ -303,14 +303,6 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
   return 0;
 }
 
-static const struct message family_str[] = {
-  {AF_INET,           "ipv4"},
-  {AF_INET6,          "ipv6"},
-  {RTNL_FAMILY_IPMR,  "ipv4MR"},
-  {RTNL_FAMILY_IP6MR, "ipv6MR"},
-  {0,                 NULL},
-};
-
 /* Routing information change from the kernel. */
 static int
 netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
@@ -421,7 +413,7 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
         {
           char buf[PREFIX_STRLEN];
           zlog_debug ("%s %s vrf %u",
-                      h->nlmsg_type == RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
+                      nl_msg_type_to_str (h->nlmsg_type),
                       prefix2str (&p, buf, sizeof(buf)), vrf_id);
         }
 
@@ -508,7 +500,7 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
         {
 	  char buf[PREFIX_STRLEN];
           zlog_debug ("%s %s vrf %u",
-                      h->nlmsg_type == RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
+                      nl_msg_type_to_str (h->nlmsg_type),
                       prefix2str (&p, buf, sizeof(buf)), vrf_id);
         }
 
@@ -529,8 +521,20 @@ netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h
 				     ns_id_t ns_id)
 {
   int len;
+  unsigned long long lastused = 0;
   struct rtmsg *rtm;
   struct rtattr *tb[RTA_MAX + 1];
+  struct prefix_sg sg;
+  int iif = 0;
+  int count;
+  int oif[256];
+  int oif_count = 0;
+  char sbuf[40];
+  char gbuf[40];
+  char oif_list[256] = "\0";
+  memset (&sg, 0, sizeof (sg));
+  sg.family = IANA_AFI_IPMR;
+  vrf_id_t vrf = ns_id;
 
   rtm = NLMSG_DATA (h);
 
@@ -539,6 +543,52 @@ netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h
   memset (tb, 0, sizeof tb);
   netlink_parse_rtattr (tb, RTA_MAX, RTM_RTA (rtm), len);
 
+  if (tb[RTA_IIF])
+    iif = *(int *)RTA_DATA (tb[RTA_IIF]);
+
+  if (tb[RTA_SRC])
+    sg.src = *(struct in_addr *)RTA_DATA (tb[RTA_SRC]);
+
+  if (tb[RTA_DST])
+    sg.grp = *(struct in_addr *)RTA_DATA (tb[RTA_DST]);
+
+  if (tb[RTA_EXPIRES])
+    lastused = *(unsigned long long *)RTA_DATA (tb[RTA_EXPIRES]);
+
+  if (tb[RTA_MULTIPATH])
+    {
+      struct rtnexthop *rtnh =
+        (struct rtnexthop *)RTA_DATA (tb[RTA_MULTIPATH]);
+
+      len = RTA_PAYLOAD (tb[RTA_MULTIPATH]);
+      for (;;)
+        {
+          if (len < (int) sizeof (*rtnh) || rtnh->rtnh_len > len)
+	    break;
+
+	  oif[oif_count] = rtnh->rtnh_ifindex;
+          oif_count++;
+
+	  len -= NLMSG_ALIGN (rtnh->rtnh_len);
+	  rtnh = RTNH_NEXT (rtnh);
+        }
+    }
+
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    {
+      strcpy (sbuf, inet_ntoa (sg.src));
+      strcpy (gbuf, inet_ntoa (sg.grp));
+      for (count = 0; count < oif_count; count++)
+	{
+	  struct interface *ifp = if_lookup_by_index_vrf (oif[count], vrf);
+	  char temp[256];
+
+	  sprintf (temp, "%s ", ifp->name);
+	  strcat (oif_list, temp);
+	}
+      zlog_debug ("MCAST %s (%s,%s) IIF: %d OIF: %s jiffies: %lld",
+		  nl_msg_type_to_str (h->nlmsg_type), sbuf, gbuf, iif, oif_list, lastused);
+    }
   return 0;
 }
 
@@ -562,12 +612,11 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
   /* Connected route. */
   if (IS_ZEBRA_DEBUG_KERNEL)
     zlog_debug ("%s %s %s proto %s vrf %u",
-               h->nlmsg_type ==
-               RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
-               lookup (family_str, rtm->rtm_family),
-               rtm->rtm_type == RTN_UNICAST ? "unicast" : "multicast",
+		nl_msg_type_to_str (h->nlmsg_type),
+		nl_family_to_str (rtm->rtm_family),
+		nl_rttype_to_str (rtm->rtm_type),
 		nl_rtproto_to_str (rtm->rtm_protocol),
-               vrf_id);
+		vrf_id);
 
   /* We don't care about change notifications for the MPLS table. */
   /* TODO: Revisit this. */
