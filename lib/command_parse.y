@@ -433,6 +433,7 @@ terminate_graph (struct graph_node *startnode,
 {
   struct graph_node *end = new_node (END_GN);
   end->element = element;
+  end->text = XSTRDUP(MTYPE_CMD_TOKENS, "<cr>");
   if (node_exists (finalnode, end))
     yyerror (element, startnode, "Duplicate command.");
   else

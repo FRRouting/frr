@@ -52,6 +52,9 @@ disambiguate_nodes (struct graph_node *, struct graph_node *, char *);
 static struct list *
 disambiguate (struct list *, struct list *, vector, unsigned int);
 
+int
+compare_completions (const void *, const void *);
+
 /* token matcher prototypes */
 static enum match_type
 match_token (struct graph_node *, char *);
@@ -291,7 +294,7 @@ match_command_complete (struct graph_node *start, vector vline, struct list **co
    */
 
   matcher_rv =
-     idx + 1 == vector_active(vline) && next->count ?
+     idx == vector_active(vline) && next->count ?
      MATCHER_OK :
      MATCHER_NO_MATCH;
 
@@ -299,6 +302,54 @@ match_command_complete (struct graph_node *start, vector vline, struct list **co
   *completions = next;
 
   return matcher_rv;
+}
+
+/**
+ * Compare two completions. Tightly coupled to vector.
+ *
+ * @param[in] fst pointer to first item pointer in vector->index
+ * @param[in] snd pointer to second item poitner in vector->index
+ * @return integer compare code as determined by strcmp
+ */
+int
+compare_completions (const void *fst, const void *snd)
+{
+  const char *first = *((char **) fst);
+  const char *secnd = *((char **) snd);
+  return strcmp (first, secnd);
+}
+
+enum matcher_rv
+match_command_complete_str (struct graph_node *start,
+                            vector vline,
+                            vector completions)
+{
+  struct list *comps;
+  enum matcher_rv rv = match_command_complete (start, vline, &comps);
+
+  // quick n' dirty deduplication fn here, prolly like O(n^n)
+  struct listnode *ln;
+  struct graph_node *gn;
+  unsigned int i;
+  for (ALL_LIST_ELEMENTS_RO(comps,ln,gn))
+    {
+      // linear search for node text in completions vector
+      int exists = 0;
+      for (i = 0; i < vector_active (completions) && !exists; i++)
+        exists = !strcmp (gn->text, vector_slot (completions, i));
+
+      if (!exists)
+        vector_set (completions, XSTRDUP(MTYPE_TMP, gn->text));
+    }
+
+  // sort completions
+  qsort (completions->index,
+         vector_active (completions),
+         sizeof (void *),
+         &compare_completions);
+
+  list_delete (comps);
+  return rv;
 }
 
 /**

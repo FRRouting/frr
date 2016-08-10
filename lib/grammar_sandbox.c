@@ -91,31 +91,22 @@ DEFUN (grammar_test_complete,
   char *cmdstr = argv_concat (argv, argc, 0);
   vector command = cmd_make_strvec (cmdstr);
 
-  struct list *completions;
-  enum matcher_rv result = match_command_complete (nodegraph, command, &completions);
+  vector completions = vector_init (VECTOR_MIN_SIZE);
+  enum matcher_rv result =
+     match_command_complete_str (nodegraph, command, completions);
 
   // print completions or relevant error message
-  if (completions)
+  if (!MATCHER_ERROR(result))
     {
-      struct listnode *ln;
-      struct graph_node *gn;
-      for (ALL_LIST_ELEMENTS_RO(completions,ln,gn))
-        {
-          if (gn->type == END_GN)
-            zlog_info ("<cr> (%p)", gn->element->func);
-          else
-            zlog_info ("%-30s%s", gn->text, gn->doc);
-        }
-      list_delete (completions);
+      for (unsigned int i = 0; i < vector_active (completions); i++)
+        zlog_info ((char *) vector_slot (completions, i));
     }
   else
-    {
-      assert(MATCHER_ERROR(result));
-      zlog_info ("%% No match for \"%s\"", cmdstr);
-    }
+    zlog_info ("%% No match for \"%s\"", cmdstr);
 
   // free resources
   cmd_free_strvec (command);
+  cmd_free_strvec (completions);
   free (cmdstr);
 
   return CMD_SUCCESS;

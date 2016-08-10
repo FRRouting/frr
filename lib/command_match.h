@@ -85,12 +85,26 @@ match_command (struct graph_node *start,
  *
  * @param[in] start the start node of the DFA to match against
  * @param[in] vline vectorized input string
- * @param[in] completions pointer to possible completions
+ * @param[in] completions pointer to list of possible next nodes
  * @return matcher status
  */
 enum matcher_rv
 match_command_complete (struct graph_node *start,
                         vector vline,
                         struct list **completions);
+
+
+/**
+ * Compiles possible completions for a given line of user input.
+ *
+ * @param[in] start the start node of the DFA to match against
+ * @param[in] vline vectorized input string
+ * @param[in] completions vector to fill with string completions
+ * @return matcher status
+ */
+enum matcher_rv
+match_command_complete_str (struct graph_node *start,
+                            vector vline,
+                            vector completions);
 
 #endif /* _ZEBRA_COMMAND_MATCH_H */
