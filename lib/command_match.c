@@ -91,17 +91,18 @@ match_command (struct graph_node *start,
 {
   matcher_rv = MATCHER_NO_MATCH;
 
-  // call recursive matcher on each starting child
-  for (unsigned int i = 0; i < vector_active (start->children); i++)
+  // prepend a dummy token to match that pesky start node
+  vector vvline = vector_init (vline->alloced + 1);
+  vector_set_index (vvline, 0, (void *) "dummy");
+  memcpy (vvline->index + 1, vline->index, sizeof (void *) * vline->alloced);
+  vvline->active = vline->active + 1;
+
+  if ((*argv = match_command_r (start, vvline, 0))) // successful match
     {
-      *argv = match_command_r (vector_slot (start->children, i), vline, 0);
-      if (*argv) // successful match
-        {
-          struct graph_node *end = listgetdata (listtail (*argv));
-          *el = end->element;
-          assert (*el);
-          break;
-        }
+      list_delete_node (*argv, listhead (*argv));
+      struct graph_node *end = listgetdata (listtail (*argv));
+      *el = end->element;
+      assert (*el);
     }
 
   return matcher_rv;
@@ -344,6 +345,9 @@ min_match_level (enum node_type type)
 {
   switch (type)
     {
+      // anything matches a start node, for the sake of recursion
+      case START_GN:
+        return no_match;
       // allowing words to partly match enables command abbreviation
       case WORD_GN:
         return partly_match;
