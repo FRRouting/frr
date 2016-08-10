@@ -4210,7 +4210,6 @@ copy_cmd_element(struct cmd_element *cmd)
   el->daemon = cmd->daemon;
   el->tokens = cmd->tokens ? vector_copy(cmd->tokens) : NULL;
   el->attr = cmd->attr;
-  fprintf(stderr, "successful copy\n");
   return el;
 }
 
