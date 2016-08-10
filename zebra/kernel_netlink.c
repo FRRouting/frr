@@ -95,6 +95,21 @@ static const struct message rtproto_str[] = {
   {0,               NULL}
 };
 
+static const struct message family_str[] = {
+  {AF_INET,           "ipv4"},
+  {AF_INET6,          "ipv6"},
+  {AF_BRIDGE,         "bridge"},
+  {RTNL_FAMILY_IPMR,  "ipv4MR"},
+  {RTNL_FAMILY_IP6MR, "ipv6MR"},
+  {0,                 NULL},
+};
+
+static const struct message rttype_str[] = {
+  {RTN_UNICAST,   "unicast"},
+  {RTN_MULTICAST, "multicast"},
+  {0,             NULL},
+};
+
 extern struct thread_master *master;
 extern u_int32_t nl_rcvbufsize;
 
@@ -398,6 +413,19 @@ nl_rtproto_to_str (u_char rtproto)
 {
   return lookup (rtproto_str, rtproto);
 }
+
+const char *
+nl_family_to_str (u_char family)
+{
+  return lookup (family_str, family);
+}
+
+const char *
+nl_rttype_to_str (u_char rttype)
+{
+  return lookup (rttype_str, rttype);
+}
+
 /* Receive message from netlink interface and pass those information
    to the given function. */
 int

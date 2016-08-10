@@ -476,6 +476,24 @@ typedef enum {
 #define SAFI_ENCAP		  7 /* per IANA */
 #define SAFI_MAX                  8
 
+/*
+ * The above AFI and SAFI definitions are for internal use. The protocol
+ * definitions (IANA values) as for example used in BGP protocol packets
+ * are defined below and these will get mapped to/from the internal values
+ * in the appropriate places.
+ * The rationale is that the protocol (IANA) values may be sparse and are
+ * not optimal for use in data-structure sizing.
+ * Note: Only useful (i.e., supported) values are defined below.
+ */
+typedef enum {
+  IANA_AFI_RESERVED = 0,
+  IANA_AFI_IPV4 = 1,
+  IANA_AFI_IPV6 = 2,
+  IANA_AFI_L2VPN = 25,
+  IANA_AFI_IPMR = 128,
+  IANA_AFI_IP6MR = 129
+} iana_afi_t;
+
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
 #define ZEBRA_CONNECT_DISTANCE_DEFAULT     0

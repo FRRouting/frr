@@ -435,7 +435,7 @@ netlink_address (int cmd, int family, struct interface *ifp,
     addattr_l (&req.n, sizeof req, IFA_LABEL, ifc->label,
                strlen (ifc->label) + 1);
 
-  return netlink_talk (&req.n, &zns->netlink_cmd, zns);
+  return netlink_talk (netlink_talk_filter, &req.n, &zns->netlink_cmd, zns);
 }
 
 int
