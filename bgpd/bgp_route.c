@@ -68,7 +68,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/rfapi/vnc_import_bgp.h"
 #include "bgpd/rfapi/vnc_export_bgp.h"
 #endif
+#include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_encap_tlv.h"
 #include "bgpd/bgp_evpn.h"
+
 
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
@@ -4002,7 +4005,16 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
 
   if(afi == AFI_L2VPN)
+    {
       overlay_index_update(&attr, bgp_static->eth_s_id, NULL);
+      if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN)
+        {
+          struct bgp_encap_type_vxlan bet;
+          memset(&bet, 0, sizeof(struct bgp_encap_type_vxlan));
+          bet.vnid = p->u.prefix_evpn.eth_tag;
+          bgp_encap_type_vxlan_to_tlv(&bet, &attr);
+        }
+    }
   /* Apply route-map. */
   if (bgp_static->rmap.name)
     {

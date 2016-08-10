@@ -391,8 +391,30 @@ bgp_encap_type_vxlan_to_tlv(
     struct attr				*attr)
 {
     struct attr_extra			*extra = bgp_attr_extra_get(attr);
+    struct bgp_attr_encap_subtlv	*tlv;
+    uint32_t vnid;
 
     extra->encap_tunneltype = BGP_ENCAP_TYPE_VXLAN;
+
+    if(bet == NULL ||!bet->vnid)
+      return;
+    if(extra->encap_subtlvs)
+      XFREE(MTYPE_ENCAP_TLV, extra->encap_subtlvs);
+    tlv = XCALLOC (MTYPE_ENCAP_TLV, sizeof(struct bgp_attr_encap_subtlv)-1+12);
+    tlv->type = 1; /* encapsulation type */
+    tlv->length = 12;
+    if(bet->vnid)
+      {
+        vnid = htonl(bet->vnid | VXLAN_ENCAP_MASK_VNID_VALID);
+        memcpy(&tlv->value, &vnid, 4);
+      }
+    if(bet->mac_address)
+      {
+        char *ptr = (char *)&tlv->value + 4;
+        memcpy( ptr, bet->mac_address, 6);
+      }
+    extra->encap_subtlvs = tlv;
+    return;
 }
 
 void
