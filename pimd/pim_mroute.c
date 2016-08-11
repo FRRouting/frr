@@ -354,6 +354,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
       pim_nexthop_lookup (&source, up->upstream_register, NULL);
       pim_register_stop_send(source.interface, &sg, up->upstream_register);
       //Send S bit down the join.
+      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
       return 0;
     }
 
