@@ -1226,8 +1226,10 @@ isis_interface_config_write (struct vty *vty)
 struct isis_circuit *
 isis_circuit_create (struct isis_area *area, struct interface *ifp)
 {
-  struct isis_circuit *circuit;
-  circuit = isis_csm_state_change (ISIS_ENABLE, NULL, area);
+  struct isis_circuit *circuit = circuit_scan_by_ifp (ifp);
+  if (circuit && circuit->area)
+    return NULL;
+  circuit = isis_csm_state_change (ISIS_ENABLE, circuit, area);
   assert (circuit->state == C_STATE_CONF || circuit->state == C_STATE_UP);
   isis_circuit_if_bind (circuit, ifp);
   return circuit;
