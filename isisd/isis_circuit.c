@@ -1358,7 +1358,6 @@ isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
    * is not supported. */
   if (circ_type == CIRCUIT_T_UNKNOWN
       || circ_type == CIRCUIT_T_LOOPBACK
-      || circuit->circ_type == CIRCUIT_T_UNKNOWN
       || circuit->circ_type == CIRCUIT_T_LOOPBACK)
     {
       if (circuit->circ_type != circ_type)
