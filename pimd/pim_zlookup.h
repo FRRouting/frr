@@ -44,4 +44,5 @@ int zclient_lookup_nexthop(struct pim_zlookup_nexthop nexthop_tab[],
 
 void pim_zlookup_show_ip_multicast (struct vty *vty);
 
+int pim_zlookup_sg_statistics (struct channel_oil *c_oil);
 #endif /* PIM_ZLOOKUP_H */

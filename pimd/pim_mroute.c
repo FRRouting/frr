@@ -37,6 +37,7 @@
 #include "pim_oil.h"
 #include "pim_register.h"
 #include "pim_ifchannel.h"
+#include "pim_zlookup.h"
 
 /* GLOBAL VARS */
 extern struct zebra_privs_t pimd_privs;
@@ -740,6 +741,7 @@ pim_mroute_update_counters (struct channel_oil *c_oil)
   c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
   c_oil->cc.oldbytecnt = c_oil->cc.bytecnt;
   c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
+  c_oil->cc.oldlastused = c_oil->cc.lastused;
 
   if (ioctl (qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq))
     {
@@ -758,6 +760,7 @@ pim_mroute_update_counters (struct channel_oil *c_oil)
       return;
     }
 
+  pim_zlookup_sg_statistics (c_oil);
   c_oil->cc.pktcnt = sgreq.pktcnt;
   c_oil->cc.bytecnt = sgreq.bytecnt;
   c_oil->cc.wrong_if = sgreq.wrong_if;

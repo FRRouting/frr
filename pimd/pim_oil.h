@@ -52,6 +52,8 @@
 
 struct channel_counts
 {
+  unsigned long long lastused;
+  unsigned long long oldlastused;
   unsigned long pktcnt;
   unsigned long oldpktcnt;
   unsigned long bytecnt;

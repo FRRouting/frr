@@ -37,6 +37,7 @@ extern int netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
                                  ns_id_t ns_id);
 extern int netlink_route_read (struct zebra_ns *zns);
 
+extern int netlink_get_ipmr_sg_stats (void *mroute);
 #endif /* HAVE_NETLINK */
 
 #endif /* _ZEBRA_RT_NETLINK_H */

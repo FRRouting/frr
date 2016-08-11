@@ -989,6 +989,7 @@ static const struct zebra_desc_table command_types[] = {
   DESC_ENTRY	(ZEBRA_IPV4_NEXTHOP_DELETE),
   DESC_ENTRY	(ZEBRA_IPV6_NEXTHOP_ADD),
   DESC_ENTRY	(ZEBRA_IPV6_NEXTHOP_DELETE),
+  DESC_ENTRY    (ZEBRA_IPMR_ROUTE_STATS),
 };
 #undef DESC_ENTRY
 

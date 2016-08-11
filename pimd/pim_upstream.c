@@ -822,7 +822,8 @@ pim_upstream_keep_alive_timer (struct thread *t)
 
   pim_mroute_update_counters (up->channel_oil);
 
-  if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt)
+  if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+      (up->channel_oil->cc.oldlastused >= up->channel_oil->cc.lastused))
     {
       pim_mroute_del (up->channel_oil);
       pim_upstream_delete (up);

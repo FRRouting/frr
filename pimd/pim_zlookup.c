@@ -28,11 +28,14 @@
 #include "stream.h"
 #include "network.h"
 #include "thread.h"
+#include "prefix.h"
 #include "vty.h"
 
 #include "pimd.h"
+#include "pim_iface.h"
 #include "pim_pim.h"
 #include "pim_str.h"
+#include "pim_oil.h"
 #include "pim_zlookup.h"
 
 extern int zclient_debug;
@@ -450,4 +453,77 @@ pim_zlookup_show_ip_multicast (struct vty *vty)
   else {
     vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
   }
+}
+
+int
+pim_zlookup_sg_statistics (struct channel_oil *c_oil)
+{
+  struct stream *s = zlookup->obuf;
+  uint16_t command = 0;
+  unsigned long long lastused;
+  struct prefix_sg sg;
+  int count = 0;
+  int ret;
+  struct interface *ifp = pim_if_find_by_vif_index (c_oil->oil.mfcc_parent);
+
+  if (PIM_DEBUG_ZEBRA)
+    zlog_debug ("Sending Request for New Channel Oil Information");
+
+  stream_reset (s);
+  zclient_create_header (s, ZEBRA_IPMR_ROUTE_STATS, VRF_DEFAULT);
+  stream_put_in_addr (s, &c_oil->oil.mfcc_origin);
+  stream_put_in_addr (s, &c_oil->oil.mfcc_mcastgrp);
+  stream_putl (s,  ifp->ifindex);
+  stream_putw_at(s, 0, stream_get_endp(s));
+
+  count = stream_get_endp (s);
+  ret = writen (zlookup->sock, s->data, count);
+  if (ret <= 0)
+    {
+      zlog_err("%s %s: writen() failure writing to zclient lookup socket",
+               __FILE__, __PRETTY_FUNCTION__);
+      return -1;
+    }
+
+  s = zlookup->ibuf;
+
+  while (command != ZEBRA_IPMR_ROUTE_STATS)
+    {
+      int err;
+      uint16_t length = 0;
+      vrf_id_t vrf_id;
+      u_char marker;
+      u_char version;
+
+      stream_reset (s);
+      err = zclient_read_header (s, zlookup->sock, &length, &marker, &version,
+				 &vrf_id, &command);
+      if (err < 0)
+        {
+          zlog_err ("%s %s: zclient_read_header() failed",
+                 __FILE__, __PRETTY_FUNCTION__);
+        zclient_lookup_failed(zlookup);
+        return -1;
+        }
+    }
+
+  sg.src.s_addr = stream_get_ipv4 (s);
+  sg.grp.s_addr = stream_get_ipv4 (s);
+  if (sg.src.s_addr != c_oil->oil.mfcc_origin.s_addr ||
+      sg.grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr)
+    {
+       zlog_err ("%s: Received wrong %s information",
+		 __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
+       zclient_lookup_failed (zlookup);
+       return -3;
+    }
+
+  stream_get (&lastused, s, sizeof (lastused));
+
+  zlog_debug ("Received %lld for %s", lastused, pim_str_sg_dump (&sg));
+
+  c_oil->cc.lastused = lastused;
+
+  return 0;
+
 }

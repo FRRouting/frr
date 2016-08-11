@@ -54,6 +54,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_fpm.h"
+#include "zebra/zebra_mroute.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -2050,6 +2051,9 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_MPLS_LABELS_ADD:
     case ZEBRA_MPLS_LABELS_DELETE:
       zread_mpls_labels (command, client, length, vrf_id);
+      break;
+    case ZEBRA_IPMR_ROUTE_STATS:
+      zebra_ipmr_route_stats (client, sock, length, zvrf);
       break;
     default:
       zlog_info ("Zebra received unknown command %d", command);
