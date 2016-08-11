@@ -79,6 +79,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, int loop)
     return PIM_SOCK_ERR_SOCKET;
   }
 
+#ifdef SO_BINDTODEVICE
   if (protocol == IPPROTO_PIM)
     {
       int ret;
@@ -104,7 +105,10 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, int ifindex, int loop)
 	  return PIM_SOCK_ERR_BIND;
 	}
     }
-
+#else
+  /* XXX: use IP_PKTINFO / IP_RECVIF to emulate behaviour?  Or change to
+   * only use 1 socket for all interfaces? */
+#endif
 
   /* Needed to obtain destination address from recvmsg() */
   {
