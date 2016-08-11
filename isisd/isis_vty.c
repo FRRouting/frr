@@ -255,7 +255,7 @@ DEFUN (isis_network,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  if (!isis_circuit_circ_type_set(circuit, CIRCUIT_T_P2P))
+  if (isis_circuit_circ_type_set(circuit, CIRCUIT_T_P2P))
     {
       vty_out (vty, "isis network point-to-point "
                "is valid only on broadcast interfaces%s",
@@ -278,7 +278,7 @@ DEFUN (no_isis_network,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  if (!isis_circuit_circ_type_set(circuit, CIRCUIT_T_BROADCAST))
+  if (isis_circuit_circ_type_set(circuit, CIRCUIT_T_BROADCAST))
     {
       vty_out (vty, "isis network point-to-point "
                "is valid only on broadcast interfaces%s",
