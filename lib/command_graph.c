@@ -26,7 +26,7 @@
 #include "memory.h"
 
 struct graph_node *
-add_node (struct graph_node *parent, struct graph_node *child)
+graphnode_add_child (struct graph_node *parent, struct graph_node *child)
 {
   vector_set (parent->children, child);
   child->refs++;
@@ -34,7 +34,7 @@ add_node (struct graph_node *parent, struct graph_node *child)
 }
 
 struct graph_node *
-new_node (enum graph_node_type type)
+graphnode_new (enum graph_node_type type)
 {
   struct graph_node *node =
      XCALLOC(MTYPE_CMD_TOKENS, sizeof(struct graph_node));
@@ -46,7 +46,7 @@ new_node (enum graph_node_type type)
 }
 
 void
-delete_node (struct graph_node *node)
+graphnode_delete (struct graph_node *node)
 {
   if (!node) return;
   if (node->children) vector_free (node->children);
@@ -57,17 +57,17 @@ delete_node (struct graph_node *node)
 }
 
 void
-delete_graph (struct graph_node *start)
+graphnode_delete_graph (struct graph_node *start)
 {
   if (start && start->children && vector_active (start->children) > 0)
     {
       for (unsigned int i = 0; i < vector_active (start->children); i++)
         {
-          delete_graph (vector_slot(start->children, i));
+          graphnode_delete (vector_slot(start->children, i));
           vector_unset (start->children, i);
         }
     }
 
   if (--(start->refs) == 0)
-    delete_node (start);
+    graphnode_delete (start);
 }

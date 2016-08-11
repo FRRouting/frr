@@ -69,7 +69,7 @@ DEFUN (grammar_test,
   cmd->tokens = vector_init(VECTOR_MIN_SIZE);
 
   // parse the command and install it into the command graph
-  parse_command_format (nodegraph, cmd);
+  command_parse_format (nodegraph, cmd);
 
   // free resources
   free (command);
@@ -93,7 +93,7 @@ DEFUN (grammar_test_complete,
 
   vector completions = vector_init (VECTOR_MIN_SIZE);
   enum matcher_rv result =
-     match_command_complete_str (nodegraph, command, completions);
+     command_complete_str (nodegraph, command, completions);
 
   // print completions or relevant error message
   if (!MATCHER_ERROR(result))
@@ -130,7 +130,7 @@ DEFUN (grammar_test_match,
 
   struct list *argvv = NULL;
   struct cmd_element *element = NULL;
-  enum matcher_rv result = match_command (nodegraph, command, &argvv, &element);
+  enum matcher_rv result = command_match (nodegraph, command, &argvv, &element);
 
   // print completions or relevant error message
   if (element)
@@ -200,7 +200,7 @@ DEFUN (grammar_test_doc,
   cmd->tokens = vector_init (VECTOR_MIN_SIZE);
 
   // parse element
-  parse_command_format (nodegraph, cmd);
+  command_parse_format (nodegraph, cmd);
 
   return CMD_SUCCESS;
 }
@@ -224,7 +224,7 @@ DEFUN (grammar_test_show,
 /* this is called in vtysh.c to set up the testing shim */
 void grammar_sandbox_init() {
   zlog_info ("Initializing grammar testing shim");
-  nodegraph = new_node(START_GN);
+  nodegraph = graphnode_new (START_GN);
   install_element (ENABLE_NODE, &grammar_test_cmd);
   install_element (ENABLE_NODE, &grammar_test_show_cmd);
   install_element (ENABLE_NODE, &grammar_test_match_cmd);

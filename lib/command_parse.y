@@ -50,7 +50,7 @@
 /* functionality this unit exports */
 %code provides {
   struct graph_node *
-  parse_command_format (struct graph_node *, struct cmd_element *);
+  command_parse_format (struct graph_node *, struct cmd_element *);
 
   /* maximum length of a number, lexer will not match anything longer */
   #define DECIMAL_STRLEN_MAX 20
@@ -156,7 +156,7 @@ start:
 | sentence_root cmd_token_seq '.' placeholder_token
 {
   if ((currnode = node_replace (currnode, $4)) != $4)
-    delete_node ($4);
+    graphnode_delete ($4);
 
   // adding a node as a child of itself accepts any number
   // of the same token, which is what we want for varags
@@ -168,7 +168,7 @@ start:
 
 sentence_root: WORD
 {
-  struct graph_node *root = new_node (WORD_GN);
+  struct graph_node *root = graphnode_new (WORD_GN);
   root->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
   root->doc = doc_next();
 
@@ -183,23 +183,23 @@ cmd_token:
   placeholder_token
 {
   if ((currnode = node_replace (currnode, $1)) != $1)
-    delete_node ($1);
+    graphnode_delete ($1);
 }
 | literal_token
 {
   if ((currnode = node_replace (currnode, $1)) != $1)
-    delete_node ($1);
+    graphnode_delete ($1);
 }
 /* selectors and options are subgraphs with start and end nodes */
 | selector
 {
-  add_node (currnode, $1);
+  graphnode_add_child (currnode, $1);
   currnode = selnode_end;
   selnode_start = selnode_end = NULL;
 }
 | option
 {
-  add_node (currnode, $1);
+  graphnode_add_child (currnode, $1);
   currnode = optnode_end;
   optnode_start = optnode_end = NULL;
 }
@@ -213,42 +213,42 @@ cmd_token_seq:
 placeholder_token:
   IPV4
 {
-  $$ = new_node (IPV4_GN);
+  $$ = graphnode_new (IPV4_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
   $$->doc = doc_next();
   free ($1);
 }
 | IPV4_PREFIX
 {
-  $$ = new_node (IPV4_PREFIX_GN);
+  $$ = graphnode_new (IPV4_PREFIX_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
   $$->doc = doc_next();
   free ($1);
 }
 | IPV6
 {
-  $$ = new_node (IPV6_GN);
+  $$ = graphnode_new (IPV6_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
   $$->doc = doc_next();
   free ($1);
 }
 | IPV6_PREFIX
 {
-  $$ = new_node (IPV6_PREFIX_GN);
+  $$ = graphnode_new (IPV6_PREFIX_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
   $$->doc = doc_next();
   free ($1);
 }
 | VARIABLE
 {
-  $$ = new_node (VARIABLE_GN);
+  $$ = graphnode_new (VARIABLE_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
   $$->doc = doc_next();
   free ($1);
 }
 | RANGE
 {
-  $$ = new_node (RANGE_GN);
+  $$ = graphnode_new (RANGE_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
   $$->doc = doc_next();
 
@@ -268,14 +268,14 @@ placeholder_token:
 literal_token:
   WORD
 {
-  $$ = new_node (WORD_GN);
+  $$ = graphnode_new (WORD_GN);
   $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
   $$->doc = doc_next();
   free ($1);
 }
 | NUMBER
 {
-  $$ = new_node (NUMBER_GN);
+  $$ = graphnode_new (NUMBER_GN);
   $$->value = yylval.number;
   $$->text = XCALLOC(MTYPE_CMD_TOKENS, DECIMAL_STRLEN_MAX+1);
   snprintf($$->text, DECIMAL_STRLEN_MAX, "%lld", $$->value);
@@ -301,25 +301,25 @@ selector_element: selector_element_root selector_token_seq
   // if the selector start and end do not exist, create them
   if (!selnode_start || !selnode_end) {     // if one is null
     assert(!selnode_start && !selnode_end); // both should be null
-    selnode_start = new_node (SELECTOR_GN);  // diverging node
-    selnode_end = new_node (NUL_GN);         // converging node
+    selnode_start = graphnode_new (SELECTOR_GN);  // diverging node
+    selnode_end = graphnode_new (NUL_GN);         // converging node
   }
 
   // add element head as a child of the selector
-  add_node (selnode_start, $1);
+  graphnode_add_child (selnode_start, $1);
 
   if ($2->type != NUL_GN) {
-    add_node ($1, seqhead);
-    add_node ($2, selnode_end);
+    graphnode_add_child ($1, seqhead);
+    graphnode_add_child ($2, selnode_end);
   }
   else
-    add_node ($1, selnode_end);
+    graphnode_add_child ($1, selnode_end);
 
   seqhead = NULL;
 }
 
 selector_token_seq:
-  %empty { $$ = new_node (NUL_GN); }
+  %empty { $$ = graphnode_new (NUL_GN); }
 | selector_token_seq selector_token
 {
   // if the sequence component is NUL_GN, this is a sequence start
@@ -328,7 +328,7 @@ selector_token_seq:
     seqhead = $2;
   }
   else // chain on new node
-    add_node ($1, $2);
+    graphnode_add_child ($1, $2);
 
   $$ = $2;
 }
@@ -347,7 +347,7 @@ selector_token:
 option: '[' option_part ']'
 {
   // add null path
-  add_node (optnode_start, optnode_end);
+  graphnode_add_child (optnode_start, optnode_end);
   $$ = optnode_start;
 };
 
@@ -361,12 +361,12 @@ option_element:
 {
   if (!optnode_start || !optnode_end) {
     assert(!optnode_start && !optnode_end);
-    optnode_start = new_node (OPTION_GN);
-    optnode_end = new_node (NUL_GN);
+    optnode_start = graphnode_new (OPTION_GN);
+    optnode_end = graphnode_new (NUL_GN);
   }
 
-  add_node (optnode_start, seqhead);
-  add_node ($1, optnode_end);
+  graphnode_add_child (optnode_start, seqhead);
+  graphnode_add_child ($1, optnode_end);
   seqhead = NULL;
 }
 
@@ -374,7 +374,7 @@ option_token_seq:
   option_token
 { $$ = seqhead = $1; }
 | option_token_seq option_token
-{ $$ = add_node ($1, $2); }
+{ $$ = graphnode_add_child ($1, $2); }
 ;
 
 option_token:
@@ -385,7 +385,7 @@ option_token:
 %%
 
 struct graph_node *
-parse_command_format(struct graph_node *start, struct cmd_element *cmd)
+command_parse_format (struct graph_node *start, struct cmd_element *cmd)
 {
   // set to 1 to enable parser traces
   yydebug = 0;
@@ -431,13 +431,13 @@ terminate_graph (struct graph_node *startnode,
                  struct graph_node *finalnode,
                  struct cmd_element *element)
 {
-  struct graph_node *end = new_node (END_GN);
+  struct graph_node *end = graphnode_new (END_GN);
   end->element = element;
   end->text = XSTRDUP(MTYPE_CMD_TOKENS, "<cr>");
   if (node_exists (finalnode, end))
     yyerror (element, startnode, "Duplicate command.");
   else
-    add_node (finalnode, end);
+    graphnode_add_child (finalnode, end);
 }
 
 static char *
@@ -466,7 +466,7 @@ static struct graph_node *
 node_replace (struct graph_node *parent, struct graph_node *child)
 {
   struct graph_node *existing = node_exists (parent, child);
-  return existing ? existing : add_node (parent, child);
+  return existing ? existing : graphnode_add_child (parent, child);
 }
 
 static int
@@ -492,10 +492,11 @@ cmp_node (struct graph_node *first, struct graph_node *second)
     case NUMBER_GN:
       if (first->value != second->value) return 0;
       break;
-    /* selectors and options should be equal if their subgraphs are equal, but
-     * the graph isomorphism problem is not known to be solvable in polynomial time
-     * so we consider selectors and options inequal in all cases; ultimately this
-     * forks the graph, but the matcher can handle this regardless
+    /* selectors and options should be equal if their subgraphs are equal,
+     * but the graph isomorphism problem is not known to be solvable in
+     * polynomial time so we consider selectors and options inequal in all
+     * cases; ultimately this forks the graph, but the matcher can handle
+     * this regardless
      */
     case SELECTOR_GN:
     case OPTION_GN:

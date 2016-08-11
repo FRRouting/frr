@@ -32,7 +32,7 @@ static int
 add_nexthops (struct list *, struct graph_node *);
 
 static struct list *
-match_command_r (struct graph_node *, vector, unsigned int);
+command_match_r (struct graph_node *, vector, unsigned int);
 
 static int
 score_precedence (enum graph_node_type);
@@ -87,7 +87,7 @@ match_variable (struct graph_node *node, const char *word);
 static enum matcher_rv matcher_rv;
 
 enum matcher_rv
-match_command (struct graph_node *start,
+command_match (struct graph_node *start,
                vector vline,
                struct list **argv,
                struct cmd_element **el)
@@ -100,7 +100,7 @@ match_command (struct graph_node *start,
   memcpy (vvline->index + 1, vline->index, sizeof (void *) * vline->alloced);
   vvline->active = vline->active + 1;
 
-  if ((*argv = match_command_r (start, vvline, 0))) // successful match
+  if ((*argv = command_match_r (start, vvline, 0))) // successful match
     {
       list_delete_node (*argv, listhead (*argv));
       struct graph_node *end = listgetdata (listtail (*argv));
@@ -160,7 +160,7 @@ match_command (struct graph_node *start,
  * @param[in] n the index of the first input token.
  */
 static struct list *
-match_command_r (struct graph_node *start, vector vline, unsigned int n)
+command_match_r (struct graph_node *start, vector vline, unsigned int n)
 {
   assert (n < vector_active (vline));
 
@@ -201,7 +201,7 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
         }
 
       // else recurse on candidate child node
-      struct list *result = match_command_r (gn, vline, n+1);
+      struct list *result = command_match_r (gn, vline, n+1);
 
       // save the best match
       if (result && currbest)
@@ -242,7 +242,9 @@ match_command_r (struct graph_node *start, vector vline, unsigned int n)
 }
 
 enum matcher_rv
-match_command_complete (struct graph_node *start, vector vline, struct list **completions)
+command_complete (struct graph_node *start,
+                  vector vline,
+                  struct list **completions)
 {
   // pointer to next input token to match
   char *token;
@@ -320,12 +322,12 @@ compare_completions (const void *fst, const void *snd)
 }
 
 enum matcher_rv
-match_command_complete_str (struct graph_node *start,
-                            vector vline,
-                            vector completions)
+command_complete_str (struct graph_node *start,
+                      vector vline,
+                      vector completions)
 {
   struct list *comps;
-  enum matcher_rv rv = match_command_complete (start, vline, &comps);
+  enum matcher_rv rv = command_complete (start, vline, &comps);
 
   // quick n' dirty deduplication fn here, prolly like O(n^n)
   struct listnode *ln;
@@ -522,7 +524,7 @@ disambiguate (struct list *first,
 static struct graph_node *
 copy_node (struct graph_node *node)
 {
-  struct graph_node *new = new_node(node->type);
+  struct graph_node *new = graphnode_new(node->type);
   new->children = NULL;
   new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
   new->value    = node->value;
@@ -540,7 +542,7 @@ copy_node (struct graph_node *node)
 static void
 delete_nodelist (void *node)
 {
-  delete_node ((struct graph_node *) node);
+  graphnode_delete ((struct graph_node *) node);
 }
 
 

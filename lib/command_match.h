@@ -75,7 +75,7 @@ enum match_type
  * @return matcher status
  */
 enum matcher_rv
-match_command (struct graph_node *start,
+command_match (struct graph_node *start,
                vector vline,
                struct list **argv,
                struct cmd_element **element);
@@ -89,9 +89,9 @@ match_command (struct graph_node *start,
  * @return matcher status
  */
 enum matcher_rv
-match_command_complete (struct graph_node *start,
-                        vector vline,
-                        struct list **completions);
+command_complete (struct graph_node *start,
+                  vector vline,
+                  struct list **completions);
 
 
 /**
@@ -103,8 +103,8 @@ match_command_complete (struct graph_node *start,
  * @return matcher status
  */
 enum matcher_rv
-match_command_complete_str (struct graph_node *start,
-                            vector vline,
-                            vector completions);
+command_complete_str (struct graph_node *start,
+                      vector vline,
+                      vector completions);
 
 #endif /* _ZEBRA_COMMAND_MATCH_H */

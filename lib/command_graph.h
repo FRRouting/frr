@@ -83,7 +83,7 @@ struct graph_node
  * @return child node
  */
 struct graph_node *
-add_node (struct graph_node *parent, struct graph_node *child);
+graphnode_add_child (struct graph_node *parent, struct graph_node *child);
 
 /**
  * Creates a new node, initializes all fields to default values and sets the
@@ -93,7 +93,7 @@ add_node (struct graph_node *parent, struct graph_node *child);
  * @return pointer to the created node
  */
 struct graph_node *
-new_node (enum graph_node_type type);
+graphnode_new (enum graph_node_type type);
 
 /**
  * Deletes a graph node without deleting its children.
@@ -101,7 +101,7 @@ new_node (enum graph_node_type type);
  * @param[out] node pointer to node to delete
  */
 void
-delete_node (struct graph_node *node);
+graphnode_delete (struct graph_node *node);
 
 /**
  * Deletes a graph node and recursively deletes all its direct and indirect
@@ -110,6 +110,6 @@ delete_node (struct graph_node *node);
  * @param[out] node start node of graph to free
  */
 void
-delete_graph (struct graph_node *node);
+graphnode_delete_graph (struct graph_node *node);
 
 #endif /* _ZEBRA_COMMAND_GRAPH_H */
