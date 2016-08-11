@@ -913,6 +913,7 @@ pim_upstream_register_stop_timer (struct thread *t)
 
   up = THREAD_ARG (t);
 
+  THREAD_TIMER_OFF (up->t_rs_timer);
   up->t_rs_timer = NULL;
 
   if (PIM_DEBUG_TRACE)
@@ -940,7 +941,6 @@ pim_upstream_register_stop_timer (struct thread *t)
       ip_hdr.ip_len = htons (20);
       // checksum is broken
       pim_register_send ((uint8_t *)&ip_hdr, sizeof (struct ip), rpg, 1);
-      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
       break;
     default:
       break;
