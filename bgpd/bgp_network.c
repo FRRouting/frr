@@ -228,6 +228,17 @@ bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 static int
 bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
 {
+#ifndef SO_BINDTODEVICE
+  /* only Linux has SO_BINDTODEVICE, but we're in Linux-specific code here
+   * anyway since the assumption is that the interface name returned by
+   * getsockopt() is useful in identifying the VRF, particularly with Linux's
+   * VRF l3master device.  The whole mechanism is specific to Linux, so...
+   * when other platforms add VRF support, this will need handling here as
+   * well.  (or, some restructuring) */
+  *bgp_inst = bgp_get_default ();
+  return !*bgp_inst;
+
+#else
   char name[VRF_NAMSIZ + 1];
   socklen_t name_len = VRF_NAMSIZ;
   struct bgp *bgp;
@@ -275,6 +286,7 @@ bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
 
   /* We didn't match to either an instance or an interface. */
   return -1;
+#endif
 }
 
 /* Accept bgp connection. */
