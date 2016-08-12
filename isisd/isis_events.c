@@ -145,7 +145,7 @@ circuit_resign_level (struct isis_circuit *circuit, int level)
 }
 
 void
-isis_event_circuit_type_change (struct isis_circuit *circuit, int newtype)
+isis_circuit_is_type_set (struct isis_circuit *circuit, int newtype)
 {
   if (circuit->state != C_STATE_UP)
   {
