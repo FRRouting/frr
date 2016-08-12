@@ -1284,13 +1284,6 @@ isis_circuit_passive_set (struct isis_circuit *circuit, bool passive)
   return 0;
 }
 
-void
-isis_circuit_is_type_set (struct isis_circuit *circuit, int is_type)
-{
-  if (circuit->is_type != is_type)
-    isis_event_circuit_type_change (circuit, is_type);
-}
-
 int
 isis_circuit_metric_set (struct isis_circuit *circuit, int level, int metric)
 {

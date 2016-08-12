@@ -1775,7 +1775,7 @@ isis_area_is_type_set(struct isis_area *area, int is_type)
   if (area->is_type != IS_LEVEL_1_AND_2)
   {
     for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
-      isis_event_circuit_type_change (circuit, is_type);
+      isis_circuit_is_type_set (circuit, is_type);
   }
 
   spftree_area_init (area);
