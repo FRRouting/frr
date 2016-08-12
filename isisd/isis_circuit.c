@@ -1285,10 +1285,10 @@ isis_circuit_passive_set (struct isis_circuit *circuit, bool passive)
 }
 
 void
-isis_circuit_is_type_set (struct isis_circuit *circuit, int circ_type)
+isis_circuit_is_type_set (struct isis_circuit *circuit, int is_type)
 {
-  if (circuit->circ_type != circ_type)
-    isis_event_circuit_type_change (circuit, circ_type);
+  if (circuit->is_type != is_type)
+    isis_event_circuit_type_change (circuit, is_type);
 }
 
 int
