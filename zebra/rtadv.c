@@ -69,22 +69,25 @@ static void rtadv_event (struct zebra_ns *, enum rtadv_event, int);
 static int if_join_all_router (int, struct interface *);
 static int if_leave_all_router (int, struct interface *);
 
-static int rtadv_increment_received(unsigned int *ifindex) {
+static int
+rtadv_increment_received(struct zebra_ns *zns, unsigned int *ifindex)
+{
   int ret = -1;
   struct interface *iface;
   struct zebra_if *zif;
 
-  iface = if_lookup_by_index_vrf(*ifindex, VRF_DEFAULT);
-  if (iface && iface->info) {
-    zif = iface->info;
-    zif->ra_rcvd++;
-    ret = 0;
-  }
+  iface = if_lookup_by_index_per_ns (zns, *ifindex);
+  if (iface && iface->info)
+    {
+      zif = iface->info;
+      zif->ra_rcvd++;
+      ret = 0;
+    }
   return ret;
 }
 
 static int
-rtadv_recv_packet (int sock, u_char *buf, int buflen,
+rtadv_recv_packet (struct zebra_ns *zns, int sock, u_char *buf, int buflen,
 		   struct sockaddr_in6 *from, unsigned int *ifindex,
 		   int *hoplimit)
 {
@@ -134,10 +137,7 @@ rtadv_recv_packet (int sock, u_char *buf, int buflen,
 	}
     }
 
-  if(rtadv_increment_received(ifindex) < 0)
-    zlog_err("%s: could not increment RA received counter on ifindex %d",
-             __func__, *ifindex);
-
+  rtadv_increment_received(zns, ifindex);
   return ret;
 }
 
@@ -619,7 +619,7 @@ rtadv_read (struct thread *thread)
   /* Register myself. */
   rtadv_event (zns, RTADV_READ, sock);
 
-  len = rtadv_recv_packet (sock, buf, BUFSIZ, &from, &ifindex, &hoplimit);
+  len = rtadv_recv_packet (zns, sock, buf, BUFSIZ, &from, &ifindex, &hoplimit);
 
   if (len < 0) 
     {
