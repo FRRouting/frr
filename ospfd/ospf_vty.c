@@ -271,42 +271,9 @@ DEFUN (no_ospf_router_id,
   struct ospf *ospf = vty->index;
   struct listnode *node;
   struct ospf_area *area;
-  struct in_addr id;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
-  int ret;
 
   if (!ospf)
     return CMD_SUCCESS;
-
-  if (argc == 1)
-  {
-      ret = inet_aton (argv[0], &id);
-      if (! ret)
-      {
-        ifp = if_lookup_by_name(argv[0]);
-        if (!ifp) {
-          vty_out (vty, "%% Malformed OSPF router identifier%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-        for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
-        {
-          p = ifc->address;
-          if (p && (p->family == AF_INET))
-          {
-            id = p->u.prefix4;
-            break;
-          }
-        }
-      }
-
-      if (! IPV4_ADDR_SAME (&ospf->router_id_static, &id))
-      {
-        vty_out (vty, "%% OSPF router-id doesn't match%s", VTY_NEWLINE);
-        return CMD_WARNING;
-      }
-  }
 
   ospf->router_id_static.s_addr = 0;
 
@@ -330,63 +297,6 @@ ALIAS (no_ospf_router_id,
        "OSPF specific commands\n"
        "router-id for the OSPF process\n"
        "OSPF router-id in IP address format\n")
-
-DEFUN (ospf_router_id_interface,
-       ospf_router_id_interface_cmd,
-       "ospf router-id IFNAME",
-       "OSPF specific commands\n"
-       "router-id for the OSPF process\n"
-       "Interface name\n")
-{
-  struct ospf *ospf = vty->index;
-  struct listnode *node;
-  struct ospf_area *area;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
-
-  if (!ospf)
-    return CMD_SUCCESS;
-
-  p = NULL;
-  ifp = if_lookup_by_name(argv[0]);
-  if (!ifp)
-  {
-      vty_out (vty, "%% Couldnt find interface %s%s", argv[0], VTY_NEWLINE);
-      return CMD_WARNING;
-  }
-
-  for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
-  {
-    p = ifc->address;
-
-    if (p && (p->family == AF_INET))
-    {
-      if (IPV4_ADDR_SAME (&ospf->router_id_static, &p->u.prefix4))
-        return CMD_SUCCESS;
-      ospf->router_id_static = p->u.prefix4;
-      for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
-        if (area->full_nbrs)
-        {
-            vty_out (vty, "For this router-id change to take effect,"
-                          " save config and restart ospfd%s", VTY_NEWLINE);
-            return CMD_SUCCESS;
-        }
-      ospf_router_id_update (ospf);
-      return CMD_SUCCESS;
-    }
-  }
-  vty_out (vty, "%% Couldnt assign the router-id%s", VTY_NEWLINE);
-  return CMD_WARNING;
-}
-
-ALIAS (no_ospf_router_id,
-       no_ospf_router_id_interface_cmd,
-       "no ospf router-id IFNAME",
-       NO_STR
-       "OSPF specific commands\n"
-       "router-id for the OSPF process\n"
-       "Interface name\n")
 
 static void
 ospf_passive_interface_default (struct ospf *ospf, u_char newval)
@@ -10421,10 +10331,8 @@ ospf_vty_init (void)
   /* "ospf router-id" commands. */
   install_element (OSPF_NODE, &ospf_router_id_cmd);
   install_element (OSPF_NODE, &ospf_router_id_old_cmd);
-  install_element (OSPF_NODE, &ospf_router_id_interface_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_val_cmd);
-  install_element (OSPF_NODE, &no_ospf_router_id_interface_cmd);
 
   /* "passive-interface" commands. */
   install_element (OSPF_NODE, &ospf_passive_interface_addr_cmd);
