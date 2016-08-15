@@ -13599,7 +13599,7 @@ bgp_show_peer_group (struct vty *vty, struct bgp *bgp,
     }
 
   if (type == show_peer_group && ! find)
-    vty_out (vty, "%% No such peer-groupr%s", VTY_NEWLINE);
+    vty_out (vty, "%% No such peer-group%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
