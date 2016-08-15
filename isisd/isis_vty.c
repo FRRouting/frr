@@ -86,8 +86,15 @@ DEFUN (ip_router_isis,
   if (!area)
     area = isis_area_create (area_tag);
 
-  if (!circuit || !circuit->area)
+  if (!circuit || !circuit->area) {
     circuit = isis_circuit_create (area, ifp);
+
+    if (circuit->state != C_STATE_CONF && circuit->state != C_STATE_UP)
+      {
+        vty_out(vty, "Couldn't bring up interface, please check log.%s", VTY_NEWLINE);
+        return CMD_WARNING;
+      }
+  }
 
   bool ip = circuit->ip_router, ipv6 = circuit->ipv6_router;
   if (af[2] != '\0')
