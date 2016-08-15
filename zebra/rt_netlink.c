@@ -1998,7 +1998,7 @@ netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen)
   addattr_l(&req.n, sizeof(req), NDA_DST, &addr, 4);
   addattr_l(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
-  return netlink_talk (&req.n, &zns->netlink_cmd, NS_DEFAULT);
+  return netlink_talk (&req.n, &zns->netlink_cmd, zns);
 }
 
 /* Routing table change via netlink interface. */
