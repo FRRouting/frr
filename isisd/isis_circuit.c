@@ -1230,7 +1230,8 @@ isis_circuit_create (struct isis_area *area, struct interface *ifp)
   if (circuit && circuit->area)
     return NULL;
   circuit = isis_csm_state_change (ISIS_ENABLE, circuit, area);
-  assert (circuit->state == C_STATE_CONF || circuit->state == C_STATE_UP);
+  if (circuit->state != C_STATE_CONF && circuit->state != C_STATE_UP)
+    return circuit;
   isis_circuit_if_bind (circuit, ifp);
   return circuit;
 }
