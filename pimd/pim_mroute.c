@@ -132,7 +132,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   if (!pim_mroute_connected_to_source (ifp, msg->im_src))
     {
       if (PIM_DEBUG_MROUTE)
-       zlog_debug ("%s: Received incoming packet that does originate on our seg",
+       zlog_debug ("%s: Received incoming packet that doesn't originate on our seg",
 		   __PRETTY_FUNCTION__);
       return 0;
     }
