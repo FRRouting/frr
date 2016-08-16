@@ -415,7 +415,10 @@ main (int argc, char **argv, char **env)
   if (vtysh_connect_all (daemon_name) <= 0)
     {
       fprintf(stderr, "Exiting: failed to connect to any daemons.\n");
-      exit(1);
+      if (no_error)
+        exit(0);
+      else
+        exit(1);
     }
 
   if (inputfile)
