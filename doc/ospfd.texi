@@ -510,11 +510,6 @@ incremented by this value when transmitting.
 The default value is 1 seconds.
 @end deffn
 
-@deffn {Interface Command} {ip ospf area (A.B.C.D|<0-4294967295>)} {}
-@deffnx {Interface Command} {no ip ospf area} {}
-Enable ospf on an interface and set associated area.
-@end deffn
-
 @node Redistribute routes to OSPF
 @section Redistribute routes to OSPF
 

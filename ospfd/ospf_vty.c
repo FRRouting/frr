@@ -543,13 +543,6 @@ DEFUN (ospf_network_area,
       return CMD_WARNING;
     }
 
-  if (ospf->if_ospf_cli_count > 0)
-    {
-      vty_out (vty, "Please remove all ip ospf area x.x.x.x commands first.%s",
-               VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
   /* Get network prefix and Area ID. */
   VTY_GET_IPV4_PREFIX ("network prefix", p, argv[0]);
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[1]);
@@ -9410,18 +9403,6 @@ config_write_interface (struct vty *vty)
 	    vty_out (vty, "%s", VTY_NEWLINE);
 	  }
 
-	/* Area  print. */
-	if (OSPF_IF_PARAM_CONFIGURED (params, if_area))
-	  {
-	    if (ospf->instance)
-	      vty_out (vty, " ip ospf %d area %s%s", ospf->instance,
-		       inet_ntoa (params->if_area), VTY_NEWLINE);
-	    else
-	      vty_out (vty, " ip ospf area %s%s",
-		       inet_ntoa (params->if_area), VTY_NEWLINE);
-
-	  }
-
 	/* bfd  print. */
         ospf_bfd_write_config(vty, params);
 
@@ -10151,14 +10132,6 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_sec_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_sec_cmd);
-
-  /* "ip ospf area" commands. */
-  install_element (INTERFACE_NODE, &ip_ospf_area_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_area_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_area_val_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_instance_area_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_instance_area_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_instance_area_val_cmd);
 
   /* These commands are compatibitliy for previous version. */
   install_element (INTERFACE_NODE, &ospf_authentication_key_cmd);
