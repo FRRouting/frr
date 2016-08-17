@@ -131,7 +131,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
    */
   if (!pim_mroute_connected_to_source (ifp, msg->im_src))
     {
-      if (PIM_DEBUG_MROUTE)
+      if (PIM_DEBUG_MROUTE_DETAIL)
        zlog_debug ("%s: Received incoming packet that doesn't originate on our seg",
 		   __PRETTY_FUNCTION__);
       return 0;
@@ -193,7 +193,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
 
   up = pim_upstream_find(&sg);
   if (!up) {
-    if (PIM_DEBUG_MROUTE) {
+    if (PIM_DEBUG_MROUTE_DETAIL) {
       zlog_debug("%s: Unable to find upstream channel WHOLEPKT%s",
 		 __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
     }
@@ -399,7 +399,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
   /* kernel upcall must have protocol=0 */
   if (ip_hdr->ip_p) {
     /* this is not a kernel upcall */
-    if (PIM_DEBUG_MROUTE) {
+    if (PIM_DEBUG_MROUTE_DETAIL) {
       pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str, sizeof(src_str));
       pim_inet4_dump("<grp?>", ip_hdr->ip_dst, grp_str, sizeof(grp_str));
       zlog_debug("%s: not a kernel upcall proto=%d src: %s dst: %s msg_size=%d",
