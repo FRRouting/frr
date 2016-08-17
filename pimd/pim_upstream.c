@@ -380,15 +380,28 @@ pim_upstream_switch(struct pim_upstream *up,
 {
   enum pim_upstream_state old_state = up->join_state;
 
-  up->join_state       = new_state;
-  up->state_transition = pim_time_monotonic_sec();
-
   if (PIM_DEBUG_PIM_EVENTS) {
     zlog_debug("%s: PIM_UPSTREAM_%s: (S,G)=%s",
 	       __PRETTY_FUNCTION__,
 	       ((new_state == PIM_UPSTREAM_JOINED) ? "JOINED" : "NOTJOINED"),
 	       pim_str_sg_dump (&up->sg));
   }
+
+  /*
+   * This code still needs work.
+   */
+  switch (up->join_state)
+    {
+    case PIM_UPSTREAM_PRUNE:
+    case PIM_UPSTREAM_JOIN_PENDING:
+      break;
+    case PIM_UPSTREAM_NOTJOINED:
+    case PIM_UPSTREAM_JOINED:
+      up->join_state       = new_state;
+      up->state_transition = pim_time_monotonic_sec();
+
+      break;
+    }
 
   pim_upstream_update_assert_tracking_desired(up);
 
@@ -911,7 +924,6 @@ pim_upstream_register_stop_timer (struct thread *t)
   struct pim_upstream *up;
   struct pim_rpf *rpg;
   struct ip ip_hdr;
-
   up = THREAD_ARG (t);
 
   THREAD_TIMER_OFF (up->t_rs_timer);
@@ -927,6 +939,9 @@ pim_upstream_register_stop_timer (struct thread *t)
     {
     case PIM_UPSTREAM_JOIN_PENDING:
       up->join_state = PIM_UPSTREAM_JOINED;
+      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+      break;
+    case PIM_UPSTREAM_JOINED:
       break;
     case PIM_UPSTREAM_PRUNE:
       up->join_state = PIM_UPSTREAM_JOIN_PENDING;

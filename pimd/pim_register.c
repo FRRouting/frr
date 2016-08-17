@@ -131,10 +131,12 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
       return 0;
       break;
     case PIM_UPSTREAM_JOINED:
+      upstream->join_state = PIM_UPSTREAM_PRUNE;
+      pim_channel_del_oif (upstream->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+      pim_upstream_start_register_stop_timer (upstream, 0);
     case PIM_UPSTREAM_JOIN_PENDING:
       upstream->join_state = PIM_UPSTREAM_PRUNE;
       pim_upstream_start_register_stop_timer (upstream, 0);
-      pim_channel_del_oif (upstream->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
       return 0;
       break;
     }
