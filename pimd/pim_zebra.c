@@ -340,7 +340,14 @@ static void scan_upstream_rpf_cache()
     if (rpf_result == PIM_RPF_CHANGED) {
       
       if (up->join_state == PIM_UPSTREAM_JOINED) {
-	
+	/*
+         * If we come up real fast we can be here
+	 * where the mroute has not been installed
+	 * so install it.
+	 */
+	if (!up->channel_oil->installed)
+          pim_mroute_add (up->channel_oil);
+
 	/*
 	  RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Messages
 	  
@@ -452,7 +459,6 @@ pim_scan_individual_oil (struct channel_oil *c_oil)
     old_vif_index = c_oil->oil.mfcc_parent;
     c_oil->oil.mfcc_parent = input_iface_vif_index;
 
-    zlog_debug ("FF");
     /* update kernel multicast forwarding cache (MFC) */
     if (pim_mroute_add(c_oil))
       {
