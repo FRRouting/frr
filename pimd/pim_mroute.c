@@ -156,7 +156,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     return 0;
   }
 
-  pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
+  pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 
   up->channel_oil = pim_channel_oil_add(&sg,
 					pim_ifp->mroute_vif_index);
@@ -373,7 +373,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
     up->fhr = 1;
 
   pim_ifp = ifp->info;
-  pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
+  pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
   up->channel_oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
   up->channel_oil->cc.pktcnt++;
   pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);

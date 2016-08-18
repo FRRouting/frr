@@ -69,6 +69,7 @@ int64_t                   qpim_mroute_add_last = 0;
 int64_t                   qpim_mroute_del_events = 0;
 int64_t                   qpim_mroute_del_last = 0;
 struct list              *qpim_static_route_list = NULL;
+unsigned int              qpim_keep_alive_time = PIM_KEEPALIVE_PERIOD;
 
 int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;

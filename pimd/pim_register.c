@@ -349,7 +349,7 @@ pim_register_recv (struct interface *ifp,
       if (sentRegisterStop) {
 	pim_upstream_keep_alive_timer_start (upstream, PIM_RP_KEEPALIVE_PERIOD);
       } else {
-	pim_upstream_keep_alive_timer_start (upstream, PIM_KEEPALIVE_PERIOD);
+	pim_upstream_keep_alive_timer_start (upstream, qpim_keep_alive_time);
       }
     }
 

@@ -104,6 +104,7 @@ int64_t                   qpim_mroute_add_last;
 int64_t                   qpim_mroute_del_events;
 int64_t                   qpim_mroute_del_last;
 struct list              *qpim_static_route_list; /* list of routes added statically */
+extern unsigned int       qpim_keep_alive_time;
 
 #define PIM_JP_HOLDTIME (qpim_t_periodic * 7 / 2)
 

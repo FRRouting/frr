@@ -842,7 +842,7 @@ pim_upstream_keep_alive_timer (struct thread *t)
   else
     {
       up->t_ka_timer = NULL;
-      pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
+      pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
     }
 
   return 1;
