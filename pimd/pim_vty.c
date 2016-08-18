@@ -144,6 +144,13 @@ int pim_global_config_write(struct vty *vty)
                qpim_keep_alive_time, VTY_NEWLINE);
       ++writes;
     }
+  if (qpim_rp_keep_alive_time != PIM_RP_KEEPALIVE_PERIOD)
+    {
+      vty_out (vty, "ip pim rp keep-alive-timer %d%s",
+               qpim_keep_alive_time, VTY_NEWLINE);
+      ++writes;
+    }
+
   if (qpim_ssmpingd_list) {
     struct listnode *node;
     struct ssmpingd_sock *ss;

@@ -347,7 +347,7 @@ pim_register_recv (struct interface *ifp,
     if ((upstream->sptbit == PIM_UPSTREAM_SPTBIT_TRUE) ||
 	(SwitchToSptDesired(&sg))) {
       if (sentRegisterStop) {
-	pim_upstream_keep_alive_timer_start (upstream, PIM_RP_KEEPALIVE_PERIOD);
+	pim_upstream_keep_alive_timer_start (upstream, qpim_rp_keep_alive_time);
       } else {
 	pim_upstream_keep_alive_timer_start (upstream, qpim_keep_alive_time);
       }
