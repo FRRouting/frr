@@ -191,8 +191,6 @@ pim_upstream_send_join (struct pim_upstream *up)
   if (up->fhr)
     return;
 
-  zassert(up->join_state == PIM_UPSTREAM_JOINED);
-  
   /* send Join(S,G) to the current upstream neighbor */
   pim_joinprune_send(up->rpf.source_nexthop.interface,
   		     up->rpf.rpf_addr,
@@ -854,6 +852,7 @@ void
 pim_upstream_keep_alive_timer_start (struct pim_upstream *up,
 				     uint32_t time)
 {
+  THREAD_OFF (up->t_ka_timer);
   THREAD_TIMER_ON (master,
 		   up->t_ka_timer,
 		   pim_upstream_keep_alive_timer,
