@@ -419,7 +419,9 @@ main (int argc, char **argv)
   zlog_default = openzlog (progname, ZLOG_BGP, 0,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
   zprivs_init (&bgpd_privs);
-  zlog_set_file (NULL, LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
+#if defined(HAVE_CUMULUS)
+  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
+#endif
 
   /* BGP master init. */
   bgp_master_init ();

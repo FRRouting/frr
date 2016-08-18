@@ -288,7 +288,9 @@ main (int argc, char **argv)
   zlog_default = openzlog (progname, ZLOG_OSPF, instance,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
   zprivs_init (&ospfd_privs);
-  zlog_set_file (NULL, LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
+#if defined(HAVE_CUMULUS)
+  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
+#endif
 
   /* OSPF master init. */
   ospf_master_init ();
