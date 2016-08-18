@@ -635,7 +635,6 @@ void pim_upstream_update_join_desired(struct pim_upstream *up)
       
   /* switched from true to false */
   if (!is_join_desired && was_join_desired) {
-    zassert(up->join_state == PIM_UPSTREAM_JOINED);
     pim_upstream_switch(up, PIM_UPSTREAM_NOTJOINED);
     return;
   }
@@ -837,6 +836,11 @@ pim_upstream_keep_alive_timer (struct thread *t)
       (up->channel_oil->cc.oldlastused >= up->channel_oil->cc.lastused))
     {
       pim_mroute_del (up->channel_oil);
+      THREAD_OFF (up->t_ka_timer);
+      THREAD_OFF (up->t_rs_timer);
+      THREAD_OFF (up->t_join_timer);
+      pim_joinprune_send (up->rpf.source_nexthop.interface, up->rpf.rpf_addr,
+                          &up->sg, 0);
       pim_upstream_del (up);
     }
   else
