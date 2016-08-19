@@ -1029,7 +1029,6 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
   int output_intf = 0;
 
   pim_ifp = up->rpf.source_nexthop.interface->info;
-  zlog_debug ("Channel Oil%s: %p", pim_str_sg_dump (&up->sg), up->channel_oil);
   if (!up->channel_oil)
     up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
 

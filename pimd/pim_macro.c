@@ -337,7 +337,7 @@ static int pim_macro_chisin_inherited_olist(const struct pim_ifchannel *ch)
 */
 int pim_macro_chisin_oiflist(const struct pim_ifchannel *ch)
 {
-  if (ch->upstream->join_state != PIM_UPSTREAM_JOINED) {
+  if (ch->upstream->join_state == PIM_UPSTREAM_NOTJOINED) {
     /* oiflist is NULL */
     return 0; /* false */
   }

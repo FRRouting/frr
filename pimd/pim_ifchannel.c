@@ -169,6 +169,13 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
 {
   enum pim_ifjoin_state old_state = ch->ifjoin_state;
 
+  if (PIM_DEBUG_PIM_EVENTS)
+    zlog_debug ("PIM_IFCHANNEL: %s is switching from %s to %s",
+		pim_str_sg_dump (&ch->sg),
+		pim_ifchannel_ifjoin_name (ch->ifjoin_state),
+		pim_ifchannel_ifjoin_name (new_state));
+
+
   if (old_state == new_state) {
     if (PIM_DEBUG_PIM_EVENTS) {
       zlog_debug("%s calledby %s: non-transition on state %d (%s)",
@@ -177,8 +184,6 @@ void pim_ifchannel_ifjoin_switch(const char *caller,
     }
     return;
   }
-
-  zassert(old_state != new_state);
 
   ch->ifjoin_state = new_state;
 
