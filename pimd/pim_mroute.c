@@ -350,13 +350,20 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   up = pim_upstream_find (&sg);
   if (up)
     {
-      struct pim_nexthop source;
-      //No if channel, but upstream we are at the RP.
-      pim_nexthop_lookup (&source, up->upstream_register, NULL);
-      pim_register_stop_send(source.interface, &sg, up->upstream_register);
-      //Send S bit down the join.
-      up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
-      return 0;
+      /*
+       * If we are the fhr that means we are getting a callback during
+       * the pimreg period, so I believe we can ignore this packet
+       */
+      if (!up->fhr)
+	{
+	  struct pim_nexthop source;
+	  //No if channel, but upstream we are at the RP.
+	  pim_nexthop_lookup (&source, up->upstream_register, NULL);
+	  pim_register_stop_send(source.interface, &sg, up->upstream_register);
+	  //Send S bit down the join.
+	  up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+	}
+	  return 0;
     }
 
   up = pim_upstream_add (&sg, ifp);

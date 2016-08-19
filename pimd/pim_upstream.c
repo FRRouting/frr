@@ -156,6 +156,7 @@ void pim_upstream_delete(struct pim_upstream *up)
   THREAD_OFF(up->t_rs_timer);
 
   pim_upstream_remove_children (up);
+  pim_mroute_del (up->channel_oil);
   upstream_channel_oil_detach(up);
 
   /*
