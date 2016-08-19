@@ -505,6 +505,28 @@ vtysh_execute (const char *line)
   return vtysh_execute_func (line, 1);
 }
 
+static char *
+trim (char *s)
+{
+  size_t size;
+  char *end;
+
+  size = strlen(s);
+
+  if (!size)
+      return s;
+
+  end = s + size - 1;
+  while (end >= s && isspace(*end))
+      end--;
+  *(end + 1) = '\0';
+
+  while (*s && isspace(*s))
+      s++;
+
+  return s;
+}
+
 int
 vtysh_mark_file (const char *filename)
 {
@@ -516,6 +538,8 @@ vtysh_mark_file (const char *filename)
   struct cmd_element *cmd;
   int saved_ret, prev_node;
   int lineno = 0;
+  char *vty_buf_copy = NULL;
+  char *vty_buf_trimmed = NULL;
 
   if (strncmp("-", filename, 1) == 0)
     confp = stdin;
@@ -536,13 +560,16 @@ vtysh_mark_file (const char *filename)
 
   vtysh_execute_no_pager ("enable");
   vtysh_execute_no_pager ("configure terminal");
+  vty_buf_copy = XCALLOC (MTYPE_VTY, VTY_BUFSIZ);
 
   while (fgets (vty->buf, VTY_BUFSIZ, confp))
     {
       lineno++;
       tried = 0;
+      strcpy(vty_buf_copy, vty->buf);
+      vty_buf_trimmed = trim(vty_buf_copy);
 
-      if (vty->buf[0] == '!' || vty->buf[1] == '#')
+      if (vty_buf_trimmed[0] == '!' || vty_buf_trimmed[0] == '#')
 	{
 	  fprintf(stdout, "%s", vty->buf);
 	  continue;
@@ -556,6 +583,12 @@ vtysh_mark_file (const char *filename)
 	  fprintf(stdout, "%s", vty->buf);
 	  continue;
 	}
+
+      /* Ignore the "end" lines, we will generate these where appropriate */
+      if (strlen(vty_buf_trimmed) == 3 && strncmp("end", vty_buf_trimmed, 3) == 0)
+        {
+          continue;
+        }
 
       prev_node = vty->node;
       saved_ret = ret = cmd_execute_command_strict (vline, vty, &cmd);
@@ -607,21 +640,25 @@ vtysh_mark_file (const char *filename)
 	    fprintf (stderr,"line %d: Warning...: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
+          XFREE(MTYPE_VTY, vty_buf_copy);
 	  return CMD_WARNING;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stderr,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
+          XFREE(MTYPE_VTY, vty_buf_copy);
 	  return CMD_ERR_AMBIGUOUS;
 	case CMD_ERR_NO_MATCH:
 	  fprintf (stderr,"line %d: %% Unknown command: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
+          XFREE(MTYPE_VTY, vty_buf_copy);
 	  return CMD_ERR_NO_MATCH;
 	case CMD_ERR_INCOMPLETE:
 	  fprintf (stderr,"line %d: %% Command incomplete: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
+          XFREE(MTYPE_VTY, vty_buf_copy);
 	  return CMD_ERR_INCOMPLETE;
 	case CMD_SUCCESS:
 	  fprintf(stdout, "%s", vty->buf);
@@ -653,6 +690,7 @@ vtysh_mark_file (const char *filename)
   /* This is the end */
   fprintf(stdout, "end\n");
   vty_close(vty);
+  XFREE(MTYPE_VTY, vty_buf_copy);
 
   if (confp != stdin)
     fclose(confp);

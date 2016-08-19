@@ -448,7 +448,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     for (ctx_keys, line) in lines_to_del:
         deleted = False
 
-        if ctx_keys[0].startswith('router bgp') and line.startswith('neighbor '):
+        if ctx_keys[0].startswith('router bgp') and line and line.startswith('neighbor '):
             """
             BGP changed how it displays swpX peers that are part of peer-group. Older
             versions of quagga would display these on separate lines:
@@ -608,7 +608,7 @@ def compare_context_objects(newconf, running):
     # Compare the two Config objects to find the lines that we need to add/del
     lines_to_add = []
     lines_to_del = []
-    restart_bgpd = False
+    delete_bgpd = False
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
@@ -616,17 +616,21 @@ def compare_context_objects(newconf, running):
 
         if running_ctx_keys not in newconf.contexts:
 
-            # Check if bgp's local ASN has changed. If yes, just restart it
             # We check that the len is 1 here so that we only look at ('router bgp 10')
             # and not ('router bgp 10', 'address-family ipv4 unicast'). The
-            # latter could cause a false restart_bgpd positive if ipv4 unicast is in
+            # latter could cause a false delete_bgpd positive if ipv4 unicast is in
             # running but not in newconf.
             if "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) == 1:
-                restart_bgpd = True
+                delete_bgpd = True
+                lines_to_del.append((running_ctx_keys, None))
+
+            # If this is an address-family under 'router bgp' and we are already deleting the
+            # entire 'router bgp' context then ignore this sub-context
+            elif "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) > 1 and delete_bgpd:
                 continue
 
             # Non-global context
-            if running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
+            elif running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
                 lines_to_del.append((running_ctx_keys, None))
 
             # Global context
@@ -652,11 +656,6 @@ def compare_context_objects(newconf, running):
     for (newconf_ctx_keys, newconf_ctx) in newconf.contexts.iteritems():
 
         if newconf_ctx_keys not in running.contexts:
-
-            # If its "router bgp" and we're restarting bgp, skip doing
-            # anything specific for bgp
-            if "router bgp" in newconf_ctx_keys[0] and restart_bgpd:
-                continue
             lines_to_add.append((newconf_ctx_keys, None))
 
             for line in newconf_ctx.lines:
@@ -664,7 +663,7 @@ def compare_context_objects(newconf, running):
 
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
 
-    return (lines_to_add, lines_to_del, restart_bgpd)
+    return (lines_to_add, lines_to_del)
 
 if __name__ == '__main__':
     # Command line options
@@ -684,6 +683,11 @@ if __name__ == '__main__':
     if args.test or args.stdout:
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)5s: %(message)s')
+
+        # Color the errors and warnings in red
+        logging.addLevelName(logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR))
+        logging.addLevelName(logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING))
+
     elif args.reload:
         if not os.path.isdir('/var/log/quagga/'):
             os.makedirs('/var/log/quagga/')
@@ -742,7 +746,7 @@ if __name__ == '__main__':
         else:
             running.load_from_show_running()
 
-        (lines_to_add, lines_to_del, restart_bgp) = compare_context_objects(newconf, running)
+        (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
         lines_to_configure = []
 
         if lines_to_del:
@@ -770,9 +774,6 @@ if __name__ == '__main__':
                 cmd = line_for_vtysh_file(ctx_keys, line, False)
                 lines_to_configure.append(cmd)
                 print cmd
-
-        if restart_bgp:
-            print "BGP local AS changed, bgpd would restart"
 
     elif args.reload:
 
@@ -805,7 +806,7 @@ if __name__ == '__main__':
             running.load_from_show_running()
             logger.debug('Running Quagga Config (Pass #%d)\n%s', x, running.get_lines())
 
-            (lines_to_add, lines_to_del, restart_bgp) = compare_context_objects(newconf, running)
+            (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
 
             if lines_to_del:
                 for (ctx_keys, line) in lines_to_del:
@@ -881,6 +882,5 @@ if __name__ == '__main__':
                     subprocess.call(['/usr/bin/vtysh', '-f', filename])
                     os.unlink(filename)
 
-            if restart_bgp:
-                subprocess.call(['sudo', 'systemctl', 'reset-failed', 'quagga'])
-                subprocess.call(['sudo', 'systemctl', '--no-block', 'restart', 'quagga'])
+            # Make these changes persistent
+            subprocess.call(['/usr/bin/vtysh', '-c', 'write'])

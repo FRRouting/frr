@@ -3752,6 +3752,10 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
 
   host.logfile = XSTRDUP (MTYPE_HOST, fname);
 
+#if defined(HAVE_CUMULUS)
+  if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED)
+    zlog_default->maxlvl[ZLOG_DEST_SYSLOG] = ZLOG_DISABLED;
+#endif
   return CMD_SUCCESS;
 }
 

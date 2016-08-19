@@ -1337,8 +1337,6 @@ main(int argc, char **argv)
 
   zlog_default = openzlog(progname, ZLOG_NONE, 0,
 			  LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zlog_set_file (NULL,  LOG_DEFAULT_FILENAME, zlog_default->default_lvl);
-
   zlog_set_level(NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
   if (daemon_mode)
     {
