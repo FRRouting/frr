@@ -1004,7 +1004,7 @@ static void pim_show_upstream(struct vty *vty)
 	      up->rpf.source_nexthop.interface->name,
 	      src_str,
 	      grp_str,
-	      pim_upstream_state2str (up),
+	      pim_upstream_state2str (up->join_state),
 	      uptime,
 	      join_timer,
 	      rs_timer,

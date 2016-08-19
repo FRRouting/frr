@@ -175,7 +175,7 @@ pim_upstream_send_join (struct pim_upstream *up)
     char rpf_str[100];
     pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_debug ("%s: RPF'%s=%s(%s) for Interface %s", __PRETTY_FUNCTION__,
-		pim_str_sg_dump (&up->sg), rpf_str, pim_upstream_state2str (up),
+		pim_str_sg_dump (&up->sg), rpf_str, pim_upstream_state2str (up->join_state),
 		up->rpf.source_nexthop.interface->name);
     if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr)) {
       zlog_debug("%s: can't send join upstream: RPF'%s=%s",
@@ -379,10 +379,11 @@ pim_upstream_switch(struct pim_upstream *up,
   enum pim_upstream_state old_state = up->join_state;
 
   if (PIM_DEBUG_PIM_EVENTS) {
-    zlog_debug("%s: PIM_UPSTREAM_%s: (S,G)=%s",
+    zlog_debug("%s: PIM_UPSTREAM_%s: (S,G) old: %s new: %s",
 	       __PRETTY_FUNCTION__,
-	       ((new_state == PIM_UPSTREAM_JOINED) ? "JOINED" : "NOTJOINED"),
-	       pim_str_sg_dump (&up->sg));
+	       pim_str_sg_dump (&up->sg),
+	       pim_upstream_state2str (up->join_state),
+	       pim_upstream_state2str (new_state));
   }
 
   /*
@@ -901,9 +902,9 @@ pim_upstream_switch_to_spt_desired (struct prefix_sg *sg)
 }
 
 const char *
-pim_upstream_state2str (struct pim_upstream *up)
+pim_upstream_state2str (enum pim_upstream_state join_state)
 {
-  switch (up->join_state)
+  switch (join_state)
     {
     case PIM_UPSTREAM_NOTJOINED:
       return "NtJnd";
@@ -936,7 +937,7 @@ pim_upstream_register_stop_timer (struct thread *t)
     {
       zlog_debug ("%s: (S,G)=%s upstream register stop timer %s",
 		  __PRETTY_FUNCTION__, pim_str_sg_dump (&up->sg),
-                  pim_upstream_state2str(up));
+                  pim_upstream_state2str(up->join_state));
     }
 
   switch (up->join_state)
