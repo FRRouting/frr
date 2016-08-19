@@ -358,7 +358,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 	{
 	  struct pim_nexthop source;
 	  //No if channel, but upstream we are at the RP.
-	  pim_nexthop_lookup (&source, up->upstream_register, NULL);
+	  pim_nexthop_lookup (&source, up->upstream_register);
 	  pim_register_stop_send(source.interface, &sg, up->upstream_register);
 	  //Send S bit down the join.
 	  up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;

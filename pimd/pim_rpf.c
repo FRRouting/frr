@@ -37,8 +37,7 @@
 
 static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 
-int pim_nexthop_lookup(struct pim_nexthop *nexthop,
-		       struct in_addr addr, struct interface *incoming)
+int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr)
 {
   struct pim_zlookup_nexthop nexthop_tab[PIM_NEXTHOP_IFINDEX_TAB_SIZE];
   int num_ifindex;
@@ -47,46 +46,38 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop,
 
   memset (nexthop_tab, 0, sizeof (struct pim_zlookup_nexthop) * PIM_NEXTHOP_IFINDEX_TAB_SIZE);
 
-  if (!incoming)
-    {
-      num_ifindex = zclient_lookup_nexthop(nexthop_tab,
-					   PIM_NEXTHOP_IFINDEX_TAB_SIZE,
-					   addr, PIM_NEXTHOP_LOOKUP_MAX);
-      if (num_ifindex < 1) {
-	char addr_str[100];
-	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	zlog_warn("%s %s: could not find nexthop ifindex for address %s",
-		  __FILE__, __PRETTY_FUNCTION__,
-		  addr_str);
-	return -1;
-      }
+  num_ifindex = zclient_lookup_nexthop(nexthop_tab,
+				       PIM_NEXTHOP_IFINDEX_TAB_SIZE,
+				       addr, PIM_NEXTHOP_LOOKUP_MAX);
+  if (num_ifindex < 1) {
+    char addr_str[100];
+    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+    zlog_warn("%s %s: could not find nexthop ifindex for address %s",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      addr_str);
+    return -1;
+  }
 
-      first_ifindex = nexthop_tab[0].ifindex;
+  first_ifindex = nexthop_tab[0].ifindex;
 
-      if (num_ifindex > 1) {
-	char addr_str[100];
-	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	zlog_info("%s %s: FIXME ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
-		  __FILE__, __PRETTY_FUNCTION__,
-		  num_ifindex, addr_str, first_ifindex);
-	/* debug warning only, do not return */
-      }
+  if (num_ifindex > 1) {
+    char addr_str[100];
+    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+    zlog_info("%s %s: FIXME ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      num_ifindex, addr_str, first_ifindex);
+    /* debug warning only, do not return */
+  }
 
-      ifp = if_lookup_by_index(first_ifindex);
-      if (!ifp) {
-	char addr_str[100];
-	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	zlog_warn("%s %s: could not find interface for ifindex %d (address %s)",
-		  __FILE__, __PRETTY_FUNCTION__,
-		  first_ifindex, addr_str);
-	return -2;
-      }
-    }
-  else
-    {
-      ifp = incoming;
-      first_ifindex = ifp->ifindex;
-    }
+  ifp = if_lookup_by_index(first_ifindex);
+  if (!ifp) {
+    char addr_str[100];
+    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+    zlog_warn("%s %s: could not find interface for ifindex %d (address %s)",
+	      __FILE__, __PRETTY_FUNCTION__,
+	      first_ifindex, addr_str);
+    return -2;
+  }
 
   if (!ifp->info) {
     char addr_str[100];
@@ -131,9 +122,7 @@ static int nexthop_mismatch(const struct pim_nexthop *nh1,
     (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
 
-enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
-				   struct in_addr *old_rpf_addr,
-				   struct interface *incoming)
+enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr)
 {
   struct in_addr      save_rpf_addr;
   struct pim_nexthop  save_nexthop;
@@ -142,8 +131,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
   save_nexthop  = rpf->source_nexthop; /* detect change in pim_nexthop */
   save_rpf_addr = rpf->rpf_addr;       /* detect change in RPF'(S,G) */
 
-  if (pim_nexthop_lookup(&rpf->source_nexthop,
-			 up->upstream_addr, incoming)) {
+  if (pim_nexthop_lookup(&rpf->source_nexthop, up->upstream_addr)) {
     return PIM_RPF_FAILURE;
   }
 

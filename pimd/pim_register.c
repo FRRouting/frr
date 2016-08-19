@@ -326,12 +326,10 @@ pim_register_recv (struct interface *ifp,
         upstream->upstream_register = src_addr;
 	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
 	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
-			    upstream->upstream_addr, NULL);
-	upstream->rpf.source_nexthop.interface = ifp;
+			    upstream->upstream_addr);
 	upstream->sg.src = sg.src;
 	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
 
-	//pim_upstream_switch (upstream, PIM_UPSTREAM_PRUNE);
 	upstream->join_state = PIM_UPSTREAM_PRUNE;
 
       }

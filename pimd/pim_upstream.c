@@ -463,13 +463,13 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
   up->channel_oil                = NULL;
   up->sptbit                     = PIM_UPSTREAM_SPTBIT_FALSE;
 
-  up->rpf.source_nexthop.interface                = 0;
+  up->rpf.source_nexthop.interface                = NULL;
   up->rpf.source_nexthop.mrib_nexthop_addr.s_addr = PIM_NET_INADDR_ANY;
   up->rpf.source_nexthop.mrib_metric_preference   = qpim_infinite_assert_metric.metric_preference;
   up->rpf.source_nexthop.mrib_route_metric        = qpim_infinite_assert_metric.route_metric;
   up->rpf.rpf_addr.s_addr                         = PIM_NET_INADDR_ANY;
 
-  rpf_result = pim_rpf_update(up, 0, incoming);
+  rpf_result = pim_rpf_update(up, 0);
   if (rpf_result == PIM_RPF_FAILURE) {
     XFREE(MTYPE_PIM_UPSTREAM, up);
     return NULL;

@@ -2347,7 +2347,7 @@ DEFUN (show_ip_rib,
     return CMD_WARNING;
   }
 
-  if (pim_nexthop_lookup(&nexthop, addr, NULL)) {
+  if (pim_nexthop_lookup(&nexthop, addr)) {
     vty_out(vty, "Failure querying RIB nexthop for unicast address %s%s",
 	    addr_str, VTY_NEWLINE);
     return CMD_WARNING;

@@ -27,10 +27,7 @@
 #include "pim_upstream.h"
 #include "pim_neighbor.h"
 
-int pim_nexthop_lookup(struct pim_nexthop *nexthop,
-		       struct in_addr addr, struct interface *incoming);
-enum pim_rpf_result pim_rpf_update(struct pim_upstream *up,
-				   struct in_addr *old_rpf_addr,
-				   struct interface *incoming);
+int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr);
+enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr);
 
 #endif /* PIM_RPF_H */
