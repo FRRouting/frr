@@ -16,3 +16,4 @@ gitversion.h.tmp
 *.loT
 memtypes.h
 route_types.h
+refix
