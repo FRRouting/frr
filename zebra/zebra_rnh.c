@@ -593,7 +593,7 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
                        vrfid, bufn, bufs);
         }
 
-      SET_FLAG(srib->flags, RIB_ENTRY_CHANGED);
+      SET_FLAG(srib->status, RIB_ENTRY_CHANGED);
       SET_FLAG(srib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
       rib_queue_add(static_rn);
     }
