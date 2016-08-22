@@ -932,6 +932,7 @@ pim_upstream_state2str (enum pim_upstream_state join_state)
 static int
 pim_upstream_register_stop_timer (struct thread *t)
 {
+  struct pim_interface *pim_ifp;
   struct pim_upstream *up;
   struct pim_rpf *rpg;
   struct ip ip_hdr;
@@ -956,6 +957,7 @@ pim_upstream_register_stop_timer (struct thread *t)
     case PIM_UPSTREAM_JOINED:
       break;
     case PIM_UPSTREAM_PRUNE:
+      pim_ifp = up->rpf.source_nexthop.interface->info;
       up->join_state = PIM_UPSTREAM_JOIN_PENDING;
       pim_upstream_start_register_stop_timer (up, 1);
 
@@ -968,7 +970,8 @@ pim_upstream_register_stop_timer (struct thread *t)
       ip_hdr.ip_dst = up->sg.grp;
       ip_hdr.ip_len = htons (20);
       // checksum is broken
-      pim_register_send ((uint8_t *)&ip_hdr, sizeof (struct ip), rpg, 1);
+      pim_register_send ((uint8_t *)&ip_hdr, sizeof (struct ip),
+			 pim_ifp->primary_address, rpg, 1);
       break;
     default:
       break;

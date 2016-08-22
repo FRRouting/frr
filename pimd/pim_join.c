@@ -434,6 +434,7 @@ int pim_joinprune_send(struct interface *ifp,
     return pim_msg_size;
 
   if (pim_msg_send(pim_ifp->pim_sock_fd,
+		   pim_ifp->primary_address,
 		   qpim_all_pim_routers_addr,
 		   pim_msg,
 		   pim_msg_size,

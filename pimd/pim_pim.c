@@ -480,7 +480,10 @@ void pim_sock_reset(struct interface *ifp)
   pim_ifstat_reset(ifp);
 }
 
+static uint16_t ip_id = 0;
+
 int pim_msg_send(int fd,
+		 struct in_addr src,
 		 struct in_addr dst,
 		 uint8_t *pim_msg,
 		 int pim_msg_size,
@@ -489,6 +492,25 @@ int pim_msg_send(int fd,
   ssize_t            sent;
   struct sockaddr_in to;
   socklen_t          tolen;
+  unsigned char      buffer[3000];
+  unsigned char      *msg_start;
+  struct ip *ip;
+
+  memset (buffer, 0, 3000);
+  int sendlen = sizeof (struct ip) + pim_msg_size;
+
+  msg_start = buffer + sizeof (struct ip);
+  memcpy (msg_start, pim_msg, pim_msg_size);
+
+  ip = (struct ip *)buffer;
+  ip->ip_id = htons (++ip_id);
+  ip->ip_hl = 5;
+  ip->ip_v = 4;
+  ip->ip_p = PIM_IP_PROTO_PIM;
+  ip->ip_src = src;
+  ip->ip_dst = dst;
+  ip->ip_ttl = MAXTTL;
+  ip->ip_len = htons (sendlen);
 
   if (PIM_DEBUG_PIM_PACKETS) {
     char dst_str[100];
@@ -508,9 +530,9 @@ int pim_msg_send(int fd,
     pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_size);
   }
 
-  sent = sendto(fd, pim_msg, pim_msg_size, MSG_DONTWAIT,
+  sent = sendto(fd, buffer, sendlen, MSG_DONTWAIT,
                 (struct sockaddr *)&to, tolen);
-  if (sent != (ssize_t) pim_msg_size) {
+  if (sent != (ssize_t) sendlen) {
     char dst_str[100];
     pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
     if (sent < 0) {
@@ -577,6 +599,7 @@ static int hello_send(struct interface *ifp,
 		       PIM_MSG_TYPE_HELLO);
 
   if (pim_msg_send(pim_ifp->pim_sock_fd,
+		   pim_ifp->primary_address,
 		   qpim_all_pim_routers_addr,
 		   pim_msg,
 		   pim_msg_size,
@@ -758,6 +781,8 @@ int pim_sock_add(struct interface *ifp)
 	      ifp->name);
     return -2;
   }
+
+  pim_socket_ip_hdr (pim_ifp->pim_sock_fd);
 
   pim_ifp->t_pim_sock_read   = NULL;
   pim_ifp->pim_sock_creation = pim_time_monotonic_sec();

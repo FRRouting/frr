@@ -218,7 +218,8 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
    * If we've received a register suppress
    */
   if (!up->t_rs_timer)
-    pim_register_send((uint8_t *)buf + sizeof(struct ip), ntohs (ip_hdr->ip_len), rpg, 0);
+    pim_register_send((uint8_t *)buf + sizeof(struct ip), ntohs (ip_hdr->ip_len),
+		      pim_ifp->primary_address, rpg, 0);
 
   return 0;
 }
@@ -357,9 +358,12 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
       if (!up->fhr)
 	{
 	  struct pim_nexthop source;
+	  struct pim_rpf *rpf = RP (sg.grp);
+	  pim_ifp = rpf->source_nexthop.interface->info;
+
 	  //No if channel, but upstream we are at the RP.
 	  pim_nexthop_lookup (&source, up->upstream_register);
-	  pim_register_stop_send(source.interface, &sg, up->upstream_register);
+	  pim_register_stop_send(source.interface, &sg, pim_ifp->primary_address, up->upstream_register);
 	  //Send S bit down the join.
 	  up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 	}

@@ -46,7 +46,7 @@ struct thread *send_test_packet_timer = NULL;
 
 void
 pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg,
-			struct in_addr originator)
+			struct in_addr src, struct in_addr originator)
 {
   struct pim_interface *pinfo;
   unsigned char buffer[3000];
@@ -83,7 +83,7 @@ pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg,
         zlog_debug ("%s: No pinfo!\n", __PRETTY_FUNCTION__);
       return;
     }
-  if (pim_msg_send (pinfo->pim_sock_fd, originator,
+  if (pim_msg_send (pinfo->pim_sock_fd, src, originator,
 		    buffer, b1length + PIM_MSG_REGISTER_STOP_LEN,
 		    ifp->name))
     {
@@ -145,7 +145,7 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
 }
 
 void
-pim_register_send (const uint8_t *buf, int buf_size, struct pim_rpf *rpg, int null_register)
+pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct pim_rpf *rpg, int null_register)
 {
   unsigned char buffer[3000];
   unsigned char *b1;
@@ -176,6 +176,7 @@ pim_register_send (const uint8_t *buf, int buf_size, struct pim_rpf *rpg, int nu
   pim_msg_build_header(buffer, buf_size + PIM_MSG_REGISTER_LEN, PIM_MSG_TYPE_REGISTER);
 
   if (pim_msg_send(pinfo->pim_sock_fd,
+		   src,
 		   rpg->rpf_addr,
 		   buffer,
 		   buf_size + PIM_MSG_REGISTER_LEN,
@@ -306,7 +307,7 @@ pim_register_recv (struct interface *ifp,
       if (pimbr.s_addr == pim_br_unknown.s_addr)
 	pim_br_set_pmbr(&sg, src_addr);
       else if (src_addr.s_addr != pimbr.s_addr) {
-	pim_register_stop_send (ifp, &sg, src_addr);
+	pim_register_stop_send (ifp, &sg, dest_addr, src_addr);
 	if (PIM_DEBUG_PIM_PACKETS)
 	  zlog_debug("%s: Sending register-Stop to %s and dropping mr. packet",
 	    __func__, "Sender");
@@ -338,7 +339,7 @@ pim_register_recv (struct interface *ifp,
 	((SwitchToSptDesired(&sg)) &&
 	 pim_upstream_inherited_olist (upstream) == 0)) {
       //pim_scan_individual_oil (upstream->channel_oil);
-      pim_register_stop_send (ifp, &sg, src_addr);
+      pim_register_stop_send (ifp, &sg, dest_addr, src_addr);
       sentRegisterStop = 1;
     }
 
@@ -359,7 +360,7 @@ pim_register_recv (struct interface *ifp,
 	// This is taken care of by the kernel for us
       }
   } else {
-    pim_register_stop_send (ifp, &sg, src_addr);
+    pim_register_stop_send (ifp, &sg, dest_addr, src_addr);
   }
 
   return 1;
