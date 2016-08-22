@@ -1591,7 +1591,7 @@ DEFUN (rmap_onmatch_goto,
         }
 
       if (argc == 1 && argv[0])
-        VTY_GET_INTEGER_RANGE("route-map index", d, argv[0], 1, 65536);
+        VTY_GET_INTEGER_RANGE("route-map index", d, argv[0], 1, 65535);
       else
         d = index->pref + 1;
       
@@ -1669,7 +1669,7 @@ DEFUN (rmap_show_name,
 
 ALIAS (rmap_onmatch_goto,
       rmap_continue_index_cmd,
-      "continue <1-65536>",
+      "continue <1-65535>",
       "Exit policy on matches\n"
       "Goto Clause number\n")
 
