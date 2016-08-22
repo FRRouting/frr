@@ -1058,8 +1058,7 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
 	}
     }
 
-  if (output_intf)
-    pim_upstream_switch (up, PIM_UPSTREAM_JOINED);
+  pim_upstream_switch (up, PIM_UPSTREAM_JOINED);
 
   return output_intf;
 }

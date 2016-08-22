@@ -364,6 +364,10 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 	  //No if channel, but upstream we are at the RP.
 	  pim_nexthop_lookup (&source, up->upstream_register);
 	  pim_register_stop_send(source.interface, &sg, pim_ifp->primary_address, up->upstream_register);
+          if (!up->channel_oil)
+            up->channel_oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
+          if (!up->channel_oil->installed)
+            pim_mroute_add (up->channel_oil);
 	  //Send S bit down the join.
 	  up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 	}
@@ -754,6 +758,7 @@ pim_mroute_update_counters (struct channel_oil *c_oil)
   c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
   c_oil->cc.oldlastused = c_oil->cc.lastused;
 
+  pim_zlookup_sg_statistics (c_oil);
   if (ioctl (qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq))
     {
       char group_str[100];
@@ -771,7 +776,6 @@ pim_mroute_update_counters (struct channel_oil *c_oil)
       return;
     }
 
-  pim_zlookup_sg_statistics (c_oil);
   c_oil->cc.pktcnt = sgreq.pktcnt;
   c_oil->cc.bytecnt = sgreq.bytecnt;
   c_oil->cc.wrong_if = sgreq.wrong_if;
