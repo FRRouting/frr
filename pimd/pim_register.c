@@ -323,7 +323,11 @@ pim_register_recv (struct interface *ifp,
     if (!upstream)
       {
 	upstream = pim_upstream_add (&sg, ifp);
-
+        if (!upstream)
+          {
+            zlog_warn ("Failure to crate upstream state");
+            return 1;
+          }
         upstream->upstream_register = src_addr;
 	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
 	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
