@@ -1249,3 +1249,26 @@ void pim_if_create_pimreg (void)
     pim_if_new(pim_regiface, 0, 0);
   }
 }
+
+int
+pim_if_connected_to_source (struct interface *ifp, struct in_addr src)
+{
+  struct listnode *cnode;
+  struct connected *c;
+  struct prefix p;
+
+  p.family = AF_INET;
+  p.u.prefix4 = src;
+  p.prefixlen = IPV4_MAX_BITLEN;
+
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
+    {
+      if ((c->address->family == AF_INET) &&
+         prefix_match (CONNECTED_PREFIX (c), &p))
+       {
+         return 1;
+       }
+    }
+
+  return 0;
+}

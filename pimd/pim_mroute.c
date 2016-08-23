@@ -75,29 +75,6 @@ static int pim_mroute_set(int fd, int enable)
   return 0;
 }
 
-static int
-pim_mroute_connected_to_source (struct interface *ifp, struct in_addr src)
-{
-  struct listnode *cnode;
-  struct connected *c;
-  struct prefix p;
-
-  p.family = AF_INET;
-  p.u.prefix4 = src;
-  p.prefixlen = IPV4_MAX_BITLEN;
-
-  for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
-    {
-      if ((c->address->family == AF_INET) &&
-         prefix_match (CONNECTED_PREFIX (c), &p))
-       {
-	 return 1;
-       }
-    }
-
-  return 0;
-}
-
 static const char *igmpmsgtype2str[IGMPMSG_WRVIFWHOLE + 1] = {
   "<unknown_upcall?>",
   "NOCACHE",
@@ -129,7 +106,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
    * If we've received a multicast packet that isn't connected to
    * us
    */
-  if (!pim_mroute_connected_to_source (ifp, msg->im_src))
+  if (!pim_if_connected_to_source (ifp, msg->im_src))
     {
       if (PIM_DEBUG_MROUTE_DETAIL)
        zlog_debug ("%s: Received incoming packet that doesn't originate on our seg",
@@ -384,7 +361,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
       return -2;
     }
 
-  if (pim_mroute_connected_to_source (ifp, sg.src))
+  if (pim_if_connected_to_source (ifp, sg.src))
     up->fhr = 1;
 
   pim_ifp = ifp->info;
