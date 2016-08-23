@@ -506,6 +506,7 @@ static int on_rpf_cache_refresh(struct thread *t)
   qpim_rpf_cache_refresh_last = pim_time_monotonic_sec();
   ++qpim_rpf_cache_refresh_events;
 
+  pim_rp_setup ();
   return 0;
 }
 
@@ -659,6 +660,7 @@ static int redist_read_ipv4_route(int command, struct zclient *zclient,
 
   sched_rpf_cache_refresh();
 
+  pim_rp_setup ();
   return 0;
 }
 
