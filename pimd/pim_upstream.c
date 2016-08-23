@@ -186,12 +186,6 @@ pim_upstream_send_join (struct pim_upstream *up)
     }
   }
 
-  /*
-   * In the case of a FHR we will not have anyone to send this to.
-   */
-  if (up->fhr)
-    return;
-
   /* send Join(S,G) to the current upstream neighbor */
   pim_joinprune_send(up->rpf.source_nexthop.interface,
   		     up->rpf.rpf_addr,
@@ -207,9 +201,16 @@ static int on_join_timer(struct thread *t)
   up = THREAD_ARG(t);
   zassert(up);
 
+  up->t_join_timer = NULL;
+
+  /*
+   * In the case of a HFR we will not ahve anyone to send this to.
+   */
+  if (up->fhr)
+    return 0;
+
   pim_upstream_send_join (up);
 
-  up->t_join_timer = NULL;
   join_timer_start(up);
 
   return 0;
@@ -373,6 +374,18 @@ static void forward_off(struct pim_upstream *up)
   } /* scan iflist */
 }
 
+static int
+pim_upstream_could_register (struct pim_upstream *up)
+{
+  struct pim_interface *pim_ifp = up->rpf.source_nexthop.interface->info;
+
+  if (PIM_I_am_DR (pim_ifp) &&
+      pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
+    return 1;
+
+  return 0;
+}
+
 void
 pim_upstream_switch(struct pim_upstream *up,
 		    enum pim_upstream_state new_state)
@@ -414,9 +427,22 @@ pim_upstream_switch(struct pim_upstream *up,
   if (new_state == PIM_UPSTREAM_JOINED) {
     if (old_state != PIM_UPSTREAM_JOINED)
       {
+        int old_fhr = up->fhr;
         forward_on(up);
-        pim_upstream_send_join (up);
-        join_timer_start(up);
+	up->fhr = pim_upstream_could_register (up);
+        if (up->fhr)
+	  {
+            if (!old_fhr)
+              {
+                pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
+	        pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+              }
+	  }
+	else
+          {
+	    pim_upstream_send_join (up);
+	    join_timer_start (up);
+	  }
       }
     else
       {
