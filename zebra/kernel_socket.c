@@ -974,12 +974,11 @@ rtm_read (struct rt_msghdr *rtm)
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
-	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      (struct prefix_ipv4 *)&p, &gate.sin.sin_addr, NULL, 0, VRF_DEFAULT,
-		      0, 0, 0, 0, SAFI_UNICAST);
+	rib_add (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
+		 &p, &ggate, NULL, 0, 0, 0, 0, 0);
       else
 	rib_delete (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-		    0, zebra_flags, &p, &&ggate, 0, 0);
+		    0, zebra_flags, &p, &ggate, 0, 0);
     }
   if (dest.sa.sa_family == AF_INET6)
     {
@@ -1017,10 +1016,9 @@ rtm_read (struct rt_msghdr *rtm)
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
-	rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      (struct prefix_ipv6 *)&p, &gate.sin6.sin6_addr,
-		      ifindex, VRF_DEFAULT,
-		      0, 0, 0, 0, SAFI_UNICAST);
+	rib_add (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		 0, zebra_flags, &p, &ggate, NULL, ifindex,
+		 0, 0, 0, 0);
       else
 	rib_delete (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
 		    0, zebra_flags, &p, &ggate, ifindex, 0);

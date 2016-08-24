@@ -550,9 +550,9 @@ int
 zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char *rmap_name)
 {
   struct rib *newrib;
-  struct prefix_ipv4 p4;
+  struct prefix p;
   struct nexthop *nhop;
-  struct in_addr *gate;
+  union g_addr *gate;
   route_map_result_t ret = RMAP_MATCH;
 
   if (rmap_name)
@@ -563,9 +563,9 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
     {
       if (rn->p.family == AF_INET)
         {
-          p4.family = AF_INET;
-          p4.prefixlen = rn->p.prefixlen;
-          p4.prefix = rn->p.u.prefix4;
+          p.family = AF_INET;
+          p.prefixlen = rn->p.prefixlen;
+          p.u.prefix4 = rn->p.u.prefix4;
 
           if (rib->nexthop_num == 1)
 	    {
@@ -573,14 +573,13 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      if (nhop->type == NEXTHOP_TYPE_IFINDEX)
 	        gate = NULL;
 	      else
-	        gate = &nhop->gate.ipv4;
+	        gate = (union g_addr *)&nhop->gate.ipv4;
 
-	      rib_add_ipv4(ZEBRA_ROUTE_TABLE, rib->table, 0, &p4,
-                           gate, &nhop->src.ipv4,
-		           nhop->ifindex, rib->vrf_id, zebrad.rtm_table_default,
-		           rib->metric, rib->mtu,
-		           zebra_import_table_distance[AFI_IP][rib->table],
-		           SAFI_UNICAST);
+	      rib_add (AFI_IP, SAFI_UNICAST, rib->vrf_id, ZEBRA_ROUTE_TABLE,
+		       rib->table, 0, &p, gate, (union g_addr *)&nhop->src.ipv4,
+		       nhop->ifindex, zebrad.rtm_table_default,
+		       rib->metric, rib->mtu,
+		       zebra_import_table_distance[AFI_IP][rib->table]);
 	    }
           else if (rib->nexthop_num > 1)
 	    {
@@ -599,7 +598,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      for (nhop = rib->nexthop; nhop; nhop = nhop->next)
 	        rib_copy_nexthops(newrib, nhop);
 
-	      rib_add_ipv4_multipath(&p4, newrib, SAFI_UNICAST);
+	      rib_add_ipv4_multipath((struct prefix_ipv4 *)&p, newrib, SAFI_UNICAST);
 	    }
         }
     }

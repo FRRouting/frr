@@ -338,10 +338,11 @@ extern int rib_uninstall_kernel (struct route_node *rn, struct rib *rib);
 /* NOTE:
  * All rib_add_ipv[46]* functions will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
-extern int rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
-			 struct in_addr *gate, struct in_addr *src,
-			 ifindex_t ifindex, vrf_id_t vrf_id, u_int32_t table_id,
-			 u_int32_t, u_int32_t, u_char, safi_t);
+extern int rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
+		    u_short instance, int flags, struct prefix *p,
+		    union g_addr *gate, union g_addr *src,
+		    ifindex_t ifindex, u_int32_t table_id,
+		    u_int32_t, u_int32_t, u_char);
 
 extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *, safi_t);
 
