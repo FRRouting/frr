@@ -368,8 +368,6 @@ extern void rib_init (void);
 extern unsigned long rib_score_proto (u_char proto, u_short instance);
 extern void rib_queue_add (struct route_node *rn);
 
-extern struct rib *rib_lookup_ipv6 (struct in6_addr *, vrf_id_t);
-
 extern struct route_table *rib_table_ipv6;
 
 extern int rib_gc_dest (struct route_node *rn);
