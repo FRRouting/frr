@@ -722,9 +722,10 @@ zsend_ipv6_nexthop_lookup (struct zserv *client, struct in6_addr *addr,
   unsigned long nump;
   u_char num;
   struct nexthop *nexthop;
+  union g_addr gaddr = { .ipv6 = *addr };
 
   /* Lookup nexthop. */
-  rib = rib_match_ipv6 (addr, vrf_id);
+  rib = rib_match (AFI_IP6, SAFI_UNICAST, vrf_id, &gaddr, NULL);
 
   /* Get output stream. */
   s = client->obuf;
@@ -788,9 +789,10 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr,
   unsigned long nump;
   u_char num;
   struct nexthop *nexthop;
+  union g_addr gaddr = { .ipv4 = addr };
 
   /* Lookup nexthop. */
-  rib = rib_match_ipv4 (addr, SAFI_UNICAST, vrf_id, NULL);
+  rib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, NULL);
 
   /* Get output stream. */
   s = client->obuf;

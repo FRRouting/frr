@@ -349,8 +349,8 @@ extern int rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix
 		            struct in_addr *gate, ifindex_t ifindex,
 		            vrf_id_t, u_int32_t, safi_t safi);
 
-extern struct rib *rib_match_ipv4 (struct in_addr, safi_t safi, vrf_id_t,
-				   struct route_node **rn_out);
+extern struct rib *rib_match (afi_t afi, safi_t safi, vrf_id_t, union g_addr *,
+			      struct route_node **rn_out);
 extern struct rib *rib_match_ipv4_multicast (struct in_addr addr,
 					     struct route_node **rn_out);
 
@@ -377,8 +377,6 @@ rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
                  u_int32_t table_id, safi_t safi);
 
 extern struct rib *rib_lookup_ipv6 (struct in6_addr *, vrf_id_t);
-
-extern struct rib *rib_match_ipv6 (struct in6_addr *, vrf_id_t);
 
 extern struct route_table *rib_table_ipv6;
 

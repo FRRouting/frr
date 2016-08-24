@@ -747,10 +747,10 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 }
 
 struct rib *
-rib_match_ipv4 (struct in_addr addr, safi_t safi, vrf_id_t vrf_id,
-		struct route_node **rn_out)
+rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
+	   union g_addr *addr, struct route_node **rn_out)
 {
-  struct prefix_ipv4 p;
+  struct prefix p;
   struct route_table *table;
   struct route_node *rn;
   struct rib *match;
@@ -758,14 +758,18 @@ rib_match_ipv4 (struct in_addr addr, safi_t safi, vrf_id_t vrf_id,
   int recursing;
 
   /* Lookup table.  */
-  table = zebra_vrf_table (AFI_IP, safi, vrf_id);
+  table = zebra_vrf_table (afi, safi, vrf_id);
   if (! table)
     return 0;
 
-  memset (&p, 0, sizeof (struct prefix_ipv4));
-  p.family = AF_INET;
+  memset (&p, 0, sizeof (struct prefix));
+  p.family = afi;
+  p.u.prefix = *(u_char *)addr;
   p.prefixlen = IPV4_MAX_PREFIXLEN;
-  p.prefix = addr;
+  if (afi == AFI_IP)
+    p.prefixlen = IPV4_MAX_PREFIXLEN;
+  else
+    p.prefixlen = IPV6_MAX_PREFIXLEN;
 
   rn = route_node_match (table, (struct prefix *) &p);
 
@@ -820,23 +824,23 @@ rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
 {
   struct rib *rib = NULL, *mrib = NULL, *urib = NULL;
   struct route_node *m_rn = NULL, *u_rn = NULL;
-  int skip_bgp = 0; /* bool */
+  union g_addr gaddr = { .ipv4 = addr };
 
   switch (ipv4_multicast_mode)
     {
     case MCAST_MRIB_ONLY:
-      return rib_match_ipv4 (addr, SAFI_MULTICAST, skip_bgp, rn_out);
+      return rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, rn_out);
     case MCAST_URIB_ONLY:
-      return rib_match_ipv4 (addr, SAFI_UNICAST, skip_bgp, rn_out);
+      return rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, rn_out);
     case MCAST_NO_CONFIG:
     case MCAST_MIX_MRIB_FIRST:
-      rib = mrib = rib_match_ipv4 (addr, SAFI_MULTICAST, skip_bgp, &m_rn);
+      rib = mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
       if (!mrib)
-	rib = urib = rib_match_ipv4 (addr, SAFI_UNICAST, skip_bgp, &u_rn);
+	rib = urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
       break;
     case MCAST_MIX_DISTANCE:
-      mrib = rib_match_ipv4 (addr, SAFI_MULTICAST, skip_bgp, &m_rn);
-      urib = rib_match_ipv4 (addr, SAFI_UNICAST, skip_bgp, &u_rn);
+      mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
+      urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
       if (mrib && urib)
 	rib = urib->distance < mrib->distance ? urib : mrib;
       else if (mrib)
@@ -845,8 +849,8 @@ rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
 	rib = urib;
       break;
     case MCAST_MIX_PFXLEN:
-      mrib = rib_match_ipv4 (addr, SAFI_MULTICAST, skip_bgp, &m_rn);
-      urib = rib_match_ipv4 (addr, SAFI_UNICAST, skip_bgp, &u_rn);
+      mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
+      urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
       if (mrib && urib)
 	rib = u_rn->p.prefixlen > m_rn->p.prefixlen ? urib : mrib;
       else if (mrib)
@@ -1007,68 +1011,6 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
     return ZEBRA_RIB_FOUND_NOGATE;
 
   return ZEBRA_RIB_NOTFOUND;
-}
-
-struct rib *
-rib_match_ipv6 (struct in6_addr *addr, vrf_id_t vrf_id)
-{
-  struct prefix_ipv6 p;
-  struct route_table *table;
-  struct route_node *rn;
-  struct rib *match;
-  struct nexthop *newhop, *tnewhop;
-  int recursing;
-
-  /* Lookup table.  */
-  table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
-  if (! table)
-    return 0;
-
-  memset (&p, 0, sizeof (struct prefix_ipv6));
-  p.family = AF_INET6;
-  p.prefixlen = IPV6_MAX_PREFIXLEN;
-  IPV6_ADDR_COPY (&p.prefix, addr);
-
-  rn = route_node_match (table, (struct prefix *) &p);
-
-  while (rn)
-    {
-      route_unlock_node (rn);
-      
-      /* Pick up selected route. */
-      RNODE_FOREACH_RIB (rn, match)
-	{
-	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
-	    continue;
-	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
-	    break;
-	}
-
-      /* If there is no selected route or matched route is EGP, go up
-         tree. */
-      if (! match)
-	{
-	  do {
-	    rn = rn->parent;
-	  } while (rn && rn->info == NULL);
-	  if (rn)
-	    route_lock_node (rn);
-	}
-      else
-	{
-	  if (match->type == ZEBRA_ROUTE_CONNECT)
-	    /* Directly point connected route. */
-	    return match;
-	  else
-	    {
-	      for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
-		if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
-		  return match;
-	      return NULL;
-	    }
-	}
-    }
-  return NULL;
 }
 
 #define RIB_SYSTEM_ROUTE(R) \
