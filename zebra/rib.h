@@ -336,7 +336,7 @@ extern int rib_install_kernel (struct route_node *rn, struct rib *rib, int updat
 extern int rib_uninstall_kernel (struct route_node *rn, struct rib *rib);
 
 /* NOTE:
- * All rib_add_ipv[46]* functions will not just add prefix into RIB, but
+ * All rib_add function will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
 extern int rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		    u_short instance, int flags, struct prefix *p,
@@ -344,7 +344,8 @@ extern int rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		    ifindex_t ifindex, u_int32_t table_id,
 		    u_int32_t, u_int32_t, u_char);
 
-extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *, safi_t);
+extern int rib_add_multipath (afi_t afi, safi_t safi, struct prefix *,
+			      struct rib *);
 
 extern int rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       u_short instance, int flags, struct prefix *p,
@@ -367,19 +368,9 @@ extern void rib_init (void);
 extern unsigned long rib_score_proto (u_char proto, u_short instance);
 extern void rib_queue_add (struct route_node *rn);
 
-extern int
-rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
-	      struct in6_addr *gate, ifindex_t ifindex, vrf_id_t vrf_id,
-              u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
-	      u_char distance, safi_t safi);
-
 extern struct rib *rib_lookup_ipv6 (struct in6_addr *, vrf_id_t);
 
 extern struct route_table *rib_table_ipv6;
-
-extern int
-rib_add_ipv6_multipath (struct prefix *, struct rib *, safi_t,
-                        ifindex_t);
 
 extern int rib_gc_dest (struct route_node *rn);
 extern struct route_table *rib_tables_iter_next (rib_tables_iter_t *iter);

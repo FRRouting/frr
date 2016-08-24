@@ -1186,7 +1186,7 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 {
   int i;
   struct rib *rib;
-  struct prefix_ipv4 p;
+  struct prefix p;
   u_char message;
   struct in_addr nexthop;
   u_char nexthop_num;
@@ -1214,7 +1214,7 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   memset (&p, 0, sizeof (struct prefix_ipv4));
   p.family = AF_INET;
   p.prefixlen = stream_getc (s);
-  stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+  stream_get (&p.u.prefix4, s, PSIZE (p.prefixlen));
 
   /* VRF ID */
   rib->vrf_id = zvrf->vrf_id;
@@ -1276,7 +1276,7 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   /* Table */
   rib->table = zvrf->table_id;
 
-  ret = rib_add_ipv4_multipath (&p, rib, safi);
+  ret = rib_add_multipath (AFI_IP, safi, &p, rib);
 
   /* Stats */
   if (ret > 0)
@@ -1427,8 +1427,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   u_char message;
   u_char nexthop_num;
   u_char nexthop_type;
-  unsigned long ifindex;
-  struct prefix_ipv4 p;
+  struct prefix p;
   safi_t safi;
   static struct in6_addr nexthops[MULTIPATH_NUM];
   static unsigned int ifindices[MULTIPATH_NUM];
@@ -1437,7 +1436,6 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   /* Get input stream.  */
   s = client->ibuf;
 
-  ifindex = 0;
   memset (&nexthop, 0, sizeof (struct in6_addr));
 
   /* Allocate new rib. */
@@ -1455,7 +1453,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   memset (&p, 0, sizeof (struct prefix_ipv4));
   p.family = AF_INET;
   p.prefixlen = stream_getc (s);
-  stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+  stream_get (&p.u.prefix4, s, PSIZE (p.prefixlen));
 
   /* VRF ID */
   rib->vrf_id = zvrf->vrf_id;
@@ -1536,7 +1534,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   /* Table */
   rib->table = zvrf->table_id;
 
-  ret = rib_add_ipv6_multipath ((struct prefix *)&p, rib, safi, ifindex);
+  ret = rib_add_multipath (AFI_IP6, safi, &p, rib);
   /* Stats */
   if (ret > 0)
     client->v4_route_add_cnt++;
@@ -1556,8 +1554,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   u_char message;
   u_char nexthop_num;
   u_char nexthop_type;
-  unsigned long ifindex;
-  struct prefix_ipv6 p;
+  struct prefix p;
   safi_t safi;
   static struct in6_addr nexthops[MULTIPATH_NUM];
   static unsigned int ifindices[MULTIPATH_NUM];
@@ -1566,7 +1563,6 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   /* Get input stream.  */
   s = client->ibuf;
 
-  ifindex = 0;
   memset (&nexthop, 0, sizeof (struct in6_addr));
 
   /* Allocate new rib. */
@@ -1584,7 +1580,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   memset (&p, 0, sizeof (struct prefix_ipv6));
   p.family = AF_INET6;
   p.prefixlen = stream_getc (s);
-  stream_get (&p.prefix, s, PSIZE (p.prefixlen));
+  stream_get (&p.u.prefix6, s, PSIZE (p.prefixlen));
 
   /* We need to give nh-addr, nh-ifindex with the same next-hop object
    * to the rib to ensure that IPv6 multipathing works; need to coalesce
@@ -1660,7 +1656,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   rib->vrf_id = zvrf->vrf_id;
   rib->table = zvrf->table_id;
 
-  ret = rib_add_ipv6_multipath ((struct prefix *)&p, rib, safi, ifindex);
+  ret = rib_add_multipath (AFI_IP, safi, &p, rib);
   /* Stats */
   if (ret > 0)
     client->v6_route_add_cnt++;

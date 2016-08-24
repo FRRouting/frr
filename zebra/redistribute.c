@@ -598,7 +598,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      for (nhop = rib->nexthop; nhop; nhop = nhop->next)
 	        rib_copy_nexthops(newrib, nhop);
 
-	      rib_add_ipv4_multipath((struct prefix_ipv4 *)&p, newrib, SAFI_UNICAST);
+	      rib_add_multipath(AFI_IP, SAFI_UNICAST, &p, newrib);
 	    }
         }
     }

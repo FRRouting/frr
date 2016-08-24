@@ -374,7 +374,7 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
   apply_mask (&p);
 
 #ifndef LINUX
-  /* XXX: It is already done by rib_bogus_ipv6 within rib_add_ipv6 */
+  /* XXX: It is already done by rib_bogus_ipv6 within rib_add */
   if (IN6_IS_ADDR_UNSPECIFIED (&p.u.prefix6))
     return;
 #endif

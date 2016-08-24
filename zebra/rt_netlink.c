@@ -1017,7 +1017,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
           if (rib->nexthop_num == 0)
             XFREE (MTYPE_RIB, rib);
           else
-            rib_add_ipv4_multipath ((struct prefix_ipv4 *)&p, rib, SAFI_UNICAST);
+            rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, rib);
         }
     }
   if (rtm->rtm_family == AF_INET6)
@@ -1252,7 +1252,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
               if (rib->nexthop_num == 0)
                 XFREE (MTYPE_RIB, rib);
               else
-                rib_add_ipv4_multipath ((struct prefix_ipv4 *)&p, rib, SAFI_UNICAST);
+                rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, rib);
             }
         }
       else

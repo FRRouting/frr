@@ -2517,21 +2517,31 @@ void rib_lookup_and_pushup (struct prefix_ipv4 * p, vrf_id_t vrf_id)
 }
 
 int
-rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
+rib_add_multipath (afi_t afi, safi_t safi, struct prefix *p,
+		   struct rib *rib)
 {
   struct route_table *table;
   struct route_node *rn;
   struct rib *same;
   struct nexthop *nexthop;
   int ret = 0;
-  
+  int family;
+
+  if (!rib)
+    return 0;
+
+  if (p->family == AF_INET)
+    family = AFI_IP;
+  else
+    family = AFI_IP6;
+
   /* Lookup table.  */
-  table = zebra_vrf_table_with_table_id (AFI_IP, safi, rib->vrf_id, rib->table);
+  table = zebra_vrf_table_with_table_id (family, safi, rib->vrf_id, rib->table);
   if (! table)
     return 0;
 
   /* Make it sure prefixlen is applied to the prefix. */
-  apply_mask_ipv4 (p);
+  apply_mask (p);
 
   /* Set default distance by route type. */
   if (rib->distance == 0)
@@ -2545,7 +2555,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
     }
 
   /* Lookup route node.*/
-  rn = route_node_get (table, (struct prefix *) p);
+  rn = route_node_get (table, p);
 
   /* If same type of route are installed, treat it as a implicit
      withdraw. */
@@ -2571,7 +2581,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
       char buf[INET6_ADDRSTRLEN];
       if (IS_ZEBRA_DEBUG_RIB)
         {
-          inet_ntop (p->family, &p->prefix, buf, INET6_ADDRSTRLEN);
+          inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
           zlog_debug ("%u:%s/%d: Inserting route rn %p, rib %p (type %d) "
                       "existing %p",
                       rib->vrf_id, buf, p->prefixlen, (void *)rn,
@@ -2863,119 +2873,6 @@ rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
   
   route_unlock_node (rn);
   return 0;
-}
-
-int
-rib_add_ipv6_multipath (struct prefix *p, struct rib *rib, safi_t safi,
-	                ifindex_t ifindex)
-{
-  struct route_table *table;
-  struct route_node *rn;
-  struct rib *same = NULL;
-  struct nexthop *nexthop;
-  int ret = 0;
-  int family;
-
-  if (!rib)
-    return 0;
-
-  if (p->family == AF_INET)
-    family = AFI_IP;
-  else
-    family = AFI_IP6;
-
-  /* Lookup table.  */
-  table = zebra_vrf_table_with_table_id (family, safi, rib->vrf_id, rib->table);
-  if (! table)
-    return 0;
-
-  if (p->family == AF_INET)
-    {
-      /* Make it sure prefixlen is applied to the prefix. */
-      apply_mask_ipv4 ((struct prefix_ipv4 *)p);
-    }
-  else
-    {
-      /* Make sure mask is applied. */
-      apply_mask_ipv6 ((struct prefix_ipv6 *)p);
-    }
-
-  /* Set default distance by route type. */
-  if (rib->distance == 0)
-    {
-      rib->distance = route_info[rib->type].distance;
-
-      /* iBGP distance is 200. */
-      if (rib->type == ZEBRA_ROUTE_BGP
-	  && CHECK_FLAG (rib->flags, ZEBRA_FLAG_IBGP))
-	rib->distance = 200;
-    }
-
-  /* Lookup route node.*/
-  rn = route_node_get (table, (struct prefix *) p);
-
-  /* If same type of route are installed, treat it as a implicit
-     withdraw. */
-  RNODE_FOREACH_RIB (rn, same) {
-     if (CHECK_FLAG (same->status, RIB_ENTRY_REMOVED)) {
-       continue;
-     }
-     if (same->type != rib->type) {
-       continue;
-     }
-
-     if (same->instance != rib->instance) {
-       continue;
-     }
-
-     if (same->table != rib->table) {
-       continue;
-     }
-     if (same->type != ZEBRA_ROUTE_CONNECT) {
-       break;
-     }
-     else if ((nexthop = same->nexthop) &&
-	       nexthop->type == NEXTHOP_TYPE_IFINDEX &&
-	       nexthop->ifindex == ifindex) {
-	    same->refcnt++;
-	    return 0;
-     }
-  }
-
-  /* If this route is kernel route, set FIB flag to the route. */
-  if (rib->type == ZEBRA_ROUTE_KERNEL || rib->type == ZEBRA_ROUTE_CONNECT) {
-    for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next) {
-      SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
-    }
-  }
-
-  /* Link new rib to node.*/
-  if (IS_ZEBRA_DEBUG_RIB)
-    {
-      char buf[INET6_ADDRSTRLEN];
-      if (IS_ZEBRA_DEBUG_RIB)
-        {
-          inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-          zlog_debug ("%u:%s/%d: Inserting route rn %p, rib %p (type %d) "
-                      "existing %p",
-                      rib->vrf_id, buf, p->prefixlen, rn, rib, rib->type, same);
-        }
-
-      if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-        rib_dump ((struct prefix *)p, rib);
-    }
-  rib_addnode (rn, rib, 1);
-  ret = 1;
-
-  /* Free implicit route.*/
-  if (same)
-    {
-      rib_delnode (rn, same);
-      ret = -1;
-    }
-
-  route_unlock_node (rn);
-  return ret;
 }
 
 /* Schedule routes of a particular table (address-family) based on event. */
