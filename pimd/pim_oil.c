@@ -212,7 +212,15 @@ int pim_channel_add_oif(struct channel_oil *channel_oil,
   struct pim_interface *pim_ifp;
   int old_ttl;
 
-  zassert(channel_oil);
+  /*
+   * If we've gotten here we've gone bad, but let's
+   * not take down pim
+   */
+  if (!channel_oil)
+    {
+      zlog_warn ("Attempt to Add OIF for non-existent channel oil");
+      return -1;
+    }
 
   pim_ifp = oif->info;
 
