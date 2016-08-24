@@ -90,7 +90,10 @@ static void sock_close(struct interface *ifp)
 	       pim_ifp->pim_sock_fd, ifp->name);
   }
 
-  if (close(pim_ifp->pim_sock_fd)) {
+  /*
+   * If the fd is already deleted no need to do anything here
+   */
+  if (pim_ifp->pim_sock_fd > 0 && close(pim_ifp->pim_sock_fd)) {
     zlog_warn("Failure closing PIM socket fd=%d on interface %s: errno=%d: %s",
 	      pim_ifp->pim_sock_fd, ifp->name,
 	      errno, safe_strerror(errno));
@@ -98,11 +101,6 @@ static void sock_close(struct interface *ifp)
   
   pim_ifp->pim_sock_fd = -1;
   pim_ifp->pim_sock_creation = 0;
-
-  zassert(pim_ifp->pim_sock_fd < 0);
-  zassert(!pim_ifp->t_pim_sock_read);
-  zassert(!pim_ifp->t_pim_hello_timer);
-  zassert(!pim_ifp->pim_sock_creation);
 }
 
 void pim_sock_delete(struct interface *ifp, const char *delete_message)
