@@ -66,6 +66,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   struct zebra_vrf *zvrf = NULL;
   unsigned int ifindex = 0;
   const char *ifname = NULL;
+  u_char type = STATIC_IPV4_BLACKHOLE;
 
   ret = str2prefix (dest_str, &p);
   if (ret <= 0)
@@ -119,7 +120,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
       if (add_cmd)
         static_add_ipv4 (safi, &p, NULL, ifindex, ifname, ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf);
       else
-        static_delete_ipv4 (safi, &p, NULL, ifindex, tag, distance, zvrf);
+        static_delete_route (AFI_IP, safi, type, &p, NULL, ifindex, tag, distance, zvrf);
       return CMD_SUCCESS;
     }
 
@@ -142,10 +143,11 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 
   if (gate_str == NULL)
   {
+    type = STATIC_IFINDEX;
     if (add_cmd)
       static_add_ipv4 (safi, &p, NULL, ifindex, ifname, flag, tag, distance, zvrf);
     else
-      static_delete_ipv4 (safi, &p, NULL, ifindex, tag, distance, zvrf);
+      static_delete_route (AFI_IP, safi, type, &p, NULL, ifindex, tag, distance, zvrf);
 
     return CMD_SUCCESS;
   }
@@ -164,12 +166,15 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
       else
         ifindex = ifp->ifindex;
       ifname = gate_str;
+      type = STATIC_IFINDEX;
     }
+  else
+    type = STATIC_IPV4_GATEWAY;
 
   if (add_cmd)
     static_add_ipv4 (safi, &p, ifindex ? NULL : &gate, ifindex, ifname, flag, tag, distance, zvrf);
   else
-    static_delete_ipv4 (safi, &p, ifindex ? NULL : &gate, ifindex, tag, distance, zvrf);
+    static_delete_route (AFI_IP, safi, type, &p, ifindex ? NULL : (union g_addr *)&gate, ifindex, tag, distance, zvrf);
 
   return CMD_SUCCESS;
 }
@@ -3735,7 +3740,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   if (add_cmd)
     static_add_ipv6 (&p, type, gate, ifindex, ifname, flag, tag, distance, zvrf);
   else
-    static_delete_ipv6 (&p, type, gate, ifindex, tag, distance, zvrf);
+    static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, (union g_addr *)gate, ifindex, tag, distance, zvrf);
 
   return CMD_SUCCESS;
 }

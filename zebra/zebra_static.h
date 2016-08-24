@@ -79,17 +79,14 @@ static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex_t 
 		 u_char distance, struct zebra_vrf *zvrf);
 
 extern int
-static_delete_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex_t ifindex,
-		    u_short tag, u_char distance, struct zebra_vrf *zvrf);
+static_delete_route (afi_t, safi_t safi, u_char type, struct prefix *p,
+		     union g_addr *gate, ifindex_t ifindex,
+		     u_short tag, u_char distance,
+		     struct zebra_vrf *zvrf);
 
 extern int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 		 ifindex_t ifindex, const char *ifname, u_char flags,
 		 u_short tag, u_char distance, struct zebra_vrf *zvrf);
-
-extern int
-static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		    ifindex_t ifindex, u_short tag, u_char distance,
-                    struct zebra_vrf *zvrf);
 
 #endif
