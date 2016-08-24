@@ -379,7 +379,7 @@ pim_upstream_could_register (struct pim_upstream *up)
 {
   struct pim_interface *pim_ifp = up->rpf.source_nexthop.interface->info;
 
-  if (PIM_I_am_DR (pim_ifp) &&
+  if (pim_ifp && PIM_I_am_DR (pim_ifp) &&
       pim_if_connected_to_source (up->rpf.source_nexthop.interface, up->sg.src))
     return 1;
 
