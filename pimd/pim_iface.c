@@ -407,6 +407,7 @@ void pim_if_addr_add(struct connected *ifc)
     if (pim_ifp->mroute_vif_index < 0) {
       pim_if_add_vif(ifp);
     }
+    pim_ifchannel_scan_forward_start (ifp);
   }
 }
 

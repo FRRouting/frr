@@ -25,6 +25,7 @@
 #include "thread.h"
 #include "memory.h"
 #include "if.h"
+#include "vrf.h"
 
 #include "pimd.h"
 #include "pim_str.h"
@@ -979,4 +980,42 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
       assert_action_a5(ch);
     }
   }
+}
+
+/*
+ * If we have a new pim interface, check to
+ * see if any of the pre-existing channels have
+ * their upstream out that way and turn on forwarding
+ * for that ifchannel then.
+ */
+void
+pim_ifchannel_scan_forward_start (struct interface *new_ifp)
+{
+  struct listnode *ifnode;
+  struct interface *ifp;
+  struct pim_interface *new_pim_ifp = new_ifp->info;
+
+  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp))
+    {
+      struct pim_interface *loop_pim_ifp = ifp->info;
+      struct listnode *ch_node;
+      struct pim_ifchannel *ch;
+
+      if (!loop_pim_ifp)
+        continue;
+
+      if (new_pim_ifp == loop_pim_ifp)
+        continue;
+
+      for (ALL_LIST_ELEMENTS_RO (loop_pim_ifp->pim_ifchannel_list, ch_node, ch))
+        {
+          if (ch->ifjoin_state == PIM_IFJOIN_JOIN)
+            {
+              struct pim_upstream *up = ch->upstream;
+              if ((!up->channel_oil) &&
+		  (up->rpf.source_nexthop.interface == new_ifp))
+                pim_forward_start (ch);
+            }
+        }
+    }
 }

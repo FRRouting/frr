@@ -136,4 +136,5 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch);
 void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch);
 void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch);
 
+void pim_ifchannel_scan_forward_start (struct interface *new_ifp);
 #endif /* PIM_IFCHANNEL_H */
