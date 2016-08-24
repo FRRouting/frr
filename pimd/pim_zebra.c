@@ -347,7 +347,7 @@ static void scan_upstream_rpf_cache()
 	 * where the mroute has not been installed
 	 * so install it.
 	 */
-	if (!up->channel_oil->installed)
+	if (up->channel_oil && !up->channel_oil->installed)
           pim_mroute_add (up->channel_oil);
 
 	/*
