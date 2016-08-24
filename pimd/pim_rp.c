@@ -486,12 +486,15 @@ pim_rp_show_information (struct vty *vty)
   vty_out (vty, "RP Addr           Group   Oif    I_am_RP%s", VTY_NEWLINE);
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
-      char buf[48];
-      vty_out (vty, "%-10s  %-10s  %-10s%-10d%s",
-      inet_ntoa (rp_info->rp.rpf_addr),
-	       prefix2str(&rp_info->group, buf, 48),
-	       rp_info->rp.source_nexthop.interface->name,
-	       rp_info->i_am_rp, VTY_NEWLINE);
+      if (rp_info->rp.rpf_addr.s_addr != INADDR_NONE)
+        {
+          char buf[48];
+          vty_out (vty, "%-10s  %-10s  %-10s%-10d%s",
+          inet_ntoa (rp_info->rp.rpf_addr),
+	             prefix2str(&rp_info->group, buf, 48),
+	             rp_info->rp.source_nexthop.interface->name,
+	             rp_info->i_am_rp, VTY_NEWLINE);
+        }
     }
   return;
 }
