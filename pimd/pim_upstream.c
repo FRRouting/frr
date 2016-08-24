@@ -209,7 +209,12 @@ static int on_join_timer(struct thread *t)
   if (up->fhr)
     return 0;
 
-  pim_upstream_send_join (up);
+  /*
+   * Don't send the join if the outgoing interface is a loopback
+   * But since this might change leave the join timer running
+   */
+  if (!if_is_loopback (up->rpf.source_nexthop.interface))
+    pim_upstream_send_join (up);
 
   join_timer_start(up);
 
