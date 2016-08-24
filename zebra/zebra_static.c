@@ -310,37 +310,42 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 }
 
 int
-static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex_t ifindex,
-		 const char *ifname, u_char flags, u_short tag,
-		 u_char distance, struct zebra_vrf *zvrf)
+static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
+		  union g_addr *gate, ifindex_t ifindex,
+		  const char *ifname, u_char flags, u_short tag,
+		  u_char distance, struct zebra_vrf *zvrf)
 {
-  u_char type = 0;
   struct route_node *rn;
   struct static_route *si;
   struct static_route *pp;
   struct static_route *cp;
   struct static_route *update = NULL;
-  struct route_table *stable = zvrf->stable[AFI_IP][safi];
+  struct route_table *stable = zvrf->stable[afi][safi];
 
   if (! stable)
+    return -1;
+
+  if (!gate &&
+      (type == STATIC_IPV4_GATEWAY ||
+       type == STATIC_IPV6_GATEWAY ||
+       type == STATIC_IPV6_GATEWAY_IFINDEX))
+    return -1;
+
+  if (!ifindex &&
+      (type == STATIC_IFINDEX ||
+       type == STATIC_IPV6_GATEWAY_IFINDEX))
     return -1;
 
   /* Lookup static route prefix. */
   rn = route_node_get (stable, p);
 
-  /* Make flags. */
-  if (gate)
-    type = STATIC_IPV4_GATEWAY;
-  else if (ifindex)
-    type = STATIC_IFINDEX;
-  else
-    type = STATIC_IPV4_BLACKHOLE;
-
   /* Do nothing if there is a same static route.  */
   for (si = rn->info; si; si = si->next)
     {
       if (type == si->type
-	  && (! gate || IPV4_ADDR_SAME (gate, &si->addr.ipv4))
+	  && (! gate ||
+	      ((afi == AFI_IP && IPV4_ADDR_SAME (gate, &si->addr.ipv4)) ||
+	       (afi == AFI_IP6 && IPV6_ADDR_SAME (gate, &si->addr.ipv6))))
 	  && (! ifindex || ifindex == si->ifindex))
 	{
 	  if ((distance == si->distance) && (tag == si->tag))
@@ -355,7 +360,7 @@ static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex_t 
 
   /* Distance or tag changed. */
   if (update)
-    static_delete_route (AFI_IP, safi, type, p, (union g_addr *)gate,
+    static_delete_route (afi, safi, type, p, gate,
 			 ifindex, update->tag, update->distance, zvrf);
 
   /* Make new static route structure. */
@@ -370,8 +375,20 @@ static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex_t 
   if (si->ifindex)
     strcpy(si->ifname, ifname);
 
-  if (gate)
-    si->addr.ipv4 = *gate;
+  switch (type)
+    {
+    case STATIC_IPV4_GATEWAY:
+      si->addr.ipv4 = gate->ipv4;
+      break;
+    case STATIC_IPV6_GATEWAY:
+      si->addr.ipv6 = gate->ipv6;
+      break;
+    case STATIC_IPV6_GATEWAY_IFINDEX:
+      si->addr.ipv6 = gate->ipv6;
+      break;
+    case STATIC_IFINDEX:
+      break;
+    }
 
   /* Add new static route information to the tree with sort by
      distance value and gateway address. */
@@ -401,7 +418,7 @@ static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, ifindex_t 
   si->next = cp;
 
   /* Install into rib. */
-  static_install_route (AFI_IP, safi, p, si);
+  static_install_route (afi, safi, p, si);
 
   return 1;
 }
@@ -458,104 +475,6 @@ static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
   XFREE (MTYPE_STATIC_ROUTE, si);
 
   route_unlock_node (rn);
-
-  return 1;
-}
-
-/* Add static route into static route configuration. */
-int
-static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		 ifindex_t ifindex, const char *ifname, u_char flags,
-		 u_short tag, u_char distance, struct zebra_vrf *zvrf)
-{
-  struct route_node *rn;
-  struct static_route *si;
-  struct static_route *pp;
-  struct static_route *cp;
-  struct static_route *update = NULL;
-  struct route_table *stable = zvrf->stable[AFI_IP6][SAFI_UNICAST];
-
-  if (! stable)
-    return -1;
-
-  if (!gate &&
-      (type == STATIC_IPV6_GATEWAY || type == STATIC_IPV6_GATEWAY_IFINDEX))
-    return -1;
-
-  if (!ifindex &&
-      (type == STATIC_IPV6_GATEWAY_IFINDEX || type == STATIC_IFINDEX))
-    return -1;
-
-  /* Lookup static route prefix. */
-  rn = route_node_get (stable, p);
-
-  /* Do nothing if there is a same static route.  */
-  for (si = rn->info; si; si = si->next)
-    {
-      if (type == si->type
-	  && (! gate || IPV6_ADDR_SAME (gate, &si->addr.ipv6))
-	  && (! ifindex || ifindex ==  si->ifindex))
-	{
-	  if ((distance == si->distance) && (tag == si->tag))
-	    {
-	      route_unlock_node (rn);
-	      return 0;
-	    }
-	  else
-	    update = si;
-	}
-    }
-
-  /* Distance or tag changed. */
-  if (update)
-    static_delete_route (AFI_IP6, SAFI_UNICAST, type, p,
-			 (union g_addr *)gate, ifindex,
-			 update->tag, update->distance, zvrf);
-
-  /* Make new static route structure. */
-  si = XCALLOC (MTYPE_STATIC_ROUTE, sizeof (struct static_route));
-
-  si->type = type;
-  si->distance = distance;
-  si->flags = flags;
-  si->tag = tag;
-  si->vrf_id = zvrf->vrf_id;
-  si->ifindex = ifindex;
-  if (si->ifindex)
-    strcpy (si->ifname, ifname);
-
-  switch (type)
-    {
-    case STATIC_IPV6_GATEWAY:
-      si->addr.ipv6 = *gate;
-      break;
-    case STATIC_IPV6_GATEWAY_IFINDEX:
-      si->addr.ipv6 = *gate;
-      break;
-    }
-
-  /* Add new static route information to the tree with sort by
-     distance value and gateway address. */
-  for (pp = NULL, cp = rn->info; cp; pp = cp, cp = cp->next)
-    {
-      if (si->distance < cp->distance)
-	break;
-      if (si->distance > cp->distance)
-	continue;
-    }
-
-  /* Make linked list. */
-  if (pp)
-    pp->next = si;
-  else
-    rn->info = si;
-  if (cp)
-    cp->prev = si;
-  si->prev = pp;
-  si->next = cp;
-
-  /* Install into rib. */
-  static_install_route (AFI_IP6, SAFI_UNICAST, p, si);
 
   return 1;
 }
