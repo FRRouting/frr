@@ -1574,6 +1574,48 @@ rib_process_update_route (struct zebra_vrf *zvrf, struct route_node *rn,
   UNSET_FLAG(select->status, RIB_ENTRY_CHANGED);
 }
 
+/* Check if 'alternate' RIB entry is better than 'current'. */
+static struct rib *
+rib_choose_best (struct rib *current, struct rib *alternate)
+{
+  if (current == NULL)
+    return alternate;
+
+  /* filter route selection in following order:
+   * - connected beats other types
+   * - lower distance beats higher
+   * - lower metric beats higher for equal distance
+   * - last, hence oldest, route wins tie break.
+   */
+
+  /* Connected routes. Pick the last connected
+   * route of the set of lowest metric connected routes.
+   */
+  if (alternate->type == ZEBRA_ROUTE_CONNECT)
+    {
+      if (current->type != ZEBRA_ROUTE_CONNECT
+          || alternate->metric <= current->metric)
+        return alternate;
+
+      return current;
+    }
+
+  if (current->type == ZEBRA_ROUTE_CONNECT)
+    return current;
+
+  /* higher distance loses */
+  if (alternate->distance < current->distance)
+    return alternate;
+  if (current->distance < alternate->distance)
+    return current;
+
+  /* metric tie-breaks equal distance */
+  if (alternate->metric <= current->metric)
+    return alternate;
+
+  return current;
+}
+
 /* Core function for processing routing information base. */
 static void
 rib_process (struct route_node *rn)
@@ -1583,6 +1625,7 @@ rib_process (struct route_node *rn)
   struct rib *fib = NULL;
   struct rib *select = NULL;
   struct rib *del = NULL;
+  struct rib *best = NULL;
   char buf[INET6_ADDRSTRLEN];
   rib_dest_t *dest;
   struct zebra_vrf *zvrf = NULL;
@@ -1683,62 +1726,12 @@ rib_process (struct route_node *rn)
           continue;
         }
 
-      /* Newly selected rib, the common case. */
-      if (!select)
-        {
-          select = rib;
-          continue;
-        }
-      
-      /* filter route selection in following order:
-       * - connected beats other types
-       * - lower distance beats higher
-       * - lower metric beats higher for equal distance
-       * - last, hence oldest, route wins tie break.
-       */
-      
-      /* Connected routes. Pick the last connected
-       * route of the set of lowest metric connected routes.
-       */
-      if (rib->type == ZEBRA_ROUTE_CONNECT)
-        {
-          if (select->type != ZEBRA_ROUTE_CONNECT
-              || rib->metric <= select->metric)
-            {
-              UNSET_FLAG (select->status, RIB_ENTRY_CHANGED);
-              select = rib;
-            }
-          else
-            UNSET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-          continue;
-        }
-      else if (select->type == ZEBRA_ROUTE_CONNECT)
-        {
-          UNSET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-          continue;
-        }
-      
-      /* higher distance loses */
-      if (rib->distance > select->distance)
-        {
-          UNSET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-          continue;
-        }
-      
-      /* lower wins */
-      if (rib->distance < select->distance)
-        {
-          UNSET_FLAG (select->status, RIB_ENTRY_CHANGED);
-          select = rib;
-          continue;
-        }
-      
-      /* metric tie-breaks equal distance */
-      if (rib->metric <= select->metric)
-        {
-          UNSET_FLAG (select->status, RIB_ENTRY_CHANGED);
-          select = rib;
-        }
+      best = rib_choose_best(select, rib);
+      if (select && best != select)
+        UNSET_FLAG (select->status, RIB_ENTRY_CHANGED);
+      if (best != rib)
+        UNSET_FLAG (rib->status, RIB_ENTRY_CHANGED);
+      select = best;
     } /* RNODE_FOREACH_RIB_SAFE */
 
   /* After the cycle is finished, the following pointers will be set:
