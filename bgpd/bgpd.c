@@ -1295,7 +1295,7 @@ bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
 {
   struct connected *ifc;
   struct prefix p;
-  u_int32_t s_addr;
+  u_int32_t addr;
   struct listnode *node;
 
   /* If our IPv4 address on the interface is /30 or /31, we can derive the
@@ -1309,11 +1309,11 @@ bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
           if (p.prefixlen == 30)
             {
               peer->su.sa.sa_family = AF_INET;
-              s_addr = ntohl(p.u.prefix4.s_addr);
-              if (s_addr % 4 == 1)
-                peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
-              else if (s_addr % 4 == 2)
-                peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
+              addr = ntohl(p.u.prefix4.s_addr);
+              if (addr % 4 == 1)
+                peer->su.sin.sin_addr.s_addr = htonl(addr+1);
+              else if (addr % 4 == 2)
+                peer->su.sin.sin_addr.s_addr = htonl(addr-1);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
               peer->su.sin.sin_len = sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
@@ -1322,11 +1322,11 @@ bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
           else if (p.prefixlen == 31)
             {
               peer->su.sa.sa_family = AF_INET;
-              s_addr = ntohl(p.u.prefix4.s_addr);
-              if (s_addr % 2 == 0)
-                peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
+              addr = ntohl(p.u.prefix4.s_addr);
+              if (addr % 2 == 0)
+                peer->su.sin.sin_addr.s_addr = htonl(addr+1);
               else
-                peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
+                peer->su.sin.sin_addr.s_addr = htonl(addr-1);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
               peer->su.sin.sin_len = sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */

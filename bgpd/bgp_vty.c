@@ -13013,7 +13013,7 @@ DEFUN (show_ip_bgp_attr_info,
 
 static int bgp_show_update_groups(struct vty *vty, const char *name,
                                   int afi, int safi,
-                                  u_int64_t subgrp_id)
+                                  uint64_t subgrp_id)
 {
   struct bgp *bgp;
 
@@ -13140,7 +13140,7 @@ DEFUN (show_ip_bgp_updgrps_s,
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[0]);
   return (bgp_show_update_groups(vty, NULL, AFI_IP, SAFI_UNICAST, subgrp_id));
@@ -13156,7 +13156,7 @@ DEFUN (show_ip_bgp_instance_updgrps_s,
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
   return (bgp_show_update_groups(vty, argv[1], AFI_IP, SAFI_UNICAST, subgrp_id));
@@ -13170,7 +13170,7 @@ DEFUN (show_bgp_ipv6_updgrps_s,
        "Detailed info about v6 dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[0]);
   return(bgp_show_update_groups(vty, NULL, AFI_IP6, SAFI_UNICAST, subgrp_id));
@@ -13184,7 +13184,7 @@ DEFUN (show_bgp_instance_ipv6_updgrps_s,
        "Detailed info about v6 dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
   return(bgp_show_update_groups(vty, argv[1], AFI_IP6, SAFI_UNICAST, subgrp_id));
@@ -13204,7 +13204,7 @@ DEFUN (show_bgp_updgrps_s,
 {
   afi_t afi;
   safi_t safi;
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
   safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
@@ -13251,7 +13251,7 @@ DEFUN (show_bgp_instance_updgrps_stats,
 static void
 show_bgp_updgrps_adj_info_aux (struct vty *vty, const char *name,
                                afi_t afi, safi_t safi,
-			       const char *what, u_int64_t subgrp_id)
+			       const char *what, uint64_t subgrp_id)
 {
   struct bgp *bgp;
 
@@ -13370,7 +13370,7 @@ DEFUN (show_ip_bgp_updgrps_adj_s,
        "Packet queue\n")
 
 {
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[0]);
 
@@ -13392,7 +13392,7 @@ DEFUN (show_ip_bgp_instance_updgrps_adj_s,
        "Packet queue\n")
 
 {
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
 
@@ -13418,7 +13418,7 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
 {
   afi_t afi;
   safi_t safi;
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   afi = (strcmp(argv[0], "ipv4") == 0) ? AFI_IP : AFI_IP6;
   safi = (strncmp (argv[1], "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
@@ -13439,7 +13439,7 @@ DEFUN (show_bgp_updgrps_adj_s,
        "Announced routes\n"
        "Packet queue\n")
 {
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[0]);
 
@@ -13459,7 +13459,7 @@ DEFUN (show_bgp_instance_updgrps_adj_s,
        "Announced routes\n"
        "Packet queue\n")
 {
-  u_int64_t subgrp_id;
+  uint64_t subgrp_id;
 
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[2]);
 

@@ -112,8 +112,8 @@ struct bgp_master
 #define BGP_OPT_CONFIG_CISCO             (1 << 2)
 #define BGP_OPT_NO_LISTEN                (1 << 3)
 
-  u_int64_t updgrp_idspace;
-  u_int64_t subgrp_idspace;
+  uint64_t updgrp_idspace;
+  uint64_t subgrp_idspace;
 
   /* timer to dampen route map changes */
   struct thread *t_rmap_update;   /* Handle route map updates */
@@ -518,7 +518,7 @@ struct peer
 
   /* BGP peer group.  */
   struct peer_group *group;
-  u_int64_t version[AFI_MAX][SAFI_MAX];
+  uint64_t version[AFI_MAX][SAFI_MAX];
 
   /* BGP peer_af structures, per configured AF on this peer */
   struct peer_af *peer_af_array[BGP_AF_MAX];
