@@ -1070,7 +1070,7 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
   int output_intf = 0;
 
   pim_ifp = up->rpf.source_nexthop.interface->info;
-  if (!up->channel_oil)
+  if (pim_ifp && !up->channel_oil)
     up->channel_oil = pim_channel_oil_add (&up->sg, pim_ifp->mroute_vif_index);
 
   for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), ifnode, ifnextnode, ifp))
