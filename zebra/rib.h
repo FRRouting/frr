@@ -345,9 +345,10 @@ extern int rib_add_ipv4 (int type, u_short instance, int flags, struct prefix_ip
 
 extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *, safi_t);
 
-extern int rib_delete_ipv4 (int type, u_short instance, int flags, struct prefix_ipv4 *p,
-		            struct in_addr *gate, ifindex_t ifindex,
-		            vrf_id_t, u_int32_t, safi_t safi);
+extern int rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
+		       u_short instance, int flags, struct prefix *p,
+		       union g_addr *gate, ifindex_t ifindex,
+		       u_int32_t table_id);
 
 extern struct rib *rib_match (afi_t afi, safi_t safi, vrf_id_t, union g_addr *,
 			      struct route_node **rn_out);
@@ -370,11 +371,6 @@ rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
 	      struct in6_addr *gate, ifindex_t ifindex, vrf_id_t vrf_id,
               u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
 	      u_char distance, safi_t safi);
-
-extern int
-rib_delete_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
-		 struct in6_addr *gate, ifindex_t ifindex, vrf_id_t vrf_id,
-                 u_int32_t table_id, safi_t safi);
 
 extern struct rib *rib_lookup_ipv6 (struct in6_addr *, vrf_id_t);
 

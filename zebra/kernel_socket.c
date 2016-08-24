@@ -884,10 +884,10 @@ rtm_read (struct rt_msghdr *rtm)
 
   if (dest.sa.sa_family == AF_INET)
     {
-      struct prefix_ipv4 p;
+      struct prefix p;
 
       p.family = AF_INET;
-      p.prefix = dest.sin.sin_addr;
+      p.u.prefix4 = dest.sin.sin_addr;
       if (flags & RTF_HOST)
 	p.prefixlen = IPV4_MAX_PREFIXLEN;
       else
@@ -967,20 +967,20 @@ rtm_read (struct rt_msghdr *rtm)
        * to specify the route really
        */
       if (rtm->rtm_type == RTM_CHANGE)
-        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
-                         NULL, 0, VRF_DEFAULT, 0, SAFI_UNICAST);
+        rib_delete (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		    0, zebra_flags, &p, NULL, 0, 0);
       
+      union g_addr ggate = { .ipv4 = gate.sin.sin_addr };
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      &p, &gate.sin.sin_addr, NULL, 0, VRF_DEFAULT,
+		      (struct prefix_ipv4 *)&p, &gate.sin.sin_addr, NULL, 0, VRF_DEFAULT,
 		      0, 0, 0, 0, SAFI_UNICAST);
       else
-	rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      &p, &gate.sin.sin_addr, 0, VRF_DEFAULT, 0, SAFI_UNICAST);
+	rib_delete (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		    0, zebra_flags, &p, &&ggate, 0, 0);
     }
-#ifdef HAVE_IPV6
   if (dest.sa.sa_family == AF_INET6)
     {
       /* One day we might have a debug section here like one in the
@@ -988,11 +988,11 @@ rtm_read (struct rt_msghdr *rtm)
        */
       if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
         return;
-      struct prefix_ipv6 p;
+      struct prefix p;
       ifindex_t ifindex = 0;
 
       p.family = AF_INET6;
-      p.prefix = dest.sin6.sin6_addr;
+      p.u.prefix6 = dest.sin6.sin6_addr;
       if (flags & RTF_HOST)
 	p.prefixlen = IPV6_MAX_PREFIXLEN;
       else
@@ -1010,20 +1010,21 @@ rtm_read (struct rt_msghdr *rtm)
        * to specify the route really
        */
       if (rtm->rtm_type == RTM_CHANGE)
-        rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
-                         NULL, 0, VRF_DEFAULT, 0, SAFI_UNICAST);
-      
+        rib_delete (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		    0, zebra_flags, &p, NULL, 0, 0);
+
+      union g_addr ggate = { .ipv6 = gate.sin6.sin6_addr };
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
 	rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      &p, &gate.sin6.sin6_addr, ifindex, VRF_DEFAULT,
+		      (struct prefix_ipv6 *)&p, &gate.sin6.sin6_addr,
+		      ifindex, VRF_DEFAULT,
 		      0, 0, 0, 0, SAFI_UNICAST);
       else
-	rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-			 &p, &gate.sin6.sin6_addr, ifindex, VRF_DEFAULT, 0, SAFI_UNICAST);
+	rib_delete (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		    0, zebra_flags, &p, &ggate, ifindex, 0);
     }
-#endif /* HAVE_IPV6 */
 }
 
 /* Interface function for the kernel routing table updates.  Support

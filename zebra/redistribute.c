@@ -614,16 +614,17 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 int
 zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
 {
-  struct prefix_ipv4 p4;
+  struct prefix p;
 
   if (rn->p.family == AF_INET)
     {
-      p4.family = AF_INET;
-      p4.prefixlen = rn->p.prefixlen;
-      p4.prefix = rn->p.u.prefix4;
+      p.family = AF_INET;
+      p.prefixlen = rn->p.prefixlen;
+      p.u.prefix4 = rn->p.u.prefix4;
 
-      rib_delete_ipv4(ZEBRA_ROUTE_TABLE, rib->table, rib->flags, &p4, NULL,
-		      0, rib->vrf_id, zebrad.rtm_table_default, SAFI_UNICAST);
+      rib_delete (AFI_IP, SAFI_UNICAST, rib->vrf_id, ZEBRA_ROUTE_TABLE,
+		  rib->table, rib->flags, &p, NULL,
+		  0, zebrad.rtm_table_default);
     }
   /* DD: Add IPv6 code */
 
