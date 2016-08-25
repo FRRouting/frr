@@ -113,9 +113,10 @@ static void recv_join(struct interface *ifp,
 	      char buff[100];
 
 	      strcpy (buff, pim_str_sg_dump (&up->sg));
-	      zlog_debug("%s %s: Join(S,G)=%s from %s",
-		         __FILE__, __PRETTY_FUNCTION__,
-		         buff, pim_str_sg_dump (&sg));
+	      if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s %s: Join(S,G)=%s from %s",
+			   __FILE__, __PRETTY_FUNCTION__,
+			   buff, pim_str_sg_dump (&sg));
 
               if (pim_upstream_evaluate_join_desired (child))
                 {
