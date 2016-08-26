@@ -103,6 +103,7 @@ int64_t                   qpim_mroute_add_events;
 int64_t                   qpim_mroute_add_last;
 int64_t                   qpim_mroute_del_events;
 int64_t                   qpim_mroute_del_last;
+int64_t                   qpim_nexthop_lookups;
 struct list              *qpim_static_route_list; /* list of routes added statically */
 extern unsigned int       qpim_keep_alive_time;
 extern signed int         qpim_rp_keep_alive_time;

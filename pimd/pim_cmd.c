@@ -1102,12 +1102,14 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now)
 	  "RPF Cache Refresh Timer:    %ld msecs%s"
 	  "RPF Cache Refresh Requests: %lld%s"
 	  "RPF Cache Refresh Events:   %lld%s"
-	  "RPF Cache Refresh Last:     %s%s",
+	  "RPF Cache Refresh Last:     %s%s"
+	  "Nexthop Lookups:            %lld%s",
 	  qpim_rpf_cache_refresh_delay_msec, VTY_NEWLINE,
 	  pim_time_timer_remain_msec(qpim_rpf_cache_refresher), VTY_NEWLINE,
 	  (long long)qpim_rpf_cache_refresh_requests, VTY_NEWLINE,
 	  (long long)qpim_rpf_cache_refresh_events, VTY_NEWLINE,
-	  refresh_uptime, VTY_NEWLINE);
+	  refresh_uptime, VTY_NEWLINE,
+	  (long long) qpim_nexthop_lookups, VTY_NEWLINE);
 }
 
 static void show_scan_oil_stats(struct vty *vty, time_t now)
