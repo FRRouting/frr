@@ -1089,7 +1089,16 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
 	}
     }
 
-  pim_upstream_switch (up, PIM_UPSTREAM_JOINED);
+  /*
+   * If we have output_intf switch state to Join and work like normal
+   * If we don't have an output_intf that means we are probably a
+   * switch on a stick so turn on forwarding to just accept the
+   * incoming packets so we don't bother the other stuff!
+   */
+  if (output_intf)
+    pim_upstream_switch (up, PIM_UPSTREAM_JOINED);
+  else
+    forward_on (up);
 
   return output_intf;
 }
