@@ -908,7 +908,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 	       addr_str, ifp->name);
   }
 
-  return 0;
+  return NULL;
 }
 
 long pim_if_t_suppressed_msec(struct interface *ifp)
