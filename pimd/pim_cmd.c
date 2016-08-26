@@ -2087,10 +2087,10 @@ static void show_multicast_interfaces(struct vty *vty)
 	    inet_ntoa(ifaddr),
 	    ifp->ifindex,
 	    pim_ifp->mroute_vif_index,
-	    vreq.icount,
-	    vreq.ocount,
-	    vreq.ibytes,
-	    vreq.obytes,
+	    (unsigned long) vreq.icount,
+	    (unsigned long) vreq.ocount,
+	    (unsigned long) vreq.ibytes,
+	    (unsigned long) vreq.obytes,
 	    VTY_NEWLINE);
   }
 }

@@ -63,7 +63,9 @@ bgp_md5_set_socket (int socket, union sockunion *su, const char *password)
 {
   int ret = -1;
   int en = ENOSYS;
+#if HAVE_DECL_TCP_MD5SIG
   union sockunion su2;
+#endif /* HAVE_TCP_MD5SIG */
   
   assert (socket >= 0);
   

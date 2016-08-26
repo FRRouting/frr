@@ -482,7 +482,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
                     {
                       u_int16_t type;
                       struct rd_as rd_as;
-                      struct rd_ip rd_ip = { 0, { 0 }, 0};
+                      struct rd_ip rd_ip = {0};
                       u_char *pnt;
 
                       pnt = rn->p.u.val;
@@ -672,7 +672,7 @@ bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type ty
 		    {
 		      u_int16_t type;
 		      struct rd_as rd_as;
-		      struct rd_ip rd_ip = { 0, { 0 }, 0};
+		      struct rd_ip rd_ip = {0};
 		      u_char *pnt;
 
 		      pnt = rn->p.u.val;

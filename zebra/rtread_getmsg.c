@@ -91,7 +91,7 @@ handle_route_entry (mib2_ipRouteEntry_t *routeEntry)
 	gateway.s_addr = routeEntry->ipRouteNextHop;
 
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &prefix,
-		      &gateway, NULL, 0, VRF_DEFAULT, 0, 0, 0, SAFI_UNICAST);
+		      &gateway, NULL, 0, VRF_DEFAULT, 0, 0, 0, 0, SAFI_UNICAST);
 }
 
 void

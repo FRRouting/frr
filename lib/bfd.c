@@ -504,8 +504,8 @@ bfd_client_sendmsg (struct zclient *zclient, int command)
   if (ret < 0)
     {
       if (bfd_debug)
-	zlog_debug ("bfd_client_sendmsg %d: zclient_send_message() failed",
-		   getpid());
+	zlog_debug ("bfd_client_sendmsg %ld: zclient_send_message() failed",
+		   (long) getpid());
       return;
     }
 
