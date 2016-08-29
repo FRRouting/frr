@@ -160,4 +160,7 @@ void pim_upstream_switch (struct pim_upstream *up, enum pim_upstream_state new_s
 const char *pim_upstream_state2str (enum pim_upstream_state join_state);
 
 int pim_upstream_inherited_olist (struct pim_upstream *up);
+
+void pim_upstream_find_new_rpf (void);
+
 #endif /* PIM_UPSTREAM_H */

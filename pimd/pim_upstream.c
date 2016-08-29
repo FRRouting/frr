@@ -506,7 +506,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
   up->rpf.source_nexthop.mrib_route_metric        = qpim_infinite_assert_metric.route_metric;
   up->rpf.rpf_addr.s_addr                         = PIM_NET_INADDR_ANY;
 
-  rpf_result = pim_rpf_update(up, 0);
+  rpf_result = pim_rpf_update(up, NULL);
   if (rpf_result == PIM_RPF_FAILURE) {
     XFREE(MTYPE_PIM_UPSTREAM, up);
     return NULL;
@@ -1101,4 +1101,32 @@ pim_upstream_inherited_olist (struct pim_upstream *up)
     forward_on (up);
 
   return output_intf;
+}
+
+/*
+ * When we have a new neighbor,
+ * find upstreams that don't have their rpf_addr
+ * set and see if the new neighbor allows
+ * the join to be sent
+ */
+void
+pim_upstream_find_new_rpf (void)
+{
+  struct listnode     *up_node;
+  struct listnode     *up_nextnode;
+  struct pim_upstream *up;
+
+  /*
+    Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
+  */
+  for (ALL_LIST_ELEMENTS(qpim_upstream_list, up_node, up_nextnode, up))
+    {
+      if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr))
+	{
+	  if (PIM_DEBUG_PIM_TRACE)
+	    zlog_debug ("Upstream %s without a path to send join, checking",
+			pim_str_sg_dump (&up->sg));
+	  pim_rpf_update (up, NULL);
+	}
+    }
 }
