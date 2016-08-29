@@ -35,12 +35,17 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
+#include "lib/json.h"
 
 extern int allow_delete;
 
-static int do_show_ip_route(struct vty *vty, const char *vrf_name,  safi_t safi);
+static int do_show_ip_route(struct vty *vty, const char *vrf_name,
+                            safi_t safi, u_char use_json);
 static void vty_show_ip_route_detail (struct vty *vty, struct route_node *rn,
                                       int mcast);
+
+#define ONE_DAY_SECOND 60*60*24
+#define ONE_WEEK_SECOND 60*60*24*7
 
 /* General function for static route. */
 static int
@@ -278,7 +283,7 @@ DEFUN (show_ip_rpf,
        IP_STR
        "Display RPF information for multicast source\n")
 {
-  return do_show_ip_route(vty, VRF_DEFAULT_NAME, SAFI_MULTICAST);
+  return do_show_ip_route(vty, VRF_DEFAULT_NAME, SAFI_MULTICAST, 0);
 }
 
 DEFUN (show_ip_rpf_addr,
@@ -1944,8 +1949,6 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
        vty_out (vty, ", reject");
       vty_out (vty, "%s", VTY_NEWLINE);
 
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
       if (rib->type == ZEBRA_ROUTE_RIP
 	  || rib->type == ZEBRA_ROUTE_OSPF
 	  || rib->type == ZEBRA_ROUTE_ISIS
@@ -2048,12 +2051,151 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 }
 
 static void
-vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
+vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
+                   json_object *json)
 {
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   int len = 0;
   char buf[BUFSIZ];
+  json_object *json_nexthops = NULL;
+  json_object *json_nexthop = NULL;
+  json_object *json_route = NULL;
+
+  if (json)
+    {
+      json_route = json_object_new_object();
+      json_nexthops = json_object_new_array();
+
+      json_object_string_add(json_route, "prefix", prefix2str (&rn->p, buf, sizeof buf));
+      json_object_string_add(json_route, "protocol", zebra_route_string(rib->type));
+
+      if (rib->instance)
+        json_object_int_add(json_route, "instance", rib->instance);
+
+      if (rib->vrf_id)
+        json_object_int_add(json_route, "vrfId", rib->vrf_id);
+
+      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+        json_object_boolean_true_add(json_route, "selected");
+
+      if (rib->type != ZEBRA_ROUTE_CONNECT && rib->type != ZEBRA_ROUTE_KERNEL)
+        {
+          json_object_int_add(json_route, "distance", rib->distance);
+          json_object_int_add(json_route, "metric", rib->metric);
+        }
+
+      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
+        json_object_boolean_true_add(json_route, "blackhole");
+
+      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_REJECT))
+        json_object_boolean_true_add(json_route, "reject");
+
+      if (rib->type == ZEBRA_ROUTE_RIP
+          || rib->type == ZEBRA_ROUTE_OSPF
+          || rib->type == ZEBRA_ROUTE_ISIS
+          || rib->type == ZEBRA_ROUTE_TABLE
+          || rib->type == ZEBRA_ROUTE_BGP)
+        {
+          time_t uptime;
+          struct tm *tm;
+
+          uptime = time (NULL);
+          uptime -= rib->uptime;
+          tm = gmtime (&uptime);
+
+          if (uptime < ONE_DAY_SECOND)
+            sprintf(buf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
+          else if (uptime < ONE_WEEK_SECOND)
+            sprintf(buf, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour, tm->tm_min);
+          else
+            sprintf(buf, "%02dw%dd%02dh", tm->tm_yday/7, tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
+
+          json_object_string_add(json_route, "uptime", buf);
+        }
+
+      for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+        {
+          json_nexthop = json_object_new_object();
+
+          if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+            json_object_boolean_true_add(json_nexthop, "fib");
+
+          switch (nexthop->type)
+            {
+            case NEXTHOP_TYPE_IPV4:
+            case NEXTHOP_TYPE_IPV4_IFINDEX:
+              json_object_string_add(json_nexthop, "ip", inet_ntoa (nexthop->gate.ipv4));
+              json_object_string_add(json_nexthop, "afi", "ipv4");
+
+              if (nexthop->ifindex)
+                {
+                  json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
+                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                }
+              break;
+            case NEXTHOP_TYPE_IPV6:
+            case NEXTHOP_TYPE_IPV6_IFINDEX:
+              json_object_string_add(json_nexthop, "ip", inet_ntop (AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+              json_object_string_add(json_nexthop, "afi", "ipv6");
+
+              if (nexthop->ifindex)
+                {
+                  json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
+                  json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+                }
+              break;
+
+            case NEXTHOP_TYPE_IFINDEX:
+              json_object_boolean_true_add(json_nexthop, "directlyConnected");
+              json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
+              json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname_vrf (nexthop->ifindex, rib->vrf_id));
+              break;
+            case NEXTHOP_TYPE_BLACKHOLE:
+              json_object_boolean_true_add(json_nexthop, "blackhole");
+              break;
+            default:
+              break;
+            }
+
+          if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+            json_object_boolean_true_add(json_nexthop, "active");
+
+          if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ONLINK))
+            json_object_boolean_true_add(json_nexthop, "onLink");
+
+          if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+            json_object_boolean_true_add(json_nexthop, "recursive");
+
+          switch (nexthop->type)
+            {
+              case NEXTHOP_TYPE_IPV4:
+              case NEXTHOP_TYPE_IPV4_IFINDEX:
+                if (nexthop->src.ipv4.s_addr)
+                  {
+                    if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf, sizeof buf))
+                      json_object_string_add(json_nexthop, "source", buf);
+                  }
+                break;
+              case NEXTHOP_TYPE_IPV6:
+              case NEXTHOP_TYPE_IPV6_IFINDEX:
+                if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+                  {
+                    if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf, sizeof buf))
+                      json_object_string_add(json_nexthop, "source", buf);
+                  }
+                break;
+              default:
+                break;
+            }
+
+          json_object_array_add(json_nexthops, json_nexthop);
+        }
+
+      json_object_object_add(json_route, "nexthops", json_nexthops);
+      json_object_array_add(json, json_route);
+      return;
+    }
 
   /* Nexthop information. */
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
@@ -2160,9 +2302,6 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	  uptime -= rib->uptime;
 	  tm = gmtime (&uptime);
 
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
-
 	  if (uptime < ONE_DAY_SECOND)
 	    vty_out (vty,  ", %02d:%02d:%02d", 
 		     tm->tm_hour, tm->tm_min, tm->tm_sec);
@@ -2180,62 +2319,112 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 
 DEFUN (show_ip_route,
        show_ip_route_cmd,
-       "show ip route",
+       "show ip route {json}",
        SHOW_STR
        IP_STR
        "IP routing table\n")
 {
-  return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST);
+  return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST, use_json(argc, argv));
 }
 
 static int
-do_show_ip_route(struct vty *vty, const char *vrf_name, safi_t safi)
+do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
+                  u_char use_json)
 {
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
   int first = 1;
   struct zebra_vrf *zvrf = NULL;
+  char buf[BUFSIZ];
+  json_object *json = NULL;
+  json_object *json_prefix = NULL;
 
   if (!(zvrf = zebra_vrf_list_lookup_by_name (vrf_name)))
     {
-      vty_out (vty, "vrf %s not defined%s", vrf_name, VTY_NEWLINE);
+      if (use_json)
+        vty_out (vty, "{}%s", VTY_NEWLINE);
+      else
+        vty_out (vty, "vrf %s not defined%s", vrf_name, VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 
   if (zvrf->vrf_id == VRF_UNKNOWN)
     {
-      vty_out (vty, "vrf %s inactive%s", vrf_name, VTY_NEWLINE);
+      if (use_json)
+        vty_out (vty, "{}%s", VTY_NEWLINE);
+      else
+        vty_out (vty, "vrf %s inactive%s", vrf_name, VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 
   table = zebra_vrf_table (AFI_IP, safi, zvrf->vrf_id);
   if (! table)
-    return CMD_SUCCESS;
+    {
+      if (use_json)
+        vty_out (vty, "{}%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
 
-  /* Show all IPv4 routes. */
-  for (rn = route_top (table); rn; rn = route_next (rn))
-    RNODE_FOREACH_RIB (rn, rib)
-      {
-	if (first)
-	  {
-	    vty_out (vty, SHOW_ROUTE_V4_HEADER);
-	    first = 0;
-	  }
-        vty_show_ip_route (vty, rn, rib);
-      }
+  if (use_json)
+    {
+      json = json_object_new_object();
+
+      /* Show all IPv4 routes. */
+      for (rn = route_top (table); rn; rn = route_next (rn))
+        {
+          RNODE_FOREACH_RIB (rn, rib)
+            {
+              if (!json_prefix)
+                json_prefix = json_object_new_array();
+              vty_show_ip_route (vty, rn, rib, json_prefix);
+            }
+
+          if (json_prefix)
+            {
+              prefix2str (&rn->p, buf, sizeof buf);
+              json_object_object_add(json, buf, json_prefix);
+              json_prefix = NULL;
+            }
+        }
+
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    {
+      /* Show all IPv4 routes. */
+      for (rn = route_top (table); rn; rn = route_next (rn))
+        {
+          RNODE_FOREACH_RIB (rn, rib)
+            {
+              if (first)
+                {
+                  vty_out (vty, SHOW_ROUTE_V4_HEADER);
+                  first = 0;
+                }
+              vty_show_ip_route (vty, rn, rib, NULL);
+            }
+        }
+    }
+
   return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_route_vrf,
        show_ip_route_vrf_cmd,
-       "show ip route  " VRF_CMD_STR,
+       "show ip route  " VRF_CMD_STR " {json}",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        VRF_CMD_HELP_STR)
 {
-  return do_show_ip_route (vty, argv[0], SAFI_UNICAST);
+  u_char uj = use_json(argc, argv);
+
+  if (argc == 1 && uj)
+    return do_show_ip_route (vty, NULL, SAFI_UNICAST, uj);
+  else
+    return do_show_ip_route (vty, argv[0], SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_nht,
@@ -2430,7 +2619,7 @@ DEFUN (show_ip_route_tag,
             vty_out (vty, SHOW_ROUTE_V4_HEADER);
             first = 0;
           }
-        vty_show_ip_route (vty, rn, rib);
+        vty_show_ip_route (vty, rn, rib, NULL);
       }
   return CMD_SUCCESS;
 }
@@ -2490,7 +2679,7 @@ DEFUN (show_ip_route_prefix_longer,
 	      vty_out (vty, SHOW_ROUTE_V4_HEADER);
 	      first = 0;
 	    }
-	  vty_show_ip_route (vty, rn, rib);
+	  vty_show_ip_route (vty, rn, rib, NULL);
 	}
   return CMD_SUCCESS;
 }
@@ -2542,7 +2731,7 @@ DEFUN (show_ip_route_supernets,
 		vty_out (vty, SHOW_ROUTE_V4_HEADER);
 		first = 0;
 	      }
-	    vty_show_ip_route (vty, rn, rib);
+	    vty_show_ip_route (vty, rn, rib, NULL);
 	  }
       }
   return CMD_SUCCESS;
@@ -2600,7 +2789,7 @@ DEFUN (show_ip_route_protocol,
 	      vty_out (vty, SHOW_ROUTE_V4_HEADER);
 	      first = 0;
 	    }
-	  vty_show_ip_route (vty, rn, rib);
+	  vty_show_ip_route (vty, rn, rib, NULL);
 	}
   return CMD_SUCCESS;
 }
@@ -2645,7 +2834,7 @@ DEFUN (show_ip_route_ospf_instance,
 	      vty_out (vty, SHOW_ROUTE_V4_HEADER);
 	      first = 0;
 	    }
-	  vty_show_ip_route (vty, rn, rib);
+	  vty_show_ip_route (vty, rn, rib, NULL);
 	}
   return CMD_SUCCESS;
 }
@@ -3014,7 +3203,7 @@ DEFUN (show_ip_route_vrf_all,
                 vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                 vrf_header = 0;
               }
-            vty_show_ip_route (vty, rn, rib);
+            vty_show_ip_route (vty, rn, rib, NULL);
           }
       vrf_header  = 1;
     }
@@ -3068,7 +3257,7 @@ DEFUN (show_ip_route_vrf_all_tag,
                 vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                 vrf_header = 0;
               }
-            vty_show_ip_route (vty, rn, rib);
+            vty_show_ip_route (vty, rn, rib, NULL);
           }
       vrf_header = 1;
     }
@@ -3124,7 +3313,7 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
                   vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                   vrf_header = 0;
                 }
-              vty_show_ip_route (vty, rn, rib);
+              vty_show_ip_route (vty, rn, rib, NULL);
             }
       vrf_header = 1;
     }
@@ -3177,7 +3366,7 @@ DEFUN (show_ip_route_vrf_all_supernets,
                     vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                     vrf_header = 0;
                   }
-                vty_show_ip_route (vty, rn, rib);
+                vty_show_ip_route (vty, rn, rib, NULL);
               }
           }
       vrf_header = 1;
@@ -3233,7 +3422,7 @@ DEFUN (show_ip_route_vrf_all_protocol,
                   vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                   vrf_header = 0;
                 }
-              vty_show_ip_route (vty, rn, rib);
+              vty_show_ip_route (vty, rn, rib, NULL);
             }
       vrf_header = 1;
     }
@@ -4544,7 +4733,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref_tag_vrf,
 
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
-       "show ipv6 route",
+       "show ipv6 route {json}",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n")
@@ -4555,18 +4744,28 @@ DEFUN (show_ipv6_route,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
   struct zebra_vrf *zvrf = NULL;
+  char buf[BUFSIZ];
+  json_object *json = NULL;
+  json_object *json_prefix = NULL;
+  u_char uj = use_json(argc, argv);
 
-  if (argc > 0)
+  if (argc > 0 && argv[0] && strcmp(argv[0], "json") != 0)
     {
      if (!(zvrf = zebra_vrf_list_lookup_by_name (argv[0])))
         {
-          vty_out (vty, "vrf %s not defined%s", argv[0], VTY_NEWLINE);
+          if (uj)
+            vty_out (vty, "{}%s", VTY_NEWLINE);
+          else
+            vty_out (vty, "vrf %s not defined%s", argv[0], VTY_NEWLINE);
           return CMD_SUCCESS;
         }
 
       if (zvrf->vrf_id == VRF_UNKNOWN)
         {
-          vty_out (vty, "vrf %s inactive%s", argv[0], VTY_NEWLINE);
+          if (uj)
+            vty_out (vty, "{}%s", VTY_NEWLINE);
+          else
+            vty_out (vty, "vrf %s inactive%s", argv[0], VTY_NEWLINE);
           return CMD_SUCCESS;
         }
       else
@@ -4575,25 +4774,60 @@ DEFUN (show_ipv6_route,
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
-    return CMD_SUCCESS;
+    {
+      if (uj)
+        vty_out (vty, "{}%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
 
-  /* Show all IPv6 route. */
-  for (rn = route_top (table); rn; rn = route_next (rn))
-    RNODE_FOREACH_RIB (rn, rib)
-      {
-	if (first)
-	  {
-	    vty_out (vty, SHOW_ROUTE_V6_HEADER);
-	    first = 0;
-	  }
-	vty_show_ip_route (vty, rn, rib);
-      }
+  if (uj)
+    {
+      json = json_object_new_object();
+
+      /* Show all IPv6 route. */
+      for (rn = route_top (table); rn; rn = route_next (rn))
+        {
+          RNODE_FOREACH_RIB (rn, rib)
+            {
+              if (!json_prefix)
+                json_prefix = json_object_new_array();
+              vty_show_ip_route (vty, rn, rib, json_prefix);
+            }
+
+          if (json_prefix)
+            {
+              prefix2str (&rn->p, buf, sizeof buf);
+              json_object_object_add(json, buf, json_prefix);
+              json_prefix = NULL;
+            }
+        }
+
+      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      json_object_free(json);
+    }
+  else
+    {
+      /* Show all IPv6 route. */
+      for (rn = route_top (table); rn; rn = route_next (rn))
+        {
+          RNODE_FOREACH_RIB (rn, rib)
+            {
+              if (first)
+                {
+                  vty_out (vty, SHOW_ROUTE_V6_HEADER);
+                  first = 0;
+                }
+              vty_show_ip_route (vty, rn, rib, NULL);
+            }
+        }
+    }
+
   return CMD_SUCCESS;
 }
 
 ALIAS (show_ipv6_route,
        show_ipv6_route_vrf_cmd,
-       "show ipv6 route  " VRF_CMD_STR,
+       "show ipv6 route  " VRF_CMD_STR " {json}",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -4639,7 +4873,7 @@ DEFUN (show_ipv6_route_tag,
 	    vty_out (vty, SHOW_ROUTE_V6_HEADER);
 	    first = 0;
 	  }
-	vty_show_ip_route (vty, rn, rib);
+	vty_show_ip_route (vty, rn, rib, NULL);
       }
   return CMD_SUCCESS;
 }
@@ -4699,7 +4933,7 @@ DEFUN (show_ipv6_route_prefix_longer,
 	      vty_out (vty, SHOW_ROUTE_V6_HEADER);
 	      first = 0;
 	    }
-	  vty_show_ip_route (vty, rn, rib);
+	  vty_show_ip_route (vty, rn, rib, NULL);
 	}
   return CMD_SUCCESS;
 }
@@ -4757,7 +4991,7 @@ DEFUN (show_ipv6_route_protocol,
 	      vty_out (vty, SHOW_ROUTE_V6_HEADER);
 	      first = 0;
 	    }
-	  vty_show_ip_route (vty, rn, rib);
+	  vty_show_ip_route (vty, rn, rib, NULL);
 	}
   return CMD_SUCCESS;
 }
@@ -4983,7 +5217,7 @@ DEFUN (show_ipv6_mroute,
 	   vty_out (vty, SHOW_ROUTE_V6_HEADER);
            first = 0;
          }
-       vty_show_ip_route (vty, rn, rib);
+       vty_show_ip_route (vty, rn, rib, NULL);
       }
   return CMD_SUCCESS;
 }
@@ -5033,7 +5267,7 @@ DEFUN (show_ipv6_route_vrf_all,
                 vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                 vrf_header = 0;
               }
-            vty_show_ip_route (vty, rn, rib);
+            vty_show_ip_route (vty, rn, rib, NULL);
           }
       vrf_header = 1;
     }
@@ -5087,7 +5321,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
                 vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                 vrf_header = 0;
               }
-            vty_show_ip_route (vty, rn, rib);
+            vty_show_ip_route (vty, rn, rib, NULL);
           }
       vrf_header = 1;
     }
@@ -5144,7 +5378,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
                 vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                 vrf_header = 0;
               }
-              vty_show_ip_route (vty, rn, rib);
+              vty_show_ip_route (vty, rn, rib, NULL);
             }
       vrf_header = 1;
     }
@@ -5199,7 +5433,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
                 vty_out (vty, "%sVRF %s:%s", VTY_NEWLINE, zvrf->name, VTY_NEWLINE);
                 vrf_header = 0;
               }
-              vty_show_ip_route (vty, rn, rib);
+              vty_show_ip_route (vty, rn, rib, NULL);
             }
       vrf_header = 1;
     }
@@ -5343,7 +5577,7 @@ DEFUN (show_ipv6_mroute_vrf_all,
                vty_out (vty, SHOW_ROUTE_V6_HEADER);
                first = 0;
              }
-           vty_show_ip_route (vty, rn, rib);
+           vty_show_ip_route (vty, rn, rib, NULL);
           }
     }
   return CMD_SUCCESS;
