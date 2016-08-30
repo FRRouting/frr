@@ -2215,8 +2215,14 @@ route_set_ipv6_nexthop_prefer_global (void *rule, struct prefix *prefix,
           /* Set next hop preference to global */
           bgp_info->attr->extra->mp_nexthop_prefer_global = TRUE;
           SET_FLAG(bgp_info->attr->rmap_change_flags,
-                   BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED);
+                   BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 	}
+      else
+        {
+          bgp_info->attr->extra->mp_nexthop_prefer_global = FALSE;
+          SET_FLAG(bgp_info->attr->rmap_change_flags,
+                   BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
+        }
     }
  return RMAP_OKAY;
 }
