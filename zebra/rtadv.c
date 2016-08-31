@@ -619,7 +619,7 @@ rtadv_read (struct thread *thread)
   /* Register myself. */
   rtadv_event (zns, RTADV_READ, sock);
 
-  len = rtadv_recv_packet (zns, sock, buf, BUFSIZ, &from, &ifindex, &hoplimit);
+  len = rtadv_recv_packet (zns, sock, buf, sizeof (buf), &from, &ifindex, &hoplimit);
 
   if (len < 0) 
     {
