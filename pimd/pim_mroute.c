@@ -89,6 +89,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
   struct pim_upstream *up;
   struct pim_rpf *rpg;
   struct prefix_sg sg;
+  struct channel_oil *oil;
 
   rpg = RP(msg->im_dst);
   /*
@@ -123,6 +124,16 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 	       __PRETTY_FUNCTION__, pim_str_sg_dump (&sg));
   }
 
+  oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
+  if (!oil) {
+    if (PIM_DEBUG_MROUTE) {
+      zlog_debug("%s: Failure to add channel oil for %s",
+		 __PRETTY_FUNCTION__,
+		 pim_str_sg_dump (&sg));
+    }
+    return 0;
+  }
+
   up = pim_upstream_add (&sg, ifp);
   if (!up) {
     if (PIM_DEBUG_MROUTE) {
@@ -135,16 +146,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 
   pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 
-  up->channel_oil = pim_channel_oil_add(&sg,
-					pim_ifp->mroute_vif_index);
-  if (!up->channel_oil) {
-    if (PIM_DEBUG_MROUTE) {
-      zlog_debug("%s: Failure to add channel oil for %s",
-		 __PRETTY_FUNCTION__,
-		 pim_str_sg_dump (&sg));
-    }
-    return 0;
-  }
+  up->channel_oil = oil;
   up->channel_oil->cc.pktcnt++;
   up->fhr = 1;
   pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
@@ -304,6 +306,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   struct pim_ifchannel *ch;
   struct pim_upstream *up;
   struct prefix_sg sg;
+  struct channel_oil *oil;
 
   memset (&sg, 0, sizeof (struct prefix_sg));
   sg.src = ip_hdr->ip_src;
@@ -351,29 +354,33 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 	  return 0;
     }
 
-  up = pim_upstream_add (&sg, ifp);
-
-  if (!up)
-    {
-      if (PIM_DEBUG_MROUTE)
-	zlog_debug ("%s: WRONGVIF%s unable to create upstream on interface",
-		    pim_str_sg_dump (&sg), ifp->name);
-      return -2;
-    }
-
-  if (pim_if_connected_to_source (ifp, sg.src))
-    up->fhr = 1;
-
   pim_ifp = ifp->info;
-  pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
-  up->channel_oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
-  up->channel_oil->cc.pktcnt++;
-  pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
-  up->join_state = PIM_UPSTREAM_JOINED;
-  pim_upstream_inherited_olist (up);
+  oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
+  if (!oil->installed)
+    pim_mroute_add (oil);
+  if (pim_if_connected_to_source (ifp, sg.src))
+    {
+      up = pim_upstream_add (&sg, ifp);
 
-  // Send the packet to the RP
-  pim_mroute_msg_wholepkt (fd, ifp, buf);
+      if (!up)
+	{
+	  if (PIM_DEBUG_MROUTE)
+	    zlog_debug ("%s: WRONGVIF%s unable to create upstream on interface",
+			pim_str_sg_dump (&sg), ifp->name);
+	  return -2;
+	}
+      up->fhr = 1;
+
+      pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
+      up->channel_oil = oil;
+      up->channel_oil->cc.pktcnt++;
+      pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
+      up->join_state = PIM_UPSTREAM_JOINED;
+      pim_upstream_inherited_olist (up);
+
+      // Send the packet to the RP
+      pim_mroute_msg_wholepkt (fd, ifp, buf);
+    }
 
   return 0;
 }
