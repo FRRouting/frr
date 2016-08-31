@@ -353,18 +353,17 @@ zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
   if (!rn)
     return NULL;
 
-  /* Do not resolve over default route unless allowed &&
-   * match route to be exact if so specified
+  /* When resolving nexthops, do not resolve via the default route unless
+   * 'ip nht resolve-via-default' is configured.
    */
   if ((type == RNH_NEXTHOP_TYPE) &&
       (is_default_prefix (&rn->p) &&
       !nh_resolve_via_default(rn->p.family)))
     rib = NULL;
-  else if ((type == RNH_IMPORT_CHECK_TYPE) &&
-           ((is_default_prefix(&rn->p)) ||
-            ((CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH)) &&
-            !prefix_same(&nrn->p, &rn->p))))
-    rib = NULL;
+ else if ((type == RNH_IMPORT_CHECK_TYPE) &&
+          CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH) &&
+          !prefix_same(&nrn->p, &rn->p))
+   rib = NULL;
   else
     {
       /* Identify appropriate route entry. */
