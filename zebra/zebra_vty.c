@@ -29,13 +29,14 @@
 #include "rib.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "lib/json.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
-#include "lib/json.h"
+#include "zebra/zebra_static.h"
 
 extern int allow_delete;
 
