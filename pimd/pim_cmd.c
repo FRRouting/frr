@@ -2467,7 +2467,7 @@ pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group)
 
 DEFUN (ip_pim_keep_alive,
        ip_pim_keep_alive_cmd,
-       "ip pim keep-alive-timer <31-600>",
+       "ip pim keep-alive-timer <31-60000>",
        IP_STR
        "pim multicast routing\n"
        "Keep alive Timer"
@@ -2479,7 +2479,7 @@ DEFUN (ip_pim_keep_alive,
 
 DEFUN (no_ip_pim_keep_alive,
        no_ip_pim_keep_alive_cmd,
-       "no ip pim keep-alive-timer <31-600>",
+       "no ip pim keep-alive-timer <31-60000>",
        NO_STR
        IP_STR
        "pim multicast routing\n"
@@ -2492,7 +2492,7 @@ DEFUN (no_ip_pim_keep_alive,
 
 DEFUN (ip_pim_rp_keep_alive,
        ip_pim_rp_keep_alive_cmd,
-       "ip pim rp keep-alive-timer <31-600>",
+       "ip pim rp keep-alive-timer <31-60000>",
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
@@ -2505,7 +2505,7 @@ DEFUN (ip_pim_rp_keep_alive,
 
 DEFUN (no_ip_pim_rp_keep_alive,
        no_ip_pim_rp_keep_alive_cmd,
-       "no ip pim rp keep-alive-timer <31-600>",
+       "no ip pim rp keep-alive-timer <31-60000>",
        NO_STR
        IP_STR
        "pim multicast routing\n"
