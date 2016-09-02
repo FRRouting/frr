@@ -34,7 +34,7 @@
 /* required external units */
 %code requires {
   #include "command.h"
-  #include "command_graph.h"
+  #include "graph.h"
   #include "memory.h"
 
   extern int
@@ -49,8 +49,8 @@
 
 /* functionality this unit exports */
 %code provides {
-  struct graph_node *
-  command_parse_format (struct graph_node *, struct cmd_element *);
+  struct graph *
+  command_parse_format (struct graph *, struct cmd_element *);
 
   /* maximum length of a number, lexer will not match anything longer */
   #define DECIMAL_STRLEN_MAX 20
@@ -105,7 +105,7 @@
 
   /* helper functions for parser */
   static char *
-  doc_next(void);
+  doc_next (void);
 
   static struct graph_node *
   node_exists (struct graph_node *, struct graph_node *);
@@ -127,7 +127,7 @@
 
 /* yyparse parameters */
 %parse-param { struct cmd_element *element }
-%parse-param { struct graph_node *startnode }
+%parse-param { struct graph *graph }
 
 /* called automatically before yyparse */
 %initial-action {
@@ -156,7 +156,7 @@ start:
 | sentence_root cmd_token_seq '.' placeholder_token
 {
   if ((currnode = node_replace (currnode, $4)) != $4)
-    graphnode_delete ($4);
+    graph_delete_node ($4);
 
   // adding a node as a child of itself accepts any number
   // of the same token, which is what we want for varags
@@ -168,9 +168,8 @@ start:
 
 sentence_root: WORD
 {
-  struct graph_node *root = graphnode_new (WORD_GN);
-  root->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
-  root->doc = doc_next();
+  struct graph_node *root =
+    new_token_node (WORD_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
 
   if ((currnode = node_replace (startnode, root)) != root)
     free (root);
@@ -183,23 +182,23 @@ cmd_token:
   placeholder_token
 {
   if ((currnode = node_replace (currnode, $1)) != $1)
-    graphnode_delete ($1);
+    graph_delete_node ($1);
 }
 | literal_token
 {
   if ((currnode = node_replace (currnode, $1)) != $1)
-    graphnode_delete ($1);
+    graph_delete_node ($1);
 }
 /* selectors and options are subgraphs with start and end nodes */
 | selector
 {
-  graphnode_add_child (currnode, $1);
+  graph_add_edge (currnode, $1);
   currnode = selnode_end;
   selnode_start = selnode_end = NULL;
 }
 | option
 {
-  graphnode_add_child (currnode, $1);
+  graph_add_edge (currnode, $1);
   currnode = optnode_end;
   optnode_start = optnode_end = NULL;
 }
@@ -213,53 +212,42 @@ cmd_token_seq:
 placeholder_token:
   IPV4
 {
-  $$ = graphnode_new (IPV4_GN);
-  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
-  $$->doc = doc_next();
+  $$ = new_token_node (IPV4_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
   free ($1);
 }
 | IPV4_PREFIX
 {
-  $$ = graphnode_new (IPV4_PREFIX_GN);
-  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
-  $$->doc = doc_next();
+  $$ = new_token_node (IPV4_PREFIX_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
   free ($1);
 }
 | IPV6
 {
-  $$ = graphnode_new (IPV6_GN);
-  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
-  $$->doc = doc_next();
+  $$ = new_token_node (IPV6_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
   free ($1);
 }
 | IPV6_PREFIX
 {
-  $$ = graphnode_new (IPV6_PREFIX_GN);
-  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
-  $$->doc = doc_next();
+  $$ = new_token_node (IPV6_PREFIX_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
   free ($1);
 }
 | VARIABLE
 {
-  $$ = graphnode_new (VARIABLE_GN);
-  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
-  $$->doc = doc_next();
+  $$ = new_token_node (VARIABLE_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
   free ($1);
 }
 | RANGE
 {
-  $$ = graphnode_new (RANGE_GN);
-  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
-  $$->doc = doc_next();
+  $$ = new_token_node (RANGE_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
+  cmd_token_t token = (cmd_token_t *) $$->data;
 
   // get the numbers out
   yylval.string++;
-  $$->min = strtoll (yylval.string, &yylval.string, 10);
+  token->min = strtoll (yylval.string, &yylval.string, 10);
   strsep (&yylval.string, "-");
-  $$->max = strtoll (yylval.string, &yylval.string, 10);
+  token->max = strtoll (yylval.string, &yylval.string, 10);
 
   // validate range
-  if ($$->min >= $$->max) yyerror (element, startnode, "Invalid range.");
+  if (token->min >= token->max) yyerror (element, startnode, "Invalid range.");
 
   free ($1);
 }
@@ -268,18 +256,17 @@ placeholder_token:
 literal_token:
   WORD
 {
-  $$ = graphnode_new (WORD_GN);
-  $$->text = XSTRDUP(MTYPE_CMD_TOKENS, $1);
-  $$->doc = doc_next();
+  $$ = new_token_node (WORD_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
   free ($1);
 }
 | NUMBER
 {
-  $$ = graphnode_new (NUMBER_GN);
-  $$->value = yylval.number;
-  $$->text = XCALLOC(MTYPE_CMD_TOKENS, DECIMAL_STRLEN_MAX+1);
-  snprintf($$->text, DECIMAL_STRLEN_MAX, "%lld", $$->value);
-  $$->doc = doc_next();
+  $$ = new_token_node (NUMBER_TKN, NULL, doc_next());
+  cmd_token_t token = (cmd_token_t *) $$->data;
+
+  token->value = yylval.number;
+  token->text = XCALLOC(MTYPE_CMD_TOKENS, DECIMAL_STRLEN_MAX+1);
+  snprintf(token->text, DECIMAL_STRLEN_MAX, "%lld", token->value);
 }
 ;
 
@@ -299,27 +286,27 @@ selector_part:
 selector_element: selector_element_root selector_token_seq
 {
   // if the selector start and end do not exist, create them
-  if (!selnode_start || !selnode_end) {     // if one is null
-    assert(!selnode_start && !selnode_end); // both should be null
-    selnode_start = graphnode_new (SELECTOR_GN);  // diverging node
-    selnode_end = graphnode_new (NUL_GN);         // converging node
+  if (!selnode_start || !selnode_end) {
+    assert(!selnode_start && !selnode_end);
+    selnode_start = new_token_node (SELECTOR_TKN, NULL, NULL);
+    selnode_end = new_token_node (NUL_TKN, NULL, NULL);
   }
 
   // add element head as a child of the selector
-  graphnode_add_child (selnode_start, $1);
+  graph_add_edge (selnode_start, $1);
 
   if ($2->type != NUL_GN) {
-    graphnode_add_child ($1, seqhead);
-    graphnode_add_child ($2, selnode_end);
+    graph_add_edge ($1, seqhead);
+    graph_add_edge ($2, selnode_end);
   }
   else
-    graphnode_add_child ($1, selnode_end);
+    graph_add_edge ($1, selnode_end);
 
   seqhead = NULL;
 }
 
 selector_token_seq:
-  %empty { $$ = graphnode_new (NUL_GN); }
+  %empty { $$ = new_token_node (NUL_TKN, NULL, NULL); }
 | selector_token_seq selector_token
 {
   // if the sequence component is NUL_GN, this is a sequence start
@@ -328,7 +315,7 @@ selector_token_seq:
     seqhead = $2;
   }
   else // chain on new node
-    graphnode_add_child ($1, $2);
+    graph_add_edge ($1, $2);
 
   $$ = $2;
 }
@@ -347,7 +334,7 @@ selector_token:
 option: '[' option_part ']'
 {
   // add null path
-  graphnode_add_child (optnode_start, optnode_end);
+  graph_add_edge (optnode_start, optnode_end);
   $$ = optnode_start;
 };
 
@@ -361,12 +348,12 @@ option_element:
 {
   if (!optnode_start || !optnode_end) {
     assert(!optnode_start && !optnode_end);
-    optnode_start = graphnode_new (OPTION_GN);
-    optnode_end = graphnode_new (NUL_GN);
+    optnode_start = new_token_node (OPTION_TKN, NULL, NULL);
+    optnode_end = new_token_node (NUL_TKN, NULL, NULL);
   }
 
-  graphnode_add_child (optnode_start, seqhead);
-  graphnode_add_child ($1, optnode_end);
+  graph_add_edge (optnode_start, seqhead);
+  graph_add_edge ($1, optnode_end);
   seqhead = NULL;
 }
 
@@ -374,7 +361,7 @@ option_token_seq:
   option_token
 { $$ = seqhead = $1; }
 | option_token_seq option_token
-{ $$ = graphnode_add_child ($1, $2); }
+{ $$ = graph_add_edge ($1, $2); }
 ;
 
 option_token:
@@ -393,7 +380,7 @@ command_parse_format (struct graph_node *start, struct cmd_element *cmd)
   // parse command into DFA
   yyparse (cmd, start);
 
-  /* cleanup */
+  // cleanup
   cleanup ();
 
   return start;
@@ -431,13 +418,12 @@ terminate_graph (struct graph_node *startnode,
                  struct graph_node *finalnode,
                  struct cmd_element *element)
 {
-  struct graph_node *end = graphnode_new (END_GN);
-  end->element = element;
-  end->text = XSTRDUP(MTYPE_CMD_TOKENS, "<cr>");
-  if (node_exists (finalnode, end))
+  struct graph_node *end = graph_new_node (graph, element, &cmd_delete_element);
+
+  if (node_adjacent (finalnode, end))
     yyerror (element, startnode, "Duplicate command.");
   else
-    graphnode_add_child (finalnode, end);
+    graph_add_edge (finalnode, end);
 }
 
 static char *
@@ -450,14 +436,30 @@ doc_next()
 }
 
 static struct graph_node *
-node_exists (struct graph_node *parent, struct graph_node *child)
+new_token_node (cmd_token_type_t type, char *text, char *doc)
 {
-  struct graph_node *p_child;
-  for (unsigned int i = 0; i < vector_active (parent->children); i++)
+  struct cmd_token_t *token =
+    XMALLOC(MTYPE_CMD_TOKENS, sizeof (struct cmd_token_t));
+
+  token->type = type;
+  token->text = text;
+  token->desc = doc;
+
+  return graph_new_node (graph, token, &cmd_delete_token);
+}
+
+/**
+ * Determines if a node is adjacent to another node
+ */
+static struct graph_node *
+node_adjacent (struct graph_node *node, struct graph_node *neighbor)
+{
+  struct graph_node *adj;
+  for (unsigned int i = 0; i < vector_active (node->to); i++)
     {
-      p_child = vector_slot (parent->children, i);
-      if (cmp_node (child, p_child))
-        return p_child;
+      adj = vector_slot (node->to, i);
+      if (cmp_node (neighbor, adj))
+        return adj;
     }
   return NULL;
 }
@@ -465,13 +467,16 @@ node_exists (struct graph_node *parent, struct graph_node *child)
 static struct graph_node *
 node_replace (struct graph_node *parent, struct graph_node *child)
 {
-  struct graph_node *existing = node_exists (parent, child);
-  return existing ? existing : graphnode_add_child (parent, child);
+  struct graph_node *existing = node_adjacent (parent, child);
+  return existing ? existing : graph_add_edge (parent, child);
 }
 
 static int
-cmp_node (struct graph_node *first, struct graph_node *second)
+cmp_token (struct cmd_token_t *first, struct cmd_token_t *second)
 {
+  struct cmd_token_t *first = (cmd_token *) firstgn->data;
+  struct cmd_token_t *second = (cmd_token *) secondgn->data;
+
   // compare types
   if (first->type != second->type) return 0;
 
