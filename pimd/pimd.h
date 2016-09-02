@@ -30,7 +30,6 @@
 #define PIMD_PROGNAME       "pimd"
 #define PIMD_DEFAULT_CONFIG "pimd.conf"
 #define PIMD_VTY_PORT       2611
-#define PIMD_BUG_ADDRESS    "https://github.com/udhos/qpimd"
 
 #define PIM_IP_HEADER_MIN_LEN         (20)
 #define PIM_IP_HEADER_MAX_LEN         (60)

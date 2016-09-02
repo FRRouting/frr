@@ -116,7 +116,7 @@ Daemon which manages PIM.\n\n\
 "\
 -h, --help           Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, PIMD_BUG_ADDRESS);
+Report bugs to %s\n", progname, PACKAGE_BUGREPORT);
   }
 
   exit (status);
