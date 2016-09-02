@@ -230,18 +230,17 @@ static int zclient_read_nexthop(struct zclient *zlookup,
     
     nexthop_type = stream_getc(s);
     --length;
-
+    if (num_ifindex >= tab_size) {
+      char addr_str[100];
+      pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+      zlog_warn("%s %s: found too many nexthop ifindexes (%d > %d) for address %s",
+		__FILE__, __PRETTY_FUNCTION__,
+		(num_ifindex + 1), tab_size, addr_str);
+      return num_ifindex;
+    }
     switch (nexthop_type) {
     case NEXTHOP_TYPE_IFINDEX:
     case NEXTHOP_TYPE_IPV4_IFINDEX:
-      if (num_ifindex >= tab_size) {
-	char addr_str[100];
-	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	zlog_warn("%s %s: found too many nexthop ifindexes (%d > %d) for address %s",
-		 __FILE__, __PRETTY_FUNCTION__,
-		 (num_ifindex + 1), tab_size, addr_str);
-	return num_ifindex;
-      }
       if (nexthop_type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 	if (length < 4) {
 	  zlog_err("%s: socket %d short input expecting nexthop IPv4-addr: len=%d",
@@ -260,14 +259,6 @@ static int zclient_read_nexthop(struct zclient *zlookup,
       ++num_ifindex;
       break;
     case NEXTHOP_TYPE_IPV4:
-      if (num_ifindex >= tab_size) {
-	char addr_str[100];
-	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	zlog_warn("%s %s: found too many nexthop ifindexes (%d > %d) for address %s",
-		 __FILE__, __PRETTY_FUNCTION__,
-		 (num_ifindex + 1), tab_size, addr_str);
-	return num_ifindex;
-      }
       nexthop_tab[num_ifindex].nexthop_addr.s_addr = stream_get_ipv4(s);
       length -= 4;
       nexthop_tab[num_ifindex].ifindex             = 0;
