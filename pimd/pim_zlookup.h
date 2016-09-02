@@ -29,7 +29,7 @@
 #define PIM_NEXTHOP_LOOKUP_MAX (3) /* max. recursive route lookup */
 
 struct pim_zlookup_nexthop {
-  struct in_addr nexthop_addr;
+  struct prefix  nexthop_addr;
   ifindex_t      ifindex;
   uint32_t       route_metric;
   uint8_t        protocol_distance;

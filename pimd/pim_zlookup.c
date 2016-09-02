@@ -241,17 +241,18 @@ static int zclient_read_nexthop(struct zclient *zlookup,
     switch (nexthop_type) {
     case NEXTHOP_TYPE_IFINDEX:
     case NEXTHOP_TYPE_IPV4_IFINDEX:
+      nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
       if (nexthop_type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 	if (length < 4) {
 	  zlog_err("%s: socket %d short input expecting nexthop IPv4-addr: len=%d",
 		   __func__, zlookup->sock, length);
 	  return -8;
 	}
-	nexthop_tab[num_ifindex].nexthop_addr.s_addr = stream_get_ipv4(s);
+	nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr = stream_get_ipv4(s);
 	length -= 4;
       }
       else {
-	nexthop_tab[num_ifindex].nexthop_addr.s_addr = PIM_NET_INADDR_ANY;
+	nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
       }
       nexthop_tab[num_ifindex].ifindex           = stream_getl(s);
       nexthop_tab[num_ifindex].protocol_distance = distance;
@@ -259,7 +260,8 @@ static int zclient_read_nexthop(struct zclient *zlookup,
       ++num_ifindex;
       break;
     case NEXTHOP_TYPE_IPV4:
-      nexthop_tab[num_ifindex].nexthop_addr.s_addr = stream_get_ipv4(s);
+      nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
+      nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr = stream_get_ipv4(s);
       length -= 4;
       nexthop_tab[num_ifindex].ifindex             = 0;
       nexthop_tab[num_ifindex].protocol_distance   = distance;
@@ -268,7 +270,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 	char addr_str[100];
 	char nexthop_str[100];
 	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	pim_inet4_dump("<nexthop?>", nexthop_tab[num_ifindex].nexthop_addr, nexthop_str, sizeof(nexthop_str));
+	pim_addr_dump("<nexthop?>", &nexthop_tab[num_ifindex].nexthop_addr, nexthop_str, sizeof(nexthop_str));
 	zlog_debug("%s %s: zebra returned recursive nexthop %s for address %s",
 		   __FILE__, __PRETTY_FUNCTION__,
 		   nexthop_str, addr_str);
@@ -354,7 +356,7 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
   for (lookup = 0; lookup < max_lookup; ++lookup) {
     int num_ifindex;
     int first_ifindex;
-    struct in_addr nexthop_addr;
+    struct prefix nexthop_addr;
 
     num_ifindex = zclient_lookup_nexthop_once(nexthop_tab,
 					      PIM_NEXTHOP_IFINDEX_TAB_SIZE, addr);
@@ -398,7 +400,7 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
 	}
 
 	/* use last address as nexthop address */
-	nexthop_tab[0].nexthop_addr = addr;
+	nexthop_tab[0].nexthop_addr.u.prefix4 = addr;
 
 	/* report original route metric/distance */
 	nexthop_tab[0].route_metric = route_metric;
@@ -412,7 +414,7 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
       char addr_str[100];
       char nexthop_str[100];
       pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-      pim_inet4_dump("<nexthop?>", nexthop_addr, nexthop_str, sizeof(nexthop_str));
+      pim_addr_dump("<nexthop?>", &nexthop_addr, nexthop_str, sizeof(nexthop_str));
       zlog_debug("%s %s: lookup=%d/%d: zebra returned recursive nexthop %s for address %s dist=%d met=%d",
 		__FILE__, __PRETTY_FUNCTION__,
 		lookup, max_lookup, nexthop_str, addr_str,
@@ -420,7 +422,7 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
 		nexthop_tab[0].route_metric);
     }
 
-    addr = nexthop_addr; /* use nexthop addr for recursive lookup */
+    addr = nexthop_addr.u.prefix4; /* use nexthop addr for recursive lookup */
 
   } /* for (max_lookup) */
 
