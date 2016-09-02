@@ -91,6 +91,7 @@ pim_rp_init (void)
     return;
 
   str2prefix ("224.0.0.0/4", &rp_info->group);
+  rp_info->group.family = AF_INET;
   rp_info->rp.rpf_addr.family = AF_INET;
   rp_info->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
   tail = rp_info;
@@ -192,8 +193,8 @@ pim_rp_new (const char *rp, const char *group_range)
 
   if (!result)
     return -1;
-
-  result = inet_pton (rp_info->rp.rpf_addr.family, rp, &rp_info->rp.rpf_addr.u.prefix);
+  rp_info->rp.rpf_addr.family = AF_INET;
+  result = inet_pton (rp_info->rp.rpf_addr.family, rp, &rp_info->rp.rpf_addr.u.prefix4);
   if (result <= 0)
     return -1;
 

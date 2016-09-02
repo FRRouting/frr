@@ -245,10 +245,10 @@ pim_rpf_addr_is_inaddr_none (struct pim_rpf *rpf)
 {
   switch (rpf->rpf_addr.family)
     {
-    case AFI_IP:
+    case AF_INET:
       return rpf->rpf_addr.u.prefix4.s_addr == INADDR_NONE;
       break;
-    case AFI_IP6:
+    case AF_INET6:
       zlog_warn ("%s: v6 Unimplmeneted", __PRETTY_FUNCTION__);
       return 1;
       break;
@@ -265,10 +265,10 @@ pim_rpf_addr_is_inaddr_any (struct pim_rpf *rpf)
 {
   switch (rpf->rpf_addr.family)
     {
-    case AFI_IP:
+    case AF_INET:
       return rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY;
       break;
-    case AFI_IP6:
+    case AF_INET6:
       zlog_warn ("%s: v6 Unimplmented", __PRETTY_FUNCTION__);
       return 1;
       break;
