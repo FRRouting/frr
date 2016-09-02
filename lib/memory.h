@@ -56,7 +56,7 @@ extern struct mlist mlists[];
   mtype_zstrdup (__FILE__, __LINE__, (mtype), (str))
 #else
 #define XMALLOC(mtype, size)       zmalloc ((mtype), (size))
-#define XCALLOC(mtype, size)       zcalloc ((mtype), (size))
+#define XCALLOC(mtype, size)       zzcalloc ((mtype), (size))
 #define XREALLOC(mtype, ptr, size) zrealloc ((mtype), (ptr), (size))
 #define XFREE(mtype, ptr)          do { \
                                      zfree ((mtype), (ptr)); \
@@ -67,7 +67,7 @@ extern struct mlist mlists[];
 
 /* Prototypes of memory function. */
 extern void *zmalloc (int type, size_t size);
-extern void *zcalloc (int type, size_t size);
+extern void *zzcalloc (int type, size_t size);
 extern void *zrealloc (int type, void *ptr, size_t size);
 extern void  zfree (int type, void *ptr);
 extern char *zstrdup (int type, const char *str);

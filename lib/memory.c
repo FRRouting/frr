@@ -80,9 +80,11 @@ zmalloc (int type, size_t size)
 
 /*
  * Allocate memory as in zmalloc, and also clear the memory.
+ * Add an extra 'z' prefix to function name to avoid collision when linking
+ * statically with zlib that exports the 'zcalloc' symbol.
  */
 void *
-zcalloc (int type, size_t size)
+zzcalloc (int type, size_t size)
 {
   void *memory;
 
@@ -97,9 +99,9 @@ zcalloc (int type, size_t size)
 }
 
 /* 
- * Given a pointer returned by zmalloc or zcalloc, free it and
+ * Given a pointer returned by zmalloc or zzcalloc, free it and
  * return a pointer to a new size, basically acting like realloc().
- * Requires: ptr was returned by zmalloc, zcalloc, or zrealloc with the
+ * Requires: ptr was returned by zmalloc, zzcalloc, or zrealloc with the
  * same type.
  * Effects: Returns a pointer to the new memory, or aborts.
  */
@@ -109,7 +111,7 @@ zrealloc (int type, void *ptr, size_t size)
   void *memory;
 
   if (ptr == NULL)              /* is really alloc */
-      return zcalloc(type, size);
+      return zzcalloc(type, size);
 
   memory = realloc (ptr, size);
   if (memory == NULL)
@@ -122,7 +124,7 @@ zrealloc (int type, void *ptr, size_t size)
 
 /*
  * Free memory allocated by z*alloc or zstrdup.
- * Requires: ptr was returned by zmalloc, zcalloc, or zrealloc with the
+ * Requires: ptr was returned by zmalloc, zzcalloc, or zrealloc with the
  * same type.
  * Effects: The memory is freed and may no longer be referenced.
  */
@@ -196,7 +198,7 @@ mtype_zcalloc (const char *file, int line, int type, size_t size)
   mstat[type].c_calloc++;
   mstat[type].t_calloc++;
 
-  memory = zcalloc (type, size);
+  memory = zzcalloc (type, size);
   mtype_log ("xcalloc", memory, file, line, type);
 
   return memory;
