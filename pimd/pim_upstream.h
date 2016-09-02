@@ -25,6 +25,8 @@
 #include <zebra.h>
 #include <prefix.h>
 
+#include <pim_rpf.h>
+
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED         (1 << 0)
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED (2 << 0)
 
@@ -36,36 +38,6 @@
 
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
-
-/*
-  RFC 4601:
-
-  Metric Preference
-    Preference value assigned to the unicast routing protocol that
-    provided the route to the multicast source or Rendezvous-Point.
-
-  Metric
-    The unicast routing table metric associated with the route used to
-    reach the multicast source or Rendezvous-Point.  The metric is in
-    units applicable to the unicast routing protocol used.
-*/
-struct pim_nexthop {
-  struct interface *interface;              /* RPF_interface(S) */
-  struct in_addr    mrib_nexthop_addr;      /* MRIB.next_hop(S) */
-  uint32_t          mrib_metric_preference; /* MRIB.pref(S) */
-  uint32_t          mrib_route_metric;      /* MRIB.metric(S) */
-};
-
-struct pim_rpf {
-  struct pim_nexthop source_nexthop;
-  struct in_addr     rpf_addr;               /* RPF'(S,G) */
-};
-
-enum pim_rpf_result {
-  PIM_RPF_OK = 0,
-  PIM_RPF_CHANGED,
-  PIM_RPF_FAILURE
-};
 
 enum pim_upstream_state {
   PIM_UPSTREAM_NOTJOINED,

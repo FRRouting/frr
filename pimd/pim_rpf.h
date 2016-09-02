@@ -27,6 +27,38 @@
 #include "pim_upstream.h"
 #include "pim_neighbor.h"
 
+/*
+  RFC 4601:
+
+  Metric Preference
+    Preference value assigned to the unicast routing protocol that
+    provided the route to the multicast source or Rendezvous-Point.
+
+  Metric
+    The unicast routing table metric associated with the route used to
+    reach the multicast source or Rendezvous-Point.  The metric is in
+    units applicable to the unicast routing protocol used.
+*/
+struct pim_nexthop {
+  struct interface *interface;              /* RPF_interface(S) */
+  struct in_addr    mrib_nexthop_addr;      /* MRIB.next_hop(S) */
+  uint32_t          mrib_metric_preference; /* MRIB.pref(S) */
+  uint32_t          mrib_route_metric;      /* MRIB.metric(S) */
+};
+
+struct pim_rpf {
+  struct pim_nexthop source_nexthop;
+  struct in_addr     rpf_addr;               /* RPF'(S,G) */
+};
+
+enum pim_rpf_result {
+  PIM_RPF_OK = 0,
+  PIM_RPF_CHANGED,
+  PIM_RPF_FAILURE
+};
+
+struct pim_upstream;
+
 int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr);
 enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr);
 
