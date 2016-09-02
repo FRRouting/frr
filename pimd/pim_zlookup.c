@@ -229,8 +229,8 @@ static int zclient_read_nexthop(struct zclient *zlookup,
     --length;
 
     switch (nexthop_type) {
-    case ZEBRA_NEXTHOP_IFINDEX:
-    case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+    case NEXTHOP_TYPE_IFINDEX:
+    case NEXTHOP_TYPE_IPV4_IFINDEX:
       if (num_ifindex >= tab_size) {
 	char addr_str[100];
 	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
@@ -239,7 +239,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 		 (num_ifindex + 1), tab_size, addr_str);
 	return num_ifindex;
       }
-      if (nexthop_type == ZEBRA_NEXTHOP_IPV4_IFINDEX) {
+      if (nexthop_type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 	if (length < 4) {
 	  zlog_err("%s: socket %d short input expecting nexthop IPv4-addr: len=%d",
 		   __func__, zlookup->sock, length);
@@ -256,7 +256,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
       nexthop_tab[num_ifindex].route_metric      = metric;
       ++num_ifindex;
       break;
-    case ZEBRA_NEXTHOP_IPV4:
+    case NEXTHOP_TYPE_IPV4:
       if (num_ifindex >= tab_size) {
 	char addr_str[100];
 	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));

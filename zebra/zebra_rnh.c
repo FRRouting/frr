@@ -886,21 +886,21 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 	    stream_putc (s, nexthop->type);
 	    switch (nexthop->type)
 	      {
-	      case ZEBRA_NEXTHOP_IPV4:
+	      case NEXTHOP_TYPE_IPV4:
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		break;
-	      case ZEBRA_NEXTHOP_IFINDEX:
+	      case NEXTHOP_TYPE_IFINDEX:
 		stream_putl (s, nexthop->ifindex);
 		break;
-	      case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+	      case NEXTHOP_TYPE_IPV4_IFINDEX:
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		stream_putl (s, nexthop->ifindex);
 		break;
 #ifdef HAVE_IPV6
-	      case ZEBRA_NEXTHOP_IPV6:
+	      case NEXTHOP_TYPE_IPV6:
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		break;
-	      case ZEBRA_NEXTHOP_IPV6_IFINDEX:
+	      case NEXTHOP_TYPE_IPV6_IFINDEX:
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		stream_putl (s, nexthop->ifindex);
 		break;

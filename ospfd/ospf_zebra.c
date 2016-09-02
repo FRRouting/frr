@@ -35,6 +35,7 @@
 #include "plist.h"
 #include "log.h"
 #include "lib/bfd.h"
+#include "nexthop.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -393,18 +394,18 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
 	      (path->nexthop.s_addr != INADDR_ANY &&
 	       path->ifindex != 0))
 	    {
-	      stream_putc (s, ZEBRA_NEXTHOP_IPV4_IFINDEX);
+	      stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
 	      stream_put_in_addr (s, &path->nexthop);
 	      stream_putl (s, path->ifindex);
 	    }
 	  else if (path->nexthop.s_addr != INADDR_ANY)
 	    {
-	      stream_putc (s, ZEBRA_NEXTHOP_IPV4);
+	      stream_putc (s, NEXTHOP_TYPE_IPV4);
 	      stream_put_in_addr (s, &path->nexthop);
 	    }
 	  else
 	    {
-	      stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+	      stream_putc (s, NEXTHOP_TYPE_IFINDEX);
 	      if (path->ifindex)
 		stream_putl (s, path->ifindex);
 	      else
@@ -414,18 +415,18 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
           if (path->nexthop.s_addr != INADDR_ANY &&
 	      path->ifindex != 0)
             {
-              stream_putc (s, ZEBRA_NEXTHOP_IPV4_IFINDEX);
+              stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
               stream_put_in_addr (s, &path->nexthop);
 	      stream_putl (s, path->ifindex);
             }
           else if (path->nexthop.s_addr != INADDR_ANY)
             {
-              stream_putc (s, ZEBRA_NEXTHOP_IPV4);
+              stream_putc (s, NEXTHOP_TYPE_IPV4);
               stream_put_in_addr (s, &path->nexthop);
             }
           else
             {
-              stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+              stream_putc (s, NEXTHOP_TYPE_IFINDEX);
               if (path->ifindex)
                 stream_putl (s, path->ifindex);
               else
@@ -514,18 +515,18 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
 	  if (path->nexthop.s_addr != INADDR_ANY &&
 	      path->ifindex != 0)
 	    {
-	      stream_putc (s, ZEBRA_NEXTHOP_IPV4_IFINDEX);
+	      stream_putc (s, NEXTHOP_TYPE_IPV4_IFINDEX);
 	      stream_put_in_addr (s, &path->nexthop);
 	      stream_putl (s, path->ifindex);
 	    }
 	  else if (path->nexthop.s_addr != INADDR_ANY)
 	    {
-	      stream_putc (s, ZEBRA_NEXTHOP_IPV4);
+	      stream_putc (s, NEXTHOP_TYPE_IPV4);
 	      stream_put_in_addr (s, &path->nexthop);
 	    }
 	  else
 	    {
-	      stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+	      stream_putc (s, NEXTHOP_TYPE_IFINDEX);
 	      stream_putl (s, path->ifindex);
 	    }
 

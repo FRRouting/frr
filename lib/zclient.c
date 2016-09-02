@@ -32,6 +32,7 @@
 #include "zclient.h"
 #include "memory.h"
 #include "table.h"
+#include "nexthop.h"
 
 /* Zebra client events. */
 enum event {ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT};
@@ -746,7 +747,7 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
       if (CHECK_FLAG (api->flags, ZEBRA_FLAG_BLACKHOLE))
         {
           stream_putc (s, 1);
-          stream_putc (s, ZEBRA_NEXTHOP_BLACKHOLE);
+          stream_putc (s, NEXTHOP_TYPE_BLACKHOLE);
           /* XXX assert(api->nexthop_num == 0); */
           /* XXX assert(api->ifindex_num == 0); */
         }
@@ -755,12 +756,12 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
 
       for (i = 0; i < api->nexthop_num; i++)
         {
-          stream_putc (s, ZEBRA_NEXTHOP_IPV4);
+          stream_putc (s, NEXTHOP_TYPE_IPV4);
           stream_put_in_addr (s, api->nexthop[i]);
         }
       for (i = 0; i < api->ifindex_num; i++)
         {
-          stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+          stream_putc (s, NEXTHOP_TYPE_IFINDEX);
           stream_putl (s, api->ifindex[i]);
         }
     }
@@ -813,7 +814,7 @@ zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
       if (CHECK_FLAG (api->flags, ZEBRA_FLAG_BLACKHOLE))
         {
           stream_putc (s, 1);
-          stream_putc (s, ZEBRA_NEXTHOP_BLACKHOLE);
+          stream_putc (s, NEXTHOP_TYPE_BLACKHOLE);
           /* XXX assert(api->nexthop_num == 0); */
           /* XXX assert(api->ifindex_num == 0); */
         }
@@ -822,12 +823,12 @@ zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
 
       for (i = 0; i < api->nexthop_num; i++)
 	{
-	  stream_putc (s, ZEBRA_NEXTHOP_IPV6);
+	  stream_putc (s, NEXTHOP_TYPE_IPV6);
 	  stream_write (s, (u_char *)api->nexthop[i], 16);
 	}
       for (i = 0; i < api->ifindex_num; i++)
 	{
-	  stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+	  stream_putc (s, NEXTHOP_TYPE_IFINDEX);
 	  stream_putl (s, api->ifindex[i]);
 	}
     }
@@ -879,7 +880,7 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
       if (CHECK_FLAG (api->flags, ZEBRA_FLAG_BLACKHOLE))
         {
           stream_putc (s, 1);
-          stream_putc (s, ZEBRA_NEXTHOP_BLACKHOLE);
+          stream_putc (s, NEXTHOP_TYPE_BLACKHOLE);
           /* XXX assert(api->nexthop_num == 0); */
           /* XXX assert(api->ifindex_num == 0); */
         }
@@ -888,12 +889,12 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 
       for (i = 0; i < api->nexthop_num; i++)
 	{
-	  stream_putc (s, ZEBRA_NEXTHOP_IPV6);
+	  stream_putc (s, NEXTHOP_TYPE_IPV6);
 	  stream_write (s, (u_char *)api->nexthop[i], 16);
 	}
       for (i = 0; i < api->ifindex_num; i++)
 	{
-	  stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+	  stream_putc (s, NEXTHOP_TYPE_IFINDEX);
 	  stream_putl (s, api->ifindex[i]);
 	}
     }

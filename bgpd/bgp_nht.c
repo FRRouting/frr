@@ -397,25 +397,23 @@ bgp_parse_nexthop_update (int command, vrf_id_t vrf_id)
 	  nexthop->type = stream_getc (s);
 	  switch (nexthop->type)
 	    {
-	    case ZEBRA_NEXTHOP_IPV4:
+	    case NEXTHOP_TYPE_IPV4:
 	      nexthop->gate.ipv4.s_addr = stream_get_ipv4 (s);
 	      break;
-	    case ZEBRA_NEXTHOP_IFINDEX:
+	    case NEXTHOP_TYPE_IFINDEX:
 	      nexthop->ifindex = stream_getl (s);
 	      break;
-            case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+            case NEXTHOP_TYPE_IPV4_IFINDEX:
 	      nexthop->gate.ipv4.s_addr = stream_get_ipv4 (s);
 	      nexthop->ifindex = stream_getl (s);
 	      break;
-#ifdef HAVE_IPV6
-            case ZEBRA_NEXTHOP_IPV6:
+            case NEXTHOP_TYPE_IPV6:
 	      stream_get (&nexthop->gate.ipv6, s, 16);
 	      break;
-            case ZEBRA_NEXTHOP_IPV6_IFINDEX:
+            case NEXTHOP_TYPE_IPV6_IFINDEX:
 	      stream_get (&nexthop->gate.ipv6, s, 16);
 	      nexthop->ifindex = stream_getl (s);
 	      break;
-#endif
             default:
               /* do nothing */
               break;
