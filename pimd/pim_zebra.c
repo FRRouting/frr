@@ -371,7 +371,7 @@ static void scan_upstream_rpf_cache()
 	
 	/* send Join(S,G) to the current upstream neighbor */
 	pim_joinprune_send(up->rpf.source_nexthop.interface,
-			   up->rpf.rpf_addr,
+			   up->rpf.rpf_addr.u.prefix4,
 			   &up->sg,
 			   1 /* join */);
 

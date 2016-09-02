@@ -181,7 +181,7 @@ pim_msg_join_prune_encode (uint8_t *buf, int buf_size, int is_join,
     {
       struct pim_rpf *rpf = pim_rp_g (group);
       bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT | PIM_ENCODE_RPT_BIT;
-      stosend = rpf->rpf_addr;
+      stosend = rpf->rpf_addr.u.prefix4;
     }
   else
     {

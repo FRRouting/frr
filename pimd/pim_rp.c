@@ -91,7 +91,8 @@ pim_rp_init (void)
     return;
 
   str2prefix ("224.0.0.0/4", &rp_info->group);
-  rp_info->rp.rpf_addr.s_addr = INADDR_NONE;
+  rp_info->rp.rpf_addr.family = AF_INET;
+  rp_info->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
   tail = rp_info;
 
   listnode_add (qpim_rp_list, rp_info);
@@ -112,7 +113,7 @@ pim_rp_find_exact (struct in_addr rp, struct prefix *group)
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
-      if (rp.s_addr == rp_info->rp.rpf_addr.s_addr &&
+      if (rp.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr &&
 	  prefix_same (&rp_info->group, group))
        return rp_info;
     }
@@ -128,7 +129,7 @@ pim_rp_find_match (struct in_addr rp, struct prefix *group)
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
-      if (rp.s_addr == rp_info->rp.rpf_addr.s_addr &&
+      if (rp.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr &&
           prefix_match (&rp_info->group, group))
        return rp_info;
     }
@@ -164,7 +165,7 @@ pim_rp_check_interfaces (struct rp_info *rp_info)
       if (!pim_ifp)
         continue;
 
-      if (pim_ifp->primary_address.s_addr == rp_info->rp.rpf_addr.s_addr)
+      if (pim_ifp->primary_address.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
 	rp_info->i_am_rp = 1;
     }
 }
@@ -192,7 +193,7 @@ pim_rp_new (const char *rp, const char *group_range)
   if (!result)
     return -1;
 
-  result = inet_pton (AF_INET, rp, &rp_info->rp.rpf_addr.s_addr);
+  result = inet_pton (rp_info->rp.rpf_addr.family, rp, &rp_info->rp.rpf_addr.u.prefix);
   if (result <= 0)
     return -1;
 
@@ -200,7 +201,7 @@ pim_rp_new (const char *rp, const char *group_range)
    * Take over the 224.0.0.0/4 group if the rp is INADDR_NONE
    */
   if (prefix_same (&rp_all->group, &rp_info->group) &&
-      rp_all->rp.rpf_addr.s_addr == INADDR_NONE)
+      pim_rpf_addr_is_inaddr_none (&rp_all->rp))
     {
       rp_all->rp.rpf_addr = rp_info->rp.rpf_addr;
       XFREE (MTYPE_PIM_RP, rp_info);
@@ -210,13 +211,13 @@ pim_rp_new (const char *rp, const char *group_range)
       return 0;
     }
 
-  if (pim_rp_find_exact (rp_info->rp.rpf_addr, &rp_info->group))
+  if (pim_rp_find_exact (rp_info->rp.rpf_addr.u.prefix4, &rp_info->group))
     {
       XFREE (MTYPE_PIM_RP, rp_info);
       return 0;
     }
 
-  if (pim_rp_find_match (rp_info->rp.rpf_addr, &rp_info->group))
+  if (pim_rp_find_match (rp_info->rp.rpf_addr.u.prefix4, &rp_info->group))
     {
       if (prefix_same (&group_all, &rp_info->group))
         {
@@ -267,7 +268,8 @@ pim_rp_del (const char *rp, const char *group_range)
 
   if (rp_all == rp_info)
     {
-      rp_all->rp.rpf_addr.s_addr = INADDR_NONE;
+      rp_all->rp.rpf_addr.family = AF_INET;
+      rp_all->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
       rp_all->i_am_rp = 0;
       return 0;
     }
@@ -285,7 +287,7 @@ pim_rp_setup (void)
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
-      if (pim_nexthop_lookup (&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr) != 0)
+      if (pim_nexthop_lookup (&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4) != 0)
         {
           zlog_err ("Unable to lookup nexthop for rp specified");
           ret++;
@@ -316,20 +318,20 @@ pim_rp_check_rp (struct in_addr old, struct in_addr new)
         char sold[100];
         char snew[100];
         char rp[100];
-        pim_inet4_dump("<rp?>", rp_info->rp.rpf_addr, rp, sizeof(rp));
+        pim_addr_dump("<rp?>", &rp_info->rp.rpf_addr, rp, sizeof(rp));
         pim_inet4_dump("<old?>", old, sold, sizeof(sold));
         pim_inet4_dump("<new?>", new, snew, sizeof(snew));
         zlog_debug("%s: %s for old %s new %s", __func__, rp, sold, snew );
       }
-      if (rp_info->rp.rpf_addr.s_addr == INADDR_NONE)
+      if (pim_rpf_addr_is_inaddr_none (&rp_info->rp))
         continue;
 
-      if (new.s_addr == rp_info->rp.rpf_addr.s_addr)
+      if (new.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
         {
 	  rp_info->i_am_rp = 1;
         }
 
-      if (old.s_addr == rp_info->rp.rpf_addr.s_addr)
+      if (old.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
         {
           rp_info->i_am_rp = 0;
         }
@@ -381,7 +383,7 @@ pim_rp_g (struct in_addr group)
 
   if (rp_info)
     {
-      pim_nexthop_lookup(&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr);
+      pim_nexthop_lookup(&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4);
       return (&rp_info->rp);
     }
 
@@ -410,14 +412,14 @@ pim_rp_set_upstream_addr (struct in_addr *up, struct in_addr source, struct in_a
 
   rp_info = pim_rp_find_match_group (&g);
 
-  if ((rp_info->rp.rpf_addr.s_addr == INADDR_NONE) && (source.s_addr == INADDR_ANY))
+  if ((pim_rpf_addr_is_inaddr_none (&rp_info->rp)) && (source.s_addr == INADDR_ANY))
     {
       if (PIM_DEBUG_PIM_TRACE)
 	zlog_debug("%s: Received a (*,G) with no RP configured", __PRETTY_FUNCTION__);
       return 0;
     }
 
-  *up = (source.s_addr == INADDR_ANY) ? rp_info->rp.rpf_addr : source;
+  *up = (source.s_addr == INADDR_ANY) ? rp_info->rp.rpf_addr.u.prefix4 : source;
 
   return 1;
 }
@@ -432,10 +434,10 @@ pim_rp_config_write (struct vty *vty)
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
-      if (rp_info->rp.rpf_addr.s_addr == INADDR_NONE)
+      if (pim_rpf_addr_is_inaddr_none (&rp_info->rp))
         continue;
 
-      if (rp_info->rp.rpf_addr.s_addr != INADDR_NONE)
+      if (!pim_rpf_addr_is_inaddr_none (&rp_info->rp))
         {
 	  char buf[32];
           vty_out(vty, "ip pim rp %s %s%s", inet_ntop(AF_INET, &rp_info->rp.rpf_addr, buffer, 32),
@@ -467,7 +469,7 @@ pim_rp_check_is_my_ip_address (struct in_addr group, struct in_addr dest_addr)
    */
   if (I_am_RP(group))
     {
-     if (dest_addr.s_addr == rp_info->rp.rpf_addr.s_addr)
+     if (dest_addr.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
        return 1;
     }
 
@@ -486,11 +488,11 @@ pim_rp_show_information (struct vty *vty)
   vty_out (vty, "RP Addr           Group   Oif    I_am_RP%s", VTY_NEWLINE);
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
-      if (rp_info->rp.rpf_addr.s_addr != INADDR_NONE)
+      if (!pim_rpf_addr_is_inaddr_none (&rp_info->rp))
         {
           char buf[48];
           vty_out (vty, "%-10s  %-10s  %-10s%-10d%s",
-          inet_ntoa (rp_info->rp.rpf_addr),
+          inet_ntoa (rp_info->rp.rpf_addr.u.prefix4),
 	             prefix2str(&rp_info->group, buf, 48),
 	             rp_info->rp.source_nexthop.interface->name,
 	             rp_info->i_am_rp, VTY_NEWLINE);

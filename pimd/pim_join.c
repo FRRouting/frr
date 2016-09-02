@@ -90,7 +90,7 @@ static void recv_join(struct interface *ifp,
        * If the RP sent in the message is not
        * our RP for the group, drop the message
        */
-      if (sg.src.s_addr != rp->rpf_addr.s_addr)
+      if (sg.src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
 	return;
 
       sg.src.s_addr = INADDR_ANY;
@@ -162,7 +162,7 @@ static void recv_prune(struct interface *ifp,
       struct pim_rpf *rp = RP (sg.grp);
 
       // Ignoring Prune *,G's at the moment.
-      if (sg.src.s_addr != rp->rpf_addr.s_addr)
+      if (sg.src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
 	return;
 
       sg.src.s_addr = INADDR_ANY;

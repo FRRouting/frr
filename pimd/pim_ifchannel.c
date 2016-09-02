@@ -512,7 +512,7 @@ static void check_recv_upstream(int is_join,
 
   /* Upstream (S,G) in Joined state */
 
-  if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr)) {
+  if (pim_rpf_addr_is_inaddr_any(&up->rpf)) {
     /* RPF'(S,G) not found */
     zlog_warn("%s %s: RPF'%s not found",
 	      __FILE__, __PRETTY_FUNCTION__, 
@@ -521,11 +521,11 @@ static void check_recv_upstream(int is_join,
   }
 
   /* upstream directed to RPF'(S,G) ? */
-  if (upstream.s_addr != up->rpf.rpf_addr.s_addr) {
+  if (upstream.s_addr != up->rpf.rpf_addr.u.prefix4.s_addr) {
     char up_str[100];
     char rpf_str[100];
     pim_inet4_dump("<up?>", upstream, up_str, sizeof(up_str));
-    pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
+    pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_warn("%s %s: (S,G)=%s upstream=%s not directed to RPF'(S,G)=%s on interface %s",
 	      __FILE__, __PRETTY_FUNCTION__, 
 	      pim_str_sg_dump (sg),
@@ -536,7 +536,7 @@ static void check_recv_upstream(int is_join,
 
   if (is_join) {
     /* Join(S,G) to RPF'(S,G) */
-    pim_upstream_join_suppress(up, up->rpf.rpf_addr, holdtime);
+    pim_upstream_join_suppress(up, up->rpf.rpf_addr.u.prefix4, holdtime);
     return;
   }
 
@@ -546,19 +546,19 @@ static void check_recv_upstream(int is_join,
     if (source_flags & PIM_WILDCARD_BIT_MASK) {
       /* Prune(*,G) to RPF'(S,G) */
       pim_upstream_join_timer_decrease_to_t_override("Prune(*,G)",
-						     up, up->rpf.rpf_addr);
+						     up, up->rpf.rpf_addr.u.prefix4);
       return;
     }
 
     /* Prune(S,G,rpt) to RPF'(S,G) */
     pim_upstream_join_timer_decrease_to_t_override("Prune(S,G,rpt)",
-						   up, up->rpf.rpf_addr);
+						   up, up->rpf.rpf_addr.u.prefix4);
     return;
   }
 
   /* Prune(S,G) to RPF'(S,G) */
   pim_upstream_join_timer_decrease_to_t_override("Prune(S,G)", up,
-						 up->rpf.rpf_addr);
+						 up->rpf.rpf_addr.u.prefix4);
 }
 
 static int nonlocal_upstream(int is_join,

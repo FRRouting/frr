@@ -41,14 +41,14 @@
 */
 struct pim_nexthop {
   struct interface *interface;              /* RPF_interface(S) */
-  struct in_addr    mrib_nexthop_addr;      /* MRIB.next_hop(S) */
+  struct prefix     mrib_nexthop_addr;      /* MRIB.next_hop(S) */
   uint32_t          mrib_metric_preference; /* MRIB.pref(S) */
   uint32_t          mrib_route_metric;      /* MRIB.metric(S) */
 };
 
 struct pim_rpf {
   struct pim_nexthop source_nexthop;
-  struct in_addr     rpf_addr;               /* RPF'(S,G) */
+  struct prefix      rpf_addr;               /* RPF'(S,G) */
 };
 
 enum pim_rpf_result {
@@ -62,4 +62,6 @@ struct pim_upstream;
 int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr);
 enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr);
 
+int pim_rpf_addr_is_inaddr_none (struct pim_rpf *rpf);
+int pim_rpf_addr_is_inaddr_any (struct pim_rpf *rpf);
 #endif /* PIM_RPF_H */

@@ -102,10 +102,10 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr)
   }
 
   /* update nextop data */
-  nexthop->interface              = ifp;
-  nexthop->mrib_nexthop_addr      = nexthop_tab[0].nexthop_addr.u.prefix4;
-  nexthop->mrib_metric_preference = nexthop_tab[0].protocol_distance;
-  nexthop->mrib_route_metric      = nexthop_tab[0].route_metric;
+  nexthop->interface                = ifp;
+  nexthop->mrib_nexthop_addr        = nexthop_tab[0].nexthop_addr;
+  nexthop->mrib_metric_preference   = nexthop_tab[0].protocol_distance;
+  nexthop->mrib_route_metric        = nexthop_tab[0].route_metric;
 
   return 0;
 }
@@ -113,18 +113,15 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr)
 static int nexthop_mismatch(const struct pim_nexthop *nh1,
 			    const struct pim_nexthop *nh2)
 {
-  return (nh1->interface != nh2->interface) 
-    ||
-    (nh1->mrib_nexthop_addr.s_addr != nh2->mrib_nexthop_addr.s_addr)
-    ||
-    (nh1->mrib_metric_preference != nh2->mrib_metric_preference)
-    ||
+  return (nh1->interface != nh2->interface)                          ||
+    (nh1->mrib_nexthop_addr.u.prefix4.s_addr != nh2->mrib_nexthop_addr.u.prefix4.s_addr) ||
+    (nh1->mrib_metric_preference != nh2->mrib_metric_preference)     ||
     (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
 
 enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr)
 {
-  struct in_addr      save_rpf_addr;
+  struct prefix       save_rpf_addr;
   struct pim_nexthop  save_nexthop;
   struct pim_rpf     *rpf = &up->rpf;
 
@@ -135,8 +132,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
     return PIM_RPF_FAILURE;
   }
 
-  rpf->rpf_addr = pim_rpf_find_rpf_addr(up);
-  if (PIM_INADDR_IS_ANY(rpf->rpf_addr) && PIM_DEBUG_ZEBRA) {
+  rpf->rpf_addr.family = AF_INET;
+  rpf->rpf_addr.u.prefix4 = pim_rpf_find_rpf_addr(up);
+  if (pim_rpf_addr_is_inaddr_any(rpf) && PIM_DEBUG_ZEBRA) {
     /* RPF'(S,G) not found */
     zlog_debug("%s %s: RPF'%s not found: won't send join upstream",
 	       __FILE__, __PRETTY_FUNCTION__,
@@ -149,7 +147,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
 
     if (PIM_DEBUG_ZEBRA) {
       char nhaddr_str[100];
-      pim_inet4_dump("<addr?>", rpf->source_nexthop.mrib_nexthop_addr, nhaddr_str, sizeof(nhaddr_str));
+      pim_addr_dump("<addr?>", &rpf->source_nexthop.mrib_nexthop_addr, nhaddr_str, sizeof(nhaddr_str));
       zlog_debug("%s %s: (S,G)=%s source nexthop now is: interface=%s address=%s pref=%d metric=%d",
 		 __FILE__, __PRETTY_FUNCTION__,
 		 pim_str_sg_dump (&up->sg),
@@ -180,11 +178,11 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
   }
 
   /* detect change in RPF'(S,G) */
-  if (save_rpf_addr.s_addr != rpf->rpf_addr.s_addr) {
+  if (save_rpf_addr.u.prefix4.s_addr != rpf->rpf_addr.u.prefix4.s_addr) {
 
     /* return old rpf to caller ? */
     if (old_rpf_addr)
-      *old_rpf_addr = save_rpf_addr;
+      *old_rpf_addr = save_rpf_addr.u.prefix4;
 
     return PIM_RPF_CHANGED;
   }
@@ -233,11 +231,51 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
   /* return NBR( RPF_interface(S), MRIB.next_hop( S ) ) */
 
   neigh = pim_if_find_neighbor(up->rpf.source_nexthop.interface,
-			       up->rpf.source_nexthop.mrib_nexthop_addr);
+			       up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4);
   if (neigh)
     rpf_addr = neigh->source_addr;
   else
     rpf_addr.s_addr = PIM_NET_INADDR_ANY;
 
   return rpf_addr;
+}
+
+int
+pim_rpf_addr_is_inaddr_none (struct pim_rpf *rpf)
+{
+  switch (rpf->rpf_addr.family)
+    {
+    case AFI_IP:
+      return rpf->rpf_addr.u.prefix4.s_addr == INADDR_NONE;
+      break;
+    case AFI_IP6:
+      zlog_warn ("%s: v6 Unimplmeneted", __PRETTY_FUNCTION__);
+      return 1;
+      break;
+    default:
+      return 0;
+      break;
+    }
+
+  return 0;
+}
+
+int
+pim_rpf_addr_is_inaddr_any (struct pim_rpf *rpf)
+{
+  switch (rpf->rpf_addr.family)
+    {
+    case AFI_IP:
+      return rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY;
+      break;
+    case AFI_IP6:
+      zlog_warn ("%s: v6 Unimplmented", __PRETTY_FUNCTION__);
+      return 1;
+      break;
+    default:
+      return 0;
+      break;
+    }
+
+  return 0;
 }

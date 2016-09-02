@@ -97,7 +97,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
    * the Interface type is SSM we don't need to
    * do anything here
    */
-  if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
+  if ((pim_rpf_addr_is_inaddr_none (rpg)) ||
       (!pim_ifp) ||
       (!(PIM_I_am_DR(pim_ifp))) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM))
@@ -183,7 +183,7 @@ pim_mroute_msg_wholepkt (int fd, struct interface *ifp, const char *buf)
 
   rpg = RP(sg.grp);
 
-  if ((rpg->rpf_addr.s_addr == INADDR_NONE) ||
+  if ((pim_rpf_addr_is_inaddr_none (rpg)) ||
       (!pim_ifp) ||
       (!(PIM_I_am_DR(pim_ifp))) ||
       (pim_ifp->itype == PIM_INTERFACE_SSM)) {

@@ -155,7 +155,7 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
   if (PIM_DEBUG_PIM_REG)
     {
        char rp_str[100];
-       strcpy (rp_str, inet_ntoa (rpg->rpf_addr));
+       strcpy (rp_str, inet_ntoa (rpg->rpf_addr.u.prefix4));
        zlog_debug ("Sending %sRegister Packet to %s", null_register ? "NULL " : "", rp_str);
     }
 
@@ -177,7 +177,7 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
 
   if (pim_msg_send(pinfo->pim_sock_fd,
 		   src,
-		   rpg->rpf_addr,
+		   rpg->rpf_addr.u.prefix4,
 		   buffer,
 		   buf_size + PIM_MSG_REGISTER_LEN,
 		   ifp->name)) {
@@ -296,7 +296,7 @@ pim_register_recv (struct interface *ifp,
   sg.src = ip_hdr->ip_src;
   sg.grp = ip_hdr->ip_dst;
 
-  if (I_am_RP (sg.grp) && (dest_addr.s_addr == ((RP (sg.grp))->rpf_addr.s_addr))) {
+  if (I_am_RP (sg.grp) && (dest_addr.s_addr == ((RP (sg.grp))->rpf_addr.u.prefix4.s_addr))) {
     sentRegisterStop = 0;
 
     if (*bits & PIM_REGISTER_BORDER_BIT) {

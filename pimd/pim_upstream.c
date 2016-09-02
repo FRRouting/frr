@@ -174,11 +174,11 @@ pim_upstream_send_join (struct pim_upstream *up)
 {
   if (PIM_DEBUG_PIM_TRACE) {
     char rpf_str[100];
-    pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
+    pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str, sizeof(rpf_str));
     zlog_debug ("%s: RPF'%s=%s(%s) for Interface %s", __PRETTY_FUNCTION__,
 		pim_str_sg_dump (&up->sg), rpf_str, pim_upstream_state2str (up->join_state),
 		up->rpf.source_nexthop.interface->name);
-    if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr)) {
+    if (pim_rpf_addr_is_inaddr_any(&up->rpf)) {
       zlog_debug("%s: can't send join upstream: RPF'%s=%s",
 		 __PRETTY_FUNCTION__,
 		 pim_str_sg_dump (&up->sg), rpf_str);
@@ -188,7 +188,7 @@ pim_upstream_send_join (struct pim_upstream *up)
 
   /* send Join(S,G) to the current upstream neighbor */
   pim_joinprune_send(up->rpf.source_nexthop.interface,
-  		     up->rpf.rpf_addr,
+  		     up->rpf.rpf_addr.u.prefix4,
 		     &up->sg,
 		     1 /* join */);
 }
@@ -457,7 +457,7 @@ pim_upstream_switch(struct pim_upstream *up,
   else {
     forward_off(up);
     pim_joinprune_send(up->rpf.source_nexthop.interface,
-		       up->rpf.rpf_addr,
+		       up->rpf.rpf_addr.u.prefix4,
 		       &up->sg,
 		       0 /* prune */);
     if (up->t_join_timer)
@@ -501,10 +501,12 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
   up->sptbit                     = PIM_UPSTREAM_SPTBIT_FALSE;
 
   up->rpf.source_nexthop.interface                = NULL;
-  up->rpf.source_nexthop.mrib_nexthop_addr.s_addr = PIM_NET_INADDR_ANY;
+  up->rpf.source_nexthop.mrib_nexthop_addr.family = AF_INET;
+  up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
   up->rpf.source_nexthop.mrib_metric_preference   = qpim_infinite_assert_metric.metric_preference;
   up->rpf.source_nexthop.mrib_route_metric        = qpim_infinite_assert_metric.route_metric;
-  up->rpf.rpf_addr.s_addr                         = PIM_NET_INADDR_ANY;
+  up->rpf.rpf_addr.family                         = AF_INET;
+  up->rpf.rpf_addr.u.prefix4.s_addr               = PIM_NET_INADDR_ANY;
 
   rpf_result = pim_rpf_update(up, NULL);
   if (rpf_result == PIM_RPF_FAILURE) {
@@ -703,7 +705,7 @@ void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr)
       char neigh_str[100];
       char rpf_addr_str[100];
       pim_inet4_dump("<neigh?>", neigh_addr, neigh_str, sizeof(neigh_str));
-      pim_inet4_dump("<rpf?>", up->rpf.rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
+      pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
       zlog_debug("%s: matching neigh=%s against upstream (S,G)=%s joined=%d rpf_addr=%s",
 		 __PRETTY_FUNCTION__,
 		 neigh_str, pim_str_sg_dump (&up->sg),
@@ -716,7 +718,7 @@ void pim_upstream_rpf_genid_changed(struct in_addr neigh_addr)
       continue;
 
     /* match RPF'(S,G)=neigh_addr */
-    if (up->rpf.rpf_addr.s_addr != neigh_addr.s_addr)
+    if (up->rpf.rpf_addr.u.prefix4.s_addr != neigh_addr.s_addr)
       continue;
 
     pim_upstream_join_timer_decrease_to_t_override("RPF'(S,G) GenID change",
@@ -878,7 +880,7 @@ pim_upstream_keep_alive_timer (struct thread *t)
       THREAD_OFF (up->t_ka_timer);
       THREAD_OFF (up->t_rs_timer);
       THREAD_OFF (up->t_join_timer);
-      pim_joinprune_send (up->rpf.source_nexthop.interface, up->rpf.rpf_addr,
+      pim_joinprune_send (up->rpf.source_nexthop.interface, up->rpf.rpf_addr.u.prefix4,
                           &up->sg, 0);
       pim_upstream_del (up);
     }
@@ -1121,7 +1123,7 @@ pim_upstream_find_new_rpf (void)
   */
   for (ALL_LIST_ELEMENTS(qpim_upstream_list, up_node, up_nextnode, up))
     {
-      if (PIM_INADDR_IS_ANY(up->rpf.rpf_addr))
+      if (pim_rpf_addr_is_inaddr_any(&up->rpf))
 	{
 	  if (PIM_DEBUG_PIM_TRACE)
 	    zlog_debug ("Upstream %s without a path to send join, checking",

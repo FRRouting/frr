@@ -1076,8 +1076,8 @@ static void pim_show_upstream_rpf(struct vty *vty)
     
     pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
-    pim_inet4_dump("<nexthop?>", rpf->source_nexthop.mrib_nexthop_addr, rpf_nexthop_str, sizeof(rpf_nexthop_str));
-    pim_inet4_dump("<rpf?>", rpf->rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
+    pim_addr_dump("<nexthop?>", &rpf->source_nexthop.mrib_nexthop_addr, rpf_nexthop_str, sizeof(rpf_nexthop_str));
+    pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
     
     rpf_ifname = rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<ifname?>";
     
@@ -1155,8 +1155,8 @@ static void pim_show_rpf(struct vty *vty)
     
     pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
     pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
-    pim_inet4_dump("<rpf?>", rpf->rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
-    pim_inet4_dump("<nexthop?>", rpf->source_nexthop.mrib_nexthop_addr, rib_nexthop_str, sizeof(rib_nexthop_str));
+    pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str, sizeof(rpf_addr_str));
+    pim_addr_dump("<nexthop?>", &rpf->source_nexthop.mrib_nexthop_addr, rib_nexthop_str, sizeof(rib_nexthop_str));
     
     rpf_ifname = rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<ifname?>";
     
@@ -2371,8 +2371,8 @@ DEFUN (show_ip_rib,
   vty_out(vty, "Address         NextHop         Interface Metric Preference%s",
 	  VTY_NEWLINE);
 
-  pim_inet4_dump("<nexthop?>", nexthop.mrib_nexthop_addr,
-		 nexthop_addr_str, sizeof(nexthop_addr_str));
+  pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
+		nexthop_addr_str, sizeof(nexthop_addr_str));
 
   vty_out(vty, "%-15s %-15s %-9s %6d %10d%s",
 	  addr_str,
