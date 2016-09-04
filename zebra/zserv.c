@@ -165,7 +165,6 @@ zserv_encode_interface (struct stream *s, struct interface *ifp)
   if (ifp->hw_addr_len)
     stream_put (s, ifp->hw_addr, ifp->hw_addr_len);
 
-  zlog_info("Try to set TE Link Param");
   /* Then, Traffic Engineering parameters if any */
   if (HAS_LINK_PARAMS(ifp) && IS_LINK_PARAMS_SET(ifp->link_params))
     {
