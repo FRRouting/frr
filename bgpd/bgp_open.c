@@ -93,6 +93,9 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                   case AFI_IP6:
                     json_object_string_add(json_cap, "capabilityErrorMultiProtocolAfi", "IPv6");
                   break;
+                  case AFI_L2VPN:
+                    json_object_string_add(json_cap, "capabilityErrorMultiProtocolAfi", "L2VPN");
+                  break;
                   default:
                     json_object_int_add(json_cap, "capabilityErrorMultiProtocolAfiUnknown", ntohs (mpc.afi));
                   break;
@@ -111,6 +114,9 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                   case SAFI_ENCAP:
                     json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "encap");
                   break;
+                  case SAFI_EVPN:
+                    json_object_string_add(json_cap, "capabilityErrorMultiProtocolSafi", "EVPN");
+                  break;
                   default:
                     json_object_int_add(json_cap, "capabilityErrorMultiProtocolSafiUnknown", mpc.safi);
                   break;
@@ -126,6 +132,9 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                   break;
                   case AFI_IP6:
                     vty_out (vty, "AFI IPv6, ");
+                  break;
+                  case AFI_L2VPN:
+                    vty_out (vty, "AFI L2VPN, ");
                   break;
                   default:
                     vty_out (vty, "AFI Unknown %d, ", ntohs (mpc.afi));
@@ -144,6 +153,9 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                   break;
                   case SAFI_ENCAP:
                     vty_out (vty, "SAFI ENCAP");
+                  break;
+                  case SAFI_EVPN:
+                    vty_out (vty, "SAFI EVPN");
                   break;
                   default:
                     vty_out (vty, "SAFI Unknown %d ", mpc.safi);
@@ -1131,7 +1143,8 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *mp_capability)
 	  && ! peer->afc_nego[AFI_IP6][SAFI_UNICAST]
 	  && ! peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
 	  && ! peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
-	  && ! peer->afc_nego[AFI_IP6][SAFI_ENCAP])
+	  && ! peer->afc_nego[AFI_IP6][SAFI_ENCAP]
+	  && ! peer->afc_nego[AFI_L2VPN][SAFI_EVPN])
 	{
 	  zlog_err ("%s [Error] Configured AFI/SAFIs do not "
 		    "overlap with received MP capabilities",

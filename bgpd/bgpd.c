@@ -1641,6 +1641,8 @@ peer_as_change (struct peer *peer, as_t as, int as_specified)
 		  PEER_FLAG_REFLECTOR_CLIENT);
       UNSET_FLAG (peer->af_flags[AFI_IP6][SAFI_ENCAP],
 		  PEER_FLAG_REFLECTOR_CLIENT);
+      UNSET_FLAG (peer->af_flags[AFI_L2VPN][SAFI_EVPN],
+		  PEER_FLAG_REFLECTOR_CLIENT);
     }
 
   /* local-as reset */
@@ -7197,7 +7199,11 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
       else if (safi == SAFI_ENCAP)
         vty_out (vty, "ipv6 encap");
     }
-
+  else if (afi == AFI_L2VPN)
+    {
+      if (safi == SAFI_EVPN)
+	vty_out (vty, "evpn");
+    }
   vty_out (vty, "%s", VTY_NEWLINE);
 
   *write = 1;
@@ -7497,6 +7503,9 @@ bgp_config_write (struct vty *vty)
 
       /* ENCAPv6 configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP6, SAFI_ENCAP);
+
+      /* EVPN configuration.  */
+      write += bgp_config_write_family (vty, bgp, AFI_L2VPN, SAFI_EVPN);
 
 #if ENABLE_BGP_VNC
       write += bgp_rfapi_cfg_write(vty, bgp);
