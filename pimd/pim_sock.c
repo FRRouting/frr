@@ -334,17 +334,14 @@ int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
   if (to) {
     struct sockaddr_in si;
     socklen_t si_len = sizeof(si);
-    
-    ((struct sockaddr_in *) to)->sin_family = AF_INET;
 
-    if (pim_socket_getsockname(fd, (struct sockaddr *) &si, &si_len) != PIM_SOCK_ERR_NONE) {
-      ((struct sockaddr_in *) to)->sin_port        = ntohs(0);
-      ((struct sockaddr_in *) to)->sin_addr.s_addr = ntohl(0);
-    }
-    else {
-      ((struct sockaddr_in *) to)->sin_port = si.sin_port;
-      ((struct sockaddr_in *) to)->sin_addr = si.sin_addr;
-    }
+    memset (&si, 0, sizeof (si));
+    to->sin_family = AF_INET;
+
+    pim_socket_getsockname(fd, (struct sockaddr *) &si, &si_len);
+
+    to->sin_port = si.sin_port;
+    to->sin_addr = si.sin_addr;
 
     if (tolen) 
       *tolen = sizeof(si);
