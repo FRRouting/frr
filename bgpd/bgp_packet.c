@@ -246,13 +246,13 @@ bgp_write_packet (struct peer *peer)
 		if (!(PAF_SUBGRP(paf))->t_coalesce &&
 		    peer->afc_nego[afi][safi] && peer->synctime
 		    && ! CHECK_FLAG (peer->af_sflags[afi][safi],
-				     PEER_STATUS_EOR_SEND))
+				     PEER_STATUS_EOR_SEND)
+                    && safi != SAFI_EVPN)
 		  {
 		    SET_FLAG (peer->af_sflags[afi][safi],
 			      PEER_STATUS_EOR_SEND);
 		    return bgp_update_packet_eor (peer, afi, safi);
 		  }
-
 	      }
 	    continue;
 	  }

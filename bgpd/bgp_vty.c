@@ -6834,6 +6834,8 @@ afi_safi_print (afi_t afi, safi_t safi)
     return "IPv6 VPN";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
     return "IPv6 Encap";
+  else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+    return "L2VPN EVPN";
   else
     return "Unknown";
 }
@@ -6857,6 +6859,8 @@ afi_safi_json (afi_t afi, safi_t safi)
     return "IPv6VPN";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
     return "IPv6Encap";
+  else if (afi == AFI_L2VPN && safi == SAFI_EVPN)
+    return "L2VPN EVPN";
   else
     return "Unknown";
 }
