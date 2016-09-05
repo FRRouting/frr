@@ -50,6 +50,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 # include "bgp_encap_types.h"
 # include "bgp_vnc_types.h"
 #endif
+#include "bgp_encap_types.h"
+#include "bgp_evpn.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str [] = 
@@ -2858,7 +2860,7 @@ void
 bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
 			  struct prefix *p, struct prefix_rd *prd,
                           u_char *tag, int addpath_encode,
-                          u_int32_t addpath_tx_id)
+                          u_int32_t addpath_tx_id, struct attr *attr)
 {
   if (safi == SAFI_MPLS_VPN)
     {
@@ -2869,6 +2871,10 @@ bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
       stream_put (s, tag, 3);
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
+    }
+  else if ((safi == SAFI_EVPN))
+    {
+      bgp_packet_mpattr_route_type_5(s, p, prd, tag, attr);
     }
   else
     stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
@@ -3023,7 +3029,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
                                      AFI_MAX), /* get from NH */
                                     vecarr, attr);
       bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
-                               addpath_encode, addpath_tx_id);
+                               addpath_encode, addpath_tx_id, attr);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
     }
 
@@ -3431,21 +3437,10 @@ void
 bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     afi_t afi, safi_t safi, struct prefix_rd *prd,
 			     u_char *tag, int addpath_encode,
-                             u_int32_t addpath_tx_id)
+                             u_int32_t addpath_tx_id, struct attr *attr)
 {
-  if (safi == SAFI_MPLS_VPN)
-    {
-      /* addpath TX ID */
-      if (addpath_encode)
-        stream_putl(s, addpath_tx_id);
-
-      stream_putc (s, p->prefixlen + 88);
-      stream_put (s, tag, 3);
-      stream_put (s, prd->val, 8);
-      stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
-    }
-  else
-    stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
+  return bgp_packet_mpattr_prefix (s, afi, safi, p, prd,
+                                   tag, addpath_encode, addpath_tx_id, attr);
 }
 
 void

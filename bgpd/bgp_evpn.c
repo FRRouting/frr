@@ -187,3 +187,54 @@ bgp_nlri_parse_evpn (struct peer *peer, struct attr *attr,
 
   return 0;
 }
+
+void
+bgp_packet_mpattr_route_type_5 (struct stream *s,
+                                struct prefix *p, struct prefix_rd *prd,
+                                u_char *label, struct attr *attr)
+{
+  int len;
+  char temp[16];
+  struct evpn_addr *p_evpn_p;
+
+  memset(&temp, 0, 16);
+  if(p->family != AF_ETHERNET)
+    return;
+  p_evpn_p = &(p->u.prefix_evpn);
+  if (p_evpn_p->flags & IP_PREFIX_V4)
+    len = 8; /* ipv4 */
+  else
+    len = 32; /* ipv6 */
+  stream_putc (s, EVPN_IP_PREFIX);
+  stream_putc (s, 8 /* RD */ + 10 /* ESI */  + 4 /* EthTag */ + 1 + len + 3 /* label */);
+  stream_put (s, prd->val, 8);
+  if(attr && attr->extra)
+    stream_put (s, &(attr->extra->evpn_overlay.eth_s_id), 10);
+  else
+    stream_put (s, &temp, 10);
+  stream_putl (s, p_evpn_p->eth_tag);
+  stream_putc (s, p_evpn_p->ip_prefix_length);
+  if (p_evpn_p->flags & IP_PREFIX_V4)
+    stream_put_ipv4(s, p_evpn_p->ip.v4_addr.s_addr);
+  else
+    stream_put(s, &p_evpn_p->ip.v6_addr, 16);
+  if(attr && attr->extra)
+    {
+      if (p_evpn_p->flags & IP_PREFIX_V4)
+        stream_put_ipv4(s, attr->extra->evpn_overlay.gw_ip.ipv4.s_addr);
+      else
+        stream_put(s, &(attr->extra->evpn_overlay.gw_ip.ipv6), 16);
+    }
+  else
+    {
+      if (p_evpn_p->flags & IP_PREFIX_V4)
+        stream_put_ipv4(s, 0);
+      else
+        stream_put(s, &temp, 16);
+    }
+  if(label)
+    stream_put (s, label, 3);
+  else
+    stream_put3 (s, 0);
+  return;
+}

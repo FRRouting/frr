@@ -24,6 +24,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 extern int bgp_nlri_parse_evpn (struct peer *peer, struct attr *attr,
                                 struct bgp_nlri *packet, int withdraw);
 
+extern void
+bgp_packet_mpattr_route_type_5 (struct stream *s,
+                                struct prefix *p, struct prefix_rd *prd,
+                                u_char *label, struct attr *attr);
 /* EVPN route types as per RFC7432 and
  * as per draft-ietf-bess-evpn-prefix-advertisement-02
  */
