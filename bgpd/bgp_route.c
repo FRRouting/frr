@@ -1750,8 +1750,8 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
 }
 
 /*
- * Clear IGP changed flag for a route (all paths). This is called at
- * the end of route processing.
+ * Clear IGP changed flag and attribute changed flag for a route (all paths).
+ * This is called at the end of route processing.
  */
 static void
 bgp_zebra_clear_route_change_flags (struct bgp_node *rn)
@@ -1763,6 +1763,7 @@ bgp_zebra_clear_route_change_flags (struct bgp_node *rn)
 	if (BGP_INFO_HOLDDOWN (ri))
           continue;
         UNSET_FLAG (ri->flags, BGP_INFO_IGP_CHANGED);
+        UNSET_FLAG (ri->flags, BGP_INFO_ATTR_CHANGED);
     }
 }
 
@@ -1776,7 +1777,12 @@ bgp_zebra_has_route_changed (struct bgp_node *rn, struct bgp_info *selected)
 {
   struct bgp_info *mpinfo;
 
-  /* There is a multipath change or best path has some nexthop change. */
+  /* If this is multipath, check all selected paths for any nexthop change or
+   * attribute change. Some attribute changes (e.g., community) aren't of
+   * relevance to the RIB, but we'll update zebra to ensure we handle the
+   * case of BGP nexthop change. This is the behavior when the best path has
+   * an attribute change anyway.
+   */
   if (CHECK_FLAG (selected->flags, BGP_INFO_IGP_CHANGED) ||
       CHECK_FLAG (selected->flags, BGP_INFO_MULTIPATH_CHG))
     return 1;
@@ -1785,7 +1791,8 @@ bgp_zebra_has_route_changed (struct bgp_node *rn, struct bgp_info *selected)
   for (mpinfo = bgp_info_mpath_first (selected); mpinfo;
        mpinfo = bgp_info_mpath_next (mpinfo))
     {
-      if (CHECK_FLAG (mpinfo->flags, BGP_INFO_IGP_CHANGED))
+      if (CHECK_FLAG (mpinfo->flags, BGP_INFO_IGP_CHANGED)
+          || CHECK_FLAG (mpinfo->flags, BGP_INFO_ATTR_CHANGED))
         return 1;
     }
 
