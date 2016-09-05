@@ -990,9 +990,6 @@ mpls_te_print_detail(struct vty *vty, struct te_is_neigh *te)
 
   zlog_debug ("ISIS MPLS-TE: Show database TE detail");
 
-  if (te->sub_tlvs == NULL)
-    return;
-
   tlvh = (struct subtlv_header *)te->sub_tlvs;
 
   for (; sum < te->sub_tlvs_length; tlvh = (next ? next : SUBTLV_HDR_NEXT (tlvh)))
