@@ -25,6 +25,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgp_table.h"
 
 struct bgp_nexthop_cache;
+struct bgp_route_evpn;
 
 enum bgp_show_type
 {
@@ -319,10 +320,11 @@ extern int bgp_static_unset_safi (safi_t safi, struct vty *, const char *,
 
 /* this is primarily for MPLS-VPN */
 extern int bgp_update (struct peer *, struct prefix *, u_int32_t, struct attr *,
-		       afi_t, safi_t, int, int, struct prefix_rd *, 
-		       u_char *, int);
+		       afi_t, safi_t, int, int, struct prefix_rd *,
+		       u_char *, int, struct bgp_route_evpn *);
 extern int bgp_withdraw (struct peer *, struct prefix *, u_int32_t, struct attr *,
-			 afi_t, safi_t, int, int, struct prefix_rd *, u_char *);
+			 afi_t, safi_t, int, int, struct prefix_rd *, u_char *, 
+                         struct bgp_route_evpn *);
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process (struct bgp *, struct bgp_node *, afi_t, safi_t);

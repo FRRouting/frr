@@ -49,6 +49,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_encap.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_vty.h"
@@ -1327,19 +1328,24 @@ bgp_update_explicit_eors (struct peer *peer)
   bgp_check_update_delay(peer->bgp);
 }
 
-/* Frontend for NLRI parsing, to fan-out to AFI/SAFI specific parsers */
+/* Frontend for NLRI parsing, to fan-out to AFI/SAFI specific parsers 
+ * mp_withdraw, if set, is used to nullify attr structure on most of the calling safi function
+ * and for evpn, passed as parameter
+ */
 int
-bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet)
+bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet, int mp_withdraw)
 {
   switch (packet->safi)
     {
       case SAFI_UNICAST:
       case SAFI_MULTICAST:
-        return bgp_nlri_parse_ip (peer, attr, packet);
+        return bgp_nlri_parse_ip (peer, mp_withdraw?NULL:attr, packet);
       case SAFI_MPLS_VPN:
-        return bgp_nlri_parse_vpn (peer, attr, packet);
+        return bgp_nlri_parse_vpn (peer, mp_withdraw?NULL:attr, packet);
       case SAFI_ENCAP:
-        return bgp_nlri_parse_encap (peer, attr, packet);
+        return bgp_nlri_parse_encap (peer, mp_withdraw?NULL:attr, packet);
+      case SAFI_EVPN:
+        return bgp_nlri_parse_evpn (peer, attr, packet, mp_withdraw);
     }
   return -1;
 }
@@ -1531,11 +1537,11 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
         {
           case NLRI_UPDATE:
           case NLRI_MP_UPDATE:
-            nlri_ret = bgp_nlri_parse (peer, NLRI_ATTR_ARG, &nlris[i]);
+            nlri_ret = bgp_nlri_parse (peer, NLRI_ATTR_ARG, &nlris[i], 0);
             break;
           case NLRI_WITHDRAW:
           case NLRI_MP_WITHDRAW:
-            nlri_ret = bgp_nlri_parse (peer, NULL, &nlris[i]);
+            nlri_ret = bgp_nlri_parse (peer, &attr, &nlris[i], 1);
             break;
           default:
             nlri_ret = -1;
