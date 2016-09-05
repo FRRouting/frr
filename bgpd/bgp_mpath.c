@@ -468,6 +468,11 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
       bgp_info_mpath_dequeue (old_best);
     }
 
+  if (debug)
+    zlog_debug("%s: starting mpath update, newbest %s num candidates %d old-mpath-count %d",
+               pfx_buf, new_best ? new_best->peer->host : "NONE",
+               listcount (mp_list), old_mpath_count);
+
   /*
    * We perform an ordered walk through both lists in parallel.
    * The reason for the ordered walk is that if there are paths
@@ -481,6 +486,8 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
    */
   while (mp_node || cur_mpath)
     {
+      struct bgp_info *tmp_info;
+
       /*
        * We can bail out of this loop if all existing paths on the
        * multipath list have been visited (for cleanup purposes) and
@@ -491,6 +498,12 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
 
       mp_next_node = mp_node ? listnextnode (mp_node) : NULL;
       next_mpath = cur_mpath ? bgp_info_mpath_next (cur_mpath) : NULL;
+      tmp_info = mp_node ? listgetdata (mp_node) : NULL;
+
+      if (debug)
+        zlog_debug("%s: comparing candidate %s with existing mpath %s",
+                   pfx_buf, tmp_info ? tmp_info->peer->host : "NONE",
+                   cur_mpath ? cur_mpath->peer->host : "NONE");
 
       /*
        * If equal, the path was a multipath and is still a multipath.
@@ -506,6 +519,12 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
               bgp_info_mpath_enqueue (prev_mpath, cur_mpath);
               prev_mpath = cur_mpath;
               mpath_count++;
+              if (debug)
+                {
+                  bgp_info_path_with_addpath_rx_str(cur_mpath, path_buf);
+                  zlog_debug("%s: %s is still multipath, cur count %d",
+                             pfx_buf, path_buf, mpath_count);
+                }
             }
           else
             {
@@ -513,10 +532,11 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
               if (debug)
                 {
                   bgp_info_path_with_addpath_rx_str(cur_mpath, path_buf);
-                  zlog_debug ("%s remove mpath nexthop %s %s", pfx_buf,
+                  zlog_debug ("%s: remove mpath %s nexthop %s, cur count %d",
+                              pfx_buf, path_buf,
                               inet_ntop (AF_INET, &cur_mpath->attr->nexthop,
                                          nh_buf[0], sizeof (nh_buf[0])),
-                              path_buf);
+                              mpath_count);
                 }
             }
           mp_node = mp_next_node;
@@ -539,10 +559,11 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
           if (debug)
             {
               bgp_info_path_with_addpath_rx_str(cur_mpath, path_buf);
-              zlog_debug ("%s remove mpath nexthop %s %s", pfx_buf,
+              zlog_debug ("%s: remove mpath %s nexthop %s, cur count %d",
+                          pfx_buf, path_buf,
                           inet_ntop (AF_INET, &cur_mpath->attr->nexthop,
                                      nh_buf[0], sizeof (nh_buf[0])),
-                          path_buf);
+                          mpath_count);
             }
           cur_mpath = next_mpath;
         }
@@ -575,10 +596,11 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
               if (debug)
                 {
                   bgp_info_path_with_addpath_rx_str(new_mpath, path_buf);
-                  zlog_debug ("%s add mpath nexthop %s %s", pfx_buf,
+                  zlog_debug ("%s: add mpath %s nexthop %s, cur count %d",
+                              pfx_buf, path_buf,
                               inet_ntop (AF_INET, &new_mpath->attr->nexthop,
                                          nh_buf[0], sizeof (nh_buf[0])),
-                              path_buf);
+                              mpath_count);
                 }
             }
           mp_node = mp_next_node;
@@ -587,6 +609,10 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
 
   if (new_best)
     {
+      if (debug)
+        zlog_debug("%s: New mpath count (incl newbest) %d mpath-change %s",
+                   pfx_buf, mpath_count, mpath_changed ? "YES" : "NO");
+
       bgp_info_mpath_count_set (new_best, mpath_count-1);
       if (mpath_changed || (bgp_info_mpath_count (new_best) != old_mpath_count))
         SET_FLAG (new_best->flags, BGP_INFO_MULTIPATH_CHG);
