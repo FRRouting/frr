@@ -564,12 +564,13 @@ bgp_scan_init (struct bgp *bgp)
   bgp->connected_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
   bgp->import_check_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
 
-#ifdef HAVE_IPV6
   bgp->nexthop_cache_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
   bgp->connected_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
   bgp->import_check_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
-#endif /* HAVE_IPV6 */
 
+  bgp->nexthop_cache_table[AFI_ETHER] = bgp_table_init (AFI_ETHER, SAFI_UNICAST);
+  bgp->connected_table[AFI_ETHER] = bgp_table_init (AFI_ETHER, SAFI_UNICAST);
+  bgp->import_check_table[AFI_ETHER] = bgp_table_init (AFI_ETHER, SAFI_UNICAST);
 }
 
 void
