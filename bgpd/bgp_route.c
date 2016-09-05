@@ -376,7 +376,11 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     }
 
   if (debug)
-    bgp_info_path_with_addpath_rx_str (exist, exist_buf);
+    {
+      bgp_info_path_with_addpath_rx_str (exist, exist_buf);
+      zlog_debug("%s: Comparing %s flags 0x%x with %s flags 0x%x",
+                 pfx_buf, new_buf, new->flags, exist_buf, exist->flags);
+    }
 
   newattr = new->attr;
   existattr = exist->attr;
@@ -705,6 +709,15 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
        * TODO: If unequal cost ibgp multipath is enabled we can
        * mark the paths as equal here instead of returning
        */
+      if (debug)
+        {
+          if (ret == 1)
+            zlog_debug("%s: %s wins over %s after IGP metric comparison",
+                       pfx_buf, new_buf, exist_buf);
+          else
+            zlog_debug("%s: %s loses to %s after IGP metric comparison",
+                       pfx_buf, new_buf, exist_buf);
+        }
       return ret;
     }
 
@@ -1638,14 +1651,19 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   /* Now that we know which path is the bestpath see if any of the other paths
    * qualify as multipaths
    */
+  if (debug)
+    {
+      if (new_select)
+        bgp_info_path_with_addpath_rx_str (new_select, path_buf);
+      else
+        sprintf (path_buf, "NONE");
+      zlog_debug("%s: After path selection, newbest is %s oldbest was %s",
+                 pfx_buf, path_buf,
+                 old_select ? old_select->peer->host : "NONE");
+    }
+
   if (do_mpath && new_select)
     {
-      if (debug)
-        {
-          bgp_info_path_with_addpath_rx_str (new_select, path_buf);
-          zlog_debug("%s: %s is the bestpath, now find multipaths", pfx_buf, path_buf);
-        }
-
       for (ri = rn->info; (ri != NULL) && (nextri = ri->next, 1); ri = nextri)
         {
 
