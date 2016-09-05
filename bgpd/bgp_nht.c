@@ -681,8 +681,6 @@ evaluate_paths (struct bgp_nexthop_cache *bnc)
       if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ||
 	  CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 	SET_FLAG(path->flags, BGP_INFO_IGP_CHANGED);
-      else
-        UNSET_FLAG (path->flags, BGP_INFO_IGP_CHANGED);
 
       bgp_process(bgp, rn, afi, SAFI_UNICAST);
     }

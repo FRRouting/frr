@@ -1657,7 +1657,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
               if (debug)
                 zlog_debug("%s: %s is the bestpath, add to the multipath list",
                            pfx_buf, path_buf);
-	      bgp_mp_list_add (&mp_list, ri);
+              bgp_mp_list_add (&mp_list, ri);
               continue;
             }
 
@@ -1749,6 +1749,50 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
   return 0;
 }
 
+/*
+ * Clear IGP changed flag for a route (all paths). This is called at
+ * the end of route processing.
+ */
+static void
+bgp_zebra_clear_route_change_flags (struct bgp_node *rn)
+{
+  struct bgp_info *ri;
+
+  for (ri = rn->info; ri; ri = ri->next)
+    {
+	if (BGP_INFO_HOLDDOWN (ri))
+          continue;
+        UNSET_FLAG (ri->flags, BGP_INFO_IGP_CHANGED);
+    }
+}
+
+/*
+ * Has the route changed from the RIB's perspective? This is invoked only
+ * if the route selection returns the same best route as earlier - to
+ * determine if we need to update zebra or not.
+ */
+static int
+bgp_zebra_has_route_changed (struct bgp_node *rn, struct bgp_info *selected)
+{
+  struct bgp_info *mpinfo;
+
+  /* There is a multipath change or best path has some nexthop change. */
+  if (CHECK_FLAG (selected->flags, BGP_INFO_IGP_CHANGED) ||
+      CHECK_FLAG (selected->flags, BGP_INFO_MULTIPATH_CHG))
+    return 1;
+
+  /* If this is multipath, check all selected paths for any nexthop change */
+  for (mpinfo = bgp_info_mpath_first (selected); mpinfo;
+       mpinfo = bgp_info_mpath_next (mpinfo))
+    {
+      if (CHECK_FLAG (mpinfo->flags, BGP_INFO_IGP_CHANGED))
+        return 1;
+    }
+
+  /* Nothing has changed from the RIB's perspective. */
+  return 0;
+}
+
 struct bgp_process_queue
 {
   struct bgp *bgp;
@@ -1799,11 +1843,11 @@ bgp_process_main (struct work_queue *wq, void *data)
       !CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED) &&
       !bgp->addpath_tx_used[afi][safi])
     {
-      if (CHECK_FLAG (old_select->flags, BGP_INFO_IGP_CHANGED) ||
-          CHECK_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG))
+      if (bgp_zebra_has_route_changed (rn, old_select))
         bgp_zebra_announce (p, old_select, bgp, afi, safi);
           
       UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+      bgp_zebra_clear_route_change_flags (rn);
       UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
       return WQ_SUCCESS;
     }
@@ -1856,7 +1900,10 @@ bgp_process_main (struct work_queue *wq, void *data)
 	    bgp_zebra_withdraw (p, old_select, safi);
 	}
     }
-    
+
+  /* Clear any route change flags. */
+  bgp_zebra_clear_route_change_flags (rn);
+
   /* Reap old select bgp_info, if it has been removed */
   if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
     bgp_info_reap (rn, old_select);
