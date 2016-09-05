@@ -33,6 +33,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #define MAX_ET 0xffffffff
 u_long eth_tag_id;
+struct attr;
 
 struct eth_segment_id
 {
@@ -57,5 +58,7 @@ extern int str2mac (const char *str, char *mac);
 extern char *esi2str (struct eth_segment_id *id);
 extern char *mac2str (char *mac);
 extern char *ecom_mac2str(char *ecom_mac);
+
+extern void bgp_add_routermac_ecom (struct attr* attr, char * routermac);
 
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */

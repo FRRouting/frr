@@ -213,7 +213,7 @@ ecommunity_intern (struct ecommunity *ecom)
   find->refcnt++;
 
   if (! find->str)
-    find->str = ecommunity_ecom2str (find, ECOMMUNITY_FORMAT_DISPLAY, 0);
+    find->str = ecommunity_ecom2str (find, ECOMMUNITY_FORMAT_DISPLAY, ECOMMUNITY_ROUTE_TARGET);
 
   return find;
 }

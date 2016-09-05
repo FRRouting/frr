@@ -27,7 +27,27 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 #include "stream.h"
 
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr_evpn.h"
+#include "bgpd/bgp_ecommunity.h"
+
+void bgp_add_routermac_ecom (struct attr* attr, char * routermac)
+{
+  struct ecommunity_val routermac_ecom;
+
+  if(attr->extra)
+    {
+      memset(&routermac_ecom, 0, sizeof(struct ecommunity_val));
+      routermac_ecom.val[0] = ECOMMUNITY_ENCODE_EVPN;
+      routermac_ecom.val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
+      memcpy(&routermac_ecom.val[2], routermac, MAC_LEN);
+      if(!attr->extra->ecommunity)
+        attr->extra->ecommunity = ecommunity_new ();
+      ecommunity_add_val(attr->extra->ecommunity, &routermac_ecom);
+    }
+}
 
 static uint8_t convertchartohexa (uint8_t *hexa, int *error)
 {

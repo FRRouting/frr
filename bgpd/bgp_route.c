@@ -4019,6 +4019,10 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
           bet.vnid = p->u.prefix_evpn.eth_tag;
           bgp_encap_type_vxlan_to_tlv(&bet, &attr);
         }
+      if (bgp_static->router_mac)
+        {
+          bgp_add_routermac_ecom (&attr, bgp_static->router_mac);
+        }
     }
   /* Apply route-map. */
   if (bgp_static->rmap.name)
