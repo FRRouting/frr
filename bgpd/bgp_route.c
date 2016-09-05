@@ -65,6 +65,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/rfapi/vnc_import_bgp.h"
 #include "bgpd/rfapi/vnc_export_bgp.h"
 #endif
+#include "bgpd/bgp_evpn.h"
 
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
@@ -2267,6 +2268,65 @@ info_make (int type, int sub_type, u_short instance, struct peer *peer, struct a
   return new;
 }
 
+static void
+overlay_index_update(struct attr *attr, struct eth_segment_id *eth_s_id, union gw_addr *gw_ip)
+{
+  struct attr_extra *extra;
+
+  if(!attr)
+    return;
+  extra = bgp_attr_extra_get(attr);
+
+  if(eth_s_id == NULL)
+    {
+      memset(&(extra->evpn_overlay.eth_s_id),0, sizeof(struct eth_segment_id));
+    }
+  else
+    {
+      memcpy(&(extra->evpn_overlay.eth_s_id), eth_s_id, sizeof(struct eth_segment_id));
+    }
+  if(gw_ip == NULL)
+    {
+      memset(&(extra->evpn_overlay.gw_ip), 0, sizeof(union gw_addr));
+    }
+  else
+    {
+      memcpy(&(extra->evpn_overlay.gw_ip),gw_ip, sizeof(union gw_addr));
+    }
+}
+
+static bool
+overlay_index_equal(afi_t afi, struct bgp_info *info, struct eth_segment_id *eth_s_id, union gw_addr *gw_ip)
+{
+  struct eth_segment_id *info_eth_s_id, *info_eth_s_id_remote;
+  union gw_addr *info_gw_ip, *info_gw_ip_remote;
+  char temp[16];
+
+  if(afi != AFI_L2VPN)
+    return true;
+  if (!info->attr || !info->attr->extra) {
+    memset(&temp, 0, 16);
+    info_eth_s_id = (struct eth_segment_id *)&temp;
+    info_gw_ip = (union gw_addr *)&temp;
+    if(eth_s_id == NULL && gw_ip == NULL)
+      return true;
+  } else {
+    info_eth_s_id = &(info->attr->extra->evpn_overlay.eth_s_id);
+    info_gw_ip = &(info->attr->extra->evpn_overlay.gw_ip);
+  }
+  if(gw_ip == NULL)
+    info_gw_ip_remote = (union gw_addr *)&temp;
+  else
+    info_gw_ip_remote = gw_ip;
+  if(eth_s_id == NULL)
+    info_eth_s_id_remote =  (struct eth_segment_id *)&temp;
+  else
+    info_eth_s_id_remote =  eth_s_id;
+  if(!memcmp(info_gw_ip, info_gw_ip_remote, sizeof(union gw_addr)))
+    return false;
+  return !memcmp(info_eth_s_id, info_eth_s_id_remote, sizeof(struct eth_segment_id));
+}
+
 /* Check if received nexthop is valid or not. */
 static int
 bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr *attr)
@@ -2445,7 +2505,9 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 
       /* Same attribute comes in. */
       if (!CHECK_FLAG (ri->flags, BGP_INFO_REMOVED) 
-          && attrhash_cmp (ri->attr, attr_new))
+          && attrhash_cmp (ri->attr, attr_new)
+          && (overlay_index_equal(afi, ri, evpn==NULL?NULL:&evpn->eth_s_id,
+                                  evpn==NULL?NULL:&evpn->gw_ip)))
 	{
 	  if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
 	      && peer->sort == BGP_PEER_EBGP
@@ -2565,7 +2627,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       ri->attr = attr_new;
 
       /* Update MPLS tag.  */
-      if (safi == SAFI_MPLS_VPN)
+      if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN)
         memcpy ((bgp_info_extra_get (ri))->tag, tag, 3);
 
 #if ENABLE_BGP_VNC
@@ -2586,6 +2648,12 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
             }
         }
 #endif
+      /* Update Overlay Index */
+      if(afi == AFI_L2VPN)
+        {
+          overlay_index_update(ri->attr, evpn==NULL?NULL:&evpn->eth_s_id,
+                               evpn==NULL?NULL:&evpn->gw_ip);
+        }
 
       /* Update bgp route dampening information.  */
       if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
@@ -2675,9 +2743,15 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   new = info_make(type, sub_type, 0, peer, attr_new, rn);
 
   /* Update MPLS tag. */
-  if (safi == SAFI_MPLS_VPN)
+  if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN)
     memcpy ((bgp_info_extra_get (new))->tag, tag, 3);
 
+  /* Update Overlay Index */
+  if(afi == AFI_L2VPN)
+    {
+      overlay_index_update(new->attr, evpn==NULL?NULL:&evpn->eth_s_id,
+                           evpn==NULL?NULL:&evpn->gw_ip);
+    }
   /* Nexthop reachability check. */
   if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST)
     {
@@ -3565,6 +3639,8 @@ bgp_static_free (struct bgp_static *bgp_static)
 {
   if (bgp_static->rmap.name)
     XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+  if(bgp_static->eth_s_id)
+    XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
   XFREE (MTYPE_BGP_STATIC, bgp_static);
 }
 
@@ -3871,6 +3947,8 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
   attr.med = bgp_static->igpmetric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
 
+  if(afi == AFI_L2VPN)
+      overlay_index_update(&attr, bgp_static->eth_s_id, NULL);
   /* Apply route-map. */
   if (bgp_static->rmap.name)
     {
@@ -3914,7 +3992,10 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 
   if (ri)
     {
+      union gw_addr add;
+      memset(&add, 0, sizeof(union gw_addr));
       if (attrhash_cmp (ri->attr, attr_new) &&
+          overlay_index_equal(afi, ri, bgp_static->eth_s_id, &add) &&
           !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
         {
           bgp_unlock_node (rn);
