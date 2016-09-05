@@ -419,6 +419,18 @@ encap_finish (void)
 #endif
 }
 
+static bool
+overlay_index_same(const struct attr_extra *ae1, const struct attr_extra *ae2)
+{
+  if(!ae1 && ae2)
+    return false;
+  if(!ae2 && ae1)
+    return false;
+  if(!ae1 && !ae2)
+    return false;
+  return !memcmp(&(ae1->evpn_overlay), &(ae2->evpn_overlay), sizeof(struct overlay_index));
+}
+
 /* Unknown transit attribute. */
 static struct hash *transit_hash;
 
@@ -730,7 +742,8 @@ attrhash_cmp (const void *p1, const void *p2)
 #if ENABLE_BGP_VNC
 	  && encap_same(ae1->vnc_subtlvs, ae2->vnc_subtlvs)
 #endif
-          && IPV4_ADDR_SAME (&ae1->originator_id, &ae2->originator_id))
+          && IPV4_ADDR_SAME (&ae1->originator_id, &ae2->originator_id)
+          && overlay_index_same(ae1, ae2))
         return 1;
       else if (ae1 || ae2)
         return 0;
