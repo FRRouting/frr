@@ -295,7 +295,7 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
       if (attr)
         {
 	bgp_update (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
-		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
+		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0, NULL);
 #if ENABLE_BGP_VNC
           rfapiProcessUpdate(peer, NULL, &p, &prd, attr, packet->afi, 
                              SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
@@ -309,8 +309,8 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
                                SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP, 0);
 #endif
 	bgp_withdraw (peer, &p, addpath_id, attr, packet->afi, SAFI_MPLS_VPN,
-		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
-    }
+		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, NULL);
+        }
     }
   /* Packet length consistency check. */
   if (pnt != lim)

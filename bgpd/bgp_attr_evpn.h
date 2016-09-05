@@ -46,6 +46,12 @@ union gw_addr {
   struct in6_addr ipv6;
 };
 
+struct bgp_route_evpn
+{
+  struct eth_segment_id eth_s_id;
+  union gw_addr gw_ip;
+};
+
 extern int str2esi (const char *str, struct eth_segment_id *id);
 extern int str2mac (const char *str, char *mac);
 extern char *esi2str (struct eth_segment_id *id);

@@ -66,6 +66,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
+#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_vty.h"

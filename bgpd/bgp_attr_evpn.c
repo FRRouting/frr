@@ -21,6 +21,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <zebra.h>
 
 #include "command.h"
+#include "filter.h"
 #include "prefix.h"
 #include "log.h"
 #include "memory.h"

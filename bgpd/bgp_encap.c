@@ -187,7 +187,7 @@ bgp_nlri_parse_encap(
 
       if (attr) {
 	bgp_update (peer, &p, 0, attr, afi, SAFI_ENCAP,
-		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0, NULL);
 #if ENABLE_BGP_VNC
 	rfapiProcessUpdate(peer, NULL, &p, &prd, attr, afi, SAFI_ENCAP,
                            ZEBRA_ROUTE_BGP,  BGP_ROUTE_NORMAL, NULL);
@@ -198,7 +198,7 @@ bgp_nlri_parse_encap(
                              ZEBRA_ROUTE_BGP, 0);
 #endif
 	bgp_withdraw (peer, &p, 0, attr, afi, SAFI_ENCAP,
-		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL);
+		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, NULL);
       }
     }
 

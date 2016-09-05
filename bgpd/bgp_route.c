@@ -2338,7 +2338,7 @@ int
 bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
             struct attr *attr, afi_t afi, safi_t safi, int type,
             int sub_type, struct prefix_rd *prd, u_char *tag,
-            int soft_reconfig)
+            int soft_reconfig, struct bgp_route_evpn* evpn)
 {
   int ret;
   int aspath_loop_count = 0;
@@ -2807,7 +2807,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 int
 bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
               struct attr *attr, afi_t afi, safi_t safi, int type, int sub_type,
-	      struct prefix_rd *prd, u_char *tag)
+	      struct prefix_rd *prd, u_char *tag, struct bgp_route_evpn *evpn)
 {
   struct bgp *bgp;
   char buf[SU_ADDRSTRLEN];
@@ -2998,7 +2998,7 @@ bgp_soft_reconfig_table (struct peer *peer, afi_t afi, safi_t safi,
 
 	    ret = bgp_update (peer, &rn->p, ain->addpath_rx_id, ain->attr,
                               afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-			      prd, tag, 1);
+			      prd, tag, 1, NULL);
 
 	    if (ret < 0)
 	      {
@@ -3564,10 +3564,10 @@ bgp_nlri_parse_ip (struct peer *peer, struct attr *attr,
       /* Normal process. */
       if (attr)
 	ret = bgp_update (peer, &p, addpath_id, attr, afi, safi,
-			  ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, NULL, 0);
+			  ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, NULL, 0, NULL);
       else
 	ret = bgp_withdraw (peer, &p, addpath_id, attr, afi, safi,
-			    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, NULL);
+			    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, NULL, NULL);
 
       /* Address family configuration mismatch or maximum-prefix count
          overflow. */
