@@ -1971,7 +1971,10 @@ peer_delete (struct peer *peer)
 
   UNSET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
   bgp_fsm_change_status (peer, Deleted);
-
+  
+  /* Remove from NHT */
+  bgp_unlink_nexthop_by_peer (peer);
+  
   /* Password configuration */
   if (peer->password)
     {

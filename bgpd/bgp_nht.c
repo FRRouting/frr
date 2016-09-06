@@ -75,16 +75,9 @@ bgp_find_nexthop (struct bgp_info *path, int connected)
   return (bgp_isvalid_nexthop(bnc));
 }
 
-void
-bgp_unlink_nexthop (struct bgp_info *path)
+static void
+bgp_unlink_nexthop_check (struct bgp_nexthop_cache *bnc)
 {
-  struct bgp_nexthop_cache *bnc = path->nexthop;
-
-  if (!bnc)
-    return;
-
-  path_nh_map(path, NULL, 0);
-
   if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info)
     {
       if (BGP_DEBUG(nht, NHT))
@@ -96,8 +89,58 @@ bgp_unlink_nexthop (struct bgp_info *path)
       unregister_zebra_rnh(bnc, CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE));
       bnc->node->info = NULL;
       bgp_unlock_node(bnc->node);
+      bnc->node = NULL;
       bnc_free(bnc);
     }
+}
+
+void
+bgp_unlink_nexthop (struct bgp_info *path)
+{
+  struct bgp_nexthop_cache *bnc = path->nexthop;
+
+  if (!bnc)
+    return;
+
+  path_nh_map(path, NULL, 0);
+  
+  bgp_unlink_nexthop_check (bnc);
+}
+
+void
+bgp_unlink_nexthop_by_peer (struct peer *peer)
+{
+  struct prefix p;
+  struct bgp_node *rn;
+  struct bgp_nexthop_cache *bnc;
+  afi_t afi = family2afi(peer->su.sa.sa_family);
+
+  if (afi == AFI_IP)
+    {
+      p.family = AF_INET;
+      p.prefixlen = IPV4_MAX_BITLEN;
+      p.u.prefix4 = peer->su.sin.sin_addr;
+    }
+  else if (afi == AFI_IP6)
+    {
+      p.family = AF_INET6;
+      p.prefixlen = IPV6_MAX_BITLEN;
+      p.u.prefix6 = peer->su.sin6.sin6_addr;
+    }
+  else
+    return;
+
+  rn = bgp_node_get (peer->bgp->nexthop_cache_table[afi], &p);
+
+  if (!rn->info)
+    return;
+  
+  bnc = rn->info;
+  
+  /* cleanup the peer reference */
+  bnc->nht_info = NULL;
+  
+  bgp_unlink_nexthop_check (bnc);
 }
 
 int
@@ -231,8 +274,7 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
        */
       bgp_unlink_nexthop (ri);
 
-      /* Link to new nexthop cache. */
-      path_nh_map(ri, bnc, 1);
+      path_nh_map(ri, bnc, 1); /* updates NHT ri list reference */
 
       if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
 	(bgp_info_extra_get(ri))->igpmetric = bnc->metric;
@@ -240,7 +282,7 @@ bgp_find_or_add_nexthop (struct bgp *bgp, afi_t afi, struct bgp_info *ri,
 	ri->extra->igpmetric = 0;
     }
   else if (peer)
-    bnc->nht_info = (void *)peer;
+    bnc->nht_info = (void *)peer; /* NHT peer reference */
 
   return (bgp_isvalid_nexthop(bnc));
 }
