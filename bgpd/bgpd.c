@@ -3178,8 +3178,6 @@ bgp_delete (struct bgp *bgp)
   /* Free interfaces in this instance. */
   bgp_if_finish (bgp);
 
-  bgp_address_destroy (bgp);
-
   thread_master_free_unused(bm->master);
   bgp_unlock(bgp);  /* initial reference */
 
@@ -3228,6 +3226,8 @@ bgp_free (struct bgp *bgp)
 	if (bgp->rib[afi][safi])
           bgp_table_finish (&bgp->rib[afi][safi]);
       }
+
+  bgp_address_destroy (bgp);
 
   /* If Default instance or VRF, unlink from the VRF structure. */
   vrf = bgp_vrf_lookup_by_instance_type (bgp);
