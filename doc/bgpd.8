@@ -6,7 +6,7 @@ software
 .SH SYNOPSIS
 .B bgpd
 [
-.B \-dhrv
+.B \-dhrSv
 ] [
 .B \-f
 .I config-file
@@ -73,6 +73,9 @@ Specify the user to run as. Default is \fIquagga\fR.
 .TP
 \fB\-r\fR, \fB\-\-retain\fR 
 When the program terminates, retain routes added by \fBbgpd\fR.
+.TP
+\fB\-S\fR, \fB\-\-skip_runas\fR
+Skip setting the process effective user and group.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
