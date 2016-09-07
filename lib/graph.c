@@ -22,18 +22,26 @@
  * 02111-1307, USA.
  */
 #include <zebra.h>
-#include "command_graph.h"
+#include "graph.h"
 #include "memory.h"
 
+struct graph *
+graph_new ()
+{
+  struct graph *graph = XCALLOC (MTYPE_GRAPH, sizeof(struct graph));
+  graph->nodes = vector_init (VECTOR_MIN_SIZE);
+
+  return graph;
+}
 
 struct graph_node *
 graph_new_node (struct graph *graph, void *data, void (*del) (void*))
 {
   struct graph_node *node =
-     XCALLOC(MTYPE_CMD_TOKENS, sizeof(struct graph_node));
+     XCALLOC(MTYPE_GRAPH_NODE, sizeof(struct graph_node));
 
-  node->from = vector_init(VECTOR_MIN_SIZE);
-  node->to   = vector_init(VECTOR_MIN_SIZE);
+  node->from = vector_init (VECTOR_MIN_SIZE);
+  node->to   = vector_init (VECTOR_MIN_SIZE);
   node->data = data;
   node->del  = del;
 
@@ -51,10 +59,10 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
   struct graph_node *adj;
 
   // for all nodes that have an edge to us, remove us from their ->to
-  for (int i = 0; i < vector_active (node->from); i++)
+  for (unsigned int i = 0; i < vector_active (node->from); i++)
     {
       adj = vector_slot (node->from, i);
-      for (int j = 0; j < vector_active (adj->to); j++)
+      for (unsigned int j = 0; j < vector_active (adj->to); j++)
         if (vector_slot (adj->to, j) == node)
           vector_unset (adj->to, j);
 
@@ -62,14 +70,14 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
       if (vector_active (adj->to) == 0 &&
           vector_active (adj->from) == 0 &&
           adj != node)
-          graph_delete_node (adj);
+          graph_delete_node (graph, adj);
     }
 
   // for all nodes that we have an edge to, remove us from their ->from
-  for (int i = 0; i < vector_active (node->to); i++)
+  for (unsigned int i = 0; i < vector_active (node->to); i++)
     {
       adj = vector_slot (node->to, i);
-      for (int j = 0; j < vector_active (adj->from); j++)
+      for (unsigned int j = 0; j < vector_active (adj->from); j++)
         if (vector_slot (adj->from, j) == node)
           vector_unset (adj->from, j);
 
@@ -77,7 +85,7 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
       if (vector_active (adj->to) == 0 &&
           vector_active (adj->from) == 0 &&
           adj != node)
-          graph_delete_node (adj);
+          graph_delete_node (graph, adj);
     }
 
   // if there is a deletion callback, call it!
@@ -89,12 +97,12 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
   vector_free (node->from);
 
   // remove node from graph->nodes
-  for (int i = 0; i < vector_active (graph->nodes); i++)
+  for (unsigned int i = 0; i < vector_active (graph->nodes); i++)
     if (vector_slot (graph->nodes, i) == node)
       vector_unset (graph->nodes, i);
 
   // free the node itself
-  free (node);
+  XFREE (MTYPE_GRAPH_NODE, node);
 }
 
 struct graph_node *
@@ -109,9 +117,9 @@ void
 graph_delete_graph (struct graph *graph)
 {
   // delete each node in the graph
-  for (int i = 0; i < vector_active (graph->nodes); i++)
-    graph_delete_node (vector_slot (graph->nodes, i));
+  for (unsigned int i = 0; i < vector_active (graph->nodes); i++)
+    graph_delete_node (graph, vector_slot (graph->nodes, i));
 
   vector_free (graph->nodes);
-  free (graph);
+  XFREE (MTYPE_GRAPH, graph);
 }

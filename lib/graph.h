@@ -27,25 +27,22 @@
 
 #include "vector.h"
 
-/**
- * Graph structure.
- */
 struct graph
 {
-  vector nodes; // all nodes in the graph
-}
+  vector nodes;
+};
 
-/**
- * Graph node / vertex.
- */
 struct graph_node
 {
   vector from;                  // nodes which have edges to this node
   vector to;                    // nodes which this node has edges to
 
   void *data;                   // node data
-  void (*del) (void *data)      // deletion callback
+  void (*del) (void *data);     // deletion callback
 };
+
+struct graph *
+graph_new (void);
 
 /**
  * Creates a new node.

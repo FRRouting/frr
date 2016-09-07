@@ -573,7 +573,7 @@ extern void cmd_terminate (void);
 
 /* memory management for cmd_element */
 void
-free_cmd_element(struct cmd_element *);
+del_cmd_element(struct cmd_element *);
 struct cmd_element *
 copy_cmd_element(struct cmd_element *cmd);
 

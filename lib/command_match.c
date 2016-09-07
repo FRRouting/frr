@@ -25,6 +25,7 @@
 #include <zebra.h>
 #include "command_match.h"
 #include "command_parse.h"
+#include "grammar_sandbox.h"
 #include "memory.h"
 
 /* matcher helper prototypes */
@@ -35,19 +36,16 @@ static struct list *
 command_match_r (struct graph_node *, vector, unsigned int);
 
 static int
-score_precedence (enum graph_node_type);
+score_precedence (enum cmd_token_type_t);
 
 static enum match_type
-min_match_level (enum node_type);
-
-static struct graph_node *
-copy_node (struct graph_node *);
+min_match_level (enum cmd_token_type_t);
 
 static void
-delete_nodelist (void *);
+del_arglist (struct list *);
 
-static struct graph_node *
-disambiguate_nodes (struct graph_node *, struct graph_node *, char *);
+static struct cmd_token_t *
+disambiguate_tokens (struct cmd_token_t *, struct cmd_token_t *, char *);
 
 static struct list *
 disambiguate (struct list *, struct list *, vector, unsigned int);
@@ -57,7 +55,7 @@ compare_completions (const void *, const void *);
 
 /* token matcher prototypes */
 static enum match_type
-match_token (struct graph_node *, char *);
+match_token (struct cmd_token_t *, char *);
 
 static enum match_type
 match_ipv4 (const char *);
@@ -72,22 +70,22 @@ static enum match_type
 match_ipv6_prefix (const char *);
 
 static enum match_type
-match_range (struct graph_node *, const char *);
+match_range (struct cmd_token_t *, const char *);
 
 static enum match_type
-match_word (struct graph_node *, const char *);
+match_word (struct cmd_token_t *, const char *);
 
 static enum match_type
-match_number (struct graph_node *, const char *);
+match_number (struct cmd_token_t *, const char *);
 
 static enum match_type
-match_variable (struct graph_node *node, const char *word);
+match_variable (struct cmd_token_t *, const char *);
 
 /* matching functions */
 static enum matcher_rv matcher_rv;
 
 enum matcher_rv
-command_match (struct graph_node *start,
+command_match (struct graph *cmdgraph,
                vector vline,
                struct list **argv,
                struct cmd_element **el)
@@ -100,11 +98,19 @@ command_match (struct graph_node *start,
   memcpy (vvline->index + 1, vline->index, sizeof (void *) * vline->alloced);
   vvline->active = vline->active + 1;
 
+  struct graph_node *start = vector_slot (cmdgraph->nodes, 0);
   if ((*argv = command_match_r (start, vvline, 0))) // successful match
     {
+      // delete dummy start node
       list_delete_node (*argv, listhead (*argv));
-      struct graph_node *end = listgetdata (listtail (*argv));
-      *el = end->element;
+      // get cmd_element out of list tail
+      struct listnode *tail = listtail (*argv);
+      *el = listgetdata (tail);
+      // delete list tail
+      tail->data = NULL;
+      list_delete_node (*argv, tail);
+      // now argv is an ordered list of cmd_token matching the user
+      // input, with each cmd_token->arg holding the corresponding input
       assert (*el);
     }
 
@@ -120,7 +126,7 @@ command_match (struct graph_node *start,
  *
  * The next step is to see if there is further input in the input line. If
  * there is not, the current node's children are searched to see if any of them
- * are leaves (type END_GN). If this is the case, then the bottom of the
+ * are leaves (type END_TKN). If this is the case, then the bottom of the
  * recursion stack has been reached, the leaf is pushed onto the argument list,
  * the current node is pushed, and the resulting argument list is
  * returned (MATCHER_OK). If it is not the case, NULL is returned, indicating
@@ -165,13 +171,14 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
   assert (n < vector_active (vline));
 
   // get the minimum match level that can count as a full match
-  enum match_type minmatch = min_match_level (start->type);
+  struct cmd_token_t *token = start->data;
+  enum match_type minmatch = min_match_level (token->type);
 
-  // get the current operating token
-  char *token = vector_slot (vline, n);
+  // get the current operating input token
+  char *input_token = vector_slot (vline, n);
 
   // if we don't match this node, die
-  if (match_token (start, token) < minmatch)
+  if (match_token (token, input_token) < minmatch)
     return NULL;
 
   // pointers for iterating linklist
@@ -187,14 +194,22 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
   struct list *currbest = NULL;
   for (ALL_LIST_ELEMENTS_RO (next,ln,gn))
     {
-      // if we've matched all input we're looking for END_GN
+      // if we've matched all input we're looking for END_TKN
       if (n+1 == vector_active (vline))
         {
-          if (gn->type == END_GN)
+          struct cmd_token_t *tok = gn->data;
+          if (tok->type == END_TKN)
             {
               currbest = list_new();
-              listnode_add (currbest, copy_node(gn));
-              currbest->del = &delete_nodelist;
+              // node should have one child node with the element
+              struct graph_node *leaf = vector_slot (gn->to, 0);
+              // last node in the list will hold the cmd_element;
+              // this is important because list_delete() expects
+              // that all nodes have the same data type, so when
+              // deleting this list the last node must be
+              // manually deleted
+              listnode_add (currbest, leaf->data);
+              currbest->del = (void (*)(void *)) &del_cmd_token;
               break;
             }
           else continue;
@@ -206,9 +221,17 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
       // save the best match
       if (result && currbest)
         {
+          // pick the best of two matches
           struct list *newbest = disambiguate (currbest, result, vline, n+1);
+          // set ambiguity flag
           ambiguous = !newbest || (ambiguous && newbest == currbest);
-          list_delete ((newbest && newbest == result) ? currbest : result);
+          // choose the list to be deleted
+          struct list *todelete = ((newbest && newbest == result) ? currbest : result);
+          // manually delete the last node, which has a cmd_element
+          del_cmd_element (listgetdata (listtail (todelete)));
+          // use the list->del callback to delete the rest of the list
+          list_delete (todelete);
+
           currbest = newbest ? newbest : currbest;
         }
       else if (result)
@@ -219,16 +242,16 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
     {
       if (ambiguous)
         {
-          list_delete (currbest);
-          currbest = NULL;
+          del_arglist (currbest);
           matcher_rv = MATCHER_AMBIGUOUS;
         }
       else
         {
-          // copy current node, set arg and prepend to currbest
-          struct graph_node *curr = copy_node (start);
-          curr->arg = XSTRDUP(MTYPE_CMD_TOKENS, token);
-          list_add_node_prev (currbest, currbest->head, curr);
+          // copy token, set arg and prepend to currbest
+          struct cmd_token_t *token = start->data;
+          struct cmd_token_t *copy = copy_cmd_token (token);
+          copy->arg = XSTRDUP(MTYPE_CMD_TOKENS, input_token);
+          list_add_node_prev (currbest, currbest->head, copy);
           matcher_rv = MATCHER_OK;
         }
     }
@@ -242,12 +265,12 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
 }
 
 enum matcher_rv
-command_complete (struct graph_node *start,
+command_complete (struct graph *graph,
                   vector vline,
                   struct list **completions)
 {
   // pointer to next input token to match
-  char *token;
+  char *input_token;
 
   struct list *current = list_new(), // current nodes to match input token against
                  *next = list_new(); // possible next hops after current input token
@@ -257,6 +280,7 @@ command_complete (struct graph_node *start,
   struct listnode *node;
 
   // add all children of start node to list
+  struct graph_node *start = vector_slot (graph->nodes, 0);
   add_nexthops (next, start);
 
   unsigned int idx;
@@ -266,11 +290,12 @@ command_complete (struct graph_node *start,
       current = next;
       next = list_new();
 
-      token = vector_slot (vline, idx);
+      input_token = vector_slot (vline, idx);
 
       for (ALL_LIST_ELEMENTS_RO (current,node,gn))
         {
-          switch (match_token (gn, token))
+          struct cmd_token_t *token = gn->data;
+          switch (match_token (token, input_token))
             {
               case partly_match:
                 if (idx == vector_active (vline) - 1)
@@ -300,19 +325,24 @@ command_complete (struct graph_node *start,
      MATCHER_OK :
      MATCHER_NO_MATCH;
 
+  // extract cmd_token into list
+  *completions = list_new ();
+  for (ALL_LIST_ELEMENTS_RO (next,node,gn))
+    listnode_add (*completions, gn->data);
+
   list_free (current);
-  *completions = next;
+  list_free (next);
 
   return matcher_rv;
 }
 
 /**
+ * TODO: move this logic to command.c
  * Compare two completions. Tightly coupled to vector.
  *
  * @param[in] fst pointer to first item pointer in vector->index
  * @param[in] snd pointer to second item poitner in vector->index
  * @return integer compare code as determined by strcmp
- */
 int
 compare_completions (const void *fst, const void *snd)
 {
@@ -353,10 +383,11 @@ command_complete_str (struct graph_node *start,
   list_delete (comps);
   return rv;
 }
+*/
 
 /**
  * Adds all children that are reachable by one parser hop to the given list.
- * NUL_GN, SELECTOR_GN, and OPTION_GN nodes are treated as transparent.
+ * NUL_TKN, SELECTOR_TKN, and OPTION_TKN nodes are treated as transparent.
  *
  * @param[in] list to add the nexthops to
  * @param[in] node to start calculating nexthops from
@@ -367,14 +398,15 @@ add_nexthops (struct list *list, struct graph_node *node)
 {
   int added = 0;
   struct graph_node *child;
-  for (unsigned int i = 0; i < vector_active (node->children); i++)
+  for (unsigned int i = 0; i < vector_active (node->to); i++)
     {
-      child = vector_slot (node->children, i);
-      switch (child->type)
+      child = vector_slot (node->to, i);
+      struct cmd_token_t *token = child->data;
+      switch (token->type)
         {
-          case OPTION_GN:
-          case SELECTOR_GN:
-          case NUL_GN:
+          case OPTION_TKN:
+          case SELECTOR_TKN:
+          case NUL_TKN:
             added += add_nexthops (list, child);
             break;
           default:
@@ -394,15 +426,15 @@ add_nexthops (struct list *list, struct graph_node *node)
  * @return minimum match level needed to for a token to fully match
  */
 static enum match_type
-min_match_level (enum node_type type)
+min_match_level (enum cmd_token_type_t type)
 {
   switch (type)
     {
       // anything matches a start node, for the sake of recursion
-      case START_GN:
+      case START_TKN:
         return no_match;
       // allowing words to partly match enables command abbreviation
-      case WORD_GN:
+      case WORD_TKN:
         return partly_match;
       default:
         return exact_match;
@@ -416,23 +448,23 @@ min_match_level (enum node_type type)
  * @return precedence score
  */
 static int
-score_precedence (enum graph_node_type type)
+score_precedence (enum cmd_token_type_t type)
 {
   switch (type)
     {
       // some of these are mutually exclusive, so they share
       // the same precedence value
-      case IPV4_GN:
-      case IPV4_PREFIX_GN:
-      case IPV6_GN:
-      case IPV6_PREFIX_GN:
-      case NUMBER_GN:
+      case IPV4_TKN:
+      case IPV4_PREFIX_TKN:
+      case IPV6_TKN:
+      case IPV6_PREFIX_TKN:
+      case NUMBER_TKN:
         return 1;
-      case RANGE_GN:
+      case RANGE_TKN:
         return 2;
-      case WORD_GN:
+      case WORD_TKN:
         return 3;
-      case VARIABLE_GN:
+      case VARIABLE_TKN:
         return 4;
       default:
         return 10;
@@ -447,10 +479,10 @@ score_precedence (enum graph_node_type type)
  * @param[in] token the token being matched
  * @return the best-matching node, or NULL if the two are entirely ambiguous
  */
-static struct graph_node *
-disambiguate_nodes (struct graph_node *first,
-                    struct graph_node *second,
-                    char *token)
+static struct cmd_token_t *
+disambiguate_tokens (struct cmd_token_t *first,
+                     struct cmd_token_t *second,
+                     char *input_token)
 {
   // if the types are different, simply go off of type precedence
   if (first->type != second->type)
@@ -464,8 +496,8 @@ disambiguate_nodes (struct graph_node *first,
     }
 
   // if they're the same, return the more exact match
-  enum match_type fmtype = match_token (first, token);
-  enum match_type smtype = match_token (second, token);
+  enum match_type fmtype = match_token (first, input_token);
+  enum match_type smtype = match_token (second, input_token);
   if (fmtype != smtype)
     return fmtype > smtype ? first : second;
 
@@ -475,8 +507,8 @@ disambiguate_nodes (struct graph_node *first,
 /**
  * Picks the better of two possible matches for an input line.
  *
- * @param[in] first candidate list of graph_node matching vline
- * @param[in] second candidate list of graph_node matching vline
+ * @param[in] first candidate list of cmd_token_t matching vline
+ * @param[in] second candidate list of cmd_token_t matching vline
  * @param[in] vline the input line being matched
  * @param[in] n index into vline to start comparing at
  * @return the best-matching list, or NULL if the two are entirely ambiguous
@@ -493,82 +525,68 @@ disambiguate (struct list *first,
 
   struct listnode *fnode = listhead (first),
                   *snode = listhead (second);
-  struct graph_node *fgn = listgetdata (fnode),
-                    *sgn = listgetdata (snode),
-                    *best = NULL;
+  struct cmd_token_t *ftok = listgetdata (fnode),
+                     *stok = listgetdata (snode),
+                     *best = NULL;
 
-  // compare each node, if one matches better use that one
+  // compare each token, if one matches better use that one
   for (unsigned int i = n; i < vector_active (vline); i++)
     {
       char *token = vector_slot(vline, i);
-      if ((best = disambiguate_nodes (fgn, sgn, token)))
-        return best == fgn ? first : second;
-      fnode = listnextnode (fnode);
-      snode = listnextnode (snode);
-      fgn = (struct graph_node *) listgetdata (fnode);
-      sgn = (struct graph_node *) listgetdata (snode);
+      if ((best = disambiguate_tokens (ftok, stok, token)))
+        return best == ftok ? first : second;
+      ftok = listgetdata (listnextnode (fnode));
+      stok = listgetdata (listnextnode (snode));
     }
 
   return NULL;
 }
 
-/**
- * Performs a deep copy on a node.
- * Used to build argv node lists that can be safely deleted or modified by
- * endpoint functions. Everything is copied except the children vector,
- * subgraph end pointer and reference count.
+/*
+ * Deletion function for arglist.
  *
- * @param[in] node to copy
- * @return the copy
- */
-static struct graph_node *
-copy_node (struct graph_node *node)
-{
-  struct graph_node *new = graphnode_new(node->type);
-  new->children = NULL;
-  new->text     = node->text ? XSTRDUP(MTYPE_CMD_TOKENS, node->text) : NULL;
-  new->value    = node->value;
-  new->min      = node->min;
-  new->max      = node->max;
-  new->element  = node->element ? copy_cmd_element(node->element) : NULL;
-  new->arg      = node->arg ? XSTRDUP(MTYPE_CMD_TOKENS, node->arg) : NULL;
-  new->refs     = 0;
-  return new;
-}
-
-/**
- * List deletion callback for argv lists.
+ * Since list->del for arglists expects all listnode->data to hold cmd_token,
+ * but arglists have cmd_element as the data for the tail, this function
+ * manually deletes the tail before deleting the rest of the list as usual.
+ *
+ * @param list the arglist to delete
  */
 static void
-delete_nodelist (void *node)
+del_arglist (struct list *list)
 {
-  graphnode_delete ((struct graph_node *) node);
+  // manually delete last node
+  struct listnode *tail = listtail (list);
+  del_cmd_element (tail->data);
+  tail->data = NULL;
+  list_delete_node (list, tail);
+
+  // delete the rest of the list as usual
+  list_delete (list);
 }
 
-
-/* token level matching functions */
+/*---------- token level matching functions ----------*/
 
 static enum match_type
-match_token (struct graph_node *node, char *token)
+match_token (struct cmd_token_t *token, char *input_token)
 {
-  switch (node->type) {
-    case WORD_GN:
-      return match_word (node, token);
-    case IPV4_GN:
-      return match_ipv4 (token);
-    case IPV4_PREFIX_GN:
-      return match_ipv4_prefix (token);
-    case IPV6_GN:
-      return match_ipv6 (token);
-    case IPV6_PREFIX_GN:
-      return match_ipv6_prefix (token);
-    case RANGE_GN:
-      return match_range (node, token);
-    case NUMBER_GN:
-      return match_number (node, token);
-    case VARIABLE_GN:
-      return match_variable (node, token);
-    case END_GN:
+  switch (token->type) {
+    case WORD_TKN:
+      return match_word (token, input_token);
+    case IPV4_TKN:
+      return match_ipv4 (input_token);
+    case IPV4_PREFIX_TKN:
+      return match_ipv4_prefix (input_token);
+    case IPV6_TKN:
+      return match_ipv6 (input_token);
+    case IPV6_PREFIX_TKN:
+      return match_ipv6_prefix (input_token);
+    case RANGE_TKN:
+      return match_range (token, input_token);
+    case NUMBER_TKN:
+      return match_number (token, input_token);
+    case VARIABLE_TKN:
+      return match_variable (token, input_token);
+    case END_TKN:
     default:
       return no_match;
   }
@@ -776,9 +794,9 @@ match_ipv6_prefix (const char *str)
 #endif
 
 static enum match_type
-match_range (struct graph_node *node, const char *str)
+match_range (struct cmd_token_t *token, const char *str)
 {
-  assert (node->type == RANGE_GN);
+  assert (token->type == RANGE_TKN);
 
   char *endptr = NULL;
   long long val;
@@ -790,53 +808,53 @@ match_range (struct graph_node *node, const char *str)
   if (*endptr != '\0')
     return 0;
 
-  if (val < node->min || val > node->max)
+  if (val < token->min || val > token->max)
     return no_match;
   else
     return exact_match;
 }
 
 static enum match_type
-match_word (struct graph_node *node, const char *word)
+match_word (struct cmd_token_t *token, const char *word)
 {
-  assert (node->type == WORD_GN);
+  assert (token->type == WORD_TKN);
 
   // if the passed token is null or 0 length, partly match
   if (!word || !strlen(word))
     return partly_match;
 
   // if the passed token is strictly a prefix of the full word, partly match
-  if (strlen (word) < strlen (node->text))
-    return !strncmp (node->text, word, strlen (word)) ?
+  if (strlen (word) < strlen (token->text))
+    return !strncmp (token->text, word, strlen (word)) ?
        partly_match :
        no_match;
 
   // if they are the same length and exactly equal, exact match
-  else if (strlen (word) == strlen (node->text))
-    return !strncmp (node->text, word, strlen (word)) ? exact_match : no_match;
+  else if (strlen (word) == strlen (token->text))
+    return !strncmp (token->text, word, strlen (word)) ? exact_match : no_match;
 
   return no_match;
 }
 
 static enum match_type
-match_number (struct graph_node *node, const char *word)
+match_number (struct cmd_token_t *token, const char *word)
 {
-  assert (node->type == NUMBER_GN);
+  assert (token->type == NUMBER_TKN);
 
   if (!strcmp ("\0", word)) return no_match;
   char *endptr;
   long long num = strtoll (word, &endptr, 10);
   if (endptr != '\0') return no_match;
-  return num == node->value ? exact_match : no_match;
+  return num == token->value ? exact_match : no_match;
 }
 
 #define VARIABLE_ALPHABET \
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:"
 
 static enum match_type
-match_variable (struct graph_node *node, const char *word)
+match_variable (struct cmd_token_t *token, const char *word)
 {
-  assert (node->type == VARIABLE_GN);
+  assert (token->type == VARIABLE_TKN);
 
   return strlen (word) == strspn(word, VARIABLE_ALPHABET) ?
      exact_match : no_match;

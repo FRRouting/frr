@@ -4191,7 +4191,7 @@ cmd_terminate_element(struct cmd_element *cmd)
 }
 
 void
-free_cmd_element(struct cmd_element *cmd)
+del_cmd_element(struct cmd_element *cmd)
 {
   if (!cmd) return;
   free ((char*) cmd->string);

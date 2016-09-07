@@ -30,16 +30,16 @@
  */
 
 #include "command.h"
-#include "command_graph.h"
+#include "graph.h"
 #include "command_parse.h"
 #include "command_match.h"
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
 void
-grammar_sandbox_init(void);
+grammar_sandbox_init (void);
 void
-pretty_print_graph (struct graph_node *start, int level);
+pretty_print_graph (struct graph *start, int level);
 
 /*
  * Start node for testing command graph.
@@ -48,7 +48,7 @@ pretty_print_graph (struct graph_node *start, int level);
  * The examples below show how to install a command to the graph, calculate
  * completions for a given input line, and match input against the graph.
  */
-struct graph_node * nodegraph;
+struct graph *nodegraph;
 
 /**
  * Reference use of parsing / command installation API
@@ -62,11 +62,11 @@ DEFUN (grammar_test,
   char *command = argv_concat(argv, argc, 0);
 
   // initialize a pretend cmd_element
-  struct cmd_element *cmd = XCALLOC(MTYPE_CMD_TOKENS, sizeof(struct cmd_element));
-  cmd->string = XSTRDUP(MTYPE_TMP, command);
+  struct cmd_element *cmd = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
+  cmd->string = XSTRDUP (MTYPE_TMP, command);
   cmd->doc = NULL;
   cmd->func = NULL;
-  cmd->tokens = vector_init(VECTOR_MIN_SIZE);
+  cmd->tokens = vector_init (VECTOR_MIN_SIZE);
 
   // parse the command and install it into the command graph
   command_parse_format (nodegraph, cmd);
@@ -91,22 +91,24 @@ DEFUN (grammar_test_complete,
   char *cmdstr = argv_concat (argv, argc, 0);
   vector command = cmd_make_strvec (cmdstr);
 
-  vector completions = vector_init (VECTOR_MIN_SIZE);
+  struct list *completions = list_new ();
   enum matcher_rv result =
-     command_complete_str (nodegraph, command, completions);
+     command_complete (nodegraph, command, &completions);
 
   // print completions or relevant error message
   if (!MATCHER_ERROR(result))
     {
-      for (unsigned int i = 0; i < vector_active (completions); i++)
-        zlog_info ((char *) vector_slot (completions, i));
+      struct listnode *ln;
+      struct cmd_token_t *tkn;
+      for (ALL_LIST_ELEMENTS_RO(completions,ln,tkn))
+        zlog_info (tkn->text);
     }
   else
     zlog_info ("%% No match for \"%s\"", cmdstr);
 
   // free resources
   cmd_free_strvec (command);
-  cmd_free_strvec (completions);
+  list_delete (completions);
   free (cmdstr);
 
   return CMD_SUCCESS;
@@ -138,11 +140,12 @@ DEFUN (grammar_test_match,
       zlog_info ("Matched: %s", element->string);
       struct listnode *ln;
       struct graph_node *gn;
-      for (ALL_LIST_ELEMENTS_RO(argvv,ln,gn))
-        if (gn->type == END_GN)
-          zlog_info ("func: %p", gn->element->func);
-        else
-          zlog_info ("%s -- %s", gn->text, gn->arg);
+      for (ALL_LIST_ELEMENTS_RO(argvv,ln,gn)) {
+        struct cmd_token_t *token = gn->data;
+        zlog_info ("%s -- %s", token->text, token->arg);
+      }
+
+      zlog_info ("func: %p", element->func);
 
       list_delete (argvv);
     }
@@ -182,7 +185,7 @@ DEFUN (grammar_test_doc,
        "Command end\n")
 {
   // create cmd_element with docstring
-  struct cmd_element *cmd = XCALLOC(MTYPE_CMD_TOKENS, sizeof(struct cmd_element));
+  struct cmd_element *cmd = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
   cmd->string = "test docstring <example|selector follow> (1-255) end VARIABLE [OPTION|set lol] . VARARG";
   cmd->doc = "Test stuff\n"
              "docstring thing\n"
@@ -224,7 +227,13 @@ DEFUN (grammar_test_show,
 /* this is called in vtysh.c to set up the testing shim */
 void grammar_sandbox_init() {
   zlog_info ("Initializing grammar testing shim");
-  nodegraph = graphnode_new (START_GN);
+
+  // initialize graph, add start noe
+  nodegraph = graph_new ();
+  struct cmd_token_t *token = new_cmd_token (START_TKN, NULL, NULL);
+  graph_new_node (nodegraph, token, (void (*)(void *)) &del_cmd_token);
+
+  // install all enable elements
   install_element (ENABLE_NODE, &grammar_test_cmd);
   install_element (ENABLE_NODE, &grammar_test_show_cmd);
   install_element (ENABLE_NODE, &grammar_test_match_cmd);
@@ -234,8 +243,9 @@ void grammar_sandbox_init() {
 
 /* recursive pretty-print for command graph */
 void
-pretty_print_graph (struct graph_node *start, int level)
+pretty_print_graph (struct graph *graph, int level)
 {
+  /*
   // print this node
   fprintf (stdout, "%s[%d] ", start->text, vector_active (start->children));
 
@@ -266,4 +276,38 @@ pretty_print_graph (struct graph_node *start, int level)
     }
   else
     fprintf(stdout, "\n");
+  */
+}
+
+/** stuff that should go in command.c + command.h */
+struct cmd_token_t *
+new_cmd_token (enum cmd_token_type_t type, char *text, char *desc)
+{
+  struct cmd_token_t *token = XMALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token_t));
+  token->type = type;
+  token->text = text;
+  token->desc = desc;
+  token->arg  = NULL;
+
+  return token;
+}
+
+void
+del_cmd_token (struct cmd_token_t *token)
+{
+  XFREE (MTYPE_CMD_TOKENS, token->text);
+  XFREE (MTYPE_CMD_TOKENS, token->desc);
+  XFREE (MTYPE_CMD_TOKENS, token->arg);
+  XFREE (MTYPE_CMD_TOKENS, token);
+}
+
+struct cmd_token_t *
+copy_cmd_token (struct cmd_token_t *token)
+{
+  struct cmd_token_t *copy = new_cmd_token (token->type, NULL, NULL);
+  copy->text = XSTRDUP (MTYPE_CMD_TOKENS, token->text);
+  copy->desc = XSTRDUP (MTYPE_CMD_TOKENS, token->desc);
+  copy->arg = copy->arg ? XSTRDUP (MTYPE_CMD_TOKENS, token->arg) : NULL;
+
+  return copy;
 }

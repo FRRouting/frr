@@ -25,10 +25,9 @@
 #ifndef _ZEBRA_COMMAND_MATCH_H
 #define _ZEBRA_COMMAND_MATCH_H
 
-#include "command.h"
-#include "command_graph.h"
+#include "graph.h"
 #include "linklist.h"
-
+#include "command.h"
 
 /* These definitions exist in command.c in the current engine but should be
  * relocated here in the new engine
@@ -68,14 +67,14 @@ enum match_type
 /**
  * Attempt to find an exact command match for a line of user input.
  *
- * @param[in] start start node of command graph to match against
+ * @param[in] cmdgraph command graph to match against
  * @param[in] vline vectorized input string
  * @param[out] argv pointer to argument list if successful match
  * @param[out] element pointer to matched cmd_element if successful match
  * @return matcher status
  */
 enum matcher_rv
-command_match (struct graph_node *start,
+command_match (struct graph *cmdgraph,
                vector vline,
                struct list **argv,
                struct cmd_element **element);
@@ -85,11 +84,11 @@ command_match (struct graph_node *start,
  *
  * @param[in] start the start node of the DFA to match against
  * @param[in] vline vectorized input string
- * @param[in] completions pointer to list of possible next nodes
- * @return matcher status
+ * @param[in] completions pointer to list of cmd_token representing
+ *            acceptable next inputs
  */
 enum matcher_rv
-command_complete (struct graph_node *start,
+command_complete (struct graph *cmdgraph,
                   vector vline,
                   struct list **completions);
 
@@ -101,10 +100,10 @@ command_complete (struct graph_node *start,
  * @param[in] vline vectorized input string
  * @param[in] completions vector to fill with string completions
  * @return matcher status
- */
 enum matcher_rv
-command_complete_str (struct graph_node *start,
+command_complete_str (struct graph *cmdgraph,
                       vector vline,
                       vector completions);
 
+ */
 #endif /* _ZEBRA_COMMAND_MATCH_H */
