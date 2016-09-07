@@ -217,19 +217,11 @@ static int zclient_read_nexthop(struct zclient *zlookup,
     return -6;
   }
 
-  length -= MIN_LEN;
-
   for (i = 0; i < nexthop_num; ++i) {
     enum nexthop_types_t nexthop_type;
+    struct pim_neighbor *nbr;
 
-    if (length < 1) {
-      zlog_err("%s: socket %d empty input expecting nexthop_type: len=%d",
-	       __func__, zlookup->sock, length);
-      return -7;
-    }
-    
     nexthop_type = stream_getc(s);
-    --length;
     if (num_ifindex >= tab_size) {
       char addr_str[100];
       pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
@@ -243,13 +235,7 @@ static int zclient_read_nexthop(struct zclient *zlookup,
     case NEXTHOP_TYPE_IPV4_IFINDEX:
       nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
       if (nexthop_type == NEXTHOP_TYPE_IPV4_IFINDEX) {
-	if (length < 4) {
-	  zlog_err("%s: socket %d short input expecting nexthop IPv4-addr: len=%d",
-		   __func__, zlookup->sock, length);
-	  return -8;
-	}
 	nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr = stream_get_ipv4(s);
-	length -= 4;
       }
       else {
 	nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
@@ -262,7 +248,6 @@ static int zclient_read_nexthop(struct zclient *zlookup,
     case NEXTHOP_TYPE_IPV4:
       nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
       nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr = stream_get_ipv4(s);
-      length -= 4;
       nexthop_tab[num_ifindex].ifindex             = 0;
       nexthop_tab[num_ifindex].protocol_distance   = distance;
       nexthop_tab[num_ifindex].route_metric        = metric;
@@ -276,6 +261,18 @@ static int zclient_read_nexthop(struct zclient *zlookup,
 		   nexthop_str, addr_str);
       }
       ++num_ifindex;
+      break;
+    case NEXTHOP_TYPE_IPV6_IFINDEX:
+      nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET6;
+      stream_get (&nexthop_tab[num_ifindex].nexthop_addr.u.prefix6, s, 16);
+      nexthop_tab[num_ifindex].ifindex = stream_getl (s);
+      nbr = pim_neighbor_find_if (if_lookup_by_index_vrf (nexthop_tab[num_ifindex].ifindex, VRF_DEFAULT));
+      if (nbr)
+        {
+          nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
+          nexthop_tab[num_ifindex].nexthop_addr.u.prefix4 = nbr->source_addr;
+        }
+        ++num_ifindex;
       break;
     default:
       /* do nothing */
