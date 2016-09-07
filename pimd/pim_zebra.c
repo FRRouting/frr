@@ -236,9 +236,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
     return 0;
 
   p = c->address;
-  if (p->family != AF_INET)
-    return 0;
-  
+
   if (PIM_DEBUG_ZEBRA) {
     char buf[BUFSIZ];
     prefix2str(p, buf, BUFSIZ);
@@ -251,6 +249,27 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
     dump_if_address(c->ifp);
 #endif
   }
+
+  if (p->family != AF_INET)
+    {
+      struct pim_interface *pim_ifp = c->ifp->info;
+      struct listnode *cnode;
+      struct connected *conn;
+      int v4addrs = 0;
+
+      for (ALL_LIST_ELEMENTS_RO (c->ifp->connected, cnode, conn))
+        {
+          if (conn->address->family == AF_INET)
+	    v4addrs++;
+        }
+      if (!v4addrs && pim_ifp) 
+	{
+
+	  pim_ifp->primary_address = pim_find_primary_addr (c->ifp);
+	  pim_if_addr_add_all (c->ifp);
+	}
+      return 0;
+    }
 
   pim_rp_check_rp (old, p->u.prefix4);
 
@@ -277,6 +296,18 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
   }
 
   pim_if_addr_add(c);
+
+  if (if_is_loopback (c->ifp))
+    {
+      struct listnode *ifnode;
+      struct interface *ifp;
+
+      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp))
+        {
+	  if (!if_is_loopback (ifp) && if_is_operative (ifp))
+	    pim_if_addr_add_all (ifp);
+        }
+    }
 
   return 0;
 }

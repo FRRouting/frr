@@ -498,6 +498,8 @@ void pim_if_addr_add_all(struct interface *ifp)
   struct connected *ifc;
   struct listnode *node;
   struct listnode *nextnode;
+  int v4_addrs = 0;
+  int v6_addrs = 0;
 
   /* PIM/IGMP enabled ? */
   if (!ifp->info)
@@ -507,10 +509,35 @@ void pim_if_addr_add_all(struct interface *ifp)
     struct prefix *p = ifc->address;
     
     if (p->family != AF_INET)
-      continue;
+      {
+        v6_addrs++;
+        continue;
+      }
 
+    v4_addrs++;
     pim_if_addr_add(ifc);
   }
+
+  if (!v4_addrs && v6_addrs && !if_is_loopback (ifp))
+    {
+      struct pim_interface *pim_ifp = ifp->info;
+
+      if (pim_ifp && PIM_IF_TEST_PIM(pim_ifp->options)) {
+
+	/* Interface has a valid primary address ? */
+	if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+
+	  /* Interface has a valid socket ? */
+	  if (pim_ifp->pim_sock_fd < 0) {
+	    if (pim_sock_add(ifp)) {
+	      zlog_warn("Failure creating PIM socket for interface %s",
+			ifp->name);
+	    }
+	  }
+
+	}
+      } /* pim */
+    }
 }
 
 void pim_if_addr_del_all(struct interface *ifp)
@@ -579,12 +606,17 @@ pim_find_primary_addr (struct interface *ifp)
   struct connected *ifc;
   struct listnode *node;
   struct in_addr addr;
+  int v4_addrs = 0;
+  int v6_addrs = 0;
 
   for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
     struct prefix *p = ifc->address;
-    
+
     if (p->family != AF_INET)
-      continue;
+      {
+	v6_addrs++;
+	continue;
+      }
 
     if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
       zlog_warn("%s: null IPv4 address connected to interface %s",
@@ -592,11 +624,27 @@ pim_find_primary_addr (struct interface *ifp)
       continue;
     }
 
+    v4_addrs++;
+
     if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
       continue;
 
     return p->u.prefix4;
   }
+
+  /*
+   * If we have no v4_addrs and v6 is configured
+   * We probably are using unnumbered
+   * So let's grab the loopbacks v4 address
+   * and use that as the primary address
+   */
+  if (!v4_addrs && v6_addrs && !if_is_loopback (ifp))
+    {
+      struct interface *lo_ifp;
+      lo_ifp = if_lookup_by_name_vrf ("lo", VRF_DEFAULT);
+      if (lo_ifp)
+	return pim_find_primary_addr (lo_ifp);
+    }
 
   addr.s_addr = PIM_NET_INADDR_ANY;
 
