@@ -441,7 +441,7 @@ pim_rp_config_write (struct vty *vty)
       if (!pim_rpf_addr_is_inaddr_none (&rp_info->rp))
         {
 	  char buf[32];
-          vty_out(vty, "ip pim rp %s %s%s", inet_ntop(AF_INET, &rp_info->rp.rpf_addr, buffer, 32),
+          vty_out(vty, "ip pim rp %s %s%s", inet_ntop(AF_INET, &rp_info->rp.rpf_addr.u.prefix4, buffer, 32),
 		  prefix2str(&rp_info->group, buf, 32), VTY_NEWLINE);
           count++;
         }
