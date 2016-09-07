@@ -48,6 +48,8 @@ void pim_neighbor_free(struct pim_neighbor *neigh);
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
 				       struct in_addr source_addr);
 
+struct pim_neighbor *pim_neighbor_find_if (struct interface *ifp);
+
 
 #define PIM_NEIGHBOR_SEND_DELAY 0
 #define PIM_NEIGHBOR_SEND_NOW   1

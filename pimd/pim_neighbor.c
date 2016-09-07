@@ -403,6 +403,22 @@ struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
   return 0;
 }
 
+/*
+ * Find the *one* interface out
+ * this interface.  If more than
+ * one return NULL
+ */
+struct pim_neighbor *
+pim_neighbor_find_if (struct interface *ifp)
+{
+  struct pim_interface *pim_ifp = ifp->info;
+
+  if (pim_ifp->pim_neighbor_list->count != 1)
+    return NULL;
+
+  return listnode_head (pim_ifp->pim_neighbor_list);
+}
+
 struct pim_neighbor *pim_neighbor_add(struct interface *ifp,
 				      struct in_addr source_addr,
 				      pim_hello_options hello_options,
