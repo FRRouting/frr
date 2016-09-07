@@ -573,7 +573,8 @@ void pim_if_addr_del_all_pim(struct interface *ifp)
   }
 }
 
-static struct in_addr find_first_nonsec_addr(struct interface *ifp)
+struct in_addr
+pim_find_primary_addr (struct interface *ifp)
 {
   struct connected *ifc;
   struct listnode *node;
@@ -600,11 +601,6 @@ static struct in_addr find_first_nonsec_addr(struct interface *ifp)
   addr.s_addr = PIM_NET_INADDR_ANY;
 
   return addr;
-}
-
-struct in_addr pim_find_primary_addr(struct interface *ifp)
-{
-  return find_first_nonsec_addr(ifp);
 }
 
 static int pim_iface_vif_index = 0;
