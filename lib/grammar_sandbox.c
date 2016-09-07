@@ -39,7 +39,7 @@
 void
 grammar_sandbox_init (void);
 void
-pretty_print_graph (struct graph *start, int level);
+pretty_print_graph (struct graph_node *, int);
 
 /*
  * Start node for testing command graph.
@@ -139,11 +139,9 @@ DEFUN (grammar_test_match,
     {
       zlog_info ("Matched: %s", element->string);
       struct listnode *ln;
-      struct graph_node *gn;
-      for (ALL_LIST_ELEMENTS_RO(argvv,ln,gn)) {
-        struct cmd_token_t *token = gn->data;
+      struct cmd_token_t *token;
+      for (ALL_LIST_ELEMENTS_RO(argvv,ln,token))
         zlog_info ("%s -- %s", token->text, token->arg);
-      }
 
       zlog_info ("func: %p", element->func);
 
@@ -220,7 +218,7 @@ DEFUN (grammar_test_show,
   if (!nodegraph)
     zlog_info("nodegraph uninitialized");
   else
-    pretty_print_graph (nodegraph, 0);
+    pretty_print_graph (vector_slot (nodegraph->nodes, 0), 0);
   return CMD_SUCCESS;
 }
 
@@ -241,42 +239,40 @@ void grammar_sandbox_init() {
   install_element (ENABLE_NODE, &grammar_test_doc_cmd);
 }
 
-/* recursive pretty-print for command graph */
+/**
+ * Pretty-prints a graph, assuming it is a tree.
+ *
+ * @param start the node to take as the root
+ * @param level indent level for recursive calls, always pass 0
+ */
 void
-pretty_print_graph (struct graph *graph, int level)
+pretty_print_graph (struct graph_node *start, int level)
 {
-  /*
   // print this node
-  fprintf (stdout, "%s[%d] ", start->text, vector_active (start->children));
+  struct cmd_token_t *tok = start->data;
+  fprintf (stdout, "%s[%d] ", tok->text, tok->type);
 
-  if (vector_active (start->children))
+  int numto = vector_active (start->to);
+  if (numto)
     {
-      if (vector_active (start->children) == 1)
+      if (numto > 1)
+        fprintf (stdout, "\n");
+      for (unsigned int i = 0; i < vector_active (start->to); i++)
         {
-          struct graph_node *child = vector_slot (start->children, 0);
-          if (child == start)
+          struct graph_node *adj = vector_slot (start->to, i);
+          // if we're listing multiple children, indent!
+          if (numto > 1)
+            for (int j = 0; j < level+1; j++)
+              fprintf (stdout, "    ");
+          // if this node is a vararg, just print *
+          if (adj == start)
             fprintf (stdout, "*");
           else
-            pretty_print_graph (vector_slot (start->children, 0), level);
-        }
-      else
-        {
-          fprintf(stdout, "\n");
-          for (unsigned int i = 0; i < vector_active (start->children); i++)
-            {
-              struct graph_node *r = vector_slot (start->children, i);
-              for (int j = 0; j < level+1; j++)
-                fprintf (stdout, "    ");
-              if (r == start)
-                fprintf (stdout, "*");
-              else
-                pretty_print_graph (r, level+1);
-            }
+            pretty_print_graph (adj, numto > 1 ? level+1 : level);
         }
     }
   else
     fprintf(stdout, "\n");
-  */
 }
 
 /** stuff that should go in command.c + command.h */
@@ -305,9 +301,9 @@ struct cmd_token_t *
 copy_cmd_token (struct cmd_token_t *token)
 {
   struct cmd_token_t *copy = new_cmd_token (token->type, NULL, NULL);
-  copy->text = XSTRDUP (MTYPE_CMD_TOKENS, token->text);
-  copy->desc = XSTRDUP (MTYPE_CMD_TOKENS, token->desc);
-  copy->arg = copy->arg ? XSTRDUP (MTYPE_CMD_TOKENS, token->arg) : NULL;
+  copy->text = token->text ? XSTRDUP (MTYPE_CMD_TOKENS, token->text) : NULL;
+  copy->desc = token->desc ? XSTRDUP (MTYPE_CMD_TOKENS, token->desc) : NULL;
+  copy->arg  = token->arg  ? XSTRDUP (MTYPE_CMD_TOKENS, token->arg) : NULL;
 
   return copy;
 }

@@ -469,7 +469,7 @@ node_adjacent (struct graph_node *first, struct graph_node *second)
   for (unsigned int i = 0; i < vector_active (first->to); i++)
     {
       adj = vector_slot (first->to, i);
-      struct cmd_token_t *ftok = first->data,
+      struct cmd_token_t *ftok = adj->data,
                          *stok = second->data;
       if (cmp_token (ftok, stok))
         return adj;
@@ -514,7 +514,7 @@ cmp_token (struct cmd_token_t *first, struct cmd_token_t *second)
       if (first->text && second->text)
         {
           if (strcmp (first->text, second->text))
-          return 0;
+            return 0;
         }
       else if (first->text != second->text) return 0;
       break;
