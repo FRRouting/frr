@@ -71,7 +71,7 @@ bgp_bfd_peer_group2peer_copy(struct peer *conf, struct peer *peer)
 /*
  * bgp_bfd_is_peer_multihop - returns whether BFD peer is multi-hop or single hop.
  */
-static int
+int
 bgp_bfd_is_peer_multihop(struct peer *peer)
 {
   struct bfd_info *bfd_info;
