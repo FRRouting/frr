@@ -480,14 +480,62 @@ void pim_sock_reset(struct interface *ifp)
 
 static uint16_t ip_id = 0;
 
-int pim_msg_send(int fd,
-		 struct in_addr src,
-		 struct in_addr dst,
-		 uint8_t *pim_msg,
-		 int pim_msg_size,
-		 const char *ifname)
+
+static int
+pim_msg_send_frame (int fd, char *buf, size_t len,
+		    struct sockaddr *dst, size_t salen)
 {
-  ssize_t            sent;
+  struct ip *ip = (struct ip *)buf;
+
+  while (sendto (fd, buf, len, MSG_DONTWAIT, dst, salen) < 0)
+    {
+      char dst_str[100];
+
+      switch (errno)
+	{
+	case EMSGSIZE:
+	  {
+	    size_t hdrsize = sizeof (struct ip);
+	    size_t newlen1 = ((len - hdrsize) / 2 ) & 0xFFF8;
+	    size_t sendlen = newlen1 + hdrsize;
+	    size_t offset = ntohs (ip->ip_off);
+
+	    ip->ip_len = htons (sendlen);
+	    ip->ip_off = htons (offset | IP_MF);
+	    if (pim_msg_send_frame (fd, buf, sendlen, dst, salen) == 0)
+	      {
+		struct ip *ip2 = (struct ip *)(buf + newlen1);
+		size_t newlen2 = len - sendlen;
+		sendlen = newlen2 + hdrsize;
+
+		memcpy (ip2, ip, hdrsize);
+		ip2->ip_len = htons (sendlen);
+		ip2->ip_off = htons (offset + (newlen1 >> 3));
+		return pim_msg_send_frame (fd, (char *)ip2, sendlen, dst, salen);
+	      }
+	  }
+
+	  return -1;
+	  break;
+	default:
+	  pim_inet4_dump ("<dst?>", ip->ip_dst, dst_str, sizeof (dst_str));
+	  zlog_warn ("%s: sendto() failure to %s: fd=%d msg_size=%zd: errno=%d: %s",
+		     __PRETTY_FUNCTION__,
+		     dst_str, fd, len,
+		     errno, safe_strerror(errno));
+	  break;
+	  return -1;
+	}
+    }
+
+  return 0;
+}
+
+int
+pim_msg_send(int fd, struct in_addr src,
+	     struct in_addr dst, uint8_t *pim_msg,
+	     int pim_msg_size, const char *ifname)
+{
   struct sockaddr_in to;
   socklen_t          tolen;
   unsigned char      buffer[3000];
@@ -528,26 +576,8 @@ int pim_msg_send(int fd,
     pim_pkt_dump(__PRETTY_FUNCTION__, pim_msg, pim_msg_size);
   }
 
-  sent = sendto(fd, buffer, sendlen, MSG_DONTWAIT,
-                (struct sockaddr *)&to, tolen);
-  if (sent != (ssize_t) sendlen) {
-    char dst_str[100];
-    pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
-    if (sent < 0) {
-      zlog_warn("%s: sendto() failure to %s on %s: fd=%d msg_size=%d: errno=%d: %s",
-		__PRETTY_FUNCTION__,
-		dst_str, ifname, fd, pim_msg_size,
-		errno, safe_strerror(errno));
-    }
-    else {
-      zlog_warn("%s: sendto() partial to %s on %s: fd=%d msg_size=%d: sent=%zd",
-		__PRETTY_FUNCTION__,
-		dst_str, ifname, fd,
-		pim_msg_size, sent);
-    }
-    return -1;
-  }
-
+  pim_msg_send_frame (fd, (char *)buffer, sendlen,
+		      (struct sockaddr *)&to, tolen);
   return 0;
 }
 
