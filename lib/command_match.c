@@ -225,12 +225,9 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
           struct list *newbest = disambiguate (currbest, result, vline, n+1);
           // set ambiguity flag
           ambiguous = !newbest || (ambiguous && newbest == currbest);
-          // choose the list to be deleted
+          // delete the unnecessary result
           struct list *todelete = ((newbest && newbest == result) ? currbest : result);
-          // manually delete the last node, which has a cmd_element
-          del_cmd_element (listgetdata (listtail (todelete)));
-          // use the list->del callback to delete the rest of the list
-          list_delete (todelete);
+          del_arglist (todelete);
 
           currbest = newbest ? newbest : currbest;
         }
@@ -243,6 +240,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
       if (ambiguous)
         {
           del_arglist (currbest);
+          currbest = NULL;
           matcher_rv = MATCHER_AMBIGUOUS;
         }
       else
@@ -250,7 +248,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
           // copy token, set arg and prepend to currbest
           struct cmd_token_t *token = start->data;
           struct cmd_token_t *copy = copy_cmd_token (token);
-          copy->arg = XSTRDUP(MTYPE_CMD_TOKENS, input_token);
+          copy->arg = XSTRDUP (MTYPE_CMD_TOKENS, input_token);
           list_add_node_prev (currbest, currbest->head, copy);
           matcher_rv = MATCHER_OK;
         }
