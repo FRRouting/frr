@@ -61,10 +61,6 @@ graph_new_node (struct graph *graph, void *data, void (*del) (void*));
  * Before deletion, this function removes all edges to and from this node from
  * any neighbor nodes.
  *
- * If, as a result of this operation, any neighbor node has no edges either to
- * or from itself, that node will be deleted as well. If the graph topology is
- * e.g. a star this will result in the deletion of all nodes.
- *
  * If *data and *del are non-null, the following call is made:
  *   (*node->del) (node->data);
  *

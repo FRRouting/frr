@@ -65,12 +65,6 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
       for (unsigned int j = 0; j < vector_active (adj->to); j++)
         if (vector_slot (adj->to, j) == node)
           vector_unset (adj->to, j);
-
-      // if the node is orphaned, delete it
-      if (vector_active (adj->to) == 0 &&
-          vector_active (adj->from) == 0 &&
-          adj != node)
-          graph_delete_node (graph, adj);
     }
 
   // for all nodes that we have an edge to, remove us from their ->from
@@ -80,15 +74,9 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
       for (unsigned int j = 0; j < vector_active (adj->from); j++)
         if (vector_slot (adj->from, j) == node)
           vector_unset (adj->from, j);
-
-      // if the node is orphaned, delete it
-      if (vector_active (adj->to) == 0 &&
-          vector_active (adj->from) == 0 &&
-          adj != node)
-          graph_delete_node (graph, adj);
     }
 
-  // if there is a deletion callback, call it!
+  // if there is a deletion callback, call it
   if (node->del && node->data)
     (*node->del) (node->data);
 
