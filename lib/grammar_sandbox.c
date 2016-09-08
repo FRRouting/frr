@@ -289,9 +289,15 @@ new_cmd_token (enum cmd_token_type_t type, char *text, char *desc)
 void
 del_cmd_token (struct cmd_token_t *token)
 {
-  XFREE (MTYPE_CMD_TOKENS, token->text);
-  XFREE (MTYPE_CMD_TOKENS, token->desc);
-  XFREE (MTYPE_CMD_TOKENS, token->arg);
+  if (!token) return;
+
+  if (token->text)
+    XFREE (MTYPE_CMD_TOKENS, token->text);
+  if (token->desc)
+    XFREE (MTYPE_CMD_TOKENS, token->desc);
+  if (token->arg)
+    XFREE (MTYPE_CMD_TOKENS, token->arg);
+
   XFREE (MTYPE_CMD_TOKENS, token);
 }
 

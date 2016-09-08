@@ -453,13 +453,7 @@ doc_next()
 static struct graph_node *
 new_token_node (struct graph *graph, enum cmd_token_type_t type, char *text, char *doc)
 {
-  struct cmd_token_t *token =
-    XMALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_token_t));
-
-  token->type = type;
-  token->text = text;
-  token->desc = doc;
-
+  struct cmd_token_t *token = new_cmd_token (type, text, doc);
   return graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
 }
 
