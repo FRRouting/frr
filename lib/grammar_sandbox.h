@@ -7,6 +7,8 @@
  */
 #include "memory.h"
 
+#define CMD_CR_TEXT "<cr>"
+
 void
 grammar_sandbox_init (void);
 

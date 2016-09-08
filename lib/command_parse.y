@@ -305,9 +305,9 @@ selector_element: selector_element_root selector_token_seq
   // add element head as a child of the selector
   graph_add_edge (selnode_start, $1);
 
-  if (((struct cmd_token_t *) $2->data)->type != NUL_TKN) {
-    graph_add_edge ($1, seqhead);
-    graph_add_edge ($2, selnode_end);
+  if ($2) {
+    graph_add_edge ($1, seqhead);       // tack on selector_token_seq
+    graph_add_edge ($2, selnode_end);   // $2 is the sequence tail
   }
   else
     graph_add_edge ($1, selnode_end);
@@ -316,11 +316,11 @@ selector_element: selector_element_root selector_token_seq
 }
 
 selector_token_seq:
-  %empty { $$ = new_token_node (graph, NUL_TKN, NULL, NULL); }
+  %empty { $$ = NULL; }
 | selector_token_seq selector_token
 {
   // if the sequence component is NUL_TKN, this is a sequence start
-  if (((struct cmd_token_t *) $1->data)->type != NUL_TKN) {
+  if (!$1) {
     assert(!seqhead);
     seqhead = $2;
   }
@@ -426,7 +426,11 @@ terminate_graph (struct graph *graph, struct graph_node *finalnode, struct cmd_e
 {
   // end of graph should look like this
   // * -> finalnode -> END_TKN -> cmd_element
-  struct graph_node *end_token_node = new_token_node (graph, END_TKN, NULL, NULL);
+  struct graph_node *end_token_node =
+    new_token_node (graph,
+                    END_TKN,
+                    XSTRDUP (MTYPE_CMD_TOKENS, CMD_CR_TEXT),
+                    XSTRDUP (MTYPE_CMD_TOKENS, ""));
   struct graph_node *end_element_node =
     graph_new_node (graph, element, (void (*)(void *)) &del_cmd_element);
 
