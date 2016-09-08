@@ -41,27 +41,19 @@ grammar_sandbox_init (void);
 void
 pretty_print_graph (struct graph_node *, int);
 
-/*
- * Start node for testing command graph.
- *
- * Each cmd_node will have one of these that replaces the `cmdvector` member.
- * The examples below show how to install a command to the graph, calculate
- * completions for a given input line, and match input against the graph.
- */
+/* Command graph. Used to match user input to cmd_elements. */
 struct graph *nodegraph;
 
-/**
- * Reference use of parsing / command installation API
- */
 DEFUN (grammar_test,
        grammar_test_cmd,
        "grammar parse .COMMAND",
        GRAMMAR_STR
        "command to pass to new parser\n")
 {
-  char *command = argv_concat(argv, argc, 0);
+  // make a string from tokenized command line
+  char *command = argv_concat (argv, argc, 0);
 
-  // initialize a pretend cmd_element
+  // create cmd_element for parser
   struct cmd_element *cmd = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
   cmd->string = XSTRDUP (MTYPE_TMP, command);
   cmd->doc = NULL;
@@ -71,16 +63,9 @@ DEFUN (grammar_test,
   // parse the command and install it into the command graph
   command_parse_format (nodegraph, cmd);
 
-  // free resources
-  free (command);
-
   return CMD_SUCCESS;
 }
 
-
-/**
- * Reference use of completions API
- */
 DEFUN (grammar_test_complete,
        grammar_test_complete_cmd,
        "grammar complete .COMMAND",
@@ -91,32 +76,44 @@ DEFUN (grammar_test_complete,
   char *cmdstr = argv_concat (argv, argc, 0);
   vector command = cmd_make_strvec (cmdstr);
 
+  // generate completions of user input
   struct list *completions = list_new ();
-  enum matcher_rv result =
-     command_complete (nodegraph, command, &completions);
+  enum matcher_rv result = command_complete (nodegraph, command, &completions);
 
   // print completions or relevant error message
   if (!MATCHER_ERROR(result))
     {
       struct listnode *ln;
       struct cmd_token_t *tkn;
-      for (ALL_LIST_ELEMENTS_RO(completions,ln,tkn))
-        zlog_info (tkn->text);
+
+      // calculate length of longest tkn->text in completions
+      int width = 0;
+      for (ALL_LIST_ELEMENTS_RO (completions,ln,tkn)) {
+        if (tkn && tkn->text) {
+          int len = strlen (tkn->text);
+          width = len > width ? len : width;
+        }
+        else {
+          fprintf (stdout, "tkn: %p\n", tkn);
+          fprintf (stdout, "tkn->text: %p\n", tkn->text);
+        }
+      }
+
+      // print completions
+      for (ALL_LIST_ELEMENTS_RO (completions,ln,tkn))
+        fprintf (stdout, "  %-*s  %s%s", width, tkn->text, tkn->desc, "\n");
     }
   else
-    zlog_info ("%% No match for \"%s\"", cmdstr);
+    fprintf (stdout, "%% No match%s", "\n");
 
   // free resources
-  cmd_free_strvec (command);
   list_delete (completions);
+  cmd_free_strvec (command);
   free (cmdstr);
 
   return CMD_SUCCESS;
 }
 
-/**
- * Reference use of matching API
- */
 DEFUN (grammar_test_match,
        grammar_test_match_cmd,
        "grammar match .COMMAND",
@@ -124,10 +121,10 @@ DEFUN (grammar_test_match,
        "attempt to match input on DFA\n"
        "command to match")
 {
-  char *cmdstr = argv_concat(argv, argc, 0);
-  if (cmdstr[0] == '#')
+  if (argv[0][0] == '#')
     return CMD_SUCCESS;
 
+  char *cmdstr = argv_concat(argv, argc, 0);
   vector command = cmd_make_strvec (cmdstr);
 
   struct list *argvv = NULL;
@@ -137,13 +134,13 @@ DEFUN (grammar_test_match,
   // print completions or relevant error message
   if (element)
     {
-      zlog_info ("Matched: %s", element->string);
+      fprintf (stdout, "Matched: %s%s", element->string, "\n");
       struct listnode *ln;
       struct cmd_token_t *token;
       for (ALL_LIST_ELEMENTS_RO(argvv,ln,token))
-        zlog_info ("%s -- %s", token->text, token->arg);
+        fprintf (stdout, "%s -- %s%s", token->text, token->arg, "\n");
 
-      zlog_info ("func: %p", element->func);
+      fprintf (stdout, "func: %p%s", element->func, "\n");
 
       list_delete (argvv);
     }
@@ -151,16 +148,16 @@ DEFUN (grammar_test_match,
      assert(MATCHER_ERROR(result));
      switch (result) {
        case MATCHER_NO_MATCH:
-          zlog_info ("%% Unknown command");
+          fprintf (stdout, "%% Unknown command%s", "\n");
           break;
        case MATCHER_INCOMPLETE:
-          zlog_info ("%% Incomplete command");
+          fprintf (stdout, "%% Incomplete command%s", "\n");
           break;
        case MATCHER_AMBIGUOUS:
-          zlog_info ("%% Ambiguous command");
+          fprintf (stdout, "%% Ambiguous command%s", "\n");
           break;
        default:
-          zlog_info ("%% Unknown error");
+          fprintf (stdout, "%% Unknown error%s", "\n");
           break;
      }
   }
@@ -184,8 +181,9 @@ DEFUN (grammar_test_doc,
 {
   // create cmd_element with docstring
   struct cmd_element *cmd = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
-  cmd->string = "test docstring <example|selector follow> (1-255) end VARIABLE [OPTION|set lol] . VARARG";
-  cmd->doc = "Test stuff\n"
+  cmd->string = XSTRDUP (MTYPE_CMD_TOKENS, "test docstring <example|selector follow> (1-255) end VARIABLE [OPTION|set lol] . VARARG");
+  cmd->doc = XSTRDUP (MTYPE_CMD_TOKENS,
+             "Test stuff\n"
              "docstring thing\n"
              "first example\n"
              "second example\n"
@@ -196,7 +194,7 @@ DEFUN (grammar_test_doc,
              "optional variable\n"
              "optional set\n"
              "optional lol\n"
-             "vararg!\n";
+             "vararg!\n");
   cmd->func = NULL;
   cmd->tokens = vector_init (VECTOR_MIN_SIZE);
 
@@ -224,7 +222,7 @@ DEFUN (grammar_test_show,
 
 /* this is called in vtysh.c to set up the testing shim */
 void grammar_sandbox_init() {
-  zlog_info ("Initializing grammar testing shim");
+  fprintf (stdout, "Initializing grammar testing shim%s", "\n");
 
   // initialize graph, add start noe
   nodegraph = graph_new ();
