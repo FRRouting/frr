@@ -44,6 +44,7 @@
 #include "pim_version.h"
 #include "pim_signals.h"
 #include "pim_zebra.h"
+#include "pim_msdp.h"
 
 #ifdef PIM_ZCLIENT_DEBUG
 extern int zclient_debug;
@@ -209,6 +210,7 @@ int main(int argc, char** argv, char** envp) {
   prefix_list_init ();
   pim_route_map_init ();
   pim_init();
+  pim_msdp_init ();
 
   /*
    * Initialize zclient "update" and "lookup" sockets
