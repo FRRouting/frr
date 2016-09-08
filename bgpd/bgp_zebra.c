@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_bfd.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -359,7 +360,16 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length,
 
     for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
       {
+#if defined(HAVE_CUMULUS)
+        /* Take down directly connected EBGP peers as well as 1-hop BFD
+         * tracked (directly connected) IBGP peers.
+         */
+        if ((peer->ttl != 1) && (peer->gtsm_hops != 1) &&
+            (!peer->bfd_info || bgp_bfd_is_peer_multihop(peer)))
+#else
+        /* Take down directly connected EBGP peers */
         if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
+#endif
           continue;
 
         if (ifp == peer->nexthop.ifp)
