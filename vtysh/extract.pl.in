@@ -121,7 +121,7 @@ foreach (@ARGV) {
             $protocol = "VTYSH_RIPD";
         }
         elsif ($file =~ /lib\/routemap\.c$/) {
-            $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
+            $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD";
         }
         elsif ($file =~ /lib\/vrf\.c$/) {
             $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
@@ -136,7 +136,7 @@ foreach (@ARGV) {
             if ($defun_array[1] =~ m/ipv6/) {
                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
             } else {
-                $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA";
+                $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD";
             }
         }
         elsif ($file =~ /lib\/distribute\.c$/) {
