@@ -3877,7 +3877,13 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
             {
               struct timeval result;
               unsigned long time_store = 0;
-              result = tv_sub (oi->t_hello->u.sands, recent_relative_time());
+	      if (oi->t_hello)
+		result = tv_sub (oi->t_hello->u.sands, recent_relative_time());
+	      else
+		{
+		  result.tv_sec = 0;
+		  result.tv_usec = 0;
+		}
               time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
               json_object_int_add(json_interface_sub, "timerHelloInMsecs", time_store);
             }
@@ -3939,20 +3945,29 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
           if (ospf_oi_count(ifp))
             {
               show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
+	      if (use_json)
+		json_object_object_add (json, ifp->name, json_interface_sub);
             }
         }
     }
   else if (argv[iface_argv] && strcmp(argv[iface_argv], "json") == 0)
     {
+      if (!use_json)
+	{
+	  json = json_object_new_object();
+	  json_interface_sub = json_object_new_object ();
+	  use_json = 1;
+	}
       /* Show All Interfaces. */
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         {
           if (ospf_oi_count(ifp))
             {
               show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
-              json_object_object_add(json, ifp->name, json_interface_sub);
-            }
-        }
+	      if (use_json)
+		json_object_object_add(json, ifp->name, json_interface_sub);
+	    }
+	}
     }
   else
     {
