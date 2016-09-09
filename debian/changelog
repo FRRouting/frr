@@ -1,3 +1,9 @@
+quagga (0.99.24+cl3u4) RELEASED; urgency=medium
+
+  * Closes: CM-12687 - Buffer overflow in zebra RA code
+
+ -- dev-support <dev-support@cumulusnetworks.com>  Wed, 31 Aug 2016 12:36:10 -0400
+
 quagga (0.99.24+cl3u3) RELEASED; urgency=medium
 
   * New Enabled: Merge up-to 0.99.24 code from upstream
