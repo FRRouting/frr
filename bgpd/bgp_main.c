@@ -415,13 +415,6 @@ main (int argc, char **argv)
   /* Preserve name of myself. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
-  zlog_default = openzlog (progname, ZLOG_BGP, 0,
-			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zprivs_init (&bgpd_privs);
-#if defined(HAVE_CUMULUS)
-  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-#endif
-
   /* BGP master init. */
   bgp_master_init ();
 
@@ -502,6 +495,12 @@ main (int argc, char **argv)
 	}
     }
 
+  zlog_default = openzlog (progname, ZLOG_BGP, 0,
+			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+  zprivs_init (&bgpd_privs);
+#if defined(HAVE_CUMULUS)
+  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
+#endif
 
   /* Initializations. */
   srandom (time (NULL));
