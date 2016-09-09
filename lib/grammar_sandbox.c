@@ -36,6 +36,7 @@
 
 #define GRAMMAR_STR "CLI grammar sandbox\n"
 
+/** headers **/
 void
 grammar_sandbox_init (void);
 void
@@ -43,18 +44,8 @@ pretty_print_graph (struct graph_node *, int);
 void
 init_cmdgraph (struct graph **);
 
-/* Command graph. Used to match user input to cmd_elements. */
+/** shim interface commands **/
 struct graph *nodegraph;
-
-void
-init_cmdgraph (struct graph **graph)
-{
-  // initialize graph, add start noe
-  *graph = graph_new ();
-  struct cmd_token_t *token = new_cmd_token (START_TKN, NULL, NULL);
-  graph_new_node (*graph, token, (void (*)(void *)) &del_cmd_token);
-  fprintf (stdout, "initialized graph\n");
-}
 
 DEFUN (grammar_test,
        grammar_test_cmd,
@@ -294,6 +285,16 @@ pretty_print_graph (struct graph_node *start, int level)
 }
 
 /** stuff that should go in command.c + command.h */
+void
+init_cmdgraph (struct graph **graph)
+{
+  // initialize graph, add start noe
+  *graph = graph_new ();
+  struct cmd_token_t *token = new_cmd_token (START_TKN, NULL, NULL);
+  graph_new_node (*graph, token, (void (*)(void *)) &del_cmd_token);
+  fprintf (stdout, "initialized graph\n");
+}
+
 struct cmd_token_t *
 new_cmd_token (enum cmd_token_type_t type, char *text, char *desc)
 {
