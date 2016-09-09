@@ -257,13 +257,14 @@ bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
       zlog_err ("[Error] BGP SO_BINDTODEVICE get failed (%s), sock %d",
                 safe_strerror (errno), sock);
       return -1;
-#else
-      strcpy (name, VRF_DEFAULT_NAME);
 #endif
     }
 
   if (!strlen(name))
-    return 0; /* default instance. */
+    {
+      *bgp_inst = bgp_get_default ();
+      return 0; /* default instance. */
+    }
 
   /* First try match to instance; if that fails, check for interfaces. */
   bgp = bgp_lookup_by_name (name);
