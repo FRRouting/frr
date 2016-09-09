@@ -6739,6 +6739,18 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
                                 "  neighbor %s activate%s",
                                 addr, VTY_NEWLINE);
         }
+      else
+	{
+	  if ((afi == AFI_IP) && (safi == SAFI_UNICAST))
+	    {
+	      if (!bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
+		{
+		  afi_header_vty_out (vty, afi, safi, write,
+				      "  no neighbor %s activate%s",
+				      addr, VTY_NEWLINE);
+		}
+	    }
+	}
     }
 
   /* addpath TX knobs */
