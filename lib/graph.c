@@ -62,6 +62,7 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
   for (unsigned int i = 0; i < vector_active (node->from); i++)
     {
       adj = vector_slot (node->from, i);
+      if (!adj) continue;
       for (unsigned int j = 0; j < vector_active (adj->to); j++)
         if (vector_slot (adj->to, j) == node)
           vector_unset (adj->to, j);
@@ -71,6 +72,7 @@ graph_delete_node (struct graph *graph, struct graph_node *node)
   for (unsigned int i = 0; i < vector_active (node->to); i++)
     {
       adj = vector_slot (node->to, i);
+      if (!adj) continue;
       for (unsigned int j = 0; j < vector_active (adj->from); j++)
         if (vector_slot (adj->from, j) == node)
           vector_unset (adj->from, j);
