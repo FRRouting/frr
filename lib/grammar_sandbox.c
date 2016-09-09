@@ -40,9 +40,21 @@ void
 grammar_sandbox_init (void);
 void
 pretty_print_graph (struct graph_node *, int);
+void
+init_cmdgraph (struct graph **);
 
 /* Command graph. Used to match user input to cmd_elements. */
 struct graph *nodegraph;
+
+void
+init_cmdgraph (struct graph **graph)
+{
+  // initialize graph, add start noe
+  *graph = graph_new ();
+  struct cmd_token_t *token = new_cmd_token (START_TKN, NULL, NULL);
+  graph_new_node (*graph, token, (void (*)(void *)) &del_cmd_token);
+  fprintf (stdout, "initialized graph\n");
+}
 
 DEFUN (grammar_test,
        grammar_test_cmd,
@@ -55,7 +67,7 @@ DEFUN (grammar_test,
 
   // create cmd_element for parser
   struct cmd_element *cmd = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
-  cmd->string = XSTRDUP (MTYPE_TMP, command);
+  cmd->string = command;
   cmd->doc = NULL;
   cmd->func = NULL;
   cmd->tokens = vector_init (VECTOR_MIN_SIZE);
@@ -220,14 +232,20 @@ DEFUN (grammar_test_show,
   return CMD_SUCCESS;
 }
 
+DEFUN (grammar_init_graph,
+       grammar_init_graph_cmd,
+       "grammar init graph",
+       GRAMMAR_STR
+       "(re)initialize graph\n")
+{
+  graph_delete_graph (nodegraph);
+  init_cmdgraph (&nodegraph);
+  return CMD_SUCCESS;
+}
+
 /* this is called in vtysh.c to set up the testing shim */
 void grammar_sandbox_init() {
-  fprintf (stdout, "Initializing grammar testing shim%s", "\n");
-
-  // initialize graph, add start noe
-  nodegraph = graph_new ();
-  struct cmd_token_t *token = new_cmd_token (START_TKN, NULL, NULL);
-  graph_new_node (nodegraph, token, (void (*)(void *)) &del_cmd_token);
+  init_cmdgraph (&nodegraph);
 
   // install all enable elements
   install_element (ENABLE_NODE, &grammar_test_cmd);
@@ -235,7 +253,9 @@ void grammar_sandbox_init() {
   install_element (ENABLE_NODE, &grammar_test_match_cmd);
   install_element (ENABLE_NODE, &grammar_test_complete_cmd);
   install_element (ENABLE_NODE, &grammar_test_doc_cmd);
+  install_element (ENABLE_NODE, &grammar_init_graph_cmd);
 }
+
 
 /**
  * Pretty-prints a graph, assuming it is a tree.
