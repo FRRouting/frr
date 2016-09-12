@@ -264,9 +264,9 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
         }
       if (!v4addrs && pim_ifp) 
 	{
-
 	  pim_ifp->primary_address = pim_find_primary_addr (c->ifp);
 	  pim_if_addr_add_all (c->ifp);
+          pim_if_add_vif (c->ifp);
 	}
       return 0;
     }
