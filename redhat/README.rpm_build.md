@@ -52,6 +52,8 @@ Building your own Quagga RPM
 		%{!?with_rtadv:        %global  with_rtadv      1 }
 		%{!?with_isisd:        %global  with_isisd      1 }
 		%{!?with_pimd:         %global  with_pimd       1 }
+		%{!?with_mpls:         %global  with_mpls       0 }
+		%{!?with_ldpd:         %global  with_ldpd       0 }
 		%{!?with_shared:       %global  with_shared     1 }
 		%{!?with_multipath:    %global  with_multipath  64 }
 		%{!?quagga_user:       %global  quagga_user     quagga }

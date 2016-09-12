@@ -16,6 +16,8 @@
 %{!?with_ospfapi:		%global	with_ospfapi		1 }
 %{!?with_irdp:			%global	with_irdp		1 }
 %{!?with_rtadv:			%global	with_rtadv		1 }
+%{!?with_mpls:			%global	with_mpls		0 }
+%{!?with_ldpd:			%global	with_ldpd		0 }
 %{!?with_shared:		%global	with_shared		1 }
 %{!?with_multipath:		%global	with_multipath		256 }
 %{!?quagga_user:		%global	quagga_user		quagga }
@@ -71,13 +73,19 @@
 
 %define		daemon_list	zebra ripd ospfd bgpd isisd pimd ripngd ospfd6d
 
+%if %{with_ldpd}
+%define         daemon_ldpd	ldpd
+%else
+%define		daemon_ldpd	""
+%endif
+
 %if %{with_watchquagga}
 %define         daemon_watchquagga	watchquagga
 %else
 %define		daemon_watchquagga	""
 %endif
 
-%define		all_daemons	%{daemon_list} %{daemon_watchquagga}
+%define		all_daemons	%{daemon_list} %{daemon_ldpd} %{daemon_watchquagga}
 
 # allow build dir to be kept
 %{!?keep_build:		%global		keep_build	0 }
@@ -198,6 +206,16 @@ developing OSPF-API and quagga applications.
 %else
 	--enable-rtadv=no \
 %endif
+%if %{with_mpls}
+	--enable-mpls=yes \
+%else
+	--disable-mpls \
+%endif
+%if %{with_ldpd}
+	--enable-ldpd \
+%else
+	--disable-ldpd \
+%endif
 %if %{with_pam}
 	--with-libpam \
 %endif
@@ -315,6 +333,9 @@ zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
 %endif
 zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 zebra_spec_add_service pimd     2611/tcp "PIMd vty"
+%if %{with_ldpd}
+zebra_spec_add_service ldpd     2612/tcp "LDPd vty"
+%endif
 
 %if "%{initsystem}" == "systemd"
 for daemon in %all_daemons ; do
@@ -493,6 +514,9 @@ rm -rf %{buildroot}
 %{_sbindir}/ospf6d
 %{_sbindir}/pimd
 %{_sbindir}/isisd
+%if %{with_ldpd}
+%{_sbindir}/ldpd
+%endif
 %if %{with_shared}
 %attr(755,root,root) %{_libdir}/lib*.so
 %attr(755,root,root) %{_libdir}/lib*.so.*
@@ -513,6 +537,9 @@ rm -rf %{buildroot}
 	%config /etc/rc.d/init.d/ospf6d
 	%config /etc/rc.d/init.d/isisd
 	%config /etc/rc.d/init.d/pimd
+	%if %{with_ldpd}
+		%config /etc/rc.d/init.d/ldpd
+	%endif
 %endif
 %config(noreplace) /etc/default/quagga
 %config(noreplace) /etc/pam.d/quagga

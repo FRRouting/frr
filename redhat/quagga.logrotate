@@ -53,3 +53,11 @@
 	/bin/kill -USR1 `cat /var/run/quagga/ripngd.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
+
+/var/log/quagga/ldpd.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/quagga/ldpd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
