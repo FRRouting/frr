@@ -24,6 +24,8 @@
 
 #ifdef HAVE_NETLINK
 
+#include "zebra/zebra_mpls.h"
+
 #define NL_PKT_BUF_SIZE         8192
 #define NL_DEFAULT_ROUTE_METRIC 20
 
@@ -40,6 +42,11 @@ nl_msg_type_to_str (uint16_t msg_type);
 
 extern const char *
 nl_rtproto_to_str (u_char rtproto);
+
+extern void
+clear_nhlfe_installed (zebra_lsp_t *lsp);
+extern int
+netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp);
 
 extern int interface_lookup_netlink (struct zebra_ns *zns);
 extern int netlink_route_read (struct zebra_ns *zns);
