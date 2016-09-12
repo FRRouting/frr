@@ -46,7 +46,7 @@ info_TEXINFOS = quagga.texi
 quagga.pdf: $(info_TEXINFOS) $(figures_pdf) $(quagga_TEXINFOS)
 	$(TEXI2PDF) -o "$@" $< || true
 
-quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi \
+quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 	install.texi ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi \
 	overview.texi protocol.texi ripd.texi ripngd.texi routemap.texi \
 	snmp.texi vtysh.texi routeserver.texi defines.texi $(figures_png) \
