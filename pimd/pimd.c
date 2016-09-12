@@ -139,9 +139,6 @@ void pim_init()
   qpim_mroute_socket_fd = -1; /* mark mroute as disabled */
   qpim_mroute_oif_highest_vif_index = -1;
 
-  zassert(!qpim_debugs);
-  zassert(!PIM_MROUTE_IS_ENABLED);
-
   qpim_inaddr_any.s_addr = PIM_NET_INADDR_ANY;
 
   /*
