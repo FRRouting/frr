@@ -523,8 +523,8 @@ pim_msg_send_frame (int fd, char *buf, size_t len,
 		     __PRETTY_FUNCTION__,
 		     dst_str, fd, len,
 		     errno, safe_strerror(errno));
-	  break;
 	  return -1;
+	  break;
 	}
     }
 
