@@ -206,7 +206,7 @@ static int on_join_timer(struct thread *t)
   /*
    * In the case of a HFR we will not ahve anyone to send this to.
    */
-  if (up->fhr)
+  if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
     return 0;
 
   /*
@@ -411,7 +411,7 @@ pim_upstream_switch(struct pim_upstream *up,
   switch (up->join_state)
     {
     case PIM_UPSTREAM_PRUNE:
-      if (!up->fhr)
+      if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
         {
           up->join_state       = new_state;
           up->state_transition = pim_time_monotonic_sec ();
@@ -432,11 +432,11 @@ pim_upstream_switch(struct pim_upstream *up,
   if (new_state == PIM_UPSTREAM_JOINED) {
     if (old_state != PIM_UPSTREAM_JOINED)
       {
-        int old_fhr = up->fhr;
+        int old_fhr = PIM_UPSTREAM_FLAG_TEST_FHR(up->flags);
         forward_on(up);
-	up->fhr = pim_upstream_could_register (up);
-        if (up->fhr)
+	if (pim_upstream_could_register (up))
 	  {
+            PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
             if (!old_fhr)
               {
                 pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);

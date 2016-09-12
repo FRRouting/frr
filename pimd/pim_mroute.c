@@ -148,7 +148,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
 
   up->channel_oil = oil;
   up->channel_oil->cc.pktcnt++;
-  up->fhr = 1;
+  PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
   pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
   up->join_state = PIM_UPSTREAM_JOINED;
 
@@ -335,7 +335,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
        * If we are the fhr that means we are getting a callback during
        * the pimreg period, so I believe we can ignore this packet
        */
-      if (!up->fhr)
+      if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 	{
 	  struct pim_nexthop source;
 	  struct pim_rpf *rpf = RP (sg.grp);
@@ -369,7 +369,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 			pim_str_sg_dump (&sg), ifp->name);
 	  return -2;
 	}
-      up->fhr = 1;
+      PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 
       pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
       up->channel_oil = oil;
