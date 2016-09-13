@@ -336,55 +336,6 @@ command_complete (struct graph *graph,
 }
 
 /**
- * TODO: move this logic to command.c
- * Compare two completions. Tightly coupled to vector.
- *
- * @param[in] fst pointer to first item pointer in vector->index
- * @param[in] snd pointer to second item poitner in vector->index
- * @return integer compare code as determined by strcmp
-int
-compare_completions (const void *fst, const void *snd)
-{
-  const char *first = *((char **) fst);
-  const char *secnd = *((char **) snd);
-  return strcmp (first, secnd);
-}
-
-enum matcher_rv
-command_complete_str (struct graph_node *start,
-                      vector vline,
-                      vector completions)
-{
-  struct list *comps;
-  enum matcher_rv rv = command_complete (start, vline, &comps);
-
-  // quick n' dirty deduplication fn here, prolly like O(n^n)
-  struct listnode *ln;
-  struct graph_node *gn;
-  unsigned int i;
-  for (ALL_LIST_ELEMENTS_RO(comps,ln,gn))
-    {
-      // linear search for node text in completions vector
-      int exists = 0;
-      for (i = 0; i < vector_active (completions) && !exists; i++)
-        exists = !strcmp (gn->text, vector_slot (completions, i));
-
-      if (!exists)
-        vector_set (completions, XSTRDUP(MTYPE_TMP, gn->text));
-    }
-
-  // sort completions
-  qsort (completions->index,
-         vector_active (completions),
-         sizeof (void *),
-         &compare_completions);
-
-  list_delete (comps);
-  return rv;
-}
-*/
-
-/**
  * Adds all children that are reachable by one parser hop to the given list.
  * NUL_TKN, SELECTOR_TKN, and OPTION_TKN nodes are treated as transparent.
  *

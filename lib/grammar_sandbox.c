@@ -43,6 +43,10 @@ void
 pretty_print_graph (struct graph_node *, int);
 void
 init_cmdgraph (struct graph **);
+vector
+completions_to_vec (struct list *);
+int
+compare_completions (const void *, const void *);
 
 /** shim interface commands **/
 struct graph *nodegraph;
@@ -86,25 +90,22 @@ DEFUN (grammar_test_complete,
   // print completions or relevant error message
   if (!MATCHER_ERROR(result))
     {
-      struct listnode *ln;
+      vector comps = completions_to_vec (completions);
       struct cmd_token_t *tkn;
 
       // calculate length of longest tkn->text in completions
-      int width = 0;
-      for (ALL_LIST_ELEMENTS_RO (completions,ln,tkn)) {
-        if (tkn && tkn->text) {
-          int len = strlen (tkn->text);
-          width = len > width ? len : width;
-        }
-        else {
-          fprintf (stdout, "tkn: %p\n", tkn);
-          fprintf (stdout, "tkn->text: %p\n", tkn->text);
-        }
+      unsigned int width = 0, i = 0;
+      for (i = 0; i < vector_active (comps); i++) {
+        tkn = vector_slot (comps, i);
+        unsigned int len = strlen (tkn->text);
+        width = len > width ? len : width;
       }
 
       // print completions
-      for (ALL_LIST_ELEMENTS_RO (completions,ln,tkn))
+      for (i = 0; i < vector_active (comps); i++) {
+        tkn = vector_slot (comps, i);
         fprintf (stdout, "  %-*s  %s%s", width, tkn->text, tkn->desc, "\n");
+      }
     }
   else
     fprintf (stdout, "%% No match%s", "\n");
@@ -295,6 +296,46 @@ init_cmdgraph (struct graph **graph)
   fprintf (stdout, "initialized graph\n");
 }
 
+int
+compare_completions (const void *fst, const void *snd)
+{
+  struct cmd_token_t *first = *(struct cmd_token_t **) fst,
+                     *secnd = *(struct cmd_token_t **) snd;
+  return strcmp (first->text, secnd->text);
+}
+
+vector
+completions_to_vec (struct list *completions)
+{
+  vector comps = vector_init (VECTOR_MIN_SIZE);
+
+  struct listnode *ln;
+  struct cmd_token_t *token;
+  unsigned int i, exists;
+  for (ALL_LIST_ELEMENTS_RO(completions,ln,token))
+  {
+    // linear search for token in completions vector
+    exists = 0;
+    for (i = 0; i < vector_active (comps) && !exists; i++)
+    {
+      struct cmd_token_t *curr = vector_slot (comps, i);
+      exists = !strcmp (curr->text, token->text) &&
+               !strcmp (curr->desc, token->desc);
+    }
+
+    if (!exists)
+      vector_set (comps, copy_cmd_token (token));
+  }
+
+  // sort completions
+  qsort (comps->index,
+         vector_active (comps),
+         sizeof (void *),
+         &compare_completions);
+
+  return comps;
+}
+
 struct cmd_token_t *
 new_cmd_token (enum cmd_token_type_t type, char *text, char *desc)
 {
@@ -326,9 +367,12 @@ struct cmd_token_t *
 copy_cmd_token (struct cmd_token_t *token)
 {
   struct cmd_token_t *copy = new_cmd_token (token->type, NULL, NULL);
-  copy->text = token->text ? XSTRDUP (MTYPE_CMD_TOKENS, token->text) : NULL;
-  copy->desc = token->desc ? XSTRDUP (MTYPE_CMD_TOKENS, token->desc) : NULL;
-  copy->arg  = token->arg  ? XSTRDUP (MTYPE_CMD_TOKENS, token->arg) : NULL;
+  copy->value = token->value;
+  copy->max   = token->max;
+  copy->min   = token->min;
+  copy->text  = token->text ? XSTRDUP (MTYPE_CMD_TOKENS, token->text) : NULL;
+  copy->desc  = token->desc ? XSTRDUP (MTYPE_CMD_TOKENS, token->desc) : NULL;
+  copy->arg   = token->arg  ? XSTRDUP (MTYPE_CMD_TOKENS, token->arg) : NULL;
 
   return copy;
 }
