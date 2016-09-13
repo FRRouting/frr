@@ -720,7 +720,7 @@ match_ipv6_prefix (const char *str)
 {
   struct sockaddr_in6 sin6_dummy;
   const char *delim = "/\0";
-  char *dupe, *prefix, *mask, *context, *endptr;
+  char *tofree, *dupe, *prefix, *mask, *endptr;
   int nmask = -1;
 
   if (str == NULL)
@@ -729,26 +729,33 @@ match_ipv6_prefix (const char *str)
   if (strspn (str, IPV6_PREFIX_STR) != strlen (str))
     return no_match;
 
-  /* tokenize to address + mask */
-  dupe = XCALLOC(MTYPE_TMP, strlen(str)+1);
-  strncpy(dupe, str, strlen(str)+1);
-  prefix = strtok_r(dupe, delim, &context);
-  mask   = strtok_r(NULL, delim, &context);
-
-  if (!mask)
-    return partly_match;
+  /* tokenize to prefix + mask */
+  tofree = dupe = XSTRDUP (MTYPE_TMP, str);
+  prefix = strsep (&dupe, delim);
+  mask   = dupe;
 
   /* validate prefix */
-  if (inet_pton(AF_INET6, prefix, &sin6_dummy.sin6_addr) != 1)
+  if (inet_pton (AF_INET6, prefix, &sin6_dummy.sin6_addr) != 1)
+  {
+    XFREE (MTYPE_TMP, tofree);
     return no_match;
+  }
 
   /* validate mask */
+  if (!mask)
+  {
+    XFREE (MTYPE_TMP, tofree);
+    return partly_match;
+  }
+
   nmask = strtoimax (mask, &endptr, 10);
   if (*endptr != '\0' || nmask < 0 || nmask > 128)
+  {
+    XFREE (MTYPE_TMP, tofree);
     return no_match;
+  }
 
-  XFREE(MTYPE_TMP, dupe);
-
+  XFREE (MTYPE_TMP, tofree);
   return exact_match;
 }
 #endif

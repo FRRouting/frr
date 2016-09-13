@@ -356,7 +356,6 @@ new_cmd_token (enum cmd_token_type_t type, char *text, char *desc)
 void
 del_cmd_token (struct cmd_token_t *token)
 {
-  fprintf (stdout, "deleting token\n");
   if (!token) return;
 
   if (token->text)
