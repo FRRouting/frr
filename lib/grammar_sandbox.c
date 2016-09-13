@@ -84,7 +84,7 @@ DEFUN (grammar_test_complete,
   vector command = cmd_make_strvec (cmdstr);
 
   // generate completions of user input
-  struct list *completions = list_new ();
+  struct list *completions;
   enum matcher_rv result = command_complete (nodegraph, command, &completions);
 
   // print completions or relevant error message
@@ -106,6 +106,10 @@ DEFUN (grammar_test_complete,
         tkn = vector_slot (comps, i);
         fprintf (stdout, "  %-*s  %s%s", width, tkn->text, tkn->desc, "\n");
       }
+
+      for (i = 0; i < vector_active (comps); i++)
+        del_cmd_token ((struct cmd_token_t *) vector_slot (comps, i));
+      vector_free (comps);
     }
   else
     fprintf (stdout, "%% No match%s", "\n");
@@ -147,6 +151,7 @@ DEFUN (grammar_test_match,
       fprintf (stdout, "func: %p%s", element->func, "\n");
 
       list_delete (argvv);
+      del_cmd_element (element);
     }
   else {
      assert(MATCHER_ERROR(result));
@@ -167,8 +172,8 @@ DEFUN (grammar_test_match,
   }
 
   // free resources
-  cmd_free_strvec(command);
-  free(cmdstr);
+  cmd_free_strvec (command);
+  free (cmdstr);
 
   return CMD_SUCCESS;
 }
@@ -351,6 +356,7 @@ new_cmd_token (enum cmd_token_type_t type, char *text, char *desc)
 void
 del_cmd_token (struct cmd_token_t *token)
 {
+  fprintf (stdout, "deleting token\n");
   if (!token) return;
 
   if (token->text)

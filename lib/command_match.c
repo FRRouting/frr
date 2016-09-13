@@ -101,14 +101,17 @@ command_match (struct graph *cmdgraph,
   struct graph_node *start = vector_slot (cmdgraph->nodes, 0);
   if ((*argv = command_match_r (start, vvline, 0))) // successful match
     {
-      // delete dummy start node
-      list_delete_node (*argv, listhead (*argv));
-      // get cmd_element out of list tail
+      struct listnode *head = listhead (*argv);
       struct listnode *tail = listtail (*argv);
+
+      // delete dummy start node
+      del_cmd_token ((struct cmd_token_t *) head->data);
+      list_delete_node (*argv, head);
+
+      // get cmd_element out of list tail
       *el = listgetdata (tail);
-      // delete list tail
-      tail->data = NULL;
       list_delete_node (*argv, tail);
+
       // now argv is an ordered list of cmd_token matching the user
       // input, with each cmd_token->arg holding the corresponding input
       assert (*el);
@@ -290,7 +293,7 @@ command_complete (struct graph *graph,
   unsigned int idx;
   for (idx = 0; idx < vector_active (vline) && next->count > 0; idx++)
     {
-      list_free (current);
+      list_delete (current);
       current = next;
       next = list_new();
 
@@ -334,8 +337,8 @@ command_complete (struct graph *graph,
   for (ALL_LIST_ELEMENTS_RO (next,node,gn))
     listnode_add (*completions, gn->data);
 
-  list_free (current);
-  list_free (next);
+  list_delete (current);
+  list_delete (next);
 
   return matcher_rv;
 }
