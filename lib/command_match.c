@@ -208,7 +208,8 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
               // that all nodes have the same data type, so when
               // deleting this list the last node must be
               // manually deleted
-              listnode_add (currbest, leaf->data);
+              struct cmd_element *el = leaf->data;
+              listnode_add (currbest, copy_cmd_element (el));
               currbest->del = (void (*)(void *)) &del_cmd_token;
               break;
             }
@@ -533,8 +534,10 @@ disambiguate (struct list *first,
       char *token = vector_slot(vline, i);
       if ((best = disambiguate_tokens (ftok, stok, token)))
         return best == ftok ? first : second;
-      ftok = listgetdata (listnextnode (fnode));
-      stok = listgetdata (listnextnode (snode));
+      fnode = listnextnode (fnode);
+      snode = listnextnode (snode);
+      ftok = listgetdata (fnode);
+      stok = listgetdata (snode);
     }
 
   return NULL;

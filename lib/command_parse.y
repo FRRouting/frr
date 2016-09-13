@@ -446,7 +446,7 @@ doc_next()
 {
   char *piece = NULL;
   if (!docstr || !(piece = strsep (&docstr, "\n")))
-    return NULL;
+    return XSTRDUP (MTYPE_CMD_TOKENS, "");
   return XSTRDUP (MTYPE_CMD_TOKENS, piece);
 }
 
