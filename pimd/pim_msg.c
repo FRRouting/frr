@@ -23,6 +23,9 @@
 
 #include "if.h"
 #include "log.h"
+#include "prefix.h"
+#include "vty.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_vty.h"

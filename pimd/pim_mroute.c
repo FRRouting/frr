@@ -24,6 +24,8 @@
 #include "privs.h"
 #include "if.h"
 #include "prefix.h"
+#include "vty.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_rpf.h"

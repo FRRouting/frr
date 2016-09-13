@@ -23,7 +23,10 @@
 
 #include "if.h"
 #include "linklist.h"
+#include "prefix.h"
+#include "vty.h"
 #include "vrf.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_vty.h"

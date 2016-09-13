@@ -45,6 +45,7 @@
 #include "pim_signals.h"
 #include "pim_zebra.h"
 #include "pim_msdp.h"
+#include "pim_rp.h"
 
 #ifdef PIM_ZCLIENT_DEBUG
 extern int zclient_debug;
@@ -208,6 +209,9 @@ int main(int argc, char** argv, char** envp) {
   vrf_init ();
   access_list_init();
   prefix_list_init ();
+  prefix_list_add_hook (pim_rp_prefix_list_update);
+  prefix_list_delete_hook (pim_rp_prefix_list_update);
+
   pim_route_map_init ();
   pim_init();
   pim_msdp_init ();

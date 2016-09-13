@@ -28,6 +28,8 @@
 #include "memory.h"
 #include "thread.h"
 #include "linklist.h"
+#include "vty.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_pim.h"

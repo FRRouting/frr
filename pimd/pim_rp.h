@@ -24,8 +24,9 @@
 void pim_rp_init (void);
 void pim_rp_free (void);
 
-int pim_rp_new (const char *rp, const char *group);
-int pim_rp_del (const char *rp, const char *group);
+int pim_rp_new (const char *rp, const char *group, const char *plist);
+int pim_rp_del (const char *rp, const char *group, const char *plist);
+void pim_rp_prefix_list_update (struct prefix_list *plist);
 
 int pim_rp_config_write (struct vty *vty);
 

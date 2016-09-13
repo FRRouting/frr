@@ -28,6 +28,7 @@
 #include "memory.h"
 #include "vty.h"
 #include "vrf.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_vty.h"
@@ -44,6 +45,7 @@ struct rp_info
   struct prefix group;
   struct pim_rpf rp;
   int i_am_rp;
+  char *plist;
 };
 
 static struct list *qpim_rp_list = NULL;
@@ -68,6 +70,24 @@ pim_rp_list_cmp (void *v1, void *v2)
     return -1;
 
   if (rp1 && !rp2)
+    return 1;
+
+  /*
+   * Sort by RP IP address
+   */
+  if (rp1->rp.rpf_addr.u.prefix4.s_addr < rp2->rp.rpf_addr.u.prefix4.s_addr)
+    return -1;
+
+  if (rp1->rp.rpf_addr.u.prefix4.s_addr > rp2->rp.rpf_addr.u.prefix4.s_addr)
+    return 1;
+
+  /*
+   * Sort by group IP address
+   */
+  if (rp1->group.u.prefix4.s_addr < rp2->group.u.prefix4.s_addr)
+    return -1;
+
+  if (rp1->group.u.prefix4.s_addr > rp2->group.u.prefix4.s_addr)
     return 1;
 
   if (rp1 == tail)
@@ -106,6 +126,50 @@ pim_rp_free (void)
     list_free (qpim_rp_list);
 }
 
+/*
+ * Given an RP's prefix-list, return the RP's rp_info for that prefix-list
+ */
+static struct rp_info *
+pim_rp_find_prefix_list (struct in_addr rp, const char *plist)
+{
+  struct listnode *node;
+  struct rp_info *rp_info;
+
+  for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
+    {
+      if (rp.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr &&
+          rp_info->plist && strcmp(rp_info->plist, plist) == 0)
+        {
+          return rp_info;
+        }
+    }
+
+  return NULL;
+}
+
+/*
+ * Return true if plist is used by any rp_info
+ */
+static int
+pim_rp_prefix_list_used (const char *plist)
+{
+  struct listnode *node;
+  struct rp_info *rp_info;
+
+  for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
+    {
+      if (rp_info->plist && strcmp(rp_info->plist, plist) == 0)
+        {
+          return 1;
+        }
+    }
+
+  return 0;
+}
+
+/*
+ * Given an RP's address, return the RP's rp_info that is an exact match for 'group'
+ */
 static struct rp_info *
 pim_rp_find_exact (struct in_addr rp, struct prefix *group)
 {
@@ -122,35 +186,65 @@ pim_rp_find_exact (struct in_addr rp, struct prefix *group)
   return NULL;
 }
 
-static struct rp_info *
-pim_rp_find_match (struct in_addr rp, struct prefix *group)
-{
-  struct listnode *node;
-  struct rp_info *rp_info;
-
-  for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
-    {
-      if (rp.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr &&
-          prefix_match (&rp_info->group, group))
-       return rp_info;
-    }
-
-  return NULL;
-}
-
+/*
+ * Given a group, return the rp_info for that group
+ */
 static struct rp_info *
 pim_rp_find_match_group (struct prefix *group)
 {
   struct listnode *node;
   struct rp_info *rp_info;
+  struct prefix_list *plist;
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
-      if (prefix_match (&rp_info->group, group))
-       return rp_info;
+      if (rp_info->plist)
+        {
+          plist = prefix_list_lookup (AFI_IP, rp_info->plist);
+
+          if (plist && prefix_list_apply (plist, group) == PREFIX_PERMIT)
+            return rp_info;
+        }
+      else
+        {
+          if (prefix_match (&rp_info->group, group))
+            return rp_info;
+        }
     }
 
   return NULL;
+}
+
+/*
+ * When the user makes "ip pim rp" configuration changes or if they change the
+ * prefix-list(s) used by these statements we must tickle the upstream state
+ * for each group to make them re-lookup who their RP should be.
+ *
+ * This is a placeholder function for now.
+ */
+static void
+pim_rp_refresh_group_to_rp_mapping()
+{
+}
+
+void
+pim_rp_prefix_list_update (struct prefix_list *plist)
+{
+  struct listnode *node;
+  struct rp_info *rp_info;
+  int refresh_needed = 0;
+
+  for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
+    {
+      if (rp_info->plist && strcmp(rp_info->plist, prefix_list_name (plist)) == 0)
+        {
+          refresh_needed = 1;
+          break;
+        }
+    }
+
+  if (refresh_needed)
+    pim_rp_refresh_group_to_rp_mapping();
 }
 
 static void
@@ -172,19 +266,19 @@ pim_rp_check_interfaces (struct rp_info *rp_info)
 }
 
 int
-pim_rp_new (const char *rp, const char *group_range)
+pim_rp_new (const char *rp, const char *group_range, const char *plist)
 {
   int result;
   struct rp_info *rp_info;
   struct rp_info *rp_all;
   struct prefix group_all;
-
-  str2prefix ("224.0.0.0/4", &group_all);
-  rp_all = pim_rp_find_match_group(&group_all);
+  struct listnode *node, *nnode;
+  struct rp_info *tmp_rp_info;
+  char buffer[BUFSIZ];
 
   rp_info = XCALLOC (MTYPE_PIM_RP, sizeof (*rp_info));
-  if (!rp)
-    return -1;
+  if (!rp_info)
+    return PIM_MALLOC_FAIL;
 
   if (group_range == NULL)
     result = str2prefix ("224.0.0.0/4", &rp_info->group);
@@ -192,54 +286,147 @@ pim_rp_new (const char *rp, const char *group_range)
     result = str2prefix (group_range, &rp_info->group);
 
   if (!result)
-    return -1;
+    {
+      XFREE (MTYPE_PIM_RP, rp_info);
+      return PIM_GROUP_BAD_ADDRESS;
+    }
+
   rp_info->rp.rpf_addr.family = AF_INET;
   result = inet_pton (rp_info->rp.rpf_addr.family, rp, &rp_info->rp.rpf_addr.u.prefix4);
+
   if (result <= 0)
-    return -1;
-
-  /*
-   * Take over the 224.0.0.0/4 group if the rp is INADDR_NONE
-   */
-  if (prefix_same (&rp_all->group, &rp_info->group) &&
-      pim_rpf_addr_is_inaddr_none (&rp_all->rp))
-    {
-      rp_all->rp.rpf_addr = rp_info->rp.rpf_addr;
-      XFREE (MTYPE_PIM_RP, rp_info);
-      if (!pim_rp_setup ())
-        return -2;
-      pim_rp_check_interfaces (rp_all);
-      return 0;
-    }
-
-  if (pim_rp_find_exact (rp_info->rp.rpf_addr.u.prefix4, &rp_info->group))
     {
       XFREE (MTYPE_PIM_RP, rp_info);
-      return 0;
+      return PIM_RP_BAD_ADDRESS;
     }
 
-  if (pim_rp_find_match (rp_info->rp.rpf_addr.u.prefix4, &rp_info->group))
+  if (plist)
     {
-      if (prefix_same (&group_all, &rp_info->group))
+      /*
+       * Return if the prefix-list is already configured for this RP
+       */
+      if (pim_rp_find_prefix_list (rp_info->rp.rpf_addr.u.prefix4, plist))
         {
-          return 0;
+          XFREE (MTYPE_PIM_RP, rp_info);
+          return PIM_SUCCESS;
         }
 
-      XFREE (MTYPE_PIM_RP, rp_info);
-      return -3;
+      /*
+       * Barf if the prefix-list is already configured for an RP
+       */
+      if (pim_rp_prefix_list_used (plist))
+        {
+          XFREE (MTYPE_PIM_RP, rp_info);
+          return PIM_RP_PFXLIST_IN_USE;
+        }
+
+      /*
+       * Free any existing rp_info entries for this RP
+       */
+      for (ALL_LIST_ELEMENTS (qpim_rp_list, node, nnode, tmp_rp_info))
+        {
+          if (rp_info->rp.rpf_addr.u.prefix4.s_addr == tmp_rp_info->rp.rpf_addr.u.prefix4.s_addr)
+            {
+              if (tmp_rp_info->plist)
+                pim_rp_del (rp, NULL, tmp_rp_info->plist);
+              else
+                pim_rp_del (rp, prefix2str(&tmp_rp_info->group, buffer, BUFSIZ), NULL);
+            }
+        }
+
+      rp_info->plist = XSTRDUP(MTYPE_PIM_FILTER_NAME, plist);
+    }
+  else
+    {
+      str2prefix ("224.0.0.0/4", &group_all);
+      rp_all = pim_rp_find_match_group(&group_all);
+
+      /*
+       * Barf if group is a non-multicast subnet
+       */
+      if (! prefix_match (&rp_all->group, &rp_info->group))
+        {
+          XFREE (MTYPE_PIM_RP, rp_info);
+          return PIM_GROUP_BAD_ADDRESS;
+        }
+
+      /*
+       * Remove any prefix-list rp_info entries for this RP
+       */
+      for (ALL_LIST_ELEMENTS (qpim_rp_list, node, nnode, tmp_rp_info))
+        {
+          if (tmp_rp_info->plist &&
+              rp_info->rp.rpf_addr.u.prefix4.s_addr == tmp_rp_info->rp.rpf_addr.u.prefix4.s_addr)
+            {
+              pim_rp_del (rp, NULL, tmp_rp_info->plist);
+            }
+        }
+
+      /*
+       * Take over the 224.0.0.0/4 group if the rp is INADDR_NONE
+       */
+      if (prefix_same (&rp_all->group, &rp_info->group) &&
+          pim_rpf_addr_is_inaddr_none (&rp_all->rp))
+        {
+          rp_all->rp.rpf_addr = rp_info->rp.rpf_addr;
+          XFREE (MTYPE_PIM_RP, rp_info);
+
+          if (!pim_rp_setup ())
+            return PIM_RP_NO_PATH;
+
+          pim_rp_check_interfaces (rp_all);
+          return PIM_SUCCESS;
+        }
+
+      /*
+       * Return if the group is already configured for this RP
+       */
+      if (pim_rp_find_exact (rp_info->rp.rpf_addr.u.prefix4, &rp_info->group))
+        {
+          XFREE (MTYPE_PIM_RP, rp_info);
+          return PIM_SUCCESS;
+        }
+
+      /*
+       * Barf if this group is already covered by some other RP
+       */
+      tmp_rp_info = pim_rp_find_match_group (&rp_info->group);
+
+      if (tmp_rp_info)
+        {
+          if (tmp_rp_info->plist)
+            {
+                XFREE (MTYPE_PIM_RP, rp_info);
+                return PIM_GROUP_PFXLIST_OVERLAP;
+            }
+          else
+            {
+              /*
+               * If the only RP that covers this group is an RP configured for
+               * 224.0.0.0/4 that is fine, ignore that one.  For all others
+               * though we must return PIM_GROUP_OVERLAP
+               */
+              if (! prefix_same (&group_all, &tmp_rp_info->group))
+                {
+                  XFREE (MTYPE_PIM_RP, rp_info);
+                  return PIM_GROUP_OVERLAP;
+                }
+            }
+        }
     }
 
   listnode_add_sort (qpim_rp_list, rp_info);
 
   if (!pim_rp_setup ())
-    return -2;
+    return PIM_RP_NO_PATH;
 
   pim_rp_check_interfaces (rp_info);
-  return 0;
+  pim_rp_refresh_group_to_rp_mapping();
+  return PIM_SUCCESS;
 }
 
 int
-pim_rp_del (const char *rp, const char *group_range)
+pim_rp_del (const char *rp, const char *group_range, const char *plist)
 {
   struct prefix group;
   struct in_addr rp_addr;
@@ -248,35 +435,46 @@ pim_rp_del (const char *rp, const char *group_range)
   struct rp_info *rp_all;
   int result;
 
-  str2prefix ("224.0.0.0/4", &g_all);
   if (group_range == NULL)
     result = str2prefix ("224.0.0.0/4", &group);
   else
     result = str2prefix (group_range, &group);
 
   if (!result)
-    return -1;
-
-  rp_all = pim_rp_find_match_group (&g_all);
+    return PIM_GROUP_BAD_ADDRESS;
 
   result = inet_pton (AF_INET, rp, &rp_addr);
   if (result <= 0)
-    return -1;
+    return PIM_RP_BAD_ADDRESS;
 
-  rp_info = pim_rp_find_exact (rp_addr, &group);
+  if (plist)
+    rp_info = pim_rp_find_prefix_list (rp_addr, plist);
+  else
+    rp_info = pim_rp_find_exact (rp_addr, &group);
+
   if (!rp_info)
-    return -2;
+    return PIM_RP_NOT_FOUND;
+
+  if (rp_info->plist)
+    {
+      XFREE(MTYPE_PIM_FILTER_NAME, rp_info->plist);
+      rp_info->plist = NULL;
+    }
+
+  str2prefix ("224.0.0.0/4", &g_all);
+  rp_all = pim_rp_find_match_group (&g_all);
 
   if (rp_all == rp_info)
     {
       rp_all->rp.rpf_addr.family = AF_INET;
       rp_all->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
       rp_all->i_am_rp = 0;
-      return 0;
+      return PIM_SUCCESS;
     }
 
   listnode_delete (qpim_rp_list, rp_info);
-  return 0;
+  pim_rp_refresh_group_to_rp_mapping();
+  return PIM_SUCCESS;
 }
 
 int
@@ -430,7 +628,8 @@ pim_rp_config_write (struct vty *vty)
 {
   struct listnode *node;
   struct rp_info *rp_info;
-  char buffer[32];
+  char rp_buffer[32];
+  char group_buffer[32];
   int count = 0;
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
@@ -438,13 +637,15 @@ pim_rp_config_write (struct vty *vty)
       if (pim_rpf_addr_is_inaddr_none (&rp_info->rp))
         continue;
 
-      if (!pim_rpf_addr_is_inaddr_none (&rp_info->rp))
-        {
-	  char buf[32];
-          vty_out(vty, "ip pim rp %s %s%s", inet_ntop(AF_INET, &rp_info->rp.rpf_addr.u.prefix4, buffer, 32),
-		  prefix2str(&rp_info->group, buf, 32), VTY_NEWLINE);
-          count++;
-        }
+      if (rp_info->plist)
+        vty_out(vty, "ip pim rp %s prefix-list %s%s",
+                inet_ntop(AF_INET, &rp_info->rp.rpf_addr.u.prefix4, rp_buffer, 32),
+                rp_info->plist, VTY_NEWLINE);
+      else
+        vty_out(vty, "ip pim rp %s %s%s",
+                inet_ntop(AF_INET, &rp_info->rp.rpf_addr.u.prefix4, rp_buffer, 32),
+                prefix2str(&rp_info->group, group_buffer, 32), VTY_NEWLINE);
+      count++;
     }
 
   return count;
@@ -486,18 +687,25 @@ pim_rp_show_information (struct vty *vty)
   struct rp_info *rp_info;
   struct listnode *node;
 
-  vty_out (vty, "RP Addr           Group   Oif    I_am_RP%s", VTY_NEWLINE);
+  vty_out (vty, "RP address       group/prefix-list   OIF         I am RP%s", VTY_NEWLINE);
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
       if (!pim_rpf_addr_is_inaddr_none (&rp_info->rp))
         {
           char buf[48];
-          vty_out (vty, "%-10s  %-10s  %-10s%-10d%s",
-          inet_ntoa (rp_info->rp.rpf_addr.u.prefix4),
-	             prefix2str(&rp_info->group, buf, 48),
-	             rp_info->rp.source_nexthop.interface->name,
-	             rp_info->i_am_rp, VTY_NEWLINE);
+          vty_out (vty, "%-15s  ", inet_ntoa (rp_info->rp.rpf_addr.u.prefix4));
+
+          if (rp_info->plist)
+            vty_out (vty, "%-18s  ", rp_info->plist);
+          else
+            vty_out (vty, "%-18s  ", prefix2str(&rp_info->group, buf, 48));
+
+          vty_out (vty, "%-10s  ", rp_info->rp.source_nexthop.interface->name);
+
+          if (rp_info->i_am_rp)
+            vty_out (vty, "yes%s", VTY_NEWLINE);
+          else
+            vty_out (vty, "no%s", VTY_NEWLINE);
         }
     }
-  return;
 }

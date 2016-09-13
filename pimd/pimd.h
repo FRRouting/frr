@@ -71,6 +71,18 @@
 #define PIM_MASK_STATIC              (1 << 17)
 #define PIM_MASK_PIM_REG             (1 << 18)
 
+
+/* PIM error codes */
+#define PIM_SUCCESS                0
+#define PIM_MALLOC_FAIL           -1
+#define PIM_GROUP_BAD_ADDRESS     -2
+#define PIM_GROUP_OVERLAP         -3
+#define PIM_GROUP_PFXLIST_OVERLAP -4
+#define PIM_RP_BAD_ADDRESS        -5
+#define PIM_RP_NO_PATH            -6
+#define PIM_RP_NOT_FOUND          -7
+#define PIM_RP_PFXLIST_IN_USE     -8
+
 const char *const PIM_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS;

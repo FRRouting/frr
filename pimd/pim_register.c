@@ -25,6 +25,8 @@
 #include "if.h"
 #include "thread.h"
 #include "prefix.h"
+#include "vty.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"

@@ -22,6 +22,9 @@
 #include <zebra.h>
 
 #include "log.h"
+#include "prefix.h"
+#include "vty.h"
+#include "plist.h"
 
 #include "pim_macro.h"
 #include "pimd.h"

@@ -25,6 +25,7 @@
 #include "if.h"
 #include "prefix.h"
 #include "zclient.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -2439,27 +2440,52 @@ DEFUN (show_ip_ssmpingd,
 }
 
 static int
-pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group)
+pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group, const char *plist)
 {
   int result;
-  result = pim_rp_new (rp, group);
 
-  if (result == -1)
+  result = pim_rp_new (rp, group, plist);
+
+  if (result == PIM_MALLOC_FAIL)
     {
-      vty_out (vty, "%% Bad RP/group address specified: %s", rp);
+      vty_out (vty, "%% Out of memory%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (result == -2)
+  if (result == PIM_GROUP_BAD_ADDRESS)
     {
-      vty_out (vty, "%% No Path to RP address specified: %s", rp);
-            return CMD_WARNING;
+      vty_out (vty, "%% Bad group address specified: %s%s", group, VTY_NEWLINE);
+      return CMD_WARNING;
     }
 
-  if (result == -3)
+  if (result == PIM_RP_BAD_ADDRESS)
     {
-      vty_out (vty, "%% Group range specified cannot overlap");
-      return CMD_ERR_NO_MATCH;
+      vty_out (vty, "%% Bad RP address specified: %s%s", rp, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (result == PIM_RP_NO_PATH)
+    {
+      vty_out (vty, "%% No Path to RP address specified: %s%s", rp, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (result == PIM_GROUP_OVERLAP)
+    {
+      vty_out (vty, "%% Group range specified cannot overlap%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (result == PIM_GROUP_PFXLIST_OVERLAP)
+    {
+      vty_out (vty, "%% This group is already covered by a RP prefix-list%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (result == PIM_RP_PFXLIST_IN_USE)
+    {
+      vty_out (vty, "%% The same prefix-list cannot be applied to multiple RPs%s", VTY_NEWLINE);
+      return CMD_WARNING;
     }
 
   return CMD_SUCCESS;
@@ -2526,23 +2552,43 @@ DEFUN (ip_pim_rp,
        "ip address of RP\n")
 {
   int idx_ipv4 = 3;
-  return pim_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg);
+  return pim_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg, NULL);
+}
+
+DEFUN (ip_pim_rp_prefix_list,
+       ip_pim_rp_prefix_list_cmd,
+       "ip pim rp A.B.C.D prefix-list WORD",
+       IP_STR
+       "pim multicast routing\n"
+       "Rendevous Point\n"
+       "ip address of RP\n"
+       "group prefix-list filter\n"
+       "Name of a prefix-list\n")
+{
+  return pim_rp_cmd_worker (vty, argv[3]->arg, NULL, argv[5]->arg);
 }
 
 static int
-pim_no_rp_cmd_worker (struct vty *vty, const char *rp, const char *group)
+pim_no_rp_cmd_worker (struct vty *vty, const char *rp, const char *group,
+                      const char *plist)
 {
-  int result = pim_rp_del (rp, group);
+  int result = pim_rp_del (rp, group, plist);
 
-  if (result == -1)
+  if (result == PIM_GROUP_BAD_ADDRESS)
     {
-      vty_out (vty, "%% Unable to Decode specified RP");
+      vty_out (vty, "%% Bad group address specified: %s%s", group, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (result == -2)
+  if (result == PIM_RP_BAD_ADDRESS)
     {
-      vty_out (vty, "%% Unable to find specified RP");
+      vty_out (vty, "%% Bad RP address specified: %s%s", rp, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (result == PIM_RP_NOT_FOUND)
+    {
+      vty_out (vty, "%% Unable to find specified RP%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -2559,7 +2605,21 @@ DEFUN (no_ip_pim_rp,
        "ip address of RP\n")
 {
   int idx_ipv4 = 4;
-  return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg);
+  return pim_no_rp_cmd_worker (vty, argv[idx_ipv4]->arg, argv[idx_ipv4 + 1]->arg, NULL);
+}
+
+DEFUN (no_ip_pim_rp_prefix_list,
+       no_ip_pim_rp_prefix_list_cmd,
+       "no ip pim rp A.B.C.D prefix-list WORD",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Rendevous Point\n"
+       "ip address of RP\n"
+       "group prefix-list filter\n"
+       "Name of a prefix-list\n")
+{
+  return pim_no_rp_cmd_worker (vty, argv[4]->arg, NULL, argv[6]->arg);
 }
 
 DEFUN (ip_multicast_routing,
@@ -4821,6 +4881,8 @@ void pim_cmd_init()
   install_element (CONFIG_NODE, &no_ip_multicast_routing_cmd);
   install_element (CONFIG_NODE, &ip_pim_rp_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_rp_cmd);
+  install_element (CONFIG_NODE, &ip_pim_rp_prefix_list_cmd);
+  install_element (CONFIG_NODE, &no_ip_pim_rp_prefix_list_cmd);
   install_element (CONFIG_NODE, &ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &no_ip_pim_keep_alive_cmd);
   install_element (CONFIG_NODE, &ip_pim_rp_keep_alive_cmd);
