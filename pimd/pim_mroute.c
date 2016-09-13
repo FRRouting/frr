@@ -143,6 +143,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     }
     return 0;
   }
+  PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 
   pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 
@@ -361,7 +362,6 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
   if (pim_if_connected_to_source (ifp, sg.src))
     {
       up = pim_upstream_add (&sg, ifp);
-
       if (!up)
 	{
 	  if (PIM_DEBUG_MROUTE)
@@ -369,6 +369,7 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 			pim_str_sg_dump (&sg), ifp->name);
 	  return -2;
 	}
+      PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
       PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 
       pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);

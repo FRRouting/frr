@@ -437,7 +437,7 @@ pim_upstream_switch(struct pim_upstream *up,
 	if (pim_upstream_could_register (up))
 	  {
             PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
-            if (!old_fhr)
+            if (!old_fhr && PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
               {
                 pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
 	        pim_channel_add_oif (up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_PIM);
@@ -882,6 +882,7 @@ pim_upstream_keep_alive_timer (struct thread *t)
       THREAD_OFF (up->t_join_timer);
       pim_joinprune_send (up->rpf.source_nexthop.interface, up->rpf.rpf_addr.u.prefix4,
                           &up->sg, 0);
+      PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM (up->flags);
       pim_upstream_del (up);
     }
   else
