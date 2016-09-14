@@ -44,5 +44,5 @@ struct pim_rpf *pim_rp_g (struct in_addr group);
 #define I_am_RP(G)  pim_rp_i_am_rp ((G))
 #define RP(G)       pim_rp_g ((G))
 
-void pim_rp_show_information (struct vty *vty);
+void pim_rp_show_information (struct vty *vty, u_char uj);
 #endif
