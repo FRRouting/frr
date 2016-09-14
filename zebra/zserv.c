@@ -939,50 +939,6 @@ zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struc
   return zebra_server_send_message(client);
 }
 
-static int
-zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p,
-    vrf_id_t vrf_id)
-{
-  struct stream *s;
-  struct rib *rib;
-  unsigned long nump;
-  u_char num;
-  struct nexthop *nexthop;
-
-  /* Lookup nexthop. */
-  rib = rib_lookup_ipv4 (p, vrf_id);
-
-  /* Get output stream. */
-  s = client->obuf;
-  stream_reset (s);
-
-  /* Fill in result. */
-  zserv_create_header (s, ZEBRA_IPV4_IMPORT_LOOKUP, vrf_id);
-  stream_put_in_addr (s, &p->prefix);
-
-  if (rib)
-    {
-      stream_putl (s, rib->metric);
-      num = 0;
-      nump = stream_get_endp(s);
-      stream_putc (s, 0);
-      for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-            || nexthop_has_fib_child(nexthop))
-	  num += zsend_write_nexthop (s, nexthop);
-      stream_putc_at (s, nump, num);
-    }
-  else
-    {
-      stream_putl (s, 0);
-      stream_putc (s, 0);
-    }
-
-  stream_putw_at (s, 0, stream_get_endp (s));
-
-  return zebra_server_send_message(client);
-}
-
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
 int
 zsend_router_id_update (struct zserv *client, struct prefix *p,
@@ -1274,20 +1230,6 @@ zread_ipv4_nexthop_lookup_mrib (struct zserv *client, u_short length, struct zeb
   addr.s_addr = stream_get_ipv4 (client->ibuf);
   rib = rib_match_ipv4_multicast (zvrf->vrf_id, addr, NULL);
   return zsend_ipv4_nexthop_lookup_mrib (client, addr, rib, zvrf);
-}
-
-/* Nexthop lookup for IPv4. */
-static int
-zread_ipv4_import_lookup (struct zserv *client, u_short length,
-			  struct zebra_vrf *zvrf)
-{
-  struct prefix_ipv4 p;
-
-  p.family = AF_INET;
-  p.prefixlen = stream_getc (client->ibuf);
-  p.prefix.s_addr = stream_get_ipv4 (client->ibuf);
-
-  return zsend_ipv4_import_lookup (client, &p, zvrf->vrf_id);
 }
 
 /* Zebra server IPv6 prefix add function. */
@@ -1946,9 +1888,6 @@ zebra_client_read (struct thread *thread)
       break;
     case ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB:
       zread_ipv4_nexthop_lookup_mrib (client, length, zvrf);
-      break;
-    case ZEBRA_IPV4_IMPORT_LOOKUP:
-      zread_ipv4_import_lookup (client, length, zvrf);
       break;
     case ZEBRA_HELLO:
       zread_hello (client);
