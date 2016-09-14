@@ -233,8 +233,10 @@ static int zclient_read_nexthop(struct zclient *zlookup,
     switch (nexthop_type) {
     case NEXTHOP_TYPE_IFINDEX:
     case NEXTHOP_TYPE_IPV4_IFINDEX:
+    case NEXTHOP_TYPE_IPV4:
       nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
-      if (nexthop_type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+      if (nexthop_type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+	  nexthop_type == NEXTHOP_TYPE_IPV4) {
 	nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr = stream_get_ipv4(s);
       }
       else {
@@ -243,23 +245,6 @@ static int zclient_read_nexthop(struct zclient *zlookup,
       nexthop_tab[num_ifindex].ifindex           = stream_getl(s);
       nexthop_tab[num_ifindex].protocol_distance = distance;
       nexthop_tab[num_ifindex].route_metric      = metric;
-      ++num_ifindex;
-      break;
-    case NEXTHOP_TYPE_IPV4:
-      nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
-      nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr = stream_get_ipv4(s);
-      nexthop_tab[num_ifindex].ifindex             = 0;
-      nexthop_tab[num_ifindex].protocol_distance   = distance;
-      nexthop_tab[num_ifindex].route_metric        = metric;
-      if (PIM_DEBUG_ZEBRA) {
-	char addr_str[100];
-	char nexthop_str[100];
-	pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-	pim_addr_dump("<nexthop?>", &nexthop_tab[num_ifindex].nexthop_addr, nexthop_str, sizeof(nexthop_str));
-	zlog_debug("%s %s: zebra returned recursive nexthop %s for address %s",
-		   __FILE__, __PRETTY_FUNCTION__,
-		   nexthop_str, addr_str);
-      }
       ++num_ifindex;
       break;
     case NEXTHOP_TYPE_IPV6_IFINDEX:

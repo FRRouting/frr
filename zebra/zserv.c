@@ -786,8 +786,6 @@ zsend_write_nexthop (struct stream *s, struct nexthop *nexthop)
   switch (nexthop->type)
     {
     case NEXTHOP_TYPE_IPV4:
-      stream_put_in_addr (s, &nexthop->gate.ipv4);
-      break;
     case NEXTHOP_TYPE_IPV4_IFINDEX:
       stream_put_in_addr (s, &nexthop->gate.ipv4);
       stream_putl (s, nexthop->ifindex);
