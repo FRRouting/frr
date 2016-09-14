@@ -764,12 +764,16 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
 
   memset (&p, 0, sizeof (struct prefix));
   p.family = afi;
-  p.u.prefix = *(u_char *)addr;
-  p.prefixlen = IPV4_MAX_PREFIXLEN;
   if (afi == AFI_IP)
-    p.prefixlen = IPV4_MAX_PREFIXLEN;
+    {
+      p.u.prefix4 = addr->ipv4;
+      p.prefixlen = IPV4_MAX_PREFIXLEN;
+    }
   else
-    p.prefixlen = IPV6_MAX_PREFIXLEN;
+    {
+      p.u.prefix6 = addr->ipv6;
+      p.prefixlen = IPV6_MAX_PREFIXLEN;
+    }
 
   rn = route_node_match (table, (struct prefix *) &p);
 
