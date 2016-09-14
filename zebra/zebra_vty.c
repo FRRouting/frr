@@ -311,7 +311,7 @@ DEFUN (show_ip_rpf_addr,
       return CMD_WARNING;
     }
 
-  rib = rib_match_ipv4_multicast (addr, &rn);
+  rib = rib_match_ipv4_multicast (VRF_DEFAULT, addr, &rn);
 
   if (rib)
     vty_show_ip_route_detail (vty, rn, 1);

@@ -354,7 +354,7 @@ extern int rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 
 extern struct rib *rib_match (afi_t afi, safi_t safi, vrf_id_t, union g_addr *,
 			      struct route_node **rn_out);
-extern struct rib *rib_match_ipv4_multicast (struct in_addr addr,
+extern struct rib *rib_match_ipv4_multicast (vrf_id_t vrf_id, struct in_addr addr,
 					     struct route_node **rn_out);
 
 extern struct rib *rib_lookup_ipv4 (struct prefix_ipv4 *, vrf_id_t);

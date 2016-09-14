@@ -1346,7 +1346,7 @@ zread_ipv4_nexthop_lookup_mrib (struct zserv *client, u_short length, struct zeb
   struct rib *rib;
 
   addr.s_addr = stream_get_ipv4 (client->ibuf);
-  rib = rib_match_ipv4_multicast (addr, NULL);
+  rib = rib_match_ipv4_multicast (zvrf->vrf_id, addr, NULL);
   return zsend_ipv4_nexthop_lookup_mrib (client, addr, rib, zvrf);
 }
 

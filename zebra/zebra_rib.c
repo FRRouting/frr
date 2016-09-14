@@ -824,7 +824,7 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
 }
 
 struct rib *
-rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
+rib_match_ipv4_multicast (vrf_id_t vrf_id, struct in_addr addr, struct route_node **rn_out)
 {
   struct rib *rib = NULL, *mrib = NULL, *urib = NULL;
   struct route_node *m_rn = NULL, *u_rn = NULL;
@@ -833,18 +833,18 @@ rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
   switch (ipv4_multicast_mode)
     {
     case MCAST_MRIB_ONLY:
-      return rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, rn_out);
+      return rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, rn_out);
     case MCAST_URIB_ONLY:
-      return rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, rn_out);
+      return rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, rn_out);
     case MCAST_NO_CONFIG:
     case MCAST_MIX_MRIB_FIRST:
-      rib = mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
+      rib = mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
       if (!mrib)
-	rib = urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
+	rib = urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
       break;
     case MCAST_MIX_DISTANCE:
-      mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
-      urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
+      mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+      urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
       if (mrib && urib)
 	rib = urib->distance < mrib->distance ? urib : mrib;
       else if (mrib)
@@ -853,8 +853,8 @@ rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
 	rib = urib;
       break;
     case MCAST_MIX_PFXLEN:
-      mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
-      urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
+      mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+      urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
       if (mrib && urib)
 	rib = u_rn->p.prefixlen > m_rn->p.prefixlen ? urib : mrib;
       else if (mrib)
