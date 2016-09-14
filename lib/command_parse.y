@@ -83,7 +83,6 @@
 %type <node> option_token
 %type <node> option_token_seq
 %type <node> selector
-%type <node> selector_element_root
 %type <node> selector_token
 %type <node> selector_token_seq
 
@@ -95,13 +94,14 @@
   /* state variables for a single parser run */
   struct graph_node *startnode;       // start node of DFA
 
-  struct graph_node *currnode,        // current position in DFA
-                    *seqhead;         // sequence head
+  struct graph_node *currnode;        // current position in DFA
 
   struct graph_node *optnode_start,   // start node for option set
+                    *optnode_seqtail, // sequence tail for option sequence
                     *optnode_end;     // end node for option set
 
   struct graph_node *selnode_start,   // start node for selector set
+                    *selnode_seqtail, // sequence tail for selector sequence
                     *selnode_end;     // end node for selector set
 
   char *docstr_start, *docstr;        // pointers to copy of command docstring
@@ -124,6 +124,9 @@
                   enum cmd_token_type_t type,
                   char *text, char *doc);
 
+  static struct graph_node *
+  find_tail (struct graph_node *);
+
   static void
   terminate_graph (struct graph *,
                    struct graph_node *,
@@ -142,10 +145,9 @@
   startnode = vector_slot (graph->nodes, 0);
 
   /* clear state pointers */
-  seqhead = NULL;
   currnode = NULL;
-  selnode_start = selnode_end = NULL;
-  optnode_start = optnode_end = NULL;
+  selnode_start = selnode_seqtail = selnode_end = NULL;
+  optnode_start = optnode_seqtail = optnode_end = NULL;
 
   /* set string to parse */
   set_lexer_string (element->string);
@@ -203,14 +205,12 @@ cmd_token:
 | selector
 {
   graph_add_edge (currnode, $1);
-  currnode = selnode_end;
-  selnode_start = selnode_end = NULL;
+  currnode = find_tail ($1);
 }
 | option
 {
   graph_add_edge (currnode, $1);
-  currnode = optnode_end;
-  optnode_start = optnode_end = NULL;
+  currnode = find_tail ($1);
 }
 ;
 
@@ -286,6 +286,7 @@ selector: '<' selector_part '>'
   // all the graph building is done in selector_element,
   // so just return the selector subgraph head
   $$ = selnode_start;
+  selnode_start = selnode_end = NULL;
 };
 
 selector_part:
@@ -293,7 +294,7 @@ selector_part:
 | selector_element '|' selector_element
 ;
 
-selector_element: selector_element_root selector_token_seq
+selector_element: selector_token_seq
 {
   // if the selector start and end do not exist, create them
   if (!selnode_start || !selnode_end) {
@@ -304,79 +305,69 @@ selector_element: selector_element_root selector_token_seq
 
   // add element head as a child of the selector
   graph_add_edge (selnode_start, $1);
+  graph_add_edge (selnode_seqtail, selnode_end);
 
-  if ($2) {
-    graph_add_edge ($1, seqhead);       // tack on selector_token_seq
-    graph_add_edge ($2, selnode_end);   // $2 is the sequence tail
-  }
-  else
-    graph_add_edge ($1, selnode_end);
-
-  seqhead = NULL;
+  selnode_seqtail = NULL;
 }
 
 selector_token_seq:
-  %empty { $$ = NULL; }
+  selector_token
+{
+  assert (!selnode_seqtail);
+  selnode_seqtail = $1;
+}
 | selector_token_seq selector_token
 {
-  // if the sequence component is NUL_TKN, this is a sequence start
-  if (!$1) {
-    assert(!seqhead);
-    seqhead = $2;
-  }
-  else // chain on new node
-    graph_add_edge ($1, $2);
-
-  $$ = $2;
+  graph_add_edge ($1, $2);
+  selnode_seqtail = $2;
 }
 ;
 
-selector_element_root:
+selector_token:
   literal_token
 | placeholder_token
 ;
 
-selector_token:
-  selector_element_root
-;
-
-/* [option|set] productions */
-option: '[' option_part ']'
+/* [optional] productions */
+option: '[' option_element ']'
 {
   // add null path
   graph_add_edge (optnode_start, optnode_end);
   $$ = optnode_start;
+  optnode_start = optnode_end = NULL;
 };
 
-option_part:
-  option_part '|' option_element
-| option_element
-;
-
-option_element:
-  option_token_seq
+option_element: option_token_seq
 {
   if (!optnode_start || !optnode_end) {
-    assert(!optnode_start && !optnode_end);
+    assert (!optnode_start && !optnode_end);
     optnode_start = new_token_node (graph, OPTION_TKN, NULL, NULL);
     optnode_end = new_token_node (graph, NUL_TKN, NULL, NULL);
   }
 
-  graph_add_edge (optnode_start, seqhead);
-  graph_add_edge ($1, optnode_end);
-  seqhead = NULL;
+  graph_add_edge (optnode_start, $1);
+  graph_add_edge (optnode_seqtail, optnode_end);
+  optnode_seqtail = NULL;
 }
 
 option_token_seq:
   option_token
-{ $$ = seqhead = $1; }
+{
+  assert (!optnode_seqtail);
+  optnode_seqtail = find_tail ($1);
+}
 | option_token_seq option_token
-{ $$ = graph_add_edge ($1, $2); }
+{
+  graph_add_edge (find_tail ($1), $2);
+//  exit (EXIT_FAILURE);
+  optnode_seqtail = find_tail ($2);
+}
 ;
 
 option_token:
   literal_token
 | placeholder_token
+| selector
 ;
 
 %%
@@ -414,11 +405,10 @@ cleanup()
   cleanup_lexer ();
 
   /* clear state pointers */
-  seqhead = NULL;
   currnode = NULL;
   docstr_start = docstr = NULL;
-  selnode_start = selnode_end = NULL;
-  optnode_start = optnode_end = NULL;
+  selnode_start = selnode_seqtail = selnode_end = NULL;
+  optnode_start = selnode_seqtail = optnode_end = NULL;
 }
 
 static void
@@ -475,6 +465,17 @@ node_adjacent (struct graph_node *first, struct graph_node *second)
   return NULL;
 }
 
+/**
+ * Walks down the left side of graph, returning the first encountered node with
+ * no children.
+ */
+static struct graph_node *
+find_tail (struct graph_node *node)
+{
+  while (vector_active (node->to) > 0)
+    node = vector_slot (node->to, 0);
+  return node;
+}
 /**
  * Creates an edge betwen two nodes, unless there is already an edge to an
  * equivalent node.
