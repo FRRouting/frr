@@ -748,6 +748,36 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
 }
 
 static int
+zsend_write_nexthop (struct stream *s, struct nexthop *nexthop)
+{
+  stream_putc (s, nexthop->type);
+  switch (nexthop->type)
+    {
+    case NEXTHOP_TYPE_IPV4:
+      stream_put_in_addr (s, &nexthop->gate.ipv4);
+      break;
+    case NEXTHOP_TYPE_IPV4_IFINDEX:
+      stream_put_in_addr (s, &nexthop->gate.ipv4);
+      stream_putl (s, nexthop->ifindex);
+      break;
+    case NEXTHOP_TYPE_IPV6:
+      stream_put (s, &nexthop->gate.ipv6, 16);
+      break;
+    case NEXTHOP_TYPE_IPV6_IFINDEX:
+      stream_put (s, &nexthop->gate.ipv6, 16);
+      stream_putl (s, nexthop->ifindex);
+      break;
+    case NEXTHOP_TYPE_IFINDEX:
+      stream_putl (s, nexthop->ifindex);
+      break;
+    default:
+      /* do nothing */
+      break;
+    }
+  return 1;
+}
+
+static int
 zsend_nexthop_lookup (struct zserv *client, afi_t afi, safi_t safi,
 		      vrf_id_t vrf_id, union g_addr *addr)
 {
@@ -789,33 +819,7 @@ zsend_nexthop_lookup (struct zserv *client, afi_t afi, safi_t safi,
        * chain of nexthops. */
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-	  {
-	    stream_putc (s, nexthop->type);
-	    switch (nexthop->type)
-	      {
-	      case NEXTHOP_TYPE_IPV4:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		break;
-	      case NEXTHOP_TYPE_IPV4_IFINDEX:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      case NEXTHOP_TYPE_IPV6:
-		stream_put (s, &nexthop->gate.ipv6, 16);
-		break;
-	      case NEXTHOP_TYPE_IPV6_IFINDEX:
-		stream_put (s, &nexthop->gate.ipv6, 16);
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      case NEXTHOP_TYPE_IFINDEX:
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      default:
-                /* do nothing */
-		break;
-	      }
-	    num++;
-	  }
+	  num += zsend_write_nexthop (s, nexthop);
       stream_putc_at (s, nump, num);
     }
   else
@@ -977,26 +981,7 @@ zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struc
        * chain of nexthops. */
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-	  {
-	    stream_putc (s, nexthop->type);
-	    switch (nexthop->type)
-	      {
-	      case NEXTHOP_TYPE_IPV4:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		break;
-	      case NEXTHOP_TYPE_IPV4_IFINDEX:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      case NEXTHOP_TYPE_IFINDEX:
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      default:
-		/* do nothing */
-		break;
-	      }
-	    num++;
-	  }
+	    num += zsend_write_nexthop (s, nexthop);
     
       stream_putc_at (s, nump, num); /* store nexthop_num */
     }
@@ -1042,26 +1027,7 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p,
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
             || nexthop_has_fib_child(nexthop))
-	  {
-	    stream_putc (s, nexthop->type);
-	    switch (nexthop->type)
-	      {
-	      case NEXTHOP_TYPE_IPV4:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		break;
-	      case NEXTHOP_TYPE_IPV4_IFINDEX:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      case NEXTHOP_TYPE_IFINDEX:
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      default:
-                /* do nothing */
-		break;
-	      }
-	    num++;
-	  }
+	  num += zsend_write_nexthop (s, nexthop);
       stream_putc_at (s, nump, num);
     }
   else
