@@ -356,7 +356,7 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
     struct prefix nexthop_addr;
 
     num_ifindex = zclient_lookup_nexthop_once(nexthop_tab,
-					      PIM_NEXTHOP_IFINDEX_TAB_SIZE, addr);
+					      tab_size, addr);
     if (num_ifindex < 1) {
       if (PIM_DEBUG_ZEBRA) {
 	char addr_str[100];

@@ -39,15 +39,15 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 
 int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr)
 {
-  struct pim_zlookup_nexthop nexthop_tab[PIM_NEXTHOP_IFINDEX_TAB_SIZE];
+  struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
   int num_ifindex;
   struct interface *ifp;
   int first_ifindex;
 
-  memset (nexthop_tab, 0, sizeof (struct pim_zlookup_nexthop) * PIM_NEXTHOP_IFINDEX_TAB_SIZE);
+  memset (nexthop_tab, 0, sizeof (struct pim_zlookup_nexthop) * MULTIPATH_NUM);
 
   num_ifindex = zclient_lookup_nexthop(nexthop_tab,
-				       PIM_NEXTHOP_IFINDEX_TAB_SIZE,
+				       MULTIPATH_NUM,
 				       addr, PIM_NEXTHOP_LOOKUP_MAX);
   if (num_ifindex < 1) {
     char addr_str[100];

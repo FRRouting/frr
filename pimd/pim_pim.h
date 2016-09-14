@@ -29,8 +29,6 @@
 #define PIM_PIM_BUFSIZE_READ  (20000)
 #define PIM_PIM_BUFSIZE_WRITE (20000)
 
-#define PIM_NEXTHOP_IFINDEX_TAB_SIZE (20)
-
 #define PIM_DEFAULT_HELLO_PERIOD                 (30)   /* seconds, RFC 4601: 4.11 */
 #define PIM_DEFAULT_TRIGGERED_HELLO_DELAY        (5)    /* seconds, RFC 4601: 4.11 */
 #define PIM_DEFAULT_DR_PRIORITY                  (1)    /* RFC 4601: 4.3.1 */

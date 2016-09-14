@@ -792,13 +792,13 @@ void igmp_anysource_forward_stop(struct igmp_group *group)
 
 static int fib_lookup_if_vif_index(struct in_addr addr)
 {
-  struct pim_zlookup_nexthop nexthop_tab[PIM_NEXTHOP_IFINDEX_TAB_SIZE];
+  struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
   int num_ifindex;
   int vif_index;
   ifindex_t first_ifindex;
 
   num_ifindex = zclient_lookup_nexthop(nexthop_tab,
-				       PIM_NEXTHOP_IFINDEX_TAB_SIZE, addr,
+				       MULTIPATH_NUM, addr,
 				       PIM_NEXTHOP_LOOKUP_MAX);
   if (num_ifindex < 1) {
     char addr_str[100];
