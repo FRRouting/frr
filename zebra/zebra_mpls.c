@@ -1520,6 +1520,7 @@ mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi)
     }
 }
 
+#if defined(HAVE_CUMULUS)
 /*
  * Check that the label values used in LSP creation are consistent. The
  * main criteria is that if there is ECMP, the label operation must still
@@ -1575,7 +1576,7 @@ zebra_mpls_lsp_label_consistent (struct zebra_vrf *zvrf, mpls_label_t in_label,
   /* Label values are good. */
   return 1;
 }
-
+#endif /* HAVE_CUMULUS */
 
 /*
  * Add static LSP entry. This may be the first entry for this incoming label
