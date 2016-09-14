@@ -97,5 +97,18 @@ static_delete_route (afi_t, safi_t safi, u_char type, struct prefix *p,
 		     u_char distance, struct zebra_vrf *zvrf,
 		     struct static_nh_label *snh_label);
 
+int
+zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
+		   const char *dest_str, const char *mask_str,
+		   const char *gate_str, const char *flag_str,
+		   const char *tag_str, const char *distance_str,
+		   const char *vrf_id_str, const char *label_str);
+
+int
+static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
+		  const char *gate_str, const char *ifname,
+		  const char *flag_str, const char *tag_str,
+                  const char *distance_str, const char *vrf_id_str,
+		  const char *label_str);
 
 #endif

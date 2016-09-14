@@ -149,6 +149,9 @@ extern void kernel_terminate (struct zebra_ns *);
 extern void zebra_route_map_init (void);
 extern void zebra_snmp_init (void);
 extern void zebra_vty_init (void);
+#if defined(HAVE_MPLS)
+extern void zebra_mpls_vty_init (void);
+#endif
 
 extern int zsend_vrf_add (struct zserv *, struct zebra_vrf *);
 extern int zsend_vrf_delete (struct zserv *, struct zebra_vrf *);

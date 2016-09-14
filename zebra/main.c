@@ -350,6 +350,9 @@ main (int argc, char **argv)
   zebra_debug_init ();
   router_id_cmd_init ();
   zebra_vty_init ();
+#if defined(HAVE_MPLS)
+  zebra_mpls_vty_init ();
+#endif
   access_list_init ();
   prefix_list_init ();
 #if defined (HAVE_RTADV)

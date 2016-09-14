@@ -67,7 +67,8 @@ vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/zebra/zserv.c $(top_srcdir)/zebra/router-id.c \
 		  $(top_srcdir)/zebra/zebra_routemap.c \
 	          $(top_srcdir)/zebra/zebra_fpm.c \
-		  $(top_srcdir)/zebra/zebra_ptm.c
+		  $(top_srcdir)/zebra/zebra_ptm.c \
+		  $(top_srcdir)/zebra/zebra_mpls_vty.c
 
 vtysh_cmd.c: $(vtysh_cmd_FILES) extract.pl
 	./extract.pl $(vtysh_cmd_FILES) > vtysh_cmd.c
