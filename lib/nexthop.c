@@ -171,7 +171,8 @@ nexthop_add_labels (struct nexthop *nexthop, enum lsp_types_t type,
   int i;
 
   nexthop->nh_label_type = type;
-  nh_label = XCALLOC (MTYPE_NH_LABEL, sizeof (struct nexthop_label));
+  nh_label = XCALLOC (MTYPE_NH_LABEL, sizeof (struct nexthop_label) +
+		      num_labels * sizeof (mpls_label_t));
   nh_label->num_labels = num_labels;
   for (i = 0; i < num_labels; i++)
     nh_label->label[i] = *(label + i);
