@@ -28,11 +28,11 @@
 #include <pimd/pim_rpf.h>
 
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED         (1 << 0)
-#define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED (2 << 0)
-#define PIM_UPSTREAM_FLAG_MASK_FHR                     (3 << 0)
-#define PIM_UPSTREAM_FLAG_MASK_SRC_IGMP                (4 << 0)
-#define PIM_UPSTREAM_FLAG_MASK_SRC_PIM                 (5 << 0)
-#define PIM_UPSTREAM_FLAG_MASK_SRC_STREAM              (6 << 0)
+#define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED (1 << 1)
+#define PIM_UPSTREAM_FLAG_MASK_FHR                     (1 << 2)
+#define PIM_UPSTREAM_FLAG_MASK_SRC_IGMP                (1 << 3)
+#define PIM_UPSTREAM_FLAG_MASK_SRC_PIM                 (1 << 4)
+#define PIM_UPSTREAM_FLAG_MASK_SRC_STREAM              (1 << 5)
 
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED_UPDATED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
