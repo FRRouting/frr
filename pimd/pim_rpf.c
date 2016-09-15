@@ -46,6 +46,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
   int found = 0;
   int i = 0;
 
+  neighbor_needed = 0;
   memset (nexthop_tab, 0, sizeof (struct pim_zlookup_nexthop) * MULTIPATH_NUM);
   num_ifindex = zclient_lookup_nexthop(nexthop_tab,
 				       MULTIPATH_NUM,
