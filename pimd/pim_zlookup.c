@@ -332,6 +332,7 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
   int lookup;
   uint32_t route_metric = 0xFFFFFFFF;
   uint8_t  protocol_distance = 0xFF;
+  int i;
 
   qpim_nexthop_lookups++;
 
@@ -360,9 +361,13 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
     }
     
     /*
-      FIXME: Non-recursive nexthop ensured only for first ifindex.
-      However, recursive route lookup should really be fixed in zebra daemon.
-      See also TODO T24.
+     * FIXME: Non-recursive nexthop ensured only for first ifindex.
+     * However, recursive route lookup should really be fixed in zebra daemon.
+     * See also TODO T24.
+     *
+     * So Zebra for NEXTHOP_TYPE_IPV4 returns the ifindex now since
+     * it was being stored.  This Doesn't solve all cases of
+     * recursive lookup but for the most common types it does.
      */
     first_ifindex = nexthop_tab[0].ifindex;
     nexthop_addr = nexthop_tab[0].nexthop_addr;
@@ -389,6 +394,27 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
 	nexthop_tab[0].protocol_distance = protocol_distance;
       }
 
+      /*
+       * Let's see if any of the nexthops can actually be used.
+       * We need to check them against the neighbors that we
+       * have formed.  As that we shouldn't be sending
+       * j/p messages upstream towards non-neighbors
+       */
+      for (i = 0; i < num_ifindex ; i++)
+	{
+	  struct interface *ifp;
+	  struct pim_neighbor *nbr;
+
+	  ifp = if_lookup_by_index_vrf (nexthop_tab[i].ifindex, VRF_DEFAULT);
+	  nbr = pim_neighbor_find (ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
+	  if (!nbr)
+	    {
+	      num_ifindex--;
+	      if (i != num_ifindex)
+	        memcpy (&nexthop_tab[i], &nexthop_tab[i+1], sizeof (nexthop_tab[i]));
+	      i--;
+	    }
+	}
       return num_ifindex;
     }
 
