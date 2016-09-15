@@ -39,6 +39,7 @@
 #include "pim_rpf.h"
 #include "pim_macro.h"
 #include "pim_oil.h"
+#include "pim_upstream.h"
 
 /*
  * A (*,G) or a (*,*) is going away
@@ -366,7 +367,7 @@ pim_ifchannel_find_parent (struct interface *ifp,
 
 struct pim_ifchannel *
 pim_ifchannel_add(struct interface *ifp,
-		  struct prefix_sg *sg)
+		  struct prefix_sg *sg, int flags)
 {
   struct pim_interface *pim_ifp;
   struct pim_ifchannel *ch;
@@ -379,7 +380,7 @@ pim_ifchannel_add(struct interface *ifp,
   pim_ifp = ifp->info;
   zassert(pim_ifp);
 
-  up = pim_upstream_add(sg, NULL);
+  up = pim_upstream_add(sg, NULL, flags);
   if (!up) {
     zlog_err("%s: could not attach upstream (S,G)=%s on interface %s",
 	     __PRETTY_FUNCTION__,
@@ -615,7 +616,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
     return;
   }
 
-  ch = pim_ifchannel_add(ifp, sg);
+  ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
   if (!ch)
     return;
 
@@ -715,7 +716,7 @@ void pim_ifchannel_prune(struct interface *ifp,
     return;
   }
 
-  ch = pim_ifchannel_add(ifp, sg);
+  ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
   if (!ch)
     return;
 
@@ -772,7 +773,7 @@ void pim_ifchannel_local_membership_add(struct interface *ifp,
   if (!PIM_IF_TEST_PIM(pim_ifp->options))
     return;
 
-  ch = pim_ifchannel_add(ifp, sg);
+  ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP);
   if (!ch) {
     return;
   }

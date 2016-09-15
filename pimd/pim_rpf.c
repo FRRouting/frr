@@ -46,7 +46,6 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
   int found = 0;
   int i = 0;
 
-  neighbor_needed = 0;
   memset (nexthop_tab, 0, sizeof (struct pim_zlookup_nexthop) * MULTIPATH_NUM);
   num_ifindex = zclient_lookup_nexthop(nexthop_tab,
 				       MULTIPATH_NUM,
@@ -87,7 +86,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int nei
 	             ifp->name, first_ifindex, addr_str);
         }
 
-      if (neighbor_needed)
+      if (neighbor_needed && !pim_if_connected_to_source (ifp, addr))
         {
           struct pim_neighbor *nbr;
 
@@ -148,7 +147,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
   save_rpf_addr = rpf->rpf_addr;       /* detect change in RPF'(S,G) */
 
   if (pim_nexthop_lookup(&rpf->source_nexthop,
-                         up->upstream_addr, !PIM_UPSTREAM_FLAG_TEST_FHR (up->flags))) {
+                         up->upstream_addr,
+                         !PIM_UPSTREAM_FLAG_TEST_FHR (up->flags) && 
+                         !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP (up->flags))) {
     return PIM_RPF_FAILURE;
   }
 

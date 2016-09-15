@@ -468,7 +468,8 @@ pim_upstream_switch(struct pim_upstream *up,
 }
 
 static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
-					     struct interface *incoming)
+					     struct interface *incoming,
+					     int flags)
 {
   struct pim_upstream *up;
   enum pim_rpf_result rpf_result;
@@ -492,7 +493,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
 
   up->parent                     = pim_upstream_find_parent (sg);
   pim_upstream_find_new_children (up);
-  up->flags                      = 0;
+  up->flags                      = flags;
   up->ref_count                  = 1;
   up->t_join_timer               = NULL;
   up->t_ka_timer                 = NULL;
@@ -512,6 +513,9 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
 
   rpf_result = pim_rpf_update(up, NULL);
   if (rpf_result == PIM_RPF_FAILURE) {
+    if (PIM_DEBUG_PIM_TRACE)
+      zlog_debug ("%s: Attempting to create upstream(%s), Unable to RPF for source", __PRETTY_FUNCTION__,
+                  pim_str_sg_dump (&up->sg));
     XFREE(MTYPE_PIM_UPSTREAM, up);
     return NULL;
   }
@@ -557,7 +561,8 @@ struct pim_upstream *pim_upstream_find(struct prefix_sg *sg)
 }
 
 struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
-				      struct interface *incoming)
+				      struct interface *incoming,
+				      int flags)
 {
   struct pim_upstream *up;
 
@@ -566,7 +571,7 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
     ++up->ref_count;
   }
   else {
-    up = pim_upstream_new(sg, incoming);
+    up = pim_upstream_new(sg, incoming, flags);
   }
 
   return up;

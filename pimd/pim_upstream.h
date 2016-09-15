@@ -113,7 +113,7 @@ void pim_upstream_delete(struct pim_upstream *up);
 struct pim_upstream *pim_upstream_find (struct prefix_sg *sg);
 struct pim_upstream *pim_upstream_find_non_any (struct prefix_sg *sg);
 struct pim_upstream *pim_upstream_add (struct prefix_sg *sg,
-				      struct interface *ifp);
+				      struct interface *ifp, int);
 void pim_upstream_del(struct pim_upstream *up);
 
 int pim_upstream_evaluate_join_desired(struct pim_upstream *up);
