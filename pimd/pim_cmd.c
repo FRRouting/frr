@@ -807,7 +807,7 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
             pim_time_uptime(uptime, sizeof(uptime), now - up->state_transition);
 
             /* Does this group live in json_fhr_sources?  If not create it. */
-            json_group = json_object_object_get(json_fhr_sources, grp_str);
+            json_object_object_get_ex(json_fhr_sources, grp_str, &json_group);
 
             if (!json_group) {
                 json_group = json_object_new_object();
@@ -1167,7 +1167,7 @@ static void pim_show_neighbors_single(struct vty *vty, const char *neighbor, u_c
       if (uj) {
 
         /* Does this ifp live in json?  If not create it. */
-        json_ifp = json_object_object_get(json, ifp->name);
+        json_object_object_get_ex(json, ifp->name, &json_ifp);
 
         if (!json_ifp) {
           json_ifp = json_object_new_object();
