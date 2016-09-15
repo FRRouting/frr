@@ -162,9 +162,16 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
     }
 
   ifp = rpg->source_nexthop.interface;
+  if (!ifp)
+    {
+      if (PIM_DEBUG_PIM_REG)
+        zlog_debug ("%s: No interface to transmit register on", __PRETTY_FUNCTION__);
+      return;
+    }
   pinfo = (struct pim_interface *)ifp->info;
   if (!pinfo) {
-    zlog_debug("%s: No pinfo!\n", __PRETTY_FUNCTION__);
+    if (PIM_DEBUG_PIM_REG)
+      zlog_debug("%s: Interface: %s not configured for pim to trasmit on!\n", __PRETTY_FUNCTION__, ifp->name);
     return;
   }
 
@@ -327,13 +334,13 @@ pim_register_recv (struct interface *ifp,
 	upstream = pim_upstream_add (&sg, ifp);
         if (!upstream)
           {
-            zlog_warn ("Failure to crate upstream state");
+            zlog_warn ("Failure to create upstream state");
             return 1;
           }
         upstream->upstream_register = src_addr;
 	pim_rp_set_upstream_addr (&upstream->upstream_addr, sg.src, sg.grp);
 	pim_nexthop_lookup (&upstream->rpf.source_nexthop,
-			    upstream->upstream_addr);
+			    upstream->upstream_addr, 1);
 	upstream->sg.src = sg.src;
 	upstream->rpf.rpf_addr = upstream->rpf.source_nexthop.mrib_nexthop_addr;
 

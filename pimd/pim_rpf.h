@@ -59,7 +59,7 @@ enum pim_rpf_result {
 
 struct pim_upstream;
 
-int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr);
+int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int neighbor_needed);
 enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_rpf_addr);
 
 int pim_rpf_addr_is_inaddr_none (struct pim_rpf *rpf);

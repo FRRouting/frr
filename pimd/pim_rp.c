@@ -487,7 +487,7 @@ pim_rp_setup (void)
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
-      if (pim_nexthop_lookup (&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4) != 0)
+      if (pim_nexthop_lookup (&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4, 1) != 0)
         {
           zlog_err ("Unable to lookup nexthop for rp specified");
           ret++;
@@ -583,7 +583,7 @@ pim_rp_g (struct in_addr group)
 
   if (rp_info)
     {
-      pim_nexthop_lookup(&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4);
+      pim_nexthop_lookup(&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4, 1);
       return (&rp_info->rp);
     }
 

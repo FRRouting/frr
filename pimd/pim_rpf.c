@@ -37,15 +37,16 @@
 
 static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 
-int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr)
+int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr, int neighbor_needed)
 {
   struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
   int num_ifindex;
   struct interface *ifp;
   int first_ifindex;
+  int found = 0;
+  int i = 0;
 
   memset (nexthop_tab, 0, sizeof (struct pim_zlookup_nexthop) * MULTIPATH_NUM);
-
   num_ifindex = zclient_lookup_nexthop(nexthop_tab,
 				       MULTIPATH_NUM,
 				       addr, PIM_NEXTHOP_LOOKUP_MAX);
@@ -58,56 +59,73 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr)
     return -1;
   }
 
-  first_ifindex = nexthop_tab[0].ifindex;
+  while (!found)
+    {
+      first_ifindex = nexthop_tab[i].ifindex;
 
-  if (num_ifindex > 1 && PIM_DEBUG_ZEBRA) {
-    char addr_str[100];
-    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_debug("%s %s: Ignoring multiple nexthop ifindex'es num_ifindex=%d for address %s (using only ifindex=%d)",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      num_ifindex, addr_str, first_ifindex);
-    /* debug warning only, do not return */
-  }
+      ifp = if_lookup_by_index(first_ifindex);
+      if (!ifp)
+        {
+          if (PIM_DEBUG_ZEBRA)
+            {
+              char addr_str[100];
+              pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+              zlog_debug("%s %s: could not find interface for ifindex %d (address %s)",
+                         __FILE__, __PRETTY_FUNCTION__,
+                         first_ifindex, addr_str);
+            }
+          return -2;
+        }
 
-  ifp = if_lookup_by_index(first_ifindex);
-  if (!ifp) {
-    char addr_str[100];
-    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_warn("%s %s: could not find interface for ifindex %d (address %s)",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      first_ifindex, addr_str);
-    return -2;
-  }
+      if (!ifp->info && PIM_DEBUG_ZEBRA)
+        {
+          char addr_str[100];
+          pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+          zlog_debug("%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %s)",
+	             __PRETTY_FUNCTION__,
+	             ifp->name, first_ifindex, addr_str);
+        }
 
-  if (!ifp->info) {
-    char addr_str[100];
-    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_warn("%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %s)",
-	      __PRETTY_FUNCTION__,
-	      ifp->name, first_ifindex, addr_str);
-    /* debug warning only, do not return */
-  }
+      if (neighbor_needed)
+        {
+          struct pim_neighbor *nbr;
 
-  if (PIM_DEBUG_ZEBRA) {
-    char nexthop_str[100];
-    char addr_str[100];
-    pim_addr_dump("<nexthop?>", &nexthop_tab[0].nexthop_addr, nexthop_str, sizeof(nexthop_str));
-    pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-    zlog_debug("%s %s: found nexthop %s for address %s: interface %s ifindex=%d metric=%d pref=%d",
-	       __FILE__, __PRETTY_FUNCTION__,
-	       nexthop_str, addr_str,
-	       ifp->name, first_ifindex,
-	       nexthop_tab[0].route_metric,
-	       nexthop_tab[0].protocol_distance);
-  }
+          nbr = pim_neighbor_find (ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
+          if (PIM_DEBUG_ZEBRA)
+            zlog_debug ("ifp name: %s, pim nbr: %p", ifp->name, nbr);
+          if (!nbr && !if_is_loopback (ifp))
+            i++;
+          else
+            found = 1;
+        }
+      else
+        found = 1;
+    }
 
-  /* update nextop data */
-  nexthop->interface                = ifp;
-  nexthop->mrib_nexthop_addr        = nexthop_tab[0].nexthop_addr;
-  nexthop->mrib_metric_preference   = nexthop_tab[0].protocol_distance;
-  nexthop->mrib_route_metric        = nexthop_tab[0].route_metric;
+  if (found)
+    {
+      if (PIM_DEBUG_ZEBRA) {
+        char nexthop_str[100];
+        char addr_str[100];
+        pim_addr_dump("<nexthop?>", &nexthop_tab[0].nexthop_addr, nexthop_str, sizeof(nexthop_str));
+        pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+        zlog_debug("%s %s: found nexthop %s for address %s: interface %s ifindex=%d metric=%d pref=%d",
+	           __FILE__, __PRETTY_FUNCTION__,
+	           nexthop_str, addr_str,
+	           ifp->name, first_ifindex,
+	           nexthop_tab[0].route_metric,
+	           nexthop_tab[0].protocol_distance);
+      }
+      /* update nextop data */
+      nexthop->interface                = ifp;
+      nexthop->mrib_nexthop_addr        = nexthop_tab[0].nexthop_addr;
+      nexthop->mrib_metric_preference   = nexthop_tab[0].protocol_distance;
+      nexthop->mrib_route_metric        = nexthop_tab[0].route_metric;
 
-  return 0;
+      return 0;
+    }
+  else
+    return -1;
 }
 
 static int nexthop_mismatch(const struct pim_nexthop *nh1,
@@ -128,7 +146,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct in_addr *old_
   save_nexthop  = rpf->source_nexthop; /* detect change in pim_nexthop */
   save_rpf_addr = rpf->rpf_addr;       /* detect change in RPF'(S,G) */
 
-  if (pim_nexthop_lookup(&rpf->source_nexthop, up->upstream_addr)) {
+  if (pim_nexthop_lookup(&rpf->source_nexthop,
+                         up->upstream_addr, !PIM_UPSTREAM_FLAG_TEST_FHR (up->flags))) {
     return PIM_RPF_FAILURE;
   }
 
