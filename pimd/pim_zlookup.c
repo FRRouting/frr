@@ -407,7 +407,7 @@ zclient_lookup_nexthop (struct pim_zlookup_nexthop nexthop_tab[],
 
 	  ifp = if_lookup_by_index_vrf (nexthop_tab[i].ifindex, VRF_DEFAULT);
 	  nbr = pim_neighbor_find (ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
-	  if (!nbr)
+	  if (ifp->info && !nbr && !if_is_loopback (ifp))
 	    {
 	      num_ifindex--;
 	      if (i != num_ifindex)
