@@ -25,6 +25,8 @@
 #include "prefix.h"
 #include "memory.h"
 #include "if.h"
+#include "vty.h"
+#include "plist.h"
 
 #include "pimd.h"
 #include "pim_neighbor.h"
@@ -34,6 +36,7 @@
 #include "pim_pim.h"
 #include "pim_upstream.h"
 #include "pim_ifchannel.h"
+#include "pim_rp.h"
 
 static void dr_election_by_addr(struct interface *ifp)
 {
@@ -481,6 +484,7 @@ struct pim_neighbor *pim_neighbor_add(struct interface *ifp,
 
   pim_upstream_find_new_rpf();
 
+  pim_rp_setup ();
   return neigh;
 }
 
