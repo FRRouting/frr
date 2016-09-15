@@ -392,7 +392,8 @@ struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
   struct pim_neighbor  *neigh;
 
   pim_ifp = ifp->info;
-  zassert(pim_ifp);
+  if (!pim_ifp)
+    return NULL;
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, node, neigh)) {
     if (source_addr.s_addr == neigh->source_addr.s_addr) {
@@ -400,7 +401,7 @@ struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
     }
   }
 
-  return 0;
+  return NULL;
 }
 
 /*
@@ -413,7 +414,7 @@ pim_neighbor_find_if (struct interface *ifp)
 {
   struct pim_interface *pim_ifp = ifp->info;
 
-  if (pim_ifp->pim_neighbor_list->count != 1)
+  if (!pim_ifp || pim_ifp->pim_neighbor_list->count != 1)
     return NULL;
 
   return listnode_head (pim_ifp->pim_neighbor_list);
