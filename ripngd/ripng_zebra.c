@@ -143,7 +143,7 @@ ripng_zebra_read_ipv6 (int command, struct zclient *zclient,
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getc (s);
+  api.flags = stream_getl (s);
   api.message = stream_getc (s);
 
   /* IPv6 prefix. */

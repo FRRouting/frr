@@ -257,7 +257,8 @@ static void
 isis_zebra_route_add_ipv4 (struct prefix *prefix,
 			   struct isis_route_info *route_info)
 {
-  u_char message, flags;
+  u_char message;
+  u_int32_t flags;
   int psize;
   struct stream *stream;
   struct isis_nexthop *nexthop;
@@ -285,7 +286,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
       /* instance */
       stream_putw (stream, 0);
       /* flags */
-      stream_putc (stream, flags);
+      stream_putl (stream, flags);
       /* message */
       stream_putc (stream, message);
       /* SAFI */
@@ -566,7 +567,7 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
 
   api.type = stream_getc (stream);
   api.instance = stream_getw (stream);
-  api.flags = stream_getc (stream);
+  api.flags = stream_getl (stream);
   api.message = stream_getc (stream);
 
   p.family = AF_INET;
@@ -623,7 +624,7 @@ isis_zebra_read_ipv6 (int command, struct zclient *zclient,
   ifindex = 0;
 
   api.type = stream_getc(stream);
-  api.flags = stream_getc(stream);
+  api.flags = stream_getl(stream);
   api.message = stream_getc(stream);
 
   p.family = AF_INET6;

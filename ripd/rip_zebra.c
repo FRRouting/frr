@@ -147,7 +147,7 @@ rip_zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getc (s);
+  api.flags = stream_getl (s);
   api.message = stream_getc (s);
 
   /* IPv4 prefix. */
