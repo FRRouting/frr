@@ -115,6 +115,10 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
     {
       if (outlabel_str[0] == 'i')
         out_label = MPLS_IMP_NULL_LABEL;
+      else if (outlabel_str[0] == 'e' && gtype == NEXTHOP_TYPE_IPV4)
+        out_label = MPLS_V4_EXP_NULL_LABEL;
+      else if (outlabel_str[0] == 'e' && gtype == NEXTHOP_TYPE_IPV6)
+        out_label = MPLS_V6_EXP_NULL_LABEL;
       else
         out_label = atoi(outlabel_str);
     }
@@ -150,13 +154,14 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
 
 DEFUN (mpls_transit_lsp,
        mpls_transit_lsp_cmd,
-       "mpls lsp <16-1048575> (A.B.C.D|X:X::X:X) (<16-1048575>|implicit-null)",
+       "mpls lsp <16-1048575> (A.B.C.D|X:X::X:X) (<16-1048575>|explicit-null|implicit-null)",
        MPLS_STR
        "Establish label switched path\n"
        "Incoming MPLS label\n"
        "IPv4 gateway address\n"
        "IPv6 gateway address\n"
        "Outgoing MPLS label\n"
+       "Use Explicit-Null label\n"
        "Use Implicit-Null label\n")
 {
   return zebra_mpls_transit_lsp (vty, 1, argv[0], argv[1], argv[2], NULL);
@@ -177,7 +182,7 @@ DEFUN (no_mpls_transit_lsp,
 
 ALIAS (no_mpls_transit_lsp,
        no_mpls_transit_lsp_out_label_cmd,
-       "no mpls lsp <16-1048575> (A.B.C.D|X:X::X:X) (<16-1048575>|implicit-null)",
+       "no mpls lsp <16-1048575> (A.B.C.D|X:X::X:X) (<16-1048575>|explicit-null|implicit-null)",
        NO_STR
        MPLS_STR
        "Establish label switched path\n"
@@ -185,6 +190,7 @@ ALIAS (no_mpls_transit_lsp,
        "IPv4 gateway address\n"
        "IPv6 gateway address\n"
        "Outgoing MPLS label\n"
+       "Use Explicit-Null label\n"
        "Use Implicit-Null label\n")
  
 DEFUN (no_mpls_transit_lsp_all,

@@ -1837,18 +1837,31 @@ zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
   zebra_slsp_t *slsp;
   zebra_snhlfe_t *snhlfe;
   struct listnode *node;
-  char buf[INET6_ADDRSTRLEN];
   struct list *slsp_list = hash_get_sorted_list(zvrf->slsp_table, slsp_cmp);
 
   for (ALL_LIST_ELEMENTS_RO(slsp_list, node, slsp))
       {
         for (snhlfe = slsp->snhlfe_list; snhlfe; snhlfe = snhlfe->next)
           {
+	    char buf[INET6_ADDRSTRLEN];
             char lstr[30];
+
             snhlfe2str (snhlfe, buf, BUFSIZ);
+	    switch (snhlfe->out_label) {
+	      case MPLS_V4_EXP_NULL_LABEL:
+	      case MPLS_V6_EXP_NULL_LABEL:
+		strlcpy(lstr, "explicit-null", sizeof(lstr));
+		break;
+	      case MPLS_IMP_NULL_LABEL:
+		strlcpy(lstr, "implicit-null", sizeof(lstr));
+		break;
+	      default:
+		sprintf(lstr, "%u", snhlfe->out_label);
+		break;
+	    }
+
             vty_out (vty, "mpls lsp %u %s %s%s",
-                     slsp->ile.in_label, buf,
-                     label2str(snhlfe->out_label, lstr, 30), VTY_NEWLINE);
+                     slsp->ile.in_label, buf, lstr, VTY_NEWLINE);
           }
       }
 
