@@ -1472,7 +1472,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   rib->vrf_id = zvrf->vrf_id;
   rib->table = zvrf->table_id;
 
-  ret = rib_add_multipath (AFI_IP, safi, &p, rib);
+  ret = rib_add_multipath (AFI_IP6, safi, &p, rib);
   /* Stats */
   if (ret > 0)
     client->v6_route_add_cnt++;
