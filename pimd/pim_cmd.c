@@ -1451,7 +1451,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
   if (uj)
     json = json_object_new_object();
   else
-    vty_out(vty, "Iif       Source          Group                 State Uptime   JoinTimer RSTimer   KATimer   RefCnt%s", VTY_NEWLINE);
+    vty_out(vty, "Iif       Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt%s", VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO(qpim_upstream_list, upnode, up)) {
     char src_str[100];
@@ -2611,127 +2611,258 @@ DEFUN (show_ip_multicast,
   return CMD_SUCCESS;
 }
 
-static void show_mroute(struct vty *vty)
+static void show_mroute(struct vty *vty, u_char uj)
 {
   struct listnode    *node;
   struct channel_oil *c_oil;
   struct static_route *s_route;
   time_t              now;
+  json_object *json = NULL;
+  json_object *json_group = NULL;
+  json_object *json_source = NULL;
+  json_object *json_ifp_in = NULL;
+  json_object *json_ifp_out = NULL;
 
-  vty_out(vty, "Proto: I=IGMP P=PIM S=STATIC O=SOURCE%s%s", VTY_NEWLINE, VTY_NEWLINE);
-  
-  vty_out(vty, "Source          Group           Proto Input iVifI Output oVifI TTL Uptime  %s",
-	  VTY_NEWLINE);
+  if (uj) {
+    json = json_object_new_object();
+  } else {
+    vty_out(vty, "Proto: I=IGMP P=PIM S=STATIC O=SOURCE%s%s", VTY_NEWLINE, VTY_NEWLINE);
+    vty_out(vty, "Source          Group           Proto Input iVifI Output oVifI TTL Uptime  %s",
+            VTY_NEWLINE);
+  }
 
   now = pim_time_monotonic_sec();
 
   /* print list of PIM and IGMP routes */
   for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
-    char group_str[100]; 
-    char source_str[100];
+    char grp_str[100];
+    char src_str[100];
+    char in_ifname[16];
+    char out_ifname[16];
     int oif_vif_index;
+    char proto[5];
+    struct interface *ifp_in;
 
     if (!c_oil->installed)
       continue;
 
-    pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-    pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-    
+    pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, src_str, sizeof(src_str));
+    ifp_in = pim_if_find_by_vif_index(c_oil->oil.mfcc_parent);
+
+    if (ifp_in)
+      strcpy(in_ifname, ifp_in->name);
+    else
+      strcpy(in_ifname, "<iif?>");
+
+    if (uj) {
+
+      /* Find the group, create it if it doesn't exist */
+      json_object_object_get_ex(json, grp_str, &json_group);
+
+      if (!json_group) {
+        json_group = json_object_new_object();
+        json_object_object_add(json, grp_str, json_group);
+      }
+
+      /* Find the source nested under the group, create it if it doesn't exist */
+      json_object_object_get_ex(json_group, src_str, &json_source);
+
+      if (!json_source) {
+        json_source = json_object_new_object();
+        json_object_object_add(json_group, src_str, json_source);
+      }
+
+      /* Find the inbound interface nested under the source, create it if it doesn't exist */
+      json_object_object_get_ex(json_source, in_ifname, &json_ifp_in);
+
+      if (!json_ifp_in) {
+        json_ifp_in = json_object_new_object();
+        json_object_object_add(json_source, in_ifname, json_ifp_in);
+      }
+    }
+
     for (oif_vif_index = 0; oif_vif_index < MAXVIFS; ++oif_vif_index) {
-      struct interface *ifp_in;
       struct interface *ifp_out;
       char oif_uptime[10];
       int ttl;
-      char proto[5];
 
       ttl = c_oil->oil.mfcc_ttls[oif_vif_index];
       if (ttl < 1)
 	continue;
 
-      ifp_in  = pim_if_find_by_vif_index(c_oil->oil.mfcc_parent);
       ifp_out = pim_if_find_by_vif_index(oif_vif_index);
-
       pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - c_oil->oif_creation[oif_vif_index]);
 
-      proto[0] = '\0';
-      if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_PIM) {
-	strcat(proto, "P");
-      }
-      if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_IGMP) {
-	strcat(proto, "I");
-      }
-      if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE) {
-	strcat(proto, "O");
-      }
+      if (ifp_out)
+        strcpy(out_ifname, ifp_out->name);
+      else
+        strcpy(out_ifname, "<oif?>");
 
-      vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
-	      source_str,
-	      group_str,
-	      proto,
-	      ifp_in ? ifp_in->name : "<iif?>",
-	      c_oil->oil.mfcc_parent,
-	      ifp_out ? ifp_out->name : "<oif?>",
-	      oif_vif_index,
-	      ttl,
-	      oif_uptime,
-	      VTY_NEWLINE);
+      if (uj) {
+        json_ifp_out = json_object_new_object();
+        json_object_string_add(json_ifp_out, "source", src_str);
+        json_object_string_add(json_ifp_out, "group", grp_str);
+
+        if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_PIM)
+          json_object_boolean_true_add(json_ifp_out, "protocolPim");
+
+        if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_IGMP)
+          json_object_boolean_true_add(json_ifp_out, "protocolIgmp");
+
+        if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE)
+          json_object_boolean_true_add(json_ifp_out, "protocolSource");
+
+        json_object_string_add(json_ifp_out, "inboundInterface", in_ifname);
+        json_object_int_add(json_ifp_out, "iVifI", c_oil->oil.mfcc_parent);
+        json_object_string_add(json_ifp_out, "outboundInterface", out_ifname);
+        json_object_int_add(json_ifp_out, "oVifI", oif_vif_index);
+        json_object_int_add(json_ifp_out, "ttl", ttl);
+        json_object_string_add(json_ifp_out, "upTime", oif_uptime);
+        json_object_object_add(json_ifp_in, out_ifname, json_ifp_out);
+      } else {
+        proto[0] = '\0';
+
+        if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_PIM) {
+          strcat(proto, "P");
+        }
+
+        if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_IGMP) {
+          strcat(proto, "I");
+        }
+
+        if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE) {
+          strcat(proto, "O");
+        }
+
+        vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+                src_str,
+                grp_str,
+                proto,
+                in_ifname,
+                c_oil->oil.mfcc_parent,
+                out_ifname,
+                oif_vif_index,
+                ttl,
+                oif_uptime,
+                VTY_NEWLINE);
+      }
     }
   }
 
   /* Print list of static routes */
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-    char group_str[100];
-    char source_str[100];
+    char grp_str[100];
+    char src_str[100];
+    char in_ifname[16];
+    char out_ifname[16];
     int oif_vif_index;
+    struct interface *ifp_in;
+    char proto[5];
 
     if (!s_route->c_oil.installed)
       continue;
 
-    pim_inet4_dump("<group?>", s_route->group, group_str, sizeof(group_str));
-    pim_inet4_dump("<source?>", s_route->source, source_str, sizeof(source_str));
+    pim_inet4_dump("<group?>", s_route->group, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<source?>", s_route->source, src_str, sizeof(src_str));
+    ifp_in  = pim_if_find_by_vif_index(s_route->iif);
+
+    if (ifp_in)
+      strcpy(in_ifname, ifp_in->name);
+    else
+      strcpy(in_ifname, "<iif?>");
+
+    if (uj) {
+
+      /* Find the group, create it if it doesn't exist */
+      json_object_object_get_ex(json, grp_str, &json_group);
+
+      if (!json_group) {
+        json_group = json_object_new_object();
+        json_object_object_add(json, grp_str, json_group);
+      }
+
+      /* Find the source nested under the group, create it if it doesn't exist */
+      json_object_object_get_ex(json_group, src_str, &json_source);
+
+      if (!json_source) {
+        json_source = json_object_new_object();
+        json_object_object_add(json_group, src_str, json_source);
+      }
+
+      /* Find the inbound interface nested under the source, create it if it doesn't exist */
+      json_object_object_get_ex(json_source, in_ifname, &json_ifp_in);
+
+      if (!json_ifp_in) {
+        json_ifp_in = json_object_new_object();
+        json_object_object_add(json_source, in_ifname, json_ifp_in);
+      }
+
+    } else {
+      proto[0] = '\0';
+      strcat(proto, "S");
+    }
 
     for (oif_vif_index = 0; oif_vif_index < MAXVIFS; ++oif_vif_index) {
-      struct interface *ifp_in;
       struct interface *ifp_out;
       char oif_uptime[10];
       int ttl;
-      char proto[5];
 
       ttl = s_route->oif_ttls[oif_vif_index];
       if (ttl < 1)
          continue;
 
-      ifp_in  = pim_if_find_by_vif_index(s_route->iif);
       ifp_out = pim_if_find_by_vif_index(oif_vif_index);
-
       pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - s_route->c_oil.oif_creation[oif_vif_index]);
 
-      proto[0] = '\0';
-      strcat(proto, "S");
+      if (ifp_out)
+        strcpy(out_ifname, ifp_out->name);
+      else
+        strcpy(out_ifname, "<oif?>");
 
-      vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
-         source_str,
-         group_str,
-         proto,
-         ifp_in ? ifp_in->name : "<iif?>",
-         s_route->iif,
-         ifp_out ? ifp_out->name : "<oif?>",
-         oif_vif_index,
-         ttl,
-         oif_uptime,
-         VTY_NEWLINE);
+      if (uj) {
+        json_ifp_out = json_object_new_object();
+        json_object_string_add(json_ifp_out, "source", src_str);
+        json_object_string_add(json_ifp_out, "group", grp_str);
+        json_object_boolean_true_add(json_ifp_out, "protocolStatic");
+        json_object_string_add(json_ifp_out, "inboundInterface", in_ifname);
+        json_object_int_add(json_ifp_out, "iVifI", c_oil->oil.mfcc_parent);
+        json_object_string_add(json_ifp_out, "outboundInterface", out_ifname);
+        json_object_int_add(json_ifp_out, "oVifI", oif_vif_index);
+        json_object_int_add(json_ifp_out, "ttl", ttl);
+        json_object_string_add(json_ifp_out, "upTime", oif_uptime);
+        json_object_object_add(json_ifp_in, out_ifname, json_ifp_out);
+      } else {
+        vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+                src_str,
+                grp_str,
+                proto,
+                in_ifname,
+                s_route->iif,
+                out_ifname,
+                oif_vif_index,
+                ttl,
+                oif_uptime,
+                VTY_NEWLINE);
+      }
     }
+  }
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    json_object_free(json);
   }
 }
 
 DEFUN (show_ip_mroute,
        show_ip_mroute_cmd,
-       "show ip mroute",
+       "show ip mroute [json]",
        SHOW_STR
        IP_STR
        MROUTE_STR)
 {
-  show_mroute(vty);
+  u_char uj = use_json(argc, argv);
+  show_mroute(vty, uj);
   return CMD_SUCCESS;
 }
 
