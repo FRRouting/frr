@@ -2622,6 +2622,7 @@ static void show_mroute(struct vty *vty, u_char uj)
   json_object *json_source = NULL;
   json_object *json_ifp_in = NULL;
   json_object *json_ifp_out = NULL;
+  int found_oif = 0;
 
   if (uj) {
     json = json_object_new_object();
@@ -2642,6 +2643,7 @@ static void show_mroute(struct vty *vty, u_char uj)
     int oif_vif_index;
     char proto[5];
     struct interface *ifp_in;
+    found_oif = 0;
 
     if (!c_oil->installed)
       continue;
@@ -2693,6 +2695,7 @@ static void show_mroute(struct vty *vty, u_char uj)
 
       ifp_out = pim_if_find_by_vif_index(oif_vif_index);
       pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - c_oil->oif_creation[oif_vif_index]);
+      found_oif = 1;
 
       if (ifp_out)
         strcpy(out_ifname, ifp_out->name);
@@ -2748,6 +2751,20 @@ static void show_mroute(struct vty *vty, u_char uj)
                 VTY_NEWLINE);
       }
     }
+
+    if (!uj && !found_oif) {
+      vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+              src_str,
+              grp_str,
+              proto,
+              in_ifname,
+              c_oil->oil.mfcc_parent,
+              "none",
+              0,
+              0,
+              "--:--:--",
+              VTY_NEWLINE);
+    }
   }
 
   /* Print list of static routes */
@@ -2766,6 +2783,7 @@ static void show_mroute(struct vty *vty, u_char uj)
     pim_inet4_dump("<group?>", s_route->group, grp_str, sizeof(grp_str));
     pim_inet4_dump("<source?>", s_route->source, src_str, sizeof(src_str));
     ifp_in  = pim_if_find_by_vif_index(s_route->iif);
+    found_oif = 0;
 
     if (ifp_in)
       strcpy(in_ifname, ifp_in->name);
@@ -2814,6 +2832,7 @@ static void show_mroute(struct vty *vty, u_char uj)
 
       ifp_out = pim_if_find_by_vif_index(oif_vif_index);
       pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - s_route->c_oil.oif_creation[oif_vif_index]);
+      found_oif = 1;
 
       if (ifp_out)
         strcpy(out_ifname, ifp_out->name);
@@ -2845,6 +2864,20 @@ static void show_mroute(struct vty *vty, u_char uj)
                 oif_uptime,
                 VTY_NEWLINE);
       }
+    }
+
+    if (!uj && !found_oif) {
+        vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+                src_str,
+                grp_str,
+                proto,
+                in_ifname,
+                c_oil->oil.mfcc_parent,
+                "none",
+                0,
+                0,
+                "--:--:--",
+                VTY_NEWLINE);
     }
   }
 
