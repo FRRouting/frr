@@ -178,11 +178,11 @@ work_queue_item_requeue (struct work_queue *wq, struct listnode *ln)
   LISTNODE_ATTACH (wq->items, ln); /* attach to end of list */
 }
 
-DEFUN(show_work_queues,
-      show_work_queues_cmd,
-      "show work-queues",
-      SHOW_STR
-      "Work Queue information\n")
+DEFUN (show_work_queues,
+       show_work_queues_cmd,
+       "show work-queues",
+       SHOW_STR
+       "Work Queue information\n")
 {
   struct listnode *node;
   struct work_queue *wq;

@@ -344,29 +344,29 @@ isis_route_set_delete (struct vty *vty, struct route_map_index *index,
 
 /* ------------------------------------------------------------*/
 
-DEFUN(match_ip_address,
-      match_ip_address_cmd,
-      "match ip address (<1-199>|<1300-2699>|WORD)",
-      MATCH_STR
-      IP_STR
-      "Match address of route\n"
-      "IP access-list number\n"
-      "IP access-list number (expanded range)\n"
-      "IP Access-list name\n")
+DEFUN (match_ip_address,
+       match_ip_address_cmd,
+       "match ip address (<1-199>|<1300-2699>|WORD)",
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 {
   return isis_route_match_add(vty, vty->index, "ip address", argv[0]);
 }
 
-DEFUN(no_match_ip_address,
-      no_match_ip_address_val_cmd,
-      "no match ip address (<1-199>|<1300-2699>|WORD)",
-      NO_STR
-      MATCH_STR
-      IP_STR
-      "Match address of route\n"
-      "IP access-list number\n"
-      "IP access-list number (expanded range)\n"
-      "IP Access-list name\n")
+DEFUN (no_match_ip_address,
+       no_match_ip_address_val_cmd,
+       "no match ip address (<1-199>|<1300-2699>|WORD)",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 {
   if (argc == 0)
     return isis_route_match_delete(vty, vty->index, "ip address", NULL);
@@ -446,13 +446,13 @@ DEFUN (no_match_ipv6_address,
   return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[0]);
 }
 
-ALIAS(no_match_ipv6_address,
-      no_match_ipv6_address_cmd,
-      "no match ipv6 address",
-      NO_STR
-      MATCH_STR
-      IPV6_STR
-      "Match IPv6 address of route\n")
+ALIAS (no_match_ipv6_address,
+       no_match_ipv6_address_cmd,
+       "no match ipv6 address",
+       NO_STR
+       MATCH_STR
+       IPV6_STR
+       "Match IPv6 address of route\n")
 
 /* ------------------------------------------------------------*/
 

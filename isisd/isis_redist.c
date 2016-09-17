@@ -537,20 +537,20 @@ isis_redist_area_finish(struct isis_area *area)
   isis_redist_update_zebra_subscriptions(area->isis);
 }
 
-DEFUN(isis_redistribute,
-      isis_redistribute_cmd,
-      "redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD
-      " (level-1|level-2) {metric <0-16777215>|route-map WORD}",
-      REDIST_STR
-      "Redistribute IPv4 routes\n"
-      "Redistribute IPv6 routes\n"
-      QUAGGA_REDIST_HELP_STR_ISISD
-      "Redistribute into level-1\n"
-      "Redistribute into level-2\n"
-      "Metric for redistributed routes\n"
-      "ISIS default metric\n"
-      "Route map reference\n"
-      "Pointer to route-map entries\n")
+DEFUN (isis_redistribute,
+       isis_redistribute_cmd,
+       "redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD
+       " (level-1|level-2) {metric <0-16777215>|route-map WORD}",
+       REDIST_STR
+       "Redistribute IPv4 routes\n"
+       "Redistribute IPv6 routes\n"
+       QUAGGA_REDIST_HELP_STR_ISISD
+       "Redistribute into level-1\n"
+       "Redistribute into level-2\n"
+       "Metric for redistributed routes\n"
+       "ISIS default metric\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
 {
   struct isis_area *area = vty->index;
   int family;
@@ -606,17 +606,17 @@ DEFUN(isis_redistribute,
   return 0;
 }
 
-DEFUN(no_isis_redistribute,
-      no_isis_redistribute_cmd,
-      "no redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD
-      " (level-1|level-2)",
-      NO_STR
-      REDIST_STR
-      "Redistribute IPv4 routes\n"
-      "Redistribute IPv6 routes\n"
-      QUAGGA_REDIST_HELP_STR_ISISD
-      "Redistribute into level-1\n"
-      "Redistribute into level-2\n")
+DEFUN (no_isis_redistribute,
+       no_isis_redistribute_cmd,
+       "no redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD
+       " (level-1|level-2)",
+       NO_STR
+       REDIST_STR
+       "Redistribute IPv4 routes\n"
+       "Redistribute IPv6 routes\n"
+       QUAGGA_REDIST_HELP_STR_ISISD
+       "Redistribute into level-1\n"
+       "Redistribute into level-2\n")
 {
   struct isis_area *area = vty->index;
   int type;
@@ -650,21 +650,21 @@ DEFUN(no_isis_redistribute,
   return 0;
 }
 
-DEFUN(isis_default_originate,
-      isis_default_originate_cmd,
-      "default-information originate (ipv4|ipv6) (level-1|level-2) "
-        "{always|metric <0-16777215>|route-map WORD}",
-      "Control distribution of default information\n"
-      "Distribute a default route\n"
-      "Distribute default route for IPv4\n"
-      "Distribute default route for IPv6\n"
-      "Distribute default route into level-1\n"
-      "Distribute default route into level-2\n"
-      "Always advertise default route\n"
-      "Metric for default route\n"
-      "ISIS default metric\n"
-      "Route map reference\n"
-      "Pointer to route-map entries\n")
+DEFUN (isis_default_originate,
+       isis_default_originate_cmd,
+       "default-information originate (ipv4|ipv6) (level-1|level-2) "
+       "{always|metric <0-16777215>|route-map WORD}",
+       "Control distribution of default information\n"
+       "Distribute a default route\n"
+       "Distribute default route for IPv4\n"
+       "Distribute default route for IPv6\n"
+       "Distribute default route into level-1\n"
+       "Distribute default route into level-2\n"
+       "Always advertise default route\n"
+       "Metric for default route\n"
+       "ISIS default metric\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
 {
   struct isis_area *area = vty->index;
   int family;
@@ -722,16 +722,16 @@ DEFUN(isis_default_originate,
   return 0;
 }
 
-DEFUN(no_isis_default_originate,
-      no_isis_default_originate_cmd,
-      "no default-information originate (ipv4|ipv6) (level-1|level-2)",
-      NO_STR
-      "Control distribution of default information\n"
-      "Distribute a default route\n"
-      "Distribute default route for IPv4\n"
-      "Distribute default route for IPv6\n"
-      "Distribute default route into level-1\n"
-      "Distribute default route into level-2\n")
+DEFUN (no_isis_default_originate,
+       no_isis_default_originate_cmd,
+       "no default-information originate (ipv4|ipv6) (level-1|level-2)",
+       NO_STR
+       "Control distribution of default information\n"
+       "Distribute a default route\n"
+       "Distribute default route for IPv4\n"
+       "Distribute default route for IPv6\n"
+       "Distribute default route into level-1\n"
+       "Distribute default route into level-2\n")
 {
   struct isis_area *area = vty->index;
 

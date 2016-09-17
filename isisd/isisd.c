@@ -1234,6 +1234,19 @@ DEFUN (debug_isis_lsp_sched,
   return CMD_SUCCESS;
 }
 
+DEFUN (no_debug_isis_lsp_sched,
+       no_debug_isis_lsp_sched_cmd,
+       "no debug isis lsp-sched",
+       UNDEBUG_STR
+       "IS-IS information\n"
+       "IS-IS scheduling of LSP generation\n")
+{
+  isis->debugs &= ~DEBUG_LSP_SCHED;
+  print_debug (vty, DEBUG_LSP_SCHED, 0);
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_hostname,
        show_hostname_cmd,
        "show isis hostname",
