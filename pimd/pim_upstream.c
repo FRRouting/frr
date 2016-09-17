@@ -950,19 +950,19 @@ pim_upstream_state2str (enum pim_upstream_state join_state)
   switch (join_state)
     {
     case PIM_UPSTREAM_NOTJOINED:
-      return "NtJnd";
+      return "NotJoined";
       break;
     case PIM_UPSTREAM_JOINED:
-      return "Jnd";
+      return "Joined";
       break;
     case PIM_UPSTREAM_JOIN_PENDING:
-      return "JPend";
+      return "JoinPending";
       break;
     case PIM_UPSTREAM_PRUNE:
       return "Prune";
       break;
     }
-  return "Unkwn";
+  return "Unknown";
 }
 
 static int
