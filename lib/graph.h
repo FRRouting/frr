@@ -64,6 +64,7 @@ graph_new_node (struct graph *graph, void *data, void (*del) (void*));
  * If *data and *del are non-null, the following call is made:
  *   (*node->del) (node->data);
  *
+ * @param[in] graph the graph this node belongs to
  * @param[out] node pointer to node to delete
  */
 void
@@ -80,8 +81,16 @@ struct graph_node *
 graph_add_edge (struct graph_node *from, struct graph_node *to);
 
 /**
- * Deletes a graph.
+ * Removes a directed edge between two nodes.
  *
+ * @param[in] from
+ * @param[in] to
+ */
+void
+graph_remove_edge (struct graph_node *from, struct graph_node *to);
+
+/**
+ * Deletes a graph.
  * Calls graph_delete_node on each node before freeing the graph struct itself.
  *
  * @param graph the graph to delete
