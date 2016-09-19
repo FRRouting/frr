@@ -25,7 +25,6 @@
 #include <zebra.h>
 #include "command_match.h"
 #include "command_parse.h"
-#include "grammar_sandbox.h"
 #include "memory.h"
 
 /* matcher helper prototypes */
@@ -36,16 +35,16 @@ static struct list *
 command_match_r (struct graph_node *, vector, unsigned int);
 
 static int
-score_precedence (enum cmd_token_type_t);
+score_precedence (enum cmd_token_type);
 
 static enum match_type
-min_match_level (enum cmd_token_type_t);
+min_match_level (enum cmd_token_type);
 
 static void
 del_arglist (struct list *);
 
-static struct cmd_token_t *
-disambiguate_tokens (struct cmd_token_t *, struct cmd_token_t *, char *);
+static struct cmd_token *
+disambiguate_tokens (struct cmd_token *, struct cmd_token *, char *);
 
 static struct list *
 disambiguate (struct list *, struct list *, vector, unsigned int);
@@ -55,7 +54,7 @@ compare_completions (const void *, const void *);
 
 /* token matcher prototypes */
 static enum match_type
-match_token (struct cmd_token_t *, char *);
+match_token (struct cmd_token *, char *);
 
 static enum match_type
 match_ipv4 (const char *);
@@ -70,16 +69,16 @@ static enum match_type
 match_ipv6_prefix (const char *);
 
 static enum match_type
-match_range (struct cmd_token_t *, const char *);
+match_range (struct cmd_token *, const char *);
 
 static enum match_type
-match_word (struct cmd_token_t *, const char *);
+match_word (struct cmd_token *, const char *);
 
 static enum match_type
-match_number (struct cmd_token_t *, const char *);
+match_number (struct cmd_token *, const char *);
 
 static enum match_type
-match_variable (struct cmd_token_t *, const char *);
+match_variable (struct cmd_token *, const char *);
 
 /* matching functions */
 static enum matcher_rv matcher_rv;
@@ -105,7 +104,7 @@ command_match (struct graph *cmdgraph,
       struct listnode *tail = listtail (*argv);
 
       // delete dummy start node
-      del_cmd_token ((struct cmd_token_t *) head->data);
+      del_cmd_token ((struct cmd_token *) head->data);
       list_delete_node (*argv, head);
 
       // get cmd_element out of list tail
@@ -179,7 +178,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
   assert (n < vector_active (vline));
 
   // get the minimum match level that can count as a full match
-  struct cmd_token_t *token = start->data;
+  struct cmd_token *token = start->data;
   enum match_type minmatch = min_match_level (token->type);
 
   // get the current operating input token
@@ -205,7 +204,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
       // if we've matched all input we're looking for END_TKN
       if (n+1 == vector_active (vline))
         {
-          struct cmd_token_t *tok = gn->data;
+          struct cmd_token *tok = gn->data;
           if (tok->type == END_TKN)
             {
               currbest = list_new();
@@ -255,8 +254,8 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
       else
         {
           // copy token, set arg and prepend to currbest
-          struct cmd_token_t *token = start->data;
-          struct cmd_token_t *copy = copy_cmd_token (token);
+          struct cmd_token *token = start->data;
+          struct cmd_token *copy = copy_cmd_token (token);
           copy->arg = XSTRDUP (MTYPE_CMD_TOKENS, input_token);
           list_add_node_prev (currbest, currbest->head, copy);
           matcher_rv = MATCHER_OK;
@@ -301,7 +300,7 @@ command_complete (struct graph *graph,
 
       for (ALL_LIST_ELEMENTS_RO (current,node,gn))
         {
-          struct cmd_token_t *token = gn->data;
+          struct cmd_token *token = gn->data;
           switch (match_token (token, input_token))
             {
               case partly_match:
@@ -359,7 +358,7 @@ add_nexthops (struct list *list, struct graph_node *node)
   for (unsigned int i = 0; i < vector_active (node->to); i++)
     {
       child = vector_slot (node->to, i);
-      struct cmd_token_t *token = child->data;
+      struct cmd_token *token = child->data;
       switch (token->type)
         {
           case OPTION_TKN:
@@ -384,7 +383,7 @@ add_nexthops (struct list *list, struct graph_node *node)
  * @return minimum match level needed to for a token to fully match
  */
 static enum match_type
-min_match_level (enum cmd_token_type_t type)
+min_match_level (enum cmd_token_type type)
 {
   switch (type)
     {
@@ -406,7 +405,7 @@ min_match_level (enum cmd_token_type_t type)
  * @return precedence score
  */
 static int
-score_precedence (enum cmd_token_type_t type)
+score_precedence (enum cmd_token_type type)
 {
   switch (type)
     {
@@ -437,9 +436,9 @@ score_precedence (enum cmd_token_type_t type)
  * @param[in] token the token being matched
  * @return the best-matching node, or NULL if the two are entirely ambiguous
  */
-static struct cmd_token_t *
-disambiguate_tokens (struct cmd_token_t *first,
-                     struct cmd_token_t *second,
+static struct cmd_token *
+disambiguate_tokens (struct cmd_token *first,
+                     struct cmd_token *second,
                      char *input_token)
 {
   // if the types are different, simply go off of type precedence
@@ -465,8 +464,8 @@ disambiguate_tokens (struct cmd_token_t *first,
 /**
  * Picks the better of two possible matches for an input line.
  *
- * @param[in] first candidate list of cmd_token_t matching vline
- * @param[in] second candidate list of cmd_token_t matching vline
+ * @param[in] first candidate list of cmd_token matching vline
+ * @param[in] second candidate list of cmd_token matching vline
  * @param[in] vline the input line being matched
  * @param[in] n index into vline to start comparing at
  * @return the best-matching list, or NULL if the two are entirely ambiguous
@@ -483,7 +482,7 @@ disambiguate (struct list *first,
 
   struct listnode *fnode = listhead (first),
                   *snode = listhead (second);
-  struct cmd_token_t *ftok = listgetdata (fnode),
+  struct cmd_token *ftok = listgetdata (fnode),
                      *stok = listgetdata (snode),
                      *best = NULL;
 
@@ -527,7 +526,7 @@ del_arglist (struct list *list)
 /*---------- token level matching functions ----------*/
 
 static enum match_type
-match_token (struct cmd_token_t *token, char *input_token)
+match_token (struct cmd_token *token, char *input_token)
 {
   switch (token->type) {
     case WORD_TKN:
@@ -761,7 +760,7 @@ match_ipv6_prefix (const char *str)
 #endif
 
 static enum match_type
-match_range (struct cmd_token_t *token, const char *str)
+match_range (struct cmd_token *token, const char *str)
 {
   assert (token->type == RANGE_TKN);
 
@@ -782,7 +781,7 @@ match_range (struct cmd_token_t *token, const char *str)
 }
 
 static enum match_type
-match_word (struct cmd_token_t *token, const char *word)
+match_word (struct cmd_token *token, const char *word)
 {
   assert (token->type == WORD_TKN);
 
@@ -804,7 +803,7 @@ match_word (struct cmd_token_t *token, const char *word)
 }
 
 static enum match_type
-match_number (struct cmd_token_t *token, const char *word)
+match_number (struct cmd_token *token, const char *word)
 {
   assert (token->type == NUMBER_TKN);
 
@@ -819,7 +818,7 @@ match_number (struct cmd_token_t *token, const char *word)
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:"
 
 static enum match_type
-match_variable (struct cmd_token_t *token, const char *word)
+match_variable (struct cmd_token *token, const char *word)
 {
   assert (token->type == VARIABLE_TKN);
 

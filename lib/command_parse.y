@@ -36,7 +36,6 @@
   #include "command.h"
   #include "graph.h"
   #include "memory.h"
-  #include "grammar_sandbox.h"
 
   extern int
   yylex (void);
@@ -115,11 +114,11 @@
   add_edge_dedup (struct graph_node *, struct graph_node *);
 
   static int
-  cmp_token (struct cmd_token_t *, struct cmd_token_t *);
+  cmp_token (struct cmd_token *, struct cmd_token *);
 
   static struct graph_node *
   new_token_node (struct graph *,
-                  enum cmd_token_type_t type,
+                  enum cmd_token_type type,
                   char *text, char *doc);
 
   static void
@@ -250,7 +249,7 @@ placeholder_token:
 | RANGE
 {
   $$ = new_token_node (graph, RANGE_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
-  struct cmd_token_t *token = $$->data;
+  struct cmd_token *token = $$->data;
 
   // get the numbers out
   yylval.string++;
@@ -263,7 +262,6 @@ placeholder_token:
 
   free ($1);
 }
-;
 
 /* <selector|set> productions */
 selector: '<' selector_seq_seq '>'
@@ -453,9 +451,9 @@ doc_next()
 }
 
 static struct graph_node *
-new_token_node (struct graph *graph, enum cmd_token_type_t type, char *text, char *doc)
+new_token_node (struct graph *graph, enum cmd_token_type type, char *text, char *doc)
 {
-  struct cmd_token_t *token = new_cmd_token (type, text, doc);
+  struct cmd_token *token = new_cmd_token (type, text, doc);
   return graph_new_node (graph, token, (void (*)(void *)) &del_cmd_token);
 }
 
@@ -469,7 +467,7 @@ node_adjacent (struct graph_node *first, struct graph_node *second)
   for (unsigned int i = 0; i < vector_active (first->to); i++)
     {
       adj = vector_slot (first->to, i);
-      struct cmd_token_t *ftok = adj->data,
+      struct cmd_token *ftok = adj->data,
                          *stok = second->data;
       if (cmp_token (ftok, stok))
         return adj;
@@ -503,7 +501,7 @@ add_edge_dedup (struct graph_node *from, struct graph_node *to)
  * for parsing purposes and determines overall graph structure.
  */
 static int
-cmp_token (struct cmd_token_t *first, struct cmd_token_t *second)
+cmp_token (struct cmd_token *first, struct cmd_token *second)
 {
   // compare types
   if (first->type != second->type) return 0;
