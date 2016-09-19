@@ -94,7 +94,7 @@ foreach (@ARGV) {
         # $_ will contain the entire string including the DEFUN, ALIAS, etc.
         # We need to extract the DEFUN/ALIAS from everything in ()s.
         # The /s at the end tells the regex to allow . to match newlines.
-        $_ =~ /^(.*?) \((.*)\)$/s;
+        $_ =~ /^(.*?)\s*\((.*)\)$/s;
 
         my (@defun_array);
         $defun_or_alias = $1;
