@@ -252,6 +252,7 @@ pim_register_recv (struct interface *ifp,
   struct ip *ip_hdr;
   struct prefix_sg sg;
   uint32_t *bits;
+  int i_am_rp = 0;
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
   ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
@@ -305,7 +306,8 @@ pim_register_recv (struct interface *ifp,
   sg.src = ip_hdr->ip_src;
   sg.grp = ip_hdr->ip_dst;
 
-  if (I_am_RP (sg.grp) && (dest_addr.s_addr == ((RP (sg.grp))->rpf_addr.u.prefix4.s_addr))) {
+  i_am_rp = I_am_RP (sg.grp);
+  if (i_am_rp && (dest_addr.s_addr == ((RP (sg.grp))->rpf_addr.u.prefix4.s_addr))) {
     sentRegisterStop = 0;
 
     if (*bits & PIM_REGISTER_BORDER_BIT) {
@@ -373,6 +375,15 @@ pim_register_recv (struct interface *ifp,
 	// This is taken care of by the kernel for us
       }
   } else {
+    if (PIM_DEBUG_PIM_REG)
+      {
+	if (!i_am_rp)
+	  zlog_debug ("Received Register packet for %s, Rejecting packet because I am not the RP configured for group",
+		      pim_str_sg_dump (&sg));
+	else
+	  zlog_debug ("Received Register packet for %s, Rejecting packet because the dst ip address is not the actual RP",
+		      pim_str_sg_dump (&sg));
+      }
     pim_register_stop_send (ifp, &sg, dest_addr, src_addr);
   }
 
