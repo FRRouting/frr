@@ -713,12 +713,14 @@ update_linkparams(struct mpls_te_link *lp)
   /* Get the Interface structure */
   if ((ifp = lp->ifp) == NULL)
     {
-      zlog_warn("OSPF MPLS-TE: Abort update TE parameters: no interface associated to Link Parameters");
+      if (IS_DEBUG_OSPF_TE)
+	zlog_debug("OSPF MPLS-TE: Abort update TE parameters: no interface associated to Link Parameters");
       return;
     }
   if (!HAS_LINK_PARAMS(ifp))
     {
-      zlog_warn("OSPF MPLS-TE: Abort update TE parameters: no Link Parameters for interface");
+      if (IS_DEBUG_OSPF_TE)
+	zlog_debug("OSPF MPLS-TE: Abort update TE parameters: no Link Parameters for interface");
       return;
     }
 
