@@ -706,13 +706,9 @@ isis_zebra_init (struct thread_master *master)
   zclient->interface_address_add = isis_zebra_if_address_add;
   zclient->interface_address_delete = isis_zebra_if_address_del;
   zclient->interface_link_params = isis_zebra_link_params;
-  zclient->ipv4_route_add = isis_zebra_read_ipv4;
-  zclient->ipv4_route_delete = isis_zebra_read_ipv4;
   zclient->redistribute_route_ipv4_add = isis_zebra_read_ipv4;
   zclient->redistribute_route_ipv4_del = isis_zebra_read_ipv4;
 #ifdef HAVE_IPV6
-  zclient->ipv6_route_add = isis_zebra_read_ipv6;
-  zclient->ipv6_route_delete = isis_zebra_read_ipv6;
   zclient->redistribute_route_ipv6_add = isis_zebra_read_ipv6;
   zclient->redistribute_route_ipv6_del = isis_zebra_read_ipv6;
 #endif /* HAVE_IPV6 */

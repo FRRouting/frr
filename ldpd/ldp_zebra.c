@@ -368,16 +368,12 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 		return (0);
 
 	switch (command) {
-	case ZEBRA_IPV4_ROUTE_ADD:
 	case ZEBRA_REDISTRIBUTE_IPV4_ADD:
-	case ZEBRA_IPV4_ROUTE_DELETE:
 	case ZEBRA_REDISTRIBUTE_IPV4_DEL:
 		kr.af = AF_INET;
 		nhlen = sizeof(struct in_addr);
 		break;
-	case ZEBRA_IPV6_ROUTE_ADD:
 	case ZEBRA_REDISTRIBUTE_IPV6_ADD:
-	case ZEBRA_IPV6_ROUTE_DELETE:
 	case ZEBRA_REDISTRIBUTE_IPV6_DEL:
 		kr.af = AF_INET6;
 		nhlen = sizeof(struct in6_addr);
@@ -419,9 +415,7 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 		kr.ifindex = stream_getl(s);
 
 		switch (command) {
-		case ZEBRA_IPV4_ROUTE_ADD:
 		case ZEBRA_REDISTRIBUTE_IPV4_ADD:
-		case ZEBRA_IPV6_ROUTE_ADD:
 		case ZEBRA_REDISTRIBUTE_IPV6_ADD:
 			debug_zebra_in("route add %s/%d nexthop %s (%s)",
 			    log_addr(kr.af, &kr.prefix), kr.prefixlen,
@@ -430,9 +424,7 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 			main_imsg_compose_lde(IMSG_NETWORK_ADD, 0, &kr,
 			    sizeof(kr));
 			break;
-		case ZEBRA_IPV4_ROUTE_DELETE:
 		case ZEBRA_REDISTRIBUTE_IPV4_DEL:
-		case ZEBRA_IPV6_ROUTE_DELETE:
 		case ZEBRA_REDISTRIBUTE_IPV6_DEL:
 			debug_zebra_in("route delete %s/%d nexthop %s (%s)",
 			    log_addr(kr.af, &kr.prefix), kr.prefixlen,
@@ -501,12 +493,8 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->interface_down = ldp_interface_status_change;
 	zclient->interface_address_add = ldp_interface_address_add;
 	zclient->interface_address_delete = ldp_interface_address_delete;
-	zclient->ipv4_route_add = ldp_zebra_read_route;
-	zclient->ipv4_route_delete = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv4_add = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv4_del = ldp_zebra_read_route;
-	zclient->ipv6_route_add = ldp_zebra_read_route;
-	zclient->ipv6_route_delete = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_add = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_del = ldp_zebra_read_route;
 }

@@ -557,12 +557,6 @@ zebra_init (struct thread_master *master)
   zclient->interface_delete = ripng_interface_delete;
   zclient->interface_address_add = ripng_interface_address_add;
   zclient->interface_address_delete = ripng_interface_address_delete;
-  zclient->ipv4_route_add = NULL;
-  zclient->ipv4_route_delete = NULL;
-  zclient->redistribute_route_ipv4_add = NULL;
-  zclient->redistribute_route_ipv4_del = NULL;
-  zclient->ipv6_route_add = ripng_zebra_read_ipv6;
-  zclient->ipv6_route_delete = ripng_zebra_read_ipv6;
   zclient->redistribute_route_ipv6_add = ripng_zebra_read_ipv6;
   zclient->redistribute_route_ipv6_del = ripng_zebra_read_ipv6;
   

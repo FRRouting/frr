@@ -98,10 +98,6 @@ struct zclient
   int (*interface_nbr_address_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*interface_nbr_address_delete) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*interface_vrf_update) (int, struct zclient *, uint16_t, vrf_id_t);
-  int (*ipv4_route_add) (int, struct zclient *, uint16_t, vrf_id_t);
-  int (*ipv4_route_delete) (int, struct zclient *, uint16_t, vrf_id_t);
-  int (*ipv6_route_add) (int, struct zclient *, uint16_t, vrf_id_t);
-  int (*ipv6_route_delete) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*nexthop_update) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*import_check_update) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*bfd_dest_replay) (int, struct zclient *, uint16_t, vrf_id_t);

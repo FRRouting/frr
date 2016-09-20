@@ -1601,8 +1601,6 @@ ospf_zebra_init (struct thread_master *master, u_short instance)
   zclient->interface_address_delete = ospf_interface_address_delete;
   zclient->interface_link_params = ospf_interface_link_params;
 
-  zclient->ipv4_route_add = ospf_zebra_read_ipv4;
-  zclient->ipv4_route_delete = ospf_zebra_read_ipv4;
   zclient->redistribute_route_ipv4_add = ospf_zebra_read_ipv4;
   zclient->redistribute_route_ipv4_del = ospf_zebra_read_ipv4;
 

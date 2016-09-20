@@ -1583,22 +1583,6 @@ zclient_read (struct thread *thread)
       if (zclient->interface_vrf_update)
 	(*zclient->interface_vrf_update) (command, zclient, length, vrf_id);
       break;
-    case ZEBRA_IPV4_ROUTE_ADD:
-      if (zclient->ipv4_route_add)
-	(*zclient->ipv4_route_add) (command, zclient, length, vrf_id);
-      break;
-    case ZEBRA_IPV4_ROUTE_DELETE:
-      if (zclient->ipv4_route_delete)
-	(*zclient->ipv4_route_delete) (command, zclient, length, vrf_id);
-      break;
-    case ZEBRA_IPV6_ROUTE_ADD:
-      if (zclient->ipv6_route_add)
-	(*zclient->ipv6_route_add) (command, zclient, length, vrf_id);
-      break;
-    case ZEBRA_IPV6_ROUTE_DELETE:
-      if (zclient->ipv6_route_delete)
-	(*zclient->ipv6_route_delete) (command, zclient, length, vrf_id);
-      break;
     case ZEBRA_NEXTHOP_UPDATE:
       if (zclient_debug)
 	zlog_debug("zclient rcvd nexthop update\n");

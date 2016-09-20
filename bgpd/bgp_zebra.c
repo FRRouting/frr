@@ -2103,14 +2103,10 @@ bgp_zebra_init (struct thread_master *master)
   zclient->interface_nbr_address_add = bgp_interface_nbr_address_add;
   zclient->interface_nbr_address_delete = bgp_interface_nbr_address_delete;
   zclient->interface_vrf_update = bgp_interface_vrf_update;
-  zclient->ipv4_route_add = zebra_read_ipv4;
-  zclient->ipv4_route_delete = zebra_read_ipv4;
   zclient->redistribute_route_ipv4_add = zebra_read_ipv4;
   zclient->redistribute_route_ipv4_del = zebra_read_ipv4;
   zclient->interface_up = bgp_interface_up;
   zclient->interface_down = bgp_interface_down;
-  zclient->ipv6_route_add = zebra_read_ipv6;
-  zclient->ipv6_route_delete = zebra_read_ipv6;
   zclient->redistribute_route_ipv6_add = zebra_read_ipv6;
   zclient->redistribute_route_ipv6_del = zebra_read_ipv6;
   zclient->nexthop_update = bgp_read_nexthop_update;
