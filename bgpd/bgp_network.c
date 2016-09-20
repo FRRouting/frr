@@ -253,7 +253,7 @@ bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
   rc = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, name, &name_len);
   if (rc != 0)
     {
-#if !defined (HAVE_BGP_STANDALONE)
+#if defined (HAVE_CUMULUS)
       zlog_err ("[Error] BGP SO_BINDTODEVICE get failed (%s), sock %d",
                 safe_strerror (errno), sock);
       return -1;
@@ -674,9 +674,9 @@ bgp_getsockname (struct peer *peer)
   if (bgp_nexthop_set (peer->su_local, peer->su_remote,
                        &peer->nexthop, peer))
     {
+#if defined (HAVE_CUMULUS)
       zlog_err ("%s: nexthop_set failed, resetting connection - intf %p",
                 peer->host, peer->nexthop.ifp);
-#if !defined (HAVE_BGP_STANDALONE)
       return -1;
 #endif
     }

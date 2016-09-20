@@ -1330,10 +1330,10 @@ bgp_start (struct peer *peer)
   if (!bgp_find_or_add_nexthop(peer->bgp, family2afi(peer->su.sa.sa_family),
 			       NULL, peer, connected))
     {
+#if defined (HAVE_CUMULUS)
       if (bgp_debug_neighbor_events(peer))
 	zlog_debug ("%s [FSM] Waiting for NHT", peer->host);
 
-#if !defined (HAVE_BGP_STANDALONE)
       BGP_EVENT_ADD(peer, TCP_connection_open_failed);
       return 0;
 #endif

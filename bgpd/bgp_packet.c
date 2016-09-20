@@ -1163,7 +1163,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
     {
       if (!peer->nexthop.v4.s_addr)
         {
-#if !defined (HAVE_BGP_STANDALONE)
+#if defined (HAVE_CUMULUS)
           zlog_err ("%s: No local IPv4 addr resetting connection, fd %d",
                     peer->host, peer->fd);
           bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_SUBCODE_UNSPECIFIC);
@@ -1178,7 +1178,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
     {
       if (IN6_IS_ADDR_UNSPECIFIED (&peer->nexthop.v6_global))
         {
-#if !defined (HAVE_BGP_STANDALONE)
+#if defined (HAVE_CUMULUS)
           zlog_err ("%s: No local IPv6 addr resetting connection, fd %d",
                     peer->host, peer->fd);
           bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_SUBCODE_UNSPECIFIC);
