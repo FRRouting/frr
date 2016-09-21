@@ -720,23 +720,24 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
         }
     }
 
-  /* Metric */
-  if (cmd == ZEBRA_REDISTRIBUTE_IPV4_ADD || cmd == ZEBRA_REDISTRIBUTE_IPV6_ADD)
-    {
-      SET_FLAG (zapi_flags, ZAPI_MESSAGE_DISTANCE);
-      stream_putc (s, rib->distance);
-      SET_FLAG (zapi_flags, ZAPI_MESSAGE_METRIC);
-      stream_putl (s, rib->metric);
+  /* Distance */
+  SET_FLAG (zapi_flags, ZAPI_MESSAGE_DISTANCE);
+  stream_putc (s, rib->distance);
 
-      /* tag */
-      if (rib->tag)
-        {
-          SET_FLAG(zapi_flags, ZAPI_MESSAGE_TAG);
-          stream_putw(s, rib->tag);
-        }
-      SET_FLAG (zapi_flags, ZAPI_MESSAGE_MTU);
-      stream_putl (s, rib->mtu);
+  /* Metric */
+  SET_FLAG (zapi_flags, ZAPI_MESSAGE_METRIC);
+  stream_putl (s, rib->metric);
+
+  /* Tag */
+  if (rib->tag)
+    {
+      SET_FLAG(zapi_flags, ZAPI_MESSAGE_TAG);
+      stream_putw(s, rib->tag);
     }
+
+  /* MTU */
+  SET_FLAG (zapi_flags, ZAPI_MESSAGE_MTU);
+  stream_putl (s, rib->mtu);
 
   /* write real message flags value */
   stream_putc_at (s, messmark, zapi_flags);
