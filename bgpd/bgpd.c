@@ -209,8 +209,8 @@ bgp_config_check (struct bgp *bgp, int config)
 }
 
 /* Set BGP router identifier. */
-int
-bgp_router_id_set (struct bgp *bgp, struct in_addr *id)
+static int
+bgp_router_id_set (struct bgp *bgp, const struct in_addr *id)
 {
   struct peer *peer;
   struct listnode *node, *nnode;
@@ -232,6 +232,46 @@ bgp_router_id_set (struct bgp *bgp, struct in_addr *id)
                           BGP_NOTIFY_CEASE_CONFIG_CHANGE);
        }
     }
+  return 0;
+}
+
+void
+bgp_router_id_zebra_bump (vrf_id_t vrf_id, const struct prefix *router_id)
+{
+  struct listnode *node, *nnode;
+  struct bgp *bgp;
+
+  if (vrf_id == VRF_DEFAULT)
+    {
+      /* Router-id change for default VRF has to also update all views. */
+      for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+        {
+          if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+            continue;
+
+          bgp->router_id_zebra = router_id->u.prefix4;
+          if (!bgp->router_id_static.s_addr)
+            bgp_router_id_set (bgp, &router_id->u.prefix4);
+        }
+    }
+  else
+    {
+      bgp = bgp_lookup_by_vrf_id (vrf_id);
+      if (bgp)
+        {
+          bgp->router_id_zebra = router_id->u.prefix4;
+
+          if (!bgp->router_id_static.s_addr)
+            bgp_router_id_set (bgp, &router_id->u.prefix4);
+        }
+    }
+}
+
+int
+bgp_router_id_static_set (struct bgp *bgp, struct in_addr id)
+{
+  bgp->router_id_static = id;
+  bgp_router_id_set (bgp, id.s_addr ? &id : &bgp->router_id_zebra);
   return 0;
 }
 
@@ -1255,7 +1295,7 @@ bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
 {
   struct connected *ifc;
   struct prefix p;
-  u_int32_t s_addr;
+  u_int32_t addr;
   struct listnode *node;
 
   /* If our IPv4 address on the interface is /30 or /31, we can derive the
@@ -1269,26 +1309,26 @@ bgp_peer_conf_if_to_su_update_v4 (struct peer *peer, struct interface *ifp)
           if (p.prefixlen == 30)
             {
               peer->su.sa.sa_family = AF_INET;
-              s_addr = ntohl(p.u.prefix4.s_addr);
-              if (s_addr % 4 == 1)
-                peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
-              else if (s_addr % 4 == 2)
-                peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
+              addr = ntohl(p.u.prefix4.s_addr);
+              if (addr % 4 == 1)
+                peer->su.sin.sin_addr.s_addr = htonl(addr+1);
+              else if (addr % 4 == 2)
+                peer->su.sin.sin_addr.s_addr = htonl(addr-1);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-              peer->su->sin.sin_len = sizeof(struct sockaddr_in);
+              peer->su.sin.sin_len = sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
               return 1;
             }
           else if (p.prefixlen == 31)
             {
               peer->su.sa.sa_family = AF_INET;
-              s_addr = ntohl(p.u.prefix4.s_addr);
-              if (s_addr % 2 == 0)
-                peer->su.sin.sin_addr.s_addr = htonl(s_addr+1);
+              addr = ntohl(p.u.prefix4.s_addr);
+              if (addr % 2 == 0)
+                peer->su.sin.sin_addr.s_addr = htonl(addr+1);
               else
-                peer->su.sin.sin_addr.s_addr = htonl(s_addr-1);
+                peer->su.sin.sin_addr.s_addr = htonl(addr-1);
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-              peer->su->sin.sin_len = sizeof(struct sockaddr_in);
+              peer->su.sin.sin_len = sizeof(struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
               return 1;
             }
@@ -1825,6 +1865,15 @@ peer_deactivate (struct peer *peer, afi_t afi, safi_t safi)
     }
 
   return ret;
+}
+
+int
+peer_afc_set (struct peer *peer, afi_t afi, safi_t safi, int enable)
+{
+  if (enable)
+    return peer_activate (peer, afi, safi);
+  else
+    return peer_deactivate (peer, afi, safi);
 }
 
 static void
@@ -2546,6 +2595,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
   int first_member = 0;
   afi_t afi;
   safi_t safi;
+  int cap_enhe_preset = 0;
 
   /* Lookup the peer.  */
   if (!peer)
@@ -2580,7 +2630,17 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
             first_member = 1;
         }
 
+      if (CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+        cap_enhe_preset = 1;
+
       peer_group2peer_config_copy(group, peer);
+
+      /*
+       * Capability extended-nexthop is enabled for an interface neighbor by
+       * default. So, fix that up here.
+       */
+      if (peer->ifp && cap_enhe_preset)
+        peer_flag_set (peer, PEER_FLAG_CAPABILITY_ENHE);
 
       for (afi = AFI_IP; afi < AFI_MAX; afi++)
         for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -3166,6 +3226,8 @@ bgp_free (struct bgp *bgp)
 	if (bgp->rib[afi][safi])
           bgp_table_finish (&bgp->rib[afi][safi]);
       }
+
+  bgp_address_destroy (bgp);
 
   /* If Default instance or VRF, unlink from the VRF structure. */
   vrf = bgp_vrf_lookup_by_instance_type (bgp);
@@ -4078,7 +4140,7 @@ peer_ebgp_multihop_unset (struct peer *peer)
 
 /* Neighbor description. */
 int
-peer_description_set (struct peer *peer, char *desc)
+peer_description_set (struct peer *peer, const char *desc)
 {
   if (peer->desc)
     XFREE (MTYPE_PEER_DESC, peer->desc);
@@ -4171,7 +4233,7 @@ peer_update_source_if_set (struct peer *peer, const char *ifname)
 }
 
 int
-peer_update_source_addr_set (struct peer *peer, union sockunion *su)
+peer_update_source_addr_set (struct peer *peer, const union sockunion *su)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
@@ -6269,6 +6331,8 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
   struct peer *g_peer = NULL;
   char buf[SU_ADDRSTRLEN];
   char *addr;
+  int if_pg_printed = FALSE;
+  int if_ras_printed = FALSE;
 
   /* Skip dynamic neighbors. */
   if (peer_dynamic_neighbor (peer))
@@ -6290,7 +6354,25 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
         vty_out (vty, " neighbor %s interface", addr);
 
       if (peer_group_active (peer))
-         vty_out (vty, " peer-group %s", peer->group->name);
+        {
+          vty_out (vty, " peer-group %s", peer->group->name);
+          if_pg_printed = TRUE;
+        }
+      else if (peer->as_type == AS_SPECIFIED)
+        {
+          vty_out (vty, " remote-as %u", peer->as);
+          if_ras_printed = TRUE;
+        }
+      else if (peer->as_type == AS_INTERNAL)
+        {
+          vty_out (vty, " remote-as internal");
+          if_ras_printed = TRUE;
+        }
+      else if (peer->as_type == AS_EXTERNAL)
+        {
+          vty_out (vty, " remote-as external");
+          if_ras_printed = TRUE;
+        }
 
       vty_out (vty, "%s", VTY_NEWLINE);
     }
@@ -6301,7 +6383,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
     {
       g_peer = peer->group->conf;
 
-      if (g_peer->as_type == AS_UNSPECIFIED)
+      if (g_peer->as_type == AS_UNSPECIFIED && !if_ras_printed)
         {
           if (peer->as_type == AS_SPECIFIED)
             {
@@ -6320,7 +6402,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
 
       /* For swpX peers we displayed the peer-group
        * via 'neighbor swpX interface peer-group WORD' */
-      if (!peer->conf_if)
+      if (!if_pg_printed)
           vty_out (vty, " neighbor %s peer-group %s%s", addr,
                    peer->group->name, VTY_NEWLINE);
     }
@@ -6335,18 +6417,21 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
                    VTY_NEWLINE);
         }
 
-      if (peer->as_type == AS_SPECIFIED)
+      if (!if_ras_printed)
         {
-          vty_out (vty, " neighbor %s remote-as %u%s", addr, peer->as,
-                   VTY_NEWLINE);
-        }
-      else if (peer->as_type == AS_INTERNAL)
-        {
-          vty_out (vty, " neighbor %s remote-as internal%s", addr, VTY_NEWLINE);
-        }
-      else if (peer->as_type == AS_EXTERNAL)
-        {
-          vty_out (vty, " neighbor %s remote-as external%s", addr, VTY_NEWLINE);
+          if (peer->as_type == AS_SPECIFIED)
+            {
+              vty_out (vty, " neighbor %s remote-as %u%s", addr, peer->as,
+                       VTY_NEWLINE);
+            }
+          else if (peer->as_type == AS_INTERNAL)
+            {
+              vty_out (vty, " neighbor %s remote-as internal%s", addr, VTY_NEWLINE);
+            }
+          else if (peer->as_type == AS_EXTERNAL)
+            {
+              vty_out (vty, " neighbor %s remote-as external%s", addr, VTY_NEWLINE);
+            }
         }
     }
 
@@ -6541,7 +6626,17 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
     }
 
   /* capability extended-nexthop */
-  if (CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+  if (peer->ifp && !CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+    {
+      if (! peer_group_active (peer) ||
+          ! CHECK_FLAG (g_peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+        {
+          vty_out (vty, " no neighbor %s capability extended-nexthop%s", addr,
+                   VTY_NEWLINE);
+        }
+    }
+
+  if (!peer->ifp && CHECK_FLAG (peer->flags, PEER_FLAG_CAPABILITY_ENHE))
     {
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_CAPABILITY_ENHE))
@@ -6630,10 +6725,32 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
     {
       if (peer->afc[afi][safi])
         {
-          afi_header_vty_out (vty, afi, safi, write,
-                              "  neighbor %s activate%s",
-                              addr, VTY_NEWLINE);
+          if ((afi == AFI_IP) && (safi == SAFI_UNICAST))
+            {
+              if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
+                {
+                  afi_header_vty_out(vty, afi, safi, write,
+                                     "  neighbor %s activate%s",
+                                     addr, VTY_NEWLINE);
+                }
+            }
+          else
+            afi_header_vty_out (vty, afi, safi, write,
+                                "  neighbor %s activate%s",
+                                addr, VTY_NEWLINE);
         }
+      else
+	{
+	  if ((afi == AFI_IP) && (safi == SAFI_UNICAST))
+	    {
+	      if (!bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
+		{
+		  afi_header_vty_out (vty, afi, safi, write,
+				      "  no neighbor %s activate%s",
+				      addr, VTY_NEWLINE);
+		}
+	    }
+	}
     }
 
   /* addpath TX knobs */
@@ -7116,6 +7233,9 @@ bgp_config_write (struct vty *vty)
       if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
 	vty_out (vty, " bgp graceful-restart stalepath-time %d%s",
 		 bgp->stalepath_time, VTY_NEWLINE);
+      if (bgp->restart_time != BGP_DEFAULT_RESTART_TIME)
+	vty_out (vty, " bgp graceful-restart restart-time %d%s",
+		 bgp->restart_time, VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_GRACEFUL_RESTART))
        vty_out (vty, " bgp graceful-restart%s", VTY_NEWLINE);
 
@@ -7215,8 +7335,6 @@ bgp_config_write (struct vty *vty)
 
       /* ENCAPv6 configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP6, SAFI_ENCAP);
-
-      vty_out (vty, " exit%s", VTY_NEWLINE);
 
       write++;
     }

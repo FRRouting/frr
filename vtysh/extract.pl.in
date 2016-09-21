@@ -36,6 +36,7 @@ EOF
 $ignore{'"interface IFNAME"'} = "ignore";
 $ignore{'"interface IFNAME " "vrf <0-65535>"'} = "ignore";
 $ignore{'"interface IFNAME " "vrf NAME"'} = "ignore";
+$ignore{'"link-params"'} = "ignore";
 $ignore{'"vrf NAME"'} = "ignore";
 $ignore{'"ip vrf NAME"'} = "ignore";
 $ignore{'"router rip"'} = "ignore";
@@ -58,6 +59,8 @@ $ignore{'"address-family ipv4 vrf NAME"'} = "ignore";
 $ignore{'"address-family encap"'} = "ignore";
 $ignore{'"address-family encapv4"'} = "ignore";
 $ignore{'"address-family encapv6"'} = "ignore";
+$ignore{'"address-family vpnv6"'} = "ignore";
+$ignore{'"address-family vpnv6 unicast"'} = "ignore";
 $ignore{'"exit-address-family"'} = "ignore";
 $ignore{'"key chain WORD"'} = "ignore";
 $ignore{'"key <0-2147483647>"'} = "ignore";
@@ -118,7 +121,7 @@ foreach (@ARGV) {
             $protocol = "VTYSH_RIPD";
         }
         elsif ($file =~ /lib\/routemap\.c$/) {
-            $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
+            $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD";
         }
         elsif ($file =~ /lib\/vrf\.c$/) {
             $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
@@ -126,11 +129,14 @@ foreach (@ARGV) {
         elsif ($file =~ /lib\/filter\.c$/) {
             $protocol = "VTYSH_ALL";
         }
+        elsif ($file =~ /lib\/ns\.c$/) {
+            $protocol = "VTYSH_ZEBRA";
+        }
         elsif ($file =~ /lib\/plist\.c$/) {
             if ($defun_array[1] =~ m/ipv6/) {
                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
             } else {
-                $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA";
+                $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD";
             }
         }
         elsif ($file =~ /lib\/distribute\.c$/) {

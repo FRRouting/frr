@@ -23,11 +23,6 @@
 #define _ZEBRA_ISIS_EVENTS_H
 
 /*
- * Events related to area
- */
-void isis_event_system_type_change (struct isis_area *area, int newtype);
-
-/*
  * Events related to circuit
  */
 void isis_event_circuit_state_change (struct isis_circuit *circuit,

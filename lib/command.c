@@ -666,8 +666,12 @@ node_parent ( enum node_type node )
     case KEYCHAIN_KEY_NODE:
       ret = KEYCHAIN_NODE;
       break;
+    case LINK_PARAMS_NODE:
+      ret = INTERFACE_NODE;
+      break;
     default:
       ret = CONFIG_NODE;
+      break;
     }
 
   return ret;
@@ -961,6 +965,7 @@ DEFUN (config_exit,
       vty_config_unlock (vty);
       break;
     case INTERFACE_NODE:
+    case NS_NODE:
     case VRF_NODE:
     case ZEBRA_NODE:
     case BGP_NODE:
@@ -989,6 +994,9 @@ DEFUN (config_exit,
     case KEYCHAIN_KEY_NODE:
       vty->node = KEYCHAIN_NODE;
       break;
+    case LINK_PARAMS_NODE:
+      vty->node = INTERFACE_NODE;
+      break;
     default:
       break;
     }
@@ -1016,6 +1024,7 @@ DEFUN (config_end,
       break;
     case CONFIG_NODE:
     case INTERFACE_NODE:
+    case NS_NODE:
     case VRF_NODE:
     case ZEBRA_NODE:
     case RIP_NODE:
@@ -1038,6 +1047,7 @@ DEFUN (config_end,
     case MASC_NODE:
     case PIM_NODE:
     case VTY_NODE:
+    case LINK_PARAMS_NODE:
       vty_config_unlock (vty);
       vty->node = ENABLE_NODE;
       break;
@@ -1757,6 +1767,10 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
 
   host.logfile = XSTRDUP (MTYPE_HOST, fname);
 
+#if defined(HAVE_CUMULUS)
+  if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED)
+    zlog_default->maxlvl[ZLOG_DEST_SYSLOG] = ZLOG_DISABLED;
+#endif
   return CMD_SUCCESS;
 }
 
@@ -1955,11 +1969,25 @@ DEFUN (no_config_log_timestamp_precision,
 int
 cmd_banner_motd_file (const char *file)
 {
-  if (host.motdfile)
-    XFREE (MTYPE_HOST, host.motdfile);
-  host.motdfile = XSTRDUP (MTYPE_HOST, file);
+  int success = CMD_SUCCESS;
+  char p[PATH_MAX];
+  char *rpath;
+  char *in;
 
-  return CMD_SUCCESS;
+  rpath = realpath (file, p);
+  if (!rpath)
+    return CMD_ERR_NO_FILE;
+  in = strstr (rpath, SYSCONFDIR);
+  if (in == rpath)
+    {
+      if (host.motdfile)
+        XFREE (MTYPE_HOST, host.motdfile);
+      host.motdfile = XSTRDUP (MTYPE_HOST, file);
+    }
+  else
+    success = CMD_WARNING;
+
+  return success;
 }
 
 DEFUN (banner_motd_file,
@@ -1970,7 +1998,15 @@ DEFUN (banner_motd_file,
        "Banner from a file\n"
        "Filename\n")
 {
-  return cmd_banner_motd_file (argv[3]->arg);
+  int cmd = cmd_banner_motd_file (argv[3]->arg);
+
+  if (cmd == CMD_ERR_NO_FILE)
+    vty_out (vty, "%s does not exist", argv[3]->arg);
+  else if (cmd == CMD_WARNING)
+    vty_out (vty, "%s must be in %s",
+             argv[0], SYSCONFDIR);
+
+  return cmd;
 }
 
 DEFUN (banner_motd_default,
@@ -2098,7 +2134,6 @@ cmd_init (int terminal)
       install_element (RESTRICTED_NODE, &config_enable_cmd);
       install_element (RESTRICTED_NODE, &config_terminal_length_cmd);
       install_element (RESTRICTED_NODE, &config_terminal_no_length_cmd);
-      install_element (RESTRICTED_NODE, &show_commandtree_cmd);
       install_element (RESTRICTED_NODE, &echo_cmd);
     }
 
@@ -2167,7 +2202,6 @@ cmd_init (int terminal)
 
       vrf_install_commands ();
     }
-  install_element (CONFIG_NODE, &show_commandtree_cmd);
   srandom(time(NULL));
 }
 

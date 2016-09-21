@@ -75,6 +75,7 @@ enum node_type
   AAA_NODE,                     /* AAA node. */
   KEYCHAIN_NODE,                /* Key-chain node. */
   KEYCHAIN_KEY_NODE,            /* Key-chain key node. */
+  NS_NODE,                      /* Logical-Router node. */
   VRF_NODE,                     /* VRF mode node. */
   INTERFACE_NODE,               /* Interface mode node. */
   ZEBRA_NODE,                   /* zebra connection node. */
@@ -109,6 +110,7 @@ enum node_type
   FORWARDING_NODE,              /* IP forwarding node. */
   PROTOCOL_NODE,                /* protocol filtering node */
   VTY_NODE,                     /* Vty node. */
+  LINK_PARAMS_NODE,             /* Link-parameters node */
 };
 
 /* Node which has some commands and prompt string and configuration
@@ -356,6 +358,10 @@ struct cmd_element
 #define AREA_TAG_STR "[area tag]\n"
 #define COMMUNITY_AANN_STR "Community number where AA and NN are (0-65535)\n"
 #define COMMUNITY_VAL_STR  "Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet or additive\n"
+#define MPLS_TE_STR "MPLS-TE specific commands\n"
+#define LINK_PARAMS_STR "Configure interface link parameters\n"
+#define OSPF_RI_STR "OSPF Router Information specific commands\n"
+#define PCE_STR "PCE Router Information specific commands\n"
 
 #define CONF_BACKUP_EXT ".sav"
 

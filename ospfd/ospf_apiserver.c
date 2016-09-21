@@ -23,9 +23,6 @@
 #include <zebra.h>
 
 #ifdef SUPPORT_OSPF_API
-#ifndef HAVE_OPAQUE_LSA
-#error "Core Opaque-LSA module must be configured."
-#endif /* HAVE_OPAQUE_LSA */
 
 #include "linklist.h"
 #include "prefix.h"

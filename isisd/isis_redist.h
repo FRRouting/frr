@@ -44,6 +44,7 @@ struct isis_redist
 
 struct isis_area;
 struct prefix;
+struct vty;
 
 struct route_table *get_ext_reach(struct isis_area *area,
                                   int family, int level);

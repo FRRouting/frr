@@ -60,6 +60,10 @@ void zebra_interface_address_delete_update (struct interface *a,
                                                 struct connected *b)
 { return; }
 
+/* Interface parameters update */
+void zebra_interface_parameters_update (struct interface *ifp)
+{ return; };
+
 void zebra_interface_vrf_update_del (struct interface *a, vrf_id_t new_vrf_id)
 { return; }
 

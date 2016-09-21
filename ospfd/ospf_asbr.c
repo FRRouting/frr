@@ -136,7 +136,7 @@ ospf_route_map_set_compare (struct route_map_set_values *values1,
 /* Add an External info for AS-external-LSA. */
 struct external_info *
 ospf_external_info_add (u_char type, u_short instance, struct prefix_ipv4 p,
-			unsigned int ifindex, struct in_addr nexthop,
+			ifindex_t ifindex, struct in_addr nexthop,
                         u_short tag)
 {
   struct external_info *new;

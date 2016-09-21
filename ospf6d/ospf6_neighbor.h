@@ -53,7 +53,7 @@ struct ospf6_neighbor
   u_int32_t router_id;
 
   /* Neighbor Interface ID */
-  u_int32_t ifindex;
+  ifindex_t ifindex;
 
   /* Router Priority of this neighbor */
   u_char priority;

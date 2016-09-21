@@ -64,7 +64,7 @@ static const char *ospf_network_type_str[] =
 };
 
 /* Utility functions. */
-static int
+int
 ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
 {
   char *endptr = NULL;
@@ -271,42 +271,9 @@ DEFUN (no_ospf_router_id,
   struct ospf *ospf = vty->index;
   struct listnode *node;
   struct ospf_area *area;
-  struct in_addr id;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
-  int ret;
 
   if (!ospf)
     return CMD_SUCCESS;
-
-  if (argc == 1)
-  {
-      ret = inet_aton (argv[0], &id);
-      if (! ret)
-      {
-        ifp = if_lookup_by_name(argv[0]);
-        if (!ifp) {
-          vty_out (vty, "%% Malformed OSPF router identifier%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-        for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
-        {
-          p = ifc->address;
-          if (p && (p->family == AF_INET))
-          {
-            id = p->u.prefix4;
-            break;
-          }
-        }
-      }
-
-      if (! IPV4_ADDR_SAME (&ospf->router_id_static, &id))
-      {
-        vty_out (vty, "%% OSPF router-id doesn't match%s", VTY_NEWLINE);
-        return CMD_WARNING;
-      }
-  }
 
   ospf->router_id_static.s_addr = 0;
 
@@ -330,63 +297,6 @@ ALIAS (no_ospf_router_id,
        "OSPF specific commands\n"
        "router-id for the OSPF process\n"
        "OSPF router-id in IP address format\n")
-
-DEFUN (ospf_router_id_interface,
-       ospf_router_id_interface_cmd,
-       "ospf router-id IFNAME",
-       "OSPF specific commands\n"
-       "router-id for the OSPF process\n"
-       "Interface name\n")
-{
-  struct ospf *ospf = vty->index;
-  struct listnode *node;
-  struct ospf_area *area;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
-
-  if (!ospf)
-    return CMD_SUCCESS;
-
-  p = NULL;
-  ifp = if_lookup_by_name(argv[0]);
-  if (!ifp)
-  {
-      vty_out (vty, "%% Couldnt find interface %s%s", argv[0], VTY_NEWLINE);
-      return CMD_WARNING;
-  }
-
-  for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
-  {
-    p = ifc->address;
-
-    if (p && (p->family == AF_INET))
-    {
-      if (IPV4_ADDR_SAME (&ospf->router_id_static, &p->u.prefix4))
-        return CMD_SUCCESS;
-      ospf->router_id_static = p->u.prefix4;
-      for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
-        if (area->full_nbrs)
-        {
-            vty_out (vty, "For this router-id change to take effect,"
-                          " save config and restart ospfd%s", VTY_NEWLINE);
-            return CMD_SUCCESS;
-        }
-      ospf_router_id_update (ospf);
-      return CMD_SUCCESS;
-    }
-  }
-  vty_out (vty, "%% Couldnt assign the router-id%s", VTY_NEWLINE);
-  return CMD_WARNING;
-}
-
-ALIAS (no_ospf_router_id,
-       no_ospf_router_id_interface_cmd,
-       "no ospf router-id IFNAME",
-       NO_STR
-       "OSPF specific commands\n"
-       "router-id for the OSPF process\n"
-       "Interface name\n")
 
 static void
 ospf_passive_interface_default (struct ospf *ospf, u_char newval)
@@ -3355,7 +3265,6 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
                ospf_lsdb_checksum (area->lsdb, OSPF_AS_NSSA_LSA), VTY_NEWLINE);
     }
 
-#ifdef HAVE_OPAQUE_LSA
   if (use_json)
     {
       json_object_int_add(json_area, "lsaOpaqueLinkNumber", ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_LINK_LSA));
@@ -3372,7 +3281,6 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
                ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_AREA_LSA),
                ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_AREA_LSA), VTY_NEWLINE);
     }
-#endif /* HAVE_OPAQUE_LSA */
 
   if (use_json)
     json_object_object_add(json_areas, inet_ntoa (area->area_id), json_area);
@@ -3456,7 +3364,6 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
                "enabled" : "disabled", VTY_NEWLINE);
     }
 
-#ifdef HAVE_OPAQUE_LSA
   if (use_json)
     {
       if (CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE))
@@ -3470,7 +3377,6 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
                CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE) ? "enabled" : "disabled",
                VTY_NEWLINE);
     }
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Show stub-router configuration */
   if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED
@@ -3624,7 +3530,6 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
                ospf_lsdb_checksum (ospf->lsdb, OSPF_AS_EXTERNAL_LSA), VTY_NEWLINE);
     }
 
-#ifdef HAVE_OPAQUE_LSA
   if (use_json)
     {
        json_object_int_add(json, "lsaAsopaqueCounter",
@@ -3638,7 +3543,6 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
                ospf_lsdb_count (ospf->lsdb, OSPF_OPAQUE_AS_LSA),
                ospf_lsdb_checksum (ospf->lsdb, OSPF_OPAQUE_AS_LSA), VTY_NEWLINE);
     }
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Show number of areas attached. */
   if (use_json)
@@ -3967,7 +3871,13 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
             {
               struct timeval result;
               unsigned long time_store = 0;
-              result = tv_sub (oi->t_hello->u.sands, recent_relative_time());
+	      if (oi->t_hello)
+		result = tv_sub (oi->t_hello->u.sands, recent_relative_time());
+	      else
+		{
+		  result.tv_sec = 0;
+		  result.tv_usec = 0;
+		}
               time_store = (1000 * result.tv_sec) + (result.tv_usec / 1000);
               json_object_int_add(json_interface_sub, "timerHelloInMsecs", time_store);
             }
@@ -4029,20 +3939,29 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
           if (ospf_oi_count(ifp))
             {
               show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
+	      if (use_json)
+		json_object_object_add (json, ifp->name, json_interface_sub);
             }
         }
     }
   else if (argv[iface_argv] && strcmp(argv[iface_argv], "json") == 0)
     {
+      if (!use_json)
+	{
+	  json = json_object_new_object();
+	  json_interface_sub = json_object_new_object ();
+	  use_json = 1;
+	}
       /* Show All Interfaces. */
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         {
           if (ospf_oi_count(ifp))
             {
               show_ip_ospf_interface_sub (vty, ospf, ifp, json_interface_sub, use_json);
-              json_object_object_add(json, ifp->name, json_interface_sub);
-            }
-        }
+	      if (use_json)
+		json_object_object_add(json, ifp->name, json_interface_sub);
+	    }
+	}
     }
   else
     {
@@ -5185,11 +5104,9 @@ show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
 	    break;
 	  case OSPF_NETWORK_LSA:
 	  case OSPF_ASBR_SUMMARY_LSA:
-#ifdef HAVE_OPAQUE_LSA
 	  case OSPF_OPAQUE_LINK_LSA:
 	  case OSPF_OPAQUE_AREA_LSA:
 	  case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
 	  default:
 	    break;
 	  }
@@ -5209,12 +5126,10 @@ static const char *show_database_desc[] =
   "AS External Link States",
   "Group Membership LSA",
   "NSSA-external Link States",
-#ifdef HAVE_OPAQUE_LSA
   "Type-8 LSA",
   "Link-Local Opaque-LSA",
   "Area-Local Opaque-LSA",
   "AS-external Opaque-LSA",
-#endif /* HAVE_OPAQUE_LSA */
 };
 
 static const char *show_database_header[] =
@@ -5227,12 +5142,10 @@ static const char *show_database_header[] =
   "Link ID         ADV Router      Age  Seq#       CkSum  Route",
   " --- header for Group Member ----",
   "Link ID         ADV Router      Age  Seq#       CkSum  Route",
-#ifdef HAVE_OPAQUE_LSA
   " --- type-8 ---",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
-#endif /* HAVE_OPAQUE_LSA */
 };
 
 static void
@@ -5504,7 +5417,6 @@ show_func_dummy (struct vty *vty, struct ospf_lsa *lsa)
   return 0;
 }
 
-#ifdef HAVE_OPAQUE_LSA
 static int
 show_opaque_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
@@ -5517,7 +5429,6 @@ show_opaque_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
     }
   return 0;
 }
-#endif /* HAVE_OPAQUE_LSA */
 
 int (*show_function[])(struct vty *, struct ospf_lsa *) =
 {
@@ -5529,12 +5440,10 @@ int (*show_function[])(struct vty *, struct ospf_lsa *) =
   show_as_external_lsa_detail,
   show_func_dummy,
   show_as_nssa_lsa_detail,  /* almost same as external */
-#ifdef HAVE_OPAQUE_LSA
   NULL,				/* type-8 */
   show_opaque_lsa_detail,
   show_opaque_lsa_detail,
   show_opaque_lsa_detail,
-#endif /* HAVE_OPAQUE_LSA */
 };
 
 static void
@@ -5593,9 +5502,7 @@ show_lsa_detail (struct vty *vty, struct ospf *ospf, int type,
   switch (type)
     {
     case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
       vty_out (vty, "                %s %s%s",
                show_database_desc[type],
                VTY_NEWLINE, VTY_NEWLINE);
@@ -5642,9 +5549,7 @@ show_lsa_detail_adv_router (struct vty *vty, struct ospf *ospf, int type,
   switch (type)
     {
     case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
       vty_out (vty, "                %s %s%s",
                show_database_desc[type],
                VTY_NEWLINE, VTY_NEWLINE);
@@ -5680,9 +5585,7 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 	  switch (type)
 	    {
 	    case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
             case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
 	      continue;
 	    default:
 	      break;
@@ -5709,9 +5612,7 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
       switch (type)
         {
           case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
           case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
             break;
           default:
             continue;
@@ -5763,17 +5664,10 @@ show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 #define OSPF_LSA_TYPE_NSSA_DESC      "NSSA external link state\n"
 #define OSPF_LSA_TYPE_NSSA_CMD_STR   "|nssa-external"
 
-#ifdef HAVE_OPAQUE_LSA
 #define OSPF_LSA_TYPE_OPAQUE_LINK_DESC "Link local Opaque-LSA\n"
 #define OSPF_LSA_TYPE_OPAQUE_AREA_DESC "Link area Opaque-LSA\n"
 #define OSPF_LSA_TYPE_OPAQUE_AS_DESC   "Link AS Opaque-LSA\n"
 #define OSPF_LSA_TYPE_OPAQUE_CMD_STR   "|opaque-link|opaque-area|opaque-as"
-#else /* HAVE_OPAQUE_LSA */
-#define OSPF_LSA_TYPE_OPAQUE_LINK_DESC ""
-#define OSPF_LSA_TYPE_OPAQUE_AREA_DESC ""
-#define OSPF_LSA_TYPE_OPAQUE_AS_DESC   ""
-#define OSPF_LSA_TYPE_OPAQUE_CMD_STR   ""
-#endif /* HAVE_OPAQUE_LSA */
 
 #define OSPF_LSA_TYPES_CMD_STR                                                \
     "asbr-summary|external|network|router|summary"                            \
@@ -5835,14 +5729,12 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
       show_ip_ospf_database_maxage (vty, ospf);
       return CMD_SUCCESS;
     }
-#ifdef HAVE_OPAQUE_LSA
   else if (strncmp (argv[arg_base + 0], "opaque-l", 8) == 0)
     type = OSPF_OPAQUE_LINK_LSA;
   else if (strncmp (argv[arg_base + 0], "opaque-ar", 9) == 0)
     type = OSPF_OPAQUE_AREA_LSA;
   else if (strncmp (argv[arg_base + 0], "opaque-as", 9) == 0)
     type = OSPF_OPAQUE_AS_LSA;
-#endif /* HAVE_OPAQUE_LSA */
   else
     return CMD_WARNING;
 
@@ -6037,14 +5929,12 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
     type = OSPF_ASBR_SUMMARY_LSA;
   else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
     type = OSPF_AS_EXTERNAL_LSA;
-#ifdef HAVE_OPAQUE_LSA
   else if (strncmp (argv[arg_base + 0], "opaque-l", 8) == 0)
     type = OSPF_OPAQUE_LINK_LSA;
   else if (strncmp (argv[arg_base + 0], "opaque-ar", 9) == 0)
     type = OSPF_OPAQUE_AREA_LSA;
   else if (strncmp (argv[arg_base + 0], "opaque-as", 9) == 0)
     type = OSPF_OPAQUE_AS_LSA;
-#endif /* HAVE_OPAQUE_LSA */
   else
     return CMD_WARNING;
 
@@ -9579,9 +9469,7 @@ config_write_interface (struct vty *vty)
 	  }
       } while (rn);
       
-#ifdef HAVE_OPAQUE_LSA
       ospf_opaque_config_write_if (vty, ifp);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   return write;
@@ -10077,9 +9965,7 @@ ospf_config_write (struct vty *vty)
       /* Distance configuration. */
       config_write_ospf_distance (vty, ospf);
 
-#ifdef HAVE_OPAQUE_LSA
       ospf_opaque_config_write_router (vty, ospf);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   return write;
@@ -10421,10 +10307,8 @@ ospf_vty_init (void)
   /* "ospf router-id" commands. */
   install_element (OSPF_NODE, &ospf_router_id_cmd);
   install_element (OSPF_NODE, &ospf_router_id_old_cmd);
-  install_element (OSPF_NODE, &ospf_router_id_interface_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_val_cmd);
-  install_element (OSPF_NODE, &no_ospf_router_id_interface_cmd);
 
   /* "passive-interface" commands. */
   install_element (OSPF_NODE, &ospf_passive_interface_addr_cmd);

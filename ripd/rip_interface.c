@@ -74,12 +74,13 @@ static int
 ipv4_multicast_join (int sock, 
 		     struct in_addr group, 
 		     struct in_addr ifa,
-		     unsigned int ifindex)
+		     ifindex_t ifindex)
 {
   int ret;
 
   ret = setsockopt_ipv4_multicast (sock,
 				   IP_ADD_MEMBERSHIP, 
+				   ifa,
 				   group.s_addr, 
 				   ifindex); 
 
@@ -95,12 +96,13 @@ static int
 ipv4_multicast_leave (int sock, 
 		      struct in_addr group, 
 		      struct in_addr ifa,
-		      unsigned int ifindex)
+		      ifindex_t ifindex)
 {
   int ret;
 
   ret = setsockopt_ipv4_multicast (sock,
 				   IP_DROP_MEMBERSHIP, 
+				   ifa,
 				   group.s_addr, 
 				   ifindex);
 
@@ -136,9 +138,13 @@ rip_interface_new (void)
 void
 rip_interface_multicast_set (int sock, struct connected *connected)
 {
+  struct in_addr addr;
+
   assert (connected != NULL);
-  
-  if (setsockopt_ipv4_multicast_if (sock, connected->ifp->ifindex) < 0)
+
+  addr = CONNECTED_ID(connected)->u.prefix4;
+
+  if (setsockopt_ipv4_multicast_if (sock, addr, connected->ifp->ifindex) < 0)
     {
       zlog_warn ("Can't setsockopt IP_MULTICAST_IF on fd %d to "
 		 "ifindex %d for interface %s",

@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "command.h"
 #include "thread.h"
 #include "smux.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -116,8 +117,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 SNMP_LOCAL_VARIABLES
 
 /* BGP-MIB instances. */
-oid bgp_oid [] = { BGP4MIB };
-oid bgp_trap_oid [] = { BGP4MIB, 0 };
+static oid bgp_oid [] = { BGP4MIB };
+static oid bgp_trap_oid [] = { BGP4MIB, 0 };
 
 /* IP address 0.0.0.0. */
 static struct in_addr bgp_empty_addr = { .s_addr = 0 };
@@ -137,7 +138,7 @@ static u_char *bgp4PathAttrTable (struct variable *, oid [], size_t *,
 				  int, size_t *, WriteMethod **);
 /* static u_char *bgpTraps (); */
 
-struct variable bgp_variables[] = 
+static struct variable bgp_variables[] = 
 {
   /* BGP version. */
   {BGPVERSION,                OCTET_STRING, RONLY, bgpVersion,
@@ -831,7 +832,7 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
 }
 
 /* BGP Traps. */
-struct trap_object bgpTrapList[] =
+static struct trap_object bgpTrapList[] =
 {
   {3, {3, 1, BGPPEERLASTERROR}},
   {3, {3, 1, BGPPEERSTATE}}

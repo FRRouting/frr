@@ -317,7 +317,7 @@ main (int argc, char **argv, char **env)
 	case 'c':
 	  {
 	    struct cmd_rec *cr;
-	    cr = XMALLOC(0, sizeof(*cr));
+	    cr = XMALLOC(MTYPE_TMP, sizeof(*cr));
 	    cr->line = optarg;
 	    cr->next = NULL;
 	    if (tail)
@@ -415,7 +415,10 @@ main (int argc, char **argv, char **env)
   if (vtysh_connect_all (daemon_name) <= 0)
     {
       fprintf(stderr, "Exiting: failed to connect to any daemons.\n");
-      exit(1);
+      if (no_error)
+        exit(0);
+      else
+        exit(1);
     }
 
   if (inputfile)
@@ -501,7 +504,7 @@ main (int argc, char **argv, char **env)
 	    struct cmd_rec *cr;
 	    cr = cmd;
 	    cmd = cmd->next;
-	    XFREE(0, cr);
+	    XFREE(MTYPE_TMP, cr);
 	  }
         }
 

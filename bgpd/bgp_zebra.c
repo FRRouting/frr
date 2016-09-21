@@ -32,6 +32,8 @@ Boston, MA 02111-1307, USA.  */
 #include "queue.h"
 #include "memory.h"
 #include "lib/json.h"
+#include "lib/bfd.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -109,8 +111,6 @@ bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length,
     vrf_id_t vrf_id)
 {
   struct prefix router_id;
-  struct listnode *node, *nnode;
-  struct bgp *bgp;
 
   zebra_router_id_update_read(zclient->ibuf,&router_id);
 
@@ -121,32 +121,7 @@ bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length,
       zlog_debug("Rx Router Id update VRF %u Id %s", vrf_id, buf);
     }
 
-  if (vrf_id == VRF_DEFAULT)
-    {
-      /* Router-id change for default VRF has to also update all views. */
-      for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
-        {
-          if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-            continue;
-
-          bgp->router_id_zebra = router_id.u.prefix4;
-
-          if (!bgp->router_id_static.s_addr)
-            bgp_router_id_set (bgp, &router_id.u.prefix4);
-        }
-    }
-  else
-    {
-      bgp = bgp_lookup_by_vrf_id (vrf_id);
-      if (bgp)
-        {
-          bgp->router_id_zebra = router_id.u.prefix4;
-
-          if (!bgp->router_id_static.s_addr)
-            bgp_router_id_set (bgp, &router_id.u.prefix4);
-        }
-    }
-
+  bgp_router_id_zebra_bump (vrf_id, &router_id);
   return 0;
 }
 
@@ -385,7 +360,16 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length,
 
     for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
       {
+#if defined(HAVE_CUMULUS)
+        /* Take down directly connected EBGP peers as well as 1-hop BFD
+         * tracked (directly connected) IBGP peers.
+         */
+        if ((peer->ttl != 1) && (peer->gtsm_hops != 1) &&
+            (!peer->bfd_info || bgp_bfd_is_peer_multihop(peer)))
+#else
+        /* Take down directly connected EBGP peers */
         if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
+#endif
           continue;
 
         if (ifp == peer->nexthop.ifp)
@@ -882,7 +866,7 @@ if_lookup_by_ipv4_exact (struct in_addr *addr, vrf_id_t vrf_id)
 
 #ifdef HAVE_IPV6
 struct interface *
-if_lookup_by_ipv6 (struct in6_addr *addr, unsigned int ifindex, vrf_id_t vrf_id)
+if_lookup_by_ipv6 (struct in6_addr *addr, ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct listnode *ifnode;
   struct listnode *cnode;
@@ -904,7 +888,7 @@ if_lookup_by_ipv6 (struct in6_addr *addr, unsigned int ifindex, vrf_id_t vrf_id)
 	  if (cp->family == AF_INET6)
 	    if (prefix_match (cp, (struct prefix *)&p))
 	      {
-		if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6.s6_addr32[0]))
+		if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6))
 		  {
 		    if (ifindex == ifp->ifindex)
 		      return ifp;
@@ -918,7 +902,7 @@ if_lookup_by_ipv6 (struct in6_addr *addr, unsigned int ifindex, vrf_id_t vrf_id)
 }
 
 struct interface *
-if_lookup_by_ipv6_exact (struct in6_addr *addr, unsigned int ifindex, vrf_id_t vrf_id)
+if_lookup_by_ipv6_exact (struct in6_addr *addr, ifindex_t ifindex, vrf_id_t vrf_id)
 {
   struct listnode *ifnode;
   struct listnode *cnode;
@@ -1163,12 +1147,18 @@ bgp_info_to_ipv6_nexthop (struct bgp_info *info)
   /* If both global and link-local address present. */
   if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
     {
-      /* Workaround for Cisco's nexthop bug.  */
-      if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
-          && info->peer->su_remote->sa.sa_family == AF_INET6)
-        nexthop = &info->peer->su_remote->sin6.sin6_addr;
+      /* Check if route-map is set to prefer global over link-local */
+      if (info->attr->extra->mp_nexthop_prefer_global)
+        nexthop = &info->attr->extra->mp_nexthop_global;
       else
-        nexthop = &info->attr->extra->mp_nexthop_local;
+        {
+          /* Workaround for Cisco's nexthop bug.  */
+          if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
+              && info->peer->su_remote->sa.sa_family == AF_INET6)
+            nexthop = &info->peer->su_remote->sin6.sin6_addr;
+          else
+            nexthop = &info->attr->extra->mp_nexthop_local;
+        }
     }
 
   return nexthop;
@@ -1401,7 +1391,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
   if (p->family == AF_INET6 ||
       (p->family == AF_INET && BGP_ATTR_NEXTHOP_AFI_IP6(info->attr)))
     {
-      unsigned int ifindex;
+      ifindex_t ifindex;
       struct in6_addr *nexthop;
       struct zapi_ipv6 api;
       int valid_nh_count = 0;
@@ -1547,7 +1537,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
       api.nexthop = (struct in6_addr **)STREAM_DATA (bgp_nexthop_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
       api.ifindex_num = valid_nh_count;
-      api.ifindex = (unsigned int *)STREAM_DATA (bgp_ifindices_buf);
+      api.ifindex = (ifindex_t *)STREAM_DATA (bgp_ifindices_buf);
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = metric;
       api.tag = 0;
@@ -1891,16 +1881,30 @@ bgp_redistribute_metric_set (struct bgp *bgp, struct bgp_redist *red, afi_t afi,
   red->redist_metric_flag = 1;
   red->redist_metric = metric;
 
-  for (rn = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); rn; rn = bgp_route_next(rn)) {
-    for (ri = rn->info; ri; ri = ri->next) {
-      if (ri->sub_type == BGP_ROUTE_REDISTRIBUTE && ri->type == type &&
-	  ri->instance == red->instance) {
-	  ri->attr->med = red->redist_metric;
-	  bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
-	  bgp_process(bgp, rn, afi, SAFI_UNICAST);
-      }
+  for (rn = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); rn; rn = bgp_route_next(rn))
+    {
+      for (ri = rn->info; ri; ri = ri->next)
+        {
+          if (ri->sub_type == BGP_ROUTE_REDISTRIBUTE &&
+              ri->type == type &&
+              ri->instance == red->instance)
+            {
+              struct attr *old_attr;
+              struct attr new_attr;
+              struct attr_extra new_extra;
+
+              new_attr.extra = &new_extra;
+              bgp_attr_dup (&new_attr, ri->attr);
+              new_attr.med = red->redist_metric;
+              old_attr = ri->attr;
+              ri->attr = bgp_attr_intern (&new_attr);
+              bgp_attr_unintern (&old_attr);
+
+              bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
+              bgp_process(bgp, rn, afi, SAFI_UNICAST);
+            }
+        }
     }
-  }
 
   return 1;
 }
@@ -1970,6 +1974,24 @@ bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type, u_short instance)
   bgp_redist_del(bgp, afi, type, instance);
 
   return CMD_SUCCESS;
+}
+
+/* Update redistribute vrf bitmap during triggers like
+   restart networking or delete/add VRFs */
+void
+bgp_update_redist_vrf_bitmaps (struct bgp *bgp, vrf_id_t old_vrf_id)
+{
+  int i;
+  afi_t afi;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+      if (vrf_bitmap_check (zclient->redist[afi][i], old_vrf_id))
+        {
+          vrf_bitmap_unset (zclient->redist[afi][i], old_vrf_id);
+          vrf_bitmap_set (zclient->redist[afi][i], bgp->vrf_id);
+        }
+  return;
 }
 
 void
@@ -2056,6 +2078,9 @@ bgp_zebra_connected (struct zclient *zclient)
     return;
 
   bgp_zebra_instance_register (bgp);
+
+  /* Send the client registration */
+  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
   /* TODO - What if we have peers and networks configured, do we have to
    * kick-start them?

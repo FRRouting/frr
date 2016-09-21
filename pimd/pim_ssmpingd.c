@@ -250,7 +250,7 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
   struct sockaddr_in to;
   socklen_t fromlen = sizeof(from);
   socklen_t tolen = sizeof(to);
-  int ifindex = -1;
+  ifindex_t ifindex = -1;
   uint8_t buf[1000];
   int len;
 

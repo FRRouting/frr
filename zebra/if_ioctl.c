@@ -427,7 +427,7 @@ interface_info_ioctl ()
   struct listnode *node, *nnode;
   struct interface *ifp;
   
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
     {
       if_get_index (ifp);
 #ifdef SIOCGIFHWADDR

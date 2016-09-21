@@ -33,6 +33,7 @@
 #include "pim_str.h"
 #include "pim_ssmpingd.h"
 #include "pim_pim.h"
+#include "pim_oil.h"
 #include "pim_static.h"
 
 int pim_debug_config_write(struct vty *vty)

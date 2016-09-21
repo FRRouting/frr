@@ -290,7 +290,7 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
   memcpy (&on->linklocal_addr, src, sizeof (struct in6_addr));
 
   /* Neighbor ifindex check */
-  if (on->ifindex != ntohl (hello->interface_id))
+  if (on->ifindex != (ifindex_t)ntohl (hello->interface_id))
     {
       on->ifindex = ntohl (hello->interface_id);
       neighbor_ifindex_change++;
@@ -1525,7 +1525,7 @@ ospf6_receive (struct thread *thread)
   unsigned int len;
   char srcname[64], dstname[64];
   struct in6_addr src, dst;
-  unsigned int ifindex;
+  ifindex_t ifindex;
   struct iovec iovector[2];
   struct ospf6_interface *oi;
   struct ospf6_header *oh;

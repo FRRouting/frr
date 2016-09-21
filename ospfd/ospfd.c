@@ -124,7 +124,7 @@ ospf_router_id_update (struct ospf *ospf)
 	   * oi->nbr_self->router_id = router_id for
 	   * !(virtual | ptop) links
 	   */
-	  ospf_nbr_self_reset (oi);
+	  ospf_nbr_self_reset (oi, router_id);
 	}
 
       /* If AS-external-LSA is queued, then flush those LSAs. */
@@ -272,7 +272,7 @@ ospf_new (u_short instance)
   new->lsa_refresh_interval = OSPF_LSA_REFRESH_INTERVAL_DEFAULT;
   new->t_lsa_refresher = thread_add_timer (master, ospf_lsa_refresh_walker,
 					   new, new->lsa_refresh_interval);
-  new->lsa_refresher_started = quagga_time (NULL);
+  new->lsa_refresher_started = quagga_monotime ();
 
   if ((new->fd = ospf_sock_init()) < 0)
     {
@@ -305,7 +305,7 @@ ospf_lookup ()
   if (listcount (om->ospf) == 0)
     return NULL;
 
-  return listgetdata (listhead (om->ospf));
+  return listgetdata ((struct listnode *)listhead (om->ospf));
 }
 
 struct ospf *
@@ -351,9 +351,7 @@ ospf_get ()
       if (ospf->router_id_static.s_addr == 0)
 	ospf_router_id_update (ospf);
 
-#ifdef HAVE_OPAQUE_LSA
       ospf_opaque_type11_lsa_init (ospf);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   return ospf;
@@ -373,9 +371,7 @@ ospf_get_instance (u_short instance)
       if (ospf->router_id_static.s_addr == 0)
 	ospf_router_id_update (ospf);
 
-#ifdef HAVE_OPAQUE_LSA
       ospf_opaque_type11_lsa_init (ospf);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   return ospf;
@@ -513,9 +509,7 @@ ospf_finish_final (struct ospf *ospf)
   int i;
   u_short instance = 0;
 
-#ifdef HAVE_OPAQUE_LSA
   ospf_opaque_type11_lsa_term (ospf);
-#endif /* HAVE_OPAQUE_LSA */
   
   /* be nice if this worked, but it doesn't */
   /*ospf_flush_self_originated_lsas_now (ospf);*/
@@ -611,17 +605,13 @@ ospf_finish_final (struct ospf *ospf)
   OSPF_TIMER_OFF (ospf->t_lsa_refresher);
   OSPF_TIMER_OFF (ospf->t_read);
   OSPF_TIMER_OFF (ospf->t_write);
-#ifdef HAVE_OPAQUE_LSA
   OSPF_TIMER_OFF (ospf->t_opaque_lsa_self);
-#endif
 
   close (ospf->fd);
   stream_free(ospf->ibuf);
    
-#ifdef HAVE_OPAQUE_LSA
   LSDB_LOOP (OPAQUE_AS_LSDB (ospf), rn, lsa)
     ospf_discard_from_db (ospf, ospf->lsdb, lsa);
-#endif /* HAVE_OPAQUE_LSA */
   LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
     ospf_discard_from_db (ospf, ospf->lsdb, lsa);
 
@@ -733,9 +723,7 @@ ospf_area_new (struct ospf *ospf, struct in_addr area_id)
   /* Self-originated LSAs initialize. */
   new->router_lsa_self = NULL;
 
-#ifdef HAVE_OPAQUE_LSA
   ospf_opaque_type10_lsa_init (new);
-#endif /* HAVE_OPAQUE_LSA */
 
   new->oiflist = list_new ();
   new->ranges = route_table_init ();
@@ -764,12 +752,10 @@ ospf_area_free (struct ospf_area *area)
 
   LSDB_LOOP (NSSA_LSDB (area), rn, lsa)
     ospf_discard_from_db (area->ospf, area->lsdb, lsa);
-#ifdef HAVE_OPAQUE_LSA
   LSDB_LOOP (OPAQUE_AREA_LSDB (area), rn, lsa)
     ospf_discard_from_db (area->ospf, area->lsdb, lsa);
   LSDB_LOOP (OPAQUE_LINK_LSDB (area), rn, lsa)
     ospf_discard_from_db (area->ospf, area->lsdb, lsa);
-#endif /* HAVE_OPAQUE_LSA */
 
   ospf_lsdb_delete_all (area->lsdb);
   ospf_lsdb_free (area->lsdb);
@@ -787,9 +773,7 @@ ospf_area_free (struct ospf_area *area)
 
   /* Cancel timer. */
   OSPF_TIMER_OFF (area->t_stub_router);
-#ifdef HAVE_OPAQUE_LSA
   OSPF_TIMER_OFF (area->t_opaque_lsa_self);
-#endif /* HAVE_OPAQUE_LSA */
   
   if (OSPF_IS_AREA_BACKBONE (area))
     area->ospf->backbone = NULL;
@@ -888,7 +872,7 @@ add_ospf_interface (struct interface *ifp, struct ospf_area *area,
   oi->type = IF_DEF_PARAMS (ifp)->type;
 
   /* Add pseudo neighbor. */
-  ospf_nbr_self_reset (oi);
+  ospf_nbr_self_reset (oi, oi->ospf->router_id);
 
   ospf_area_add_if (oi->area, oi);
 
@@ -1160,7 +1144,7 @@ ospf_network_run_interface (struct prefix *p, struct ospf_area *area,
             oi->output_cost = ospf_if_get_output_cost (oi);
             
             /* Add pseudo neighbor. */
-            ospf_nbr_add_self (oi);
+            ospf_nbr_add_self (oi, oi->ospf->router_id);
 
             /* Relate ospf interface to ospf instance. */
             oi->ospf = area->ospf;
@@ -1598,7 +1582,7 @@ ospf_timers_refresh_set (struct ospf *ospf, int interval)
     return 1;
 
   time_left = ospf->lsa_refresh_interval -
-    (quagga_time (NULL) - ospf->lsa_refresher_started);
+    (quagga_monotime () - ospf->lsa_refresher_started);
   
   if (time_left > interval)
     {
@@ -1617,7 +1601,7 @@ ospf_timers_refresh_unset (struct ospf *ospf)
   int time_left;
 
   time_left = ospf->lsa_refresh_interval -
-    (quagga_time (NULL) - ospf->lsa_refresher_started);
+    (quagga_monotime () - ospf->lsa_refresher_started);
 
   if (time_left > OSPF_LSA_REFRESH_INTERVAL_DEFAULT)
     {
@@ -1939,5 +1923,4 @@ ospf_master_init ()
   om = &ospf_master;
   om->ospf = list_new ();
   om->master = thread_master_create ();
-  om->start_time = quagga_time (NULL);
 }

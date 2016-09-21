@@ -39,6 +39,7 @@
 #include "zebra_vrf.h"
 #include "zebra/interface.h"
 #include "zebra/rib.h"
+#include "zebra/rt.h"
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
@@ -280,7 +281,7 @@ if_subnet_delete (struct interface *ifp, struct connected *ifc)
       /* If deleted address is primary, mark subsequent one as such and distribute. */
       if (! CHECK_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY))
 	{
-	  ifc = listgetdata (listhead (addr_list));
+	  ifc = listgetdata ((struct listnode *)listhead (addr_list));
 	  zebra_interface_address_delete_update (ifp, ifc);
 	  UNSET_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY);
 	  /* XXX: Linux kernel removes all the secondary addresses when the primary
@@ -744,8 +745,7 @@ if_nbr_ipv6ll_to_ipv4ll_neigh_update (struct interface *ifp,
   inet_pton (AF_INET, buf, &ipv4_ll);
 
   ipv6_ll_address_to_mac(address, (u_char *)mac);
-  netlink_neigh_update (add ? RTM_NEWNEIGH : RTM_DELNEIGH,
-                        ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+  kernel_neigh_update (add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
 }
 
 static void
@@ -991,9 +991,6 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 static void
 if_dump_vty (struct vty *vty, struct interface *ifp)
 {
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  struct sockaddr_dl *sdl;
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
   struct connected *connected;
   struct nbr_connected *nbr_connected;
   struct listnode *node;
@@ -1055,19 +1052,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
            if_flag_dump (ifp->flags), VTY_NEWLINE);
   
   /* Hardware address. */
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  sdl = &ifp->sdl;
-  if (sdl != NULL && sdl->sdl_alen != 0)
-    {
-      int i;
-      u_char *ptr;
-
-      vty_out (vty, "  HWaddr: ");
-      for (i = 0, ptr = (u_char *)LLADDR (sdl); i < sdl->sdl_alen; i++, ptr++)
-        vty_out (vty, "%s%02x", i == 0 ? "" : ":", *ptr);
-      vty_out (vty, "%s", VTY_NEWLINE);
-    }
-#else
+  vty_out (vty, "  Type: %s%s", if_link_type_str (ifp->ll_type), VTY_NEWLINE);
   if (ifp->hw_addr_len != 0)
     {
       int i;
@@ -1077,7 +1062,6 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	vty_out (vty, "%s%02x", i == 0 ? "" : ":", ifp->hw_addr[i]);
       vty_out (vty, "%s", VTY_NEWLINE);
     }
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
   
   /* Bandwidth in Mbps */
   if (ifp->bandwidth != 0)
@@ -1090,7 +1074,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
     {
       if (! rn->info)
 	continue;
-      
+
       for (ALL_LIST_ELEMENTS_RO ((struct list *)rn->info, node, connected))
         connected_dump_vty (vty, connected);
     }
@@ -1102,6 +1086,53 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	connected_dump_vty (vty, connected);
     }
 
+  if (HAS_LINK_PARAMS(ifp))
+    {
+      int i;
+      struct if_link_params *iflp = ifp->link_params;
+      vty_out(vty, "  Traffic Engineering Link Parameters:%s", VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_TE))
+        vty_out(vty, "    TE metric %u%s",iflp->te_metric, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_MAX_BW))
+        vty_out(vty, "    Maximum Bandwidth %g (Byte/s)%s", iflp->max_bw, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW))
+        vty_out(vty, "    Maximum Reservable Bandwidth %g (Byte/s)%s", iflp->max_rsv_bw, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_UNRSV_BW)) {
+        vty_out(vty, "    Unreserved Bandwidth per Class Type in Byte/s:%s", VTY_NEWLINE);
+        for (i = 0; i < MAX_CLASS_TYPE; i+=2)
+          vty_out(vty, "      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)%s",
+                  i, iflp->unrsv_bw[i], i+1, iflp->unrsv_bw[i+1], VTY_NEWLINE);
+      }
+
+      if (IS_PARAM_SET(iflp, LP_ADM_GRP))
+        vty_out(vty, "    Administrative Group:%u%s", iflp->admin_grp, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_DELAY))
+        {
+          vty_out(vty, "    Link Delay Average: %u (micro-sec.)", iflp->av_delay);
+          if (IS_PARAM_SET(iflp, LP_MM_DELAY))
+            {
+              vty_out(vty, " Min:  %u (micro-sec.)", iflp->min_delay);
+              vty_out(vty, " Max:  %u (micro-sec.)", iflp->max_delay);
+            }
+          vty_out(vty, "%s", VTY_NEWLINE);
+        }
+      if (IS_PARAM_SET(iflp, LP_DELAY_VAR))
+        vty_out(vty, "    Link Delay Variation %u (micro-sec.)%s", iflp->delay_var, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
+        vty_out(vty, "    Link Packet Loss %g (in %%)%s", iflp->pkt_loss, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_AVA_BW))
+        vty_out(vty, "    Available Bandwidth %g (Byte/s)%s", iflp->ava_bw, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_RES_BW))
+        vty_out(vty, "    Residual Bandwidth %g (Byte/s)%s", iflp->res_bw, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_USE_BW))
+        vty_out(vty, "    Utilized Bandwidth %g (Byte/s)%s", iflp->use_bw, VTY_NEWLINE);
+      if (IS_PARAM_SET(iflp, LP_RMT_AS))
+        vty_out(vty, "    Neighbor ASBR IP: %s AS: %u %s", inet_ntoa(iflp->rmt_ip), iflp->rmt_as, VTY_NEWLINE);
+    }
+
+ #ifdef RTADV
+   nd_dump_vty (vty, ifp);
+ #endif /* RTADV */
 #if defined (HAVE_RTADV)
   nd_dump_vty (vty, ifp);
 #endif /* HAVE_RTADV */
@@ -1201,13 +1232,13 @@ DEFUN_NOSH (zebra_interface,
 	    "Interface's name\n")
 {
   int ret;
-  struct interface * ifp;
+  struct interface *ifp;
   
   /* Call lib interface() */
   if ((ret = interface_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
     return ret;
 
-  ifp = vty->index;  
+  ifp = vty->index;
 
   if (ifp->ifindex == IFINDEX_INTERNAL)
     /* Is this really necessary?  Shouldn't status be initialized to 0
@@ -1706,6 +1737,692 @@ ALIAS (no_bandwidth_if,
        "Set bandwidth informational parameter\n"
        "Bandwidth in megabits\n")
 
+struct cmd_node link_params_node =
+{
+  LINK_PARAMS_NODE,
+  "%s(config-link-params)# ",
+  1,
+};
+
+static void
+link_param_cmd_set_uint32 (struct interface *ifp, uint32_t *field,
+                           uint32_t type, uint32_t value)
+{
+  /* Update field as needed */
+  if (IS_PARAM_UNSET(ifp->link_params, type) || *field != value)
+    {
+      *field = value;
+      SET_PARAM(ifp->link_params, type);
+
+      /* force protocols to update LINK STATE due to parameters change */
+      if (if_is_operative (ifp))
+        zebra_interface_parameters_update (ifp);
+    }
+}
+static void
+link_param_cmd_set_float (struct interface *ifp, float *field,
+                          uint32_t type, float value)
+{
+
+  /* Update field as needed */
+  if (IS_PARAM_UNSET(ifp->link_params, type) || *field != value)
+    {
+      *field = value;
+      SET_PARAM(ifp->link_params, type);
+
+      /* force protocols to update LINK STATE due to parameters change */
+      if (if_is_operative (ifp))
+        zebra_interface_parameters_update (ifp);
+    }
+}
+
+static void
+link_param_cmd_unset (struct interface *ifp, uint32_t type)
+{
+
+  /* Unset field */
+  UNSET_PARAM(ifp->link_params, type);
+
+  /* force protocols to update LINK STATE due to parameters change */
+  if (if_is_operative (ifp))
+    zebra_interface_parameters_update (ifp);
+}
+
+DEFUN (link_params,
+       link_params_cmd,
+       "link-params",
+       LINK_PARAMS_STR)
+{
+  vty->node = LINK_PARAMS_NODE;
+
+  return CMD_SUCCESS;
+}
+
+/* Specific Traffic Engineering parameters commands */
+DEFUN (link_params_enable,
+       link_params_enable_cmd,
+       "enable",
+       "Activate link parameters on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  /* This command could be issue at startup, when activate MPLS TE */
+  /* on a new interface or after a ON / OFF / ON toggle */
+  /* In all case, TE parameters are reset to their default factory */
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("Link-params: enable TE link parameters on interface %s", ifp->name);
+
+  if (!if_link_params_get (ifp))
+    {
+      if (IS_ZEBRA_DEBUG_EVENT)
+        zlog_debug ("Link-params: failed to init TE link parameters  %s", ifp->name);
+
+      return CMD_WARNING;
+    }
+
+  /* force protocols to update LINK STATE due to parameters change */
+  if (if_is_operative (ifp))
+    zebra_interface_parameters_update (ifp);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_enable,
+       no_link_params_enable_cmd,
+       "no enable",
+       NO_STR
+       "Disable link parameters on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  zlog_debug ("MPLS-TE: disable TE link parameters on interface %s", ifp->name);
+
+  if_link_params_free (ifp);
+
+  /* force protocols to update LINK STATE due to parameters change */
+  if (if_is_operative (ifp))
+    zebra_interface_parameters_update (ifp);
+
+  return CMD_SUCCESS;
+}
+
+/* STANDARD TE metrics */
+DEFUN (link_params_metric,
+       link_params_metric_cmd,
+       "metric <0-4294967295>",
+       "Link metric for MPLS-TE purpose\n"
+       "Metric value in decimal\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  u_int32_t metric;
+
+  VTY_GET_ULONG("metric", metric, argv[0]);
+
+  /* Update TE metric if needed */
+  link_param_cmd_set_uint32 (ifp, &iflp->te_metric, LP_TE, metric);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_metric,
+       no_link_params_metric_cmd,
+       "no metric",
+       NO_STR
+       "Disbale Link Metric on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  /* Unset TE Metric */
+  link_param_cmd_unset(ifp, LP_TE);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_maxbw,
+       link_params_maxbw_cmd,
+       "max-bw BANDWIDTH",
+       "Maximum bandwidth that can be used\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+
+  float bw;
+
+  if (sscanf (argv[0], "%g", &bw) != 1)
+    {
+      vty_out (vty, "link_params_maxbw: fscanf: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Check that Maximum bandwidth is not lower than other bandwidth parameters */
+  if ((bw <= iflp->max_rsv_bw)
+      || (bw <= iflp->unrsv_bw[0])
+      || (bw <= iflp->unrsv_bw[1])
+      || (bw <= iflp->unrsv_bw[2])
+      || (bw <= iflp->unrsv_bw[3])
+      || (bw <= iflp->unrsv_bw[4])
+      || (bw <= iflp->unrsv_bw[5])
+      || (bw <= iflp->unrsv_bw[6])
+      || (bw <= iflp->unrsv_bw[7])
+      || (bw <= iflp->ava_bw)
+      || (bw <= iflp->res_bw)
+      || (bw <= iflp->use_bw))
+    {
+      vty_out (vty,
+               "Maximum Bandwidth could not be lower than others bandwidth%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Update Maximum Bandwidth if needed */
+  link_param_cmd_set_float (ifp, &iflp->max_bw, LP_MAX_BW, bw);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_max_rsv_bw,
+       link_params_max_rsv_bw_cmd,
+       "max-rsv-bw BANDWIDTH",
+       "Maximum bandwidth that may be reserved\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  float bw;
+
+  if (sscanf (argv[0], "%g", &bw) != 1)
+    {
+      vty_out (vty, "link_params_max_rsv_bw: fscanf: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Check that bandwidth is not greater than maximum bandwidth parameter */
+  if (bw > iflp->max_bw)
+    {
+      vty_out (vty,
+               "Maximum Reservable Bandwidth could not be greater than Maximum Bandwidth (%g)%s",
+               iflp->max_bw, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Update Maximum Reservable Bandwidth if needed */
+  link_param_cmd_set_float (ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW, bw);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_unrsv_bw,
+       link_params_unrsv_bw_cmd,
+       "unrsv-bw <0-7> BANDWIDTH",
+       "Unreserved bandwidth at each priority level\n"
+       "Priority\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  int priority;
+  float bw;
+
+  /* We don't have to consider about range check here. */
+  if (sscanf (argv[0], "%d", &priority) != 1)
+    {
+      vty_out (vty, "link_params_unrsv_bw: fscanf: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (sscanf (argv[1], "%g", &bw) != 1)
+    {
+      vty_out (vty, "link_params_unrsv_bw: fscanf: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Check that bandwidth is not greater than maximum bandwidth parameter */
+  if (bw > iflp->max_bw)
+    {
+      vty_out (vty,
+               "UnReserved Bandwidth could not be greater than Maximum Bandwidth (%g)%s",
+               iflp->max_bw, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Update Unreserved Bandwidth if needed */
+  link_param_cmd_set_float (ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW, bw);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_admin_grp,
+       link_params_admin_grp_cmd,
+       "admin-grp BITPATTERN",
+       "Administrative group membership\n"
+       "32-bit Hexadecimal value (e.g. 0xa1)\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  unsigned long value;
+
+  if (sscanf (argv[0], "0x%lx", &value) != 1)
+    {
+      vty_out (vty, "link_params_admin_grp: fscanf: %s%s",
+               safe_strerror (errno), VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Update Administrative Group if needed */
+  link_param_cmd_set_uint32 (ifp, &iflp->admin_grp, LP_ADM_GRP, value);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_admin_grp,
+       no_link_params_admin_grp_cmd,
+       "no admin-grp",
+       NO_STR
+       "Disbale Administrative group membership on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  /* Unset Admin Group */
+  link_param_cmd_unset(ifp, LP_ADM_GRP);
+
+  return CMD_SUCCESS;
+}
+
+/* RFC5392 & RFC5316: INTER-AS */
+DEFUN (link_params_inter_as,
+       link_params_inter_as_cmd,
+       "neighbor A.B.C.D as <1-4294967295>",
+       "Configure remote ASBR information (Neighbor IP address and AS number)\n"
+       "Remote IP address in dot decimal A.B.C.D\n"
+       "Remote AS number\n"
+       "AS number in the range <1-4294967295>\n")
+{
+
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  struct in_addr addr;
+  u_int32_t as;
+
+  if (!inet_aton (argv[0], &addr))
+    {
+      vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  VTY_GET_ULONG("AS number", as, argv[1]);
+
+  /* Update Remote IP and Remote AS fields if needed */
+  if (IS_PARAM_UNSET(iflp, LP_RMT_AS)
+      || iflp->rmt_as != as
+      || iflp->rmt_ip.s_addr != addr.s_addr)
+    {
+
+      iflp->rmt_as = as;
+      iflp->rmt_ip.s_addr = addr.s_addr;
+      SET_PARAM(iflp, LP_RMT_AS);
+
+      /* force protocols to update LINK STATE due to parameters change */
+      if (if_is_operative (ifp))
+        zebra_interface_parameters_update (ifp);
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_inter_as,
+       no_link_params_inter_as_cmd,
+       "no neighbor",
+       NO_STR
+       "Remove Neighbor IP address and AS number for Inter-AS TE\n")
+{
+
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+
+  /* Reset Remote IP and AS neighbor */
+  iflp->rmt_as = 0;
+  iflp->rmt_ip.s_addr = 0;
+  UNSET_PARAM(iflp, LP_RMT_AS);
+
+  /* force protocols to update LINK STATE due to parameters change */
+  if (if_is_operative (ifp))
+    zebra_interface_parameters_update (ifp);
+
+  return CMD_SUCCESS;
+}
+
+/* RFC7471: OSPF Traffic Engineering (TE) Metric extensions & draft-ietf-isis-metric-extensions-07.txt */
+DEFUN (link_params_delay,
+       link_params_delay_cmd,
+       "delay <0-16777215>",
+       "Unidirectional Average Link Delay\n"
+       "Average delay in micro-second as decimal (0...16777215)\n")
+{
+
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  u_int32_t delay = 0, low = 0, high = 0;
+  u_int8_t update = 0;
+
+  /* Get and Check new delay values */
+  VTY_GET_ULONG("delay", delay, argv[0]);
+  switch (argc)
+    {
+    case 1:
+      /* Check new delay value against old Min and Max delays if set */
+      if (IS_PARAM_SET(iflp, LP_MM_DELAY)
+          && (delay <= iflp->min_delay || delay >= iflp->max_delay))
+        {
+          vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
+                   iflp->min_delay, iflp->max_delay, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      /* Update delay if value is not set or change */
+      if (IS_PARAM_UNSET(iflp, LP_DELAY)|| iflp->av_delay != delay)
+        {
+          iflp->av_delay = delay;
+          SET_PARAM(iflp, LP_DELAY);
+          update = 1;
+        }
+      /* Unset Min and Max delays if already set */
+      if (IS_PARAM_SET(iflp, LP_MM_DELAY))
+        {
+          iflp->min_delay = 0;
+          iflp->max_delay = 0;
+          UNSET_PARAM(iflp, LP_MM_DELAY);
+          update = 1;
+        }
+      break;
+    case 2:
+      vty_out (vty, "You should specify both Minimum and Maximum delay with Average delay%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    break;
+    case 3:
+      VTY_GET_ULONG("minimum delay", low, argv[1]);
+      VTY_GET_ULONG("maximum delay", high, argv[2]);
+      /* Check new delays value coherency */
+      if (delay <= low || delay >= high)
+        {
+          vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
+                   low, high, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      /* Update Delays if needed */
+      if (IS_PARAM_UNSET(iflp, LP_DELAY)
+          || IS_PARAM_UNSET(iflp, LP_MM_DELAY)
+          || iflp->av_delay != delay
+          || iflp->min_delay != low
+          || iflp->max_delay != high)
+        {
+          iflp->av_delay = delay;
+          SET_PARAM(iflp, LP_DELAY);
+          iflp->min_delay = low;
+          iflp->max_delay = high;
+          SET_PARAM(iflp, LP_MM_DELAY);
+          update = 1;
+        }
+      break;
+    default:
+      return CMD_WARNING;
+      break;
+    }
+
+  /* force protocols to update LINK STATE due to parameters change */
+  if (update == 1 && if_is_operative (ifp))
+    zebra_interface_parameters_update (ifp);
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (link_params_delay,
+       link_params_delay_mm_cmd,
+       "delay <0-16777215> min <0-16777215> max <0-16777215>",
+       "Unidirectional Average Link Delay (optionally Minimum and Maximum delays)\n"
+       "Average delay in micro-second as decimal (0...16777215)\n"
+       "Minimum delay\n"
+       "Minimum delay in micro-second as decimal (0...16777215)\n"
+       "Maximum delay\n"
+       "Maximum delay in micro-second as decimal (0...16777215)\n")
+
+DEFUN (no_link_params_delay,
+       no_link_params_delay_cmd,
+       "no delay",
+       NO_STR
+       "Disbale Unidirectional Average, Min & Max Link Delay on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+
+  /* Unset Delays */
+  iflp->av_delay = 0;
+  UNSET_PARAM(iflp, LP_DELAY);
+  iflp->min_delay = 0;
+  iflp->max_delay = 0;
+  UNSET_PARAM(iflp, LP_MM_DELAY);
+
+  /* force protocols to update LINK STATE due to parameters change */
+  if (if_is_operative (ifp))
+    zebra_interface_parameters_update (ifp);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_delay_var,
+       link_params_delay_var_cmd,
+       "delay-variation <0-16777215>",
+       "Unidirectional Link Delay Variation\n"
+       "delay variation in micro-second as decimal (0...16777215)\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  u_int32_t value;
+
+  VTY_GET_ULONG("delay variation", value, argv[0]);
+
+  /* Update Delay Variation if needed */
+  link_param_cmd_set_uint32 (ifp, &iflp->delay_var, LP_DELAY_VAR, value);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_delay_var,
+       no_link_params_delay_var_cmd,
+       "no delay-variation",
+       NO_STR
+       "Disbale Unidirectional Delay Variation on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  /* Unset Delay Variation */
+  link_param_cmd_unset(ifp, LP_DELAY_VAR);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_pkt_loss,
+       link_params_pkt_loss_cmd,
+       "packet-loss PERCENTAGE",
+       "Unidirectional Link Packet Loss\n"
+       "percentage of total traffic by 0.000003% step and less than 50.331642%\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  float fval;
+
+  if (sscanf (argv[0], "%g", &fval) != 1)
+    {
+      vty_out (vty, "link_params_pkt_loss: fscanf: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (fval > MAX_PKT_LOSS)
+    fval = MAX_PKT_LOSS;
+
+  /* Update Packet Loss if needed */
+  link_param_cmd_set_float (ifp, &iflp->pkt_loss, LP_PKT_LOSS, fval);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_pkt_loss,
+       no_link_params_pkt_loss_cmd,
+       "no packet-loss",
+       NO_STR
+       "Disbale Unidirectional Link Packet Loss on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  /* Unset Packet Loss */
+  link_param_cmd_unset(ifp, LP_PKT_LOSS);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_res_bw,
+       link_params_res_bw_cmd,
+       "res-bw BANDWIDTH",
+       "Unidirectional Residual Bandwidth\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  float bw;
+
+  if (sscanf (argv[0], "%g", &bw) != 1)
+    {
+      vty_out (vty, "link_params_res_bw: fscanf: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Check that bandwidth is not greater than maximum bandwidth parameter */
+  if (bw > iflp->max_bw)
+    {
+      vty_out (vty,
+               "Residual Bandwidth could not be greater than Maximum Bandwidth (%g)%s",
+               iflp->max_bw, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Update Residual Bandwidth if needed */
+  link_param_cmd_set_float (ifp, &iflp->res_bw, LP_RES_BW, bw);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_res_bw,
+       no_link_params_res_bw_cmd,
+       "no res-bw",
+       NO_STR
+       "Disbale Unidirectional Residual Bandwidth on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  /* Unset Residual Bandwidth */
+  link_param_cmd_unset(ifp, LP_RES_BW);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_ava_bw,
+       link_params_ava_bw_cmd,
+       "ava-bw BANDWIDTH",
+       "Unidirectional Available Bandwidth\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  float bw;
+
+  if (sscanf (argv[0], "%g", &bw) != 1)
+    {
+      vty_out (vty, "link_params_ava_bw: fscanf: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Check that bandwidth is not greater than maximum bandwidth parameter */
+  if (bw > iflp->max_bw)
+    {
+      vty_out (vty,
+               "Available Bandwidth could not be greater than Maximum Bandwidth (%g)%s",
+               iflp->max_bw, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Update Residual Bandwidth if needed */
+  link_param_cmd_set_float (ifp, &iflp->ava_bw, LP_AVA_BW, bw);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_ava_bw,
+       no_link_params_ava_bw_cmd,
+       "no ava-bw",
+       NO_STR
+       "Disbale Unidirectional Available Bandwidth on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  /* Unset Available Bandwidth */
+  link_param_cmd_unset(ifp, LP_AVA_BW);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (link_params_use_bw,
+       link_params_use_bw_cmd,
+       "use-bw BANDWIDTH",
+       "Unidirectional Utilised Bandwidth\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct if_link_params *iflp = if_link_params_get (ifp);
+  float bw;
+
+  if (sscanf (argv[0], "%g", &bw) != 1)
+    {
+      vty_out (vty, "link_params_use_bw: fscanf: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Check that bandwidth is not greater than maximum bandwidth parameter */
+  if (bw > iflp->max_bw)
+    {
+      vty_out (vty,
+               "Utilised Bandwidth could not be greater than Maximum Bandwidth (%g)%s",
+               iflp->max_bw, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* Update Utilized Bandwidth if needed */
+  link_param_cmd_set_float (ifp, &iflp->use_bw, LP_USE_BW, bw);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_link_params_use_bw,
+       no_link_params_use_bw_cmd,
+       "no use-bw",
+       NO_STR
+       "Disbale Unidirectional Utilised Bandwidth on this interface\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+
+  /* Unset Utilised Bandwidth */
+  link_param_cmd_unset(ifp, LP_USE_BW);
+
+  return CMD_SUCCESS;
+}
+
 static int
 ip_address_install (struct vty *vty, struct interface *ifp,
 		    const char *addr_str, const char *peer_str,
@@ -2071,6 +2788,58 @@ DEFUN (no_ipv6_address,
 #endif /* HAVE_IPV6 */
 
 static int
+link_params_config_write (struct vty *vty, struct interface *ifp)
+{
+  int i;
+
+  if ((ifp == NULL) || !HAS_LINK_PARAMS(ifp))
+    return -1;
+
+  struct if_link_params *iflp = ifp->link_params;
+
+  vty_out (vty, " link-params%s", VTY_NEWLINE);
+  vty_out(vty, "  enable%s", VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_TE))
+    vty_out(vty, "  metric %u%s",iflp->te_metric, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_MAX_BW))
+    vty_out(vty, "  max-bw %g%s", iflp->max_bw, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW))
+    vty_out(vty, "  max-rsv-bw %g%s", iflp->max_rsv_bw, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_UNRSV_BW))
+    {
+      for (i = 0; i < 8; i++)
+        vty_out(vty, "  unrsv-bw %d %g%s",
+            i, iflp->unrsv_bw[i], VTY_NEWLINE);
+    }
+  if (IS_PARAM_SET(iflp, LP_ADM_GRP))
+    vty_out(vty, "  admin-grp %u%s", iflp->admin_grp, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_DELAY))
+    {
+      vty_out(vty, "  delay %u", iflp->av_delay);
+      if (IS_PARAM_SET(iflp, LP_MM_DELAY))
+        {
+          vty_out(vty, " min %u", iflp->min_delay);
+          vty_out(vty, " max %u", iflp->max_delay);
+        }
+      vty_out(vty, "%s", VTY_NEWLINE);
+    }
+  if (IS_PARAM_SET(iflp, LP_DELAY_VAR))
+    vty_out(vty, "  delay-variation %u%s", iflp->delay_var, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
+    vty_out(vty, "  packet-loss %g%s", iflp->pkt_loss, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_AVA_BW))
+    vty_out(vty, "  ava-bw %g%s", iflp->ava_bw, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_RES_BW))
+    vty_out(vty, "  res-bw %g%s", iflp->res_bw, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_USE_BW))
+    vty_out(vty, "  use-bw %g%s", iflp->use_bw, VTY_NEWLINE);
+  if (IS_PARAM_SET(iflp, LP_RMT_AS))
+    vty_out(vty, "  neighbor %s as %u%s", inet_ntoa(iflp->rmt_ip),
+        iflp->rmt_as, VTY_NEWLINE);
+  return 0;
+}
+
+static int
 if_config_write (struct vty *vty)
 {
   struct listnode *node;
@@ -2114,10 +2883,8 @@ if_config_write (struct vty *vty)
       if (ifp->bandwidth != 0)
 	vty_out(vty, " bandwidth %u%s", ifp->bandwidth, VTY_NEWLINE); 
 
-      if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
-	vty_out(vty, " link-detect%s", VTY_NEWLINE);
-      else
-	vty_out(vty, " no link-detect%s", VTY_NEWLINE);
+      if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
+        vty_out(vty, " no link-detect%s", VTY_NEWLINE);
 
       for (ALL_LIST_ELEMENTS_RO (ifp->connected, addrnode, ifc))
 	  {
@@ -2152,6 +2919,8 @@ if_config_write (struct vty *vty)
       irdp_config_write (vty, ifp);
 #endif /* IRDP */
 
+      link_params_config_write (vty, ifp);
+
       vty_out (vty, "!%s", VTY_NEWLINE);
     }
   return 0;
@@ -2184,6 +2953,7 @@ zebra_if_init (void)
   
   /* Install configuration write function. */
   install_node (&interface_node, if_config_write);
+  install_node (&link_params_node, NULL);
   install_node (&vrf_node, vrf_config_write);
 
   install_element (VIEW_NODE, &show_interface_cmd);
@@ -2227,9 +2997,26 @@ zebra_if_init (void)
   install_element (INTERFACE_NODE, &ip_address_label_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_label_cmd);
 #endif /* HAVE_NETLINK */
-  
+  install_element(INTERFACE_NODE, &link_params_cmd);
+  install_default(LINK_PARAMS_NODE);
+  install_element(LINK_PARAMS_NODE, &link_params_enable_cmd);
+  install_element(LINK_PARAMS_NODE, &no_link_params_enable_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_metric_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_maxbw_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_max_rsv_bw_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_unrsv_bw_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_admin_grp_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_inter_as_cmd);
+  install_element(LINK_PARAMS_NODE, &no_link_params_inter_as_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_delay_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_delay_mm_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_delay_var_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_pkt_loss_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_ava_bw_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_res_bw_cmd);
+  install_element(LINK_PARAMS_NODE, &link_params_use_bw_cmd);
+
   install_element (CONFIG_NODE, &zebra_vrf_cmd);
   install_element (CONFIG_NODE, &no_vrf_cmd);
   install_default (VRF_NODE);
-
 }

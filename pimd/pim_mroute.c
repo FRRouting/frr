@@ -143,6 +143,8 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     return 0;
   }
 
+  pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
+
   up->channel_oil = pim_channel_oil_add(msg->im_dst,
 					msg->im_src,
 					pim_ifp->mroute_vif_index);
@@ -154,6 +156,7 @@ pim_mroute_msg_nocache (int fd, struct interface *ifp, const struct igmpmsg *msg
     }
     return 0;
   }
+  up->channel_oil->cc.pktcnt++;
 
   pim_channel_add_oif(up->channel_oil, pim_regiface, PIM_OIF_FLAG_PROTO_SOURCE);
 
@@ -312,7 +315,6 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
       pim_inet4_dump("<grp?>", ip_hdr->ip_dst, grp_str, sizeof(grp_str));
       zlog_debug("%s: not a kernel upcall proto=%d src: %s dst: %s msg_size=%d",
 		 __PRETTY_FUNCTION__, ip_hdr->ip_p, src_str, grp_str, buf_size);
-      //zlog_hexdump(buf, buf_size);
     }
     return 0;
   }
@@ -344,7 +346,6 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
     return pim_mroute_msg_nocache(fd, ifp, msg, src_str, grp_str);
     break;
   case IGMPMSG_WHOLEPKT:
-    zlog_hexdump(buf, buf_size);
     return pim_mroute_msg_wholepkt(fd, ifp, (const char *)msg, src_str, grp_str);
     break;
   default:
@@ -500,7 +501,16 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned ch
 
   memset(&vc, 0, sizeof(vc));
   vc.vifc_vifi = pim_ifp->mroute_vif_index;
+#ifdef VIFF_USE_IFINDEX
   vc.vifc_lcl_ifindex = ifp->ifindex;
+#else
+  if (ifaddr.s_addr == INADDR_ANY) {
+    zlog_warn("%s: unnumbered interfaces are not supported on this platform",
+	      __PRETTY_FUNCTION__);
+    return -1;
+  }
+  memcpy(&vc.vifc_lcl_addr, &ifaddr, sizeof(vc.vifc_lcl_addr));
+#endif
   vc.vifc_flags = flags;
   vc.vifc_threshold = PIM_MROUTE_MIN_TTL;
   vc.vifc_rate_limit = 0;
@@ -557,7 +567,7 @@ int pim_mroute_del_vif(int vif_index)
   return 0;
 }
 
-int pim_mroute_add(struct mfcctl *mc)
+int pim_mroute_add(struct channel_oil *c_oil)
 {
   int err;
   int orig = 0;
@@ -575,17 +585,17 @@ int pim_mroute_add(struct mfcctl *mc)
    * vif to be part of the outgoing list
    * in the case of a (*,G).
    */
-  if (mc->mfcc_origin.s_addr == INADDR_ANY)
+  if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
     {
-      orig = mc->mfcc_ttls[mc->mfcc_parent];
-      mc->mfcc_ttls[mc->mfcc_parent] = 1;
+      orig = c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent];
+      c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent] = 1;
     }
 
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_MFC,
-		   mc, sizeof(*mc));
+		   &c_oil->oil, sizeof(c_oil->oil));
 
-  if (mc->mfcc_origin.s_addr == INADDR_ANY)
-      mc->mfcc_ttls[mc->mfcc_parent] = orig;
+  if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+      c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent] = orig;
 
   if (err) {
     int e = errno;
@@ -597,10 +607,11 @@ int pim_mroute_add(struct mfcctl *mc)
     return -2;
   }
 
+  c_oil->installed = 1;
   return 0;
 }
 
-int pim_mroute_del(struct mfcctl *mc)
+int pim_mroute_del (struct channel_oil *c_oil)
 {
   int err;
 
@@ -613,7 +624,7 @@ int pim_mroute_del(struct mfcctl *mc)
     return -1;
   }
 
-  err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_MFC, mc, sizeof(*mc));
+  err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_MFC, &c_oil->oil, sizeof(c_oil->oil));
   if (err) {
     int e = errno;
     zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC): errno=%d: %s",
@@ -624,5 +635,44 @@ int pim_mroute_del(struct mfcctl *mc)
     return -2;
   }
 
+  c_oil->installed = 0;
+
   return 0;
+}
+
+void
+pim_mroute_update_counters (struct channel_oil *c_oil)
+{
+  struct sioc_sg_req sgreq;
+
+  memset (&sgreq, 0, sizeof(sgreq));
+  sgreq.src = c_oil->oil.mfcc_origin;
+  sgreq.grp = c_oil->oil.mfcc_mcastgrp;
+
+  c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
+  c_oil->cc.oldbytecnt = c_oil->cc.bytecnt;
+  c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
+
+  if (ioctl (qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq))
+    {
+      char group_str[100];
+      char source_str[100];
+
+      pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+      pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+
+      zlog_warn ("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s",
+		 (unsigned long)SIOCGETSGCNT,
+		 source_str,
+		 group_str,
+		 errno,
+		 safe_strerror(errno));
+      return;
+    }
+
+  c_oil->cc.pktcnt = sgreq.pktcnt;
+  c_oil->cc.bytecnt = sgreq.bytecnt;
+  c_oil->cc.wrong_if = sgreq.wrong_if;
+
+  return;
 }

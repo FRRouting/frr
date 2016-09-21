@@ -22,12 +22,11 @@
  */
 
 /***** MTYPE definitions are not reflected to "memory.h" yet. *****/
-#define MTYPE_OSPF_OPAQUE_FUNCTAB	0
-#define MTYPE_OPAQUE_INFO_PER_TYPE	0
-#define MTYPE_OPAQUE_INFO_PER_ID	0
+#define MTYPE_OSPF_OPAQUE_FUNCTAB	MTYPE_TMP
+#define MTYPE_OPAQUE_INFO_PER_TYPE	MTYPE_TMP
+#define MTYPE_OPAQUE_INFO_PER_ID	MTYPE_TMP
 
 #include <zebra.h>
-#ifdef HAVE_OPAQUE_LSA
 
 #include "linklist.h"
 #include "prefix.h"
@@ -62,9 +61,8 @@
  * Followings are initialize/terminate functions for Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
 
-#ifdef HAVE_OSPF_TE
 #include "ospfd/ospf_te.h"
-#endif /* HAVE_OSPF_TE */
+#include "ospfd/ospf_ri.h"
 
 #ifdef SUPPORT_OSPF_API
 int ospf_apiserver_init (void);
@@ -87,10 +85,11 @@ ospf_opaque_init (void)
   ospf_opaque_register_vty ();
   ospf_opaque_funclist_init ();
 
-#ifdef HAVE_OSPF_TE
   if (ospf_mpls_te_init () != 0)
     exit (1);
-#endif /* HAVE_OSPF_TE */
+
+  if (ospf_router_info_init () != 0)
+    exit (1);
 
 #ifdef SUPPORT_OSPF_API
   if ((ospf_apiserver_enable) && (ospf_apiserver_init () != 0))
@@ -103,9 +102,9 @@ ospf_opaque_init (void)
 void
 ospf_opaque_term (void)
 {
-#ifdef HAVE_OSPF_TE
   ospf_mpls_te_term ();
-#endif /* HAVE_OSPF_TE */
+
+  ospf_router_info_term ();
 
 #ifdef SUPPORT_OSPF_API
   ospf_apiserver_term ();
@@ -219,6 +218,12 @@ ospf_opaque_type_name (u_char opaque_type)
       break;
     case OPAQUE_TYPE_GRACE_LSA:
       name = "Grace-LSA";
+      break;
+    case OPAQUE_TYPE_INTER_AS_LSA:
+      name = "Inter-AS TE-v2 LSA";
+      break;
+    case OPAQUE_TYPE_ROUTER_INFORMATION_LSA:
+      name = "Router Information LSA";
       break;
     default:
       if (OPAQUE_TYPE_RANGE_UNASSIGNED (opaque_type))
@@ -1986,6 +1991,7 @@ ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa0)
   struct opaque_info_per_type *oipt;
   struct opaque_info_per_id *oipi;
   struct ospf_lsa *lsa;
+  struct ospf *top;
   int delay;
 
   if ((oipt = lookup_opaque_info_by_type (lsa0)) == NULL
@@ -2017,7 +2023,10 @@ ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa0)
       ospf_ls_retransmit_delete_nbr_area (lsa->area, lsa);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      ospf_ls_retransmit_delete_nbr_as (lsa0->area->ospf, lsa);
+      top = ospf_lookup ();
+      if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
+        top = lsa0->area->ospf;
+      ospf_ls_retransmit_delete_nbr_as (top, lsa);
       break;
     default:
       zlog_warn ("ospf_opaque_lsa_refresh_schedule: Unexpected LSA-type(%u)", lsa->data->type);
@@ -2062,6 +2071,9 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
   struct opaque_info_per_type *oipt;
   struct opaque_info_per_id *oipi;
   struct ospf_lsa *lsa;
+  struct ospf *top;
+
+  top = ospf_lookup ();
 
   if ((oipt = lookup_opaque_info_by_type (lsa0)) == NULL
   ||  (oipi = lookup_opaque_info_by_id (oipt, lsa0)) == NULL)
@@ -2085,7 +2097,9 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
       ospf_ls_retransmit_delete_nbr_area (lsa->area, lsa);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      ospf_ls_retransmit_delete_nbr_as (lsa0->area->ospf, lsa);
+      if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
+        top = lsa0->area->ospf;
+      ospf_ls_retransmit_delete_nbr_as (top, lsa);
       break;
     default:
       zlog_warn ("ospf_opaque_lsa_flush_schedule: Unexpected LSA-type(%u)", lsa->data->type);
@@ -2109,7 +2123,7 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
     zlog_debug ("Schedule Type-%u Opaque-LSA to FLUSH: [opaque-type=%u, opaque-id=%x]", lsa->data->type, GET_OPAQUE_TYPE (ntohl (lsa->data->id.s_addr)), GET_OPAQUE_ID (ntohl (lsa->data->id.s_addr)));
 
   /* This lsa will be flushed and removed eventually. */
-  ospf_lsa_flush (lsa0->area->ospf, lsa);
+  ospf_lsa_flush (top, lsa);
 
 out:
   return;
@@ -2151,28 +2165,6 @@ ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr,
  * Followings are util functions; probably be used by Opaque-LSAs only...
  *------------------------------------------------------------------------*/
 
-void
-htonf (float *src, float *dst)
-{
-  u_int32_t lu1, lu2;
-
-  memcpy (&lu1, src, sizeof (u_int32_t));
-  lu2 = htonl (lu1);
-  memcpy (dst, &lu2, sizeof (u_int32_t));
-  return;
-}
-
-void
-ntohf (float *src, float *dst)
-{
-  u_int32_t lu1, lu2;
-
-  memcpy (&lu1, src, sizeof (u_int32_t));
-  lu2 = ntohl (lu1);
-  memcpy (dst, &lu2, sizeof (u_int32_t));
-  return;
-}
-
 struct ospf *
 oi_to_top (struct ospf_interface *oi)
 {
@@ -2185,4 +2177,3 @@ oi_to_top (struct ospf_interface *oi)
   return top;
 }
 
-#endif /* HAVE_OPAQUE_LSA */

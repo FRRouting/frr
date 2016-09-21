@@ -43,7 +43,7 @@ AM_CFLAGS = $(WERROR)
 
 noinst_LIBRARIES = libpim.a
 sbin_PROGRAMS = pimd 
-bin_PROGRAMS = test_igmpv3_join
+noinst_PROGRAMS = test_igmpv3_join
 
 libpim_a_SOURCES = \
 	pimd.c pim_version.c pim_cmd.c pim_signals.c pim_iface.c \
@@ -52,7 +52,7 @@ libpim_a_SOURCES = \
 	pim_oil.c pim_zlookup.c pim_pim.c pim_tlv.c pim_neighbor.c \
 	pim_hello.c pim_ifchannel.c pim_join.c pim_assert.c \
 	pim_msg.c pim_upstream.c pim_rpf.c pim_macro.c \
-	pim_igmp_join.c pim_ssmpingd.c pim_int.c pim_rp.c \
+	pim_ssmpingd.c pim_int.c pim_rp.c \
 	pim_static.c pim_br.c pim_register.c pim_routemap.c
 
 noinst_HEADERS = \
@@ -69,7 +69,7 @@ pimd_SOURCES = \
 	pim_main.c $(libpim_a_SOURCES)
 
 test_igmpv3_join_SOURCES = \
-	test_igmpv3_join.c pim_igmp_join.c
+	test_igmpv3_join.c
 
 pimd_LDADD = ../lib/libzebra.la @LIBCAP@
 test_igmpv3_join_LDADD = ../lib/libzebra.la

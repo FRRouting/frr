@@ -20,6 +20,7 @@
  */
 
 #include <zebra.h>
+#include <net/if_types.h>
 
 #include "if.h"
 #include "prefix.h"
@@ -240,7 +241,9 @@ static const struct message rtm_flag_str[] =
 #ifdef RTF_CLONING
   {RTF_CLONING,   "CLONING"},
 #endif /* RTF_CLONING */
+#ifdef RTF_XRESOLVE
   {RTF_XRESOLVE,  "XRESOLVE"},
+#endif /* RTF_XRESOLVE */
 #ifdef RTF_LLINFO
   {RTF_LLINFO,    "LLINFO"},
 #endif /* RTF_LLINFO */
@@ -376,6 +379,29 @@ bsd_linkdetect_translate (struct if_msghdr *ifm)
     UNSET_FLAG(ifm->ifm_flags, IFF_RUNNING);
 }
 #endif /* HAVE_BSD_IFI_LINK_STATE */
+
+static enum zebra_link_type
+sdl_to_zebra_link_type (unsigned int sdlt)
+{
+  switch (sdlt)
+  {
+    case IFT_ETHER: return ZEBRA_LLT_ETHER;
+    case IFT_X25: return ZEBRA_LLT_X25;
+    case IFT_FDDI: return ZEBRA_LLT_FDDI;
+    case IFT_PPP: return ZEBRA_LLT_PPP;
+    case IFT_LOOP: return ZEBRA_LLT_LOOPBACK;
+    case IFT_SLIP: return ZEBRA_LLT_SLIP;
+    case IFT_ARCNET: return ZEBRA_LLT_ARCNET;
+    case IFT_ATM: return ZEBRA_LLT_ATM;
+    case IFT_LOCALTALK: return ZEBRA_LLT_LOCALTLK;
+    case IFT_HIPPI: return ZEBRA_LLT_HIPPI;
+#ifdef IFT_IEEE1394
+    case IFT_IEEE1394: return ZEBRA_LLT_IEEE1394;
+#endif
+
+    default: return ZEBRA_LLT_UNKNOWN;
+  }
+}
 
 /*
  * Handle struct if_msghdr obtained from reading routing socket or
@@ -533,14 +559,23 @@ ifm_read (struct if_msghdr *ifm)
        *    is fine here.
        * a nonzero ifnlen from RTA_NAME_GET() means sdl is valid
        */
+      ifp->ll_type = ZEBRA_LLT_UNKNOWN;
+      ifp->hw_addr_len = 0;
       if (ifnlen)
-      {
+        {
 #ifdef HAVE_STRUCT_SOCKADDR_DL_SDL_LEN
-	memcpy (&ifp->sdl, sdl, sdl->sdl_len);
+          memcpy (&((struct zebra_if *)ifp->info)->sdl, sdl, sdl->sdl_len);
 #else
-	memcpy (&ifp->sdl, sdl, sizeof (struct sockaddr_dl));
+          memcpy (&((struct zebra_if *)ifp->info)->sdl, sdl, sizeof (struct sockaddr_dl));
 #endif /* HAVE_STRUCT_SOCKADDR_DL_SDL_LEN */
-      }
+
+          ifp->ll_type = sdl_to_zebra_link_type (sdl->sdl_type);
+          if (sdl->sdl_alen <= sizeof(ifp->hw_addr))
+            {
+              memcpy (ifp->hw_addr, LLADDR(sdl), sdl->sdl_alen);
+              ifp->hw_addr_len = sdl->sdl_alen;
+            }
+        }
 
       if_add_update (ifp);
     }
@@ -882,10 +917,10 @@ rtm_read (struct rt_msghdr *rtm)
 
   if (dest.sa.sa_family == AF_INET)
     {
-      struct prefix_ipv4 p;
+      struct prefix p;
 
       p.family = AF_INET;
-      p.prefix = dest.sin.sin_addr;
+      p.u.prefix4 = dest.sin.sin_addr;
       if (flags & RTF_HOST)
 	p.prefixlen = IPV4_MAX_PREFIXLEN;
       else
@@ -925,7 +960,7 @@ rtm_read (struct rt_msghdr *rtm)
               case ZEBRA_RIB_FOUND_EXACT: /* RIB RR == FIB RR */
                 zlog_debug ("%s: %s %s: done Ok",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p);
+                rib_lookup_and_dump (&p, VRF_DEFAULT);
                 return;
                 break;
             }
@@ -938,18 +973,18 @@ rtm_read (struct rt_msghdr *rtm)
               case ZEBRA_RIB_FOUND_EXACT:
                 zlog_debug ("%s: %s %s: desync: RR is still in RIB, while already not in FIB",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p);
+                rib_lookup_and_dump (&p, VRF_DEFAULT);
                 break;
               case ZEBRA_RIB_FOUND_CONNECTED:
               case ZEBRA_RIB_FOUND_NOGATE:
                 zlog_debug ("%s: %s %s: desync: RR is still in RIB, plus gate differs",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p);
+                rib_lookup_and_dump (&p, VRF_DEFAULT);
                 break;
               case ZEBRA_RIB_NOTFOUND: /* RIB RR == FIB RR */
                 zlog_debug ("%s: %s %s: done Ok",
                   __func__, lookup (rtm_type_str, rtm->rtm_type), buf);
-                rib_lookup_and_dump (&p);
+                rib_lookup_and_dump (&p, VRF_DEFAULT);
                 return;
                 break;
             }
@@ -965,19 +1000,19 @@ rtm_read (struct rt_msghdr *rtm)
        * to specify the route really
        */
       if (rtm->rtm_type == RTM_CHANGE)
-        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
-                         NULL, 0, VRF_DEFAULT, SAFI_UNICAST);
+        rib_delete (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		    0, zebra_flags, &p, NULL, 0, 0);
       
+      union g_addr ggate = { .ipv4 = gate.sin.sin_addr };
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
-	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      &p, &gate.sin.sin_addr, NULL, 0, VRF_DEFAULT, 0, 0, 0, SAFI_UNICAST);
+	rib_add (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
+		 &p, &ggate, NULL, 0, 0, 0, 0, 0);
       else
-	rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0 zebra_flags,
-		      &p, &gate.sin.sin_addr, 0, VRF_DEFAULT, SAFI_UNICAST);
+	rib_delete (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		    0, zebra_flags, &p, &ggate, 0, 0);
     }
-#ifdef HAVE_IPV6
   if (dest.sa.sa_family == AF_INET6)
     {
       /* One day we might have a debug section here like one in the
@@ -985,11 +1020,11 @@ rtm_read (struct rt_msghdr *rtm)
        */
       if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
         return;
-      struct prefix_ipv6 p;
-      unsigned int ifindex = 0;
+      struct prefix p;
+      ifindex_t ifindex = 0;
 
       p.family = AF_INET6;
-      p.prefix = dest.sin6.sin6_addr;
+      p.u.prefix6 = dest.sin6.sin6_addr;
       if (flags & RTF_HOST)
 	p.prefixlen = IPV6_MAX_PREFIXLEN;
       else
@@ -1007,19 +1042,20 @@ rtm_read (struct rt_msghdr *rtm)
        * to specify the route really
        */
       if (rtm->rtm_type == RTM_CHANGE)
-        rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
-                         NULL, 0, VRF_DEFAULT, SAFI_UNICAST);
-      
+        rib_delete (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		    0, zebra_flags, &p, NULL, 0, 0);
+
+      union g_addr ggate = { .ipv6 = gate.sin6.sin6_addr };
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
-	rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		      &p, &gate.sin6.sin6_addr, ifindex, VRF_DEFAULT, 0, 0, SAFI_UNICAST);
+	rib_add (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		 0, zebra_flags, &p, &ggate, NULL, ifindex,
+		 0, 0, 0, 0);
       else
-	rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-			 &p, &gate.sin6.sin6_addr, ifindex, VRF_DEFAULT, SAFI_UNICAST);
+	rib_delete (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+		    0, zebra_flags, &p, &ggate, ifindex, 0);
     }
-#endif /* HAVE_IPV6 */
 }
 
 /* Interface function for the kernel routing table updates.  Support
@@ -1097,7 +1133,7 @@ rtm_write (int message,
             __func__, dest_buf, mask_buf, index);
           return -1;
         }
-      gate = (union sockunion *) & ifp->sdl;
+      gate = (union sockunion *) &((struct zebra_if *)ifp->info)->sdl;
     }
 
   if (mask)

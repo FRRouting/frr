@@ -353,18 +353,17 @@ zebra_rnh_resolve_entry (vrf_id_t vrfid, int family, rnh_type_t type,
   if (!rn)
     return NULL;
 
-  /* Do not resolve over default route unless allowed &&
-   * match route to be exact if so specified
+  /* When resolving nexthops, do not resolve via the default route unless
+   * 'ip nht resolve-via-default' is configured.
    */
   if ((type == RNH_NEXTHOP_TYPE) &&
       (is_default_prefix (&rn->p) &&
       !nh_resolve_via_default(rn->p.family)))
     rib = NULL;
-  else if ((type == RNH_IMPORT_CHECK_TYPE) &&
-           ((is_default_prefix(&rn->p)) ||
-            ((CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH)) &&
-            !prefix_same(&nrn->p, &rn->p))))
-    rib = NULL;
+ else if ((type == RNH_IMPORT_CHECK_TYPE) &&
+          CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH) &&
+          !prefix_same(&nrn->p, &rn->p))
+   rib = NULL;
   else
     {
       /* Identify appropriate route entry. */
@@ -593,7 +592,7 @@ zebra_rnh_process_static_routes (vrf_id_t vrfid, int family,
                        vrfid, bufn, bufs);
         }
 
-      SET_FLAG(srib->flags, ZEBRA_FLAG_CHANGED);
+      SET_FLAG(srib->status, RIB_ENTRY_CHANGED);
       SET_FLAG(srib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
       rib_queue_add(static_rn);
     }
@@ -887,21 +886,21 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
 	    stream_putc (s, nexthop->type);
 	    switch (nexthop->type)
 	      {
-	      case ZEBRA_NEXTHOP_IPV4:
+	      case NEXTHOP_TYPE_IPV4:
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		break;
-	      case ZEBRA_NEXTHOP_IFINDEX:
+	      case NEXTHOP_TYPE_IFINDEX:
 		stream_putl (s, nexthop->ifindex);
 		break;
-	      case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+	      case NEXTHOP_TYPE_IPV4_IFINDEX:
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		stream_putl (s, nexthop->ifindex);
 		break;
 #ifdef HAVE_IPV6
-	      case ZEBRA_NEXTHOP_IPV6:
+	      case NEXTHOP_TYPE_IPV6:
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		break;
-	      case ZEBRA_NEXTHOP_IPV6_IFINDEX:
+	      case NEXTHOP_TYPE_IPV6_IFINDEX:
 		stream_put (s, &nexthop->gate.ipv6, 16);
 		stream_putl (s, nexthop->ifindex);
 		break;
@@ -921,7 +920,7 @@ send_client (struct rnh *rnh, struct zserv *client, rnh_type_t type, vrf_id_t vr
     }
   stream_putw_at (s, 0, stream_get_endp (s));
 
-  client->nh_last_upd_time = quagga_time(NULL);
+  client->nh_last_upd_time = quagga_monotime();
   client->last_write_cmd = cmd;
   return zebra_server_send_message(client);
 }

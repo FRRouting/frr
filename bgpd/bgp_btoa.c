@@ -27,6 +27,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "command.h"
 #include "memory.h"
 #include "privs.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_dump.h"
@@ -143,7 +144,7 @@ main (int argc, char **argv)
   size_t len;
   int source_as;
   int dest_as;
-  int ifindex;
+  ifindex_t ifindex;
   int family;
   struct in_addr sip;
   struct in_addr dip;

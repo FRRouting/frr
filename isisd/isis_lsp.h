@@ -112,6 +112,8 @@ void lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost);
 int lsp_print_all (struct vty *vty, dict_t * lspdb, char detail,
 		   char dynhost);
 const char *lsp_bits2string (u_char *);
+void lsp_te_tlv_fit (struct isis_lsp *lsp, struct list **from,
+		     struct list **to, int frag_thold);
 
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags (struct isis_lsp *lsp);

@@ -36,6 +36,7 @@
 #include "thread.h"
 #include "queue.h"
 #include "routemap.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -276,7 +277,7 @@ updgrp_show_adj_walkcb (struct update_group *updgrp, void *arg)
 
 static void
 updgrp_show_adj (struct bgp *bgp, afi_t afi, safi_t safi,
-		 struct vty *vty, u_int64_t id, u_int8_t flags)
+		 struct vty *vty, uint64_t id, u_int8_t flags)
 {
   struct updwalk_context ctx;
   memset (&ctx, 0, sizeof (ctx));
@@ -849,14 +850,14 @@ group_announce_route (struct bgp *bgp, afi_t afi, safi_t safi,
 
 void
 update_group_show_adj_queue (struct bgp *bgp, afi_t afi, safi_t safi,
-			     struct vty *vty, u_int64_t id)
+			     struct vty *vty, uint64_t id)
 {
   updgrp_show_adj (bgp, afi, safi, vty, id, UPDWALK_FLAGS_ADVQUEUE);
 }
 
 void
 update_group_show_advertised (struct bgp *bgp, afi_t afi, safi_t safi,
-			      struct vty *vty, u_int64_t id)
+			      struct vty *vty, uint64_t id)
 {
   updgrp_show_adj (bgp, afi, safi, vty, id, UPDWALK_FLAGS_ADVERTISED);
 }

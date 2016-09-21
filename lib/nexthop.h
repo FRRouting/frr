@@ -26,6 +26,9 @@
 
 #include "prefix.h"
 
+/* Maximum next hop string length - gateway + ifindex */
+#define NEXTHOP_STRLEN (INET6_ADDRSTRLEN + 30)
+
 union g_addr {
   struct in_addr ipv4;
   struct in6_addr ipv6;
@@ -48,7 +51,7 @@ struct nexthop
   struct nexthop *prev;
 
   /* Interface index. */
-  unsigned int ifindex;
+  ifindex_t ifindex;
 
   enum nexthop_types_t type;
 
@@ -97,4 +100,5 @@ void nexthops_free (struct nexthop *nexthop);
 extern const char *nexthop_type_to_str (enum nexthop_types_t nh_type);
 extern int nexthop_same_no_recurse (struct nexthop *next1, struct nexthop *next2);
 
+extern const char * nexthop2str (struct nexthop *nexthop, char *str, int size);
 #endif /*_LIB_NEXTHOP_H */

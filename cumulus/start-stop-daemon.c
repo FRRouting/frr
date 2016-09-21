@@ -56,8 +56,9 @@
 #include <limits.h>
 #include <assert.h>
 #include <ctype.h>
-#include <error.h>
+#ifdef linux
 #include <linux/sched.h>
+#endif
 
 static int testmode = 0;
 static int quietmode = 0;
@@ -241,6 +242,7 @@ next_dirname(const char *s)
 	return cur;
 }
 
+#ifdef linux
 static void
 add_namespace(const char *path)
 {
@@ -270,6 +272,7 @@ add_namespace(const char *path)
 	namespace->nstype = nstype;
 	LIST_INSERT_HEAD(&namespace_head, namespace, list);
 }
+#endif
 
 #ifdef HAVE_LXC
 static void
@@ -567,7 +570,9 @@ parse_options(int argc, char * const *argv)
 			changeroot = optarg;
 			break;
 		case 'd': /* --namespace /.../<ipcns>|<netns>|<utsns>/name */
+#ifdef linux
 			add_namespace(optarg);
+#endif
 			break;
 		case 'N':  /* --nice */
 			nicelevel = atoi(optarg);

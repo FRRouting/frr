@@ -27,6 +27,8 @@ extern const char ZEBRA_PTM_SOCK_NAME[];
 #define ZEBRA_PTM_MAX_SOCKBUF 3200 /* 25B *128 ports */
 #define ZEBRA_PTM_SEND_MAX_SOCKBUF 512
 
+#define ZEBRA_PTM_BFD_CLIENT_FLAG_REG   (1 << 1) /* client registered with BFD */
+
 /* Zebra ptm context block */
 struct zebra_ptm_cb
 {
@@ -44,6 +46,7 @@ struct zebra_ptm_cb
 
   int ptm_enable;
   int pid;
+  u_int8_t client_flags[ZEBRA_ROUTE_MAX];
 };
 
 #define ZEBRA_PTM_STATUS_DOWN 0
@@ -72,5 +75,5 @@ int zebra_ptm_bfd_client_register (struct zserv *client, int sock,
 void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
 void zebra_ptm_if_set_ptm_state(struct interface *ifp, struct zebra_if *zebra_ifp);
 void zebra_ptm_if_write (struct vty *vty, struct zebra_if *zebra_ifp);
-void zebra_ptm_bfd_client_deregister (struct zserv *client);
+void zebra_ptm_bfd_client_deregister (int proto);
 #endif

@@ -169,9 +169,10 @@ int pim_mroute_socket_disable(void);
 int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned char flags);
 int pim_mroute_del_vif(int vif_index);
 
-int pim_mroute_add(struct mfcctl *mc);
-int pim_mroute_del(struct mfcctl *mc);
+int pim_mroute_add(struct channel_oil *c_oil);
+int pim_mroute_del(struct channel_oil *c_oil);
 
 int pim_mroute_msg(int fd, const char *buf, int buf_size);
 
+void pim_mroute_update_counters (struct channel_oil *c_oil);
 #endif /* PIM_MROUTE_H */

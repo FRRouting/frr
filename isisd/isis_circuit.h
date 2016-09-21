@@ -24,6 +24,10 @@
 #define ISIS_CIRCUIT_H
 
 #include "vty.h"
+#include "if.h"
+
+#include "isis_constants.h"
+#include "isis_common.h"
 
 #define CIRCUIT_MAX 255
 
@@ -108,13 +112,14 @@ struct isis_circuit
    */
   struct isis_passwd passwd;	/* Circuit rx/tx password */
   int is_type;	                /* circuit is type == level of circuit
-				 * diffrenciated from circuit type (media) */
+				 * differentiated from circuit type (media) */
   u_int32_t hello_interval[2];	/* l1HelloInterval in msecs */
   u_int16_t hello_multiplier[2];	/* l1HelloMultiplier */
   u_int16_t csnp_interval[2];	/* level-1 csnp-interval in seconds */
   u_int16_t psnp_interval[2];	/* level-1 psnp-interval in seconds */
-  struct metric metrics[2];	/* l1XxxMetric */
+  u_int8_t  metric[2];
   u_int32_t te_metric[2];
+  struct mpls_te_circuit *mtc; /* Support for MPLS-TE parameters - see isis_te.[c,h] */
   int ip_router;		/* Route IP ? */
   int is_passive;		/* Is Passive ? */
   struct list *ip_addrs;	/* our IP addresses */
@@ -166,5 +171,17 @@ void isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
                              char detail);
 size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
 void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
+
+struct isis_circuit *isis_circuit_create (struct isis_area *area, struct interface *ifp);
+void isis_circuit_af_set (struct isis_circuit *circuit, bool ip_router, bool ipv6_router);
+int  isis_circuit_passive_set (struct isis_circuit *circuit, bool passive);
+void isis_circuit_is_type_set (struct isis_circuit *circuit, int is_type);
+int  isis_circuit_circ_type_set (struct isis_circuit *circuit, int circ_type);
+
+int  isis_circuit_metric_set (struct isis_circuit *circuit, int level, int metric);
+
+int  isis_circuit_passwd_unset (struct isis_circuit *circuit);
+int  isis_circuit_passwd_cleartext_set (struct isis_circuit *circuit, const char *passwd);
+int  isis_circuit_passwd_hmac_md5_set (struct isis_circuit *circuit, const char *passwd);
 
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

@@ -27,7 +27,11 @@
 
 #define ISISD_VERSION "0.0.7"
 
+#include "isisd/isis_constants.h"
+#include "isisd/isis_common.h"
 #include "isisd/isis_redist.h"
+#include "isis_flags.h"
+#include "dict.h"
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */
@@ -139,6 +143,25 @@ struct isis_area *isis_area_lookup (const char *);
 int isis_area_get (struct vty *vty, const char *area_tag);
 void print_debug(struct vty *, int, int);
 
+void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
+void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit);
+void isis_area_dynhostname_set(struct isis_area *area, bool dynhostname);
+void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
+			       bool new_metric);
+void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu);
+void isis_area_is_type_set(struct isis_area *area, int is_type);
+void isis_area_max_lsp_lifetime_set(struct isis_area *area, int level,
+			            uint16_t max_lsp_lifetime);
+void isis_area_lsp_refresh_set(struct isis_area *area, int level,
+			       uint16_t lsp_refresh);
+/* IS_LEVEL_1 sets area_passwd, IS_LEVEL_2 domain_passwd */
+int isis_area_passwd_unset (struct isis_area *area, int level);
+int isis_area_passwd_cleartext_set (struct isis_area *area, int level,
+                                    const char *passwd, u_char snp_auth);
+int isis_area_passwd_hmac_md5_set (struct isis_area *area, int level,
+                                   const char *passwd, u_char snp_auth);
+void isis_vty_init (void);
+
 /* Master of threads. */
 extern struct thread_master *master;
 
@@ -173,5 +196,9 @@ extern struct thread_master *master;
         zlog_debug(__VA_ARGS__); \
     } \
   while (0)
+
+#define DEBUG_TE                         (1<<13)
+
+#define IS_DEBUG_ISIS(x)                 (isis->debugs & x)
 
 #endif /* ISISD_H */

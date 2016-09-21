@@ -229,7 +229,7 @@ ripng_send_packet (caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 /* Receive UDP RIPng packet from socket. */
 static int
 ripng_recv_packet (int sock, u_char *buf, int bufsize,
-		   struct sockaddr_in6 *from, unsigned int *ifindex, 
+		   struct sockaddr_in6 *from, ifindex_t *ifindex,
 		   int *hoplimit)
 {
   int ret;
@@ -973,7 +973,7 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
 /* Add redistributed route to RIPng table. */
 void
 ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p, 
-			unsigned int ifindex, struct in6_addr *nexthop)
+			ifindex_t ifindex, struct in6_addr *nexthop)
 {
   struct route_node *rp;
   struct ripng_info *rinfo = NULL, newinfo;
@@ -1043,7 +1043,7 @@ ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p,
 /* Delete redistributed route to RIPng table. */
 void
 ripng_redistribute_delete (int type, int sub_type, struct prefix_ipv6 *p, 
-			   unsigned int ifindex)
+			   ifindex_t ifindex)
 {
   struct route_node *rp;
   struct ripng_info *rinfo;
@@ -1361,7 +1361,7 @@ ripng_read (struct thread *thread)
   int sock;
   struct sockaddr_in6 from;
   struct ripng_packet *packet;
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
   struct interface *ifp;
   int hoplimit = -1;
 

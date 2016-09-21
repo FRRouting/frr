@@ -331,7 +331,7 @@ ospf6_add_nexthop (struct list *nh_list, int ifindex,
 
 void
 ospf6_route_zebra_copy_nexthops (struct ospf6_route *route,
-				 unsigned int *ifindexes,
+				 ifindex_t *ifindexes,
 				 struct in6_addr **nexthop_addr,
 				 int entries)
 {

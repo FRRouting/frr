@@ -25,7 +25,6 @@
 
 #include <stdint.h>
 
-#include "pim_mroute.h"
 #include "pim_assert.h"
 
 #define PIMD_PROGNAME       "pimd"
@@ -178,5 +177,6 @@ void pim_init(void);
 void pim_terminate(void);
 
 extern void pim_route_map_init (void);
+extern void pim_route_map_terminate(void);
 
 #endif /* PIMD_H */

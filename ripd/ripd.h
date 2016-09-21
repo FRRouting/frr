@@ -198,7 +198,7 @@ struct rip_info
   struct in_addr from;
 
   /* Which interface does this route come from. */
-  unsigned int ifindex;
+  ifindex_t ifindex;
 
   /* Metric of this route. */
   u_int32_t metric;
@@ -224,7 +224,7 @@ struct rip_info
   u_char metric_set;
   u_int32_t metric_out;
   u_short tag_out;
-  unsigned int ifindex_out;
+  ifindex_t ifindex_out;
 
   struct route_node *rp;
 
@@ -400,9 +400,9 @@ extern int rip_request_send (struct sockaddr_in *, struct interface *, u_char,
 extern int rip_neighbor_lookup (struct sockaddr_in *);
 
 extern int rip_redistribute_check (int);
-extern void rip_redistribute_add (int, int, struct prefix_ipv4 *, unsigned int, 
+extern void rip_redistribute_add (int, int, struct prefix_ipv4 *, ifindex_t,
 			   struct in_addr *, unsigned int, unsigned char);
-extern void rip_redistribute_delete (int, int, struct prefix_ipv4 *, unsigned int);
+extern void rip_redistribute_delete (int, int, struct prefix_ipv4 *, ifindex_t);
 extern void rip_redistribute_withdraw (int);
 extern void rip_zebra_ipv4_add (struct route_node *);
 extern void rip_zebra_ipv4_delete (struct route_node *);

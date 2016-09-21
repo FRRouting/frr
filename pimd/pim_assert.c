@@ -258,9 +258,7 @@ int pim_assert_recv(struct interface *ifp,
   /*
     Parse assert group addr
    */
-  offset = pim_parse_addr_group(ifp->name, src_addr,
-				&msg_group_addr,
-				curr, curr_size);
+  offset = pim_parse_addr_group (&msg_group_addr, curr, curr_size);
   if (offset < 1) {
     char src_str[100];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
@@ -275,9 +273,7 @@ int pim_assert_recv(struct interface *ifp,
   /*
     Parse assert source addr
   */
-  offset = pim_parse_addr_ucast(ifp->name, src_addr,
-				&msg_source_addr,
-				curr, curr_size);
+  offset = pim_parse_addr_ucast (&msg_source_addr, curr, curr_size);
   if (offset < 1) {
     char src_str[100];
     pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));

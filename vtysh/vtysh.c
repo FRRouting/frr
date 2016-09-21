@@ -37,9 +37,11 @@
 #include "linklist.h"
 #include "command.h"
 #include "memory.h"
+#include "filter.h"
 #include "vtysh/vtysh.h"
 #include "log.h"
 #include "bgpd/bgp_vty.h"
+#include "ns.h"
 #include "vrf.h"
 
 #include "lib/grammar_sandbox.h"
@@ -73,7 +75,7 @@ struct vtysh_client vtysh_client[] =
 };
 
 /* Using integrated config from Quagga.conf. Default is no. */
-int vtysh_writeconfig_integrated = 0;
+int vtysh_writeconfig_integrated = 1;
 
 extern char config_default[];
 
@@ -506,6 +508,28 @@ vtysh_execute (const char *line)
   return vtysh_execute_func (line, 1);
 }
 
+static char *
+trim (char *s)
+{
+  size_t size;
+  char *end;
+
+  size = strlen(s);
+
+  if (!size)
+      return s;
+
+  end = s + size - 1;
+  while (end >= s && isspace(*end))
+      end--;
+  *(end + 1) = '\0';
+
+  while (*s && isspace(*s))
+      s++;
+
+  return s;
+}
+
 int
 vtysh_mark_file (const char *filename)
 {
@@ -517,6 +541,8 @@ vtysh_mark_file (const char *filename)
   struct cmd_element *cmd;
   int saved_ret, prev_node;
   int lineno = 0;
+  char *vty_buf_copy = NULL;
+  char *vty_buf_trimmed = NULL;
 
   if (strncmp("-", filename, 1) == 0)
     confp = stdin;
@@ -537,13 +563,16 @@ vtysh_mark_file (const char *filename)
 
   vtysh_execute_no_pager ("enable");
   vtysh_execute_no_pager ("configure terminal");
+  vty_buf_copy = XCALLOC (MTYPE_VTY, VTY_BUFSIZ);
 
   while (fgets (vty->buf, VTY_BUFSIZ, confp))
     {
       lineno++;
       tried = 0;
+      strcpy(vty_buf_copy, vty->buf);
+      vty_buf_trimmed = trim(vty_buf_copy);
 
-      if (vty->buf[0] == '!' || vty->buf[1] == '#')
+      if (vty_buf_trimmed[0] == '!' || vty_buf_trimmed[0] == '#')
 	{
 	  fprintf(stdout, "%s", vty->buf);
 	  continue;
@@ -557,6 +586,12 @@ vtysh_mark_file (const char *filename)
 	  fprintf(stdout, "%s", vty->buf);
 	  continue;
 	}
+
+      /* Ignore the "end" lines, we will generate these where appropriate */
+      if (strlen(vty_buf_trimmed) == 3 && strncmp("end", vty_buf_trimmed, 3) == 0)
+        {
+          continue;
+        }
 
       prev_node = vty->node;
       saved_ret = ret = cmd_execute_command_strict (vline, vty, &cmd);
@@ -608,21 +643,25 @@ vtysh_mark_file (const char *filename)
 	    fprintf (stderr,"line %d: Warning...: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
+          XFREE(MTYPE_VTY, vty_buf_copy);
 	  return CMD_WARNING;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stderr,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
+          XFREE(MTYPE_VTY, vty_buf_copy);
 	  return CMD_ERR_AMBIGUOUS;
 	case CMD_ERR_NO_MATCH:
 	  fprintf (stderr,"line %d: %% Unknown command: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
+          XFREE(MTYPE_VTY, vty_buf_copy);
 	  return CMD_ERR_NO_MATCH;
 	case CMD_ERR_INCOMPLETE:
 	  fprintf (stderr,"line %d: %% Command incomplete: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
+          XFREE(MTYPE_VTY, vty_buf_copy);
 	  return CMD_ERR_INCOMPLETE;
 	case CMD_SUCCESS:
 	  fprintf(stdout, "%s", vty->buf);
@@ -654,6 +693,7 @@ vtysh_mark_file (const char *filename)
   /* This is the end */
   fprintf(stdout, "end\n");
   vty_close(vty);
+  XFREE(MTYPE_VTY, vty_buf_copy);
 
   if (confp != stdin)
     fclose(confp);
@@ -847,7 +887,10 @@ command_generator (const char *text, int state)
       if (rl_end && isspace ((int) rl_line_buffer[rl_end - 1]))
 	vector_set (vline, NULL);
 
+      if (matched)
+        XFREE (MTYPE_TMP, matched);
       matched = cmd_complete_command (vline, vty, &complete_status);
+      cmd_free_strvec (vline);
     }
 
   if (matched && matched[index])
@@ -897,6 +940,12 @@ static struct cmd_node interface_node =
 {
   INTERFACE_NODE,
   "%s(config-if)# ",
+};
+
+static struct cmd_node ns_node =
+{
+  NS_NODE,
+  "%s(config-logical-router)# ",
 };
 
 static struct cmd_node vrf_node =
@@ -993,6 +1042,12 @@ static struct cmd_node keychain_key_node =
 {
   KEYCHAIN_KEY_NODE,
   "%s(config-keychain-key)# "
+};
+
+struct cmd_node link_params_node =
+{
+  LINK_PARAMS_NODE,
+  "%s(config-link-params)# ",
 };
 
 /* Defined in lib/vty.c */
@@ -1348,6 +1403,7 @@ vtysh_exit (struct vty *vty)
       vty->node = ENABLE_NODE;
       break;
     case INTERFACE_NODE:
+    case NS_NODE:
     case VRF_NODE:
     case ZEBRA_NODE:
     case BGP_NODE:
@@ -1376,6 +1432,9 @@ vtysh_exit (struct vty *vty)
       break;
     case KEYCHAIN_KEY_NODE:
       vty->node = KEYCHAIN_NODE;
+      break;
+    case LINK_PARAMS_NODE:
+      vty->node = INTERFACE_NODE;
       break;
     default:
       break;
@@ -1576,6 +1635,19 @@ DEFSH (VTYSH_ZEBRA,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 
+DEFUNSH (VTYSH_NS,
+         vtysh_ns,
+         vtysh_ns_cmd,
+         "logical-router <1-65535 ns NAME",
+	 "Enable a logical-router\n"
+         "Specify the logical-router indentifier\n"
+         "The Name Space\n"
+         "The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+  vty->node = NS_NODE;
+  return CMD_SUCCESS;
+}
+
 DEFUNSH (VTYSH_VRF,
 	 vtysh_vrf,
 	 vtysh_vrf_cmd,
@@ -1593,6 +1665,20 @@ DEFSH (VTYSH_ZEBRA,
        NO_STR
        "Delete a pseudo vrf's configuration\n"
        "VRF's name\n")
+
+DEFUNSH (VTYSH_NS,
+         vtysh_exit_ns,
+         vtysh_exit_ns_cmd,
+         "exit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_ns,
+       vtysh_quit_ns_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
 
 DEFUNSH (VTYSH_VRF,
 	 vtysh_exit_vrf,
@@ -1707,6 +1793,17 @@ DEFUN (vtysh_show_work_queues_daemon,
   ret = vtysh_client_execute(&vtysh_client[i], "show work-queues\n", stdout);
 
   return ret;
+}
+
+DEFUNSH (VTYSH_ZEBRA,
+         vtysh_link_params,
+         vtysh_link_params_cmd,
+         "link-params",
+         LINK_PARAMS_STR
+         )
+{
+  vty->node = LINK_PARAMS_NODE;
+  return CMD_SUCCESS;
 }
 
 /* Memory */
@@ -2099,7 +2196,8 @@ DEFUN (vtysh_write_terminal,
   vty_out (vty, "!%s", VTY_NEWLINE);
 
   for (i = 0; i < array_size(vtysh_client); i++)
-    vtysh_client_config (&vtysh_client[i], line);
+    if ((argc < 1 ) || (begins_with(vtysh_client[i].name, argv[0])))
+      vtysh_client_config (&vtysh_client[i], line);
 
   /* Integrate vtysh specific configuration. */
   vtysh_config_write ();
@@ -2319,7 +2417,7 @@ ALIAS (vtysh_write_terminal,
        SHOW_STR
        "Current operating configuration\n")
 
-ALIAS (vtysh_write_terminal_daemon,
+ALIAS (vtysh_write_terminal,
        vtysh_show_running_config_daemon_cmd,
        "show running-config (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd)",
        SHOW_STR
@@ -2805,6 +2903,8 @@ vtysh_init_vty (void)
   install_node (&bgp_node, NULL);
   install_node (&rip_node, NULL);
   install_node (&interface_node, NULL);
+  install_node (&link_params_node, NULL);
+  install_node (&ns_node, NULL);
   install_node (&vrf_node, NULL);
   install_node (&rmap_node, NULL);
   install_node (&zebra_node, NULL);
@@ -2834,6 +2934,8 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_NODE);
   vtysh_install_default (RIP_NODE);
   vtysh_install_default (INTERFACE_NODE);
+  vtysh_install_default (LINK_PARAMS_NODE);
+  vtysh_install_default (NS_NODE);
   vtysh_install_default (VRF_NODE);
   vtysh_install_default (RMAP_NODE);
   vtysh_install_default (ZEBRA_NODE);
@@ -2927,7 +3029,13 @@ vtysh_init_vty (void)
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &vtysh_end_all_cmd);
   install_element (INTERFACE_NODE, &vtysh_exit_interface_cmd);
+  install_element (LINK_PARAMS_NODE, &vtysh_end_all_cmd);
+  install_element (LINK_PARAMS_NODE, &vtysh_exit_interface_cmd);
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);
+
+  install_element (NS_NODE, &vtysh_end_all_cmd);
+  install_element (NS_NODE, &vtysh_exit_ns_cmd);
+  install_element (NS_NODE, &vtysh_quit_ns_cmd);
 
   install_element (VRF_NODE, &vtysh_end_all_cmd);
   install_element (VRF_NODE, &vtysh_exit_vrf_cmd);
@@ -2977,6 +3085,7 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &vtysh_no_interface_cmd);
   install_element (CONFIG_NODE, &vtysh_interface_vrf_cmd);
   install_element (CONFIG_NODE, &vtysh_no_interface_vrf_cmd);
+  install_element (INTERFACE_NODE, &vtysh_link_params_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_daemon_cmd);
   install_element (ENABLE_NODE, &vtysh_copy_runningconfig_startupconfig_cmd);

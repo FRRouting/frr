@@ -63,7 +63,7 @@ enum pim_interface_type {
 struct pim_interface {
   enum pim_interface_type itype;
   uint32_t       options;                            /* bit vector */
-  int            mroute_vif_index;
+  ifindex_t      mroute_vif_index;
   struct in_addr primary_address; /* remember addr to detect change */
 
   int          igmp_default_robustness_variable;            /* IGMPv3 QRV */
@@ -133,8 +133,8 @@ int pim_if_del_vif(struct interface *ifp);
 void pim_if_add_vif_all(void);
 void pim_if_del_vif_all(void);
 
-struct interface *pim_if_find_by_vif_index(int vif_index);
-int pim_if_find_vifindex_by_ifindex(int ifindex);
+struct interface *pim_if_find_by_vif_index(ifindex_t vif_index);
+int pim_if_find_vifindex_by_ifindex(ifindex_t ifindex);
 
 int pim_if_lan_delay_enabled(struct interface *ifp);
 uint16_t pim_if_effective_propagation_delay_msec(struct interface *ifp);

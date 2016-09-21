@@ -167,6 +167,8 @@ extern int stream_putc (struct stream *, u_char);
 extern int stream_putc_at (struct stream *, size_t, u_char);
 extern int stream_putw (struct stream *, u_int16_t);
 extern int stream_putw_at (struct stream *, size_t, u_int16_t);
+extern int stream_put3 (struct stream *, u_int32_t);
+extern int stream_put3_at (struct stream *, size_t, u_int32_t);
 extern int stream_putl (struct stream *, u_int32_t);
 extern int stream_putl_at (struct stream *, size_t, u_int32_t);
 extern int stream_putq (struct stream *, uint64_t);
@@ -186,11 +188,19 @@ extern u_char stream_getc (struct stream *);
 extern u_char stream_getc_from (struct stream *, size_t);
 extern u_int16_t stream_getw (struct stream *);
 extern u_int16_t stream_getw_from (struct stream *, size_t);
+extern u_int32_t stream_get3 (struct stream *);
+extern u_int32_t stream_get3_from (struct stream *, size_t);
 extern u_int32_t stream_getl (struct stream *);
 extern u_int32_t stream_getl_from (struct stream *, size_t);
 extern uint64_t stream_getq (struct stream *);
 extern uint64_t stream_getq_from (struct stream *, size_t);
 extern u_int32_t stream_get_ipv4 (struct stream *);
+
+/* IEEE-754 floats */
+extern float stream_getf (struct stream *);
+extern double stream_getd (struct stream *);
+extern int stream_putf (struct stream *, float);
+extern int stream_putd (struct stream *, double);
 
 #undef stream_read
 #undef stream_write

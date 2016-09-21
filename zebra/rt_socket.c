@@ -76,7 +76,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   int nexthop_num = 0;
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
   int gate = 0;
   int error;
   char prefix_buf[PREFIX_STRLEN];
@@ -287,7 +287,7 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
   struct nexthop *nexthop, *tnexthop;
   int recursing;
   int nexthop_num = 0;
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
   int gate = 0;
   int error;
 
@@ -428,3 +428,10 @@ kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
   return route;
 }
 #endif /* HAVE_IPV6 */
+
+int
+kernel_neigh_update (int add, int ifindex, uint32_t addr, char *lla, int llalen)
+{
+  /* TODO */
+  return 0;
+}

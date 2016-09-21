@@ -23,6 +23,9 @@ from ipaddr import IPv6Address
 from pprint import pformat
 
 
+log = logging.getLogger(__name__)
+
+
 class Context(object):
 
     """
@@ -80,12 +83,12 @@ class Config(object):
         The internal representation has been marked appropriately by passing it
         through vtysh with the -m parameter
         """
-        logger.info('Loading Config object from file %s', filename)
+        log.info('Loading Config object from file %s', filename)
 
         try:
             file_output = subprocess.check_output(['/usr/bin/vtysh', '-m', '-f', filename])
         except subprocess.CalledProcessError as e:
-            logger.error('vtysh marking of config file %s failed with error %s:', filename, str(e))
+            log.error('vtysh marking of config file %s failed with error %s:', filename, str(e))
             print "vtysh marking of file %s failed with error: %s" % (filename, str(e))
             sys.exit(1)
 
@@ -105,14 +108,14 @@ class Config(object):
         The internal representation has been marked appropriately by passing it
         through vtysh with the -m parameter
         """
-        logger.info('Loading Config object from vtysh show running')
+        log.info('Loading Config object from vtysh show running')
 
         try:
             config_text = subprocess.check_output(
                 "/usr/bin/vtysh -c 'show run' | /usr/bin/tail -n +4 | /usr/bin/vtysh -m -f -",
                 shell=True)
         except subprocess.CalledProcessError as e:
-            logger.error('vtysh marking of running config failed with error %s:', str(e))
+            log.error('vtysh marking of running config failed with error %s:', str(e))
             print "vtysh marking of running config failed with error %s:" % (str(e))
             sys.exit(1)
 
@@ -259,13 +262,13 @@ end
                 ctx_keys = [line, ]
                 current_context_lines = []
 
-                logger.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
+                log.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
                 self.save_contexts(ctx_keys, current_context_lines)
                 new_ctx = True
 
             elif line == "end":
                 self.save_contexts(ctx_keys, current_context_lines)
-                logger.debug('LINE %-50s: exiting old context, %-50s', line, ctx_keys)
+                log.debug('LINE %-50s: exiting old context, %-50s', line, ctx_keys)
 
                 # Start a new context
                 new_ctx = True
@@ -281,7 +284,7 @@ end
                     # Start a new context
                     ctx_keys = copy.deepcopy(main_ctx_key)
                     current_context_lines = []
-                    logger.debug('LINE %-50s: popping from subcontext to ctx%-50s', line, ctx_keys)
+                    log.debug('LINE %-50s: popping from subcontext to ctx%-50s', line, ctx_keys)
 
             elif new_ctx is True:
                 if not main_ctx_key:
@@ -292,7 +295,7 @@ end
 
                 current_context_lines = []
                 new_ctx = False
-                logger.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
+                log.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
 
             elif "address-family " in line:
                 main_ctx_key = []
@@ -301,7 +304,7 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 current_context_lines = []
                 main_ctx_key = copy.deepcopy(ctx_keys)
-                logger.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
+                log.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
 
                 if line == "address-family ipv6":
                     ctx_keys.append("address-family ipv6 unicast")
@@ -313,7 +316,7 @@ end
             else:
                 # Continuing in an existing context, add non-commented lines to it
                 current_context_lines.append(line)
-                logger.debug('LINE %-50s: append to current_context_lines, %-50s', line, ctx_keys)
+                log.debug('LINE %-50s: append to current_context_lines, %-50s', line, ctx_keys)
 
         # Save the context of the last one
         self.save_contexts(ctx_keys, current_context_lines)
@@ -448,7 +451,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     for (ctx_keys, line) in lines_to_del:
         deleted = False
 
-        if ctx_keys[0].startswith('router bgp') and line.startswith('neighbor '):
+        if ctx_keys[0].startswith('router bgp') and line and line.startswith('neighbor '):
             """
             BGP changed how it displays swpX peers that are part of peer-group. Older
             versions of quagga would display these on separate lines:
@@ -507,6 +510,56 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_add_to_del.append((ctx_keys, swpx_interface))
                     lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
 
+            """
+            In 3.0.1 we changed how we display neighbor interface command. Older
+            versions of quagga would display the following:
+                neighbor swp1 interface
+                neighbor swp1 remote-as external
+                neighbor swp1 capability extended-nexthop
+
+            but today we display via a single line
+                neighbor swp1 interface remote-as external
+
+            and capability extended-nexthop is no longer needed because we
+            automatically enable it when the neighbor is of type interface.
+
+            This change confuses quagga-reload.py so check to see if we are deleting
+                neighbor swp1 interface remote-as (external|internal|ASNUM)
+
+            and adding
+                neighbor swp1 interface
+                neighbor swp1 remote-as (external|internal|ASNUM)
+                neighbor swp1 capability extended-nexthop
+
+            If so then chop the del line and the corresponding add lines
+            """
+            re_swpx_int_remoteas = re.search('neighbor (\S+) interface remote-as (\S+)', line)
+            re_swpx_int_v6only_remoteas = re.search('neighbor (\S+) interface v6only remote-as (\S+)', line)
+
+            if re_swpx_int_remoteas or re_swpx_int_v6only_remoteas:
+                swpx_interface = None
+                swpx_remoteas = None
+
+                if re_swpx_int_remoteas:
+                    swpx = re_swpx_int_remoteas.group(1)
+                    remoteas = re_swpx_int_remoteas.group(2)
+                    swpx_interface = "neighbor %s interface" % swpx
+                elif re_swpx_int_v6only_remoteas:
+                    swpx = re_swpx_int_v6only_remoteas.group(1)
+                    remoteas = re_swpx_int_v6only_remoteas.group(2)
+                    swpx_interface = "neighbor %s interface v6only" % swpx
+
+                swpx_remoteas = "neighbor %s remote-as %s" % (swpx, remoteas)
+                found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
+                found_add_swpx_remoteas = line_exist(lines_to_add, ctx_keys, swpx_remoteas)
+                tmp_ctx_keys = tuple(list(ctx_keys))
+
+                if found_add_swpx_interface and found_add_swpx_remoteas:
+                    deleted = True
+                    lines_to_del_to_del.append((ctx_keys, line))
+                    lines_to_add_to_del.append((ctx_keys, swpx_interface))
+                    lines_to_add_to_del.append((tmp_ctx_keys, swpx_remoteas))
+
         if not deleted:
             found_add_line = line_exist(lines_to_add, ctx_keys, line)
 
@@ -558,7 +611,7 @@ def compare_context_objects(newconf, running):
     # Compare the two Config objects to find the lines that we need to add/del
     lines_to_add = []
     lines_to_del = []
-    restart_bgpd = False
+    delete_bgpd = False
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
@@ -566,17 +619,21 @@ def compare_context_objects(newconf, running):
 
         if running_ctx_keys not in newconf.contexts:
 
-            # Check if bgp's local ASN has changed. If yes, just restart it
             # We check that the len is 1 here so that we only look at ('router bgp 10')
             # and not ('router bgp 10', 'address-family ipv4 unicast'). The
-            # latter could cause a false restart_bgpd positive if ipv4 unicast is in
+            # latter could cause a false delete_bgpd positive if ipv4 unicast is in
             # running but not in newconf.
             if "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) == 1:
-                restart_bgpd = True
+                delete_bgpd = True
+                lines_to_del.append((running_ctx_keys, None))
+
+            # If this is an address-family under 'router bgp' and we are already deleting the
+            # entire 'router bgp' context then ignore this sub-context
+            elif "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) > 1 and delete_bgpd:
                 continue
 
             # Non-global context
-            if running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
+            elif running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
                 lines_to_del.append((running_ctx_keys, None))
 
             # Global context
@@ -602,11 +659,6 @@ def compare_context_objects(newconf, running):
     for (newconf_ctx_keys, newconf_ctx) in newconf.contexts.iteritems():
 
         if newconf_ctx_keys not in running.contexts:
-
-            # If its "router bgp" and we're restarting bgp, skip doing
-            # anything specific for bgp
-            if "router bgp" in newconf_ctx_keys[0] and restart_bgpd:
-                continue
             lines_to_add.append((newconf_ctx_keys, None))
 
             for line in newconf_ctx.lines:
@@ -614,7 +666,7 @@ def compare_context_objects(newconf, running):
 
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
 
-    return (lines_to_add, lines_to_del, restart_bgpd)
+    return (lines_to_add, lines_to_del)
 
 if __name__ == '__main__':
     # Command line options
@@ -624,15 +676,21 @@ if __name__ == '__main__':
     group.add_argument('--reload', action='store_true', help='Apply the deltas', default=False)
     group.add_argument('--test', action='store_true', help='Show the deltas', default=False)
     parser.add_argument('--debug', action='store_true', help='Enable debugs', default=False)
+    parser.add_argument('--stdout', action='store_true', help='Log to STDOUT', default=False)
     parser.add_argument('filename', help='Location of new quagga config file')
     args = parser.parse_args()
 
     # Logging
     # For --test log to stdout
     # For --reload log to /var/log/quagga/quagga-reload.log
-    if args.test:
+    if args.test or args.stdout:
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)5s: %(message)s')
+
+        # Color the errors and warnings in red
+        logging.addLevelName(logging.ERROR, "\033[91m  %s\033[0m" % logging.getLevelName(logging.ERROR))
+        logging.addLevelName(logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING))
+
     elif args.reload:
         if not os.path.isdir('/var/log/quagga/'):
             os.makedirs('/var/log/quagga/')
@@ -644,7 +702,7 @@ if __name__ == '__main__':
     # argparse should prevent this from happening but just to be safe...
     else:
         raise Exception('Must specify --reload or --test')
-    logger = logging.getLogger(__name__)
+    log = logging.getLogger(__name__)
 
     # Verify the new config file is valid
     if not os.path.isfile(args.filename):
@@ -657,15 +715,15 @@ if __name__ == '__main__':
 
     # Verify that 'service integrated-vtysh-config' is configured
     vtysh_filename = '/etc/quagga/vtysh.conf'
-    service_integrated_vtysh_config = False
+    service_integrated_vtysh_config = True
 
     if os.path.isfile(vtysh_filename):
         with open(vtysh_filename, 'r') as fh:
             for line in fh.readlines():
                 line = line.strip()
 
-                if line == 'service integrated-vtysh-config':
-                    service_integrated_vtysh_config = True
+                if line == 'no service integrated-vtysh-config':
+                    service_integrated_vtysh_config = False
                     break
 
     if not service_integrated_vtysh_config:
@@ -673,9 +731,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     if args.debug:
-        logger.setLevel(logging.DEBUG)
+        log.setLevel(logging.DEBUG)
 
-    logger.info('Called via "%s"', str(args))
+    log.info('Called via "%s"', str(args))
 
     # Create a Config object from the config generated by newconf
     newconf = Config()
@@ -691,7 +749,7 @@ if __name__ == '__main__':
         else:
             running.load_from_show_running()
 
-        (lines_to_add, lines_to_del, restart_bgp) = compare_context_objects(newconf, running)
+        (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
         lines_to_configure = []
 
         if lines_to_del:
@@ -720,12 +778,9 @@ if __name__ == '__main__':
                 lines_to_configure.append(cmd)
                 print cmd
 
-        if restart_bgp:
-            print "BGP local AS changed, bgpd would restart"
-
     elif args.reload:
 
-        logger.debug('New Quagga Config\n%s', newconf.get_lines())
+        log.debug('New Quagga Config\n%s', newconf.get_lines())
 
         # This looks a little odd but we have to do this twice...here is why
         # If the user had this running bgp config:
@@ -752,9 +807,9 @@ if __name__ == '__main__':
         for x in range(2):
             running = Config()
             running.load_from_show_running()
-            logger.debug('Running Quagga Config (Pass #%d)\n%s', x, running.get_lines())
+            log.debug('Running Quagga Config (Pass #%d)\n%s', x, running.get_lines())
 
-            (lines_to_add, lines_to_del, restart_bgp) = compare_context_objects(newconf, running)
+            (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
 
             if lines_to_del:
                 for (ctx_keys, line) in lines_to_del:
@@ -792,17 +847,17 @@ if __name__ == '__main__':
                             #   'no ip ospf authentication message-digest 1.1.1.1' in
                             #   our example above
                             # - Split that last entry by whitespace and drop the last word
-                            logger.warning('Failed to execute %s', ' '.join(cmd))
+                            log.warning('Failed to execute %s', ' '.join(cmd))
                             last_arg = cmd[-1].split(' ')
 
                             if len(last_arg) <= 2:
-                                logger.error('"%s" we failed to remove this command', original_cmd)
+                                log.error('"%s" we failed to remove this command', original_cmd)
                                 break
 
                             new_last_arg = last_arg[0:-1]
                             cmd[-1] = ' '.join(new_last_arg)
                         else:
-                            logger.info('Executed "%s"', ' '.join(cmd))
+                            log.info('Executed "%s"', ' '.join(cmd))
                             break
 
             if lines_to_add:
@@ -822,7 +877,7 @@ if __name__ == '__main__':
                                             string.digits) for _ in range(6))
 
                     filename = "/var/run/quagga/reload-%s.txt" % random_string
-                    logger.info("%s content\n%s" % (filename, pformat(lines_to_configure)))
+                    log.info("%s content\n%s" % (filename, pformat(lines_to_configure)))
 
                     with open(filename, 'w') as fh:
                         for line in lines_to_configure:
@@ -830,6 +885,5 @@ if __name__ == '__main__':
                     subprocess.call(['/usr/bin/vtysh', '-f', filename])
                     os.unlink(filename)
 
-            if restart_bgp:
-                subprocess.call(['sudo', 'systemctl', 'reset-failed', 'quagga'])
-                subprocess.call(['sudo', 'systemctl', '--no-block', 'restart', 'quagga'])
+            # Make these changes persistent
+            subprocess.call(['/usr/bin/vtysh', '-c', 'write'])

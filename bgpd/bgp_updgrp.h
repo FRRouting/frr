@@ -133,7 +133,7 @@ struct update_group
   safi_t safi;
   int afid;
 
-  u_int64_t id;
+  uint64_t id;
   time_t uptime;
 
   u_int32_t join_events;
@@ -231,8 +231,8 @@ struct update_subgroup
    */
   struct
   {
-    u_int64_t update_group_id;
-    u_int64_t subgroup_id;
+    uint64_t update_group_id;
+    uint64_t subgroup_id;
   } split_from;
 
   u_int32_t join_events;
@@ -248,7 +248,7 @@ struct update_subgroup
   u_int32_t split_events;
   u_int32_t merge_checks_triggered;
 
-  u_int64_t id;
+  uint64_t id;
   struct zlog *log;
 
   u_int16_t sflags;
@@ -297,8 +297,8 @@ struct updwalk_context
   struct vty *vty;
   struct bgp_node *rn;
   struct bgp_info *ri;
-  u_int64_t updgrp_id;
-  u_int64_t subgrp_id;
+  uint64_t updgrp_id;
+  uint64_t subgrp_id;
   bgp_policy_type_e policy_type;
   const char *policy_name;
   int policy_event_start_flag;
@@ -367,7 +367,7 @@ extern void update_bgp_group_init (struct bgp *);
 extern void udpate_bgp_group_free (struct bgp *);
 
 extern void
-update_group_show (struct bgp *bgp, afi_t afi, safi_t safi, struct vty *vty, u_int64_t subgrp_id);
+update_group_show (struct bgp *bgp, afi_t afi, safi_t safi, struct vty *vty, uint64_t subgrp_id);
 extern void update_group_show_stats (struct bgp *bgp, struct vty *vty);
 extern void update_group_adjust_peer (struct peer_af *paf);
 extern int update_group_adjust_soloness (struct peer *peer, int set);
@@ -439,13 +439,13 @@ extern struct bgp_advertise *bgp_advertise_clean_subgroup (struct
 							   *adj);
 extern void update_group_show_adj_queue (struct bgp *bgp, afi_t afi,
 					 safi_t safi, struct vty *vty,
-					 u_int64_t id);
+					 uint64_t id);
 extern void update_group_show_advertised (struct bgp *bgp, afi_t afi,
 					  safi_t safi, struct vty *vty,
-					  u_int64_t id);
+					  uint64_t id);
 extern void update_group_show_packet_queue (struct bgp *bgp, afi_t afi,
 					    safi_t safi, struct vty *vty,
-					    u_int64_t id);
+					    uint64_t id);
 extern void subgroup_announce_route (struct update_subgroup *subgrp);
 extern void subgroup_announce_all (struct update_subgroup *subgrp);
 

@@ -50,6 +50,8 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_routemap.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_tlv.h"
+#include "isisd/isis_te.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -245,7 +247,9 @@ main (int argc, char **argv, char **envp)
   zlog_default = openzlog (progname, ZLOG_ISIS, 0,
 			   LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
   zprivs_init (&isisd_privs);
-  zlog_set_file (NULL, LOG_DEFAULT_FILENAME , zlog_default->default_lvl);
+#if defined(HAVE_CUMULUS)
+  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
+#endif
 
   /* for reload */
   _argc = argc;
@@ -346,6 +350,7 @@ main (int argc, char **argv, char **envp)
   isis_spf_cmds_init ();
   isis_redist_init ();
   isis_route_map_init();
+  isis_mpls_te_init();
 
   /* create the global 'isis' instance */
   isis_new (1);

@@ -144,17 +144,23 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
       RNODE_FOREACH_RIB (rn, newrib)
-	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED) 
-	    && newrib->type == type
-            && newrib->instance == instance
-	    && newrib->distance != DISTANCE_INFINITY
-	    && zebra_check_addr (&rn->p))
-	  {
-	    client->redist_v4_add_cnt++;
-	    zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_ADD, client, &rn->p, newrib);
-	  }
-  
-#ifdef HAVE_IPV6
+        {
+          if (IS_ZEBRA_DEBUG_EVENT)
+            zlog_debug("%s: checking: selected=%d, type=%d, distance=%d, zebra_check_addr=%d",
+                       __func__, CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED),
+                       newrib->type, newrib->distance, zebra_check_addr (&rn->p));
+
+	  if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
+	      && newrib->type == type
+	      && newrib->instance == instance
+	      && newrib->distance != DISTANCE_INFINITY
+	      && zebra_check_addr (&rn->p))
+	    {
+	      client->redist_v4_add_cnt++;
+	      zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV4_ADD, client, &rn->p, newrib);
+	    }
+        }
+
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
@@ -168,7 +174,6 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
 	    client->redist_v6_add_cnt++;
 	    zsend_redistribute_route (ZEBRA_REDISTRIBUTE_IPV6_ADD, client, &rn->p, newrib);
 	  }
-#endif /* HAVE_IPV6 */
 }
 
 /* Either advertise a route for redistribution to registered clients or */
@@ -380,9 +385,11 @@ zebra_interface_up_update (struct interface *ifp)
 
   if (ifp->ptm_status || !ifp->ptm_enable) {
     for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-      {
-	zsend_interface_update (ZEBRA_INTERFACE_UP, client, ifp);
-      }
+      if (client->ifinfo)
+	{
+	  zsend_interface_update (ZEBRA_INTERFACE_UP, client, ifp);
+	  zsend_interface_link_params (client, ifp);
+	}
   }
 }
 
@@ -413,10 +420,12 @@ zebra_interface_add_update (struct interface *ifp)
     zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADD %s[%d]", ifp->name, ifp->vrf_id);
     
   for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
-    {
-      client->ifadd_cnt++;
-       zsend_interface_add (client, ifp);
-    }
+    if (client->ifinfo)
+      {
+	client->ifadd_cnt++;
+	zsend_interface_add (client, ifp);
+        zsend_interface_link_params (client, ifp);
+      }
 }
 
 void
@@ -545,9 +554,9 @@ int
 zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char *rmap_name)
 {
   struct rib *newrib;
-  struct prefix_ipv4 p4;
+  struct prefix p;
   struct nexthop *nhop;
-  struct in_addr *gate;
+  union g_addr *gate;
   route_map_result_t ret = RMAP_MATCH;
 
   if (rmap_name)
@@ -558,9 +567,9 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
     {
       if (rn->p.family == AF_INET)
         {
-          p4.family = AF_INET;
-          p4.prefixlen = rn->p.prefixlen;
-          p4.prefix = rn->p.u.prefix4;
+          p.family = AF_INET;
+          p.prefixlen = rn->p.prefixlen;
+          p.u.prefix4 = rn->p.u.prefix4;
 
           if (rib->nexthop_num == 1)
 	    {
@@ -568,14 +577,13 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      if (nhop->type == NEXTHOP_TYPE_IFINDEX)
 	        gate = NULL;
 	      else
-	        gate = &nhop->gate.ipv4;
+	        gate = (union g_addr *)&nhop->gate.ipv4;
 
-	      rib_add_ipv4(ZEBRA_ROUTE_TABLE, rib->table, 0, &p4,
-                           gate, &nhop->src.ipv4,
-		           nhop->ifindex, rib->vrf_id, zebrad.rtm_table_default,
-		           rib->metric,
-		           zebra_import_table_distance[AFI_IP][rib->table],
-		           SAFI_UNICAST);
+	      rib_add (AFI_IP, SAFI_UNICAST, rib->vrf_id, ZEBRA_ROUTE_TABLE,
+		       rib->table, 0, &p, gate, (union g_addr *)&nhop->src.ipv4,
+		       nhop->ifindex, zebrad.rtm_table_default,
+		       rib->metric, rib->mtu,
+		       zebra_import_table_distance[AFI_IP][rib->table]);
 	    }
           else if (rib->nexthop_num > 1)
 	    {
@@ -584,6 +592,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      newrib->distance = zebra_import_table_distance[AFI_IP][rib->table];
 	      newrib->flags = rib->flags;
 	      newrib->metric = rib->metric;
+	      newrib->mtu = rib->mtu;
 	      newrib->table = zebrad.rtm_table_default;
 	      newrib->nexthop_num = 0;
 	      newrib->uptime = time(NULL);
@@ -593,7 +602,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      for (nhop = rib->nexthop; nhop; nhop = nhop->next)
 	        rib_copy_nexthops(newrib, nhop);
 
-	      rib_add_ipv4_multipath(&p4, newrib, SAFI_UNICAST);
+	      rib_add_multipath(AFI_IP, SAFI_UNICAST, &p, newrib);
 	    }
         }
     }
@@ -608,16 +617,17 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 int
 zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
 {
-  struct prefix_ipv4 p4;
+  struct prefix p;
 
   if (rn->p.family == AF_INET)
     {
-      p4.family = AF_INET;
-      p4.prefixlen = rn->p.prefixlen;
-      p4.prefix = rn->p.u.prefix4;
+      p.family = AF_INET;
+      p.prefixlen = rn->p.prefixlen;
+      p.u.prefix4 = rn->p.u.prefix4;
 
-      rib_delete_ipv4(ZEBRA_ROUTE_TABLE, rib->table, rib->flags, &p4, NULL,
-		      0, rib->vrf_id, zebrad.rtm_table_default, SAFI_UNICAST);
+      rib_delete (AFI_IP, SAFI_UNICAST, rib->vrf_id, ZEBRA_ROUTE_TABLE,
+		  rib->table, rib->flags, &p, NULL,
+		  0, zebrad.rtm_table_default);
     }
   /* DD: Add IPv6 code */
 
@@ -790,4 +800,19 @@ zebra_import_table_rm_update ()
     }
 
   return;
+}
+
+/* Interface parameters update */
+void
+zebra_interface_parameters_update (struct interface *ifp)
+{
+  struct listnode *node, *nnode;
+  struct zserv *client;
+
+  if (IS_ZEBRA_DEBUG_EVENT)
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_LINK_PARAMS %s", ifp->name);
+
+  for (ALL_LIST_ELEMENTS (zebrad.client_list, node, nnode, client))
+    if (client->ifinfo)
+      zsend_interface_link_params (client, ifp);
 }

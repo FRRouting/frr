@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "sockunion.h"
 #include "memory.h"
 #include "queue.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
@@ -48,6 +49,7 @@ unsigned long conf_bgp_debug_keepalive;
 unsigned long conf_bgp_debug_update;
 unsigned long conf_bgp_debug_bestpath;
 unsigned long conf_bgp_debug_zebra;
+unsigned long conf_bgp_debug_allow_martians;
 unsigned long conf_bgp_debug_nht;
 unsigned long conf_bgp_debug_update_groups;
 
@@ -60,6 +62,7 @@ unsigned long term_bgp_debug_keepalive;
 unsigned long term_bgp_debug_update;
 unsigned long term_bgp_debug_bestpath;
 unsigned long term_bgp_debug_zebra;
+unsigned long term_bgp_debug_allow_martians;
 unsigned long term_bgp_debug_nht;
 unsigned long term_bgp_debug_update_groups;
 
@@ -1518,6 +1521,48 @@ DEFUN (no_debug_bgp_zebra_prefix,
   return CMD_SUCCESS;
 }
 
+DEFUN (debug_bgp_allow_martians,
+       debug_bgp_allow_martians_cmd,
+       "debug bgp allow-martians",
+       DEBUG_STR
+       BGP_STR
+       "BGP allow martian next hops\n")
+{
+  if (vty->node == CONFIG_NODE)
+    DEBUG_ON (allow_martians, ALLOW_MARTIANS);
+  else
+    {
+      TERM_DEBUG_ON (allow_martians, ALLOW_MARTIANS);
+      vty_out (vty, "BGP allow_martian next hop debugging is on%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_allow_martians,
+       no_debug_bgp_allow_martians_cmd,
+       "no debug bgp allow-martians",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP allow martian next hops\n")
+{
+  if (vty->node == CONFIG_NODE)
+    DEBUG_OFF (allow_martians, ALLOW_MARTIANS);
+  else
+    {
+      TERM_DEBUG_OFF (allow_martians, ALLOW_MARTIANS);
+      vty_out (vty, "BGP allow martian next hop debugging is off%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_debug_bgp_allow_martians,
+       undebug_bgp_allow_martians_cmd,
+       "undebug bgp allow-martians",
+       UNDEBUG_STR
+       BGP_STR
+       "BGP allow martian next hops\n")
+
 /* debug bgp update-groups */
 DEFUN (debug_bgp_update_groups,
        debug_bgp_update_groups_cmd,
@@ -1580,6 +1625,7 @@ DEFUN (no_debug_bgp,
   TERM_DEBUG_OFF (as4, AS4_SEGMENT);
   TERM_DEBUG_OFF (neighbor_events, NEIGHBOR_EVENTS);
   TERM_DEBUG_OFF (zebra, ZEBRA);
+  TERM_DEBUG_OFF (allow_martians, ALLOW_MARTIANS);
   vty_out (vty, "All possible debugging has been turned off%s", VTY_NEWLINE);
       
   return CMD_SUCCESS;
@@ -1634,6 +1680,8 @@ DEFUN (show_debugging_bgp,
     bgp_debug_list_print (vty, "  BGP zebra debugging is on",
                           bgp_debug_zebra_prefixes);
 
+  if (BGP_DEBUG (allow_martians, ALLOW_MARTIANS))
+    vty_out (vty, "  BGP allow martian next hop debugging is on%s", VTY_NEWLINE);
   vty_out (vty, "%s", VTY_NEWLINE);
   return CMD_SUCCESS;
 }
@@ -1663,7 +1711,7 @@ bgp_config_write_debug (struct vty *vty)
 
   if (CONF_BGP_DEBUG (keepalive, KEEPALIVE))
     {
-      write += bgp_debug_list_conf_print (vty, "debug bgp keepalive",
+      write += bgp_debug_list_conf_print (vty, "debug bgp keepalives",
                                           bgp_debug_keepalive_peers);
     }
 
@@ -1717,6 +1765,12 @@ bgp_config_write_debug (struct vty *vty)
         }
     }
 
+  if (CONF_BGP_DEBUG (allow_martians, ALLOW_MARTIANS))
+    {
+      vty_out (vty, "debug bgp allow-martians%s", VTY_NEWLINE);
+      write++;
+    }
+
   return write;
 }
 
@@ -1749,6 +1803,8 @@ bgp_debug_init (void)
   install_element (CONFIG_NODE, &debug_bgp_update_cmd);
   install_element (ENABLE_NODE, &debug_bgp_zebra_cmd);
   install_element (CONFIG_NODE, &debug_bgp_zebra_cmd);
+  install_element (ENABLE_NODE, &debug_bgp_allow_martians_cmd);
+  install_element (CONFIG_NODE, &debug_bgp_allow_martians_cmd);
   install_element (ENABLE_NODE, &debug_bgp_update_groups_cmd);
   install_element (CONFIG_NODE, &debug_bgp_update_groups_cmd);
   install_element (ENABLE_NODE, &debug_bgp_bestpath_prefix_cmd);
@@ -1805,6 +1861,9 @@ bgp_debug_init (void)
   install_element (CONFIG_NODE, &no_debug_bgp_update_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_zebra_cmd);
+  install_element (ENABLE_NODE, &no_debug_bgp_allow_martians_cmd);
+  install_element (ENABLE_NODE, &undebug_bgp_allow_martians_cmd);
+  install_element (CONFIG_NODE, &no_debug_bgp_allow_martians_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_update_groups_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_update_groups_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_cmd);

@@ -67,7 +67,8 @@ extern void list_free (struct list *);
 
 extern void listnode_add (struct list *, void *);
 extern void listnode_add_sort (struct list *, void *);
-extern void listnode_add_after (struct list *, struct listnode *, void *);
+extern struct listnode *listnode_add_after (struct list *, struct listnode *, void *);
+extern struct listnode *listnode_add_before (struct list *, struct listnode *, void *);
 extern void listnode_move_to_tail (struct list *, struct listnode *);
 extern void listnode_delete (struct list *, void *);
 extern struct listnode *listnode_lookup (struct list *, void *);
@@ -80,8 +81,6 @@ extern void list_delete_all_node (struct list *);
 extern void list_delete_node (struct list *, struct listnode *);
 
 /* For ospf_spf.c */
-extern void list_add_node_prev (struct list *, struct listnode *, void *);
-extern void list_add_node_next (struct list *, struct listnode *, void *);
 extern void list_add_list (struct list *, struct list *);
 
 /* List iteration macro. 

@@ -31,19 +31,19 @@ zebra_SOURCES = \
 	redistribute.c debug.c rtadv.c zebra_snmp.c zebra_vty.c \
 	irdp_main.c irdp_interface.c irdp_packet.c router-id.c zebra_fpm.c \
 	$(othersrc) zebra_ptm.c zebra_rnh.c zebra_ptm_redistribute.c \
-	zebra_ns.c zebra_vrf.c
+	zebra_ns.c zebra_vrf.c zebra_static.c
 
 testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
 	zebra_vty.c zebra_ptm.c zebra_routemap.c zebra_ns.c zebra_vrf.c \
 	kernel_null.c  redistribute_null.c ioctl_null.c misc_null.c zebra_rnh_null.c \
-	zebra_ptm_null.c rtadv_null.c if_null.c zserv_null.c
+	zebra_ptm_null.c rtadv_null.c if_null.c zserv_null.c zebra_static.c
 
 noinst_HEADERS = \
 	connected.h ioctl.h rib.h rt.h zserv.h redistribute.h debug.h rtadv.h \
 	interface.h ipforward.h irdp.h router-id.h kernel_socket.h \
 	rt_netlink.h zebra_fpm.h zebra_fpm_private.h zebra_rnh.h \
 	zebra_ptm_redistribute.h zebra_ptm.h zebra_routemap.h \
-	zebra_ns.h zebra_vrf.h ioctl_solaris.h
+	zebra_ns.h zebra_vrf.h ioctl_solaris.h zebra_static.h
 
 zebra_LDADD = $(otherobj) ../lib/libzebra.la $(LIBCAP)
 

@@ -632,7 +632,7 @@ int pim_if_add_vif(struct interface *ifp)
 {
   struct pim_interface *pim_ifp = ifp->info;
   struct in_addr ifaddr;
-  unsigned char flags;
+  unsigned char flags = 0;
 
   zassert(pim_ifp);
 
@@ -668,8 +668,13 @@ int pim_if_add_vif(struct interface *ifp)
       return -3;
     }
 
-  flags = (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF) ?
-    VIFF_REGISTER : VIFF_USE_IFINDEX;
+  if (ifp->ifindex == PIM_OIF_PIM_REGISTER_VIF)
+    flags = VIFF_REGISTER;
+#ifdef VIFF_USE_IFINDEX
+  else
+    flags = VIFF_USE_IFINDEX;
+#endif
+
   if (pim_mroute_add_vif(ifp, ifaddr, flags)) {
     /* pim_mroute_add_vif reported error */
     return -5;
@@ -767,7 +772,7 @@ void pim_if_del_vif_all()
   }
 }
 
-struct interface *pim_if_find_by_vif_index(int vif_index)
+struct interface *pim_if_find_by_vif_index(ifindex_t vif_index)
 {
   struct listnode  *ifnode;
   struct interface *ifp;
@@ -779,6 +784,7 @@ struct interface *pim_if_find_by_vif_index(int vif_index)
     if (ifp->info) {
       struct pim_interface *pim_ifp;
       pim_ifp = ifp->info;
+
       if (vif_index == pim_ifp->mroute_vif_index)
 	return ifp;
     }
@@ -790,7 +796,7 @@ struct interface *pim_if_find_by_vif_index(int vif_index)
 /*
   pim_if_add_vif() uses ifindex as vif_index
  */
-int pim_if_find_vifindex_by_ifindex(int ifindex)
+int pim_if_find_vifindex_by_ifindex(ifindex_t ifindex)
 {
   struct pim_interface *pim_ifp;
   struct interface *ifp;
@@ -949,7 +955,7 @@ static struct igmp_join *igmp_join_find(struct list *join_list,
 }
 
 static int igmp_join_sock(const char *ifname,
-			  int ifindex,
+			  ifindex_t ifindex,
 			  struct in_addr group_addr,
 			  struct in_addr source_addr)
 {

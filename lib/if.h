@@ -21,7 +21,68 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _ZEBRA_IF_H
 #define _ZEBRA_IF_H
 
+#include "zebra.h"
 #include "linklist.h"
+
+/* Interface link-layer type, if known. Derived from:
+ *
+ * net/if_arp.h on various platforms - Linux especially.
+ * http://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml
+ *
+ * Some of the more obviously defunct technologies left out.
+ */
+enum zebra_link_type {
+  ZEBRA_LLT_UNKNOWN = 0,
+  ZEBRA_LLT_ETHER,
+  ZEBRA_LLT_EETHER,
+  ZEBRA_LLT_AX25,
+  ZEBRA_LLT_PRONET,
+  ZEBRA_LLT_IEEE802,
+  ZEBRA_LLT_ARCNET,
+  ZEBRA_LLT_APPLETLK,
+  ZEBRA_LLT_DLCI,
+  ZEBRA_LLT_ATM,
+  ZEBRA_LLT_METRICOM,
+  ZEBRA_LLT_IEEE1394,
+  ZEBRA_LLT_EUI64,
+  ZEBRA_LLT_INFINIBAND,
+  ZEBRA_LLT_SLIP,
+  ZEBRA_LLT_CSLIP,
+  ZEBRA_LLT_SLIP6,
+  ZEBRA_LLT_CSLIP6,
+  ZEBRA_LLT_RSRVD,
+  ZEBRA_LLT_ADAPT,
+  ZEBRA_LLT_ROSE,
+  ZEBRA_LLT_X25,
+  ZEBRA_LLT_PPP,
+  ZEBRA_LLT_CHDLC,
+  ZEBRA_LLT_LAPB,
+  ZEBRA_LLT_RAWHDLC,
+  ZEBRA_LLT_IPIP,
+  ZEBRA_LLT_IPIP6,
+  ZEBRA_LLT_FRAD,
+  ZEBRA_LLT_SKIP,
+  ZEBRA_LLT_LOOPBACK,
+  ZEBRA_LLT_LOCALTLK,
+  ZEBRA_LLT_FDDI,
+  ZEBRA_LLT_SIT,
+  ZEBRA_LLT_IPDDP,
+  ZEBRA_LLT_IPGRE,
+  ZEBRA_LLT_IP6GRE,
+  ZEBRA_LLT_PIMREG,
+  ZEBRA_LLT_HIPPI,
+  ZEBRA_LLT_ECONET,
+  ZEBRA_LLT_IRDA,
+  ZEBRA_LLT_FCPP,
+  ZEBRA_LLT_FCAL,
+  ZEBRA_LLT_FCPL,
+  ZEBRA_LLT_FCFABRIC,
+  ZEBRA_LLT_IEEE802_TR,
+  ZEBRA_LLT_IEEE80211,
+  ZEBRA_LLT_IEEE80211_RADIOTAP,
+  ZEBRA_LLT_IEEE802154,
+  ZEBRA_LLT_IEEE802154_PHY,
+};
 
 /*
   Interface name length.
@@ -35,6 +96,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define INTERFACE_NAMSIZ      20
 #define INTERFACE_HWADDR_MAX  20
+
+typedef signed int ifindex_t;
 
 #ifdef HAVE_PROC_NET_DEV
 struct if_stats
@@ -68,6 +131,63 @@ struct if_stats
 };
 #endif /* HAVE_PROC_NET_DEV */
 
+/* Here are "non-official" architectural constants. */
+#define TE_EXT_MASK             0x0FFFFFFF
+#define TE_EXT_ANORMAL          0x80000000
+#define LOSS_PRECISION          0.000003
+#define TE_KILO_BIT             1000
+#define TE_BYTE                 8
+#define DEFAULT_BANDWIDTH       10000
+#define MAX_CLASS_TYPE          8
+#define MAX_PKT_LOSS            50.331642
+
+/* Link Parameters Status: 0: unset, 1: set, */
+#define LP_UNSET                0x0000
+#define LP_TE                   0x0001
+#define LP_MAX_BW               0x0002
+#define LP_MAX_RSV_BW           0x0004
+#define LP_UNRSV_BW             0x0008
+#define LP_ADM_GRP              0x0010
+#define LP_RMT_AS               0x0020
+#define LP_DELAY                0x0040
+#define LP_MM_DELAY             0x0080
+#define LP_DELAY_VAR            0x0100
+#define LP_PKT_LOSS             0x0200
+#define LP_RES_BW               0x0400
+#define LP_AVA_BW               0x0800
+#define LP_USE_BW               0x1000
+
+#define IS_PARAM_UNSET(lp, st) !(lp->lp_status & st)
+#define IS_PARAM_SET(lp, st) (lp->lp_status & st)
+#define IS_LINK_PARAMS_SET(lp) (lp->lp_status != LP_UNSET)
+
+#define SET_PARAM(lp, st) (lp->lp_status) |= (st)
+#define UNSET_PARAM(lp, st) (lp->lp_status) &= ~(st)
+#define RESET_LINK_PARAM(lp) (lp->lp_status = LP_UNSET)
+
+/* Link Parameters for Traffic Engineering */
+struct if_link_params {
+  u_int32_t lp_status;   /* Status of Link Parameters: */
+  u_int32_t te_metric;   /* Traffic Engineering metric */
+  float max_bw;          /* Maximum Bandwidth */
+  float max_rsv_bw;      /* Maximum Reservable Bandwidth */
+  float unrsv_bw[MAX_CLASS_TYPE];     /* Unreserved Bandwidth per Class Type (8) */
+  u_int32_t admin_grp;   /* Administrative group */
+  u_int32_t rmt_as;      /* Remote AS number */
+  struct in_addr rmt_ip; /* Remote IP address */
+  u_int32_t av_delay;    /* Link Average Delay */
+  u_int32_t min_delay;   /* Link Min Delay */
+  u_int32_t max_delay;   /* Link Max Delay */
+  u_int32_t delay_var;   /* Link Delay Variation */
+  float pkt_loss;        /* Link Packet Loss */
+  float res_bw;          /* Residual Bandwidth */
+  float ava_bw;          /* Available Bandwidth */
+  float use_bw;          /* Utilized Bandwidth */
+};
+
+#define INTERFACE_LINK_PARAMS_SIZE   sizeof(struct if_link_params)
+#define HAS_LINK_PARAMS(ifp)  ((ifp)->link_params != NULL)
+
 /* Interface structure */
 struct interface 
 {
@@ -82,9 +202,9 @@ struct interface
 
   /* Interface index (should be IFINDEX_INTERNAL for non-kernel or
      deleted interfaces). */
-  unsigned int ifindex;
+  ifindex_t ifindex;
 #define IFINDEX_INTERNAL	0
-#define IFINDEX_DELETED         UINT_MAX
+#define IFINDEX_DELETED         INT_MAX
 
   /* Zebra internal interface status */
   u_char status;
@@ -103,24 +223,17 @@ struct interface
   unsigned int mtu;    /* IPv4 MTU */
   unsigned int mtu6;   /* IPv6 MTU - probably, but not neccessarily same as mtu */
 
-  /* Hardware address. */
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  union {
-    /* note that sdl_storage is never accessed, it only exists to make space.
-     * all actual uses refer to sdl - but use sizeof(sdl_storage)!  this fits
-     * best with C aliasing rules. */
-    struct sockaddr_dl sdl;
-    struct sockaddr_storage sdl_storage;
-  };
-#else
-  unsigned short hw_type;
+  /* Link-layer information and hardware address */
+  enum zebra_link_type ll_type;
   u_char hw_addr[INTERFACE_HWADDR_MAX];
   int hw_addr_len;
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
 
   /* interface bandwidth, kbits */
   unsigned int bandwidth;
   
+  /* Link parameters for Traffic Engineering */
+  struct if_link_params *link_params;
+
   /* description of the interface. */
   char *desc;			
 
@@ -264,7 +377,7 @@ struct nbr_connected
 /* Prototypes. */
 extern int if_cmp_name_func (char *, char *);
 extern struct interface *if_create (const char *name, int namelen);
-extern struct interface *if_lookup_by_index (unsigned int);
+extern struct interface *if_lookup_by_index (ifindex_t);
 extern struct interface *if_lookup_exact_address (void *matchaddr, int family);
 extern struct interface *if_lookup_address (void *matchaddr, int family);
 extern struct interface *if_lookup_prefix (struct prefix *prefix);
@@ -273,8 +386,7 @@ extern void if_update_vrf (struct interface *, const char *name, int namelen,
                                 vrf_id_t vrf_id);
 extern struct interface *if_create_vrf (const char *name, int namelen,
                                 vrf_id_t vrf_id);
-extern struct interface *if_lookup_by_index_vrf (unsigned int,
-                                vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_index_vrf (ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_exact_address_vrf (void *matchaddr, int family,
                                 vrf_id_t vrf_id);
 extern struct interface *if_lookup_address_vrf (void *matchaddr, int family,
@@ -328,18 +440,19 @@ extern void if_init (struct list **);
 extern void if_terminate (struct list **);
 extern void if_dump_all (void);
 extern const char *if_flag_dump(unsigned long);
+extern const char *if_link_type_str (enum zebra_link_type);
 
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
    make a system call. */
-extern const char *ifindex2ifname (unsigned int);
-extern const char *ifindex2ifname_vrf (unsigned int, vrf_id_t vrf_id);
+extern const char *ifindex2ifname (ifindex_t);
+extern const char *ifindex2ifname_vrf (ifindex_t, vrf_id_t vrf_id);
 
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must
    make a system call. */
-extern unsigned int ifname2ifindex(const char *ifname);
-extern unsigned int ifname2ifindex_vrf(const char *ifname, vrf_id_t vrf_id);
+extern ifindex_t ifname2ifindex(const char *ifname);
+extern ifindex_t ifname2ifindex_vrf(const char *ifname, vrf_id_t vrf_id);
 
 /* Connected address functions. */
 extern struct connected *connected_new (void);
@@ -359,11 +472,15 @@ extern void nbr_connected_free (struct nbr_connected *);
 struct nbr_connected *nbr_connected_check (struct interface *, struct prefix *);
 
 #ifndef HAVE_IF_NAMETOINDEX
-extern unsigned int if_nametoindex (const char *);
+extern ifindex_t if_nametoindex (const char *);
 #endif
 #ifndef HAVE_IF_INDEXTONAME
-extern char *if_indextoname (unsigned int, char *);
+extern char *if_indextoname (ifindex_t, char *);
 #endif
+
+/* link parameters */
+struct if_link_params *if_link_params_get (struct interface *);
+void if_link_params_free (struct interface *);
 
 /* Exported variables. */
 extern struct cmd_element interface_desc_cmd;

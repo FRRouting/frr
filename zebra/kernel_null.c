@@ -39,9 +39,6 @@ int kernel_add_ipv6 (struct prefix *a, struct rib *b) { return 0; }
 int kernel_update_ipv6 (struct prefix *a, struct rib *b) { return 0; }
 int kernel_delete_ipv6 (struct prefix *a, struct rib *b) { return 0; }
 
-int kernel_add_route (struct prefix_ipv4 *a, struct in_addr *b, int c, int d)
-{ return 0; }
-
 int kernel_address_add_ipv4 (struct interface *a, struct connected *b)
 {
   zlog_debug ("%s", __func__);
@@ -60,7 +57,7 @@ int kernel_address_delete_ipv4 (struct interface *a, struct connected *b)
   return 0;
 }
 
-int netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen)
+int kernel_neigh_update (int a, int b, uint32_t c, char *d, int e)
 {
   return 0;
 }

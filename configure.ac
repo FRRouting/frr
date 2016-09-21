@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(Quagga, 0.99.24+cl3u2, [https://bugzilla.quagga.net])
+AC_INIT(Quagga, 0.99.24+cl3u3, [https://bugzilla.quagga.net])
 CONFIG_ARGS="$*"
 AC_SUBST(CONFIG_ARGS)
 AC_CONFIG_SRCDIR(lib/zebra.h)
@@ -21,6 +21,7 @@ AC_CANONICAL_HOST()
 AC_CANONICAL_TARGET()
 
 AM_INIT_AUTOMAKE(1.6)
+m4_ifndef([AM_SILENT_RULES], [m4_define([AM_SILENT_RULES],[])])
 AM_SILENT_RULES([yes])
 AC_CONFIG_HEADERS(config.h)
 
@@ -265,15 +266,11 @@ AC_ARG_WITH(libpam,
   AS_HELP_STRING([--with-libpam], [use libpam for PAM support in vtysh]))
 AC_ARG_ENABLE(tcp-zebra,
   AS_HELP_STRING([--enable-tcp-zebra], [enable TCP/IP socket connection between zebra and protocol daemon]))
-AC_ARG_ENABLE(opaque-lsa,
-  AS_HELP_STRING([--disable-opaque-lsa],[do not build OSPF Opaque-LSA with OSPFAPI support (RFC2370)]))
 AC_ARG_ENABLE(ospfapi,
   AS_HELP_STRING([--disable-ospfapi], [do not build OSPFAPI to access the OSPF LSA Database]))
 AC_ARG_ENABLE(ospfclient,
   AS_HELP_STRING([--disable-ospfclient], [do not build OSPFAPI client for OSPFAPI,
                           (this is the default if --disable-ospfapi is set)]))
-AC_ARG_ENABLE(ospf-te,
-  AS_HELP_STRING([--disable-ospf-te],[disable Traffic Engineering Extension to OSPF]))
 AC_ARG_ENABLE(multipath,
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
 AC_ARG_ENABLE(user,
@@ -320,13 +317,18 @@ AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
+AC_ARG_ENABLE(bgp-standalone,
+  AS_HELP_STRING([--enable-bgp-standalone], [Modify code to allow BGP to work without Zebra]))
 AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
 if test $ac_cv_lib_json_c_json_object_get = no; then
-  AC_MSG_ERROR([lib json is needed to compile])
+  AC_CHECK_LIB(json, json_object_get, LIBS="$LIBS -ljson")
+  if test $ac_cv_lib_json_json_object_get = no; then
+      AC_MSG_ERROR([lib json is needed to compile])
+  fi
 fi
 
 if test x"${enable_gcc_rdynamic}" != x"no" ; then
@@ -368,6 +370,10 @@ if test "${enable_cumulus}" = "yes" ; then
   AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
 fi
 
+if test "${enable_bgp_standalone}" = "yes" ; then
+  AC_DEFINE(HAVE_BGP_STANDALONE,,Allow BGP to work without Zebra)
+fi
+
 if test "${enable_shell_access}" = "yes"; then
    AC_DEFINE(HAVE_SHELL_ACCESS,,Allow user to use ssh/telnet/bash)
 fi
@@ -378,15 +384,6 @@ fi
 
 if test "${enable_tcp_zebra}" = "yes"; then
   AC_DEFINE(HAVE_TCP_ZEBRA,,Use TCP for zebra communication)
-fi
-
-if test "${enable_opaque_lsa}" != "no"; then
-  AC_DEFINE(HAVE_OPAQUE_LSA,,OSPF Opaque LSA)
-fi
-
-if test "${enable_ospf_te}" != "no"; then
-  AC_DEFINE(HAVE_OPAQUE_LSA,,OSPF Opaque LSA)
-  AC_DEFINE(HAVE_OSPF_TE,,OSPF TE)
 fi
 
 if test "${enable_linux24_tcp_md5}" = "yes"; then
@@ -416,16 +413,22 @@ AC_SUBST(ISIS_TOPOLOGY_INCLUDES)
 AC_SUBST(ISIS_TOPOLOGY_DIR)
 AC_SUBST(ISIS_TOPOLOGY_LIB)
 
-if test "${enable_user}" = "yes" || test x"${enable_user}" = x""; then
-  enable_user="quagga"
-elif test "${enable_user}" = "no"; then
-  enable_user="root"
+if test x"${enable_user}" = x"no"; then
+  enable_user=""
+else
+  if test x"${enable_user}" = x"yes" || test x"${enable_user}" = x""; then
+    enable_user="quagga"
+  fi
+  AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
 fi
 
-if test "${enable_group}" = "yes" || test x"${enable_group}" = x""; then
-  enable_group="quagga"
-elif test "${enable_group}" = "no"; then
-  enable_group="root"
+if test x"${enable_group}" = x"no"; then
+  enable_group=""
+else
+  if test x"${enable_group}" = x"yes" || test x"${enable_group}" = x""; then
+    enable_group="quagga"
+  fi
+  AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
 fi
 
 if test x"${enable_vty_group}" = x"yes" ; then
@@ -438,8 +441,6 @@ fi
 AC_SUBST([enable_user])
 AC_SUBST([enable_group])
 AC_SUBST([enable_vty_group])
-AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
-AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
 
 enable_configfile_mask=${enable_configfile_mask:-0600}
 AC_DEFINE_UNQUOTED(CONFIGFILE_MASK, ${enable_configfile_mask}, Mask for config files)
@@ -710,7 +711,7 @@ dnl	 [TODO] on Linux, and in [TODO] on Solaris.
 	      )]
 	    )]
 	  )
-         AC_CHECK_LIB(readline, main, LIBREADLINE="$LIBREADLINE -lreadline",,
+         AC_CHECK_LIB(readline, main, LIBREADLINE="-lreadline $LIBREADLINE",,
                       "$LIBREADLINE")
          if test $ac_cv_lib_readline_main = no; then
            AC_MSG_ERROR([vtysh needs libreadline but was not found and usable on your system.])
@@ -850,6 +851,14 @@ AC_CHECK_FUNCS([dup2 ftruncate getcwd gethostbyname getpagesize gettimeofday \
 	daemon snprintf vsnprintf \
 	if_nametoindex if_indextoname getifaddrs \
 	uname fcntl getgrouplist])
+
+AC_CHECK_HEADER([asm-generic/unistd.h],
+                [AC_CHECK_DECL(__NR_setns,
+                               AC_DEFINE(HAVE_NETNS,, Have netns),,
+                               QUAGGA_INCLUDES [#include <asm-generic/unistd.h>
+                               ])
+                 AC_CHECK_FUNCS(setns, AC_DEFINE(HAVE_SETNS,, Have setns))]
+               )
 
 dnl ------------------------------------
 dnl Determine routing get and set method
@@ -993,11 +1002,46 @@ dnl figure out how to specify an interface in multicast sockets API
 dnl ---------------------------------------------------------------
 AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], QUAGGA_INCLUDES)
 
-AC_CHECK_HEADERS([linux/mroute.h], [], [],
-[
-#if HAVE_NETINET_IN_H
-#include<netinet/in.h>
-#endif])
+AC_CHECK_HEADERS([linux/mroute.h], [], [],[
+	#ifdef HAVE_SYS_SOCKET_H
+	# include <sys/socket.h>
+	#endif
+	#ifdef HAVE_NETINET_IN_H
+	# include <netinet/in.h>
+	#endif
+	#define _LINUX_IN_H             /* For Linux <= 2.6.25 */
+	#include <linux/types.h>
+])
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_LINUX_MROUTE_H
+# include <linux/mroute.h>
+#endif
+])dnl
+
+AC_CHECK_HEADERS([netinet/ip_mroute.h], [], [],[
+	#ifdef HAVE_SYS_SOCKET_H
+	# include <sys/socket.h>
+	#endif
+	#ifdef HAVE_SYS_TYPES_H
+	# include <sys/types.h>
+	#endif
+	#ifdef HAVE_NETINET_IN_H
+	# include <netinet/in.h>
+	#endif
+	#ifdef HAVE_NET_ROUTE_H
+	# include <net/route.h>
+	#endif
+])
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_NETINET_IP_MROUTE_H
+# include <netinet/ip_mroute.h>
+#endif
+])dnl
+
 AC_MSG_CHECKING([for BSD struct ip_mreq hack])
 AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
@@ -1094,6 +1138,11 @@ IPFORWARD=ipforward_${quagga_cv_ipforward_method}.o
 AC_SUBST(IPFORWARD)
 
 AC_CHECK_FUNCS(getaddrinfo, [have_getaddrinfo=yes], [have_getaddrinfo=no])
+
+dnl ----------------------------------------------------------------------------
+dnl figure out if domainname is available in the utsname struct (GNU extension).
+dnl ----------------------------------------------------------------------------
+AC_CHECK_MEMBERS([struct utsname.domainname], [], [], [#include <sys/utsname.h>])
 
 dnl ----------
 dnl IPv6 check
@@ -1202,16 +1251,14 @@ fi
 AM_CONDITIONAL(WATCHQUAGGA, test "x$WATCHQUAGGA" = "xwatchquagga")
 
 OSPFCLIENT=""
-if test "${enable_opaque_lsa}" != "no"; then
-  if test "${enable_ospfapi}" != "no";then
+if test "${enable_ospfapi}" != "no";then
     AC_DEFINE(SUPPORT_OSPF_API,,OSPFAPI)
 
-    if test "${enable_ospfclient}" != "no";then
+  if test "${enable_ospfclient}" != "no";then
       OSPFCLIENT="ospfclient"
-    fi
   fi
-
 fi
+
 AM_CONDITIONAL(OSPFCLIENT, test "x$OSPFCLIENT" = "xospfclient")
 
 case "${enable_ripngd}" in

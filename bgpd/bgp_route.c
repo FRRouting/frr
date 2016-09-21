@@ -376,7 +376,11 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     }
 
   if (debug)
-    bgp_info_path_with_addpath_rx_str (exist, exist_buf);
+    {
+      bgp_info_path_with_addpath_rx_str (exist, exist_buf);
+      zlog_debug("%s: Comparing %s flags 0x%x with %s flags 0x%x",
+                 pfx_buf, new_buf, new->flags, exist_buf, exist->flags);
+    }
 
   newattr = new->attr;
   existattr = exist->attr;
@@ -705,6 +709,15 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
        * TODO: If unequal cost ibgp multipath is enabled we can
        * mark the paths as equal here instead of returning
        */
+      if (debug)
+        {
+          if (ret == 1)
+            zlog_debug("%s: %s wins over %s after IGP metric comparison",
+                       pfx_buf, new_buf, exist_buf);
+          else
+            zlog_debug("%s: %s loses to %s after IGP metric comparison",
+                       pfx_buf, new_buf, exist_buf);
+        }
       return ret;
     }
 
@@ -1638,14 +1651,19 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   /* Now that we know which path is the bestpath see if any of the other paths
    * qualify as multipaths
    */
+  if (debug)
+    {
+      if (new_select)
+        bgp_info_path_with_addpath_rx_str (new_select, path_buf);
+      else
+        sprintf (path_buf, "NONE");
+      zlog_debug("%s: After path selection, newbest is %s oldbest was %s",
+                 pfx_buf, path_buf,
+                 old_select ? old_select->peer->host : "NONE");
+    }
+
   if (do_mpath && new_select)
     {
-      if (debug)
-        {
-          bgp_info_path_with_addpath_rx_str (new_select, path_buf);
-          zlog_debug("%s: %s is the bestpath, now find multipaths", pfx_buf, path_buf);
-        }
-
       for (ri = rn->info; (ri != NULL) && (nextri = ri->next, 1); ri = nextri)
         {
 
@@ -1657,7 +1675,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
               if (debug)
                 zlog_debug("%s: %s is the bestpath, add to the multipath list",
                            pfx_buf, path_buf);
-	      bgp_mp_list_add (&mp_list, ri);
+              bgp_mp_list_add (&mp_list, ri);
               continue;
             }
 
@@ -1749,6 +1767,57 @@ subgroup_process_announce_selected (struct update_subgroup *subgrp,
   return 0;
 }
 
+/*
+ * Clear IGP changed flag and attribute changed flag for a route (all paths).
+ * This is called at the end of route processing.
+ */
+static void
+bgp_zebra_clear_route_change_flags (struct bgp_node *rn)
+{
+  struct bgp_info *ri;
+
+  for (ri = rn->info; ri; ri = ri->next)
+    {
+	if (BGP_INFO_HOLDDOWN (ri))
+          continue;
+        UNSET_FLAG (ri->flags, BGP_INFO_IGP_CHANGED);
+        UNSET_FLAG (ri->flags, BGP_INFO_ATTR_CHANGED);
+    }
+}
+
+/*
+ * Has the route changed from the RIB's perspective? This is invoked only
+ * if the route selection returns the same best route as earlier - to
+ * determine if we need to update zebra or not.
+ */
+static int
+bgp_zebra_has_route_changed (struct bgp_node *rn, struct bgp_info *selected)
+{
+  struct bgp_info *mpinfo;
+
+  /* If this is multipath, check all selected paths for any nexthop change or
+   * attribute change. Some attribute changes (e.g., community) aren't of
+   * relevance to the RIB, but we'll update zebra to ensure we handle the
+   * case of BGP nexthop change. This is the behavior when the best path has
+   * an attribute change anyway.
+   */
+  if (CHECK_FLAG (selected->flags, BGP_INFO_IGP_CHANGED) ||
+      CHECK_FLAG (selected->flags, BGP_INFO_MULTIPATH_CHG))
+    return 1;
+
+  /* If this is multipath, check all selected paths for any nexthop change */
+  for (mpinfo = bgp_info_mpath_first (selected); mpinfo;
+       mpinfo = bgp_info_mpath_next (mpinfo))
+    {
+      if (CHECK_FLAG (mpinfo->flags, BGP_INFO_IGP_CHANGED)
+          || CHECK_FLAG (mpinfo->flags, BGP_INFO_ATTR_CHANGED))
+        return 1;
+    }
+
+  /* Nothing has changed from the RIB's perspective. */
+  return 0;
+}
+
 struct bgp_process_queue
 {
   struct bgp *bgp;
@@ -1799,11 +1868,11 @@ bgp_process_main (struct work_queue *wq, void *data)
       !CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED) &&
       !bgp->addpath_tx_used[afi][safi])
     {
-      if (CHECK_FLAG (old_select->flags, BGP_INFO_IGP_CHANGED) ||
-          CHECK_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG))
+      if (bgp_zebra_has_route_changed (rn, old_select))
         bgp_zebra_announce (p, old_select, bgp, afi, safi);
           
       UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
+      bgp_zebra_clear_route_change_flags (rn);
       UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
       return WQ_SUCCESS;
     }
@@ -1856,7 +1925,10 @@ bgp_process_main (struct work_queue *wq, void *data)
 	    bgp_zebra_withdraw (p, old_select, safi);
 	}
     }
-    
+
+  /* Clear any route change flags. */
+  bgp_zebra_clear_route_change_flags (rn);
+
   /* Reap old select bgp_info, if it has been removed */
   if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
     bgp_info_reap (rn, old_select);
@@ -5873,7 +5945,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
 	        vty_out (vty, "%-16s", inet_ntoa (attr->nexthop));
             }
 	}
-#ifdef HAVE_IPV6
+
       /* IPv6 Next Hop */
       else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 	{
@@ -5901,8 +5973,9 @@ route_vty_out (struct vty *vty, struct prefix *p,
                   json_object_string_add(json_nexthop_ll, "afi", "ipv6");
                   json_object_string_add(json_nexthop_ll, "scope", "link-local");
 
-                  if (IPV6_ADDR_CMP (&attr->extra->mp_nexthop_global,
-                                     &attr->extra->mp_nexthop_local) != 0)
+                  if ((IPV6_ADDR_CMP (&attr->extra->mp_nexthop_global,
+                                      &attr->extra->mp_nexthop_local) != 0) &&
+                                      !attr->extra->mp_nexthop_prefer_global)
                     json_object_boolean_true_add(json_nexthop_ll, "used");
                   else
                     json_object_boolean_true_add(json_nexthop_global, "used");
@@ -5912,7 +5985,10 @@ route_vty_out (struct vty *vty, struct prefix *p,
             }
           else
             {
-	      if ((attr->extra->mp_nexthop_len == 32) || (binfo->peer->conf_if))
+              /* Display LL if LL/Global both in table unless prefer-global is set */
+	      if (((attr->extra->mp_nexthop_len == 32) &&
+                   !attr->extra->mp_nexthop_prefer_global) ||
+                   (binfo->peer->conf_if))
 		{
 		  if (binfo->peer->conf_if)
 		    {
@@ -5954,7 +6030,6 @@ route_vty_out (struct vty *vty, struct prefix *p,
 		}
             }
 	}
-#endif /* HAVE_IPV6 */
 
       /* MED/Metric */
       if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
@@ -6635,7 +6710,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           if (json_paths)
             json_object_string_add(json_nexthop_global, "afi", "ipv4");
 	}
-#ifdef HAVE_IPV6
       else
 	{
 	  assert (attr->extra);
@@ -6654,8 +6728,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 			          buf, INET6_ADDRSTRLEN));
             }
 	}
-#endif /* HAVE_IPV6 */
-
 
       /* Display the IGP cost or 'inaccessible' */
       if (! CHECK_FLAG (binfo->flags, BGP_INFO_VALID))
@@ -6761,7 +6833,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (!json_paths)
         vty_out (vty, "%s", VTY_NEWLINE);
 
-#ifdef HAVE_IPV6
       /* display the link-local nexthop */
       if (attr->extra && attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 	{
@@ -6775,13 +6846,19 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
               json_object_string_add(json_nexthop_ll, "scope", "link-local");
 
               json_object_boolean_true_add(json_nexthop_ll, "accessible");
-              json_object_boolean_true_add(json_nexthop_ll, "used");
+
+              if (!attr->extra->mp_nexthop_prefer_global)
+                json_object_boolean_true_add(json_nexthop_ll, "used");
+              else
+                json_object_boolean_true_add(json_nexthop_global, "used");
             }
           else
             {
-	      vty_out (vty, "    (%s) (used)%s",
-		       inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local,
+	      vty_out (vty, "    (%s) %s%s",
+                       inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local,
 			          buf, INET6_ADDRSTRLEN),
+                       attr->extra->mp_nexthop_prefer_global ?
+                                   "(prefer-global)" : "(used)",
 		       VTY_NEWLINE);
             }
 	}
@@ -6791,7 +6868,6 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           if (json_paths)
             json_object_boolean_true_add(json_nexthop_global, "used");
         }
-#endif /* HAVE_IPV6 */
 
       /* Line 3 display Origin, Med, Locpref, Weight, Tag, valid, Int/Ext/Local, Atomic, best */
       if (json_paths)
@@ -7634,7 +7710,9 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
         {
           vty_out (vty, ", best #%d", best);
           if (safi == SAFI_UNICAST)
-	    vty_out (vty, ", table Default-IP-Routing-Table");
+            vty_out (vty, ", table %s",
+                     (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+                     ? "Default-IP-Routing-Table" : bgp->name);
         }
       else
         vty_out (vty, ", no best path");
@@ -9302,6 +9380,66 @@ DEFUN (show_ip_bgp_dampening_info,
        "Display detail of configured dampening parameters\n")
 {
     return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_UNICAST);
+}
+
+
+DEFUN (show_ip_bgp_ipv4_dampening_parameters,
+       show_ip_bgp_ipv4_dampening_parameters_cmd,
+       "show ip bgp ipv4 (unicast|multicast) dampening parameters",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Display detailed information about dampening\n"
+       "Display detail of configured dampening parameters\n")
+{
+    if (strncmp(argv[0], "m", 1) == 0)
+      return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_MULTICAST);
+
+    return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_UNICAST);
+}
+
+
+DEFUN (show_ip_bgp_ipv4_dampening_flap_stats,
+       show_ip_bgp_ipv4_dampening_flap_stats_cmd,
+       "show ip bgp ipv4 (unicast|multicast) dampening flap-statistics",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n")
+{
+    if (strncmp(argv[0], "m", 1) == 0)
+      return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
+                     bgp_show_type_flap_statistics, NULL, 0);
+
+    return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
+                 bgp_show_type_flap_statistics, NULL, 0);
+}
+
+DEFUN (show_ip_bgp_ipv4_dampening_dampd_paths,
+       show_ip_bgp_ipv4_dampening_dampd_paths_cmd,
+       "show ip bgp ipv4 (unicast|multicast) dampening dampened-paths",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Display detailed information about dampening\n"
+       "Display paths suppressed due to dampening\n")
+{
+    if (strncmp(argv[0], "m", 1) == 0)
+      return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
+                     bgp_show_type_dampend_paths, NULL, 0);
+
+    return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
+                 bgp_show_type_dampend_paths, NULL, 0);
 }
 
 static int
@@ -14438,7 +14576,10 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_dampened_paths_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_dampd_paths_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_flap_stats_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_damp_dampened_paths_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_flap_statistics_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_damp_flap_statistics_cmd);
@@ -14591,6 +14732,9 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_dampened_paths_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_dampening_dampd_paths_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_dampening_flap_stats_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_damp_dampened_paths_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_flap_statistics_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_damp_flap_statistics_cmd);
@@ -15000,6 +15144,13 @@ bgp_route_init (void)
   install_element (BGP_IPV4_NODE, &bgp_damp_unset_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_unset2_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_unset3_cmd);
+
+  /* IPv4 Multicast Mode */
+  install_element (BGP_IPV4M_NODE, &bgp_damp_set_cmd);
+  install_element (BGP_IPV4M_NODE, &bgp_damp_set2_cmd);
+  install_element (BGP_IPV4M_NODE, &bgp_damp_set3_cmd);
+  install_element (BGP_IPV4M_NODE, &bgp_damp_unset_cmd);
+  install_element (BGP_IPV4M_NODE, &bgp_damp_unset2_cmd);
 }
 
 void

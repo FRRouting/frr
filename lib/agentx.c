@@ -24,11 +24,110 @@
 #if defined HAVE_SNMP && defined SNMP_AGENTX
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
+#include <net-snmp/agent/net-snmp-agent-includes.h>
+#include <net-snmp/agent/snmp_vars.h>
 
 #include "command.h"
 #include "smux.h"
+#include "memory.h"
+#include "linklist.h"
 
-int agentx_enabled = 0;
+static int agentx_enabled = 0;
+
+static struct thread_master *agentx_tm;
+static struct thread *timeout_thr = NULL;
+static struct list *events = NULL;
+
+static void agentx_events_update(void);
+
+static int
+agentx_timeout(struct thread *t)
+{
+  timeout_thr = NULL;
+
+  snmp_timeout ();
+  run_alarms ();
+  netsnmp_check_outstanding_agent_requests ();
+  agentx_events_update ();
+  return 0;
+}
+
+static int
+agentx_read(struct thread *t)
+{
+  fd_set fds;
+  struct listnode *ln = THREAD_ARG (t);
+  list_delete_node (events, ln);
+
+  FD_ZERO (&fds);
+  FD_SET (THREAD_FD (t), &fds);
+  snmp_read (&fds);
+
+  netsnmp_check_outstanding_agent_requests ();
+  agentx_events_update ();
+  return 0;
+}
+
+static void
+agentx_events_update(void)
+{
+  int maxfd = 0;
+  int block = 1;
+  struct timeval timeout = { .tv_sec = 0, .tv_usec = 0 };
+  fd_set fds;
+  struct listnode *ln;
+  struct thread *thr;
+  int fd, thr_fd;
+
+  THREAD_OFF (timeout_thr);
+
+  FD_ZERO (&fds);
+  snmp_select_info (&maxfd, &fds, &timeout, &block);
+
+  if (!block)
+    timeout_thr = thread_add_timer_tv (agentx_tm, agentx_timeout, NULL, &timeout);
+
+  ln = listhead (events);
+  thr = ln ? listgetdata (ln) : NULL;
+  thr_fd = thr ? THREAD_FD (thr) : -1;
+
+  /* "two-pointer" / two-list simultaneous iteration
+   * ln/thr/thr_fd point to the next existing event listener to hit while
+   * fd counts to catch up */
+  for (fd = 0; fd < maxfd; fd++)
+    {
+      /* caught up */
+      if (thr_fd == fd)
+        {
+          struct listnode *nextln = listnextnode (ln);
+          if (!FD_ISSET (fd, &fds))
+            {
+              thread_cancel (thr);
+              list_delete_node (events, ln);
+            }
+          ln = nextln;
+          thr = ln ? listgetdata (ln) : NULL;
+          thr_fd = thr ? THREAD_FD (thr) : -1;
+        }
+      /* need listener, but haven't hit one where it would be */
+      else if (FD_ISSET (fd, &fds))
+        {
+          struct listnode *newln;
+          thr = thread_add_read (agentx_tm, agentx_read, NULL, fd);
+          newln = listnode_add_before (events, ln, thr);
+          thr->arg = newln;
+        }
+    }
+
+  /* leftover event listeners at this point have fd > maxfd, delete them */
+  while (ln)
+    {
+      struct listnode *nextln = listnextnode (ln);
+      thread_cancel (listgetdata (ln));
+      list_delete_node (events, ln);
+      ln = nextln;
+    }
+}
 
 /* AgentX node. */
 static struct cmd_node agentx_node =
@@ -77,6 +176,8 @@ DEFUN (agentx_enable,
   if (!agentx_enabled)
     {
       init_snmp("quagga");
+      events = list_new();
+      agentx_events_update ();
       agentx_enabled = 1;
       return CMD_SUCCESS;
     }
@@ -99,6 +200,8 @@ DEFUN (no_agentx,
 void
 smux_init (struct thread_master *tm)
 {
+  agentx_tm = tm;
+
   netsnmp_enable_subagent ();
   snmp_disable_log ();
   snmp_enable_calllog ();
@@ -207,6 +310,7 @@ smux_trap (struct variable *vp, size_t vp_len,
 
   send_v2trap (notification_vars);
   snmp_free_varbind (notification_vars);
+  agentx_events_update ();
   return 1;
 }
 

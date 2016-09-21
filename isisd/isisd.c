@@ -54,6 +54,7 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_te.h"
 
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
@@ -98,6 +99,7 @@ isis_new (unsigned long process_id)
    * uncomment the next line for full debugs
    */
   /* isis->debugs = 0xFFFF; */
+  isisMplsTE.status = disable;            /* Only support TE metric */
 }
 
 struct isis_area *
@@ -781,14 +783,16 @@ print_debug (struct vty *vty, int flags, int onoff)
 }
 
 DEFUN (show_debugging,
-       show_debugging_cmd,
+       show_debugging_isis_cmd,
        "show debugging isis",
        SHOW_STR
        "State of each debugging option\n"
        ISIS_STR)
 {
-  vty_out (vty, "IS-IS:%s", VTY_NEWLINE);
-  print_debug (vty, isis->debugs, 1);
+  if (isis->debugs) {
+      vty_out (vty, "IS-IS:%s", VTY_NEWLINE);
+      print_debug (vty, isis->debugs, 1);
+  }
   return CMD_SUCCESS;
 }
 
@@ -1612,1220 +1616,251 @@ DEFUN (no_net,
   return area_clear_net_title (vty, argv[0]);
 }
 
-static
-int area_set_lsp_mtu(struct vty *vty, struct isis_area *area, unsigned int lsp_mtu)
+void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 {
-  struct isis_circuit *circuit;
-  struct listnode *node;
-
-  for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
-    {
-      if(circuit->state != C_STATE_INIT && circuit->state != C_STATE_UP)
-        continue;
-      if(lsp_mtu > isis_circuit_pdu_size(circuit))
-        {
-          vty_out(vty, "ISIS area contains circuit %s, which has a maximum PDU size of %zu.%s",
-                  circuit->interface->name, isis_circuit_pdu_size(circuit),
-                  VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
-    }
-
   area->lsp_mtu = lsp_mtu;
   lsp_regenerate_schedule(area, IS_LEVEL_1_AND_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (area_lsp_mtu,
-       area_lsp_mtu_cmd,
-       "lsp-mtu <128-4352>",
-       "Configure the maximum size of generated LSPs\n"
-       "Maximum size of generated LSPs\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  unsigned int lsp_mtu;
-
-  VTY_GET_INTEGER_RANGE("lsp-mtu", lsp_mtu, argv[0], 128, 4352);
-
-  return area_set_lsp_mtu(vty, area, lsp_mtu);
-}
-
-DEFUN(no_area_lsp_mtu,
-      no_area_lsp_mtu_cmd,
-      "no lsp-mtu",
-      NO_STR
-      "Configure the maximum size of generated LSPs\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  return area_set_lsp_mtu(vty, area, DEFAULT_LSP_MTU);
-}
-
-ALIAS(no_area_lsp_mtu,
-      no_area_lsp_mtu_arg_cmd,
-      "no lsp-mtu <128-4352>",
-      NO_STR
-      "Configure the maximum size of generated LSPs\n"
-      "Maximum size of generated LSPs\n");
-
-DEFUN (area_passwd_md5,
-       area_passwd_md5_cmd,
-       "area-password md5 WORD",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Area password\n")
-{
-  struct isis_area *area;
-  int len;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  len = strlen (argv[0]);
-  if (len > 254)
-    {
-      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-
-  area->area_passwd.len = (u_char) len;
-  area->area_passwd.type = ISIS_PASSWD_TYPE_HMAC_MD5;
-  strncpy ((char *)area->area_passwd.passwd, argv[0], 255);
-
-  if (argc > 1)
-    {
-      SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
-      if (strncmp(argv[1], "v", 1) == 0)
-	SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-      else
-	UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  else
-    {
-      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
-      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (area_passwd_md5,
-       area_passwd_md5_snpauth_cmd,
-       "area-password md5 WORD authenticate snp (send-only|validate)",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Area password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-
-DEFUN (area_passwd_clear,
-       area_passwd_clear_cmd,
-       "area-password clear WORD",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Area password\n")
-{
-  struct isis_area *area;
-  int len;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  len = strlen (argv[0]);
-  if (len > 254)
-    {
-      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-
-  area->area_passwd.len = (u_char) len;
-  area->area_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
-  strncpy ((char *)area->area_passwd.passwd, argv[0], 255);
-
-  if (argc > 1)
-    {
-      SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
-      if (strncmp(argv[1], "v", 1) == 0)
-	SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-      else
-	UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  else
-    {
-      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
-      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (area_passwd_clear,
-       area_passwd_clear_snpauth_cmd,
-       "area-password clear WORD authenticate snp (send-only|validate)",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Area password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-
-DEFUN (no_area_passwd,
-       no_area_passwd_cmd,
-       "no area-password",
-       NO_STR
-       "Configure the authentication password for an area\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  memset (&area->area_passwd, 0, sizeof (struct isis_passwd));
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (domain_passwd_md5,
-       domain_passwd_md5_cmd,
-       "domain-password md5 WORD",
-       "Set the authentication password for a routing domain\n"
-       "Authentication type\n"
-       "Routing domain password\n")
-{
-  struct isis_area *area;
-  int len;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  len = strlen (argv[0]);
-  if (len > 254)
-    {
-      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-
-  area->domain_passwd.len = (u_char) len;
-  area->domain_passwd.type = ISIS_PASSWD_TYPE_HMAC_MD5;
-  strncpy ((char *)area->domain_passwd.passwd, argv[0], 255);
-
-  if (argc > 1)
-    {
-      SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
-      if (strncmp(argv[1], "v", 1) == 0)
-	SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-      else
-	UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  else
-    {
-      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
-      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (domain_passwd_md5,
-       domain_passwd_md5_snpauth_cmd,
-       "domain-password md5 WORD authenticate snp (send-only|validate)",
-       "Set the authentication password for a routing domain\n"
-       "Authentication type\n"
-       "Routing domain password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-
-DEFUN (domain_passwd_clear,
-       domain_passwd_clear_cmd,
-       "domain-password clear WORD",
-       "Set the authentication password for a routing domain\n"
-       "Authentication type\n"
-       "Routing domain password\n")
-{
-  struct isis_area *area;
-  int len;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  len = strlen (argv[0]);
-  if (len > 254)
-    {
-      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
-
-  area->domain_passwd.len = (u_char) len;
-  area->domain_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
-  strncpy ((char *)area->domain_passwd.passwd, argv[0], 255);
-
-  if (argc > 1)
-    {
-      SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
-      if (strncmp(argv[1], "v", 1) == 0)
-	SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-      else
-	UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  else
-    {
-      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
-      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
-    }
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (domain_passwd_clear,
-       domain_passwd_clear_snpauth_cmd,
-       "domain-password clear WORD authenticate snp (send-only|validate)",
-       "Set the authentication password for a routing domain\n"
-       "Authentication type\n"
-       "Routing domain password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-
-DEFUN (no_domain_passwd,
-       no_domain_passwd_cmd,
-       "no domain-password",
-       NO_STR
-       "Set the authentication password for a routing domain\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  memset (&area->domain_passwd, 0, sizeof (struct isis_passwd));
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (is_type,
-       is_type_cmd,
-       "is-type (level-1|level-1-2|level-2-only)",
-       "IS Level for this routing process (OSI only)\n"
-       "Act as a station router only\n"
-       "Act as both a station router and an area router\n"
-       "Act as an area router only\n")
-{
-  struct isis_area *area;
-  int type;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
-
-  type = string2circuit_t (argv[0]);
-  if (!type)
-    {
-      vty_out (vty, "Unknown IS level %s", VTY_NEWLINE);
-      return CMD_SUCCESS;
-    }
-
-  isis_event_system_type_change (area, type);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_is_type,
-       no_is_type_cmd,
-       "no is-type (level-1|level-1-2|level-2-only)",
-       NO_STR
-       "IS Level for this routing process (OSI only)\n"
-       "Act as a station router only\n"
-       "Act as both a station router and an area router\n"
-       "Act as an area router only\n")
-{
-  struct isis_area *area;
-  int type;
-
-  area = vty->index;
-  assert (area);
-
-  /*
-   * Put the is-type back to defaults:
-   * - level-1-2 on first area
-   * - level-1 for the rest
-   */
-  if (listgetdata (listhead (isis->area_list)) == area)
-    type = IS_LEVEL_1_AND_2;
-  else
-    type = IS_LEVEL_1;
-
-  isis_event_system_type_change (area, type);
-
-  return CMD_SUCCESS;
 }
 
 static int
-set_lsp_gen_interval (struct vty *vty, struct isis_area *area,
-                      uint16_t interval, int level)
+isis_area_passwd_set(struct isis_area *area, int level, u_char passwd_type,
+		     const char *passwd, u_char snp_auth)
 {
-  int lvl;
+  struct isis_passwd *dest;
+  struct isis_passwd modified;
+  int len;
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+  assert((level == IS_LEVEL_1) || (level == IS_LEVEL_2));
+  dest = (level == IS_LEVEL_1) ? &area->area_passwd : &area->domain_passwd;
+  memset(&modified, 0, sizeof(modified));
+
+  if (passwd_type != ISIS_PASSWD_TYPE_UNUSED)
     {
-      if (!(lvl & level))
-        continue;
+      if (!passwd)
+        return -1;
 
-      if (interval >= area->lsp_refresh[lvl-1])
-        {
-          vty_out (vty, "LSP gen interval %us must be less than "
-                   "the LSP refresh interval %us%s",
-                   interval, area->lsp_refresh[lvl-1], VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
+      len = strlen(passwd);
+      if (len > 254)
+        return -1;
+
+      modified.len = len;
+      strncpy((char*)modified.passwd, passwd, 255);
+      modified.type = passwd_type;
+      modified.snp_auth = snp_auth;
     }
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+  if (memcmp(&modified, dest, sizeof(modified)))
     {
-      if (!(lvl & level))
-        continue;
-      area->lsp_gen_interval[lvl-1] = interval;
+      memcpy(dest, &modified, sizeof(modified));
+      lsp_regenerate_schedule(area, IS_LEVEL_1|IS_LEVEL_2, 1);
     }
 
-  return CMD_SUCCESS;
+  return 0;
 }
 
-DEFUN (lsp_gen_interval,
-       lsp_gen_interval_cmd,
-       "lsp-gen-interval <1-120>",
-       "Minimum interval between regenerating same LSP\n"
-       "Minimum interval in seconds\n")
+int
+isis_area_passwd_unset (struct isis_area *area, int level)
 {
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_1 | IS_LEVEL_2;
-  return set_lsp_gen_interval (vty, area, interval, level);
+  return isis_area_passwd_set (area, level, ISIS_PASSWD_TYPE_UNUSED, NULL, 0);
 }
 
-DEFUN (no_lsp_gen_interval,
-       no_lsp_gen_interval_cmd,
-       "no lsp-gen-interval",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n")
+int
+isis_area_passwd_cleartext_set (struct isis_area *area, int level,
+                                const char *passwd, u_char snp_auth)
 {
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_1 | IS_LEVEL_2;
-  return set_lsp_gen_interval (vty, area, interval, level);
+  return isis_area_passwd_set (area, level, ISIS_PASSWD_TYPE_CLEARTXT,
+                               passwd, snp_auth);
 }
 
-ALIAS (no_lsp_gen_interval,
-       no_lsp_gen_interval_arg_cmd,
-       "no lsp-gen-interval <1-120>",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Minimum interval in seconds\n")
-
-DEFUN (lsp_gen_interval_l1,
-       lsp_gen_interval_l1_cmd,
-       "lsp-gen-interval level-1 <1-120>",
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 1 only\n"
-       "Minimum interval in seconds\n")
+int
+isis_area_passwd_hmac_md5_set (struct isis_area *area, int level,
+                               const char *passwd, u_char snp_auth)
 {
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_1;
-  return set_lsp_gen_interval (vty, area, interval, level);
+  return isis_area_passwd_set (area, level, ISIS_PASSWD_TYPE_HMAC_MD5,
+                               passwd, snp_auth);
 }
 
-DEFUN (no_lsp_gen_interval_l1,
-       no_lsp_gen_interval_l1_cmd,
-       "no lsp-gen-interval level-1",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 1 only\n")
+static void
+area_resign_level (struct isis_area *area, int level)
 {
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
+  if (area->lspdb[level - 1])
+    {
+      lsp_db_destroy (area->lspdb[level - 1]);
+      area->lspdb[level - 1] = NULL;
+    }
+  if (area->spftree[level - 1])
+    {
+      isis_spftree_del (area->spftree[level - 1]);
+      area->spftree[level - 1] = NULL;
+    }
+#ifdef HAVE_IPV6
+  if (area->spftree6[level - 1])
+    {
+      isis_spftree_del (area->spftree6[level - 1]);
+      area->spftree6[level - 1] = NULL;
+    }
+#endif
+  if (area->route_table[level - 1])
+    {
+      route_table_finish (area->route_table[level - 1]);
+      area->route_table[level - 1] = NULL;
+    }
+#ifdef HAVE_IPV6
+  if (area->route_table6[level - 1])
+    {
+      route_table_finish (area->route_table6[level - 1]);
+      area->route_table6[level - 1] = NULL;
+    }
+#endif /* HAVE_IPV6 */
 
-  area = vty->index;
-  interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_1;
-  return set_lsp_gen_interval (vty, area, interval, level);
+  sched_debug("ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
+              area->area_tag, level);
+  THREAD_TIMER_OFF (area->t_lsp_refresh[level - 1]);
+  area->lsp_regenerate_pending[level - 1] = 0;
 }
 
-ALIAS (no_lsp_gen_interval_l1,
-       no_lsp_gen_interval_l1_arg_cmd,
-       "no lsp-gen-interval level-1 <1-120>",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 1 only\n"
-       "Minimum interval in seconds\n")
-
-DEFUN (lsp_gen_interval_l2,
-       lsp_gen_interval_l2_cmd,
-       "lsp-gen-interval level-2 <1-120>",
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval in seconds\n")
+void
+isis_area_is_type_set(struct isis_area *area, int is_type)
 {
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_2;
-  return set_lsp_gen_interval (vty, area, interval, level);
-}
-
-DEFUN (no_lsp_gen_interval_l2,
-       no_lsp_gen_interval_l2_cmd,
-       "no lsp-gen-interval level-2",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 2 only\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_2;
-  return set_lsp_gen_interval (vty, area, interval, level);
-}
-
-ALIAS (no_lsp_gen_interval_l2,
-       no_lsp_gen_interval_l2_arg_cmd,
-       "no lsp-gen-interval level-2 <1-120>",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval in seconds\n")
-
-static int
-validate_metric_style_narrow (struct vty *vty, struct isis_area *area)
-{
-  struct isis_circuit *circuit;
   struct listnode *node;
-  
-  if (! vty)
-    return CMD_ERR_AMBIGUOUS;
+  struct isis_circuit *circuit;
 
-  if (! area)
-    {
-      vty_out (vty, "ISIS area is invalid%s", VTY_NEWLINE);
-      return CMD_ERR_AMBIGUOUS;
-    }
+  if (isis->debugs & DEBUG_EVENTS)
+    zlog_debug ("ISIS-Evt (%s) system type change %s -> %s", area->area_tag,
+	       circuit_t2string (area->is_type), circuit_t2string (is_type));
 
-  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
-    {
-      if ((area->is_type & IS_LEVEL_1) &&
-          (circuit->is_type & IS_LEVEL_1) &&
-          (circuit->te_metric[0] > MAX_NARROW_LINK_METRIC))
-        {
-          vty_out (vty, "ISIS circuit %s metric is invalid%s",
-                   circuit->interface->name, VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
-      if ((area->is_type & IS_LEVEL_2) &&
-          (circuit->is_type & IS_LEVEL_2) &&
-          (circuit->te_metric[1] > MAX_NARROW_LINK_METRIC))
-        {
-          vty_out (vty, "ISIS circuit %s metric is invalid%s",
-                   circuit->interface->name, VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
-    }
+  if (area->is_type == is_type)
+    return;			/* No change */
 
-  return CMD_SUCCESS;
-}
+  switch (area->is_type)
+  {
+    case IS_LEVEL_1:
+      if (is_type == IS_LEVEL_2)
+        area_resign_level (area, IS_LEVEL_1);
 
-DEFUN (metric_style,
-       metric_style_cmd,
-       "metric-style (narrow|transition|wide)",
-       "Use old-style (ISO 10589) or new-style packet formats\n"
-       "Use old style of TLVs with narrow metric\n"
-       "Send and accept both styles of TLVs during transition\n"
-       "Use new style of TLVs to carry wider metric\n")
-{
-  struct isis_area *area;
-  int ret;
+      if (area->lspdb[1] == NULL)
+        area->lspdb[1] = lsp_db_init ();
+      if (area->route_table[1] == NULL)
+        area->route_table[1] = route_table_init ();
+#ifdef HAVE_IPV6
+      if (area->route_table6[1] == NULL)
+        area->route_table6[1] = route_table_init ();
+#endif /* HAVE_IPV6 */
+      break;
 
-  area = vty->index;
-  assert (area);
+    case IS_LEVEL_1_AND_2:
+      if (is_type == IS_LEVEL_1)
+        area_resign_level (area, IS_LEVEL_2);
+      else
+        area_resign_level (area, IS_LEVEL_1);
+      break;
 
-  if (strncmp (argv[0], "w", 1) == 0)
-    {
-      area->newmetric = 1;
-      area->oldmetric = 0;
-    }
-  else
-    {
-      ret = validate_metric_style_narrow (vty, area);
-      if (ret != CMD_SUCCESS)
-        return ret;
+    case IS_LEVEL_2:
+      if (is_type == IS_LEVEL_1)
+        area_resign_level (area, IS_LEVEL_2);
 
-      if (strncmp (argv[0], "t", 1) == 0)
-	{
-	  area->newmetric = 1;
-	  area->oldmetric = 1;
-	}
-      else if (strncmp (argv[0], "n", 1) == 0)
-	{
-	  area->newmetric = 0;
-	  area->oldmetric = 1;
-	}
-    }
+      if (area->lspdb[0] == NULL)
+        area->lspdb[0] = lsp_db_init ();
+      if (area->route_table[0] == NULL)
+        area->route_table[0] = route_table_init ();
+#ifdef HAVE_IPV6
+      if (area->route_table6[0] == NULL)
+        area->route_table6[0] = route_table_init ();
+#endif /* HAVE_IPV6 */
+      break;
 
-  return CMD_SUCCESS;
-}
+    default:
+      break;
+  }
 
-DEFUN (no_metric_style,
-       no_metric_style_cmd,
-       "no metric-style",
-       NO_STR
-       "Use old-style (ISO 10589) or new-style packet formats\n")
-{
-  struct isis_area *area;
-  int ret;
+  area->is_type = is_type;
 
-  area = vty->index;
-  assert (area);
+  /* override circuit's is_type */
+  if (area->is_type != IS_LEVEL_1_AND_2)
+  {
+    for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
+      isis_circuit_is_type_set (circuit, is_type);
+  }
 
-  ret = validate_metric_style_narrow (vty, area);
-  if (ret != CMD_SUCCESS)
-    return ret;
+  spftree_area_init (area);
 
-  /* Default is narrow metric. */
-  area->newmetric = 0;
-  area->oldmetric = 1;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (set_overload_bit,
-       set_overload_bit_cmd,
-       "set-overload-bit",
-       "Set overload bit to avoid any transit traffic\n"
-       "Set overload bit\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  area->overload_bit = LSPBIT_OL;
+  if (is_type & IS_LEVEL_1)
+    lsp_generate (area, IS_LEVEL_1);
+  if (is_type & IS_LEVEL_2)
+    lsp_generate (area, IS_LEVEL_2);
   lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 
-  return CMD_SUCCESS;
+  return;
 }
 
-DEFUN (no_set_overload_bit,
-       no_set_overload_bit_cmd,
-       "no set-overload-bit",
-       "Reset overload bit to accept transit traffic\n"
-       "Reset overload bit\n")
+void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
+			       bool new_metric)
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  area->overload_bit = 0;
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (set_attached_bit,
-       set_attached_bit_cmd,
-       "set-attached-bit",
-       "Set attached bit to identify as L1/L2 router for inter-area traffic\n"
-       "Set attached bit\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  area->attached_bit = LSPBIT_ATT;
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_set_attached_bit,
-       no_set_attached_bit_cmd,
-       "no set-attached-bit",
-       "Reset attached bit\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  area->attached_bit = 0;
-  lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (dynamic_hostname,
-       dynamic_hostname_cmd,
-       "hostname dynamic",
-       "Dynamic hostname for IS-IS\n"
-       "Dynamic hostname\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  if (!area->dynhostname)
-   {
-     area->dynhostname = 1;
-     lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-   }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_dynamic_hostname,
-       no_dynamic_hostname_cmd,
-       "no hostname dynamic",
-       NO_STR
-       "Dynamic hostname for IS-IS\n"
-       "Dynamic hostname\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
-
-  if (area->dynhostname)
+  if (area->oldmetric != old_metric
+      || area->newmetric != new_metric)
     {
-      area->dynhostname = 0;
-      lsp_regenerate_schedule (area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+      area->oldmetric = old_metric;
+      area->newmetric = new_metric;
+      lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
     }
-
-  return CMD_SUCCESS;
 }
 
-DEFUN (spf_interval,
-       spf_interval_cmd,
-       "spf-interval <1-120>",
-       "Minimum interval between SPF calculations\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
+void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 {
-  struct isis_area *area;
-  u_int16_t interval;
+  char new_overload_bit = overload_bit ? LSPBIT_OL : 0;
 
-  area = vty->index;
-  interval = atoi (argv[0]);
-  area->min_spf_interval[0] = interval;
-  area->min_spf_interval[1] = interval;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_spf_interval,
-       no_spf_interval_cmd,
-       "no spf-interval",
-       NO_STR
-       "Minimum interval between SPF calculations\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-
-  area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
-  area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (no_spf_interval,
-       no_spf_interval_arg_cmd,
-       "no spf-interval <1-120>",
-       NO_STR
-       "Minimum interval between SPF calculations\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-
-DEFUN (spf_interval_l1,
-       spf_interval_l1_cmd,
-       "spf-interval level-1 <1-120>",
-       "Minimum interval between SPF calculations\n"
-       "Set interval for level 1 only\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-{
-  struct isis_area *area;
-  u_int16_t interval;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  area->min_spf_interval[0] = interval;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_spf_interval_l1,
-       no_spf_interval_l1_cmd,
-       "no spf-interval level-1",
-       NO_STR
-       "Minimum interval between SPF calculations\n"
-       "Set interval for level 1 only\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-
-  area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (no_spf_interval,
-       no_spf_interval_l1_arg_cmd,
-       "no spf-interval level-1 <1-120>",
-       NO_STR
-       "Minimum interval between SPF calculations\n"
-       "Set interval for level 1 only\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-
-DEFUN (spf_interval_l2,
-       spf_interval_l2_cmd,
-       "spf-interval level-2 <1-120>",
-       "Minimum interval between SPF calculations\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-{
-  struct isis_area *area;
-  u_int16_t interval;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  area->min_spf_interval[1] = interval;
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_spf_interval_l2,
-       no_spf_interval_l2_cmd,
-       "no spf-interval level-2",
-       NO_STR
-       "Minimum interval between SPF calculations\n"
-       "Set interval for level 2 only\n")
-{
-  struct isis_area *area;
-
-  area = vty->index;
-
-  area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (no_spf_interval,
-       no_spf_interval_l2_arg_cmd,
-       "no spf-interval level-2 <1-120>",
-       NO_STR
-       "Minimum interval between SPF calculations\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-
-static int
-set_lsp_max_lifetime (struct vty *vty, struct isis_area *area,
-                      uint16_t interval, int level)
-{
-  int lvl;
-  int set_refresh_interval[ISIS_LEVELS] = {0, 0};
-  uint16_t refresh_interval;
-
-  refresh_interval = interval - 300;
-
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
+  if (new_overload_bit != area->overload_bit)
     {
-      if (!(lvl & level))
-        continue;
-      if (refresh_interval < area->lsp_refresh[lvl-1])
-        {
-          vty_out (vty, "Level %d Max LSP lifetime %us must be 300s greater than "
-                   "the configured LSP refresh interval %us%s",
-                   lvl, interval, area->lsp_refresh[lvl-1], VTY_NEWLINE);
-          vty_out (vty, "Automatically reducing level %d LSP refresh interval "
-                   "to %us%s", lvl, refresh_interval, VTY_NEWLINE);
-          set_refresh_interval[lvl-1] = 1;
-
-          if (refresh_interval <= area->lsp_gen_interval[lvl-1])
-            {
-              vty_out (vty, "LSP refresh interval %us must be greater than "
-                       "the configured LSP gen interval %us%s",
-                       refresh_interval, area->lsp_gen_interval[lvl-1],
-                       VTY_NEWLINE);
-              return CMD_ERR_AMBIGUOUS;
-            }
-        }
+      area->overload_bit = new_overload_bit;
+      lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
     }
+}
 
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
+void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit)
+{
+  char new_attached_bit = attached_bit ? LSPBIT_ATT : 0;
+
+  if (new_attached_bit != area->attached_bit)
     {
-      if (!(lvl & level))
-        continue;
-      area->max_lsp_lifetime[lvl-1] = interval;
-      /* Automatically reducing lsp_refresh_interval to interval - 300 */
-      if (set_refresh_interval[lvl-1])
-        area->lsp_refresh[lvl-1] = refresh_interval;
+      area->attached_bit = new_attached_bit;
+      lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
     }
-
-  lsp_regenerate_schedule (area, level, 1);
-
-  return CMD_SUCCESS;
 }
 
-DEFUN (max_lsp_lifetime,
-       max_lsp_lifetime_cmd,
-       "max-lsp-lifetime <350-65535>",
-       "Maximum LSP lifetime\n"
-       "LSP lifetime in seconds\n")
+void isis_area_dynhostname_set(struct isis_area *area, bool dynhostname)
 {
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_1 | IS_LEVEL_2;
-  return set_lsp_max_lifetime (vty, area, interval, level);
-}
-
-DEFUN (no_max_lsp_lifetime,
-       no_max_lsp_lifetime_cmd,
-       "no max-lsp-lifetime",
-       NO_STR
-       "LSP lifetime in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = DEFAULT_LSP_LIFETIME;
-  level = IS_LEVEL_1 | IS_LEVEL_2;
-  return set_lsp_max_lifetime (vty, area, interval, level);
-}
-
-ALIAS (no_max_lsp_lifetime,
-       no_max_lsp_lifetime_arg_cmd,
-       "no max-lsp-lifetime <350-65535>",
-       NO_STR
-       "Maximum LSP lifetime\n"
-       "LSP lifetime in seconds\n")
-
-DEFUN (max_lsp_lifetime_l1,
-       max_lsp_lifetime_l1_cmd,
-       "max-lsp-lifetime level-1 <350-65535>",
-       "Maximum LSP lifetime for Level 1 only\n"
-       "LSP lifetime for Level 1 only in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_1;
-  return set_lsp_max_lifetime (vty, area, interval, level);
-}
-
-DEFUN (no_max_lsp_lifetime_l1,
-       no_max_lsp_lifetime_l1_cmd,
-       "no max-lsp-lifetime level-1",
-       NO_STR
-       "LSP lifetime for Level 1 only in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = DEFAULT_LSP_LIFETIME;
-  level = IS_LEVEL_1;
-  return set_lsp_max_lifetime (vty, area, interval, level);
-}
-
-ALIAS (no_max_lsp_lifetime_l1,
-       no_max_lsp_lifetime_l1_arg_cmd,
-       "no max-lsp-lifetime level-1 <350-65535>",
-       NO_STR
-       "Maximum LSP lifetime for Level 1 only\n"
-       "LSP lifetime for Level 1 only in seconds\n")
-
-DEFUN (max_lsp_lifetime_l2,
-       max_lsp_lifetime_l2_cmd,
-       "max-lsp-lifetime level-2 <350-65535>",
-       "Maximum LSP lifetime for Level 2 only\n"
-       "LSP lifetime for Level 2 only in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_2;
-  return set_lsp_max_lifetime (vty, area, interval, level);
-}
-
-DEFUN (no_max_lsp_lifetime_l2,
-       no_max_lsp_lifetime_l2_cmd,
-       "no max-lsp-lifetime level-2",
-       NO_STR
-       "LSP lifetime for Level 2 only in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = DEFAULT_LSP_LIFETIME;
-  level = IS_LEVEL_2;
-  return set_lsp_max_lifetime (vty, area, interval, level);
-}
-
-ALIAS (no_max_lsp_lifetime_l2,
-       no_max_lsp_lifetime_l2_arg_cmd,
-       "no max-lsp-lifetime level-2 <350-65535>",
-       NO_STR
-       "Maximum LSP lifetime for Level 2 only\n"
-       "LSP lifetime for Level 2 only in seconds\n")
-
-static int
-set_lsp_refresh_interval (struct vty *vty, struct isis_area *area,
-                          uint16_t interval, int level)
-{
-  int lvl;
-
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
+  if (area->dynhostname != dynhostname)
     {
-      if (!(lvl & level))
-        continue;
-      if (interval <= area->lsp_gen_interval[lvl-1])
-        {
-          vty_out (vty, "LSP refresh interval %us must be greater than "
-                   "the configured LSP gen interval %us%s",
-                   interval, area->lsp_gen_interval[lvl-1],
-                   VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
-      if (interval > (area->max_lsp_lifetime[lvl-1] - 300))
-        {
-          vty_out (vty, "LSP refresh interval %us must be less than "
-                   "the configured LSP lifetime %us less 300%s",
-                   interval, area->max_lsp_lifetime[lvl-1],
-                   VTY_NEWLINE);
-          return CMD_ERR_AMBIGUOUS;
-        }
+      area->dynhostname = dynhostname;
+      lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
     }
-
-  for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
-    {
-      if (!(lvl & level))
-        continue;
-      area->lsp_refresh[lvl-1] = interval;
-    }
-  lsp_regenerate_schedule (area, level, 1);
-
-  return CMD_SUCCESS;
 }
 
-DEFUN (lsp_refresh_interval,
-       lsp_refresh_interval_cmd,
-       "lsp-refresh-interval <1-65235>",
-       "LSP refresh interval\n"
-       "LSP refresh interval in seconds\n")
+void
+isis_area_max_lsp_lifetime_set(struct isis_area *area, int level,
+			       uint16_t max_lsp_lifetime)
 {
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
+  assert((level == IS_LEVEL_1) || (level == IS_LEVEL_2));
 
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_1 | IS_LEVEL_2;
-  return set_lsp_refresh_interval (vty, area, interval, level);
+  if (area->max_lsp_lifetime[level-1] == max_lsp_lifetime)
+    return;
+
+  area->max_lsp_lifetime[level-1] = max_lsp_lifetime;
+  lsp_regenerate_schedule(area, level, 1);
 }
 
-DEFUN (no_lsp_refresh_interval,
-       no_lsp_refresh_interval_cmd,
-       "no lsp-refresh-interval",
-       NO_STR
-       "LSP refresh interval in seconds\n")
+void
+isis_area_lsp_refresh_set(struct isis_area *area, int level,
+			  uint16_t lsp_refresh)
 {
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
+  assert((level == IS_LEVEL_1) || (level == IS_LEVEL_2));
 
-  area = vty->index;
-  interval = DEFAULT_MAX_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_1 | IS_LEVEL_2;
-  return set_lsp_refresh_interval (vty, area, interval, level);
+  if (area->lsp_refresh[level-1] == lsp_refresh)
+    return;
+
+  area->lsp_refresh[level-1] = lsp_refresh;
+  lsp_regenerate_schedule(area, level, 1);
 }
-
-ALIAS (no_lsp_refresh_interval,
-       no_lsp_refresh_interval_arg_cmd,
-       "no lsp-refresh-interval <1-65235>",
-       NO_STR
-       "LSP refresh interval\n"
-       "LSP refresh interval in seconds\n")
-
-DEFUN (lsp_refresh_interval_l1,
-       lsp_refresh_interval_l1_cmd,
-       "lsp-refresh-interval level-1 <1-65235>",
-       "LSP refresh interval for Level 1 only\n"
-       "LSP refresh interval for Level 1 only in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_1;
-  return set_lsp_refresh_interval (vty, area, interval, level);
-}
-
-DEFUN (no_lsp_refresh_interval_l1,
-       no_lsp_refresh_interval_l1_cmd,
-       "no lsp-refresh-interval level-1",
-       NO_STR
-       "LSP refresh interval for Level 1 only in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = DEFAULT_MAX_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_1;
-  return set_lsp_refresh_interval (vty, area, interval, level);
-}
-
-ALIAS (no_lsp_refresh_interval_l1,
-       no_lsp_refresh_interval_l1_arg_cmd,
-       "no lsp-refresh-interval level-1 <1-65235>",
-       NO_STR
-       "LSP refresh interval for Level 1 only\n"
-       "LSP refresh interval for Level 1 only in seconds\n")
-
-DEFUN (lsp_refresh_interval_l2,
-       lsp_refresh_interval_l2_cmd,
-       "lsp-refresh-interval level-2 <1-65235>",
-       "LSP refresh interval for Level 2 only\n"
-       "LSP refresh interval for Level 2 only in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = atoi (argv[0]);
-  level = IS_LEVEL_2;
-  return set_lsp_refresh_interval (vty, area, interval, level);
-}
-
-DEFUN (no_lsp_refresh_interval_l2,
-       no_lsp_refresh_interval_l2_cmd,
-       "no lsp-refresh-interval level-2",
-       NO_STR
-       "LSP refresh interval for Level 2 only in seconds\n")
-{
-  struct isis_area *area;
-  uint16_t interval;
-  int level;
-
-  area = vty->index;
-  interval = DEFAULT_MAX_LSP_GEN_INTERVAL;
-  level = IS_LEVEL_2;
-  return set_lsp_refresh_interval (vty, area, interval, level);
-}
-
-ALIAS (no_lsp_refresh_interval_l2,
-       no_lsp_refresh_interval_l2_arg_cmd,
-       "no lsp-refresh-interval level-2 <1-65235>",
-       NO_STR
-       "LSP refresh interval for Level 2 only\n"
-       "LSP refresh interval for Level 2 only in seconds\n")
 
 DEFUN (log_adj_changes,
        log_adj_changes_cmd,
@@ -3251,6 +2286,7 @@ isis_config_write (struct vty *vty)
 #endif /* TOPOLOGY_GENERATE */
 
       }
+    isis_mpls_te_config_write_router(vty);
     }
 
   return write;
@@ -3305,7 +2341,7 @@ isis_init ()
   install_element (ENABLE_NODE, &show_database_arg_detail_cmd);
   install_element (ENABLE_NODE, &show_database_detail_cmd);
   install_element (ENABLE_NODE, &show_database_detail_arg_cmd);
-  install_element (ENABLE_NODE, &show_debugging_cmd);
+  install_element (ENABLE_NODE, &show_debugging_isis_cmd);
 
   install_node (&debug_node, config_write_debug);
 
@@ -3374,77 +2410,6 @@ isis_init ()
 
   install_element (ISIS_NODE, &net_cmd);
   install_element (ISIS_NODE, &no_net_cmd);
-
-  install_element (ISIS_NODE, &is_type_cmd);
-  install_element (ISIS_NODE, &no_is_type_cmd);
-
-  install_element (ISIS_NODE, &area_lsp_mtu_cmd);
-  install_element (ISIS_NODE, &no_area_lsp_mtu_cmd);
-  install_element (ISIS_NODE, &no_area_lsp_mtu_arg_cmd);
-
-  install_element (ISIS_NODE, &area_passwd_md5_cmd);
-  install_element (ISIS_NODE, &area_passwd_md5_snpauth_cmd);
-  install_element (ISIS_NODE, &area_passwd_clear_cmd);
-  install_element (ISIS_NODE, &area_passwd_clear_snpauth_cmd);
-  install_element (ISIS_NODE, &no_area_passwd_cmd);
-
-  install_element (ISIS_NODE, &domain_passwd_md5_cmd);
-  install_element (ISIS_NODE, &domain_passwd_md5_snpauth_cmd);
-  install_element (ISIS_NODE, &domain_passwd_clear_cmd);
-  install_element (ISIS_NODE, &domain_passwd_clear_snpauth_cmd);
-  install_element (ISIS_NODE, &no_domain_passwd_cmd);
-
-  install_element (ISIS_NODE, &lsp_gen_interval_cmd);
-  install_element (ISIS_NODE, &no_lsp_gen_interval_cmd);
-  install_element (ISIS_NODE, &no_lsp_gen_interval_arg_cmd);
-  install_element (ISIS_NODE, &lsp_gen_interval_l1_cmd);
-  install_element (ISIS_NODE, &no_lsp_gen_interval_l1_cmd);
-  install_element (ISIS_NODE, &no_lsp_gen_interval_l1_arg_cmd);
-  install_element (ISIS_NODE, &lsp_gen_interval_l2_cmd);
-  install_element (ISIS_NODE, &no_lsp_gen_interval_l2_cmd);
-  install_element (ISIS_NODE, &no_lsp_gen_interval_l2_arg_cmd);
-
-  install_element (ISIS_NODE, &spf_interval_cmd);
-  install_element (ISIS_NODE, &no_spf_interval_cmd);
-  install_element (ISIS_NODE, &no_spf_interval_arg_cmd);
-  install_element (ISIS_NODE, &spf_interval_l1_cmd);
-  install_element (ISIS_NODE, &no_spf_interval_l1_cmd);
-  install_element (ISIS_NODE, &no_spf_interval_l1_arg_cmd);
-  install_element (ISIS_NODE, &spf_interval_l2_cmd);
-  install_element (ISIS_NODE, &no_spf_interval_l2_cmd);
-  install_element (ISIS_NODE, &no_spf_interval_l2_arg_cmd);
-
-  install_element (ISIS_NODE, &max_lsp_lifetime_cmd);
-  install_element (ISIS_NODE, &no_max_lsp_lifetime_cmd);
-  install_element (ISIS_NODE, &no_max_lsp_lifetime_arg_cmd);
-  install_element (ISIS_NODE, &max_lsp_lifetime_l1_cmd);
-  install_element (ISIS_NODE, &no_max_lsp_lifetime_l1_cmd);
-  install_element (ISIS_NODE, &no_max_lsp_lifetime_l1_arg_cmd);
-  install_element (ISIS_NODE, &max_lsp_lifetime_l2_cmd);
-  install_element (ISIS_NODE, &no_max_lsp_lifetime_l2_cmd);
-  install_element (ISIS_NODE, &no_max_lsp_lifetime_l2_arg_cmd);
-
-  install_element (ISIS_NODE, &lsp_refresh_interval_cmd);
-  install_element (ISIS_NODE, &no_lsp_refresh_interval_cmd);
-  install_element (ISIS_NODE, &no_lsp_refresh_interval_arg_cmd);
-  install_element (ISIS_NODE, &lsp_refresh_interval_l1_cmd);
-  install_element (ISIS_NODE, &no_lsp_refresh_interval_l1_cmd);
-  install_element (ISIS_NODE, &no_lsp_refresh_interval_l1_arg_cmd);
-  install_element (ISIS_NODE, &lsp_refresh_interval_l2_cmd);
-  install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_cmd);
-  install_element (ISIS_NODE, &no_lsp_refresh_interval_l2_arg_cmd);
-
-  install_element (ISIS_NODE, &set_overload_bit_cmd);
-  install_element (ISIS_NODE, &no_set_overload_bit_cmd);
-
-  install_element (ISIS_NODE, &set_attached_bit_cmd);
-  install_element (ISIS_NODE, &no_set_attached_bit_cmd);
-
-  install_element (ISIS_NODE, &dynamic_hostname_cmd);
-  install_element (ISIS_NODE, &no_dynamic_hostname_cmd);
-
-  install_element (ISIS_NODE, &metric_style_cmd);
-  install_element (ISIS_NODE, &no_metric_style_cmd);
 
   install_element (ISIS_NODE, &log_adj_changes_cmd);
   install_element (ISIS_NODE, &no_log_adj_changes_cmd);

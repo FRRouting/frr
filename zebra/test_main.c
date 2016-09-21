@@ -112,7 +112,7 @@ usage (char *progname, int status)
   exit (status);
 }
 
-static unsigned int test_ifindex = 0;
+static ifindex_t test_ifindex = 0;
 
 /* testrib commands */
 DEFUN (test_interface_state,

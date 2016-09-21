@@ -99,6 +99,9 @@ struct attr_extra
   /* MP Nexthop length */
   u_char mp_nexthop_len;
 
+  /* MP Nexthop preference */
+  u_char mp_nexthop_prefer_global;
+
   /* route tag */
   u_short tag;
 
@@ -128,7 +131,7 @@ struct attr
   struct in_addr nexthop;
   u_int32_t med;
   u_int32_t local_pref;
-  u_int32_t nh_ifindex;
+  ifindex_t nh_ifindex;
   
   /* Path origin attribute */
   u_char origin;
@@ -145,6 +148,7 @@ struct attr
 #define BATTR_RMAP_NEXTHOP_UNCHANGED (1 << 3)
 #define BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED (1 << 4)
 #define BATTR_RMAP_IPV6_LL_NHOP_CHANGED (1 << 5)
+#define BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED (1 << 6)
 
 /* Router Reflector related structure. */
 struct cluster_list
@@ -274,6 +278,7 @@ bgp_rmap_nhop_changed(u_int32_t out_rmap_flags, u_int32_t in_rmap_flags)
            CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
            CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED) ||
            CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
+           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED) ||
            CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED) ||
            CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED)) ? 1 : 0);
 }

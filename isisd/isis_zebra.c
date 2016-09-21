@@ -49,6 +49,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_te.h"
 
 struct zclient *zclient = NULL;
 
@@ -60,6 +61,13 @@ isis_router_id_update_zebra (int command, struct zclient *zclient,
   struct isis_area *area;
   struct listnode *node;
   struct prefix router_id;
+
+  /*
+   * If ISIS TE is enable, TE Router ID is set through specific command.
+   * See mpls_te_router_addr() command in isis_te.c
+   */
+  if (IS_MPLS_TE(isisMplsTE))
+    return 0;
 
   zebra_router_id_update_read (zclient->ibuf, &router_id);
   if (isis->router_id == router_id.u.prefix4.s_addr)
@@ -228,6 +236,23 @@ isis_zebra_if_address_del (int command, struct zclient *client,
   return 0;
 }
 
+static int
+isis_zebra_link_params (int command, struct zclient *zclient,
+                        zebra_size_t length)
+{
+  struct interface *ifp;
+
+  ifp = zebra_interface_link_params_read (zclient->ibuf);
+
+  if (ifp == NULL)
+    return 0;
+
+  /* Update TE TLV */
+  isis_mpls_te_update(ifp);
+
+  return 0;
+}
+
 static void
 isis_zebra_route_add_ipv4 (struct prefix *prefix,
 			   struct isis_route_info *route_info)
@@ -278,12 +303,12 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
 	  /* FIXME: can it be ? */
 	  if (nexthop->ip.s_addr != INADDR_ANY)
 	    {
-	      stream_putc (stream, ZEBRA_NEXTHOP_IPV4);
+	      stream_putc (stream, NEXTHOP_TYPE_IPV4);
 	      stream_put_in_addr (stream, &nexthop->ip);
 	    }
 	  else
 	    {
-	      stream_putc (stream, ZEBRA_NEXTHOP_IFINDEX);
+	      stream_putc (stream, NEXTHOP_TYPE_IFINDEX);
 	      stream_putl (stream, nexthop->ifindex);
 	    }
 	}
@@ -333,7 +358,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
 {
   struct zapi_ipv6 api;
   struct in6_addr **nexthop_list;
-  unsigned int *ifindex_list;
+  ifindex_t *ifindex_list;
   struct isis_nexthop6 *nexthop6;
   int i, size;
   struct listnode *node;
@@ -370,7 +395,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
 
   /* allocate memory for ifindex_list */
   size = sizeof (unsigned int) * listcount (route_info->nexthops6);
-  ifindex_list = (unsigned int *) XMALLOC (MTYPE_ISIS_TMP, size);
+  ifindex_list = (ifindex_t *) XMALLOC (MTYPE_ISIS_TMP, size);
   if (!ifindex_list)
     {
       zlog_err ("isis_zebra_add_route_ipv6: out of memory!");
@@ -420,7 +445,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
 {
   struct zapi_ipv6 api;
   struct in6_addr **nexthop_list;
-  unsigned int *ifindex_list;
+  ifindex_t *ifindex_list;
   struct isis_nexthop6 *nexthop6;
   int i, size;
   struct listnode *node;
@@ -451,7 +476,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
 
   /* allocate memory for ifindex_list */
   size = sizeof (unsigned int) * listcount (route_info->nexthops6);
-  ifindex_list = (unsigned int *) XMALLOC (MTYPE_ISIS_TMP, size);
+  ifindex_list = (ifindex_t *) XMALLOC (MTYPE_ISIS_TMP, size);
   if (!ifindex_list)
     {
       zlog_err ("isis_zebra_route_del_ipv6: out of memory!");
@@ -680,6 +705,7 @@ isis_zebra_init (struct thread_master *master)
   zclient->interface_down = isis_zebra_if_state_down;
   zclient->interface_address_add = isis_zebra_if_address_add;
   zclient->interface_address_delete = isis_zebra_if_address_del;
+  zclient->interface_link_params = isis_zebra_link_params;
   zclient->ipv4_route_add = isis_zebra_read_ipv4;
   zclient->ipv4_route_delete = isis_zebra_read_ipv4;
   zclient->redistribute_route_ipv4_add = isis_zebra_read_ipv4;

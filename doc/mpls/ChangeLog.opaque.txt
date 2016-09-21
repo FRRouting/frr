@@ -1,4 +1,17 @@
 ----- * ----- * ----- * ----- * ----- * ----- * ----- * ----- * ----- * -----
+Changes 2013.07.01
+
+1. Feature enhancements
+
+  1.1 Update ospf_te.[c,h] in conformance to RFC3630 and clean the code.
+      Add new directive to enable MPLS-TE per interface instead of globally
+
+  1.2 Add support for RFC4970 "Router Information" and RFC5088 "PCE
+      Capabilities announcement".
+
+  1.3 Incorporate the mpls documentation into the main stream doc.
+
+----- * ----- * ----- * ----- * ----- * ----- * ----- * ----- * ----- * -----
 Changes 2001.12.03
 
 1. Bug fixes

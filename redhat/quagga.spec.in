@@ -71,7 +71,6 @@
 
 %define		daemon_list	zebra ripd ospfd bgpd isisd pimd ripngd ospfd6d
 
-
 %if %{with_watchquagga}
 %define         daemon_watchquagga	watchquagga
 %else
@@ -220,6 +219,7 @@ developing OSPF-API and quagga applications.
 	--disable-watchquagga \
 %endif
 	--enable-gcc-rdynamic \
+	--enable-isisd=yes \
 	--enable-systemd=yes \
 	--enable-poll=yes
 

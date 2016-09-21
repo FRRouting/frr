@@ -24,6 +24,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "command.h"
 #include "memory.h"
 #include "queue.h"
+#include "filter.h"
 
 #include "bgpd.h"
 #include "bgp_aspath.h"

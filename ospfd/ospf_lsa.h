@@ -27,11 +27,7 @@
 
 /* OSPF LSA Range definition. */
 #define OSPF_MIN_LSA		1  /* begin range here */
-#if defined (HAVE_OPAQUE_LSA)
 #define OSPF_MAX_LSA           12
-#else
-#define OSPF_MAX_LSA		8
-#endif
 
 /* OSPF LSA Type definition. */
 #define OSPF_UNKNOWN_LSA	      0
@@ -211,9 +207,7 @@ struct as_external_lsa
   } e[1];
 };
 
-#ifdef HAVE_OPAQUE_LSA
 #include "ospfd/ospf_opaque.h"
-#endif /* HAVE_OPAQUE_LSA */
 
 /* Macros. */
 #define GET_METRIC(x) get_metric(x)
@@ -283,7 +277,7 @@ extern struct ospf_lsa *ospf_lsa_install (struct ospf *,
 
 extern void ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p);
 extern void ospf_external_lsa_flush (struct ospf *, u_char, struct prefix_ipv4 *,
-			      unsigned int /* , struct in_addr nexthop */);
+			             ifindex_t /* , struct in_addr nexthop */);
 
 extern struct in_addr ospf_get_ip_from_ifp (struct ospf_interface *);
 

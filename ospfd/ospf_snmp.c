@@ -209,8 +209,8 @@
 SNMP_LOCAL_VARIABLES
 
 /* OSPF-MIB instances. */
-oid ospf_oid [] = { OSPF2MIB };
-oid ospf_trap_oid [] = { OSPF2MIB, 16, 2 }; /* Not reverse mappable! */
+static oid ospf_oid [] = { OSPF2MIB };
+static oid ospf_trap_oid [] = { OSPF2MIB, 16, 2 }; /* Not reverse mappable! */
 
 /* IP address 0.0.0.0. */
 static struct in_addr ospf_empty_addr = { .s_addr = 0 };
@@ -243,7 +243,7 @@ static u_char *ospfExtLsdbEntry (struct variable *, oid *, size_t *, int,
 static u_char *ospfAreaAggregateEntry (struct variable *, oid *, size_t *,
 				       int, size_t *, WriteMethod **);
 
-struct variable ospf_variables[] = 
+static struct variable ospf_variables[] =
 {
   /* OSPF general variables */
   {OSPFROUTERID,              IPADDRESS, RWRITE, ospfGeneralGroup,
@@ -1408,25 +1408,25 @@ ospfHostEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct list *ospf_snmp_iflist;
+static struct list *ospf_snmp_iflist;
 
 struct ospf_snmp_if
 {
   struct in_addr addr;
-  unsigned int ifindex;
+  ifindex_t ifindex;
   struct interface *ifp;
 };
 
 static struct ospf_snmp_if *
 ospf_snmp_if_new (void)
 {
-  return XCALLOC (0, sizeof (struct ospf_snmp_if));
+  return XCALLOC (MTYPE_TMP, sizeof (struct ospf_snmp_if));
 }
 
 static void
 ospf_snmp_if_free (struct ospf_snmp_if *osif)
 {
-  XFREE (0, osif);
+  XFREE (MTYPE_TMP, osif);
 }
 
 void
@@ -1455,7 +1455,7 @@ ospf_snmp_if_update (struct interface *ifp)
   struct prefix *p;
   struct ospf_snmp_if *osif;
   struct in_addr *addr;
-  unsigned int ifindex;
+  ifindex_t ifindex;
 
   ospf_snmp_if_delete (ifp);
 
@@ -1530,7 +1530,7 @@ ospf_snmp_is_if_have_addr (struct interface *ifp)
 }
 
 static struct ospf_interface *
-ospf_snmp_if_lookup (struct in_addr *ifaddr, unsigned int *ifindex)
+ospf_snmp_if_lookup (struct in_addr *ifaddr, ifindex_t *ifindex)
 {
   struct listnode *node;
   struct ospf_snmp_if *osif;
@@ -1554,8 +1554,8 @@ ospf_snmp_if_lookup (struct in_addr *ifaddr, unsigned int *ifindex)
 }
 
 static struct ospf_interface *
-ospf_snmp_if_lookup_next (struct in_addr *ifaddr, unsigned int *ifindex,
-			  int ifaddr_next, int ifindex_next)
+ospf_snmp_if_lookup_next (struct in_addr *ifaddr, ifindex_t *ifindex,
+			  int ifaddr_next, ifindex_t ifindex_next)
 {
   struct ospf_snmp_if *osif;
   struct listnode *nn;
@@ -1638,11 +1638,11 @@ ospf_snmp_iftype (struct interface *ifp)
 
 static struct ospf_interface *
 ospfIfLookup (struct variable *v, oid *name, size_t *length,
-	      struct in_addr *ifaddr, unsigned int *ifindex, int exact)
+	      struct in_addr *ifaddr, ifindex_t *ifindex, int exact)
 {
   unsigned int len;
   int ifaddr_next = 0;
-  int ifindex_next = 0;
+  ifindex_t ifindex_next = 0;
   struct ospf_interface *oi;
   oid *offset;
 
@@ -1694,7 +1694,7 @@ static u_char *
 ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
 	     size_t *var_len, WriteMethod **write_method)
 {
-  unsigned int ifindex;
+  ifindex_t ifindex;
   struct in_addr ifaddr;
   struct ospf_interface *oi;
   struct ospf *ospf;
@@ -1802,11 +1802,11 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
 
 static struct ospf_interface *
 ospfIfMetricLookup (struct variable *v, oid *name, size_t *length,
-		    struct in_addr *ifaddr, unsigned int *ifindex, int exact)
+		    struct in_addr *ifaddr, ifindex_t *ifindex, int exact)
 {
   unsigned int len;
   int ifaddr_next = 0;
-  int ifindex_next = 0;
+  ifindex_t ifindex_next = 0;
   struct ospf_interface *oi;
   oid *offset;
   int metric;
@@ -1866,7 +1866,7 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
 		   size_t *var_len, WriteMethod **write_method)
 {
   /* Currently we support metric 1 only. */
-  unsigned int ifindex;
+  ifindex_t ifindex;
   struct in_addr ifaddr;
   struct ospf_interface *oi;
   struct ospf *ospf;
@@ -1912,7 +1912,7 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct route_table *ospf_snmp_vl_table;
+static struct route_table *ospf_snmp_vl_table;
 
 void
 ospf_snmp_vl_add (struct ospf_vl_data *vl_data)
@@ -2133,7 +2133,7 @@ ospfVirtIfEntry (struct variable *v, oid *name, size_t *length, int exact,
 
 static struct ospf_neighbor *
 ospf_snmp_nbr_lookup (struct ospf *ospf, struct in_addr *nbr_addr,
-		      unsigned int *ifindex)
+		      ifindex_t *ifindex)
 {
   struct listnode *node, *nnode;
   struct ospf_interface *oi;
@@ -2161,7 +2161,7 @@ ospf_snmp_nbr_lookup (struct ospf *ospf, struct in_addr *nbr_addr,
 }
 
 static struct ospf_neighbor *
-ospf_snmp_nbr_lookup_next (struct in_addr *nbr_addr, unsigned int *ifindex,
+ospf_snmp_nbr_lookup_next (struct in_addr *nbr_addr, ifindex_t *ifindex,
 			   int first)
 {
   struct listnode *nn;
@@ -2208,7 +2208,7 @@ ospf_snmp_nbr_lookup_next (struct in_addr *nbr_addr, unsigned int *ifindex,
 
 static struct ospf_neighbor *
 ospfNbrLookup (struct variable *v, oid *name, size_t *length,
-	       struct in_addr *nbr_addr, unsigned int *ifindex, int exact)
+	       struct in_addr *nbr_addr, ifindex_t *ifindex, int exact)
 {
   unsigned int len;
   int first;
@@ -2303,7 +2303,7 @@ ospfNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
 	      size_t *var_len, WriteMethod **write_method)
 {
   struct in_addr nbr_addr;
-  unsigned int ifindex;
+  ifindex_t ifindex;
   struct ospf_neighbor *nbr;
   struct ospf_interface *oi;
 
@@ -2618,7 +2618,7 @@ ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
 #define NBRSTATECHANGE      2
 #define VIRTNBRSTATECHANGE  3
 
-struct trap_object ospfNbrTrapList[] =
+static struct trap_object ospfNbrTrapList[] =
 {
   {-2, {1, OSPFROUTERID}},
   {3, {10, 1, OSPFNBRIPADDR}},
@@ -2627,7 +2627,7 @@ struct trap_object ospfNbrTrapList[] =
 };
 
 
-struct trap_object ospfVirtNbrTrapList[] =
+static struct trap_object ospfVirtNbrTrapList[] =
 {
   {-2, {1, 1}},
   {3, {11, 1, OSPFVIRTNBRAREA}},
@@ -2635,7 +2635,7 @@ struct trap_object ospfVirtNbrTrapList[] =
   {3, {11, 1, OSPFVIRTNBRSTATE}}
 };
 
-struct trap_object ospfIfTrapList[] =
+static struct trap_object ospfIfTrapList[] =
 {
   {-2, {1, OSPFROUTERID}},
   {3, {7, 1, OSPFIFIPADDRESS}},
@@ -2643,7 +2643,7 @@ struct trap_object ospfIfTrapList[] =
   {3, {7, 1, OSPFIFSTATE}}
 };
 
-struct trap_object ospfVirtIfTrapList[] =
+static struct trap_object ospfVirtIfTrapList[] =
 {
   {-2, {1, OSPFROUTERID}},
   {3, {9, 1, OSPFVIRTIFAREAID}},

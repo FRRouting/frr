@@ -29,9 +29,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "linklist.h"
 #include "queue.h"
 #include "memory.h"
+#include "filter.h"
 
 #include "bgpd/bgp_table.h"
-
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
@@ -771,15 +771,41 @@ DEFUN (dump_bgp_all,
 
 DEFUN (no_dump_bgp_all,
        no_dump_bgp_all_cmd,
-       "no dump bgp (all|updates|routes-mrt) [PATH] [INTERVAL]",
+       "no dump bgp (all|all-et|updates|updates-et|routes-mrt) [PATH] [INTERVAL]",
        NO_STR
        "Stop dump packet\n"
        "Stop BGP packet dump\n"
-       "Stop dump process all/all-et\n"
-       "Stop dump process updates/updates-et\n"
+       "Stop dump process all\n"
+       "Stop dump process all-et\n"
+       "Stop dump process updates\n"
+       "Stop dump process updates-et\n"
        "Stop dump process route-mrt\n")
 {
-  return bgp_dump_unset (vty, &bgp_dump_all);
+  int bgp_dump_type = 0;
+  const struct bgp_dump_type_map *map = NULL;
+  struct bgp_dump *bgp_dump_struct = NULL;
+
+  for (map = bgp_dump_type_map; map->str; map++)
+    if (strcmp(argv[0], map->str) == 0)
+      bgp_dump_type = map->type;
+
+  switch (bgp_dump_type)
+    {
+    case BGP_DUMP_ALL:
+    case BGP_DUMP_ALL_ET:
+      bgp_dump_struct = &bgp_dump_all;
+      break;
+    case BGP_DUMP_UPDATES:
+    case BGP_DUMP_UPDATES_ET:
+      bgp_dump_struct = &bgp_dump_updates;
+      break;
+    case BGP_DUMP_ROUTES:
+    default:
+      bgp_dump_struct = &bgp_dump_routes;
+      break;
+    }
+
+  return bgp_dump_unset (vty, bgp_dump_struct);
 }
 
 /* BGP node structure. */

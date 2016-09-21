@@ -130,9 +130,7 @@ struct cpu_thread_history
 
 /* Clocks supported by Quagga */
 enum quagga_clkid {
-  QUAGGA_CLK_REALTIME = 0,	/* ala gettimeofday() */
-  QUAGGA_CLK_MONOTONIC,		/* monotonic, against an indeterminate base */
-  QUAGGA_CLK_REALTIME_STABILISED, /* like realtime, but non-decrementing */
+  QUAGGA_CLK_MONOTONIC = 1,	/* monotonic, against an indeterminate base */
 };
 
 /* Struct timeval's tv_usec one second value.  */
@@ -199,6 +197,7 @@ enum quagga_clkid {
 #define thread_add_write(m,f,a,v) funcname_thread_add_read_write(THREAD_WRITE,m,f,a,v,#f,__FILE__,__LINE__)
 #define thread_add_timer(m,f,a,v) funcname_thread_add_timer(m,f,a,v,#f,__FILE__,__LINE__)
 #define thread_add_timer_msec(m,f,a,v) funcname_thread_add_timer_msec(m,f,a,v,#f,__FILE__,__LINE__)
+#define thread_add_timer_tv(m,f,a,v) funcname_thread_add_timer_tv(m,f,a,v,#f,__FILE__,__LINE__)
 #define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f,__FILE__,__LINE__)
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f,__FILE__,__LINE__)
 
@@ -219,6 +218,10 @@ extern struct thread *funcname_thread_add_timer (struct thread_master *,
 extern struct thread *funcname_thread_add_timer_msec (struct thread_master *,
 				                      int (*)(struct thread *),
 				                      void *, long, debugargdef);
+extern struct thread *funcname_thread_add_timer_tv (struct thread_master *,
+				                    int (*)(struct thread *),
+				                    void *, struct timeval *,
+						    debugargdef);
 extern struct thread *funcname_thread_add_event (struct thread_master *,
 				                 int (*)(struct thread *),
 				                 void *, int, debugargdef);
@@ -253,7 +256,7 @@ extern struct cmd_element clear_thread_cpu_cmd;
  * all systems, and fully monotonic on /some/ systems.
  */
 extern int quagga_gettime (enum quagga_clkid, struct timeval *);
-extern time_t quagga_time (time_t *);
+extern time_t quagga_monotime (void);
 
 /* Returns elapsed real (wall clock) time. */
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,

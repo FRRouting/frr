@@ -22,14 +22,13 @@
 
 #include <zebra.h>
 
-#include <sys/ioctl.h>
-
 #include "command.h"
 #include "if.h"
 #include "prefix.h"
 #include "zclient.h"
 
 #include "pimd.h"
+#include "pim_mroute.h"
 #include "pim_cmd.h"
 #include "pim_iface.h"
 #include "pim_vty.h"
@@ -1599,7 +1598,7 @@ static void mroute_add_all()
   struct channel_oil *c_oil;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
-    if (pim_mroute_add(&c_oil->oil)) {
+    if (pim_mroute_add(c_oil)) {
       /* just log warning */
       char source_str[100];
       char group_str[100];
@@ -1618,7 +1617,7 @@ static void mroute_del_all()
   struct channel_oil *c_oil;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
-    if (pim_mroute_del(&c_oil->oil)) {
+    if (pim_mroute_del(c_oil)) {
       /* just log warning */
       char source_str[100];
       char group_str[100];
@@ -1637,12 +1636,12 @@ static void static_mroute_add_all()
   struct static_route *s_route;
 
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-    if (pim_mroute_add(&s_route->mc)) {
+    if (pim_mroute_add(&s_route->c_oil)) {
       /* just log warning */
       char source_str[100];
       char group_str[100];
-      pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
-      pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
+      pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
+      pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
       zlog_warn("%s %s: (S,G)=(%s,%s) failure writing MFC",
       __FILE__, __PRETTY_FUNCTION__,
       source_str, group_str);
@@ -1656,12 +1655,12 @@ static void static_mroute_del_all()
    struct static_route *s_route;
 
    for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
-     if (pim_mroute_del(&s_route->mc)) {
+     if (pim_mroute_del(&s_route->c_oil)) {
        /* just log warning */
        char source_str[100];
        char group_str[100];
-       pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
-       pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
+       pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
+       pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
        zlog_warn("%s %s: (S,G)=(%s,%s) failure clearing MFC",
        __FILE__, __PRETTY_FUNCTION__,
        source_str, group_str);
@@ -2088,10 +2087,10 @@ static void show_multicast_interfaces(struct vty *vty)
 	    inet_ntoa(ifaddr),
 	    ifp->ifindex,
 	    pim_ifp->mroute_vif_index,
-	    vreq.icount,
-	    vreq.ocount,
-	    vreq.ibytes,
-	    vreq.obytes,
+	    (unsigned long) vreq.icount,
+	    (unsigned long) vreq.ocount,
+	    (unsigned long) vreq.ibytes,
+	    (unsigned long) vreq.obytes,
 	    VTY_NEWLINE);
   }
 }
@@ -2189,6 +2188,9 @@ static void show_mroute(struct vty *vty)
     char source_str[100];
     int oif_vif_index;
 
+    if (!c_oil->installed)
+      continue;
+
     pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
     
@@ -2239,6 +2241,9 @@ static void show_mroute(struct vty *vty)
     char source_str[100];
     int oif_vif_index;
 
+    if (!s_route->c_oil.installed)
+      continue;
+
     pim_inet4_dump("<group?>", s_route->group, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", s_route->source, source_str, sizeof(source_str));
 
@@ -2256,7 +2261,7 @@ static void show_mroute(struct vty *vty)
       ifp_in  = pim_if_find_by_vif_index(s_route->iif);
       ifp_out = pim_if_find_by_vif_index(oif_vif_index);
 
-      pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - s_route->creation[oif_vif_index]);
+      pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - s_route->c_oil.oif_creation[oif_vif_index]);
 
       proto[0] = '\0';
       strcat(proto, "S");
@@ -2302,34 +2307,21 @@ static void show_mroute_count(struct vty *vty)
   for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
     char group_str[100]; 
     char source_str[100];
-    struct sioc_sg_req sgreq;
 
-    memset(&sgreq, 0, sizeof(sgreq));
-    sgreq.src = c_oil->oil.mfcc_origin;
-    sgreq.grp = c_oil->oil.mfcc_mcastgrp;
+    if (!c_oil->installed)
+      continue;
+
+    pim_mroute_update_counters (c_oil);
 
     pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 
-    if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
-      int e = errno;
-      vty_out(vty,
-	      "ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s%s",
-	      (unsigned long)SIOCGETSGCNT,
-	      source_str,
-	      group_str,
-	      e,
-	      safe_strerror(e),
-	      VTY_NEWLINE);	      
-      continue;
-    }
-    
     vty_out(vty, "%-15s %-15s %7ld %10ld %7ld %s",
 	    source_str,
 	    group_str,
-	    sgreq.pktcnt,
-	    sgreq.bytecnt,
-	    sgreq.wrong_if,
+	    c_oil->cc.pktcnt,
+	    c_oil->cc.bytecnt,
+	    c_oil->cc.wrong_if,
 	    VTY_NEWLINE);
   }
 
@@ -2337,37 +2329,21 @@ static void show_mroute_count(struct vty *vty)
   for (ALL_LIST_ELEMENTS_RO(qpim_static_route_list, node, s_route)) {
     char group_str[100];
     char source_str[100];
-    struct sioc_sg_req sgreq;
 
-    memset(&sgreq, 0, sizeof(sgreq));
-    sgreq.src = s_route->mc.mfcc_origin;
-    sgreq.grp = s_route->mc.mfcc_mcastgrp;
-
-    pim_inet4_dump("<group?>", s_route->mc.mfcc_mcastgrp, group_str, sizeof(group_str));
-    pim_inet4_dump("<source?>", s_route->mc.mfcc_origin, source_str, sizeof(source_str));
-
-    if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
-      int e = errno;
-      vty_out(vty,
-         "ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s%s",
-         /* note that typeof ioctl defs can vary across platforms, from
-          * int, to unsigned int, to long unsigned int
-          */
-         (unsigned long)SIOCGETSGCNT,
-         source_str,
-         group_str,
-         e,
-         safe_strerror(e),
-         VTY_NEWLINE);
+    if (!s_route->c_oil.installed)
       continue;
-    }
+
+    pim_mroute_update_counters (&s_route->c_oil);
+
+    pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+    pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
 
     vty_out(vty, "%-15s %-15s %7ld %10ld %7ld %s",
        source_str,
        group_str,
-       sgreq.pktcnt,
-       sgreq.bytecnt,
-       sgreq.wrong_if,
+       s_route->c_oil.cc.pktcnt,
+       s_route->c_oil.cc.bytecnt,
+       s_route->c_oil.cc.wrong_if,
        VTY_NEWLINE);
   }
 }
@@ -2486,9 +2462,9 @@ DEFUN (ip_pim_rp,
        ip_pim_rp_cmd,
        "ip pim rp A.B.C.D",
        IP_STR
-       "pim multicast routing"
-       "Rendevous Point"
-       "ip address of RP")
+       "pim multicast routing\n"
+       "Rendevous Point\n"
+       "ip address of RP\n")
 {
   int result;
 
@@ -2511,9 +2487,9 @@ DEFUN (no_ip_pim_rp,
        "no ip pim rp {A.B.C.D}",
        NO_STR
        IP_STR
-       "pim multicast routing"
-       "Rendevous Point"
-       "ip address of RP")
+       "pim multicast routing\n"
+       "Rendevous Point\n"
+       "ip address of RP\n")
 {
   qpim_rp.rpf_addr.s_addr = INADDR_NONE;
 

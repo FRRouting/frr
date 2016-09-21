@@ -445,7 +445,8 @@ struct in_pktinfo
 #define ZEBRA_INTERFACE_ENABLE_RADV       47
 #define ZEBRA_INTERFACE_DISABLE_RADV      48
 #define ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB    49
-#define ZEBRA_MESSAGE_MAX                 50
+#define ZEBRA_INTERFACE_LINK_PARAMS       50
+#define ZEBRA_MESSAGE_MAX                 51
 
 /* Marker value used in new Zserv, in the byte location corresponding
  * the command value in the old zserv header. To allow old and new
@@ -489,19 +490,9 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_FLAG_BLACKHOLE          0x04
 #define ZEBRA_FLAG_IBGP               0x08
 #define ZEBRA_FLAG_SELECTED           0x10
-#define ZEBRA_FLAG_CHANGED            0x20
 #define ZEBRA_FLAG_STATIC             0x40
 #define ZEBRA_FLAG_REJECT             0x80
 #define ZEBRA_FLAG_SCOPE_LINK         0x100
-
-/* Zebra nexthop flags. */
-#define ZEBRA_NEXTHOP_IFINDEX            1
-#define ZEBRA_NEXTHOP_IPV4               2
-#define ZEBRA_NEXTHOP_IPV4_IFINDEX       3
-#define ZEBRA_NEXTHOP_IPV6               4
-#define ZEBRA_NEXTHOP_IPV6_IFINDEX       5
-#define ZEBRA_NEXTHOP_BLACKHOLE          6
-#define ZEBRA_NEXTHOP_IPV4_ONLINK        7
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
@@ -511,7 +502,8 @@ extern const char *zserv_command_string (unsigned int command);
 typedef enum {
   AFI_IP  = 1,
   AFI_IP6 = 2,
-#define AFI_MAX 3
+  AFI_ETHER = 3,                /* RFC 1700 has "6" for 802.* */
+  AFI_MAX = 4
 } afi_t;
 
 /* Subsequent Address Family Identifier. */
@@ -521,11 +513,6 @@ typedef enum {
 #define SAFI_MPLS_VPN             4
 #define SAFI_ENCAP		  7 /* per IANA */
 #define SAFI_MAX                  8
-
-/* Filter direction.  */
-#define FILTER_IN                 0
-#define FILTER_OUT                1
-#define FILTER_MAX                2
 
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0

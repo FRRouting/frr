@@ -59,7 +59,7 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 {
   if (up->channel_oil) {
     pim_channel_oil_del(up->channel_oil);
-    up->channel_oil = 0;
+    up->channel_oil = NULL;
   }
 }
 
@@ -715,12 +715,29 @@ pim_upstream_keep_alive_timer (struct thread *t)
 
   up = THREAD_ARG(t);
 
-  pim_br_clear_pmbr (up->source_addr, up->group_addr);
-  /*
-   * We need to do more here :)
-   * But this is the start.
-   */
+  if (I_am_RP (up->group_addr))
+    {
+      pim_br_clear_pmbr (up->source_addr, up->group_addr);
+      /*
+       * We need to do more here :)
+       * But this is the start.
+       */
+    }
+  else
+    {
+      pim_mroute_update_counters (up->channel_oil);
 
+      if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt)
+	{
+	  pim_mroute_del (up->channel_oil);
+	  pim_upstream_delete (up);
+	}
+      else
+	{
+	  up->t_ka_timer = NULL;
+	  pim_upstream_keep_alive_timer_start (up, PIM_KEEPALIVE_PERIOD);
+	}
+    }
   return 1;
 }
 

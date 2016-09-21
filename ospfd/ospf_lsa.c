@@ -2251,7 +2251,7 @@ ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p)
 void
 ospf_external_lsa_flush (struct ospf *ospf,
 			 u_char type, struct prefix_ipv4 *p,
-			 unsigned int ifindex /*, struct in_addr nexthop */)
+			 ifindex_t ifindex /*, struct in_addr nexthop */)
 {
   struct ospf_lsa *lsa;
 
@@ -2642,11 +2642,9 @@ ospf_discard_from_db (struct ospf *ospf,
       ospf_ase_unregister_external_lsa (old, ospf);
       ospf_ls_retransmit_delete_nbr_as (ospf, old);
       break;
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
       ospf_ls_retransmit_delete_nbr_as (ospf, old);
       break;
-#endif /* HAVE_OPAQUE_LSA */
     case OSPF_AS_NSSA_LSA:
       ospf_ls_retransmit_delete_nbr_area (old->area, old);
       ospf_ase_unregister_external_lsa (old, ospf);
@@ -2680,9 +2678,7 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
 	lsdb = ospf->lsdb;
       break;
     case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
       lsdb = ospf->lsdb;
       break;
     default:
@@ -2794,7 +2790,6 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
     case OSPF_AS_EXTERNAL_LSA:
       new = ospf_external_lsa_install (ospf, lsa, rt_recalc);
       break;
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_LINK_LSA:
       if (IS_LSA_SELF (lsa))
 	lsa->oi = oi; /* Specify outgoing ospf-interface for this LSA. */
@@ -2807,7 +2802,6 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
     case OSPF_OPAQUE_AS_LSA:
       new = ospf_opaque_lsa_install (lsa, rt_recalc);
       break;
-#endif /* HAVE_OPAQUE_LSA */
     case OSPF_AS_NSSA_LSA:
       new = ospf_external_lsa_install (ospf, lsa, rt_recalc);
     default: /* type-6,8,9....nothing special */
@@ -2825,9 +2819,7 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
       switch (lsa->data->type)
         {
         case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
         case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
         case OSPF_AS_NSSA_LSA:
           zlog_debug ("LSA[%s]: Install %s",
                  dump_lsa_key (new),
@@ -3061,7 +3053,6 @@ ospf_lsa_maxage_walker_remover (struct ospf *ospf, struct ospf_lsa *lsa)
 
         switch (lsa->data->type)
           {
-#ifdef HAVE_OPAQUE_LSA
           case OSPF_OPAQUE_LINK_LSA:
           case OSPF_OPAQUE_AREA_LSA:
           case OSPF_OPAQUE_AS_LSA:
@@ -3074,7 +3065,6 @@ ospf_lsa_maxage_walker_remover (struct ospf *ospf, struct ospf_lsa *lsa)
              * topology, and thus, routing recalculation is not needed here.
              */
             break;
-#endif /* HAVE_OPAQUE_LSA */
           case OSPF_AS_EXTERNAL_LSA:
           case OSPF_AS_NSSA_LSA:
 	    ospf_ase_incremental_update (ospf, lsa);
@@ -3115,12 +3105,10 @@ ospf_lsa_maxage_walker (struct thread *thread)
 	ospf_lsa_maxage_walker_remover (ospf, lsa);
       LSDB_LOOP (ASBR_SUMMARY_LSDB (area), rn, lsa)
 	ospf_lsa_maxage_walker_remover (ospf, lsa);
-#ifdef HAVE_OPAQUE_LSA
       LSDB_LOOP (OPAQUE_AREA_LSDB (area), rn, lsa)
 	ospf_lsa_maxage_walker_remover (ospf, lsa);
       LSDB_LOOP (OPAQUE_LINK_LSDB (area), rn, lsa)
 	ospf_lsa_maxage_walker_remover (ospf, lsa);
-#endif /* HAVE_OPAQUE_LSA */
       LSDB_LOOP (NSSA_LSDB (area), rn, lsa)
         ospf_lsa_maxage_walker_remover (ospf, lsa);
     }
@@ -3130,10 +3118,8 @@ ospf_lsa_maxage_walker (struct thread *thread)
     {
       LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
 	ospf_lsa_maxage_walker_remover (ospf, lsa);
-#ifdef HAVE_OPAQUE_LSA
       LSDB_LOOP (OPAQUE_AS_LSDB (ospf), rn, lsa)
 	ospf_lsa_maxage_walker_remover (ospf, lsa);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   OSPF_TIMER_ON (ospf->t_maxage_walker, ospf_lsa_maxage_walker,
@@ -3186,15 +3172,11 @@ ospf_lsa_lookup (struct ospf_area *area, u_int32_t type,
     case OSPF_SUMMARY_LSA:
     case OSPF_ASBR_SUMMARY_LSA:
     case OSPF_AS_NSSA_LSA:
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
-#endif /* HAVE_OPAQUE_LSA */
       return ospf_lsdb_lookup_by_id (area->lsdb, type, id, adv_router);
     case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
       return ospf_lsdb_lookup_by_id (ospf->lsdb, type, id, adv_router);
     default:
       break;
@@ -3230,13 +3212,11 @@ ospf_lsa_lookup_by_id (struct ospf_area *area, u_int32_t type,
       return ospf_lsdb_lookup_by_id (area->lsdb, type, id, id);
     case OSPF_AS_EXTERNAL_LSA:
     case OSPF_AS_NSSA_LSA:
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
       /* Currently not used. */
       break;
-#endif /* HAVE_OPAQUE_LSA */
     default:
       break;
     }
@@ -3249,14 +3229,12 @@ ospf_lsa_lookup_by_header (struct ospf_area *area, struct lsa_header *lsah)
 {
   struct ospf_lsa *match;
 
-#ifdef HAVE_OPAQUE_LSA
   /*
    * Strictly speaking, the LSA-ID field for Opaque-LSAs (type-9/10/11)
    * is redefined to have two subfields; opaque-type and opaque-id.
    * However, it is harmless to treat the two sub fields together, as if
    * they two were forming a unique LSA-ID.
    */
-#endif /* HAVE_OPAQUE_LSA */
 
   match = ospf_lsa_lookup (area, lsah->type, lsah->id, lsah->adv_router);
 
@@ -3407,14 +3385,12 @@ ospf_lsa_flush_schedule (struct ospf *ospf, struct ospf_lsa *lsa)
 
   switch (lsa->data->type)
     {
-#ifdef HAVE_OPAQUE_LSA
     /* Opaque wants to be notified of flushes */
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
       ospf_opaque_lsa_refresh (lsa);
       break;
-#endif /* HAVE_OPAQUE_LSA */
     default:
       ospf_refresher_unregister_lsa (ospf, lsa);
       ospf_lsa_flush (ospf, lsa);
@@ -3474,22 +3450,18 @@ ospf_flush_self_originated_lsas_now (struct ospf *ospf)
 	ospf_lsa_flush_schedule (ospf, lsa);
       LSDB_LOOP (ASBR_SUMMARY_LSDB (area), rn, lsa)
 	ospf_lsa_flush_schedule (ospf, lsa);
-#ifdef HAVE_OPAQUE_LSA
       LSDB_LOOP (OPAQUE_LINK_LSDB (area), rn, lsa)
 	ospf_lsa_flush_schedule (ospf, lsa);
       LSDB_LOOP (OPAQUE_AREA_LSDB (area), rn, lsa)
 	ospf_lsa_flush_schedule (ospf, lsa);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   if (need_to_flush_ase)
     {
       LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
 	ospf_lsa_flush_schedule (ospf, lsa);
-#ifdef HAVE_OPAQUE_LSA
       LSDB_LOOP (OPAQUE_AS_LSDB (ospf), rn, lsa)
 	ospf_lsa_flush_schedule (ospf, lsa);
-#endif /* HAVE_OPAQUE_LSA */
     }
 
   /*
@@ -3698,13 +3670,11 @@ ospf_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
       else
         ospf_lsa_flush_as (ospf, lsa);
       break;
-#ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
       new = ospf_opaque_lsa_refresh (lsa);
       break;
-#endif /* HAVE_OPAQUE_LSA */
     default:
       break;
     }
@@ -3731,7 +3701,7 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
        */
       delay = (random() % (max_delay - min_delay)) + min_delay;
 
-      current_index = ospf->lsa_refresh_queue.index + (quagga_time (NULL)
+      current_index = ospf->lsa_refresh_queue.index + (quagga_monotime ()
                 - ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER_GRANULARITY;
       
       index = (current_index + delay/OSPF_LSA_REFRESHER_GRANULARITY)
@@ -3795,7 +3765,7 @@ ospf_lsa_refresh_walker (struct thread *t)
      modulus. */
   ospf->lsa_refresh_queue.index =
    ((unsigned long)(ospf->lsa_refresh_queue.index +
-		    (quagga_time (NULL) - ospf->lsa_refresher_started)
+		    (quagga_monotime () - ospf->lsa_refresher_started)
 		    / OSPF_LSA_REFRESHER_GRANULARITY))
 		    % OSPF_LSA_REFRESHER_SLOTS;
 
@@ -3836,7 +3806,7 @@ ospf_lsa_refresh_walker (struct thread *t)
 
   ospf->t_lsa_refresher = thread_add_timer (master, ospf_lsa_refresh_walker,
 					   ospf, ospf->lsa_refresh_interval);
-  ospf->lsa_refresher_started = quagga_time (NULL);
+  ospf->lsa_refresher_started = quagga_monotime ();
 
   for (ALL_LIST_ELEMENTS (lsa_to_refresh, node, nnode, lsa))
     {

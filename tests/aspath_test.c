@@ -25,6 +25,7 @@
 #include "stream.h"
 #include "privs.h"
 #include "queue.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"

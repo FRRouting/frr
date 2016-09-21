@@ -29,12 +29,12 @@ extern struct in6_addr allspfrouters6;
 extern struct in6_addr alldrouters6;
 
 extern int ospf6_serv_sock (void);
-extern int ospf6_sso (u_int ifindex, struct in6_addr *group, int option);
+extern int ospf6_sso (ifindex_t ifindex, struct in6_addr *group, int option);
 
 extern int ospf6_sendmsg (struct in6_addr *, struct in6_addr *,
-                          unsigned int *, struct iovec *);
+                          ifindex_t *, struct iovec *);
 extern int ospf6_recvmsg (struct in6_addr *, struct in6_addr *,
-                          unsigned int *, struct iovec *);
+                          ifindex_t *, struct iovec *);
 
 #endif /* OSPF6_NETWORK_H */
 

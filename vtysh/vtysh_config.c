@@ -171,6 +171,7 @@ vtysh_config_parse_line (const char *line)
 	{
 	  if (config->index == RMAP_NODE ||
 	           config->index == INTERFACE_NODE ||
+		   config->index == NS_NODE ||
 	           config->index == VRF_NODE ||
 		   config->index == VTY_NODE)
 	    config_add_line_uniq (config->line, line);
@@ -183,6 +184,8 @@ vtysh_config_parse_line (const char *line)
     default:
       if (strncmp (line, "interface", strlen ("interface")) == 0)
 	config = config_get (INTERFACE_NODE, line);
+      else if (strncmp (line, "logical-router", strlen ("ns")) == 0)
+	config = config_get (NS_NODE, line);
       else if (strncmp (line, "vrf", strlen ("vrf")) == 0)
 	config = config_get (VRF_NODE, line);
       else if (strncmp (line, "router-id", strlen ("router-id")) == 0)
@@ -318,7 +321,14 @@ vtysh_config_dump (FILE *fp)
     if ((master = vector_slot (configvec, i)) != NULL)
       {
 	for (ALL_LIST_ELEMENTS (master, node, nnode, config))
-	  {
+    {
+      /* Don't print empty sections for interface/vrf. Route maps on the
+       * other hand could have a legitimate empty section at the end.
+       */
+      if ((config->index == INTERFACE_NODE || (config->index == VRF_NODE))
+          && list_isempty (config->line))
+        continue;
+
 	    fprintf (fp, "%s\n", config->name);
 	    fflush (fp);
 
@@ -412,8 +422,8 @@ vtysh_config_write ()
       sprintf (line, "hostname %s", host.name);
       vtysh_config_parse_line(line);
     }
-  if (vtysh_writeconfig_integrated)
-    vtysh_config_parse_line ("service integrated-vtysh-config");
+  if (!vtysh_writeconfig_integrated)
+    vtysh_config_parse_line ("no service integrated-vtysh-config");
 
   user_config_write ();
 }

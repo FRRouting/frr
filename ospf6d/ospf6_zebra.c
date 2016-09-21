@@ -28,6 +28,7 @@
 #include "stream.h"
 #include "zclient.h"
 #include "memory.h"
+#include "lib/bfd.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_top.h"
@@ -376,7 +377,7 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
   char buf[PREFIX2STR_BUFFER];
   int nhcount;
   struct in6_addr **nexthops;
-  unsigned int *ifindexes;
+  ifindex_t *ifindexes;
   int ret = 0;
   struct prefix_ipv6 *dest;
 
@@ -442,7 +443,7 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
 
   /* allocate memory for ifindex_list */
   ifindexes = XCALLOC (MTYPE_OSPF6_OTHER,
-                       nhcount * sizeof (unsigned int));
+                       nhcount * sizeof (ifindex_t));
   if (ifindexes == NULL)
     {
       zlog_warn ("Can't send route to zebra: malloc failed");
@@ -656,6 +657,9 @@ DEFUN (no_redistribute_ospf6,
 static void
 ospf6_zebra_connected (struct zclient *zclient)
 {
+  /* Send the client registration */
+  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+
   zclient_send_reg_requests (zclient, VRF_DEFAULT);
 }
 

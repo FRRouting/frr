@@ -593,9 +593,7 @@ ism_change_state (struct ospf_interface *oi, int state)
       oi->network_lsa_self = NULL;
     }
 
-#ifdef HAVE_OPAQUE_LSA
   ospf_opaque_ism_change (oi, old_state);
-#endif /* HAVE_OPAQUE_LSA */
 
   /* Check area border status.  */
   ospf_check_abr_status (oi->ospf);

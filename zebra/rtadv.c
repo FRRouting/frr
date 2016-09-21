@@ -69,23 +69,26 @@ static void rtadv_event (struct zebra_ns *, enum rtadv_event, int);
 static int if_join_all_router (int, struct interface *);
 static int if_leave_all_router (int, struct interface *);
 
-static int rtadv_increment_received(unsigned int *ifindex) {
+static int
+rtadv_increment_received(struct zebra_ns *zns, ifindex_t *ifindex)
+{
   int ret = -1;
   struct interface *iface;
   struct zebra_if *zif;
 
-  iface = if_lookup_by_index_vrf(*ifindex, VRF_DEFAULT);
-  if (iface && iface->info) {
-    zif = iface->info;
-    zif->ra_rcvd++;
-    ret = 0;
-  }
+  iface = if_lookup_by_index_per_ns (zns, *ifindex);
+  if (iface && iface->info)
+    {
+      zif = iface->info;
+      zif->ra_rcvd++;
+      ret = 0;
+    }
   return ret;
 }
 
 static int
-rtadv_recv_packet (int sock, u_char *buf, int buflen,
-		   struct sockaddr_in6 *from, unsigned int *ifindex,
+rtadv_recv_packet (struct zebra_ns *zns, int sock, u_char *buf, int buflen,
+		   struct sockaddr_in6 *from, ifindex_t *ifindex,
 		   int *hoplimit)
 {
   int ret;
@@ -134,10 +137,7 @@ rtadv_recv_packet (int sock, u_char *buf, int buflen,
 	}
     }
 
-  if(rtadv_increment_received(ifindex) < 0)
-    zlog_err("%s: could not increment RA received counter on ifindex %d",
-             __func__, *ifindex);
-
+  rtadv_increment_received(zns, ifindex);
   return ret;
 }
 
@@ -152,9 +152,6 @@ rtadv_send_packet (int sock, struct interface *ifp)
   struct cmsghdr  *cmsgptr;
   struct in6_pktinfo *pkt;
   struct sockaddr_in6 addr;
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  struct sockaddr_dl *sdl;
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
   static void *adata = NULL;
   unsigned char buf[RTADV_MSG_SIZE];
   struct nd_router_advert *rtadv;
@@ -315,24 +312,6 @@ rtadv_send_packet (int sock, struct interface *ifp)
     }
 
   /* Hardware address. */
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  sdl = &ifp->sdl;
-  if (sdl != NULL && sdl->sdl_alen != 0)
-    {
-      buf[len++] = ND_OPT_SOURCE_LINKADDR;
-
-      /* Option length should be rounded up to next octet if
-         the link address does not end on an octet boundary. */
-      buf[len++] = (sdl->sdl_alen + 9) >> 3;
-
-      memcpy (buf + len, LLADDR (sdl), sdl->sdl_alen);
-      len += sdl->sdl_alen;
-
-      /* Pad option to end on an octet boundary. */
-      memset (buf + len, 0, -(sdl->sdl_alen + 2) & 0x7);
-      len += -(sdl->sdl_alen + 2) & 0x7;
-    }
-#else
   if (ifp->hw_addr_len != 0)
     {
       buf[len++] = ND_OPT_SOURCE_LINKADDR;
@@ -348,7 +327,6 @@ rtadv_send_packet (int sock, struct interface *ifp)
       memset (buf + len, 0, -(ifp->hw_addr_len + 2) & 0x7);
       len += -(ifp->hw_addr_len + 2) & 0x7;
     }
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
 
   /* MTU */
   if (zif->rtadv.AdvLinkMTU)
@@ -534,7 +512,7 @@ rtadv_process_advert (u_char *msg, unsigned int len, struct interface *ifp,
 
 
 static void
-rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int hoplimit,
+rtadv_process_packet (u_char *buf, unsigned int len, ifindex_t ifindex, int hoplimit,
                       struct sockaddr_in6 *from, struct zebra_ns *zns)
 {
   struct icmp6_hdr *icmph;
@@ -609,7 +587,7 @@ rtadv_read (struct thread *thread)
   int len;
   u_char buf[RTADV_MSG_SIZE];
   struct sockaddr_in6 from;
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
   int hoplimit = -1;
   struct zebra_ns *zns = THREAD_ARG (thread);
 
@@ -619,7 +597,7 @@ rtadv_read (struct thread *thread)
   /* Register myself. */
   rtadv_event (zns, RTADV_READ, sock);
 
-  len = rtadv_recv_packet (sock, buf, BUFSIZ, &from, &ifindex, &hoplimit);
+  len = rtadv_recv_packet (zns, sock, buf, sizeof (buf), &from, &ifindex, &hoplimit);
 
   if (len < 0) 
     {

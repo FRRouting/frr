@@ -176,7 +176,7 @@ struct ripng_info
   struct in6_addr from;
 
   /* Which interface does this route come from. */
-  unsigned int ifindex;		
+  ifindex_t ifindex;
 
   /* Metric of this route.  */
   u_char metric;		
@@ -381,9 +381,9 @@ extern void ripng_info_free (struct ripng_info *rinfo);
 extern void ripng_event (enum ripng_event, int);
 extern int ripng_request (struct interface *ifp);
 extern void ripng_redistribute_add (int, int, struct prefix_ipv6 *,
-                                    unsigned int, struct in6_addr *);
+                                    ifindex_t, struct in6_addr *);
 extern void ripng_redistribute_delete (int, int, struct prefix_ipv6 *,
-                                       unsigned int);
+                                       ifindex_t);
 extern void ripng_redistribute_withdraw (int type);
 
 extern void ripng_distribute_update_interface (struct interface *);

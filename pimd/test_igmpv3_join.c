@@ -20,6 +20,8 @@
   $QuaggaId: $Format:%an, %ai, %h$ $
 */
 
+#include <zebra.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -30,16 +32,15 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 
-#include "thread.h"
+#include "if.h"
 #include "pim_igmp_join.h"
 
-struct thread_master *master;
 const char *prog_name = 0;
 
 static int iface_solve_index(const char *ifname)
 {
   struct if_nameindex *ini;
-  int ifindex = -1;
+  ifindex_t ifindex = -1;
   int i;
 
   if (!ifname)
@@ -79,7 +80,7 @@ int main(int argc, const char *argv[])
   const char *ifname;
   const char *group;
   const char *source;
-  int ifindex;
+  ifindex_t ifindex;
   int result;
   int fd;
 

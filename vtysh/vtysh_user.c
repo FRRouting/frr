@@ -116,7 +116,7 @@ struct list *userlist;
 static struct vtysh_user *
 user_new (void)
 {
-  return XCALLOC (0, sizeof (struct vtysh_user));
+  return XCALLOC (MTYPE_TMP, sizeof (struct vtysh_user));
 }
 
 static struct vtysh_user *
@@ -195,7 +195,11 @@ vtysh_auth (void)
   struct vtysh_user *user;
   struct passwd *passwd;
 
-  passwd = getpwuid (geteuid ());
+  if ((passwd = getpwuid (geteuid ())) == NULL)
+  {
+    fprintf (stderr, "could not lookup user ID %d\n", (int) geteuid());
+    exit (1);
+  }
 
   user = user_lookup (passwd->pw_name);
   if (user && user->nopassword)

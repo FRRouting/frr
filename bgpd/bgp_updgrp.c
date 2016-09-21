@@ -668,7 +668,7 @@ updgrp_show_packet_queue_walkcb (struct update_group *updgrp, void *arg)
  */
 void
 update_group_show_packet_queue (struct bgp *bgp, afi_t afi, safi_t safi,
-				struct vty *vty, u_int64_t id)
+				struct vty *vty, uint64_t id)
 {
   struct updwalk_context ctx;
 
@@ -1587,7 +1587,7 @@ update_bgp_group_free (struct bgp *bgp)
 
 void
 update_group_show (struct bgp *bgp, afi_t afi, safi_t safi, struct vty *vty,
-		   u_int64_t subgrp_id)
+		   uint64_t subgrp_id)
 {
   struct updwalk_context ctx;
   memset (&ctx, 0, sizeof (ctx));

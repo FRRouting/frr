@@ -958,6 +958,11 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
 	  return CMD_WARNING;
 	}
       break;
+    case AFI_ETHER:
+    default:
+      vty_out (vty, "%% Unrecognized AFI (%d)%s", afi, VTY_NEWLINE);
+      return CMD_WARNING;
+      break;
     }
 
   /* ge and le check. */

@@ -426,7 +426,7 @@ ospf6_asbr_send_externals_to_area (struct ospf6_area *oa)
 }
 
 void
-ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
+ospf6_asbr_redistribute_add (int type, ifindex_t ifindex, struct prefix *prefix,
                              u_int nexthop_num, struct in6_addr *nexthop)
 {
   int ret;
@@ -575,7 +575,8 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
 }
 
 void
-ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix)
+ospf6_asbr_redistribute_remove (int type, ifindex_t ifindex,
+                                struct prefix *prefix)
 {
   struct ospf6_route *match;
   struct ospf6_external_info *info = NULL;

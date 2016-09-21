@@ -41,9 +41,6 @@ nl_msg_type_to_str (uint16_t msg_type);
 extern const char *
 nl_rtproto_to_str (u_char rtproto);
 
-int
-netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llalen);
-
 extern int interface_lookup_netlink (struct zebra_ns *zns);
 extern int netlink_route_read (struct zebra_ns *zns);
 

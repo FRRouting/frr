@@ -87,6 +87,8 @@ static void pim_free()
 
   if (qpim_static_route_list)
      list_free(qpim_static_route_list);
+
+  pim_route_map_terminate();
 }
 
 void pim_init()

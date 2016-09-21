@@ -64,7 +64,7 @@ struct ospf6_header
 #define OSPF6_HELLO_MIN_SIZE                  20U
 struct ospf6_hello
 {
-  u_int32_t interface_id;
+  ifindex_t interface_id;
   u_char    priority;
   u_char    options[3];
   u_int16_t hello_interval;

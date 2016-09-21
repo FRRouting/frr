@@ -34,6 +34,8 @@
 #include "vty.h"
 #include "bfd.h"
 #include "lib/json.h"
+#include "filter.h"
+
 #include "bgpd/bgpd.h"
 #include "bgp_fsm.h"
 #include "bgpd/bgp_bfd.h"
@@ -71,7 +73,7 @@ bgp_bfd_peer_group2peer_copy(struct peer *conf, struct peer *peer)
 /*
  * bgp_bfd_is_peer_multihop - returns whether BFD peer is multi-hop or single hop.
  */
-static int
+int
 bgp_bfd_is_peer_multihop(struct peer *peer)
 {
   struct bfd_info *bfd_info;
@@ -711,7 +713,4 @@ bgp_bfd_init(void)
   install_element (BGP_NODE, &no_neighbor_bfd_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_val_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_type_cmd);
-
-  /* Send the client registration */
-  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 }

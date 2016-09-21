@@ -112,8 +112,8 @@ struct bgp_master
 #define BGP_OPT_CONFIG_CISCO             (1 << 2)
 #define BGP_OPT_NO_LISTEN                (1 << 3)
 
-  u_int64_t updgrp_idspace;
-  u_int64_t subgrp_idspace;
+  uint64_t updgrp_idspace;
+  uint64_t subgrp_idspace;
 
   /* timer to dampen route map changes */
   struct thread *t_rmap_update;   /* Handle route map updates */
@@ -518,7 +518,7 @@ struct peer
 
   /* BGP peer group.  */
   struct peer_group *group;
-  u_int64_t version[AFI_MAX][SAFI_MAX];
+  uint64_t version[AFI_MAX][SAFI_MAX];
 
   /* BGP peer_af structures, per configured AF on this peer */
   struct peer_af *peer_af_array[BGP_AF_MAX];
@@ -583,7 +583,7 @@ struct peer
   time_t readtime;		/* Last read time */
   time_t resettime;		/* Last reset time */
   
-  unsigned int ifindex;		/* ifindex of the BGP connection. */
+  ifindex_t ifindex;		/* ifindex of the BGP connection. */
   char *conf_if;                /* neighbor interface config name. */
   struct interface *ifp;        /* corresponding interface */
   char *ifname;			/* bind interface name. */
@@ -1120,6 +1120,7 @@ enum bgp_clear_type
 #define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND -31
 #define BGP_ERR_INVALID_FOR_DYNAMIC_PEER        -32
 #define BGP_ERR_MAX                             -33
+#define BGP_ERR_INVALID_FOR_DIRECT_PEER         -34
 
 /*
  * Enumeration of different policy kinds a peer can be configured with.
@@ -1207,7 +1208,8 @@ extern int bgp_flag_check (struct bgp *, int);
 extern void bgp_lock (struct bgp *);
 extern void bgp_unlock (struct bgp *);
 
-extern int bgp_router_id_set (struct bgp *, struct in_addr *);
+extern void bgp_router_id_zebra_bump (vrf_id_t, const struct prefix*);
+extern int bgp_router_id_static_set (struct bgp *, struct in_addr);
 
 extern int bgp_cluster_id_set (struct bgp *, struct in_addr *);
 extern int bgp_cluster_id_unset (struct bgp *);
@@ -1219,7 +1221,7 @@ extern int bgp_confederation_peers_check (struct bgp *, as_t);
 extern int bgp_confederation_peers_add (struct bgp *, as_t);
 extern int bgp_confederation_peers_remove (struct bgp *, as_t);
 
-extern int bgp_timers_set (struct bgp *, u_int32_t, u_int32_t);
+extern int bgp_timers_set (struct bgp *, u_int32_t keepalive, u_int32_t holdtime);
 extern int bgp_timers_unset (struct bgp *);
 
 extern int bgp_default_local_preference_set (struct bgp *, u_int32_t);
@@ -1244,6 +1246,7 @@ extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);
 
 extern int peer_activate (struct peer *, afi_t, safi_t);
 extern int peer_deactivate (struct peer *, afi_t, safi_t);
+extern int peer_afc_set (struct peer *, afi_t, safi_t, int);
 
 extern int peer_group_bind (struct bgp *, union sockunion *, struct peer *,
                             struct peer_group *, as_t *);
@@ -1260,11 +1263,11 @@ extern int peer_ebgp_multihop_set (struct peer *, int);
 extern int peer_ebgp_multihop_unset (struct peer *);
 extern int is_ebgp_multihop_configured (struct peer *peer);
 
-extern int peer_description_set (struct peer *, char *);
+extern int peer_description_set (struct peer *, const char *);
 extern int peer_description_unset (struct peer *);
 
 extern int peer_update_source_if_set (struct peer *, const char *);
-extern int peer_update_source_addr_set (struct peer *, union sockunion *);
+extern int peer_update_source_addr_set (struct peer *, const union sockunion *);
 extern int peer_update_source_unset (struct peer *);
 
 extern int peer_default_originate_set (struct peer *, afi_t, safi_t, const char *);
@@ -1276,7 +1279,7 @@ extern int peer_port_unset (struct peer *);
 extern int peer_weight_set (struct peer *, u_int16_t);
 extern int peer_weight_unset (struct peer *);
 
-extern int peer_timers_set (struct peer *, u_int32_t, u_int32_t);
+extern int peer_timers_set (struct peer *, u_int32_t keepalive, u_int32_t holdtime);
 extern int peer_timers_unset (struct peer *);
 
 extern int peer_timers_connect_set (struct peer *, u_int32_t);
@@ -1501,4 +1504,5 @@ bgp_vrf_unlink (struct bgp *bgp, struct vrf *vrf)
   bgp->vrf_id = VRF_UNKNOWN;
 }
 
+extern void bgp_update_redist_vrf_bitmaps (struct bgp*, vrf_id_t);
 #endif /* _QUAGGA_BGPD_H */

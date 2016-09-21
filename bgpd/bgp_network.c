@@ -33,6 +33,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "network.h"
 #include "queue.h"
 #include "hash.h"
+#include "filter.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_open.h"
@@ -62,7 +63,9 @@ bgp_md5_set_socket (int socket, union sockunion *su, const char *password)
 {
   int ret = -1;
   int en = ENOSYS;
+#if HAVE_DECL_TCP_MD5SIG
   union sockunion su2;
+#endif /* HAVE_TCP_MD5SIG */
   
   assert (socket >= 0);
   
@@ -228,6 +231,17 @@ bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 static int
 bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
 {
+#ifndef SO_BINDTODEVICE
+  /* only Linux has SO_BINDTODEVICE, but we're in Linux-specific code here
+   * anyway since the assumption is that the interface name returned by
+   * getsockopt() is useful in identifying the VRF, particularly with Linux's
+   * VRF l3master device.  The whole mechanism is specific to Linux, so...
+   * when other platforms add VRF support, this will need handling here as
+   * well.  (or, some restructuring) */
+  *bgp_inst = bgp_get_default ();
+  return !*bgp_inst;
+
+#else
   char name[VRF_NAMSIZ + 1];
   socklen_t name_len = VRF_NAMSIZ;
   struct bgp *bgp;
@@ -239,13 +253,18 @@ bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
   rc = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, name, &name_len);
   if (rc != 0)
     {
+#if !defined (HAVE_BGP_STANDALONE)
       zlog_err ("[Error] BGP SO_BINDTODEVICE get failed (%s), sock %d",
                 safe_strerror (errno), sock);
       return -1;
+#endif
     }
 
   if (!strlen(name))
-    return 0; /* default instance. */
+    {
+      *bgp_inst = bgp_get_default ();
+      return 0; /* default instance. */
+    }
 
   /* First try match to instance; if that fails, check for interfaces. */
   bgp = bgp_lookup_by_name (name);
@@ -275,6 +294,7 @@ bgp_get_instance_for_inc_conn (int sock, struct bgp **bgp_inst)
 
   /* We didn't match to either an instance or an interface. */
   return -1;
+#endif
 }
 
 /* Accept bgp connection. */
@@ -566,7 +586,7 @@ bgp_update_source (struct peer *peer)
 int
 bgp_connect (struct peer *peer)
 {
-  unsigned int ifindex = 0;
+  ifindex_t ifindex = 0;
 
   if (peer->conf_if && BGP_PEER_SU_UNSPEC(peer))
     {
@@ -656,7 +676,9 @@ bgp_getsockname (struct peer *peer)
     {
       zlog_err ("%s: nexthop_set failed, resetting connection - intf %p",
                 peer->host, peer->nexthop.ifp);
+#if !defined (HAVE_BGP_STANDALONE)
       return -1;
+#endif
     }
 
   return 0;

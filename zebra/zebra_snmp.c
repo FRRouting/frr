@@ -39,6 +39,7 @@
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
 
 #define IPFWMIB 1,3,6,1,2,1,4,24
 
@@ -84,7 +85,7 @@
 #define IPADDRESS ASN_IPADDRESS
 #define OBJECTIDENTIFIER ASN_OBJECT_ID
 
-oid ipfw_oid [] = { IPFWMIB };
+static oid ipfw_oid [] = { IPFWMIB };
 
 /* Hook functions. */
 static u_char * ipFwNumber (struct variable *, oid [], size_t *,
@@ -96,7 +97,7 @@ static u_char * ipCidrNumber (struct variable *, oid [], size_t *,
 static u_char * ipCidrTable (struct variable *, oid [], size_t *,
 			     int, size_t *, WriteMethod **);
 
-struct variable zebra_variables[] = 
+static struct variable zebra_variables[] =
   {
     {0, GAUGE32, RONLY, ipFwNumber, 1, {1}},
     {IPFORWARDDEST, IPADDRESS, RONLY, ipFwTable, 3, {2, 1, 1}},

@@ -420,7 +420,4 @@ ospf6_bfd_init(void)
   install_element (INTERFACE_NODE, &ipv6_ospf6_bfd_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_bfd_param_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_ospf6_bfd_cmd);
-
-  /* Send the client registration */
-  bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 }

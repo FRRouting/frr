@@ -83,8 +83,17 @@ OSPF-API is enabled if --enable-opaque-lsa is set.
 @item --disable-ospfclient
 Disable building of the example OSPF-API client.
 @item --disable-ospf-te
-Disable support for OSPF Traffic Engineering Extension (internet-draft) this
+Disable support for OSPF Traffic Engineering Extension (RFC3630) this
 requires support for Opaque LSAs.
+@item --disable-ospf-ri
+Disable support for OSPF Router Information (RFC4970 & RFC5088) this
+requires support for Opaque LSAs and Traffic Engineering.
+@item --enable-isisd
+Build isisd.
+@item --enable-isis-topology
+Enable IS-IS topology generator.
+@item --enable-isis-te
+Enable Traffic Engineering Extension for ISIS (RFC5305)
 @item --enable-multipath=@var{ARG}
 Enable support for Equal Cost Multipath. @var{ARG} is the maximum number
 of ECMP paths to allow, set to 0 to allow unlimited number of paths.

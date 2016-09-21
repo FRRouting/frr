@@ -307,11 +307,18 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
 
       current_caps = cap_get_proc();
       if (current_caps)
+        {
           current_caps_text = cap_to_text(current_caps, NULL);
+          cap_free(current_caps);
+        }
 
       wanted_caps_text = cap_to_text(zprivs_state.caps, NULL);
       fprintf(stderr, "Wanted caps: %s\n", wanted_caps_text ? wanted_caps_text : "???");
       fprintf(stderr, "Have   caps: %s\n", current_caps_text ? current_caps_text : "???");
+      if (current_caps_text)
+          cap_free(current_caps_text);
+      if (wanted_caps_text)
+          cap_free(wanted_caps_text);
 
       exit (1);
     }
