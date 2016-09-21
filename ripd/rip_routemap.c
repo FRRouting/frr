@@ -742,7 +742,7 @@ DEFUN (match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
-  return rip_route_match_add (vty, vty->index, "metric", argv[0]);
+  return rip_route_match_add (vty, vty->index, "metric", argv[0]->arg);
 }
 
 DEFUN (no_match_metric,
@@ -755,7 +755,7 @@ DEFUN (no_match_metric,
   if (argc == 0)
     return rip_route_match_delete (vty, vty->index, "metric", NULL);
 
-  return rip_route_match_delete (vty, vty->index, "metric", argv[0]);
+  return rip_route_match_delete (vty, vty->index, "metric", argv[0]->arg);
 }
 
 ALIAS (no_match_metric,
@@ -773,7 +773,7 @@ DEFUN (match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  return rip_route_match_add (vty, vty->index, "interface", argv[0]);
+  return rip_route_match_add (vty, vty->index, "interface", argv[0]->arg);
 }
 
 DEFUN (no_match_interface,
@@ -786,7 +786,7 @@ DEFUN (no_match_interface,
   if (argc == 0)
     return rip_route_match_delete (vty, vty->index, "interface", NULL);
 
-  return rip_route_match_delete (vty, vty->index, "interface", argv[0]);
+  return rip_route_match_delete (vty, vty->index, "interface", argv[0]->arg);
 }
 
 ALIAS (no_match_interface,
@@ -807,7 +807,7 @@ DEFUN (match_ip_next_hop,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  return rip_route_match_add (vty, vty->index, "ip next-hop", argv[0]);
+  return rip_route_match_add (vty, vty->index, "ip next-hop", argv[0]->arg);
 }
 
 DEFUN (no_match_ip_next_hop,
@@ -821,7 +821,7 @@ DEFUN (no_match_ip_next_hop,
   if (argc == 0)
     return rip_route_match_delete (vty, vty->index, "ip next-hop", NULL);
 
-  return rip_route_match_delete (vty, vty->index, "ip next-hop", argv[0]);
+  return rip_route_match_delete (vty, vty->index, "ip next-hop", argv[0]->arg);
 }
 
 ALIAS (no_match_ip_next_hop,
@@ -844,7 +844,7 @@ DEFUN (match_ip_next_hop_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  return rip_route_match_add (vty, vty->index, "ip next-hop prefix-list", argv[0]);
+  return rip_route_match_add (vty, vty->index, "ip next-hop prefix-list", argv[0]->arg);
 }
 
 DEFUN (no_match_ip_next_hop_prefix_list,
@@ -859,7 +859,7 @@ DEFUN (no_match_ip_next_hop_prefix_list,
   if (argc == 0)
     return rip_route_match_delete (vty, vty->index, "ip next-hop prefix-list", NULL);
 
-  return rip_route_match_delete (vty, vty->index, "ip next-hop prefix-list", argv[0]);
+  return rip_route_match_delete (vty, vty->index, "ip next-hop prefix-list", argv[0]->arg);
 }
 
 ALIAS (no_match_ip_next_hop_prefix_list,
@@ -883,7 +883,7 @@ DEFUN (match_ip_address,
        "IP Access-list name\n")
 
 {
-  return rip_route_match_add (vty, vty->index, "ip address", argv[0]);
+  return rip_route_match_add (vty, vty->index, "ip address", argv[0]->arg);
 }
 
 DEFUN (no_match_ip_address, 
@@ -897,7 +897,7 @@ DEFUN (no_match_ip_address,
   if (argc == 0)
     return rip_route_match_delete (vty, vty->index, "ip address", NULL);
 
-  return rip_route_match_delete (vty, vty->index, "ip address", argv[0]);
+  return rip_route_match_delete (vty, vty->index, "ip address", argv[0]->arg);
 }
 
 ALIAS (no_match_ip_address,
@@ -920,7 +920,7 @@ DEFUN (match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  return rip_route_match_add (vty, vty->index, "ip address prefix-list", argv[0]);
+  return rip_route_match_add (vty, vty->index, "ip address prefix-list", argv[0]->arg);
 }
 
 DEFUN (no_match_ip_address_prefix_list,
@@ -935,7 +935,7 @@ DEFUN (no_match_ip_address_prefix_list,
   if (argc == 0)
     return rip_route_match_delete (vty, vty->index, "ip address prefix-list", NULL);
 
-  return rip_route_match_delete (vty, vty->index, "ip address prefix-list", argv[0]);
+  return rip_route_match_delete (vty, vty->index, "ip address prefix-list", argv[0]->arg);
 }
 
 ALIAS (no_match_ip_address_prefix_list,
@@ -955,7 +955,7 @@ DEFUN (match_tag,
        "Match tag of route\n"
        "Metric value\n")
 {
-  return rip_route_match_add (vty, vty->index, "tag", argv[0]);
+  return rip_route_match_add (vty, vty->index, "tag", argv[0]->arg);
 }
 
 DEFUN (no_match_tag,
@@ -968,7 +968,7 @@ DEFUN (no_match_tag,
   if (argc == 0)
     return rip_route_match_delete (vty, vty->index, "tag", NULL);
 
-  return rip_route_match_delete (vty, vty->index, "tag", argv[0]);
+  return rip_route_match_delete (vty, vty->index, "tag", argv[0]->arg);
 }
 
 ALIAS (no_match_tag,
@@ -988,7 +988,7 @@ DEFUN (set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
-  return rip_route_set_add (vty, vty->index, "metric", argv[0]);
+  return rip_route_set_add (vty, vty->index, "metric", argv[0]->arg);
 }
 
 ALIAS (set_metric,
@@ -1008,7 +1008,7 @@ DEFUN (no_set_metric,
   if (argc == 0)
     return rip_route_set_delete (vty, vty->index, "metric", NULL);
 
-  return rip_route_set_delete (vty, vty->index, "metric", argv[0]);
+  return rip_route_set_delete (vty, vty->index, "metric", argv[0]->arg);
 }
 
 ALIAS (no_set_metric,
@@ -1038,7 +1038,7 @@ DEFUN (set_ip_nexthop,
   union sockunion su;
   int ret;
 
-  ret = str2sockunion (argv[0], &su);
+  ret = str2sockunion (argv[0]->arg, &su);
   if (ret < 0)
     {
       vty_out (vty, "%% Malformed next-hop address%s", VTY_NEWLINE);
@@ -1052,7 +1052,7 @@ DEFUN (set_ip_nexthop,
       return CMD_WARNING;
     }
 
-  return rip_route_set_add (vty, vty->index, "ip next-hop", argv[0]);
+  return rip_route_set_add (vty, vty->index, "ip next-hop", argv[0]->arg);
 }
 
 DEFUN (no_set_ip_nexthop,
@@ -1066,7 +1066,7 @@ DEFUN (no_set_ip_nexthop,
   if (argc == 0)
     return rip_route_set_delete (vty, vty->index, "ip next-hop", NULL);
   
-  return rip_route_set_delete (vty, vty->index, "ip next-hop", argv[0]);
+  return rip_route_set_delete (vty, vty->index, "ip next-hop", argv[0]->arg);
 }
 
 ALIAS (no_set_ip_nexthop,
@@ -1085,7 +1085,7 @@ DEFUN (set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  return rip_route_set_add (vty, vty->index, "tag", argv[0]);
+  return rip_route_set_add (vty, vty->index, "tag", argv[0]->arg);
 }
 
 DEFUN (no_set_tag,
@@ -1098,7 +1098,7 @@ DEFUN (no_set_tag,
   if (argc == 0)
     return rip_route_set_delete (vty, vty->index, "tag", NULL);
   
-  return rip_route_set_delete (vty, vty->index, "tag", argv[0]);
+  return rip_route_set_delete (vty, vty->index, "tag", argv[0]->arg);
 }
 
 ALIAS (no_set_tag,

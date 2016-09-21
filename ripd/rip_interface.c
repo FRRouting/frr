@@ -1228,16 +1228,16 @@ DEFUN (rip_network,
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[0]->arg, &p);
 
   if (ret)
     ret = rip_enable_network_add ((struct prefix *) &p);
   else
-    ret = rip_enable_if_add (argv[0]);
+    ret = rip_enable_if_add (argv[0]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "There is a same network configuration %s%s", argv[0],
+      vty_out (vty, "There is a same network configuration %s%s", argv[0]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1257,16 +1257,16 @@ DEFUN (no_rip_network,
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[0]->arg, &p);
 
   if (ret)
     ret = rip_enable_network_delete ((struct prefix *) &p);
   else
-    ret = rip_enable_if_delete (argv[0]);
+    ret = rip_enable_if_delete (argv[0]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "Can't find network configuration %s%s", argv[0],
+      vty_out (vty, "Can't find network configuration %s%s", argv[0]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1284,7 +1284,7 @@ DEFUN (rip_neighbor,
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[0]->arg, &p);
 
   if (ret <= 0)
     {
@@ -1308,7 +1308,7 @@ DEFUN (no_rip_neighbor,
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[0]->arg, &p);
 
   if (ret <= 0)
     {
@@ -1338,12 +1338,12 @@ DEFUN (ip_rip_receive_version,
   ri = ifp->info;
 
   /* Version 1. */
-  if (atoi (argv[0]) == 1)
+  if (atoi (argv[0]->arg) == 1)
     {
       ri->ri_receive = RI_RIP_VERSION_1;
       return CMD_SUCCESS;
     }
-  if (atoi (argv[0]) == 2)
+  if (atoi (argv[0]->arg) == 2)
     {
       ri->ri_receive = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
@@ -1440,12 +1440,12 @@ DEFUN (ip_rip_send_version,
   ri = ifp->info;
 
   /* Version 1. */
-  if (atoi (argv[0]) == 1)
+  if (atoi (argv[0]->arg) == 1)
     {
       ri->ri_send = RI_RIP_VERSION_1;
       return CMD_SUCCESS;
     }
-  if (atoi (argv[0]) == 2)
+  if (atoi (argv[0]->arg) == 2)
     {
       ri->ri_send = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
@@ -1548,9 +1548,9 @@ DEFUN (ip_rip_authentication_mode,
       return CMD_WARNING;
     }
     
-  if (strncmp ("md5", argv[0], strlen (argv[0])) == 0)
+  if (strncmp ("md5", argv[0]->arg, strlen (argv[0]->arg)) == 0)
     auth_type = RIP_AUTH_MD5;
-  else if (strncmp ("text", argv[0], strlen (argv[0])) == 0)
+  else if (strncmp ("text", argv[0]->arg, strlen (argv[0]->arg)) == 0)
     auth_type = RIP_AUTH_SIMPLE_PASSWORD;
   else
     {
@@ -1570,9 +1570,9 @@ DEFUN (ip_rip_authentication_mode,
       return CMD_WARNING;
     }
 
-  if (strncmp ("r", argv[1], 1) == 0)
+  if (strncmp ("r", argv[1]->arg, 1) == 0)
     ri->md5_auth_len = RIP_AUTH_MD5_SIZE;
-  else if (strncmp ("o", argv[1], 1) == 0)
+  else if (strncmp ("o", argv[1]->arg, 1) == 0)
     ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
   else 
     return CMD_WARNING;
@@ -1656,7 +1656,7 @@ DEFUN (ip_rip_authentication_string,
   ifp = (struct interface *)vty->index;
   ri = ifp->info;
 
-  if (strlen (argv[0]) > 16)
+  if (strlen (argv[0]->arg) > 16)
     {
       vty_out (vty, "%% RIPv2 authentication string must be shorter than 16%s",
 	       VTY_NEWLINE);
@@ -1672,7 +1672,7 @@ DEFUN (ip_rip_authentication_string,
   if (ri->auth_str)
     free (ri->auth_str);
 
-  ri->auth_str = strdup (argv[0]);
+  ri->auth_str = strdup (argv[0]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1735,7 +1735,7 @@ DEFUN (ip_rip_authentication_key_chain,
   if (ri->key_chain)
     free (ri->key_chain);
 
-  ri->key_chain = strdup (argv[0]);
+  ri->key_chain = strdup (argv[0]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1867,7 +1867,7 @@ DEFUN (rip_passive_interface,
        "Interface name\n"
        "default for all interfaces\n")
 {
-  const char *ifname = argv[0];
+  const char *ifname = argv[0]->arg;
 
   if (!strcmp(ifname,"default")) {
     passive_default = 1;
@@ -1888,7 +1888,7 @@ DEFUN (no_rip_passive_interface,
        "Interface name\n"
        "default for all interfaces\n")
 {
-  const char *ifname = argv[0];
+  const char *ifname = argv[0]->arg;
 
   if (!strcmp(ifname,"default")) {
     passive_default = 0;
