@@ -352,18 +352,21 @@ struct in_pktinfo
 #endif /* ndef BYTE_ORDER */
 
 /* MAX / MIN are not commonly defined, but useful */
-#ifndef MAX
+/* note: glibc sys/param.h has #define MIN(a,b) (((a)<(b))?(a):(b)) */
+#ifdef MAX
+#undef MAX
+#endif
 #define MAX(a, b) \
 	({ typeof (a) _a = (a); \
 	   typeof (b) _b = (b); \
 	   _a > _b ? _a : _b; })
+#ifdef MIN
+#undef MIN
 #endif
-#ifndef MIN
 #define MIN(a, b) \
 	({ typeof (a) _a = (a); \
 	   typeof (b) _b = (b); \
 	   _a < _b ? _a : _b; })
-#endif
 
 #define ZEBRA_NUM_OF(x) (sizeof (x) / sizeof (x[0]))
 

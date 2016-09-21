@@ -47,7 +47,7 @@ in_cksum(void *parg, int nbytes)
 }
 
 /* Fletcher Checksum -- Refer to RFC1008. */
-#define MODX                 4102   /* 5802 should be fine */
+#define MODX                 4102U   /* 5802 should be fine */
 
 /* To be consistent, offset is 0-based index, rather than the 1-based 
    index required in the specification ISO 8473, Annex C.1 */
