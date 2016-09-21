@@ -53,6 +53,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_fpm.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };

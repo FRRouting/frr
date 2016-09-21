@@ -26,6 +26,8 @@
 
 #include "log.h"
 #include "rib.h"
+#include "zserv.h"
+#include "zebra_vrf.h"
 
 #include "qpb/qpb.pb-c.h"
 #include "qpb/qpb.h"
@@ -91,14 +93,12 @@ add_nexthop (qpb_allocator_t *allocator, Fpm__AddRoute *msg, rib_dest_t *dest,
     }
 
   if (nexthop->type == NEXTHOP_TYPE_IPV6
-      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
     {
       gateway = &nexthop->gate;
     }
 
-  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-      || nexthop->type == NEXTHOP_TYPE_IFNAME)
+  if (nexthop->type == NEXTHOP_TYPE_IFINDEX)
     {
       if (nexthop->src.ipv4.s_addr)
 	src = &nexthop->src;

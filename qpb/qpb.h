@@ -78,6 +78,8 @@ qpb__address_family__get (Qpb__AddressFamily pb_family, u_char *family)
 
   case QPB__ADDRESS_FAMILY__UNKNOWN_AF:
     return 0;
+  default: /* protobuf "magic value" _QPB__ADDRESS_FAMILY_IS_INT_SIZE */
+    return 0;
   }
 
   return 0;
@@ -184,7 +186,6 @@ qpb__protocol__set (Qpb__Protocol *pb_proto, int route_type)
 
   case ZEBRA_ROUTE_HSLS:
   case ZEBRA_ROUTE_OLSR:
-  case ZEBRA_ROUTE_BABEL:
   case ZEBRA_ROUTE_MAX:
   case ZEBRA_ROUTE_SYSTEM:
   default:
