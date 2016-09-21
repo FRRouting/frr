@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "command.h"
 #include "lib/json.h"
 
 /*
@@ -29,12 +30,12 @@
  * what.
  */
 int
-use_json (const int argc, const char *argv[])
+use_json (const int argc, const struct cmd_token *argv[])
 {
   if (argc == 0)
     return 0;
 
-  if (argv[argc-1] && strcmp(argv[argc-1], "json") == 0)
+  if (argv[argc-1]->arg && strcmp(argv[argc-1]->arg, "json") == 0)
     return 1;
 
   return 0;
