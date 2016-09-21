@@ -625,7 +625,8 @@ ospfv3WwLsdbEntry (struct variable *v, oid *name, size_t *length,
                      int exact, size_t *var_len, WriteMethod **write_method)
 {
   struct ospf6_lsa *lsa = NULL;
-  ifindex_t ifindex, area_id, id, instid, adv_router;
+  ifindex_t ifindex;
+  uint32_t area_id, id, instid, adv_router;
   u_int16_t type;
   int len;
   oid *offset;
