@@ -73,6 +73,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #endif /* HAVE_SNMP */
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
+#include "bgpd/bgp_memory.h"
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -2083,13 +2084,13 @@ peer_delete (struct peer *peer)
 
   if (peer->hostname)
     {
-      XFREE(MTYPE_HOST, peer->hostname);
+      XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
       peer->hostname = NULL;
     }
 
   if (peer->domainname)
     {
-      XFREE(MTYPE_HOST, peer->domainname);
+      XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
       peer->domainname = NULL;
     }
   
@@ -2108,14 +2109,14 @@ peer_group_cmp (struct peer_group *g1, struct peer_group *g2)
 static struct peer_group *
 peer_group_new (void)
 {
-  return (struct peer_group *) XCALLOC (MTYPE_BGP_PEER_GROUP,
+  return (struct peer_group *) XCALLOC (MTYPE_PEER_GROUP,
 					sizeof (struct peer_group));
 }
 
 static void
 peer_group_free (struct peer_group *group)
 {
-  XFREE (MTYPE_BGP_PEER_GROUP, group);
+  XFREE (MTYPE_PEER_GROUP, group);
 }
 
 struct peer_group *
@@ -2145,8 +2146,8 @@ peer_group_get (struct bgp *bgp, const char *name)
   group = peer_group_new ();
   group->bgp = bgp;
   if (group->name)
-    XFREE(MTYPE_BGP_PEER_GROUP_HOST, group->name);
-  group->name = XSTRDUP(MTYPE_BGP_PEER_GROUP_HOST, name);
+    XFREE(MTYPE_PEER_GROUP_HOST, group->name);
+  group->name = XSTRDUP(MTYPE_PEER_GROUP_HOST, name);
   group->peer = list_new ();
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     group->listen_range[afi] = list_new ();

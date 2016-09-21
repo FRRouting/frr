@@ -27,6 +27,9 @@
 #include "memory.h"
 
 #ifdef HAVE_CAPABILITIES
+
+DEFINE_MTYPE_STATIC(LIB, PRIVS, "Privilege information")
+
 /* sort out some generic internal types for:
  *
  * privilege values (cap_value_t, priv_t) 	-> pvalue_t

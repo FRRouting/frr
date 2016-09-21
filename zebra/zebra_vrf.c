@@ -23,12 +23,14 @@
 
 #include "log.h"
 #include "linklist.h"
+#include "memory.h"
 
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/router-id.h"
+#include "zebra/zebra_memory.h"
 #include "zebra/zebra_static.h"
 
 extern struct zebra_t zebrad;

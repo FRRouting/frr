@@ -25,6 +25,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"
+#include "zebra_memory.h"
 #include "str.h"
 #include "command.h"
 #include "log.h"
@@ -285,7 +286,7 @@ rib_nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
 {
   struct nexthop *nexthop;
 
-  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  nexthop = nexthop_new();
   nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
   nexthop->gate.ipv6 = *ipv6;
   nexthop->ifindex = ifindex;
@@ -457,7 +458,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 			SET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
 
-			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
+			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* If the resolving route specifies a gateway, use it */
 			if (newhop->type == NEXTHOP_TYPE_IPV4
@@ -507,7 +508,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 		      {
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 
-			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
+			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* If the resolving route specifies a gateway, use it */
 			if (newhop->type == NEXTHOP_TYPE_IPV4
@@ -665,7 +666,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 			SET_FLAG(rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
 
-			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
+			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* See nexthop_active_ipv4 for a description how the
 			 * resolved nexthop is constructed. */
@@ -706,7 +707,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 		      {
 			SET_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
 
-			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
+			resolved_hop = nexthop_new();
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 			/* See nexthop_active_ipv4 for a description how the
 			 * resolved nexthop is constructed. */
@@ -764,12 +765,16 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
 
   memset (&p, 0, sizeof (struct prefix));
   p.family = afi;
-  p.u.prefix = *(u_char *)addr;
-  p.prefixlen = IPV4_MAX_PREFIXLEN;
   if (afi == AFI_IP)
-    p.prefixlen = IPV4_MAX_PREFIXLEN;
+    {
+      p.u.prefix4 = addr->ipv4;
+      p.prefixlen = IPV4_MAX_PREFIXLEN;
+    }
   else
-    p.prefixlen = IPV6_MAX_PREFIXLEN;
+    {
+      p.u.prefix6 = addr->ipv6;
+      p.prefixlen = IPV6_MAX_PREFIXLEN;
+    }
 
   rn = route_node_match (table, (struct prefix *) &p);
 
@@ -820,7 +825,7 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
 }
 
 struct rib *
-rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
+rib_match_ipv4_multicast (vrf_id_t vrf_id, struct in_addr addr, struct route_node **rn_out)
 {
   struct rib *rib = NULL, *mrib = NULL, *urib = NULL;
   struct route_node *m_rn = NULL, *u_rn = NULL;
@@ -829,18 +834,18 @@ rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
   switch (ipv4_multicast_mode)
     {
     case MCAST_MRIB_ONLY:
-      return rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, rn_out);
+      return rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, rn_out);
     case MCAST_URIB_ONLY:
-      return rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, rn_out);
+      return rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, rn_out);
     case MCAST_NO_CONFIG:
     case MCAST_MIX_MRIB_FIRST:
-      rib = mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
+      rib = mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
       if (!mrib)
-	rib = urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
+	rib = urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
       break;
     case MCAST_MIX_DISTANCE:
-      mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
-      urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
+      mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+      urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
       if (mrib && urib)
 	rib = urib->distance < mrib->distance ? urib : mrib;
       else if (mrib)
@@ -849,8 +854,8 @@ rib_match_ipv4_multicast (struct in_addr addr, struct route_node **rn_out)
 	rib = urib;
       break;
     case MCAST_MIX_PFXLEN:
-      mrib = rib_match (AFI_IP, SAFI_MULTICAST, VRF_DEFAULT, &gaddr, &m_rn);
-      urib = rib_match (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, &gaddr, &u_rn);
+      mrib = rib_match (AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr, &m_rn);
+      urib = rib_match (AFI_IP, SAFI_UNICAST, vrf_id, &gaddr, &u_rn);
       if (mrib && urib)
 	rib = u_rn->p.prefixlen > m_rn->p.prefixlen ? urib : mrib;
       else if (mrib)

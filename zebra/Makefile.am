@@ -27,6 +27,7 @@ sbin_PROGRAMS = zebra
 noinst_PROGRAMS = testzebra
 
 zebra_SOURCES = \
+	zebra_memory.c \
 	zserv.c main.c interface.c connected.c zebra_rib.c zebra_routemap.c \
 	redistribute.c debug.c rtadv.c zebra_snmp.c zebra_vty.c \
 	irdp_main.c irdp_interface.c irdp_packet.c router-id.c zebra_fpm.c \
@@ -36,9 +37,11 @@ zebra_SOURCES = \
 testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
 	zebra_vty.c zebra_ptm.c zebra_routemap.c zebra_ns.c zebra_vrf.c \
 	kernel_null.c  redistribute_null.c ioctl_null.c misc_null.c zebra_rnh_null.c \
-	zebra_ptm_null.c rtadv_null.c if_null.c zserv_null.c zebra_static.c
+	zebra_ptm_null.c rtadv_null.c if_null.c zserv_null.c zebra_static.c \
+	zebra_memory.c
 
 noinst_HEADERS = \
+	zebra_memory.h \
 	connected.h ioctl.h rib.h rt.h zserv.h redistribute.h debug.h rtadv.h \
 	interface.h ipforward.h irdp.h router-id.h kernel_socket.h \
 	rt_netlink.h zebra_fpm.h zebra_fpm_private.h zebra_rnh.h \

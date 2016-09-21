@@ -32,6 +32,10 @@
 #include "command.h"
 #include "sigevent.h"
 
+DEFINE_MTYPE_STATIC(LIB, THREAD,        "Thread")
+DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
+DEFINE_MTYPE_STATIC(LIB, THREAD_STATS,  "Thread stats")
+
 #if defined(__APPLE__)
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -287,13 +291,13 @@ cpu_record_print(struct vty *vty, thread_type filter)
     vty_out_cpu_thread_history(vty, &tmp);
 }
 
-DEFUN(show_thread_cpu,
-      show_thread_cpu_cmd,
-      "show thread cpu [FILTER]",
-      SHOW_STR
-      "Thread information\n"
-      "Thread CPU usage\n"
-      "Display filter (rwtexb)\n")
+DEFUN (show_thread_cpu,
+       show_thread_cpu_cmd,
+       "show thread cpu [FILTER]",
+       SHOW_STR
+       "Thread information\n"
+       "Thread CPU usage\n"
+       "Display filter (rwtexb)\n")
 {
   int i = 0;
   thread_type filter = (thread_type) -1U;
@@ -369,13 +373,13 @@ cpu_record_clear (thread_type filter)
 	        tmp);
 }
 
-DEFUN(clear_thread_cpu,
-      clear_thread_cpu_cmd,
-      "clear thread cpu [FILTER]",
-      "Clear stored data\n"
-      "Thread information\n"
-      "Thread CPU usage\n"
-      "Display filter (rwtexb)\n")
+DEFUN (clear_thread_cpu,
+       clear_thread_cpu_cmd,
+       "clear thread cpu [FILTER]",
+       "Clear stored data\n"
+       "Thread information\n"
+       "Thread CPU usage\n"
+       "Display filter (rwtexb)\n")
 {
   int i = 0;
   thread_type filter = (thread_type) -1U;

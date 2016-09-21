@@ -46,6 +46,7 @@ sbin_PROGRAMS = pimd
 noinst_PROGRAMS = test_igmpv3_join
 
 libpim_a_SOURCES = \
+	pim_memory.c \
 	pimd.c pim_version.c pim_cmd.c pim_signals.c pim_iface.c \
 	pim_vty.c pim_igmp.c pim_sock.c pim_zebra.c \
 	pim_igmpv3.c pim_str.c pim_mroute.c pim_util.c pim_time.c \
@@ -56,6 +57,7 @@ libpim_a_SOURCES = \
 	pim_static.c pim_br.c pim_register.c pim_routemap.c
 
 noinst_HEADERS = \
+	pim_memory.h \
 	pimd.h pim_version.h pim_cmd.h pim_signals.h pim_iface.h \
 	pim_vty.h pim_igmp.h pim_sock.h pim_zebra.h \
 	pim_igmpv3.h pim_str.h pim_mroute.h pim_util.h pim_time.h \

@@ -27,6 +27,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include <lib/version.h>
 #include "memory.h"
+#include "memory_vty.h"
 #include "prefix.h"
 #include "log.h"
 #include "privs.h"

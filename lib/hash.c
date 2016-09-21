@@ -24,6 +24,10 @@
 #include "hash.h"
 #include "memory.h"
 
+DEFINE_MTYPE(       LIB, HASH,        "Hash")
+DEFINE_MTYPE(       LIB, HASH_BACKET, "Hash Bucket")
+DEFINE_MTYPE_STATIC(LIB, HASH_INDEX,  "Hash Index")
+
 /* Allocate a new hash.  */
 struct hash *
 hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),

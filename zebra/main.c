@@ -27,6 +27,8 @@
 #include "thread.h"
 #include "filter.h"
 #include "memory.h"
+#include "zebra_memory.h"
+#include "memory_vty.h"
 #include "prefix.h"
 #include "log.h"
 #include "plist.h"

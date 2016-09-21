@@ -37,6 +37,12 @@
 #include "str.h"
 #include "log.h"
 
+DEFINE_MTYPE(       LIB, IF,              "Interface")
+DEFINE_MTYPE_STATIC(LIB, CONNECTED,       "Connected")
+DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED,   "Neighbor Connected")
+DEFINE_MTYPE(       LIB, CONNECTED_LABEL, "Connected interface label")
+DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS,  "Informational Link Parameters")
+
 /* List of interfaces in only the default VRF */
 int ptm_enable = 0;
 

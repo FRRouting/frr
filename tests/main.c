@@ -27,6 +27,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
+#include "memory_vty.h"
 
 extern void test_init();
 

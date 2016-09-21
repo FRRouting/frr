@@ -23,6 +23,9 @@
 #ifndef _ZEBRA_VECTOR_H
 #define _ZEBRA_VECTOR_H
 
+#include "memory.h"
+DECLARE_MTYPE(VECTOR_INDEX)
+
 /* struct for vector */
 struct _vector 
 {

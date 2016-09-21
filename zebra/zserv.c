@@ -27,6 +27,7 @@
 #include "thread.h"
 #include "stream.h"
 #include "memory.h"
+#include "zebra_memory.h"
 #include "table.h"
 #include "rib.h"
 #include "network.h"
@@ -748,87 +749,33 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
 }
 
 static int
-zsend_nexthop_lookup (struct zserv *client, afi_t afi, safi_t safi,
-		      vrf_id_t vrf_id, union g_addr *addr)
+zsend_write_nexthop (struct stream *s, struct nexthop *nexthop)
 {
-  struct stream *s;
-  struct rib *rib;
-  unsigned long nump;
-  u_char num;
-  struct nexthop *nexthop;
-
-  /* Lookup nexthop. */
-  rib = rib_match (afi, safi, vrf_id, addr, NULL);
-
-  /* Get output stream. */
-  s = client->obuf;
-  stream_reset (s);
-
-  /* Fill in result. */
-  if (afi == AFI_IP)
+  stream_putc (s, nexthop->type);
+  switch (nexthop->type)
     {
-      zserv_create_header (s, ZEBRA_IPV4_NEXTHOP_LOOKUP, vrf_id);
-      stream_put_in_addr (s, &addr->ipv4);
+    case NEXTHOP_TYPE_IPV4:
+      stream_put_in_addr (s, &nexthop->gate.ipv4);
+      break;
+    case NEXTHOP_TYPE_IPV4_IFINDEX:
+      stream_put_in_addr (s, &nexthop->gate.ipv4);
+      stream_putl (s, nexthop->ifindex);
+      break;
+    case NEXTHOP_TYPE_IPV6:
+      stream_put (s, &nexthop->gate.ipv6, 16);
+      break;
+    case NEXTHOP_TYPE_IPV6_IFINDEX:
+      stream_put (s, &nexthop->gate.ipv6, 16);
+      stream_putl (s, nexthop->ifindex);
+      break;
+    case NEXTHOP_TYPE_IFINDEX:
+      stream_putl (s, nexthop->ifindex);
+      break;
+    default:
+      /* do nothing */
+      break;
     }
-  else
-    {
-      zserv_create_header (s, ZEBRA_IPV6_NEXTHOP_LOOKUP, vrf_id);
-      stream_put (s, &addr->ipv6, 16);
-    }
-
-  if (rib)
-    {
-      if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-        zlog_debug("%s: Matching rib entry found.", __func__);
-      stream_putl (s, rib->metric);
-      num = 0;
-      nump = stream_get_endp(s);
-      stream_putc (s, 0);
-      /* Only non-recursive routes are elegible to resolve nexthop we
-       * are looking up. Therefore, we will just iterate over the top
-       * chain of nexthops. */
-      for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-	  {
-	    stream_putc (s, nexthop->type);
-	    switch (nexthop->type)
-	      {
-	      case NEXTHOP_TYPE_IPV4:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		break;
-	      case NEXTHOP_TYPE_IPV4_IFINDEX:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      case NEXTHOP_TYPE_IPV6:
-		stream_put (s, &nexthop->gate.ipv6, 16);
-		break;
-	      case NEXTHOP_TYPE_IPV6_IFINDEX:
-		stream_put (s, &nexthop->gate.ipv6, 16);
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      case NEXTHOP_TYPE_IFINDEX:
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      default:
-                /* do nothing */
-		break;
-	      }
-	    num++;
-	  }
-      stream_putc_at (s, nump, num);
-    }
-  else
-    {
-      if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-        zlog_debug("%s: No matching rib entry found.", __func__);
-      stream_putl (s, 0);
-      stream_putc (s, 0);
-    }
-
-  stream_putw_at (s, 0, stream_get_endp (s));
-
-  return zebra_server_send_message(client);
+  return 1;
 }
 
 /* Nexthop register */
@@ -977,26 +924,7 @@ zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struc
        * chain of nexthops. */
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-	  {
-	    stream_putc (s, nexthop->type);
-	    switch (nexthop->type)
-	      {
-	      case NEXTHOP_TYPE_IPV4:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		break;
-	      case NEXTHOP_TYPE_IPV4_IFINDEX:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      case NEXTHOP_TYPE_IFINDEX:
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      default:
-		/* do nothing */
-		break;
-	      }
-	    num++;
-	  }
+	    num += zsend_write_nexthop (s, nexthop);
     
       stream_putc_at (s, nump, num); /* store nexthop_num */
     }
@@ -1009,69 +937,6 @@ zsend_ipv4_nexthop_lookup_mrib (struct zserv *client, struct in_addr addr, struc
 
   stream_putw_at (s, 0, stream_get_endp (s));
   
-  return zebra_server_send_message(client);
-}
-
-static int
-zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p,
-    vrf_id_t vrf_id)
-{
-  struct stream *s;
-  struct rib *rib;
-  unsigned long nump;
-  u_char num;
-  struct nexthop *nexthop;
-
-  /* Lookup nexthop. */
-  rib = rib_lookup_ipv4 (p, vrf_id);
-
-  /* Get output stream. */
-  s = client->obuf;
-  stream_reset (s);
-
-  /* Fill in result. */
-  zserv_create_header (s, ZEBRA_IPV4_IMPORT_LOOKUP, vrf_id);
-  stream_put_in_addr (s, &p->prefix);
-
-  if (rib)
-    {
-      stream_putl (s, rib->metric);
-      num = 0;
-      nump = stream_get_endp(s);
-      stream_putc (s, 0);
-      for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-            || nexthop_has_fib_child(nexthop))
-	  {
-	    stream_putc (s, nexthop->type);
-	    switch (nexthop->type)
-	      {
-	      case NEXTHOP_TYPE_IPV4:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		break;
-	      case NEXTHOP_TYPE_IPV4_IFINDEX:
-		stream_put_in_addr (s, &nexthop->gate.ipv4);
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      case NEXTHOP_TYPE_IFINDEX:
-		stream_putl (s, nexthop->ifindex);
-		break;
-	      default:
-                /* do nothing */
-		break;
-	      }
-	    num++;
-	  }
-      stream_putc_at (s, nump, num);
-    }
-  else
-    {
-      stream_putl (s, 0);
-      stream_putc (s, 0);
-    }
-
-  stream_putw_at (s, 0, stream_get_endp (s));
-
   return zebra_server_send_message(client);
 }
 
@@ -1356,22 +1221,6 @@ zread_ipv4_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   return 0;
 }
 
-/* Nexthop lookup for IPv4. */
-static int
-zread_ipv4_nexthop_lookup (struct zserv *client, u_short length,
-			   struct zebra_vrf *zvrf)
-{
-  struct in_addr addr;
-  char buf[BUFSIZ];
-
-  addr.s_addr = stream_get_ipv4 (client->ibuf);
-  if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-    zlog_debug("%s: looking up %s", __func__,
-               inet_ntop (AF_INET, &addr, buf, BUFSIZ));
-  return zsend_nexthop_lookup (client, AFI_IP, SAFI_UNICAST,
-				    zvrf->vrf_id, (union g_addr *)&addr);
-}
-
 /* MRIB Nexthop lookup for IPv4. */
 static int
 zread_ipv4_nexthop_lookup_mrib (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
@@ -1380,22 +1229,8 @@ zread_ipv4_nexthop_lookup_mrib (struct zserv *client, u_short length, struct zeb
   struct rib *rib;
 
   addr.s_addr = stream_get_ipv4 (client->ibuf);
-  rib = rib_match_ipv4_multicast (addr, NULL);
+  rib = rib_match_ipv4_multicast (zvrf->vrf_id, addr, NULL);
   return zsend_ipv4_nexthop_lookup_mrib (client, addr, rib, zvrf);
-}
-
-/* Nexthop lookup for IPv4. */
-static int
-zread_ipv4_import_lookup (struct zserv *client, u_short length,
-			  struct zebra_vrf *zvrf)
-{
-  struct prefix_ipv4 p;
-
-  p.family = AF_INET;
-  p.prefixlen = stream_getc (client->ibuf);
-  p.prefix.s_addr = stream_get_ipv4 (client->ibuf);
-
-  return zsend_ipv4_import_lookup (client, &p, zvrf->vrf_id);
 }
 
 /* Zebra server IPv6 prefix add function. */
@@ -1638,7 +1473,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   rib->vrf_id = zvrf->vrf_id;
   rib->table = zvrf->table_id;
 
-  ret = rib_add_multipath (AFI_IP, safi, &p, rib);
+  ret = rib_add_multipath (AFI_IP6, safi, &p, rib);
   /* Stats */
   if (ret > 0)
     client->v6_route_add_cnt++;
@@ -1727,22 +1562,6 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 
   client->v6_route_del_cnt++;
   return 0;
-}
-
-static int
-zread_ipv6_nexthop_lookup (struct zserv *client, u_short length,
-			   struct zebra_vrf *zvrf)
-{
-  struct in6_addr addr;
-  char buf[BUFSIZ];
-
-  stream_get (&addr, client->ibuf, 16);
-  if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-    zlog_debug("%s: looking up %s", __func__,
-               inet_ntop (AF_INET6, &addr, buf, BUFSIZ));
-
-  return zsend_nexthop_lookup (client, AFI_IP6, SAFI_UNICAST,
-			       zvrf->vrf_id, (union g_addr *)&addr);
 }
 
 /* Register zebra server router-id information.  Send current router-id */
@@ -2068,17 +1887,8 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_REDISTRIBUTE_DEFAULT_DELETE:
       zebra_redistribute_default_delete (command, client, length, zvrf);
       break;
-    case ZEBRA_IPV4_NEXTHOP_LOOKUP:
-      zread_ipv4_nexthop_lookup (client, length, zvrf);
-      break;
     case ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB:
       zread_ipv4_nexthop_lookup_mrib (client, length, zvrf);
-      break;
-    case ZEBRA_IPV6_NEXTHOP_LOOKUP:
-      zread_ipv6_nexthop_lookup (client, length, zvrf);
-      break;
-    case ZEBRA_IPV4_IMPORT_LOOKUP:
-      zread_ipv4_import_lookup (client, length, zvrf);
       break;
     case ZEBRA_HELLO:
       zread_hello (client);

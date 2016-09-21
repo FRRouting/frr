@@ -1,7 +1,7 @@
 /*
  * IS-IS Rout(e)ing protocol - isis_te.c
  *
- * This is an implementation of RFC5305
+ * This is an implementation of RFC5305 & RFC 7810
  *
  *      Copyright (C) 2014 Orange Labs
  *      http://www.orange.com

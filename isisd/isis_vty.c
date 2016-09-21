@@ -1566,21 +1566,21 @@ DEFUN (area_lsp_mtu,
   return area_lsp_mtu_set(vty, lsp_mtu);
 }
 
-DEFUN(no_area_lsp_mtu,
-      no_area_lsp_mtu_cmd,
-      "no lsp-mtu",
-      NO_STR
-      "Configure the maximum size of generated LSPs\n")
+DEFUN (no_area_lsp_mtu,
+       no_area_lsp_mtu_cmd,
+       "no lsp-mtu",
+       NO_STR
+       "Configure the maximum size of generated LSPs\n")
 {
   return area_lsp_mtu_set(vty, DEFAULT_LSP_MTU);
 }
 
-ALIAS(no_area_lsp_mtu,
-      no_area_lsp_mtu_arg_cmd,
-      "no lsp-mtu <128-4352>",
-      NO_STR
-      "Configure the maximum size of generated LSPs\n"
-      "Maximum size of generated LSPs\n");
+ALIAS (no_area_lsp_mtu,
+       no_area_lsp_mtu_arg_cmd,
+       "no lsp-mtu <128-4352>",
+       NO_STR
+       "Configure the maximum size of generated LSPs\n"
+       "Maximum size of generated LSPs\n");
 
 DEFUN (is_type,
        is_type_cmd,

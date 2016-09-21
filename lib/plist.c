@@ -34,6 +34,11 @@
 
 #include "plist_int.h"
 
+DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST,       "Prefix List")
+DEFINE_MTYPE_STATIC(LIB, MPREFIX_LIST_STR,  "Prefix List Str")
+DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST_ENTRY, "Prefix List Entry")
+DEFINE_MTYPE_STATIC(LIB, PREFIX_LIST_TRIE,  "Prefix List Trie Table")
+
 /* not currently changeable, code assumes bytes further down */
 #define PLC_BITS	8
 #define PLC_LEN		(1 << PLC_BITS)
@@ -236,7 +241,7 @@ prefix_list_insert (afi_t afi, int orf, const char *name)
 
   /* Allocate new prefix_list and copy given name. */
   plist = prefix_list_new ();
-  plist->name = XSTRDUP (MTYPE_PREFIX_LIST_STR, name);
+  plist->name = XSTRDUP (MTYPE_MPREFIX_LIST_STR, name);
   plist->master = master;
   plist->trie = XCALLOC (MTYPE_PREFIX_LIST_TRIE, sizeof (struct pltrie_table));
 
@@ -370,7 +375,7 @@ prefix_list_delete (struct prefix_list *plist)
     (*master->delete_hook) (plist);
 
   if (plist->name)
-    XFREE (MTYPE_PREFIX_LIST_STR, plist->name);
+    XFREE (MTYPE_MPREFIX_LIST_STR, plist->name);
 
   XFREE (MTYPE_PREFIX_LIST_TRIE, plist->trie);
 

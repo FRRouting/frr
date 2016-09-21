@@ -1236,7 +1236,7 @@ DEFUN (debug_isis_lsp_sched,
 
 DEFUN (no_debug_isis_lsp_sched,
        no_debug_isis_lsp_sched_cmd,
-       "no debug isis lsp-gen",
+       "no debug isis lsp-sched",
        UNDEBUG_STR
        "IS-IS information\n"
        "IS-IS scheduling of LSP generation\n")

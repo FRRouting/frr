@@ -344,164 +344,160 @@ isis_route_set_delete (struct vty *vty, struct route_map_index *index,
 
 /* ------------------------------------------------------------*/
 
-DEFUN(match_ip_address,
-      match_ip_address_cmd,
-      "match ip address (<1-199>|<1300-2699>|WORD)",
-      MATCH_STR
-      IP_STR
-      "Match address of route\n"
-      "IP access-list number\n"
-      "IP access-list number (expanded range)\n"
-      "IP Access-list name\n")
+DEFUN (match_ip_address,
+       match_ip_address_cmd,
+       "match ip address (<1-199>|<1300-2699>|WORD)",
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 {
   return isis_route_match_add(vty, vty->index, "ip address", argv[0]);
 }
 
-DEFUN(no_match_ip_address,
-      no_match_ip_address_val_cmd,
-      "no match ip address (<1-199>|<1300-2699>|WORD)",
-      NO_STR
-      MATCH_STR
-      IP_STR
-      "Match address of route\n"
-      "IP access-list number\n"
-      "IP access-list number (expanded range)\n"
-      "IP Access-list name\n")
+DEFUN (no_match_ip_address,
+       no_match_ip_address_val_cmd,
+       "no match ip address (<1-199>|<1300-2699>|WORD)",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 {
   if (argc == 0)
     return isis_route_match_delete(vty, vty->index, "ip address", NULL);
   return isis_route_match_delete(vty, vty->index, "ip address", argv[0]);
 }
 
-ALIAS(no_match_ip_address,
-      no_match_ip_address_cmd,
-      "no match ip address",
-      NO_STR
-      MATCH_STR
-      IP_STR
-      "Match address of route\n"
-);
+ALIAS (no_match_ip_address,
+       no_match_ip_address_cmd,
+       "no match ip address",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n")
 
 /* ------------------------------------------------------------*/
 
-DEFUN(match_ip_address_prefix_list,
-      match_ip_address_prefix_list_cmd,
-      "match ip address prefix-list WORD",
-      MATCH_STR
-      IP_STR
-      "Match address of route\n"
-      "Match entries of prefix-lists\n"
-      "IP prefix-list name\n")
+DEFUN (match_ip_address_prefix_list,
+       match_ip_address_prefix_list_cmd,
+       "match ip address prefix-list WORD",
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
   return isis_route_match_add(vty, vty->index, "ip address prefix-list", argv[0]);
 }
 
-DEFUN(no_match_ip_address_prefix_list,
-      no_match_ip_address_prefix_list_cmd,
-      "no match ip address prefix-list",
-      NO_STR
-      MATCH_STR
-      IP_STR
-      "Match address of route\n"
-      "Match entries of prefix-lists\n")
+DEFUN (no_match_ip_address_prefix_list,
+       no_match_ip_address_prefix_list_cmd,
+       "no match ip address prefix-list",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n")
 {
   if (argc == 0)
     return isis_route_match_delete (vty, vty->index, "ip address prefix-list", NULL);
   return isis_route_match_delete (vty, vty->index, "ip address prefix-list", argv[0]);
 }
 
-ALIAS(no_match_ip_address_prefix_list,
-      no_match_ip_address_prefix_list_val_cmd,
-      "no match ip address prefix-list WORD",
-      NO_STR
-      MATCH_STR
-      IP_STR
-      "Match address of route\n"
-      "Match entries of prefix-lists\n"
-      "IP prefix-list name\n"
-);
+ALIAS (no_match_ip_address_prefix_list,
+       no_match_ip_address_prefix_list_val_cmd,
+       "no match ip address prefix-list WORD",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 
 /* ------------------------------------------------------------*/
 
-DEFUN(match_ipv6_address,
-      match_ipv6_address_cmd,
-      "match ipv6 address WORD",
-      MATCH_STR
-      IPV6_STR
-      "Match IPv6 address of route\n"
-      "IPv6 access-list name\n")
+DEFUN (match_ipv6_address,
+       match_ipv6_address_cmd,
+       "match ipv6 address WORD",
+       MATCH_STR
+       IPV6_STR
+       "Match IPv6 address of route\n"
+       "IPv6 access-list name\n")
 {
   return isis_route_match_add(vty, vty->index, "ipv6 address", argv[0]);
 }
 
-DEFUN(no_match_ipv6_address,
-      no_match_ipv6_address_val_cmd,
-      "no match ipv6 address WORD",
-      NO_STR
-      MATCH_STR
-      IPV6_STR
-      "Match IPv6 address of route\n"
-      "IPv6 access-list name\n")
+DEFUN (no_match_ipv6_address,
+       no_match_ipv6_address_val_cmd,
+       "no match ipv6 address WORD",
+       NO_STR
+       MATCH_STR
+       IPV6_STR
+       "Match IPv6 address of route\n"
+       "IPv6 access-list name\n")
 {
   if (argc == 0)
     return isis_route_match_delete(vty, vty->index, "ipv6 address", NULL);
   return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[0]);
 }
 
-ALIAS(no_match_ipv6_address,
-      no_match_ipv6_address_cmd,
-      "no match ipv6 address",
-      NO_STR
-      MATCH_STR
-      IPV6_STR
-      "Match IPv6 address of route\n"
-);
+ALIAS (no_match_ipv6_address,
+       no_match_ipv6_address_cmd,
+       "no match ipv6 address",
+       NO_STR
+       MATCH_STR
+       IPV6_STR
+       "Match IPv6 address of route\n")
 
 /* ------------------------------------------------------------*/
 
-DEFUN(match_ipv6_address_prefix_list,
-      match_ipv6_address_prefix_list_cmd,
-      "match ipv6 address prefix-list WORD",
-      MATCH_STR
-      IPV6_STR
-      "Match address of route\n"
-      "Match entries of prefix-lists\n"
-      "IP prefix-list name\n")
+DEFUN (match_ipv6_address_prefix_list,
+       match_ipv6_address_prefix_list_cmd,
+       "match ipv6 address prefix-list WORD",
+       MATCH_STR
+       IPV6_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
   return isis_route_match_add(vty, vty->index, "ipv6 address prefix-list", argv[0]);
 }
 
-DEFUN(no_match_ipv6_address_prefix_list,
-      no_match_ipv6_address_prefix_list_cmd,
-      "no match ipv6 address prefix-list",
-      NO_STR
-      MATCH_STR
-      IPV6_STR
-      "Match address of route\n"
-      "Match entries of prefix-lists\n")
+DEFUN (no_match_ipv6_address_prefix_list,
+       no_match_ipv6_address_prefix_list_cmd,
+       "no match ipv6 address prefix-list",
+       NO_STR
+       MATCH_STR
+       IPV6_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n")
 {
   if (argc == 0)
     return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", NULL);
   return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", argv[0]);
 }
 
-ALIAS(no_match_ipv6_address_prefix_list,
-      no_match_ipv6_address_prefix_list_val_cmd,
-      "no match ipv6 address prefix-list WORD",
-      NO_STR
-      MATCH_STR
-      IPV6_STR
-      "Match address of route\n"
-      "Match entries of prefix-lists\n"
-      "IP prefix-list name\n"
-);
+ALIAS (no_match_ipv6_address_prefix_list,
+       no_match_ipv6_address_prefix_list_val_cmd,
+       "no match ipv6 address prefix-list WORD",
+       NO_STR
+       MATCH_STR
+       IPV6_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 
 /* ------------------------------------------------------------*/
 
 /* set metric already exists e.g. in the ospf routemap. vtysh doesn't cope well with different
  * commands at the same node, therefore add set metric with the same 32-bit range as ospf and
  * verify that the input is a valid isis metric */
-DEFUN(set_metric,
+DEFUN (set_metric,
       set_metric_cmd,
       "set metric <0-4294967295>",
       SET_STR
@@ -511,7 +507,7 @@ DEFUN(set_metric,
   return isis_route_set_add(vty, vty->index, "metric", argv[0]);
 }
 
-DEFUN(no_set_metric,
+DEFUN (no_set_metric,
       no_set_metric_val_cmd,
       "no set metric <0-4294967295>",
       NO_STR
@@ -524,13 +520,12 @@ DEFUN(no_set_metric,
   return isis_route_set_delete(vty, vty->index, "metric", argv[0]);
 }
 
-ALIAS(no_set_metric,
-      no_set_metric_cmd,
-      "no set metric",
-      NO_STR
-      SET_STR
-      "Metric vale for destination routing protocol\n"
-);
+ALIAS (no_set_metric,
+       no_set_metric_cmd,
+       "no set metric",
+       NO_STR
+       SET_STR
+       "Metric vale for destination routing protocol\n");
 
 void
 isis_route_map_init(void)

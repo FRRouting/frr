@@ -28,6 +28,8 @@
 #include "memory.h"
 #include "log.h"
 
+DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix")
+
 /* Maskbit. */
 static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 			         0xf8, 0xfc, 0xfe, 0xff};

@@ -35,6 +35,8 @@
 #include <ucontext.h>
 #endif
 
+DEFINE_MTYPE_STATIC(LIB, ZLOG, "Logging")
+
 static int logfile_fd = -1;	/* Used in signal handler. */
 
 struct zlog *zlog_default = NULL;
@@ -680,6 +682,14 @@ _zlog_assert_failed (const char *assertion, const char *file,
   abort();
 }
 
+void
+memory_oom (size_t size, const char *name)
+{
+	zlog_err("out of memory: failed to allocate %zu bytes for %s"
+		 "object", size, name);
+	zlog_backtrace(LOG_ERR);
+	abort();
+}
 
 /* Open log stream */
 struct zlog *
@@ -898,11 +908,6 @@ static const struct zebra_desc_table command_types[] = {
   DESC_ENTRY	(ZEBRA_REDISTRIBUTE_DELETE),
   DESC_ENTRY	(ZEBRA_REDISTRIBUTE_DEFAULT_ADD),
   DESC_ENTRY	(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE),
-  DESC_ENTRY	(ZEBRA_IPV4_NEXTHOP_LOOKUP),
-  DESC_ENTRY	(ZEBRA_IPV6_NEXTHOP_LOOKUP),
-  DESC_ENTRY	(ZEBRA_IPV4_IMPORT_LOOKUP),
-  DESC_ENTRY	(ZEBRA_IPV6_IMPORT_LOOKUP),
-  DESC_ENTRY	(ZEBRA_INTERFACE_RENAME),
   DESC_ENTRY	(ZEBRA_ROUTER_ID_ADD),
   DESC_ENTRY	(ZEBRA_ROUTER_ID_DELETE),
   DESC_ENTRY	(ZEBRA_ROUTER_ID_UPDATE),

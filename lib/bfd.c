@@ -33,6 +33,8 @@
 #include "vty.h"
 #include "bfd.h"
 
+DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info")
+
 int bfd_debug = 0;
 struct bfd_gbl bfd_gbl;
 

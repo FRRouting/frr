@@ -31,6 +31,8 @@
 #include <signal.h>
 
 #include "memory.h"
+#include "vrf.h"
+#include "memory_vty.h"
 #include "filter.h"
 #include "vty.h"
 #include "sigevent.h"

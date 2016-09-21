@@ -23,6 +23,10 @@
 #define _ZEBRA_ROUTEMAP_H
 
 #include "prefix.h"
+#include "memory.h"
+DECLARE_MTYPE(ROUTE_MAP_NAME)
+DECLARE_MTYPE(ROUTE_MAP_RULE)
+DECLARE_MTYPE(ROUTE_MAP_COMPILED)
 
 /* Route map's type. */
 enum route_map_type

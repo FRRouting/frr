@@ -14,7 +14,6 @@ gitversion.h.tmp
 .arch-ids
 *~
 *.loT
-memtypes.h
 route_types.h
 command_lex.c
 command_parse.c

@@ -318,26 +318,6 @@ struct in_pktinfo
 #endif
 
 /* 
- * OSPF Fragmentation / fragmented writes
- *
- * ospfd can support writing fragmented packets, for cases where
- * kernel will not fragment IP_HDRINCL and/or multicast destined
- * packets (ie TTBOMK all kernels, BSD, SunOS, Linux). However,
- * SunOS, probably BSD too, clobber the user supplied IP ID and IP
- * flags fields, hence user-space fragmentation will not work.
- * Only Linux is known to leave IP header unmolested.
- * Further, fragmentation really should be done the kernel, which already
- * supports it, and which avoids nasty IP ID state problems.
- *
- * Fragmentation of OSPF packets can be required on networks with router
- * with many many interfaces active in one area, or on networks with links
- * with low MTUs.
- */
-#ifdef GNU_LINUX
-#define WANT_OSPF_WRITE_FRAGMENT
-#endif
-
-/* 
  * IP_HDRINCL / struct ip byte order
  *
  * Linux: network byte order
@@ -396,57 +376,53 @@ struct in_pktinfo
 #define ZEBRA_PORT			2600
 
 /* Zebra message types. */
-#define ZEBRA_INTERFACE_ADD                1
-#define ZEBRA_INTERFACE_DELETE             2
-#define ZEBRA_INTERFACE_ADDRESS_ADD        3
-#define ZEBRA_INTERFACE_ADDRESS_DELETE     4
-#define ZEBRA_INTERFACE_UP                 5
-#define ZEBRA_INTERFACE_DOWN               6
-#define ZEBRA_IPV4_ROUTE_ADD               7
-#define ZEBRA_IPV4_ROUTE_DELETE            8
-#define ZEBRA_IPV6_ROUTE_ADD               9
-#define ZEBRA_IPV6_ROUTE_DELETE           10
-#define ZEBRA_REDISTRIBUTE_ADD            11
-#define ZEBRA_REDISTRIBUTE_DELETE         12
-#define ZEBRA_REDISTRIBUTE_DEFAULT_ADD    13
-#define ZEBRA_REDISTRIBUTE_DEFAULT_DELETE 14
-#define ZEBRA_IPV4_NEXTHOP_LOOKUP         15
-#define ZEBRA_IPV6_NEXTHOP_LOOKUP         16
-#define ZEBRA_IPV4_IMPORT_LOOKUP          17
-#define ZEBRA_IPV6_IMPORT_LOOKUP          18
-#define ZEBRA_INTERFACE_RENAME            19
-#define ZEBRA_ROUTER_ID_ADD               20
-#define ZEBRA_ROUTER_ID_DELETE            21
-#define ZEBRA_ROUTER_ID_UPDATE            22
-#define ZEBRA_HELLO                       23
-#define ZEBRA_NEXTHOP_REGISTER            24
-#define ZEBRA_NEXTHOP_UNREGISTER          25
-#define ZEBRA_NEXTHOP_UPDATE              26
-#define ZEBRA_INTERFACE_NBR_ADDRESS_ADD   27
-#define ZEBRA_INTERFACE_NBR_ADDRESS_DELETE 28
-#define ZEBRA_INTERFACE_BFD_DEST_UPDATE   29
-#define ZEBRA_IMPORT_ROUTE_REGISTER       30
-#define ZEBRA_IMPORT_ROUTE_UNREGISTER     31
-#define ZEBRA_IMPORT_CHECK_UPDATE         32
-#define ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD 33
-#define ZEBRA_BFD_DEST_REGISTER           34
-#define ZEBRA_BFD_DEST_DEREGISTER         35
-#define ZEBRA_BFD_DEST_UPDATE             36
-#define ZEBRA_BFD_DEST_REPLAY             37
-#define ZEBRA_REDISTRIBUTE_IPV4_ADD       38
-#define ZEBRA_REDISTRIBUTE_IPV4_DEL       39
-#define ZEBRA_REDISTRIBUTE_IPV6_ADD       40
-#define ZEBRA_REDISTRIBUTE_IPV6_DEL       41
-#define ZEBRA_VRF_UNREGISTER              42
-#define ZEBRA_VRF_ADD                     43
-#define ZEBRA_VRF_DELETE                  44
-#define ZEBRA_INTERFACE_VRF_UPDATE        45
-#define ZEBRA_BFD_CLIENT_REGISTER         46
-#define ZEBRA_INTERFACE_ENABLE_RADV       47
-#define ZEBRA_INTERFACE_DISABLE_RADV      48
-#define ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB    49
-#define ZEBRA_INTERFACE_LINK_PARAMS       50
-#define ZEBRA_MESSAGE_MAX                 51
+typedef enum {
+  ZEBRA_INTERFACE_ADD,
+  ZEBRA_INTERFACE_DELETE,
+  ZEBRA_INTERFACE_ADDRESS_ADD,
+  ZEBRA_INTERFACE_ADDRESS_DELETE,
+  ZEBRA_INTERFACE_UP,
+  ZEBRA_INTERFACE_DOWN,
+  ZEBRA_IPV4_ROUTE_ADD,
+  ZEBRA_IPV4_ROUTE_DELETE,
+  ZEBRA_IPV6_ROUTE_ADD,
+  ZEBRA_IPV6_ROUTE_DELETE,
+  ZEBRA_REDISTRIBUTE_ADD,
+  ZEBRA_REDISTRIBUTE_DELETE,
+  ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
+  ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
+  ZEBRA_ROUTER_ID_ADD,
+  ZEBRA_ROUTER_ID_DELETE,
+  ZEBRA_ROUTER_ID_UPDATE,
+  ZEBRA_HELLO,
+  ZEBRA_NEXTHOP_REGISTER,
+  ZEBRA_NEXTHOP_UNREGISTER,
+  ZEBRA_NEXTHOP_UPDATE,
+  ZEBRA_INTERFACE_NBR_ADDRESS_ADD,
+  ZEBRA_INTERFACE_NBR_ADDRESS_DELETE,
+  ZEBRA_INTERFACE_BFD_DEST_UPDATE,
+  ZEBRA_IMPORT_ROUTE_REGISTER,
+  ZEBRA_IMPORT_ROUTE_UNREGISTER,
+  ZEBRA_IMPORT_CHECK_UPDATE,
+  ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD,
+  ZEBRA_BFD_DEST_REGISTER,
+  ZEBRA_BFD_DEST_DEREGISTER,
+  ZEBRA_BFD_DEST_UPDATE,
+  ZEBRA_BFD_DEST_REPLAY,
+  ZEBRA_REDISTRIBUTE_IPV4_ADD,
+  ZEBRA_REDISTRIBUTE_IPV4_DEL,
+  ZEBRA_REDISTRIBUTE_IPV6_ADD,
+  ZEBRA_REDISTRIBUTE_IPV6_DEL,
+  ZEBRA_VRF_UNREGISTER,
+  ZEBRA_VRF_ADD,
+  ZEBRA_VRF_DELETE,
+  ZEBRA_INTERFACE_VRF_UPDATE,
+  ZEBRA_BFD_CLIENT_REGISTER,
+  ZEBRA_INTERFACE_ENABLE_RADV,
+  ZEBRA_INTERFACE_DISABLE_RADV,
+  ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB,
+  ZEBRA_INTERFACE_LINK_PARAMS,
+} zebra_message_types_t;
 
 /* Marker value used in new Zserv, in the byte location corresponding
  * the command value in the old zserv header. To allow old and new
@@ -541,44 +517,5 @@ typedef u_int16_t zebra_command_t;
 
 /* VRF ID type. */
 typedef u_int16_t vrf_id_t;
-
-/* FIFO -- first in first out structure and macros.  */
-struct fifo
-{
-  struct fifo *next;
-  struct fifo *prev;
-};
-
-#define FIFO_INIT(F)                                  \
-  do {                                                \
-    struct fifo *Xfifo = (struct fifo *)(F);          \
-    Xfifo->next = Xfifo->prev = Xfifo;                \
-  } while (0)
-
-#define FIFO_ADD(F,N)                                 \
-  do {                                                \
-    struct fifo *Xfifo = (struct fifo *)(F);          \
-    struct fifo *Xnode = (struct fifo *)(N);          \
-    Xnode->next = Xfifo;                              \
-    Xnode->prev = Xfifo->prev;                        \
-    Xfifo->prev = Xfifo->prev->next = Xnode;          \
-  } while (0)
-
-#define FIFO_DEL(N)                                   \
-  do {                                                \
-    struct fifo *Xnode = (struct fifo *)(N);          \
-    Xnode->prev->next = Xnode->next;                  \
-    Xnode->next->prev = Xnode->prev;                  \
-  } while (0)
-
-#define FIFO_HEAD(F)                                  \
-  ((((struct fifo *)(F))->next == (struct fifo *)(F)) \
-  ? NULL : (F)->next)
-
-#define FIFO_EMPTY(F)                                 \
-  (((struct fifo *)(F))->next == (struct fifo *)(F))
-
-#define FIFO_TOP(F)                                   \
-  (FIFO_EMPTY(F) ? NULL : ((struct fifo *)(F))->next)
 
 #endif /* _ZEBRA_H */

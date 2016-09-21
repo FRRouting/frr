@@ -26,12 +26,6 @@ AM_SILENT_RULES([yes])
 AC_CONFIG_HEADERS(config.h)
 
 AC_PATH_PROG(PERL, perl)
-AC_CHECK_PROG([GAWK],[gawk],[gawk],[not-in-PATH])
-if test "x$GAWK" = "xnot-in-PATH" ; then
-	AC_MSG_ERROR([GNU awk is required for lib/memtype.h made by memtypes.awk.
-BSD awk complains: awk: gensub doesn't support backreferences (subst "\1") ])
-fi
-AC_ARG_VAR([GAWK],[GNU AWK])
 
 dnl default is to match previous behavior
 exampledir=${sysconfdir}
@@ -317,8 +311,6 @@ AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
   AS_HELP_STRING([--enable-cumulus], [enable Cumulus Switch Special Extensions]))
-AC_ARG_ENABLE(bgp-standalone,
-  AS_HELP_STRING([--enable-bgp-standalone], [Modify code to allow BGP to work without Zebra]))
 AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 
@@ -368,10 +360,6 @@ fi
 
 if test "${enable_cumulus}" = "yes" ; then
   AC_DEFINE(HAVE_CUMULUS,,Compile Special Cumulus Code in)
-fi
-
-if test "${enable_bgp_standalone}" = "yes" ; then
-  AC_DEFINE(HAVE_BGP_STANDALONE,,Allow BGP to work without Zebra)
 fi
 
 if test "${enable_shell_access}" = "yes"; then

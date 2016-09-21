@@ -25,6 +25,7 @@
 #include "getopt.h"
 #include "privs.h"
 #include "memory.h"
+#include "memory_vty.h"
 
 zebra_capabilities_t _caps_p [] = 
 {

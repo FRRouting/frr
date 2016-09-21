@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include "log.h"
 #include "memory.h"
+#include "memory_vty.h"
 #include "hash.h"
 #include "queue.h"
 #include "filter.h"
@@ -10246,7 +10247,7 @@ DEFUN (show_bgp_memory,
                          count * sizeof (struct peer)),
            VTY_NEWLINE);
   
-  if ((count = mtype_stats_alloc (MTYPE_BGP_PEER_GROUP)))
+  if ((count = mtype_stats_alloc (MTYPE_PEER_GROUP)))
     vty_out (vty, "%ld peer groups, using %s of memory%s", count,
              mtype_memstr (memstrbuf, sizeof (memstrbuf),
                            count * sizeof (struct peer_group)),
@@ -10738,6 +10739,33 @@ ALIAS (show_ip_bgp_ipv4_summary,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Summary of BGP neighbor status\n")
+
+DEFUN (show_bgp_ipv4_vpn_summary,
+       show_bgp_ipv4_vpn_summary_cmd,
+       "show bgp ipv4 vpn summary {json}",
+       SHOW_STR
+       BGP_STR
+       "IPv4\n"
+       "Display VPN NLRI specific information\n"
+       "Summary of BGP neighbor status\n"
+       JSON_STR)
+{
+  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, use_json (argc, argv));
+}
+
+/* `show ip bgp summary' commands. */
+DEFUN (show_bgp_ipv6_vpn_summary,
+       show_bgp_ipv6_vpn_summary_cmd,
+       "show bgp ipv6 vpn summary {json}",
+       SHOW_STR
+       BGP_STR
+       "IPv6\n"
+       "Display VPN NLRI specific information\n"
+       "Summary of BGP neighbor status\n"
+       JSON_STR)
+{
+  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MPLS_VPN, use_json (argc, argv));
+}
 
 DEFUN (show_ip_bgp_instance_ipv4_summary,
        show_ip_bgp_instance_ipv4_summary_cmd,
@@ -16009,6 +16037,12 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_summary_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
 #endif /* HAVE_IPV6 */
+
+  install_element (VIEW_NODE, &show_bgp_ipv4_vpn_summary_cmd);
+  install_element (ENABLE_NODE, &show_bgp_ipv4_vpn_summary_cmd);
+
+  install_element (VIEW_NODE, &show_bgp_ipv6_vpn_summary_cmd);
+  install_element (ENABLE_NODE, &show_bgp_ipv6_vpn_summary_cmd);
 
   /* "show ip bgp neighbors" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_cmd);

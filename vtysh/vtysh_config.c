@@ -27,6 +27,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
 
+DEFINE_MGROUP(MVTYSH, "vtysh")
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG,      "Vtysh configuration")
+DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line")
+
 vector configvec;
 
 extern int vtysh_writeconfig_integrated;

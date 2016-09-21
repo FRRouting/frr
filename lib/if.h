@@ -23,6 +23,10 @@ Boston, MA 02111-1307, USA.  */
 
 #include "zebra.h"
 #include "linklist.h"
+#include "memory.h"
+
+DECLARE_MTYPE(IF)
+DECLARE_MTYPE(CONNECTED_LABEL)
 
 /* Interface link-layer type, if known. Derived from:
  *

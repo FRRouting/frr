@@ -29,6 +29,8 @@
 #include "filter.h"
 #include "log.h"
 
+#include "ospf_memory.h"
+
 #define OSPF_VERSION            2
 
 /* VTY port number. */

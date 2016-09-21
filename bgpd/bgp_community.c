@@ -23,6 +23,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "hash.h"
 #include "memory.h"
 
+#include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_community.h"
 
 /* Hash of community attribute. */

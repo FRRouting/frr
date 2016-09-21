@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include "memory.h"
+#include "zebra_memory.h"
 #include "if.h"
 #include "prefix.h"
 #include "command.h"
@@ -30,6 +31,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "lib/json.h"
+#include "routemap.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
@@ -311,7 +313,7 @@ DEFUN (show_ip_rpf_addr,
       return CMD_WARNING;
     }
 
-  rib = rib_match_ipv4_multicast (addr, &rn);
+  rib = rib_match_ipv4_multicast (VRF_DEFAULT, addr, &rn);
 
   if (rib)
     vty_show_ip_route_detail (vty, rn, 1);

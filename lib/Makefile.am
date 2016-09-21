@@ -13,13 +13,13 @@ libzebra_la_SOURCES = \
 	checksum.c vector.c linklist.c vty.c \
 	graph.c command_parse.y command_lex.l command_match.c \
 	command.c \
-	sockunion.c prefix.c thread.c if.c memory.c buffer.c table.c hash.c \
+	sockunion.c prefix.c thread.c if.c buffer.c table.c hash.c \
 	filter.c routemap.c distribute.c stream.c str.c log.c plist.c \
 	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
-	sigevent.c pqueue.c jhash.c memtypes.c workqueue.c nexthop.c json.c \
-	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c
+	sigevent.c pqueue.c jhash.c workqueue.c nexthop.c json.c \
+	ptm_lib.c csv.c bfd.c vrf.c systemd.c ns.c memory.c memory_vty.c
 
-BUILT_SOURCES = memtypes.h route_types.h gitversion.h command_parse.h
+BUILT_SOURCES = route_types.h gitversion.h command_parse.h
 
 libzebra_la_DEPENDENCIES = @LIB_REGEX@
 
@@ -33,9 +33,10 @@ pkginclude_HEADERS = \
 	memory.h network.h prefix.h routemap.h distribute.h sockunion.h \
 	str.h stream.h table.h thread.h vector.h version.h vty.h zebra.h \
 	plist.h zclient.h sockopt.h smux.h md5.h if_rmap.h keychain.h \
-	privs.h sigevent.h pqueue.h jhash.h zassert.h memtypes.h \
+	privs.h sigevent.h pqueue.h jhash.h zassert.h \
 	workqueue.h route_types.h libospf.h nexthop.h json.h \
-	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h
+	ptm_lib.h csv.h bfd.h vrf.h ns.h systemd.h bitfield.h \
+	fifo.h memory_vty.h
 
 noinst_HEADERS = \
 	plist_int.h
@@ -43,12 +44,8 @@ noinst_HEADERS = \
 EXTRA_DIST = \
 	regex.c regex-gnu.h \
 	queue.h \
-	memtypes.awk \
 	route_types.pl route_types.txt \
 	gitversion.pl
-
-memtypes.h: $(srcdir)/memtypes.c $(srcdir)/memtypes.awk
-	($(GAWK) -f $(srcdir)/memtypes.awk $(srcdir)/memtypes.c > $@)
 
 route_types.h: $(srcdir)/route_types.txt $(srcdir)/route_types.pl
 	@PERL@ $(srcdir)/route_types.pl < $(srcdir)/route_types.txt > $@

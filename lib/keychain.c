@@ -25,6 +25,9 @@ Boston, MA 02111-1307, USA.  */
 #include "linklist.h"
 #include "keychain.h"
 
+DEFINE_MTYPE_STATIC(LIB, KEY,      "Key")
+DEFINE_MTYPE_STATIC(LIB, KEYCHAIN, "Key chain")
+
 /* Master list of key chain. */
 struct list *keychain_list;
 

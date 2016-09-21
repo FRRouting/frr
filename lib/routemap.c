@@ -30,6 +30,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "hash.h"
 
+DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP,          "Route map")
+DEFINE_MTYPE(       LIB, ROUTE_MAP_NAME,     "Route map name")
+DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_INDEX,    "Route map index")
+DEFINE_MTYPE(       LIB, ROUTE_MAP_RULE,     "Route map rule")
+DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_RULE_STR, "Route map rule str")
+DEFINE_MTYPE(       LIB, ROUTE_MAP_COMPILED, "Route map compiled")
+DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP,      "Route map dependency")
+
 /* Vector for route match rules. */
 static vector route_match_vec;
 

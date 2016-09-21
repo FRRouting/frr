@@ -29,6 +29,10 @@
 #include "prefix.h"
 #include "log.h"
 
+DEFINE_MTYPE_STATIC(LIB, STREAM,      "Stream")
+DEFINE_MTYPE_STATIC(LIB, STREAM_DATA, "Stream data")
+DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
+
 /* Tests whether a position is valid */ 
 #define GETP_VALID(S,G) \
   ((G) <= (S)->endp)

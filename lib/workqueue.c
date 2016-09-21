@@ -29,6 +29,10 @@
 #include "command.h"
 #include "log.h"
 
+DEFINE_MTYPE(LIB, WORK_QUEUE,             "Work queue")
+DEFINE_MTYPE_STATIC(LIB, WORK_QUEUE_ITEM, "Work queue item")
+DEFINE_MTYPE_STATIC(LIB, WORK_QUEUE_NAME, "Work queue name string")
+
 /* master list of work_queues */
 static struct list _work_queues;
 /* pointer primarily to avoid an otherwise harmless warning on
@@ -178,11 +182,11 @@ work_queue_item_requeue (struct work_queue *wq, struct listnode *ln)
   LISTNODE_ATTACH (wq->items, ln); /* attach to end of list */
 }
 
-DEFUN(show_work_queues,
-      show_work_queues_cmd,
-      "show work-queues",
-      SHOW_STR
-      "Work Queue information\n")
+DEFUN (show_work_queues,
+       show_work_queues_cmd,
+       "show work-queues",
+       SHOW_STR
+       "Work Queue information\n")
 {
   struct listnode *node;
   struct work_queue *wq;

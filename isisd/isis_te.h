@@ -1,7 +1,7 @@
 /*
  * IS-IS Rout(e)ing protocol - isis_te.c
  *
- * This is an implementation of RFC5305, RFC 5307 and draft-ietf-isis-te-metric-extensions-11
+ * This is an implementation of RFC5305, RFC 5307 and RFC 7810
  *
  *      Copyright (C) 2014 Orange Labs
  *      http://www.orange.com
@@ -183,7 +183,7 @@ struct te_subtlv_rip
 } __attribute__((__packed__));
 
 
-/* draft-ietf-isis-te-metric-extensions-11.txt */
+/* TE Metric Extensions - RFC 7810 */
 /* Link Sub-TLV: Average Link Delay */
 #define TE_SUBTLV_AV_DELAY	33
 struct te_subtlv_av_delay
@@ -305,7 +305,7 @@ struct mpls_te_circuit
   /* RFC5316 */
   struct te_subtlv_ras ras;
   struct te_subtlv_rip rip;
-  /* draft-ietf-isis-te-metric-extension */
+  /* RFC7810 */
   struct te_subtlv_av_delay av_delay;
   struct te_subtlv_mm_delay mm_delay;
   struct te_subtlv_delay_var delay_var;

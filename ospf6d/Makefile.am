@@ -10,6 +10,7 @@ noinst_LIBRARIES = libospf6.a
 sbin_PROGRAMS = ospf6d
 
 libospf6_a_SOURCES = \
+	ospf6_memory.c \
 	ospf6_network.c ospf6_message.c ospf6_lsa.c ospf6_lsdb.c \
 	ospf6_top.c ospf6_area.c ospf6_interface.c ospf6_neighbor.c \
 	ospf6_flood.c ospf6_route.c ospf6_intra.c ospf6_zebra.c \
@@ -17,6 +18,7 @@ libospf6_a_SOURCES = \
 	ospf6d.c ospf6_bfd.c
 
 noinst_HEADERS = \
+	ospf6_memory.h \
 	ospf6_network.h ospf6_message.h ospf6_lsa.h ospf6_lsdb.h \
 	ospf6_top.h ospf6_area.h ospf6_interface.h ospf6_neighbor.h \
 	ospf6_flood.h ospf6_route.h ospf6_intra.h ospf6_zebra.h \

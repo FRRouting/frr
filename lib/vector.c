@@ -24,6 +24,9 @@
 #include "vector.h"
 #include "memory.h"
 
+DEFINE_MTYPE_STATIC(LIB, VECTOR,       "Vector")
+DEFINE_MTYPE(       LIB, VECTOR_INDEX, "Vector index")
+
 /* Initialize vector : allocate memory and return vector. */
 vector
 vector_init (unsigned int size)

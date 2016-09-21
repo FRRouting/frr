@@ -1,96 +1,198 @@
-/* Memory management routine
-   Copyright (C) 1998 Kunihiro Ishiguro
+/*
+ * Copyright (c) 2015-16  David Lamparter, for NetDEF, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
 
-This file is part of GNU Zebra.
+#ifndef _QUAGGA_MEMORY_H
+#define _QUAGGA_MEMORY_H
 
-GNU Zebra is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
-
-GNU Zebra is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GNU Zebra; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
-
-#ifndef _ZEBRA_MEMORY_H
-#define _ZEBRA_MEMORY_H
+#include <stdlib.h>
 
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
 
-/* For pretty printing of memory allocate information. */
-struct memory_list
+#define SIZE_VAR ~0UL
+struct memtype
 {
-  int index;
-  const char *format;
+  struct memtype *next, **ref;
+  const char *name;
+  size_t n_alloc;
+  size_t size;
 };
 
-struct mlist {
-  struct memory_list *list;
+struct memgroup
+{
+  struct memgroup *next, **ref;
+  struct memtype *types, **insert;
   const char *name;
 };
- 
-#include "lib/memtypes.h"
 
-extern struct mlist mlists[];
+#if defined(__clang__)
+# if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 5)
+#  define _RET_NONNULL  , returns_nonnull
+# endif
+# define _CONSTRUCTOR(x) constructor(x)
+#elif defined(__GNUC__)
+# if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9)
+#  define _RET_NONNULL  , returns_nonnull
+# endif
+# if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#  define _CONSTRUCTOR(x) constructor(x)
+#  define _DESTRUCTOR(x)  destructor(x)
+#  define _ALLOC_SIZE(x)  alloc_size(x)
+# endif
+#endif
 
-/* #define MEMORY_LOG */
-#ifdef MEMORY_LOG
-#define XMALLOC(mtype, size) \
-  mtype_zmalloc (__FILE__, __LINE__, (mtype), (size))
-#define XCALLOC(mtype, size) \
-  mtype_zcalloc (__FILE__, __LINE__, (mtype), (size))
-#define XREALLOC(mtype, ptr, size)  \
-  mtype_zrealloc (__FILE__, __LINE__, (mtype), (ptr), (size))
-#define XFREE(mtype, ptr) \
-  do { \
-    mtype_zfree (__FILE__, __LINE__, (mtype), (ptr)); \
-    ptr = NULL; } \
-  while (0)
-#define XSTRDUP(mtype, str) \
-  mtype_zstrdup (__FILE__, __LINE__, (mtype), (str))
-#else
-#define XMALLOC(mtype, size)       zmalloc ((mtype), (size))
-#define XCALLOC(mtype, size)       zzcalloc ((mtype), (size))
-#define XREALLOC(mtype, ptr, size) zrealloc ((mtype), (ptr), (size))
-#define XFREE(mtype, ptr)          do { \
-                                     zfree ((mtype), (ptr)); \
-                                     ptr = NULL; } \
-                                   while (0)
-#define XSTRDUP(mtype, str)        zstrdup ((mtype), (str))
-#endif /* MEMORY_LOG */
+#ifdef __sun
+/* Solaris doesn't do constructor priorities due to linker restrictions */
+# undef _CONSTRUCTOR
+# undef _DESTRUCTOR
+#endif
 
-/* Prototypes of memory function. */
-extern void *zmalloc (int type, size_t size);
-extern void *zzcalloc (int type, size_t size);
-extern void *zrealloc (int type, void *ptr, size_t size);
-extern void  zfree (int type, void *ptr);
-extern char *zstrdup (int type, const char *str);
+#ifndef _RET_NONNULL
+# define _RET_NONNULL
+#endif
+#ifndef _CONSTRUCTOR
+# define _CONSTRUCTOR(x) constructor
+#endif
+#ifndef _DESTRUCTOR
+# define _DESTRUCTOR(x) destructor
+#endif
+#ifndef _ALLOC_SIZE
+# define _ALLOC_SIZE(x)
+#endif
 
-extern void *mtype_zmalloc (const char *file, int line, int type, size_t size);
+/* macro usage:
+ *
+ *  mydaemon.h
+ *    DECLARE_MGROUP(MYDAEMON)
+ *    DECLARE_MTYPE(MYDAEMON_COMMON)
+ *
+ *  mydaemon.c
+ *    DEFINE_MGROUP(MYDAEMON, "my daemon memory")
+ *    DEFINE_MTYPE(MYDAEMON, MYDAEMON_COMMON,
+ *                   "this mtype is used in multiple files in mydaemon")
+ *    foo = qmalloc (MTYPE_MYDAEMON_COMMON, sizeof (*foo))
+ *
+ *  mydaemon_io.c
+ *    bar = qmalloc (MTYPE_MYDAEMON_COMMON, sizeof (*bar))
+ *
+ *    DEFINE_MTYPE_STATIC(MYDAEMON, MYDAEMON_IO,
+ *                          "this mtype is used only in this file")
+ *    baz = qmalloc (MTYPE_MYDAEMON_IO, sizeof (*baz))
+ *
+ *  Note:  Naming conventions (MGROUP_ and MTYPE_ prefixes are enforced
+ *         by not having these as part of the macro arguments)
+ *  Note:  MTYPE_* are symbols to the compiler (of type struct memtype *),
+ *         but MGROUP_* aren't.
+ */
 
-extern void *mtype_zcalloc (const char *file, int line, int type, size_t size);
+#define DECLARE_MGROUP(name) \
+	extern struct memgroup _mg_##name;
+#define DEFINE_MGROUP(mname, desc) \
+	struct memgroup _mg_##mname \
+	__attribute__ ((section (".data.mgroups"))) = { \
+		.name = desc, \
+		.types = NULL, .next = NULL, .insert = NULL, .ref = NULL, \
+	}; \
+	static void _mginit_##mname (void) \
+	  __attribute__ ((_CONSTRUCTOR (1000))); \
+	static void _mginit_##mname (void) \
+	{	extern struct memgroup **mg_insert; \
+		_mg_##mname.ref = mg_insert; \
+		*mg_insert = &_mg_##mname; \
+		mg_insert =  &_mg_##mname.next; } \
+	static void _mgfini_##mname (void) \
+	  __attribute__ ((_DESTRUCTOR (1000))); \
+	static void _mgfini_##mname (void) \
+	{	if (_mg_##mname.next) \
+			_mg_##mname.next->ref = _mg_##mname.ref; \
+		*_mg_##mname.ref = _mg_##mname.next; }
 
-extern void *mtype_zrealloc (const char *file, int line, int type, void *ptr,
-		             size_t size);
 
-extern void mtype_zfree (const char *file, int line, int type,
-		         void *ptr);
+#define DECLARE_MTYPE(name) \
+	extern struct memtype _mt_##name; \
+	static struct memtype * const MTYPE_ ## name = &_mt_##name;
 
-extern char *mtype_zstrdup (const char *file, int line, int type,
-		            const char *str);
-extern void memory_init (void);
+#define DEFINE_MTYPE_ATTR(group, mname, attr, desc) \
+	attr struct memtype _mt_##mname \
+	__attribute__ ((section (".data.mtypes"))) = { \
+		.name = desc, \
+		.next = NULL, .n_alloc = 0, .size = 0, .ref = NULL, \
+	}; \
+	static void _mtinit_##mname (void) \
+	  __attribute__ ((_CONSTRUCTOR (1001))); \
+	static void _mtinit_##mname (void) \
+	{	if (_mg_##group.insert == NULL) \
+			_mg_##group.insert = &_mg_##group.types; \
+		_mt_##mname.ref = _mg_##group.insert; \
+		*_mg_##group.insert = &_mt_##mname; \
+		_mg_##group.insert =  &_mt_##mname.next; } \
+	static void _mtfini_##mname (void) \
+	  __attribute__ ((_DESTRUCTOR (1001))); \
+	static void _mtfini_##mname (void) \
+	{	if (_mt_##mname.next) \
+			_mt_##mname.next->ref = _mt_##mname.ref; \
+		*_mt_##mname.ref = _mt_##mname.next; }
+
+#define DEFINE_MTYPE(group, name, desc) \
+	DEFINE_MTYPE_ATTR(group, name, , desc)
+#define DEFINE_MTYPE_STATIC(group, name, desc) \
+	DEFINE_MTYPE_ATTR(group, name, static, desc) \
+	static struct memtype * const MTYPE_ ## name = &_mt_##name;
+
+DECLARE_MGROUP(LIB)
+DECLARE_MTYPE(TMP)
+
+
+extern void *qmalloc (struct memtype *mt, size_t size)
+	__attribute__ ((malloc, _ALLOC_SIZE(2), nonnull (1) _RET_NONNULL));
+extern void *qcalloc (struct memtype *mt, size_t size)
+	__attribute__ ((malloc, _ALLOC_SIZE(2), nonnull (1) _RET_NONNULL));
+extern void *qrealloc (struct memtype *mt, void *ptr, size_t size)
+	__attribute__ ((_ALLOC_SIZE(3), nonnull (1) _RET_NONNULL));
+extern void *qstrdup (struct memtype *mt, const char *str)
+	__attribute__ ((malloc, nonnull (1) _RET_NONNULL));
+extern void qfree (struct memtype *mt, void *ptr)
+	__attribute__ ((nonnull (1)));
+
+#define XMALLOC(mtype, size)		qmalloc(mtype, size)
+#define XCALLOC(mtype, size)		qcalloc(mtype, size)
+#define XREALLOC(mtype, ptr, size)	qrealloc(mtype, ptr, size)
+#define XSTRDUP(mtype, str)		qstrdup(mtype, str)
+#define XFREE(mtype, ptr)		do { qfree(mtype, ptr); ptr = NULL; } \
+					while (0)
+
+static inline size_t mtype_stats_alloc(struct memtype *mt)
+{
+	return mt->n_alloc;
+}
+
+/* NB: calls are ordered by memgroup; and there is a call with mt == NULL for
+ * each memgroup (so that a header can be printed, and empty memgroups show)
+ *
+ * return value: 0: continue, !0: abort walk.  qmem_walk will return the
+ * last value from qmem_walk_fn. */
+typedef int qmem_walk_fn (void *arg, struct memgroup *mg, struct memtype *mt);
+extern int qmem_walk (qmem_walk_fn *func, void *arg);
 extern void log_memstats_stderr (const char *);
 
-/* return number of allocations outstanding for the type */
-extern unsigned long mtype_stats_alloc (int);
+extern void memory_oom (size_t size, const char *name);
 
-/* Human friendly string for given byte count */
-#define MTYPE_MEMSTR_LEN 20
-extern const char *mtype_memstr (char *, size_t, unsigned long);
-#endif /* _ZEBRA_MEMORY_H */
+#endif /* _QUAGGA_MEMORY_H */

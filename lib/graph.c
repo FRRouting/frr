@@ -25,6 +25,8 @@
 #include "graph.h"
 #include "memory.h"
 
+DEFINE_MTYPE_STATIC(LIB, GRAPH,      "Graph")
+DEFINE_MTYPE_STATIC(LIB, GRAPH_NODE, "Graph Node")
 struct graph *
 graph_new ()
 {

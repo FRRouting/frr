@@ -24,6 +24,9 @@
 #include "linklist.h"
 #include "memory.h"
 
+DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List")
+DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node")
+
 /* Allocate new list. */
 struct list *
 list_new (void)

@@ -33,9 +33,10 @@
 
 /* required external units */
 %code requires {
+  #include "stdlib.h"
+  #include "string.h"
   #include "command.h"
   #include "graph.h"
-  #include "memory.h"
 
   extern int
   yylex (void);
@@ -145,7 +146,7 @@
   set_lexer_string (element->string);
 
   /* copy docstring and keep a pointer to the copy */
-  docstr = element->doc ? XSTRDUP(MTYPE_TMP, element->doc) : NULL;
+  docstr = element->doc ? strdup(element->doc) : NULL;
   docstr_start = docstr;
 }
 
@@ -174,7 +175,7 @@ start:
 sentence_root: WORD
 {
   struct graph_node *root =
-    new_token_node (graph, WORD_TKN, XSTRDUP (MTYPE_CMD_TOKENS, $1), doc_next());
+    new_token_node (graph, WORD_TKN, strdup ($1), doc_next());
 
   if ((currnode = add_edge_dedup (startnode, root)) != root)
     graph_delete_node (graph, root);
@@ -199,7 +200,7 @@ cmd_token:
 {
   graph_add_edge (currnode, $1->start);
   currnode = $1->end;
-  XFREE (MTYPE_TMP, $1);
+  free ($1);
 }
 ;
 
@@ -215,7 +216,7 @@ compound_token:
 
 literal_token: WORD
 {
-  $$ = new_token_node (graph, WORD_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
+  $$ = new_token_node (graph, WORD_TKN, strdup($1), doc_next());
   free ($1);
 }
 ;
@@ -223,32 +224,32 @@ literal_token: WORD
 placeholder_token:
   IPV4
 {
-  $$ = new_token_node (graph, IPV4_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
+  $$ = new_token_node (graph, IPV4_TKN, strdup($1), doc_next());
   free ($1);
 }
 | IPV4_PREFIX
 {
-  $$ = new_token_node (graph, IPV4_PREFIX_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
+  $$ = new_token_node (graph, IPV4_PREFIX_TKN, strdup($1), doc_next());
   free ($1);
 }
 | IPV6
 {
-  $$ = new_token_node (graph, IPV6_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
+  $$ = new_token_node (graph, IPV6_TKN, strdup($1), doc_next());
   free ($1);
 }
 | IPV6_PREFIX
 {
-  $$ = new_token_node (graph, IPV6_PREFIX_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
+  $$ = new_token_node (graph, IPV6_PREFIX_TKN, strdup($1), doc_next());
   free ($1);
 }
 | VARIABLE
 {
-  $$ = new_token_node (graph, VARIABLE_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
+  $$ = new_token_node (graph, VARIABLE_TKN, strdup($1), doc_next());
   free ($1);
 }
 | RANGE
 {
-  $$ = new_token_node (graph, RANGE_TKN, XSTRDUP(MTYPE_CMD_TOKENS, $1), doc_next());
+  $$ = new_token_node (graph, RANGE_TKN, strdup($1), doc_next());
   struct cmd_token *token = $$->data;
 
   // get the numbers out
@@ -266,7 +267,7 @@ placeholder_token:
 /* <selector|set> productions */
 selector: '<' selector_seq_seq '>'
 {
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   $$->start = new_token_node (graph, SELECTOR_TKN, NULL, NULL);
   $$->end   = new_token_node (graph, NUL_TKN, NULL, NULL);
   for (unsigned int i = 0; i < vector_active ($2->start->to); i++)
@@ -278,20 +279,20 @@ selector: '<' selector_seq_seq '>'
   }
   graph_delete_node (graph, $2->start);
   graph_delete_node (graph, $2->end);
-  XFREE (MTYPE_TMP, $2);
+  free ($2);
 };
 
 selector_seq_seq:
   selector_seq_seq '|' selector_token_seq
 {
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   $$->start = graph_new_node (graph, NULL, NULL);
   $$->end   = graph_new_node (graph, NULL, NULL);
 
   // link in last sequence
   graph_add_edge ($$->start, $3->start);
   graph_add_edge ($3->end, $$->end);
-  XFREE (MTYPE_TMP, $3);
+  free ($3);
 
   for (unsigned int i = 0; i < vector_active ($1->start->to); i++)
   {
@@ -302,44 +303,44 @@ selector_seq_seq:
   }
   graph_delete_node (graph, $1->start);
   graph_delete_node (graph, $1->end);
-  XFREE (MTYPE_TMP, $1);
-  XFREE (MTYPE_TMP, $3);
+  free ($1);
+  free ($3);
 }
 | selector_token_seq '|' selector_token_seq
 {
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   $$->start = graph_new_node (graph, NULL, NULL);
   $$->end   = graph_new_node (graph, NULL, NULL);
   graph_add_edge ($$->start, $1->start);
   graph_add_edge ($1->end, $$->end);
   graph_add_edge ($$->start, $3->start);
   graph_add_edge ($3->end, $$->end);
-  XFREE (MTYPE_TMP, $1);
-  XFREE (MTYPE_TMP, $3);
+  free ($1);
+  free ($3);
 }
 ;
 
 selector_token_seq:
   simple_token
 {
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   $$->start = $$->end = $1;
 }
 | selector_token_seq selector_token
 {
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   graph_add_edge ($1->end, $2->start);
   $$->start = $1->start;
   $$->end   = $2->end;
-  XFREE (MTYPE_TMP, $1);
-  XFREE (MTYPE_TMP, $2);
+  free ($1);
+  free ($2);
 }
 ;
 
 selector_token:
   simple_token
 {
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   $$->start = $$->end = $1;
 }
 | option
@@ -349,7 +350,7 @@ selector_token:
 option: '[' option_token_seq ']'
 {
   // make a new option
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   $$->start = new_token_node (graph, OPTION_TKN, NULL, NULL);
   $$->end   = new_token_node (graph, NUL_TKN, NULL, NULL);
   // add a path through the sequence to the end
@@ -357,7 +358,7 @@ option: '[' option_token_seq ']'
   graph_add_edge ($2->end, $$->end);
   // add a path directly from the start to the end
   graph_add_edge ($$->start, $$->end);
-  XFREE (MTYPE_TMP, $2);
+  free ($2);
 }
 ;
 
@@ -365,18 +366,18 @@ option_token_seq:
   option_token
 | option_token_seq option_token
 {
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   graph_add_edge ($1->end, $2->start);
   $$->start = $1->start;
   $$->end   = $2->end;
-  XFREE (MTYPE_TMP, $1);
+  free ($1);
 }
 ;
 
 option_token:
   simple_token
 {
-  $$ = XMALLOC (MTYPE_TMP, sizeof (struct subgraph));
+  $$ = malloc (sizeof (struct subgraph));
   $$->start = $$->end = $1;
 }
 | compound_token
@@ -429,8 +430,8 @@ terminate_graph (struct graph *graph, struct graph_node *finalnode, struct cmd_e
   struct graph_node *end_token_node =
     new_token_node (graph,
                     END_TKN,
-                    XSTRDUP (MTYPE_CMD_TOKENS, CMD_CR_TEXT),
-                    XSTRDUP (MTYPE_CMD_TOKENS, ""));
+                    strdup (CMD_CR_TEXT),
+                    strdup (""));
   struct graph_node *end_element_node =
     graph_new_node (graph, element, (void (*)(void *)) &del_cmd_element);
 
@@ -446,8 +447,8 @@ doc_next()
 {
   char *piece = NULL;
   if (!docstr || !(piece = strsep (&docstr, "\n")))
-    return XSTRDUP (MTYPE_CMD_TOKENS, "");
-  return XSTRDUP (MTYPE_CMD_TOKENS, piece);
+    return strdup ("");
+  return strdup (piece);
 }
 
 static struct graph_node *

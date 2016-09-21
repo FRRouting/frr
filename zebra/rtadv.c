@@ -23,6 +23,7 @@
 #include <zebra.h>
 
 #include "memory.h"
+#include "zebra_memory.h"
 #include "sockopt.h"
 #include "thread.h"
 #include "if.h"

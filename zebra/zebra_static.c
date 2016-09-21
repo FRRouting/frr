@@ -32,6 +32,7 @@
 #include "zebra/zebra_static.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
+#include "zebra/zebra_memory.h"
 
 /* Install static route into rib. */
 void

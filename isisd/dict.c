@@ -18,6 +18,7 @@
 #include "zebra.h"
 #include "zassert.h"
 #include "memory.h"
+#include "isis_memory.h"
 #include "dict.h"
 
 /*
