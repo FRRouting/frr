@@ -260,7 +260,7 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
           struct cmd_token *token = start->data;
           struct cmd_token *copy = copy_cmd_token (token);
           copy->arg = XSTRDUP (MTYPE_CMD_TOKENS, input_token);
-          list_add_node_prev (currbest, currbest->head, copy);
+          listnode_add_before (currbest, currbest->head, copy);
           matcher_rv = MATCHER_OK;
         }
     }
