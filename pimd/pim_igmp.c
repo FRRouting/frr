@@ -826,9 +826,6 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
   int startup_mode;
   int query_interval;
 
-  zassert(igmp);
-  zassert(igmp->interface);
-
   /*
     Since this socket is starting as querier,
     there should not exist a timer for other-querier-present.
@@ -842,13 +839,24 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 
     The Startup Query Interval is the interval between General Queries
     sent by a Querier on startup.  Default: 1/4 the Query Interval.
+    The first one should be sent out immediately instead of 125/4
+    seconds from now.
   */
   startup_mode = igmp->startup_query_count > 0;
   if (startup_mode) {
-    --igmp->startup_query_count;
+    /*
+     * If this is the first time we are sending a query on a
+     * newly configured igmp interface send it out in 1 second
+     * just to give the entire world a tiny bit of time to settle
+     * else the query interval is:
+     * query_interval = pim_ifp->igmp_default_query_interval >> 2;
+     */
+    if (igmp->startup_query_count == igmp->querier_robustness_variable)
+      query_interval = 1;
+    else
+      query_interval = PIM_IGMP_SQI(pim_ifp->igmp_default_query_interval);
 
-    /* query_interval = pim_ifp->igmp_default_query_interval >> 2; */
-    query_interval = PIM_IGMP_SQI(pim_ifp->igmp_default_query_interval);
+    --igmp->startup_query_count;
   }
   else {
     query_interval = igmp->querier_query_interval;
@@ -864,7 +872,6 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 	       igmp->fd);
   }
   igmp->t_igmp_query_timer = NULL;
-  zassert(!igmp->t_igmp_query_timer);
   THREAD_TIMER_ON(master, igmp->t_igmp_query_timer,
 		  pim_igmp_general_query,
 		  igmp, query_interval);
@@ -883,7 +890,6 @@ void pim_igmp_general_query_off(struct igmp_sock *igmp)
     }
   }
   THREAD_OFF(igmp->t_igmp_query_timer);
-  zassert(!igmp->t_igmp_query_timer);
 }
 
 /* Issue IGMP general query */
