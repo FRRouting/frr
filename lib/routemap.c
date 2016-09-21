@@ -1341,7 +1341,7 @@ static void
 route_map_process_dependency (struct hash_backet *backet, void *data)
 {
   char *rmap_name;
-  route_map_event_t type = (route_map_event_t )data;
+  route_map_event_t type = (route_map_event_t)(ptrdiff_t)data;
 
   rmap_name = (char *)backet->data;
 
