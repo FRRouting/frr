@@ -563,7 +563,7 @@ DEFUN (isis_redistribute,
   if (argc < 5)
     return CMD_WARNING;
 
-  family = str2family(argv[0]);
+  family = str2family(argv[0]->arg);
   if (family < 0)
     return CMD_WARNING;
 
@@ -571,13 +571,13 @@ DEFUN (isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[1]);
+  type = proto_redistnum(afi, argv[1]->arg);
   if (type < 0 || type == ZEBRA_ROUTE_ISIS)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[2]))
+  if (!strcmp("level-1", argv[2]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[2]))
+  else if (!strcmp("level-2", argv[2]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -588,11 +588,11 @@ DEFUN (isis_redistribute,
       return CMD_WARNING;
     }
 
-  if (argv[3])
+  if (argv[3]->arg)
     {
       char *endp;
-      metric = strtoul(argv[3], &endp, 10);
-      if (argv[3][0] == '\0' || *endp != '\0')
+      metric = strtoul(argv[3]->arg, &endp, 10);
+      if (argv[3]->arg[0] == '\0' || *endp != '\0')
         return CMD_WARNING;
     }
   else
@@ -600,7 +600,7 @@ DEFUN (isis_redistribute,
       metric = 0xffffffff;
     }
 
-  routemap = argv[4];
+  routemap = argv[4]->arg;
 
   isis_redist_set(area, level, family, type, metric, routemap, 0);
   return 0;
@@ -627,7 +627,7 @@ DEFUN (no_isis_redistribute,
   if (argc < 3)
     return CMD_WARNING;
 
-  family = str2family(argv[0]);
+  family = str2family(argv[0]->arg);
   if (family < 0)
     return CMD_WARNING;
 
@@ -635,13 +635,13 @@ DEFUN (no_isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[1]);
+  type = proto_redistnum(afi, argv[1]->arg);
   if (type < 0 || type == ZEBRA_ROUTE_ISIS)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[2]))
+  if (!strcmp("level-1", argv[2]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[2]))
+  else if (!strcmp("level-2", argv[2]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -676,13 +676,13 @@ DEFUN (isis_default_originate,
   if (argc < 5)
     return CMD_WARNING;
 
-  family = str2family(argv[0]);
+  family = str2family(argv[0]->arg);
   if (family < 0)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[1]))
+  if (!strcmp("level-1", argv[1]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[1]))
+  else if (!strcmp("level-2", argv[1]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -693,7 +693,7 @@ DEFUN (isis_default_originate,
       return CMD_WARNING;
     }
 
-  if (argv[2] && *argv[2] != '\0')
+  if (argv[2]->arg && *argv[2]->arg != '\0')
     originate_type = DEFAULT_ORIGINATE_ALWAYS;
   else
     originate_type = DEFAULT_ORIGINATE;
@@ -704,11 +704,11 @@ DEFUN (isis_default_originate,
       vty_out(vty, "so use with care or use default-originate always.%s", VTY_NEWLINE);
     }
 
-  if (argv[3])
+  if (argv[3]->arg)
     {
       char *endp;
-      metric = strtoul(argv[3], &endp, 10);
-      if (argv[3][0] == '\0' || *endp != '\0')
+      metric = strtoul(argv[3]->arg, &endp, 10);
+      if (argv[3]->arg[0] == '\0' || *endp != '\0')
         return CMD_WARNING;
     }
   else
@@ -716,7 +716,7 @@ DEFUN (isis_default_originate,
       metric = 0xffffffff;
     }
 
-  routemap = argv[4];
+  routemap = argv[4]->arg;
 
   isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap, originate_type);
   return 0;
@@ -741,13 +741,13 @@ DEFUN (no_isis_default_originate,
   if (argc < 2)
     return CMD_WARNING;
 
-  family = str2family(argv[0]);
+  family = str2family(argv[0]->arg);
   if (family < 0)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[1]))
+  if (!strcmp("level-1", argv[1]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[1]))
+  else if (!strcmp("level-2", argv[1]->arg))
     level = 2;
   else
     return CMD_WARNING;

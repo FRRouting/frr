@@ -1167,7 +1167,7 @@ DEFUN (isis_mpls_te_router_addr,
   struct listnode *node;
   struct isis_area *area;
 
-  if (! inet_aton (argv[0], &value))
+  if (! inet_aton (argv[0]->arg, &value))
     {
       vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -1329,7 +1329,7 @@ DEFUN (show_isis_mpls_te_interface,
   /* Interface name is specified. */
   else
     {
-      if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+      if ((ifp = if_lookup_by_name (argv[0]->arg)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         show_mpls_te_sub (vty, ifp);
