@@ -191,7 +191,7 @@ DEFUN (ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[0], NULL, argv[1], NULL, NULL, argc > 2 ? argv[2] : NULL, NULL);
+  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL, argc > 2 ? argv[2]->arg : NULL, NULL);
 }
 
 ALIAS (ip_mroute_dist,
@@ -213,7 +213,7 @@ DEFUN (no_ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[0], NULL, argv[1], NULL, NULL, argc > 2 ? argv[2] : NULL, NULL);
+  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL, argc > 2 ? argv[2]->arg : NULL, NULL);
 }
 
 ALIAS (no_ip_mroute_dist,
@@ -239,15 +239,15 @@ DEFUN (ip_multicast_mode,
        "Lookup both, use entry with longer prefix\n")
 {
 
-  if (!strncmp (argv[0], "u", 1))
+  if (!strncmp (argv[0]->arg, "u", 1))
     multicast_mode_ipv4_set (MCAST_URIB_ONLY);
-  else if (!strncmp (argv[0], "mrib-o", 6))
+  else if (!strncmp (argv[0]->arg, "mrib-o", 6))
     multicast_mode_ipv4_set (MCAST_MRIB_ONLY);
-  else if (!strncmp (argv[0], "mrib-t", 6))
+  else if (!strncmp (argv[0]->arg, "mrib-t", 6))
     multicast_mode_ipv4_set (MCAST_MIX_MRIB_FIRST);
-  else if (!strncmp (argv[0], "low", 3))
+  else if (!strncmp (argv[0]->arg, "low", 3))
     multicast_mode_ipv4_set (MCAST_MIX_DISTANCE);
-  else if (!strncmp (argv[0], "lon", 3))
+  else if (!strncmp (argv[0]->arg, "lon", 3))
     multicast_mode_ipv4_set (MCAST_MIX_PFXLEN);
   else
     {
@@ -306,7 +306,7 @@ DEFUN (show_ip_rpf_addr,
   struct rib *rib;
   int ret;
 
-  ret = inet_aton (argv[0], &addr);
+  ret = inet_aton (argv[0]->arg, &addr);
   if (ret == 0)
     {
       vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
@@ -334,7 +334,7 @@ DEFUN (ip_route,
        "IP gateway interface name\n"
        "Null interface\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL,
                             NULL, NULL);
 }
 
@@ -350,7 +350,7 @@ DEFUN (ip_route_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, argv[2],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, argv[2]->arg,
                             NULL, NULL);
 }
 
@@ -365,7 +365,7 @@ DEFUN (ip_route_flags,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, NULL,
                             NULL, NULL);
 }
 
@@ -383,7 +383,7 @@ DEFUN (ip_route_flags_tag,
        "Tag value\n")
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], argv[3],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, argv[3]->arg,
                             NULL, NULL);
 }
 
@@ -396,7 +396,7 @@ DEFUN (ip_route_flags2,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, NULL, argv[1]->arg, NULL,
                             NULL, NULL);
 }
 
@@ -412,7 +412,7 @@ DEFUN (ip_route_flags2_tag,
        "Tag value\n")
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], argv[2],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, NULL, argv[1]->arg, argv[2]->arg,
                             NULL, NULL);
 }
 
@@ -428,7 +428,7 @@ DEFUN (ip_route_mask,
        "IP gateway interface name\n"
        "Null interface\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL,
                             NULL, NULL);
 }
 
@@ -446,7 +446,7 @@ DEFUN (ip_route_mask_tag,
        "Tag value\n")
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, argv[3],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg,
                             NULL, NULL);
 }
 
@@ -462,7 +462,7 @@ DEFUN (ip_route_mask_flags,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL,
                             NULL, NULL);
 }
 
@@ -481,7 +481,7 @@ DEFUN (ip_route_mask_flags_tag,
        "Tag value\n")
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], argv[4],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,
                             NULL, NULL);
 }
 
@@ -495,7 +495,7 @@ DEFUN (ip_route_mask_flags2,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL,
                             NULL, NULL);
 }
 
@@ -511,7 +511,7 @@ DEFUN (ip_route_mask_flags2_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], argv[3],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg,
                             NULL, NULL);
 }
 
@@ -527,8 +527,8 @@ DEFUN (ip_route_distance,
        "Null interface\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, NULL,
-                            argv[2], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL,
+                            argv[2]->arg, NULL);
 }
 
 DEFUN (ip_route_tag_distance,
@@ -545,8 +545,8 @@ DEFUN (ip_route_tag_distance,
        "Distance value for this route\n")
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, argv[2],
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, argv[2]->arg,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (ip_route_flags_distance,
@@ -561,8 +561,8 @@ DEFUN (ip_route_flags_distance,
        "Silently discard pkts when matched\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], NULL,
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, NULL,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (ip_route_flags_tag_distance,
@@ -579,8 +579,8 @@ DEFUN (ip_route_flags_tag_distance,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], argv[3],
-                            argv[4], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, argv[3]->arg,
+                            argv[4]->arg, NULL);
 }
 
 DEFUN (ip_route_flags_distance2,
@@ -593,8 +593,8 @@ DEFUN (ip_route_flags_distance2,
        "Silently discard pkts when matched\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], NULL,
-                            argv[2], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, NULL, argv[1]->arg, NULL,
+                            argv[2]->arg, NULL);
 }
 
 DEFUN (ip_route_flags_tag_distance2,
@@ -609,8 +609,8 @@ DEFUN (ip_route_flags_tag_distance2,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], argv[2],
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, NULL, argv[1]->arg, argv[2]->arg,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (ip_route_mask_distance,
@@ -625,8 +625,8 @@ DEFUN (ip_route_mask_distance,
        "Null interface\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, NULL,
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (ip_route_mask_tag_distance,
@@ -643,8 +643,8 @@ DEFUN (ip_route_mask_tag_distance,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, argv[3],
-                            argv[4], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg,
+                            argv[4]->arg, NULL);
 }
 
 DEFUN (ip_route_mask_flags_tag_distance,
@@ -662,8 +662,8 @@ DEFUN (ip_route_mask_flags_tag_distance,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], argv[4],
-                            argv[5], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,
+                            argv[5]->arg, NULL);
 }
 
 
@@ -680,8 +680,8 @@ DEFUN (ip_route_mask_flags_distance,
        "Silently discard pkts when matched\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], NULL,
-                            argv[4], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL,
+                            argv[4]->arg, NULL);
 }
 
 DEFUN (ip_route_mask_flags_distance2,
@@ -695,8 +695,8 @@ DEFUN (ip_route_mask_flags_distance2,
        "Silently discard pkts when matched\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], NULL,
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (ip_route_mask_flags_tag_distance2,
@@ -712,8 +712,8 @@ DEFUN (ip_route_mask_flags_tag_distance2,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], argv[3],
-                            argv[4], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg,
+                            argv[4]->arg, NULL);
 }
 
 DEFUN (no_ip_route, 
@@ -727,7 +727,7 @@ DEFUN (no_ip_route,
        "IP gateway interface name\n"
        "Null interface\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL,
                             NULL, NULL);
 }
 
@@ -744,7 +744,7 @@ DEFUN (no_ip_route_tag,
        "Tag of this route\n"
        "Tag value\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, argv[2],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, argv[2]->arg,
                             NULL, NULL);
 }
 
@@ -784,7 +784,7 @@ DEFUN (no_ip_route_flags2,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, NULL, NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, NULL, NULL, NULL,
                             NULL, NULL);
 }
 
@@ -800,7 +800,7 @@ DEFUN (no_ip_route_flags2_tag,
        "Tag of this route\n"
        "Tag value\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, NULL, argv[1],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, NULL, NULL, argv[1]->arg,
                             NULL, NULL);
 }
 
@@ -816,7 +816,7 @@ DEFUN (no_ip_route_mask,
        "IP gateway interface name\n"
        "Null interface\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL,
                             NULL, NULL);
 }
 
@@ -834,7 +834,7 @@ DEFUN (no_ip_route_mask_tag,
        "Tag of this route\n"
        "Tag value\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, argv[3],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg,
                             NULL, NULL);
 }
 
@@ -877,7 +877,7 @@ DEFUN (no_ip_route_mask_flags2,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, NULL, NULL,
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL,
                             NULL, NULL);
 }
 
@@ -894,7 +894,7 @@ DEFUN (no_ip_route_mask_flags2_tag,
        "Tag of this route\n"
        "Tag value\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, NULL, argv[2],
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg,
                             NULL, NULL);
 }
 
@@ -910,8 +910,8 @@ DEFUN (no_ip_route_distance,
        "Null interface\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, NULL,
-                            argv[2], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL,
+                            argv[2]->arg, NULL);
 }
 
 DEFUN (no_ip_route_tag_distance,
@@ -928,8 +928,8 @@ DEFUN (no_ip_route_tag_distance,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, argv[2],
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, argv[2]->arg,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (no_ip_route_flags_distance,
@@ -945,8 +945,8 @@ DEFUN (no_ip_route_flags_distance,
        "Silently discard pkts when matched\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], argv[2], NULL,
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, NULL,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (no_ip_route_flags_tag_distance,
@@ -964,8 +964,8 @@ DEFUN (no_ip_route_flags_tag_distance,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], argv[2], argv[3],
-                            argv[4], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, argv[3]->arg,
+                            argv[4]->arg, NULL);
 }
 
 DEFUN (no_ip_route_flags_distance2,
@@ -979,8 +979,8 @@ DEFUN (no_ip_route_flags_distance2,
        "Silently discard pkts when matched\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1], NULL,
-                            argv[2], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, NULL, argv[1]->arg, NULL,
+                            argv[2]->arg, NULL);
 }
 
 DEFUN (no_ip_route_flags_tag_distance2,
@@ -996,8 +996,8 @@ DEFUN (no_ip_route_flags_tag_distance2,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1], argv[2],
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, NULL, argv[1]->arg, argv[2]->arg,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (no_ip_route_mask_distance,
@@ -1013,8 +1013,8 @@ DEFUN (no_ip_route_mask_distance,
        "Null interface\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL,
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (no_ip_route_mask_tag_distance,
@@ -1032,8 +1032,8 @@ DEFUN (no_ip_route_mask_tag_distance,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, argv[3],
-                            argv[4], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg,
+                            argv[4]->arg, NULL);
 }
 
 DEFUN (no_ip_route_mask_flags_distance,
@@ -1050,8 +1050,8 @@ DEFUN (no_ip_route_mask_flags_distance,
        "Silently discard pkts when matched\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], argv[3], NULL,
-                            argv[4], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL,
+                            argv[4]->arg, NULL);
 }
 
 DEFUN (no_ip_route_mask_flags_tag_distance,
@@ -1070,8 +1070,8 @@ DEFUN (no_ip_route_mask_flags_tag_distance,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], argv[3], argv[4],
-                            argv[5], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,
+                            argv[5]->arg, NULL);
 }
 
 DEFUN (no_ip_route_mask_flags_distance2,
@@ -1086,8 +1086,8 @@ DEFUN (no_ip_route_mask_flags_distance2,
        "Silently discard pkts when matched\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, argv[2], NULL,
-                            argv[3], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL,
+                            argv[3]->arg, NULL);
 }
 
 DEFUN (no_ip_route_mask_flags_tag_distance2,
@@ -1104,8 +1104,8 @@ DEFUN (no_ip_route_mask_flags_tag_distance2,
        "Tag value\n"
        "Distance value for this route\n")
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, argv[2], argv[3],
-                            argv[4], NULL);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg,
+                            argv[4]->arg, NULL);
 }
 
 /* Static route configuration.  */
@@ -1120,7 +1120,7 @@ DEFUN (ip_route_vrf,
        "Null interface\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, NULL, NULL, argv[2]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL, NULL, argv[2]->arg);
 }
 
 DEFUN (ip_route_tag_vrf,
@@ -1136,7 +1136,7 @@ DEFUN (ip_route_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, argv[2], NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, argv[2]->arg, NULL, argv[3]->arg);
 }
 
 DEFUN (ip_route_flags_vrf,
@@ -1151,7 +1151,7 @@ DEFUN (ip_route_flags_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (ip_route_flags_tag_vrf,
@@ -1169,7 +1169,7 @@ DEFUN (ip_route_flags_tag_vrf,
        VRF_CMD_HELP_STR)
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (ip_route_flags2_vrf,
@@ -1182,7 +1182,7 @@ DEFUN (ip_route_flags2_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], NULL, NULL, argv[2]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, NULL, argv[1]->arg, NULL, NULL, argv[2]->arg);
 }
 
 DEFUN (ip_route_flags2_tag_vrf,
@@ -1198,7 +1198,7 @@ DEFUN (ip_route_flags2_tag_vrf,
        VRF_CMD_HELP_STR)
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], argv[2], NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, NULL, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg);
 }
 
 /* Mask as A.B.C.D format.  */
@@ -1214,7 +1214,7 @@ DEFUN (ip_route_mask_vrf,
        "Null interface\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (ip_route_mask_tag_vrf,
@@ -1232,7 +1232,7 @@ DEFUN (ip_route_mask_tag_vrf,
        VRF_CMD_HELP_STR)
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (ip_route_mask_flags_vrf,
@@ -1248,7 +1248,7 @@ DEFUN (ip_route_mask_flags_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], NULL, NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, NULL, argv[4]->arg);
 }
 
 DEFUN (ip_route_mask_flags_tag_vrf,
@@ -1267,7 +1267,7 @@ DEFUN (ip_route_mask_flags_tag_vrf,
        VRF_CMD_HELP_STR)
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[5]->arg);
 }
 
 DEFUN (ip_route_mask_flags2_vrf,
@@ -1281,7 +1281,7 @@ DEFUN (ip_route_mask_flags2_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (ip_route_mask_flags2_tag_vrf,
@@ -1297,7 +1297,7 @@ DEFUN (ip_route_mask_flags2_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 /* Distance option value.  */
@@ -1313,7 +1313,7 @@ DEFUN (ip_route_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, NULL, argv[2], argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL, argv[2]->arg, argv[3]->arg);
 }
 
 DEFUN (ip_route_tag_distance_vrf,
@@ -1331,7 +1331,7 @@ DEFUN (ip_route_tag_distance_vrf,
        VRF_CMD_HELP_STR)
 
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], NULL, argv[2], argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (ip_route_flags_distance_vrf,
@@ -1347,7 +1347,7 @@ DEFUN (ip_route_flags_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], NULL, argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (ip_route_flags_tag_distance_vrf,
@@ -1365,7 +1365,7 @@ DEFUN (ip_route_flags_tag_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, argv[1], argv[2], argv[3], argv[4],argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,argv[5]->arg);
 }
 
 DEFUN (ip_route_flags_distance2_vrf,
@@ -1379,7 +1379,7 @@ DEFUN (ip_route_flags_distance2_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], NULL, argv[2], argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, NULL, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg);
 }
 
 DEFUN (ip_route_flags_tag_distance2_vrf,
@@ -1395,7 +1395,7 @@ DEFUN (ip_route_flags_tag_distance2_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], NULL, NULL, argv[1], argv[2], argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, NULL, NULL, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (ip_route_mask_distance_vrf,
@@ -1411,7 +1411,7 @@ DEFUN (ip_route_mask_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, NULL, argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (ip_route_mask_tag_distance_vrf,
@@ -1429,7 +1429,7 @@ DEFUN (ip_route_mask_tag_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (ip_route_mask_flags_tag_distance_vrf,
@@ -1448,7 +1448,7 @@ DEFUN (ip_route_mask_flags_tag_distance_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg, argv[6]->arg);
 }
 
 
@@ -1466,7 +1466,7 @@ DEFUN (ip_route_mask_flags_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (ip_route_mask_flags_distance2_vrf,
@@ -1481,7 +1481,7 @@ DEFUN (ip_route_mask_flags_distance2_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], NULL, argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (ip_route_mask_flags_tag_distance2_vrf,
@@ -1498,7 +1498,7 @@ DEFUN (ip_route_mask_flags_tag_distance2_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (no_ip_route_vrf, 
@@ -1513,7 +1513,7 @@ DEFUN (no_ip_route_vrf,
        "Null interface\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, NULL, NULL, argv[2]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL, NULL, argv[2]->arg);
 }
 
 DEFUN (no_ip_route_flags_vrf,
@@ -1529,7 +1529,7 @@ DEFUN (no_ip_route_flags_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], argv[2], NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (no_ip_route_tag_vrf,
@@ -1546,7 +1546,7 @@ DEFUN (no_ip_route_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, argv[2], NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, argv[2]->arg, NULL, argv[3]->arg);
 }
 
 DEFUN (no_ip_route_flags_tag_vrf,
@@ -1564,7 +1564,7 @@ DEFUN (no_ip_route_flags_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], argv[2], argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (no_ip_route_flags2_vrf,
@@ -1578,7 +1578,7 @@ DEFUN (no_ip_route_flags2_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1], NULL, NULL, argv[2]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, NULL, argv[1]->arg, NULL, NULL, argv[2]->arg);
 }
 
 DEFUN (no_ip_route_flags2_tag_vrf,
@@ -1594,7 +1594,7 @@ DEFUN (no_ip_route_flags2_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1], argv[2], NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, NULL, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg);
 }
 
 DEFUN (no_ip_route_mask_vrf,
@@ -1610,7 +1610,7 @@ DEFUN (no_ip_route_mask_vrf,
        "Null interface\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (no_ip_route_mask_flags_vrf,
@@ -1627,7 +1627,7 @@ DEFUN (no_ip_route_mask_flags_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], argv[3], NULL, NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, NULL, argv[4]->arg);
 }
 
 DEFUN (no_ip_route_mask_tag_vrf,
@@ -1645,7 +1645,7 @@ DEFUN (no_ip_route_mask_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (no_ip_route_mask_flags_tag_vrf,
@@ -1664,7 +1664,7 @@ DEFUN (no_ip_route_mask_flags_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[5]->arg);
 }
 
 DEFUN (no_ip_route_mask_flags2_vrf,
@@ -1679,7 +1679,7 @@ DEFUN (no_ip_route_mask_flags2_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, argv[2], NULL, NULL, argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (no_ip_route_mask_flags2_tag_vrf,
@@ -1696,7 +1696,7 @@ DEFUN (no_ip_route_mask_flags2_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, argv[2], argv[3], NULL, argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 
@@ -1713,7 +1713,7 @@ DEFUN (no_ip_route_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, NULL, argv[2], argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, NULL, argv[2]->arg, argv[3]->arg);
 }
 
 DEFUN (no_ip_route_tag_distance_vrf,
@@ -1731,7 +1731,7 @@ DEFUN (no_ip_route_tag_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], NULL, argv[2], argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ip_route_flags_distance_vrf,
@@ -1748,7 +1748,7 @@ DEFUN (no_ip_route_flags_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], argv[2], NULL, argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ip_route_flags_tag_distance_vrf,
@@ -1767,7 +1767,7 @@ DEFUN (no_ip_route_flags_tag_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, argv[1], argv[2], argv[3], argv[4],argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,argv[5]->arg);
 }
 
 DEFUN (no_ip_route_flags_distance2_vrf,
@@ -1782,7 +1782,7 @@ DEFUN (no_ip_route_flags_distance2_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1], NULL, argv[2], argv[3]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, NULL, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg);
 }
 
 DEFUN (no_ip_route_flags_tag_distance2_vrf,
@@ -1799,7 +1799,7 @@ DEFUN (no_ip_route_flags_tag_distance2_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], NULL, NULL, argv[1], argv[2] , argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, NULL, NULL, argv[1]->arg, argv[2]->arg , argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ip_route_mask_distance_vrf,
@@ -1816,7 +1816,7 @@ DEFUN (no_ip_route_mask_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, NULL, argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ip_route_mask_tag_distance_vrf,
@@ -1835,7 +1835,7 @@ DEFUN (no_ip_route_mask_tag_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (no_ip_route_mask_flags_distance_vrf,
@@ -1853,7 +1853,7 @@ DEFUN (no_ip_route_mask_flags_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (no_ip_route_mask_flags_tag_distance_vrf,
@@ -1873,7 +1873,7 @@ DEFUN (no_ip_route_mask_flags_tag_distance_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg, argv[6]->arg);
 }
 
 DEFUN (no_ip_route_mask_flags_distance2_vrf,
@@ -1889,7 +1889,7 @@ DEFUN (no_ip_route_mask_flags_distance2_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, argv[2], NULL, argv[3], argv[4]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ip_route_mask_flags_tag_distance2_vrf,
@@ -1907,7 +1907,7 @@ DEFUN (no_ip_route_mask_flags_tag_distance2_vrf,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], argv[5]);
+  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
@@ -2433,7 +2433,7 @@ DEFUN (show_ip_route_vrf,
   if (argc == 1 && uj)
     return do_show_ip_route (vty, NULL, SAFI_UNICAST, uj);
   else
-    return do_show_ip_route (vty, argv[0], SAFI_UNICAST, uj);
+    return do_show_ip_route (vty, argv[0]->arg, SAFI_UNICAST, uj);
 }
 
 DEFUN (show_ip_nht,
@@ -2446,7 +2446,7 @@ DEFUN (show_ip_nht,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]->arg);
 
   zebra_print_rnh_table(vrf_id, AF_INET, vty, RNH_NEXTHOP_TYPE);
   return CMD_SUCCESS;
@@ -2491,7 +2491,7 @@ DEFUN (show_ipv6_nht,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]->arg);
 
   zebra_print_rnh_table(vrf_id, AF_INET6, vty, RNH_NEXTHOP_TYPE);
   return CMD_SUCCESS;
@@ -2606,11 +2606,11 @@ DEFUN (show_ip_route_tag,
 
     if (argc > 1)
       {
-        tag = atoi(argv[1]);
-        VRF_GET_ID (vrf_id, argv[0]);
+        tag = atoi(argv[1]->arg);
+        VRF_GET_ID (vrf_id, argv[0]->arg);
       }
     else
-      tag = atoi(argv[0]);
+      tag = atoi(argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2662,11 +2662,11 @@ DEFUN (show_ip_route_prefix_longer,
 
   if (argc > 1)
     {
-      ret = str2prefix (argv[1], &p);
-      VRF_GET_ID (vrf_id, argv[0]);
+      ret = str2prefix (argv[1]->arg, &p);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
     }
   else
-    ret = str2prefix (argv[0], &p);
+    ret = str2prefix (argv[0]->arg, &p);
 
   if (! ret)
     {
@@ -2719,7 +2719,7 @@ DEFUN (show_ip_route_supernets,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -2772,11 +2772,11 @@ DEFUN (show_ip_route_protocol,
 
   if (argc > 1)
     {
-      type = proto_redistnum (AFI_IP, argv[1]);
-      VRF_GET_ID (vrf_id, argv[0]);
+      type = proto_redistnum (AFI_IP, argv[1]->arg);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
      }
   else
-    type = proto_redistnum (AFI_IP, argv[0]);
+    type = proto_redistnum (AFI_IP, argv[0]->arg);
 
   if (type < 0)
     {
@@ -2827,7 +2827,7 @@ DEFUN (show_ip_route_ospf_instance,
   int first = 1;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
   if (! table)
@@ -2864,11 +2864,11 @@ DEFUN (show_ip_route_addr,
 
   if (argc > 1)
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix_ipv4 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
+      ret = str2prefix_ipv4 (argv[1]->arg, &p);
     }
   else
-    ret = str2prefix_ipv4 (argv[0], &p);
+    ret = str2prefix_ipv4 (argv[0]->arg, &p);
 
   if (ret <= 0)
     {
@@ -2919,11 +2919,11 @@ DEFUN (show_ip_route_prefix,
 
   if (argc > 1)
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix_ipv4 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
+      ret = str2prefix_ipv4 (argv[1]->arg, &p);
     }
   else
-    ret = str2prefix_ipv4 (argv[0], &p);
+    ret = str2prefix_ipv4 (argv[0]->arg, &p);
 
   if (ret <= 0)
     {
@@ -3120,7 +3120,7 @@ DEFUN (show_ip_route_summary,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3154,7 +3154,7 @@ DEFUN (show_ip_route_summary_prefix,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3239,8 +3239,8 @@ DEFUN (show_ip_route_vrf_all_tag,
   int vrf_header = 1;
   u_short tag = 0;
 
-  if (argv[0])
-    tag = atoi(argv[0]);
+  if (argv[0]->arg)
+    tag = atoi(argv[0]->arg);
 
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
@@ -3293,7 +3293,7 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
   int first = 1;
   int vrf_header = 1;
 
-  ret = str2prefix (argv[0], &p);
+  ret = str2prefix (argv[0]->arg, &p);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Prefix%s", VTY_NEWLINE);
@@ -3402,7 +3402,7 @@ DEFUN (show_ip_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP, argv[0]);
+  type = proto_redistnum (AFI_IP, argv[0]->arg);
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);
@@ -3455,7 +3455,7 @@ DEFUN (show_ip_route_vrf_all_addr,
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[0]->arg, &p);
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed IPv4 address%s", VTY_NEWLINE);
@@ -3496,7 +3496,7 @@ DEFUN (show_ip_route_vrf_all_prefix,
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;
 
-  ret = str2prefix_ipv4 (argv[0], &p);
+  ret = str2prefix_ipv4 (argv[0]->arg, &p);
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed IPv4 address%s", VTY_NEWLINE);
@@ -3755,7 +3755,7 @@ DEFUN (ipv6_route,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL, NULL, NULL);
 }
 
 DEFUN (ipv6_route_tag,
@@ -3769,7 +3769,7 @@ DEFUN (ipv6_route_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], NULL, NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg, NULL, NULL);
 }
 
 DEFUN (ipv6_route_flags,
@@ -3783,7 +3783,7 @@ DEFUN (ipv6_route_flags,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], NULL, NULL, NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, NULL, NULL);
 }
 
 DEFUN (ipv6_route_flags_tag,
@@ -3799,7 +3799,7 @@ DEFUN (ipv6_route_flags_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3], NULL, NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, NULL, NULL);
 }
 
 DEFUN (ipv6_route_ifname,
@@ -3811,7 +3811,7 @@ DEFUN (ipv6_route_ifname,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, NULL, NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, NULL, NULL);
 }
 DEFUN (ipv6_route_ifname_tag,
        ipv6_route_ifname_tag_cmd,
@@ -3824,7 +3824,7 @@ DEFUN (ipv6_route_ifname_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], NULL, NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL);
 }
 
 DEFUN (ipv6_route_ifname_flags,
@@ -3838,7 +3838,7 @@ DEFUN (ipv6_route_ifname_flags,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL, NULL, NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, NULL, NULL);
 }
 
 DEFUN (ipv6_route_ifname_flags_tag,
@@ -3854,7 +3854,7 @@ DEFUN (ipv6_route_ifname_flags_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL);
 }
 
 DEFUN (ipv6_route_pref,
@@ -3867,7 +3867,7 @@ DEFUN (ipv6_route_pref,
        "IPv6 gateway interface name\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, argv[2], NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL, argv[2]->arg, NULL);
 }
 
 DEFUN (ipv6_route_pref_tag,
@@ -3882,7 +3882,7 @@ DEFUN (ipv6_route_pref_tag,
        "Tag value\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], argv[3], NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg, argv[3]->arg, NULL);
 }
 
 DEFUN (ipv6_route_flags_pref,
@@ -3897,7 +3897,7 @@ DEFUN (ipv6_route_flags_pref,
        "Silently discard pkts when matched\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], NULL, argv[3], NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, argv[3]->arg, NULL);
 }
 
 DEFUN (ipv6_route_flags_pref_tag,
@@ -3914,7 +3914,7 @@ DEFUN (ipv6_route_flags_pref_tag,
        "Tag value\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL);
 }
 
 DEFUN (ipv6_route_ifname_pref,
@@ -3927,7 +3927,7 @@ DEFUN (ipv6_route_ifname_pref,
        "IPv6 gateway interface name\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, argv[3], NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, argv[3]->arg, NULL);
 }
 
 DEFUN (ipv6_route_ifname_pref_tag,
@@ -3942,7 +3942,7 @@ DEFUN (ipv6_route_ifname_pref_tag,
        "Tag value\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL);
 }
 
 DEFUN (ipv6_route_ifname_flags_pref,
@@ -3957,7 +3957,7 @@ DEFUN (ipv6_route_ifname_flags_pref,
        "Silently discard pkts when matched\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg, NULL);
 }
 
 DEFUN (ipv6_route_ifname_flags_pref_tag,
@@ -3974,7 +3974,7 @@ DEFUN (ipv6_route_ifname_flags_pref_tag,
        "Tag value\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], NULL);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL);
 }
 
 DEFUN (no_ipv6_route,
@@ -3987,7 +3987,7 @@ DEFUN (no_ipv6_route,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, NULL, NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL, NULL, NULL);
 }
 
 DEFUN (no_ipv6_route_tag,
@@ -4002,7 +4002,7 @@ DEFUN (no_ipv6_route_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], NULL, NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg, NULL, NULL);
 }
 
 DEFUN (no_ipv6_route_flags,
@@ -4017,7 +4017,7 @@ DEFUN (no_ipv6_route_flags,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], NULL, NULL, NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, NULL, NULL);
 }
 
 DEFUN (no_ipv6_route_flags_tag,
@@ -4034,7 +4034,7 @@ DEFUN (no_ipv6_route_flags_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3], NULL, NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, NULL, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname,
@@ -4047,7 +4047,7 @@ DEFUN (no_ipv6_route_ifname,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, NULL, NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, NULL, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname_tag,
@@ -4062,7 +4062,7 @@ DEFUN (no_ipv6_route_ifname_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], NULL, NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname_flags,
@@ -4077,7 +4077,7 @@ DEFUN (no_ipv6_route_ifname_flags,
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], NULL, NULL, NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, NULL, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname_flags_tag,
@@ -4094,7 +4094,7 @@ DEFUN (no_ipv6_route_ifname_flags_tag,
        "Set tag for this route\n"
        "Tag value\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL);
 }
 
 DEFUN (no_ipv6_route_pref,
@@ -4108,7 +4108,7 @@ DEFUN (no_ipv6_route_pref,
        "IPv6 gateway interface name\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, argv[2], NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL, argv[2]->arg, NULL);
 }
 
 DEFUN (no_ipv6_route_pref_tag,
@@ -4124,7 +4124,7 @@ DEFUN (no_ipv6_route_pref_tag,
        "Tag value\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], argv[3], NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg, argv[3]->arg, NULL);
 }
 
 DEFUN (no_ipv6_route_flags_pref,
@@ -4140,8 +4140,8 @@ DEFUN (no_ipv6_route_flags_pref,
        "Silently discard pkts when matched\n"
        "Distance value for this prefix\n")
 {
-  /* We do not care about argv[2] */
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], NULL, argv[3], NULL);
+  /* We do not care about argv[2]->arg */
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, argv[3]->arg, NULL);
 }
 
 DEFUN (no_ipv6_route_flags_pref_tag,
@@ -4159,8 +4159,8 @@ DEFUN (no_ipv6_route_flags_pref_tag,
        "Tag value\n"
        "Distance value for this prefix\n")
 {
-  /* We do not care about argv[2] */
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], NULL);
+  /* We do not care about argv[2]->arg */
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname_pref,
@@ -4174,7 +4174,7 @@ DEFUN (no_ipv6_route_ifname_pref,
        "IPv6 gateway interface name\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, argv[3], NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, argv[3]->arg, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_tag,
@@ -4190,7 +4190,7 @@ DEFUN (no_ipv6_route_ifname_pref_tag,
        "Tag value\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname_flags_pref,
@@ -4206,7 +4206,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref,
        "Silently discard pkts when matched\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname_flags_pref_tag,
@@ -4224,7 +4224,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref_tag,
        "Tag value\n"
        "Distance value for this prefix\n")
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], NULL);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL);
 }
 
 DEFUN (ipv6_route_vrf,
@@ -4237,7 +4237,7 @@ DEFUN (ipv6_route_vrf,
        "IPv6 gateway interface name\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, NULL, argv[2]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL, NULL, argv[2]->arg);
 }
 
 DEFUN (ipv6_route_tag_vrf,
@@ -4252,7 +4252,7 @@ DEFUN (ipv6_route_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], NULL, argv[3]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg, NULL, argv[3]->arg);
 }
 
 DEFUN (ipv6_route_flags_vrf,
@@ -4267,7 +4267,7 @@ DEFUN (ipv6_route_flags_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], NULL, NULL, argv[3]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (ipv6_route_flags_tag_vrf,
@@ -4284,7 +4284,7 @@ DEFUN (ipv6_route_flags_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3], NULL, argv[4]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (ipv6_route_ifname_vrf,
@@ -4297,7 +4297,7 @@ DEFUN (ipv6_route_ifname_vrf,
        "IPv6 gateway interface name\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, NULL, argv[3]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, NULL, argv[3]->arg);
 }
 DEFUN (ipv6_route_ifname_tag_vrf,
        ipv6_route_ifname_tag_vrf_cmd,
@@ -4311,7 +4311,7 @@ DEFUN (ipv6_route_ifname_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], NULL, argv[4]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (ipv6_route_ifname_flags_vrf,
@@ -4326,7 +4326,7 @@ DEFUN (ipv6_route_ifname_flags_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL, NULL, argv[4]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, NULL, argv[4]->arg);
 }
 
 DEFUN (ipv6_route_ifname_flags_tag_vrf,
@@ -4343,7 +4343,7 @@ DEFUN (ipv6_route_ifname_flags_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, argv[5]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[5]->arg);
 }
 
 DEFUN (ipv6_route_pref_vrf,
@@ -4357,7 +4357,7 @@ DEFUN (ipv6_route_pref_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, NULL, argv[2], argv[3]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL, argv[2]->arg, argv[3]->arg);
 }
 
 DEFUN (ipv6_route_pref_tag_vrf,
@@ -4373,7 +4373,7 @@ DEFUN (ipv6_route_pref_tag_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, NULL, argv[2], argv[3], argv[4]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (ipv6_route_flags_pref_vrf,
@@ -4389,7 +4389,7 @@ DEFUN (ipv6_route_flags_pref_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], NULL, argv[3], argv[4]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (ipv6_route_flags_pref_tag_vrf,
@@ -4407,7 +4407,7 @@ DEFUN (ipv6_route_flags_pref_tag_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], argv[5]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (ipv6_route_ifname_pref_vrf,
@@ -4421,7 +4421,7 @@ DEFUN (ipv6_route_ifname_pref_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, NULL, argv[3], argv[4]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (ipv6_route_ifname_pref_tag_vrf,
@@ -4437,7 +4437,7 @@ DEFUN (ipv6_route_ifname_pref_tag_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], argv[5]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (ipv6_route_ifname_flags_pref_vrf,
@@ -4453,7 +4453,7 @@ DEFUN (ipv6_route_ifname_flags_pref_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], argv[5]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (ipv6_route_ifname_flags_pref_tag_vrf,
@@ -4471,7 +4471,7 @@ DEFUN (ipv6_route_ifname_flags_pref_tag_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]);
+  return static_ipv6_func (vty, 1, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg, argv[6]->arg);
 }
 
 DEFUN (no_ipv6_route_vrf,
@@ -4485,7 +4485,7 @@ DEFUN (no_ipv6_route_vrf,
        "IPv6 gateway interface name\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, NULL, argv[2]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL, NULL, argv[2]->arg);
 }
 
 DEFUN (no_ipv6_route_tag_vrf,
@@ -4501,7 +4501,7 @@ DEFUN (no_ipv6_route_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], NULL, argv[3]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg, NULL, argv[3]->arg);
 }
 
 DEFUN (no_ipv6_route_flags_vrf,
@@ -4517,7 +4517,7 @@ DEFUN (no_ipv6_route_flags_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], NULL, NULL, argv[3]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (no_ipv6_route_flags_tag_vrf,
@@ -4535,7 +4535,7 @@ DEFUN (no_ipv6_route_flags_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3], NULL, argv[4]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_vrf,
@@ -4549,7 +4549,7 @@ DEFUN (no_ipv6_route_ifname_vrf,
        "IPv6 gateway interface name\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, NULL, argv[3]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, NULL, argv[3]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_tag_vrf,
@@ -4565,7 +4565,7 @@ DEFUN (no_ipv6_route_ifname_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], NULL, argv[4]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_flags_vrf,
@@ -4581,7 +4581,7 @@ DEFUN (no_ipv6_route_ifname_flags_vrf,
        "Silently discard pkts when matched\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], NULL, NULL, argv[4]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, NULL, argv[4]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_flags_tag_vrf,
@@ -4599,7 +4599,7 @@ DEFUN (no_ipv6_route_ifname_flags_tag_vrf,
        "Tag value\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4], NULL, argv[5]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[5]->arg);
 }
 
 DEFUN (no_ipv6_route_pref_vrf,
@@ -4614,7 +4614,7 @@ DEFUN (no_ipv6_route_pref_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, NULL, argv[2], argv[3]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, NULL, argv[2]->arg, argv[3]->arg);
 }
 
 DEFUN (no_ipv6_route_pref_tag_vrf,
@@ -4631,7 +4631,7 @@ DEFUN (no_ipv6_route_pref_tag_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, NULL, argv[2], argv[3], argv[4]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ipv6_route_flags_pref_vrf,
@@ -4648,8 +4648,8 @@ DEFUN (no_ipv6_route_flags_pref_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  /* We do not care about argv[2] */
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], NULL, argv[3], argv[4]);
+  /* We do not care about argv[2]->arg */
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ipv6_route_flags_pref_tag_vrf,
@@ -4668,8 +4668,8 @@ DEFUN (no_ipv6_route_flags_pref_tag_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  /* We do not care about argv[2] */
-  return static_ipv6_func (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3], argv[4], argv[5]);
+  /* We do not care about argv[2]->arg */
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, NULL, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_vrf,
@@ -4684,7 +4684,7 @@ DEFUN (no_ipv6_route_ifname_pref_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, NULL, argv[3], argv[4]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, NULL, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_tag_vrf,
@@ -4701,7 +4701,7 @@ DEFUN (no_ipv6_route_ifname_pref_tag_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3], argv[4], argv[5]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_flags_pref_vrf,
@@ -4718,7 +4718,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], NULL, argv[4], argv[5]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_flags_pref_tag_vrf,
@@ -4737,7 +4737,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref_tag_vrf,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
-  return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6]);
+  return static_ipv6_func (vty, 0, argv[0]->arg, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg, argv[6]->arg);
 }
 
 DEFUN (show_ipv6_route,
@@ -4758,14 +4758,14 @@ DEFUN (show_ipv6_route,
   json_object *json_prefix = NULL;
   u_char uj = use_json(argc, argv);
 
-  if (argc > 0 && argv[0] && strcmp(argv[0], "json") != 0)
+  if (argc > 0 && argv[0]->arg && strcmp(argv[0]->arg, "json") != 0)
     {
-     if (!(zvrf = zebra_vrf_list_lookup_by_name (argv[0])))
+     if (!(zvrf = zebra_vrf_list_lookup_by_name (argv[0]->arg)))
         {
           if (uj)
             vty_out (vty, "{}%s", VTY_NEWLINE);
           else
-            vty_out (vty, "vrf %s not defined%s", argv[0], VTY_NEWLINE);
+            vty_out (vty, "vrf %s not defined%s", argv[0]->arg, VTY_NEWLINE);
           return CMD_SUCCESS;
         }
 
@@ -4774,7 +4774,7 @@ DEFUN (show_ipv6_route,
           if (uj)
             vty_out (vty, "{}%s", VTY_NEWLINE);
           else
-            vty_out (vty, "vrf %s inactive%s", argv[0], VTY_NEWLINE);
+            vty_out (vty, "vrf %s inactive%s", argv[0]->arg, VTY_NEWLINE);
           return CMD_SUCCESS;
         }
       else
@@ -4860,11 +4860,11 @@ DEFUN (show_ipv6_route_tag,
 
   if (argc > 1)
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      tag = atoi(argv[1]);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
+      tag = atoi(argv[1]->arg);
     }
   else
-    tag = atoi(argv[0]);
+    tag = atoi(argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -4916,11 +4916,11 @@ DEFUN (show_ipv6_route_prefix_longer,
 
   if (argc > 1)
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
+      ret = str2prefix (argv[1]->arg, &p);
     }
   else
-    ret = str2prefix (argv[0], &p);
+    ret = str2prefix (argv[0]->arg, &p);
 
   if (! ret)
     {
@@ -4974,11 +4974,11 @@ DEFUN (show_ipv6_route_protocol,
 
   if ( argc >1 )
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      type = proto_redistnum (AFI_IP6, argv[1]);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
+      type = proto_redistnum (AFI_IP6, argv[1]->arg);
     }
   else
-    type = proto_redistnum (AFI_IP6, argv[0]);
+    type = proto_redistnum (AFI_IP6, argv[0]->arg);
 
   if (type < 0)
     {
@@ -5030,11 +5030,11 @@ DEFUN (show_ipv6_route_addr,
 
   if (argc > 1 )
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix_ipv6 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
+      ret = str2prefix_ipv6 (argv[1]->arg, &p);
     }
   else
-    ret = str2prefix_ipv6 (argv[0], &p);
+    ret = str2prefix_ipv6 (argv[0]->arg, &p);
 
   if (ret <= 0)
     {
@@ -5085,11 +5085,11 @@ DEFUN (show_ipv6_route_prefix,
 
   if (argc > 1)
     {
-      VRF_GET_ID (vrf_id, argv[0]);
-      ret = str2prefix_ipv6 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[0]->arg);
+      ret = str2prefix_ipv6 (argv[1]->arg, &p);
     }
   else
-    ret = str2prefix_ipv6 (argv[0], &p);
+    ret = str2prefix_ipv6 (argv[0]->arg, &p);
 
   if (ret <= 0)
     {
@@ -5137,7 +5137,7 @@ DEFUN (show_ipv6_route_summary,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5171,7 +5171,7 @@ DEFUN (show_ipv6_route_summary_prefix,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5211,7 +5211,7 @@ DEFUN (show_ipv6_mroute,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[0]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_MULTICAST, vrf_id);
   if (! table)
@@ -5303,8 +5303,8 @@ DEFUN (show_ipv6_route_vrf_all_tag,
   int vrf_header = 1;
   u_short tag = 0;
 
-  if (argv[0])
-    tag = atoi(argv[0]);
+  if (argv[0]->arg)
+    tag = atoi(argv[0]->arg);
 
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
@@ -5358,7 +5358,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
   int first = 1;
   int vrf_header = 1;
 
-  ret = str2prefix (argv[0], &p);
+  ret = str2prefix (argv[0]->arg, &p);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Prefix%s", VTY_NEWLINE);
@@ -5413,7 +5413,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP6, argv[0]);
+  type = proto_redistnum (AFI_IP6, argv[0]->arg);
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);
@@ -5466,7 +5466,7 @@ DEFUN (show_ipv6_route_vrf_all_addr,
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;
 
-  ret = str2prefix_ipv6 (argv[0], &p);
+  ret = str2prefix_ipv6 (argv[0]->arg, &p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed IPv6 address%s", VTY_NEWLINE);
@@ -5507,7 +5507,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix,
   struct zebra_vrf *zvrf;
   vrf_iter_t iter;
 
-  ret = str2prefix_ipv6 (argv[0], &p);
+  ret = str2prefix_ipv6 (argv[0]->arg, &p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
@@ -5751,7 +5751,7 @@ DEFUN (ip_zebra_import_table_distance,
   int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
 
   if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[0]);
+    VTY_GET_INTEGER("table", table_id, argv[0]->arg);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {
@@ -5768,7 +5768,7 @@ DEFUN (ip_zebra_import_table_distance,
     }
 
   if (argc > 1)
-    VTY_GET_INTEGER_RANGE("distance", distance, argv[1], 1, 255);
+    VTY_GET_INTEGER_RANGE("distance", distance, argv[1]->arg, 1, 255);
   return (zebra_import_table(AFI_IP, table_id, distance, NULL, 1));
 
 }
@@ -5796,7 +5796,7 @@ DEFUN (ip_zebra_import_table_distance_routemap,
   const char *rmap_name;
 
   if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[0]);
+    VTY_GET_INTEGER("table", table_id, argv[0]->arg);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {
@@ -5814,11 +5814,11 @@ DEFUN (ip_zebra_import_table_distance_routemap,
 
   if (argc > 2)
     {
-      VTY_GET_INTEGER_RANGE("distance", distance, argv[1], 1, 255);
-      rmap_name =  XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[2]);
+      VTY_GET_INTEGER_RANGE("distance", distance, argv[1]->arg, 1, 255);
+      rmap_name =  XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[2]->arg);
     }
   else
-    rmap_name = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
+    rmap_name = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]->arg);
 
   return (zebra_import_table(AFI_IP, table_id, distance, rmap_name, 1));
 }
@@ -5843,7 +5843,7 @@ DEFUN (no_ip_zebra_import_table,
   u_int32_t table_id = 0;
 
   if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[0]);
+    VTY_GET_INTEGER("table", table_id, argv[0]->arg);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {

@@ -2263,7 +2263,7 @@ DEFUN (config_table,
        "Configure target kernel routing table\n"
        "TABLE integer\n")
 {
-  zebrad.rtm_table_default = strtol (argv[0], (char**)0, 10);
+  zebrad.rtm_table_default = strtol (argv[0]->arg, (char**)0, 10);
   return CMD_SUCCESS;
 }
 

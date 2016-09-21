@@ -223,7 +223,7 @@ DEFUN (router_id,
   struct prefix rid;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  rid.u.prefix4.s_addr = inet_addr (argv[0]);
+  rid.u.prefix4.s_addr = inet_addr (argv[0]->arg);
   if (!rid.u.prefix4.s_addr)
     return CMD_WARNING;
 
@@ -231,7 +231,7 @@ DEFUN (router_id,
   rid.family = AF_INET;
 
   if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]->arg);
 
   router_id_set (&rid, vrf_id);
 
@@ -259,7 +259,7 @@ DEFUN (no_router_id,
   rid.family = AF_INET;
 
   if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[1]->arg);
 
   router_id_set (&rid, vrf_id);
 

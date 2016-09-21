@@ -301,7 +301,7 @@ DEFUN (match_interface,
        "match first hop interface of route\n"
        "Interface name\n")
 {
-  return zebra_route_match_add (vty, vty->index, "interface", argv[0],
+  return zebra_route_match_add (vty, vty->index, "interface", argv[0]->arg,
 				RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -315,7 +315,7 @@ DEFUN (no_match_interface,
   if (argc == 0)
     return zebra_route_match_delete (vty, vty->index, "interface", NULL, RMAP_EVENT_MATCH_DELETED);
 
-  return zebra_route_match_delete (vty, vty->index, "interface", argv[0], RMAP_EVENT_MATCH_DELETED);
+  return zebra_route_match_delete (vty, vty->index, "interface", argv[0]->arg, RMAP_EVENT_MATCH_DELETED);
 }
 
 ALIAS (no_match_interface,
@@ -333,7 +333,7 @@ DEFUN (match_tag,
        "Match tag of route\n"
        "Tag value\n")
 {
-  return zebra_route_match_add (vty, vty->index, "tag", argv[0],
+  return zebra_route_match_add (vty, vty->index, "tag", argv[0]->arg,
                                 RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -348,7 +348,7 @@ DEFUN (no_match_tag,
     return zebra_route_match_delete (vty, vty->index, "tag", NULL,
                                      RMAP_EVENT_MATCH_DELETED);
 
-  return zebra_route_match_delete (vty, vty->index, "tag", argv[0],
+  return zebra_route_match_delete (vty, vty->index, "tag", argv[0]->arg,
                                    RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -369,7 +369,7 @@ DEFUN (match_ip_next_hop,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  return zebra_route_match_add (vty, vty->index, "ip next-hop", argv[0], RMAP_EVENT_FILTER_ADDED);
+  return zebra_route_match_add (vty, vty->index, "ip next-hop", argv[0]->arg, RMAP_EVENT_FILTER_ADDED);
 }
 
 DEFUN (no_match_ip_next_hop,
@@ -384,7 +384,7 @@ DEFUN (no_match_ip_next_hop,
     return zebra_route_match_delete (vty, vty->index, "ip next-hop", NULL,
 				     RMAP_EVENT_FILTER_DELETED);
 
-  return zebra_route_match_delete (vty, vty->index, "ip next-hop", argv[0],
+  return zebra_route_match_delete (vty, vty->index, "ip next-hop", argv[0]->arg,
 				   RMAP_EVENT_FILTER_DELETED);
 }
 
@@ -409,7 +409,7 @@ DEFUN (match_ip_next_hop_prefix_list,
        "IP prefix-list name\n")
 {
   return zebra_route_match_add (vty, vty->index, "ip next-hop prefix-list",
-				argv[0], RMAP_EVENT_PLIST_ADDED);
+				argv[0]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
 DEFUN (no_match_ip_next_hop_prefix_list,
@@ -427,7 +427,7 @@ DEFUN (no_match_ip_next_hop_prefix_list,
 				     RMAP_EVENT_PLIST_DELETED);
 
   return zebra_route_match_delete (vty, vty->index,
-				   "ip next-hop prefix-list", argv[0],
+				   "ip next-hop prefix-list", argv[0]->arg,
 				   RMAP_EVENT_PLIST_DELETED);
 }
 
@@ -452,7 +452,7 @@ DEFUN (match_ip_address,
        "IP Access-list name\n")
 
 {
-  return zebra_route_match_add (vty, vty->index, "ip address", argv[0],
+  return zebra_route_match_add (vty, vty->index, "ip address", argv[0]->arg,
 				RMAP_EVENT_FILTER_ADDED);
 }
 
@@ -468,7 +468,7 @@ DEFUN (no_match_ip_address,
     return zebra_route_match_delete (vty, vty->index, "ip address", NULL,
 				     RMAP_EVENT_FILTER_DELETED);
 
-  return zebra_route_match_delete (vty, vty->index, "ip address", argv[0],
+  return zebra_route_match_delete (vty, vty->index, "ip address", argv[0]->arg,
 				   RMAP_EVENT_FILTER_DELETED);
 }
 
@@ -493,7 +493,7 @@ DEFUN (match_ip_address_prefix_list,
        "IP prefix-list name\n")
 {
   return zebra_route_match_add (vty, vty->index, "ip address prefix-list",
-				argv[0], RMAP_EVENT_PLIST_ADDED);
+				argv[0]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
 DEFUN (no_match_ip_address_prefix_list,
@@ -511,7 +511,7 @@ DEFUN (no_match_ip_address_prefix_list,
 				     RMAP_EVENT_PLIST_DELETED);
 
   return zebra_route_match_delete (vty, vty->index,
-				   "ip address prefix-list", argv[0],
+				   "ip address prefix-list", argv[0]->arg,
 				   RMAP_EVENT_PLIST_DELETED);
 }
 
@@ -535,7 +535,7 @@ DEFUN (match_ip_address_prefix_len,
        "Prefix length\n")
 {
   return zebra_route_match_add (vty, vty->index, "ip address prefix-len",
-				argv[0], RMAP_EVENT_MATCH_ADDED);
+				argv[0]->arg, RMAP_EVENT_MATCH_ADDED);
 }
 
 DEFUN (no_match_ip_address_prefix_len,
@@ -553,7 +553,7 @@ DEFUN (no_match_ip_address_prefix_len,
 				     RMAP_EVENT_MATCH_DELETED);
 
   return zebra_route_match_delete (vty, vty->index,
-				   "ip address prefix-len", argv[0],
+				   "ip address prefix-len", argv[0]->arg,
 				   RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -576,7 +576,7 @@ DEFUN (match_ip_nexthop_prefix_len,
        "Prefix length\n")
 {
   return zebra_route_match_add (vty, vty->index, "ip next-hop prefix-len",
-				argv[0], RMAP_EVENT_MATCH_ADDED);
+				argv[0]->arg, RMAP_EVENT_MATCH_ADDED);
 }
 
 DEFUN (no_match_ip_nexthop_prefix_len,
@@ -594,7 +594,7 @@ DEFUN (no_match_ip_nexthop_prefix_len,
 				     RMAP_EVENT_MATCH_DELETED);
 
   return zebra_route_match_delete (vty, vty->index,
-				   "ip next-hop prefix-len", argv[0],
+				   "ip next-hop prefix-len", argv[0]->arg,
 				   RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -613,15 +613,15 @@ DEFUN (match_source_protocol,
 {
   int i;
 
-  i = proto_name2num(argv[0]);
+  i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
   return zebra_route_match_add (vty, vty->index, "source-protocol",
-				argv[0], RMAP_EVENT_MATCH_ADDED);
+				argv[0]->arg, RMAP_EVENT_MATCH_ADDED);
 }
 
 DEFUN (no_match_source_protocol,
@@ -635,16 +635,16 @@ DEFUN (no_match_source_protocol,
 
   if (argc >= 1)
     {
-      i = proto_name2num(argv[0]);
+      i = proto_name2num(argv[0]->arg);
       if (i < 0)
 	{
-	  vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+	  vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
 		   VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
   return zebra_route_match_delete (vty, vty->index,
-				   "source-protocol", argv[0] ? argv[0] : NULL,
+				   "source-protocol", argv[0]->arg ? argv[0]->arg : NULL,
 				   RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -663,9 +663,9 @@ DEFUN (set_src,
   struct prefix p;
   vrf_iter_t iter;
 
-  if (inet_pton(AF_INET, argv[0], &src.ipv4) != 1)
+  if (inet_pton(AF_INET, argv[0]->arg, &src.ipv4) != 1)
     {
-      if (inet_pton(AF_INET6, argv[0], &src.ipv6) != 1)
+      if (inet_pton(AF_INET6, argv[0]->arg, &src.ipv6) != 1)
 	{
 	  vty_out (vty, "%% not a valid IPv4/v6 address%s", VTY_NEWLINE);
 	  return CMD_WARNING;
@@ -706,7 +706,7 @@ DEFUN (set_src,
       vty_out (vty, "%% not a local address%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return zebra_route_set_add (vty, vty->index, "src", argv[0]);
+  return zebra_route_set_add (vty, vty->index, "src", argv[0]->arg);
 }
 
 DEFUN (no_set_src,
@@ -719,7 +719,7 @@ DEFUN (no_set_src,
   if (argc == 0)
     return zebra_route_set_delete (vty, vty->index, "src", NULL);
 
-  return zebra_route_set_delete (vty, vty->index, "src", argv[0]);
+  return zebra_route_set_delete (vty, vty->index, "src", argv[0]->arg);
 }
 
 DEFUN (zebra_route_map_timer,
@@ -730,7 +730,7 @@ DEFUN (zebra_route_map_timer,
 {
   u_int32_t rmap_delay_timer;
 
-  VTY_GET_INTEGER_RANGE ("delay-timer", rmap_delay_timer, argv[0], 0, 600);
+  VTY_GET_INTEGER_RANGE ("delay-timer", rmap_delay_timer, argv[0]->arg, 0, 600);
   zebra_route_map_set_delay_timer(rmap_delay_timer);
 
   return (CMD_SUCCESS);
@@ -766,28 +766,28 @@ DEFUN (ip_protocol,
 {
   int i;
 
-  if (strcasecmp(argv[0], "any") == 0)
+  if (strcasecmp(argv[0]->arg, "any") == 0)
     i = ZEBRA_ROUTE_MAX;
   else
-    i = proto_name2num(argv[0]);
+    i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (proto_rm[AFI_IP][i])
     {
-      if (strcmp(proto_rm[AFI_IP][i], argv[1]) == 0)
+      if (strcmp(proto_rm[AFI_IP][i], argv[1]->arg) == 0)
 	return CMD_SUCCESS;
 
       XFREE (MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP][i]);
     }
-  proto_rm[AFI_IP][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
+  proto_rm[AFI_IP][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]->arg);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%u: IPv4 Routemap config for protocol %s, scheduling RIB processing",
-                VRF_DEFAULT, argv[0]);
+                VRF_DEFAULT, argv[0]->arg);
 
   rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
   return CMD_SUCCESS;
@@ -804,20 +804,20 @@ DEFUN (no_ip_protocol,
 {
   int i;
 
-  if (strcasecmp(argv[0], "any") == 0)
+  if (strcasecmp(argv[0]->arg, "any") == 0)
     i = ZEBRA_ROUTE_MAX;
   else
-    i = proto_name2num(argv[0]);
+    i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
      return CMD_WARNING;
     }
   if (!proto_rm[AFI_IP][i])
     return CMD_SUCCESS;
 
-  if ((argc == 2 && strcmp(argv[1], proto_rm[AFI_IP][i]) == 0) ||
+  if ((argc == 2 && strcmp(argv[1]->arg, proto_rm[AFI_IP][i]) == 0) ||
       (argc < 2))
     {
       XFREE (MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP][i]);
@@ -825,7 +825,7 @@ DEFUN (no_ip_protocol,
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
         zlog_debug ("%u: IPv4 Routemap unconfig for protocol %s, scheduling RIB processing",
-                    VRF_DEFAULT, argv[0]);
+                    VRF_DEFAULT, argv[0]->arg);
       rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
     }
   return CMD_SUCCESS;
@@ -879,28 +879,28 @@ DEFUN (ipv6_protocol,
 {
   int i;
 
-  if (strcasecmp(argv[0], "any") == 0)
+  if (strcasecmp(argv[0]->arg, "any") == 0)
     i = ZEBRA_ROUTE_MAX;
   else
-    i = proto_name2num(argv[0]);
+    i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (proto_rm[AFI_IP6][i])
     {
-      if (strcmp(proto_rm[AFI_IP6][i], argv[1]) == 0)
+      if (strcmp(proto_rm[AFI_IP6][i], argv[1]->arg) == 0)
 	return CMD_SUCCESS;
 
       XFREE (MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP6][i]);
     }
-  proto_rm[AFI_IP6][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
+  proto_rm[AFI_IP6][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]->arg);
 
   if (IS_ZEBRA_DEBUG_RIB_DETAILED)
     zlog_debug ("%u: IPv6 Routemap config for protocol %s, scheduling RIB processing",
-                VRF_DEFAULT, argv[0]);
+                VRF_DEFAULT, argv[0]->arg);
 
   rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
   return CMD_SUCCESS;
@@ -917,20 +917,20 @@ DEFUN (no_ipv6_protocol,
 {
   int i;
 
-  if (strcasecmp(argv[0], "any") == 0)
+  if (strcasecmp(argv[0]->arg, "any") == 0)
     i = ZEBRA_ROUTE_MAX;
   else
-    i = proto_name2num(argv[0]);
+    i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
      return CMD_WARNING;
     }
   if (!proto_rm[AFI_IP6][i])
     return CMD_SUCCESS;
 
-  if ((argc == 2 && strcmp(argv[1], proto_rm[AFI_IP6][i]) == 0) ||
+  if ((argc == 2 && strcmp(argv[1]->arg, proto_rm[AFI_IP6][i]) == 0) ||
       (argc < 2))
     {
       XFREE (MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP6][i]);
@@ -938,7 +938,7 @@ DEFUN (no_ipv6_protocol,
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
         zlog_debug ("%u: IPv6 Routemap unconfig for protocol %s, scheduling RIB processing",
-                    VRF_DEFAULT, argv[0]);
+                    VRF_DEFAULT, argv[0]->arg);
 
       rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
     }
@@ -993,25 +993,25 @@ DEFUN (ip_protocol_nht_rmap,
 {
   int i;
 
-  if (strcasecmp(argv[0], "any") == 0)
+  if (strcasecmp(argv[0]->arg, "any") == 0)
     i = ZEBRA_ROUTE_MAX;
   else
-    i = proto_name2num(argv[0]);
+    i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (nht_rm[AFI_IP][i])
     {
-      if (strcmp(nht_rm[AFI_IP][i], argv[1]) == 0)
+      if (strcmp(nht_rm[AFI_IP][i], argv[1]->arg) == 0)
 	return CMD_SUCCESS;
 
       XFREE (MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP][i]);
     }
 
-  nht_rm[AFI_IP][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
+  nht_rm[AFI_IP][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]->arg);
   zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 
   return CMD_SUCCESS;
@@ -1027,20 +1027,20 @@ DEFUN (no_ip_protocol_nht_rmap,
 {
   int i;
 
-  if (strcasecmp(argv[0], "any") == 0)
+  if (strcasecmp(argv[0]->arg, "any") == 0)
     i = ZEBRA_ROUTE_MAX;
   else
-    i = proto_name2num(argv[0]);
+    i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
      return CMD_WARNING;
     }
   if (!nht_rm[AFI_IP][i])
     return CMD_SUCCESS;
 
-  if ((argc == 2 && strcmp(argv[1], nht_rm[AFI_IP][i]) == 0) ||
+  if ((argc == 2 && strcmp(argv[1]->arg, nht_rm[AFI_IP][i]) == 0) ||
       (argc < 2))
     {
       XFREE (MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP][i]);
@@ -1097,19 +1097,19 @@ DEFUN (ipv6_protocol_nht_rmap,
 {
   int i;
 
-  if (strcasecmp(argv[0], "any") == 0)
+  if (strcasecmp(argv[0]->arg, "any") == 0)
     i = ZEBRA_ROUTE_MAX;
   else
-    i = proto_name2num(argv[0]);
+    i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
       return CMD_WARNING;
     }
   if (nht_rm[AFI_IP6][i])
     XFREE (MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
-  nht_rm[AFI_IP6][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
+  nht_rm[AFI_IP6][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]->arg);
   zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 
   return CMD_SUCCESS;
@@ -1125,20 +1125,20 @@ DEFUN (no_ipv6_protocol_nht_rmap,
 {
   int i;
 
-  if (strcasecmp(argv[0], "any") == 0)
+  if (strcasecmp(argv[0]->arg, "any") == 0)
     i = ZEBRA_ROUTE_MAX;
   else
-    i = proto_name2num(argv[0]);
+    i = proto_name2num(argv[0]->arg);
   if (i < 0)
     {
-      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0]->arg ? argv[0]->arg : "",
                VTY_NEWLINE);
      return CMD_WARNING;
     }
 
-  if (nht_rm[AFI_IP6][i] && argc == 2 && strcmp(argv[1], nht_rm[AFI_IP6][i]))
+  if (nht_rm[AFI_IP6][i] && argc == 2 && strcmp(argv[1]->arg, nht_rm[AFI_IP6][i]))
     {
-      vty_out (vty, "invalid route-map \"%s\"%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "invalid route-map \"%s\"%s", argv[1]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
