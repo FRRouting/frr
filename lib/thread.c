@@ -305,9 +305,9 @@ DEFUN (show_thread_cpu,
   if (argc > 0)
     {
       filter = 0;
-      while (argv[0][i] != '\0')
+      while (argv[0]->arg[i] != '\0')
 	{
-	  switch ( argv[0][i] )
+	  switch ( argv[0]->arg[i] )
 	    {
 	    case 'r':
 	    case 'R':
@@ -342,7 +342,7 @@ DEFUN (show_thread_cpu,
 	{
 	  vty_out(vty, "Invalid filter \"%s\" specified,"
                   " must contain at least one of 'RWTEXB'%s",
-		  argv[0], VTY_NEWLINE);
+		  argv[0]->arg, VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
@@ -387,9 +387,9 @@ DEFUN (clear_thread_cpu,
   if (argc > 0)
     {
       filter = 0;
-      while (argv[0][i] != '\0')
+      while (argv[0]->arg[i] != '\0')
 	{
-	  switch ( argv[0][i] )
+	  switch ( argv[0]->arg[i] )
 	    {
 	    case 'r':
 	    case 'R':
@@ -424,7 +424,7 @@ DEFUN (clear_thread_cpu,
 	{
 	  vty_out(vty, "Invalid filter \"%s\" specified,"
                   " must contain at least one of 'RWTEXB'%s",
-		  argv[0], VTY_NEWLINE);
+		  argv[0]->arg, VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
