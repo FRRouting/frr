@@ -40,4 +40,6 @@ extern void json_object_boolean_true_add(struct json_object* obj,
 extern struct json_object* json_object_lock(struct json_object *obj);
 extern void json_object_free(struct json_object *obj);
 
+#define JSON_STR "JavaScript Object Notation\n"
+
 #endif /* _QUAGGA_JSON_H */
