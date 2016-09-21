@@ -314,9 +314,9 @@ DEFUN (distribute_list_all,
   enum distribute_type type;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = DISTRIBUTE_OUT;
   else
     {
@@ -326,7 +326,7 @@ DEFUN (distribute_list_all,
     }
 
   /* Get interface name corresponding distribute list. */
-  distribute_list_set (NULL, type, argv[0]);
+  distribute_list_set (NULL, type, argv[0]->arg);
 
   return CMD_SUCCESS;
 }
@@ -352,9 +352,9 @@ DEFUN (no_distribute_list_all,
   enum distribute_type type;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = DISTRIBUTE_OUT;
   else
     {
@@ -363,7 +363,7 @@ DEFUN (no_distribute_list_all,
       return CMD_WARNING;
     }
 
-  ret = distribute_list_unset (NULL, type, argv[0]);
+  ret = distribute_list_unset (NULL, type, argv[0]->arg);
   if (! ret)
     {
       vty_out (vty, "distribute list doesn't exist%s", VTY_NEWLINE);
@@ -393,9 +393,9 @@ DEFUN (distribute_list,
   enum distribute_type type;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = DISTRIBUTE_OUT;
   else
     {
@@ -404,7 +404,7 @@ DEFUN (distribute_list,
     }
 
   /* Get interface name corresponding distribute list. */
-  distribute_list_set (argv[2], type, argv[0]);
+  distribute_list_set (argv[2]->arg, type, argv[0]->arg);
 
   return CMD_SUCCESS;
 }       
@@ -431,9 +431,9 @@ DEFUN (no_distribute_list, no_distribute_list_cmd,
   enum distribute_type type;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = DISTRIBUTE_OUT;
   else
     {
@@ -441,7 +441,7 @@ DEFUN (no_distribute_list, no_distribute_list_cmd,
       return CMD_WARNING;
     }
 
-  ret = distribute_list_unset (argv[2], type, argv[0]);
+  ret = distribute_list_unset (argv[2]->arg, type, argv[0]->arg);
   if (! ret)
     {
       vty_out (vty, "distribute list doesn't exist%s", VTY_NEWLINE);
@@ -471,9 +471,9 @@ DEFUN (distribute_list_prefix_all,
   enum distribute_type type;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = DISTRIBUTE_OUT;
   else
     {
@@ -483,7 +483,7 @@ DEFUN (distribute_list_prefix_all,
     }
 
   /* Get interface name corresponding distribute list. */
-  distribute_list_prefix_set (NULL, type, argv[0]);
+  distribute_list_prefix_set (NULL, type, argv[0]->arg);
 
   return CMD_SUCCESS;
 }       
@@ -511,9 +511,9 @@ DEFUN (no_distribute_list_prefix_all,
   enum distribute_type type;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = DISTRIBUTE_OUT;
   else
     {
@@ -522,7 +522,7 @@ DEFUN (no_distribute_list_prefix_all,
       return CMD_WARNING;
     }
 
-  ret = distribute_list_prefix_unset (NULL, type, argv[0]);
+  ret = distribute_list_prefix_unset (NULL, type, argv[0]->arg);
   if (! ret)
     {
       vty_out (vty, "distribute list doesn't exist%s", VTY_NEWLINE);
@@ -553,9 +553,9 @@ DEFUN (distribute_list_prefix, distribute_list_prefix_cmd,
   enum distribute_type type;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = DISTRIBUTE_OUT;
   else
     {
@@ -565,7 +565,7 @@ DEFUN (distribute_list_prefix, distribute_list_prefix_cmd,
     }
 
   /* Get interface name corresponding distribute list. */
-  distribute_list_prefix_set (argv[2], type, argv[0]);
+  distribute_list_prefix_set (argv[2]->arg, type, argv[0]->arg);
 
   return CMD_SUCCESS;
 }       
@@ -593,9 +593,9 @@ DEFUN (no_distribute_list_prefix, no_distribute_list_prefix_cmd,
   enum distribute_type type;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = DISTRIBUTE_OUT;
   else
     {
@@ -604,7 +604,7 @@ DEFUN (no_distribute_list_prefix, no_distribute_list_prefix_cmd,
       return CMD_WARNING;
     }
 
-  ret = distribute_list_prefix_unset (argv[2], type, argv[0]);
+  ret = distribute_list_prefix_unset (argv[2]->arg, type, argv[0]->arg);
   if (! ret)
     {
       vty_out (vty, "distribute list doesn't exist%s", VTY_NEWLINE);

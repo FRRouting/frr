@@ -220,9 +220,9 @@ DEFUN (if_rmap,
 {
   enum if_rmap_type type;
 
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = IF_RMAP_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = IF_RMAP_OUT;
   else
     {
@@ -230,7 +230,7 @@ DEFUN (if_rmap,
       return CMD_WARNING;
     }
 
-  if_rmap_set (argv[2], type, argv[0]);
+  if_rmap_set (argv[2]->arg, type, argv[0]->arg);
 
   return CMD_SUCCESS;
 }      
@@ -257,9 +257,9 @@ DEFUN (no_if_rmap,
   int ret;
   enum if_rmap_type type;
 
-  if (strncmp (argv[1], "i", 1) == 0)
+  if (strncmp (argv[1]->arg, "i", 1) == 0)
     type = IF_RMAP_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
+  else if (strncmp (argv[1]->arg, "o", 1) == 0)
     type = IF_RMAP_OUT;
   else
     {
@@ -267,7 +267,7 @@ DEFUN (no_if_rmap,
       return CMD_WARNING;
     }
 
-  ret = if_rmap_unset (argv[2], type, argv[0]);
+  ret = if_rmap_unset (argv[2]->arg, type, argv[0]->arg);
   if (! ret)
     {
       vty_out (vty, "route-map doesn't exist%s", VTY_NEWLINE);
