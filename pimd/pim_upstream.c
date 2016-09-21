@@ -999,6 +999,13 @@ pim_upstream_register_stop_timer (struct thread *t)
       break;
     case PIM_UPSTREAM_PRUNE:
       pim_ifp = up->rpf.source_nexthop.interface->info;
+      if (!pim_ifp)
+        {
+         if (PIM_DEBUG_TRACE)
+           zlog_debug ("%s: Interface: %s is not configured for pim",
+                       __PRETTY_FUNCTION__, up->rpf.source_nexthop.interface->name);
+         return 0;
+       }
       up->join_state = PIM_UPSTREAM_JOIN_PENDING;
       pim_upstream_start_register_stop_timer (up, 1);
 
