@@ -78,9 +78,6 @@ static enum match_type
 match_word (struct cmd_token *, const char *);
 
 static enum match_type
-match_number (struct cmd_token *, const char *);
-
-static enum match_type
 match_variable (struct cmd_token *, const char *);
 
 /* matching functions */

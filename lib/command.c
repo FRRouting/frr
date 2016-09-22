@@ -2005,13 +2005,13 @@ DEFUN (banner_motd_file,
        "Banner from a file\n"
        "Filename\n")
 {
-  int cmd = cmd_banner_motd_file (argv[3]->arg);
+  const char *filename = argv[3]->arg;
+  int cmd = cmd_banner_motd_file (filename);
 
   if (cmd == CMD_ERR_NO_FILE)
-    vty_out (vty, "%s does not exist", argv[3]->arg);
+    vty_out (vty, "%s does not exist", filename);
   else if (cmd == CMD_WARNING)
-    vty_out (vty, "%s must be in %s",
-             argv[0], SYSCONFDIR);
+    vty_out (vty, "%s must be in %s", filename, SYSCONFDIR);
 
   return cmd;
 }
@@ -2230,20 +2230,19 @@ del_cmd_token (struct cmd_token *token)
   if (!token) return;
 
   if (token->text)
-    XFREE (MTYPE_CMD_TOKENS, token->text);
+    free (token->text);
   if (token->desc)
-    XFREE (MTYPE_CMD_TOKENS, token->desc);
+    free (token->desc);
   if (token->arg)
-    XFREE (MTYPE_CMD_TOKENS, token->arg);
+    free (token->arg);
 
-  XFREE (MTYPE_CMD_TOKENS, token);
+  free (token);
 }
 
 struct cmd_token *
 copy_cmd_token (struct cmd_token *token)
 {
   struct cmd_token *copy = new_cmd_token (token->type, NULL, NULL);
-  copy->value = token->value;
   copy->max   = token->max;
   copy->min   = token->min;
   copy->text  = token->text ? XSTRDUP (MTYPE_CMD_TOKENS, token->text) : NULL;
@@ -2257,9 +2256,9 @@ void
 del_cmd_element(struct cmd_element *cmd)
 {
   if (!cmd) return;
-  XFREE (MTYPE_CMD_TOKENS, cmd->string);
-  XFREE (MTYPE_CMD_TOKENS, cmd->doc);
-  XFREE (MTYPE_CMD_TOKENS, cmd);
+  free ((char *) cmd->string);
+  free ((char *) cmd->doc);
+  free (cmd);
 }
 
 struct cmd_element *
