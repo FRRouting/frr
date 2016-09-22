@@ -316,32 +316,35 @@ rip_timeout_update (struct rip_info *rinfo)
 }
 
 static int
-rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
+rip_filter (int rip_distribute, struct prefix_ipv4 *p, struct rip_interface *ri)
 {
   struct distribute *dist;
   struct access_list *alist;
   struct prefix_list *plist;
+  int distribute = rip_distribute == RIP_FILTER_OUT ?
+      DISTRIBUTE_OUT : DISTRIBUTE_IN;
+  const char *inout = rip_distribute == RIP_FILTER_OUT ? "out" : "in";
 
   /* Input distribute-list filtering. */
-  if (ri->list[RIP_FILTER_IN])
+  if (ri->list[rip_distribute])
     {
-      if (access_list_apply (ri->list[RIP_FILTER_IN], 
+      if (access_list_apply (ri->list[rip_distribute],
 			     (struct prefix *) p) == FILTER_DENY)
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_debug ("%s/%d filtered by distribute in",
-		       inet_ntoa (p->prefix), p->prefixlen);
+	    zlog_debug ("%s/%d filtered by distribute %s",
+                        inet_ntoa (p->prefix), p->prefixlen, inout);
 	  return -1;
 	}
     }
-  if (ri->prefix[RIP_FILTER_IN])
+  if (ri->prefix[rip_distribute])
     {
-      if (prefix_list_apply (ri->prefix[RIP_FILTER_IN], 
+      if (prefix_list_apply (ri->prefix[rip_distribute],
 			     (struct prefix *) p) == PREFIX_DENY)
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_debug ("%s/%d filtered by prefix-list in",
-		       inet_ntoa (p->prefix), p->prefixlen);
+	    zlog_debug ("%s/%d filtered by prefix-list %s",
+                        inet_ntoa (p->prefix), p->prefixlen, inout);
 	  return -1;
 	}
     }
@@ -350,104 +353,33 @@ rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
   dist = distribute_lookup (NULL);
   if (dist)
     {
-      if (dist->list[DISTRIBUTE_IN])
+      if (dist->list[distribute])
 	{
-	  alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_IN]);
-	    
+	  alist = access_list_lookup (AFI_IP, dist->list[distribute]);
+
 	  if (alist)
 	    {
-	      if (access_list_apply (alist,
-				     (struct prefix *) p) == FILTER_DENY)
+	      if (access_list_apply (alist, (struct prefix *) p) == FILTER_DENY)
 		{
 		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_debug ("%s/%d filtered by distribute in",
-			       inet_ntoa (p->prefix), p->prefixlen);
+		    zlog_debug ("%s/%d filtered by distribute %s",
+                                inet_ntoa (p->prefix), p->prefixlen, inout);
 		  return -1;
 		}
 	    }
 	}
-      if (dist->prefix[DISTRIBUTE_IN])
+      if (dist->prefix[distribute])
 	{
-	  plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_IN]);
-	  
+	  plist = prefix_list_lookup (AFI_IP, dist->prefix[distribute]);
+
 	  if (plist)
 	    {
 	      if (prefix_list_apply (plist,
 				     (struct prefix *) p) == PREFIX_DENY)
 		{
 		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_debug ("%s/%d filtered by prefix-list in",
-			       inet_ntoa (p->prefix), p->prefixlen);
-		  return -1;
-		}
-	    }
-	}
-    }
-  return 0;
-}
-
-static int
-rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
-{
-  struct distribute *dist;
-  struct access_list *alist;
-  struct prefix_list *plist;
-
-  if (ri->list[RIP_FILTER_OUT])
-    {
-      if (access_list_apply (ri->list[RIP_FILTER_OUT],
-			     (struct prefix *) p) == FILTER_DENY)
-	{
-	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_debug ("%s/%d is filtered by distribute out",
-		       inet_ntoa (p->prefix), p->prefixlen);
-	  return -1;
-	}
-    }
-  if (ri->prefix[RIP_FILTER_OUT])
-    {
-      if (prefix_list_apply (ri->prefix[RIP_FILTER_OUT],
-			     (struct prefix *) p) == PREFIX_DENY)
-	{
-	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_debug ("%s/%d is filtered by prefix-list out",
-		       inet_ntoa (p->prefix), p->prefixlen);
-	  return -1;
-	}
-    }
-
-  /* All interface filter check. */
-  dist = distribute_lookup (NULL);
-  if (dist)
-    {
-      if (dist->list[DISTRIBUTE_OUT])
-	{
-	  alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_OUT]);
-	    
-	  if (alist)
-	    {
-	      if (access_list_apply (alist,
-				     (struct prefix *) p) == FILTER_DENY)
-		{
-		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_debug ("%s/%d filtered by distribute out",
-			       inet_ntoa (p->prefix), p->prefixlen);
-		  return -1;
-		}
-	    }
-	}
-      if (dist->prefix[DISTRIBUTE_OUT])
-	{
-	  plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_OUT]);
-	  
-	  if (plist)
-	    {
-	      if (prefix_list_apply (plist,
-				     (struct prefix *) p) == PREFIX_DENY)
-		{
-		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_debug ("%s/%d filtered by prefix-list out",
-			       inet_ntoa (p->prefix), p->prefixlen);
+		    zlog_debug ("%s/%d filtered by prefix-list %s",
+                                inet_ntoa (p->prefix), p->prefixlen, inout);
 		  return -1;
 		}
 	    }
@@ -511,7 +443,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   /* Apply input filters. */
   ri = ifp->info;
 
-  ret = rip_incoming_filter (&p, ri);
+  ret = rip_filter (RIP_FILTER_IN, &p, ri);
   if (ret < 0)
     return;
 
@@ -2301,7 +2233,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 	  p = (struct prefix_ipv4 *) &rp->p;
 
 	/* Apply output filters. */
-	ret = rip_outgoing_filter (p, ri);
+	ret = rip_filter (RIP_FILTER_OUT, p, ri);
 	if (ret < 0)
 	  continue;
 
