@@ -223,7 +223,7 @@ DEFUN (router_id,
   struct prefix rid;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  rid.u.prefix4.s_addr = inet_addr (argv[0]);
+  rid.u.prefix4.s_addr = inet_addr (argv[1]->arg);
   if (!rid.u.prefix4.s_addr)
     return CMD_WARNING;
 

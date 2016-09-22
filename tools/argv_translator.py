@@ -30,6 +30,11 @@ def token_is_variable(line_number, token):
     if token in ('WORD',
                  '.LINE', # where is this defined?
                  'LINE',
+                 'BANDWIDTH',
+                 'INTERFACE',
+                 'PERCENTAGE',
+                 'IFNAME',
+                 'NAME',
                  'BITPATTERN',
                  'PATH',
                  'A.B.C.D',
@@ -133,12 +138,15 @@ def get_argv_translator(line_number, line):
 
     old_style_index = 0
     for (token_index, token) in enumerate(line_to_tokens(line)):
+        if not token:
+            continue
+
         if token_is_variable(line_number, token):
-            # print "%s is a token" % token
+            print "%s is a token" % token
             table[old_style_index] = token_index
             old_style_index += 1
         else:
-            # print "%s is NOT a token" % token
+            print "%s is NOT a token" % token
             pass
 
     return table
@@ -159,7 +167,7 @@ def update_argvs(filename):
 
             if state is None:
                 if line.startswith('DEFUN ('):
-                    assert line.count(',') == 1, "Too many commas in\n%s" % line
+                    assert line.count(',') == 1, "%d: Too many commas in\n%s" % (line_number, line)
                     state = 'DEFUN_HEADER'
                     defun_line_number = line_number
 
@@ -185,6 +193,10 @@ def update_argvs(filename):
                     line = line.replace('" QUAGGA_IP6_REDIST_STR_BGPD "', '(kernel|connected|static|ripng|ospf6|isis|table)')
                     line = line.replace('" OSPF_LSA_TYPES_CMD_STR "', 'asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as')
                     line = line.replace('" QUAGGA_REDIST_STR_OSPFD "', '(kernel|connected|static|rip|isis|bgp|pim|table)')
+                    line = line.replace('" VRF_CMD_STR "', 'vrf NAME')
+                    line = line.replace('" VRF_ALL_CMD_STR "', 'vrf all')
+                    line = line.replace('" QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA "', '(kernel|connected|static|rip|ospf|isis|bgp|pim|table|any)')
+                    line = line.replace('" QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA "', '(kernel|connected|static|ripng|ospf6|isis|bgp|table|any)')
 
                     # endswith
                     line = line.replace('" CMD_AS_RANGE,', ' <1-4294967295>",')
@@ -201,6 +213,12 @@ def update_argvs(filename):
                     line = line.replace('" QUAGGA_IP_REDIST_STR_BGPD,', ' (kernel|connected|static|rip|ospf|isis|pim|table)",')
                     line = line.replace('" QUAGGA_IP6_REDIST_STR_BGPD,', ' (kernel|connected|static|ripng|ospf6|isis|table)",')
                     line = line.replace('" QUAGGA_REDIST_STR_OSPFD,', ' (kernel|connected|static|rip|isis|bgp|pim|table)",')
+                    line = line.replace('" VRF_CMD_STR,', ' vrf NAME",')
+                    line = line.replace('" VRF_ALL_CMD_STR,', ' vrf all",')
+                    line = line.replace('" QUAGGA_IP_REDIST_STR_ZEBRA,', ' (kernel|connected|static|rip|ospf|isis|bgp|pim|table)",')
+                    line = line.replace('" QUAGGA_IP6_REDIST_STR_ZEBRA,', ' (kernel|connected|static|ripng|ospf6|isis|bgp|table)",')
+                    line = line.replace('" QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA,', ' (kernel|connected|static|rip|ospf|isis|bgp|pim|table|any)",')
+                    line = line.replace('" QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA,', ' (kernel|connected|static|ripng|ospf6|isis|bgp|table|any)",')
 
                     # startswith
                     line = line.replace('LISTEN_RANGE_CMD "', '"bgp listen range (A.B.C.D/M|X:X::X:X/M) ')

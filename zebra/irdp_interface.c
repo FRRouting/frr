@@ -480,7 +480,7 @@ DEFUN (ip_irdp_holdtime,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  irdp->Lifetime = atoi(argv[0]);
+  irdp->Lifetime = atoi(argv[3]->arg);
   return CMD_SUCCESS;
 }
 
@@ -503,8 +503,8 @@ DEFUN (ip_irdp_minadvertinterval,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  if( (unsigned) atoi(argv[0]) <= irdp->MaxAdvertInterval) {
-      irdp->MinAdvertInterval = atoi(argv[0]);
+  if( (unsigned) atoi(argv[3]->arg) <= irdp->MaxAdvertInterval) {
+      irdp->MinAdvertInterval = atoi(argv[3]->arg);
 
       return CMD_SUCCESS;
   }
@@ -537,8 +537,8 @@ DEFUN (ip_irdp_maxadvertinterval,
   irdp=&zi->irdp;
 
 
-  if( irdp->MinAdvertInterval <= (unsigned) atoi(argv[0]) ) {
-    irdp->MaxAdvertInterval = atoi(argv[0]);
+  if( irdp->MinAdvertInterval <= (unsigned) atoi(argv[3]->arg) ) {
+    irdp->MaxAdvertInterval = atoi(argv[3]->arg);
 
       return CMD_SUCCESS;
   }
@@ -575,7 +575,7 @@ DEFUN (ip_irdp_preference,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  irdp->Preference = atoi(argv[0]);
+  irdp->Preference = atoi(argv[3]->arg);
   return CMD_SUCCESS;
 }
 
@@ -605,10 +605,10 @@ DEFUN (ip_irdp_address_preference,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  ret = inet_aton(argv[0], &ip);
+  ret = inet_aton(argv[3]->arg, &ip);
   if(!ret) return CMD_WARNING;
 
-  pref = atoi(argv[1]);
+  pref = atoi(argv[5]->arg);
 
   for (ALL_LIST_ELEMENTS_RO (irdp->AdvPrefList, node, adv))
     if(adv->ip.s_addr == ip.s_addr) 
@@ -649,7 +649,7 @@ DEFUN (no_ip_irdp_address_preference,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  ret = inet_aton(argv[0], &ip);
+  ret = inet_aton(argv[4]->arg, &ip);
   if (!ret) 
     return CMD_WARNING;
 

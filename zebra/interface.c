@@ -1305,7 +1305,8 @@ struct cmd_node vrf_node =
 };
 
 /* Show all interfaces to vty. */
-DEFUN (show_interface, show_interface_cmd,
+DEFUN (show_interface,
+       show_interface_cmd,
        "show interface",
        SHOW_STR
        "Interface status and configuration\n")
@@ -1317,7 +1318,7 @@ DEFUN (show_interface, show_interface_cmd,
   interface_update_stats ();
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[2]->arg);
 
   /* All interface print. */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
@@ -1334,7 +1335,8 @@ ALIAS (show_interface,
        VRF_CMD_HELP_STR)
 
 /* Show all interfaces to vty. */
-DEFUN (show_interface_vrf_all, show_interface_vrf_all_cmd,
+DEFUN (show_interface_vrf_all,
+       show_interface_vrf_all_cmd,
        "show interface " VRF_ALL_CMD_STR,
        SHOW_STR
        "Interface status and configuration\n"
@@ -1370,13 +1372,13 @@ DEFUN (show_interface_name_vrf,
   interface_update_stats ();
 
   if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[1]);
+    VRF_GET_ID (vrf_id, argv[3]->arg);
 
   /* Specified interface print. */
-  ifp = if_lookup_by_name_vrf (argv[0], vrf_id);
+  ifp = if_lookup_by_name_vrf (argv[2]->arg, vrf_id);
   if (ifp == NULL)
     {
-      vty_out (vty, "%% Can't find interface %s%s", argv[0],
+      vty_out (vty, "%% Can't find interface %s%s", argv[2]->arg,
                VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1386,7 +1388,8 @@ DEFUN (show_interface_name_vrf,
 }
 
 /* Show specified interface to vty. */
-DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
+DEFUN (show_interface_name_vrf_all,
+       show_interface_name_vrf_all_cmd,
        "show interface IFNAME " VRF_ALL_CMD_STR,
        SHOW_STR
        "Interface status and configuration\n"
@@ -1403,7 +1406,7 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
   for (iter = vrf_first (); iter != VRF_ITER_INVALID; iter = vrf_next (iter))
     {
       /* Specified interface print. */
-      ifp = if_lookup_by_name_vrf (argv[0], vrf_iter2id (iter));
+      ifp = if_lookup_by_name_vrf (argv[2]->arg, vrf_iter2id (iter));
       if (ifp)
         {
           if_dump_vty (vty, ifp);
@@ -1413,7 +1416,7 @@ DEFUN (show_interface_name_vrf_all, show_interface_name_vrf_all_cmd,
 
   if (!found)
     {
-      vty_out (vty, "%% Can't find interface %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "%% Can't find interface %s%s", argv[2]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1476,7 +1479,7 @@ DEFUN (show_interface_desc,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+    VRF_GET_ID (vrf_id, argv[3]->arg);
 
   if_show_description (vty, vrf_id);
 
@@ -1679,7 +1682,7 @@ DEFUN (bandwidth_if,
   unsigned int bandwidth;
   
   ifp = (struct interface *) vty->index;
-  bandwidth = strtol(argv[0], NULL, 10);
+  bandwidth = strtol(argv[1]->arg, NULL, 10);
 
   /* bandwidth range is <1-100000> */
   if (bandwidth < 1 || bandwidth > 100000)
@@ -1843,7 +1846,7 @@ DEFUN (link_params_metric,
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t metric;
 
-  VTY_GET_ULONG("metric", metric, argv[0]);
+  VTY_GET_ULONG("metric", metric, argv[1]->arg);
 
   /* Update TE metric if needed */
   link_param_cmd_set_uint32 (ifp, &iflp->te_metric, LP_TE, metric);
@@ -1876,7 +1879,7 @@ DEFUN (link_params_maxbw,
 
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[1]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_maxbw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1919,7 +1922,7 @@ DEFUN (link_params_max_rsv_bw,
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[1]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_max_rsv_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1954,14 +1957,14 @@ DEFUN (link_params_unrsv_bw,
   float bw;
 
   /* We don't have to consider about range check here. */
-  if (sscanf (argv[0], "%d", &priority) != 1)
+  if (sscanf (argv[1]->arg, "%d", &priority) != 1)
     {
       vty_out (vty, "link_params_unrsv_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (sscanf (argv[1], "%g", &bw) != 1)
+  if (sscanf (argv[2]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_unrsv_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1993,7 +1996,7 @@ DEFUN (link_params_admin_grp,
   struct if_link_params *iflp = if_link_params_get (ifp);
   unsigned long value;
 
-  if (sscanf (argv[0], "0x%lx", &value) != 1)
+  if (sscanf (argv[1]->arg, "0x%lx", &value) != 1)
     {
       vty_out (vty, "link_params_admin_grp: fscanf: %s%s",
                safe_strerror (errno), VTY_NEWLINE);
@@ -2035,13 +2038,13 @@ DEFUN (link_params_inter_as,
   struct in_addr addr;
   u_int32_t as;
 
-  if (!inet_aton (argv[0], &addr))
+  if (!inet_aton (argv[1]->arg, &addr))
     {
       vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  VTY_GET_ULONG("AS number", as, argv[1]);
+  VTY_GET_ULONG("AS number", as, argv[3]->arg);
 
   /* Update Remote IP and Remote AS fields if needed */
   if (IS_PARAM_UNSET(iflp, LP_RMT_AS)
@@ -2096,7 +2099,7 @@ DEFUN (link_params_delay,
   u_int8_t update = 0;
 
   /* Get and Check new delay values */
-  VTY_GET_ULONG("delay", delay, argv[0]);
+  VTY_GET_ULONG("delay", delay, argv[1]->arg);
   switch (argc)
     {
     case 1:
@@ -2130,8 +2133,8 @@ DEFUN (link_params_delay,
       return CMD_WARNING;
     break;
     case 3:
-      VTY_GET_ULONG("minimum delay", low, argv[1]);
-      VTY_GET_ULONG("maximum delay", high, argv[2]);
+      VTY_GET_ULONG("minimum delay", low, argv[3]->arg);
+      VTY_GET_ULONG("maximum delay", high, argv[5]->arg);
       /* Check new delays value coherency */
       if (delay <= low || delay >= high)
         {
@@ -2209,7 +2212,7 @@ DEFUN (link_params_delay_var,
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t value;
 
-  VTY_GET_ULONG("delay variation", value, argv[0]);
+  VTY_GET_ULONG("delay variation", value, argv[1]->arg);
 
   /* Update Delay Variation if needed */
   link_param_cmd_set_uint32 (ifp, &iflp->delay_var, LP_DELAY_VAR, value);
@@ -2241,7 +2244,7 @@ DEFUN (link_params_pkt_loss,
   struct if_link_params *iflp = if_link_params_get (ifp);
   float fval;
 
-  if (sscanf (argv[0], "%g", &fval) != 1)
+  if (sscanf (argv[1]->arg, "%g", &fval) != 1)
     {
       vty_out (vty, "link_params_pkt_loss: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -2281,7 +2284,7 @@ DEFUN (link_params_res_bw,
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[1]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_res_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -2327,7 +2330,7 @@ DEFUN (link_params_ava_bw,
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[1]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_ava_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -2373,7 +2376,7 @@ DEFUN (link_params_use_bw,
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
-  if (sscanf (argv[0], "%g", &bw) != 1)
+  if (sscanf (argv[1]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_use_bw: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -2557,7 +2560,7 @@ DEFUN (ip_address,
        "Set the IP address of an interface\n"
        "IP address (e.g. 10.0.0.1/8)\n")
 {
-  return ip_address_install (vty, vty->index, argv[0], NULL, NULL);
+  return ip_address_install (vty, vty->index, argv[2]->arg, NULL, NULL);
 }
 
 DEFUN (no_ip_address,
@@ -2568,7 +2571,7 @@ DEFUN (no_ip_address,
        "Set the IP address of an interface\n"
        "IP Address (e.g. 10.0.0.1/8)")
 {
-  return ip_address_uninstall (vty, vty->index, argv[0], NULL, NULL);
+  return ip_address_uninstall (vty, vty->index, argv[3]->arg, NULL, NULL);
 }
 
 
@@ -2582,7 +2585,7 @@ DEFUN (ip_address_label,
        "Label of this address\n"
        "Label\n")
 {
-  return ip_address_install (vty, vty->index, argv[0], NULL, argv[1]);
+  return ip_address_install (vty, vty->index, argv[2]->arg, NULL, argv[4]->arg);
 }
 
 DEFUN (no_ip_address_label,
@@ -2595,7 +2598,7 @@ DEFUN (no_ip_address_label,
        "Label of this address\n"
        "Label\n")
 {
-  return ip_address_uninstall (vty, vty->index, argv[0], NULL, argv[1]);
+  return ip_address_uninstall (vty, vty->index, argv[3]->arg, NULL, argv[5]->arg);
 }
 #endif /* HAVE_NETLINK */
 
@@ -2758,7 +2761,7 @@ DEFUN (ipv6_address,
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
-  return ipv6_address_install (vty, vty->index, argv[0], NULL, NULL, 0);
+  return ipv6_address_install (vty, vty->index, argv[2]->arg, NULL, NULL, 0);
 }
 
 DEFUN (no_ipv6_address,
@@ -2769,7 +2772,7 @@ DEFUN (no_ipv6_address,
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
-  return ipv6_address_uninstall (vty, vty->index, argv[0], NULL, NULL, 0);
+  return ipv6_address_uninstall (vty, vty->index, argv[3]->arg, NULL, NULL, 0);
 }
 #endif /* HAVE_IPV6 */
 
