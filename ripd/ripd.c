@@ -322,7 +322,7 @@ rip_filter (int rip_distribute, struct prefix_ipv4 *p, struct rip_interface *ri)
   struct access_list *alist;
   struct prefix_list *plist;
   int distribute = rip_distribute == RIP_FILTER_OUT ?
-      DISTRIBUTE_OUT : DISTRIBUTE_IN;
+      DISTRIBUTE_V4_OUT : DISTRIBUTE_V4_IN;
   const char *inout = rip_distribute == RIP_FILTER_OUT ? "out" : "in";
 
   /* Input distribute-list filtering. */
@@ -3804,9 +3804,9 @@ rip_distribute_update (struct distribute *dist)
 
   ri = ifp->info;
 
-  if (dist->list[DISTRIBUTE_IN])
+  if (dist->list[DISTRIBUTE_V4_IN])
     {
-      alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_IN]);
+      alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_V4_IN]);
       if (alist)
 	ri->list[RIP_FILTER_IN] = alist;
       else
@@ -3815,9 +3815,9 @@ rip_distribute_update (struct distribute *dist)
   else
     ri->list[RIP_FILTER_IN] = NULL;
 
-  if (dist->list[DISTRIBUTE_OUT])
+  if (dist->list[DISTRIBUTE_V4_OUT])
     {
-      alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_OUT]);
+      alist = access_list_lookup (AFI_IP, dist->list[DISTRIBUTE_V4_OUT]);
       if (alist)
 	ri->list[RIP_FILTER_OUT] = alist;
       else
@@ -3826,9 +3826,9 @@ rip_distribute_update (struct distribute *dist)
   else
     ri->list[RIP_FILTER_OUT] = NULL;
 
-  if (dist->prefix[DISTRIBUTE_IN])
+  if (dist->prefix[DISTRIBUTE_V4_IN])
     {
-      plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_IN]);
+      plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_V4_IN]);
       if (plist)
 	ri->prefix[RIP_FILTER_IN] = plist;
       else
@@ -3837,9 +3837,9 @@ rip_distribute_update (struct distribute *dist)
   else
     ri->prefix[RIP_FILTER_IN] = NULL;
 
-  if (dist->prefix[DISTRIBUTE_OUT])
+  if (dist->prefix[DISTRIBUTE_V4_OUT])
     {
-      plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_OUT]);
+      plist = prefix_list_lookup (AFI_IP, dist->prefix[DISTRIBUTE_V4_OUT]);
       if (plist)
 	ri->prefix[RIP_FILTER_OUT] = plist;
       else

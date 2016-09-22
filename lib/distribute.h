@@ -29,8 +29,10 @@
 /* Disctirubte list types. */
 enum distribute_type
 {
-  DISTRIBUTE_IN,
-  DISTRIBUTE_OUT,
+  DISTRIBUTE_V4_IN,
+  DISTRIBUTE_V6_IN,
+  DISTRIBUTE_V4_OUT,
+  DISTRIBUTE_V6_OUT,
   DISTRIBUTE_MAX
 };
 
