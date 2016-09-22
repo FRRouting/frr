@@ -108,6 +108,15 @@ static void recv_join(struct interface *ifp,
       struct pim_upstream *child;
       struct listnode *up_node;
 
+      /*
+       * If we are unable to create upstream information
+       * Due to any number of reasons it is possible
+       * That we might have not created the ifchannel
+       * and upstream above.  So just fall out gracefully
+       */
+      if (!up)
+	return;
+
       for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, child))
         {
           if (child->parent == up)
@@ -177,6 +186,13 @@ static void recv_prune(struct interface *ifp,
       struct pim_upstream *up = pim_upstream_find (&sg);
       struct pim_upstream *child;
       struct listnode *up_node;
+
+      /*
+       * If up is not found then there is nothing
+       * to do here (see recv_join above)
+       */
+      if (!up)
+	return;
 
       for (ALL_LIST_ELEMENTS_RO (qpim_upstream_list, up_node, child))
         {
