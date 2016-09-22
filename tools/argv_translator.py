@@ -29,6 +29,7 @@ def token_is_variable(line_number, token):
 
     if token in ('WORD',
                  '.LINE', # where is this defined?
+                 'LINE',
                  'PATH',
                  'A.B.C.D',
                  'A.B.C.D/M',
@@ -149,7 +150,7 @@ def update_argvs(filename):
                     cmd_string = None
                     argv_translator = {}
 
-                elif 'argv[' in new_line:
+                elif 'argv[' in new_line and '->arg' not in new_line:
                     for index in reversed(argv_translator.keys()):
                         old_argv = "argv[%d]" % index
                         new_argv = "argv[%d]->arg" % argv_translator[index]
