@@ -983,6 +983,8 @@ vty_describe_fold (struct vty *vty, int cmd_width,
   const char *cmd, *p;
   int pos;
 
+  cmd = token->text;
+
   if (desc_width <= 0)
     {
       vty_out (vty, "  %-*s  %s%s", cmd_width, cmd, token->desc, VTY_NEWLINE);
@@ -2742,7 +2744,7 @@ exec_timeout (struct vty *vty, const char *min_str, const char *sec_str)
 
 DEFUN (exec_timeout_min,
        exec_timeout_min_cmd,
-       "exec-timeout <0-35791>",
+       "exec-timeout (0-35791)",
        "Set timeout value\n"
        "Timeout value in minutes\n")
 {
@@ -2751,7 +2753,7 @@ DEFUN (exec_timeout_min,
 
 DEFUN (exec_timeout_sec,
        exec_timeout_sec_cmd,
-       "exec-timeout <0-35791> <0-2147483>",
+       "exec-timeout (0-35791) (0-2147483)",
        "Set the EXEC timeout\n"
        "Timeout in minutes\n"
        "Timeout in seconds\n")
@@ -2791,7 +2793,8 @@ DEFUN (no_vty_access_class,
        "Filter connections based on an IP access list\n"
        "IP access list\n")
 {
-  if (! vty_accesslist_name || (argc && strcmp(vty_accesslist_name, argv[2]->arg)))
+  const char *accesslist = (argc == 3) ? argv[2]->arg : NULL;
+  if (! vty_accesslist_name || (argc && strcmp(vty_accesslist_name, accesslist)))
     {
       vty_out (vty, "Access-class is not currently applied to vty%s",
                VTY_NEWLINE);
@@ -2831,8 +2834,10 @@ DEFUN (no_vty_ipv6_access_class,
        "Filter connections based on an IP access list\n"
        "IPv6 access list\n")
 {
+  const char *accesslist = (argc == 4) ? argv[3]->arg : NULL;
+
   if (! vty_ipv6_accesslist_name ||
-      (argc && strcmp(vty_ipv6_accesslist_name, argv[3]->arg)))
+      (argc && strcmp(vty_ipv6_accesslist_name, accesslist)))
     {
       vty_out (vty, "IPv6 access-class is not currently applied to vty%s",
                VTY_NEWLINE);

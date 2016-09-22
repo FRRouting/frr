@@ -303,123 +303,39 @@ distribute_list_prefix_unset (const char *ifname, enum distribute_type type,
   return 1;
 }
 
-DEFUN (distribute_list_all,
-       distribute_list_all_cmd,
-       "distribute-list WORD (in|out)",
-       "Filter networks in routing updates\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n")
-{
-  enum distribute_type type;
-
-  /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
-    type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
-    type = DISTRIBUTE_OUT;
-  else
-    {
-      vty_out (vty, "distribute list direction must be [in|out]%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Get interface name corresponding distribute list. */
-  distribute_list_set (NULL, type, argv[0]);
-
-  return CMD_SUCCESS;
-}
-
-ALIAS (distribute_list_all,
-       ipv6_distribute_list_all_cmd,
-       "distribute-list WORD (in|out)",
-       "Filter networks in routing updates\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n")
-
-DEFUN (no_distribute_list_all,
-       no_distribute_list_all_cmd,
-       "no distribute-list WORD (in|out)",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n")
-{
-  int ret;
-  enum distribute_type type;
-
-  /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
-    type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
-    type = DISTRIBUTE_OUT;
-  else
-    {
-      vty_out (vty, "distribute list direction must be [in|out]%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ret = distribute_list_unset (NULL, type, argv[0]);
-  if (! ret)
-    {
-      vty_out (vty, "distribute list doesn't exist%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  return CMD_SUCCESS;
-}
-
-ALIAS (no_distribute_list_all,
-       no_ipv6_distribute_list_all_cmd,
-       "no distribute-list WORD (in|out)",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n")
-
 DEFUN (distribute_list,
        distribute_list_cmd,
-       "distribute-list WORD (in|out) WORD",
+       "distribute-list [prefix] WORD <in|out> [WORD]",
        "Filter networks in routing updates\n"
        "Access-list name\n"
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-  enum distribute_type type;
+  int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
-    type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
-    type = DISTRIBUTE_OUT;
-  else
-    {
-      vty_out (vty, "distribute list direction must be [in|out]%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  enum distribute_type type = argv[2 + prefix]->arg[0] == 'i' ?
+    DISTRIBUTE_IN : DISTRIBUTE_OUT;
+
+  /* Set appropriate function call */
+  int (*distfn)(const char *, enum distribute_type, const char *) = prefix ? 
+    &distribute_list_prefix_set : &distribute_list_set;
+  
+  /* if interface is present, get name */
+  const char *ifname = NULL;
+  if (argv[argc - 1]->type == VARIABLE_TKN)
+    ifname = argv[argc - 1]->arg;
 
   /* Get interface name corresponding distribute list. */
-  distribute_list_set (argv[2], type, argv[0]);
+  distfn (ifname, type, argv[1 + prefix]->arg);
 
   return CMD_SUCCESS;
-}       
+}
 
-ALIAS (distribute_list,
-       ipv6_distribute_list_cmd,
-       "distribute-list WORD (in|out) WORD",
-       "Filter networks in routing updates\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-
-DEFUN (no_distribute_list, no_distribute_list_cmd,
-       "no distribute-list WORD (in|out) WORD",
+DEFUN (no_distribute_list,
+       no_distribute_list_cmd,
+       "no distribute-list [prefix] WORD <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
        "Access-list name\n"
@@ -427,201 +343,31 @@ DEFUN (no_distribute_list, no_distribute_list_cmd,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-  int ret;
-  enum distribute_type type;
+  int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
 
   /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
-    type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
-    type = DISTRIBUTE_OUT;
-  else
-    {
-      vty_out (vty, "distribute list direction must be [in|out]%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  enum distribute_type type = argv[3 + prefix]->arg[0] == 'i' ?
+    DISTRIBUTE_IN : DISTRIBUTE_OUT;
 
-  ret = distribute_list_unset (argv[2], type, argv[0]);
+  /* Set appropriate function call */
+  int (*distfn)(const char *, enum distribute_type, const char *) = prefix ? 
+    &distribute_list_prefix_unset : &distribute_list_unset;
+  
+  /* if interface is present, get name */
+  const char *ifname = NULL;
+  if (argv[argc - 1]->type == VARIABLE_TKN)
+    ifname = argv[argc - 1]->arg;
+
+  /* Get interface name corresponding distribute list. */
+  int ret = distfn (ifname, type, argv[2 + prefix]->arg);
+
   if (! ret)
     {
       vty_out (vty, "distribute list doesn't exist%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
-}       
-
-ALIAS (no_distribute_list, no_ipv6_distribute_list_cmd,
-       "no distribute-list WORD (in|out) WORD",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-
-DEFUN (distribute_list_prefix_all,
-       distribute_list_prefix_all_cmd,
-       "distribute-list prefix WORD (in|out)",
-       "Filter networks in routing updates\n"
-       "Filter prefixes in routing updates\n"
-       "Name of an IP prefix-list\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n")
-{
-  enum distribute_type type;
-
-  /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
-    type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
-    type = DISTRIBUTE_OUT;
-  else
-    {
-      vty_out (vty, "distribute list direction must be [in|out]%s", 
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Get interface name corresponding distribute list. */
-  distribute_list_prefix_set (NULL, type, argv[0]);
-
-  return CMD_SUCCESS;
-}       
-
-ALIAS (distribute_list_prefix_all,
-       ipv6_distribute_list_prefix_all_cmd,
-       "distribute-list prefix WORD (in|out)",
-       "Filter networks in routing updates\n"
-       "Filter prefixes in routing updates\n"
-       "Name of an IP prefix-list\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n")
-
-DEFUN (no_distribute_list_prefix_all,
-       no_distribute_list_prefix_all_cmd,
-       "no distribute-list prefix WORD (in|out)",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Filter prefixes in routing updates\n"
-       "Name of an IP prefix-list\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n")
-{
-  int ret;
-  enum distribute_type type;
-
-  /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
-    type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
-    type = DISTRIBUTE_OUT;
-  else
-    {
-      vty_out (vty, "distribute list direction must be [in|out]%s", 
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ret = distribute_list_prefix_unset (NULL, type, argv[0]);
-  if (! ret)
-    {
-      vty_out (vty, "distribute list doesn't exist%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  return CMD_SUCCESS;
-}       
-
-ALIAS (no_distribute_list_prefix_all,
-       no_ipv6_distribute_list_prefix_all_cmd,
-       "no distribute-list prefix WORD (in|out)",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Filter prefixes in routing updates\n"
-       "Name of an IP prefix-list\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n")
-
-DEFUN (distribute_list_prefix, distribute_list_prefix_cmd,
-       "distribute-list prefix WORD (in|out) WORD",
-       "Filter networks in routing updates\n"
-       "Filter prefixes in routing updates\n"
-       "Name of an IP prefix-list\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-  enum distribute_type type;
-
-  /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
-    type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
-    type = DISTRIBUTE_OUT;
-  else
-    {
-      vty_out (vty, "distribute list direction must be [in|out]%s", 
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Get interface name corresponding distribute list. */
-  distribute_list_prefix_set (argv[2], type, argv[0]);
-
-  return CMD_SUCCESS;
-}       
-
-ALIAS (distribute_list_prefix, ipv6_distribute_list_prefix_cmd,
-       "distribute-list prefix WORD (in|out) WORD",
-       "Filter networks in routing updates\n"
-       "Filter prefixes in routing updates\n"
-       "Name of an IP prefix-list\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-
-DEFUN (no_distribute_list_prefix, no_distribute_list_prefix_cmd,
-       "no distribute-list prefix WORD (in|out) WORD",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Filter prefixes in routing updates\n"
-       "Name of an IP prefix-list\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-  int ret;
-  enum distribute_type type;
-
-  /* Check of distribute list type. */
-  if (strncmp (argv[1], "i", 1) == 0)
-    type = DISTRIBUTE_IN;
-  else if (strncmp (argv[1], "o", 1) == 0)
-    type = DISTRIBUTE_OUT;
-  else
-    {
-      vty_out (vty, "distribute list direction must be [in|out]%s", 
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ret = distribute_list_prefix_unset (argv[2], type, argv[0]);
-  if (! ret)
-    {
-      vty_out (vty, "distribute list doesn't exist%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  return CMD_SUCCESS;
-}       
-
-ALIAS (no_distribute_list_prefix, no_ipv6_distribute_list_prefix_cmd,
-       "no distribute-list prefix WORD (in|out) WORD",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Filter prefixes in routing updates\n"
-       "Name of an IP prefix-list\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
+}
 
 int
 config_show_distribute (struct vty *vty)
@@ -770,25 +516,6 @@ distribute_list_init (int node)
   disthash = hash_create (distribute_hash_make,
                           (int (*) (const void *, const void *)) distribute_cmp);
 
-  if(node==RIP_NODE) {
-    install_element (node, &distribute_list_all_cmd);
-    install_element (node, &no_distribute_list_all_cmd);
-    install_element (node, &distribute_list_cmd);
-    install_element (node, &no_distribute_list_cmd);
-    install_element (node, &distribute_list_prefix_all_cmd);
-    install_element (node, &no_distribute_list_prefix_all_cmd);
-    install_element (node, &distribute_list_prefix_cmd);
-    install_element (node, &no_distribute_list_prefix_cmd);
-  } else if (node == RIPNG_NODE) {
-    /* WARNING: two identical commands installed do a crash, so be worry with
-     * aliases */
-    install_element (node, &ipv6_distribute_list_all_cmd);
-    install_element (node, &no_ipv6_distribute_list_all_cmd);
-    install_element (node, &ipv6_distribute_list_cmd);
-    install_element (node, &no_ipv6_distribute_list_cmd);
-    install_element (node, &ipv6_distribute_list_prefix_all_cmd);
-    install_element (node, &no_ipv6_distribute_list_prefix_all_cmd);
-    install_element (node, &ipv6_distribute_list_prefix_cmd);
-    install_element (node, &no_ipv6_distribute_list_prefix_cmd);
-  }
+  install_element (node, &distribute_list_cmd);
+  install_element (node, &no_distribute_list_cmd);
 }
