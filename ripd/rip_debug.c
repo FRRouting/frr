@@ -105,26 +105,6 @@ DEFUN (debug_rip_packet_direct,
   return CMD_SUCCESS;
 }
 
-/* N.B. the "detail" modifier is a no-op.  we leave this command
-   for legacy compatibility. */
-DEFUN_DEPRECATED (debug_rip_packet_detail,
-       debug_rip_packet_detail_cmd,
-       "debug rip packet (recv|send) detail",
-       DEBUG_STR
-       RIP_STR
-       "RIP packet\n"
-       "RIP receive packet\n"
-       "RIP send packet\n"
-       "Detailed information display\n")
-{
-  rip_debug_packet |= RIP_DEBUG_PACKET;
-  if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
-    rip_debug_packet |= RIP_DEBUG_SEND;
-  if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
-    rip_debug_packet |= RIP_DEBUG_RECV;
-  return CMD_SUCCESS;
-}
-
 DEFUN (debug_rip_zebra,
        debug_rip_zebra_cmd,
        "debug rip zebra",
@@ -265,7 +245,6 @@ rip_debug_init (void)
   install_element (ENABLE_NODE, &debug_rip_events_cmd);
   install_element (ENABLE_NODE, &debug_rip_packet_cmd);
   install_element (ENABLE_NODE, &debug_rip_packet_direct_cmd);
-  install_element (ENABLE_NODE, &debug_rip_packet_detail_cmd);
   install_element (ENABLE_NODE, &debug_rip_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_rip_events_cmd);
   install_element (ENABLE_NODE, &no_debug_rip_packet_cmd);
@@ -275,7 +254,6 @@ rip_debug_init (void)
   install_element (CONFIG_NODE, &debug_rip_events_cmd);
   install_element (CONFIG_NODE, &debug_rip_packet_cmd);
   install_element (CONFIG_NODE, &debug_rip_packet_direct_cmd);
-  install_element (CONFIG_NODE, &debug_rip_packet_detail_cmd);
   install_element (CONFIG_NODE, &debug_rip_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_rip_events_cmd);
   install_element (CONFIG_NODE, &no_debug_rip_packet_cmd);

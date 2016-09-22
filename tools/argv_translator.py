@@ -31,6 +31,8 @@ def token_is_variable(line_number, token):
                  '.LINE', # where is this defined?
                  'LINE',
                  'BANDWIDTH',
+                 'IPV6ADDR',
+                 'IF_OR_ADDR',
                  'INTERFACE',
                  'PERCENTAGE',
                  'IFNAME',
@@ -197,6 +199,7 @@ def update_argvs(filename):
                     line = line.replace('" VRF_ALL_CMD_STR "', 'vrf all')
                     line = line.replace('" QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA "', '(kernel|connected|static|rip|ospf|isis|bgp|pim|table|any)')
                     line = line.replace('" QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA "', '(kernel|connected|static|ripng|ospf6|isis|bgp|table|any)')
+                    line = line.replace('" QUAGGA_REDIST_STR_RIPNGD "', '(kernel|connected|static|ospf6|isis|bgp|table)')
 
                     # endswith
                     line = line.replace('" CMD_AS_RANGE,', ' <1-4294967295>",')
@@ -206,8 +209,8 @@ def update_argvs(filename):
                     line = line.replace('" CMD_RANGE_STR(1, MULTIPATH_NUM),', '<1-255>",')
                     line = line.replace('" CMD_RANGE_STR(1, MAXTTL),', '<1-255>",')
                     line = line.replace('" BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,', '<2-255> <50-60000> <50-60000>",')
-                    line = line.replace('" OSPF_LSA_TYPES_CMD_STR,', ' asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as",')
-
+                    line = line.replace('" OSPF_LSA_TYPES_CMD_STR,',
+                                        ' asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as",')
                     line = line.replace('" BGP_UPDATE_SOURCE_REQ_STR,', ' (A.B.C.D|X:X::X:X|WORD)",')
                     line = line.replace('" BGP_UPDATE_SOURCE_OPT_STR,', ' {A.B.C.D|X:X::X:X|WORD}",')
                     line = line.replace('" QUAGGA_IP_REDIST_STR_BGPD,', ' (kernel|connected|static|rip|ospf|isis|pim|table)",')
@@ -219,6 +222,7 @@ def update_argvs(filename):
                     line = line.replace('" QUAGGA_IP6_REDIST_STR_ZEBRA,', ' (kernel|connected|static|ripng|ospf6|isis|bgp|table)",')
                     line = line.replace('" QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA,', ' (kernel|connected|static|rip|ospf|isis|bgp|pim|table|any)",')
                     line = line.replace('" QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA,', ' (kernel|connected|static|ripng|ospf6|isis|bgp|table|any)",')
+                    line = line.replace('" QUAGGA_REDIST_STR_RIPNGD,', ' (kernel|connected|static|ospf6|isis|bgp|table)",')
 
                     # startswith
                     line = line.replace('LISTEN_RANGE_CMD "', '"bgp listen range (A.B.C.D/M|X:X::X:X/M) ')

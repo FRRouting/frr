@@ -2265,7 +2265,7 @@ DEFUN (ripng_route,
   struct prefix_ipv6 p;
   struct route_node *rp;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[1]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2298,7 +2298,7 @@ DEFUN (no_ripng_route,
   struct prefix_ipv6 p;
   struct route_node *rp;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[2]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2332,7 +2332,7 @@ DEFUN (ripng_aggregate_address,
   struct prefix p;
   struct route_node *node;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[1]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2365,7 +2365,7 @@ DEFUN (no_ripng_aggregate_address,
   struct prefix p;
   struct route_node *rn;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *) &p);
+  ret = str2prefix_ipv6 (argv[2]->arg, (struct prefix_ipv6 *) &p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2395,7 +2395,7 @@ DEFUN (ripng_default_metric,
 {
   if (ripng)
     {
-      ripng->default_metric = atoi (argv[0]);
+      ripng->default_metric = atoi (argv[1]->arg);
     }
   return CMD_SUCCESS;
 }
@@ -2537,9 +2537,9 @@ DEFUN (ripng_timers,
   unsigned long timeout;
   unsigned long garbage;
 
-  VTY_GET_INTEGER_RANGE("update timer", update, argv[0], 0, 65535);
-  VTY_GET_INTEGER_RANGE("timeout timer", timeout, argv[1], 0, 65535);
-  VTY_GET_INTEGER_RANGE("garbage timer", garbage, argv[2], 0, 65535);
+  VTY_GET_INTEGER_RANGE("update timer", update, argv[2]->arg, 0, 65535);
+  VTY_GET_INTEGER_RANGE("timeout timer", timeout, argv[3]->arg, 0, 65535);
+  VTY_GET_INTEGER_RANGE("garbage timer", garbage, argv[4]->arg, 0, 65535);
 
   /* Set each timer value. */
   ripng->update_time = update;
@@ -2580,7 +2580,8 @@ ALIAS (no_ripng_timers,
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 
-DEFUN (show_ipv6_protocols, show_ipv6_protocols_cmd,
+DEFUN (show_ipv6_protocols,
+       show_ipv6_protocols_cmd,
        "show ipv6 protocols",
        SHOW_STR
        IPV6_STR

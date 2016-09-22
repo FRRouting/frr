@@ -956,17 +956,17 @@ DEFUN (ripng_network,
   int ret;
   struct prefix p;
 
-  ret = str2prefix (argv[0], &p);
+  ret = str2prefix (argv[1]->arg, &p);
 
   /* Given string is IPv6 network or interface name. */
   if (ret)
     ret = ripng_enable_network_add (&p);
   else
-    ret = ripng_enable_if_add (argv[0]);
+    ret = ripng_enable_if_add (argv[1]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "There is same network configuration %s%s", argv[0],
+      vty_out (vty, "There is same network configuration %s%s", argv[1]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -985,17 +985,17 @@ DEFUN (no_ripng_network,
   int ret;
   struct prefix p;
 
-  ret = str2prefix (argv[0], &p);
+  ret = str2prefix (argv[2]->arg, &p);
 
   /* Given string is interface name. */
   if (ret)
     ret = ripng_enable_network_delete (&p);
   else
-    ret = ripng_enable_if_delete (argv[0]);
+    ret = ripng_enable_if_delete (argv[2]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "can't find network %s%s", argv[0],
+      vty_out (vty, "can't find network %s%s", argv[2]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1071,7 +1071,7 @@ DEFUN (ripng_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
-  return ripng_passive_interface_set (vty, argv[0]);
+  return ripng_passive_interface_set (vty, argv[1]->arg);
 }
 
 DEFUN (no_ripng_passive_interface,
@@ -1081,7 +1081,7 @@ DEFUN (no_ripng_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
-  return ripng_passive_interface_unset (vty, argv[0]);
+  return ripng_passive_interface_unset (vty, argv[2]->arg);
 }
 
 static struct ripng_interface *

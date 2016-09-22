@@ -333,11 +333,11 @@ DEFUN (ripng_redistribute_type,
 {
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[0]);
+  type = proto_redistnum(AFI_IP6, argv[2]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[2]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -354,11 +354,11 @@ DEFUN (no_ripng_redistribute_type,
 {
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[0]);
+  type = proto_redistnum(AFI_IP6, argv[3]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[3]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -379,12 +379,12 @@ DEFUN (ripng_redistribute_type_metric,
   int type;
   int metric;
 
-  metric = atoi (argv[1]);
-  type = proto_redistnum(AFI_IP6, argv[0]);
+  metric = atoi (argv[3]->arg);
+  type = proto_redistnum(AFI_IP6, argv[1]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[1]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -413,15 +413,15 @@ DEFUN (ripng_redistribute_type_routemap,
 {
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[0]);
+  type = proto_redistnum(AFI_IP6, argv[1]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[1]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  ripng_redistribute_routemap_set (type, argv[1]);
+  ripng_redistribute_routemap_set (type, argv[3]->arg);
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
                         VRF_DEFAULT);
  return CMD_SUCCESS;
@@ -449,17 +449,17 @@ DEFUN (ripng_redistribute_type_metric_routemap,
   int type;
   int metric;
 
-  type = proto_redistnum(AFI_IP6, argv[0]);
-  metric = atoi (argv[1]);
+  type = proto_redistnum(AFI_IP6, argv[1]->arg);
+  metric = atoi (argv[3]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[1]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   ripng_redistribute_metric_set (type, metric);
-  ripng_redistribute_routemap_set (type, argv[2]);
+  ripng_redistribute_routemap_set (type, argv[5]->arg);
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
   return CMD_SUCCESS;
 }

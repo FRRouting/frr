@@ -297,7 +297,7 @@ DEFUN (ripng_offset_list,
        "For outgoing updates\n"
        "Metric value\n")
 {
-  return ripng_offset_list_set (vty, argv[0], argv[1], argv[2], NULL);
+  return ripng_offset_list_set (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL);
 }
 
 DEFUN (ripng_offset_list_ifname,
@@ -310,7 +310,7 @@ DEFUN (ripng_offset_list_ifname,
        "Metric value\n"
        "Interface to match\n")
 {
-  return ripng_offset_list_set (vty, argv[0], argv[1], argv[2], argv[3]);
+  return ripng_offset_list_set (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_ripng_offset_list,
@@ -323,7 +323,7 @@ DEFUN (no_ripng_offset_list,
        "For outgoing updates\n"
        "Metric value\n")
 {
-  return ripng_offset_list_unset (vty, argv[0], argv[1], argv[2], NULL);
+  return ripng_offset_list_unset (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL);
 }
 
 DEFUN (no_ripng_offset_list_ifname,
@@ -337,7 +337,7 @@ DEFUN (no_ripng_offset_list_ifname,
        "Metric value\n"
        "Interface to match\n")
 {
-  return ripng_offset_list_unset (vty, argv[0], argv[1], argv[2], argv[3]);
+  return ripng_offset_list_unset (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg);
 }
 
 static int

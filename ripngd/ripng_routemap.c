@@ -507,7 +507,7 @@ DEFUN (match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
-  return ripng_route_match_add (vty, vty->index, "metric", argv[0]);
+  return ripng_route_match_add (vty, vty->index, "metric", argv[2]->arg);
 }
 
 DEFUN (no_match_metric,
@@ -517,10 +517,7 @@ DEFUN (no_match_metric,
        MATCH_STR
        "Match metric of route\n")
 {
-  if (argc == 0)
-    return ripng_route_match_delete (vty, vty->index, "metric", NULL);
-
-  return ripng_route_match_delete (vty, vty->index, "metric", argv[0]);
+  return ripng_route_match_delete (vty, vty->index, "metric", argv[3]->arg);
 }
 
 ALIAS (no_match_metric,
@@ -538,7 +535,7 @@ DEFUN (match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  return ripng_route_match_add (vty, vty->index, "interface", argv[0]);
+  return ripng_route_match_add (vty, vty->index, "interface", argv[2]->arg);
 }
 
 DEFUN (no_match_interface,
@@ -548,10 +545,7 @@ DEFUN (no_match_interface,
        MATCH_STR
        "Match first hop interface of route\n")
 {
-  if (argc == 0)
-    return ripng_route_match_delete (vty, vty->index, "interface", NULL);
-
-  return ripng_route_match_delete (vty, vty->index, "interface", argv[0]);
+  return ripng_route_match_delete (vty, vty->index, "interface", argv[3]->arg);
 }
 
 ALIAS (no_match_interface,
@@ -569,7 +563,7 @@ DEFUN (match_tag,
        "Match tag of route\n"
        "Metric value\n")
 {
-  return ripng_route_match_add (vty, vty->index, "tag", argv[0]);
+  return ripng_route_match_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
 DEFUN (no_match_tag,
@@ -579,10 +573,7 @@ DEFUN (no_match_tag,
        MATCH_STR
        "Match tag of route\n")
 {
-  if (argc == 0)
-    return ripng_route_match_delete (vty, vty->index, "tag", NULL);
-
-  return ripng_route_match_delete (vty, vty->index, "tag", argv[0]);
+  return ripng_route_match_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
 ALIAS (no_match_tag,
@@ -602,7 +593,7 @@ DEFUN (set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
-  return ripng_route_set_add (vty, vty->index, "metric", argv[0]);
+  return ripng_route_set_add (vty, vty->index, "metric", argv[2]->arg);
 }
 
 DEFUN (no_set_metric,
@@ -612,10 +603,7 @@ DEFUN (no_set_metric,
        SET_STR
        "Metric value for destination routing protocol\n")
 {
-  if (argc == 0)
-    return ripng_route_set_delete (vty, vty->index, "metric", NULL);
-
-  return ripng_route_set_delete (vty, vty->index, "metric", argv[0]);
+  return ripng_route_set_delete (vty, vty->index, "metric", argv[3]->arg);
 }
 
 ALIAS (no_set_metric,
@@ -638,7 +626,7 @@ DEFUN (set_ipv6_nexthop_local,
   union sockunion su;
   int ret;
 
-  ret = str2sockunion (argv[0], &su);
+  ret = str2sockunion (argv[4]->arg, &su);
   if (ret < 0)
     {
       vty_out (vty, "%% Malformed next-hop local address%s", VTY_NEWLINE);
@@ -651,7 +639,7 @@ DEFUN (set_ipv6_nexthop_local,
       return CMD_WARNING;
     }
 
-  return ripng_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[0]);
+  return ripng_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[4]->arg);
 }
 
 DEFUN (no_set_ipv6_nexthop_local,
@@ -663,10 +651,7 @@ DEFUN (no_set_ipv6_nexthop_local,
        "IPv6 next-hop address\n"
        "IPv6 local address\n")
 {
-  if (argc == 0)
-    return ripng_route_set_delete (vty, vty->index, "ipv6 next-hop local", NULL);
-
-  return ripng_route_set_delete (vty, vty->index, "ipv6 next-hop local", argv[0]);
+  return ripng_route_set_delete (vty, vty->index, "ipv6 next-hop local", argv[5]->arg);
 }
 
 ALIAS (no_set_ipv6_nexthop_local,
@@ -686,7 +671,7 @@ DEFUN (set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  return ripng_route_set_add (vty, vty->index, "tag", argv[0]);
+  return ripng_route_set_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
 DEFUN (no_set_tag,
@@ -696,10 +681,7 @@ DEFUN (no_set_tag,
        SET_STR
        "Tag value for routing protocol\n")
 {
-  if (argc == 0)
-    return ripng_route_set_delete (vty, vty->index, "tag", NULL);
-
-  return ripng_route_set_delete (vty, vty->index, "tag", argv[0]);
+  return ripng_route_set_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
 ALIAS (no_set_tag,
