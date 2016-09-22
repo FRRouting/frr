@@ -20,7 +20,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
-#include "lib/json.h"
 #include "prefix.h"
 #include "thread.h"
 #include "buffer.h"
@@ -43,6 +42,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "hash.h"
 #include "jhash.h"
 #include "table.h"
+#include "lib/json.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"

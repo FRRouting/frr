@@ -360,7 +360,7 @@ DEFUN (vpnv4_network,
        "BGP tag\n"
        "tag value\n")
 {
-  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2], NULL);
+  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[1]->arg, argv[3]->arg, argv[5]->arg, NULL);
 }
 
 DEFUN (vpnv4_network_route_map,
@@ -375,7 +375,7 @@ DEFUN (vpnv4_network_route_map,
        "route map\n"
        "route map name\n")
 {
-  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2], argv[3]);
+  return bgp_static_set_safi (SAFI_MPLS_VPN, vty, argv[1]->arg, argv[3]->arg, argv[5]->arg, argv[7]->arg);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
@@ -390,7 +390,7 @@ DEFUN (no_vpnv4_network,
        "BGP tag\n"
        "tag value\n")
 {
-  return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[0], argv[1], argv[2]);
+  return bgp_static_unset_safi (SAFI_MPLS_VPN, vty, argv[2]->arg, argv[4]->arg, argv[6]->arg);
 }
 
 static int
@@ -794,7 +794,7 @@ DEFUN (show_bgp_ipv4_vpn_rd,
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[5]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -817,7 +817,7 @@ DEFUN (show_bgp_ipv6_vpn_rd,
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[5]->arg, &prd);
   if (!ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -852,7 +852,7 @@ DEFUN (show_ip_bgp_vpnv4_rd,
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[5]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -888,7 +888,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_tags,
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[5]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -915,7 +915,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
   int ret;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[0], &su);
+  ret = str2sockunion (argv[6]->arg, &su);
   if (ret < 0)
     {
       if (uj)
@@ -927,7 +927,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+        vty_out (vty, "Malformed address: %s%s", argv[6]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -970,7 +970,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
   struct prefix_rd prd;
   u_char uj = use_json(argc, argv);
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[5]->arg, &prd);
   if (! ret)
     {
       if (uj)
@@ -986,7 +986,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
       return CMD_WARNING;
     }
 
-  ret = str2sockunion (argv[1], &su);
+  ret = str2sockunion (argv[7]->arg, &su);
   if (ret < 0)
     {
       if (uj)
@@ -998,7 +998,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+        vty_out (vty, "Malformed address: %s%s", argv[5]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1039,7 +1039,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
   union sockunion su;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[0], &su);
+  ret = str2sockunion (argv[6]->arg, &su);
   if (ret < 0)
     {
       if (uj)
@@ -1051,7 +1051,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+        vty_out (vty, "Malformed address: %s%s", argv[6]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
@@ -1093,7 +1093,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
   union sockunion su;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[1], &su);
+  ret = str2sockunion (argv[7]->arg, &su);
   if (ret < 0)
     {
       if (uj)
@@ -1105,7 +1105,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+        vty_out (vty, "Malformed address: %s%s", argv[5]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
@@ -1124,7 +1124,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
       return CMD_WARNING;
     }
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[5]->arg, &prd);
   if (! ret)
     {
       if (uj)

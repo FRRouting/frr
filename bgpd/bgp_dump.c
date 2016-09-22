@@ -742,7 +742,7 @@ DEFUN (dump_bgp_all,
   const struct bgp_dump_type_map *map = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[0], map->str) == 0)
+    if (strcmp(argv[2]->arg, map->str) == 0)
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)
@@ -763,10 +763,10 @@ DEFUN (dump_bgp_all,
 
   /* When an interval is given */
   if (argc == 3)
-      interval = argv[2];
+      interval = argv[4]->arg;
 
   return bgp_dump_set (vty, bgp_dump_struct, bgp_dump_type,
-                       argv[1], interval);
+                       argv[3]->arg, interval);
 }
 
 DEFUN (no_dump_bgp_all,
@@ -786,7 +786,7 @@ DEFUN (no_dump_bgp_all,
   struct bgp_dump *bgp_dump_struct = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[0], map->str) == 0)
+    if (strcmp(argv[3]->arg, map->str) == 0)
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)

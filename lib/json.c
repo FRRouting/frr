@@ -30,7 +30,7 @@
  * what.
  */
 int
-use_json (const int argc, const struct cmd_token *argv[])
+use_json (const int argc, struct cmd_token *argv[])
 {
   if (argc == 0)
     return 0;

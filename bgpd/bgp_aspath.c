@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "str.h"
 #include "log.h"
 #include "stream.h"
+#include "command.h"
 #include "jhash.h"
 #include "queue.h"
 #include "filter.h"

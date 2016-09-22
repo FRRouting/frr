@@ -6,29 +6,30 @@ import os
 from pprint import pformat
 
 
-def token_is_variable(token):
+def token_is_variable(line_number, token):
 
     if token.isdigit():
         return True
 
     if token.startswith('('):
-        assert token.endswith(')'), "token %s should end with )" % token
+        assert token.endswith(')'), "%d: token %s should end with )" % (line_number, token)
         return True
 
     if token.startswith('['):
-        assert token.endswith(']'), "token %s should end with ]" % token
+        assert token.endswith(']'), "%d: token %s should end with ]" % (line_number, token)
         return True
 
     if token.startswith('{'):
         # I don't really care about checking for this I just put
         # these asserts in here to bug sharpd
-        assert token.endswith('}'), "token %s should end with }" % token
+        assert token.endswith('}'), "%d: token %s should end with }" % (line_number, token)
         return True
 
-    assert '|' not in token, "Weird token %s has a | but does not start with [ or (" % token
+    assert '|' not in token, "%d: Weird token %s has a | but does not start with [ or (" % (line_number, token)
 
     if token in ('WORD',
                  '.LINE', # where is this defined?
+                 'PATH',
                  'A.B.C.D',
                  'A.B.C.D/M',
                  'X:X::X:X',
@@ -43,22 +44,22 @@ def token_is_variable(token):
     return False
 
 
-def get_argv_translator(line):
+def get_argv_translator(line_number, line):
     table = {}
     line = line.strip()
-    assert line.startswith('"'), "line does not start with \"\n%s" % line
-    assert line.endswith('",'), "line does not end with \",\n%s" % line
+    assert line.startswith('"'), "%d: line does not start with \"\n%s" % (line_number, line)
+    assert line.endswith('",'), "%d: line does not end with \",\n%s" % (line_number, line)
 
     line = line[1:-2]
 
     funky_chars = ('+', '"')
     for char in funky_chars:
         if char in line:
-            raise Exception("Add support for tokens in\n%s\n\nsee BGP_INSTANCE_CMD down below" % line)
+            raise Exception("%d: Add support for tokens in\n%s\n\nsee BGP_INSTANCE_CMD down below" % (line_number, line))
 
     old_style_index = 0
     for (token_index, token) in enumerate(line.split()):
-        if token_is_variable(token):
+        if token_is_variable(line_number, token):
             # print "%s is a token" % token
             table[old_style_index] = token_index
             old_style_index += 1
@@ -84,6 +85,7 @@ def update_argvs(filename):
 
             if state is None:
                 if line.startswith('DEFUN ('):
+                    assert line.count(',') == 1, "Too many commas in\n%s" % line
                     state = 'DEFUN_HEADER'
                     defun_line_number = line_number
 
@@ -99,12 +101,45 @@ def update_argvs(filename):
 
                 elif line_number == defun_line_number + 2:
 
-                    # bgpd/bgp_vty.h
+                    # in the middle
                     line = line.replace('" CMD_AS_RANGE "', '<1-4294967295>')
                     line = line.replace('" DYNAMIC_NEIGHBOR_LIMIT_RANGE "', '<1-5000>')
                     line = line.replace('" BGP_INSTANCE_CMD "', '(view|vrf) WORD')
                     line = line.replace('" BGP_INSTANCE_ALL_CMD "', '(view|vrf) all')
-                    argv_translator = get_argv_translator(line)
+                    line = line.replace('" CMD_RANGE_STR(1, MULTIPATH_NUM) "', '<1-255>')
+                    line = line.replace('" QUAGGA_IP_REDIST_STR_BGPD "', '(kernel|connected|static|rip|ospf|isis|pim|table)')
+                    line = line.replace('" QUAGGA_IP6_REDIST_STR_BGPD "', '(kernel|connected|static|ripng|ospf6|isis|table)')
+
+                    # endswith
+                    line = line.replace('" CMD_AS_RANGE,', ' <1-4294967295>",')
+                    line = line.replace('" DYNAMIC_NEIGHBOR_LIMIT_RANGE,', ' <1-5000>",')
+                    line = line.replace('" BGP_INSTANCE_CMD,', ' (view|vrf) WORD",')
+                    line = line.replace('" BGP_INSTANCE_ALL_CMD,', ' (view|vrf) all",')
+                    line = line.replace('" CMD_RANGE_STR(1, MULTIPATH_NUM),', '<1-255>",')
+                    line = line.replace('" CMD_RANGE_STR(1, MAXTTL),', '<1-255>",')
+
+                    line = line.replace('" BGP_UPDATE_SOURCE_REQ_STR,', ' (A.B.C.D|X:X::X:X|WORD)",')
+                    line = line.replace('" BGP_UPDATE_SOURCE_OPT_STR,', ' {A.B.C.D|X:X::X:X|WORD}",')
+                    line = line.replace('" QUAGGA_IP_REDIST_STR_BGPD,', ' (kernel|connected|static|rip|ospf|isis|pim|table)",')
+                    line = line.replace('" QUAGGA_IP6_REDIST_STR_BGPD,', ' (kernel|connected|static|ripng|ospf6|isis|table)",')
+
+                    # startswith 
+                    line = line.replace('LISTEN_RANGE_CMD "', '"bgp listen range (A.B.C.D/M|X:X::X:X/M) ')
+                    line = line.replace('NO_NEIGHBOR_CMD2 "', '"no neighbor (A.B.C.D|X:X::X:X|WORD) ')
+                    line = line.replace('NEIGHBOR_CMD2 "', '"neighbor (A.B.C.D|X:X::X:X|WORD) ')
+                    line = line.replace('NO_NEIGHBOR_CMD "', '"no neighbor (A.B.C.D|X:X::X:X) ')
+                    line = line.replace('NEIGHBOR_CMD "', '"neighbor (A.B.C.D|X:X::X:X) ')
+
+                    # solo
+                    line = line.replace('NO_NEIGHBOR_CMD2,', '"no neighbor (A.B.C.D|X:X::X:X|WORD)",')
+                    line = line.replace('NEIGHBOR_CMD2,', '"neighbor (A.B.C.D|X:X::X:X|WORD)",')
+                    line = line.replace('NO_NEIGHBOR_CMD,', '"no neighbor (A.B.C.D|X:X::X:X)",')
+                    line = line.replace('NEIGHBOR_CMD,', '"neighbor (A.B.C.D|X:X::X:X)",')
+
+                    if line.rstrip().endswith('" ,'):
+                        line = line.replace('" ,', '",')
+
+                    argv_translator = get_argv_translator(line_number, line)
                     print_translator = True
 
             elif state == 'DEFUN_BODY':

@@ -520,7 +520,7 @@ DEFUN (show_ip_bgp_instance_nexthop,
        BGP_INSTANCE_HELP_STR
        "BGP nexthop table\n")
 {
-  return show_ip_bgp_nexthop_table (vty, argv[1], 0);
+  return show_ip_bgp_nexthop_table (vty, argv[4]->arg, 0);
 }
 
 DEFUN (show_ip_bgp_instance_all_nexthop,
@@ -545,7 +545,7 @@ DEFUN (show_ip_bgp_instance_nexthop_detail,
        BGP_INSTANCE_HELP_STR
        "BGP nexthop table\n")
 {
-  return show_ip_bgp_nexthop_table (vty, argv[1], 1);
+  return show_ip_bgp_nexthop_table (vty, argv[4]->arg, 1);
 }
 
 void

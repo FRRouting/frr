@@ -426,7 +426,8 @@ as_list_dup_check (struct as_list *aslist, struct as_filter *new)
   return 0;
 }
 
-DEFUN (ip_as_path, ip_as_path_cmd,
+DEFUN (ip_as_path,
+       ip_as_path_cmd,
        "ip as-path access-list WORD (deny|permit) .LINE",
        IP_STR
        "BGP autonomous system path filter\n"
@@ -443,9 +444,9 @@ DEFUN (ip_as_path, ip_as_path_cmd,
   char *regstr;
 
   /* Check the filter type. */
-  if (strncmp (argv[1], "p", 1) == 0)
+  if (strncmp (argv[4]->arg, "p", 1) == 0)
     type = AS_FILTER_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
+  else if (strncmp (argv[4]->arg, "d", 1) == 0)
     type = AS_FILTER_DENY;
   else
     {
@@ -460,7 +461,7 @@ DEFUN (ip_as_path, ip_as_path_cmd,
   if (!regex)
     {
       XFREE (MTYPE_TMP, regstr);
-      vty_out (vty, "can't compile regexp %s%s", argv[0],
+      vty_out (vty, "can't compile regexp %s%s", argv[3]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -470,7 +471,7 @@ DEFUN (ip_as_path, ip_as_path_cmd,
   XFREE (MTYPE_TMP, regstr);
 
   /* Install new filter to the access_list. */
-  aslist = as_list_get (argv[0]);
+  aslist = as_list_get (argv[3]->arg);
 
   /* Duplicate insertion check. */;
   if (as_list_dup_check (aslist, asfilter))
@@ -500,18 +501,18 @@ DEFUN (no_ip_as_path,
   regex_t *regex;
 
   /* Lookup AS list from AS path list. */
-  aslist = as_list_lookup (argv[0]);
+  aslist = as_list_lookup (argv[4]->arg);
   if (aslist == NULL)
     {
-      vty_out (vty, "ip as-path access-list %s doesn't exist%s", argv[0],
+      vty_out (vty, "ip as-path access-list %s doesn't exist%s", argv[4]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   /* Check the filter type. */
-  if (strncmp (argv[1], "p", 1) == 0)
+  if (strncmp (argv[5]->arg, "p", 1) == 0)
     type = AS_FILTER_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
+  else if (strncmp (argv[5]->arg, "d", 1) == 0)
     type = AS_FILTER_DENY;
   else
     {
@@ -526,7 +527,7 @@ DEFUN (no_ip_as_path,
   if (!regex)
     {
       XFREE (MTYPE_TMP, regstr);
-      vty_out (vty, "can't compile regexp %s%s", argv[0],
+      vty_out (vty, "can't compile regexp %s%s", argv[4]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -559,10 +560,10 @@ DEFUN (no_ip_as_path_all,
 {
   struct as_list *aslist;
 
-  aslist = as_list_lookup (argv[0]);
+  aslist = as_list_lookup (argv[4]->arg);
   if (aslist == NULL)
     {
-      vty_out (vty, "ip as-path access-list %s doesn't exist%s", argv[0],
+      vty_out (vty, "ip as-path access-list %s doesn't exist%s", argv[4]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -571,7 +572,7 @@ DEFUN (no_ip_as_path_all,
 
   /* Run hook function. */
   if (as_list_master.delete_hook)
-    (*as_list_master.delete_hook) (argv[0]);
+    (*as_list_master.delete_hook) (argv[4]->arg);
 
   return CMD_SUCCESS;
 }
@@ -629,7 +630,7 @@ DEFUN (show_ip_as_path_access_list,
 {
   struct as_list *aslist;
 
-  aslist = as_list_lookup (argv[0]);
+  aslist = as_list_lookup (argv[3]->arg);
   if (aslist)
     as_list_show (vty, aslist);
 
