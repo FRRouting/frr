@@ -559,12 +559,12 @@ DEFUN (ns_netns,
 {
   ns_id_t ns_id = NS_DEFAULT;
   struct ns *ns = NULL;
-  char *pathname = ns_netns_pathname (vty, argv[1]->arg);
+  char *pathname = ns_netns_pathname (vty, argv[1]);
 
   if (!pathname)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("NS ID", ns_id, argv[0]->arg);
+  VTY_GET_INTEGER ("NS ID", ns_id, argv[0]);
   ns = ns_get (ns_id);
 
   if (ns->name && strcmp (ns->name, pathname) != 0)
@@ -598,12 +598,12 @@ DEFUN (no_ns_netns,
 {
   ns_id_t ns_id = NS_DEFAULT;
   struct ns *ns = NULL;
-  char *pathname = ns_netns_pathname (vty, argv[1]->arg);
+  char *pathname = ns_netns_pathname (vty, argv[1]);
 
   if (!pathname)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("NS ID", ns_id, argv[0]->arg);
+  VTY_GET_INTEGER ("NS ID", ns_id, argv[0]);
   ns = ns_lookup (ns_id);
 
   if (!ns)
