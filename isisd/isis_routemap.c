@@ -354,7 +354,7 @@ DEFUN (match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  return isis_route_match_add(vty, vty->index, "ip address", argv[0]->arg);
+  return isis_route_match_add(vty, vty->index, "ip address", argv[0]);
 }
 
 DEFUN (no_match_ip_address,
@@ -370,7 +370,7 @@ DEFUN (no_match_ip_address,
 {
   if (argc == 0)
     return isis_route_match_delete(vty, vty->index, "ip address", NULL);
-  return isis_route_match_delete(vty, vty->index, "ip address", argv[0]->arg);
+  return isis_route_match_delete(vty, vty->index, "ip address", argv[0]);
 }
 
 ALIAS (no_match_ip_address,
@@ -392,7 +392,7 @@ DEFUN (match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  return isis_route_match_add(vty, vty->index, "ip address prefix-list", argv[0]->arg);
+  return isis_route_match_add(vty, vty->index, "ip address prefix-list", argv[0]);
 }
 
 DEFUN (no_match_ip_address_prefix_list,
@@ -406,7 +406,7 @@ DEFUN (no_match_ip_address_prefix_list,
 {
   if (argc == 0)
     return isis_route_match_delete (vty, vty->index, "ip address prefix-list", NULL);
-  return isis_route_match_delete (vty, vty->index, "ip address prefix-list", argv[0]->arg);
+  return isis_route_match_delete (vty, vty->index, "ip address prefix-list", argv[0]);
 }
 
 ALIAS (no_match_ip_address_prefix_list,
@@ -429,7 +429,7 @@ DEFUN (match_ipv6_address,
        "Match IPv6 address of route\n"
        "IPv6 access-list name\n")
 {
-  return isis_route_match_add(vty, vty->index, "ipv6 address", argv[0]->arg);
+  return isis_route_match_add(vty, vty->index, "ipv6 address", argv[0]);
 }
 
 DEFUN (no_match_ipv6_address,
@@ -443,7 +443,7 @@ DEFUN (no_match_ipv6_address,
 {
   if (argc == 0)
     return isis_route_match_delete(vty, vty->index, "ipv6 address", NULL);
-  return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[0]->arg);
+  return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[0]);
 }
 
 ALIAS (no_match_ipv6_address,
@@ -465,7 +465,7 @@ DEFUN (match_ipv6_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  return isis_route_match_add(vty, vty->index, "ipv6 address prefix-list", argv[0]->arg);
+  return isis_route_match_add(vty, vty->index, "ipv6 address prefix-list", argv[0]);
 }
 
 DEFUN (no_match_ipv6_address_prefix_list,
@@ -479,7 +479,7 @@ DEFUN (no_match_ipv6_address_prefix_list,
 {
   if (argc == 0)
     return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", NULL);
-  return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", argv[0]->arg);
+  return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", argv[0]);
 }
 
 ALIAS (no_match_ipv6_address_prefix_list,
@@ -504,7 +504,7 @@ DEFUN (set_metric,
       "Metric vale for destination routing protocol\n"
       "Metric value\n")
 {
-  return isis_route_set_add(vty, vty->index, "metric", argv[0]->arg);
+  return isis_route_set_add(vty, vty->index, "metric", argv[0]);
 }
 
 DEFUN (no_set_metric,
@@ -517,7 +517,7 @@ DEFUN (no_set_metric,
 {
   if (argc == 0)
     return isis_route_set_delete(vty, vty->index, "metric", NULL);
-  return isis_route_set_delete(vty, vty->index, "metric", argv[0]->arg);
+  return isis_route_set_delete(vty, vty->index, "metric", argv[0]);
 }
 
 ALIAS (no_set_metric,

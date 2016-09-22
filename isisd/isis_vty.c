@@ -64,8 +64,8 @@ DEFUN (ip_router_isis,
   struct interface *ifp;
   struct isis_circuit *circuit;
   struct isis_area *area;
-  const char *af = argv[0]->arg;
-  const char *area_tag = argv[1]->arg;
+  const char *af = argv[0];
+  const char *area_tag = argv[1];
 
   ifp = (struct interface *) vty->index;
   assert (ifp);
@@ -118,8 +118,8 @@ DEFUN (no_ip_router_isis,
   struct interface *ifp;
   struct isis_area *area;
   struct isis_circuit *circuit;
-  const char *af = argv[0]->arg;
-  const char *area_tag = argv[1]->arg;
+  const char *af = argv[0];
+  const char *area_tag = argv[1];
 
   ifp = (struct interface *) vty->index;
   if (!ifp)
@@ -132,7 +132,7 @@ DEFUN (no_ip_router_isis,
   if (!area)
     {
       vty_out (vty, "Can't find ISIS instance %s%s",
-               argv[0]->arg, VTY_NEWLINE);
+               argv[0], VTY_NEWLINE);
       return CMD_ERR_NO_MATCH;
     }
 
@@ -204,7 +204,7 @@ DEFUN (isis_circuit_type,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  is_type = string2circuit_t (argv[0]->arg);
+  is_type = string2circuit_t (argv[0]);
   if (!is_type)
     {
       vty_out (vty, "Unknown circuit-type %s", VTY_NEWLINE);
@@ -310,10 +310,10 @@ DEFUN (isis_passwd,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  if (argv[0]->arg[0] == 'm')
-    rv = isis_circuit_passwd_hmac_md5_set(circuit, argv[1]->arg);
+  if (argv[0][0] == 'm')
+    rv = isis_circuit_passwd_hmac_md5_set(circuit, argv[1]);
   else
-    rv = isis_circuit_passwd_cleartext_set(circuit, argv[1]->arg);
+    rv = isis_circuit_passwd_cleartext_set(circuit, argv[1]);
   if (rv)
     {
       vty_out (vty, "Too long circuit password (>254)%s", VTY_NEWLINE);
@@ -361,7 +361,7 @@ DEFUN (isis_priority,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  prio = atoi (argv[0]->arg);
+  prio = atoi (argv[0]);
   if (prio < MIN_PRIORITY || prio > MAX_PRIORITY)
     {
       vty_out (vty, "Invalid priority %d - should be <0-127>%s",
@@ -413,7 +413,7 @@ DEFUN (isis_priority_l1,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  prio = atoi (argv[0]->arg);
+  prio = atoi (argv[0]);
   if (prio < MIN_PRIORITY || prio > MAX_PRIORITY)
     {
       vty_out (vty, "Invalid priority %d - should be <0-127>%s",
@@ -465,7 +465,7 @@ DEFUN (isis_priority_l2,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  prio = atoi (argv[0]->arg);
+  prio = atoi (argv[0]);
   if (prio < MIN_PRIORITY || prio > MAX_PRIORITY)
     {
       vty_out (vty, "Invalid priority %d - should be <0-127>%s",
@@ -517,7 +517,7 @@ DEFUN (isis_metric,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  met = atoi (argv[0]->arg);
+  met = atoi (argv[0]);
 
   /* RFC3787 section 5.1 */
   if (circuit->area && circuit->area->oldmetric == 1 &&
@@ -581,7 +581,7 @@ DEFUN (isis_metric_l1,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  met = atoi (argv[0]->arg);
+  met = atoi (argv[0]);
 
   /* RFC3787 section 5.1 */
   if (circuit->area && circuit->area->oldmetric == 1 &&
@@ -645,7 +645,7 @@ DEFUN (isis_metric_l2,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  met = atoi (argv[0]->arg);
+  met = atoi (argv[0]);
 
   /* RFC3787 section 5.1 */
   if (circuit->area && circuit->area->oldmetric == 1 &&
@@ -710,7 +710,7 @@ DEFUN (isis_hello_interval,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   if (interval < MIN_HELLO_INTERVAL || interval > MAX_HELLO_INTERVAL)
     {
       vty_out (vty, "Invalid hello-interval %d - should be <1-600>%s",
@@ -764,7 +764,7 @@ DEFUN (isis_hello_interval_l1,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   if (interval < MIN_HELLO_INTERVAL || interval > MAX_HELLO_INTERVAL)
     {
       vty_out (vty, "Invalid hello-interval %ld - should be <1-600>%s",
@@ -818,7 +818,7 @@ DEFUN (isis_hello_interval_l2,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   if (interval < MIN_HELLO_INTERVAL || interval > MAX_HELLO_INTERVAL)
     {
       vty_out (vty, "Invalid hello-interval %ld - should be <1-600>%s",
@@ -870,7 +870,7 @@ DEFUN (isis_hello_multiplier,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  mult = atoi (argv[0]->arg);
+  mult = atoi (argv[0]);
   if (mult < MIN_HELLO_MULTIPLIER || mult > MAX_HELLO_MULTIPLIER)
     {
       vty_out (vty, "Invalid hello-multiplier %d - should be <2-100>%s",
@@ -922,7 +922,7 @@ DEFUN (isis_hello_multiplier_l1,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  mult = atoi (argv[0]->arg);
+  mult = atoi (argv[0]);
   if (mult < MIN_HELLO_MULTIPLIER || mult > MAX_HELLO_MULTIPLIER)
     {
       vty_out (vty, "Invalid hello-multiplier %d - should be <2-100>%s",
@@ -974,7 +974,7 @@ DEFUN (isis_hello_multiplier_l2,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  mult = atoi (argv[0]->arg);
+  mult = atoi (argv[0]);
   if (mult < MIN_HELLO_MULTIPLIER || mult > MAX_HELLO_MULTIPLIER)
     {
       vty_out (vty, "Invalid hello-multiplier %d - should be <2-100>%s",
@@ -1060,7 +1060,7 @@ DEFUN (csnp_interval,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atol (argv[0]->arg);
+  interval = atol (argv[0]);
   if (interval < MIN_CSNP_INTERVAL || interval > MAX_CSNP_INTERVAL)
     {
       vty_out (vty, "Invalid csnp-interval %lu - should be <1-600>%s",
@@ -1112,7 +1112,7 @@ DEFUN (csnp_interval_l1,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atol (argv[0]->arg);
+  interval = atol (argv[0]);
   if (interval < MIN_CSNP_INTERVAL || interval > MAX_CSNP_INTERVAL)
     {
       vty_out (vty, "Invalid csnp-interval %lu - should be <1-600>%s",
@@ -1164,7 +1164,7 @@ DEFUN (csnp_interval_l2,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atol (argv[0]->arg);
+  interval = atol (argv[0]);
   if (interval < MIN_CSNP_INTERVAL || interval > MAX_CSNP_INTERVAL)
     {
       vty_out (vty, "Invalid csnp-interval %lu - should be <1-600>%s",
@@ -1215,7 +1215,7 @@ DEFUN (psnp_interval,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atol (argv[0]->arg);
+  interval = atol (argv[0]);
   if (interval < MIN_PSNP_INTERVAL || interval > MAX_PSNP_INTERVAL)
     {
       vty_out (vty, "Invalid psnp-interval %lu - should be <1-120>%s",
@@ -1267,7 +1267,7 @@ DEFUN (psnp_interval_l1,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atol (argv[0]->arg);
+  interval = atol (argv[0]);
   if (interval < MIN_PSNP_INTERVAL || interval > MAX_PSNP_INTERVAL)
     {
       vty_out (vty, "Invalid psnp-interval %lu - should be <1-120>%s",
@@ -1319,7 +1319,7 @@ DEFUN (psnp_interval_l2,
   if (!circuit)
     return CMD_ERR_NO_MATCH;
 
-  interval = atol (argv[0]->arg);
+  interval = atol (argv[0]);
   if (interval < MIN_PSNP_INTERVAL || interval > MAX_PSNP_INTERVAL)
     {
       vty_out (vty, "Invalid psnp-interval %lu - should be <1-120>%s",
@@ -1409,7 +1409,7 @@ DEFUN (metric_style,
 
   assert(area);
 
-  if (strncmp (argv[0]->arg, "w", 1) == 0)
+  if (strncmp (argv[0], "w", 1) == 0)
     {
       isis_area_metricstyle_set(area, false, true);
       return CMD_SUCCESS;
@@ -1419,9 +1419,9 @@ DEFUN (metric_style,
   if (ret != CMD_SUCCESS)
     return ret;
 
-  if (strncmp (argv[0]->arg, "t", 1) == 0)
+  if (strncmp (argv[0], "t", 1) == 0)
     isis_area_metricstyle_set(area, true, true);
-  else if (strncmp (argv[0]->arg, "n", 1) == 0)
+  else if (strncmp (argv[0], "n", 1) == 0)
     isis_area_metricstyle_set(area, true, false);
       return CMD_SUCCESS;
 
@@ -1561,7 +1561,7 @@ DEFUN (area_lsp_mtu,
 {
   unsigned int lsp_mtu;
 
-  VTY_GET_INTEGER_RANGE("lsp-mtu", lsp_mtu, argv[0]->arg, 128, 4352);
+  VTY_GET_INTEGER_RANGE("lsp-mtu", lsp_mtu, argv[0], 128, 4352);
 
   return area_lsp_mtu_set(vty, lsp_mtu);
 }
@@ -1601,7 +1601,7 @@ DEFUN (is_type,
       return CMD_ERR_NO_MATCH;
     }
 
-  type = string2circuit_t (argv[0]->arg);
+  type = string2circuit_t (argv[0]);
   if (!type)
     {
       vty_out (vty, "Unknown IS level %s", VTY_NEWLINE);
@@ -1684,7 +1684,7 @@ DEFUN (lsp_gen_interval,
   int level;
 
   area = vty->index;
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   level = IS_LEVEL_1 | IS_LEVEL_2;
   return set_lsp_gen_interval (vty, area, interval, level);
 }
@@ -1724,7 +1724,7 @@ DEFUN (lsp_gen_interval_l1,
   int level;
 
   area = vty->index;
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   level = IS_LEVEL_1;
   return set_lsp_gen_interval (vty, area, interval, level);
 }
@@ -1766,7 +1766,7 @@ DEFUN (lsp_gen_interval_l2,
   int level;
 
   area = vty->index;
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   level = IS_LEVEL_2;
   return set_lsp_gen_interval (vty, area, interval, level);
 }
@@ -1806,7 +1806,7 @@ DEFUN (spf_interval,
   u_int16_t interval;
 
   area = vty->index;
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   area->min_spf_interval[0] = interval;
   area->min_spf_interval[1] = interval;
 
@@ -1847,7 +1847,7 @@ DEFUN (spf_interval_l1,
   u_int16_t interval;
 
   area = vty->index;
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   area->min_spf_interval[0] = interval;
 
   return CMD_SUCCESS;
@@ -1888,7 +1888,7 @@ DEFUN (spf_interval_l2,
   u_int16_t interval;
 
   area = vty->index;
-  interval = atoi (argv[0]->arg);
+  interval = atoi (argv[0]);
   area->min_spf_interval[1] = interval;
 
   return CMD_SUCCESS;
@@ -1976,7 +1976,7 @@ DEFUN (max_lsp_lifetime,
        "Maximum LSP lifetime\n"
        "LSP lifetime in seconds\n")
 {
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2, atoi(argv[0]->arg));
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2, atoi(argv[0]));
 }
 
 DEFUN (no_max_lsp_lifetime,
@@ -2002,7 +2002,7 @@ DEFUN (max_lsp_lifetime_l1,
        "Maximum LSP lifetime for Level 1 only\n"
        "LSP lifetime for Level 1 only in seconds\n")
 {
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1, atoi(argv[0]->arg));
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_1, atoi(argv[0]));
 }
 
 DEFUN (no_max_lsp_lifetime_l1,
@@ -2027,7 +2027,7 @@ DEFUN (max_lsp_lifetime_l2,
        "Maximum LSP lifetime for Level 2 only\n"
        "LSP lifetime for Level 2 only in seconds\n")
 {
-  return area_max_lsp_lifetime_set(vty, IS_LEVEL_2, atoi(argv[0]->arg));
+  return area_max_lsp_lifetime_set(vty, IS_LEVEL_2, atoi(argv[0]));
 }
 
 DEFUN (no_max_lsp_lifetime_l2,
@@ -2096,7 +2096,7 @@ DEFUN (lsp_refresh_interval,
        "LSP refresh interval\n"
        "LSP refresh interval in seconds\n")
 {
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1_AND_2, atoi(argv[0]->arg));
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1_AND_2, atoi(argv[0]));
 }
 
 DEFUN (no_lsp_refresh_interval,
@@ -2122,7 +2122,7 @@ DEFUN (lsp_refresh_interval_l1,
        "LSP refresh interval for Level 1 only\n"
        "LSP refresh interval for Level 1 only in seconds\n")
 {
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1, atoi(argv[0]->arg));
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_1, atoi(argv[0]));
 }
 
 DEFUN (no_lsp_refresh_interval_l1,
@@ -2148,7 +2148,7 @@ DEFUN (lsp_refresh_interval_l2,
        "LSP refresh interval for Level 2 only\n"
        "LSP refresh interval for Level 2 only in seconds\n")
 {
-  return area_lsp_refresh_interval_set(vty, IS_LEVEL_2, atoi(argv[0]->arg));
+  return area_lsp_refresh_interval_set(vty, IS_LEVEL_2, atoi(argv[0]));
 }
 
 DEFUN (no_lsp_refresh_interval_l2,
@@ -2201,17 +2201,17 @@ DEFUN (area_passwd_md5,
        "Level-wide password\n")
 {
   u_char snp_auth = 0;
-  int level = (argv[0]->arg[0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+  int level = (argv[0][0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
 
   if (argc > 2)
     {
       snp_auth = SNP_AUTH_SEND;
-      if (strncmp(argv[2]->arg, "v", 1) == 0)
+      if (strncmp(argv[2], "v", 1) == 0)
         snp_auth |= SNP_AUTH_RECV;
     }
 
   return area_passwd_set(vty, level, isis_area_passwd_hmac_md5_set,
-                         argv[1]->arg, snp_auth);
+                         argv[1], snp_auth);
 }
 
 ALIAS (area_passwd_md5,
@@ -2235,17 +2235,17 @@ DEFUN (area_passwd_clear,
        "Area password\n")
 {
   u_char snp_auth = 0;
-  int level = (argv[0]->arg[0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+  int level = (argv[0][0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
 
   if (argc > 2)
     {
       snp_auth = SNP_AUTH_SEND;
-      if (strncmp(argv[2]->arg, "v", 1) == 0)
+      if (strncmp(argv[2], "v", 1) == 0)
         snp_auth |= SNP_AUTH_RECV;
     }
 
   return area_passwd_set(vty, level, isis_area_passwd_cleartext_set,
-                         argv[1]->arg, snp_auth);
+                         argv[1], snp_auth);
 }
 
 ALIAS (area_passwd_clear,
@@ -2267,7 +2267,7 @@ DEFUN (no_area_passwd,
        "Configure the authentication password for an area\n"
        "Set the authentication password for a routing domain\n")
 {
-  int level = (argv[0]->arg[0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+  int level = (argv[0][0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
   struct isis_area *area = vty->index;
 
   if (!area)

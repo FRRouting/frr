@@ -533,7 +533,7 @@ DEFUN (show_isis_interface_arg,
        "ISIS interface\n"
        "ISIS interface name\n")
 {
-  return show_isis_interface_common (vty, argv[0]->arg, ISIS_UI_LEVEL_DETAIL);
+  return show_isis_interface_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL);
 }
 
 /*
@@ -707,7 +707,7 @@ DEFUN (show_isis_neighbor_arg,
        "ISIS neighbor adjacencies\n"
        "System id\n")
 {
-  return show_isis_neighbor_common (vty, argv[0]->arg, ISIS_UI_LEVEL_DETAIL);
+  return show_isis_neighbor_common (vty, argv[0], ISIS_UI_LEVEL_DETAIL);
 }
 
 DEFUN (clear_isis_neighbor,
@@ -728,7 +728,7 @@ DEFUN (clear_isis_neighbor_arg,
        "ISIS neighbor adjacencies\n"
        "System id\n")
 {
-  return clear_isis_neighbor_common (vty, argv[0]->arg);
+  return clear_isis_neighbor_common (vty, argv[0]);
 }
 
 /*
@@ -1530,7 +1530,7 @@ DEFUN (show_database_lsp_brief,
        "IS-IS link state database\n"
        "LSP ID\n")
 {
-  return show_isis_database (vty, argv[0]->arg, ISIS_UI_LEVEL_BRIEF);
+  return show_isis_database (vty, argv[0], ISIS_UI_LEVEL_BRIEF);
 }
 
 DEFUN (show_database_lsp_detail,
@@ -1542,7 +1542,7 @@ DEFUN (show_database_lsp_detail,
        "LSP ID\n"
        "Detailed information\n")
 {
-  return show_isis_database (vty, argv[0]->arg, ISIS_UI_LEVEL_DETAIL);
+  return show_isis_database (vty, argv[0], ISIS_UI_LEVEL_DETAIL);
 }
 
 DEFUN (show_database_detail,
@@ -1564,7 +1564,7 @@ DEFUN (show_database_detail_lsp,
        "Detailed information\n"
        "LSP ID\n")
 {
-  return show_isis_database (vty, argv[0]->arg, ISIS_UI_LEVEL_DETAIL);
+  return show_isis_database (vty, argv[0], ISIS_UI_LEVEL_DETAIL);
 }
 
 /* 
@@ -1577,7 +1577,7 @@ DEFUN (router_isis,
        "ISO IS-IS\n"
        "ISO Routing area tag")
 {
-  return isis_area_get (vty, argv[0]->arg);
+  return isis_area_get (vty, argv[0]);
 }
 
 /* 
@@ -1588,7 +1588,7 @@ DEFUN (no_router_isis,
        "no router isis WORD",
        "no\n" ROUTER_STR "ISO IS-IS\n" "ISO Routing area tag")
 {
-  return isis_area_destroy (vty, argv[0]->arg);
+  return isis_area_destroy (vty, argv[0]);
 }
 
 /*
@@ -1600,7 +1600,7 @@ DEFUN (net,
        "A Network Entity Title for this process (OSI only)\n"
        "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
-  return area_net_title (vty, argv[0]->arg);
+  return area_net_title (vty, argv[0]);
 }
 
 /*
@@ -1613,7 +1613,7 @@ DEFUN (no_net,
        "A Network Entity Title for this process (OSI only)\n"
        "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
-  return area_clear_net_title (vty, argv[0]->arg);
+  return area_clear_net_title (vty, argv[0]);
 }
 
 void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
@@ -1973,8 +1973,8 @@ DEFUN (topology_baseis,
   area = vty->index;
   assert (area);
 
-  if (sysid2buff (buff, argv[0]->arg))
-    sysid2buff (area->topology_baseis, argv[0]->arg);
+  if (sysid2buff (buff, argv[0]))
+    sysid2buff (area->topology_baseis, argv[0]);
 
   return CMD_SUCCESS;
 }
@@ -2016,7 +2016,7 @@ DEFUN (topology_basedynh,
   assert (area);
 
   /* I hope that it's enough. */
-  area->topology_basedynh = strndup (argv[0]->arg, 16); 
+  area->topology_basedynh = strndup (argv[0], 16); 
   return CMD_SUCCESS;
 }
 
