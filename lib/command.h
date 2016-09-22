@@ -151,7 +151,6 @@ struct cmd_node
 enum cmd_token_type
 {
   WORD_TKN,         // words
-  NUMBER_TKN,       // integral numbers
   VARIABLE_TKN,     // almost anything
   RANGE_TKN,        // integer range
   IPV4_TKN,         // IPV4 addresses
@@ -177,7 +176,6 @@ struct cmd_token
   char *text;                   // token text
   char *desc;                   // token description
 
-  long long value;              // for numeric types
   long long min, max;           // for ranges
 
   char *arg;                    // user input that matches this token

@@ -521,10 +521,6 @@ cmp_token (struct cmd_token *first, struct cmd_token *second)
       if (first->min != second->min || first->max != second->max)
         return 0;
       break;
-    case NUMBER_TKN:
-      if (first->value != second->value) return 0;
-      break;
-
     /* selectors and options should be equal if their subgraphs are equal,
      * but the graph isomorphism problem is not known to be solvable in
      * polynomial time so we consider selectors and options inequal in all
