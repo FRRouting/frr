@@ -1325,7 +1325,7 @@ DEFUN (config_hostname,
 {
   struct cmd_token *word = argv[1];
 
-  if (!isalpha((int) word->arg))
+  if (!isalpha((int) word->arg[0]))
     {
       vty_out (vty, "Please specify string starting with alphabet%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -2011,7 +2011,7 @@ DEFUN (banner_motd_file,
     vty_out (vty, "%s does not exist", argv[3]->arg);
   else if (cmd == CMD_WARNING)
     vty_out (vty, "%s must be in %s",
-             argv[0]->arg, SYSCONFDIR);
+             argv[0], SYSCONFDIR);
 
   return cmd;
 }

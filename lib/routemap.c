@@ -1413,9 +1413,9 @@ DEFUN (route_map,
   char *endptr = NULL;
 
   /* Permit check. */
-  if (strncmp (argv[1]->arg, "permit", strlen (argv[1]->arg)) == 0)
+  if (strncmp (argv[1], "permit", strlen (argv[1])) == 0)
     permit = RMAP_PERMIT;
-  else if (strncmp (argv[1]->arg, "deny", strlen (argv[1]->arg)) == 0)
+  else if (strncmp (argv[1], "deny", strlen (argv[1])) == 0)
     permit = RMAP_DENY;
   else
     {
@@ -1424,7 +1424,7 @@ DEFUN (route_map,
     }
 
   /* Preference check. */
-  pref = strtoul (argv[2]->arg, &endptr, 10);
+  pref = strtoul (argv[2], &endptr, 10);
   if (pref == ULONG_MAX || *endptr != '\0')
     {
       vty_out (vty, "the fourth field must be positive integer%s",
@@ -1438,7 +1438,7 @@ DEFUN (route_map,
     }
 
   /* Get route map. */
-  map = route_map_get (argv[0]->arg);
+  map = route_map_get (argv[0]);
   index = route_map_index_get (map, permit, pref);
 
   vty->index = index;
@@ -1455,11 +1455,11 @@ DEFUN (no_route_map_all,
 {
   struct route_map *map;
 
-  map = route_map_lookup_by_name (argv[0]->arg);
+  map = route_map_lookup_by_name (argv[0]);
   if (map == NULL)
     {
       vty_out (vty, "%% Could not find route-map %s%s",
-	       argv[0]->arg, VTY_NEWLINE);
+	       argv[0], VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1485,9 +1485,9 @@ DEFUN (no_route_map,
   char *endptr = NULL;
 
   /* Permit check. */
-  if (strncmp (argv[1]->arg, "permit", strlen (argv[1]->arg)) == 0)
+  if (strncmp (argv[1], "permit", strlen (argv[1])) == 0)
     permit = RMAP_PERMIT;
-  else if (strncmp (argv[1]->arg, "deny", strlen (argv[1]->arg)) == 0)
+  else if (strncmp (argv[1], "deny", strlen (argv[1])) == 0)
     permit = RMAP_DENY;
   else
     {
@@ -1496,7 +1496,7 @@ DEFUN (no_route_map,
     }
 
   /* Preference. */
-  pref = strtoul (argv[2]->arg, &endptr, 10);
+  pref = strtoul (argv[2], &endptr, 10);
   if (pref == ULONG_MAX || *endptr != '\0')
     {
       vty_out (vty, "the fourth field must be positive integer%s",
@@ -1510,11 +1510,11 @@ DEFUN (no_route_map,
     }
 
   /* Existence check. */
-  map = route_map_lookup_by_name (argv[0]->arg);
+  map = route_map_lookup_by_name (argv[0]);
   if (map == NULL)
     {
       vty_out (vty, "%% Could not find route-map %s%s",
-	       argv[0]->arg, VTY_NEWLINE);
+	       argv[0], VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1523,7 +1523,7 @@ DEFUN (no_route_map,
   if (index == NULL)
     {
       vty_out (vty, "%% Could not find route-map entry %s %s%s", 
-	       argv[0]->arg, argv[2]->arg, VTY_NEWLINE);
+	       argv[0], argv[2], VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1598,8 +1598,8 @@ DEFUN (rmap_onmatch_goto,
 	  return CMD_WARNING;
         }
 
-      if (argc == 1 && argv[0]->arg)
-        VTY_GET_INTEGER_RANGE("route-map index", d, argv[0]->arg, 1, 65535);
+      if (argc == 1 && argv[0])
+        VTY_GET_INTEGER_RANGE("route-map index", d, argv[0], 1, 65535);
       else
         d = index->pref + 1;
       
@@ -1671,7 +1671,7 @@ DEFUN (rmap_show_name,
 {
     const char *name = NULL;
     if (argc)
-      name = argv[0]->arg;
+      name = argv[0];
     return vty_show_route_map (vty, name);
 }
 
@@ -1699,7 +1699,7 @@ DEFUN (rmap_call,
 				     index->map->name);
 	  XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
 	}
-      index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[0]->arg);
+      index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[0]);
     }
 
   /* Execute event hook. */
