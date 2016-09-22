@@ -503,7 +503,7 @@ static void igmp_show_interfaces(struct vty *vty, u_char uj)
     json = json_object_new_object();
   else
     vty_out(vty,
-            "Interface  State          Address  Querier  Query Timer    Uptime%s",
+            "Interface  State          Address  Querier  Query Timer     Uptime%s",
             VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
@@ -2623,12 +2623,12 @@ static void show_mroute(struct vty *vty, u_char uj)
   json_object *json_ifp_in = NULL;
   json_object *json_ifp_out = NULL;
   int found_oif = 0;
+  int first = 1;
 
   if (uj) {
     json = json_object_new_object();
   } else {
-    vty_out(vty, "Proto: I=IGMP P=PIM S=STATIC O=SOURCE%s%s", VTY_NEWLINE, VTY_NEWLINE);
-    vty_out(vty, "Source          Group           Proto Input iVifI Output oVifI TTL Uptime  %s",
+    vty_out(vty, "Source          Group           Proto  Input      Output     TTL  Uptime%s",
             VTY_NEWLINE);
   }
 
@@ -2641,10 +2641,10 @@ static void show_mroute(struct vty *vty, u_char uj)
     char in_ifname[16];
     char out_ifname[16];
     int oif_vif_index;
-    char proto[5];
+    char proto[100];
     struct interface *ifp_in;
     found_oif = 0;
-
+    first = 1;
     if (!c_oil->installed)
       continue;
 
@@ -2724,43 +2724,45 @@ static void show_mroute(struct vty *vty, u_char uj)
         json_object_string_add(json_ifp_out, "upTime", oif_uptime);
         json_object_object_add(json_ifp_in, out_ifname, json_ifp_out);
       } else {
-        proto[0] = '\0';
-
         if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_PIM) {
-          strcat(proto, "P");
+          strcpy(proto, "PIM");
         }
 
         if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_IGMP) {
-          strcat(proto, "I");
+          strcpy(proto, "IGMP");
         }
 
         if (c_oil->oif_flags[oif_vif_index] & PIM_OIF_FLAG_PROTO_SOURCE) {
-          strcat(proto, "O");
+          strcpy(proto, "SRC");
         }
 
-        vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+        vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
                 src_str,
                 grp_str,
                 proto,
                 in_ifname,
-                c_oil->oil.mfcc_parent,
                 out_ifname,
-                oif_vif_index,
                 ttl,
                 oif_uptime,
                 VTY_NEWLINE);
+
+        if (first)
+	  {
+	    src_str[0] = '\0';
+	    grp_str[0] = '\0';
+	    in_ifname[0] = '\0';
+	    first = 0;
+	  }
       }
     }
 
     if (!uj && !found_oif) {
-      vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+      vty_out(vty, "%-15s %-15s %-10s %-10s %-6s %-3d  %8s%s",
               src_str,
               grp_str,
               proto,
               in_ifname,
-              c_oil->oil.mfcc_parent,
               "none",
-              0,
               0,
               "--:--:--",
               VTY_NEWLINE);
@@ -2775,7 +2777,8 @@ static void show_mroute(struct vty *vty, u_char uj)
     char out_ifname[16];
     int oif_vif_index;
     struct interface *ifp_in;
-    char proto[5];
+    char proto[100];
+    first = 1;
 
     if (!s_route->c_oil.installed)
       continue;
@@ -2817,8 +2820,7 @@ static void show_mroute(struct vty *vty, u_char uj)
       }
 
     } else {
-      proto[0] = '\0';
-      strcat(proto, "S");
+      strcpy(proto, "STATIC");
     }
 
     for (oif_vif_index = 0; oif_vif_index < MAXVIFS; ++oif_vif_index) {
@@ -2852,29 +2854,32 @@ static void show_mroute(struct vty *vty, u_char uj)
         json_object_string_add(json_ifp_out, "upTime", oif_uptime);
         json_object_object_add(json_ifp_in, out_ifname, json_ifp_out);
       } else {
-        vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+        vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
                 src_str,
                 grp_str,
                 proto,
                 in_ifname,
-                s_route->iif,
                 out_ifname,
-                oif_vif_index,
                 ttl,
                 oif_uptime,
                 VTY_NEWLINE);
+	if (first)
+          {
+	    src_str[0] = '\0';
+	    grp_str[0] = '\0';
+	    in_ifname[0] = '\0';
+	    first = 0;
+	  }
       }
     }
 
     if (!uj && !found_oif) {
-        vty_out(vty, "%-15s %-15s %-5s %-5s %5d %-6s %5d %3d %8s %s",
+        vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
                 src_str,
                 grp_str,
                 proto,
                 in_ifname,
-                c_oil->oil.mfcc_parent,
                 "none",
-                0,
                 0,
                 "--:--:--",
                 VTY_NEWLINE);
