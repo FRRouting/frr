@@ -30,6 +30,7 @@ def token_is_variable(line_number, token):
     if token in ('WORD',
                  '.LINE', # where is this defined?
                  'LINE',
+                 'BITPATTERN',
                  'PATH',
                  'A.B.C.D',
                  'A.B.C.D/M',
@@ -43,6 +44,78 @@ def token_is_variable(line_number, token):
         return True
 
     return False
+
+
+    tokens = []
+
+
+def line_to_tokens(text):
+    """
+    Most of the time whitespace can be used to split tokens
+        (set|clear) <interface> clagd-enable (no|yes)
+
+    tokens
+    - (set|clear)
+    - <interface>
+    - clagd-enable
+    - (no|yes)
+
+    But if we are dealing with multiword keywords, such as "soft in", that approach
+    does not work. We can only split on whitespaces if we are not inside a () or []
+        bgp (<ipv4>|<ipv6>|<interface>|*) [soft in|soft out]
+
+    tokens:
+    - bgp
+    - (<ipv4>|<ipv6>|<interface>|*)
+    - [soft in|soft out]
+    """
+    tokens = []
+    token_index = 0
+    token_text = []
+    parens = 0
+    curlys = 0
+    brackets = 0
+    less_greater = 0
+
+    for char in text:
+        if char == ' ':
+            if parens == 0 and brackets == 0 and curlys == 0 and less_greater == 0:
+                tokens.append(''.join(token_text))
+                token_index += 1
+                token_text = []
+            else:
+                token_text.append(char)
+        else:
+            if char == '(':
+                parens += 1
+
+            elif char == ')':
+                parens -= 1
+
+            elif char == '[':
+                brackets += 1
+
+            elif char == ']':
+                brackets -= 1
+
+            elif char == '{':
+                curlys += 1
+
+            elif char == '}':
+                curlys -= 1
+
+            elif char == '<':
+                less_greater += 1
+
+            elif char == '>':
+                less_greater -= 1
+
+            token_text.append(char)
+
+    if token_text:
+        tokens.append(''.join(token_text))
+
+    return tokens
 
 
 def get_argv_translator(line_number, line):
@@ -59,7 +132,7 @@ def get_argv_translator(line_number, line):
             raise Exception("%d: Add support for tokens in\n%s\n\nsee BGP_INSTANCE_CMD down below" % (line_number, line))
 
     old_style_index = 0
-    for (token_index, token) in enumerate(line.split()):
+    for (token_index, token) in enumerate(line_to_tokens(line)):
         if token_is_variable(line_number, token):
             # print "%s is a token" % token
             table[old_style_index] = token_index
@@ -110,6 +183,8 @@ def update_argvs(filename):
                     line = line.replace('" CMD_RANGE_STR(1, MULTIPATH_NUM) "', '<1-255>')
                     line = line.replace('" QUAGGA_IP_REDIST_STR_BGPD "', '(kernel|connected|static|rip|ospf|isis|pim|table)')
                     line = line.replace('" QUAGGA_IP6_REDIST_STR_BGPD "', '(kernel|connected|static|ripng|ospf6|isis|table)')
+                    line = line.replace('" OSPF_LSA_TYPES_CMD_STR "', 'asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as')
+                    line = line.replace('" QUAGGA_REDIST_STR_OSPFD "', '(kernel|connected|static|rip|isis|bgp|pim|table)')
 
                     # endswith
                     line = line.replace('" CMD_AS_RANGE,', ' <1-4294967295>",')
@@ -118,13 +193,16 @@ def update_argvs(filename):
                     line = line.replace('" BGP_INSTANCE_ALL_CMD,', ' (view|vrf) all",')
                     line = line.replace('" CMD_RANGE_STR(1, MULTIPATH_NUM),', '<1-255>",')
                     line = line.replace('" CMD_RANGE_STR(1, MAXTTL),', '<1-255>",')
+                    line = line.replace('" BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,', '<2-255> <50-60000> <50-60000>",')
+                    line = line.replace('" OSPF_LSA_TYPES_CMD_STR,', ' asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as",')
 
                     line = line.replace('" BGP_UPDATE_SOURCE_REQ_STR,', ' (A.B.C.D|X:X::X:X|WORD)",')
                     line = line.replace('" BGP_UPDATE_SOURCE_OPT_STR,', ' {A.B.C.D|X:X::X:X|WORD}",')
                     line = line.replace('" QUAGGA_IP_REDIST_STR_BGPD,', ' (kernel|connected|static|rip|ospf|isis|pim|table)",')
                     line = line.replace('" QUAGGA_IP6_REDIST_STR_BGPD,', ' (kernel|connected|static|ripng|ospf6|isis|table)",')
+                    line = line.replace('" QUAGGA_REDIST_STR_OSPFD,', ' (kernel|connected|static|rip|isis|bgp|pim|table)",')
 
-                    # startswith 
+                    # startswith
                     line = line.replace('LISTEN_RANGE_CMD "', '"bgp listen range (A.B.C.D/M|X:X::X:X/M) ')
                     line = line.replace('NO_NEIGHBOR_CMD2 "', '"no neighbor (A.B.C.D|X:X::X:X|WORD) ')
                     line = line.replace('NEIGHBOR_CMD2 "', '"neighbor (A.B.C.D|X:X::X:X|WORD) ')

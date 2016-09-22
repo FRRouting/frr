@@ -700,7 +700,7 @@ DEFUN (match_ip_nexthop,
        "IP access-list number (expanded range)\n"
        "IP access-list name\n")
 {
-  return ospf_route_match_add (vty, vty->index, "ip next-hop", argv[0]);
+  return ospf_route_match_add (vty, vty->index, "ip next-hop", argv[3]->arg);
 }
 
 DEFUN (no_match_ip_nexthop,
@@ -711,10 +711,7 @@ DEFUN (no_match_ip_nexthop,
        IP_STR
        "Match next-hop address of route\n")
 {
-  if (argc == 0)
-    return ospf_route_match_delete (vty, vty->index, "ip next-hop", NULL);
-
-  return ospf_route_match_delete (vty, vty->index, "ip next-hop", argv[0]);
+  return ospf_route_match_delete (vty, vty->index, "ip next-hop", argv[4]->arg);
 }
 
 ALIAS (no_match_ip_nexthop,
@@ -738,7 +735,7 @@ DEFUN (match_ip_next_hop_prefix_list,
        "IP prefix-list name\n")
 {
   return ospf_route_match_add (vty, vty->index, "ip next-hop prefix-list",
-			       argv[0]);
+			       argv[4]->arg);
 }
 
 DEFUN (no_match_ip_next_hop_prefix_list,
@@ -750,11 +747,8 @@ DEFUN (no_match_ip_next_hop_prefix_list,
        "Match next-hop address of route\n"
        "Match entries of prefix-lists\n")
 {
-  if (argc == 0)
-    return ospf_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
-				    NULL);
   return ospf_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
-				  argv[0]);
+				  argv[5]->arg);
 }
 
 ALIAS (no_match_ip_next_hop_prefix_list,
@@ -777,7 +771,7 @@ DEFUN (match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP access-list name\n")
 {
-  return ospf_route_match_add (vty, vty->index, "ip address", argv[0]);
+  return ospf_route_match_add (vty, vty->index, "ip address", argv[3]->arg);
 }
 
 DEFUN (no_match_ip_address,
@@ -788,10 +782,7 @@ DEFUN (no_match_ip_address,
        IP_STR
        "Match address of route\n")
 {
-  if (argc == 0)
-    return ospf_route_match_delete (vty, vty->index, "ip address", NULL);
-
-  return ospf_route_match_delete (vty, vty->index, "ip address", argv[0]);
+  return ospf_route_match_delete (vty, vty->index, "ip address", argv[4]->arg);
 }
 
 ALIAS (no_match_ip_address,
@@ -815,7 +806,7 @@ DEFUN (match_ip_address_prefix_list,
        "IP prefix-list name\n")
 {
   return ospf_route_match_add (vty, vty->index, "ip address prefix-list",
-			       argv[0]);
+			       argv[4]->arg);
 }
 
 DEFUN (no_match_ip_address_prefix_list,
@@ -827,11 +818,8 @@ DEFUN (no_match_ip_address_prefix_list,
        "Match address of route\n"
        "Match entries of prefix-lists\n")
 {
-  if (argc == 0)
-    return ospf_route_match_delete (vty, vty->index, "ip address prefix-list",
-				    NULL);
   return ospf_route_match_delete (vty, vty->index, "ip address prefix-list",
-				  argv[0]);
+				  argv[5]->arg);
 }
 
 ALIAS (no_match_ip_address_prefix_list,
@@ -851,7 +839,7 @@ DEFUN (match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  return ospf_route_match_add (vty, vty->index, "interface", argv[0]);
+  return ospf_route_match_add (vty, vty->index, "interface", argv[2]->arg);
 }
 
 DEFUN (no_match_interface,
@@ -861,10 +849,7 @@ DEFUN (no_match_interface,
        MATCH_STR
        "Match first hop interface of route\n")
 {
-  if (argc == 0)
-    return ospf_route_match_delete (vty, vty->index, "interface", NULL);
-
-  return ospf_route_match_delete (vty, vty->index, "interface", argv[0]);
+  return ospf_route_match_delete (vty, vty->index, "interface", argv[3]->arg);
 }
 
 ALIAS (no_match_interface,
@@ -882,7 +867,7 @@ DEFUN (match_tag,
        "Match tag of route\n"
        "Tag value\n")
 {
-  return ospf_route_match_add (vty, vty->index, "tag", argv[0]);
+  return ospf_route_match_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
 DEFUN (no_match_tag,
@@ -892,10 +877,7 @@ DEFUN (no_match_tag,
        MATCH_STR
        "Match tag of route\n")
 {
-  if (argc == 0)
-    return ospf_route_match_delete (vty, vty->index, "tag", NULL);
-
-  return ospf_route_match_delete (vty, vty->index, "tag", argv[0]);
+  return ospf_route_match_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
 ALIAS (no_match_tag,
@@ -913,7 +895,7 @@ DEFUN (set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
-  return ospf_route_set_add (vty, vty->index, "metric", argv[0]);
+  return ospf_route_set_add (vty, vty->index, "metric", argv[2]->arg);
 }
 
 DEFUN (no_set_metric,
@@ -923,10 +905,7 @@ DEFUN (no_set_metric,
        SET_STR
        "Metric value for destination routing protocol\n")
 {
-  if (argc == 0)
-    return ospf_route_set_delete (vty, vty->index, "metric", NULL);
-
-  return ospf_route_set_delete (vty, vty->index, "metric", argv[0]);
+  return ospf_route_set_delete (vty, vty->index, "metric", argv[3]->arg);
 }
 
 ALIAS (no_set_metric,
@@ -945,12 +924,12 @@ DEFUN (set_metric_type,
        "OSPF[6] external type 1 metric\n"
        "OSPF[6] external type 2 metric\n")
 {
-  if (strcmp (argv[0], "1") == 0)
+  if (strcmp (argv[2]->arg, "1") == 0)
     return ospf_route_set_add (vty, vty->index, "metric-type", "type-1");
-  if (strcmp (argv[0], "2") == 0)
+  if (strcmp (argv[2]->arg, "2") == 0)
     return ospf_route_set_add (vty, vty->index, "metric-type", "type-2");
 
-  return ospf_route_set_add (vty, vty->index, "metric-type", argv[0]);
+  return ospf_route_set_add (vty, vty->index, "metric-type", argv[2]->arg);
 }
 
 DEFUN (no_set_metric_type,
@@ -960,10 +939,7 @@ DEFUN (no_set_metric_type,
        SET_STR
        "Type of metric for destination routing protocol\n")
 {
-  if (argc == 0)
-    return ospf_route_set_delete (vty, vty->index, "metric-type", NULL);
-
-  return ospf_route_set_delete (vty, vty->index, "metric-type", argv[0]);
+  return ospf_route_set_delete (vty, vty->index, "metric-type", argv[3]->arg);
 }
 
 ALIAS (no_set_metric_type,
@@ -982,7 +958,7 @@ DEFUN (set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  return ospf_route_set_add (vty, vty->index, "tag", argv[0]);
+  return ospf_route_set_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
 DEFUN (no_set_tag,
@@ -992,10 +968,7 @@ DEFUN (no_set_tag,
        SET_STR
        "Tag value for routing protocol\n")
 {
-  if (argc == 0)
-      ospf_route_set_delete(vty, vty->index, "tag", NULL);
-
-  return ospf_route_set_delete (vty, vty->index, "tag", argv[0]);
+  return ospf_route_set_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
 ALIAS (no_set_tag,

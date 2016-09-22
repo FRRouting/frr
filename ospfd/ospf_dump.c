@@ -760,7 +760,7 @@ ospf_packet_dump (struct stream *s)
 */
 static int
 debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
-                          const char **argv)
+                          struct cmd_token **argv)
 {
   int type = 0;
   int flag = 0;
@@ -769,17 +769,17 @@ debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
   assert (argc > arg_base + 0);
 
   /* Check packet type. */
-  if (strncmp (argv[arg_base + 0], "h", 1) == 0)
+  if (strncmp (argv[arg_base + 0]->arg, "h", 1) == 0)
     type = OSPF_DEBUG_HELLO;
-  else if (strncmp (argv[arg_base + 0], "d", 1) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "d", 1) == 0)
     type = OSPF_DEBUG_DB_DESC;
-  else if (strncmp (argv[arg_base + 0], "ls-r", 4) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "ls-r", 4) == 0)
     type = OSPF_DEBUG_LS_REQ;
-  else if (strncmp (argv[arg_base + 0], "ls-u", 4) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "ls-u", 4) == 0)
     type = OSPF_DEBUG_LS_UPD;
-  else if (strncmp (argv[arg_base + 0], "ls-a", 4) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "ls-a", 4) == 0)
     type = OSPF_DEBUG_LS_ACK;
-  else if (strncmp (argv[arg_base + 0], "a", 1) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "a", 1) == 0)
     type = OSPF_DEBUG_ALL;
 
   /* Default, both send and recv. */
@@ -789,17 +789,17 @@ debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
   /* send or recv. */
   if (argc >= arg_base + 2)
     {
-      if (strncmp (argv[arg_base + 1], "s", 1) == 0)
+      if (strncmp (argv[arg_base + 1]->arg, "s", 1) == 0)
 	flag = OSPF_DEBUG_SEND;
-      else if (strncmp (argv[arg_base + 1], "r", 1) == 0)
+      else if (strncmp (argv[arg_base + 1]->arg, "r", 1) == 0)
 	flag = OSPF_DEBUG_RECV;
-      else if (strncmp (argv[arg_base + 1], "d", 1) == 0)
+      else if (strncmp (argv[arg_base + 1]->arg, "d", 1) == 0)
 	flag = OSPF_DEBUG_SEND | OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
     }
 
   /* detail. */
   if (argc == arg_base + 3)
-    if (strncmp (argv[arg_base + 2], "d", 1) == 0)
+    if (strncmp (argv[arg_base + 2]->arg, "d", 1) == 0)
       flag |= OSPF_DEBUG_DETAIL;
 
   for (i = 0; i < 5; i++)
@@ -878,7 +878,7 @@ DEFUN (debug_ospf_instance_packet,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -921,7 +921,7 @@ ALIAS (debug_ospf_instance_packet,
 
 static int
 no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
-                             const char **argv)
+                             struct cmd_token **argv)
 {
   int type = 0;
   int flag = 0;
@@ -930,17 +930,17 @@ no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
   assert (argc > arg_base + 0);
 
   /* Check packet type. */
-  if (strncmp (argv[arg_base + 0], "h", 1) == 0)
+  if (strncmp (argv[arg_base + 0]->arg, "h", 1) == 0)
     type = OSPF_DEBUG_HELLO;
-  else if (strncmp (argv[arg_base + 0], "d", 1) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "d", 1) == 0)
     type = OSPF_DEBUG_DB_DESC;
-  else if (strncmp (argv[arg_base + 0], "ls-r", 4) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "ls-r", 4) == 0)
     type = OSPF_DEBUG_LS_REQ;
-  else if (strncmp (argv[arg_base + 0], "ls-u", 4) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "ls-u", 4) == 0)
     type = OSPF_DEBUG_LS_UPD;
-  else if (strncmp (argv[arg_base + 0], "ls-a", 4) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "ls-a", 4) == 0)
     type = OSPF_DEBUG_LS_ACK;
-  else if (strncmp (argv[arg_base + 0], "a", 1) == 0)
+  else if (strncmp (argv[arg_base + 0]->arg, "a", 1) == 0)
     type = OSPF_DEBUG_ALL;
 
   /* Default, both send and recv. */
@@ -950,17 +950,17 @@ no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
   /* send or recv. */
   if (argc == arg_base + 2)
     {
-      if (strncmp (argv[arg_base + 1], "s", 1) == 0)
+      if (strncmp (argv[arg_base + 1]->arg, "s", 1) == 0)
 	flag = OSPF_DEBUG_SEND | OSPF_DEBUG_DETAIL;
-      else if (strncmp (argv[arg_base + 1], "r", 1) == 0)
+      else if (strncmp (argv[arg_base + 1]->arg, "r", 1) == 0)
 	flag = OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
-      else if (strncmp (argv[arg_base + 1], "d", 1) == 0)
+      else if (strncmp (argv[arg_base + 1]->arg, "d", 1) == 0)
 	flag = OSPF_DEBUG_DETAIL | OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
     }
 
   /* detail. */
   if (argc == arg_base + 3)
-    if (strncmp (argv[arg_base + 2], "d", 1) == 0)
+    if (strncmp (argv[arg_base + 2]->arg, "d", 1) == 0)
       flag = OSPF_DEBUG_DETAIL;
 
   for (i = 0; i < 5; i++)
@@ -1050,7 +1050,7 @@ DEFUN (no_debug_ospf_instance_packet,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1095,7 +1095,7 @@ ALIAS (no_debug_ospf_instance_packet,
 
 
 static int
-debug_ospf_ism_common (struct vty *vty, int arg_base, int argc, const char **argv)
+debug_ospf_ism_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
 {
   if (vty->node == CONFIG_NODE)
     {
@@ -1103,11 +1103,11 @@ debug_ospf_ism_common (struct vty *vty, int arg_base, int argc, const char **arg
 	DEBUG_ON (ism, ISM);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0], "s", 1) == 0)
+	  if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
 	    DEBUG_ON (ism, ISM_STATUS);
-	  else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
 	    DEBUG_ON (ism, ISM_EVENTS);
-	  else if (strncmp (argv[arg_base + 0], "t", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
 	    DEBUG_ON (ism, ISM_TIMERS);
 	}
 
@@ -1119,11 +1119,11 @@ debug_ospf_ism_common (struct vty *vty, int arg_base, int argc, const char **arg
     TERM_DEBUG_ON (ism, ISM);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0], "s", 1) == 0)
+      if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
 	TERM_DEBUG_ON (ism, ISM_STATUS);
-      else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
 	TERM_DEBUG_ON (ism, ISM_EVENTS);
-      else if (strncmp (argv[arg_base + 0], "t", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
 	TERM_DEBUG_ON (ism, ISM_TIMERS);
     }
 
@@ -1160,7 +1160,7 @@ DEFUN (debug_ospf_instance_ism,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1180,7 +1180,7 @@ ALIAS (debug_ospf_instance_ism,
 
 static int
 no_debug_ospf_ism_common(struct vty *vty, int arg_base, int argc,
-                         const char **argv)
+                         struct cmd_token **argv)
 {
   if (vty->node == CONFIG_NODE)
     {
@@ -1188,11 +1188,11 @@ no_debug_ospf_ism_common(struct vty *vty, int arg_base, int argc,
 	DEBUG_OFF (ism, ISM);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0], "s", 1) == 0)
+	  if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
 	    DEBUG_OFF (ism, ISM_STATUS);
-	  else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
 	    DEBUG_OFF (ism, ISM_EVENTS);
-	  else if (strncmp (argv[arg_base + 0], "t", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
 	    DEBUG_OFF (ism, ISM_TIMERS);
 	}
       return CMD_SUCCESS;
@@ -1203,11 +1203,11 @@ no_debug_ospf_ism_common(struct vty *vty, int arg_base, int argc,
     TERM_DEBUG_OFF (ism, ISM);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0], "s", 1) == 0)
+      if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
 	TERM_DEBUG_OFF (ism, ISM_STATUS);
-      else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
 	TERM_DEBUG_OFF (ism, ISM_EVENTS);
-      else if (strncmp (argv[arg_base + 0], "t", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
 	TERM_DEBUG_OFF (ism, ISM_TIMERS);
     }
 
@@ -1247,7 +1247,7 @@ DEFUN (no_debug_ospf_instance_ism,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1267,7 +1267,7 @@ ALIAS (no_debug_ospf_instance_ism,
        "ISM Timer Information\n")
 
 static int
-debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, const char **argv)
+debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
 {
   if (vty->node == CONFIG_NODE)
     {
@@ -1275,11 +1275,11 @@ debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, const char **arg
 	DEBUG_ON (nsm, NSM);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0], "s", 1) == 0)
+	  if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
 	    DEBUG_ON (nsm, NSM_STATUS);
-	  else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
 	    DEBUG_ON (nsm, NSM_EVENTS);
-	  else if (strncmp (argv[arg_base + 0], "t", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
 	    DEBUG_ON (nsm, NSM_TIMERS);
 	}
 
@@ -1291,11 +1291,11 @@ debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, const char **arg
     TERM_DEBUG_ON (nsm, NSM);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0], "s", 1) == 0)
+      if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
 	TERM_DEBUG_ON (nsm, NSM_STATUS);
-      else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
 	TERM_DEBUG_ON (nsm, NSM_EVENTS);
-      else if (strncmp (argv[arg_base + 0], "t", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
 	TERM_DEBUG_ON (nsm, NSM_TIMERS);
     }
 
@@ -1332,7 +1332,7 @@ DEFUN (debug_ospf_instance_nsm,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1351,7 +1351,7 @@ ALIAS (debug_ospf_instance_nsm,
        "NSM Timer Information\n")
 
 static int
-no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, const char **argv)
+no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
 {
   if (vty->node == CONFIG_NODE)
     {
@@ -1359,11 +1359,11 @@ no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, const char **
 	DEBUG_OFF (nsm, NSM);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0], "s", 1) == 0)
+	  if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
 	    DEBUG_OFF (nsm, NSM_STATUS);
-	  else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
 	    DEBUG_OFF (nsm, NSM_EVENTS);
-	  else if (strncmp (argv[arg_base + 0], "t", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
 	    DEBUG_OFF (nsm, NSM_TIMERS);
 	}
 
@@ -1375,11 +1375,11 @@ no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, const char **
     TERM_DEBUG_OFF (nsm, NSM);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0], "s", 1) == 0)
+      if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
 	TERM_DEBUG_OFF (nsm, NSM_STATUS);
-      else if (strncmp (argv[arg_base + 0], "e", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
 	TERM_DEBUG_OFF (nsm, NSM_EVENTS);
-      else if (strncmp (argv[arg_base + 0], "t", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
 	TERM_DEBUG_OFF (nsm, NSM_TIMERS);
     }
 
@@ -1419,7 +1419,7 @@ DEFUN (no_debug_ospf_instance_nsm,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1440,7 +1440,7 @@ ALIAS (no_debug_ospf_instance_nsm,
 
 
 static int
-debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, const char **argv)
+debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
 {
   if (vty->node == CONFIG_NODE)
     {
@@ -1448,13 +1448,13 @@ debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, const char **arg
 	DEBUG_ON (lsa, LSA);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0], "g", 1) == 0)
+	  if (strncmp (argv[arg_base + 0]->arg, "g", 1) == 0)
 	    DEBUG_ON (lsa, LSA_GENERATE);
-	  else if (strncmp (argv[arg_base + 0], "f", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "f", 1) == 0)
 	    DEBUG_ON (lsa, LSA_FLOODING);
-	  else if (strncmp (argv[arg_base + 0], "i", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
 	    DEBUG_ON (lsa, LSA_INSTALL);
-	  else if (strncmp (argv[arg_base + 0], "r", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
 	    DEBUG_ON (lsa, LSA_REFRESH);
 	}
 
@@ -1466,13 +1466,13 @@ debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, const char **arg
     TERM_DEBUG_ON (lsa, LSA);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0], "g", 1) == 0)
+      if (strncmp (argv[arg_base + 0]->arg, "g", 1) == 0)
 	TERM_DEBUG_ON (lsa, LSA_GENERATE);
-      else if (strncmp (argv[arg_base + 0], "f", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "f", 1) == 0)
 	TERM_DEBUG_ON (lsa, LSA_FLOODING);
-      else if (strncmp (argv[arg_base + 0], "i", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
 	TERM_DEBUG_ON (lsa, LSA_INSTALL);
-      else if (strncmp (argv[arg_base + 0], "r", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
 	TERM_DEBUG_ON (lsa, LSA_REFRESH);
     }
 
@@ -1510,7 +1510,7 @@ DEFUN (debug_ospf_instance_lsa,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1530,7 +1530,7 @@ ALIAS (debug_ospf_instance_lsa,
        "LSA Refresh\n")
 
 static int
-no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, const char **argv)
+no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
 {
   if (vty->node == CONFIG_NODE)
     {
@@ -1538,13 +1538,13 @@ no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, const char **
 	DEBUG_OFF (lsa, LSA);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0], "g", 1) == 0)
+	  if (strncmp (argv[arg_base + 0]->arg, "g", 1) == 0)
 	    DEBUG_OFF (lsa, LSA_GENERATE);
-	  else if (strncmp (argv[arg_base + 0], "f", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "f", 1) == 0)
 	    DEBUG_OFF (lsa, LSA_FLOODING);
-	  else if (strncmp (argv[arg_base + 0], "i", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
 	    DEBUG_OFF (lsa, LSA_INSTALL);
-	  else if (strncmp (argv[arg_base + 0], "r", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
 	    DEBUG_OFF (lsa, LSA_REFRESH);
 	}
 
@@ -1556,13 +1556,13 @@ no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, const char **
     TERM_DEBUG_OFF (lsa, LSA);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0], "g", 1) == 0)
+      if (strncmp (argv[arg_base + 0]->arg, "g", 1) == 0)
 	TERM_DEBUG_OFF (lsa, LSA_GENERATE);
-      else if (strncmp (argv[arg_base + 0], "f", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "f", 1) == 0)
 	TERM_DEBUG_OFF (lsa, LSA_FLOODING);
-      else if (strncmp (argv[arg_base + 0], "i", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
 	TERM_DEBUG_OFF (lsa, LSA_INSTALL);
-      else if (strncmp (argv[arg_base + 0], "r", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
 	TERM_DEBUG_OFF (lsa, LSA_REFRESH);
     }
 
@@ -1603,7 +1603,7 @@ DEFUN (no_debug_ospf_instance_lsa,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1625,7 +1625,7 @@ ALIAS (no_debug_ospf_instance_lsa,
 
 
 static int
-debug_ospf_zebra_common (struct vty *vty, int arg_base, int argc, const char **argv)
+debug_ospf_zebra_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
 {
   if (vty->node == CONFIG_NODE)
     {
@@ -1633,9 +1633,9 @@ debug_ospf_zebra_common (struct vty *vty, int arg_base, int argc, const char **a
 	DEBUG_ON (zebra, ZEBRA);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0], "i", 1) == 0)
+	  if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
 	    DEBUG_ON (zebra, ZEBRA_INTERFACE);
-	  else if (strncmp (argv[arg_base + 0], "r", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
 	    DEBUG_ON (zebra, ZEBRA_REDISTRIBUTE);
 	}
 
@@ -1647,9 +1647,9 @@ debug_ospf_zebra_common (struct vty *vty, int arg_base, int argc, const char **a
     TERM_DEBUG_ON (zebra, ZEBRA);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0], "i", 1) == 0)
+      if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
 	TERM_DEBUG_ON (zebra, ZEBRA_INTERFACE);
-      else if (strncmp (argv[arg_base + 0], "r", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
 	TERM_DEBUG_ON (zebra, ZEBRA_REDISTRIBUTE);
     }
 
@@ -1685,7 +1685,7 @@ DEFUN (debug_ospf_instance_zebra,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1704,7 +1704,7 @@ ALIAS (debug_ospf_instance_zebra,
 
 static int
 no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
-                           const char **argv)
+                           struct cmd_token **argv)
 {
   if (vty->node == CONFIG_NODE)
     {
@@ -1712,9 +1712,9 @@ no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
 	DEBUG_OFF (zebra, ZEBRA);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0], "i", 1) == 0)
+	  if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
 	    DEBUG_OFF (zebra, ZEBRA_INTERFACE);
-	  else if (strncmp (argv[arg_base + 0], "r", 1) == 0)
+	  else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
 	    DEBUG_OFF (zebra, ZEBRA_REDISTRIBUTE);
 	}
 
@@ -1726,9 +1726,9 @@ no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
     TERM_DEBUG_OFF (zebra, ZEBRA);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0], "i", 1) == 0)
+      if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
 	TERM_DEBUG_OFF (zebra, ZEBRA_INTERFACE);
-      else if (strncmp (argv[arg_base + 0], "r", 1) == 0)
+      else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
 	TERM_DEBUG_OFF (zebra, ZEBRA_REDISTRIBUTE);
     }
 
@@ -1767,7 +1767,7 @@ DEFUN (no_debug_ospf_instance_zebra,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1823,7 +1823,7 @@ DEFUN (debug_ospf_instance_event,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1844,7 +1844,7 @@ DEFUN (no_debug_ospf_instance_event,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1891,7 +1891,7 @@ DEFUN (debug_ospf_instance_nssa,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1912,7 +1912,7 @@ DEFUN (no_debug_ospf_instance_nssa,
 {
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -2133,7 +2133,7 @@ DEFUN (show_debugging_ospf_instance,
   struct ospf *ospf;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[0]);
+  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
   if ((ospf = ospf_lookup_instance (instance)) == NULL )
     return CMD_SUCCESS;
 

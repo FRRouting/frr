@@ -2346,7 +2346,7 @@ DEFUN (ospf_mpls_te_router_addr,
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (! inet_aton (argv[0], &value))
+  if (! inet_aton (argv[2]->arg, &value))
     {
       vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -2480,7 +2480,7 @@ DEFUN (ospf_mpls_te_inter_as_area,
        "OSPF area ID in IP format\n"
        "OSPF area ID as decimal value\n")
 {
-  return set_inter_as_mode (vty, "area", argv[0]);
+  return set_inter_as_mode (vty, "area", argv[3]->arg);
 }
 
 DEFUN (no_ospf_mpls_te_inter_as,
@@ -2636,7 +2636,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
   /* Interface name is specified. */
   else
     {
-      if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+      if ((ifp = if_lookup_by_name (argv[5]->arg)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         show_mpls_te_link_sub (vty, ifp);

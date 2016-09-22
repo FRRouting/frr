@@ -1190,7 +1190,7 @@ DEFUN (router_info,
   /* Check and get Area value if present */
   if (argc == 1)
     {
-      if (!inet_aton (argv[0], &OspfRI.area_id))
+      if (!inet_aton (argv[2]->arg, &OspfRI.area_id))
         {
           vty_out (vty, "Please specify Router Info Area by A.B.C.D%s",
                    VTY_NEWLINE);
@@ -1276,7 +1276,7 @@ DEFUN (pce_address,
   struct in_addr value;
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
-  if (!inet_aton (argv[0], &value))
+  if (!inet_aton (argv[2]->arg, &value))
     {
       vty_out (vty, "Please specify PCE Address by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -1323,7 +1323,7 @@ DEFUN (pce_path_scope,
   uint32_t scope;
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
-  if (sscanf (argv[0], "0x%x", &scope) != 1)
+  if (sscanf (argv[2]->arg, "0x%x", &scope) != 1)
     {
       vty_out (vty, "pce_path_scope: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1373,7 +1373,7 @@ DEFUN (pce_domain,
   struct listnode *node;
   struct ri_pce_subtlv_domain *domain;
 
-  if (sscanf (argv[0], "%d", &as) != 1)
+  if (sscanf (argv[3]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "pce_domain: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1410,7 +1410,7 @@ DEFUN (no_pce_domain,
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-  if (sscanf (argv[0], "%d", &as) != 1)
+  if (sscanf (argv[4]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "no_pce_domain: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1441,7 +1441,7 @@ DEFUN (pce_neigbhor,
   struct listnode *node;
   struct ri_pce_subtlv_neighbor *neighbor;
 
-  if (sscanf (argv[0], "%d", &as) != 1)
+  if (sscanf (argv[3]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "pce_neighbor: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1478,7 +1478,7 @@ DEFUN (no_pce_neighbor,
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-  if (sscanf (argv[0], "%d", &as) != 1)
+  if (sscanf (argv[4]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "no_pce_neighbor: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1506,7 +1506,7 @@ DEFUN (pce_cap_flag,
   uint32_t cap;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-  if (sscanf (argv[0], "0x%x", &cap) != 1)
+  if (sscanf (argv[2]->arg, "0x%x", &cap) != 1)
     {
       vty_out (vty, "pce_cap_flag: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);

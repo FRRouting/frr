@@ -33,6 +33,7 @@
 #include "stream.h"
 #include "table.h"
 #include "log.h"
+#include "command.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
