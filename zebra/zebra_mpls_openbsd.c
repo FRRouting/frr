@@ -178,15 +178,15 @@ kernel_del_lsp (zebra_lsp_t *lsp)
 }
 
 #define MAX_RTSOCK_BUF	128 * 1024
-void
+int
 mpls_kernel_init (void)
 {
   int		rcvbuf, default_rcvbuf;
   socklen_t	optlen;
 
   if ((kr_state.fd = socket(AF_ROUTE, SOCK_RAW, 0)) == -1) {
-      zlog_warn("kr_init: socket");
-      return;
+      zlog_warn("%s: socket", __func__);
+      return -1;
   }
 
   /* grow receive buffer, don't wanna miss messages */
@@ -203,4 +203,6 @@ mpls_kernel_init (void)
       ;	/* nothing */
 
   kr_state.rtseq = 1;
+
+  return 0;
 }

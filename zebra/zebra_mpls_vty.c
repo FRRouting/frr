@@ -21,8 +21,6 @@
 
 #include <zebra.h>
 
-#if defined(HAVE_MPLS)
-
 #include "memory.h"
 #include "if.h"
 #include "prefix.h"
@@ -810,6 +808,18 @@ DEFUN (show_mpls_table_lsp,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_mpls_status,
+       show_mpls_status_cmd,
+       "show mpls status",
+       SHOW_STR
+       "MPLS information\n"
+       "MPLS status\n")
+{
+  vty_out (vty, "MPLS support enabled: %s%s", (mpls_enabled) ? "yes" :
+	   "no (mpls kernel extensions not detected)", VTY_NEWLINE);
+  return CMD_SUCCESS;
+}
+
 /* MPLS node for MPLS LSP. */
 static struct cmd_node mpls_node = { MPLS_NODE,  "",  1 };
 
@@ -817,6 +827,12 @@ static struct cmd_node mpls_node = { MPLS_NODE,  "",  1 };
 void
 zebra_mpls_vty_init (void)
 {
+  install_element (VIEW_NODE, &show_mpls_status_cmd);
+  install_element (ENABLE_NODE, &show_mpls_status_cmd);
+
+  if (! mpls_enabled)
+    return;
+
   install_node (&mpls_node, zebra_mpls_config);
 
   install_element (CONFIG_NODE, &ip_route_label_cmd);
@@ -863,5 +879,3 @@ zebra_mpls_vty_init (void)
   install_element (VIEW_NODE, &show_mpls_table_lsp_cmd);
   install_element (ENABLE_NODE, &show_mpls_table_lsp_cmd);
 }
-
-#endif /* HAVE_MPLS */

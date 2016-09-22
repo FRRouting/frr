@@ -25,7 +25,7 @@
 
 #include "privs.h"
 #include "if.h"
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
 #include <netmpls/mpls.h>
 #endif
 
@@ -34,7 +34,7 @@ union sockunion
   struct sockaddr sa;
   struct sockaddr_in sin;
   struct sockaddr_in6 sin6;
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
   struct sockaddr_mpls smpls;
 #endif
 };

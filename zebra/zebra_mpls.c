@@ -53,6 +53,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHLFE,		"MPLS nexthop object")
 DEFINE_MTYPE_STATIC(ZEBRA, SNHLFE,		"MPLS static nexthop object")
 DEFINE_MTYPE_STATIC(ZEBRA, SNHLFE_IFNAME,	"MPLS static nexthop ifname")
 
+int mpls_enabled;
+
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
 
@@ -1902,6 +1904,12 @@ zebra_mpls_init_tables (struct zebra_vrf *zvrf)
 void
 zebra_mpls_init (void)
 {
-  mpls_kernel_init ();
+  if (mpls_kernel_init () < 0)
+    {
+      zlog_warn ("Disabling MPLS support (no kernel support)");
+      return;
+    }
+
+  mpls_enabled = 1;
   mpls_processq_init (&zebrad);
 }

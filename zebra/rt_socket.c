@@ -21,7 +21,7 @@
  */
 
 #include <zebra.h>
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
 #include <netmpls/mpls.h>
 #endif
 
@@ -78,7 +78,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 {
   struct sockaddr_in *mask = NULL;
   struct sockaddr_in sin_dest, sin_mask, sin_gate;
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
   struct sockaddr_mpls smpls;
 #endif
   union sockunion *smplsp = NULL;
@@ -156,7 +156,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 	      mask = &sin_mask;
 	    }
 
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
 	  if (nexthop->nh_label)
 	    {
 	      memset (&smpls, 0, sizeof (smpls));

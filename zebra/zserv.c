@@ -1676,6 +1676,9 @@ zread_mpls_labels (int command, struct zserv *client, u_short length,
   in_label = stream_getl (s);
   out_label = stream_getl (s);
 
+  if (! mpls_enabled)
+    return;
+
   if (command == ZEBRA_MPLS_LABELS_ADD)
     {
       mpls_lsp_install (zvrf, type, in_label, out_label, gtype, &gate,

@@ -77,4 +77,16 @@ kernel_del_lsp (zebra_lsp_t *lsp)
   return 0;
 }
 
-void mpls_kernel_init (void) {};
+int
+mpls_kernel_init (void)
+{
+  struct stat st;
+
+  /*
+   * Check if the MPLS module is loaded in the kernel.
+   */
+  if (stat ("/proc/sys/net/mpls", &st) != 0)
+    return -1;
+
+  return 0;
+};

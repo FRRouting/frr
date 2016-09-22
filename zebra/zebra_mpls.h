@@ -292,6 +292,12 @@ zebra_mpls_init_tables (struct zebra_vrf *zvrf);
 void
 zebra_mpls_init (void);
 
+/*
+ * MPLS VTY.
+ */
+void
+zebra_mpls_vty_init (void);
+
 /* Inline functions. */
 
 /*
@@ -363,5 +369,8 @@ mpls_should_lsps_be_processed(struct zebra_vrf *zvrf)
 
   return ((zvrf->mpls_flags & MPLS_FLAG_SCHEDULE_LSPS) ? 1 : 0);
 }
+
+/* Global variables. */
+extern int mpls_enabled;
 
 #endif /*_ZEBRA_MPLS_H */

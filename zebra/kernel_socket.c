@@ -21,7 +21,7 @@
 
 #include <zebra.h>
 #include <net/if_types.h>
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
 #include <netmpls/mpls.h>
 #endif
 
@@ -1101,7 +1101,7 @@ rtm_write (int message,
   msg.rtm.rtm_addrs = RTA_DST;
   msg.rtm.rtm_addrs |= RTA_GATEWAY;
   msg.rtm.rtm_flags = RTF_UP;
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
   msg.rtm.rtm_flags |= RTF_MPATH;
   msg.rtm.rtm_fmask = RTF_MPLS;
 #endif
@@ -1150,7 +1150,7 @@ rtm_write (int message,
   else if (message == RTM_ADD) 
     msg.rtm.rtm_flags |= RTF_HOST;
 
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
   if (mpls)
     {
       msg.rtm.rtm_addrs |= RTA_SRC;
@@ -1185,7 +1185,7 @@ rtm_write (int message,
   SOCKADDRSET (dest, RTA_DST);
   SOCKADDRSET (gate, RTA_GATEWAY);
   SOCKADDRSET (mask, RTA_NETMASK);
-#if defined HAVE_MPLS && defined __OpenBSD__
+#ifdef __OpenBSD__
   SOCKADDRSET (mpls, RTA_SRC);
 #endif
 

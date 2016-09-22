@@ -309,8 +309,6 @@ AC_ARG_ENABLE(systemd,
   AS_HELP_STRING([--enable-systemd], [enable Systemd support]))
 AC_ARG_ENABLE(poll,
   AS_HELP_STRING([--enable-poll], [enable usage of Poll instead of select]))
-AC_ARG_ENABLE(mpls,
-  AS_HELP_STRING([--enable-mpls], [enable MPLS support - requires compatible kernel]))
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE(cumulus,
@@ -367,27 +365,20 @@ dnl MPLS check
 dnl ----------
 MPLS_METHOD=""
 AC_MSG_CHECKING(whether this OS has MPLS stack)
-if test "x${enable_mpls}" = "xyes"; then
-  case "$host" in
-    *-linux*)
-        AC_DEFINE(HAVE_MPLS,,Enable MPLS)
-        MPLS_METHOD="zebra_mpls_netlink.o"
-        AC_MSG_RESULT(Linux MPLS)
-    ;;
-    *-openbsd*)
-        AC_DEFINE(HAVE_MPLS,,Enable MPLS)
-        MPLS_METHOD="zebra_mpls_openbsd.o"
-        AC_MSG_RESULT(OpenBSD MPLS)
-    ;;
-    *)
-        AC_MSG_RESULT(Unsupported kernel)
-        MPLS_METHOD="zebra_mpls_null.o"
-    ;;
-  esac
-else
-  AC_MSG_RESULT(disabled)
-  MPLS_METHOD="zebra_mpls_null.o"
-fi
+case "$host" in
+  *-linux*)
+      MPLS_METHOD="zebra_mpls_netlink.o"
+      AC_MSG_RESULT(Linux MPLS)
+  ;;
+  *-openbsd*)
+      MPLS_METHOD="zebra_mpls_openbsd.o"
+      AC_MSG_RESULT(OpenBSD MPLS)
+  ;;
+  *)
+      MPLS_METHOD="zebra_mpls_null.o"
+      AC_MSG_RESULT(Unsupported kernel)
+  ;;
+esac
 AC_SUBST(MPLS_METHOD)
 
 if test "${enable_cumulus}" = "yes" ; then

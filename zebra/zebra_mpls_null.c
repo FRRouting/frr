@@ -5,4 +5,4 @@
 int kernel_add_lsp (zebra_lsp_t *lsp) { return 0; }
 int kernel_upd_lsp (zebra_lsp_t *lsp) { return 0; }
 int kernel_del_lsp (zebra_lsp_t *lsp) { return 0; }
-void mpls_kernel_init (void) {};
+int mpls_kernel_init (void) { return -1; };
