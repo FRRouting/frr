@@ -98,9 +98,9 @@ DEFUN (debug_rip_packet_direct,
        "RIP send packet\n")
 {
   rip_debug_packet |= RIP_DEBUG_PACKET;
-  if (strncmp ("send", argv[0]->arg, strlen (argv[0]->arg)) == 0)
+  if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
     rip_debug_packet |= RIP_DEBUG_SEND;
-  if (strncmp ("recv", argv[0]->arg, strlen (argv[0]->arg)) == 0)
+  if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
     rip_debug_packet |= RIP_DEBUG_RECV;
   return CMD_SUCCESS;
 }
@@ -118,9 +118,9 @@ DEFUN_DEPRECATED (debug_rip_packet_detail,
        "Detailed information display\n")
 {
   rip_debug_packet |= RIP_DEBUG_PACKET;
-  if (strncmp ("send", argv[0]->arg, strlen (argv[0]->arg)) == 0)
+  if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
     rip_debug_packet |= RIP_DEBUG_SEND;
-  if (strncmp ("recv", argv[0]->arg, strlen (argv[0]->arg)) == 0)
+  if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
     rip_debug_packet |= RIP_DEBUG_RECV;
   return CMD_SUCCESS;
 }
@@ -170,14 +170,14 @@ DEFUN (no_debug_rip_packet_direct,
        "RIP option set for receive packet\n"
        "RIP option set for send packet\n")
 {
-  if (strncmp ("send", argv[0]->arg, strlen (argv[0]->arg)) == 0)
+  if (strncmp ("send", argv[0], strlen (argv[0])) == 0)
     {
       if (IS_RIP_DEBUG_RECV)
        rip_debug_packet &= ~RIP_DEBUG_SEND;
       else
        rip_debug_packet = 0;
     }
-  else if (strncmp ("recv", argv[0]->arg, strlen (argv[0]->arg)) == 0)
+  else if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
     {
       if (IS_RIP_DEBUG_SEND)
        rip_debug_packet &= ~RIP_DEBUG_RECV;

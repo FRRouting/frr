@@ -367,7 +367,7 @@ DEFUN (rip_redistribute_type,
 
   for(i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp (redist_type[i].str, argv[0]->arg, 
+      if (strncmp (redist_type[i].str, argv[0], 
 		   redist_type[i].str_min_len) == 0) 
 	{
 	  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, 
@@ -376,7 +376,7 @@ DEFUN (rip_redistribute_type,
 	}
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[0]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[0],
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -393,7 +393,7 @@ DEFUN (no_rip_redistribute_type,
 
   for (i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp(redist_type[i].str, argv[0]->arg, 
+      if (strncmp(redist_type[i].str, argv[0], 
 		  redist_type[i].str_min_len) == 0) 
 	{
 	  rip_metric_unset (redist_type[i].type, DONT_CARE_METRIC_RIP);
@@ -403,7 +403,7 @@ DEFUN (no_rip_redistribute_type,
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[0]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[0],
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -420,17 +420,17 @@ DEFUN (rip_redistribute_type_routemap,
   int i;
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[0]->arg,
+    if (strncmp(redist_type[i].str, argv[0],
 		redist_type[i].str_min_len) == 0) 
       {
-	rip_routemap_set (redist_type[i].type, argv[1]->arg);
+	rip_routemap_set (redist_type[i].type, argv[1]);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
                               redist_type[i].type, 0, VRF_DEFAULT);
 	return CMD_SUCCESS;
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[0]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[0],
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -449,17 +449,17 @@ DEFUN (no_rip_redistribute_type_routemap,
 
   for (i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp(redist_type[i].str, argv[0]->arg, 
+      if (strncmp(redist_type[i].str, argv[0], 
 		  redist_type[i].str_min_len) == 0) 
 	{
-	  if (rip_routemap_unset (redist_type[i].type,argv[1]->arg))
+	  if (rip_routemap_unset (redist_type[i].type,argv[1]))
 	    return CMD_WARNING;
 	  rip_redistribute_unset (redist_type[i].type);
 	  return CMD_SUCCESS;
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[0]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[0],
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -476,10 +476,10 @@ DEFUN (rip_redistribute_type_metric,
   int i;
   int metric;
 
-  metric = atoi (argv[1]->arg);
+  metric = atoi (argv[1]);
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[0]->arg,
+    if (strncmp(redist_type[i].str, argv[0],
 		redist_type[i].str_min_len) == 0) 
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
@@ -489,7 +489,7 @@ DEFUN (rip_redistribute_type_metric,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[0]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[0],
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -508,17 +508,17 @@ DEFUN (no_rip_redistribute_type_metric,
 
   for (i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp(redist_type[i].str, argv[0]->arg, 
+      if (strncmp(redist_type[i].str, argv[0], 
 		  redist_type[i].str_min_len) == 0) 
 	{
-	  if (rip_metric_unset (redist_type[i].type, atoi(argv[1]->arg)))
+	  if (rip_metric_unset (redist_type[i].type, atoi(argv[1])))
 	    return CMD_WARNING;
 	  rip_redistribute_unset (redist_type[i].type);
 	  return CMD_SUCCESS;
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[0]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[0],
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -537,21 +537,21 @@ DEFUN (rip_redistribute_type_metric_routemap,
   int i;
   int metric;
 
-  metric = atoi (argv[1]->arg);
+  metric = atoi (argv[1]);
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[0]->arg,
+    if (strncmp(redist_type[i].str, argv[0],
 		redist_type[i].str_min_len) == 0) 
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
-	rip_routemap_set (redist_type[i].type, argv[2]->arg);
+	rip_routemap_set (redist_type[i].type, argv[2]);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
                               redist_type[i].type, 0, VRF_DEFAULT);
 	return CMD_SUCCESS;
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[0]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[0],
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -574,14 +574,14 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
 
   for (i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp(redist_type[i].str, argv[0]->arg, 
+      if (strncmp(redist_type[i].str, argv[0], 
 		  redist_type[i].str_min_len) == 0) 
 	{
-	  if (rip_metric_unset (redist_type[i].type, atoi(argv[1]->arg)))
+	  if (rip_metric_unset (redist_type[i].type, atoi(argv[1])))
 	    return CMD_WARNING;
-	  if (rip_routemap_unset (redist_type[i].type, argv[2]->arg))
+	  if (rip_routemap_unset (redist_type[i].type, argv[2]))
 	    {
-	      rip_redistribute_metric_set(redist_type[i].type, atoi(argv[1]->arg));   
+	      rip_redistribute_metric_set(redist_type[i].type, atoi(argv[1]));   
 	      return CMD_WARNING;
 	    }
 	  rip_redistribute_unset (redist_type[i].type);
@@ -589,7 +589,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[0]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[0],
 	  VTY_NEWLINE);
 
   return CMD_WARNING;

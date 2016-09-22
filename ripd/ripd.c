@@ -2949,7 +2949,7 @@ DEFUN (rip_version,
 {
   int version;
 
-  version = atoi (argv[0]->arg);
+  version = atoi (argv[0]);
   if (version != RIPv1 && version != RIPv2)
     {
       vty_out (vty, "invalid rip version %d%s", version,
@@ -2992,7 +2992,7 @@ DEFUN (rip_route,
   struct prefix_ipv4 p;
   struct route_node *node;
 
-  ret = str2prefix_ipv4 (argv[0]->arg, &p);
+  ret = str2prefix_ipv4 (argv[0], &p);
   if (ret < 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -3028,7 +3028,7 @@ DEFUN (no_rip_route,
   struct prefix_ipv4 p;
   struct route_node *node;
 
-  ret = str2prefix_ipv4 (argv[0]->arg, &p);
+  ret = str2prefix_ipv4 (argv[0], &p);
   if (ret < 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -3040,7 +3040,7 @@ DEFUN (no_rip_route,
   node = route_node_lookup (rip->route, (struct prefix *) &p);
   if (! node)
     {
-      vty_out (vty, "Can't find route %s.%s", argv[0]->arg,
+      vty_out (vty, "Can't find route %s.%s", argv[0],
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -3079,7 +3079,7 @@ DEFUN (rip_default_metric,
 {
   if (rip)
     {
-      rip->default_metric = atoi (argv[0]->arg);
+      rip->default_metric = atoi (argv[0]);
       /* rip_update_default_metric (); */
     }
   return CMD_SUCCESS;
@@ -3123,21 +3123,21 @@ DEFUN (rip_timers,
   unsigned long RIP_TIMER_MAX = 2147483647;
   unsigned long RIP_TIMER_MIN = 5;
 
-  update = strtoul (argv[0]->arg, &endptr, 10);
+  update = strtoul (argv[0], &endptr, 10);
   if (update > RIP_TIMER_MAX || update < RIP_TIMER_MIN || *endptr != '\0')  
     {
       vty_out (vty, "update timer value error%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   
-  timeout = strtoul (argv[1]->arg, &endptr, 10);
+  timeout = strtoul (argv[1], &endptr, 10);
   if (timeout > RIP_TIMER_MAX || timeout < RIP_TIMER_MIN || *endptr != '\0') 
     {
       vty_out (vty, "timeout timer value error%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   
-  garbage = strtoul (argv[2]->arg, &endptr, 10);
+  garbage = strtoul (argv[2], &endptr, 10);
   if (garbage > RIP_TIMER_MAX || garbage < RIP_TIMER_MIN || *endptr != '\0') 
     {
       vty_out (vty, "garbage timer value error%s", VTY_NEWLINE);
@@ -3386,7 +3386,7 @@ DEFUN (rip_distance,
        "Administrative distance\n"
        "Distance value\n")
 {
-  rip->distance = atoi (argv[0]->arg);
+  rip->distance = atoi (argv[0]);
   return CMD_SUCCESS;
 }
 
@@ -3408,7 +3408,7 @@ DEFUN (rip_distance_source,
        "Distance value\n"
        "IP source prefix\n")
 {
-  rip_distance_set (vty, argv[0]->arg, argv[1]->arg, NULL);
+  rip_distance_set (vty, argv[0], argv[1], NULL);
   return CMD_SUCCESS;
 }
 
@@ -3420,7 +3420,7 @@ DEFUN (no_rip_distance_source,
        "Distance value\n"
        "IP source prefix\n")
 {
-  rip_distance_unset (vty, argv[0]->arg, argv[1]->arg, NULL);
+  rip_distance_unset (vty, argv[0], argv[1], NULL);
   return CMD_SUCCESS;
 }
 
@@ -3432,7 +3432,7 @@ DEFUN (rip_distance_source_access_list,
        "IP source prefix\n"
        "Access list name\n")
 {
-  rip_distance_set (vty, argv[0]->arg, argv[1]->arg, argv[2]->arg);
+  rip_distance_set (vty, argv[0], argv[1], argv[2]);
   return CMD_SUCCESS;
 }
 
@@ -3445,7 +3445,7 @@ DEFUN (no_rip_distance_source_access_list,
        "IP source prefix\n"
        "Access list name\n")
 {
-  rip_distance_unset (vty, argv[0]->arg, argv[1]->arg, argv[2]->arg);
+  rip_distance_unset (vty, argv[0], argv[1], argv[2]);
   return CMD_SUCCESS;
 }
 
