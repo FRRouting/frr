@@ -345,8 +345,8 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 	  pim_ifp = rpf->source_nexthop.interface->info;
 
 	  //No if channel, but upstream we are at the RP.
-	  pim_nexthop_lookup (&source, up->upstream_register, 1);
-	  pim_register_stop_send(source.interface, &sg, pim_ifp->primary_address, up->upstream_register);
+	  if (pim_nexthop_lookup (&source, up->upstream_register, 0) == 0)
+	    pim_register_stop_send(source.interface, &sg, pim_ifp->primary_address, up->upstream_register);
           if (!up->channel_oil)
             up->channel_oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
           if (!up->channel_oil->installed)
