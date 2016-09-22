@@ -49,20 +49,33 @@ distribute_new (void)
 static void
 distribute_free (struct distribute *dist)
 {
+  int i = 0;
+
   if (dist->ifname)
     XFREE (MTYPE_DISTRIBUTE_IFNAME, dist->ifname);
 
-  if (dist->list[DISTRIBUTE_IN])
-    XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_IN]);
-  if (dist->list[DISTRIBUTE_OUT])
-    XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_OUT]);
+  for (i = 0; i < DISTRIBUTE_MAX; i++)
+    if (dist->list[i])
+      XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[i]);
 
-  if (dist->prefix[DISTRIBUTE_IN])
-    XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_IN]);
-  if (dist->prefix[DISTRIBUTE_OUT])
-    XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_OUT]);
+  for (i = 0; i < DISTRIBUTE_MAX; i++)
+    if (dist->prefix[i])
+      XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[i]);
 
   XFREE (MTYPE_DISTRIBUTE, dist);
+}
+
+static void
+distribute_free_if_empty(struct distribute *dist)
+{
+  int i;
+
+  for (i = 0; i < DISTRIBUTE_MAX; i++)
+    if (dist->list[i] != NULL || dist->prefix[i] != NULL)
+      return;
+
+  hash_release (disthash, dist);
+  distribute_free (dist);
 }
 
 /* Lookup interface's distribute list. */
@@ -149,36 +162,27 @@ distribute_cmp (const struct distribute *dist1, const struct distribute *dist2)
 
 /* Set access-list name to the distribute list. */
 static struct distribute *
-distribute_list_set (const char *ifname, enum distribute_type type, 
+distribute_list_set (const char *ifname, enum distribute_type type,
                      const char *alist_name)
 {
   struct distribute *dist;
 
   dist = distribute_get (ifname);
 
-  if (type == DISTRIBUTE_IN)
-    {
-      if (dist->list[DISTRIBUTE_IN])
-	XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_IN]);
-      dist->list[DISTRIBUTE_IN] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, alist_name);
-    }
-  if (type == DISTRIBUTE_OUT)
-    {
-      if (dist->list[DISTRIBUTE_OUT])
-	XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_OUT]);
-      dist->list[DISTRIBUTE_OUT] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, alist_name);
-    }
+  if (dist->list[type])
+    XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[type]);
+  dist->list[type] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, alist_name);
 
   /* Apply this distribute-list to the interface. */
   (*distribute_add_hook) (dist);
-  
+
   return dist;
 }
 
 /* Unset distribute-list.  If matched distribute-list exist then
    return 1. */
 static int
-distribute_list_unset (const char *ifname, enum distribute_type type, 
+distribute_list_unset (const char *ifname, enum distribute_type type,
 		       const char *alist_name)
 {
   struct distribute *dist;
@@ -187,41 +191,19 @@ distribute_list_unset (const char *ifname, enum distribute_type type,
   if (!dist)
     return 0;
 
-  if (type == DISTRIBUTE_IN)
-    {
-      if (!dist->list[DISTRIBUTE_IN])
-	return 0;
-      if (strcmp (dist->list[DISTRIBUTE_IN], alist_name) != 0)
-	return 0;
+  if (!dist->list[type])
+    return 0;
+  if (strcmp (dist->list[type], alist_name) != 0)
+    return 0;
 
-      XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_IN]);
-      dist->list[DISTRIBUTE_IN] = NULL;      
-    }
-
-  if (type == DISTRIBUTE_OUT)
-    {
-      if (!dist->list[DISTRIBUTE_OUT])
-	return 0;
-      if (strcmp (dist->list[DISTRIBUTE_OUT], alist_name) != 0)
-	return 0;
-
-      XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[DISTRIBUTE_OUT]);
-      dist->list[DISTRIBUTE_OUT] = NULL;      
-    }
+  XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[type]);
+  dist->list[type] = NULL;
 
   /* Apply this distribute-list to the interface. */
   (*distribute_delete_hook) (dist);
 
-  /* If both out and in is NULL then free distribute list. */
-  if (dist->list[DISTRIBUTE_IN] == NULL &&
-      dist->list[DISTRIBUTE_OUT] == NULL &&
-      dist->prefix[DISTRIBUTE_IN] == NULL &&
-      dist->prefix[DISTRIBUTE_OUT] == NULL)
-    {
-      hash_release (disthash, dist);
-      distribute_free (dist);
-    }
-
+  /* If all dist are NULL, then free distribute list. */
+  distribute_free_if_empty(dist);
   return 1;
 }
 
@@ -234,18 +216,9 @@ distribute_list_prefix_set (const char *ifname, enum distribute_type type,
 
   dist = distribute_get (ifname);
 
-  if (type == DISTRIBUTE_IN)
-    {
-      if (dist->prefix[DISTRIBUTE_IN])
-	XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_IN]);
-      dist->prefix[DISTRIBUTE_IN] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, plist_name);
-    }
-  if (type == DISTRIBUTE_OUT)
-    {
-      if (dist->prefix[DISTRIBUTE_OUT])
-	XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_OUT]);
-      dist->prefix[DISTRIBUTE_OUT] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, plist_name);
-    }
+  if (dist->prefix[type])
+    XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[type]);
+  dist->prefix[type] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, plist_name);
 
   /* Apply this distribute-list to the interface. */
   (*distribute_add_hook) (dist);
@@ -265,41 +238,19 @@ distribute_list_prefix_unset (const char *ifname, enum distribute_type type,
   if (!dist)
     return 0;
 
-  if (type == DISTRIBUTE_IN)
-    {
-      if (!dist->prefix[DISTRIBUTE_IN])
-	return 0;
-      if (strcmp (dist->prefix[DISTRIBUTE_IN], plist_name) != 0)
-	return 0;
+  if (!dist->prefix[type])
+    return 0;
+  if (strcmp (dist->prefix[type], plist_name) != 0)
+    return 0;
 
-      XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_IN]);
-      dist->prefix[DISTRIBUTE_IN] = NULL;
-    }
-
-  if (type == DISTRIBUTE_OUT)
-    {
-      if (!dist->prefix[DISTRIBUTE_OUT])
-	return 0;
-      if (strcmp (dist->prefix[DISTRIBUTE_OUT], plist_name) != 0)
-	return 0;
-
-      XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[DISTRIBUTE_OUT]);
-      dist->prefix[DISTRIBUTE_OUT] = NULL;
-    }
+  XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[type]);
+  dist->prefix[type] = NULL;
 
   /* Apply this distribute-list to the interface. */
   (*distribute_delete_hook) (dist);
 
-  /* If both out and in is NULL then free distribute list. */
-  if (dist->list[DISTRIBUTE_IN] == NULL &&
-      dist->list[DISTRIBUTE_OUT] == NULL &&
-      dist->prefix[DISTRIBUTE_IN] == NULL &&
-      dist->prefix[DISTRIBUTE_OUT] == NULL)
-    {
-      hash_release (disthash, dist);
-      distribute_free (dist);
-    }
-
+  /* If all dist are NULL, then free distribute list. */
+  distribute_free_if_empty(dist);
   return 1;
 }
 
@@ -407,7 +358,7 @@ DEFUN (distribute_list,
   distribute_list_set (argv[2], type, argv[0]);
 
   return CMD_SUCCESS;
-}       
+}
 
 ALIAS (distribute_list,
        ipv6_distribute_list_cmd,
@@ -448,7 +399,7 @@ DEFUN (no_distribute_list, no_distribute_list_cmd,
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
-}       
+}
 
 ALIAS (no_distribute_list, no_ipv6_distribute_list_cmd,
        "no distribute-list WORD (in|out) WORD",
@@ -486,7 +437,7 @@ DEFUN (distribute_list_prefix_all,
   distribute_list_prefix_set (NULL, type, argv[0]);
 
   return CMD_SUCCESS;
-}       
+}
 
 ALIAS (distribute_list_prefix_all,
        ipv6_distribute_list_prefix_all_cmd,
@@ -529,7 +480,7 @@ DEFUN (no_distribute_list_prefix_all,
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
-}       
+}
 
 ALIAS (no_distribute_list_prefix_all,
        no_ipv6_distribute_list_prefix_all_cmd,
@@ -568,7 +519,7 @@ DEFUN (distribute_list_prefix, distribute_list_prefix_cmd,
   distribute_list_prefix_set (argv[2], type, argv[0]);
 
   return CMD_SUCCESS;
-}       
+}
 
 ALIAS (distribute_list_prefix, ipv6_distribute_list_prefix_cmd,
        "distribute-list prefix WORD (in|out) WORD",
@@ -611,7 +562,7 @@ DEFUN (no_distribute_list_prefix, no_distribute_list_prefix_cmd,
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
-}       
+}
 
 ALIAS (no_distribute_list_prefix, no_ipv6_distribute_list_prefix_cmd,
        "no distribute-list prefix WORD (in|out) WORD",
@@ -623,80 +574,96 @@ ALIAS (no_distribute_list_prefix, no_ipv6_distribute_list_prefix_cmd,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 
+static int
+distribute_print (struct vty *vty, char *tab[], int is_prefix,
+                  enum distribute_type type, int has_print)
+{
+  if (tab[type]) {
+    vty_out (vty, "%s %s%s",
+             has_print ? "," : "",
+             is_prefix ? "(prefix-list) " : "",
+             tab[type]);
+    return 1;
+  }
+  return has_print;
+}
+
 int
 config_show_distribute (struct vty *vty)
 {
   unsigned int i;
+  int has_print = 0;
   struct hash_backet *mp;
   struct distribute *dist;
 
   /* Output filter configuration. */
   dist = distribute_lookup (NULL);
-  if (dist && (dist->list[DISTRIBUTE_OUT] || dist->prefix[DISTRIBUTE_OUT]))
+  vty_out(vty, "  Outgoing update filter list for all interface is");
+  has_print = 0;
+  if (dist)
     {
-      vty_out (vty, "  Outgoing update filter list for all interface is");
-      if (dist->list[DISTRIBUTE_OUT])
-	vty_out (vty, " %s", dist->list[DISTRIBUTE_OUT]);
-      if (dist->prefix[DISTRIBUTE_OUT])
-	vty_out (vty, "%s (prefix-list) %s",
-		 dist->list[DISTRIBUTE_OUT] ? "," : "",
-		 dist->prefix[DISTRIBUTE_OUT]);
-      vty_out (vty, "%s", VTY_NEWLINE);
+      has_print = distribute_print(vty, dist->list,   0,
+                                   DISTRIBUTE_OUT, has_print);
+      has_print = distribute_print(vty, dist->prefix, 1,
+                                   DISTRIBUTE_OUT, has_print);
     }
+  if (has_print)
+    vty_out (vty, "%s", VTY_NEWLINE);
   else
-    vty_out (vty, "  Outgoing update filter list for all interface is not set%s", VTY_NEWLINE);
+    vty_out (vty, " not set%s", VTY_NEWLINE);
 
   for (i = 0; i < disthash->size; i++)
     for (mp = disthash->index[i]; mp; mp = mp->next)
       {
 	dist = mp->data;
 	if (dist->ifname)
-	  if (dist->list[DISTRIBUTE_OUT] || dist->prefix[DISTRIBUTE_OUT])
-	    {
-	      vty_out (vty, "    %s filtered by", dist->ifname);
-	      if (dist->list[DISTRIBUTE_OUT])
-		vty_out (vty, " %s", dist->list[DISTRIBUTE_OUT]);
-	      if (dist->prefix[DISTRIBUTE_OUT])
-		vty_out (vty, "%s (prefix-list) %s",
-			 dist->list[DISTRIBUTE_OUT] ? "," : "",
-			 dist->prefix[DISTRIBUTE_OUT]);
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
+          {
+            vty_out (vty, "    %s filtered by", dist->ifname);
+            has_print = 0;
+            has_print = distribute_print(vty, dist->list,   0,
+                                         DISTRIBUTE_OUT, has_print);
+            has_print = distribute_print(vty, dist->prefix, 1,
+                                         DISTRIBUTE_OUT, has_print);
+            if (has_print)
+              vty_out (vty, "%s", VTY_NEWLINE);
+            else
+              vty_out(vty, " nothing%s", VTY_NEWLINE);
+          }
       }
 
 
   /* Input filter configuration. */
   dist = distribute_lookup (NULL);
-  if (dist && (dist->list[DISTRIBUTE_IN] || dist->prefix[DISTRIBUTE_IN]))
+  vty_out(vty, "  Incoming update filter list for all interface is");
+  has_print = 0;
+  if (dist)
     {
-      vty_out (vty, "  Incoming update filter list for all interface is");
-      if (dist->list[DISTRIBUTE_IN])
-	vty_out (vty, " %s", dist->list[DISTRIBUTE_IN]);
-      if (dist->prefix[DISTRIBUTE_IN])
-	vty_out (vty, "%s (prefix-list) %s",
-		 dist->list[DISTRIBUTE_IN] ? "," : "",
-		 dist->prefix[DISTRIBUTE_IN]);
-      vty_out (vty, "%s", VTY_NEWLINE);
-    }
+      has_print = distribute_print(vty, dist->list,   0,
+                                   DISTRIBUTE_IN, has_print);
+      has_print = distribute_print(vty, dist->prefix, 1,
+                                   DISTRIBUTE_IN, has_print);    }
+  if (has_print)
+    vty_out (vty, "%s", VTY_NEWLINE);
   else
-    vty_out (vty, "  Incoming update filter list for all interface is not set%s", VTY_NEWLINE);
+    vty_out (vty, " not set%s", VTY_NEWLINE);
 
   for (i = 0; i < disthash->size; i++)
     for (mp = disthash->index[i]; mp; mp = mp->next)
       {
 	dist = mp->data;
-	if (dist->ifname)
-	  if (dist->list[DISTRIBUTE_IN] || dist->prefix[DISTRIBUTE_IN])
-	    {
-	      vty_out (vty, "    %s filtered by", dist->ifname);
-	      if (dist->list[DISTRIBUTE_IN])
-		vty_out (vty, " %s", dist->list[DISTRIBUTE_IN]);
-	      if (dist->prefix[DISTRIBUTE_IN])
-		vty_out (vty, "%s (prefix-list) %s",
-			 dist->list[DISTRIBUTE_IN] ? "," : "",
-			 dist->prefix[DISTRIBUTE_IN]);
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
+        if (dist->ifname)
+          {
+            vty_out (vty, "    %s filtered by", dist->ifname);
+            has_print = 0;
+            has_print = distribute_print(vty, dist->list,   0,
+                                         DISTRIBUTE_IN, has_print);
+            has_print = distribute_print(vty, dist->prefix, 1,
+                                         DISTRIBUTE_IN, has_print);
+            if (has_print)
+              vty_out (vty, "%s", VTY_NEWLINE);
+            else
+              vty_out(vty, " nothing%s", VTY_NEWLINE);
+          }
       }
   return 0;
 }
@@ -706,6 +673,8 @@ int
 config_write_distribute (struct vty *vty)
 {
   unsigned int i;
+  int j;
+  int output;
   struct hash_backet *mp;
   int write = 0;
 
@@ -716,38 +685,23 @@ config_write_distribute (struct vty *vty)
 
 	dist = mp->data;
 
-	if (dist->list[DISTRIBUTE_IN])
-	  {
-	    vty_out (vty, " distribute-list %s in %s%s", 
-		     dist->list[DISTRIBUTE_IN],
+	for (j = 0; j < DISTRIBUTE_MAX; j++)
+	  if (dist->list[j]) {
+	    output = j == DISTRIBUTE_OUT;
+	    vty_out (vty, " distribute-list %s %s %s%s",
+		     dist->list[j],
+		     output ? "out" : "in",
 		     dist->ifname ? dist->ifname : "",
 		     VTY_NEWLINE);
 	    write++;
 	  }
 
-	if (dist->list[DISTRIBUTE_OUT])
-	  {
-	    vty_out (vty, " distribute-list %s out %s%s", 
-
-		     dist->list[DISTRIBUTE_OUT],
-		     dist->ifname ? dist->ifname : "",
-		     VTY_NEWLINE);
-	    write++;
-	  }
-
-	if (dist->prefix[DISTRIBUTE_IN])
-	  {
-	    vty_out (vty, " distribute-list prefix %s in %s%s",
-		     dist->prefix[DISTRIBUTE_IN],
-		     dist->ifname ? dist->ifname : "",
-		     VTY_NEWLINE);
-	    write++;
-	  }
-
-	if (dist->prefix[DISTRIBUTE_OUT])
-	  {
-	    vty_out (vty, " distribute-list prefix %s out %s%s",
-		     dist->prefix[DISTRIBUTE_OUT],
+	for (j = 0; j < DISTRIBUTE_MAX; j++)
+	  if (dist->prefix[j]) {
+	    output = j == DISTRIBUTE_OUT;
+	    vty_out (vty, " distribute-list prefix %s %s %s%s",
+		     dist->prefix[j],
+		     output ? "out" : "in",
 		     dist->ifname ? dist->ifname : "",
 		     VTY_NEWLINE);
 	    write++;
