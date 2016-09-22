@@ -136,7 +136,7 @@ DEFUN (test_interface_state,
       ifp->flags = IFF_BROADCAST|IFF_MULTICAST;
     }
   
-  switch (argv[0]->arg[0])
+  switch (argv[0][0])
     {
       case 'u':
         SET_FLAG (ifp->flags, IFF_UP);
