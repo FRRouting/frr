@@ -233,7 +233,9 @@ my $bad_cli_stomps = 108;
 # please fix your code before submittal
 if ($cli_stomp != $bad_cli_stomps) {
     warn "Expected $bad_cli_stomps command line stomps, but got $cli_stomp instead\n";
-    exit $cli_stomp;
+    if ($cli_stomp > $bad_cli_stomps) {
+        exit $cli_stomp;
+    }
 }
 
 # Check finaly alive $cmd;
