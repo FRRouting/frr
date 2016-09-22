@@ -1399,46 +1399,22 @@ route_map_notify_dependencies (const char *affected_name, route_map_event_t even
 /* VTY related functions. */
 DEFUN (route_map,
        route_map_cmd,
-       "route-map WORD (deny|permit) <1-65535>",
+       "route-map WORD <deny|permit> (1-65535)",
        "Create route-map or enter route-map command mode\n"
        "Route map tag\n"
        "Route map denies set operations\n"
        "Route map permits set operations\n"
        "Sequence to insert to/delete from existing route-map entry\n")
 {
-  int permit;
-  unsigned long pref;
   struct route_map *map;
   struct route_map_index *index;
   char *endptr = NULL;
-
-  /* Permit check. */
-  if (strncmp (argv[1], "permit", strlen (argv[1])) == 0)
-    permit = RMAP_PERMIT;
-  else if (strncmp (argv[1], "deny", strlen (argv[1])) == 0)
-    permit = RMAP_DENY;
-  else
-    {
-      vty_out (vty, "the third field must be [permit|deny]%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Preference check. */
-  pref = strtoul (argv[2], &endptr, 10);
-  if (pref == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "the fourth field must be positive integer%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  if (pref == 0 || pref > 65535)
-    {
-      vty_out (vty, "the fourth field must be <1-65535>%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  int permit = argv[2]->arg[0] == 'p' ? RMAP_PERMIT : RMAP_DENY;
+  unsigned long pref = strtoul (argv[3]->arg, &endptr, 10);
+  const char *mapname = argv[1]->arg;
 
   /* Get route map. */
-  map = route_map_get (argv[0]);
+  map = route_map_get (mapname);
   index = route_map_index_get (map, permit, pref);
 
   vty->index = index;
@@ -1453,13 +1429,13 @@ DEFUN (no_route_map_all,
        "Create route-map or enter route-map command mode\n"
        "Route map tag\n")
 {
+  const char *mapname = argv[2]->arg;
   struct route_map *map;
 
-  map = route_map_lookup_by_name (argv[0]);
+  map = route_map_lookup_by_name (mapname);
   if (map == NULL)
     {
-      vty_out (vty, "%% Could not find route-map %s%s",
-	       argv[0], VTY_NEWLINE);
+      vty_out (vty, "%% Could not find route-map %s%s", mapname, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1470,7 +1446,7 @@ DEFUN (no_route_map_all,
 
 DEFUN (no_route_map,
        no_route_map_cmd,
-       "no route-map WORD (deny|permit) <1-65535>",
+       "no route-map WORD <deny|permit> (1-65535)",
        NO_STR
        "Create route-map or enter route-map command mode\n"
        "Route map tag\n"
@@ -1478,43 +1454,19 @@ DEFUN (no_route_map,
        "Route map permits set operations\n"
        "Sequence to insert to/delete from existing route-map entry\n")
 {
-  int permit;
-  unsigned long pref;
   struct route_map *map;
   struct route_map_index *index;
   char *endptr = NULL;
-
-  /* Permit check. */
-  if (strncmp (argv[1], "permit", strlen (argv[1])) == 0)
-    permit = RMAP_PERMIT;
-  else if (strncmp (argv[1], "deny", strlen (argv[1])) == 0)
-    permit = RMAP_DENY;
-  else
-    {
-      vty_out (vty, "the third field must be [permit|deny]%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Preference. */
-  pref = strtoul (argv[2], &endptr, 10);
-  if (pref == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "the fourth field must be positive integer%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  if (pref == 0 || pref > 65535)
-    {
-      vty_out (vty, "the fourth field must be <1-65535>%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  int permit = argv[3]->arg[0] == 'p' ? RMAP_PERMIT : RMAP_DENY;
+  const char *prefstr = argv[4]->arg;
+  const char *mapname = argv[2]->arg;
+  unsigned long pref = strtoul (prefstr, &endptr, 10);
 
   /* Existence check. */
-  map = route_map_lookup_by_name (argv[0]);
+  map = route_map_lookup_by_name (mapname);
   if (map == NULL)
     {
-      vty_out (vty, "%% Could not find route-map %s%s",
-	       argv[0], VTY_NEWLINE);
+      vty_out (vty, "%% Could not find route-map %s%s", mapname, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1523,7 +1475,7 @@ DEFUN (no_route_map,
   if (index == NULL)
     {
       vty_out (vty, "%% Could not find route-map entry %s %s%s", 
-	       argv[0], argv[2], VTY_NEWLINE);
+	       mapname, prefstr, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1580,11 +1532,18 @@ DEFUN (no_rmap_onmatch_next,
 
 DEFUN (rmap_onmatch_goto,
        rmap_onmatch_goto_cmd,
-       "on-match goto <1-65535>",
+       "on-match goto (1-65535)",
        "Exit policy on matches\n"
        "Goto Clause number\n"
        "Number\n")
 {
+  char *num = NULL;
+  if (!strcmp (argv[0]->text, "continue"))
+    if (argc == 2)
+      num = argv[1]->arg;
+  if (!strcmp (argv[0]->text, "on-match"))
+    num = argv[2]->arg;
+
   struct route_map_index *index = vty->index;
   int d = 0;
 
@@ -1598,8 +1557,8 @@ DEFUN (rmap_onmatch_goto,
 	  return CMD_WARNING;
         }
 
-      if (argc == 1 && argv[0])
-        VTY_GET_INTEGER_RANGE("route-map index", d, argv[0], 1, 65535);
+      if (argc == 1 && num)
+        VTY_GET_INTEGER_RANGE("route-map index", d, num, 1, 65535);
       else
         d = index->pref + 1;
       
@@ -1651,13 +1610,13 @@ ALIAS (no_rmap_onmatch_goto,
 /* GNU Zebra compatible */
 ALIAS (rmap_onmatch_goto,
        rmap_continue_seq_cmd,
-       "continue <1-65535>",
+       "continue (1-65535)",
        "Continue on a different entry within the route-map\n"
        "Route-map entry sequence number\n")
 
 ALIAS (no_rmap_onmatch_goto,
        no_rmap_continue_seq,
-       "no continue <1-65535>",
+       "no continue (1-65535)",
        NO_STR
        "Continue on a different entry within the route-map\n"
        "Route-map entry sequence number\n")
@@ -1670,16 +1629,10 @@ DEFUN (rmap_show_name,
        "route-map name\n")
 {
     const char *name = NULL;
-    if (argc)
-      name = argv[0];
+    if (argc == 3)
+      name = argv[2]->arg;
     return vty_show_route_map (vty, name);
 }
-
-ALIAS (rmap_onmatch_goto,
-      rmap_continue_index_cmd,
-      "continue <1-65535>",
-      "Exit policy on matches\n"
-      "Goto Clause number\n")
 
 DEFUN (rmap_call,
        rmap_call_cmd,
@@ -1688,6 +1641,7 @@ DEFUN (rmap_call,
        "Target route-map name\n")
 {
   struct route_map_index *index;
+  const char *rmap = argv[1]->arg;
 
   index = vty->index;
   if (index)
@@ -1699,7 +1653,7 @@ DEFUN (rmap_call,
 				     index->map->name);
 	  XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
 	}
-      index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[0]);
+      index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, rmap);
     }
 
   /* Execute event hook. */
@@ -1733,7 +1687,7 @@ DEFUN (no_rmap_call,
 
 DEFUN (rmap_description,
        rmap_description_cmd,
-       "description .LINE",
+       "description LINE...",
        "Route-map comment\n"
        "Comment describing this route-map rule\n")
 {
@@ -1744,7 +1698,7 @@ DEFUN (rmap_description,
     {
       if (index->description)
 	XFREE (MTYPE_TMP, index->description);
-      index->description = argv_concat (argv, argc, 0);
+      index->description = argv_concat (argv, argc, 1);
     }
   return CMD_SUCCESS;
 }
@@ -1857,7 +1811,6 @@ route_map_init_vty (void)
   /* Install the continue stuff (ALIAS of on-match). */
   install_element (RMAP_NODE, &rmap_continue_cmd);
   install_element (RMAP_NODE, &no_rmap_continue_cmd);
-  install_element (RMAP_NODE, &rmap_continue_index_cmd);
   
   /* Install the call stuff. */
   install_element (RMAP_NODE, &rmap_call_cmd);
