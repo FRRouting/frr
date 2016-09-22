@@ -2746,7 +2746,7 @@ DEFUN (exec_timeout_min,
        "Set timeout value\n"
        "Timeout value in minutes\n")
 {
-  return exec_timeout (vty, argv[0]->arg, NULL);
+  return exec_timeout (vty, argv[0], NULL);
 }
 
 DEFUN (exec_timeout_sec,
@@ -2756,7 +2756,7 @@ DEFUN (exec_timeout_sec,
        "Timeout in minutes\n"
        "Timeout in seconds\n")
 {
-  return exec_timeout (vty, argv[0]->arg, argv[1]->arg);
+  return exec_timeout (vty, argv[0], argv[1]);
 }
 
 DEFUN (no_exec_timeout,
@@ -2778,7 +2778,7 @@ DEFUN (vty_access_class,
   if (vty_accesslist_name)
     XFREE(MTYPE_VTY, vty_accesslist_name);
 
-  vty_accesslist_name = XSTRDUP(MTYPE_VTY, argv[0]->arg);
+  vty_accesslist_name = XSTRDUP(MTYPE_VTY, argv[0]);
 
   return CMD_SUCCESS;
 }
@@ -2791,7 +2791,7 @@ DEFUN (no_vty_access_class,
        "Filter connections based on an IP access list\n"
        "IP access list\n")
 {
-  if (! vty_accesslist_name || (argc && strcmp(vty_accesslist_name, argv[0]->arg)))
+  if (! vty_accesslist_name || (argc && strcmp(vty_accesslist_name, argv[0])))
     {
       vty_out (vty, "Access-class is not currently applied to vty%s",
                VTY_NEWLINE);
@@ -2817,7 +2817,7 @@ DEFUN (vty_ipv6_access_class,
   if (vty_ipv6_accesslist_name)
     XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);
 
-  vty_ipv6_accesslist_name = XSTRDUP(MTYPE_VTY, argv[0]->arg);
+  vty_ipv6_accesslist_name = XSTRDUP(MTYPE_VTY, argv[0]);
 
   return CMD_SUCCESS;
 }
@@ -2832,7 +2832,7 @@ DEFUN (no_vty_ipv6_access_class,
        "IPv6 access list\n")
 {
   if (! vty_ipv6_accesslist_name ||
-      (argc && strcmp(vty_ipv6_accesslist_name, argv[0]->arg)))
+      (argc && strcmp(vty_ipv6_accesslist_name, argv[0])))
     {
       vty_out (vty, "IPv6 access-class is not currently applied to vty%s",
                VTY_NEWLINE);
