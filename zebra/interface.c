@@ -2960,6 +2960,7 @@ zebra_if_init (void)
   install_element (CONFIG_NODE, &zebra_interface_cmd);
   install_element (CONFIG_NODE, &zebra_interface_vrf_cmd);
   install_element (CONFIG_NODE, &no_interface_cmd);
+  install_element (CONFIG_NODE, &no_interface_vrf_cmd);
   install_default (INTERFACE_NODE);
   install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);

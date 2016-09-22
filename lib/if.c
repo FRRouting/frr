@@ -750,37 +750,36 @@ if_sunwzebra_get (const char *name, size_t nlen, vrf_id_t vrf_id)
 
 DEFUN (interface,
        interface_cmd,
-       "interface IFNAME" VRF_CMD_STR_OPT,
+       "interface IFNAME",
        "Select an interface to configure\n"
-       "Interface's name\n"
-       VRF_CMD_HELP_STR)
+       "Interface's name\n")
 {
   struct interface *ifp;
   size_t sl;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if ((sl = strlen(argv[0]->arg)) > INTERFACE_NAMSIZ)
+  if ((sl = strlen(argv[0])) > INTERFACE_NAMSIZ)
     {
       vty_out (vty, "%% Interface name %s is invalid: length exceeds "
 		    "%d characters%s",
-	       argv[0]->arg, INTERFACE_NAMSIZ, VTY_NEWLINE);
+	       argv[0], INTERFACE_NAMSIZ, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
 /*Pending: need proper vrf name based lookup/(possible creation of VRF)
  Imagine forward reference of a vrf by name in this interface config */
   if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[1]->arg);
+    VRF_GET_ID (vrf_id, argv[1]);
 
 #ifdef SUNOS_5
-  ifp = if_sunwzebra_get (argv[0]->arg, sl, vrf_id);
+  ifp = if_sunwzebra_get (argv[0], sl, vrf_id);
 #else
-  ifp = if_get_by_name_len_vrf (argv[0]->arg, sl, vrf_id, 1);
+  ifp = if_get_by_name_len_vrf (argv[0], sl, vrf_id, 1);
 #endif /* SUNOS_5 */
 
   if (!ifp)
     {
-      vty_out (vty, "%% interface %s not in %s%s", argv[0]->arg, argv[1]->arg, VTY_NEWLINE);
+      vty_out (vty, "%% interface %s not in %s%s", argv[0], argv[1], VTY_NEWLINE);
       return CMD_WARNING;
     }
   vty->index = ifp;
@@ -789,26 +788,32 @@ DEFUN (interface,
   return CMD_SUCCESS;
 }
 
+ALIAS (interface,
+       interface_vrf_cmd,
+       "interface IFNAME " VRF_CMD_STR,
+       "Select an interface to configure\n"
+       "Interface's name\n"
+       VRF_CMD_HELP_STR)
+
 DEFUN_NOSH (no_interface,
            no_interface_cmd,
-           "no interface IFNAME" VRF_CMD_STR_OPT,
+           "no interface IFNAME",
            NO_STR
            "Delete a pseudo interface's configuration\n"
-           "Interface's name\n"
-	    VRF_CMD_HELP_STR)
+           "Interface's name\n")
 {
   // deleting interface
   struct interface *ifp;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[1]->arg);
+    VRF_GET_ID (vrf_id, argv[1]);
 
-  ifp = if_lookup_by_name_vrf (argv[0]->arg, vrf_id);
+  ifp = if_lookup_by_name_vrf (argv[0], vrf_id);
 
   if (ifp == NULL)
     {
-      vty_out (vty, "%% Interface %s does not exist%s", argv[0]->arg, VTY_NEWLINE);
+      vty_out (vty, "%% Interface %s does not exist%s", argv[0], VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -824,23 +829,32 @@ DEFUN_NOSH (no_interface,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_interface,
+       no_interface_vrf_cmd,
+       "no interface IFNAME " VRF_CMD_STR,
+       NO_STR
+       "Delete a pseudo interface's configuration\n"
+       "Interface's name\n"
+       VRF_CMD_HELP_STR)
+
 DEFUN (vrf,
        vrf_cmd,
-       VRF_CMD_STR,
-       VRF_CMD_HELP_STR)
+       "vrf NAME",
+       "Select a VRF to configure\n"
+       "VRF's name\n")
 {
   struct vrf *vrfp;
   size_t sl;
 
-  if ((sl = strlen(argv[0]->arg)) > VRF_NAMSIZ)
+  if ((sl = strlen(argv[0])) > VRF_NAMSIZ)
     {
       vty_out (vty, "%% VRF name %s is invalid: length exceeds "
 		    "%d characters%s",
-	       argv[0]->arg, VRF_NAMSIZ, VTY_NEWLINE);
+	       argv[0], VRF_NAMSIZ, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  vrfp = vrf_get (VRF_UNKNOWN, argv[0]->arg);
+  vrfp = vrf_get (VRF_UNKNOWN, argv[0]);
 
   vty->index = vrfp;
   vty->node = VRF_NODE;
@@ -850,17 +864,18 @@ DEFUN (vrf,
 
 DEFUN_NOSH (no_vrf,
            no_vrf_cmd,
-           "no " VRF_CMD_STR,
+           "no vrf NAME",
            NO_STR
-           VRF_CMD_HELP_STR)
+           "Delete a pseudo VRF's configuration\n"
+           "VRF's name\n")
 {
   struct vrf *vrfp;
 
-  vrfp = vrf_list_lookup_by_name (argv[0]->arg);
+  vrfp = vrf_list_lookup_by_name (argv[0]);
 
   if (vrfp == NULL)
     {
-      vty_out (vty, "%% VRF %s does not exist%s", argv[0]->arg, VTY_NEWLINE);
+      vty_out (vty, "%% VRF %s does not exist%s", argv[0], VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -880,10 +895,9 @@ DEFUN_NOSH (no_vrf,
 /* For debug purpose. */
 DEFUN (show_address,
        show_address_cmd,
-       "show address" VRF_CMD_STR_OPT,
+       "show address",
        SHOW_STR
-       "address\n"
-       VRF_CMD_HELP_STR)
+       "address\n")
 {
   struct listnode *node;
   struct listnode *node2;
@@ -893,7 +907,7 @@ DEFUN (show_address,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]->arg);
+    VRF_GET_ID (vrf_id, argv[0]);
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
     {
@@ -908,6 +922,13 @@ DEFUN (show_address,
     }
   return CMD_SUCCESS;
 }
+
+ALIAS (show_address,
+       show_address_vrf_cmd,
+       "show address " VRF_CMD_STR,
+       SHOW_STR
+       "address\n"
+       VRF_CMD_HELP_STR)
 
 DEFUN (show_address_vrf_all,
        show_address_vrf_all_cmd,
