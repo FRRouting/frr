@@ -418,8 +418,6 @@ score_precedence (enum cmd_token_type type)
       case IPV4_PREFIX_TKN:
       case IPV6_TKN:
       case IPV6_PREFIX_TKN:
-      case NUMBER_TKN:
-        return 1;
       case RANGE_TKN:
         return 2;
       case WORD_TKN:
@@ -544,8 +542,6 @@ match_token (struct cmd_token *token, char *input_token)
       return match_ipv6_prefix (input_token);
     case RANGE_TKN:
       return match_range (token, input_token);
-    case NUMBER_TKN:
-      return match_number (token, input_token);
     case VARIABLE_TKN:
       return match_variable (token, input_token);
     case END_TKN:
@@ -803,18 +799,6 @@ match_word (struct cmd_token *token, const char *word)
     return !strncmp (token->text, word, strlen (word)) ? exact_match : no_match;
 
   return no_match;
-}
-
-static enum match_type
-match_number (struct cmd_token *token, const char *word)
-{
-  assert (token->type == NUMBER_TKN);
-
-  if (!strcmp ("\0", word)) return no_match;
-  char *endptr;
-  long long num = strtoll (word, &endptr, 10);
-  if (endptr != '\0') return no_match;
-  return num == token->value ? exact_match : no_match;
 }
 
 #define VARIABLE_ALPHABET \
