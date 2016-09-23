@@ -124,6 +124,7 @@ DEFUN (test_interface_state,
        "up\n"
        "down\n")
 {
+  int idx_up_down = 1;
   struct interface *ifp;
   if (argc < 1)
     return CMD_WARNING;
@@ -136,7 +137,7 @@ DEFUN (test_interface_state,
       ifp->flags = IFF_BROADCAST|IFF_MULTICAST;
     }
   
-  switch (argv[1]->arg[0])
+  switch (argv[idx_up_down]->arg[0])
     {
       case 'u':
         SET_FLAG (ifp->flags, IFF_UP);

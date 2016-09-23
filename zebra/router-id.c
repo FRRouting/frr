@@ -228,10 +228,11 @@ DEFUN (router_id,
        "Manually set the router-id\n"
        "IP address to use for router-id\n")
 {
+  int idx_ipv4 = 1;
   struct prefix rid;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  rid.u.prefix4.s_addr = inet_addr (argv[1]->arg);
+  rid.u.prefix4.s_addr = inet_addr (argv[idx_ipv4]->arg);
   if (!rid.u.prefix4.s_addr)
     return CMD_WARNING;
 

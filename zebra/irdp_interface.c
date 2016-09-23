@@ -469,6 +469,7 @@ DEFUN (ip_irdp_holdtime,
        "Set holdtime value\n"
        "Holdtime value in seconds. Default is 1800 seconds\n")
 {
+  int idx_number = 3;
   struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
@@ -480,7 +481,7 @@ DEFUN (ip_irdp_holdtime,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  irdp->Lifetime = atoi(argv[3]->arg);
+  irdp->Lifetime = atoi(argv[idx_number]->arg);
   return CMD_SUCCESS;
 }
 
@@ -492,6 +493,7 @@ DEFUN (ip_irdp_minadvertinterval,
        "Set minimum time between advertisement\n"
        "Minimum advertisement interval in seconds\n")
 {
+  int idx_number = 3;
   struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
@@ -503,8 +505,8 @@ DEFUN (ip_irdp_minadvertinterval,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  if( (unsigned) atoi(argv[3]->arg) <= irdp->MaxAdvertInterval) {
-      irdp->MinAdvertInterval = atoi(argv[3]->arg);
+  if( (unsigned) atoi(argv[idx_number]->arg) <= irdp->MaxAdvertInterval) {
+      irdp->MinAdvertInterval = atoi(argv[idx_number]->arg);
 
       return CMD_SUCCESS;
   }
@@ -525,6 +527,7 @@ DEFUN (ip_irdp_maxadvertinterval,
        "Set maximum time between advertisement\n"
        "Maximum advertisement interval in seconds\n")
 {
+  int idx_number = 3;
   struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
@@ -537,8 +540,8 @@ DEFUN (ip_irdp_maxadvertinterval,
   irdp=&zi->irdp;
 
 
-  if( irdp->MinAdvertInterval <= (unsigned) atoi(argv[3]->arg) ) {
-    irdp->MaxAdvertInterval = atoi(argv[3]->arg);
+  if( irdp->MinAdvertInterval <= (unsigned) atoi(argv[idx_number]->arg) ) {
+    irdp->MaxAdvertInterval = atoi(argv[idx_number]->arg);
 
       return CMD_SUCCESS;
   }
@@ -564,6 +567,7 @@ DEFUN (ip_irdp_preference,
        "Set default preference level for this interface\n"
        "Preference level\n")
 {
+  int idx_number = 3;
   struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
@@ -575,7 +579,7 @@ DEFUN (ip_irdp_preference,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  irdp->Preference = atoi(argv[3]->arg);
+  irdp->Preference = atoi(argv[idx_number]->arg);
   return CMD_SUCCESS;
 }
 
@@ -588,6 +592,8 @@ DEFUN (ip_irdp_address_preference,
        "Set IRDP address for advertise\n"
        "Preference level\n")
 {
+  int idx_ipv4 = 3;
+  int idx_number = 5;
   struct listnode *node;
   struct in_addr ip; 
   int pref;
@@ -605,10 +611,10 @@ DEFUN (ip_irdp_address_preference,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  ret = inet_aton(argv[3]->arg, &ip);
+  ret = inet_aton(argv[idx_ipv4]->arg, &ip);
   if(!ret) return CMD_WARNING;
 
-  pref = atoi(argv[5]->arg);
+  pref = atoi(argv[idx_number]->arg);
 
   for (ALL_LIST_ELEMENTS_RO (irdp->AdvPrefList, node, adv))
     if(adv->ip.s_addr == ip.s_addr) 
@@ -633,6 +639,7 @@ DEFUN (no_ip_irdp_address_preference,
        "Select IRDP address\n"
        "Old preference level\n")
 {
+  int idx_ipv4 = 4;
   struct listnode *node, *nnode;
   struct in_addr ip; 
   int ret;
@@ -649,7 +656,7 @@ DEFUN (no_ip_irdp_address_preference,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  ret = inet_aton(argv[4]->arg, &ip);
+  ret = inet_aton(argv[idx_ipv4]->arg, &ip);
   if (!ret) 
     return CMD_WARNING;
 
