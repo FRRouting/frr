@@ -910,9 +910,10 @@ DEFUN (debug_ospf_instance_packet,
        "OSPF Link State Acknowledgment\n"
        "OSPF all packets\n")
 {
+  int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1086,9 +1087,10 @@ DEFUN (no_debug_ospf_instance_packet,
        "OSPF Link State Acknowledgment\n"
        "OSPF all packets\n")
 {
+  int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1176,9 +1178,10 @@ DEFUN (debug_ospf_instance_ism,
        "Instance ID\n"
        "OSPF Interface State Machine\n")
 {
+  int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1268,9 +1271,10 @@ DEFUN (no_debug_ospf_instance_ism,
        "Instance ID\n"
        "OSPF Interface State Machine")
 {
+  int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1356,9 +1360,10 @@ DEFUN (debug_ospf_instance_nsm,
        "Instance ID\n"
        "OSPF Neighbor State Machine\n")
 {
+  int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1448,9 +1453,10 @@ DEFUN (no_debug_ospf_instance_nsm,
        "Instance ID\n"
        "OSPF Neighbor State Machine")
 {
+  int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1543,9 +1549,10 @@ DEFUN (debug_ospf_instance_lsa,
        "Instance ID\n"
        "OSPF Link State Advertisement\n")
 {
+  int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1641,9 +1648,10 @@ DEFUN (no_debug_ospf_instance_lsa,
        "Instance ID\n"
        "OSPF Link State Advertisement\n")
 {
+  int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1724,9 +1732,10 @@ DEFUN (debug_ospf_instance_zebra,
        "Instance ID\n"
        "OSPF Zebra information\n")
 {
+  int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1811,9 +1820,10 @@ DEFUN (no_debug_ospf_instance_zebra,
        "Instance ID\n"
        "OSPF Zebra information\n")
 {
+  int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1857,9 +1867,10 @@ DEFUN (debug_ospf_instance_event,
        "Instance ID\n"
        "OSPF event information\n")
 {
+  int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1878,9 +1889,10 @@ DEFUN (no_debug_ospf_instance_event,
        "Instance ID\n"
        "OSPF event information\n")
 {
+  int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1925,9 +1937,10 @@ DEFUN (debug_ospf_instance_nssa,
        "Instance ID\n"
        "OSPF nssa information\n")
 {
+  int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1946,9 +1959,10 @@ DEFUN (no_debug_ospf_instance_nssa,
        "Instance ID\n"
        "OSPF nssa information\n")
 {
+  int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -2166,10 +2180,11 @@ DEFUN (show_debugging_ospf_instance,
        OSPF_STR
        "Instance ID\n")
 {
+  int idx_number = 3;
   struct ospf *ospf;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
   if ((ospf = ospf_lookup_instance (instance)) == NULL )
     return CMD_SUCCESS;
 

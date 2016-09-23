@@ -1533,8 +1533,9 @@ DEFUN (pim_interface,
        "Select an interface to configure\n"
        "Interface's name\n")
 {
+  int idx_ifname = 1;
   struct interface *ifp;
-  const char *ifname = argv[1]->arg;
+  const char *ifname = argv[idx_ifname]->arg;
   size_t sl;
 
   sl = strlen(ifname);
@@ -2368,13 +2369,14 @@ DEFUN (show_ip_rib,
        RIB_STR
        "Unicast address\n")
 {
+  int idx_ipv4 = 3;
   struct in_addr addr;
   const char *addr_str;
   struct pim_nexthop nexthop;
   char nexthop_addr_str[100];
   int result;
 
-  addr_str = argv[3]->arg;
+  addr_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, addr_str, &addr);
   if (result <= 0) {
     vty_out(vty, "Bad unicast address %s: errno=%d: %s%s",
@@ -2466,16 +2468,17 @@ DEFUN (ip_pim_rp,
        "Rendevous Point\n"
        "ip address of RP\n")
 {
+  int idx_ipv4 = 3;
   int result;
 
-  result = inet_pton(AF_INET, argv[3]->arg, &qpim_rp.rpf_addr.s_addr);
+  result = inet_pton(AF_INET, argv[idx_ipv4]->arg, &qpim_rp.rpf_addr.s_addr);
   if (result <= 0) {
-    vty_out(vty, "%% Bad RP address specified: %s", argv[3]->arg);
+    vty_out(vty, "%% Bad RP address specified: %s", argv[idx_ipv4]->arg);
     return CMD_WARNING;
   }
 
   if (pim_nexthop_lookup(&qpim_rp.source_nexthop, qpim_rp.rpf_addr, NULL) != 0) {
-    vty_out(vty, "%% No Path to RP address specified: %s", argv[3]->arg);
+    vty_out(vty, "%% No Path to RP address specified: %s", argv[idx_ipv4]->arg);
     return CMD_WARNING;
   }
 
@@ -2484,7 +2487,7 @@ DEFUN (ip_pim_rp,
 
 DEFUN (no_ip_pim_rp,
        no_ip_pim_rp_cmd,
-       "no ip pim rp {A.B.C.D}",
+       "no ip pim rp [A.B.C.D]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
@@ -2531,9 +2534,10 @@ DEFUN (ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
+  int idx_ipv4 = 2;
   int result;
   struct in_addr source_addr;
-  const char *source_str = (argc > 0) ? argv[2]->arg : "0.0.0.0";
+  const char *source_str = (argc > 0) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
@@ -2560,9 +2564,10 @@ DEFUN (no_ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
+  int idx_ipv4 = 3;
   int result;
   struct in_addr source_addr;
-  const char *source_str = (argc > 0) ? argv[3]->arg : "0.0.0.0";
+  const char *source_str = (argc > 0) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
@@ -2648,6 +2653,8 @@ DEFUN (interface_ip_igmp_join,
        "Multicast group address\n"
        "Source address\n")
 {
+  int idx_ipv4 = 3;
+  int idx_ipv4_2 = 4;
   struct interface *ifp;
   const char *group_str;
   const char *source_str;
@@ -2658,7 +2665,7 @@ DEFUN (interface_ip_igmp_join,
   ifp = vty->index;
 
   /* Group address */
-  group_str = argv[3]->arg;
+  group_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, group_str, &group_addr);
   if (result <= 0) {
     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -2667,7 +2674,7 @@ DEFUN (interface_ip_igmp_join,
   }
 
   /* Source address */
-  source_str = argv[4]->arg;
+  source_str = argv[idx_ipv4_2]->arg;
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
     vty_out(vty, "Bad source address %s: errno=%d: %s%s",
@@ -2695,6 +2702,8 @@ DEFUN (interface_no_ip_igmp_join,
        "Multicast group address\n"
        "Source address\n")
 {
+  int idx_ipv4 = 4;
+  int idx_ipv4_2 = 5;
   struct interface *ifp;
   const char *group_str;
   const char *source_str;
@@ -2705,7 +2714,7 @@ DEFUN (interface_no_ip_igmp_join,
   ifp = vty->index;
 
   /* Group address */
-  group_str = argv[4]->arg;
+  group_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, group_str, &group_addr);
   if (result <= 0) {
     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -2714,7 +2723,7 @@ DEFUN (interface_no_ip_igmp_join,
   }
 
   /* Source address */
-  source_str = argv[5]->arg;
+  source_str = argv[idx_ipv4_2]->arg;
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
     vty_out(vty, "Bad source address %s: errno=%d: %s%s",
@@ -2865,7 +2874,7 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 
 DEFUN (interface_ip_igmp_query_interval,
        interface_ip_igmp_query_interval_cmd,
-       PIM_CMD_IP_IGMP_QUERY_INTERVAL " <1-1800>",
+       PIM_CMD_IP_IGMP_QUERY_INTERVAL " (1-1800)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_INTERVAL_STR
@@ -2960,7 +2969,7 @@ DEFUN (interface_no_ip_igmp_query_interval,
 
 DEFUN (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
-       PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME " <1-25>",
+       PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME " (1-25)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
@@ -3053,7 +3062,7 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
 
 DEFUN (interface_ip_igmp_query_max_response_time_dsec,
        interface_ip_igmp_query_max_response_time_dsec_cmd,
-       PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC " <10-250>",
+       PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC " (10-250)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
@@ -3146,12 +3155,13 @@ DEFUN (interface_no_ip_igmp_query_max_response_time_dsec,
 
 DEFUN (interface_ip_pim_drprio,
        interface_ip_pim_drprio_cmd,
-       "ip pim drpriority <1-4294967295>",
+       "ip pim drpriority (1-4294967295)",
        IP_STR
        PIM_STR
        "Set the Designated Router Election Priority\n"
        "Value of the new DR Priority\n")
 {
+  int idx_number = 3;
   struct interface *ifp;
   struct pim_interface *pim_ifp;
   uint32_t old_dr_prio;
@@ -3166,7 +3176,7 @@ DEFUN (interface_ip_pim_drprio,
 
   old_dr_prio = pim_ifp->pim_dr_priority;
 
-  pim_ifp->pim_dr_priority = strtol(argv[3]->arg, NULL, 10);
+  pim_ifp->pim_dr_priority = strtol(argv[idx_number]->arg, NULL, 10);
 
   if (old_dr_prio != pim_ifp->pim_dr_priority) {
     if (pim_if_dr_election(ifp))
@@ -3178,7 +3188,7 @@ DEFUN (interface_ip_pim_drprio,
 
 DEFUN (interface_no_ip_pim_drprio,
        interface_no_ip_pim_drprio_cmd,
-       "no ip pim drpriority {<1-4294967295>}",
+       "no ip pim drpriority [(1-4294967295)]",
        IP_STR
        PIM_STR
        "Revert the Designated Router Priority to default\n"
@@ -3345,6 +3355,8 @@ DEFUN (interface_ip_mroute,
        "Outgoing interface name\n"
        "Group address\n")
 {
+  int idx_interface = 2;
+  int idx_ipv4 = 3;
    struct interface *iif;
    struct interface *oif;
    const char       *oifname;
@@ -3355,7 +3367,7 @@ DEFUN (interface_ip_mroute,
 
    iif = vty->index;
 
-   oifname = argv[2]->arg;
+   oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname);
    if (!oif) {
      vty_out(vty, "No such interface name %s%s",
@@ -3363,7 +3375,7 @@ DEFUN (interface_ip_mroute,
      return CMD_WARNING;
    }
 
-   grp_str = argv[3]->arg;
+   grp_str = argv[idx_ipv4]->arg;
    result = inet_pton(AF_INET, grp_str, &grp_addr);
    if (result <= 0) {
      vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -3390,6 +3402,9 @@ DEFUN (interface_ip_mroute_source,
        "Group address\n"
        "Source address\n")
 {
+  int idx_interface = 2;
+  int idx_ipv4 = 3;
+  int idx_ipv4_2 = 4;
    struct interface *iif;
    struct interface *oif;
    const char       *oifname;
@@ -3401,7 +3416,7 @@ DEFUN (interface_ip_mroute_source,
 
    iif = vty->index;
 
-   oifname = argv[2]->arg;
+   oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname);
    if (!oif) {
      vty_out(vty, "No such interface name %s%s",
@@ -3409,7 +3424,7 @@ DEFUN (interface_ip_mroute_source,
      return CMD_WARNING;
    }
 
-   grp_str = argv[3]->arg;
+   grp_str = argv[idx_ipv4]->arg;
    result = inet_pton(AF_INET, grp_str, &grp_addr);
    if (result <= 0) {
      vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -3417,7 +3432,7 @@ DEFUN (interface_ip_mroute_source,
      return CMD_WARNING;
    }
 
-   src_str = argv[4]->arg;
+   src_str = argv[idx_ipv4_2]->arg;
    result = inet_pton(AF_INET, src_str, &src_addr);
    if (result <= 0) {
      vty_out(vty, "Bad source address %s: errno=%d: %s%s",
@@ -3442,6 +3457,8 @@ DEFUN (interface_no_ip_mroute,
        "Outgoing interface name\n"
        "Group Address\n")
 {
+  int idx_interface = 3;
+  int idx_ipv4 = 4;
    struct interface *iif;
    struct interface *oif;
    const char       *oifname;
@@ -3452,7 +3469,7 @@ DEFUN (interface_no_ip_mroute,
 
    iif = vty->index;
 
-   oifname = argv[3]->arg;
+   oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname);
    if (!oif) {
      vty_out(vty, "No such interface name %s%s",
@@ -3460,7 +3477,7 @@ DEFUN (interface_no_ip_mroute,
      return CMD_WARNING;
    }
 
-   grp_str = argv[4]->arg;
+   grp_str = argv[idx_ipv4]->arg;
    result = inet_pton(AF_INET, grp_str, &grp_addr);
    if (result <= 0) {
      vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -3488,6 +3505,9 @@ DEFUN (interface_no_ip_mroute_source,
        "Group Address\n"
        "Source Address\n")
 {
+  int idx_interface = 3;
+  int idx_ipv4 = 4;
+  int idx_ipv4_2 = 5;
    struct interface *iif;
    struct interface *oif;
    const char       *oifname;
@@ -3499,7 +3519,7 @@ DEFUN (interface_no_ip_mroute_source,
 
    iif = vty->index;
 
-   oifname = argv[3]->arg;
+   oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname);
    if (!oif) {
      vty_out(vty, "No such interface name %s%s",
@@ -3507,7 +3527,7 @@ DEFUN (interface_no_ip_mroute_source,
      return CMD_WARNING;
    }
 
-   grp_str = argv[4]->arg;
+   grp_str = argv[idx_ipv4]->arg;
    result = inet_pton(AF_INET, grp_str, &grp_addr);
    if (result <= 0) {
      vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -3515,7 +3535,7 @@ DEFUN (interface_no_ip_mroute_source,
      return CMD_WARNING;
    }
 
-   src_str = argv[5]->arg;
+   src_str = argv[idx_ipv4_2]->arg;
    result = inet_pton(AF_INET, src_str, &src_addr);
    if (result <= 0) {
      vty_out(vty, "Bad source address %s: errno=%d: %s%s",
@@ -3543,12 +3563,13 @@ DEFUN (interface_no_ip_mroute_source,
  */
 DEFUN (interface_ip_pim_hello,
        interface_ip_pim_hello_cmd,
-       "ip pim hello <1-180>",
+       "ip pim hello (1-180)",
        IP_STR
        PIM_STR
        IFACE_PIM_HELLO_STR
        IFACE_PIM_HELLO_TIME_STR)
 {
+  int idx_number = 3;
   struct interface *ifp;
   struct pim_interface *pim_ifp;
 
@@ -3560,7 +3581,7 @@ DEFUN (interface_ip_pim_hello,
     return CMD_WARNING;
   }
 
-  pim_ifp->pim_hello_period = strtol(argv[3]->arg, NULL, 10);
+  pim_ifp->pim_hello_period = strtol(argv[idx_number]->arg, NULL, 10);
 
   if (argc == 2)
     pim_ifp->pim_default_holdtime = strtol(argv[4]->arg, NULL, 10);
@@ -3572,7 +3593,7 @@ DEFUN (interface_ip_pim_hello,
 
 DEFUN (interface_no_ip_pim_hello,
        interface_no_ip_pim_hello_cmd,
-       "no ip pim hello {<1-180> <1-180>}",
+       "no ip pim hello [(1-180) (1-180)]",
        NO_STR
        IP_STR
        PIM_STR
@@ -3867,19 +3888,20 @@ DEFUN (debug_pim_packets,
 
 DEFUN (debug_pim_packets_filter,
        debug_pim_packets_filter_cmd,
-       "debug pim packets (hello|joins)",
+       "debug pim packets <hello|joins>",
        DEBUG_STR
        DEBUG_PIM_STR
        DEBUG_PIM_PACKETS_STR
        DEBUG_PIM_HELLO_PACKETS_STR
        DEBUG_PIM_J_P_PACKETS_STR)
 {
-    if (strncmp(argv[3]->arg,"h",1) == 0) 
+  int idx_hello_join = 3;
+    if (strncmp(argv[idx_hello_join]->arg,"h",1) == 0) 
     {
       PIM_DO_DEBUG_PIM_HELLO;
       vty_out (vty, "PIM Hello debugging is on %s", VTY_NEWLINE);
     }
-    else if (strncmp(argv[3]->arg,"j",1) == 0)
+    else if (strncmp(argv[idx_hello_join]->arg,"j",1) == 0)
     {
       PIM_DO_DEBUG_PIM_J_P;
       vty_out (vty, "PIM Join/Prune debugging is on %s", VTY_NEWLINE);
@@ -3912,7 +3934,7 @@ DEFUN (no_debug_pim_packets,
 
 DEFUN (no_debug_pim_packets_filter,
        no_debug_pim_packets_filter_cmd,
-       "no debug pim packets (hello|joins)",
+       "no debug pim packets <hello|joins>",
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
@@ -3920,12 +3942,13 @@ DEFUN (no_debug_pim_packets_filter,
        DEBUG_PIM_HELLO_PACKETS_STR
        DEBUG_PIM_J_P_PACKETS_STR)
 {
-    if (strncmp(argv[4]->arg,"h",1) == 0) 
+  int idx_hello_join = 4;
+    if (strncmp(argv[idx_hello_join]->arg,"h",1) == 0) 
     {
       PIM_DONT_DEBUG_PIM_HELLO;
       vty_out (vty, "PIM Hello debugging is off %s", VTY_NEWLINE);
     }
-    else if (strncmp(argv[4]->arg,"j",1) == 0)
+    else if (strncmp(argv[idx_hello_join]->arg,"j",1) == 0)
     {
       PIM_DONT_DEBUG_PIM_J_P;
       vty_out (vty, "PIM Join/Prune debugging is off %s", VTY_NEWLINE);
@@ -4137,7 +4160,7 @@ static struct igmp_sock *find_igmp_sock_by_fd(int fd)
 
 DEFUN (test_igmp_receive_report,
        test_igmp_receive_report_cmd,
-       "test igmp receive report <0-65535> A.B.C.D <1-6> .LINE",
+       "test igmp receive report (0-65535) A.B.C.D (1-6) .LINE",
        "Test\n"
        "Test IGMP protocol\n"
        "Test IGMP message\n"
@@ -4147,6 +4170,9 @@ DEFUN (test_igmp_receive_report,
        "Record type\n"
        "Sources\n")
 {
+  int idx_number = 4;
+  int idx_ipv4 = 5;
+  int idx_number_2 = 6;
   char              buf[1000];
   char             *igmp_msg;
   struct ip        *ip_hdr;
@@ -4168,7 +4194,7 @@ DEFUN (test_igmp_receive_report,
   struct in_addr   *src_addr;
   int               argi;
 
-  socket = argv[4]->arg;
+  socket = argv[idx_number]->arg;
   socket_fd = atoi(socket);
   igmp = find_igmp_sock_by_fd(socket_fd);
   if (!igmp) {
@@ -4177,7 +4203,7 @@ DEFUN (test_igmp_receive_report,
     return CMD_WARNING;
   }
 
-  grp_str = argv[5]->arg;
+  grp_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, grp_str, &grp_addr);
   if (result <= 0) {
     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -4185,7 +4211,7 @@ DEFUN (test_igmp_receive_report,
     return CMD_WARNING;
   }
 
-  record_type_str = argv[6]->arg;
+  record_type_str = argv[idx_number_2]->arg;
   record_type = atoi(record_type_str);
 
   /*
@@ -4259,6 +4285,8 @@ DEFUN (test_pim_receive_dump,
        "Neighbor address\n"
        "Packet dump\n")
 {
+  int idx_interface = 4;
+  int idx_ipv4 = 5;
   uint8_t           buf[1000];
   uint8_t          *pim_msg;
   struct ip        *ip_hdr;
@@ -4273,7 +4301,7 @@ DEFUN (test_pim_receive_dump,
   int               result;
 
   /* Find interface */
-  ifname = argv[4]->arg;
+  ifname = argv[idx_interface]->arg;
   ifp = if_lookup_by_name(ifname);
   if (!ifp) {
     vty_out(vty, "No such interface name %s%s",
@@ -4282,7 +4310,7 @@ DEFUN (test_pim_receive_dump,
   }
 
   /* Neighbor address */
-  neigh_str = argv[5]->arg;
+  neigh_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, neigh_str, &neigh_addr);
   if (result <= 0) {
     vty_out(vty, "Bad neighbor address %s: errno=%d: %s%s",
@@ -4362,7 +4390,7 @@ DEFUN (test_pim_receive_dump,
 
 DEFUN (test_pim_receive_hello,
        test_pim_receive_hello_cmd,
-       "test pim receive hello INTERFACE A.B.C.D <0-65535> <0-65535> <0-65535> <0-32767> <0-65535> <0-1>[LINE]",
+       "test pim receive hello INTERFACE A.B.C.D (0-65535) (0-65535) (0-65535) (0-32767) (0-65535) (0-1) [LINE]",
        "Test\n"
        "Test PIM protocol\n"
        "Test PIM message reception\n"
@@ -4377,6 +4405,14 @@ DEFUN (test_pim_receive_hello,
        "Neighbor LAN prune delay T-bit\n"
        "Neighbor secondary addresses\n")
 {
+  int idx_interface = 4;
+  int idx_ipv4 = 5;
+  int idx_number = 6;
+  int idx_number_2 = 7;
+  int idx_number_3 = 8;
+  int idx_number_4 = 9;
+  int idx_number_5 = 10;
+  int idx_number_6 = 11;
   uint8_t           buf[1000];
   uint8_t          *pim_msg;
   struct ip        *ip_hdr;
@@ -4398,7 +4434,7 @@ DEFUN (test_pim_receive_hello,
   int               result;
 
   /* Find interface */
-  ifname = argv[4]->arg;
+  ifname = argv[idx_interface]->arg;
   ifp = if_lookup_by_name(ifname);
   if (!ifp) {
     vty_out(vty, "No such interface name %s%s",
@@ -4407,7 +4443,7 @@ DEFUN (test_pim_receive_hello,
   }
 
   /* Neighbor address */
-  neigh_str = argv[5]->arg;
+  neigh_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, neigh_str, &neigh_addr);
   if (result <= 0) {
     vty_out(vty, "Bad neighbor address %s: errno=%d: %s%s",
@@ -4415,12 +4451,12 @@ DEFUN (test_pim_receive_hello,
     return CMD_WARNING;
   }
 
-  neigh_holdtime                     = atoi(argv[6]->arg);
-  neigh_dr_priority                  = atoi(argv[7]->arg);
-  neigh_generation_id                = atoi(argv[8]->arg);
-  neigh_propagation_delay            = atoi(argv[9]->arg);
-  neigh_override_interval            = atoi(argv[10]->arg);
-  neigh_can_disable_join_suppression = atoi(argv[11]->arg);
+  neigh_holdtime                     = atoi(argv[idx_number]->arg);
+  neigh_dr_priority                  = atoi(argv[idx_number_2]->arg);
+  neigh_generation_id                = atoi(argv[idx_number_3]->arg);
+  neigh_propagation_delay            = atoi(argv[idx_number_4]->arg);
+  neigh_override_interval            = atoi(argv[idx_number_5]->arg);
+  neigh_can_disable_join_suppression = atoi(argv[idx_number_6]->arg);
 
   /*
     Tweak IP header
@@ -4489,7 +4525,7 @@ DEFUN (test_pim_receive_hello,
 
 DEFUN (test_pim_receive_assert,
        test_pim_receive_assert_cmd,
-       "test pim receive assert INTERFACE A.B.C.D A.B.C.D A.B.C.D <0-65535> <0-65535> <0-1>",
+       "test pim receive assert INTERFACE A.B.C.D A.B.C.D A.B.C.D (0-65535) (0-65535) (0-1)",
        "Test\n"
        "Test PIM protocol\n"
        "Test PIM message reception\n"
@@ -4502,6 +4538,13 @@ DEFUN (test_pim_receive_assert,
        "Assert route metric\n"
        "Assert RPT bit flag\n")
 {
+  int idx_interface = 4;
+  int idx_ipv4 = 5;
+  int idx_ipv4_2 = 6;
+  int idx_ipv4_3 = 7;
+  int idx_number = 8;
+  int idx_number_2 = 9;
+  int idx_number_3 = 10;
   uint8_t           buf[1000];
   uint8_t          *buf_pastend = buf + sizeof(buf);
   uint8_t          *pim_msg;
@@ -4524,7 +4567,7 @@ DEFUN (test_pim_receive_assert,
   int               result;
 
   /* Find interface */
-  ifname = argv[4]->arg;
+  ifname = argv[idx_interface]->arg;
   ifp = if_lookup_by_name(ifname);
   if (!ifp) {
     vty_out(vty, "No such interface name %s%s",
@@ -4533,7 +4576,7 @@ DEFUN (test_pim_receive_assert,
   }
 
   /* Neighbor address */
-  neigh_str = argv[5]->arg;
+  neigh_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, neigh_str, &neigh_addr);
   if (result <= 0) {
     vty_out(vty, "Bad neighbor address %s: errno=%d: %s%s",
@@ -4542,7 +4585,7 @@ DEFUN (test_pim_receive_assert,
   }
 
   /* Group address */
-  group_str = argv[6]->arg;
+  group_str = argv[idx_ipv4_2]->arg;
   result = inet_pton(AF_INET, group_str, &group_addr);
   if (result <= 0) {
     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -4551,7 +4594,7 @@ DEFUN (test_pim_receive_assert,
   }
 
   /* Source address */
-  source_str = argv[7]->arg;
+  source_str = argv[idx_ipv4_3]->arg;
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
     vty_out(vty, "Bad source address %s: errno=%d: %s%s",
@@ -4559,9 +4602,9 @@ DEFUN (test_pim_receive_assert,
     return CMD_WARNING;
   }
 
-  assert_metric_preference = atoi(argv[8]->arg);
-  assert_route_metric      = atoi(argv[9]->arg);
-  assert_rpt_bit_flag      = atoi(argv[10]->arg);
+  assert_metric_preference = atoi(argv[idx_number]->arg);
+  assert_route_metric      = atoi(argv[idx_number_2]->arg);
+  assert_rpt_bit_flag      = atoi(argv[idx_number_3]->arg);
 
   remain = buf_pastend - buf;
   if (remain < (int) sizeof(struct ip)) {
@@ -4797,7 +4840,7 @@ static int recv_joinprune(struct vty *vty,
 
 DEFUN (test_pim_receive_join,
        test_pim_receive_join_cmd,
-       "test pim receive join INTERFACE <0-65535> A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
+       "test pim receive join INTERFACE (0-65535) A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
        "Test\n"
        "Test PIM protocol\n"
        "Test PIM message reception\n"
@@ -4814,7 +4857,7 @@ DEFUN (test_pim_receive_join,
 
 DEFUN (test_pim_receive_prune,
        test_pim_receive_prune_cmd,
-       "test pim receive prune INTERFACE <0-65535> A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
+       "test pim receive prune INTERFACE (0-65535) A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
        "Test\n"
        "Test PIM protocol\n"
        "Test PIM message reception\n"
@@ -4831,7 +4874,7 @@ DEFUN (test_pim_receive_prune,
 
 DEFUN (test_pim_receive_upcall,
        test_pim_receive_upcall_cmd,
-       "test pim receive upcall (nocache|wrongvif|wholepkt) <0-65535> A.B.C.D A.B.C.D",
+       "test pim receive upcall <nocache|wrongvif|wholepkt> (0-65535) A.B.C.D A.B.C.D",
        "Test\n"
        "Test PIM protocol\n"
        "Test PIM message reception\n"
@@ -4843,13 +4886,17 @@ DEFUN (test_pim_receive_upcall,
        "Multicast group address\n"
        "Multicast source address\n")
 {
+  int idx_type = 4;
+  int idx_number = 5;
+  int idx_ipv4 = 6;
+  int idx_ipv4_2 = 7;
   struct igmpmsg msg;
   const char *upcall_type;
   const char *group_str;
   const char *source_str;
   int result;
 
-  upcall_type = argv[4]->arg;
+  upcall_type = argv[idx_type]->arg;
 
   if (upcall_type[0] == 'n')
     msg.im_msgtype = IGMPMSG_NOCACHE;
@@ -4863,10 +4910,10 @@ DEFUN (test_pim_receive_upcall,
     return CMD_WARNING;
   }
 
-  msg.im_vif = atoi(argv[5]->arg);
+  msg.im_vif = atoi(argv[idx_number]->arg);
 
   /* Group address */
-  group_str = argv[6]->arg;
+  group_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, group_str, &msg.im_dst);
   if (result <= 0) {
     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
@@ -4875,7 +4922,7 @@ DEFUN (test_pim_receive_upcall,
   }
 
   /* Source address */
-  source_str = argv[7]->arg;
+  source_str = argv[idx_ipv4_2]->arg;
   result = inet_pton(AF_INET, source_str, &msg.im_src);
   if (result <= 0) {
     vty_out(vty, "Bad source address %s: errno=%d: %s%s",

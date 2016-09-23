@@ -354,7 +354,8 @@ DEFUN (match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  return isis_route_match_add(vty, vty->index, "ip address", argv[3]->arg);
+  int idx_acl = 3;
+  return isis_route_match_add(vty, vty->index, "ip address", argv[idx_acl]->arg);
 }
 
 /*
@@ -377,9 +378,10 @@ DEFUN (no_match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
+  int idx_acl = 4;
   if (argc == 0)
     return isis_route_match_delete(vty, vty->index, "ip address", NULL);
-  return isis_route_match_delete(vty, vty->index, "ip address", argv[4]->arg);
+  return isis_route_match_delete(vty, vty->index, "ip address", argv[idx_acl]->arg);
 }
 
 
@@ -394,7 +396,8 @@ DEFUN (match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  return isis_route_match_add(vty, vty->index, "ip address prefix-list", argv[4]->arg);
+  int idx_word = 4;
+  return isis_route_match_add(vty, vty->index, "ip address prefix-list", argv[idx_word]->arg);
 }
 
 /*
@@ -433,7 +436,8 @@ DEFUN (match_ipv6_address,
        "Match IPv6 address of route\n"
        "IPv6 access-list name\n")
 {
-  return isis_route_match_add(vty, vty->index, "ipv6 address", argv[3]->arg);
+  int idx_word = 3;
+  return isis_route_match_add(vty, vty->index, "ipv6 address", argv[idx_word]->arg);
 }
 
 /*
@@ -454,9 +458,10 @@ DEFUN (no_match_ipv6_address,
        "Match IPv6 address of route\n"
        "IPv6 access-list name\n")
 {
+  int idx_word = 4;
   if (argc == 0)
     return isis_route_match_delete(vty, vty->index, "ipv6 address", NULL);
-  return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[4]->arg);
+  return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[idx_word]->arg);
 }
 
 
@@ -471,7 +476,8 @@ DEFUN (match_ipv6_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  return isis_route_match_add(vty, vty->index, "ipv6 address prefix-list", argv[4]->arg);
+  int idx_word = 4;
+  return isis_route_match_add(vty, vty->index, "ipv6 address prefix-list", argv[idx_word]->arg);
 }
 
 /*
@@ -512,7 +518,8 @@ DEFUN (set_metric,
       "Metric vale for destination routing protocol\n"
       "Metric value\n")
 {
-  return isis_route_set_add(vty, vty->index, "metric", argv[2]->arg);
+  int idx_number = 2;
+  return isis_route_set_add(vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
 /*
@@ -534,9 +541,10 @@ DEFUN (no_set_metric,
       "Metric value for destination routing protocol\n"
       "Metric value\n")
 {
+  int idx_number = 3;
   if (argc == 0)
     return isis_route_set_delete(vty, vty->index, "metric", NULL);
-  return isis_route_set_delete(vty, vty->index, "metric", argv[3]->arg);
+  return isis_route_set_delete(vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
 {

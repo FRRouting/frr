@@ -507,7 +507,8 @@ DEFUN (match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
-  return ripng_route_match_add (vty, vty->index, "metric", argv[2]->arg);
+  int idx_number = 2;
+  return ripng_route_match_add (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
 /*
@@ -537,7 +538,8 @@ DEFUN (match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  return ripng_route_match_add (vty, vty->index, "interface", argv[2]->arg);
+  int idx_word = 2;
+  return ripng_route_match_add (vty, vty->index, "interface", argv[idx_word]->arg);
 }
 
 /*
@@ -567,7 +569,8 @@ DEFUN (match_tag,
        "Match tag of route\n"
        "Metric value\n")
 {
-  return ripng_route_match_add (vty, vty->index, "tag", argv[2]->arg);
+  int idx_number = 2;
+  return ripng_route_match_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
 /*
@@ -599,7 +602,8 @@ DEFUN (set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
-  return ripng_route_set_add (vty, vty->index, "metric", argv[2]->arg);
+  int idx_number = 2;
+  return ripng_route_set_add (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
 /*
@@ -631,10 +635,11 @@ DEFUN (set_ipv6_nexthop_local,
        "IPv6 local address\n"
        "IPv6 address of next hop\n")
 {
+  int idx_ipv6 = 4;
   union sockunion su;
   int ret;
 
-  ret = str2sockunion (argv[4]->arg, &su);
+  ret = str2sockunion (argv[idx_ipv6]->arg, &su);
   if (ret < 0)
     {
       vty_out (vty, "%% Malformed next-hop local address%s", VTY_NEWLINE);
@@ -647,7 +652,7 @@ DEFUN (set_ipv6_nexthop_local,
       return CMD_WARNING;
     }
 
-  return ripng_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[4]->arg);
+  return ripng_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[idx_ipv6]->arg);
 }
 
 /*
@@ -681,7 +686,8 @@ DEFUN (set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  return ripng_route_set_add (vty, vty->index, "tag", argv[2]->arg);
+  int idx_number = 2;
+  return ripng_route_set_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
 /*

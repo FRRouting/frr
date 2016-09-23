@@ -98,10 +98,11 @@ DEFUN (debug_ripng_packet_direct,
        "Debug option set for receive packet\n"
        "Debug option set for send packet\n")
 {
+  int idx_recv_send = 3;
   ripng_debug_packet |= RIPNG_DEBUG_PACKET;
-  if (strncmp ("send", argv[3]->arg, strlen (argv[3]->arg)) == 0)
+  if (strncmp ("send", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
     ripng_debug_packet |= RIPNG_DEBUG_SEND;
-  if (strncmp ("recv", argv[3]->arg, strlen (argv[3]->arg)) == 0)
+  if (strncmp ("recv", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
     ripng_debug_packet |= RIPNG_DEBUG_RECV;
 
   return CMD_SUCCESS;
@@ -152,14 +153,15 @@ DEFUN (no_debug_ripng_packet_direct,
        "Debug option set for receive packet\n"
        "Debug option set for send packet\n")
 {
-  if (strncmp ("send", argv[4]->arg, strlen (argv[4]->arg)) == 0)
+  int idx_recv_send = 4;
+  if (strncmp ("send", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
     {
       if (IS_RIPNG_DEBUG_RECV)
        ripng_debug_packet &= ~RIPNG_DEBUG_SEND;
       else
        ripng_debug_packet = 0;
     }
-  else if (strncmp ("recv", argv[4]->arg, strlen (argv[4]->arg)) == 0)
+  else if (strncmp ("recv", argv[idx_recv_send]->arg, strlen (argv[idx_recv_send]->arg)) == 0)
     {
       if (IS_RIPNG_DEBUG_SEND)
        ripng_debug_packet &= ~RIPNG_DEBUG_RECV;

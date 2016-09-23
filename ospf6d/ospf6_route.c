@@ -1573,15 +1573,16 @@ DEFUN (debug_ospf6_route,
        "Debug route memory use\n"
        )
 {
+  int idx_type = 3;
   unsigned char level = 0;
 
-  if (! strncmp (argv[3]->arg, "table", 5))
+  if (! strncmp (argv[idx_type]->arg, "table", 5))
     level = OSPF6_DEBUG_ROUTE_TABLE;
-  else if (! strncmp (argv[3]->arg, "intra", 5))
+  else if (! strncmp (argv[idx_type]->arg, "intra", 5))
     level = OSPF6_DEBUG_ROUTE_INTRA;
-  else if (! strncmp (argv[3]->arg, "inter", 5))
+  else if (! strncmp (argv[idx_type]->arg, "inter", 5))
     level = OSPF6_DEBUG_ROUTE_INTER;
-  else if (! strncmp (argv[3]->arg, "memor", 5))
+  else if (! strncmp (argv[idx_type]->arg, "memor", 5))
     level = OSPF6_DEBUG_ROUTE_MEMORY;
   OSPF6_DEBUG_ROUTE_ON (level);
   return CMD_SUCCESS;
@@ -1597,15 +1598,16 @@ DEFUN (no_debug_ospf6_route,
        "Debug intra-area route calculation\n"
        "Debug route memory use\n")
 {
+  int idx_type = 4;
   unsigned char level = 0;
 
-  if (! strncmp (argv[4]->arg, "table", 5))
+  if (! strncmp (argv[idx_type]->arg, "table", 5))
     level = OSPF6_DEBUG_ROUTE_TABLE;
-  else if (! strncmp (argv[4]->arg, "intra", 5))
+  else if (! strncmp (argv[idx_type]->arg, "intra", 5))
     level = OSPF6_DEBUG_ROUTE_INTRA;
-  else if (! strncmp (argv[4]->arg, "inter", 5))
+  else if (! strncmp (argv[idx_type]->arg, "inter", 5))
     level = OSPF6_DEBUG_ROUTE_INTER;
-  else if (! strncmp (argv[4]->arg, "memor", 5))
+  else if (! strncmp (argv[idx_type]->arg, "memor", 5))
     level = OSPF6_DEBUG_ROUTE_MEMORY;
   OSPF6_DEBUG_ROUTE_OFF (level);
   return CMD_SUCCESS;

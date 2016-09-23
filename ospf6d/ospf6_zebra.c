@@ -726,13 +726,14 @@ DEFUN (debug_ospf6_zebra_sendrecv,
        "Debug Receiving zebra\n"
       )
 {
+  int idx_send_recv = 3;
   unsigned char level = 0;
 
   if (argc)
     {
-      if (! strncmp (argv[3]->arg, "s", 1))
+      if (! strncmp (argv[idx_send_recv]->arg, "s", 1))
         level = OSPF6_DEBUG_ZEBRA_SEND;
-      else if (! strncmp (argv[3]->arg, "r", 1))
+      else if (! strncmp (argv[idx_send_recv]->arg, "r", 1))
         level = OSPF6_DEBUG_ZEBRA_RECV;
     }
   else
@@ -765,13 +766,14 @@ DEFUN (no_debug_ospf6_zebra_sendrecv,
        "Debug Receiving zebra\n"
       )
 {
+  int idx_send_recv = 4;
   unsigned char level = 0;
 
   if (argc)
     {
-      if (! strncmp (argv[4]->arg, "s", 1))
+      if (! strncmp (argv[idx_send_recv]->arg, "s", 1))
         level = OSPF6_DEBUG_ZEBRA_SEND;
-      else if (! strncmp (argv[4]->arg, "r", 1))
+      else if (! strncmp (argv[idx_send_recv]->arg, "r", 1))
         level = OSPF6_DEBUG_ZEBRA_RECV;
     }
   else

@@ -400,15 +400,17 @@ DEFUN (ripng_redistribute_type_metric,
        "Metric\n"
        "Metric value\n")
 {
+  int idx_protocol = 1;
+  int idx_number = 3;
   int type;
   int metric;
 
-  metric = atoi (argv[3]->arg);
-  type = proto_redistnum(AFI_IP6, argv[1]->arg);
+  metric = atoi (argv[idx_number]->arg);
+  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[1]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -427,17 +429,19 @@ DEFUN (ripng_redistribute_type_routemap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  int idx_protocol = 1;
+  int idx_word = 3;
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[1]->arg);
+  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[1]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  ripng_redistribute_routemap_set (type, argv[3]->arg);
+  ripng_redistribute_routemap_set (type, argv[idx_word]->arg);
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
                         VRF_DEFAULT);
  return CMD_SUCCESS;
@@ -454,20 +458,23 @@ DEFUN (ripng_redistribute_type_metric_routemap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  int idx_protocol = 1;
+  int idx_number = 3;
+  int idx_word = 5;
   int type;
   int metric;
 
-  type = proto_redistnum(AFI_IP6, argv[1]->arg);
-  metric = atoi (argv[3]->arg);
+  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
+  metric = atoi (argv[idx_number]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[1]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   ripng_redistribute_metric_set (type, metric);
-  ripng_redistribute_routemap_set (type, argv[5]->arg);
+  ripng_redistribute_routemap_set (type, argv[idx_word]->arg);
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
   return CMD_SUCCESS;
 }

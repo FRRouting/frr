@@ -387,6 +387,9 @@ DEFUN (ip_ospf_bfd_param,
        "Required min receive interval\n"
        "Desired min transmit interval\n")
 {
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 5;
   struct interface *ifp = (struct interface *) vty->index;
   u_int32_t rx_val;
   u_int32_t tx_val;
@@ -395,7 +398,7 @@ DEFUN (ip_ospf_bfd_param,
 
   assert (ifp);
 
-  if ((ret = bfd_validate_param (vty, argv[3]->arg, argv[4]->arg, argv[5]->arg, &dm_val,
+  if ((ret = bfd_validate_param (vty, argv[idx_number]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg, &dm_val,
                                  &rx_val, &tx_val)) != CMD_SUCCESS)
     return ret;
 

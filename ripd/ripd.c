@@ -2947,9 +2947,10 @@ DEFUN (rip_version,
        "Set routing protocol version\n"
        "version\n")
 {
+  int idx_number = 1;
   int version;
 
-  version = atoi (argv[1]->arg);
+  version = atoi (argv[idx_number]->arg);
   if (version != RIPv1 && version != RIPv2)
     {
       vty_out (vty, "invalid rip version %d%s", version,
@@ -2960,7 +2961,7 @@ DEFUN (rip_version,
   rip->version_recv = version;
 
   return CMD_SUCCESS;
-} 
+}
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
@@ -2981,7 +2982,7 @@ DEFUN (no_rip_version,
   rip->version_recv = RI_RIP_VERSION_1_AND_2;
 
   return CMD_SUCCESS;
-} 
+}
 
 
 DEFUN (rip_route,
@@ -2990,11 +2991,12 @@ DEFUN (rip_route,
        "RIP static route configuration\n"
        "IP prefix <network>/<length>\n")
 {
+  int idx_ipv4_prefixlen = 1;
   int ret;
   struct prefix_ipv4 p;
   struct route_node *node;
 
-  ret = str2prefix_ipv4 (argv[1]->arg, &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_prefixlen]->arg, &p);
   if (ret < 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -3026,11 +3028,12 @@ DEFUN (no_rip_route,
        "RIP static route configuration\n"
        "IP prefix <network>/<length>\n")
 {
+  int idx_ipv4_prefixlen = 2;
   int ret;
   struct prefix_ipv4 p;
   struct route_node *node;
 
-  ret = str2prefix_ipv4 (argv[2]->arg, &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_prefixlen]->arg, &p);
   if (ret < 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -3042,7 +3045,7 @@ DEFUN (no_rip_route,
   node = route_node_lookup (rip->route, (struct prefix *) &p);
   if (! node)
     {
-      vty_out (vty, "Can't find route %s.%s", argv[2]->arg,
+      vty_out (vty, "Can't find route %s.%s", argv[idx_ipv4_prefixlen]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -3079,9 +3082,10 @@ DEFUN (rip_default_metric,
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
+  int idx_number = 1;
   if (rip)
     {
-      rip->default_metric = atoi (argv[1]->arg);
+      rip->default_metric = atoi (argv[idx_number]->arg);
       /* rip_update_default_metric (); */
     }
   return CMD_SUCCESS;
@@ -3120,6 +3124,9 @@ DEFUN (rip_timers,
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 {
+  int idx_number = 2;
+  int idx_number_2 = 3;
+  int idx_number_3 = 4;
   unsigned long update;
   unsigned long timeout;
   unsigned long garbage;
@@ -3127,21 +3134,21 @@ DEFUN (rip_timers,
   unsigned long RIP_TIMER_MAX = 2147483647;
   unsigned long RIP_TIMER_MIN = 5;
 
-  update = strtoul (argv[2]->arg, &endptr, 10);
+  update = strtoul (argv[idx_number]->arg, &endptr, 10);
   if (update > RIP_TIMER_MAX || update < RIP_TIMER_MIN || *endptr != '\0')  
     {
       vty_out (vty, "update timer value error%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   
-  timeout = strtoul (argv[3]->arg, &endptr, 10);
+  timeout = strtoul (argv[idx_number_2]->arg, &endptr, 10);
   if (timeout > RIP_TIMER_MAX || timeout < RIP_TIMER_MIN || *endptr != '\0') 
     {
       vty_out (vty, "timeout timer value error%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   
-  garbage = strtoul (argv[4]->arg, &endptr, 10);
+  garbage = strtoul (argv[idx_number_3]->arg, &endptr, 10);
   if (garbage > RIP_TIMER_MAX || garbage < RIP_TIMER_MIN || *endptr != '\0') 
     {
       vty_out (vty, "garbage timer value error%s", VTY_NEWLINE);
@@ -3392,7 +3399,8 @@ DEFUN (rip_distance,
        "Administrative distance\n"
        "Distance value\n")
 {
-  rip->distance = atoi (argv[1]->arg);
+  int idx_number = 1;
+  rip->distance = atoi (argv[idx_number]->arg);
   return CMD_SUCCESS;
 }
 
@@ -3414,7 +3422,9 @@ DEFUN (rip_distance_source,
        "Distance value\n"
        "IP source prefix\n")
 {
-  rip_distance_set (vty, argv[1]->arg, argv[2]->arg, NULL);
+  int idx_number = 1;
+  int idx_ipv4_prefixlen = 2;
+  rip_distance_set (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
   return CMD_SUCCESS;
 }
 
@@ -3426,7 +3436,9 @@ DEFUN (no_rip_distance_source,
        "Distance value\n"
        "IP source prefix\n")
 {
-  rip_distance_unset (vty, argv[2]->arg, argv[3]->arg, NULL);
+  int idx_number = 2;
+  int idx_ipv4_prefixlen = 3;
+  rip_distance_unset (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
   return CMD_SUCCESS;
 }
 
@@ -3438,7 +3450,10 @@ DEFUN (rip_distance_source_access_list,
        "IP source prefix\n"
        "Access list name\n")
 {
-  rip_distance_set (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg);
+  int idx_number = 1;
+  int idx_ipv4_prefixlen = 2;
+  int idx_word = 3;
+  rip_distance_set (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
   return CMD_SUCCESS;
 }
 
@@ -3451,7 +3466,10 @@ DEFUN (no_rip_distance_source_access_list,
        "IP source prefix\n"
        "Access list name\n")
 {
-  rip_distance_unset (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg);
+  int idx_number = 2;
+  int idx_ipv4_prefixlen = 3;
+  int idx_word = 4;
+  rip_distance_unset (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
   return CMD_SUCCESS;
 }
 

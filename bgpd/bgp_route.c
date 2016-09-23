@@ -4264,8 +4264,9 @@ DEFUN (bgp_table_map,
        "BGP table to RIB route download filter\n"
        "Name of the route map\n")
 {
+  int idx_word = 1;
   return bgp_table_map_set (vty, vty->index,
-             bgp_node_afi (vty), bgp_node_safi (vty), argv[1]->arg);
+             bgp_node_afi (vty), bgp_node_safi (vty), argv[idx_word]->arg);
 }
 DEFUN (no_bgp_table_map,
        no_bgp_table_map_cmd,
@@ -4273,8 +4274,9 @@ DEFUN (no_bgp_table_map,
        "BGP table to RIB route download filter\n"
        "Name of the route map\n")
 {
+  int idx_word = 2;
   return bgp_table_map_unset (vty, vty->index,
-             bgp_node_afi (vty), bgp_node_safi (vty), argv[2]->arg);
+             bgp_node_afi (vty), bgp_node_safi (vty), argv[idx_word]->arg);
 }
 
 DEFUN (bgp_network,
@@ -4283,7 +4285,8 @@ DEFUN (bgp_network,
        "Specify a network to announce via BGP\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  return bgp_static_set (vty, vty->index, argv[1]->arg,
+  int idx_ipv4_prefixlen = 1;
+  return bgp_static_set (vty, vty->index, argv[idx_ipv4_prefixlen]->arg,
 			 AFI_IP, bgp_node_safi (vty), NULL, 0);
 }
 
@@ -4295,8 +4298,10 @@ DEFUN (bgp_network_route_map,
        "Route-map to modify the attributes\n"
        "Name of the route map\n")
 {
-  return bgp_static_set (vty, vty->index, argv[1]->arg,
-			 AFI_IP, bgp_node_safi (vty), argv[3]->arg, 0);
+  int idx_ipv4_prefixlen = 1;
+  int idx_word = 3;
+  return bgp_static_set (vty, vty->index, argv[idx_ipv4_prefixlen]->arg,
+			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
 }
 
 DEFUN (bgp_network_backdoor,
@@ -4306,7 +4311,8 @@ DEFUN (bgp_network_backdoor,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Specify a BGP backdoor route\n")
 {
-  return bgp_static_set (vty, vty->index, argv[1]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_ipv4_prefixlen = 1;
+  return bgp_static_set (vty, vty->index, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
                          NULL, 1);
 }
 
@@ -4318,10 +4324,12 @@ DEFUN (bgp_network_mask,
        "Network mask\n"
        "Network mask\n")
 {
+  int idx_ipv4 = 1;
+  int idx_ipv4_2 = 3;
   int ret;
   char prefix_str[BUFSIZ];
   
-  ret = netmask_str2prefix_str (argv[1]->arg, argv[3]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
@@ -4342,10 +4350,13 @@ DEFUN (bgp_network_mask_route_map,
        "Route-map to modify the attributes\n"
        "Name of the route map\n")
 {
+  int idx_ipv4 = 1;
+  int idx_ipv4_2 = 3;
+  int idx_word = 5;
   int ret;
   char prefix_str[BUFSIZ];
   
-  ret = netmask_str2prefix_str (argv[1]->arg, argv[3]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
@@ -4353,7 +4364,7 @@ DEFUN (bgp_network_mask_route_map,
     }
 
   return bgp_static_set (vty, vty->index, prefix_str,
-			 AFI_IP, bgp_node_safi (vty), argv[5]->arg, 0);
+			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
 }
 
 DEFUN (bgp_network_mask_backdoor,
@@ -4365,10 +4376,12 @@ DEFUN (bgp_network_mask_backdoor,
        "Network mask\n"
        "Specify a BGP backdoor route\n")
 {
+  int idx_ipv4 = 1;
+  int idx_ipv4_2 = 3;
   int ret;
   char prefix_str[BUFSIZ];
   
-  ret = netmask_str2prefix_str (argv[1]->arg, argv[3]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
@@ -4385,10 +4398,11 @@ DEFUN (bgp_network_mask_natural,
        "Specify a network to announce via BGP\n"
        "Network number\n")
 {
+  int idx_ipv4 = 1;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[1]->arg, NULL, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, NULL, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
@@ -4407,10 +4421,12 @@ DEFUN (bgp_network_mask_natural_route_map,
        "Route-map to modify the attributes\n"
        "Name of the route map\n")
 {
+  int idx_ipv4 = 1;
+  int idx_word = 3;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[1]->arg, NULL, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, NULL, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
@@ -4418,7 +4434,7 @@ DEFUN (bgp_network_mask_natural_route_map,
     }
 
   return bgp_static_set (vty, vty->index, prefix_str,
-			 AFI_IP, bgp_node_safi (vty), argv[3]->arg, 0);
+			 AFI_IP, bgp_node_safi (vty), argv[idx_word]->arg, 0);
 }
 
 DEFUN (bgp_network_mask_natural_backdoor,
@@ -4428,10 +4444,11 @@ DEFUN (bgp_network_mask_natural_backdoor,
        "Network number\n"
        "Specify a BGP backdoor route\n")
 {
+  int idx_ipv4 = 1;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[1]->arg, NULL, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, NULL, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
@@ -4465,7 +4482,8 @@ DEFUN (no_bgp_network,
        "Specify a network to announce via BGP\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  return bgp_static_unset (vty, vty->index, argv[2]->arg, AFI_IP, 
+  int idx_ipv4_prefixlen = 2;
+  return bgp_static_unset (vty, vty->index, argv[idx_ipv4_prefixlen]->arg, AFI_IP, 
 			   bgp_node_safi (vty));
 }
 
@@ -4500,10 +4518,12 @@ DEFUN (no_bgp_network_mask,
        "Network mask\n"
        "Network mask\n")
 {
+  int idx_ipv4 = 2;
+  int idx_ipv4_2 = 4;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[2]->arg, argv[4]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
@@ -4539,10 +4559,11 @@ DEFUN (no_bgp_network_mask_natural,
        "Specify a network to announce via BGP\n"
        "Network number\n")
 {
+  int idx_ipv4 = 2;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[2]->arg, NULL, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, NULL, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);
@@ -4571,7 +4592,8 @@ DEFUN (ipv6_bgp_network,
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>\n")
 {
-  return bgp_static_set (vty, vty->index, argv[1]->arg, AFI_IP6, bgp_node_safi(vty),
+  int idx_ipv6_prefixlen = 1;
+  return bgp_static_set (vty, vty->index, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty),
                          NULL, 0);
 }
 
@@ -4583,8 +4605,10 @@ DEFUN (ipv6_bgp_network_route_map,
        "Route-map to modify the attributes\n"
        "Name of the route map\n")
 {
-  return bgp_static_set (vty, vty->index, argv[1]->arg, AFI_IP6,
-			 bgp_node_safi (vty), argv[3]->arg, 0);
+  int idx_ipv6_prefixlen = 1;
+  int idx_word = 3;
+  return bgp_static_set (vty, vty->index, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
+			 bgp_node_safi (vty), argv[idx_word]->arg, 0);
 }
 
 /*
@@ -4611,7 +4635,8 @@ DEFUN (no_ipv6_bgp_network,
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>\n")
 {
-  return bgp_static_unset (vty, vty->index, argv[2]->arg, AFI_IP6, bgp_node_safi(vty));
+  int idx_ipv6_prefixlen = 2;
+  return bgp_static_unset (vty, vty->index, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, bgp_node_safi(vty));
 }
 
 
@@ -5225,7 +5250,8 @@ DEFUN (aggregate_address,
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n")
 {
-  return bgp_aggregate_set (vty, argv[1]->arg, AFI_IP, bgp_node_safi (vty), 0, 0);
+  int idx_ipv4_prefixlen = 1;
+  return bgp_aggregate_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty), 0, 0);
 }
 
 DEFUN (aggregate_address_mask,
@@ -5235,10 +5261,12 @@ DEFUN (aggregate_address_mask,
        "Aggregate address\n"
        "Aggregate mask\n")
 {
+  int idx_ipv4 = 1;
+  int idx_ipv4_2 = 2;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[1]->arg, argv[2]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
 
   if (! ret)
     {
@@ -5257,7 +5285,8 @@ DEFUN (aggregate_address_summary_only,
        "Aggregate prefix\n"
        "Filter more specific routes from updates\n")
 {
-  return bgp_aggregate_set (vty, argv[1]->arg, AFI_IP, bgp_node_safi (vty),
+  int idx_ipv4_prefixlen = 1;
+  return bgp_aggregate_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty),
 			    AGGREGATE_SUMMARY_ONLY, 0);
 }
 
@@ -5269,10 +5298,12 @@ DEFUN (aggregate_address_mask_summary_only,
        "Aggregate mask\n"
        "Filter more specific routes from updates\n")
 {
+  int idx_ipv4 = 1;
+  int idx_ipv4_2 = 2;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[1]->arg, argv[2]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
 
   if (! ret)
     {
@@ -5291,7 +5322,8 @@ DEFUN (aggregate_address_as_set,
        "Aggregate prefix\n"
        "Generate AS set path information\n")
 {
-  return bgp_aggregate_set (vty, argv[1]->arg, AFI_IP, bgp_node_safi (vty),
+  int idx_ipv4_prefixlen = 1;
+  return bgp_aggregate_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty),
 			    0, AGGREGATE_AS_SET);
 }
 
@@ -5303,10 +5335,12 @@ DEFUN (aggregate_address_mask_as_set,
        "Aggregate mask\n"
        "Generate AS set path information\n")
 {
+  int idx_ipv4 = 1;
+  int idx_ipv4_2 = 2;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[1]->arg, argv[2]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
 
   if (! ret)
     {
@@ -5336,7 +5370,8 @@ DEFUN (aggregate_address_as_set_summary,
        "Generate AS set path information\n"
        "Filter more specific routes from updates\n")
 {
-  return bgp_aggregate_set (vty, argv[1]->arg, AFI_IP, bgp_node_safi (vty),
+  int idx_ipv4_prefixlen = 1;
+  return bgp_aggregate_set (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty),
 			    AGGREGATE_SUMMARY_ONLY, AGGREGATE_AS_SET);
 }
 
@@ -5360,10 +5395,12 @@ DEFUN (aggregate_address_mask_as_set_summary,
        "Generate AS set path information\n"
        "Filter more specific routes from updates\n")
 {
+  int idx_ipv4 = 1;
+  int idx_ipv4_2 = 2;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[1]->arg, argv[2]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
 
   if (! ret)
     {
@@ -5412,7 +5449,8 @@ DEFUN (no_aggregate_address,
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n")
 {
-  return bgp_aggregate_unset (vty, argv[2]->arg, AFI_IP, bgp_node_safi (vty));
+  int idx_ipv4_prefixlen = 2;
+  return bgp_aggregate_unset (vty, argv[idx_ipv4_prefixlen]->arg, AFI_IP, bgp_node_safi (vty));
 }
 
 
@@ -5460,10 +5498,12 @@ DEFUN (no_aggregate_address_mask,
        "Aggregate address\n"
        "Aggregate mask\n")
 {
+  int idx_ipv4 = 2;
+  int idx_ipv4_2 = 3;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[2]->arg, argv[3]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
 
   if (! ret)
     {
@@ -5494,7 +5534,8 @@ DEFUN (ipv6_aggregate_address,
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n")
 {
-  return bgp_aggregate_set (vty, argv[1]->arg, AFI_IP6, SAFI_UNICAST, 0, 0);
+  int idx_ipv6_prefixlen = 1;
+  return bgp_aggregate_set (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, 0, 0);
 }
 
 /*
@@ -5514,7 +5555,8 @@ DEFUN (ipv6_aggregate_address_summary_only,
        "Aggregate prefix\n"
        "Filter more specific routes from updates\n")
 {
-  return bgp_aggregate_set (vty, argv[1]->arg, AFI_IP6, SAFI_UNICAST, 
+  int idx_ipv6_prefixlen = 1;
+  return bgp_aggregate_set (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, 
 			    AGGREGATE_SUMMARY_ONLY, 0);
 }
 
@@ -5535,7 +5577,8 @@ DEFUN (no_ipv6_aggregate_address,
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n")
 {
-  return bgp_aggregate_unset (vty, argv[2]->arg, AFI_IP6, SAFI_UNICAST);
+  int idx_ipv6_prefixlen = 2;
+  return bgp_aggregate_unset (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST);
 }
 
 /*
@@ -5557,7 +5600,8 @@ DEFUN (no_ipv6_aggregate_address_summary_only,
        "Aggregate prefix\n"
        "Filter more specific routes from updates\n")
 {
-  return bgp_aggregate_unset (vty, argv[2]->arg, AFI_IP6, SAFI_UNICAST);
+  int idx_ipv6_prefixlen = 2;
+  return bgp_aggregate_unset (vty, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST);
 }
 
 
@@ -7972,9 +8016,10 @@ DEFUN (show_ip_bgp_ipv4,
        "Address Family modifier\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST, bgp_show_type_normal,
                      NULL, uj);
  
@@ -7991,7 +8036,8 @@ DEFUN (show_ip_bgp_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_ipv4 = 3;
+  return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_route_pathtype,
@@ -8005,12 +8051,14 @@ DEFUN (show_ip_bgp_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv4 = 3;
+  int idx_bestpath = 4;
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[4]->arg, "b", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 DEFUN (show_bgp_ipv4_safi_route_pathtype,
@@ -8026,18 +8074,21 @@ DEFUN (show_bgp_ipv4_safi_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 3;
+  int idx_ipv4 = 4;
+  int idx_bestpath = 5;
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[3]->arg, "m", 1) == 0)
-    if (strncmp (argv[5]->arg, "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+      return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+      return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
   else
-    if (strncmp (argv[5]->arg, "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+    if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+      return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+      return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 DEFUN (show_bgp_ipv4_prefix,
@@ -8049,7 +8100,8 @@ DEFUN (show_bgp_ipv4_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        JSON_STR)
 {
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json (argc, argv));
+  int idx_ipv4_prefixlen = 3;
+  return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json (argc, argv));
 }
 
 DEFUN (show_bgp_ipv6_route,
@@ -8061,7 +8113,8 @@ DEFUN (show_bgp_ipv6_route,
        "Network in the BGP routing table to display\n"
        JSON_STR)
 {
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json (argc, argv));
+  int idx_ipv6 = 3;
+  return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json (argc, argv));
 }
 
 DEFUN (show_bgp_ipv6_prefix,
@@ -8073,7 +8126,8 @@ DEFUN (show_bgp_ipv6_prefix,
        "IPv6 prefix <network>/<length>\n"
        JSON_STR)
 {
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json (argc,argv));
+  int idx_ipv6_prefixlen = 3;
+  return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json (argc,argv));
 }
 
 /*
@@ -8100,12 +8154,14 @@ DEFUN (show_ip_bgp_ipv4_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
+  int idx_ipv4 = 5;
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, uj);
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, uj);
 }
 
 
@@ -8120,7 +8176,8 @@ DEFUN (show_ip_bgp_vpnv4_all_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_ipv4 = 5;
+  return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_ipv4_vpn_route,
@@ -8133,7 +8190,8 @@ DEFUN (show_bgp_ipv4_vpn_route,
        "Network in the BGP routing table to display\n"
        JSON_STR)
 {
-  return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json (argc, argv));
+  int idx_ipv4 = 4;
+  return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json (argc, argv));
 }
 
 DEFUN (show_bgp_ipv6_vpn_route,
@@ -8146,7 +8204,8 @@ DEFUN (show_bgp_ipv6_vpn_route,
        "Network in the BGP routing table to display\n"
        JSON_STR)
 {
-  return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json (argc, argv));
+  int idx_ipv6 = 4;
+  return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_MPLS_VPN, NULL, 0, BGP_PATH_ALL, use_json (argc, argv));
 }
 
 DEFUN (show_bgp_ipv4_vpn_rd_route,
@@ -8161,16 +8220,18 @@ DEFUN (show_bgp_ipv4_vpn_rd_route,
        "Network in the BGP routing table to display\n"
        JSON_STR)
 {
+  int idx_ext_community = 5;
+  int idx_ipv4 = 6;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[5]->arg, &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_route (vty, NULL, argv[6]->arg, AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
+  return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
 }
 
 DEFUN (show_bgp_ipv6_vpn_rd_route,
@@ -8185,16 +8246,18 @@ DEFUN (show_bgp_ipv6_vpn_rd_route,
        "Network in the BGP routing table to display\n"
        JSON_STR)
 {
+  int idx_ext_community = 5;
+  int idx_ipv6 = 6;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[5]->arg, &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_route (vty, NULL, argv[6]->arg, AFI_IP6, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
+  return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json (argc, argv));
 }
 
 DEFUN (show_ip_bgp_vpnv4_rd_route,
@@ -8209,17 +8272,19 @@ DEFUN (show_ip_bgp_vpnv4_rd_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ext_community = 5;
+  int idx_ipv4 = 6;
   int ret;
   struct prefix_rd prd;
   u_char uj= use_json(argc, argv);
 
-  ret = str2prefix_rd (argv[5]->arg, &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_route (vty, NULL, argv[6]->arg, AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, uj);
 }
 
 DEFUN (show_ip_bgp_prefix,
@@ -8231,7 +8296,8 @@ DEFUN (show_ip_bgp_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_ipv4_prefixlen = 3;
+  return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_prefix_pathtype,
@@ -8245,11 +8311,13 @@ DEFUN (show_ip_bgp_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv4_prefixlen = 3;
+  int idx_bestpath = 4;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[4]->arg, "b", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 /*
@@ -8276,12 +8344,14 @@ DEFUN (show_ip_bgp_ipv4_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
+  int idx_ipv4_prefixlen = 5;
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, uj);
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, uj);
 }
 
 
@@ -8313,18 +8383,21 @@ DEFUN (show_ip_bgp_ipv4_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
+  int idx_ipv4_prefixlen = 5;
+  int idx_bestpath = 6;
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    if (strncmp (argv[6]->arg, "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+      return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+      return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
   else
-    if (strncmp (argv[6]->arg, "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+    if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+      return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+      return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 
@@ -8339,7 +8412,8 @@ DEFUN (show_ip_bgp_vpnv4_all_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, NULL, argv[5]->arg, AFI_IP, SAFI_MPLS_VPN, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_ipv4_prefixlen = 5;
+  return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_MPLS_VPN, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_vpnv4_rd_prefix,
@@ -8354,16 +8428,18 @@ DEFUN (show_ip_bgp_vpnv4_rd_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ext_community = 5;
+  int idx_ipv4_prefixlen = 6;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[5]->arg, &prd);
+  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  return bgp_show_route (vty, NULL, argv[6]->arg, AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json(argc, argv));
+  return bgp_show_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_MPLS_VPN, &prd, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_view,
@@ -8375,13 +8451,14 @@ DEFUN (show_ip_bgp_view,
        BGP_INSTANCE_HELP_STR
        "JavaScript Object Notation\n")
 {
+  int idx_word = 4;
   struct bgp *bgp;
 
   /* BGP structure lookup. */
-  bgp = bgp_lookup_by_name (argv[4]->arg);
+  bgp = bgp_lookup_by_name (argv[idx_word]->arg);
   if (bgp == NULL)
 	{
-	  vty_out (vty, "Can't find BGP instance %s%s", argv[4]->arg, VTY_NEWLINE);
+	  vty_out (vty, "Can't find BGP instance %s%s", argv[idx_word]->arg, VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
 
@@ -8413,7 +8490,9 @@ DEFUN (show_ip_bgp_instance_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, argv[4]->arg, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_word = 4;
+  int idx_ipv4 = 5;
+  return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_instance_route_pathtype,
@@ -8428,12 +8507,15 @@ DEFUN (show_ip_bgp_instance_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 4;
+  int idx_ipv4 = 5;
+  int idx_bestpath = 6;
   u_char uj = use_json(argc, argv);
 
-  if (strncmp (argv[6]->arg, "b", 1) == 0)
-    return bgp_show_route (vty, argv[4]->arg, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+    return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, argv[4]->arg, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 DEFUN (show_ip_bgp_instance_prefix,
@@ -8446,7 +8528,9 @@ DEFUN (show_ip_bgp_instance_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, argv[4]->arg, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_word = 4;
+  int idx_ipv4_prefixlen = 5;
+  return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_ip_bgp_instance_prefix_pathtype,
@@ -8461,11 +8545,14 @@ DEFUN (show_ip_bgp_instance_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 4;
+  int idx_ipv4_prefixlen = 5;
+  int idx_bestpath = 6;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[6]->arg, "b", 1) == 0)
-    return bgp_show_route (vty, argv[4]->arg, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+    return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, argv[4]->arg, argv[5]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 #ifdef HAVE_IPV6
@@ -8500,8 +8587,9 @@ DEFUN (show_bgp_ipv6_safi,
        "Address Family modifier\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 3;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[3]->arg, "m", 1) == 0)
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST, bgp_show_type_normal,
                      NULL, uj);
 
@@ -8538,7 +8626,8 @@ DEFUN (show_bgp_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, NULL, argv[2]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_ipv6 = 2;
+  return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_ipv6_safi_route,
@@ -8552,11 +8641,13 @@ DEFUN (show_bgp_ipv6_safi_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 3;
+  int idx_ipv6 = 4;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[3]->arg, "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, uj);
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, uj);
 }
 
 /*
@@ -8581,11 +8672,13 @@ DEFUN (show_bgp_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv6 = 2;
+  int idx_bestpath = 3;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[3]->arg, "b", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[2]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, NULL, argv[2]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 
@@ -8602,17 +8695,20 @@ DEFUN (show_bgp_ipv6_safi_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 3;
+  int idx_ipv6 = 4;
+  int idx_bestpath = 5;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[3]->arg, "m", 1) == 0)
-    if (strncmp (argv[5]->arg, "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+      return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+      return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
   else
-    if (strncmp (argv[5]->arg, "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+    if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+      return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+      return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 /* old command */
@@ -8625,8 +8721,9 @@ DEFUN (show_ipv6_bgp_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv6 = 3;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+  return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_prefix,
@@ -8637,7 +8734,8 @@ DEFUN (show_bgp_prefix,
        "IPv6 prefix <network>/<length>\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, NULL, argv[2]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_ipv6_prefixlen = 2;
+  return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 DEFUN (show_bgp_ipv6_safi_prefix,
@@ -8651,11 +8749,13 @@ DEFUN (show_bgp_ipv6_safi_prefix,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 3;
+  int idx_ipv6_prefixlen = 4;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[3]->arg, "m", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, uj);
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, uj);
 
-  return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, uj);
+  return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, uj);
 }
 
 /*
@@ -8680,11 +8780,13 @@ DEFUN (show_bgp_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv6_prefixlen = 2;
+  int idx_bestpath = 3;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[3]->arg, "b", 1) == 0)
-    return bgp_show_route (vty, NULL, argv[2]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+    return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, NULL, argv[2]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 
@@ -8701,17 +8803,20 @@ DEFUN (show_bgp_ipv6_safi_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 3;
+  int idx_ipv6_prefixlen = 4;
+  int idx_bestpath = 5;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[3]->arg, "m", 1) == 0)
-    if (strncmp (argv[5]->arg, "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+      return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+      return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
   else
-    if (strncmp (argv[5]->arg, "b", 1) == 0)
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+    if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+      return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
     else
-      return bgp_show_route (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+      return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 /* old command */
@@ -8724,8 +8829,9 @@ DEFUN (show_ipv6_bgp_prefix,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv6_prefixlen = 3;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
+  return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 /*
@@ -8746,13 +8852,14 @@ DEFUN (show_bgp_view,
        BGP_INSTANCE_HELP_STR
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
   struct bgp *bgp;
 
   /* BGP structure lookup. */
-  bgp = bgp_lookup_by_name (argv[3]->arg);
+  bgp = bgp_lookup_by_name (argv[idx_word]->arg);
   if (bgp == NULL)
     {
-      vty_out (vty, "Can't find BGP instance %s%s", argv[3]->arg, VTY_NEWLINE);
+      vty_out (vty, "Can't find BGP instance %s%s", argv[idx_word]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -8794,7 +8901,9 @@ DEFUN (show_bgp_instance_route,
        "Network in the BGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_word = 3;
+  int idx_ipv6 = 4;
+  return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 
@@ -8822,11 +8931,14 @@ DEFUN (show_bgp_instance_route_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_ipv6 = 4;
+  int idx_bestpath = 5;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[5]->arg, "b", 1) == 0)
-    return bgp_show_route (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+    return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv6]->arg, AFI_IP6, SAFI_UNICAST, NULL, 0, BGP_PATH_MULTIPATH, uj);
 }
 
 
@@ -8850,7 +8962,9 @@ DEFUN (show_bgp_instance_prefix,
        "IPv6 prefix <network>/<length>\n"
        "JavaScript Object Notation\n")
 {
-  return bgp_show_route (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
+  int idx_word = 3;
+  int idx_ipv6_prefixlen = 4;
+  return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 
@@ -8878,11 +8992,14 @@ DEFUN (show_bgp_instance_prefix_pathtype,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_ipv6_prefixlen = 4;
+  int idx_bestpath = 5;
   u_char uj = use_json(argc, argv);
-  if (strncmp (argv[5]->arg, "b", 1) == 0)
-    return bgp_show_route (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
+  if (strncmp (argv[idx_bestpath]->arg, "b", 1) == 0)
+    return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_BESTPATH, uj);
   else
-    return bgp_show_route (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
+    return bgp_show_route (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL, 1, BGP_PATH_MULTIPATH, uj);
 }
 
 
@@ -8906,7 +9023,9 @@ DEFUN (show_bgp_instance_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IPv6 prefix-list name\n")
 {
-  return bgp_show_prefix_list (vty, argv[3]->arg, argv[5]->arg, AFI_IP6, SAFI_UNICAST,
+  int idx_word = 3;
+  int idx_word_2 = 5;
+  return bgp_show_prefix_list (vty, argv[idx_word]->arg, argv[idx_word_2]->arg, AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -8931,7 +9050,9 @@ DEFUN (show_bgp_instance_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  return bgp_show_filter_list (vty, argv[3]->arg, argv[5]->arg, AFI_IP6, SAFI_UNICAST,
+  int idx_word = 3;
+  int idx_word_2 = 5;
+  return bgp_show_filter_list (vty, argv[idx_word]->arg, argv[idx_word_2]->arg, AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -8956,7 +9077,9 @@ DEFUN (show_bgp_instance_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  return bgp_show_route_map (vty, argv[3]->arg, argv[5]->arg, AFI_IP6, SAFI_UNICAST,
+  int idx_word = 3;
+  int idx_word_2 = 5;
+  return bgp_show_route_map (vty, argv[idx_word]->arg, argv[idx_word_2]->arg, AFI_IP6, SAFI_UNICAST,
 			     bgp_show_type_route_map);
 }
 
@@ -8983,7 +9106,9 @@ DEFUN (show_bgp_instance_community_list,
        "community-list number\n"
        "community-list name\n")
 {
-  return bgp_show_community_list (vty, argv[3]->arg, argv[5]->arg, 0, AFI_IP6, SAFI_UNICAST);
+  int idx_word = 3;
+  int idx_comm_list = 5;
+  return bgp_show_community_list (vty, argv[idx_word]->arg, argv[idx_comm_list]->arg, 0, AFI_IP6, SAFI_UNICAST);
 }
 
 
@@ -9007,7 +9132,9 @@ DEFUN (show_bgp_instance_prefix_longer,
        "IPv6 prefix <network>/<length>\n"
        "Display route and more specific routes\n")
 {
-  return bgp_show_prefix_longer (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, SAFI_UNICAST,
+  int idx_word = 3;
+  int idx_ipv6_prefixlen = 4;
+  return bgp_show_prefix_longer (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -9036,8 +9163,9 @@ DEFUN (show_ipv6_mbgp_route,
        "Network in the MBGP routing table to display\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv6 = 3;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+  return bgp_show_route (vty, NULL, argv[idx_ipv6]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
 }
 
 /* old command */
@@ -9050,8 +9178,9 @@ DEFUN (show_ipv6_mbgp_prefix,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "JavaScript Object Notation\n")
 {
+  int idx_ipv6_prefixlen = 3;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_route (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
+  return bgp_show_route (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_MULTICAST, NULL, 1, BGP_PATH_ALL, use_json(argc, argv));
 }
 #endif
 
@@ -9153,7 +9282,8 @@ DEFUN (show_ip_bgp_ipv4_regexp,
        "Display routes matching the AS path regular expression\n"
        "A regular-expression to match the BGP AS paths\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  int idx_safi = 4;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_show_regexp (vty, argc, argv, AFI_IP, SAFI_MULTICAST,
 			    bgp_show_type_regexp);
 
@@ -9250,7 +9380,8 @@ DEFUN (show_ip_bgp_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IP prefix-list name\n")
 {
-  return bgp_show_prefix_list (vty, NULL, argv[4]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 4;
+  return bgp_show_prefix_list (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -9264,7 +9395,9 @@ DEFUN (show_ip_bgp_instance_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IP prefix-list name\n")
 {
-  return bgp_show_prefix_list (vty, argv[4]->arg, argv[6]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 4;
+  int idx_word_2 = 6;
+  return bgp_show_prefix_list (vty, argv[idx_word]->arg, argv[idx_word_2]->arg, AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -9290,7 +9423,8 @@ DEFUN (show_ip_bgp_flap_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IP prefix-list name\n")
 {
-  return bgp_show_prefix_list (vty, NULL, argv[5]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 5;
+  return bgp_show_prefix_list (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_flap_prefix_list);
 }
 
@@ -9307,11 +9441,13 @@ DEFUN (show_ip_bgp_ipv4_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IP prefix-list name\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    return bgp_show_prefix_list (vty, NULL, argv[6]->arg, AFI_IP, SAFI_MULTICAST,
+  int idx_safi = 4;
+  int idx_word = 6;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_prefix_list (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_MULTICAST,
 			         bgp_show_type_prefix_list);
 
-  return bgp_show_prefix_list (vty, NULL, argv[6]->arg, AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -9334,7 +9470,8 @@ DEFUN (show_bgp_prefix_list,
        "Display routes conforming to the prefix-list\n"
        "IPv6 prefix-list name\n")
 {
-  return bgp_show_prefix_list (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_UNICAST,
+  int idx_word = 3;
+  return bgp_show_prefix_list (vty, NULL, argv[idx_word]->arg, AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -9349,8 +9486,9 @@ DEFUN (show_ipv6_bgp_prefix_list,
        "Display routes matching the prefix-list\n"
        "IPv6 prefix-list name\n")
 {
+  int idx_word = 4;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_prefix_list (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_UNICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[idx_word]->arg, AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_prefix_list);
 }
 
@@ -9364,8 +9502,9 @@ DEFUN (show_ipv6_mbgp_prefix_list,
        "Display routes matching the prefix-list\n"
        "IPv6 prefix-list name\n")
 {
+  int idx_word = 4;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_prefix_list (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MULTICAST,
+  return bgp_show_prefix_list (vty, NULL, argv[idx_word]->arg, AFI_IP6, SAFI_MULTICAST,
 			       bgp_show_type_prefix_list);
 }
 #endif /* HAVE_IPV6 */
@@ -9403,7 +9542,8 @@ DEFUN (show_ip_bgp_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  return bgp_show_filter_list (vty, NULL, argv[4]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 4;
+  return bgp_show_filter_list (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -9417,7 +9557,9 @@ DEFUN (show_ip_bgp_instance_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  return bgp_show_filter_list (vty, argv[4]->arg, argv[6]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 4;
+  int idx_word_2 = 6;
+  return bgp_show_filter_list (vty, argv[idx_word]->arg, argv[idx_word_2]->arg, AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -9443,7 +9585,8 @@ DEFUN (show_ip_bgp_flap_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  return bgp_show_filter_list (vty, NULL, argv[5]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 5;
+  return bgp_show_filter_list (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_flap_filter_list);
 }
 
@@ -9460,11 +9603,13 @@ DEFUN (show_ip_bgp_ipv4_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    return bgp_show_filter_list (vty, NULL, argv[6]->arg, AFI_IP, SAFI_MULTICAST,
+  int idx_safi = 4;
+  int idx_word = 6;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_filter_list (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_MULTICAST,
 			         bgp_show_type_filter_list);
   
-  return bgp_show_filter_list (vty, NULL, argv[6]->arg, AFI_IP, SAFI_UNICAST,
+  return bgp_show_filter_list (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -9487,7 +9632,8 @@ DEFUN (show_bgp_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
-  return bgp_show_filter_list (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_UNICAST,
+  int idx_word = 3;
+  return bgp_show_filter_list (vty, NULL, argv[idx_word]->arg, AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -9502,8 +9648,9 @@ DEFUN (show_ipv6_bgp_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
+  int idx_word = 4;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_filter_list (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_UNICAST,
+  return bgp_show_filter_list (vty, NULL, argv[idx_word]->arg, AFI_IP6, SAFI_UNICAST,
 			       bgp_show_type_filter_list);
 }
 
@@ -9517,8 +9664,9 @@ DEFUN (show_ipv6_mbgp_filter_list,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n")
 {
+  int idx_word = 4;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_filter_list (vty, NULL, argv[4]->arg, AFI_IP6, SAFI_MULTICAST,
+  return bgp_show_filter_list (vty, NULL, argv[idx_word]->arg, AFI_IP6, SAFI_MULTICAST,
 			       bgp_show_type_filter_list);
 }
 #endif /* HAVE_IPV6 */
@@ -9548,7 +9696,8 @@ DEFUN (show_ip_bgp_ipv4_dampening_parameters,
        "Display detailed information about dampening\n"
        "Display detail of configured dampening parameters\n")
 {
-    if (strncmp(argv[4]->arg, "m", 1) == 0)
+  int idx_safi = 4;
+    if (strncmp(argv[idx_safi]->arg, "m", 1) == 0)
       return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_MULTICAST);
 
     return bgp_show_dampening_parameters (vty, AFI_IP, SAFI_UNICAST);
@@ -9567,7 +9716,8 @@ DEFUN (show_ip_bgp_ipv4_dampening_flap_stats,
        "Display detailed information about dampening\n"
        "Display flap statistics of routes\n")
 {
-    if (strncmp(argv[4]->arg, "m", 1) == 0)
+  int idx_safi = 4;
+    if (strncmp(argv[idx_safi]->arg, "m", 1) == 0)
       return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
                      bgp_show_type_flap_statistics, NULL, 0);
 
@@ -9587,7 +9737,8 @@ DEFUN (show_ip_bgp_ipv4_dampening_dampd_paths,
        "Display detailed information about dampening\n"
        "Display paths suppressed due to dampening\n")
 {
-    if (strncmp(argv[4]->arg, "m", 1) == 0)
+  int idx_safi = 4;
+    if (strncmp(argv[idx_safi]->arg, "m", 1) == 0)
       return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
                      bgp_show_type_dampend_paths, NULL, 0);
 
@@ -9629,7 +9780,8 @@ DEFUN (show_ip_bgp_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  return bgp_show_route_map (vty, NULL, argv[4]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 4;
+  return bgp_show_route_map (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			     bgp_show_type_route_map);
 }
 
@@ -9643,7 +9795,9 @@ DEFUN (show_ip_bgp_instance_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  return bgp_show_route_map (vty, argv[4]->arg, argv[6]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 4;
+  int idx_word_2 = 6;
+  return bgp_show_route_map (vty, argv[idx_word]->arg, argv[idx_word_2]->arg, AFI_IP, SAFI_UNICAST,
 			     bgp_show_type_route_map);
 }
 
@@ -9669,7 +9823,8 @@ DEFUN (show_ip_bgp_flap_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  return bgp_show_route_map (vty, NULL, argv[5]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 5;
+  return bgp_show_route_map (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			     bgp_show_type_flap_route_map);
 }
 
@@ -9686,11 +9841,13 @@ DEFUN (show_ip_bgp_ipv4_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    return bgp_show_route_map (vty, NULL, argv[6]->arg, AFI_IP, SAFI_MULTICAST,
+  int idx_safi = 4;
+  int idx_word = 6;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_route_map (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_MULTICAST,
 			       bgp_show_type_route_map);
 
-  return bgp_show_route_map (vty, NULL, argv[6]->arg, AFI_IP, SAFI_UNICAST,
+  return bgp_show_route_map (vty, NULL, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST,
 			     bgp_show_type_route_map);
 }
 
@@ -9712,7 +9869,8 @@ DEFUN (show_bgp_route_map,
        "Display routes matching the route-map\n"
        "A route-map to match on\n")
 {
-  return bgp_show_route_map (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_UNICAST,
+  int idx_word = 3;
+  return bgp_show_route_map (vty, NULL, argv[idx_word]->arg, AFI_IP6, SAFI_UNICAST,
 			     bgp_show_type_route_map);
 }
 
@@ -9765,7 +9923,8 @@ DEFUN (show_ip_bgp_ipv4_cidr_only,
        "Address Family modifier\n"
        "Display only routes with non-natural netmasks\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  int idx_safi = 4;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
 		     bgp_show_type_cidr_only, NULL, 0);
 
@@ -9796,7 +9955,8 @@ DEFUN (show_ip_bgp_ipv4_community_all,
        "Address Family modifier\n"
        "Display routes matching the communities\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  int idx_safi = 4;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
 		     bgp_show_type_community_all, NULL, 0);
  
@@ -10074,7 +10234,8 @@ DEFUN (show_ip_bgp_ipv4_community,
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  int idx_safi = 4;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_show_community (vty, NULL, argc, argv, 0, AFI_IP, SAFI_MULTICAST);
  
   return bgp_show_community (vty, NULL, argc, argv, 0, AFI_IP, SAFI_UNICAST);
@@ -10095,20 +10256,23 @@ DEFUN (show_bgp_instance_afi_safi_community_all,
        "Address Family modifier\n"
        "Display routes matching the communities\n")
 {
+  int idx_word = 3;
+  int idx_afi = 4;
+  int idx_safi = 5;
   int afi;
   int safi;
   struct bgp *bgp;
 
   /* BGP structure lookup. */
-  bgp = bgp_lookup_by_name (argv[3]->arg);
+  bgp = bgp_lookup_by_name (argv[idx_word]->arg);
   if (bgp == NULL)
     {
-      vty_out (vty, "Can't find BGP instance %s%s", argv[3]->arg, VTY_NEWLINE);
+      vty_out (vty, "Can't find BGP instance %s%s", argv[idx_word]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  afi = (strncmp (argv[4]->arg, "ipv6", 4) == 0) ? AFI_IP6 : AFI_IP;
-  safi = (strncmp (argv[5]->arg, "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  afi = (strncmp (argv[idx_afi]->arg, "ipv6", 4) == 0) ? AFI_IP6 : AFI_IP;
+  safi = (strncmp (argv[idx_safi]->arg, "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
   return bgp_show (vty, bgp, afi, safi, bgp_show_type_community_all, NULL, 0);
 }
 
@@ -10197,12 +10361,15 @@ DEFUN (show_bgp_instance_afi_safi_community,
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n")
 {
+  int idx_word = 3;
+  int idx_afi = 4;
+  int idx_safi = 5;
   int afi;
   int safi;
 
-  afi = (strncmp (argv[4]->arg, "ipv6", 4) == 0) ? AFI_IP6 : AFI_IP;
-  safi = (strncmp (argv[5]->arg, "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  return bgp_show_community (vty, argv[3]->arg, argc, argv, 0, afi, safi);
+  afi = (strncmp (argv[idx_afi]->arg, "ipv6", 4) == 0) ? AFI_IP6 : AFI_IP;
+  safi = (strncmp (argv[idx_safi]->arg, "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  return bgp_show_community (vty, argv[idx_word]->arg, argc, argv, 0, afi, safi);
 }
 
 
@@ -10372,7 +10539,8 @@ DEFUN (show_ip_bgp_ipv4_community_exact,
        "Do not export to next AS (well-known community)\n"
        "Exact match of the communities")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  int idx_safi = 4;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_show_community (vty, NULL, argc, argv, 1, AFI_IP, SAFI_MULTICAST);
  
   return bgp_show_community (vty, NULL, argc, argv, 1, AFI_IP, SAFI_UNICAST);
@@ -11034,7 +11202,8 @@ DEFUN (show_ip_bgp_community_list,
        "community-list number\n"
        "community-list name\n")
 {
-  return bgp_show_community_list (vty, NULL, argv[4]->arg, 0, AFI_IP, SAFI_UNICAST);
+  int idx_comm_list = 4;
+  return bgp_show_community_list (vty, NULL, argv[idx_comm_list]->arg, 0, AFI_IP, SAFI_UNICAST);
 }
 
 DEFUN (show_ip_bgp_instance_community_list,
@@ -11048,7 +11217,9 @@ DEFUN (show_ip_bgp_instance_community_list,
        "community-list number\n"
        "community-list name\n")
 {
-  return bgp_show_community_list (vty, argv[4]->arg, argv[6]->arg, 0, AFI_IP, SAFI_UNICAST);
+  int idx_word = 4;
+  int idx_comm_list = 6;
+  return bgp_show_community_list (vty, argv[idx_word]->arg, argv[idx_comm_list]->arg, 0, AFI_IP, SAFI_UNICAST);
 }
 
 DEFUN (show_ip_bgp_ipv4_community_list,
@@ -11064,10 +11235,12 @@ DEFUN (show_ip_bgp_ipv4_community_list,
        "community-list number\n"
        "community-list name\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    return bgp_show_community_list (vty, NULL, argv[6]->arg, 0, AFI_IP, SAFI_MULTICAST);
+  int idx_safi = 4;
+  int idx_comm_list = 6;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_community_list (vty, NULL, argv[idx_comm_list]->arg, 0, AFI_IP, SAFI_MULTICAST);
   
-  return bgp_show_community_list (vty, NULL, argv[6]->arg, 0, AFI_IP, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[idx_comm_list]->arg, 0, AFI_IP, SAFI_UNICAST);
 }
 
 DEFUN (show_ip_bgp_community_list_exact,
@@ -11081,7 +11254,8 @@ DEFUN (show_ip_bgp_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
-  return bgp_show_community_list (vty, NULL, argv[4]->arg, 1, AFI_IP, SAFI_UNICAST);
+  int idx_comm_list = 4;
+  return bgp_show_community_list (vty, NULL, argv[idx_comm_list]->arg, 1, AFI_IP, SAFI_UNICAST);
 }
 
 DEFUN (show_ip_bgp_ipv4_community_list_exact,
@@ -11098,10 +11272,12 @@ DEFUN (show_ip_bgp_ipv4_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    return bgp_show_community_list (vty, NULL, argv[6]->arg, 1, AFI_IP, SAFI_MULTICAST);
+  int idx_safi = 4;
+  int idx_comm_list = 6;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_community_list (vty, NULL, argv[idx_comm_list]->arg, 1, AFI_IP, SAFI_MULTICAST);
  
-  return bgp_show_community_list (vty, NULL, argv[6]->arg, 1, AFI_IP, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[idx_comm_list]->arg, 1, AFI_IP, SAFI_UNICAST);
 }
 
 #ifdef HAVE_IPV6
@@ -11125,7 +11301,8 @@ DEFUN (show_bgp_community_list,
        "community-list number\n"
        "community-list name\n")
 {
-  return bgp_show_community_list (vty, NULL, argv[3]->arg, 0, AFI_IP6, SAFI_UNICAST);
+  int idx_comm_list = 3;
+  return bgp_show_community_list (vty, NULL, argv[idx_comm_list]->arg, 0, AFI_IP6, SAFI_UNICAST);
 }
 
 
@@ -11139,8 +11316,9 @@ DEFUN (show_ipv6_bgp_community_list,
        "Display routes matching the community-list\n"
        "community-list name\n")
 {
+  int idx_word = 4;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_community_list (vty, NULL, argv[4]->arg, 0, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[idx_word]->arg, 0, AFI_IP6, SAFI_UNICAST);
 }
 
 /* old command */
@@ -11153,8 +11331,9 @@ DEFUN (show_ipv6_mbgp_community_list,
        "Display routes matching the community-list\n"
        "community-list name\n")
 {
+  int idx_word = 4;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_community_list (vty, NULL, argv[4]->arg, 0, AFI_IP6, SAFI_MULTICAST);
+  return bgp_show_community_list (vty, NULL, argv[idx_word]->arg, 0, AFI_IP6, SAFI_MULTICAST);
 }
 
 /*
@@ -11179,7 +11358,8 @@ DEFUN (show_bgp_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
-  return bgp_show_community_list (vty, NULL, argv[3]->arg, 1, AFI_IP6, SAFI_UNICAST);
+  int idx_comm_list = 3;
+  return bgp_show_community_list (vty, NULL, argv[idx_comm_list]->arg, 1, AFI_IP6, SAFI_UNICAST);
 }
 
 
@@ -11194,8 +11374,9 @@ DEFUN (show_ipv6_bgp_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
+  int idx_word = 4;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_community_list (vty, NULL, argv[4]->arg, 1, AFI_IP6, SAFI_UNICAST);
+  return bgp_show_community_list (vty, NULL, argv[idx_word]->arg, 1, AFI_IP6, SAFI_UNICAST);
 }
 
 /* old command */
@@ -11209,8 +11390,9 @@ DEFUN (show_ipv6_mbgp_community_list_exact,
        "community-list name\n"
        "Exact match of the communities\n")
 {
+  int idx_word = 4;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_community_list (vty, NULL, argv[4]->arg, 1, AFI_IP6, SAFI_MULTICAST);
+  return bgp_show_community_list (vty, NULL, argv[idx_word]->arg, 1, AFI_IP6, SAFI_MULTICAST);
 }
 #endif /* HAVE_IPV6 */
 
@@ -11252,7 +11434,8 @@ DEFUN (show_ip_bgp_prefix_longer,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display route and more specific routes\n")
 {
-  return bgp_show_prefix_longer (vty, NULL, argv[3]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_ipv4_prefixlen = 3;
+  return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -11266,7 +11449,9 @@ DEFUN (show_ip_bgp_instance_prefix_longer,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display route and more specific routes\n")
 {
-  return bgp_show_prefix_longer (vty, argv[4]->arg, argv[5]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_word = 4;
+  int idx_ipv4_prefixlen = 5;
+  return bgp_show_prefix_longer (vty, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -11292,7 +11477,8 @@ DEFUN (show_ip_bgp_flap_prefix_longer,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display route and more specific routes\n")
 {
-  return bgp_show_prefix_longer (vty, NULL, argv[4]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_ipv4_prefixlen = 4;
+  return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_flap_prefix_longer);
 }
 
@@ -11309,11 +11495,13 @@ DEFUN (show_ip_bgp_ipv4_prefix_longer,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Display route and more specific routes\n")
 {
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
-    return bgp_show_prefix_longer (vty, NULL, argv[5]->arg, AFI_IP, SAFI_MULTICAST,
+  int idx_safi = 4;
+  int idx_ipv4_prefixlen = 5;
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
+    return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_MULTICAST,
 				   bgp_show_type_prefix_longer);
 
-  return bgp_show_prefix_longer (vty, NULL, argv[5]->arg, AFI_IP, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -11337,7 +11525,8 @@ DEFUN (show_ip_bgp_flap_address,
        "Display flap statistics of routes\n"
        "Network in the BGP routing table to display\n")
 {
-  return bgp_show_prefix_longer (vty, NULL, argv[4]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_ipv4 = 4;
+  return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv4]->arg, AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_flap_address);
 }
 
@@ -11362,7 +11551,8 @@ DEFUN (show_ip_bgp_flap_prefix,
        "Display flap statistics of routes\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  return bgp_show_prefix_longer (vty, NULL, argv[4]->arg, AFI_IP, SAFI_UNICAST,
+  int idx_ipv4_prefixlen = 4;
+  return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST,
 				 bgp_show_type_flap_prefix);
 }
 
@@ -11386,7 +11576,8 @@ DEFUN (show_bgp_prefix_longer,
        "IPv6 prefix <network>/<length>\n"
        "Display route and more specific routes\n")
 {
-  return bgp_show_prefix_longer (vty, NULL, argv[2]->arg, AFI_IP6, SAFI_UNICAST,
+  int idx_ipv6_prefixlen = 2;
+  return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -11401,8 +11592,9 @@ DEFUN (show_ipv6_bgp_prefix_longer,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Display route and more specific routes\n")
 {
+  int idx_ipv6_prefixlen = 3;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_prefix_longer (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_UNICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST,
 				 bgp_show_type_prefix_longer);
 }
 
@@ -11416,8 +11608,9 @@ DEFUN (show_ipv6_mbgp_prefix_longer,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Display route and more specific routes\n")
 {
+  int idx_ipv6_prefixlen = 3;
   bgp_show_ipv6_bgp_deprecate_warning(vty);
-  return bgp_show_prefix_longer (vty, NULL, argv[3]->arg, AFI_IP6, SAFI_MULTICAST,
+  return bgp_show_prefix_longer (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_MULTICAST,
 				 bgp_show_type_prefix_longer);
 }
 #endif /* HAVE_IPV6 */
@@ -11832,7 +12025,9 @@ DEFUN (show_bgp_statistics,
        "Address Family modifier\n"
        "BGP RIB advertisement statistics\n")
 {
-  return bgp_table_stats_vty (vty, NULL, argv[2]->arg, argv[3]->arg);
+  int idx_afi = 2;
+  int idx_safi = 3;
+  return bgp_table_stats_vty (vty, NULL, argv[idx_afi]->arg, argv[idx_safi]->arg);
 }
 
 DEFUN (show_bgp_statistics_view,
@@ -11849,7 +12044,9 @@ DEFUN (show_bgp_statistics_view,
        "Address Family modifier\n"
        "BGP RIB advertisement statistics\n")
 {
-  return bgp_table_stats_vty (vty, NULL, argv[3]->arg, argv[4]->arg);
+  int idx_word = 3;
+  int idx_afi = 4;
+  return bgp_table_stats_vty (vty, NULL, argv[idx_word]->arg, argv[idx_afi]->arg);
 }
 
 enum bgp_pcounts
@@ -12056,10 +12253,11 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer) 
     return CMD_WARNING;
  
@@ -12080,10 +12278,12 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 4;
+  int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, argv[4]->arg, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -12103,10 +12303,11 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer) 
     return CMD_WARNING;
  
@@ -12127,10 +12328,12 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, argv[3]->arg, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -12153,14 +12356,16 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
+  int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MULTICAST, uj);
 
   return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST, uj);
@@ -12182,10 +12387,11 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
   
@@ -12460,13 +12666,15 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 4;
+  int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  if (argc == 4 || (argc == 3 && argv[6]->arg && strcmp(argv[6]->arg, "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[4]->arg, argv[6]->arg, uj);
+  if (argc == 4 || (argc == 3 && argv[idx_peer]->arg && strcmp(argv[idx_peer]->arg, "json") != 0))
+    peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+    peer = peer_lookup_in_view (vty, NULL, argv[idx_word]->arg, uj);
 
   if (! peer) 
     return CMD_WARNING;
@@ -12502,18 +12710,20 @@ DEFUN (show_ip_bgp_neighbor_advertised_route,
        "JavaScript Object Notation\n")
 
 {
+  int idx_peer = 4;
+  int idx_json = 6;
   struct peer *peer;
   const char *rmap_name = NULL;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
 
   if (! peer)
     return CMD_WARNING;
 
-  if ((argc == 2 && argv[6]->arg && strcmp(argv[6]->arg, "json") != 0)
+  if ((argc == 2 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") != 0)
       || (argc == 3))
-    rmap_name = argv[6]->arg;
+    rmap_name = argv[idx_json]->arg;
 
   return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0, rmap_name, uj);
 }
@@ -12553,18 +12763,21 @@ DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
+  int idx_peer = 6;
+  int idx_json = 8;
   struct peer *peer;
   const char *rmap_name = NULL;
   u_char uj = use_json(argc, argv); 
 
-  peer = peer_lookup_in_view (vty, NULL, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
-  if ((argc == 4) || (argc == 3 && argv[8]->arg && strcmp(argv[8]->arg, "json") != 0))
-    rmap_name = argv[8]->arg;
+  if ((argc == 4) || (argc == 3 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") != 0))
+    rmap_name = argv[idx_json]->arg;
 
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return peer_adj_routes (vty, peer, AFI_IP, SAFI_MULTICAST, 0, rmap_name, uj);
   else
     return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0, rmap_name, uj);
@@ -12600,13 +12813,15 @@ DEFUN (show_bgp_instance_neighbor_advertised_route,
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_peer = 5;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  if (argc == 4 || (argc == 3 && argv[5]->arg && strcmp(argv[5]->arg, "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[3]->arg, argv[5]->arg, uj);
+  if (argc == 4 || (argc == 3 && argv[idx_peer]->arg && strcmp(argv[idx_peer]->arg, "json") != 0))
+    peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[3]->arg, uj);
+    peer = peer_lookup_in_view (vty, NULL, argv[idx_word]->arg, uj);
 
   if (! peer)
     return CMD_WARNING;
@@ -12653,17 +12868,19 @@ DEFUN (show_bgp_neighbor_advertised_route,
        "JavaScript Object Notation\n")
 
 {
+  int idx_peer = 3;
+  int idx_json = 5;
   struct peer *peer;
   const char *rmap_name = NULL;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[3]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
 
   if (!peer)
     return CMD_WARNING;
 
-  if (argc == 3 || (argc == 2 && argv[5]->arg && strcmp(argv[5]->arg, "json") != 0))
-    rmap_name = argv[5]->arg;
+  if (argc == 3 || (argc == 2 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") != 0))
+    rmap_name = argv[idx_json]->arg;
 
   return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 0, rmap_name, uj);
 }
@@ -12686,10 +12903,11 @@ DEFUN (ipv6_mbgp_neighbor_advertised_route,
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -12726,10 +12944,12 @@ DEFUN (show_bgp_instance_neighbor_received_routes,
        "Display the received routes from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_peer = 5;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, argv[3]->arg, argv[5]->arg, uj);
+  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -12765,10 +12985,12 @@ DEFUN (show_ip_bgp_instance_neighbor_received_routes,
        "Display the received routes from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 4;
+  int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, argv[4]->arg, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -12804,17 +13026,19 @@ DEFUN (show_ip_bgp_neighbor_received_routes,
        "JavaScript Object Notation\n")
 
 {
+  int idx_peer = 4;
+  int idx_json = 6;
   struct peer *peer;
   const char *rmap_name = NULL;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
 
   if (! peer)
     return CMD_WARNING;
 
-  if (argc == 3 || (argc == 2 && argv[6]->arg && strcmp(argv[6]->arg, "json") != 0))
-    rmap_name = argv[6]->arg;
+  if (argc == 3 || (argc == 2 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") != 0))
+    rmap_name = argv[idx_json]->arg;
 
   return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1, rmap_name, uj);
 }
@@ -12854,18 +13078,21 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_routes,
        "Display the received routes from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
+  int idx_peer = 6;
+  int idx_json = 8;
   struct peer *peer;
   const char *rmap_name = NULL;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
-  if (argc == 4 || (argc == 3 && argv[8]->arg && strcmp(argv[8]->arg, "json") != 0))
-    rmap_name = argv[8]->arg;
+  if (argc == 4 || (argc == 3 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") != 0))
+    rmap_name = argv[idx_json]->arg;
 
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return peer_adj_routes (vty, peer, AFI_IP, SAFI_MULTICAST, 1, rmap_name, uj);
   else
     return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1, rmap_name, uj);
@@ -12890,20 +13117,25 @@ DEFUN (show_bgp_instance_afi_safi_neighbor_adv_recd_routes,
        "Display the received routes from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_afi = 4;
+  int idx_safi = 5;
+  int idx_peer = 7;
+  int idx_adv_rcvd_routes = 8;
   int afi;
   int safi;
   int in;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, argv[3]->arg, argv[7]->arg, uj);
+  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
 
   if (! peer)
     return CMD_WARNING;
 
-  afi = (strncmp (argv[4]->arg, "ipv6", 4) == 0) ? AFI_IP6 : AFI_IP;
-  safi = (strncmp (argv[5]->arg, "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
-  in = (strncmp (argv[8]->arg, "r", 1) == 0) ? 1 : 0;
+  afi = (strncmp (argv[idx_afi]->arg, "ipv6", 4) == 0) ? AFI_IP6 : AFI_IP;
+  safi = (strncmp (argv[idx_safi]->arg, "m", 1) == 0) ? SAFI_MULTICAST : SAFI_UNICAST;
+  in = (strncmp (argv[idx_adv_rcvd_routes]->arg, "r", 1) == 0) ? 1 : 0;
 
   return peer_adj_routes (vty, peer, afi, safi, in, NULL, uj);
 }
@@ -12922,16 +13154,17 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   char name[BUFSIZ];
   union sockunion su;
   struct peer *peer;
   int count, ret;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[4]->arg, &su);
+  ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      peer = peer_lookup_by_conf_if (NULL, argv[4]->arg);
+      peer = peer_lookup_by_conf_if (NULL, argv[idx_peer]->arg);
       if (! peer)
         {
           if (uj)
@@ -12941,13 +13174,13 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
               json_no = json_object_new_object();
               json_sub = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed address or name");
-              json_object_string_add(json_sub, "warningCause", argv[4]->arg);
+              json_object_string_add(json_sub, "warningCause", argv[idx_peer]->arg);
               json_object_object_add(json_no, "detail", json_sub);
               vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
               json_object_free(json_no);
             }
           else
-            vty_out (vty, "%% Malformed address or name: %s%s", argv[4]->arg, VTY_NEWLINE);
+            vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -13012,16 +13245,18 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
+  int idx_peer = 6;
   char name[BUFSIZ];
   union sockunion su;
   struct peer *peer;
   int count, ret;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[6]->arg, &su);
+  ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      peer = peer_lookup_by_conf_if (NULL, argv[6]->arg);
+      peer = peer_lookup_by_conf_if (NULL, argv[idx_peer]->arg);
       if (! peer)
         {
           if (uj)
@@ -13031,13 +13266,13 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
               json_no = json_object_new_object();
               json_sub = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed address or name");
-              json_object_string_add(json_sub, "warningCause", argv[6]->arg);
+              json_object_string_add(json_sub, "warningCause", argv[idx_peer]->arg);
               json_object_object_add(json_no, "detail", json_sub);
               vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
               json_object_free(json_no);
             }
           else
-            vty_out (vty, "%% Malformed address or name: %s%s", argv[6]->arg, VTY_NEWLINE);
+            vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -13060,7 +13295,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
         }
     }
 
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     {
       sprintf (name, "%s.%d.%d", peer->host, AFI_IP, SAFI_MULTICAST);
       count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, uj);
@@ -13149,17 +13384,19 @@ DEFUN (show_bgp_neighbor_received_routes,
        "Display the received routes from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 3;
+  int idx_json = 5;
   struct peer *peer;
   const char *rmap_name = NULL;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[3]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
 
   if (! peer)
     return CMD_WARNING;
 
-  if (argc == 3 || (argc == 2 && argv[5]->arg && strcmp(argv[5]->arg, "json") != 0))
-    rmap_name = argv[5]->arg;
+  if (argc == 3 || (argc == 2 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") != 0))
+    rmap_name = argv[idx_json]->arg;
 
   return peer_adj_routes (vty, peer, AFI_IP6, SAFI_UNICAST, 1, rmap_name, uj);
 }
@@ -13193,16 +13430,17 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 3;
   char name[BUFSIZ];
   union sockunion su;
   struct peer *peer;
   int count, ret;
   u_char uj = use_json(argc, argv);
 
-  ret = str2sockunion (argv[3]->arg, &su);
+  ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      peer = peer_lookup_by_conf_if (NULL, argv[3]->arg);
+      peer = peer_lookup_by_conf_if (NULL, argv[idx_peer]->arg);
       if (! peer)
         {
           if (uj)
@@ -13212,13 +13450,13 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
               json_no = json_object_new_object();
               json_sub = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed address or name");
-              json_object_string_add(json_sub, "warningCause", argv[3]->arg);
+              json_object_string_add(json_sub, "warningCause", argv[idx_peer]->arg);
               json_object_object_add(json_no, "detail", json_sub);
               vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
               json_object_free(json_no);
             }
           else
-            vty_out (vty, "%% Malformed address or name: %s%s", argv[3]->arg, VTY_NEWLINE);
+            vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -13283,10 +13521,11 @@ DEFUN (ipv6_mbgp_neighbor_received_routes,
        "Display the received routes from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -13324,6 +13563,8 @@ DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_peer = 5;
   char name[BUFSIZ];
   union sockunion su;
   struct peer *peer;
@@ -13332,7 +13573,7 @@ DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
   u_char uj = use_json(argc, argv);
 
   /* BGP structure lookup. */
-  bgp = bgp_lookup_by_name (argv[3]->arg);
+  bgp = bgp_lookup_by_name (argv[idx_word]->arg);
   if (bgp == NULL)
     {
       if (uj)
@@ -13344,14 +13585,14 @@ DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
           json_object_free(json_no);
         }
       else
-        vty_out (vty, "Can't find BGP instance %s%s", argv[3]->arg, VTY_NEWLINE);
+        vty_out (vty, "Can't find BGP instance %s%s", argv[idx_word]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  ret = str2sockunion (argv[5]->arg, &su);
+  ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      peer = peer_lookup_by_conf_if (bgp, argv[5]->arg);
+      peer = peer_lookup_by_conf_if (bgp, argv[idx_peer]->arg);
       if (! peer)
         {
           if (uj)
@@ -13361,13 +13602,13 @@ DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
               json_no = json_object_new_object();
               json_sub = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed address or name");
-              json_object_string_add(json_sub, "warningCause", argv[5]->arg);
+              json_object_string_add(json_sub, "warningCause", argv[idx_peer]->arg);
               json_object_object_add(json_no, "detail", json_sub);
               vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
               json_object_free(json_no);
             }
           else
-            vty_out (vty, "%% Malformed address or name: %s%s", argv[5]->arg, VTY_NEWLINE);
+            vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -13439,10 +13680,11 @@ DEFUN (show_ip_bgp_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
     
@@ -13464,10 +13706,12 @@ DEFUN (show_ip_bgp_instance_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 4;
+  int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, argv[4]->arg, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -13488,10 +13732,11 @@ DEFUN (show_ip_bgp_neighbor_flap,
        "Display flap statistics of the routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
     
@@ -13512,10 +13757,11 @@ DEFUN (show_ip_bgp_neighbor_damp,
        "Display the dampened routes received from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
     
@@ -13539,14 +13785,16 @@ DEFUN (show_ip_bgp_ipv4_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_safi = 4;
+  int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[6]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
  
-  if (strncmp (argv[4]->arg, "m", 1) == 0)
+  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
     return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_MULTICAST,
 				    bgp_show_type_neighbor, uj);
 
@@ -13583,10 +13831,12 @@ DEFUN (show_bgp_instance_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_peer = 5;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, argv[3]->arg, argv[5]->arg, uj);
+  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -13644,14 +13894,17 @@ DEFUN (show_bgp_instance_neighbor_damp,
        "Display the dampened routes received from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_peer = 5;
+  int idx_json = 7;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  if ((argc == 4 && argv[7]->arg && strcmp(argv[7]->arg, "json") == 0)
-      || (argc == 3 && argv[5]->arg && strcmp(argv[5]->arg, "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[3]->arg, argv[5]->arg, uj);
+  if ((argc == 4 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") == 0)
+      || (argc == 3 && argv[idx_peer]->arg && strcmp(argv[idx_peer]->arg, "json") != 0))
+    peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[3]->arg, uj);
+    peer = peer_lookup_in_view (vty, NULL, argv[idx_word]->arg, uj);
 
   if (! peer)
     return CMD_WARNING;
@@ -13710,14 +13963,17 @@ DEFUN (show_bgp_instance_neighbor_flap,
        "Display flap statistics of the routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_word = 3;
+  int idx_peer = 5;
+  int idx_json = 7;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  if ((argc == 4 && argv[7]->arg && strcmp(argv[7]->arg, "json") == 0)
-      || (argc == 3 && argv[5]->arg && strcmp(argv[5]->arg, "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[3]->arg, argv[5]->arg, uj);
+  if ((argc == 4 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") == 0)
+      || (argc == 3 && argv[idx_peer]->arg && strcmp(argv[idx_peer]->arg, "json") != 0))
+    peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
   else
-    peer = peer_lookup_in_view (vty, NULL, argv[3]->arg, uj);
+    peer = peer_lookup_in_view (vty, NULL, argv[idx_word]->arg, uj);
 
   if (! peer)
     return CMD_WARNING;
@@ -13764,10 +14020,11 @@ DEFUN (show_bgp_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 3;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[3]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
 
@@ -13793,10 +14050,11 @@ DEFUN (ipv6_mbgp_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[4]->arg, uj);
+  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
   if (! peer)
     return CMD_WARNING;
  
@@ -14008,13 +14266,16 @@ DEFUN (bgp_distance,
        "Distance for routes internal to the AS\n"
        "Distance for local routes\n")
 {
+  int idx_number = 2;
+  int idx_number_2 = 3;
+  int idx_number_3 = 4;
   struct bgp *bgp;
 
   bgp = vty->index;
 
-  bgp->distance_ebgp = atoi (argv[2]->arg);
-  bgp->distance_ibgp = atoi (argv[3]->arg);
-  bgp->distance_local = atoi (argv[4]->arg);
+  bgp->distance_ebgp = atoi (argv[idx_number]->arg);
+  bgp->distance_ibgp = atoi (argv[idx_number_2]->arg);
+  bgp->distance_local = atoi (argv[idx_number_3]->arg);
   return CMD_SUCCESS;
 }
 
@@ -14054,7 +14315,9 @@ DEFUN (bgp_distance_source,
        "Administrative distance\n"
        "IP source prefix\n")
 {
-  bgp_distance_set (vty, argv[1]->arg, argv[2]->arg, NULL);
+  int idx_number = 1;
+  int idx_ipv4_prefixlen = 2;
+  bgp_distance_set (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
   return CMD_SUCCESS;
 }
 
@@ -14066,7 +14329,9 @@ DEFUN (no_bgp_distance_source,
        "Administrative distance\n"
        "IP source prefix\n")
 {
-  bgp_distance_unset (vty, argv[2]->arg, argv[3]->arg, NULL);
+  int idx_number = 2;
+  int idx_ipv4_prefixlen = 3;
+  bgp_distance_unset (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
   return CMD_SUCCESS;
 }
 
@@ -14078,7 +14343,10 @@ DEFUN (bgp_distance_source_access_list,
        "IP source prefix\n"
        "Access list name\n")
 {
-  bgp_distance_set (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg);
+  int idx_number = 1;
+  int idx_ipv4_prefixlen = 2;
+  int idx_word = 3;
+  bgp_distance_set (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
   return CMD_SUCCESS;
 }
 
@@ -14091,7 +14359,10 @@ DEFUN (no_bgp_distance_source_access_list,
        "IP source prefix\n"
        "Access list name\n")
 {
-  bgp_distance_unset (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg);
+  int idx_number = 2;
+  int idx_ipv4_prefixlen = 3;
+  int idx_word = 4;
+  bgp_distance_unset (vty, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
   return CMD_SUCCESS;
 }
 
@@ -14117,6 +14388,10 @@ DEFUN (bgp_damp_set,
        "Value to start suppressing a route\n"
        "Maximum duration to suppress a stable route\n")
 {
+  int idx_number = 2;
+  int idx_number_2 = 3;
+  int idx_number_3 = 4;
+  int idx_number_4 = 5;
   struct bgp *bgp;
   int half = DEFAULT_HALF_LIFE * 60;
   int reuse = DEFAULT_REUSE;
@@ -14125,14 +14400,14 @@ DEFUN (bgp_damp_set,
 
   if (argc == 4)
     {
-      half = atoi (argv[2]->arg) * 60;
-      reuse = atoi (argv[3]->arg);
-      suppress = atoi (argv[4]->arg);
-      max = atoi (argv[5]->arg) * 60;
+      half = atoi (argv[idx_number]->arg) * 60;
+      reuse = atoi (argv[idx_number_2]->arg);
+      suppress = atoi (argv[idx_number_3]->arg);
+      max = atoi (argv[idx_number_4]->arg) * 60;
     }
   else if (argc == 1)
     {
-      half = atoi (argv[2]->arg) * 60;
+      half = atoi (argv[idx_number]->arg) * 60;
       max = 4 * half;
     }
 
@@ -14353,7 +14628,8 @@ DEFUN (clear_ip_bgp_dampening_prefix,
        "Clear route flap dampening information\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  return bgp_clear_damp_route (vty, NULL, argv[4]->arg, AFI_IP,
+  int idx_ipv4_prefixlen = 4;
+  return bgp_clear_damp_route (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP,
 			       SAFI_UNICAST, NULL, 1);
 }
 
@@ -14366,7 +14642,8 @@ DEFUN (clear_ip_bgp_dampening_address,
        "Clear route flap dampening information\n"
        "Network to clear damping information\n")
 {
-  return bgp_clear_damp_route (vty, NULL, argv[4]->arg, AFI_IP,
+  int idx_ipv4 = 4;
+  return bgp_clear_damp_route (vty, NULL, argv[idx_ipv4]->arg, AFI_IP,
 			       SAFI_UNICAST, NULL, 0);
 }
 
@@ -14380,10 +14657,12 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
        "Network to clear damping information\n"
        "Network mask\n")
 {
+  int idx_ipv4 = 4;
+  int idx_ipv4_2 = 5;
   int ret;
   char prefix_str[BUFSIZ];
 
-  ret = netmask_str2prefix_str (argv[4]->arg, argv[5]->arg, prefix_str);
+  ret = netmask_str2prefix_str (argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg, prefix_str);
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask%s", VTY_NEWLINE);

@@ -551,6 +551,10 @@ DEFUN (isis_redistribute,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  int idx_afi = 1;
+  int idx_protocol = 2;
+  int idx_level = 3;
+  int idx_metric_rmap = 4;
   struct isis_area *area = vty->index;
   int family;
   int afi;
@@ -562,7 +566,7 @@ DEFUN (isis_redistribute,
   if (argc < 5)
     return CMD_WARNING;
 
-  family = str2family(argv[1]->arg);
+  family = str2family(argv[idx_afi]->arg);
   if (family < 0)
     return CMD_WARNING;
 
@@ -570,13 +574,13 @@ DEFUN (isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[2]->arg);
+  type = proto_redistnum(afi, argv[idx_protocol]->arg);
   if (type < 0 || type == ZEBRA_ROUTE_ISIS)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[3]->arg))
+  if (!strcmp("level-1", argv[idx_level]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[3]->arg))
+  else if (!strcmp("level-2", argv[idx_level]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -587,11 +591,11 @@ DEFUN (isis_redistribute,
       return CMD_WARNING;
     }
 
-  if (argv[4]->arg)
+  if (argv[idx_metric_rmap]->arg)
     {
       char *endp;
-      metric = strtoul(argv[4]->arg, &endp, 10);
-      if (argv[4]->arg[0] == '\0' || *endp != '\0')
+      metric = strtoul(argv[idx_metric_rmap]->arg, &endp, 10);
+      if (argv[idx_metric_rmap]->arg[0] == '\0' || *endp != '\0')
         return CMD_WARNING;
     }
   else
@@ -616,6 +620,9 @@ DEFUN (no_isis_redistribute,
        "Redistribute into level-1\n"
        "Redistribute into level-2\n")
 {
+  int idx_afi = 2;
+  int idx_protocol = 3;
+  int idx_level = 4;
   struct isis_area *area = vty->index;
   int type;
   int level;
@@ -625,7 +632,7 @@ DEFUN (no_isis_redistribute,
   if (argc < 3)
     return CMD_WARNING;
 
-  family = str2family(argv[2]->arg);
+  family = str2family(argv[idx_afi]->arg);
   if (family < 0)
     return CMD_WARNING;
 
@@ -633,13 +640,13 @@ DEFUN (no_isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[3]->arg);
+  type = proto_redistnum(afi, argv[idx_protocol]->arg);
   if (type < 0 || type == ZEBRA_ROUTE_ISIS)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[4]->arg))
+  if (!strcmp("level-1", argv[idx_level]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[4]->arg))
+  else if (!strcmp("level-2", argv[idx_level]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -663,6 +670,9 @@ DEFUN (isis_default_originate,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  int idx_afi = 2;
+  int idx_level = 3;
+  int idx_metric_rmap = 4;
   struct isis_area *area = vty->index;
   int family;
   int originate_type;
@@ -673,13 +683,13 @@ DEFUN (isis_default_originate,
   if (argc < 5)
     return CMD_WARNING;
 
-  family = str2family(argv[2]->arg);
+  family = str2family(argv[idx_afi]->arg);
   if (family < 0)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[3]->arg))
+  if (!strcmp("level-1", argv[idx_level]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[3]->arg))
+  else if (!strcmp("level-2", argv[idx_level]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -690,7 +700,7 @@ DEFUN (isis_default_originate,
       return CMD_WARNING;
     }
 
-  if (argv[4]->arg && *argv[4]->arg != '\0')
+  if (argv[idx_metric_rmap]->arg && *argv[idx_metric_rmap]->arg != '\0')
     originate_type = DEFAULT_ORIGINATE_ALWAYS;
   else
     originate_type = DEFAULT_ORIGINATE;
@@ -730,6 +740,8 @@ DEFUN (no_isis_default_originate,
        "Distribute default route into level-1\n"
        "Distribute default route into level-2\n")
 {
+  int idx_afi = 3;
+  int idx_level = 4;
   struct isis_area *area = vty->index;
 
   int family;
@@ -738,13 +750,13 @@ DEFUN (no_isis_default_originate,
   if (argc < 2)
     return CMD_WARNING;
 
-  family = str2family(argv[3]->arg);
+  family = str2family(argv[idx_afi]->arg);
   if (family < 0)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[4]->arg))
+  if (!strcmp("level-1", argv[idx_level]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[4]->arg))
+  else if (!strcmp("level-2", argv[idx_level]->arg))
     level = 2;
   else
     return CMD_WARNING;
