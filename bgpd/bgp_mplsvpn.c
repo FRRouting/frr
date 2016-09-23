@@ -760,7 +760,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 
 DEFUN (show_bgp_ivp4_vpn,
        show_bgp_ipv4_vpn_cmd,
-       "show bgp ipv4 vpn {json}",
+       "show bgp ipv4 vpn [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -771,7 +771,7 @@ DEFUN (show_bgp_ivp4_vpn,
 
 DEFUN (show_bgp_ipv6_vpn,
        show_bgp_ipv6_vpn_cmd,
-       "show bgp ipv6 vpn {json}",
+       "show bgp ipv6 vpn [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -782,7 +782,7 @@ DEFUN (show_bgp_ipv6_vpn,
 
 DEFUN (show_bgp_ipv4_vpn_rd,
        show_bgp_ipv4_vpn_rd_cmd,
-       "show bgp ipv4 vpn rd ASN:nn_or_IP-address:nn {json}",
+       "show bgp ipv4 vpn rd ASN:nn_or_IP-address:nn [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -805,7 +805,7 @@ DEFUN (show_bgp_ipv4_vpn_rd,
 
 DEFUN (show_bgp_ipv6_vpn_rd,
        show_bgp_ipv6_vpn_rd_cmd,
-       "show bgp ipv6 vpn rd ASN:nn_or_IP-address:nn {json}",
+       "show bgp ipv6 vpn rd ASN:nn_or_IP-address:nn [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -899,7 +899,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_tags,
 
 DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
        show_ip_bgp_vpnv4_all_neighbor_routes_cmd,
-       "show ip bgp vpnv4 all neighbors A.B.C.D routes {json}",
+       "show ip bgp vpnv4 all neighbors A.B.C.D routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -952,7 +952,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
 
 DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
        show_ip_bgp_vpnv4_rd_neighbor_routes_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes {json}",
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1023,7 +1023,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
 
 DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
        show_ip_bgp_vpnv4_all_neighbor_advertised_routes_cmd,
-       "show ip bgp vpnv4 all neighbors A.B.C.D advertised-routes {json}",
+       "show ip bgp vpnv4 all neighbors A.B.C.D advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -1075,7 +1075,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
 
 DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
        show_ip_bgp_vpnv4_rd_neighbor_advertised_routes_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes {json}",
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR

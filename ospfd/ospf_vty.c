@@ -3601,7 +3601,7 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
 
 DEFUN (show_ip_ospf,
        show_ip_ospf_cmd,
-       "show ip ospf {json}",
+       "show ip ospf [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -3618,7 +3618,7 @@ DEFUN (show_ip_ospf,
 
 DEFUN (show_ip_ospf_instance,
        show_ip_ospf_instance_cmd,
-       "show ip ospf <1-65535> {json}",
+       "show ip ospf <1-65535> [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4009,7 +4009,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
 
 DEFUN (show_ip_ospf_interface,
        show_ip_ospf_interface_cmd,
-       "show ip ospf interface [INTERFACE] {json}",
+       "show ip ospf interface [INTERFACE] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4028,7 +4028,7 @@ DEFUN (show_ip_ospf_interface,
 
 DEFUN (show_ip_ospf_instance_interface,
        show_ip_ospf_instance_interface_cmd,
-       "show ip ospf <1-65535> interface [INTERFACE] {json}",
+       "show ip ospf <1-65535> interface [INTERFACE] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4166,7 +4166,7 @@ show_ip_ospf_neighbor_common (struct vty *vty, struct ospf *ospf, u_char use_jso
 
 DEFUN (show_ip_ospf_neighbor,
        show_ip_ospf_neighbor_cmd,
-       "show ip ospf neighbor {json}",
+       "show ip ospf neighbor [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4185,7 +4185,7 @@ DEFUN (show_ip_ospf_neighbor,
 
 DEFUN (show_ip_ospf_instance_neighbor,
        show_ip_ospf_instance_neighbor_cmd,
-       "show ip ospf <1-65535> neighbor {json}",
+       "show ip ospf <1-65535> neighbor [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4277,7 +4277,7 @@ show_ip_ospf_neighbor_all_common (struct vty *vty, struct ospf *ospf, u_char use
 
 DEFUN (show_ip_ospf_neighbor_all,
        show_ip_ospf_neighbor_all_cmd,
-       "show ip ospf neighbor all {json}",
+       "show ip ospf neighbor all [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4296,7 +4296,7 @@ DEFUN (show_ip_ospf_neighbor_all,
 
 DEFUN (show_ip_ospf_instance_neighbor_all,
        show_ip_ospf_instance_neighbor_all_cmd,
-       "show ip ospf <1-65535> neighbor all {json}",
+       "show ip ospf <1-65535> neighbor all [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4371,7 +4371,7 @@ show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_ba
 
 DEFUN (show_ip_ospf_neighbor_int,
        show_ip_ospf_neighbor_int_cmd,
-       "show ip ospf neighbor IFNAME {json}",
+       "show ip ospf neighbor IFNAME [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4390,7 +4390,7 @@ DEFUN (show_ip_ospf_neighbor_int,
 
 DEFUN (show_ip_ospf_instance_neighbor_int,
        show_ip_ospf_instance_neighbor_int_cmd,
-       "show ip ospf <1-65535> neighbor IFNAME {json}",
+       "show ip ospf <1-65535> neighbor IFNAME [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4737,7 +4737,7 @@ show_ip_ospf_neighbor_id_common (struct vty *vty, struct ospf *ospf,
 
 DEFUN (show_ip_ospf_neighbor_id,
        show_ip_ospf_neighbor_id_cmd,
-       "show ip ospf neighbor A.B.C.D {json}",
+       "show ip ospf neighbor A.B.C.D [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4756,7 +4756,7 @@ DEFUN (show_ip_ospf_neighbor_id,
 
 DEFUN (show_ip_ospf_instance_neighbor_id,
        show_ip_ospf_instance_neighbor_id_cmd,
-       "show ip ospf <1-65535> neighbor A.B.C.D {json}",
+       "show ip ospf <1-65535> neighbor A.B.C.D [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4828,7 +4828,7 @@ show_ip_ospf_neighbor_detail_common (struct vty *vty, struct ospf *ospf, u_char 
 
 DEFUN (show_ip_ospf_neighbor_detail,
        show_ip_ospf_neighbor_detail_cmd,
-       "show ip ospf neighbor detail {json}",
+       "show ip ospf neighbor detail [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4847,7 +4847,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
 
 DEFUN (show_ip_ospf_instance_neighbor_detail,
        show_ip_ospf_instance_neighbor_detail_cmd,
-       "show ip ospf <1-65535> neighbor detail {json}",
+       "show ip ospf <1-65535> neighbor detail [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4925,7 +4925,7 @@ show_ip_ospf_neighbor_detail_all_common (struct vty *vty, struct ospf *ospf, u_c
 
 DEFUN (show_ip_ospf_neighbor_detail_all,
        show_ip_ospf_neighbor_detail_all_cmd,
-       "show ip ospf neighbor detail all {json}",
+       "show ip ospf neighbor detail all [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4945,7 +4945,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 
 DEFUN (show_ip_ospf_instance_neighbor_detail_all,
        show_ip_ospf_instance_neighbor_detail_all_cmd,
-       "show ip ospf <1-65535> neighbor detail all {json}",
+       "show ip ospf <1-65535> neighbor detail all [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5027,7 +5027,7 @@ show_ip_ospf_neighbor_int_detail_common (struct vty *vty, struct ospf *ospf,
 
 DEFUN (show_ip_ospf_neighbor_int_detail,
        show_ip_ospf_neighbor_int_detail_cmd,
-       "show ip ospf neighbor IFNAME detail {json}",
+       "show ip ospf neighbor IFNAME detail [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5047,7 +5047,7 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
 
 DEFUN (show_ip_ospf_instance_neighbor_int_detail,
        show_ip_ospf_instance_neighbor_int_detail_cmd,
-       "show ip ospf <1-65535> neighbor IFNAME detail {json}",
+       "show ip ospf <1-65535> neighbor IFNAME detail [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"

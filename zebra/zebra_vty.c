@@ -2342,7 +2342,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 
 DEFUN (show_ip_route,
        show_ip_route_cmd,
-       "show ip route {json}",
+       "show ip route [json]",
        SHOW_STR
        IP_STR
        "IP routing table\n")
@@ -2436,7 +2436,7 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
 
 DEFUN (show_ip_route_vrf,
        show_ip_route_vrf_cmd,
-       "show ip route  " VRF_CMD_STR " {json}",
+       "show ip route  " VRF_CMD_STR " [json]",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -4776,7 +4776,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref_tag_vrf,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route  " VRF_CMD_STR " {json}",
+ * "show ipv6 route  " VRF_CMD_STR " [json]",
  *     SHOW_STR
  *     IP_STR
  *     "IPv6 routing table\n"
@@ -4785,7 +4785,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref_tag_vrf,
  */
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
-       "show ipv6 route {json}",
+       "show ipv6 route [json]",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n")

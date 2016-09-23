@@ -7941,7 +7941,7 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 /* BGP route print out function. */
 DEFUN (show_ip_bgp,
        show_ip_bgp_cmd,
-       "show ip bgp {json}",
+       "show ip bgp [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7952,7 +7952,7 @@ DEFUN (show_ip_bgp,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv4 (unicast|multicast) {json}",
+ * "show bgp ipv4 (unicast|multicast) [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -7963,7 +7963,7 @@ DEFUN (show_ip_bgp,
  */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show ip bgp ipv4 (unicast|multicast) {json}",
+       "show ip bgp ipv4 (unicast|multicast) [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7984,7 +7984,7 @@ DEFUN (show_ip_bgp_ipv4,
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show ip bgp A.B.C.D {json}",
+       "show ip bgp A.B.C.D [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7996,7 +7996,7 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_route_pathtype,
        show_ip_bgp_route_pathtype_cmd,
-       "show ip bgp A.B.C.D (bestpath|multipath) {json}",
+       "show ip bgp A.B.C.D (bestpath|multipath) [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8015,7 +8015,7 @@ DEFUN (show_ip_bgp_route_pathtype,
 
 DEFUN (show_bgp_ipv4_safi_route_pathtype,
        show_bgp_ipv4_safi_route_pathtype_cmd,
-       "show bgp ipv4 (unicast|multicast) A.B.C.D (bestpath|multipath) {json}",
+       "show bgp ipv4 (unicast|multicast) A.B.C.D (bestpath|multipath) [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8042,7 +8042,7 @@ DEFUN (show_bgp_ipv4_safi_route_pathtype,
 
 DEFUN (show_bgp_ipv4_prefix,
        show_bgp_ipv4_prefix_cmd,
-       "show bgp ipv4 A.B.C.D/M {json}",
+       "show bgp ipv4 A.B.C.D/M [json]",
        SHOW_STR
        BGP_STR
        IP_STR
@@ -8054,7 +8054,7 @@ DEFUN (show_bgp_ipv4_prefix,
 
 DEFUN (show_bgp_ipv6_route,
        show_bgp_ipv6_route_cmd,
-       "show bgp ipv6 X:X::X:X {JSON}",
+       "show bgp ipv6 X:X::X:X [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8066,7 +8066,7 @@ DEFUN (show_bgp_ipv6_route,
 
 DEFUN (show_bgp_ipv6_prefix,
        show_bgp_ipv6_prefix_cmd,
-       "show bgp ipv6 X:X::X:X/M {json}",
+       "show bgp ipv6 X:X::X:X/M [json]",
        SHOW_STR
        BGP_STR
        IP_STR
@@ -8078,7 +8078,7 @@ DEFUN (show_bgp_ipv6_prefix,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv4 (unicast|multicast) A.B.C.D {json}",
+ * "show bgp ipv4 (unicast|multicast) A.B.C.D [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -8090,7 +8090,7 @@ DEFUN (show_bgp_ipv6_prefix,
  */
 DEFUN (show_ip_bgp_ipv4_route,
        show_ip_bgp_ipv4_route_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D {json}",
+       "show ip bgp ipv4 (unicast|multicast) A.B.C.D [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8111,7 +8111,7 @@ DEFUN (show_ip_bgp_ipv4_route,
 
 DEFUN (show_ip_bgp_vpnv4_all_route,
        show_ip_bgp_vpnv4_all_route_cmd,
-       "show ip bgp vpnv4 all A.B.C.D {json}",
+       "show ip bgp vpnv4 all A.B.C.D [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8125,7 +8125,7 @@ DEFUN (show_ip_bgp_vpnv4_all_route,
 
 DEFUN (show_bgp_ipv4_vpn_route,
        show_bgp_ipv4_vpn_route_cmd,
-       "show bgp ipv4 vpn A.B.C.D {json}",
+       "show bgp ipv4 vpn A.B.C.D [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -8138,7 +8138,7 @@ DEFUN (show_bgp_ipv4_vpn_route,
 
 DEFUN (show_bgp_ipv6_vpn_route,
        show_bgp_ipv6_vpn_route_cmd,
-       "show bgp ipv6 vpn X:X::X:X {json}",
+       "show bgp ipv6 vpn X:X::X:X [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -8151,7 +8151,7 @@ DEFUN (show_bgp_ipv6_vpn_route,
 
 DEFUN (show_bgp_ipv4_vpn_rd_route,
        show_bgp_ipv4_vpn_rd_route_cmd,
-       "show bgp ipv4 vpn rd ASN:nn_or_IP-address:nn A.B.C.D {json}",
+       "show bgp ipv4 vpn rd ASN:nn_or_IP-address:nn A.B.C.D [json]",
        SHOW_STR
        BGP_STR
        IP_STR
@@ -8175,7 +8175,7 @@ DEFUN (show_bgp_ipv4_vpn_rd_route,
 
 DEFUN (show_bgp_ipv6_vpn_rd_route,
        show_bgp_ipv6_vpn_rd_route_cmd,
-       "show bgp ipv6 vpn rd ASN:nn_or_IP-address:nn X:X::X:X {json}",
+       "show bgp ipv6 vpn rd ASN:nn_or_IP-address:nn X:X::X:X [json]",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -8199,7 +8199,7 @@ DEFUN (show_bgp_ipv6_vpn_rd_route,
 
 DEFUN (show_ip_bgp_vpnv4_rd_route,
        show_ip_bgp_vpnv4_rd_route_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn A.B.C.D {json}",
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn A.B.C.D [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8224,7 +8224,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_route,
 
 DEFUN (show_ip_bgp_prefix,
        show_ip_bgp_prefix_cmd,
-       "show ip bgp A.B.C.D/M {json}",
+       "show ip bgp A.B.C.D/M [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8236,7 +8236,7 @@ DEFUN (show_ip_bgp_prefix,
 
 DEFUN (show_ip_bgp_prefix_pathtype,
        show_ip_bgp_prefix_pathtype_cmd,
-       "show ip bgp A.B.C.D/M (bestpath|multipath) {json}",
+       "show ip bgp A.B.C.D/M (bestpath|multipath) [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8254,7 +8254,7 @@ DEFUN (show_ip_bgp_prefix_pathtype,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv4 (unicast|multicast) A.B.C.D/M {json}",
+ * "show bgp ipv4 (unicast|multicast) A.B.C.D/M [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -8266,7 +8266,7 @@ DEFUN (show_ip_bgp_prefix_pathtype,
  */
 DEFUN (show_ip_bgp_ipv4_prefix,
        show_ip_bgp_ipv4_prefix_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M {json}",
+       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8287,7 +8287,7 @@ DEFUN (show_ip_bgp_ipv4_prefix,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv4 (unicast|multicast) A.B.C.D/M (bestpath|multipath) {json}",
+ * "show bgp ipv4 (unicast|multicast) A.B.C.D/M (bestpath|multipath) [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -8301,7 +8301,7 @@ DEFUN (show_ip_bgp_ipv4_prefix,
  */
 DEFUN (show_ip_bgp_ipv4_prefix_pathtype,
        show_ip_bgp_ipv4_prefix_pathtype_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M (bestpath|multipath) {json}",
+       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M (bestpath|multipath) [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8330,7 +8330,7 @@ DEFUN (show_ip_bgp_ipv4_prefix_pathtype,
 
 DEFUN (show_ip_bgp_vpnv4_all_prefix,
        show_ip_bgp_vpnv4_all_prefix_cmd,
-       "show ip bgp vpnv4 all A.B.C.D/M {json}",
+       "show ip bgp vpnv4 all A.B.C.D/M [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8344,7 +8344,7 @@ DEFUN (show_ip_bgp_vpnv4_all_prefix,
 
 DEFUN (show_ip_bgp_vpnv4_rd_prefix,
        show_ip_bgp_vpnv4_rd_prefix_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn A.B.C.D/M {json}",
+       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn A.B.C.D/M [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8368,7 +8368,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_prefix,
 
 DEFUN (show_ip_bgp_view,
        show_ip_bgp_instance_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8390,7 +8390,7 @@ DEFUN (show_ip_bgp_view,
 
 DEFUN (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
-       "show ip bgp " BGP_INSTANCE_ALL_CMD " {json}",
+       "show ip bgp " BGP_INSTANCE_ALL_CMD " [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8405,7 +8405,7 @@ DEFUN (show_ip_bgp_instance_all,
 
 DEFUN (show_ip_bgp_instance_route,
        show_ip_bgp_instance_route_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8418,7 +8418,7 @@ DEFUN (show_ip_bgp_instance_route,
 
 DEFUN (show_ip_bgp_instance_route_pathtype,
        show_ip_bgp_instance_route_pathtype_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D (bestpath|multipath) {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D (bestpath|multipath) [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8438,7 +8438,7 @@ DEFUN (show_ip_bgp_instance_route_pathtype,
 
 DEFUN (show_ip_bgp_instance_prefix,
        show_ip_bgp_instance_prefix_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D/M {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D/M [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8451,7 +8451,7 @@ DEFUN (show_ip_bgp_instance_prefix,
 
 DEFUN (show_ip_bgp_instance_prefix_pathtype,
        show_ip_bgp_instance_prefix_pathtype_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D/M (bestpath|multipath) {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D/M (bestpath|multipath) [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8471,7 +8471,7 @@ DEFUN (show_ip_bgp_instance_prefix_pathtype,
 #ifdef HAVE_IPV6
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv6 {json}",
+ * "show bgp ipv6 [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -8480,7 +8480,7 @@ DEFUN (show_ip_bgp_instance_prefix_pathtype,
  */
 DEFUN (show_bgp,
        show_bgp_cmd,
-       "show bgp {json}",
+       "show bgp [json]",
        SHOW_STR
        BGP_STR
        "JavaScript Object Notation\n")
@@ -8492,7 +8492,7 @@ DEFUN (show_bgp,
 
 DEFUN (show_bgp_ipv6_safi,
        show_bgp_ipv6_safi_cmd,
-       "show bgp ipv6 (unicast|multicast) {json}",
+       "show bgp ipv6 (unicast|multicast) [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8519,7 +8519,7 @@ bgp_show_ipv6_bgp_deprecate_warning (struct vty *vty)
 /* old command */
 DEFUN (show_ipv6_bgp,
        show_ipv6_bgp_cmd,
-       "show ipv6 bgp {json}",
+       "show ipv6 bgp [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8532,7 +8532,7 @@ DEFUN (show_ipv6_bgp,
 
 DEFUN (show_bgp_route,
        show_bgp_route_cmd,
-       "show bgp X:X::X:X {json}",
+       "show bgp X:X::X:X [json]",
        SHOW_STR
        BGP_STR
        "Network in the BGP routing table to display\n"
@@ -8543,7 +8543,7 @@ DEFUN (show_bgp_route,
 
 DEFUN (show_bgp_ipv6_safi_route,
        show_bgp_ipv6_safi_route_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X {json}",
+       "show bgp ipv6 (unicast|multicast) X:X::X:X [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8561,7 +8561,7 @@ DEFUN (show_bgp_ipv6_safi_route,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv6 X:X::X:X (bestpath|multipath) {json}",
+ * "show bgp ipv6 X:X::X:X (bestpath|multipath) [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -8573,7 +8573,7 @@ DEFUN (show_bgp_ipv6_safi_route,
  */
 DEFUN (show_bgp_route_pathtype,
        show_bgp_route_pathtype_cmd,
-       "show bgp X:X::X:X (bestpath|multipath) {json}",
+       "show bgp X:X::X:X (bestpath|multipath) [json]",
        SHOW_STR
        BGP_STR
        "Network in the BGP routing table to display\n"
@@ -8591,7 +8591,7 @@ DEFUN (show_bgp_route_pathtype,
 
 DEFUN (show_bgp_ipv6_safi_route_pathtype,
        show_bgp_ipv6_safi_route_pathtype_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X (bestpath|multipath) {json}",
+       "show bgp ipv6 (unicast|multicast) X:X::X:X (bestpath|multipath) [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8618,7 +8618,7 @@ DEFUN (show_bgp_ipv6_safi_route_pathtype,
 /* old command */
 DEFUN (show_ipv6_bgp_route,
        show_ipv6_bgp_route_cmd,
-       "show ipv6 bgp X:X::X:X {json}",
+       "show ipv6 bgp X:X::X:X [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8631,7 +8631,7 @@ DEFUN (show_ipv6_bgp_route,
 
 DEFUN (show_bgp_prefix,
        show_bgp_prefix_cmd,
-       "show bgp X:X::X:X/M {json}",
+       "show bgp X:X::X:X/M [json]",
        SHOW_STR
        BGP_STR
        "IPv6 prefix <network>/<length>\n"
@@ -8642,7 +8642,7 @@ DEFUN (show_bgp_prefix,
 
 DEFUN (show_bgp_ipv6_safi_prefix,
        show_bgp_ipv6_safi_prefix_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X/M {json}",
+       "show bgp ipv6 (unicast|multicast) X:X::X:X/M [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8660,7 +8660,7 @@ DEFUN (show_bgp_ipv6_safi_prefix,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv6 X:X::X:X/M (bestpath|multipath) {json}",
+ * "show bgp ipv6 X:X::X:X/M (bestpath|multipath) [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -8672,7 +8672,7 @@ DEFUN (show_bgp_ipv6_safi_prefix,
  */
 DEFUN (show_bgp_prefix_pathtype,
        show_bgp_prefix_pathtype_cmd,
-       "show bgp X:X::X:X/M (bestpath|multipath) {json}",
+       "show bgp X:X::X:X/M (bestpath|multipath) [json]",
        SHOW_STR
        BGP_STR
        "IPv6 prefix <network>/<length>\n"
@@ -8690,7 +8690,7 @@ DEFUN (show_bgp_prefix_pathtype,
 
 DEFUN (show_bgp_ipv6_safi_prefix_pathtype,
        show_bgp_ipv6_safi_prefix_pathtype_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X/M (bestpath|multipath) {json}",
+       "show bgp ipv6 (unicast|multicast) X:X::X:X/M (bestpath|multipath) [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8717,7 +8717,7 @@ DEFUN (show_bgp_ipv6_safi_prefix_pathtype,
 /* old command */
 DEFUN (show_ipv6_bgp_prefix,
        show_ipv6_bgp_prefix_cmd,
-       "show ipv6 bgp X:X::X:X/M {json}",
+       "show ipv6 bgp X:X::X:X/M [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8730,7 +8730,7 @@ DEFUN (show_ipv6_bgp_prefix,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8740,7 +8740,7 @@ DEFUN (show_ipv6_bgp_prefix,
  */
 DEFUN (show_bgp_view,
        show_bgp_instance_cmd,
-       "show bgp " BGP_INSTANCE_CMD " {json}",
+       "show bgp " BGP_INSTANCE_CMD " [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -8761,7 +8761,7 @@ DEFUN (show_bgp_view,
 
 DEFUN (show_bgp_instance_all,
        show_bgp_instance_all_cmd,
-       "show bgp " BGP_INSTANCE_ALL_CMD " {json}",
+       "show bgp " BGP_INSTANCE_ALL_CMD " [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
@@ -8776,7 +8776,7 @@ DEFUN (show_bgp_instance_all,
   
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 X:X::X:X {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 X:X::X:X [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8787,7 +8787,7 @@ DEFUN (show_bgp_instance_all,
  */
 DEFUN (show_bgp_instance_route,
        show_bgp_instance_route_cmd,
-       "show bgp " BGP_INSTANCE_CMD " X:X::X:X {json}",
+       "show bgp " BGP_INSTANCE_CMD " X:X::X:X [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -8800,7 +8800,7 @@ DEFUN (show_bgp_instance_route,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 X:X::X:X (bestpath|multipath) {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 X:X::X:X (bestpath|multipath) [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8813,7 +8813,7 @@ DEFUN (show_bgp_instance_route,
  */
 DEFUN (show_bgp_instance_route_pathtype,
        show_bgp_instance_route_pathtype_cmd,
-       "show bgp " BGP_INSTANCE_CMD " X:X::X:X (bestpath|multipath) {json}",
+       "show bgp " BGP_INSTANCE_CMD " X:X::X:X (bestpath|multipath) [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -8832,7 +8832,7 @@ DEFUN (show_bgp_instance_route_pathtype,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 X:X::X:X/M {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 X:X::X:X/M [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8843,7 +8843,7 @@ DEFUN (show_bgp_instance_route_pathtype,
  */
 DEFUN (show_bgp_instance_prefix,
        show_bgp_instance_prefix_cmd,
-       "show bgp " BGP_INSTANCE_CMD " X:X::X:X/M {json}",
+       "show bgp " BGP_INSTANCE_CMD " X:X::X:X/M [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -8856,7 +8856,7 @@ DEFUN (show_bgp_instance_prefix,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 X:X::X:X/M (bestpath|multipath) {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 X:X::X:X/M (bestpath|multipath) [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8869,7 +8869,7 @@ DEFUN (show_bgp_instance_prefix,
  */
 DEFUN (show_bgp_instance_prefix_pathtype,
        show_bgp_instance_prefix_pathtype_cmd,
-       "show bgp " BGP_INSTANCE_CMD " X:X::X:X/M (bestpath|multipath) {json}",
+       "show bgp " BGP_INSTANCE_CMD " X:X::X:X/M (bestpath|multipath) [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -9015,7 +9015,7 @@ DEFUN (show_bgp_instance_prefix_longer,
 /* old command */
 DEFUN (show_ipv6_mbgp,
        show_ipv6_mbgp_cmd,
-       "show ipv6 mbgp {json}",
+       "show ipv6 mbgp [json]",
        SHOW_STR
        IP_STR
        MBGP_STR
@@ -9029,7 +9029,7 @@ DEFUN (show_ipv6_mbgp,
 /* old command */
 DEFUN (show_ipv6_mbgp_route,
        show_ipv6_mbgp_route_cmd,
-       "show ipv6 mbgp X:X::X:X {json}",
+       "show ipv6 mbgp X:X::X:X [json]",
        SHOW_STR
        IP_STR
        MBGP_STR
@@ -9043,7 +9043,7 @@ DEFUN (show_ipv6_mbgp_route,
 /* old command */
 DEFUN (show_ipv6_mbgp_prefix,
        show_ipv6_mbgp_prefix_cmd,
-       "show ipv6 mbgp X:X::X:X/M {json}",
+       "show ipv6 mbgp X:X::X:X/M [json]",
        SHOW_STR
        IP_STR
        MBGP_STR
@@ -12045,7 +12045,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
 
 DEFUN (show_ip_bgp_neighbor_prefix_counts,
        show_ip_bgp_neighbor_prefix_counts_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12068,7 +12068,7 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        show_ip_bgp_instance_neighbor_prefix_counts_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12092,7 +12092,7 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
 
 DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        show_bgp_ipv6_neighbor_prefix_counts_cmd,
-       "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
+       "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -12115,7 +12115,7 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
 
 DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        show_bgp_instance_ipv6_neighbor_prefix_counts_cmd,
-       "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
+       "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12139,7 +12139,7 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        show_ip_bgp_ipv4_neighbor_prefix_counts_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
+       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12168,7 +12168,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd,
-       "show ip bgp vpnv4 all neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts {json}",
+       "show ip bgp vpnv4 all neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12434,7 +12434,7 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes route-map WORD {json}",
+ * "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes route-map WORD [json]",
  *     SHOW_STR
  *     IP_STR
  *     BGP_STR
@@ -12449,7 +12449,7 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
  */
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12476,7 +12476,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes route-map WORD {json}",
+ * "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes route-map WORD [json]",
  *     SHOW_STR
  *     IP_STR
  *     BGP_STR
@@ -12490,7 +12490,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
  */
 DEFUN (show_ip_bgp_neighbor_advertised_route,
        show_ip_bgp_neighbor_advertised_route_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12521,7 +12521,7 @@ DEFUN (show_ip_bgp_neighbor_advertised_route,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes route-map WORD {json}",
+ * "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes route-map WORD [json]",
  *     SHOW_STR
  *     IP_STR
  *     BGP_STR
@@ -12539,7 +12539,7 @@ DEFUN (show_ip_bgp_neighbor_advertised_route,
  */
 DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
        show_ip_bgp_ipv4_neighbor_advertised_route_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12574,7 +12574,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
 #ifdef HAVE_IPV6
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -12589,7 +12589,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
  */
 DEFUN (show_bgp_instance_neighbor_advertised_route,
        show_bgp_instance_neighbor_advertised_route_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12617,7 +12617,7 @@ DEFUN (show_bgp_instance_neighbor_advertised_route,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+ * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -12628,7 +12628,7 @@ DEFUN (show_bgp_instance_neighbor_advertised_route,
  *     "Display the routes advertised to a BGP neighbor\n"
  *     "JavaScript Object Notation\n"
  *
- * "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+ * "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
  *     SHOW_STR
  *     IPV6_STR
  *     BGP_STR
@@ -12642,7 +12642,7 @@ DEFUN (show_bgp_instance_neighbor_advertised_route,
  */
 DEFUN (show_bgp_neighbor_advertised_route,
        show_bgp_neighbor_advertised_route_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -12674,7 +12674,7 @@ DEFUN (show_bgp_neighbor_advertised_route,
 /* old command */
 DEFUN (ipv6_mbgp_neighbor_advertised_route,
        ipv6_mbgp_neighbor_advertised_route_cmd,
-       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes {json}",
+       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
        SHOW_STR
        IPV6_STR
        MBGP_STR
@@ -12700,7 +12700,7 @@ DEFUN (ipv6_mbgp_neighbor_advertised_route,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -12715,7 +12715,7 @@ DEFUN (ipv6_mbgp_neighbor_advertised_route,
  */
 DEFUN (show_bgp_instance_neighbor_received_routes,
        show_bgp_instance_neighbor_received_routes_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12738,7 +12738,7 @@ DEFUN (show_bgp_instance_neighbor_received_routes,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received-routes route-map WORD {json}",
+ * "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received-routes route-map WORD [json]",
  *     SHOW_STR
  *     IP_STR
  *     BGP_STR
@@ -12753,7 +12753,7 @@ DEFUN (show_bgp_instance_neighbor_received_routes,
  */
 DEFUN (show_ip_bgp_instance_neighbor_received_routes,
        show_ip_bgp_instance_neighbor_received_routes_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12778,7 +12778,7 @@ DEFUN (show_ip_bgp_instance_neighbor_received_routes,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes route-map WORD {json}",
+ * "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes route-map WORD [json]",
  *     SHOW_STR
  *     IP_STR
  *     BGP_STR
@@ -12792,7 +12792,7 @@ DEFUN (show_ip_bgp_instance_neighbor_received_routes,
  */
 DEFUN (show_ip_bgp_neighbor_received_routes,
        show_ip_bgp_neighbor_received_routes_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12823,7 +12823,7 @@ DEFUN (show_ip_bgp_neighbor_received_routes,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) received-routes route-map WORD {json}",
+ * "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) received-routes route-map WORD [json]",
  *     SHOW_STR
  *     IP_STR
  *     BGP_STR
@@ -12840,7 +12840,7 @@ DEFUN (show_ip_bgp_neighbor_received_routes,
  */
 DEFUN (show_ip_bgp_ipv4_neighbor_received_routes,
        show_ip_bgp_ipv4_neighbor_received_routes_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12874,7 +12874,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_routes,
 
 DEFUN (show_bgp_instance_afi_safi_neighbor_adv_recd_routes,
        show_bgp_instance_afi_safi_neighbor_adv_recd_routes_cmd,
-       "show bgp " BGP_INSTANCE_CMD " (ipv4|ipv6) (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) (advertised-routes|received-routes) {json}",
+       "show bgp " BGP_INSTANCE_CMD " (ipv4|ipv6) (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) (advertised-routes|received-routes) [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12910,7 +12910,7 @@ DEFUN (show_bgp_instance_afi_safi_neighbor_adv_recd_routes,
 
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        show_ip_bgp_neighbor_received_prefix_filter_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter {json}",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12997,7 +12997,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
 
 DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
        show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter {json}",
+       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13114,7 +13114,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
 #ifdef HAVE_IPV6
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+ * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -13125,7 +13125,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
  *     "Display the received routes from neighbor\n"
  *     "JavaScript Object Notation\n"
  *
- * "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+ * "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
  *     SHOW_STR
  *     IPV6_STR
  *     BGP_STR
@@ -13139,7 +13139,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
  */
 DEFUN (show_bgp_neighbor_received_routes,
        show_bgp_neighbor_received_routes_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -13167,7 +13167,7 @@ DEFUN (show_bgp_neighbor_received_routes,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter {json}",
+ * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -13182,7 +13182,7 @@ DEFUN (show_bgp_neighbor_received_routes,
  */
 DEFUN (show_bgp_neighbor_received_prefix_filter,
        show_bgp_neighbor_received_prefix_filter_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter {json}",
+       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -13272,7 +13272,7 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
 /* old command */
 DEFUN (ipv6_mbgp_neighbor_received_routes,
        ipv6_mbgp_neighbor_received_routes_cmd,
-       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes {json}",
+       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
        SHOW_STR
        IPV6_STR
        MBGP_STR
@@ -13296,7 +13296,7 @@ DEFUN (ipv6_mbgp_neighbor_received_routes,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -13312,7 +13312,7 @@ DEFUN (ipv6_mbgp_neighbor_received_routes,
  */
 DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
        show_bgp_instance_neighbor_received_prefix_filter_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter {json}",
+       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13428,7 +13428,7 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13452,7 +13452,7 @@ DEFUN (show_ip_bgp_neighbor_routes,
 
 DEFUN (show_ip_bgp_instance_neighbor_routes,
        show_ip_bgp_instance_neighbor_routes_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13477,7 +13477,7 @@ DEFUN (show_ip_bgp_instance_neighbor_routes,
 
 DEFUN (show_ip_bgp_neighbor_flap,
        show_ip_bgp_neighbor_flap_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics {json}",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13501,7 +13501,7 @@ DEFUN (show_ip_bgp_neighbor_flap,
 
 DEFUN (show_ip_bgp_neighbor_damp,
        show_ip_bgp_neighbor_damp_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes {json}",
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13525,7 +13525,7 @@ DEFUN (show_ip_bgp_neighbor_damp,
 
 DEFUN (show_ip_bgp_ipv4_neighbor_routes,
        show_ip_bgp_ipv4_neighbor_routes_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13557,7 +13557,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_routes,
 #ifdef HAVE_IPV6
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -13572,7 +13572,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_routes,
  */
 DEFUN (show_bgp_instance_neighbor_routes,
        show_bgp_instance_neighbor_routes_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13597,7 +13597,7 @@ DEFUN (show_bgp_instance_neighbor_routes,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes {json}",
+ * "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Detailed information on TCP and BGP neighbor connections\n"
@@ -13607,7 +13607,7 @@ DEFUN (show_bgp_instance_neighbor_routes,
  *     "Display the dampened routes received from neighbor\n"
  *     "JavaScript Object Notation\n"
  *
- * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -13619,7 +13619,7 @@ DEFUN (show_bgp_instance_neighbor_routes,
  *     "Display the dampened routes received from neighbor\n"
  *     "JavaScript Object Notation\n"
  *
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes {json}",
+ * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -13633,7 +13633,7 @@ DEFUN (show_bgp_instance_neighbor_routes,
  */
 DEFUN (show_bgp_instance_neighbor_damp,
        show_bgp_instance_neighbor_damp_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes {json}",
+       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13663,7 +13663,7 @@ DEFUN (show_bgp_instance_neighbor_damp,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics {json}",
+ * "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Detailed information on TCP and BGP neighbor connections\n"
@@ -13673,7 +13673,7 @@ DEFUN (show_bgp_instance_neighbor_damp,
  *     "Display flap statistics of the routes learned from neighbor\n"
  *     "JavaScript Object Notation\n"
  *
- * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics {json}",
+ * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -13685,7 +13685,7 @@ DEFUN (show_bgp_instance_neighbor_damp,
  *     "Display flap statistics of the routes learned from neighbor\n"
  *     "JavaScript Object Notation\n"
  *
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics {json}",
+ * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -13699,7 +13699,7 @@ DEFUN (show_bgp_instance_neighbor_damp,
  */
 DEFUN (show_bgp_instance_neighbor_flap,
        show_bgp_instance_neighbor_flap_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics {json}",
+       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13729,7 +13729,7 @@ DEFUN (show_bgp_instance_neighbor_flap,
        
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+ * "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
  *     SHOW_STR
  *     IPV6_STR
  *     BGP_STR
@@ -13740,7 +13740,7 @@ DEFUN (show_bgp_instance_neighbor_flap,
  *     "Display routes learned from neighbor\n"
  *     "JavaScript Object Notation\n"
  *
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+ * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
  *     SHOW_STR
  *     BGP_STR
  *     "Address family\n"
@@ -13754,7 +13754,7 @@ DEFUN (show_bgp_instance_neighbor_flap,
  */
 DEFUN (show_bgp_neighbor_routes,
        show_bgp_neighbor_routes_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -13782,7 +13782,7 @@ DEFUN (show_bgp_neighbor_routes,
 /* old command */
 DEFUN (ipv6_mbgp_neighbor_routes,
        ipv6_mbgp_neighbor_routes_cmd,
-       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) routes {json}",
+       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
        SHOW_STR
        IPV6_STR
        MBGP_STR
