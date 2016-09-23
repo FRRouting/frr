@@ -239,7 +239,7 @@ DEFUN (key_chain,
 {
   struct keychain *keychain;
 
-  keychain = keychain_get (argv[0]);
+  keychain = keychain_get (argv[2]->arg);
   vty->index = keychain;
   vty->node = KEYCHAIN_NODE;
 
@@ -256,11 +256,11 @@ DEFUN (no_key_chain,
 {
   struct keychain *keychain;
 
-  keychain = keychain_lookup (argv[0]);
+  keychain = keychain_lookup (argv[3]->arg);
 
   if (! keychain)
     {
-      vty_out (vty, "Can't find keychain %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "Can't find keychain %s%s", argv[3]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -281,7 +281,7 @@ DEFUN (key,
 
   keychain = vty->index;
 
-  VTY_GET_INTEGER ("key identifier", index, argv[0]);
+  VTY_GET_INTEGER ("key identifier", index, argv[1]->arg);
   key = key_get (keychain, index);
   vty->index_sub = key;
   vty->node = KEYCHAIN_KEY_NODE;
@@ -302,7 +302,7 @@ DEFUN (no_key,
   
   keychain = vty->index;
 
-  VTY_GET_INTEGER ("key identifier", index, argv[0]);
+  VTY_GET_INTEGER ("key identifier", index, argv[2]->arg);
   key = key_lookup (keychain, index);
   if (! key)
     {
@@ -329,7 +329,7 @@ DEFUN (key_string,
 
   if (key->string)
     XFREE(MTYPE_KEY, key->string);
-  key->string = XSTRDUP(MTYPE_KEY, argv[0]);
+  key->string = XSTRDUP(MTYPE_KEY, argv[1]->arg);
 
   return CMD_SUCCESS;
 }
@@ -556,8 +556,8 @@ DEFUN (accept_lifetime_day_month_day_month,
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->accept, argv[0], argv[1], argv[2],
-			   argv[3], argv[4], argv[5], argv[6], argv[7]);
+  return key_lifetime_set (vty, &key->accept, argv[1]->arg, argv[2]->arg, argv[3]->arg,
+			   argv[4]->arg, argv[5]->arg, argv[6]->arg, argv[7]->arg, argv[8]->arg);
 }
 
 DEFUN (accept_lifetime_day_month_month_day,
@@ -577,8 +577,8 @@ DEFUN (accept_lifetime_day_month_month_day,
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->accept, argv[0], argv[1], argv[2],
-			   argv[3], argv[4], argv[6], argv[5], argv[7]);
+  return key_lifetime_set (vty, &key->accept, argv[1]->arg, argv[2]->arg, argv[3]->arg,
+			   argv[4]->arg, argv[5]->arg, argv[7]->arg, argv[6]->arg, argv[8]->arg);
 }
 
 DEFUN (accept_lifetime_month_day_day_month,
@@ -598,8 +598,8 @@ DEFUN (accept_lifetime_month_day_day_month,
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->accept, argv[0], argv[2], argv[1],
-			   argv[3], argv[4], argv[5], argv[6], argv[7]);
+  return key_lifetime_set (vty, &key->accept, argv[1]->arg, argv[3]->arg, argv[2]->arg,
+			   argv[4]->arg, argv[5]->arg, argv[6]->arg, argv[7]->arg, argv[8]->arg);
 }
 
 DEFUN (accept_lifetime_month_day_month_day,
@@ -619,8 +619,8 @@ DEFUN (accept_lifetime_month_day_month_day,
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->accept, argv[0], argv[2], argv[1],
-			   argv[3], argv[4], argv[6], argv[5], argv[7]);
+  return key_lifetime_set (vty, &key->accept, argv[1]->arg, argv[3]->arg, argv[2]->arg,
+			   argv[4]->arg, argv[5]->arg, argv[7]->arg, argv[6]->arg, argv[8]->arg);
 }
 
 DEFUN (accept_lifetime_infinite_day_month,
@@ -637,8 +637,8 @@ DEFUN (accept_lifetime_infinite_day_month,
 
   key = vty->index_sub;
 
-  return key_lifetime_infinite_set (vty, &key->accept, argv[0], argv[1],
-				    argv[2], argv[3]);
+  return key_lifetime_infinite_set (vty, &key->accept, argv[1]->arg, argv[2]->arg,
+				    argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (accept_lifetime_infinite_month_day,
@@ -655,8 +655,8 @@ DEFUN (accept_lifetime_infinite_month_day,
 
   key = vty->index_sub;
 
-  return key_lifetime_infinite_set (vty, &key->accept, argv[0], argv[2],
-				    argv[1], argv[3]);
+  return key_lifetime_infinite_set (vty, &key->accept, argv[1]->arg, argv[3]->arg,
+				    argv[2]->arg, argv[4]->arg);
 }
 
 DEFUN (accept_lifetime_duration_day_month,
@@ -674,8 +674,8 @@ DEFUN (accept_lifetime_duration_day_month,
 
   key = vty->index_sub;
 
-  return key_lifetime_duration_set (vty, &key->accept, argv[0], argv[1],
-				    argv[2], argv[3], argv[4]);
+  return key_lifetime_duration_set (vty, &key->accept, argv[1]->arg, argv[2]->arg,
+				    argv[3]->arg, argv[4]->arg, argv[6]->arg);
 }
 
 DEFUN (accept_lifetime_duration_month_day,
@@ -693,8 +693,8 @@ DEFUN (accept_lifetime_duration_month_day,
 
   key = vty->index_sub;
 
-  return key_lifetime_duration_set (vty, &key->accept, argv[0], argv[2],
-				    argv[1], argv[3], argv[4]);
+  return key_lifetime_duration_set (vty, &key->accept, argv[1]->arg, argv[3]->arg,
+				    argv[2]->arg, argv[4]->arg, argv[6]->arg);
 }
 
 DEFUN (send_lifetime_day_month_day_month,
@@ -714,8 +714,8 @@ DEFUN (send_lifetime_day_month_day_month,
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->send, argv[0], argv[1], argv[2], argv[3],
-			   argv[4], argv[5], argv[6], argv[7]);
+  return key_lifetime_set (vty, &key->send, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,
+			   argv[5]->arg, argv[6]->arg, argv[7]->arg, argv[8]->arg);
 }
 
 DEFUN (send_lifetime_day_month_month_day,
@@ -735,8 +735,8 @@ DEFUN (send_lifetime_day_month_month_day,
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->send, argv[0], argv[1], argv[2], argv[3],
-			   argv[4], argv[6], argv[5], argv[7]);
+  return key_lifetime_set (vty, &key->send, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,
+			   argv[5]->arg, argv[7]->arg, argv[6]->arg, argv[8]->arg);
 }
 
 DEFUN (send_lifetime_month_day_day_month,
@@ -756,8 +756,8 @@ DEFUN (send_lifetime_month_day_day_month,
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->send, argv[0], argv[2], argv[1], argv[3],
-			   argv[4], argv[5], argv[6], argv[7]);
+  return key_lifetime_set (vty, &key->send, argv[1]->arg, argv[3]->arg, argv[2]->arg, argv[4]->arg,
+			   argv[5]->arg, argv[6]->arg, argv[7]->arg, argv[8]->arg);
 }
 
 DEFUN (send_lifetime_month_day_month_day,
@@ -777,8 +777,8 @@ DEFUN (send_lifetime_month_day_month_day,
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->send, argv[0], argv[2], argv[1], argv[3],
-			   argv[4], argv[6], argv[5], argv[7]);
+  return key_lifetime_set (vty, &key->send, argv[1]->arg, argv[3]->arg, argv[2]->arg, argv[4]->arg,
+			   argv[5]->arg, argv[7]->arg, argv[6]->arg, argv[8]->arg);
 }
 
 DEFUN (send_lifetime_infinite_day_month,
@@ -795,8 +795,8 @@ DEFUN (send_lifetime_infinite_day_month,
 
   key = vty->index_sub;
 
-  return key_lifetime_infinite_set (vty, &key->send, argv[0], argv[1], argv[2],
-				    argv[3]);
+  return key_lifetime_infinite_set (vty, &key->send, argv[1]->arg, argv[2]->arg, argv[3]->arg,
+				    argv[4]->arg);
 }
 
 DEFUN (send_lifetime_infinite_month_day,
@@ -813,8 +813,8 @@ DEFUN (send_lifetime_infinite_month_day,
 
   key = vty->index_sub;
 
-  return key_lifetime_infinite_set (vty, &key->send, argv[0], argv[2], argv[1],
-				    argv[3]);
+  return key_lifetime_infinite_set (vty, &key->send, argv[1]->arg, argv[3]->arg, argv[2]->arg,
+				    argv[4]->arg);
 }
 
 DEFUN (send_lifetime_duration_day_month,
@@ -832,8 +832,8 @@ DEFUN (send_lifetime_duration_day_month,
 
   key = vty->index_sub;
 
-  return key_lifetime_duration_set (vty, &key->send, argv[0], argv[1], argv[2],
-				    argv[3], argv[4]);
+  return key_lifetime_duration_set (vty, &key->send, argv[1]->arg, argv[2]->arg, argv[3]->arg,
+				    argv[4]->arg, argv[6]->arg);
 }
 
 DEFUN (send_lifetime_duration_month_day,
@@ -851,8 +851,8 @@ DEFUN (send_lifetime_duration_month_day,
 
   key = vty->index_sub;
 
-  return key_lifetime_duration_set (vty, &key->send, argv[0], argv[2], argv[1],
-				    argv[3], argv[4]);
+  return key_lifetime_duration_set (vty, &key->send, argv[1]->arg, argv[3]->arg, argv[2]->arg,
+				    argv[4]->arg, argv[6]->arg);
 }
 
 static struct cmd_node keychain_node =

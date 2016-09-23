@@ -31,6 +31,8 @@ def token_is_variable(line_number, token):
                  '.LINE', # where is this defined?
                  'LINE',
                  'BANDWIDTH',
+                 'RMAP_NAME',
+                 'ROUTEMAP_NAME',
                  'IPV6ADDR',
                  'IF_OR_ADDR',
                  'INTERFACE',
@@ -44,6 +46,9 @@ def token_is_variable(line_number, token):
                  'X:X::X:X',
                  'X:X::X:X/M',
                  'ASN:nn_or_IP-address:nn'): # where is this defined?
+        return True
+
+    if token.upper() == token:
         return True
 
     re_number_range = re.search('^<\d+-\d+>$', token)
