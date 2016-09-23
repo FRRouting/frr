@@ -144,6 +144,14 @@ ospf_oi_count (struct interface *ifp)
 }
 
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "router ospf <1-65535>",
+ *     "Enable a routing process\n"
+ *     "Start OSPF configuration\n"
+ *     "Instance ID\n"
+ *
+ */
 DEFUN (router_ospf,
        router_ospf_cmd,
        "router ospf",
@@ -181,13 +189,16 @@ DEFUN (router_ospf,
   return CMD_SUCCESS;
 }
 
-ALIAS (router_ospf,
-       router_ospf_instance_cmd,
-       "router ospf <1-65535>",
-       "Enable a routing process\n"
-       "Start OSPF configuration\n"
-       "Instance ID\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no router ospf <1-65535>",
+ *     NO_STR
+ *     "Enable a routing process\n"
+ *     "Start OSPF configuration\n"
+ *     "Instance ID\n"
+ *
+ */
 DEFUN (no_router_ospf,
        no_router_ospf_cmd,
        "no router ospf",
@@ -209,13 +220,6 @@ DEFUN (no_router_ospf,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_router_ospf,
-       no_router_ospf_instance_cmd,
-       "no router ospf <1-65535>",
-       NO_STR
-       "Enable a routing process\n"
-       "Start OSPF configuration\n"
-       "Instance ID\n")
 
 DEFUN (ospf_router_id,
        ospf_router_id_cmd,
@@ -261,6 +265,15 @@ ALIAS_HIDDEN (ospf_router_id,
               "router-id for the OSPF process\n"
               "OSPF router-id in IP address format\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf router-id A.B.C.D",
+ *     NO_STR
+ *     "OSPF specific commands\n"
+ *     "router-id for the OSPF process\n"
+ *     "OSPF router-id in IP address format\n"
+ *
+ */
 DEFUN (no_ospf_router_id,
        no_ospf_router_id_cmd,
        "no ospf router-id",
@@ -290,13 +303,6 @@ DEFUN (no_ospf_router_id,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_router_id,
-       no_ospf_router_id_val_cmd,
-       "no ospf router-id A.B.C.D",
-       NO_STR
-       "OSPF specific commands\n"
-       "router-id for the OSPF process\n"
-       "OSPF router-id in IP address format\n")
 
 static void
 ospf_passive_interface_default (struct ospf *ospf, u_char newval)
@@ -361,6 +367,17 @@ ospf_passive_interface_update (struct ospf *ospf, struct interface *ifp,
     }
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "passive-interface IFNAME",
+ *     "Suppress routing updates on an interface\n"
+ *     "Interface's name\n"
+ *
+ * "passive-interface default",
+ *     "Suppress routing updates on an interface\n"
+ *     "Suppress routing updates on interfaces by default\n"
+ *
+ */
 DEFUN (ospf_passive_interface,
        ospf_passive_interface_addr_cmd,
        "passive-interface IFNAME A.B.C.D",
@@ -430,18 +447,21 @@ DEFUN (ospf_passive_interface,
  return CMD_SUCCESS;
 }
 
-ALIAS (ospf_passive_interface,
-       ospf_passive_interface_cmd,
-       "passive-interface IFNAME",
-       "Suppress routing updates on an interface\n"
-       "Interface's name\n")
 
-ALIAS (ospf_passive_interface,
-       ospf_passive_interface_default_cmd,
-       "passive-interface default",
-       "Suppress routing updates on an interface\n"
-       "Suppress routing updates on interfaces by default\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no passive-interface default",
+ *     NO_STR
+ *     "Allow routing updates on an interface\n"
+ *     "Allow routing updates on interfaces by default\n"
+ *
+ * "no passive-interface IFNAME",
+ *     NO_STR
+ *     "Allow routing updates on an interface\n"
+ *     "Interface's name\n"
+ *
+ */
 DEFUN (no_ospf_passive_interface,
        no_ospf_passive_interface_addr_cmd,
        "no passive-interface IFNAME A.B.C.D",
@@ -505,19 +525,7 @@ DEFUN (no_ospf_passive_interface,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_passive_interface,
-       no_ospf_passive_interface_cmd,
-       "no passive-interface IFNAME",
-       NO_STR
-       "Allow routing updates on an interface\n"
-       "Interface's name\n")
 
-ALIAS (no_ospf_passive_interface,
-       no_ospf_passive_interface_default_cmd,
-       "no passive-interface default",
-       NO_STR
-       "Allow routing updates on an interface\n"
-       "Allow routing updates on interfaces by default\n")
        
 DEFUN (ospf_network_area,
        ospf_network_area_cmd,
@@ -605,6 +613,36 @@ DEFUN (no_ospf_network_area,
 }
 
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise",
+ *     "OSPF area parameters\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *     "OSPF area range for route advertise (default)\n"
+ *     "Area range prefix\n"
+ *     "Advertise this range (default)\n"
+ *
+ * "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M cost <0-16777215>",
+ *     "OSPF area parameters\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "User specified metric for this range\n"
+ *     "Advertised metric for this range\n"
+ *
+ * "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise cost <0-16777215>",
+ *     "OSPF area parameters\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "Advertise this range (default)\n"
+ *     "User specified metric for this range\n"
+ *     "Advertised metric for this range\n"
+ *
+ */
 DEFUN (ospf_area_range,
        ospf_area_range_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M",
@@ -636,38 +674,8 @@ DEFUN (ospf_area_range,
   return CMD_SUCCESS;
 }
 
-ALIAS (ospf_area_range,
-       ospf_area_range_advertise_cmd,
-       "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "OSPF area range for route advertise (default)\n"
-       "Area range prefix\n"
-       "Advertise this range (default)\n")
 
-ALIAS (ospf_area_range,
-       ospf_area_range_cost_cmd,
-       "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M cost <0-16777215>",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n")
 
-ALIAS (ospf_area_range,
-       ospf_area_range_advertise_cost_cmd,
-       "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise cost <0-16777215>",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "Advertise this range (default)\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n")
 
 DEFUN (ospf_area_range_not_advertise,
        ospf_area_range_not_advertise_cmd,
@@ -695,6 +703,40 @@ DEFUN (ospf_area_range_not_advertise,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M (advertise|not-advertise)",
+ *     NO_STR
+ *     "OSPF area parameters\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "Advertise this range (default)\n"
+ *     "DoNotAdvertise this range\n"
+ *
+ * "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise cost <0-16777215>",
+ *     NO_STR
+ *     "OSPF area parameters\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "Advertise this range (default)\n"
+ *     "User specified metric for this range\n"
+ *     "Advertised metric for this range\n"
+ *
+ * "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M cost <0-16777215>",
+ *     NO_STR
+ *     "OSPF area parameters\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "User specified metric for this range\n"
+ *     "Advertised metric for this range\n"
+ *
+ */
 DEFUN (no_ospf_area_range,
        no_ospf_area_range_cmd,
        "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M",
@@ -721,42 +763,8 @@ DEFUN (no_ospf_area_range,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_area_range,
-       no_ospf_area_range_advertise_cmd,
-       "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M (advertise|not-advertise)",
-       NO_STR
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "Advertise this range (default)\n"
-       "DoNotAdvertise this range\n")
 
-ALIAS (no_ospf_area_range,
-       no_ospf_area_range_cost_cmd,
-       "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M cost <0-16777215>",
-       NO_STR
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n")
 
-ALIAS (no_ospf_area_range,
-       no_ospf_area_range_advertise_cost_cmd,
-       "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise cost <0-16777215>",
-       NO_STR
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "Advertise this range (default)\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n")
 
 DEFUN (ospf_area_range_substitute,
        ospf_area_range_substitute_cmd,
@@ -1069,6 +1077,89 @@ ospf_vl_set (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
        "Use MD5 algorithm\n" \
        "The OSPF password (key)"
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) (message-digest|null) "
+ *     "(authentication-key|) AUTH_KEY",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_ALL
+ *     VLINK_HELPSTR_AUTH_SIMPLE
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) "
+ *     "(authentication-key|) AUTH_KEY",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_SIMPLE
+ *     VLINK_HELPSTR_AUTH_SIMPLE
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_TIME_PARAM
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) (message-digest|null)",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_ALL
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(message-digest-key|) <1-255> md5 KEY",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTH_MD5
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) "
+ *     "(message-digest-key|) <1-255> md5 KEY",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_SIMPLE
+ *     VLINK_HELPSTR_AUTH_MD5
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) (message-digest|null) "
+ *     "(message-digest-key|) <1-255> md5 KEY",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_ALL
+ *     VLINK_HELPSTR_AUTH_MD5
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|)",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_SIMPLE
+ *
+ * "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication-key|) AUTH_KEY",
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTH_SIMPLE
+ *
+ */
 DEFUN (ospf_area_vlink,
        ospf_area_vlink_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D",
@@ -1206,6 +1297,101 @@ DEFUN (ospf_area_vlink,
 
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) "
+ *     "(message-digest-key|) <1-255> md5 KEY",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_SIMPLE
+ *     VLINK_HELPSTR_AUTH_MD5
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *     VLINK_HELPSTR_TIME_PARAM
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_TIME_PARAM
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(message-digest-key|) <1-255> md5 KEY",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTH_MD5
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|)",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_SIMPLE
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) (message-digest|null) "
+ *     "(message-digest-key|) <1-255> md5 KEY",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_ALL
+ *     VLINK_HELPSTR_AUTH_MD5
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) "
+ *     "(authentication-key|) AUTH_KEY",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_SIMPLE
+ *     VLINK_HELPSTR_AUTH_SIMPLE
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication-key|) AUTH_KEY",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTH_SIMPLE
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) (message-digest|null)",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_ALL
+ *
+ * "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+ *     "(authentication|) (message-digest|null) "
+ *     "(authentication-key|) AUTH_KEY",
+ *     NO_STR
+ *     VLINK_HELPSTR_IPADDR
+ *     VLINK_HELPSTR_AUTHTYPE_ALL
+ *     VLINK_HELPSTR_AUTH_SIMPLE
+ *
+ */
 DEFUN (no_ospf_area_vlink,
        no_ospf_area_vlink_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D",
@@ -1325,225 +1511,29 @@ DEFUN (no_ospf_area_vlink,
   return ospf_vl_set (ospf, &vl_config);
 }
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_param1_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_param1_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_param2_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_param2_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_param3_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_param3_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_param4_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_param4_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_authtype_args_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) (message-digest|null)",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_ALL)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_authtype_args_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) (message-digest|null)",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_ALL)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_authtype_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|)",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_SIMPLE)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_authtype_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|)",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_SIMPLE)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_md5_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(message-digest-key|) <1-255> md5 KEY",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_md5_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(message-digest-key|) <1-255> md5 KEY",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_authkey_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication-key|) AUTH_KEY",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_authkey_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication-key|) AUTH_KEY",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_authtype_args_authkey_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) (message-digest|null) "
-       "(authentication-key|) AUTH_KEY",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_ALL
-       VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_authtype_args_authkey_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) (message-digest|null) "
-       "(authentication-key|) AUTH_KEY",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_ALL
-       VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_authtype_authkey_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) "
-       "(authentication-key|) AUTH_KEY",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_SIMPLE
-       VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_authtype_authkey_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) "
-       "(authentication-key|) AUTH_KEY",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_SIMPLE
-       VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_authtype_args_md5_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) (message-digest|null) "
-       "(message-digest-key|) <1-255> md5 KEY",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_ALL
-       VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_authtype_args_md5_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) (message-digest|null) "
-       "(message-digest-key|) <1-255> md5 KEY",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_ALL
-       VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (ospf_area_vlink,
-       ospf_area_vlink_authtype_md5_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) "
-       "(message-digest-key|) <1-255> md5 KEY",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_SIMPLE
-       VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (no_ospf_area_vlink,
-       no_ospf_area_vlink_authtype_md5_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(authentication|) "
-       "(message-digest-key|) <1-255> md5 KEY",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_AUTHTYPE_SIMPLE
-       VLINK_HELPSTR_AUTH_MD5)
 
 
 DEFUN (ospf_area_shortcut,
@@ -1829,6 +1819,20 @@ DEFUN (ospf_area_nssa_no_summary,
   return ospf_area_nssa_cmd_handler (vty, argc, argv, 1);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always|) {no-summary}",
+ *     NO_STR
+ *     "OSPF area parameters\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *     "Configure OSPF area as nssa\n"
+ *     "Configure NSSA-ABR for translate election (default)\n"
+ *     "Configure NSSA-ABR to never translate\n"
+ *     "Configure NSSA-ABR to always translate\n"
+ *     "Do not inject inter-area routes into nssa\n"
+ *
+ */
 DEFUN (no_ospf_area_nssa,
        no_ospf_area_nssa_cmd,
        "no area (A.B.C.D|<0-4294967295>) nssa",
@@ -1855,18 +1859,6 @@ DEFUN (no_ospf_area_nssa,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_area_nssa,
-       no_ospf_area_nssa_no_summary_cmd,
-       "no area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always|) {no-summary}",
-       NO_STR
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n"
-       "Configure NSSA-ABR for translate election (default)\n"
-       "Configure NSSA-ABR to never translate\n"
-       "Configure NSSA-ABR to always translate\n"
-       "Do not inject inter-area routes into nssa\n")
 
 DEFUN (ospf_area_default_cost,
        ospf_area_default_cost_cmd,
@@ -2394,6 +2386,13 @@ DEFUN (no_ospf_log_adjacency_changes_detail,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ospf rfc1583compatibility",
+ *     "OSPF specific commands\n"
+ *     "Enable the RFC1583Compatibility flag\n"
+ *
+ */
 DEFUN (ospf_compatible_rfc1583,
        ospf_compatible_rfc1583_cmd,
        "compatible rfc1583",
@@ -2413,6 +2412,14 @@ DEFUN (ospf_compatible_rfc1583,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf rfc1583compatibility",
+ *     NO_STR
+ *     "OSPF specific commands\n"
+ *     "Disable the RFC1583Compatibility flag\n"
+ *
+ */
 DEFUN (no_ospf_compatible_rfc1583,
        no_ospf_compatible_rfc1583_cmd,
        "no compatible rfc1583",
@@ -2433,18 +2440,7 @@ DEFUN (no_ospf_compatible_rfc1583,
   return CMD_SUCCESS;
 }
 
-ALIAS (ospf_compatible_rfc1583,
-       ospf_rfc1583_flag_cmd,
-       "ospf rfc1583compatibility",
-       "OSPF specific commands\n"
-       "Enable the RFC1583Compatibility flag\n")
 
-ALIAS (no_ospf_compatible_rfc1583,
-       no_ospf_rfc1583_flag_cmd,
-       "no ospf rfc1583compatibility",
-       NO_STR
-       "OSPF specific commands\n"
-       "Disable the RFC1583Compatibility flag\n")
 
 static int
 ospf_timers_spf_set (struct vty *vty, unsigned int delay,
@@ -2491,6 +2487,17 @@ DEFUN (ospf_timers_min_ls_interval,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no timers throttle lsa all <0-5000>",
+ *     NO_STR
+ *     "Adjust routing timers\n"
+ *     "Throttling adaptive timer\n"
+ *     "LSA delay between transmissions\n"
+ *     "All LSA types\n"
+ *     "Delay (msec) between sending LSAs\n"
+ *
+ */
 DEFUN (no_ospf_timers_min_ls_interval,
        no_ospf_timers_min_ls_interval_cmd,
        "no timers throttle lsa all",
@@ -2506,15 +2513,6 @@ DEFUN (no_ospf_timers_min_ls_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_timers_min_ls_interval,
-       no_ospf_timers_min_ls_interval_val_cmd,
-       "no timers throttle lsa all <0-5000>",
-       NO_STR
-       "Adjust routing timers\n"
-       "Throttling adaptive timer\n"
-       "LSA delay between transmissions\n"
-       "All LSA types\n"
-       "Delay (msec) between sending LSAs\n")
 
 DEFUN (ospf_timers_min_ls_arrival,
        ospf_timers_min_ls_arrival_cmd,
@@ -2543,6 +2541,16 @@ DEFUN (ospf_timers_min_ls_arrival,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no timers lsa arrival <0-1000>",
+ *     NO_STR
+ *     "Adjust routing timers\n"
+ *     "Throttling link state advertisement delays\n"
+ *     "OSPF minimum arrival interval delay\n"
+ *     "Delay (msec) between accepted LSAs\n"
+ *
+ */
 DEFUN (no_ospf_timers_min_ls_arrival,
        no_ospf_timers_min_ls_arrival_cmd,
        "no timers lsa arrival",
@@ -2561,14 +2569,6 @@ DEFUN (no_ospf_timers_min_ls_arrival,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_timers_min_ls_arrival,
-       no_ospf_timers_min_ls_arrival_val_cmd,
-       "no timers lsa arrival <0-1000>",
-       NO_STR
-       "Adjust routing timers\n"
-       "Throttling link state advertisement delays\n"
-       "OSPF minimum arrival interval delay\n"
-       "Delay (msec) between accepted LSAs\n")
 
 DEFUN (ospf_timers_throttle_spf,
        ospf_timers_throttle_spf_cmd,
@@ -2595,6 +2595,18 @@ DEFUN (ospf_timers_throttle_spf,
   return ospf_timers_spf_set (vty, delay, hold, max);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no timers throttle spf <0-600000> <0-600000> <0-600000>",
+ *     NO_STR
+ *     "Adjust routing timers\n"
+ *     "Throttling adaptive timer\n"
+ *     "OSPF SPF timers\n"
+ *     "Delay (msec) from first change received till SPF calculation\n"
+ *     "Initial hold time (msec) between consecutive SPF calculations\n"
+ *     "Maximum hold time (msec)\n"
+ *
+ */
 DEFUN (no_ospf_timers_throttle_spf,
        no_ospf_timers_throttle_spf_cmd,
        "no timers throttle spf",
@@ -2609,16 +2621,6 @@ DEFUN (no_ospf_timers_throttle_spf,
                               OSPF_SPF_MAX_HOLDTIME_DEFAULT);
 }
 
-ALIAS (no_ospf_timers_throttle_spf,
-       no_ospf_timers_throttle_spf_val_cmd,
-       "no timers throttle spf <0-600000> <0-600000> <0-600000>",
-       NO_STR
-       "Adjust routing timers\n"
-       "Throttling adaptive timer\n"
-       "OSPF SPF timers\n"
-       "Delay (msec) from first change received till SPF calculation\n"
-       "Initial hold time (msec) between consecutive SPF calculations\n"
-       "Maximum hold time (msec)\n")
 
 DEFUN (ospf_timers_lsa,
        ospf_timers_lsa_cmd,
@@ -2647,6 +2649,16 @@ DEFUN (ospf_timers_lsa,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no timers lsa min-arrival <0-600000>",
+ *     NO_STR
+ *     "Adjust routing timers\n"
+ *     "OSPF LSA timers\n"
+ *     "Minimum delay in receiving new version of a LSA\n"
+ *     "Delay in milliseconds\n"
+ *
+ */
 DEFUN (no_ospf_timers_lsa,
        no_ospf_timers_lsa_cmd,
        "no timers lsa min-arrival",
@@ -2675,16 +2687,25 @@ DEFUN (no_ospf_timers_lsa,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_timers_lsa,
-       no_ospf_timers_lsa_val_cmd,
-       "no timers lsa min-arrival <0-600000>",
-       NO_STR
-       "Adjust routing timers\n"
-       "OSPF LSA timers\n"
-       "Minimum delay in receiving new version of a LSA\n"
-       "Delay in milliseconds\n")
 
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "neighbor A.B.C.D priority <0-255> poll-interval <1-65535>",
+ *     NEIGHBOR_STR
+ *     "Neighbor IP address\n"
+ *     "Neighbor Priority\n"
+ *     "Priority\n"
+ *     "Dead Neighbor Polling interval\n"
+ *     "Seconds\n"
+ *
+ * "neighbor A.B.C.D priority <0-255>",
+ *     NEIGHBOR_STR
+ *     "Neighbor IP address\n"
+ *     "Neighbor Priority\n"
+ *     "Seconds\n"
+ *
+ */
 DEFUN (ospf_neighbor,
        ospf_neighbor_cmd,
        "neighbor A.B.C.D",
@@ -2716,24 +2737,19 @@ DEFUN (ospf_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (ospf_neighbor,
-       ospf_neighbor_priority_poll_interval_cmd,
-       "neighbor A.B.C.D priority <0-255> poll-interval <1-65535>",
-       NEIGHBOR_STR
-       "Neighbor IP address\n"
-       "Neighbor Priority\n"
-       "Priority\n"
-       "Dead Neighbor Polling interval\n"
-       "Seconds\n")
 
-ALIAS (ospf_neighbor,
-       ospf_neighbor_priority_cmd,
-       "neighbor A.B.C.D priority <0-255>",
-       NEIGHBOR_STR
-       "Neighbor IP address\n"
-       "Neighbor Priority\n"
-       "Seconds\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "neighbor A.B.C.D poll-interval <1-65535> priority <0-255>",
+ *     NEIGHBOR_STR
+ *     "Neighbor address\n"
+ *     "OSPF dead-router polling interval\n"
+ *     "Seconds\n"
+ *     "OSPF priority of non-broadcast neighbor\n"
+ *     "Priority\n"
+ *
+ */
 DEFUN (ospf_neighbor_poll_interval,
        ospf_neighbor_poll_interval_cmd,
        "neighbor A.B.C.D poll-interval <1-65535>",
@@ -2767,16 +2783,42 @@ DEFUN (ospf_neighbor_poll_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (ospf_neighbor_poll_interval,
-       ospf_neighbor_poll_interval_priority_cmd,
-       "neighbor A.B.C.D poll-interval <1-65535> priority <0-255>",
-       NEIGHBOR_STR
-       "Neighbor address\n"
-       "OSPF dead-router polling interval\n"
-       "Seconds\n"
-       "OSPF priority of non-broadcast neighbor\n"
-       "Priority\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no neighbor A.B.C.D priority <0-255> poll-interval <1-65535>",
+ *     NO_STR
+ *     NEIGHBOR_STR
+ *     "Neighbor IP address\n"
+ *     "Neighbor Priority\n"
+ *     "Priority\n"
+ *     "Dead Neighbor Polling interval\n"
+ *     "Seconds\n"
+ *
+ * "no neighbor A.B.C.D priority <0-255>",
+ *     NO_STR
+ *     NEIGHBOR_STR
+ *     "Neighbor IP address\n"
+ *     "Neighbor Priority\n"
+ *     "Priority\n"
+ *
+ * "no neighbor A.B.C.D poll-interval <1-65535>",
+ *     NO_STR
+ *     NEIGHBOR_STR
+ *     "Neighbor IP address\n"
+ *     "Dead Neighbor Polling interval\n"
+ *     "Seconds\n"
+ *
+ * "no neighbor A.B.C.D poll-interval <1-65535> priority <0-255>",
+ *     NO_STR
+ *     NEIGHBOR_STR
+ *     "Neighbor IP address\n"
+ *     "Dead Neighbor Polling interval\n"
+ *     "Seconds\n"
+ *     "OSPF priority of non-broadcast neighbor\n"
+ *     "Priority\n"
+ *
+ */
 DEFUN (no_ospf_neighbor,
        no_ospf_neighbor_cmd,
        "no neighbor A.B.C.D",
@@ -2797,45 +2839,9 @@ DEFUN (no_ospf_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_neighbor,
-       no_ospf_neighbor_priority_cmd,
-       "no neighbor A.B.C.D priority <0-255>",
-       NO_STR
-       NEIGHBOR_STR
-       "Neighbor IP address\n"
-       "Neighbor Priority\n"
-       "Priority\n")
 
-ALIAS (no_ospf_neighbor,
-       no_ospf_neighbor_poll_interval_cmd,
-       "no neighbor A.B.C.D poll-interval <1-65535>",
-       NO_STR
-       NEIGHBOR_STR
-       "Neighbor IP address\n"
-       "Dead Neighbor Polling interval\n"
-       "Seconds\n")
 
-ALIAS (no_ospf_neighbor,
-       no_ospf_neighbor_poll_interval_priority_cmd,
-       "no neighbor A.B.C.D poll-interval <1-65535> priority <0-255>",
-       NO_STR
-       NEIGHBOR_STR
-       "Neighbor IP address\n"
-       "Dead Neighbor Polling interval\n"
-       "Seconds\n"
-       "OSPF priority of non-broadcast neighbor\n"
-       "Priority\n")
 
-ALIAS (no_ospf_neighbor,
-       no_ospf_neighbor_priority_pollinterval_cmd,
-       "no neighbor A.B.C.D priority <0-255> poll-interval <1-65535>",
-       NO_STR
-       NEIGHBOR_STR
-       "Neighbor IP address\n"
-       "Neighbor Priority\n"
-       "Priority\n"
-       "Dead Neighbor Polling interval\n"
-       "Seconds\n")
 
 DEFUN (ospf_refresh_timer,
        ospf_refresh_timer_cmd,
@@ -2858,6 +2864,13 @@ DEFUN (ospf_refresh_timer,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no refresh timer",
+ *     "Adjust refresh parameters\n"
+ *     "Unset refresh timer\n"
+ *
+ */
 DEFUN (no_ospf_refresh_timer,
        no_ospf_refresh_timer_val_cmd,
        "no refresh timer <10-1800>",
@@ -2885,11 +2898,6 @@ DEFUN (no_ospf_refresh_timer,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_refresh_timer,
-       no_ospf_refresh_timer_cmd,
-       "no refresh timer",
-       "Adjust refresh parameters\n"
-       "Unset refresh timer\n")
 
 DEFUN (ospf_auto_cost_reference_bandwidth,
        ospf_auto_cost_reference_bandwidth_cmd,
@@ -2924,6 +2932,15 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no auto-cost reference-bandwidth <1-4294967>",
+ *     NO_STR
+ *     "Calculate OSPF interface cost according to bandwidth\n"
+ *     "Use reference bandwidth method to assign OSPF cost\n"
+ *     "The reference bandwidth in terms of Mbits per second\n"
+ *
+ */
 DEFUN (no_ospf_auto_cost_reference_bandwidth,
        no_ospf_auto_cost_reference_bandwidth_cmd,
        "no auto-cost reference-bandwidth",
@@ -2951,14 +2968,14 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_auto_cost_reference_bandwidth,
-       no_ospf_auto_cost_reference_bandwidth_val_cmd,
-       "no auto-cost reference-bandwidth <1-4294967>",
-       NO_STR
-       "Calculate OSPF interface cost according to bandwidth\n"
-       "Use reference bandwidth method to assign OSPF cost\n"
-       "The reference bandwidth in terms of Mbits per second\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "write-multiplier <1-100>",
+ *     "Write multiplier\n"
+ *     "Maximum number of interface serviced per write\n"
+ *
+ */
 DEFUN (ospf_write_multiplier,
        ospf_write_multiplier_cmd,
        "ospf write-multiplier <1-100>",
@@ -2983,12 +3000,19 @@ DEFUN (ospf_write_multiplier,
   return CMD_SUCCESS;
 }
 
-ALIAS (ospf_write_multiplier,
-       write_multiplier_cmd,
-       "write-multiplier <1-100>",
-       "Write multiplier\n"
-       "Maximum number of interface serviced per write\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no write-multiplier",
+ *     NO_STR
+ *     "Write multiplier\n"
+ *
+ * "no write-multiplier <1-100>",
+ *     NO_STR
+ *     "Write multiplier\n"
+ *     "Maximum number of interface serviced per write\n"
+ *
+ */
 DEFUN (no_ospf_write_multiplier,
        no_ospf_write_multiplier_cmd,
        "no ospf write-multiplier <1-100>",
@@ -3006,18 +3030,7 @@ DEFUN (no_ospf_write_multiplier,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_write_multiplier,
-       no_write_multiplier_cmd,
-       "no write-multiplier",
-       NO_STR
-       "Write multiplier\n")
 
-ALIAS (no_ospf_write_multiplier,
-       no_write_multiplier_val_cmd,
-       "no write-multiplier <1-100>",
-       NO_STR
-       "Write multiplier\n"
-       "Maximum number of interface serviced per write\n")
 
 const char *ospf_abr_type_descr_str[] = 
 {
@@ -5770,6 +5783,46 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "Link State ID (as an IP address)\n"
+ *
+ * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D (self-originate|)",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "Link State ID (as an IP address)\n"
+ *     "Self-originated link states\n"
+ *     "\n"
+ *
+ * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D adv-router A.B.C.D",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "Link State ID (as an IP address)\n"
+ *     "Advertising Router link states\n"
+ *     "Advertising Router (as an IP address)\n"
+ *
+ * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR "|max-age|self-originate)",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "LSAs in MaxAge list\n"
+ *     "Self-originated link states\n"
+ *
+ */
 DEFUN (show_ip_ospf_database,
        show_ip_ospf_database_cmd,
        "show ip ospf database",
@@ -5786,51 +5839,54 @@ DEFUN (show_ip_ospf_database,
   return (show_ip_ospf_database_common(vty, ospf, 0, argc, argv));
 }
 
-ALIAS (show_ip_ospf_database,
-       show_ip_ospf_database_type_cmd,
-       "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR "|max-age|self-originate)",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "LSAs in MaxAge list\n"
-       "Self-originated link states\n")
 
-ALIAS (show_ip_ospf_database,
-       show_ip_ospf_database_type_id_cmd,
-       "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Link State ID (as an IP address)\n")
 
-ALIAS (show_ip_ospf_database,
-       show_ip_ospf_database_type_id_adv_router_cmd,
-       "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D adv-router A.B.C.D",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Link State ID (as an IP address)\n"
-       "Advertising Router link states\n"
-       "Advertising Router (as an IP address)\n")
 
-ALIAS (show_ip_ospf_database,
-       show_ip_ospf_database_type_id_self_cmd,
-       "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D (self-originate|)",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Link State ID (as an IP address)\n"
-       "Self-originated link states\n"
-       "\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D adv-router A.B.C.D",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "Link State ID (as an IP address)\n"
+ *     "Advertising Router link states\n"
+ *     "Advertising Router (as an IP address)\n"
+ *
+ * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "Link State ID (as an IP address)\n"
+ *
+ * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D (self-originate|)",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "Link State ID (as an IP address)\n"
+ *     "Self-originated link states\n"
+ *     "\n"
+ *
+ * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR "|max-age|self-originate)",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "LSAs in MaxAge list\n"
+ *     "Self-originated link states\n"
+ *
+ */
 DEFUN (show_ip_ospf_instance_database,
        show_ip_ospf_instance_database_cmd,
        "show ip ospf <1-65535> database",
@@ -5851,54 +5907,9 @@ DEFUN (show_ip_ospf_instance_database,
   return (show_ip_ospf_database_common(vty, ospf, 1, argc, argv));
 }
 
-ALIAS (show_ip_ospf_instance_database,
-       show_ip_ospf_instance_database_type_cmd,
-       "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR "|max-age|self-originate)",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "LSAs in MaxAge list\n"
-       "Self-originated link states\n")
 
-ALIAS (show_ip_ospf_instance_database,
-       show_ip_ospf_instance_database_type_id_cmd,
-       "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Link State ID (as an IP address)\n")
 
-ALIAS (show_ip_ospf_instance_database,
-       show_ip_ospf_instance_database_type_id_adv_router_cmd,
-       "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D adv-router A.B.C.D",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Link State ID (as an IP address)\n"
-       "Advertising Router link states\n"
-       "Advertising Router (as an IP address)\n")
 
-ALIAS (show_ip_ospf_instance_database,
-       show_ip_ospf_instance_database_type_id_self_cmd,
-       "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D (self-originate|)",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Link State ID (as an IP address)\n"
-       "Self-originated link states\n"
-       "\n")
 
 
 static int
@@ -5955,6 +5966,17 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") (self-originate|)",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "Self-originated link states\n"
+ *
+ */
 DEFUN (show_ip_ospf_database_type_adv_router,
        show_ip_ospf_database_type_adv_router_cmd,
        "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") adv-router A.B.C.D",
@@ -5974,16 +5996,19 @@ DEFUN (show_ip_ospf_database_type_adv_router,
   return (show_ip_ospf_database_type_adv_router_common(vty, ospf, 0, argc, argv));
 }
 
-ALIAS (show_ip_ospf_database_type_adv_router,
-       show_ip_ospf_database_type_self_cmd,
-       "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") (self-originate|)",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Self-originated link states\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") (self-originate|)",
+ *     SHOW_STR
+ *     IP_STR
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "Database summary\n"
+ *     OSPF_LSA_TYPES_DESC
+ *     "Self-originated link states\n"
+ *
+ */
 DEFUN (show_ip_ospf_instance_database_type_adv_router,
        show_ip_ospf_instance_database_type_adv_router_cmd,
        "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") adv-router A.B.C.D",
@@ -6007,17 +6032,17 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
   return (show_ip_ospf_database_type_adv_router_common(vty, ospf, 1, argc, argv));
 }
 
-ALIAS (show_ip_ospf_instance_database_type_adv_router,
-       show_ip_ospf_instance_database_type_self_cmd,
-       "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") (self-originate|)",
-       SHOW_STR
-       IP_STR
-       "OSPF information\n"
-       "Instance ID\n"
-       "Database summary\n"
-       OSPF_LSA_TYPES_DESC
-       "Self-originated link states\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf authentication (null|message-digest)",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Enable authentication on this interface\n"
+ *     "Use null authentication\n"
+ *     "Use message-digest authentication\n"
+ *
+ */
 DEFUN (ip_ospf_authentication_args,
        ip_ospf_authentication_args_addr_cmd,
        "ip ospf authentication (null|message-digest) A.B.C.D",
@@ -6070,15 +6095,15 @@ DEFUN (ip_ospf_authentication_args,
   return CMD_WARNING;
 }
 
-ALIAS (ip_ospf_authentication_args,
-       ip_ospf_authentication_args_cmd,
-       "ip ospf authentication (null|message-digest)",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Enable authentication on this interface\n"
-       "Use null authentication\n"
-       "Use message-digest authentication\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf authentication",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Enable authentication on this interface\n"
+ *
+ */
 DEFUN (ip_ospf_authentication,
        ip_ospf_authentication_addr_cmd,
        "ip ospf authentication A.B.C.D",
@@ -6115,13 +6140,18 @@ DEFUN (ip_ospf_authentication,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_authentication,
-       ip_ospf_authentication_cmd,
-       "ip ospf authentication",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Enable authentication on this interface\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf authentication (null|message-digest)",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Enable authentication on this interface\n"
+ *     "Use null authentication\n"
+ *     "Use message-digest authentication\n"
+ *
+ */
 DEFUN (no_ip_ospf_authentication_args,
        no_ip_ospf_authentication_args_addr_cmd,
        "no ip ospf authentication (null|message-digest) A.B.C.D",
@@ -6215,16 +6245,16 @@ DEFUN (no_ip_ospf_authentication_args,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_authentication_args,
-       no_ip_ospf_authentication_args_cmd,
-       "no ip ospf authentication (null|message-digest)",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Enable authentication on this interface\n"
-       "Use null authentication\n"
-       "Use message-digest authentication\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf authentication",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Enable authentication on this interface\n"
+ *
+ */
 DEFUN (no_ip_ospf_authentication,
        no_ip_ospf_authentication_addr_cmd,
        "no ip ospf authentication A.B.C.D",
@@ -6307,14 +6337,16 @@ DEFUN (no_ip_ospf_authentication,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_authentication,
-       no_ip_ospf_authentication_cmd,
-       "no ip ospf authentication",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Enable authentication on this interface\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf authentication-key AUTH_KEY",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Authentication password (key)\n"
+ *     "The OSPF password (key)"
+ *
+ */
 DEFUN (ip_ospf_authentication_key,
        ip_ospf_authentication_key_addr_cmd,
        "ip ospf authentication-key AUTH_KEY A.B.C.D",
@@ -6353,13 +6385,6 @@ DEFUN (ip_ospf_authentication_key,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_authentication_key,
-       ip_ospf_authentication_key_cmd,
-       "ip ospf authentication-key AUTH_KEY",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Authentication password (key)\n"
-       "The OSPF password (key)")
 
 ALIAS_HIDDEN (ip_ospf_authentication_key,
               ospf_authentication_key_cmd,
@@ -6368,6 +6393,39 @@ ALIAS_HIDDEN (ip_ospf_authentication_key,
               "Authentication password (key)\n"
               "The OSPF password (key)")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf authentication-key AUTH_KEY A.B.C.D",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Authentication password (key)\n"
+ *     "The OSPF password (key)\n"
+ *     "Address of interface"
+ *
+ * "no ospf authentication-key AUTH_KEY",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Authentication password (key)\n"
+ *     "The OSPF password (key)\n"
+ *
+ * "no ip ospf authentication-key",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Authentication password (key)\n"
+ *
+ * "no ip ospf authentication-key AUTH_KEY",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Authentication password (key)\n"
+ *
+ * "no ospf authentication-key",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Authentication password (key)\n"
+ *
+ */
 DEFUN (no_ip_ospf_authentication_key,
        no_ip_ospf_authentication_key_authkey_addr_cmd,
        "no ip ospf authentication-key AUTH_KEY A.B.C.D",
@@ -6412,46 +6470,22 @@ DEFUN (no_ip_ospf_authentication_key,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_authentication_key,
-       no_ip_ospf_authentication_key_authkey_cmd,
-       "no ip ospf authentication-key AUTH_KEY",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Authentication password (key)\n")
 
-ALIAS (no_ip_ospf_authentication_key,
-       no_ip_ospf_authentication_key_cmd,
-       "no ip ospf authentication-key",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Authentication password (key)\n")
 
-ALIAS (no_ip_ospf_authentication_key,
-       no_ospf_authentication_key_cmd,
-       "no ospf authentication-key",
-       NO_STR
-       "OSPF interface commands\n"
-       "Authentication password (key)\n")
 
-ALIAS (no_ip_ospf_authentication_key,
-       no_ospf_authentication_key_authkey_cmd,
-       "no ospf authentication-key AUTH_KEY",
-       NO_STR
-       "OSPF interface commands\n"
-       "Authentication password (key)\n"
-       "The OSPF password (key)\n")
 
-ALIAS (no_ip_ospf_authentication_key,
-       no_ospf_authentication_key_authkey_ip_cmd,
-       "no ospf authentication-key AUTH_KEY A.B.C.D",
-       NO_STR
-       "OSPF interface commands\n"
-       "Authentication password (key)\n"
-       "The OSPF password (key)\n"
-       "Address of interface")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf message-digest-key <1-255> md5 KEY",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Message digest authentication password (key)\n"
+ *     "Key ID\n"
+ *     "Use MD5 algorithm\n"
+ *     "The OSPF password (key)"
+ *
+ */
 DEFUN (ip_ospf_message_digest_key,
        ip_ospf_message_digest_key_addr_cmd,
        "ip ospf message-digest-key <1-255> md5 KEY A.B.C.D",
@@ -6505,15 +6539,6 @@ DEFUN (ip_ospf_message_digest_key,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_message_digest_key,
-       ip_ospf_message_digest_key_cmd,
-       "ip ospf message-digest-key <1-255> md5 KEY",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
-       "Key ID\n"
-       "Use MD5 algorithm\n"
-       "The OSPF password (key)")
 
 ALIAS_HIDDEN (ip_ospf_message_digest_key,
               ospf_message_digest_key_cmd,
@@ -6524,6 +6549,18 @@ ALIAS_HIDDEN (ip_ospf_message_digest_key,
               "Use MD5 algorithm\n"
               "The OSPF password (key)")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf message-digest-key <1-255> md5 KEY",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Message digest authentication password (key)\n"
+ *     "Key ID\n"
+ *     "Use MD5 algorithm\n"
+ *     "The OSPF password (key)"
+ *
+ */
 DEFUN (no_ip_ospf_message_digest_key_md5,
        no_ip_ospf_message_digest_key_md5_addr_cmd,
        "no ip ospf message-digest-key <1-255> md5 KEY A.B.C.D",
@@ -6580,17 +6617,23 @@ DEFUN (no_ip_ospf_message_digest_key_md5,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_message_digest_key_md5,
-       no_ip_ospf_message_digest_key_md5_cmd,
-       "no ip ospf message-digest-key <1-255> md5 KEY",
-        NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
-       "Key ID\n"
-       "Use MD5 algorithm\n"
-       "The OSPF password (key)")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf message-digest-key <1-255>",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Message digest authentication password (key)\n"
+ *     "Key ID\n"
+ *
+ * "no ospf message-digest-key <1-255>",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Message digest authentication password (key)\n"
+ *     "Key ID\n"
+ *
+ */
 DEFUN (no_ip_ospf_message_digest_key,
        no_ip_ospf_message_digest_key_addr_cmd,
        "no ip ospf message-digest-key <1-255> A.B.C.D",
@@ -6645,23 +6688,17 @@ DEFUN (no_ip_ospf_message_digest_key,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_message_digest_key,
-       no_ip_ospf_message_digest_key_cmd,
-       "no ip ospf message-digest-key <1-255>",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
-       "Key ID\n")
      
-ALIAS (no_ip_ospf_message_digest_key,
-       no_ospf_message_digest_key_cmd,
-       "no ospf message-digest-key <1-255>",
-       NO_STR
-       "OSPF interface commands\n"
-       "Message digest authentication password (key)\n"
-       "Key ID\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf cost <1-65535>",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interface cost\n"
+ *     "Cost"
+ *
+ */
 DEFUN (ip_ospf_cost,
        ip_ospf_cost_u32_inet4_cmd,
        "ip ospf cost <1-65535> A.B.C.D",
@@ -6710,13 +6747,6 @@ DEFUN (ip_ospf_cost,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_cost,
-       ip_ospf_cost_u32_cmd,
-       "ip ospf cost <1-65535>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost")
 
 ALIAS_HIDDEN (ip_ospf_cost,
               ospf_cost_u32_cmd,
@@ -6733,6 +6763,26 @@ ALIAS_HIDDEN (ip_ospf_cost,
               "Cost\n"
               "Address of interface")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf cost A.B.C.D",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Interface cost\n"
+ *     "Address of interface"
+ *
+ * "no ospf cost",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Interface cost\n"
+ *
+ * "no ip ospf cost",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interface cost\n"
+ *
+ */
 DEFUN (no_ip_ospf_cost,
        no_ip_ospf_cost_inet4_cmd,
        "no ip ospf cost A.B.C.D",
@@ -6778,29 +6828,33 @@ DEFUN (no_ip_ospf_cost,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_cost,
-       no_ip_ospf_cost_cmd,
-       "no ip ospf cost",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interface cost\n")
 
-ALIAS (no_ip_ospf_cost,
-       no_ospf_cost_cmd,
-       "no ospf cost",
-       NO_STR
-       "OSPF interface commands\n"
-       "Interface cost\n")
 
-ALIAS (no_ip_ospf_cost,
-       no_ospf_cost_inet4_cmd,
-       "no ospf cost A.B.C.D",
-       NO_STR
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Address of interface")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf cost <1-65535>",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Interface cost\n"
+ *     "Cost"
+ *
+ * "no ospf cost <1-65535> A.B.C.D",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Interface cost\n"
+ *     "Cost\n"
+ *     "Address of interface"
+ *
+ * "no ip ospf cost <1-65535> A.B.C.D",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interface cost\n"
+ *     "Cost\n"
+ *     "Address of interface"
+ *
+ */
 DEFUN (no_ip_ospf_cost2,
        no_ip_ospf_cost_u32_cmd,
        "no ip ospf cost <1-65535>",
@@ -6859,32 +6913,8 @@ DEFUN (no_ip_ospf_cost2,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_cost2,
-       no_ospf_cost_u32_cmd,
-       "no ospf cost <1-65535>",
-       NO_STR
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost")
 
-ALIAS (no_ip_ospf_cost2,
-       no_ip_ospf_cost_u32_inet4_cmd,
-       "no ip ospf cost <1-65535> A.B.C.D",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost\n"
-       "Address of interface")
 
-ALIAS (no_ip_ospf_cost2,
-       no_ospf_cost_u32_inet4_cmd,
-       "no ospf cost <1-65535> A.B.C.D",
-       NO_STR
-       "OSPF interface commands\n"
-       "Interface cost\n"
-       "Cost\n"
-       "Address of interface")
 
 static void
 ospf_nbr_timer_update (struct ospf_interface *oi)
@@ -6982,6 +7012,15 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
 }
 
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf dead-interval <1-65535>",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interval after which a neighbor is declared dead\n"
+ *     "Seconds\n"
+ *
+ */
 DEFUN (ip_ospf_dead_interval,
        ip_ospf_dead_interval_addr_cmd,
        "ip ospf dead-interval <1-65535> A.B.C.D",
@@ -6997,13 +7036,6 @@ DEFUN (ip_ospf_dead_interval,
     return ospf_vty_dead_interval_set (vty, argv[3]->arg, NULL, NULL);
 }
 
-ALIAS (ip_ospf_dead_interval,
-       ip_ospf_dead_interval_cmd,
-       "ip ospf dead-interval <1-65535>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
-       "Seconds\n")
 
 ALIAS_HIDDEN (ip_ospf_dead_interval,
               ospf_dead_interval_cmd,
@@ -7012,6 +7044,17 @@ ALIAS_HIDDEN (ip_ospf_dead_interval,
               "Interval after which a neighbor is declared dead\n"
               "Seconds\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf dead-interval minimal hello-multiplier <1-10>",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interval after which a neighbor is declared dead\n"
+ *     "Minimal 1s dead-interval with fast sub-second hellos\n"
+ *     "Hello multiplier factor\n"
+ *     "Number of Hellos to send each second\n"
+ *
+ */
 DEFUN (ip_ospf_dead_interval_minimal,
        ip_ospf_dead_interval_minimal_addr_cmd,
        "ip ospf dead-interval minimal hello-multiplier <1-10> A.B.C.D",
@@ -7029,16 +7072,47 @@ DEFUN (ip_ospf_dead_interval_minimal,
     return ospf_vty_dead_interval_set (vty, NULL, NULL, argv[5]->arg);
 }
 
-ALIAS (ip_ospf_dead_interval_minimal,
-       ip_ospf_dead_interval_minimal_cmd,
-       "ip ospf dead-interval minimal hello-multiplier <1-10>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
-       "Minimal 1s dead-interval with fast sub-second hellos\n"
-       "Hello multiplier factor\n"
-       "Number of Hellos to send each second\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf dead-interval",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Interval after which a neighbor is declared dead\n"
+ *
+ * "no ip ospf dead-interval minimal hello-multiplier <1-10>",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interval after which a neighbor is declared dead\n"
+ *     "Minimal 1s dead-interval with fast sub-second hellos\n"
+ *     "Hello multiplier factor\n"
+ *     "Number of Hellos to send each second\n"
+ *
+ * "no ip ospf dead-interval <1-65535>",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interval after which a neighbor is declared dead\n"
+ *     "Seconds\n"
+ *
+ * "no ip ospf dead-interval",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interval after which a neighbor is declared dead\n"
+ *
+ * "no ip ospf dead-interval minimal hello-multiplier <1-10> A.B.C.D",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Interval after which a neighbor is declared dead\n"
+ *     "Minimal 1s dead-interval with fast sub-second hellos\n"
+ *     "Hello multiplier factor\n"
+ *     "Number of Hellos to send each second\n"
+ *     "Address of interface\n"
+ *
+ */
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_addr_cmd,
        "no ip ospf dead-interval <1-65535> A.B.C.D",
@@ -7108,53 +7182,20 @@ DEFUN (no_ip_ospf_dead_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_dead_interval,
-       no_ip_ospf_dead_interval_seconds_cmd,
-       "no ip ospf dead-interval <1-65535>",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
-       "Seconds\n")
 
-ALIAS (no_ip_ospf_dead_interval,
-       no_ip_ospf_dead_interval_cmd,
-       "no ip ospf dead-interval",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n")
 
-ALIAS (no_ip_ospf_dead_interval,
-       no_ospf_dead_interval_cmd,
-       "no ospf dead-interval",
-       NO_STR
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n")
 
-ALIAS (no_ip_ospf_dead_interval,
-       no_ip_ospf_dead_interval_minimal_addr_cmd,
-       "no ip ospf dead-interval minimal hello-multiplier <1-10> A.B.C.D",
-        NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
-       "Minimal 1s dead-interval with fast sub-second hellos\n"
-       "Hello multiplier factor\n"
-       "Number of Hellos to send each second\n"
-       "Address of interface\n")
 
-ALIAS (no_ip_ospf_dead_interval,
-       no_ip_ospf_dead_interval_minimal_cmd,
-       "no ip ospf dead-interval minimal hello-multiplier <1-10>",
-        NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
-       "Minimal 1s dead-interval with fast sub-second hellos\n"
-       "Hello multiplier factor\n"
-       "Number of Hellos to send each second\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf hello-interval <1-65535>",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Time between HELLO packets\n"
+ *     "Seconds\n"
+ *
+ */
 DEFUN (ip_ospf_hello_interval,
        ip_ospf_hello_interval_addr_cmd,
        "ip ospf hello-interval <1-65535> A.B.C.D",
@@ -7201,13 +7242,6 @@ DEFUN (ip_ospf_hello_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_hello_interval,
-       ip_ospf_hello_interval_cmd,
-       "ip ospf hello-interval <1-65535>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between HELLO packets\n"
-       "Seconds\n")
 
 ALIAS_HIDDEN (ip_ospf_hello_interval,
               ospf_hello_interval_cmd,
@@ -7216,6 +7250,28 @@ ALIAS_HIDDEN (ip_ospf_hello_interval,
               "Time between HELLO packets\n"
               "Seconds\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf hello-interval <1-65535>",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Time between HELLO packets\n"
+ *     "Seconds\n"
+ *
+ * "no ip ospf hello-interval",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Time between HELLO packets\n"
+ *
+ * "no ospf hello-interval <1-65535>",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Time between HELLO packets\n"
+ *     "Seconds\n"
+ *
+ */
 DEFUN (no_ip_ospf_hello_interval,
        no_ip_ospf_hello_interval_addr_cmd,
        "no ip ospf hello-interval <1-65535> A.B.C.D",
@@ -7261,30 +7317,8 @@ DEFUN (no_ip_ospf_hello_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_hello_interval,
-       no_ip_ospf_hello_interval_seconds_cmd,
-       "no ip ospf hello-interval <1-65535>",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between HELLO packets\n"
-       "Seconds\n")
 
-ALIAS (no_ip_ospf_hello_interval,
-       no_ip_ospf_hello_interval_cmd,
-       "no ip ospf hello-interval",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between HELLO packets\n")
 
-ALIAS (no_ip_ospf_hello_interval,
-       no_ospf_hello_interval_cmd,
-       "no ospf hello-interval <1-65535>",
-       NO_STR
-       "OSPF interface commands\n"
-       "Time between HELLO packets\n"
-       "Seconds\n")
 
 DEFUN (ip_ospf_network,
        ip_ospf_network_cmd,
@@ -7350,6 +7384,33 @@ ALIAS_HIDDEN (ip_ospf_network,
               "Specify OSPF point-to-multipoint network\n"
               "Specify OSPF point-to-point network\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Network type\n"
+ *     "Specify OSPF broadcast multi-access network\n"
+ *     "Specify OSPF NBMA network\n"
+ *     "Specify OSPF point-to-multipoint network\n"
+ *     "Specify OSPF point-to-point network\n"
+ *
+ * "no ospf network",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Network type\n"
+ *
+ * "no ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Network type\n"
+ *     "Specify OSPF broadcast multi-access network\n"
+ *     "Specify OSPF NBMA network\n"
+ *     "Specify OSPF point-to-multipoint network\n"
+ *     "Specify OSPF point-to-point network\n"
+ *
+ */
 DEFUN (no_ip_ospf_network,
        no_ip_ospf_network_cmd,
        "no ip ospf network",
@@ -7386,36 +7447,18 @@ DEFUN (no_ip_ospf_network,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_network,
-       no_ip_ospf_network_val_cmd,
-       "no ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Network type\n"
-       "Specify OSPF broadcast multi-access network\n"
-       "Specify OSPF NBMA network\n"
-       "Specify OSPF point-to-multipoint network\n"
-       "Specify OSPF point-to-point network\n")
 
-ALIAS (no_ip_ospf_network,
-       no_ospf_network_cmd,
-       "no ospf network",
-       NO_STR
-       "OSPF interface commands\n"
-       "Network type\n")
 
-ALIAS (no_ip_ospf_network,
-       no_ospf_network_val_cmd,
-       "no ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)",
-       NO_STR
-       "OSPF interface commands\n"
-       "Network type\n"
-       "Specify OSPF broadcast multi-access network\n"
-       "Specify OSPF NBMA network\n"
-       "Specify OSPF point-to-multipoint network\n"
-       "Specify OSPF point-to-point network\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf priority <0-255>",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Router priority\n"
+ *     "Priority\n"
+ *
+ */
 DEFUN (ip_ospf_priority,
        ip_ospf_priority_addr_cmd,
        "ip ospf priority <0-255> A.B.C.D",
@@ -7478,13 +7521,6 @@ DEFUN (ip_ospf_priority,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_priority,
-       ip_ospf_priority_cmd,
-       "ip ospf priority <0-255>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Router priority\n"
-       "Priority\n")
 
 ALIAS_HIDDEN (ip_ospf_priority,
               ospf_priority_cmd,
@@ -7493,6 +7529,28 @@ ALIAS_HIDDEN (ip_ospf_priority,
               "Router priority\n"
               "Priority\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf priority",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Router priority\n"
+ *
+ * "no ip ospf priority <0-255>",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Router priority\n"
+ *     "Priority\n"
+ *
+ * "no ospf priority <0-255>",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Router priority\n"
+ *     "Priority\n"
+ *
+ */
 DEFUN (no_ip_ospf_priority,
        no_ip_ospf_priority_addr_cmd,
        "no ip ospf priority <0-255> A.B.C.D",
@@ -7554,32 +7612,19 @@ DEFUN (no_ip_ospf_priority,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_priority,
-       no_ip_ospf_priority_no_param_cmd,
-       "no ip ospf priority",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Router priority\n");
-
-ALIAS (no_ip_ospf_priority,
-       no_ip_ospf_priority_cmd,
-       "no ip ospf priority <0-255>",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Router priority\n"
-       "Priority\n")
-
-ALIAS (no_ip_ospf_priority,
-       no_ospf_priority_cmd,
-       "no ospf priority <0-255>",
-       NO_STR
-       "OSPF interface commands\n"
-       "Router priority\n"
-       "Priority\n")
 
 
+
+
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf retransmit-interval <3-65535>",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Time between retransmitting lost link state advertisements\n"
+ *     "Seconds\n"
+ *
+ */
 DEFUN (ip_ospf_retransmit_interval,
        ip_ospf_retransmit_interval_addr_cmd,
        "ip ospf retransmit-interval <3-65535> A.B.C.D",
@@ -7626,13 +7671,6 @@ DEFUN (ip_ospf_retransmit_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_retransmit_interval,
-       ip_ospf_retransmit_interval_cmd,
-       "ip ospf retransmit-interval <3-65535>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n"
-       "Seconds\n")
 
 ALIAS_HIDDEN (ip_ospf_retransmit_interval,
               ospf_retransmit_interval_cmd,
@@ -7641,6 +7679,28 @@ ALIAS_HIDDEN (ip_ospf_retransmit_interval,
               "Time between retransmitting lost link state advertisements\n"
               "Seconds\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf retransmit-interval <3-65535> A.B.C.D",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Time between retransmitting lost link state advertisements\n"
+ *     "Seconds\n"
+ *     "Address of interface"
+ *
+ * "no ip ospf retransmit-interval",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Time between retransmitting lost link state advertisements\n"
+ *
+ * "no ospf retransmit-interval",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Time between retransmitting lost link state advertisements\n"
+ *
+ */
 DEFUN (no_ip_ospf_retransmit_interval,
        no_ip_ospf_retransmit_interval_addr_cmd,
        "no ip ospf retransmit-interval A.B.C.D",
@@ -7691,30 +7751,8 @@ DEFUN (no_ip_ospf_retransmit_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_retransmit_interval,
-       no_ip_ospf_retransmit_interval_sec_addr_cmd,
-       "no ip ospf retransmit-interval <3-65535> A.B.C.D",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n"
-       "Seconds\n"
-       "Address of interface")
 
-ALIAS (no_ip_ospf_retransmit_interval,
-       no_ip_ospf_retransmit_interval_cmd,
-       "no ip ospf retransmit-interval",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n")
 
-ALIAS (no_ip_ospf_retransmit_interval,
-       no_ospf_retransmit_interval_cmd,
-       "no ospf retransmit-interval",
-       NO_STR
-       "OSPF interface commands\n"
-       "Time between retransmitting lost link state advertisements\n")
 
 DEFUN (no_ip_ospf_retransmit_interval_sec,
        no_ip_ospf_retransmit_interval_sec_cmd,
@@ -7738,6 +7776,15 @@ DEFUN (no_ip_ospf_retransmit_interval_sec,
 }
 
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf transmit-delay <1-65535>",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Link state transmit delay\n"
+ *     "Seconds\n"
+ *
+ */
 DEFUN (ip_ospf_transmit_delay,
        ip_ospf_transmit_delay_addr_cmd,
        "ip ospf transmit-delay <1-65535> A.B.C.D",
@@ -7783,13 +7830,6 @@ DEFUN (ip_ospf_transmit_delay,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_transmit_delay,
-       ip_ospf_transmit_delay_cmd,
-       "ip ospf transmit-delay <1-65535>",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Link state transmit delay\n"
-       "Seconds\n")
 
 ALIAS_HIDDEN (ip_ospf_transmit_delay,
               ospf_transmit_delay_cmd,
@@ -7798,6 +7838,28 @@ ALIAS_HIDDEN (ip_ospf_transmit_delay,
               "Link state transmit delay\n"
               "Seconds\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf transmit-delay",
+ *     NO_STR
+ *     "OSPF interface commands\n"
+ *     "Link state transmit delay\n"
+ *
+ * "no ip ospf transmit-delay",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Link state transmit delay\n"
+ *
+ * "no ip ospf transmit-delay <1-65535> A.B.C.D",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Link state transmit delay\n"
+ *     "Seconds\n"
+ *     "Address of interface"
+ *
+ */
 DEFUN (no_ip_ospf_transmit_delay,
        no_ip_ospf_transmit_delay_addr_cmd,
        "no ip ospf transmit-delay A.B.C.D",
@@ -7848,30 +7910,8 @@ DEFUN (no_ip_ospf_transmit_delay,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_transmit_delay,
-       no_ip_ospf_transmit_delay_sec_addr_cmd,
-       "no ip ospf transmit-delay <1-65535> A.B.C.D",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Link state transmit delay\n"
-       "Seconds\n"
-       "Address of interface")
 
-ALIAS (no_ip_ospf_transmit_delay,
-       no_ip_ospf_transmit_delay_cmd,
-       "no ip ospf transmit-delay",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Link state transmit delay\n")
 
-ALIAS (no_ip_ospf_transmit_delay,
-       no_ospf_transmit_delay_cmd,
-       "no ospf transmit-delay",
-       NO_STR
-       "OSPF interface commands\n"
-       "Link state transmit delay\n")
 
 DEFUN (no_ip_ospf_transmit_delay_sec,
        no_ip_ospf_transmit_delay_sec_cmd,
@@ -7895,6 +7935,17 @@ DEFUN (no_ip_ospf_transmit_delay_sec,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf <1-65535> area (A.B.C.D|<0-4294967295>)",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Instance ID\n"
+ *     "Enable OSPF on this interface\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *
+ */
 DEFUN (ip_ospf_area,
        ip_ospf_area_cmd,
        "ip ospf area (A.B.C.D|<0-4294967295>)",
@@ -7966,16 +8017,18 @@ DEFUN (ip_ospf_area,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_area,
-       ip_ospf_instance_area_cmd,
-       "ip ospf <1-65535> area (A.B.C.D|<0-4294967295>)",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Instance ID\n"
-       "Enable OSPF on this interface\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf area (A.B.C.D|<0-4294967295>)",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Disable OSPF on this interface\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *
+ */
 DEFUN (no_ip_ospf_area,
        no_ip_ospf_area_cmd,
        "no ip ospf area",
@@ -8004,16 +8057,19 @@ DEFUN (no_ip_ospf_area,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_area,
-       no_ip_ospf_area_val_cmd,
-       "no ip ospf area (A.B.C.D|<0-4294967295>)",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Disable OSPF on this interface\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf <1-65535> area (A.B.C.D|<0-4294967295>)",
+ *     NO_STR
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Instance ID\n"
+ *     "Disable OSPF on this interface\n"
+ *     "OSPF area ID in IP address format\n"
+ *     "OSPF area ID as a decimal value\n"
+ *
+ */
 DEFUN (no_ip_ospf_instance_area,
        no_ip_ospf_instance_area_cmd,
        "no ip ospf <1-65535> area",
@@ -8045,16 +8101,6 @@ DEFUN (no_ip_ospf_instance_area,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_instance_area,
-       no_ip_ospf_instance_area_val_cmd,
-       "no ip ospf <1-65535> area (A.B.C.D|<0-4294967295>)",
-       NO_STR
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Instance ID\n"
-       "Disable OSPF on this interface\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n")
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
@@ -8421,6 +8467,14 @@ DEFUN (ospf_default_metric,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no default-metric <0-16777214>",
+ *     NO_STR
+ *     "Set metric of redistributed routes\n"
+ *     "Default metric\n"
+ *
+ */
 DEFUN (no_ospf_default_metric,
        no_ospf_default_metric_cmd,
        "no default-metric",
@@ -8437,12 +8491,6 @@ DEFUN (no_ospf_default_metric,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_default_metric,
-       no_ospf_default_metric_val_cmd,
-       "no default-metric <0-16777214>",
-       NO_STR
-       "Set metric of redistributed routes\n"
-       "Default metric\n")
 
 DEFUN (ospf_distance,
        ospf_distance_cmd,
@@ -8632,6 +8680,14 @@ DEFUN (no_ospf_distance_source_access_list,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip ospf mtu-ignore",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Disable mtu mismatch detection\n"
+ *
+ */
 DEFUN (ip_ospf_mtu_ignore,
        ip_ospf_mtu_ignore_addr_cmd,
        "ip ospf mtu-ignore A.B.C.D",
@@ -8674,14 +8730,16 @@ DEFUN (ip_ospf_mtu_ignore,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_ospf_mtu_ignore,
-      ip_ospf_mtu_ignore_cmd,
-      "ip ospf mtu-ignore",
-      "IP Information\n"
-      "OSPF interface commands\n"
-      "Disable mtu mismatch detection\n")
 
     
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip ospf mtu-ignore",
+ *     "IP Information\n"
+ *     "OSPF interface commands\n"
+ *     "Disable mtu mismatch detection\n"
+ *
+ */
 DEFUN (no_ip_ospf_mtu_ignore,
        no_ip_ospf_mtu_ignore_addr_cmd,
        "no ip ospf mtu-ignore A.B.C.D",
@@ -8724,12 +8782,6 @@ DEFUN (no_ip_ospf_mtu_ignore,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_ospf_mtu_ignore,
-       no_ip_ospf_mtu_ignore_cmd,
-      "no ip ospf mtu-ignore",
-      "IP Information\n"
-      "OSPF interface commands\n"
-      "Disable mtu mismatch detection\n")
 
 DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
@@ -8817,6 +8869,15 @@ DEFUN (ospf_max_metric_router_lsa_startup,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no max-metric router-lsa on-startup",
+ *     NO_STR
+ *     "OSPF maximum / infinite-distance metric\n"
+ *     "Advertise own Router-LSA with infinite distance (stub router)\n"
+ *     "Automatically advertise stub Router-LSA on startup of OSPF\n"
+ *
+ */
 DEFUN (no_ospf_max_metric_router_lsa_startup,
        no_ospf_max_metric_router_lsa_startup_cmd,
        "no max-metric router-lsa on-startup <5-86400>",
@@ -8850,13 +8911,6 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_max_metric_router_lsa_startup,
-       no_ospf_max_metric_router_lsa_startup_no_param_cmd,
-       "no max-metric router-lsa on-startup",
-       NO_STR
-       "OSPF maximum / infinite-distance metric\n"
-       "Advertise own Router-LSA with infinite distance (stub router)\n"
-       "Automatically advertise stub Router-LSA on startup of OSPF\n");
 
 DEFUN (ospf_max_metric_router_lsa_shutdown,
        ospf_max_metric_router_lsa_shutdown_cmd,
@@ -8885,6 +8939,18 @@ DEFUN (ospf_max_metric_router_lsa_shutdown,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no max-metric router-lsa on-shutdown",
+ *     NO_STR
+ *     "OSPF maximum / infinite-distance metric\n"
+ *     "Advertise own Router-LSA with infinite distance (stub router)\n"
+ *     "Advertise stub-router prior to full shutdown of OSPF\n");
+ *     
+ *     static void
+ *     config_write_stub_router (struct vty *vty, struct ospf *ospf
+ *
+ */
 DEFUN (no_ospf_max_metric_router_lsa_shutdown,
        no_ospf_max_metric_router_lsa_shutdown_cmd,
        "no max-metric router-lsa on-shutdown <5-100>",
@@ -8904,16 +8970,6 @@ DEFUN (no_ospf_max_metric_router_lsa_shutdown,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_max_metric_router_lsa_shutdown,
-       no_ospf_max_metric_router_lsa_shutdown_no_param_cmd,
-       "no max-metric router-lsa on-shutdown",
-       NO_STR
-       "OSPF maximum / infinite-distance metric\n"
-       "Advertise own Router-LSA with infinite distance (stub router)\n"
-       "Advertise stub-router prior to full shutdown of OSPF\n");
-
-static void
-config_write_stub_router (struct vty *vty, struct ospf *ospf)
 {
   struct listnode *ln;
   struct ospf_area *area;
@@ -9977,34 +10033,14 @@ ospf_vty_show_init (void)
   install_element (ENABLE_NODE, &show_ip_ospf_instance_cmd);
 
   /* "show ip ospf database" commands. */
-  install_element (VIEW_NODE, &show_ip_ospf_database_type_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_database_type_id_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_database_type_id_adv_router_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_database_type_adv_router_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_database_type_id_self_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_database_type_self_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_database_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_id_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_id_adv_router_cmd);
   install_element (ENABLE_NODE, &show_ip_ospf_database_type_adv_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_id_self_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_database_type_self_cmd);
   install_element (ENABLE_NODE, &show_ip_ospf_database_cmd);
 
-  install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_id_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_id_adv_router_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_adv_router_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_id_self_cmd);
-  install_element (VIEW_NODE, &show_ip_ospf_instance_database_type_self_cmd);
   install_element (VIEW_NODE, &show_ip_ospf_instance_database_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_id_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_id_adv_router_cmd);
   install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_adv_router_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_id_self_cmd);
-  install_element (ENABLE_NODE, &show_ip_ospf_instance_database_type_self_cmd);
   install_element (ENABLE_NODE, &show_ip_ospf_instance_database_cmd);
 
   /* "show ip ospf interface" commands. */
@@ -10083,121 +10119,69 @@ ospf_vty_if_init (void)
 
   /* "ip ospf authentication" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_authentication_args_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_authentication_args_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_authentication_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_authentication_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_authentication_args_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_authentication_args_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_authentication_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_authentication_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_authentication_key_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_authentication_key_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_authentication_key_authkey_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_authentication_key_authkey_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_authentication_key_cmd);
 
   /* "ip ospf message-digest-key" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_message_digest_key_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_message_digest_key_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_md5_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_md5_cmd);
 
   /* "ip ospf cost" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_cost_u32_inet4_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_cost_u32_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_cost_u32_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_cost_u32_inet4_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_cost_inet4_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_cost_cmd);
 
   /* "ip ospf mtu-ignore" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_mtu_ignore_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_mtu_ignore_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_mtu_ignore_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_mtu_ignore_cmd);
 
   /* "ip ospf dead-interval" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_dead_interval_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_dead_interval_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_dead_interval_minimal_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_dead_interval_minimal_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_seconds_cmd);
   
   /* "ip ospf hello-interval" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_hello_interval_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_hello_interval_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_hello_interval_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_hello_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_hello_interval_seconds_cmd);
 
   /* "ip ospf network" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_network_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_network_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_network_val_cmd);
 
   /* "ip ospf priority" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_priority_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_priority_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_priority_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_priority_no_param_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_priority_addr_cmd);
 
   /* "ip ospf retransmit-interval" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_retransmit_interval_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_retransmit_interval_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_retransmit_interval_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_retransmit_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_retransmit_interval_sec_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_retransmit_interval_sec_cmd);
 
   /* "ip ospf transmit-delay" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_transmit_delay_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_transmit_delay_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_sec_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_transmit_delay_sec_cmd);
 
   /* "ip ospf area" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_area_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_area_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_area_val_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_instance_area_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_instance_area_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_instance_area_val_cmd);
 
   /* These commands are compatibitliy for previous version. */
   install_element (INTERFACE_NODE, &ospf_authentication_key_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_authentication_key_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_authentication_key_authkey_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_authentication_key_authkey_ip_cmd);
   install_element (INTERFACE_NODE, &ospf_message_digest_key_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_message_digest_key_cmd);
   install_element (INTERFACE_NODE, &ospf_cost_u32_cmd);
   install_element (INTERFACE_NODE, &ospf_cost_u32_inet4_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_cost_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_cost_u32_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_cost_u32_inet4_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_cost_inet4_cmd);
   install_element (INTERFACE_NODE, &ospf_dead_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_dead_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_minimal_addr_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_minimal_cmd);
   install_element (INTERFACE_NODE, &ospf_hello_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_hello_interval_cmd);
   install_element (INTERFACE_NODE, &ospf_network_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_network_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_network_val_cmd);
   install_element (INTERFACE_NODE, &ospf_priority_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_priority_cmd);
   install_element (INTERFACE_NODE, &ospf_retransmit_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_retransmit_interval_cmd);
   install_element (INTERFACE_NODE, &ospf_transmit_delay_cmd);
-  install_element (INTERFACE_NODE, &no_ospf_transmit_delay_cmd);
 }
 
 static void
@@ -10216,7 +10200,6 @@ ospf_vty_zebra_init (void)
 
   install_element (OSPF_NODE, &ospf_default_metric_cmd);
   install_element (OSPF_NODE, &no_ospf_default_metric_cmd);
-  install_element (OSPF_NODE, &no_ospf_default_metric_val_cmd);
 
   install_element (OSPF_NODE, &ospf_distance_cmd);
   install_element (OSPF_NODE, &no_ospf_distance_cmd);
@@ -10294,8 +10277,6 @@ ospf_vty_init (void)
   install_element (CONFIG_NODE, &router_ospf_cmd);
   install_element (CONFIG_NODE, &no_router_ospf_cmd);
 
-  install_element (CONFIG_NODE, &router_ospf_instance_cmd);
-  install_element (CONFIG_NODE, &no_router_ospf_instance_cmd);
 
   install_default (OSPF_NODE);
 
@@ -10303,15 +10284,10 @@ ospf_vty_init (void)
   install_element (OSPF_NODE, &ospf_router_id_cmd);
   install_element (OSPF_NODE, &ospf_router_id_old_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_cmd);
-  install_element (OSPF_NODE, &no_ospf_router_id_val_cmd);
 
   /* "passive-interface" commands. */
   install_element (OSPF_NODE, &ospf_passive_interface_addr_cmd);
-  install_element (OSPF_NODE, &ospf_passive_interface_cmd);
-  install_element (OSPF_NODE, &ospf_passive_interface_default_cmd);
   install_element (OSPF_NODE, &no_ospf_passive_interface_addr_cmd);
-  install_element (OSPF_NODE, &no_ospf_passive_interface_cmd);
-  install_element (OSPF_NODE, &no_ospf_passive_interface_default_cmd);
 
   /* "ospf abr-type" commands. */
   install_element (OSPF_NODE, &ospf_abr_type_cmd);
@@ -10324,8 +10300,6 @@ ospf_vty_init (void)
   install_element (OSPF_NODE, &no_ospf_log_adjacency_changes_detail_cmd);
 
   /* "ospf rfc1583-compatible" commands. */
-  install_element (OSPF_NODE, &ospf_rfc1583_flag_cmd);
-  install_element (OSPF_NODE, &no_ospf_rfc1583_flag_cmd);
   install_element (OSPF_NODE, &ospf_compatible_rfc1583_cmd);
   install_element (OSPF_NODE, &no_ospf_compatible_rfc1583_cmd);
 
@@ -10340,14 +10314,8 @@ ospf_vty_init (void)
 
   /* "area range" commands.  */
   install_element (OSPF_NODE, &ospf_area_range_cmd);
-  install_element (OSPF_NODE, &ospf_area_range_advertise_cmd);
-  install_element (OSPF_NODE, &ospf_area_range_cost_cmd);
-  install_element (OSPF_NODE, &ospf_area_range_advertise_cost_cmd);
   install_element (OSPF_NODE, &ospf_area_range_not_advertise_cmd);
   install_element (OSPF_NODE, &no_ospf_area_range_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_range_advertise_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_range_cost_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_range_advertise_cost_cmd);
   install_element (OSPF_NODE, &ospf_area_range_substitute_cmd);
   install_element (OSPF_NODE, &no_ospf_area_range_substitute_cmd);
 
@@ -10355,38 +10323,14 @@ ospf_vty_init (void)
   install_element (OSPF_NODE, &ospf_area_vlink_cmd);
   install_element (OSPF_NODE, &no_ospf_area_vlink_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_param1_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_param1_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_param2_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_param2_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_param3_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_param3_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_param4_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_param4_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_authtype_args_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_args_cmd);
-  install_element (OSPF_NODE, &ospf_area_vlink_authtype_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_md5_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_md5_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_authkey_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_authkey_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_authtype_args_authkey_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_args_authkey_cmd);
-  install_element (OSPF_NODE, &ospf_area_vlink_authtype_authkey_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_authkey_cmd);
 
-  install_element (OSPF_NODE, &ospf_area_vlink_authtype_args_md5_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_args_md5_cmd);
-  install_element (OSPF_NODE, &ospf_area_vlink_authtype_md5_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_md5_cmd);
 
   /* "area stub" commands. */
   install_element (OSPF_NODE, &ospf_area_stub_no_summary_cmd);
@@ -10400,7 +10344,6 @@ ospf_vty_init (void)
   install_element (OSPF_NODE, &ospf_area_nssa_translate_cmd);
   install_element (OSPF_NODE, &ospf_area_nssa_no_summary_cmd);
   install_element (OSPF_NODE, &no_ospf_area_nssa_cmd);
-  install_element (OSPF_NODE, &no_ospf_area_nssa_no_summary_cmd);
 
   install_element (OSPF_NODE, &ospf_area_default_cost_cmd);
   install_element (OSPF_NODE, &no_ospf_area_default_cost_cmd);
@@ -10420,57 +10363,39 @@ ospf_vty_init (void)
   /* SPF timer commands */
   install_element (OSPF_NODE, &ospf_timers_throttle_spf_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_throttle_spf_cmd);
-  install_element (OSPF_NODE, &no_ospf_timers_throttle_spf_val_cmd);
   
   /* LSA timers commands */
   install_element (OSPF_NODE, &ospf_timers_min_ls_interval_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_min_ls_interval_cmd);
-  install_element (OSPF_NODE, &no_ospf_timers_min_ls_interval_val_cmd);
   install_element (OSPF_NODE, &ospf_timers_min_ls_arrival_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_min_ls_arrival_cmd);
-  install_element (OSPF_NODE, &no_ospf_timers_min_ls_arrival_val_cmd);
   install_element (OSPF_NODE, &ospf_timers_lsa_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_lsa_cmd);
-  install_element (OSPF_NODE, &no_ospf_timers_lsa_val_cmd);
 
   /* refresh timer commands */
   install_element (OSPF_NODE, &ospf_refresh_timer_cmd);
   install_element (OSPF_NODE, &no_ospf_refresh_timer_val_cmd);
-  install_element (OSPF_NODE, &no_ospf_refresh_timer_cmd);
   
   /* max-metric commands */
   install_element (OSPF_NODE, &ospf_max_metric_router_lsa_admin_cmd);
   install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_admin_cmd);
   install_element (OSPF_NODE, &ospf_max_metric_router_lsa_startup_cmd);
   install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_startup_cmd);
-  install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_startup_no_param_cmd);
   install_element (OSPF_NODE, &ospf_max_metric_router_lsa_shutdown_cmd);
   install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_shutdown_cmd);
-  install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_shutdown_no_param_cmd);
   
   /* reference bandwidth commands */
   install_element (OSPF_NODE, &ospf_auto_cost_reference_bandwidth_cmd);
   install_element (OSPF_NODE, &no_ospf_auto_cost_reference_bandwidth_cmd);
-  install_element (OSPF_NODE, &no_ospf_auto_cost_reference_bandwidth_val_cmd);
 
   /* "neighbor" commands. */
   install_element (OSPF_NODE, &ospf_neighbor_cmd);
-  install_element (OSPF_NODE, &ospf_neighbor_priority_poll_interval_cmd);
-  install_element (OSPF_NODE, &ospf_neighbor_priority_cmd);
   install_element (OSPF_NODE, &ospf_neighbor_poll_interval_cmd);
-  install_element (OSPF_NODE, &ospf_neighbor_poll_interval_priority_cmd);
   install_element (OSPF_NODE, &no_ospf_neighbor_cmd);
-  install_element (OSPF_NODE, &no_ospf_neighbor_priority_cmd);
-  install_element (OSPF_NODE, &no_ospf_neighbor_poll_interval_cmd);
-  install_element (OSPF_NODE, &no_ospf_neighbor_poll_interval_priority_cmd);
-  install_element (OSPF_NODE, &no_ospf_neighbor_priority_pollinterval_cmd);
 
   /* write multiplier commands */
   install_element (OSPF_NODE, &ospf_write_multiplier_cmd);
   install_element (OSPF_NODE, &no_ospf_write_multiplier_cmd);
-  install_element (OSPF_NODE, &write_multiplier_cmd);
-  install_element (OSPF_NODE, &no_write_multiplier_cmd);
-  install_element (OSPF_NODE, &no_write_multiplier_val_cmd);
 
   /* Init interface related vty commands. */
   ospf_vty_if_init ();

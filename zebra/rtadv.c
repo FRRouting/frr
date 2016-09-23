@@ -985,6 +985,22 @@ DEFUN (ipv6_nd_ra_interval,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nd ra-interval <1-1800>",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Router Advertisement interval\n"
+ *
+ * "no ipv6 nd ra-interval msec <1-1800000>",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Router Advertisement interval\n"
+ *     "Router Advertisement interval in milliseconds\n"
+ *
+ */
 DEFUN (no_ipv6_nd_ra_interval,
        no_ipv6_nd_ra_interval_cmd,
        "no ipv6 nd ra-interval",
@@ -1013,22 +1029,7 @@ DEFUN (no_ipv6_nd_ra_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_ra_interval,
-       no_ipv6_nd_ra_interval_val_cmd,
-       "no ipv6 nd ra-interval <1-1800>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router Advertisement interval\n")
 
-ALIAS (no_ipv6_nd_ra_interval,
-       no_ipv6_nd_ra_interval_msec_val_cmd,
-       "no ipv6 nd ra-interval msec <1-1800000>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router Advertisement interval\n"
-       "Router Advertisement interval in milliseconds\n")
 
 DEFUN (ipv6_nd_ra_lifetime,
        ipv6_nd_ra_lifetime_cmd,
@@ -1062,6 +1063,16 @@ DEFUN (ipv6_nd_ra_lifetime,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nd ra-lifetime <0-9000>",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Router lifetime\n"
+ *     "Router lifetime in seconds (0 stands for a non-default gw)\n"
+ *
+ */
 DEFUN (no_ipv6_nd_ra_lifetime,
        no_ipv6_nd_ra_lifetime_cmd,
        "no ipv6 nd ra-lifetime",
@@ -1081,14 +1092,6 @@ DEFUN (no_ipv6_nd_ra_lifetime,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_ra_lifetime,
-       no_ipv6_nd_ra_lifetime_val_cmd,
-       "no ipv6 nd ra-lifetime <0-9000>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Router lifetime\n"
-       "Router lifetime in seconds (0 stands for a non-default gw)\n")
 
 DEFUN (ipv6_nd_reachable_time,
        ipv6_nd_reachable_time_cmd,
@@ -1104,6 +1107,16 @@ DEFUN (ipv6_nd_reachable_time,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nd reachable-time <1-3600000>",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Reachable time\n"
+ *     "Reachable time in milliseconds\n"
+ *
+ */
 DEFUN (no_ipv6_nd_reachable_time,
        no_ipv6_nd_reachable_time_cmd,
        "no ipv6 nd reachable-time",
@@ -1123,14 +1136,6 @@ DEFUN (no_ipv6_nd_reachable_time,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_reachable_time,
-       no_ipv6_nd_reachable_time_val_cmd,
-       "no ipv6 nd reachable-time <1-3600000>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Reachable time\n"
-       "Reachable time in milliseconds\n")
 
 DEFUN (ipv6_nd_homeagent_preference,
        ipv6_nd_homeagent_preference_cmd,
@@ -1146,6 +1151,16 @@ DEFUN (ipv6_nd_homeagent_preference,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nd home-agent-preference <0-65535>",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Home Agent preference\n"
+ *     "preference value (default is 0, least preferred)\n"
+ *
+ */
 DEFUN (no_ipv6_nd_homeagent_preference,
        no_ipv6_nd_homeagent_preference_cmd,
        "no ipv6 nd home-agent-preference",
@@ -1165,14 +1180,6 @@ DEFUN (no_ipv6_nd_homeagent_preference,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_homeagent_preference,
-       no_ipv6_nd_homeagent_preference_val_cmd,
-       "no ipv6 nd home-agent-preference <0-65535>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Home Agent preference\n"
-       "preference value (default is 0, least preferred)\n")
 
 DEFUN (ipv6_nd_homeagent_lifetime,
        ipv6_nd_homeagent_lifetime_cmd,
@@ -1188,6 +1195,16 @@ DEFUN (ipv6_nd_homeagent_lifetime,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nd home-agent-lifetime <0-65520>",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Home Agent lifetime\n"
+ *     "Home Agent lifetime in seconds (0 to track ra-lifetime)\n"
+ *
+ */
 DEFUN (no_ipv6_nd_homeagent_lifetime,
        no_ipv6_nd_homeagent_lifetime_cmd,
        "no ipv6 nd home-agent-lifetime",
@@ -1207,14 +1224,6 @@ DEFUN (no_ipv6_nd_homeagent_lifetime,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_homeagent_lifetime,
-       no_ipv6_nd_homeagent_lifetime_val_cmd,
-       "no ipv6 nd home-agent-lifetime <0-65520>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Home Agent lifetime\n"
-       "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
 
 DEFUN (ipv6_nd_managed_config_flag,
        ipv6_nd_managed_config_flag_cmd,
@@ -1364,6 +1373,139 @@ DEFUN (no_ipv6_nd_other_config_flag,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ipv6 nd prefix X:X::X:X/M (no-autoconfig|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+ *     "(<0-4294967295>|infinite)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (off-link|) (no-autoconfig|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Do not use prefix for onlink determination\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (router-address|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Set Router Address flag\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (no-autoconfig|) (off-link|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *     "Do not use prefix for onlink determination\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+ *     "(<0-4294967295>|infinite) (router-address|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Set Router Address flag\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+ *     "(<0-4294967295>|infinite) (off-link|) (no-autoconfig|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for onlink determination\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+ *     "(<0-4294967295>|infinite) (no-autoconfig|) (off-link|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *     "Do not use prefix for onlink determination\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (off-link|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Do not use prefix for onlink determination\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+ *     "(<0-4294967295>|infinite) (no-autoconfig|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for autoconfiguration"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+ *     "(<0-4294967295>|infinite) (off-link|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for onlink determination\n"
+ *
+ * "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+ *     "(<0-4294967295>|infinite) (no-autoconfig|) (off-link|) (router-address|)",
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *     "Do not use prefix for onlink determination\n"
+ *     "Set Router Address flag\n"
+ *
+ */
 DEFUN (ipv6_nd_prefix,
        ipv6_nd_prefix_cmd,
        "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (off-link|) (no-autoconfig|) (router-address|)",
@@ -1445,162 +1587,152 @@ DEFUN (ipv6_nd_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_nortaddr_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (off-link|) (no-autoconfig|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_rev_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (no-autoconfig|) (off-link|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_rev_rtaddr_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (no-autoconfig|) (off-link|) (router-address|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n"
-       "Set Router Address flag\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_noauto_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (no-autoconfig|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_offlink_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (off-link|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for onlink determination\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_rtaddr_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (router-address|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Set Router Address flag\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_val_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_cmd,
-       "ipv6 nd prefix X:X::X:X/M (no-autoconfig|) (off-link|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_rev_cmd,
-       "ipv6 nd prefix X:X::X:X/M (off-link|) (no-autoconfig|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_noauto_cmd,
-       "ipv6 nd prefix X:X::X:X/M (no-autoconfig|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for autoconfiguration\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_offlink_cmd,
-       "ipv6 nd prefix X:X::X:X/M (off-link|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for onlink determination\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_noval_rtaddr_cmd,
-       "ipv6 nd prefix X:X::X:X/M (router-address|)",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Set Router Address flag\n")
 
-ALIAS (ipv6_nd_prefix,
-       ipv6_nd_prefix_prefix_cmd,
-       "ipv6 nd prefix X:X::X:X/M",
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|) (off-link|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *     "Do not use prefix for onlink determination\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for autoconfiguration"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (off-link|) (no-autoconfig|) (router-address|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for onlink determination\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *     "Set Router Address flag\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (off-link|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for onlink determination\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|) (off-link|) (router-address|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *     "Do not use prefix for onlink determination\n"
+ *     "Set Router Address flag\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (router-address|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Set Router Address flag\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (off-link|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Do not use prefix for onlink determination\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (no-autoconfig|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (no-autoconfig|) (off-link|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *     "Do not use prefix for onlink determination\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (off-link|) (no-autoconfig|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Do not use prefix for onlink determination\n"
+ *     "Do not use prefix for autoconfiguration\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (router-address|)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *     "Set Router Address flag\n"
+ *
+ * "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Prefix information\n"
+ *     "IPv6 prefix\n"
+ *     "Valid lifetime in seconds\n"
+ *     "Infinite valid lifetime\n"
+ *     "Preferred lifetime in seconds\n"
+ *     "Infinite preferred lifetime\n"
+ *
+ */
 DEFUN (no_ipv6_nd_prefix,
        no_ipv6_nd_prefix_cmd,
        "no ipv6 nd prefix IPV6PREFIX",
@@ -1636,159 +1768,17 @@ DEFUN (no_ipv6_nd_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_nortaddr_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (off-link|) (no-autoconfig|) (router-address|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Set Router Address flag\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_rev_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|) (off-link|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_rev_rtaddr_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|) (off-link|) (router-address|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n"
-       "Set Router Address flag\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_noauto_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (no-autoconfig|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfiguration")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_offlink_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (off-link|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Do not use prefix for onlink determination\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_rtaddr_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (router-address|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Set Router Address flag\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_val_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (no-autoconfig|) (off-link|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_rev_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (off-link|) (no-autoconfig|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_noauto_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (no-autoconfig|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for autoconfiguration\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_offlink_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (off-link|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Do not use prefix for onlink determination\n")
 
-ALIAS (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_noval_rtaddr_cmd,
-       "no ipv6 nd prefix X:X::X:X/M (router-address|)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Set Router Address flag\n")
 
 DEFUN (ipv6_nd_router_preference,
        ipv6_nd_router_preference_cmd,
@@ -1820,6 +1810,18 @@ DEFUN (ipv6_nd_router_preference,
   return CMD_ERR_NO_MATCH;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nd router-preference (high|medium|low)",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Default router preference\n"
+ *     "High default router preference\n"
+ *     "Low default router preference\n"
+ *     "Medium default router preference (default)\n"
+ *
+ */
 DEFUN (no_ipv6_nd_router_preference,
        no_ipv6_nd_router_preference_cmd,
        "no ipv6 nd router-preference",
@@ -1839,16 +1841,6 @@ DEFUN (no_ipv6_nd_router_preference,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_router_preference,
-       no_ipv6_nd_router_preference_val_cmd,
-       "no ipv6 nd router-preference (high|medium|low)",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Default router preference\n"
-       "High default router preference\n"
-       "Low default router preference\n"
-       "Medium default router preference (default)\n")
 
 DEFUN (ipv6_nd_mtu,
        ipv6_nd_mtu_cmd,
@@ -1864,6 +1856,16 @@ DEFUN (ipv6_nd_mtu,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nd mtu <1-65535>",
+ *     NO_STR
+ *     "Interface IPv6 config commands\n"
+ *     "Neighbor discovery\n"
+ *     "Advertised MTU\n"
+ *     "MTU in bytes\n"
+ *
+ */
 DEFUN (no_ipv6_nd_mtu,
        no_ipv6_nd_mtu_cmd,
        "no ipv6 nd mtu",
@@ -1878,14 +1880,6 @@ DEFUN (no_ipv6_nd_mtu,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_mtu,
-       no_ipv6_nd_mtu_val_cmd,
-       "no ipv6 nd mtu <1-65535>",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Advertised MTU\n"
-       "MTU in bytes\n")
 
 /* Write configuration about router advertisement. */
 void
@@ -2052,14 +2046,10 @@ rtadv_cmd_init (void)
   install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_msec_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_val_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_msec_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_lifetime_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_lifetime_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_reachable_time_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_reachable_time_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_reachable_time_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_managed_config_flag_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_managed_config_flag_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_other_config_flag_cmd);
@@ -2068,45 +2058,16 @@ rtadv_cmd_init (void)
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_config_flag_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_homeagent_preference_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_adv_interval_config_option_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rev_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_nortaddr_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rev_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_noauto_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_offlink_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_rev_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_noauto_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_offlink_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_prefix_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_rev_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_nortaddr_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_rev_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_noauto_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_offlink_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_rtaddr_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_val_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_rev_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_noauto_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_offlink_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_noval_rtaddr_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_router_preference_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_mtu_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_mtu_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_mtu_val_cmd);
 }
 
 static int

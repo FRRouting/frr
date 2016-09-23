@@ -214,6 +214,14 @@ router_id_write (struct vty *vty)
         }
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "router-id A.B.C.D " VRF_CMD_STR,
+ *     "Manually set the router-id\n"
+ *     "IP address to use for router-id\n"
+ *     VRF_CMD_HELP_STR
+ *
+ */
 DEFUN (router_id,
        router_id_cmd,
        "router-id A.B.C.D",
@@ -238,13 +246,21 @@ DEFUN (router_id,
   return CMD_SUCCESS;
 }
 
-ALIAS (router_id,
-       router_id_vrf_cmd,
-       "router-id A.B.C.D " VRF_CMD_STR,
-       "Manually set the router-id\n"
-       "IP address to use for router-id\n"
-       VRF_CMD_HELP_STR)
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no router-id A.B.C.D",
+ *     NO_STR
+ *     "Remove the manually configured router-id\n"
+ *     "IP address to use for router-id\n"
+ *
+ * "no router-id A.B.C.D " VRF_CMD_STR,
+ *     NO_STR
+ *     "Remove the manually configured router-id\n"
+ *     "IP address to use for router-id\n"
+ *     VRF_CMD_HELP_STR
+ *
+ */
 DEFUN (no_router_id,
        no_router_id_cmd,
        "no router-id",
@@ -266,20 +282,7 @@ DEFUN (no_router_id,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_router_id,
-       no_router_id_val_cmd,
-       "no router-id A.B.C.D",
-       NO_STR
-       "Remove the manually configured router-id\n"
-       "IP address to use for router-id\n")
 
-ALIAS (no_router_id,
-       no_router_id_vrf_cmd,
-       "no router-id A.B.C.D " VRF_CMD_STR,
-       NO_STR
-       "Remove the manually configured router-id\n"
-       "IP address to use for router-id\n"
-       VRF_CMD_HELP_STR)
 
 static int
 router_id_cmp (void *a, void *b)
@@ -295,9 +298,6 @@ router_id_cmd_init (void)
 {
   install_element (CONFIG_NODE, &router_id_cmd);
   install_element (CONFIG_NODE, &no_router_id_cmd);
-  install_element (CONFIG_NODE, &router_id_vrf_cmd);
-  install_element (CONFIG_NODE, &no_router_id_val_cmd);
-  install_element (CONFIG_NODE, &no_router_id_vrf_cmd);
 }
 
 void

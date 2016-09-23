@@ -2297,6 +2297,14 @@ DEFUN (ospf_mpls_te_on,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no mpls-te on",
+ *     NO_STR
+ *     MPLS_TE_STR
+ *     "Disable the MPLS-TE functionality\n"
+ *
+ */
 DEFUN (no_ospf_mpls_te,
        no_ospf_mpls_te_cmd,
        "no mpls-te",
@@ -2325,12 +2333,6 @@ DEFUN (no_ospf_mpls_te,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf_mpls_te,
-       no_ospf_mpls_te_val_cmd,
-       "no mpls-te on",
-       NO_STR
-       MPLS_TE_STR
-       "Disable the MPLS-TE functionality\n")
 
 DEFUN (ospf_mpls_te_router_addr,
        ospf_mpls_te_router_addr_cmd,
@@ -2655,7 +2657,6 @@ ospf_mpls_te_register_vty (void)
 
   install_element (OSPF_NODE, &ospf_mpls_te_on_cmd);
   install_element (OSPF_NODE, &no_ospf_mpls_te_cmd);
-  install_element (OSPF_NODE, &no_ospf_mpls_te_val_cmd);
   install_element (OSPF_NODE, &ospf_mpls_te_router_addr_cmd);
   install_element (OSPF_NODE, &ospf_mpls_te_inter_as_cmd);
   install_element (OSPF_NODE, &ospf_mpls_te_inter_as_area_cmd);

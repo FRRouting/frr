@@ -357,6 +357,15 @@ DEFUN (match_ip_address,
   return isis_route_match_add(vty, vty->index, "ip address", argv[3]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match address of route\n"
+ *
+ */
 DEFUN (no_match_ip_address,
        no_match_ip_address_val_cmd,
        "no match ip address (<1-199>|<1300-2699>|WORD)",
@@ -373,13 +382,6 @@ DEFUN (no_match_ip_address,
   return isis_route_match_delete(vty, vty->index, "ip address", argv[4]->arg);
 }
 
-ALIAS (no_match_ip_address,
-       no_match_ip_address_cmd,
-       "no match ip address",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n")
 
 /* ------------------------------------------------------------*/
 
@@ -395,6 +397,17 @@ DEFUN (match_ip_address_prefix_list,
   return isis_route_match_add(vty, vty->index, "ip address prefix-list", argv[4]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ip_address_prefix_list,
        no_match_ip_address_prefix_list_cmd,
        "no match ip address prefix-list",
@@ -409,15 +422,6 @@ DEFUN (no_match_ip_address_prefix_list,
   return isis_route_match_delete (vty, vty->index, "ip address prefix-list", argv[0]);
 }
 
-ALIAS (no_match_ip_address_prefix_list,
-       no_match_ip_address_prefix_list_val_cmd,
-       "no match ip address prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
 /* ------------------------------------------------------------*/
 
@@ -432,6 +436,15 @@ DEFUN (match_ipv6_address,
   return isis_route_match_add(vty, vty->index, "ipv6 address", argv[3]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ipv6 address",
+ *     NO_STR
+ *     MATCH_STR
+ *     IPV6_STR
+ *     "Match IPv6 address of route\n"
+ *
+ */
 DEFUN (no_match_ipv6_address,
        no_match_ipv6_address_val_cmd,
        "no match ipv6 address WORD",
@@ -446,13 +459,6 @@ DEFUN (no_match_ipv6_address,
   return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[4]->arg);
 }
 
-ALIAS (no_match_ipv6_address,
-       no_match_ipv6_address_cmd,
-       "no match ipv6 address",
-       NO_STR
-       MATCH_STR
-       IPV6_STR
-       "Match IPv6 address of route\n")
 
 /* ------------------------------------------------------------*/
 
@@ -468,6 +474,17 @@ DEFUN (match_ipv6_address_prefix_list,
   return isis_route_match_add(vty, vty->index, "ipv6 address prefix-list", argv[4]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ipv6 address prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IPV6_STR
+ *     "Match address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ipv6_address_prefix_list,
        no_match_ipv6_address_prefix_list_cmd,
        "no match ipv6 address prefix-list",
@@ -482,15 +499,6 @@ DEFUN (no_match_ipv6_address_prefix_list,
   return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", argv[0]);
 }
 
-ALIAS (no_match_ipv6_address_prefix_list,
-       no_match_ipv6_address_prefix_list_val_cmd,
-       "no match ipv6 address prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IPV6_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
 /* ------------------------------------------------------------*/
 
@@ -498,7 +506,7 @@ ALIAS (no_match_ipv6_address_prefix_list,
  * commands at the same node, therefore add set metric with the same 32-bit range as ospf and
  * verify that the input is a valid isis metric */
 DEFUN (set_metric,
-      set_metric_cmd,
+       set_metric_cmd,
       "set metric <0-4294967295>",
       SET_STR
       "Metric vale for destination routing protocol\n"
@@ -507,8 +515,19 @@ DEFUN (set_metric,
   return isis_route_set_add(vty, vty->index, "metric", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set metric",
+ *     NO_STR
+ *     SET_STR
+ *     "Metric vale for destination routing protocol\n");
+ *     
+ *     void
+ *     isis_route_map_init(void
+ *
+ */
 DEFUN (no_set_metric,
-      no_set_metric_val_cmd,
+       no_set_metric_val_cmd,
       "no set metric <0-4294967295>",
       NO_STR
       SET_STR
@@ -520,15 +539,6 @@ DEFUN (no_set_metric,
   return isis_route_set_delete(vty, vty->index, "metric", argv[3]->arg);
 }
 
-ALIAS (no_set_metric,
-       no_set_metric_cmd,
-       "no set metric",
-       NO_STR
-       SET_STR
-       "Metric vale for destination routing protocol\n");
-
-void
-isis_route_map_init(void)
 {
   route_map_init();
   route_map_init_vty();
@@ -536,25 +546,20 @@ isis_route_map_init(void)
   route_map_install_match(&route_match_ip_address_cmd);
   install_element(RMAP_NODE, &match_ip_address_cmd);
   install_element(RMAP_NODE, &no_match_ip_address_val_cmd);
-  install_element(RMAP_NODE, &no_match_ip_address_cmd);
 
   route_map_install_match(&route_match_ip_address_prefix_list_cmd);
   install_element(RMAP_NODE, &match_ip_address_prefix_list_cmd);
-  install_element(RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);
   install_element(RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
 
   route_map_install_match(&route_match_ipv6_address_cmd);
   install_element(RMAP_NODE, &match_ipv6_address_cmd);
   install_element(RMAP_NODE, &no_match_ipv6_address_val_cmd);
-  install_element(RMAP_NODE, &no_match_ipv6_address_cmd);
 
   route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
   install_element(RMAP_NODE, &match_ipv6_address_prefix_list_cmd);
-  install_element(RMAP_NODE, &no_match_ipv6_address_prefix_list_val_cmd);
   install_element(RMAP_NODE, &no_match_ipv6_address_prefix_list_cmd);
 
   route_map_install_set(&route_set_metric_cmd);
   install_element(RMAP_NODE, &set_metric_cmd);
   install_element(RMAP_NODE, &no_set_metric_val_cmd);
-  install_element(RMAP_NODE, &no_set_metric_cmd);
 }

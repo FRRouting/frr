@@ -3005,7 +3005,7 @@ DEFUN (match_peer,
 }
 
 DEFUN (match_peer_local,
-        match_peer_local_cmd,
+       match_peer_local_cmd,
         "match peer local",
         MATCH_STR
         "Match peer address\n"
@@ -3015,6 +3015,22 @@ DEFUN (match_peer_local,
 			      RMAP_EVENT_MATCH_DELETED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match peer local",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match peer address\n"
+ *     "Static or Redistributed routes\n"
+ *
+ * "no match peer (A.B.C.D|X:X::X:X)",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match peer address\n"
+ *     "IP address of peer\n"
+ *     "IPv6 address of peer\n"
+ *
+ */
 DEFUN (no_match_peer,
        no_match_peer_cmd,
        "no match peer",
@@ -3026,24 +3042,9 @@ DEFUN (no_match_peer,
 				RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_peer,
-       no_match_peer_val_cmd,
-       "no match peer (A.B.C.D|X:X::X:X)",
-       NO_STR
-       MATCH_STR
-       "Match peer address\n"
-       "IP address of peer\n"
-       "IPv6 address of peer\n")
 
-ALIAS (no_match_peer,
-       no_match_peer_local_cmd,
-       "no match peer local",
-       NO_STR
-       MATCH_STR
-       "Match peer address\n"
-       "Static or Redistributed routes\n")
 
-DEFUN (match_ip_address, 
+DEFUN (match_ip_address,
        match_ip_address_cmd,
        "match ip address (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
@@ -3057,7 +3058,19 @@ DEFUN (match_ip_address,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
-DEFUN (no_match_ip_address, 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address (<1-199>|<1300-2699>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match address of route\n"
+ *     "IP access-list number\n"
+ *     "IP access-list number (expanded range)\n"
+ *     "IP Access-list name\n"
+ *
+ */
+DEFUN (no_match_ip_address,
        no_match_ip_address_cmd,
        "no match ip address",
        NO_STR
@@ -3069,18 +3082,8 @@ DEFUN (no_match_ip_address,
 				 RMAP_EVENT_FILTER_DELETED);
 }
 
-ALIAS (no_match_ip_address, 
-       no_match_ip_address_val_cmd,
-       "no match ip address (<1-199>|<1300-2699>|WORD)",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
 
-DEFUN (match_ip_next_hop, 
+DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
        "match ip next-hop (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
@@ -3094,6 +3097,18 @@ DEFUN (match_ip_next_hop,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match next-hop address of route\n"
+ *     "IP access-list number\n"
+ *     "IP access-list number (expanded range)\n"
+ *     "IP Access-list name\n"
+ *
+ */
 DEFUN (no_match_ip_next_hop,
        no_match_ip_next_hop_cmd,
        "no match ip next-hop",
@@ -3106,16 +3121,6 @@ DEFUN (no_match_ip_next_hop,
 				 RMAP_EVENT_FILTER_DELETED);
 }
 
-ALIAS (no_match_ip_next_hop,
-       no_match_ip_next_hop_val_cmd,
-       "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
 
 /* match probability { */
 
@@ -3130,6 +3135,15 @@ DEFUN (match_probability,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match probability <1-99>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match portion of routes defined by percentage value\n"
+ *     "Percentage of routes\n"
+ *
+ */
 DEFUN (no_match_probability,
        no_match_probability_cmd,
        "no match probability",
@@ -3141,17 +3155,10 @@ DEFUN (no_match_probability,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_probability,
-       no_match_probability_val_cmd,
-       "no match probability <1-99>",
-       NO_STR
-       MATCH_STR
-       "Match portion of routes defined by percentage value\n"
-       "Percentage of routes\n")
 
 /* } */
 
-DEFUN (match_ip_route_source, 
+DEFUN (match_ip_route_source,
        match_ip_route_source_cmd,
        "match ip route-source (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
@@ -3165,6 +3172,18 @@ DEFUN (match_ip_route_source,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip route-source (<1-199>|<1300-2699>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match advertising source address of route\n"
+ *     "IP access-list number\n"
+ *     "IP access-list number (expanded range)\n"
+ *     "IP standard access-list name\n"
+ *
+ */
 DEFUN (no_match_ip_route_source,
        no_match_ip_route_source_cmd,
        "no match ip route-source",
@@ -3177,18 +3196,8 @@ DEFUN (no_match_ip_route_source,
 				 argv[4]->arg, RMAP_EVENT_FILTER_DELETED);
 }
 
-ALIAS (no_match_ip_route_source,
-       no_match_ip_route_source_val_cmd,
-       "no match ip route-source (<1-199>|<1300-2699>|WORD)",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match advertising source address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP standard access-list name\n")
 
-DEFUN (match_ip_address_prefix_list, 
+DEFUN (match_ip_address_prefix_list,
        match_ip_address_prefix_list_cmd,
        "match ip address prefix-list WORD",
        MATCH_STR
@@ -3201,6 +3210,17 @@ DEFUN (match_ip_address_prefix_list,
 			      argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ip_address_prefix_list,
        no_match_ip_address_prefix_list_cmd,
        "no match ip address prefix-list",
@@ -3214,17 +3234,8 @@ DEFUN (no_match_ip_address_prefix_list,
 				 argv[5]->arg, RMAP_EVENT_PLIST_DELETED);
 }
 
-ALIAS (no_match_ip_address_prefix_list,
-       no_match_ip_address_prefix_list_val_cmd,
-       "no match ip address prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
-DEFUN (match_ip_next_hop_prefix_list, 
+DEFUN (match_ip_next_hop_prefix_list,
        match_ip_next_hop_prefix_list_cmd,
        "match ip next-hop prefix-list WORD",
        MATCH_STR
@@ -3237,6 +3248,17 @@ DEFUN (match_ip_next_hop_prefix_list,
 			      argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip next-hop prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match next-hop address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ip_next_hop_prefix_list,
        no_match_ip_next_hop_prefix_list_cmd,
        "no match ip next-hop prefix-list",
@@ -3250,17 +3272,8 @@ DEFUN (no_match_ip_next_hop_prefix_list,
 				 argv[5]->arg, RMAP_EVENT_PLIST_DELETED);
 }
 
-ALIAS (no_match_ip_next_hop_prefix_list,
-       no_match_ip_next_hop_prefix_list_val_cmd,
-       "no match ip next-hop prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
-DEFUN (match_ip_route_source_prefix_list, 
+DEFUN (match_ip_route_source_prefix_list,
        match_ip_route_source_prefix_list_cmd,
        "match ip route-source prefix-list WORD",
        MATCH_STR
@@ -3273,6 +3286,17 @@ DEFUN (match_ip_route_source_prefix_list,
 			      argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip route-source prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match advertising source address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ip_route_source_prefix_list,
        no_match_ip_route_source_prefix_list_cmd,
        "no match ip route-source prefix-list",
@@ -3286,17 +3310,8 @@ DEFUN (no_match_ip_route_source_prefix_list,
 				 argv[5]->arg, RMAP_EVENT_PLIST_DELETED);
 }
 
-ALIAS (no_match_ip_route_source_prefix_list,
-       no_match_ip_route_source_prefix_list_val_cmd,
-       "no match ip route-source prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match advertising source address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
-DEFUN (match_metric, 
+DEFUN (match_metric,
        match_metric_cmd,
        "match metric <0-4294967295>",
        MATCH_STR
@@ -3307,6 +3322,15 @@ DEFUN (match_metric,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match metric <0-4294967295>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match metric of route\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_match_metric,
        no_match_metric_cmd,
        "no match metric",
@@ -3319,13 +3343,6 @@ DEFUN (no_match_metric,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_metric,
-       no_match_metric_val_cmd,
-       "no match metric <0-4294967295>",
-       NO_STR
-       MATCH_STR
-       "Match metric of route\n"
-       "Metric value\n")
 
 DEFUN (match_local_pref,
        match_local_pref_cmd,
@@ -3338,6 +3355,15 @@ DEFUN (match_local_pref,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match local-preference <0-4294967295>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match local preference of route\n"
+ *     "Local preference value\n"
+ *
+ */
 DEFUN (no_match_local_pref,
        no_match_local_pref_cmd,
        "no match local-preference",
@@ -3350,15 +3376,8 @@ DEFUN (no_match_local_pref,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_local_pref,
-       no_match_local_pref_val_cmd,
-       "no match local-preference <0-4294967295>",
-       NO_STR
-       MATCH_STR
-       "Match local preference of route\n"
-       "Local preference value\n")
 
-DEFUN (match_community, 
+DEFUN (match_community,
        match_community_cmd,
        "match community (<1-99>|<100-500>|WORD)",
        MATCH_STR
@@ -3371,7 +3390,7 @@ DEFUN (match_community,
 			      RMAP_EVENT_CLIST_ADDED);
 }
 
-DEFUN (match_community_exact, 
+DEFUN (match_community_exact,
        match_community_exact_cmd,
        "match community (<1-99>|<100-500>|WORD) exact-match",
        MATCH_STR
@@ -3397,6 +3416,26 @@ DEFUN (match_community_exact,
   return ret;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match community (<1-99>|<100-500>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match BGP community list\n"
+ *     "Community-list number (standard)\n"
+ *     "Community-list number (expanded)\n"
+ *     "Community-list name\n"
+ *
+ * "no match community (<1-99>|<100-500>|WORD) exact-match",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match BGP community list\n"
+ *     "Community-list number (standard)\n"
+ *     "Community-list number (expanded)\n"
+ *     "Community-list name\n"
+ *     "Do exact matching of communities\n"
+ *
+ */
 DEFUN (no_match_community,
        no_match_community_cmd,
        "no match community",
@@ -3408,28 +3447,9 @@ DEFUN (no_match_community,
 				 RMAP_EVENT_CLIST_DELETED);
 }
 
-ALIAS (no_match_community,
-       no_match_community_val_cmd,
-       "no match community (<1-99>|<100-500>|WORD)",
-       NO_STR
-       MATCH_STR
-       "Match BGP community list\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n")
 
-ALIAS (no_match_community,
-       no_match_community_exact_cmd,
-       "no match community (<1-99>|<100-500>|WORD) exact-match",
-       NO_STR
-       MATCH_STR
-       "Match BGP community list\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n"
-       "Do exact matching of communities\n")
 
-DEFUN (match_ecommunity, 
+DEFUN (match_ecommunity,
        match_ecommunity_cmd,
        "match extcommunity (<1-99>|<100-500>|WORD)",
        MATCH_STR
@@ -3442,6 +3462,17 @@ DEFUN (match_ecommunity,
 			      RMAP_EVENT_ECLIST_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match extcommunity (<1-99>|<100-500>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match BGP/VPN extended community list\n"
+ *     "Extended community-list number (standard)\n"
+ *     "Extended community-list number (expanded)\n"
+ *     "Extended community-list name\n"
+ *
+ */
 DEFUN (no_match_ecommunity,
        no_match_ecommunity_cmd,
        "no match extcommunity",
@@ -3453,15 +3484,6 @@ DEFUN (no_match_ecommunity,
 				 RMAP_EVENT_ECLIST_DELETED);
 }
 
-ALIAS (no_match_ecommunity,
-       no_match_ecommunity_val_cmd,
-       "no match extcommunity (<1-99>|<100-500>|WORD)",
-       NO_STR
-       MATCH_STR
-       "Match BGP/VPN extended community list\n"
-       "Extended community-list number (standard)\n"
-       "Extended community-list number (expanded)\n"
-       "Extended community-list name\n")
 
 DEFUN (match_aspath,
        match_aspath_cmd,
@@ -3474,6 +3496,15 @@ DEFUN (match_aspath,
 			      RMAP_EVENT_ASLIST_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match as-path WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match BGP AS path list\n"
+ *     "AS path access-list name\n"
+ *
+ */
 DEFUN (no_match_aspath,
        no_match_aspath_cmd,
        "no match as-path",
@@ -3485,13 +3516,6 @@ DEFUN (no_match_aspath,
 				 RMAP_EVENT_ASLIST_DELETED);
 }
 
-ALIAS (no_match_aspath,
-       no_match_aspath_val_cmd,
-       "no match as-path WORD",
-       NO_STR
-       MATCH_STR
-       "Match BGP AS path list\n"
-       "AS path access-list name\n")
 
 DEFUN (match_origin,
        match_origin_cmd,
@@ -3515,6 +3539,17 @@ DEFUN (match_origin,
   return CMD_WARNING;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match origin (egp|igp|incomplete)",
+ *     NO_STR
+ *     MATCH_STR
+ *     "BGP origin code\n"
+ *     "remote EGP\n"
+ *     "local IGP\n"
+ *     "unknown heritage\n"
+ *
+ */
 DEFUN (no_match_origin,
        no_match_origin_cmd,
        "no match origin",
@@ -3526,15 +3561,6 @@ DEFUN (no_match_origin,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_origin,
-       no_match_origin_val_cmd,
-       "no match origin (egp|igp|incomplete)",
-       NO_STR
-       MATCH_STR
-       "BGP origin code\n"
-       "remote EGP\n"
-       "local IGP\n"
-       "unknown heritage\n")
 
 DEFUN (match_interface,
        match_interface_cmd,
@@ -3547,6 +3573,15 @@ DEFUN (match_interface,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match interface WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match first hop interface of route\n"
+ *     "Interface name\n"
+ *
+ */
 DEFUN (no_match_interface,
        no_match_interface_cmd,
        "no match interface",
@@ -3558,13 +3593,6 @@ DEFUN (no_match_interface,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_interface,
-       no_match_interface_val_cmd,
-       "no match interface WORD",
-       NO_STR
-       MATCH_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
 
 DEFUN (match_tag,
        match_tag_cmd,
@@ -3577,6 +3605,15 @@ DEFUN (match_tag,
 		              RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match tag <1-65535>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match tag of route\n"
+ *     "Tag value\n"
+ *
+ */
 DEFUN (no_match_tag,
        no_match_tag_cmd,
        "no match tag",
@@ -3588,13 +3625,6 @@ DEFUN (no_match_tag,
 		                 RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_tag,
-       no_match_tag_val_cmd,
-       "no match tag <1-65535>",
-       NO_STR
-       MATCH_STR
-       "Match tag of route\n"
-       "Tag value\n")
 
 
 DEFUN (set_ip_nexthop,
@@ -3647,6 +3677,23 @@ DEFUN (set_ip_nexthop_unchanged,
   return bgp_route_set_add (vty, vty->index, "ip next-hop", "unchanged");
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set ip next-hop peer-address",
+ *     NO_STR
+ *     SET_STR
+ *     IP_STR
+ *     "Next hop address\n"
+ *     "Use peer address (for BGP only)\n"
+ *
+ * "no set ip next-hop A.B.C.D",
+ *     NO_STR
+ *     SET_STR
+ *     IP_STR
+ *     "Next hop address\n"
+ *     "IP address of next hop\n"
+ *
+ */
 DEFUN (no_set_ip_nexthop,
        no_set_ip_nexthop_cmd,
        "no set ip next-hop",
@@ -3657,24 +3704,23 @@ DEFUN (no_set_ip_nexthop,
   return bgp_route_set_delete (vty, vty->index, "ip next-hop", argv[4]->arg);
 }
 
-ALIAS (no_set_ip_nexthop,
-       no_set_ip_nexthop_val_cmd,
-       "no set ip next-hop A.B.C.D",
-       NO_STR
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "IP address of next hop\n")
 
-ALIAS (no_set_ip_nexthop,
-       no_set_ip_nexthop_peer_cmd,
-       "no set ip next-hop peer-address",
-       NO_STR
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "Use peer address (for BGP only)\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "set metric (rtt|+rtt|-rtt)",
+ *     SET_STR
+ *     "Metric value for destination routing protocol\n"
+ *     "Assign round trip time\n"
+ *     "Add round trip time\n"
+ *     "Subtract round trip time\n"
+ *
+ * "set metric <+/-metric>",
+ *     SET_STR
+ *     "Metric value for destination routing protocol\n"
+ *     "Add or subtract metric\n"
+ *
+ */
 DEFUN (set_metric,
        set_metric_cmd,
        "set metric <0-4294967295>",
@@ -3685,22 +3731,17 @@ DEFUN (set_metric,
   return bgp_route_set_add (vty, vty->index, "metric", argv[2]->arg);
 }
 
-ALIAS (set_metric,
-       set_metric_addsub_cmd,
-       "set metric <+/-metric>",
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Add or subtract metric\n")
 
-ALIAS (set_metric,
-       set_metric_rtt_cmd,
-       "set metric (rtt|+rtt|-rtt)",
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Assign round trip time\n"
-       "Add round trip time\n"
-       "Subtract round trip time\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set metric <0-4294967295>",
+ *     NO_STR
+ *     SET_STR
+ *     "Metric value for destination routing protocol\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
        "no set metric",
@@ -3711,13 +3752,6 @@ DEFUN (no_set_metric,
   return bgp_route_set_delete (vty, vty->index, "metric", argv[3]->arg);
 }
 
-ALIAS (no_set_metric,
-       no_set_metric_val_cmd,
-       "no set metric <0-4294967295>",
-       NO_STR
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
 
 DEFUN (set_local_pref,
        set_local_pref_cmd,
@@ -3729,6 +3763,15 @@ DEFUN (set_local_pref,
   return bgp_route_set_add (vty, vty->index, "local-preference", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set local-preference <0-4294967295>",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP local preference path attribute\n"
+ *     "Preference value\n"
+ *
+ */
 DEFUN (no_set_local_pref,
        no_set_local_pref_cmd,
        "no set local-preference",
@@ -3739,13 +3782,6 @@ DEFUN (no_set_local_pref,
   return bgp_route_set_delete (vty, vty->index, "local-preference", argv[3]->arg);
 }
 
-ALIAS (no_set_local_pref,
-       no_set_local_pref_val_cmd,
-       "no set local-preference <0-4294967295>",
-       NO_STR
-       SET_STR
-       "BGP local preference path attribute\n"
-       "Preference value\n")
 
 DEFUN (set_weight,
        set_weight_cmd,
@@ -3757,6 +3793,15 @@ DEFUN (set_weight,
   return bgp_route_set_add (vty, vty->index, "weight", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set weight <0-4294967295>",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP weight for routing table\n"
+ *     "Weight value\n"
+ *
+ */
 DEFUN (no_set_weight,
        no_set_weight_cmd,
        "no set weight",
@@ -3767,14 +3812,17 @@ DEFUN (no_set_weight,
   return bgp_route_set_delete (vty, vty->index, "weight", argv[3]->arg);
 }
 
-ALIAS (no_set_weight,
-       no_set_weight_val_cmd,
-       "no set weight <0-4294967295>",
-       NO_STR
-       SET_STR
-       "BGP weight for routing table\n"
-       "Weight value\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "set as-path prepend (last-as) <1-10>",
+ *     SET_STR
+ *     "Transform BGP AS_PATH attribute\n"
+ *     "Prepend to the as-path\n"
+ *     "Use the peer's AS-number\n"
+ *     "Number of times to insert"
+ *
+ */
 DEFUN (set_aspath_prepend,
        set_aspath_prepend_cmd,
        "set as-path prepend ." CMD_AS_RANGE,
@@ -3793,15 +3841,17 @@ DEFUN (set_aspath_prepend,
   return ret;
 }
 
-ALIAS (set_aspath_prepend,
-       set_aspath_prepend_lastas_cmd,
-       "set as-path prepend (last-as) <1-10>",
-       SET_STR
-       "Transform BGP AS_PATH attribute\n"
-       "Prepend to the as-path\n"
-       "Use the peer's AS-number\n"
-       "Number of times to insert")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set as-path prepend ." CMD_AS_RANGE,
+ *     NO_STR
+ *     SET_STR
+ *     "Transform BGP AS_PATH attribute\n"
+ *     "Prepend to the as-path\n"
+ *     "AS number\n"
+ *
+ */
 DEFUN (no_set_aspath_prepend,
        no_set_aspath_prepend_cmd,
        "no set as-path prepend",
@@ -3819,14 +3869,6 @@ DEFUN (no_set_aspath_prepend,
   return ret;
 }
 
-ALIAS (no_set_aspath_prepend,
-       no_set_aspath_prepend_val_cmd,
-       "no set as-path prepend ." CMD_AS_RANGE,
-       NO_STR
-       SET_STR
-       "Transform BGP AS_PATH attribute\n"
-       "Prepend to the as-path\n"
-       "AS number\n")
 
 DEFUN (set_aspath_exclude,
        set_aspath_exclude_cmd,
@@ -3845,6 +3887,16 @@ DEFUN (set_aspath_exclude,
   return ret;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set as-path exclude ." CMD_AS_RANGE,
+ *     NO_STR
+ *     SET_STR
+ *     "Transform BGP AS_PATH attribute\n"
+ *     "Exclude from the as-path\n"
+ *     "AS number\n"
+ *
+ */
 DEFUN (no_set_aspath_exclude,
        no_set_aspath_exclude_cmd,
        "no set as-path exclude",
@@ -3862,14 +3914,6 @@ DEFUN (no_set_aspath_exclude,
   return ret;
 }
 
-ALIAS (no_set_aspath_exclude,
-       no_set_aspath_exclude_val_cmd,
-       "no set as-path exclude ." CMD_AS_RANGE,
-       NO_STR
-       SET_STR
-       "Transform BGP AS_PATH attribute\n"
-       "Exclude from the as-path\n"
-       "AS number\n")
 
 DEFUN (set_community,
        set_community_cmd,
@@ -3974,6 +4018,21 @@ DEFUN (set_community_none,
   return bgp_route_set_add (vty, vty->index, "community", "none");
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set community none",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP community attribute\n"
+ *     "No community attribute\n"
+ *
+ * "no set community .AA:NN",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP community attribute\n"
+ *     COMMUNITY_VAL_STR
+ *
+ */
 DEFUN (no_set_community,
        no_set_community_cmd,
        "no set community",
@@ -3984,21 +4043,7 @@ DEFUN (no_set_community,
   return bgp_route_set_delete (vty, vty->index, "community", NULL);
 }
 
-ALIAS (no_set_community,
-       no_set_community_val_cmd,
-       "no set community .AA:NN",
-       NO_STR
-       SET_STR
-       "BGP community attribute\n"
-       COMMUNITY_VAL_STR)
 
-ALIAS (no_set_community,
-       no_set_community_none_cmd,
-       "no set community none",
-       NO_STR
-       SET_STR
-       "BGP community attribute\n"
-       "No community attribute\n")
 
 DEFUN (set_community_delete,
        set_community_delete_cmd,
@@ -4022,6 +4067,18 @@ DEFUN (set_community_delete,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set comm-list (<1-99>|<100-500>|WORD) delete",
+ *     NO_STR
+ *     SET_STR
+ *     "set BGP community list (for deletion)\n"
+ *     "Community-list number (standard)\n"
+ *     "Community-list number (expanded)\n"
+ *     "Community-list name\n"
+ *     "Delete matching communities\n"
+ *
+ */
 DEFUN (no_set_community_delete,
        no_set_community_delete_cmd,
        "no set comm-list",
@@ -4032,16 +4089,6 @@ DEFUN (no_set_community_delete,
   return bgp_route_set_delete (vty, vty->index, "comm-list", NULL);
 }
 
-ALIAS (no_set_community_delete,
-       no_set_community_delete_val_cmd,
-       "no set comm-list (<1-99>|<100-500>|WORD) delete",
-       NO_STR
-       SET_STR
-       "set BGP community list (for deletion)\n"
-       "Community-list number (standard)\n"
-       "Community-list number (expanded)\n"
-       "Community-list name\n"
-       "Delete matching communities\n")
 
 DEFUN (set_ecommunity_rt,
        set_ecommunity_rt_cmd,
@@ -4061,6 +4108,16 @@ DEFUN (set_ecommunity_rt,
   return ret;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set extcommunity rt .ASN:nn_or_IP-address:nn",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP extended community attribute\n"
+ *     "Route Target extended community\n"
+ *     "VPN extended community\n"
+ *
+ */
 DEFUN (no_set_ecommunity_rt,
        no_set_ecommunity_rt_cmd,
        "no set extcommunity rt",
@@ -4072,14 +4129,6 @@ DEFUN (no_set_ecommunity_rt,
   return bgp_route_set_delete (vty, vty->index, "extcommunity rt", NULL);
 }
 
-ALIAS (no_set_ecommunity_rt,
-       no_set_ecommunity_rt_val_cmd,
-       "no set extcommunity rt .ASN:nn_or_IP-address:nn",
-       NO_STR
-       SET_STR
-       "BGP extended community attribute\n"
-       "Route Target extended community\n"
-       "VPN extended community\n")
 
 DEFUN (set_ecommunity_soo,
        set_ecommunity_soo_cmd,
@@ -4098,6 +4147,16 @@ DEFUN (set_ecommunity_soo,
   return ret;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set extcommunity soo .ASN:nn_or_IP-address:nn",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP extended community attribute\n"
+ *     "Site-of-Origin extended community\n"
+ *     "VPN extended community\n"
+ *
+ */
 DEFUN (no_set_ecommunity_soo,
        no_set_ecommunity_soo_cmd,
        "no set extcommunity soo",
@@ -4109,14 +4168,6 @@ DEFUN (no_set_ecommunity_soo,
   return bgp_route_set_delete (vty, vty->index, "extcommunity soo", NULL);
 }
 
-ALIAS (no_set_ecommunity_soo,
-       no_set_ecommunity_soo_val_cmd,
-       "no set extcommunity soo .ASN:nn_or_IP-address:nn",
-       NO_STR
-       SET_STR
-       "BGP extended community attribute\n"
-       "Site-of-Origin extended community\n"
-       "VPN extended community\n")
 
 DEFUN (set_origin,
        set_origin_cmd,
@@ -4137,6 +4188,17 @@ DEFUN (set_origin,
   return CMD_WARNING;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set origin (egp|igp|incomplete)",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP origin code\n"
+ *     "remote EGP\n"
+ *     "local IGP\n"
+ *     "unknown heritage\n"
+ *
+ */
 DEFUN (no_set_origin,
        no_set_origin_cmd,
        "no set origin",
@@ -4147,15 +4209,6 @@ DEFUN (no_set_origin,
   return bgp_route_set_delete (vty, vty->index, "origin", NULL);
 }
 
-ALIAS (no_set_origin,
-       no_set_origin_val_cmd,
-       "no set origin (egp|igp|incomplete)",
-       NO_STR
-       SET_STR
-       "BGP origin code\n"
-       "remote EGP\n"
-       "local IGP\n"
-       "unknown heritage\n")
 
 DEFUN (set_atomic_aggregate,
        set_atomic_aggregate_cmd,
@@ -4208,6 +4261,17 @@ DEFUN (set_aggregator_as,
   return ret;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set aggregator as " CMD_AS_RANGE " A.B.C.D",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP aggregator attribute\n"
+ *     "AS number of aggregator\n"
+ *     "AS number\n"
+ *     "IP address of aggregator\n"
+ *
+ */
 DEFUN (no_set_aggregator_as,
        no_set_aggregator_as_cmd,
        "no set aggregator as",
@@ -4242,15 +4306,6 @@ DEFUN (no_set_aggregator_as,
   return ret;
 }
 
-ALIAS (no_set_aggregator_as,
-       no_set_aggregator_as_val_cmd,
-       "no set aggregator as " CMD_AS_RANGE " A.B.C.D",
-       NO_STR
-       SET_STR
-       "BGP aggregator attribute\n"
-       "AS number of aggregator\n"
-       "AS number\n"
-       "IP address of aggregator\n")
 
 DEFUN (set_tag,
        set_tag_cmd,
@@ -4262,6 +4317,15 @@ DEFUN (set_tag,
   return bgp_route_set_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set tag <1-65535>",
+ *     NO_STR
+ *     SET_STR
+ *     "Tag value for routing protocol\n"
+ *     "Tag value\n"
+ *
+ */
 DEFUN (no_set_tag,
        no_set_tag_cmd,
        "no set tag",
@@ -4272,17 +4336,10 @@ DEFUN (no_set_tag,
   return bgp_route_set_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
-ALIAS (no_set_tag,
-       no_set_tag_val_cmd,
-       "no set tag <1-65535>",
-       NO_STR
-       SET_STR
-       "Tag value for routing protocol\n"
-       "Tag value\n")
 
 
 #ifdef HAVE_IPV6
-DEFUN (match_ipv6_address, 
+DEFUN (match_ipv6_address,
        match_ipv6_address_cmd,
        "match ipv6 address WORD",
        MATCH_STR
@@ -4294,7 +4351,7 @@ DEFUN (match_ipv6_address,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
-DEFUN (no_match_ipv6_address, 
+DEFUN (no_match_ipv6_address,
        no_match_ipv6_address_cmd,
        "no match ipv6 address WORD",
        NO_STR
@@ -4307,7 +4364,7 @@ DEFUN (no_match_ipv6_address,
 				 RMAP_EVENT_FILTER_DELETED);
 }
 
-DEFUN (match_ipv6_next_hop, 
+DEFUN (match_ipv6_next_hop,
        match_ipv6_next_hop_cmd,
        "match ipv6 next-hop X:X::X:X",
        MATCH_STR
@@ -4332,7 +4389,7 @@ DEFUN (no_match_ipv6_next_hop,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-DEFUN (match_ipv6_address_prefix_list, 
+DEFUN (match_ipv6_address_prefix_list,
        match_ipv6_address_prefix_list_cmd,
        "match ipv6 address prefix-list WORD",
        MATCH_STR
@@ -4435,6 +4492,17 @@ DEFUN (set_ipv6_nexthop_global,
   return bgp_route_set_add (vty, vty->index, "ipv6 next-hop global", argv[4]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set ipv6 next-hop global X:X::X:X",
+ *     NO_STR
+ *     SET_STR
+ *     IPV6_STR
+ *     "IPv6 next-hop address\n"
+ *     "IPv6 global address\n"
+ *     "IPv6 address of next hop\n"
+ *
+ */
 DEFUN (no_set_ipv6_nexthop_global,
        no_set_ipv6_nexthop_global_cmd,
        "no set ipv6 next-hop global",
@@ -4447,15 +4515,6 @@ DEFUN (no_set_ipv6_nexthop_global,
   return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop global", argv[5]->arg);
 }
 
-ALIAS (no_set_ipv6_nexthop_global,
-       no_set_ipv6_nexthop_global_val_cmd,
-       "no set ipv6 next-hop global X:X::X:X",
-       NO_STR
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 global address\n"
-       "IPv6 address of next hop\n")
 
 DEFUN (set_ipv6_nexthop_local,
        set_ipv6_nexthop_local_cmd,
@@ -4484,6 +4543,17 @@ DEFUN (set_ipv6_nexthop_local,
   return bgp_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[4]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set ipv6 next-hop local X:X::X:X",
+ *     NO_STR
+ *     SET_STR
+ *     IPV6_STR
+ *     "IPv6 next-hop address\n"
+ *     "IPv6 local address\n"
+ *     "IPv6 address of next hop\n"
+ *
+ */
 DEFUN (no_set_ipv6_nexthop_local,
        no_set_ipv6_nexthop_local_cmd,
        "no set ipv6 next-hop local",
@@ -4496,15 +4566,6 @@ DEFUN (no_set_ipv6_nexthop_local,
   return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop local", argv[5]->arg);
 }
 
-ALIAS (no_set_ipv6_nexthop_local,
-       no_set_ipv6_nexthop_local_val_cmd,
-       "no set ipv6 next-hop local X:X::X:X",
-       NO_STR
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 local address\n"
-       "IPv6 address of next hop\n")
 #endif /* HAVE_IPV6 */
 
 DEFUN (set_vpnv4_nexthop,
@@ -4518,6 +4579,16 @@ DEFUN (set_vpnv4_nexthop,
   return bgp_route_set_add (vty, vty->index, "vpnv4 next-hop", argv[3]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set vpnv4 next-hop A.B.C.D",
+ *     NO_STR
+ *     SET_STR
+ *     "VPNv4 information\n"
+ *     "VPNv4 next-hop address\n"
+ *     "IP address of next hop\n"
+ *
+ */
 DEFUN (no_set_vpnv4_nexthop,
        no_set_vpnv4_nexthop_cmd,
        "no set vpnv4 next-hop",
@@ -4529,14 +4600,6 @@ DEFUN (no_set_vpnv4_nexthop,
   return bgp_route_set_delete (vty, vty->index, "vpnv4 next-hop", argv[4]->arg);
 }
 
-ALIAS (no_set_vpnv4_nexthop,
-       no_set_vpnv4_nexthop_val_cmd,
-       "no set vpnv4 next-hop A.B.C.D",
-       NO_STR
-       SET_STR
-       "VPNv4 information\n"
-       "VPNv4 next-hop address\n"
-       "IP address of next hop\n")
 
 DEFUN (set_originator_id,
        set_originator_id_cmd,
@@ -4548,6 +4611,15 @@ DEFUN (set_originator_id,
   return bgp_route_set_add (vty, vty->index, "originator-id", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set originator-id A.B.C.D",
+ *     NO_STR
+ *     SET_STR
+ *     "BGP originator ID attribute\n"
+ *     "IP address of originator\n"
+ *
+ */
 DEFUN (no_set_originator_id,
        no_set_originator_id_cmd,
        "no set originator-id",
@@ -4558,13 +4630,6 @@ DEFUN (no_set_originator_id,
   return bgp_route_set_delete (vty, vty->index, "originator-id", argv[3]->arg);
 }
 
-ALIAS (no_set_originator_id,
-       no_set_originator_id_val_cmd,
-       "no set originator-id A.B.C.D",
-       NO_STR
-       SET_STR
-       "BGP originator ID attribute\n"
-       "IP address of originator\n")
 
 /* Initialization of route map. */
 void
@@ -4614,112 +4679,74 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_peer_cmd);
   install_element (RMAP_NODE, &match_peer_local_cmd);
   install_element (RMAP_NODE, &no_match_peer_cmd);
-  install_element (RMAP_NODE, &no_match_peer_val_cmd);
-  install_element (RMAP_NODE, &no_match_peer_local_cmd);
   install_element (RMAP_NODE, &match_ip_address_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_val_cmd);
   install_element (RMAP_NODE, &match_ip_next_hop_cmd);
   install_element (RMAP_NODE, &no_match_ip_next_hop_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_val_cmd);
   install_element (RMAP_NODE, &match_ip_route_source_cmd);
   install_element (RMAP_NODE, &no_match_ip_route_source_cmd);
-  install_element (RMAP_NODE, &no_match_ip_route_source_val_cmd);
   install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);
   install_element (RMAP_NODE, &match_ip_next_hop_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_val_cmd);
   install_element (RMAP_NODE, &match_ip_route_source_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_route_source_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_route_source_prefix_list_val_cmd);
 
   install_element (RMAP_NODE, &match_aspath_cmd);
   install_element (RMAP_NODE, &no_match_aspath_cmd);
-  install_element (RMAP_NODE, &no_match_aspath_val_cmd);
   install_element (RMAP_NODE, &match_metric_cmd);
   install_element (RMAP_NODE, &no_match_metric_cmd);
-  install_element (RMAP_NODE, &no_match_metric_val_cmd);
   install_element (RMAP_NODE, &match_local_pref_cmd);
   install_element (RMAP_NODE, &no_match_local_pref_cmd);
-  install_element (RMAP_NODE, &no_match_local_pref_val_cmd);
   install_element (RMAP_NODE, &match_community_cmd);
   install_element (RMAP_NODE, &match_community_exact_cmd);
   install_element (RMAP_NODE, &no_match_community_cmd);
-  install_element (RMAP_NODE, &no_match_community_val_cmd);
-  install_element (RMAP_NODE, &no_match_community_exact_cmd);
   install_element (RMAP_NODE, &match_ecommunity_cmd);
   install_element (RMAP_NODE, &no_match_ecommunity_cmd);
-  install_element (RMAP_NODE, &no_match_ecommunity_val_cmd);
   install_element (RMAP_NODE, &match_origin_cmd);
   install_element (RMAP_NODE, &no_match_origin_cmd);
-  install_element (RMAP_NODE, &no_match_origin_val_cmd);
   install_element (RMAP_NODE, &match_probability_cmd);
   install_element (RMAP_NODE, &no_match_probability_cmd);
-  install_element (RMAP_NODE, &no_match_probability_val_cmd);
   install_element (RMAP_NODE, &match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_cmd);
-  install_element (RMAP_NODE, &no_match_interface_val_cmd);
   install_element (RMAP_NODE, &match_tag_cmd);
   install_element (RMAP_NODE, &no_match_tag_cmd);
-  install_element (RMAP_NODE, &no_match_tag_val_cmd);
 
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_peer_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_unchanged_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
-  install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);
-  install_element (RMAP_NODE, &no_set_ip_nexthop_peer_cmd);
   install_element (RMAP_NODE, &set_local_pref_cmd);
   install_element (RMAP_NODE, &no_set_local_pref_cmd);
-  install_element (RMAP_NODE, &no_set_local_pref_val_cmd);
   install_element (RMAP_NODE, &set_weight_cmd);
   install_element (RMAP_NODE, &no_set_weight_cmd);
-  install_element (RMAP_NODE, &no_set_weight_val_cmd);
   install_element (RMAP_NODE, &set_metric_cmd);
-  install_element (RMAP_NODE, &set_metric_addsub_cmd);
-  install_element (RMAP_NODE, &set_metric_rtt_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
-  install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_cmd);
-  install_element (RMAP_NODE, &set_aspath_prepend_lastas_cmd);
   install_element (RMAP_NODE, &set_aspath_exclude_cmd);
   install_element (RMAP_NODE, &no_set_aspath_prepend_cmd);
-  install_element (RMAP_NODE, &no_set_aspath_prepend_val_cmd);
   install_element (RMAP_NODE, &no_set_aspath_exclude_cmd);
-  install_element (RMAP_NODE, &no_set_aspath_exclude_val_cmd);
   install_element (RMAP_NODE, &set_origin_cmd);
   install_element (RMAP_NODE, &no_set_origin_cmd);
-  install_element (RMAP_NODE, &no_set_origin_val_cmd);
   install_element (RMAP_NODE, &set_atomic_aggregate_cmd);
   install_element (RMAP_NODE, &no_set_atomic_aggregate_cmd);
   install_element (RMAP_NODE, &set_aggregator_as_cmd);
   install_element (RMAP_NODE, &no_set_aggregator_as_cmd);
-  install_element (RMAP_NODE, &no_set_aggregator_as_val_cmd);
   install_element (RMAP_NODE, &set_community_cmd);
   install_element (RMAP_NODE, &set_community_none_cmd);
   install_element (RMAP_NODE, &no_set_community_cmd);
-  install_element (RMAP_NODE, &no_set_community_val_cmd);
-  install_element (RMAP_NODE, &no_set_community_none_cmd);
   install_element (RMAP_NODE, &set_community_delete_cmd);
   install_element (RMAP_NODE, &no_set_community_delete_cmd);
-  install_element (RMAP_NODE, &no_set_community_delete_val_cmd);
   install_element (RMAP_NODE, &set_ecommunity_rt_cmd);
   install_element (RMAP_NODE, &no_set_ecommunity_rt_cmd);
-  install_element (RMAP_NODE, &no_set_ecommunity_rt_val_cmd);
   install_element (RMAP_NODE, &set_ecommunity_soo_cmd);
   install_element (RMAP_NODE, &no_set_ecommunity_soo_cmd);
-  install_element (RMAP_NODE, &no_set_ecommunity_soo_val_cmd);
   install_element (RMAP_NODE, &set_vpnv4_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_vpnv4_nexthop_cmd);
-  install_element (RMAP_NODE, &no_set_vpnv4_nexthop_val_cmd);
   install_element (RMAP_NODE, &set_originator_id_cmd);
   install_element (RMAP_NODE, &no_set_originator_id_cmd);
-  install_element (RMAP_NODE, &no_set_originator_id_val_cmd);
   install_element (RMAP_NODE, &set_tag_cmd);
   install_element (RMAP_NODE, &no_set_tag_cmd);
-  install_element (RMAP_NODE, &no_set_tag_val_cmd);
 
 #ifdef HAVE_IPV6
   route_map_install_match (&route_match_ipv6_address_cmd);
@@ -4738,12 +4765,10 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_match_ipv6_address_prefix_list_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_global_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_global_cmd);
-  install_element (RMAP_NODE, &no_set_ipv6_nexthop_global_val_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_prefer_global_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_local_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_cmd);
-  install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_val_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
 #endif /* HAVE_IPV6 */

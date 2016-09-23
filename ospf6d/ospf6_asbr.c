@@ -679,6 +679,16 @@ DEFUN (ospf6_redistribute_routemap,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no redistribute " QUAGGA_REDIST_STR_OSPF6D " route-map WORD",
+ *     NO_STR
+ *     "Redistribute\n"
+ *     QUAGGA_REDIST_HELP_STR_OSPF6D
+ *     "Route map reference\n"
+ *     "Route map name\n"
+ *
+ */
 DEFUN (no_ospf6_redistribute,
        no_ospf6_redistribute_cmd,
        "no redistribute " QUAGGA_REDIST_STR_OSPF6D,
@@ -698,14 +708,6 @@ DEFUN (no_ospf6_redistribute,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf6_redistribute,
-       no_ospf6_redistribute_route_map_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_OSPF6D " route-map WORD",
-       NO_STR
-       "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_OSPF6D
-       "Route map reference\n"
-       "Route map name\n")
 
 int
 ospf6_redistribute_config_write (struct vty *vty)
@@ -1051,6 +1053,15 @@ DEFUN (ospf6_routemap_match_interface,
 }
 
 /* "no match interface WORD" */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match interface WORD",
+ *     MATCH_STR
+ *     NO_STR
+ *     "Match first hop interface of route\n"
+ *     "Interface name\n"
+ *
+ */
 DEFUN (ospf6_routemap_no_match_interface,
        ospf6_routemap_no_match_interface_cmd,
        "no match interface",
@@ -1063,13 +1074,6 @@ DEFUN (ospf6_routemap_no_match_interface,
   return route_map_command_status (vty, ret);
 }
 
-ALIAS (ospf6_routemap_no_match_interface,
-       ospf6_routemap_no_match_interface_val_cmd,
-       "no match interface WORD",
-       MATCH_STR
-       NO_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
 
 /* add "set metric-type" */
 DEFUN (ospf6_routemap_set_metric_type,
@@ -1114,6 +1118,15 @@ DEFUN (set_metric,
 }
 
 /* delete "set metric" */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set metric <0-4294967295>",
+ *     NO_STR
+ *     SET_STR
+ *     "Metric value for destination routing protocol\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
        "no set metric",
@@ -1132,13 +1145,6 @@ DEFUN (no_set_metric,
   return route_map_command_status (vty, ret);
 }
 
-ALIAS (no_set_metric,
-       no_set_metric_val_cmd,
-       "no set metric <0-4294967295>",
-       NO_STR
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
 
 /* add "set forwarding-address" */
 DEFUN (ospf6_routemap_set_forwarding,
@@ -1189,7 +1195,6 @@ ospf6_routemap_init (void)
   /* Match interface */
   install_element (RMAP_NODE, &ospf6_routemap_match_interface_cmd);
   install_element (RMAP_NODE, &ospf6_routemap_no_match_interface_cmd);
-  install_element (RMAP_NODE, &ospf6_routemap_no_match_interface_val_cmd);
 
   /* ASE Metric Type (e.g. Type-1/Type-2) */
   install_element (RMAP_NODE, &ospf6_routemap_set_metric_type_cmd);
@@ -1198,7 +1203,6 @@ ospf6_routemap_init (void)
   /* ASE Metric */
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
-  install_element (RMAP_NODE, &no_set_metric_val_cmd);
 
   /* ASE Metric */
   install_element (RMAP_NODE, &ospf6_routemap_set_forwarding_cmd);
@@ -1351,7 +1355,6 @@ ospf6_asbr_init (void)
   install_element (OSPF6_NODE, &ospf6_redistribute_cmd);
   install_element (OSPF6_NODE, &ospf6_redistribute_routemap_cmd);
   install_element (OSPF6_NODE, &no_ospf6_redistribute_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_redistribute_route_map_cmd);
 }
 
 void
@@ -1408,12 +1411,3 @@ config_write_ospf6_debug_asbr (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_asbr ()
-{
-  install_element (ENABLE_NODE, &debug_ospf6_asbr_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_asbr_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_asbr_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_asbr_cmd);
-}
-
-

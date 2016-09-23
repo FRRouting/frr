@@ -2338,6 +2338,24 @@ ospf6_lsack_send_interface (struct thread *thread)
 
 
 /* Commands */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all) (send|recv)",
+ *     DEBUG_STR
+ *     OSPF6_STR
+ *     "Debug OSPFv3 message\n"
+ *     "Debug Unknown message\n"
+ *     "Debug Hello message\n"
+ *     "Debug Database Description message\n"
+ *     "Debug Link State Request message\n"
+ *     "Debug Link State Update message\n"
+ *     "Debug Link State Acknowledgement message\n"
+ *     "Debug All message\n"
+ *     "Debug only sending message\n"
+ *     "Debug only receiving message\n"
+ *     
+ *
+ */
 DEFUN (debug_ospf6_message,
        debug_ospf6_message_cmd,
        "debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all)",
@@ -2393,24 +2411,28 @@ DEFUN (debug_ospf6_message,
   return CMD_SUCCESS;
 }
 
-ALIAS (debug_ospf6_message,
-       debug_ospf6_message_sendrecv_cmd,
-       "debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all) (send|recv)",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 message\n"
-       "Debug Unknown message\n"
-       "Debug Hello message\n"
-       "Debug Database Description message\n"
-       "Debug Link State Request message\n"
-       "Debug Link State Update message\n"
-       "Debug Link State Acknowledgement message\n"
-       "Debug All message\n"
-       "Debug only sending message\n"
-       "Debug only receiving message\n"
-       )
 
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf6 message "
+ *     "(unknown|hello|dbdesc|lsreq|lsupdate|lsack|all) (send|recv)",
+ *     NO_STR
+ *     DEBUG_STR
+ *     OSPF6_STR
+ *     "Debug OSPFv3 message\n"
+ *     "Debug Unknown message\n"
+ *     "Debug Hello message\n"
+ *     "Debug Database Description message\n"
+ *     "Debug Link State Request message\n"
+ *     "Debug Link State Update message\n"
+ *     "Debug Link State Acknowledgement message\n"
+ *     "Debug All message\n"
+ *     "Debug only sending message\n"
+ *     "Debug only receiving message\n"
+ *     
+ *
+ */
 DEFUN (no_debug_ospf6_message,
        no_debug_ospf6_message_cmd,
        "no debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all)",
@@ -2467,24 +2489,6 @@ DEFUN (no_debug_ospf6_message,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_ospf6_message,
-       no_debug_ospf6_message_sendrecv_cmd,
-       "no debug ospf6 message "
-       "(unknown|hello|dbdesc|lsreq|lsupdate|lsack|all) (send|recv)",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 message\n"
-       "Debug Unknown message\n"
-       "Debug Hello message\n"
-       "Debug Database Description message\n"
-       "Debug Link State Request message\n"
-       "Debug Link State Update message\n"
-       "Debug Link State Acknowledgement message\n"
-       "Debug All message\n"
-       "Debug only sending message\n"
-       "Debug only receiving message\n"
-       )
 
 int
 config_write_ospf6_debug_message (struct vty *vty)
@@ -2549,12 +2553,8 @@ install_element_ospf6_debug_message (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_message_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_message_cmd);
-  install_element (ENABLE_NODE, &debug_ospf6_message_sendrecv_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_message_sendrecv_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_message_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_message_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_message_sendrecv_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_message_sendrecv_cmd);
 }
 
 

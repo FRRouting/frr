@@ -305,6 +305,15 @@ DEFUN (match_interface,
 				RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match interface WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match first hop interface of route\n"
+ *     "Interface name\n"
+ *
+ */
 DEFUN (no_match_interface,
        no_match_interface_cmd,
        "no match interface",
@@ -318,13 +327,6 @@ DEFUN (no_match_interface,
   return zebra_route_match_delete (vty, vty->index, "interface", argv[0], RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_interface,
-       no_match_interface_val_cmd,
-       "no match interface WORD",
-       NO_STR
-       MATCH_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
 
 DEFUN (match_tag,
        match_tag_cmd,
@@ -337,6 +339,14 @@ DEFUN (match_tag,
                                 RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match tag <1-65535>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match tag of route\n"
+ *
+ */
 DEFUN (no_match_tag,
        no_match_tag_cmd,
        "no match tag",
@@ -352,12 +362,6 @@ DEFUN (no_match_tag,
                                    RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_tag,
-       no_match_tag_val_cmd,
-       "no match tag <1-65535>",
-       NO_STR
-       MATCH_STR
-       "Match tag of route\n")
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
@@ -372,6 +376,18 @@ DEFUN (match_ip_next_hop,
   return zebra_route_match_add (vty, vty->index, "ip next-hop", argv[3]->arg, RMAP_EVENT_FILTER_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match next-hop address of route\n"
+ *     "IP access-list number\n"
+ *     "IP access-list number (expanded range)\n"
+ *     "IP Access-list name\n"
+ *
+ */
 DEFUN (no_match_ip_next_hop,
        no_match_ip_next_hop_cmd,
        "no match ip next-hop",
@@ -388,16 +404,6 @@ DEFUN (no_match_ip_next_hop,
 				   RMAP_EVENT_FILTER_DELETED);
 }
 
-ALIAS (no_match_ip_next_hop,
-       no_match_ip_next_hop_val_cmd,
-       "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
 
 DEFUN (match_ip_next_hop_prefix_list,
        match_ip_next_hop_prefix_list_cmd,
@@ -412,6 +418,17 @@ DEFUN (match_ip_next_hop_prefix_list,
 				argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip next-hop prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match next-hop address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ip_next_hop_prefix_list,
        no_match_ip_next_hop_prefix_list_cmd,
        "no match ip next-hop prefix-list",
@@ -431,15 +448,6 @@ DEFUN (no_match_ip_next_hop_prefix_list,
 				   RMAP_EVENT_PLIST_DELETED);
 }
 
-ALIAS (no_match_ip_next_hop_prefix_list,
-       no_match_ip_next_hop_prefix_list_val_cmd,
-       "no match ip next-hop prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
@@ -456,7 +464,19 @@ DEFUN (match_ip_address,
 				RMAP_EVENT_FILTER_ADDED);
 }
 
-DEFUN (no_match_ip_address, 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address (<1-199>|<1300-2699>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match address of route\n"
+ *     "IP access-list number\n"
+ *     "IP access-list number (expanded range)\n"
+ *     "IP Access-list name\n"
+ *
+ */
+DEFUN (no_match_ip_address,
        no_match_ip_address_cmd,
        "no match ip address",
        NO_STR
@@ -472,18 +492,8 @@ DEFUN (no_match_ip_address,
 				   RMAP_EVENT_FILTER_DELETED);
 }
 
-ALIAS (no_match_ip_address,
-       no_match_ip_address_val_cmd,
-       "no match ip address (<1-199>|<1300-2699>|WORD)",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
 
-DEFUN (match_ip_address_prefix_list, 
+DEFUN (match_ip_address_prefix_list,
        match_ip_address_prefix_list_cmd,
        "match ip address prefix-list WORD",
        MATCH_STR
@@ -496,6 +506,17 @@ DEFUN (match_ip_address_prefix_list,
 				argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ip_address_prefix_list,
        no_match_ip_address_prefix_list_cmd,
        "no match ip address prefix-list",
@@ -515,15 +536,6 @@ DEFUN (no_match_ip_address_prefix_list,
 				   RMAP_EVENT_PLIST_DELETED);
 }
 
-ALIAS (no_match_ip_address_prefix_list,
-       no_match_ip_address_prefix_list_val_cmd,
-       "no match ip address prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
 DEFUN (match_ip_address_prefix_len,
        match_ip_address_prefix_len_cmd,
@@ -538,6 +550,16 @@ DEFUN (match_ip_address_prefix_len,
 				argv[0], RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address prefix-len NUMBER",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match prefixlen of ip address of route\n"
+ *     "prefix length of ip address\n"
+ *
+ */
 DEFUN (no_match_ip_address_prefix_len,
        no_match_ip_address_prefix_len_cmd,
        "no match ip address prefix-len",
@@ -557,14 +579,6 @@ DEFUN (no_match_ip_address_prefix_len,
 				   RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_ip_address_prefix_len,
-       no_match_ip_address_prefix_len_val_cmd,
-       "no match ip address prefix-len NUMBER",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match prefixlen of ip address of route\n"
-       "prefix length of ip address\n")
 
 DEFUN (match_ip_nexthop_prefix_len,
        match_ip_nexthop_prefix_len_cmd,
@@ -579,6 +593,14 @@ DEFUN (match_ip_nexthop_prefix_len,
 				argv[0], RMAP_EVENT_MATCH_ADDED);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip next-hop prefix-len NUMBER",
+ *     MATCH_STR
+ *     "Match prefixlen of ip address of route\n"
+ *     "prefix length of ip address\n"
+ *
+ */
 DEFUN (no_match_ip_nexthop_prefix_len,
        no_match_ip_nexthop_prefix_len_cmd,
        "no match ip next-hop prefix-len",
@@ -598,12 +620,6 @@ DEFUN (no_match_ip_nexthop_prefix_len,
 				   RMAP_EVENT_MATCH_DELETED);
 }
 
-ALIAS (no_match_ip_nexthop_prefix_len,
-       no_match_ip_nexthop_prefix_len_val_cmd,
-       "no match ip next-hop prefix-len NUMBER",
-       MATCH_STR
-       "Match prefixlen of ip address of route\n"
-       "prefix length of ip address\n")
 
 DEFUN (match_source_protocol,
        match_source_protocol_cmd,
@@ -736,6 +752,15 @@ DEFUN (zebra_route_map_timer,
   return (CMD_SUCCESS);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no zebra route-map delay-timer <0-600>",
+ *     NO_STR
+ *     "Time to wait before route-map updates are processed\n"
+ *     "Reset delay-timer to default value, 30 secs\n"
+ *     "0 means event-driven updates are disabled\n"
+ *
+ */
 DEFUN (no_zebra_route_map_timer,
        no_zebra_route_map_timer_cmd,
        "no zebra route-map delay-timer",
@@ -748,13 +773,6 @@ DEFUN (no_zebra_route_map_timer,
   return (CMD_SUCCESS);
 }
 
-ALIAS (no_zebra_route_map_timer,
-       no_zebra_route_map_timer_val_cmd,
-       "no zebra route-map delay-timer <0-600>",
-       NO_STR
-       "Time to wait before route-map updates are processed\n"
-       "Reset delay-timer to default value, 30 secs\n"
-       "0 means event-driven updates are disabled\n")
 
 DEFUN (ip_protocol,
        ip_protocol_cmd,
@@ -793,6 +811,16 @@ DEFUN (ip_protocol,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip protocol " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+ *     NO_STR
+ *     IP_STR
+ *     "Stop filtering routing info between zebra and protocol\n"
+ *     QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+ *     "route map name"
+ *
+ */
 DEFUN (no_ip_protocol,
        no_ip_protocol_cmd,
        "no ip protocol " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA,
@@ -831,14 +859,6 @@ DEFUN (no_ip_protocol,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_protocol,
-       no_ip_protocol_val_cmd,
-       "no ip protocol " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
-       NO_STR
-       IP_STR
-       "Stop filtering routing info between zebra and protocol\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
-       "route map name")
 
 DEFUN (show_ip_protocol,
        show_ip_protocol_cmd,
@@ -906,6 +926,16 @@ DEFUN (ipv6_protocol,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+ *     NO_STR
+ *     IP6_STR
+ *     "Stop filtering IPv6 routing info between zebra and protocol\n"
+ *     QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+ *     "route map name"
+ *
+ */
 DEFUN (no_ipv6_protocol,
        no_ipv6_protocol_cmd,
        "no ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA,
@@ -945,14 +975,6 @@ DEFUN (no_ipv6_protocol,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_protocol,
-       no_ipv6_protocol_val_cmd,
-       "no ipv6 protocol " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
-       NO_STR
-       IP6_STR
-       "Stop filtering IPv6 routing info between zebra and protocol\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
-       "route map name")
 
 DEFUN (show_ipv6_protocol,
        show_ipv6_protocol_cmd,
@@ -1017,6 +1039,15 @@ DEFUN (ip_protocol_nht_rmap,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip nht " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+ *     IP_STR
+ *     "Filter Next Hop tracking route resolution\n"
+ *     QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
+ *     "Route map name\n"
+ *
+ */
 DEFUN (no_ip_protocol_nht_rmap,
        no_ip_protocol_nht_rmap_cmd,
        "no ip nht " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA,
@@ -1050,13 +1081,6 @@ DEFUN (no_ip_protocol_nht_rmap,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_protocol_nht_rmap,
-       no_ip_protocol_nht_rmap_val_cmd,
-       "no ip nht " QUAGGA_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
-       IP_STR
-       "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
-       "Route map name\n")
 
 DEFUN (show_ip_protocol_nht,
        show_ip_protocol_nht_cmd,
@@ -1115,6 +1139,16 @@ DEFUN (ipv6_protocol_nht_rmap,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 nht " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+ *     NO_STR
+ *     IP6_STR
+ *     "Filter Next Hop tracking route resolution\n"
+ *     QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
+ *     "Route map name\n"
+ *
+ */
 DEFUN (no_ipv6_protocol_nht_rmap,
        no_ipv6_protocol_nht_rmap_cmd,
        "no ipv6 nht " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA,
@@ -1153,14 +1187,6 @@ DEFUN (no_ipv6_protocol_nht_rmap,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_protocol_nht_rmap,
-       no_ipv6_protocol_nht_rmap_val_cmd,
-       "no ipv6 nht " QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
-       NO_STR
-       IP6_STR
-       "Filter Next Hop tracking route resolution\n"
-       QUAGGA_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
-       "Route map name\n")
 
 DEFUN (show_ipv6_protocol_nht,
        show_ipv6_protocol_nht_cmd,
@@ -1816,27 +1842,22 @@ zebra_route_map_init ()
 {
   install_element (CONFIG_NODE, &ip_protocol_cmd);
   install_element (CONFIG_NODE, &no_ip_protocol_cmd);
-  install_element (CONFIG_NODE, &no_ip_protocol_val_cmd);
   install_element (VIEW_NODE, &show_ip_protocol_cmd);
   install_element (ENABLE_NODE, &show_ip_protocol_cmd);
   install_element (CONFIG_NODE, &ipv6_protocol_cmd);
   install_element (CONFIG_NODE, &no_ipv6_protocol_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_protocol_val_cmd);
   install_element (VIEW_NODE, &show_ipv6_protocol_cmd);
   install_element (ENABLE_NODE, &show_ipv6_protocol_cmd);
   install_element (CONFIG_NODE, &ip_protocol_nht_rmap_cmd);
   install_element (CONFIG_NODE, &no_ip_protocol_nht_rmap_cmd);
-  install_element (CONFIG_NODE, &no_ip_protocol_nht_rmap_val_cmd);
   install_element (VIEW_NODE, &show_ip_protocol_nht_cmd);
   install_element (ENABLE_NODE, &show_ip_protocol_nht_cmd);
   install_element (CONFIG_NODE, &ipv6_protocol_nht_rmap_cmd);
   install_element (CONFIG_NODE, &no_ipv6_protocol_nht_rmap_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_protocol_nht_rmap_val_cmd);
   install_element (VIEW_NODE, &show_ipv6_protocol_nht_cmd);
   install_element (ENABLE_NODE, &show_ipv6_protocol_nht_cmd);
   install_element (CONFIG_NODE, &zebra_route_map_timer_cmd);
   install_element (CONFIG_NODE, &no_zebra_route_map_timer_cmd);
-  install_element (CONFIG_NODE, &no_zebra_route_map_timer_val_cmd);
 
   route_map_init ();
   route_map_init_vty ();
@@ -1859,28 +1880,20 @@ zebra_route_map_init ()
 /* */
   install_element (RMAP_NODE, &match_tag_cmd);
   install_element (RMAP_NODE, &no_match_tag_cmd);
-  install_element (RMAP_NODE, &no_match_tag_val_cmd);
   install_element (RMAP_NODE, &match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_cmd); 
-  install_element (RMAP_NODE, &no_match_interface_val_cmd); 
   install_element (RMAP_NODE, &match_ip_next_hop_cmd); 
   install_element (RMAP_NODE, &no_match_ip_next_hop_cmd); 
-  install_element (RMAP_NODE, &no_match_ip_next_hop_val_cmd); 
   install_element (RMAP_NODE, &match_ip_next_hop_prefix_list_cmd); 
   install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_cmd); 
-  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_val_cmd); 
   install_element (RMAP_NODE, &match_ip_address_cmd); 
   install_element (RMAP_NODE, &no_match_ip_address_cmd); 
-  install_element (RMAP_NODE, &no_match_ip_address_val_cmd); 
   install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd); 
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd); 
-  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);
   install_element (RMAP_NODE, &match_ip_nexthop_prefix_len_cmd);
   install_element (RMAP_NODE, &no_match_ip_nexthop_prefix_len_cmd);
-  install_element (RMAP_NODE, &no_match_ip_nexthop_prefix_len_val_cmd);
   install_element (RMAP_NODE, &match_ip_address_prefix_len_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_len_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_prefix_len_val_cmd);
   install_element (RMAP_NODE, &match_source_protocol_cmd);
   install_element (RMAP_NODE, &no_match_source_protocol_cmd);
  /* */

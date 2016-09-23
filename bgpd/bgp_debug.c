@@ -1538,6 +1538,14 @@ DEFUN (debug_bgp_allow_martians,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug bgp allow-martians",
+ *     UNDEBUG_STR
+ *     BGP_STR
+ *     "BGP allow martian next hops\n"
+ *
+ */
 DEFUN (no_debug_bgp_allow_martians,
        no_debug_bgp_allow_martians_cmd,
        "no debug bgp allow-martians",
@@ -1556,12 +1564,6 @@ DEFUN (no_debug_bgp_allow_martians,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_bgp_allow_martians,
-       undebug_bgp_allow_martians_cmd,
-       "undebug bgp allow-martians",
-       UNDEBUG_STR
-       BGP_STR
-       "BGP allow martian next hops\n")
 
 /* debug bgp update-groups */
 DEFUN (debug_bgp_update_groups,
@@ -1862,7 +1864,6 @@ bgp_debug_init (void)
   install_element (ENABLE_NODE, &no_debug_bgp_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_allow_martians_cmd);
-  install_element (ENABLE_NODE, &undebug_bgp_allow_martians_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_allow_martians_cmd);
   install_element (ENABLE_NODE, &no_debug_bgp_update_groups_cmd);
   install_element (CONFIG_NODE, &no_debug_bgp_update_groups_cmd);

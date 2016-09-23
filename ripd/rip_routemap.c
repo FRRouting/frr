@@ -735,7 +735,7 @@ static struct route_map_rule_cmd route_set_tag_cmd =
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
 
-DEFUN (match_metric, 
+DEFUN (match_metric,
        match_metric_cmd,
        "match metric <0-4294967295>",
        MATCH_STR
@@ -745,6 +745,15 @@ DEFUN (match_metric,
   return rip_route_match_add (vty, vty->index, "metric", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match metric <0-4294967295>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match metric of route\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_match_metric,
        no_match_metric_cmd,
        "no match metric",
@@ -755,13 +764,6 @@ DEFUN (no_match_metric,
   return rip_route_match_delete (vty, vty->index, "metric", argv[3]->arg);
 }
 
-ALIAS (no_match_metric,
-       no_match_metric_val_cmd,
-       "no match metric <0-4294967295>",
-       NO_STR
-       MATCH_STR
-       "Match metric of route\n"
-       "Metric value\n")
 
 DEFUN (match_interface,
        match_interface_cmd,
@@ -773,6 +775,15 @@ DEFUN (match_interface,
   return rip_route_match_add (vty, vty->index, "interface", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match interface WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match first hop interface of route\n"
+ *     "Interface name\n"
+ *
+ */
 DEFUN (no_match_interface,
        no_match_interface_cmd,
        "no match interface",
@@ -783,13 +794,6 @@ DEFUN (no_match_interface,
   return rip_route_match_delete (vty, vty->index, "interface", argv[3]->arg);
 }
 
-ALIAS (no_match_interface,
-       no_match_interface_val_cmd,
-       "no match interface WORD",
-       NO_STR
-       MATCH_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
@@ -804,6 +808,18 @@ DEFUN (match_ip_next_hop,
   return rip_route_match_add (vty, vty->index, "ip next-hop", argv[3]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match next-hop address of route\n"
+ *     "IP access-list number\n"
+ *     "IP access-list number (expanded range)\n"
+ *     "IP Access-list name\n"
+ *
+ */
 DEFUN (no_match_ip_next_hop,
        no_match_ip_next_hop_cmd,
        "no match ip next-hop",
@@ -815,16 +831,6 @@ DEFUN (no_match_ip_next_hop,
   return rip_route_match_delete (vty, vty->index, "ip next-hop", argv[4]->arg);
 }
 
-ALIAS (no_match_ip_next_hop,
-       no_match_ip_next_hop_val_cmd,
-       "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
 
 DEFUN (match_ip_next_hop_prefix_list,
        match_ip_next_hop_prefix_list_cmd,
@@ -838,6 +844,17 @@ DEFUN (match_ip_next_hop_prefix_list,
   return rip_route_match_add (vty, vty->index, "ip next-hop prefix-list", argv[4]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip next-hop prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match next-hop address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ip_next_hop_prefix_list,
        no_match_ip_next_hop_prefix_list_cmd,
        "no match ip next-hop prefix-list",
@@ -850,15 +867,6 @@ DEFUN (no_match_ip_next_hop_prefix_list,
   return rip_route_match_delete (vty, vty->index, "ip next-hop prefix-list", argv[5]->arg);
 }
 
-ALIAS (no_match_ip_next_hop_prefix_list,
-       no_match_ip_next_hop_prefix_list_val_cmd,
-       "no match ip next-hop prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match next-hop address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
@@ -874,7 +882,19 @@ DEFUN (match_ip_address,
   return rip_route_match_add (vty, vty->index, "ip address", argv[3]->arg);
 }
 
-DEFUN (no_match_ip_address, 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address (<1-199>|<1300-2699>|WORD)",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match address of route\n"
+ *     "IP access-list number\n"
+ *     "IP access-list number (expanded range)\n"
+ *     "IP Access-list name\n"
+ *
+ */
+DEFUN (no_match_ip_address,
        no_match_ip_address_cmd,
        "no match ip address",
        NO_STR
@@ -885,18 +905,8 @@ DEFUN (no_match_ip_address,
   return rip_route_match_delete (vty, vty->index, "ip address", argv[4]->arg);
 }
 
-ALIAS (no_match_ip_address,
-       no_match_ip_address_val_cmd,
-       "no match ip address (<1-199>|<1300-2699>|WORD)",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP Access-list name\n")
 
-DEFUN (match_ip_address_prefix_list, 
+DEFUN (match_ip_address_prefix_list,
        match_ip_address_prefix_list_cmd,
        "match ip address prefix-list WORD",
        MATCH_STR
@@ -908,6 +918,17 @@ DEFUN (match_ip_address_prefix_list,
   return rip_route_match_add (vty, vty->index, "ip address prefix-list", argv[4]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match ip address prefix-list WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     IP_STR
+ *     "Match address of route\n"
+ *     "Match entries of prefix-lists\n"
+ *     "IP prefix-list name\n"
+ *
+ */
 DEFUN (no_match_ip_address_prefix_list,
        no_match_ip_address_prefix_list_cmd,
        "no match ip address prefix-list",
@@ -920,17 +941,8 @@ DEFUN (no_match_ip_address_prefix_list,
   return rip_route_match_delete (vty, vty->index, "ip address prefix-list", argv[5]->arg);
 }
 
-ALIAS (no_match_ip_address_prefix_list,
-       no_match_ip_address_prefix_list_val_cmd,
-       "no match ip address prefix-list WORD",
-       NO_STR
-       MATCH_STR
-       IP_STR
-       "Match address of route\n"
-       "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
 
-DEFUN (match_tag, 
+DEFUN (match_tag,
        match_tag_cmd,
        "match tag <1-65535>",
        MATCH_STR
@@ -940,6 +952,15 @@ DEFUN (match_tag,
   return rip_route_match_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match tag <1-65535>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match tag of route\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_match_tag,
        no_match_tag_cmd,
        "no match tag",
@@ -950,16 +971,17 @@ DEFUN (no_match_tag,
   return rip_route_match_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
-ALIAS (no_match_tag,
-       no_match_tag_val_cmd,
-       "no match tag <1-65535>",
-       NO_STR
-       MATCH_STR
-       "Match tag of route\n"
-       "Metric value\n")
 
 /* set functions */
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "set metric <+/-metric>",
+ *     SET_STR
+ *     "Metric value for destination routing protocol\n"
+ *     "Add or subtract metric\n"
+ *
+ */
 DEFUN (set_metric,
        set_metric_cmd,
        "set metric <0-4294967295>",
@@ -970,13 +992,22 @@ DEFUN (set_metric,
   return rip_route_set_add (vty, vty->index, "metric", argv[2]->arg);
 }
 
-ALIAS (set_metric,
-       set_metric_addsub_cmd,
-       "set metric <+/-metric>",
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Add or subtract metric\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set metric <+/-metric>",
+ *     NO_STR
+ *     SET_STR
+ *     "Metric value for destination routing protocol\n"
+ *     "Add or subtract metric\n"
+ *
+ * "no set metric <0-4294967295>",
+ *     NO_STR
+ *     SET_STR
+ *     "Metric value for destination routing protocol\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
        "no set metric",
@@ -987,21 +1018,7 @@ DEFUN (no_set_metric,
   return rip_route_set_delete (vty, vty->index, "metric", argv[3]->arg);
 }
 
-ALIAS (no_set_metric,
-       no_set_metric_val_cmd,
-       "no set metric <0-4294967295>",
-       NO_STR
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
 
-ALIAS (no_set_metric,
-       no_set_metric_addsub_cmd,
-       "no set metric <+/-metric>",
-       NO_STR
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Add or subtract metric\n")
 
 DEFUN (set_ip_nexthop,
        set_ip_nexthop_cmd,
@@ -1031,6 +1048,16 @@ DEFUN (set_ip_nexthop,
   return rip_route_set_add (vty, vty->index, "ip next-hop", argv[3]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set ip next-hop A.B.C.D",
+ *     NO_STR
+ *     SET_STR
+ *     IP_STR
+ *     "Next hop address\n"
+ *     "IP address of next hop\n"
+ *
+ */
 DEFUN (no_set_ip_nexthop,
        no_set_ip_nexthop_cmd,
        "no set ip next-hop",
@@ -1042,14 +1069,6 @@ DEFUN (no_set_ip_nexthop,
   return rip_route_set_delete (vty, vty->index, "ip next-hop", argv[4]->arg);
 }
 
-ALIAS (no_set_ip_nexthop,
-       no_set_ip_nexthop_val_cmd,
-       "no set ip next-hop A.B.C.D",
-       NO_STR
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "IP address of next hop\n")
 
 DEFUN (set_tag,
        set_tag_cmd,
@@ -1061,6 +1080,15 @@ DEFUN (set_tag,
   return rip_route_set_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set tag <1-65535>",
+ *     NO_STR
+ *     SET_STR
+ *     "Tag value for routing protocol\n"
+ *     "Tag value\n"
+ *
+ */
 DEFUN (no_set_tag,
        no_set_tag_cmd,
        "no set tag",
@@ -1071,13 +1099,6 @@ DEFUN (no_set_tag,
   return rip_route_set_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
-ALIAS (no_set_tag,
-       no_set_tag_val_cmd,
-       "no set tag <1-65535>",
-       NO_STR
-       SET_STR
-       "Tag value for routing protocol\n"
-       "Tag value\n")
 
 void
 rip_route_map_reset ()
@@ -1108,35 +1129,23 @@ rip_route_map_init ()
 
   install_element (RMAP_NODE, &match_metric_cmd);
   install_element (RMAP_NODE, &no_match_metric_cmd);
-  install_element (RMAP_NODE, &no_match_metric_val_cmd);
   install_element (RMAP_NODE, &match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_cmd);
-  install_element (RMAP_NODE, &no_match_interface_val_cmd);
   install_element (RMAP_NODE, &match_ip_next_hop_cmd);
   install_element (RMAP_NODE, &no_match_ip_next_hop_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_val_cmd);
   install_element (RMAP_NODE, &match_ip_next_hop_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_val_cmd);
   install_element (RMAP_NODE, &match_ip_address_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_val_cmd);
   install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
-  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);
   install_element (RMAP_NODE, &match_tag_cmd);
   install_element (RMAP_NODE, &no_match_tag_cmd);
-  install_element (RMAP_NODE, &no_match_tag_val_cmd);
 
   install_element (RMAP_NODE, &set_metric_cmd);
-  install_element (RMAP_NODE, &set_metric_addsub_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
-  install_element (RMAP_NODE, &no_set_metric_val_cmd);
-  install_element (RMAP_NODE, &no_set_metric_addsub_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
-  install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);
   install_element (RMAP_NODE, &set_tag_cmd);
   install_element (RMAP_NODE, &no_set_tag_cmd);
-  install_element (RMAP_NODE, &no_set_tag_val_cmd);
 }

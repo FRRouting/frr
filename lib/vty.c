@@ -2923,6 +2923,14 @@ DEFUN (terminal_monitor,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no terminal monitor",
+ *     NO_STR
+ *     "Set terminal line parameters\n"
+ *     "Copy debug output to the current terminal line\n"
+ *
+ */
 DEFUN (terminal_no_monitor,
        terminal_no_monitor_cmd,
        "terminal no monitor",
@@ -2934,12 +2942,6 @@ DEFUN (terminal_no_monitor,
   return CMD_SUCCESS;
 }
 
-ALIAS (terminal_no_monitor,
-       no_terminal_monitor_cmd,
-       "no terminal monitor",
-       NO_STR
-       "Set terminal line parameters\n"
-       "Copy debug output to the current terminal line\n")
 
 DEFUN (show_history,
        show_history_cmd,
@@ -3149,7 +3151,6 @@ vty_init (struct thread_master *master_thread)
   install_element (CONFIG_NODE, &log_commands_cmd);
   install_element (ENABLE_NODE, &terminal_monitor_cmd);
   install_element (ENABLE_NODE, &terminal_no_monitor_cmd);
-  install_element (ENABLE_NODE, &no_terminal_monitor_cmd);
   install_element (ENABLE_NODE, &show_history_cmd);
 
   install_default (VTY_NODE);

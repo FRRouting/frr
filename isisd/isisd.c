@@ -1978,6 +1978,14 @@ DEFUN (topology_baseis,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no topology base-is",
+ *     NO_STR
+ *     "Topology generation for IS-IS\n"
+ *     "A Network IS Base for this topology\n"
+ *
+ */
 DEFUN (no_topology_baseis,
        no_topology_baseis_cmd,
        "no topology base-is WORD",
@@ -1995,12 +2003,6 @@ DEFUN (no_topology_baseis,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_topology_baseis,
-       no_topology_baseis_noid_cmd,
-       "no topology base-is",
-       NO_STR
-       "Topology generation for IS-IS\n"
-       "A Network IS Base for this topology\n")
 
 DEFUN (topology_basedynh,
        topology_basedynh_cmd,
@@ -2418,7 +2420,6 @@ isis_init ()
   install_element (ISIS_NODE, &topology_baseis_cmd);
   install_element (ISIS_NODE, &topology_basedynh_cmd);
   install_element (ISIS_NODE, &no_topology_baseis_cmd);
-  install_element (ISIS_NODE, &no_topology_baseis_noid_cmd);
   install_element (VIEW_NODE, &show_isis_generated_topology_cmd);
   install_element (ENABLE_NODE, &show_isis_generated_topology_cmd);
 #endif /* TOPOLOGY_GENERATE */

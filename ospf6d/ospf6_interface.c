@@ -986,6 +986,16 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
 }
 
 /* show interface */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 ospf6 interface",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     INTERFACE_STR
+ *     
+ *
+ */
 DEFUN (show_ipv6_ospf6_interface,
        show_ipv6_ospf6_interface_ifname_cmd,
        "show ipv6 ospf6 interface IFNAME",
@@ -1019,15 +1029,34 @@ DEFUN (show_ipv6_ospf6_interface,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_interface,
-       show_ipv6_ospf6_interface_cmd,
-       "show ipv6 ospf6 interface",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       )
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 ospf6 interface IFNAME prefix (X:X::X:X|X:X::X:X/M|detail)",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     INTERFACE_STR
+ *     IFNAME_STR
+ *     "Display connected prefixes to advertise\n"
+ *     OSPF6_ROUTE_ADDRESS_STR
+ *     OSPF6_ROUTE_PREFIX_STR
+ *     "Display details of the prefixes\n"
+ *     
+ *
+ * "show ipv6 ospf6 interface IFNAME prefix X:X::X:X/M (match|detail)",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     INTERFACE_STR
+ *     IFNAME_STR
+ *     "Display connected prefixes to advertise\n"
+ *     OSPF6_ROUTE_PREFIX_STR
+ *     OSPF6_ROUTE_MATCH_STR
+ *     "Display details of the prefixes\n"
+ *     
+ *
+ */
 DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        show_ipv6_ospf6_interface_ifname_prefix_cmd,
        "show ipv6 ospf6 interface IFNAME prefix",
@@ -1063,34 +1092,33 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
-       show_ipv6_ospf6_interface_ifname_prefix_detail_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix (X:X::X:X|X:X::X:X/M|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       IFNAME_STR
-       "Display connected prefixes to advertise\n"
-       OSPF6_ROUTE_ADDRESS_STR
-       OSPF6_ROUTE_PREFIX_STR
-       "Display details of the prefixes\n"
-       )
 
-ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
-       show_ipv6_ospf6_interface_ifname_prefix_match_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix X:X::X:X/M (match|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       IFNAME_STR
-       "Display connected prefixes to advertise\n"
-       OSPF6_ROUTE_PREFIX_STR
-       OSPF6_ROUTE_MATCH_STR
-       "Display details of the prefixes\n"
-       )
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 ospf6 interface prefix X:X::X:X/M (match|detail)",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     INTERFACE_STR
+ *     "Display connected prefixes to advertise\n"
+ *     OSPF6_ROUTE_PREFIX_STR
+ *     OSPF6_ROUTE_MATCH_STR
+ *     "Display details of the prefixes\n"
+ *     
+ *
+ * "show ipv6 ospf6 interface prefix (X:X::X:X|X:X::X:X/M|detail)",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     INTERFACE_STR
+ *     "Display connected prefixes to advertise\n"
+ *     OSPF6_ROUTE_ADDRESS_STR
+ *     OSPF6_ROUTE_PREFIX_STR
+ *     "Display details of the prefixes\n"
+ *     
+ *
+ */
 DEFUN (show_ipv6_ospf6_interface_prefix,
        show_ipv6_ospf6_interface_prefix_cmd,
        "show ipv6 ospf6 interface prefix",
@@ -1117,31 +1145,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_interface_prefix,
-       show_ipv6_ospf6_interface_prefix_detail_cmd,
-       "show ipv6 ospf6 interface prefix (X:X::X:X|X:X::X:X/M|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       "Display connected prefixes to advertise\n"
-       OSPF6_ROUTE_ADDRESS_STR
-       OSPF6_ROUTE_PREFIX_STR
-       "Display details of the prefixes\n"
-       )
 
-ALIAS (show_ipv6_ospf6_interface_prefix,
-       show_ipv6_ospf6_interface_prefix_match_cmd,
-       "show ipv6 ospf6 interface prefix X:X::X:X/M (match|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       INTERFACE_STR
-       "Display connected prefixes to advertise\n"
-       OSPF6_ROUTE_PREFIX_STR
-       OSPF6_ROUTE_MATCH_STR
-       "Display details of the prefixes\n"
-       )
 
 
 /* interface variable set command */
@@ -1352,6 +1356,15 @@ DEFUN (auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no auto-cost reference-bandwidth <1-4294967>",
+ *     NO_STR
+ *     "Calculate OSPF interface cost according to bandwidth\n"
+ *     "Use reference bandwidth method to assign OSPF cost\n"
+ *     "The reference bandwidth in terms of Mbits per second\n"
+ *
+ */
 DEFUN (no_auto_cost_reference_bandwidth,
        no_auto_cost_reference_bandwidth_cmd,
        "no auto-cost reference-bandwidth",
@@ -1375,13 +1388,6 @@ DEFUN (no_auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_auto_cost_reference_bandwidth,
-       no_auto_cost_reference_bandwidth_val_cmd,
-       "no auto-cost reference-bandwidth <1-4294967>",
-       NO_STR
-       "Calculate OSPF interface cost according to bandwidth\n"
-       "Use reference bandwidth method to assign OSPF cost\n"
-       "The reference bandwidth in terms of Mbits per second\n")
 
 DEFUN (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
@@ -1899,22 +1905,12 @@ ospf6_interface_init (void)
   /* Install interface node. */
   install_node (&interface_node, config_write_ospf6_interface);
 
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_prefix_detail_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_prefix_match_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_detail_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_interface_ifname_prefix_match_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_prefix_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_prefix_match_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_ifname_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_ifname_prefix_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_interface_ifname_prefix_match_cmd);
 
   install_element (CONFIG_NODE, &interface_cmd);
   install_default (INTERFACE_NODE);
@@ -1946,7 +1942,6 @@ ospf6_interface_init (void)
   /* reference bandwidth commands */
   install_element (OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);
   install_element (OSPF6_NODE, &no_auto_cost_reference_bandwidth_cmd);
-  install_element (OSPF6_NODE, &no_auto_cost_reference_bandwidth_val_cmd);
 }
 
 /* Clear the specified interface structure */

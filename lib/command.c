@@ -952,6 +952,12 @@ DEFUN (disable,
 }
 
 /* Down vty node level. */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "quit",
+ *     "Exit current mode and down to previous mode\n"
+ *
+ */
 DEFUN (config_exit,
        config_exit_cmd,
        "exit",
@@ -1011,10 +1017,6 @@ DEFUN (config_exit,
 }
 
 /* quit is alias of exit. */
-ALIAS (config_exit,
-       config_quit_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
 
 /* End of configuration. */
 DEFUN (config_end,
@@ -1124,6 +1126,18 @@ DEFUN (config_list,
 }
 
 /* Write current configuration into file. */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "copy running-config startup-config",
+ *     "Copy configuration\n"
+ *     "Copy running config to... \n"
+ *     "Copy running config to startup config (same as write file)\n"
+ *
+ * "show running-config",
+ *     SHOW_STR
+ *     "running configuration\n"
+ *
+ */
 DEFUN (config_write,
        config_write_cmd,
        "write [<file|memory|terminal>]",
@@ -1268,19 +1282,8 @@ finished:
   return ret;
 }
 
-ALIAS (config_write,
-       copy_runningconfig_startupconfig_cmd,
-       "copy running-config startup-config",
-       "Copy configuration\n"
-       "Copy running config to... \n"
-       "Copy running config to startup config (same as write file)\n")
 
 /* Write current configuration into the terminal. */
-ALIAS (config_write,
-       show_running_config_cmd,
-       "show running-config",
-       SHOW_STR
-       "running configuration\n")
 
 /* Write startup configuration into the terminal. */
 DEFUN (show_startup_config,
@@ -1352,7 +1355,8 @@ DEFUN (config_no_hostname,
 }
 
 /* VTY interface password set. */
-DEFUN (config_password, password_cmd,
+DEFUN (config_password,
+       password_cmd,
        "password [8] WORD",
        "Assign the terminal connection password\n"
        "Specifies a HIDDEN password will follow\n"
@@ -1393,7 +1397,8 @@ DEFUN (config_password, password_cmd,
 }
 
 /* VTY enable password set. */
-DEFUN (config_enable_password, enable_password_cmd,
+DEFUN (config_enable_password,
+       enable_password_cmd,
        "enable password [8] WORD",
        "Modify enable password parameters\n"
        "Assign the privileged level password\n"
@@ -1448,7 +1453,8 @@ DEFUN (config_enable_password, enable_password_cmd,
 }
 
 /* VTY enable password delete. */
-DEFUN (no_config_enable_password, no_enable_password_cmd,
+DEFUN (no_config_enable_password,
+       no_enable_password_cmd,
        "no enable password",
        NO_STR
        "Modify enable password parameters\n"
@@ -1515,7 +1521,8 @@ DEFUN (no_service_password_encrypt,
   return CMD_SUCCESS;
 }
 
-DEFUN (config_terminal_length, config_terminal_length_cmd,
+DEFUN (config_terminal_length,
+       config_terminal_length_cmd,
        "terminal length (0-512)",
        "Set terminal line parameters\n"
        "Set number of lines on a screen\n"
@@ -1535,7 +1542,8 @@ DEFUN (config_terminal_length, config_terminal_length_cmd,
   return CMD_SUCCESS;
 }
 
-DEFUN (config_terminal_no_length, config_terminal_no_length_cmd,
+DEFUN (config_terminal_no_length,
+       config_terminal_no_length_cmd,
        "terminal no length",
        "Set terminal line parameters\n"
        NO_STR
@@ -1545,7 +1553,8 @@ DEFUN (config_terminal_no_length, config_terminal_no_length_cmd,
   return CMD_SUCCESS;
 }
 
-DEFUN (service_terminal_length, service_terminal_length_cmd,
+DEFUN (service_terminal_length,
+       service_terminal_length_cmd,
        "service terminal-length (0-512)",
        "Set up miscellaneous service\n"
        "System wide terminal length configuration\n"
@@ -1565,7 +1574,8 @@ DEFUN (service_terminal_length, service_terminal_length_cmd,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_service_terminal_length, no_service_terminal_length_cmd,
+DEFUN (no_service_terminal_length,
+       no_service_terminal_length_cmd,
        "no service terminal-length [(0-512)]",
        NO_STR
        "Set up miscellaneous service\n"
@@ -2085,13 +2095,11 @@ void
 install_default (enum node_type node)
 {
   install_element (node, &config_exit_cmd);
-  install_element (node, &config_quit_cmd);
   install_element (node, &config_end_cmd);
   install_element (node, &config_help_cmd);
   install_element (node, &config_list_cmd);
 
   install_element (node, &config_write_cmd);
-  install_element (node, &show_running_config_cmd);
 }
 
 /* Initialize command interface. Install basic nodes and commands. */
@@ -2125,7 +2133,6 @@ cmd_init (int terminal)
     {
       install_element (VIEW_NODE, &config_list_cmd);
       install_element (VIEW_NODE, &config_exit_cmd);
-      install_element (VIEW_NODE, &config_quit_cmd);
       install_element (VIEW_NODE, &config_help_cmd);
       install_element (VIEW_NODE, &config_enable_cmd);
       install_element (VIEW_NODE, &config_terminal_length_cmd);
@@ -2136,7 +2143,6 @@ cmd_init (int terminal)
 
       install_element (RESTRICTED_NODE, &config_list_cmd);
       install_element (RESTRICTED_NODE, &config_exit_cmd);
-      install_element (RESTRICTED_NODE, &config_quit_cmd);
       install_element (RESTRICTED_NODE, &config_help_cmd);
       install_element (RESTRICTED_NODE, &config_enable_cmd);
       install_element (RESTRICTED_NODE, &config_terminal_length_cmd);
@@ -2149,7 +2155,6 @@ cmd_init (int terminal)
       install_default (ENABLE_NODE);
       install_element (ENABLE_NODE, &config_disable_cmd);
       install_element (ENABLE_NODE, &config_terminal_cmd);
-      install_element (ENABLE_NODE, &copy_runningconfig_startupconfig_cmd);
     }
   install_element (ENABLE_NODE, &show_startup_config_cmd);
   install_element (ENABLE_NODE, &show_version_cmd);

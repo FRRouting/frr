@@ -707,6 +707,15 @@ ospf6_zebra_init (struct thread_master *master)
 
 /* Debug */
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf6 zebra",
+ *     DEBUG_STR
+ *     OSPF6_STR
+ *     "Debug connection between zebra\n"
+ *     
+ *
+ */
 DEFUN (debug_ospf6_zebra_sendrecv,
        debug_ospf6_zebra_sendrecv_cmd,
        "debug ospf6 zebra (send|recv)",
@@ -733,15 +742,18 @@ DEFUN (debug_ospf6_zebra_sendrecv,
   return CMD_SUCCESS;
 }
 
-ALIAS (debug_ospf6_zebra_sendrecv,
-       debug_ospf6_zebra_cmd,
-       "debug ospf6 zebra",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug connection between zebra\n"
-      )
 
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf6 zebra",
+ *     NO_STR
+ *     DEBUG_STR
+ *     OSPF6_STR
+ *     "Debug connection between zebra\n"
+ *     
+ *
+ */
 DEFUN (no_debug_ospf6_zebra_sendrecv,
        no_debug_ospf6_zebra_sendrecv_cmd,
        "no debug ospf6 zebra (send|recv)",
@@ -769,14 +781,6 @@ DEFUN (no_debug_ospf6_zebra_sendrecv,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_ospf6_zebra_sendrecv,
-       no_debug_ospf6_zebra_cmd,
-       "no debug ospf6 zebra",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug connection between zebra\n"
-      )
 
 int
 config_write_ospf6_debug_zebra (struct vty *vty)
@@ -796,12 +800,8 @@ config_write_ospf6_debug_zebra (struct vty *vty)
 void
 install_element_ospf6_debug_zebra (void)
 {
-  install_element (ENABLE_NODE, &debug_ospf6_zebra_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_zebra_cmd);
   install_element (ENABLE_NODE, &debug_ospf6_zebra_sendrecv_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_zebra_sendrecv_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_zebra_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_zebra_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_zebra_sendrecv_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_zebra_sendrecv_cmd);
 }

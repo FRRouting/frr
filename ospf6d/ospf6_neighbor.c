@@ -827,6 +827,18 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   ospf6_bfd_show_info(vty, on->bfd_info, 0);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 ospf6 neighbor (detail|drchoice)",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     "Neighbor list\n"
+ *     "Display details\n"
+ *     "Display DR choices\n"
+ *     
+ *
+ */
 DEFUN (show_ipv6_ospf6_neighbor,
        show_ipv6_ospf6_neighbor_cmd,
        "show ipv6 ospf6 neighbor",
@@ -870,16 +882,6 @@ DEFUN (show_ipv6_ospf6_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_neighbor,
-       show_ipv6_ospf6_neighbor_detail_cmd,
-       "show ipv6 ospf6 neighbor (detail|drchoice)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Neighbor list\n"
-       "Display details\n"
-       "Display DR choices\n"
-      )
 
 DEFUN (show_ipv6_ospf6_neighbor_one,
        show_ipv6_ospf6_neighbor_one_cmd,
@@ -920,11 +922,20 @@ void
 ospf6_neighbor_init (void)
 {
   install_element (VIEW_NODE, &show_ipv6_ospf6_neighbor_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_neighbor_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_neighbor_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_neighbor_detail_cmd);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf6 neighbor (state|event)",
+ *     DEBUG_STR
+ *     OSPF6_STR
+ *     "Debug OSPFv3 Neighbor\n"
+ *     "Debug OSPFv3 Neighbor State Change\n"
+ *     "Debug OSPFv3 Neighbor Event\n"
+ *     
+ *
+ */
 DEFUN (debug_ospf6_neighbor,
        debug_ospf6_neighbor_cmd,
        "debug ospf6 neighbor",
@@ -948,16 +959,19 @@ DEFUN (debug_ospf6_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (debug_ospf6_neighbor,
-       debug_ospf6_neighbor_detail_cmd,
-       "debug ospf6 neighbor (state|event)",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 Neighbor\n"
-       "Debug OSPFv3 Neighbor State Change\n"
-       "Debug OSPFv3 Neighbor Event\n"
-      )
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf6 neighbor (state|event)",
+ *     NO_STR
+ *     DEBUG_STR
+ *     OSPF6_STR
+ *     "Debug OSPFv3 Neighbor\n"
+ *     "Debug OSPFv3 Neighbor State Change\n"
+ *     "Debug OSPFv3 Neighbor Event\n"
+ *     
+ *
+ */
 DEFUN (no_debug_ospf6_neighbor,
        no_debug_ospf6_neighbor_cmd,
        "no debug ospf6 neighbor",
@@ -982,16 +996,6 @@ DEFUN (no_debug_ospf6_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_ospf6_neighbor,
-       no_debug_ospf6_neighbor_detail_cmd,
-       "no debug ospf6 neighbor (state|event)",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 Neighbor\n"
-       "Debug OSPFv3 Neighbor State Change\n"
-       "Debug OSPFv3 Neighbor Event\n"
-      )
 
 DEFUN (no_debug_ospf6,
        no_debug_ospf6_cmd,
@@ -1054,14 +1058,10 @@ void
 install_element_ospf6_debug_neighbor (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_neighbor_cmd);
-  install_element (ENABLE_NODE, &debug_ospf6_neighbor_detail_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_neighbor_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_neighbor_detail_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_neighbor_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_neighbor_detail_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_neighbor_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_neighbor_detail_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_cmd);
 }
 

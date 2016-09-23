@@ -1393,6 +1393,18 @@ DEFUN (ip_rip_receive_version_2,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip rip receive version (1|2)",
+ *     NO_STR
+ *     IP_STR
+ *     "Routing Information Protocol\n"
+ *     "Advertisement reception\n"
+ *     "Version control\n"
+ *     "Version 1\n"
+ *     "Version 2\n"
+ *
+ */
 DEFUN (no_ip_rip_receive_version,
        no_ip_rip_receive_version_cmd,
        "no ip rip receive version",
@@ -1412,16 +1424,6 @@ DEFUN (no_ip_rip_receive_version,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_receive_version,
-       no_ip_rip_receive_version_num_cmd,
-       "no ip rip receive version (1|2)",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement reception\n"
-       "Version control\n"
-       "Version 1\n"
-       "Version 2\n")
 
 DEFUN (ip_rip_send_version,
        ip_rip_send_version_cmd,
@@ -1495,6 +1497,18 @@ DEFUN (ip_rip_send_version_2,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip rip send version (1|2)",
+ *     NO_STR
+ *     IP_STR
+ *     "Routing Information Protocol\n"
+ *     "Advertisement transmission\n"
+ *     "Version control\n"
+ *     "Version 1\n"
+ *     "Version 2\n"
+ *
+ */
 DEFUN (no_ip_rip_send_version,
        no_ip_rip_send_version_cmd,
        "no ip rip send version",
@@ -1514,17 +1528,21 @@ DEFUN (no_ip_rip_send_version,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_send_version,
-       no_ip_rip_send_version_num_cmd,
-       "no ip rip send version (1|2)",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement transmission\n"
-       "Version control\n"
-       "Version 1\n"
-       "Version 2\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
+ *     IP_STR
+ *     "Routing Information Protocol\n"
+ *     "Authentication control\n"
+ *     "Authentication mode\n"
+ *     "Keyed message digest\n"
+ *     "Clear text authentication\n"
+ *     "MD5 authentication data length\n"
+ *     "RFC compatible\n"
+ *     "Old ripd compatible\n"
+ *
+ */
 DEFUN (ip_rip_authentication_mode,
        ip_rip_authentication_mode_cmd,
        "ip rip authentication mode (md5|text)",
@@ -1582,19 +1600,31 @@ DEFUN (ip_rip_authentication_mode,
   return CMD_SUCCESS;
 }
 
-ALIAS (ip_rip_authentication_mode,
-       ip_rip_authentication_mode_authlen_cmd,
-       "ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication mode\n"
-       "Keyed message digest\n"
-       "Clear text authentication\n"
-       "MD5 authentication data length\n"
-       "RFC compatible\n"
-       "Old ripd compatible\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip rip authentication mode (md5|text)",
+ *     NO_STR
+ *     IP_STR
+ *     "Routing Information Protocol\n"
+ *     "Authentication control\n"
+ *     "Authentication mode\n"
+ *     "Keyed message digest\n"
+ *     "Clear text authentication\n"
+ *
+ * "no ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
+ *     NO_STR
+ *     IP_STR
+ *     "Routing Information Protocol\n"
+ *     "Authentication control\n"
+ *     "Authentication mode\n"
+ *     "Keyed message digest\n"
+ *     "Clear text authentication\n"
+ *     "MD5 authentication data length\n"
+ *     "RFC compatible\n"
+ *     "Old ripd compatible\n"
+ *
+ */
 DEFUN (no_ip_rip_authentication_mode,
        no_ip_rip_authentication_mode_cmd,
        "no ip rip authentication mode",
@@ -1616,30 +1646,7 @@ DEFUN (no_ip_rip_authentication_mode,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_authentication_mode,
-       no_ip_rip_authentication_mode_type_cmd,
-       "no ip rip authentication mode (md5|text)",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication mode\n"
-       "Keyed message digest\n"
-       "Clear text authentication\n")
 
-ALIAS (no_ip_rip_authentication_mode,
-       no_ip_rip_authentication_mode_type_authlen_cmd,
-       "no ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication mode\n"
-       "Keyed message digest\n"
-       "Clear text authentication\n"
-       "MD5 authentication data length\n"
-       "RFC compatible\n"
-       "Old ripd compatible\n")
 
 DEFUN (ip_rip_authentication_string,
        ip_rip_authentication_string_cmd,
@@ -1677,6 +1684,17 @@ DEFUN (ip_rip_authentication_string,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip rip authentication string LINE",
+ *     NO_STR
+ *     IP_STR
+ *     "Routing Information Protocol\n"
+ *     "Authentication control\n"
+ *     "Authentication string\n"
+ *     "Authentication string\n"
+ *
+ */
 DEFUN (no_ip_rip_authentication_string,
        no_ip_rip_authentication_string_cmd,
        "no ip rip authentication string",
@@ -1700,15 +1718,6 @@ DEFUN (no_ip_rip_authentication_string,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_authentication_string,
-       no_ip_rip_authentication_string2_cmd,
-       "no ip rip authentication string LINE",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication string\n"
-       "Authentication string\n")
 
 DEFUN (ip_rip_authentication_key_chain,
        ip_rip_authentication_key_chain_cmd,
@@ -1740,6 +1749,17 @@ DEFUN (ip_rip_authentication_key_chain,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip rip authentication key-chain LINE",
+ *     NO_STR
+ *     IP_STR
+ *     "Routing Information Protocol\n"
+ *     "Authentication control\n"
+ *     "Authentication key-chain\n"
+ *     "name of key-chain\n"
+ *
+ */
 DEFUN (no_ip_rip_authentication_key_chain,
        no_ip_rip_authentication_key_chain_cmd,
        "no ip rip authentication key-chain",
@@ -1763,15 +1783,6 @@ DEFUN (no_ip_rip_authentication_key_chain,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_authentication_key_chain,
-       no_ip_rip_authentication_key_chain2_cmd,
-       "no ip rip authentication key-chain LINE",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication key-chain\n"
-       "name of key-chain\n")
 
 /* CHANGED: ip rip split-horizon
    Cisco and Zebra's command is
@@ -2098,27 +2109,20 @@ rip_if_init (void)
   install_element (INTERFACE_NODE, &ip_rip_send_version_1_cmd);
   install_element (INTERFACE_NODE, &ip_rip_send_version_2_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_send_version_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_send_version_num_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_receive_version_cmd);
   install_element (INTERFACE_NODE, &ip_rip_receive_version_1_cmd);
   install_element (INTERFACE_NODE, &ip_rip_receive_version_2_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_receive_version_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_receive_version_num_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_mode_cmd);
-  install_element (INTERFACE_NODE, &ip_rip_authentication_mode_authlen_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_type_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_type_authlen_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_key_chain_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_key_chain_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_authentication_key_chain2_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_string_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_string_cmd);
-  install_element (INTERFACE_NODE, &no_ip_rip_authentication_string2_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_split_horizon_cmd);
   install_element (INTERFACE_NODE, &ip_rip_split_horizon_poisoned_reverse_cmd);

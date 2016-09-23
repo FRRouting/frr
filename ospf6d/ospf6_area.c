@@ -433,6 +433,32 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
   oa = ospf6_area_get (area_id, ospf6);                    \
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "area (A.B.C.D|<0-4294967295>) range X:X::X:X/M advertise cost <0-16777215>",
+ *     "OSPF area parameters\n"
+ *     OSPF6_AREA_ID_STR
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "User specified metric for this range\n"
+ *     "Advertised metric for this range\n"
+ *
+ * "area A.B.C.D range X:X::X:X/M (advertise|not-advertise)",
+ *     "OSPF area parameters\n"
+ *     OSPF6_AREA_ID_STR
+ *     "Configured address range\n"
+ *     "Specify IPv6 prefix\n"
+ *     
+ *
+ * "area (A.B.C.D|<0-4294967295>) range X:X::X:X/M cost <0-16777215>",
+ *     "OSPF area parameters\n"
+ *     OSPF6_AREA_ID_STR
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "User specified metric for this range\n"
+ *     "Advertised metric for this range\n"
+ *
+ */
 DEFUN (area_range,
        area_range_cmd,
        "area A.B.C.D range X:X::X:X/M",
@@ -503,35 +529,37 @@ DEFUN (area_range,
   return CMD_SUCCESS;
 }
 
-ALIAS (area_range,
-       area_range_advertise_cmd,
-       "area A.B.C.D range X:X::X:X/M (advertise|not-advertise)",
-       "OSPF area parameters\n"
-       OSPF6_AREA_ID_STR
-       "Configured address range\n"
-       "Specify IPv6 prefix\n"
-       )
 
-ALIAS (area_range,
-       area_range_cost_cmd,
-       "area (A.B.C.D|<0-4294967295>) range X:X::X:X/M cost <0-16777215>",
-       "OSPF area parameters\n"
-       OSPF6_AREA_ID_STR
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n")
 
-ALIAS (area_range,
-       area_range_advertise_cost_cmd,
-       "area (A.B.C.D|<0-4294967295>) range X:X::X:X/M advertise cost <0-16777215>",
-       "OSPF area parameters\n"
-       OSPF6_AREA_ID_STR
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no area (A.B.C.D|<0-4294967295>) range X:X::X:X/M advertise cost <0-16777215>",
+ *     NO_STR
+ *     "OSPF area parameters\n"
+ *     OSPF6_AREA_ID_STR
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "User specified metric for this range\n"
+ *     "Advertised metric for this range\n"
+ *
+ * "no area A.B.C.D range X:X::X:X/M (advertise|not-advertise)",
+ *     NO_STR
+ *     "OSPF area parameters\n"
+ *     OSPF6_AREA_ID_STR
+ *     "Configured address range\n"
+ *     "Specify IPv6 prefix\n"
+ *
+ * "no area (A.B.C.D|<0-4294967295>) range X:X::X:X/M cost <0-16777215>",
+ *     NO_STR
+ *     "OSPF area parameters\n"
+ *     OSPF6_AREA_ID_STR
+ *     "Summarize routes matching address/mask (border routers only)\n"
+ *     "Area range prefix\n"
+ *     "User specified metric for this range\n"
+ *     "Advertised metric for this range\n"
+ *
+ */
 DEFUN (no_area_range,
        no_area_range_cmd,
        "no area A.B.C.D range X:X::X:X/M",
@@ -584,36 +612,8 @@ DEFUN (no_area_range,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_area_range,
-       no_area_range_advertise_cmd,
-       "no area A.B.C.D range X:X::X:X/M (advertise|not-advertise)",
-       NO_STR
-       "OSPF area parameters\n"
-       OSPF6_AREA_ID_STR
-       "Configured address range\n"
-       "Specify IPv6 prefix\n")
 
-ALIAS (no_area_range,
-       no_area_range_cost_cmd,
-       "no area (A.B.C.D|<0-4294967295>) range X:X::X:X/M cost <0-16777215>",
-       NO_STR
-       "OSPF area parameters\n"
-       OSPF6_AREA_ID_STR
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n")
 
-ALIAS (no_area_range,
-       no_area_range_advertise_cost_cmd,
-       "no area (A.B.C.D|<0-4294967295>) range X:X::X:X/M advertise cost <0-16777215>",
-       NO_STR
-       "OSPF area parameters\n"
-       OSPF6_AREA_ID_STR
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n")
 
 void
 ospf6_area_config_write (struct vty *vty)
@@ -1094,13 +1094,7 @@ ospf6_area_init (void)
   install_element (ENABLE_NODE, &show_ipv6_ospf6_simulate_spf_tree_root_cmd);
 
   install_element (OSPF6_NODE, &area_range_cmd);
-  install_element (OSPF6_NODE, &area_range_advertise_cmd);
-  install_element (OSPF6_NODE, &area_range_cost_cmd);
-  install_element (OSPF6_NODE, &area_range_advertise_cost_cmd);
   install_element (OSPF6_NODE, &no_area_range_cmd);
-  install_element (OSPF6_NODE, &no_area_range_advertise_cmd);
-  install_element (OSPF6_NODE, &no_area_range_cost_cmd);
-  install_element (OSPF6_NODE, &no_area_range_advertise_cost_cmd);
   install_element (OSPF6_NODE, &ospf6_area_stub_no_summary_cmd);
   install_element (OSPF6_NODE, &ospf6_area_stub_cmd);
   install_element (OSPF6_NODE, &no_ospf6_area_stub_no_summary_cmd);

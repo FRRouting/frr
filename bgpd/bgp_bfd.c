@@ -638,6 +638,18 @@ DEFUN_HIDDEN (neighbor_bfd_type,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * NO_NEIGHBOR_CMD2 "bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+ *     NO_STR
+ *     NEIGHBOR_STR
+ *     NEIGHBOR_ADDR_STR2
+ *     "Disables BFD support\n"
+ *     "Detect Multiplier\n"
+ *     "Required min receive interval\n"
+ *     "Desired min transmit interval\n"
+ *
+ */
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
        NO_NEIGHBOR_CMD2 "bfd",
@@ -660,16 +672,6 @@ DEFUN (no_neighbor_bfd,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_neighbor_bfd,
-       no_neighbor_bfd_val_cmd,
-       NO_NEIGHBOR_CMD2 "bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Disables BFD support\n"
-       "Detect Multiplier\n"
-       "Required min receive interval\n"
-       "Desired min transmit interval\n")
 
 DEFUN_HIDDEN (no_neighbor_bfd_type,
        no_neighbor_bfd_type_cmd,
@@ -711,6 +713,5 @@ bgp_bfd_init(void)
   install_element (BGP_NODE, &neighbor_bfd_param_cmd);
   install_element (BGP_NODE, &neighbor_bfd_type_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_cmd);
-  install_element (BGP_NODE, &no_neighbor_bfd_val_cmd);
   install_element (BGP_NODE, &no_neighbor_bfd_type_cmd);
 }

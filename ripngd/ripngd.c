@@ -2400,6 +2400,14 @@ DEFUN (ripng_default_metric,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no default-metric <1-16>",
+ *     NO_STR
+ *     "Set a metric of redistribute routes\n"
+ *     "Default metric\n"
+ *
+ */
 DEFUN (no_ripng_default_metric,
        no_ripng_default_metric_cmd,
        "no default-metric",
@@ -2414,12 +2422,6 @@ DEFUN (no_ripng_default_metric,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ripng_default_metric,
-       no_ripng_default_metric_val_cmd,
-       "no default-metric <1-16>",
-       NO_STR
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
 
 #if 0
 /* RIPng update timer setup. */
@@ -2552,6 +2554,17 @@ DEFUN (ripng_timers,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no timers basic <0-65535> <0-65535> <0-65535>",
+ *     NO_STR
+ *     "RIPng timers setup\n"
+ *     "Basic timer\n"
+ *     "Routing table update timer value in second. Default is 30.\n"
+ *     "Routing information timeout timer. Default is 180.\n"
+ *     "Garbage collection timer. Default is 120.\n"
+ *
+ */
 DEFUN (no_ripng_timers,
        no_ripng_timers_cmd,
        "no timers basic",
@@ -2570,15 +2583,6 @@ DEFUN (no_ripng_timers,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ripng_timers,
-       no_ripng_timers_val_cmd,
-       "no timers basic <0-65535> <0-65535> <0-65535>",
-       NO_STR
-       "RIPng timers setup\n"
-       "Basic timer\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
 
 DEFUN (show_ipv6_protocols,
        show_ipv6_protocols_cmd,
@@ -3110,11 +3114,9 @@ ripng_init ()
 
   install_element (RIPNG_NODE, &ripng_default_metric_cmd);
   install_element (RIPNG_NODE, &no_ripng_default_metric_cmd);
-  install_element (RIPNG_NODE, &no_ripng_default_metric_val_cmd);
 
   install_element (RIPNG_NODE, &ripng_timers_cmd);
   install_element (RIPNG_NODE, &no_ripng_timers_cmd);
-  install_element (RIPNG_NODE, &no_ripng_timers_val_cmd);
 #if 0
   install_element (RIPNG_NODE, &ripng_update_timer_cmd);
   install_element (RIPNG_NODE, &no_ripng_update_timer_cmd);

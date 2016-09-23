@@ -181,6 +181,16 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 }
 
 /* Static unicast routes for multicast RPF lookup. */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
+ *     IP_STR
+ *     "Configure static unicast route into MRIB for multicast RPF lookup\n"
+ *     "IP destination prefix (e.g. 10.0.0.0/8)\n"
+ *     "Nexthop address\n"
+ *     "Nexthop interface name\n"
+ *
+ */
 DEFUN (ip_mroute_dist,
        ip_mroute_dist_cmd,
        "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE) <1-255>",
@@ -194,15 +204,18 @@ DEFUN (ip_mroute_dist,
   return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, argc > 2 ? argv[4]->arg : NULL, NULL);
 }
 
-ALIAS (ip_mroute_dist,
-       ip_mroute_cmd,
-       "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
-       IP_STR
-       "Configure static unicast route into MRIB for multicast RPF lookup\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Nexthop address\n"
-       "Nexthop interface name\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
+ *     NO_STR
+ *     IP_STR
+ *     "Configure static unicast route into MRIB for multicast RPF lookup\n"
+ *     "IP destination prefix (e.g. 10.0.0.0/8)\n"
+ *     "Nexthop address\n"
+ *     "Nexthop interface name\n"
+ *
+ */
 DEFUN (no_ip_mroute_dist,
        no_ip_mroute_dist_cmd,
        "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE) <1-255>",
@@ -216,15 +229,6 @@ DEFUN (no_ip_mroute_dist,
   return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, argc > 2 ? argv[5]->arg : NULL, NULL);
 }
 
-ALIAS (no_ip_mroute_dist,
-       no_ip_mroute_cmd,
-       "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
-       NO_STR
-       IP_STR
-       "Configure static unicast route into MRIB for multicast RPF lookup\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Nexthop address\n"
-       "Nexthop interface name\n")
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
@@ -258,6 +262,15 @@ DEFUN (ip_multicast_mode,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip multicast rpf-lookup-mode",
+ *     NO_STR
+ *     IP_STR
+ *     "Multicast options\n"
+ *     "RPF lookup behavior\n"
+ *
+ */
 DEFUN (no_ip_multicast_mode,
        no_ip_multicast_mode_cmd,
        "no ip multicast rpf-lookup-mode (urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix)",
@@ -275,13 +288,6 @@ DEFUN (no_ip_multicast_mode,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_multicast_mode,
-       no_ip_multicast_mode_noarg_cmd,
-       "no ip multicast rpf-lookup-mode",
-       NO_STR
-       IP_STR
-       "Multicast options\n"
-       "RPF lookup behavior\n")
 
 DEFUN (show_ip_rpf,
        show_ip_rpf_cmd,
@@ -324,7 +330,7 @@ DEFUN (show_ip_rpf_addr,
 }
 
 /* Static route configuration.  */
-DEFUN (ip_route, 
+DEFUN (ip_route,
        ip_route_cmd,
        "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0)",
        IP_STR
@@ -716,7 +722,20 @@ DEFUN (ip_route_mask_flags_tag_distance2,
                             argv[7]->arg, NULL);
 }
 
-DEFUN (no_ip_route, 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole)",
+ *     NO_STR
+ *     IP_STR
+ *     "Establish static routes\n"
+ *     "IP destination prefix (e.g. 10.0.0.0/8)\n"
+ *     "IP gateway address\n"
+ *     "IP gateway interface name\n"
+ *     "Emit an ICMP unreachable when matched\n"
+ *     "Silently discard pkts when matched\n"
+ *
+ */
+DEFUN (no_ip_route,
        no_ip_route_cmd,
        "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0)",
        NO_STR
@@ -731,6 +750,21 @@ DEFUN (no_ip_route,
                             NULL, NULL);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-65535>",
+ *     NO_STR
+ *     IP_STR
+ *     "Establish static routes\n"
+ *     "IP destination prefix (e.g. 10.0.0.0/8)\n"
+ *     "IP gateway address\n"
+ *     "IP gateway interface name\n"
+ *     "Emit an ICMP unreachable when matched\n"
+ *     "Silently discard pkts when matched\n"
+ *     "Tag of this route\n"
+ *     "Tag value\n"
+ *
+ */
 DEFUN (no_ip_route_tag,
        no_ip_route_tag_cmd,
        "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-65535>",
@@ -748,31 +782,7 @@ DEFUN (no_ip_route_tag,
                             NULL, NULL);
 }
 
-ALIAS (no_ip_route,
-       no_ip_route_flags_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
 
-ALIAS (no_ip_route_tag,
-       no_ip_route_flags_tag_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-65535>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n")
 
 DEFUN (no_ip_route_flags2,
        no_ip_route_flags2_cmd,
@@ -804,6 +814,20 @@ DEFUN (no_ip_route_flags2_tag,
                             NULL, NULL);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole)",
+ *     NO_STR
+ *     IP_STR
+ *     "Establish static routes\n"
+ *     "IP destination prefix\n"
+ *     "IP destination prefix mask\n"
+ *     "IP gateway address\n"
+ *     "IP gateway interface name\n"
+ *     "Emit an ICMP unreachable when matched\n"
+ *     "Silently discard pkts when matched\n"
+ *
+ */
 DEFUN (no_ip_route_mask,
        no_ip_route_mask_cmd,
        "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0)",
@@ -820,6 +844,22 @@ DEFUN (no_ip_route_mask,
                             NULL, NULL);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-65535>",
+ *     NO_STR
+ *     IP_STR
+ *     "Establish static routes\n"
+ *     "IP destination prefix\n"
+ *     "IP destination prefix mask\n"
+ *     "IP gateway address\n"
+ *     "IP gateway interface name\n"
+ *     "Emit an ICMP unreachable when matched\n"
+ *     "Silently discard pkts when matched\n"
+ *     "Tag of this route\n"
+ *     "Tag value\n"
+ *
+ */
 DEFUN (no_ip_route_mask_tag,
        no_ip_route_mask_tag_cmd,
        "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-65535>",
@@ -838,33 +878,7 @@ DEFUN (no_ip_route_mask_tag,
                             NULL, NULL);
 }
 
-ALIAS (no_ip_route_mask,
-       no_ip_route_mask_flags_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole)",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
 
-ALIAS (no_ip_route_mask_tag,
-       no_ip_route_mask_flags_tag_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) (reject|blackhole) tag <1-65535>",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n")
 
 DEFUN (no_ip_route_mask_flags2,
        no_ip_route_mask_flags2_cmd,
@@ -1109,7 +1123,7 @@ DEFUN (no_ip_route_mask_flags_tag_distance2,
 }
 
 /* Static route configuration.  */
-DEFUN (ip_route_vrf, 
+DEFUN (ip_route_vrf,
        ip_route_vrf_cmd,
        "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) " VRF_CMD_STR,
        IP_STR
@@ -1501,7 +1515,7 @@ DEFUN (ip_route_mask_flags_tag_distance2_vrf,
   return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, NULL, argv[4]->arg, argv[6]->arg, argv[7]->arg, argv[10]->arg);
 }
 
-DEFUN (no_ip_route_vrf, 
+DEFUN (no_ip_route_vrf,
        no_ip_route_vrf_cmd,
        "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) " VRF_CMD_STR,
        NO_STR
@@ -2436,6 +2450,15 @@ DEFUN (show_ip_route_vrf,
     return do_show_ip_route (vty, argv[5]->arg, SAFI_UNICAST, uj);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip nht " VRF_CMD_STR,
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP nexthop tracking table\n"
+ *     VRF_CMD_HELP_STR
+ *
+ */
 DEFUN (show_ip_nht,
        show_ip_nht_cmd,
        "show ip nht",
@@ -2452,13 +2475,6 @@ DEFUN (show_ip_nht,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_nht,
-       show_ip_nht_vrf_cmd,
-       "show ip nht " VRF_CMD_STR,
-       SHOW_STR
-       IP_STR
-       "IP nexthop tracking table\n"
-       VRF_CMD_HELP_STR)
 
 DEFUN (show_ip_nht_vrf_all,
        show_ip_nht_vrf_all_cmd,
@@ -2481,6 +2497,15 @@ DEFUN (show_ip_nht_vrf_all,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 nht " VRF_CMD_STR,
+ *     SHOW_STR
+ *     IPV6_STR
+ *     "IPv6 nexthop tracking table\n"
+ *     VRF_CMD_HELP_STR
+ *
+ */
 DEFUN (show_ipv6_nht,
        show_ipv6_nht_cmd,
        "show ipv6 nht",
@@ -2497,13 +2522,6 @@ DEFUN (show_ipv6_nht,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_nht,
-       show_ipv6_nht_vrf_cmd,
-       "show ipv6 nht " VRF_CMD_STR,
-       SHOW_STR
-       IPV6_STR
-       "IPv6 nexthop tracking table\n"
-       VRF_CMD_HELP_STR)
 
 DEFUN (show_ipv6_nht_vrf_all,
        show_ipv6_nht_vrf_all_cmd,
@@ -2588,6 +2606,17 @@ DEFUN (no_ipv6_nht_default_route,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip route " VRF_CMD_STR " tag <1-65535>",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "Show only routes with tag\n"
+ *     "Tag value\n"
+ *
+ */
 DEFUN (show_ip_route_tag,
        show_ip_route_tag_cmd,
        "show ip route tag <1-65535>",
@@ -2633,16 +2662,18 @@ DEFUN (show_ip_route_tag,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_tag,
-       show_ip_route_vrf_tag_cmd,
-       "show ip route " VRF_CMD_STR " tag <1-65535>",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Show only routes with tag\n"
-       "Tag value\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip route " VRF_CMD_STR " A.B.C.D/M longer-prefixes",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+ *     "Show route matching the specified Network/Mask pair only\n"
+ *
+ */
 DEFUN (show_ip_route_prefix_longer,
        show_ip_route_prefix_longer_cmd,
        "show ip route A.B.C.D/M longer-prefixes",
@@ -2693,16 +2724,17 @@ DEFUN (show_ip_route_prefix_longer,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_prefix_longer,
-       show_ip_route_vrf_prefix_longer_cmd,
-       "show ip route " VRF_CMD_STR " A.B.C.D/M longer-prefixes",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Show route matching the specified Network/Mask pair only\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip route " VRF_CMD_STR " supernets-only",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "Show supernet entries only\n"
+ *
+ */
 DEFUN (show_ip_route_supernets,
        show_ip_route_supernets_cmd,
        "show ip route supernets-only",
@@ -2746,15 +2778,17 @@ DEFUN (show_ip_route_supernets,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_supernets,
-       show_ip_route_vrf_supernets_cmd,
-       "show ip route " VRF_CMD_STR " supernets-only",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Show supernet entries only\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip route " VRF_CMD_STR "  " QUAGGA_IP_REDIST_STR_ZEBRA,
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     QUAGGA_IP_REDIST_HELP_STR_ZEBRA
+ *
+ */
 DEFUN (show_ip_route_protocol,
        show_ip_route_protocol_cmd,
        "show ip route " QUAGGA_IP_REDIST_STR_ZEBRA,
@@ -2803,14 +2837,6 @@ DEFUN (show_ip_route_protocol,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_protocol,
-       show_ip_route_vrf_protocol_cmd,
-       "show ip route " VRF_CMD_STR "  " QUAGGA_IP_REDIST_STR_ZEBRA,
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       QUAGGA_IP_REDIST_HELP_STR_ZEBRA)
 
 DEFUN (show_ip_route_ospf_instance,
        show_ip_route_ospf_instance_cmd,
@@ -2848,6 +2874,16 @@ DEFUN (show_ip_route_ospf_instance,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip route "  VRF_CMD_STR " A.B.C.D",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "Network in the IP routing table to display\n"
+ *
+ */
 DEFUN (show_ip_route_addr,
        show_ip_route_addr_cmd,
        "show ip route A.B.C.D",
@@ -2894,15 +2930,17 @@ DEFUN (show_ip_route_addr,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_addr,
-       show_ip_route_vrf_addr_cmd,
-       "show ip route "  VRF_CMD_STR " A.B.C.D",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Network in the IP routing table to display\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip route " VRF_CMD_STR " A.B.C.D/M",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+ *
+ */
 DEFUN (show_ip_route_prefix,
        show_ip_route_prefix_cmd,
        "show ip route A.B.C.D/M",
@@ -2949,14 +2987,6 @@ DEFUN (show_ip_route_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_prefix,
-       show_ip_route_vrf_prefix_cmd,
-       "show ip route " VRF_CMD_STR " A.B.C.D/M",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 
 static void
 vty_show_ip_route_summary (struct vty *vty, struct route_table *table)
@@ -3108,6 +3138,16 @@ vty_show_ip_route_summary_prefix (struct vty *vty, struct route_table *table)
 }
 
 /* Show route summary.  */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip route " VRF_CMD_STR " summary",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "Summary of all routes\n"
+ *
+ */
 DEFUN (show_ip_route_summary,
        show_ip_route_summary_cmd,
        "show ip route summary",
@@ -3131,16 +3171,19 @@ DEFUN (show_ip_route_summary,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_summary,
-       show_ip_route_vrf_summary_cmd,
-       "show ip route " VRF_CMD_STR " summary",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all routes\n")
 
 /* Show route summary prefix.  */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ip route " VRF_CMD_STR " summary prefix",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "Summary of all routes\n"
+ *     "Prefix routes\n"
+ *
+ */
 DEFUN (show_ip_route_summary_prefix,
        show_ip_route_summary_prefix_cmd,
        "show ip route summary prefix",
@@ -3165,15 +3208,6 @@ DEFUN (show_ip_route_summary_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ip_route_summary_prefix,
-       show_ip_route_vrf_summary_prefix_cmd,
-       "show ip route " VRF_CMD_STR " summary prefix",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all routes\n"
-       "Prefix routes\n")
 
 DEFUN (show_ip_route_vrf_all,
        show_ip_route_vrf_all_cmd,
@@ -4740,6 +4774,15 @@ DEFUN (no_ipv6_route_ifname_flags_pref_tag_vrf,
   return static_ipv6_func (vty, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, argv[6]->arg, argv[8]->arg, argv[9]->arg, argv[12]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 route  " VRF_CMD_STR " {json}",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IPv6 routing table\n"
+ *     VRF_CMD_HELP_STR
+ *
+ */
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
        "show ipv6 route {json}",
@@ -4834,14 +4877,18 @@ DEFUN (show_ipv6_route,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route,
-       show_ipv6_route_vrf_cmd,
-       "show ipv6 route  " VRF_CMD_STR " {json}",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR)
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 route " VRF_CMD_STR " tag <1-65535>",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IPv6 routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "Show only routes with tag\n"
+ *     "Tag value\n"
+ *
+ */
 DEFUN (show_ipv6_route_tag,
        show_ipv6_route_tag_cmd,
        "show ipv6 route tag <1-65535>",
@@ -4887,16 +4934,18 @@ DEFUN (show_ipv6_route_tag,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_tag,
-       show_ipv6_route_vrf_tag_cmd,
-       "show ipv6 route " VRF_CMD_STR " tag <1-65535>",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "Show only routes with tag\n"
-       "Tag value\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 route " VRF_CMD_STR " X:X::X:X/M longer-prefixes",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IPv6 routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "IPv6 prefix\n"
+ *     "Show route matching the specified Network/Mask pair only\n"
+ *
+ */
 DEFUN (show_ipv6_route_prefix_longer,
        show_ipv6_route_prefix_longer_cmd,
        "show ipv6 route X:X::X:X/M longer-prefixes",
@@ -4947,16 +4996,17 @@ DEFUN (show_ipv6_route_prefix_longer,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_prefix_longer,
-       show_ipv6_route_vrf_prefix_longer_cmd,
-       "show ipv6 route " VRF_CMD_STR " X:X::X:X/M longer-prefixes",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "IPv6 prefix\n"
-       "Show route matching the specified Network/Mask pair only\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 route "  VRF_CMD_STR "  " QUAGGA_IP6_REDIST_STR_ZEBRA,
+ *     SHOW_STR
+ *     IP_STR
+ *     "IP routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     QUAGGA_IP6_REDIST_HELP_STR_ZEBRA
+ *
+ */
 DEFUN (show_ipv6_route_protocol,
        show_ipv6_route_protocol_cmd,
        "show ipv6 route " QUAGGA_IP6_REDIST_STR_ZEBRA,
@@ -5005,15 +5055,17 @@ DEFUN (show_ipv6_route_protocol,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_protocol,
-       show_ipv6_route_vrf_protocol_cmd,
-       "show ipv6 route "  VRF_CMD_STR "  " QUAGGA_IP6_REDIST_STR_ZEBRA,
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 route " VRF_CMD_STR " X:X::X:X",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IPv6 routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "IPv6 Address\n"
+ *
+ */
 DEFUN (show_ipv6_route_addr,
        show_ipv6_route_addr_cmd,
        "show ipv6 route X:X::X:X",
@@ -5060,15 +5112,17 @@ DEFUN (show_ipv6_route_addr,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_addr,
-       show_ipv6_route_vrf_addr_cmd,
-       "show ipv6 route " VRF_CMD_STR " X:X::X:X",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "IPv6 Address\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 route " VRF_CMD_STR " X:X::X:X/M ",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IPv6 routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "IPv6 prefix\n"
+ *
+ */
 DEFUN (show_ipv6_route_prefix,
        show_ipv6_route_prefix_cmd,
        "show ipv6 route X:X::X:X/M",
@@ -5115,16 +5169,18 @@ DEFUN (show_ipv6_route_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_prefix,
-       show_ipv6_route_vrf_prefix_cmd,
-       "show ipv6 route " VRF_CMD_STR " X:X::X:X/M ",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "IPv6 prefix\n")
 
 /* Show route summary.  */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 route " VRF_CMD_STR " summary",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IPv6 routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "Summary of all IPv6 routes\n"
+ *
+ */
 DEFUN (show_ipv6_route_summary,
        show_ipv6_route_summary_cmd,
        "show ipv6 route summary",
@@ -5148,16 +5204,19 @@ DEFUN (show_ipv6_route_summary,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_summary,
-       show_ipv6_route_vrf_summary_cmd,
-       "show ipv6 route " VRF_CMD_STR " summary",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all IPv6 routes\n")
 
 /* Show ipv6 route summary prefix.  */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 route " VRF_CMD_STR " summary prefix",
+ *     SHOW_STR
+ *     IP_STR
+ *     "IPv6 routing table\n"
+ *     VRF_CMD_HELP_STR
+ *     "Summary of all IPv6 routes\n"
+ *     "Prefix routes\n"
+ *
+ */
 DEFUN (show_ipv6_route_summary_prefix,
        show_ipv6_route_summary_prefix_cmd,
        "show ipv6 route summary prefix",
@@ -5182,21 +5241,21 @@ DEFUN (show_ipv6_route_summary_prefix,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_route_summary_prefix,
-       show_ipv6_route_vrf_summary_prefix_cmd,
-       "show ipv6 route " VRF_CMD_STR " summary prefix",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all IPv6 routes\n"
-       "Prefix routes\n")
 
 /*
  * Show IPv6 mroute command.Used to dump
  * the Multicast routing table.
  */
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 mroute  " VRF_CMD_STR,
+ *     SHOW_STR
+ *     IP_STR
+ *     "IPv6 Multicast routing table\n"
+ *     VRF_CMD_HELP_STR
+ *
+ */
 DEFUN (show_ipv6_mroute,
        show_ipv6_mroute_cmd,
        "show ipv6 mroute",
@@ -5231,13 +5290,6 @@ DEFUN (show_ipv6_mroute,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_mroute,
-       show_ipv6_mroute_vrf_cmd,
-       "show ipv6 mroute  " VRF_CMD_STR,
-       SHOW_STR
-       IP_STR
-       "IPv6 Multicast routing table\n"
-       VRF_CMD_HELP_STR)
 
 DEFUN (show_ipv6_route_vrf_all,
        show_ipv6_route_vrf_all_cmd,
@@ -5738,6 +5790,14 @@ zebra_ip_config (struct vty *vty)
   return write;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip import-table <1-252>",
+ *     IP_STR
+ *     "import routes from non-main kernel table\n"
+ *     "kernel routing table id\n"
+ *
+ */
 DEFUN (ip_zebra_import_table_distance,
        ip_zebra_import_table_distance_cmd,
        "ip import-table <1-252> distance <1-255>",
@@ -5773,13 +5833,17 @@ DEFUN (ip_zebra_import_table_distance,
 
 }
 
-ALIAS (ip_zebra_import_table_distance,
-       ip_zebra_import_table_cmd,
-       "ip import-table <1-252>",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip import-table <1-252> route-map WORD",
+ *     IP_STR
+ *     "import routes from non-main kernel table\n"
+ *     "kernel routing table id\n"
+ *     "route-map for filtering\n"
+ *     "route-map name\n"
+ *
+ */
 DEFUN (ip_zebra_import_table_distance_routemap,
        ip_zebra_import_table_distance_routemap_cmd,
        "ip import-table <1-252> distance <1-255> route-map WORD",
@@ -5823,15 +5887,16 @@ DEFUN (ip_zebra_import_table_distance_routemap,
   return (zebra_import_table(AFI_IP, table_id, distance, rmap_name, 1));
 }
 
-ALIAS (ip_zebra_import_table_distance_routemap,
-       ip_zebra_import_table_routemap_cmd,
-       "ip import-table <1-252> route-map WORD",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-       "route-map for filtering\n"
-       "route-map name\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip import-table <1-252> distance <1-255> {route-map NAME}",
+ *     IP_STR
+ *     "import routes from non-main kernel table to main table"
+ *     "kernel routing table id\n"
+ *     "distance to be used\n"
+ *
+ */
 DEFUN (no_ip_zebra_import_table,
        no_ip_zebra_import_table_cmd,
        "no ip import-table <1-252> {route-map NAME}",
@@ -5865,13 +5930,6 @@ DEFUN (no_ip_zebra_import_table,
   return (zebra_import_table(AFI_IP, table_id, 0, NULL, 0));
 }
 
-ALIAS (no_ip_zebra_import_table,
-       no_ip_zebra_import_table_distance_cmd,
-       "no ip import-table <1-252> distance <1-255> {route-map NAME}",
-       IP_STR
-       "import routes from non-main kernel table to main table"
-       "kernel routing table id\n"
-       "distance to be used\n")
 
 static int
 config_write_protocol (struct vty *vty)
@@ -5914,13 +5972,10 @@ zebra_vty_init (void)
 
   install_element (CONFIG_NODE, &allow_external_route_update_cmd);
   install_element (CONFIG_NODE, &no_allow_external_route_update_cmd);
-  install_element (CONFIG_NODE, &ip_mroute_cmd);
   install_element (CONFIG_NODE, &ip_mroute_dist_cmd);
-  install_element (CONFIG_NODE, &no_ip_mroute_cmd);
   install_element (CONFIG_NODE, &no_ip_mroute_dist_cmd);
   install_element (CONFIG_NODE, &ip_multicast_mode_cmd);
   install_element (CONFIG_NODE, &no_ip_multicast_mode_cmd);
-  install_element (CONFIG_NODE, &no_ip_multicast_mode_noarg_cmd);
   install_element (CONFIG_NODE, &ip_route_cmd);
   install_element (CONFIG_NODE, &ip_route_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_flags_cmd);
@@ -5935,14 +5990,10 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &ip_route_mask_flags2_tag_cmd);
   install_element (CONFIG_NODE, &no_ip_route_cmd);
   install_element (CONFIG_NODE, &no_ip_route_tag_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_flags_tag_cmd);
   install_element (CONFIG_NODE, &no_ip_route_flags2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_flags2_tag_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_tag_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags2_tag_cmd);
   install_element (CONFIG_NODE, &ip_route_distance_cmd);
@@ -5969,22 +6020,17 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance2_cmd);
-  install_element (CONFIG_NODE, &ip_zebra_import_table_cmd);
   install_element (CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
-  install_element (CONFIG_NODE, &ip_zebra_import_table_routemap_cmd);
   install_element (CONFIG_NODE, &ip_zebra_import_table_distance_routemap_cmd);
   install_element (CONFIG_NODE, &no_ip_zebra_import_table_cmd);
-  install_element (CONFIG_NODE, &no_ip_zebra_import_table_distance_cmd);
 
   install_element (VIEW_NODE, &show_vrf_cmd);
   install_element (VIEW_NODE, &show_ip_route_cmd);
   install_element (VIEW_NODE, &show_ip_route_ospf_instance_cmd);
   install_element (VIEW_NODE, &show_ip_route_tag_cmd);
   install_element (VIEW_NODE, &show_ip_nht_cmd);
-  install_element (VIEW_NODE, &show_ip_nht_vrf_cmd);
   install_element (VIEW_NODE, &show_ip_nht_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ipv6_nht_cmd);
-  install_element (VIEW_NODE, &show_ipv6_nht_vrf_cmd);
   install_element (VIEW_NODE, &show_ipv6_nht_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ip_route_addr_cmd);
   install_element (VIEW_NODE, &show_ip_route_prefix_cmd);
@@ -5998,10 +6044,8 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_route_ospf_instance_cmd);
   install_element (ENABLE_NODE, &show_ip_route_tag_cmd);
   install_element (ENABLE_NODE, &show_ip_nht_cmd);
-  install_element (ENABLE_NODE, &show_ip_nht_vrf_cmd);
   install_element (ENABLE_NODE, &show_ip_nht_vrf_all_cmd);
   install_element (ENABLE_NODE, &show_ipv6_nht_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_nht_vrf_cmd);
   install_element (ENABLE_NODE, &show_ipv6_nht_vrf_all_cmd);
   install_element (ENABLE_NODE, &show_ip_route_addr_cmd);
   install_element (ENABLE_NODE, &show_ip_route_prefix_cmd);
@@ -6068,23 +6112,7 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_tag_distance2_vrf_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_addr_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_tag_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_prefix_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_prefix_longer_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_protocol_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_supernets_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_route_vrf_summary_prefix_cmd);
   install_element (ENABLE_NODE, &show_ip_route_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_addr_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_tag_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_supernets_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_route_vrf_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ip_route_vrf_all_tag_cmd);
@@ -6198,22 +6226,6 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ipv6_route_ifname_flags_pref_tag_vrf_cmd);
 
 
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_tag_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_summary_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_summary_prefix_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_protocol_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_addr_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_prefix_cmd);
-  install_element (VIEW_NODE, &show_ipv6_route_vrf_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_tag_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_protocol_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_addr_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_prefix_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_prefix_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_route_vrf_summary_prefix_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_cmd);
   install_element (VIEW_NODE, &show_ipv6_route_vrf_all_tag_cmd);
@@ -6232,8 +6244,6 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_summary_cmd);
   install_element (ENABLE_NODE, &show_ipv6_route_vrf_all_summary_prefix_cmd);
 
-  install_element (VIEW_NODE, &show_ipv6_mroute_vrf_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_mroute_vrf_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
   install_element (ENABLE_NODE, &show_ipv6_mroute_vrf_all_cmd);

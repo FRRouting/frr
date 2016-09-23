@@ -500,7 +500,7 @@ static struct route_map_rule_cmd route_set_tag_cmd =
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
 
-DEFUN (match_metric, 
+DEFUN (match_metric,
        match_metric_cmd,
        "match metric <0-4294967295>",
        MATCH_STR
@@ -510,6 +510,15 @@ DEFUN (match_metric,
   return ripng_route_match_add (vty, vty->index, "metric", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match metric <0-4294967295>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match metric of route\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_match_metric,
        no_match_metric_cmd,
        "no match metric",
@@ -520,13 +529,6 @@ DEFUN (no_match_metric,
   return ripng_route_match_delete (vty, vty->index, "metric", argv[3]->arg);
 }
 
-ALIAS (no_match_metric,
-       no_match_metric_val_cmd,
-       "no match metric <0-4294967295>",
-       NO_STR
-       MATCH_STR
-       "Match metric of route\n"
-       "Metric value\n")
 
 DEFUN (match_interface,
        match_interface_cmd,
@@ -538,6 +540,15 @@ DEFUN (match_interface,
   return ripng_route_match_add (vty, vty->index, "interface", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match interface WORD",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match first hop interface of route\n"
+ *     "Interface name\n"
+ *
+ */
 DEFUN (no_match_interface,
        no_match_interface_cmd,
        "no match interface",
@@ -548,13 +559,6 @@ DEFUN (no_match_interface,
   return ripng_route_match_delete (vty, vty->index, "interface", argv[3]->arg);
 }
 
-ALIAS (no_match_interface,
-       no_match_interface_val_cmd,
-       "no match interface WORD",
-       NO_STR
-       MATCH_STR
-       "Match first hop interface of route\n"
-       "Interface name\n")
 
 DEFUN (match_tag,
        match_tag_cmd,
@@ -566,6 +570,15 @@ DEFUN (match_tag,
   return ripng_route_match_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no match tag <1-65535>",
+ *     NO_STR
+ *     MATCH_STR
+ *     "Match tag of route\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_match_tag,
        no_match_tag_cmd,
        "no match tag",
@@ -576,13 +589,6 @@ DEFUN (no_match_tag,
   return ripng_route_match_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
-ALIAS (no_match_tag,
-       no_match_tag_val_cmd,
-       "no match tag <1-65535>",
-       NO_STR
-       MATCH_STR
-       "Match tag of route\n"
-       "Metric value\n")
 
 /* set functions */
 
@@ -596,6 +602,15 @@ DEFUN (set_metric,
   return ripng_route_set_add (vty, vty->index, "metric", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set metric <0-4294967295>",
+ *     NO_STR
+ *     SET_STR
+ *     "Metric value for destination routing protocol\n"
+ *     "Metric value\n"
+ *
+ */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
        "no set metric",
@@ -606,13 +621,6 @@ DEFUN (no_set_metric,
   return ripng_route_set_delete (vty, vty->index, "metric", argv[3]->arg);
 }
 
-ALIAS (no_set_metric,
-       no_set_metric_val_cmd,
-       "no set metric <0-4294967295>",
-       NO_STR
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
 
 DEFUN (set_ipv6_nexthop_local,
        set_ipv6_nexthop_local_cmd,
@@ -642,6 +650,17 @@ DEFUN (set_ipv6_nexthop_local,
   return ripng_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[4]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set ipv6 next-hop local X:X::X:X",
+ *     NO_STR
+ *     SET_STR
+ *     IPV6_STR
+ *     "IPv6 next-hop address\n"
+ *     "IPv6 local address\n"
+ *     "IPv6 address of next hop\n"
+ *
+ */
 DEFUN (no_set_ipv6_nexthop_local,
        no_set_ipv6_nexthop_local_cmd,
        "no set ipv6 next-hop local",
@@ -654,15 +673,6 @@ DEFUN (no_set_ipv6_nexthop_local,
   return ripng_route_set_delete (vty, vty->index, "ipv6 next-hop local", argv[5]->arg);
 }
 
-ALIAS (no_set_ipv6_nexthop_local,
-       no_set_ipv6_nexthop_local_val_cmd,
-       "no set ipv6 next-hop local X:X::X:X",
-       NO_STR
-       SET_STR
-       IPV6_STR
-       "IPv6 next-hop address\n"
-       "IPv6 local address\n"
-       "IPv6 address of next hop\n")
 
 DEFUN (set_tag,
        set_tag_cmd,
@@ -674,6 +684,15 @@ DEFUN (set_tag,
   return ripng_route_set_add (vty, vty->index, "tag", argv[2]->arg);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no set tag <1-65535>",
+ *     NO_STR
+ *     SET_STR
+ *     "Tag value for routing protocol\n"
+ *     "Tag value\n"
+ *
+ */
 DEFUN (no_set_tag,
        no_set_tag_cmd,
        "no set tag",
@@ -684,13 +703,6 @@ DEFUN (no_set_tag,
   return ripng_route_set_delete (vty, vty->index, "tag", argv[3]->arg);
 }
 
-ALIAS (no_set_tag,
-       no_set_tag_val_cmd,
-       "no set tag <1-65535>",
-       NO_STR
-       SET_STR
-       "Tag value for routing protocol\n"
-       "Tag value\n")
 
 void
 ripng_route_map_reset ()
@@ -715,21 +727,15 @@ ripng_route_map_init ()
 
   install_element (RMAP_NODE, &match_metric_cmd);
   install_element (RMAP_NODE, &no_match_metric_cmd);
-  install_element (RMAP_NODE, &no_match_metric_val_cmd);
   install_element (RMAP_NODE, &match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_cmd);
-  install_element (RMAP_NODE, &no_match_interface_val_cmd);
   install_element (RMAP_NODE, &match_tag_cmd);
   install_element (RMAP_NODE, &no_match_tag_cmd);
-  install_element (RMAP_NODE, &no_match_tag_val_cmd);
 
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
-  install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_ipv6_nexthop_local_cmd);
   install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_cmd);
-  install_element (RMAP_NODE, &no_set_ipv6_nexthop_local_val_cmd);
   install_element (RMAP_NODE, &set_tag_cmd);
   install_element (RMAP_NODE, &no_set_tag_cmd);
-  install_element (RMAP_NODE, &no_set_tag_val_cmd);
 }

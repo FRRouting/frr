@@ -816,6 +816,16 @@ ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
   return buf;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown) (originate|examine|flooding)",
+ *     DEBUG_STR
+ *     OSPF6_STR
+ *     "Debug Link State Advertisements (LSAs)\n"
+ *     "Specify LS type as Hexadecimal\n"
+ *     
+ *
+ */
 DEFUN (debug_ospf6_lsa_type,
        debug_ospf6_lsa_hex_cmd,
        "debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown)",
@@ -860,15 +870,18 @@ DEFUN (debug_ospf6_lsa_type,
   return CMD_SUCCESS;
 }
 
-ALIAS (debug_ospf6_lsa_type,
-       debug_ospf6_lsa_hex_detail_cmd,
-       "debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown) (originate|examine|flooding)",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug Link State Advertisements (LSAs)\n"
-       "Specify LS type as Hexadecimal\n"
-      )
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix) (originate|examine|flooding)",
+ *     NO_STR
+ *     DEBUG_STR
+ *     OSPF6_STR
+ *     "Debug Link State Advertisements (LSAs)\n"
+ *     "Specify LS type as Hexadecimal\n"
+ *     
+ *
+ */
 DEFUN (no_debug_ospf6_lsa_type,
        no_debug_ospf6_lsa_hex_cmd,
        "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown)",
@@ -913,27 +926,14 @@ DEFUN (no_debug_ospf6_lsa_type,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_ospf6_lsa_type,
-       no_debug_ospf6_lsa_hex_detail_cmd,
-       "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix) (originate|examine|flooding)",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug Link State Advertisements (LSAs)\n"
-       "Specify LS type as Hexadecimal\n"
-      )
 
 void
 install_element_ospf6_debug_lsa (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_lsa_hex_cmd);
-  install_element (ENABLE_NODE, &debug_ospf6_lsa_hex_detail_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_lsa_hex_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_lsa_hex_detail_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_lsa_hex_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_lsa_hex_detail_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_lsa_hex_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_lsa_hex_detail_cmd);
 }
 
 int

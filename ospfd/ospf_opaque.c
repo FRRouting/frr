@@ -763,6 +763,13 @@ out:
  * Followings are (vty) configuration functions for Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ospf opaque-lsa",
+ *     "OSPF specific commands\n"
+ *     "Enable the Opaque-LSA capability (rfc2370)\n"
+ *
+ */
 DEFUN (capability_opaque,
        capability_opaque_cmd,
        "capability opaque",
@@ -786,12 +793,15 @@ DEFUN (capability_opaque,
   return CMD_SUCCESS;
 }
 
-ALIAS (capability_opaque,
-       ospf_opaque_capable_cmd,
-       "ospf opaque-lsa",
-       "OSPF specific commands\n"
-       "Enable the Opaque-LSA capability (rfc2370)\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ospf opaque-lsa",
+ *     NO_STR
+ *     "OSPF specific commands\n"
+ *     "Disable the Opaque-LSA capability (rfc2370)\n"
+ *
+ */
 DEFUN (no_capability_opaque,
        no_capability_opaque_cmd,
        "no capability opaque",
@@ -816,20 +826,12 @@ DEFUN (no_capability_opaque,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_capability_opaque,
-       no_ospf_opaque_capable_cmd,
-       "no ospf opaque-lsa",
-       NO_STR
-       "OSPF specific commands\n"
-       "Disable the Opaque-LSA capability (rfc2370)\n")
 
 static void
 ospf_opaque_register_vty (void)
 {
   install_element (OSPF_NODE, &capability_opaque_cmd);
   install_element (OSPF_NODE, &no_capability_opaque_cmd);
-  install_element (OSPF_NODE, &ospf_opaque_capable_cmd);
-  install_element (OSPF_NODE, &no_ospf_opaque_capable_cmd);
   return;
 }
 

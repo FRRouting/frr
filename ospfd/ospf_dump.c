@@ -814,6 +814,37 @@ debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "OSPF packets\n"
+ *     "OSPF Hello\n"
+ *     "OSPF Database Description\n"
+ *     "OSPF Link State Request\n"
+ *     "OSPF Link State Update\n"
+ *     "OSPF Link State Acknowledgment\n"
+ *     "OSPF all packets\n"
+ *     "Packet sent\n"
+ *     "Packet received\n"
+ *     "Detail Information\n"
+ *
+ * "debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "OSPF packets\n"
+ *     "OSPF Hello\n"
+ *     "OSPF Database Description\n"
+ *     "OSPF Link State Request\n"
+ *     "OSPF Link State Update\n"
+ *     "OSPF Link State Acknowledgment\n"
+ *     "OSPF all packets\n"
+ *     "Packet sent\n"
+ *     "Packet received\n"
+ *     "Detail information\n"
+ *
+ */
 DEFUN (debug_ospf_packet,
        debug_ospf_packet_all_cmd,
        "debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all)",
@@ -830,38 +861,41 @@ DEFUN (debug_ospf_packet,
   return (debug_ospf_packet_common(vty, 0, argc, argv));
 }
 
-ALIAS (debug_ospf_packet,
-       debug_ospf_packet_send_recv_cmd,
-       "debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
-       "Debugging functions\n"
-       "OSPF information\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Packet received\n"
-       "Detail information\n")
 
-ALIAS (debug_ospf_packet,
-       debug_ospf_packet_send_recv_detail_cmd,
-       "debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
-       "Debugging functions\n"
-       "OSPF information\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Packet received\n"
-       "Detail Information\n")
        
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "OSPF packets\n"
+ *     "OSPF Hello\n"
+ *     "OSPF Database Description\n"
+ *     "OSPF Link State Request\n"
+ *     "OSPF Link State Update\n"
+ *     "OSPF Link State Acknowledgment\n"
+ *     "OSPF all packets\n"
+ *     "Packet sent\n"
+ *     "Packet received\n"
+ *     "Detail information\n"
+ *
+ * "debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "OSPF packets\n"
+ *     "OSPF Hello\n"
+ *     "OSPF Database Description\n"
+ *     "OSPF Link State Request\n"
+ *     "OSPF Link State Update\n"
+ *     "OSPF Link State Acknowledgment\n"
+ *     "OSPF all packets\n"
+ *     "Packet sent\n"
+ *     "Packet received\n"
+ *     "Detail Information\n"
+ *
+ */
 DEFUN (debug_ospf_instance_packet,
        debug_ospf_instance_packet_all_cmd,
        "debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all)",
@@ -885,39 +919,7 @@ DEFUN (debug_ospf_instance_packet,
   return (debug_ospf_packet_common(vty, 1, argc, argv));
 }
 
-ALIAS (debug_ospf_instance_packet,
-       debug_ospf_instance_packet_send_recv_cmd,
-       "debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
-       "Debugging functions\n"
-       "OSPF information\n"
-       "Instance ID\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Packet received\n"
-       "Detail information\n")
 
-ALIAS (debug_ospf_instance_packet,
-       debug_ospf_instance_packet_send_recv_detail_cmd,
-       "debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
-       "Debugging functions\n"
-       "OSPF information\n"
-       "Instance ID\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Packet received\n"
-       "Detail Information\n")
 
 static int
 no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
@@ -982,6 +984,39 @@ no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
+ *     NO_STR
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "OSPF packets\n"
+ *     "OSPF Hello\n"
+ *     "OSPF Database Description\n"
+ *     "OSPF Link State Request\n"
+ *     "OSPF Link State Update\n"
+ *     "OSPF Link State Acknowledgment\n"
+ *     "OSPF all packets\n"
+ *     "Packet sent\n"
+ *     "Packet received\n"
+ *     "Detail Information\n"
+ *
+ * "no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
+ *     NO_STR
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "OSPF packets\n"
+ *     "OSPF Hello\n"
+ *     "OSPF Database Description\n"
+ *     "OSPF Link State Request\n"
+ *     "OSPF Link State Update\n"
+ *     "OSPF Link State Acknowledgment\n"
+ *     "OSPF all packets\n"
+ *     "Packet sent\n"
+ *     "Packet received\n"
+ *     "Detail Information\n"
+ *
+ */
 DEFUN (no_debug_ospf_packet,
        no_debug_ospf_packet_all_cmd,
        "no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all)",
@@ -999,40 +1034,43 @@ DEFUN (no_debug_ospf_packet,
   return no_debug_ospf_packet_common(vty, 0, argc, argv);
 }
 
-ALIAS (no_debug_ospf_packet,
-       no_debug_ospf_packet_send_recv_cmd,
-       "no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
-       NO_STR
-       "Debugging functions\n"
-       "OSPF information\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Packet received\n"
-       "Detail Information\n")
 
-ALIAS (no_debug_ospf_packet,
-       no_debug_ospf_packet_send_recv_detail_cmd,
-       "no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
-       NO_STR
-       "Debugging functions\n"
-       "OSPF information\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Packet received\n"
-       "Detail Information\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
+ *     NO_STR
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "OSPF packets\n"
+ *     "OSPF Hello\n"
+ *     "OSPF Database Description\n"
+ *     "OSPF Link State Request\n"
+ *     "OSPF Link State Update\n"
+ *     "OSPF Link State Acknowledgment\n"
+ *     "OSPF all packets\n"
+ *     "Packet sent\n"
+ *     "Packet received\n"
+ *     "Detail Information\n"
+ *
+ * "no debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
+ *     NO_STR
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "OSPF packets\n"
+ *     "OSPF Hello\n"
+ *     "OSPF Database Description\n"
+ *     "OSPF Link State Request\n"
+ *     "OSPF Link State Update\n"
+ *     "OSPF Link State Acknowledgment\n"
+ *     "OSPF all packets\n"
+ *     "Packet sent\n"
+ *     "Packet received\n"
+ *     "Detail Information\n"
+ *
+ */
 DEFUN (no_debug_ospf_instance_packet,
        no_debug_ospf_instance_packet_all_cmd,
        "no debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all)",
@@ -1057,41 +1095,7 @@ DEFUN (no_debug_ospf_instance_packet,
   return (no_debug_ospf_packet_common(vty, 1, argc, argv));
 }
 
-ALIAS (no_debug_ospf_instance_packet,
-       no_debug_ospf_instance_packet_send_recv_cmd,
-       "no debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
-       NO_STR
-       "Debugging functions\n"
-       "OSPF information\n"
-       "Instance ID\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Packet received\n"
-       "Detail Information\n")
 
-ALIAS (no_debug_ospf_instance_packet,
-       no_debug_ospf_instance_packet_send_recv_detail_cmd,
-       "no debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
-       NO_STR
-       "Debugging functions\n"
-       "OSPF information\n"
-       "Instance ID\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n"
-       "Packet sent\n"
-       "Packet received\n"
-       "Detail Information\n")
 
 
 static int
@@ -1130,6 +1134,17 @@ debug_ospf_ism_common (struct vty *vty, int arg_base, int argc, struct cmd_token
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf ism (status|events|timers)",
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "OSPF Interface State Machine\n"
+ *     "ISM Status Information\n"
+ *     "ISM Event Information\n"
+ *     "ISM TImer Information\n"
+ *
+ */
 DEFUN (debug_ospf_ism,
        debug_ospf_ism_cmd,
        "debug ospf ism",
@@ -1140,16 +1155,19 @@ DEFUN (debug_ospf_ism,
   return debug_ospf_ism_common(vty, 0, argc, argv);
 }
 
-ALIAS (debug_ospf_ism,
-       debug_ospf_ism_sub_cmd,
-       "debug ospf ism (status|events|timers)",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Interface State Machine\n"
-       "ISM Status Information\n"
-       "ISM Event Information\n"
-       "ISM TImer Information\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf <1-65535> ism (status|events|timers)",
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "Instance ID\n"
+ *     "OSPF Interface State Machine\n"
+ *     "ISM Status Information\n"
+ *     "ISM Event Information\n"
+ *     "ISM TImer Information\n"
+ *
+ */
 DEFUN (debug_ospf_instance_ism,
        debug_ospf_instance_ism_cmd,
        "debug ospf <1-65535> ism",
@@ -1167,16 +1185,6 @@ DEFUN (debug_ospf_instance_ism,
   return debug_ospf_ism_common(vty, 1, argc, argv);
 }
 
-ALIAS (debug_ospf_instance_ism,
-       debug_ospf_instance_ism_sub_cmd,
-       "debug ospf <1-65535> ism (status|events|timers)",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Interface State Machine\n"
-       "ISM Status Information\n"
-       "ISM Event Information\n"
-       "ISM TImer Information\n")
 
 static int
 no_debug_ospf_ism_common(struct vty *vty, int arg_base, int argc,
@@ -1214,6 +1222,18 @@ no_debug_ospf_ism_common(struct vty *vty, int arg_base, int argc,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf ism (status|events|timers)",
+ *     NO_STR
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "OSPF Interface State Machine\n"
+ *     "ISM Status Information\n"
+ *     "ISM Event Information\n"
+ *     "ISM Timer Information\n"
+ *
+ */
 DEFUN (no_debug_ospf_ism,
        no_debug_ospf_ism_cmd,
        "no debug ospf ism",
@@ -1225,17 +1245,20 @@ DEFUN (no_debug_ospf_ism,
   return no_debug_ospf_ism_common(vty, 0, argc, argv);
 }
 
-ALIAS (no_debug_ospf_ism,
-       no_debug_ospf_ism_sub_cmd,
-       "no debug ospf ism (status|events|timers)",
-       NO_STR
-       "Debugging functions\n"
-       "OSPF information\n"
-       "OSPF Interface State Machine\n"
-       "ISM Status Information\n"
-       "ISM Event Information\n"
-       "ISM Timer Information\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf <1-65535> ism (status|events|timers)",
+ *     NO_STR
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "OSPF Interface State Machine\n"
+ *     "ISM Status Information\n"
+ *     "ISM Event Information\n"
+ *     "ISM Timer Information\n"
+ *
+ */
 DEFUN (no_debug_ospf_instance_ism,
        no_debug_ospf_instance_ism_cmd,
        "no debug ospf <1-65535> ism",
@@ -1254,17 +1277,6 @@ DEFUN (no_debug_ospf_instance_ism,
   return no_debug_ospf_ism_common(vty, 1, argc, argv);
 }
 
-ALIAS (no_debug_ospf_instance_ism,
-       no_debug_ospf_instance_ism_sub_cmd,
-       "no debug ospf <1-65535> ism (status|events|timers)",
-       NO_STR
-       "Debugging functions\n"
-       "OSPF information\n"
-       "Instance ID\n"
-       "OSPF Interface State Machine\n"
-       "ISM Status Information\n"
-       "ISM Event Information\n"
-       "ISM Timer Information\n")
 
 static int
 debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
@@ -1302,6 +1314,17 @@ debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf nsm (status|events|timers)",
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "OSPF Neighbor State Machine\n"
+ *     "NSM Status Information\n"
+ *     "NSM Event Information\n"
+ *     "NSM Timer Information\n"
+ *
+ */
 DEFUN (debug_ospf_nsm,
        debug_ospf_nsm_cmd,
        "debug ospf nsm",
@@ -1312,16 +1335,19 @@ DEFUN (debug_ospf_nsm,
   return debug_ospf_nsm_common (vty, 0, argc, argv);
 }
 
-ALIAS (debug_ospf_nsm,
-       debug_ospf_nsm_sub_cmd,
-       "debug ospf nsm (status|events|timers)",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Neighbor State Machine\n"
-       "NSM Status Information\n"
-       "NSM Event Information\n"
-       "NSM Timer Information\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf <1-65535> nsm (status|events|timers)",
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "Instance ID\n"
+ *     "OSPF Neighbor State Machine\n"
+ *     "NSM Status Information\n"
+ *     "NSM Event Information\n"
+ *     "NSM Timer Information\n"
+ *
+ */
 DEFUN (debug_ospf_instance_nsm,
        debug_ospf_instance_nsm_cmd,
        "debug ospf <1-65535> nsm",
@@ -1339,16 +1365,6 @@ DEFUN (debug_ospf_instance_nsm,
   return debug_ospf_nsm_common (vty, 1, argc, argv);
 }
 
-ALIAS (debug_ospf_instance_nsm,
-       debug_ospf_instance_nsm_sub_cmd,
-       "debug ospf <1-65535> nsm (status|events|timers)",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Neighbor State Machine\n"
-       "NSM Status Information\n"
-       "NSM Event Information\n"
-       "NSM Timer Information\n")
 
 static int
 no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
@@ -1386,6 +1402,18 @@ no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_to
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf nsm (status|events|timers)",
+ *     NO_STR
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "OSPF Interface State Machine\n"
+ *     "NSM Status Information\n"
+ *     "NSM Event Information\n"
+ *     "NSM Timer Information\n"
+ *
+ */
 DEFUN (no_debug_ospf_nsm,
        no_debug_ospf_nsm_cmd,
        "no debug ospf nsm",
@@ -1397,17 +1425,20 @@ DEFUN (no_debug_ospf_nsm,
   return no_debug_ospf_nsm_common(vty, 0, argc, argv);
 }
 
-ALIAS (no_debug_ospf_nsm,
-       no_debug_ospf_nsm_sub_cmd,
-       "no debug ospf nsm (status|events|timers)",
-       NO_STR
-       "Debugging functions\n"
-       "OSPF information\n"
-       "OSPF Interface State Machine\n"
-       "NSM Status Information\n"
-       "NSM Event Information\n"
-       "NSM Timer Information\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf <1-65535> nsm (status|events|timers)",
+ *     NO_STR
+ *     "Debugging functions\n"
+ *     "OSPF information\n"
+ *     "Instance ID\n"
+ *     "OSPF Interface State Machine\n"
+ *     "NSM Status Information\n"
+ *     "NSM Event Information\n"
+ *     "NSM Timer Information\n"
+ *
+ */
 DEFUN (no_debug_ospf_instance_nsm,
        no_debug_ospf_instance_nsm_cmd,
        "no debug ospf <1-65535> nsm",
@@ -1426,17 +1457,6 @@ DEFUN (no_debug_ospf_instance_nsm,
   return no_debug_ospf_nsm_common(vty, 1, argc, argv);
 }
 
-ALIAS (no_debug_ospf_instance_nsm,
-       no_debug_ospf_instance_nsm_sub_cmd,
-       "no debug ospf <1-65535> nsm (status|events|timers)",
-       NO_STR
-       "Debugging functions\n"
-       "OSPF information\n"
-       "Instance ID\n"
-       "OSPF Interface State Machine\n"
-       "NSM Status Information\n"
-       "NSM Event Information\n"
-       "NSM Timer Information\n")
 
 
 static int
@@ -1479,6 +1499,18 @@ debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_token
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf lsa (generate|flooding|install|refresh)",
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "OSPF Link State Advertisement\n"
+ *     "LSA Generation\n"
+ *     "LSA Flooding\n"
+ *     "LSA Install/Delete\n"
+ *     "LSA Refresh\n"
+ *
+ */
 DEFUN (debug_ospf_lsa,
        debug_ospf_lsa_cmd,
        "debug ospf lsa",
@@ -1489,17 +1521,20 @@ DEFUN (debug_ospf_lsa,
   return debug_ospf_lsa_common(vty, 0, argc, argv);
 }
 
-ALIAS (debug_ospf_lsa,
-       debug_ospf_lsa_sub_cmd,
-       "debug ospf lsa (generate|flooding|install|refresh)",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Link State Advertisement\n"
-       "LSA Generation\n"
-       "LSA Flooding\n"
-       "LSA Install/Delete\n"
-       "LSA Refresh\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf <1-65535> lsa (generate|flooding|install|refresh)",
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "Instance ID\n"
+ *     "OSPF Link State Advertisement\n"
+ *     "LSA Generation\n"
+ *     "LSA Flooding\n"
+ *     "LSA Install/Delete\n"
+ *     "LSA Refresh\n"
+ *
+ */
 DEFUN (debug_ospf_instance_lsa,
        debug_ospf_instance_lsa_cmd,
        "debug ospf <1-65535> lsa",
@@ -1517,17 +1552,6 @@ DEFUN (debug_ospf_instance_lsa,
   return debug_ospf_lsa_common(vty, 1, argc, argv);
 }
 
-ALIAS (debug_ospf_instance_lsa,
-       debug_ospf_instance_lsa_sub_cmd,
-       "debug ospf <1-65535> lsa (generate|flooding|install|refresh)",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Link State Advertisement\n"
-       "LSA Generation\n"
-       "LSA Flooding\n"
-       "LSA Install/Delete\n"
-       "LSA Refresh\n")
 
 static int
 no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
@@ -1569,6 +1593,19 @@ no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_to
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf lsa (generate|flooding|install|refresh)",
+ *     NO_STR
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "OSPF Link State Advertisement\n"
+ *     "LSA Generation\n"
+ *     "LSA Flooding\n"
+ *     "LSA Install/Delete\n"
+ *     "LSA Refres\n"
+ *
+ */
 DEFUN (no_debug_ospf_lsa,
        no_debug_ospf_lsa_cmd,
        "no debug ospf lsa",
@@ -1580,18 +1617,21 @@ DEFUN (no_debug_ospf_lsa,
   return no_debug_ospf_lsa_common (vty, 0, argc, argv);
 }
 
-ALIAS (no_debug_ospf_lsa,
-       no_debug_ospf_lsa_sub_cmd,
-       "no debug ospf lsa (generate|flooding|install|refresh)",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Link State Advertisement\n"
-       "LSA Generation\n"
-       "LSA Flooding\n"
-       "LSA Install/Delete\n"
-       "LSA Refres\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf <1-65535> lsa (generate|flooding|install|refresh)",
+ *     NO_STR
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "Instance ID\n"
+ *     "OSPF Link State Advertisement\n"
+ *     "LSA Generation\n"
+ *     "LSA Flooding\n"
+ *     "LSA Install/Delete\n"
+ *     "LSA Refres\n"
+ *
+ */
 DEFUN (no_debug_ospf_instance_lsa,
        no_debug_ospf_instance_lsa_cmd,
        "no debug ospf <1-65535> lsa",
@@ -1610,18 +1650,6 @@ DEFUN (no_debug_ospf_instance_lsa,
   return no_debug_ospf_lsa_common (vty, 1, argc, argv);
 }
 
-ALIAS (no_debug_ospf_instance_lsa,
-       no_debug_ospf_instance_lsa_sub_cmd,
-       "no debug ospf <1-65535> lsa (generate|flooding|install|refresh)",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Link State Advertisement\n"
-       "LSA Generation\n"
-       "LSA Flooding\n"
-       "LSA Install/Delete\n"
-       "LSA Refres\n")
 
 
 static int
@@ -1656,6 +1684,16 @@ debug_ospf_zebra_common (struct vty *vty, int arg_base, int argc, struct cmd_tok
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf zebra (interface|redistribute)",
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "OSPF Zebra information\n"
+ *     "Zebra interface\n"
+ *     "Zebra redistribute\n"
+ *
+ */
 DEFUN (debug_ospf_zebra,
        debug_ospf_zebra_cmd,
        "debug ospf zebra",
@@ -1666,15 +1704,18 @@ DEFUN (debug_ospf_zebra,
   return debug_ospf_zebra_common(vty, 0, argc, argv);
 }
 
-ALIAS (debug_ospf_zebra,
-       debug_ospf_zebra_sub_cmd,
-       "debug ospf zebra (interface|redistribute)",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Zebra information\n"
-       "Zebra interface\n"
-       "Zebra redistribute\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "debug ospf <1-65535> zebra (interface|redistribute)",
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "Instance ID\n"
+ *     "OSPF Zebra information\n"
+ *     "Zebra interface\n"
+ *     "Zebra redistribute\n"
+ *
+ */
 DEFUN (debug_ospf_instance_zebra,
        debug_ospf_instance_zebra_cmd,
        "debug ospf <1-65535> zebra",
@@ -1692,15 +1733,6 @@ DEFUN (debug_ospf_instance_zebra,
   return debug_ospf_zebra_common(vty, 1, argc, argv);
 }
 
-ALIAS (debug_ospf_instance_zebra,
-       debug_ospf_instance_zebra_sub_cmd,
-       "debug ospf <1-65535> zebra (interface|redistribute)",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Zebra information\n"
-       "Zebra interface\n"
-       "Zebra redistribute\n")
 
 static int
 no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
@@ -1735,6 +1767,17 @@ no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf zebra (interface|redistribute)",
+ *     NO_STR
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "OSPF Zebra information\n"
+ *     "Zebra interface\n"
+ *     "Zebra redistribute\n"
+ *
+ */
 DEFUN (no_debug_ospf_zebra,
        no_debug_ospf_zebra_cmd,
        "no debug ospf zebra",
@@ -1746,16 +1789,19 @@ DEFUN (no_debug_ospf_zebra,
   return no_debug_ospf_zebra_common(vty, 0, argc, argv);
 }
 
-ALIAS (no_debug_ospf_zebra,
-       no_debug_ospf_zebra_sub_cmd,
-       "no debug ospf zebra (interface|redistribute)",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Zebra information\n"
-       "Zebra interface\n"
-       "Zebra redistribute\n")
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no debug ospf <1-65535> zebra (interface|redistribute)",
+ *     NO_STR
+ *     DEBUG_STR
+ *     OSPF_STR
+ *     "Instance ID\n"
+ *     "OSPF Zebra information\n"
+ *     "Zebra interface\n"
+ *     "Zebra redistribute\n"
+ *
+ */
 DEFUN (no_debug_ospf_instance_zebra,
        no_debug_ospf_instance_zebra_cmd,
        "no debug ospf <1-65535> zebra",
@@ -1774,16 +1820,6 @@ DEFUN (no_debug_ospf_instance_zebra,
   return no_debug_ospf_zebra_common(vty, 1, argc, argv);
 }
 
-ALIAS (no_debug_ospf_instance_zebra,
-       no_debug_ospf_instance_zebra_sub_cmd,
-       "no debug ospf <1-65535> zebra (interface|redistribute)",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Zebra information\n"
-       "Zebra interface\n"
-       "Zebra redistribute\n")
 
 
 DEFUN (debug_ospf_event,
@@ -2286,116 +2322,68 @@ debug_init ()
   install_node (&debug_node, config_write_debug);
 
   install_element (ENABLE_NODE, &show_debugging_ospf_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_packet_send_recv_detail_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_packet_send_recv_cmd);
   install_element (ENABLE_NODE, &debug_ospf_packet_all_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_ism_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_ism_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_nsm_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_nsm_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_lsa_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_lsa_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_zebra_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_zebra_cmd);
   install_element (ENABLE_NODE, &debug_ospf_event_cmd);
   install_element (ENABLE_NODE, &debug_ospf_nssa_cmd);
   install_element (ENABLE_NODE, &debug_ospf_te_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_packet_send_recv_detail_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_packet_send_recv_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_packet_all_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_ism_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_ism_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_nsm_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_nsm_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_lsa_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_lsa_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_zebra_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_event_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_nssa_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_te_cmd);
 
   install_element (ENABLE_NODE, &show_debugging_ospf_instance_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_instance_packet_send_recv_detail_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_instance_packet_send_recv_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_packet_all_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_instance_ism_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_ism_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_instance_nsm_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_nsm_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_instance_lsa_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_lsa_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_instance_zebra_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_zebra_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_event_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_nssa_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_instance_packet_send_recv_detail_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_instance_packet_send_recv_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_packet_all_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_instance_ism_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_ism_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_instance_nsm_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_nsm_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_instance_lsa_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_lsa_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_instance_zebra_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_event_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_nssa_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_cmd);
 
-  install_element (CONFIG_NODE, &debug_ospf_packet_send_recv_detail_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_packet_send_recv_cmd);
   install_element (CONFIG_NODE, &debug_ospf_packet_all_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_ism_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_ism_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_nsm_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_nsm_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_lsa_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_lsa_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_zebra_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_zebra_cmd);
   install_element (CONFIG_NODE, &debug_ospf_event_cmd);
   install_element (CONFIG_NODE, &debug_ospf_nssa_cmd);
   install_element (CONFIG_NODE, &debug_ospf_te_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_packet_send_recv_detail_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_packet_send_recv_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_packet_all_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_ism_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_ism_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_nsm_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_nsm_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_lsa_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_lsa_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_zebra_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_event_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_nssa_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_te_cmd);
 
-  install_element (CONFIG_NODE, &debug_ospf_instance_packet_send_recv_detail_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_instance_packet_send_recv_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_packet_all_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_instance_ism_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_ism_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_instance_nsm_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_instance_lsa_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_lsa_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_instance_zebra_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_zebra_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_event_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_nssa_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_instance_packet_send_recv_detail_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_instance_packet_send_recv_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_packet_all_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_instance_ism_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_ism_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_instance_nsm_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_nsm_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_instance_lsa_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_lsa_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_instance_zebra_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_event_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_nssa_cmd);

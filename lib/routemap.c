@@ -1530,6 +1530,16 @@ DEFUN (no_rmap_onmatch_next,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "continue",
+ *     "Continue on a different entry within the route-map\n"
+ *
+ * "continue (1-65535)",
+ *     "Continue on a different entry within the route-map\n"
+ *     "Route-map entry sequence number\n"
+ *
+ */
 DEFUN (rmap_onmatch_goto,
        rmap_onmatch_goto_cmd,
        "on-match goto (1-65535)",
@@ -1578,6 +1588,18 @@ DEFUN (rmap_onmatch_goto,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no continue",
+ *     NO_STR
+ *     "Continue on a different entry within the route-map\n"
+ *
+ * "no continue (1-65535)",
+ *     NO_STR
+ *     "Continue on a different entry within the route-map\n"
+ *     "Route-map entry sequence number\n"
+ *
+ */
 DEFUN (no_rmap_onmatch_goto,
        no_rmap_onmatch_goto_cmd,
        "no on-match goto",
@@ -1596,30 +1618,10 @@ DEFUN (no_rmap_onmatch_goto,
 }
 
 /* Cisco/GNU Zebra compatible ALIASes for on-match next */
-ALIAS (rmap_onmatch_goto,
-       rmap_continue_cmd,
-       "continue",
-       "Continue on a different entry within the route-map\n")
 
-ALIAS (no_rmap_onmatch_goto,
-       no_rmap_continue_cmd,
-       "no continue",
-       NO_STR
-       "Continue on a different entry within the route-map\n")
 
 /* GNU Zebra compatible */
-ALIAS (rmap_onmatch_goto,
-       rmap_continue_seq_cmd,
-       "continue (1-65535)",
-       "Continue on a different entry within the route-map\n"
-       "Route-map entry sequence number\n")
 
-ALIAS (no_rmap_onmatch_goto,
-       no_rmap_continue_seq,
-       "no continue (1-65535)",
-       NO_STR
-       "Continue on a different entry within the route-map\n"
-       "Route-map entry sequence number\n")
 
 DEFUN (rmap_show_name,
        rmap_show_name_cmd,
@@ -1809,8 +1811,6 @@ route_map_init_vty (void)
   install_element (RMAP_NODE, &no_rmap_onmatch_goto_cmd);
   
   /* Install the continue stuff (ALIAS of on-match). */
-  install_element (RMAP_NODE, &rmap_continue_cmd);
-  install_element (RMAP_NODE, &no_rmap_continue_cmd);
   
   /* Install the call stuff. */
   install_element (RMAP_NODE, &rmap_call_cmd);

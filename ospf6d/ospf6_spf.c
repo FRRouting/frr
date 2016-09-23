@@ -900,6 +900,18 @@ DEFUN (ospf6_timers_throttle_spf,
   return ospf6_timers_spf_set (vty, delay, hold, max);
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no timers throttle spf <0-600000> <0-600000> <0-600000>",
+ *     NO_STR
+ *     "Adjust routing timers\n"
+ *     "Throttling adaptive timer\n"
+ *     "OSPF6 SPF timers\n"
+ *     "Delay (msec) from first change received till SPF calculation\n"
+ *     "Initial hold time (msec) between consecutive SPF calculations\n"
+ *     "Maximum hold time (msec)\n"
+ *
+ */
 DEFUN (no_ospf6_timers_throttle_spf,
        no_ospf6_timers_throttle_spf_cmd,
        "no timers throttle spf",
@@ -914,16 +926,6 @@ DEFUN (no_ospf6_timers_throttle_spf,
                               OSPF_SPF_MAX_HOLDTIME_DEFAULT);
 }
 
-ALIAS (no_ospf6_timers_throttle_spf,
-       no_ospf6_timers_throttle_spf_val_cmd,
-       "no timers throttle spf <0-600000> <0-600000> <0-600000>",
-       NO_STR
-       "Adjust routing timers\n"
-       "Throttling adaptive timer\n"
-       "OSPF6 SPF timers\n"
-       "Delay (msec) from first change received till SPF calculation\n"
-       "Initial hold time (msec) between consecutive SPF calculations\n"
-       "Maximum hold time (msec)\n")
 
 int
 config_write_ospf6_debug_spf (struct vty *vty)
@@ -972,5 +974,4 @@ ospf6_spf_init (void)
 {
   install_element (OSPF6_NODE, &ospf6_timers_throttle_spf_cmd);
   install_element (OSPF6_NODE, &no_ospf6_timers_throttle_spf_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_timers_throttle_spf_val_cmd);
 }

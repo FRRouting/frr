@@ -423,6 +423,16 @@ DEFUN (ospf6_timers_lsa,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no timers lsa min-arrival <0-600000>",
+ *     NO_STR
+ *     "Adjust routing timers\n"
+ *     "OSPF6 LSA timers\n"
+ *     "Minimum delay in receiving new version of a LSA\n"
+ *     "Delay in milliseconds\n"
+ *
+ */
 DEFUN (no_ospf6_timers_lsa,
        no_ospf6_timers_lsa_cmd,
        "no timers lsa min-arrival",
@@ -451,14 +461,6 @@ DEFUN (no_ospf6_timers_lsa,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ospf6_timers_lsa,
-       no_ospf6_timers_lsa_val_cmd,
-       "no timers lsa min-arrival <0-600000>",
-       NO_STR
-       "Adjust routing timers\n"
-       "OSPF6 LSA timers\n"
-       "Minimum delay in receiving new version of a LSA\n"
-       "Delay in milliseconds\n")
 
 DEFUN (ospf6_interface_area,
        ospf6_interface_area_cmd,
@@ -774,6 +776,31 @@ DEFUN (show_ipv6_ospf6,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 ospf6 route (intra-area|inter-area|external-1|external-2)",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     ROUTE_STR
+ *     "Display Intra-Area routes\n"
+ *     "Display Inter-Area routes\n"
+ *     "Display Type-1 External routes\n"
+ *     "Display Type-2 External routes\n"
+ *     
+ *
+ * "show ipv6 ospf6 route (X:X::X:X|X:X::X:X/M|detail|summary)",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     ROUTE_STR
+ *     "Specify IPv6 address\n"
+ *     "Specify IPv6 prefix\n"
+ *     "Detailed information\n"
+ *     "Summary of route table\n"
+ *     
+ *
+ */
 DEFUN (show_ipv6_ospf6_route,
        show_ipv6_ospf6_route_cmd,
        "show ipv6 ospf6 route",
@@ -789,19 +816,19 @@ DEFUN (show_ipv6_ospf6_route,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_route,
-       show_ipv6_ospf6_route_detail_cmd,
-       "show ipv6 ospf6 route (X:X::X:X|X:X::X:X/M|detail|summary)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       ROUTE_STR
-       "Specify IPv6 address\n"
-       "Specify IPv6 prefix\n"
-       "Detailed information\n"
-       "Summary of route table\n"
-       )
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show ipv6 ospf6 route X:X::X:X/M longer",
+ *     SHOW_STR
+ *     IP6_STR
+ *     OSPF6_STR
+ *     ROUTE_STR
+ *     "Specify IPv6 prefix\n"
+ *     "Display routes longer than the specified route\n"
+ *     
+ *
+ */
 DEFUN (show_ipv6_ospf6_route_match,
        show_ipv6_ospf6_route_match_cmd,
        "show ipv6 ospf6 route X:X::X:X/M match",
@@ -837,29 +864,7 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_ipv6_ospf6_route_match,
-       show_ipv6_ospf6_route_longer_cmd,
-       "show ipv6 ospf6 route X:X::X:X/M longer",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       ROUTE_STR
-       "Specify IPv6 prefix\n"
-       "Display routes longer than the specified route\n"
-       )
 
-ALIAS (show_ipv6_ospf6_route,
-       show_ipv6_ospf6_route_type_cmd,
-       "show ipv6 ospf6 route (intra-area|inter-area|external-1|external-2)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       ROUTE_STR
-       "Display Intra-Area routes\n"
-       "Display Inter-Area routes\n"
-       "Display Type-1 External routes\n"
-       "Display Type-2 External routes\n"
-       )
 
 DEFUN (show_ipv6_ospf6_route_type_detail,
        show_ipv6_ospf6_route_type_detail_cmd,
@@ -965,18 +970,12 @@ ospf6_top_init (void)
   install_element (CONFIG_NODE, &no_router_ospf6_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_route_detail_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_route_longer_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
 
   install_default (OSPF6_NODE);
@@ -989,7 +988,6 @@ ospf6_top_init (void)
   /* LSA timers commands */
   install_element (OSPF6_NODE, &ospf6_timers_lsa_cmd);
   install_element (OSPF6_NODE, &no_ospf6_timers_lsa_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_timers_lsa_val_cmd);
 
   install_element (OSPF6_NODE, &ospf6_interface_area_cmd);
   install_element (OSPF6_NODE, &no_ospf6_interface_area_cmd);

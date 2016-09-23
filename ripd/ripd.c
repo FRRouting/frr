@@ -2962,6 +2962,14 @@ DEFUN (rip_version,
   return CMD_SUCCESS;
 } 
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no version <1-2>",
+ *     NO_STR
+ *     "Set routing protocol version\n"
+ *     "version\n"
+ *
+ */
 DEFUN (no_rip_version,
        no_rip_version_cmd,
        "no version",
@@ -2975,12 +2983,6 @@ DEFUN (no_rip_version,
   return CMD_SUCCESS;
 } 
 
-ALIAS (no_rip_version,
-       no_rip_version_val_cmd,
-       "no version <1-2>",
-       NO_STR
-       "Set routing protocol version\n"
-       "version\n")
 
 DEFUN (rip_route,
        rip_route_cmd,
@@ -3085,6 +3087,14 @@ DEFUN (rip_default_metric,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no default-metric <1-16>",
+ *     NO_STR
+ *     "Set a metric of redistribute routes\n"
+ *     "Default metric\n"
+ *
+ */
 DEFUN (no_rip_default_metric,
        no_rip_default_metric_cmd,
        "no default-metric",
@@ -3100,12 +3110,6 @@ DEFUN (no_rip_default_metric,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_rip_default_metric,
-       no_rip_default_metric_val_cmd,
-       "no default-metric <1-16>",
-       NO_STR
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
 
 DEFUN (rip_timers,
        rip_timers_cmd,
@@ -3155,6 +3159,17 @@ DEFUN (rip_timers,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no timers basic <0-65535> <0-65535> <0-65535>",
+ *     NO_STR
+ *     "Adjust routing timers\n"
+ *     "Basic routing protocol update timers\n"
+ *     "Routing table update timer value in second. Default is 30.\n"
+ *     "Routing information timeout timer. Default is 180.\n"
+ *     "Garbage collection timer. Default is 120.\n"
+ *
+ */
 DEFUN (no_rip_timers,
        no_rip_timers_cmd,
        "no timers basic",
@@ -3173,15 +3188,6 @@ DEFUN (no_rip_timers,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_rip_timers,
-       no_rip_timers_val_cmd,
-       "no timers basic <0-65535> <0-65535> <0-65535>",
-       NO_STR
-       "Adjust routing timers\n"
-       "Basic routing protocol update timers\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
 
 
 struct route_table *rip_distance_table;
@@ -4156,13 +4162,10 @@ rip_init (void)
   install_default (RIP_NODE);
   install_element (RIP_NODE, &rip_version_cmd);
   install_element (RIP_NODE, &no_rip_version_cmd);
-  install_element (RIP_NODE, &no_rip_version_val_cmd);
   install_element (RIP_NODE, &rip_default_metric_cmd);
   install_element (RIP_NODE, &no_rip_default_metric_cmd);
-  install_element (RIP_NODE, &no_rip_default_metric_val_cmd);
   install_element (RIP_NODE, &rip_timers_cmd);
   install_element (RIP_NODE, &no_rip_timers_cmd);
-  install_element (RIP_NODE, &no_rip_timers_val_cmd);
   install_element (RIP_NODE, &rip_route_cmd);
   install_element (RIP_NODE, &no_rip_route_cmd);
   install_element (RIP_NODE, &rip_distance_cmd);

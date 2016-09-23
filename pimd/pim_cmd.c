@@ -3531,6 +3531,16 @@ DEFUN (interface_no_ip_mroute_source,
    return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "ip pim hello <1-180> <1-180>",
+ *     IP_STR
+ *     PIM_STR
+ *     IFACE_PIM_HELLO_STR
+ *     IFACE_PIM_HELLO_TIME_STR
+ *     IFACE_PIM_HELLO_HOLD_STR
+ *
+ */
 DEFUN (interface_ip_pim_hello,
        interface_ip_pim_hello_cmd,
        "ip pim hello <1-180>",
@@ -3558,14 +3568,6 @@ DEFUN (interface_ip_pim_hello,
   return CMD_SUCCESS;
 }
 
-ALIAS (interface_ip_pim_hello,
-       interface_ip_pim_hello_hold_cmd,
-       "ip pim hello <1-180> <1-180>",
-       IP_STR
-       PIM_STR
-       IFACE_PIM_HELLO_STR
-       IFACE_PIM_HELLO_TIME_STR
-       IFACE_PIM_HELLO_HOLD_STR)
 
 
 DEFUN (interface_no_ip_pim_hello,
@@ -3607,6 +3609,13 @@ DEFUN (debug_igmp,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug igmp",
+ *     UNDEBUG_STR
+ *     DEBUG_IGMP_STR
+ *
+ */
 DEFUN (no_debug_igmp,
        no_debug_igmp_cmd,
        "no debug igmp",
@@ -3620,11 +3629,6 @@ DEFUN (no_debug_igmp,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_igmp,
-       undebug_igmp_cmd,
-       "undebug igmp",
-       UNDEBUG_STR
-       DEBUG_IGMP_STR)
 
 DEFUN (debug_igmp_events,
        debug_igmp_events_cmd,
@@ -3637,6 +3641,14 @@ DEFUN (debug_igmp_events,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug igmp events",
+ *     UNDEBUG_STR
+ *     DEBUG_IGMP_STR
+ *     DEBUG_IGMP_EVENTS_STR
+ *
+ */
 DEFUN (no_debug_igmp_events,
        no_debug_igmp_events_cmd,
        "no debug igmp events",
@@ -3649,12 +3661,6 @@ DEFUN (no_debug_igmp_events,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_igmp_events,
-       undebug_igmp_events_cmd,
-       "undebug igmp events",
-       UNDEBUG_STR
-       DEBUG_IGMP_STR
-       DEBUG_IGMP_EVENTS_STR)
 
 DEFUN (debug_igmp_packets,
        debug_igmp_packets_cmd,
@@ -3667,6 +3673,14 @@ DEFUN (debug_igmp_packets,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug igmp packets",
+ *     UNDEBUG_STR
+ *     DEBUG_IGMP_STR
+ *     DEBUG_IGMP_PACKETS_STR
+ *
+ */
 DEFUN (no_debug_igmp_packets,
        no_debug_igmp_packets_cmd,
        "no debug igmp packets",
@@ -3679,12 +3693,6 @@ DEFUN (no_debug_igmp_packets,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_igmp_packets,
-       undebug_igmp_packets_cmd,
-       "undebug igmp packets",
-       UNDEBUG_STR
-       DEBUG_IGMP_STR
-       DEBUG_IGMP_PACKETS_STR)
 
 DEFUN (debug_igmp_trace,
        debug_igmp_trace_cmd,
@@ -3697,6 +3705,14 @@ DEFUN (debug_igmp_trace,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug igmp trace",
+ *     UNDEBUG_STR
+ *     DEBUG_IGMP_STR
+ *     DEBUG_IGMP_TRACE_STR
+ *
+ */
 DEFUN (no_debug_igmp_trace,
        no_debug_igmp_trace_cmd,
        "no debug igmp trace",
@@ -3709,12 +3725,6 @@ DEFUN (no_debug_igmp_trace,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_igmp_trace,
-       undebug_igmp_trace_cmd,
-       "undebug igmp trace",
-       UNDEBUG_STR
-       DEBUG_IGMP_STR
-       DEBUG_IGMP_TRACE_STR)
 
 DEFUN (debug_mroute,
        debug_mroute_cmd,
@@ -3726,6 +3736,13 @@ DEFUN (debug_mroute,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug mroute",
+ *     UNDEBUG_STR
+ *     DEBUG_MROUTE_STR
+ *
+ */
 DEFUN (no_debug_mroute,
        no_debug_mroute_cmd,
        "no debug mroute",
@@ -3737,11 +3754,6 @@ DEFUN (no_debug_mroute,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_mroute,
-       undebug_mroute_cmd,
-       "undebug mroute",
-       UNDEBUG_STR
-       DEBUG_MROUTE_STR)
 
 DEFUN (debug_static,
        debug_static_cmd,
@@ -3753,6 +3765,13 @@ DEFUN (debug_static,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug static",
+ *     UNDEBUG_STR
+ *     DEBUG_STATIC_STR
+ *
+ */
 DEFUN (no_debug_static,
        no_debug_static_cmd,
        "no debug static",
@@ -3764,11 +3783,6 @@ DEFUN (no_debug_static,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_static,
-       undebug_static_cmd,
-       "undebug static",
-       UNDEBUG_STR
-       DEBUG_STATIC_STR)
 
 DEFUN (debug_pim,
        debug_pim_cmd,
@@ -3782,6 +3796,13 @@ DEFUN (debug_pim,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug pim",
+ *     UNDEBUG_STR
+ *     DEBUG_PIM_STR
+ *
+ */
 DEFUN (no_debug_pim,
        no_debug_pim_cmd,
        "no debug pim",
@@ -3799,11 +3820,6 @@ DEFUN (no_debug_pim,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_pim,
-       undebug_pim_cmd,
-       "undebug pim",
-       UNDEBUG_STR
-       DEBUG_PIM_STR)
 
 DEFUN (debug_pim_events,
        debug_pim_events_cmd,
@@ -3816,6 +3832,14 @@ DEFUN (debug_pim_events,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug pim events",
+ *     UNDEBUG_STR
+ *     DEBUG_PIM_STR
+ *     DEBUG_PIM_EVENTS_STR
+ *
+ */
 DEFUN (no_debug_pim_events,
        no_debug_pim_events_cmd,
        "no debug pim events",
@@ -3828,12 +3852,6 @@ DEFUN (no_debug_pim_events,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_pim_events,
-       undebug_pim_events_cmd,
-       "undebug pim events",
-       UNDEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_EVENTS_STR)
 
 DEFUN (debug_pim_packets,
        debug_pim_packets_cmd,
@@ -3869,6 +3887,14 @@ DEFUN (debug_pim_packets_filter,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug pim packets",
+ *     UNDEBUG_STR
+ *     DEBUG_PIM_STR
+ *     DEBUG_PIM_PACKETS_STR
+ *
+ */
 DEFUN (no_debug_pim_packets,
        no_debug_pim_packets_cmd,
        "no debug pim packets",
@@ -3907,12 +3933,6 @@ DEFUN (no_debug_pim_packets_filter,
     return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_pim_packets,
-       undebug_pim_packets_cmd,
-       "undebug pim packets",
-       UNDEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETS_STR)
 
 DEFUN (debug_pim_packetdump_send,
        debug_pim_packetdump_send_cmd,
@@ -3926,6 +3946,15 @@ DEFUN (debug_pim_packetdump_send,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug pim packet-dump send",
+ *     UNDEBUG_STR
+ *     DEBUG_PIM_STR
+ *     DEBUG_PIM_PACKETDUMP_STR
+ *     DEBUG_PIM_PACKETDUMP_SEND_STR
+ *
+ */
 DEFUN (no_debug_pim_packetdump_send,
        no_debug_pim_packetdump_send_cmd,
        "no debug pim packet-dump send",
@@ -3939,13 +3968,6 @@ DEFUN (no_debug_pim_packetdump_send,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_pim_packetdump_send,
-       undebug_pim_packetdump_send_cmd,
-       "undebug pim packet-dump send",
-       UNDEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETDUMP_STR
-       DEBUG_PIM_PACKETDUMP_SEND_STR)
 
 DEFUN (debug_pim_packetdump_recv,
        debug_pim_packetdump_recv_cmd,
@@ -3959,6 +3981,15 @@ DEFUN (debug_pim_packetdump_recv,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug pim packet-dump receive",
+ *     UNDEBUG_STR
+ *     DEBUG_PIM_STR
+ *     DEBUG_PIM_PACKETDUMP_STR
+ *     DEBUG_PIM_PACKETDUMP_RECV_STR
+ *
+ */
 DEFUN (no_debug_pim_packetdump_recv,
        no_debug_pim_packetdump_recv_cmd,
        "no debug pim packet-dump receive",
@@ -3972,13 +4003,6 @@ DEFUN (no_debug_pim_packetdump_recv,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_pim_packetdump_recv,
-       undebug_pim_packetdump_recv_cmd,
-       "undebug pim packet-dump receive",
-       UNDEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_PACKETDUMP_STR
-       DEBUG_PIM_PACKETDUMP_RECV_STR)
 
 DEFUN (debug_pim_trace,
        debug_pim_trace_cmd,
@@ -3991,6 +4015,14 @@ DEFUN (debug_pim_trace,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug pim trace",
+ *     UNDEBUG_STR
+ *     DEBUG_PIM_STR
+ *     DEBUG_PIM_TRACE_STR
+ *
+ */
 DEFUN (no_debug_pim_trace,
        no_debug_pim_trace_cmd,
        "no debug pim trace",
@@ -4003,12 +4035,6 @@ DEFUN (no_debug_pim_trace,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_pim_trace,
-       undebug_pim_trace_cmd,
-       "undebug pim trace",
-       UNDEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_TRACE_STR)
 
 DEFUN (debug_ssmpingd,
        debug_ssmpingd_cmd,
@@ -4021,6 +4047,14 @@ DEFUN (debug_ssmpingd,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug ssmpingd",
+ *     UNDEBUG_STR
+ *     DEBUG_PIM_STR
+ *     DEBUG_SSMPINGD_STR
+ *
+ */
 DEFUN (no_debug_ssmpingd,
        no_debug_ssmpingd_cmd,
        "no debug ssmpingd",
@@ -4033,12 +4067,6 @@ DEFUN (no_debug_ssmpingd,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_ssmpingd,
-       undebug_ssmpingd_cmd,
-       "undebug ssmpingd",
-       UNDEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_SSMPINGD_STR)
 
 DEFUN (debug_pim_zebra,
        debug_pim_zebra_cmd,
@@ -4051,6 +4079,14 @@ DEFUN (debug_pim_zebra,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "undebug pim zebra",
+ *     UNDEBUG_STR
+ *     DEBUG_PIM_STR
+ *     DEBUG_PIM_ZEBRA_STR
+ *
+ */
 DEFUN (no_debug_pim_zebra,
        no_debug_pim_zebra_cmd,
        "no debug pim zebra",
@@ -4063,12 +4099,6 @@ DEFUN (no_debug_pim_zebra,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_debug_pim_zebra,
-       undebug_pim_zebra_cmd,
-       "undebug pim zebra",
-       UNDEBUG_STR
-       DEBUG_PIM_STR
-       DEBUG_PIM_ZEBRA_STR)
 
 DEFUN (show_debugging_pim,
        show_debugging_pim_cmd,
@@ -4901,7 +4931,6 @@ void pim_cmd_init()
   install_element (INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
   install_element (INTERFACE_NODE, &interface_ip_pim_hello_cmd);
-  install_element (INTERFACE_NODE, &interface_ip_pim_hello_hold_cmd);
   install_element (INTERFACE_NODE, &interface_no_ip_pim_hello_cmd);
 
   // Static mroutes NEB
@@ -4991,81 +5020,59 @@ void pim_cmd_init()
 
   install_element (ENABLE_NODE, &debug_igmp_cmd);
   install_element (ENABLE_NODE, &no_debug_igmp_cmd);
-  install_element (ENABLE_NODE, &undebug_igmp_cmd);
   install_element (ENABLE_NODE, &debug_igmp_events_cmd);
   install_element (ENABLE_NODE, &no_debug_igmp_events_cmd);
-  install_element (ENABLE_NODE, &undebug_igmp_events_cmd);
   install_element (ENABLE_NODE, &debug_igmp_packets_cmd);
   install_element (ENABLE_NODE, &no_debug_igmp_packets_cmd);
-  install_element (ENABLE_NODE, &undebug_igmp_packets_cmd);
   install_element (ENABLE_NODE, &debug_igmp_trace_cmd);
   install_element (ENABLE_NODE, &no_debug_igmp_trace_cmd);
-  install_element (ENABLE_NODE, &undebug_igmp_trace_cmd);
   install_element (ENABLE_NODE, &debug_mroute_cmd);
   install_element (ENABLE_NODE, &no_debug_mroute_cmd);
   install_element (ENABLE_NODE, &debug_static_cmd);
   install_element (ENABLE_NODE, &no_debug_static_cmd);
   install_element (ENABLE_NODE, &debug_pim_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_cmd);
-  install_element (ENABLE_NODE, &undebug_pim_cmd);
   install_element (ENABLE_NODE, &debug_pim_events_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_events_cmd);
-  install_element (ENABLE_NODE, &undebug_pim_events_cmd);
   install_element (ENABLE_NODE, &debug_pim_packets_cmd);
   install_element (ENABLE_NODE, &debug_pim_packets_filter_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_packets_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_packets_filter_cmd);
-  install_element (ENABLE_NODE, &undebug_pim_packets_cmd);
   install_element (ENABLE_NODE, &debug_pim_packetdump_send_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_packetdump_send_cmd);
-  install_element (ENABLE_NODE, &undebug_pim_packetdump_send_cmd);
   install_element (ENABLE_NODE, &debug_pim_packetdump_recv_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_packetdump_recv_cmd);
-  install_element (ENABLE_NODE, &undebug_pim_packetdump_recv_cmd);
   install_element (ENABLE_NODE, &debug_pim_trace_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_trace_cmd);
-  install_element (ENABLE_NODE, &undebug_pim_trace_cmd);
   install_element (ENABLE_NODE, &debug_ssmpingd_cmd);
   install_element (ENABLE_NODE, &no_debug_ssmpingd_cmd);
-  install_element (ENABLE_NODE, &undebug_ssmpingd_cmd);
   install_element (ENABLE_NODE, &debug_pim_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_pim_zebra_cmd);
-  install_element (ENABLE_NODE, &undebug_pim_zebra_cmd);
 
   install_element (CONFIG_NODE, &debug_igmp_cmd);
   install_element (CONFIG_NODE, &no_debug_igmp_cmd);
-  install_element (CONFIG_NODE, &undebug_igmp_cmd);
   install_element (CONFIG_NODE, &debug_igmp_events_cmd);
   install_element (CONFIG_NODE, &no_debug_igmp_events_cmd);
-  install_element (CONFIG_NODE, &undebug_igmp_events_cmd);
   install_element (CONFIG_NODE, &debug_igmp_packets_cmd);
   install_element (CONFIG_NODE, &no_debug_igmp_packets_cmd);
-  install_element (CONFIG_NODE, &undebug_igmp_packets_cmd);
   install_element (CONFIG_NODE, &debug_igmp_trace_cmd);
   install_element (CONFIG_NODE, &no_debug_igmp_trace_cmd);
-  install_element (CONFIG_NODE, &undebug_igmp_trace_cmd);
   install_element (CONFIG_NODE, &debug_mroute_cmd);
   install_element (CONFIG_NODE, &no_debug_mroute_cmd);
   install_element (CONFIG_NODE, &debug_static_cmd);
   install_element (CONFIG_NODE, &no_debug_static_cmd);
   install_element (CONFIG_NODE, &debug_pim_cmd);
   install_element (CONFIG_NODE, &no_debug_pim_cmd);
-  install_element (CONFIG_NODE, &undebug_pim_cmd);
   install_element (CONFIG_NODE, &debug_pim_events_cmd);
   install_element (CONFIG_NODE, &no_debug_pim_events_cmd);
-  install_element (CONFIG_NODE, &undebug_pim_events_cmd);
   install_element (CONFIG_NODE, &debug_pim_packets_cmd);
   install_element (CONFIG_NODE, &debug_pim_packets_filter_cmd);
   install_element (CONFIG_NODE, &no_debug_pim_packets_cmd);
   install_element (CONFIG_NODE, &no_debug_pim_packets_filter_cmd);
-  install_element (CONFIG_NODE, &undebug_pim_packets_cmd);
   install_element (CONFIG_NODE, &debug_pim_trace_cmd);
   install_element (CONFIG_NODE, &no_debug_pim_trace_cmd);
-  install_element (CONFIG_NODE, &undebug_pim_trace_cmd);
   install_element (CONFIG_NODE, &debug_ssmpingd_cmd);
   install_element (CONFIG_NODE, &no_debug_ssmpingd_cmd);
-  install_element (CONFIG_NODE, &undebug_ssmpingd_cmd);
   install_element (CONFIG_NODE, &debug_pim_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_pim_zebra_cmd);
-  install_element (CONFIG_NODE, &undebug_pim_zebra_cmd);
 }

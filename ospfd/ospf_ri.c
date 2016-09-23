@@ -1174,6 +1174,13 @@ ospf_router_info_config_write_router (struct vty *vty)
  * Followings are vty command functions.
  *------------------------------------------------------------------------*/
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "router-info as",
+ *     OSPF_RI_STR
+ *     "Enable the Router Information functionality with AS flooding scope\n"
+ *
+ */
 DEFUN (router_info,
        router_info_area_cmd,
        "router-info area A.B.C.D",
@@ -1236,11 +1243,6 @@ DEFUN (router_info,
 
 }
 
-ALIAS (router_info,
-       router_info_as_cmd,
-       "router-info as",
-       OSPF_RI_STR
-       "Enable the Router Information functionality with AS flooding scope\n")
 
 DEFUN (no_router_info,
        no_router_info_cmd,
@@ -1625,7 +1627,6 @@ ospf_router_info_register_vty (void)
   install_element (ENABLE_NODE, &show_ip_ospf_router_info_pce_cmd);
 
   install_element (OSPF_NODE, &router_info_area_cmd);
-  install_element (OSPF_NODE, &router_info_as_cmd);
   install_element (OSPF_NODE, &no_router_info_cmd);
   install_element (OSPF_NODE, &pce_address_cmd);
   install_element (OSPF_NODE, &pce_path_scope_cmd);

@@ -1038,6 +1038,16 @@ DEFUN (ipv6_ripng_split_horizon_poisoned_reverse,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 ripng split-horizon poisoned-reverse",
+ *     NO_STR
+ *     IPV6_STR
+ *     "Routing Information Protocol\n"
+ *     "Perform split horizon\n"
+ *     "With poisoned-reverse\n"
+ *
+ */
 DEFUN (no_ipv6_ripng_split_horizon,
        no_ipv6_ripng_split_horizon_cmd,
        "no ipv6 ripng split-horizon",
@@ -1056,14 +1066,6 @@ DEFUN (no_ipv6_ripng_split_horizon,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_ripng_split_horizon,
-       no_ipv6_ripng_split_horizon_poisoned_reverse_cmd,
-       "no ipv6 ripng split-horizon poisoned-reverse",
-       NO_STR
-       IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n"
-       "With poisoned-reverse\n")
 
 DEFUN (ripng_passive_interface,
        ripng_passive_interface_cmd,
@@ -1210,5 +1212,4 @@ ripng_if_init ()
   install_element (INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
   install_element (INTERFACE_NODE, &ipv6_ripng_split_horizon_poisoned_reverse_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_ripng_split_horizon_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_ripng_split_horizon_poisoned_reverse_cmd);
 }

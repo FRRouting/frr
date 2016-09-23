@@ -1824,6 +1824,17 @@ DEFUN (ip_prefix_list_description,
   return CMD_SUCCESS;
 }       
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ip prefix-list WORD description .LINE",
+ *     NO_STR
+ *     IP_STR
+ *     PREFIX_LIST_STR
+ *     "Name of a prefix list\n"
+ *     "Prefix-list specific description\n"
+ *     "Up to 80 characters describing this prefix-list\n"
+ *
+ */
 DEFUN (no_ip_prefix_list_description,
        no_ip_prefix_list_description_cmd,
        "no ip prefix-list WORD description",
@@ -1836,15 +1847,6 @@ DEFUN (no_ip_prefix_list_description,
   return vty_prefix_list_desc_unset (vty, AFI_IP, argv[3]->arg);
 }
 
-ALIAS (no_ip_prefix_list_description,
-       no_ip_prefix_list_description_arg_cmd,
-       "no ip prefix-list WORD description .LINE",
-       NO_STR
-       IP_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Prefix-list specific description\n"
-       "Up to 80 characters describing this prefix-list\n")
 
 DEFUN (show_ip_prefix_list,
        show_ip_prefix_list_cmd,
@@ -2420,6 +2422,17 @@ DEFUN (ipv6_prefix_list_description,
   return CMD_SUCCESS;
 }       
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no ipv6 prefix-list WORD description .LINE",
+ *     NO_STR
+ *     IPV6_STR
+ *     PREFIX_LIST_STR
+ *     "Name of a prefix list\n"
+ *     "Prefix-list specific description\n"
+ *     "Up to 80 characters describing this prefix-list\n"
+ *
+ */
 DEFUN (no_ipv6_prefix_list_description,
        no_ipv6_prefix_list_description_cmd,
        "no ipv6 prefix-list WORD description",
@@ -2432,15 +2445,6 @@ DEFUN (no_ipv6_prefix_list_description,
   return vty_prefix_list_desc_unset (vty, AFI_IP6, argv[3]->arg);
 }
 
-ALIAS (no_ipv6_prefix_list_description,
-       no_ipv6_prefix_list_description_arg_cmd,
-       "no ipv6 prefix-list WORD description .LINE",
-       NO_STR
-       IPV6_STR
-       PREFIX_LIST_STR
-       "Name of a prefix list\n"
-       "Prefix-list specific description\n"
-       "Up to 80 characters describing this prefix-list\n")
 
 DEFUN (show_ipv6_prefix_list,
        show_ipv6_prefix_list_cmd,
@@ -2946,7 +2950,6 @@ prefix_list_init_ipv4 (void)
 
   install_element (CONFIG_NODE, &ip_prefix_list_description_cmd);
   install_element (CONFIG_NODE, &no_ip_prefix_list_description_cmd);
-  install_element (CONFIG_NODE, &no_ip_prefix_list_description_arg_cmd);
 
   install_element (CONFIG_NODE, &ip_prefix_list_sequence_number_cmd);
   install_element (CONFIG_NODE, &no_ip_prefix_list_sequence_number_cmd);
@@ -3023,7 +3026,6 @@ prefix_list_init_ipv6 (void)
 
   install_element (CONFIG_NODE, &ipv6_prefix_list_description_cmd);
   install_element (CONFIG_NODE, &no_ipv6_prefix_list_description_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_prefix_list_description_arg_cmd);
 
   install_element (CONFIG_NODE, &ipv6_prefix_list_sequence_number_cmd);
   install_element (CONFIG_NODE, &no_ipv6_prefix_list_sequence_number_cmd);

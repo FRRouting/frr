@@ -1249,13 +1249,6 @@ DEFUN_NOSH (zebra_interface,
   return ret;
 }
 
-ALIAS (zebra_interface,
-       zebra_interface_vrf_cmd,
-       "interface IFNAME " VRF_CMD_STR,
-       "Select an interface to configure\n"
-       "Interface's name\n"
-       VRF_CMD_HELP_STR)
-
 static void
 interface_update_stats (void)
 {
@@ -1305,6 +1298,14 @@ struct cmd_node vrf_node =
 };
 
 /* Show all interfaces to vty. */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show interface " VRF_CMD_STR,
+ *     SHOW_STR
+ *     "Interface status and configuration\n"
+ *     VRF_CMD_HELP_STR
+ *
+ */
 DEFUN (show_interface,
        show_interface_cmd,
        "show interface",
@@ -1327,12 +1328,6 @@ DEFUN (show_interface,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_interface,
-       show_interface_vrf_cmd,
-       "show interface " VRF_CMD_STR,
-       SHOW_STR
-       "Interface status and configuration\n"
-       VRF_CMD_HELP_STR)
 
 /* Show all interfaces to vty. */
 DEFUN (show_interface_vrf_all,
@@ -1388,6 +1383,14 @@ DEFUN (show_interface_name_vrf,
 }
 
 /* Show specified interface to vty. */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show interface IFNAME",
+ *     SHOW_STR
+ *     "Interface status and configuration\n"
+ *     "Interface name\n"
+ *
+ */
 DEFUN (show_interface_name_vrf_all,
        show_interface_name_vrf_all_cmd,
        "show interface IFNAME " VRF_ALL_CMD_STR,
@@ -1423,11 +1426,6 @@ DEFUN (show_interface_name_vrf_all,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_interface_name_vrf_all, show_interface_name_cmd,
-       "show interface IFNAME",
-       SHOW_STR
-       "Interface status and configuration\n"
-       "Interface name\n")
 
 static void
 if_show_description (struct vty *vty, vrf_id_t vrf_id)
@@ -1469,6 +1467,15 @@ if_show_description (struct vty *vty, vrf_id_t vrf_id)
     }
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "show interface description " VRF_CMD_STR,
+ *     SHOW_STR
+ *     "Interface status and configuration\n"
+ *     "Interface description\n"
+ *     VRF_CMD_HELP_STR
+ *
+ */
 DEFUN (show_interface_desc,
        show_interface_desc_cmd,
        "show interface description",
@@ -1486,13 +1493,6 @@ DEFUN (show_interface_desc,
   return CMD_SUCCESS;
 }
 
-ALIAS (show_interface_desc,
-       show_interface_desc_vrf_cmd,
-       "show interface description " VRF_CMD_STR,
-       SHOW_STR
-       "Interface status and configuration\n"
-       "Interface description\n"
-       VRF_CMD_HELP_STR)
 
 DEFUN (show_interface_desc_vrf_all,
        show_interface_desc_vrf_all_cmd,
@@ -1700,6 +1700,14 @@ DEFUN (bandwidth_if,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no bandwidth <1-100000>",
+ *     NO_STR
+ *     "Set bandwidth informational parameter\n"
+ *     "Bandwidth in megabits\n"
+ *
+ */
 DEFUN (no_bandwidth_if,
        no_bandwidth_if_cmd,
        "no bandwidth",
@@ -1719,12 +1727,6 @@ DEFUN (no_bandwidth_if,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_bandwidth_if,
-       no_bandwidth_if_val_cmd,
-       "no bandwidth <1-100000>",
-       NO_STR
-       "Set bandwidth informational parameter\n"
-       "Bandwidth in megabits\n")
 
 struct cmd_node link_params_node =
 {
@@ -2086,6 +2088,17 @@ DEFUN (no_link_params_inter_as,
 }
 
 /* RFC7471: OSPF Traffic Engineering (TE) Metric extensions & draft-ietf-isis-metric-extensions-07.txt */
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "delay <0-16777215> min <0-16777215> max <0-16777215>",
+ *     "Unidirectional Average Link Delay (optionally Minimum and Maximum delays)\n"
+ *     "Average delay in micro-second as decimal (0...16777215)\n"
+ *     "Minimum delay\n"
+ *     "Minimum delay in micro-second as decimal (0...16777215)\n"
+ *     "Maximum delay\n"
+ *     "Maximum delay in micro-second as decimal (0...16777215)\n"
+ *
+ */
 DEFUN (link_params_delay,
        link_params_delay_cmd,
        "delay <0-16777215>",
@@ -2169,15 +2182,6 @@ DEFUN (link_params_delay,
   return CMD_SUCCESS;
 }
 
-ALIAS (link_params_delay,
-       link_params_delay_mm_cmd,
-       "delay <0-16777215> min <0-16777215> max <0-16777215>",
-       "Unidirectional Average Link Delay (optionally Minimum and Maximum delays)\n"
-       "Average delay in micro-second as decimal (0...16777215)\n"
-       "Minimum delay\n"
-       "Minimum delay in micro-second as decimal (0...16777215)\n"
-       "Maximum delay\n"
-       "Maximum delay in micro-second as decimal (0...16777215)\n")
 
 DEFUN (no_link_params_delay,
        no_link_params_delay_cmd,
@@ -2946,22 +2950,16 @@ zebra_if_init (void)
   install_node (&vrf_node, vrf_config_write);
 
   install_element (VIEW_NODE, &show_interface_cmd);
-  install_element (VIEW_NODE, &show_interface_vrf_cmd);
   install_element (VIEW_NODE, &show_interface_vrf_all_cmd);
-  install_element (VIEW_NODE, &show_interface_name_cmd);
   install_element (VIEW_NODE, &show_interface_name_vrf_cmd);
   install_element (VIEW_NODE, &show_interface_name_vrf_all_cmd);
   install_element (ENABLE_NODE, &show_interface_cmd);
-  install_element (ENABLE_NODE, &show_interface_vrf_cmd);
   install_element (ENABLE_NODE, &show_interface_vrf_all_cmd);
-  install_element (ENABLE_NODE, &show_interface_name_cmd);
   install_element (ENABLE_NODE, &show_interface_name_vrf_cmd);
   install_element (ENABLE_NODE, &show_interface_name_vrf_all_cmd);
   install_element (ENABLE_NODE, &show_interface_desc_cmd);
-  install_element (ENABLE_NODE, &show_interface_desc_vrf_cmd);
   install_element (ENABLE_NODE, &show_interface_desc_vrf_all_cmd);
   install_element (CONFIG_NODE, &zebra_interface_cmd);
-  install_element (CONFIG_NODE, &zebra_interface_vrf_cmd);
   install_element (CONFIG_NODE, &no_interface_cmd);
   install_element (CONFIG_NODE, &no_interface_vrf_cmd);
   install_default (INTERFACE_NODE);
@@ -2975,7 +2973,6 @@ zebra_if_init (void)
   install_element (INTERFACE_NODE, &no_shutdown_if_cmd);
   install_element (INTERFACE_NODE, &bandwidth_if_cmd);
   install_element (INTERFACE_NODE, &no_bandwidth_if_cmd);
-  install_element (INTERFACE_NODE, &no_bandwidth_if_val_cmd);
   install_element (INTERFACE_NODE, &ip_address_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_cmd);
 #ifdef HAVE_IPV6
@@ -2998,7 +2995,6 @@ zebra_if_init (void)
   install_element(LINK_PARAMS_NODE, &link_params_inter_as_cmd);
   install_element(LINK_PARAMS_NODE, &no_link_params_inter_as_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_delay_cmd);
-  install_element(LINK_PARAMS_NODE, &link_params_delay_mm_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_delay_var_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_pkt_loss_cmd);
   install_element(LINK_PARAMS_NODE, &link_params_ava_bw_cmd);

@@ -345,6 +345,30 @@ DEFUN (ripng_redistribute_type,
   return CMD_SUCCESS;
 }
 
+/*
+ * CHECK ME - The following ALIASes need to be implemented in this DEFUN
+ * "no redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16> route-map WORD",
+ *     NO_STR
+ *     "Redistribute\n"
+ *     QUAGGA_REDIST_HELP_STR_RIPNGD
+ *     "Route map reference\n"
+ *     "Pointer to route-map entries\n"
+ *
+ * "no redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16>",
+ *     NO_STR
+ *     "Redistribute\n"
+ *     QUAGGA_REDIST_HELP_STR_RIPNGD
+ *     "Metric\n"
+ *     "Metric value\n"
+ *
+ * "no redistribute " QUAGGA_REDIST_STR_RIPNGD " route-map WORD",
+ *     NO_STR
+ *     "Redistribute\n"
+ *     QUAGGA_REDIST_HELP_STR_RIPNGD
+ *     "Route map reference\n"
+ *     "Pointer to route-map entries\n"
+ *
+ */
 DEFUN (no_ripng_redistribute_type,
        no_ripng_redistribute_type_cmd,
        "no redistribute " QUAGGA_REDIST_STR_RIPNGD,
@@ -394,14 +418,6 @@ DEFUN (ripng_redistribute_type_metric,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ripng_redistribute_type,
-       no_ripng_redistribute_type_metric_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16>",
-       NO_STR
-       "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
-       "Metric\n"
-       "Metric value\n")
 
 DEFUN (ripng_redistribute_type_routemap,
        ripng_redistribute_type_routemap_cmd,
@@ -427,14 +443,6 @@ DEFUN (ripng_redistribute_type_routemap,
  return CMD_SUCCESS;
 }
 
-ALIAS (no_ripng_redistribute_type,
-       no_ripng_redistribute_type_routemap_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPNGD " route-map WORD",
-       NO_STR
-       "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
 
 DEFUN (ripng_redistribute_type_metric_routemap,
        ripng_redistribute_type_metric_routemap_cmd,
@@ -464,14 +472,6 @@ DEFUN (ripng_redistribute_type_metric_routemap,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ripng_redistribute_type,
-       no_ripng_redistribute_type_metric_routemap_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16> route-map WORD",
-       NO_STR
-       "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
 
 void
 ripng_redistribute_write (struct vty *vty, int config_mode)
@@ -582,7 +582,4 @@ zebra_init (struct thread_master *master)
   install_element (RIPNG_NODE, &ripng_redistribute_type_metric_cmd);
   install_element (RIPNG_NODE, &ripng_redistribute_type_metric_routemap_cmd);
   install_element (RIPNG_NODE, &no_ripng_redistribute_type_cmd);
-  install_element (RIPNG_NODE, &no_ripng_redistribute_type_routemap_cmd);
-  install_element (RIPNG_NODE, &no_ripng_redistribute_type_metric_cmd);
-  install_element (RIPNG_NODE, &no_ripng_redistribute_type_metric_routemap_cmd);
 }
