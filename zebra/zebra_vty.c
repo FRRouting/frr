@@ -2855,26 +2855,19 @@ DEFUN (show_ip_route_vrf,
     return do_show_ip_route (vty, argv[idx_json]->arg, SAFI_UNICAST, uj);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip nht " VRF_CMD_STR,
- *     SHOW_STR
- *     IP_STR
- *     "IP nexthop tracking table\n"
- *     VRF_CMD_HELP_STR
- *
- */
 DEFUN (show_ip_nht,
        show_ip_nht_cmd,
-       "show ip nht",
+       "show ip nht [vrf NAME]",
        SHOW_STR
        IP_STR
-       "IP nexthop tracking table\n")
+       "IP nexthop tracking table\n"
+       VRF_CMD_HELP_STR)
 {
+  int idx_vrf = 4;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (argc == 5)
+    VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
   zebra_print_rnh_table(vrf_id, AF_INET, vty, RNH_NEXTHOP_TYPE);
   return CMD_SUCCESS;
@@ -2902,26 +2895,19 @@ DEFUN (show_ip_nht_vrf_all,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 nht " VRF_CMD_STR,
- *     SHOW_STR
- *     IPV6_STR
- *     "IPv6 nexthop tracking table\n"
- *     VRF_CMD_HELP_STR
- *
- */
 DEFUN (show_ipv6_nht,
        show_ipv6_nht_cmd,
-       "show ipv6 nht",
+       "show ipv6 nht [vrf NAME]",
        SHOW_STR
        IPV6_STR
-       "IPv6 nexthop tracking table\n")
+       "IPv6 nexthop tracking table\n"
+       VRF_CMD_HELP_STR)
 {
+  int idx_vrf = 4;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (argc == 5)
+    VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
   zebra_print_rnh_table(vrf_id, AF_INET6, vty, RNH_NEXTHOP_TYPE);
   return CMD_SUCCESS;
@@ -3011,41 +2997,32 @@ DEFUN (no_ipv6_nht_default_route,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip route " VRF_CMD_STR " tag <1-65535>",
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     "Show only routes with tag\n"
- *     "Tag value\n"
- *
- */
 DEFUN (show_ip_route_tag,
        show_ip_route_tag_cmd,
-       "show ip route tag (1-65535)",
+       "show ip route [vrf NAME] tag (1-65535)",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "Show only routes with tag\n"
        "Tag value\n")
 {
-  int idx_number = 4;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
   int first = 1;
   u_short tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
-
-    if (argc > 1)
-      {
-        tag = atoi(argv[1]);
-        VRF_GET_ID (vrf_id, argv[idx_number]->arg);
-      }
-    else
-      tag = atoi(argv[idx_number]->arg);
+ 
+  if (strcmp(argv[3]->text, "vrf"))
+    {
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      tag = atoi(argv[6]->arg);
+    }
+  else
+    {
+      tag = atoi(argv[4]->arg);
+    }
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3068,28 +3045,16 @@ DEFUN (show_ip_route_tag,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip route " VRF_CMD_STR " A.B.C.D/M longer-prefixes",
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
- *     "Show route matching the specified Network/Mask pair only\n"
- *
- */
 DEFUN (show_ip_route_prefix_longer,
        show_ip_route_prefix_longer_cmd,
-       "show ip route A.B.C.D/M longer-prefixes",
+       "show ip route [vrf NAME] A.B.C.D/M longer-prefixes",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Show route matching the specified Network/Mask pair only\n")
 {
-  int idx_ipv4_prefixlen = 3;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -3098,13 +3063,15 @@ DEFUN (show_ip_route_prefix_longer,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strcmp(argv[3]->text, "vrf"))
     {
-      ret = str2prefix (argv[1], &p);
-      VRF_GET_ID (vrf_id, argv[idx_ipv4_prefixlen]->arg);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix (argv[idx_ipv4_prefixlen]->arg, &p);
+    {
+      ret = str2prefix (argv[3]->arg, &p);
+    }
 
   if (! ret)
     {
@@ -3131,23 +3098,13 @@ DEFUN (show_ip_route_prefix_longer,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip route " VRF_CMD_STR " supernets-only",
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     "Show supernet entries only\n"
- *
- */
 DEFUN (show_ip_route_supernets,
        show_ip_route_supernets_cmd,
-       "show ip route supernets-only",
+       "show ip route [vrf NAME] supernets-only",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "Show supernet entries only\n")
 {
   struct route_table *table;
@@ -3157,8 +3114,8 @@ DEFUN (show_ip_route_supernets,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strcmp(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3185,23 +3142,13 @@ DEFUN (show_ip_route_supernets,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip route " VRF_CMD_STR "  " QUAGGA_IP_REDIST_STR_ZEBRA,
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     QUAGGA_IP_REDIST_HELP_STR_ZEBRA
- *
- */
 DEFUN (show_ip_route_protocol,
        show_ip_route_protocol_cmd,
-       "show ip route " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route [vrf NAME] " QUAGGA_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        QUAGGA_IP_REDIST_HELP_STR_ZEBRA)
 {
   int type;
@@ -3211,13 +3158,15 @@ DEFUN (show_ip_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strcmp(argv[3]->text, "vrf"))
     {
-      type = proto_redistnum (AFI_IP, argv[1]);
+      type = proto_redistnum (AFI_IP, argv[5]->arg);
       VRF_GET_ID (vrf_id, argv[4]->arg);
-     }
+    }
   else
-    type = proto_redistnum (AFI_IP, argv[4]->arg);
+    {
+      type = proto_redistnum (AFI_IP, argv[3]->arg);
+    }
 
   if (type < 0)
     {
@@ -3282,38 +3231,30 @@ DEFUN (show_ip_route_ospf_instance,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip route "  VRF_CMD_STR " A.B.C.D",
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     "Network in the IP routing table to display\n"
- *
- */
 DEFUN (show_ip_route_addr,
        show_ip_route_addr_cmd,
-       "show ip route A.B.C.D",
+       "show ip route [vrf NAME] A.B.C.D",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "Network in the IP routing table to display\n")
 {
-  int idx_ipv4 = 3;
   int ret;
   struct prefix_ipv4 p;
   struct route_table *table;
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strcmp(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[idx_ipv4]->arg);
-      ret = str2prefix_ipv4 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix_ipv4 (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix_ipv4 (argv[idx_ipv4]->arg, &p);
+    {
+      ret = str2prefix_ipv4 (argv[3]->arg, &p);
+    }
 
   if (ret <= 0)
     {
@@ -3339,39 +3280,30 @@ DEFUN (show_ip_route_addr,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip route " VRF_CMD_STR " A.B.C.D/M",
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
- *
- */
 DEFUN (show_ip_route_prefix,
        show_ip_route_prefix_cmd,
-       "show ip route A.B.C.D/M",
+       "show ip route [vrf NAME] A.B.C.D/M",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  int idx_ipv4_prefixlen = 3;
   int ret;
   struct prefix_ipv4 p;
   struct route_table *table;
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strcmp(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[idx_ipv4_prefixlen]->arg);
-      ret = str2prefix_ipv4 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix_ipv4 (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix_ipv4 (argv[idx_ipv4_prefixlen]->arg, &p);
+    {
+      ret = str2prefix_ipv4 (argv[3]->arg, &p);
+    }
 
   if (ret <= 0)
     {
@@ -3548,29 +3480,20 @@ vty_show_ip_route_summary_prefix (struct vty *vty, struct route_table *table)
 }
 
 /* Show route summary.  */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip route " VRF_CMD_STR " summary",
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     "Summary of all routes\n"
- *
- */
 DEFUN (show_ip_route_summary,
        show_ip_route_summary_cmd,
-       "show ip route summary",
+       "show ip route [vrf NAME] summary",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "Summary of all routes\n")
 {
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strcmp(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -3583,31 +3506,21 @@ DEFUN (show_ip_route_summary,
 
 
 /* Show route summary prefix.  */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip route " VRF_CMD_STR " summary prefix",
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     "Summary of all routes\n"
- *     "Prefix routes\n"
- *
- */
 DEFUN (show_ip_route_summary_prefix,
        show_ip_route_summary_prefix_cmd,
-       "show ip route summary prefix",
+       "show ip route [vrf NAME] summary prefix",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        "Summary of all routes\n"
        "Prefix routes\n")
 {
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strcmp(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5580,28 +5493,16 @@ DEFUN (show_ipv6_route,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route " VRF_CMD_STR " tag <1-65535>",
- *     SHOW_STR
- *     IP_STR
- *     "IPv6 routing table\n"
- *     VRF_CMD_HELP_STR
- *     "Show only routes with tag\n"
- *     "Tag value\n"
- *
- */
 DEFUN (show_ipv6_route_tag,
        show_ipv6_route_tag_cmd,
-       "show ipv6 route tag (1-65535)",
+       "show ipv6 route [vrf NAME] tag (1-65535)",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "Show only routes with tag\n"
        "Tag value\n")
 {
-  int idx_number = 4;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -5609,13 +5510,15 @@ DEFUN (show_ipv6_route_tag,
   u_short tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strcmp(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[idx_number]->arg);
-      tag = atoi(argv[1]);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      tag = atoi(argv[6]->arg);
     }
   else
-    tag = atoi(argv[idx_number]->arg);
+    {
+      tag = atoi(argv[4]->arg);
+    }
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5638,28 +5541,16 @@ DEFUN (show_ipv6_route_tag,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route " VRF_CMD_STR " X:X::X:X/M longer-prefixes",
- *     SHOW_STR
- *     IP_STR
- *     "IPv6 routing table\n"
- *     VRF_CMD_HELP_STR
- *     "IPv6 prefix\n"
- *     "Show route matching the specified Network/Mask pair only\n"
- *
- */
 DEFUN (show_ipv6_route_prefix_longer,
        show_ipv6_route_prefix_longer_cmd,
-       "show ipv6 route X:X::X:X/M longer-prefixes",
+       "show ipv6 route [vrf NAME] X:X::X:X/M longer-prefixes",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "IPv6 prefix\n"
        "Show route matching the specified Network/Mask pair only\n")
 {
-  int idx_ipv6_prefixlen = 3;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -5668,13 +5559,15 @@ DEFUN (show_ipv6_route_prefix_longer,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strcmp(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[idx_ipv6_prefixlen]->arg);
-      ret = str2prefix (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix (argv[idx_ipv6_prefixlen]->arg, &p);
+    {
+      ret = str2prefix (argv[3]->arg, &p);
+    }
 
   if (! ret)
     {
@@ -5761,39 +5654,30 @@ DEFUN (show_ipv6_route_protocol,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route " VRF_CMD_STR " X:X::X:X",
- *     SHOW_STR
- *     IP_STR
- *     "IPv6 routing table\n"
- *     VRF_CMD_HELP_STR
- *     "IPv6 Address\n"
- *
- */
 DEFUN (show_ipv6_route_addr,
        show_ipv6_route_addr_cmd,
-       "show ipv6 route X:X::X:X",
+       "show ipv6 route [vrf NAME] X:X::X:X",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "IPv6 Address\n")
 {
-  int idx_ipv6 = 3;
   int ret;
   struct prefix_ipv6 p;
   struct route_table *table;
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1 )
+  if (strcmp(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[idx_ipv6]->arg);
-      ret = str2prefix_ipv6 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix_ipv6 (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix_ipv6 (argv[idx_ipv6]->arg, &p);
+    {
+      ret = str2prefix_ipv6 (argv[3]->arg, &p);
+    }
 
   if (ret <= 0)
     {
@@ -5819,39 +5703,28 @@ DEFUN (show_ipv6_route_addr,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route " VRF_CMD_STR " X:X::X:X/M ",
- *     SHOW_STR
- *     IP_STR
- *     "IPv6 routing table\n"
- *     VRF_CMD_HELP_STR
- *     "IPv6 prefix\n"
- *
- */
 DEFUN (show_ipv6_route_prefix,
        show_ipv6_route_prefix_cmd,
-       "show ipv6 route X:X::X:X/M",
+       "show ipv6 route [vrf NAME] X:X::X:X/M",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "IPv6 prefix\n")
 {
-  int idx_ipv6_prefixlen = 3;
   int ret;
   struct prefix_ipv6 p;
   struct route_table *table;
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 1)
+  if (strcmp(argv[3]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[idx_ipv6_prefixlen]->arg);
-      ret = str2prefix_ipv6 (argv[1], &p);
+      VRF_GET_ID (vrf_id, argv[4]->arg);
+      ret = str2prefix_ipv6 (argv[5]->arg, &p);
     }
   else
-    ret = str2prefix_ipv6 (argv[idx_ipv6_prefixlen]->arg, &p);
+    ret = str2prefix_ipv6 (argv[3]->arg, &p);
 
   if (ret <= 0)
     {
@@ -5879,29 +5752,20 @@ DEFUN (show_ipv6_route_prefix,
 
 
 /* Show route summary.  */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route " VRF_CMD_STR " summary",
- *     SHOW_STR
- *     IP_STR
- *     "IPv6 routing table\n"
- *     VRF_CMD_HELP_STR
- *     "Summary of all IPv6 routes\n"
- *
- */
 DEFUN (show_ipv6_route_summary,
        show_ipv6_route_summary_cmd,
-       "show ipv6 route summary",
+       "show ipv6 route [vrf NAME] summary",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "Summary of all IPv6 routes\n")
 {
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strcmp(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5914,31 +5778,21 @@ DEFUN (show_ipv6_route_summary,
 
 
 /* Show ipv6 route summary prefix.  */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route " VRF_CMD_STR " summary prefix",
- *     SHOW_STR
- *     IP_STR
- *     "IPv6 routing table\n"
- *     VRF_CMD_HELP_STR
- *     "Summary of all IPv6 routes\n"
- *     "Prefix routes\n"
- *
- */
 DEFUN (show_ipv6_route_summary_prefix,
        show_ipv6_route_summary_prefix_cmd,
-       "show ipv6 route summary prefix",
+       "show ipv6 route [vrf NAME] summary prefix",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
        "Summary of all IPv6 routes\n"
        "Prefix routes\n")
 {
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strcmp(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! table)
@@ -5954,22 +5808,13 @@ DEFUN (show_ipv6_route_summary_prefix,
  * Show IPv6 mroute command.Used to dump
  * the Multicast routing table.
  */
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 mroute  " VRF_CMD_STR,
- *     SHOW_STR
- *     IP_STR
- *     "IPv6 Multicast routing table\n"
- *     VRF_CMD_HELP_STR
- *
- */
 DEFUN (show_ipv6_mroute,
        show_ipv6_mroute_cmd,
-       "show ipv6 mroute",
+       "show ipv6 mroute [vrf NAME]",
        SHOW_STR
        IP_STR
-       "IPv6 Multicast routing table\n")
+       "IPv6 Multicast routing table\n"
+       VRF_CMD_HELP_STR)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -5977,8 +5822,8 @@ DEFUN (show_ipv6_mroute,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[0]);
+  if (strcmp(argv[3]->text, "vrf"))
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_MULTICAST, vrf_id);
   if (! table)
