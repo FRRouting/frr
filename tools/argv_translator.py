@@ -394,6 +394,25 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'nocache|wrongvif|wholepkt':
         return 'idx_type'
 
+    elif token == 'file|memory|terminal':
+        return 'idx_type'
+
+    elif token == 'prefix':
+        return 'idx_prefix'
+
+    elif token == 'A.B.C.D/M|any':
+        return 'idx_ipv4_any'
+
+    elif token == 'X:X::X:X/M|any':
+        return 'idx_ipv6_any'
+
+    elif token == '(1-99)|(1300-1999)' or token == '(100-199)|(2000-2699)' or token == '(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD':
+        return 'idx_acl'
+
+    elif token == 'kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7':
+        return 'idx_target'
+
+
     elif token in ('kernel|connected|static|rip|ospf|isis|pim|table',
                    'kernel|connected|static|ripng|ospf6|isis|table',
                    'kernel|connected|static|rip|isis|bgp|pim|table',
@@ -406,6 +425,8 @@ def get_token_index_variable_name(line_number, token):
                    'kernel|connected|static|ospf|isis|bgp|pim|table',
                    'kernel|connected|static|ripng|isis|bgp|table',
                    # '',
+                   'zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd',
+                   'zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd',
                    'bgp|ospf|rip|ripng|isis|ospf6|connected|system|kernel|static',
                    'kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table'):
         return 'idx_protocol'

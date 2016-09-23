@@ -713,7 +713,11 @@ DEFUN (access_list_standard,
        "Address to match\n"
        "Wildcard bits\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 3;
+  int idx_ipv4_2 = 4;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg,
 			   NULL, NULL, 0, 1);
 }
 
@@ -727,7 +731,10 @@ DEFUN (access_list_standard_nomask,
        "Specify packets to forward\n"
        "Address to match\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg, "0.0.0.0",
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 3;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg, "0.0.0.0",
 			   NULL, NULL, 0, 1);
 }
 
@@ -742,7 +749,10 @@ DEFUN (access_list_standard_host,
        "A single host address\n"
        "Address to match\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[4]->arg, "0.0.0.0",
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 4;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg, "0.0.0.0",
 			   NULL, NULL, 0, 1);
 }
 
@@ -756,7 +766,9 @@ DEFUN (access_list_standard_any,
        "Specify packets to forward\n"
        "Any source host\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, "0.0.0.0",
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, "0.0.0.0",
 			   "255.255.255.255", NULL, NULL, 0, 1);
 }
 
@@ -772,7 +784,11 @@ DEFUN (no_access_list_standard,
        "Address to match\n"
        "Wildcard bits\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg,
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 4;
+  int idx_ipv4_2 = 5;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg, argv[idx_ipv4_2]->arg,
 			   NULL, NULL, 0, 0);
 }
 
@@ -787,7 +803,10 @@ DEFUN (no_access_list_standard_nomask,
        "Specify packets to forward\n"
        "Address to match\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg, "0.0.0.0",
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 4;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg, "0.0.0.0",
 			   NULL, NULL, 0, 0);
 }
 
@@ -803,7 +822,10 @@ DEFUN (no_access_list_standard_host,
        "A single host address\n"
        "Address to match\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[5]->arg, "0.0.0.0",
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 5;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg, "0.0.0.0",
 			   NULL, NULL, 0, 0);
 }
 
@@ -818,7 +840,9 @@ DEFUN (no_access_list_standard_any,
        "Specify packets to forward\n"
        "Any source host\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, "0.0.0.0",
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, "0.0.0.0",
 			   "255.255.255.255", NULL, NULL, 0, 0);
 }
 
@@ -837,8 +861,14 @@ DEFUN (access_list_extended,
        "Destination address\n"
        "Destination Wildcard bits\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[4]->arg,
-			   argv[5]->arg, argv[6]->arg, argv[7]->arg, 1 ,1);
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 4;
+  int idx_ipv4_2 = 5;
+  int idx_ipv4_3 = 6;
+  int idx_ipv4_4 = 7;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   argv[idx_ipv4_2]->arg, argv[idx_ipv4_3]->arg, argv[idx_ipv4_4]->arg, 1 ,1);
 }
 
 DEFUN (access_list_extended_mask_any,
@@ -854,8 +884,12 @@ DEFUN (access_list_extended_mask_any,
        "Source wildcard bits\n"
        "Any destination host\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[4]->arg,
-			   argv[5]->arg, "0.0.0.0",
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 4;
+  int idx_ipv4_2 = 5;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   argv[idx_ipv4_2]->arg, "0.0.0.0",
 			   "255.255.255.255", 1, 1);
 }
 
@@ -872,9 +906,13 @@ DEFUN (access_list_extended_any_mask,
        "Destination address\n"
        "Destination Wildcard bits\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, "0.0.0.0",
-			   "255.255.255.255", argv[5]->arg,
-			   argv[6]->arg, 1, 1);
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 5;
+  int idx_ipv4_2 = 6;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, "0.0.0.0",
+			   "255.255.255.255", argv[idx_ipv4]->arg,
+			   argv[idx_ipv4_2]->arg, 1, 1);
 }
 
 DEFUN (access_list_extended_any_any,
@@ -889,7 +927,9 @@ DEFUN (access_list_extended_any_any,
        "Any source host\n"
        "Any destination host\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, "0.0.0.0",
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, "0.0.0.0",
 			   "255.255.255.255", "0.0.0.0",
 			   "255.255.255.255", 1, 1);
 }
@@ -908,8 +948,13 @@ DEFUN (access_list_extended_mask_host,
        "A single destination host\n"
        "Destination address\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[4]->arg,
-			   argv[5]->arg, argv[7]->arg,
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 4;
+  int idx_ipv4_2 = 5;
+  int idx_ipv4_3 = 7;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   argv[idx_ipv4_2]->arg, argv[idx_ipv4_3]->arg,
 			   "0.0.0.0", 1, 1);
 }
 
@@ -927,9 +972,14 @@ DEFUN (access_list_extended_host_mask,
        "Destination address\n"
        "Destination Wildcard bits\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[5]->arg,
-			   "0.0.0.0", argv[6]->arg,
-			   argv[7]->arg, 1, 1);
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 5;
+  int idx_ipv4_2 = 6;
+  int idx_ipv4_3 = 7;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   "0.0.0.0", argv[idx_ipv4_2]->arg,
+			   argv[idx_ipv4_3]->arg, 1, 1);
 }
 
 DEFUN (access_list_extended_host_host,
@@ -946,8 +996,12 @@ DEFUN (access_list_extended_host_host,
        "A single destination host\n"
        "Destination address\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[5]->arg,
-			   "0.0.0.0", argv[7]->arg,
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 5;
+  int idx_ipv4_2 = 7;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   "0.0.0.0", argv[idx_ipv4_2]->arg,
 			   "0.0.0.0", 1, 1);
 }
 
@@ -964,8 +1018,11 @@ DEFUN (access_list_extended_any_host,
        "A single destination host\n"
        "Destination address\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, "0.0.0.0",
-			   "255.255.255.255", argv[6]->arg,
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 6;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, "0.0.0.0",
+			   "255.255.255.255", argv[idx_ipv4]->arg,
 			   "0.0.0.0", 1, 1);
 }
 
@@ -982,7 +1039,10 @@ DEFUN (access_list_extended_host_any,
        "Source address\n"
        "Any destination host\n")
 {
-  return filter_set_cisco (vty, argv[1]->arg, argv[2]->arg, argv[5]->arg,
+  int idx_acl = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4 = 5;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
 			   "0.0.0.0", "0.0.0.0",
 			   "255.255.255.255", 1, 1);
 }
@@ -1002,8 +1062,14 @@ DEFUN (no_access_list_extended,
        "Destination address\n"
        "Destination Wildcard bits\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[5]->arg,
-			   argv[6]->arg, argv[7]->arg, argv[8]->arg, 1, 0);
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 5;
+  int idx_ipv4_2 = 6;
+  int idx_ipv4_3 = 7;
+  int idx_ipv4_4 = 8;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   argv[idx_ipv4_2]->arg, argv[idx_ipv4_3]->arg, argv[idx_ipv4_4]->arg, 1, 0);
 }
 
 DEFUN (no_access_list_extended_mask_any,
@@ -1020,8 +1086,12 @@ DEFUN (no_access_list_extended_mask_any,
        "Source wildcard bits\n"
        "Any destination host\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[5]->arg,
-			   argv[6]->arg, "0.0.0.0",
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 5;
+  int idx_ipv4_2 = 6;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   argv[idx_ipv4_2]->arg, "0.0.0.0",
 			   "255.255.255.255", 1, 0);
 }
 
@@ -1039,9 +1109,13 @@ DEFUN (no_access_list_extended_any_mask,
        "Destination address\n"
        "Destination Wildcard bits\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, "0.0.0.0",
-			   "255.255.255.255", argv[6]->arg,
-			   argv[7]->arg, 1, 0);
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 6;
+  int idx_ipv4_2 = 7;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, "0.0.0.0",
+			   "255.255.255.255", argv[idx_ipv4]->arg,
+			   argv[idx_ipv4_2]->arg, 1, 0);
 }
 
 DEFUN (no_access_list_extended_any_any,
@@ -1057,7 +1131,9 @@ DEFUN (no_access_list_extended_any_any,
        "Any source host\n"
        "Any destination host\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, "0.0.0.0",
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, "0.0.0.0",
 			   "255.255.255.255", "0.0.0.0",
 			   "255.255.255.255", 1, 0);
 }
@@ -1077,8 +1153,13 @@ DEFUN (no_access_list_extended_mask_host,
        "A single destination host\n"
        "Destination address\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[5]->arg,
-			   argv[6]->arg, argv[8]->arg,
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 5;
+  int idx_ipv4_2 = 6;
+  int idx_ipv4_3 = 8;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   argv[idx_ipv4_2]->arg, argv[idx_ipv4_3]->arg,
 			   "0.0.0.0", 1, 0);
 }
 
@@ -1097,9 +1178,14 @@ DEFUN (no_access_list_extended_host_mask,
        "Destination address\n"
        "Destination Wildcard bits\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[6]->arg,
-			   "0.0.0.0", argv[7]->arg,
-			   argv[8]->arg, 1, 0);
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 6;
+  int idx_ipv4_2 = 7;
+  int idx_ipv4_3 = 8;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   "0.0.0.0", argv[idx_ipv4_2]->arg,
+			   argv[idx_ipv4_3]->arg, 1, 0);
 }
 
 DEFUN (no_access_list_extended_host_host,
@@ -1117,8 +1203,12 @@ DEFUN (no_access_list_extended_host_host,
        "A single destination host\n"
        "Destination address\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[6]->arg,
-			   "0.0.0.0", argv[8]->arg,
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 6;
+  int idx_ipv4_2 = 8;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
+			   "0.0.0.0", argv[idx_ipv4_2]->arg,
 			   "0.0.0.0", 1, 0);
 }
 
@@ -1136,8 +1226,11 @@ DEFUN (no_access_list_extended_any_host,
        "A single destination host\n"
        "Destination address\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, "0.0.0.0",
-			   "255.255.255.255", argv[7]->arg,
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 7;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, "0.0.0.0",
+			   "255.255.255.255", argv[idx_ipv4]->arg,
 			   "0.0.0.0", 1, 0);
 }
 
@@ -1155,7 +1248,10 @@ DEFUN (no_access_list_extended_host_any,
        "Source address\n"
        "Any destination host\n")
 {
-  return filter_set_cisco (vty, argv[2]->arg, argv[3]->arg, argv[6]->arg,
+  int idx_acl = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4 = 6;
+  return filter_set_cisco (vty, argv[idx_acl]->arg, argv[idx_permit_deny]->arg, argv[idx_ipv4]->arg,
 			   "0.0.0.0", "0.0.0.0",
 			   "255.255.255.255", 1, 0);
 }
@@ -1251,7 +1347,10 @@ DEFUN (access_list,
        "Specify packets to forward\n"
        "Prefix to match. e.g. 10.0.0.0/8\n")
 {
-  return filter_set_zebra (vty, argv[1]->arg, argv[2]->arg, AFI_IP, argv[3]->arg, 0, 1);
+  int idx_word = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4_prefixlen = 3;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, 0, 1);
 }
 
 DEFUN (access_list_exact,
@@ -1264,7 +1363,10 @@ DEFUN (access_list_exact,
        "Prefix to match. e.g. 10.0.0.0/8\n"
        "Exact match of the prefixes\n")
 {
-  return filter_set_zebra (vty, argv[1]->arg, argv[2]->arg, AFI_IP, argv[3]->arg, 1, 1);
+  int idx_word = 1;
+  int idx_permit_deny = 2;
+  int idx_ipv4_prefixlen = 3;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, 1, 1);
 }
 
 DEFUN (access_list_any,
@@ -1276,7 +1378,9 @@ DEFUN (access_list_any,
        "Specify packets to forward\n"
        "Prefix to match. e.g. 10.0.0.0/8\n")
 {
-  return filter_set_zebra (vty, argv[1]->arg, argv[2]->arg, AFI_IP, "0.0.0.0/0", 0, 1);
+  int idx_word = 1;
+  int idx_permit_deny = 2;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, "0.0.0.0/0", 0, 1);
 }
 
 DEFUN (no_access_list,
@@ -1289,7 +1393,10 @@ DEFUN (no_access_list,
        "Specify packets to forward\n"
        "Prefix to match. e.g. 10.0.0.0/8\n")
 {
-  return filter_set_zebra (vty, argv[2]->arg, argv[3]->arg, AFI_IP, argv[4]->arg, 0, 0);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4_prefixlen = 4;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, 0, 0);
 }
 
 DEFUN (no_access_list_exact,
@@ -1303,7 +1410,10 @@ DEFUN (no_access_list_exact,
        "Prefix to match. e.g. 10.0.0.0/8\n"
        "Exact match of the prefixes\n")
 {
-  return filter_set_zebra (vty, argv[2]->arg, argv[3]->arg, AFI_IP, argv[4]->arg, 1, 0);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4_prefixlen = 4;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, argv[idx_ipv4_prefixlen]->arg, 1, 0);
 }
 
 DEFUN (no_access_list_any,
@@ -1316,7 +1426,9 @@ DEFUN (no_access_list_any,
        "Specify packets to forward\n"
        "Prefix to match. e.g. 10.0.0.0/8\n")
 {
-  return filter_set_zebra (vty, argv[2]->arg, argv[3]->arg, AFI_IP, "0.0.0.0/0", 0, 0);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP, "0.0.0.0/0", 0, 0);
 }
 
 DEFUN (no_access_list_all,
@@ -1330,14 +1442,15 @@ DEFUN (no_access_list_all,
        "IP extended access list (expanded range)\n"
        "IP zebra access-list name\n")
 {
+  int idx_acl = 2;
   struct access_list *access;
   struct access_master *master;
 
   /* Looking up access_list. */
-  access = access_list_lookup (AFI_IP, argv[2]->arg);
+  access = access_list_lookup (AFI_IP, argv[idx_acl]->arg);
   if (access == NULL)
     {
-      vty_out (vty, "%% access-list %s doesn't exist%s", argv[2]->arg,
+      vty_out (vty, "%% access-list %s doesn't exist%s", argv[idx_acl]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1367,9 +1480,10 @@ DEFUN (access_list_remark,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
+  int idx_acl = 1;
   struct access_list *access;
 
-  access = access_list_get (AFI_IP, argv[1]->arg);
+  access = access_list_get (AFI_IP, argv[idx_acl]->arg);
 
   if (access->remark)
     {
@@ -1393,7 +1507,8 @@ DEFUN (no_access_list_remark,
        "IP zebra access-list\n"
        "Access list entry comment\n")
 {
-  return vty_access_list_remark_unset (vty, AFI_IP, argv[2]->arg);
+  int idx_acl = 2;
+  return vty_access_list_remark_unset (vty, AFI_IP, argv[idx_acl]->arg);
 }
 
 /* ALIAS_FIXME */
@@ -1425,7 +1540,10 @@ DEFUN (ipv6_access_list,
        "Specify packets to forward\n"
        "Prefix to match. e.g. 3ffe:506::/32\n")
 {
-  return filter_set_zebra (vty, argv[2]->arg, argv[3]->arg, AFI_IP6, argv[4]->arg, 0, 1);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv6_prefixlen = 4;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, argv[idx_ipv6_prefixlen]->arg, 0, 1);
 }
 
 DEFUN (ipv6_access_list_exact,
@@ -1439,7 +1557,10 @@ DEFUN (ipv6_access_list_exact,
        "Prefix to match. e.g. 3ffe:506::/32\n"
        "Exact match of the prefixes\n")
 {
-  return filter_set_zebra (vty, argv[2]->arg, argv[3]->arg, AFI_IP6, argv[4]->arg, 1, 1);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv6_prefixlen = 4;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, argv[idx_ipv6_prefixlen]->arg, 1, 1);
 }
 
 DEFUN (ipv6_access_list_any,
@@ -1452,7 +1573,9 @@ DEFUN (ipv6_access_list_any,
        "Specify packets to forward\n"
        "Any prefixi to match\n")
 {
-  return filter_set_zebra (vty, argv[2]->arg, argv[3]->arg, AFI_IP6, "::/0", 0, 1);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, "::/0", 0, 1);
 }
 
 DEFUN (no_ipv6_access_list,
@@ -1466,7 +1589,10 @@ DEFUN (no_ipv6_access_list,
        "Specify packets to forward\n"
        "Prefix to match. e.g. 3ffe:506::/32\n")
 {
-  return filter_set_zebra (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, argv[5]->arg, 0, 0);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv6_prefixlen = 5;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, argv[idx_ipv6_prefixlen]->arg, 0, 0);
 }
 
 DEFUN (no_ipv6_access_list_exact,
@@ -1481,7 +1607,10 @@ DEFUN (no_ipv6_access_list_exact,
        "Prefix to match. e.g. 3ffe:506::/32\n"
        "Exact match of the prefixes\n")
 {
-  return filter_set_zebra (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, argv[5]->arg, 1, 0);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv6_prefixlen = 5;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, argv[idx_ipv6_prefixlen]->arg, 1, 0);
 }
 
 DEFUN (no_ipv6_access_list_any,
@@ -1495,7 +1624,9 @@ DEFUN (no_ipv6_access_list_any,
        "Specify packets to forward\n"
        "Any prefixi to match\n")
 {
-  return filter_set_zebra (vty, argv[3]->arg, argv[4]->arg, AFI_IP6, "::/0", 0, 0);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  return filter_set_zebra (vty, argv[idx_word]->arg, argv[idx_permit_deny]->arg, AFI_IP6, "::/0", 0, 0);
 }
 
 
@@ -1507,14 +1638,15 @@ DEFUN (no_ipv6_access_list_all,
        "Add an access list entry\n"
        "IPv6 zebra access-list\n")
 {
+  int idx_word = 3;
   struct access_list *access;
   struct access_master *master;
 
   /* Looking up access_list. */
-  access = access_list_lookup (AFI_IP6, argv[3]->arg);
+  access = access_list_lookup (AFI_IP6, argv[idx_word]->arg);
   if (access == NULL)
     {
-      vty_out (vty, "%% access-list %s doesn't exist%s", argv[3]->arg,
+      vty_out (vty, "%% access-list %s doesn't exist%s", argv[idx_word]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1541,9 +1673,10 @@ DEFUN (ipv6_access_list_remark,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
+  int idx_word = 2;
   struct access_list *access;
 
-  access = access_list_get (AFI_IP6, argv[2]->arg);
+  access = access_list_get (AFI_IP6, argv[idx_word]->arg);
 
   if (access->remark)
     {
@@ -1564,7 +1697,8 @@ DEFUN (no_ipv6_access_list_remark,
        "IPv6 zebra access-list\n"
        "Access list entry comment\n")
 {
-  return vty_access_list_remark_unset (vty, AFI_IP6, argv[3]->arg);
+  int idx_word = 3;
+  return vty_access_list_remark_unset (vty, AFI_IP6, argv[idx_word]->arg);
 }
 
 /* ALIAS_FIXME */
@@ -1715,7 +1849,8 @@ DEFUN (show_ip_access_list_name,
        "IP extended access list (expanded range)\n"
        "IP zebra access-list\n")
 {
-  return filter_show (vty, argv[3]->arg, AFI_IP);
+  int idx_acl = 3;
+  return filter_show (vty, argv[idx_acl]->arg, AFI_IP);
 }
 
 #ifdef HAVE_IPV6
@@ -1737,7 +1872,8 @@ DEFUN (show_ipv6_access_list_name,
        "List IPv6 access lists\n"
        "IPv6 zebra access-list\n")
 {
-  return filter_show (vty, argv[3]->arg, AFI_IP6);
+  int idx_word = 3;
+  return filter_show (vty, argv[idx_word]->arg, AFI_IP6);
 }
 #endif /* HAVE_IPV6 */
 

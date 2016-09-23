@@ -1415,8 +1415,11 @@ DEFUN (ip_prefix_list,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Any prefix match. Same as \"0.0.0.0/0 le 32\"\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, NULL, 
-				  argv[3]->arg, argv[4]->arg, NULL, NULL);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4_any = 4;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, 
+				  argv[idx_permit_deny]->arg, argv[idx_ipv4_any]->arg, NULL, NULL);
 }
 
 DEFUN (ip_prefix_list_ge,
@@ -1431,8 +1434,12 @@ DEFUN (ip_prefix_list_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, NULL, argv[3]->arg, 
-				 argv[4]->arg, argv[6]->arg, NULL);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4_prefixlen = 4;
+  int idx_number = 6;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg, 
+				 argv[idx_ipv4_prefixlen]->arg, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (ip_prefix_list_ge_le,
@@ -1449,8 +1456,13 @@ DEFUN (ip_prefix_list_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, NULL, argv[3]->arg, 
-				  argv[4]->arg, argv[6]->arg, argv[8]->arg);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4_prefixlen = 4;
+  int idx_number = 6;
+  int idx_number_2 = 8;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg, 
+				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (ip_prefix_list_le,
@@ -1465,8 +1477,12 @@ DEFUN (ip_prefix_list_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, NULL, argv[3]->arg,
-				  argv[4]->arg, NULL, argv[6]->arg);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4_prefixlen = 4;
+  int idx_number = 6;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_number]->arg);
 }
 
 DEFUN (ip_prefix_list_le_ge,
@@ -1483,8 +1499,13 @@ DEFUN (ip_prefix_list_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, NULL, argv[3]->arg,
-				  argv[4]->arg, argv[8]->arg, argv[6]->arg);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv4_prefixlen = 4;
+  int idx_number = 6;
+  int idx_number_2 = 8;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number]->arg);
 }
 
 DEFUN (ip_prefix_list_seq,
@@ -1500,8 +1521,12 @@ DEFUN (ip_prefix_list_seq,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Any prefix match. Same as \"0.0.0.0/0 le 32\"\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, NULL, NULL);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv4_any = 6;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv4_any]->arg, NULL, NULL);
 }
 
 DEFUN (ip_prefix_list_seq_ge,
@@ -1518,8 +1543,13 @@ DEFUN (ip_prefix_list_seq_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, argv[8]->arg, NULL);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv4_prefixlen = 6;
+  int idx_number_2 = 8;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, NULL);
 }
 
 DEFUN (ip_prefix_list_seq_ge_le,
@@ -1538,8 +1568,14 @@ DEFUN (ip_prefix_list_seq_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, argv[8]->arg, argv[10]->arg);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv4_prefixlen = 6;
+  int idx_number_2 = 8;
+  int idx_number_3 = 10;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg);
 }
 
 DEFUN (ip_prefix_list_seq_le,
@@ -1556,8 +1592,13 @@ DEFUN (ip_prefix_list_seq_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, NULL, argv[8]->arg);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv4_prefixlen = 6;
+  int idx_number_2 = 8;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_number_2]->arg);
 }
 
 DEFUN (ip_prefix_list_seq_le_ge,
@@ -1576,8 +1617,14 @@ DEFUN (ip_prefix_list_seq_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, argv[10]->arg, argv[8]->arg);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv4_prefixlen = 6;
+  int idx_number_2 = 8;
+  int idx_number_3 = 10;
+  return vty_prefix_list_install (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv4_prefixlen]->arg, argv[idx_number_3]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (no_ip_prefix_list,
@@ -1588,7 +1635,8 @@ DEFUN (no_ip_prefix_list,
        PREFIX_LIST_STR
        "Name of a prefix list\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, NULL, NULL,
+  int idx_word = 3;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, NULL,
 				    NULL, NULL, NULL);
 }
 
@@ -1604,8 +1652,11 @@ DEFUN (no_ip_prefix_list_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Any prefix match.  Same as \"0.0.0.0/0 le 32\"\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, NULL, NULL);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv4_any = 5;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_any]->arg, NULL, NULL);
 }
 
 DEFUN (no_ip_prefix_list_ge,
@@ -1621,8 +1672,12 @@ DEFUN (no_ip_prefix_list_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, argv[7]->arg, NULL);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv4_prefixlen = 5;
+  int idx_number = 7;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (no_ip_prefix_list_ge_le,
@@ -1640,8 +1695,13 @@ DEFUN (no_ip_prefix_list_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, argv[7]->arg, argv[9]->arg);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv4_prefixlen = 5;
+  int idx_number = 7;
+  int idx_number_2 = 9;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (no_ip_prefix_list_le,
@@ -1657,8 +1717,12 @@ DEFUN (no_ip_prefix_list_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, NULL, argv[7]->arg);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv4_prefixlen = 5;
+  int idx_number = 7;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_number]->arg);
 }
 
 DEFUN (no_ip_prefix_list_le_ge,
@@ -1676,8 +1740,13 @@ DEFUN (no_ip_prefix_list_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, argv[9]->arg, argv[7]->arg);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv4_prefixlen = 5;
+  int idx_number = 7;
+  int idx_number_2 = 9;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number]->arg);
 }
 
 DEFUN (no_ip_prefix_list_seq,
@@ -1694,8 +1763,12 @@ DEFUN (no_ip_prefix_list_seq,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Any prefix match.  Same as \"0.0.0.0/0 le 32\"\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, NULL, NULL);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv4_any = 7;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_any]->arg, NULL, NULL);
 }
 
 DEFUN (no_ip_prefix_list_seq_ge,
@@ -1713,8 +1786,13 @@ DEFUN (no_ip_prefix_list_seq_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, argv[9]->arg, NULL);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv4_prefixlen = 7;
+  int idx_number_2 = 9;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, NULL);
 }
 
 DEFUN (no_ip_prefix_list_seq_ge_le,
@@ -1734,8 +1812,14 @@ DEFUN (no_ip_prefix_list_seq_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, argv[9]->arg, argv[11]->arg);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv4_prefixlen = 7;
+  int idx_number_2 = 9;
+  int idx_number_3 = 11;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg);
 }
 
 DEFUN (no_ip_prefix_list_seq_le,
@@ -1753,8 +1837,13 @@ DEFUN (no_ip_prefix_list_seq_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, NULL, argv[9]->arg);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv4_prefixlen = 7;
+  int idx_number_2 = 9;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_number_2]->arg);
 }
 
 DEFUN (no_ip_prefix_list_seq_le_ge,
@@ -1774,8 +1863,14 @@ DEFUN (no_ip_prefix_list_seq_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, argv[11]->arg, argv[9]->arg);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv4_prefixlen = 7;
+  int idx_number_2 = 9;
+  int idx_number_3 = 11;
+  return vty_prefix_list_uninstall (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv4_prefixlen]->arg, argv[idx_number_3]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (ip_prefix_list_sequence_number,
@@ -1810,9 +1905,10 @@ DEFUN (ip_prefix_list_description,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
+  int idx_word = 2;
   struct prefix_list *plist;
 
-  plist = prefix_list_get (AFI_IP, 0, argv[2]->arg);
+  plist = prefix_list_get (AFI_IP, 0, argv[idx_word]->arg);
   
   if (plist->desc)
     {
@@ -1822,7 +1918,7 @@ DEFUN (ip_prefix_list_description,
   plist->desc = argv_concat(argv, argc, 1);
 
   return CMD_SUCCESS;
-}       
+}
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
@@ -1844,7 +1940,8 @@ DEFUN (no_ip_prefix_list_description,
        "Name of a prefix list\n"
        "Prefix-list specific description\n")
 {
-  return vty_prefix_list_desc_unset (vty, AFI_IP, argv[3]->arg);
+  int idx_word = 3;
+  return vty_prefix_list_desc_unset (vty, AFI_IP, argv[idx_word]->arg);
 }
 
 
@@ -1866,7 +1963,8 @@ DEFUN (show_ip_prefix_list_name,
        PREFIX_LIST_STR
        "Name of a prefix list\n")
 {
-  return vty_show_prefix_list (vty, AFI_IP, argv[3]->arg, NULL, normal_display);
+  int idx_word = 3;
+  return vty_show_prefix_list (vty, AFI_IP, argv[idx_word]->arg, NULL, normal_display);
 }
 
 DEFUN (show_ip_prefix_list_name_seq,
@@ -1879,7 +1977,9 @@ DEFUN (show_ip_prefix_list_name_seq,
        "sequence number of an entry\n"
        "Sequence number\n")
 {
-  return vty_show_prefix_list (vty, AFI_IP, argv[3]->arg, argv[5]->arg, sequential_display);
+  int idx_word = 3;
+  int idx_number = 5;
+  return vty_show_prefix_list (vty, AFI_IP, argv[idx_word]->arg, argv[idx_number]->arg, sequential_display);
 }
 
 DEFUN (show_ip_prefix_list_prefix,
@@ -1891,7 +1991,9 @@ DEFUN (show_ip_prefix_list_prefix,
        "Name of a prefix list\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  return vty_show_prefix_list_prefix (vty, AFI_IP, argv[3]->arg, argv[4]->arg, normal_display);
+  int idx_word = 3;
+  int idx_ipv4_prefixlen = 4;
+  return vty_show_prefix_list_prefix (vty, AFI_IP, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg, normal_display);
 }
 
 DEFUN (show_ip_prefix_list_prefix_longer,
@@ -1904,7 +2006,9 @@ DEFUN (show_ip_prefix_list_prefix_longer,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Lookup longer prefix\n")
 {
-  return vty_show_prefix_list_prefix (vty, AFI_IP, argv[3]->arg, argv[4]->arg, longer_display);
+  int idx_word = 3;
+  int idx_ipv4_prefixlen = 4;
+  return vty_show_prefix_list_prefix (vty, AFI_IP, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg, longer_display);
 }
 
 DEFUN (show_ip_prefix_list_prefix_first_match,
@@ -1917,7 +2021,9 @@ DEFUN (show_ip_prefix_list_prefix_first_match,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "First matched prefix\n")
 {
-  return vty_show_prefix_list_prefix (vty, AFI_IP, argv[3]->arg, argv[4]->arg, first_match_display);
+  int idx_word = 3;
+  int idx_ipv4_prefixlen = 4;
+  return vty_show_prefix_list_prefix (vty, AFI_IP, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg, first_match_display);
 }
 
 DEFUN (show_ip_prefix_list_summary,
@@ -1940,7 +2046,8 @@ DEFUN (show_ip_prefix_list_summary_name,
        "Summary of prefix lists\n"
        "Name of a prefix list\n")
 {
-  return vty_show_prefix_list (vty, AFI_IP, argv[4]->arg, NULL, summary_display);
+  int idx_word = 4;
+  return vty_show_prefix_list (vty, AFI_IP, argv[idx_word]->arg, NULL, summary_display);
 }
 
 
@@ -1964,7 +2071,8 @@ DEFUN (show_ip_prefix_list_detail_name,
        "Detail of prefix lists\n"
        "Name of a prefix list\n")
 {
-  return vty_show_prefix_list (vty, AFI_IP, argv[4]->arg, NULL, detail_display);
+  int idx_word = 4;
+  return vty_show_prefix_list (vty, AFI_IP, argv[idx_word]->arg, NULL, detail_display);
 }
 
 DEFUN (clear_ip_prefix_list,
@@ -1985,7 +2093,8 @@ DEFUN (clear_ip_prefix_list_name,
        PREFIX_LIST_STR
        "Name of a prefix list\n")
 {
-  return vty_clear_prefix_list (vty, AFI_IP, argv[3]->arg, NULL);
+  int idx_word = 3;
+  return vty_clear_prefix_list (vty, AFI_IP, argv[idx_word]->arg, NULL);
 }
 
 DEFUN (clear_ip_prefix_list_name_prefix,
@@ -1997,7 +2106,9 @@ DEFUN (clear_ip_prefix_list_name_prefix,
        "Name of a prefix list\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  return vty_clear_prefix_list (vty, AFI_IP, argv[3]->arg, argv[4]->arg);
+  int idx_word = 3;
+  int idx_ipv4_prefixlen = 4;
+  return vty_clear_prefix_list (vty, AFI_IP, argv[idx_word]->arg, argv[idx_ipv4_prefixlen]->arg);
 }
 
 #ifdef HAVE_IPV6
@@ -2012,8 +2123,11 @@ DEFUN (ipv6_prefix_list,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Any prefix match.  Same as \"::0/0 le 128\"\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, NULL, 
-				  argv[3]->arg, argv[4]->arg, NULL, NULL);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv6_any = 4;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, NULL, 
+				  argv[idx_permit_deny]->arg, argv[idx_ipv6_any]->arg, NULL, NULL);
 }
 
 DEFUN (ipv6_prefix_list_ge,
@@ -2028,8 +2142,12 @@ DEFUN (ipv6_prefix_list_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, NULL, argv[3]->arg, 
-				 argv[4]->arg, argv[6]->arg, NULL);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv6_prefixlen = 4;
+  int idx_number = 6;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg, 
+				 argv[idx_ipv6_prefixlen]->arg, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (ipv6_prefix_list_ge_le,
@@ -2047,8 +2165,13 @@ DEFUN (ipv6_prefix_list_ge_le,
        "Maximum prefix length\n")
 
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, NULL, argv[3]->arg, 
-				  argv[4]->arg, argv[6]->arg, argv[8]->arg);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv6_prefixlen = 4;
+  int idx_number = 6;
+  int idx_number_2 = 8;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg, 
+				  argv[idx_ipv6_prefixlen]->arg, argv[idx_number]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (ipv6_prefix_list_le,
@@ -2063,8 +2186,12 @@ DEFUN (ipv6_prefix_list_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, NULL, argv[3]->arg,
-				  argv[4]->arg, NULL, argv[6]->arg);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv6_prefixlen = 4;
+  int idx_number = 6;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv6_prefixlen]->arg, NULL, argv[idx_number]->arg);
 }
 
 DEFUN (ipv6_prefix_list_le_ge,
@@ -2081,8 +2208,13 @@ DEFUN (ipv6_prefix_list_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, NULL, argv[3]->arg,
-				  argv[4]->arg, argv[8]->arg, argv[6]->arg);
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_ipv6_prefixlen = 4;
+  int idx_number = 6;
+  int idx_number_2 = 8;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv6_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number]->arg);
 }
 
 DEFUN (ipv6_prefix_list_seq,
@@ -2098,8 +2230,12 @@ DEFUN (ipv6_prefix_list_seq,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Any prefix match.  Same as \"::0/0 le 128\"\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, NULL, NULL);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv6_any = 6;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv6_any]->arg, NULL, NULL);
 }
 
 DEFUN (ipv6_prefix_list_seq_ge,
@@ -2116,8 +2252,13 @@ DEFUN (ipv6_prefix_list_seq_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, argv[8]->arg, NULL);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv6_prefixlen = 6;
+  int idx_number_2 = 8;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv6_prefixlen]->arg, argv[idx_number_2]->arg, NULL);
 }
 
 DEFUN (ipv6_prefix_list_seq_ge_le,
@@ -2136,8 +2277,14 @@ DEFUN (ipv6_prefix_list_seq_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, argv[8]->arg, argv[10]->arg);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv6_prefixlen = 6;
+  int idx_number_2 = 8;
+  int idx_number_3 = 10;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv6_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg);
 }
 
 DEFUN (ipv6_prefix_list_seq_le,
@@ -2154,8 +2301,13 @@ DEFUN (ipv6_prefix_list_seq_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, NULL, argv[8]->arg);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv6_prefixlen = 6;
+  int idx_number_2 = 8;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv6_prefixlen]->arg, NULL, argv[idx_number_2]->arg);
 }
 
 DEFUN (ipv6_prefix_list_seq_le_ge,
@@ -2174,8 +2326,14 @@ DEFUN (ipv6_prefix_list_seq_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_install (vty, AFI_IP6, argv[2]->arg, argv[4]->arg, argv[5]->arg,
-				  argv[6]->arg, argv[10]->arg, argv[8]->arg);
+  int idx_word = 2;
+  int idx_number = 4;
+  int idx_permit_deny = 5;
+  int idx_ipv6_prefixlen = 6;
+  int idx_number_2 = 8;
+  int idx_number_3 = 10;
+  return vty_prefix_list_install (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				  argv[idx_ipv6_prefixlen]->arg, argv[idx_number_3]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (no_ipv6_prefix_list,
@@ -2186,7 +2344,8 @@ DEFUN (no_ipv6_prefix_list,
        PREFIX_LIST_STR
        "Name of a prefix list\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, NULL, NULL,
+  int idx_word = 3;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, NULL, NULL,
 				    NULL, NULL, NULL);
 }
 
@@ -2202,8 +2361,11 @@ DEFUN (no_ipv6_prefix_list_prefix,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Any prefix match.  Same as \"::0/0 le 128\"\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, NULL, NULL);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv6_any = 5;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_any]->arg, NULL, NULL);
 }
 
 DEFUN (no_ipv6_prefix_list_ge,
@@ -2219,8 +2381,12 @@ DEFUN (no_ipv6_prefix_list_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, argv[7]->arg, NULL);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv6_prefixlen = 5;
+  int idx_number = 7;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_prefixlen]->arg, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (no_ipv6_prefix_list_ge_le,
@@ -2238,8 +2404,13 @@ DEFUN (no_ipv6_prefix_list_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, argv[7]->arg, argv[9]->arg);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv6_prefixlen = 5;
+  int idx_number = 7;
+  int idx_number_2 = 9;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_prefixlen]->arg, argv[idx_number]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (no_ipv6_prefix_list_le,
@@ -2255,8 +2426,12 @@ DEFUN (no_ipv6_prefix_list_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, NULL, argv[7]->arg);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv6_prefixlen = 5;
+  int idx_number = 7;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_prefixlen]->arg, NULL, argv[idx_number]->arg);
 }
 
 DEFUN (no_ipv6_prefix_list_le_ge,
@@ -2274,8 +2449,13 @@ DEFUN (no_ipv6_prefix_list_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, NULL, argv[4]->arg,
-				    argv[5]->arg, argv[9]->arg, argv[7]->arg);
+  int idx_word = 3;
+  int idx_permit_deny = 4;
+  int idx_ipv6_prefixlen = 5;
+  int idx_number = 7;
+  int idx_number_2 = 9;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, NULL, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number]->arg);
 }
 
 DEFUN (no_ipv6_prefix_list_seq,
@@ -2292,8 +2472,12 @@ DEFUN (no_ipv6_prefix_list_seq,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Any prefix match.  Same as \"::0/0 le 128\"\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, NULL, NULL);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv6_any = 7;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_any]->arg, NULL, NULL);
 }
 
 DEFUN (no_ipv6_prefix_list_seq_ge,
@@ -2311,8 +2495,13 @@ DEFUN (no_ipv6_prefix_list_seq_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, argv[9]->arg, NULL);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv6_prefixlen = 7;
+  int idx_number_2 = 9;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_prefixlen]->arg, argv[idx_number_2]->arg, NULL);
 }
 
 DEFUN (no_ipv6_prefix_list_seq_ge_le,
@@ -2332,8 +2521,14 @@ DEFUN (no_ipv6_prefix_list_seq_ge_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, argv[9]->arg, argv[11]->arg);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv6_prefixlen = 7;
+  int idx_number_2 = 9;
+  int idx_number_3 = 11;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_prefixlen]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg);
 }
 
 DEFUN (no_ipv6_prefix_list_seq_le,
@@ -2351,8 +2546,13 @@ DEFUN (no_ipv6_prefix_list_seq_le,
        "Maximum prefix length to be matched\n"
        "Maximum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, NULL, argv[9]->arg);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv6_prefixlen = 7;
+  int idx_number_2 = 9;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_prefixlen]->arg, NULL, argv[idx_number_2]->arg);
 }
 
 DEFUN (no_ipv6_prefix_list_seq_le_ge,
@@ -2372,8 +2572,14 @@ DEFUN (no_ipv6_prefix_list_seq_le_ge,
        "Minimum prefix length to be matched\n"
        "Minimum prefix length\n")
 {
-  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[3]->arg, argv[5]->arg, argv[6]->arg,
-				    argv[7]->arg, argv[11]->arg, argv[9]->arg);
+  int idx_word = 3;
+  int idx_number = 5;
+  int idx_permit_deny = 6;
+  int idx_ipv6_prefixlen = 7;
+  int idx_number_2 = 9;
+  int idx_number_3 = 11;
+  return vty_prefix_list_uninstall (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, argv[idx_permit_deny]->arg,
+				    argv[idx_ipv6_prefixlen]->arg, argv[idx_number_3]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (ipv6_prefix_list_sequence_number,
@@ -2408,9 +2614,10 @@ DEFUN (ipv6_prefix_list_description,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
+  int idx_word = 2;
   struct prefix_list *plist;
 
-  plist = prefix_list_get (AFI_IP6, 0, argv[2]->arg);
+  plist = prefix_list_get (AFI_IP6, 0, argv[idx_word]->arg);
   
   if (plist->desc)
     {
@@ -2420,7 +2627,7 @@ DEFUN (ipv6_prefix_list_description,
   plist->desc = argv_concat(argv, argc, 1);
 
   return CMD_SUCCESS;
-}       
+}
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
@@ -2442,7 +2649,8 @@ DEFUN (no_ipv6_prefix_list_description,
        "Name of a prefix list\n"
        "Prefix-list specific description\n")
 {
-  return vty_prefix_list_desc_unset (vty, AFI_IP6, argv[3]->arg);
+  int idx_word = 3;
+  return vty_prefix_list_desc_unset (vty, AFI_IP6, argv[idx_word]->arg);
 }
 
 
@@ -2464,7 +2672,8 @@ DEFUN (show_ipv6_prefix_list_name,
        PREFIX_LIST_STR
        "Name of a prefix list\n")
 {
-  return vty_show_prefix_list (vty, AFI_IP6, argv[3]->arg, NULL, normal_display);
+  int idx_word = 3;
+  return vty_show_prefix_list (vty, AFI_IP6, argv[idx_word]->arg, NULL, normal_display);
 }
 
 DEFUN (show_ipv6_prefix_list_name_seq,
@@ -2477,7 +2686,9 @@ DEFUN (show_ipv6_prefix_list_name_seq,
        "sequence number of an entry\n"
        "Sequence number\n")
 {
-  return vty_show_prefix_list (vty, AFI_IP6, argv[3]->arg, argv[5]->arg, sequential_display);
+  int idx_word = 3;
+  int idx_number = 5;
+  return vty_show_prefix_list (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_number]->arg, sequential_display);
 }
 
 DEFUN (show_ipv6_prefix_list_prefix,
@@ -2489,7 +2700,9 @@ DEFUN (show_ipv6_prefix_list_prefix,
        "Name of a prefix list\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n")
 {
-  return vty_show_prefix_list_prefix (vty, AFI_IP6, argv[3]->arg, argv[4]->arg, normal_display);
+  int idx_word = 3;
+  int idx_ipv6_prefixlen = 4;
+  return vty_show_prefix_list_prefix (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, normal_display);
 }
 
 DEFUN (show_ipv6_prefix_list_prefix_longer,
@@ -2502,7 +2715,9 @@ DEFUN (show_ipv6_prefix_list_prefix_longer,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Lookup longer prefix\n")
 {
-  return vty_show_prefix_list_prefix (vty, AFI_IP6, argv[3]->arg, argv[4]->arg, longer_display);
+  int idx_word = 3;
+  int idx_ipv6_prefixlen = 4;
+  return vty_show_prefix_list_prefix (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, longer_display);
 }
 
 DEFUN (show_ipv6_prefix_list_prefix_first_match,
@@ -2515,7 +2730,9 @@ DEFUN (show_ipv6_prefix_list_prefix_first_match,
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "First matched prefix\n")
 {
-  return vty_show_prefix_list_prefix (vty, AFI_IP6, argv[3]->arg, argv[4]->arg, first_match_display);
+  int idx_word = 3;
+  int idx_ipv6_prefixlen = 4;
+  return vty_show_prefix_list_prefix (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, first_match_display);
 }
 
 DEFUN (show_ipv6_prefix_list_summary,
@@ -2538,7 +2755,8 @@ DEFUN (show_ipv6_prefix_list_summary_name,
        "Summary of prefix lists\n"
        "Name of a prefix list\n")
 {
-  return vty_show_prefix_list (vty, AFI_IP6, argv[4]->arg, NULL, summary_display);
+  int idx_word = 4;
+  return vty_show_prefix_list (vty, AFI_IP6, argv[idx_word]->arg, NULL, summary_display);
 }
 
 DEFUN (show_ipv6_prefix_list_detail,
@@ -2561,7 +2779,8 @@ DEFUN (show_ipv6_prefix_list_detail_name,
        "Detail of prefix lists\n"
        "Name of a prefix list\n")
 {
-  return vty_show_prefix_list (vty, AFI_IP6, argv[4]->arg, NULL, detail_display);
+  int idx_word = 4;
+  return vty_show_prefix_list (vty, AFI_IP6, argv[idx_word]->arg, NULL, detail_display);
 }
 
 DEFUN (clear_ipv6_prefix_list,
@@ -2582,7 +2801,8 @@ DEFUN (clear_ipv6_prefix_list_name,
        PREFIX_LIST_STR
        "Name of a prefix list\n")
 {
-  return vty_clear_prefix_list (vty, AFI_IP6, argv[3]->arg, NULL);
+  int idx_word = 3;
+  return vty_clear_prefix_list (vty, AFI_IP6, argv[idx_word]->arg, NULL);
 }
 
 DEFUN (clear_ipv6_prefix_list_name_prefix,
@@ -2594,7 +2814,9 @@ DEFUN (clear_ipv6_prefix_list_name_prefix,
        "Name of a prefix list\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n")
 {
-  return vty_clear_prefix_list (vty, AFI_IP6, argv[3]->arg, argv[4]->arg);
+  int idx_word = 3;
+  int idx_ipv6_prefixlen = 4;
+  return vty_clear_prefix_list (vty, AFI_IP6, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg);
 }
 #endif /* HAVE_IPV6 */
 

@@ -1148,6 +1148,7 @@ DEFUN (config_write,
        "Write configuration currently in memory\n"
        "Write configuration to terminal\n")
 {
+  int idx_type = 1;
   unsigned int i;
   int fd;
   struct cmd_node *node;
@@ -1159,8 +1160,8 @@ DEFUN (config_write,
   struct stat conf_stat;
 
   // if command was 'write terminal' or 'show running-config'
-  if (argc == 2 && (!strcmp(argv[1]->arg, "terminal") ||
-                    !strcmp(argv[1]->arg, "running-config")))
+  if (argc == 2 && (!strcmp(argv[idx_type]->arg, "terminal") ||
+                    !strcmp(argv[idx_type]->arg, "running-config")))
   {
     if (vty->type == VTY_SHELL_SERV)
       {
@@ -1364,6 +1365,8 @@ DEFUN (config_password,
        "Specifies a HIDDEN password will follow\n"
        "The password string\n")
 {
+  int idx_8 = 1;
+  int idx_word = 2;
   if (argc == 3) // '8' was specified
   {
     if (host.password)
@@ -1371,11 +1374,11 @@ DEFUN (config_password,
     host.password = NULL;
     if (host.password_encrypt)
       XFREE (MTYPE_HOST, host.password_encrypt);
-    host.password_encrypt = XSTRDUP (MTYPE_HOST, argv[2]->arg);
+    host.password_encrypt = XSTRDUP (MTYPE_HOST, argv[idx_word]->arg);
     return CMD_SUCCESS;
   }
 
-  if (!isalnum (argv[1]->arg[0]))
+  if (!isalnum (argv[idx_8]->arg[0]))
     {
       vty_out (vty,
                "Please specify string starting with alphanumeric%s", VTY_NEWLINE);
@@ -1390,10 +1393,10 @@ DEFUN (config_password,
     {
       if (host.password_encrypt)
         XFREE (MTYPE_HOST, host.password_encrypt);
-      host.password_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[1]->arg));
+      host.password_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[idx_8]->arg));
     }
   else
-    host.password = XSTRDUP (MTYPE_HOST, argv[1]->arg);
+    host.password = XSTRDUP (MTYPE_HOST, argv[idx_8]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1408,10 +1411,12 @@ DEFUN (config_enable_password,
        "dummy string \n"
        "The HIDDEN 'enable' password string\n")
 {
+  int idx_8 = 2;
+  int idx_word = 3;
   /* Crypt type is specified. */
   if (argc == 4)
     {
-      if (argv[2]->arg[0] == '8')
+      if (argv[idx_8]->arg[0] == '8')
         {
           if (host.enable)
             XFREE (MTYPE_HOST, host.enable);
@@ -1419,7 +1424,7 @@ DEFUN (config_enable_password,
 
           if (host.enable_encrypt)
             XFREE (MTYPE_HOST, host.enable_encrypt);
-          host.enable_encrypt = XSTRDUP (MTYPE_HOST, argv[3]->arg);
+          host.enable_encrypt = XSTRDUP (MTYPE_HOST, argv[idx_word]->arg);
 
           return CMD_SUCCESS;
         }
@@ -1430,7 +1435,7 @@ DEFUN (config_enable_password,
         }
     }
 
-  if (!isalnum (argv[2]->arg[0]))
+  if (!isalnum (argv[idx_8]->arg[0]))
     {
       vty_out (vty,
                "Please specify string starting with alphanumeric%s", VTY_NEWLINE);
@@ -1446,10 +1451,10 @@ DEFUN (config_enable_password,
     {
       if (host.enable_encrypt)
         XFREE (MTYPE_HOST, host.enable_encrypt);
-      host.enable_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[2]->arg));
+      host.enable_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[idx_8]->arg));
     }
   else
-    host.enable = XSTRDUP (MTYPE_HOST, argv[2]->arg);
+    host.enable = XSTRDUP (MTYPE_HOST, argv[idx_8]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1530,10 +1535,11 @@ DEFUN (config_terminal_length,
        "Set number of lines on a screen\n"
        "Number of lines on screen (0 for no pausing)\n")
 {
+  int idx_number = 2;
   int lines;
   char *endptr = NULL;
 
-  lines = strtol (argv[2]->arg, &endptr, 10);
+  lines = strtol (argv[idx_number]->arg, &endptr, 10);
   if (lines < 0 || lines > 512 || *endptr != '\0')
     {
       vty_out (vty, "length is malformed%s", VTY_NEWLINE);
@@ -1562,10 +1568,11 @@ DEFUN (service_terminal_length,
        "System wide terminal length configuration\n"
        "Number of lines of VTY (0 means no line control)\n")
 {
+  int idx_number = 2;
   int lines;
   char *endptr = NULL;
 
-  lines = strtol (argv[2]->arg, &endptr, 10);
+  lines = strtol (argv[idx_number]->arg, &endptr, 10);
   if (lines < 0 || lines > 512 || *endptr != '\0')
     {
       vty_out (vty, "length is malformed%s", VTY_NEWLINE);
@@ -1610,10 +1617,11 @@ DEFUN (config_logmsg,
        LOG_LEVEL_DESC
        "The message to send\n")
 {
+  int idx_log_level = 1;
   int level;
   char *message;
 
-  if ((level = level_match(argv[1]->arg)) == ZLOG_DISABLED)
+  if ((level = level_match(argv[idx_log_level]->arg)) == ZLOG_DISABLED)
     return CMD_ERR_NO_MATCH;
 
   zlog(NULL, level, "%s", ((message = argv_concat(argv, argc, 1)) ? message : ""));
@@ -1682,6 +1690,7 @@ DEFUN (config_log_stdout,
        "Set stdout logging level\n"
        LOG_LEVEL_DESC)
 {
+  int idx_log_level = 2;
   if (argc == 2)
   {
     zlog_set_level (NULL, ZLOG_DEST_STDOUT, zlog_default->default_lvl);
@@ -1689,7 +1698,7 @@ DEFUN (config_log_stdout,
   }
   int level;
 
-  if ((level = level_match(argv[2]->arg)) == ZLOG_DISABLED)
+  if ((level = level_match(argv[idx_log_level]->arg)) == ZLOG_DISABLED)
     return CMD_ERR_NO_MATCH;
   zlog_set_level (NULL, ZLOG_DEST_STDOUT, level);
   return CMD_SUCCESS;
@@ -1714,6 +1723,7 @@ DEFUN (config_log_monitor,
        "Set terminal line (monitor) logging level\n"
        LOG_LEVEL_DESC)
 {
+  int idx_log_level = 2;
   if (argc == 2)
   {
     zlog_set_level (NULL, ZLOG_DEST_MONITOR, zlog_default->default_lvl);
@@ -1721,7 +1731,7 @@ DEFUN (config_log_monitor,
   }
   int level;
 
-  if ((level = level_match(argv[2]->arg)) == ZLOG_DISABLED)
+  if ((level = level_match(argv[idx_log_level]->arg)) == ZLOG_DISABLED)
     return CMD_ERR_NO_MATCH;
   zlog_set_level (NULL, ZLOG_DEST_MONITOR, level);
   return CMD_SUCCESS;
@@ -1801,15 +1811,17 @@ DEFUN (config_log_file,
        "Logging filename\n"
        LOG_LEVEL_DESC)
 {
+  int idx_filename = 2;
+  int idx_log_levels = 3;
   if (argc == 4)
   {
     int level;
-    if ((level = level_match(argv[3]->arg)) == ZLOG_DISABLED)
+    if ((level = level_match(argv[idx_log_levels]->arg)) == ZLOG_DISABLED)
       return CMD_ERR_NO_MATCH;
-    return set_log_file(vty, argv[2]->arg, level);
+    return set_log_file(vty, argv[idx_filename]->arg, level);
   }
   else
-    return set_log_file(vty, argv[2]->arg, zlog_default->default_lvl);
+    return set_log_file(vty, argv[idx_filename]->arg, zlog_default->default_lvl);
 }
 
 DEFUN (no_config_log_file,
@@ -1839,10 +1851,11 @@ DEFUN (config_log_syslog,
        "Set syslog logging level\n"
        LOG_LEVEL_DESC)
 {
+  int idx_log_levels = 2;
   if (argc == 3)
   {
     int level;
-    if ((level = level_match (argv[2]->arg)) == ZLOG_DISABLED)
+    if ((level = level_match (argv[idx_log_levels]->arg)) == ZLOG_DISABLED)
       return CMD_ERR_NO_MATCH;
     zlog_set_level (NULL, ZLOG_DEST_SYSLOG, level);
     return CMD_SUCCESS;
@@ -1889,7 +1902,8 @@ DEFUN (config_log_facility,
        "Facility parameter for syslog messages\n"
        LOG_FACILITY_DESC)
 {
-  int facility = facility_match(argv[2]->arg);
+  int idx_target = 2;
+  int facility = facility_match(argv[idx_target]->arg);
 
   zlog_default->facility = facility;
   return CMD_SUCCESS;
@@ -1968,8 +1982,9 @@ DEFUN (config_log_timestamp_precision,
        "Set the timestamp precision\n"
        "Number of subsecond digits\n")
 {
+  int idx_number = 3;
   VTY_GET_INTEGER_RANGE("Timestamp Precision",
-                        zlog_default->timestamp_precision, argv[3]->arg, 0, 6);
+                        zlog_default->timestamp_precision, argv[idx_number]->arg, 0, 6);
   return CMD_SUCCESS;
 }
 
@@ -2017,7 +2032,8 @@ DEFUN (banner_motd_file,
        "Banner from a file\n"
        "Filename\n")
 {
-  const char *filename = argv[3]->arg;
+  int idx_file = 3;
+  const char *filename = argv[idx_file]->arg;
   int cmd = cmd_banner_motd_file (filename);
 
   if (cmd == CMD_ERR_NO_FILE)

@@ -1406,12 +1406,15 @@ DEFUN (route_map,
        "Route map permits set operations\n"
        "Sequence to insert to/delete from existing route-map entry\n")
 {
+  int idx_word = 1;
+  int idx_permit_deny = 2;
+  int idx_number = 3;
   struct route_map *map;
   struct route_map_index *index;
   char *endptr = NULL;
-  int permit = argv[2]->arg[0] == 'p' ? RMAP_PERMIT : RMAP_DENY;
-  unsigned long pref = strtoul (argv[3]->arg, &endptr, 10);
-  const char *mapname = argv[1]->arg;
+  int permit = argv[idx_permit_deny]->arg[0] == 'p' ? RMAP_PERMIT : RMAP_DENY;
+  unsigned long pref = strtoul (argv[idx_number]->arg, &endptr, 10);
+  const char *mapname = argv[idx_word]->arg;
 
   /* Get route map. */
   map = route_map_get (mapname);
@@ -1429,7 +1432,8 @@ DEFUN (no_route_map_all,
        "Create route-map or enter route-map command mode\n"
        "Route map tag\n")
 {
-  const char *mapname = argv[2]->arg;
+  int idx_word = 2;
+  const char *mapname = argv[idx_word]->arg;
   struct route_map *map;
 
   map = route_map_lookup_by_name (mapname);
@@ -1454,12 +1458,15 @@ DEFUN (no_route_map,
        "Route map permits set operations\n"
        "Sequence to insert to/delete from existing route-map entry\n")
 {
+  int idx_word = 2;
+  int idx_permit_deny = 3;
+  int idx_number = 4;
   struct route_map *map;
   struct route_map_index *index;
   char *endptr = NULL;
-  int permit = argv[3]->arg[0] == 'p' ? RMAP_PERMIT : RMAP_DENY;
-  const char *prefstr = argv[4]->arg;
-  const char *mapname = argv[2]->arg;
+  int permit = argv[idx_permit_deny]->arg[0] == 'p' ? RMAP_PERMIT : RMAP_DENY;
+  const char *prefstr = argv[idx_number]->arg;
+  const char *mapname = argv[idx_word]->arg;
   unsigned long pref = strtoul (prefstr, &endptr, 10);
 
   /* Existence check. */
@@ -1537,11 +1544,12 @@ DEFUN (rmap_onmatch_goto,
        "Goto Clause number\n"
        "Number\n")
 {
+  int idx_number = 2;
   char *num = NULL;
   if (!strcmp (argv[0]->text, "continue"))
     num = argv[1]->arg;
   else
-    num = argv[2]->arg;
+    num = argv[idx_number]->arg;
 
   struct route_map_index *index = vty->index;
   int d = 0;
@@ -1623,7 +1631,8 @@ DEFUN (rmap_show_name,
        "route-map information\n"
        "route-map name\n")
 {
-    const char *name = (argc == 3) ? argv[2]->arg : NULL;
+  int idx_word = 2;
+    const char *name = (argc == 3) ? argv[idx_word]->arg : NULL;
     return vty_show_route_map (vty, name);
 }
 
@@ -1633,8 +1642,9 @@ DEFUN (rmap_call,
        "Jump to another Route-Map after match+set\n"
        "Target route-map name\n")
 {
+  int idx_word = 1;
   struct route_map_index *index;
-  const char *rmap = argv[1]->arg;
+  const char *rmap = argv[idx_word]->arg;
 
   index = vty->index;
   if (index)

@@ -755,7 +755,8 @@ DEFUN (interface,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 {
-  const char *ifname = argv[1]->arg;
+  int idx_ifname = 1;
+  const char *ifname = argv[idx_ifname]->arg;
   const char *vrfname = (argc > 2) ? argv[3]->arg : NULL;
 
   struct interface *ifp;
@@ -836,7 +837,8 @@ DEFUN (vrf,
        "Select a VRF to configure\n"
        "VRF's name\n")
 {
-  const char *vrfname = argv[1]->arg;
+  int idx_name = 1;
+  const char *vrfname = argv[idx_name]->arg;
 
   struct vrf *vrfp;
   size_t sl;
@@ -897,6 +899,7 @@ DEFUN (show_address,
        "address\n"
        VRF_CMD_HELP_STR)
 {
+  int idx_vrf_cmd_str = 2;
   struct listnode *node;
   struct listnode *node2;
   struct interface *ifp;
@@ -905,7 +908,7 @@ DEFUN (show_address,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 2)
-    VRF_GET_ID (vrf_id, argv[2]->arg);
+    VRF_GET_ID (vrf_id, argv[idx_vrf_cmd_str]->arg);
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
     {

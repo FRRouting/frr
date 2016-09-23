@@ -1370,7 +1370,8 @@ DEFUN (smux_peer,
        "SNMP MUX peer settings\n"
        "Object ID used in SMUX peering\n")
 {
-  if (smux_peer_oid (vty, argv[2]->arg, NULL) == 0)
+  int idx_oid = 2;
+  if (smux_peer_oid (vty, argv[idx_oid]->arg, NULL) == 0)
     {
       smux_start();
       return CMD_SUCCESS;
@@ -1387,7 +1388,8 @@ DEFUN (smux_peer_password,
        "SMUX peering object ID\n"
        "SMUX peering password\n")
 {
-  if (smux_peer_oid (vty, argv[2]->arg, argv[3]->rg) == 0)
+  int idx_oid = 2;
+  if (smux_peer_oid (vty, argv[idx_oid]->arg, argv[3]->rg) == 0)
     {
       smux_start();
       return CMD_SUCCESS;

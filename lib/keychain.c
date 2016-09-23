@@ -237,9 +237,10 @@ DEFUN (key_chain,
        "Key-chain management\n"
        "Key-chain name\n")
 {
+  int idx_word = 2;
   struct keychain *keychain;
 
-  keychain = keychain_get (argv[2]->arg);
+  keychain = keychain_get (argv[idx_word]->arg);
   vty->index = keychain;
   vty->node = KEYCHAIN_NODE;
 
@@ -254,13 +255,14 @@ DEFUN (no_key_chain,
        "Key-chain management\n"
        "Key-chain name\n")
 {
+  int idx_word = 3;
   struct keychain *keychain;
 
-  keychain = keychain_lookup (argv[3]->arg);
+  keychain = keychain_lookup (argv[idx_word]->arg);
 
   if (! keychain)
     {
-      vty_out (vty, "Can't find keychain %s%s", argv[3]->arg, VTY_NEWLINE);
+      vty_out (vty, "Can't find keychain %s%s", argv[idx_word]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -275,13 +277,14 @@ DEFUN (key,
        "Configure a key\n"
        "Key identifier number\n")
 {
+  int idx_number = 1;
   struct keychain *keychain;
   struct key *key;
   u_int32_t index;
 
   keychain = vty->index;
 
-  VTY_GET_INTEGER ("key identifier", index, argv[1]->arg);
+  VTY_GET_INTEGER ("key identifier", index, argv[idx_number]->arg);
   key = key_get (keychain, index);
   vty->index_sub = key;
   vty->node = KEYCHAIN_KEY_NODE;
@@ -296,13 +299,14 @@ DEFUN (no_key,
        "Delete a key\n"
        "Key identifier number\n")
 {
+  int idx_number = 2;
   struct keychain *keychain;
   struct key *key;
   u_int32_t index;
   
   keychain = vty->index;
 
-  VTY_GET_INTEGER ("key identifier", index, argv[2]->arg);
+  VTY_GET_INTEGER ("key identifier", index, argv[idx_number]->arg);
   key = key_lookup (keychain, index);
   if (! key)
     {
@@ -323,13 +327,14 @@ DEFUN (key_string,
        "Set key string\n"
        "The key\n")
 {
+  int idx_line = 1;
   struct key *key;
 
   key = vty->index_sub;
 
   if (key->string)
     XFREE(MTYPE_KEY, key->string);
-  key->string = XSTRDUP(MTYPE_KEY, argv[1]->arg);
+  key->string = XSTRDUP(MTYPE_KEY, argv[idx_line]->arg);
 
   return CMD_SUCCESS;
 }
@@ -552,12 +557,20 @@ DEFUN (accept_lifetime_day_month_day_month,
        "Month of the year to expire\n"
        "Year to expire\n")
 {
+  int idx_hhmmss = 1;
+  int idx_number = 2;
+  int idx_month = 3;
+  int idx_number_2 = 4;
+  int idx_hhmmss_2 = 5;
+  int idx_number_3 = 6;
+  int idx_month_2 = 7;
+  int idx_number_4 = 8;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->accept, argv[1]->arg, argv[2]->arg, argv[3]->arg,
-			   argv[4]->arg, argv[5]->arg, argv[6]->arg, argv[7]->arg, argv[8]->arg);
+  return key_lifetime_set (vty, &key->accept, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg,
+			   argv[idx_number_2]->arg, argv[idx_hhmmss_2]->arg, argv[idx_number_3]->arg, argv[idx_month_2]->arg, argv[idx_number_4]->arg);
 }
 
 DEFUN (accept_lifetime_day_month_month_day,
@@ -573,12 +586,20 @@ DEFUN (accept_lifetime_day_month_month_day,
        "Day of th month to expire\n"
        "Year to expire\n")
 {
+  int idx_hhmmss = 1;
+  int idx_number = 2;
+  int idx_month = 3;
+  int idx_number_2 = 4;
+  int idx_hhmmss_2 = 5;
+  int idx_month_2 = 6;
+  int idx_number_3 = 7;
+  int idx_number_4 = 8;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->accept, argv[1]->arg, argv[2]->arg, argv[3]->arg,
-			   argv[4]->arg, argv[5]->arg, argv[7]->arg, argv[6]->arg, argv[8]->arg);
+  return key_lifetime_set (vty, &key->accept, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg,
+			   argv[idx_number_2]->arg, argv[idx_hhmmss_2]->arg, argv[idx_number_3]->arg, argv[idx_month_2]->arg, argv[idx_number_4]->arg);
 }
 
 DEFUN (accept_lifetime_month_day_day_month,
@@ -594,12 +615,20 @@ DEFUN (accept_lifetime_month_day_day_month,
        "Month of the year to expire\n"
        "Year to expire\n")
 {
+  int idx_hhmmss = 1;
+  int idx_month = 2;
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_hhmmss_2 = 5;
+  int idx_number_3 = 6;
+  int idx_month_2 = 7;
+  int idx_number_4 = 8;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->accept, argv[1]->arg, argv[3]->arg, argv[2]->arg,
-			   argv[4]->arg, argv[5]->arg, argv[6]->arg, argv[7]->arg, argv[8]->arg);
+  return key_lifetime_set (vty, &key->accept, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg,
+			   argv[idx_number_2]->arg, argv[idx_hhmmss_2]->arg, argv[idx_number_3]->arg, argv[idx_month_2]->arg, argv[idx_number_4]->arg);
 }
 
 DEFUN (accept_lifetime_month_day_month_day,
@@ -615,12 +644,20 @@ DEFUN (accept_lifetime_month_day_month_day,
        "Day of th month to expire\n"
        "Year to expire\n")
 {
+  int idx_hhmmss = 1;
+  int idx_month = 2;
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_hhmmss_2 = 5;
+  int idx_month_2 = 6;
+  int idx_number_3 = 7;
+  int idx_number_4 = 8;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->accept, argv[1]->arg, argv[3]->arg, argv[2]->arg,
-			   argv[4]->arg, argv[5]->arg, argv[7]->arg, argv[6]->arg, argv[8]->arg);
+  return key_lifetime_set (vty, &key->accept, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg,
+			   argv[idx_number_2]->arg, argv[idx_hhmmss_2]->arg, argv[idx_number_3]->arg, argv[idx_month_2]->arg, argv[idx_number_4]->arg);
 }
 
 DEFUN (accept_lifetime_infinite_day_month,
@@ -633,12 +670,16 @@ DEFUN (accept_lifetime_infinite_day_month,
        "Year to start\n"
        "Never expires")
 {
+  int idx_hhmmss = 1;
+  int idx_number = 2;
+  int idx_month = 3;
+  int idx_number_2 = 4;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_infinite_set (vty, &key->accept, argv[1]->arg, argv[2]->arg,
-				    argv[3]->arg, argv[4]->arg);
+  return key_lifetime_infinite_set (vty, &key->accept, argv[idx_hhmmss]->arg, argv[idx_number]->arg,
+				    argv[idx_month]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (accept_lifetime_infinite_month_day,
@@ -651,12 +692,16 @@ DEFUN (accept_lifetime_infinite_month_day,
        "Year to start\n"
        "Never expires")
 {
+  int idx_hhmmss = 1;
+  int idx_month = 2;
+  int idx_number = 3;
+  int idx_number_2 = 4;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_infinite_set (vty, &key->accept, argv[1]->arg, argv[3]->arg,
-				    argv[2]->arg, argv[4]->arg);
+  return key_lifetime_infinite_set (vty, &key->accept, argv[idx_hhmmss]->arg, argv[idx_number]->arg,
+				    argv[idx_month]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (accept_lifetime_duration_day_month,
@@ -670,12 +715,17 @@ DEFUN (accept_lifetime_duration_day_month,
        "Duration of the key\n"
        "Duration seconds\n")
 {
+  int idx_hhmmss = 1;
+  int idx_number = 2;
+  int idx_month = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 6;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_duration_set (vty, &key->accept, argv[1]->arg, argv[2]->arg,
-				    argv[3]->arg, argv[4]->arg, argv[6]->arg);
+  return key_lifetime_duration_set (vty, &key->accept, argv[idx_hhmmss]->arg, argv[idx_number]->arg,
+				    argv[idx_month]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg);
 }
 
 DEFUN (accept_lifetime_duration_month_day,
@@ -689,12 +739,17 @@ DEFUN (accept_lifetime_duration_month_day,
        "Duration of the key\n"
        "Duration seconds\n")
 {
+  int idx_hhmmss = 1;
+  int idx_month = 2;
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 6;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_duration_set (vty, &key->accept, argv[1]->arg, argv[3]->arg,
-				    argv[2]->arg, argv[4]->arg, argv[6]->arg);
+  return key_lifetime_duration_set (vty, &key->accept, argv[idx_hhmmss]->arg, argv[idx_number]->arg,
+				    argv[idx_month]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg);
 }
 
 DEFUN (send_lifetime_day_month_day_month,
@@ -710,12 +765,20 @@ DEFUN (send_lifetime_day_month_day_month,
        "Month of the year to expire\n"
        "Year to expire\n")
 {
+  int idx_hhmmss = 1;
+  int idx_number = 2;
+  int idx_month = 3;
+  int idx_number_2 = 4;
+  int idx_hhmmss_2 = 5;
+  int idx_number_3 = 6;
+  int idx_month_2 = 7;
+  int idx_number_4 = 8;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->send, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,
-			   argv[5]->arg, argv[6]->arg, argv[7]->arg, argv[8]->arg);
+  return key_lifetime_set (vty, &key->send, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg, argv[idx_number_2]->arg,
+			   argv[idx_hhmmss_2]->arg, argv[idx_number_3]->arg, argv[idx_month_2]->arg, argv[idx_number_4]->arg);
 }
 
 DEFUN (send_lifetime_day_month_month_day,
@@ -731,12 +794,20 @@ DEFUN (send_lifetime_day_month_month_day,
        "Day of th month to expire\n"
        "Year to expire\n")
 {
+  int idx_hhmmss = 1;
+  int idx_number = 2;
+  int idx_month = 3;
+  int idx_number_2 = 4;
+  int idx_hhmmss_2 = 5;
+  int idx_month_2 = 6;
+  int idx_number_3 = 7;
+  int idx_number_4 = 8;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->send, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg,
-			   argv[5]->arg, argv[7]->arg, argv[6]->arg, argv[8]->arg);
+  return key_lifetime_set (vty, &key->send, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg, argv[idx_number_2]->arg,
+			   argv[idx_hhmmss_2]->arg, argv[idx_number_3]->arg, argv[idx_month_2]->arg, argv[idx_number_4]->arg);
 }
 
 DEFUN (send_lifetime_month_day_day_month,
@@ -752,12 +823,20 @@ DEFUN (send_lifetime_month_day_day_month,
        "Month of the year to expire\n"
        "Year to expire\n")
 {
+  int idx_hhmmss = 1;
+  int idx_month = 2;
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_hhmmss_2 = 5;
+  int idx_number_3 = 6;
+  int idx_month_2 = 7;
+  int idx_number_4 = 8;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->send, argv[1]->arg, argv[3]->arg, argv[2]->arg, argv[4]->arg,
-			   argv[5]->arg, argv[6]->arg, argv[7]->arg, argv[8]->arg);
+  return key_lifetime_set (vty, &key->send, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg, argv[idx_number_2]->arg,
+			   argv[idx_hhmmss_2]->arg, argv[idx_number_3]->arg, argv[idx_month_2]->arg, argv[idx_number_4]->arg);
 }
 
 DEFUN (send_lifetime_month_day_month_day,
@@ -773,12 +852,20 @@ DEFUN (send_lifetime_month_day_month_day,
        "Day of th month to expire\n"
        "Year to expire\n")
 {
+  int idx_hhmmss = 1;
+  int idx_month = 2;
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_hhmmss_2 = 5;
+  int idx_month_2 = 6;
+  int idx_number_3 = 7;
+  int idx_number_4 = 8;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_set (vty, &key->send, argv[1]->arg, argv[3]->arg, argv[2]->arg, argv[4]->arg,
-			   argv[5]->arg, argv[7]->arg, argv[6]->arg, argv[8]->arg);
+  return key_lifetime_set (vty, &key->send, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg, argv[idx_number_2]->arg,
+			   argv[idx_hhmmss_2]->arg, argv[idx_number_3]->arg, argv[idx_month_2]->arg, argv[idx_number_4]->arg);
 }
 
 DEFUN (send_lifetime_infinite_day_month,
@@ -791,12 +878,16 @@ DEFUN (send_lifetime_infinite_day_month,
        "Year to start\n"
        "Never expires")
 {
+  int idx_hhmmss = 1;
+  int idx_number = 2;
+  int idx_month = 3;
+  int idx_number_2 = 4;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_infinite_set (vty, &key->send, argv[1]->arg, argv[2]->arg, argv[3]->arg,
-				    argv[4]->arg);
+  return key_lifetime_infinite_set (vty, &key->send, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg,
+				    argv[idx_number_2]->arg);
 }
 
 DEFUN (send_lifetime_infinite_month_day,
@@ -809,12 +900,16 @@ DEFUN (send_lifetime_infinite_month_day,
        "Year to start\n"
        "Never expires")
 {
+  int idx_hhmmss = 1;
+  int idx_month = 2;
+  int idx_number = 3;
+  int idx_number_2 = 4;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_infinite_set (vty, &key->send, argv[1]->arg, argv[3]->arg, argv[2]->arg,
-				    argv[4]->arg);
+  return key_lifetime_infinite_set (vty, &key->send, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg,
+				    argv[idx_number_2]->arg);
 }
 
 DEFUN (send_lifetime_duration_day_month,
@@ -828,12 +923,17 @@ DEFUN (send_lifetime_duration_day_month,
        "Duration of the key\n"
        "Duration seconds\n")
 {
+  int idx_hhmmss = 1;
+  int idx_number = 2;
+  int idx_month = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 6;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_duration_set (vty, &key->send, argv[1]->arg, argv[2]->arg, argv[3]->arg,
-				    argv[4]->arg, argv[6]->arg);
+  return key_lifetime_duration_set (vty, &key->send, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg,
+				    argv[idx_number_2]->arg, argv[idx_number_3]->arg);
 }
 
 DEFUN (send_lifetime_duration_month_day,
@@ -847,12 +947,17 @@ DEFUN (send_lifetime_duration_month_day,
        "Duration of the key\n"
        "Duration seconds\n")
 {
+  int idx_hhmmss = 1;
+  int idx_month = 2;
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 6;
   struct key *key;
 
   key = vty->index_sub;
 
-  return key_lifetime_duration_set (vty, &key->send, argv[1]->arg, argv[3]->arg, argv[2]->arg,
-				    argv[4]->arg, argv[6]->arg);
+  return key_lifetime_duration_set (vty, &key->send, argv[idx_hhmmss]->arg, argv[idx_number]->arg, argv[idx_month]->arg,
+				    argv[idx_number_2]->arg, argv[idx_number_3]->arg);
 }
 
 static struct cmd_node keychain_node =

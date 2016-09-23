@@ -299,15 +299,16 @@ DEFUN (show_thread_cpu,
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
+  int idx_filter = 3;
   int i = 0;
   thread_type filter = (thread_type) -1U;
 
   if (argc > 3)
     {
       filter = 0;
-      while (argv[3]->arg[i] != '\0')
+      while (argv[idx_filter]->arg[i] != '\0')
 	{
-	  switch ( argv[3]->arg[i] )
+	  switch ( argv[idx_filter]->arg[i] )
 	    {
 	    case 'r':
 	    case 'R':
@@ -342,7 +343,7 @@ DEFUN (show_thread_cpu,
 	{
 	  vty_out(vty, "Invalid filter \"%s\" specified,"
                   " must contain at least one of 'RWTEXB'%s",
-		  argv[3]->arg, VTY_NEWLINE);
+		  argv[idx_filter]->arg, VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
@@ -381,15 +382,16 @@ DEFUN (clear_thread_cpu,
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
+  int idx_filter = 3;
   int i = 0;
   thread_type filter = (thread_type) -1U;
 
   if (argc > 3)
     {
       filter = 0;
-      while (argv[3]->arg[i] != '\0')
+      while (argv[idx_filter]->arg[i] != '\0')
 	{
-	  switch ( argv[3]->arg[i] )
+	  switch ( argv[idx_filter]->arg[i] )
 	    {
 	    case 'r':
 	    case 'R':
@@ -424,7 +426,7 @@ DEFUN (clear_thread_cpu,
 	{
 	  vty_out(vty, "Invalid filter \"%s\" specified,"
                   " must contain at least one of 'RWTEXB'%s",
-		  argv[3]->arg, VTY_NEWLINE);
+		  argv[idx_filter]->arg, VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }

@@ -228,11 +228,14 @@ DEFUN (if_rmap,
        "Route map set for output filtering\n"
        "Route map interface name\n")
 {
+  int idx_rmap_name = 1;
+  int idx_in_out = 2;
+  int idx_ifname = 3;
   enum if_rmap_type type;
 
-  if (strncmp (argv[2]->arg, "i", 1) == 0)
+  if (strncmp (argv[idx_in_out]->arg, "i", 1) == 0)
     type = IF_RMAP_IN;
-  else if (strncmp (argv[2]->arg, "o", 1) == 0)
+  else if (strncmp (argv[idx_in_out]->arg, "o", 1) == 0)
     type = IF_RMAP_OUT;
   else
     {
@@ -240,10 +243,10 @@ DEFUN (if_rmap,
       return CMD_WARNING;
     }
 
-  if_rmap_set (argv[3]->arg, type, argv[1]->arg);
+  if_rmap_set (argv[idx_ifname]->arg, type, argv[idx_rmap_name]->arg);
 
   return CMD_SUCCESS;
-}      
+}
 
 
 /*
@@ -267,12 +270,15 @@ DEFUN (no_if_rmap,
        "Route map for output filtering\n"
        "Route map interface name\n")
 {
+  int idx_routemap_name = 2;
+  int idx_in_out = 3;
+  int idx_ifname = 4;
   int ret;
   enum if_rmap_type type;
 
-  if (strncmp (argv[3]->arg, "i", 1) == 0)
+  if (strncmp (argv[idx_in_out]->arg, "i", 1) == 0)
     type = IF_RMAP_IN;
-  else if (strncmp (argv[3]->arg, "o", 1) == 0)
+  else if (strncmp (argv[idx_in_out]->arg, "o", 1) == 0)
     type = IF_RMAP_OUT;
   else
     {
@@ -280,14 +286,14 @@ DEFUN (no_if_rmap,
       return CMD_WARNING;
     }
 
-  ret = if_rmap_unset (argv[4]->arg, type, argv[2]->arg);
+  ret = if_rmap_unset (argv[idx_ifname]->arg, type, argv[idx_routemap_name]->arg);
   if (! ret)
     {
       vty_out (vty, "route-map doesn't exist%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
-}      
+}
 
 
 /* Configuration write function. */

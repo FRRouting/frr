@@ -2748,7 +2748,8 @@ DEFUN (exec_timeout_min,
        "Set timeout value\n"
        "Timeout value in minutes\n")
 {
-  return exec_timeout (vty, argv[1]->arg, NULL);
+  int idx_number = 1;
+  return exec_timeout (vty, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (exec_timeout_sec,
@@ -2758,7 +2759,9 @@ DEFUN (exec_timeout_sec,
        "Timeout in minutes\n"
        "Timeout in seconds\n")
 {
-  return exec_timeout (vty, argv[1]->arg, argv[2]->arg);
+  int idx_number = 1;
+  int idx_number_2 = 2;
+  return exec_timeout (vty, argv[idx_number]->arg, argv[idx_number_2]->arg);
 }
 
 DEFUN (no_exec_timeout,
@@ -2777,10 +2780,11 @@ DEFUN (vty_access_class,
        "Filter connections based on an IP access list\n"
        "IP access list\n")
 {
+  int idx_word = 1;
   if (vty_accesslist_name)
     XFREE(MTYPE_VTY, vty_accesslist_name);
 
-  vty_accesslist_name = XSTRDUP(MTYPE_VTY, argv[1]->arg);
+  vty_accesslist_name = XSTRDUP(MTYPE_VTY, argv[idx_word]->arg);
 
   return CMD_SUCCESS;
 }
@@ -2793,7 +2797,8 @@ DEFUN (no_vty_access_class,
        "Filter connections based on an IP access list\n"
        "IP access list\n")
 {
-  const char *accesslist = (argc == 3) ? argv[2]->arg : NULL;
+  int idx_word = 2;
+  const char *accesslist = (argc == 3) ? argv[idx_word]->arg : NULL;
   if (! vty_accesslist_name || (argc && strcmp(vty_accesslist_name, accesslist)))
     {
       vty_out (vty, "Access-class is not currently applied to vty%s",
@@ -2817,10 +2822,11 @@ DEFUN (vty_ipv6_access_class,
        "Filter connections based on an IP access list\n"
        "IPv6 access list\n")
 {
+  int idx_word = 2;
   if (vty_ipv6_accesslist_name)
     XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);
 
-  vty_ipv6_accesslist_name = XSTRDUP(MTYPE_VTY, argv[2]->arg);
+  vty_ipv6_accesslist_name = XSTRDUP(MTYPE_VTY, argv[idx_word]->arg);
 
   return CMD_SUCCESS;
 }
@@ -2834,7 +2840,8 @@ DEFUN (no_vty_ipv6_access_class,
        "Filter connections based on an IP access list\n"
        "IPv6 access list\n")
 {
-  const char *accesslist = (argc == 4) ? argv[3]->arg : NULL;
+  int idx_word = 3;
+  const char *accesslist = (argc == 4) ? argv[idx_word]->arg : NULL;
 
   if (! vty_ipv6_accesslist_name ||
       (argc && strcmp(vty_ipv6_accesslist_name, accesslist)))

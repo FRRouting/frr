@@ -557,14 +557,16 @@ DEFUN (ns_netns,
        "The Name Space\n"
        "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
+  int idx_number = 1;
+  int idx_name = 3;
   ns_id_t ns_id = NS_DEFAULT;
   struct ns *ns = NULL;
-  char *pathname = ns_netns_pathname (vty, argv[3]->arg);
+  char *pathname = ns_netns_pathname (vty, argv[idx_name]->arg);
 
   if (!pathname)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("NS ID", ns_id, argv[1]->arg);
+  VTY_GET_INTEGER ("NS ID", ns_id, argv[idx_number]->arg);
   ns = ns_get (ns_id);
 
   if (ns->name && strcmp (ns->name, pathname) != 0)
@@ -596,14 +598,16 @@ DEFUN (no_ns_netns,
        "The Name Space\n"
        "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
+  int idx_number = 2;
+  int idx_name = 4;
   ns_id_t ns_id = NS_DEFAULT;
   struct ns *ns = NULL;
-  char *pathname = ns_netns_pathname (vty, argv[4]->arg);
+  char *pathname = ns_netns_pathname (vty, argv[idx_name]->arg);
 
   if (!pathname)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("NS ID", ns_id, argv[2]->arg);
+  VTY_GET_INTEGER ("NS ID", ns_id, argv[idx_number]->arg);
   ns = ns_lookup (ns_id);
 
   if (!ns)
