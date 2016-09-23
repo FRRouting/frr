@@ -1495,7 +1495,7 @@ DEFUN (no_bgp_coalesce_time,
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
-       "maximum-paths " CMD_RANGE_STR<1, MULTIPATH_NUM>,
+       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
@@ -1504,7 +1504,7 @@ DEFUN (bgp_maxpaths,
 
 DEFUN (bgp_maxpaths_ibgp,
        bgp_maxpaths_ibgp_cmd,
-       "maximum-paths ibgp " CMD_RANGE_STR<1, MULTIPATH_NUM>,
+       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n")
@@ -1514,7 +1514,7 @@ DEFUN (bgp_maxpaths_ibgp,
 
 DEFUN (bgp_maxpaths_ibgp_cluster,
        bgp_maxpaths_ibgp_cluster_cmd,
-       "maximum-paths ibgp " CMD_RANGE_STR<1, MULTIPATH_NUM> " equal-cluster-length",
+       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n"
@@ -4598,7 +4598,7 @@ DEFUN (neighbor_ebgp_multihop,
 
 DEFUN (neighbor_ebgp_multihop_ttl,
        neighbor_ebgp_multihop_ttl_cmd,
-       NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR<1, MAXTTL>,
+       NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MAXTTL),
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Allow EBGP neighbors not on directly connected networks\n"
