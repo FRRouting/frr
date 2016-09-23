@@ -267,6 +267,11 @@ DEFUN (no_bgp_maxmed_onstartup,
         line = line.replace('}', ']')
         re_range = re.search('^(.*?)<(\d+-\d+)>(.*)$', line)
 
+        # A one off to handle "CMD_RANGE_STR(1, MULTIPATH_NUM)"
+        if 'CMD_RANGE_STR<' in line:
+            line = line.replace('CMD_RANGE_STR<', 'CMD_RANGE_STR(')
+            line = line.replace('>', ')')
+
         while re_range:
             line = "%s(%s)%s" % (re_range.group(1), re_range.group(2), re_range.group(3))
             re_range = re.search('^(.*?)<(\d+-\d+)>(.*)$', line)
@@ -274,6 +279,9 @@ DEFUN (no_bgp_maxmed_onstartup,
         if not line.endswith('\n'):
             line += '\n'
 
+        # compress duplicate whitespaces
+        re_space = re.search('^(\s*).*(\s*)$', line)
+        line = re_space.group(1) + ' '.join(line.split()) + re_space.group(2)
         return line
 
     def dump(self):

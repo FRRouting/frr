@@ -655,7 +655,7 @@ DEFUN (ip_route_mask_tag_distance,
 
 DEFUN (ip_route_mask_flags_tag_distance,
        ip_route_mask_flags_tag_distance_cmd,
-       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE> <reject|blackhole>  tag (1-65535) (1-255)",
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE> <reject|blackhole> tag (1-65535) (1-255)",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -1448,7 +1448,7 @@ DEFUN (ip_route_mask_tag_distance_vrf,
 
 DEFUN (ip_route_mask_flags_tag_distance_vrf,
        ip_route_mask_flags_tag_distance_vrf_cmd,
-       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE> <reject|blackhole>  tag (1-65535) (1-255) " VRF_CMD_STR,
+       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE> <reject|blackhole> tag (1-65535) (1-255) " VRF_CMD_STR,
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -2436,7 +2436,7 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
 
 DEFUN (show_ip_route_vrf,
        show_ip_route_vrf_cmd,
-       "show ip route  " VRF_CMD_STR " [json]",
+       "show ip route " VRF_CMD_STR " [json]",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3420,7 +3420,7 @@ DEFUN (show_ip_route_vrf_all_supernets,
 
 DEFUN (show_ip_route_vrf_all_protocol,
        show_ip_route_vrf_all_protocol_cmd,
-       "show ip route " VRF_ALL_CMD_STR "  " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route " VRF_ALL_CMD_STR " " QUAGGA_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3475,7 +3475,7 @@ DEFUN (show_ip_route_vrf_all_protocol,
 
 DEFUN (show_ip_route_vrf_all_addr,
        show_ip_route_vrf_all_addr_cmd,
-       "show ip route " VRF_ALL_CMD_STR "  A.B.C.D",
+       "show ip route " VRF_ALL_CMD_STR " A.B.C.D",
        SHOW_STR
        IP_STR
        "IP routing table\n"
