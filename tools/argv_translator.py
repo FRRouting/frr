@@ -313,8 +313,20 @@ def get_token_index_variable_name(line_number, token):
     elif token == '(1-500)|WORD' or token == '(1-99)|(100-500)|WORD':
         return 'idx_comm_list'
 
-    elif token == 'ipv4|ipv6':
+    elif token == 'ipv4|ipv6' or token == 'ip|ipv6':
         return 'idx_afi'
+
+    elif token == 'md5|clear':
+        return 'idx_encryption'
+
+    elif token == 'narrow|transition|wide':
+        return 'idx_metric_style'
+
+    elif token == 'area-password|domain-password':
+        return 'idx_password'
+
+    elif token == 'param':
+        return 'idx_param'
 
     elif token == 'advertised-routes|received-routes':
         return 'idx_adv_rcvd_routes'
@@ -333,6 +345,12 @@ def get_token_index_variable_name(line_number, token):
 
     elif token == 'A.B.C.D/M|X:X::X:X/M':
         return 'idx_ipv4_ipv6_prefixlen'
+
+    elif token == 'level-1|level-2' or token == 'level-1|level-1-2|level-2-only':
+        return 'idx_level'
+
+    elif token == 'metric (0-16777215)|route-map WORD' or token == 'always|metric (0-16777215)|route-map WORD':
+        return 'idx_metric_rmap'
 
     elif token == 'urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix':
         return 'idx_rpf_lookup_mode'

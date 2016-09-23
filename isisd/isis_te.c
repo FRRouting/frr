@@ -1163,11 +1163,12 @@ DEFUN (isis_mpls_te_router_addr,
        "Stable IP address of the advertising router\n"
        "MPLS-TE router address in IPv4 address format\n")
 {
+  int idx_ipv4 = 2;
   struct in_addr value;
   struct listnode *node;
   struct isis_area *area;
 
-  if (! inet_aton (argv[2]->arg, &value))
+  if (! inet_aton (argv[idx_ipv4]->arg, &value))
     {
       vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -1317,6 +1318,7 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
+  int idx_interface = 4;
   struct interface *ifp;
   struct listnode *node;
 
@@ -1329,7 +1331,7 @@ DEFUN (show_isis_mpls_te_interface,
   /* Interface name is specified. */
   else
     {
-      if ((ifp = if_lookup_by_name (argv[4]->arg)) == NULL)
+      if ((ifp = if_lookup_by_name (argv[idx_interface]->arg)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         show_mpls_te_sub (vty, ifp);
