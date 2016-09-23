@@ -569,6 +569,7 @@ struct pim_upstream *pim_upstream_add(struct prefix_sg *sg,
   up = pim_upstream_find(sg);
   if (up) {
     ++up->ref_count;
+    up->flags |= flags;
   }
   else {
     up = pim_upstream_new(sg, incoming, flags);
