@@ -370,7 +370,6 @@ fi
 dnl ----------
 dnl MPLS check
 dnl ----------
-MPLS_METHOD=""
 AC_MSG_CHECKING(whether this OS has MPLS stack)
 case "$host" in
   *-linux*)

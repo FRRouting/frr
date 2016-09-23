@@ -73,6 +73,7 @@ EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c \
 	rt_socket.c rtread_netlink.c rtread_sysctl.c \
 	rtread_getmsg.c kernel_socket.c kernel_netlink.c \
 	ioctl.c ioctl_solaris.c \
+	zebra_mpls_netlink.c zebra_mpls_openbsd.c \
 	GNOME-SMI GNOME-PRODUCT-ZEBRA-MIB
 
 client : client_main.o ../lib/libzebra.la
