@@ -743,7 +743,6 @@ pim_mroute_update_counters (struct channel_oil *c_oil)
   c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
   c_oil->cc.oldbytecnt = c_oil->cc.bytecnt;
   c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
-  c_oil->cc.oldlastused = c_oil->cc.lastused;
 
   pim_zlookup_sg_statistics (c_oil);
   if (ioctl (qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq))
