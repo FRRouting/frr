@@ -721,9 +721,9 @@ DEFUN (debug_ospf6_zebra_sendrecv,
 
   if (argc)
     {
-      if (! strncmp (argv[0], "s", 1))
+      if (! strncmp (argv[3]->arg, "s", 1))
         level = OSPF6_DEBUG_ZEBRA_SEND;
-      else if (! strncmp (argv[0], "r", 1))
+      else if (! strncmp (argv[3]->arg, "r", 1))
         level = OSPF6_DEBUG_ZEBRA_RECV;
     }
   else
@@ -757,9 +757,9 @@ DEFUN (no_debug_ospf6_zebra_sendrecv,
 
   if (argc)
     {
-      if (! strncmp (argv[0], "s", 1))
+      if (! strncmp (argv[4]->arg, "s", 1))
         level = OSPF6_DEBUG_ZEBRA_SEND;
-      else if (! strncmp (argv[0], "r", 1))
+      else if (! strncmp (argv[4]->arg, "r", 1))
         level = OSPF6_DEBUG_ZEBRA_RECV;
     }
   else

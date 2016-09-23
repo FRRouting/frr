@@ -893,9 +893,9 @@ DEFUN (ospf6_timers_throttle_spf,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[0], 0, 600000);
-  VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[1], 0, 600000);
-  VTY_GET_INTEGER_RANGE ("SPF max-hold timer", max, argv[2], 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[3]->arg, 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[4]->arg, 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF max-hold timer", max, argv[5]->arg, 0, 600000);
 
   return ospf6_timers_spf_set (vty, delay, hold, max);
 }

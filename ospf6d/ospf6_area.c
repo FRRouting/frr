@@ -448,12 +448,12 @@ DEFUN (area_range,
   struct ospf6_route *range;
   u_int32_t cost = OSPF_AREA_RANGE_COST_UNSPEC;
 
-  OSPF6_CMD_AREA_GET (argv[0], oa);
+  OSPF6_CMD_AREA_GET (argv[1]->arg, oa);
 
-  ret = str2prefix (argv[1], &prefix);
+  ret = str2prefix (argv[3]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
     {
-      vty_out (vty, "Malformed argument: %s%s", argv[1], VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[3]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -471,24 +471,24 @@ DEFUN (area_range,
 
   if (argc > 2)
     {
-      if (strcmp (argv[2], "not-advertise") == 0)
+      if (strcmp (argv[4]->arg, "not-advertise") == 0)
 	{
 	  SET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
 	}
-      else if (strcmp (argv[2], "advertise") == 0)
+      else if (strcmp (argv[4]->arg, "advertise") == 0)
 	{
 	  UNSET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
 	}
       else
 	{
-	  VTY_GET_INTEGER_RANGE ("cost", cost, argv[2], 0, OSPF_LS_INFINITY);
+	  VTY_GET_INTEGER_RANGE ("cost", cost, argv[5]->arg, 0, OSPF_LS_INFINITY);
 	  UNSET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
 	}
     }
 
   range->path.u.cost_config = cost;
 
-  zlog_debug ("%s: for prefix %s, flag = %x\n", __func__, argv[1], range->flag);
+  zlog_debug ("%s: for prefix %s, flag = %x\n", __func__, argv[3]->arg, range->flag);
   if (range->rnode == NULL)
     {
       ospf6_route_add (range, oa->range_table);
@@ -546,21 +546,21 @@ DEFUN (no_area_range,
   struct prefix prefix;
   struct ospf6_route *range, *route;
 
-  OSPF6_CMD_AREA_GET (argv[0], oa);
+  OSPF6_CMD_AREA_GET (argv[2]->arg, oa);
   argc--;
   argv++;
 
-  ret = str2prefix (argv[0], &prefix);
+  ret = str2prefix (argv[2]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
     {
-      vty_out (vty, "Malformed argument: %s%s", argv[0], VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[2]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   range = ospf6_route_lookup (&prefix, oa->range_table);
   if (range == NULL)
     {
-      vty_out (vty, "Range %s does not exists.%s", argv[0], VNL);
+      vty_out (vty, "Range %s does not exists.%s", argv[2]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -680,18 +680,18 @@ DEFUN (area_filter_list,
   struct ospf6_area *area;
   struct prefix_list *plist;
 
-  OSPF6_CMD_AREA_GET (argv[0], area);
+  OSPF6_CMD_AREA_GET (argv[1]->arg, area);
   argc--;
   argv++;
 
-  plist = prefix_list_lookup (AFI_IP6, argv[0]);
-  if (strncmp (argv[1], "in", 2) == 0)
+  plist = prefix_list_lookup (AFI_IP6, argv[1]->arg);
+  if (strncmp (argv[4]->arg, "in", 2) == 0)
     {
       PREFIX_LIST_IN (area) = plist;
       if (PREFIX_NAME_IN (area))
 	free (PREFIX_NAME_IN (area));
 
-      PREFIX_NAME_IN (area) = strdup (argv[0]);
+      PREFIX_NAME_IN (area) = strdup (argv[1]->arg);
       ospf6_abr_reimport (area);
     }
   else
@@ -700,7 +700,7 @@ DEFUN (area_filter_list,
       if (PREFIX_NAME_OUT (area))
 	free (PREFIX_NAME_OUT (area));
 
-      PREFIX_NAME_OUT (area) = strdup (argv[0]);
+      PREFIX_NAME_OUT (area) = strdup (argv[1]->arg);
       ospf6_abr_enable_area (area);
     }
 
@@ -721,14 +721,14 @@ DEFUN (no_area_filter_list,
 {
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET (argv[0], area);
+  OSPF6_CMD_AREA_GET (argv[2]->arg, area);
   argc--;
   argv++;
 
-  if (strncmp (argv[1], "in", 2) == 0)
+  if (strncmp (argv[5]->arg, "in", 2) == 0)
     {
       if (PREFIX_NAME_IN (area))
-	if (strcmp (PREFIX_NAME_IN (area), argv[0]) != 0)
+	if (strcmp (PREFIX_NAME_IN (area), argv[2]->arg) != 0)
 	  return CMD_SUCCESS;
 
       PREFIX_LIST_IN (area) = NULL;
@@ -741,7 +741,7 @@ DEFUN (no_area_filter_list,
   else
     {
       if (PREFIX_NAME_OUT (area))
-	if (strcmp (PREFIX_NAME_OUT (area), argv[0]) != 0)
+	if (strcmp (PREFIX_NAME_OUT (area), argv[2]->arg) != 0)
 	  return CMD_SUCCESS;
 
       PREFIX_LIST_OUT (area) = NULL;
@@ -766,16 +766,16 @@ DEFUN (area_import_list,
   struct ospf6_area *area;
   struct access_list *list;
 
-  OSPF6_CMD_AREA_GET(argv[0], area);
+  OSPF6_CMD_AREA_GET(argv[1]->arg, area);
 
-  list = access_list_lookup (AFI_IP6, argv[1]);
+  list = access_list_lookup (AFI_IP6, argv[3]->arg);
 
   IMPORT_LIST (area) = list;
 
   if (IMPORT_NAME (area))
     free (IMPORT_NAME (area));
 
-  IMPORT_NAME (area) = strdup (argv[1]);
+  IMPORT_NAME (area) = strdup (argv[3]->arg);
   ospf6_abr_reimport (area);
 
   return CMD_SUCCESS; 
@@ -791,7 +791,7 @@ DEFUN (no_area_import_list,
 {
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[0], area);
+  OSPF6_CMD_AREA_GET(argv[2]->arg, area);
 
   IMPORT_LIST (area) = 0;
 
@@ -815,16 +815,16 @@ DEFUN (area_export_list,
   struct ospf6_area *area;
   struct access_list *list;
 
-  OSPF6_CMD_AREA_GET(argv[0], area);
+  OSPF6_CMD_AREA_GET(argv[1]->arg, area);
 
-  list = access_list_lookup (AFI_IP6, argv[1]);
+  list = access_list_lookup (AFI_IP6, argv[3]->arg);
 
   EXPORT_LIST (area) = list;
 
   if (EXPORT_NAME (area))
     free (EXPORT_NAME (area));
 
-  EXPORT_NAME (area) = strdup (argv[1]);
+  EXPORT_NAME (area) = strdup (argv[3]->arg);
   ospf6_abr_enable_area (area);
 
   return CMD_SUCCESS; 
@@ -840,7 +840,7 @@ DEFUN (no_area_export_list,
 {
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[0], area);
+  OSPF6_CMD_AREA_GET(argv[2]->arg, area);
 
   EXPORT_LIST (area) = 0;
 
@@ -909,15 +909,15 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
 
   ospf6_linkstate_prefix (ospf6->router_id, htonl (0), &prefix);
 
-  if (inet_pton (AF_INET, argv[0], &area_id) != 1)
+  if (inet_pton (AF_INET, argv[4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[0], VNL);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[0], VNL);
+      vty_out (vty, "No such Area: %s%s", argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -955,18 +955,18 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  inet_pton (AF_INET, argv[0], &router_id);
+  inet_pton (AF_INET, argv[5]->arg, &router_id);
   ospf6_linkstate_prefix (router_id, htonl (0), &prefix);
 
-  if (inet_pton (AF_INET, argv[1], &area_id) != 1)
+  if (inet_pton (AF_INET, argv[7]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[1], VNL);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[7]->arg, VNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[1], VNL);
+      vty_out (vty, "No such Area: %s%s", argv[7]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1004,7 +1004,7 @@ DEFUN (ospf6_area_stub,
 {
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[0], area);
+  OSPF6_CMD_AREA_GET(argv[1]->arg, area);
 
   if (!ospf6_area_stub_set (ospf6, area))
     {
@@ -1029,7 +1029,7 @@ DEFUN (ospf6_area_stub_no_summary,
 {
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[0], area);
+  OSPF6_CMD_AREA_GET(argv[1]->arg, area);
 
   if (!ospf6_area_stub_set (ospf6, area))
     {
@@ -1054,7 +1054,7 @@ DEFUN (no_ospf6_area_stub,
 {
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[0], area);
+  OSPF6_CMD_AREA_GET(argv[2]->arg, area);
 
   ospf6_area_stub_unset (ospf6, area);
   ospf6_area_no_summary_unset (ospf6, area);
@@ -1074,7 +1074,7 @@ DEFUN (no_ospf6_area_stub_no_summary,
 {
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[0], area);
+  OSPF6_CMD_AREA_GET(argv[2]->arg, area);
 
   ospf6_area_stub_unset (ospf6, area);
   ospf6_area_no_summary_unset (ospf6, area);

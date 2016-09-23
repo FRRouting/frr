@@ -201,6 +201,7 @@ def update_argvs(filename):
                     line = line.replace('" QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA "', '(kernel|connected|static|ripng|ospf6|isis|bgp|table|any)')
                     line = line.replace('" QUAGGA_REDIST_STR_RIPNGD "', '(kernel|connected|static|ospf6|isis|bgp|table)')
                     line = line.replace('" QUAGGA_REDIST_STR_RIPD "', '(kernel|connected|static|ospf|isis|bgp|pim|table)')
+                    line = line.replace('" QUAGGA_REDIST_STR_OSPF6D "', '(kernel|connected|static|ripng|isis|bgp|table)')
 
                     # endswith
                     line = line.replace('" CMD_AS_RANGE,', ' <1-4294967295>",')
@@ -229,6 +230,7 @@ def update_argvs(filename):
                     line = line.replace('" PIM_CMD_IP_IGMP_QUERY_INTERVAL,', ' ip igmp query-interval",')
                     line = line.replace('" PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC,', ' ip igmp query-max-response-time-dsec",')
                     line = line.replace('" PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME,', ' ip igmp query-max-response-time",')
+                    line = line.replace('" QUAGGA_REDIST_STR_OSPF6D,', ' (kernel|connected|static|ripng|isis|bgp|table)",')
 
                     # startswith
                     line = line.replace('LISTEN_RANGE_CMD "', '"bgp listen range (A.B.C.D/M|X:X::X:X/M) ')

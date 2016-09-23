@@ -835,9 +835,9 @@ DEFUN (debug_ospf6_lsa_type,
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
         continue;
-      if (strncmp (argv[0], ospf6_lsa_handler_name(handler), strlen(argv[0])) == 0)
+      if (strncmp (argv[3]->arg, ospf6_lsa_handler_name(handler), strlen(argv[3]->arg)) == 0)
         break;
-      if (! strcasecmp (argv[0], handler->name))
+      if (! strcasecmp (argv[3]->arg, handler->name))
         break;
       handler = NULL;
     }
@@ -847,11 +847,11 @@ DEFUN (debug_ospf6_lsa_type,
 
   if (argc >= 2)
     {
-      if (! strcmp (argv[1], "originate"))
+      if (! strcmp (argv[4]->arg, "originate"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE);
-      if (! strcmp (argv[1], "examine"))
+      if (! strcmp (argv[4]->arg, "examine"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN);
-      if (! strcmp (argv[1], "flooding"))
+      if (! strcmp (argv[4]->arg, "flooding"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD);
     }
   else
@@ -889,9 +889,9 @@ DEFUN (no_debug_ospf6_lsa_type,
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
         continue;
-      if (strncmp (argv[0], ospf6_lsa_handler_name(handler), strlen(argv[0])) == 0)
+      if (strncmp (argv[4]->arg, ospf6_lsa_handler_name(handler), strlen(argv[4]->arg)) == 0)
         break;
-      if (! strcasecmp (argv[0], handler->name))
+      if (! strcasecmp (argv[4]->arg, handler->name))
         break;
     }
 
@@ -900,11 +900,11 @@ DEFUN (no_debug_ospf6_lsa_type,
 
   if (argc >= 2)
     {
-      if (! strcmp (argv[1], "originate"))
+      if (! strcmp (argv[5]->arg, "originate"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE);
-      if (! strcmp (argv[1], "examine"))
+      if (! strcmp (argv[5]->arg, "examine"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN);
-      if (! strcmp (argv[1], "flooding"))
+      if (! strcmp (argv[5]->arg, "flooding"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD);
     }
   else

@@ -1731,7 +1731,7 @@ DEFUN (debug_ospf6_brouter_router,
       )
 {
   u_int32_t router_id;
-  inet_pton (AF_INET, argv[0], &router_id);
+  inet_pton (AF_INET, argv[4]->arg, &router_id);
   OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ON (router_id);
   return CMD_SUCCESS;
 }
@@ -1761,7 +1761,7 @@ DEFUN (debug_ospf6_brouter_area,
       )
 {
   u_int32_t area_id;
-  inet_pton (AF_INET, argv[0], &area_id);
+  inet_pton (AF_INET, argv[4]->arg, &area_id);
   OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ON (area_id);
   return CMD_SUCCESS;
 }

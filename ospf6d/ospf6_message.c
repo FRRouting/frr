@@ -2360,26 +2360,26 @@ DEFUN (debug_ospf6_message,
   assert (argc > 0);
 
   /* check type */
-  if (! strncmp (argv[0], "u", 1))
+  if (! strncmp (argv[3]->arg, "u", 1))
     type = OSPF6_MESSAGE_TYPE_UNKNOWN;
-  else if (! strncmp (argv[0], "h", 1))
+  else if (! strncmp (argv[3]->arg, "h", 1))
     type = OSPF6_MESSAGE_TYPE_HELLO;
-  else if (! strncmp (argv[0], "d", 1))
+  else if (! strncmp (argv[3]->arg, "d", 1))
     type = OSPF6_MESSAGE_TYPE_DBDESC;
-  else if (! strncmp (argv[0], "lsr", 3))
+  else if (! strncmp (argv[3]->arg, "lsr", 3))
     type = OSPF6_MESSAGE_TYPE_LSREQ;
-  else if (! strncmp (argv[0], "lsu", 3))
+  else if (! strncmp (argv[3]->arg, "lsu", 3))
     type = OSPF6_MESSAGE_TYPE_LSUPDATE;
-  else if (! strncmp (argv[0], "lsa", 3))
+  else if (! strncmp (argv[3]->arg, "lsa", 3))
     type = OSPF6_MESSAGE_TYPE_LSACK;
-  else if (! strncmp (argv[0], "a", 1))
+  else if (! strncmp (argv[3]->arg, "a", 1))
     type = OSPF6_MESSAGE_TYPE_ALL;
 
   if (argc == 1)
     level = OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_RECV;
-  else if (! strncmp (argv[1], "s", 1))
+  else if (! strncmp (argv[4]->arg, "s", 1))
     level = OSPF6_DEBUG_MESSAGE_SEND;
-  else if (! strncmp (argv[1], "r", 1))
+  else if (! strncmp (argv[4]->arg, "r", 1))
     level = OSPF6_DEBUG_MESSAGE_RECV;
 
   if (type == OSPF6_MESSAGE_TYPE_ALL)
@@ -2434,26 +2434,26 @@ DEFUN (no_debug_ospf6_message,
   assert (argc > 0);
 
   /* check type */
-  if (! strncmp (argv[0], "u", 1))
+  if (! strncmp (argv[4]->arg, "u", 1))
     type = OSPF6_MESSAGE_TYPE_UNKNOWN;
-  else if (! strncmp (argv[0], "h", 1))
+  else if (! strncmp (argv[4]->arg, "h", 1))
     type = OSPF6_MESSAGE_TYPE_HELLO;
-  else if (! strncmp (argv[0], "d", 1))
+  else if (! strncmp (argv[4]->arg, "d", 1))
     type = OSPF6_MESSAGE_TYPE_DBDESC;
-  else if (! strncmp (argv[0], "lsr", 3))
+  else if (! strncmp (argv[4]->arg, "lsr", 3))
     type = OSPF6_MESSAGE_TYPE_LSREQ;
-  else if (! strncmp (argv[0], "lsu", 3))
+  else if (! strncmp (argv[4]->arg, "lsu", 3))
     type = OSPF6_MESSAGE_TYPE_LSUPDATE;
-  else if (! strncmp (argv[0], "lsa", 3))
+  else if (! strncmp (argv[4]->arg, "lsa", 3))
     type = OSPF6_MESSAGE_TYPE_LSACK;
-  else if (! strncmp (argv[0], "a", 1))
+  else if (! strncmp (argv[4]->arg, "a", 1))
     type = OSPF6_MESSAGE_TYPE_ALL;
 
   if (argc == 1)
     level = OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_RECV;
-  else if (! strncmp (argv[1], "s", 1))
+  else if (! strncmp (argv[5]->arg, "s", 1))
     level = OSPF6_DEBUG_MESSAGE_SEND;
-  else if (! strncmp (argv[1], "r", 1))
+  else if (! strncmp (argv[5]->arg, "r", 1))
     level = OSPF6_DEBUG_MESSAGE_RECV;
 
   if (type == OSPF6_MESSAGE_TYPE_ALL)

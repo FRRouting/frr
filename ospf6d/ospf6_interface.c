@@ -1001,10 +1001,10 @@ DEFUN (show_ipv6_ospf6_interface,
 
   if (argc)
     {
-      ifp = if_lookup_by_name (argv[0]);
+      ifp = if_lookup_by_name (argv[4]->arg);
       if (ifp == NULL)
         {
-          vty_out (vty, "No such Interface: %s%s", argv[0],
+          vty_out (vty, "No such Interface: %s%s", argv[4]->arg,
                    VNL);
           return CMD_WARNING;
         }
@@ -1042,17 +1042,17 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
   struct interface *ifp;
   struct ospf6_interface *oi;
 
-  ifp = if_lookup_by_name (argv[0]);
+  ifp = if_lookup_by_name (argv[4]->arg);
   if (ifp == NULL)
     {
-      vty_out (vty, "No such Interface: %s%s", argv[0], VNL);
+      vty_out (vty, "No such Interface: %s%s", argv[4]->arg, VNL);
       return CMD_WARNING;
     }
 
   oi = ifp->info;
   if (oi == NULL)
     {
-      vty_out (vty, "OSPFv3 is not enabled on %s%s", argv[0], VNL);
+      vty_out (vty, "OSPFv3 is not enabled on %s%s", argv[4]->arg, VNL);
       return CMD_WARNING;
     }
 
@@ -1168,7 +1168,7 @@ DEFUN (ipv6_ospf6_ifmtu,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  ifmtu = strtol (argv[0], NULL, 10);
+  ifmtu = strtol (argv[3]->arg, NULL, 10);
 
   if (oi->ifmtu == ifmtu)
     return CMD_SUCCESS;
@@ -1274,7 +1274,7 @@ DEFUN (ipv6_ospf6_cost,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  lcost = strtol (argv[0], NULL, 10);
+  lcost = strtol (argv[3]->arg, NULL, 10);
 
   if (lcost > UINT32_MAX)
     {
@@ -1333,7 +1333,7 @@ DEFUN (auto_cost_reference_bandwidth,
   struct listnode *i, *j;
   u_int32_t refbw;
 
-  refbw = strtol (argv[0], NULL, 10);
+  refbw = strtol (argv[2]->arg, NULL, 10);
   if (refbw < 1 || refbw > 4294967)
     {
       vty_out (vty, "reference-bandwidth value is invalid%s", VTY_NEWLINE);
@@ -1403,7 +1403,7 @@ DEFUN (ipv6_ospf6_hellointerval,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->hello_interval = strtol (argv[0], NULL, 10);
+  oi->hello_interval = strtol (argv[3]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1428,7 +1428,7 @@ DEFUN (ipv6_ospf6_deadinterval,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->dead_interval = strtol (argv[0], NULL, 10);
+  oi->dead_interval = strtol (argv[3]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1453,7 +1453,7 @@ DEFUN (ipv6_ospf6_transmitdelay,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->transdelay = strtol (argv[0], NULL, 10);
+  oi->transdelay = strtol (argv[3]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1478,7 +1478,7 @@ DEFUN (ipv6_ospf6_retransmitinterval,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->rxmt_interval = strtol (argv[0], NULL, 10);
+  oi->rxmt_interval = strtol (argv[3]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1503,7 +1503,7 @@ DEFUN (ipv6_ospf6_priority,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->priority = strtol (argv[0], NULL, 10);
+  oi->priority = strtol (argv[3]->arg, NULL, 10);
 
   if (oi->area &&
       (oi->state == OSPF6_INTERFACE_DROTHER ||
@@ -1534,7 +1534,7 @@ DEFUN (ipv6_ospf6_instance,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  oi->instance_id = strtol (argv[0], NULL, 10);
+  oi->instance_id = strtol (argv[3]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1671,7 +1671,7 @@ DEFUN (ipv6_ospf6_advertise_prefix_list,
 
   if (oi->plist_name)
     XFREE (MTYPE_CFG_PLIST_NAME, oi->plist_name);
-  oi->plist_name = XSTRDUP (MTYPE_CFG_PLIST_NAME, argv[0]);
+  oi->plist_name = XSTRDUP (MTYPE_CFG_PLIST_NAME, argv[4]->arg);
 
   ospf6_interface_connected_route_update (oi->interface);
 
@@ -1754,14 +1754,14 @@ DEFUN (ipv6_ospf6_network,
   }
   assert (oi);
 
-  if (strncmp (argv[0], "b", 1) == 0)
+  if (strncmp (argv[3]->arg, "b", 1) == 0)
     {
       if (oi->type == OSPF_IFTYPE_BROADCAST)
 	return CMD_SUCCESS;
 
       oi->type = OSPF_IFTYPE_BROADCAST;
     }
-    else if (strncmp (argv[0], "point-to-p", 10) == 0)
+    else if (strncmp (argv[3]->arg, "point-to-p", 10) == 0)
       {
 	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
 	  return CMD_SUCCESS;
@@ -1992,9 +1992,9 @@ DEFUN (clear_ipv6_ospf6_interface,
     }
   else /* Interface name is specified. */
     {
-      if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+      if ((ifp = if_lookup_by_name (argv[4]->arg)) == NULL)
         {
-          vty_out (vty, "No such Interface: %s%s", argv[0], VNL);
+          vty_out (vty, "No such Interface: %s%s", argv[4]->arg, VNL);
           return CMD_WARNING;
         }
       ospf6_interface_clear (vty, ifp);

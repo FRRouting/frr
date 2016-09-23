@@ -126,16 +126,16 @@ config_write_ospf6_debug (struct vty *vty)
   "%s        AS Scoped Link State Database%s%s"
 
 static int
-parse_show_level (int argc, const char *argv[])
+parse_show_level (int argc, struct cmd_token **argv)
 {
   int level = 0;
   if (argc)
     {
-      if (! strncmp (argv[0], "de", 2))
+      if (! strncmp (argv[0]->arg, "de", 2))
         level = OSPF6_LSDB_SHOW_LEVEL_DETAIL;
-      else if (! strncmp (argv[0], "du", 2))
+      else if (! strncmp (argv[0]->arg, "du", 2))
         level = OSPF6_LSDB_SHOW_LEVEL_DUMP;
-      else if (! strncmp (argv[0], "in", 2))
+      else if (! strncmp (argv[0]->arg, "in", 2))
         level = OSPF6_LSDB_SHOW_LEVEL_INTERNAL;
     }
   else
@@ -144,23 +144,23 @@ parse_show_level (int argc, const char *argv[])
 }
 
 static u_int16_t
-parse_type_spec (int argc, const char *argv[])
+parse_type_spec (int argc, struct cmd_token **argv)
 {
   u_int16_t type = 0;
   assert (argc);
-  if (! strcmp (argv[0], "router"))
+  if (! strcmp (argv[0]->arg, "router"))
     type = htons (OSPF6_LSTYPE_ROUTER);
-  else if (! strcmp (argv[0], "network"))
+  else if (! strcmp (argv[0]->arg, "network"))
     type = htons (OSPF6_LSTYPE_NETWORK);
-  else if (! strcmp (argv[0], "as-external"))
+  else if (! strcmp (argv[0]->arg, "as-external"))
     type = htons (OSPF6_LSTYPE_AS_EXTERNAL);
-  else if (! strcmp (argv[0], "intra-prefix"))
+  else if (! strcmp (argv[0]->arg, "intra-prefix"))
     type = htons (OSPF6_LSTYPE_INTRA_PREFIX);
-  else if (! strcmp (argv[0], "inter-router"))
+  else if (! strcmp (argv[0]->arg, "inter-router"))
     type = htons (OSPF6_LSTYPE_INTER_ROUTER);
-  else if (! strcmp (argv[0], "inter-prefix"))
+  else if (! strcmp (argv[0]->arg, "inter-prefix"))
     type = htons (OSPF6_LSTYPE_INTER_PREFIX);
-  else if (! strcmp (argv[0], "link"))
+  else if (! strcmp (argv[0]->arg, "link"))
     type = htons (OSPF6_LSTYPE_LINK);
   return type;
 }
@@ -221,9 +221,7 @@ ALIAS (show_ipv6_ospf6_database,
 
 DEFUN (show_ipv6_ospf6_database_type,
        show_ipv6_ospf6_database_type_cmd,
-       "show ipv6 ospf6 database "
-       "(router|network|inter-prefix|inter-router|as-external|"
-       "group-membership|type-7|link|intra-prefix)",
+       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix)",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -333,10 +331,10 @@ DEFUN (show_ipv6_ospf6_database_id,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[5]->arg, &id)) != 1)
     {
       vty_out (vty, "Link State ID is not parsable: %s%s",
-               argv[0], VNL);
+               argv[5]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -429,10 +427,10 @@ DEFUN (show_ipv6_ospf6_database_router,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if ((inet_pton (AF_INET, argv[0], &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[6]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[0], VNL);
+               argv[6]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -507,9 +505,7 @@ ALIAS (show_ipv6_ospf6_database_router,
 
 DEFUN (show_ipv6_ospf6_database_type_id,
        show_ipv6_ospf6_database_type_id_cmd,
-       "show ipv6 ospf6 database "
-       "(router|network|inter-prefix|inter-router|as-external|"
-       "group-membership|type-7|link|intra-prefix) A.B.C.D",
+       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -540,10 +536,10 @@ DEFUN (show_ipv6_ospf6_database_type_id,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[0], VNL);
+               argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -662,9 +658,7 @@ ALIAS (show_ipv6_ospf6_database_type_id,
 
 DEFUN (show_ipv6_ospf6_database_type_router,
        show_ipv6_ospf6_database_type_router_cmd,
-       "show ipv6 ospf6 database "
-       "(router|network|inter-prefix|inter-router|as-external|"
-       "group-membership|type-7|link|intra-prefix) * A.B.C.D",
+       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) * A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -696,10 +690,10 @@ DEFUN (show_ipv6_ospf6_database_type_router,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[0], VNL);
+               argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -839,20 +833,20 @@ DEFUN (show_ipv6_ospf6_database_id_router,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[5]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[0], VNL);
+               argv[5]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[5]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[0], VNL);
+               argv[5]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -922,20 +916,20 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if ((inet_pton (AF_INET, argv[0], &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[5]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[0], VNL);
+               argv[5]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[5]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[0], VNL);
+               argv[5]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -985,9 +979,7 @@ ALIAS (show_ipv6_ospf6_database_adv_router_linkstate_id,
 
 DEFUN (show_ipv6_ospf6_database_type_id_router,
        show_ipv6_ospf6_database_type_id_router_cmd,
-       "show ipv6 ospf6 database "
-       "(router|network|inter-prefix|inter-router|as-external|"
-       "group-membership|type-7|link|intra-prefix) A.B.C.D A.B.C.D",
+       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1020,20 +1012,20 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[0], VNL);
+               argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[0], VNL);
+               argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1104,10 +1096,7 @@ ALIAS (show_ipv6_ospf6_database_type_id_router,
 
 DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
        show_ipv6_ospf6_database_type_adv_router_linkstate_id_cmd,
-       "show ipv6 ospf6 database "
-       "(router|network|inter-prefix|inter-router|as-external|"
-       "group-membership|type-7|link|intra-prefix) "
-       "adv-router A.B.C.D linkstate-id A.B.C.D",
+       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) adv-router A.B.C.D linkstate-id A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1142,20 +1131,20 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[0], VNL);
+               argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[0], VNL);
+               argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1287,9 +1276,7 @@ ALIAS (show_ipv6_ospf6_database_self_originated,
 
 DEFUN (show_ipv6_ospf6_database_type_self_originated,
        show_ipv6_ospf6_database_type_self_originated_cmd,
-       "show ipv6 ospf6 database "
-       "(router|network|inter-prefix|inter-router|as-external|"
-       "group-membership|type-7|link|intra-prefix) self-originated",
+       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) self-originated",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1386,10 +1373,7 @@ ALIAS (show_ipv6_ospf6_database_type_self_originated,
 
 DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
        show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd,
-       "show ipv6 ospf6 database "
-       "(router|network|inter-prefix|inter-router|as-external|"
-       "group-membership|type-7|link|intra-prefix) self-originated "
-       "linkstate-id A.B.C.D",
+       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) self-originated linkstate-id A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1423,10 +1407,10 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
     {
       vty_out (vty, "Link State ID is not parsable: %s%s",
-               argv[0], VNL);
+               argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1501,9 +1485,7 @@ ALIAS (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 
 DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
        show_ipv6_ospf6_database_type_id_self_originated_cmd,
-       "show ipv6 ospf6 database "
-       "(router|network|inter-prefix|inter-router|as-external|"
-       "group-membership|type-7|link|intra-prefix) A.B.C.D self-originated",
+       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D self-originated",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1536,10 +1518,10 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
     {
       vty_out (vty, "Link State ID is not parsable: %s%s",
-               argv[0], VNL);
+               argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1629,7 +1611,7 @@ DEFUN (show_ipv6_ospf6_border_routers,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if (argc && ! strcmp ("detail", argv[0]))
+  if (argc && ! strcmp ("detail", argv[4]->arg))
     {
       showfunc = ospf6_route_show_detail;
       argc--;
@@ -1640,9 +1622,9 @@ DEFUN (show_ipv6_ospf6_border_routers,
 
   if (argc)
     {
-      if ((inet_pton (AF_INET, argv[0], &adv_router)) != 1)
+      if ((inet_pton (AF_INET, argv[4]->arg, &adv_router)) != 1)
         {
-          vty_out (vty, "Router ID is not parsable: %s%s", argv[0], VNL);
+          vty_out (vty, "Router ID is not parsable: %s%s", argv[4]->arg, VNL);
           return CMD_SUCCESS;
         }
 
@@ -1650,7 +1632,7 @@ DEFUN (show_ipv6_ospf6_border_routers,
       ro = ospf6_route_lookup (&prefix, ospf6->brouter_table);
       if (!ro)
         {
-          vty_out (vty, "No Route found for Router ID: %s%s", argv[0], VNL);
+          vty_out (vty, "No Route found for Router ID: %s%s", argv[4]->arg, VNL);
           return CMD_SUCCESS;
         }
 
@@ -1736,25 +1718,16 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
        "Display linkstate routing table\n"
       )
 {
-  const char *sargv[CMD_ARGC_MAX];
-  int i, sargc;
   struct listnode *node;
   struct ospf6_area *oa;
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  /* copy argv to sargv and then append "detail" */
-  for (i = 0; i < argc; i++)
-    sargv[i] = argv[i];
-  sargc = argc;
-  sargv[sargc++] = "detail";
-  sargv[sargc] = NULL;
-
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
       vty_out (vty, "%s        SPF Result in Area %s%s%s",
                VNL, oa->name, VNL, VNL);
-      ospf6_linkstate_table_show (vty, sargc, sargv, oa->spf_table);
+      ospf6_linkstate_table_show (vty, argc, argv, oa->spf_table);
     }
 
   vty_out (vty, "%s", VNL);

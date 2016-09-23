@@ -330,10 +330,10 @@ DEFUN (ospf6_router_id,
 
   o = (struct ospf6 *) vty->index;
 
-  ret = inet_pton (AF_INET, argv[0], &router_id);
+  ret = inet_pton (AF_INET, argv[1]->arg, &router_id);
   if (ret == 0)
     {
-      vty_out (vty, "malformed OSPF Router-ID: %s%s", argv[0], VNL);
+      vty_out (vty, "malformed OSPF Router-ID: %s%s", argv[1]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -416,7 +416,7 @@ DEFUN (ospf6_timers_lsa,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[0]);
+  VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[3]->arg);
 
   ospf->lsa_minarrival = minarrival;
 
@@ -439,7 +439,7 @@ DEFUN (no_ospf6_timers_lsa,
 
   if (argc)
     {
-      VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[0]);
+      VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[4]->arg);
 
       if (ospf->lsa_minarrival != minarrival ||
 	  minarrival == OSPF_MIN_LS_ARRIVAL)
@@ -478,7 +478,7 @@ DEFUN (ospf6_interface_area,
   o = (struct ospf6 *) vty->index;
 
   /* find/create ospf6 interface */
-  ifp = if_get_by_name (argv[0]);
+  ifp = if_get_by_name (argv[1]->arg);
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
     oi = ospf6_interface_create (ifp);
@@ -490,9 +490,9 @@ DEFUN (ospf6_interface_area,
     }
 
   /* parse Area-ID */
-  if (inet_pton (AF_INET, argv[1], &area_id) != 1)
+  if (inet_pton (AF_INET, argv[3]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[1], VNL);
+      vty_out (vty, "Invalid Area-ID: %s%s", argv[3]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -536,10 +536,10 @@ DEFUN (no_ospf6_interface_area,
   struct interface *ifp;
   u_int32_t area_id;
 
-  ifp = if_lookup_by_name (argv[0]);
+  ifp = if_lookup_by_name (argv[2]->arg);
   if (ifp == NULL)
     {
-      vty_out (vty, "No such interface %s%s", argv[0], VNL);
+      vty_out (vty, "No such interface %s%s", argv[2]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -551,16 +551,16 @@ DEFUN (no_ospf6_interface_area,
     }
 
   /* parse Area-ID */
-  if (inet_pton (AF_INET, argv[1], &area_id) != 1)
+  if (inet_pton (AF_INET, argv[4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[1], VNL);
+      vty_out (vty, "Invalid Area-ID: %s%s", argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   /* Verify Area */
   if (oi->area == NULL)
     {
-      vty_out (vty, "No such Area-ID: %s%s", argv[1], VNL);
+      vty_out (vty, "No such Area-ID: %s%s", argv[4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -813,19 +813,9 @@ DEFUN (show_ipv6_ospf6_route_match,
        "Display routes which match the specified route\n"
        )
 {
-  const char *sargv[CMD_ARGC_MAX];
-  int i, sargc;
-
   OSPF6_CMD_CHECK_RUNNING ();
 
-  /* copy argv to sargv and then append "match" */
-  for (i = 0; i < argc; i++)
-    sargv[i] = argv[i];
-  sargc = argc;
-  sargv[sargc++] = "match";
-  sargv[sargc] = NULL;
-
-  ospf6_route_table_show (vty, sargc, sargv, ospf6->route_table);
+  ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
   return CMD_SUCCESS;
 }
 
@@ -841,20 +831,9 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
        "Detailed information\n"
        )
 {
-  const char *sargv[CMD_ARGC_MAX];
-  int i, sargc;
-
-  /* copy argv to sargv and then append "match" and "detail" */
-  for (i = 0; i < argc; i++)
-    sargv[i] = argv[i];
-  sargc = argc;
-  sargv[sargc++] = "match";
-  sargv[sargc++] = "detail";
-  sargv[sargc] = NULL;
-
   OSPF6_CMD_CHECK_RUNNING ();
 
-  ospf6_route_table_show (vty, sargc, sargv, ospf6->route_table);
+  ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
   return CMD_SUCCESS;
 }
 
@@ -868,18 +847,6 @@ ALIAS (show_ipv6_ospf6_route_match,
        "Specify IPv6 prefix\n"
        "Display routes longer than the specified route\n"
        )
-
-DEFUN (show_ipv6_ospf6_route_match_detail,
-       show_ipv6_ospf6_route_longer_detail_cmd,
-       "show ipv6 ospf6 route X:X::X:X/M longer detail",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       ROUTE_STR
-       "Specify IPv6 prefix\n"
-       "Display routes longer than the specified route\n"
-       "Detailed information\n"
-       );
 
 ALIAS (show_ipv6_ospf6_route,
        show_ipv6_ospf6_route_type_cmd,
@@ -908,19 +875,9 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
        "Detailed information\n"
        )
 {
-  const char *sargv[CMD_ARGC_MAX];
-  int i, sargc;
-
-  /* copy argv to sargv and then append "detail" */
-  for (i = 0; i < argc; i++)
-    sargv[i] = argv[i];
-  sargc = argc;
-  sargv[sargc++] = "detail";
-  sargv[sargc] = NULL;
-
   OSPF6_CMD_CHECK_RUNNING ();
 
-  ospf6_route_table_show (vty, sargc, sargv, ospf6->route_table);
+  ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
   return CMD_SUCCESS;
 }
 
@@ -1012,7 +969,6 @@ ospf6_top_init (void)
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_longer_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_route_longer_detail_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_cmd);
@@ -1020,7 +976,6 @@ ospf6_top_init (void)
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_longer_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_longer_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
 

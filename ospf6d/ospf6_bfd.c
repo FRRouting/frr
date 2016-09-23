@@ -369,7 +369,7 @@ DEFUN (ipv6_ospf6_bfd_param,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  if ((ret = bfd_validate_param (vty, argv[0], argv[1], argv[2], &dm_val,
+  if ((ret = bfd_validate_param (vty, argv[3]->arg, argv[4]->arg, argv[5]->arg, &dm_val,
                                  &rx_val, &tx_val)) != CMD_SUCCESS)
     return ret;
 

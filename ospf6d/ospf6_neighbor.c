@@ -847,9 +847,9 @@ DEFUN (show_ipv6_ospf6_neighbor,
 
   if (argc)
     {
-      if (! strncmp (argv[0], "de", 2))
+      if (! strncmp (argv[4]->arg, "de", 2))
         showfunc = ospf6_neighbor_show_detail;
-      else if (! strncmp (argv[0], "dr", 2))
+      else if (! strncmp (argv[4]->arg, "dr", 2))
         showfunc = ospf6_neighbor_show_drchoice;
     }
 
@@ -901,9 +901,9 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
   OSPF6_CMD_CHECK_RUNNING ();
   showfunc = ospf6_neighbor_show_detail;
 
-  if ((inet_pton (AF_INET, argv[0], &router_id)) != 1)
+  if ((inet_pton (AF_INET, argv[4]->arg, &router_id)) != 1)
     {
-      vty_out (vty, "Router-ID is not parsable: %s%s", argv[0],
+      vty_out (vty, "Router-ID is not parsable: %s%s", argv[4]->arg,
                VNL);
       return CMD_SUCCESS;
     }
@@ -936,9 +936,9 @@ DEFUN (debug_ospf6_neighbor,
   unsigned char level = 0;
   if (argc)
     {
-      if (! strncmp (argv[0], "s", 1))
+      if (! strncmp (argv[3]->arg, "s", 1))
         level = OSPF6_DEBUG_NEIGHBOR_STATE;
-      if (! strncmp (argv[0], "e", 1))
+      if (! strncmp (argv[3]->arg, "e", 1))
         level = OSPF6_DEBUG_NEIGHBOR_EVENT;
     }
   else
@@ -970,9 +970,9 @@ DEFUN (no_debug_ospf6_neighbor,
   unsigned char level = 0;
   if (argc)
     {
-      if (! strncmp (argv[0], "s", 1))
+      if (! strncmp (argv[4]->arg, "s", 1))
         level = OSPF6_DEBUG_NEIGHBOR_STATE;
-      if (! strncmp (argv[0], "e", 1))
+      if (! strncmp (argv[4]->arg, "e", 1))
         level = OSPF6_DEBUG_NEIGHBOR_EVENT;
     }
   else
