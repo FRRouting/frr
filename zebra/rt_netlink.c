@@ -2428,7 +2428,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
   req.r.rtm_family = family;
   req.r.rtm_dst_len = p->prefixlen;
   req.r.rtm_protocol = RTPROT_ZEBRA;
-  req.r.rtm_scope = RT_SCOPE_LINK;
+  req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 
   if ((rib->flags & ZEBRA_FLAG_BLACKHOLE) || (rib->flags & ZEBRA_FLAG_REJECT))
     discard = 1;
@@ -2507,9 +2507,6 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
         continue;
       if (cmd == RTM_DELROUTE && !CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         continue;
-
-      if (nexthop->type != NEXTHOP_TYPE_IFINDEX)
-        req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 
       nexthop_num++;
     }
