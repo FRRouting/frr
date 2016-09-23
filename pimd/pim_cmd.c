@@ -2912,7 +2912,7 @@ static void show_mroute_count(struct vty *vty)
 
   vty_out(vty, "%s", VTY_NEWLINE);
   
-  vty_out(vty, "Source          Group           Packets      Bytes WrongIf  %s",
+  vty_out(vty, "Source          Group           LastUsed Packets Bytes WrongIf  %s",
 	  VTY_NEWLINE);
 
   /* Print PIM and IGMP route counts */
@@ -2928,9 +2928,10 @@ static void show_mroute_count(struct vty *vty)
     pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 
-    vty_out(vty, "%-15s %-15s %7ld %10ld %7ld %s",
+    vty_out(vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld%s",
 	    source_str,
 	    group_str,
+	    c_oil->cc.lastused/100,
 	    c_oil->cc.pktcnt,
 	    c_oil->cc.bytecnt,
 	    c_oil->cc.wrong_if,
@@ -2950,9 +2951,10 @@ static void show_mroute_count(struct vty *vty)
     pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
 
-    vty_out(vty, "%-15s %-15s %7ld %10ld %7ld %s",
+    vty_out(vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld%s",
        source_str,
        group_str,
+       s_route->c_oil.cc.lastused,
        s_route->c_oil.cc.pktcnt,
        s_route->c_oil.cc.bytecnt,
        s_route->c_oil.cc.wrong_if,
