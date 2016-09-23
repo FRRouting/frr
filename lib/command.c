@@ -1128,18 +1128,7 @@ DEFUN (config_list,
 }
 
 /* Write current configuration into file. */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "copy running-config startup-config",
- *     "Copy configuration\n"
- *     "Copy running config to... \n"
- *     "Copy running config to startup config (same as write file)\n"
- *
- * "show running-config",
- *     SHOW_STR
- *     "running configuration\n"
- *
- */
+
 DEFUN (config_write,
        config_write_cmd,
        "write [<file|memory|terminal>]",
@@ -1159,9 +1148,10 @@ DEFUN (config_write,
   struct vty *file_vty;
   struct stat conf_stat;
 
-  // if command was 'write terminal' or 'show running-config'
-  if (argc == 2 && (!strcmp(argv[idx_type]->arg, "terminal") ||
-                    !strcmp(argv[idx_type]->arg, "running-config")))
+  // if command was 'write terminal', 'write memory' or 'show running-config'
+  if (argc == 2 && (!strcmp(argv[idx_type]->text, "terminal") ||
+                    !strcmp(argv[idx_type]->text, "memory") ||
+                    !strcmp(argv[0]->text, "show")))
   {
     if (vty->type == VTY_SHELL_SERV)
       {
@@ -1285,8 +1275,27 @@ finished:
   return ret;
 }
 
+/* ALIAS_FIXME for 'write <terminal|memory>' */
+DEFUN (show_running_config,
+       show_running_config_cmd,
+       "show running-config",
+       SHOW_STR
+       "running configuration (same as write terminal/memory)\n")
+{
+  return config_write (self, vty, argc, argv);
+}
 
-/* Write current configuration into the terminal. */
+/* ALIAS_FIXME for 'write file' */
+DEFUN (copy_runningconf_startupconf,
+       copy_runningconf_startupconf_cmd,
+       "copy running-config startup-config",
+       "Copy configuration\n"
+       "Copy running config to... \n"
+       "Copy running config to startup config (same as write file)\n")
+{
+  return config_write (self, vty, argc, argv);
+}
+/** -- **/
 
 /* Write startup configuration into the terminal. */
 DEFUN (show_startup_config,
@@ -2113,11 +2122,13 @@ void
 install_default (enum node_type node)
 {
   install_element (node, &config_exit_cmd);
+  install_element (node, &config_quit_cmd);
   install_element (node, &config_end_cmd);
   install_element (node, &config_help_cmd);
   install_element (node, &config_list_cmd);
 
   install_element (node, &config_write_cmd);
+  install_element (node, &show_running_config_cmd);
 }
 
 /* Initialize command interface. Install basic nodes and commands. */
@@ -2151,6 +2162,7 @@ cmd_init (int terminal)
     {
       install_element (VIEW_NODE, &config_list_cmd);
       install_element (VIEW_NODE, &config_exit_cmd);
+      install_element (VIEW_NODE, &config_quit_cmd);
       install_element (VIEW_NODE, &config_help_cmd);
       install_element (VIEW_NODE, &config_enable_cmd);
       install_element (VIEW_NODE, &config_terminal_length_cmd);
@@ -2174,6 +2186,7 @@ cmd_init (int terminal)
       install_default (ENABLE_NODE);
       install_element (ENABLE_NODE, &config_disable_cmd);
       install_element (ENABLE_NODE, &config_terminal_cmd);
+      install_element (ENABLE_NODE, &copy_runningconf_startupconf_cmd);
     }
   install_element (ENABLE_NODE, &show_startup_config_cmd);
   install_element (ENABLE_NODE, &show_version_cmd);

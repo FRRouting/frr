@@ -209,16 +209,6 @@ if_rmap_unset (const char *ifname, enum if_rmap_type type,
   return 1;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "route-map RMAP_NAME (in|out) IFNAME",
- *     "Route map set\n"
- *     "Route map name\n"
- *     "Route map set for input filtering\n"
- *     "Route map set for output filtering\n"
- *     "Route map interface name\n"
- *
- */
 DEFUN (if_rmap,
        if_rmap_cmd,
        "route-map RMAP_NAME <in|out> IFNAME",
@@ -233,9 +223,9 @@ DEFUN (if_rmap,
   int idx_ifname = 3;
   enum if_rmap_type type;
 
-  if (strncmp (argv[idx_in_out]->arg, "i", 1) == 0)
+  if (strncmp (argv[idx_in_out]->text, "in", 1) == 0)
     type = IF_RMAP_IN;
-  else if (strncmp (argv[idx_in_out]->arg, "o", 1) == 0)
+  else if (strncmp (argv[idx_in_out]->text, "out", 1) == 0)
     type = IF_RMAP_OUT;
   else
     {
@@ -248,18 +238,6 @@ DEFUN (if_rmap,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no route-map ROUTEMAP_NAME (in|out) IFNAME",
- *     NO_STR
- *     "Route map unset\n"
- *     "Route map name\n"
- *     "Route map for input filtering\n"
- *     "Route map for output filtering\n"
- *     "Route map interface name\n"
- *
- */
 DEFUN (no_if_rmap,
        no_if_rmap_cmd,
        "no route-map ROUTEMAP_NAME <in|out> IFNAME",
