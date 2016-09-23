@@ -8036,7 +8036,7 @@ DEFUN (show_bgp_ipv4_prefix,
 
 DEFUN (show_bgp_ipv6_route,
        show_bgp_ipv6_route_cmd,
-       "show bgp ipv6 X:X::X:X {JSON}",
+       "show bgp ipv6 X:X::X:X {json}",
        SHOW_STR
        BGP_STR
        "Address family\n"
