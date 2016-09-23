@@ -123,6 +123,8 @@ extern void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_notice (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
+extern void vzlog (struct zlog *, int , const char *, va_list );
+
 extern void zlog_thread_info (int log_level);
 
 /* Set logging level for the given destination.  If the log_level
