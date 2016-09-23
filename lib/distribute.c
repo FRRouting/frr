@@ -148,7 +148,7 @@ distribute_cmp (const struct distribute *dist1, const struct distribute *dist2)
 }
 
 /* Set access-list name to the distribute list. */
-static struct distribute *
+static void
 distribute_list_set (const char *ifname, enum distribute_type type, 
                      const char *alist_name)
 {
@@ -171,8 +171,6 @@ distribute_list_set (const char *ifname, enum distribute_type type,
 
   /* Apply this distribute-list to the interface. */
   (*distribute_add_hook) (dist);
-  
-  return dist;
 }
 
 /* Unset distribute-list.  If matched distribute-list exist then
@@ -226,7 +224,7 @@ distribute_list_unset (const char *ifname, enum distribute_type type,
 }
 
 /* Set access-list name to the distribute list. */
-static struct distribute *
+static void
 distribute_list_prefix_set (const char *ifname, enum distribute_type type,
 			    const char *plist_name)
 {
@@ -249,8 +247,6 @@ distribute_list_prefix_set (const char *ifname, enum distribute_type type,
 
   /* Apply this distribute-list to the interface. */
   (*distribute_add_hook) (dist);
-  
-  return dist;
 }
 
 /* Unset distribute-list.  If matched distribute-list exist then
@@ -319,7 +315,7 @@ DEFUN (distribute_list,
     DISTRIBUTE_IN : DISTRIBUTE_OUT;
 
   /* Set appropriate function call */
-  int (*distfn)(const char *, enum distribute_type, const char *) = prefix ? 
+  void (*distfn)(const char *, enum distribute_type, const char *) = prefix ? 
     &distribute_list_prefix_set : &distribute_list_set;
   
   /* if interface is present, get name */
