@@ -297,7 +297,10 @@ DEFUN (ripng_offset_list,
        "For outgoing updates\n"
        "Metric value\n")
 {
-  return ripng_offset_list_set (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg, NULL);
+  int idx_word = 1;
+  int idx_in_out = 2;
+  int idx_number = 3;
+  return ripng_offset_list_set (vty, argv[idx_word]->arg, argv[idx_in_out]->arg, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (ripng_offset_list_ifname,
@@ -310,7 +313,11 @@ DEFUN (ripng_offset_list_ifname,
        "Metric value\n"
        "Interface to match\n")
 {
-  return ripng_offset_list_set (vty, argv[1]->arg, argv[2]->arg, argv[3]->arg, argv[4]->arg);
+  int idx_word = 1;
+  int idx_in_out = 2;
+  int idx_number = 3;
+  int idx_ifname = 4;
+  return ripng_offset_list_set (vty, argv[idx_word]->arg, argv[idx_in_out]->arg, argv[idx_number]->arg, argv[idx_ifname]->arg);
 }
 
 DEFUN (no_ripng_offset_list,
@@ -323,7 +330,10 @@ DEFUN (no_ripng_offset_list,
        "For outgoing updates\n"
        "Metric value\n")
 {
-  return ripng_offset_list_unset (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL);
+  int idx_word = 2;
+  int idx_in_out = 3;
+  int idx_number = 4;
+  return ripng_offset_list_unset (vty, argv[idx_word]->arg, argv[idx_in_out]->arg, argv[idx_number]->arg, NULL);
 }
 
 DEFUN (no_ripng_offset_list_ifname,
@@ -337,7 +347,11 @@ DEFUN (no_ripng_offset_list_ifname,
        "Metric value\n"
        "Interface to match\n")
 {
-  return ripng_offset_list_unset (vty, argv[2]->arg, argv[3]->arg, argv[4]->arg, argv[5]->arg);
+  int idx_word = 2;
+  int idx_in_out = 3;
+  int idx_number = 4;
+  int idx_ifname = 5;
+  return ripng_offset_list_unset (vty, argv[idx_word]->arg, argv[idx_in_out]->arg, argv[idx_number]->arg, argv[idx_ifname]->arg);
 }
 
 static int

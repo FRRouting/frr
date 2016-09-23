@@ -2261,11 +2261,12 @@ DEFUN (ripng_route,
        "Static route setup\n"
        "Set static RIPng route announcement\n")
 {
+  int idx_ipv6addr = 1;
   int ret;
   struct prefix_ipv6 p;
   struct route_node *rp;
 
-  ret = str2prefix_ipv6 (argv[1]->arg, (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6addr]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2294,11 +2295,12 @@ DEFUN (no_ripng_route,
        "Static route setup\n"
        "Delete static RIPng route announcement\n")
 {
+  int idx_ipv6addr = 2;
   int ret;
   struct prefix_ipv6 p;
   struct route_node *rp;
 
-  ret = str2prefix_ipv6 (argv[2]->arg, (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6addr]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2328,11 +2330,12 @@ DEFUN (ripng_aggregate_address,
        "Set aggregate RIPng route announcement\n"
        "Aggregate network\n")
 {
+  int idx_ipv6_prefixlen = 1;
   int ret;
   struct prefix p;
   struct route_node *node;
 
-  ret = str2prefix_ipv6 (argv[1]->arg, (struct prefix_ipv6 *)&p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6_prefixlen]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2361,11 +2364,12 @@ DEFUN (no_ripng_aggregate_address,
        "Delete aggregate RIPng route announcement\n"
        "Aggregate network")
 {
+  int idx_ipv6_prefixlen = 2;
   int ret;
   struct prefix p;
   struct route_node *rn;
 
-  ret = str2prefix_ipv6 (argv[2]->arg, (struct prefix_ipv6 *) &p);
+  ret = str2prefix_ipv6 (argv[idx_ipv6_prefixlen]->arg, (struct prefix_ipv6 *) &p);
   if (ret <= 0)
     {
       vty_out (vty, "Malformed address%s", VTY_NEWLINE);
@@ -2393,9 +2397,10 @@ DEFUN (ripng_default_metric,
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
+  int idx_number = 1;
   if (ripng)
     {
-      ripng->default_metric = atoi (argv[1]->arg);
+      ripng->default_metric = atoi (argv[idx_number]->arg);
     }
   return CMD_SUCCESS;
 }
@@ -2535,13 +2540,16 @@ DEFUN (ripng_timers,
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 {
+  int idx_number = 2;
+  int idx_number_2 = 3;
+  int idx_number_3 = 4;
   unsigned long update;
   unsigned long timeout;
   unsigned long garbage;
 
-  VTY_GET_INTEGER_RANGE("update timer", update, argv[2]->arg, 0, 65535);
-  VTY_GET_INTEGER_RANGE("timeout timer", timeout, argv[3]->arg, 0, 65535);
-  VTY_GET_INTEGER_RANGE("garbage timer", garbage, argv[4]->arg, 0, 65535);
+  VTY_GET_INTEGER_RANGE("update timer", update, argv[idx_number]->arg, 0, 65535);
+  VTY_GET_INTEGER_RANGE("timeout timer", timeout, argv[idx_number_2]->arg, 0, 65535);
+  VTY_GET_INTEGER_RANGE("garbage timer", garbage, argv[idx_number_3]->arg, 0, 65535);
 
   /* Set each timer value. */
   ripng->update_time = update;

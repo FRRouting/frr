@@ -953,20 +953,21 @@ DEFUN (ripng_network,
        "RIPng enable on specified interface or network.\n"
        "Interface or address")
 {
+  int idx_if_or_addr = 1;
   int ret;
   struct prefix p;
 
-  ret = str2prefix (argv[1]->arg, &p);
+  ret = str2prefix (argv[idx_if_or_addr]->arg, &p);
 
   /* Given string is IPv6 network or interface name. */
   if (ret)
     ret = ripng_enable_network_add (&p);
   else
-    ret = ripng_enable_if_add (argv[1]->arg);
+    ret = ripng_enable_if_add (argv[idx_if_or_addr]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "There is same network configuration %s%s", argv[1]->arg,
+      vty_out (vty, "There is same network configuration %s%s", argv[idx_if_or_addr]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -982,20 +983,21 @@ DEFUN (no_ripng_network,
        "RIPng enable on specified interface or network.\n"
        "Interface or address")
 {
+  int idx_if_or_addr = 2;
   int ret;
   struct prefix p;
 
-  ret = str2prefix (argv[2]->arg, &p);
+  ret = str2prefix (argv[idx_if_or_addr]->arg, &p);
 
   /* Given string is interface name. */
   if (ret)
     ret = ripng_enable_network_delete (&p);
   else
-    ret = ripng_enable_if_delete (argv[2]->arg);
+    ret = ripng_enable_if_delete (argv[idx_if_or_addr]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "can't find network %s%s", argv[2]->arg,
+      vty_out (vty, "can't find network %s%s", argv[idx_if_or_addr]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1073,7 +1075,8 @@ DEFUN (ripng_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
-  return ripng_passive_interface_set (vty, argv[1]->arg);
+  int idx_ifname = 1;
+  return ripng_passive_interface_set (vty, argv[idx_ifname]->arg);
 }
 
 DEFUN (no_ripng_passive_interface,
@@ -1083,7 +1086,8 @@ DEFUN (no_ripng_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
-  return ripng_passive_interface_unset (vty, argv[2]->arg);
+  int idx_ifname = 2;
+  return ripng_passive_interface_unset (vty, argv[idx_ifname]->arg);
 }
 
 static struct ripng_interface *
