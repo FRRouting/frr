@@ -2023,10 +2023,6 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
         }
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	vty_out (vty, ", best");
-      else if (CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
-        vty_out (vty, ", fib");
-      if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_FIB_OVERRIDE))
-        vty_out (vty, ", fib-override");
       if (rib->refcnt)
 	vty_out (vty, ", refcnt %ld", rib->refcnt);
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
@@ -2303,8 +2299,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
 	    len += vty_out (vty, "[%d]", rib->instance);
           len += vty_out (vty, "%c%c %s",
 			  CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED)
-			  ? '>' : CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB)
-			  ? '!' : ' ',
+			  ? '>' : ' ',
 			  CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
 			  ? '*' : ' ',
 			  prefix2str (&rn->p, buf, sizeof buf));

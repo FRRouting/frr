@@ -892,7 +892,7 @@ zfpm_route_for_update (rib_dest_t *dest)
 
   RIB_DEST_FOREACH_ROUTE (dest, rib)
     {
-      if (!CHECK_FLAG (rib->status, RIB_ENTRY_SELECTED_FIB))
+      if (!CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	continue;
 
       return rib;

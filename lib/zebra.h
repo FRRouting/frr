@@ -471,7 +471,6 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_FLAG_STATIC             0x40
 #define ZEBRA_FLAG_REJECT             0x80
 #define ZEBRA_FLAG_SCOPE_LINK         0x100
-#define ZEBRA_FLAG_FIB_OVERRIDE       0x200
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
