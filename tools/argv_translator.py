@@ -385,6 +385,12 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix':
         return 'idx_rpf_lookup_mode'
 
+    elif token == 'hello|joins':
+        return 'idx_hello_join'
+
+    elif token == 'nocache|wrongvif|wholepkt':
+        return 'idx_type'
+
     elif token in ('kernel|connected|static|rip|ospf|isis|pim|table',
                    'kernel|connected|static|ripng|ospf6|isis|table',
                    'kernel|connected|static|rip|isis|bgp|pim|table',
