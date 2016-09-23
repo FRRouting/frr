@@ -1530,16 +1530,6 @@ DEFUN (no_rmap_onmatch_next,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "continue",
- *     "Continue on a different entry within the route-map\n"
- *
- * "continue (1-65535)",
- *     "Continue on a different entry within the route-map\n"
- *     "Route-map entry sequence number\n"
- *
- */
 DEFUN (rmap_onmatch_goto,
        rmap_onmatch_goto_cmd,
        "on-match goto (1-65535)",
@@ -1549,9 +1539,8 @@ DEFUN (rmap_onmatch_goto,
 {
   char *num = NULL;
   if (!strcmp (argv[0]->text, "continue"))
-    if (argc == 2)
-      num = argv[1]->arg;
-  if (!strcmp (argv[0]->text, "on-match"))
+    num = argv[1]->arg;
+  else
     num = argv[2]->arg;
 
   struct route_map_index *index = vty->index;
@@ -1575,8 +1564,7 @@ DEFUN (rmap_onmatch_goto,
       if (d <= index->pref)
 	{
 	  /* Can't allow you to do that, Dave */
-	  vty_out (vty, "can't jump backwards in route-maps%s", 
-		   VTY_NEWLINE);
+	  vty_out (vty, "can't jump backwards in route-maps%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
       else
@@ -1588,18 +1576,6 @@ DEFUN (rmap_onmatch_goto,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no continue",
- *     NO_STR
- *     "Continue on a different entry within the route-map\n"
- *
- * "no continue (1-65535)",
- *     NO_STR
- *     "Continue on a different entry within the route-map\n"
- *     "Route-map entry sequence number\n"
- *
- */
 DEFUN (no_rmap_onmatch_goto,
        no_rmap_onmatch_goto_cmd,
        "no on-match goto",
@@ -1617,10 +1593,27 @@ DEFUN (no_rmap_onmatch_goto,
   return CMD_SUCCESS;
 }
 
-/* Cisco/GNU Zebra compatible ALIASes for on-match next */
+/* Cisco/GNU Zebra compatibility aliases */
+/* ALIAS_FIXME */
+DEFUN (rmap_continue,
+       rmap_continue_cmd,
+       "continue (1-65535)",
+       "Continue on a different entry within the route-map\n"
+       "Route-map entry sequence number\n")
+{
+  return rmap_onmatch_goto (self, vty, argc, argv);
+}
 
-
-/* GNU Zebra compatible */
+/* ALIAS_FIXME */
+DEFUN (no_rmap_continue,
+       no_rmap_continue_cmd,
+       "no continue [(1-65535)]",
+       NO_STR
+       "Continue on a different entry within the route-map\n"
+       "Route-map entry sequence number\n")
+{
+  return no_rmap_onmatch_goto (self, vty, argc, argv);
+}
 
 
 DEFUN (rmap_show_name,
@@ -1630,9 +1623,7 @@ DEFUN (rmap_show_name,
        "route-map information\n"
        "route-map name\n")
 {
-    const char *name = NULL;
-    if (argc == 3)
-      name = argv[2]->arg;
+    const char *name = (argc == 3) ? argv[2]->arg : NULL;
     return vty_show_route_map (vty, name);
 }
 
@@ -1809,6 +1800,8 @@ route_map_init_vty (void)
   install_element (RMAP_NODE, &no_rmap_onmatch_next_cmd);
   install_element (RMAP_NODE, &rmap_onmatch_goto_cmd);
   install_element (RMAP_NODE, &no_rmap_onmatch_goto_cmd);
+  install_element (RMAP_NODE, &rmap_continue_cmd);
+  install_element (RMAP_NODE, &no_rmap_continue_cmd);
   
   /* Install the continue stuff (ALIAS of on-match). */
   

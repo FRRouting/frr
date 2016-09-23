@@ -1381,20 +1381,6 @@ DEFUN (access_list_remark,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD) remark .LINE",
- *     NO_STR
- *     "Add an access list entry\n"
- *     "IP standard access list\n"
- *     "IP extended access list\n"
- *     "IP standard access list (expanded range)\n"
- *     "IP extended access list (expanded range)\n"
- *     "IP zebra access-list\n"
- *     "Access list entry comment\n"
- *     "Comment up to 100 characters\n"
- *
- */
 DEFUN (no_access_list_remark,
        no_access_list_remark_cmd,
        "no access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD> remark",
@@ -1408,6 +1394,23 @@ DEFUN (no_access_list_remark,
        "Access list entry comment\n")
 {
   return vty_access_list_remark_unset (vty, AFI_IP, argv[2]->arg);
+}
+
+/* ALIAS_FIXME */
+DEFUN (no_access_list_remark_comment,
+       no_access_list_remark_comment_cmd,
+       "no access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD> remark LINE...",
+       NO_STR
+       "Add an access list entry\n"
+       "IP standard access list\n"
+       "IP extended access list\n"
+       "IP standard access list (expanded range)\n"
+       "IP extended access list (expanded range)\n"
+       "IP zebra access-list\n"
+       "Access list entry comment\n"
+       "Comment up to 100 characters\n")
+{
+  return no_access_list_remark (self, vty, argc, argv);
 }
 	
 
@@ -1552,17 +1555,6 @@ DEFUN (ipv6_access_list_remark,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ipv6 access-list WORD remark .LINE",
- *     NO_STR
- *     IPV6_STR
- *     "Add an access list entry\n"
- *     "IPv6 zebra access-list\n"
- *     "Access list entry comment\n"
- *     "Comment up to 100 characters\n"
- *
- */
 DEFUN (no_ipv6_access_list_remark,
        no_ipv6_access_list_remark_cmd,
        "no ipv6 access-list WORD remark",
@@ -1573,6 +1565,20 @@ DEFUN (no_ipv6_access_list_remark,
        "Access list entry comment\n")
 {
   return vty_access_list_remark_unset (vty, AFI_IP6, argv[3]->arg);
+}
+
+/* ALIAS_FIXME */
+DEFUN (no_ipv6_access_list_remark_comment,
+       no_ipv6_access_list_remark_comment_cmd,
+       "no ipv6 access-list WORD remark LINE...",
+       NO_STR
+       IPV6_STR
+       "Add an access list entry\n"
+       "IPv6 zebra access-list\n"
+       "Access list entry comment\n"
+       "Comment up to 100 characters\n")
+{
+  return no_ipv6_access_list_remark (self, vty, argc, argv);
 }
 	
 #endif /* HAVE_IPV6 */
@@ -1962,6 +1968,7 @@ access_list_init_ipv4 (void)
   install_element (CONFIG_NODE, &access_list_remark_cmd);
   install_element (CONFIG_NODE, &no_access_list_all_cmd);
   install_element (CONFIG_NODE, &no_access_list_remark_cmd);
+  install_element (CONFIG_NODE, &no_access_list_remark_comment_cmd);
 }
 
 #ifdef HAVE_IPV6
@@ -2025,6 +2032,7 @@ access_list_init_ipv6 (void)
   install_element (CONFIG_NODE, &no_ipv6_access_list_all_cmd);
   install_element (CONFIG_NODE, &ipv6_access_list_remark_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_remark_cmd);
+  install_element (CONFIG_NODE, &no_ipv6_access_list_remark_comment_cmd);
 }
 #endif /* HAVE_IPV6 */
 

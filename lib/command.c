@@ -952,12 +952,6 @@ DEFUN (disable,
 }
 
 /* Down vty node level. */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "quit",
- *     "Exit current mode and down to previous mode\n"
- *
- */
 DEFUN (config_exit,
        config_exit_cmd,
        "exit",
@@ -1016,7 +1010,15 @@ DEFUN (config_exit,
   return CMD_SUCCESS;
 }
 
-/* quit is alias of exit. */
+/* ALIAS_FIXME */
+DEFUN (config_quit,
+       config_quit_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
+{
+  return config_exit (self, vty, argc, argv);
+}
+
 
 /* End of configuration. */
 DEFUN (config_end,
@@ -2143,6 +2145,7 @@ cmd_init (int terminal)
 
       install_element (RESTRICTED_NODE, &config_list_cmd);
       install_element (RESTRICTED_NODE, &config_exit_cmd);
+      install_element (RESTRICTED_NODE, &config_quit_cmd);
       install_element (RESTRICTED_NODE, &config_help_cmd);
       install_element (RESTRICTED_NODE, &config_enable_cmd);
       install_element (RESTRICTED_NODE, &config_terminal_length_cmd);
