@@ -2371,6 +2371,7 @@ DEFUN (debug_ospf6_message,
        "Debug All message\n"
        )
 {
+  int idx_packet = 3;
   unsigned char level = 0;
   int type = 0;
   int i;
@@ -2378,19 +2379,19 @@ DEFUN (debug_ospf6_message,
   assert (argc > 0);
 
   /* check type */
-  if (! strncmp (argv[3]->arg, "u", 1))
+  if (! strncmp (argv[idx_packet]->arg, "u", 1))
     type = OSPF6_MESSAGE_TYPE_UNKNOWN;
-  else if (! strncmp (argv[3]->arg, "h", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "h", 1))
     type = OSPF6_MESSAGE_TYPE_HELLO;
-  else if (! strncmp (argv[3]->arg, "d", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "d", 1))
     type = OSPF6_MESSAGE_TYPE_DBDESC;
-  else if (! strncmp (argv[3]->arg, "lsr", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsr", 3))
     type = OSPF6_MESSAGE_TYPE_LSREQ;
-  else if (! strncmp (argv[3]->arg, "lsu", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsu", 3))
     type = OSPF6_MESSAGE_TYPE_LSUPDATE;
-  else if (! strncmp (argv[3]->arg, "lsa", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsa", 3))
     type = OSPF6_MESSAGE_TYPE_LSACK;
-  else if (! strncmp (argv[3]->arg, "a", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "a", 1))
     type = OSPF6_MESSAGE_TYPE_ALL;
 
   if (argc == 1)
@@ -2449,6 +2450,7 @@ DEFUN (no_debug_ospf6_message,
        "Debug All message\n"
        )
 {
+  int idx_packet = 4;
   unsigned char level = 0;
   int type = 0;
   int i;
@@ -2456,19 +2458,19 @@ DEFUN (no_debug_ospf6_message,
   assert (argc > 0);
 
   /* check type */
-  if (! strncmp (argv[4]->arg, "u", 1))
+  if (! strncmp (argv[idx_packet]->arg, "u", 1))
     type = OSPF6_MESSAGE_TYPE_UNKNOWN;
-  else if (! strncmp (argv[4]->arg, "h", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "h", 1))
     type = OSPF6_MESSAGE_TYPE_HELLO;
-  else if (! strncmp (argv[4]->arg, "d", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "d", 1))
     type = OSPF6_MESSAGE_TYPE_DBDESC;
-  else if (! strncmp (argv[4]->arg, "lsr", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsr", 3))
     type = OSPF6_MESSAGE_TYPE_LSREQ;
-  else if (! strncmp (argv[4]->arg, "lsu", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsu", 3))
     type = OSPF6_MESSAGE_TYPE_LSUPDATE;
-  else if (! strncmp (argv[4]->arg, "lsa", 3))
+  else if (! strncmp (argv[idx_packet]->arg, "lsa", 3))
     type = OSPF6_MESSAGE_TYPE_LSACK;
-  else if (! strncmp (argv[4]->arg, "a", 1))
+  else if (! strncmp (argv[idx_packet]->arg, "a", 1))
     type = OSPF6_MESSAGE_TYPE_ALL;
 
   if (argc == 1)

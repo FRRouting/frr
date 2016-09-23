@@ -324,16 +324,17 @@ DEFUN (ospf6_router_id,
        "Configure OSPF Router-ID\n"
        V4NOTATION_STR)
 {
+  int idx_ipv4 = 1;
   int ret;
   u_int32_t router_id;
   struct ospf6 *o;
 
   o = (struct ospf6 *) vty->index;
 
-  ret = inet_pton (AF_INET, argv[1]->arg, &router_id);
+  ret = inet_pton (AF_INET, argv[idx_ipv4]->arg, &router_id);
   if (ret == 0)
     {
-      vty_out (vty, "malformed OSPF Router-ID: %s%s", argv[1]->arg, VNL);
+      vty_out (vty, "malformed OSPF Router-ID: %s%s", argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -404,6 +405,7 @@ DEFUN (ospf6_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
+  int idx_number = 3;
   unsigned int minarrival;
   struct ospf6 *ospf = vty->index;
 
@@ -416,7 +418,7 @@ DEFUN (ospf6_timers_lsa,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[3]->arg);
+  VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[idx_number]->arg);
 
   ospf->lsa_minarrival = minarrival;
 
@@ -471,6 +473,8 @@ DEFUN (ospf6_interface_area,
        "OSPF6 area ID in IPv4 address notation\n"
       )
 {
+  int idx_ifname = 1;
+  int idx_ipv4 = 3;
   struct ospf6 *o;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -480,7 +484,7 @@ DEFUN (ospf6_interface_area,
   o = (struct ospf6 *) vty->index;
 
   /* find/create ospf6 interface */
-  ifp = if_get_by_name (argv[1]->arg);
+  ifp = if_get_by_name (argv[idx_ifname]->arg);
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
     oi = ospf6_interface_create (ifp);
@@ -492,9 +496,9 @@ DEFUN (ospf6_interface_area,
     }
 
   /* parse Area-ID */
-  if (inet_pton (AF_INET, argv[3]->arg, &area_id) != 1)
+  if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[3]->arg, VNL);
+      vty_out (vty, "Invalid Area-ID: %s%s", argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -533,15 +537,17 @@ DEFUN (no_ospf6_interface_area,
        "OSPF6 area ID in IPv4 address notation\n"
        )
 {
+  int idx_ifname = 2;
+  int idx_ipv4 = 4;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
   struct interface *ifp;
   u_int32_t area_id;
 
-  ifp = if_lookup_by_name (argv[2]->arg);
+  ifp = if_lookup_by_name (argv[idx_ifname]->arg);
   if (ifp == NULL)
     {
-      vty_out (vty, "No such interface %s%s", argv[2]->arg, VNL);
+      vty_out (vty, "No such interface %s%s", argv[idx_ifname]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -553,16 +559,16 @@ DEFUN (no_ospf6_interface_area,
     }
 
   /* parse Area-ID */
-  if (inet_pton (AF_INET, argv[4]->arg, &area_id) != 1)
+  if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[4]->arg, VNL);
+      vty_out (vty, "Invalid Area-ID: %s%s", argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   /* Verify Area */
   if (oi->area == NULL)
     {
-      vty_out (vty, "No such Area-ID: %s%s", argv[4]->arg, VNL);
+      vty_out (vty, "No such Area-ID: %s%s", argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 

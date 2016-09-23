@@ -468,18 +468,20 @@ DEFUN (area_range,
        "Specify IPv6 prefix\n"
        )
 {
+  int idx_ipv4 = 1;
+  int idx_ipv6_prefixlen = 3;
   int ret;
   struct ospf6_area *oa;
   struct prefix prefix;
   struct ospf6_route *range;
   u_int32_t cost = OSPF_AREA_RANGE_COST_UNSPEC;
 
-  OSPF6_CMD_AREA_GET (argv[1]->arg, oa);
+  OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, oa);
 
-  ret = str2prefix (argv[3]->arg, &prefix);
+  ret = str2prefix (argv[idx_ipv6_prefixlen]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
     {
-      vty_out (vty, "Malformed argument: %s%s", argv[3]->arg, VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv6_prefixlen]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -514,7 +516,7 @@ DEFUN (area_range,
 
   range->path.u.cost_config = cost;
 
-  zlog_debug ("%s: for prefix %s, flag = %x\n", __func__, argv[3]->arg, range->flag);
+  zlog_debug ("%s: for prefix %s, flag = %x\n", __func__, argv[idx_ipv6_prefixlen]->arg, range->flag);
   if (range->rnode == NULL)
     {
       ospf6_route_add (range, oa->range_table);
@@ -569,26 +571,27 @@ DEFUN (no_area_range,
        "Configured address range\n"
        "Specify IPv6 prefix\n")
 {
+  int idx_ipv4 = 2;
   int ret;
   struct ospf6_area *oa;
   struct prefix prefix;
   struct ospf6_route *range, *route;
 
-  OSPF6_CMD_AREA_GET (argv[2]->arg, oa);
+  OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, oa);
   argc--;
   argv++;
 
-  ret = str2prefix (argv[2]->arg, &prefix);
+  ret = str2prefix (argv[idx_ipv4]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
     {
-      vty_out (vty, "Malformed argument: %s%s", argv[2]->arg, VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   range = ospf6_route_lookup (&prefix, oa->range_table);
   if (range == NULL)
     {
-      vty_out (vty, "Range %s does not exists.%s", argv[2]->arg, VNL);
+      vty_out (vty, "Range %s does not exists.%s", argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -677,21 +680,23 @@ DEFUN (area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
+  int idx_ipv4 = 1;
+  int idx_word = 4;
   struct ospf6_area *area;
   struct prefix_list *plist;
 
-  OSPF6_CMD_AREA_GET (argv[1]->arg, area);
+  OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, area);
   argc--;
   argv++;
 
-  plist = prefix_list_lookup (AFI_IP6, argv[1]->arg);
-  if (strncmp (argv[4]->arg, "in", 2) == 0)
+  plist = prefix_list_lookup (AFI_IP6, argv[idx_ipv4]->arg);
+  if (strncmp (argv[idx_word]->arg, "in", 2) == 0)
     {
       PREFIX_LIST_IN (area) = plist;
       if (PREFIX_NAME_IN (area))
 	free (PREFIX_NAME_IN (area));
 
-      PREFIX_NAME_IN (area) = strdup (argv[1]->arg);
+      PREFIX_NAME_IN (area) = strdup (argv[idx_ipv4]->arg);
       ospf6_abr_reimport (area);
     }
   else
@@ -700,7 +705,7 @@ DEFUN (area_filter_list,
       if (PREFIX_NAME_OUT (area))
 	free (PREFIX_NAME_OUT (area));
 
-      PREFIX_NAME_OUT (area) = strdup (argv[1]->arg);
+      PREFIX_NAME_OUT (area) = strdup (argv[idx_ipv4]->arg);
       ospf6_abr_enable_area (area);
     }
 
@@ -719,16 +724,18 @@ DEFUN (no_area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
+  int idx_ipv4 = 2;
+  int idx_word = 5;
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET (argv[2]->arg, area);
+  OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, area);
   argc--;
   argv++;
 
-  if (strncmp (argv[5]->arg, "in", 2) == 0)
+  if (strncmp (argv[idx_word]->arg, "in", 2) == 0)
     {
       if (PREFIX_NAME_IN (area))
-	if (strcmp (PREFIX_NAME_IN (area), argv[2]->arg) != 0)
+	if (strcmp (PREFIX_NAME_IN (area), argv[idx_ipv4]->arg) != 0)
 	  return CMD_SUCCESS;
 
       PREFIX_LIST_IN (area) = NULL;
@@ -741,7 +748,7 @@ DEFUN (no_area_filter_list,
   else
     {
       if (PREFIX_NAME_OUT (area))
-	if (strcmp (PREFIX_NAME_OUT (area), argv[2]->arg) != 0)
+	if (strcmp (PREFIX_NAME_OUT (area), argv[idx_ipv4]->arg) != 0)
 	  return CMD_SUCCESS;
 
       PREFIX_LIST_OUT (area) = NULL;
@@ -763,19 +770,21 @@ DEFUN (area_import_list,
        "Set the filter for networks from other areas announced to the specified one\n"
        "Name of the acess-list\n")
 {
+  int idx_ipv4 = 1;
+  int idx_name = 3;
   struct ospf6_area *area;
   struct access_list *list;
 
-  OSPF6_CMD_AREA_GET(argv[1]->arg, area);
+  OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area);
 
-  list = access_list_lookup (AFI_IP6, argv[3]->arg);
+  list = access_list_lookup (AFI_IP6, argv[idx_name]->arg);
 
   IMPORT_LIST (area) = list;
 
   if (IMPORT_NAME (area))
     free (IMPORT_NAME (area));
 
-  IMPORT_NAME (area) = strdup (argv[3]->arg);
+  IMPORT_NAME (area) = strdup (argv[idx_name]->arg);
   ospf6_abr_reimport (area);
 
   return CMD_SUCCESS; 
@@ -789,9 +798,10 @@ DEFUN (no_area_import_list,
        "Unset the filter for networks announced to other areas\n"
        "NAme of the access-list\n")
 {
+  int idx_ipv4 = 2;
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[2]->arg, area);
+  OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area);
 
   IMPORT_LIST (area) = 0;
 
@@ -812,19 +822,21 @@ DEFUN (area_export_list,
        "Set the filter for networks announced to other areas\n"
        "Name of the acess-list\n")
 {
+  int idx_ipv4 = 1;
+  int idx_name = 3;
   struct ospf6_area *area;
   struct access_list *list;
 
-  OSPF6_CMD_AREA_GET(argv[1]->arg, area);
+  OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area);
 
-  list = access_list_lookup (AFI_IP6, argv[3]->arg);
+  list = access_list_lookup (AFI_IP6, argv[idx_name]->arg);
 
   EXPORT_LIST (area) = list;
 
   if (EXPORT_NAME (area))
     free (EXPORT_NAME (area));
 
-  EXPORT_NAME (area) = strdup (argv[3]->arg);
+  EXPORT_NAME (area) = strdup (argv[idx_name]->arg);
   ospf6_abr_enable_area (area);
 
   return CMD_SUCCESS; 
@@ -838,9 +850,10 @@ DEFUN (no_area_export_list,
        "Unset the filter for networks announced to other areas\n"
        "Name of the access-list\n")
 {
+  int idx_ipv4 = 2;
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[2]->arg, area);
+  OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area);
 
   EXPORT_LIST (area) = 0;
 
@@ -899,6 +912,7 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
        "Shortest Path First caculation\n"
        "Show SPF tree\n")
 {
+  int idx_ipv4 = 4;
   u_int32_t area_id;
   struct ospf6_area *oa;
   struct ospf6_vertex *root;
@@ -909,15 +923,15 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
 
   ospf6_linkstate_prefix (ospf6->router_id, htonl (0), &prefix);
 
-  if (inet_pton (AF_INET, argv[4]->arg, &area_id) != 1)
+  if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[4]->arg, VNL);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[4]->arg, VNL);
+      vty_out (vty, "No such Area: %s%s", argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -944,6 +958,8 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
        "Show SPF tree\n"
        "Specify root's router-id to calculate another router's SPF tree\n")
 {
+  int idx_ipv4 = 5;
+  int idx_ipv4_2 = 7;
   u_int32_t area_id;
   struct ospf6_area *oa;
   struct ospf6_vertex *root;
@@ -955,18 +971,18 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  inet_pton (AF_INET, argv[5]->arg, &router_id);
+  inet_pton (AF_INET, argv[idx_ipv4]->arg, &router_id);
   ospf6_linkstate_prefix (router_id, htonl (0), &prefix);
 
-  if (inet_pton (AF_INET, argv[7]->arg, &area_id) != 1)
+  if (inet_pton (AF_INET, argv[idx_ipv4_2]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[7]->arg, VNL);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[idx_ipv4_2]->arg, VNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[7]->arg, VNL);
+      vty_out (vty, "No such Area: %s%s", argv[idx_ipv4_2]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1002,9 +1018,10 @@ DEFUN (ospf6_area_stub,
        "OSPF6 area ID as a decimal value\n"
        "Configure OSPF6 area as stub\n")
 {
+  int idx_ipv4_number = 1;
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[1]->arg, area);
+  OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area);
 
   if (!ospf6_area_stub_set (ospf6, area))
     {
@@ -1027,9 +1044,10 @@ DEFUN (ospf6_area_stub_no_summary,
        "Configure OSPF6 area as stub\n"
        "Do not inject inter-area routes into stub\n")
 {
+  int idx_ipv4_number = 1;
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[1]->arg, area);
+  OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area);
 
   if (!ospf6_area_stub_set (ospf6, area))
     {
@@ -1052,9 +1070,10 @@ DEFUN (no_ospf6_area_stub,
        "OSPF6 area ID as a decimal value\n"
        "Configure OSPF6 area as stub\n")
 {
+  int idx_ipv4_number = 2;
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[2]->arg, area);
+  OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area);
 
   ospf6_area_stub_unset (ospf6, area);
   ospf6_area_no_summary_unset (ospf6, area);
@@ -1072,9 +1091,10 @@ DEFUN (no_ospf6_area_stub_no_summary,
        "Configure OSPF6 area as stub\n"
        "Do not inject inter-area routes into area\n")
 {
+  int idx_ipv4_number = 2;
   struct ospf6_area *area;
 
-  OSPF6_CMD_AREA_GET(argv[2]->arg, area);
+  OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area);
 
   ospf6_area_stub_unset (ospf6, area);
   ospf6_area_no_summary_unset (ospf6, area);

@@ -667,14 +667,16 @@ DEFUN (ospf6_redistribute_routemap,
        "Route map name\n"
       )
 {
+  int idx_protocol = 1;
+  int idx_word = 3;
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[1]->arg);
+  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
   if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
-  ospf6_asbr_routemap_set (type, argv[3]->arg);
+  ospf6_asbr_routemap_set (type, argv[idx_word]->arg);
   ospf6_asbr_redistribute_set (type);
   return CMD_SUCCESS;
 }
@@ -1019,8 +1021,9 @@ DEFUN (ospf6_routemap_match_address_prefixlist,
        "Match entries of prefix-lists\n"
        "IPv6 prefix-list name\n")
 {
+  int idx_word = 4;
   int ret = route_map_add_match ((struct route_map_index *) vty->index,
-                                 "ipv6 address prefix-list", argv[4]->arg);
+                                 "ipv6 address prefix-list", argv[idx_word]->arg);
   return route_map_command_status (vty, ret);
 }
 
@@ -1035,8 +1038,9 @@ DEFUN (ospf6_routemap_no_match_address_prefixlist,
        "Match entries of prefix-lists\n"
        "IPv6 prefix-list name\n")
 {
+  int idx_word = 5;
   int ret = route_map_delete_match ((struct route_map_index *) vty->index,
-                                    "ipv6 address prefix-list", argv[5]->arg);
+                                    "ipv6 address prefix-list", argv[idx_word]->arg);
   return route_map_command_status (vty, ret);
 }
 
@@ -1048,8 +1052,9 @@ DEFUN (ospf6_routemap_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
+  int idx_word = 2;
   return route_map_add_match ((struct route_map_index *) vty->index,
-                              "interface", argv[2]->arg);
+                              "interface", argv[idx_word]->arg);
 }
 
 /* "no match interface WORD" */
@@ -1084,8 +1089,9 @@ DEFUN (ospf6_routemap_set_metric_type,
        "OSPF6 external type 1 metric\n"
        "OSPF6 external type 2 metric\n")
 {
+  int idx_external = 2;
   int ret = route_map_add_set ((struct route_map_index *) vty->index,
-                               "metric-type", argv[2]->arg);
+                               "metric-type", argv[idx_external]->arg);
   return route_map_command_status (vty, ret);
 }
 
@@ -1099,8 +1105,9 @@ DEFUN (ospf6_routemap_no_set_metric_type,
        "OSPF6 external type 1 metric\n"
        "OSPF6 external type 2 metric\n")
 {
+  int idx_external = 3;
   int ret = route_map_delete_set ((struct route_map_index *) vty->index,
-                                  "metric-type", argv[3]->arg);
+                                  "metric-type", argv[idx_external]->arg);
   return route_map_command_status (vty, ret);
 }
 
@@ -1112,8 +1119,9 @@ DEFUN (set_metric,
        "Metric value\n"
        "Metric value\n")
 {
+  int idx_number = 2;
   int ret = route_map_add_set ((struct route_map_index *) vty->index,
-                               "metric", argv[2]->arg);
+                               "metric", argv[idx_number]->arg);
   return route_map_command_status (vty, ret);
 }
 
@@ -1154,8 +1162,9 @@ DEFUN (ospf6_routemap_set_forwarding,
        "Forwarding Address\n"
        "IPv6 Address\n")
 {
+  int idx_ipv6 = 2;
   int ret = route_map_add_set ((struct route_map_index *) vty->index,
-                               "forwarding-address", argv[2]->arg);
+                               "forwarding-address", argv[idx_ipv6]->arg);
   return route_map_command_status (vty, ret);
 }
 
@@ -1168,8 +1177,9 @@ DEFUN (ospf6_routemap_no_set_forwarding,
        "Forwarding Address\n"
        "IPv6 Address\n")
 {
+  int idx_ipv6 = 3;
   int ret = route_map_delete_set ((struct route_map_index *) vty->index,
-                                  "forwarding-address", argv[3]->arg);
+                                  "forwarding-address", argv[idx_ipv6]->arg);
   return route_map_command_status (vty, ret);
 }
 

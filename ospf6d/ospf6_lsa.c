@@ -835,6 +835,7 @@ DEFUN (debug_ospf6_lsa_type,
        "Specify LS type as Hexadecimal\n"
       )
 {
+  int idx_lsa = 3;
   unsigned int i;
   struct ospf6_lsa_handler *handler = NULL;
 
@@ -845,9 +846,9 @@ DEFUN (debug_ospf6_lsa_type,
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
         continue;
-      if (strncmp (argv[3]->arg, ospf6_lsa_handler_name(handler), strlen(argv[3]->arg)) == 0)
+      if (strncmp (argv[idx_lsa]->arg, ospf6_lsa_handler_name(handler), strlen(argv[idx_lsa]->arg)) == 0)
         break;
-      if (! strcasecmp (argv[3]->arg, handler->name))
+      if (! strcasecmp (argv[idx_lsa]->arg, handler->name))
         break;
       handler = NULL;
     }
@@ -892,6 +893,7 @@ DEFUN (no_debug_ospf6_lsa_type,
        "Specify LS type as Hexadecimal\n"
       )
 {
+  int idx_lsa = 4;
   u_int i;
   struct ospf6_lsa_handler *handler = NULL;
 
@@ -902,9 +904,9 @@ DEFUN (no_debug_ospf6_lsa_type,
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
         continue;
-      if (strncmp (argv[4]->arg, ospf6_lsa_handler_name(handler), strlen(argv[4]->arg)) == 0)
+      if (strncmp (argv[idx_lsa]->arg, ospf6_lsa_handler_name(handler), strlen(argv[idx_lsa]->arg)) == 0)
         break;
-      if (! strcasecmp (argv[4]->arg, handler->name))
+      if (! strcasecmp (argv[idx_lsa]->arg, handler->name))
         break;
     }
 

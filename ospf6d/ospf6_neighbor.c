@@ -893,6 +893,7 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
        "Specify Router-ID as IPv4 address notation\n"
       )
 {
+  int idx_ipv4 = 4;
   struct ospf6_neighbor *on;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
@@ -903,9 +904,9 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
   OSPF6_CMD_CHECK_RUNNING ();
   showfunc = ospf6_neighbor_show_detail;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &router_id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_ipv4]->arg, &router_id)) != 1)
     {
-      vty_out (vty, "Router-ID is not parsable: %s%s", argv[4]->arg,
+      vty_out (vty, "Router-ID is not parsable: %s%s", argv[idx_ipv4]->arg,
                VNL);
       return CMD_SUCCESS;
     }

@@ -289,7 +289,7 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'confed|missing-as-worst':
         return 'idx_med_knob'
 
-    elif token == 'both|send|receive':
+    elif token == 'both|send|receive' or token == 'send|recv':
         return 'idx_send_recv'
 
     elif token == 'both|extended|standard':
@@ -318,6 +318,24 @@ def get_token_index_variable_name(line_number, token):
 
     elif token == 'md5|clear':
         return 'idx_encryption'
+
+    elif token == 'type-1|type-2':
+        return 'idx_external'
+
+    elif token == 'table|intra-area|inter-area|memory':
+        return 'idx_type'
+
+    elif token == 'unknown|hello|dbdesc|lsreq|lsupdate|lsack|all':
+        return 'idx_packet'
+
+    elif token == 'router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown' or token == 'intra-area|inter-area|external-1|external-2' or token == 'router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix':
+        return 'idx_lsa'
+
+    elif token == 'broadcast|point-to-point':
+        return 'idx_network'
+
+    elif token == 'A.B.C.D|(0-4294967295)':
+        return 'idx_ipv4_number'
 
     elif token == 'narrow|transition|wide':
         return 'idx_metric_style'

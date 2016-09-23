@@ -354,6 +354,9 @@ DEFUN (ipv6_ospf6_bfd_param,
        "Required min receive interval\n"
        "Desired min transmit interval\n")
 {
+  int idx_number = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 5;
   struct ospf6_interface *oi;
   struct interface *ifp;
   u_int32_t rx_val;
@@ -369,7 +372,7 @@ DEFUN (ipv6_ospf6_bfd_param,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  if ((ret = bfd_validate_param (vty, argv[3]->arg, argv[4]->arg, argv[5]->arg, &dm_val,
+  if ((ret = bfd_validate_param (vty, argv[idx_number]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg, &dm_val,
                                  &rx_val, &tx_val)) != CMD_SUCCESS)
     return ret;
 

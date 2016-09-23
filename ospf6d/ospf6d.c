@@ -364,6 +364,7 @@ DEFUN (show_ipv6_ospf6_database_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  int idx_ipv4 = 5;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -373,10 +374,10 @@ DEFUN (show_ipv6_ospf6_database_id,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if ((inet_pton (AF_INET, argv[5]->arg, &id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_ipv4]->arg, &id)) != 1)
     {
       vty_out (vty, "Link State ID is not parsable: %s%s",
-               argv[5]->arg, VNL);
+               argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -461,6 +462,7 @@ DEFUN (show_ipv6_ospf6_database_router,
        "Specify Advertising Router as IPv4 address notation\n"
       )
 {
+  int idx_ipv4 = 6;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -470,10 +472,10 @@ DEFUN (show_ipv6_ospf6_database_router,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if ((inet_pton (AF_INET, argv[6]->arg, &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_ipv4]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[6]->arg, VNL);
+               argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -596,6 +598,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -610,10 +613,10 @@ DEFUN (show_ipv6_ospf6_database_type_id,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_lsa]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[4]->arg, VNL);
+               argv[idx_lsa]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -751,6 +754,7 @@ DEFUN (show_ipv6_ospf6_database_type_router,
        "Specify Advertising Router as IPv4 address notation\n"
       )
 {
+  int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -765,10 +769,10 @@ DEFUN (show_ipv6_ospf6_database_type_router,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_lsa]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[4]->arg, VNL);
+               argv[idx_lsa]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -844,6 +848,7 @@ DEFUN (show_ipv6_ospf6_database_id_router,
        "Specify Advertising Router as IPv4 address notation\n"
       )
 {
+  int idx_ipv4 = 5;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -854,20 +859,20 @@ DEFUN (show_ipv6_ospf6_database_id_router,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if ((inet_pton (AF_INET, argv[5]->arg, &id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_ipv4]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[5]->arg, VNL);
+               argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[5]->arg, &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_ipv4]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[5]->arg, VNL);
+               argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -930,6 +935,7 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  int idx_ipv4 = 5;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -940,20 +946,20 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
 
   OSPF6_CMD_CHECK_RUNNING ();
 
-  if ((inet_pton (AF_INET, argv[5]->arg, &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_ipv4]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[5]->arg, VNL);
+               argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[5]->arg, &id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_ipv4]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[5]->arg, VNL);
+               argv[idx_ipv4]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1031,6 +1037,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
        "Specify Advertising Router as IPv4 address notation\n"
       )
 {
+  int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -1046,20 +1053,20 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_lsa]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[4]->arg, VNL);
+               argv[idx_lsa]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_lsa]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[4]->arg, VNL);
+               argv[idx_lsa]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1155,6 +1162,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -1170,20 +1178,20 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &adv_router)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_lsa]->arg, &adv_router)) != 1)
     {
       vty_out (vty, "Advertising Router is not parsable: %s%s",
-               argv[4]->arg, VNL);
+               argv[idx_lsa]->arg, VNL);
       return CMD_SUCCESS;
     }
 
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_lsa]->arg, &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[4]->arg, VNL);
+               argv[idx_lsa]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1436,6 +1444,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -1451,10 +1460,10 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_lsa]->arg, &id)) != 1)
     {
       vty_out (vty, "Link State ID is not parsable: %s%s",
-               argv[4]->arg, VNL);
+               argv[idx_lsa]->arg, VNL);
       return CMD_SUCCESS;
     }
 
@@ -1549,6 +1558,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
        "Display Self-originated LSAs\n"
       )
 {
+  int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -1564,10 +1574,10 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[4]->arg, &id)) != 1)
+  if ((inet_pton (AF_INET, argv[idx_lsa]->arg, &id)) != 1)
     {
       vty_out (vty, "Link State ID is not parsable: %s%s",
-               argv[4]->arg, VNL);
+               argv[idx_lsa]->arg, VNL);
       return CMD_SUCCESS;
     }
 
