@@ -1220,7 +1220,7 @@ rip_passive_nondefault_clean (void)
 /* RIP enable network or interface configuration. */
 DEFUN (rip_network,
        rip_network_cmd,
-       "network (A.B.C.D/M|WORD)",
+       "network <A.B.C.D/M|WORD>",
        "Enable routing on an IP network\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Interface name\n")
@@ -1248,7 +1248,7 @@ DEFUN (rip_network,
 /* RIP enable network or interface configuration. */
 DEFUN (no_rip_network,
        no_rip_network_cmd,
-       "no network (A.B.C.D/M|WORD)",
+       "no network <A.B.C.D/M|WORD>",
        NO_STR
        "Enable routing on an IP network\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
@@ -1323,7 +1323,7 @@ DEFUN (no_rip_neighbor,
 
 DEFUN (ip_rip_receive_version,
        ip_rip_receive_version_cmd,
-       "ip rip receive version (1|2)",
+       "ip rip receive version <1|2>",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
@@ -1427,7 +1427,7 @@ DEFUN (no_ip_rip_receive_version,
 
 DEFUN (ip_rip_send_version,
        ip_rip_send_version_cmd,
-       "ip rip send version (1|2)",
+       "ip rip send version <1|2>",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
@@ -1545,7 +1545,7 @@ DEFUN (no_ip_rip_send_version,
  */
 DEFUN (ip_rip_authentication_mode,
        ip_rip_authentication_mode_cmd,
-       "ip rip authentication mode (md5|text)",
+       "ip rip authentication mode <md5|text>",
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
@@ -1873,7 +1873,7 @@ DEFUN (no_ip_rip_split_horizon_poisoned_reverse,
 
 DEFUN (rip_passive_interface,
        rip_passive_interface_cmd,
-       "passive-interface (IFNAME|default)",
+       "passive-interface <IFNAME|default>",
        "Suppress routing updates on an interface\n"
        "Interface name\n"
        "default for all interfaces\n")
@@ -1893,7 +1893,7 @@ DEFUN (rip_passive_interface,
 
 DEFUN (no_rip_passive_interface,
        no_rip_passive_interface_cmd,
-       "no passive-interface (IFNAME|default)",
+       "no passive-interface <IFNAME|default>",
        NO_STR
        "Suppress routing updates on an interface\n"
        "Interface name\n"

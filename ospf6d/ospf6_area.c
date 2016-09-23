@@ -668,7 +668,7 @@ ospf6_area_config_write (struct vty *vty)
 
 DEFUN (area_filter_list,
        area_filter_list_cmd,
-       "area A.B.C.D filter-list prefix WORD (in|out)",
+       "area A.B.C.D filter-list prefix WORD <in|out>",
        "OSPFv6 area parameters\n"
        "OSPFv6 area ID in IP address format\n"
        "Filter networks between OSPFv6 areas\n"
@@ -709,7 +709,7 @@ DEFUN (area_filter_list,
      
 DEFUN (no_area_filter_list,
        no_area_filter_list_cmd,
-       "no area A.B.C.D filter-list prefix WORD (in|out)",
+       "no area A.B.C.D filter-list prefix WORD <in|out>",
        NO_STR
        "OSPFv6 area parameters\n"
        "OSPFv6 area ID in IP address format\n"
@@ -996,7 +996,7 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 
 DEFUN (ospf6_area_stub,
        ospf6_area_stub_cmd,
-       "area (A.B.C.D|<0-4294967295>) stub",
+       "area <A.B.C.D|(0-4294967295)> stub",
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
@@ -1020,7 +1020,7 @@ DEFUN (ospf6_area_stub,
 
 DEFUN (ospf6_area_stub_no_summary,
        ospf6_area_stub_no_summary_cmd,
-       "area (A.B.C.D|<0-4294967295>) stub no-summary",
+       "area <A.B.C.D|(0-4294967295)> stub no-summary",
        "OSPF6 stub parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
@@ -1045,7 +1045,7 @@ DEFUN (ospf6_area_stub_no_summary,
 
 DEFUN (no_ospf6_area_stub,
        no_ospf6_area_stub_cmd,
-       "no area (A.B.C.D|<0-4294967295>) stub",
+       "no area <A.B.C.D|(0-4294967295)> stub",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
@@ -1064,7 +1064,7 @@ DEFUN (no_ospf6_area_stub,
 
 DEFUN (no_ospf6_area_stub_no_summary,
        no_ospf6_area_stub_no_summary_cmd,
-       "no area (A.B.C.D|<0-4294967295>) stub no-summary",
+       "no area <A.B.C.D|(0-4294967295)> stub no-summary",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"

@@ -398,7 +398,7 @@ DEFUN (no_ospf6_log_adjacency_changes_detail,
 
 DEFUN (ospf6_timers_lsa,
        ospf6_timers_lsa_cmd,
-       "timers lsa min-arrival <0-600000>",
+       "timers lsa min-arrival (0-600000)",
        "Adjust routing timers\n"
        "OSPF6 LSA timers\n"
        "Minimum delay in receiving new version of a LSA\n"
@@ -640,7 +640,7 @@ DEFUN (no_ospf6_stub_router_admin,
 
 DEFUN (ospf6_stub_router_startup,
        ospf6_stub_router_startup_cmd,
-       "stub-router on-startup <5-86400>",
+       "stub-router on-startup (5-86400)",
        "Make router a stub router\n"
        "Advertise inability to be a transit router\n"
        "Automatically advertise as stub-router on startup of OSPF6\n"
@@ -663,7 +663,7 @@ DEFUN (no_ospf6_stub_router_startup,
 
 DEFUN (ospf6_stub_router_shutdown,
        ospf6_stub_router_shutdown_cmd,
-       "stub-router on-shutdown <5-86400>",
+       "stub-router on-shutdown (5-86400)",
        "Make router a stub router\n"
        "Advertise inability to be a transit router\n"
        "Automatically advertise as stub-router before shutdown\n"
@@ -868,7 +868,7 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
 
 DEFUN (show_ipv6_ospf6_route_type_detail,
        show_ipv6_ospf6_route_type_detail_cmd,
-       "show ipv6 ospf6 route (intra-area|inter-area|external-1|external-2) detail",
+       "show ipv6 ospf6 route <intra-area|inter-area|external-1|external-2> detail",
        SHOW_STR
        IP6_STR
        OSPF6_STR

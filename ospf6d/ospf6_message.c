@@ -2358,7 +2358,7 @@ ospf6_lsack_send_interface (struct thread *thread)
  */
 DEFUN (debug_ospf6_message,
        debug_ospf6_message_cmd,
-       "debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all)",
+       "debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all>",
        DEBUG_STR
        OSPF6_STR
        "Debug OSPFv3 message\n"
@@ -2435,7 +2435,7 @@ DEFUN (debug_ospf6_message,
  */
 DEFUN (no_debug_ospf6_message,
        no_debug_ospf6_message_cmd,
-       "no debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all)",
+       "no debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all>",
        NO_STR
        DEBUG_STR
        OSPF6_STR

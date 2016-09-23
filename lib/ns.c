@@ -551,7 +551,7 @@ ns_netns_pathname (struct vty *vty, const char *name)
 
 DEFUN (ns_netns,
        ns_netns_cmd,
-       "logical-router <1-65535> ns NAME",
+       "logical-router (1-65535) ns NAME",
        "Enable a logical-router\n"
        "Specify the logical-router indentifier\n"
        "The Name Space\n"
@@ -589,7 +589,7 @@ DEFUN (ns_netns,
 
 DEFUN (no_ns_netns,
        no_ns_netns_cmd,
-       "no logical-router <1-65535> ns NAME",
+       "no logical-router (1-65535) ns NAME",
        NO_STR
        "Enable a Logical-Router\n"
        "Specify the Logical-Router identifier\n"

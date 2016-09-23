@@ -1190,7 +1190,7 @@ DEFUN (isis_mpls_te_router_addr,
 
 DEFUN (isis_mpls_te_inter_as,
        isis_mpls_te_inter_as_cmd,
-       "mpls-te inter-as (level-1|level-1-2|level-2-only)",
+       "mpls-te inter-as <level-1|level-1-2|level-2-only>",
        MPLS_TE_STR
        "Configure MPLS-TE Inter-AS support\n"
        "AREA native mode self originate INTER-AS LSP with L1 only flooding scope)\n"

@@ -55,7 +55,7 @@ isis_circuit_lookup (struct vty *vty)
 
 DEFUN (ip_router_isis,
        ip_router_isis_cmd,
-       "(ip|ipv6) router isis WORD",
+       "<ip|ipv6> router isis WORD",
        "Interface Internet Protocol config commands\n"
        "IP router interface commands\n"
        "IS-IS Routing for IP\n"
@@ -108,7 +108,7 @@ DEFUN (ip_router_isis,
 
 DEFUN (no_ip_router_isis,
        no_ip_router_isis_cmd,
-       "no (ip|ipv6) router isis WORD",
+       "no <ip|ipv6> router isis WORD",
        NO_STR
        "Interface Internet Protocol config commands\n"
        "IP router interface commands\n"
@@ -192,7 +192,7 @@ DEFUN (no_isis_passive,
 
 DEFUN (isis_circuit_type,
        isis_circuit_type_cmd,
-       "isis circuit-type (level-1|level-1-2|level-2-only)",
+       "isis circuit-type <level-1|level-1-2|level-2-only>",
        "IS-IS commands\n"
        "Configure circuit type for interface\n"
        "Level-1 only adjacencies are formed\n"
@@ -226,7 +226,7 @@ DEFUN (isis_circuit_type,
 
 DEFUN (no_isis_circuit_type,
        no_isis_circuit_type_cmd,
-       "no isis circuit-type (level-1|level-1-2|level-2-only)",
+       "no isis circuit-type <level-1|level-1-2|level-2-only>",
        NO_STR
        "IS-IS commands\n"
        "Configure circuit type for interface\n"
@@ -298,7 +298,7 @@ DEFUN (no_isis_network,
 
 DEFUN (isis_passwd,
        isis_passwd_cmd,
-       "isis password (md5|clear) WORD",
+       "isis password <md5|clear> WORD",
        "IS-IS commands\n"
        "Configure the authentication password for a circuit\n"
        "HMAC-MD5 authentication\n"
@@ -353,7 +353,7 @@ DEFUN (no_isis_passwd,
 
 DEFUN (isis_priority,
        isis_priority_cmd,
-       "isis priority <0-127>",
+       "isis priority (0-127)",
        "IS-IS commands\n"
        "Set priority for Designated Router election\n"
        "Priority value\n")
@@ -406,7 +406,7 @@ DEFUN (no_isis_priority,
 
 DEFUN (isis_priority_l1,
        isis_priority_l1_cmd,
-       "isis priority <0-127> level-1",
+       "isis priority (0-127) level-1",
        "IS-IS commands\n"
        "Set priority for Designated Router election\n"
        "Priority value\n"
@@ -460,7 +460,7 @@ DEFUN (no_isis_priority_l1,
 
 DEFUN (isis_priority_l2,
        isis_priority_l2_cmd,
-       "isis priority <0-127> level-2",
+       "isis priority (0-127) level-2",
        "IS-IS commands\n"
        "Set priority for Designated Router election\n"
        "Priority value\n"
@@ -515,7 +515,7 @@ DEFUN (no_isis_priority_l2,
 /* Metric command */
 DEFUN (isis_metric,
        isis_metric_cmd,
-       "isis metric <0-16777215>",
+       "isis metric (0-16777215)",
        "IS-IS commands\n"
        "Set default metric for circuit\n"
        "Default metric value\n")
@@ -580,7 +580,7 @@ DEFUN (no_isis_metric,
 
 DEFUN (isis_metric_l1,
        isis_metric_l1_cmd,
-       "isis metric <0-16777215> level-1",
+       "isis metric (0-16777215) level-1",
        "IS-IS commands\n"
        "Set default metric for circuit\n"
        "Default metric value\n"
@@ -646,7 +646,7 @@ DEFUN (no_isis_metric_l1,
 
 DEFUN (isis_metric_l2,
        isis_metric_l2_cmd,
-       "isis metric <0-16777215> level-2",
+       "isis metric (0-16777215) level-2",
        "IS-IS commands\n"
        "Set default metric for circuit\n"
        "Default metric value\n"
@@ -713,7 +713,7 @@ DEFUN (no_isis_metric_l2,
 
 DEFUN (isis_hello_interval,
        isis_hello_interval_cmd,
-       "isis hello-interval <1-600>",
+       "isis hello-interval (1-600)",
        "IS-IS commands\n"
        "Set Hello interval\n"
        "Hello interval value\n"
@@ -768,7 +768,7 @@ DEFUN (no_isis_hello_interval,
 
 DEFUN (isis_hello_interval_l1,
        isis_hello_interval_l1_cmd,
-       "isis hello-interval <1-600> level-1",
+       "isis hello-interval (1-600) level-1",
        "IS-IS commands\n"
        "Set Hello interval\n"
        "Hello interval value\n"
@@ -824,7 +824,7 @@ DEFUN (no_isis_hello_interval_l1,
 
 DEFUN (isis_hello_interval_l2,
        isis_hello_interval_l2_cmd,
-       "isis hello-interval <1-600> level-2",
+       "isis hello-interval (1-600) level-2",
        "IS-IS commands\n"
        "Set Hello interval\n"
        "Hello interval value\n"
@@ -880,7 +880,7 @@ DEFUN (no_isis_hello_interval_l2,
 
 DEFUN (isis_hello_multiplier,
        isis_hello_multiplier_cmd,
-       "isis hello-multiplier <2-100>",
+       "isis hello-multiplier (2-100)",
        "IS-IS commands\n"
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n")
@@ -933,7 +933,7 @@ DEFUN (no_isis_hello_multiplier,
 
 DEFUN (isis_hello_multiplier_l1,
        isis_hello_multiplier_l1_cmd,
-       "isis hello-multiplier <2-100> level-1",
+       "isis hello-multiplier (2-100) level-1",
        "IS-IS commands\n"
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n"
@@ -987,7 +987,7 @@ DEFUN (no_isis_hello_multiplier_l1,
 
 DEFUN (isis_hello_multiplier_l2,
        isis_hello_multiplier_l2_cmd,
-       "isis hello-multiplier <2-100> level-2",
+       "isis hello-multiplier (2-100) level-2",
        "IS-IS commands\n"
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n"
@@ -1076,7 +1076,7 @@ DEFUN (no_isis_hello_padding,
 
 DEFUN (csnp_interval,
        csnp_interval_cmd,
-       "isis csnp-interval <1-600>",
+       "isis csnp-interval (1-600)",
        "IS-IS commands\n"
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n")
@@ -1129,7 +1129,7 @@ DEFUN (no_csnp_interval,
 
 DEFUN (csnp_interval_l1,
        csnp_interval_l1_cmd,
-       "isis csnp-interval <1-600> level-1",
+       "isis csnp-interval (1-600) level-1",
        "IS-IS commands\n"
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n"
@@ -1183,7 +1183,7 @@ DEFUN (no_csnp_interval_l1,
 
 DEFUN (csnp_interval_l2,
        csnp_interval_l2_cmd,
-       "isis csnp-interval <1-600> level-2",
+       "isis csnp-interval (1-600) level-2",
        "IS-IS commands\n"
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n"
@@ -1237,7 +1237,7 @@ DEFUN (no_csnp_interval_l2,
 
 DEFUN (psnp_interval,
        psnp_interval_cmd,
-       "isis psnp-interval <1-120>",
+       "isis psnp-interval (1-120)",
        "IS-IS commands\n"
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n")
@@ -1290,7 +1290,7 @@ DEFUN (no_psnp_interval,
 
 DEFUN (psnp_interval_l1,
        psnp_interval_l1_cmd,
-       "isis psnp-interval <1-120> level-1",
+       "isis psnp-interval (1-120) level-1",
        "IS-IS commands\n"
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n"
@@ -1344,7 +1344,7 @@ DEFUN (no_psnp_interval_l1,
 
 DEFUN (psnp_interval_l2,
        psnp_interval_l2_cmd,
-       "isis psnp-interval <1-120> level-2",
+       "isis psnp-interval (1-120) level-2",
        "IS-IS commands\n"
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n"
@@ -1436,7 +1436,7 @@ validate_metric_style_narrow (struct vty *vty, struct isis_area *area)
 
 DEFUN (metric_style,
        metric_style_cmd,
-       "metric-style (narrow|transition|wide)",
+       "metric-style <narrow|transition|wide>",
        "Use old-style (ISO 10589) or new-style packet formats\n"
        "Use old style of TLVs with narrow metric\n"
        "Send and accept both styles of TLVs during transition\n"
@@ -1593,7 +1593,7 @@ static int area_lsp_mtu_set(struct vty *vty, unsigned int lsp_mtu)
 
 DEFUN (area_lsp_mtu,
        area_lsp_mtu_cmd,
-       "lsp-mtu <128-4352>",
+       "lsp-mtu (128-4352)",
        "Configure the maximum size of generated LSPs\n"
        "Maximum size of generated LSPs\n")
 {
@@ -1624,7 +1624,7 @@ DEFUN (no_area_lsp_mtu,
 
 DEFUN (is_type,
        is_type_cmd,
-       "is-type (level-1|level-1-2|level-2-only)",
+       "is-type <level-1|level-1-2|level-2-only>",
        "IS Level for this routing process (OSI only)\n"
        "Act as a station router only\n"
        "Act as both a station router and an area router\n"
@@ -1655,7 +1655,7 @@ DEFUN (is_type,
 
 DEFUN (no_is_type,
        no_is_type_cmd,
-       "no is-type (level-1|level-1-2|level-2-only)",
+       "no is-type <level-1|level-1-2|level-2-only>",
        NO_STR
        "IS Level for this routing process (OSI only)\n"
        "Act as a station router only\n"
@@ -1715,7 +1715,7 @@ set_lsp_gen_interval (struct vty *vty, struct isis_area *area,
 
 DEFUN (lsp_gen_interval,
        lsp_gen_interval_cmd,
-       "lsp-gen-interval <1-120>",
+       "lsp-gen-interval (1-120)",
        "Minimum interval between regenerating same LSP\n"
        "Minimum interval in seconds\n")
 {
@@ -1756,7 +1756,7 @@ DEFUN (no_lsp_gen_interval,
 
 DEFUN (lsp_gen_interval_l1,
        lsp_gen_interval_l1_cmd,
-       "lsp-gen-interval level-1 <1-120>",
+       "lsp-gen-interval level-1 (1-120)",
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 1 only\n"
        "Minimum interval in seconds\n")
@@ -1800,7 +1800,7 @@ DEFUN (no_lsp_gen_interval_l1,
 
 DEFUN (lsp_gen_interval_l2,
        lsp_gen_interval_l2_cmd,
-       "lsp-gen-interval level-2 <1-120>",
+       "lsp-gen-interval level-2 (1-120)",
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 2 only\n"
        "Minimum interval in seconds\n")
@@ -1844,7 +1844,7 @@ DEFUN (no_lsp_gen_interval_l2,
 
 DEFUN (spf_interval,
        spf_interval_cmd,
-       "spf-interval <1-120>",
+       "spf-interval (1-120)",
        "Minimum interval between SPF calculations\n"
        "Minimum interval between consecutive SPFs in seconds\n")
 {
@@ -1898,7 +1898,7 @@ DEFUN (no_spf_interval,
 
 DEFUN (spf_interval_l1,
        spf_interval_l1_cmd,
-       "spf-interval level-1 <1-120>",
+       "spf-interval level-1 (1-120)",
        "Minimum interval between SPF calculations\n"
        "Set interval for level 1 only\n"
        "Minimum interval between consecutive SPFs in seconds\n")
@@ -1932,7 +1932,7 @@ DEFUN (no_spf_interval_l1,
 
 DEFUN (spf_interval_l2,
        spf_interval_l2_cmd,
-       "spf-interval level-2 <1-120>",
+       "spf-interval level-2 (1-120)",
        "Minimum interval between SPF calculations\n"
        "Set interval for level 2 only\n"
        "Minimum interval between consecutive SPFs in seconds\n")
@@ -2018,7 +2018,7 @@ area_max_lsp_lifetime_set(struct vty *vty, int level,
 
 DEFUN (max_lsp_lifetime,
        max_lsp_lifetime_cmd,
-       "max-lsp-lifetime <350-65535>",
+       "max-lsp-lifetime (350-65535)",
        "Maximum LSP lifetime\n"
        "LSP lifetime in seconds\n")
 {
@@ -2046,7 +2046,7 @@ DEFUN (no_max_lsp_lifetime,
 
 DEFUN (max_lsp_lifetime_l1,
        max_lsp_lifetime_l1_cmd,
-       "max-lsp-lifetime level-1 <350-65535>",
+       "max-lsp-lifetime level-1 (350-65535)",
        "Maximum LSP lifetime for Level 1 only\n"
        "LSP lifetime for Level 1 only in seconds\n")
 {
@@ -2073,7 +2073,7 @@ DEFUN (no_max_lsp_lifetime_l1,
 
 DEFUN (max_lsp_lifetime_l2,
        max_lsp_lifetime_l2_cmd,
-       "max-lsp-lifetime level-2 <350-65535>",
+       "max-lsp-lifetime level-2 (350-65535)",
        "Maximum LSP lifetime for Level 2 only\n"
        "LSP lifetime for Level 2 only in seconds\n")
 {
@@ -2144,7 +2144,7 @@ area_lsp_refresh_interval_set(struct vty *vty, int level, uint16_t interval)
 
 DEFUN (lsp_refresh_interval,
        lsp_refresh_interval_cmd,
-       "lsp-refresh-interval <1-65235>",
+       "lsp-refresh-interval (1-65235)",
        "LSP refresh interval\n"
        "LSP refresh interval in seconds\n")
 {
@@ -2172,7 +2172,7 @@ DEFUN (no_lsp_refresh_interval,
 
 DEFUN (lsp_refresh_interval_l1,
        lsp_refresh_interval_l1_cmd,
-       "lsp-refresh-interval level-1 <1-65235>",
+       "lsp-refresh-interval level-1 (1-65235)",
        "LSP refresh interval for Level 1 only\n"
        "LSP refresh interval for Level 1 only in seconds\n")
 {
@@ -2200,7 +2200,7 @@ DEFUN (no_lsp_refresh_interval_l1,
 
 DEFUN (lsp_refresh_interval_l2,
        lsp_refresh_interval_l2_cmd,
-       "lsp-refresh-interval level-2 <1-65235>",
+       "lsp-refresh-interval level-2 (1-65235)",
        "LSP refresh interval for Level 2 only\n"
        "LSP refresh interval for Level 2 only in seconds\n")
 {
@@ -2265,7 +2265,7 @@ area_passwd_set(struct vty *vty, int level,
  */
 DEFUN (area_passwd_md5,
        area_passwd_md5_cmd,
-       "(area-password|domain-password) md5 WORD",
+       "<area-password|domain-password> md5 WORD",
        "Configure the authentication password for an area\n"
        "Set the authentication password for a routing domain\n"
        "Authentication type\n"
@@ -2301,7 +2301,7 @@ DEFUN (area_passwd_md5,
  */
 DEFUN (area_passwd_clear,
        area_passwd_clear_cmd,
-       "(area-password|domain-password) clear WORD",
+       "<area-password|domain-password> clear WORD",
        "Configure the authentication password for an area\n"
        "Set the authentication password for a routing domain\n"
        "Authentication type\n"
@@ -2324,7 +2324,7 @@ DEFUN (area_passwd_clear,
 
 DEFUN (no_area_passwd,
        no_area_passwd_cmd,
-       "no (area-password|domain-password)",
+       "no <area-password|domain-password>",
        NO_STR
        "Configure the authentication password for an area\n"
        "Set the authentication password for a routing domain\n")

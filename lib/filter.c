@@ -704,7 +704,7 @@ filter_set_cisco (struct vty *vty, const char *name_str, const char *type_str,
 /* Standard access-list */
 DEFUN (access_list_standard,
        access_list_standard_cmd,
-       "access-list (<1-99>|<1300-1999>) (deny|permit) A.B.C.D A.B.C.D",
+       "access-list <(1-99)|(1300-1999)> <deny|permit> A.B.C.D A.B.C.D",
        "Add an access list entry\n"
        "IP standard access list\n"
        "IP standard access list (expanded range)\n"
@@ -719,7 +719,7 @@ DEFUN (access_list_standard,
 
 DEFUN (access_list_standard_nomask,
        access_list_standard_nomask_cmd,
-       "access-list (<1-99>|<1300-1999>) (deny|permit) A.B.C.D",
+       "access-list <(1-99)|(1300-1999)> <deny|permit> A.B.C.D",
        "Add an access list entry\n"
        "IP standard access list\n"
        "IP standard access list (expanded range)\n"
@@ -733,7 +733,7 @@ DEFUN (access_list_standard_nomask,
 
 DEFUN (access_list_standard_host,
        access_list_standard_host_cmd,
-       "access-list (<1-99>|<1300-1999>) (deny|permit) host A.B.C.D",
+       "access-list <(1-99)|(1300-1999)> <deny|permit> host A.B.C.D",
        "Add an access list entry\n"
        "IP standard access list\n"
        "IP standard access list (expanded range)\n"
@@ -748,7 +748,7 @@ DEFUN (access_list_standard_host,
 
 DEFUN (access_list_standard_any,
        access_list_standard_any_cmd,
-       "access-list (<1-99>|<1300-1999>) (deny|permit) any",
+       "access-list <(1-99)|(1300-1999)> <deny|permit> any",
        "Add an access list entry\n"
        "IP standard access list\n"
        "IP standard access list (expanded range)\n"
@@ -762,7 +762,7 @@ DEFUN (access_list_standard_any,
 
 DEFUN (no_access_list_standard,
        no_access_list_standard_cmd,
-       "no access-list (<1-99>|<1300-1999>) (deny|permit) A.B.C.D A.B.C.D",
+       "no access-list <(1-99)|(1300-1999)> <deny|permit> A.B.C.D A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP standard access list\n"
@@ -778,7 +778,7 @@ DEFUN (no_access_list_standard,
 
 DEFUN (no_access_list_standard_nomask,
        no_access_list_standard_nomask_cmd,
-       "no access-list (<1-99>|<1300-1999>) (deny|permit) A.B.C.D",
+       "no access-list <(1-99)|(1300-1999)> <deny|permit> A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP standard access list\n"
@@ -793,7 +793,7 @@ DEFUN (no_access_list_standard_nomask,
 
 DEFUN (no_access_list_standard_host,
        no_access_list_standard_host_cmd,
-       "no access-list (<1-99>|<1300-1999>) (deny|permit) host A.B.C.D",
+       "no access-list <(1-99)|(1300-1999)> <deny|permit> host A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP standard access list\n"
@@ -809,7 +809,7 @@ DEFUN (no_access_list_standard_host,
 
 DEFUN (no_access_list_standard_any,
        no_access_list_standard_any_cmd,
-       "no access-list (<1-99>|<1300-1999>) (deny|permit) any",
+       "no access-list <(1-99)|(1300-1999)> <deny|permit> any",
        NO_STR
        "Add an access list entry\n"
        "IP standard access list\n"
@@ -825,7 +825,7 @@ DEFUN (no_access_list_standard_any,
 /* Extended access-list */
 DEFUN (access_list_extended,
        access_list_extended_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -843,7 +843,7 @@ DEFUN (access_list_extended,
 
 DEFUN (access_list_extended_mask_any,
        access_list_extended_mask_any_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D any",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip A.B.C.D A.B.C.D any",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -861,7 +861,7 @@ DEFUN (access_list_extended_mask_any,
 
 DEFUN (access_list_extended_any_mask,
        access_list_extended_any_mask_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip any A.B.C.D A.B.C.D",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip any A.B.C.D A.B.C.D",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -879,7 +879,7 @@ DEFUN (access_list_extended_any_mask,
 
 DEFUN (access_list_extended_any_any,
        access_list_extended_any_any_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip any any",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip any any",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -896,7 +896,7 @@ DEFUN (access_list_extended_any_any,
 
 DEFUN (access_list_extended_mask_host,
        access_list_extended_mask_host_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D host A.B.C.D",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip A.B.C.D A.B.C.D host A.B.C.D",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -915,7 +915,7 @@ DEFUN (access_list_extended_mask_host,
 
 DEFUN (access_list_extended_host_mask,
        access_list_extended_host_mask_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D A.B.C.D A.B.C.D",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip host A.B.C.D A.B.C.D A.B.C.D",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -934,7 +934,7 @@ DEFUN (access_list_extended_host_mask,
 
 DEFUN (access_list_extended_host_host,
        access_list_extended_host_host_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D host A.B.C.D",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip host A.B.C.D host A.B.C.D",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -953,7 +953,7 @@ DEFUN (access_list_extended_host_host,
 
 DEFUN (access_list_extended_any_host,
        access_list_extended_any_host_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip any host A.B.C.D",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip any host A.B.C.D",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -971,7 +971,7 @@ DEFUN (access_list_extended_any_host,
 
 DEFUN (access_list_extended_host_any,
        access_list_extended_host_any_cmd,
-       "access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D any",
+       "access-list <(100-199)|(2000-2699)> <deny|permit> ip host A.B.C.D any",
        "Add an access list entry\n"
        "IP extended access list\n"
        "IP extended access list (expanded range)\n"
@@ -989,7 +989,7 @@ DEFUN (access_list_extended_host_any,
 
 DEFUN (no_access_list_extended,
        no_access_list_extended_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1008,7 +1008,7 @@ DEFUN (no_access_list_extended,
 
 DEFUN (no_access_list_extended_mask_any,
        no_access_list_extended_mask_any_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D any",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip A.B.C.D A.B.C.D any",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1027,7 +1027,7 @@ DEFUN (no_access_list_extended_mask_any,
 
 DEFUN (no_access_list_extended_any_mask,
        no_access_list_extended_any_mask_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip any A.B.C.D A.B.C.D",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip any A.B.C.D A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1046,7 +1046,7 @@ DEFUN (no_access_list_extended_any_mask,
 
 DEFUN (no_access_list_extended_any_any,
        no_access_list_extended_any_any_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip any any",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip any any",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1064,7 +1064,7 @@ DEFUN (no_access_list_extended_any_any,
 
 DEFUN (no_access_list_extended_mask_host,
        no_access_list_extended_mask_host_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D host A.B.C.D",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip A.B.C.D A.B.C.D host A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1084,7 +1084,7 @@ DEFUN (no_access_list_extended_mask_host,
 
 DEFUN (no_access_list_extended_host_mask,
        no_access_list_extended_host_mask_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D A.B.C.D A.B.C.D",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip host A.B.C.D A.B.C.D A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1104,7 +1104,7 @@ DEFUN (no_access_list_extended_host_mask,
 
 DEFUN (no_access_list_extended_host_host,
        no_access_list_extended_host_host_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D host A.B.C.D",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip host A.B.C.D host A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1124,7 +1124,7 @@ DEFUN (no_access_list_extended_host_host,
 
 DEFUN (no_access_list_extended_any_host,
        no_access_list_extended_any_host_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip any host A.B.C.D",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip any host A.B.C.D",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1143,7 +1143,7 @@ DEFUN (no_access_list_extended_any_host,
 
 DEFUN (no_access_list_extended_host_any,
        no_access_list_extended_host_any_cmd,
-       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D any",
+       "no access-list <(100-199)|(2000-2699)> <deny|permit> ip host A.B.C.D any",
        NO_STR
        "Add an access list entry\n"
        "IP extended access list\n"
@@ -1244,7 +1244,7 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
 /* Zebra access-list */
 DEFUN (access_list,
        access_list_cmd,
-       "access-list WORD (deny|permit) A.B.C.D/M",
+       "access-list WORD <deny|permit> A.B.C.D/M",
        "Add an access list entry\n"
        "IP zebra access-list name\n"
        "Specify packets to reject\n"
@@ -1256,7 +1256,7 @@ DEFUN (access_list,
 
 DEFUN (access_list_exact,
        access_list_exact_cmd,
-       "access-list WORD (deny|permit) A.B.C.D/M exact-match",
+       "access-list WORD <deny|permit> A.B.C.D/M exact-match",
        "Add an access list entry\n"
        "IP zebra access-list name\n"
        "Specify packets to reject\n"
@@ -1269,7 +1269,7 @@ DEFUN (access_list_exact,
 
 DEFUN (access_list_any,
        access_list_any_cmd,
-       "access-list WORD (deny|permit) any",
+       "access-list WORD <deny|permit> any",
        "Add an access list entry\n"
        "IP zebra access-list name\n"
        "Specify packets to reject\n"
@@ -1281,7 +1281,7 @@ DEFUN (access_list_any,
 
 DEFUN (no_access_list,
        no_access_list_cmd,
-       "no access-list WORD (deny|permit) A.B.C.D/M",
+       "no access-list WORD <deny|permit> A.B.C.D/M",
        NO_STR
        "Add an access list entry\n"
        "IP zebra access-list name\n"
@@ -1294,7 +1294,7 @@ DEFUN (no_access_list,
 
 DEFUN (no_access_list_exact,
        no_access_list_exact_cmd,
-       "no access-list WORD (deny|permit) A.B.C.D/M exact-match",
+       "no access-list WORD <deny|permit> A.B.C.D/M exact-match",
        NO_STR
        "Add an access list entry\n"
        "IP zebra access-list name\n"
@@ -1308,7 +1308,7 @@ DEFUN (no_access_list_exact,
 
 DEFUN (no_access_list_any,
        no_access_list_any_cmd,
-       "no access-list WORD (deny|permit) any",
+       "no access-list WORD <deny|permit> any",
        NO_STR
        "Add an access list entry\n"
        "IP zebra access-list name\n"
@@ -1321,7 +1321,7 @@ DEFUN (no_access_list_any,
 
 DEFUN (no_access_list_all,
        no_access_list_all_cmd,
-       "no access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD)",
+       "no access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD>",
        NO_STR
        "Add an access list entry\n"
        "IP standard access list\n"
@@ -1357,7 +1357,7 @@ DEFUN (no_access_list_all,
 
 DEFUN (access_list_remark,
        access_list_remark_cmd,
-       "access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD) remark .LINE",
+       "access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD> remark .LINE",
        "Add an access list entry\n"
        "IP standard access list\n"
        "IP extended access list\n"
@@ -1397,7 +1397,7 @@ DEFUN (access_list_remark,
  */
 DEFUN (no_access_list_remark,
        no_access_list_remark_cmd,
-       "no access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD) remark",
+       "no access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD> remark",
        NO_STR
        "Add an access list entry\n"
        "IP standard access list\n"
@@ -1414,7 +1414,7 @@ DEFUN (no_access_list_remark,
 #ifdef HAVE_IPV6
 DEFUN (ipv6_access_list,
        ipv6_access_list_cmd,
-       "ipv6 access-list WORD (deny|permit) X:X::X:X/M",
+       "ipv6 access-list WORD <deny|permit> X:X::X:X/M",
        IPV6_STR
        "Add an access list entry\n"
        "IPv6 zebra access-list\n"
@@ -1427,7 +1427,7 @@ DEFUN (ipv6_access_list,
 
 DEFUN (ipv6_access_list_exact,
        ipv6_access_list_exact_cmd,
-       "ipv6 access-list WORD (deny|permit) X:X::X:X/M exact-match",
+       "ipv6 access-list WORD <deny|permit> X:X::X:X/M exact-match",
        IPV6_STR
        "Add an access list entry\n"
        "IPv6 zebra access-list\n"
@@ -1441,7 +1441,7 @@ DEFUN (ipv6_access_list_exact,
 
 DEFUN (ipv6_access_list_any,
        ipv6_access_list_any_cmd,
-       "ipv6 access-list WORD (deny|permit) any",
+       "ipv6 access-list WORD <deny|permit> any",
        IPV6_STR
        "Add an access list entry\n"
        "IPv6 zebra access-list\n"
@@ -1454,7 +1454,7 @@ DEFUN (ipv6_access_list_any,
 
 DEFUN (no_ipv6_access_list,
        no_ipv6_access_list_cmd,
-       "no ipv6 access-list WORD (deny|permit) X:X::X:X/M",
+       "no ipv6 access-list WORD <deny|permit> X:X::X:X/M",
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
@@ -1468,7 +1468,7 @@ DEFUN (no_ipv6_access_list,
 
 DEFUN (no_ipv6_access_list_exact,
        no_ipv6_access_list_exact_cmd,
-       "no ipv6 access-list WORD (deny|permit) X:X::X:X/M exact-match",
+       "no ipv6 access-list WORD <deny|permit> X:X::X:X/M exact-match",
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
@@ -1483,7 +1483,7 @@ DEFUN (no_ipv6_access_list_exact,
 
 DEFUN (no_ipv6_access_list_any,
        no_ipv6_access_list_any_cmd,
-       "no ipv6 access-list WORD (deny|permit) any",
+       "no ipv6 access-list WORD <deny|permit> any",
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
@@ -1699,7 +1699,7 @@ DEFUN (show_ip_access_list,
 
 DEFUN (show_ip_access_list_name,
        show_ip_access_list_name_cmd,
-       "show ip access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD)",
+       "show ip access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD>",
        SHOW_STR
        IP_STR
        "List IP access lists\n"

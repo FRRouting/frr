@@ -221,7 +221,7 @@ if_rmap_unset (const char *ifname, enum if_rmap_type type,
  */
 DEFUN (if_rmap,
        if_rmap_cmd,
-       "route-map RMAP_NAME (in|out) IFNAME",
+       "route-map RMAP_NAME <in|out> IFNAME",
        "Route map set\n"
        "Route map name\n"
        "Route map set for input filtering\n"
@@ -259,7 +259,7 @@ DEFUN (if_rmap,
  */
 DEFUN (no_if_rmap,
        no_if_rmap_cmd,
-       "no route-map ROUTEMAP_NAME (in|out) IFNAME",
+       "no route-map ROUTEMAP_NAME <in|out> IFNAME",
        NO_STR
        "Route map unset\n"
        "Route map name\n"

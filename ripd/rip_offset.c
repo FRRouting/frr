@@ -282,7 +282,7 @@ rip_offset_list_apply_out (struct prefix_ipv4 *p, struct interface *ifp,
 
 DEFUN (rip_offset_list,
        rip_offset_list_cmd,
-       "offset-list WORD (in|out) <0-16>",
+       "offset-list WORD <in|out> (0-16)",
        "Modify RIP metric\n"
        "Access-list name\n"
        "For incoming updates\n"
@@ -294,7 +294,7 @@ DEFUN (rip_offset_list,
 
 DEFUN (rip_offset_list_ifname,
        rip_offset_list_ifname_cmd,
-       "offset-list WORD (in|out) <0-16> IFNAME",
+       "offset-list WORD <in|out> (0-16) IFNAME",
        "Modify RIP metric\n"
        "Access-list name\n"
        "For incoming updates\n"
@@ -307,7 +307,7 @@ DEFUN (rip_offset_list_ifname,
 
 DEFUN (no_rip_offset_list,
        no_rip_offset_list_cmd,
-       "no offset-list WORD (in|out) <0-16>",
+       "no offset-list WORD <in|out> (0-16)",
        NO_STR
        "Modify RIP metric\n"
        "Access-list name\n"
@@ -320,7 +320,7 @@ DEFUN (no_rip_offset_list,
 
 DEFUN (no_rip_offset_list_ifname,
        no_rip_offset_list_ifname_cmd,
-       "no offset-list WORD (in|out) <0-16> IFNAME",
+       "no offset-list WORD <in|out> (0-16) IFNAME",
        NO_STR
        "Modify RIP metric\n"
        "Access-list name\n"

@@ -727,7 +727,7 @@ bgp_dump_unset (struct vty *vty, struct bgp_dump *bgp_dump)
 
 DEFUN (dump_bgp_all,
        dump_bgp_all_cmd,
-       "dump bgp (all|all-et|updates|updates-et|routes-mrt) PATH [INTERVAL]",
+       "dump bgp <all|all-et|updates|updates-et|routes-mrt> PATH [INTERVAL]",
        "Dump packet\n"
        "BGP packet dump\n"
        "Dump all BGP packets\nDump all BGP packets (Extended Timestamp Header)\n"
@@ -771,7 +771,7 @@ DEFUN (dump_bgp_all,
 
 DEFUN (no_dump_bgp_all,
        no_dump_bgp_all_cmd,
-       "no dump bgp (all|all-et|updates|updates-et|routes-mrt) [PATH] [INTERVAL]",
+       "no dump bgp <all|all-et|updates|updates-et|routes-mrt> [PATH] [INTERVAL]",
        NO_STR
        "Stop dump packet\n"
        "Stop BGP packet dump\n"

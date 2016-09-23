@@ -828,7 +828,7 @@ ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
  */
 DEFUN (debug_ospf6_lsa_type,
        debug_ospf6_lsa_hex_cmd,
-       "debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown)",
+       "debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown>",
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
@@ -884,7 +884,7 @@ DEFUN (debug_ospf6_lsa_type,
  */
 DEFUN (no_debug_ospf6_lsa_type,
        no_debug_ospf6_lsa_hex_cmd,
-       "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown)",
+       "no debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown>",
        NO_STR
        DEBUG_STR
        OSPF6_STR

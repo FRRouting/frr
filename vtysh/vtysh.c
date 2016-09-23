@@ -1772,7 +1772,7 @@ DEFUN (vtysh_show_work_queues,
 
 DEFUN (vtysh_show_work_queues_daemon,
        vtysh_show_work_queues_daemon_cmd,
-       "show work-queues (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd)",
+       "show work-queues <zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd>",
        SHOW_STR
        "Work Queue information\n"
        "For the zebra daemon\n"
@@ -2224,7 +2224,7 @@ DEFUN (vtysh_write_terminal,
 
 DEFUN (vtysh_write_terminal_daemon,
        vtysh_write_terminal_daemon_cmd,
-       "write terminal (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd)",
+       "write terminal <zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd>",
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n"
        "For the zebra daemon\n"
@@ -2435,7 +2435,7 @@ ALIAS (vtysh_write_terminal,
 
 DEFUN (vtysh_terminal_length,
        vtysh_terminal_length_cmd,
-       "terminal length <0-512>",
+       "terminal length (0-512)",
        "Set terminal line parameters\n"
        "Set number of lines on a screen\n"
        "Number of lines on screen (0 for no pausing)\n")

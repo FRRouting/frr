@@ -707,7 +707,7 @@ DEFUN (show_bgp_ipv6_encap_neighbor_routes,
 
 DEFUN (show_bgp_ipv4_encap_rd_neighbor_routes,
        show_bgp_ipv4_encap_rd_neighbor_routes_cmd,
-       "show bgp ipv4 encap rd ASN:nn_or_IP-address:nn neighbors (A.B.C.D|X:X::X:X) routes",
+       "show bgp ipv4 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> routes",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -750,7 +750,7 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_routes,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_rd_neighbor_routes,
        show_bgp_ipv6_encap_rd_neighbor_routes_cmd,
-       "show bgp ipv6 encap rd ASN:nn_or_IP-address:nn neighbors (A.B.C.D|X:X::X:X) routes",
+       "show bgp ipv6 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> routes",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -857,7 +857,7 @@ DEFUN (show_bgp_ipv6_encap_neighbor_advertised_routes,
 
 DEFUN (show_bgp_ipv4_encap_rd_neighbor_advertised_routes,
        show_bgp_ipv4_encap_rd_neighbor_advertised_routes_cmd,
-       "show bgp ipv4 encap rd ASN:nn_or_IP-address:nn neighbors (A.B.C.D|X:X::X:X) advertised-routes",
+       "show bgp ipv4 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> advertised-routes",
        SHOW_STR
        BGP_STR
        "Address Family\n"
@@ -899,7 +899,7 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_advertised_routes,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_ipv6_encap_rd_neighbor_advertised_routes,
        show_bgp_ipv6_encap_rd_neighbor_advertised_routes_cmd,
-       "show bgp ipv6 encap rd ASN:nn_or_IP-address:nn neighbors (A.B.C.D|X:X::X:X) advertised-routes",
+       "show bgp ipv6 encap rd ASN:nn_or_IP-address:nn neighbors <A.B.C.D|X:X::X:X> advertised-routes",
        SHOW_STR
        BGP_STR
        "Address Family\n"

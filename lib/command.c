@@ -1869,7 +1869,7 @@ DEFUN_DEPRECATED (config_log_syslog_facility,
 
 DEFUN (no_config_log_syslog,
        no_config_log_syslog_cmd,
-       "no log syslog [" LOG_FACILITIES "] ["LOG_LEVELS"]",
+       "no log syslog [" LOG_FACILITIES "] [" LOG_LEVELS "]",
        NO_STR
        "Logging control\n"
        "Cancel logging to syslog\n"
@@ -1882,7 +1882,7 @@ DEFUN (no_config_log_syslog,
 
 DEFUN (config_log_facility,
        config_log_facility_cmd,
-       "log facility "LOG_FACILITIES,
+       "log facility " LOG_FACILITIES,
        "Logging control\n"
        "Facility parameter for syslog messages\n"
        LOG_FACILITY_DESC)
@@ -1895,7 +1895,7 @@ DEFUN (config_log_facility,
 
 DEFUN (no_config_log_facility,
        no_config_log_facility_cmd,
-       "no log facility ["LOG_FACILITIES"]",
+       "no log facility [" LOG_FACILITIES "]",
        NO_STR
        "Logging control\n"
        "Reset syslog facility to default (daemon)\n"
@@ -1907,7 +1907,7 @@ DEFUN (no_config_log_facility,
 
 DEFUN_DEPRECATED (config_log_trap,
                   config_log_trap_cmd,
-                  "log trap "LOG_LEVELS,
+                  "log trap " LOG_LEVELS,
                   "Logging control\n"
                   "(Deprecated) Set logging level and default for all destinations\n"
                   LOG_LEVEL_DESC)
@@ -1927,7 +1927,7 @@ DEFUN_DEPRECATED (config_log_trap,
 
 DEFUN_DEPRECATED (no_config_log_trap,
                   no_config_log_trap_cmd,
-                  "no log trap ["LOG_LEVELS"]",
+                  "no log trap [" LOG_LEVELS "]",
                   NO_STR
                   "Logging control\n"
                   "Permit all logging information\n"
@@ -1960,7 +1960,7 @@ DEFUN (no_config_log_record_priority,
 
 DEFUN (config_log_timestamp_precision,
        config_log_timestamp_precision_cmd,
-       "log timestamp precision <0-6>",
+       "log timestamp precision (0-6)",
        "Logging control\n"
        "Timestamp configuration\n"
        "Set the timestamp precision\n"

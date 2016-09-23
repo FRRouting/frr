@@ -847,7 +847,7 @@ debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
  */
 DEFUN (debug_ospf_packet,
        debug_ospf_packet_all_cmd,
-       "debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all)",
+       "debug ospf packet <hello|dd|ls-request|ls-update|ls-ack|all>",
        DEBUG_STR
        OSPF_STR
        "OSPF packets\n"
@@ -898,7 +898,7 @@ DEFUN (debug_ospf_packet,
  */
 DEFUN (debug_ospf_instance_packet,
        debug_ospf_instance_packet_all_cmd,
-       "debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all)",
+       "debug ospf (1-65535) packet <hello|dd|ls-request|ls-update|ls-ack|all>",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1019,7 +1019,7 @@ no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
  */
 DEFUN (no_debug_ospf_packet,
        no_debug_ospf_packet_all_cmd,
-       "no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all)",
+       "no debug ospf packet <hello|dd|ls-request|ls-update|ls-ack|all>",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1073,7 +1073,7 @@ DEFUN (no_debug_ospf_packet,
  */
 DEFUN (no_debug_ospf_instance_packet,
        no_debug_ospf_instance_packet_all_cmd,
-       "no debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all)",
+       "no debug ospf (1-65535) packet <hello|dd|ls-request|ls-update|ls-ack|all>",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1170,7 +1170,7 @@ DEFUN (debug_ospf_ism,
  */
 DEFUN (debug_ospf_instance_ism,
        debug_ospf_instance_ism_cmd,
-       "debug ospf <1-65535> ism",
+       "debug ospf (1-65535) ism",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1261,7 +1261,7 @@ DEFUN (no_debug_ospf_ism,
  */
 DEFUN (no_debug_ospf_instance_ism,
        no_debug_ospf_instance_ism_cmd,
-       "no debug ospf <1-65535> ism",
+       "no debug ospf (1-65535) ism",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1350,7 +1350,7 @@ DEFUN (debug_ospf_nsm,
  */
 DEFUN (debug_ospf_instance_nsm,
        debug_ospf_instance_nsm_cmd,
-       "debug ospf <1-65535> nsm",
+       "debug ospf (1-65535) nsm",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1441,7 +1441,7 @@ DEFUN (no_debug_ospf_nsm,
  */
 DEFUN (no_debug_ospf_instance_nsm,
        no_debug_ospf_instance_nsm_cmd,
-       "no debug ospf <1-65535> nsm",
+       "no debug ospf (1-65535) nsm",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1537,7 +1537,7 @@ DEFUN (debug_ospf_lsa,
  */
 DEFUN (debug_ospf_instance_lsa,
        debug_ospf_instance_lsa_cmd,
-       "debug ospf <1-65535> lsa",
+       "debug ospf (1-65535) lsa",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1634,7 +1634,7 @@ DEFUN (no_debug_ospf_lsa,
  */
 DEFUN (no_debug_ospf_instance_lsa,
        no_debug_ospf_instance_lsa_cmd,
-       "no debug ospf <1-65535> lsa",
+       "no debug ospf (1-65535) lsa",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1718,7 +1718,7 @@ DEFUN (debug_ospf_zebra,
  */
 DEFUN (debug_ospf_instance_zebra,
        debug_ospf_instance_zebra_cmd,
-       "debug ospf <1-65535> zebra",
+       "debug ospf (1-65535) zebra",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1804,7 +1804,7 @@ DEFUN (no_debug_ospf_zebra,
  */
 DEFUN (no_debug_ospf_instance_zebra,
        no_debug_ospf_instance_zebra_cmd,
-       "no debug ospf <1-65535> zebra",
+       "no debug ospf (1-65535) zebra",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1851,7 +1851,7 @@ DEFUN (no_debug_ospf_event,
 
 DEFUN (debug_ospf_instance_event,
        debug_ospf_instance_event_cmd,
-       "debug ospf <1-65535> event",
+       "debug ospf (1-65535) event",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1871,7 +1871,7 @@ DEFUN (debug_ospf_instance_event,
 
 DEFUN (no_debug_ospf_instance_event,
        no_debug_ospf_instance_event_cmd,
-       "no debug ospf <1-65535> event",
+       "no debug ospf (1-65535) event",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1919,7 +1919,7 @@ DEFUN (no_debug_ospf_nssa,
 
 DEFUN (debug_ospf_instance_nssa,
        debug_ospf_instance_nssa_cmd,
-       "debug ospf <1-65535> nssa",
+       "debug ospf (1-65535) nssa",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1939,7 +1939,7 @@ DEFUN (debug_ospf_instance_nssa,
 
 DEFUN (no_debug_ospf_instance_nssa,
        no_debug_ospf_instance_nssa_cmd,
-       "no debug ospf <1-65535> nssa",
+       "no debug ospf (1-65535) nssa",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -2160,7 +2160,7 @@ DEFUN (show_debugging_ospf,
 
 DEFUN (show_debugging_ospf_instance,
        show_debugging_ospf_instance_cmd,
-       "show debugging ospf <1-65535>",
+       "show debugging ospf (1-65535)",
        SHOW_STR
        DEBUG_STR
        OSPF_STR

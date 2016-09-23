@@ -1367,7 +1367,7 @@ DEFUN (show_interface_name_vrf,
   interface_update_stats ();
 
   if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[3]->arg);
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   /* Specified interface print. */
   ifp = if_lookup_by_name_vrf (argv[2]->arg, vrf_id);
@@ -1674,7 +1674,7 @@ DEFUN (no_shutdown_if,
 
 DEFUN (bandwidth_if,
        bandwidth_if_cmd,
-       "bandwidth <1-100000>",
+       "bandwidth (1-100000)",
        "Set bandwidth informational parameter\n"
        "Bandwidth in megabits\n")
 {
@@ -1840,7 +1840,7 @@ DEFUN (no_link_params_enable,
 /* STANDARD TE metrics */
 DEFUN (link_params_metric,
        link_params_metric_cmd,
-       "metric <0-4294967295>",
+       "metric (0-4294967295)",
        "Link metric for MPLS-TE purpose\n"
        "Metric value in decimal\n")
 {
@@ -1948,7 +1948,7 @@ DEFUN (link_params_max_rsv_bw,
 
 DEFUN (link_params_unrsv_bw,
        link_params_unrsv_bw_cmd,
-       "unrsv-bw <0-7> BANDWIDTH",
+       "unrsv-bw (0-7) BANDWIDTH",
        "Unreserved bandwidth at each priority level\n"
        "Priority\n"
        "Bytes/second (IEEE floating point format)\n")
@@ -2028,7 +2028,7 @@ DEFUN (no_link_params_admin_grp,
 /* RFC5392 & RFC5316: INTER-AS */
 DEFUN (link_params_inter_as,
        link_params_inter_as_cmd,
-       "neighbor A.B.C.D as <1-4294967295>",
+       "neighbor A.B.C.D as (1-4294967295)",
        "Configure remote ASBR information (Neighbor IP address and AS number)\n"
        "Remote IP address in dot decimal A.B.C.D\n"
        "Remote AS number\n"
@@ -2101,7 +2101,7 @@ DEFUN (no_link_params_inter_as,
  */
 DEFUN (link_params_delay,
        link_params_delay_cmd,
-       "delay <0-16777215>",
+       "delay (0-16777215)",
        "Unidirectional Average Link Delay\n"
        "Average delay in micro-second as decimal (0...16777215)\n")
 {
@@ -2208,7 +2208,7 @@ DEFUN (no_link_params_delay,
 
 DEFUN (link_params_delay_var,
        link_params_delay_var_cmd,
-       "delay-variation <0-16777215>",
+       "delay-variation (0-16777215)",
        "Unidirectional Link Delay Variation\n"
        "delay variation in micro-second as decimal (0...16777215)\n")
 {

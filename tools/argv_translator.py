@@ -21,6 +21,10 @@ def token_is_variable(line_number, token):
         assert token.endswith(']'), "%d: token %s should end with ]" % (line_number, token)
         return True
 
+    if token.startswith('<'):
+        assert token.endswith('>'), "%d: token %s should end with >" % (line_number, token)
+        return True
+
     if token.startswith('{'):
         # I don't really care about checking for this I just put
         # these asserts in here to bug sharpd
@@ -246,7 +250,7 @@ DEFUN (no_bgp_maxmed_onstartup,
                 while re_argv:
                     index = int(re_argv.group(1))
                     if index not in variable_indexes and index <= max_index:
-                        raise Exception("%d: index %s is not a variable in the command string" % (self.line_number, index))
+                        print "%d: index %s is not a variable in the command string" % (self.line_number, index)
                     tmp_line = re_argv.group(2)
                     re_argv = re.search('^.*?argv\[(\d+)\]->arg(.*)$', tmp_line)
 
@@ -341,6 +345,7 @@ def update_argvs(filename):
                     line = line.replace('" QUAGGA_REDIST_STR_RIPD "', '(kernel|connected|static|ospf|isis|bgp|pim|table)')
                     line = line.replace('" QUAGGA_REDIST_STR_OSPF6D "', '(kernel|connected|static|ripng|isis|bgp|table)')
                     line = line.replace('" QUAGGA_REDIST_STR_ISISD "', '(kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table)')
+                    line = line.replace('" LOG_FACILITIES "', '(kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)')
 
                     # endswith
                     line = line.replace('" CMD_AS_RANGE,', ' <1-4294967295>",')
@@ -371,6 +376,7 @@ def update_argvs(filename):
                     line = line.replace('" PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME,', ' ip igmp query-max-response-time",')
                     line = line.replace('" QUAGGA_REDIST_STR_OSPF6D,', ' (kernel|connected|static|ripng|isis|bgp|table)",')
                     line = line.replace('" QUAGGA_REDIST_STR_ISISD,', ' (kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table)",')
+                    line = line.replace('" LOG_FACILITIES,', ' (kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)",')
 
                     # startswith
                     line = line.replace('LISTEN_RANGE_CMD "', '"bgp listen range (A.B.C.D/M|X:X::X:X/M) ')

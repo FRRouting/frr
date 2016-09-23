@@ -91,7 +91,7 @@ DEFUN (debug_ripng_packet,
 
 DEFUN (debug_ripng_packet_direct,
        debug_ripng_packet_direct_cmd,
-       "debug ripng packet (recv|send)",
+       "debug ripng packet <recv|send>",
        DEBUG_STR
        "RIPng configuration\n"
        "Debug option set for ripng packet\n"
@@ -144,7 +144,7 @@ DEFUN (no_debug_ripng_packet,
 
 DEFUN (no_debug_ripng_packet_direct,
        no_debug_ripng_packet_direct_cmd,
-       "no debug ripng packet (recv|send)",
+       "no debug ripng packet <recv|send>",
        NO_STR
        DEBUG_STR
        "RIPng configuration\n"

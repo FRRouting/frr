@@ -271,7 +271,7 @@ DEFUN (no_key_chain,
 
 DEFUN (key,
        key_cmd,
-       "key <0-2147483647>",
+       "key (0-2147483647)",
        "Configure a key\n"
        "Key identifier number\n")
 {
@@ -291,7 +291,7 @@ DEFUN (key,
 
 DEFUN (no_key,
        no_key_cmd,
-       "no key <0-2147483647>",
+       "no key (0-2147483647)",
        NO_STR
        "Delete a key\n"
        "Key identifier number\n")
@@ -541,7 +541,7 @@ key_lifetime_infinite_set (struct vty *vty, struct key_range *krange,
 
 DEFUN (accept_lifetime_day_month_day_month,
        accept_lifetime_day_month_day_month_cmd,
-       "accept-lifetime HH:MM:SS <1-31> MONTH <1993-2035> HH:MM:SS <1-31> MONTH <1993-2035>",
+       "accept-lifetime HH:MM:SS (1-31) MONTH (1993-2035) HH:MM:SS (1-31) MONTH (1993-2035)",
        "Set accept lifetime of the key\n"
        "Time to start\n"
        "Day of th month to start\n"
@@ -562,7 +562,7 @@ DEFUN (accept_lifetime_day_month_day_month,
 
 DEFUN (accept_lifetime_day_month_month_day,
        accept_lifetime_day_month_month_day_cmd,
-       "accept-lifetime HH:MM:SS <1-31> MONTH <1993-2035> HH:MM:SS MONTH <1-31> <1993-2035>",
+       "accept-lifetime HH:MM:SS (1-31) MONTH (1993-2035) HH:MM:SS MONTH (1-31) (1993-2035)",
        "Set accept lifetime of the key\n"
        "Time to start\n"
        "Day of th month to start\n"
@@ -583,7 +583,7 @@ DEFUN (accept_lifetime_day_month_month_day,
 
 DEFUN (accept_lifetime_month_day_day_month,
        accept_lifetime_month_day_day_month_cmd,
-       "accept-lifetime HH:MM:SS MONTH <1-31> <1993-2035> HH:MM:SS <1-31> MONTH <1993-2035>",
+       "accept-lifetime HH:MM:SS MONTH (1-31) (1993-2035) HH:MM:SS (1-31) MONTH (1993-2035)",
        "Set accept lifetime of the key\n"
        "Time to start\n"
        "Month of the year to start\n"
@@ -604,7 +604,7 @@ DEFUN (accept_lifetime_month_day_day_month,
 
 DEFUN (accept_lifetime_month_day_month_day,
        accept_lifetime_month_day_month_day_cmd,
-       "accept-lifetime HH:MM:SS MONTH <1-31> <1993-2035> HH:MM:SS MONTH <1-31> <1993-2035>",
+       "accept-lifetime HH:MM:SS MONTH (1-31) (1993-2035) HH:MM:SS MONTH (1-31) (1993-2035)",
        "Set accept lifetime of the key\n"
        "Time to start\n"
        "Month of the year to start\n"
@@ -625,7 +625,7 @@ DEFUN (accept_lifetime_month_day_month_day,
 
 DEFUN (accept_lifetime_infinite_day_month,
        accept_lifetime_infinite_day_month_cmd,
-       "accept-lifetime HH:MM:SS <1-31> MONTH <1993-2035> infinite",
+       "accept-lifetime HH:MM:SS (1-31) MONTH (1993-2035) infinite",
        "Set accept lifetime of the key\n"
        "Time to start\n"
        "Day of th month to start\n"
@@ -643,7 +643,7 @@ DEFUN (accept_lifetime_infinite_day_month,
 
 DEFUN (accept_lifetime_infinite_month_day,
        accept_lifetime_infinite_month_day_cmd,
-       "accept-lifetime HH:MM:SS MONTH <1-31> <1993-2035> infinite",
+       "accept-lifetime HH:MM:SS MONTH (1-31) (1993-2035) infinite",
        "Set accept lifetime of the key\n"
        "Time to start\n"
        "Month of the year to start\n"
@@ -661,7 +661,7 @@ DEFUN (accept_lifetime_infinite_month_day,
 
 DEFUN (accept_lifetime_duration_day_month,
        accept_lifetime_duration_day_month_cmd,
-       "accept-lifetime HH:MM:SS <1-31> MONTH <1993-2035> duration <1-2147483646>",
+       "accept-lifetime HH:MM:SS (1-31) MONTH (1993-2035) duration (1-2147483646)",
        "Set accept lifetime of the key\n"
        "Time to start\n"
        "Day of th month to start\n"
@@ -680,7 +680,7 @@ DEFUN (accept_lifetime_duration_day_month,
 
 DEFUN (accept_lifetime_duration_month_day,
        accept_lifetime_duration_month_day_cmd,
-       "accept-lifetime HH:MM:SS MONTH <1-31> <1993-2035> duration <1-2147483646>",
+       "accept-lifetime HH:MM:SS MONTH (1-31) (1993-2035) duration (1-2147483646)",
        "Set accept lifetime of the key\n"
        "Time to start\n"
        "Month of the year to start\n"
@@ -699,7 +699,7 @@ DEFUN (accept_lifetime_duration_month_day,
 
 DEFUN (send_lifetime_day_month_day_month,
        send_lifetime_day_month_day_month_cmd,
-       "send-lifetime HH:MM:SS <1-31> MONTH <1993-2035> HH:MM:SS <1-31> MONTH <1993-2035>",
+       "send-lifetime HH:MM:SS (1-31) MONTH (1993-2035) HH:MM:SS (1-31) MONTH (1993-2035)",
        "Set send lifetime of the key\n"
        "Time to start\n"
        "Day of th month to start\n"
@@ -720,7 +720,7 @@ DEFUN (send_lifetime_day_month_day_month,
 
 DEFUN (send_lifetime_day_month_month_day,
        send_lifetime_day_month_month_day_cmd,
-       "send-lifetime HH:MM:SS <1-31> MONTH <1993-2035> HH:MM:SS MONTH <1-31> <1993-2035>",
+       "send-lifetime HH:MM:SS (1-31) MONTH (1993-2035) HH:MM:SS MONTH (1-31) (1993-2035)",
        "Set send lifetime of the key\n"
        "Time to start\n"
        "Day of th month to start\n"
@@ -741,7 +741,7 @@ DEFUN (send_lifetime_day_month_month_day,
 
 DEFUN (send_lifetime_month_day_day_month,
        send_lifetime_month_day_day_month_cmd,
-       "send-lifetime HH:MM:SS MONTH <1-31> <1993-2035> HH:MM:SS <1-31> MONTH <1993-2035>",
+       "send-lifetime HH:MM:SS MONTH (1-31) (1993-2035) HH:MM:SS (1-31) MONTH (1993-2035)",
        "Set send lifetime of the key\n"
        "Time to start\n"
        "Month of the year to start\n"
@@ -762,7 +762,7 @@ DEFUN (send_lifetime_month_day_day_month,
 
 DEFUN (send_lifetime_month_day_month_day,
        send_lifetime_month_day_month_day_cmd,
-       "send-lifetime HH:MM:SS MONTH <1-31> <1993-2035> HH:MM:SS MONTH <1-31> <1993-2035>",
+       "send-lifetime HH:MM:SS MONTH (1-31) (1993-2035) HH:MM:SS MONTH (1-31) (1993-2035)",
        "Set send lifetime of the key\n"
        "Time to start\n"
        "Month of the year to start\n"
@@ -783,7 +783,7 @@ DEFUN (send_lifetime_month_day_month_day,
 
 DEFUN (send_lifetime_infinite_day_month,
        send_lifetime_infinite_day_month_cmd,
-       "send-lifetime HH:MM:SS <1-31> MONTH <1993-2035> infinite",
+       "send-lifetime HH:MM:SS (1-31) MONTH (1993-2035) infinite",
        "Set send lifetime of the key\n"
        "Time to start\n"
        "Day of th month to start\n"
@@ -801,7 +801,7 @@ DEFUN (send_lifetime_infinite_day_month,
 
 DEFUN (send_lifetime_infinite_month_day,
        send_lifetime_infinite_month_day_cmd,
-       "send-lifetime HH:MM:SS MONTH <1-31> <1993-2035> infinite",
+       "send-lifetime HH:MM:SS MONTH (1-31) (1993-2035) infinite",
        "Set send lifetime of the key\n"
        "Time to start\n"
        "Month of the year to start\n"
@@ -819,7 +819,7 @@ DEFUN (send_lifetime_infinite_month_day,
 
 DEFUN (send_lifetime_duration_day_month,
        send_lifetime_duration_day_month_cmd,
-       "send-lifetime HH:MM:SS <1-31> MONTH <1993-2035> duration <1-2147483646>",
+       "send-lifetime HH:MM:SS (1-31) MONTH (1993-2035) duration (1-2147483646)",
        "Set send lifetime of the key\n"
        "Time to start\n"
        "Day of th month to start\n"
@@ -838,7 +838,7 @@ DEFUN (send_lifetime_duration_day_month,
 
 DEFUN (send_lifetime_duration_month_day,
        send_lifetime_duration_month_day_cmd,
-       "send-lifetime HH:MM:SS MONTH <1-31> <1993-2035> duration <1-2147483646>",
+       "send-lifetime HH:MM:SS MONTH (1-31) (1993-2035) duration (1-2147483646)",
        "Set send lifetime of the key\n"
        "Time to start\n"
        "Month of the year to start\n"

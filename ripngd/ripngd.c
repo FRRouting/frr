@@ -2389,7 +2389,7 @@ DEFUN (no_ripng_aggregate_address,
 
 DEFUN (ripng_default_metric,
        ripng_default_metric_cmd,
-       "default-metric <1-16>",
+       "default-metric (1-16)",
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
@@ -2528,7 +2528,7 @@ DEFUN (no_ripng_garbage_timer,
 
 DEFUN (ripng_timers,
        ripng_timers_cmd,
-       "timers basic <0-65535> <0-65535> <0-65535>",
+       "timers basic (0-65535) (0-65535) (0-65535)",
        "RIPng timers setup\n"
        "Basic timer\n"
        "Routing table update timer value in second. Default is 30.\n"

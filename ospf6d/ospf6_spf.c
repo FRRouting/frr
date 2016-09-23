@@ -877,7 +877,7 @@ ospf6_timers_spf_set (struct vty *vty, unsigned int delay,
 
 DEFUN (ospf6_timers_throttle_spf,
        ospf6_timers_throttle_spf_cmd,
-       "timers throttle spf <0-600000> <0-600000> <0-600000>",
+       "timers throttle spf (0-600000) (0-600000) (0-600000)",
        "Adjust routing timers\n"
        "Throttling adaptive timer\n"
        "OSPF6 SPF timers\n"

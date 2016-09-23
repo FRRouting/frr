@@ -622,7 +622,7 @@ DEFUN (debug_bgp_neighbor_events,
 
 DEFUN (debug_bgp_neighbor_events_peer,
        debug_bgp_neighbor_events_peer_cmd,
-       "debug bgp neighbor-events (A.B.C.D|X:X::X:X|WORD)",
+       "debug bgp neighbor-events <A.B.C.D|X:X::X:X|WORD>",
        DEBUG_STR
        BGP_STR
        "BGP Neighbor Events\n"
@@ -675,7 +675,7 @@ DEFUN (no_debug_bgp_neighbor_events,
 
 DEFUN (no_debug_bgp_neighbor_events_peer,
        no_debug_bgp_neighbor_events_peer_cmd,
-       "no debug bgp neighbor-events (A.B.C.D|X:X::X:X|WORD)",
+       "no debug bgp neighbor-events <A.B.C.D|X:X::X:X|WORD>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -766,7 +766,7 @@ DEFUN (debug_bgp_keepalive,
 
 DEFUN (debug_bgp_keepalive_peer,
        debug_bgp_keepalive_peer_cmd,
-       "debug bgp keepalives (A.B.C.D|X:X::X:X|WORD)",
+       "debug bgp keepalives <A.B.C.D|X:X::X:X|WORD>",
        DEBUG_STR
        BGP_STR
        "BGP Neighbor Events\n"
@@ -819,7 +819,7 @@ DEFUN (no_debug_bgp_keepalive,
 
 DEFUN (no_debug_bgp_keepalive_peer,
        no_debug_bgp_keepalive_peer_cmd,
-       "no debug bgp keepalives (A.B.C.D|X:X::X:X|WORD)",
+       "no debug bgp keepalives <A.B.C.D|X:X::X:X|WORD>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -855,7 +855,7 @@ DEFUN (no_debug_bgp_keepalive_peer,
 /* debug bgp bestpath */
 DEFUN (debug_bgp_bestpath_prefix,
        debug_bgp_bestpath_prefix_cmd,
-       "debug bgp bestpath (A.B.C.D/M|X:X::X:X/M)",
+       "debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>",
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
@@ -902,7 +902,7 @@ DEFUN (debug_bgp_bestpath_prefix,
 
 DEFUN (no_debug_bgp_bestpath_prefix,
        no_debug_bgp_bestpath_prefix_cmd,
-       "no debug bgp bestpath (A.B.C.D/M|X:X::X:X/M)",
+       "no debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -998,7 +998,7 @@ DEFUN (debug_bgp_update,
 
 DEFUN (debug_bgp_update_direct,
        debug_bgp_update_direct_cmd,
-       "debug bgp updates (in|out)",
+       "debug bgp updates <in|out>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
@@ -1036,7 +1036,7 @@ DEFUN (debug_bgp_update_direct,
 
 DEFUN (debug_bgp_update_direct_peer,
        debug_bgp_update_direct_peer_cmd,
-       "debug bgp updates (in|out) (A.B.C.D|X:X::X:X|WORD)",
+       "debug bgp updates <in|out> <A.B.C.D|X:X::X:X|WORD>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
@@ -1130,7 +1130,7 @@ DEFUN (debug_bgp_update_direct_peer,
 
 DEFUN (no_debug_bgp_update_direct,
        no_debug_bgp_update_direct_cmd,
-       "no debug bgp updates (in|out)",
+       "no debug bgp updates <in|out>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -1172,7 +1172,7 @@ DEFUN (no_debug_bgp_update_direct,
 
 DEFUN (no_debug_bgp_update_direct_peer,
        no_debug_bgp_update_direct_peer_cmd,
-       "no debug bgp updates (in|out) (A.B.C.D|X:X::X:X|WORD)",
+       "no debug bgp updates <in|out> <A.B.C.D|X:X::X:X|WORD>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -1262,7 +1262,7 @@ DEFUN (no_debug_bgp_update_direct_peer,
 
 DEFUN (debug_bgp_update_prefix,
        debug_bgp_update_prefix_cmd,
-       "debug bgp updates prefix (A.B.C.D/M|X:X::X:X/M)",
+       "debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
@@ -1310,7 +1310,7 @@ DEFUN (debug_bgp_update_prefix,
 
 DEFUN (no_debug_bgp_update_prefix,
        no_debug_bgp_update_prefix_cmd,
-       "no debug bgp updates prefix (A.B.C.D/M|X:X::X:X/M)",
+       "no debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -1409,7 +1409,7 @@ DEFUN (debug_bgp_zebra,
 
 DEFUN (debug_bgp_zebra_prefix,
        debug_bgp_zebra_prefix_cmd,
-       "debug bgp zebra prefix (A.B.C.D/M|X:X::X:X/M)",
+       "debug bgp zebra prefix <A.B.C.D/M|X:X::X:X/M>",
        DEBUG_STR
        BGP_STR
        "BGP Zebra messages\n"
@@ -1474,7 +1474,7 @@ DEFUN (no_debug_bgp_zebra,
 
 DEFUN (no_debug_bgp_zebra_prefix,
        no_debug_bgp_zebra_prefix_cmd,
-       "no debug bgp zebra prefix (A.B.C.D/M|X:X::X:X/M)",
+       "no debug bgp zebra prefix <A.B.C.D/M|X:X::X:X/M>",
        NO_STR
        DEBUG_STR
        BGP_STR

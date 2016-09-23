@@ -2257,7 +2257,7 @@ DEFUN (show_table,
   return CMD_SUCCESS;
 }
 
-DEFUN (config_table, 
+DEFUN (config_table,
        config_table_cmd,
        "table TABLENO",
        "Configure target kernel routing table\n"

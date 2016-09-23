@@ -539,7 +539,7 @@ isis_redist_area_finish(struct isis_area *area)
 
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD " (level-1|level-2) {metric <0-16777215>|route-map WORD}",
+       "redistribute <ipv4|ipv6> " QUAGGA_REDIST_STR_ISISD " <level-1|level-2> [metric (0-16777215)|route-map WORD]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
@@ -607,7 +607,7 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD " (level-1|level-2)",
+       "no redistribute <ipv4|ipv6> " QUAGGA_REDIST_STR_ISISD " <level-1|level-2>",
        NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
@@ -650,7 +650,7 @@ DEFUN (no_isis_redistribute,
 
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
-       "default-information originate (ipv4|ipv6) (level-1|level-2) {always|metric <0-16777215>|route-map WORD}",
+       "default-information originate <ipv4|ipv6> <level-1|level-2> [always|metric (0-16777215)|route-map WORD]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
@@ -721,7 +721,7 @@ DEFUN (isis_default_originate,
 
 DEFUN (no_isis_default_originate,
        no_isis_default_originate_cmd,
-       "no default-information originate (ipv4|ipv6) (level-1|level-2)",
+       "no default-information originate <ipv4|ipv6> <level-1|level-2>",
        NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"

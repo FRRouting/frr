@@ -671,7 +671,7 @@ if_dump_all (void)
         if_dump (p);
 }
 
-DEFUN (interface_desc, 
+DEFUN (interface_desc,
        interface_desc_cmd,
        "description LINE...",
        "Interface specific description\n"
@@ -690,7 +690,7 @@ DEFUN (interface_desc,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_interface_desc, 
+DEFUN (no_interface_desc,
        no_interface_desc_cmd,
        "no description",
        NO_STR

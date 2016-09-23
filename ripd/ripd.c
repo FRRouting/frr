@@ -2943,7 +2943,7 @@ DEFUN (no_router_rip,
 
 DEFUN (rip_version,
        rip_version_cmd,
-       "version <1-2>",
+       "version (1-2)",
        "Set routing protocol version\n"
        "version\n")
 {
@@ -3075,7 +3075,7 @@ rip_update_default_metric (void)
 
 DEFUN (rip_default_metric,
        rip_default_metric_cmd,
-       "default-metric <1-16>",
+       "default-metric (1-16)",
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
@@ -3113,7 +3113,7 @@ DEFUN (no_rip_default_metric,
 
 DEFUN (rip_timers,
        rip_timers_cmd,
-       "timers basic <5-2147483647> <5-2147483647> <5-2147483647>",
+       "timers basic (5-2147483647) (5-2147483647) (5-2147483647)",
        "Adjust routing timers\n"
        "Basic routing protocol update timers\n"
        "Routing table update timer value in second. Default is 30.\n"
@@ -3388,7 +3388,7 @@ rip_distance_show (struct vty *vty)
 
 DEFUN (rip_distance,
        rip_distance_cmd,
-       "distance <1-255>",
+       "distance (1-255)",
        "Administrative distance\n"
        "Distance value\n")
 {
@@ -3398,7 +3398,7 @@ DEFUN (rip_distance,
 
 DEFUN (no_rip_distance,
        no_rip_distance_cmd,
-       "no distance <1-255>",
+       "no distance (1-255)",
        NO_STR
        "Administrative distance\n"
        "Distance value\n")
@@ -3409,7 +3409,7 @@ DEFUN (no_rip_distance,
 
 DEFUN (rip_distance_source,
        rip_distance_source_cmd,
-       "distance <1-255> A.B.C.D/M",
+       "distance (1-255) A.B.C.D/M",
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n")
@@ -3420,7 +3420,7 @@ DEFUN (rip_distance_source,
 
 DEFUN (no_rip_distance_source,
        no_rip_distance_source_cmd,
-       "no distance <1-255> A.B.C.D/M",
+       "no distance (1-255) A.B.C.D/M",
        NO_STR
        "Administrative distance\n"
        "Distance value\n"
@@ -3432,7 +3432,7 @@ DEFUN (no_rip_distance_source,
 
 DEFUN (rip_distance_source_access_list,
        rip_distance_source_access_list_cmd,
-       "distance <1-255> A.B.C.D/M WORD",
+       "distance (1-255) A.B.C.D/M WORD",
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n"
@@ -3444,7 +3444,7 @@ DEFUN (rip_distance_source_access_list,
 
 DEFUN (no_rip_distance_source_access_list,
        no_rip_distance_source_access_list_cmd,
-       "no distance <1-255> A.B.C.D/M WORD",
+       "no distance (1-255) A.B.C.D/M WORD",
        NO_STR
        "Administrative distance\n"
        "Distance value\n"

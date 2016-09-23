@@ -738,7 +738,7 @@ vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
  * Debug CLI for vrf's
  */
 DEFUN (vrf_debug,
-      vrf_debug_cmd,
+       vrf_debug_cmd,
       "debug vrf",
       DEBUG_STR
       "VRF Debugging\n")
@@ -749,7 +749,7 @@ DEFUN (vrf_debug,
 }
 
 DEFUN (no_vrf_debug,
-      no_vrf_debug_cmd,
+       no_vrf_debug_cmd,
       "no debug vrf",
       NO_STR
       DEBUG_STR

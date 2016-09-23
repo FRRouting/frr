@@ -718,7 +718,7 @@ ospf6_zebra_init (struct thread_master *master)
  */
 DEFUN (debug_ospf6_zebra_sendrecv,
        debug_ospf6_zebra_sendrecv_cmd,
-       "debug ospf6 zebra (send|recv)",
+       "debug ospf6 zebra <send|recv>",
        DEBUG_STR
        OSPF6_STR
        "Debug connection between zebra\n"
@@ -756,7 +756,7 @@ DEFUN (debug_ospf6_zebra_sendrecv,
  */
 DEFUN (no_debug_ospf6_zebra_sendrecv,
        no_debug_ospf6_zebra_sendrecv_cmd,
-       "no debug ospf6 zebra (send|recv)",
+       "no debug ospf6 zebra <send|recv>",
        NO_STR
        DEBUG_STR
        OSPF6_STR

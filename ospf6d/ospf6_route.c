@@ -1563,7 +1563,7 @@ ospf6_brouter_show (struct vty *vty, struct ospf6_route *route)
 
 DEFUN (debug_ospf6_route,
        debug_ospf6_route_cmd,
-       "debug ospf6 route (table|intra-area|inter-area|memory)",
+       "debug ospf6 route <table|intra-area|inter-area|memory>",
        DEBUG_STR
        OSPF6_STR
        "Debug route table calculation\n"
@@ -1589,7 +1589,7 @@ DEFUN (debug_ospf6_route,
 
 DEFUN (no_debug_ospf6_route,
        no_debug_ospf6_route_cmd,
-       "no debug ospf6 route (table|intra-area|inter-area|memory)",
+       "no debug ospf6 route <table|intra-area|inter-area|memory>",
        NO_STR
        DEBUG_STR
        OSPF6_STR

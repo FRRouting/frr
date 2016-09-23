@@ -90,7 +90,7 @@ DEFUN (debug_rip_packet,
 
 DEFUN (debug_rip_packet_direct,
        debug_rip_packet_direct_cmd,
-       "debug rip packet (recv|send)",
+       "debug rip packet <recv|send>",
        DEBUG_STR
        RIP_STR
        "RIP packet\n"
@@ -142,7 +142,7 @@ DEFUN (no_debug_rip_packet,
 
 DEFUN (no_debug_rip_packet_direct,
        no_debug_rip_packet_direct_cmd,
-       "no debug rip packet (recv|send)",
+       "no debug rip packet <recv|send>",
        NO_STR
        DEBUG_STR
        RIP_STR

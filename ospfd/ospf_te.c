@@ -2475,7 +2475,7 @@ DEFUN (ospf_mpls_te_inter_as_as,
 
 DEFUN (ospf_mpls_te_inter_as_area,
        ospf_mpls_te_inter_as_area_cmd,
-       "mpls-te inter-as area (A.B.C.D|<0-4294967295>)",
+       "mpls-te inter-as area <A.B.C.D|(0-4294967295)>",
        MPLS_TE_STR
        "Configure MPLS-TE Inter-AS support\n"
        "AREA native mode self originate INTER_AS LSA with Type 10 (area flooding scope)\n"

@@ -502,7 +502,7 @@ static struct route_map_rule_cmd route_set_tag_cmd =
 
 DEFUN (match_metric,
        match_metric_cmd,
-       "match metric <0-4294967295>",
+       "match metric (0-4294967295)",
        MATCH_STR
        "Match metric of route\n"
        "Metric value\n")
@@ -562,7 +562,7 @@ DEFUN (no_match_interface,
 
 DEFUN (match_tag,
        match_tag_cmd,
-       "match tag <1-65535>",
+       "match tag (1-65535)",
        MATCH_STR
        "Match tag of route\n"
        "Metric value\n")
@@ -594,7 +594,7 @@ DEFUN (no_match_tag,
 
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric <0-4294967295>",
+       "set metric (0-4294967295)",
        "Set value\n"
        "Metric value for destination routing protocol\n"
        "Metric value\n")
@@ -676,7 +676,7 @@ DEFUN (no_set_ipv6_nexthop_local,
 
 DEFUN (set_tag,
        set_tag_cmd,
-       "set tag <1-65535>",
+       "set tag (1-65535)",
        SET_STR
        "Tag value for routing protocol\n"
        "Tag value\n")

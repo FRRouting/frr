@@ -917,7 +917,7 @@ DEFUN (no_ipv6_nd_suppress_ra,
 
 DEFUN (ipv6_nd_ra_interval_msec,
        ipv6_nd_ra_interval_msec_cmd,
-       "ipv6 nd ra-interval msec <70-1800000>",
+       "ipv6 nd ra-interval msec (70-1800000)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
@@ -952,7 +952,7 @@ DEFUN (ipv6_nd_ra_interval_msec,
 
 DEFUN (ipv6_nd_ra_interval,
        ipv6_nd_ra_interval_cmd,
-       "ipv6 nd ra-interval <1-1800>",
+       "ipv6 nd ra-interval (1-1800)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
@@ -1033,7 +1033,7 @@ DEFUN (no_ipv6_nd_ra_interval,
 
 DEFUN (ipv6_nd_ra_lifetime,
        ipv6_nd_ra_lifetime_cmd,
-       "ipv6 nd ra-lifetime <0-9000>",
+       "ipv6 nd ra-lifetime (0-9000)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router lifetime\n"
@@ -1095,7 +1095,7 @@ DEFUN (no_ipv6_nd_ra_lifetime,
 
 DEFUN (ipv6_nd_reachable_time,
        ipv6_nd_reachable_time_cmd,
-       "ipv6 nd reachable-time <1-3600000>",
+       "ipv6 nd reachable-time (1-3600000)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Reachable time\n"
@@ -1139,7 +1139,7 @@ DEFUN (no_ipv6_nd_reachable_time,
 
 DEFUN (ipv6_nd_homeagent_preference,
        ipv6_nd_homeagent_preference_cmd,
-       "ipv6 nd home-agent-preference <0-65535>",
+       "ipv6 nd home-agent-preference (0-65535)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Home Agent preference\n"
@@ -1183,7 +1183,7 @@ DEFUN (no_ipv6_nd_homeagent_preference,
 
 DEFUN (ipv6_nd_homeagent_lifetime,
        ipv6_nd_homeagent_lifetime_cmd,
-       "ipv6 nd home-agent-lifetime <0-65520>",
+       "ipv6 nd home-agent-lifetime (0-65520)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Home Agent lifetime\n"
@@ -1508,7 +1508,7 @@ DEFUN (no_ipv6_nd_other_config_flag,
  */
 DEFUN (ipv6_nd_prefix,
        ipv6_nd_prefix_cmd,
-       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) (<0-4294967295>|infinite) (off-link|) (no-autoconfig|) (router-address|)",
+       "ipv6 nd prefix X:X::X:X/M <(0-4294967295)|infinite> <(0-4294967295)|infinite> <off-link|> <no-autoconfig|> <router-address|>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
@@ -1782,7 +1782,7 @@ DEFUN (no_ipv6_nd_prefix,
 
 DEFUN (ipv6_nd_router_preference,
        ipv6_nd_router_preference_cmd,
-       "ipv6 nd router-preference (high|medium|low)",
+       "ipv6 nd router-preference <high|medium|low>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Default router preference\n"
@@ -1844,7 +1844,7 @@ DEFUN (no_ipv6_nd_router_preference,
 
 DEFUN (ipv6_nd_mtu,
        ipv6_nd_mtu_cmd,
-       "ipv6 nd mtu <1-65535>",
+       "ipv6 nd mtu (1-65535)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Advertised MTU\n"

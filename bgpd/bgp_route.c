@@ -7963,7 +7963,7 @@ DEFUN (show_ip_bgp,
  */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show ip bgp ipv4 (unicast|multicast) [json]",
+       "show ip bgp ipv4 <unicast|multicast> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7996,7 +7996,7 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_route_pathtype,
        show_ip_bgp_route_pathtype_cmd,
-       "show ip bgp A.B.C.D (bestpath|multipath) [json]",
+       "show ip bgp A.B.C.D <bestpath|multipath> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8015,7 +8015,7 @@ DEFUN (show_ip_bgp_route_pathtype,
 
 DEFUN (show_bgp_ipv4_safi_route_pathtype,
        show_bgp_ipv4_safi_route_pathtype_cmd,
-       "show bgp ipv4 (unicast|multicast) A.B.C.D (bestpath|multipath) [json]",
+       "show bgp ipv4 <unicast|multicast> A.B.C.D <bestpath|multipath> [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8090,7 +8090,7 @@ DEFUN (show_bgp_ipv6_prefix,
  */
 DEFUN (show_ip_bgp_ipv4_route,
        show_ip_bgp_ipv4_route_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D [json]",
+       "show ip bgp ipv4 <unicast|multicast> A.B.C.D [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8236,7 +8236,7 @@ DEFUN (show_ip_bgp_prefix,
 
 DEFUN (show_ip_bgp_prefix_pathtype,
        show_ip_bgp_prefix_pathtype_cmd,
-       "show ip bgp A.B.C.D/M (bestpath|multipath) [json]",
+       "show ip bgp A.B.C.D/M <bestpath|multipath> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8266,7 +8266,7 @@ DEFUN (show_ip_bgp_prefix_pathtype,
  */
 DEFUN (show_ip_bgp_ipv4_prefix,
        show_ip_bgp_ipv4_prefix_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M [json]",
+       "show ip bgp ipv4 <unicast|multicast> A.B.C.D/M [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8301,7 +8301,7 @@ DEFUN (show_ip_bgp_ipv4_prefix,
  */
 DEFUN (show_ip_bgp_ipv4_prefix_pathtype,
        show_ip_bgp_ipv4_prefix_pathtype_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M (bestpath|multipath) [json]",
+       "show ip bgp ipv4 <unicast|multicast> A.B.C.D/M <bestpath|multipath> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8418,7 +8418,7 @@ DEFUN (show_ip_bgp_instance_route,
 
 DEFUN (show_ip_bgp_instance_route_pathtype,
        show_ip_bgp_instance_route_pathtype_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D (bestpath|multipath) [json]",
+       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D <bestpath|multipath> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8451,7 +8451,7 @@ DEFUN (show_ip_bgp_instance_prefix,
 
 DEFUN (show_ip_bgp_instance_prefix_pathtype,
        show_ip_bgp_instance_prefix_pathtype_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D/M (bestpath|multipath) [json]",
+       "show ip bgp " BGP_INSTANCE_CMD " A.B.C.D/M <bestpath|multipath> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -8492,7 +8492,7 @@ DEFUN (show_bgp,
 
 DEFUN (show_bgp_ipv6_safi,
        show_bgp_ipv6_safi_cmd,
-       "show bgp ipv6 (unicast|multicast) [json]",
+       "show bgp ipv6 <unicast|multicast> [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8543,7 +8543,7 @@ DEFUN (show_bgp_route,
 
 DEFUN (show_bgp_ipv6_safi_route,
        show_bgp_ipv6_safi_route_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X [json]",
+       "show bgp ipv6 <unicast|multicast> X:X::X:X [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8573,7 +8573,7 @@ DEFUN (show_bgp_ipv6_safi_route,
  */
 DEFUN (show_bgp_route_pathtype,
        show_bgp_route_pathtype_cmd,
-       "show bgp X:X::X:X (bestpath|multipath) [json]",
+       "show bgp X:X::X:X <bestpath|multipath> [json]",
        SHOW_STR
        BGP_STR
        "Network in the BGP routing table to display\n"
@@ -8591,7 +8591,7 @@ DEFUN (show_bgp_route_pathtype,
 
 DEFUN (show_bgp_ipv6_safi_route_pathtype,
        show_bgp_ipv6_safi_route_pathtype_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X (bestpath|multipath) [json]",
+       "show bgp ipv6 <unicast|multicast> X:X::X:X <bestpath|multipath> [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8642,7 +8642,7 @@ DEFUN (show_bgp_prefix,
 
 DEFUN (show_bgp_ipv6_safi_prefix,
        show_bgp_ipv6_safi_prefix_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X/M [json]",
+       "show bgp ipv6 <unicast|multicast> X:X::X:X/M [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8672,7 +8672,7 @@ DEFUN (show_bgp_ipv6_safi_prefix,
  */
 DEFUN (show_bgp_prefix_pathtype,
        show_bgp_prefix_pathtype_cmd,
-       "show bgp X:X::X:X/M (bestpath|multipath) [json]",
+       "show bgp X:X::X:X/M <bestpath|multipath> [json]",
        SHOW_STR
        BGP_STR
        "IPv6 prefix <network>/<length>\n"
@@ -8690,7 +8690,7 @@ DEFUN (show_bgp_prefix_pathtype,
 
 DEFUN (show_bgp_ipv6_safi_prefix_pathtype,
        show_bgp_ipv6_safi_prefix_pathtype_cmd,
-       "show bgp ipv6 (unicast|multicast) X:X::X:X/M (bestpath|multipath) [json]",
+       "show bgp ipv6 <unicast|multicast> X:X::X:X/M <bestpath|multipath> [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -8813,7 +8813,7 @@ DEFUN (show_bgp_instance_route,
  */
 DEFUN (show_bgp_instance_route_pathtype,
        show_bgp_instance_route_pathtype_cmd,
-       "show bgp " BGP_INSTANCE_CMD " X:X::X:X (bestpath|multipath) [json]",
+       "show bgp " BGP_INSTANCE_CMD " X:X::X:X <bestpath|multipath> [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -8869,7 +8869,7 @@ DEFUN (show_bgp_instance_prefix,
  */
 DEFUN (show_bgp_instance_prefix_pathtype,
        show_bgp_instance_prefix_pathtype_cmd,
-       "show bgp " BGP_INSTANCE_CMD " X:X::X:X/M (bestpath|multipath) [json]",
+       "show bgp " BGP_INSTANCE_CMD " X:X::X:X/M <bestpath|multipath> [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -8975,7 +8975,7 @@ DEFUN (show_bgp_instance_route_map,
  */
 DEFUN (show_bgp_instance_community_list,
        show_bgp_instance_community_list_cmd,
-       "show bgp " BGP_INSTANCE_CMD " community-list (<1-500>|WORD)",
+       "show bgp " BGP_INSTANCE_CMD " community-list <(1-500)|WORD>",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -9143,7 +9143,7 @@ DEFUN (show_ip_bgp_flap_regexp,
 
 DEFUN (show_ip_bgp_ipv4_regexp,
        show_ip_bgp_ipv4_regexp_cmd,
-       "show ip bgp ipv4 (unicast|multicast) regexp .LINE",
+       "show ip bgp ipv4 <unicast|multicast> regexp .LINE",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9297,7 +9297,7 @@ DEFUN (show_ip_bgp_flap_prefix_list,
 
 DEFUN (show_ip_bgp_ipv4_prefix_list,
        show_ip_bgp_ipv4_prefix_list_cmd,
-       "show ip bgp ipv4 (unicast|multicast) prefix-list WORD",
+       "show ip bgp ipv4 <unicast|multicast> prefix-list WORD",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9450,7 +9450,7 @@ DEFUN (show_ip_bgp_flap_filter_list,
 
 DEFUN (show_ip_bgp_ipv4_filter_list,
        show_ip_bgp_ipv4_filter_list_cmd,
-       "show ip bgp ipv4 (unicast|multicast) filter-list WORD",
+       "show ip bgp ipv4 <unicast|multicast> filter-list WORD",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9538,7 +9538,7 @@ DEFUN (show_ip_bgp_dampening_info,
 
 DEFUN (show_ip_bgp_ipv4_dampening_parameters,
        show_ip_bgp_ipv4_dampening_parameters_cmd,
-       "show ip bgp ipv4 (unicast|multicast) dampening parameters",
+       "show ip bgp ipv4 <unicast|multicast> dampening parameters",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9557,7 +9557,7 @@ DEFUN (show_ip_bgp_ipv4_dampening_parameters,
 
 DEFUN (show_ip_bgp_ipv4_dampening_flap_stats,
        show_ip_bgp_ipv4_dampening_flap_stats_cmd,
-       "show ip bgp ipv4 (unicast|multicast) dampening flap-statistics",
+       "show ip bgp ipv4 <unicast|multicast> dampening flap-statistics",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9577,7 +9577,7 @@ DEFUN (show_ip_bgp_ipv4_dampening_flap_stats,
 
 DEFUN (show_ip_bgp_ipv4_dampening_dampd_paths,
        show_ip_bgp_ipv4_dampening_dampd_paths_cmd,
-       "show ip bgp ipv4 (unicast|multicast) dampening dampened-paths",
+       "show ip bgp ipv4 <unicast|multicast> dampening dampened-paths",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9676,7 +9676,7 @@ DEFUN (show_ip_bgp_flap_route_map,
 
 DEFUN (show_ip_bgp_ipv4_route_map,
        show_ip_bgp_ipv4_route_map_cmd,
-       "show ip bgp ipv4 (unicast|multicast) route-map WORD",
+       "show ip bgp ipv4 <unicast|multicast> route-map WORD",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9756,7 +9756,7 @@ DEFUN (show_ip_bgp_flap_cidr_only,
 
 DEFUN (show_ip_bgp_ipv4_cidr_only,
        show_ip_bgp_ipv4_cidr_only_cmd,
-       "show ip bgp ipv4 (unicast|multicast) cidr-only",
+       "show ip bgp ipv4 <unicast|multicast> cidr-only",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9787,7 +9787,7 @@ DEFUN (show_ip_bgp_community_all,
 
 DEFUN (show_ip_bgp_ipv4_community_all,
        show_ip_bgp_ipv4_community_all_cmd,
-       "show ip bgp ipv4 (unicast|multicast) community",
+       "show ip bgp ipv4 <unicast|multicast> community",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9977,7 +9977,7 @@ bgp_show_community (struct vty *vty, const char *view_name, int argc,
  */
 DEFUN (show_ip_bgp_community,
        show_ip_bgp_community_cmd,
-       "show ip bgp community (AA:NN|local-AS|no-advertise|no-export)",
+       "show ip bgp community <AA:NN|local-AS|no-advertise|no-export>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10061,7 +10061,7 @@ DEFUN (show_ip_bgp_community,
  */
 DEFUN (show_ip_bgp_ipv4_community,
        show_ip_bgp_ipv4_community_cmd,
-       "show ip bgp ipv4 (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export)",
+       "show ip bgp ipv4 <unicast|multicast> community <AA:NN|local-AS|no-advertise|no-export>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10085,7 +10085,7 @@ DEFUN (show_ip_bgp_ipv4_community,
 
 DEFUN (show_bgp_instance_afi_safi_community_all,
        show_bgp_instance_afi_safi_community_all_cmd,
-       "show bgp " BGP_INSTANCE_CMD " (ipv4|ipv6) (unicast|multicast) community",
+       "show bgp " BGP_INSTANCE_CMD " <ipv4|ipv6> <unicast|multicast> community",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -10183,7 +10183,7 @@ DEFUN (show_bgp_instance_afi_safi_community_all,
  */
 DEFUN (show_bgp_instance_afi_safi_community,
        show_bgp_instance_afi_safi_community_cmd,
-       "show bgp " BGP_INSTANCE_CMD " (ipv4|ipv6) (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export)",
+       "show bgp " BGP_INSTANCE_CMD " <ipv4|ipv6> <unicast|multicast> community <AA:NN|local-AS|no-advertise|no-export>",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -10270,7 +10270,7 @@ DEFUN (show_bgp_instance_afi_safi_community,
  */
 DEFUN (show_ip_bgp_community_exact,
        show_ip_bgp_community_exact_cmd,
-       "show ip bgp community (AA:NN|local-AS|no-advertise|no-export) exact-match",
+       "show ip bgp community <AA:NN|local-AS|no-advertise|no-export> exact-match",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10358,7 +10358,7 @@ DEFUN (show_ip_bgp_community_exact,
  */
 DEFUN (show_ip_bgp_ipv4_community_exact,
        show_ip_bgp_ipv4_community_exact_cmd,
-       "show ip bgp ipv4 (unicast|multicast) community (AA:NN|local-AS|no-advertise|no-export) exact-match",
+       "show ip bgp ipv4 <unicast|multicast> community <AA:NN|local-AS|no-advertise|no-export> exact-match",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10502,7 +10502,7 @@ DEFUN (show_ip_bgp_ipv4_community_exact,
  */
 DEFUN (show_bgp_community,
        show_bgp_community_cmd,
-       "show bgp community (AA:NN|local-AS|no-advertise|no-export)",
+       "show bgp community <AA:NN|local-AS|no-advertise|no-export>",
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
@@ -10581,7 +10581,7 @@ DEFUN (show_bgp_community,
  */
 DEFUN (show_ipv6_bgp_community,
        show_ipv6_bgp_community_cmd,
-       "show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export)",
+       "show ipv6 bgp community <AA:NN|local-AS|no-advertise|no-export>",
        SHOW_STR
        IPV6_STR
        BGP_STR
@@ -10728,7 +10728,7 @@ DEFUN (show_ipv6_bgp_community,
  */
 DEFUN (show_bgp_community_exact,
        show_bgp_community_exact_cmd,
-       "show bgp community (AA:NN|local-AS|no-advertise|no-export) exact-match",
+       "show bgp community <AA:NN|local-AS|no-advertise|no-export> exact-match",
        SHOW_STR
        BGP_STR
        "Display routes matching the communities\n"
@@ -10811,7 +10811,7 @@ DEFUN (show_bgp_community_exact,
  */
 DEFUN (show_ipv6_bgp_community_exact,
        show_ipv6_bgp_community_exact_cmd,
-       "show ipv6 bgp community (AA:NN|local-AS|no-advertise|no-export) exact-match",
+       "show ipv6 bgp community <AA:NN|local-AS|no-advertise|no-export> exact-match",
        SHOW_STR
        IPV6_STR
        BGP_STR
@@ -10892,7 +10892,7 @@ DEFUN (show_ipv6_bgp_community_exact,
  */
 DEFUN (show_ipv6_mbgp_community,
        show_ipv6_mbgp_community_cmd,
-       "show ipv6 mbgp community (AA:NN|local-AS|no-advertise|no-export)",
+       "show ipv6 mbgp community <AA:NN|local-AS|no-advertise|no-export>",
        SHOW_STR
        IPV6_STR
        MBGP_STR
@@ -10975,7 +10975,7 @@ DEFUN (show_ipv6_mbgp_community,
  */
 DEFUN (show_ipv6_mbgp_community_exact,
        show_ipv6_mbgp_community_exact_cmd,
-       "show ipv6 mbgp community (AA:NN|local-AS|no-advertise|no-export) exact-match",
+       "show ipv6 mbgp community <AA:NN|local-AS|no-advertise|no-export> exact-match",
        SHOW_STR
        IPV6_STR
        MBGP_STR
@@ -11026,7 +11026,7 @@ bgp_show_community_list (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_community_list,
        show_ip_bgp_community_list_cmd,
-       "show ip bgp community-list (<1-500>|WORD)",
+       "show ip bgp community-list <(1-500)|WORD>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11039,7 +11039,7 @@ DEFUN (show_ip_bgp_community_list,
 
 DEFUN (show_ip_bgp_instance_community_list,
        show_ip_bgp_instance_community_list_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " community-list (<1-500>|WORD)",
+       "show ip bgp " BGP_INSTANCE_CMD " community-list <(1-500)|WORD>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11053,7 +11053,7 @@ DEFUN (show_ip_bgp_instance_community_list,
 
 DEFUN (show_ip_bgp_ipv4_community_list,
        show_ip_bgp_ipv4_community_list_cmd,
-       "show ip bgp ipv4 (unicast|multicast) community-list (<1-500>|WORD)",
+       "show ip bgp ipv4 <unicast|multicast> community-list <(1-500)|WORD>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11072,7 +11072,7 @@ DEFUN (show_ip_bgp_ipv4_community_list,
 
 DEFUN (show_ip_bgp_community_list_exact,
        show_ip_bgp_community_list_exact_cmd,
-       "show ip bgp community-list (<1-500>|WORD) exact-match",
+       "show ip bgp community-list <(1-500)|WORD> exact-match",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11086,7 +11086,7 @@ DEFUN (show_ip_bgp_community_list_exact,
 
 DEFUN (show_ip_bgp_ipv4_community_list_exact,
        show_ip_bgp_ipv4_community_list_exact_cmd,
-       "show ip bgp ipv4 (unicast|multicast) community-list (<1-500>|WORD) exact-match",
+       "show ip bgp ipv4 <unicast|multicast> community-list <(1-500)|WORD> exact-match",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11118,7 +11118,7 @@ DEFUN (show_ip_bgp_ipv4_community_list_exact,
  */
 DEFUN (show_bgp_community_list,
        show_bgp_community_list_cmd,
-       "show bgp community-list (<1-500>|WORD)",
+       "show bgp community-list <(1-500)|WORD>",
        SHOW_STR
        BGP_STR
        "Display routes matching the community-list\n"
@@ -11171,7 +11171,7 @@ DEFUN (show_ipv6_mbgp_community_list,
  */
 DEFUN (show_bgp_community_list_exact,
        show_bgp_community_list_exact_cmd,
-       "show bgp community-list (<1-500>|WORD) exact-match",
+       "show bgp community-list <(1-500)|WORD> exact-match",
        SHOW_STR
        BGP_STR
        "Display routes matching the community-list\n"
@@ -11299,7 +11299,7 @@ DEFUN (show_ip_bgp_flap_prefix_longer,
 
 DEFUN (show_ip_bgp_ipv4_prefix_longer,
        show_ip_bgp_ipv4_prefix_longer_cmd,
-       "show ip bgp ipv4 (unicast|multicast) A.B.C.D/M longer-prefixes",
+       "show ip bgp ipv4 <unicast|multicast> A.B.C.D/M longer-prefixes",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11821,7 +11821,7 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
 
 DEFUN (show_bgp_statistics,
        show_bgp_statistics_cmd,
-       "show bgp (ipv4|ipv6) (encap|multicast|unicast|vpn) statistics",
+       "show bgp <ipv4|ipv6> <encap|multicast|unicast|vpn> statistics",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -11837,7 +11837,7 @@ DEFUN (show_bgp_statistics,
 
 DEFUN (show_bgp_statistics_view,
        show_bgp_statistics_view_cmd,
-       "show bgp " BGP_INSTANCE_CMD " (ipv4|ipv6) (unicast|multicast|vpn|encap) statistics",
+       "show bgp " BGP_INSTANCE_CMD " <ipv4|ipv6> <unicast|multicast|vpn|encap> statistics",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12045,7 +12045,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
 
 DEFUN (show_ip_bgp_neighbor_prefix_counts,
        show_ip_bgp_neighbor_prefix_counts_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
+       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12068,7 +12068,7 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        show_ip_bgp_instance_neighbor_prefix_counts_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12092,7 +12092,7 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
 
 DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        show_bgp_ipv6_neighbor_prefix_counts_cmd,
-       "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
+       "show bgp ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -12115,7 +12115,7 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
 
 DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        show_bgp_instance_ipv6_neighbor_prefix_counts_cmd,
-       "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
+       "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12139,7 +12139,7 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        show_ip_bgp_ipv4_neighbor_prefix_counts_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
+       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12168,7 +12168,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
 
 DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd,
-       "show ip bgp vpnv4 all neighbors (A.B.C.D|X:X::X:X|WORD) prefix-counts [json]",
+       "show ip bgp vpnv4 all neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12449,7 +12449,7 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
  */
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12490,7 +12490,7 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
  */
 DEFUN (show_ip_bgp_neighbor_advertised_route,
        show_ip_bgp_neighbor_advertised_route_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
+       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12539,7 +12539,7 @@ DEFUN (show_ip_bgp_neighbor_advertised_route,
  */
 DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
        show_ip_bgp_ipv4_neighbor_advertised_route_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
+       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12589,7 +12589,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
  */
 DEFUN (show_bgp_instance_neighbor_advertised_route,
        show_bgp_instance_neighbor_advertised_route_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
+       "show bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12642,7 +12642,7 @@ DEFUN (show_bgp_instance_neighbor_advertised_route,
  */
 DEFUN (show_bgp_neighbor_advertised_route,
        show_bgp_neighbor_advertised_route_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
+       "show bgp neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -12674,7 +12674,7 @@ DEFUN (show_bgp_neighbor_advertised_route,
 /* old command */
 DEFUN (ipv6_mbgp_neighbor_advertised_route,
        ipv6_mbgp_neighbor_advertised_route_cmd,
-       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) advertised-routes [json]",
+       "show ipv6 mbgp neighbors <A.B.C.D|X:X::X:X|WORD> advertised-routes [json]",
        SHOW_STR
        IPV6_STR
        MBGP_STR
@@ -12715,7 +12715,7 @@ DEFUN (ipv6_mbgp_neighbor_advertised_route,
  */
 DEFUN (show_bgp_instance_neighbor_received_routes,
        show_bgp_instance_neighbor_received_routes_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
+       "show bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> received-routes [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12753,7 +12753,7 @@ DEFUN (show_bgp_instance_neighbor_received_routes,
  */
 DEFUN (show_ip_bgp_instance_neighbor_received_routes,
        show_ip_bgp_instance_neighbor_received_routes_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> received-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12792,7 +12792,7 @@ DEFUN (show_ip_bgp_instance_neighbor_received_routes,
  */
 DEFUN (show_ip_bgp_neighbor_received_routes,
        show_ip_bgp_neighbor_received_routes_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
+       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> received-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12840,7 +12840,7 @@ DEFUN (show_ip_bgp_neighbor_received_routes,
  */
 DEFUN (show_ip_bgp_ipv4_neighbor_received_routes,
        show_ip_bgp_ipv4_neighbor_received_routes_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
+       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> received-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12874,7 +12874,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_routes,
 
 DEFUN (show_bgp_instance_afi_safi_neighbor_adv_recd_routes,
        show_bgp_instance_afi_safi_neighbor_adv_recd_routes_cmd,
-       "show bgp " BGP_INSTANCE_CMD " (ipv4|ipv6) (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) (advertised-routes|received-routes) [json]",
+       "show bgp " BGP_INSTANCE_CMD " <ipv4|ipv6> <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes> [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12910,7 +12910,7 @@ DEFUN (show_bgp_instance_afi_safi_neighbor_adv_recd_routes,
 
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        show_ip_bgp_neighbor_received_prefix_filter_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
+       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12997,7 +12997,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
 
 DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
        show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
+       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13139,7 +13139,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
  */
 DEFUN (show_bgp_neighbor_received_routes,
        show_bgp_neighbor_received_routes_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
+       "show bgp neighbors <A.B.C.D|X:X::X:X|WORD> received-routes [json]",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -13182,7 +13182,7 @@ DEFUN (show_bgp_neighbor_received_routes,
  */
 DEFUN (show_bgp_neighbor_received_prefix_filter,
        show_bgp_neighbor_received_prefix_filter_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
+       "show bgp neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -13272,7 +13272,7 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
 /* old command */
 DEFUN (ipv6_mbgp_neighbor_received_routes,
        ipv6_mbgp_neighbor_received_routes_cmd,
-       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) received-routes [json]",
+       "show ipv6 mbgp neighbors <A.B.C.D|X:X::X:X|WORD> received-routes [json]",
        SHOW_STR
        IPV6_STR
        MBGP_STR
@@ -13312,7 +13312,7 @@ DEFUN (ipv6_mbgp_neighbor_received_routes,
  */
 DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
        show_bgp_instance_neighbor_received_prefix_filter_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
+       "show bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13428,7 +13428,7 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
+       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13452,7 +13452,7 @@ DEFUN (show_ip_bgp_neighbor_routes,
 
 DEFUN (show_ip_bgp_instance_neighbor_routes,
        show_ip_bgp_instance_neighbor_routes_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13477,7 +13477,7 @@ DEFUN (show_ip_bgp_instance_neighbor_routes,
 
 DEFUN (show_ip_bgp_neighbor_flap,
        show_ip_bgp_neighbor_flap_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
+       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> flap-statistics [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13501,7 +13501,7 @@ DEFUN (show_ip_bgp_neighbor_flap,
 
 DEFUN (show_ip_bgp_neighbor_damp,
        show_ip_bgp_neighbor_damp_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
+       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> dampened-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13525,7 +13525,7 @@ DEFUN (show_ip_bgp_neighbor_damp,
 
 DEFUN (show_ip_bgp_ipv4_neighbor_routes,
        show_ip_bgp_ipv4_neighbor_routes_cmd,
-       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
+       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13572,7 +13572,7 @@ DEFUN (show_ip_bgp_ipv4_neighbor_routes,
  */
 DEFUN (show_bgp_instance_neighbor_routes,
        show_bgp_instance_neighbor_routes_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
+       "show bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13633,7 +13633,7 @@ DEFUN (show_bgp_instance_neighbor_routes,
  */
 DEFUN (show_bgp_instance_neighbor_damp,
        show_bgp_instance_neighbor_damp_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
+       "show bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> dampened-routes [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13699,7 +13699,7 @@ DEFUN (show_bgp_instance_neighbor_damp,
  */
 DEFUN (show_bgp_instance_neighbor_flap,
        show_bgp_instance_neighbor_flap_cmd,
-       "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
+       "show bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> flap-statistics [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13754,7 +13754,7 @@ DEFUN (show_bgp_instance_neighbor_flap,
  */
 DEFUN (show_bgp_neighbor_routes,
        show_bgp_neighbor_routes_cmd,
-       "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
+       "show bgp neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
        SHOW_STR
        BGP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
@@ -13782,7 +13782,7 @@ DEFUN (show_bgp_neighbor_routes,
 /* old command */
 DEFUN (ipv6_mbgp_neighbor_routes,
        ipv6_mbgp_neighbor_routes_cmd,
-       "show ipv6 mbgp neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
+       "show ipv6 mbgp neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
        SHOW_STR
        IPV6_STR
        MBGP_STR
@@ -14001,7 +14001,7 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)
 
 DEFUN (bgp_distance,
        bgp_distance_cmd,
-       "distance bgp <1-255> <1-255> <1-255>",
+       "distance bgp (1-255) (1-255) (1-255)",
        "Define an administrative distance\n"
        "BGP distance\n"
        "Distance for routes external to the AS\n"
@@ -14028,7 +14028,7 @@ DEFUN (bgp_distance,
  */
 DEFUN (no_bgp_distance,
        no_bgp_distance_cmd,
-       "no distance bgp <1-255> <1-255> <1-255>",
+       "no distance bgp (1-255) (1-255) (1-255)",
        NO_STR
        "Define an administrative distance\n"
        "BGP distance\n"
@@ -14049,7 +14049,7 @@ DEFUN (no_bgp_distance,
 
 DEFUN (bgp_distance_source,
        bgp_distance_source_cmd,
-       "distance <1-255> A.B.C.D/M",
+       "distance (1-255) A.B.C.D/M",
        "Define an administrative distance\n"
        "Administrative distance\n"
        "IP source prefix\n")
@@ -14060,7 +14060,7 @@ DEFUN (bgp_distance_source,
 
 DEFUN (no_bgp_distance_source,
        no_bgp_distance_source_cmd,
-       "no distance <1-255> A.B.C.D/M",
+       "no distance (1-255) A.B.C.D/M",
        NO_STR
        "Define an administrative distance\n"
        "Administrative distance\n"
@@ -14072,7 +14072,7 @@ DEFUN (no_bgp_distance_source,
 
 DEFUN (bgp_distance_source_access_list,
        bgp_distance_source_access_list_cmd,
-       "distance <1-255> A.B.C.D/M WORD",
+       "distance (1-255) A.B.C.D/M WORD",
        "Define an administrative distance\n"
        "Administrative distance\n"
        "IP source prefix\n"
@@ -14084,7 +14084,7 @@ DEFUN (bgp_distance_source_access_list,
 
 DEFUN (no_bgp_distance_source_access_list,
        no_bgp_distance_source_access_list_cmd,
-       "no distance <1-255> A.B.C.D/M WORD",
+       "no distance (1-255) A.B.C.D/M WORD",
        NO_STR
        "Define an administrative distance\n"
        "Administrative distance\n"
@@ -14109,7 +14109,7 @@ DEFUN (no_bgp_distance_source_access_list,
  */
 DEFUN (bgp_damp_set,
        bgp_damp_set_cmd,
-       "bgp dampening <1-45> <1-20000> <1-20000> <1-255>",
+       "bgp dampening (1-45) (1-20000) (1-20000) (1-255)",
        "BGP Specific commands\n"
        "Enable route-flap dampening\n"
        "Half-life time for the penalty\n"

@@ -1896,7 +1896,7 @@ DEFUN (no_log_adj_changes,
 
 DEFUN (topology_generate_grid,
        topology_generate_grid_cmd,
-       "topology generate grid <1-100> <1-100> <1-65000> [param] [param] [param]",
+       "topology generate grid (1-100) (1-100) (1-65000) [param] [param] [param]",
        "Topology generation for IS-IS\n"
        "Topology generation\n"
        "Grid topology\n"

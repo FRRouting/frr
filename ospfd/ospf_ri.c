@@ -1363,7 +1363,7 @@ DEFUN (no_pce_path_scope,
 
 DEFUN (pce_domain,
        pce_domain_cmd,
-       "pce domain as <0-65535>",
+       "pce domain as (0-65535)",
        PCE_STR
        "Configure PCE domain AS number\n"
        "AS number where the PCE as visibilities for path computation\n"
@@ -1401,7 +1401,7 @@ out:return CMD_SUCCESS;
 
 DEFUN (no_pce_domain,
        no_pce_domain_cmd,
-       "no pce domain as <0-65535>",
+       "no pce domain as (0-65535)",
        NO_STR
        PCE_STR
        "Disable PCE domain AS number\n"
@@ -1431,7 +1431,7 @@ DEFUN (no_pce_domain,
 
 DEFUN (pce_neigbhor,
        pce_neighbor_cmd,
-       "pce neighbor as <0-65535>",
+       "pce neighbor as (0-65535)",
        PCE_STR
        "Configure PCE neighbor domain AS number\n"
        "AS number of PCE neighbors\n"
@@ -1469,7 +1469,7 @@ out:return CMD_SUCCESS;
 
 DEFUN (no_pce_neighbor,
        no_pce_neighbor_cmd,
-       "no pce neighbor as <0-65535>",
+       "no pce neighbor as (0-65535)",
        NO_STR
        PCE_STR
        "Disable PCE neighbor AS number\n"

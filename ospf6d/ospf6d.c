@@ -248,7 +248,7 @@ DEFUN (show_ipv6_ospf6_database,
  */
 DEFUN (show_ipv6_ospf6_database_type,
        show_ipv6_ospf6_database_type_cmd,
-       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix)",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix>",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -579,7 +579,7 @@ DEFUN (show_ipv6_ospf6_database_router,
  */
 DEFUN (show_ipv6_ospf6_database_type_id,
        show_ipv6_ospf6_database_type_id_cmd,
-       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -733,7 +733,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
  */
 DEFUN (show_ipv6_ospf6_database_type_router,
        show_ipv6_ospf6_database_type_router_cmd,
-       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) * A.B.C.D",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> * A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1013,7 +1013,7 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
  */
 DEFUN (show_ipv6_ospf6_database_type_id_router,
        show_ipv6_ospf6_database_type_id_router_cmd,
-       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D A.B.C.D",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1135,7 +1135,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
  */
 DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
        show_ipv6_ospf6_database_type_adv_router_linkstate_id_cmd,
-       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) adv-router A.B.C.D linkstate-id A.B.C.D",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> adv-router A.B.C.D linkstate-id A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1316,7 +1316,7 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
  */
 DEFUN (show_ipv6_ospf6_database_type_self_originated,
        show_ipv6_ospf6_database_type_self_originated_cmd,
-       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) self-originated",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1417,7 +1417,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
  */
 DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
        show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd,
-       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) self-originated linkstate-id A.B.C.D",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> self-originated linkstate-id A.B.C.D",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -1531,7 +1531,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
  */
 DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
        show_ipv6_ospf6_database_type_id_self_originated_cmd,
-       "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D self-originated",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D self-originated",
        SHOW_STR
        IPV6_STR
        OSPF6_STR

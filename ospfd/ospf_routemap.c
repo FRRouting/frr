@@ -692,7 +692,7 @@ struct route_map_rule_cmd route_set_tag_cmd =
 
 DEFUN (match_ip_nexthop,
        match_ip_nexthop_cmd,
-       "match ip next-hop (<1-199>|<1300-2699>|WORD)",
+       "match ip next-hop <(1-199)|(1300-2699)|WORD>",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
@@ -767,7 +767,7 @@ DEFUN (no_match_ip_next_hop_prefix_list,
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address (<1-199>|<1300-2699>|WORD)",
+       "match ip address <(1-199)|(1300-2699)|WORD>",
        MATCH_STR
        IP_STR
        "Match address of route\n"
@@ -872,7 +872,7 @@ DEFUN (no_match_interface,
 
 DEFUN (match_tag,
        match_tag_cmd,
-       "match tag <1-65535>",
+       "match tag (1-65535)",
        MATCH_STR
        "Match tag of route\n"
        "Tag value\n")
@@ -902,7 +902,7 @@ DEFUN (no_match_tag,
 
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric <0-4294967295>",
+       "set metric (0-4294967295)",
        SET_STR
        "Metric value for destination routing protocol\n"
        "Metric value\n")
@@ -932,7 +932,7 @@ DEFUN (no_set_metric,
 
 DEFUN (set_metric_type,
        set_metric_type_cmd,
-       "set metric-type (type-1|type-2)",
+       "set metric-type <type-1|type-2>",
        SET_STR
        "Type of metric for destination routing protocol\n"
        "OSPF[6] external type 1 metric\n"
@@ -969,7 +969,7 @@ DEFUN (no_set_metric_type,
 
 DEFUN (set_tag,
        set_tag_cmd,
-       "set tag <1-65535>",
+       "set tag (1-65535)",
        SET_STR
        "Tag value for routing protocol\n"
        "Tag value\n")

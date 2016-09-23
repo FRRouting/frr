@@ -463,7 +463,7 @@ DEFUN (no_ip_irdp_shutdown,
 
 DEFUN (ip_irdp_holdtime,
        ip_irdp_holdtime_cmd,
-       "ip irdp holdtime <0-9000>",
+       "ip irdp holdtime (0-9000)",
        IP_STR
        "ICMP Router discovery on this interface\n"
        "Set holdtime value\n"
@@ -486,7 +486,7 @@ DEFUN (ip_irdp_holdtime,
 
 DEFUN (ip_irdp_minadvertinterval,
        ip_irdp_minadvertinterval_cmd,
-       "ip irdp minadvertinterval <3-1800>",
+       "ip irdp minadvertinterval (3-1800)",
        IP_STR
        "ICMP Router discovery on this interface\n"
        "Set minimum time between advertisement\n"
@@ -519,7 +519,7 @@ DEFUN (ip_irdp_minadvertinterval,
 
 DEFUN (ip_irdp_maxadvertinterval,
        ip_irdp_maxadvertinterval_cmd,
-       "ip irdp maxadvertinterval <4-1800>",
+       "ip irdp maxadvertinterval (4-1800)",
        IP_STR
        "ICMP Router discovery on this interface\n"
        "Set maximum time between advertisement\n"
@@ -558,7 +558,7 @@ DEFUN (ip_irdp_maxadvertinterval,
 
 DEFUN (ip_irdp_preference,
        ip_irdp_preference_cmd,
-       "ip irdp preference <0-2147483647>",
+       "ip irdp preference (0-2147483647)",
        IP_STR
        "ICMP Router discovery on this interface\n"
        "Set default preference level for this interface\n"
@@ -581,7 +581,7 @@ DEFUN (ip_irdp_preference,
 
 DEFUN (ip_irdp_address_preference,
        ip_irdp_address_preference_cmd,
-       "ip irdp address A.B.C.D preference <0-2147483647>",
+       "ip irdp address A.B.C.D preference (0-2147483647)",
        IP_STR
        "Alter ICMP Router discovery preference this interface\n"
        "Specify IRDP non-default preference to advertise\n"
@@ -625,7 +625,7 @@ DEFUN (ip_irdp_address_preference,
 
 DEFUN (no_ip_irdp_address_preference,
        no_ip_irdp_address_preference_cmd,
-       "no ip irdp address A.B.C.D preference <0-2147483647>",
+       "no ip irdp address A.B.C.D preference (0-2147483647)",
        NO_STR
        IP_STR
        "Alter ICMP Router discovery preference this interface\n"

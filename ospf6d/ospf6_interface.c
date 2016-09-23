@@ -1151,7 +1151,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
 /* interface variable set command */
 DEFUN (ipv6_ospf6_ifmtu,
        ipv6_ospf6_ifmtu_cmd,
-       "ipv6 ospf6 ifmtu <1-65535>",
+       "ipv6 ospf6 ifmtu (1-65535)",
        IP6_STR
        OSPF6_STR
        "Interface MTU\n"
@@ -1259,7 +1259,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 
 DEFUN (ipv6_ospf6_cost,
        ipv6_ospf6_cost_cmd,
-       "ipv6 ospf6 cost <1-65535>",
+       "ipv6 ospf6 cost (1-65535)",
        IP6_STR
        OSPF6_STR
        "Interface cost\n"
@@ -1326,7 +1326,7 @@ DEFUN (no_ipv6_ospf6_cost,
 
 DEFUN (auto_cost_reference_bandwidth,
        auto_cost_reference_bandwidth_cmd,
-       "auto-cost reference-bandwidth <1-4294967>",
+       "auto-cost reference-bandwidth (1-4294967)",
        "Calculate OSPF interface cost according to bandwidth\n"
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
@@ -1391,7 +1391,7 @@ DEFUN (no_auto_cost_reference_bandwidth,
 
 DEFUN (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
-       "ipv6 ospf6 hello-interval <1-65535>",
+       "ipv6 ospf6 hello-interval (1-65535)",
        IP6_STR
        OSPF6_STR
        "Interval time of Hello packets\n"
@@ -1416,7 +1416,7 @@ DEFUN (ipv6_ospf6_hellointerval,
 /* interface variable set command */
 DEFUN (ipv6_ospf6_deadinterval,
        ipv6_ospf6_deadinterval_cmd,
-       "ipv6 ospf6 dead-interval <1-65535>",
+       "ipv6 ospf6 dead-interval (1-65535)",
        IP6_STR
        OSPF6_STR
        "Interval time after which a neighbor is declared down\n"
@@ -1441,7 +1441,7 @@ DEFUN (ipv6_ospf6_deadinterval,
 /* interface variable set command */
 DEFUN (ipv6_ospf6_transmitdelay,
        ipv6_ospf6_transmitdelay_cmd,
-       "ipv6 ospf6 transmit-delay <1-3600>",
+       "ipv6 ospf6 transmit-delay (1-3600)",
        IP6_STR
        OSPF6_STR
        "Transmit delay of this interface\n"
@@ -1466,7 +1466,7 @@ DEFUN (ipv6_ospf6_transmitdelay,
 /* interface variable set command */
 DEFUN (ipv6_ospf6_retransmitinterval,
        ipv6_ospf6_retransmitinterval_cmd,
-       "ipv6 ospf6 retransmit-interval <1-65535>",
+       "ipv6 ospf6 retransmit-interval (1-65535)",
        IP6_STR
        OSPF6_STR
        "Time between retransmitting lost link state advertisements\n"
@@ -1491,7 +1491,7 @@ DEFUN (ipv6_ospf6_retransmitinterval,
 /* interface variable set command */
 DEFUN (ipv6_ospf6_priority,
        ipv6_ospf6_priority_cmd,
-       "ipv6 ospf6 priority <0-255>",
+       "ipv6 ospf6 priority (0-255)",
        IP6_STR
        OSPF6_STR
        "Router priority\n"
@@ -1522,7 +1522,7 @@ DEFUN (ipv6_ospf6_priority,
 
 DEFUN (ipv6_ospf6_instance,
        ipv6_ospf6_instance_cmd,
-       "ipv6 ospf6 instance-id <0-255>",
+       "ipv6 ospf6 instance-id (0-255)",
        IP6_STR
        OSPF6_STR
        "Instance ID for this interface\n"
@@ -1740,7 +1740,7 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
 
 DEFUN (ipv6_ospf6_network,
        ipv6_ospf6_network_cmd,
-       "ipv6 ospf6 network (broadcast|point-to-point)",
+       "ipv6 ospf6 network <broadcast|point-to-point>",
        IP6_STR
        OSPF6_STR
        "Network Type\n"

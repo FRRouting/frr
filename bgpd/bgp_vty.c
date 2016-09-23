@@ -608,7 +608,7 @@ DEFUN (no_bgp_multiple_instance,
 
 DEFUN (bgp_config_type,
        bgp_config_type_cmd,
-       "bgp config-type (cisco|zebra)",
+       "bgp config-type <cisco|zebra>",
        BGP_STR
        "Configuration type\n"
        "cisco\n"
@@ -1145,7 +1145,7 @@ DEFUN (bgp_maxmed_admin,
 
 DEFUN (bgp_maxmed_admin_medv,
        bgp_maxmed_admin_medv_cmd,
-       "bgp max-med administrative <0-4294967294>",
+       "bgp max-med administrative (0-4294967294)",
        BGP_STR
        "Advertise routes with max-med\n"
        "Administratively applied, for an indefinite period\n"
@@ -1197,7 +1197,7 @@ DEFUN (no_bgp_maxmed_admin,
 
 DEFUN (bgp_maxmed_onstartup,
        bgp_maxmed_onstartup_cmd,
-       "bgp max-med on-startup <5-86400>",
+       "bgp max-med on-startup (5-86400)",
        BGP_STR
        "Advertise routes with max-med\n"
        "Effective on a startup\n"
@@ -1223,7 +1223,7 @@ DEFUN (bgp_maxmed_onstartup,
 
 DEFUN (bgp_maxmed_onstartup_medv,
        bgp_maxmed_onstartup_medv_cmd,
-       "bgp max-med on-startup <5-86400> <0-4294967294>",
+       "bgp max-med on-startup (5-86400) (0-4294967294)",
        BGP_STR
        "Advertise routes with max-med\n"
        "Effective on a startup\n"
@@ -1362,7 +1362,7 @@ bgp_config_write_update_delay (struct vty *vty, struct bgp *bgp)
 /* Update-delay configuration */
 DEFUN (bgp_update_delay,
        bgp_update_delay_cmd,
-       "update-delay <0-3600>",
+       "update-delay (0-3600)",
        "Force initial delay for best-path and updates\n"
        "Seconds\n")
 {
@@ -1371,7 +1371,7 @@ DEFUN (bgp_update_delay,
 
 DEFUN (bgp_update_delay_establish_wait,
        bgp_update_delay_establish_wait_cmd,
-       "update-delay <0-3600> <1-3600>",
+       "update-delay (0-3600) (1-3600)",
        "Force initial delay for best-path and updates\n"
        "Seconds\n"
        "Wait for peers to be established\n"
@@ -1392,7 +1392,7 @@ DEFUN (bgp_update_delay_establish_wait,
  */
 DEFUN (no_bgp_update_delay,
        no_bgp_update_delay_cmd,
-       "no update-delay <0-3600>",
+       "no update-delay (0-3600)",
        "Force initial delay for best-path and updates\n"
        "Seconds\n")
 {
@@ -1430,7 +1430,7 @@ bgp_config_write_wpkt_quanta (struct vty *vty, struct bgp *bgp)
 /* Update-delay configuration */
 DEFUN (bgp_wpkt_quanta,
        bgp_wpkt_quanta_cmd,
-       "write-quanta <1-10000>",
+       "write-quanta (1-10000)",
        "How many packets to write to peer socket per run\n"
        "Number of packets\n")
 {
@@ -1440,7 +1440,7 @@ DEFUN (bgp_wpkt_quanta,
 /* Update-delay deconfiguration */
 DEFUN (no_bgp_wpkt_quanta,
        no_bgp_wpkt_quanta_cmd,
-       "no write-quanta <1-10000>",
+       "no write-quanta (1-10000)",
        "How many packets to write to peer socket per run\n"
        "Number of packets\n")
 {
@@ -1476,7 +1476,7 @@ bgp_config_write_coalesce_time (struct vty *vty, struct bgp *bgp)
 
 DEFUN (bgp_coalesce_time,
        bgp_coalesce_time_cmd,
-       "coalesce-time <0-4294967295>",
+       "coalesce-time (0-4294967295)",
        "Subgroup coalesce timer\n"
        "Subgroup coalesce timer value (in ms)\n")
 {
@@ -1485,7 +1485,7 @@ DEFUN (bgp_coalesce_time,
 
 DEFUN (no_bgp_coalesce_time,
        no_bgp_coalesce_time_cmd,
-       "no coalesce-time <0-4294967295>",
+       "no coalesce-time (0-4294967295)",
        "Subgroup coalesce timer\n"
        "Subgroup coalesce timer value (in ms)\n")
 {
@@ -1495,7 +1495,7 @@ DEFUN (no_bgp_coalesce_time,
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
-       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+       "maximum-paths " CMD_RANGE_STR<1, MULTIPATH_NUM>,
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
@@ -1504,7 +1504,7 @@ DEFUN (bgp_maxpaths,
 
 DEFUN (bgp_maxpaths_ibgp,
        bgp_maxpaths_ibgp_cmd,
-       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
+       "maximum-paths ibgp " CMD_RANGE_STR<1, MULTIPATH_NUM>,
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n")
@@ -1514,7 +1514,7 @@ DEFUN (bgp_maxpaths_ibgp,
 
 DEFUN (bgp_maxpaths_ibgp_cluster,
        bgp_maxpaths_ibgp_cluster_cmd,
-       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
+       "maximum-paths ibgp " CMD_RANGE_STR<1, MULTIPATH_NUM> " equal-cluster-length",
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n"
@@ -1601,7 +1601,7 @@ bgp_config_write_maxpaths (struct vty *vty, struct bgp *bgp, afi_t afi,
 
 DEFUN (bgp_timers,
        bgp_timers_cmd,
-       "timers bgp <0-65535> <0-65535>",
+       "timers bgp (0-65535) (0-65535)",
        "Adjust routing timers\n"
        "BGP timers\n"
        "Keepalive interval\n"
@@ -1820,7 +1820,7 @@ DEFUN (no_bgp_graceful_restart,
 
 DEFUN (bgp_graceful_restart_stalepath_time,
        bgp_graceful_restart_stalepath_time_cmd,
-       "bgp graceful-restart stalepath-time <1-3600>",
+       "bgp graceful-restart stalepath-time (1-3600)",
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
        "Set the max time to hold onto restarting peer's stale paths\n"
@@ -1840,7 +1840,7 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 
 DEFUN (bgp_graceful_restart_restart_time,
        bgp_graceful_restart_restart_time_cmd,
-       "bgp graceful-restart restart-time <1-3600>",
+       "bgp graceful-restart restart-time (1-3600)",
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
        "Set the time to wait to delete stale routes before a BGP open message is received\n"
@@ -2085,7 +2085,7 @@ DEFUN (no_bgp_bestpath_aspath_confed,
 /* "bgp bestpath as-path multipath-relax" configuration.  */
 DEFUN (bgp_bestpath_aspath_multipath_relax,
        bgp_bestpath_aspath_multipath_relax_cmd,
-       "bgp bestpath as-path multipath-relax {as-set|no-as-set}",
+       "bgp bestpath as-path multipath-relax [as-set|no-as-set]",
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
@@ -2112,7 +2112,7 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
 
 DEFUN (no_bgp_bestpath_aspath_multipath_relax,
        no_bgp_bestpath_aspath_multipath_relax_cmd,
-       "no bgp bestpath as-path multipath-relax {as-set|no-as-set}",
+       "no bgp bestpath as-path multipath-relax [as-set|no-as-set]",
        NO_STR
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
@@ -2162,7 +2162,7 @@ DEFUN (no_bgp_log_neighbor_changes,
 /* "bgp bestpath med" configuration. */
 DEFUN (bgp_bestpath_med,
        bgp_bestpath_med_cmd,
-       "bgp bestpath med (confed|missing-as-worst)",
+       "bgp bestpath med <confed|missing-as-worst>",
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "MED attribute\n"
@@ -2215,7 +2215,7 @@ DEFUN (bgp_bestpath_med2,
 
 DEFUN (no_bgp_bestpath_med,
        no_bgp_bestpath_med_cmd,
-       "no bgp bestpath med (confed|missing-as-worst)",
+       "no bgp bestpath med <confed|missing-as-worst>",
        NO_STR
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
@@ -2379,7 +2379,7 @@ DEFUN (no_bgp_network_import_check,
 
 DEFUN (bgp_default_local_preference,
        bgp_default_local_preference_cmd,
-       "bgp default local-preference <0-4294967295>",
+       "bgp default local-preference (0-4294967295)",
        "BGP specific commands\n"
        "Configure BGP defaults\n"
        "local preference (higher=more preferred)\n"
@@ -2428,7 +2428,7 @@ DEFUN (no_bgp_default_local_preference,
 
 DEFUN (bgp_default_subgroup_pkt_queue_max,
        bgp_default_subgroup_pkt_queue_max_cmd,
-       "bgp default subgroup-pkt-queue-max <20-100>",
+       "bgp default subgroup-pkt-queue-max (20-100)",
        "BGP specific commands\n"
        "Configure BGP defaults\n"
        "subgroup-pkt-queue-max\n"
@@ -2852,7 +2852,7 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
-       NEIGHBOR_CMD2 "remote-as (" CMD_AS_RANGE "|external|internal)",
+       NEIGHBOR_CMD2 "remote-as <" CMD_AS_RANGE "|external|internal>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a BGP neighbor\n"
@@ -3015,7 +3015,7 @@ DEFUN (neighbor_interface_config_v6only,
 
 DEFUN (neighbor_interface_config_remote_as,
        neighbor_interface_config_remote_as_cmd,
-       "neighbor WORD interface remote-as (" CMD_AS_RANGE "|external|internal)",
+       "neighbor WORD interface remote-as <" CMD_AS_RANGE "|external|internal>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
@@ -3027,7 +3027,7 @@ DEFUN (neighbor_interface_config_remote_as,
 
 DEFUN (neighbor_interface_v6only_config_remote_as,
        neighbor_interface_v6only_config_remote_as_cmd,
-       "neighbor WORD interface v6only remote-as (" CMD_AS_RANGE "|external|internal)",
+       "neighbor WORD interface v6only remote-as <" CMD_AS_RANGE "|external|internal>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
@@ -3229,7 +3229,7 @@ DEFUN (no_neighbor_peer_group,
 
 DEFUN (no_neighbor_interface_peer_group_remote_as,
        no_neighbor_interface_peer_group_remote_as_cmd,
-       "no neighbor WORD remote-as (" CMD_AS_RANGE "|internal|external)",
+       "no neighbor WORD remote-as <" CMD_AS_RANGE "|internal|external>",
        NO_STR
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
@@ -3786,7 +3786,7 @@ peer_af_flag_unset_vty (struct vty *vty, const char *peer_str, afi_t afi,
 /* neighbor capability orf prefix-list. */
 DEFUN (neighbor_capability_orf_prefix,
        neighbor_capability_orf_prefix_cmd,
-       NEIGHBOR_CMD2 "capability orf prefix-list (both|send|receive)",
+       NEIGHBOR_CMD2 "capability orf prefix-list <both|send|receive>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Advertise capability to the peer\n"
@@ -3813,7 +3813,7 @@ DEFUN (neighbor_capability_orf_prefix,
 
 DEFUN (no_neighbor_capability_orf_prefix,
        no_neighbor_capability_orf_prefix_cmd,
-       NO_NEIGHBOR_CMD2 "capability orf prefix-list (both|send|receive)",
+       NO_NEIGHBOR_CMD2 "capability orf prefix-list <both|send|receive>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4057,7 +4057,7 @@ DEFUN (no_neighbor_send_community,
 /* neighbor send-community extended. */
 DEFUN (neighbor_send_community_type,
        neighbor_send_community_type_cmd,
-       NEIGHBOR_CMD2 "send-community (both|extended|standard)",
+       NEIGHBOR_CMD2 "send-community <both|extended|standard>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Send Community attribute to this neighbor\n"
@@ -4082,7 +4082,7 @@ DEFUN (neighbor_send_community_type,
 
 DEFUN (no_neighbor_send_community_type,
        no_neighbor_send_community_type_cmd,
-       NO_NEIGHBOR_CMD2 "send-community (both|extended|standard)",
+       NO_NEIGHBOR_CMD2 "send-community <both|extended|standard>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4291,7 +4291,7 @@ DEFUN (neighbor_attr_unchanged,
 
 DEFUN (neighbor_attr_unchanged1,
        neighbor_attr_unchanged1_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged (as-path|next-hop|med)",
+       NEIGHBOR_CMD2 "attribute-unchanged <as-path|next-hop|med>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4314,7 +4314,7 @@ DEFUN (neighbor_attr_unchanged1,
 
 DEFUN (neighbor_attr_unchanged2,
        neighbor_attr_unchanged2_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged as-path (next-hop|med)",
+       NEIGHBOR_CMD2 "attribute-unchanged as-path <next-hop|med>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4336,7 +4336,7 @@ DEFUN (neighbor_attr_unchanged2,
 
 DEFUN (neighbor_attr_unchanged3,
        neighbor_attr_unchanged3_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged next-hop (as-path|med)",
+       NEIGHBOR_CMD2 "attribute-unchanged next-hop <as-path|med>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4357,7 +4357,7 @@ DEFUN (neighbor_attr_unchanged3,
 
 DEFUN (neighbor_attr_unchanged4,
        neighbor_attr_unchanged4_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged med (as-path|next-hop)",
+       NEIGHBOR_CMD2 "attribute-unchanged med <as-path|next-hop>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4456,7 +4456,7 @@ DEFUN (no_neighbor_attr_unchanged,
 
 DEFUN (no_neighbor_attr_unchanged1,
        no_neighbor_attr_unchanged1_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged (as-path|next-hop|med)",
+       NO_NEIGHBOR_CMD2 "attribute-unchanged <as-path|next-hop|med>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4480,7 +4480,7 @@ DEFUN (no_neighbor_attr_unchanged1,
 
 DEFUN (no_neighbor_attr_unchanged2,
        no_neighbor_attr_unchanged2_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged as-path (next-hop|med)",
+       NO_NEIGHBOR_CMD2 "attribute-unchanged as-path <next-hop|med>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4502,7 +4502,7 @@ DEFUN (no_neighbor_attr_unchanged2,
 
 DEFUN (no_neighbor_attr_unchanged3,
        no_neighbor_attr_unchanged3_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged next-hop (as-path|med)",
+       NO_NEIGHBOR_CMD2 "attribute-unchanged next-hop <as-path|med>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4524,7 +4524,7 @@ DEFUN (no_neighbor_attr_unchanged3,
 
 DEFUN (no_neighbor_attr_unchanged4,
        no_neighbor_attr_unchanged4_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged med (as-path|next-hop)",
+       NO_NEIGHBOR_CMD2 "attribute-unchanged med <as-path|next-hop>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4598,7 +4598,7 @@ DEFUN (neighbor_ebgp_multihop,
 
 DEFUN (neighbor_ebgp_multihop_ttl,
        neighbor_ebgp_multihop_ttl_cmd,
-       NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MAXTTL),
+       NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR<1, MAXTTL>,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Allow EBGP neighbors not on directly connected networks\n"
@@ -4890,7 +4890,7 @@ peer_port_vty (struct vty *vty, const char *ip_str, int afi,
 /* Set specified peer's BGP port.  */
 DEFUN (neighbor_port,
        neighbor_port_cmd,
-       NEIGHBOR_CMD "port <0-65535>",
+       NEIGHBOR_CMD "port (0-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
        "Neighbor's BGP port\n"
@@ -4956,7 +4956,7 @@ peer_weight_unset_vty (struct vty *vty, const char *ip_str)
 
 DEFUN (neighbor_weight,
        neighbor_weight_cmd,
-       NEIGHBOR_CMD2 "weight <0-65535>",
+       NEIGHBOR_CMD2 "weight (0-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Set default weight for routes from this neighbor\n"
@@ -5068,7 +5068,7 @@ peer_timers_unset_vty (struct vty *vty, const char *ip_str)
 
 DEFUN (neighbor_timers,
        neighbor_timers_cmd,
-       NEIGHBOR_CMD2 "timers <0-65535> <0-65535>",
+       NEIGHBOR_CMD2 "timers (0-65535) (0-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
@@ -5137,7 +5137,7 @@ peer_timers_connect_unset_vty (struct vty *vty, const char *ip_str)
 
 DEFUN (neighbor_timers_connect,
        neighbor_timers_connect_cmd,
-       NEIGHBOR_CMD2 "timers connect <1-65535>",
+       NEIGHBOR_CMD2 "timers connect (1-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
@@ -5196,7 +5196,7 @@ peer_advertise_interval_vty (struct vty *vty, const char *ip_str,
 
 DEFUN (neighbor_advertise_interval,
        neighbor_advertise_interval_cmd,
-       NEIGHBOR_CMD2 "advertisement-interval <0-600>",
+       NEIGHBOR_CMD2 "advertisement-interval (0-600)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Minimum interval between sending BGP routing updates\n"
@@ -5230,7 +5230,7 @@ DEFUN (no_neighbor_advertise_interval,
 /* Time to wait before processing route-map updates */
 DEFUN (bgp_set_route_map_delay_timer,
        bgp_set_route_map_delay_timer_cmd,
-       "bgp route-map delay-timer <0-600>",
+       "bgp route-map delay-timer (0-600)",
        SET_STR
        "BGP route-map delay timer\n"
        "Time in secs to wait before processing route-map changes\n"
@@ -5374,7 +5374,7 @@ peer_distribute_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
 DEFUN (neighbor_distribute_list,
        neighbor_distribute_list_cmd,
-       NEIGHBOR_CMD2 "distribute-list (<1-199>|<1300-2699>|WORD) (in|out)",
+       NEIGHBOR_CMD2 "distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Filter updates to/from this neighbor\n"
@@ -5390,7 +5390,7 @@ DEFUN (neighbor_distribute_list,
 
 DEFUN (no_neighbor_distribute_list,
        no_neighbor_distribute_list_cmd,
-       NO_NEIGHBOR_CMD2 "distribute-list (<1-199>|<1300-2699>|WORD) (in|out)",
+       NO_NEIGHBOR_CMD2 "distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5455,7 +5455,7 @@ peer_prefix_list_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
 DEFUN (neighbor_prefix_list,
        neighbor_prefix_list_cmd,
-       NEIGHBOR_CMD2 "prefix-list WORD (in|out)",
+       NEIGHBOR_CMD2 "prefix-list WORD <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Filter updates to/from this neighbor\n"
@@ -5469,7 +5469,7 @@ DEFUN (neighbor_prefix_list,
 
 DEFUN (no_neighbor_prefix_list,
        no_neighbor_prefix_list_cmd,
-       NO_NEIGHBOR_CMD2 "prefix-list WORD (in|out)",
+       NO_NEIGHBOR_CMD2 "prefix-list WORD <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5532,7 +5532,7 @@ peer_aslist_unset_vty (struct vty *vty, const char *ip_str,
 
 DEFUN (neighbor_filter_list,
        neighbor_filter_list_cmd,
-       NEIGHBOR_CMD2 "filter-list WORD (in|out)",
+       NEIGHBOR_CMD2 "filter-list WORD <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Establish BGP filters\n"
@@ -5546,7 +5546,7 @@ DEFUN (neighbor_filter_list,
 
 DEFUN (no_neighbor_filter_list,
        no_neighbor_filter_list_cmd,
-       NO_NEIGHBOR_CMD2 "filter-list WORD (in|out)",
+       NO_NEIGHBOR_CMD2 "filter-list WORD <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5609,7 +5609,7 @@ peer_route_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
 DEFUN (neighbor_route_map,
        neighbor_route_map_cmd,
-       NEIGHBOR_CMD2 "route-map WORD (in|out)",
+       NEIGHBOR_CMD2 "route-map WORD <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Apply route map to neighbor\n"
@@ -5623,7 +5623,7 @@ DEFUN (neighbor_route_map,
 
 DEFUN (no_neighbor_route_map,
        no_neighbor_route_map_cmd,
-       NO_NEIGHBOR_CMD2 "route-map WORD (in|out)",
+       NO_NEIGHBOR_CMD2 "route-map WORD <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5748,7 +5748,7 @@ peer_maximum_prefix_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
    each peer configuration. */
 DEFUN (neighbor_maximum_prefix,
        neighbor_maximum_prefix_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix <1-4294967295>",
+       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5761,7 +5761,7 @@ DEFUN (neighbor_maximum_prefix,
 
 DEFUN (neighbor_maximum_prefix_threshold,
        neighbor_maximum_prefix_threshold_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100>",
+       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) (1-100)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5775,7 +5775,7 @@ DEFUN (neighbor_maximum_prefix_threshold,
 
 DEFUN (neighbor_maximum_prefix_warning,
        neighbor_maximum_prefix_warning_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> warning-only",
+       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) warning-only",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5789,7 +5789,7 @@ DEFUN (neighbor_maximum_prefix_warning,
 
 DEFUN (neighbor_maximum_prefix_threshold_warning,
        neighbor_maximum_prefix_threshold_warning_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100> warning-only",
+       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) (1-100) warning-only",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5803,7 +5803,7 @@ DEFUN (neighbor_maximum_prefix_threshold_warning,
 
 DEFUN (neighbor_maximum_prefix_restart,
        neighbor_maximum_prefix_restart_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> restart <1-65535>",
+       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) restart (1-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5817,7 +5817,7 @@ DEFUN (neighbor_maximum_prefix_restart,
 
 DEFUN (neighbor_maximum_prefix_threshold_restart,
        neighbor_maximum_prefix_threshold_restart_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100> restart <1-65535>",
+       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) (1-100) restart (1-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5972,7 +5972,7 @@ DEFUN (no_neighbor_allowas_in,
 
 DEFUN (neighbor_ttl_security,
        neighbor_ttl_security_cmd,
-       NEIGHBOR_CMD2 "ttl-security hops <1-254>",
+       NEIGHBOR_CMD2 "ttl-security hops (1-254)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify the maximum number of hops to the BGP peer\n")
@@ -6001,7 +6001,7 @@ DEFUN (neighbor_ttl_security,
 
 DEFUN (no_neighbor_ttl_security,
        no_neighbor_ttl_security_cmd,
-       NO_NEIGHBOR_CMD2 "ttl-security hops <1-254>",
+       NO_NEIGHBOR_CMD2 "ttl-security hops (1-254)",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -6092,7 +6092,7 @@ DEFUN (address_family_ipv4,
 
 DEFUN (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
-       "address-family ipv4 (unicast|multicast)",
+       "address-family ipv4 <unicast|multicast>",
        "Enter Address Family command mode\n"
        "Address family\n"
        "Address Family modifier\n"
@@ -6118,7 +6118,7 @@ DEFUN (address_family_ipv6,
 
 DEFUN (address_family_ipv6_safi,
        address_family_ipv6_safi_cmd,
-       "address-family ipv6 (unicast|multicast)",
+       "address-family ipv6 <unicast|multicast>",
        "Enter Address Family command mode\n"
        "Address family\n"
        "Address Family modifier\n"
@@ -6392,7 +6392,7 @@ DEFUN (clear_ip_bgp_all,
  */
 DEFUN (clear_ip_bgp_peer,
        clear_ip_bgp_peer_cmd,
-       "clear ip bgp (A.B.C.D|X:X::X:X|WORD)",
+       "clear ip bgp <A.B.C.D|X:X::X:X|WORD>",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6682,7 +6682,7 @@ DEFUN (clear_ip_bgp_all_soft_out,
  */
 DEFUN (clear_ip_bgp_all_ipv4_soft_out,
        clear_ip_bgp_all_ipv4_soft_out_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) soft out",
+       "clear ip bgp * ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6717,7 +6717,7 @@ DEFUN (clear_ip_bgp_all_ipv4_soft_out,
  */
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
        clear_ip_bgp_instance_all_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6878,7 +6878,7 @@ DEFUN (clear_bgp_all_soft_out,
 
 DEFUN (clear_bgp_ipv6_safi_prefix,
        clear_bgp_ipv6_safi_prefix_cmd,
-       "clear bgp ipv6 (unicast|multicast) prefix X:X::X:X/M",
+       "clear bgp ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
        BGP_STR
        "Address family\n"
@@ -6894,7 +6894,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
-       "clear bgp " BGP_INSTANCE_CMD " ipv6 (unicast|multicast) prefix X:X::X:X/M",
+       "clear bgp " BGP_INSTANCE_CMD " ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -6941,7 +6941,7 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
  */
 DEFUN (clear_ip_bgp_peer_soft_out,
        clear_ip_bgp_peer_soft_out_cmd,
-       "clear ip bgp (A.B.C.D|WORD) soft out",
+       "clear ip bgp <A.B.C.D|WORD> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6977,7 +6977,7 @@ DEFUN (clear_ip_bgp_peer_soft_out,
  */
 DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
        clear_ip_bgp_peer_ipv4_soft_out_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft out",
+       "clear ip bgp <A.B.C.D|WORD> ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7014,7 +7014,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
  */
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_out,
        clear_ip_bgp_instance_peer_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7053,7 +7053,7 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_out,
  */
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
        clear_ip_bgp_peer_vpnv4_soft_out_cmd,
-       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft out",
+       "clear ip bgp <A.B.C.D|WORD> vpnv4 unicast soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7170,7 +7170,7 @@ DEFUN (clear_ip_bgp_peer_encap_soft_out,
  */
 DEFUN (clear_bgp_peer_soft_out,
        clear_bgp_peer_soft_out_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X|WORD) soft out",
+       "clear bgp <A.B.C.D|X:X::X:X|WORD> soft out",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
@@ -7262,7 +7262,7 @@ DEFUN (clear_ip_bgp_peer_group_soft_out,
  */
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft_out,
        clear_ip_bgp_peer_group_ipv4_soft_out_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) soft out",
+       "clear ip bgp peer-group WORD ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7299,7 +7299,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft_out,
  */
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_out,
        clear_ip_bgp_instance_peer_group_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7473,7 +7473,7 @@ DEFUN (clear_ip_bgp_external_soft_out,
  */
 DEFUN (clear_ip_bgp_external_ipv4_soft_out,
        clear_ip_bgp_external_ipv4_soft_out_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) soft out",
+       "clear ip bgp external ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7508,7 +7508,7 @@ DEFUN (clear_ip_bgp_external_ipv4_soft_out,
  */
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft_out,
        clear_ip_bgp_instance_external_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7673,7 +7673,7 @@ DEFUN (clear_ip_bgp_as_soft_out,
  */
 DEFUN (clear_ip_bgp_as_ipv4_soft_out,
        clear_ip_bgp_as_ipv4_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7708,7 +7708,7 @@ DEFUN (clear_ip_bgp_as_ipv4_soft_out,
  */
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft_out,
        clear_ip_bgp_instance_as_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> soft out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7950,7 +7950,7 @@ DEFUN (clear_ip_bgp_all_in_prefix_filter,
  */
 DEFUN (clear_ip_bgp_all_ipv4_soft_in,
        clear_ip_bgp_all_ipv4_soft_in_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) soft in",
+       "clear ip bgp * ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7985,7 +7985,7 @@ DEFUN (clear_ip_bgp_all_ipv4_soft_in,
  */
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
        clear_ip_bgp_instance_all_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8009,7 +8009,7 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_all_ipv4_in_prefix_filter,
        clear_ip_bgp_all_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp * ipv4 <unicast|multicast> in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8223,7 +8223,7 @@ DEFUN (clear_bgp_all_in_prefix_filter,
  */
 DEFUN (clear_ip_bgp_peer_soft_in,
        clear_ip_bgp_peer_soft_in_cmd,
-       "clear ip bgp (A.B.C.D|WORD) soft in",
+       "clear ip bgp <A.B.C.D|WORD> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8245,7 +8245,7 @@ DEFUN (clear_ip_bgp_peer_soft_in,
 
 DEFUN (clear_ip_bgp_peer_in_prefix_filter,
        clear_ip_bgp_peer_in_prefix_filter_cmd,
-       "clear ip bgp (A.B.C.D|WORD) in prefix-filter",
+       "clear ip bgp <A.B.C.D|WORD> in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8274,7 +8274,7 @@ DEFUN (clear_ip_bgp_peer_in_prefix_filter,
  */
 DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
        clear_ip_bgp_peer_ipv4_soft_in_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft in",
+       "clear ip bgp <A.B.C.D|WORD> ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8311,7 +8311,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
  */
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_in,
        clear_ip_bgp_instance_peer_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8336,7 +8336,7 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
        clear_ip_bgp_peer_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp <A.B.C.D|WORD> ipv4 <unicast|multicast> in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8371,7 +8371,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
  */
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_in,
        clear_ip_bgp_peer_vpnv4_soft_in_cmd,
-       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft in",
+       "clear ip bgp <A.B.C.D|WORD> vpnv4 unicast soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8488,7 +8488,7 @@ DEFUN (clear_ip_bgp_peer_encap_soft_in,
  */
 DEFUN (clear_bgp_peer_soft_in,
        clear_bgp_peer_soft_in_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X|WORD) soft in",
+       "clear bgp <A.B.C.D|X:X::X:X|WORD> soft in",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
@@ -8527,7 +8527,7 @@ DEFUN (clear_bgp_peer_soft_in,
  */
 DEFUN (clear_bgp_peer_in_prefix_filter,
        clear_bgp_peer_in_prefix_filter_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X|WORD) in prefix-filter",
+       "clear bgp <A.B.C.D|X:X::X:X|WORD> in prefix-filter",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
@@ -8624,7 +8624,7 @@ DEFUN (clear_ip_bgp_peer_group_in_prefix_filter,
  */
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft_in,
        clear_ip_bgp_peer_group_ipv4_soft_in_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) soft in",
+       "clear ip bgp peer-group WORD ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8661,7 +8661,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft_in,
  */
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_in,
        clear_ip_bgp_instance_peer_group_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8686,7 +8686,7 @@ DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_peer_group_ipv4_in_prefix_filter,
        clear_ip_bgp_peer_group_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp peer-group WORD ipv4 <unicast|multicast> in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8898,7 +8898,7 @@ DEFUN (clear_ip_bgp_external_in_prefix_filter,
  */
 DEFUN (clear_ip_bgp_external_ipv4_soft_in,
        clear_ip_bgp_external_ipv4_soft_in_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) soft in",
+       "clear ip bgp external ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8933,7 +8933,7 @@ DEFUN (clear_ip_bgp_external_ipv4_soft_in,
  */
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft_in,
        clear_ip_bgp_instance_external_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8957,7 +8957,7 @@ DEFUN (clear_ip_bgp_instance_external_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_external_ipv4_in_prefix_filter,
        clear_ip_bgp_external_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp external ipv4 <unicast|multicast> in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9158,7 +9158,7 @@ DEFUN (clear_ip_bgp_as_in_prefix_filter,
  */
 DEFUN (clear_ip_bgp_as_ipv4_soft_in,
        clear_ip_bgp_as_ipv4_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9193,7 +9193,7 @@ DEFUN (clear_ip_bgp_as_ipv4_soft_in,
  */
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft_in,
        clear_ip_bgp_instance_as_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9217,7 +9217,7 @@ DEFUN (clear_ip_bgp_instance_as_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
        clear_ip_bgp_as_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) in prefix-filter",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9432,7 +9432,7 @@ DEFUN (clear_ip_bgp_all_soft,
 
 DEFUN (clear_ip_bgp_all_ipv4_soft,
        clear_ip_bgp_all_ipv4_soft_cmd,
-       "clear ip bgp * ipv4 (unicast|multicast) soft",
+       "clear ip bgp * ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9452,7 +9452,7 @@ DEFUN (clear_ip_bgp_all_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft,
        clear_ip_bgp_instance_all_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9559,7 +9559,7 @@ DEFUN (clear_bgp_all_soft,
  */
 DEFUN (clear_ip_bgp_peer_soft,
        clear_ip_bgp_peer_soft_cmd,
-       "clear ip bgp (A.B.C.D|WORD) soft",
+       "clear ip bgp <A.B.C.D|WORD> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9578,7 +9578,7 @@ DEFUN (clear_ip_bgp_peer_soft,
 
 DEFUN (clear_ip_bgp_peer_ipv4_soft,
        clear_ip_bgp_peer_ipv4_soft_cmd,
-       "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) soft",
+       "clear ip bgp <A.B.C.D|WORD> ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9599,7 +9599,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft,
        clear_ip_bgp_instance_peer_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9621,7 +9621,7 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft,
 
 DEFUN (clear_ip_bgp_peer_vpnv4_soft,
        clear_ip_bgp_peer_vpnv4_soft_cmd,
-       "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast soft",
+       "clear ip bgp <A.B.C.D|WORD> vpnv4 unicast soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9683,7 +9683,7 @@ DEFUN (clear_ip_bgp_peer_encap_soft,
  */
 DEFUN (clear_bgp_peer_soft,
        clear_bgp_peer_soft_cmd,
-       "clear bgp (A.B.C.D|X:X::X:X|WORD) soft",
+       "clear bgp <A.B.C.D|X:X::X:X|WORD> soft",
        CLEAR_STR
        BGP_STR
        "BGP neighbor address to clear\n"
@@ -9735,7 +9735,7 @@ DEFUN (clear_ip_bgp_peer_group_soft,
 
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft,
        clear_ip_bgp_peer_group_ipv4_soft_cmd,
-       "clear ip bgp peer-group WORD ipv4 (unicast|multicast) soft",
+       "clear ip bgp peer-group WORD ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9756,7 +9756,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft,
        clear_ip_bgp_instance_peer_group_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9855,7 +9855,7 @@ DEFUN (clear_ip_bgp_external_soft,
 
 DEFUN (clear_ip_bgp_external_ipv4_soft,
        clear_ip_bgp_external_ipv4_soft_cmd,
-       "clear ip bgp external ipv4 (unicast|multicast) soft",
+       "clear ip bgp external ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9875,7 +9875,7 @@ DEFUN (clear_ip_bgp_external_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft,
        clear_ip_bgp_instance_external_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9969,7 +9969,7 @@ DEFUN (clear_ip_bgp_as_soft,
 
 DEFUN (clear_ip_bgp_as_ipv4_soft,
        clear_ip_bgp_as_ipv4_soft_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) soft",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9989,7 +9989,7 @@ DEFUN (clear_ip_bgp_as_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft,
        clear_ip_bgp_instance_as_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) soft",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -10815,7 +10815,7 @@ DEFUN (show_ip_bgp_instance_all_summary,
  */
 DEFUN (show_ip_bgp_ipv4_summary,
        show_ip_bgp_ipv4_summary_cmd,
-       "show ip bgp ipv4 (unicast|multicast) summary [json]",
+       "show ip bgp ipv4 <unicast|multicast> summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10875,7 +10875,7 @@ DEFUN (show_bgp_ipv6_vpn_summary,
  */
 DEFUN (show_ip_bgp_instance_ipv4_summary,
        show_ip_bgp_instance_ipv4_summary_cmd,
-       "show ip bgp view WORD ipv4 (unicast|multicast) summary [json]",
+       "show ip bgp view WORD ipv4 <unicast|multicast> summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10998,7 +10998,7 @@ DEFUN (show_bgp_instance_all_summary,
 
 DEFUN (show_bgp_ipv6_safi_summary,
        show_bgp_ipv6_safi_summary_cmd,
-       "show bgp ipv6 (unicast|multicast) summary [json]",
+       "show bgp ipv6 <unicast|multicast> summary [json]",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -11016,7 +11016,7 @@ DEFUN (show_bgp_ipv6_safi_summary,
 
 DEFUN (show_bgp_instance_ipv6_safi_summary,
        show_bgp_instance_ipv6_safi_summary_cmd,
-       "show bgp " BGP_INSTANCE_CMD " ipv6 (unicast|multicast) summary [json]",
+       "show bgp " BGP_INSTANCE_CMD " ipv6 <unicast|multicast> summary [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13013,7 +13013,7 @@ DEFUN (show_ip_bgp_neighbors,
  */
 DEFUN (show_ip_bgp_neighbors_peer,
        show_ip_bgp_neighbors_peer_cmd,
-       "show ip bgp neighbors (A.B.C.D|X:X::X:X|WORD) [json]",
+       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13110,7 +13110,7 @@ DEFUN (show_ip_bgp_instance_all_neighbors,
  */
 DEFUN (show_ip_bgp_instance_neighbors_peer,
        show_ip_bgp_instance_neighbors_peer_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) [json]",
+       "show ip bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13146,7 +13146,7 @@ DEFUN (show_ip_bgp_paths,
 
 DEFUN (show_ip_bgp_ipv4_paths,
        show_ip_bgp_ipv4_paths_cmd,
-       "show ip bgp ipv4 (unicast|multicast) paths",
+       "show ip bgp ipv4 <unicast|multicast> paths",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13307,7 +13307,7 @@ DEFUN (show_bgp_instance_all_ipv6_updgrps,
 
 DEFUN (show_bgp_updgrps,
        show_bgp_updgrps_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups",
+       "show bgp <ipv4|ipv6> <unicast|multicast> update-groups",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -13385,7 +13385,7 @@ DEFUN (show_bgp_instance_ipv6_updgrps_s,
 
 DEFUN (show_bgp_updgrps_s,
        show_bgp_updgrps_s_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups SUBGROUP-ID",
+       "show bgp <ipv4|ipv6> <unicast|multicast> update-groups SUBGROUP-ID",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -13466,7 +13466,7 @@ show_bgp_updgrps_adj_info_aux (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps_adj,
        show_ip_bgp_updgrps_adj_cmd,
-       "show ip bgp update-groups (advertise-queue|advertised-routes|packet-queue)",
+       "show ip bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13482,7 +13482,7 @@ DEFUN (show_ip_bgp_updgrps_adj,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj,
        show_ip_bgp_instance_updgrps_adj_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " update-groups (advertise-queue|advertised-routes|packet-queue)",
+       "show ip bgp " BGP_INSTANCE_CMD " update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13499,7 +13499,7 @@ DEFUN (show_ip_bgp_instance_updgrps_adj,
 
 DEFUN (show_bgp_updgrps_afi_adj,
        show_bgp_updgrps_afi_adj_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp <ipv4|ipv6> <unicast|multicast> update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -13523,7 +13523,7 @@ DEFUN (show_bgp_updgrps_afi_adj,
 
 DEFUN (show_bgp_updgrps_adj,
        show_bgp_updgrps_adj_cmd,
-       "show bgp update-groups (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
        "BGP update groups\n"
@@ -13537,7 +13537,7 @@ DEFUN (show_bgp_updgrps_adj,
 
 DEFUN (show_bgp_instance_updgrps_adj,
        show_bgp_instance_updgrps_adj_cmd,
-       "show bgp " BGP_INSTANCE_CMD " update-groups (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp " BGP_INSTANCE_CMD " update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13552,7 +13552,7 @@ DEFUN (show_bgp_instance_updgrps_adj,
 
 DEFUN (show_ip_bgp_updgrps_adj_s,
        show_ip_bgp_updgrps_adj_s_cmd,
-       "show ip bgp update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       "show ip bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13573,7 +13573,7 @@ DEFUN (show_ip_bgp_updgrps_adj_s,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj_s,
        show_ip_bgp_instance_updgrps_adj_s_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       "show ip bgp " BGP_INSTANCE_CMD " update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -13595,7 +13595,7 @@ DEFUN (show_ip_bgp_instance_updgrps_adj_s,
 
 DEFUN (show_bgp_updgrps_afi_adj_s,
        show_bgp_updgrps_afi_adj_s_cmd,
-       "show bgp (ipv4|ipv6) (unicast|multicast) update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp <ipv4|ipv6> <unicast|multicast> update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
        "Address family\n"
@@ -13623,7 +13623,7 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
 
 DEFUN (show_bgp_updgrps_adj_s,
        show_bgp_updgrps_adj_s_cmd,
-       "show bgp update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
        "BGP update groups\n"
@@ -13642,7 +13642,7 @@ DEFUN (show_bgp_updgrps_adj_s,
 
 DEFUN (show_bgp_instance_updgrps_adj_s,
        show_bgp_instance_updgrps_adj_s_cmd,
-       "show bgp " BGP_INSTANCE_CMD " update-groups SUBGROUP-ID (advertise-queue|advertised-routes|packet-queue)",
+       "show bgp " BGP_INSTANCE_CMD " update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -13914,7 +13914,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 
 DEFUN (bgp_redistribute_ipv4_metric,
        bgp_redistribute_ipv4_metric_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295>",
+       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -13939,7 +13939,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
        bgp_redistribute_ipv4_rmap_metric_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
+       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -13967,7 +13967,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
        bgp_redistribute_ipv4_metric_rmap_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
+       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -13995,7 +13995,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 
 DEFUN (bgp_redistribute_ipv4_ospf,
        bgp_redistribute_ipv4_ospf_cmd,
-       "redistribute (ospf|table) <1-65535>",
+       "redistribute <ospf|table> (1-65535)",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
@@ -14017,7 +14017,7 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap,
        bgp_redistribute_ipv4_ospf_rmap_cmd,
-       "redistribute (ospf|table) <1-65535> route-map WORD",
+       "redistribute <ospf|table> (1-65535) route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
@@ -14042,7 +14042,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric,
        bgp_redistribute_ipv4_ospf_metric_cmd,
-       "redistribute (ospf|table) <1-65535> metric <0-4294967295>",
+       "redistribute <ospf|table> (1-65535) metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
@@ -14070,7 +14070,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 
 DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
        bgp_redistribute_ipv4_ospf_rmap_metric_cmd,
-       "redistribute (ospf|table) <1-65535> route-map WORD metric <0-4294967295>",
+       "redistribute <ospf|table> (1-65535) route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
@@ -14101,7 +14101,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
        bgp_redistribute_ipv4_ospf_metric_rmap_cmd,
-       "redistribute (ospf|table) <1-65535> metric <0-4294967295> route-map WORD",
+       "redistribute <ospf|table> (1-65535) metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
@@ -14175,7 +14175,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
  */
 DEFUN (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_cmd,
-       "no redistribute (ospf|table) <1-65535>",
+       "no redistribute <ospf|table> (1-65535)",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
@@ -14300,7 +14300,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 
 DEFUN (bgp_redistribute_ipv6_metric,
        bgp_redistribute_ipv6_metric_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295>",
+       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -14325,7 +14325,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
        bgp_redistribute_ipv6_rmap_metric_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
+       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -14353,7 +14353,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
        bgp_redistribute_ipv6_metric_rmap_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
+       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -15962,7 +15962,7 @@ community_list_unset_vty (struct vty *vty, int argc, const char **argv,
  */
 DEFUN (ip_community_list_standard,
        ip_community_list_standard_cmd,
-       "ip community-list <1-99> (deny|permit) .AA:NN",
+       "ip community-list (1-99) <deny|permit> .AA:NN",
        IP_STR
        COMMUNITY_LIST_STR
        "Community list number (standard)\n"
@@ -15976,7 +15976,7 @@ DEFUN (ip_community_list_standard,
 
 DEFUN (ip_community_list_expanded,
        ip_community_list_expanded_cmd,
-       "ip community-list <100-500> (deny|permit) .LINE",
+       "ip community-list (100-500) <deny|permit> .LINE",
        IP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
@@ -16000,7 +16000,7 @@ DEFUN (ip_community_list_expanded,
  */
 DEFUN (ip_community_list_name_standard,
        ip_community_list_name_standard_cmd,
-       "ip community-list standard WORD (deny|permit) .AA:NN",
+       "ip community-list standard WORD <deny|permit> .AA:NN",
        IP_STR
        COMMUNITY_LIST_STR
        "Add a standard community-list entry\n"
@@ -16015,7 +16015,7 @@ DEFUN (ip_community_list_name_standard,
 
 DEFUN (ip_community_list_name_expanded,
        ip_community_list_name_expanded_cmd,
-       "ip community-list expanded WORD (deny|permit) .LINE",
+       "ip community-list expanded WORD <deny|permit> .LINE",
        IP_STR
        COMMUNITY_LIST_STR
        "Add an expanded community-list entry\n"
@@ -16029,7 +16029,7 @@ DEFUN (ip_community_list_name_expanded,
 
 DEFUN (no_ip_community_list_standard_all,
        no_ip_community_list_standard_all_cmd,
-       "no ip community-list <1-99>",
+       "no ip community-list (1-99)",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -16040,7 +16040,7 @@ DEFUN (no_ip_community_list_standard_all,
 
 DEFUN (no_ip_community_list_standard_direction,
        no_ip_community_list_standard_direction_cmd,
-       "no ip community-list <1-99> (deny|permit)",
+       "no ip community-list (1-99) <deny|permit>",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -16054,7 +16054,7 @@ DEFUN (no_ip_community_list_standard_direction,
 
 DEFUN (no_ip_community_list_expanded_all,
        no_ip_community_list_expanded_all_cmd,
-       "no ip community-list <100-500>",
+       "no ip community-list (100-500)",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -16089,7 +16089,7 @@ DEFUN (no_ip_community_list_name_expanded_all,
 
 DEFUN (no_ip_community_list_standard,
        no_ip_community_list_standard_cmd,
-       "no ip community-list <1-99> (deny|permit) .AA:NN",
+       "no ip community-list (1-99) <deny|permit> .AA:NN",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -16103,7 +16103,7 @@ DEFUN (no_ip_community_list_standard,
 
 DEFUN (no_ip_community_list_expanded,
        no_ip_community_list_expanded_cmd,
-       "no ip community-list <100-500> (deny|permit) .LINE",
+       "no ip community-list (100-500) <deny|permit> .LINE",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -16117,7 +16117,7 @@ DEFUN (no_ip_community_list_expanded,
 
 DEFUN (no_ip_community_list_name_standard,
        no_ip_community_list_name_standard_cmd,
-       "no ip community-list standard WORD (deny|permit) .AA:NN",
+       "no ip community-list standard WORD <deny|permit> .AA:NN",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -16132,7 +16132,7 @@ DEFUN (no_ip_community_list_name_standard,
 
 DEFUN (no_ip_community_list_name_standard_brief,
        no_ip_community_list_name_standard_brief_cmd,
-       "no ip community-list standard WORD (deny|permit)",
+       "no ip community-list standard WORD <deny|permit>",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -16146,7 +16146,7 @@ DEFUN (no_ip_community_list_name_standard_brief,
 
 DEFUN (no_ip_community_list_name_expanded,
        no_ip_community_list_name_expanded_cmd,
-       "no ip community-list expanded WORD (deny|permit) .LINE",
+       "no ip community-list expanded WORD <deny|permit> .LINE",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -16216,7 +16216,7 @@ DEFUN (show_ip_community_list,
 
 DEFUN (show_ip_community_list_arg,
        show_ip_community_list_arg_cmd,
-       "show ip community-list (<1-500>|WORD)",
+       "show ip community-list <(1-500)|WORD>",
        SHOW_STR
        IP_STR
        "List community-list\n"
@@ -16344,7 +16344,7 @@ extcommunity_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
  */
 DEFUN (ip_extcommunity_list_standard,
        ip_extcommunity_list_standard_cmd,
-       "ip extcommunity-list <1-99> (deny|permit) .AA:NN",
+       "ip extcommunity-list (1-99) <deny|permit> .AA:NN",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (standard)\n"
@@ -16358,7 +16358,7 @@ DEFUN (ip_extcommunity_list_standard,
 
 DEFUN (ip_extcommunity_list_expanded,
        ip_extcommunity_list_expanded_cmd,
-       "ip extcommunity-list <100-500> (deny|permit) .LINE",
+       "ip extcommunity-list (100-500) <deny|permit> .LINE",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (expanded)\n"
@@ -16382,7 +16382,7 @@ DEFUN (ip_extcommunity_list_expanded,
  */
 DEFUN (ip_extcommunity_list_name_standard,
        ip_extcommunity_list_name_standard_cmd,
-       "ip extcommunity-list standard WORD (deny|permit) .AA:NN",
+       "ip extcommunity-list standard WORD <deny|permit> .AA:NN",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Specify standard extcommunity-list\n"
@@ -16397,7 +16397,7 @@ DEFUN (ip_extcommunity_list_name_standard,
 
 DEFUN (ip_extcommunity_list_name_expanded,
        ip_extcommunity_list_name_expanded_cmd,
-       "ip extcommunity-list expanded WORD (deny|permit) .LINE",
+       "ip extcommunity-list expanded WORD <deny|permit> .LINE",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Specify expanded extcommunity-list\n"
@@ -16411,7 +16411,7 @@ DEFUN (ip_extcommunity_list_name_expanded,
 
 DEFUN (no_ip_extcommunity_list_standard_all,
        no_ip_extcommunity_list_standard_all_cmd,
-       "no ip extcommunity-list <1-99>",
+       "no ip extcommunity-list (1-99)",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -16422,7 +16422,7 @@ DEFUN (no_ip_extcommunity_list_standard_all,
 
 DEFUN (no_ip_extcommunity_list_standard_direction,
        no_ip_extcommunity_list_standard_direction_cmd,
-       "no ip extcommunity-list <1-99> (deny|permit)",
+       "no ip extcommunity-list (1-99) <deny|permit>",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -16435,7 +16435,7 @@ DEFUN (no_ip_extcommunity_list_standard_direction,
 
 DEFUN (no_ip_extcommunity_list_expanded_all,
        no_ip_extcommunity_list_expanded_all_cmd,
-       "no ip extcommunity-list <100-500>",
+       "no ip extcommunity-list (100-500)",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -16470,7 +16470,7 @@ DEFUN (no_ip_extcommunity_list_name_expanded_all,
 
 DEFUN (no_ip_extcommunity_list_standard,
        no_ip_extcommunity_list_standard_cmd,
-       "no ip extcommunity-list <1-99> (deny|permit) .AA:NN",
+       "no ip extcommunity-list (1-99) <deny|permit> .AA:NN",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -16484,7 +16484,7 @@ DEFUN (no_ip_extcommunity_list_standard,
 
 DEFUN (no_ip_extcommunity_list_expanded,
        no_ip_extcommunity_list_expanded_cmd,
-       "no ip extcommunity-list <100-500> (deny|permit) .LINE",
+       "no ip extcommunity-list (100-500) <deny|permit> .LINE",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -16498,7 +16498,7 @@ DEFUN (no_ip_extcommunity_list_expanded,
 
 DEFUN (no_ip_extcommunity_list_name_standard,
        no_ip_extcommunity_list_name_standard_cmd,
-       "no ip extcommunity-list standard WORD (deny|permit) .AA:NN",
+       "no ip extcommunity-list standard WORD <deny|permit> .AA:NN",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -16513,7 +16513,7 @@ DEFUN (no_ip_extcommunity_list_name_standard,
 
 DEFUN (no_ip_extcommunity_list_name_standard_brief,
        no_ip_extcommunity_list_name_standard_brief_cmd,
-       "no ip extcommunity-list standard WORD (deny|permit)",
+       "no ip extcommunity-list standard WORD <deny|permit>",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -16527,7 +16527,7 @@ DEFUN (no_ip_extcommunity_list_name_standard_brief,
 
 DEFUN (no_ip_extcommunity_list_name_expanded,
        no_ip_extcommunity_list_name_expanded_cmd,
-       "no ip extcommunity-list expanded WORD (deny|permit) .LINE",
+       "no ip extcommunity-list expanded WORD <deny|permit> .LINE",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -16597,7 +16597,7 @@ DEFUN (show_ip_extcommunity_list,
 
 DEFUN (show_ip_extcommunity_list_arg,
        show_ip_extcommunity_list_arg_cmd,
-       "show ip extcommunity-list (<1-500>|WORD)",
+       "show ip extcommunity-list <(1-500)|WORD>",
        SHOW_STR
        IP_STR
        "List extended-community list\n"

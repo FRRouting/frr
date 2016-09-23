@@ -119,7 +119,7 @@ static ifindex_t test_ifindex = 0;
 /* testrib commands */
 DEFUN (test_interface_state,
        test_interface_state_cmd,
-       "state (up|down)",
+       "state <up|down>",
        "configure interface\n"
        "up\n"
        "down\n")

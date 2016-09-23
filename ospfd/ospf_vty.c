@@ -529,7 +529,7 @@ DEFUN (no_ospf_passive_interface,
        
 DEFUN (ospf_network_area,
        ospf_network_area_cmd,
-       "network A.B.C.D/M area (A.B.C.D|<0-4294967295>)",
+       "network A.B.C.D/M area <A.B.C.D|(0-4294967295)>",
        "Enable routing on an IP network\n"
        "OSPF network prefix\n"
        "Set the OSPF area ID\n"
@@ -574,7 +574,7 @@ DEFUN (ospf_network_area,
 
 DEFUN (no_ospf_network_area,
        no_ospf_network_area_cmd,
-       "no network A.B.C.D/M area (A.B.C.D|<0-4294967295>)",
+       "no network A.B.C.D/M area <A.B.C.D|(0-4294967295)>",
        NO_STR
        "Enable routing on an IP network\n"
        "OSPF network prefix\n"
@@ -645,7 +645,7 @@ DEFUN (no_ospf_network_area,
  */
 DEFUN (ospf_area_range,
        ospf_area_range_cmd,
-       "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M",
+       "area <A.B.C.D|(0-4294967295)> range A.B.C.D/M",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -679,7 +679,7 @@ DEFUN (ospf_area_range,
 
 DEFUN (ospf_area_range_not_advertise,
        ospf_area_range_not_advertise_cmd,
-       "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M not-advertise",
+       "area <A.B.C.D|(0-4294967295)> range A.B.C.D/M not-advertise",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -739,7 +739,7 @@ DEFUN (ospf_area_range_not_advertise,
  */
 DEFUN (no_ospf_area_range,
        no_ospf_area_range_cmd,
-       "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M",
+       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -768,7 +768,7 @@ DEFUN (no_ospf_area_range,
 
 DEFUN (ospf_area_range_substitute,
        ospf_area_range_substitute_cmd,
-       "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M substitute A.B.C.D/M",
+       "area <A.B.C.D|(0-4294967295)> range A.B.C.D/M substitute A.B.C.D/M",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -796,7 +796,7 @@ DEFUN (ospf_area_range_substitute,
 
 DEFUN (no_ospf_area_range_substitute,
        no_ospf_area_range_substitute_cmd,
-       "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M substitute A.B.C.D/M",
+       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M substitute A.B.C.D/M",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1162,7 +1162,7 @@ ospf_vl_set (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
  */
 DEFUN (ospf_area_vlink,
        ospf_area_vlink_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D",
        VLINK_HELPSTR_IPADDR)
 {
   struct ospf *ospf = vty->index;
@@ -1394,7 +1394,7 @@ DEFUN (ospf_area_vlink,
  */
 DEFUN (no_ospf_area_vlink,
        no_ospf_area_vlink_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D",
+       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D",
        NO_STR
        VLINK_HELPSTR_IPADDR)
 {
@@ -1538,7 +1538,7 @@ DEFUN (no_ospf_area_vlink,
 
 DEFUN (ospf_area_shortcut,
        ospf_area_shortcut_cmd,
-       "area (A.B.C.D|<0-4294967295>) shortcut (default|enable|disable)",
+       "area <A.B.C.D|(0-4294967295)> shortcut <default|enable|disable>",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1581,7 +1581,7 @@ DEFUN (ospf_area_shortcut,
 
 DEFUN (no_ospf_area_shortcut,
        no_ospf_area_shortcut_cmd,
-       "no area (A.B.C.D|<0-4294967295>) shortcut (enable|disable)",
+       "no area <A.B.C.D|(0-4294967295)> shortcut <enable|disable>",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1612,7 +1612,7 @@ DEFUN (no_ospf_area_shortcut,
 
 DEFUN (ospf_area_stub,
        ospf_area_stub_cmd,
-       "area (A.B.C.D|<0-4294967295>) stub",
+       "area <A.B.C.D|(0-4294967295)> stub",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1642,7 +1642,7 @@ DEFUN (ospf_area_stub,
 
 DEFUN (ospf_area_stub_no_summary,
        ospf_area_stub_no_summary_cmd,
-       "area (A.B.C.D|<0-4294967295>) stub no-summary",
+       "area <A.B.C.D|(0-4294967295)> stub no-summary",
        "OSPF stub parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1673,7 +1673,7 @@ DEFUN (ospf_area_stub_no_summary,
 
 DEFUN (no_ospf_area_stub,
        no_ospf_area_stub_cmd,
-       "no area (A.B.C.D|<0-4294967295>) stub",
+       "no area <A.B.C.D|(0-4294967295)> stub",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1697,7 +1697,7 @@ DEFUN (no_ospf_area_stub,
 
 DEFUN (no_ospf_area_stub_no_summary,
        no_ospf_area_stub_no_summary_cmd,
-       "no area (A.B.C.D|<0-4294967295>) stub no-summary",
+       "no area <A.B.C.D|(0-4294967295)> stub no-summary",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1769,7 +1769,7 @@ ospf_area_nssa_cmd_handler (struct vty *vty, int argc, const char *argv[],
 
 DEFUN (ospf_area_nssa_translate_no_summary,
        ospf_area_nssa_translate_no_summary_cmd,
-       "area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always) no-summary",
+       "area <A.B.C.D|(0-4294967295)> nssa <translate-candidate|translate-never|translate-always> no-summary",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1784,7 +1784,7 @@ DEFUN (ospf_area_nssa_translate_no_summary,
 
 DEFUN (ospf_area_nssa_translate,
        ospf_area_nssa_translate_cmd,
-       "area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always)",
+       "area <A.B.C.D|(0-4294967295)> nssa <translate-candidate|translate-never|translate-always>",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1798,7 +1798,7 @@ DEFUN (ospf_area_nssa_translate,
 
 DEFUN (ospf_area_nssa,
        ospf_area_nssa_cmd,
-       "area (A.B.C.D|<0-4294967295>) nssa",
+       "area <A.B.C.D|(0-4294967295)> nssa",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1809,7 +1809,7 @@ DEFUN (ospf_area_nssa,
 
 DEFUN (ospf_area_nssa_no_summary,
        ospf_area_nssa_no_summary_cmd,
-       "area (A.B.C.D|<0-4294967295>) nssa no-summary",
+       "area <A.B.C.D|(0-4294967295)> nssa no-summary",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1835,7 +1835,7 @@ DEFUN (ospf_area_nssa_no_summary,
  */
 DEFUN (no_ospf_area_nssa,
        no_ospf_area_nssa_cmd,
-       "no area (A.B.C.D|<0-4294967295>) nssa",
+       "no area <A.B.C.D|(0-4294967295)> nssa",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1862,7 +1862,7 @@ DEFUN (no_ospf_area_nssa,
 
 DEFUN (ospf_area_default_cost,
        ospf_area_default_cost_cmd,
-       "area (A.B.C.D|<0-4294967295>) default-cost <0-16777215>",
+       "area <A.B.C.D|(0-4294967295)> default-cost (0-16777215)",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1906,7 +1906,7 @@ DEFUN (ospf_area_default_cost,
 
 DEFUN (no_ospf_area_default_cost,
        no_ospf_area_default_cost_cmd,
-       "no area (A.B.C.D|<0-4294967295>) default-cost <0-16777215>",
+       "no area <A.B.C.D|(0-4294967295)> default-cost (0-16777215)",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1955,7 +1955,7 @@ DEFUN (no_ospf_area_default_cost,
 
 DEFUN (ospf_area_export_list,
        ospf_area_export_list_cmd,
-       "area (A.B.C.D|<0-4294967295>) export-list NAME",
+       "area <A.B.C.D|(0-4294967295)> export-list NAME",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1980,7 +1980,7 @@ DEFUN (ospf_area_export_list,
 
 DEFUN (no_ospf_area_export_list,
        no_ospf_area_export_list_cmd,
-       "no area (A.B.C.D|<0-4294967295>) export-list NAME",
+       "no area <A.B.C.D|(0-4294967295)> export-list NAME",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -2010,7 +2010,7 @@ DEFUN (no_ospf_area_export_list,
 
 DEFUN (ospf_area_import_list,
        ospf_area_import_list_cmd,
-       "area (A.B.C.D|<0-4294967295>) import-list NAME",
+       "area <A.B.C.D|(0-4294967295)> import-list NAME",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -2035,7 +2035,7 @@ DEFUN (ospf_area_import_list,
 
 DEFUN (no_ospf_area_import_list,
        no_ospf_area_import_list_cmd,
-       "no area (A.B.C.D|<0-4294967295>) import-list NAME",
+       "no area <A.B.C.D|(0-4294967295)> import-list NAME",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -2064,7 +2064,7 @@ DEFUN (no_ospf_area_import_list,
 
 DEFUN (ospf_area_filter_list,
        ospf_area_filter_list_cmd,
-       "area (A.B.C.D|<0-4294967295>) filter-list prefix WORD (in|out)",
+       "area <A.B.C.D|(0-4294967295)> filter-list prefix WORD <in|out>",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -2111,7 +2111,7 @@ DEFUN (ospf_area_filter_list,
 
 DEFUN (no_ospf_area_filter_list,
        no_ospf_area_filter_list_cmd,
-       "no area (A.B.C.D|<0-4294967295>) filter-list prefix WORD (in|out)",
+       "no area <A.B.C.D|(0-4294967295)> filter-list prefix WORD <in|out>",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -2170,7 +2170,7 @@ DEFUN (no_ospf_area_filter_list,
 
 DEFUN (ospf_area_authentication_message_digest,
        ospf_area_authentication_message_digest_cmd,
-       "area (A.B.C.D|<0-4294967295>) authentication message-digest",
+       "area <A.B.C.D|(0-4294967295)> authentication message-digest",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -2195,7 +2195,7 @@ DEFUN (ospf_area_authentication_message_digest,
 
 DEFUN (ospf_area_authentication,
        ospf_area_authentication_cmd,
-       "area (A.B.C.D|<0-4294967295>) authentication",
+       "area <A.B.C.D|(0-4294967295)> authentication",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -2219,7 +2219,7 @@ DEFUN (ospf_area_authentication,
 
 DEFUN (no_ospf_area_authentication,
        no_ospf_area_authentication_cmd,
-       "no area (A.B.C.D|<0-4294967295>) authentication",
+       "no area <A.B.C.D|(0-4294967295)> authentication",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -2250,7 +2250,7 @@ DEFUN (no_ospf_area_authentication,
 
 DEFUN (ospf_abr_type,
        ospf_abr_type_cmd,
-       "ospf abr-type (cisco|ibm|shortcut|standard)",
+       "ospf abr-type <cisco|ibm|shortcut|standard>",
        "OSPF specific commands\n"
        "Set OSPF ABR type\n"
        "Alternative ABR, cisco implementation\n"
@@ -2287,7 +2287,7 @@ DEFUN (ospf_abr_type,
 
 DEFUN (no_ospf_abr_type,
        no_ospf_abr_type_cmd,
-       "no ospf abr-type (cisco|ibm|shortcut|standard)",
+       "no ospf abr-type <cisco|ibm|shortcut|standard>",
        NO_STR
        "OSPF specific commands\n"
        "Set OSPF ABR type\n"
@@ -2461,7 +2461,7 @@ ospf_timers_spf_set (struct vty *vty, unsigned int delay,
 
 DEFUN (ospf_timers_min_ls_interval,
        ospf_timers_min_ls_interval_cmd,
-       "timers throttle lsa all <0-5000>",
+       "timers throttle lsa all (0-5000)",
        "Adjust routing timers\n"
        "Throttling adaptive timer\n"
        "LSA delay between transmissions\n"
@@ -2516,7 +2516,7 @@ DEFUN (no_ospf_timers_min_ls_interval,
 
 DEFUN (ospf_timers_min_ls_arrival,
        ospf_timers_min_ls_arrival_cmd,
-       "timers lsa arrival <0-1000>",
+       "timers lsa arrival (0-1000)",
        "Adjust routing timers\n"
        "Throttling link state advertisement delays\n"
        "OSPF minimum arrival interval delay\n"
@@ -2572,7 +2572,7 @@ DEFUN (no_ospf_timers_min_ls_arrival,
 
 DEFUN (ospf_timers_throttle_spf,
        ospf_timers_throttle_spf_cmd,
-       "timers throttle spf <0-600000> <0-600000> <0-600000>",
+       "timers throttle spf (0-600000) (0-600000) (0-600000)",
        "Adjust routing timers\n"
        "Throttling adaptive timer\n"
        "OSPF SPF timers\n"
@@ -2624,7 +2624,7 @@ DEFUN (no_ospf_timers_throttle_spf,
 
 DEFUN (ospf_timers_lsa,
        ospf_timers_lsa_cmd,
-       "timers lsa min-arrival <0-600000>",
+       "timers lsa min-arrival (0-600000)",
        "Adjust routing timers\n"
        "OSPF LSA timers\n"
        "Minimum delay in receiving new version of a LSA\n"
@@ -2752,7 +2752,7 @@ DEFUN (ospf_neighbor,
  */
 DEFUN (ospf_neighbor_poll_interval,
        ospf_neighbor_poll_interval_cmd,
-       "neighbor A.B.C.D poll-interval <1-65535>",
+       "neighbor A.B.C.D poll-interval (1-65535)",
        NEIGHBOR_STR
        "Neighbor IP address\n"
        "Dead Neighbor Polling interval\n"
@@ -2845,7 +2845,7 @@ DEFUN (no_ospf_neighbor,
 
 DEFUN (ospf_refresh_timer,
        ospf_refresh_timer_cmd,
-       "refresh timer <10-1800>",
+       "refresh timer (10-1800)",
        "Adjust refresh parameters\n"
        "Set refresh timer\n"
        "Timer value in seconds\n")
@@ -2873,7 +2873,7 @@ DEFUN (ospf_refresh_timer,
  */
 DEFUN (no_ospf_refresh_timer,
        no_ospf_refresh_timer_val_cmd,
-       "no refresh timer <10-1800>",
+       "no refresh timer (10-1800)",
        "Adjust refresh parameters\n"
        "Unset refresh timer\n"
        "Timer value in seconds\n")
@@ -2901,7 +2901,7 @@ DEFUN (no_ospf_refresh_timer,
 
 DEFUN (ospf_auto_cost_reference_bandwidth,
        ospf_auto_cost_reference_bandwidth_cmd,
-       "auto-cost reference-bandwidth <1-4294967>",
+       "auto-cost reference-bandwidth (1-4294967)",
        "Calculate OSPF interface cost according to bandwidth\n"
        "Use reference bandwidth method to assign OSPF cost\n"
        "The reference bandwidth in terms of Mbits per second\n")
@@ -2978,7 +2978,7 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
  */
 DEFUN (ospf_write_multiplier,
        ospf_write_multiplier_cmd,
-       "ospf write-multiplier <1-100>",
+       "ospf write-multiplier (1-100)",
        "OSPF specific commands\n"
        "Write multiplier\n"
        "Maximum number of interface serviced per write\n")
@@ -3015,7 +3015,7 @@ DEFUN (ospf_write_multiplier,
  */
 DEFUN (no_ospf_write_multiplier,
        no_ospf_write_multiplier_cmd,
-       "no ospf write-multiplier <1-100>",
+       "no ospf write-multiplier (1-100)",
        NO_STR
        "OSPF specific commands\n"
        "Write multiplier\n"
@@ -3618,7 +3618,7 @@ DEFUN (show_ip_ospf,
 
 DEFUN (show_ip_ospf_instance,
        show_ip_ospf_instance_cmd,
-       "show ip ospf <1-65535> [json]",
+       "show ip ospf (1-65535) [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4028,7 +4028,7 @@ DEFUN (show_ip_ospf_interface,
 
 DEFUN (show_ip_ospf_instance_interface,
        show_ip_ospf_instance_interface_cmd,
-       "show ip ospf <1-65535> interface [INTERFACE] [json]",
+       "show ip ospf (1-65535) interface [INTERFACE] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4185,7 +4185,7 @@ DEFUN (show_ip_ospf_neighbor,
 
 DEFUN (show_ip_ospf_instance_neighbor,
        show_ip_ospf_instance_neighbor_cmd,
-       "show ip ospf <1-65535> neighbor [json]",
+       "show ip ospf (1-65535) neighbor [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4296,7 +4296,7 @@ DEFUN (show_ip_ospf_neighbor_all,
 
 DEFUN (show_ip_ospf_instance_neighbor_all,
        show_ip_ospf_instance_neighbor_all_cmd,
-       "show ip ospf <1-65535> neighbor all [json]",
+       "show ip ospf (1-65535) neighbor all [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4390,7 +4390,7 @@ DEFUN (show_ip_ospf_neighbor_int,
 
 DEFUN (show_ip_ospf_instance_neighbor_int,
        show_ip_ospf_instance_neighbor_int_cmd,
-       "show ip ospf <1-65535> neighbor IFNAME [json]",
+       "show ip ospf (1-65535) neighbor IFNAME [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4756,7 +4756,7 @@ DEFUN (show_ip_ospf_neighbor_id,
 
 DEFUN (show_ip_ospf_instance_neighbor_id,
        show_ip_ospf_instance_neighbor_id_cmd,
-       "show ip ospf <1-65535> neighbor A.B.C.D [json]",
+       "show ip ospf (1-65535) neighbor A.B.C.D [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4847,7 +4847,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
 
 DEFUN (show_ip_ospf_instance_neighbor_detail,
        show_ip_ospf_instance_neighbor_detail_cmd,
-       "show ip ospf <1-65535> neighbor detail [json]",
+       "show ip ospf (1-65535) neighbor detail [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -4945,7 +4945,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 
 DEFUN (show_ip_ospf_instance_neighbor_detail_all,
        show_ip_ospf_instance_neighbor_detail_all_cmd,
-       "show ip ospf <1-65535> neighbor detail all [json]",
+       "show ip ospf (1-65535) neighbor detail all [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5047,7 +5047,7 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
 
 DEFUN (show_ip_ospf_instance_neighbor_int_detail,
        show_ip_ospf_instance_neighbor_int_detail_cmd,
-       "show ip ospf <1-65535> neighbor IFNAME detail [json]",
+       "show ip ospf (1-65535) neighbor IFNAME detail [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5889,7 +5889,7 @@ DEFUN (show_ip_ospf_database,
  */
 DEFUN (show_ip_ospf_instance_database,
        show_ip_ospf_instance_database_cmd,
-       "show ip ospf <1-65535> database",
+       "show ip ospf (1-65535) database",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5979,7 +5979,7 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
  */
 DEFUN (show_ip_ospf_database_type_adv_router,
        show_ip_ospf_database_type_adv_router_cmd,
-       "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") adv-router A.B.C.D",
+       "show ip ospf database <" OSPF_LSA_TYPES_CMD_STR "> adv-router A.B.C.D",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -6011,7 +6011,7 @@ DEFUN (show_ip_ospf_database_type_adv_router,
  */
 DEFUN (show_ip_ospf_instance_database_type_adv_router,
        show_ip_ospf_instance_database_type_adv_router_cmd,
-       "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") adv-router A.B.C.D",
+       "show ip ospf (1-65535) database <" OSPF_LSA_TYPES_CMD_STR "> adv-router A.B.C.D",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -6045,7 +6045,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
  */
 DEFUN (ip_ospf_authentication_args,
        ip_ospf_authentication_args_addr_cmd,
-       "ip ospf authentication (null|message-digest) A.B.C.D",
+       "ip ospf authentication <null|message-digest> A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Enable authentication on this interface\n"
@@ -6154,7 +6154,7 @@ DEFUN (ip_ospf_authentication,
  */
 DEFUN (no_ip_ospf_authentication_args,
        no_ip_ospf_authentication_args_addr_cmd,
-       "no ip ospf authentication (null|message-digest) A.B.C.D",
+       "no ip ospf authentication <null|message-digest> A.B.C.D",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -6488,7 +6488,7 @@ DEFUN (no_ip_ospf_authentication_key,
  */
 DEFUN (ip_ospf_message_digest_key,
        ip_ospf_message_digest_key_addr_cmd,
-       "ip ospf message-digest-key <1-255> md5 KEY A.B.C.D",
+       "ip ospf message-digest-key (1-255) md5 KEY A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Message digest authentication password (key)\n"
@@ -6563,7 +6563,7 @@ ALIAS_HIDDEN (ip_ospf_message_digest_key,
  */
 DEFUN (no_ip_ospf_message_digest_key_md5,
        no_ip_ospf_message_digest_key_md5_addr_cmd,
-       "no ip ospf message-digest-key <1-255> md5 KEY A.B.C.D",
+       "no ip ospf message-digest-key (1-255) md5 KEY A.B.C.D",
         NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -6636,7 +6636,7 @@ DEFUN (no_ip_ospf_message_digest_key_md5,
  */
 DEFUN (no_ip_ospf_message_digest_key,
        no_ip_ospf_message_digest_key_addr_cmd,
-       "no ip ospf message-digest-key <1-255> A.B.C.D",
+       "no ip ospf message-digest-key (1-255) A.B.C.D",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -6701,7 +6701,7 @@ DEFUN (no_ip_ospf_message_digest_key,
  */
 DEFUN (ip_ospf_cost,
        ip_ospf_cost_u32_inet4_cmd,
-       "ip ospf cost <1-65535> A.B.C.D",
+       "ip ospf cost (1-65535) A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Interface cost\n"
@@ -6857,7 +6857,7 @@ DEFUN (no_ip_ospf_cost,
  */
 DEFUN (no_ip_ospf_cost2,
        no_ip_ospf_cost_u32_cmd,
-       "no ip ospf cost <1-65535>",
+       "no ip ospf cost (1-65535)",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7023,7 +7023,7 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
  */
 DEFUN (ip_ospf_dead_interval,
        ip_ospf_dead_interval_addr_cmd,
-       "ip ospf dead-interval <1-65535> A.B.C.D",
+       "ip ospf dead-interval (1-65535) A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Interval after which a neighbor is declared dead\n"
@@ -7057,7 +7057,7 @@ ALIAS_HIDDEN (ip_ospf_dead_interval,
  */
 DEFUN (ip_ospf_dead_interval_minimal,
        ip_ospf_dead_interval_minimal_addr_cmd,
-       "ip ospf dead-interval minimal hello-multiplier <1-10> A.B.C.D",
+       "ip ospf dead-interval minimal hello-multiplier (1-10) A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Interval after which a neighbor is declared dead\n"
@@ -7115,7 +7115,7 @@ DEFUN (ip_ospf_dead_interval_minimal,
  */
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_addr_cmd,
-       "no ip ospf dead-interval <1-65535> A.B.C.D",
+       "no ip ospf dead-interval (1-65535) A.B.C.D",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7198,7 +7198,7 @@ DEFUN (no_ip_ospf_dead_interval,
  */
 DEFUN (ip_ospf_hello_interval,
        ip_ospf_hello_interval_addr_cmd,
-       "ip ospf hello-interval <1-65535> A.B.C.D",
+       "ip ospf hello-interval (1-65535) A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Time between HELLO packets\n"
@@ -7274,7 +7274,7 @@ ALIAS_HIDDEN (ip_ospf_hello_interval,
  */
 DEFUN (no_ip_ospf_hello_interval,
        no_ip_ospf_hello_interval_addr_cmd,
-       "no ip ospf hello-interval <1-65535> A.B.C.D",
+       "no ip ospf hello-interval (1-65535) A.B.C.D",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7322,7 +7322,7 @@ DEFUN (no_ip_ospf_hello_interval,
 
 DEFUN (ip_ospf_network,
        ip_ospf_network_cmd,
-       "ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)",
+       "ip ospf network <broadcast|non-broadcast|point-to-multipoint|point-to-point>",
        "IP Information\n"
        "OSPF interface commands\n"
        "Network type\n"
@@ -7461,7 +7461,7 @@ DEFUN (no_ip_ospf_network,
  */
 DEFUN (ip_ospf_priority,
        ip_ospf_priority_addr_cmd,
-       "ip ospf priority <0-255> A.B.C.D",
+       "ip ospf priority (0-255) A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Router priority\n"
@@ -7553,7 +7553,7 @@ ALIAS_HIDDEN (ip_ospf_priority,
  */
 DEFUN (no_ip_ospf_priority,
        no_ip_ospf_priority_addr_cmd,
-       "no ip ospf priority <0-255> A.B.C.D",
+       "no ip ospf priority (0-255) A.B.C.D",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7627,7 +7627,7 @@ DEFUN (no_ip_ospf_priority,
  */
 DEFUN (ip_ospf_retransmit_interval,
        ip_ospf_retransmit_interval_addr_cmd,
-       "ip ospf retransmit-interval <3-65535> A.B.C.D",
+       "ip ospf retransmit-interval (3-65535) A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Time between retransmitting lost link state advertisements\n"
@@ -7756,7 +7756,7 @@ DEFUN (no_ip_ospf_retransmit_interval,
 
 DEFUN (no_ip_ospf_retransmit_interval_sec,
        no_ip_ospf_retransmit_interval_sec_cmd,
-       "no ip ospf retransmit-interval <3-65535>",
+       "no ip ospf retransmit-interval (3-65535)",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7787,7 +7787,7 @@ DEFUN (no_ip_ospf_retransmit_interval_sec,
  */
 DEFUN (ip_ospf_transmit_delay,
        ip_ospf_transmit_delay_addr_cmd,
-       "ip ospf transmit-delay <1-65535> A.B.C.D",
+       "ip ospf transmit-delay (1-65535) A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
        "Link state transmit delay\n"
@@ -7915,7 +7915,7 @@ DEFUN (no_ip_ospf_transmit_delay,
 
 DEFUN (no_ip_ospf_transmit_delay_sec,
        no_ip_ospf_transmit_delay_sec_cmd,
-       "no ip ospf transmit-delay <1-65535>",
+       "no ip ospf transmit-delay (1-65535)",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7948,7 +7948,7 @@ DEFUN (no_ip_ospf_transmit_delay_sec,
  */
 DEFUN (ip_ospf_area,
        ip_ospf_area_cmd,
-       "ip ospf area (A.B.C.D|<0-4294967295>)",
+       "ip ospf area <A.B.C.D|(0-4294967295)>",
        "IP Information\n"
        "OSPF interface commands\n"
        "Enable OSPF on this interface\n"
@@ -8072,7 +8072,7 @@ DEFUN (no_ip_ospf_area,
  */
 DEFUN (no_ip_ospf_instance_area,
        no_ip_ospf_instance_area_cmd,
-       "no ip ospf <1-65535> area",
+       "no ip ospf (1-65535) area",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -8104,7 +8104,7 @@ DEFUN (no_ip_ospf_instance_area,
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
-       "redistribute " QUAGGA_REDIST_STR_OSPFD " {metric <0-16777214>|metric-type (1|2)|route-map WORD}",
+       "redistribute " QUAGGA_REDIST_STR_OSPFD " [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
@@ -8157,7 +8157,7 @@ DEFUN (ospf_redistribute_source,
 
 DEFUN (no_ospf_redistribute_source,
        no_ospf_redistribute_source_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_OSPFD " {metric <0-16777214>|metric-type (1|2)|route-map WORD}",
+       "no redistribute " QUAGGA_REDIST_STR_OSPFD " [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
        NO_STR
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_OSPFD
@@ -8189,7 +8189,7 @@ DEFUN (no_ospf_redistribute_source,
 
 DEFUN (ospf_redistribute_instance_source,
        ospf_redistribute_instance_source_cmd,
-       "redistribute (ospf|table) <1-65535> {metric <0-16777214>|metric-type (1|2)|route-map WORD}",
+       "redistribute <ospf|table> (1-65535) [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
        REDIST_STR
        "Open Shortest Path First\n"
        "Non-main Kernel Routing Table\n"
@@ -8257,7 +8257,7 @@ DEFUN (ospf_redistribute_instance_source,
 
 DEFUN (no_ospf_redistribute_instance_source,
        no_ospf_redistribute_instance_source_cmd,
-       "no redistribute (ospf|table) <1-65535> {metric <0-16777214>|metric-type (1|2)|route-map WORD}",
+       "no redistribute <ospf|table> (1-65535) [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
        NO_STR
        REDIST_STR
        "Open Shortest Path First\n"
@@ -8355,7 +8355,7 @@ DEFUN (no_ospf_distribute_list_out,
 /* Default information originate. */
 DEFUN (ospf_default_information_originate,
        ospf_default_information_originate_cmd,
-       "default-information originate {always|metric <0-16777214>|metric-type (1|2)|route-map WORD}",
+       "default-information originate [always|metric (0-16777214)|metric-type <1|2>|route-map WORD]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Always advertise default route\n"
@@ -8406,7 +8406,7 @@ DEFUN (ospf_default_information_originate,
 
 DEFUN (no_ospf_default_information_originate,
        no_ospf_default_information_originate_cmd,
-       "no default-information originate {always|metric <0-16777214>|metric-type (1|2)|route-map WORD}",
+       "no default-information originate [always|metric (0-16777214)|metric-type <1|2>|route-map WORD]",
        NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"
@@ -8449,7 +8449,7 @@ DEFUN (no_ospf_default_information_originate,
 
 DEFUN (ospf_default_metric,
        ospf_default_metric_cmd,
-       "default-metric <0-16777214>",
+       "default-metric (0-16777214)",
        "Set metric of redistributed routes\n"
        "Default metric\n")
 {
@@ -8494,7 +8494,7 @@ DEFUN (no_ospf_default_metric,
 
 DEFUN (ospf_distance,
        ospf_distance_cmd,
-       "distance <1-255>",
+       "distance (1-255)",
        "Define an administrative distance\n"
        "OSPF Administrative distance\n")
 {
@@ -8510,7 +8510,7 @@ DEFUN (ospf_distance,
 
 DEFUN (no_ospf_distance,
        no_ospf_distance_cmd,
-       "no distance <1-255>",
+       "no distance (1-255)",
        NO_STR
        "Define an administrative distance\n"
        "OSPF Administrative distance\n")
@@ -8527,7 +8527,7 @@ DEFUN (no_ospf_distance,
 
 DEFUN (no_ospf_distance_ospf,
        no_ospf_distance_ospf_cmd,
-       "no distance ospf {intra-area <1-255>|inter-area <1-255>|external <1-255>}",
+       "no distance ospf [intra-area (1-255)|inter-area (1-255)|external (1-255)]",
        NO_STR
        "Define an administrative distance\n"
        "OSPF Administrative distance\n"
@@ -8571,7 +8571,7 @@ DEFUN (no_ospf_distance_ospf,
 
 DEFUN (ospf_distance_ospf,
        ospf_distance_ospf_cmd,
-       "distance ospf {intra-area <1-255>|inter-area <1-255>|external <1-255>}",
+       "distance ospf [intra-area (1-255)|inter-area (1-255)|external (1-255)]",
        "Define an administrative distance\n"
        "OSPF Administrative distance\n"
        "Intra-area routes\n"
@@ -8610,7 +8610,7 @@ DEFUN (ospf_distance_ospf,
 
 DEFUN (ospf_distance_source,
        ospf_distance_source_cmd,
-       "distance <1-255> A.B.C.D/M",
+       "distance (1-255) A.B.C.D/M",
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n")
@@ -8627,7 +8627,7 @@ DEFUN (ospf_distance_source,
 
 DEFUN (no_ospf_distance_source,
        no_ospf_distance_source_cmd,
-       "no distance <1-255> A.B.C.D/M",
+       "no distance (1-255) A.B.C.D/M",
        NO_STR
        "Administrative distance\n"
        "Distance value\n"
@@ -8645,7 +8645,7 @@ DEFUN (no_ospf_distance_source,
 
 DEFUN (ospf_distance_source_access_list,
        ospf_distance_source_access_list_cmd,
-       "distance <1-255> A.B.C.D/M WORD",
+       "distance (1-255) A.B.C.D/M WORD",
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n"
@@ -8663,7 +8663,7 @@ DEFUN (ospf_distance_source_access_list,
 
 DEFUN (no_ospf_distance_source_access_list,
        no_ospf_distance_source_access_list_cmd,
-       "no distance <1-255> A.B.C.D/M WORD",
+       "no distance (1-255) A.B.C.D/M WORD",
        NO_STR
        "Administrative distance\n"
        "Distance value\n"
@@ -8844,7 +8844,7 @@ DEFUN (no_ospf_max_metric_router_lsa_admin,
 
 DEFUN (ospf_max_metric_router_lsa_startup,
        ospf_max_metric_router_lsa_startup_cmd,
-       "max-metric router-lsa on-startup <5-86400>",
+       "max-metric router-lsa on-startup (5-86400)",
        "OSPF maximum / infinite-distance metric\n"
        "Advertise own Router-LSA with infinite distance (stub router)\n"
        "Automatically advertise stub Router-LSA on startup of OSPF\n"
@@ -8880,7 +8880,7 @@ DEFUN (ospf_max_metric_router_lsa_startup,
  */
 DEFUN (no_ospf_max_metric_router_lsa_startup,
        no_ospf_max_metric_router_lsa_startup_cmd,
-       "no max-metric router-lsa on-startup <5-86400>",
+       "no max-metric router-lsa on-startup (5-86400)",
        NO_STR
        "OSPF maximum / infinite-distance metric\n"
        "Advertise own Router-LSA with infinite distance (stub router)\n"
@@ -8914,7 +8914,7 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
 
 DEFUN (ospf_max_metric_router_lsa_shutdown,
        ospf_max_metric_router_lsa_shutdown_cmd,
-       "max-metric router-lsa on-shutdown <5-100>",
+       "max-metric router-lsa on-shutdown (5-100)",
        "OSPF maximum / infinite-distance metric\n"
        "Advertise own Router-LSA with infinite distance (stub router)\n"
        "Advertise stub-router prior to full shutdown of OSPF\n"
@@ -8953,7 +8953,7 @@ DEFUN (ospf_max_metric_router_lsa_shutdown,
  */
 DEFUN (no_ospf_max_metric_router_lsa_shutdown,
        no_ospf_max_metric_router_lsa_shutdown_cmd,
-       "no max-metric router-lsa on-shutdown <5-100>",
+       "no max-metric router-lsa on-shutdown (5-100)",
        NO_STR
        "OSPF maximum / infinite-distance metric\n"
        "Advertise own Router-LSA with infinite distance (stub router)\n"
@@ -9187,7 +9187,7 @@ DEFUN (show_ip_ospf_border_routers,
 
 DEFUN (show_ip_ospf_instance_border_routers,
        show_ip_ospf_instance_border_routers_cmd,
-       "show ip ospf <1-65535> border-routers",
+       "show ip ospf (1-65535) border-routers",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -9249,7 +9249,7 @@ DEFUN (show_ip_ospf_route,
 
 DEFUN (show_ip_ospf_instance_route,
        show_ip_ospf_instance_route_cmd,
-       "show ip ospf <1-65535> route",
+       "show ip ospf (1-65535) route",
        SHOW_STR
        IP_STR
        "OSPF information\n"

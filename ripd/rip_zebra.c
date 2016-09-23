@@ -467,7 +467,7 @@ DEFUN (no_rip_redistribute_type_routemap,
 
 DEFUN (rip_redistribute_type_metric,
        rip_redistribute_type_metric_cmd,
-       "redistribute " QUAGGA_REDIST_STR_RIPD " metric <0-16>",
+       "redistribute " QUAGGA_REDIST_STR_RIPD " metric (0-16)",
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_RIPD
        "Metric\n"
@@ -497,7 +497,7 @@ DEFUN (rip_redistribute_type_metric,
 
 DEFUN (no_rip_redistribute_type_metric,
        no_rip_redistribute_type_metric_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPD " metric <0-16>",
+       "no redistribute " QUAGGA_REDIST_STR_RIPD " metric (0-16)",
        NO_STR
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_RIPD
@@ -526,7 +526,7 @@ DEFUN (no_rip_redistribute_type_metric,
 
 DEFUN (rip_redistribute_type_metric_routemap,
        rip_redistribute_type_metric_routemap_cmd,
-       "redistribute " QUAGGA_REDIST_STR_RIPD " metric <0-16> route-map WORD",
+       "redistribute " QUAGGA_REDIST_STR_RIPD " metric (0-16) route-map WORD",
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_RIPD
        "Metric\n"
@@ -560,7 +560,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
 
 DEFUN (no_rip_redistribute_type_metric_routemap,
        no_rip_redistribute_type_metric_routemap_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_RIPD " metric <0-16> route-map WORD",
+       "no redistribute " QUAGGA_REDIST_STR_RIPD " metric (0-16) route-map WORD",
        NO_STR
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_RIPD

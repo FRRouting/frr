@@ -330,7 +330,7 @@ DEFUN (no_match_interface,
 
 DEFUN (match_tag,
        match_tag_cmd,
-       "match tag <1-65535>",
+       "match tag (1-65535)",
        MATCH_STR
        "Match tag of route\n"
        "Tag value\n")
@@ -365,7 +365,7 @@ DEFUN (no_match_tag,
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
-       "match ip next-hop (<1-199>|<1300-2699>|WORD)",
+       "match ip next-hop <(1-199)|(1300-2699)|WORD>",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
@@ -451,7 +451,7 @@ DEFUN (no_match_ip_next_hop_prefix_list,
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address (<1-199>|<1300-2699>|WORD)",
+       "match ip address <(1-199)|(1300-2699)|WORD>",
        MATCH_STR
        IP_STR
        "Match address of route\n"
@@ -623,7 +623,7 @@ DEFUN (no_match_ip_nexthop_prefix_len,
 
 DEFUN (match_source_protocol,
        match_source_protocol_cmd,
-       "match source-protocol (bgp|ospf|rip|ripng|isis|ospf6|connected|system|kernel|static)",
+       "match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|connected|system|kernel|static>",
        MATCH_STR
        "Match protocol via which the route was learnt\n")
 {
@@ -642,7 +642,7 @@ DEFUN (match_source_protocol,
 
 DEFUN (no_match_source_protocol,
        no_match_source_protocol_cmd,
-       "no match source-protocol (bgp|ospf|rip|ripng|isis|ospf6|connected|system|kernel|static)",
+       "no match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|connected|system|kernel|static>",
        NO_STR
        MATCH_STR
        "No match protocol via which the route was learnt\n")
@@ -668,7 +668,7 @@ DEFUN (no_match_source_protocol,
 
 DEFUN (set_src,
        set_src_cmd,
-       "set src (A.B.C.D|X:X::X:X)",
+       "set src <A.B.C.D|X:X::X:X>",
        SET_STR
        "src address for route\n"
        "src address\n")
@@ -727,7 +727,7 @@ DEFUN (set_src,
 
 DEFUN (no_set_src,
        no_set_src_cmd,
-       "no set src {A.B.C.D|X:X::X:X}",
+       "no set src [A.B.C.D|X:X::X:X]",
        NO_STR
        SET_STR
        "Source address for route\n")
@@ -740,7 +740,7 @@ DEFUN (no_set_src,
 
 DEFUN (zebra_route_map_timer,
        zebra_route_map_timer_cmd,
-       "zebra route-map delay-timer <0-600>",
+       "zebra route-map delay-timer (0-600)",
        "Time to wait before route-map updates are processed\n"
        "0 means event-driven updates are disabled\n")
 {

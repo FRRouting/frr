@@ -2994,7 +2994,7 @@ bgp_route_map_event (route_map_event_t event, const char *rmap_name)
 
 DEFUN (match_peer,
        match_peer_cmd,
-       "match peer (A.B.C.D|X:X::X:X)",
+       "match peer <A.B.C.D|X:X::X:X>",
        MATCH_STR
        "Match peer address\n"
        "IP address of peer\n"
@@ -3046,7 +3046,7 @@ DEFUN (no_match_peer,
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address (<1-199>|<1300-2699>|WORD)",
+       "match ip address <(1-199)|(1300-2699)|WORD>",
        MATCH_STR
        IP_STR
        "Match address of route\n"
@@ -3085,7 +3085,7 @@ DEFUN (no_match_ip_address,
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
-       "match ip next-hop (<1-199>|<1300-2699>|WORD)",
+       "match ip next-hop <(1-199)|(1300-2699)|WORD>",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
@@ -3126,7 +3126,7 @@ DEFUN (no_match_ip_next_hop,
 
 DEFUN (match_probability,
        match_probability_cmd,
-       "match probability <0-100>",
+       "match probability (0-100)",
        MATCH_STR
        "Match portion of routes defined by percentage value\n"
        "Percentage of routes\n")
@@ -3160,7 +3160,7 @@ DEFUN (no_match_probability,
 
 DEFUN (match_ip_route_source,
        match_ip_route_source_cmd,
-       "match ip route-source (<1-199>|<1300-2699>|WORD)",
+       "match ip route-source <(1-199)|(1300-2699)|WORD>",
        MATCH_STR
        IP_STR
        "Match advertising source address of route\n"
@@ -3313,7 +3313,7 @@ DEFUN (no_match_ip_route_source_prefix_list,
 
 DEFUN (match_metric,
        match_metric_cmd,
-       "match metric <0-4294967295>",
+       "match metric (0-4294967295)",
        MATCH_STR
        "Match metric of route\n"
        "Metric value\n")
@@ -3346,7 +3346,7 @@ DEFUN (no_match_metric,
 
 DEFUN (match_local_pref,
        match_local_pref_cmd,
-       "match local-preference <0-4294967295>",
+       "match local-preference (0-4294967295)",
        MATCH_STR
        "Match local-preference of route\n"
        "Metric value\n")
@@ -3379,7 +3379,7 @@ DEFUN (no_match_local_pref,
 
 DEFUN (match_community,
        match_community_cmd,
-       "match community (<1-99>|<100-500>|WORD)",
+       "match community <(1-99)|(100-500)|WORD>",
        MATCH_STR
        "Match BGP community list\n"
        "Community-list number (standard)\n"
@@ -3392,7 +3392,7 @@ DEFUN (match_community,
 
 DEFUN (match_community_exact,
        match_community_exact_cmd,
-       "match community (<1-99>|<100-500>|WORD) exact-match",
+       "match community <(1-99)|(100-500)|WORD> exact-match",
        MATCH_STR
        "Match BGP community list\n"
        "Community-list number (standard)\n"
@@ -3451,7 +3451,7 @@ DEFUN (no_match_community,
 
 DEFUN (match_ecommunity,
        match_ecommunity_cmd,
-       "match extcommunity (<1-99>|<100-500>|WORD)",
+       "match extcommunity <(1-99)|(100-500)|WORD>",
        MATCH_STR
        "Match BGP/VPN extended community list\n"
        "Extended community-list number (standard)\n"
@@ -3519,7 +3519,7 @@ DEFUN (no_match_aspath,
 
 DEFUN (match_origin,
        match_origin_cmd,
-       "match origin (egp|igp|incomplete)",
+       "match origin <egp|igp|incomplete>",
        MATCH_STR
        "BGP origin code\n"
        "remote EGP\n"
@@ -3596,7 +3596,7 @@ DEFUN (no_match_interface,
 
 DEFUN (match_tag,
        match_tag_cmd,
-       "match tag <1-65535>",
+       "match tag (1-65535)",
        MATCH_STR
        "Match tag of route\n"
        "Tag value\n")
@@ -3723,7 +3723,7 @@ DEFUN (no_set_ip_nexthop,
  */
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric <0-4294967295>",
+       "set metric (0-4294967295)",
        SET_STR
        "Metric value for destination routing protocol\n"
        "Metric value\n")
@@ -3755,7 +3755,7 @@ DEFUN (no_set_metric,
 
 DEFUN (set_local_pref,
        set_local_pref_cmd,
-       "set local-preference <0-4294967295>",
+       "set local-preference (0-4294967295)",
        SET_STR
        "BGP local preference path attribute\n"
        "Preference value\n")
@@ -3785,7 +3785,7 @@ DEFUN (no_set_local_pref,
 
 DEFUN (set_weight,
        set_weight_cmd,
-       "set weight <0-4294967295>",
+       "set weight (0-4294967295)",
        SET_STR
        "BGP weight for routing table\n"
        "Weight value\n")
@@ -4047,7 +4047,7 @@ DEFUN (no_set_community,
 
 DEFUN (set_community_delete,
        set_community_delete_cmd,
-       "set comm-list (<1-99>|<100-500>|WORD) delete",
+       "set comm-list <(1-99)|(100-500)|WORD> delete",
        SET_STR
        "set BGP community list (for deletion)\n"
        "Community-list number (standard)\n"
@@ -4171,7 +4171,7 @@ DEFUN (no_set_ecommunity_soo,
 
 DEFUN (set_origin,
        set_origin_cmd,
-       "set origin (egp|igp|incomplete)",
+       "set origin <egp|igp|incomplete>",
        SET_STR
        "BGP origin code\n"
        "remote EGP\n"
@@ -4309,7 +4309,7 @@ DEFUN (no_set_aggregator_as,
 
 DEFUN (set_tag,
        set_tag_cmd,
-       "set tag <1-65535>",
+       "set tag (1-65535)",
        SET_STR
        "Tag value for routing protocol\n"
        "Tag value\n")

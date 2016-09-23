@@ -394,7 +394,7 @@ DEFUN (no_ripng_redistribute_type,
 
 DEFUN (ripng_redistribute_type_metric,
        ripng_redistribute_type_metric_cmd,
-       "redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16>",
+       "redistribute " QUAGGA_REDIST_STR_RIPNGD " metric (0-16)",
        "Redistribute\n"
        QUAGGA_REDIST_HELP_STR_RIPNGD
        "Metric\n"
@@ -446,7 +446,7 @@ DEFUN (ripng_redistribute_type_routemap,
 
 DEFUN (ripng_redistribute_type_metric_routemap,
        ripng_redistribute_type_metric_routemap_cmd,
-       "redistribute " QUAGGA_REDIST_STR_RIPNGD " metric <0-16> route-map WORD",
+       "redistribute " QUAGGA_REDIST_STR_RIPNGD " metric (0-16) route-map WORD",
        "Redistribute\n"
        QUAGGA_REDIST_HELP_STR_RIPNGD
        "Metric\n"

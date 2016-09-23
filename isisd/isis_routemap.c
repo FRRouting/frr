@@ -346,7 +346,7 @@ isis_route_set_delete (struct vty *vty, struct route_map_index *index,
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address (<1-199>|<1300-2699>|WORD)",
+       "match ip address <(1-199)|(1300-2699)|WORD>",
        MATCH_STR
        IP_STR
        "Match address of route\n"
@@ -368,7 +368,7 @@ DEFUN (match_ip_address,
  */
 DEFUN (no_match_ip_address,
        no_match_ip_address_val_cmd,
-       "no match ip address (<1-199>|<1300-2699>|WORD)",
+       "no match ip address <(1-199)|(1300-2699)|WORD>",
        NO_STR
        MATCH_STR
        IP_STR
@@ -507,7 +507,7 @@ DEFUN (no_match_ipv6_address_prefix_list,
  * verify that the input is a valid isis metric */
 DEFUN (set_metric,
        set_metric_cmd,
-      "set metric <0-4294967295>",
+      "set metric (0-4294967295)",
       SET_STR
       "Metric vale for destination routing protocol\n"
       "Metric value\n")
@@ -528,7 +528,7 @@ DEFUN (set_metric,
  */
 DEFUN (no_set_metric,
        no_set_metric_val_cmd,
-      "no set metric <0-4294967295>",
+      "no set metric (0-4294967295)",
       NO_STR
       SET_STR
       "Metric value for destination routing protocol\n"

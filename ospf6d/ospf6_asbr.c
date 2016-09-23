@@ -1078,7 +1078,7 @@ DEFUN (ospf6_routemap_no_match_interface,
 /* add "set metric-type" */
 DEFUN (ospf6_routemap_set_metric_type,
        ospf6_routemap_set_metric_type_cmd,
-       "set metric-type (type-1|type-2)",
+       "set metric-type <type-1|type-2>",
        "Set value\n"
        "Type of metric\n"
        "OSPF6 external type 1 metric\n"
@@ -1092,7 +1092,7 @@ DEFUN (ospf6_routemap_set_metric_type,
 /* delete "set metric-type" */
 DEFUN (ospf6_routemap_no_set_metric_type,
        ospf6_routemap_no_set_metric_type_cmd,
-       "no set metric-type (type-1|type-2)",
+       "no set metric-type <type-1|type-2>",
        NO_STR
        "Set value\n"
        "Type of metric\n"
@@ -1107,7 +1107,7 @@ DEFUN (ospf6_routemap_no_set_metric_type,
 /* add "set metric" */
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric <0-4294967295>",
+       "set metric (0-4294967295)",
        "Set value\n"
        "Metric value\n"
        "Metric value\n")
