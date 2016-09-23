@@ -241,8 +241,12 @@ def alias_destroy(filename):
                     if 'install_element' in line:
                         # install_element (CONFIG_NODE, &ip_community_list_name_standard_cmd);
                         re_install_element = re.search('install_element\s*\(\w+,\s*&(.*)\s*\)', line.strip())
-                        cmd = re_install_element.group(1)
-                        if cmd not in aliases:
+
+                        if re_install_element:
+                            cmd = re_install_element.group(1)
+                            if cmd not in aliases:
+                                fh.write(line)
+                        else:
                             fh.write(line)
                     else:
                         fh.write(line)
