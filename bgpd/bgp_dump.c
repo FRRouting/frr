@@ -736,13 +736,16 @@ DEFUN (dump_bgp_all,
        "Output filename\n"
        "Interval of output\n")
 {
+  int idx_dump_routes = 2;
+  int idx_path = 3;
+  int idx_interval = 4;
   int bgp_dump_type = 0;
   const char *interval = NULL;
   struct bgp_dump *bgp_dump_struct = NULL;
   const struct bgp_dump_type_map *map = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[2]->arg, map->str) == 0)
+    if (strcmp(argv[idx_dump_routes]->arg, map->str) == 0)
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)
@@ -763,10 +766,10 @@ DEFUN (dump_bgp_all,
 
   /* When an interval is given */
   if (argc == 3)
-      interval = argv[4]->arg;
+      interval = argv[idx_interval]->arg;
 
   return bgp_dump_set (vty, bgp_dump_struct, bgp_dump_type,
-                       argv[3]->arg, interval);
+                       argv[idx_path]->arg, interval);
 }
 
 DEFUN (no_dump_bgp_all,
@@ -781,12 +784,13 @@ DEFUN (no_dump_bgp_all,
        "Stop dump process updates-et\n"
        "Stop dump process route-mrt\n")
 {
+  int idx_dump_routes = 3;
   int bgp_dump_type = 0;
   const struct bgp_dump_type_map *map = NULL;
   struct bgp_dump *bgp_dump_struct = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[3]->arg, map->str) == 0)
+    if (strcmp(argv[idx_dump_routes]->arg, map->str) == 0)
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)

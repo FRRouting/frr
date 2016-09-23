@@ -262,6 +262,78 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'A.B.C.D|X:X::X:X':
         return 'idx_ip'
 
+    elif token == 'in|out':
+        return 'idx_in_out'
+
+    elif token == 'deny|permit':
+        return 'idx_permit_deny'
+
+    elif token == 'view|vrf':
+        return 'idx_view_vrf'
+
+    elif token == 'unicast|multicast':
+        return 'idx_safi'
+
+    elif token == 'bestpath|multipath':
+        return 'idx_bestpath'
+
+    elif token == 'egp|igp|incomplete':
+        return 'idx_origin'
+
+    elif token == 'cisco|zebra':
+        return 'idx_vendor'
+
+    elif token == 'as-set|no-as-set':
+        return 'idx_as_set'
+
+    elif token == 'confed|missing-as-worst':
+        return 'idx_med_knob'
+
+    elif token == 'both|send|receive':
+        return 'idx_send_recv'
+
+    elif token == 'both|extended|standard':
+        return 'idx_type'
+
+    elif token == 'A.B.C.D|WORD':
+        return 'idx_ipv4_word'
+
+    elif token == 'advertise-queue|advertised-routes|packet-queue':
+        return 'idx_type'
+
+    elif token == 'ospf|table':
+        return 'idx_ospf_table'
+
+    elif token == 'as-path|next-hop|med' or token == 'next-hop|med' or token == 'as-path|med' or token == 'as-path|next-hop':
+        return 'idx_attribute'
+
+    elif token == '(1-4294967295)|external|internal' or token == '(1-4294967295)|internal|external':
+        return 'idx_remote_as'
+
+    elif token == '(1-500)|WORD' or token == '(1-99)|(100-500)|WORD':
+        return 'idx_comm_list'
+
+    elif token == 'ipv4|ipv6':
+        return 'idx_afi'
+
+    elif token == 'advertised-routes|received-routes':
+        return 'idx_adv_rcvd_routes'
+
+    elif token == 'encap|multicast|unicast|vpn' or token == 'unicast|multicast|vpn|encap':
+        return 'idx_safi'
+
+    elif token == 'AA:NN|local-AS|no-advertise|no-export':
+        return 'idx_community'
+
+    elif token == 'all|all-et|updates|updates-et|routes-mrt':
+        return 'idx_dump_routes'
+
+    elif token == 'A.B.C.D|X:X::X:X|WORD':
+        return 'idx_peer'
+
+    elif token == 'A.B.C.D/M|X:X::X:X/M':
+        return 'idx_ipv4_ipv6_prefixlen'
+
     elif token == 'urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix':
         return 'idx_rpf_lookup_mode'
 

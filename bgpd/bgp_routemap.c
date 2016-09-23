@@ -3000,7 +3000,8 @@ DEFUN (match_peer,
        "IP address of peer\n"
        "IPv6 address of peer\n")
 {
-  return bgp_route_match_add (vty, vty->index, "peer", argv[2]->arg,
+  int idx_ip = 2;
+  return bgp_route_match_add (vty, vty->index, "peer", argv[idx_ip]->arg,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -3054,7 +3055,8 @@ DEFUN (match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  return bgp_route_match_add (vty, vty->index, "ip address", argv[3]->arg,
+  int idx_acl = 3;
+  return bgp_route_match_add (vty, vty->index, "ip address", argv[idx_acl]->arg,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
@@ -3093,7 +3095,8 @@ DEFUN (match_ip_next_hop,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  return bgp_route_match_add (vty, vty->index, "ip next-hop", argv[3]->arg,
+  int idx_acl = 3;
+  return bgp_route_match_add (vty, vty->index, "ip next-hop", argv[idx_acl]->arg,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
@@ -3131,7 +3134,8 @@ DEFUN (match_probability,
        "Match portion of routes defined by percentage value\n"
        "Percentage of routes\n")
 {
-  return bgp_route_match_add (vty, vty->index, "probability", argv[2]->arg,
+  int idx_number = 2;
+  return bgp_route_match_add (vty, vty->index, "probability", argv[idx_number]->arg,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -3168,7 +3172,8 @@ DEFUN (match_ip_route_source,
        "IP access-list number (expanded range)\n"
        "IP standard access-list name\n")
 {
-  return bgp_route_match_add (vty, vty->index, "ip route-source", argv[3]->arg,
+  int idx_acl = 3;
+  return bgp_route_match_add (vty, vty->index, "ip route-source", argv[idx_acl]->arg,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
@@ -3206,8 +3211,9 @@ DEFUN (match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
+  int idx_word = 4;
   return bgp_route_match_add (vty, vty->index, "ip address prefix-list",
-			      argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
+			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
 /*
@@ -3244,8 +3250,9 @@ DEFUN (match_ip_next_hop_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
+  int idx_word = 4;
   return bgp_route_match_add (vty, vty->index, "ip next-hop prefix-list",
-			      argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
+			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
 /*
@@ -3282,8 +3289,9 @@ DEFUN (match_ip_route_source_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
+  int idx_word = 4;
   return bgp_route_match_add (vty, vty->index, "ip route-source prefix-list",
-			      argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
+			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
 /*
@@ -3318,7 +3326,8 @@ DEFUN (match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
-  return bgp_route_match_add (vty, vty->index, "metric", argv[2]->arg,
+  int idx_number = 2;
+  return bgp_route_match_add (vty, vty->index, "metric", argv[idx_number]->arg,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -3351,7 +3360,8 @@ DEFUN (match_local_pref,
        "Match local-preference of route\n"
        "Metric value\n")
 {
-  return bgp_route_match_add (vty, vty->index, "local-preference", argv[2]->arg,
+  int idx_number = 2;
+  return bgp_route_match_add (vty, vty->index, "local-preference", argv[idx_number]->arg,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -3386,7 +3396,8 @@ DEFUN (match_community,
        "Community-list number (expanded)\n"
        "Community-list name\n")
 {
-  return bgp_route_match_add (vty, vty->index, "community", argv[2]->arg,
+  int idx_comm_list = 2;
+  return bgp_route_match_add (vty, vty->index, "community", argv[idx_comm_list]->arg,
 			      RMAP_EVENT_CLIST_ADDED);
 }
 
@@ -3400,13 +3411,14 @@ DEFUN (match_community_exact,
        "Community-list name\n"
        "Do exact matching of communities\n")
 {
+  int idx_comm_list = 2;
   int ret;
   char *argstr;
 
   argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
-		    strlen (argv[2]->arg) + strlen ("exact-match") + 2);
+		    strlen (argv[idx_comm_list]->arg) + strlen ("exact-match") + 2);
 
-  sprintf (argstr, "%s exact-match", argv[2]->arg);
+  sprintf (argstr, "%s exact-match", argv[idx_comm_list]->arg);
 
   ret = bgp_route_match_add (vty, vty->index, "community", argstr,
 			     RMAP_EVENT_CLIST_ADDED);
@@ -3458,7 +3470,8 @@ DEFUN (match_ecommunity,
        "Extended community-list number (expanded)\n"
        "Extended community-list name\n")
 {
-  return bgp_route_match_add (vty, vty->index, "extcommunity", argv[2]->arg,
+  int idx_comm_list = 2;
+  return bgp_route_match_add (vty, vty->index, "extcommunity", argv[idx_comm_list]->arg,
 			      RMAP_EVENT_ECLIST_ADDED);
 }
 
@@ -3492,7 +3505,8 @@ DEFUN (match_aspath,
        "Match BGP AS path list\n"
        "AS path access-list name\n")
 {
-  return bgp_route_match_add (vty, vty->index, "as-path", argv[2]->arg,
+  int idx_word = 2;
+  return bgp_route_match_add (vty, vty->index, "as-path", argv[idx_word]->arg,
 			      RMAP_EVENT_ASLIST_ADDED);
 }
 
@@ -3526,13 +3540,14 @@ DEFUN (match_origin,
        "local IGP\n"
        "unknown heritage\n")
 {
-  if (strncmp (argv[2]->arg, "igp", 2) == 0)
+  int idx_origin = 2;
+  if (strncmp (argv[idx_origin]->arg, "igp", 2) == 0)
     return bgp_route_match_add (vty, vty->index, "origin", "igp",
 				RMAP_EVENT_MATCH_ADDED);
-  if (strncmp (argv[2]->arg, "egp", 1) == 0)
+  if (strncmp (argv[idx_origin]->arg, "egp", 1) == 0)
     return bgp_route_match_add (vty, vty->index, "origin", "egp",
 				RMAP_EVENT_MATCH_ADDED);
-  if (strncmp (argv[2]->arg, "incomplete", 2) == 0)
+  if (strncmp (argv[idx_origin]->arg, "incomplete", 2) == 0)
     return bgp_route_match_add (vty, vty->index, "origin", "incomplete",
 				RMAP_EVENT_MATCH_ADDED);
 
@@ -3569,7 +3584,8 @@ DEFUN (match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  return bgp_route_match_add (vty, vty->index, "interface", argv[2]->arg,
+  int idx_word = 2;
+  return bgp_route_match_add (vty, vty->index, "interface", argv[idx_word]->arg,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -3601,7 +3617,8 @@ DEFUN (match_tag,
        "Match tag of route\n"
        "Tag value\n")
 {
-  return bgp_route_match_add (vty, vty->index, "tag", argv[2]->arg,
+  int idx_number = 2;
+  return bgp_route_match_add (vty, vty->index, "tag", argv[idx_number]->arg,
 		              RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -3635,10 +3652,11 @@ DEFUN (set_ip_nexthop,
        "Next hop address\n"
        "IP address of next hop\n")
 {
+  int idx_ipv4 = 3;
   union sockunion su;
   int ret;
 
-  ret = str2sockunion (argv[3]->arg, &su);
+  ret = str2sockunion (argv[idx_ipv4]->arg, &su);
   if (ret < 0)
     {
       vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
@@ -3652,7 +3670,7 @@ DEFUN (set_ip_nexthop,
       return CMD_WARNING;
     }
  
-  return bgp_route_set_add (vty, vty->index, "ip next-hop", argv[3]->arg);
+  return bgp_route_set_add (vty, vty->index, "ip next-hop", argv[idx_ipv4]->arg);
 }
 
 DEFUN (set_ip_nexthop_peer,
@@ -3728,7 +3746,8 @@ DEFUN (set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
-  return bgp_route_set_add (vty, vty->index, "metric", argv[2]->arg);
+  int idx_number = 2;
+  return bgp_route_set_add (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
 
@@ -3760,7 +3779,8 @@ DEFUN (set_local_pref,
        "BGP local preference path attribute\n"
        "Preference value\n")
 {
-  return bgp_route_set_add (vty, vty->index, "local-preference", argv[2]->arg);
+  int idx_number = 2;
+  return bgp_route_set_add (vty, vty->index, "local-preference", argv[idx_number]->arg);
 }
 
 /*
@@ -3790,7 +3810,8 @@ DEFUN (set_weight,
        "BGP weight for routing table\n"
        "Weight value\n")
 {
-  return bgp_route_set_add (vty, vty->index, "weight", argv[2]->arg);
+  int idx_number = 2;
+  return bgp_route_set_add (vty, vty->index, "weight", argv[idx_number]->arg);
 }
 
 /*
@@ -4055,11 +4076,12 @@ DEFUN (set_community_delete,
        "Community-list name\n"
        "Delete matching communities\n")
 {
+  int idx_comm_list = 2;
   char *str;
 
-  str = XCALLOC (MTYPE_TMP, strlen (argv[2]->arg) + strlen (" delete") + 1);
-  strcpy (str, argv[2]->arg);
-  strcpy (str + strlen (argv[2]->arg), " delete");
+  str = XCALLOC (MTYPE_TMP, strlen (argv[idx_comm_list]->arg) + strlen (" delete") + 1);
+  strcpy (str, argv[idx_comm_list]->arg);
+  strcpy (str + strlen (argv[idx_comm_list]->arg), " delete");
 
   bgp_route_set_add (vty, vty->index, "comm-list", str);
 
@@ -4178,11 +4200,12 @@ DEFUN (set_origin,
        "local IGP\n"
        "unknown heritage\n")
 {
-  if (strncmp (argv[2]->arg, "igp", 2) == 0)
+  int idx_origin = 2;
+  if (strncmp (argv[idx_origin]->arg, "igp", 2) == 0)
     return bgp_route_set_add (vty, vty->index, "origin", "igp");
-  if (strncmp (argv[2]->arg, "egp", 1) == 0)
+  if (strncmp (argv[idx_origin]->arg, "egp", 1) == 0)
     return bgp_route_set_add (vty, vty->index, "origin", "egp");
-  if (strncmp (argv[2]->arg, "incomplete", 2) == 0)
+  if (strncmp (argv[idx_origin]->arg, "incomplete", 2) == 0)
     return bgp_route_set_add (vty, vty->index, "origin", "incomplete");
 
   return CMD_WARNING;
@@ -4238,11 +4261,13 @@ DEFUN (set_aggregator_as,
        "AS number\n"
        "IP address of aggregator\n")
 {
+  int idx_number = 3;
+  int idx_ipv4 = 4;
   int ret;
   struct in_addr address;
   char *argstr;
   
-  ret = inet_aton (argv[4]->arg, &address);
+  ret = inet_aton (argv[idx_ipv4]->arg, &address);
   if (ret == 0)
     {
       vty_out (vty, "Aggregator IP address is invalid%s", VTY_NEWLINE);
@@ -4250,9 +4275,9 @@ DEFUN (set_aggregator_as,
     }
 
   argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
-		    strlen (argv[3]->arg) + strlen (argv[4]->arg) + 2);
+		    strlen (argv[idx_number]->arg) + strlen (argv[idx_ipv4]->arg) + 2);
 
-  sprintf (argstr, "%s %s", argv[3]->arg, argv[4]->arg);
+  sprintf (argstr, "%s %s", argv[idx_number]->arg, argv[idx_ipv4]->arg);
 
   ret = bgp_route_set_add (vty, vty->index, "aggregator as", argstr);
 
@@ -4314,7 +4339,8 @@ DEFUN (set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  return bgp_route_set_add (vty, vty->index, "tag", argv[2]->arg);
+  int idx_number = 2;
+  return bgp_route_set_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
 /*
@@ -4347,7 +4373,8 @@ DEFUN (match_ipv6_address,
        "Match IPv6 address of route\n"
        "IPv6 access-list name\n")
 {
-  return bgp_route_match_add (vty, vty->index, "ipv6 address", argv[3]->arg,
+  int idx_word = 3;
+  return bgp_route_match_add (vty, vty->index, "ipv6 address", argv[idx_word]->arg,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
@@ -4360,7 +4387,8 @@ DEFUN (no_match_ipv6_address,
        "Match IPv6 address of route\n"
        "IPv6 access-list name\n")
 {
-  return bgp_route_match_delete (vty, vty->index, "ipv6 address", argv[4]->arg,
+  int idx_word = 4;
+  return bgp_route_match_delete (vty, vty->index, "ipv6 address", argv[idx_word]->arg,
 				 RMAP_EVENT_FILTER_DELETED);
 }
 
@@ -4372,7 +4400,8 @@ DEFUN (match_ipv6_next_hop,
        "Match IPv6 next-hop address of route\n"
        "IPv6 address of next hop\n")
 {
-  return bgp_route_match_add (vty, vty->index, "ipv6 next-hop", argv[3]->arg,
+  int idx_ipv6 = 3;
+  return bgp_route_match_add (vty, vty->index, "ipv6 next-hop", argv[idx_ipv6]->arg,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -4385,7 +4414,8 @@ DEFUN (no_match_ipv6_next_hop,
        "Match IPv6 next-hop address of route\n"
        "IPv6 address of next hop\n")
 {
-  return bgp_route_match_delete (vty, vty->index, "ipv6 next-hop", argv[4]->arg,
+  int idx_ipv6 = 4;
+  return bgp_route_match_delete (vty, vty->index, "ipv6 next-hop", argv[idx_ipv6]->arg,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -4398,8 +4428,9 @@ DEFUN (match_ipv6_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
+  int idx_word = 4;
   return bgp_route_match_add (vty, vty->index, "ipv6 address prefix-list",
-			      argv[4]->arg, RMAP_EVENT_PLIST_ADDED);
+			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
 DEFUN (no_match_ipv6_address_prefix_list,
@@ -4412,8 +4443,9 @@ DEFUN (no_match_ipv6_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
+  int idx_word = 5;
   return bgp_route_match_delete (vty, vty->index, "ipv6 address prefix-list",
-				 argv[5]->arg, RMAP_EVENT_PLIST_DELETED);
+				 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
 }
 
 DEFUN (set_ipv6_nexthop_peer,
@@ -4471,10 +4503,11 @@ DEFUN (set_ipv6_nexthop_global,
        "IPv6 global address\n"
        "IPv6 address of next hop\n")
 {
+  int idx_ipv6 = 4;
   struct in6_addr addr;
   int ret;
 
-  ret = inet_pton (AF_INET6, argv[4]->arg, &addr);
+  ret = inet_pton (AF_INET6, argv[idx_ipv6]->arg, &addr);
   if (!ret)
     {
       vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
@@ -4489,7 +4522,7 @@ DEFUN (set_ipv6_nexthop_global,
       return CMD_WARNING;
     }
 
-  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop global", argv[4]->arg);
+  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop global", argv[idx_ipv6]->arg);
 }
 
 /*
@@ -4525,10 +4558,11 @@ DEFUN (set_ipv6_nexthop_local,
        "IPv6 local address\n"
        "IPv6 address of next hop\n")
 {
+  int idx_ipv6 = 4;
   struct in6_addr addr;
   int ret;
 
-  ret = inet_pton (AF_INET6, argv[4]->arg, &addr);
+  ret = inet_pton (AF_INET6, argv[idx_ipv6]->arg, &addr);
   if (!ret)
     {
       vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
@@ -4540,7 +4574,7 @@ DEFUN (set_ipv6_nexthop_local,
       return CMD_WARNING;
     }
 
-  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[4]->arg);
+  return bgp_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[idx_ipv6]->arg);
 }
 
 /*
@@ -4576,7 +4610,8 @@ DEFUN (set_vpnv4_nexthop,
        "VPNv4 next-hop address\n"
        "IP address of next hop\n")
 {
-  return bgp_route_set_add (vty, vty->index, "vpnv4 next-hop", argv[3]->arg);
+  int idx_ipv4 = 3;
+  return bgp_route_set_add (vty, vty->index, "vpnv4 next-hop", argv[idx_ipv4]->arg);
 }
 
 /*
@@ -4608,7 +4643,8 @@ DEFUN (set_originator_id,
        "BGP originator ID attribute\n"
        "IP address of originator\n")
 {
-  return bgp_route_set_add (vty, vty->index, "originator-id", argv[2]->arg);
+  int idx_ipv4 = 2;
+  return bgp_route_set_add (vty, vty->index, "originator-id", argv[idx_ipv4]->arg);
 }
 
 /*
