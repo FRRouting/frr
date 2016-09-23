@@ -539,8 +539,7 @@ isis_redist_area_finish(struct isis_area *area)
 
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD
-       " (level-1|level-2) {metric <0-16777215>|route-map WORD}",
+       "redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD " (level-1|level-2) {metric <0-16777215>|route-map WORD}",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
@@ -563,7 +562,7 @@ DEFUN (isis_redistribute,
   if (argc < 5)
     return CMD_WARNING;
 
-  family = str2family(argv[0]);
+  family = str2family(argv[1]->arg);
   if (family < 0)
     return CMD_WARNING;
 
@@ -571,13 +570,13 @@ DEFUN (isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[1]);
+  type = proto_redistnum(afi, argv[2]->arg);
   if (type < 0 || type == ZEBRA_ROUTE_ISIS)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[2]))
+  if (!strcmp("level-1", argv[3]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[2]))
+  else if (!strcmp("level-2", argv[3]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -588,11 +587,11 @@ DEFUN (isis_redistribute,
       return CMD_WARNING;
     }
 
-  if (argv[3])
+  if (argv[4]->arg)
     {
       char *endp;
-      metric = strtoul(argv[3], &endp, 10);
-      if (argv[3][0] == '\0' || *endp != '\0')
+      metric = strtoul(argv[4]->arg, &endp, 10);
+      if (argv[4]->arg[0] == '\0' || *endp != '\0')
         return CMD_WARNING;
     }
   else
@@ -608,8 +607,7 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD
-       " (level-1|level-2)",
+       "no redistribute (ipv4|ipv6) " QUAGGA_REDIST_STR_ISISD " (level-1|level-2)",
        NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
@@ -627,7 +625,7 @@ DEFUN (no_isis_redistribute,
   if (argc < 3)
     return CMD_WARNING;
 
-  family = str2family(argv[0]);
+  family = str2family(argv[2]->arg);
   if (family < 0)
     return CMD_WARNING;
 
@@ -635,13 +633,13 @@ DEFUN (no_isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[1]);
+  type = proto_redistnum(afi, argv[3]->arg);
   if (type < 0 || type == ZEBRA_ROUTE_ISIS)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[2]))
+  if (!strcmp("level-1", argv[4]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[2]))
+  else if (!strcmp("level-2", argv[4]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -652,8 +650,7 @@ DEFUN (no_isis_redistribute,
 
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
-       "default-information originate (ipv4|ipv6) (level-1|level-2) "
-       "{always|metric <0-16777215>|route-map WORD}",
+       "default-information originate (ipv4|ipv6) (level-1|level-2) {always|metric <0-16777215>|route-map WORD}",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
@@ -676,13 +673,13 @@ DEFUN (isis_default_originate,
   if (argc < 5)
     return CMD_WARNING;
 
-  family = str2family(argv[0]);
+  family = str2family(argv[2]->arg);
   if (family < 0)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[1]))
+  if (!strcmp("level-1", argv[3]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[1]))
+  else if (!strcmp("level-2", argv[3]->arg))
     level = 2;
   else
     return CMD_WARNING;
@@ -693,7 +690,7 @@ DEFUN (isis_default_originate,
       return CMD_WARNING;
     }
 
-  if (argv[2] && *argv[2] != '\0')
+  if (argv[4]->arg && *argv[4]->arg != '\0')
     originate_type = DEFAULT_ORIGINATE_ALWAYS;
   else
     originate_type = DEFAULT_ORIGINATE;
@@ -741,13 +738,13 @@ DEFUN (no_isis_default_originate,
   if (argc < 2)
     return CMD_WARNING;
 
-  family = str2family(argv[0]);
+  family = str2family(argv[3]->arg);
   if (family < 0)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[1]))
+  if (!strcmp("level-1", argv[4]->arg))
     level = 1;
-  else if (!strcmp("level-2", argv[1]))
+  else if (!strcmp("level-2", argv[4]->arg))
     level = 2;
   else
     return CMD_WARNING;
