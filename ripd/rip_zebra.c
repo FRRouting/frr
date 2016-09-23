@@ -417,20 +417,22 @@ DEFUN (rip_redistribute_type_routemap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  int idx_protocol = 1;
+  int idx_word = 3;
   int i;
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[1]->arg,
+    if (strncmp(redist_type[i].str, argv[idx_protocol]->arg,
 		redist_type[i].str_min_len) == 0) 
       {
-	rip_routemap_set (redist_type[i].type, argv[3]->arg);
+	rip_routemap_set (redist_type[i].type, argv[idx_word]->arg);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
                               redist_type[i].type, 0, VRF_DEFAULT);
 	return CMD_SUCCESS;
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[1]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -445,21 +447,23 @@ DEFUN (no_rip_redistribute_type_routemap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  int idx_protocol = 2;
+  int idx_word = 4;
   int i;
 
   for (i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp(redist_type[i].str, argv[2]->arg, 
+      if (strncmp(redist_type[i].str, argv[idx_protocol]->arg, 
 		  redist_type[i].str_min_len) == 0) 
 	{
-	  if (rip_routemap_unset (redist_type[i].type,argv[4]->arg))
+	  if (rip_routemap_unset (redist_type[i].type,argv[idx_word]->arg))
 	    return CMD_WARNING;
 	  rip_redistribute_unset (redist_type[i].type);
 	  return CMD_SUCCESS;
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[2]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -473,13 +477,15 @@ DEFUN (rip_redistribute_type_metric,
        "Metric\n"
        "Metric value\n")
 {
+  int idx_protocol = 1;
+  int idx_number = 3;
   int i;
   int metric;
 
-  metric = atoi (argv[3]->arg);
+  metric = atoi (argv[idx_number]->arg);
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[1]->arg,
+    if (strncmp(redist_type[i].str, argv[idx_protocol]->arg,
 		redist_type[i].str_min_len) == 0) 
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
@@ -489,7 +495,7 @@ DEFUN (rip_redistribute_type_metric,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[1]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -504,21 +510,23 @@ DEFUN (no_rip_redistribute_type_metric,
        "Metric\n"
        "Metric value\n")
 {
+  int idx_protocol = 2;
+  int idx_number = 4;
   int i;
 
   for (i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp(redist_type[i].str, argv[2]->arg, 
+      if (strncmp(redist_type[i].str, argv[idx_protocol]->arg, 
 		  redist_type[i].str_min_len) == 0) 
 	{
-	  if (rip_metric_unset (redist_type[i].type, atoi(argv[4]->arg)))
+	  if (rip_metric_unset (redist_type[i].type, atoi(argv[idx_number]->arg)))
 	    return CMD_WARNING;
 	  rip_redistribute_unset (redist_type[i].type);
 	  return CMD_SUCCESS;
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[2]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -534,24 +542,27 @@ DEFUN (rip_redistribute_type_metric_routemap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  int idx_protocol = 1;
+  int idx_number = 3;
+  int idx_word = 5;
   int i;
   int metric;
 
-  metric = atoi (argv[3]->arg);
+  metric = atoi (argv[idx_number]->arg);
 
   for (i = 0; redist_type[i].str; i++) {
-    if (strncmp(redist_type[i].str, argv[1]->arg,
+    if (strncmp(redist_type[i].str, argv[idx_protocol]->arg,
 		redist_type[i].str_min_len) == 0) 
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
-	rip_routemap_set (redist_type[i].type, argv[5]->arg);
+	rip_routemap_set (redist_type[i].type, argv[idx_word]->arg);
 	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
                               redist_type[i].type, 0, VRF_DEFAULT);
 	return CMD_SUCCESS;
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[1]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
 	  VTY_NEWLINE);
 
   return CMD_WARNING;
@@ -569,18 +580,21 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  int idx_protocol = 2;
+  int idx_number = 4;
+  int idx_word = 6;
   int i;
 
   for (i = 0; redist_type[i].str; i++) 
     {
-      if (strncmp(redist_type[i].str, argv[2]->arg, 
+      if (strncmp(redist_type[i].str, argv[idx_protocol]->arg, 
 		  redist_type[i].str_min_len) == 0) 
 	{
-	  if (rip_metric_unset (redist_type[i].type, atoi(argv[4]->arg)))
+	  if (rip_metric_unset (redist_type[i].type, atoi(argv[idx_number]->arg)))
 	    return CMD_WARNING;
-	  if (rip_routemap_unset (redist_type[i].type, argv[6]->arg))
+	  if (rip_routemap_unset (redist_type[i].type, argv[idx_word]->arg))
 	    {
-	      rip_redistribute_metric_set(redist_type[i].type, atoi(argv[4]->arg));   
+	      rip_redistribute_metric_set(redist_type[i].type, atoi(argv[idx_number]->arg));   
 	      return CMD_WARNING;
 	    }
 	  rip_redistribute_unset (redist_type[i].type);
@@ -588,7 +602,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[2]->arg,
+  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg,
 	  VTY_NEWLINE);
 
   return CMD_WARNING;

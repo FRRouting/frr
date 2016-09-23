@@ -292,10 +292,10 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'both|send|receive' or token == 'send|recv':
         return 'idx_send_recv'
 
-    elif token == 'both|extended|standard':
+    elif token == 'both|extended|standard' or token == '1|2':
         return 'idx_type'
 
-    elif token == 'A.B.C.D|WORD':
+    elif token == 'A.B.C.D|WORD' or token == 'A.B.C.D/M|WORD':
         return 'idx_ipv4_word'
 
     elif token == 'advertise-queue|advertised-routes|packet-queue':
@@ -316,8 +316,11 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'ipv4|ipv6' or token == 'ip|ipv6':
         return 'idx_afi'
 
-    elif token == 'md5|clear' or token == 'null|message-digest':
+    elif token == 'md5|clear' or token == 'null|message-digest' or token == 'md5|text':
         return 'idx_encryption'
+
+    elif token == 'IFNAME|default':
+        return 'idx_ifname'
 
     elif token == 'type-1|type-2':
         return 'idx_external'

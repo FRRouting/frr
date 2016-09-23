@@ -742,7 +742,8 @@ DEFUN (match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
-  return rip_route_match_add (vty, vty->index, "metric", argv[2]->arg);
+  int idx_number = 2;
+  return rip_route_match_add (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
 /*
@@ -772,7 +773,8 @@ DEFUN (match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  return rip_route_match_add (vty, vty->index, "interface", argv[2]->arg);
+  int idx_word = 2;
+  return rip_route_match_add (vty, vty->index, "interface", argv[idx_word]->arg);
 }
 
 /*
@@ -805,7 +807,8 @@ DEFUN (match_ip_next_hop,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  return rip_route_match_add (vty, vty->index, "ip next-hop", argv[3]->arg);
+  int idx_acl = 3;
+  return rip_route_match_add (vty, vty->index, "ip next-hop", argv[idx_acl]->arg);
 }
 
 /*
@@ -841,7 +844,8 @@ DEFUN (match_ip_next_hop_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  return rip_route_match_add (vty, vty->index, "ip next-hop prefix-list", argv[4]->arg);
+  int idx_word = 4;
+  return rip_route_match_add (vty, vty->index, "ip next-hop prefix-list", argv[idx_word]->arg);
 }
 
 /*
@@ -879,7 +883,8 @@ DEFUN (match_ip_address,
        "IP Access-list name\n")
 
 {
-  return rip_route_match_add (vty, vty->index, "ip address", argv[3]->arg);
+  int idx_acl = 3;
+  return rip_route_match_add (vty, vty->index, "ip address", argv[idx_acl]->arg);
 }
 
 /*
@@ -915,7 +920,8 @@ DEFUN (match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  return rip_route_match_add (vty, vty->index, "ip address prefix-list", argv[4]->arg);
+  int idx_word = 4;
+  return rip_route_match_add (vty, vty->index, "ip address prefix-list", argv[idx_word]->arg);
 }
 
 /*
@@ -949,7 +955,8 @@ DEFUN (match_tag,
        "Match tag of route\n"
        "Metric value\n")
 {
-  return rip_route_match_add (vty, vty->index, "tag", argv[2]->arg);
+  int idx_number = 2;
+  return rip_route_match_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
 /*
@@ -989,7 +996,8 @@ DEFUN (set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
-  return rip_route_set_add (vty, vty->index, "metric", argv[2]->arg);
+  int idx_number = 2;
+  return rip_route_set_add (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
 
@@ -1028,10 +1036,11 @@ DEFUN (set_ip_nexthop,
        "Next hop address\n"
        "IP address of next hop\n")
 {
+  int idx_ipv4 = 3;
   union sockunion su;
   int ret;
 
-  ret = str2sockunion (argv[3]->arg, &su);
+  ret = str2sockunion (argv[idx_ipv4]->arg, &su);
   if (ret < 0)
     {
       vty_out (vty, "%% Malformed next-hop address%s", VTY_NEWLINE);
@@ -1045,7 +1054,7 @@ DEFUN (set_ip_nexthop,
       return CMD_WARNING;
     }
 
-  return rip_route_set_add (vty, vty->index, "ip next-hop", argv[3]->arg);
+  return rip_route_set_add (vty, vty->index, "ip next-hop", argv[idx_ipv4]->arg);
 }
 
 /*
@@ -1077,7 +1086,8 @@ DEFUN (set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  return rip_route_set_add (vty, vty->index, "tag", argv[2]->arg);
+  int idx_number = 2;
+  return rip_route_set_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
 /*

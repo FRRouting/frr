@@ -1225,19 +1225,20 @@ DEFUN (rip_network,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Interface name\n")
 {
+  int idx_ipv4_word = 1;
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[1]->arg, &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_word]->arg, &p);
 
   if (ret)
     ret = rip_enable_network_add ((struct prefix *) &p);
   else
-    ret = rip_enable_if_add (argv[1]->arg);
+    ret = rip_enable_if_add (argv[idx_ipv4_word]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "There is a same network configuration %s%s", argv[1]->arg,
+      vty_out (vty, "There is a same network configuration %s%s", argv[idx_ipv4_word]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1254,19 +1255,20 @@ DEFUN (no_rip_network,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "Interface name\n")
 {
+  int idx_ipv4_word = 2;
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[2]->arg, &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4_word]->arg, &p);
 
   if (ret)
     ret = rip_enable_network_delete ((struct prefix *) &p);
   else
-    ret = rip_enable_if_delete (argv[2]->arg);
+    ret = rip_enable_if_delete (argv[idx_ipv4_word]->arg);
 
   if (ret < 0)
     {
-      vty_out (vty, "Can't find network configuration %s%s", argv[2]->arg,
+      vty_out (vty, "Can't find network configuration %s%s", argv[idx_ipv4_word]->arg,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1281,10 +1283,11 @@ DEFUN (rip_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
+  int idx_ipv4 = 1;
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[1]->arg, &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4]->arg, &p);
 
   if (ret <= 0)
     {
@@ -1305,10 +1308,11 @@ DEFUN (no_rip_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
+  int idx_ipv4 = 2;
   int ret;
   struct prefix_ipv4 p;
 
-  ret = str2prefix_ipv4 (argv[2]->arg, &p);
+  ret = str2prefix_ipv4 (argv[idx_ipv4]->arg, &p);
 
   if (ret <= 0)
     {
@@ -1331,6 +1335,7 @@ DEFUN (ip_rip_receive_version,
        "RIP version 1\n"
        "RIP version 2\n")
 {
+  int idx_type = 4;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -1338,12 +1343,12 @@ DEFUN (ip_rip_receive_version,
   ri = ifp->info;
 
   /* Version 1. */
-  if (atoi (argv[4]->arg) == 1)
+  if (atoi (argv[idx_type]->arg) == 1)
     {
       ri->ri_receive = RI_RIP_VERSION_1;
       return CMD_SUCCESS;
     }
-  if (atoi (argv[4]->arg) == 2)
+  if (atoi (argv[idx_type]->arg) == 2)
     {
       ri->ri_receive = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
@@ -1435,6 +1440,7 @@ DEFUN (ip_rip_send_version,
        "RIP version 1\n"
        "RIP version 2\n")
 {
+  int idx_type = 4;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -1442,12 +1448,12 @@ DEFUN (ip_rip_send_version,
   ri = ifp->info;
 
   /* Version 1. */
-  if (atoi (argv[4]->arg) == 1)
+  if (atoi (argv[idx_type]->arg) == 1)
     {
       ri->ri_send = RI_RIP_VERSION_1;
       return CMD_SUCCESS;
     }
-  if (atoi (argv[4]->arg) == 2)
+  if (atoi (argv[idx_type]->arg) == 2)
     {
       ri->ri_send = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
@@ -1553,6 +1559,7 @@ DEFUN (ip_rip_authentication_mode,
        "Keyed message digest\n"
        "Clear text authentication\n")
 {
+  int idx_encryption = 4;
   struct interface *ifp;
   struct rip_interface *ri;
   int auth_type;
@@ -1566,9 +1573,9 @@ DEFUN (ip_rip_authentication_mode,
       return CMD_WARNING;
     }
     
-  if (strncmp ("md5", argv[4]->arg, strlen (argv[4]->arg)) == 0)
+  if (strncmp ("md5", argv[idx_encryption]->arg, strlen (argv[idx_encryption]->arg)) == 0)
     auth_type = RIP_AUTH_MD5;
-  else if (strncmp ("text", argv[4]->arg, strlen (argv[4]->arg)) == 0)
+  else if (strncmp ("text", argv[idx_encryption]->arg, strlen (argv[idx_encryption]->arg)) == 0)
     auth_type = RIP_AUTH_SIMPLE_PASSWORD;
   else
     {
@@ -1657,13 +1664,14 @@ DEFUN (ip_rip_authentication_string,
        "Authentication string\n"
        "Authentication string\n")
 {
+  int idx_line = 4;
   struct interface *ifp;
   struct rip_interface *ri;
 
   ifp = (struct interface *)vty->index;
   ri = ifp->info;
 
-  if (strlen (argv[4]->arg) > 16)
+  if (strlen (argv[idx_line]->arg) > 16)
     {
       vty_out (vty, "%% RIPv2 authentication string must be shorter than 16%s",
 	       VTY_NEWLINE);
@@ -1679,7 +1687,7 @@ DEFUN (ip_rip_authentication_string,
   if (ri->auth_str)
     free (ri->auth_str);
 
-  ri->auth_str = strdup (argv[4]->arg);
+  ri->auth_str = strdup (argv[idx_line]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1728,6 +1736,7 @@ DEFUN (ip_rip_authentication_key_chain,
        "Authentication key-chain\n"
        "name of key-chain\n")
 {
+  int idx_line = 4;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -1744,7 +1753,7 @@ DEFUN (ip_rip_authentication_key_chain,
   if (ri->key_chain)
     free (ri->key_chain);
 
-  ri->key_chain = strdup (argv[4]->arg);
+  ri->key_chain = strdup (argv[idx_line]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1878,7 +1887,8 @@ DEFUN (rip_passive_interface,
        "Interface name\n"
        "default for all interfaces\n")
 {
-  const char *ifname = argv[1]->arg;
+  int idx_ifname = 1;
+  const char *ifname = argv[idx_ifname]->arg;
 
   if (!strcmp(ifname,"default")) {
     passive_default = 1;
@@ -1899,7 +1909,8 @@ DEFUN (no_rip_passive_interface,
        "Interface name\n"
        "default for all interfaces\n")
 {
-  const char *ifname = argv[2]->arg;
+  int idx_ifname = 2;
+  const char *ifname = argv[idx_ifname]->arg;
 
   if (!strcmp(ifname,"default")) {
     passive_default = 0;
