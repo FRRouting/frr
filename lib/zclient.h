@@ -134,7 +134,7 @@ struct zapi_ipv4
   u_char type;
   u_short instance;
 
-  u_int32_t flags;
+  u_char flags;
 
   u_char message;
 
@@ -222,7 +222,7 @@ struct zapi_ipv6
   u_char type;
   u_short instance;
 
-  u_int32_t flags;
+  u_char flags;
 
   u_char message;
 

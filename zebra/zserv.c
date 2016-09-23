@@ -628,7 +628,7 @@ zsend_redistribute_route (int cmd, struct zserv *client, struct prefix *p,
   /* Put type and nexthop. */
   stream_putc (s, rib->type);
   stream_putw (s, rib->instance);
-  stream_putl (s, rib->flags);
+  stream_putc (s, rib->flags);
 
   /* marker for message flags field */
   messmark = stream_get_endp (s);
@@ -1055,7 +1055,7 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   /* Type, flags, message. */
   rib->type = stream_getc (s);
   rib->instance = stream_getw (s);
-  rib->flags = stream_getl (s);
+  rib->flags = stream_getc (s);
   message = stream_getc (s); 
   safi = stream_getw (s);
   rib->uptime = time (NULL);
@@ -1159,7 +1159,7 @@ zread_ipv4_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getl (s);
+  api.flags = stream_getc (s);
   api.message = stream_getc (s);
   api.safi = stream_getw (s);
 
@@ -1265,7 +1265,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   /* Type, flags, message. */
   rib->type = stream_getc (s);
   rib->instance = stream_getw (s);
-  rib->flags = stream_getl (s);
+  rib->flags = stream_getc (s);
   message = stream_getc (s);
   safi = stream_getw (s);
   rib->uptime = time (NULL);
@@ -1392,7 +1392,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   /* Type, flags, message. */
   rib->type = stream_getc (s);
   rib->instance = stream_getw (s);
-  rib->flags = stream_getl (s);
+  rib->flags = stream_getc (s);
   message = stream_getc (s);
   safi = stream_getw (s);
   rib->uptime = time (NULL);
@@ -1506,7 +1506,7 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getl (s);
+  api.flags = stream_getc (s);
   api.message = stream_getc (s);
   api.safi = stream_getw (s);
 

@@ -79,7 +79,7 @@ struct rib
    * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
    * to clients via Zserv
    */
-  u_int32_t flags;
+  u_char flags;
 
   /* RIB internal status */
   u_char status;

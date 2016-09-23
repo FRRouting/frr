@@ -601,7 +601,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length,
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getl (s);
+  api.flags = stream_getc (s);
   api.message = stream_getc (s);
 
   /* IPv4 prefix. */
@@ -716,7 +716,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length,
   /* Type, flags, message. */
   api.type = stream_getc (s);
   api.instance = stream_getw (s);
-  api.flags = stream_getl (s);
+  api.flags = stream_getc (s);
   api.message = stream_getc (s);
 
   /* IPv6 prefix. */
@@ -1199,7 +1199,7 @@ void
 bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
                     afi_t afi, safi_t safi)
 {
-  u_int32_t flags;
+  int flags;
   u_char distance;
   struct peer *peer;
   struct bgp_info *mpinfo;
@@ -1620,7 +1620,7 @@ bgp_zebra_announce_table (struct bgp *bgp, afi_t afi, safi_t safi)
 void
 bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
 {
-  u_int32_t flags;
+  int flags;
   struct peer *peer;
 
   peer = info->peer;

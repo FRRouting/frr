@@ -733,7 +733,7 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   /* Put type and nexthop. */
   stream_putc (s, api->type);
   stream_putw (s, api->instance);
-  stream_putl (s, api->flags);
+  stream_putc (s, api->flags);
   stream_putc (s, api->message);
   stream_putw (s, api->safi);
 
@@ -801,7 +801,7 @@ zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
   /* Put type and nexthop. */
   stream_putc (s, api->type);
   stream_putw (s, api->instance);
-  stream_putl (s, api->flags);
+  stream_putc (s, api->flags);
   stream_putc (s, api->message);
   stream_putw (s, api->safi);
 
@@ -867,7 +867,7 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   /* Put type and nexthop. */
   stream_putc (s, api->type);
   stream_putw (s, api->instance);
-  stream_putl (s, api->flags);
+  stream_putc (s, api->flags);
   stream_putc (s, api->message);
   stream_putw (s, api->safi);
   
