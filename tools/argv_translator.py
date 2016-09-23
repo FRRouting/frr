@@ -225,6 +225,10 @@ def update_argvs(filename):
                     line = line.replace('" QUAGGA_IP6_PROTOCOL_MAP_STR_ZEBRA,', ' (kernel|connected|static|ripng|ospf6|isis|bgp|table|any)",')
                     line = line.replace('" QUAGGA_REDIST_STR_RIPNGD,', ' (kernel|connected|static|ospf6|isis|bgp|table)",')
                     line = line.replace('" QUAGGA_REDIST_STR_RIPD,', ' (kernel|connected|static|ospf|isis|bgp|pim|table)",')
+                    line = line.replace('" PIM_CMD_IP_MULTICAST_ROUTING,', ' ip multicast-routing",')
+                    line = line.replace('" PIM_CMD_IP_IGMP_QUERY_INTERVAL,', ' ip igmp query-interval",')
+                    line = line.replace('" PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC,', ' ip igmp query-max-response-time-dsec",')
+                    line = line.replace('" PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME,', ' ip igmp query-max-response-time",')
 
                     # startswith
                     line = line.replace('LISTEN_RANGE_CMD "', '"bgp listen range (A.B.C.D/M|X:X::X:X/M) ')
@@ -232,12 +236,17 @@ def update_argvs(filename):
                     line = line.replace('NEIGHBOR_CMD2 "', '"neighbor (A.B.C.D|X:X::X:X|WORD) ')
                     line = line.replace('NO_NEIGHBOR_CMD "', '"no neighbor (A.B.C.D|X:X::X:X) ')
                     line = line.replace('NEIGHBOR_CMD "', '"neighbor (A.B.C.D|X:X::X:X) ')
+                    line = line.replace('PIM_CMD_NO "', '"no ')
+                    line = line.replace('PIM_CMD_IP_IGMP_QUERY_INTERVAL "', '"ip igmp query-interval ')
+                    line = line.replace('PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME "', '"ip igmp query-max-response-time ')
+                    line = line.replace('PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC "', '"ip igmp query-max-response-time-dsec ')
 
                     # solo
                     line = line.replace('NO_NEIGHBOR_CMD2,', '"no neighbor (A.B.C.D|X:X::X:X|WORD)",')
                     line = line.replace('NEIGHBOR_CMD2,', '"neighbor (A.B.C.D|X:X::X:X|WORD)",')
                     line = line.replace('NO_NEIGHBOR_CMD,', '"no neighbor (A.B.C.D|X:X::X:X)",')
                     line = line.replace('NEIGHBOR_CMD,', '"neighbor (A.B.C.D|X:X::X:X)",')
+                    line = line.replace('PIM_CMD_IP_MULTICAST_ROUTING,', '"ip multicast-routing",')
 
                     if line.rstrip().endswith('" ,'):
                         line = line.replace('" ,', '",')
