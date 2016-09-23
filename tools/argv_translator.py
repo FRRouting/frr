@@ -280,7 +280,7 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'egp|igp|incomplete':
         return 'idx_origin'
 
-    elif token == 'cisco|zebra':
+    elif token == 'cisco|zebra' or token == 'cisco|ibm|shortcut|standard':
         return 'idx_vendor'
 
     elif token == 'as-set|no-as-set':
@@ -316,7 +316,7 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'ipv4|ipv6' or token == 'ip|ipv6':
         return 'idx_afi'
 
-    elif token == 'md5|clear':
+    elif token == 'md5|clear' or token == 'null|message-digest':
         return 'idx_encryption'
 
     elif token == 'type-1|type-2':
@@ -325,13 +325,25 @@ def get_token_index_variable_name(line_number, token):
     elif token == 'table|intra-area|inter-area|memory':
         return 'idx_type'
 
-    elif token == 'unknown|hello|dbdesc|lsreq|lsupdate|lsack|all':
+    elif token == 'translate-candidate|translate-never|translate-always':
+        return 'idx_translate'
+
+    elif token == 'intra-area (1-255)|inter-area (1-255)|external (1-255)':
+        return 'idx_area_distance'
+
+    elif token == 'metric (0-16777214)|metric-type <1|2>|route-map WORD' or token == 'always|metric (0-16777214)|metric-type <1|2>|route-map WORD':
+        return 'idx_redist_param'
+
+    elif token == 'default|enable|disable' or token == 'enable|disable':
+        return 'idx_enable_disable'
+
+    elif token == 'unknown|hello|dbdesc|lsreq|lsupdate|lsack|all' or token == 'hello|dd|ls-request|ls-update|ls-ack|all':
         return 'idx_packet'
 
-    elif token == 'router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown' or token == 'intra-area|inter-area|external-1|external-2' or token == 'router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix':
+    elif token == 'router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown' or token == 'intra-area|inter-area|external-1|external-2' or token == 'router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix' or  token == 'asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as':
         return 'idx_lsa'
 
-    elif token == 'broadcast|point-to-point':
+    elif token == 'broadcast|point-to-point' or token == 'broadcast|non-broadcast|point-to-multipoint|point-to-point':
         return 'idx_network'
 
     elif token == 'A.B.C.D|(0-4294967295)':

@@ -1188,6 +1188,7 @@ DEFUN (router_info,
        "Enable the Router Information functionality with Area flooding scope\n"
        "OSPF area ID in IP format")
 {
+  int idx_ipv4 = 2;
 
   u_int8_t scope;
 
@@ -1197,7 +1198,7 @@ DEFUN (router_info,
   /* Check and get Area value if present */
   if (argc == 1)
     {
-      if (!inet_aton (argv[2]->arg, &OspfRI.area_id))
+      if (!inet_aton (argv[idx_ipv4]->arg, &OspfRI.area_id))
         {
           vty_out (vty, "Please specify Router Info Area by A.B.C.D%s",
                    VTY_NEWLINE);
@@ -1275,10 +1276,11 @@ DEFUN (pce_address,
        "Stable IP address of the PCE\n"
        "PCE address in IPv4 address format\n")
 {
+  int idx_ipv4 = 2;
   struct in_addr value;
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
-  if (!inet_aton (argv[2]->arg, &value))
+  if (!inet_aton (argv[idx_ipv4]->arg, &value))
     {
       vty_out (vty, "Please specify PCE Address by A.B.C.D%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -1322,10 +1324,11 @@ DEFUN (pce_path_scope,
        "Path scope visibilities of the PCE for path computation\n"
        "32-bit Hexadecimal value\n")
 {
+  int idx_bitpattern = 2;
   uint32_t scope;
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
-  if (sscanf (argv[2]->arg, "0x%x", &scope) != 1)
+  if (sscanf (argv[idx_bitpattern]->arg, "0x%x", &scope) != 1)
     {
       vty_out (vty, "pce_path_scope: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1369,13 +1372,14 @@ DEFUN (pce_domain,
        "AS number where the PCE as visibilities for path computation\n"
        "AS number in decimal <0-65535>\n")
 {
+  int idx_number = 3;
 
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
   struct listnode *node;
   struct ri_pce_subtlv_domain *domain;
 
-  if (sscanf (argv[3]->arg, "%d", &as) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "pce_domain: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1408,11 +1412,12 @@ DEFUN (no_pce_domain,
        "AS number where the PCE as visibilities for path computation\n"
        "AS number in decimal <0-65535>\n")
 {
+  int idx_number = 4;
 
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-  if (sscanf (argv[4]->arg, "%d", &as) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "no_pce_domain: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1437,13 +1442,14 @@ DEFUN (pce_neigbhor,
        "AS number of PCE neighbors\n"
        "AS number in decimal <0-65535>\n")
 {
+  int idx_number = 3;
 
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
   struct listnode *node;
   struct ri_pce_subtlv_neighbor *neighbor;
 
-  if (sscanf (argv[3]->arg, "%d", &as) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "pce_neighbor: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1476,11 +1482,12 @@ DEFUN (no_pce_neighbor,
        "AS number of PCE neighbor\n"
        "AS number in decimal <0-65535>\n")
 {
+  int idx_number = 4;
 
   uint32_t as;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-  if (sscanf (argv[4]->arg, "%d", &as) != 1)
+  if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "no_pce_neighbor: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
@@ -1504,11 +1511,12 @@ DEFUN (pce_cap_flag,
        "Capabilities of the PCE for path computation\n"
        "32-bit Hexadecimal value\n")
 {
+  int idx_bitpattern = 2;
 
   uint32_t cap;
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-  if (sscanf (argv[2]->arg, "0x%x", &cap) != 1)
+  if (sscanf (argv[idx_bitpattern]->arg, "0x%x", &cap) != 1)
     {
       vty_out (vty, "pce_cap_flag: fscanf: %s%s", safe_strerror (errno),
                VTY_NEWLINE);
