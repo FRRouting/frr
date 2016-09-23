@@ -29,5 +29,7 @@ extern size_t strnlen(const char *s, size_t maxlen);
 extern char * strndup (const char *, size_t);
 #endif
 
+extern int strmatch (const char *, const char *);
+
 #endif /* _ZEBRA_STR_H */
 

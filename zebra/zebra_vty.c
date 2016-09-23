@@ -3014,7 +3014,7 @@ DEFUN (show_ip_route_tag,
   u_short tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
  
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[4]->arg);
       tag = atoi(argv[6]->arg);
@@ -3063,7 +3063,7 @@ DEFUN (show_ip_route_prefix_longer,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[4]->arg);
       ret = str2prefix (argv[5]->arg, &p);
@@ -3114,7 +3114,7 @@ DEFUN (show_ip_route_supernets,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
@@ -3158,7 +3158,7 @@ DEFUN (show_ip_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       type = proto_redistnum (AFI_IP, argv[5]->arg);
       VRF_GET_ID (vrf_id, argv[4]->arg);
@@ -3246,7 +3246,7 @@ DEFUN (show_ip_route_addr,
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[4]->arg);
       ret = str2prefix_ipv4 (argv[5]->arg, &p);
@@ -3295,7 +3295,7 @@ DEFUN (show_ip_route_prefix,
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[4]->arg);
       ret = str2prefix_ipv4 (argv[5]->arg, &p);
@@ -3492,7 +3492,7 @@ DEFUN (show_ip_route_summary,
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
@@ -3519,7 +3519,7 @@ DEFUN (show_ip_route_summary_prefix,
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
@@ -5510,7 +5510,7 @@ DEFUN (show_ipv6_route_tag,
   u_short tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[4]->arg);
       tag = atoi(argv[6]->arg);
@@ -5559,7 +5559,7 @@ DEFUN (show_ipv6_route_prefix_longer,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[4]->arg);
       ret = str2prefix (argv[5]->arg, &p);
@@ -5669,7 +5669,7 @@ DEFUN (show_ipv6_route_addr,
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[4]->arg);
       ret = str2prefix_ipv6 (argv[5]->arg, &p);
@@ -5718,7 +5718,7 @@ DEFUN (show_ipv6_route_prefix,
   struct route_node *rn;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     {
       VRF_GET_ID (vrf_id, argv[4]->arg);
       ret = str2prefix_ipv6 (argv[5]->arg, &p);
@@ -5764,7 +5764,7 @@ DEFUN (show_ipv6_route_summary,
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
@@ -5791,7 +5791,7 @@ DEFUN (show_ipv6_route_summary_prefix,
   struct route_table *table;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
@@ -5822,7 +5822,7 @@ DEFUN (show_ipv6_mroute,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strcmp(argv[3]->text, "vrf"))
+  if (strmatch(argv[3]->text, "vrf"))
     VRF_GET_ID (vrf_id, argv[4]->arg);
 
   table = zebra_vrf_table (AFI_IP6, SAFI_MULTICAST, vrf_id);

@@ -133,3 +133,11 @@ strndup (const char *s, size_t maxlen)
     return (char *) memcpy (new, s, len);
 }
 #endif
+
+extern int
+strmatch (const char *str1, const char *str2)
+{
+  if (!strcmp(str1, str2))
+    return 1;
+  return 0;
+}
