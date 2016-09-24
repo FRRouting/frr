@@ -296,6 +296,8 @@ bgp_exit (int status)
   if (zlog_default)
     closezlog (zlog_default);
 
+  if (bgp_debug_count())
+    log_memstats_stderr ("bgpd");
   exit (status);
 }
 

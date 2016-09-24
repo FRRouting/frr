@@ -1686,6 +1686,50 @@ DEFUN (show_debugging_bgp,
   return CMD_SUCCESS;
 }
 
+/* return count of number of debug flags set */
+int 
+bgp_debug_count(void) 
+{
+  int ret = 0;
+  if (BGP_DEBUG (as4, AS4))
+    ret++;
+
+  if (BGP_DEBUG (as4, AS4_SEGMENT))
+    ret++;
+
+  if (BGP_DEBUG (bestpath, BESTPATH))
+    ret++;
+
+  if (BGP_DEBUG (keepalive, KEEPALIVE))
+    ret++;
+
+  if (BGP_DEBUG (neighbor_events, NEIGHBOR_EVENTS))
+    ret++;
+
+  if (BGP_DEBUG (nht, NHT))
+    ret++;
+
+  if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
+    ret++;
+
+  if (BGP_DEBUG (update, UPDATE_PREFIX))
+    ret++;
+
+  if (BGP_DEBUG (update, UPDATE_IN))
+    ret++;
+
+  if (BGP_DEBUG (update, UPDATE_OUT))
+    ret++;
+
+  if (BGP_DEBUG (zebra, ZEBRA))
+    ret++;
+
+  if (BGP_DEBUG (allow_martians, ALLOW_MARTIANS))
+    ret++;
+
+  return ret;
+}
+
 static int
 bgp_config_write_debug (struct vty *vty)
 {
