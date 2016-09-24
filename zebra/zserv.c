@@ -2263,13 +2263,13 @@ DEFUN (config_table,
        "Configure target kernel routing table\n"
        "TABLE integer\n")
 {
-  zebrad.rtm_table_default = strtol (argv[0], (char**)0, 10);
+  zebrad.rtm_table_default = strtol (argv[1]->arg, (char**)0, 10);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_config_table,
        no_config_table_cmd,
-       "no table TABLENO",
+       "no table [TABLENO]",
        NO_STR
        "Configure target kernel routing table\n"
        "TABLE integer\n")
