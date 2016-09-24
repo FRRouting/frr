@@ -623,22 +623,14 @@ DEFUN (bgp_config_type,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp config-type (cisco|zebra)",
- *     NO_STR
- *     BGP_STR
- *     "Configuration type\n"
- *     "cisco\n"
- *     "zebra\n"
- *
- */
 DEFUN (no_bgp_config_type,
        no_bgp_config_type_cmd,
-       "no bgp config-type",
+       "no bgp config-type [cisco|zebra]",
        NO_STR
        BGP_STR
-       "Display configuration type\n")
+       "Display configuration type\n"
+       "cisco\n"
+       "zebra\n")
 {
   bgp_option_unset (BGP_OPT_CONFIG_CISCO);
   return CMD_SUCCESS;
@@ -751,8 +743,6 @@ DEFUN (router_bgp,
 
   return CMD_SUCCESS;
 }
-
-
 
 /* "no router bgp" commands. */
 /*
@@ -900,21 +890,13 @@ DEFUN (no_bgp_router_id,
 
 
 /* BGP Cluster ID.  */
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "bgp cluster-id <1-4294967295>",
- *     BGP_STR
- *     "Configure Route-Reflector Cluster-id\n"
- *     "Route-Reflector Cluster-id as 32 bit quantity\n"
- *
- */
 DEFUN (bgp_cluster_id,
        bgp_cluster_id_cmd,
-       "bgp cluster-id A.B.C.D",
+       "bgp cluster-id <A.B.C.D|(1-4294967295)>",
        BGP_STR
        "Configure Route-Reflector Cluster-id\n"
-       "Route-Reflector Cluster-id in IP address format\n")
+       "Route-Reflector Cluster-id in IP address format\n"
+       "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
   int idx_ipv4 = 2;
   int ret;
@@ -936,52 +918,23 @@ DEFUN (bgp_cluster_id,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp cluster-id A.B.C.D",
- *     NO_STR
- *     BGP_STR
- *     "Configure Route-Reflector Cluster-id\n"
- *     "Route-Reflector Cluster-id in IP address format\n"
- *
- * "no bgp cluster-id <1-4294967295>",
- *     NO_STR
- *     BGP_STR
- *     "Configure Route-Reflector Cluster-id\n"
- *     "Route-Reflector Cluster-id as 32 bit quantity\n"
- *
- */
 DEFUN (no_bgp_cluster_id,
        no_bgp_cluster_id_cmd,
-       "no bgp cluster-id",
+       "no bgp cluster-id [A.B.C.D|(1-4294967295)]",
        NO_STR
        BGP_STR
-       "Configure Route-Reflector Cluster-id\n")
+       "Configure Route-Reflector Cluster-id\n"
+       "Route-Reflector Cluster-id in IP address format\n"
+       "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
-  int ret;
   struct bgp *bgp;
-  struct in_addr cluster;
 
   bgp = vty->index;
-
-  if (argc == 1)
-    {
-      ret = inet_aton (argv[3]->arg, &cluster);
-      if (! ret)
-	{
-	  vty_out (vty, "%% Malformed bgp cluster identifier%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-    }
-
   bgp_cluster_id_unset (bgp);
   bgp_clear_star_soft_out (vty, bgp->name);
 
   return CMD_SUCCESS;
 }
-
-
 
 DEFUN (bgp_confederation_identifier,
        bgp_confederation_identifier_cmd,
@@ -1004,19 +957,9 @@ DEFUN (bgp_confederation_identifier,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp confederation identifier " CMD_AS_RANGE,
- *     NO_STR
- *     "BGP specific commands\n"
- *     "AS confederation parameters\n"
- *     "AS number\n"
- *     "Set routing domain confederation AS\n"
- *
- */
 DEFUN (no_bgp_confederation_identifier,
        no_bgp_confederation_identifier_cmd,
-       "no bgp confederation identifier",
+       "no bgp confederation identifier [(1-4294967295)]",
        NO_STR
        "BGP specific commands\n"
        "AS confederation parameters\n"
@@ -1025,12 +968,10 @@ DEFUN (no_bgp_confederation_identifier,
   struct bgp *bgp;
 
   bgp = vty->index;
-
   bgp_confederation_id_unset (bgp);
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (bgp_confederation_peers,
        bgp_confederation_peers_cmd,
@@ -1170,37 +1111,24 @@ DEFUN (bgp_maxmed_admin_medv,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp max-med administrative <0-4294967294>",
- *     NO_STR
- *     BGP_STR
- *     "Advertise routes with max-med\n"
- *     "Administratively applied, for an indefinite period\n"
- *     "Max MED value to be used\n"
- *
- */
 DEFUN (no_bgp_maxmed_admin,
        no_bgp_maxmed_admin_cmd,
-       "no bgp max-med administrative",
+       "no bgp max-med administrative [<0-4294967294>]",
        NO_STR
        BGP_STR
        "Advertise routes with max-med\n"
-       "Administratively applied, for an indefinite period\n")
+       "Administratively applied, for an indefinite period\n"
+       "Max MED value to be used\n")
 {
   struct bgp *bgp;
 
   bgp = vty->index;
-
   bgp->v_maxmed_admin = BGP_MAXMED_ADMIN_UNCONFIGURED;
   bgp->maxmed_admin_value = BGP_MAXMED_VALUE_DEFAULT;
-
   bgp_maxmed_update(bgp);
 
   return CMD_SUCCESS;
 }
-
-
 
 DEFUN (bgp_maxmed_onstartup,
        bgp_maxmed_onstartup_cmd,
@@ -1258,31 +1186,15 @@ DEFUN (bgp_maxmed_onstartup_medv,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp max-med on-startup <5-86400> <0-4294967294>",
- *     NO_STR
- *     BGP_STR
- *     "Advertise routes with max-med\n"
- *     "Effective on a startup\n"
- *     "Time (seconds) period for max-med\n"
- *     "Max MED value to be used\n"
- *
- * "no bgp max-med on-startup <5-86400>",
- *     NO_STR
- *     BGP_STR
- *     "Advertise routes with max-med\n"
- *     "Effective on a startup\n"
- *     "Time (seconds) period for max-med\n"
- *
- */
 DEFUN (no_bgp_maxmed_onstartup,
        no_bgp_maxmed_onstartup_cmd,
-       "no bgp max-med on-startup",
+       "no bgp max-med on-startup [<5-86400> [<0-4294967294>]]",
        NO_STR
        BGP_STR
        "Advertise routes with max-med\n"
-       "Effective on a startup\n")
+       "Effective on a startup\n"
+       "Time (seconds) period for max-med\n"
+       "Max MED value to be used\n")
 {
   struct bgp *bgp;
 
@@ -1302,8 +1214,6 @@ DEFUN (no_bgp_maxmed_onstartup,
 
   return CMD_SUCCESS;
 }
-
-
 
 static int
 bgp_update_delay_config_vty (struct vty *vty, const char *delay,
@@ -1394,20 +1304,13 @@ DEFUN (bgp_update_delay_establish_wait,
 }
 
 /* Update-delay deconfiguration */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no update-delay <0-3600> <1-3600>",
- *     "Force initial delay for best-path and updates\n"
- *     "Seconds\n"
- *     "Wait for peers to be established\n"
- *     "Seconds\n"
- *
- */
 DEFUN (no_bgp_update_delay,
        no_bgp_update_delay_cmd,
-       "no update-delay (0-3600)",
+       "no update-delay [(0-3600) [(1-3600)]]",
+       NO_STR
        "Force initial delay for best-path and updates\n"
-       "Seconds\n")
+       "Seconds\n"
+       "Wait for peers to be established\n")
 {
   return bgp_update_delay_deconfig_vty(vty);
 }
@@ -1544,17 +1447,9 @@ DEFUN (bgp_maxpaths_ibgp_cluster,
 				 BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN, 1);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
- *     NO_STR
- *     "Forward packets over multiple paths\n"
- *     "Number of paths\n"
- *
- */
 DEFUN (no_bgp_maxpaths,
        no_bgp_maxpaths_cmd,
-       "no maximum-paths",
+       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
        NO_STR
        "Forward packets over multiple paths\n"
        "Number of paths\n")
@@ -1562,35 +1457,17 @@ DEFUN (no_bgp_maxpaths,
   return bgp_maxpaths_config_vty(vty, BGP_PEER_EBGP, NULL, 0, 0);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
- *     NO_STR
- *     "Forward packets over multiple paths\n"
- *     "iBGP-multipath\n"
- *     "Number of paths\n"
- *     "Match the cluster length\n"
- *
- * "no maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
- *     NO_STR
- *     "Forward packets over multiple paths\n"
- *     "iBGP-multipath\n"
- *     "Number of paths\n"
- *
- */
 DEFUN (no_bgp_maxpaths_ibgp,
        no_bgp_maxpaths_ibgp_cmd,
-       "no maximum-paths ibgp",
+       "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
        NO_STR
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
-       "Number of paths\n")
+       "Number of paths\n"
+       "Match the cluster length\n")
 {
   return bgp_maxpaths_config_vty(vty, BGP_PEER_IBGP, NULL, 0, 0);
 }
-
-
 
 int
 bgp_config_write_maxpaths (struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -1651,22 +1528,14 @@ DEFUN (bgp_timers,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no timers bgp <0-65535> <0-65535>",
- *     NO_STR
- *     "Adjust routing timers\n"
- *     "BGP timers\n"
- *     "Keepalive interval\n"
- *     "Holdtime\n"
- *
- */
 DEFUN (no_bgp_timers,
        no_bgp_timers_cmd,
-       "no timers bgp",
+       "no timers bgp [(0-65535) (0-65535)]",
        NO_STR
        "Adjust routing timers\n"
-       "BGP timers\n")
+       "BGP timers\n"
+       "Keepalive interval\n"
+       "Holdtime\n")
 {
   struct bgp *bgp;
 
@@ -1882,23 +1751,14 @@ DEFUN (bgp_graceful_restart_restart_time,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp graceful-restart stalepath-time <1-3600>",
- *     NO_STR
- *     "BGP specific commands\n"
- *     "Graceful restart capability parameters\n"
- *     "Set the max time to hold onto restarting peer's stale paths\n"
- *     "Delay value (seconds)\n"
- *
- */
 DEFUN (no_bgp_graceful_restart_stalepath_time,
        no_bgp_graceful_restart_stalepath_time_cmd,
-       "no bgp graceful-restart stalepath-time",
+       "no bgp graceful-restart stalepath-time [(1-3600)]",
        NO_STR
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
-       "Set the max time to hold onto restarting peer's stale paths\n")
+       "Set the max time to hold onto restarting peer's stale paths\n"
+       "Delay value (seconds)\n")
 {
   struct bgp *bgp;
 
@@ -1910,23 +1770,14 @@ DEFUN (no_bgp_graceful_restart_stalepath_time,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp graceful-restart restart-time <1-3600>",
- *     NO_STR
- *     "BGP specific commands\n"
- *     "Graceful restart capability parameters\n"
- *     "Set the time to wait to delete stale routes before a BGP open message is received\n"
- *     "Delay value (seconds)\n"
- *
- */
 DEFUN (no_bgp_graceful_restart_restart_time,
        no_bgp_graceful_restart_restart_time_cmd,
-       "no bgp graceful-restart restart-time",
+       "no bgp graceful-restart restart-time [(1-3600)]",
        NO_STR
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
-       "Set the time to wait to delete stale routes before a BGP open message is received\n")
+       "Set the time to wait to delete stale routes before a BGP open message is received\n"
+       "Delay value (seconds)\n")
 {
   struct bgp *bgp;
 
@@ -1937,8 +1788,6 @@ DEFUN (no_bgp_graceful_restart_restart_time,
   bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
   return CMD_SUCCESS;
 }
-
-
 
 /* "bgp fast-external-failover" configuration. */
 DEFUN (bgp_fast_external_failover,
@@ -2209,24 +2058,16 @@ DEFUN (bgp_bestpath_med,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "bgp bestpath med missing-as-worst confed",
- *     "BGP specific commands\n"
- *     "Change the default bestpath selection\n"
- *     "MED attribute\n"
- *     "Treat missing MED as the least preferred one\n"
- *     "Compare MED among confederation paths\n"
- *
- */
 DEFUN (bgp_bestpath_med2,
        bgp_bestpath_med2_cmd,
-       "bgp bestpath med confed missing-as-worst",
+       "bgp bestpath med (confed missing-as-worst|missing-as-worst confed)",
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "MED attribute\n"
        "Compare MED among confederation paths\n"
-       "Treat missing MED as the least preferred one\n")
+       "Treat missing MED as the least preferred one\n"
+       "Treat missing MED as the least preferred one\n"
+       "Compare MED among confederation paths\n")
 {
   struct bgp *bgp;
   
@@ -2264,20 +2105,9 @@ DEFUN (no_bgp_bestpath_med,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp bestpath med missing-as-worst confed",
- *     NO_STR
- *     "BGP specific commands\n"
- *     "Change the default bestpath selection\n"
- *     "MED attribute\n"
- *     "Treat missing MED as the least preferred one\n"
- *     "Compare MED among confederation paths\n"
- *
- */
 DEFUN (no_bgp_bestpath_med2,
        no_bgp_bestpath_med2_cmd,
-       "no bgp bestpath med confed missing-as-worst",
+       "no bgp bestpath med [confed] missing-as-worst",
        NO_STR
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
@@ -2294,7 +2124,6 @@ DEFUN (no_bgp_bestpath_med2,
 
   return CMD_SUCCESS;
 }
-
 
 /* "no bgp default ipv4-unicast". */
 DEFUN (no_bgp_default_ipv4_unicast,
@@ -2426,23 +2255,14 @@ DEFUN (bgp_default_local_preference,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp default local-preference <0-4294967295>",
- *     NO_STR
- *     "BGP specific commands\n"
- *     "Configure BGP defaults\n"
- *     "local preference (higher=more preferred)\n"
- *     "Configure default local preference value\n"
- *
- */
 DEFUN (no_bgp_default_local_preference,
        no_bgp_default_local_preference_cmd,
-       "no bgp default local-preference",
+       "no bgp default local-preference [(0-4294967295)]",
        NO_STR
        "BGP specific commands\n"
        "Configure BGP defaults\n"
-       "local preference (higher=more preferred)\n")
+       "local preference (higher=more preferred)\n"
+       "Configure default local preference value\n")
 {
   struct bgp *bgp;
 
@@ -2475,23 +2295,14 @@ DEFUN (bgp_default_subgroup_pkt_queue_max,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp default subgroup-pkt-queue-max <20-100>",
- *     NO_STR
- *     "BGP specific commands\n"
- *     "Configure BGP defaults\n"
- *     "subgroup-pkt-queue-max\n"
- *     "Configure subgroup packet queue max\n"
- *
- */
 DEFUN (no_bgp_default_subgroup_pkt_queue_max,
        no_bgp_default_subgroup_pkt_queue_max_cmd,
-       "no bgp default subgroup-pkt-queue-max",
+       "no bgp default subgroup-pkt-queue-max [(20-100)]",
        NO_STR
        "BGP specific commands\n"
        "Configure BGP defaults\n"
-       "subgroup-pkt-queue-max\n")
+       "subgroup-pkt-queue-max\n"
+       "Configure subgroup packet queue max\n")
 {
   struct bgp *bgp;
 
@@ -2567,23 +2378,14 @@ DEFUN (bgp_listen_limit,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp listen limit " DYNAMIC_NEIGHBOR_LIMIT_RANGE,
- *     NO_STR
- *     "BGP specific commands\n"
- *     "Configure BGP defaults\n"
- *     "maximum number of BGP Dynamic Neighbors that can be created\n"
- *     "Configure Dynamic Neighbors listen limit value\n"
- *
- */
 DEFUN (no_bgp_listen_limit,
        no_bgp_listen_limit_cmd,
-       "no bgp listen limit",
+       "no bgp listen limit [(1-5000)]",
        "BGP specific commands\n"
        "Configure BGP defaults\n"
        "unset maximum number of BGP Dynamic Neighbors that can be created\n"
-       "Configure Dynamic Neighbors listen limit value to default\n")
+       "Configure Dynamic Neighbors listen limit value to default\n"
+       "Configure Dynamic Neighbors listen limit value\n")
 {
   struct bgp *bgp;
 
@@ -3245,11 +3047,6 @@ DEFUN (no_neighbor_interface_config,
     }
   return CMD_SUCCESS;
 }
-
-
-
-
-
 
 DEFUN (no_neighbor_peer_group,
        no_neighbor_peer_group_cmd,
@@ -6557,136 +6354,54 @@ DEFUN (clear_ip_bgp_all,
   return bgp_clear_vty (vty, argv[4]->arg, 0, 0, clear_all, BGP_CLEAR_SOFT_NONE, NULL);    
 }
 
-
-
-
-
-
 /*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " (A.B.C.D|X:X::X:X|WORD)",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor IP address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *
- * "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD)",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 (A.B.C.D|X:X::X:X|WORD)",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "BGP neighbor IP address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *
- * "clear bgp (A.B.C.D|X:X::X:X|WORD)",
- *     CLEAR_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|X:X::X:X|WORD)",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor IP address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *
+ * CHECK ME need ipv6 equivalent
  */
 DEFUN (clear_ip_bgp_peer,
        clear_ip_bgp_peer_cmd,
-       "clear ip bgp <A.B.C.D|X:X::X:X|WORD>",
+       "clear [ip] bgp [<view|vrf> WORD] <A.B.C.D|X:X::X:X|WORD|peer-group WORD>",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "BGP neighbor IP address to clear\n"
        "BGP IPv6 neighbor to clear\n"
-       "BGP neighbor on interface to clear\n")
-{
-  int idx_peer = 3;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], 0, 0, clear_peer, BGP_CLEAR_SOFT_NONE, argv[2]);
-
-  return bgp_clear_vty (vty, NULL, 0, 0, clear_peer, BGP_CLEAR_SOFT_NONE, argv[idx_peer]->arg);
-}
-
-
-
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp peer-group WORD",
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 peer-group WORD",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *
- * "clear bgp " BGP_INSTANCE_CMD " peer-group WORD",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *
- * "clear bgp ipv6 peer-group WORD",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *
- */
-DEFUN (clear_ip_bgp_peer_group,
-       clear_ip_bgp_peer_group_cmd,
-       "clear ip bgp peer-group WORD",
-       CLEAR_STR
-       IP_STR
-       BGP_STR
+       "BGP neighbor on interface to clear\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n")
 {
-  int idx_word = 4;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], 0, 0, clear_group, BGP_CLEAR_SOFT_NONE, argv[2]);
+  int idx_ip = 1;
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  int idx_peer = 5;
+  char *vrf_name = NULL;
+  enum clear_sort clearer;
 
-  return bgp_clear_vty (vty, NULL, 0, 0, clear_group, BGP_CLEAR_SOFT_NONE, argv[idx_word]->arg);
+  if (!strmatch(argv[idx_ip]->text, "ip"))
+    {
+      idx_view_vrf--;
+      idx_vrf--;
+      idx_peer--;
+    }
+   
+  if (argv[idx_view_vrf]->type == WORD_TKN)
+    vrf_name = argv[idx_vrf]->arg;
+  else
+    idx_peer -= 2;
+
+  /* peer-group WORD */
+  if (argv[idx_peer]->type == WORD_TKN)
+    {
+      clearer = clear_group;
+      idx_peer += 1;
+    }
+  else
+    {
+      clearer = clear_peer;
+    }
+
+  return bgp_clear_vty (vty, vrf_name, 0, 0, clearer, BGP_CLEAR_SOFT_NONE, argv[idx_peer]->arg);
 }
-
-
-
-
-
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
@@ -6697,107 +6412,72 @@ DEFUN (clear_ip_bgp_peer_group,
  *     "Address family\n"
  *     "Clear all external peers\n"
  *
- * "clear bgp " BGP_INSTANCE_CMD " external",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all external peers\n"
- *
- * "clear bgp external",
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear all external peers\n"
- *
  * "clear bgp ipv6 external",
  *     CLEAR_STR
  *     BGP_STR
  *     "Address family\n"
  *     "Clear all external peers\n"
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " external",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all external peers\n"
- *
  */
 DEFUN (clear_ip_bgp_external,
        clear_ip_bgp_external_cmd,
-       "clear ip bgp external",
+       "clear [ip] bgp [<view|vrf> WORD] external",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all external peers\n")
 {
-  if (argc == 2)
-    return bgp_clear_vty (vty, argv[1], 0, 0, clear_external, BGP_CLEAR_SOFT_NONE, NULL);
+  int idx_ip = 1;
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  char *vrf_name = NULL;
 
-  return bgp_clear_vty (vty, NULL, 0, 0, clear_external, BGP_CLEAR_SOFT_NONE, NULL);
+  if (!strmatch(argv[idx_ip]->text, "ip"))
+    {
+      idx_view_vrf--;
+      idx_vrf--;
+    }
+
+  if (argv[idx_view_vrf]->type == WORD_TKN)
+    vrf_name = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf_name, 0, 0, clear_external, BGP_CLEAR_SOFT_NONE, NULL);
 }
 
-
-
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " prefix A.B.C.D/M",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear bestpath and re-advertise\n"
- *     "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " prefix A.B.C.D/M",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear bestpath and re-advertise\n"
- *     "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
- *
- * "clear bgp prefix A.B.C.D/M",
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear bestpath and re-advertise\n"
- *     "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
- *
- */
 DEFUN (clear_ip_bgp_prefix,
        clear_ip_bgp_prefix_cmd,
-       "clear ip bgp prefix A.B.C.D/M",
+       "clear [ip] bgp [<view|vrf> WORD] prefix A.B.C.D/M",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear bestpath and re-advertise\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-  int idx_ipv4_prefixlen = 4;
-  if (argc == 3)
-    return bgp_clear_prefix (vty, argv[1], argv[2], AFI_IP, SAFI_UNICAST, NULL);
+  int idx_ip = 1;
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  int idx_ipv4_prefixlen = 6;
+  char *vrf_name = NULL;
 
-  return bgp_clear_prefix (vty, NULL, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL);
+  if (!strmatch(argv[idx_ip]->text, "ip"))
+    {
+      idx_view_vrf--;
+      idx_vrf--;
+      idx_ipv4_prefixlen--;
+    }
+
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf_name = argv[idx_vrf]->arg;
+  else
+    idx_ipv4_prefixlen -= 2;
+
+  return bgp_clear_prefix (vty, vrf_name, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL);
 }
-
-
-
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE,
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear peers with the AS number\n"
- *
- * "clear bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE,
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear peers with the AS number\n"
+ * need ipv6 options
  *
  * "clear bgp ipv6 " CMD_AS_RANGE,
  *     CLEAR_STR
@@ -6811,98 +6491,62 @@ DEFUN (clear_ip_bgp_prefix,
  *     BGP_INSTANCE_HELP_STR
  *     "Address family\n"
  *     "Clear peers with the AS number\n"
- *
- * "clear bgp " CMD_AS_RANGE,
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *
  */
 DEFUN (clear_ip_bgp_as,
        clear_ip_bgp_as_cmd,
-       "clear ip bgp " CMD_AS_RANGE,
+       "clear [ip] bgp [<view|vrf> WORD] " CMD_AS_RANGE,
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear peers with the AS number\n")
 {
+  int idx_ip = 1;
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
   int idx_number = 3;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], 0, 0, clear_as, BGP_CLEAR_SOFT_NONE, argv[2]);
+  char *vrf_name = NULL;
 
-  return bgp_clear_vty (vty, NULL, 0, 0, clear_as, BGP_CLEAR_SOFT_NONE, argv[idx_number]->arg);
+  if (!strmatch(argv[idx_ip]->text, "ip"))
+    {
+      idx_view_vrf--;
+      idx_vrf--;
+      idx_number--;
+    }
+
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf_name = argv[idx_vrf]->arg;
+  else
+    idx_number -= 2;
+
+  return bgp_clear_vty (vty, vrf_name, 0, 0, clear_as, BGP_CLEAR_SOFT_NONE, argv[idx_number]->arg);
 }
 
-
-
-
-
-
 /* Outbound soft-reconfiguration */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " * out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " * soft out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp * out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_all_soft_out,
        clear_ip_bgp_all_soft_out_cmd,
-       "clear ip bgp * soft out",
+       "clear ip bgp [<view|vrf> WORD] * [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all peers\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (argc == 2)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
-                          BGP_CLEAR_SOFT_OUT, NULL);
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  char *vrf_name = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
-			BGP_CLEAR_SOFT_OUT, NULL);
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf_name = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf_name, AFI_IP, SAFI_UNICAST, clear_all, BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp * ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_all_ipv4_soft_out,
        clear_ip_bgp_all_ipv4_soft_out_cmd,
-       "clear ip bgp * ipv4 <unicast|multicast> soft out",
+       "clear ip bgp * ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6922,23 +6566,9 @@ DEFUN (clear_ip_bgp_all_ipv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
        clear_ip_bgp_instance_all_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6960,23 +6590,9 @@ DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
                         BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp * vpnv4 unicast out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_all_vpnv4_soft_out,
        clear_ip_bgp_all_vpnv4_soft_out_cmd,
-       "clear ip bgp * vpnv4 unicast soft out",
+       "clear ip bgp * vpnv4 unicast [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6990,22 +6606,9 @@ DEFUN (clear_ip_bgp_all_vpnv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp * encap unicast out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *     "Soft reconfig outbound update\n"
- *
- */
 DEFUN (clear_ip_bgp_all_encap_soft_out,
        clear_ip_bgp_all_encap_soft_out_cmd,
-       "clear ip bgp * encap unicast soft out",
+       "clear ip bgp * encap unicast [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7092,12 +6695,6 @@ DEFUN (clear_bgp_all_soft_out,
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
-
-
-
-
-
-
 
 
 DEFUN (clear_bgp_ipv6_safi_prefix,
@@ -7188,9 +6785,6 @@ DEFUN (clear_ip_bgp_peer_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_ipv4_word]->arg);
 }
 
-
-
-
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
  * "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) out",
@@ -7269,8 +6863,6 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_out,
   return bgp_clear_vty (vty, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_OUT, argv[idx_ipv4_word]->arg);
 }
-
-
 
 /* NOTE: WORD peers have not been tested for vpnv4 */
 /*
@@ -15897,7 +15489,6 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &clear_ip_bgp_all_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_as_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_peer_cmd);
-  install_element (ENABLE_NODE, &clear_ip_bgp_peer_group_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_external_cmd);
 
 
