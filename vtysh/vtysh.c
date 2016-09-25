@@ -1084,7 +1084,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_BGPD,
 	 router_bgp,
 	 router_bgp_cmd,
-	 "router bgp " CMD_AS_RANGE,
+	 "router bgp (1-4294967295)",
 	 ROUTER_STR
 	 BGP_STR
 	 AS_STR)
@@ -1103,7 +1103,7 @@ ALIAS_SH (VTYSH_BGPD,
 ALIAS_SH (VTYSH_BGPD,
 	  router_bgp,
 	  router_bgp_view_cmd,
-	  "router bgp " CMD_AS_RANGE " (view|vrf) WORD",
+	  "router bgp (1-4294967295) (view|vrf) WORD",
 	  ROUTER_STR
 	  BGP_STR
 	  AS_STR
@@ -1616,7 +1616,7 @@ DEFUNSH (VTYSH_INTERFACE,
 ALIAS_SH (VTYSH_ZEBRA,
 	 vtysh_interface,
 	 vtysh_interface_vrf_cmd,
-	 "interface IFNAME " VRF_CMD_STR,
+	 "interface IFNAME vrf NAME",
 	 "Select an interface to configure\n"
          "Interface's name\n"
          VRF_CMD_HELP_STR)
@@ -1631,7 +1631,7 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
 
 DEFSH (VTYSH_ZEBRA,
        vtysh_no_interface_vrf_cmd,
-       "no interface IFNAME " VRF_CMD_STR,
+       "no interface IFNAME vrf NAME",
        NO_STR
        "Delete a pseudo interface's configuration\n"
        "Interface's name\n"
@@ -1867,7 +1867,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_stdout_level,
 	 vtysh_log_stdout_level_cmd,
-	 "log stdout "LOG_LEVELS,
+	 "log stdout <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 	 "Logging control\n"
 	 "Set stdout logging level\n"
 	 LOG_LEVEL_DESC)
@@ -1901,7 +1901,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_file_level,
 	 vtysh_log_file_level_cmd,
-	 "log file FILENAME "LOG_LEVELS,
+	 "log file FILENAME <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 	 "Logging control\n"
 	 "Logging to file\n"
 	 "Logging filename\n"
@@ -1945,7 +1945,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_monitor_level,
 	 vtysh_log_monitor_level_cmd,
-	 "log monitor "LOG_LEVELS,
+	 "log monitor <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 	 "Logging control\n"
 	 "Set terminal line (monitor) logging level\n"
 	 LOG_LEVEL_DESC)
@@ -1978,7 +1978,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_syslog_level,
 	 vtysh_log_syslog_level_cmd,
-	 "log syslog "LOG_LEVELS,
+	 "log syslog <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 	 "Logging control\n"
 	 "Set syslog logging level\n"
 	 LOG_LEVEL_DESC)
@@ -2001,7 +2001,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_facility,
 	 vtysh_log_facility_cmd,
-	 "log facility "LOG_FACILITIES,
+	 "log facility <kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>",
 	 "Logging control\n"
 	 "Facility parameter for syslog messages\n"
 	 LOG_FACILITY_DESC)
@@ -2026,7 +2026,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH_DEPRECATED (VTYSH_ALL,
 		    vtysh_log_trap,
 		    vtysh_log_trap_cmd,
-		    "log trap "LOG_LEVELS,
+		    "log trap <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 		    "Logging control\n"
 		    "(Deprecated) Set logging level and default for all destinations\n"
 		    LOG_LEVEL_DESC)

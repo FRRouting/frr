@@ -98,7 +98,7 @@ int pim_global_config_write(struct vty *vty)
   char buffer[32];
 
   if (PIM_MROUTE_IS_ENABLED) {
-    vty_out(vty, "%s%s", PIM_CMD_IP_MULTICAST_ROUTING, VTY_NEWLINE);
+    vty_out(vty, "ip multicast-routing%s", VTY_NEWLINE);
     ++writes;
   }
   if (qpim_rp.rpf_addr.s_addr != INADDR_NONE) {
@@ -170,8 +170,7 @@ int pim_interface_config_write(struct vty *vty)
       /* IF ip igmp query-interval */
       if (pim_ifp->igmp_default_query_interval != IGMP_GENERAL_QUERY_INTERVAL)
 	{
-	  vty_out(vty, " %s %d%s",
-		  PIM_CMD_IP_IGMP_QUERY_INTERVAL,
+	  vty_out(vty, " ip igmp query-interval %d%s",
 		  pim_ifp->igmp_default_query_interval,
 		  VTY_NEWLINE);
 	  ++writes;
@@ -180,8 +179,7 @@ int pim_interface_config_write(struct vty *vty)
       /* IF ip igmp query-max-response-time */
       if (pim_ifp->igmp_query_max_response_time_dsec != IGMP_QUERY_MAX_RESPONSE_TIME_DSEC)
 	{
-	  vty_out(vty, " %s %d%s",
-		  PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC,
+	  vty_out(vty, " ip igmp query-max-response-time-dsec %d%s",
 		  pim_ifp->igmp_query_max_response_time_dsec,
 		  VTY_NEWLINE);
 	  ++writes;

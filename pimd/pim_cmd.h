@@ -60,12 +60,6 @@
 #define MROUTE_STR                                  "IP multicast routing table\n"
 #define RIB_STR                                     "IP unicast routing table\n"
 
-#define PIM_CMD_NO                                   "no"
-#define PIM_CMD_IP_MULTICAST_ROUTING                 "ip multicast-routing"
-#define PIM_CMD_IP_IGMP_QUERY_INTERVAL               "ip igmp query-interval"
-#define PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME      "ip igmp query-max-response-time"
-#define PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC "ip igmp query-max-response-time-dsec"
-
 void pim_cmd_init(void);
 
 #endif /* PIM_CMD_H */

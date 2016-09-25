@@ -319,7 +319,6 @@ struct cmd_element
  */
 #define CMD_CREATE_STR(s)  CMD_CREATE_STR_HELPER(s)
 #define CMD_CREATE_STR_HELPER(s) #s
-#define CMD_RANGE_STR(a,s) "<" CMD_CREATE_STR(a) "-" CMD_CREATE_STR(s) ">"
 
 /* Common descriptions. */
 #define SHOW_STR "Show running system information\n"
@@ -372,28 +371,18 @@ struct cmd_element
 /* IPv4 only machine should not accept IPv6 address for peer's IP
    address.  So we replace VTY command string like below. */
 #ifdef HAVE_IPV6
-#define NEIGHBOR_CMD       "neighbor <A.B.C.D|X:X::X:X> "
-#define NO_NEIGHBOR_CMD    "no neighbor <A.B.C.D|X:X::X:X> "
 #define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"
-#define NEIGHBOR_CMD2      "neighbor <A.B.C.D|X:X::X:X|WORD> "
-#define NO_NEIGHBOR_CMD2   "no neighbor <A.B.C.D|X:X::X:X|WORD> "
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
 #define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
 #else
-#define NEIGHBOR_CMD       "neighbor A.B.C.D "
-#define NO_NEIGHBOR_CMD    "no neighbor A.B.C.D "
 #define NEIGHBOR_ADDR_STR  "Neighbor address\n"
-#define NEIGHBOR_CMD2      "neighbor <A.B.C.D|WORD> "
-#define NO_NEIGHBOR_CMD2   "no neighbor <A.B.C.D|WORD> "
 #define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor tag\n"
 #endif /* HAVE_IPV6 */
 
 /* Dynamic neighbor (listen range) configuration */
 #ifdef HAVE_IPV6
-#define LISTEN_RANGE_CMD      "bgp listen range <A.B.C.D/M|X:X::X:X/M> "
 #define LISTEN_RANGE_ADDR_STR "Neighbor address\nNeighbor IPv6 address\n"
 #else
-#define LISTEN_RANGE_CMD      "bgp listen range A.B.C.D/M "
 #define LISTEN_RANGE_ADDR_STR "Neighbor address\n"
 #endif /* HAVE_IPV6 */
 

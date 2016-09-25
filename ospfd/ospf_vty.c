@@ -5757,11 +5757,6 @@ show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 #define OSPF_LSA_TYPE_OPAQUE_AS_DESC   "Link AS Opaque-LSA\n"
 #define OSPF_LSA_TYPE_OPAQUE_CMD_STR   "|opaque-link|opaque-area|opaque-as"
 
-#define OSPF_LSA_TYPES_CMD_STR                                                \
-    "asbr-summary|external|network|router|summary"                            \
-    OSPF_LSA_TYPE_NSSA_CMD_STR                                                \
-    OSPF_LSA_TYPE_OPAQUE_CMD_STR
-
 #define OSPF_LSA_TYPES_DESC                                                   \
    "ASBR summary link states\n"                                               \
    "External link states\n"                                                   \

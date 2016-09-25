@@ -192,8 +192,6 @@ struct timestamp_control {
 
 /* Defines for use in command construction: */
 
-#define LOG_LEVELS "(emergencies|alerts|critical|errors|warnings|notifications|informational|debugging)"
-
 #define LOG_LEVEL_DESC \
   "System is unusable\n" \
   "Immediate action needed\n" \
@@ -203,8 +201,6 @@ struct timestamp_control {
   "Normal but significant conditions\n" \
   "Informational messages\n" \
   "Debugging messages\n"
-
-#define LOG_FACILITIES "(kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)"
 
 #define LOG_FACILITY_DESC \
        "Kernel\n" \

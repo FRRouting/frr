@@ -50,11 +50,7 @@ enum {
 /*
  * The command strings
  */
-
-#define VRF_CMD_STR         "vrf NAME"
 #define VRF_CMD_HELP_STR    "Specify the VRF\nThe VRF name\n"
-
-#define VRF_ALL_CMD_STR         "vrf all"
 #define VRF_ALL_CMD_HELP_STR    "Specify the VRF\nAll VRFs\n"
 
 /*
