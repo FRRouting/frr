@@ -2910,7 +2910,7 @@ DEFUN (neighbor_peer_group,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD "remote-as (" CMD_AS_RANGE "|internal|external)",
+ * "no neighbor <A.B.C.D|X:X::X:X> remote-as ((1-4294967295)|internal|external)",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR
@@ -3171,14 +3171,14 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE,
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295)",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "Specify a local-as number\n"
  *     "AS number used as local AS\n"
  *
- * NO_NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE " no-prepend",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295) no-prepend",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -3186,7 +3186,7 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
  *     "AS number used as local AS\n"
  *     "Do not prepend local-as to updates from ebgp peers\n"
  *
- * NO_NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE " no-prepend replace-as",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295) no-prepend replace-as",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -3281,7 +3281,7 @@ DEFUN (neighbor_password,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "password LINE",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> password LINE",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4130,7 +4130,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NEIGHBOR_CMD2 "attribute-unchanged med next-hop as-path",
+ * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med next-hop as-path",
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4138,7 +4138,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
  *     "Nexthop attribute\n"
  *     "As-path attribute\n"
  *
- * NEIGHBOR_CMD2 "attribute-unchanged med as-path next-hop",
+ * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med as-path next-hop",
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4146,7 +4146,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
  *     "As-path attribute\n"
  *     "Nexthop attribute\n"
  *
- * NEIGHBOR_CMD2 "attribute-unchanged as-path next-hop med",
+ * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path next-hop med",
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4154,7 +4154,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
  *     "Nexthop attribute\n"
  *     "Med attribute\n"
  *
- * NEIGHBOR_CMD2 "attribute-unchanged next-hop as-path med",
+ * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop as-path med",
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4162,7 +4162,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
  *     "As-path attribute\n"
  *     "Med attribute\n"
  *
- * NEIGHBOR_CMD2 "attribute-unchanged as-path med next-hop",
+ * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path med next-hop",
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4170,7 +4170,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
  *     "Med attribute\n"
  *     "Nexthop attribute\n"
  *
- * NEIGHBOR_CMD2 "attribute-unchanged next-hop med as-path",
+ * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop med as-path",
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4297,7 +4297,7 @@ DEFUN (neighbor_attr_unchanged4,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "attribute-unchanged next-hop med as-path",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop med as-path",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4306,7 +4306,7 @@ DEFUN (neighbor_attr_unchanged4,
  *     "Med attribute\n"
  *     "As-path attribute\n"
  *
- * NO_NEIGHBOR_CMD2 "attribute-unchanged as-path med next-hop",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path med next-hop",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4315,7 +4315,7 @@ DEFUN (neighbor_attr_unchanged4,
  *     "Med attribute\n"
  *     "Nexthop attribute\n"
  *
- * NO_NEIGHBOR_CMD2 "attribute-unchanged med as-path next-hop",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med as-path next-hop",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4324,7 +4324,7 @@ DEFUN (neighbor_attr_unchanged4,
  *     "As-path attribute\n"
  *     "Nexthop attribute\n"
  *
- * NO_NEIGHBOR_CMD2 "attribute-unchanged next-hop as-path med",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop as-path med",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4333,7 +4333,7 @@ DEFUN (neighbor_attr_unchanged4,
  *     "As-path attribute\n"
  *     "Med attribute\n"
  *
- * NO_NEIGHBOR_CMD2 "attribute-unchanged as-path next-hop med",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path next-hop med",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4342,7 +4342,7 @@ DEFUN (neighbor_attr_unchanged4,
  *     "Nexthop attribute\n"
  *     "Med attribute\n"
  *
- * NO_NEIGHBOR_CMD2 "attribute-unchanged med next-hop as-path",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med next-hop as-path",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4534,7 +4534,7 @@ DEFUN (neighbor_ebgp_multihop_ttl,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MAXTTL),
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop (1-255)",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4558,7 +4558,7 @@ DEFUN (no_neighbor_ebgp_multihop,
 /* disable-connected-check */
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NEIGHBOR_CMD2 "enforce-multihop",
+ * "neighbor <A.B.C.D|X:X::X:X|WORD> enforce-multihop",
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "Enforce EBGP neighbors perform multihop\n"
@@ -4577,7 +4577,7 @@ DEFUN (neighbor_disable_connected_check,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "enforce-multihop",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> enforce-multihop",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4630,7 +4630,7 @@ DEFUN (neighbor_description,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "description .LINE",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> description .LINE",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -4773,7 +4773,7 @@ DEFUN (neighbor_default_originate_rmap,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "default-originate route-map WORD",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> default-originate route-map WORD",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -5779,14 +5779,14 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295>",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295>",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "Maximum number of prefix accept from this peer\n"
  *     "maximum no. of prefix limit\n"
  *
- * NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100> restart <1-65535>",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> <1-100> restart <1-65535>",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -5796,7 +5796,7 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
  *     "Restart bgp connection after limit is exceeded\n"
  *     "Restart interval in minutes"
  *
- * NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> warning-only",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> warning-only",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -5804,7 +5804,7 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
  *     "maximum no. of prefix limit\n"
  *     "Only give warning message when limit is exceeded\n"
  *
- * NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> restart <1-65535>",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> restart <1-65535>",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -5813,7 +5813,7 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
  *     "Restart bgp connection after limit is exceeded\n"
  *     "Restart interval in minutes"
  *
- * NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100> warning-only",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> <1-100> warning-only",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -5822,7 +5822,7 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
  *     "Threshold value (%) at which to generate a warning msg\n"
  *     "Only give warning message when limit is exceeded\n"
  *
- * NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100>",
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> <1-100>",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
@@ -5853,7 +5853,7 @@ DEFUN (no_neighbor_maximum_prefix,
 /* "neighbor allowas-in" */
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NEIGHBOR_CMD2 "allowas-in <1-10>",
+ * "neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in <1-10>",
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2
  *     "Accept as-path with my AS present in it\n"

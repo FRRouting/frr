@@ -640,7 +640,7 @@ DEFUN_HIDDEN (neighbor_bfd_type,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+ * "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
  *     NO_STR
  *     NEIGHBOR_STR
  *     NEIGHBOR_ADDR_STR2

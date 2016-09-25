@@ -520,6 +520,7 @@ def expand_command_string(line):
     line = line.replace('" QUAGGA_REDIST_STR_OSPF6D "', '<kernel|connected|static|ripng|isis|bgp|table>')
     line = line.replace('" QUAGGA_REDIST_STR_ISISD "', '<kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table>')
     line = line.replace('" LOG_FACILITIES "', '<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>')
+    line = line.replace('" LOG_LEVELS "', ' (emergencies|alerts|critical|errors|warnings|notifications|informational|debugging)')
 
     # endswith
     line = line.replace('" CMD_AS_RANGE,', ' (1-4294967295)",')
@@ -551,6 +552,7 @@ def expand_command_string(line):
     line = line.replace('" QUAGGA_REDIST_STR_OSPF6D,', ' <kernel|connected|static|ripng|isis|bgp|table>",')
     line = line.replace('" QUAGGA_REDIST_STR_ISISD,', ' <kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table>",')
     line = line.replace('" LOG_FACILITIES,', ' <kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>",')
+    line = line.replace('" LOG_LEVELS,', ' (emergencies|alerts|critical|errors|warnings|notifications|informational|debugging)",')
 
     # startswith
     line = line.replace('LISTEN_RANGE_CMD "', '"bgp listen range <A.B.C.D/M|X:X::X:X/M> ')
@@ -562,6 +564,7 @@ def expand_command_string(line):
     line = line.replace('PIM_CMD_IP_IGMP_QUERY_INTERVAL "', '"ip igmp query-interval ')
     line = line.replace('PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME "', '"ip igmp query-max-response-time ')
     line = line.replace('PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC "', '"ip igmp query-max-response-time-dsec ')
+    line = line.replace('LOG_LEVELS "', '"(emergencies|alerts|critical|errors|warnings|notifications|informational|debugging) ')
 
     # solo
     line = line.replace('NO_NEIGHBOR_CMD2,', '"no neighbor <A.B.C.D|X:X::X:X|WORD>",')
@@ -720,7 +723,6 @@ DEFUN (no_bgp_maxmed_onstartup,
         new_command_string_expanded = expand_command_string(new_command_string)
         lines = []
 
-        # dwalton
         lines.append("DEFUN (%s,\n" % self.name)
         lines.append("       %s,\n" % self.name_cmd)
         # lines.append(new_command_string)
@@ -868,7 +870,7 @@ def update_argvs(filename):
                 if line.strip() == '*/':
                     state = None
                     fh.write(line)
-                elif line.strip().startswith('* "'):
+                elif line.strip().startswith('* ') and not line.strip().startswith('*    '):
                     # dwalton
                     new_line = expand_command_string(line[3:]) # chop the leading " * "
                     fh.write(" * %s" % new_line)

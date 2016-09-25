@@ -5597,7 +5597,7 @@ DEFUN (show_ipv6_route_prefix_longer,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route " VRF_CMD_STR " <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
+ * "show ipv6 route vrf NAME <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
  *     SHOW_STR
  *     IP_STR
  *     "IP routing table\n"
