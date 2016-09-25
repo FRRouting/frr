@@ -2501,7 +2501,7 @@ DEFUN (no_ip_pim_rp,
 
 DEFUN (ip_multicast_routing,
        ip_multicast_routing_cmd,
-       PIM_CMD_IP_MULTICAST_ROUTING,
+       "ip multicast-routing",
        IP_STR
        "Enable IP multicast forwarding\n")
 {
@@ -2514,7 +2514,7 @@ DEFUN (ip_multicast_routing,
 
 DEFUN (no_ip_multicast_routing,
        no_ip_multicast_routing_cmd,
-       PIM_CMD_NO " " PIM_CMD_IP_MULTICAST_ROUTING,
+       "no ip multicast-routing",
        NO_STR
        IP_STR
        "Global IP configuration subcommands\n"
@@ -2874,7 +2874,7 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 
 DEFUN (interface_ip_igmp_query_interval,
        interface_ip_igmp_query_interval_cmd,
-       PIM_CMD_IP_IGMP_QUERY_INTERVAL " (1-1800)",
+       "ip igmp query-interval (1-1800)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_INTERVAL_STR
@@ -2933,7 +2933,7 @@ DEFUN (interface_ip_igmp_query_interval,
 
 DEFUN (interface_no_ip_igmp_query_interval,
        interface_no_ip_igmp_query_interval_cmd,
-       PIM_CMD_NO " " PIM_CMD_IP_IGMP_QUERY_INTERVAL,
+       "no ip igmp query-interval",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
@@ -2969,7 +2969,7 @@ DEFUN (interface_no_ip_igmp_query_interval,
 
 DEFUN (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
-       PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME " (1-25)",
+       "ip igmp query-max-response-time (1-25)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
@@ -3026,7 +3026,7 @@ DEFUN (interface_ip_igmp_query_max_response_time,
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
        interface_no_ip_igmp_query_max_response_time_cmd,
-       PIM_CMD_NO " " PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME,
+       "no ip igmp query-max-response-time",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
@@ -3062,7 +3062,7 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
 
 DEFUN (interface_ip_igmp_query_max_response_time_dsec,
        interface_ip_igmp_query_max_response_time_dsec_cmd,
-       PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC " (10-250)",
+       "ip igmp query-max-response-time-dsec (10-250)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
@@ -3122,7 +3122,7 @@ DEFUN (interface_ip_igmp_query_max_response_time_dsec,
 
 DEFUN (interface_no_ip_igmp_query_max_response_time_dsec,
        interface_no_ip_igmp_query_max_response_time_dsec_cmd,
-       PIM_CMD_NO " " PIM_CMD_IP_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC,
+       "no ip igmp query-max-response-time-dsec",
        NO_STR
        IP_STR
        IFACE_IGMP_STR

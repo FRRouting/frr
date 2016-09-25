@@ -642,7 +642,7 @@ ospf6_asbr_redistribute_remove (int type, ifindex_t ifindex,
 
 DEFUN (ospf6_redistribute,
        ospf6_redistribute_cmd,
-       "redistribute " QUAGGA_REDIST_STR_OSPF6D,
+       "redistribute <kernel|connected|static|ripng|isis|bgp|table>",
        "Redistribute\n"
        QUAGGA_REDIST_HELP_STR_OSPF6D
       )
@@ -660,7 +660,7 @@ DEFUN (ospf6_redistribute,
 
 DEFUN (ospf6_redistribute_routemap,
        ospf6_redistribute_routemap_cmd,
-       "redistribute " QUAGGA_REDIST_STR_OSPF6D " route-map WORD",
+       "redistribute <kernel|connected|static|ripng|isis|bgp|table> route-map WORD",
        "Redistribute\n"
        QUAGGA_REDIST_HELP_STR_OSPF6D
        "Route map reference\n"
@@ -683,7 +683,7 @@ DEFUN (ospf6_redistribute_routemap,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no redistribute " QUAGGA_REDIST_STR_OSPF6D " route-map WORD",
+ * "no redistribute <kernel|connected|static|ripng|isis|bgp|table> route-map WORD",
  *     NO_STR
  *     "Redistribute\n"
  *     QUAGGA_REDIST_HELP_STR_OSPF6D
@@ -693,7 +693,7 @@ DEFUN (ospf6_redistribute_routemap,
  */
 DEFUN (no_ospf6_redistribute,
        no_ospf6_redistribute_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_OSPF6D,
+       "no redistribute <kernel|connected|static|ripng|isis|bgp|table>",
        NO_STR
        "Redistribute\n"
        QUAGGA_REDIST_HELP_STR_OSPF6D

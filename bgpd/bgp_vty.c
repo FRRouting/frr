@@ -662,7 +662,7 @@ DEFUN (no_auto_summary,
  *     ROUTER_STR
  *     BGP_STR
  *
- * "router bgp " CMD_AS_RANGE " (view|vrf) WORD",
+ * "router bgp (1-4294967295) (view|vrf) WORD",
  *     ROUTER_STR
  *     BGP_STR
  *     AS_STR
@@ -672,7 +672,7 @@ DEFUN (no_auto_summary,
  */
 DEFUN (router_bgp,
        router_bgp_cmd,
-       "router bgp " CMD_AS_RANGE,
+       "router bgp (1-4294967295)",
        ROUTER_STR
        BGP_STR
        AS_STR)
@@ -752,7 +752,7 @@ DEFUN (router_bgp,
  *     ROUTER_STR
  *     BGP_STR
  *
- * "no router bgp " CMD_AS_RANGE " (view|vrf) WORD",
+ * "no router bgp (1-4294967295) (view|vrf) WORD",
  *     NO_STR
  *     ROUTER_STR
  *     BGP_STR
@@ -763,7 +763,7 @@ DEFUN (router_bgp,
  */
 DEFUN (no_router_bgp,
        no_router_bgp_cmd,
-       "no router bgp " CMD_AS_RANGE,
+       "no router bgp (1-4294967295)",
        NO_STR
        ROUTER_STR
        BGP_STR
@@ -938,7 +938,7 @@ DEFUN (no_bgp_cluster_id,
 
 DEFUN (bgp_confederation_identifier,
        bgp_confederation_identifier_cmd,
-       "bgp confederation identifier " CMD_AS_RANGE,
+       "bgp confederation identifier (1-4294967295)",
        "BGP specific commands\n"
        "AS confederation parameters\n"
        "AS number\n"
@@ -975,7 +975,7 @@ DEFUN (no_bgp_confederation_identifier,
 
 DEFUN (bgp_confederation_peers,
        bgp_confederation_peers_cmd,
-       "bgp confederation peers ." CMD_AS_RANGE,
+       "bgp confederation peers . (1-4294967295)",
        "BGP specific commands\n"
        "AS confederation parameters\n"
        "Peer ASs in BGP confederation\n"
@@ -1005,7 +1005,7 @@ DEFUN (bgp_confederation_peers,
 
 DEFUN (no_bgp_confederation_peers,
        no_bgp_confederation_peers_cmd,
-       "no bgp confederation peers ." CMD_AS_RANGE,
+       "no bgp confederation peers . (1-4294967295)",
        NO_STR
        "BGP specific commands\n"
        "AS confederation parameters\n"
@@ -1415,7 +1415,7 @@ DEFUN (no_bgp_coalesce_time,
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
-       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
+       "maximum-paths (1-255)",
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
@@ -1425,7 +1425,7 @@ DEFUN (bgp_maxpaths,
 
 DEFUN (bgp_maxpaths_ibgp,
        bgp_maxpaths_ibgp_cmd,
-       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
+       "maximum-paths ibgp (1-255)",
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n")
@@ -1436,7 +1436,7 @@ DEFUN (bgp_maxpaths_ibgp,
 
 DEFUN (bgp_maxpaths_ibgp_cluster,
        bgp_maxpaths_ibgp_cluster_cmd,
-       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
+       "maximum-paths ibgp (1-255) equal-cluster-length",
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n"
@@ -1449,7 +1449,7 @@ DEFUN (bgp_maxpaths_ibgp_cluster,
 
 DEFUN (no_bgp_maxpaths,
        no_bgp_maxpaths_cmd,
-       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
+       "no maximum-paths [(1-255)]",
        NO_STR
        "Forward packets over multiple paths\n"
        "Number of paths\n")
@@ -1459,7 +1459,7 @@ DEFUN (no_bgp_maxpaths,
 
 DEFUN (no_bgp_maxpaths_ibgp,
        no_bgp_maxpaths_ibgp_cmd,
-       "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
+       "no maximum-paths ibgp [(1-255) [equal-cluster-length]]",
        NO_STR
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
@@ -2357,7 +2357,7 @@ DEFUN (no_bgp_rr_allow_outbound_policy,
 
 DEFUN (bgp_listen_limit,
        bgp_listen_limit_cmd,
-       "bgp listen limit " DYNAMIC_NEIGHBOR_LIMIT_RANGE,
+       "bgp listen limit (1-5000)",
        "BGP specific commands\n"
        "Configure BGP defaults\n"
        "maximum number of BGP Dynamic Neighbors that can be created\n"
@@ -2429,7 +2429,7 @@ listen_range_exists (struct bgp *bgp, struct prefix *range, int exact)
 
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
-       LISTEN_RANGE_CMD "peer-group WORD" ,
+       "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD",
        "BGP specific commands\n"
        "Configure BGP Dynamic Neighbors\n"
        "add a listening range for Dynamic Neighbors\n"
@@ -2503,7 +2503,7 @@ DEFUN (bgp_listen_range,
 
 DEFUN (no_bgp_listen_range,
        no_bgp_listen_range_cmd,
-       "no bgp listen range A.B.C.D/M peer-group WORD" ,
+       "no bgp listen range A.B.C.D/M peer-group WORD",
        "BGP specific commands\n"
        "Configure BGP defaults\n"
        "delete a listening range for Dynamic Neighbors\n"
@@ -2688,7 +2688,7 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
-       NEIGHBOR_CMD2 "remote-as <" CMD_AS_RANGE "|external|internal>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <(1-4294967295)|external|internal>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a BGP neighbor\n"
@@ -2855,7 +2855,7 @@ DEFUN (neighbor_interface_config_v6only,
 
 DEFUN (neighbor_interface_config_remote_as,
        neighbor_interface_config_remote_as_cmd,
-       "neighbor WORD interface remote-as <" CMD_AS_RANGE "|external|internal>",
+       "neighbor WORD interface remote-as <(1-4294967295)|external|internal>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
@@ -2869,7 +2869,7 @@ DEFUN (neighbor_interface_config_remote_as,
 
 DEFUN (neighbor_interface_v6only_config_remote_as,
        neighbor_interface_v6only_config_remote_as_cmd,
-       "neighbor WORD interface v6only remote-as <" CMD_AS_RANGE "|external|internal>",
+       "neighbor WORD interface v6only remote-as <(1-4294967295)|external|internal>",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
@@ -2920,7 +2920,7 @@ DEFUN (neighbor_peer_group,
  */
 DEFUN (no_neighbor,
        no_neighbor_cmd,
-       NO_NEIGHBOR_CMD2,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2)
@@ -2980,7 +2980,7 @@ DEFUN (no_neighbor,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor WORD interface remote-as (" CMD_AS_RANGE "|internal|external)",
+ * "no neighbor WORD interface remote-as ((1-4294967295)|internal|external)",
  *     NO_STR
  *     NEIGHBOR_STR
  *     "Interface name\n"
@@ -2996,7 +2996,7 @@ DEFUN (no_neighbor,
  *     "Member of the peer-group\n"
  *     "peer-group name\n"
  *
- * "no neighbor WORD interface v6only remote-as (" CMD_AS_RANGE "|internal|external)",
+ * "no neighbor WORD interface v6only remote-as ((1-4294967295)|internal|external)",
  *     NO_STR
  *     NEIGHBOR_STR
  *     "Interface name\n"
@@ -3072,7 +3072,7 @@ DEFUN (no_neighbor_peer_group,
 
 DEFUN (no_neighbor_interface_peer_group_remote_as,
        no_neighbor_interface_peer_group_remote_as_cmd,
-       "no neighbor WORD remote-as <" CMD_AS_RANGE "|internal|external>",
+       "no neighbor WORD remote-as <(1-4294967295)|internal|external>",
        NO_STR
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
@@ -3104,7 +3104,7 @@ DEFUN (no_neighbor_interface_peer_group_remote_as,
 
 DEFUN (neighbor_local_as,
        neighbor_local_as_cmd,
-       NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a local-as number\n"
@@ -3125,7 +3125,7 @@ DEFUN (neighbor_local_as,
 
 DEFUN (neighbor_local_as_no_prepend,
        neighbor_local_as_no_prepend_cmd,
-       NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE " no-prepend",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295) no-prepend",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a local-as number\n"
@@ -3147,7 +3147,7 @@ DEFUN (neighbor_local_as_no_prepend,
 
 DEFUN (neighbor_local_as_no_prepend_replace_as,
        neighbor_local_as_no_prepend_replace_as_cmd,
-       NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE " no-prepend replace-as",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295) no-prepend replace-as",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify a local-as number\n"
@@ -3198,7 +3198,7 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
  */
 DEFUN (no_neighbor_local_as,
        no_neighbor_local_as_cmd,
-       NO_NEIGHBOR_CMD2 "local-as",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3221,7 +3221,7 @@ DEFUN (no_neighbor_local_as,
 
 DEFUN (neighbor_solo,
        neighbor_solo_cmd,
-       NEIGHBOR_CMD2 "solo",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> solo",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Solo peer - part of its own update group\n")
@@ -3240,7 +3240,7 @@ DEFUN (neighbor_solo,
 
 DEFUN (no_neighbor_solo,
        no_neighbor_solo_cmd,
-       NO_NEIGHBOR_CMD2 "solo",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> solo",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3260,7 +3260,7 @@ DEFUN (no_neighbor_solo,
 
 DEFUN (neighbor_password,
        neighbor_password_cmd,
-       NEIGHBOR_CMD2 "password LINE",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> password LINE",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Set a password\n"
@@ -3291,7 +3291,7 @@ DEFUN (neighbor_password,
  */
 DEFUN (no_neighbor_password,
        no_neighbor_password_cmd,
-       NO_NEIGHBOR_CMD2 "password",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> password",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3312,7 +3312,7 @@ DEFUN (no_neighbor_password,
 
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
-       NEIGHBOR_CMD2 "activate",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> activate",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enable the Address Family for this Neighbor\n")
@@ -3334,7 +3334,7 @@ DEFUN (neighbor_activate,
 
 DEFUN (no_neighbor_activate,
        no_neighbor_activate_cmd,
-       NO_NEIGHBOR_CMD2 "activate",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> activate",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3358,7 +3358,7 @@ DEFUN (no_neighbor_activate,
 
 DEFUN (neighbor_set_peer_group,
        neighbor_set_peer_group_cmd,
-       NEIGHBOR_CMD2 "peer-group WORD",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group WORD",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Member of the peer-group\n"
@@ -3425,7 +3425,7 @@ DEFUN (neighbor_set_peer_group,
 
 DEFUN (no_neighbor_set_peer_group,
        no_neighbor_set_peer_group_cmd,
-       NO_NEIGHBOR_CMD2 "peer-group WORD",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group WORD",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3501,7 +3501,7 @@ peer_flag_unset_vty (struct vty *vty, const char *ip_str, u_int16_t flag)
 /* neighbor passive. */
 DEFUN (neighbor_passive,
        neighbor_passive_cmd,
-       NEIGHBOR_CMD2 "passive",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> passive",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Don't send open messages to this neighbor\n")
@@ -3512,7 +3512,7 @@ DEFUN (neighbor_passive,
 
 DEFUN (no_neighbor_passive,
        no_neighbor_passive_cmd,
-       NO_NEIGHBOR_CMD2 "passive",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> passive",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3525,7 +3525,7 @@ DEFUN (no_neighbor_passive,
 /* neighbor shutdown. */
 DEFUN (neighbor_shutdown,
        neighbor_shutdown_cmd,
-       NEIGHBOR_CMD2 "shutdown",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Administratively shut down this neighbor\n")
@@ -3536,7 +3536,7 @@ DEFUN (neighbor_shutdown,
 
 DEFUN (no_neighbor_shutdown,
        no_neighbor_shutdown_cmd,
-       NO_NEIGHBOR_CMD2 "shutdown",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> shutdown",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3549,7 +3549,7 @@ DEFUN (no_neighbor_shutdown,
 /* neighbor capability dynamic. */
 DEFUN (neighbor_capability_dynamic,
        neighbor_capability_dynamic_cmd,
-       NEIGHBOR_CMD2 "capability dynamic",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> capability dynamic",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Advertise capability to the peer\n"
@@ -3561,7 +3561,7 @@ DEFUN (neighbor_capability_dynamic,
 
 DEFUN (no_neighbor_capability_dynamic,
        no_neighbor_capability_dynamic_cmd,
-       NO_NEIGHBOR_CMD2 "capability dynamic",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> capability dynamic",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3575,7 +3575,7 @@ DEFUN (no_neighbor_capability_dynamic,
 /* neighbor dont-capability-negotiate */
 DEFUN (neighbor_dont_capability_negotiate,
        neighbor_dont_capability_negotiate_cmd,
-       NEIGHBOR_CMD2 "dont-capability-negotiate",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> dont-capability-negotiate",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Do not perform capability negotiation\n")
@@ -3586,7 +3586,7 @@ DEFUN (neighbor_dont_capability_negotiate,
 
 DEFUN (no_neighbor_dont_capability_negotiate,
        no_neighbor_dont_capability_negotiate_cmd,
-       NO_NEIGHBOR_CMD2 "dont-capability-negotiate",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> dont-capability-negotiate",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3599,7 +3599,7 @@ DEFUN (no_neighbor_dont_capability_negotiate,
 /* neighbor capability extended next hop encoding */
 DEFUN (neighbor_capability_enhe,
        neighbor_capability_enhe_cmd,
-       NEIGHBOR_CMD2 "capability extended-nexthop",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> capability extended-nexthop",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Advertise capability to the peer\n"
@@ -3611,7 +3611,7 @@ DEFUN (neighbor_capability_enhe,
 
 DEFUN (no_neighbor_capability_enhe,
        no_neighbor_capability_enhe_cmd,
-       NO_NEIGHBOR_CMD2 "capability extended-nexthop",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> capability extended-nexthop",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3658,7 +3658,7 @@ peer_af_flag_unset_vty (struct vty *vty, const char *peer_str, afi_t afi,
 /* neighbor capability orf prefix-list. */
 DEFUN (neighbor_capability_orf_prefix,
        neighbor_capability_orf_prefix_cmd,
-       NEIGHBOR_CMD2 "capability orf prefix-list <both|send|receive>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> capability orf prefix-list <both|send|receive>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Advertise capability to the peer\n"
@@ -3687,7 +3687,7 @@ DEFUN (neighbor_capability_orf_prefix,
 
 DEFUN (no_neighbor_capability_orf_prefix,
        no_neighbor_capability_orf_prefix_cmd,
-       NO_NEIGHBOR_CMD2 "capability orf prefix-list <both|send|receive>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> capability orf prefix-list <both|send|receive>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3718,7 +3718,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
 /* neighbor next-hop-self. */
 DEFUN (neighbor_nexthop_self,
        neighbor_nexthop_self_cmd,
-       NEIGHBOR_CMD2 "next-hop-self",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Disable the next hop calculation for this neighbor\n")
@@ -3731,7 +3731,7 @@ DEFUN (neighbor_nexthop_self,
 /* neighbor next-hop-self. */
 DEFUN (neighbor_nexthop_self_force,
        neighbor_nexthop_self_force_cmd,
-       NEIGHBOR_CMD2 "next-hop-self force",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self force",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Disable the next hop calculation for this neighbor\n"
@@ -3745,7 +3745,7 @@ DEFUN (neighbor_nexthop_self_force,
 
 DEFUN (no_neighbor_nexthop_self,
        no_neighbor_nexthop_self_cmd,
-       NO_NEIGHBOR_CMD2 "next-hop-self",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3759,7 +3759,7 @@ DEFUN (no_neighbor_nexthop_self,
 
 DEFUN (no_neighbor_nexthop_self_force,
        no_neighbor_nexthop_self_force_cmd,
-       NO_NEIGHBOR_CMD2 "next-hop-self force",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self force",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3775,7 +3775,7 @@ DEFUN (no_neighbor_nexthop_self_force,
 /* neighbor as-override */
 DEFUN (neighbor_as_override,
        neighbor_as_override_cmd,
-       NEIGHBOR_CMD2 "as-override",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> as-override",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Override ASNs in outbound updates if aspath equals remote-as\n")
@@ -3788,7 +3788,7 @@ DEFUN (neighbor_as_override,
 
 DEFUN (no_neighbor_as_override,
        no_neighbor_as_override_cmd,
-       NO_NEIGHBOR_CMD2 "as-override",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> as-override",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3803,7 +3803,7 @@ DEFUN (no_neighbor_as_override,
 /* neighbor remove-private-AS. */
 DEFUN (neighbor_remove_private_as,
        neighbor_remove_private_as_cmd,
-       NEIGHBOR_CMD2 "remove-private-AS",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n")
@@ -3816,7 +3816,7 @@ DEFUN (neighbor_remove_private_as,
 
 DEFUN (neighbor_remove_private_as_all,
        neighbor_remove_private_as_all_cmd,
-       NEIGHBOR_CMD2 "remove-private-AS all",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS all",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
@@ -3830,7 +3830,7 @@ DEFUN (neighbor_remove_private_as_all,
 
 DEFUN (neighbor_remove_private_as_replace_as,
        neighbor_remove_private_as_replace_as_cmd,
-       NEIGHBOR_CMD2 "remove-private-AS replace-AS",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS replace-AS",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
@@ -3844,7 +3844,7 @@ DEFUN (neighbor_remove_private_as_replace_as,
 
 DEFUN (neighbor_remove_private_as_all_replace_as,
        neighbor_remove_private_as_all_replace_as_cmd,
-       NEIGHBOR_CMD2 "remove-private-AS all replace-AS",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS all replace-AS",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
@@ -3859,7 +3859,7 @@ DEFUN (neighbor_remove_private_as_all_replace_as,
 
 DEFUN (no_neighbor_remove_private_as,
        no_neighbor_remove_private_as_cmd,
-       NO_NEIGHBOR_CMD2 "remove-private-AS",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3873,7 +3873,7 @@ DEFUN (no_neighbor_remove_private_as,
 
 DEFUN (no_neighbor_remove_private_as_all,
        no_neighbor_remove_private_as_all_cmd,
-       NO_NEIGHBOR_CMD2 "remove-private-AS all",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS all",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3888,7 +3888,7 @@ DEFUN (no_neighbor_remove_private_as_all,
 
 DEFUN (no_neighbor_remove_private_as_replace_as,
        no_neighbor_remove_private_as_replace_as_cmd,
-       NO_NEIGHBOR_CMD2 "remove-private-AS replace-AS",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS replace-AS",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3903,7 +3903,7 @@ DEFUN (no_neighbor_remove_private_as_replace_as,
 
 DEFUN (no_neighbor_remove_private_as_all_replace_as,
        no_neighbor_remove_private_as_all_replace_as_cmd,
-       NO_NEIGHBOR_CMD2 "remove-private-AS all replace-AS",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> remove-private-AS all replace-AS",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3921,7 +3921,7 @@ DEFUN (no_neighbor_remove_private_as_all_replace_as,
 /* neighbor send-community. */
 DEFUN (neighbor_send_community,
        neighbor_send_community_cmd,
-       NEIGHBOR_CMD2 "send-community",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> send-community",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Send Community attribute to this neighbor\n")
@@ -3934,7 +3934,7 @@ DEFUN (neighbor_send_community,
 
 DEFUN (no_neighbor_send_community,
        no_neighbor_send_community_cmd,
-       NO_NEIGHBOR_CMD2 "send-community",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> send-community",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3949,7 +3949,7 @@ DEFUN (no_neighbor_send_community,
 /* neighbor send-community extended. */
 DEFUN (neighbor_send_community_type,
        neighbor_send_community_type_cmd,
-       NEIGHBOR_CMD2 "send-community <both|extended|standard>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> send-community <both|extended|standard>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Send Community attribute to this neighbor\n"
@@ -3976,7 +3976,7 @@ DEFUN (neighbor_send_community_type,
 
 DEFUN (no_neighbor_send_community_type,
        no_neighbor_send_community_type_cmd,
-       NO_NEIGHBOR_CMD2 "send-community <both|extended|standard>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> send-community <both|extended|standard>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4005,7 +4005,7 @@ DEFUN (no_neighbor_send_community_type,
 /* neighbor soft-reconfig. */
 DEFUN (neighbor_soft_reconfiguration,
        neighbor_soft_reconfiguration_cmd,
-       NEIGHBOR_CMD2 "soft-reconfiguration inbound",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> soft-reconfiguration inbound",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Per neighbor soft reconfiguration\n"
@@ -4019,7 +4019,7 @@ DEFUN (neighbor_soft_reconfiguration,
 
 DEFUN (no_neighbor_soft_reconfiguration,
        no_neighbor_soft_reconfiguration_cmd,
-       NO_NEIGHBOR_CMD2 "soft-reconfiguration inbound",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> soft-reconfiguration inbound",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4034,7 +4034,7 @@ DEFUN (no_neighbor_soft_reconfiguration,
 
 DEFUN (neighbor_route_reflector_client,
        neighbor_route_reflector_client_cmd,
-       NEIGHBOR_CMD2 "route-reflector-client",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> route-reflector-client",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Configure a neighbor as Route Reflector client\n")
@@ -4054,7 +4054,7 @@ DEFUN (neighbor_route_reflector_client,
 
 DEFUN (no_neighbor_route_reflector_client,
        no_neighbor_route_reflector_client_cmd,
-       NO_NEIGHBOR_CMD2 "route-reflector-client",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> route-reflector-client",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4069,7 +4069,7 @@ DEFUN (no_neighbor_route_reflector_client,
 /* neighbor route-server-client. */
 DEFUN (neighbor_route_server_client,
        neighbor_route_server_client_cmd,
-       NEIGHBOR_CMD2 "route-server-client",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> route-server-client",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Configure a neighbor as Route Server client\n")
@@ -4087,7 +4087,7 @@ DEFUN (neighbor_route_server_client,
 
 DEFUN (no_neighbor_route_server_client,
        no_neighbor_route_server_client_cmd,
-       NO_NEIGHBOR_CMD2 "route-server-client",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> route-server-client",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4101,7 +4101,7 @@ DEFUN (no_neighbor_route_server_client,
 
 DEFUN (neighbor_nexthop_local_unchanged,
        neighbor_nexthop_local_unchanged_cmd,
-       NEIGHBOR_CMD2 "nexthop-local unchanged",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> nexthop-local unchanged",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Configure treatment of outgoing link-local nexthop attribute\n"
@@ -4115,7 +4115,7 @@ DEFUN (neighbor_nexthop_local_unchanged,
 
 DEFUN (no_neighbor_nexthop_local_unchanged,
        no_neighbor_nexthop_local_unchanged_cmd,
-       NO_NEIGHBOR_CMD2 "nexthop-local unchanged",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> nexthop-local unchanged",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4181,7 +4181,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
  */
 DEFUN (neighbor_attr_unchanged,
        neighbor_attr_unchanged_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n")
@@ -4196,7 +4196,7 @@ DEFUN (neighbor_attr_unchanged,
 
 DEFUN (neighbor_attr_unchanged1,
        neighbor_attr_unchanged1_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged <as-path|next-hop|med>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged <as-path|next-hop|med>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4221,7 +4221,7 @@ DEFUN (neighbor_attr_unchanged1,
 
 DEFUN (neighbor_attr_unchanged2,
        neighbor_attr_unchanged2_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged as-path <next-hop|med>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path <next-hop|med>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4245,7 +4245,7 @@ DEFUN (neighbor_attr_unchanged2,
 
 DEFUN (neighbor_attr_unchanged3,
        neighbor_attr_unchanged3_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged next-hop <as-path|med>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop <as-path|med>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4268,7 +4268,7 @@ DEFUN (neighbor_attr_unchanged3,
 
 DEFUN (neighbor_attr_unchanged4,
        neighbor_attr_unchanged4_cmd,
-       NEIGHBOR_CMD2 "attribute-unchanged med <as-path|next-hop>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med <as-path|next-hop>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
@@ -4354,7 +4354,7 @@ DEFUN (neighbor_attr_unchanged4,
  */
 DEFUN (no_neighbor_attr_unchanged,
        no_neighbor_attr_unchanged_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged",
        NO_STR	 
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4370,7 +4370,7 @@ DEFUN (no_neighbor_attr_unchanged,
 
 DEFUN (no_neighbor_attr_unchanged1,
        no_neighbor_attr_unchanged1_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged <as-path|next-hop|med>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged <as-path|next-hop|med>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4396,7 +4396,7 @@ DEFUN (no_neighbor_attr_unchanged1,
 
 DEFUN (no_neighbor_attr_unchanged2,
        no_neighbor_attr_unchanged2_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged as-path <next-hop|med>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path <next-hop|med>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4420,7 +4420,7 @@ DEFUN (no_neighbor_attr_unchanged2,
 
 DEFUN (no_neighbor_attr_unchanged3,
        no_neighbor_attr_unchanged3_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged next-hop <as-path|med>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop <as-path|med>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4444,7 +4444,7 @@ DEFUN (no_neighbor_attr_unchanged3,
 
 DEFUN (no_neighbor_attr_unchanged4,
        no_neighbor_attr_unchanged4_cmd,
-       NO_NEIGHBOR_CMD2 "attribute-unchanged med <as-path|next-hop>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med <as-path|next-hop>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4510,7 +4510,7 @@ peer_ebgp_multihop_unset_vty (struct vty *vty, const char *ip_str)
 /* neighbor ebgp-multihop. */
 DEFUN (neighbor_ebgp_multihop,
        neighbor_ebgp_multihop_cmd,
-       NEIGHBOR_CMD2 "ebgp-multihop",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Allow EBGP neighbors not on directly connected networks\n")
@@ -4521,7 +4521,7 @@ DEFUN (neighbor_ebgp_multihop,
 
 DEFUN (neighbor_ebgp_multihop_ttl,
        neighbor_ebgp_multihop_ttl_cmd,
-       NEIGHBOR_CMD2 "ebgp-multihop " CMD_RANGE_STR(1, MAXTTL),
+       "neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop (1-255)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Allow EBGP neighbors not on directly connected networks\n"
@@ -4544,7 +4544,7 @@ DEFUN (neighbor_ebgp_multihop_ttl,
  */
 DEFUN (no_neighbor_ebgp_multihop,
        no_neighbor_ebgp_multihop_cmd,
-       NO_NEIGHBOR_CMD2 "ebgp-multihop",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4566,7 +4566,7 @@ DEFUN (no_neighbor_ebgp_multihop,
  */
 DEFUN (neighbor_disable_connected_check,
        neighbor_disable_connected_check_cmd,
-       NEIGHBOR_CMD2 "disable-connected-check",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> disable-connected-check",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "one-hop away EBGP peer using loopback address\n")
@@ -4586,7 +4586,7 @@ DEFUN (neighbor_disable_connected_check,
  */
 DEFUN (no_neighbor_disable_connected_check,
        no_neighbor_disable_connected_check_cmd,
-       NO_NEIGHBOR_CMD2 "disable-connected-check",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> disable-connected-check",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4602,7 +4602,7 @@ DEFUN (no_neighbor_disable_connected_check,
 
 DEFUN (neighbor_description,
        neighbor_description_cmd,
-       NEIGHBOR_CMD2 "description .LINE",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> description .LINE",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Neighbor specific description\n"
@@ -4640,7 +4640,7 @@ DEFUN (neighbor_description,
  */
 DEFUN (no_neighbor_description,
        no_neighbor_description_cmd,
-       NO_NEIGHBOR_CMD2 "description",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> description",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4699,7 +4699,7 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
 
 DEFUN (neighbor_update_source,
        neighbor_update_source_cmd,
-       NEIGHBOR_CMD2 "update-source " BGP_UPDATE_SOURCE_REQ_STR,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> update-source <A.B.C.D|X:X::X:X|WORD>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Source of routing updates\n"
@@ -4712,7 +4712,7 @@ DEFUN (neighbor_update_source,
 
 DEFUN (no_neighbor_update_source,
        no_neighbor_update_source_cmd,
-       NO_NEIGHBOR_CMD2 "update-source " BGP_UPDATE_SOURCE_OPT_STR,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> update-source [A.B.C.D|X:X::X:X|WORD]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4746,7 +4746,7 @@ peer_default_originate_set_vty (struct vty *vty, const char *peer_str,
 /* neighbor default-originate. */
 DEFUN (neighbor_default_originate,
        neighbor_default_originate_cmd,
-       NEIGHBOR_CMD2 "default-originate",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> default-originate",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Originate default route to this neighbor\n")
@@ -4758,7 +4758,7 @@ DEFUN (neighbor_default_originate,
 
 DEFUN (neighbor_default_originate_rmap,
        neighbor_default_originate_rmap_cmd,
-       NEIGHBOR_CMD2 "default-originate route-map WORD",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> default-originate route-map WORD",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Originate default route to this neighbor\n"
@@ -4784,7 +4784,7 @@ DEFUN (neighbor_default_originate_rmap,
  */
 DEFUN (no_neighbor_default_originate,
        no_neighbor_default_originate_cmd,
-       NO_NEIGHBOR_CMD2 "default-originate",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> default-originate",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4827,7 +4827,7 @@ peer_port_vty (struct vty *vty, const char *ip_str, int afi,
 /* Set specified peer's BGP port.  */
 DEFUN (neighbor_port,
        neighbor_port_cmd,
-       NEIGHBOR_CMD "port (0-65535)",
+       "neighbor <A.B.C.D|X:X::X:X> port (0-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
        "Neighbor's BGP port\n"
@@ -4840,7 +4840,7 @@ DEFUN (neighbor_port,
 
 DEFUN (no_neighbor_port,
        no_neighbor_port_cmd,
-       NO_NEIGHBOR_CMD "port [(0-65535)]",
+       "no neighbor <A.B.C.D|X:X::X:X> port [(0-65535)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
@@ -4887,7 +4887,7 @@ peer_weight_unset_vty (struct vty *vty, const char *ip_str)
 
 DEFUN (neighbor_weight,
        neighbor_weight_cmd,
-       NEIGHBOR_CMD2 "weight (0-65535)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> weight (0-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Set default weight for routes from this neighbor\n"
@@ -4900,7 +4900,7 @@ DEFUN (neighbor_weight,
 
 DEFUN (no_neighbor_weight,
        no_neighbor_weight_cmd,
-       NO_NEIGHBOR_CMD2 "weight [(0-65535)]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> weight [(0-65535)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4915,7 +4915,7 @@ DEFUN (no_neighbor_weight,
 /* Override capability negotiation. */
 DEFUN (neighbor_override_capability,
        neighbor_override_capability_cmd,
-       NEIGHBOR_CMD2 "override-capability",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> override-capability",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Override capability negotiation result\n")
@@ -4926,7 +4926,7 @@ DEFUN (neighbor_override_capability,
 
 DEFUN (no_neighbor_override_capability,
        no_neighbor_override_capability_cmd,
-       NO_NEIGHBOR_CMD2 "override-capability",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> override-capability",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4938,7 +4938,7 @@ DEFUN (no_neighbor_override_capability,
 
 DEFUN (neighbor_strict_capability,
        neighbor_strict_capability_cmd,
-       NEIGHBOR_CMD "strict-capability-match",
+       "neighbor <A.B.C.D|X:X::X:X> strict-capability-match",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
        "Strict capability negotiation match\n")
@@ -4949,7 +4949,7 @@ DEFUN (neighbor_strict_capability,
 
 DEFUN (no_neighbor_strict_capability,
        no_neighbor_strict_capability_cmd,
-       NO_NEIGHBOR_CMD "strict-capability-match",
+       "no neighbor <A.B.C.D|X:X::X:X> strict-capability-match",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
@@ -4997,7 +4997,7 @@ peer_timers_unset_vty (struct vty *vty, const char *ip_str)
 
 DEFUN (neighbor_timers,
        neighbor_timers_cmd,
-       NEIGHBOR_CMD2 "timers (0-65535) (0-65535)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> timers (0-65535) (0-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
@@ -5012,7 +5012,7 @@ DEFUN (neighbor_timers,
 
 DEFUN (no_neighbor_timers,
        no_neighbor_timers_cmd,
-       NO_NEIGHBOR_CMD2 "timers [(0-65535) (0-65535)]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> timers [(0-65535) (0-65535)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5061,7 +5061,7 @@ peer_timers_connect_unset_vty (struct vty *vty, const char *ip_str)
 
 DEFUN (neighbor_timers_connect,
        neighbor_timers_connect_cmd,
-       NEIGHBOR_CMD2 "timers connect (1-65535)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> timers connect (1-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
@@ -5075,7 +5075,7 @@ DEFUN (neighbor_timers_connect,
 
 DEFUN (no_neighbor_timers_connect,
        no_neighbor_timers_connect_cmd,
-       NO_NEIGHBOR_CMD2 "timers connect [(1-65535)]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> timers connect [(1-65535)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5113,7 +5113,7 @@ peer_advertise_interval_vty (struct vty *vty, const char *ip_str,
 
 DEFUN (neighbor_advertise_interval,
        neighbor_advertise_interval_cmd,
-       NEIGHBOR_CMD2 "advertisement-interval (0-600)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> advertisement-interval (0-600)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Minimum interval between sending BGP routing updates\n"
@@ -5126,7 +5126,7 @@ DEFUN (neighbor_advertise_interval,
 
 DEFUN (no_neighbor_advertise_interval,
        no_neighbor_advertise_interval_cmd,
-       NO_NEIGHBOR_CMD2 "advertisement-interval [(0-600)]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> advertisement-interval [(0-600)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5204,7 +5204,7 @@ peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
 
 DEFUN (neighbor_interface,
        neighbor_interface_cmd,
-       NEIGHBOR_CMD "interface WORD",
+       "neighbor <A.B.C.D|X:X::X:X> interface WORD",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
        "Interface\n"
@@ -5220,7 +5220,7 @@ DEFUN (neighbor_interface,
 
 DEFUN (no_neighbor_interface,
        no_neighbor_interface_cmd,
-       NO_NEIGHBOR_CMD2 "interface WORD",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> interface WORD",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
@@ -5281,7 +5281,7 @@ peer_distribute_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
 DEFUN (neighbor_distribute_list,
        neighbor_distribute_list_cmd,
-       NEIGHBOR_CMD2 "distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Filter updates to/from this neighbor\n"
@@ -5300,7 +5300,7 @@ DEFUN (neighbor_distribute_list,
 
 DEFUN (no_neighbor_distribute_list,
        no_neighbor_distribute_list_cmd,
-       NO_NEIGHBOR_CMD2 "distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5367,7 +5367,7 @@ peer_prefix_list_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
 DEFUN (neighbor_prefix_list,
        neighbor_prefix_list_cmd,
-       NEIGHBOR_CMD2 "prefix-list WORD <in|out>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> prefix-list WORD <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Filter updates to/from this neighbor\n"
@@ -5384,7 +5384,7 @@ DEFUN (neighbor_prefix_list,
 
 DEFUN (no_neighbor_prefix_list,
        no_neighbor_prefix_list_cmd,
-       NO_NEIGHBOR_CMD2 "prefix-list WORD <in|out>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> prefix-list WORD <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5449,7 +5449,7 @@ peer_aslist_unset_vty (struct vty *vty, const char *ip_str,
 
 DEFUN (neighbor_filter_list,
        neighbor_filter_list_cmd,
-       NEIGHBOR_CMD2 "filter-list WORD <in|out>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> filter-list WORD <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Establish BGP filters\n"
@@ -5466,7 +5466,7 @@ DEFUN (neighbor_filter_list,
 
 DEFUN (no_neighbor_filter_list,
        no_neighbor_filter_list_cmd,
-       NO_NEIGHBOR_CMD2 "filter-list WORD <in|out>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> filter-list WORD <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5531,7 +5531,7 @@ peer_route_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
 DEFUN (neighbor_route_map,
        neighbor_route_map_cmd,
-       NEIGHBOR_CMD2 "route-map WORD <in|out>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> route-map WORD <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Apply route map to neighbor\n"
@@ -5548,7 +5548,7 @@ DEFUN (neighbor_route_map,
 
 DEFUN (no_neighbor_route_map,
        no_neighbor_route_map_cmd,
-       NO_NEIGHBOR_CMD2 "route-map WORD <in|out>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> route-map WORD <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5599,7 +5599,7 @@ peer_unsuppress_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
 DEFUN (neighbor_unsuppress_map,
        neighbor_unsuppress_map_cmd,
-       NEIGHBOR_CMD2 "unsuppress-map WORD",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> unsuppress-map WORD",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Route-map to selectively unsuppress suppressed routes\n"
@@ -5613,7 +5613,7 @@ DEFUN (neighbor_unsuppress_map,
 
 DEFUN (no_neighbor_unsuppress_map,
        no_neighbor_unsuppress_map_cmd,
-       NO_NEIGHBOR_CMD2 "unsuppress-map WORD",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> unsuppress-map WORD",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5678,7 +5678,7 @@ peer_maximum_prefix_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
    each peer configuration. */
 DEFUN (neighbor_maximum_prefix,
        neighbor_maximum_prefix_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5693,7 +5693,7 @@ DEFUN (neighbor_maximum_prefix,
 
 DEFUN (neighbor_maximum_prefix_threshold,
        neighbor_maximum_prefix_threshold_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) (1-100)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5710,7 +5710,7 @@ DEFUN (neighbor_maximum_prefix_threshold,
 
 DEFUN (neighbor_maximum_prefix_warning,
        neighbor_maximum_prefix_warning_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) warning-only",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) warning-only",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5726,7 +5726,7 @@ DEFUN (neighbor_maximum_prefix_warning,
 
 DEFUN (neighbor_maximum_prefix_threshold_warning,
        neighbor_maximum_prefix_threshold_warning_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) (1-100) warning-only",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) warning-only",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5743,7 +5743,7 @@ DEFUN (neighbor_maximum_prefix_threshold_warning,
 
 DEFUN (neighbor_maximum_prefix_restart,
        neighbor_maximum_prefix_restart_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) restart (1-65535)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) restart (1-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5760,7 +5760,7 @@ DEFUN (neighbor_maximum_prefix_restart,
 
 DEFUN (neighbor_maximum_prefix_threshold_restart,
        neighbor_maximum_prefix_threshold_restart_cmd,
-       NEIGHBOR_CMD2 "maximum-prefix (1-4294967295) (1-100) restart (1-65535)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix (1-4294967295) (1-100) restart (1-65535)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
@@ -5833,7 +5833,7 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
  */
 DEFUN (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_cmd,
-       NO_NEIGHBOR_CMD2 "maximum-prefix",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5862,7 +5862,7 @@ DEFUN (no_neighbor_maximum_prefix,
  */
 DEFUN (neighbor_allowas_in,
        neighbor_allowas_in_cmd,
-       NEIGHBOR_CMD2 "allowas-in",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Accept as-path with my AS present in it\n")
@@ -5889,7 +5889,7 @@ DEFUN (neighbor_allowas_in,
 
 DEFUN (no_neighbor_allowas_in,
        no_neighbor_allowas_in_cmd,
-       NO_NEIGHBOR_CMD2 "allowas-in [(1-10)]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [(1-10)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5912,7 +5912,7 @@ DEFUN (no_neighbor_allowas_in,
 
 DEFUN (neighbor_ttl_security,
        neighbor_ttl_security_cmd,
-       NEIGHBOR_CMD2 "ttl-security hops (1-254)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Specify the maximum number of hops to the BGP peer\n")
@@ -5943,7 +5943,7 @@ DEFUN (neighbor_ttl_security,
 
 DEFUN (no_neighbor_ttl_security,
        no_neighbor_ttl_security_cmd,
-       NO_NEIGHBOR_CMD2 "ttl-security hops (1-254)",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5961,7 +5961,7 @@ DEFUN (no_neighbor_ttl_security,
 
 DEFUN (neighbor_addpath_tx_all_paths,
        neighbor_addpath_tx_all_paths_cmd,
-       NEIGHBOR_CMD2 "addpath-tx-all-paths",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Use addpath to advertise all paths to a neighbor\n")
@@ -5980,7 +5980,7 @@ DEFUN (neighbor_addpath_tx_all_paths,
 
 DEFUN (no_neighbor_addpath_tx_all_paths,
        no_neighbor_addpath_tx_all_paths_cmd,
-       NO_NEIGHBOR_CMD2 "addpath-tx-all-paths",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -5994,7 +5994,7 @@ DEFUN (no_neighbor_addpath_tx_all_paths,
 
 DEFUN (neighbor_addpath_tx_bestpath_per_as,
        neighbor_addpath_tx_bestpath_per_as_cmd,
-       NEIGHBOR_CMD2 "addpath-tx-bestpath-per-AS",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Use addpath to advertise the bestpath per each neighboring AS\n")
@@ -6013,7 +6013,7 @@ DEFUN (neighbor_addpath_tx_bestpath_per_as,
 
 DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
        no_neighbor_addpath_tx_bestpath_per_as_cmd,
-       NO_NEIGHBOR_CMD2 "addpath-tx-bestpath-per-AS",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-bestpath-per-AS",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -6230,7 +6230,7 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
  *     BGP_STR
  *     "Clear all peers\n"
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 *",
+ * "clear bgp <view|vrf> WORD ipv6 *",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -6313,7 +6313,7 @@ DEFUN (clear_ip_bgp_peer,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 external",
+ * "clear bgp <view|vrf> WORD ipv6 external",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -6387,13 +6387,13 @@ DEFUN (clear_ip_bgp_prefix,
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
  * need ipv6 options
  *
- * "clear bgp ipv6 " CMD_AS_RANGE,
+ * "clear bgp ipv6 (1-4294967295)",
  *     CLEAR_STR
  *     BGP_STR
  *     "Address family\n"
  *     "Clear peers with the AS number\n"
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 " CMD_AS_RANGE,
+ * "clear bgp <view|vrf> WORD ipv6 (1-4294967295)",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -6402,7 +6402,7 @@ DEFUN (clear_ip_bgp_prefix,
  */
 DEFUN (clear_ip_bgp_as,
        clear_ip_bgp_as_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] " CMD_AS_RANGE,
+       "clear [ip] bgp [<view|vrf> WORD] (1-4294967295)",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6476,7 +6476,7 @@ DEFUN (clear_ip_bgp_all_ipv4_soft_out,
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_out,
        clear_ip_bgp_instance_all_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> [soft] out",
+       "clear ip bgp <view|vrf> WORD * ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6574,7 +6574,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
-       "clear bgp " BGP_INSTANCE_CMD " ipv6 <unicast|multicast> prefix X:X::X:X/M",
+       "clear bgp <view|vrf> WORD ipv6 <unicast|multicast> prefix X:X::X:X/M",
        CLEAR_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -6644,7 +6644,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
 
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_out,
        clear_ip_bgp_instance_peer_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> [soft] out",
+       "clear ip bgp <view|vrf> WORD <A.B.C.D|WORD> ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6790,7 +6790,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft_out,
 
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_out,
        clear_ip_bgp_instance_peer_group_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> [soft] out",
+       "clear ip bgp <view|vrf> WORD peer-group WORD ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6892,7 +6892,7 @@ DEFUN (clear_ip_bgp_external_ipv4_soft_out,
 
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft_out,
        clear_ip_bgp_instance_external_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> [soft] out",
+       "clear ip bgp <view|vrf> WORD external ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6937,7 +6937,7 @@ DEFUN (clear_bgp_external_soft_out,
 
 DEFUN (clear_ip_bgp_as_soft_out,
        clear_ip_bgp_as_soft_out_cmd,
-       "clear ip bgp [<view|vrf> WORD] " CMD_AS_RANGE " [soft] out",
+       "clear ip bgp [<view|vrf> WORD] (1-4294967295) [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6962,7 +6962,7 @@ DEFUN (clear_ip_bgp_as_soft_out,
 
 DEFUN (clear_ip_bgp_as_ipv4_soft_out,
        clear_ip_bgp_as_ipv4_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> [soft] out",
+       "clear ip bgp (1-4294967295) ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6985,7 +6985,7 @@ DEFUN (clear_ip_bgp_as_ipv4_soft_out,
 
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft_out,
        clear_ip_bgp_instance_as_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> [soft] out",
+       "clear ip bgp <view|vrf> WORD (1-4294967295) ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7010,7 +7010,7 @@ DEFUN (clear_ip_bgp_instance_as_ipv4_soft_out,
 
 DEFUN (clear_ip_bgp_as_vpnv4_soft_out,
        clear_ip_bgp_as_vpnv4_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast [soft] out",
+       "clear ip bgp (1-4294967295) vpnv4 unicast [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7027,7 +7027,7 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft_out,
 
 DEFUN (clear_ip_bgp_as_encap_soft_out,
        clear_ip_bgp_as_encap_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast [soft] out",
+       "clear ip bgp (1-4294967295) encap unicast [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7044,7 +7044,7 @@ DEFUN (clear_ip_bgp_as_encap_soft_out,
 
 DEFUN (clear_bgp_as_soft_out,
        clear_bgp_as_soft_out_cmd,
-       "clear bgp [<view|vrf> WORD] [ipv6] " CMD_AS_RANGE " [soft] out",
+       "clear bgp [<view|vrf> WORD] [ipv6] (1-4294967295) [soft] out",
        CLEAR_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -7138,7 +7138,7 @@ DEFUN (clear_ip_bgp_all_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
        clear_ip_bgp_instance_all_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> [soft] in",
+       "clear ip bgp <view|vrf> WORD * ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7321,7 +7321,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_in,
        clear_ip_bgp_instance_peer_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> [soft] in",
+       "clear ip bgp <view|vrf> WORD <A.B.C.D|WORD> ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7472,7 +7472,7 @@ DEFUN (clear_bgp_peer_in_prefix_filter,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD soft in",
+ * "clear ip bgp <view|vrf> WORD peer-group WORD soft in",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -7490,7 +7490,7 @@ DEFUN (clear_bgp_peer_in_prefix_filter,
  *     "BGP peer-group name\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD in",
+ * "clear ip bgp <view|vrf> WORD peer-group WORD in",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -7565,7 +7565,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_in,
        clear_ip_bgp_instance_peer_group_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> [soft] in",
+       "clear ip bgp <view|vrf> WORD peer-group WORD ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7625,7 +7625,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_in_prefix_filter,
  *     "BGP peer-group name\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 peer-group WORD soft in",
+ * "clear bgp <view|vrf> WORD ipv6 peer-group WORD soft in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -7635,7 +7635,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_in_prefix_filter,
  *     BGP_SOFT_STR
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " peer-group WORD soft in",
+ * "clear bgp <view|vrf> WORD peer-group WORD soft in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -7651,7 +7651,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_in_prefix_filter,
  *     "BGP peer-group name\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " peer-group WORD in",
+ * "clear bgp <view|vrf> WORD peer-group WORD in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -7668,7 +7668,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_in_prefix_filter,
  *     BGP_SOFT_STR
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 peer-group WORD in",
+ * "clear bgp <view|vrf> WORD ipv6 peer-group WORD in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -7734,7 +7734,7 @@ DEFUN (clear_bgp_peer_group_in_prefix_filter,
  *     "Clear all external peers\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear ip bgp " BGP_INSTANCE_CMD " external in",
+ * "clear ip bgp <view|vrf> WORD external in",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -7742,7 +7742,7 @@ DEFUN (clear_bgp_peer_group_in_prefix_filter,
  *     "Clear all external peers\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear ip bgp " BGP_INSTANCE_CMD " external soft in",
+ * "clear ip bgp <view|vrf> WORD external soft in",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -7811,7 +7811,7 @@ DEFUN (clear_ip_bgp_external_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft_in,
        clear_ip_bgp_instance_external_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> [soft] in",
+       "clear ip bgp <view|vrf> WORD external ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7859,14 +7859,14 @@ DEFUN (clear_ip_bgp_external_ipv4_in_prefix_filter,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " external in",
+ * "clear bgp <view|vrf> WORD external in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
  *     "Clear all external peers\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 external soft in",
+ * "clear bgp <view|vrf> WORD ipv6 external soft in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -7875,7 +7875,7 @@ DEFUN (clear_ip_bgp_external_ipv4_in_prefix_filter,
  *     BGP_SOFT_STR
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " external soft in",
+ * "clear bgp <view|vrf> WORD external soft in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -7883,7 +7883,7 @@ DEFUN (clear_ip_bgp_external_ipv4_in_prefix_filter,
  *     BGP_SOFT_STR
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 external WORD in",
+ * "clear bgp <view|vrf> WORD ipv6 external WORD in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -7957,14 +7957,14 @@ DEFUN (clear_bgp_external_in_prefix_filter,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " CMD_AS_RANGE " in",
+ * "clear ip bgp (1-4294967295) in",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
  *     "Clear peers with the AS number\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " in",
+ * "clear ip bgp <view|vrf> WORD (1-4294967295) in",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -7972,7 +7972,7 @@ DEFUN (clear_bgp_external_in_prefix_filter,
  *     "Clear peers with the AS number\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " soft in",
+ * "clear ip bgp <view|vrf> WORD (1-4294967295) soft in",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -7984,7 +7984,7 @@ DEFUN (clear_bgp_external_in_prefix_filter,
  */
 DEFUN (clear_ip_bgp_as_soft_in,
        clear_ip_bgp_as_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " soft in",
+       "clear ip bgp (1-4294967295) soft in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8003,7 +8003,7 @@ DEFUN (clear_ip_bgp_as_soft_in,
 
 DEFUN (clear_ip_bgp_as_in_prefix_filter,
        clear_ip_bgp_as_in_prefix_filter_cmd,
-       "clear ip bgp " CMD_AS_RANGE " in prefix-filter",
+       "clear ip bgp (1-4294967295) in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8018,7 +8018,7 @@ DEFUN (clear_ip_bgp_as_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_as_ipv4_soft_in,
        clear_ip_bgp_as_ipv4_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> [soft] in",
+       "clear ip bgp (1-4294967295) ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8041,7 +8041,7 @@ DEFUN (clear_ip_bgp_as_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft_in,
        clear_ip_bgp_instance_as_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> [soft] in",
+       "clear ip bgp <view|vrf> WORD (1-4294967295) ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8066,7 +8066,7 @@ DEFUN (clear_ip_bgp_instance_as_ipv4_soft_in,
 
 DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
        clear_ip_bgp_as_ipv4_in_prefix_filter_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> in prefix-filter",
+       "clear ip bgp (1-4294967295) ipv4 <unicast|multicast> in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8089,7 +8089,7 @@ DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
 
 DEFUN (clear_ip_bgp_as_vpnv4_soft_in,
        clear_ip_bgp_as_vpnv4_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast [soft] in",
+       "clear ip bgp (1-4294967295) vpnv4 unicast [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8106,7 +8106,7 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft_in,
 
 DEFUN (clear_ip_bgp_as_encap_soft_in,
        clear_ip_bgp_as_encap_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast [soft] in",
+       "clear ip bgp (1-4294967295) encap unicast [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8123,21 +8123,21 @@ DEFUN (clear_ip_bgp_as_encap_soft_in,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp ipv6 " CMD_AS_RANGE " in",
+ * "clear bgp ipv6 (1-4294967295) in",
  *     CLEAR_STR
  *     BGP_STR
  *     "Address family\n"
  *     "Clear peers with the AS number\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " in",
+ * "clear bgp <view|vrf> WORD (1-4294967295) in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
  *     "Clear peers with the AS number\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 " CMD_AS_RANGE " in",
+ * "clear bgp <view|vrf> WORD ipv6 (1-4294967295) in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8145,7 +8145,7 @@ DEFUN (clear_ip_bgp_as_encap_soft_in,
  *     "Clear peers with the AS number\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp ipv6 " CMD_AS_RANGE " soft in",
+ * "clear bgp ipv6 (1-4294967295) soft in",
  *     CLEAR_STR
  *     BGP_STR
  *     "Address family\n"
@@ -8153,7 +8153,7 @@ DEFUN (clear_ip_bgp_as_encap_soft_in,
  *     BGP_SOFT_STR
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " soft in",
+ * "clear bgp <view|vrf> WORD (1-4294967295) soft in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8161,13 +8161,13 @@ DEFUN (clear_ip_bgp_as_encap_soft_in,
  *     BGP_SOFT_STR
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " CMD_AS_RANGE " in",
+ * "clear bgp (1-4294967295) in",
  *     CLEAR_STR
  *     BGP_STR
  *     "Clear peers with the AS number\n"
  *     BGP_SOFT_IN_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 " CMD_AS_RANGE " soft in",
+ * "clear bgp <view|vrf> WORD ipv6 (1-4294967295) soft in",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8179,7 +8179,7 @@ DEFUN (clear_ip_bgp_as_encap_soft_in,
  */
 DEFUN (clear_bgp_as_soft_in,
        clear_bgp_as_soft_in_cmd,
-       "clear bgp " CMD_AS_RANGE " soft in",
+       "clear bgp (1-4294967295) soft in",
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
@@ -8197,7 +8197,7 @@ DEFUN (clear_bgp_as_soft_in,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp ipv6 " CMD_AS_RANGE " in prefix-filter",
+ * "clear bgp ipv6 (1-4294967295) in prefix-filter",
  *     CLEAR_STR
  *     BGP_STR
  *     "Address family\n"
@@ -8208,7 +8208,7 @@ DEFUN (clear_bgp_as_soft_in,
  */
 DEFUN (clear_bgp_as_in_prefix_filter,
        clear_bgp_as_in_prefix_filter_cmd,
-       "clear bgp " CMD_AS_RANGE " in prefix-filter",
+       "clear bgp (1-4294967295) in prefix-filter",
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
@@ -8224,7 +8224,7 @@ DEFUN (clear_bgp_as_in_prefix_filter,
 /* Both soft-reconfiguration */
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " * soft",
+ * "clear ip bgp <view|vrf> WORD * soft",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -8273,7 +8273,7 @@ DEFUN (clear_ip_bgp_all_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft,
        clear_ip_bgp_instance_all_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> soft",
+       "clear ip bgp <view|vrf> WORD * ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8333,14 +8333,14 @@ DEFUN (clear_ip_bgp_all_encap_soft,
  *     "Clear all peers\n"
  *     BGP_SOFT_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " * soft",
+ * "clear bgp <view|vrf> WORD * soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
  *     "Clear all peers\n"
  *     BGP_SOFT_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 * soft",
+ * "clear bgp <view|vrf> WORD ipv6 * soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8367,7 +8367,7 @@ DEFUN (clear_bgp_all_soft,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) soft",
+ * "clear ip bgp <view|vrf> WORD (A.B.C.D|WORD) soft",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -8422,7 +8422,7 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft,
        clear_ip_bgp_instance_peer_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> soft",
+       "clear ip bgp <view|vrf> WORD <A.B.C.D|WORD> ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8489,7 +8489,7 @@ DEFUN (clear_ip_bgp_peer_encap_soft,
  *     "BGP neighbor on interface to clear\n"
  *     BGP_SOFT_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 (A.B.C.D|X:X::X:X|WORD) soft",
+ * "clear bgp <view|vrf> WORD ipv6 (A.B.C.D|X:X::X:X|WORD) soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8499,7 +8499,7 @@ DEFUN (clear_ip_bgp_peer_encap_soft,
  *     "BGP neighbor on interface to clear\n"
  *     BGP_SOFT_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " (A.B.C.D|X:X::X:X|WORD) soft",
+ * "clear bgp <view|vrf> WORD (A.B.C.D|X:X::X:X|WORD) soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8533,7 +8533,7 @@ DEFUN (clear_bgp_peer_soft,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD soft",
+ * "clear ip bgp <view|vrf> WORD peer-group WORD soft",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -8588,7 +8588,7 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft,
        clear_ip_bgp_instance_peer_group_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> soft",
+       "clear ip bgp <view|vrf> WORD peer-group WORD ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8613,7 +8613,7 @@ DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 peer-group WORD soft",
+ * "clear bgp <view|vrf> WORD ipv6 peer-group WORD soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8622,7 +8622,7 @@ DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft,
  *     "BGP peer-group name\n"
  *     BGP_SOFT_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " peer-group WORD soft",
+ * "clear bgp <view|vrf> WORD peer-group WORD soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8659,7 +8659,7 @@ DEFUN (clear_bgp_peer_group_soft,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " external soft",
+ * "clear ip bgp <view|vrf> WORD external soft",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -8709,7 +8709,7 @@ DEFUN (clear_ip_bgp_external_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft,
        clear_ip_bgp_instance_external_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> soft",
+       "clear ip bgp <view|vrf> WORD external ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8732,14 +8732,14 @@ DEFUN (clear_ip_bgp_instance_external_ipv4_soft,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " external soft",
+ * "clear bgp <view|vrf> WORD external soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
  *     "Clear all external peers\n"
  *     BGP_SOFT_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 external soft",
+ * "clear bgp <view|vrf> WORD ipv6 external soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8773,7 +8773,7 @@ DEFUN (clear_bgp_external_soft,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " soft",
+ * "clear ip bgp <view|vrf> WORD (1-4294967295) soft",
  *     CLEAR_STR
  *     IP_STR
  *     BGP_STR
@@ -8784,7 +8784,7 @@ DEFUN (clear_bgp_external_soft,
  */
 DEFUN (clear_ip_bgp_as_soft,
        clear_ip_bgp_as_soft_cmd,
-       "clear ip bgp " CMD_AS_RANGE " soft",
+       "clear ip bgp (1-4294967295) soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8803,7 +8803,7 @@ DEFUN (clear_ip_bgp_as_soft,
 
 DEFUN (clear_ip_bgp_as_ipv4_soft,
        clear_ip_bgp_as_ipv4_soft_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> soft",
+       "clear ip bgp (1-4294967295) ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8825,7 +8825,7 @@ DEFUN (clear_ip_bgp_as_ipv4_soft,
 
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft,
        clear_ip_bgp_instance_as_ipv4_soft_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> soft",
+       "clear ip bgp <view|vrf> WORD (1-4294967295) ipv4 <unicast|multicast> soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8849,7 +8849,7 @@ DEFUN (clear_ip_bgp_instance_as_ipv4_soft,
 
 DEFUN (clear_ip_bgp_as_vpnv4_soft,
        clear_ip_bgp_as_vpnv4_soft_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft",
+       "clear ip bgp (1-4294967295) vpnv4 unicast soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8865,7 +8865,7 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft,
 
 DEFUN (clear_ip_bgp_as_encap_soft,
        clear_ip_bgp_as_encap_soft_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast soft",
+       "clear ip bgp (1-4294967295) encap unicast soft",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8881,14 +8881,14 @@ DEFUN (clear_ip_bgp_as_encap_soft,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp ipv6 " CMD_AS_RANGE " soft",
+ * "clear bgp ipv6 (1-4294967295) soft",
  *     CLEAR_STR
  *     BGP_STR
  *     "Address family\n"
  *     "Clear peers with the AS number\n"
  *     BGP_SOFT_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 " CMD_AS_RANGE " soft",
+ * "clear bgp <view|vrf> WORD ipv6 (1-4294967295) soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8896,7 +8896,7 @@ DEFUN (clear_ip_bgp_as_encap_soft,
  *     "Clear peers with the AS number\n"
  *     BGP_SOFT_STR
  *
- * "clear bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " soft",
+ * "clear bgp <view|vrf> WORD (1-4294967295) soft",
  *     CLEAR_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -8906,7 +8906,7 @@ DEFUN (clear_ip_bgp_as_encap_soft,
  */
 DEFUN (clear_bgp_as_soft,
        clear_bgp_as_soft_cmd,
-       "clear bgp " CMD_AS_RANGE " soft",
+       "clear bgp (1-4294967295) soft",
        CLEAR_STR
        BGP_STR
        "Clear peers with the AS number\n"
@@ -9616,7 +9616,7 @@ DEFUN (show_ip_bgp_summary,
 
 DEFUN (show_ip_bgp_instance_summary,
        show_ip_bgp_instance_summary_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " summary [json]",
+       "show ip bgp <view|vrf> WORD summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9631,7 +9631,7 @@ DEFUN (show_ip_bgp_instance_summary,
 
 DEFUN (show_ip_bgp_instance_all_summary,
        show_ip_bgp_instance_all_summary_cmd,
-       "show ip bgp " BGP_INSTANCE_ALL_CMD " summary [json]",
+       "show ip bgp <view|vrf> all summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9806,7 +9806,7 @@ DEFUN (show_bgp_summary,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 summary [json]",
+ * "show bgp <view|vrf> WORD ipv6 summary [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -9816,7 +9816,7 @@ DEFUN (show_bgp_summary,
  */
 DEFUN (show_bgp_instance_summary,
        show_bgp_instance_summary_cmd,
-       "show bgp " BGP_INSTANCE_CMD " summary [json]",
+       "show bgp <view|vrf> WORD summary [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -9829,7 +9829,7 @@ DEFUN (show_bgp_instance_summary,
 
 DEFUN (show_bgp_instance_all_summary,
        show_bgp_instance_all_summary_cmd,
-       "show bgp " BGP_INSTANCE_ALL_CMD " summary [json]",
+       "show bgp <view|vrf> all summary [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
@@ -9865,7 +9865,7 @@ DEFUN (show_bgp_ipv6_safi_summary,
 
 DEFUN (show_bgp_instance_ipv6_safi_summary,
        show_bgp_instance_ipv6_safi_summary_cmd,
-       "show bgp " BGP_INSTANCE_CMD " ipv6 <unicast|multicast> summary [json]",
+       "show bgp <view|vrf> WORD ipv6 <unicast|multicast> summary [json]",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -11886,14 +11886,14 @@ DEFUN (show_ip_bgp_neighbors_peer,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " neighbors [json]",
+ * "show bgp <view|vrf> WORD neighbors [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
  *     "Detailed information on TCP and BGP neighbor connections\n"
  *     "JavaScript Object Notation\n"
  *
- * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors [json]",
+ * "show bgp <view|vrf> WORD ipv6 neighbors [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -11904,7 +11904,7 @@ DEFUN (show_ip_bgp_neighbors_peer,
  */
 DEFUN (show_ip_bgp_instance_neighbors,
        show_ip_bgp_instance_neighbors_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors [json]",
+       "show ip bgp <view|vrf> WORD neighbors [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11920,7 +11920,7 @@ DEFUN (show_ip_bgp_instance_neighbors,
 
 DEFUN (show_ip_bgp_instance_all_neighbors,
        show_ip_bgp_instance_all_neighbors_cmd,
-       "show ip bgp " BGP_INSTANCE_ALL_CMD " neighbors [json]",
+       "show ip bgp <view|vrf> all neighbors [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11938,7 +11938,7 @@ DEFUN (show_ip_bgp_instance_all_neighbors,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp " BGP_INSTANCE_CMD " ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) [json]",
+ * "show bgp <view|vrf> WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -11949,7 +11949,7 @@ DEFUN (show_ip_bgp_instance_all_neighbors,
  *     "Neighbor on bgp configured interface\n"
  *     "JavaScript Object Notation\n"
  *
- * "show bgp " BGP_INSTANCE_CMD " neighbors (A.B.C.D|X:X::X:X|WORD) [json]",
+ * "show bgp <view|vrf> WORD neighbors (A.B.C.D|X:X::X:X|WORD) [json]",
  *     SHOW_STR
  *     BGP_STR
  *     BGP_INSTANCE_HELP_STR
@@ -11962,7 +11962,7 @@ DEFUN (show_ip_bgp_instance_all_neighbors,
  */
 DEFUN (show_ip_bgp_instance_neighbors_peer,
        show_ip_bgp_instance_neighbors_peer_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " neighbors <A.B.C.D|X:X::X:X|WORD> [json]",
+       "show ip bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12103,7 +12103,7 @@ DEFUN (show_ip_bgp_updgrps,
 
 DEFUN (show_ip_bgp_instance_updgrps,
        show_ip_bgp_instance_updgrps_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " update-groups",
+       "show ip bgp <view|vrf> WORD update-groups",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12116,7 +12116,7 @@ DEFUN (show_ip_bgp_instance_updgrps,
 
 DEFUN (show_ip_bgp_instance_all_updgrps,
        show_ip_bgp_instance_all_updgrps_cmd,
-       "show ip bgp " BGP_INSTANCE_ALL_CMD " update-groups",
+       "show ip bgp <view|vrf> all update-groups",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12139,7 +12139,7 @@ DEFUN (show_bgp_ipv6_updgrps,
 
 DEFUN (show_bgp_instance_ipv6_updgrps,
        show_bgp_instance_ipv6_updgrps_cmd,
-       "show bgp " BGP_INSTANCE_CMD " update-groups",
+       "show bgp <view|vrf> WORD update-groups",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12151,7 +12151,7 @@ DEFUN (show_bgp_instance_ipv6_updgrps,
 
 DEFUN (show_bgp_instance_all_ipv6_updgrps,
        show_bgp_instance_all_ipv6_updgrps_cmd,
-       "show bgp " BGP_INSTANCE_ALL_CMD " update-groups",
+       "show bgp <view|vrf> all update-groups",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
@@ -12199,7 +12199,7 @@ DEFUN (show_ip_bgp_updgrps_s,
 
 DEFUN (show_ip_bgp_instance_updgrps_s,
        show_ip_bgp_instance_updgrps_s_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " update-groups SUBGROUP-ID",
+       "show ip bgp <view|vrf> WORD update-groups SUBGROUP-ID",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12230,7 +12230,7 @@ DEFUN (show_bgp_ipv6_updgrps_s,
 
 DEFUN (show_bgp_instance_ipv6_updgrps_s,
        show_bgp_instance_ipv6_updgrps_s_cmd,
-       "show bgp " BGP_INSTANCE_CMD " update-groups SUBGROUP-ID",
+       "show bgp <view|vrf> WORD update-groups SUBGROUP-ID",
        SHOW_STR
        BGP_STR
        "Detailed info about v6 dynamic update groups\n"
@@ -12287,7 +12287,7 @@ DEFUN (show_bgp_updgrps_stats,
 
 DEFUN (show_bgp_instance_updgrps_stats,
        show_bgp_instance_updgrps_stats_cmd,
-       "show bgp " BGP_INSTANCE_CMD " update-groups statistics",
+       "show bgp <view|vrf> WORD update-groups statistics",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12346,7 +12346,7 @@ DEFUN (show_ip_bgp_updgrps_adj,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj,
        show_ip_bgp_instance_updgrps_adj_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show ip bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12407,7 +12407,7 @@ DEFUN (show_bgp_updgrps_adj,
 
 DEFUN (show_bgp_instance_updgrps_adj,
        show_bgp_instance_updgrps_adj_cmd,
-       "show bgp " BGP_INSTANCE_CMD " update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12446,7 +12446,7 @@ DEFUN (show_ip_bgp_updgrps_adj_s,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj_s,
        show_ip_bgp_instance_updgrps_adj_s_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show ip bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12521,7 +12521,7 @@ DEFUN (show_bgp_updgrps_adj_s,
 
 DEFUN (show_bgp_instance_updgrps_adj_s,
        show_bgp_instance_updgrps_adj_s_cmd,
-       "show bgp " BGP_INSTANCE_CMD " update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
@@ -12715,7 +12715,7 @@ DEFUN (show_ip_bgp_peer_groups,
 
 DEFUN (show_ip_bgp_instance_peer_groups,
        show_ip_bgp_instance_peer_groups_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " peer-group",
+       "show ip bgp <view|vrf> WORD peer-group",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12741,7 +12741,7 @@ DEFUN (show_ip_bgp_peer_group,
 
 DEFUN (show_ip_bgp_instance_peer_group,
        show_ip_bgp_instance_peer_group_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " peer-group WORD",
+       "show ip bgp <view|vrf> WORD peer-group WORD",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -12758,7 +12758,7 @@ DEFUN (show_ip_bgp_instance_peer_group,
 
 DEFUN (bgp_redistribute_ipv4,
        bgp_redistribute_ipv4_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD,
+       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table>",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD)
 {
@@ -12777,7 +12777,7 @@ DEFUN (bgp_redistribute_ipv4,
 
 DEFUN (bgp_redistribute_ipv4_rmap,
        bgp_redistribute_ipv4_rmap_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD",
+       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -12802,7 +12802,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 
 DEFUN (bgp_redistribute_ipv4_metric,
        bgp_redistribute_ipv4_metric_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric (0-4294967295)",
+       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -12829,7 +12829,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
        bgp_redistribute_ipv4_rmap_metric_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD metric (0-4294967295)",
+       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -12860,7 +12860,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
        bgp_redistribute_ipv4_metric_rmap_cmd,
-       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric (0-4294967295) route-map WORD",
+       "redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -13114,7 +13114,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
+ * "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric <0-4294967295> route-map WORD",
  *     NO_STR
  *     "Redistribute information from another routing protocol\n"
  *     QUAGGA_IP_REDIST_HELP_STR_BGPD
@@ -13123,14 +13123,14 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
  *     "Route map reference\n"
  *     "Pointer to route-map entries\n"
  *
- * "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD",
+ * "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD",
  *     NO_STR
  *     "Redistribute information from another routing protocol\n"
  *     QUAGGA_IP_REDIST_HELP_STR_BGPD
  *     "Route map reference\n"
  *     "Pointer to route-map entries\n"
  *
- * "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
+ * "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD metric <0-4294967295>",
  *     NO_STR
  *     "Redistribute information from another routing protocol\n"
  *     QUAGGA_IP_REDIST_HELP_STR_BGPD
@@ -13139,7 +13139,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
  *     "Metric for redistributed routes\n"
  *     "Default metric\n"
  *
- * "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295>",
+ * "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric <0-4294967295>",
  *     NO_STR
  *     "Redistribute information from another routing protocol\n"
  *     QUAGGA_IP_REDIST_HELP_STR_BGPD
@@ -13149,7 +13149,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
  */
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
-       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD,
+       "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD)
@@ -13173,7 +13173,7 @@ DEFUN (no_bgp_redistribute_ipv4,
 #ifdef HAVE_IPV6
 DEFUN (bgp_redistribute_ipv6,
        bgp_redistribute_ipv6_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD,
+       "redistribute <kernel|connected|static|ripng|ospf6|isis|table>",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD)
 {
@@ -13193,7 +13193,7 @@ DEFUN (bgp_redistribute_ipv6,
 
 DEFUN (bgp_redistribute_ipv6_rmap,
        bgp_redistribute_ipv6_rmap_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD",
+       "redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -13218,7 +13218,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 
 DEFUN (bgp_redistribute_ipv6_metric,
        bgp_redistribute_ipv6_metric_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric (0-4294967295)",
+       "redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -13245,7 +13245,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
        bgp_redistribute_ipv6_rmap_metric_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD metric (0-4294967295)",
+       "redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD metric (0-4294967295)",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
@@ -13276,7 +13276,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
        bgp_redistribute_ipv6_metric_rmap_cmd,
-       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric (0-4294967295) route-map WORD",
+       "redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric (0-4294967295) route-map WORD",
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
@@ -13307,14 +13307,14 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD",
+ * "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD",
  *     NO_STR
  *     "Redistribute information from another routing protocol\n"
  *     QUAGGA_IP6_REDIST_HELP_STR_BGPD
  *     "Route map reference\n"
  *     "Pointer to route-map entries\n"
  *
- * "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
+ * "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD metric <0-4294967295>",
  *     NO_STR
  *     "Redistribute information from another routing protocol\n"
  *     QUAGGA_IP6_REDIST_HELP_STR_BGPD
@@ -13323,7 +13323,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
  *     "Metric for redistributed routes\n"
  *     "Default metric\n"
  *
- * "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
+ * "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric <0-4294967295> route-map WORD",
  *     NO_STR
  *     "Redistribute information from another routing protocol\n"
  *     QUAGGA_IP6_REDIST_HELP_STR_BGPD
@@ -13332,7 +13332,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
  *     "Route map reference\n"
  *     "Pointer to route-map entries\n"
  *
- * "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295>",
+ * "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric <0-4294967295>",
  *     NO_STR
  *     "Redistribute information from another routing protocol\n"
  *     QUAGGA_IP6_REDIST_HELP_STR_BGPD
@@ -13342,7 +13342,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
  */
 DEFUN (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_cmd,
-       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD,
+       "no redistribute <kernel|connected|static|ripng|ospf6|isis|table>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD)

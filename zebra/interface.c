@@ -1300,7 +1300,7 @@ struct cmd_node vrf_node =
 /* Show all interfaces to vty. */
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show interface " VRF_CMD_STR,
+ * "show interface vrf NAME",
  *     SHOW_STR
  *     "Interface status and configuration\n"
  *     VRF_CMD_HELP_STR
@@ -1332,7 +1332,7 @@ DEFUN (show_interface,
 /* Show all interfaces to vty. */
 DEFUN (show_interface_vrf_all,
        show_interface_vrf_all_cmd,
-       "show interface " VRF_ALL_CMD_STR,
+       "show interface vrf all",
        SHOW_STR
        "Interface status and configuration\n"
        VRF_ALL_CMD_HELP_STR)
@@ -1355,7 +1355,7 @@ DEFUN (show_interface_vrf_all,
 
 DEFUN (show_interface_name_vrf,
        show_interface_name_vrf_cmd,
-       "show interface IFNAME " VRF_CMD_STR,
+       "show interface IFNAME vrf NAME",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface name\n"
@@ -1395,7 +1395,7 @@ DEFUN (show_interface_name_vrf,
  */
 DEFUN (show_interface_name_vrf_all,
        show_interface_name_vrf_all_cmd,
-       "show interface IFNAME " VRF_ALL_CMD_STR,
+       "show interface IFNAME vrf all",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface name\n"
@@ -1472,7 +1472,7 @@ if_show_description (struct vty *vty, vrf_id_t vrf_id)
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show interface description " VRF_CMD_STR,
+ * "show interface description vrf NAME",
  *     SHOW_STR
  *     "Interface status and configuration\n"
  *     "Interface description\n"
@@ -1499,7 +1499,7 @@ DEFUN (show_interface_desc,
 
 DEFUN (show_interface_desc_vrf_all,
        show_interface_desc_vrf_all_cmd,
-       "show interface description " VRF_ALL_CMD_STR,
+       "show interface description vrf all",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface description\n"

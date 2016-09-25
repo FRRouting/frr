@@ -1893,7 +1893,7 @@ DEFUN_DEPRECATED (config_log_syslog_facility,
 
 DEFUN (no_config_log_syslog,
        no_config_log_syslog_cmd,
-       "no log syslog [" LOG_FACILITIES "] [" LOG_LEVELS "]",
+       "no log syslog [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>] [" LOG_LEVELS "]",
        NO_STR
        "Logging control\n"
        "Cancel logging to syslog\n"
@@ -1906,7 +1906,7 @@ DEFUN (no_config_log_syslog,
 
 DEFUN (config_log_facility,
        config_log_facility_cmd,
-       "log facility " LOG_FACILITIES,
+       "log facility <kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>",
        "Logging control\n"
        "Facility parameter for syslog messages\n"
        LOG_FACILITY_DESC)
@@ -1920,7 +1920,7 @@ DEFUN (config_log_facility,
 
 DEFUN (no_config_log_facility,
        no_config_log_facility_cmd,
-       "no log facility [" LOG_FACILITIES "]",
+       "no log facility [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>]",
        NO_STR
        "Logging control\n"
        "Reset syslog facility to default (daemon)\n"

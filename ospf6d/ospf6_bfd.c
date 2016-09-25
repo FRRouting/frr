@@ -346,7 +346,7 @@ DEFUN (ipv6_ospf6_bfd,
 
 DEFUN (ipv6_ospf6_bfd_param,
        ipv6_ospf6_bfd_param_cmd,
-       "ipv6 ospf6 bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+       "ipv6 ospf6 bfd (2-255) (50-60000) (50-60000)",
        IP6_STR
        OSPF6_STR
        "Enables BFD support\n"

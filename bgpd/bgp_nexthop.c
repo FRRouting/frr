@@ -513,7 +513,7 @@ DEFUN (show_ip_bgp_nexthop_detail,
 
 DEFUN (show_ip_bgp_instance_nexthop,
        show_ip_bgp_instance_nexthop_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " nexthop",
+       "show ip bgp <view|vrf> WORD nexthop",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -526,7 +526,7 @@ DEFUN (show_ip_bgp_instance_nexthop,
 
 DEFUN (show_ip_bgp_instance_all_nexthop,
        show_ip_bgp_instance_all_nexthop_cmd,
-       "show ip bgp " BGP_INSTANCE_ALL_CMD " nexthop",
+       "show ip bgp <view|vrf> all nexthop",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -539,7 +539,7 @@ DEFUN (show_ip_bgp_instance_all_nexthop,
 
 DEFUN (show_ip_bgp_instance_nexthop_detail,
        show_ip_bgp_instance_nexthop_detail_cmd,
-       "show ip bgp " BGP_INSTANCE_CMD " nexthop detail",
+       "show ip bgp <view|vrf> WORD nexthop detail",
        SHOW_STR
        IP_STR
        BGP_STR

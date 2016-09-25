@@ -4,7 +4,6 @@
 Usage:
 
     argv_translator.py rebuild-defuns [<text>]
-    argv_translator.py idx-logic <wildcard>
 
 Help:
     rebuild-defuns : foo
@@ -500,11 +499,6 @@ def get_command_string_index_variable_table(line_number, line):
     return indexes
 
 
-def get_idx_logic(wildcard):
-    # dwalton
-    return None
-
-
 def expand_command_string(line):
 
     # in the middle
@@ -578,6 +572,10 @@ def expand_command_string(line):
 
     if line.rstrip().endswith('" ,'):
         line = line.replace('" ,', '",')
+
+    # compress duplicate white spaces
+    re_space = re.search('^(\s*).*(\s*)$', line)
+    line = re_space.group(1) + ' '.join(line.split()) + re_space.group(2)
 
     return line
 
@@ -721,9 +719,12 @@ DEFUN (no_bgp_maxmed_onstartup,
         new_command_string = self.get_new_command_string()
         new_command_string_expanded = expand_command_string(new_command_string)
         lines = []
+
+        # dwalton
         lines.append("DEFUN (%s,\n" % self.name)
         lines.append("       %s,\n" % self.name_cmd)
-        lines.append(new_command_string)
+        # lines.append(new_command_string)
+        lines.append(new_command_string_expanded)
         lines.extend(self.help_strings)
         lines.append('{\n')
 
@@ -847,15 +848,30 @@ def update_argvs(filename):
     with open(filename, 'w') as fh:
         state = None
 
-        for line in lines:
+        for (line_number, line) in enumerate(lines):
 
             if state is None:
-                if line.startswith('DEFUN ('):
+                if 'The following ALIASes need to be implemented in this DEFUN' in line:
+                    state = 'CHANGE ME'
+                    fh.write(line)
+
+                elif line.startswith('DEFUN ('):
                     state = 'DEFUN_HEADER'
                     re_name = re.search('DEFUN \((.*),', line.strip())
                     name = re_name.group(1)
                     defun = defuns.get(name)
                     fh.write(defun.dump())
+                else:
+                    fh.write(line)
+
+            elif state == 'CHANGE ME':
+                if line.strip() == '*/':
+                    state = None
+                    fh.write(line)
+                elif line.strip().startswith('* "'):
+                    # dwalton
+                    new_line = expand_command_string(line[3:]) # chop the leading " * "
+                    fh.write(" * %s" % new_line)
                 else:
                     fh.write(line)
 
@@ -866,6 +882,9 @@ def update_argvs(filename):
             elif state == 'DEFUN_BODY':
                 if line.rstrip() == '}':
                     state = None
+
+            # uncomment to debug state machine
+            # print "%5d %12s: %s" % (line_number, state, line.rstrip())
 
 
 if __name__ == '__main__':
@@ -888,5 +907,3 @@ if __name__ == '__main__':
                     filename = filename.strip()
                     print "crunching %s" % filename
                     update_argvs(filename)
-        elif cli.get('idx-logic'):
-            print get_idx_logic(cli.args.get('<wildcard>'))

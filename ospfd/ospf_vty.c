@@ -5858,7 +5858,7 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D",
+ * "show ip ospf database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) A.B.C.D",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -5866,7 +5866,7 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
  *     OSPF_LSA_TYPES_DESC
  *     "Link State ID (as an IP address)\n"
  *
- * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D (self-originate|)",
+ * "show ip ospf database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) A.B.C.D (self-originate|)",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -5876,7 +5876,7 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
  *     "Self-originated link states\n"
  *     "\n"
  *
- * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D adv-router A.B.C.D",
+ * "show ip ospf database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) A.B.C.D adv-router A.B.C.D",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -5886,7 +5886,7 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
  *     "Advertising Router link states\n"
  *     "Advertising Router (as an IP address)\n"
  *
- * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR "|max-age|self-originate)",
+ * "show ip ospf database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as|max-age|self-originate)",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -5918,7 +5918,7 @@ DEFUN (show_ip_ospf_database,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D adv-router A.B.C.D",
+ * "show ip ospf <1-65535> database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) A.B.C.D adv-router A.B.C.D",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -5929,7 +5929,7 @@ DEFUN (show_ip_ospf_database,
  *     "Advertising Router link states\n"
  *     "Advertising Router (as an IP address)\n"
  *
- * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D",
+ * "show ip ospf <1-65535> database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) A.B.C.D",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -5938,7 +5938,7 @@ DEFUN (show_ip_ospf_database,
  *     OSPF_LSA_TYPES_DESC
  *     "Link State ID (as an IP address)\n"
  *
- * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") A.B.C.D (self-originate|)",
+ * "show ip ospf <1-65535> database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) A.B.C.D (self-originate|)",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -5949,7 +5949,7 @@ DEFUN (show_ip_ospf_database,
  *     "Self-originated link states\n"
  *     "\n"
  *
- * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR "|max-age|self-originate)",
+ * "show ip ospf <1-65535> database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as|max-age|self-originate)",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -6042,7 +6042,7 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip ospf database (" OSPF_LSA_TYPES_CMD_STR ") (self-originate|)",
+ * "show ip ospf database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) (self-originate|)",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -6053,7 +6053,7 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
  */
 DEFUN (show_ip_ospf_database_type_adv_router,
        show_ip_ospf_database_type_adv_router_cmd,
-       "show ip ospf database <" OSPF_LSA_TYPES_CMD_STR "> adv-router A.B.C.D",
+       "show ip ospf database <asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> adv-router A.B.C.D",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -6073,7 +6073,7 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ip ospf <1-65535> database (" OSPF_LSA_TYPES_CMD_STR ") (self-originate|)",
+ * "show ip ospf <1-65535> database (asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as) (self-originate|)",
  *     SHOW_STR
  *     IP_STR
  *     "OSPF information\n"
@@ -6085,7 +6085,7 @@ DEFUN (show_ip_ospf_database_type_adv_router,
  */
 DEFUN (show_ip_ospf_instance_database_type_adv_router,
        show_ip_ospf_instance_database_type_adv_router_cmd,
-       "show ip ospf (1-65535) database <" OSPF_LSA_TYPES_CMD_STR "> adv-router A.B.C.D",
+       "show ip ospf (1-65535) database <asbr-summary|external|network|router|summary|nssa-external|opaque-link|opaque-area|opaque-as> adv-router A.B.C.D",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -8213,7 +8213,7 @@ DEFUN (no_ip_ospf_instance_area,
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
-       "redistribute " QUAGGA_REDIST_STR_OSPFD " [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
+       "redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
@@ -8268,7 +8268,7 @@ DEFUN (ospf_redistribute_source,
 
 DEFUN (no_ospf_redistribute_source,
        no_ospf_redistribute_source_cmd,
-       "no redistribute " QUAGGA_REDIST_STR_OSPFD " [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
+       "no redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
        NO_STR
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_OSPFD
@@ -8427,7 +8427,7 @@ DEFUN (no_ospf_redistribute_instance_source,
 
 DEFUN (ospf_distribute_list_out,
        ospf_distribute_list_out_cmd,
-       "distribute-list WORD out " QUAGGA_REDIST_STR_OSPFD,
+       "distribute-list WORD out <kernel|connected|static|rip|isis|bgp|pim|table>",
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
@@ -8450,7 +8450,7 @@ DEFUN (ospf_distribute_list_out,
 
 DEFUN (no_ospf_distribute_list_out,
        no_ospf_distribute_list_out_cmd,
-       "no distribute-list WORD out " QUAGGA_REDIST_STR_OSPFD,
+       "no distribute-list WORD out <kernel|connected|static|rip|isis|bgp|pim|table>",
        NO_STR
        "Filter networks in routing updates\n"
        "Access-list name\n"

@@ -926,7 +926,7 @@ DEFUN (show_address,
 
 DEFUN (show_address_vrf_all,
        show_address_vrf_all_cmd,
-       "show address " VRF_ALL_CMD_STR,
+       "show address vrf all",
        SHOW_STR
        "address\n"
        VRF_ALL_CMD_HELP_STR)

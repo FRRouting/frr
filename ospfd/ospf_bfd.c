@@ -379,7 +379,7 @@ DEFUN (ip_ospf_bfd,
 
 DEFUN (ip_ospf_bfd_param,
        ip_ospf_bfd_param_cmd,
-       "ip ospf bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+       "ip ospf bfd (2-255) (50-60000) (50-60000)",
        "IP Information\n"
        "OSPF interface commands\n"
        "Enables BFD support\n"
@@ -409,7 +409,7 @@ DEFUN (ip_ospf_bfd_param,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip ospf bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+ * "no ip ospf bfd (2-255) (50-60000) (50-60000)",
  *     NO_STR
  *     "IP Information\n"
  *     "OSPF interface commands\n"

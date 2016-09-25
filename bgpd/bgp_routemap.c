@@ -3846,7 +3846,7 @@ DEFUN (no_set_weight,
  */
 DEFUN (set_aspath_prepend,
        set_aspath_prepend_cmd,
-       "set as-path prepend ." CMD_AS_RANGE,
+       "set as-path prepend . (1-4294967295)",
        SET_STR
        "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
@@ -3865,7 +3865,7 @@ DEFUN (set_aspath_prepend,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set as-path prepend ." CMD_AS_RANGE,
+ * "no set as-path prepend . (1-4294967295)",
  *     NO_STR
  *     SET_STR
  *     "Transform BGP AS_PATH attribute\n"
@@ -3893,7 +3893,7 @@ DEFUN (no_set_aspath_prepend,
 
 DEFUN (set_aspath_exclude,
        set_aspath_exclude_cmd,
-       "set as-path exclude ." CMD_AS_RANGE,
+       "set as-path exclude . (1-4294967295)",
        SET_STR
        "Transform BGP AS-path attribute\n"
        "Exclude from the as-path\n"
@@ -3910,7 +3910,7 @@ DEFUN (set_aspath_exclude,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set as-path exclude ." CMD_AS_RANGE,
+ * "no set as-path exclude . (1-4294967295)",
  *     NO_STR
  *     SET_STR
  *     "Transform BGP AS_PATH attribute\n"
@@ -4254,7 +4254,7 @@ DEFUN (no_set_atomic_aggregate,
 
 DEFUN (set_aggregator_as,
        set_aggregator_as_cmd,
-       "set aggregator as " CMD_AS_RANGE " A.B.C.D",
+       "set aggregator as (1-4294967295) A.B.C.D",
        SET_STR
        "BGP aggregator attribute\n"
        "AS number of aggregator\n"
@@ -4288,7 +4288,7 @@ DEFUN (set_aggregator_as,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set aggregator as " CMD_AS_RANGE " A.B.C.D",
+ * "no set aggregator as (1-4294967295) A.B.C.D",
  *     NO_STR
  *     SET_STR
  *     "BGP aggregator attribute\n"

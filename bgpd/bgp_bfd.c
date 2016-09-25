@@ -555,7 +555,7 @@ bgp_bfd_show_info(struct vty *vty, struct peer *peer, u_char use_json, json_obje
 
 DEFUN (neighbor_bfd,
        neighbor_bfd_cmd,
-       NEIGHBOR_CMD2 "bfd",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n")
@@ -578,7 +578,7 @@ DEFUN (neighbor_bfd,
 
 DEFUN (neighbor_bfd_param,
        neighbor_bfd_param_cmd,
-       NEIGHBOR_CMD2 "bfd " BFD_CMD_DETECT_MULT_RANGE BFD_CMD_MIN_RX_RANGE BFD_CMD_MIN_TX_RANGE,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n"
@@ -652,7 +652,7 @@ DEFUN_HIDDEN (neighbor_bfd_type,
  */
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
-       NO_NEIGHBOR_CMD2 "bfd",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
