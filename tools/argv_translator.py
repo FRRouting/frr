@@ -1,5 +1,28 @@
 #!/usr/bin/env python
 
+"""
+Usage:
+
+    argv_translator.py rebuild-defuns [<text>]
+    argv_translator.py idx-logic <wildcard>
+
+Help:
+    rebuild-defuns : foo
+
+"""
+
+# This script did different things at different times as we migrated code
+# to quentin's parse engine.  The following were its rebuild-defuns phases:
+#
+# - originally was used to change all of the argv[2] to argv[4]->arg.  This
+#   calculated the new argv index and added the ->arg.
+# - next it was used to replace the 4 in argv[4]->arg with an idx_foo variable
+#
+# idx-logic
+# - used to take a command string and build out an idx_ logic skeleton
+#
+
+import argparse
 import re
 import sys
 import os
@@ -7,6 +30,7 @@ import subprocess
 from collections import OrderedDict
 from copy import deepcopy
 from pprint import pformat, pprint
+from network_docopt import NetworkDocopt, get_network_docopt_info
 
 
 def token_is_variable(line_number, token):
@@ -475,6 +499,12 @@ def get_command_string_index_variable_table(line_number, line):
 
     return indexes
 
+
+def get_idx_logic(wildcard):
+    # dwalton
+    return None
+
+
 def expand_command_string(line):
 
     # in the middle
@@ -697,6 +727,13 @@ DEFUN (no_bgp_maxmed_onstartup,
         lines.extend(self.help_strings)
         lines.append('{\n')
 
+        lines.extend(self.guts)
+
+        '''
+        This is no longer used but was used to do the "- next it was used to
+        replace the 4 in argv[4]->arg with an idx_foo variable" run mentioned
+        at the top of this file.
+
         # only print the variables that will be used else we get a compile error
         idx_table = get_command_string_index_variable_table(self.line_number, new_command_string_expanded)
         idx_table_used = self.get_used_idx_variables(idx_table)
@@ -715,6 +752,7 @@ DEFUN (no_bgp_maxmed_onstartup,
                 lines.append(line)
             else:
                 lines.append(line)
+        '''
 
         lines.append('}\n')
         return ''.join(lines)
@@ -802,10 +840,8 @@ def update_argvs(filename):
 
             lines.append(line)
 
-
     for defun in defuns.itervalues():
         defun.sanity_check()
-
 
     # Now write the file but allow the DEFUN object to update the contents of the DEFUN ()
     with open(filename, 'w') as fh:
@@ -832,16 +868,25 @@ def update_argvs(filename):
                     state = None
 
 
-
 if __name__ == '__main__':
+    (print_options, ended_with_space, sys.argv) = get_network_docopt_info(sys.argv)
+    cli = NetworkDocopt(__doc__)
 
-    if len(sys.argv) == 2:
-        filename = sys.argv[1]
-        update_argvs(filename)
-
+    if print_options:
+        cli.print_options(ended_with_space)
     else:
-        output = subprocess.check_output("grep -l DEFUN *.c", shell=True).splitlines()
-        for filename in output:
-            filename = filename.strip()
-            print "crunching %s" % filename
-            update_argvs(filename)
+        cli.run()
+
+        if cli.get('rebuild-defuns'):
+            if cli.get('<text>'):
+                filename = cli.get('<text>')
+                update_argvs(filename)
+
+            else:
+                output = subprocess.check_output("grep -l DEFUN *.c", shell=True).splitlines()
+                for filename in output:
+                    filename = filename.strip()
+                    print "crunching %s" % filename
+                    update_argvs(filename)
+        elif cli.get('idx-logic'):
+            print get_idx_logic(cli.args.get('<wildcard>'))

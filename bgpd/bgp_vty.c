@@ -1113,7 +1113,7 @@ DEFUN (bgp_maxmed_admin_medv,
 
 DEFUN (no_bgp_maxmed_admin,
        no_bgp_maxmed_admin_cmd,
-       "no bgp max-med administrative [<0-4294967294>]",
+       "no bgp max-med administrative [(0-4294967294)]",
        NO_STR
        BGP_STR
        "Advertise routes with max-med\n"
@@ -1188,7 +1188,7 @@ DEFUN (bgp_maxmed_onstartup_medv,
 
 DEFUN (no_bgp_maxmed_onstartup,
        no_bgp_maxmed_onstartup_cmd,
-       "no bgp max-med on-startup [<5-86400> [<0-4294967294>]]",
+       "no bgp max-med on-startup [(5-86400) [(0-4294967294)]]",
        NO_STR
        BGP_STR
        "Advertise routes with max-med\n"
@@ -2060,7 +2060,7 @@ DEFUN (bgp_bestpath_med,
 
 DEFUN (bgp_bestpath_med2,
        bgp_bestpath_med2_cmd,
-       "bgp bestpath med (confed missing-as-worst|missing-as-worst confed)",
+       "bgp bestpath med <confed missing-as-worst|missing-as-worst confed>",
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "MED attribute\n"
@@ -4838,23 +4838,14 @@ DEFUN (neighbor_port,
   return peer_port_vty (vty, argv[idx_ip]->arg, AFI_IP, argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD "port <0-65535>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR
- *     "Neighbor's BGP port\n"
- *     "TCP port number\n"
- *
- */
 DEFUN (no_neighbor_port,
        no_neighbor_port_cmd,
-       NO_NEIGHBOR_CMD "port",
+       NO_NEIGHBOR_CMD "port [(0-65535)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR
-       "Neighbor's BGP port\n")
+       "Neighbor's BGP port\n"
+       "TCP port number\n")
 {
   int idx_ip = 2;
   return peer_port_vty (vty, argv[idx_ip]->arg, AFI_IP, NULL);
@@ -4907,23 +4898,14 @@ DEFUN (neighbor_weight,
   return peer_weight_set_vty (vty, argv[idx_peer]->arg, argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "weight <0-65535>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Set default weight for routes from this neighbor\n"
- *     "default weight\n"
- *
- */
 DEFUN (no_neighbor_weight,
        no_neighbor_weight_cmd,
-       NO_NEIGHBOR_CMD2 "weight",
+       NO_NEIGHBOR_CMD2 "weight [(0-65535)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Set default weight for routes from this neighbor\n")
+       "Set default weight for routes from this neighbor\n"
+       "default weight\n")
 {
   int idx_peer = 2;
   return peer_weight_unset_vty (vty, argv[idx_peer]->arg);
@@ -5028,24 +5010,15 @@ DEFUN (neighbor_timers,
   return peer_timers_set_vty (vty, argv[idx_peer]->arg, argv[idx_number]->arg, argv[idx_number_2]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "timers <0-65535> <0-65535>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP per neighbor timers\n"
- *     "Keepalive interval\n"
- *     "Holdtime\n"
- *
- */
 DEFUN (no_neighbor_timers,
        no_neighbor_timers_cmd,
-       NO_NEIGHBOR_CMD2 "timers",
+       NO_NEIGHBOR_CMD2 "timers [(0-65535) (0-65535)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "BGP per neighbor timers\n")
+       "BGP per neighbor timers\n"
+       "Keepalive interval\n"
+       "Holdtime\n")
 {
   int idx_peer = 2;
   return peer_timers_unset_vty (vty, argv[idx_peer]->arg);
@@ -5100,25 +5073,15 @@ DEFUN (neighbor_timers_connect,
   return peer_timers_connect_set_vty (vty, argv[idx_peer]->arg, argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "timers connect <1-65535>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP per neighbor timers\n"
- *     "BGP connect timer\n"
- *     "Connect timer\n"
- *
- */
 DEFUN (no_neighbor_timers_connect,
        no_neighbor_timers_connect_cmd,
-       NO_NEIGHBOR_CMD2 "timers connect",
+       NO_NEIGHBOR_CMD2 "timers connect [(1-65535)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP per neighbor timers\n"
-       "BGP connect timer\n")
+       "BGP connect timer\n"
+       "Connect timer\n")
 {
   int idx_peer = 2;
   return peer_timers_connect_unset_vty (vty, argv[idx_peer]->arg);
@@ -5161,23 +5124,14 @@ DEFUN (neighbor_advertise_interval,
   return peer_advertise_interval_vty (vty, argv[idx_peer]->arg, argv[idx_number]->arg, 1);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "advertisement-interval <0-600>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Minimum interval between sending BGP routing updates\n"
- *     "time in seconds\n"
- *
- */
 DEFUN (no_neighbor_advertise_interval,
        no_neighbor_advertise_interval_cmd,
-       NO_NEIGHBOR_CMD2 "advertisement-interval",
+       NO_NEIGHBOR_CMD2 "advertisement-interval [(0-600)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Minimum interval between sending BGP routing updates\n")
+       "Minimum interval between sending BGP routing updates\n"
+       "time in seconds\n")
 {
   int idx_peer = 2;
   return peer_advertise_interval_vty (vty, argv[idx_peer]->arg, NULL, 0);
@@ -5215,21 +5169,13 @@ DEFUN (bgp_set_route_map_delay_timer,
     return CMD_WARNING;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp route-map delay-timer <0-600>",
- *     NO_STR
- *     "Default BGP route-map delay timer\n"
- *     "Reset to default time to wait for processing route-map changes\n"
- *     "0 disables the timer, no route updates happen when route-maps change\n"
- *
- */
 DEFUN (no_bgp_set_route_map_delay_timer,
        no_bgp_set_route_map_delay_timer_cmd,
-       "no bgp route-map delay-timer",
+       "no bgp route-map delay-timer [(0-600)]",
        NO_STR
        "Default BGP route-map delay timer\n"
-       "Reset to default time to wait for processing route-map changes\n")
+       "Reset to default time to wait for processing route-map changes\n"
+       "0 disables the timer, no route updates happen when route-maps change\n")
 {
 
   bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
@@ -5941,24 +5887,14 @@ DEFUN (neighbor_allowas_in,
   return bgp_vty_return (vty, ret);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * NO_NEIGHBOR_CMD2 "allowas-in <1-10>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "allow local ASN appears in aspath attribute\n"
- *     "Number of occurances of AS number\n"
- *
- */
 DEFUN (no_neighbor_allowas_in,
        no_neighbor_allowas_in_cmd,
-       NO_NEIGHBOR_CMD2 "allowas-in",
+       NO_NEIGHBOR_CMD2 "allowas-in [(1-10)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "allow local ASN appears in aspath attribute\n")
+       "allow local ASN appears in aspath attribute\n"
+       "Number of occurances of AS number\n")
 {
   int idx_peer = 2;
   int ret;
@@ -6145,55 +6081,33 @@ DEFUN (address_family_ipv6_safi,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "address-family vpnv4 unicast",
- *     "Enter Address Family command mode\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *
- */
 DEFUN (address_family_vpnv4,
        address_family_vpnv4_cmd,
-       "address-family vpnv4",
+       "address-family vpnv4 [unicast]",
        "Enter Address Family command mode\n"
-       "Address family\n")
+       "Address family\n"
+       "Address Family Modifier\n")
 {
   vty->node = BGP_VPNV4_NODE;
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "address-family vpnv6 unicast",
- *     "Enter Address Family command mode\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *
- */
 DEFUN (address_family_vpnv6,
        address_family_vpnv6_cmd,
-       "address-family vpnv6",
+       "address-family vpnv6 [unicast]",
        "Enter Address Family command mode\n"
-       "Address family\n")
+       "Address family\n"
+       "Address Family Modifier\n")
 {
   vty->node = BGP_VPNV6_NODE;
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "address-family encapv4",
- *     "Enter Address Family command mode\n"
- *     "Address family\n"
- *
- */
 DEFUN (address_family_encap,
        address_family_encap_cmd,
-       "address-family encap",
+       "address-family <encap|encapv4>",
        "Enter Address Family command mode\n"
+       "Address family\n"
        "Address family\n")
 {
   vty->node = BGP_ENCAP_NODE;
@@ -6323,35 +6237,29 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
  *     "Address family\n"
  *     "Clear all peers\n"
  *
- * "clear ip bgp " BGP_INSTANCE_CMD " *",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *
  * "clear bgp ipv6 *",
  *     CLEAR_STR
  *     BGP_STR
  *     "Address family\n"
  *     "Clear all peers\n"
- *
- * "clear bgp " BGP_INSTANCE_CMD " *",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *
  */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear ip bgp *",
+       "clear ip bgp [<view|vrf> WORD] *",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all peers\n")
 {
-  return bgp_clear_vty (vty, argv[4]->arg, 0, 0, clear_all, BGP_CLEAR_SOFT_NONE, NULL);    
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  char *vrf = NULL;
+
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf, 0, 0, clear_all, BGP_CLEAR_SOFT_NONE, NULL);
 }
 
 /*
@@ -6374,7 +6282,7 @@ DEFUN (clear_ip_bgp_peer,
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_peer = 5;
-  char *vrf_name = NULL;
+  char *vrf = NULL;
   enum clear_sort clearer;
 
   if (!strmatch(argv[idx_ip]->text, "ip"))
@@ -6385,7 +6293,7 @@ DEFUN (clear_ip_bgp_peer,
     }
    
   if (argv[idx_view_vrf]->type == WORD_TKN)
-    vrf_name = argv[idx_vrf]->arg;
+    vrf = argv[idx_vrf]->arg;
   else
     idx_peer -= 2;
 
@@ -6400,7 +6308,7 @@ DEFUN (clear_ip_bgp_peer,
       clearer = clear_peer;
     }
 
-  return bgp_clear_vty (vty, vrf_name, 0, 0, clearer, BGP_CLEAR_SOFT_NONE, argv[idx_peer]->arg);
+  return bgp_clear_vty (vty, vrf, 0, 0, clearer, BGP_CLEAR_SOFT_NONE, argv[idx_peer]->arg);
 }
 
 /*
@@ -6430,7 +6338,7 @@ DEFUN (clear_ip_bgp_external,
   int idx_ip = 1;
   int idx_view_vrf = 3;
   int idx_vrf = 4;
-  char *vrf_name = NULL;
+  char *vrf = NULL;
 
   if (!strmatch(argv[idx_ip]->text, "ip"))
     {
@@ -6439,9 +6347,9 @@ DEFUN (clear_ip_bgp_external,
     }
 
   if (argv[idx_view_vrf]->type == WORD_TKN)
-    vrf_name = argv[idx_vrf]->arg;
+    vrf = argv[idx_vrf]->arg;
 
-  return bgp_clear_vty (vty, vrf_name, 0, 0, clear_external, BGP_CLEAR_SOFT_NONE, NULL);
+  return bgp_clear_vty (vty, vrf, 0, 0, clear_external, BGP_CLEAR_SOFT_NONE, NULL);
 }
 
 DEFUN (clear_ip_bgp_prefix,
@@ -6458,7 +6366,7 @@ DEFUN (clear_ip_bgp_prefix,
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_ipv4_prefixlen = 6;
-  char *vrf_name = NULL;
+  char *vrf = NULL;
 
   if (!strmatch(argv[idx_ip]->text, "ip"))
     {
@@ -6468,11 +6376,11 @@ DEFUN (clear_ip_bgp_prefix,
     }
 
   if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
-    vrf_name = argv[idx_vrf]->arg;
+    vrf = argv[idx_vrf]->arg;
   else
     idx_ipv4_prefixlen -= 2;
 
-  return bgp_clear_prefix (vty, vrf_name, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL);
+  return bgp_clear_prefix (vty, vrf, argv[idx_ipv4_prefixlen]->arg, AFI_IP, SAFI_UNICAST, NULL);
 }
 
 /*
@@ -6505,7 +6413,7 @@ DEFUN (clear_ip_bgp_as,
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_number = 3;
-  char *vrf_name = NULL;
+  char *vrf = NULL;
 
   if (!strmatch(argv[idx_ip]->text, "ip"))
     {
@@ -6515,11 +6423,11 @@ DEFUN (clear_ip_bgp_as,
     }
 
   if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
-    vrf_name = argv[idx_vrf]->arg;
+    vrf = argv[idx_vrf]->arg;
   else
     idx_number -= 2;
 
-  return bgp_clear_vty (vty, vrf_name, 0, 0, clear_as, BGP_CLEAR_SOFT_NONE, argv[idx_number]->arg);
+  return bgp_clear_vty (vty, vrf, 0, 0, clear_as, BGP_CLEAR_SOFT_NONE, argv[idx_number]->arg);
 }
 
 /* Outbound soft-reconfiguration */
@@ -6536,12 +6444,12 @@ DEFUN (clear_ip_bgp_all_soft_out,
 {
   int idx_view_vrf = 3;
   int idx_vrf = 4;
-  char *vrf_name = NULL;
+  char *vrf = NULL;
 
   if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
-    vrf_name = argv[idx_vrf]->arg;
+    vrf = argv[idx_vrf]->arg;
 
-  return bgp_clear_vty (vty, vrf_name, AFI_IP, SAFI_UNICAST, clear_all, BGP_CLEAR_SOFT_OUT, NULL);
+  return bgp_clear_vty (vty, vrf, AFI_IP, SAFI_UNICAST, clear_all, BGP_CLEAR_SOFT_OUT, NULL);
 }
 
 DEFUN (clear_ip_bgp_all_ipv4_soft_out,
@@ -6622,77 +6530,26 @@ DEFUN (clear_ip_bgp_all_encap_soft_out,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 * soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp ipv6 * soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " * soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp ipv6 * out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp * out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " * out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 * out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_OUT_STR
- *
- */
+/* neither 'ipv6' or 'soft' do anything here */
 DEFUN (clear_bgp_all_soft_out,
        clear_bgp_all_soft_out_cmd,
-       "clear bgp * soft out",
+       "clear bgp [<view|vrf> WORD] [ipv6] * [soft] out",
        CLEAR_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
+       IPV6_STR
        "Clear all peers\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (argc == 2)
-    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_all,
-                          BGP_CLEAR_SOFT_OUT, NULL);
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP6, SAFI_UNICAST, clear_all,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
 
@@ -6735,73 +6592,35 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
     return bgp_clear_prefix (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6, SAFI_UNICAST, NULL);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) soft out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp (A.B.C.D|WORD) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_soft_out,
        clear_ip_bgp_peer_soft_out_cmd,
-       "clear ip bgp <A.B.C.D|WORD> soft out",
+       "clear ip bgp [<view|vrf> WORD] <A.B.C.D|WORD> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  int idx_ipv4_word = 3;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_peer,
-                          BGP_CLEAR_SOFT_OUT, argv[2]);
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  int idx_ipv4_word = 5;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+  else
+    idx_ipv4_word -= 2;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_OUT, argv[idx_ipv4_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
        clear_ip_bgp_peer_ipv4_soft_out_cmd,
-       "clear ip bgp <A.B.C.D|WORD> ipv4 <unicast|multicast> soft out",
+       "clear ip bgp <A.B.C.D|WORD> ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6823,24 +6642,9 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_ipv4_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_out,
        clear_ip_bgp_instance_peer_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6865,22 +6669,9 @@ DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_out,
 }
 
 /* NOTE: WORD peers have not been tested for vpnv4 */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
        clear_ip_bgp_peer_vpnv4_soft_out_cmd,
-       "clear ip bgp <A.B.C.D|WORD> vpnv4 unicast soft out",
+       "clear ip bgp <A.B.C.D|WORD> vpnv4 unicast [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6896,22 +6687,9 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_ipv4_word]->arg);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp A.B.C.D encap unicast out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *     "Soft reconfig outbound update\n"
- *
- */
 DEFUN (clear_ip_bgp_peer_encap_soft_out,
        clear_ip_bgp_peer_encap_soft_out_cmd,
-       "clear ip bgp A.B.C.D encap unicast soft out",
+       "clear ip bgp A.B.C.D encap unicast [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6926,174 +6704,69 @@ DEFUN (clear_ip_bgp_peer_encap_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_ipv4]->arg);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 (A.B.C.D|X:X::X:X|WORD) soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " (A.B.C.D|X:X::X:X|WORD) soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 (A.B.C.D|X:X::X:X|WORD) out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp (A.B.C.D|X:X::X:X|WORD) out",
- *     CLEAR_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " (A.B.C.D|X:X::X:X|WORD) out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_bgp_peer_soft_out,
        clear_bgp_peer_soft_out_cmd,
-       "clear bgp <A.B.C.D|X:X::X:X|WORD> soft out",
+       "clear bgp [<view|vrf> WORD] [ipv6] <A.B.C.D|X:X::X:X|WORD> [soft] out",
        CLEAR_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
+       IPV6_STR
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  int idx_peer = 2;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_peer,
-                          BGP_CLEAR_SOFT_OUT, argv[2]);
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
+  int idx_ipv6 = 4;
+  int idx_peer = 5;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_peer,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+  else
+    {
+      idx_peer -= 2;
+      idx_ipv6 -= 2;
+    }
+
+  if (! strmatch(argv[idx_ipv6]->text, "ipv6"))
+    idx_peer--;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP6, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_OUT, argv[idx_peer]->arg);
 }
 
-
-
-
-
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp peer-group WORD out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD soft out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_group_soft_out,
        clear_ip_bgp_peer_group_soft_out_cmd,
-       "clear ip bgp peer-group WORD soft out",
+       "clear ip bgp [<view|vrf> WORD] peer-group WORD [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
   int idx_word = 4;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_group,
-                          BGP_CLEAR_SOFT_OUT, argv[2]);
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_group,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+  else
+    idx_word -= 2;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP, SAFI_UNICAST, clear_group,
 			BGP_CLEAR_SOFT_OUT, argv[idx_word]->arg);
 }
 
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp peer-group WORD ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft_out,
        clear_ip_bgp_peer_group_ipv4_soft_out_cmd,
-       "clear ip bgp peer-group WORD ipv4 <unicast|multicast> soft out",
+       "clear ip bgp peer-group WORD ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7115,24 +6788,9 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_out,
        clear_ip_bgp_instance_peer_group_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7156,161 +6814,63 @@ DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_word_2]->arg);
 }
 
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp " BGP_INSTANCE_CMD " peer-group WORD soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 peer-group WORD out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " peer-group WORD out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp ipv6 peer-group WORD soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp peer-group WORD out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp ipv6 peer-group WORD out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 peer-group WORD soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_bgp_peer_group_soft_out,
        clear_bgp_peer_group_soft_out_cmd,
-       "clear bgp peer-group WORD soft out",
+       "clear bgp [<view|vrf> WORD] [ipv6] peer-group WORD [soft] out",
        CLEAR_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  int idx_word = 3;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_group,
-                          BGP_CLEAR_SOFT_OUT, argv[2]);
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
+  int idx_ipv6 = 4;
+  int idx_word = 6;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_group,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+  else
+    {
+      idx_ipv6 -= 2;
+      idx_word -= 2;
+    }
+
+  if (!strmatch(argv[idx_ipv6]->text, "ipv6"))
+      idx_word--;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP6, SAFI_UNICAST, clear_group,
 			BGP_CLEAR_SOFT_OUT, argv[idx_word]->arg);
 }
 
-
-
-
-
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " external soft out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all external peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " external out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all external peers\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp external out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all external peers\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_external_soft_out,
        clear_ip_bgp_external_soft_out_cmd,
-       "clear ip bgp external soft out",
+       "clear ip bgp [<view|vrf> WORD] external [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all external peers\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (argc == 2)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_external,
-                          BGP_CLEAR_SOFT_OUT, NULL);
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_external,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp external ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all external peers\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_external_ipv4_soft_out,
        clear_ip_bgp_external_ipv4_soft_out_cmd,
-       "clear ip bgp external ipv4 <unicast|multicast> soft out",
+       "clear ip bgp external ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7330,23 +6890,9 @@ DEFUN (clear_ip_bgp_external_ipv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all external peers\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft_out,
        clear_ip_bgp_instance_external_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7368,153 +6914,55 @@ DEFUN (clear_ip_bgp_instance_external_ipv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp ipv6 external WORD out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all external peers\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " external soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all external peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " external out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all external peers\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 external WORD out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all external peers\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 external soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all external peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp ipv6 external soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all external peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp external out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear all external peers\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_bgp_external_soft_out,
        clear_bgp_external_soft_out_cmd,
-       "clear bgp external soft out",
+       "clear bgp [<view|vrf> WORD] [ipv6] external [soft] out",
        CLEAR_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all external peers\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  if (argc == 2)
-    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_external,
-                          BGP_CLEAR_SOFT_OUT, NULL);
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_external,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP6, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_OUT, NULL);
 }
 
-
-
-
-
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " soft out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp " CMD_AS_RANGE " out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_as_soft_out,
        clear_ip_bgp_as_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " soft out",
+       "clear ip bgp [<view|vrf> WORD] " CMD_AS_RANGE " [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear peers with the AS number\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  int idx_number = 3;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_as,
-                          BGP_CLEAR_SOFT_OUT, argv[2]);
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  int idx_asn = 5;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_OUT, argv[idx_number]->arg);
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+  else
+    idx_asn -= 2;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP, SAFI_UNICAST, clear_as,
+			BGP_CLEAR_SOFT_OUT, argv[idx_asn]->arg);
 }
 
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_as_ipv4_soft_out,
        clear_ip_bgp_as_ipv4_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> soft out",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7535,23 +6983,9 @@ DEFUN (clear_ip_bgp_as_ipv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear peers with the AS number\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft_out,
        clear_ip_bgp_instance_as_ipv4_soft_out_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> soft out",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7574,23 +7008,9 @@ DEFUN (clear_ip_bgp_instance_as_ipv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_number]->arg);
 }
 
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_ip_bgp_as_vpnv4_soft_out,
        clear_ip_bgp_as_vpnv4_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft out",
+       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7605,22 +7025,9 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_number]->arg);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " CMD_AS_RANGE " encap unicast out",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Soft reconfig outbound update\n"
- *
- */
 DEFUN (clear_ip_bgp_as_encap_soft_out,
        clear_ip_bgp_as_encap_soft_out_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast soft out",
+       "clear ip bgp " CMD_AS_RANGE " encap unicast [soft] out",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7635,171 +7042,81 @@ DEFUN (clear_ip_bgp_as_encap_soft_out,
 			BGP_CLEAR_SOFT_OUT, argv[idx_number]->arg);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp ipv6 " CMD_AS_RANGE " soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 " CMD_AS_RANGE " out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " CMD_AS_RANGE " out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp ipv6 " CMD_AS_RANGE " out",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_OUT_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 " CMD_AS_RANGE " soft out",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear peers with the AS number\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_OUT_STR
- *
- */
 DEFUN (clear_bgp_as_soft_out,
        clear_bgp_as_soft_out_cmd,
-       "clear bgp " CMD_AS_RANGE " soft out",
+       "clear bgp [<view|vrf> WORD] [ipv6] " CMD_AS_RANGE " [soft] out",
        CLEAR_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
+       IPV6_STR
        "Clear peers with the AS number\n"
        BGP_SOFT_STR
        BGP_SOFT_OUT_STR)
 {
-  int idx_number = 2;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_as,
-                          BGP_CLEAR_SOFT_OUT, argv[2]);
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
+  int idx_asn = 4;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_as,
-			BGP_CLEAR_SOFT_OUT, argv[idx_number]->arg);
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+  else
+    idx_asn -= 2;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP6, SAFI_UNICAST, clear_as,
+			BGP_CLEAR_SOFT_OUT, argv[idx_asn]->arg);
 }
 
 
-
-
-
-
-
-
 /* Inbound soft-reconfiguration */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " * in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " * soft in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_IN_STR
- *
- * "clear ip bgp * in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_all_soft_in,
        clear_ip_bgp_all_soft_in_cmd,
-       "clear ip bgp * soft in",
+       "clear ip bgp [<view|vrf> WORD] * [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all peers\n"
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (argc == 2)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
-                          BGP_CLEAR_SOFT_IN, NULL);
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP, SAFI_UNICAST, clear_all,
 			BGP_CLEAR_SOFT_IN, NULL);
 }
 
 
-
-
 DEFUN (clear_ip_bgp_all_in_prefix_filter,
        clear_ip_bgp_all_in_prefix_filter_cmd,
-       "clear ip bgp * in prefix-filter",
+       "clear ip bgp [<view|vrf> WORD] * in prefix-filter",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all peers\n"
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
 {
-  if (argc== 2)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_all,
-                          BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP, SAFI_UNICAST, clear_all,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp * ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_all_ipv4_soft_in,
        clear_ip_bgp_all_ipv4_soft_in_cmd,
-       "clear ip bgp * ipv4 <unicast|multicast> soft in",
+       "clear ip bgp * ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7819,23 +7136,9 @@ DEFUN (clear_ip_bgp_all_ipv4_soft_in,
 			BGP_CLEAR_SOFT_IN, NULL);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_all_ipv4_soft_in,
        clear_ip_bgp_instance_all_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " * ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7881,21 +7184,9 @@ DEFUN (clear_ip_bgp_all_ipv4_in_prefix_filter,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp * vpnv4 unicast in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_all_vpnv4_soft_in,
        clear_ip_bgp_all_vpnv4_soft_in_cmd,
-       "clear ip bgp * vpnv4 unicast soft in",
+       "clear ip bgp * vpnv4 unicast [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7909,22 +7200,9 @@ DEFUN (clear_ip_bgp_all_vpnv4_soft_in,
 			BGP_CLEAR_SOFT_IN, NULL);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp * encap unicast in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *     "Soft reconfig inbound update\n"
- *
- */
 DEFUN (clear_ip_bgp_all_encap_soft_in,
        clear_ip_bgp_all_encap_soft_in_cmd,
-       "clear ip bgp * encap unicast soft in",
+       "clear ip bgp * encap unicast [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7938,103 +7216,34 @@ DEFUN (clear_ip_bgp_all_encap_soft_in,
 			BGP_CLEAR_SOFT_IN, NULL);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp ipv6 * soft in",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 * in",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp * in",
- *     CLEAR_STR
- *     BGP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " * in",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 * soft in",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp ipv6 * in",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " * soft in",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all peers\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_bgp_all_soft_in,
        clear_bgp_all_soft_in_cmd,
-       "clear bgp * soft in",
+       "clear bgp [<view|vrf> WORD] [ipv6] * [soft] in",
        CLEAR_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Clear all peers\n"
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  if (argc == 2)
-    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_all,
-                        BGP_CLEAR_SOFT_IN, NULL);
+  // dwalton
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP6, SAFI_UNICAST, clear_all,
 			BGP_CLEAR_SOFT_IN, NULL);
 }
 
-
-
-
-
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp ipv6 * in prefix-filter",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Clear all peers\n"
- *     BGP_SOFT_IN_STR
- *     "Push out prefix-list ORF and do inbound soft reconfig\n"
- *
- */
 DEFUN (clear_bgp_all_in_prefix_filter,
        clear_bgp_all_in_prefix_filter_cmd,
-       "clear bgp * in prefix-filter",
+       "clear bgp [ipv6] * in prefix-filter",
        CLEAR_STR
        BGP_STR
+       IPV6_STR
        "Clear all peers\n"
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n")
@@ -8043,59 +7252,32 @@ DEFUN (clear_bgp_all_in_prefix_filter,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) soft in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_IN_STR
- *
- * "clear ip bgp (A.B.C.D|WORD) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_soft_in,
        clear_ip_bgp_peer_soft_in_cmd,
-       "clear ip bgp <A.B.C.D|WORD> soft in",
+       "clear ip bgp [<view|vrf> WORD] <A.B.C.D|WORD> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "BGP neighbor address to clear\n"
        "BGP neighbor on interface to clear\n"
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
   int idx_ipv4_word = 3;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], AFI_IP, SAFI_UNICAST, clear_peer,
-                          BGP_CLEAR_SOFT_IN, argv[2]);
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+  else
+    idx_ipv4_word -= 2;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_IN, argv[idx_ipv4_word]->arg);
 }
 
-
-       
 
 DEFUN (clear_ip_bgp_peer_in_prefix_filter,
        clear_ip_bgp_peer_in_prefix_filter_cmd,
@@ -8113,23 +7295,9 @@ DEFUN (clear_ip_bgp_peer_in_prefix_filter,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[idx_ipv4_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp (A.B.C.D|WORD) ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
        clear_ip_bgp_peer_ipv4_soft_in_cmd,
-       "clear ip bgp <A.B.C.D|WORD> ipv4 <unicast|multicast> soft in",
+       "clear ip bgp <A.B.C.D|WORD> ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8151,24 +7319,9 @@ DEFUN (clear_ip_bgp_peer_ipv4_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_ipv4_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " (A.B.C.D|WORD) ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_peer_ipv4_soft_in,
        clear_ip_bgp_instance_peer_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " <A.B.C.D|WORD> ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8218,22 +7371,9 @@ DEFUN (clear_ip_bgp_peer_ipv4_in_prefix_filter,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[idx_ipv4_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp (A.B.C.D|WORD) vpnv4 unicast in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_vpnv4_soft_in,
        clear_ip_bgp_peer_vpnv4_soft_in_cmd,
-       "clear ip bgp <A.B.C.D|WORD> vpnv4 unicast soft in",
+       "clear ip bgp <A.B.C.D|WORD> vpnv4 unicast [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8249,22 +7389,9 @@ DEFUN (clear_ip_bgp_peer_vpnv4_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_ipv4_word]->arg);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp A.B.C.D encap unicast in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "Address family\n"
- *     "Address Family Modifier\n"
- *     "Soft reconfig inbound update\n"
- *
- */
 DEFUN (clear_ip_bgp_peer_encap_soft_in,
        clear_ip_bgp_peer_encap_soft_in_cmd,
-       "clear ip bgp A.B.C.D encap unicast soft in",
+       "clear ip bgp A.B.C.D encap unicast [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8279,102 +7406,38 @@ DEFUN (clear_ip_bgp_peer_encap_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_ipv4]->arg);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) in",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 (A.B.C.D|X:X::X:X|WORD) soft in",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp ipv6 (A.B.C.D|X:X::X:X|WORD) soft in",
- *     CLEAR_STR
- *     BGP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp (A.B.C.D|X:X::X:X|WORD) in",
- *     CLEAR_STR
- *     BGP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " (A.B.C.D|X:X::X:X|WORD) soft in",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_STR
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " ipv6 (A.B.C.D|X:X::X:X|WORD) in",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_IN_STR
- *
- * "clear bgp " BGP_INSTANCE_CMD " (A.B.C.D|X:X::X:X|WORD) in",
- *     CLEAR_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "BGP neighbor address to clear\n"
- *     "BGP IPv6 neighbor to clear\n"
- *     "BGP neighbor on interface to clear\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_bgp_peer_soft_in,
        clear_bgp_peer_soft_in_cmd,
-       "clear bgp <A.B.C.D|X:X::X:X|WORD> soft in",
+       "clear bgp [<view|vrf> WORD] [ipv6] <A.B.C.D|X:X::X:X|WORD> [soft] in",
        CLEAR_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
        "BGP neighbor on interface to clear\n"
        BGP_SOFT_STR
        BGP_SOFT_IN_STR)
 {
-  int idx_peer = 2;
-  if (argc == 3)
-    return bgp_clear_vty (vty, argv[1], AFI_IP6, SAFI_UNICAST, clear_peer,
-                          BGP_CLEAR_SOFT_IN, argv[2]);
+  int idx_view_vrf = 2;
+  int idx_vrf = 3;
+  int idx_ipv6 = 4;
+  int idx_peer = 5;
+  char *vrf = NULL;
 
-  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_peer,
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+  else
+    {
+      idx_ipv6 -= 2;
+      idx_peer -= 2;
+    }
+
+  if (!strmatch(argv[idx_ipv6]->text, "ipv6"))
+      idx_peer--;
+
+  return bgp_clear_vty (vty, vrf, AFI_IP6, SAFI_UNICAST, clear_peer,
 			BGP_CLEAR_SOFT_IN, argv[idx_peer]->arg);
 }
-
-
-
-
-
-
 
 
 /*
@@ -8476,23 +7539,9 @@ DEFUN (clear_ip_bgp_peer_group_in_prefix_filter,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp peer-group WORD ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_peer_group_ipv4_soft_in,
        clear_ip_bgp_peer_group_ipv4_soft_in_cmd,
-       "clear ip bgp peer-group WORD ipv4 <unicast|multicast> soft in",
+       "clear ip bgp peer-group WORD ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8514,24 +7563,9 @@ DEFUN (clear_ip_bgp_peer_group_ipv4_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all members of peer-group\n"
- *     "BGP peer-group name\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_peer_group_ipv4_soft_in,
        clear_ip_bgp_instance_peer_group_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " peer-group WORD ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8663,13 +7697,6 @@ DEFUN (clear_bgp_peer_group_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_word]->arg);
 }
 
-
-
-
-
-
-
-
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
  * "clear bgp ipv6 peer-group WORD in prefix-filter",
@@ -8760,22 +7787,9 @@ DEFUN (clear_ip_bgp_external_in_prefix_filter,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, NULL);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp external ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear all external peers\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_external_ipv4_soft_in,
        clear_ip_bgp_external_ipv4_soft_in_cmd,
-       "clear ip bgp external ipv4 <unicast|multicast> soft in",
+       "clear ip bgp external ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8795,23 +7809,9 @@ DEFUN (clear_ip_bgp_external_ipv4_soft_in,
 			BGP_CLEAR_SOFT_IN, NULL);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear all external peers\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_external_ipv4_soft_in,
        clear_ip_bgp_instance_external_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " external ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -8930,13 +7930,6 @@ DEFUN (clear_bgp_external_soft_in,
 			BGP_CLEAR_SOFT_IN, NULL);
 }
 
-
-
-
-
-
-
-
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
  * "clear bgp ipv6 external in prefix-filter",
@@ -9008,9 +8001,6 @@ DEFUN (clear_ip_bgp_as_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_number]->arg);
 }
 
-
-
-
 DEFUN (clear_ip_bgp_as_in_prefix_filter,
        clear_ip_bgp_as_in_prefix_filter_cmd,
        "clear ip bgp " CMD_AS_RANGE " in prefix-filter",
@@ -9026,22 +8016,9 @@ DEFUN (clear_ip_bgp_as_in_prefix_filter,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " CMD_AS_RANGE " ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_as_ipv4_soft_in,
        clear_ip_bgp_as_ipv4_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> soft in",
+       "clear ip bgp " CMD_AS_RANGE " ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9062,23 +8039,9 @@ DEFUN (clear_ip_bgp_as_ipv4_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 (unicast|multicast) in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Clear peers with the AS number\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_instance_as_ipv4_soft_in,
        clear_ip_bgp_instance_as_ipv4_soft_in_cmd,
-       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> soft in",
+       "clear ip bgp " BGP_INSTANCE_CMD " " CMD_AS_RANGE " ipv4 <unicast|multicast> [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9100,8 +8063,6 @@ DEFUN (clear_ip_bgp_instance_as_ipv4_soft_in,
   return bgp_clear_vty (vty, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST, clear_as,
 			BGP_CLEAR_SOFT_IN, argv[idx_number]->arg);
 }
-
-
 
 DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
        clear_ip_bgp_as_ipv4_in_prefix_filter_cmd,
@@ -9126,21 +8087,9 @@ DEFUN (clear_ip_bgp_as_ipv4_in_prefix_filter,
 			BGP_CLEAR_SOFT_IN_ORF_PREFIX, argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     BGP_SOFT_IN_STR
- *
- */
 DEFUN (clear_ip_bgp_as_vpnv4_soft_in,
        clear_ip_bgp_as_vpnv4_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast soft in",
+       "clear ip bgp " CMD_AS_RANGE " vpnv4 unicast [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9155,22 +8104,9 @@ DEFUN (clear_ip_bgp_as_vpnv4_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_number]->arg);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "clear ip bgp " CMD_AS_RANGE " encap unicast in",
- *     CLEAR_STR
- *     IP_STR
- *     BGP_STR
- *     "Clear peers with the AS number\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Soft reconfig inbound update\n"
- *
- */
 DEFUN (clear_ip_bgp_as_encap_soft_in,
        clear_ip_bgp_as_encap_soft_in_cmd,
-       "clear ip bgp " CMD_AS_RANGE " encap unicast soft in",
+       "clear ip bgp " CMD_AS_RANGE " encap unicast [soft] in",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9184,7 +8120,6 @@ DEFUN (clear_ip_bgp_as_encap_soft_in,
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_ENCAP, clear_as,
 			BGP_CLEAR_SOFT_IN, argv[idx_number]->arg);
 }
-
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
@@ -9260,13 +8195,6 @@ DEFUN (clear_bgp_as_soft_in,
 			BGP_CLEAR_SOFT_IN, argv[idx_number]->arg);
 }
 
-
-
-
-
-
-
-
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
  * "clear bgp ipv6 " CMD_AS_RANGE " in prefix-filter",
@@ -9321,8 +8249,6 @@ DEFUN (clear_ip_bgp_all_soft,
   return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
 			BGP_CLEAR_SOFT_BOTH, NULL);
 }
-
-
 
 DEFUN (clear_ip_bgp_all_ipv4_soft,
        clear_ip_bgp_all_ipv4_soft_cmd,
@@ -9438,9 +8364,6 @@ DEFUN (clear_bgp_all_soft,
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
 			BGP_CLEAR_SOFT_BOTH, NULL);
 }
-
-
-
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
@@ -9734,9 +8657,6 @@ DEFUN (clear_bgp_peer_group_soft,
 			BGP_CLEAR_SOFT_BOTH, argv[idx_word]->arg);
 }
 
-
-
-
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
  * "clear ip bgp " BGP_INSTANCE_CMD " external soft",
@@ -9850,9 +8770,6 @@ DEFUN (clear_bgp_external_soft,
   return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_external,
 			BGP_CLEAR_SOFT_BOTH, NULL);
 }
-
-
-
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
@@ -16755,4 +15672,4 @@ community_list_vty (void)
   install_element (VIEW_NODE, &show_ip_extcommunity_list_arg_cmd);
   install_element (ENABLE_NODE, &show_ip_extcommunity_list_cmd);
   install_element (ENABLE_NODE, &show_ip_extcommunity_list_arg_cmd);
-}
+T }
