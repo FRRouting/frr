@@ -1790,3 +1790,76 @@ ospf6_init (void)
   ospf6_bfd_init();
   install_node (&debug_node, config_write_ospf6_debug);
 
+  install_element_ospf6_debug_message ();
+  install_element_ospf6_debug_lsa ();
+  install_element_ospf6_debug_interface ();
+  install_element_ospf6_debug_neighbor ();
+  install_element_ospf6_debug_zebra ();
+  install_element_ospf6_debug_spf ();
+  install_element_ospf6_debug_route ();
+  install_element_ospf6_debug_brouter ();
+  install_element_ospf6_debug_asbr ();
+  install_element_ospf6_debug_abr ();
+  install_element_ospf6_debug_flood ();
+
+  install_element_ospf6_clear_interface ();
+
+  install_element (VIEW_NODE, &show_version_ospf6_cmd);
+  install_element (ENABLE_NODE, &show_version_ospf6_cmd);
+
+  install_element (VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_border_routers_cmd);
+
+  install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_detail_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_detail_cmd);
+
+#define INSTALL(n,c) \
+  install_element (n ## _NODE, &show_ipv6_ospf6_ ## c)
+
+  INSTALL (VIEW, database_cmd);
+  INSTALL (VIEW, database_type_cmd);
+  INSTALL (VIEW, database_id_cmd);
+  INSTALL (VIEW, database_router_cmd);
+  INSTALL (VIEW, database_type_id_cmd);
+  INSTALL (VIEW, database_type_router_cmd);
+  INSTALL (VIEW, database_adv_router_linkstate_id_cmd);
+  INSTALL (VIEW, database_id_router_cmd);
+  INSTALL (VIEW, database_type_id_router_cmd);
+  INSTALL (VIEW, database_type_adv_router_linkstate_id_cmd);
+  INSTALL (VIEW, database_self_originated_cmd);
+  INSTALL (VIEW, database_type_self_originated_cmd);
+  INSTALL (VIEW, database_type_id_self_originated_cmd);
+  INSTALL (VIEW, database_type_self_originated_linkstate_id_cmd);
+
+  INSTALL (ENABLE, database_cmd);
+  INSTALL (ENABLE, database_type_cmd);
+  INSTALL (ENABLE, database_id_cmd);
+  INSTALL (ENABLE, database_router_cmd);
+  INSTALL (ENABLE, database_type_id_cmd);
+  INSTALL (ENABLE, database_type_router_cmd);
+  INSTALL (ENABLE, database_adv_router_linkstate_id_cmd);
+  INSTALL (ENABLE, database_id_router_cmd);
+  INSTALL (ENABLE, database_type_id_router_cmd);
+  INSTALL (ENABLE, database_type_adv_router_linkstate_id_cmd);
+  INSTALL (ENABLE, database_self_originated_cmd);
+  INSTALL (ENABLE, database_type_self_originated_cmd);
+  INSTALL (ENABLE, database_type_id_self_originated_cmd);
+  INSTALL (ENABLE, database_type_self_originated_linkstate_id_cmd);
+
+  /* Make ospf protocol socket. */
+  ospf6_serv_sock ();
+  thread_add_read (master, ospf6_receive, NULL, ospf6_sock);
+}
+
+void
+ospf6_clean (void)
+{
+  if (!ospf6)
+    return;
+  if (ospf6->route_table)
+    ospf6_route_remove_all (ospf6->route_table);
+  if (ospf6->brouter_table)
+    ospf6_route_remove_all (ospf6->brouter_table);
+}

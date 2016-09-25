@@ -214,21 +214,16 @@ router_id_write (struct vty *vty)
         }
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "router-id A.B.C.D " VRF_CMD_STR,
- *     "Manually set the router-id\n"
- *     "IP address to use for router-id\n"
- *     VRF_CMD_HELP_STR
- *
- */
 DEFUN (router_id,
        router_id_cmd,
-       "router-id A.B.C.D",
+       "router-id A.B.C.D [vrf NAME]",
        "Manually set the router-id\n"
-       "IP address to use for router-id\n")
+       "IP address to use for router-id\n"
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv4 = 1;
+  int idx_name = 3;
+
   struct prefix rid;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
@@ -239,35 +234,24 @@ DEFUN (router_id,
   rid.prefixlen = 32;
   rid.family = AF_INET;
 
-  if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[1]);
+  if (argc > 2)
+    VRF_GET_ID (vrf_id, argv[idx_name]->arg);
 
   router_id_set (&rid, vrf_id);
 
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no router-id A.B.C.D",
- *     NO_STR
- *     "Remove the manually configured router-id\n"
- *     "IP address to use for router-id\n"
- *
- * "no router-id A.B.C.D " VRF_CMD_STR,
- *     NO_STR
- *     "Remove the manually configured router-id\n"
- *     "IP address to use for router-id\n"
- *     VRF_CMD_HELP_STR
- *
- */
 DEFUN (no_router_id,
        no_router_id_cmd,
-       "no router-id",
+       "no router-id [A.B.C.D [vrf NAME]]",
        NO_STR
-       "Remove the manually configured router-id\n")
+       "Remove the manually configured router-id\n"
+       "IP address to use for router-id\n"
+       VRF_CMD_HELP_STR)
 {
+  int idx_name = 4;
+
   struct prefix rid;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
@@ -275,8 +259,8 @@ DEFUN (no_router_id,
   rid.prefixlen = 0;
   rid.family = AF_INET;
 
-  if (argc > 1)
-    VRF_GET_ID (vrf_id, argv[1]);
+  if (argc > 3)
+    VRF_GET_ID (vrf_id, argv[idx_name]->arg);
 
   router_id_set (&rid, vrf_id);
 
