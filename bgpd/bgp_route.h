@@ -25,6 +25,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgp_table.h"
 
 struct bgp_nexthop_cache;
+struct bgp_vrf;
 
 #define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, "\
                               "h history, * valid, > best, = multipath,%s"\
@@ -94,6 +95,7 @@ struct bgp_info_extra
 
   } vnc;
 #endif
+  struct prefix_rd vrf_rd;
 };
 
 struct bgp_info
@@ -365,5 +367,17 @@ extern void bgp_info_restore (struct bgp_node *, struct bgp_info *);
 
 extern int bgp_info_cmp_compatible (struct bgp *, struct bgp_info *,
                                     struct bgp_info *, afi_t, safi_t );
+
+extern int
+bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
+                         struct bgp_table *rib, const char *ip_str,
+                         afi_t afi, safi_t safi, struct prefix_rd *prd,
+                         int prefix_check, enum bgp_path_type pathtype,
+                         u_char use_json);
+extern void bgp_vrf_clean_tables (struct bgp_vrf *vrf);
+
+extern int
+bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
+                enum bgp_show_type type, void *output_arg, u_char use_json);
 
 #endif /* _QUAGGA_BGP_ROUTE_H */

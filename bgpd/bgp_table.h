@@ -23,8 +23,16 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "table.h"
 
+typedef enum
+{
+  BGP_TABLE_MAIN,
+  BGP_TABLE_VRF,
+} bgp_table_t;
+
 struct bgp_table
 {
+  bgp_table_t type;
+
   /* afi/safi of this table */
   afi_t afi;
   safi_t safi;
@@ -36,6 +44,8 @@ struct bgp_table
 
   struct route_table *route_table;
   uint64_t version;
+
+  struct prefix_rd prd;
 };
 
 struct bgp_node

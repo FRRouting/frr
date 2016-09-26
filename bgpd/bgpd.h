@@ -62,6 +62,7 @@ typedef u_int16_t bgp_size_t;
     __typeof__ (b) _b = (b);	\
     _a > _b ? _a : _b; })
 
+
 enum bgp_af_index
 {
   BGP_AF_START,
@@ -361,8 +362,14 @@ struct bgp
   struct rfapi *rfapi;
 #endif
 
+  /* VRFs */
+  struct list *vrfs;
+
+  struct hash *rt_subscribers;
+
   QOBJ_FIELDS
 };
+
 DECLARE_QOBJ_TYPE(bgp)
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)

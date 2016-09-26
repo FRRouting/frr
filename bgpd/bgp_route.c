@@ -59,6 +59,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_vrf.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -69,6 +70,12 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
+
+static void
+bgp_static_withdraw_safi (struct bgp *bgp, struct prefix *p, afi_t afi,
+                          safi_t safi, struct prefix_rd *prd, u_char *tag);
+static void
+bgp_static_free (struct bgp_static *bgp_static);
 
 struct bgp_node *
 bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix *p,
@@ -86,7 +93,12 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
       prn = bgp_node_get (table, (struct prefix *) prd);
 
       if (prn->info == NULL)
-	prn->info = bgp_table_init (afi, safi);
+        {
+          struct bgp_table *newtab = bgp_table_init (afi, safi);
+          if (prd)
+            newtab->prd = *prd;
+          prn->info = newtab;
+        }
       else
 	bgp_unlock_node (prn);
       table = prn->info;
@@ -6568,6 +6580,9 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 
   attr = binfo->attr;
 
+  if (safi == SAFI_MPLS_LABELED_VPN)
+    safi = SAFI_MPLS_VPN;
+
   if (attr)
     {
       /* Line1 display AS-path, Aggregator */
@@ -7244,7 +7259,7 @@ static int
 bgp_show_community (struct vty *vty, const char *view_name, int argc,
 		    struct cmd_token **argv, int exact, afi_t afi, safi_t safi);
 
-static int
+int
 bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
                 enum bgp_show_type type, void *output_arg, u_char use_json)
 {
@@ -7658,7 +7673,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 }
 
 /* Display specified route of BGP table. */
-static int
+int
 bgp_show_route_in_table (struct vty *vty, struct bgp *bgp, 
                          struct bgp_table *rib, const char *ip_str,
                          afi_t afi, safi_t safi, struct prefix_rd *prd,
@@ -10530,7 +10545,6 @@ bgp_route_init (void)
   install_element (BGP_IPV4M_NODE, &aggregate_address_mask_cmd);
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_cmd);
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_mask_cmd);
-
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
@@ -10639,4 +10653,37 @@ bgp_route_finish (void)
 	bgp_table_unlock (bgp_distance_table[afi][safi]);
 	bgp_distance_table[afi][safi] = NULL;
       }
+}
+
+void bgp_vrf_clean_tables (struct bgp_vrf *vrf)
+{
+  afi_t afi;
+
+  if (vrf->rib == NULL || vrf->route == NULL)
+    return;
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    {
+      struct bgp_info *ri, *ri_next;
+      struct bgp_node *rn;
+
+      for (rn = bgp_table_top (vrf->rib[afi]); rn; rn = bgp_route_next (rn))
+        for (ri = rn->info; ri; ri = ri_next)
+          {
+            ri_next = ri->next;
+            bgp_info_reap (rn, ri);
+          }
+      bgp_table_finish (&vrf->rib[afi]);
+
+      for (rn = bgp_table_top (vrf->route[afi]); rn; rn = bgp_route_next (rn))
+        if (rn->info)
+          {
+            struct bgp_static *bs = rn->info;
+            bgp_static_withdraw_safi (vrf->bgp, &rn->p, afi, SAFI_MPLS_VPN,
+                        &vrf->outbound_rd, NULL);
+            bgp_static_free (bs);
+            rn->info = NULL;
+            bgp_unlock_node (rn);
+          }
+      bgp_table_finish (&vrf->route[afi]);
+    }
 }

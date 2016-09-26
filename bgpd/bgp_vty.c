@@ -56,6 +56,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
+#include "bgpd/bgp_vrf.h"
 
 static struct peer_group *
 listen_range_exists (struct bgp *bgp, struct prefix *range, int exact);
