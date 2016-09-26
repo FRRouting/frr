@@ -1450,8 +1450,7 @@ DEFUN (route_map,
   map = route_map_get (argv[0]);
   index = route_map_index_get (map, permit, pref);
 
-  vty->index = index;
-  vty->node = RMAP_NODE;
+  VTY_PUSH_CONTEXT_COMPAT (RMAP_NODE, index);
   return CMD_SUCCESS;
 }
 
@@ -1552,9 +1551,7 @@ DEFUN (rmap_onmatch_next,
        "Exit policy on matches\n"
        "Next clause\n")
 {
-  struct route_map_index *index;
-
-  index = vty->index;
+  struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
 
   if (index)
     {
@@ -1577,10 +1574,8 @@ DEFUN (no_rmap_onmatch_next,
        "Exit policy on matches\n"
        "Next clause\n")
 {
-  struct route_map_index *index;
+  struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
 
-  index = vty->index;
-  
   if (index)
     index->exitpolicy = RMAP_EXIT;
 
@@ -1594,7 +1589,7 @@ DEFUN (rmap_onmatch_goto,
        "Goto Clause number\n"
        "Number\n")
 {
-  struct route_map_index *index = vty->index;
+  struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
   int d = 0;
 
   if (index)
@@ -1635,9 +1630,7 @@ DEFUN (no_rmap_onmatch_goto,
        "Exit policy on matches\n"
        "Goto Clause number\n")
 {
-  struct route_map_index *index;
-
-  index = vty->index;
+  struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
 
   if (index)
     index->exitpolicy = RMAP_EXIT;
@@ -1696,9 +1689,8 @@ DEFUN (rmap_call,
        "Jump to another Route-Map after match+set\n"
        "Target route-map name\n")
 {
-  struct route_map_index *index;
+  struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
 
-  index = vty->index;
   if (index)
     {
       if (index->nextrm)
@@ -1724,9 +1716,7 @@ DEFUN (no_rmap_call,
        NO_STR
        "Jump to another Route-Map after match+set\n")
 {
-  struct route_map_index *index;
-
-  index = vty->index;
+  struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
 
   if (index->nextrm)
     {
@@ -1746,9 +1736,8 @@ DEFUN (rmap_description,
        "Route-map comment\n"
        "Comment describing this route-map rule\n")
 {
-  struct route_map_index *index;
+  struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
 
-  index = vty->index;
   if (index)
     {
       if (index->description)
@@ -1764,9 +1753,8 @@ DEFUN (no_rmap_description,
        NO_STR
        "Route-map comment\n")
 {
-  struct route_map_index *index;
+  struct route_map_index *index = VTY_GET_CONTEXT (route_map_index);
 
-  index = vty->index;
   if (index)
     {
       if (index->description)

@@ -250,8 +250,7 @@ DEFUN (key_chain,
   struct keychain *keychain;
 
   keychain = keychain_get (argv[0]);
-  vty->index = keychain;
-  vty->node = KEYCHAIN_NODE;
+  VTY_PUSH_CONTEXT_COMPAT (KEYCHAIN_NODE, keychain);
 
   return CMD_SUCCESS;
 }
@@ -285,11 +284,9 @@ DEFUN (key,
        "Configure a key\n"
        "Key identifier number\n")
 {
-  struct keychain *keychain;
+  VTY_DECLVAR_CONTEXT (keychain, keychain);
   struct key *key;
   u_int32_t index;
-
-  keychain = vty->index;
 
   VTY_GET_INTEGER ("key identifier", index, argv[0]);
   key = key_get (keychain, index);
@@ -306,11 +303,9 @@ DEFUN (no_key,
        "Delete a key\n"
        "Key identifier number\n")
 {
-  struct keychain *keychain;
+  VTY_DECLVAR_CONTEXT (keychain, keychain);
   struct key *key;
   u_int32_t index;
-  
-  keychain = vty->index;
 
   VTY_GET_INTEGER ("key identifier", index, argv[0]);
   key = key_lookup (keychain, index);
