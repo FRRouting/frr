@@ -45,6 +45,14 @@ DECLARE_MGROUP(MVTYSH)
 #define VTYSH_DEFAULT_CONFIG "vtysh.conf"
 #define QUAGGA_DEFAULT_CONFIG "Quagga.conf"
 
+enum vtysh_write_integrated {
+	WRITE_INTEGRATED_UNSPECIFIED,
+	WRITE_INTEGRATED_NO,
+	WRITE_INTEGRATED_YES
+};
+
+extern enum vtysh_write_integrated vtysh_write_integrated;
+
 void vtysh_init_vty (void);
 void vtysh_init_cmd (void);
 extern int vtysh_connect_all (const char *optional_daemon_name);

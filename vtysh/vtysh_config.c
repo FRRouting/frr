@@ -33,8 +33,6 @@ DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CONFIG_LINE, "Vtysh configuration line")
 
 vector configvec;
 
-extern int vtysh_writeconfig_integrated;
-
 struct config
 {
   /* Configuration node name. */
@@ -458,8 +456,10 @@ vtysh_config_write ()
       sprintf (line, "hostname %s", host.name);
       vtysh_config_parse_line(line);
     }
-  if (!vtysh_writeconfig_integrated)
+  if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
     vtysh_config_parse_line ("no service integrated-vtysh-config");
+  if (vtysh_write_integrated == WRITE_INTEGRATED_YES)
+    vtysh_config_parse_line ("service integrated-vtysh-config");
 
   user_config_write ();
 }

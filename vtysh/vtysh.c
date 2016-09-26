@@ -75,8 +75,7 @@ struct vtysh_client vtysh_client[] =
   { .fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .path = PIM_VTYSH_PATH, .next = NULL},
 };
 
-/* Using integrated config from Quagga.conf. Default is no. */
-int vtysh_writeconfig_integrated = 1;
+enum vtysh_write_integrated vtysh_write_integrated = WRITE_INTEGRATED_UNSPECIFIED;
 
 extern char config_default[];
 
@@ -2482,7 +2481,7 @@ DEFUN (vtysh_integrated_config,
        "Set up miscellaneous service\n"
        "Write configuration into integrated file\n")
 {
-  vtysh_writeconfig_integrated = 1;
+  vtysh_write_integrated = WRITE_INTEGRATED_YES;
   return CMD_SUCCESS;
 }
 
@@ -2493,7 +2492,7 @@ DEFUN (no_vtysh_integrated_config,
        "Set up miscellaneous service\n"
        "Write configuration into integrated file\n")
 {
-  vtysh_writeconfig_integrated = 0;
+  vtysh_write_integrated = WRITE_INTEGRATED_NO;
   return CMD_SUCCESS;
 }
 
@@ -2573,6 +2572,23 @@ write_config_integrated(void)
   return CMD_SUCCESS;
 }
 
+static bool vtysh_writeconfig_integrated(void)
+{
+  struct stat s;
+
+  switch (vtysh_write_integrated)
+    {
+    case WRITE_INTEGRATED_UNSPECIFIED:
+      if (stat(integrate_default, &s) && errno == ENOENT)
+        return false;
+      return true;
+    case WRITE_INTEGRATED_NO:
+      return false;
+    case WRITE_INTEGRATED_YES:
+      return true;
+    }
+}
+
 DEFUN (vtysh_write_memory,
        vtysh_write_memory_cmd,
        "write memory",
@@ -2585,7 +2601,7 @@ DEFUN (vtysh_write_memory,
   FILE *fp;
 
   /* If integrated Quagga.conf explicitely set. */
-  if (vtysh_writeconfig_integrated)
+  if (vtysh_writeconfig_integrated())
     return write_config_integrated();
   else
     backup_config_file(integrate_default);
