@@ -32,10 +32,9 @@
 static struct isis_circuit *
 isis_circuit_lookup (struct vty *vty)
 {
-  struct interface *ifp;
+  struct interface *ifp = VTY_GET_CONTEXT(interface);
   struct isis_circuit *circuit;
 
-  ifp = (struct interface *) vty->index;
   if (!ifp)
     {
       vty_out (vty, "Invalid interface %s", VTY_NEWLINE);
@@ -61,14 +60,11 @@ DEFUN (ip_router_isis,
        "IS-IS Routing for IP\n"
        "Routing process tag\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct isis_circuit *circuit;
   struct isis_area *area;
   const char *af = argv[0];
   const char *area_tag = argv[1];
-
-  ifp = (struct interface *) vty->index;
-  assert (ifp);
 
   /* Prevent more than one area per circuit */
   circuit = circuit_scan_by_ifp (ifp);
@@ -115,18 +111,11 @@ DEFUN (no_ip_router_isis,
        "IS-IS Routing for IP\n"
        "Routing process tag\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct isis_area *area;
   struct isis_circuit *circuit;
   const char *af = argv[0];
   const char *area_tag = argv[1];
-
-  ifp = (struct interface *) vty->index;
-  if (!ifp)
-    {
-      vty_out (vty, "Invalid interface %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
 
   area = isis_area_lookup (area_tag);
   if (!area)
@@ -1404,10 +1393,8 @@ DEFUN (metric_style,
        "Send and accept both styles of TLVs during transition\n"
        "Use new style of TLVs to carry wider metric\n")
 {
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int ret;
-
-  assert(area);
 
   if (strncmp (argv[0], "w", 1) == 0)
     {
@@ -1434,10 +1421,9 @@ DEFUN (no_metric_style,
        NO_STR
        "Use old-style (ISO 10589) or new-style packet formats\n")
 {
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int ret;
 
-  assert (area);
   ret = validate_metric_style_narrow (vty, area);
   if (ret != CMD_SUCCESS)
     return ret;
@@ -1452,8 +1438,7 @@ DEFUN (set_overload_bit,
        "Set overload bit to avoid any transit traffic\n"
        "Set overload bit\n")
 {
-  struct isis_area *area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   isis_area_overload_bit_set(area, true);
   return CMD_SUCCESS;
@@ -1465,8 +1450,7 @@ DEFUN (no_set_overload_bit,
        "Reset overload bit to accept transit traffic\n"
        "Reset overload bit\n")
 {
-  struct isis_area *area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   isis_area_overload_bit_set(area, false);
   return CMD_SUCCESS;
@@ -1478,8 +1462,7 @@ DEFUN (set_attached_bit,
        "Set attached bit to identify as L1/L2 router for inter-area traffic\n"
        "Set attached bit\n")
 {
-  struct isis_area *area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   isis_area_attached_bit_set(area, true);
   return CMD_SUCCESS;
@@ -1490,8 +1473,7 @@ DEFUN (no_set_attached_bit,
        "no set-attached-bit",
        "Reset attached bit\n")
 {
-  struct isis_area *area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   isis_area_attached_bit_set(area, false);
   return CMD_SUCCESS;
@@ -1503,8 +1485,7 @@ DEFUN (dynamic_hostname,
        "Dynamic hostname for IS-IS\n"
        "Dynamic hostname\n")
 {
-  struct isis_area *area = vty->index;
-  assert(area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   isis_area_dynhostname_set(area, true);
   return CMD_SUCCESS;
@@ -1517,8 +1498,7 @@ DEFUN (no_dynamic_hostname,
        "Dynamic hostname for IS-IS\n"
        "Dynamic hostname\n")
 {
-  struct isis_area *area = vty->index;
-  assert(area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   isis_area_dynhostname_set(area, false);
   return CMD_SUCCESS;
@@ -1526,15 +1506,9 @@ DEFUN (no_dynamic_hostname,
 
 static int area_lsp_mtu_set(struct vty *vty, unsigned int lsp_mtu)
 {
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   struct listnode *node;
   struct isis_circuit *circuit;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
 
   for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
     {
@@ -1590,16 +1564,8 @@ DEFUN (is_type,
        "Act as both a station router and an area router\n"
        "Act as an area router only\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int type;
-
-  area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
 
   type = string2circuit_t (argv[0]);
   if (!type)
@@ -1622,11 +1588,8 @@ DEFUN (no_is_type,
        "Act as both a station router and an area router\n"
        "Act as an area router only\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int type;
-
-  area = vty->index;
-  assert (area);
 
   /*
    * Put the is-type back to defaults:
@@ -1679,11 +1642,10 @@ DEFUN (lsp_gen_interval,
        "Minimum interval between regenerating same LSP\n"
        "Minimum interval in seconds\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   uint16_t interval;
   int level;
 
-  area = vty->index;
   interval = atoi (argv[0]);
   level = IS_LEVEL_1 | IS_LEVEL_2;
   return set_lsp_gen_interval (vty, area, interval, level);
@@ -1695,11 +1657,10 @@ DEFUN (no_lsp_gen_interval,
        NO_STR
        "Minimum interval between regenerating same LSP\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   uint16_t interval;
   int level;
 
-  area = vty->index;
   interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
   level = IS_LEVEL_1 | IS_LEVEL_2;
   return set_lsp_gen_interval (vty, area, interval, level);
@@ -1719,11 +1680,10 @@ DEFUN (lsp_gen_interval_l1,
        "Set interval for level 1 only\n"
        "Minimum interval in seconds\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   uint16_t interval;
   int level;
 
-  area = vty->index;
   interval = atoi (argv[0]);
   level = IS_LEVEL_1;
   return set_lsp_gen_interval (vty, area, interval, level);
@@ -1736,11 +1696,10 @@ DEFUN (no_lsp_gen_interval_l1,
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 1 only\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   uint16_t interval;
   int level;
 
-  area = vty->index;
   interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
   level = IS_LEVEL_1;
   return set_lsp_gen_interval (vty, area, interval, level);
@@ -1761,11 +1720,10 @@ DEFUN (lsp_gen_interval_l2,
        "Set interval for level 2 only\n"
        "Minimum interval in seconds\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   uint16_t interval;
   int level;
 
-  area = vty->index;
   interval = atoi (argv[0]);
   level = IS_LEVEL_2;
   return set_lsp_gen_interval (vty, area, interval, level);
@@ -1778,11 +1736,10 @@ DEFUN (no_lsp_gen_interval_l2,
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 2 only\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   uint16_t interval;
   int level;
 
-  area = vty->index;
   interval = DEFAULT_MIN_LSP_GEN_INTERVAL;
   level = IS_LEVEL_2;
   return set_lsp_gen_interval (vty, area, interval, level);
@@ -1802,10 +1759,9 @@ DEFUN (spf_interval,
        "Minimum interval between SPF calculations\n"
        "Minimum interval between consecutive SPFs in seconds\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   u_int16_t interval;
 
-  area = vty->index;
   interval = atoi (argv[0]);
   area->min_spf_interval[0] = interval;
   area->min_spf_interval[1] = interval;
@@ -1819,9 +1775,7 @@ DEFUN (no_spf_interval,
        NO_STR
        "Minimum interval between SPF calculations\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
   area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
@@ -1843,10 +1797,9 @@ DEFUN (spf_interval_l1,
        "Set interval for level 1 only\n"
        "Minimum interval between consecutive SPFs in seconds\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   u_int16_t interval;
 
-  area = vty->index;
   interval = atoi (argv[0]);
   area->min_spf_interval[0] = interval;
 
@@ -1860,9 +1813,7 @@ DEFUN (no_spf_interval_l1,
        "Minimum interval between SPF calculations\n"
        "Set interval for level 1 only\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
 
@@ -1884,10 +1835,9 @@ DEFUN (spf_interval_l2,
        "Set interval for level 2 only\n"
        "Minimum interval between consecutive SPFs in seconds\n")
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   u_int16_t interval;
 
-  area = vty->index;
   interval = atoi (argv[0]);
   area->min_spf_interval[1] = interval;
 
@@ -1901,9 +1851,7 @@ DEFUN (no_spf_interval_l2,
        "Minimum interval between SPF calculations\n"
        "Set interval for level 2 only\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
 
@@ -1922,16 +1870,10 @@ static int
 area_max_lsp_lifetime_set(struct vty *vty, int level,
 			  uint16_t interval)
 {
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int lvl;
   uint16_t refresh_interval = interval - 300;
   int set_refresh_interval[ISIS_LEVELS] = {0, 0};
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
 
   for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++)
     {
@@ -2049,14 +1991,8 @@ ALIAS (no_max_lsp_lifetime_l2,
 static int
 area_lsp_refresh_interval_set(struct vty *vty, int level, uint16_t interval)
 {
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int lvl;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
 
   for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl)
     {
@@ -2174,13 +2110,7 @@ area_passwd_set(struct vty *vty, int level,
                                 const char *passwd, u_char snp_auth),
                 const char *passwd, u_char snp_auth)
 {
-  struct isis_area *area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   if (passwd && strlen(passwd) > 254)
     {
@@ -2267,14 +2197,8 @@ DEFUN (no_area_passwd,
        "Configure the authentication password for an area\n"
        "Set the authentication password for a routing domain\n")
 {
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int level = (argv[0][0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
-  struct isis_area *area = vty->index;
-
-  if (!area)
-    {
-      vty_out (vty, "Can't find IS-IS instance%s", VTY_NEWLINE);
-      return CMD_ERR_NO_MATCH;
-    }
 
   return isis_area_passwd_unset (area, level);
 }

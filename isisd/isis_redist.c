@@ -553,7 +553,7 @@ DEFUN (isis_redistribute,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int family;
   int afi;
   int type;
@@ -619,7 +619,7 @@ DEFUN (no_isis_redistribute,
        "Redistribute into level-1\n"
        "Redistribute into level-2\n")
 {
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int type;
   int level;
   int family;
@@ -667,7 +667,7 @@ DEFUN (isis_default_originate,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
-  struct isis_area *area = vty->index;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int family;
   int originate_type;
   int level;
@@ -734,8 +734,7 @@ DEFUN (no_isis_default_originate,
        "Distribute default route into level-1\n"
        "Distribute default route into level-2\n")
 {
-  struct isis_area *area = vty->index;
-
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   int family;
   int level;
 

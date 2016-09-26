@@ -203,8 +203,7 @@ isis_area_get (struct vty *vty, const char *area_tag)
 
   if (area)
     {
-      vty->node = ISIS_NODE;
-      vty->index = area;
+      VTY_PUSH_CONTEXT (ISIS_NODE, area);
       return CMD_SUCCESS;
     }
 
@@ -213,8 +212,7 @@ isis_area_get (struct vty *vty, const char *area_tag)
   if (isis->debugs & DEBUG_EVENTS)
     zlog_debug ("New IS-IS area instance %s", area->area_tag);
 
-  vty->node = ISIS_NODE;
-  vty->index = area;
+  VTY_PUSH_CONTEXT (ISIS_NODE, area);
 
   return CMD_SUCCESS;
 }
@@ -324,13 +322,12 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
 int
 area_net_title (struct vty *vty, const char *net_title)
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   struct area_addr *addr;
   struct area_addr *addrp;
   struct listnode *node;
 
   u_char buff[255];
-  area = vty->index;
 
   if (!area)
     {
@@ -427,12 +424,11 @@ area_net_title (struct vty *vty, const char *net_title)
 int
 area_clear_net_title (struct vty *vty, const char *net_title)
 {
-  struct isis_area *area;
+  VTY_DECLVAR_CONTEXT (isis_area, area);
   struct area_addr addr, *addrp = NULL;
   struct listnode *node;
   u_char buff[255];
 
-  area = vty->index;
   if (!area)
     {
       vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
@@ -1876,10 +1872,7 @@ DEFUN (log_adj_changes,
        "log-adjacency-changes",
        "Log changes in adjacency state\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   area->log_adj_changes = 1;
 
@@ -1891,10 +1884,7 @@ DEFUN (no_log_adj_changes,
        "no log-adjacency-changes",
        "Stop logging changes in adjacency state\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   area->log_adj_changes = 0;
 
@@ -1918,10 +1908,7 @@ DEFUN (topology_generate_grid,
        "Optional param 3\n"
        "Topology\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   if (!spgrid_check_params (vty, argc, argv))
     {
@@ -1976,11 +1963,8 @@ DEFUN (topology_baseis,
        "A Network IS Base for this topology\n"
        "XXXX.XXXX.XXXX Network entity title (NET)\n")
 {
-  struct isis_area *area;
   u_char buff[ISIS_SYS_ID_LEN];
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   if (sysid2buff (buff, argv[0]))
     sysid2buff (area->topology_baseis, argv[0]);
@@ -1996,10 +1980,7 @@ DEFUN (no_topology_baseis,
        "A Network IS Base for this topology\n"
        "XXXX.XXXX.XXXX Network entity title (NET)\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   memcpy (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
   return CMD_SUCCESS;
@@ -2019,10 +2000,7 @@ DEFUN (topology_basedynh,
        "Dynamic hostname base for this topology\n"
        "Dynamic hostname base\n")
 {
-  struct isis_area *area;
-
-  area = vty->index;
-  assert (area);
+  VTY_DECLVAR_CONTEXT (isis_area, area);
 
   /* I hope that it's enough. */
   area->topology_basedynh = strndup (argv[0], 16); 
