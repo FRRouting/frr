@@ -7788,7 +7788,6 @@ DEFUN (show_ip_bgp_ipv4,
   struct bgp *bgp;
   u_char uj = use_json(argc, argv);
 
-  // dwalton reference
   vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
   idx_safi = idx_afi + 1;
   bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_sh_type);
@@ -9774,369 +9773,102 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_peer = 4;
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
-
-  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
-  if (! peer)
-    return CMD_WARNING;
-    
-  return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_neighbor, uj);
-}
-
-DEFUN (show_ip_bgp_instance_neighbor_routes,
-       show_ip_bgp_instance_neighbor_routes_cmd,
-       "show ip bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_word = 4;
-  int idx_peer = 6;
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
-
-  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
-  if (! peer)
-    return CMD_WARNING;
-
-  return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_neighbor, uj);
-}
-
-DEFUN (show_ip_bgp_neighbor_flap,
-       show_ip_bgp_neighbor_flap_cmd,
-       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> flap-statistics [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display flap statistics of the routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_peer = 4;
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
-
-  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
-  if (! peer)
-    return CMD_WARNING;
-    
-  return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_flap_neighbor, uj);
-}
-
-DEFUN (show_ip_bgp_neighbor_damp,
-       show_ip_bgp_neighbor_damp_cmd,
-       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> dampened-routes [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display the dampened routes received from neighbor\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_peer = 4;
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
-
-  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
-  if (! peer)
-    return CMD_WARNING;
-    
-  return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_damp_neighbor, uj);
-}
-
-DEFUN (show_ip_bgp_ipv4_neighbor_routes,
-       show_ip_bgp_ipv4_neighbor_routes_cmd,
-       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
        "Address family\n"
        "Address Family modifier\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address family\n"
        "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Neighbor on bgp configured interface\n"
        "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_safi = 4;
-  int idx_peer = 6;
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
-
-  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
-  if (! peer)
-    return CMD_WARNING;
- 
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_MULTICAST,
-				    bgp_show_type_neighbor, uj);
-
-  return bgp_show_neighbor_route (vty, peer, AFI_IP, SAFI_UNICAST,
-				  bgp_show_type_neighbor, uj);
-}
-
-#ifdef HAVE_IPV6
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp <view|vrf> WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
- *     SHOW_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display routes learned from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- */
-DEFUN (show_bgp_instance_neighbor_routes,
-       show_bgp_instance_neighbor_routes_cmd,
-       "show bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
-       SHOW_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_word = 3;
-  int idx_peer = 5;
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
-
-  peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
-  if (! peer)
-    return CMD_WARNING;
-
-  return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_UNICAST,
-				  bgp_show_type_neighbor, uj);
-}
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display the dampened routes received from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- * "show bgp <view|vrf> WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
- *     SHOW_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display the dampened routes received from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) dampened-routes [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display the dampened routes received from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- */
-DEFUN (show_bgp_instance_neighbor_damp,
-       show_bgp_instance_neighbor_damp_cmd,
-       "show bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> dampened-routes [json]",
-       SHOW_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
        "Display the dampened routes received from neighbor\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_word = 3;
-  int idx_peer = 5;
-  int idx_json = 7;
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
-
-  if ((argc == 4 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") == 0)
-      || (argc == 3 && argv[idx_peer]->arg && strcmp(argv[idx_peer]->arg, "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[idx_word]->arg, uj);
-
-  if (! peer)
-    return CMD_WARNING;
-
-  return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_UNICAST,
-				  bgp_show_type_damp_neighbor, uj);
-}
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display flap statistics of the routes learned from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- * "show bgp <view|vrf> WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
- *     SHOW_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display flap statistics of the routes learned from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) flap-statistics [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display flap statistics of the routes learned from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- */
-DEFUN (show_bgp_instance_neighbor_flap,
-       show_bgp_instance_neighbor_flap_cmd,
-       "show bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> flap-statistics [json]",
-       SHOW_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
        "Display flap statistics of the routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
-  int idx_word = 3;
-  int idx_peer = 5;
-  int idx_json = 7;
-  struct peer *peer;
-  u_char uj = use_json(argc, argv);
+  /*
+bgp_show_neighbor_route (struct vty *vty,
+                         struct peer *peer,
+                         afi_t afi,
+			 safi_t safi,
+                         enum bgp_show_type type,
+                         u_char use_json)
 
-  if ((argc == 4 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") == 0)
-      || (argc == 3 && argv[idx_peer]->arg && strcmp(argv[idx_peer]->arg, "json") != 0))
-    peer = peer_lookup_in_view (vty, argv[idx_word]->arg, argv[idx_peer]->arg, uj);
-  else
-    peer = peer_lookup_in_view (vty, NULL, argv[idx_word]->arg, uj);
-
-  if (! peer)
-    return CMD_WARNING;
-
-  return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_UNICAST,
-				  bgp_show_type_flap_neighbor, uj);
-}
-
-       
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 bgp neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
- *     SHOW_STR
- *     IPV6_STR
- *     BGP_STR
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display routes learned from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) routes [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display routes learned from neighbor\n"
- *     "JavaScript Object Notation\n"
- *
- */
-DEFUN (show_bgp_neighbor_routes,
-       show_bgp_neighbor_routes_cmd,
-       "show bgp neighbors <A.B.C.D|X:X::X:X|WORD> routes [json]",
-       SHOW_STR
-       BGP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display routes learned from neighbor\n"
-       "JavaScript Object Notation\n")
+enum bgp_show_type
 {
-  int idx_peer = 3;
+  bgp_show_type_normal,
+  bgp_show_type_regexp,
+  bgp_show_type_prefix_list,
+  bgp_show_type_filter_list,
+  bgp_show_type_route_map,
+  bgp_show_type_neighbor,
+  bgp_show_type_cidr_only,
+  bgp_show_type_prefix_longer,
+  bgp_show_type_community_all,
+  bgp_show_type_community,
+  bgp_show_type_community_exact,
+  bgp_show_type_community_list,
+  bgp_show_type_community_list_exact,
+  bgp_show_type_flap_statistics,
+  bgp_show_type_flap_neighbor,
+  bgp_show_type_dampend_paths,
+  bgp_show_type_damp_neighbor
+};
+
+  routes - bgp_show_type_neighbor
+  flap-statics  - bgp_show_type_flap_neighbor
+  dampened-routes - bgp_show_type_damp_neighbor,
+ */
+  // dwalton here now
+
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  int idx_afi;
+  int idx_safi;
+  int idx_peer;
+  int idx_sh_type;
+  char *vrf = NULL;
+  afi_t afi;
+  safi_t safi;
   struct peer *peer;
+  enum bgp_show_type sh_type = bgp_show_type_neighbor;
   u_char uj = use_json(argc, argv);
 
-  peer = peer_lookup_in_view (vty, NULL, argv[idx_peer]->arg, uj);
-  if (! peer)
-    return CMD_WARNING;
+  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
+  idx_safi = idx_afi + 1;
+  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_peer);
 
-  return bgp_show_neighbor_route (vty, peer, AFI_IP6, SAFI_UNICAST,
-				  bgp_show_type_neighbor, uj);
+  peer = peer_lookup_in_view (vty, vrf, argv[idx_peer]->arg, uj);
+  if (! peer)
+    {
+      vty_out (vty, "No such neighbor%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  idx_sh_type = idx_peer + 1;
+
+  if (strmatch(argv[idx_sh_type]->text, "routes"))
+    sh_type = bgp_show_type_neighbor;
+
+  else if (strmatch(argv[idx_sh_type]->text, "dampened-routes"))
+    sh_type = bgp_show_type_damp_neighbor;
+
+  else if (strmatch(argv[idx_sh_type]->text, "flap-statistics"))
+    sh_type = bgp_show_type_flap_neighbor;
+
+  return bgp_show_neighbor_route (vty, peer, afi, safi, sh_type, uj);
 }
-#endif /* HAVE_IPV6 */
 
 struct bgp_table *bgp_distance_table;
 
@@ -10922,14 +10654,10 @@ bgp_route_init (void)
 
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_routes_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_neighbor_flap_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_neighbor_damp_cmd);
   
   /* Restricted node: VIEW_NODE - (set of dangerous commands) */
   install_element (RESTRICTED_NODE, &show_ip_bgp_route_cmd);
@@ -10940,14 +10668,10 @@ bgp_route_init (void)
 
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbor_routes_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_neighbor_flap_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_neighbor_damp_cmd);
 
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);
@@ -10980,28 +10704,18 @@ bgp_route_init (void)
   install_element (BGP_IPV6M_NODE, &no_ipv6_bgp_network_cmd);
 
   /* Old config IPv6 BGP commands.  */
-
-
-  install_element (VIEW_NODE, &show_bgp_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_all_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_neighbor_received_prefix_filter_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_neighbor_flap_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_neighbor_damp_cmd);
   
   /* Restricted:
    * VIEW_NODE - (set of dangerous commands) - (commands dependent on prev) 
    */
   install_element (RESTRICTED_NODE, &show_bgp_instance_neighbor_received_prefix_filter_cmd);
 
-  install_element (ENABLE_NODE, &show_bgp_neighbor_routes_cmd);
   install_element (ENABLE_NODE, &show_bgp_neighbor_received_prefix_filter_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_all_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_neighbor_routes_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_neighbor_received_prefix_filter_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_neighbor_flap_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_neighbor_damp_cmd);
 
   /* Statistics */
   install_element (ENABLE_NODE, &show_bgp_statistics_cmd);
