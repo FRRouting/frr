@@ -888,15 +888,18 @@ static int del_oif(struct channel_oil *channel_oil,
   /* Prevent single protocol from unsubscribing same interface from
      channel (S,G) multiple times */
   if (!(channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask)) {
-    char group_str[100]; 
-    char source_str[100];
-    pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-    pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
-    zlog_warn("%s %s: nonexistent protocol mask %u removed OIF %s (vif_index=%d, min_ttl=%d) from channel (S,G)=(%s,%s)",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      proto_mask, oif->name, pim_ifp->mroute_vif_index,
-	      channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
-	      source_str, group_str);
+    if (PIM_DEBUG_MROUTE)
+      {
+	char group_str[100]; 
+	char source_str[100];
+	pim_inet4_dump("<group?>", channel_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
+	pim_inet4_dump("<source?>", channel_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+	zlog_warn("%s %s: nonexistent protocol mask %u removed OIF %s (vif_index=%d, min_ttl=%d) from channel (S,G)=(%s,%s)",
+		  __FILE__, __PRETTY_FUNCTION__,
+		  proto_mask, oif->name, pim_ifp->mroute_vif_index,
+		  channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index],
+		  source_str, group_str);
+      }
     return -2;
   }
 

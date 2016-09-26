@@ -719,10 +719,11 @@ int pim_mroute_del (struct channel_oil *c_oil)
 
   err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_MFC, &c_oil->oil, sizeof(c_oil->oil));
   if (err) {
-    zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC): errno=%d: %s",
-	      __FILE__, __PRETTY_FUNCTION__,
-	      qpim_mroute_socket_fd,
-	      errno, safe_strerror(errno));
+    if (PIM_DEBUG_MROUTE)
+      zlog_warn("%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC): errno=%d: %s",
+		__FILE__, __PRETTY_FUNCTION__,
+		qpim_mroute_socket_fd,
+		errno, safe_strerror(errno));
     return -2;
   }
 

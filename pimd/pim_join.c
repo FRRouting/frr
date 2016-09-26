@@ -202,11 +202,14 @@ static void recv_prune(struct interface *ifp,
 	      struct pim_ifchannel *ch = pim_ifchannel_find (ifp, &child->sg);
 	      struct pim_interface *pim_ifp = ifp->info;
 
-	      char buff[100];
-	      strcpy (buff, pim_str_sg_dump (&up->sg));
-	      zlog_debug("%s %s: Prune(S,G)=%s from %s",
-		         __FILE__, __PRETTY_FUNCTION__,
-		         buff, pim_str_sg_dump (&child->sg));
+	      if (PIM_DEBUG_PIM_TRACE)
+		{
+		  char buff[100];
+		  strcpy (buff, pim_str_sg_dump (&up->sg));
+		  zlog_debug("%s %s: Prune(S,G)=%s from %s",
+			     __FILE__, __PRETTY_FUNCTION__,
+			     buff, pim_str_sg_dump (&child->sg));
+		}
 
 	      if (!pim_upstream_evaluate_join_desired (child))
 	        pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
