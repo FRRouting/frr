@@ -560,10 +560,11 @@ DEFUN (neighbor_bfd,
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n")
 {
+  int idx_peer = 1;
   struct peer *peer;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
@@ -586,17 +587,21 @@ DEFUN (neighbor_bfd_param,
        "Required min receive interval\n"
        "Desired min transmit interval\n")
 {
+  int idx_peer = 1;
+  int idx_number_1 = 3;
+  int idx_number_2 = 4;
+  int idx_number_3 = 5;
   struct peer *peer;
   u_int32_t rx_val;
   u_int32_t tx_val;
   u_int8_t dm_val;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (!peer)
     return CMD_WARNING;
 
-  if ((ret = bfd_validate_param (vty, argv[1], argv[2], argv[3], &dm_val,
+  if ((ret = bfd_validate_param (vty, argv[idx_number_1]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg, &dm_val,
                                  &rx_val, &tx_val)) != CMD_SUCCESS)
     return ret;
 
@@ -616,17 +621,19 @@ DEFUN_HIDDEN (neighbor_bfd_type,
        "Enables BFD support\n"
        "Session type\n")
 {
+  int idx_peer = 1;
+  int idx_hop = 3;
   struct peer *peer;
   enum bfd_sess_type type;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (!peer)
     return CMD_WARNING;
 
-  if (!strcmp(argv[1], "singlehop"))
+  if (!strcmp(argv[idx_hop]->arg, "singlehop"))
     type = BFD_TYPE_SINGLEHOP;
-  else if (!strcmp(argv[1], "multihop"))
+  else if (!strcmp(argv[idx_hop]->arg, "multihop"))
     type = BFD_TYPE_MULTIHOP;
   else
     return CMD_WARNING;
@@ -638,30 +645,22 @@ DEFUN_HIDDEN (neighbor_bfd_type,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Disables BFD support\n"
- *     "Detect Multiplier\n"
- *     "Required min receive interval\n"
- *     "Desired min transmit interval\n"
- *
- */
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd [(2-255) (50-60000) (50-60000)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Disables BFD support\n")
+       "Disables BFD support\n"
+       "Detect Multiplier\n"
+       "Required min receive interval\n"
+       "Desired min transmit interval\n")
 {
+  int idx_peer = 2;
   struct peer *peer;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 
@@ -682,10 +681,11 @@ DEFUN_HIDDEN (no_neighbor_bfd_type,
        "Disables BFD support\n"
        "Session type\n")
 {
+  int idx_peer = 2;
   struct peer *peer;
   int ret;
 
-  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
     return CMD_WARNING;
 

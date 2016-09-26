@@ -257,7 +257,10 @@ DEFUN (encap_network,
        "BGP tag\n"
        "tag value\n")
 {
-  return bgp_static_set_safi (SAFI_ENCAP, vty, argv[0], argv[1], argv[2], NULL);
+  int idx_ipv4 = 1;
+  int idx_rd = 3;
+  int idx_word = 5;
+  return bgp_static_set_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg, NULL);
 }
 
 /* For testing purpose, static route of ENCAP. */
@@ -272,7 +275,10 @@ DEFUN (no_encap_network,
        "BGP tag\n"
        "tag value\n")
 {
-  return bgp_static_unset_safi (SAFI_ENCAP, vty, argv[0], argv[1], argv[2]);
+  int idx_ipv4 = 2;
+  int idx_rd = 4;
+  int idx_word = 6;
+  return bgp_static_unset_safi (SAFI_ENCAP, vty, argv[idx_ipv4]->arg, argv[idx_rd]->arg, argv[idx_word]->arg);
 }
 
 static int
@@ -534,10 +540,11 @@ DEFUN (show_bgp_ipv4_encap_rd,
        "Display information for a route distinguisher\n"
        "ENCAP Route Distinguisher\n")
 {
+  int idx_rd = 5;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -557,10 +564,11 @@ DEFUN (show_bgp_ipv6_encap_rd,
        "ENCAP Route Distinguisher\n"
        "Display BGP tags for prefixes\n")
 {
+  int idx_rd = 5;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -606,10 +614,11 @@ DEFUN (show_bgp_ipv4_encap_rd_tags,
        "ENCAP Route Distinguisher\n"
        "Display BGP tags for prefixes\n")
 {
+  int idx_rd = 5;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -629,10 +638,11 @@ DEFUN (show_bgp_ipv6_encap_rd_tags,
        "ENCAP Route Distinguisher\n"
        "Display BGP tags for prefixes\n")
 {
+  int idx_rd = 5;
   int ret;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -653,13 +663,14 @@ DEFUN (show_bgp_ipv4_encap_neighbor_routes,
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n")
 {
+  int idx_peer = 5;
   union sockunion *su;
   struct peer *peer;
   
-  su = sockunion_str2su (argv[0]);
+  su = sockunion_str2su (argv[idx_peer]->arg);
   if (su == NULL)
     {
-      vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
@@ -684,13 +695,14 @@ DEFUN (show_bgp_ipv6_encap_neighbor_routes,
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n")
 {
+  int idx_peer = 5;
   union sockunion *su;
   struct peer *peer;
   
-  su = sockunion_str2su (argv[0]);
+  su = sockunion_str2su (argv[idx_peer]->arg);
   if (su == NULL)
     {
-      vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
@@ -719,22 +731,24 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_routes,
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n")
 {
+  int idx_rd = 5;
+  int idx_peer = 7;
   int ret;
   union sockunion *su;
   struct peer *peer;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  su = sockunion_str2su (argv[1]);
+  su = sockunion_str2su (argv[idx_peer]->arg);
   if (su == NULL)
     {
-      vty_out (vty, "Malformed address: %s%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
@@ -762,22 +776,24 @@ DEFUN (show_bgp_ipv6_encap_rd_neighbor_routes,
        "Neighbor to display information about\n"
        "Display routes learned from neighbor\n")
 {
+  int idx_rd = 5;
+  int idx_peer = 7;
   int ret;
   union sockunion *su;
   struct peer *peer;
   struct prefix_rd prd;
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  su = sockunion_str2su (argv[1]);
+  su = sockunion_str2su (argv[idx_peer]->arg);
   if (su == NULL)
     {
-      vty_out (vty, "Malformed address: %s%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
                return CMD_WARNING;
     }
 
@@ -803,14 +819,15 @@ DEFUN (show_bgp_ipv4_encap_neighbor_advertised_routes,
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n")
 {
+  int idx_peer = 5;
   int ret;
   struct peer *peer;
   union sockunion su;
 
-  ret = str2sockunion (argv[0], &su);
+  ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      vty_out (vty, "%% Malformed address: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "%% Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
@@ -834,14 +851,15 @@ DEFUN (show_bgp_ipv6_encap_neighbor_advertised_routes,
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n")
 {
+  int idx_peer = 5;
   int ret;
   struct peer *peer;
   union sockunion su;
 
-  ret = str2sockunion (argv[0], &su);
+  ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      vty_out (vty, "%% Malformed address: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "%% Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
@@ -869,15 +887,17 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_advertised_routes,
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n")
 {
+  int idx_rd = 5;
+  int idx_peer = 7;
   int ret;
   struct peer *peer;
   struct prefix_rd prd;
   union sockunion su;
 
-  ret = str2sockunion (argv[1], &su);
+  ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      vty_out (vty, "%% Malformed address: %s%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "%% Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
@@ -887,7 +907,7 @@ DEFUN (show_bgp_ipv4_encap_rd_neighbor_advertised_routes,
       return CMD_WARNING;
     }
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
@@ -911,15 +931,17 @@ DEFUN (show_bgp_ipv6_encap_rd_neighbor_advertised_routes,
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n")
 {
+  int idx_rd = 5;
+  int idx_peer = 7;
   int ret;
   struct peer *peer;
   struct prefix_rd prd;
   union sockunion su;
 
-  ret = str2sockunion (argv[1], &su);
+  ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      vty_out (vty, "%% Malformed address: %s%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "%% Malformed address: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
       return CMD_WARNING;
     }
   peer = peer_lookup (NULL, &su);
@@ -929,7 +951,7 @@ DEFUN (show_bgp_ipv6_encap_rd_neighbor_advertised_routes,
       return CMD_WARNING;
     }
 
-  ret = str2prefix_rd (argv[0], &prd);
+  ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
