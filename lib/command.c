@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "command.h"
 #include "workqueue.h"
 #include "vrf.h"
+#include "qobj.h"
 
 DEFINE_MTYPE(       LIB, HOST,       "Host config")
 DEFINE_MTYPE(       LIB, STRVEC,     "String vector")
@@ -4179,6 +4180,8 @@ install_default (enum node_type node)
 void
 cmd_init (int terminal)
 {
+  qobj_init ();
+
   command_cr = XSTRDUP(MTYPE_CMD_TOKENS, "<cr>");
   token_cr.type = TOKEN_TERMINAL;
   token_cr.terminal = TERMINAL_LITERAL;

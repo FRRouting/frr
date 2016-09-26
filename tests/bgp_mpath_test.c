@@ -23,6 +23,7 @@
 
 #include <zebra.h>
 
+#include "qobj.h"
 #include "vty.h"
 #include "stream.h"
 #include "privs.h"
@@ -374,6 +375,7 @@ int all_tests_count = (sizeof(all_tests)/sizeof(testcase_t *));
 static int
 global_test_init (void)
 {
+  qobj_init ();
   master = thread_master_create ();
   zclient = zclient_new(master);
   bgp_master_init ();
