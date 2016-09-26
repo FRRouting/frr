@@ -6279,7 +6279,6 @@ DEFUN (clear_ip_bgp_all,
   enum bgp_clear_type clr_type;
   char *clr_arg = NULL;
 
-  // dwalton
   vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_clr_sort);
 
   /* <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external> */

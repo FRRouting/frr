@@ -9326,339 +9326,16 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
   return peer_adj_routes (vty, peer, afi, safi, rcvd, rmap_name, uj);
 }
 
-
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        show_ip_bgp_neighbor_received_prefix_filter_cmd,
-       "show ip bgp neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
        SHOW_STR
        IP_STR
-       BGP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display information received from a BGP neighbor\n"
-       "Display the prefixlist filter\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_peer = 4;
-  char name[BUFSIZ];
-  union sockunion su;
-  struct peer *peer;
-  int count, ret;
-  u_char uj = use_json(argc, argv);
-
-  ret = str2sockunion (argv[idx_peer]->arg, &su);
-  if (ret < 0)
-    {
-      peer = peer_lookup_by_conf_if (NULL, argv[idx_peer]->arg);
-      if (! peer)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_object *json_sub = NULL;
-              json_no = json_object_new_object();
-              json_sub = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Malformed address or name");
-              json_object_string_add(json_sub, "warningCause", argv[idx_peer]->arg);
-              json_object_object_add(json_no, "detail", json_sub);
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  else
-    {
-      peer = peer_lookup (NULL, &su);
-      if (! peer)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Peer not found");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "No peer%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  sprintf (name, "%s.%d.%d", peer->host, AFI_IP, SAFI_UNICAST);
-  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, uj);
-  if (count)
-    {
-      if (!uj)
-        vty_out (vty, "Address family: IPv4 Unicast%s", VTY_NEWLINE);
-      prefix_bgp_show_prefix_list (vty, AFI_IP, name, uj);
-    }
-  else
-    {
-      if (uj)
-        {
-          json_object *json_no = NULL;
-          json_no = json_object_new_object();
-          json_object_boolean_true_add(json_no, "noFuntionalOutput");
-          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-          json_object_free(json_no);
-        }
-      else
-        vty_out (vty, "No functional output%s", VTY_NEWLINE);
-    }
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
-       show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd,
-       "show ip bgp ipv4 <unicast|multicast> neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display information received from a BGP neighbor\n"
-       "Display the prefixlist filter\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_safi = 4;
-  int idx_peer = 6;
-  char name[BUFSIZ];
-  union sockunion su;
-  struct peer *peer;
-  int count, ret;
-  u_char uj = use_json(argc, argv);
-
-  ret = str2sockunion (argv[idx_peer]->arg, &su);
-  if (ret < 0)
-    {
-      peer = peer_lookup_by_conf_if (NULL, argv[idx_peer]->arg);
-      if (! peer)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_object *json_sub = NULL;
-              json_no = json_object_new_object();
-              json_sub = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Malformed address or name");
-              json_object_string_add(json_sub, "warningCause", argv[idx_peer]->arg);
-              json_object_object_add(json_no, "detail", json_sub);
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  else
-    {
-      peer = peer_lookup (NULL, &su);
-      if (! peer)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Peer not found");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "No peer%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    {
-      sprintf (name, "%s.%d.%d", peer->host, AFI_IP, SAFI_MULTICAST);
-      count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, uj);
-      if (count)
-        {
-          if (!uj)
-            vty_out (vty, "Address family: IPv4 Multicast%s", VTY_NEWLINE);
-          prefix_bgp_show_prefix_list (vty, AFI_IP, name, uj);
-        }
-      else
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_boolean_true_add(json_no, "noFuntionalOutput");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "No functional output%s", VTY_NEWLINE);
-        }
-    }
-  else 
-    {
-      sprintf (name, "%s.%d.%d", peer->host, AFI_IP, SAFI_UNICAST);
-      count =  prefix_bgp_show_prefix_list (NULL, AFI_IP, name, uj);
-      if (count)
-        {
-          if (!uj)
-            vty_out (vty, "Address family: IPv4 Unicast%s", VTY_NEWLINE);
-          prefix_bgp_show_prefix_list (vty, AFI_IP, name, uj);
-        }
-      else
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_boolean_true_add(json_no, "noFuntionalOutput");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "No functional output%s", VTY_NEWLINE);
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-#ifdef HAVE_IPV6
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display information received from a BGP neighbor\n"
- *     "Display the prefixlist filter\n"
- *     "JavaScript Object Notation\n"
- *
- */
-/* CHECK ME do we even support ORF for ipv6? */
-DEFUN (show_bgp_neighbor_received_prefix_filter,
-       show_bgp_neighbor_received_prefix_filter_cmd,
-       "show bgp neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
-       SHOW_STR
-       BGP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "Neighbor to display information about\n"
-       "Neighbor to display information about\n"
-       "Neighbor on bgp configured interface\n"
-       "Display information received from a BGP neighbor\n"
-       "Display the prefixlist filter\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_peer = 3;
-  char name[BUFSIZ];
-  union sockunion su;
-  struct peer *peer;
-  int count, ret;
-  u_char uj = use_json(argc, argv);
-
-  ret = str2sockunion (argv[idx_peer]->arg, &su);
-  if (ret < 0)
-    {
-      peer = peer_lookup_by_conf_if (NULL, argv[idx_peer]->arg);
-      if (! peer)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_object *json_sub = NULL;
-              json_no = json_object_new_object();
-              json_sub = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Malformed address or name");
-              json_object_string_add(json_sub, "warningCause", argv[idx_peer]->arg);
-              json_object_object_add(json_no, "detail", json_sub);
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-  else
-    {
-      peer = peer_lookup (NULL, &su);
-      if (! peer)
-        {
-          if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_string_add(json_no, "warning", "No Peer");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
-          else
-            vty_out (vty, "No peer%s", VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-    }
-
-  sprintf (name, "%s.%d.%d", peer->host, AFI_IP6, SAFI_UNICAST);
-  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP6, name, uj);
-  if (count)
-    {
-      if (!uj)
-        vty_out (vty, "Address family: IPv6 Unicast%s", VTY_NEWLINE);
-      prefix_bgp_show_prefix_list (vty, AFI_IP6, name, uj);
-    }
-  else
-    {
-      if (uj)
-        {
-          json_object *json_no = NULL;
-          json_no = json_object_new_object();
-          json_object_boolean_true_add(json_no, "noFuntionalOutput");
-          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-          json_object_free(json_no);
-        }
-      else
-        vty_out (vty, "No functional output%s", VTY_NEWLINE);
-    }
-
-  return CMD_SUCCESS;
-}
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp <view|vrf> WORD ipv6 neighbors (A.B.C.D|X:X::X:X|WORD) received prefix-filter [json]",
- *     SHOW_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Detailed information on TCP and BGP neighbor connections\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor to display information about\n"
- *     "Neighbor on bgp configured interface\n"
- *     "Display information received from a BGP neighbor\n"
- *     "Display the prefixlist filter\n"
- *     "JavaScript Object NOtation\n"
- *
- */
-DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
-       show_bgp_instance_neighbor_received_prefix_filter_cmd,
-       "show bgp <view|vrf> WORD neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
-       SHOW_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
+       "Address family\n"
+       "Address family\n"
+       "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -9667,50 +9344,33 @@ DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n"
        "JavaScript Object Notation\n")
 {
-  int idx_word = 3;
-  int idx_peer = 5;
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  int idx_afi;
+  int idx_safi;
+  int idx_neighbors;
+  int idx_peer;
+  afi_t afi;
+  safi_t safi;
   char name[BUFSIZ];
   union sockunion su;
   struct peer *peer;
-  struct bgp *bgp;
   int count, ret;
   u_char uj = use_json(argc, argv);
 
-  /* BGP structure lookup. */
-  bgp = bgp_lookup_by_name (argv[idx_word]->arg);
-  if (bgp == NULL)
-    {
-      if (uj)
-        {
-          json_object *json_no = NULL;
-          json_no = json_object_new_object();
-          json_object_string_add(json_no, "warning", "Can't find BGP view");
-          vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-          json_object_free(json_no);
-        }
-      else
-        vty_out (vty, "Can't find BGP instance %s%s", argv[idx_word]->arg, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
+  idx_safi = idx_afi + 1;
+  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_neighbors);
+  idx_peer = idx_neighbors + 1;
 
   ret = str2sockunion (argv[idx_peer]->arg, &su);
   if (ret < 0)
     {
-      peer = peer_lookup_by_conf_if (bgp, argv[idx_peer]->arg);
+      peer = peer_lookup_by_conf_if (NULL, argv[idx_peer]->arg);
       if (! peer)
         {
           if (uj)
-            {
-              json_object *json_no = NULL;
-              json_object *json_sub = NULL;
-              json_no = json_object_new_object();
-              json_sub = json_object_new_object();
-              json_object_string_add(json_no, "warning", "Malformed address or name");
-              json_object_string_add(json_sub, "warningCause", argv[idx_peer]->arg);
-              json_object_object_add(json_no, "detail", json_sub);
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
+            vty_out (vty, "{}%s", VTY_NEWLINE);
           else
             vty_out (vty, "%% Malformed address or name: %s%s", argv[idx_peer]->arg, VTY_NEWLINE);
           return CMD_WARNING;
@@ -9718,36 +9378,35 @@ DEFUN (show_bgp_instance_neighbor_received_prefix_filter,
     }
   else
     {
-      peer = peer_lookup (bgp, &su);
+      peer = peer_lookup (NULL, &su);
       if (! peer)
         {
           if (uj)
-            {
-              json_object *json_no = NULL;
-              json_no = json_object_new_object();
-              json_object_boolean_true_add(json_no, "noPeer");
-              vty_out (vty, "%s%s", json_object_to_json_string(json_no), VTY_NEWLINE);
-              json_object_free(json_no);
-            }
+            vty_out (vty, "{}%s", VTY_NEWLINE);
           else
             vty_out (vty, "No peer%s", VTY_NEWLINE);
           return CMD_WARNING;
         }
-
     }
 
-  sprintf (name, "%s.%d.%d", peer->host, AFI_IP6, SAFI_UNICAST);
-  count =  prefix_bgp_show_prefix_list (NULL, AFI_IP6, name, uj);
+  sprintf (name, "%s.%d.%d", peer->host, afi, safi);
+  count =  prefix_bgp_show_prefix_list (NULL, afi, name, uj);
   if (count)
     {
       if (!uj)
-        vty_out (vty, "Address family: IPv6 Unicast%s", VTY_NEWLINE);
-      prefix_bgp_show_prefix_list (vty, AFI_IP6, name, uj);
+        vty_out (vty, "Address family: %s%s", afi_safi_print(afi, safi), VTY_NEWLINE);
+      prefix_bgp_show_prefix_list (vty, afi, name, uj);
+    }
+  else
+    {
+      if (uj)
+        vty_out (vty, "{}%s", VTY_NEWLINE);
+      else
+        vty_out (vty, "No functional output%s", VTY_NEWLINE);
     }
 
   return CMD_SUCCESS;
 }
-#endif /* HAVE_IPV6 */
 
 static int
 bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
@@ -9797,41 +9456,6 @@ DEFUN (show_ip_bgp_neighbor_routes,
        "Display flap statistics of the routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
-  /*
-bgp_show_neighbor_route (struct vty *vty,
-                         struct peer *peer,
-                         afi_t afi,
-			 safi_t safi,
-                         enum bgp_show_type type,
-                         u_char use_json)
-
-enum bgp_show_type
-{
-  bgp_show_type_normal,
-  bgp_show_type_regexp,
-  bgp_show_type_prefix_list,
-  bgp_show_type_filter_list,
-  bgp_show_type_route_map,
-  bgp_show_type_neighbor,
-  bgp_show_type_cidr_only,
-  bgp_show_type_prefix_longer,
-  bgp_show_type_community_all,
-  bgp_show_type_community,
-  bgp_show_type_community_exact,
-  bgp_show_type_community_list,
-  bgp_show_type_community_list_exact,
-  bgp_show_type_flap_statistics,
-  bgp_show_type_flap_neighbor,
-  bgp_show_type_dampend_paths,
-  bgp_show_type_damp_neighbor
-};
-
-  routes - bgp_show_type_neighbor
-  flap-statics  - bgp_show_type_flap_neighbor
-  dampened-routes - bgp_show_type_damp_neighbor,
- */
-  // dwalton here now
-
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
@@ -10655,7 +10279,6 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
   
@@ -10669,7 +10292,6 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbor_advertised_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbor_received_prefix_filter_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_received_prefix_filter_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_dampening_params_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_ipv4_dampening_parameters_cmd);
 
@@ -10704,18 +10326,12 @@ bgp_route_init (void)
   install_element (BGP_IPV6M_NODE, &no_ipv6_bgp_network_cmd);
 
   /* Old config IPv6 BGP commands.  */
-  install_element (VIEW_NODE, &show_bgp_neighbor_received_prefix_filter_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_all_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_neighbor_received_prefix_filter_cmd);
   
   /* Restricted:
    * VIEW_NODE - (set of dangerous commands) - (commands dependent on prev) 
    */
-  install_element (RESTRICTED_NODE, &show_bgp_instance_neighbor_received_prefix_filter_cmd);
-
-  install_element (ENABLE_NODE, &show_bgp_neighbor_received_prefix_filter_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_all_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_neighbor_received_prefix_filter_cmd);
 
   /* Statistics */
   install_element (ENABLE_NODE, &show_bgp_statistics_cmd);
