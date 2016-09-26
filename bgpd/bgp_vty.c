@@ -6220,7 +6220,6 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
   return CMD_SUCCESS;
 }
 
-// dwalton
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
@@ -7176,30 +7175,98 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
 /* `show ip bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show ip bgp summary [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, uj);
-}
-
-DEFUN (show_ip_bgp_instance_summary,
-       show_ip_bgp_instance_summary_cmd,
-       "show ip bgp <view|vrf> WORD summary [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address family\n"
+       "Address Family modifier\n"
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  int idx_word = 4;
+  int idx_ip = 1;
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  int idx_afi;
+  int idx_safi;
+  char *vrf = NULL;
+  afi_t afi;
+  safi_t safi;
   u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST, uj);
+
+  /*
+   * If the user does "show ip bgp" then we default the afi safi to ipv4 unicast.
+   * If the user does "show bgp" then we default the afi safi to ipv6 unicast.
+   * This may be over-written later in the command if they explicitly
+   * specify an afi safi.
+   */
+  if (strmatch(argv[idx_ip]->text, "ip"))
+    {
+      afi = AFI_IP;
+      safi = SAFI_UNICAST;
+    }
+  else
+    {
+      afi = AFI_IP6;
+      safi = SAFI_UNICAST;
+      idx_view_vrf--;
+      idx_vrf--;
+    }
+
+  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
+    vrf = argv[idx_vrf]->arg;
+
+  if (uj)
+    {
+      idx_afi = argc - 3;
+      idx_safi = argc - 2;
+    }
+  else
+    {
+      idx_afi = argc - 2;
+      idx_safi = argc - 1;
+    }
+
+  /* afi safi */
+  if (strmatch(argv[idx_afi]->text, "ipv4"))
+    {
+      afi = AFI_IP;
+
+      if (strmatch(argv[idx_safi]->text, "unicast"))
+        safi = SAFI_UNICAST;
+      else if (strmatch(argv[idx_safi]->text, "multicast"))
+        safi = SAFI_MULTICAST;
+    }
+  else if (strmatch(argv[idx_afi]->text, "ipv6"))
+    {
+      afi = AFI_IP6;
+
+      if (strmatch(argv[idx_safi]->text, "unicast"))
+        safi = SAFI_UNICAST;
+      else if (strmatch(argv[idx_safi]->text, "multicast"))
+        safi = SAFI_MULTICAST;
+    }
+  else if (strmatch(argv[idx_afi]->text, "encap"))
+    {
+      afi = AFI_IP;
+      safi = SAFI_ENCAP;
+    }
+  else if (strmatch(argv[idx_afi]->text, "vpnv4"))
+    {
+      afi = AFI_IP;
+      safi = SAFI_MPLS_VPN;
+    }
+
+  return bgp_show_summary_vty (vty, vrf, afi, safi, uj);
 }
 
 DEFUN (show_ip_bgp_instance_all_summary,
@@ -7217,274 +7284,6 @@ DEFUN (show_ip_bgp_instance_all_summary,
   bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_UNICAST, uj);
   return CMD_SUCCESS;
 }
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv4 (unicast|multicast) summary [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     "Summary of BGP neighbor status\n"
- *
- */
-DEFUN (show_ip_bgp_ipv4_summary,
-       show_ip_bgp_ipv4_summary_cmd,
-       "show ip bgp ipv4 <unicast|multicast> summary [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_safi = 4;
-  u_char uj = use_json(argc, argv);
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MULTICAST, uj);
-
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST, uj);
-}
-
-
-DEFUN (show_bgp_ipv4_vpn_summary,
-       show_bgp_ipv4_vpn_summary_cmd,
-       "show bgp ipv4 vpn summary [json]",
-       SHOW_STR
-       BGP_STR
-       "IPv4\n"
-       "Display VPN NLRI specific information\n"
-       "Summary of BGP neighbor status\n"
-       JSON_STR)
-{
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, use_json (argc, argv));
-}
-
-/* `show ip bgp summary' commands. */
-DEFUN (show_bgp_ipv6_vpn_summary,
-       show_bgp_ipv6_vpn_summary_cmd,
-       "show bgp ipv6 vpn summary [json]",
-       SHOW_STR
-       BGP_STR
-       "IPv6\n"
-       "Display VPN NLRI specific information\n"
-       "Summary of BGP neighbor status\n"
-       JSON_STR)
-{
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MPLS_VPN, use_json (argc, argv));
-}
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp view WORD ipv4 (unicast|multicast) summary [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "BGP view\n"
- *     "View name\n"
- *     "Address family\n"
- *     "Address Family modifier\n"
- *     "Address Family modifier\n"
- *     "Summary of BGP neighbor status\n"
- *
- */
-DEFUN (show_ip_bgp_instance_ipv4_summary,
-       show_ip_bgp_instance_ipv4_summary_cmd,
-       "show ip bgp view WORD ipv4 <unicast|multicast> summary [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP view\n"
-       "View name\n"
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_word = 4;
-  int idx_safi = 6;
-  u_char uj = use_json(argc, argv);
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    return bgp_show_summary_vty (vty, argv[idx_word]->arg, AFI_IP, SAFI_MULTICAST, uj);
-  else
-    return bgp_show_summary_vty (vty, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST, uj);
-}
-
-
-DEFUN (show_ip_bgp_vpnv4_all_summary,
-       show_ip_bgp_vpnv4_all_summary_cmd,
-       "show ip bgp vpnv4 all summary [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information about all VPNv4 NLRIs\n"
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, uj);
-}
-
-DEFUN (show_ip_bgp_vpnv4_rd_summary,
-       show_ip_bgp_vpnv4_rd_summary_cmd,
-       "show ip bgp vpnv4 rd ASN:nn_or_IP-address:nn summary [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Display VPNv4 NLRI specific information\n"
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_ext_community = 5;
-  int ret;
-  struct prefix_rd prd;
-  u_char uj = use_json(argc, argv);
-
-  ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
-  if (! ret)
-    {
-      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  return bgp_show_summary_vty (vty, NULL, AFI_IP, SAFI_MPLS_VPN, uj);
-}
-
-#ifdef HAVE_IPV6
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp ipv6 summary [json]",
- *     SHOW_STR
- *     BGP_STR
- *     "Address family\n"
- *     "Summary of BGP neighbor status\n"
- *
- */
-DEFUN (show_bgp_summary,
-       show_bgp_summary_cmd,
-       "show bgp summary [json]",
-       SHOW_STR
-       BGP_STR
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
-}
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show bgp <view|vrf> WORD ipv6 summary [json]",
- *     SHOW_STR
- *     BGP_STR
- *     BGP_INSTANCE_HELP_STR
- *     "Address family\n"
- *     "Summary of BGP neighbor status\n"
- *
- */
-DEFUN (show_bgp_instance_summary,
-       show_bgp_instance_summary_cmd,
-       "show bgp <view|vrf> WORD summary [json]",
-       SHOW_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_word = 3;
-  return bgp_show_summary_vty (vty, argv[idx_word]->arg, AFI_IP6, SAFI_UNICAST, use_json(argc, argv));
-}
-
-DEFUN (show_bgp_instance_all_summary,
-       show_bgp_instance_all_summary_cmd,
-       "show bgp <view|vrf> all summary [json]",
-       SHOW_STR
-       BGP_STR
-       BGP_INSTANCE_ALL_HELP_STR
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-
-  bgp_show_all_instances_summary_vty (vty, AFI_IP6, SAFI_UNICAST, uj);
-  return CMD_SUCCESS;
-}
-
-
-
-DEFUN (show_bgp_ipv6_safi_summary,
-       show_bgp_ipv6_safi_summary_cmd,
-       "show bgp ipv6 <unicast|multicast> summary [json]",
-       SHOW_STR
-       BGP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_safi = 3;
-  u_char uj = use_json(argc, argv);
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MULTICAST, uj);
-
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, uj);
-}
-
-DEFUN (show_bgp_instance_ipv6_safi_summary,
-       show_bgp_instance_ipv6_safi_summary_cmd,
-       "show bgp <view|vrf> WORD ipv6 <unicast|multicast> summary [json]",
-       SHOW_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Address family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  int idx_word = 3;
-  int idx_safi = 5;
-  u_char uj = use_json(argc, argv);
-  if (strncmp (argv[idx_safi]->arg, "m", 1) == 0)
-    return bgp_show_summary_vty (vty, argv[idx_word]->arg, AFI_IP6, SAFI_MULTICAST, uj);
-
-  return bgp_show_summary_vty (vty, argv[idx_word]->arg, AFI_IP6, SAFI_UNICAST, uj);
-}
-
-/* old command */
-DEFUN (show_ipv6_bgp_summary,
-       show_ipv6_bgp_summary_cmd,
-       "show ipv6 bgp summary [json]",
-       SHOW_STR
-       IPV6_STR
-       BGP_STR
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, uj);
-}
-
-/* old command */
-DEFUN (show_ipv6_mbgp_summary,
-       show_ipv6_mbgp_summary_cmd,
-       "show ipv6 mbgp summary [json]",
-       SHOW_STR
-       IPV6_STR
-       MBGP_STR
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-  return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MULTICAST, uj);
-}
-#endif /* HAVE_IPV6 */
 
 const char *
 afi_safi_print (afi_t afi, safi_t safi)
@@ -12007,19 +11806,7 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_ipv4_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_all_summary_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
-#ifdef HAVE_IPV6
-  install_element (VIEW_NODE, &show_bgp_summary_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_summary_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_all_summary_cmd);
-  install_element (VIEW_NODE, &show_bgp_ipv6_safi_summary_cmd);
-  install_element (VIEW_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
-#endif /* HAVE_IPV6 */
   install_element (RESTRICTED_NODE, &show_ip_bgp_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_updgrps_cmd);
@@ -12043,19 +11830,7 @@ bgp_vty_init (void)
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_all_summary_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_ipv4_summary_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_vpnv4_all_summary_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
-#ifdef HAVE_IPV6
-  install_element (RESTRICTED_NODE, &show_bgp_summary_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_instance_summary_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_instance_all_summary_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_ipv6_safi_summary_cmd);
-  install_element (RESTRICTED_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
-#endif /* HAVE_IPV6 */
   install_element (ENABLE_NODE, &show_ip_bgp_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_updgrps_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_updgrps_cmd);
@@ -12079,25 +11854,7 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_all_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_ipv4_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_all_summary_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_rd_summary_cmd);
-#ifdef HAVE_IPV6
-  install_element (ENABLE_NODE, &show_bgp_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_all_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_safi_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_safi_summary_cmd);
-#endif /* HAVE_IPV6 */
-
-  install_element (VIEW_NODE, &show_bgp_ipv4_vpn_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv4_vpn_summary_cmd);
-
-  install_element (VIEW_NODE, &show_bgp_ipv6_vpn_summary_cmd);
-  install_element (ENABLE_NODE, &show_bgp_ipv6_vpn_summary_cmd);
 
   /* "show ip bgp neighbors" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_cmd);
@@ -12112,15 +11869,6 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbors_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_neighbors_peer_cmd);
-
-#ifdef HAVE_IPV6
-
-  /* Old commands.  */
-  install_element (VIEW_NODE, &show_ipv6_bgp_summary_cmd);
-  install_element (VIEW_NODE, &show_ipv6_mbgp_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_bgp_summary_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_mbgp_summary_cmd);
-#endif /* HAVE_IPV6 */
 
   /* "show ip bgp peer-group" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_peer_groups_cmd);
