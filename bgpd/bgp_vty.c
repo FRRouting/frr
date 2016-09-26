@@ -625,7 +625,7 @@ DEFUN (bgp_config_type,
 
 DEFUN (no_bgp_config_type,
        no_bgp_config_type_cmd,
-       "no bgp config-type [cisco|zebra]",
+       "no bgp config-type [<cisco|zebra>]",
        NO_STR
        BGP_STR
        "Display configuration type\n"
@@ -920,7 +920,7 @@ DEFUN (bgp_cluster_id,
 
 DEFUN (no_bgp_cluster_id,
        no_bgp_cluster_id_cmd,
-       "no bgp cluster-id [A.B.C.D|(1-4294967295)]",
+       "no bgp cluster-id [<A.B.C.D|(1-4294967295)>]",
        NO_STR
        BGP_STR
        "Configure Route-Reflector Cluster-id\n"
@@ -1958,7 +1958,7 @@ DEFUN (no_bgp_bestpath_aspath_confed,
 /* "bgp bestpath as-path multipath-relax" configuration.  */
 DEFUN (bgp_bestpath_aspath_multipath_relax,
        bgp_bestpath_aspath_multipath_relax_cmd,
-       "bgp bestpath as-path multipath-relax [as-set|no-as-set]",
+       "bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
@@ -1986,7 +1986,7 @@ DEFUN (bgp_bestpath_aspath_multipath_relax,
 
 DEFUN (no_bgp_bestpath_aspath_multipath_relax,
        no_bgp_bestpath_aspath_multipath_relax_cmd,
-       "no bgp bestpath as-path multipath-relax [as-set|no-as-set]",
+       "no bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
        NO_STR
        "BGP specific commands\n"
        "Change the default bestpath selection\n"
@@ -4709,7 +4709,7 @@ DEFUN (neighbor_update_source,
 
 DEFUN (no_neighbor_update_source,
        no_neighbor_update_source_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> update-source [A.B.C.D|X:X::X:X|WORD]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> update-source [<A.B.C.D|X:X::X:X|WORD>]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -6224,7 +6224,7 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] [<soft|soft in|soft out|in prefix-filter|in|out>]",
+       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
