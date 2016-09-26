@@ -1554,14 +1554,6 @@ DEFUN (debug_bgp_allow_martians,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug bgp allow-martians",
- *     UNDEBUG_STR
- *     BGP_STR
- *     "BGP allow martian next hops\n"
- *
- */
 DEFUN (no_debug_bgp_allow_martians,
        no_debug_bgp_allow_martians_cmd,
        "no debug bgp allow-martians",

@@ -9103,6 +9103,8 @@ DEFUN (no_ospf_max_metric_router_lsa_shutdown,
   return CMD_SUCCESS;
 }
 
+static void
+config_write_stub_router (struct vty *vty, struct ospf *ospf)
 {
   struct listnode *ln;
   struct ospf_area *area;

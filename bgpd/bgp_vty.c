@@ -2908,19 +2908,9 @@ DEFUN (neighbor_peer_group,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X> remote-as ((1-4294967295)|internal|external)",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR
- *     "Specify a BGP neighbor\n"
- *     AS_STR
- *
- */
 DEFUN (no_neighbor,
        no_neighbor_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> [remote-as <(1-4294967295)|internal|external>]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2)
@@ -3168,41 +3158,16 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
   return bgp_vty_return (vty, ret);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295)",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Specify a local-as number\n"
- *     "AS number used as local AS\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295) no-prepend",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Specify a local-as number\n"
- *     "AS number used as local AS\n"
- *     "Do not prepend local-as to updates from ebgp peers\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as (1-4294967295) no-prepend replace-as",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Specify a local-as number\n"
- *     "AS number used as local AS\n"
- *     "Do not prepend local-as to updates from ebgp peers\n"
- *     "Do not prepend local-as to updates from ibgp peers\n"
- *
- */
 DEFUN (no_neighbor_local_as,
        no_neighbor_local_as_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> local-as [(1-4294967295) [no-prepend [replace-as]]]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Specify a local-as number\n")
+       "Specify a local-as number\n"
+       "AS number used as local AS\n"
+       "Do not prepend local-as to updates from ebgp peers\n"
+       "Do not prepend local-as to updates from ibgp peers\n")
 {
   int idx_peer = 2;
   struct peer *peer;
@@ -3279,19 +3244,9 @@ DEFUN (neighbor_password,
   return bgp_vty_return (vty, ret);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> password LINE",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Set a password\n"
- *     "The password\n"
- *
- */
 DEFUN (no_neighbor_password,
        no_neighbor_password_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> password",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> password [LINE]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -4532,23 +4487,14 @@ DEFUN (neighbor_ebgp_multihop_ttl,
   return peer_ebgp_multihop_set_vty (vty, argv[idx_peer]->arg, argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop (1-255)",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Allow EBGP neighbors not on directly connected networks\n"
- *     "maximum hop count\n"
- *
- */
 DEFUN (no_neighbor_ebgp_multihop,
        no_neighbor_ebgp_multihop_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> ebgp-multihop [(1-255)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Allow EBGP neighbors not on directly connected networks\n")
+       "Allow EBGP neighbors not on directly connected networks\n"
+       "maximum hop count\n")
 {
   int idx_peer = 2;
   return peer_ebgp_multihop_unset_vty (vty, argv[idx_peer]->arg);
@@ -4556,49 +4502,30 @@ DEFUN (no_neighbor_ebgp_multihop,
 
 
 /* disable-connected-check */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "neighbor <A.B.C.D|X:X::X:X|WORD> enforce-multihop",
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Enforce EBGP neighbors perform multihop\n"
- *
- */
 DEFUN (neighbor_disable_connected_check,
        neighbor_disable_connected_check_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> disable-connected-check",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> <disable-connected-check|enforce-multihop>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "one-hop away EBGP peer using loopback address\n")
+       "one-hop away EBGP peer using loopback address\n"
+       "Enforce EBGP neighbors perform multihop\n")
 {
   int idx_peer = 1;
   return peer_flag_set_vty (vty, argv[idx_peer]->arg, PEER_FLAG_DISABLE_CONNECTED_CHECK);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> enforce-multihop",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Enforce EBGP neighbors perform multihop\n"
- *
- */
 DEFUN (no_neighbor_disable_connected_check,
        no_neighbor_disable_connected_check_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> disable-connected-check",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> <disable-connected-check|enforce-multihop>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "one-hop away EBGP peer using loopback address\n")
+       "one-hop away EBGP peer using loopback address\n"
+       "Enforce EBGP neighbors perform multihop\n")
 {
   int idx_peer = 2;
   return peer_flag_unset_vty (vty, argv[idx_peer]->arg, PEER_FLAG_DISABLE_CONNECTED_CHECK);
 }
-
-/* Enforce multihop.  */
-
-/* Enforce multihop.  */
 
 DEFUN (neighbor_description,
        neighbor_description_cmd,
@@ -4628,23 +4555,17 @@ DEFUN (neighbor_description,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> description .LINE",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Neighbor specific description\n"
- *     "Up to 80 characters describing this neighbor\n"
- *
- */
+/* CHECK ME quentin mentioned something about LINE vs .LINE vs LINE... but
+ * I don't remember what. We need to check all LINE and AA:NN
+ * */
 DEFUN (no_neighbor_description,
        no_neighbor_description_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> description",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> description [LINE]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Neighbor specific description\n")
+       "Neighbor specific description\n"
+       "Up to 80 characters describing this neighbor\n")
 {
   int idx_peer = 2;
   struct peer *peer;
@@ -4768,24 +4689,15 @@ DEFUN (neighbor_default_originate_rmap,
 					 bgp_node_safi (vty), argv[idx_word]->arg, 1);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> default-originate route-map WORD",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Originate default route to this neighbor\n"
- *     "Route-map to specify criteria to originate default\n"
- *     "route-map name\n"
- *
- */
 DEFUN (no_neighbor_default_originate,
        no_neighbor_default_originate_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> default-originate",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> default-originate [route-map WORD]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Originate default route to this neighbor\n")
+       "Originate default route to this neighbor\n"
+       "Route-map to specify criteria to originate default\n"
+       "route-map name\n")
 {
   int idx_peer = 2;
   return peer_default_originate_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
@@ -5842,11 +5754,6 @@ DEFUN (no_neighbor_maximum_prefix,
 }
  
 
-
-
-
-
-
 /* "neighbor allowas-in" */
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
@@ -6220,10 +6127,62 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
   return CMD_SUCCESS;
 }
 
-static void
-bgp_get_argv_afi_safi (struct cmd_token **argv, int idx_afi, int idx_safi,
-                       afi_t *afi, safi_t *safi)
+char *
+bgp_get_argv_vrf (int argc, struct cmd_token **argv, afi_t *afi, safi_t *safi,
+                  int *idx_view_vrf, int *idx_vrf, int *idx_next_token)
 {
+  /*
+   * The DEFUN that calls this MUST begin with one of the following
+   * clear [ip] bgp [<view|vrf> WORD]
+   * show [ip] bgp [<view|vrf> WORD]
+   *
+   * We will do the following
+   * - set the afi/safi
+   * - decrement the idx_view_vrf and idx_vrf pointers if needed
+   * - return a pointer to the vrf name
+   */
+  int idx_ip = 1;
+
+  /*
+   * If the user does "<clear|show> ip bgp" then we default the afi safi to ipv4 unicast.
+   * If the user does "<clear|show> bgp" then we default the afi safi to ipv6 unicast.
+   * This may be over-written later in the command if they explicitly
+   * specify an afi safi.
+   */
+  if (strmatch(argv[idx_ip]->text, "ip"))
+    {
+      *afi = AFI_IP;
+      *safi = SAFI_UNICAST;
+    }
+  else
+    {
+      *afi = AFI_IP6;
+      *safi = SAFI_UNICAST;
+      *idx_view_vrf = *idx_view_vrf - 1;
+      *idx_vrf = *idx_vrf - 1;
+    }
+
+  if (argc > *idx_vrf)
+    if (strmatch(argv[*idx_view_vrf]->text, "view") || strmatch(argv[*idx_view_vrf]->text, "vrf"))
+      {
+        *idx_next_token = *idx_vrf + 1;
+        return argv[*idx_vrf]->arg;
+      }
+
+  *idx_next_token = *idx_view_vrf;
+  return NULL;
+}
+
+void
+bgp_get_argv_afi_safi (int argc, struct cmd_token **argv,
+                       int idx_afi, int idx_safi,
+                       afi_t *afi, safi_t *safi,
+                       int *idx_next_token)
+{
+  /*
+   * The DEFUN that calls this must use
+   * <ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>
+   */
   if (strmatch(argv[idx_afi]->text, "ipv4"))
     {
       *afi = AFI_IP;
@@ -6232,6 +6191,9 @@ bgp_get_argv_afi_safi (struct cmd_token **argv, int idx_afi, int idx_safi,
         *safi = SAFI_UNICAST;
       else if (strmatch(argv[idx_safi]->text, "multicast"))
         *safi = SAFI_MULTICAST;
+
+      if (idx_next_token)
+        *idx_next_token = idx_safi + 1;
     }
   else if (strmatch(argv[idx_afi]->text, "ipv6"))
     {
@@ -6241,16 +6203,30 @@ bgp_get_argv_afi_safi (struct cmd_token **argv, int idx_afi, int idx_safi,
         *safi = SAFI_UNICAST;
       else if (strmatch(argv[idx_safi]->text, "multicast"))
         *safi = SAFI_MULTICAST;
+
+      if (idx_next_token)
+        *idx_next_token = idx_safi + 1;
     }
   else if (strmatch(argv[idx_afi]->text, "encap"))
     {
       *afi = AFI_IP;
       *safi = SAFI_ENCAP;
+
+      if (idx_next_token)
+        *idx_next_token = idx_safi + 1;
     }
   else if (strmatch(argv[idx_afi]->text, "vpnv4"))
     {
       *afi = AFI_IP;
+
+      if (idx_next_token)
+        *idx_next_token = idx_safi + 1;
       *safi = SAFI_MPLS_VPN;
+    }
+  else
+    {
+      if (idx_next_token)
+        *idx_next_token = idx_afi;
     }
 }
 
@@ -6290,11 +6266,10 @@ DEFUN (clear_ip_bgp_all,
        BGP_SOFT_IN_STR
        BGP_SOFT_OUT_STR)
 {
-  int idx_ip = 1;
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_clr_sort = 5;
-  int idx_soft_in_out = argc - 1;
+  int idx_soft_in_out;
   int idx_afi;
   int idx_safi;
   char *vrf = NULL;
@@ -6304,30 +6279,8 @@ DEFUN (clear_ip_bgp_all,
   enum bgp_clear_type clr_type;
   char *clr_arg = NULL;
 
-  /*
-   * If the user does "clear ip bgp" then we default the afi safi to ipv4 unicast.
-   * If the user does "clear bgp" then we default the afi safi to ipv6 unicast.
-   * This may be over-written later in the command if they explicitly
-   * specify an afi safi.
-   */
-  if (strmatch(argv[idx_ip]->text, "ip"))
-    {
-      afi = AFI_IP;
-      safi = SAFI_UNICAST;
-    }
-  else
-    {
-      afi = AFI_IP6;
-      safi = SAFI_UNICAST;
-      idx_view_vrf--;
-      idx_vrf--;
-      idx_clr_sort--;
-    }
-
-  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
-    vrf = argv[idx_vrf]->arg;
-  else
-    idx_clr_sort -= 2;
+  // dwalton
+  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_clr_sort);
 
   /* <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external> */
   if (strmatch(argv[idx_clr_sort]->text, "*"))
@@ -6356,7 +6309,8 @@ DEFUN (clear_ip_bgp_all,
   else if (strmatch(argv[idx_clr_sort]->text, "peer-group"))
     {
       clr_sort = clear_group;
-      clr_arg = argv[idx_clr_sort + 1]->arg;
+      idx_clr_sort++;
+      clr_arg = argv[idx_clr_sort]->arg;
 
       if (! peer_group_lookup (vty->index, clr_arg))
         {
@@ -6378,58 +6332,22 @@ DEFUN (clear_ip_bgp_all,
         }
     }
 
+  /* afi safi */
+  idx_afi = idx_clr_sort + 1;
+  idx_safi = idx_clr_sort + 2;
+  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_soft_in_out);
+
   /* soft, soft in, or soft out */
   if (strmatch(argv[idx_soft_in_out]->text, "in"))
-    {
-      clr_type = BGP_CLEAR_SOFT_IN;
-
-      if (strmatch(argv[idx_soft_in_out-1]->text, "soft"))
-        {
-          idx_afi = idx_soft_in_out - 3;
-          idx_safi = idx_soft_in_out - 2;
-        }
-      else
-        {
-          idx_afi = idx_soft_in_out - 2;
-          idx_safi = idx_soft_in_out - 1;
-        }
-    }
+    clr_type = BGP_CLEAR_SOFT_IN;
   else if (strmatch(argv[idx_soft_in_out]->text, "out"))
-    {
-      clr_type = BGP_CLEAR_SOFT_OUT;
-
-      if (strmatch(argv[idx_soft_in_out-1]->text, "soft"))
-        {
-          idx_afi = idx_soft_in_out - 3;
-          idx_safi = idx_soft_in_out - 2;
-        }
-      else
-        {
-          idx_afi = idx_soft_in_out - 2;
-          idx_safi = idx_soft_in_out - 1;
-        }
-    }
+    clr_type = BGP_CLEAR_SOFT_OUT;
   else if (strmatch(argv[idx_soft_in_out]->text, "soft"))
-    {
-      clr_type = BGP_CLEAR_SOFT_BOTH;
-      idx_afi = idx_soft_in_out - 2;
-      idx_safi = idx_soft_in_out - 1;
-    }
+    clr_type = BGP_CLEAR_SOFT_BOTH;
   else if (strmatch(argv[idx_soft_in_out]->text, "prefix-filter"))
-    {
-      clr_type = BGP_CLEAR_SOFT_IN_ORF_PREFIX;
-      idx_afi = idx_soft_in_out - 3;
-      idx_safi = idx_soft_in_out - 2;
-    }
+    clr_type = BGP_CLEAR_SOFT_IN_ORF_PREFIX;
   else
-    {
-      clr_type = BGP_CLEAR_SOFT_NONE;
-      idx_afi = idx_soft_in_out - 1;
-      idx_safi = idx_soft_in_out;
-    }
-
-  /* afi safi */
-  bgp_get_argv_afi_safi (argv, idx_afi, idx_safi, &afi, &safi);
+    clr_type = BGP_CLEAR_SOFT_NONE;
 
   return bgp_clear_vty (vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
 }
@@ -7200,7 +7118,6 @@ DEFUN (show_ip_bgp_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
-  int idx_ip = 1;
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
@@ -7210,41 +7127,9 @@ DEFUN (show_ip_bgp_summary,
   safi_t safi;
   u_char uj = use_json(argc, argv);
 
-  /*
-   * If the user does "show ip bgp" then we default the afi safi to ipv4 unicast.
-   * If the user does "show bgp" then we default the afi safi to ipv6 unicast.
-   * This may be over-written later in the command if they explicitly
-   * specify an afi safi.
-   */
-  if (strmatch(argv[idx_ip]->text, "ip"))
-    {
-      afi = AFI_IP;
-      safi = SAFI_UNICAST;
-    }
-  else
-    {
-      afi = AFI_IP6;
-      safi = SAFI_UNICAST;
-      idx_view_vrf--;
-      idx_vrf--;
-    }
-
-  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
-    vrf = argv[idx_vrf]->arg;
-
-  if (uj)
-    {
-      idx_afi = argc - 3;
-      idx_safi = argc - 2;
-    }
-  else
-    {
-      idx_afi = argc - 2;
-      idx_safi = argc - 1;
-    }
-
-  /* afi safi */
-  bgp_get_argv_afi_safi (argv, idx_afi, idx_safi, &afi, &safi);
+  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
+  idx_safi = idx_afi + 1;
+  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, NULL);
 
   return bgp_show_summary_vty (vty, vrf, afi, safi, uj);
 }
@@ -9291,52 +9176,24 @@ DEFUN (show_ip_bgp_updgrps,
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
-  int idx_ip = 1;
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
   int idx_safi;
-  int idx_subgroup_id = argc - 1;
+  int idx_updgrp;
+  int idx_subgroup_id;
   char *vrf = NULL;
   afi_t afi;
   safi_t safi;
   uint64_t subgrp_id = 0;
 
-  /*
-   * If the user does "show ip bgp" then we default the afi safi to ipv4 unicast.
-   * If the user does "show bgp" then we default the afi safi to ipv6 unicast.
-   * This may be over-written later in the command if they explicitly
-   * specify an afi safi.
-   */
-  if (strmatch(argv[idx_ip]->text, "ip"))
-    {
-      afi = AFI_IP;
-      safi = SAFI_UNICAST;
-    }
-  else
-    {
-      afi = AFI_IP6;
-      safi = SAFI_UNICAST;
-      idx_view_vrf--;
-      idx_vrf--;
-    }
+  vrf = bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
+  idx_safi = idx_afi + 1;
+  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_updgrp);
+  idx_subgroup_id = idx_updgrp + 1;
 
-  if (strmatch(argv[idx_view_vrf]->text, "view") || strmatch(argv[idx_view_vrf]->text, "vrf"))
-    vrf = argv[idx_vrf]->arg;
-
-  if (strmatch(argv[idx_subgroup_id]->text, "update-groups"))
-    {
-      idx_afi = idx_subgroup_id - 2;
-      idx_safi = idx_subgroup_id - 1;
-    }
-  else
-    {
-      VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
-      idx_afi = idx_subgroup_id - 3;
-      idx_safi = idx_subgroup_id - 2;
-    }
-
-  bgp_get_argv_afi_safi (argv, idx_afi, idx_safi, &afi, &safi);
+  if (! strmatch(argv[idx_subgroup_id]->text, "update-groups"))
+    VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
 
   return (bgp_show_update_groups(vty, vrf, afi, safi, subgrp_id));
 }

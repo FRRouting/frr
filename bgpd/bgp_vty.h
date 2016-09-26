@@ -33,6 +33,14 @@ extern int bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern int bgp_config_write_listen(struct vty *vty, struct bgp *bgp);
 extern int bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp);
 extern int bgp_vty_return (struct vty *vty, int ret);
+extern char *bgp_get_argv_vrf (int argc, struct cmd_token **argv,
+                               afi_t *afi, safi_t *safi,
+                               int *idx_view_vrf, int *idx_vrf,
+                               int *idx_next_token);
+extern void bgp_get_argv_afi_safi (int argc, struct cmd_token **argv,
+                                   int idx_afi, int idx_safi,
+                                   afi_t *afi, safi_t *safi,
+                                   int *idx_next_token);
 extern struct peer *
 peer_and_group_lookup_vty (struct vty *vty, const char *peer_str);
 
