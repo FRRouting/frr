@@ -489,7 +489,8 @@ pim_rp_setup (void)
     {
       if (pim_nexthop_lookup (&rp_info->rp.source_nexthop, rp_info->rp.rpf_addr.u.prefix4, 1) != 0)
         {
-          zlog_err ("Unable to lookup nexthop for rp specified");
+	  if (PIM_DEBUG_PIM_TRACE)
+	    zlog_debug ("Unable to lookup nexthop for rp specified");
           ret++;
         }
     }
