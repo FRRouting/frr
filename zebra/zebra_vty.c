@@ -1258,7 +1258,7 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, safi_t safi,
 
 DEFUN (show_ip_route_vrf,
        show_ip_route_vrf_cmd,
-       "show ip route " VRF_CMD_STR " [json]",
+       "show ip route vrf NAME [json]",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -1294,7 +1294,7 @@ DEFUN (show_ip_nht,
 
 DEFUN (show_ip_nht_vrf_all,
        show_ip_nht_vrf_all_cmd,
-       "show ip nht " VRF_ALL_CMD_STR,
+       "show ip nht vrf all",
        SHOW_STR
        IP_STR
        "IP nexthop tracking table\n"
@@ -1334,7 +1334,7 @@ DEFUN (show_ipv6_nht,
 
 DEFUN (show_ipv6_nht_vrf_all,
        show_ipv6_nht_vrf_all_cmd,
-       "show ipv6 nht " VRF_ALL_CMD_STR,
+       "show ipv6 nht vrf all",
        SHOW_STR
        IP_STR
        "IPv6 nexthop tracking table\n"
@@ -1952,7 +1952,7 @@ DEFUN (show_ip_route_summary_prefix,
 
 DEFUN (show_ip_route_vrf_all,
        show_ip_route_vrf_all_cmd,
-       "show ip route " VRF_ALL_CMD_STR,
+       "show ip route vrf all",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -1997,7 +1997,7 @@ DEFUN (show_ip_route_vrf_all,
 
 DEFUN (show_ip_route_vrf_all_tag,
        show_ip_route_vrf_all_tag_cmd,
-       "show ip route " VRF_ALL_CMD_STR " tag (1-65535)",
+       "show ip route vrf all tag (1-65535)",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2051,7 +2051,7 @@ DEFUN (show_ip_route_vrf_all_tag,
 
 DEFUN (show_ip_route_vrf_all_prefix_longer,
        show_ip_route_vrf_all_prefix_longer_cmd,
-       "show ip route " VRF_ALL_CMD_STR " A.B.C.D/M longer-prefixes",
+       "show ip route vrf all A.B.C.D/M longer-prefixes",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2109,7 +2109,7 @@ DEFUN (show_ip_route_vrf_all_prefix_longer,
 
 DEFUN (show_ip_route_vrf_all_supernets,
        show_ip_route_vrf_all_supernets_cmd,
-       "show ip route " VRF_ALL_CMD_STR " supernets-only",
+       "show ip route vrf all supernets-only",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2163,7 +2163,7 @@ DEFUN (show_ip_route_vrf_all_supernets,
 
 DEFUN (show_ip_route_vrf_all_protocol,
        show_ip_route_vrf_all_protocol_cmd,
-       "show ip route " VRF_ALL_CMD_STR " " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route vrf all " QUAGGA_IP_REDIST_STR_ZEBRA,
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2218,7 +2218,7 @@ DEFUN (show_ip_route_vrf_all_protocol,
 
 DEFUN (show_ip_route_vrf_all_addr,
        show_ip_route_vrf_all_addr_cmd,
-       "show ip route " VRF_ALL_CMD_STR " A.B.C.D",
+       "show ip route vrf all A.B.C.D",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2260,7 +2260,7 @@ DEFUN (show_ip_route_vrf_all_addr,
 
 DEFUN (show_ip_route_vrf_all_prefix,
        show_ip_route_vrf_all_prefix_cmd,
-       "show ip route " VRF_ALL_CMD_STR " A.B.C.D/M",
+       "show ip route vrf all A.B.C.D/M",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2307,7 +2307,7 @@ DEFUN (show_ip_route_vrf_all_prefix,
 
 DEFUN (show_ip_route_vrf_all_summary,
        show_ip_route_vrf_all_summary_cmd,
-       "show ip route " VRF_ALL_CMD_STR " summary ",
+       "show ip route vrf all summary ",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2326,7 +2326,7 @@ DEFUN (show_ip_route_vrf_all_summary,
 
 DEFUN (show_ip_route_vrf_all_summary_prefix,
        show_ip_route_vrf_all_summary_prefix_cmd,
-       "show ip route " VRF_ALL_CMD_STR " summary prefix",
+       "show ip route vrf all summary prefix",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2994,11 +2994,11 @@ DEFUN (show_ipv6_route_prefix_longer,
  */
 DEFUN (show_ipv6_route_protocol,
        show_ipv6_route_protocol_cmd,
-       "show ipv6 route " QUAGGA_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 route  <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"
-	QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
+       QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 {
   int idx_protocol = 3;
   int type;
@@ -3233,7 +3233,7 @@ DEFUN (show_ipv6_mroute,
 
 DEFUN (show_ipv6_route_vrf_all,
        show_ipv6_route_vrf_all_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR,
+       "show ipv6 route vrf all",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -3278,7 +3278,7 @@ DEFUN (show_ipv6_route_vrf_all,
 
 DEFUN (show_ipv6_route_vrf_all_tag,
        show_ipv6_route_vrf_all_tag_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " tag (1-65535)",
+       "show ipv6 route vrf all tag (1-65535)",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -3333,7 +3333,7 @@ DEFUN (show_ipv6_route_vrf_all_tag,
 
 DEFUN (show_ipv6_route_vrf_all_prefix_longer,
        show_ipv6_route_vrf_all_prefix_longer_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " X:X::X:X/M longer-prefixes",
+       "show ipv6 route vrf all X:X::X:X/M longer-prefixes",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -3391,7 +3391,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix_longer,
 
 DEFUN (show_ipv6_route_vrf_all_protocol,
        show_ipv6_route_vrf_all_protocol_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " " QUAGGA_IP6_REDIST_STR_ZEBRA,
+       "show ipv6 route vrf all <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -3446,7 +3446,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
 
 DEFUN (show_ipv6_route_vrf_all_addr,
        show_ipv6_route_vrf_all_addr_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " X:X::X:X",
+       "show ipv6 route vrf all X:X::X:X",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -3488,7 +3488,7 @@ DEFUN (show_ipv6_route_vrf_all_addr,
 
 DEFUN (show_ipv6_route_vrf_all_prefix,
        show_ipv6_route_vrf_all_prefix_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " X:X::X:X/M",
+       "show ipv6 route vrf all X:X::X:X/M",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -3535,7 +3535,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix,
 
 DEFUN (show_ipv6_route_vrf_all_summary,
        show_ipv6_route_vrf_all_summary_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " summary",
+       "show ipv6 route vrf all summary",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
@@ -3554,7 +3554,7 @@ DEFUN (show_ipv6_route_vrf_all_summary,
 
 DEFUN (show_ipv6_mroute_vrf_all,
        show_ipv6_mroute_vrf_all_cmd,
-       "show ipv6 mroute " VRF_ALL_CMD_STR,
+       "show ipv6 mroute vrf all",
        SHOW_STR
        IP_STR
        "IPv6 Multicast routing table\n"
@@ -3590,7 +3590,7 @@ DEFUN (show_ipv6_mroute_vrf_all,
 
 DEFUN (show_ipv6_route_vrf_all_summary_prefix,
        show_ipv6_route_vrf_all_summary_prefix_cmd,
-       "show ipv6 route " VRF_ALL_CMD_STR " summary prefix",
+       "show ipv6 route vrf all summary prefix",
        SHOW_STR
        IP_STR
        "IPv6 routing table\n"
