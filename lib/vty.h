@@ -24,9 +24,17 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include "log.h"
 #include "sockunion.h"
+#include "qobj.h"
 
 #define VTY_BUFSIZ 512
 #define VTY_MAXHIST 20
+
+#if defined(VTY_DEPRECATE_INDEX) && defined(__GNUC__) && \
+    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#define INDEX_WARNING __attribute__((deprecated))
+#else
+#define INDEX_WARNING
+#endif
 
 /* VTY struct. */
 struct vty 
@@ -75,7 +83,10 @@ struct vty
 
   /* For current referencing point of interface, route-map,
      access-list etc... */
-  void *index;
+  void *index INDEX_WARNING;
+
+  /* qobj object ID (replacement for "index") */
+  uint64_t qobj_index;
 
   /* For multiple level index treatment such as key chain and key. */
   void *index_sub;
@@ -126,6 +137,46 @@ struct vty
   /* What address is this vty comming from. */
   char address[SU_ADDRSTRLEN];
 };
+
+#undef INDEX_WARNING
+
+static inline void vty_push_context(struct vty *vty,
+                                    int node, uint64_t id, void *idx)
+{
+  vty->node = node;
+  vty->qobj_index = id;
+#if defined(VTY_DEPRECATE_INDEX) && defined(__GNUC__) && \
+    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  vty->index = idx;
+#pragma GCC diagnostic pop
+#else
+  vty->index = idx;
+#endif
+}
+
+#define VTY_PUSH_CONTEXT(nodeval, ptr) \
+	vty_push_context(vty, nodeval, QOBJ_ID(ptr), NULL)
+#define VTY_PUSH_CONTEXT_COMPAT(nodeval, ptr) \
+	vty_push_context(vty, nodeval, QOBJ_ID(ptr), ptr)
+
+/* can return NULL if context is invalid! */
+#define VTY_GET_CONTEXT(structname) \
+	QOBJ_GET_TYPESAFE(vty->qobj_index, structname)
+
+/* will return if ptr is NULL. */
+#define VTY_CHECK_CONTEXT(ptr) \
+	if (!ptr) { \
+		vty_out (vty, "Current configuration object was deleted " \
+				"by another process.%s", VTY_NEWLINE); \
+		return CMD_WARNING; \
+	}
+
+/* struct structname *ptr = <context>;   ptr will never be NULL. */
+#define VTY_DECLVAR_CONTEXT(structname, ptr) \
+	struct structname *ptr = VTY_GET_CONTEXT(structname); \
+	VTY_CHECK_CONTEXT(ptr);
 
 struct vty_arg
 {
