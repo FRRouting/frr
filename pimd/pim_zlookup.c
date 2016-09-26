@@ -307,8 +307,8 @@ zclient_lookup_nexthop_once (struct pim_zlookup_nexthop nexthop_tab[],
   
   ret = writen(zlookup->sock, s->data, stream_get_endp(s));
   if (ret < 0) {
-    zlog_err("%s %s: writen() failure writing to zclient lookup socket",
-	     __FILE__, __PRETTY_FUNCTION__);
+    zlog_err("%s %s: writen() failure: %d writing to zclient lookup socket",
+	     __FILE__, __PRETTY_FUNCTION__, errno);
     zclient_lookup_failed(zlookup);
     return -2;
   }
@@ -461,8 +461,8 @@ pim_zlookup_sg_statistics (struct channel_oil *c_oil)
   ret = writen (zlookup->sock, s->data, count);
   if (ret <= 0)
     {
-      zlog_err("%s %s: writen() failure writing to zclient lookup socket",
-               __FILE__, __PRETTY_FUNCTION__);
+      zlog_err("%s %s: writen() failure: %d writing to zclient lookup socket",
+               __FILE__, __PRETTY_FUNCTION__, errno);
       return -1;
     }
 
