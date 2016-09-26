@@ -203,6 +203,8 @@ main (int argc, char **argv)
   ospf_apiserver_enable = 0;
 #endif /* SUPPORT_OSPF_API */
 
+  strcpy(pid_file, PATH_OSPFD_PID);
+
   /* get program name */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
@@ -363,7 +365,6 @@ main (int argc, char **argv)
     }
   else
     {
-      strcpy(pid_file, PATH_OSPFD_PID);
       strcpy(vty_path, OSPF_VTYSH_PATH);
     }
   /* Process id file create. */
