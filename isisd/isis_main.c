@@ -342,6 +342,7 @@ main (int argc, char **argv, char **envp)
    */
   signal_init (master, array_size (isisd_signals), isisd_signals);
   cmd_init (1);
+  vty_config_lockless ();
   vty_init (master);
   memory_init ();
   access_list_init();

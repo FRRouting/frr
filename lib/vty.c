@@ -83,6 +83,7 @@ char *vty_cwd = NULL;
 
 /* Configure lock. */
 static int vty_config;
+static int vty_config_is_lockless = 0;
 
 /* Login password check. */
 static int no_password_check = 0;
@@ -2634,6 +2635,8 @@ vty_log_fixed (char *buf, size_t len)
 int
 vty_config_lock (struct vty *vty)
 {
+  if (vty_config_is_lockless)
+    return 1;
   if (vty_config == 0)
     {
       vty->config = 1;
@@ -2645,12 +2648,20 @@ vty_config_lock (struct vty *vty)
 int
 vty_config_unlock (struct vty *vty)
 {
+  if (vty_config_is_lockless)
+    return 0;
   if (vty_config == 1 && vty->config == 1)
     {
       vty->config = 0;
       vty_config = 0;
     }
   return vty->config;
+}
+
+void
+vty_config_lockless (void)
+{
+  vty_config_is_lockless = 1;
 }
 
 /* Master of the threads. */

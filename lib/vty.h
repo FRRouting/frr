@@ -353,6 +353,7 @@ extern void vty_log (const char *level, const char *proto,
                      const char *fmt, struct timestamp_control *, va_list);
 extern int vty_config_lock (struct vty *);
 extern int vty_config_unlock (struct vty *);
+extern void vty_config_lockless (void);
 extern int vty_shell (struct vty *);
 extern int vty_shell_serv (struct vty *);
 extern void vty_hello (struct vty *);
