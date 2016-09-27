@@ -43,6 +43,8 @@ DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED,   "Neighbor Connected")
 DEFINE_MTYPE(       LIB, CONNECTED_LABEL, "Connected interface label")
 DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS,  "Informational Link Parameters")
 
+DEFINE_QOBJ_TYPE(interface)
+
 /* List of interfaces in only the default VRF */
 int ptm_enable = 0;
 
@@ -149,6 +151,8 @@ if_create_vrf (const char *name, int namelen, vrf_id_t vrf_id)
   /* Enable Link-detection by default */
   SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
 
+  QOBJ_REG (ifp, interface);
+
   if (if_master.if_new_hook)
     (*if_master.if_new_hook) (ifp);
 
@@ -192,6 +196,8 @@ if_delete_retain (struct interface *ifp)
 {
   if (if_master.if_delete_hook)
     (*if_master.if_delete_hook) (ifp);
+
+  QOBJ_UNREG (ifp);
 
   /* Free connected address list */
   list_delete_all_node (ifp->connected);

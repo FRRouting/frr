@@ -33,6 +33,8 @@
 DEFINE_MTYPE_STATIC(LIB, VRF,        "VRF")
 DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
 
+DEFINE_QOBJ_TYPE(vrf)
+
 /*
  * Turn on/off debug code
  * for vrf.
@@ -124,6 +126,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
       strcpy (vrf->name, name);
       listnode_add_sort (vrf_list, vrf);
       if_init (&vrf->iflist);
+      QOBJ_REG (vrf, vrf);
       if (vrf_master.vrf_new_hook)
 	{
 	  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
@@ -212,6 +215,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
 	      strcpy (vrf->name, name);
 	      listnode_add_sort (vrf_list, vrf);
 	      if_init (&vrf->iflist);
+	      QOBJ_REG (vrf, vrf);
 	      if (vrf_master.vrf_new_hook)
 		{
 		  (*vrf_master.vrf_new_hook) (vrf_id, name, &vrf->info);
@@ -249,6 +253,7 @@ vrf_get (vrf_id_t vrf_id, const char *name)
 	  vrf->node = rn;
 	  vrf->vrf_id = vrf_id;
           if_init (&vrf->iflist);
+          QOBJ_REG (vrf, vrf);
 	  if (debug_vrf)
             zlog_debug("Vrf Created: %p", vrf);
 	  return vrf;
@@ -275,6 +280,7 @@ vrf_delete (struct vrf *vrf)
   if (vrf_master.vrf_delete_hook)
     (*vrf_master.vrf_delete_hook) (vrf->vrf_id, vrf->name, &vrf->info);
 
+  QOBJ_UNREG (vrf);
   if_terminate (&vrf->iflist);
 
   if (vrf->node)

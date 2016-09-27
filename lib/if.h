@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "zebra.h"
 #include "linklist.h"
 #include "memory.h"
+#include "qobj.h"
 
 DECLARE_MTYPE(IF)
 DECLARE_MTYPE(CONNECTED_LABEL)
@@ -267,7 +268,10 @@ struct interface
 
   struct route_node *node;
   vrf_id_t vrf_id;
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(interface)
 
 /* Connected address structure. */
 struct connected

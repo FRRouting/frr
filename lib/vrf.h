@@ -24,6 +24,7 @@
 #define _ZEBRA_VRF_H
 
 #include "linklist.h"
+#include "qobj.h"
 
 /* The default NS ID */
 #define NS_DEFAULT 0
@@ -85,7 +86,10 @@ struct vrf
 
   /* User data */
   void *info;
+
+  QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(vrf)
 
 
 extern struct list *vrf_list;

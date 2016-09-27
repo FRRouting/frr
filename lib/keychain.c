@@ -28,30 +28,40 @@ Boston, MA 02111-1307, USA.  */
 DEFINE_MTYPE_STATIC(LIB, KEY,      "Key")
 DEFINE_MTYPE_STATIC(LIB, KEYCHAIN, "Key chain")
 
+DEFINE_QOBJ_TYPE(keychain)
+DEFINE_QOBJ_TYPE(key)
+
 /* Master list of key chain. */
 struct list *keychain_list;
 
 static struct keychain *
 keychain_new (void)
 {
-  return XCALLOC (MTYPE_KEYCHAIN, sizeof (struct keychain));
+  struct keychain *keychain;
+  keychain = XCALLOC (MTYPE_KEYCHAIN, sizeof (struct keychain));
+  QOBJ_REG (keychain, keychain);
+  return keychain;
 }
 
 static void
 keychain_free (struct keychain *keychain)
 {
+  QOBJ_UNREG (keychain);
   XFREE (MTYPE_KEYCHAIN, keychain);
 }
 
 static struct key *
 key_new (void)
 {
-  return XCALLOC (MTYPE_KEY, sizeof (struct key));
+  struct key *key = XCALLOC (MTYPE_KEY, sizeof (struct key));
+  QOBJ_REG (key, key);
+  return key;
 }
 
 static void
 key_free (struct key *key)
 {
+  QOBJ_UNREG (key);
   XFREE (MTYPE_KEY, key);
 }
 

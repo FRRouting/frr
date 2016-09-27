@@ -38,6 +38,9 @@ DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_RULE_STR, "Route map rule str")
 DEFINE_MTYPE(       LIB, ROUTE_MAP_COMPILED, "Route map compiled")
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP,      "Route map dependency")
 
+DEFINE_QOBJ_TYPE(route_map_index)
+DEFINE_QOBJ_TYPE(route_map)
+
 /* Vector for route match rules. */
 static vector route_match_vec;
 
@@ -155,6 +158,7 @@ route_map_new (const char *name)
 
   new =  XCALLOC (MTYPE_ROUTE_MAP, sizeof (struct route_map));
   new->name = XSTRDUP (MTYPE_ROUTE_MAP_NAME, name);
+  QOBJ_REG (new, route_map);
   return new;
 }
 
@@ -215,6 +219,8 @@ route_map_free_map (struct route_map *map)
 
   if (map != NULL)
     {
+      QOBJ_UNREG (map);
+
       if (map->next)
 	map->next->prev = map->prev;
       else
@@ -482,6 +488,7 @@ route_map_index_new (void)
 
   new =  XCALLOC (MTYPE_ROUTE_MAP_INDEX, sizeof (struct route_map_index));
   new->exitpolicy = RMAP_EXIT; /* Default to Cisco-style */
+  QOBJ_REG (new, route_map_index);
   return new;
 }
 
@@ -490,6 +497,8 @@ static void
 route_map_index_delete (struct route_map_index *index, int notify)
 {
   struct route_map_rule *rule;
+
+  QOBJ_UNREG (index);
 
   /* Free route match. */
   while ((rule = index->match_list.head) != NULL)
