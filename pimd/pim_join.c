@@ -210,6 +210,8 @@ static void recv_prune(struct interface *ifp,
 			     __FILE__, __PRETTY_FUNCTION__,
 			     buff, pim_str_sg_dump (&child->sg));
 		}
+              if (!c_oil)
+                continue;
 
 	      if (!pim_upstream_evaluate_join_desired (child))
 	        pim_channel_del_oif (c_oil, ifp, PIM_OIF_FLAG_PROTO_PIM);
