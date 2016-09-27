@@ -448,7 +448,13 @@ pim_zlookup_sg_statistics (struct channel_oil *c_oil)
   struct interface *ifp = pim_if_find_by_vif_index (c_oil->oil.mfcc_parent);
 
   if (PIM_DEBUG_ZEBRA)
-    zlog_debug ("Sending Request for New Channel Oil Information");
+    {
+      struct prefix_sg more;
+
+      more.src = c_oil->oil.mfcc_origin;
+      more.grp = c_oil->oil.mfcc_mcastgrp;
+      zlog_debug ("Sending Request for New Channel Oil Information(%s)", pim_str_sg_dump (&more));
+    }
 
   stream_reset (s);
   zclient_create_header (s, ZEBRA_IPMR_ROUTE_STATS, VRF_DEFAULT);

@@ -737,29 +737,46 @@ pim_mroute_update_counters (struct channel_oil *c_oil)
 {
   struct sioc_sg_req sgreq;
 
-  memset (&sgreq, 0, sizeof(sgreq));
-  sgreq.src = c_oil->oil.mfcc_origin;
-  sgreq.grp = c_oil->oil.mfcc_mcastgrp;
-
   c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
   c_oil->cc.oldbytecnt = c_oil->cc.bytecnt;
   c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
 
+  if (!c_oil->installed)
+    {
+      c_oil->cc.lastused = 100 * qpim_keep_alive_time;
+      if (PIM_DEBUG_MROUTE)
+	{
+	  struct prefix_sg sg;
+
+	  sg.src = c_oil->oil.mfcc_origin;
+	  sg.grp = c_oil->oil.mfcc_mcastgrp;
+	  if (PIM_DEBUG_MROUTE)
+	    zlog_debug("Channel(%s) is not installed no need to collect data from kernel",
+		       pim_str_sg_dump (&sg));
+	}
+      return;
+    }
+
+  memset (&sgreq, 0, sizeof(sgreq));
+  sgreq.src = c_oil->oil.mfcc_origin;
+  sgreq.grp = c_oil->oil.mfcc_mcastgrp;
+
   pim_zlookup_sg_statistics (c_oil);
   if (ioctl (qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq))
     {
-      char group_str[100];
-      char source_str[100];
+      if (PIM_DEBUG_MROUTE)
+	{
+	  struct prefix_sg sg;
 
-      pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
-      pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
+	  sg.src = c_oil->oil.mfcc_origin;
+	  sg.grp = c_oil->oil.mfcc_mcastgrp;
 
-      zlog_warn ("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s,%s): errno=%d: %s",
-		 (unsigned long)SIOCGETSGCNT,
-		 source_str,
-		 group_str,
-		 errno,
-		 safe_strerror(errno));
+	  zlog_warn ("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s): errno=%d: %s",
+		     (unsigned long)SIOCGETSGCNT,
+		     pim_str_sg_dump (&sg),
+		     errno,
+		     safe_strerror(errno));
+	}
       return;
     }
 
