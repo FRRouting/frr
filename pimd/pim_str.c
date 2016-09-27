@@ -47,11 +47,16 @@ void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf, int buf_
 {
   int save_errno = errno;
 
-  if (!inet_ntop(AF_INET, &addr, buf, buf_size)) {
-    zlog_warn("pim_inet4_dump: inet_ntop(AF_INET,buf_size=%d): errno=%d: %s",
-	      buf_size, errno, safe_strerror(errno));
-    if (onfail)
-      snprintf(buf, buf_size, "%s", onfail);
+  if (addr.s_addr == INADDR_ANY)
+    strcpy(buf, "*");
+  else
+    {
+      if (!inet_ntop(AF_INET, &addr, buf, buf_size)) {
+        zlog_warn("pim_inet4_dump: inet_ntop(AF_INET,buf_size=%d): errno=%d: %s",
+	          buf_size, errno, safe_strerror(errno));
+      if (onfail)
+        snprintf(buf, buf_size, "%s", onfail);
+    }
   }
 
   errno = save_errno;
