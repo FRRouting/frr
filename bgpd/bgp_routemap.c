@@ -3709,23 +3709,15 @@ DEFUN (no_set_weight,
 }
 
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "set as-path prepend (last-as) <1-10>",
- *     SET_STR
- *     "Transform BGP AS_PATH attribute\n"
- *     "Prepend to the as-path\n"
- *     "Use the peer's AS-number\n"
- *     "Number of times to insert"
- *
- */
 DEFUN (set_aspath_prepend,
        set_aspath_prepend_cmd,
-       "set as-path prepend . (1-4294967295)",
+       "set as-path prepend <(1-4294967295)...|last-as <1-10>",
        SET_STR
        "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
-       "AS number\n")
+       "AS number\n"
+       "Use the peer's AS-number\n"
+       "Number of times to insert")
 {
   int ret;
   char *str;
@@ -3738,23 +3730,14 @@ DEFUN (set_aspath_prepend,
 }
 
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set as-path prepend . (1-4294967295)",
- *     NO_STR
- *     SET_STR
- *     "Transform BGP AS_PATH attribute\n"
- *     "Prepend to the as-path\n"
- *     "AS number\n"
- *
- */
 DEFUN (no_set_aspath_prepend,
        no_set_aspath_prepend_cmd,
-       "no set as-path prepend",
+       "no set as-path prepend [(1-4294967295)]",
        NO_STR
        SET_STR
        "Transform BGP AS_PATH attribute\n"
-       "Prepend to the as-path\n")
+       "Prepend to the as-path\n"
+       "AS number\n")
 {
   int ret;
   char *str;
@@ -3768,7 +3751,7 @@ DEFUN (no_set_aspath_prepend,
 
 DEFUN (set_aspath_exclude,
        set_aspath_exclude_cmd,
-       "set as-path exclude . (1-4294967295)",
+       "set as-path exclude (1-4294967295)...",
        SET_STR
        "Transform BGP AS-path attribute\n"
        "Exclude from the as-path\n"
@@ -3783,23 +3766,14 @@ DEFUN (set_aspath_exclude,
   return ret;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set as-path exclude . (1-4294967295)",
- *     NO_STR
- *     SET_STR
- *     "Transform BGP AS_PATH attribute\n"
- *     "Exclude from the as-path\n"
- *     "AS number\n"
- *
- */
 DEFUN (no_set_aspath_exclude,
        no_set_aspath_exclude_cmd,
-       "no set as-path exclude",
+       "no set as-path exclude (1-4294967295)...",
        NO_STR
        SET_STR
        "Transform BGP AS_PATH attribute\n"
-       "Exclude from the as-path\n")
+       "Exclude from the as-path\n"
+       "AS number\n")
 {
   int ret;
   char *str;
@@ -3914,24 +3888,9 @@ DEFUN (set_community_none,
   return bgp_route_set_add (vty, vty->index, "community", "none");
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set community none",
- *     NO_STR
- *     SET_STR
- *     "BGP community attribute\n"
- *     "No community attribute\n"
- *
- * "no set community AA:NN...",
- *     NO_STR
- *     SET_STR
- *     "BGP community attribute\n"
- *     COMMUNITY_VAL_STR
- *
- */
 DEFUN (no_set_community,
        no_set_community_cmd,
-       "no set community",
+       "no set community AA:NN...",
        NO_STR
        SET_STR
        "BGP community attribute\n")
@@ -3964,21 +3923,9 @@ DEFUN (set_community_delete,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set comm-list (<1-99>|<100-500>|WORD) delete",
- *     NO_STR
- *     SET_STR
- *     "set BGP community list (for deletion)\n"
- *     "Community-list number (standard)\n"
- *     "Community-list number (expanded)\n"
- *     "Community-list name\n"
- *     "Delete matching communities\n"
- *
- */
 DEFUN (no_set_community_delete,
        no_set_community_delete_cmd,
-       "no set comm-list",
+       "no set comm-list [<(1-99)|(100-500)|WORD> delete]",
        NO_STR
        SET_STR
        "set BGP community list (for deletion)\n")
@@ -3989,7 +3936,7 @@ DEFUN (no_set_community_delete,
 
 DEFUN (set_ecommunity_rt,
        set_ecommunity_rt_cmd,
-       "set extcommunity rt .ASN:nn_or_IP-address:nn",
+       "set extcommunity rt ASN:nn_or_IP-address:nn...",
        SET_STR
        "BGP extended community attribute\n"
        "Route Target extended community\n"
@@ -4005,19 +3952,9 @@ DEFUN (set_ecommunity_rt,
   return ret;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set extcommunity rt .ASN:nn_or_IP-address:nn",
- *     NO_STR
- *     SET_STR
- *     "BGP extended community attribute\n"
- *     "Route Target extended community\n"
- *     "VPN extended community\n"
- *
- */
 DEFUN (no_set_ecommunity_rt,
        no_set_ecommunity_rt_cmd,
-       "no set extcommunity rt",
+       "no set extcommunity rt ASN:nn_or_IP-address:nn...",
        NO_STR
        SET_STR
        "BGP extended community attribute\n"
@@ -4029,7 +3966,7 @@ DEFUN (no_set_ecommunity_rt,
 
 DEFUN (set_ecommunity_soo,
        set_ecommunity_soo_cmd,
-       "set extcommunity soo .ASN:nn_or_IP-address:nn",
+       "set extcommunity soo ASN:nn_or_IP-address:nn...",
        SET_STR
        "BGP extended community attribute\n"
        "Site-of-Origin extended community\n"
@@ -4044,19 +3981,10 @@ DEFUN (set_ecommunity_soo,
   return ret;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set extcommunity soo .ASN:nn_or_IP-address:nn",
- *     NO_STR
- *     SET_STR
- *     "BGP extended community attribute\n"
- *     "Site-of-Origin extended community\n"
- *     "VPN extended community\n"
- *
- */
+
 DEFUN (no_set_ecommunity_soo,
        no_set_ecommunity_soo_cmd,
-       "no set extcommunity soo",
+       "no set extcommunity soo ASN:nn_or_IP-address:nn...",
        NO_STR
        SET_STR
        "BGP extended community attribute\n"
@@ -4086,20 +4014,10 @@ DEFUN (set_origin,
   return CMD_WARNING;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set origin (egp|igp|incomplete)",
- *     NO_STR
- *     SET_STR
- *     "BGP origin code\n"
- *     "remote EGP\n"
- *     "local IGP\n"
- *     "unknown heritage\n"
- *
- */
+
 DEFUN (no_set_origin,
        no_set_origin_cmd,
-       "no set origin",
+       "no set origin [<egp|igp|incomplete>]",
        NO_STR
        SET_STR
        "BGP origin code\n")
@@ -4161,33 +4079,27 @@ DEFUN (set_aggregator_as,
   return ret;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set aggregator as (1-4294967295) A.B.C.D",
- *     NO_STR
- *     SET_STR
- *     "BGP aggregator attribute\n"
- *     "AS number of aggregator\n"
- *     "AS number\n"
- *     "IP address of aggregator\n"
- *
- */
+
 DEFUN (no_set_aggregator_as,
        no_set_aggregator_as_cmd,
-       "no set aggregator as",
+       "no set aggregator as [(1-4294967295) A.B.C.D]",
        NO_STR
        SET_STR
        "BGP aggregator attribute\n"
-       "AS number of aggregator\n")
+       "AS number of aggregator\n"
+       "AS number\n"
+       "IP address of aggregator\n")
 {
+  int idx_asn = 4;
+  int idx_ip = 5;
   int ret;
   struct in_addr address;
   char *argstr;
 
-  if (argv == 0)
+  if (argc <= idx_asn)
     return bgp_route_set_delete (vty, vty->index, "aggregator as", NULL);
   
-  ret = inet_aton (argv[5]->arg, &address);
+  ret = inet_aton (argv[idx_ip]->arg, &address);
   if (ret == 0)
     {
       vty_out (vty, "Aggregator IP address is invalid%s", VTY_NEWLINE);
@@ -4195,9 +4107,9 @@ DEFUN (no_set_aggregator_as,
     }
 
   argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
-		    strlen (argv[4]->arg) + strlen (argv[5]->arg) + 2);
+		    strlen (argv[idx_asn]->arg) + strlen (argv[idx_ip]->arg) + 2);
 
-  sprintf (argstr, "%s %s", argv[4]->arg, argv[5]->arg);
+  sprintf (argstr, "%s %s", argv[idx_asn]->arg, argv[idx_ip]->arg);
 
   ret = bgp_route_set_delete (vty, vty->index, "aggregator as", argstr);
 
@@ -4218,23 +4130,19 @@ DEFUN (set_tag,
   return bgp_route_set_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set tag <1-65535>",
- *     NO_STR
- *     SET_STR
- *     "Tag value for routing protocol\n"
- *     "Tag value\n"
- *
- */
+
 DEFUN (no_set_tag,
        no_set_tag_cmd,
-       "no set tag",
+       "no set tag [(1-65535)]",
        NO_STR
        SET_STR
-       "Tag value for routing protocol\n")
+       "Tag value for routing protocol\n"
+       "Tag value\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "tag", argv[3]->arg);
+  int idx_number = 3;
+  if (argc <= idx_number)
+    return bgp_route_set_delete (vty, vty->index, "tag", NULL);
+  return bgp_route_set_delete (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
 
@@ -4400,27 +4308,21 @@ DEFUN (set_ipv6_nexthop_global,
   return bgp_route_set_add (vty, vty->index, "ipv6 next-hop global", argv[idx_ipv6]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set ipv6 next-hop global X:X::X:X",
- *     NO_STR
- *     SET_STR
- *     IPV6_STR
- *     "IPv6 next-hop address\n"
- *     "IPv6 global address\n"
- *     "IPv6 address of next hop\n"
- *
- */
+
 DEFUN (no_set_ipv6_nexthop_global,
        no_set_ipv6_nexthop_global_cmd,
-       "no set ipv6 next-hop global",
+       "no set ipv6 next-hop global X:X::X:X",
        NO_STR
        SET_STR
        IPV6_STR
        "IPv6 next-hop address\n"
-       "IPv6 global address\n")
+       "IPv6 global address\n"
+       "IPv6 address of next hop\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop global", argv[5]->arg);
+  int idx_ipv6 = 5;
+  if (argc <= idx_ipv6)
+    return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop global", NULL);
+  return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop global", argv[idx_ipv6]->arg);
 }
 
 
@@ -4452,26 +4354,20 @@ DEFUN (set_ipv6_nexthop_local,
   return bgp_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[idx_ipv6]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set ipv6 next-hop local X:X::X:X",
- *     NO_STR
- *     SET_STR
- *     IPV6_STR
- *     "IPv6 next-hop address\n"
- *     "IPv6 local address\n"
- *     "IPv6 address of next hop\n"
- *
- */
+
 DEFUN (no_set_ipv6_nexthop_local,
        no_set_ipv6_nexthop_local_cmd,
-       "no set ipv6 next-hop local",
+       "no set ipv6 next-hop local [X:X::X:X]",
        NO_STR
        SET_STR
        IPV6_STR
        "IPv6 next-hop address\n"
-       "IPv6 local address\n")
+       "IPv6 local address\n"
+       "IPv6 address of next hop\n")
 {
+  int idx_ipv6 = 5;
+  if (argc <= idx_ipv6)
+    return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop local", NULL);
   return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop local", argv[5]->arg);
 }
 
@@ -4489,25 +4385,20 @@ DEFUN (set_vpnv4_nexthop,
   return bgp_route_set_add (vty, vty->index, "vpnv4 next-hop", argv[idx_ipv4]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set vpnv4 next-hop A.B.C.D",
- *     NO_STR
- *     SET_STR
- *     "VPNv4 information\n"
- *     "VPNv4 next-hop address\n"
- *     "IP address of next hop\n"
- *
- */
+
 DEFUN (no_set_vpnv4_nexthop,
        no_set_vpnv4_nexthop_cmd,
-       "no set vpnv4 next-hop",
+       "no set vpnv4 next-hop [A.B.C.D]",
        NO_STR
        SET_STR
        "VPNv4 information\n"
-       "VPNv4 next-hop address\n")
+       "VPNv4 next-hop address\n"
+       "IP address of next hop\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "vpnv4 next-hop", argv[4]->arg);
+  int idx_ipv4 = 4;
+  if (argc <= idx_ipv4)
+    return bgp_route_set_delete (vty, vty->index, "vpnv4 next-hop", NULL);
+  return bgp_route_set_delete (vty, vty->index, "vpnv4 next-hop", argv[idx_ipv4]->arg);
 }
 
 
