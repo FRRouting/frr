@@ -1398,26 +1398,16 @@ DEFUN (ip_rip_receive_version_2,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip rip receive version (1|2)",
- *     NO_STR
- *     IP_STR
- *     "Routing Information Protocol\n"
- *     "Advertisement reception\n"
- *     "Version control\n"
- *     "Version 1\n"
- *     "Version 2\n"
- *
- */
 DEFUN (no_ip_rip_receive_version,
        no_ip_rip_receive_version_cmd,
-       "no ip rip receive version",
+       "no ip rip receive version [(1-1)|(2-2)]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
-       "Version control\n")
+       "Version control\n"
+       "Version 1\n"
+       "Version 2\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1503,26 +1493,16 @@ DEFUN (ip_rip_send_version_2,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip rip send version (1|2)",
- *     NO_STR
- *     IP_STR
- *     "Routing Information Protocol\n"
- *     "Advertisement transmission\n"
- *     "Version control\n"
- *     "Version 1\n"
- *     "Version 2\n"
- *
- */
 DEFUN (no_ip_rip_send_version,
        no_ip_rip_send_version_cmd,
-       "no ip rip send version",
+       "no ip rip send version [(1-1)|(2-2)]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
-       "Version control\n")
+       "Version control\n"
+       "Version 1\n"
+       "Version 2\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1535,31 +1515,21 @@ DEFUN (no_ip_rip_send_version,
 }
 
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
- *     IP_STR
- *     "Routing Information Protocol\n"
- *     "Authentication control\n"
- *     "Authentication mode\n"
- *     "Keyed message digest\n"
- *     "Clear text authentication\n"
- *     "MD5 authentication data length\n"
- *     "RFC compatible\n"
- *     "Old ripd compatible\n"
- *
- */
 DEFUN (ip_rip_authentication_mode,
        ip_rip_authentication_mode_cmd,
-       "ip rip authentication mode <md5|text>",
+       "ip rip authentication mode <md5|text> [auth-length <rfc|old-ripd>]",
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
        "Authentication mode\n"
        "Keyed message digest\n"
-       "Clear text authentication\n")
+       "Clear text authentication\n"
+       "MD5 authentication data length\n"
+       "RFC compatible\n"
+       "Old ripd compatible\n")
 {
-  int idx_encryption = 4;
+  char *cryptmode = argv[4]->text;
+  char *authlen = (argc > 5) ? argv[6]->text : NULL;
   struct interface *ifp;
   struct rip_interface *ri;
   int auth_type;
@@ -1567,79 +1537,47 @@ DEFUN (ip_rip_authentication_mode,
   ifp = (struct interface *)vty->index;
   ri = ifp->info;
 
-  if ( (argc < 1) || (argc > 2) )
-    {
-      vty_out (vty, "incorrect argument count%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-    
-  if (strncmp ("md5", argv[idx_encryption]->arg, strlen (argv[idx_encryption]->arg)) == 0)
+  if (strmatch ("md5", cryptmode))
     auth_type = RIP_AUTH_MD5;
-  else if (strncmp ("text", argv[idx_encryption]->arg, strlen (argv[idx_encryption]->arg)) == 0)
+  else {
+    assert (strmatch ("text", cryptmode));
     auth_type = RIP_AUTH_SIMPLE_PASSWORD;
-  else
-    {
-      vty_out (vty, "mode should be md5 or text%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  }
 
-  if (argc == 1)
-    {
-      ri->auth_type = auth_type;
-      return CMD_SUCCESS;
-    }
+  ri->auth_type = auth_type;
 
-  if ( (argc == 2) && (auth_type != RIP_AUTH_MD5) )
+  if (argc > 5)
+  {
+    if (auth_type != RIP_AUTH_MD5)
     {
       vty_out (vty, "auth length argument only valid for md5%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
+    if (strmatch ("rfc", authlen))
+      ri->md5_auth_len = RIP_AUTH_MD5_SIZE;
+    else
+    {
+      assert (strmatch ("old-ripd", authlen));
+      ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
+    }
+  }
 
-  if (strncmp ("r", argv[6]->arg, 1) == 0)
-    ri->md5_auth_len = RIP_AUTH_MD5_SIZE;
-  else if (strncmp ("o", argv[6]->arg, 1) == 0)
-    ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
-  else 
-    return CMD_WARNING;
-    
-  ri->auth_type = auth_type;
-  
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip rip authentication mode (md5|text)",
- *     NO_STR
- *     IP_STR
- *     "Routing Information Protocol\n"
- *     "Authentication control\n"
- *     "Authentication mode\n"
- *     "Keyed message digest\n"
- *     "Clear text authentication\n"
- *
- * "no ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
- *     NO_STR
- *     IP_STR
- *     "Routing Information Protocol\n"
- *     "Authentication control\n"
- *     "Authentication mode\n"
- *     "Keyed message digest\n"
- *     "Clear text authentication\n"
- *     "MD5 authentication data length\n"
- *     "RFC compatible\n"
- *     "Old ripd compatible\n"
- *
- */
 DEFUN (no_ip_rip_authentication_mode,
        no_ip_rip_authentication_mode_cmd,
-       "no ip rip authentication mode",
+       "no ip rip authentication mode [<md5|text> [auth-length <rfc|old-ripd>]]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
-       "Authentication mode\n")
+       "Authentication mode\n"
+       "Keyed message digest\n"
+       "Clear text authentication\n"
+       "MD5 authentication data length\n"
+       "RFC compatible\n"
+       "Old ripd compatible\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1652,8 +1590,6 @@ DEFUN (no_ip_rip_authentication_mode,
 
   return CMD_SUCCESS;
 }
-
-
 
 DEFUN (ip_rip_authentication_string,
        ip_rip_authentication_string_cmd,
@@ -1692,24 +1628,14 @@ DEFUN (ip_rip_authentication_string,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip rip authentication string LINE",
- *     NO_STR
- *     IP_STR
- *     "Routing Information Protocol\n"
- *     "Authentication control\n"
- *     "Authentication string\n"
- *     "Authentication string\n"
- *
- */
 DEFUN (no_ip_rip_authentication_string,
        no_ip_rip_authentication_string_cmd,
-       "no ip rip authentication string",
+       "no ip rip authentication string [LINE]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
+       "Authentication string\n"
        "Authentication string\n")
 {
   struct interface *ifp;
@@ -1758,25 +1684,15 @@ DEFUN (ip_rip_authentication_key_chain,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip rip authentication key-chain LINE",
- *     NO_STR
- *     IP_STR
- *     "Routing Information Protocol\n"
- *     "Authentication control\n"
- *     "Authentication key-chain\n"
- *     "name of key-chain\n"
- *
- */
 DEFUN (no_ip_rip_authentication_key_chain,
        no_ip_rip_authentication_key_chain_cmd,
-       "no ip rip authentication key-chain",
+       "no ip rip authentication key-chain [LINE]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
        "Authentication control\n"
-       "Authentication key-chain\n")
+       "Authentication key-chain\n"
+       "name of key-chain\n")
 {
   struct interface *ifp;
   struct rip_interface *ri;
@@ -1871,10 +1787,10 @@ DEFUN (no_ip_rip_split_horizon_poisoned_reverse,
 
   switch( ri->split_horizon )
   {
-	case RIP_SPLIT_HORIZON_POISONED_REVERSE:
-		ri->split_horizon = RIP_SPLIT_HORIZON;
-	default:
-		break;
+     case RIP_SPLIT_HORIZON_POISONED_REVERSE:
+       ri->split_horizon = RIP_SPLIT_HORIZON;
+     default:
+       break;
   }
 
   return CMD_SUCCESS;
@@ -1887,18 +1803,15 @@ DEFUN (rip_passive_interface,
        "Interface name\n"
        "default for all interfaces\n")
 {
-  int idx_ifname = 1;
-  const char *ifname = argv[idx_ifname]->arg;
-
-  if (!strcmp(ifname,"default")) {
+  if (argv[1]->type == WORD_TKN) { // user passed 'default'
     passive_default = 1;
     rip_passive_nondefault_clean();
     return CMD_SUCCESS;
   }
   if (passive_default)
-    return rip_passive_nondefault_unset (vty, ifname);
+    return rip_passive_nondefault_unset (vty, argv[1]->arg);
   else
-    return rip_passive_nondefault_set (vty, ifname);
+    return rip_passive_nondefault_set (vty, argv[1]->arg);
 }
 
 DEFUN (no_rip_passive_interface,
@@ -1909,18 +1822,15 @@ DEFUN (no_rip_passive_interface,
        "Interface name\n"
        "default for all interfaces\n")
 {
-  int idx_ifname = 2;
-  const char *ifname = argv[idx_ifname]->arg;
-
-  if (!strcmp(ifname,"default")) {
+  if (argv[2]->type == WORD_TKN) {
     passive_default = 0;
     rip_passive_nondefault_clean();
     return CMD_SUCCESS;
   }
   if (passive_default)
-    return rip_passive_nondefault_set (vty, ifname);
+    return rip_passive_nondefault_set (vty, argv[2]->arg);
   else
-    return rip_passive_nondefault_unset (vty, ifname);
+    return rip_passive_nondefault_unset (vty, argv[2]->arg);
 }
 
 /* Write rip configuration of each interface. */

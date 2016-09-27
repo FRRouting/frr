@@ -2405,17 +2405,9 @@ DEFUN (ripng_default_metric,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no default-metric <1-16>",
- *     NO_STR
- *     "Set a metric of redistribute routes\n"
- *     "Default metric\n"
- *
- */
 DEFUN (no_ripng_default_metric,
        no_ripng_default_metric_cmd,
-       "no default-metric",
+       "no default-metric [(1-16)]",
        NO_STR
        "Set a metric of redistribute routes\n"
        "Default metric\n")
