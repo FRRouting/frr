@@ -1700,7 +1700,7 @@ ALIAS (vtysh_exit_vrf,
  * and isisd. */
 DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        interface_desc_cmd,
-       "description .LINE",
+       "description LINE...",
        "Interface specific description\n"
        "Characters describing this interface\n")
        

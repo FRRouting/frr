@@ -1470,7 +1470,7 @@ DEFUN (no_access_list_all,
 
 DEFUN (access_list_remark,
        access_list_remark_cmd,
-       "access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD> remark .LINE",
+       "access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD> remark LINE...",
        "Add an access list entry\n"
        "IP standard access list\n"
        "IP extended access list\n"
@@ -1666,7 +1666,7 @@ DEFUN (no_ipv6_access_list_all,
 
 DEFUN (ipv6_access_list_remark,
        ipv6_access_list_remark_cmd,
-       "ipv6 access-list WORD remark .LINE",
+       "ipv6 access-list WORD remark LINE...",
        IPV6_STR
        "Add an access list entry\n"
        "IPv6 zebra access-list\n"

@@ -656,28 +656,17 @@ DEFUN (no_auto_summary,
 }
 
 /* "router bgp" commands. */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "router bgp",
- *     ROUTER_STR
- *     BGP_STR
- *
- * "router bgp (1-4294967295) (view|vrf) WORD",
- *     ROUTER_STR
- *     BGP_STR
- *     AS_STR
- *     "BGP view\nBGP VRF\n"
- *     "View/VRF name\n"
- *
- */
 DEFUN (router_bgp,
        router_bgp_cmd,
-       "router bgp (1-4294967295)",
+       "router bgp [(1-4294967295) [<view|vrf> WORD]]",
        ROUTER_STR
        BGP_STR
-       AS_STR)
+       AS_STR
+       BGP_INSTANCE_HELP_STR)
 {
-  int idx_number = 2;
+  int idx_asn = 2;
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
   int ret;
   as_t as;
   struct bgp *bgp;
@@ -685,7 +674,7 @@ DEFUN (router_bgp,
   enum bgp_instance_type inst_type;
 
   // "router bgp" without an ASN
-  if (argc < 1)
+  if (argc == 2)
     {
       //Pending: Make VRF option available for ASN less config
       bgp = bgp_get_default();
@@ -706,15 +695,16 @@ DEFUN (router_bgp,
   // "router bgp X"
   else
     {
-      VTY_GET_INTEGER_RANGE ("AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+      VTY_GET_INTEGER_RANGE ("AS", as, argv[idx_asn]->arg, 1, BGP_AS4_MAX);
 
       inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-      if (argc == 3)
+      if (argc > 3)
         {
-          name = argv[4]->arg;
-          if (!strcmp(argv[3]->arg, "vrf")) 
+          name = argv[idx_vrf]->arg;
+
+          if (!strcmp(argv[idx_view_vrf]->text, "vrf")) 
             inst_type = BGP_INSTANCE_TYPE_VRF;
-          else if (!strcmp(argv[3]->arg, "view")) 
+          else if (!strcmp(argv[idx_view_vrf]->text, "view")) 
             inst_type = BGP_INSTANCE_TYPE_VIEW;
         }
 
@@ -745,38 +735,24 @@ DEFUN (router_bgp,
 }
 
 /* "no router bgp" commands. */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no router bgp",
- *     NO_STR
- *     ROUTER_STR
- *     BGP_STR
- *
- * "no router bgp (1-4294967295) (view|vrf) WORD",
- *     NO_STR
- *     ROUTER_STR
- *     BGP_STR
- *     AS_STR
- *     "BGP view\nBGP VRF\n"
- *     "View/VRF name\n"
- *
- */
 DEFUN (no_router_bgp,
        no_router_bgp_cmd,
-       "no router bgp (1-4294967295)",
+       "no router bgp [(1-4294967295) [<view|vrf> WORD]]",
        NO_STR
        ROUTER_STR
        BGP_STR
-       AS_STR)
+       AS_STR
+       BGP_INSTANCE_HELP_STR)
 {
-  int idx_number = 3;
+  int idx_asn = 3;
+  int idx_view_vrf = 4;
+  int idx_vrf = 5;
   as_t as;
   struct bgp *bgp;
   const char *name = NULL;
 
-
   // "no router bgp" without an ASN
-  if (argc < 1)
+  if (argc == 3)
     {
       //Pending: Make VRF option available for ASN less config
       bgp = bgp_get_default();
@@ -795,10 +771,10 @@ DEFUN (no_router_bgp,
     }
   else
     {
-      VTY_GET_INTEGER_RANGE ("AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+      VTY_GET_INTEGER_RANGE ("AS", as, argv[idx_asn]->arg, 1, BGP_AS4_MAX);
 
-      if (argc == 3)
-        name = argv[5]->arg;
+      if (argc > 4)
+        name = argv[idx_vrf]->arg;
 
       /* Lookup bgp structure. */
       bgp = bgp_lookup (as, name);
@@ -844,31 +820,24 @@ DEFUN (bgp_router_id,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bgp router-id A.B.C.D",
- *     NO_STR
- *     BGP_STR
- *     "Override configured router identifier\n"
- *     "Manually configured router identifier\n"
- *
- */
 DEFUN (no_bgp_router_id,
        no_bgp_router_id_cmd,
-       "no bgp router-id",
+       "no bgp router-id [A.B.C.D]",
        NO_STR
        BGP_STR
-       "Override configured router identifier\n")
+       "Override configured router identifier\n"
+       "Manually configured router identifier\n")
 {
+  int idx_router_id = 3;
   int ret;
   struct in_addr id;
   struct bgp *bgp;
 
   bgp = vty->index;
 
-  if (argc == 1)
+  if (argc > idx_router_id)
     {
-      ret = inet_aton (argv[3]->arg, &id);
+      ret = inet_aton (argv[idx_router_id]->arg, &id);
       if (! ret)
 	{
 	  vty_out (vty, "%% Malformed BGP router identifier%s", VTY_NEWLINE);
@@ -2801,55 +2770,45 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
   return bgp_vty_return (vty, ret);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "neighbor WORD interface peer-group WORD",
- *     NEIGHBOR_STR
- *     "Interface name or neighbor tag\n"
- *     "Enable BGP on interface\n"
- *     "Member of the peer-group\n"
- *     "peer-group name\n"
- *
- */
 DEFUN (neighbor_interface_config,
        neighbor_interface_config_cmd,
-       "neighbor WORD interface",
+       "neighbor WORD interface [peer-group WORD]",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
-       "Enable BGP on interface\n")
+       "Enable BGP on interface\n"
+       "Member of the peer-group\n"
+       "peer-group name\n")
 {
   int idx_word = 1;
-  if (argc == 2)
+  int idx_peer_group_word = 4;
+
+  if (argc > idx_peer_group_word)
     return peer_conf_interface_get (vty, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST, 0,
-                                    argv[3]->arg, NULL);
+                                    argv[idx_peer_group_word]->arg, NULL);
   else
     return peer_conf_interface_get (vty, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST, 0,
                                     NULL, NULL);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "neighbor WORD interface v6only peer-group WORD",
- *     NEIGHBOR_STR
- *     "Interface name or neighbor tag\n"
- *     "Enable BGP on interface\n"
- *     "Enable BGP with v6 link-local only\n"
- *     "Member of the peer-group\n"
- *     "peer-group name\n"
- *
- */
 DEFUN (neighbor_interface_config_v6only,
        neighbor_interface_config_v6only_cmd,
-       "neighbor WORD interface v6only",
+       "neighbor WORD interface v6only [peer-group WORD]",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
-       "Enable BGP with v6 link-local only\n")
+       "Enable BGP with v6 link-local only\n"
+       "Member of the peer-group\n"
+       "peer-group name\n")
 {
   int idx_word = 1;
+  int idx_peer_group_word = 5;
+
+  if (argc > idx_peer_group_word)
+    return peer_conf_interface_get (vty, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST, 1,
+                                    argv[idx_peer_group_word]->arg, NULL);
+
   return peer_conf_interface_get (vty, argv[idx_word]->arg, AFI_IP, SAFI_UNICAST, 1,
-                                  argv[5]->arg, NULL);
+                                  NULL, NULL);
 }
 
 
@@ -2967,56 +2926,17 @@ DEFUN (no_neighbor,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor WORD interface remote-as ((1-4294967295)|internal|external)",
- *     NO_STR
- *     NEIGHBOR_STR
- *     "Interface name\n"
- *     "Configure BGP on interface\n"
- *     AS_STR
- *
- * "no neighbor WORD interface v6only peer-group WORD",
- *     NO_STR
- *     NEIGHBOR_STR
- *     "Interface name\n"
- *     "Configure BGP on interface\n"
- *     "Enable BGP with v6 link-local only\n"
- *     "Member of the peer-group\n"
- *     "peer-group name\n"
- *
- * "no neighbor WORD interface v6only remote-as ((1-4294967295)|internal|external)",
- *     NO_STR
- *     NEIGHBOR_STR
- *     "Interface name\n"
- *     "Configure BGP on interface\n"
- *     "Enable BGP with v6 link-local only\n"
- *     AS_STR
- *
- * "no neighbor WORD interface v6only",
- *     NO_STR
- *     NEIGHBOR_STR
- *     "Interface name\n"
- *     "Configure BGP on interface\n"
- *     "Enable BGP with v6 link-local only\n"
- *
- * "no neighbor WORD interface peer-group WORD",
- *     NO_STR
- *     NEIGHBOR_STR
- *     "Interface name\n"
- *     "Configure BGP on interface\n"
- *     "Member of the peer-group\n"
- *     "peer-group name\n"
- *
- */
 DEFUN (no_neighbor_interface_config,
        no_neighbor_interface_config_cmd,
-       "no neighbor WORD interface",
+       "no neighbor WORD interface [v6only] [peer-group WORD] [remote-as <(1-4294967295)|internal|external>]",
        NO_STR
        NEIGHBOR_STR
        "Interface name\n"
-       "Configure BGP on interface\n")
+       "Configure BGP on interface\n"
+       "Enable BGP with v6 link-local only\n"
+       "Member of the peer-group\n"
+       "peer-group name\n"
+       AS_STR)
 {
   int idx_word = 2;
   struct peer *peer;
@@ -4083,57 +4003,6 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
                                 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED );
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med next-hop as-path",
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "Med attribute\n"
- *     "Nexthop attribute\n"
- *     "As-path attribute\n"
- *
- * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med as-path next-hop",
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "Med attribute\n"
- *     "As-path attribute\n"
- *     "Nexthop attribute\n"
- *
- * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path next-hop med",
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "As-path attribute\n"
- *     "Nexthop attribute\n"
- *     "Med attribute\n"
- *
- * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop as-path med",
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "Nexthop attribute\n"
- *     "As-path attribute\n"
- *     "Med attribute\n"
- *
- * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path med next-hop",
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "As-path attribute\n"
- *     "Med attribute\n"
- *     "Nexthop attribute\n"
- *
- * "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop med as-path",
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "Nexthop attribute\n"
- *     "Med attribute\n"
- *     "As-path attribute\n"
- *
- */
 DEFUN (neighbor_attr_unchanged,
        neighbor_attr_unchanged_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged",
@@ -4244,76 +4113,16 @@ DEFUN (neighbor_attr_unchanged4,
 			       bgp_node_safi (vty), flags);
 }
 
-
-
-
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop med as-path",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "Nexthop attribute\n"
- *     "Med attribute\n"
- *     "As-path attribute\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path med next-hop",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "As-path attribute\n"
- *     "Med attribute\n"
- *     "Nexthop attribute\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med as-path next-hop",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "Med attribute\n"
- *     "As-path attribute\n"
- *     "Nexthop attribute\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged next-hop as-path med",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "Nexthop attribute\n"
- *     "As-path attribute\n"
- *     "Med attribute\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged as-path next-hop med",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "As-path attribute\n"
- *     "Nexthop attribute\n"
- *     "Med attribute\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged med next-hop as-path",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "BGP attribute is propagated unchanged to this neighbor\n"
- *     "Med attribute\n"
- *     "Nexthop attribute\n"
- *     "As-path attribute\n"
- *
- */
 DEFUN (no_neighbor_attr_unchanged,
        no_neighbor_attr_unchanged_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [as-path] [next-hop] [med]",
        NO_STR	 
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "BGP attribute is propagated unchanged to this neighbor\n")
+       "BGP attribute is propagated unchanged to this neighbor\n"
+       "As-path attribute\n"
+       "Med attribute\n"
+       "Nexthop attribute\n")
 {
   int idx_peer = 2;
   return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
@@ -4529,7 +4338,7 @@ DEFUN (no_neighbor_disable_connected_check,
 
 DEFUN (neighbor_description,
        neighbor_description_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> description .LINE",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> description LINE...",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Neighbor specific description\n"
@@ -4555,9 +4364,6 @@ DEFUN (neighbor_description,
   return CMD_SUCCESS;
 }
 
-/* CHECK ME quentin mentioned something about LINE vs .LINE vs LINE... but
- * I don't remember what. We need to check all LINE and AA:NN
- * */
 DEFUN (no_neighbor_description,
        no_neighbor_description_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> description [LINE]",
@@ -5686,67 +5492,18 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
 				      bgp_node_safi (vty), argv[idx_number]->arg, argv[idx_number_2]->arg, 0, argv[idx_number_3]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Maximum number of prefix accept from this peer\n"
- *     "maximum no. of prefix limit\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> <1-100> restart <1-65535>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Maximum number of prefix accept from this peer\n"
- *     "maximum no. of prefix limit\n"
- *     "Threshold value (%) at which to generate a warning msg\n"
- *     "Restart bgp connection after limit is exceeded\n"
- *     "Restart interval in minutes"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> warning-only",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Maximum number of prefix accept from this peer\n"
- *     "maximum no. of prefix limit\n"
- *     "Only give warning message when limit is exceeded\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> restart <1-65535>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Maximum number of prefix accept from this peer\n"
- *     "maximum no. of prefix limit\n"
- *     "Restart bgp connection after limit is exceeded\n"
- *     "Restart interval in minutes"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> <1-100> warning-only",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Maximum number of prefix accept from this peer\n"
- *     "maximum no. of prefix limit\n"
- *     "Threshold value (%) at which to generate a warning msg\n"
- *     "Only give warning message when limit is exceeded\n"
- *
- * "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix <1-4294967295> <1-100>",
- *     NO_STR
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Maximum number of prefix accept from this peer\n"
- *     "maximum no. of prefix limit\n"
- *     "Threshold value (%) at which to generate a warning msg\n"
- *
- */
 DEFUN (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix [<1-4294967295> [<1-100>] [restart <1-65535>] [warning-only]]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Maximum number of prefix accept from this peer\n")
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Threshold value (%) at which to generate a warning msg\n"
+       "Restart bgp connection after limit is exceeded\n"
+       "Restart interval in minutes"
+       "Only give warning message when limit is exceeded\n")
 {
   int idx_peer = 2;
   return peer_maximum_prefix_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
@@ -5755,23 +5512,16 @@ DEFUN (no_neighbor_maximum_prefix,
  
 
 /* "neighbor allowas-in" */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in <1-10>",
- *     NEIGHBOR_STR
- *     NEIGHBOR_ADDR_STR2
- *     "Accept as-path with my AS present in it\n"
- *     "Number of occurances of AS number\n"
- *
- */
 DEFUN (neighbor_allowas_in,
        neighbor_allowas_in_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [(1-10)]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Accept as-path with my AS present in it\n")
+       "Accept as-path with my AS present in it\n"
+       "Number of occurances of AS number\n")
 {
   int idx_peer = 1;
+  int idx_number = 3;
   int ret;
   struct peer *peer;
   unsigned int allow_num;
@@ -5780,10 +5530,10 @@ DEFUN (neighbor_allowas_in,
   if (! peer)
     return CMD_WARNING;
 
-  if (argc == 1)
+  if (argc <= idx_number)
     allow_num = 3;
   else
-    VTY_GET_INTEGER_RANGE ("AS number", allow_num, argv[3]->arg, 1, 10);
+    VTY_GET_INTEGER_RANGE ("AS number", allow_num, argv[idx_number]->arg, 1, 10);
 
   ret = peer_allowas_in_set (peer, bgp_node_afi (vty), bgp_node_safi (vty),
 			     allow_num);
@@ -6233,7 +5983,7 @@ bgp_get_argv_afi_safi (int argc, struct cmd_token **argv,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6247,11 +5997,8 @@ DEFUN (clear_ip_bgp_all,
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -7099,17 +6846,14 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
 /* `show ip bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] summary [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -9157,7 +8901,7 @@ bgp_show_all_instances_updgrps_vty (struct vty *vty, afi_t afi, safi_t safi)
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] update-groups [SUBGROUP-ID]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10001,57 +9745,18 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
   return bgp_redistribute_set (vty->index, AFI_IP, protocol, instance);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no redistribute (ospf|table) <1-65535> route-map WORD",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     "Open Shortest Path First (OSPFv2)\n"
- *     "Non-main Kernel Routing Table\n"
- *     "Instance ID/Table ID\n"
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *
- * "no redistribute (ospf|table) <1-65535> metric <0-4294967295>",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     "Open Shortest Path First (OSPFv2)\n"
- *     "Non-main Kernel Routing Table\n"
- *     "Instance ID/Table ID\n"
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *
- * "no redistribute (ospf|table) <1-65535> route-map WORD metric <0-4294967295>",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     "Open Shortest Path First (OSPFv2)\n"
- *     "Non-main Kernel Routing Table\n"
- *     "Instance ID/Table ID\n"
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *
- * "no redistribute (ospf|table) <1-65535> metric <0-4294967295> route-map WORD",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     "Open Shortest Path First (OSPFv2)\n"
- *     "Non-main Kernel Routing Table\n"
- *     "Instance ID/Table ID\n"
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *
- */
 DEFUN (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_cmd,
-       "no redistribute <ospf|table> (1-65535)",
+       "no redistribute <ospf|table> (1-65535) [metric <0-4294967295>] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
        "Non-main Kernel Routing Table\n"
-       "Instance ID/Table ID\n")
+       "Instance ID/Table ID\n"
+       "Metric for redistributed routes\n"
+       "Default metric\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
 {
   int idx_ospf_table = 2;
   int idx_number = 3;
@@ -10067,51 +9772,16 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
   return bgp_redistribute_unset (vty->index, AFI_IP, protocol, instance);
 }
 
-
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric <0-4294967295> route-map WORD",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     QUAGGA_IP_REDIST_HELP_STR_BGPD
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *
- * "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     QUAGGA_IP_REDIST_HELP_STR_BGPD
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *
- * "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> route-map WORD metric <0-4294967295>",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     QUAGGA_IP_REDIST_HELP_STR_BGPD
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *
- * "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> metric <0-4294967295>",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     QUAGGA_IP_REDIST_HELP_STR_BGPD
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *
- */
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
-       "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table>",
+       "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> [metric <0-4294967295>] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP_REDIST_HELP_STR_BGPD)
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
+       "Metric for redistributed routes\n"
+       "Default metric\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
 {
   int idx_protocol = 2;
   int type;
@@ -10124,10 +9794,6 @@ DEFUN (no_bgp_redistribute_ipv4,
     }
   return bgp_redistribute_unset (vty->index, AFI_IP, type, 0);
 }
-
-
-
-
 
 #ifdef HAVE_IPV6
 DEFUN (bgp_redistribute_ipv6,
@@ -10264,47 +9930,16 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
   return bgp_redistribute_set (vty->index, AFI_IP6, type, 0);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     QUAGGA_IP6_REDIST_HELP_STR_BGPD
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *
- * "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> route-map WORD metric <0-4294967295>",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     QUAGGA_IP6_REDIST_HELP_STR_BGPD
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *
- * "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric <0-4294967295> route-map WORD",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     QUAGGA_IP6_REDIST_HELP_STR_BGPD
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *
- * "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> metric <0-4294967295>",
- *     NO_STR
- *     "Redistribute information from another routing protocol\n"
- *     QUAGGA_IP6_REDIST_HELP_STR_BGPD
- *     "Metric for redistributed routes\n"
- *     "Default metric\n"
- *
- */
 DEFUN (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_cmd,
-       "no redistribute <kernel|connected|static|ripng|ospf6|isis|table>",
+       "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> [metric <0-4294967295>] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       QUAGGA_IP6_REDIST_HELP_STR_BGPD)
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
+       "Metric for redistributed routes\n"
+       "Default metric\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
 {
   int idx_protocol = 2;
   int type;
@@ -11658,7 +11293,7 @@ community_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
 /* ip community-list standard */
 DEFUN (ip_community_list_standard,
        ip_community_list_standard_cmd,
-       "ip community-list <(1-99)|standard WORD> <deny|permit> [.AA:NN]",
+       "ip community-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
        IP_STR
        COMMUNITY_LIST_STR
        "Community list number (standard)\n"
@@ -11673,7 +11308,7 @@ DEFUN (ip_community_list_standard,
 
 DEFUN (no_ip_community_list_standard_all,
        no_ip_community_list_standard_all_cmd,
-       "no ip community-list <(1-99)|standard WORD> [<deny|permit> [.AA:NN]]",
+       "no ip community-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -11690,7 +11325,7 @@ DEFUN (no_ip_community_list_standard_all,
 /* ip community-list expanded */
 DEFUN (ip_community_list_expanded_all,
        ip_community_list_expanded_all_cmd,
-       "ip community-list <(100-500)|expanded WORD> [<deny|permit> [.LINE]]",
+       "ip community-list <(100-500)|expanded WORD> <deny|permit> LINE...",
        IP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
@@ -11705,7 +11340,7 @@ DEFUN (ip_community_list_expanded_all,
 
 DEFUN (no_ip_community_list_expanded_all,
        no_ip_community_list_expanded_all_cmd,
-       "no ip community-list <(100-500)|expanded WORD> [<deny|permit> [.LINE]]",
+       "no ip community-list <(100-500)|expanded WORD> <deny|permit> LINE...",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -11897,7 +11532,7 @@ extcommunity_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
 
 DEFUN (ip_extcommunity_list_standard,
        ip_extcommunity_list_standard_cmd,
-       "ip extcommunity-list <(1-99)|standard WORD> <deny|permit> [.AA:NN]",
+       "ip extcommunity-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (standard)\n"
@@ -11912,7 +11547,7 @@ DEFUN (ip_extcommunity_list_standard,
 
 DEFUN (ip_extcommunity_list_name_expanded,
        ip_extcommunity_list_name_expanded_cmd,
-       "ip extcommunity-list <(100-500)|expanded WORD> <deny|permit> [.LINE]",
+       "ip extcommunity-list <(100-500)|expanded WORD> <deny|permit> LINE...",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (expanded)\n"
@@ -11927,7 +11562,7 @@ DEFUN (ip_extcommunity_list_name_expanded,
 
 DEFUN (no_ip_extcommunity_list_standard_all,
        no_ip_extcommunity_list_standard_all_cmd,
-       "no ip extcommunity-list <(1-99)|standard WORD> <deny|permit> [.AA:NN]",
+       "no ip extcommunity-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -11943,7 +11578,7 @@ DEFUN (no_ip_extcommunity_list_standard_all,
 
 DEFUN (no_ip_extcommunity_list_expanded_all,
        no_ip_extcommunity_list_expanded_all_cmd,
-       "no ip extcommunity-list <(100-500)|expanded WORD> <deny|permit> [.LINE]",
+       "no ip extcommunity-list <(100-500)|expanded WORD> <deny|permit> LINE...",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR

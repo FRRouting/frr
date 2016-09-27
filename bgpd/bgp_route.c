@@ -7732,17 +7732,14 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 /* BGP route print out function. */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] [cidr-only|community|<[dampening] <flap-statistics|dampened-paths>>|regexp .LINE|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|<A.B.C.D/M|k X:X::X:X/M> longer-prefixes] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] [cidr-only|community|<[dampening] <flap-statistics|dampened-paths>>|regexp .LINE|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|<A.B.C.D/M|k X:X::X:X/M> longer-prefixes] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -7799,9 +7796,6 @@ DEFUN (show_ip_bgp_ipv4,
      return CMD_WARNING;
    }
 
-  // "show [ip] bgp [<view|vrf> WORD] [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>]
-  // [cidr-only|<[dampening] <flap-statistics|dampened-paths>>|regexp .LINE|prefix-list WORD|filter-list WORD|
-  // community [<AA:NN|local-AS|no-advertise|no-export>]|community-list <(1-500)|WORD> [exact-match]|A.B.C.D/M longer-prefixes] [json]",
   if (strmatch(argv[idx_sh_type]->text, "cidr-only"))
     return bgp_show (vty, bgp, afi, safi, bgp_show_type_cidr_only, NULL, uj);
 
@@ -7863,13 +7857,13 @@ DEFUN (show_ip_bgp_ipv4,
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast [rd ASN:nn_or_IP-address:nn]|encap unicast>] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [bestpath|multipath] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|encap> [unicast]|ipv4 multicast|vpnv4 unicast [rd ASN:nn_or_IP-address:nn]>] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [bestpath|multipath] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
-       "Address Family modifier\n"
+       "Address family\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -7878,8 +7872,6 @@ DEFUN (show_ip_bgp_route,
        "Address Family modifier\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
-       "Address family\n"
-       "Address Family modifier\n"
        "Network in the BGP routing table to display\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        "IPv6 prefix <network>/<length>\n"
@@ -9256,17 +9248,14 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf>] WORD [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes [route-map WORD]|advertised-routes [route-map WORD]>] [json]",
+       "show [ip] bgp [<view|vrf>] WORD [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes [route-map WORD]|advertised-routes [route-map WORD]>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -9432,17 +9421,14 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4 unicast|ipv4 multicast|ipv6 unicast|vpnv4 unicast|encap unicast>] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
-       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -9783,21 +9769,9 @@ DEFUN (no_bgp_distance_source_access_list,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "bgp dampening",
- *     "BGP Specific commands\n"
- *     "Enable route-flap dampening\n"
- *
- * "bgp dampening <1-45>",
- *     "BGP Specific commands\n"
- *     "Enable route-flap dampening\n"
- *     "Half-life time for the penalty\n"
- *
- */
 DEFUN (bgp_damp_set,
        bgp_damp_set_cmd,
-       "bgp dampening (1-45) (1-20000) (1-20000) (1-255)",
+       "bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
        "BGP Specific commands\n"
        "Enable route-flap dampening\n"
        "Half-life time for the penalty\n"
@@ -9805,26 +9779,26 @@ DEFUN (bgp_damp_set,
        "Value to start suppressing a route\n"
        "Maximum duration to suppress a stable route\n")
 {
-  int idx_number = 2;
-  int idx_number_2 = 3;
-  int idx_number_3 = 4;
-  int idx_number_4 = 5;
+  int idx_half_life = 2;
+  int idx_reuse = 3;
+  int idx_suppress = 4;
+  int idx_max_suppress = 5;
   struct bgp *bgp;
   int half = DEFAULT_HALF_LIFE * 60;
   int reuse = DEFAULT_REUSE;
   int suppress = DEFAULT_SUPPRESS;
   int max = 4 * half;
 
-  if (argc == 4)
+  if (argc == 6)
     {
-      half = atoi (argv[idx_number]->arg) * 60;
-      reuse = atoi (argv[idx_number_2]->arg);
-      suppress = atoi (argv[idx_number_3]->arg);
-      max = atoi (argv[idx_number_4]->arg) * 60;
+      half = atoi (argv[idx_half_life]->arg) * 60;
+      reuse = atoi (argv[idx_reuse]->arg);
+      suppress = atoi (argv[idx_suppress]->arg);
+      max = atoi (argv[idx_max_suppress]->arg) * 60;
     }
-  else if (argc == 1)
+  else if (argc == 3)
     {
-      half = atoi (argv[idx_number]->arg) * 60;
+      half = atoi (argv[idx_half_life]->arg) * 60;
       max = 4 * half;
     }
 
