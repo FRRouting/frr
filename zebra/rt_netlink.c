@@ -525,7 +525,6 @@ netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h
 				     ns_id_t ns_id)
 {
   int len;
-  unsigned long long lastused = 0;
   struct rtmsg *rtm;
   struct rtattr *tb[RTA_MAX + 1];
   struct mcast_route_data *m;
@@ -584,18 +583,20 @@ netlink_route_change_read_multicast (struct sockaddr_nl *snl, struct nlmsghdr *h
 
   if (IS_ZEBRA_DEBUG_KERNEL)
     {
+      struct interface *ifp;
       strcpy (sbuf, inet_ntoa (m->sg.src));
       strcpy (gbuf, inet_ntoa (m->sg.grp));
       for (count = 0; count < oif_count; count++)
 	{
-	  struct interface *ifp = if_lookup_by_index_vrf (oif[count], vrf);
+	  ifp = if_lookup_by_index_vrf (oif[count], vrf);
 	  char temp[256];
 
 	  sprintf (temp, "%s ", ifp->name);
 	  strcat (oif_list, temp);
 	}
-      zlog_debug ("MCAST %s (%s,%s) IIF: %d OIF: %s jiffies: %lld",
-		  nl_msg_type_to_str (h->nlmsg_type), sbuf, gbuf, iif, oif_list, lastused);
+      ifp = if_lookup_by_index_vrf (iif, vrf);
+      zlog_debug ("MCAST %s (%s,%s) IIF: %s OIF: %s jiffies: %lld",
+		  nl_msg_type_to_str(h->nlmsg_type), sbuf, gbuf, ifp->name, oif_list, m->lastused);
     }
   return 0;
 }
