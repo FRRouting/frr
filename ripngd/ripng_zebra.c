@@ -345,44 +345,23 @@ DEFUN (ripng_redistribute_type,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no redistribute <kernel|connected|static|ospf6|isis|bgp|table> metric <0-16> route-map WORD",
- *     NO_STR
- *     "Redistribute\n"
- *     QUAGGA_REDIST_HELP_STR_RIPNGD
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *
- * "no redistribute <kernel|connected|static|ospf6|isis|bgp|table> metric <0-16>",
- *     NO_STR
- *     "Redistribute\n"
- *     QUAGGA_REDIST_HELP_STR_RIPNGD
- *     "Metric\n"
- *     "Metric value\n"
- *
- * "no redistribute <kernel|connected|static|ospf6|isis|bgp|table> route-map WORD",
- *     NO_STR
- *     "Redistribute\n"
- *     QUAGGA_REDIST_HELP_STR_RIPNGD
- *     "Route map reference\n"
- *     "Pointer to route-map entries\n"
- *
- */
 DEFUN (no_ripng_redistribute_type,
        no_ripng_redistribute_type_cmd,
-       "no redistribute <kernel|connected|static|ospf6|isis|bgp|table>",
+       "no redistribute <kernel|connected|static|ospf6|isis|bgp|table> [metric (0-16)] [route-map WORD]",
        NO_STR
        "Redistribute\n"
-       QUAGGA_REDIST_HELP_STR_RIPNGD)
+       QUAGGA_REDIST_HELP_STR_RIPNGD
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
 {
   int type;
-
-  type = proto_redistnum(AFI_IP6, argv[3]->arg);
+  type = proto_redistnum(AFI_IP6, argv[2]->text);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[3]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[2]->text, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -406,11 +385,11 @@ DEFUN (ripng_redistribute_type_metric,
   int metric;
 
   metric = atoi (argv[idx_number]->arg);
-  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
+  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -433,15 +412,15 @@ DEFUN (ripng_redistribute_type_routemap,
   int idx_word = 3;
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
+  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  ripng_redistribute_routemap_set (type, argv[idx_word]->arg);
+  ripng_redistribute_routemap_set (type, argv[idx_word]->text);
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
                         VRF_DEFAULT);
  return CMD_SUCCESS;
@@ -464,17 +443,17 @@ DEFUN (ripng_redistribute_type_metric_routemap,
   int type;
   int metric;
 
-  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->arg);
+  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
   metric = atoi (argv[idx_number]->arg);
 
   if (type < 0)
     {
-      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->arg, VTY_NEWLINE);
+      vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   ripng_redistribute_metric_set (type, metric);
-  ripng_redistribute_routemap_set (type, argv[idx_word]->arg);
+  ripng_redistribute_routemap_set (type, argv[idx_word]->text);
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
   return CMD_SUCCESS;
 }

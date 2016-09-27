@@ -2963,19 +2963,12 @@ DEFUN (rip_version,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no version <1-2>",
- *     NO_STR
- *     "Set routing protocol version\n"
- *     "version\n"
- *
- */
 DEFUN (no_rip_version,
        no_rip_version_cmd,
-       "no version",
+       "no version [(1-2)]",
        NO_STR
-       "Set routing protocol version\n")
+       "Set routing protocol version\n"
+       "Version\n")
 {
   /* Set RIP version to the default. */
   rip->version_send = RI_RIP_VERSION_2;
@@ -3091,17 +3084,9 @@ DEFUN (rip_default_metric,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no default-metric <1-16>",
- *     NO_STR
- *     "Set a metric of redistribute routes\n"
- *     "Default metric\n"
- *
- */
 DEFUN (no_rip_default_metric,
        no_rip_default_metric_cmd,
-       "no default-metric",
+       "no default-metric [(1-16)]",
        NO_STR
        "Set a metric of redistribute routes\n"
        "Default metric\n")
@@ -3166,23 +3151,15 @@ DEFUN (rip_timers,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no timers basic <0-65535> <0-65535> <0-65535>",
- *     NO_STR
- *     "Adjust routing timers\n"
- *     "Basic routing protocol update timers\n"
- *     "Routing table update timer value in second. Default is 30.\n"
- *     "Routing information timeout timer. Default is 180.\n"
- *     "Garbage collection timer. Default is 120.\n"
- *
- */
 DEFUN (no_rip_timers,
        no_rip_timers_cmd,
-       "no timers basic",
+       "no timers basic [(0-65535) (0-65535) (0-65535)]",
        NO_STR
        "Adjust routing timers\n"
-       "Basic routing protocol update timers\n")
+       "Basic routing protocol update timers\n"
+       "Routing table update timer value in second. Default is 30.\n"
+       "Routing information timeout timer. Default is 180.\n"
+       "Garbage collection timer. Default is 120.\n")
 {
   /* Set each timer value to the default. */
   rip->update_time = RIP_UPDATE_TIMER_DEFAULT;
