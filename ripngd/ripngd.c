@@ -2554,23 +2554,15 @@ DEFUN (ripng_timers,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no timers basic <0-65535> <0-65535> <0-65535>",
- *     NO_STR
- *     "RIPng timers setup\n"
- *     "Basic timer\n"
- *     "Routing table update timer value in second. Default is 30.\n"
- *     "Routing information timeout timer. Default is 180.\n"
- *     "Garbage collection timer. Default is 120.\n"
- *
- */
 DEFUN (no_ripng_timers,
        no_ripng_timers_cmd,
-       "no timers basic",
+       "no timers basic [(0-65535) (0-65535) (0-65535)",
        NO_STR
        "RIPng timers setup\n"
-       "Basic timer\n")
+       "Basic timer\n"
+       "Routing table update timer value in second. Default is 30.\n"
+       "Routing information timeout timer. Default is 180.\n"
+       "Garbage collection timer. Default is 120.\n")
 {
   /* Set each timer value to the default. */
   ripng->update_time = RIPNG_UPDATE_TIMER_DEFAULT;
@@ -2582,7 +2574,6 @@ DEFUN (no_ripng_timers,
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ipv6_protocols,
        show_ipv6_protocols_cmd,
