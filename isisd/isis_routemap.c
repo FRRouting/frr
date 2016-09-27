@@ -358,18 +358,10 @@ DEFUN (match_ip_address,
   return isis_route_match_add(vty, vty->index, "ip address", argv[idx_acl]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip address",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match address of route\n"
- *
- */
+
 DEFUN (no_match_ip_address,
        no_match_ip_address_val_cmd,
-       "no match ip address <(1-199)|(1300-2699)|WORD>",
+       "no match ip address [<(1-199)|(1300-2699)|WORD>]",
        NO_STR
        MATCH_STR
        IP_STR
@@ -379,7 +371,7 @@ DEFUN (no_match_ip_address,
        "IP Access-list name\n")
 {
   int idx_acl = 4;
-  if (argc == 0)
+  if (argc <= idx_acl)
     return isis_route_match_delete(vty, vty->index, "ip address", NULL);
   return isis_route_match_delete(vty, vty->index, "ip address", argv[idx_acl]->arg);
 }
@@ -400,29 +392,21 @@ DEFUN (match_ip_address_prefix_list,
   return isis_route_match_add(vty, vty->index, "ip address prefix-list", argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip address prefix-list WORD",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match address of route\n"
- *     "Match entries of prefix-lists\n"
- *     "IP prefix-list name\n"
- *
- */
+
 DEFUN (no_match_ip_address_prefix_list,
        no_match_ip_address_prefix_list_cmd,
-       "no match ip address prefix-list",
+       "no match ip address prefix-list [WORD]",
        NO_STR
        MATCH_STR
        IP_STR
        "Match address of route\n"
-       "Match entries of prefix-lists\n")
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
-  if (argc == 0)
+  int idx_word = 5;
+  if (argc <= idx_word)
     return isis_route_match_delete (vty, vty->index, "ip address prefix-list", NULL);
-  return isis_route_match_delete (vty, vty->index, "ip address prefix-list", argv[0]);
+  return isis_route_match_delete (vty, vty->index, "ip address prefix-list", argv[idx_word]->arg);
 }
 
 
@@ -440,18 +424,10 @@ DEFUN (match_ipv6_address,
   return isis_route_match_add(vty, vty->index, "ipv6 address", argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ipv6 address",
- *     NO_STR
- *     MATCH_STR
- *     IPV6_STR
- *     "Match IPv6 address of route\n"
- *
- */
+
 DEFUN (no_match_ipv6_address,
        no_match_ipv6_address_val_cmd,
-       "no match ipv6 address WORD",
+       "no match ipv6 address [WORD]",
        NO_STR
        MATCH_STR
        IPV6_STR
@@ -459,7 +435,7 @@ DEFUN (no_match_ipv6_address,
        "IPv6 access-list name\n")
 {
   int idx_word = 4;
-  if (argc == 0)
+  if (argc <= idx_word)
     return isis_route_match_delete(vty, vty->index, "ipv6 address", NULL);
   return isis_route_match_delete(vty, vty->index, "ipv6 address", argv[idx_word]->arg);
 }
@@ -480,29 +456,20 @@ DEFUN (match_ipv6_address_prefix_list,
   return isis_route_match_add(vty, vty->index, "ipv6 address prefix-list", argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ipv6 address prefix-list WORD",
- *     NO_STR
- *     MATCH_STR
- *     IPV6_STR
- *     "Match address of route\n"
- *     "Match entries of prefix-lists\n"
- *     "IP prefix-list name\n"
- *
- */
 DEFUN (no_match_ipv6_address_prefix_list,
        no_match_ipv6_address_prefix_list_cmd,
-       "no match ipv6 address prefix-list",
+       "no match ipv6 address prefix-list [WORD]",
        NO_STR
        MATCH_STR
        IPV6_STR
        "Match address of route\n"
-       "Match entries of prefix-lists\n")
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
-  if (argc == 0)
+  int idx_word = 5;
+  if (argc <= idx_word)
     return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", NULL);
-  return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", argv[0]);
+  return isis_route_match_delete (vty, vty->index, "ipv6 address prefix-list", argv[idx_word]->arg);
 }
 
 
@@ -522,31 +489,22 @@ DEFUN (set_metric,
   return isis_route_set_add(vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set metric",
- *     NO_STR
- *     SET_STR
- *     "Metric vale for destination routing protocol\n");
- *     
- *     void
- *     isis_route_map_init(void
- *
- */
 DEFUN (no_set_metric,
        no_set_metric_val_cmd,
-      "no set metric (0-4294967295)",
+      "no set metric [(0-4294967295)]",
       NO_STR
       SET_STR
       "Metric value for destination routing protocol\n"
       "Metric value\n")
 {
   int idx_number = 3;
-  if (argc == 0)
+  if (argc <= idx_number)
     return isis_route_set_delete(vty, vty->index, "metric", NULL);
   return isis_route_set_delete(vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
+void
+isis_route_map_init(void)
 {
   route_map_init();
   route_map_init_vty();

@@ -330,23 +330,15 @@ DEFUN (isis_passwd,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis password (md5|clear) WORD",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Configure the authentication password for a circuit\n"
- *     "HMAC-MD5 authentication\n"
- *     "Cleartext password\n"
- *     "Circuit password\n"
- *
- */
 DEFUN (no_isis_passwd,
        no_isis_passwd_cmd,
-       "no isis password",
+       "no isis password [<md5|clear> WORD]",
        NO_STR
        "IS-IS commands\n"
-       "Configure the authentication password for a circuit\n")
+       "Configure the authentication password for a circuit\n"
+       "HMAC-MD5 authentication\n"
+       "Cleartext password\n"
+       "Circuit password\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -385,21 +377,13 @@ DEFUN (isis_priority,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis priority <0-127>",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set priority for Designated Router election\n"
- *     "Priority value\n"
- *
- */
 DEFUN (no_isis_priority,
        no_isis_priority_cmd,
-       "no isis priority",
+       "no isis priority [(0-127)]",
        NO_STR
        "IS-IS commands\n"
-       "Set priority for Designated Router election\n")
+       "Set priority for Designated Router election\n"
+       "Priority value\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -439,22 +423,13 @@ DEFUN (isis_priority_l1,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis priority <0-127> level-1",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set priority for Designated Router election\n"
- *     "Priority value\n"
- *     "Specify priority for level-1 routing\n"
- *
- */
 DEFUN (no_isis_priority_l1,
        no_isis_priority_l1_cmd,
-       "no isis priority level-1",
+       "no isis priority [(0-127)] level-1",
        NO_STR
        "IS-IS commands\n"
        "Set priority for Designated Router election\n"
+       "Priority value\n"
        "Specify priority for level-1 routing\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -494,22 +469,13 @@ DEFUN (isis_priority_l2,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis priority <0-127> level-2",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set priority for Designated Router election\n"
- *     "Priority value\n"
- *     "Specify priority for level-2 routing\n"
- *
- */
 DEFUN (no_isis_priority_l2,
        no_isis_priority_l2_cmd,
-       "no isis priority level-2",
+       "no isis priority [(0-127)] level-2",
        NO_STR
        "IS-IS commands\n"
        "Set priority for Designated Router election\n"
+       "Priority value\n"
        "Specify priority for level-2 routing\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -563,21 +529,14 @@ DEFUN (isis_metric,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis metric <0-16777215>",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set default metric for circuit\n"
- *     "Default metric value\n"
- *
- */
+
 DEFUN (no_isis_metric,
        no_isis_metric_cmd,
-       "no isis metric",
+       "no isis metric [(0-16777215)]",
        NO_STR
        "IS-IS commands\n"
-       "Set default metric for circuit\n")
+       "Set default metric for circuit\n"
+       "Default metric value\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -629,22 +588,14 @@ DEFUN (isis_metric_l1,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis metric <0-16777215> level-1",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set default metric for circuit\n"
- *     "Default metric value\n"
- *     "Specify metric for level-1 routing\n"
- *
- */
+
 DEFUN (no_isis_metric_l1,
        no_isis_metric_l1_cmd,
-       "no isis metric level-1",
+       "no isis metric [(0-16777215)] level-1",
        NO_STR
        "IS-IS commands\n"
        "Set default metric for circuit\n"
+       "Default metric value\n"
        "Specify metric for level-1 routing\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -696,22 +647,14 @@ DEFUN (isis_metric_l2,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis metric <0-16777215> level-2",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set default metric for circuit\n"
- *     "Default metric value\n"
- *     "Specify metric for level-2 routing\n"
- *
- */
+
 DEFUN (no_isis_metric_l2,
        no_isis_metric_l2_cmd,
-       "no isis metric level-2",
+       "no isis metric [(0-16777215)] level-2",
        NO_STR
        "IS-IS commands\n"
        "Set default metric for circuit\n"
+       "Default metric value\n"
        "Specify metric for level-2 routing\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -752,22 +695,14 @@ DEFUN (isis_hello_interval,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis hello-interval <1-600>",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set Hello interval\n"
- *     "Hello interval value\n"
- *     "Holdtime 1 second, interval depends on multiplier\n"
- *
- */
+
 DEFUN (no_isis_hello_interval,
        no_isis_hello_interval_cmd,
-       "no isis hello-interval",
+       "no isis hello-interval [(1-600)]",
        NO_STR
        "IS-IS commands\n"
-       "Set Hello interval\n")
+       "Set Hello interval\n"
+       "Holdtime 1 second, interval depends on multiplier\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -808,23 +743,14 @@ DEFUN (isis_hello_interval_l1,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis hello-interval <1-600> level-1",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set Hello interval\n"
- *     "Hello interval value\n"
- *     "Holdtime 1 second, interval depends on multiplier\n"
- *     "Specify hello-interval for level-1 IIHs\n"
- *
- */
+
 DEFUN (no_isis_hello_interval_l1,
        no_isis_hello_interval_l1_cmd,
-       "no isis hello-interval level-1",
+       "no isis hello-interval [(1-600)] level-1",
        NO_STR
        "IS-IS commands\n"
        "Set Hello interval\n"
+       "Holdtime 1 second, interval depends on multiplier\n"
        "Specify hello-interval for level-1 IIHs\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -865,23 +791,14 @@ DEFUN (isis_hello_interval_l2,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis hello-interval <1-600> level-2",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set Hello interval\n"
- *     "Hello interval value\n"
- *     "Holdtime 1 second, interval depends on multiplier\n"
- *     "Specify hello-interval for level-2 IIHs\n"
- *
- */
+
 DEFUN (no_isis_hello_interval_l2,
        no_isis_hello_interval_l2_cmd,
-       "no isis hello-interval level-2",
+       "no isis hello-interval [(1-600)] level-2",
        NO_STR
        "IS-IS commands\n"
        "Set Hello interval\n"
+       "Holdtime 1 second, interval depends on multiplier\n"
        "Specify hello-interval for level-2 IIHs\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -921,21 +838,14 @@ DEFUN (isis_hello_multiplier,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis hello-multiplier <2-100>",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set multiplier for Hello holding time\n"
- *     "Hello multiplier value\n"
- *
- */
+
 DEFUN (no_isis_hello_multiplier,
        no_isis_hello_multiplier_cmd,
-       "no isis hello-multiplier",
+       "no isis hello-multiplier [(2-100)]",
        NO_STR
        "IS-IS commands\n"
-       "Set multiplier for Hello holding time\n")
+       "Set multiplier for Hello holding time\n"
+       "Hello multiplier value\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -975,22 +885,14 @@ DEFUN (isis_hello_multiplier_l1,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis hello-multiplier <2-100> level-1",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set multiplier for Hello holding time\n"
- *     "Hello multiplier value\n"
- *     "Specify hello multiplier for level-1 IIHs\n"
- *
- */
+
 DEFUN (no_isis_hello_multiplier_l1,
        no_isis_hello_multiplier_l1_cmd,
-       "no isis hello-multiplier level-1",
+       "no isis hello-multiplier [(2-100)] level-1",
        NO_STR
        "IS-IS commands\n"
        "Set multiplier for Hello holding time\n"
+       "Hello multiplier value\n"
        "Specify hello multiplier for level-1 IIHs\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -1030,22 +932,14 @@ DEFUN (isis_hello_multiplier_l2,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis hello-multiplier <2-100> level-2",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set multiplier for Hello holding time\n"
- *     "Hello multiplier value\n"
- *     "Specify hello multiplier for level-2 IIHs\n"
- *
- */
+
 DEFUN (no_isis_hello_multiplier_l2,
        no_isis_hello_multiplier_l2_cmd,
-       "no isis hello-multiplier level-2",
+       "no isis hello-multiplier [(2-100)] level-2",
        NO_STR
        "IS-IS commands\n"
        "Set multiplier for Hello holding time\n"
+       "Hello multiplier value\n"
        "Specify hello multiplier for level-2 IIHs\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -1120,21 +1014,14 @@ DEFUN (csnp_interval,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis csnp-interval <1-600>",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set CSNP interval in seconds\n"
- *     "CSNP interval value\n"
- *
- */
+
 DEFUN (no_csnp_interval,
        no_csnp_interval_cmd,
-       "no isis csnp-interval",
+       "no isis csnp-interval [(1-600)]",
        NO_STR
        "IS-IS commands\n"
-       "Set CSNP interval in seconds\n")
+       "Set CSNP interval in seconds\n"
+       "CSNP interval value\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -1174,22 +1061,14 @@ DEFUN (csnp_interval_l1,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis csnp-interval <1-600> level-1",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set CSNP interval in seconds\n"
- *     "CSNP interval value\n"
- *     "Specify interval for level-1 CSNPs\n"
- *
- */
+
 DEFUN (no_csnp_interval_l1,
        no_csnp_interval_l1_cmd,
-       "no isis csnp-interval level-1",
+       "no isis csnp-interval [(1-600)] level-1",
        NO_STR
        "IS-IS commands\n"
        "Set CSNP interval in seconds\n"
+       "CSNP interval value\n"
        "Specify interval for level-1 CSNPs\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -1229,22 +1108,14 @@ DEFUN (csnp_interval_l2,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis csnp-interval <1-600> level-2",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set CSNP interval in seconds\n"
- *     "CSNP interval value\n"
- *     "Specify interval for level-2 CSNPs\n"
- *
- */
+
 DEFUN (no_csnp_interval_l2,
        no_csnp_interval_l2_cmd,
-       "no isis csnp-interval level-2",
+       "no isis csnp-interval [(1-600)] level-2",
        NO_STR
        "IS-IS commands\n"
        "Set CSNP interval in seconds\n"
+       "CSNP interval value\n"
        "Specify interval for level-2 CSNPs\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -1284,21 +1155,14 @@ DEFUN (psnp_interval,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis psnp-interval <1-120>",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set PSNP interval in seconds\n"
- *     "PSNP interval value\n"
- *
- */
+
 DEFUN (no_psnp_interval,
        no_psnp_interval_cmd,
-       "no isis psnp-interval",
+       "no isis psnp-interval [(1-120)]",
        NO_STR
        "IS-IS commands\n"
-       "Set PSNP interval in seconds\n")
+       "Set PSNP interval in seconds\n"
+       "PSNP interval value\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -1338,22 +1202,14 @@ DEFUN (psnp_interval_l1,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis psnp-interval <1-120> level-1",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set PSNP interval in seconds\n"
- *     "PSNP interval value\n"
- *     "Specify interval for level-1 PSNPs\n"
- *
- */
+
 DEFUN (no_psnp_interval_l1,
        no_psnp_interval_l1_cmd,
-       "no isis psnp-interval level-1",
+       "no isis psnp-interval [(1-120)] level-1",
        NO_STR
        "IS-IS commands\n"
        "Set PSNP interval in seconds\n"
+       "PSNP interval value\n"
        "Specify interval for level-1 PSNPs\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -1393,22 +1249,14 @@ DEFUN (psnp_interval_l2,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no isis psnp-interval <1-120> level-2",
- *     NO_STR
- *     "IS-IS commands\n"
- *     "Set PSNP interval in seconds\n"
- *     "PSNP interval value\n"
- *     "Specify interval for level-2 PSNPs\n"
- *
- */
+
 DEFUN (no_psnp_interval_l2,
        no_psnp_interval_l2_cmd,
-       "no isis psnp-interval level-2",
+       "no isis psnp-interval [(1-120)] level-2",
        NO_STR
        "IS-IS commands\n"
        "Set PSNP interval in seconds\n"
+       "PSNP interval value\n"
        "Specify interval for level-2 PSNPs\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
@@ -1631,19 +1479,13 @@ DEFUN (area_lsp_mtu,
   return area_lsp_mtu_set(vty, lsp_mtu);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no lsp-mtu <128-4352>",
- *     NO_STR
- *     "Configure the maximum size of generated LSPs\n"
- *     "Maximum size of generated LSPs\n"
- *
- */
+
 DEFUN (no_area_lsp_mtu,
        no_area_lsp_mtu_cmd,
-       "no lsp-mtu",
+       "no lsp-mtu [(128-4352)]",
        NO_STR
-       "Configure the maximum size of generated LSPs\n")
+       "Configure the maximum size of generated LSPs\n"
+       "Maximum size of generated LSPs\n")
 {
   return area_lsp_mtu_set(vty, DEFAULT_LSP_MTU);
 }
@@ -1758,19 +1600,12 @@ DEFUN (lsp_gen_interval,
   return set_lsp_gen_interval (vty, area, interval, level);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no lsp-gen-interval <1-120>",
- *     NO_STR
- *     "Minimum interval between regenerating same LSP\n"
- *     "Minimum interval in seconds\n"
- *
- */
 DEFUN (no_lsp_gen_interval,
        no_lsp_gen_interval_cmd,
-       "no lsp-gen-interval",
+       "no lsp-gen-interval [(1-120)]",
        NO_STR
-       "Minimum interval between regenerating same LSP\n")
+       "Minimum interval between regenerating same LSP\n"
+       "Minimum interval in seconds\n")
 {
   struct isis_area *area;
   uint16_t interval;
@@ -1801,18 +1636,9 @@ DEFUN (lsp_gen_interval_l1,
   return set_lsp_gen_interval (vty, area, interval, level);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no lsp-gen-interval level-1 <1-120>",
- *     NO_STR
- *     "Minimum interval between regenerating same LSP\n"
- *     "Set interval for level 1 only\n"
- *     "Minimum interval in seconds\n"
- *
- */
 DEFUN (no_lsp_gen_interval_l1,
        no_lsp_gen_interval_l1_cmd,
-       "no lsp-gen-interval level-1",
+       "no lsp-gen-interval level-1 [(1-120)]",
        NO_STR
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 1 only\n")
@@ -1846,21 +1672,13 @@ DEFUN (lsp_gen_interval_l2,
   return set_lsp_gen_interval (vty, area, interval, level);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no lsp-gen-interval level-2 <1-120>",
- *     NO_STR
- *     "Minimum interval between regenerating same LSP\n"
- *     "Set interval for level 2 only\n"
- *     "Minimum interval in seconds\n"
- *
- */
 DEFUN (no_lsp_gen_interval_l2,
        no_lsp_gen_interval_l2_cmd,
-       "no lsp-gen-interval level-2",
+       "no lsp-gen-interval level-2 [(1-120)]",
        NO_STR
        "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 2 only\n")
+       "Set interval for level 2 only\n"
+       "Minimum interval in seconds\n")
 {
   struct isis_area *area;
   uint16_t interval;
@@ -1891,31 +1709,15 @@ DEFUN (spf_interval,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no spf-interval level-2 <1-120>",
- *     NO_STR
- *     "Minimum interval between SPF calculations\n"
- *     "Set interval for level 2 only\n"
- *     "Minimum interval between consecutive SPFs in seconds\n"
- *
- * "no spf-interval <1-120>",
- *     NO_STR
- *     "Minimum interval between SPF calculations\n"
- *     "Minimum interval between consecutive SPFs in seconds\n"
- *
- * "no spf-interval level-1 <1-120>",
- *     NO_STR
- *     "Minimum interval between SPF calculations\n"
- *     "Set interval for level 1 only\n"
- *     "Minimum interval between consecutive SPFs in seconds\n"
- *
- */
+
 DEFUN (no_spf_interval,
        no_spf_interval_cmd,
-       "no spf-interval",
+       "no spf-interval [[<level-1|level-2>] (1-120)]",
        NO_STR
-       "Minimum interval between SPF calculations\n")
+       "Minimum interval between SPF calculations\n"
+       "Set interval for level 1 only\n"
+       "Set interval for level 2 only\n"
+       "Minimum interval between consecutive SPFs in seconds\n")
 {
   struct isis_area *area;
 
@@ -2060,18 +1862,12 @@ DEFUN (max_lsp_lifetime,
   return area_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2, atoi(argv[idx_number]->arg));
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no max-lsp-lifetime <350-65535>",
- *     NO_STR
- *     "Maximum LSP lifetime\n"
- *     "LSP lifetime in seconds\n"
- *
- */
+
 DEFUN (no_max_lsp_lifetime,
        no_max_lsp_lifetime_cmd,
-       "no max-lsp-lifetime",
+       "no max-lsp-lifetime [(350-65535)]",
        NO_STR
+       "Maximum LSP lifetime\n"
        "LSP lifetime in seconds\n")
 {
   return area_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2,
@@ -2089,17 +1885,10 @@ DEFUN (max_lsp_lifetime_l1,
   return area_max_lsp_lifetime_set(vty, IS_LEVEL_1, atoi(argv[idx_number]->arg));
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no max-lsp-lifetime level-1 <350-65535>",
- *     NO_STR
- *     "Maximum LSP lifetime for Level 1 only\n"
- *     "LSP lifetime for Level 1 only in seconds\n"
- *
- */
+
 DEFUN (no_max_lsp_lifetime_l1,
        no_max_lsp_lifetime_l1_cmd,
-       "no max-lsp-lifetime level-1",
+       "no max-lsp-lifetime level-1 [(350-65535)]",
        NO_STR
        "LSP lifetime for Level 1 only in seconds\n")
 {
@@ -2117,17 +1906,10 @@ DEFUN (max_lsp_lifetime_l2,
   return area_max_lsp_lifetime_set(vty, IS_LEVEL_2, atoi(argv[idx_number]->arg));
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no max-lsp-lifetime level-2 <350-65535>",
- *     NO_STR
- *     "Maximum LSP lifetime for Level 2 only\n"
- *     "LSP lifetime for Level 2 only in seconds\n"
- *
- */
+
 DEFUN (no_max_lsp_lifetime_l2,
        no_max_lsp_lifetime_l2_cmd,
-       "no max-lsp-lifetime level-2",
+       "no max-lsp-lifetime level-2 [(350-65535)]",
        NO_STR
        "LSP lifetime for Level 2 only in seconds\n")
 {
@@ -2189,18 +1971,12 @@ DEFUN (lsp_refresh_interval,
   return area_lsp_refresh_interval_set(vty, IS_LEVEL_1_AND_2, atoi(argv[idx_number]->arg));
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no lsp-refresh-interval <1-65235>",
- *     NO_STR
- *     "LSP refresh interval\n"
- *     "LSP refresh interval in seconds\n"
- *
- */
+
 DEFUN (no_lsp_refresh_interval,
        no_lsp_refresh_interval_cmd,
-       "no lsp-refresh-interval",
+       "no lsp-refresh-interval [(1-65235)]",
        NO_STR
+       "LSP refresh interval\n"
        "LSP refresh interval in seconds\n")
 {
   return area_lsp_refresh_interval_set(vty, IS_LEVEL_1_AND_2,
@@ -2218,18 +1994,12 @@ DEFUN (lsp_refresh_interval_l1,
   return area_lsp_refresh_interval_set(vty, IS_LEVEL_1, atoi(argv[idx_number]->arg));
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no lsp-refresh-interval level-1 <1-65235>",
- *     NO_STR
- *     "LSP refresh interval for Level 1 only\n"
- *     "LSP refresh interval for Level 1 only in seconds\n"
- *
- */
+
 DEFUN (no_lsp_refresh_interval_l1,
        no_lsp_refresh_interval_l1_cmd,
-       "no lsp-refresh-interval level-1",
+       "no lsp-refresh-interval level-1 [(1-65235)]",
        NO_STR
+       "LSP refresh interval for Level 1 only\n"
        "LSP refresh interval for Level 1 only in seconds\n")
 {
   return area_lsp_refresh_interval_set(vty, IS_LEVEL_1,
@@ -2247,18 +2017,12 @@ DEFUN (lsp_refresh_interval_l2,
   return area_lsp_refresh_interval_set(vty, IS_LEVEL_2, atoi(argv[idx_number]->arg));
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no lsp-refresh-interval level-2 <1-65235>",
- *     NO_STR
- *     "LSP refresh interval for Level 2 only\n"
- *     "LSP refresh interval for Level 2 only in seconds\n"
- *
- */
+
 DEFUN (no_lsp_refresh_interval_l2,
        no_lsp_refresh_interval_l2_cmd,
-       "no lsp-refresh-interval level-2",
+       "no lsp-refresh-interval level-2 [(1-65235)]",
        NO_STR
+       "LSP refresh interval for Level 2 only\n"
        "LSP refresh interval for Level 2 only in seconds\n")
 {
   return area_lsp_refresh_interval_set(vty, IS_LEVEL_2,
@@ -2290,36 +2054,29 @@ area_passwd_set(struct vty *vty, int level,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "(area-password|domain-password) md5 WORD authenticate snp (send-only|validate)",
- *     "Configure the authentication password for an area\n"
- *     "Set the authentication password for a routing domain\n"
- *     "Authentication type\n"
- *     "Level-wide password\n"
- *     "Authentication\n"
- *     "SNP PDUs\n"
- *     "Send but do not check PDUs on receiving\n"
- *     "Send and check PDUs on receiving\n"
- *
- */
+
 DEFUN (area_passwd_md5,
        area_passwd_md5_cmd,
-       "<area-password|domain-password> md5 WORD",
+       "<area-password|domain-password> md5 WORD [authenticate snp <send-only|validate>]",
        "Configure the authentication password for an area\n"
        "Set the authentication password for a routing domain\n"
        "Authentication type\n"
-       "Level-wide password\n")
+       "Level-wide password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n")
 {
   int idx_password = 0;
   int idx_word = 2;
+  int idx_type = 5;
   u_char snp_auth = 0;
-  int level = (argv[idx_password]->arg[0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+  int level = strmatch(argv[idx_password]->text, "domain-password") ? IS_LEVEL_2 : IS_LEVEL_1;
 
-  if (argc > 2)
+  if (argc > 3)
     {
       snp_auth = SNP_AUTH_SEND;
-      if (strncmp(argv[2], "v", 1) == 0)
+      if (strmatch(argv[idx_type]->text, "validate"))
         snp_auth |= SNP_AUTH_RECV;
     }
 
@@ -2328,36 +2085,28 @@ DEFUN (area_passwd_md5,
 }
 
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "(area-password|domain-password) clear WORD authenticate snp (send-only|validate)",
- *     "Configure the authentication password for an area\n"
- *     "Set the authentication password for a routing domain\n"
- *     "Authentication type\n"
- *     "Area password\n"
- *     "Authentication\n"
- *     "SNP PDUs\n"
- *     "Send but do not check PDUs on receiving\n"
- *     "Send and check PDUs on receiving\n"
- *
- */
 DEFUN (area_passwd_clear,
        area_passwd_clear_cmd,
-       "<area-password|domain-password> clear WORD",
+       "<area-password|domain-password> clear WORD [authenticate snp <send-only|validate>]",
        "Configure the authentication password for an area\n"
        "Set the authentication password for a routing domain\n"
        "Authentication type\n"
-       "Area password\n")
+       "Area password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n")
 {
   int idx_password = 0;
   int idx_word = 2;
+  int idx_type = 5;
   u_char snp_auth = 0;
-  int level = (argv[idx_password]->arg[0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+  int level = strmatch(argv[idx_password]->text, "domain-password") ? IS_LEVEL_2 : IS_LEVEL_1;
 
-  if (argc > 2)
+  if (argc > 3)
     {
       snp_auth = SNP_AUTH_SEND;
-      if (strncmp(argv[2], "v", 1) == 0)
+      if (strmatch(argv[idx_type]->arg, "validate"))
         snp_auth |= SNP_AUTH_RECV;
     }
 

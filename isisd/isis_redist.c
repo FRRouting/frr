@@ -561,10 +561,7 @@ DEFUN (isis_redistribute,
   int type;
   int level;
   unsigned long metric;
-  const char *routemap;
-
-  if (argc < 5)
-    return CMD_WARNING;
+  const char *routemap = NULL;
 
   family = str2family(argv[idx_afi]->arg);
   if (family < 0)
@@ -591,19 +588,20 @@ DEFUN (isis_redistribute,
       return CMD_WARNING;
     }
 
-  if (argv[idx_metric_rmap]->arg)
+  if (strmatch(argv[idx_metric_rmap]->text, "metric"))
     {
       char *endp;
-      metric = strtoul(argv[idx_metric_rmap]->arg, &endp, 10);
+      metric = strtoul(argv[idx_metric_rmap + 1]->arg, &endp, 10);
+      routemap = NULL;
+
       if (argv[idx_metric_rmap]->arg[0] == '\0' || *endp != '\0')
         return CMD_WARNING;
     }
   else
     {
+      routemap = argv[idx_metric_rmap + 1]->arg;
       metric = 0xffffffff;
     }
-
-  routemap = argv[4];
 
   isis_redist_set(area, level, family, type, metric, routemap, 0);
   return 0;
@@ -711,19 +709,20 @@ DEFUN (isis_default_originate,
       vty_out(vty, "so use with care or use default-originate always.%s", VTY_NEWLINE);
     }
 
-  if (argv[3])
+  if (strmatch(argv[idx_metric_rmap]->text, "metric"))
     {
       char *endp;
-      metric = strtoul(argv[3], &endp, 10);
-      if (argv[3][0] == '\0' || *endp != '\0')
+      metric = strtoul(argv[idx_metric_rmap + 1]->arg, &endp, 10);
+      routemap = NULL;
+
+      if (argv[idx_metric_rmap]->arg[0] == '\0' || *endp != '\0')
         return CMD_WARNING;
     }
   else
     {
+      routemap = argv[idx_metric_rmap + 1]->arg;
       metric = 0xffffffff;
     }
-
-  routemap = argv[4];
 
   isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap, originate_type);
   return 0;
