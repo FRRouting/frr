@@ -577,6 +577,9 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
   json_object *json = NULL;
   json_object *json_row = NULL;
 
+  if (uj)
+    json = json_object_new_object();
+
   now = pim_time_monotonic_sec();
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
@@ -585,7 +588,7 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
     if (!pim_ifp)
       continue;
 
-    if (strcmp(ifname, ifp->name))
+    if (strcmp(ifname, "detail") && strcmp(ifname, ifp->name))
       continue;
 
     for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
@@ -615,7 +618,6 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
       mloop = pim_socket_mcastloop_get(pim_ifp->pim_sock_fd);
 
       if (uj) {
-        json = json_object_new_object();
         json_row = json_object_new_object();
         json_object_pim_ifp_add(json_row, ifp);
 
@@ -634,8 +636,6 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
         json_object_int_add(json_row, "timerStartupQueryInterval", sqi);
 
         json_object_object_add(json, ifp->name, json_row);
-        vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
-        json_object_free(json);
 
       } else {
         vty_out(vty, "Interface : %s%s", ifp->name, VTY_NEWLINE);
@@ -672,13 +672,13 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
     }
   }
 
-  if (!found_ifname)
-    {
-      if (uj)
-        vty_out (vty, "{}%s", VTY_NEWLINE);
-      else
-        vty_out (vty, "%% No such interface%s", VTY_NEWLINE);
-    }
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    json_object_free(json);
+  } else {
+    if (!found_ifname)
+      vty_out (vty, "%% No such interface%s", VTY_NEWLINE);
+  }
 }
 
 static void igmp_show_interface_join(struct vty *vty)
@@ -768,6 +768,9 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
 
   now = pim_time_monotonic_sec();
 
+  if (uj)
+    json = json_object_new_object();
+
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     pim_ifp = ifp->info;
 
@@ -777,7 +780,7 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
     if (pim_ifp->pim_sock_fd < 0)
       continue;
 
-    if (strcmp(ifname, ifp->name))
+    if (strcmp(ifname, "detail") && strcmp(ifname, ifp->name))
       continue;
 
     found_ifname = 1;
@@ -790,7 +793,6 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
     mloop = pim_socket_mcastloop_get(pim_ifp->pim_sock_fd);
 
     if (uj) {
-      json = json_object_new_object();
       json_row = json_object_new_object();
       json_object_pim_ifp_add(json_row, ifp);
 
@@ -871,10 +873,7 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
       json_object_int_add(json_row, "propagationDelayHighest", pim_ifp->pim_neighbors_highest_propagation_delay_msec);
       json_object_int_add(json_row, "overrideInterval", pim_ifp->pim_override_interval_msec);
       json_object_int_add(json_row, "overrideIntervalHighest", pim_ifp->pim_neighbors_highest_override_interval_msec);
-
       json_object_object_add(json, ifp->name, json_row);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
-      json_object_free(json);
 
     } else {
       vty_out(vty, "Interface : %s%s", ifp->name, VTY_NEWLINE);
@@ -974,13 +973,13 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
     }
   }
 
-  if (!found_ifname)
-    {
-      if (uj)
-        vty_out (vty, "{}%s", VTY_NEWLINE);
-      else
-        vty_out (vty, "%% No such interface%s", VTY_NEWLINE);
-    }
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    json_object_free(json);
+  } else {
+    if (!found_ifname)
+      vty_out (vty, "%% No such interface%s", VTY_NEWLINE);
+  }
 }
 
 
@@ -1185,7 +1184,9 @@ static void pim_show_neighbors_single(struct vty *vty, const char *neighbor, u_c
        * The user can specify either the interface name or the PIM neighbor IP.
        * If this pim_ifp matches neither then skip.
        */
-      if (strcmp(neighbor, ifp->name) && strcmp(neighbor, neigh_src_str))
+      if (strcmp(neighbor, "detail") &&
+          strcmp(neighbor, ifp->name) &&
+          strcmp(neighbor, neigh_src_str))
         continue;
 
       found_neighbor = 1;
@@ -1777,15 +1778,21 @@ static void pim_show_rpf(struct vty *vty, u_char uj)
   }
 }
 
-static void igmp_show_groups(struct vty *vty)
+static void igmp_show_groups(struct vty *vty, u_char uj)
 {
   struct listnode  *ifnode;
   struct interface *ifp;
   time_t            now;
+  json_object *json = NULL;
+  json_object *json_iface = NULL;
+  json_object *json_row = NULL;
 
   now = pim_time_monotonic_sec();
 
-  vty_out(vty, "Interface Address         Group           Mode Timer    Srcs V Uptime  %s", VTY_NEWLINE);
+  if (uj)
+    json = json_object_new_object();
+  else
+    vty_out(vty, "Interface Address         Group           Mode Timer    Srcs V Uptime  %s", VTY_NEWLINE);
 
   /* scan interfaces */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
@@ -1814,20 +1821,45 @@ static void igmp_show_groups(struct vty *vty)
 	pim_time_timer_to_hhmmss(hhmmss, sizeof(hhmmss), grp->t_group_timer);
 	pim_time_uptime(uptime, sizeof(uptime), now - grp->group_creation);
 
-	vty_out(vty, "%-9s %-15s %-15s %4s %8s %4d %d %8s%s",
-		ifp->name,
-		ifaddr_str,
-		group_str,
-		grp->group_filtermode_isexcl ? "EXCL" : "INCL",
-		hhmmss,
-		grp->group_source_list ? listcount(grp->group_source_list) : 0,
-		igmp_group_compat_mode(igmp, grp),
-		uptime,
-		VTY_NEWLINE);
+        if (uj) {
+            json_object_object_get_ex(json, ifp->name, &json_iface);
 
+            if (!json_iface) {
+              json_iface = json_object_new_object();
+              json_object_pim_ifp_add(json_iface, ifp);
+              json_object_object_add(json, ifp->name, json_iface);
+            }
+
+            json_row = json_object_new_object();
+            json_object_string_add(json_row, "source", ifaddr_str);
+            json_object_string_add(json_row, "group", group_str);
+            json_object_string_add(json_row, "mode", grp->group_filtermode_isexcl ? "EXCLUDE" : "INCLUDE");
+            json_object_string_add(json_row, "timer", hhmmss);
+            json_object_int_add(json_row, "sourcesCount", grp->group_source_list ? listcount(grp->group_source_list) : 0);
+            json_object_int_add(json_row, "version", igmp_group_compat_mode(igmp, grp));
+            json_object_string_add(json_row, "uptime", uptime);
+            json_object_object_add(json_iface, group_str, json_row);
+
+        } else {
+          vty_out(vty, "%-9s %-15s %-15s %4s %8s %4d %d %8s%s",
+                  ifp->name,
+                  ifaddr_str,
+                  group_str,
+                  grp->group_filtermode_isexcl ? "EXCL" : "INCL",
+                  hhmmss,
+                  grp->group_source_list ? listcount(grp->group_source_list) : 0,
+                  igmp_group_compat_mode(igmp, grp),
+                  uptime,
+                  VTY_NEWLINE);
+        }
       } /* scan igmp groups */
     } /* scan igmp sockets */
   } /* scan interfaces */
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    json_object_free(json);
+  }
 }
 
 static void igmp_show_group_retransmission(struct vty *vty)
@@ -2178,11 +2210,12 @@ DEFUN (clear_ip_pim_oil,
 
 DEFUN (show_ip_igmp_interface,
        show_ip_igmp_interface_cmd,
-       "show ip igmp interface [WORD] [json]",
+       "show ip igmp interface [detail|WORD] [json]",
        SHOW_STR
        IP_STR
        IGMP_STR
        "IGMP interface information\n"
+       "Detailed output\n"
        "interface name\n"
        "JavaScript Object Notation\n")
 {
@@ -2210,13 +2243,15 @@ DEFUN (show_ip_igmp_join,
 
 DEFUN (show_ip_igmp_groups,
        show_ip_igmp_groups_cmd,
-       "show ip igmp groups",
+       "show ip igmp groups [json]",
        SHOW_STR
        IP_STR
        IGMP_STR
-       IGMP_GROUP_STR)
+       IGMP_GROUP_STR
+       "JavaScript Object Notation\n")
 {
-  igmp_show_groups(vty);
+  u_char uj = use_json(argc, argv);
+  igmp_show_groups(vty, uj);
 
   return CMD_SUCCESS;
 }
@@ -2344,11 +2379,12 @@ DEFUN (show_ip_pim_hello,
 
 DEFUN (show_ip_pim_interface,
        show_ip_pim_interface_cmd,
-       "show ip pim interface [WORD] [json]",
+       "show ip pim interface [detail|WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        "PIM interface information\n"
+       "Detailed output\n"
        "interface name\n"
        "JavaScript Object Notation\n")
 {
@@ -2391,11 +2427,12 @@ DEFUN (show_ip_pim_local_membership,
 
 DEFUN (show_ip_pim_neighbor,
        show_ip_pim_neighbor_cmd,
-       "show ip pim neighbor [WORD] [json]",
+       "show ip pim neighbor [detail|WORD] [json]",
        SHOW_STR
        IP_STR
        PIM_STR
        "PIM neighbor information\n"
+       "Detailed output\n"
        "Name of interface or neighbor\n"
        "JavaScript Object Notation\n")
 {
