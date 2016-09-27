@@ -37,6 +37,7 @@ zebra_ipmr_route_stats (struct zserv *client, int fd, u_short length, struct zeb
 {
   struct mcast_route_data mroute;
   struct stream *s;
+  int suc;
 
   char sbuf[40];
   char gbuf[40];
@@ -49,7 +50,7 @@ zebra_ipmr_route_stats (struct zserv *client, int fd, u_short length, struct zeb
   strcpy (sbuf, inet_ntoa (mroute.sg.src));
   strcpy (gbuf, inet_ntoa (mroute.sg.grp));
 
-  netlink_get_ipmr_sg_stats (&mroute);
+  suc = netlink_get_ipmr_sg_stats (&mroute);
 
   s = client->obuf;
 
@@ -59,6 +60,7 @@ zebra_ipmr_route_stats (struct zserv *client, int fd, u_short length, struct zeb
   stream_put_in_addr (s, &mroute.sg.src);
   stream_put_in_addr (s, &mroute.sg.grp);
   stream_put (s, &mroute.lastused, sizeof (mroute.lastused));
+  stream_putl (s, suc);
 
   stream_putw_at (s, 0, stream_get_endp (s));
   zebra_server_send_message (client);
