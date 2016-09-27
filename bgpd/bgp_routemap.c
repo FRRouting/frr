@@ -3016,30 +3016,22 @@ DEFUN (match_peer_local,
 			      RMAP_EVENT_MATCH_DELETED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match peer local",
- *     NO_STR
- *     MATCH_STR
- *     "Match peer address\n"
- *     "Static or Redistributed routes\n"
- *
- * "no match peer (A.B.C.D|X:X::X:X)",
- *     NO_STR
- *     MATCH_STR
- *     "Match peer address\n"
- *     "IP address of peer\n"
- *     "IPv6 address of peer\n"
- *
- */
 DEFUN (no_match_peer,
        no_match_peer_cmd,
-       "no match peer",
+       "no match peer [<local|A.B.C.D|X:X::X:X>]",
        NO_STR
        MATCH_STR
-       "Match peer address\n")
+       "Match peer address\n"
+       "Static or Redistributed routes\n"
+       "IP address of peer\n"
+       "IPv6 address of peer\n")
 {
- return bgp_route_match_delete (vty, vty->index, "peer", argv[3]->arg,
+ int idx_peer = 3;
+
+ if (argc <= idx_peer)
+   return bgp_route_match_delete (vty, vty->index, "peer", NULL,
+                                  RMAP_EVENT_MATCH_DELETED);
+ return bgp_route_match_delete (vty, vty->index, "peer", argv[idx_peer]->arg,
 				RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -3060,27 +3052,23 @@ DEFUN (match_ip_address,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip address (<1-199>|<1300-2699>|WORD)",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match address of route\n"
- *     "IP access-list number\n"
- *     "IP access-list number (expanded range)\n"
- *     "IP Access-list name\n"
- *
- */
+
 DEFUN (no_match_ip_address,
        no_match_ip_address_cmd,
-       "no match ip address",
+       "no match ip address [<(1-199)|(1300-2699)|WORD>]",
        NO_STR
        MATCH_STR
        IP_STR
-       "Match address of route\n")
+       "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 {
-  return bgp_route_match_delete (vty, vty->index, "ip address", argv[4]->arg,
+  int idx_word = 4;
+  if (argc <= idx_word)
+    return bgp_route_match_delete (vty, vty->index, "ip address", NULL,
+                                   RMAP_EVENT_FILTER_DELETED);
+  return bgp_route_match_delete (vty, vty->index, "ip address", argv[idx_word]->arg,
 				 RMAP_EVENT_FILTER_DELETED);
 }
 
@@ -3100,33 +3088,28 @@ DEFUN (match_ip_next_hop,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match next-hop address of route\n"
- *     "IP access-list number\n"
- *     "IP access-list number (expanded range)\n"
- *     "IP Access-list name\n"
- *
- */
+
 DEFUN (no_match_ip_next_hop,
        no_match_ip_next_hop_cmd,
-       "no match ip next-hop",
+       "no match ip next-hop [<(1-199)|(1300-2699)|WORD]",
        NO_STR
        MATCH_STR
        IP_STR
-       "Match next-hop address of route\n")
+       "Match next-hop address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 {
-  return bgp_route_match_delete (vty, vty->index, "ip next-hop", argv[4]->arg,
+  int idx_word = 4;
+  if (argc <= idx_word)
+    return bgp_route_match_delete (vty, vty->index, "ip next-hop", NULL,
+                                   RMAP_EVENT_FILTER_DELETED);
+  return bgp_route_match_delete (vty, vty->index, "ip next-hop", argv[idx_word]->arg,
 				 RMAP_EVENT_FILTER_DELETED);
 }
 
 
-/* match probability { */
-
+/* match probability */
 DEFUN (match_probability,
        match_probability_cmd,
        "match probability (0-100)",
@@ -3139,28 +3122,23 @@ DEFUN (match_probability,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match probability <1-99>",
- *     NO_STR
- *     MATCH_STR
- *     "Match portion of routes defined by percentage value\n"
- *     "Percentage of routes\n"
- *
- */
+
 DEFUN (no_match_probability,
        no_match_probability_cmd,
-       "no match probability",
+       "no match probability [(1-99)]",
        NO_STR
        MATCH_STR
-       "Match portion of routes defined by percentage value\n")
+       "Match portion of routes defined by percentage value\n"
+       "Percentage of routes\n")
 {
-  return bgp_route_match_delete (vty, vty->index, "probability", argv[2]->arg,
+  int idx_number = 3;
+  if (argc <= idx_number)
+    return bgp_route_match_delete (vty, vty->index, "probability", NULL,
+                                   RMAP_EVENT_MATCH_DELETED);
+  return bgp_route_match_delete (vty, vty->index, "probability", argv[idx_number]->arg,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
-
-/* } */
 
 DEFUN (match_ip_route_source,
        match_ip_route_source_cmd,
@@ -3177,28 +3155,24 @@ DEFUN (match_ip_route_source,
 			      RMAP_EVENT_FILTER_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip route-source (<1-199>|<1300-2699>|WORD)",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match advertising source address of route\n"
- *     "IP access-list number\n"
- *     "IP access-list number (expanded range)\n"
- *     "IP standard access-list name\n"
- *
- */
+
 DEFUN (no_match_ip_route_source,
        no_match_ip_route_source_cmd,
-       "no match ip route-source",
+       "no match ip route-source [(1-199)|(1300-2699)|WORD]",
        NO_STR
        MATCH_STR
        IP_STR
-       "Match advertising source address of route\n")
+       "Match advertising source address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP standard access-list name\n")
 {
+  int idx_number = 4;
+  if (argc <= idx_number)
+    return bgp_route_match_delete (vty, vty->index, "ip route-source",
+                                   NULL, RMAP_EVENT_FILTER_DELETED);
   return bgp_route_match_delete (vty, vty->index, "ip route-source",
-				 argv[4]->arg, RMAP_EVENT_FILTER_DELETED);
+				 argv[idx_number]->arg, RMAP_EVENT_FILTER_DELETED);
 }
 
 
@@ -3216,28 +3190,23 @@ DEFUN (match_ip_address_prefix_list,
 			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip address prefix-list WORD",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match address of route\n"
- *     "Match entries of prefix-lists\n"
- *     "IP prefix-list name\n"
- *
- */
+
 DEFUN (no_match_ip_address_prefix_list,
        no_match_ip_address_prefix_list_cmd,
-       "no match ip address prefix-list",
+       "no match ip address prefix-list [WORD]",
        NO_STR
        MATCH_STR
        IP_STR
        "Match address of route\n"
-       "Match entries of prefix-lists\n")
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
+  int idx_word = 5;
+  if (argc <= idx_word)
+    return bgp_route_match_delete (vty, vty->index, "ip address prefix-list",
+                                   NULL, RMAP_EVENT_PLIST_DELETED);
   return bgp_route_match_delete (vty, vty->index, "ip address prefix-list",
-				 argv[5]->arg, RMAP_EVENT_PLIST_DELETED);
+				 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
 }
 
 
@@ -3255,28 +3224,22 @@ DEFUN (match_ip_next_hop_prefix_list,
 			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip next-hop prefix-list WORD",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match next-hop address of route\n"
- *     "Match entries of prefix-lists\n"
- *     "IP prefix-list name\n"
- *
- */
 DEFUN (no_match_ip_next_hop_prefix_list,
        no_match_ip_next_hop_prefix_list_cmd,
-       "no match ip next-hop prefix-list",
+       "no match ip next-hop prefix-list [WORD]",
        NO_STR
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
-       "Match entries of prefix-lists\n")
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
+  int idx_word = 5;
+  if (argc <= idx_word)
+    return bgp_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
+                                   NULL, RMAP_EVENT_PLIST_DELETED);
   return bgp_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
-				 argv[5]->arg, RMAP_EVENT_PLIST_DELETED);
+				 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
 }
 
 
@@ -3294,28 +3257,23 @@ DEFUN (match_ip_route_source_prefix_list,
 			      argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip route-source prefix-list WORD",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match advertising source address of route\n"
- *     "Match entries of prefix-lists\n"
- *     "IP prefix-list name\n"
- *
- */
+
 DEFUN (no_match_ip_route_source_prefix_list,
        no_match_ip_route_source_prefix_list_cmd,
-       "no match ip route-source prefix-list",
+       "no match ip route-source prefix-list [WORD]",
        NO_STR
        MATCH_STR
        IP_STR
        "Match advertising source address of route\n"
-       "Match entries of prefix-lists\n")
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
+  int idx_word = 5;
+  if (argc <= idx_word)
+    return bgp_route_match_delete (vty, vty->index, "ip route-source prefix-list",
+                                   NULL, RMAP_EVENT_PLIST_DELETED);
   return bgp_route_match_delete (vty, vty->index, "ip route-source prefix-list",
-				 argv[5]->arg, RMAP_EVENT_PLIST_DELETED);
+				 argv[idx_word]->arg, RMAP_EVENT_PLIST_DELETED);
 }
 
 
@@ -3331,24 +3289,21 @@ DEFUN (match_metric,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match metric <0-4294967295>",
- *     NO_STR
- *     MATCH_STR
- *     "Match metric of route\n"
- *     "Metric value\n"
- *
- */
+
 DEFUN (no_match_metric,
        no_match_metric_cmd,
-       "no match metric",
+       "no match metric [(0-4294967295)]",
        NO_STR
        MATCH_STR
-       "Match metric of route\n")
+       "Match metric of route\n"
+       "Metric value\n")
 {
+  int idx_number = 3;
+  if (argc <= idx_number)
+    return bgp_route_match_delete (vty, vty->index, "metric",
+                                   NULL, RMAP_EVENT_MATCH_DELETED);
   return bgp_route_match_delete (vty, vty->index, "metric",
-				 argv[3]->arg,
+				 argv[idx_number]->arg,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -3365,24 +3320,21 @@ DEFUN (match_local_pref,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match local-preference <0-4294967295>",
- *     NO_STR
- *     MATCH_STR
- *     "Match local preference of route\n"
- *     "Local preference value\n"
- *
- */
+
 DEFUN (no_match_local_pref,
        no_match_local_pref_cmd,
-       "no match local-preference",
+       "no match local-preference [(0-4294967295)]",
        NO_STR
        MATCH_STR
-       "Match local preference of route\n")
+       "Match local preference of route\n"
+       "Local preference value\n")
 {
+  int idx_localpref = 3;
+  if (argc <= idx_localpref)
+    return bgp_route_match_delete (vty, vty->index, "local-preference",
+                                   NULL, RMAP_EVENT_MATCH_DELETED);
   return bgp_route_match_delete (vty, vty->index, "local-preference",
-				 argv[3]->arg,
+				 argv[idx_localpref]->arg,
 				 RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -3428,32 +3380,16 @@ DEFUN (match_community_exact,
   return ret;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match community (<1-99>|<100-500>|WORD)",
- *     NO_STR
- *     MATCH_STR
- *     "Match BGP community list\n"
- *     "Community-list number (standard)\n"
- *     "Community-list number (expanded)\n"
- *     "Community-list name\n"
- *
- * "no match community (<1-99>|<100-500>|WORD) exact-match",
- *     NO_STR
- *     MATCH_STR
- *     "Match BGP community list\n"
- *     "Community-list number (standard)\n"
- *     "Community-list number (expanded)\n"
- *     "Community-list name\n"
- *     "Do exact matching of communities\n"
- *
- */
 DEFUN (no_match_community,
        no_match_community_cmd,
-       "no match community",
+       "no match community [<(1-99)|(100-500)|WORD> [exact-match]]",
        NO_STR
        MATCH_STR
-       "Match BGP community list\n")
+       "Match BGP community list\n"
+       "Community-list number (standard)\n"
+       "Community-list number (expanded)\n"
+       "Community-list name\n"
+       "Do exact matching of communities\n")
 {
   return bgp_route_match_delete (vty, vty->index, "community", NULL,
 				 RMAP_EVENT_CLIST_DELETED);
@@ -3475,23 +3411,16 @@ DEFUN (match_ecommunity,
 			      RMAP_EVENT_ECLIST_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match extcommunity (<1-99>|<100-500>|WORD)",
- *     NO_STR
- *     MATCH_STR
- *     "Match BGP/VPN extended community list\n"
- *     "Extended community-list number (standard)\n"
- *     "Extended community-list number (expanded)\n"
- *     "Extended community-list name\n"
- *
- */
+
 DEFUN (no_match_ecommunity,
        no_match_ecommunity_cmd,
-       "no match extcommunity",
+       "no match extcommunity [<(1-99)|(100-500)|WORD>]",
        NO_STR
        MATCH_STR
-       "Match BGP/VPN extended community list\n")
+       "Match BGP/VPN extended community list\n"
+       "Extended community-list number (standard)\n"
+       "Extended community-list number (expanded)\n"
+       "Extended community-list name\n")
 {
   return bgp_route_match_delete (vty, vty->index, "extcommunity", NULL,
 				 RMAP_EVENT_ECLIST_DELETED);
@@ -3510,21 +3439,14 @@ DEFUN (match_aspath,
 			      RMAP_EVENT_ASLIST_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match as-path WORD",
- *     NO_STR
- *     MATCH_STR
- *     "Match BGP AS path list\n"
- *     "AS path access-list name\n"
- *
- */
+
 DEFUN (no_match_aspath,
        no_match_aspath_cmd,
-       "no match as-path",
+       "no match as-path [WORD]",
        NO_STR
        MATCH_STR
-       "Match BGP AS path list\n")
+       "Match BGP AS path list\n"
+       "AS path access-list name\n")
 {
   return bgp_route_match_delete (vty, vty->index, "as-path", NULL,
 				 RMAP_EVENT_ASLIST_DELETED);
@@ -3554,23 +3476,16 @@ DEFUN (match_origin,
   return CMD_WARNING;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match origin (egp|igp|incomplete)",
- *     NO_STR
- *     MATCH_STR
- *     "BGP origin code\n"
- *     "remote EGP\n"
- *     "local IGP\n"
- *     "unknown heritage\n"
- *
- */
+
 DEFUN (no_match_origin,
        no_match_origin_cmd,
-       "no match origin",
+       "no match origin [<egp|igp|incomplete>]",
        NO_STR
        MATCH_STR
-       "BGP origin code\n")
+       "BGP origin code\n"
+       "remote EGP\n"
+       "local IGP\n"
+       "unknown heritage\n")
 {
   return bgp_route_match_delete (vty, vty->index, "origin", NULL,
 				 RMAP_EVENT_MATCH_DELETED);
@@ -3589,21 +3504,14 @@ DEFUN (match_interface,
 			      RMAP_EVENT_MATCH_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match interface WORD",
- *     NO_STR
- *     MATCH_STR
- *     "Match first hop interface of route\n"
- *     "Interface name\n"
- *
- */
+
 DEFUN (no_match_interface,
        no_match_interface_cmd,
-       "no match interface",
+       "no match interface [WORD]",
        NO_STR
        MATCH_STR
-       "Match first hop interface of route\n")
+       "Match first hop interface of route\n"
+       "Interface name\n")
 {
   return bgp_route_match_delete (vty, vty->index, "interface", argv[3]->arg,
 				 RMAP_EVENT_MATCH_DELETED);
@@ -3622,26 +3530,18 @@ DEFUN (match_tag,
 		              RMAP_EVENT_MATCH_ADDED);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match tag <1-65535>",
- *     NO_STR
- *     MATCH_STR
- *     "Match tag of route\n"
- *     "Tag value\n"
- *
- */
+
 DEFUN (no_match_tag,
        no_match_tag_cmd,
-       "no match tag",
+       "no match tag [(1-65535)]",
        NO_STR
        MATCH_STR
-       "Match tag of route\n")
+       "Match tag of route\n"
+       "Tag value\n")
 {
   return bgp_route_match_delete (vty, vty->index, "tag", argv[3]->arg,
 		                 RMAP_EVENT_MATCH_DELETED);
 }
-
 
 
 DEFUN (set_ip_nexthop,
@@ -3695,31 +3595,20 @@ DEFUN (set_ip_nexthop_unchanged,
   return bgp_route_set_add (vty, vty->index, "ip next-hop", "unchanged");
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set ip next-hop peer-address",
- *     NO_STR
- *     SET_STR
- *     IP_STR
- *     "Next hop address\n"
- *     "Use peer address (for BGP only)\n"
- *
- * "no set ip next-hop A.B.C.D",
- *     NO_STR
- *     SET_STR
- *     IP_STR
- *     "Next hop address\n"
- *     "IP address of next hop\n"
- *
- */
+
 DEFUN (no_set_ip_nexthop,
        no_set_ip_nexthop_cmd,
-       "no set ip next-hop",
+       "no set ip next-hop [<peer-address|A.B.C.D>]",
        NO_STR
        SET_STR
-       "Next hop address\n")
+       "Next hop address\n"
+       "Use peer address (for BGP only)\n"
+       "IP address of next hop\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "ip next-hop", argv[4]->arg);
+  int idx_peer = 4;
+  if (argc <= idx_peer)
+    return bgp_route_set_delete (vty, vty->index, "ip next-hop", NULL);
+  return bgp_route_set_delete (vty, vty->index, "ip next-hop", argv[idx_peer]->arg);
 }
 
 
@@ -3751,24 +3640,18 @@ DEFUN (set_metric,
 }
 
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set metric <0-4294967295>",
- *     NO_STR
- *     SET_STR
- *     "Metric value for destination routing protocol\n"
- *     "Metric value\n"
- *
- */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
-       "no set metric",
+       "no set metric [(0-4294967295)]",
        NO_STR
        SET_STR
-       "Metric value for destination routing protocol\n")
+       "Metric value for destination routing protocol\n"
+       "Metric value\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "metric", argv[3]->arg);
+  int idx_number = 3;
+  if (argc <= idx_number)
+    return bgp_route_set_delete (vty, vty->index, "metric", NULL);
+  return bgp_route_set_delete (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
 
@@ -3783,23 +3666,19 @@ DEFUN (set_local_pref,
   return bgp_route_set_add (vty, vty->index, "local-preference", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set local-preference <0-4294967295>",
- *     NO_STR
- *     SET_STR
- *     "BGP local preference path attribute\n"
- *     "Preference value\n"
- *
- */
+
 DEFUN (no_set_local_pref,
        no_set_local_pref_cmd,
-       "no set local-preference",
+       "no set local-preference [(0-4294967295)]",
        NO_STR
        SET_STR
-       "BGP local preference path attribute\n")
+       "BGP local preference path attribute\n"
+       "Preference value\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "local-preference", argv[3]->arg);
+  int idx_localpref = 3;
+  if (argc <= idx_localpref)
+    return bgp_route_set_delete (vty, vty->index, "local-preference", NULL);
+  return bgp_route_set_delete (vty, vty->index, "local-preference", argv[idx_localpref]->arg);
 }
 
 
@@ -3814,23 +3693,19 @@ DEFUN (set_weight,
   return bgp_route_set_add (vty, vty->index, "weight", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set weight <0-4294967295>",
- *     NO_STR
- *     SET_STR
- *     "BGP weight for routing table\n"
- *     "Weight value\n"
- *
- */
+
 DEFUN (no_set_weight,
        no_set_weight_cmd,
-       "no set weight",
+       "no set weight [(0-4294967295)]",
        NO_STR
        SET_STR
-       "BGP weight for routing table\n")
+       "BGP weight for routing table\n"
+       "Weight value\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "weight", argv[3]->arg);
+  int idx_weight = 3;
+  if (argc <= idx_weight)
+    return bgp_route_set_delete (vty, vty->index, "weight", NULL);
+  return bgp_route_set_delete (vty, vty->index, "weight", argv[idx_weight]->arg);
 }
 
 
@@ -4647,23 +4522,19 @@ DEFUN (set_originator_id,
   return bgp_route_set_add (vty, vty->index, "originator-id", argv[idx_ipv4]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set originator-id A.B.C.D",
- *     NO_STR
- *     SET_STR
- *     "BGP originator ID attribute\n"
- *     "IP address of originator\n"
- *
- */
+
 DEFUN (no_set_originator_id,
        no_set_originator_id_cmd,
-       "no set originator-id",
+       "no set originator-id [A.B.C.D]",
        NO_STR
        SET_STR
-       "BGP originator ID attribute\n")
+       "BGP originator ID attribute\n"
+       "IP address of originator\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "originator-id", argv[3]->arg);
+  int idx_id = 3;
+  if (argc < idx_id)
+    return bgp_route_set_delete (vty, vty->index, "originator-id", NULL);
+  return bgp_route_set_delete (vty, vty->index, "originator-id", argv[idx_id]->arg);
 }
 
 
