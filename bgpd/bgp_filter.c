@@ -428,7 +428,7 @@ as_list_dup_check (struct as_list *aslist, struct as_filter *new)
 
 DEFUN (ip_as_path,
        ip_as_path_cmd,
-       "ip as-path access-list WORD <deny|permit> .LINE",
+       "ip as-path access-list WORD <deny|permit> LINE...",
        IP_STR
        "BGP autonomous system path filter\n"
        "Specify an access list name\n"
@@ -486,7 +486,7 @@ DEFUN (ip_as_path,
 
 DEFUN (no_ip_as_path,
        no_ip_as_path_cmd,
-       "no ip as-path access-list WORD <deny|permit> .LINE",
+       "no ip as-path access-list WORD <deny|permit> LINE...",
        NO_STR
        IP_STR
        "BGP autonomous system path filter\n"

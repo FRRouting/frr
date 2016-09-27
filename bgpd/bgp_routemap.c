@@ -3938,7 +3938,7 @@ DEFUN (no_set_aspath_exclude,
 
 DEFUN (set_community,
        set_community_cmd,
-       "set community .AA:NN",
+       "set community AA:NN...",
        SET_STR
        "BGP community attribute\n"
        COMMUNITY_VAL_STR)
@@ -4047,7 +4047,7 @@ DEFUN (set_community_none,
  *     "BGP community attribute\n"
  *     "No community attribute\n"
  *
- * "no set community .AA:NN",
+ * "no set community AA:NN...",
  *     NO_STR
  *     SET_STR
  *     "BGP community attribute\n"

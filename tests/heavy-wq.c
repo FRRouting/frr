@@ -140,7 +140,7 @@ clear_something (struct vty *vty, const char *str)
 
 DEFUN (clear_foo,
        clear_foo_cmd,
-       "clear foo .LINE",
+       "clear foo LINE...",
        "clear command\n"
        "arbitrary string\n")
 {

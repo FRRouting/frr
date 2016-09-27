@@ -4160,7 +4160,7 @@ static struct igmp_sock *find_igmp_sock_by_fd(int fd)
 
 DEFUN (test_igmp_receive_report,
        test_igmp_receive_report_cmd,
-       "test igmp receive report (0-65535) A.B.C.D (1-6) .LINE",
+       "test igmp receive report (0-65535) A.B.C.D (1-6) LINE...",
        "Test\n"
        "Test IGMP protocol\n"
        "Test IGMP message\n"
@@ -4276,7 +4276,7 @@ static int hexval(uint8_t ch)
 
 DEFUN (test_pim_receive_dump,
        test_pim_receive_dump_cmd,
-       "test pim receive dump INTERFACE A.B.C.D .LINE",
+       "test pim receive dump INTERFACE A.B.C.D LINE...",
        "Test\n"
        "Test PIM protocol\n"
        "Test PIM message reception\n"

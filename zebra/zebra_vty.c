@@ -1562,7 +1562,7 @@ DEFUN (show_ip_route_supernets,
 
 DEFUN (show_ip_route_protocol,
        show_ip_route_protocol_cmd,
-       "show ip route [vrf NAME] " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route [vrf NAME] <kernel|connected|static|rip|ospf|isis|bgp|pim|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2163,7 +2163,7 @@ DEFUN (show_ip_route_vrf_all_supernets,
 
 DEFUN (show_ip_route_vrf_all_protocol,
        show_ip_route_vrf_all_protocol_cmd,
-       "show ip route vrf all " QUAGGA_IP_REDIST_STR_ZEBRA,
+       "show ip route vrf all <kernel|connected|static|rip|ospf|isis|bgp|pim|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"

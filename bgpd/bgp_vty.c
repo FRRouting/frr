@@ -4338,7 +4338,7 @@ DEFUN (no_neighbor_disable_connected_check,
 
 DEFUN (neighbor_description,
        neighbor_description_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> description .LINE",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> description LINE...",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Neighbor specific description\n"
@@ -11293,7 +11293,7 @@ community_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
 /* ip community-list standard */
 DEFUN (ip_community_list_standard,
        ip_community_list_standard_cmd,
-       "ip community-list <(1-99)|standard WORD> <deny|permit> [.AA:NN]",
+       "ip community-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
        IP_STR
        COMMUNITY_LIST_STR
        "Community list number (standard)\n"
@@ -11308,7 +11308,7 @@ DEFUN (ip_community_list_standard,
 
 DEFUN (no_ip_community_list_standard_all,
        no_ip_community_list_standard_all_cmd,
-       "no ip community-list <(1-99)|standard WORD> [<deny|permit> [.AA:NN]]",
+       "no ip community-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -11325,7 +11325,7 @@ DEFUN (no_ip_community_list_standard_all,
 /* ip community-list expanded */
 DEFUN (ip_community_list_expanded_all,
        ip_community_list_expanded_all_cmd,
-       "ip community-list <(100-500)|expanded WORD> [<deny|permit> [.LINE]]",
+       "ip community-list <(100-500)|expanded WORD> <deny|permit> LINE...",
        IP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
@@ -11340,7 +11340,7 @@ DEFUN (ip_community_list_expanded_all,
 
 DEFUN (no_ip_community_list_expanded_all,
        no_ip_community_list_expanded_all_cmd,
-       "no ip community-list <(100-500)|expanded WORD> [<deny|permit> [.LINE]]",
+       "no ip community-list <(100-500)|expanded WORD> <deny|permit> LINE...",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -11532,7 +11532,7 @@ extcommunity_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
 
 DEFUN (ip_extcommunity_list_standard,
        ip_extcommunity_list_standard_cmd,
-       "ip extcommunity-list <(1-99)|standard WORD> <deny|permit> [.AA:NN]",
+       "ip extcommunity-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (standard)\n"
@@ -11547,7 +11547,7 @@ DEFUN (ip_extcommunity_list_standard,
 
 DEFUN (ip_extcommunity_list_name_expanded,
        ip_extcommunity_list_name_expanded_cmd,
-       "ip extcommunity-list <(100-500)|expanded WORD> <deny|permit> [.LINE]",
+       "ip extcommunity-list <(100-500)|expanded WORD> <deny|permit> LINE...",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (expanded)\n"
@@ -11562,7 +11562,7 @@ DEFUN (ip_extcommunity_list_name_expanded,
 
 DEFUN (no_ip_extcommunity_list_standard_all,
        no_ip_extcommunity_list_standard_all_cmd,
-       "no ip extcommunity-list <(1-99)|standard WORD> <deny|permit> [.AA:NN]",
+       "no ip extcommunity-list <(1-99)|standard WORD> <deny|permit> AA:NN...",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -11578,7 +11578,7 @@ DEFUN (no_ip_extcommunity_list_standard_all,
 
 DEFUN (no_ip_extcommunity_list_expanded_all,
        no_ip_extcommunity_list_expanded_all_cmd,
-       "no ip extcommunity-list <(100-500)|expanded WORD> <deny|permit> [.LINE]",
+       "no ip extcommunity-list <(100-500)|expanded WORD> <deny|permit> LINE...",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR

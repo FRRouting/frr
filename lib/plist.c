@@ -1898,7 +1898,7 @@ DEFUN (no_ip_prefix_list_sequence_number,
 
 DEFUN (ip_prefix_list_description,
        ip_prefix_list_description_cmd,
-       "ip prefix-list WORD description .LINE",
+       "ip prefix-list WORD description LINE...",
        IP_STR
        PREFIX_LIST_STR
        "Name of a prefix list\n"
@@ -2609,7 +2609,7 @@ DEFUN (no_ipv6_prefix_list_sequence_number,
 
 DEFUN (ipv6_prefix_list_description,
        ipv6_prefix_list_description_cmd,
-       "ipv6 prefix-list WORD description .LINE",
+       "ipv6 prefix-list WORD description LINE...",
        IPV6_STR
        PREFIX_LIST_STR
        "Name of a prefix list\n"
