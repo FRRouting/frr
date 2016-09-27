@@ -46,20 +46,14 @@
 
 /* array holding redistribute info about table redistribution */
 /* bit AFI is set if that AFI is redistributing routes from this table */
-static u_char zebra_import_table_used[ZEBRA_KERNEL_TABLE_MAX];
+static int zebra_import_table_used[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 static u_int32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 int
 is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
 {
   if (is_zebra_valid_kernel_table(table_id))
-    {
-      if (CHECK_FLAG(zebra_import_table_used[table_id], (u_char)afi))
-	return 1;
-      else
-	return 0;
-    }
-
+    return zebra_import_table_used[afi][table_id];
   return 0;
 }
 
@@ -672,12 +666,12 @@ zebra_import_table (afi_t afi, u_int32_t table_id, u_int32_t distance, const cha
             zebra_del_import_table_route_map (afi, table_id);
         }
 
-      SET_FLAG(zebra_import_table_used[table_id], afi);
+      zebra_import_table_used[afi][table_id] = 1;
       zebra_import_table_distance[afi][table_id] = distance;
     }
   else
     {
-      UNSET_FLAG(zebra_import_table_used[table_id], (u_char)afi);
+      zebra_import_table_used[afi][table_id] = 0;
       zebra_import_table_distance[afi][table_id] = ZEBRA_TABLE_DISTANCE_DEFAULT;
 
       rmap_name = zebra_get_import_table_route_map (afi, table_id);
@@ -721,7 +715,7 @@ zebra_import_table_config (struct vty *vty)
   int i;
   afi_t afi;
   int write = 0;
-  char afi_str[AFI_MAX][6] = {"", "ip", "ipv6"};
+  char afi_str[AFI_MAX][10] = {"", "ip", "ipv6", "ethernet"};
   const char *rmap_name;
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
