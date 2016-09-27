@@ -3551,25 +3551,17 @@ DEFUN (interface_no_ip_mroute_source,
    return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "ip pim hello <1-180> <1-180>",
- *     IP_STR
- *     PIM_STR
- *     IFACE_PIM_HELLO_STR
- *     IFACE_PIM_HELLO_TIME_STR
- *     IFACE_PIM_HELLO_HOLD_STR
- *
- */
 DEFUN (interface_ip_pim_hello,
        interface_ip_pim_hello_cmd,
-       "ip pim hello (1-180)",
+       "ip pim hello (1-180) [(1-180)]",
        IP_STR
        PIM_STR
        IFACE_PIM_HELLO_STR
-       IFACE_PIM_HELLO_TIME_STR)
+       IFACE_PIM_HELLO_TIME_STR
+       IFACE_PIM_HELLO_HOLD_STR)
 {
-  int idx_number = 3;
+  int idx_time = 3;
+  int idx_hold = 4;
   struct interface *ifp;
   struct pim_interface *pim_ifp;
 
@@ -3581,10 +3573,10 @@ DEFUN (interface_ip_pim_hello,
     return CMD_WARNING;
   }
 
-  pim_ifp->pim_hello_period = strtol(argv[idx_number]->arg, NULL, 10);
+  pim_ifp->pim_hello_period = strtol(argv[idx_time]->arg, NULL, 10);
 
-  if (argc == 2)
-    pim_ifp->pim_default_holdtime = strtol(argv[4]->arg, NULL, 10);
+  if (argc > idx_hold)
+    pim_ifp->pim_default_holdtime = strtol(argv[idx_hold]->arg, NULL, 10);
 
   return CMD_SUCCESS;
 }
@@ -3630,13 +3622,6 @@ DEFUN (debug_igmp,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug igmp",
- *     UNDEBUG_STR
- *     DEBUG_IGMP_STR
- *
- */
 DEFUN (no_debug_igmp,
        no_debug_igmp_cmd,
        "no debug igmp",
@@ -3662,14 +3647,6 @@ DEFUN (debug_igmp_events,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug igmp events",
- *     UNDEBUG_STR
- *     DEBUG_IGMP_STR
- *     DEBUG_IGMP_EVENTS_STR
- *
- */
 DEFUN (no_debug_igmp_events,
        no_debug_igmp_events_cmd,
        "no debug igmp events",
@@ -3694,14 +3671,6 @@ DEFUN (debug_igmp_packets,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug igmp packets",
- *     UNDEBUG_STR
- *     DEBUG_IGMP_STR
- *     DEBUG_IGMP_PACKETS_STR
- *
- */
 DEFUN (no_debug_igmp_packets,
        no_debug_igmp_packets_cmd,
        "no debug igmp packets",
@@ -3726,14 +3695,6 @@ DEFUN (debug_igmp_trace,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug igmp trace",
- *     UNDEBUG_STR
- *     DEBUG_IGMP_STR
- *     DEBUG_IGMP_TRACE_STR
- *
- */
 DEFUN (no_debug_igmp_trace,
        no_debug_igmp_trace_cmd,
        "no debug igmp trace",
@@ -3757,13 +3718,6 @@ DEFUN (debug_mroute,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug mroute",
- *     UNDEBUG_STR
- *     DEBUG_MROUTE_STR
- *
- */
 DEFUN (no_debug_mroute,
        no_debug_mroute_cmd,
        "no debug mroute",
@@ -3786,13 +3740,6 @@ DEFUN (debug_static,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug static",
- *     UNDEBUG_STR
- *     DEBUG_STATIC_STR
- *
- */
 DEFUN (no_debug_static,
        no_debug_static_cmd,
        "no debug static",
@@ -3817,13 +3764,6 @@ DEFUN (debug_pim,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug pim",
- *     UNDEBUG_STR
- *     DEBUG_PIM_STR
- *
- */
 DEFUN (no_debug_pim,
        no_debug_pim_cmd,
        "no debug pim",
@@ -3853,14 +3793,6 @@ DEFUN (debug_pim_events,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug pim events",
- *     UNDEBUG_STR
- *     DEBUG_PIM_STR
- *     DEBUG_PIM_EVENTS_STR
- *
- */
 DEFUN (no_debug_pim_events,
        no_debug_pim_events_cmd,
        "no debug pim events",
@@ -3909,14 +3841,6 @@ DEFUN (debug_pim_packets_filter,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug pim packets",
- *     UNDEBUG_STR
- *     DEBUG_PIM_STR
- *     DEBUG_PIM_PACKETS_STR
- *
- */
 DEFUN (no_debug_pim_packets,
        no_debug_pim_packets_cmd,
        "no debug pim packets",
@@ -3969,15 +3893,6 @@ DEFUN (debug_pim_packetdump_send,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug pim packet-dump send",
- *     UNDEBUG_STR
- *     DEBUG_PIM_STR
- *     DEBUG_PIM_PACKETDUMP_STR
- *     DEBUG_PIM_PACKETDUMP_SEND_STR
- *
- */
 DEFUN (no_debug_pim_packetdump_send,
        no_debug_pim_packetdump_send_cmd,
        "no debug pim packet-dump send",
@@ -4004,15 +3919,6 @@ DEFUN (debug_pim_packetdump_recv,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug pim packet-dump receive",
- *     UNDEBUG_STR
- *     DEBUG_PIM_STR
- *     DEBUG_PIM_PACKETDUMP_STR
- *     DEBUG_PIM_PACKETDUMP_RECV_STR
- *
- */
 DEFUN (no_debug_pim_packetdump_recv,
        no_debug_pim_packetdump_recv_cmd,
        "no debug pim packet-dump receive",
@@ -4038,14 +3944,6 @@ DEFUN (debug_pim_trace,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug pim trace",
- *     UNDEBUG_STR
- *     DEBUG_PIM_STR
- *     DEBUG_PIM_TRACE_STR
- *
- */
 DEFUN (no_debug_pim_trace,
        no_debug_pim_trace_cmd,
        "no debug pim trace",
@@ -4070,14 +3968,6 @@ DEFUN (debug_ssmpingd,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug ssmpingd",
- *     UNDEBUG_STR
- *     DEBUG_PIM_STR
- *     DEBUG_SSMPINGD_STR
- *
- */
 DEFUN (no_debug_ssmpingd,
        no_debug_ssmpingd_cmd,
        "no debug ssmpingd",
@@ -4102,14 +3992,6 @@ DEFUN (debug_pim_zebra,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "undebug pim zebra",
- *     UNDEBUG_STR
- *     DEBUG_PIM_STR
- *     DEBUG_PIM_ZEBRA_STR
- *
- */
 DEFUN (no_debug_pim_zebra,
        no_debug_pim_zebra_cmd,
        "no debug pim zebra",
