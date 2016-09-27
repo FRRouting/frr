@@ -146,17 +146,17 @@ bgp_nlri_parse_vpn (struct peer *peer, struct attr *attr,
           pnt += BGP_ADDPATH_ID_LEN;
         }
 
+      /* Fetch prefix length. */
+      prefixlen = *pnt++;
+      p.family = afi2family (packet->afi);
+      psize = PSIZE (prefixlen);
+
       if (prefixlen < 88)
 	{
 	  zlog_err ("prefix length is less than 88: %d", prefixlen);
 	  return -1;
 	}
 
-      /* Fetch prefix length. */
-      prefixlen = *pnt++;
-      p.family = afi2family (packet->afi);
-      psize = PSIZE (prefixlen);
-      
       /* sanity check against packet data */
       if (prefixlen < VPN_PREFIXLEN_MIN_BYTES*8 || (pnt + psize) > lim)
         {
