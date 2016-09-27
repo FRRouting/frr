@@ -88,8 +88,8 @@ struct vty
   /* qobj object ID (replacement for "index") */
   uint64_t qobj_index;
 
-  /* For multiple level index treatment such as key chain and key. */
-  void *index_sub;
+  /* qobj second-level object ID (replacement for "index_sub") */
+  uint64_t qobj_index_sub;
 
   /* For escape character. */
   unsigned char escape;
@@ -160,10 +160,17 @@ static inline void vty_push_context(struct vty *vty,
 	vty_push_context(vty, nodeval, QOBJ_ID(ptr), NULL)
 #define VTY_PUSH_CONTEXT_COMPAT(nodeval, ptr) \
 	vty_push_context(vty, nodeval, QOBJ_ID(ptr), ptr)
+#define VTY_PUSH_CONTEXT_SUB(nodeval, ptr) do { \
+		vty->node = nodeval; \
+		/* qobj_index stays untouched */ \
+		vty->qobj_index_sub = QOBJ_ID(ptr); \
+	} while (0)
 
 /* can return NULL if context is invalid! */
 #define VTY_GET_CONTEXT(structname) \
 	QOBJ_GET_TYPESAFE(vty->qobj_index, structname)
+#define VTY_GET_CONTEXT_SUB(structname) \
+	QOBJ_GET_TYPESAFE(vty->qobj_index_sub, structname)
 
 /* will return if ptr is NULL. */
 #define VTY_CHECK_CONTEXT(ptr) \
@@ -176,6 +183,9 @@ static inline void vty_push_context(struct vty *vty,
 /* struct structname *ptr = <context>;   ptr will never be NULL. */
 #define VTY_DECLVAR_CONTEXT(structname, ptr) \
 	struct structname *ptr = VTY_GET_CONTEXT(structname); \
+	VTY_CHECK_CONTEXT(ptr);
+#define VTY_DECLVAR_CONTEXT_SUB(structname, ptr) \
+	struct structname *ptr = VTY_GET_CONTEXT_SUB(structname); \
 	VTY_CHECK_CONTEXT(ptr);
 
 struct vty_arg
