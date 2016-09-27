@@ -511,23 +511,16 @@ DEFUN (match_metric,
   return ripng_route_match_add (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match metric <0-4294967295>",
- *     NO_STR
- *     MATCH_STR
- *     "Match metric of route\n"
- *     "Metric value\n"
- *
- */
 DEFUN (no_match_metric,
        no_match_metric_cmd,
-       "no match metric",
+       "no match metric [(0-4294967295)]",
        NO_STR
        MATCH_STR
-       "Match metric of route\n")
+       "Match metric of route\n"
+       "Metric value\n")
 {
-  return ripng_route_match_delete (vty, vty->index, "metric", argv[3]->arg);
+  char *mval = (argc == 4) ? argv[3]->arg : NULL;
+  return ripng_route_match_delete (vty, vty->index, "metric", mval);
 }
 
 
@@ -542,23 +535,16 @@ DEFUN (match_interface,
   return ripng_route_match_add (vty, vty->index, "interface", argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match interface WORD",
- *     NO_STR
- *     MATCH_STR
- *     "Match first hop interface of route\n"
- *     "Interface name\n"
- *
- */
 DEFUN (no_match_interface,
        no_match_interface_cmd,
-       "no match interface",
+       "no match interface [INTERFACE]",
        NO_STR
        MATCH_STR
-       "Match first hop interface of route\n")
+       "Match first hop interface of route\n"
+       "Interface name\n")
 {
-  return ripng_route_match_delete (vty, vty->index, "interface", argv[3]->arg);
+  char *iface = (argc == 4) ? argv[3]->arg : NULL;
+  return ripng_route_match_delete (vty, vty->index, "interface", iface);
 }
 
 
@@ -573,23 +559,16 @@ DEFUN (match_tag,
   return ripng_route_match_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match tag <1-65535>",
- *     NO_STR
- *     MATCH_STR
- *     "Match tag of route\n"
- *     "Metric value\n"
- *
- */
 DEFUN (no_match_tag,
        no_match_tag_cmd,
-       "no match tag",
+       "no match tag [(1-65535)]",
        NO_STR
        MATCH_STR
-       "Match tag of route\n")
+       "Match tag of route\n"
+       "Metric value\n")
 {
-  return ripng_route_match_delete (vty, vty->index, "tag", argv[3]->arg);
+  char *mval = (argc == 4) ? argv[3]->arg : NULL;
+  return ripng_route_match_delete (vty, vty->index, "tag", mval);
 }
 
 
@@ -606,23 +585,16 @@ DEFUN (set_metric,
   return ripng_route_set_add (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set metric <0-4294967295>",
- *     NO_STR
- *     SET_STR
- *     "Metric value for destination routing protocol\n"
- *     "Metric value\n"
- *
- */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
-       "no set metric",
+       "no set metric [(0-4294967295)]",
        NO_STR
        SET_STR
-       "Metric value for destination routing protocol\n")
+       "Metric value for destination routing protocol\n"
+       "Metric value\n")
 {
-  return ripng_route_set_delete (vty, vty->index, "metric", argv[3]->arg);
+  char *mval = (argc == 4) ? argv[3]->arg : NULL;
+  return ripng_route_set_delete (vty, vty->index, "metric", mval);
 }
 
 
@@ -655,27 +627,18 @@ DEFUN (set_ipv6_nexthop_local,
   return ripng_route_set_add (vty, vty->index, "ipv6 next-hop local", argv[idx_ipv6]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set ipv6 next-hop local X:X::X:X",
- *     NO_STR
- *     SET_STR
- *     IPV6_STR
- *     "IPv6 next-hop address\n"
- *     "IPv6 local address\n"
- *     "IPv6 address of next hop\n"
- *
- */
 DEFUN (no_set_ipv6_nexthop_local,
        no_set_ipv6_nexthop_local_cmd,
-       "no set ipv6 next-hop local",
+       "no set ipv6 next-hop local [X:X::X:X]",
        NO_STR
        SET_STR
        IPV6_STR
        "IPv6 next-hop address\n"
-       "IPv6 local address\n")
+       "IPv6 local address\n"
+       "IPv6 address of next hop\n")
 {
-  return ripng_route_set_delete (vty, vty->index, "ipv6 next-hop local", argv[5]->arg);
+  char *addr = (argc == 6) ? argv[5]->arg : NULL;
+  return ripng_route_set_delete (vty, vty->index, "ipv6 next-hop local", addr);
 }
 
 
@@ -690,23 +653,16 @@ DEFUN (set_tag,
   return ripng_route_set_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set tag <1-65535>",
- *     NO_STR
- *     SET_STR
- *     "Tag value for routing protocol\n"
- *     "Tag value\n"
- *
- */
 DEFUN (no_set_tag,
        no_set_tag_cmd,
-       "no set tag",
+       "no set tag [(1-65535)]",
        NO_STR
        SET_STR
-       "Tag value for routing protocol\n")
+       "Tag value for routing protocol\n"
+       "Tag value\n")
 {
-  return ripng_route_set_delete (vty, vty->index, "tag", argv[3]->arg);
+  char *tag = (argc == 4) ? argv[3]->arg : NULL;
+  return ripng_route_set_delete (vty, vty->index, "tag", tag);
 }
 
 

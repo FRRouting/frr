@@ -1040,23 +1040,14 @@ DEFUN (ipv6_ripng_split_horizon_poisoned_reverse,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ipv6 ripng split-horizon poisoned-reverse",
- *     NO_STR
- *     IPV6_STR
- *     "Routing Information Protocol\n"
- *     "Perform split horizon\n"
- *     "With poisoned-reverse\n"
- *
- */
 DEFUN (no_ipv6_ripng_split_horizon,
        no_ipv6_ripng_split_horizon_cmd,
-       "no ipv6 ripng split-horizon",
+       "no ipv6 ripng split-horizon [poisoned-reverse]",
        NO_STR
        IPV6_STR
        "Routing Information Protocol\n"
-       "Perform split horizon\n")
+       "Perform split horizon\n"
+       "With poisoned-reverse\n")
 {
   struct interface *ifp;
   struct ripng_interface *ri;
@@ -1067,7 +1058,6 @@ DEFUN (no_ipv6_ripng_split_horizon,
   ri->split_horizon = RIPNG_NO_SPLIT_HORIZON;
   return CMD_SUCCESS;
 }
-
 
 DEFUN (ripng_passive_interface,
        ripng_passive_interface_cmd,
