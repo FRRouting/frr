@@ -29,7 +29,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define VTY_MAXHIST 20
 
 /* VTY struct. */
-struct vty 
+struct vty
 {
   /* File descripter of this vty. */
   int fd;
@@ -231,33 +231,33 @@ do {                                                            \
   VTY_GET_INTEGER_RANGE_HEART(NAME,tmpl,STR,MIN,MAX);           \
 } while (0)
 
-#define VTY_GET_INTEGER(NAME,V,STR)                             \
+#define VTY_GET_INTEGER(NAME,V,STR)                               \
     VTY_GET_INTEGER_RANGE(NAME,V,STR,0U,UINT32_MAX)
 
-#define VTY_GET_IPV4_ADDRESS(NAME,V,STR)                                      \
-do {                                                                             \
-  int retv;                                                                   \
-  retv = inet_aton ((STR), &(V));                                             \
-  if (!retv)                                                                  \
-    {                                                                         \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
-      return CMD_WARNING;                                                     \
-    }                                                                         \
+#define VTY_GET_IPV4_ADDRESS(NAME,V,STR)                          \
+do {                                                              \
+  int retv;                                                       \
+  retv = inet_aton ((STR), &(V));                                 \
+  if (!retv)                                                      \
+    {                                                             \
+      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);  \
+      return CMD_WARNING;                                         \
+    }                                                             \
 } while (0)
 
-#define VTY_GET_IPV4_PREFIX(NAME,V,STR)                                       \
-do {                                                                             \
-  int retv;                                                                   \
-  retv = str2prefix_ipv4 ((STR), &(V));                                       \
-  if (retv <= 0)                                                              \
-    {                                                                         \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
-      return CMD_WARNING;                                                     \
-    }                                                                         \
+#define VTY_GET_IPV4_PREFIX(NAME,V,STR)                           \
+do {                                                              \
+  int retv;                                                       \
+  retv = str2prefix_ipv4 ((STR), &(V));                           \
+  if (retv <= 0)                                                  \
+    {                                                             \
+      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);  \
+      return CMD_WARNING;                                         \
+    }                                                             \
 } while (0)
 
-#define VTY_WARN_EXPERIMENTAL()                                               \
-do {                                                                          \
+#define VTY_WARN_EXPERIMENTAL()                                   \
+do {                                                              \
   vty_out (vty, "%% WARNING: this command is experimental. Both its name and" \
                 " parameters may%s%% change in a future version of Quagga,"   \
                 " possibly breaking your configuration!%s",                   \
@@ -280,7 +280,7 @@ extern void vty_time_print (struct vty *, int);
 extern void vty_serv_sock (const char *, unsigned short, const char *);
 extern void vty_close (struct vty *);
 extern char *vty_get_cwd (void);
-extern void vty_log (const char *level, const char *proto, 
+extern void vty_log (const char *level, const char *proto,
                      const char *fmt, struct timestamp_control *, va_list);
 extern int vty_config_lock (struct vty *);
 extern int vty_config_unlock (struct vty *);
