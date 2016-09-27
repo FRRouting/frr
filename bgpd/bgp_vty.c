@@ -745,7 +745,6 @@ DEFUN (no_router_bgp,
        BGP_INSTANCE_HELP_STR)
 {
   int idx_asn = 3;
-  int idx_view_vrf = 4;
   int idx_vrf = 5;
   as_t as;
   struct bgp *bgp;
