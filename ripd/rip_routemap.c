@@ -754,7 +754,7 @@ DEFUN (no_match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
-  char *mval = (argc == 4) ? argc[3]->arg : NULL;
+  char *mval = (argc == 4) ? argv[3]->arg : NULL;
   return rip_route_match_delete (vty, vty->index, "metric", mval);
 }
 
