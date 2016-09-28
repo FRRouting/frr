@@ -336,6 +336,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 		fn = fec_add(fec);
 	fnh = fec_nh_find(fn, af, nexthop, priority);
 	if (fnh != NULL) {
+		lde_send_change_klabel(fn, fnh);
 		fnh->flags |= F_FEC_NH_NEW;
 		return;
 	}

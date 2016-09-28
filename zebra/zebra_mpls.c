@@ -1311,10 +1311,12 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
   return -1;
 
  found:
-  if (add)
+  if (add && nexthop->nh_label_type == ZEBRA_LSP_NONE)
     nexthop_add_labels (nexthop, type, 1, &out_label);
-  else
+  else if (!add && nexthop->nh_label_type == type)
     nexthop_del_labels (nexthop);
+  else
+    return 0;
 
   SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
   SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
