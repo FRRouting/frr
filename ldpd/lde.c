@@ -406,6 +406,7 @@ lde_dispatch_parent(struct thread *thread)
 
 		switch (imsg.hdr.type) {
 		case IMSG_NETWORK_ADD:
+		case IMSG_NETWORK_ADD_END:
 		case IMSG_NETWORK_DEL:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(kr)) {
 				log_warnx("%s: wrong imsg len", __func__);
@@ -432,6 +433,9 @@ lde_dispatch_parent(struct thread *thread)
 			case IMSG_NETWORK_ADD:
 				lde_kernel_insert(&fec, kr.af, &kr.nexthop,
 				    kr.priority, kr.flags & F_CONNECTED, NULL);
+				break;
+			case IMSG_NETWORK_ADD_END:
+				lde_kernel_reevaluate(&fec);
 				break;
 			case IMSG_NETWORK_DEL:
 				lde_kernel_remove(&fec, kr.af, &kr.nexthop,

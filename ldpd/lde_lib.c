@@ -334,8 +334,11 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
 		fn = fec_add(fec);
-	if (fec_nh_find(fn, af, nexthop, priority) != NULL)
+	fnh = fec_nh_find(fn, af, nexthop, priority);
+	if (fnh != NULL) {
+		fnh->flags |= F_FEC_NH_NEW;
 		return;
+	}
 
 	if (fn->fec.type == FEC_TYPE_PWID)
 		fn->data = data;
@@ -352,6 +355,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 	}
 
 	fnh = fec_nh_add(fn, af, nexthop, priority);
+	fnh->flags |= F_FEC_NH_NEW;
 	lde_send_change_klabel(fn, fnh);
 
 	switch (fn->fec.type) {
@@ -399,6 +403,31 @@ lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
 		fn->local_label = NO_LABEL;
 		if (fn->fec.type == FEC_TYPE_PWID)
 			fn->data = NULL;
+	}
+}
+
+/*
+ * Whenever a route is changed, zebra advertises its new version without
+ * withdrawing the old one. So, after processing a ZEBRA_REDISTRIBUTE_IPV[46]_ADD
+ * message, we need to check for nexthops that were removed and, for each of
+ * them (if any), withdraw the associated labels from zebra.
+ */
+void
+lde_kernel_reevaluate(struct fec *fec)
+{
+	struct fec_node		*fn;
+	struct fec_nh		*fnh, *safe;
+
+	fn = (struct fec_node *)fec_find(&ft, fec);
+	if (fn == NULL)
+		return;
+
+	LIST_FOREACH_SAFE(fnh, &fn->nexthops, entry, safe) {
+		if (fnh->flags & F_FEC_NH_NEW)
+			fnh->flags &= ~F_FEC_NH_NEW;
+		else
+			lde_kernel_remove(fec, fnh->af, &fnh->nexthop,
+			    fnh->priority);
 	}
 }
 

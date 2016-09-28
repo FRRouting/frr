@@ -102,7 +102,9 @@ struct fec_nh {
 	union ldpd_addr		 nexthop;
 	uint32_t		 remote_label;
 	uint8_t			 priority;
+	uint8_t			 flags;
 };
+#define F_FEC_NH_NEW		0x01
 
 struct fec_node {
 	struct fec		 fec;
@@ -167,6 +169,7 @@ void		 lde_kernel_insert(struct fec *, int, union ldpd_addr *,
 		    uint8_t, int, void *);
 void		 lde_kernel_remove(struct fec *, int, union ldpd_addr *,
 		    uint8_t);
+void		 lde_kernel_reevaluate(struct fec *);
 void		 lde_check_mapping(struct map *, struct lde_nbr *);
 void		 lde_check_request(struct map *, struct lde_nbr *);
 void		 lde_check_release(struct map *, struct lde_nbr *);

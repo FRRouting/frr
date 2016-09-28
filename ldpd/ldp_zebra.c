@@ -438,6 +438,10 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 		}
 	}
 
+	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD ||
+	    command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
+		main_imsg_compose_lde(IMSG_NETWORK_ADD_END, 0, &kr, sizeof(kr));
+
 	return (0);
 }
 
