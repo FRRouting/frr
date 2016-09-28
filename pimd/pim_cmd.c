@@ -1412,7 +1412,7 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
 
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   } else {
     vty_out(vty, "%s", VTY_NEWLINE);
