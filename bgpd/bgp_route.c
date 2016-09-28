@@ -9365,7 +9365,27 @@ DEFUN (show_ip_bgp_vpn_all_route_prefix,
 }
 #endif /* KEEP_OLD_VPN_COMMANDS */
 
-static void
+DEFUN (show_ip_bgp_l2vpn_evpn_all_route_prefix,
+       show_ip_bgp_l2vpn_evpn_all_route_prefix_cmd,
+       "show [ip] bgp l2vpn evpn all <A.B.C.D|A.B.C.D/M> [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       L2VPN_HELP_STR
+       EVPN_HELP_STR
+       "Display information about all EVPN NLRIs\n"
+       "Network in the BGP routing table to display\n"
+       "Network in the BGP routing table to display\n"
+       JSON_STR)
+{
+  int idx = 0;
+  char *network = NULL;
+  network = argv_find (argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
+  network = argv_find (argv, argc, "A.B.C.D/M", &idx) ? argv[idx]->arg : NULL;
+  return bgp_show_route (vty, NULL, network, AFI_L2VPN, SAFI_EVPN, NULL, 0, BGP_PATH_ALL, use_json(argc, argv));
+}
+
+ static void
 show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
                 int in, const char *rmap_name, u_char use_json, json_object *json)
 {
@@ -10704,7 +10724,8 @@ bgp_route_init (void)
 #ifdef KEEP_OLD_VPN_COMMANDS
   install_element (VIEW_NODE, &show_ip_bgp_vpn_all_route_prefix_cmd);
 #endif /* KEEP_OLD_VPN_COMMANDS */
-
+  install_element (VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_route_prefix_cmd);
+  
  /* BGP dampening clear commands */
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_prefix_cmd);

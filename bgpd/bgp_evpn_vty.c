@@ -31,9 +31,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vpn.h"
 #include "bgpd/bgp_evpn_vty.h"
 
-#define L2VPN_HELP_STR        "Layer 2 Virtual Private Network\n"
-#define EVPN_HELP_STR        "Ethernet Virtual Private Network\n"
-
 #define SHOW_DISPLAY_STANDARD 0
 #define SHOW_DISPLAY_TAGS 1
 #define SHOW_DISPLAY_OVERLAY 2
