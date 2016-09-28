@@ -1288,6 +1288,137 @@ static void pim_show_neighbors_single(struct vty *vty, const char *neighbor, u_c
   }
 }
 
+static void
+pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_char uj)
+{
+  struct channel_oil *c_oil;
+  struct listnode *node;
+  json_object *json = NULL;
+  json_object *json_group = NULL;
+  json_object *json_ifp_in = NULL;
+  json_object *json_ifp_out = NULL;
+  json_object *json_source = NULL;
+  time_t now;
+  int first_oif;
+  now = pim_time_monotonic_sec();
+
+  if (uj) {
+    json = json_object_new_object();
+  } else {
+    vty_out(vty, "%sSource           Group            IIF    OIL%s", VTY_NEWLINE, VTY_NEWLINE);
+  }
+
+  for (ALL_LIST_ELEMENTS_RO(qpim_channel_oil_list, node, c_oil)) {
+    char grp_str[100];
+    char src_str[100];
+    char in_ifname[16];
+    char out_ifname[16];
+    int oif_vif_index;
+    struct interface *ifp_in;
+    first_oif = 1;
+
+    if (!c_oil->installed)
+      continue;
+
+    pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str, sizeof(grp_str));
+    pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, src_str, sizeof(src_str));
+    ifp_in = pim_if_find_by_vif_index(c_oil->oil.mfcc_parent);
+
+    if (ifp_in)
+      strcpy(in_ifname, ifp_in->name);
+    else
+      strcpy(in_ifname, "<iif?>");
+
+    if (src_or_group)
+      {
+        if (strcmp(src_or_group, src_str) && strcmp(src_or_group, grp_str))
+          continue;
+
+        if (group && strcmp(group, grp_str))
+          continue;
+      }
+
+    if (uj) {
+
+      /* Find the group, create it if it doesn't exist */
+      json_object_object_get_ex(json, grp_str, &json_group);
+
+      if (!json_group) {
+        json_group = json_object_new_object();
+        json_object_object_add(json, grp_str, json_group);
+      }
+
+      /* Find the source nested under the group, create it if it doesn't exist */
+      json_object_object_get_ex(json_group, src_str, &json_source);
+
+      if (!json_source) {
+        json_source = json_object_new_object();
+        json_object_object_add(json_group, src_str, json_source);
+      }
+
+      /* Find the inbound interface nested under the source, create it if it doesn't exist */
+      json_object_object_get_ex(json_source, in_ifname, &json_ifp_in);
+
+      if (!json_ifp_in) {
+        json_ifp_in = json_object_new_object();
+        json_object_object_add(json_source, in_ifname, json_ifp_in);
+      }
+    } else {
+        vty_out(vty, "%-15s  %-15s  %-5s  ",
+                src_str,
+                grp_str,
+                ifp_in->name);
+    }
+
+    for (oif_vif_index = 0; oif_vif_index < MAXVIFS; ++oif_vif_index) {
+      struct interface *ifp_out;
+      char oif_uptime[10];
+      int ttl;
+
+      ttl = c_oil->oil.mfcc_ttls[oif_vif_index];
+      if (ttl < 1)
+        continue;
+
+      ifp_out = pim_if_find_by_vif_index(oif_vif_index);
+      pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - c_oil->oif_creation[oif_vif_index]);
+
+      if (ifp_out)
+        strcpy(out_ifname, ifp_out->name);
+      else
+        strcpy(out_ifname, "<oif?>");
+
+      if (uj) {
+        json_ifp_out = json_object_new_object();
+        json_object_string_add(json_ifp_out, "source", src_str);
+        json_object_string_add(json_ifp_out, "group", grp_str);
+        json_object_string_add(json_ifp_out, "inboundInterface", in_ifname);
+        json_object_string_add(json_ifp_out, "outboundInterface", out_ifname);
+
+        json_object_object_add(json_ifp_in, out_ifname, json_ifp_out);
+      } else {
+        if (first_oif)
+          {
+            first_oif = 0;
+            vty_out(vty, "%s", out_ifname);
+          }
+        else
+          vty_out(vty, ",%s", out_ifname);
+      }
+    }
+
+    if (!uj)
+      vty_out(vty, "%s", VTY_NEWLINE);
+  }
+
+
+  if (uj) {
+    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    json_object_free(json);
+  } else {
+    vty_out(vty, "%s", VTY_NEWLINE);
+  }
+}
+
 static void pim_show_neighbors(struct vty *vty, u_char uj)
 {
   struct listnode *node;
@@ -2458,6 +2589,29 @@ DEFUN (show_ip_pim_secondary,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_pim_state,
+       show_ip_pim_state_cmd,
+       "show ip pim state [A.B.C.D] [A.B.C.D] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       "PIM state information\n"
+       "Unicast or Multicast address\n"
+       "Multicast address\n"
+       "JavaScript Object Notation\n")
+{
+  const char *src_or_group = NULL;
+  const char *group = NULL;
+  u_char uj = use_json(argc, argv);
+
+  src_or_group = argv[4]->arg;
+  group = argv[5]->arg;
+
+  pim_show_state(vty, src_or_group, group, uj);
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_pim_upstream,
        show_ip_pim_upstream_cmd,
        "show ip pim upstream [json]",
@@ -2794,10 +2948,10 @@ static void show_mroute(struct vty *vty, u_char uj)
     }
 
     if (!uj && !found_oif) {
-      vty_out(vty, "%-15s %-15s %-10s %-10s %-6s %-3d  %8s%s",
+      vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
               src_str,
               grp_str,
-              proto,
+              "none",
               in_ifname,
               "none",
               0,
@@ -5602,6 +5756,7 @@ void pim_cmd_init()
   install_element (VIEW_NODE, &show_ip_pim_neighbor_cmd);
   install_element (VIEW_NODE, &show_ip_pim_rpf_cmd);
   install_element (VIEW_NODE, &show_ip_pim_secondary_cmd);
+  install_element (VIEW_NODE, &show_ip_pim_state_cmd);
   install_element (VIEW_NODE, &show_ip_pim_upstream_cmd);
   install_element (VIEW_NODE, &show_ip_pim_upstream_join_desired_cmd);
   install_element (VIEW_NODE, &show_ip_pim_upstream_rpf_cmd);
