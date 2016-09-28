@@ -996,6 +996,8 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   int pim_nbrs = 0;
   json_object *json = NULL;
   json_object *json_row = NULL;
+  char local_ip[INET_ADDRSTRLEN];
+  char dr_ip[INET_ADDRSTRLEN];
   
   if (uj) {
     json = json_object_new_object();
@@ -1034,12 +1036,14 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
       json_object_object_add(json, ifp->name, json_row);
 
     } else {
+      strcpy(local_ip, inet_ntoa(ifaddr));
+      strcpy(dr_ip, inet_ntoa(pim_ifp->pim_dr_addr));
       vty_out(vty, "%-9s  %5s  %15s  %8d  %15s  %3d%s",
               ifp->name,
               if_is_up(ifp) ? "up" : "down",
-              inet_ntoa(ifaddr),
+              local_ip,
               pim_nbrs,
-              pim_dr_local ? "local" : inet_ntoa(pim_ifp->pim_dr_addr),
+              pim_dr_local ? "local" : dr_ip,
               fhr,
               VTY_NEWLINE);
     }
