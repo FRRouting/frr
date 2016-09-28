@@ -259,7 +259,7 @@ AC_ARG_ENABLE(pimd,
 AC_ARG_ENABLE(bgp-announce,
   AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
 AC_ARG_ENABLE(bgp-vnc,
-  AS_HELP_STRING([--enable-bgp-vnc],[turn on BGP VNC support]))
+  AS_HELP_STRING([--disable-bgp-vnc],[turn off BGP VNC support]))
 AC_ARG_WITH(rfp-path,
   AS_HELP_STRING([--with-rfp-path[=DIR]],[path to replaced stub RFP used with BGP VNC]))
 AC_ARG_ENABLE(snmp,
@@ -1374,7 +1374,7 @@ if test "${with_rfp_path}" != "no"; then
   AC_SUBST(VNC_RFP_PATH)
 fi
 
-if test "${enable_bgp_vnc}" = "yes";then
+if test "${enable_bgp_vnc}" != "no";then
   AC_DEFINE(ENABLE_BGP_VNC,1,Enable BGP VNC support)
   RFPTEST="${with_rfp_path}/rfptest"
   LIBRFP="${with_rfp_path}/librfp"
@@ -1385,7 +1385,7 @@ else
   RFPINC="bgpd/rfp-example/librfp"
 fi
 # set 
-AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} = xyes])
+AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
 AC_SUBST(DOC)
 AC_SUBST(ZEBRA)
@@ -1773,7 +1773,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile qpb/Makefile zebra/Makefile ripd/Makefile
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
 
-if test "${enable_bgp_vnc}" = "yes"; then
+if test "${enable_bgp_vnc}" != "no"; then
    if test "${with_rfp_path}" = "bgpd/rfp-example" ; then 
      AC_CONFIG_FILES([bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile])
    else
