@@ -7543,6 +7543,9 @@ bgp_show_table (struct vty *vty, struct bgp_table *table,
 
   if (use_json)
     {
+      /* This can produce a LOT of text so do not use
+       * JSON_C_TO_STRING_PRETTY here
+       */
       json_object_object_add(json, "routes", json_routes);
       vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
       json_object_free(json);
@@ -7873,7 +7876,7 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
       if (display)
         json_object_object_add(json, "paths", json_paths);
 
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -11897,7 +11900,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
       if (use_json)
         {
           json_object_string_add(json, "warning", "No such neighbor or address family");
-          vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+          vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
           json_object_free(json);
         }
       else
@@ -11932,7 +11935,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
           json_object_string_add(json, "pfxctDriftFor", peer->host);
           json_object_string_add(json, "recommended", "Please report this bug, with the above command output");
         }
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -12169,7 +12172,7 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
       if (use_json)
         {
           json_object_string_add(json, "alert", "no BGP");
-          vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+          vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
           json_object_free(json);
         }
       else
@@ -12310,7 +12313,7 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
     }
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
 
@@ -12330,7 +12333,7 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
       if (use_json)
         {
           json_object_string_add(json, "warning", "No such neighbor or address family");
-          vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+          vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
           json_object_free(json);
         }
       else
@@ -12344,7 +12347,7 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
       if (use_json)
         {
           json_object_string_add(json, "warning", "Inbound soft reconfiguration not enabled");
-          vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+          vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
           json_object_free(json);
         }
       else

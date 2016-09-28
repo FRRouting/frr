@@ -536,7 +536,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd, u
   if (use_json)
     {
       json_object_object_add(json, "routes", json_routes);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   return CMD_SUCCESS;
@@ -743,7 +743,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
   if (use_json)
     {
       json_object_object_add(json, "routes", json_nroute);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else

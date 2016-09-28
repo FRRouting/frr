@@ -3575,7 +3575,7 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
   if (use_json)
     {
       json_object_object_add(json, "areas", json_areas);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -3983,7 +3983,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4140,7 +4140,7 @@ show_ip_ospf_neighbor_common (struct vty *vty, struct ospf *ospf, u_char use_jso
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4251,7 +4251,7 @@ show_ip_ospf_neighbor_all_common (struct vty *vty, struct ospf *ospf, u_char use
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4345,7 +4345,7 @@ show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_ba
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4711,7 +4711,7 @@ show_ip_ospf_neighbor_id_common (struct vty *vty, struct ospf *ospf,
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4802,7 +4802,7 @@ show_ip_ospf_neighbor_detail_common (struct vty *vty, struct ospf *ospf, u_char 
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -4897,7 +4897,7 @@ show_ip_ospf_neighbor_detail_all_common (struct vty *vty, struct ospf *ospf, u_c
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -5001,7 +5001,7 @@ show_ip_ospf_neighbor_int_detail_common (struct vty *vty, struct ospf *ospf,
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else

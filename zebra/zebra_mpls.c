@@ -1761,7 +1761,7 @@ zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t labe
   if (use_json)
     {
       json = lsp_json(lsp);
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -1791,7 +1791,7 @@ zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
         json_object_object_add(json, label2str(lsp->ile.in_label, buf, BUFSIZ),
                                lsp_json(lsp));
 
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else

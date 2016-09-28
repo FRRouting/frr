@@ -2839,7 +2839,7 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name, u_char use_
       else
         json_object_object_add(json, "ipv6PrefixList", json_prefix);
 
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else

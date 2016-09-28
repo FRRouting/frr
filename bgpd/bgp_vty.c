@@ -10117,7 +10117,7 @@ DEFUN (show_bgp_vrfs,
 
       json_object_int_add(json, "totalVrfs", count);
 
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -10561,7 +10561,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
       json_object_int_add(json, "totalPeers", count);
       json_object_int_add(json, "dynamicPeers", dn_count);
 
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -12674,7 +12674,7 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
 
   if (use_json)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
       json_object_free(json);
     }
   else
@@ -12705,7 +12705,7 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
           if (use_json)
             {
               json_object_boolean_true_add(json, "bgpNoSuchInstance");
-              vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+              vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
               json_object_free(json);
             }
           else
