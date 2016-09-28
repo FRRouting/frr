@@ -429,7 +429,7 @@ pim_ifchannel_add(struct interface *ifp,
     PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
 
   /* Attach to list */
-  listnode_add(pim_ifp->pim_ifchannel_list, ch);
+  listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
 
   zassert(IFCHANNEL_NOINFO(ch));
 

@@ -72,6 +72,24 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
   return 0;
 }
 
+static int
+pim_ifchannel_compare (struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
+{
+   if (ntohl(ch1->sg.grp.s_addr) < ntohl(ch2->sg.grp.s_addr))
+     return -1;
+
+   if (ntohl(ch1->sg.grp.s_addr) > ntohl(ch2->sg.grp.s_addr))
+     return 1;
+
+   if (ntohl(ch1->sg.src.s_addr) < ntohl(ch2->sg.src.s_addr))
+     return -1;
+
+   if (ntohl(ch1->sg.src.s_addr) > ntohl(ch2->sg.src.s_addr))
+     return 1;
+
+  return 0;
+}
+
 struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 {
   struct pim_interface *pim_ifp;
@@ -142,6 +160,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
     return if_list_clean(pim_ifp);
   }
   pim_ifp->pim_ifchannel_list->del = (void (*)(void *)) pim_ifchannel_free;
+  pim_ifp->pim_ifchannel_list->cmp = (int (*)(void *, void *)) pim_ifchannel_compare;
 
   ifp->info = pim_ifp;
 
