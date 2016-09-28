@@ -5493,7 +5493,7 @@ DEFUN (neighbor_maximum_prefix_threshold_restart,
 
 DEFUN (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix [<1-4294967295> [<1-100>] [restart <1-65535>] [warning-only]]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only]]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -9746,7 +9746,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_cmd,
-       "no redistribute <ospf|table> (1-65535) [metric <0-4294967295>] [route-map WORD]",
+       "no redistribute <ospf|table> (1-65535) [metric (0-4294967295)] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
@@ -9773,7 +9773,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
-       "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> [metric <0-4294967295>] [route-map WORD]",
+       "no redistribute <kernel|connected|static|rip|ospf|isis|pim|table> [metric (0-4294967295)] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP_REDIST_HELP_STR_BGPD
@@ -9931,7 +9931,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_cmd,
-       "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> [metric <0-4294967295>] [route-map WORD]",
+       "no redistribute <kernel|connected|static|ripng|ospf6|isis|table> [metric (0-4294967295)] [route-map WORD]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        QUAGGA_IP6_REDIST_HELP_STR_BGPD

@@ -2556,7 +2556,7 @@ DEFUN (ripng_timers,
 
 DEFUN (no_ripng_timers,
        no_ripng_timers_cmd,
-       "no timers basic [(0-65535) (0-65535) (0-65535)",
+       "no timers basic [(0-65535) (0-65535) (0-65535)]",
        NO_STR
        "RIPng timers setup\n"
        "Basic timer\n"

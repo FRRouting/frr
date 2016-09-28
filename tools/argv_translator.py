@@ -38,7 +38,7 @@ def token_is_variable(line_number, token):
         return True
 
     if token.startswith('('):
-        assert token.endswith(')'), "%d: token %s should end with )" % (line_number, token)
+        assert token.endswith(')') or token.endswith(')...'), "%d: token %s should end with )" % (line_number, token)
         return True
 
     if token.startswith('['):

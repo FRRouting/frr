@@ -9817,7 +9817,7 @@ DEFUN (bgp_damp_set,
 
 DEFUN (bgp_damp_unset,
        bgp_damp_unset_cmd,
-       "no bgp dampening [<1-45> [<1-20000> <1-20000> <1-255>]]",
+       "no bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
        NO_STR
        "BGP Specific commands\n"
        "Enable route-flap dampening\n")

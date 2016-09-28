@@ -3711,7 +3711,7 @@ DEFUN (no_set_weight,
 
 DEFUN (set_aspath_prepend,
        set_aspath_prepend_cmd,
-       "set as-path prepend <(1-4294967295)...|last-as <1-10>",
+       "set as-path prepend <(1-4294967295)...|last-as (1-10)>",
        SET_STR
        "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
