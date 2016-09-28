@@ -469,7 +469,7 @@ static void pim_show_membership(struct vty *vty, u_char uj)
   } /* scan interfaces */
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -549,7 +549,7 @@ static void igmp_show_interfaces(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -673,7 +673,7 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   } else {
     if (!found_ifname)
@@ -974,7 +974,7 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   } else {
     if (!found_ifname)
@@ -1046,7 +1046,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -1134,7 +1134,7 @@ static void pim_show_join(struct vty *vty, u_char uj)
   } /* scan interfaces */
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -1278,7 +1278,7 @@ static void pim_show_neighbors_single(struct vty *vty, const char *neighbor, u_c
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   } else {
     {
@@ -1488,7 +1488,7 @@ static void pim_show_neighbors(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -1636,7 +1636,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -1718,7 +1718,7 @@ static void pim_show_join_desired(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -1783,7 +1783,7 @@ static void pim_show_upstream_rpf(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -1904,7 +1904,7 @@ static void pim_show_rpf(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -1988,7 +1988,7 @@ static void igmp_show_groups(struct vty *vty, u_char uj)
   } /* scan interfaces */
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
@@ -3078,7 +3078,7 @@ static void show_mroute(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
     json_object_free(json);
   }
 }
