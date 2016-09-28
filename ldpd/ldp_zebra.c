@@ -361,7 +361,7 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	type = stream_getc(s);
 	if (type == ZEBRA_ROUTE_CONNECT)
 		kr.flags |= F_CONNECTED;
-	stream_getc(s); /* flags, unused */
+	stream_getl(s); /* flags, unused */
 	stream_getw(s); /* instance, unused */
 	message_flags = stream_getc(s);
 	if (!CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP))
