@@ -1298,19 +1298,12 @@ struct cmd_node vrf_node =
 };
 
 /* Show all interfaces to vty. */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show interface vrf NAME",
- *     SHOW_STR
- *     "Interface status and configuration\n"
- *     VRF_CMD_HELP_STR
- *
- */
 DEFUN (show_interface,
        show_interface_cmd,
-       "show interface",
+       "show interface [vrf NAME]",
        SHOW_STR
-       "Interface status and configuration\n")
+       "Interface status and configuration\n"
+       VRF_CMD_HELP_STR)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -1318,8 +1311,8 @@ DEFUN (show_interface,
 
   interface_update_stats ();
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[2]->arg);
+  if (argc > 2)
+    VRF_GET_ID (vrf_id, argv[3]->arg);
 
   /* All interface print. */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
@@ -1385,17 +1378,9 @@ DEFUN (show_interface_name_vrf,
 }
 
 /* Show specified interface to vty. */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show interface IFNAME",
- *     SHOW_STR
- *     "Interface status and configuration\n"
- *     "Interface name\n"
- *
- */
 DEFUN (show_interface_name_vrf_all,
        show_interface_name_vrf_all_cmd,
-       "show interface IFNAME vrf all",
+       "show interface IFNAME [vrf all]",
        SHOW_STR
        "Interface status and configuration\n"
        "Interface name\n"
@@ -1470,26 +1455,18 @@ if_show_description (struct vty *vty, vrf_id_t vrf_id)
     }
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show interface description vrf NAME",
- *     SHOW_STR
- *     "Interface status and configuration\n"
- *     "Interface description\n"
- *     VRF_CMD_HELP_STR
- *
- */
 DEFUN (show_interface_desc,
        show_interface_desc_cmd,
-       "show interface description",
+       "show interface description [vrf NAME]",
        SHOW_STR
        "Interface status and configuration\n"
-       "Interface description\n")
+       "Interface description\n"
+       VRF_CMD_HELP_STR)
 {
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 0)
-    VRF_GET_ID (vrf_id, argv[3]->arg);
+  if (argc > 3)
+    VRF_GET_ID (vrf_id, argv[4]->arg);
 
   if_show_description (vty, vrf_id);
 
@@ -1704,19 +1681,12 @@ DEFUN (bandwidth_if,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no bandwidth <1-100000>",
- *     NO_STR
- *     "Set bandwidth informational parameter\n"
- *     "Bandwidth in megabits\n"
- *
- */
 DEFUN (no_bandwidth_if,
        no_bandwidth_if_cmd,
-       "no bandwidth",
+       "no bandwidth [(1-100000)]",
        NO_STR
-       "Set bandwidth informational parameter\n")
+       "Set bandwidth informational parameter\n"
+       "Bandwidth in megabits\n")
 {
   struct interface *ifp;   
   
@@ -2100,93 +2070,79 @@ DEFUN (no_link_params_inter_as,
 }
 
 /* RFC7471: OSPF Traffic Engineering (TE) Metric extensions & draft-ietf-isis-metric-extensions-07.txt */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "delay <0-16777215> min <0-16777215> max <0-16777215>",
- *     "Unidirectional Average Link Delay (optionally Minimum and Maximum delays)\n"
- *     "Average delay in micro-second as decimal (0...16777215)\n"
- *     "Minimum delay\n"
- *     "Minimum delay in micro-second as decimal (0...16777215)\n"
- *     "Maximum delay\n"
- *     "Maximum delay in micro-second as decimal (0...16777215)\n"
- *
- */
 DEFUN (link_params_delay,
        link_params_delay_cmd,
-       "delay (0-16777215)",
+       "delay (0-16777215) [min (0-16777215) max (0-16777215)]",
        "Unidirectional Average Link Delay\n"
-       "Average delay in micro-second as decimal (0...16777215)\n")
+       "Average delay in micro-second as decimal (0...16777215)\n"
+       "Minimum delay\n"
+       "Minimum delay in micro-second as decimal (0...16777215)\n"
+       "Maximum delay\n"
+       "Maximum delay in micro-second as decimal (0...16777215)\n")
 {
-  int idx_number = 1;
+  /* Get and Check new delay values */
+  u_int32_t delay = 0, low = 0, high = 0;
+  VTY_GET_ULONG("delay", delay, argv[1]->arg);
+  if (argc == 6)
+  {
+    VTY_GET_ULONG("minimum delay", low, argv[3]->arg);
+    VTY_GET_ULONG("maximum delay", high, argv[5]->arg);
+  }
 
   struct interface *ifp = (struct interface *) vty->index;
   struct if_link_params *iflp = if_link_params_get (ifp);
-  u_int32_t delay = 0, low = 0, high = 0;
   u_int8_t update = 0;
 
-  /* Get and Check new delay values */
-  VTY_GET_ULONG("delay", delay, argv[idx_number]->arg);
-  switch (argc)
-    {
-    case 1:
-      /* Check new delay value against old Min and Max delays if set */
-      if (IS_PARAM_SET(iflp, LP_MM_DELAY)
-          && (delay <= iflp->min_delay || delay >= iflp->max_delay))
-        {
-          vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
-                   iflp->min_delay, iflp->max_delay, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-      /* Update delay if value is not set or change */
-      if (IS_PARAM_UNSET(iflp, LP_DELAY)|| iflp->av_delay != delay)
-        {
-          iflp->av_delay = delay;
-          SET_PARAM(iflp, LP_DELAY);
-          update = 1;
-        }
-      /* Unset Min and Max delays if already set */
-      if (IS_PARAM_SET(iflp, LP_MM_DELAY))
-        {
-          iflp->min_delay = 0;
-          iflp->max_delay = 0;
-          UNSET_PARAM(iflp, LP_MM_DELAY);
-          update = 1;
-        }
-      break;
-    case 2:
-      vty_out (vty, "You should specify both Minimum and Maximum delay with Average delay%s",
-               VTY_NEWLINE);
-      return CMD_WARNING;
-    break;
-    case 3:
-      VTY_GET_ULONG("minimum delay", low, argv[3]->arg);
-      VTY_GET_ULONG("maximum delay", high, argv[5]->arg);
-      /* Check new delays value coherency */
-      if (delay <= low || delay >= high)
-        {
-          vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
-                   low, high, VTY_NEWLINE);
-          return CMD_WARNING;
-        }
-      /* Update Delays if needed */
-      if (IS_PARAM_UNSET(iflp, LP_DELAY)
-          || IS_PARAM_UNSET(iflp, LP_MM_DELAY)
-          || iflp->av_delay != delay
-          || iflp->min_delay != low
-          || iflp->max_delay != high)
-        {
-          iflp->av_delay = delay;
-          SET_PARAM(iflp, LP_DELAY);
-          iflp->min_delay = low;
-          iflp->max_delay = high;
-          SET_PARAM(iflp, LP_MM_DELAY);
-          update = 1;
-        }
-      break;
-    default:
-      return CMD_WARNING;
-      break;
-    }
+  if (argc == 2)
+  {
+    /* Check new delay value against old Min and Max delays if set */
+    if (IS_PARAM_SET(iflp, LP_MM_DELAY)
+        && (delay <= iflp->min_delay || delay >= iflp->max_delay))
+      {
+        vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
+                 iflp->min_delay, iflp->max_delay, VTY_NEWLINE);
+        return CMD_WARNING;
+      }
+    /* Update delay if value is not set or change */
+    if (IS_PARAM_UNSET(iflp, LP_DELAY)|| iflp->av_delay != delay)
+      {
+        iflp->av_delay = delay;
+        SET_PARAM(iflp, LP_DELAY);
+        update = 1;
+      }
+    /* Unset Min and Max delays if already set */
+    if (IS_PARAM_SET(iflp, LP_MM_DELAY))
+      {
+        iflp->min_delay = 0;
+        iflp->max_delay = 0;
+        UNSET_PARAM(iflp, LP_MM_DELAY);
+        update = 1;
+      }
+  }
+  else
+  {
+    /* Check new delays value coherency */
+    if (delay <= low || delay >= high)
+      {
+        vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay%s",
+                 low, high, VTY_NEWLINE);
+        return CMD_WARNING;
+      }
+    /* Update Delays if needed */
+    if (IS_PARAM_UNSET(iflp, LP_DELAY)
+        || IS_PARAM_UNSET(iflp, LP_MM_DELAY)
+        || iflp->av_delay != delay
+        || iflp->min_delay != low
+        || iflp->max_delay != high)
+      {
+        iflp->av_delay = delay;
+        SET_PARAM(iflp, LP_DELAY);
+        iflp->min_delay = low;
+        iflp->max_delay = high;
+        SET_PARAM(iflp, LP_MM_DELAY);
+        update = 1;
+      }
+  }
 
   /* force protocols to update LINK STATE due to parameters change */
   if (update == 1 && if_is_operative (ifp))
@@ -2194,7 +2150,6 @@ DEFUN (link_params_delay,
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (no_link_params_delay,
        no_link_params_delay_cmd,

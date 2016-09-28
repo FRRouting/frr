@@ -181,19 +181,9 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 }
 
 /* Static unicast routes for multicast RPF lookup. */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
- *     IP_STR
- *     "Configure static unicast route into MRIB for multicast RPF lookup\n"
- *     "IP destination prefix (e.g. 10.0.0.0/8)\n"
- *     "Nexthop address\n"
- *     "Nexthop interface name\n"
- *
- */
 DEFUN (ip_mroute_dist,
        ip_mroute_dist_cmd,
-       "ip mroute A.B.C.D/M <A.B.C.D|INTERFACE> (1-255)",
+       "ip mroute A.B.C.D/M <A.B.C.D|INTERFACE> [(1-255)]",
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -201,27 +191,16 @@ DEFUN (ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
-  int idx_ipv4_prefixlen = 2;
-  int idx_ipv4_ifname = 3;
-  int idx_number = 4;
-  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_ipv4_ifname]->arg, NULL, NULL, argc > 2 ? argv[idx_number]->arg : NULL, NULL);
+  char *destprefix = argv[2]->arg;
+  char *nexthop = argv[3]->arg;
+  char *distance = (argc == 5) ? argv[4]->arg : NULL;
+
+  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 1, destprefix, NULL, nexthop, NULL, NULL, distance, NULL);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip mroute A.B.C.D/M (A.B.C.D|INTERFACE)",
- *     NO_STR
- *     IP_STR
- *     "Configure static unicast route into MRIB for multicast RPF lookup\n"
- *     "IP destination prefix (e.g. 10.0.0.0/8)\n"
- *     "Nexthop address\n"
- *     "Nexthop interface name\n"
- *
- */
 DEFUN (no_ip_mroute_dist,
        no_ip_mroute_dist_cmd,
-       "no ip mroute A.B.C.D/M <A.B.C.D|INTERFACE> (1-255)",
+       "no ip mroute A.B.C.D/M <A.B.C.D|INTERFACE> [(1-255)]",
        IP_STR
        "Configure static unicast route into MRIB for multicast RPF lookup\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -229,12 +208,12 @@ DEFUN (no_ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
-  int idx_ipv4_prefixlen = 3;
-  int idx_ipv4_ifname = 4;
-  int idx_number = 5;
-  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, argv[idx_ipv4_prefixlen]->arg, NULL, argv[idx_ipv4_ifname]->arg, NULL, NULL, argc > 2 ? argv[idx_number]->arg : NULL, NULL);
-}
+  char *destprefix = argv[2]->arg;
+  char *nexthop = argv[3]->arg;
+  char *distance = (argc == 5) ? argv[4]->arg : NULL;
 
+  return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, destprefix, NULL, nexthop, NULL, NULL, distance, NULL);
+}
 
 DEFUN (ip_multicast_mode,
        ip_multicast_mode_cmd,
@@ -248,17 +227,17 @@ DEFUN (ip_multicast_mode,
        "Lookup both, use entry with lower distance\n"
        "Lookup both, use entry with longer prefix\n")
 {
-  int idx_rpf_lookup_mode = 3;
+  char *mode = argv[3]->text;
 
-  if (!strncmp (argv[idx_rpf_lookup_mode]->arg, "u", 1))
+  if (strmatch (mode, "urib-only"))
     multicast_mode_ipv4_set (MCAST_URIB_ONLY);
-  else if (!strncmp (argv[idx_rpf_lookup_mode]->arg, "mrib-o", 6))
+  else if (strmatch (mode, "mrib-only"))
     multicast_mode_ipv4_set (MCAST_MRIB_ONLY);
-  else if (!strncmp (argv[idx_rpf_lookup_mode]->arg, "mrib-t", 6))
+  else if (strmatch (mode, "mrib-then-urib"))
     multicast_mode_ipv4_set (MCAST_MIX_MRIB_FIRST);
-  else if (!strncmp (argv[idx_rpf_lookup_mode]->arg, "low", 3))
+  else if (strmatch (mode, "lower-distance"))
     multicast_mode_ipv4_set (MCAST_MIX_DISTANCE);
-  else if (!strncmp (argv[idx_rpf_lookup_mode]->arg, "lon", 3))
+  else if (strmatch (mode, "longer-prefix"))
     multicast_mode_ipv4_set (MCAST_MIX_PFXLEN);
   else
     {
@@ -269,18 +248,9 @@ DEFUN (ip_multicast_mode,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip multicast rpf-lookup-mode",
- *     NO_STR
- *     IP_STR
- *     "Multicast options\n"
- *     "RPF lookup behavior\n"
- *
- */
 DEFUN (no_ip_multicast_mode,
        no_ip_multicast_mode_cmd,
-       "no ip multicast rpf-lookup-mode <urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix>",
+       "no ip multicast rpf-lookup-mode [<urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix>]",
        NO_STR
        IP_STR
        "Multicast options\n"
@@ -2776,23 +2746,15 @@ DEFUN (no_ipv6_route_ifname_flags,
 			   tag, distance, vrf);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route  " VRF_CMD_STR " [json]",
- *     SHOW_STR
- *     IP_STR
- *     "IPv6 routing table\n"
- *     VRF_CMD_HELP_STR
- *
- */
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
-       "show ipv6 route [json]",
+       "show ipv6 route [vrf NAME] [json]",
        SHOW_STR
        IP_STR
-       "IPv6 routing table\n")
+       "IPv6 routing table\n"
+       VRF_CMD_HELP_STR
+       "Output JSON\n")
 {
-  int idx_json = 3;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -2802,33 +2764,36 @@ DEFUN (show_ipv6_route,
   char buf[BUFSIZ];
   json_object *json = NULL;
   json_object *json_prefix = NULL;
-  u_char uj = use_json(argc, argv);
 
-  if (argc > 0 && argv[idx_json]->arg && strcmp(argv[idx_json]->arg, "json") != 0)
-    {
-     if (!(zvrf = zebra_vrf_list_lookup_by_name (argv[idx_json]->arg)))
-        {
-          if (uj)
-            vty_out (vty, "{}%s", VTY_NEWLINE);
-          else
-            vty_out (vty, "vrf %s not defined%s", argv[idx_json]->arg, VTY_NEWLINE);
-          return CMD_SUCCESS;
-        }
+  int vrf = (argc > 3 && strmatch (argv[3]->text, "vrf"));
+  int uj = vrf ? argc == 6 : argc == 4;
+  char *vrfname = vrf ? argv[4]->arg : NULL;
 
-      if (zvrf->vrf_id == VRF_UNKNOWN)
-        {
-          if (uj)
-            vty_out (vty, "{}%s", VTY_NEWLINE);
-          else
-            vty_out (vty, "vrf %s inactive%s", argv[idx_json]->arg, VTY_NEWLINE);
-          return CMD_SUCCESS;
-        }
-      else
-        vrf_id = zvrf->vrf_id;
-    }
+  if (vrf)
+  {
+    if (!(zvrf = zebra_vrf_list_lookup_by_name (vrfname)))
+       {
+         if (uj)
+           vty_out (vty, "{}%s", VTY_NEWLINE);
+         else
+           vty_out (vty, "vrf %s not defined%s", vrfname, VTY_NEWLINE);
+         return CMD_SUCCESS;
+       }
+
+     if (zvrf->vrf_id == VRF_UNKNOWN)
+       {
+         if (uj)
+           vty_out (vty, "{}%s", VTY_NEWLINE);
+         else
+           vty_out (vty, "vrf %s inactive%s", vrfname, VTY_NEWLINE);
+         return CMD_SUCCESS;
+       }
+     else
+       vrf_id = zvrf->vrf_id;
+  }
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
-  if (! table)
+  if (!table)
     {
       if (uj)
         vty_out (vty, "{}%s", VTY_NEWLINE);
@@ -2981,26 +2946,15 @@ DEFUN (show_ipv6_route_prefix_longer,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 route "  VRF_CMD_STR "  " QUAGGA_IP6_REDIST_STR_ZEBRA,
- *     SHOW_STR
- *     IP_STR
- *     "IP routing table\n"
- *     VRF_CMD_HELP_STR
- *     QUAGGA_IP6_REDIST_HELP_STR_ZEBRA
- *
- */
 DEFUN (show_ipv6_route_protocol,
        show_ipv6_route_protocol_cmd,
-       "show ipv6 route  <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
+       "show ipv6 route [vrf NAME] <kernel|connected|static|ripng|ospf6|isis|bgp|table>",
        SHOW_STR
        IP_STR
        "IP routing table\n"
+       VRF_CMD_HELP_STR
        QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 {
-  int idx_protocol = 3;
   int type;
   struct route_table *table;
   struct route_node *rn;
@@ -3008,13 +2962,16 @@ DEFUN (show_ipv6_route_protocol,
   int first = 1;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if ( argc >1 )
+  char *vrfname = (argc == 6) ? argv[4]->arg : NULL;
+  char *proto = argv[argc - 1]->text;
+
+  if (vrfname)
     {
-      VRF_GET_ID (vrf_id, argv[4]->arg);
-      type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
+      VRF_GET_ID (vrf_id, vrfname);
+      type = proto_redistnum (AFI_IP6, proto);
     }
   else
-    type = proto_redistnum (AFI_IP6, argv[4]->arg);
+    type = proto_redistnum (AFI_IP6, proto);
 
   if (type < 0)
     {
@@ -3731,65 +3688,9 @@ zebra_ip_config (struct vty *vty)
   return write;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "ip import-table <1-252>",
- *     IP_STR
- *     "import routes from non-main kernel table\n"
- *     "kernel routing table id\n"
- *
- */
 DEFUN (ip_zebra_import_table_distance,
        ip_zebra_import_table_distance_cmd,
-       "ip import-table (1-252) distance (1-255)",
-       IP_STR
-       "import routes from non-main kernel table\n"
-       "kernel routing table id\n"
-       "Distance for imported routes\n"
-       "Default distance value\n")
-{
-  int idx_number = 2;
-  int idx_number_2 = 4;
-  u_int32_t table_id = 0;
-  int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-
-  if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[idx_number]->arg);
-
-  if (!is_zebra_valid_kernel_table(table_id))
-    {
-      vty_out(vty, "Invalid routing table ID, %d. Must be in range 1-252%s",
-	      table_id, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (is_zebra_main_routing_table(table_id))
-    {
-      vty_out(vty, "Invalid routing table ID, %d. Must be non-default table%s",
-	      table_id, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc > 1)
-    VTY_GET_INTEGER_RANGE("distance", distance, argv[idx_number_2]->arg, 1, 255);
-  return (zebra_import_table(AFI_IP, table_id, distance, NULL, 1));
-
-}
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "ip import-table <1-252> route-map WORD",
- *     IP_STR
- *     "import routes from non-main kernel table\n"
- *     "kernel routing table id\n"
- *     "route-map for filtering\n"
- *     "route-map name\n"
- *
- */
-DEFUN (ip_zebra_import_table_distance_routemap,
-       ip_zebra_import_table_distance_routemap_cmd,
-       "ip import-table (1-252) distance (1-255) route-map WORD",
+       "ip import-table (1-252) [distance (1-255)] [route-map WORD>]",
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n"
@@ -3798,15 +3699,14 @@ DEFUN (ip_zebra_import_table_distance_routemap,
        "route-map for filtering\n"
        "route-map name\n")
 {
-  int idx_number = 2;
-  int idx_number_2 = 4;
-  int idx_word = 6;
   u_int32_t table_id = 0;
-  int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
-  const char *rmap_name;
 
-  if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[idx_number]->arg);
+  VTY_GET_INTEGER("table", table_id, argv[2]->arg);
+  int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
+  char *rmap = strmatch (argv[argc - 2]->text, "route-map") ?
+               XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[argc - 1]->arg) : NULL;
+  if (argc == 7 || (argc == 5 && !rmap))
+    VTY_GET_INTEGER_RANGE("distance", distance, argv[4]->arg, 1, 255);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {
@@ -3818,44 +3718,23 @@ DEFUN (ip_zebra_import_table_distance_routemap,
   if (is_zebra_main_routing_table(table_id))
     {
       vty_out(vty, "Invalid routing table ID, %d. Must be non-default table%s",
-	      table_id, VTY_NEWLINE);
+              table_id, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  if (argc > 2)
-    {
-      VTY_GET_INTEGER_RANGE("distance", distance, argv[idx_number_2]->arg, 1, 255);
-      rmap_name =  XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[idx_word]->arg);
-    }
-  else
-    rmap_name = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[idx_number_2]->arg);
-
-  return (zebra_import_table(AFI_IP, table_id, distance, rmap_name, 1));
+  return (zebra_import_table(AFI_IP, table_id, distance, rmap, 1));
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip import-table <1-252> distance <1-255> {route-map NAME}",
- *     IP_STR
- *     "import routes from non-main kernel table to main table"
- *     "kernel routing table id\n"
- *     "distance to be used\n"
- *
- */
 DEFUN (no_ip_zebra_import_table,
        no_ip_zebra_import_table_cmd,
-       "no ip import-table (1-252) [route-map NAME]",
+       "no ip import-table (1-252) [distance (1-255)] [route-map NAME]",
        NO_STR
        IP_STR
        "import routes from non-main kernel table\n"
        "kernel routing table id\n")
 {
-  int idx_number = 3;
   u_int32_t table_id = 0;
-
-  if (argc)
-    VTY_GET_INTEGER("table", table_id, argv[idx_number]->arg);
+  VTY_GET_INTEGER("table", table_id, argv[3]->arg);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {
@@ -3876,7 +3755,6 @@ DEFUN (no_ip_zebra_import_table,
 
   return (zebra_import_table(AFI_IP, table_id, 0, NULL, 0));
 }
-
 
 static int
 config_write_protocol (struct vty *vty)
@@ -3934,7 +3812,6 @@ zebra_vty_init (void)
   install_element (CONFIG_NODE, &no_ip_route_mask_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags2_cmd);
   install_element (CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
-  install_element (CONFIG_NODE, &ip_zebra_import_table_distance_routemap_cmd);
   install_element (CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 
   install_element (VIEW_NODE, &show_vrf_cmd);
