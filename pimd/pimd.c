@@ -98,6 +98,42 @@ static void pim_free()
   pim_route_map_terminate();
 }
 
+static int
+pim_channel_oil_compare (struct channel_oil *c1, struct channel_oil *c2)
+{
+   if (ntohl(c1->oil.mfcc_mcastgrp.s_addr) < ntohl(c2->oil.mfcc_mcastgrp.s_addr))
+     return -1;
+
+   if (ntohl(c1->oil.mfcc_mcastgrp.s_addr) > ntohl(c2->oil.mfcc_mcastgrp.s_addr))
+     return 1;
+
+   if (ntohl(c1->oil.mfcc_origin.s_addr) < ntohl(c2->oil.mfcc_origin.s_addr))
+     return -1;
+
+   if (ntohl(c1->oil.mfcc_origin.s_addr) > ntohl(c2->oil.mfcc_origin.s_addr))
+     return 1;
+
+   return 0;
+}
+
+static int
+pim_upstream_compare (struct pim_upstream *up1, struct pim_upstream *up2)
+{
+   if (ntohl(up1->sg.grp.s_addr) < ntohl(up2->sg.grp.s_addr))
+     return -1;
+
+   if (ntohl(up1->sg.grp.s_addr) > ntohl(up2->sg.grp.s_addr))
+     return 1;
+
+   if (ntohl(up1->sg.src.s_addr) < ntohl(up2->sg.src.s_addr))
+     return -1;
+
+   if (ntohl(up1->sg.src.s_addr) > ntohl(up2->sg.src.s_addr))
+     return 1;
+
+   return 0;
+}
+
 void pim_init()
 {
   srandom(time(NULL));
@@ -121,6 +157,7 @@ void pim_init()
     return;
   }
   qpim_channel_oil_list->del = (void (*)(void *)) pim_channel_oil_free;
+  qpim_channel_oil_list->cmp = (int (*)(void *, void *)) pim_channel_oil_compare;
 
   qpim_upstream_list = list_new();
   if (!qpim_upstream_list) {
@@ -130,6 +167,7 @@ void pim_init()
     return;
   }
   qpim_upstream_list->del = (void (*)(void *)) pim_upstream_free;
+  qpim_upstream_list->cmp = (int (*)(void *, void *)) pim_upstream_compare;
 
   qpim_static_route_list = list_new();
   if (!qpim_static_route_list) {

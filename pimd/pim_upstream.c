@@ -520,7 +520,7 @@ static struct pim_upstream *pim_upstream_new(struct prefix_sg *sg,
     return NULL;
   }
 
-  listnode_add(qpim_upstream_list, up);
+  listnode_add_sort(qpim_upstream_list, up);
 
   return up;
 }

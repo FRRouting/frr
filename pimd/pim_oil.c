@@ -77,7 +77,7 @@ pim_add_channel_oil (struct prefix_sg *sg,
   c_oil->oil_ref_count     = 1;
   c_oil->installed         = 0;
 
-  listnode_add(qpim_channel_oil_list, c_oil);
+  listnode_add_sort(qpim_channel_oil_list, c_oil);
 
   return c_oil;
 }
