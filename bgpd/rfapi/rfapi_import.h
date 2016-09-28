@@ -27,7 +27,7 @@
 #ifndef QUAGGA_HGP_RFAPI_IMPORT_H
 #define QUAGGA_HGP_RFAPI_IMPORT_H
 
-#include "thread.h"
+#include "lib/thread.h"
 
 /*
  * These are per-rt-import-list

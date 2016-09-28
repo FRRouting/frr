@@ -55,7 +55,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_zebra.h"
 
 #ifdef ENABLE_BGP_VNC
-#include "rfapi_backend.h"
+#include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
 /* bgpd options, we use GNU getopt library. */

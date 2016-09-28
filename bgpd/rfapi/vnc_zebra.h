@@ -26,7 +26,7 @@
 #ifndef _QUAGGA_BGP_VNC_ZEBRA_H
 #define _QUAGGA_BGP_VNC_ZEBRA_H
 
-#include "zebra.h"
+#include "lib/zebra.h"
 
 extern void
 vnc_zebra_add_prefix (

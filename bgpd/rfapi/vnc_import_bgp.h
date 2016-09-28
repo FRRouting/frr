@@ -22,11 +22,11 @@
 #ifndef _QUAGGA_RFAPI_VNC_IMPORT_BGP_H_
 #define _QUAGGA_RFAPI_VNC_IMPORT_BGP_H_
 
-#include "zebra.h"
-#include "prefix.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
 
-#include "bgpd.h"
-#include "bgp_route.h"
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_route.h"
 
 #define VALID_INTERIOR_TYPE(type)	\
     (((type) == ZEBRA_ROUTE_BGP) || ((type) == ZEBRA_ROUTE_BGP_DIRECT))

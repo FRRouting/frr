@@ -25,26 +25,26 @@
 
 #include <errno.h>
 
-#include "zebra.h"
-#include "prefix.h"
-#include "table.h"
-#include "vty.h"
-#include "memory.h"
-#include "routemap.h"
-#include "log.h"
-#include "linklist.h"
-#include "command.h"
-#include "stream.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
+#include "lib/table.h"
+#include "lib/vty.h"
+#include "lib/memory.h"
+#include "lib/routemap.h"
+#include "lib/log.h"
+#include "lib/linklist.h"
+#include "lib/command.h"
+#include "lib/stream.h"
 
-#include "bgpd.h"
+#include "bgpd/bgpd.h"
 
 #include "bgp_rfapi_cfg.h"
 #include "rfapi.h"
 #include "rfapi_backend.h"
 
-#include "bgp_route.h"
-#include "bgp_aspath.h"
-#include "bgp_advertise.h"
+#include "bgpd/bgp_route.h"
+#include "bgpd/bgp_aspath.h"
+#include "bgpd/bgp_advertise.h"
 
 #include "rfapi_import.h"
 #include "rfapi_private.h"

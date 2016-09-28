@@ -22,18 +22,18 @@
 
 #include <errno.h>
 
-#include "zebra.h"
-#include "prefix.h"
-#include "table.h"
-#include "vty.h"
-#include "memory.h"
-#include "log.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
+#include "lib/table.h"
+#include "lib/vty.h"
+#include "lib/memory.h"
+#include "lib/log.h"
 
-#include "bgpd.h"
+#include "bgpd/bgpd.h"
 
-#include "rfapi.h"
-#include "rfapi_private.h"
-#include "rfapi_descriptor_rfp_utils.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi_private.h"
+#include "bgpd/rfapi/rfapi_descriptor_rfp_utils.h"
 
 
 void *

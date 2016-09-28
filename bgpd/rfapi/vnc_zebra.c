@@ -24,28 +24,28 @@
  * Purpose:	Handle exchange of routes between VNC and Zebra
  */
 
-#include "zebra.h"
-#include "prefix.h"
-#include "table.h"
-#include "log.h"
-#include "command.h"
-#include "zclient.h"
-#include "stream.h"
-#include "memory.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
+#include "lib/table.h"
+#include "lib/log.h"
+#include "lib/command.h"
+#include "lib/zclient.h"
+#include "lib/stream.h"
+#include "lib/memory.h"
 
-#include "bgpd.h"
-#include "bgp_ecommunity.h"
-#include "bgp_route.h"
-#include "bgp_debug.h"
-#include "bgp_advertise.h"
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_route.h"
+#include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_advertise.h"
 
-#include "bgp_rfapi_cfg.h"
-#include "rfapi.h"
-#include "rfapi_import.h"
-#include "rfapi_private.h"
-#include "vnc_zebra.h"
-#include "rfapi_vty.h"
-#include "rfapi_backend.h"
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi_import.h"
+#include "bgpd/rfapi/rfapi_private.h"
+#include "bgpd/rfapi/vnc_zebra.h"
+#include "bgpd/rfapi/rfapi_vty.h"
+#include "bgpd/rfapi/rfapi_backend.h"
 
 static struct rfapi_descriptor vncHD1VR;        /* Single-VR export dummy nve descr */
 static struct zclient *zclient_vnc = NULL;

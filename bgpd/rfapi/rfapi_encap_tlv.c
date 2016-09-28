@@ -17,25 +17,25 @@
  *
  */
 
-#include <zebra.h>
+#include "lib/zebra.h"
 
-#include <memory.h>
-#include <prefix.h>
-#include <table.h>
-#include <vty.h>
+#include "lib/memory.h"
+#include "lib/prefix.h"
+#include "lib/table.h"
+#include "lib/vty.h"
 
-#include "bgpd.h"
-#include "bgp_attr.h"
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_attr.h"
 
-#include "bgp_encap_types.h"
-#include "bgp_encap_tlv.h"
+#include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_encap_tlv.h"
 
-#include "rfapi.h"
-#include "rfapi_encap_tlv.h"
-#include "rfapi_private.h"
-#include "rfapi_monitor.h"
-#include "rfapi_vty.h"
-#include "bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi_encap_tlv.h"
+#include "bgpd/rfapi/rfapi_private.h"
+#include "bgpd/rfapi/rfapi_monitor.h"
+#include "bgpd/rfapi/rfapi_vty.h"
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
 
 static void
 rfapi_add_endpoint_address_to_subtlv (

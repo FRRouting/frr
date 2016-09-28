@@ -47,8 +47,8 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_bfd.h"
 #if ENABLE_BGP_VNC
-# include "rfapi_backend.h"
-# include "vnc_export_bgp.h"
+# include "bgpd/rfapi/rfapi_backend.h"
+# include "bgpd/rfapi/vnc_export_bgp.h"
 #endif
 
 /* All information about zebra. */

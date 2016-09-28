@@ -63,9 +63,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 
 #if ENABLE_BGP_VNC
-#include "rfapi_backend.h"
-#include "vnc_import_bgp.h"
-#include "vnc_export_bgp.h"
+#include "bgpd/rfapi/rfapi_backend.h"
+#include "bgpd/rfapi/vnc_import_bgp.h"
+#include "bgpd/rfapi/vnc_export_bgp.h"
 #endif
 
 /* Extern from bgp_dump.c */

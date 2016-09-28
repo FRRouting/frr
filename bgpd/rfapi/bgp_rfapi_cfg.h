@@ -22,8 +22,8 @@
 #ifndef _QUAGGA_BGP_RFAPI_CFG_H
 #define _QUAGGA_BGP_RFAPI_CFG_H
 
-#include "table.h"
-#include "routemap.h"
+#include "lib/table.h"
+#include "lib/routemap.h"
 
 #if ENABLE_BGP_VNC
 #include "rfapi.h"

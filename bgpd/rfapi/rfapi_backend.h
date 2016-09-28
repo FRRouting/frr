@@ -24,8 +24,8 @@
 
 #if ENABLE_BGP_VNC
 
-#include "bgp_route.h"
-#include "bgp_nexthop.h"
+#include "bgpd/bgp_route.h"
+#include "bgpd/bgp_nexthop.h"
 
 extern void rfapi_init (void);
 extern void vnc_zebra_init (struct thread_master *master);

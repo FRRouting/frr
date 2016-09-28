@@ -20,18 +20,18 @@
  */
 
 
-#include "zebra.h"
-#include "prefix.h"
-#include "table.h"
-#include "memory.h"
-#include "vty.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
+#include "lib/table.h"
+#include "lib/memory.h"
+#include "lib/vty.h"
 
-#include "bgpd.h"
-#include "bgp_route.h"
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_route.h"
 
-#include "vnc_export_table.h"
-#include "rfapi_private.h"
-#include "rfapi_import.h"
+#include "bgpd/rfapi/vnc_export_table.h"
+#include "bgpd/rfapi/rfapi_private.h"
+#include "bgpd/rfapi/rfapi_import.h"
 
 struct route_node *
 vnc_etn_get (struct bgp *bgp, vnc_export_type_t type, struct prefix *p)

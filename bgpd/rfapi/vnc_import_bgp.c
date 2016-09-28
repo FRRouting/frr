@@ -24,31 +24,31 @@
  * Purpose:	Import routes from BGP unicast directly (not via zebra)
  */
 
-#include "zebra.h"
-#include "prefix.h"
-#include "table.h"
-#include "vty.h"
-#include "log.h"
-#include "memory.h"
-#include "linklist.h"
-#include "plist.h"
-#include "routemap.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
+#include "lib/table.h"
+#include "lib/vty.h"
+#include "lib/log.h"
+#include "lib/memory.h"
+#include "lib/linklist.h"
+#include "lib/plist.h"
+#include "lib/routemap.h"
 
-#include "bgpd.h"
-#include "bgp_ecommunity.h"
-#include "bgp_attr.h"
-#include "bgp_mplsvpn.h"        /* for RD_TYPE_IP */
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_mplsvpn.h"        /* for RD_TYPE_IP */
 
-#include "vnc_export_bgp.h"
-#include "bgp_rfapi_cfg.h"
-#include "rfapi.h"
-#include "rfapi_import.h"
-#include "rfapi_private.h"
-#include "rfapi_monitor.h"
-#include "rfapi_vty.h"
-#include "vnc_import_bgp.h"
-#include "vnc_import_bgp_p.h"
-#include "vnc_debug.h"
+#include "bgpd/rfapi/vnc_export_bgp.h"
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi_import.h"
+#include "bgpd/rfapi/rfapi_private.h"
+#include "bgpd/rfapi/rfapi_monitor.h"
+#include "bgpd/rfapi/rfapi_vty.h"
+#include "bgpd/rfapi/vnc_import_bgp.h"
+#include "bgpd/rfapi/vnc_import_bgp_p.h"
+#include "bgpd/rfapi/vnc_debug.h"
 
 #define ENABLE_VNC_RHNCK
 

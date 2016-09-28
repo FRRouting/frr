@@ -23,7 +23,7 @@
 #ifndef _RFP_H
 #define _RFP_H
 
-#include "rfapi.h"
+#include "bgpd/rfapi/rfapi.h"
 extern int bgp_rfp_cfg_write (void *vty, void *bgp);
 /* TO BE REMOVED */
 void rfp_clear_vnc_nve_all (void);

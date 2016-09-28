@@ -22,11 +22,11 @@
 #ifndef _QUAGGA_RFAPI_VNC_EXPORT_BGP_H_
 #define _QUAGGA_RFAPI_VNC_EXPORT_BGP_H_
 
-#include "zebra.h"
-#include "prefix.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
 
-#include "bgpd.h"
-#include "bgp_route.h"
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_route.h"
 
 
 extern void vnc_direct_bgp_rh_reexport (struct bgp *bgp, afi_t afi);

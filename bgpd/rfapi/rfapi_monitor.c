@@ -27,28 +27,28 @@
 
 #include <errno.h>
 
-#include "zebra.h"
-#include "prefix.h"
-#include "table.h"
-#include "vty.h"
-#include "memory.h"
-#include "log.h"
-#include "table.h"
-#include "skiplist.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
+#include "lib/table.h"
+#include "lib/vty.h"
+#include "lib/memory.h"
+#include "lib/log.h"
+#include "lib/table.h"
+#include "lib/skiplist.h"
 
-#include "bgpd.h"
+#include "bgpd/bgpd.h"
 
-#include "bgp_rfapi_cfg.h"
-#include "rfapi.h"
-#include "rfapi_backend.h"
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi_backend.h"
 
-#include "rfapi.h"
-#include "rfapi_import.h"
-#include "vnc_import_bgp.h"
-#include "rfapi_private.h"
-#include "rfapi_monitor.h"
-#include "rfapi_vty.h"
-#include "rfapi_rib.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi_import.h"
+#include "bgpd/rfapi/vnc_import_bgp.h"
+#include "bgpd/rfapi/rfapi_private.h"
+#include "bgpd/rfapi/rfapi_monitor.h"
+#include "bgpd/rfapi/rfapi_vty.h"
+#include "bgpd/rfapi/rfapi_rib.h"
 
 #define DEBUG_L2_EXTRA 0
 #define DEBUG_DUP_CHECK 0

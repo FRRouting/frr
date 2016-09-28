@@ -22,7 +22,7 @@
 #ifndef RFAPI_VTY_H
 #define RFAPI_VTY_H
 
-#include "vty.h"
+#include "lib/vty.h"
 
 typedef enum
 {

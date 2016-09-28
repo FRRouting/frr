@@ -64,8 +64,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_encap.h"
 #if ENABLE_BGP_VNC
-#include "bgp_rfapi_cfg.h"
-#include "rfapi_backend.h"
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/rfapi_backend.h"
 #endif
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_network.h"

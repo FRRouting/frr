@@ -21,8 +21,8 @@
 
 /* stub rfp */
 #include "rfp_internal.h"
-#include "rfapi.h"
-#include "command.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "lib/command.h"
 
 struct rfp_instance_t
 {

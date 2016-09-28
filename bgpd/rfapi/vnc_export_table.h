@@ -22,11 +22,11 @@
 #ifndef _QUAGGA_VNC_VNC_EXPORT_TABLE_H_
 #define _QUAGGA_VNC_VNC_EXPORT_TABLE_H_
 
-#include "table.h"
-#include "thread.h"
-#include "vty.h"
+#include "lib/table.h"
+#include "lib/thread.h"
+#include "lib/vty.h"
 
-#include "bgpd.h"
+#include "bgpd/bgpd.h"
 
 #define VNC_EXPORT_TYPE_BGP	1
 #define VNC_EXPORT_TYPE_ZEBRA	2

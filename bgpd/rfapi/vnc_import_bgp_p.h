@@ -22,11 +22,11 @@
 #ifndef _QUAGGA_RFAPI_VNC_IMPORT_BGP_P_H_
 #define _QUAGGA_RFAPI_VNC_IMPORT_BGP_P_H_
 
-#include "zebra.h"
-#include "prefix.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
 
-#include "bgpd.h"
-#include "bgp_route.h"
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_route.h"
 
 extern void
 vnc_import_bgp_exterior_add_route_interior (

@@ -18,16 +18,16 @@
  *
  */
 
-#include <zebra.h>
+#include "lib/zebra.h"
 
 #include <lib/version.h>
-#include "prefix.h"
-#include "linklist.h"
-#include "stream.h"
-#include "command.h"
-#include "str.h"
-#include "log.h"
-#include "vnc_debug.h"
+#include "lib/prefix.h"
+#include "lib/linklist.h"
+#include "lib/stream.h"
+#include "lib/command.h"
+#include "lib/str.h"
+#include "lib/log.h"
+#include "bgpd/rfapi/vnc_debug.h"
 
 /*
  * debug state storage

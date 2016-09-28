@@ -26,11 +26,11 @@
 #ifndef _QUAGGA_BGP_RFAPI_PRIVATE_H
 #define _QUAGGA_BGP_RFAPI_PRIVATE_H
 
-#include "linklist.h"
-#include "skiplist.h"
-#include "workqueue.h"
+#include "lib/linklist.h"
+#include "lib/skiplist.h"
+#include "lib/workqueue.h"
 
-#include "bgp_attr.h"
+#include "bgpd/bgp_attr.h"
 
 #include "rfapi.h"
 

@@ -20,15 +20,15 @@
  */
 
 
-#include <zebra.h>
+#include "lib/zebra.h"
 
-#include "command.h"
-#include "prefix.h"
-#include "memory.h"
-#include "linklist.h"
-#include "table.h"
-#include "plist.h"
-#include "routemap.h"
+#include "lib/command.h"
+#include "lib/prefix.h"
+#include "lib/memory.h"
+#include "lib/linklist.h"
+#include "lib/table.h"
+#include "lib/plist.h"
+#include "lib/routemap.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -36,17 +36,17 @@
 #include "bgpd/bgp_route.h"
 
 #include "bgpd/bgp_ecommunity.h"
-#include "rfapi.h"
-#include "bgp_rfapi_cfg.h"
-#include "rfapi_backend.h"
-#include "rfapi_import.h"
-#include "rfapi_private.h"
-#include "rfapi_monitor.h"
-#include "vnc_zebra.h"
-#include "vnc_export_bgp.h"
-#include "vnc_export_bgp_p.h"
-#include "rfapi_vty.h"
-#include "vnc_import_bgp.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/rfapi_backend.h"
+#include "bgpd/rfapi/rfapi_import.h"
+#include "bgpd/rfapi/rfapi_private.h"
+#include "bgpd/rfapi/rfapi_monitor.h"
+#include "bgpd/rfapi/vnc_zebra.h"
+#include "bgpd/rfapi/vnc_export_bgp.h"
+#include "bgpd/rfapi/vnc_export_bgp_p.h"
+#include "bgpd/rfapi/rfapi_vty.h"
+#include "bgpd/rfapi/vnc_import_bgp.h"
 
 #if ENABLE_BGP_VNC
 

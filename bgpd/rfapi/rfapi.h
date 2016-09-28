@@ -26,11 +26,11 @@
 
 #include <stdint.h>
 #include <netinet/in.h>
-#include <zebra.h>
-#include "vty.h"
-#include "prefix.h"
-#include "../bgpd.h"
-#include "../bgp_encap_types.h"
+#include "lib/zebra.h"
+#include "lib/vty.h"
+#include "lib/prefix.h"
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_encap_types.h"
 
 /* probably ought to have a field-specific define in config.h */
 # ifndef s6_addr32              /* for solaris/bsd */

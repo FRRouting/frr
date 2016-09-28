@@ -22,9 +22,9 @@
 #ifndef QUAGGA_HGP_RFAPI_MONITOR_H
 #define QUAGGA_HGP_RFAPI_MONITOR_H
 
-#include "zebra.h"
-#include "prefix.h"
-#include "table.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
+#include "lib/table.h"
 
 /*
  * These get attached to the nodes in an import table (using "aggregate" ptr)

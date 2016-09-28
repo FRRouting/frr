@@ -44,7 +44,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_encap_types.h"
 #if ENABLE_BGP_VNC
-# include "bgp_rfapi_cfg.h"
+# include "bgpd/rfapi/bgp_rfapi_cfg.h"
 # include "bgp_encap_types.h"
 # include "bgp_vnc_types.h"
 #endif
