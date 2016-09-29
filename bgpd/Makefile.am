@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 if ENABLE_BGP_VNC
 #o file to keep linker happy
-BGP_VNC_RFP_LIB=rfapi/rfapi_descriptor_rfp_utils.o @top_srcdir@/$(LIBRFP)/librfp.a 
+BGP_VNC_RFP_LIB=rfapi/rfapi_descriptor_rfp_utils.o @top_builddir@/$(LIBRFP)/librfp.a 
 BGP_VNC_RFP_INC=-I@top_srcdir@/$(RFPINC)
 BGP_VNC_RFP_HD=\
 	@top_srcdir@/$(RFPINC)/rfp.h

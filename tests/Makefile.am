@@ -26,7 +26,7 @@ TESTS_BGPD =
 endif
 
 if ENABLE_BGP_VNC
-BGP_VNC_RFP_LIB=@top_srcdir@/$(LIBRFP)/librfp.a 
+BGP_VNC_RFP_LIB=@top_builddir@/$(LIBRFP)/librfp.a 
 else
 BGP_VNC_RFP_LIB =
 endif
