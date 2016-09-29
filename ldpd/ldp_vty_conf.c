@@ -833,6 +833,8 @@ ldp_vty_interface(struct vty *vty, struct vty_arg *args[])
 			goto cancel;
 
 		ia->enabled = 0;
+		ia->hello_holdtime = 0;
+		ia->hello_interval = 0;
 		ldp_reload(vty_conf);
 		return (CMD_SUCCESS);
 	}
