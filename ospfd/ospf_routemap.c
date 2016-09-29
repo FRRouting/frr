@@ -704,27 +704,19 @@ DEFUN (match_ip_nexthop,
   return ospf_route_match_add (vty, vty->index, "ip next-hop", argv[idx_acl]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match next-hop address of route\n"
- *     "IP access-list number\n"
- *     "IP access-list number (expanded range)\n"
- *     "IP access-list name\n"
- *
- */
 DEFUN (no_match_ip_nexthop,
        no_match_ip_nexthop_cmd,
-       "no match ip next-hop",
+       "no match ip next-hop [<(1-199)|(1300-2699)|WORD>]",
        NO_STR
        MATCH_STR
        IP_STR
-       "Match next-hop address of route\n")
+       "Match next-hop address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP access-list name\n")
 {
-  return ospf_route_match_delete (vty, vty->index, "ip next-hop", argv[4]->arg);
+  char *al = (argc == 5) ? argv[4]->arg : NULL;
+  return ospf_route_match_delete (vty, vty->index, "ip next-hop", al);
 }
 
 
@@ -742,28 +734,18 @@ DEFUN (match_ip_next_hop_prefix_list,
 			       argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip next-hop prefix-list WORD",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match next-hop address of route\n"
- *     "Match entries of prefix-lists\n"
- *     "IP prefix-list name\n"
- *
- */
 DEFUN (no_match_ip_next_hop_prefix_list,
        no_match_ip_next_hop_prefix_list_cmd,
-       "no match ip next-hop prefix-list",
+       "no match ip next-hop prefix-list [WORD]",
        NO_STR
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
-       "Match entries of prefix-lists\n")
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
-  return ospf_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
-				  argv[5]->arg);
+  char *pl = (argc == 6) ? argv[5]->arg : NULL;
+  return ospf_route_match_delete (vty, vty->index, "ip next-hop prefix-list", pl);
 }
 
 
@@ -781,29 +763,20 @@ DEFUN (match_ip_address,
   return ospf_route_match_add (vty, vty->index, "ip address", argv[idx_acl]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip address (<1-199>|<1300-2699>|WORD)",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match address of route\n"
- *     "IP access-list number\n"
- *     "IP access-list number (expanded range)\n"
- *     "IP access-list name\n"
- *
- */
 DEFUN (no_match_ip_address,
        no_match_ip_address_cmd,
-       "no match ip address",
+       "no match ip address [<(1-199)|(1300-2699)|WORD>]",
        NO_STR
        MATCH_STR
        IP_STR
-       "Match address of route\n")
+       "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP access-list name\n")
 {
-  return ospf_route_match_delete (vty, vty->index, "ip address", argv[4]->arg);
+  char *al = (argc == 5) ? argv[4]->arg : NULL;
+  return ospf_route_match_delete (vty, vty->index, "ip address", al);
 }
-
 
 DEFUN (match_ip_address_prefix_list,
        match_ip_address_prefix_list_cmd,
@@ -819,30 +792,19 @@ DEFUN (match_ip_address_prefix_list,
 			       argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match ip address prefix-list WORD",
- *     NO_STR
- *     MATCH_STR
- *     IP_STR
- *     "Match address of route\n"
- *     "Match entries of prefix-lists\n"
- *     "IP prefix-list name\n"
- *
- */
 DEFUN (no_match_ip_address_prefix_list,
        no_match_ip_address_prefix_list_cmd,
-       "no match ip address prefix-list",
+       "no match ip address prefix-list [WORD]",
        NO_STR
        MATCH_STR
        IP_STR
        "Match address of route\n"
        "Match entries of prefix-lists\n")
+       "IP prefix-list name\n"
 {
-  return ospf_route_match_delete (vty, vty->index, "ip address prefix-list",
-				  argv[5]->arg);
+  char *pl = (argc == 6) ? argv[5]->arg : NULL;
+  return ospf_route_match_delete (vty, vty->index, "ip address prefix-list", pl);
 }
-
 
 DEFUN (match_interface,
        match_interface_cmd,
@@ -855,25 +817,17 @@ DEFUN (match_interface,
   return ospf_route_match_add (vty, vty->index, "interface", argv[idx_word]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match interface WORD",
- *     NO_STR
- *     MATCH_STR
- *     "Match first hop interface of route\n"
- *     "Interface name\n"
- *
- */
 DEFUN (no_match_interface,
        no_match_interface_cmd,
-       "no match interface",
+       "no match interface [INTERFACE]",
        NO_STR
        MATCH_STR
-       "Match first hop interface of route\n")
+       "Match first hop interface of route\n"
+       "Interface name\n")
 {
-  return ospf_route_match_delete (vty, vty->index, "interface", argv[3]->arg);
+  char *iface = (argc == 4) ? argv[3]->arg : NULL;
+  return ospf_route_match_delete (vty, vty->index, "interface", iface);
 }
-
 
 DEFUN (match_tag,
        match_tag_cmd,
@@ -886,25 +840,17 @@ DEFUN (match_tag,
   return ospf_route_match_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match tag <1-65535>",
- *     NO_STR
- *     MATCH_STR
- *     "Match tag of route\n"
- *     "Tag value\n"
- *
- */
 DEFUN (no_match_tag,
        no_match_tag_cmd,
-       "no match tag",
+       "no match tag [(1-65535)]",
        NO_STR
        MATCH_STR
-       "Match tag of route\n")
+       "Match tag of route\n"
+       "Tag value\n")
 {
-  return ospf_route_match_delete (vty, vty->index, "tag", argv[3]->arg);
+  char *tag = (argc == 4) ? argv[3]->arg : NULL;
+  return ospf_route_match_delete (vty, vty->index, "tag", tag);
 }
-
 
 DEFUN (set_metric,
        set_metric_cmd,
@@ -917,25 +863,17 @@ DEFUN (set_metric,
   return ospf_route_set_add (vty, vty->index, "metric", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set metric <0-4294967295>",
- *     NO_STR
- *     SET_STR
- *     "Metric value for destination routing protocol\n"
- *     "Metric value\n"
- *
- */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
-       "no set metric",
+       "no set metric [(0-4294967295)]",
        NO_STR
        SET_STR
-       "Metric value for destination routing protocol\n")
+       "Metric value for destination routing protocol\n"
+       "Metric value\n")
 {
-  return ospf_route_set_delete (vty, vty->index, "metric", argv[3]->arg);
+  char *mval = (argc == 4) ? argv[3]->arg : NULL;
+  return ospf_route_set_delete (vty, vty->index, "metric", mval);
 }
-
 
 DEFUN (set_metric_type,
        set_metric_type_cmd,
@@ -945,35 +883,22 @@ DEFUN (set_metric_type,
        "OSPF[6] external type 1 metric\n"
        "OSPF[6] external type 2 metric\n")
 {
-  int idx_external = 2;
-  if (strcmp (argv[idx_external]->arg, "1") == 0)
-    return ospf_route_set_add (vty, vty->index, "metric-type", "type-1");
-  if (strcmp (argv[idx_external]->arg, "2") == 0)
-    return ospf_route_set_add (vty, vty->index, "metric-type", "type-2");
-
-  return ospf_route_set_add (vty, vty->index, "metric-type", argv[idx_external]->arg);
+  char *ext = argv[2]->text;
+  return ospf_route_set_add (vty, vty->index, "metric-type", ext);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set metric-type (type-1|type-2)",
- *     NO_STR
- *     SET_STR
- *     "Type of metric for destination routing protocol\n"
- *     "OSPF[6] external type 1 metric\n"
- *     "OSPF[6] external type 2 metric\n"
- *
- */
 DEFUN (no_set_metric_type,
        no_set_metric_type_cmd,
-       "no set metric-type",
+       "no set metric-type [<type-1|type-2>]",
        NO_STR
        SET_STR
        "Type of metric for destination routing protocol\n")
+       "OSPF[6] external type 1 metric\n"
+       "OSPF[6] external type 2 metric\n"
 {
-  return ospf_route_set_delete (vty, vty->index, "metric-type", argv[3]->arg);
+  char *ext = (argc == 4) ? argv[3]->text : NULL;
+  return ospf_route_set_delete (vty, vty->index, "metric-type", ext);
 }
-
 
 DEFUN (set_tag,
        set_tag_cmd,
@@ -986,23 +911,16 @@ DEFUN (set_tag,
   return ospf_route_set_add (vty, vty->index, "tag", argv[idx_number]->arg);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set tag <1-65535>",
- *     NO_STR
- *     SET_STR
- *     "Tag value for routing protocol\n"
- *     "Tag value\n"
- *
- */
 DEFUN (no_set_tag,
        no_set_tag_cmd,
-       "no set tag",
+       "no set tag [(1-65535)]",
        NO_STR
        SET_STR
-       "Tag value for routing protocol\n")
+       "Tag value for routing protocol\n"
+       "Tag value\n")
 {
-  return ospf_route_set_delete (vty, vty->index, "tag", argv[3]->arg);
+  char *tag = (argc == 4) ? argv[3]->arg : NULL;
+  return ospf_route_set_delete (vty, vty->index, "tag", tag);
 }
 
 

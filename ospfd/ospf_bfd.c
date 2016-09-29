@@ -407,25 +407,16 @@ DEFUN (ip_ospf_bfd_param,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no ip ospf bfd (2-255) (50-60000) (50-60000)",
- *     NO_STR
- *     "IP Information\n"
- *     "OSPF interface commands\n"
- *     "Enables BFD support\n"
- *     "Detect Multiplier\n"
- *     "Required min receive interval\n"
- *     "Desired min transmit interval\n"
- *
- */
 DEFUN (no_ip_ospf_bfd,
        no_ip_ospf_bfd_cmd,
-       "no ip ospf bfd",
+       "no ip ospf bfd [(2-255) (50-60000) (50-60000)]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
-       "Disables BFD support\n")
+       "Disables BFD support\n"
+       "Detect Multiplier\n"
+       "Required min receive interval\n"
+       "Desired min transmit interval\n")
 {
   struct interface *ifp = (struct interface *)vty->index;
   struct ospf_if_params *params;
@@ -441,7 +432,6 @@ DEFUN (no_ip_ospf_bfd,
 
   return CMD_SUCCESS;
 }
-
 
 void
 ospf_bfd_init(void)

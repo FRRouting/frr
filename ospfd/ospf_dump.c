@@ -753,54 +753,69 @@ ospf_packet_dump (struct stream *s)
   stream_set_getp (s, gp);
 }
 
-
-/*
-   [no] debug ospf [<1-65535>] packet (hello|dd|ls-request|ls-update|ls-ack|all)
-                          [send|recv [detail]]
-*/
-static int
-debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
-                          struct cmd_token **argv)
+DEFUN (debug_ospf_packet,
+       debug_ospf_packet_cmd,
+       "debug ospf [(1-65535)] packet <hello|dd|ls-request|ls-update|ls-ack|all> [<send [detail]|recv [detail]|detail>]",
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "OSPF packets\n"
+       "OSPF Hello\n"
+       "OSPF Database Description\n"
+       "OSPF Link State Request\n"
+       "OSPF Link State Update\n"
+       "OSPF Link State Acknowledgment\n"
+       "OSPF all packets\n"
+       "Packet sent\n"
+       "Detail Information\n"
+       "Packet received\n"
+       "Detail Information\n"
+       "Detail Information\n")
 {
+  int inst = (argv[2]->type == RANGE_TKN) ? 1 : 0;
+  int detail = strmatch (argv[argc - 1]->text, "detail");
+  int send = strmatch (argv[argc - (1+detail)]->text, "send");
+  int recv = strmatch (argv[argc - (1+detail)]->text, "recv");
+  char *packet = argv[3 + inst]->text;
+
+  if (inst) // user passed instance ID
+  {
+    if (!ospf_lookup_instance (strtoul (argv[2]->arg, NULL, 10)))
+      return CMD_SUCCESS;
+  }
+
   int type = 0;
   int flag = 0;
   int i;
 
-  assert (argc > arg_base + 0);
-
   /* Check packet type. */
-  if (strncmp (argv[arg_base + 0]->arg, "h", 1) == 0)
+  if (strmatch (packet, "hello"))
     type = OSPF_DEBUG_HELLO;
-  else if (strncmp (argv[arg_base + 0]->arg, "d", 1) == 0)
+  else if (strmatch (packet, "dd"))
     type = OSPF_DEBUG_DB_DESC;
-  else if (strncmp (argv[arg_base + 0]->arg, "ls-r", 4) == 0)
+  else if (strmatch (packet, "ls-request"))
     type = OSPF_DEBUG_LS_REQ;
-  else if (strncmp (argv[arg_base + 0]->arg, "ls-u", 4) == 0)
+  else if (strmatch (packet, "ls-update"))
     type = OSPF_DEBUG_LS_UPD;
-  else if (strncmp (argv[arg_base + 0]->arg, "ls-a", 4) == 0)
+  else if (strmatch (packet, "ls-ack"))
     type = OSPF_DEBUG_LS_ACK;
-  else if (strncmp (argv[arg_base + 0]->arg, "a", 1) == 0)
+  else if (strmatch (packet, "all"))
     type = OSPF_DEBUG_ALL;
 
-  /* Default, both send and recv. */
-  if (argc == arg_base + 1)
-    flag = OSPF_DEBUG_SEND | OSPF_DEBUG_RECV;
+  /* Cases:
+   * (none)      = send + recv
+   * detail      = send + recv + detail
+   * recv        = recv
+   * send        = send
+   * recv detail = recv + detail
+   * send detail = send + detail
+   */
+  if (!send && !recv)
+    send = recv = 1;
 
-  /* send or recv. */
-  if (argc >= arg_base + 2)
-    {
-      if (strncmp (argv[arg_base + 1]->arg, "s", 1) == 0)
-	flag = OSPF_DEBUG_SEND;
-      else if (strncmp (argv[arg_base + 1]->arg, "r", 1) == 0)
-	flag = OSPF_DEBUG_RECV;
-      else if (strncmp (argv[arg_base + 1]->arg, "d", 1) == 0)
-	flag = OSPF_DEBUG_SEND | OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
-    }
-
-  /* detail. */
-  if (argc == arg_base + 3)
-    if (strncmp (argv[arg_base + 2]->arg, "d", 1) == 0)
-      flag |= OSPF_DEBUG_DETAIL;
+  flag |= (send) ? OSPF_DEBUG_SEND : 0;
+  flag |= (recv) ? OSPF_DEBUG_RECV : 0;
+  flag |= (detail) ? OSPF_DEBUG_DETAIL : 0;
 
   for (i = 0; i < 5; i++)
     if (type & (0x01 << i))
@@ -814,91 +829,10 @@ debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "OSPF packets\n"
- *     "OSPF Hello\n"
- *     "OSPF Database Description\n"
- *     "OSPF Link State Request\n"
- *     "OSPF Link State Update\n"
- *     "OSPF Link State Acknowledgment\n"
- *     "OSPF all packets\n"
- *     "Packet sent\n"
- *     "Packet received\n"
- *     "Detail Information\n"
- *
- * "debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "OSPF packets\n"
- *     "OSPF Hello\n"
- *     "OSPF Database Description\n"
- *     "OSPF Link State Request\n"
- *     "OSPF Link State Update\n"
- *     "OSPF Link State Acknowledgment\n"
- *     "OSPF all packets\n"
- *     "Packet sent\n"
- *     "Packet received\n"
- *     "Detail information\n"
- *
- */
-DEFUN (debug_ospf_packet,
-       debug_ospf_packet_all_cmd,
-       "debug ospf packet <hello|dd|ls-request|ls-update|ls-ack|all>",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n")
-{
-  return (debug_ospf_packet_common(vty, 0, argc, argv));
-}
-
-
-       
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "Instance ID\n"
- *     "OSPF packets\n"
- *     "OSPF Hello\n"
- *     "OSPF Database Description\n"
- *     "OSPF Link State Request\n"
- *     "OSPF Link State Update\n"
- *     "OSPF Link State Acknowledgment\n"
- *     "OSPF all packets\n"
- *     "Packet sent\n"
- *     "Packet received\n"
- *     "Detail information\n"
- *
- * "debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "Instance ID\n"
- *     "OSPF packets\n"
- *     "OSPF Hello\n"
- *     "OSPF Database Description\n"
- *     "OSPF Link State Request\n"
- *     "OSPF Link State Update\n"
- *     "OSPF Link State Acknowledgment\n"
- *     "OSPF all packets\n"
- *     "Packet sent\n"
- *     "Packet received\n"
- *     "Detail Information\n"
- *
- */
-DEFUN (debug_ospf_instance_packet,
-       debug_ospf_instance_packet_all_cmd,
-       "debug ospf (1-65535) packet <hello|dd|ls-request|ls-update|ls-ack|all>",
+DEFUN (no_debug_ospf_packet,
+       no_debug_ospf_packet_cmd,
+       "no debug ospf [(1-65535)] packet <hello|dd|ls-request|ls-update|ls-ack|all> [<send [detail]|recv [detail]|detail>]",
+       NO_STR
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -908,63 +842,57 @@ DEFUN (debug_ospf_instance_packet,
        "OSPF Link State Request\n"
        "OSPF Link State Update\n"
        "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n")
+       "OSPF all packets\n"
+       "Packet sent\n"
+       "Detail Information\n"
+       "Packet received\n"
+       "Detail Information\n"
+       "Detail Information\n")
 {
-  int idx_number = 2;
-  u_short instance = 0;
+  int inst = (argv[3]->type == RANGE_TKN) ? 1 : 0;
+  int detail = strmatch (argv[argc - 1]->text, "detail");
+  int send = strmatch (argv[argc - (1+detail)]->text, "send");
+  int recv = strmatch (argv[argc - (1+detail)]->text, "recv");
+  char *packet = argv[4 + inst]->text;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
-  if (!ospf_lookup_instance (instance))
-    return CMD_SUCCESS;
+  if (inst) // user passed instance ID
+  {
+    if (!ospf_lookup_instance (strtoul (argv[3]->arg, NULL, 10)))
+      return CMD_SUCCESS;
+  }
 
-  return (debug_ospf_packet_common(vty, 1, argc, argv));
-}
-
-
-
-static int
-no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
-                             struct cmd_token **argv)
-{
   int type = 0;
   int flag = 0;
   int i;
 
-  assert (argc > arg_base + 0);
-
   /* Check packet type. */
-  if (strncmp (argv[arg_base + 0]->arg, "h", 1) == 0)
+  if (strmatch (packet, "hello"))
     type = OSPF_DEBUG_HELLO;
-  else if (strncmp (argv[arg_base + 0]->arg, "d", 1) == 0)
+  else if (strmatch (packet, "dd"))
     type = OSPF_DEBUG_DB_DESC;
-  else if (strncmp (argv[arg_base + 0]->arg, "ls-r", 4) == 0)
+  else if (strmatch (packet, "ls-request"))
     type = OSPF_DEBUG_LS_REQ;
-  else if (strncmp (argv[arg_base + 0]->arg, "ls-u", 4) == 0)
+  else if (strmatch (packet, "ls-update"))
     type = OSPF_DEBUG_LS_UPD;
-  else if (strncmp (argv[arg_base + 0]->arg, "ls-a", 4) == 0)
+  else if (strmatch (packet, "ls-ack"))
     type = OSPF_DEBUG_LS_ACK;
-  else if (strncmp (argv[arg_base + 0]->arg, "a", 1) == 0)
+  else if (strmatch (packet, "all"))
     type = OSPF_DEBUG_ALL;
 
-  /* Default, both send and recv. */
-  if (argc == arg_base + 1)
-    flag = OSPF_DEBUG_SEND | OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL ;
+  /* Cases:
+   * (none)      = send + recv
+   * detail      = send + recv + detail
+   * recv        = recv
+   * send        = send
+   * recv detail = recv + detail
+   * send detail = send + detail
+   */
+  if (!send && !recv)
+    send = recv = 1;
 
-  /* send or recv. */
-  if (argc == arg_base + 2)
-    {
-      if (strncmp (argv[arg_base + 1]->arg, "s", 1) == 0)
-	flag = OSPF_DEBUG_SEND | OSPF_DEBUG_DETAIL;
-      else if (strncmp (argv[arg_base + 1]->arg, "r", 1) == 0)
-	flag = OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
-      else if (strncmp (argv[arg_base + 1]->arg, "d", 1) == 0)
-	flag = OSPF_DEBUG_DETAIL | OSPF_DEBUG_RECV | OSPF_DEBUG_DETAIL;
-    }
-
-  /* detail. */
-  if (argc == arg_base + 3)
-    if (strncmp (argv[arg_base + 2]->arg, "d", 1) == 0)
-      flag = OSPF_DEBUG_DETAIL;
+  flag |= (send) ? OSPF_DEBUG_SEND : 0;
+  flag |= (recv) ? OSPF_DEBUG_RECV : 0;
+  flag |= (detail) ? OSPF_DEBUG_DETAIL : 0;
 
   for (i = 0; i < 5; i++)
     if (type & (0x01 << i))
@@ -985,135 +913,37 @@ no_debug_ospf_packet_common (struct vty *vty, int arg_base, int argc,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
- *     NO_STR
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "OSPF packets\n"
- *     "OSPF Hello\n"
- *     "OSPF Database Description\n"
- *     "OSPF Link State Request\n"
- *     "OSPF Link State Update\n"
- *     "OSPF Link State Acknowledgment\n"
- *     "OSPF all packets\n"
- *     "Packet sent\n"
- *     "Packet received\n"
- *     "Detail Information\n"
- *
- * "no debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
- *     NO_STR
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "OSPF packets\n"
- *     "OSPF Hello\n"
- *     "OSPF Database Description\n"
- *     "OSPF Link State Request\n"
- *     "OSPF Link State Update\n"
- *     "OSPF Link State Acknowledgment\n"
- *     "OSPF all packets\n"
- *     "Packet sent\n"
- *     "Packet received\n"
- *     "Detail Information\n"
- *
- */
-DEFUN (no_debug_ospf_packet,
-       no_debug_ospf_packet_all_cmd,
-       "no debug ospf packet <hello|dd|ls-request|ls-update|ls-ack|all>",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n")
-{
-  return no_debug_ospf_packet_common(vty, 0, argc, argv);
-}
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv|detail)",
- *     NO_STR
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "Instance ID\n"
- *     "OSPF packets\n"
- *     "OSPF Hello\n"
- *     "OSPF Database Description\n"
- *     "OSPF Link State Request\n"
- *     "OSPF Link State Update\n"
- *     "OSPF Link State Acknowledgment\n"
- *     "OSPF all packets\n"
- *     "Packet sent\n"
- *     "Packet received\n"
- *     "Detail Information\n"
- *
- * "no debug ospf <1-65535> packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) (detail|)",
- *     NO_STR
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "Instance ID\n"
- *     "OSPF packets\n"
- *     "OSPF Hello\n"
- *     "OSPF Database Description\n"
- *     "OSPF Link State Request\n"
- *     "OSPF Link State Update\n"
- *     "OSPF Link State Acknowledgment\n"
- *     "OSPF all packets\n"
- *     "Packet sent\n"
- *     "Packet received\n"
- *     "Detail Information\n"
- *
- */
-DEFUN (no_debug_ospf_instance_packet,
-       no_debug_ospf_instance_packet_all_cmd,
-       "no debug ospf (1-65535) packet <hello|dd|ls-request|ls-update|ls-ack|all>",
-       NO_STR
+DEFUN (debug_ospf_ism,
+       debug_ospf_ism_cmd,
+       "debug ospf [(1-65535)] ism [<status|events|timers>]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF packets\n"
-       "OSPF Hello\n"
-       "OSPF Database Description\n"
-       "OSPF Link State Request\n"
-       "OSPF Link State Update\n"
-       "OSPF Link State Acknowledgment\n"
-       "OSPF all packets\n")
+       "OSPF Interface State Machine\n"
+       "ISM Status Information\n"
+       "ISM Event Information\n"
+       "ISM TImer Information\n")
 {
-  int idx_number = 3;
-  u_short instance = 0;
+  int inst = (argv[2]->type == RANGE_TKN);
+  char *dbgparam = (argc == 4 + inst) ? argv[argc - 1]->text : NULL;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
-  if (!ospf_lookup_instance (instance))
-    return CMD_SUCCESS;
+  if (inst) // user passed instance ID
+  {
+    if (!ospf_lookup_instance (strtoul (argv[2]->arg, NULL, 10)))
+      return CMD_SUCCESS;
+  }
 
-  return (no_debug_ospf_packet_common(vty, 1, argc, argv));
-}
-
-
-
-
-static int
-debug_ospf_ism_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
-{
   if (vty->node == CONFIG_NODE)
     {
-      if (argc == arg_base + 0)
+      if (!dbgparam)
 	DEBUG_ON (ism, ISM);
-      else if (argc == arg_base + 1)
+      else
 	{
-	  if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
+          if (strmatch (dbgparam, "status"))
 	    DEBUG_ON (ism, ISM_STATUS);
-	  else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
+          else if (strmatch (dbgparam, "events"))
 	    DEBUG_ON (ism, ISM_EVENTS);
-	  else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
+          else if (strmatch (dbgparam, "timers"))
 	    DEBUG_ON (ism, ISM_TIMERS);
 	}
 
@@ -1121,166 +951,69 @@ debug_ospf_ism_common (struct vty *vty, int arg_base, int argc, struct cmd_token
     }
 
   /* ENABLE_NODE. */
-  if (argc == arg_base + 0)
+  if (!dbgparam)
     TERM_DEBUG_ON (ism, ISM);
-  else if (argc == arg_base + 1)
+  else
     {
-      if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
-	TERM_DEBUG_ON (ism, ISM_STATUS);
-      else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
-	TERM_DEBUG_ON (ism, ISM_EVENTS);
-      else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
-	TERM_DEBUG_ON (ism, ISM_TIMERS);
+      if (strmatch (dbgparam, "status"))
+        TERM_DEBUG_ON (ism, ISM_STATUS);
+      else if (strmatch (dbgparam, "events"))
+        TERM_DEBUG_ON (ism, ISM_EVENTS);
+      else if (strmatch (dbgparam, "timers"))
+        TERM_DEBUG_ON (ism, ISM_TIMERS);
     }
-
-  return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf ism (status|events|timers)",
- *     DEBUG_STR
- *     OSPF_STR
- *     "OSPF Interface State Machine\n"
- *     "ISM Status Information\n"
- *     "ISM Event Information\n"
- *     "ISM TImer Information\n"
- *
- */
-DEFUN (debug_ospf_ism,
-       debug_ospf_ism_cmd,
-       "debug ospf ism",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Interface State Machine\n")
-{
-  return debug_ospf_ism_common(vty, 0, argc, argv);
-}
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf <1-65535> ism (status|events|timers)",
- *     DEBUG_STR
- *     OSPF_STR
- *     "Instance ID\n"
- *     "OSPF Interface State Machine\n"
- *     "ISM Status Information\n"
- *     "ISM Event Information\n"
- *     "ISM TImer Information\n"
- *
- */
-DEFUN (debug_ospf_instance_ism,
-       debug_ospf_instance_ism_cmd,
-       "debug ospf (1-65535) ism",
+DEFUN (no_debug_ospf_ism,
+       no_debug_ospf_ism_cmd,
+       "no debug ospf [(1-65535)] ism [<status|events|timers>]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Interface State Machine\n")
+       "OSPF Interface State Machine\n"
+       "ISM Status Information\n"
+       "ISM Event Information\n"
+       "ISM TImer Information\n")
 {
-  int idx_number = 2;
-  u_short instance = 0;
+  int inst = (argv[3]->type == RANGE_TKN);
+  char *dbgparam = (argc == 5 + inst) ? argv[argc - 1]->text : NULL;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
-  if (!ospf_lookup_instance (instance))
-    return CMD_SUCCESS;
+  if (inst) // user passed instance ID
+  {
+    if (!ospf_lookup_instance (strtoul (argv[2]->arg, NULL, 10)))
+      return CMD_SUCCESS;
+  }
 
-  return debug_ospf_ism_common(vty, 1, argc, argv);
-}
-
-
-static int
-no_debug_ospf_ism_common(struct vty *vty, int arg_base, int argc,
-                         struct cmd_token **argv)
-{
   if (vty->node == CONFIG_NODE)
     {
-      if (argc == arg_base + 0)
+      if (!dbgparam)
 	DEBUG_OFF (ism, ISM);
-      else if (argc == arg_base + 1)
+      else
 	{
-	  if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
+          if (strmatch (dbgparam, "status"))
 	    DEBUG_OFF (ism, ISM_STATUS);
-	  else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
+          else if (strmatch (dbgparam, "events"))
 	    DEBUG_OFF (ism, ISM_EVENTS);
-	  else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
+          else if (strmatch (dbgparam, "timers"))
 	    DEBUG_OFF (ism, ISM_TIMERS);
 	}
+
       return CMD_SUCCESS;
     }
 
   /* ENABLE_NODE. */
-  if (argc == arg_base + 0)
+  if (!dbgparam)
     TERM_DEBUG_OFF (ism, ISM);
-  else if (argc == arg_base + 1)
+  else
     {
-      if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
-	TERM_DEBUG_OFF (ism, ISM_STATUS);
-      else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
-	TERM_DEBUG_OFF (ism, ISM_EVENTS);
-      else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
-	TERM_DEBUG_OFF (ism, ISM_TIMERS);
+      if (strmatch (dbgparam, "status"))
+        TERM_DEBUG_OFF (ism, ISM_STATUS);
+      else if (strmatch (dbgparam, "events"))
+        TERM_DEBUG_OFF (ism, ISM_EVENTS);
+      else if (strmatch (dbgparam, "timers"))
+        TERM_DEBUG_OFF (ism, ISM_TIMERS);
     }
-
-  return CMD_SUCCESS;
 }
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf ism (status|events|timers)",
- *     NO_STR
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "OSPF Interface State Machine\n"
- *     "ISM Status Information\n"
- *     "ISM Event Information\n"
- *     "ISM Timer Information\n"
- *
- */
-DEFUN (no_debug_ospf_ism,
-       no_debug_ospf_ism_cmd,
-       "no debug ospf ism",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Interface State Machine")
-{
-  return no_debug_ospf_ism_common(vty, 0, argc, argv);
-}
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf <1-65535> ism (status|events|timers)",
- *     NO_STR
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "Instance ID\n"
- *     "OSPF Interface State Machine\n"
- *     "ISM Status Information\n"
- *     "ISM Event Information\n"
- *     "ISM Timer Information\n"
- *
- */
-DEFUN (no_debug_ospf_instance_ism,
-       no_debug_ospf_instance_ism_cmd,
-       "no debug ospf (1-65535) ism",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Interface State Machine")
-{
-  int idx_number = 3;
-  u_short instance = 0;
-
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
-  if (!ospf_lookup_instance (instance))
-    return CMD_SUCCESS;
-
-  return no_debug_ospf_ism_common(vty, 1, argc, argv);
-}
-
 
 static int
 debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token **argv)
@@ -2355,15 +2088,16 @@ debug_init ()
   install_element (ENABLE_NODE, &no_debug_ospf_te_cmd);
 
   install_element (ENABLE_NODE, &show_debugging_ospf_instance_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_instance_packet_all_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_instance_ism_cmd);
+  install_element (ENABLE_NODE, &debug_ospf_packet_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf_packet_cmd);
+  install_element (ENABLE_NODE, &debug_ospf_ism_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf_ism_cmd);
+
   install_element (ENABLE_NODE, &debug_ospf_instance_nsm_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_lsa_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_zebra_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_event_cmd);
   install_element (ENABLE_NODE, &debug_ospf_instance_nssa_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_instance_packet_all_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_instance_ism_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_nsm_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_lsa_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_instance_zebra_cmd);
@@ -2371,8 +2105,13 @@ debug_init ()
   install_element (ENABLE_NODE, &no_debug_ospf_instance_nssa_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_cmd);
 
-  install_element (CONFIG_NODE, &debug_ospf_packet_all_cmd);
+
+
+  install_element (CONFIG_NODE, &debug_ospf_packet_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf_packet_cmd);
   install_element (CONFIG_NODE, &debug_ospf_ism_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf_ism_cmd);
+
   install_element (CONFIG_NODE, &debug_ospf_nsm_cmd);
   install_element (CONFIG_NODE, &debug_ospf_lsa_cmd);
   install_element (CONFIG_NODE, &debug_ospf_zebra_cmd);
@@ -2388,15 +2127,11 @@ debug_init ()
   install_element (CONFIG_NODE, &no_debug_ospf_nssa_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_te_cmd);
 
-  install_element (CONFIG_NODE, &debug_ospf_instance_packet_all_cmd);
-  install_element (CONFIG_NODE, &debug_ospf_instance_ism_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_lsa_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_zebra_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_event_cmd);
   install_element (CONFIG_NODE, &debug_ospf_instance_nssa_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_instance_packet_all_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_instance_ism_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_nsm_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_lsa_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_instance_zebra_cmd);

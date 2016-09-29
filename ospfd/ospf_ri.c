@@ -1174,21 +1174,16 @@ ospf_router_info_config_write_router (struct vty *vty)
  * Followings are vty command functions.
  *------------------------------------------------------------------------*/
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "router-info as",
- *     OSPF_RI_STR
- *     "Enable the Router Information functionality with AS flooding scope\n"
- *
- */
 DEFUN (router_info,
        router_info_area_cmd,
-       "router-info area A.B.C.D",
+       "router-info <as|area A.B.C.D>",
        OSPF_RI_STR
+       "Enable the Router Information functionality with AS flooding scope\n"
        "Enable the Router Information functionality with Area flooding scope\n"
        "OSPF area ID in IP format")
 {
   int idx_ipv4 = 2;
+  char *area = (argc == 3) ? argv[2]->arg : NULL;
 
   u_int8_t scope;
 
@@ -1196,14 +1191,9 @@ DEFUN (router_info,
     return CMD_SUCCESS;
 
   /* Check and get Area value if present */
-  if (argc == 1)
+  if (area)
     {
-      if (!inet_aton (argv[idx_ipv4]->arg, &OspfRI.area_id))
-        {
-          vty_out (vty, "Please specify Router Info Area by A.B.C.D%s",
-                   VTY_NEWLINE);
-          return CMD_WARNING;
-        }
+      inet_aton (area, &OspfRI.area_id);
       scope = OSPF_OPAQUE_AREA_LSA;
     }
   else

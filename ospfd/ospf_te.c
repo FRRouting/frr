@@ -2297,17 +2297,9 @@ DEFUN (ospf_mpls_te_on,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no mpls-te on",
- *     NO_STR
- *     MPLS_TE_STR
- *     "Disable the MPLS-TE functionality\n"
- *
- */
 DEFUN (no_ospf_mpls_te,
        no_ospf_mpls_te_cmd,
-       "no mpls-te",
+       "no mpls-tei [on]",
        NO_STR
        "Disable the MPLS-TE functionality\n")
 {
