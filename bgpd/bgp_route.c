@@ -3921,6 +3921,11 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
   attr.med = bgp_static->igpmetric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
 
+  if (bgp_static->ecomm)
+    {
+      bgp_attr_extra_get (&attr)->ecommunity = ecommunity_dup (bgp_static->ecomm);
+      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
+    }
   /* Apply route-map. */
   if (bgp_static->rmap.name)
     {
@@ -4340,6 +4345,7 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
   struct bgp_node *rn;
   struct bgp_table *table;
   struct bgp_static *bgp_static;
+  struct bgp_vrf *vrf;
   u_char tag[3];
 
   ret = str2prefix (ip_str, &p);
@@ -4388,6 +4394,11 @@ bgp_static_set_safi (safi_t safi, struct vty *vty, const char *ip_str,
       bgp_static->igpmetric = 0;
       bgp_static->igpnexthop.s_addr = 0;
       memcpy(bgp_static->tag, tag, 3);
+      vrf = bgp_vrf_lookup(bgp, &prd);
+      if (vrf)
+        {
+          bgp_static->ecomm = vrf->rt_export;
+        }
       bgp_static->prd = prd;
 
       if (rmap_str)
