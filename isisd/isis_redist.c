@@ -635,16 +635,11 @@ DEFUN (no_isis_redistribute,
   if (!afi)
     return CMD_WARNING;
 
-  type = proto_redistnum(afi, argv[idx_protocol]->arg);
+  type = proto_redistnum(afi, argv[idx_protocol]->text);
   if (type < 0 || type == ZEBRA_ROUTE_ISIS)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[idx_level]->arg))
-    level = 1;
-  else if (!strcmp("level-2", argv[idx_level]->arg))
-    level = 2;
-  else
-    return CMD_WARNING;
+  level = strmatch ("level-1", argv[idx_level]->text) ? 1 : 2;
 
   isis_redist_unset(area, level, family, type);
   return 0;
@@ -652,7 +647,7 @@ DEFUN (no_isis_redistribute,
 
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
-       "default-information originate <ipv4|ipv6> <level-1|level-2> [always|metric (0-16777215)|route-map WORD]",
+       "default-information originate <ipv4|ipv6> <level-1|level-2> [<always|metric (0-16777215)|route-map WORD>]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
@@ -670,21 +665,16 @@ DEFUN (isis_default_originate,
   int idx_metric_rmap = 4;
   struct isis_area *area = vty->index;
   int family;
-  int originate_type;
+  int originate_type = DEFAULT_ORIGINATE;
   int level;
-  unsigned long metric;
-  const char *routemap;
+  unsigned long metric = 0xffffffff;
+  const char *routemap = NULL;
 
-  family = str2family(argv[idx_afi]->arg);
+  family = str2family(argv[idx_afi]->text);
   if (family < 0)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[idx_level]->arg))
-    level = 1;
-  else if (!strcmp("level-2", argv[idx_level]->arg))
-    level = 2;
-  else
-    return CMD_WARNING;
+  level = strmatch ("level-1", argv[idx_level]->text) ? 1 : 2;
 
   if ((area->is_type & level) != level)
     {
@@ -692,30 +682,20 @@ DEFUN (isis_default_originate,
       return CMD_WARNING;
     }
 
-  if (argv[idx_metric_rmap]->arg && *argv[idx_metric_rmap]->arg != '\0')
-    originate_type = DEFAULT_ORIGINATE_ALWAYS;
-  else
-    originate_type = DEFAULT_ORIGINATE;
+  if (argc > 4)
+  {
+    if (strmatch (argv[idx_metric_rmap]->text, "always"))
+      originate_type = DEFAULT_ORIGINATE_ALWAYS;
+    else if (strmatch(argv[idx_metric_rmap]->text, "metric"))
+      metric = strtoul(argv[idx_metric_rmap + 1]->arg, NULL, 10);
+    else
+      routemap = argv[idx_metric_rmap + 1]->arg;
+  }
 
   if (family == AF_INET6 && originate_type != DEFAULT_ORIGINATE_ALWAYS)
     {
       vty_out(vty, "Zebra doesn't implement default-originate for IPv6 yet%s", VTY_NEWLINE);
       vty_out(vty, "so use with care or use default-originate always.%s", VTY_NEWLINE);
-    }
-
-  if (strmatch(argv[idx_metric_rmap]->text, "metric"))
-    {
-      char *endp;
-      metric = strtoul(argv[idx_metric_rmap + 1]->arg, &endp, 10);
-      routemap = NULL;
-
-      if (argv[idx_metric_rmap]->arg[0] == '\0' || *endp != '\0')
-        return CMD_WARNING;
-    }
-  else
-    {
-      routemap = argv[idx_metric_rmap + 1]->arg;
-      metric = 0xffffffff;
     }
 
   isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap, originate_type);
@@ -740,13 +720,13 @@ DEFUN (no_isis_default_originate,
   int family;
   int level;
 
-  family = str2family(argv[idx_afi]->arg);
+  family = str2family(argv[idx_afi]->text);
   if (family < 0)
     return CMD_WARNING;
 
-  if (!strcmp("level-1", argv[idx_level]->arg))
+  if (strmatch ("level-1", argv[idx_level]->text))
     level = 1;
-  else if (!strcmp("level-2", argv[idx_level]->arg))
+  else if (strmatch ("level-2", argv[idx_level]->text))
     level = 2;
   else
     return CMD_WARNING;

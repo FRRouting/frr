@@ -2057,9 +2057,8 @@ area_passwd_set(struct vty *vty, int level,
 
 DEFUN (area_passwd_md5,
        area_passwd_md5_cmd,
-       "<area-password|domain-password> md5 WORD [authenticate snp <send-only|validate>]",
+       "area-password md5 WORD [authenticate snp <send-only|validate>]",
        "Configure the authentication password for an area\n"
-       "Set the authentication password for a routing domain\n"
        "Authentication type\n"
        "Level-wide password\n"
        "Authentication\n"
@@ -2084,12 +2083,24 @@ DEFUN (area_passwd_md5,
                          argv[idx_word]->arg, snp_auth);
 }
 
+DEFUN (domain_passwd_md5,
+       domain_passwd_md5_cmd,
+       "domain-password md5 WORD [authenticate snp <send-only|validate>]",
+       "Set the authentication password for a routing domain\n"
+       "Authentication type\n"
+       "Level-wide password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n")
+{
+  return area_passwd_md5 (self, vty, argc, argv);
+}
 
 DEFUN (area_passwd_clear,
        area_passwd_clear_cmd,
-       "<area-password|domain-password> clear WORD [authenticate snp <send-only|validate>]",
+       "area-password clear WORD [authenticate snp <send-only|validate>]",
        "Configure the authentication password for an area\n"
-       "Set the authentication password for a routing domain\n"
        "Authentication type\n"
        "Area password\n"
        "Authentication\n"
@@ -2106,7 +2117,7 @@ DEFUN (area_passwd_clear,
   if (argc > 3)
     {
       snp_auth = SNP_AUTH_SEND;
-      if (strmatch(argv[idx_type]->arg, "validate"))
+      if (strmatch (argv[idx_type]->text, "validate"))
         snp_auth |= SNP_AUTH_RECV;
     }
 
@@ -2114,6 +2125,19 @@ DEFUN (area_passwd_clear,
                          argv[idx_word]->arg, snp_auth);
 }
 
+DEFUN (domain_passwd_clear,
+       domain_passwd_clear_cmd,
+       "domain-password clear WORD [authenticate snp <send-only|validate>]",
+       "Set the authentication password for a routing domain\n"
+       "Authentication type\n"
+       "Area password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n")
+{
+  return area_passwd_clear (self, vty, argc, argv);
+}
 
 DEFUN (no_area_passwd,
        no_area_passwd_cmd,
@@ -2123,7 +2147,7 @@ DEFUN (no_area_passwd,
        "Set the authentication password for a routing domain\n")
 {
   int idx_password = 1;
-  int level = (argv[idx_password]->arg[0] == 'd') ? IS_LEVEL_2 : IS_LEVEL_1;
+  int level = strmatch (argv[idx_password]->text, "domain-password") ? IS_LEVEL_2 : IS_LEVEL_1;
   struct isis_area *area = vty->index;
 
   if (!area)
@@ -2246,5 +2270,7 @@ isis_vty_init (void)
 
   install_element (ISIS_NODE, &area_passwd_md5_cmd);
   install_element (ISIS_NODE, &area_passwd_clear_cmd);
+  install_element (ISIS_NODE, &domain_passwd_md5_cmd);
+  install_element (ISIS_NODE, &domain_passwd_clear_cmd);
   install_element (ISIS_NODE, &no_area_passwd_cmd);
 }
