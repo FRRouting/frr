@@ -26,6 +26,12 @@
 #include <json-c/json.h>
 #else
 #include <json/json.h>
+
+/*
+ * json_object_to_json_string_ext is only available for json-c
+ * so let's just turn it back to the original usage.
+ */
+#define json_object_to_json_string_ext(A, B) json_object_to_json_string (A)
 #endif
 
 extern int use_json(const int argc, const char *argv[]);
