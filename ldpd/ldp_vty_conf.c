@@ -42,10 +42,6 @@ static int	 ldp_iface_is_configured(struct ldpd_conf *, const char *);
 static int	 ldp_vty_nbr_session_holdtime(struct vty *, struct vty_arg *[]);
 static int	 ldp_vty_af_session_holdtime(struct vty *, struct vty_arg *[]);
 
-static char	 vty_ifname[IF_NAMESIZE];
-static char	 vty_l2vpn_name[L2VPN_NAME_LEN];
-static char	 vty_pw_ifname[IF_NAMESIZE];
-
 static struct cmd_node interface_node =
 {
 	INTERFACE_NODE,
@@ -504,10 +500,9 @@ ldp_vty_disc_holdtime(struct vty *vty, struct vty_arg *args[])
 	else
 		hello_type = HELLO_TARGETED;
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-
 	switch (vty->node) {
 	case LDP_NODE:
+		vty_conf = ldp_dup_config(ldpd_conf);
 		if (disable) {
 			switch (hello_type) {
 			case HELLO_LINK:
@@ -528,9 +523,11 @@ ldp_vty_disc_holdtime(struct vty *vty, struct vty_arg *args[])
 				break;
 			}
 		}
+		ldp_reload(vty_conf);
 		break;
 	case LDP_IPV4_NODE:
 	case LDP_IPV6_NODE:
+		vty_conf = ldp_dup_config(ldpd_conf);
 		af = ldp_vty_get_af(vty);
 		af_conf = ldp_af_conf_get(vty_conf, af);
 
@@ -553,23 +550,24 @@ ldp_vty_disc_holdtime(struct vty *vty, struct vty_arg *args[])
 				break;
 			}
 		}
+		ldp_reload(vty_conf);
 		break;
 	case LDP_IPV4_IFACE_NODE:
 	case LDP_IPV6_IFACE_NODE:
 		af = ldp_vty_get_af(vty);
-		iface = if_lookup_name(vty_conf, vty_ifname);
-		ia = iface_af_get(iface, af);
+		iface = VTY_GET_CONTEXT(iface);
+		vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&iface);
 
+		ia = iface_af_get(iface, af);
 		if (disable)
 			ia->hello_holdtime = 0;
 		else
 			ia->hello_holdtime = secs;
+		ldp_reload_ref(vty_conf, (void **)&iface);
 		break;
 	default:
 		fatalx("ldp_vty_disc_holdtime: unexpected node");
 	}
-
-	ldp_reload(vty_conf);
 
 	return (CMD_SUCCESS);
 }
@@ -605,10 +603,9 @@ ldp_vty_disc_interval(struct vty *vty, struct vty_arg *args[])
 	else
 		hello_type = HELLO_TARGETED;
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-
 	switch (vty->node) {
 	case LDP_NODE:
+		vty_conf = ldp_dup_config(ldpd_conf);
 		if (disable) {
 			switch (hello_type) {
 			case HELLO_LINK:
@@ -629,9 +626,11 @@ ldp_vty_disc_interval(struct vty *vty, struct vty_arg *args[])
 				break;
 			}
 		}
+		ldp_reload(vty_conf);
 		break;
 	case LDP_IPV4_NODE:
 	case LDP_IPV6_NODE:
+		vty_conf = ldp_dup_config(ldpd_conf);
 		af = ldp_vty_get_af(vty);
 		af_conf = ldp_af_conf_get(vty_conf, af);
 
@@ -654,23 +653,24 @@ ldp_vty_disc_interval(struct vty *vty, struct vty_arg *args[])
 				break;
 			}
 		}
+		ldp_reload(vty_conf);
 		break;
 	case LDP_IPV4_IFACE_NODE:
 	case LDP_IPV6_IFACE_NODE:
 		af = ldp_vty_get_af(vty);
-		iface = if_lookup_name(vty_conf, vty_ifname);
-		ia = iface_af_get(iface, af);
+		iface = VTY_GET_CONTEXT(iface);
+		vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&iface);
 
+		ia = iface_af_get(iface, af);
 		if (disable)
 			ia->hello_interval = 0;
 		else
 			ia->hello_interval = secs;
+		ldp_reload_ref(vty_conf, (void **)&iface);
 		break;
 	default:
 		fatalx("ldp_vty_disc_interval: unexpected node");
 	}
-
-	ldp_reload(vty_conf);
 
 	return (CMD_SUCCESS);
 }
@@ -839,18 +839,6 @@ ldp_vty_interface(struct vty *vty, struct vty_arg *args[])
 		return (CMD_SUCCESS);
 	}
 
-	switch (af) {
-	case AF_INET:
-		vty->node = LDP_IPV4_IFACE_NODE;
-		break;
-	case AF_INET6:
-		vty->node = LDP_IPV6_IFACE_NODE;
-		break;
-	default:
-		break;
-	}
-	strlcpy(vty_ifname, ifname, sizeof(vty_ifname));
-
 	if (iface == NULL) {
 		if (ldp_iface_is_configured(vty_conf, ifname)) {
 			vty_out(vty, "%% Interface is already in use%s",
@@ -870,17 +858,29 @@ ldp_vty_interface(struct vty *vty, struct vty_arg *args[])
 		ia = iface_af_get(iface, af);
 		ia->enabled = 1;
 		LIST_INSERT_HEAD(&vty_conf->iface_list, iface, entry);
+		ldp_reload_ref(vty_conf, (void **)&iface);
 	} else {
 		memset(&kif, 0, sizeof(kif));
 		strlcpy(kif.ifname, ifname, sizeof(kif.ifname));
 
 		ia = iface_af_get(iface, af);
-		if (ia->enabled)
-			goto cancel;
-		ia->enabled = 1;
+		if (!ia->enabled) {
+			ia->enabled = 1;
+			ldp_reload_ref(vty_conf, (void **)&iface);
+		}
 	}
 
-	ldp_reload(vty_conf);
+	switch (af) {
+	case AF_INET:
+		VTY_PUSH_CONTEXT(LDP_IPV4_IFACE_NODE, iface);
+		break;
+	case AF_INET6:
+		VTY_PUSH_CONTEXT(LDP_IPV6_IFACE_NODE, iface);
+		break;
+	default:
+		break;
+	}
+
 	return (CMD_SUCCESS);
 
 cancel:
@@ -1241,16 +1241,17 @@ ldp_vty_l2vpn(struct vty *vty, struct vty_arg *args[])
 		return (CMD_SUCCESS);
 	}
 
-	vty->node = LDP_L2VPN_NODE;
-	strlcpy(vty_l2vpn_name, name_str, sizeof(vty_l2vpn_name));
-	if (l2vpn)
+	if (l2vpn) {
+		VTY_PUSH_CONTEXT(LDP_L2VPN_NODE, l2vpn);
 		goto cancel;
+	}
 
 	l2vpn = l2vpn_new(name_str);
 	l2vpn->type = L2VPN_TYPE_VPLS;
 	LIST_INSERT_HEAD(&vty_conf->l2vpn_list, l2vpn, entry);
 
 	ldp_reload(vty_conf);
+	VTY_PUSH_CONTEXT(LDP_L2VPN_NODE, l2vpn);
 
 	return (CMD_SUCCESS);
 
@@ -1270,15 +1271,15 @@ ldp_vty_l2vpn_bridge(struct vty *vty, struct vty_arg *args[])
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
 	ifname = vty_get_arg_value(args, "ifname");
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
+	l2vpn = VTY_GET_CONTEXT(l2vpn);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&l2vpn);
 
 	if (disable)
 		memset(l2vpn->br_ifname, 0, sizeof(l2vpn->br_ifname));
 	else
 		strlcpy(l2vpn->br_ifname, ifname, sizeof(l2vpn->br_ifname));
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&l2vpn);
 
 	return (CMD_SUCCESS);
 }
@@ -1302,15 +1303,15 @@ ldp_vty_l2vpn_mtu(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 	}
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
+	l2vpn = VTY_GET_CONTEXT(l2vpn);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&l2vpn);
 
 	if (disable)
 		l2vpn->mtu = DEFAULT_L2VPN_MTU;
 	else
 		l2vpn->mtu = mtu;
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&l2vpn);
 
 	return (CMD_SUCCESS);
 }
@@ -1332,15 +1333,15 @@ ldp_vty_l2vpn_pwtype(struct vty *vty, struct vty_arg *args[])
 	else
 		pw_type = PW_TYPE_ETHERNET_TAGGED;
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
+	l2vpn = VTY_GET_CONTEXT(l2vpn);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&l2vpn);
 
 	if (disable)
 		l2vpn->pw_type = DEFAULT_PW_TYPE;
 	else
 		l2vpn->pw_type = pw_type;
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&l2vpn);
 
 	return (CMD_SUCCESS);
 }
@@ -1359,8 +1360,9 @@ ldp_vty_l2vpn_interface(struct vty *vty, struct vty_arg *args[])
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
 	ifname = vty_get_arg_value(args, "ifname");
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
+	l2vpn = VTY_GET_CONTEXT(l2vpn);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&l2vpn);
+	l2vpn = l2vpn_find(vty_conf, l2vpn->name);
 	lif = l2vpn_if_find_name(l2vpn, ifname);
 
 	if (disable) {
@@ -1392,7 +1394,7 @@ ldp_vty_l2vpn_interface(struct vty *vty, struct vty_arg *args[])
 	lif = l2vpn_if_new(l2vpn, &kif);
 	LIST_INSERT_HEAD(&l2vpn->if_list, lif, entry);
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&l2vpn);
 
 	return (CMD_SUCCESS);
 
@@ -1415,8 +1417,8 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
 	ifname = vty_get_arg_value(args, "ifname");
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
+	l2vpn = VTY_GET_CONTEXT(l2vpn);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&l2vpn);
 	pw = l2vpn_pw_find_name(l2vpn, ifname);
 
 	if (disable) {
@@ -1430,8 +1432,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 	}
 
 	if (pw) {
-		vty->node = LDP_PSEUDOWIRE_NODE;
-		strlcpy(vty_pw_ifname, ifname, sizeof(vty_pw_ifname));
+		VTY_PUSH_CONTEXT(LDP_PSEUDOWIRE_NODE, pw);
 		goto cancel;
 	}
 
@@ -1452,10 +1453,9 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, struct vty_arg *args[])
 	pw->flags = F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF;
 	LIST_INSERT_HEAD(&l2vpn->pw_inactive_list, pw, entry);
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&pw);
+	VTY_PUSH_CONTEXT(LDP_PSEUDOWIRE_NODE, pw);
 
-	vty->node = LDP_PSEUDOWIRE_NODE;
-	strlcpy(vty_pw_ifname, ifname, sizeof(vty_pw_ifname));
 	return (CMD_SUCCESS);
 
 cancel:
@@ -1467,7 +1467,6 @@ int
 ldp_vty_l2vpn_pw_cword(struct vty *vty, struct vty_arg *args[])
 {
 	struct ldpd_conf	*vty_conf;
-	struct l2vpn		*l2vpn;
 	struct l2vpn_pw		*pw;
 	const char		*preference_str;
 	int			 disable;
@@ -1475,9 +1474,8 @@ ldp_vty_l2vpn_pw_cword(struct vty *vty, struct vty_arg *args[])
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
 	preference_str = vty_get_arg_value(args, "preference");
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
-	pw = l2vpn_pw_find_name(l2vpn, vty_pw_ifname);
+	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable)
 		pw->flags |= F_PW_CWORD_CONF;
@@ -1488,7 +1486,7 @@ ldp_vty_l2vpn_pw_cword(struct vty *vty, struct vty_arg *args[])
 			pw->flags |= F_PW_CWORD_CONF;
 	}
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&pw);
 
 	return (CMD_SUCCESS);
 }
@@ -1497,7 +1495,6 @@ int
 ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, struct vty_arg *args[])
 {
 	struct ldpd_conf	*vty_conf;
-	struct l2vpn		*l2vpn;
 	struct l2vpn_pw		*pw;
 	int			 af;
 	union ldpd_addr		 addr;
@@ -1513,9 +1510,8 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 	}
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
-	pw = l2vpn_pw_find_name(l2vpn, vty_pw_ifname);
+	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable) {
 		pw->af = AF_UNSPEC;
@@ -1527,7 +1523,7 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, struct vty_arg *args[])
 		pw->flags |= F_PW_STATIC_NBR_ADDR;
 	}
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&pw);
 
 	return (CMD_SUCCESS);
 }
@@ -1536,7 +1532,6 @@ int
 ldp_vty_l2vpn_pw_nbr_id(struct vty *vty, struct vty_arg *args[])
 {
 	struct ldpd_conf	*vty_conf;
-	struct l2vpn		*l2vpn;
 	struct l2vpn_pw		*pw;
 	struct in_addr		 lsr_id;
 	const char		*lsr_id_str;
@@ -1551,16 +1546,15 @@ ldp_vty_l2vpn_pw_nbr_id(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 	}
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
-	pw = l2vpn_pw_find_name(l2vpn, vty_pw_ifname);
+	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable)
 		pw->lsr_id.s_addr = INADDR_ANY;
 	else
 		pw->lsr_id = lsr_id;
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&pw);
 
 	return (CMD_SUCCESS);
 }
@@ -1569,7 +1563,6 @@ int
 ldp_vty_l2vpn_pw_pwid(struct vty *vty, struct vty_arg *args[])
 {
 	struct ldpd_conf	*vty_conf;
-	struct l2vpn		*l2vpn;
 	struct l2vpn_pw		*pw;
 	char			*ep;
 	uint32_t		 pwid;
@@ -1585,16 +1578,15 @@ ldp_vty_l2vpn_pw_pwid(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 	}
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
-	pw = l2vpn_pw_find_name(l2vpn, vty_pw_ifname);
+	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable)
 		pw->pwid = 0;
 	else
 		pw->pwid = pwid;
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&pw);
 
 	return (CMD_SUCCESS);
 }
@@ -1603,22 +1595,20 @@ int
 ldp_vty_l2vpn_pw_pwstatus(struct vty *vty, struct vty_arg *args[])
 {
 	struct ldpd_conf	*vty_conf;
-	struct l2vpn		*l2vpn;
 	struct l2vpn_pw		*pw;
 	int			 disable;
 
 	disable = (vty_get_arg_value(args, "no")) ? 1 : 0;
 
-	vty_conf = ldp_dup_config(ldpd_conf);
-	l2vpn = l2vpn_find(vty_conf, vty_l2vpn_name);
-	pw = l2vpn_pw_find_name(l2vpn, vty_pw_ifname);
+	pw = VTY_GET_CONTEXT(l2vpn_pw);
+	vty_conf = ldp_dup_config_ref(ldpd_conf, (void **)&pw);
 
 	if (disable)
 		pw->flags |= F_PW_STATUSTLV_CONF;
 	else
 		pw->flags &= ~F_PW_STATUSTLV_CONF;
 
-	ldp_reload(vty_conf);
+	ldp_reload_ref(vty_conf, (void **)&pw);
 
 	return (CMD_SUCCESS);
 }

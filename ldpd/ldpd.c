@@ -323,6 +323,7 @@ main(int argc, char *argv[])
   	master = thread_master_create();
 
 	cmd_init(1);
+	vty_config_lockless ();
 	vty_init(master);
 	vrf_init();
 	ldp_vty_init();
