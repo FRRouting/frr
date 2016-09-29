@@ -1544,13 +1544,9 @@ DEFUN (rmap_onmatch_goto,
        "Goto Clause number\n"
        "Number\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 2;
   char *num = NULL;
-  if (!strcmp (argv[0]->text, "continue"))
-    num = argv[1]->arg;
-  else
-    num = argv[idx_number]->arg;
+  num = argv[idx_number]->arg;
 
   struct route_map_index *index = vty->index;
   int d = 0;
@@ -1565,7 +1561,7 @@ DEFUN (rmap_onmatch_goto,
 	  return CMD_WARNING;
         }
 
-      if (argc == 1 && num)
+      if (num)
         VTY_GET_INTEGER_RANGE("route-map index", d, num, 1, 65535);
       else
         d = index->pref + 1;
@@ -1634,10 +1630,9 @@ DEFUN (rmap_show_name,
        "route-map information\n"
        "route-map name\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_word = 2;
-    const char *name = (argc == 3) ? argv[idx_word]->arg : NULL;
-    return vty_show_route_map (vty, name);
+  const char *name = (argc == 3) ? argv[idx_word]->arg : NULL;
+  return vty_show_route_map (vty, name);
 }
 
 DEFUN (rmap_call,

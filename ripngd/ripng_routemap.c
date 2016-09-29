@@ -519,7 +519,6 @@ DEFUN (no_match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
-  /* CHECK ME argc referenced below */
   char *mval = (argc == 4) ? argv[3]->arg : NULL;
   return ripng_route_match_delete (vty, vty->index, "metric", mval);
 }
@@ -544,7 +543,6 @@ DEFUN (no_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  /* CHECK ME argc referenced below */
   char *iface = (argc == 4) ? argv[3]->arg : NULL;
   return ripng_route_match_delete (vty, vty->index, "interface", iface);
 }
@@ -569,7 +567,6 @@ DEFUN (no_match_tag,
        "Match tag of route\n"
        "Metric value\n")
 {
-  /* CHECK ME argc referenced below */
   char *mval = (argc == 4) ? argv[3]->arg : NULL;
   return ripng_route_match_delete (vty, vty->index, "tag", mval);
 }
@@ -596,7 +593,6 @@ DEFUN (no_set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
-  /* CHECK ME argc referenced below */
   char *mval = (argc == 4) ? argv[3]->arg : NULL;
   return ripng_route_set_delete (vty, vty->index, "metric", mval);
 }
@@ -641,7 +637,6 @@ DEFUN (no_set_ipv6_nexthop_local,
        "IPv6 local address\n"
        "IPv6 address of next hop\n")
 {
-  /* CHECK ME argc referenced below */
   char *addr = (argc == 6) ? argv[5]->arg : NULL;
   return ripng_route_set_delete (vty, vty->index, "ipv6 next-hop local", addr);
 }
@@ -666,7 +661,6 @@ DEFUN (no_set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  /* CHECK ME argc referenced below */
   char *tag = (argc == 4) ? argv[3]->arg : NULL;
   return ripng_route_set_delete (vty, vty->index, "tag", tag);
 }

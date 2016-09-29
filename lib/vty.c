@@ -2797,10 +2797,9 @@ DEFUN (no_vty_access_class,
        "Filter connections based on an IP access list\n"
        "IP access list\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_word = 2;
   const char *accesslist = (argc == 3) ? argv[idx_word]->arg : NULL;
-  if (! vty_accesslist_name || (argc && strcmp(vty_accesslist_name, accesslist)))
+  if (! vty_accesslist_name || (argc == 3 && strcmp(vty_accesslist_name, accesslist)))
     {
       vty_out (vty, "Access-class is not currently applied to vty%s",
                VTY_NEWLINE);
@@ -2841,12 +2840,11 @@ DEFUN (no_vty_ipv6_access_class,
        "Filter connections based on an IP access list\n"
        "IPv6 access list\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_word = 3;
   const char *accesslist = (argc == 4) ? argv[idx_word]->arg : NULL;
 
   if (! vty_ipv6_accesslist_name ||
-      (argc && strcmp(vty_ipv6_accesslist_name, accesslist)))
+      (argc == 4 && strcmp(vty_ipv6_accesslist_name, accesslist)))
     {
       vty_out (vty, "IPv6 access-class is not currently applied to vty%s",
                VTY_NEWLINE);

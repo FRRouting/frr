@@ -754,7 +754,6 @@ DEFUN (no_match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
-  /* CHECK ME argc referenced below */
   char *mval = (argc == 4) ? argv[3]->arg : NULL;
   return rip_route_match_delete (vty, vty->index, "metric", mval);
 }
@@ -779,7 +778,6 @@ DEFUN (no_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  /* CHECK ME argc referenced below */
   char *iface = (argc == 4) ? argv[3]->arg : NULL;
   return rip_route_match_delete (vty, vty->index, "interface", iface);
 }
@@ -809,7 +807,6 @@ DEFUN (no_match_ip_next_hop,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *al = (argc == 5) ? argv[4]->arg : NULL;
   return rip_route_match_delete (vty, vty->index, "ip next-hop", al);
 }
@@ -837,7 +834,6 @@ DEFUN (no_match_ip_next_hop_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *plist = (argc == 6) ? argv[5]->arg : NULL;
   return rip_route_match_delete (vty, vty->index, "ip next-hop prefix-list", plist);
 }
@@ -869,7 +865,6 @@ DEFUN (no_match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *al = (argc == 5) ? argv[4]->arg : NULL;
   return rip_route_match_delete (vty, vty->index, "ip address", al);
 }
@@ -898,7 +893,6 @@ DEFUN (no_match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *plist = (argc == 6) ? argv[5]->arg : NULL;
   return rip_route_match_delete (vty, vty->index, "ip address prefix-list", plist);
 }
@@ -923,7 +917,6 @@ DEFUN (no_match_tag,
        "Match tag of route\n"
        "Metric value\n")
 {
-  /* CHECK ME argc referenced below */
   char *mval = (argc == 4) ? argv[3]->arg : NULL;
   return rip_route_match_delete (vty, vty->index, "tag", mval);
 }
@@ -996,7 +989,6 @@ DEFUN (no_set_ip_nexthop,
        "Next hop address\n"
        "IP address of next hop\n")
 {
-  /* CHECK ME argc referenced below */
   char *addr = (argc == 5) ? argv[4]->arg : NULL;
   return rip_route_set_delete (vty, vty->index, "ip next-hop", addr);
 }
@@ -1021,7 +1013,6 @@ DEFUN (no_set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  /* CHECK ME argc referenced below */
   char *tag = (argc == 4) ? argv[3]->arg : NULL;
   return rip_route_set_delete (vty, vty->index, "tag", tag);
 }

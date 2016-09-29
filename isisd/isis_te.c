@@ -1318,13 +1318,12 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_interface = 4;
   struct interface *ifp;
   struct listnode *node;
 
   /* Show All Interfaces. */
-  if (argc == 0)
+  if (argc == 4)
     {
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         show_mpls_te_sub (vty, ifp);

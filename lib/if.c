@@ -756,10 +756,10 @@ DEFUN (interface,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 {
-  /* CHECK ME argc referenced below */
   int idx_ifname = 1;
+  int idx_vrf = 3;
   const char *ifname = argv[idx_ifname]->arg;
-  const char *vrfname = (argc > 2) ? argv[3]->arg : NULL;
+  const char *vrfname = (argc > 2) ? argv[idx_vrf]->arg : NULL;
 
   struct interface *ifp;
   size_t sl;
@@ -901,8 +901,7 @@ DEFUN (show_address,
        "address\n"
        VRF_CMD_HELP_STR)
 {
-  /* CHECK ME argc referenced below */
-  int idx_vrf_cmd_str = 2;
+  int idx_vrf = 3;
   struct listnode *node;
   struct listnode *node2;
   struct interface *ifp;

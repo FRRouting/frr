@@ -1732,12 +1732,12 @@ DEFUN (vtysh_show_thread,
       "Thread CPU usage\n"
       "Display filter (rwtexb)\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_filter = 3;
   unsigned int i;
   int ret = CMD_SUCCESS;
   char line[100];
 
-  sprintf(line, "show thread cpu %s\n", (argc == 1) ? argv[0] : "");
+  sprintf(line, "show thread cpu %s\n", (argc == 4) ? argv[idx_filter] : "");
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       {

@@ -299,7 +299,6 @@ DEFUN (show_thread_cpu,
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_filter = 3;
   int i = 0;
   thread_type filter = (thread_type) -1U;
@@ -383,7 +382,6 @@ DEFUN (clear_thread_cpu,
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_filter = 3;
   int i = 0;
   thread_type filter = (thread_type) -1U;

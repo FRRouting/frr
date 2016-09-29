@@ -2534,11 +2534,10 @@ DEFUN (ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int result;
   struct in_addr source_addr;
-  const char *source_str = (argc > 0) ? argv[idx_ipv4]->arg : "0.0.0.0";
+  const char *source_str = (argc > idx_ipv4) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
@@ -2565,11 +2564,10 @@ DEFUN (no_ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_ipv4 = 3;
   int result;
   struct in_addr source_addr;
-  const char *source_str = (argc > 0) ? argv[idx_ipv4]->arg : "0.0.0.0";
+  const char *source_str = (argc > idx_ipv4) ? argv[idx_ipv4]->arg : "0.0.0.0";
 
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
@@ -3562,7 +3560,6 @@ DEFUN (interface_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
-  /* CHECK ME argc referenced below */
   int idx_time = 3;
   int idx_hold = 4;
   struct interface *ifp;

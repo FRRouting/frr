@@ -308,7 +308,6 @@ DEFUN (distribute_list,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-  /* CHECK ME argc referenced below */
   int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
 
   /* Check of distribute list type. */
@@ -340,7 +339,6 @@ DEFUN (no_distribute_list,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-  /* CHECK ME argc referenced below */
   int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
 
   /* Check of distribute list type. */
