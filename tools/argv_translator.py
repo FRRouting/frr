@@ -726,6 +726,18 @@ DEFUN (no_bgp_maxmed_onstartup,
             if 'use_json (argc, argv)' in line:
                 continue
 
+            if 'use_json(argc, argv)' in line:
+                continue
+
+            if 'bgp_get_argv_vrf (argc,)' in line:
+                continue
+
+            if 'bgp_get_argv_afi_safi (argc,' in line:
+                continue
+
+            if 'zebra_vty_ip_route_tdv_helper (argc,' in line:
+                continue
+
             if 'argc' in line:
                 return True
         return False
@@ -742,8 +754,9 @@ DEFUN (no_bgp_maxmed_onstartup,
         lines.extend(self.help_strings)
         lines.append('{\n')
 
-        if self.uses_argc():
-            lines.append("  /* CHECK ME argc referenced below */\n")
+        # uncomment this to do ospf_vty.c
+        # if self.uses_argc():
+        #     lines.append("  /* CHECK ME argc referenced below */\n")
         lines.extend(self.guts)
 
         '''

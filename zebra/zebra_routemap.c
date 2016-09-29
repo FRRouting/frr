@@ -314,7 +314,6 @@ DEFUN (no_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  /* CHECK ME argc referenced below */
   char *iface = (argc == 4) ? argv[3]->arg : NULL;
   return zebra_route_match_delete (vty, vty->index, "interface", iface, RMAP_EVENT_MATCH_DELETED);
 }
@@ -339,7 +338,6 @@ DEFUN (no_match_tag,
        MATCH_STR
        "Match tag of route\n")
 {
-  /* CHECK ME argc referenced below */
   char *tag = (argc == 4) ? argv[3]->arg : NULL;
   return zebra_route_match_delete (vty, vty->index, "tag", tag, RMAP_EVENT_MATCH_DELETED);
 }
@@ -370,7 +368,6 @@ DEFUN (no_match_ip_next_hop,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *al = (argc == 5) ? argv[4]->arg : NULL;
   return zebra_route_match_delete (vty, vty->index, "ip next-hop", al, RMAP_EVENT_FILTER_DELETED);
 }
@@ -400,7 +397,6 @@ DEFUN (no_match_ip_next_hop_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *plist = (argc == 6) ? argv[5]->arg : NULL;
   return zebra_route_match_delete (vty, vty->index,
 				   "ip next-hop prefix-list", plist,
@@ -435,7 +431,6 @@ DEFUN (no_match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *al = (argc == 5) ? argv[4]->arg : NULL;
   return zebra_route_match_delete (vty, vty->index, "ip address", al, RMAP_EVENT_FILTER_DELETED);
 }
@@ -465,7 +460,6 @@ DEFUN (no_match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *plist = (argc == 6) ? argv[5]->arg : NULL;
   return zebra_route_match_delete (vty, vty->index,
 				   "ip address prefix-list", plist,
@@ -495,7 +489,6 @@ DEFUN (no_match_ip_address_prefix_len,
        "Match prefixlen of ip address of route\n"
        "Prefix length\n")
 {
-  /* CHECK ME argc referenced below */
   char *plen = (argc == 6) ? argv[5]->arg : NULL;
   return zebra_route_match_delete (vty, vty->index,
 				   "ip address prefix-len", plen,
@@ -526,7 +519,6 @@ DEFUN (no_match_ip_nexthop_prefix_len,
        "Match prefix length of nexthop\n"
        "Prefix length\n")
 {
-  /* CHECK ME argc referenced below */
   char *plen = (argc == 6) ? argv[5]->arg : NULL;
   return zebra_route_match_delete (vty, vty->index,
 				   "ip next-hop prefix-len", plen,
@@ -560,7 +552,6 @@ DEFUN (no_match_source_protocol,
        "No match protocol via which the route was learnt\n"
        )
 {
-  /* CHECK ME argc referenced below */
   char *proto = (argc == 4) ? argv[3]->text : NULL;
   return zebra_route_match_delete (vty, vty->index, "source-protocol", proto, RMAP_EVENT_MATCH_DELETED);
 }
@@ -634,7 +625,6 @@ DEFUN (no_set_src,
        SET_STR
        "Source address for route\n")
 {
-  /* CHECK ME argc referenced below */
   char *ip = (argc == 4) ? argv[3]->arg : NULL;
   return zebra_route_set_delete (vty, vty->index, "src", ip);
 }
@@ -718,7 +708,6 @@ DEFUN (no_ip_protocol,
        "Specify route map\n"
        "Route map name\n")
 {
-  /* CHECK ME argc referenced below */
   char *proto = argv[3]->text;
   char *rmap = (argc == 6) ? argv[5]->arg : NULL;
   int i;
@@ -829,7 +818,6 @@ DEFUN (no_ipv6_protocol,
        "Specify route map\n"
        "Route map name\n")
 {
-  /* CHECK ME argc referenced below */
   const char *proto = argv[3]->text;
   const char *rmap = (argc == 6) ? argv[5]->arg : NULL;
   int i;
@@ -936,7 +924,6 @@ DEFUN (no_ip_protocol_nht_rmap,
        "Specify route map\n"
        "Route map name\n")
 {
-  /* CHECK ME argc referenced below */
   char *proto = argv[3]->text;
   char *rmap = (argc == 6) ? argv[5]->arg : NULL;
   int i;
@@ -1032,7 +1019,6 @@ DEFUN (no_ipv6_protocol_nht_rmap,
        "Specify route map\n"
        "Route map name\n")
 {
-  /* CHECK ME argc referenced below */
   char *proto = argv[3]->text;
   char *rmap = (argc == 6) ? argv[5]->arg : NULL;
   int i;

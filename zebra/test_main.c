@@ -124,11 +124,8 @@ DEFUN (test_interface_state,
        "up\n"
        "down\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_up_down = 1;
   struct interface *ifp;
-  if (argc < 1)
-    return CMD_WARNING;
   
   ifp = vty->index;
   if (ifp->ifindex == IFINDEX_INTERNAL)

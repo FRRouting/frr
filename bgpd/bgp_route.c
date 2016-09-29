@@ -7772,7 +7772,6 @@ DEFUN (show_ip_bgp_ipv4,
        "Display route and more specific routes\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
@@ -7880,7 +7879,6 @@ DEFUN (show_ip_bgp_route,
        "Display only multipaths\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
@@ -7932,7 +7930,6 @@ DEFUN (show_ip_bgp_instance_all,
        BGP_INSTANCE_ALL_HELP_STR
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   u_char uj = use_json(argc, argv);
 
   /* CHECK ME we need to revisit all of the bgp_show_all_ commands */
@@ -7948,7 +7945,6 @@ DEFUN (show_bgp_instance_all,
        BGP_INSTANCE_ALL_HELP_STR
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   u_char uj = use_json(argc, argv);
 
   bgp_show_all_instances_routes_vty (vty, AFI_IP6, SAFI_UNICAST, uj);
@@ -8865,7 +8861,6 @@ DEFUN (show_ip_bgp_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
@@ -8891,7 +8886,6 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_word = 4;
   int idx_peer = 6;
   struct peer *peer;
@@ -8917,7 +8911,6 @@ DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_peer = 4;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
@@ -8943,7 +8936,6 @@ DEFUN (show_bgp_instance_ipv6_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_word = 3;
   int idx_peer = 6;
   struct peer *peer;
@@ -8972,7 +8964,6 @@ DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_safi = 4;
   int idx_peer = 6;
   struct peer *peer;
@@ -9004,7 +8995,6 @@ DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
        "Display detailed prefix count information\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_peer = 6;
   struct peer *peer;
   u_char uj = use_json(argc, argv);
@@ -9281,7 +9271,6 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        "Name of the route map\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi = 5;
@@ -9344,7 +9333,6 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
@@ -9454,7 +9442,6 @@ DEFUN (show_ip_bgp_neighbor_routes,
        "Display flap statistics of the routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
@@ -9792,7 +9779,6 @@ DEFUN (bgp_damp_set,
        "Value to start suppressing a route\n"
        "Maximum duration to suppress a stable route\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_half_life = 2;
   int idx_reuse = 3;
   int idx_suppress = 4;

@@ -736,7 +736,6 @@ DEFUN (dump_bgp_all,
        "Output filename\n"
        "Interval of output\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_dump_routes = 2;
   int idx_path = 3;
   int idx_interval = 4;
@@ -766,7 +765,7 @@ DEFUN (dump_bgp_all,
     }
 
   /* When an interval is given */
-  if (argc == 3)
+  if (argc == idx_interval + 1)
       interval = argv[idx_interval]->arg;
 
   return bgp_dump_set (vty, bgp_dump_struct, bgp_dump_type,
