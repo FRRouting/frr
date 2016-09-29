@@ -962,6 +962,8 @@ DEFUN (debug_ospf_ism,
       else if (strmatch (dbgparam, "timers"))
         TERM_DEBUG_ON (ism, ISM_TIMERS);
     }
+
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_debug_ospf_ism,
@@ -1013,6 +1015,8 @@ DEFUN (no_debug_ospf_ism,
       else if (strmatch (dbgparam, "timers"))
         TERM_DEBUG_OFF (ism, ISM_TIMERS);
     }
+
+  return CMD_SUCCESS;
 }
 
 static int
@@ -2070,7 +2074,6 @@ debug_init ()
   install_node (&debug_node, config_write_debug);
 
   install_element (ENABLE_NODE, &show_debugging_ospf_cmd);
-  install_element (ENABLE_NODE, &debug_ospf_packet_all_cmd);
   install_element (ENABLE_NODE, &debug_ospf_ism_cmd);
   install_element (ENABLE_NODE, &debug_ospf_nsm_cmd);
   install_element (ENABLE_NODE, &debug_ospf_lsa_cmd);
@@ -2078,7 +2081,6 @@ debug_init ()
   install_element (ENABLE_NODE, &debug_ospf_event_cmd);
   install_element (ENABLE_NODE, &debug_ospf_nssa_cmd);
   install_element (ENABLE_NODE, &debug_ospf_te_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf_packet_all_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_ism_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_nsm_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -2118,7 +2120,6 @@ debug_init ()
   install_element (CONFIG_NODE, &debug_ospf_event_cmd);
   install_element (CONFIG_NODE, &debug_ospf_nssa_cmd);
   install_element (CONFIG_NODE, &debug_ospf_te_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf_packet_all_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_ism_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_nsm_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_lsa_cmd);

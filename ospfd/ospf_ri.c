@@ -1183,7 +1183,7 @@ DEFUN (router_info,
        "OSPF area ID in IP format")
 {
   int idx_ipv4 = 2;
-  char *area = (argc == 3) ? argv[2]->arg : NULL;
+  char *area = (argc == 3) ? argv[idx_ipv4]->arg : NULL;
 
   u_int8_t scope;
 

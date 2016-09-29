@@ -799,8 +799,8 @@ DEFUN (no_match_ip_address_prefix_list,
        MATCH_STR
        IP_STR
        "Match address of route\n"
-       "Match entries of prefix-lists\n")
-       "IP prefix-list name\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
 {
   char *pl = (argc == 6) ? argv[5]->arg : NULL;
   return ospf_route_match_delete (vty, vty->index, "ip address prefix-list", pl);
@@ -892,9 +892,9 @@ DEFUN (no_set_metric_type,
        "no set metric-type [<type-1|type-2>]",
        NO_STR
        SET_STR
-       "Type of metric for destination routing protocol\n")
+       "Type of metric for destination routing protocol\n"
        "OSPF[6] external type 1 metric\n"
-       "OSPF[6] external type 2 metric\n"
+       "OSPF[6] external type 2 metric\n")
 {
   char *ext = (argc == 4) ? argv[3]->text : NULL;
   return ospf_route_set_delete (vty, vty->index, "metric-type", ext);
