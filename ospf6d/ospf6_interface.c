@@ -1006,6 +1006,7 @@ DEFUN (show_ipv6_ospf6_interface,
        IFNAME_STR
        )
 {
+  /* CHECK ME argc referenced below */
   int idx_ifname = 4;
   struct interface *ifp;
   struct listnode *i;
@@ -1069,6 +1070,7 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        "Display connected prefixes to advertise\n"
        )
 {
+  /* CHECK ME argc referenced below */
   int idx_ifname = 4;
   struct interface *ifp;
   struct ospf6_interface *oi;
@@ -1131,6 +1133,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
        "Display connected prefixes to advertise\n"
        )
 {
+  /* CHECK ME argc referenced below */
   struct listnode *i;
   struct ospf6_interface *oi;
   struct interface *ifp;
@@ -1990,6 +1993,7 @@ DEFUN (clear_ipv6_ospf6_interface,
        IFNAME_STR
        )
 {
+  /* CHECK ME argc referenced below */
   int idx_ifname = 4;
   struct interface *ifp;
   struct listnode *node;

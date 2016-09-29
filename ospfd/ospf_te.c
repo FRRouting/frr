@@ -2620,6 +2620,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
        "Interface information\n"
        "Interface name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_interface = 5;
   struct interface *ifp;
   struct listnode *node, *nnode;

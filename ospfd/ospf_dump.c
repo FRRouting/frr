@@ -772,6 +772,7 @@ DEFUN (debug_ospf_packet,
        "Detail Information\n"
        "Detail Information\n")
 {
+  /* CHECK ME argc referenced below */
   int inst = (argv[2]->type == RANGE_TKN) ? 1 : 0;
   int detail = strmatch (argv[argc - 1]->text, "detail");
   int send = strmatch (argv[argc - (1+detail)]->text, "send");
@@ -849,6 +850,7 @@ DEFUN (no_debug_ospf_packet,
        "Detail Information\n"
        "Detail Information\n")
 {
+  /* CHECK ME argc referenced below */
   int inst = (argv[3]->type == RANGE_TKN) ? 1 : 0;
   int detail = strmatch (argv[argc - 1]->text, "detail");
   int send = strmatch (argv[argc - (1+detail)]->text, "send");
@@ -924,6 +926,7 @@ DEFUN (debug_ospf_ism,
        "ISM Event Information\n"
        "ISM TImer Information\n")
 {
+  /* CHECK ME argc referenced below */
   int inst = (argv[2]->type == RANGE_TKN);
   char *dbgparam = (argc == 4 + inst) ? argv[argc - 1]->text : NULL;
 
@@ -977,6 +980,7 @@ DEFUN (no_debug_ospf_ism,
        "ISM Event Information\n"
        "ISM TImer Information\n")
 {
+  /* CHECK ME argc referenced below */
   int inst = (argv[3]->type == RANGE_TKN);
   char *dbgparam = (argc == 5 + inst) ? argv[argc - 1]->text : NULL;
 
@@ -1073,6 +1077,7 @@ DEFUN (debug_ospf_nsm,
        OSPF_STR
        "OSPF Neighbor State Machine\n")
 {
+  /* CHECK ME argc referenced below */
   return debug_ospf_nsm_common (vty, 0, argc, argv);
 }
 
@@ -1097,6 +1102,7 @@ DEFUN (debug_ospf_instance_nsm,
        "Instance ID\n"
        "OSPF Neighbor State Machine\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 2;
   u_short instance = 0;
 
@@ -1164,6 +1170,7 @@ DEFUN (no_debug_ospf_nsm,
        OSPF_STR
        "OSPF Neighbor State Machine")
 {
+  /* CHECK ME argc referenced below */
   return no_debug_ospf_nsm_common(vty, 0, argc, argv);
 }
 
@@ -1190,6 +1197,7 @@ DEFUN (no_debug_ospf_instance_nsm,
        "Instance ID\n"
        "OSPF Neighbor State Machine")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   u_short instance = 0;
 
@@ -1261,6 +1269,7 @@ DEFUN (debug_ospf_lsa,
        OSPF_STR
        "OSPF Link State Advertisement\n")
 {
+  /* CHECK ME argc referenced below */
   return debug_ospf_lsa_common(vty, 0, argc, argv);
 }
 
@@ -1286,6 +1295,7 @@ DEFUN (debug_ospf_instance_lsa,
        "Instance ID\n"
        "OSPF Link State Advertisement\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 2;
   u_short instance = 0;
 
@@ -1358,6 +1368,7 @@ DEFUN (no_debug_ospf_lsa,
        OSPF_STR
        "OSPF Link State Advertisement\n")
 {
+  /* CHECK ME argc referenced below */
   return no_debug_ospf_lsa_common (vty, 0, argc, argv);
 }
 
@@ -1385,6 +1396,7 @@ DEFUN (no_debug_ospf_instance_lsa,
        "Instance ID\n"
        "OSPF Link State Advertisement\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   u_short instance = 0;
 
@@ -1446,6 +1458,7 @@ DEFUN (debug_ospf_zebra,
        OSPF_STR
        "OSPF Zebra information\n")
 {
+  /* CHECK ME argc referenced below */
   return debug_ospf_zebra_common(vty, 0, argc, argv);
 }
 
@@ -1469,6 +1482,7 @@ DEFUN (debug_ospf_instance_zebra,
        "Instance ID\n"
        "OSPF Zebra information\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 2;
   u_short instance = 0;
 
@@ -1532,6 +1546,7 @@ DEFUN (no_debug_ospf_zebra,
        OSPF_STR
        "OSPF Zebra information\n")
 {
+  /* CHECK ME argc referenced below */
   return no_debug_ospf_zebra_common(vty, 0, argc, argv);
 }
 
@@ -1557,6 +1572,7 @@ DEFUN (no_debug_ospf_instance_zebra,
        "Instance ID\n"
        "OSPF Zebra information\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   u_short instance = 0;
 

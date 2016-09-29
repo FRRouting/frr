@@ -3026,6 +3026,7 @@ DEFUN (no_match_peer,
        "IP address of peer\n"
        "IPv6 address of peer\n")
 {
+  /* CHECK ME argc referenced below */
  int idx_peer = 3;
 
  if (argc <= idx_peer)
@@ -3064,6 +3065,7 @@ DEFUN (no_match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 4;
   if (argc <= idx_word)
     return bgp_route_match_delete (vty, vty->index, "ip address", NULL,
@@ -3100,6 +3102,7 @@ DEFUN (no_match_ip_next_hop,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 4;
   if (argc <= idx_word)
     return bgp_route_match_delete (vty, vty->index, "ip next-hop", NULL,
@@ -3131,6 +3134,7 @@ DEFUN (no_match_probability,
        "Match portion of routes defined by percentage value\n"
        "Percentage of routes\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   if (argc <= idx_number)
     return bgp_route_match_delete (vty, vty->index, "probability", NULL,
@@ -3167,6 +3171,7 @@ DEFUN (no_match_ip_route_source,
        "IP access-list number (expanded range)\n"
        "IP standard access-list name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 4;
   if (argc <= idx_number)
     return bgp_route_match_delete (vty, vty->index, "ip route-source",
@@ -3201,6 +3206,7 @@ DEFUN (no_match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 5;
   if (argc <= idx_word)
     return bgp_route_match_delete (vty, vty->index, "ip address prefix-list",
@@ -3234,6 +3240,7 @@ DEFUN (no_match_ip_next_hop_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 5;
   if (argc <= idx_word)
     return bgp_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
@@ -3268,6 +3275,7 @@ DEFUN (no_match_ip_route_source_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 5;
   if (argc <= idx_word)
     return bgp_route_match_delete (vty, vty->index, "ip route-source prefix-list",
@@ -3298,6 +3306,7 @@ DEFUN (no_match_metric,
        "Match metric of route\n"
        "Metric value\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   if (argc <= idx_number)
     return bgp_route_match_delete (vty, vty->index, "metric",
@@ -3329,6 +3338,7 @@ DEFUN (no_match_local_pref,
        "Match local preference of route\n"
        "Local preference value\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_localpref = 3;
   if (argc <= idx_localpref)
     return bgp_route_match_delete (vty, vty->index, "local-preference",
@@ -3605,6 +3615,7 @@ DEFUN (no_set_ip_nexthop,
        "Use peer address (for BGP only)\n"
        "IP address of next hop\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_peer = 4;
   if (argc <= idx_peer)
     return bgp_route_set_delete (vty, vty->index, "ip next-hop", NULL);
@@ -3648,6 +3659,7 @@ DEFUN (no_set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   if (argc <= idx_number)
     return bgp_route_set_delete (vty, vty->index, "metric", NULL);
@@ -3675,6 +3687,7 @@ DEFUN (no_set_local_pref,
        "BGP local preference path attribute\n"
        "Preference value\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_localpref = 3;
   if (argc <= idx_localpref)
     return bgp_route_set_delete (vty, vty->index, "local-preference", NULL);
@@ -3702,6 +3715,7 @@ DEFUN (no_set_weight,
        "BGP weight for routing table\n"
        "Weight value\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_weight = 3;
   if (argc <= idx_weight)
     return bgp_route_set_delete (vty, vty->index, "weight", NULL);
@@ -3719,6 +3733,7 @@ DEFUN (set_aspath_prepend,
        "Use the peer's AS-number\n"
        "Number of times to insert")
 {
+  /* CHECK ME argc referenced below */
   int ret;
   char *str;
 
@@ -3739,6 +3754,7 @@ DEFUN (no_set_aspath_prepend,
        "Prepend to the as-path\n"
        "AS number\n")
 {
+  /* CHECK ME argc referenced below */
   int ret;
   char *str;
 
@@ -3757,6 +3773,7 @@ DEFUN (set_aspath_exclude,
        "Exclude from the as-path\n"
        "AS number\n")
 {
+  /* CHECK ME argc referenced below */
   int ret;
   char *str;
 
@@ -3775,6 +3792,7 @@ DEFUN (no_set_aspath_exclude,
        "Exclude from the as-path\n"
        "AS number\n")
 {
+  /* CHECK ME argc referenced below */
   int ret;
   char *str;
 
@@ -3792,6 +3810,7 @@ DEFUN (set_community,
        "BGP community attribute\n"
        COMMUNITY_VAL_STR)
 {
+  /* CHECK ME argc referenced below */
   int i;
   int first = 0;
   int additive = 0;
@@ -3942,6 +3961,7 @@ DEFUN (set_ecommunity_rt,
        "Route Target extended community\n"
        "VPN extended community\n")
 {
+  /* CHECK ME argc referenced below */
   int ret;
   char *str;
 
@@ -3972,6 +3992,7 @@ DEFUN (set_ecommunity_soo,
        "Site-of-Origin extended community\n"
        "VPN extended community\n")
 {
+  /* CHECK ME argc referenced below */
   int ret;
   char *str;
 
@@ -4090,6 +4111,7 @@ DEFUN (no_set_aggregator_as,
        "AS number\n"
        "IP address of aggregator\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_asn = 4;
   int idx_ip = 5;
   int ret;
@@ -4139,6 +4161,7 @@ DEFUN (no_set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   if (argc <= idx_number)
     return bgp_route_set_delete (vty, vty->index, "tag", NULL);
@@ -4319,6 +4342,7 @@ DEFUN (no_set_ipv6_nexthop_global,
        "IPv6 global address\n"
        "IPv6 address of next hop\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6 = 5;
   if (argc <= idx_ipv6)
     return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop global", NULL);
@@ -4365,6 +4389,7 @@ DEFUN (no_set_ipv6_nexthop_local,
        "IPv6 local address\n"
        "IPv6 address of next hop\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6 = 5;
   if (argc <= idx_ipv6)
     return bgp_route_set_delete (vty, vty->index, "ipv6 next-hop local", NULL);
@@ -4395,6 +4420,7 @@ DEFUN (no_set_vpnv4_nexthop,
        "VPNv4 next-hop address\n"
        "IP address of next hop\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 4;
   if (argc <= idx_ipv4)
     return bgp_route_set_delete (vty, vty->index, "vpnv4 next-hop", NULL);
@@ -4422,6 +4448,7 @@ DEFUN (no_set_originator_id,
        "BGP originator ID attribute\n"
        "IP address of originator\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_id = 3;
   if (argc < idx_id)
     return bgp_route_set_delete (vty, vty->index, "originator-id", NULL);

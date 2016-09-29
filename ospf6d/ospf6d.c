@@ -187,6 +187,7 @@ DEFUN (show_ipv6_ospf6_database,
        "Display Link state database\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -264,6 +265,7 @@ DEFUN (show_ipv6_ospf6_database_type,
        "Display Intra-Area-Prefix LSAs\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -364,6 +366,7 @@ DEFUN (show_ipv6_ospf6_database_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 5;
   int level;
   struct listnode *i, *j;
@@ -462,6 +465,7 @@ DEFUN (show_ipv6_ospf6_database_router,
        "Specify Advertising Router as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 6;
   int level;
   struct listnode *i, *j;
@@ -598,6 +602,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
@@ -754,6 +759,7 @@ DEFUN (show_ipv6_ospf6_database_type_router,
        "Specify Advertising Router as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
@@ -848,6 +854,7 @@ DEFUN (show_ipv6_ospf6_database_id_router,
        "Specify Advertising Router as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 5;
   int level;
   struct listnode *i, *j;
@@ -935,6 +942,7 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 5;
   int level;
   struct listnode *i, *j;
@@ -1037,6 +1045,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
        "Specify Advertising Router as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
@@ -1162,6 +1171,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
@@ -1259,6 +1269,7 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
        "Display Self-originated LSAs\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -1341,6 +1352,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
        "Display Self-originated LSAs\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -1444,6 +1456,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
        "Specify Link state ID as IPv4 address notation\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
@@ -1558,6 +1571,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
        "Display Self-originated LSAs\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
   int level;
   struct listnode *i, *j;
@@ -1646,6 +1660,7 @@ DEFUN (show_ipv6_ospf6_border_routers,
        "Display routing table for ABR and ASBR\n"
       )
 {
+  /* CHECK ME argc referenced below */
   u_int32_t adv_router;
   void (*showfunc) (struct vty *, struct ospf6_route *);
   struct ospf6_route *ro;
@@ -1724,6 +1739,7 @@ DEFUN (show_ipv6_ospf6_linkstate,
        "Display linkstate routing table\n"
       )
 {
+  /* CHECK ME argc referenced below */
   struct listnode *node;
   struct ospf6_area *oa;
 
@@ -1751,6 +1767,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
        "Display linkstate routing table\n"
       )
 {
+  /* CHECK ME argc referenced below */
   struct listnode *node;
   struct ospf6_area *oa;
 

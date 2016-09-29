@@ -437,6 +437,7 @@ DEFUN (ip_as_path,
        "Specify packets to forward\n"
        "A regular-expression to match the BGP AS paths\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 3;
   int idx_permit_deny = 4;
   enum as_filter_type type;
@@ -496,6 +497,7 @@ DEFUN (no_ip_as_path,
        "Specify packets to forward\n"
        "A regular-expression to match the BGP AS paths\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 4;
   int idx_permit_deny = 5;
   enum as_filter_type type;

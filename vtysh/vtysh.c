@@ -1732,6 +1732,7 @@ DEFUN (vtysh_show_thread,
       "Thread CPU usage\n"
       "Display filter (rwtexb)\n")
 {
+  /* CHECK ME argc referenced below */
   unsigned int i;
   int ret = CMD_SUCCESS;
   char line[100];
@@ -2176,6 +2177,7 @@ DEFUN (vtysh_write_terminal,
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n")
 {
+  /* CHECK ME argc referenced below */
   u_int i;
   char line[] = "write terminal\n";
   FILE *fp = NULL;

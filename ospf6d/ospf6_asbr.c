@@ -1142,6 +1142,7 @@ DEFUN (no_set_metric,
        SET_STR
        "Metric value for destination routing protocol\n")
 {
+  /* CHECK ME argc referenced below */
   int ret = 0;
 
   if (argc == 0)

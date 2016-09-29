@@ -792,6 +792,7 @@ DEFUN (ospf_opaque,
        "OSPF specific commands\n"
        "Enable the Opaque-LSA capability (rfc2370)\n")
 {
+  /* CHECK ME argc referenced below */
   return capability_opaque (self, vty, argc, argv);
 }
 
@@ -826,6 +827,7 @@ DEFUN (no_ospf_opaque,
        "OSPF specific commands\n"
        "Enable the Opaque-LSA capability (rfc2370)\n")
 {
+  /* CHECK ME argc referenced below */
   return no_capability_opaque (self, vty, argc, argv);
 }
 

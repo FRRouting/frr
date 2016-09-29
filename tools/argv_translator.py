@@ -718,6 +718,18 @@ DEFUN (no_bgp_maxmed_onstartup,
 
         return used
 
+    def uses_argc(self):
+        for line in self.guts:
+            if 'CHECK ME argc referenced below' in line:
+                return False
+
+            if 'use_json (argc, argv)' in line:
+                continue
+
+            if 'argc' in line:
+                return True
+        return False
+
     def dump(self):
         new_command_string = self.get_new_command_string()
         new_command_string_expanded = expand_command_string(new_command_string)
@@ -730,6 +742,8 @@ DEFUN (no_bgp_maxmed_onstartup,
         lines.extend(self.help_strings)
         lines.append('{\n')
 
+        if self.uses_argc():
+            lines.append("  /* CHECK ME argc referenced below */\n")
         lines.extend(self.guts)
 
         '''

@@ -2067,6 +2067,7 @@ DEFUN (area_passwd_md5,
        "Send but do not check PDUs on receiving\n"
        "Send and check PDUs on receiving\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_password = 0;
   int idx_word = 2;
   int idx_type = 5;
@@ -2097,6 +2098,7 @@ DEFUN (area_passwd_clear,
        "Send but do not check PDUs on receiving\n"
        "Send and check PDUs on receiving\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_password = 0;
   int idx_word = 2;
   int idx_type = 5;

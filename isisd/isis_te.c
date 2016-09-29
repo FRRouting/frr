@@ -1318,6 +1318,7 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_interface = 4;
   struct interface *ifp;
   struct listnode *node;

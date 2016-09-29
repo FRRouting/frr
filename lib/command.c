@@ -1016,6 +1016,7 @@ DEFUN (config_quit,
        "quit",
        "Exit current mode and down to previous mode\n")
 {
+  /* CHECK ME argc referenced below */
   return config_exit (self, vty, argc, argv);
 }
 
@@ -1137,6 +1138,7 @@ DEFUN (config_write,
        "Write configuration currently in memory\n"
        "Write configuration to terminal\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_type = 1;
   unsigned int i;
   int fd;
@@ -1282,6 +1284,7 @@ DEFUN (show_running_config,
        SHOW_STR
        "running configuration (same as write terminal/memory)\n")
 {
+  /* CHECK ME argc referenced below */
   return config_write (self, vty, argc, argv);
 }
 
@@ -1293,6 +1296,7 @@ DEFUN (copy_runningconf_startupconf,
        "Copy running config to... \n"
        "Copy running config to startup config (same as write file)\n")
 {
+  /* CHECK ME argc referenced below */
   return config_write (self, vty, argc, argv);
 }
 /** -- **/
@@ -1374,6 +1378,7 @@ DEFUN (config_password,
        "Specifies a HIDDEN password will follow\n"
        "The password string\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_8 = 1;
   int idx_word = 2;
   if (argc == 3) // '8' was specified
@@ -1420,6 +1425,7 @@ DEFUN (config_enable_password,
        "dummy string \n"
        "The HIDDEN 'enable' password string\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_8 = 2;
   int idx_word = 3;
   /* Crypt type is specified. */
@@ -1626,6 +1632,7 @@ DEFUN (config_logmsg,
        LOG_LEVEL_DESC
        "The message to send\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_log_level = 1;
   int level;
   char *message;
@@ -1699,6 +1706,7 @@ DEFUN (config_log_stdout,
        "Set stdout logging level\n"
        LOG_LEVEL_DESC)
 {
+  /* CHECK ME argc referenced below */
   int idx_log_level = 2;
   if (argc == 2)
   {
@@ -1732,6 +1740,7 @@ DEFUN (config_log_monitor,
        "Set terminal line (monitor) logging level\n"
        LOG_LEVEL_DESC)
 {
+  /* CHECK ME argc referenced below */
   int idx_log_level = 2;
   if (argc == 2)
   {
@@ -1820,6 +1829,7 @@ DEFUN (config_log_file,
        "Logging filename\n"
        LOG_LEVEL_DESC)
 {
+  /* CHECK ME argc referenced below */
   int idx_filename = 2;
   int idx_log_levels = 3;
   if (argc == 4)
@@ -1860,6 +1870,7 @@ DEFUN (config_log_syslog,
        "Set syslog logging level\n"
        LOG_LEVEL_DESC)
 {
+  /* CHECK ME argc referenced below */
   int idx_log_levels = 2;
   if (argc == 3)
   {

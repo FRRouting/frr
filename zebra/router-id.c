@@ -221,6 +221,7 @@ DEFUN (router_id,
        "IP address to use for router-id\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 1;
   int idx_name = 3;
 
@@ -250,6 +251,7 @@ DEFUN (no_router_id,
        "IP address to use for router-id\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_name = 4;
 
   struct prefix rid;

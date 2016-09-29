@@ -57,6 +57,7 @@ DEFUN (grammar_test,
        GRAMMAR_STR
        "command to pass to new parser\n")
 {
+  /* CHECK ME argc referenced below */
   // make a string from tokenized command line
   char *command = argv_concat (argv, argc, 0);
 
@@ -80,6 +81,7 @@ DEFUN (grammar_test_complete,
        "attempt to complete input on DFA\n"
        "command to complete")
 {
+  /* CHECK ME argc referenced below */
   char *cmdstr = argv_concat (argv, argc, 0);
   vector command = cmd_make_strvec (cmdstr);
 
@@ -129,6 +131,7 @@ DEFUN (grammar_test_match,
        "attempt to match input on DFA\n"
        "command to match")
 {
+  /* CHECK ME argc referenced below */
   if (argv[0][0] == '#')
     return CMD_SUCCESS;
 

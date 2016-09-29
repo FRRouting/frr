@@ -1480,6 +1480,7 @@ DEFUN (access_list_remark,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_acl = 1;
   struct access_list *access;
 
@@ -1525,6 +1526,7 @@ DEFUN (no_access_list_remark_comment,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
+  /* CHECK ME argc referenced below */
   return no_access_list_remark (self, vty, argc, argv);
 }
 	
@@ -1673,6 +1675,7 @@ DEFUN (ipv6_access_list_remark,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 2;
   struct access_list *access;
 
@@ -1712,6 +1715,7 @@ DEFUN (no_ipv6_access_list_remark_comment,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
+  /* CHECK ME argc referenced below */
   return no_ipv6_access_list_remark (self, vty, argc, argv);
 }
 	

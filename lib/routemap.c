@@ -1544,6 +1544,7 @@ DEFUN (rmap_onmatch_goto,
        "Goto Clause number\n"
        "Number\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 2;
   char *num = NULL;
   if (!strcmp (argv[0]->text, "continue"))
@@ -1609,6 +1610,7 @@ DEFUN (rmap_continue,
        "Continue on a different entry within the route-map\n"
        "Route-map entry sequence number\n")
 {
+  /* CHECK ME argc referenced below */
   return rmap_onmatch_goto (self, vty, argc, argv);
 }
 
@@ -1620,6 +1622,7 @@ DEFUN (no_rmap_continue,
        "Continue on a different entry within the route-map\n"
        "Route-map entry sequence number\n")
 {
+  /* CHECK ME argc referenced below */
   return no_rmap_onmatch_goto (self, vty, argc, argv);
 }
 
@@ -1631,6 +1634,7 @@ DEFUN (rmap_show_name,
        "route-map information\n"
        "route-map name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 2;
     const char *name = (argc == 3) ? argv[idx_word]->arg : NULL;
     return vty_show_route_map (vty, name);
@@ -1694,6 +1698,7 @@ DEFUN (rmap_description,
        "Route-map comment\n"
        "Comment describing this route-map rule\n")
 {
+  /* CHECK ME argc referenced below */
   struct route_map_index *index;
 
   index = vty->index;

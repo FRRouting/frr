@@ -2534,6 +2534,7 @@ DEFUN (ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int result;
   struct in_addr source_addr;
@@ -2564,6 +2565,7 @@ DEFUN (no_ip_ssmpingd,
        CONF_SSMPINGD_STR
        "Source address\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 3;
   int result;
   struct in_addr source_addr;
@@ -3560,6 +3562,7 @@ DEFUN (interface_ip_pim_hello,
        IFACE_PIM_HELLO_TIME_STR
        IFACE_PIM_HELLO_HOLD_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_time = 3;
   int idx_hold = 4;
   struct interface *ifp;
@@ -4052,6 +4055,7 @@ DEFUN (test_igmp_receive_report,
        "Record type\n"
        "Sources\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 4;
   int idx_ipv4 = 5;
   int idx_number_2 = 6;
@@ -4167,6 +4171,7 @@ DEFUN (test_pim_receive_dump,
        "Neighbor address\n"
        "Packet dump\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_interface = 4;
   int idx_ipv4 = 5;
   uint8_t           buf[1000];
@@ -4287,6 +4292,7 @@ DEFUN (test_pim_receive_hello,
        "Neighbor LAN prune delay T-bit\n"
        "Neighbor secondary addresses\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_interface = 4;
   int idx_ipv4 = 5;
   int idx_number = 6;

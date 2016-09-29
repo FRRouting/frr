@@ -2371,6 +2371,7 @@ DEFUN (debug_ospf6_message,
        "Debug All message\n"
        )
 {
+  /* CHECK ME argc referenced below */
   int idx_packet = 3;
   unsigned char level = 0;
   int type = 0;
@@ -2450,6 +2451,7 @@ DEFUN (no_debug_ospf6_message,
        "Debug All message\n"
        )
 {
+  /* CHECK ME argc referenced below */
   int idx_packet = 4;
   unsigned char level = 0;
   int type = 0;

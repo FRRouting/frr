@@ -2797,6 +2797,7 @@ DEFUN (no_vty_access_class,
        "Filter connections based on an IP access list\n"
        "IP access list\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 2;
   const char *accesslist = (argc == 3) ? argv[idx_word]->arg : NULL;
   if (! vty_accesslist_name || (argc && strcmp(vty_accesslist_name, accesslist)))
@@ -2840,6 +2841,7 @@ DEFUN (no_vty_ipv6_access_class,
        "Filter connections based on an IP access list\n"
        "IPv6 access list\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 3;
   const char *accesslist = (argc == 4) ? argv[idx_word]->arg : NULL;
 
@@ -2948,6 +2950,7 @@ DEFUN (no_terminal_monitor,
        "Set terminal line parameters\n"
        "Copy debug output to the current terminal line\n")
 {
+  /* CHECK ME argc referenced below */
   return terminal_no_monitor (self, vty, argc, argv);
 }
 

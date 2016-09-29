@@ -924,6 +924,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 6;
   union sockunion su;
   struct peer *peer;
@@ -979,6 +980,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_routes,
        "Display routes learned from neighbor\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ext_community = 5;
   int idx_ipv4 = 7;
   int ret;
@@ -1051,6 +1053,7 @@ DEFUN (show_ip_bgp_vpnv4_all_neighbor_advertised_routes,
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 6;
   int ret;
   struct peer *peer;
@@ -1105,6 +1108,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
        "Display the routes advertised to a BGP neighbor\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ext_community = 5;
   int idx_ipv4 = 7;
   int ret;

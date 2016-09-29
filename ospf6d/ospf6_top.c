@@ -405,6 +405,7 @@ DEFUN (ospf6_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   unsigned int minarrival;
   struct ospf6 *ospf = vty->index;
@@ -443,6 +444,7 @@ DEFUN (no_ospf6_timers_lsa,
        "OSPF6 LSA timers\n"
        "Minimum delay in receiving new version of a LSA\n")
 {
+  /* CHECK ME argc referenced below */
   unsigned int minarrival;
   struct ospf6 *ospf = vty->index;
 
@@ -816,6 +818,7 @@ DEFUN (show_ipv6_ospf6_route,
        ROUTE_STR
        )
 {
+  /* CHECK ME argc referenced below */
   OSPF6_CMD_CHECK_RUNNING ();
 
   ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
@@ -846,6 +849,7 @@ DEFUN (show_ipv6_ospf6_route_match,
        "Display routes which match the specified route\n"
        )
 {
+  /* CHECK ME argc referenced below */
   OSPF6_CMD_CHECK_RUNNING ();
 
   ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
@@ -864,6 +868,7 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
        "Detailed information\n"
        )
 {
+  /* CHECK ME argc referenced below */
   OSPF6_CMD_CHECK_RUNNING ();
 
   ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
@@ -886,6 +891,7 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
        "Detailed information\n"
        )
 {
+  /* CHECK ME argc referenced below */
   OSPF6_CMD_CHECK_RUNNING ();
 
   ospf6_route_table_show (vty, argc, argv, ospf6->route_table);

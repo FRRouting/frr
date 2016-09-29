@@ -1305,6 +1305,7 @@ DEFUN (show_interface,
        "Interface status and configuration\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   struct listnode *node;
   struct interface *ifp;
   vrf_id_t vrf_id = VRF_DEFAULT;
@@ -1354,6 +1355,7 @@ DEFUN (show_interface_name_vrf,
        "Interface name\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ifname = 2;
   int idx_name = 4;
   struct interface *ifp;
@@ -1463,6 +1465,7 @@ DEFUN (show_interface_desc,
        "Interface description\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 3)
@@ -2080,6 +2083,7 @@ DEFUN (link_params_delay,
        "Maximum delay\n"
        "Maximum delay in micro-second as decimal (0...16777215)\n")
 {
+  /* CHECK ME argc referenced below */
   /* Get and Check new delay values */
   u_int32_t delay = 0, low = 0, high = 0;
   VTY_GET_ULONG("delay", delay, argv[1]->arg);

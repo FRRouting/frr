@@ -835,6 +835,7 @@ DEFUN (debug_ospf6_lsa_type,
        "Specify LS type as Hexadecimal\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_lsa = 3;
   unsigned int i;
   struct ospf6_lsa_handler *handler = NULL;
@@ -893,6 +894,7 @@ DEFUN (no_debug_ospf6_lsa_type,
        "Specify LS type as Hexadecimal\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
   u_int i;
   struct ospf6_lsa_handler *handler = NULL;

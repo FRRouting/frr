@@ -726,6 +726,7 @@ DEFUN (debug_ospf6_zebra_sendrecv,
        "Debug Receiving zebra\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_send_recv = 3;
   unsigned char level = 0;
 
@@ -766,6 +767,7 @@ DEFUN (no_debug_ospf6_zebra_sendrecv,
        "Debug Receiving zebra\n"
       )
 {
+  /* CHECK ME argc referenced below */
   int idx_send_recv = 4;
   unsigned char level = 0;
 

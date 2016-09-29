@@ -468,6 +468,7 @@ DEFUN (area_range,
        "Specify IPv6 prefix\n"
        )
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 1;
   int idx_ipv6_prefixlen = 3;
   int ret;
@@ -571,6 +572,7 @@ DEFUN (no_area_range,
        "Configured address range\n"
        "Specify IPv6 prefix\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int ret;
   struct ospf6_area *oa;
@@ -680,6 +682,7 @@ DEFUN (area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 1;
   int idx_word = 4;
   struct ospf6_area *area;
@@ -724,6 +727,7 @@ DEFUN (no_area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int idx_word = 5;
   struct ospf6_area *area;

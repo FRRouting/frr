@@ -618,6 +618,7 @@ DEFUN (no_isis_redistribute,
        "Redistribute into level-1\n"
        "Redistribute into level-2\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_afi = 2;
   int idx_protocol = 3;
   int idx_level = 4;
@@ -668,6 +669,7 @@ DEFUN (isis_default_originate,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_afi = 2;
   int idx_level = 3;
   int idx_metric_rmap = 4;
@@ -739,6 +741,7 @@ DEFUN (no_isis_default_originate,
        "Distribute default route into level-1\n"
        "Distribute default route into level-2\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_afi = 3;
   int idx_level = 4;
   struct isis_area *area = vty->index;

@@ -664,6 +664,7 @@ DEFUN (router_bgp,
        AS_STR
        BGP_INSTANCE_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_asn = 2;
   int idx_view_vrf = 3;
   int idx_vrf = 4;
@@ -744,6 +745,7 @@ DEFUN (no_router_bgp,
        AS_STR
        BGP_INSTANCE_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_asn = 3;
   int idx_vrf = 5;
   as_t as;
@@ -827,6 +829,7 @@ DEFUN (no_bgp_router_id,
        "Override configured router identifier\n"
        "Manually configured router identifier\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_router_id = 3;
   int ret;
   struct in_addr id;
@@ -949,6 +952,7 @@ DEFUN (bgp_confederation_peers,
        "Peer ASs in BGP confederation\n"
        AS_STR)
 {
+  /* CHECK ME argc referenced below */
   struct bgp *bgp;
   as_t as;
   int i;
@@ -980,6 +984,7 @@ DEFUN (no_bgp_confederation_peers,
        "Peer ASs in BGP confederation\n"
        AS_STR)
 {
+  /* CHECK ME argc referenced below */
   struct bgp *bgp;
   as_t as;
   int i;
@@ -1106,6 +1111,7 @@ DEFUN (bgp_maxmed_onstartup,
        "Effective on a startup\n"
        "Time (seconds) period for max-med\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   struct bgp *bgp;
 
@@ -1134,6 +1140,7 @@ DEFUN (bgp_maxmed_onstartup_medv,
        "Time (seconds) period for max-med\n"
        "Max MED value to be used\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   int idx_number_2 = 4;
   struct bgp *bgp;
@@ -2778,6 +2785,7 @@ DEFUN (neighbor_interface_config,
        "Member of the peer-group\n"
        "peer-group name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 1;
   int idx_peer_group_word = 4;
 
@@ -2799,6 +2807,7 @@ DEFUN (neighbor_interface_config_v6only,
        "Member of the peer-group\n"
        "peer-group name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 1;
   int idx_peer_group_word = 5;
 
@@ -4343,6 +4352,7 @@ DEFUN (neighbor_description,
        "Neighbor specific description\n"
        "Up to 80 characters describing this neighbor\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_peer = 1;
   struct peer *peer;
   char *str;
@@ -4924,6 +4934,7 @@ DEFUN (neighbor_interface,
        "Interface\n"
        "Interface name\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ip = 1;
   int idx_word = 3;
   if (argc == 3)
@@ -5519,6 +5530,7 @@ DEFUN (neighbor_allowas_in,
        "Accept as-path with my AS present in it\n"
        "Number of occurances of AS number\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_peer = 1;
   int idx_number = 3;
   int ret;
@@ -6012,6 +6024,7 @@ DEFUN (clear_ip_bgp_all,
        BGP_SOFT_IN_STR
        BGP_SOFT_OUT_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_clr_sort = 5;
@@ -6205,6 +6218,7 @@ DEFUN (show_bgp_vrfs,
        "Show BGP VRFs\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   struct list *inst = bm->bgp;
   struct listnode *node;
   struct bgp *bgp;
@@ -6860,6 +6874,7 @@ DEFUN (show_ip_bgp_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
@@ -6886,6 +6901,7 @@ DEFUN (show_ip_bgp_instance_all_summary,
        "Summary of BGP neighbor status\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   u_char uj = use_json(argc, argv);
 
   bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_UNICAST, uj);
@@ -8737,6 +8753,7 @@ DEFUN (show_ip_bgp_neighbors,
        "Neighbor on bgp configured interface\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_ip = 1;
   int idx_view_vrf = 3;
   int idx_vrf = 4;
@@ -8784,6 +8801,7 @@ DEFUN (show_ip_bgp_instance_all_neighbors,
        "Detailed information on TCP and BGP neighbor connections\n"
        "JavaScript Object Notation\n")
 {
+  /* CHECK ME argc referenced below */
   u_char uj = use_json(argc, argv);
 
   bgp_show_all_instances_neighbors_vty (vty, uj);
@@ -8918,6 +8936,7 @@ DEFUN (show_ip_bgp_updgrps,
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_view_vrf = 3;
   int idx_vrf = 4;
   int idx_afi;
@@ -11302,6 +11321,7 @@ DEFUN (ip_community_list_standard,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
+  /* CHECK ME argc referenced below */
   return community_list_set_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
 }
 
@@ -11318,6 +11338,7 @@ DEFUN (no_ip_community_list_standard_all,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
+  /* CHECK ME argc referenced below */
   return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
 }
 
@@ -11334,6 +11355,7 @@ DEFUN (ip_community_list_expanded_all,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
+  /* CHECK ME argc referenced below */
   return community_list_set_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
 }
 
@@ -11350,6 +11372,7 @@ DEFUN (no_ip_community_list_expanded_all,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
+  /* CHECK ME argc referenced below */
   return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
 }
 
@@ -11541,6 +11564,7 @@ DEFUN (ip_extcommunity_list_standard,
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
 {
+  /* CHECK ME argc referenced below */
   return extcommunity_list_set_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD);
 }
 
@@ -11556,6 +11580,7 @@ DEFUN (ip_extcommunity_list_name_expanded,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
+  /* CHECK ME argc referenced below */
   return extcommunity_list_set_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
 }
 
@@ -11572,6 +11597,7 @@ DEFUN (no_ip_extcommunity_list_standard_all,
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
 {
+  /* CHECK ME argc referenced below */
   return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
 }
 
@@ -11588,6 +11614,7 @@ DEFUN (no_ip_extcommunity_list_expanded_all,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
+  /* CHECK ME argc referenced below */
   return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
 }
 

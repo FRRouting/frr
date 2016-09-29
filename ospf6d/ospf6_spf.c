@@ -885,6 +885,7 @@ DEFUN (ospf6_timers_throttle_spf,
        "Initial hold time (msec) between consecutive SPF calculations\n"
        "Maximum hold time (msec)\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_number = 3;
   int idx_number_2 = 4;
   int idx_number_3 = 5;

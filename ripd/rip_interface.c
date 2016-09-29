@@ -1528,6 +1528,7 @@ DEFUN (ip_rip_authentication_mode,
        "RFC compatible\n"
        "Old ripd compatible\n")
 {
+  /* CHECK ME argc referenced below */
   char *cryptmode = argv[4]->text;
   char *authlen = (argc > 5) ? argv[6]->text : NULL;
   struct interface *ifp;

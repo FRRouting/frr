@@ -1918,6 +1918,7 @@ DEFUN (topology_generate_grid,
        "Optional param 3\n"
        "Topology\n")
 {
+  /* CHECK ME argc referenced below */
   struct isis_area *area;
 
   area = vty->index;

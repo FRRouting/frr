@@ -124,6 +124,7 @@ DEFUN (test_interface_state,
        "up\n"
        "down\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_up_down = 1;
   struct interface *ifp;
   if (argc < 1)

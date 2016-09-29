@@ -1905,6 +1905,7 @@ DEFUN (ip_prefix_list_description,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 2;
   struct prefix_list *plist;
 
@@ -1944,6 +1945,7 @@ DEFUN (no_ip_prefix_list_description_comment,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
+  /* CHECK ME argc referenced below */
   return no_ip_prefix_list_description (self, vty, argc, argv);
 }
 
@@ -2616,6 +2618,7 @@ DEFUN (ipv6_prefix_list_description,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_word = 2;
   struct prefix_list *plist;
 
@@ -2655,6 +2658,7 @@ DEFUN (no_ipv6_prefix_list_description_comment,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
+  /* CHECK ME argc referenced below */
   return no_ipv6_prefix_list_description_comment (self, vty, argc, argv);
 }
 

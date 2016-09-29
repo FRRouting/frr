@@ -736,6 +736,7 @@ DEFUN (dump_bgp_all,
        "Output filename\n"
        "Interval of output\n")
 {
+  /* CHECK ME argc referenced below */
   int idx_dump_routes = 2;
   int idx_path = 3;
   int idx_interval = 4;

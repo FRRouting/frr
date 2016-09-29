@@ -191,6 +191,7 @@ DEFUN (ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
+  /* CHECK ME argc referenced below */
   char *destprefix = argv[2]->arg;
   char *nexthop = argv[3]->arg;
   char *distance = (argc == 5) ? argv[4]->arg : NULL;
@@ -208,6 +209,7 @@ DEFUN (no_ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
+  /* CHECK ME argc referenced below */
   char *destprefix = argv[2]->arg;
   char *nexthop = argv[3]->arg;
   char *distance = (argc == 5) ? argv[4]->arg : NULL;
@@ -351,6 +353,7 @@ DEFUN (ip_route,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4_prefixlen = 2;
   int idx_ipv4_ifname_null = 3;
   int idx_curr = 4;
@@ -382,6 +385,7 @@ DEFUN (ip_route_flags,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4_prefixlen = 2;
   int idx_ipv4_ifname = 3;
   int idx_reject_blackhole = 4;
@@ -412,6 +416,7 @@ DEFUN (ip_route_flags2,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4_prefixlen = 2;
   int idx_reject_blackhole = 3;
   int idx_curr = 4;
@@ -444,6 +449,7 @@ DEFUN (ip_route_mask,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int idx_ipv4_2 = 3;
   int idx_ipv4_ifname_null = 4;
@@ -476,6 +482,7 @@ DEFUN (ip_route_mask_flags,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int idx_ipv4_2 = 3;
   int idx_ipv4_ifname = 4;
@@ -509,6 +516,7 @@ DEFUN (ip_route_mask_flags2,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int idx_ipv4_2 = 3;
   int idx_reject_blackhole = 4;
@@ -541,6 +549,7 @@ DEFUN (no_ip_route,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4_prefixlen = 3;
   int idx_ipv4_ifname_null = 4;
   int idx_curr = 5;
@@ -571,6 +580,7 @@ DEFUN (no_ip_route_flags2,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4_prefixlen = 3;
   int idx_curr = 5;
   char *tag, *distance, *vrf;
@@ -600,6 +610,7 @@ DEFUN (no_ip_route_mask,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
   int idx_ipv4_ifname_null = 5;
@@ -632,6 +643,7 @@ DEFUN (no_ip_route_mask_flags2,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
   int idx_curr = 6;
@@ -663,6 +675,7 @@ DEFUN (no_ip_route_flags,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4_prefixlen = 3;
   int idx_ipv4_ifname = 4;
   int idx_reject_blackhole = 5;
@@ -697,6 +710,7 @@ DEFUN (no_ip_route_mask_flags,
        "Distance value for this route\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
   int idx_ipv4_ifname = 5;
@@ -1139,6 +1153,7 @@ DEFUN (show_ip_route,
        IP_STR
        "IP routing table\n")
 {
+  /* CHECK ME argc referenced below */
   return do_show_ip_route (vty, VRF_DEFAULT_NAME, SAFI_UNICAST, use_json(argc, argv));
 }
 
@@ -1234,6 +1249,7 @@ DEFUN (show_ip_route_vrf,
        "IP routing table\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_json = 5;
   u_char uj = use_json(argc, argv);
 
@@ -1251,6 +1267,7 @@ DEFUN (show_ip_nht,
        "IP nexthop tracking table\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_vrf = 4;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
@@ -1291,6 +1308,7 @@ DEFUN (show_ipv6_nht,
        "IPv6 nexthop tracking table\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_vrf = 4;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
@@ -2507,6 +2525,7 @@ DEFUN (ipv6_route,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6_ifname = 3;
   int idx_curr = 4;
@@ -2539,6 +2558,7 @@ DEFUN (ipv6_route_flags,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6_ifname = 3;
   int idx_reject_blackhole = 4;
@@ -2569,6 +2589,7 @@ DEFUN (ipv6_route_ifname,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6 = 3;
   int idx_interface = 4;
@@ -2601,6 +2622,7 @@ DEFUN (ipv6_route_ifname_flags,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6 = 3;
   int idx_interface = 4;
@@ -2633,6 +2655,7 @@ DEFUN (no_ipv6_route,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6_ifname = 4;
   int idx_curr = 5;
@@ -2664,6 +2687,7 @@ DEFUN (no_ipv6_route_flags,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6_ifname = 4;
   int idx_reject_blackhole = 5;
@@ -2695,6 +2719,7 @@ DEFUN (no_ipv6_route_ifname,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6 = 4;
   int idx_interface = 5;
@@ -2728,6 +2753,7 @@ DEFUN (no_ipv6_route_ifname_flags,
        "Distance value for this prefix\n"
        VRF_CMD_HELP_STR)
 {
+  /* CHECK ME argc referenced below */
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6 = 4;
   int idx_interface = 5;
@@ -2755,6 +2781,7 @@ DEFUN (show_ipv6_route,
        VRF_CMD_HELP_STR
        "Output JSON\n")
 {
+  /* CHECK ME argc referenced below */
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -2955,6 +2982,7 @@ DEFUN (show_ipv6_route_protocol,
        VRF_CMD_HELP_STR
        QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 {
+  /* CHECK ME argc referenced below */
   int type;
   struct route_table *table;
   struct route_node *rn;
@@ -3699,6 +3727,7 @@ DEFUN (ip_zebra_import_table_distance,
        "route-map for filtering\n"
        "route-map name\n")
 {
+  /* CHECK ME argc referenced below */
   u_int32_t table_id = 0;
 
   VTY_GET_INTEGER("table", table_id, argv[2]->arg);

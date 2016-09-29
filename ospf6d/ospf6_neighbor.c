@@ -848,6 +848,7 @@ DEFUN (show_ipv6_ospf6_neighbor,
        "Neighbor list\n"
       )
 {
+  /* CHECK ME argc referenced below */
   struct ospf6_neighbor *on;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
@@ -945,6 +946,7 @@ DEFUN (debug_ospf6_neighbor,
        "Debug OSPFv3 Neighbor\n"
       )
 {
+  /* CHECK ME argc referenced below */
   unsigned char level = 0;
   if (argc)
     {
@@ -982,6 +984,7 @@ DEFUN (no_debug_ospf6_neighbor,
        "Debug OSPFv3 Neighbor\n"
       )
 {
+  /* CHECK ME argc referenced below */
   unsigned char level = 0;
   if (argc)
     {
