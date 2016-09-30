@@ -1055,8 +1055,7 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        OSPF6_STR
        INTERFACE_STR
        IFNAME_STR
-       "Display connected prefixes to advertise\n"
-       )
+       "Display connected prefixes to advertise\n")
 {
   /* CHECK ME argc referenced below */
   int idx_ifname = 4;
@@ -1077,9 +1076,7 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
       return CMD_WARNING;
     }
 
-  argc--;
-  argv++;
-  ospf6_route_table_show (vty, argc, argv, oi->route_connected);
+  ospf6_route_table_show (vty, 6, argc, argv, oi->route_connected);
 
   return CMD_SUCCESS;
 }
@@ -1132,7 +1129,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
       if (oi == NULL)
         continue;
 
-      ospf6_route_table_show (vty, argc, argv, oi->route_connected);
+      ospf6_route_table_show (vty, 5, argc, argv, oi->route_connected);
     }
 
   return CMD_SUCCESS;
