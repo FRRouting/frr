@@ -346,6 +346,7 @@ main (int argc, char **argv)
   /* Vty related initialize. */
   signal_init (zebrad.master, array_size(zebra_signals), zebra_signals);
   cmd_init (1);
+  vty_config_lockless ();
   vty_init (zebrad.master);
   memory_init ();
 

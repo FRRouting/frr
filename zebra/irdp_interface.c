@@ -380,12 +380,7 @@ DEFUN (ip_irdp_multicast,
        IP_STR
        "ICMP Router discovery on this interface using multicast\n")
 {
-  struct interface *ifp;
-
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   irdp_if_start(ifp, TRUE, TRUE);
   return CMD_SUCCESS;
@@ -397,12 +392,7 @@ DEFUN (ip_irdp_broadcast,
        IP_STR
        "ICMP Router discovery on this interface using broadcast\n")
 {
-  struct interface *ifp;
-
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   irdp_if_start(ifp, FALSE, TRUE);
   return CMD_SUCCESS;
@@ -415,12 +405,7 @@ DEFUN (no_ip_irdp,
        IP_STR
        "Disable ICMP Router discovery on this interface\n")
 {
-  struct interface *ifp;
-
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   irdp_if_stop(ifp);
   return CMD_SUCCESS;
@@ -432,12 +417,7 @@ DEFUN (ip_irdp_shutdown,
        IP_STR
        "ICMP Router discovery shutdown on this interface\n")
 {
-  struct interface *ifp;
-
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   irdp_if_shutdown(ifp);
   return CMD_SUCCESS;
@@ -450,12 +430,7 @@ DEFUN (no_ip_irdp_shutdown,
        IP_STR
        "ICMP Router discovery no shutdown on this interface\n")
 {
-  struct interface *ifp;
-
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   irdp_if_no_shutdown(ifp);
   return CMD_SUCCESS;
@@ -469,13 +444,9 @@ DEFUN (ip_irdp_holdtime,
        "Set holdtime value\n"
        "Holdtime value in seconds. Default is 1800 seconds\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -492,13 +463,9 @@ DEFUN (ip_irdp_minadvertinterval,
        "Set minimum time between advertisement\n"
        "Minimum advertisement interval in seconds\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -525,13 +492,9 @@ DEFUN (ip_irdp_maxadvertinterval,
        "Set maximum time between advertisement\n"
        "Maximum advertisement interval in seconds\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -564,13 +527,9 @@ DEFUN (ip_irdp_preference,
        "Set default preference level for this interface\n"
        "Preference level\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -588,19 +547,14 @@ DEFUN (ip_irdp_address_preference,
        "Set IRDP address for advertise\n"
        "Preference level\n")
 {
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct listnode *node;
   struct in_addr ip; 
   int pref;
   int ret;
-  struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
   struct Adv *adv;
-
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -633,18 +587,13 @@ DEFUN (no_ip_irdp_address_preference,
        "Select IRDP address\n"
        "Old preference level\n")
 {
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct listnode *node, *nnode;
   struct in_addr ip; 
   int ret;
-  struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
   struct Adv *adv;
-
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -671,13 +620,9 @@ DEFUN (ip_irdp_debug_messages,
        IP_STR
        "ICMP Router discovery debug Averts. and Solicits (short)\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -693,13 +638,9 @@ DEFUN (ip_irdp_debug_misc,
        IP_STR
        "ICMP Router discovery debug Averts. and Solicits (short)\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -715,13 +656,9 @@ DEFUN (ip_irdp_debug_packet,
        IP_STR
        "ICMP Router discovery debug Averts. and Solicits (short)\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;
@@ -738,13 +675,9 @@ DEFUN (ip_irdp_debug_disable,
        IP_STR
        "ICMP Router discovery debug Averts. and Solicits (short)\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zi;
   struct irdp_interface *irdp;
-  ifp = (struct interface *) vty->index;
-  if(!ifp) {
-	  return CMD_WARNING;
-  }
 
   zi=ifp->info;
   irdp=&zi->irdp;

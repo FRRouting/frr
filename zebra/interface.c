@@ -1233,13 +1233,12 @@ DEFUN_NOSH (zebra_interface,
 	    "Interface's name\n")
 {
   int ret;
-  struct interface *ifp;
-  
+
   /* Call lib interface() */
   if ((ret = interface_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
     return ret;
 
-  ifp = vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   if (ifp->ifindex == IFINDEX_INTERNAL)
     /* Is this really necessary?  Shouldn't status be initialized to 0
@@ -1286,13 +1285,12 @@ DEFUN_NOSH (zebra_vrf,
 	    "Select a VRF to configure\n"
 	    "VRF's name\n")
 {
+  // VTY_DECLVAR_CONTEXT (vrf, vrfp);
   int ret;
   
   /* Call lib vrf() */
   if ((ret = vrf_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
     return ret;
-
-  // vrfp = vty->index;  
 
   return ret;
 }
@@ -1518,11 +1516,10 @@ DEFUN (multicast,
        "multicast",
        "Set multicast flag to interface\n")
 {
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   int ret;
-  struct interface *ifp;
   struct zebra_if *if_data;
 
-  ifp = (struct interface *) vty->index;
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
       ret = if_set_flags (ifp, IFF_MULTICAST);
@@ -1545,11 +1542,10 @@ DEFUN (no_multicast,
        NO_STR
        "Unset multicast flag to interface\n")
 {
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   int ret;
-  struct interface *ifp;
   struct zebra_if *if_data;
 
-  ifp = (struct interface *) vty->index;
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
       ret = if_unset_flags (ifp, IFF_MULTICAST);
@@ -1571,10 +1567,9 @@ DEFUN (linkdetect,
        "link-detect",
        "Enable link detection on interface\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   int if_was_operative;
-  
-  ifp = (struct interface *) vty->index;
+
   if_was_operative = if_is_no_ptm_operative(ifp);
   SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
 
@@ -1594,10 +1589,9 @@ DEFUN (no_linkdetect,
        NO_STR
        "Disable link detection on interface\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   int if_was_operative;
 
-  ifp = (struct interface *) vty->index;
   if_was_operative = if_is_no_ptm_operative(ifp);
   UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
   
@@ -1614,11 +1608,10 @@ DEFUN (shutdown_if,
        "shutdown",
        "Shutdown the selected interface\n")
 {
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   int ret;
-  struct interface *ifp;
   struct zebra_if *if_data;
 
-  ifp = (struct interface *) vty->index;
   if (ifp->ifindex != IFINDEX_INTERNAL)
     {
         ret = if_unset_flags (ifp, IFF_UP);
@@ -1641,11 +1634,9 @@ DEFUN (no_shutdown_if,
        NO_STR
        "Shutdown the selected interface\n")
 {
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   int ret;
-  struct interface *ifp;
   struct zebra_if *if_data;
-
-  ifp = (struct interface *) vty->index;
 
   if (ifp->ifindex != IFINDEX_INTERNAL)
     {
@@ -1675,10 +1666,9 @@ DEFUN (bandwidth_if,
        "Set bandwidth informational parameter\n"
        "Bandwidth in megabits\n")
 {
-  struct interface *ifp;   
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   unsigned int bandwidth;
-  
-  ifp = (struct interface *) vty->index;
+
   bandwidth = strtol(argv[0], NULL, 10);
 
   /* bandwidth range is <1-100000> */
@@ -1703,9 +1693,7 @@ DEFUN (no_bandwidth_if,
        NO_STR
        "Set bandwidth informational parameter\n")
 {
-  struct interface *ifp;   
-  
-  ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   ifp->bandwidth = 0;
   
@@ -1779,6 +1767,7 @@ DEFUN (link_params,
        "link-params",
        LINK_PARAMS_STR)
 {
+  /* vty->qobj_index stays the same @ interface pointer */
   vty->node = LINK_PARAMS_NODE;
 
   return CMD_SUCCESS;
@@ -1790,7 +1779,7 @@ DEFUN (link_params_enable,
        "enable",
        "Activate link parameters on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* This command could be issue at startup, when activate MPLS TE */
   /* on a new interface or after a ON / OFF / ON toggle */
@@ -1819,7 +1808,7 @@ DEFUN (no_link_params_enable,
        NO_STR
        "Disable link parameters on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   zlog_debug ("MPLS-TE: disable TE link parameters on interface %s", ifp->name);
 
@@ -1839,7 +1828,7 @@ DEFUN (link_params_metric,
        "Link metric for MPLS-TE purpose\n"
        "Metric value in decimal\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t metric;
 
@@ -1855,9 +1844,9 @@ DEFUN (no_link_params_metric,
        no_link_params_metric_cmd,
        "no metric",
        NO_STR
-       "Disbale Link Metric on this interface\n")
+       "Disable Link Metric on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset TE Metric */
   link_param_cmd_unset(ifp, LP_TE);
@@ -1871,7 +1860,7 @@ DEFUN (link_params_maxbw,
        "Maximum bandwidth that can be used\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
 
   float bw;
@@ -1915,7 +1904,7 @@ DEFUN (link_params_max_rsv_bw,
        "Maximum bandwidth that may be reserved\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
@@ -1948,7 +1937,7 @@ DEFUN (link_params_unrsv_bw,
        "Priority\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   int priority;
   float bw;
@@ -1989,7 +1978,7 @@ DEFUN (link_params_admin_grp,
        "Administrative group membership\n"
        "32-bit Hexadecimal value (e.g. 0xa1)\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   unsigned long value;
 
@@ -2010,9 +1999,9 @@ DEFUN (no_link_params_admin_grp,
        no_link_params_admin_grp_cmd,
        "no admin-grp",
        NO_STR
-       "Disbale Administrative group membership on this interface\n")
+       "Disable Administrative group membership on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset Admin Group */
   link_param_cmd_unset(ifp, LP_ADM_GRP);
@@ -2029,8 +2018,7 @@ DEFUN (link_params_inter_as,
        "Remote AS number\n"
        "AS number in the range <1-4294967295>\n")
 {
-
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   struct in_addr addr;
   u_int32_t as;
@@ -2066,8 +2054,7 @@ DEFUN (no_link_params_inter_as,
        NO_STR
        "Remove Neighbor IP address and AS number for Inter-AS TE\n")
 {
-
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
 
   /* Reset Remote IP and AS neighbor */
@@ -2089,8 +2076,7 @@ DEFUN (link_params_delay,
        "Unidirectional Average Link Delay\n"
        "Average delay in micro-second as decimal (0...16777215)\n")
 {
-
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t delay = 0, low = 0, high = 0;
   u_int8_t update = 0;
@@ -2180,9 +2166,9 @@ DEFUN (no_link_params_delay,
        no_link_params_delay_cmd,
        "no delay",
        NO_STR
-       "Disbale Unidirectional Average, Min & Max Link Delay on this interface\n")
+       "Disable Unidirectional Average, Min & Max Link Delay on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
 
   /* Unset Delays */
@@ -2205,7 +2191,7 @@ DEFUN (link_params_delay_var,
        "Unidirectional Link Delay Variation\n"
        "delay variation in micro-second as decimal (0...16777215)\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t value;
 
@@ -2221,9 +2207,9 @@ DEFUN (no_link_params_delay_var,
        no_link_params_delay_var_cmd,
        "no delay-variation",
        NO_STR
-       "Disbale Unidirectional Delay Variation on this interface\n")
+       "Disable Unidirectional Delay Variation on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset Delay Variation */
   link_param_cmd_unset(ifp, LP_DELAY_VAR);
@@ -2237,7 +2223,7 @@ DEFUN (link_params_pkt_loss,
        "Unidirectional Link Packet Loss\n"
        "percentage of total traffic by 0.000003% step and less than 50.331642%\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float fval;
 
@@ -2261,9 +2247,9 @@ DEFUN (no_link_params_pkt_loss,
        no_link_params_pkt_loss_cmd,
        "no packet-loss",
        NO_STR
-       "Disbale Unidirectional Link Packet Loss on this interface\n")
+       "Disable Unidirectional Link Packet Loss on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset Packet Loss */
   link_param_cmd_unset(ifp, LP_PKT_LOSS);
@@ -2277,7 +2263,7 @@ DEFUN (link_params_res_bw,
        "Unidirectional Residual Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
@@ -2307,9 +2293,9 @@ DEFUN (no_link_params_res_bw,
        no_link_params_res_bw_cmd,
        "no res-bw",
        NO_STR
-       "Disbale Unidirectional Residual Bandwidth on this interface\n")
+       "Disable Unidirectional Residual Bandwidth on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset Residual Bandwidth */
   link_param_cmd_unset(ifp, LP_RES_BW);
@@ -2323,7 +2309,7 @@ DEFUN (link_params_ava_bw,
        "Unidirectional Available Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
@@ -2353,9 +2339,9 @@ DEFUN (no_link_params_ava_bw,
        no_link_params_ava_bw_cmd,
        "no ava-bw",
        NO_STR
-       "Disbale Unidirectional Available Bandwidth on this interface\n")
+       "Disable Unidirectional Available Bandwidth on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset Available Bandwidth */
   link_param_cmd_unset(ifp, LP_AVA_BW);
@@ -2369,7 +2355,7 @@ DEFUN (link_params_use_bw,
        "Unidirectional Utilised Bandwidth\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct if_link_params *iflp = if_link_params_get (ifp);
   float bw;
 
@@ -2399,9 +2385,9 @@ DEFUN (no_link_params_use_bw,
        no_link_params_use_bw_cmd,
        "no use-bw",
        NO_STR
-       "Disbale Unidirectional Utilised Bandwidth on this interface\n")
+       "Disable Unidirectional Utilised Bandwidth on this interface\n")
 {
-  struct interface *ifp = (struct interface *) vty->index;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
 
   /* Unset Utilised Bandwidth */
   link_param_cmd_unset(ifp, LP_USE_BW);
@@ -2557,7 +2543,8 @@ DEFUN (ip_address,
        "Set the IP address of an interface\n"
        "IP address (e.g. 10.0.0.1/8)\n")
 {
-  return ip_address_install (vty, vty->index, argv[0], NULL, NULL);
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  return ip_address_install (vty, ifp, argv[0], NULL, NULL);
 }
 
 DEFUN (no_ip_address,
@@ -2568,7 +2555,8 @@ DEFUN (no_ip_address,
        "Set the IP address of an interface\n"
        "IP Address (e.g. 10.0.0.1/8)")
 {
-  return ip_address_uninstall (vty, vty->index, argv[0], NULL, NULL);
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  return ip_address_uninstall (vty, ifp, argv[0], NULL, NULL);
 }
 
 
@@ -2582,7 +2570,8 @@ DEFUN (ip_address_label,
        "Label of this address\n"
        "Label\n")
 {
-  return ip_address_install (vty, vty->index, argv[0], NULL, argv[1]);
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  return ip_address_install (vty, ifp, argv[0], NULL, argv[1]);
 }
 
 DEFUN (no_ip_address_label,
@@ -2595,7 +2584,8 @@ DEFUN (no_ip_address_label,
        "Label of this address\n"
        "Label\n")
 {
-  return ip_address_uninstall (vty, vty->index, argv[0], NULL, argv[1]);
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  return ip_address_uninstall (vty, ifp, argv[0], NULL, argv[1]);
 }
 #endif /* HAVE_NETLINK */
 
@@ -2758,7 +2748,8 @@ DEFUN (ipv6_address,
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
-  return ipv6_address_install (vty, vty->index, argv[0], NULL, NULL, 0);
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  return ipv6_address_install (vty, ifp, argv[0], NULL, NULL, 0);
 }
 
 DEFUN (no_ipv6_address,
@@ -2769,7 +2760,8 @@ DEFUN (no_ipv6_address,
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
-  return ipv6_address_uninstall (vty, vty->index, argv[0], NULL, NULL, 0);
+  VTY_DECLVAR_CONTEXT (interface, ifp);
+  return ipv6_address_uninstall (vty, ifp, argv[0], NULL, NULL, 0);
 }
 #endif /* HAVE_IPV6 */
 

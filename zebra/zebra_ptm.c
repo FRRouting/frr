@@ -298,12 +298,11 @@ DEFUN (zebra_ptm_enable_if,
        "ptm-enable",
        "Enable neighbor check with specified topology\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *if_data;
   int old_ptm_enable;
   int send_linkdown = 0;
 
-  ifp = (struct interface *) vty->index;
   if (ifp->ifindex == IFINDEX_INTERNAL)
     {
       return CMD_SUCCESS;
@@ -338,11 +337,9 @@ DEFUN (no_zebra_ptm_enable_if,
        NO_STR
        "Enable neighbor check with specified topology\n")
 {
-  struct interface *ifp;
+  VTY_DECLVAR_CONTEXT (interface, ifp);
   int send_linkup = 0;
   struct zebra_if *if_data;
-
-  ifp = (struct interface *) vty->index;
 
   if ((ifp->ifindex != IFINDEX_INTERNAL) && (ifp->ptm_enable))
     {
