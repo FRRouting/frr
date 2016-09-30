@@ -7923,31 +7923,26 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
-       "show ip bgp <view|vrf> all [json]",
+       "show [ip] bgp <view|vrf> all [<<ipv4|ipv6|encap> [unicast]|ipv4 multicast|vpnv4 unicast>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        "JavaScript Object Notation\n")
 {
+  int idx_view_vrf = 3;
+  int idx_vrf = 4;
+  int idx_afi;
+  int idx_safi;
+  afi_t afi;
+  safi_t safi;
+
   u_char uj = use_json(argc, argv);
+  bgp_get_argv_vrf (argc, argv, &afi, &safi, &idx_view_vrf, &idx_vrf, &idx_afi);
+  idx_safi = idx_afi + 1;
+  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, NULL);
 
-  /* CHECK ME we need to revisit all of the bgp_show_all_ commands */
-  bgp_show_all_instances_routes_vty (vty, AFI_IP, SAFI_UNICAST, uj);
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_instance_all,
-       show_bgp_instance_all_cmd,
-       "show bgp <view|vrf> all [json]",
-       SHOW_STR
-       BGP_STR
-       BGP_INSTANCE_ALL_HELP_STR
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-
-  bgp_show_all_instances_routes_vty (vty, AFI_IP6, SAFI_UNICAST, uj);
+  bgp_show_all_instances_routes_vty (vty, afi, safi, uj);
   return CMD_SUCCESS;
 }
 
@@ -10298,14 +10293,6 @@ bgp_route_init (void)
 
   install_element (BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
   install_element (BGP_IPV6M_NODE, &no_ipv6_bgp_network_cmd);
-
-  /* Old config IPv6 BGP commands.  */
-  install_element (VIEW_NODE, &show_bgp_instance_all_cmd);
-  
-  /* Restricted:
-   * VIEW_NODE - (set of dangerous commands) - (commands dependent on prev) 
-   */
-  install_element (ENABLE_NODE, &show_bgp_instance_all_cmd);
 
   /* Statistics */
   install_element (ENABLE_NODE, &show_bgp_statistics_cmd);
