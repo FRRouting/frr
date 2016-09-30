@@ -4052,10 +4052,10 @@ DEFUN (test_igmp_receive_report,
        "Record type\n"
        "Sources\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 4;
   int idx_ipv4 = 5;
   int idx_number_2 = 6;
+  int idx_line = 7;
   char              buf[1000];
   char             *igmp_msg;
   struct ip        *ip_hdr;
@@ -4121,7 +4121,7 @@ DEFUN (test_igmp_receive_report,
   /* Scan LINE sources */
   sources = (struct in_addr *) (group_record + IGMP_V3_GROUP_RECORD_SOURCE_OFFSET);
   src_addr = sources;
-  for (argi = 3; argi < argc; ++argi,++src_addr) {
+  for (argi = idx_line; argi < argc; ++argi,++src_addr) {
     src_str = argv[argi]->arg;
     result = inet_pton(AF_INET, src_str, src_addr);
     if (result <= 0) {
@@ -4168,9 +4168,9 @@ DEFUN (test_pim_receive_dump,
        "Neighbor address\n"
        "Packet dump\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_interface = 4;
   int idx_ipv4 = 5;
+  int idx_line = 6;
   uint8_t           buf[1000];
   uint8_t          *pim_msg;
   struct ip        *ip_hdr;
@@ -4219,7 +4219,7 @@ DEFUN (test_pim_receive_dump,
   pim_msg_size = 0;
 
   /* Scan LINE dump into buffer */
-  for (argi = 2; argi < argc; ++argi) {
+  for (argi = idx_line; argi < argc; ++argi) {
     const char *str = argv[argi]->arg;
     int str_len = strlen(str);
     int str_last = str_len - 1;
@@ -4289,7 +4289,6 @@ DEFUN (test_pim_receive_hello,
        "Neighbor LAN prune delay T-bit\n"
        "Neighbor secondary addresses\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_interface = 4;
   int idx_ipv4 = 5;
   int idx_number = 6;
@@ -4298,6 +4297,7 @@ DEFUN (test_pim_receive_hello,
   int idx_number_4 = 9;
   int idx_number_5 = 10;
   int idx_number_6 = 11;
+  int idx_line = 12;
   uint8_t           buf[1000];
   uint8_t          *pim_msg;
   struct ip        *ip_hdr;
@@ -4359,7 +4359,7 @@ DEFUN (test_pim_receive_hello,
   pim_msg = buf + ip_hlen;
 
   /* Scan LINE addresses */
-  for (argi = 8; argi < argc; ++argi) {
+  for (argi = idx_line; argi < argc; ++argi) {
     const char *sec_str = argv[argi]->arg;
     struct in_addr sec_addr;
     result = inet_pton(AF_INET, sec_str, &sec_addr);

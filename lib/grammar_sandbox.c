@@ -57,9 +57,9 @@ DEFUN (grammar_test,
        GRAMMAR_STR
        "command to pass to new parser\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_command = 2;
   // make a string from tokenized command line
-  char *command = argv_concat (argv, argc, 0);
+  char *command = argv_concat (argv, argc, idx_command);
 
   // create cmd_element for parser
   struct cmd_element *cmd = XCALLOC (MTYPE_CMD_TOKENS, sizeof (struct cmd_element));
@@ -81,8 +81,8 @@ DEFUN (grammar_test_complete,
        "attempt to complete input on DFA\n"
        "command to complete")
 {
-  /* CHECK ME argc referenced below */
-  char *cmdstr = argv_concat (argv, argc, 0);
+  int idx_command = 2;
+  char *cmdstr = argv_concat (argv, argc, idx_command);
   vector command = cmd_make_strvec (cmdstr);
 
   // generate completions of user input
@@ -131,11 +131,11 @@ DEFUN (grammar_test_match,
        "attempt to match input on DFA\n"
        "command to match")
 {
-  /* CHECK ME argc referenced below */
+  int idx_command = 2;
   if (argv[0][0] == '#')
     return CMD_SUCCESS;
 
-  char *cmdstr = argv_concat(argv, argc, 0);
+  char *cmdstr = argv_concat(argv, argc, idx_command);
   vector command = cmd_make_strvec (cmdstr);
 
   struct list *argvv = NULL;

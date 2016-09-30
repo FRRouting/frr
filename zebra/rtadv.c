@@ -1342,7 +1342,6 @@ DEFUN (ipv6_nd_prefix,
        "Do not use prefix for autoconfiguration\n"
        "Do not use prefix for onlink determination\n")
 {
-  /* CHECK ME argc referenced below */
   /* prelude */
   char *prefix = argv[3]->arg;
   int lifetimes = (argc > 4) && (argv[4]->type == RANGE_TKN || strmatch (argv[4]->text, "infinite"));

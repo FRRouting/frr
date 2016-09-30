@@ -1235,7 +1235,6 @@ DEFUN (show_ip_route_vrf,
        VRF_CMD_HELP_STR)
 {
   int idx_vrf = 4;
-  int idx_json = 5;
   u_char uj = use_json(argc, argv);
 
   return do_show_ip_route (vty, argv[idx_vrf]->arg, SAFI_UNICAST, uj);
@@ -2753,7 +2752,6 @@ DEFUN (show_ipv6_route,
        VRF_CMD_HELP_STR
        "Output JSON\n")
 {
-  /* CHECK ME argc referenced below */
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -2954,7 +2952,6 @@ DEFUN (show_ipv6_route_protocol,
        VRF_CMD_HELP_STR
        QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 {
-  /* CHECK ME argc referenced below */
   int type;
   struct route_table *table;
   struct route_node *rn;
@@ -3699,7 +3696,6 @@ DEFUN (ip_zebra_import_table_distance,
        "route-map for filtering\n"
        "route-map name\n")
 {
-  /* CHECK ME argc referenced below */
   u_int32_t table_id = 0;
 
   VTY_GET_INTEGER("table", table_id, argv[2]->arg);

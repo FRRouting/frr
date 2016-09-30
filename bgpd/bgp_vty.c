@@ -949,14 +949,14 @@ DEFUN (bgp_confederation_peers,
        "Peer ASs in BGP confederation\n"
        AS_STR)
 {
-  /* CHECK ME argc referenced below */
+  int idx_asn = 3;
   struct bgp *bgp;
   as_t as;
   int i;
 
   bgp = vty->index;
 
-  for (i = 0; i < argc; i++)
+  for (i = idx_asn; i < argc; i++)
     {
       VTY_GET_INTEGER_RANGE ("AS", as, argv[i]->arg, 1, BGP_AS4_MAX);
 
@@ -981,14 +981,14 @@ DEFUN (no_bgp_confederation_peers,
        "Peer ASs in BGP confederation\n"
        AS_STR)
 {
-  /* CHECK ME argc referenced below */
+  int idx_asn = 4;
   struct bgp *bgp;
   as_t as;
   int i;
 
   bgp = vty->index;
 
-  for (i = 0; i < argc; i++)
+  for (i = idx_asn; i < argc; i++)
     {
       VTY_GET_INTEGER_RANGE ("AS", as, argv[i]->arg, 1, BGP_AS4_MAX);
 
@@ -4329,8 +4329,8 @@ DEFUN (neighbor_description,
        "Neighbor specific description\n"
        "Up to 80 characters describing this neighbor\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_peer = 1;
+  int idx_line = 3;
   struct peer *peer;
   char *str;
 
@@ -4338,10 +4338,7 @@ DEFUN (neighbor_description,
   if (! peer)
     return CMD_WARNING;
 
-  if (argc == 1)
-    return CMD_SUCCESS;
-
-  str = argv_concat(argv, argc, 1);
+  str = argv_concat(argv, argc, idx_line);
 
   peer_description_set (peer, str);
 

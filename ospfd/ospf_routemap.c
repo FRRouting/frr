@@ -715,7 +715,6 @@ DEFUN (no_match_ip_nexthop,
        "IP access-list number (expanded range)\n"
        "IP access-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *al = (argc == 5) ? argv[4]->arg : NULL;
   return ospf_route_match_delete (vty, vty->index, "ip next-hop", al);
 }
@@ -745,7 +744,6 @@ DEFUN (no_match_ip_next_hop_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *pl = (argc == 6) ? argv[5]->arg : NULL;
   return ospf_route_match_delete (vty, vty->index, "ip next-hop prefix-list", pl);
 }
@@ -776,7 +774,6 @@ DEFUN (no_match_ip_address,
        "IP access-list number (expanded range)\n"
        "IP access-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *al = (argc == 5) ? argv[4]->arg : NULL;
   return ospf_route_match_delete (vty, vty->index, "ip address", al);
 }
@@ -805,7 +802,6 @@ DEFUN (no_match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 {
-  /* CHECK ME argc referenced below */
   char *pl = (argc == 6) ? argv[5]->arg : NULL;
   return ospf_route_match_delete (vty, vty->index, "ip address prefix-list", pl);
 }
@@ -829,7 +825,6 @@ DEFUN (no_match_interface,
        "Match first hop interface of route\n"
        "Interface name\n")
 {
-  /* CHECK ME argc referenced below */
   char *iface = (argc == 4) ? argv[3]->arg : NULL;
   return ospf_route_match_delete (vty, vty->index, "interface", iface);
 }
@@ -853,7 +848,6 @@ DEFUN (no_match_tag,
        "Match tag of route\n"
        "Tag value\n")
 {
-  /* CHECK ME argc referenced below */
   char *tag = (argc == 4) ? argv[3]->arg : NULL;
   return ospf_route_match_delete (vty, vty->index, "tag", tag);
 }
@@ -877,7 +871,6 @@ DEFUN (no_set_metric,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
-  /* CHECK ME argc referenced below */
   char *mval = (argc == 4) ? argv[3]->arg : NULL;
   return ospf_route_set_delete (vty, vty->index, "metric", mval);
 }
@@ -903,7 +896,6 @@ DEFUN (no_set_metric_type,
        "OSPF[6] external type 1 metric\n"
        "OSPF[6] external type 2 metric\n")
 {
-  /* CHECK ME argc referenced below */
   char *ext = (argc == 4) ? argv[3]->text : NULL;
   return ospf_route_set_delete (vty, vty->index, "metric-type", ext);
 }
@@ -927,7 +919,6 @@ DEFUN (no_set_tag,
        "Tag value for routing protocol\n"
        "Tag value\n")
 {
-  /* CHECK ME argc referenced below */
   char *tag = (argc == 4) ? argv[3]->arg : NULL;
   return ospf_route_set_delete (vty, vty->index, "tag", tag);
 }

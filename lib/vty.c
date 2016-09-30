@@ -2948,7 +2948,6 @@ DEFUN (no_terminal_monitor,
        "Set terminal line parameters\n"
        "Copy debug output to the current terminal line\n")
 {
-  /* CHECK ME argc referenced below */
   return terminal_no_monitor (self, vty, argc, argv);
 }
 

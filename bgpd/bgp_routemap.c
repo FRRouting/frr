@@ -3719,11 +3719,11 @@ DEFUN (set_aspath_prepend,
        "Use the peer's AS-number\n"
        "Number of times to insert")
 {
-  /* CHECK ME argc referenced below */
+  int idx_asn = 3;
   int ret;
   char *str;
 
-  str = argv_concat (argv, argc, 0);
+  str = argv_concat (argv, argc, idx_asn);
   ret = bgp_route_set_add (vty, vty->index, "as-path prepend", str);
   XFREE (MTYPE_TMP, str);
 
@@ -3740,11 +3740,11 @@ DEFUN (no_set_aspath_prepend,
        "Prepend to the as-path\n"
        "AS number\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_asn = 4;
   int ret;
   char *str;
 
-  str = argv_concat (argv, argc, 0);
+  str = argv_concat (argv, argc, idx_asn);
   ret = bgp_route_set_delete (vty, vty->index, "as-path prepend", str);
   XFREE (MTYPE_TMP, str);
   return ret;
@@ -3759,11 +3759,11 @@ DEFUN (set_aspath_exclude,
        "Exclude from the as-path\n"
        "AS number\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_asn = 3;
   int ret;
   char *str;
 
-  str = argv_concat (argv, argc, 0);
+  str = argv_concat (argv, argc, idx_asn);
   ret = bgp_route_set_add (vty, vty->index, "as-path exclude", str);
   XFREE (MTYPE_TMP, str);
   return ret;
@@ -3778,11 +3778,11 @@ DEFUN (no_set_aspath_exclude,
        "Exclude from the as-path\n"
        "AS number\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_asn = 4;
   int ret;
   char *str;
 
-  str = argv_concat (argv, argc, 0);
+  str = argv_concat (argv, argc, idx_asn);
   ret = bgp_route_set_delete (vty, vty->index, "as-path exclude", str);
   XFREE (MTYPE_TMP, str);
   return ret;
@@ -3796,7 +3796,7 @@ DEFUN (set_community,
        "BGP community attribute\n"
        COMMUNITY_VAL_STR)
 {
-  /* CHECK ME argc referenced below */
+  int idx_aa_nn = 2;
   int i;
   int first = 0;
   int additive = 0;
@@ -3808,7 +3808,7 @@ DEFUN (set_community,
 
   b = buffer_new (1024);
 
-  for (i = 0; i < argc; i++)
+  for (i = idx_aa_nn; i < argc; i++)
     {
       if (strncmp (argv[i]->arg, "additive", strlen (argv[i]->arg)) == 0)
  	{
@@ -3947,11 +3947,11 @@ DEFUN (set_ecommunity_rt,
        "Route Target extended community\n"
        "VPN extended community\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_asn_nn = 3;
   int ret;
   char *str;
 
-  str = argv_concat (argv, argc, 0);
+  str = argv_concat (argv, argc, idx_asn_nn);
   ret = bgp_route_set_add (vty, vty->index, "extcommunity rt", str);
   XFREE (MTYPE_TMP, str);
 
@@ -3978,11 +3978,11 @@ DEFUN (set_ecommunity_soo,
        "Site-of-Origin extended community\n"
        "VPN extended community\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_asn_nn = 3;
   int ret;
   char *str;
 
-  str = argv_concat (argv, argc, 0);
+  str = argv_concat (argv, argc, idx_asn_nn);
   ret = bgp_route_set_add (vty, vty->index, "extcommunity soo", str);
   XFREE (MTYPE_TMP, str);
   return ret;

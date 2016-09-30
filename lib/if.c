@@ -677,16 +677,13 @@ DEFUN (interface_desc,
        "Interface specific description\n"
        "Characters describing this interface\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_line = 1;
   struct interface *ifp;
-
-  if (argc == 1)
-    return CMD_SUCCESS;
 
   ifp = vty->index;
   if (ifp->desc)
     XFREE (MTYPE_TMP, ifp->desc);
-  ifp->desc = argv_concat(argv, argc, 1);
+  ifp->desc = argv_concat(argv, argc, idx_line);
 
   return CMD_SUCCESS;
 }
@@ -910,7 +907,7 @@ DEFUN (show_address,
   vrf_id_t vrf_id = VRF_DEFAULT;
 
   if (argc > 2)
-    VRF_GET_ID (vrf_id, argv[idx_vrf_cmd_str]->arg);
+    VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
     {

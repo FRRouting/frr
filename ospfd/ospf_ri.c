@@ -1182,7 +1182,6 @@ DEFUN (router_info,
        "Enable the Router Information functionality with Area flooding scope\n"
        "OSPF area ID in IP format")
 {
-  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   char *area = (argc == 3) ? argv[idx_ipv4]->arg : NULL;
 

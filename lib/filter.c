@@ -1480,8 +1480,8 @@ DEFUN (access_list_remark,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_acl = 1;
+  int idx_remark = 3;
   struct access_list *access;
 
   access = access_list_get (AFI_IP, argv[idx_acl]->arg);
@@ -1491,7 +1491,7 @@ DEFUN (access_list_remark,
       XFREE (MTYPE_TMP, access->remark);
       access->remark = NULL;
     }
-  access->remark = argv_concat(argv, argc, 1);
+  access->remark = argv_concat(argv, argc, idx_remark);
 
   return CMD_SUCCESS;
 }
@@ -1526,7 +1526,6 @@ DEFUN (no_access_list_remark_comment,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
-  /* CHECK ME argc referenced below */
   return no_access_list_remark (self, vty, argc, argv);
 }
 	
@@ -1675,8 +1674,8 @@ DEFUN (ipv6_access_list_remark,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_word = 2;
+  int idx_line = 4;
   struct access_list *access;
 
   access = access_list_get (AFI_IP6, argv[idx_word]->arg);
@@ -1686,7 +1685,7 @@ DEFUN (ipv6_access_list_remark,
       XFREE (MTYPE_TMP, access->remark);
       access->remark = NULL;
     }
-  access->remark = argv_concat(argv, argc, 1);
+  access->remark = argv_concat(argv, argc, idx_line);
 
   return CMD_SUCCESS;
 }
@@ -1715,7 +1714,6 @@ DEFUN (no_ipv6_access_list_remark_comment,
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
-  /* CHECK ME argc referenced below */
   return no_ipv6_access_list_remark (self, vty, argc, argv);
 }
 	

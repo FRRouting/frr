@@ -1905,8 +1905,8 @@ DEFUN (ip_prefix_list_description,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_word = 2;
+  int idx_line = 4;
   struct prefix_list *plist;
 
   plist = prefix_list_get (AFI_IP, 0, argv[idx_word]->arg);
@@ -1916,7 +1916,7 @@ DEFUN (ip_prefix_list_description,
       XFREE (MTYPE_TMP, plist->desc);
       plist->desc = NULL;
     }
-  plist->desc = argv_concat(argv, argc, 1);
+  plist->desc = argv_concat(argv, argc, idx_line);
 
   return CMD_SUCCESS;
 }
@@ -1945,7 +1945,6 @@ DEFUN (no_ip_prefix_list_description_comment,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
-  /* CHECK ME argc referenced below */
   return no_ip_prefix_list_description (self, vty, argc, argv);
 }
 
@@ -2618,8 +2617,8 @@ DEFUN (ipv6_prefix_list_description,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_word = 2;
+  int iddx_line = 4;
   struct prefix_list *plist;
 
   plist = prefix_list_get (AFI_IP6, 0, argv[idx_word]->arg);
@@ -2629,7 +2628,7 @@ DEFUN (ipv6_prefix_list_description,
       XFREE (MTYPE_TMP, plist->desc);
       plist->desc = NULL;
     }
-  plist->desc = argv_concat(argv, argc, 1);
+  plist->desc = argv_concat(argv, argc, iddx_line);
 
   return CMD_SUCCESS;
 }
@@ -2658,7 +2657,6 @@ DEFUN (no_ipv6_prefix_list_description_comment,
        "Prefix-list specific description\n"
        "Up to 80 characters describing this prefix-list\n")
 {
-  /* CHECK ME argc referenced below */
   return no_ipv6_prefix_list_description_comment (self, vty, argc, argv);
 }
 

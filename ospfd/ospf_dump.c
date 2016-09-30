@@ -772,7 +772,6 @@ DEFUN (debug_ospf_packet,
        "Detail Information\n"
        "Detail Information\n")
 {
-  /* CHECK ME argc referenced below */
   int inst = (argv[2]->type == RANGE_TKN) ? 1 : 0;
   int detail = strmatch (argv[argc - 1]->text, "detail");
   int send = strmatch (argv[argc - (1+detail)]->text, "send");
@@ -850,7 +849,6 @@ DEFUN (no_debug_ospf_packet,
        "Detail Information\n"
        "Detail Information\n")
 {
-  /* CHECK ME argc referenced below */
   int inst = (argv[3]->type == RANGE_TKN) ? 1 : 0;
   int detail = strmatch (argv[argc - 1]->text, "detail");
   int send = strmatch (argv[argc - (1+detail)]->text, "send");
@@ -926,7 +924,6 @@ DEFUN (debug_ospf_ism,
        "ISM Event Information\n"
        "ISM TImer Information\n")
 {
-  /* CHECK ME argc referenced below */
   int inst = (argv[2]->type == RANGE_TKN);
   char *dbgparam = (argc == 4 + inst) ? argv[argc - 1]->text : NULL;
 
@@ -980,7 +977,6 @@ DEFUN (no_debug_ospf_ism,
        "ISM Event Information\n"
        "ISM TImer Information\n")
 {
-  /* CHECK ME argc referenced below */
   int inst = (argv[3]->type == RANGE_TKN);
   char *dbgparam = (argc == 5 + inst) ? argv[argc - 1]->text : NULL;
 

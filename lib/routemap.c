@@ -1606,7 +1606,6 @@ DEFUN (rmap_continue,
        "Continue on a different entry within the route-map\n"
        "Route-map entry sequence number\n")
 {
-  /* CHECK ME argc referenced below */
   return rmap_onmatch_goto (self, vty, argc, argv);
 }
 
@@ -1618,7 +1617,6 @@ DEFUN (no_rmap_continue,
        "Continue on a different entry within the route-map\n"
        "Route-map entry sequence number\n")
 {
-  /* CHECK ME argc referenced below */
   return no_rmap_onmatch_goto (self, vty, argc, argv);
 }
 
@@ -1693,7 +1691,7 @@ DEFUN (rmap_description,
        "Route-map comment\n"
        "Comment describing this route-map rule\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_line = 1;
   struct route_map_index *index;
 
   index = vty->index;
@@ -1701,7 +1699,7 @@ DEFUN (rmap_description,
     {
       if (index->description)
 	XFREE (MTYPE_TMP, index->description);
-      index->description = argv_concat (argv, argc, 1);
+      index->description = argv_concat (argv, argc, idx_line);
     }
   return CMD_SUCCESS;
 }
