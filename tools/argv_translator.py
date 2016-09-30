@@ -694,6 +694,9 @@ DEFUN (no_bgp_maxmed_onstartup,
         re_space = re.search('^(\s*).*(\s*)$', line)
         line = re_space.group(1) + ' '.join(line.split()) + re_space.group(2)
 
+        '''
+        # I ran this once and cleaned them all up...this spews many
+        # false positives so we don't want to leave this on
         for token in line_to_tokens(self.line_number, line):
             token = token.strip()
 
@@ -703,6 +706,7 @@ DEFUN (no_bgp_maxmed_onstartup,
             if token.startswith('[') and '|' in token:
                 if not token.startswith('[<') or not token.endswith('>]'):
                     print "%s: suspend token '%s'" % (self.line_number, token)
+        '''
 
         return line
 
@@ -772,7 +776,6 @@ DEFUN (no_bgp_maxmed_onstartup,
         lines.extend(self.help_strings)
         lines.append('{\n')
 
-        # uncomment this to do ospf_vty.c
         # if self.uses_argc():
         #     lines.append("  /* CHECK ME argc referenced below */\n")
         lines.extend(self.guts)

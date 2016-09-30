@@ -1048,9 +1048,7 @@ ospf_vl_set (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 
 DEFUN (ospf_area_vlink,
        ospf_area_vlink_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D "
-       "[authentication] [<message-digest|null>] "
-       "[<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY]",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication] [<message-digest|null>] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
        VLINK_HELPSTR_IPADDR
        "Enable authentication on this virtual link\n" \
        "Use null authentication\n" \
@@ -1165,11 +1163,7 @@ DEFUN (ospf_area_vlink,
 
 DEFUN (ospf_area_vlink_intervals,
        ospf_area_vlink_intervals_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D "
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] "
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] "
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] "
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] ",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] ",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
@@ -1263,9 +1257,7 @@ DEFUN (ospf_area_vlink_intervals,
 
 DEFUN (no_ospf_area_vlink,
        no_ospf_area_vlink_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D "
-       "[authentication] [<message-digest|null>] "
-       "[<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY]",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication] [<message-digest|null>] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
        NO_STR
        VLINK_HELPSTR_IPADDR
        "Enable authentication on this virtual link\n" \
@@ -1373,11 +1365,7 @@ DEFUN (no_ospf_area_vlink,
 
 DEFUN (no_ospf_area_vlink_intervals,
        no_ospf_area_vlink_intervals_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D "
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] "
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] "
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] "
-       "[<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] ",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)] [<hello-interval|retransmit-interval|transmit-delay|dead-interval> (1-65535)]",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
@@ -1773,7 +1761,7 @@ DEFUN (no_ospf_area_nssa,
        "Configure NSSA-ABR to never translate\n"
        "Configure NSSA-ABR to always translate\n"
        "Do not inject inter-area routes into nssa\n")
- {
+{
   int idx_ipv4_number = 2;
   struct ospf *ospf = vty->index;
   struct in_addr area_id;
@@ -2539,7 +2527,7 @@ DEFUN (no_ospf_timers_throttle_spf,
        "Delay (msec) from first change received till SPF calculation\n"
        "Initial hold time (msec) between consecutive SPF calculations\n"
        "Maximum hold time (msec)\n")
- {
+{
   return ospf_timers_spf_set (vty,
                               OSPF_SPF_DELAY_DEFAULT,
                               OSPF_SPF_HOLDTIME_DEFAULT,
@@ -2653,7 +2641,7 @@ DEFUN (ospf_neighbor_poll_interval,
        "Seconds\n"
        "OSPF priority of non-broadcast neighbor\n"
        "Priority\n")
- {
+{
   int idx_ipv4 = 1;
   int idx_poll = 3;
   int idx_pri = 5;
@@ -7001,7 +6989,7 @@ DEFUN (no_ospf_dead_interval,
 
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_addr_cmd,
-       "no ip ospf dead-interval [[(1-65535)|<minimal hello-multiplier (1-10)>] [A.B.C.D]]",
+       "no ip ospf dead-interval [[(1-65535)|minimal hello-multiplier (1-10)] [A.B.C.D]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7318,7 +7306,7 @@ DEFUN (no_ospf_network,
        "Specify OSPF NBMA network\n"
        "Specify OSPF point-to-multipoint network\n"
        "Specify OSPF point-to-point network\n")
- {
+{
   struct interface *ifp = vty->index;
   int old_type = IF_DEF_PARAMS (ifp)->type;
   struct route_node *rn;
@@ -7358,7 +7346,7 @@ DEFUN (no_ip_ospf_network,
        "Specify OSPF NBMA network\n"
        "Specify OSPF point-to-multipoint network\n"
        "Specify OSPF point-to-point network\n")
- {
+{
   struct interface *ifp = vty->index;
   int old_type = IF_DEF_PARAMS (ifp)->type;
   struct route_node *rn;
@@ -7716,7 +7704,7 @@ DEFUN (no_ospf_retransmit_interval,
 
 DEFUN (no_ip_ospf_retransmit_interval,
        no_ip_ospf_retransmit_interval_addr_cmd,
-       "no ip ospf retransmit-interval [<(3-65535 [A.B.C.D]|A.B.C.D>]",
+       "no ip ospf retransmit-interval [<<3-65535 [A.B.C.D]|A.B.C.D>]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7935,7 +7923,7 @@ DEFUN (no_ip_ospf_transmit_delay_sec,
 
 DEFUN (ip_ospf_area,
        ip_ospf_area_cmd,
-       "ip ospf [(1-65535)]area <A.B.C.D|(0-4294967295)>",
+       "ip ospf [(1-65535)] area <A.B.C.D|(0-4294967295)>",
        "IP Information\n"
        "OSPF interface commands\n"
        "Instance ID\n"
@@ -8070,7 +8058,7 @@ DEFUN (no_ip_ospf_instance_area,
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
-       "redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
+       "redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
@@ -8125,7 +8113,7 @@ DEFUN (ospf_redistribute_source,
 
 DEFUN (no_ospf_redistribute_source,
        no_ospf_redistribute_source_cmd,
-       "no redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
+       "no redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
        NO_STR
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_OSPFD
@@ -8158,7 +8146,7 @@ DEFUN (no_ospf_redistribute_source,
 
 DEFUN (ospf_redistribute_instance_source,
        ospf_redistribute_instance_source_cmd,
-       "redistribute <ospf|table> (1-65535) [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
+       "redistribute <ospf|table> (1-65535) [<metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
        REDIST_STR
        "Open Shortest Path First\n"
        "Non-main Kernel Routing Table\n"
@@ -8230,7 +8218,7 @@ DEFUN (ospf_redistribute_instance_source,
 
 DEFUN (no_ospf_redistribute_instance_source,
        no_ospf_redistribute_instance_source_cmd,
-       "no redistribute <ospf|table> (1-65535) [metric (0-16777214)|metric-type <1|2>|route-map WORD]",
+       "no redistribute <ospf|table> (1-65535) [<metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
        NO_STR
        REDIST_STR
        "Open Shortest Path First\n"
@@ -8332,7 +8320,7 @@ DEFUN (no_ospf_distribute_list_out,
 /* Default information originate. */
 DEFUN (ospf_default_information_originate,
        ospf_default_information_originate_cmd,
-       "default-information originate [always|metric (0-16777214)|metric-type <1|2>|route-map WORD]",
+       "default-information originate [<always|metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Always advertise default route\n"
@@ -8384,7 +8372,7 @@ DEFUN (ospf_default_information_originate,
 
 DEFUN (no_ospf_default_information_originate,
        no_ospf_default_information_originate_cmd,
-       "no default-information originate [always|metric (0-16777214)|metric-type <1|2>|route-map WORD]",
+       "no default-information originate [<always|metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
        NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"
@@ -8500,7 +8488,7 @@ DEFUN (no_ospf_distance,
 
 DEFUN (no_ospf_distance_ospf,
        no_ospf_distance_ospf_cmd,
-       "no distance ospf [intra-area (1-255)|inter-area (1-255)|external (1-255)]",
+       "no distance ospf [<intra-area (1-255)|inter-area (1-255)|external (1-255)>]",
        NO_STR
        "Define an administrative distance\n"
        "OSPF Administrative distance\n"
@@ -8545,7 +8533,7 @@ DEFUN (no_ospf_distance_ospf,
 
 DEFUN (ospf_distance_ospf,
        ospf_distance_ospf_cmd,
-       "distance ospf [intra-area (1-255)|inter-area (1-255)|external (1-255)]",
+       "distance ospf [<intra-area (1-255)|inter-area (1-255)|external (1-255)>]",
        "Define an administrative distance\n"
        "OSPF Administrative distance\n"
        "Intra-area routes\n"

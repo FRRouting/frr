@@ -982,7 +982,7 @@ DEFUN (no_debug_ospf_ism,
 
   if (inst) // user passed instance ID
   {
-    if (!ospf_lookup_instance (strtoul (inst, NULL, 10)))
+    if (!ospf_lookup_instance (strtoul (argv[3]->arg, NULL, 10)))
       return CMD_SUCCESS;
   }
 
