@@ -224,10 +224,7 @@ DEFUN (show_ipv6_ospf6_database,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database "
- *     "(router|network|inter-prefix|inter-router|as-external|"
- *     "group-membership|type-7|link|intra-prefix) "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -319,8 +316,7 @@ DEFUN (show_ipv6_ospf6_database_type,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database * A.B.C.D "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database * A.B.C.D (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -416,8 +412,7 @@ DEFUN (show_ipv6_ospf6_database_id,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database * * A.B.C.D "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database * * A.B.C.D (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -515,10 +510,7 @@ DEFUN (show_ipv6_ospf6_database_router,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database "
- *     "(router|network|inter-prefix|inter-router|as-external|"
- *     "group-membership|type-7|link|intra-prefix) linkstate-id A.B.C.D "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) linkstate-id A.B.C.D (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -670,10 +662,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database "
- *     "(router|network|inter-prefix|inter-router|as-external|"
- *     "group-membership|type-7|link|intra-prefix) * A.B.C.D "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) * A.B.C.D (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -827,8 +816,7 @@ DEFUN (show_ipv6_ospf6_database_type_router,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database * A.B.C.D A.B.C.D "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database * A.B.C.D A.B.C.D (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -913,8 +901,7 @@ DEFUN (show_ipv6_ospf6_database_id_router,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database adv-router A.B.C.D linkstate-id A.B.C.D (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -1001,10 +988,7 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database "
- *     "(router|network|inter-prefix|inter-router|as-external|"
- *     "group-membership|type-7|link|intra-prefix) A.B.C.D A.B.C.D "
- *     "(dump|internal)",
+ * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D A.B.C.D (dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -1122,11 +1106,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database "
- *     "(router|network|inter-prefix|inter-router|as-external|"
- *     "group-membership|type-7|link|intra-prefix) "
- *     "adv-router A.B.C.D linkstate-id A.B.C.D "
- *     "(dump|internal)",
+ * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) adv-router A.B.C.D linkstate-id A.B.C.D (dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -1248,8 +1228,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database self-originated "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database self-originated (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -1309,10 +1288,7 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database "
- *     "(router|network|inter-prefix|inter-router|as-external|"
- *     "group-membership|type-7|link|intra-prefix) self-originated "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) self-originated (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -1409,10 +1385,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database "
- *     "(router|network|inter-prefix|inter-router|as-external|"
- *     "group-membership|type-7|link|intra-prefix) self-originated "
- *     "linkstate-id A.B.C.D (detail|dump|internal)",
+ * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) self-originated linkstate-id A.B.C.D (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -1525,10 +1498,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 
 /*
  * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database "
- *     "(router|network|inter-prefix|inter-router|as-external|"
- *     "group-membership|type-7|link|intra-prefix) A.B.C.D self-originated "
- *     "(detail|dump|internal)",
+ * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D self-originated (detail|dump|internal)",
  *     SHOW_STR
  *     IPV6_STR
  *     OSPF6_STR
@@ -1718,7 +1688,6 @@ DEFUN (show_ipv6_ospf6_border_routers,
  *     "Display Network Entry\n"
  *     "Specify Router ID as IPv4 address notation\n"
  *     "Specify Link state ID as IPv4 address notation\n"
- *     
  *
  * "show ipv6 ospf6 linkstate router A.B.C.D",
  *     SHOW_STR
