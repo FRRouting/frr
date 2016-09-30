@@ -330,7 +330,7 @@ extern void ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
 
 extern int ospf6_route_table_show (struct vty *, int, int, struct cmd_token **,
                                    struct ospf6_route_table *);
-extern int ospf6_linkstate_table_show (struct vty *vty, int argc,
+extern int ospf6_linkstate_table_show (struct vty *vty, int idx_ipv4, int argc,
                                        struct cmd_token **argv,
                                        struct ospf6_route_table *table);
 
