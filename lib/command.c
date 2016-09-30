@@ -206,6 +206,10 @@ install_node (struct cmd_node *node,
   vector_set_index (cmdvec, node->node, node);
   node->func = func;
   node->cmdgraph = graph_new ();
+  node->cmd_vector = vector_init (VECTOR_MIN_SIZE);
+  // add start node
+  struct cmd_token *token = new_cmd_token (START_TKN, NULL, NULL);
+  graph_new_node (node->cmdgraph, token, (void (*)(void *)) &del_cmd_token);
 }
 
 /* Breaking up string into each command piece. I assume given
