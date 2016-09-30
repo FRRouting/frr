@@ -173,7 +173,8 @@ DEFUN (banner_motd_file,
        "Banner from a file\n"
        "Filename\n")
 {
-  return cmd_banner_motd_file (argv[0]);
+  int idx_file = 3;
+  return cmd_banner_motd_file (argv[idx_file]->arg);
 }
 
 DEFUN (username_nopassword,
@@ -183,8 +184,9 @@ DEFUN (username_nopassword,
        "\n"
        "\n")
 {
+  int idx_word = 1;
   struct vtysh_user *user;
-  user = user_get (argv[0]);
+  user = user_get (argv[idx_word]->arg);
   user->nopassword = 1;
   return CMD_SUCCESS;
 }

@@ -44,8 +44,6 @@
 #include "ns.h"
 #include "vrf.h"
 
-#include "lib/grammar_sandbox.h"
-
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
 
 /* Struct VTY. */
@@ -827,11 +825,11 @@ vtysh_rl_describe (void)
       {
 	int len;
 
-	if (token->cmd[0] == '\0')
+	if (token->arg[0] == '\0')
 	  continue;
 
-	len = strlen (token->cmd);
-	if (token->cmd[0] == '.')
+	len = strlen (token->arg);
+	if (token->arg[0] == '.')
 	  len--;
 
 	if (width < len)
@@ -841,16 +839,16 @@ vtysh_rl_describe (void)
   for (i = 0; i < vector_active (describe); i++)
     if ((token = vector_slot (describe, i)) != NULL)
       {
-	if (token->cmd[0] == '\0')
+	if (token->arg[0] == '\0')
 	  continue;
 
 	if (! token->desc)
 	  fprintf (stdout,"  %-s\n",
-		   token->cmd[0] == '.' ? token->cmd + 1 : token->cmd);
+		   token->arg[0] == '.' ? token->arg + 1 : token->arg);
 	else
 	  fprintf (stdout,"  %-*s  %s\n",
 		   width,
-		   token->cmd[0] == '.' ? token->cmd + 1 : token->cmd,
+		   token->arg[0] == '.' ? token->arg + 1 : token->arg,
 		   token->desc);
       }
 
@@ -1737,7 +1735,7 @@ DEFUN (vtysh_show_thread,
   int ret = CMD_SUCCESS;
   char line[100];
 
-  sprintf(line, "show thread cpu %s\n", (argc == 4) ? argv[idx_filter] : "");
+  sprintf(line, "show thread cpu %s\n", (argc == 4) ? argv[idx_filter]->arg : "");
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       {
@@ -1784,12 +1782,13 @@ DEFUN (vtysh_show_work_queues_daemon,
        "For the bgp daemon\n"
        "For the isis daemon\n")
 {
+  int idx_protocol = 2;
   unsigned int i;
   int ret = CMD_SUCCESS;
 
   for (i = 0; i < array_size(vtysh_client); i++)
     {
-      if (begins_with(vtysh_client[i].name, argv[0]))
+      if (begins_with(vtysh_client[i].name, argv[idx_protocol]->arg))
         break;
     }
 
@@ -2177,8 +2176,6 @@ DEFUN (vtysh_write_terminal,
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n")
 {
-  u_int i;
-  char line[] = "write terminal\n";
   FILE *fp = NULL;
 
   if (vtysh_pager_name)
@@ -2233,12 +2230,13 @@ DEFUN (vtysh_write_terminal_daemon,
        "For the isis daemon\n"
        "For the pim daemon\n")
 {
+  int idx_protocol = 2;
   unsigned int i;
   int ret = CMD_SUCCESS;
 
   for (i = 0; i < array_size(vtysh_client); i++)
     {
-      if (begins_with(vtysh_client[i].name, argv[0]))
+      if (begins_with(vtysh_client[i].name, argv[idx_protocol]->arg))
 	break;
     }
 
@@ -2437,11 +2435,12 @@ DEFUN (vtysh_terminal_length,
        "Set number of lines on a screen\n"
        "Number of lines on screen (0 for no pausing)\n")
 {
+  int idx_number = 2;
   int lines;
   char *endptr = NULL;
   char default_pager[10];
 
-  lines = strtol (argv[0], &endptr, 10);
+  lines = strtol (argv[idx_number]->arg, &endptr, 10);
   if (lines < 0 || lines > 512 || *endptr != '\0')
     {
       vty_out (vty, "length is malformed%s", VTY_NEWLINE);
@@ -2498,7 +2497,7 @@ DEFUN (vtysh_show_daemons,
 
 /* Execute command in child process. */
 static void
-execute_command (const char *command, int argc, const char *arg1,
+execute_command (const char *command, int argc, struct cmd_token *arg1,
 		 const char *arg2)
 {
   pid_t pid;
@@ -3185,7 +3184,4 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &vtysh_enable_password_cmd);
   install_element (CONFIG_NODE, &vtysh_enable_password_text_cmd);
   install_element (CONFIG_NODE, &no_vtysh_enable_password_cmd);
-
-  /* grammar sandbox */
-  grammar_sandbox_init();
 }
