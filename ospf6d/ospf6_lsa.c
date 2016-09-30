@@ -816,31 +816,18 @@ ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
   return buf;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown) (originate|examine|flooding)",
- *     DEBUG_STR
- *     OSPF6_STR
- *     "Debug Link State Advertisements (LSAs)\n"
- *     "Specify LS type as Hexadecimal\n"
- *     
- *
- */
 DEFUN (debug_ospf6_lsa_type,
        debug_ospf6_lsa_hex_cmd,
-       "debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown>",
+       "debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown> [originate|examine|flooding]",
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
-       "Specify LS type as Hexadecimal\n"
-      )
+       "Specify LS type as Hexadecimal\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_lsa = 3;
+  int idx_type = 4;
   unsigned int i;
   struct ospf6_lsa_handler *handler = NULL;
-
-  assert (argc);
 
   for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
@@ -857,13 +844,13 @@ DEFUN (debug_ospf6_lsa_type,
   if (handler == NULL)
     handler = &unknown_handler;
 
-  if (argc >= 2)
+  if (argc == 5)
     {
-      if (! strcmp (argv[4]->arg, "originate"))
+      if (! strcmp (argv[idx_type]->text, "originate"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE);
-      if (! strcmp (argv[4]->arg, "examine"))
+      else if (! strcmp (argv[idx_type]->text, "examine"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN);
-      if (! strcmp (argv[4]->arg, "flooding"))
+      else if (! strcmp (argv[idx_type]->text, "flooding"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD);
     }
   else
@@ -872,21 +859,9 @@ DEFUN (debug_ospf6_lsa_type,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-external|link|intra-prefix) (originate|examine|flooding)",
- *     NO_STR
- *     DEBUG_STR
- *     OSPF6_STR
- *     "Debug Link State Advertisements (LSAs)\n"
- *     "Specify LS type as Hexadecimal\n"
- *     
- *
- */
 DEFUN (no_debug_ospf6_lsa_type,
        no_debug_ospf6_lsa_hex_cmd,
-       "no debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown>",
+       "no debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown> [originate|examine|flooding]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
@@ -894,12 +869,10 @@ DEFUN (no_debug_ospf6_lsa_type,
        "Specify LS type as Hexadecimal\n"
       )
 {
-  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
+  int idx_type = 5;
   u_int i;
   struct ospf6_lsa_handler *handler = NULL;
-
-  assert (argc);
 
   for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
@@ -915,13 +888,13 @@ DEFUN (no_debug_ospf6_lsa_type,
   if (handler == NULL)
     return CMD_SUCCESS;
 
-  if (argc >= 2)
+  if (argc == 6)
     {
-      if (! strcmp (argv[5]->arg, "originate"))
+      if (! strcmp (argv[idx_type]->text, "originate"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE);
-      if (! strcmp (argv[5]->arg, "examine"))
+      if (! strcmp (argv[idx_type]->text, "examine"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN);
-      if (! strcmp (argv[5]->arg, "flooding"))
+      if (! strcmp (argv[idx_type]->text, "flooding"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD);
     }
   else

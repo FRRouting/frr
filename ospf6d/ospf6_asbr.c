@@ -681,27 +681,19 @@ DEFUN (ospf6_redistribute_routemap,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no redistribute <kernel|connected|static|ripng|isis|bgp|table> route-map WORD",
- *     NO_STR
- *     "Redistribute\n"
- *     QUAGGA_REDIST_HELP_STR_OSPF6D
- *     "Route map reference\n"
- *     "Route map name\n"
- *
- */
 DEFUN (no_ospf6_redistribute,
        no_ospf6_redistribute_cmd,
-       "no redistribute <kernel|connected|static|ripng|isis|bgp|table>",
+       "no redistribute <kernel|connected|static|ripng|isis|bgp|table> [route-map WORD]",
        NO_STR
        "Redistribute\n"
        QUAGGA_REDIST_HELP_STR_OSPF6D
-      )
+       "Route map reference\n"
+       "Route map name\n")
 {
+  int idx_protocol = 2;
   int type;
 
-  type = proto_redistnum(AFI_IP6, argv[3]->arg);
+  type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
   if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
     return CMD_WARNING;
 
@@ -1058,24 +1050,23 @@ DEFUN (ospf6_routemap_match_interface,
 }
 
 /* "no match interface WORD" */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no match interface WORD",
- *     MATCH_STR
- *     NO_STR
- *     "Match first hop interface of route\n"
- *     "Interface name\n"
- *
- */
 DEFUN (ospf6_routemap_no_match_interface,
        ospf6_routemap_no_match_interface_cmd,
-       "no match interface",
+       "no match interface [WORD]",
        MATCH_STR
        NO_STR
-       "Match first hop interface of route\n")
+       "Match first hop interface of route\n"
+       "Interface name\n")
 {
-  int ret = route_map_delete_match ((struct route_map_index *) vty->index,
-                                    "interface", argv[3]->arg);
+  int idx_word = 3;
+  int ret;
+
+  if (argc == 4)
+    ret  = route_map_delete_match ((struct route_map_index *) vty->index,
+                                    "interface", argv[idx_word]->arg);
+  else
+    ret  = route_map_delete_match ((struct route_map_index *) vty->index,
+                                    "interface", NULL);
   return route_map_command_status (vty, ret);
 }
 
@@ -1126,31 +1117,22 @@ DEFUN (set_metric,
 }
 
 /* delete "set metric" */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no set metric <0-4294967295>",
- *     NO_STR
- *     SET_STR
- *     "Metric value for destination routing protocol\n"
- *     "Metric value\n"
- *
- */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
-       "no set metric",
+       "no set metric [(0-4294967295)]",
        NO_STR
        SET_STR
        "Metric value for destination routing protocol\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_number = 3;
   int ret = 0;
 
-  if (argc == 0)
+  if (argc == 3)
     ret = route_map_delete_set ((struct route_map_index *) vty->index,
                                 "metric", NULL);
   else
     ret = route_map_delete_set ((struct route_map_index *) vty->index,
-                                "metric", argv[3]->arg);
+                                "metric", argv[idx_number]->arg);
   return route_map_command_status (vty, ret);
 }
 

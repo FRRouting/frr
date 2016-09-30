@@ -1298,7 +1298,7 @@ ospf6_route_show_table (struct vty *vty, int detail,
 }
 
 int
-ospf6_route_table_show (struct vty *vty, int argc, struct cmd_token **argv,
+ospf6_route_table_show (struct vty *vty, int argc_start, int argc, struct cmd_token **argv,
                         struct ospf6_route_table *table)
 {
   int summary = 0;
@@ -1312,7 +1312,7 @@ ospf6_route_table_show (struct vty *vty, int argc, struct cmd_token **argv,
 
   memset (&prefix, 0, sizeof (struct prefix));
 
-  for (i = 0; i < argc; i++)
+  for (i = argc_start; i < argc; i++)
     {
       if (! strcmp (argv[i]->arg, "summary"))
         {

@@ -986,32 +986,20 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
 }
 
 /* show interface */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 interface",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     INTERFACE_STR
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_interface,
        show_ipv6_ospf6_interface_ifname_cmd,
-       "show ipv6 ospf6 interface IFNAME",
+       "show ipv6 ospf6 interface [IFNAME]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        INTERFACE_STR
-       IFNAME_STR
-       )
+       IFNAME_STR)
 {
-  /* CHECK ME argc referenced below */
   int idx_ifname = 4;
   struct interface *ifp;
   struct listnode *i;
 
-  if (argc)
+  if (argc == 5)
     {
       ifp = if_lookup_by_name (argv[idx_ifname]->arg);
       if (ifp == NULL)
@@ -1364,21 +1352,13 @@ DEFUN (auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no auto-cost reference-bandwidth <1-4294967>",
- *     NO_STR
- *     "Calculate OSPF interface cost according to bandwidth\n"
- *     "Use reference bandwidth method to assign OSPF cost\n"
- *     "The reference bandwidth in terms of Mbits per second\n"
- *
- */
 DEFUN (no_auto_cost_reference_bandwidth,
        no_auto_cost_reference_bandwidth_cmd,
-       "no auto-cost reference-bandwidth",
+       "no auto-cost reference-bandwidth [1-4294967]",
        NO_STR
        "Calculate OSPF interface cost according to bandwidth\n"
-       "Use reference bandwidth method to assign OSPF cost\n")
+       "Use reference bandwidth method to assign OSPF cost\n"
+       "The reference bandwidth in terms of Mbits per second\n")
 {
   struct ospf6 *o = vty->index;
   struct ospf6_area *oa;
@@ -1993,12 +1973,11 @@ DEFUN (clear_ipv6_ospf6_interface,
        IFNAME_STR
        )
 {
-  /* CHECK ME argc referenced below */
   int idx_ifname = 4;
   struct interface *ifp;
   struct listnode *node;
 
-  if (argc == 0) /* Clear all the ospfv3 interfaces. */
+  if (argc == 4) /* Clear all the ospfv3 interfaces. */
     {
       for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
         ospf6_interface_clear (vty, ifp);

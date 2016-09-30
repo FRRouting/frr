@@ -532,47 +532,15 @@ DEFUN (area_range,
   return CMD_SUCCESS;
 }
 
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no area (A.B.C.D|<0-4294967295>) range X:X::X:X/M advertise cost <0-16777215>",
- *     NO_STR
- *     "OSPF area parameters\n"
- *     OSPF6_AREA_ID_STR
- *     "Summarize routes matching address/mask (border routers only)\n"
- *     "Area range prefix\n"
- *     "User specified metric for this range\n"
- *     "Advertised metric for this range\n"
- *
- * "no area A.B.C.D range X:X::X:X/M (advertise|not-advertise)",
- *     NO_STR
- *     "OSPF area parameters\n"
- *     OSPF6_AREA_ID_STR
- *     "Configured address range\n"
- *     "Specify IPv6 prefix\n"
- *
- * "no area (A.B.C.D|<0-4294967295>) range X:X::X:X/M cost <0-16777215>",
- *     NO_STR
- *     "OSPF area parameters\n"
- *     OSPF6_AREA_ID_STR
- *     "Summarize routes matching address/mask (border routers only)\n"
- *     "Area range prefix\n"
- *     "User specified metric for this range\n"
- *     "Advertised metric for this range\n"
- *
- */
 DEFUN (no_area_range,
        no_area_range_cmd,
-       "no area A.B.C.D range X:X::X:X/M",
+       "no area A.B.C.D range X:X::X:X/M [<advertise|not-advertise>] [cost (0-16777215)]",
        NO_STR
        "OSPF area parameters\n"
        OSPF6_AREA_ID_STR
        "Configured address range\n"
        "Specify IPv6 prefix\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int ret;
   struct ospf6_area *oa;
@@ -580,8 +548,6 @@ DEFUN (no_area_range,
   struct ospf6_route *range, *route;
 
   OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, oa);
-  argc--;
-  argv++;
 
   ret = str2prefix (argv[idx_ipv4]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
@@ -682,15 +648,12 @@ DEFUN (area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_ipv4 = 1;
   int idx_word = 4;
   struct ospf6_area *area;
   struct prefix_list *plist;
 
   OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, area);
-  argc--;
-  argv++;
 
   plist = prefix_list_lookup (AFI_IP6, argv[idx_ipv4]->arg);
   if (strncmp (argv[idx_word]->arg, "in", 2) == 0)
@@ -727,14 +690,11 @@ DEFUN (no_area_filter_list,
        "Filter networks sent to this area\n"
        "Filter networks sent from this area\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_ipv4 = 2;
   int idx_word = 5;
   struct ospf6_area *area;
 
   OSPF6_CMD_AREA_GET (argv[idx_ipv4]->arg, area);
-  argc--;
-  argv++;
 
   if (strncmp (argv[idx_word]->arg, "in", 2) == 0)
     {

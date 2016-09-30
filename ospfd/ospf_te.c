@@ -2620,13 +2620,12 @@ DEFUN (show_ip_ospf_mpls_te_link,
        "Interface information\n"
        "Interface name\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_interface = 5;
   struct interface *ifp;
   struct listnode *node, *nnode;
 
   /* Show All Interfaces. */
-  if (argc == 0)
+  if (argc == 5)
     {
       for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
         show_mpls_te_link_sub (vty, ifp);

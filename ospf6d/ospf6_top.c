@@ -405,7 +405,6 @@ DEFUN (ospf6_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 3;
   unsigned int minarrival;
   struct ospf6 *ospf = vty->index;
@@ -413,47 +412,30 @@ DEFUN (ospf6_timers_lsa,
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (argc != 1)
-    {
-      vty_out (vty, "Insufficient number of arguments%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
   VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[idx_number]->arg);
-
   ospf->lsa_minarrival = minarrival;
 
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no timers lsa min-arrival <0-600000>",
- *     NO_STR
- *     "Adjust routing timers\n"
- *     "OSPF6 LSA timers\n"
- *     "Minimum delay in receiving new version of a LSA\n"
- *     "Delay in milliseconds\n"
- *
- */
 DEFUN (no_ospf6_timers_lsa,
        no_ospf6_timers_lsa_cmd,
-       "no timers lsa min-arrival",
+       "no timers lsa min-arrival [(0-600000)]",
        NO_STR
        "Adjust routing timers\n"
        "OSPF6 LSA timers\n"
        "Minimum delay in receiving new version of a LSA\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_number = 4;
   unsigned int minarrival;
   struct ospf6 *ospf = vty->index;
 
   if (!ospf)
     return CMD_SUCCESS;
 
-  if (argc)
+  if (argc == 5)
     {
-      VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[4]->arg);
+      VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[idx_number]->arg);
 
       if (ospf->lsa_minarrival != minarrival ||
 	  minarrival == OSPF_MIN_LS_ARRIVAL)
@@ -784,75 +766,42 @@ DEFUN (show_ipv6_ospf6,
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 route (intra-area|inter-area|external-1|external-2)",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     ROUTE_STR
- *     "Display Intra-Area routes\n"
- *     "Display Inter-Area routes\n"
- *     "Display Type-1 External routes\n"
- *     "Display Type-2 External routes\n"
- *     
- *
- * "show ipv6 ospf6 route (X:X::X:X|X:X::X:X/M|detail|summary)",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     ROUTE_STR
- *     "Specify IPv6 address\n"
- *     "Specify IPv6 prefix\n"
- *     "Detailed information\n"
- *     "Summary of route table\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_route,
        show_ipv6_ospf6_route_cmd,
-       "show ipv6 ospf6 route",
+       "show ipv6 ospf6 route [intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        ROUTE_STR
-       )
+       "Display Intra-Area routes\n"
+       "Display Inter-Area routes\n"
+       "Display Type-1 External routes\n"
+       "Display Type-2 External routes\n"
+       "Specify IPv6 address\n"
+       "Specify IPv6 prefix\n"
+       "Detailed information\n"
+       "Summary of route table\n")
 {
-  /* CHECK ME argc referenced below */
   OSPF6_CMD_CHECK_RUNNING ();
 
-  ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
+  ospf6_route_table_show (vty, 4, argc, argv, ospf6->route_table);
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 route X:X::X:X/M longer",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     ROUTE_STR
- *     "Specify IPv6 prefix\n"
- *     "Display routes longer than the specified route\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_route_match,
        show_ipv6_ospf6_route_match_cmd,
-       "show ipv6 ospf6 route X:X::X:X/M match",
+       "show ipv6 ospf6 route X:X::X:X/M <match|longer>",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        ROUTE_STR
        "Specify IPv6 prefix\n"
        "Display routes which match the specified route\n"
-       )
+       "Display routes longer than the specified route\n")
 {
-  /* CHECK ME argc referenced below */
   OSPF6_CMD_CHECK_RUNNING ();
 
-  ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
+  ospf6_route_table_show (vty, 4, argc, argv, ospf6->route_table);
   return CMD_SUCCESS;
 }
 
@@ -868,10 +817,9 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
        "Detailed information\n"
        )
 {
-  /* CHECK ME argc referenced below */
   OSPF6_CMD_CHECK_RUNNING ();
 
-  ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
+  ospf6_route_table_show (vty, 4, argc, argv, ospf6->route_table);
   return CMD_SUCCESS;
 }
 
@@ -891,10 +839,9 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
        "Detailed information\n"
        )
 {
-  /* CHECK ME argc referenced below */
   OSPF6_CMD_CHECK_RUNNING ();
 
-  ospf6_route_table_show (vty, argc, argv, ospf6->route_table);
+  ospf6_route_table_show (vty, 4, argc, argv, ospf6->route_table);
   return CMD_SUCCESS;
 }
 

@@ -2338,27 +2338,9 @@ ospf6_lsack_send_interface (struct thread *thread)
 
 
 /* Commands */
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all) (send|recv)",
- *     DEBUG_STR
- *     OSPF6_STR
- *     "Debug OSPFv3 message\n"
- *     "Debug Unknown message\n"
- *     "Debug Hello message\n"
- *     "Debug Database Description message\n"
- *     "Debug Link State Request message\n"
- *     "Debug Link State Update message\n"
- *     "Debug Link State Acknowledgement message\n"
- *     "Debug All message\n"
- *     "Debug only sending message\n"
- *     "Debug only receiving message\n"
- *     
- *
- */
 DEFUN (debug_ospf6_message,
        debug_ospf6_message_cmd,
-       "debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all>",
+       "debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all> [<send|recv>]",
        DEBUG_STR
        OSPF6_STR
        "Debug OSPFv3 message\n"
@@ -2369,15 +2351,14 @@ DEFUN (debug_ospf6_message,
        "Debug Link State Update message\n"
        "Debug Link State Acknowledgement message\n"
        "Debug All message\n"
-       )
+       "Debug only sending message\n"
+       "Debug only receiving message\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_packet = 3;
+  int idx_send_recv = 4;
   unsigned char level = 0;
   int type = 0;
   int i;
-
-  assert (argc > 0);
 
   /* check type */
   if (! strncmp (argv[idx_packet]->arg, "u", 1))
@@ -2395,11 +2376,11 @@ DEFUN (debug_ospf6_message,
   else if (! strncmp (argv[idx_packet]->arg, "a", 1))
     type = OSPF6_MESSAGE_TYPE_ALL;
 
-  if (argc == 1)
+  if (argc == 4)
     level = OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_RECV;
-  else if (! strncmp (argv[4]->arg, "s", 1))
+  else if (! strncmp (argv[idx_send_recv]->arg, "s", 1))
     level = OSPF6_DEBUG_MESSAGE_SEND;
-  else if (! strncmp (argv[4]->arg, "r", 1))
+  else if (! strncmp (argv[idx_send_recv]->arg, "r", 1))
     level = OSPF6_DEBUG_MESSAGE_RECV;
 
   if (type == OSPF6_MESSAGE_TYPE_ALL)
@@ -2413,31 +2394,9 @@ DEFUN (debug_ospf6_message,
   return CMD_SUCCESS;
 }
 
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf6 message "
- *     "(unknown|hello|dbdesc|lsreq|lsupdate|lsack|all) (send|recv)",
- *     NO_STR
- *     DEBUG_STR
- *     OSPF6_STR
- *     "Debug OSPFv3 message\n"
- *     "Debug Unknown message\n"
- *     "Debug Hello message\n"
- *     "Debug Database Description message\n"
- *     "Debug Link State Request message\n"
- *     "Debug Link State Update message\n"
- *     "Debug Link State Acknowledgement message\n"
- *     "Debug All message\n"
- *     "Debug only sending message\n"
- *     "Debug only receiving message\n"
- *     
- *
- */
 DEFUN (no_debug_ospf6_message,
        no_debug_ospf6_message_cmd,
-       "no debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all>",
+       "no debug ospf6 message <unknown|hello|dbdesc|lsreq|lsupdate|lsack|all> [<send|recv>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
@@ -2449,15 +2408,14 @@ DEFUN (no_debug_ospf6_message,
        "Debug Link State Update message\n"
        "Debug Link State Acknowledgement message\n"
        "Debug All message\n"
-       )
+       "Debug only sending message\n"
+       "Debug only receiving message\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_packet = 4;
+  int idx_send_recv = 5;
   unsigned char level = 0;
   int type = 0;
   int i;
-
-  assert (argc > 0);
 
   /* check type */
   if (! strncmp (argv[idx_packet]->arg, "u", 1))
@@ -2475,11 +2433,11 @@ DEFUN (no_debug_ospf6_message,
   else if (! strncmp (argv[idx_packet]->arg, "a", 1))
     type = OSPF6_MESSAGE_TYPE_ALL;
 
-  if (argc == 1)
+  if (argc == 5)
     level = OSPF6_DEBUG_MESSAGE_SEND | OSPF6_DEBUG_MESSAGE_RECV;
-  else if (! strncmp (argv[5]->arg, "s", 1))
+  else if (! strncmp (argv[idx_send_recv]->arg, "s", 1))
     level = OSPF6_DEBUG_MESSAGE_SEND;
-  else if (! strncmp (argv[5]->arg, "r", 1))
+  else if (! strncmp (argv[idx_send_recv]->arg, "r", 1))
     level = OSPF6_DEBUG_MESSAGE_RECV;
 
   if (type == OSPF6_MESSAGE_TYPE_ALL)

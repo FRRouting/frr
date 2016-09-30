@@ -707,18 +707,9 @@ ospf6_zebra_init (struct thread_master *master)
 
 /* Debug */
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf6 zebra",
- *     DEBUG_STR
- *     OSPF6_STR
- *     "Debug connection between zebra\n"
- *     
- *
- */
 DEFUN (debug_ospf6_zebra_sendrecv,
        debug_ospf6_zebra_sendrecv_cmd,
-       "debug ospf6 zebra <send|recv>",
+       "debug ospf6 zebra [<send|recv>]",
        DEBUG_STR
        OSPF6_STR
        "Debug connection between zebra\n"
@@ -726,15 +717,14 @@ DEFUN (debug_ospf6_zebra_sendrecv,
        "Debug Receiving zebra\n"
       )
 {
-  /* CHECK ME argc referenced below */
   int idx_send_recv = 3;
   unsigned char level = 0;
 
-  if (argc)
+  if (argc == 4)
     {
-      if (! strncmp (argv[idx_send_recv]->arg, "s", 1))
+      if (strmatch(argv[idx_send_recv]->text, "send"))
         level = OSPF6_DEBUG_ZEBRA_SEND;
-      else if (! strncmp (argv[idx_send_recv]->arg, "r", 1))
+      else if (strmatch(argv[idx_send_recv]->text, "recv"))
         level = OSPF6_DEBUG_ZEBRA_RECV;
     }
   else
@@ -744,21 +734,9 @@ DEFUN (debug_ospf6_zebra_sendrecv,
   return CMD_SUCCESS;
 }
 
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf6 zebra",
- *     NO_STR
- *     DEBUG_STR
- *     OSPF6_STR
- *     "Debug connection between zebra\n"
- *     
- *
- */
 DEFUN (no_debug_ospf6_zebra_sendrecv,
        no_debug_ospf6_zebra_sendrecv_cmd,
-       "no debug ospf6 zebra <send|recv>",
+       "no debug ospf6 zebra [<send|recv>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
@@ -767,15 +745,14 @@ DEFUN (no_debug_ospf6_zebra_sendrecv,
        "Debug Receiving zebra\n"
       )
 {
-  /* CHECK ME argc referenced below */
   int idx_send_recv = 4;
   unsigned char level = 0;
 
-  if (argc)
+  if (argc == 5)
     {
-      if (! strncmp (argv[idx_send_recv]->arg, "s", 1))
+      if (strmatch(argv[idx_send_recv]->text, "send"))
         level = OSPF6_DEBUG_ZEBRA_SEND;
-      else if (! strncmp (argv[idx_send_recv]->arg, "r", 1))
+      else if (strmatch(argv[idx_send_recv]->text, "recv"))
         level = OSPF6_DEBUG_ZEBRA_RECV;
     }
   else

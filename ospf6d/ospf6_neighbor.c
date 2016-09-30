@@ -827,28 +827,17 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   ospf6_bfd_show_info(vty, on->bfd_info, 0);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 neighbor (detail|drchoice)",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     "Neighbor list\n"
- *     "Display details\n"
- *     "Display DR choices\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_neighbor,
        show_ipv6_ospf6_neighbor_cmd,
-       "show ipv6 ospf6 neighbor",
+       "show ipv6 ospf6 neighbor [detail|drchoice]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        "Neighbor list\n"
-      )
+       "Display details\n"
+       "Display DR choices\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_type = 4;
   struct ospf6_neighbor *on;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
@@ -858,11 +847,11 @@ DEFUN (show_ipv6_ospf6_neighbor,
   OSPF6_CMD_CHECK_RUNNING ();
   showfunc = ospf6_neighbor_show;
 
-  if (argc)
+  if (argc == 5)
     {
-      if (! strncmp (argv[4]->arg, "de", 2))
+      if (! strncmp (argv[idx_type]->arg, "de", 2))
         showfunc = ospf6_neighbor_show_detail;
-      else if (! strncmp (argv[4]->arg, "dr", 2))
+      else if (! strncmp (argv[idx_type]->arg, "dr", 2))
         showfunc = ospf6_neighbor_show_drchoice;
     }
 
@@ -927,32 +916,23 @@ ospf6_neighbor_init (void)
   install_element (ENABLE_NODE, &show_ipv6_ospf6_neighbor_cmd);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf6 neighbor (state|event)",
- *     DEBUG_STR
- *     OSPF6_STR
- *     "Debug OSPFv3 Neighbor\n"
- *     "Debug OSPFv3 Neighbor State Change\n"
- *     "Debug OSPFv3 Neighbor Event\n"
- *     
- *
- */
 DEFUN (debug_ospf6_neighbor,
        debug_ospf6_neighbor_cmd,
-       "debug ospf6 neighbor",
+       "debug ospf6 neighbor [state|event]",
        DEBUG_STR
        OSPF6_STR
        "Debug OSPFv3 Neighbor\n"
-      )
+       "Debug OSPFv3 Neighbor State Change\n"
+       "Debug OSPFv3 Neighbor Event\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_type = 3;
   unsigned char level = 0;
-  if (argc)
+
+  if (argc == 4)
     {
-      if (! strncmp (argv[3]->arg, "s", 1))
+      if (! strncmp (argv[idx_type]->arg, "s", 1))
         level = OSPF6_DEBUG_NEIGHBOR_STATE;
-      if (! strncmp (argv[3]->arg, "e", 1))
+      else if (! strncmp (argv[idx_type]->arg, "e", 1))
         level = OSPF6_DEBUG_NEIGHBOR_EVENT;
     }
   else
@@ -963,34 +943,24 @@ DEFUN (debug_ospf6_neighbor,
 }
 
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf6 neighbor (state|event)",
- *     NO_STR
- *     DEBUG_STR
- *     OSPF6_STR
- *     "Debug OSPFv3 Neighbor\n"
- *     "Debug OSPFv3 Neighbor State Change\n"
- *     "Debug OSPFv3 Neighbor Event\n"
- *     
- *
- */
 DEFUN (no_debug_ospf6_neighbor,
        no_debug_ospf6_neighbor_cmd,
-       "no debug ospf6 neighbor",
+       "no debug ospf6 neighbor [state|event]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
        "Debug OSPFv3 Neighbor\n"
-      )
+       "Debug OSPFv3 Neighbor State Change\n"
+       "Debug OSPFv3 Neighbor Event\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_type = 4;
   unsigned char level = 0;
-  if (argc)
+
+  if (argc == 5)
     {
-      if (! strncmp (argv[4]->arg, "s", 1))
+      if (! strncmp (argv[idx_type]->arg, "s", 1))
         level = OSPF6_DEBUG_NEIGHBOR_STATE;
-      if (! strncmp (argv[4]->arg, "e", 1))
+      if (! strncmp (argv[idx_type]->arg, "e", 1))
         level = OSPF6_DEBUG_NEIGHBOR_EVENT;
     }
   else

@@ -328,7 +328,7 @@ extern void ospf6_route_dump (struct ospf6_route_table *table);
 extern void ospf6_route_show (struct vty *vty, struct ospf6_route *route);
 extern void ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route);
 
-extern int ospf6_route_table_show (struct vty *, int, struct cmd_token **,
+extern int ospf6_route_table_show (struct vty *, int, int, struct cmd_token **,
                                    struct ospf6_route_table *);
 extern int ospf6_linkstate_table_show (struct vty *vty, int argc,
                                        struct cmd_token **argv,

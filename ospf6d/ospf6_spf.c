@@ -885,17 +885,10 @@ DEFUN (ospf6_timers_throttle_spf,
        "Initial hold time (msec) between consecutive SPF calculations\n"
        "Maximum hold time (msec)\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 3;
   int idx_number_2 = 4;
   int idx_number_3 = 5;
   unsigned int delay, hold, max;
-
-  if (argc != 3)
-    {
-      vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
 
   VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[idx_number]->arg, 0, 600000);
   VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[idx_number_2]->arg, 0, 600000);
@@ -904,25 +897,16 @@ DEFUN (ospf6_timers_throttle_spf,
   return ospf6_timers_spf_set (vty, delay, hold, max);
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no timers throttle spf <0-600000> <0-600000> <0-600000>",
- *     NO_STR
- *     "Adjust routing timers\n"
- *     "Throttling adaptive timer\n"
- *     "OSPF6 SPF timers\n"
- *     "Delay (msec) from first change received till SPF calculation\n"
- *     "Initial hold time (msec) between consecutive SPF calculations\n"
- *     "Maximum hold time (msec)\n"
- *
- */
 DEFUN (no_ospf6_timers_throttle_spf,
        no_ospf6_timers_throttle_spf_cmd,
-       "no timers throttle spf",
+       "no timers throttle spf [(0-600000) (0-600000) (0-600000)]",
        NO_STR
        "Adjust routing timers\n"
        "Throttling adaptive timer\n"
-       "OSPF6 SPF timers\n")
+       "OSPF6 SPF timers\n"
+       "Delay (msec) from first change received till SPF calculation\n"
+       "Initial hold time (msec) between consecutive SPF calculations\n"
+       "Maximum hold time (msec)\n")
 {
   return ospf6_timers_spf_set (vty,
                               OSPF_SPF_DELAY_DEFAULT,

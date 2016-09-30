@@ -1028,11 +1028,11 @@ debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token
 	DEBUG_ON (nsm, NSM);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
+          if (strmatch(argv[arg_base]->text, "status"))
 	    DEBUG_ON (nsm, NSM_STATUS);
-	  else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "events"))
 	    DEBUG_ON (nsm, NSM_EVENTS);
-	  else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "timers"))
 	    DEBUG_ON (nsm, NSM_TIMERS);
 	}
 
@@ -1044,61 +1044,41 @@ debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token
     TERM_DEBUG_ON (nsm, NSM);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
+      if (strmatch(argv[arg_base]->text, "status"))
 	TERM_DEBUG_ON (nsm, NSM_STATUS);
-      else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "events"))
 	TERM_DEBUG_ON (nsm, NSM_EVENTS);
-      else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "timers"))
 	TERM_DEBUG_ON (nsm, NSM_TIMERS);
     }
 
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf nsm (status|events|timers)",
- *     DEBUG_STR
- *     OSPF_STR
- *     "OSPF Neighbor State Machine\n"
- *     "NSM Status Information\n"
- *     "NSM Event Information\n"
- *     "NSM Timer Information\n"
- *
- */
 DEFUN (debug_ospf_nsm,
        debug_ospf_nsm_cmd,
-       "debug ospf nsm",
+       "debug ospf nsm [status|events|timers]",
        DEBUG_STR
        OSPF_STR
-       "OSPF Neighbor State Machine\n")
+       "OSPF Neighbor State Machine\n"
+       "NSM Status Information\n"
+       "NSM Event Information\n"
+       "NSM Timer Information\n")
 {
-  /* CHECK ME argc referenced below */
-  return debug_ospf_nsm_common (vty, 0, argc, argv);
+  return debug_ospf_nsm_common (vty, 3, argc, argv);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf <1-65535> nsm (status|events|timers)",
- *     DEBUG_STR
- *     OSPF_STR
- *     "Instance ID\n"
- *     "OSPF Neighbor State Machine\n"
- *     "NSM Status Information\n"
- *     "NSM Event Information\n"
- *     "NSM Timer Information\n"
- *
- */
 DEFUN (debug_ospf_instance_nsm,
        debug_ospf_instance_nsm_cmd,
-       "debug ospf (1-65535) nsm",
+       "debug ospf (1-65535) nsm [status|events|timers]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Neighbor State Machine\n")
+       "OSPF Neighbor State Machine\n"
+       "NSM Status Information\n"
+       "NSM Event Information\n"
+       "NSM Timer Information\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 2;
   u_short instance = 0;
 
@@ -1106,7 +1086,7 @@ DEFUN (debug_ospf_instance_nsm,
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
-  return debug_ospf_nsm_common (vty, 1, argc, argv);
+  return debug_ospf_nsm_common (vty, 4, argc, argv);
 }
 
 
@@ -1119,11 +1099,11 @@ no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_to
 	DEBUG_OFF (nsm, NSM);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
+          if (strmatch(argv[arg_base]->text, "status"))
 	    DEBUG_OFF (nsm, NSM_STATUS);
-	  else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "events"))
 	    DEBUG_OFF (nsm, NSM_EVENTS);
-	  else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "timers"))
 	    DEBUG_OFF (nsm, NSM_TIMERS);
 	}
 
@@ -1135,65 +1115,44 @@ no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_to
     TERM_DEBUG_OFF (nsm, NSM);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0]->arg, "s", 1) == 0)
+      if (strmatch(argv[arg_base]->text, "status"))
 	TERM_DEBUG_OFF (nsm, NSM_STATUS);
-      else if (strncmp (argv[arg_base + 0]->arg, "e", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "events"))
 	TERM_DEBUG_OFF (nsm, NSM_EVENTS);
-      else if (strncmp (argv[arg_base + 0]->arg, "t", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "timers"))
 	TERM_DEBUG_OFF (nsm, NSM_TIMERS);
     }
 
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf nsm (status|events|timers)",
- *     NO_STR
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "OSPF Interface State Machine\n"
- *     "NSM Status Information\n"
- *     "NSM Event Information\n"
- *     "NSM Timer Information\n"
- *
- */
 DEFUN (no_debug_ospf_nsm,
        no_debug_ospf_nsm_cmd,
-       "no debug ospf nsm",
+       "no debug ospf nsm [status|events|timers]",
        NO_STR
        DEBUG_STR
        OSPF_STR
-       "OSPF Neighbor State Machine")
+       "OSPF Neighbor State Machine"
+       "NSM Status Information\n"
+       "NSM Event Information\n"
+       "NSM Timer Information\n")
 {
-  /* CHECK ME argc referenced below */
-  return no_debug_ospf_nsm_common(vty, 0, argc, argv);
+  return no_debug_ospf_nsm_common(vty, 4, argc, argv);
 }
 
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf <1-65535> nsm (status|events|timers)",
- *     NO_STR
- *     "Debugging functions\n"
- *     "OSPF information\n"
- *     "Instance ID\n"
- *     "OSPF Interface State Machine\n"
- *     "NSM Status Information\n"
- *     "NSM Event Information\n"
- *     "NSM Timer Information\n"
- *
- */
 DEFUN (no_debug_ospf_instance_nsm,
        no_debug_ospf_instance_nsm_cmd,
-       "no debug ospf (1-65535) nsm",
+       "no debug ospf (1-65535) nsm [status|events|timers]",
        NO_STR
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Neighbor State Machine")
+       "OSPF Neighbor State Machine"
+       "NSM Status Information\n"
+       "NSM Event Information\n"
+       "NSM Timer Information\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 3;
   u_short instance = 0;
 
@@ -1201,9 +1160,8 @@ DEFUN (no_debug_ospf_instance_nsm,
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
-  return no_debug_ospf_nsm_common(vty, 1, argc, argv);
+  return no_debug_ospf_nsm_common(vty, 5, argc, argv);
 }
-
 
 
 static int
@@ -1215,13 +1173,13 @@ debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_token
 	DEBUG_ON (lsa, LSA);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0]->arg, "g", 1) == 0)
+          if (strmatch(argv[arg_base]->text, "generate"))
 	    DEBUG_ON (lsa, LSA_GENERATE);
-	  else if (strncmp (argv[arg_base + 0]->arg, "f", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "flooding"))
 	    DEBUG_ON (lsa, LSA_FLOODING);
-	  else if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "install"))
 	    DEBUG_ON (lsa, LSA_INSTALL);
-	  else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "refresh"))
 	    DEBUG_ON (lsa, LSA_REFRESH);
 	}
 
@@ -1233,65 +1191,45 @@ debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_token
     TERM_DEBUG_ON (lsa, LSA);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0]->arg, "g", 1) == 0)
+      if (strmatch(argv[arg_base]->text, "generate"))
 	TERM_DEBUG_ON (lsa, LSA_GENERATE);
-      else if (strncmp (argv[arg_base + 0]->arg, "f", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "flooding"))
 	TERM_DEBUG_ON (lsa, LSA_FLOODING);
-      else if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "install"))
 	TERM_DEBUG_ON (lsa, LSA_INSTALL);
-      else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "refresh"))
 	TERM_DEBUG_ON (lsa, LSA_REFRESH);
     }
 
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf lsa (generate|flooding|install|refresh)",
- *     DEBUG_STR
- *     OSPF_STR
- *     "OSPF Link State Advertisement\n"
- *     "LSA Generation\n"
- *     "LSA Flooding\n"
- *     "LSA Install/Delete\n"
- *     "LSA Refresh\n"
- *
- */
 DEFUN (debug_ospf_lsa,
        debug_ospf_lsa_cmd,
-       "debug ospf lsa",
+       "debug ospf lsa [generate|flooding|install|refresh]",
        DEBUG_STR
        OSPF_STR
-       "OSPF Link State Advertisement\n")
+       "OSPF Link State Advertisement\n"
+       "LSA Generation\n"
+       "LSA Flooding\n"
+       "LSA Install/Delete\n"
+       "LSA Refresh\n")
 {
-  /* CHECK ME argc referenced below */
-  return debug_ospf_lsa_common(vty, 0, argc, argv);
+  return debug_ospf_lsa_common(vty, 3, argc, argv);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf <1-65535> lsa (generate|flooding|install|refresh)",
- *     DEBUG_STR
- *     OSPF_STR
- *     "Instance ID\n"
- *     "OSPF Link State Advertisement\n"
- *     "LSA Generation\n"
- *     "LSA Flooding\n"
- *     "LSA Install/Delete\n"
- *     "LSA Refresh\n"
- *
- */
 DEFUN (debug_ospf_instance_lsa,
        debug_ospf_instance_lsa_cmd,
-       "debug ospf (1-65535) lsa",
+       "debug ospf (1-65535) lsa [generate|flooding|install|refresh]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Link State Advertisement\n")
+       "OSPF Link State Advertisement\n"
+       "LSA Generation\n"
+       "LSA Flooding\n"
+       "LSA Install/Delete\n"
+       "LSA Refresh\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 2;
   u_short instance = 0;
 
@@ -1299,7 +1237,7 @@ DEFUN (debug_ospf_instance_lsa,
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
-  return debug_ospf_lsa_common(vty, 1, argc, argv);
+  return debug_ospf_lsa_common(vty, 4, argc, argv);
 }
 
 
@@ -1312,13 +1250,13 @@ no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_to
 	DEBUG_OFF (lsa, LSA);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0]->arg, "g", 1) == 0)
+          if (strmatch(argv[arg_base]->text, "generate"))
 	    DEBUG_OFF (lsa, LSA_GENERATE);
-	  else if (strncmp (argv[arg_base + 0]->arg, "f", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "flooding"))
 	    DEBUG_OFF (lsa, LSA_FLOODING);
-	  else if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "install"))
 	    DEBUG_OFF (lsa, LSA_INSTALL);
-	  else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "refresh"))
 	    DEBUG_OFF (lsa, LSA_REFRESH);
 	}
 
@@ -1330,69 +1268,47 @@ no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_to
     TERM_DEBUG_OFF (lsa, LSA);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0]->arg, "g", 1) == 0)
+      if (strmatch(argv[arg_base]->text, "generate"))
 	TERM_DEBUG_OFF (lsa, LSA_GENERATE);
-      else if (strncmp (argv[arg_base + 0]->arg, "f", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "flooding"))
 	TERM_DEBUG_OFF (lsa, LSA_FLOODING);
-      else if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "install"))
 	TERM_DEBUG_OFF (lsa, LSA_INSTALL);
-      else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "refresh"))
 	TERM_DEBUG_OFF (lsa, LSA_REFRESH);
     }
 
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf lsa (generate|flooding|install|refresh)",
- *     NO_STR
- *     DEBUG_STR
- *     OSPF_STR
- *     "OSPF Link State Advertisement\n"
- *     "LSA Generation\n"
- *     "LSA Flooding\n"
- *     "LSA Install/Delete\n"
- *     "LSA Refres\n"
- *
- */
 DEFUN (no_debug_ospf_lsa,
        no_debug_ospf_lsa_cmd,
-       "no debug ospf lsa",
+       "no debug ospf lsa [generate|flooding|install|refresh]",
        NO_STR
        DEBUG_STR
        OSPF_STR
-       "OSPF Link State Advertisement\n")
+       "OSPF Link State Advertisement\n"
+       "LSA Generation\n"
+       "LSA Flooding\n"
+       "LSA Install/Delete\n"
+       "LSA Refres\n")
 {
-  /* CHECK ME argc referenced below */
-  return no_debug_ospf_lsa_common (vty, 0, argc, argv);
+  return no_debug_ospf_lsa_common (vty, 4, argc, argv);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf <1-65535> lsa (generate|flooding|install|refresh)",
- *     NO_STR
- *     DEBUG_STR
- *     OSPF_STR
- *     "Instance ID\n"
- *     "OSPF Link State Advertisement\n"
- *     "LSA Generation\n"
- *     "LSA Flooding\n"
- *     "LSA Install/Delete\n"
- *     "LSA Refres\n"
- *
- */
 DEFUN (no_debug_ospf_instance_lsa,
        no_debug_ospf_instance_lsa_cmd,
-       "no debug ospf (1-65535) lsa",
+       "no debug ospf (1-65535) lsa [generate|flooding|install|refresh]",
        NO_STR
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Link State Advertisement\n")
+       "OSPF Link State Advertisement\n"
+       "LSA Generation\n"
+       "LSA Flooding\n"
+       "LSA Install/Delete\n"
+       "LSA Refres\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 3;
   u_short instance = 0;
 
@@ -1400,9 +1316,8 @@ DEFUN (no_debug_ospf_instance_lsa,
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
-  return no_debug_ospf_lsa_common (vty, 1, argc, argv);
+  return no_debug_ospf_lsa_common (vty, 5, argc, argv);
 }
-
 
 
 static int
@@ -1414,9 +1329,9 @@ debug_ospf_zebra_common (struct vty *vty, int arg_base, int argc, struct cmd_tok
 	DEBUG_ON (zebra, ZEBRA);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
+          if (strmatch(argv[arg_base]->text, "interface"))
 	    DEBUG_ON (zebra, ZEBRA_INTERFACE);
-	  else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "redistribute"))
 	    DEBUG_ON (zebra, ZEBRA_REDISTRIBUTE);
 	}
 
@@ -1428,57 +1343,37 @@ debug_ospf_zebra_common (struct vty *vty, int arg_base, int argc, struct cmd_tok
     TERM_DEBUG_ON (zebra, ZEBRA);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
+      if (strmatch(argv[arg_base]->text, "interface"))
 	TERM_DEBUG_ON (zebra, ZEBRA_INTERFACE);
-      else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "redistribute"))
 	TERM_DEBUG_ON (zebra, ZEBRA_REDISTRIBUTE);
     }
 
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf zebra (interface|redistribute)",
- *     DEBUG_STR
- *     OSPF_STR
- *     "OSPF Zebra information\n"
- *     "Zebra interface\n"
- *     "Zebra redistribute\n"
- *
- */
 DEFUN (debug_ospf_zebra,
        debug_ospf_zebra_cmd,
-       "debug ospf zebra",
+       "debug ospf zebra [interface|redistribute]",
        DEBUG_STR
        OSPF_STR
-       "OSPF Zebra information\n")
+       "OSPF Zebra information\n"
+       "Zebra interface\n"
+       "Zebra redistribute\n")
 {
-  /* CHECK ME argc referenced below */
-  return debug_ospf_zebra_common(vty, 0, argc, argv);
+  return debug_ospf_zebra_common(vty, 3, argc, argv);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "debug ospf <1-65535> zebra (interface|redistribute)",
- *     DEBUG_STR
- *     OSPF_STR
- *     "Instance ID\n"
- *     "OSPF Zebra information\n"
- *     "Zebra interface\n"
- *     "Zebra redistribute\n"
- *
- */
 DEFUN (debug_ospf_instance_zebra,
        debug_ospf_instance_zebra_cmd,
-       "debug ospf (1-65535) zebra",
+       "debug ospf (1-65535) zebra [interface|redistribute]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Zebra information\n")
+       "OSPF Zebra information\n"
+       "Zebra interface\n"
+       "Zebra redistribute\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 2;
   u_short instance = 0;
 
@@ -1486,7 +1381,7 @@ DEFUN (debug_ospf_instance_zebra,
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
-  return debug_ospf_zebra_common(vty, 1, argc, argv);
+  return debug_ospf_zebra_common(vty, 4, argc, argv);
 }
 
 
@@ -1500,9 +1395,9 @@ no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
 	DEBUG_OFF (zebra, ZEBRA);
       else if (argc == arg_base + 1)
 	{
-	  if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
+          if (strmatch(argv[arg_base]->text, "interface"))
 	    DEBUG_OFF (zebra, ZEBRA_INTERFACE);
-	  else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
+          else if (strmatch(argv[arg_base]->text, "redistribute"))
 	    DEBUG_OFF (zebra, ZEBRA_REDISTRIBUTE);
 	}
 
@@ -1514,61 +1409,39 @@ no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
     TERM_DEBUG_OFF (zebra, ZEBRA);
   else if (argc == arg_base + 1)
     {
-      if (strncmp (argv[arg_base + 0]->arg, "i", 1) == 0)
+      if (strmatch(argv[arg_base]->text, "interface"))
 	TERM_DEBUG_OFF (zebra, ZEBRA_INTERFACE);
-      else if (strncmp (argv[arg_base + 0]->arg, "r", 1) == 0)
+      else if (strmatch(argv[arg_base]->text, "redistribute"))
 	TERM_DEBUG_OFF (zebra, ZEBRA_REDISTRIBUTE);
     }
 
   return CMD_SUCCESS;
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf zebra (interface|redistribute)",
- *     NO_STR
- *     DEBUG_STR
- *     OSPF_STR
- *     "OSPF Zebra information\n"
- *     "Zebra interface\n"
- *     "Zebra redistribute\n"
- *
- */
 DEFUN (no_debug_ospf_zebra,
        no_debug_ospf_zebra_cmd,
-       "no debug ospf zebra",
+       "no debug ospf zebra [interface|redistribute]",
        NO_STR
        DEBUG_STR
        OSPF_STR
-       "OSPF Zebra information\n")
+       "OSPF Zebra information\n"
+       "Zebra interface\n"
+       "Zebra redistribute\n")
 {
-  /* CHECK ME argc referenced below */
-  return no_debug_ospf_zebra_common(vty, 0, argc, argv);
+  return no_debug_ospf_zebra_common(vty, 4, argc, argv);
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "no debug ospf <1-65535> zebra (interface|redistribute)",
- *     NO_STR
- *     DEBUG_STR
- *     OSPF_STR
- *     "Instance ID\n"
- *     "OSPF Zebra information\n"
- *     "Zebra interface\n"
- *     "Zebra redistribute\n"
- *
- */
 DEFUN (no_debug_ospf_instance_zebra,
        no_debug_ospf_instance_zebra_cmd,
-       "no debug ospf (1-65535) zebra",
+       "no debug ospf (1-65535) zebra [interface|redistribute]",
        NO_STR
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Zebra information\n")
+       "OSPF Zebra information\n"
+       "Zebra interface\n"
+       "Zebra redistribute\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_number = 3;
   u_short instance = 0;
 
@@ -1576,7 +1449,7 @@ DEFUN (no_debug_ospf_instance_zebra,
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
-  return no_debug_ospf_zebra_common(vty, 1, argc, argv);
+  return no_debug_ospf_zebra_common(vty, 5, argc, argv);
 }
 
 
