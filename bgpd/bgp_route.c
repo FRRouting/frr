@@ -5922,7 +5922,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
             vty_out(vty, "?");
         }
       /* IPv4 Next Hop */
-      else if (p->family == AF_INET || !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
+      else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 	{
           if (json_paths)
             {

@@ -899,7 +899,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
   struct prefix_list *plist;
   struct prefix_list_entry *pentry;
   struct prefix_list_entry *dup;
-  struct prefix p;
+  struct prefix p, p_tmp;
   int any = 0;
   int seqnum = -1;
   int lenum = 0;
@@ -945,6 +945,11 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
 	  vty_out (vty, "%% Malformed IPv4 prefix%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
+
+      /* make a copy to verify prefix matches mask length */
+      prefix_copy (&p_tmp, &p);
+      apply_mask_ipv4 ((struct prefix_ipv4 *) &p_tmp);
+
       break;
     case AFI_IP6:
       if (strncmp ("any", prefix, strlen (prefix)) == 0)
@@ -962,12 +967,29 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
 	  vty_out (vty, "%% Malformed IPv6 prefix%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
+
+      /* make a copy to verify prefix matches mask length */
+      prefix_copy (&p_tmp, &p);
+      apply_mask_ipv6 ((struct prefix_ipv6 *) &p_tmp);
+
       break;
     case AFI_ETHER:
     default:
       vty_out (vty, "%% Unrecognized AFI (%d)%s", afi, VTY_NEWLINE);
       return CMD_WARNING;
       break;
+    }
+
+  /* If prefix has bits not under the mask, adjust it to fit */
+  if (!prefix_same (&p_tmp, &p))
+    {
+      char buf[PREFIX2STR_BUFFER];
+      char buf_tmp[PREFIX2STR_BUFFER];
+      prefix2str(&p, buf, sizeof(buf));
+      prefix2str(&p_tmp, buf_tmp, sizeof(buf_tmp));
+      zlog_warn ("Prefix-list %s prefix changed from %s to %s to match length",
+                 name, buf, buf_tmp);
+      p = p_tmp;
     }
 
   /* ge and le check. */
@@ -995,14 +1017,6 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
   if (dup)
     {
       prefix_list_entry_free (pentry);
-      vty_out (vty, "%% Insertion failed - prefix-list entry exists:%s",
-	       VTY_NEWLINE);
-      vty_out (vty, "   seq %u %s %s", dup->seq, typestr, prefix);
-      if (! any && genum)
-	vty_out (vty, " ge %d", genum);
-      if (! any && lenum)
-	vty_out (vty, " le %d", lenum);
-      vty_out (vty, "%s", VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 

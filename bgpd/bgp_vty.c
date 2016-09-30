@@ -11068,8 +11068,6 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
     {
       json_addr = json_object_new_object();
       json_af = json_object_new_object();
-      json_prefA = json_object_new_object();
-      json_prefB = json_object_new_object();
       filter = &p->filter[afi][safi];
 
       if (peer_group_active(p))
@@ -11089,6 +11087,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
           || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_RCV))
         {
           json_object_int_add(json_af, "orfType", ORF_TYPE_PREFIX);
+          json_prefA = json_object_new_object();
           bgp_show_peer_afi_orf_cap (vty, p, afi, safi,
 				     PEER_CAP_ORF_PREFIX_SM_ADV,
 				     PEER_CAP_ORF_PREFIX_RM_ADV,
@@ -11103,6 +11102,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
           || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
         {
           json_object_int_add(json_af, "orfOldType", ORF_TYPE_PREFIX_OLD);
+          json_prefB = json_object_new_object();
           bgp_show_peer_afi_orf_cap (vty, p, afi, safi,
 				     PEER_CAP_ORF_PREFIX_SM_ADV,
 				     PEER_CAP_ORF_PREFIX_RM_ADV,
@@ -11118,6 +11118,8 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
           || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_RCV)
           || CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_RM_OLD_RCV))
         json_object_object_add(json_addr, "afDependentCap", json_af);
+      else
+        json_object_free(json_af);
 
       sprintf (orf_pfx_name, "%s.%d.%d", p->host, afi, safi);
       orf_pfx_count =  prefix_bgp_show_prefix_list (NULL, afi, orf_pfx_name, use_json);
@@ -11840,6 +11842,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
                             CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV) ||
                             CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV))
                           json_object_object_add(json_add, print_store, json_sub);
+                        else
+                          json_object_free(json_sub);
                       }
 
                   json_object_object_add(json_cap, "addPath", json_add);
@@ -11864,7 +11868,6 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 	          json_object *json_nxt = NULL;
                   const char *print_store;
 
-                  json_nxt = json_object_new_object();
 
 	          if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_ADV) && CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
 		    json_object_string_add(json_cap, "extendedNexthop", "advertisedAndReceived");
@@ -11875,6 +11878,8 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
                   if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
 		    {
+                      json_nxt = json_object_new_object();
+
                       for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
                         {
                           if (CHECK_FLAG (p->af_cap[AFI_IP][safi], PEER_CAP_ENHE_AF_RCV))
@@ -11972,7 +11977,10 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
                             }
                         }
 		      if (! restart_af_count)
-		        json_object_string_add(json_cap, "addressFamiliesByPeer", "none");
+                        {
+                          json_object_string_add(json_cap, "addressFamiliesByPeer", "none");
+                          json_object_free(json_restart);
+                        }
                       else
                         json_object_object_add(json_cap, "addressFamiliesByPeer", json_restart);
                     }
