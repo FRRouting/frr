@@ -1019,46 +1019,22 @@ DEFUN (show_ipv6_ospf6_interface,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 interface IFNAME prefix (X:X::X:X|X:X::X:X/M|detail)",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     INTERFACE_STR
- *     IFNAME_STR
- *     "Display connected prefixes to advertise\n"
- *     OSPF6_ROUTE_ADDRESS_STR
- *     OSPF6_ROUTE_PREFIX_STR
- *     "Display details of the prefixes\n"
- *     
- *
- * "show ipv6 ospf6 interface IFNAME prefix X:X::X:X/M (match|detail)",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     INTERFACE_STR
- *     IFNAME_STR
- *     "Display connected prefixes to advertise\n"
- *     OSPF6_ROUTE_PREFIX_STR
- *     OSPF6_ROUTE_MATCH_STR
- *     "Display details of the prefixes\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        show_ipv6_ospf6_interface_ifname_prefix_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix",
+       "show ipv6 ospf6 interface IFNAME prefix [<X:X::X:X|X:X::X:X/M>] [<match|detail>]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        INTERFACE_STR
        IFNAME_STR
-       "Display connected prefixes to advertise\n")
+       "Display connected prefixes to advertise\n"
+       OSPF6_ROUTE_ADDRESS_STR
+       OSPF6_ROUTE_PREFIX_STR
+       OSPF6_ROUTE_MATCH_STR
+       "Display details of the prefixes\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_ifname = 4;
+  int idx_prefix = 6;
   struct interface *ifp;
   struct ospf6_interface *oi;
 
@@ -1076,49 +1052,25 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
       return CMD_WARNING;
     }
 
-  ospf6_route_table_show (vty, 6, argc, argv, oi->route_connected);
+  ospf6_route_table_show (vty, idx_prefix, argc, argv, oi->route_connected);
 
   return CMD_SUCCESS;
 }
 
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 interface prefix X:X::X:X/M (match|detail)",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     INTERFACE_STR
- *     "Display connected prefixes to advertise\n"
- *     OSPF6_ROUTE_PREFIX_STR
- *     OSPF6_ROUTE_MATCH_STR
- *     "Display details of the prefixes\n"
- *     
- *
- * "show ipv6 ospf6 interface prefix (X:X::X:X|X:X::X:X/M|detail)",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     INTERFACE_STR
- *     "Display connected prefixes to advertise\n"
- *     OSPF6_ROUTE_ADDRESS_STR
- *     OSPF6_ROUTE_PREFIX_STR
- *     "Display details of the prefixes\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_interface_prefix,
        show_ipv6_ospf6_interface_prefix_cmd,
-       "show ipv6 ospf6 interface prefix",
+       "show ipv6 ospf6 interface prefix [<X:X::X:X|X:X::X:X/M>] [<match|detail>]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        INTERFACE_STR
        "Display connected prefixes to advertise\n"
-       )
+       OSPF6_ROUTE_ADDRESS_STR
+       OSPF6_ROUTE_PREFIX_STR
+       OSPF6_ROUTE_MATCH_STR
+       "Display details of the prefixes\n")
 {
-  /* CHECK ME argc referenced below */
+  int idx_prefix = 5;
   struct listnode *i;
   struct ospf6_interface *oi;
   struct interface *ifp;
@@ -1129,14 +1081,11 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
       if (oi == NULL)
         continue;
 
-      ospf6_route_table_show (vty, 5, argc, argv, oi->route_connected);
+      ospf6_route_table_show (vty, idx_prefix, argc, argv, oi->route_connected);
     }
 
   return CMD_SUCCESS;
 }
-
-
-
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_ifmtu,

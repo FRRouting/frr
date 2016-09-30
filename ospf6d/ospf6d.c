@@ -285,56 +285,21 @@ DEFUN (show_ipv6_ospf6_database_type,
   return CMD_SUCCESS;
 }
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database * A.B.C.D (detail|dump|internal)",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Any Link state Type\n"
- *     "Specify Link state ID as IPv4 address notation\n"
- *     "Display details of LSAs\n"
- *     "Dump LSAs\n"
- *     "Display LSA's internal information\n"
- *     
- *
- * "show ipv6 ospf6 database linkstate-id A.B.C.D (detail|dump|internal)",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Search by Link state ID\n"
- *     "Specify Link state ID as IPv4 address notation\n"
- *     "Display details of LSAs\n"
- *     "Dump LSAs\n"
- *     "Display LSA's internal information\n"
- *     
- *
- * "show ipv6 ospf6 database linkstate-id A.B.C.D",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Search by Link state ID\n"
- *     "Specify Link state ID as IPv4 address notation\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_database_id,
        show_ipv6_ospf6_database_id_cmd,
-       "show ipv6 ospf6 database * A.B.C.D",
+       "show ipv6 ospf6 database <*|linkstate-id> A.B.C.D [<detail|dump|internal>]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
        "Display Link state database\n"
        "Any Link state Type\n"
+       "Search by Link state ID\n"
        "Specify Link state ID as IPv4 address notation\n"
-      )
+       "Display details of LSAs\n"
+       "Dump LSAs\n"
+       "Display LSA's internal information\n")
 {
-  /* CHECK ME argc referenced below */
-  int idx_ipv4 = 5;
+  int idx_ipv4 = 4;
   int idx_level = 6;
   int level;
   struct listnode *i, *j;
@@ -344,7 +309,10 @@ DEFUN (show_ipv6_ospf6_database_id,
   u_int32_t id = 0;
 
   OSPF6_CMD_CHECK_RUNNING ();
-  inet_pton (AF_INET, argv[idx_ipv4]->arg, &id);
+
+  if (argv[idx_ipv4]->type == IPV4_TKN)
+    inet_pton (AF_INET, argv[idx_ipv4]->arg, &id);
+
   level = parse_show_level (idx_level, argc, argv);
 
   for (ALL_LIST_ELEMENTS_RO (o->area_list, i, oa))
@@ -370,59 +338,21 @@ DEFUN (show_ipv6_ospf6_database_id,
   return CMD_SUCCESS;
 }
 
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database * * A.B.C.D (detail|dump|internal)",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Any Link state Type\n"
- *     "Any Link state ID\n"
- *     "Specify Advertising Router as IPv4 address notation\n"
- *     "Display details of LSAs\n"
- *     "Dump LSAs\n"
- *     "Display LSA's internal information\n"
- *     
- *
- * "show ipv6 ospf6 database adv-router A.B.C.D",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Search by Advertising Router\n"
- *     "Specify Advertising Router as IPv4 address notation\n"
- *     
- *
- * "show ipv6 ospf6 database adv-router A.B.C.D (detail|dump|internal)",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Search by Advertising Router\n"
- *     "Specify Advertising Router as IPv4 address notation\n"
- *     "Display details of LSAs\n"
- *     "Dump LSAs\n"
- *     "Display LSA's internal information\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_database_router,
        show_ipv6_ospf6_database_router_cmd,
-       "show ipv6 ospf6 database * * A.B.C.D",
+       "show ipv6 ospf6 database <*|adv-router> * A.B.C.D <detail|dump|internal>",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
        "Display Link state database\n"
        "Any Link state Type\n"
+       "Search by Advertising Router\n"
        "Any Link state ID\n"
        "Specify Advertising Router as IPv4 address notation\n"
-      )
+       "Display details of LSAs\n"
+       "Dump LSAs\n"
+       "Display LSA's internal information\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_ipv4 = 6;
   int idx_level = 7;
   int level;
@@ -459,74 +389,9 @@ DEFUN (show_ipv6_ospf6_database_router,
   return CMD_SUCCESS;
 }
 
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) linkstate-id A.B.C.D (detail|dump|internal)",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Display Router LSAs\n"
- *     "Display Network LSAs\n"
- *     "Display Inter-Area-Prefix LSAs\n"
- *     "Display Inter-Area-Router LSAs\n"
- *     "Display As-External LSAs\n"
- *     "Display Group-Membership LSAs\n"
- *     "Display Type-7 LSAs\n"
- *     "Display Link LSAs\n"
- *     "Display Intra-Area-Prefix LSAs\n"
- *     "Search by Link state ID\n"
- *     "Specify Link state ID as IPv4 address notation\n"
- *     "Display details of LSAs\n"
- *     "Dump LSAs\n"
- *     "Display LSA's internal information\n"
- *     
- *
- * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) A.B.C.D (detail|dump|internal)",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Display Router LSAs\n"
- *     "Display Network LSAs\n"
- *     "Display Inter-Area-Prefix LSAs\n"
- *     "Display Inter-Area-Router LSAs\n"
- *     "Display As-External LSAs\n"
- *     "Display Group-Membership LSAs\n"
- *     "Display Type-7 LSAs\n"
- *     "Display Link LSAs\n"
- *     "Display Intra-Area-Prefix LSAs\n"
- *     "Specify Link state ID as IPv4 address notation\n"
- *     "Display details of LSAs\n"
- *     "Dump LSAs\n"
- *     "Display LSA's internal information\n"
- *     
- *
- * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) linkstate-id A.B.C.D",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Display Router LSAs\n"
- *     "Display Network LSAs\n"
- *     "Display Inter-Area-Prefix LSAs\n"
- *     "Display Inter-Area-Router LSAs\n"
- *     "Display As-External LSAs\n"
- *     "Display Group-Membership LSAs\n"
- *     "Display Type-7 LSAs\n"
- *     "Display Link LSAs\n"
- *     "Display Intra-Area-Prefix LSAs\n"
- *     "Search by Link state ID\n"
- *     "Specify Link state ID as IPv4 address notation\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_database_type_id,
        show_ipv6_ospf6_database_type_id_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> A.B.C.D",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> [linkstate-id] A.B.C.D [<detail|dump|internal>]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -540,13 +405,16 @@ DEFUN (show_ipv6_ospf6_database_type_id,
        "Display Type-7 LSAs\n"
        "Display Link LSAs\n"
        "Display Intra-Area-Prefix LSAs\n"
+       "Search by Link state ID\n"
        "Specify Link state ID as IPv4 address notation\n"
+       "Display details of LSAs\n"
+       "Dump LSAs\n"
+       "Display LSA's internal information\n"
       )
 {
-  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
-  int idx_ipv4 = 5;
-  int idx_level = 6;
+  int idx_ipv4 = 6;
+  int idx_level = 7;
   int level;
   struct listnode *i, *j;
   struct ospf6 *o = ospf6;
@@ -597,75 +465,9 @@ DEFUN (show_ipv6_ospf6_database_type_id,
   return CMD_SUCCESS;
 }
 
-
-
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) * A.B.C.D (detail|dump|internal)",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Display Router LSAs\n"
- *     "Display Network LSAs\n"
- *     "Display Inter-Area-Prefix LSAs\n"
- *     "Display Inter-Area-Router LSAs\n"
- *     "Display As-External LSAs\n"
- *     "Display Group-Membership LSAs\n"
- *     "Display Type-7 LSAs\n"
- *     "Display Link LSAs\n"
- *     "Display Intra-Area-Prefix LSAs\n"
- *     "Any Link state ID\n"
- *     "Specify Advertising Router as IPv4 address notation\n"
- *     "Display details of LSAs\n"
- *     "Dump LSAs\n"
- *     "Display LSA's internal information\n"
- *     
- *
- * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) adv-router A.B.C.D (detail|dump|internal)",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Display Router LSAs\n"
- *     "Display Network LSAs\n"
- *     "Display Inter-Area-Prefix LSAs\n"
- *     "Display Inter-Area-Router LSAs\n"
- *     "Display As-External LSAs\n"
- *     "Display Group-Membership LSAs\n"
- *     "Display Type-7 LSAs\n"
- *     "Display Link LSAs\n"
- *     "Display Intra-Area-Prefix LSAs\n"
- *     "Search by Advertising Router\n"
- *     "Specify Advertising Router as IPv4 address notation\n"
- *     "Display details of LSAs\n"
- *     "Dump LSAs\n"
- *     "Display LSA's internal information\n"
- *     
- *
- * "show ipv6 ospf6 database (router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix) adv-router A.B.C.D",
- *     SHOW_STR
- *     IPV6_STR
- *     OSPF6_STR
- *     "Display Link state database\n"
- *     "Display Router LSAs\n"
- *     "Display Network LSAs\n"
- *     "Display Inter-Area-Prefix LSAs\n"
- *     "Display Inter-Area-Router LSAs\n"
- *     "Display As-External LSAs\n"
- *     "Display Group-Membership LSAs\n"
- *     "Display Type-7 LSAs\n"
- *     "Display Link LSAs\n"
- *     "Display Intra-Area-Prefix LSAs\n"
- *     "Search by Advertising Router\n"
- *     "Specify Advertising Router as IPv4 address notation\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_database_type_router,
        show_ipv6_ospf6_database_type_router_cmd,
-       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> * A.B.C.D",
+       "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> <*|adv-router> A.B.C.D [<detail|dump|internal>]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR
@@ -680,10 +482,13 @@ DEFUN (show_ipv6_ospf6_database_type_router,
        "Display Link LSAs\n"
        "Display Intra-Area-Prefix LSAs\n"
        "Any Link state ID\n"
+       "Search by Advertising Router\n"
        "Specify Advertising Router as IPv4 address notation\n"
+       "Display details of LSAs\n"
+       "Dump LSAs\n"
+       "Display LSA's internal information\n"
       )
 {
-  /* CHECK ME argc referenced below */
   int idx_lsa = 4;
   int idx_ipv4 = 6;
   int idx_level = 7;
@@ -1334,37 +1139,21 @@ DEFUN (show_ipv6_ospf6_border_routers,
 }
 
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "show ipv6 ospf6 linkstate network A.B.C.D A.B.C.D",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     "Display linkstate routing table\n"
- *     "Display Network Entry\n"
- *     "Specify Router ID as IPv4 address notation\n"
- *     "Specify Link state ID as IPv4 address notation\n"
- *
- * "show ipv6 ospf6 linkstate router A.B.C.D",
- *     SHOW_STR
- *     IP6_STR
- *     OSPF6_STR
- *     "Display linkstate routing table\n"
- *     "Display Router Entry\n"
- *     "Specify Router ID as IPv4 address notation\n"
- *     
- *
- */
 DEFUN (show_ipv6_ospf6_linkstate,
        show_ipv6_ospf6_linkstate_cmd,
-       "show ipv6 ospf6 linkstate",
+       "show ipv6 ospf6 linkstate <router A.B.C.D|network A.B.C.D A.B.C.D>",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        "Display linkstate routing table\n"
+       "Display Router Entry\n"
+       "Specify Router ID as IPv4 address notation\n"
+       "Display Network Entry\n"
+       "Specify Router ID as IPv4 address notation\n"
+       "Specify Link state ID as IPv4 address notation\n"
       )
 {
-  /* CHECK ME argc referenced below */
+  int idx_ipv4 = 4;
   struct listnode *node;
   struct ospf6_area *oa;
 
@@ -1374,7 +1163,7 @@ DEFUN (show_ipv6_ospf6_linkstate,
     {
       vty_out (vty, "%s        SPF Result in Area %s%s%s",
                VNL, oa->name, VNL, VNL);
-      ospf6_linkstate_table_show (vty, argc, argv, oa->spf_table);
+      ospf6_linkstate_table_show (vty, idx_ipv4, argc, argv, oa->spf_table);
     }
 
   vty_out (vty, "%s", VNL);
@@ -1392,7 +1181,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
        "Display linkstate routing table\n"
       )
 {
-  /* CHECK ME argc referenced below */
+  int idx_detail = 4;
   struct listnode *node;
   struct ospf6_area *oa;
 
@@ -1402,7 +1191,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
     {
       vty_out (vty, "%s        SPF Result in Area %s%s%s",
                VNL, oa->name, VNL, VNL);
-      ospf6_linkstate_table_show (vty, argc, argv, oa->spf_table);
+      ospf6_linkstate_table_show (vty, idx_detail, argc, argv, oa->spf_table);
     }
 
   vty_out (vty, "%s", VNL);

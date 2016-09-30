@@ -1473,7 +1473,8 @@ ospf6_linkstate_show_table (struct vty *vty, int detail,
 }
 
 int
-ospf6_linkstate_table_show (struct vty *vty, int argc, struct cmd_token **argv,
+ospf6_linkstate_table_show (struct vty *vty, int idx_ipv4, int argc,
+                            struct cmd_token **argv,
                             struct ospf6_route_table *table)
 {
   int detail = 0;
@@ -1486,7 +1487,7 @@ ospf6_linkstate_table_show (struct vty *vty, int argc, struct cmd_token **argv,
   memset (&id, 0, sizeof (struct prefix));
   memset (&prefix, 0, sizeof (struct prefix));
 
-  for (i = 0; i < argc; i++)
+  for (i = idx_ipv4; i < argc; i++)
     {
       if (! strcmp (argv[i]->arg, "detail"))
         {

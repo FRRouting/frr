@@ -433,44 +433,21 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
   oa = ospf6_area_get (area_id, ospf6);                    \
 }
 
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "area (A.B.C.D|<0-4294967295>) range X:X::X:X/M advertise cost <0-16777215>",
- *     "OSPF area parameters\n"
- *     OSPF6_AREA_ID_STR
- *     "Summarize routes matching address/mask (border routers only)\n"
- *     "Area range prefix\n"
- *     "User specified metric for this range\n"
- *     "Advertised metric for this range\n"
- *
- * "area A.B.C.D range X:X::X:X/M (advertise|not-advertise)",
- *     "OSPF area parameters\n"
- *     OSPF6_AREA_ID_STR
- *     "Configured address range\n"
- *     "Specify IPv6 prefix\n"
- *     
- *
- * "area (A.B.C.D|<0-4294967295>) range X:X::X:X/M cost <0-16777215>",
- *     "OSPF area parameters\n"
- *     OSPF6_AREA_ID_STR
- *     "Summarize routes matching address/mask (border routers only)\n"
- *     "Area range prefix\n"
- *     "User specified metric for this range\n"
- *     "Advertised metric for this range\n"
- *
- */
 DEFUN (area_range,
        area_range_cmd,
-       "area A.B.C.D range X:X::X:X/M",
+       "area <A.B.C.D|(0-4294967295) range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]",
        "OSPF area parameters\n"
        OSPF6_AREA_ID_STR
        "Configured address range\n"
        "Specify IPv6 prefix\n"
-       )
+       "Advertise\n"
+       "Do not advertise\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
 {
-  /* CHECK ME argc referenced below */
   int idx_ipv4 = 1;
   int idx_ipv6_prefixlen = 3;
+  int idx_type = 4;
   int ret;
   struct ospf6_area *oa;
   struct prefix prefix;
@@ -498,13 +475,13 @@ DEFUN (area_range,
 	(u_int32_t) htonl(ospf6_new_range_ls_id (oa->range_table));
     }
 
-  if (argc > 2)
+  if (argc > idx_type)
     {
-      if (strcmp (argv[4]->arg, "not-advertise") == 0)
+      if (strmatch (argv[idx_type]->text, "not-advertise"))
 	{
 	  SET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
 	}
-      else if (strcmp (argv[4]->arg, "advertise") == 0)
+      else if (strmatch (argv[idx_type]->text, "advertise"))
 	{
 	  UNSET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
 	}
