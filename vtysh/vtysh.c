@@ -2177,7 +2177,6 @@ DEFUN (vtysh_write_terminal,
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n")
 {
-  /* CHECK ME argc referenced below */
   u_int i;
   char line[] = "write terminal\n";
   FILE *fp = NULL;
@@ -2198,10 +2197,6 @@ DEFUN (vtysh_write_terminal,
   vty_out (vty, "%sCurrent configuration:%s", VTY_NEWLINE,
 	   VTY_NEWLINE);
   vty_out (vty, "!%s", VTY_NEWLINE);
-
-  for (i = 0; i < array_size(vtysh_client); i++)
-    if ((argc < 1 ) || (begins_with(vtysh_client[i].name, argv[0])))
-      vtysh_client_config (&vtysh_client[i], line);
 
   /* Integrate vtysh specific configuration. */
   vtysh_config_write ();

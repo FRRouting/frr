@@ -6747,34 +6747,6 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   return CMD_SUCCESS;
 }
 
-static int
-bgp_show_summary_vty (struct vty *vty, const char *name,
-                      afi_t afi, safi_t safi, u_char use_json)
-{
-  struct bgp *bgp;
-
-  if (name)
-    {
-      bgp = bgp_lookup_by_name (name);
-
-      if (! bgp)
-	{
-	  vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-
-      bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
-      return CMD_SUCCESS;
-    }
-
-  bgp = bgp_get_default ();
-
-  if (bgp)
-    bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
-
-  return CMD_SUCCESS;
-}
-
 static void
 bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
                                     u_char use_json)
@@ -6791,14 +6763,7 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
     {
       if (use_json)
         {
-          if (!(json = json_object_new_object()))
-            {
-              zlog_err("Unable to allocate memory for JSON object");
-              vty_out (vty,
-                       "{\"error\": {\"message:\": \"Unable to allocate memory for JSON object\"}}}%s",
-                       VTY_NEWLINE);
-              return;
-            }
+          json = json_object_new_object();
 
           if (! is_first)
             vty_out (vty, ",%s", VTY_NEWLINE);
@@ -6821,6 +6786,45 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
   if (use_json)
     vty_out (vty, "}%s", VTY_NEWLINE);
 
+}
+
+static int
+bgp_show_summary_vty (struct vty *vty, const char *name,
+                      afi_t afi, safi_t safi, u_char use_json)
+{
+  struct bgp *bgp;
+
+  if (name)
+    {
+      if (strmatch(name, "all"))
+        {
+          bgp_show_all_instances_summary_vty (vty, afi, safi, use_json);
+          return CMD_SUCCESS;
+        }
+      else
+        {
+          bgp = bgp_lookup_by_name (name);
+
+          if (! bgp)
+            {
+              if (use_json)
+                vty_out (vty, "{}%s", VTY_NEWLINE);
+              else
+                vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
+              return CMD_WARNING;
+            }
+
+          bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
+          return CMD_SUCCESS;
+        }
+    }
+
+  bgp = bgp_get_default ();
+
+  if (bgp)
+    bgp_show_summary (vty, bgp, afi, safi, use_json, NULL);
+
+  return CMD_SUCCESS;
 }
 
 /* `show ip bgp summary' commands. */
@@ -6855,22 +6859,6 @@ DEFUN (show_ip_bgp_summary,
   bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, NULL);
 
   return bgp_show_summary_vty (vty, vrf, afi, safi, uj);
-}
-
-DEFUN (show_ip_bgp_instance_all_summary,
-       show_ip_bgp_instance_all_summary_cmd,
-       "show ip bgp <view|vrf> all summary [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_ALL_HELP_STR
-       "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-
-  bgp_show_all_instances_summary_vty (vty, AFI_IP, SAFI_UNICAST, uj);
-  return CMD_SUCCESS;
 }
 
 const char *
@@ -8595,59 +8583,6 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp, enum show_type type,
   return CMD_SUCCESS;
 }
 
-static int 
-bgp_show_neighbor_vty (struct vty *vty, const char *name, 
-                       enum show_type type, const char *ip_str, u_char use_json)
-{
-  int ret;
-  struct bgp *bgp;
-  union sockunion su;
-  json_object *json = NULL;
-
-  if (use_json)
-    json = json_object_new_object();
-
-  if (name)
-    {
-      bgp = bgp_lookup_by_name (name);
-      if (! bgp)
-        {
-          if (use_json)
-            {
-              json_object_boolean_true_add(json, "bgpNoSuchInstance");
-              vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
-              json_object_free(json);
-            }
-          else
-            vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
-
-          return CMD_WARNING;
-        }
-    }
-  else
-    {
-      bgp = bgp_get_default ();
-    }
-
-  if (bgp)
-    {
-      if (ip_str)
-        {
-          ret = str2sockunion (ip_str, &su);
-          if (ret < 0)
-            bgp_show_neighbor (vty, bgp, type, NULL, ip_str, use_json, json);
-          else
-            bgp_show_neighbor (vty, bgp, type, &su, NULL, use_json, json);
-        }
-      else
-        {
-          bgp_show_neighbor (vty, bgp, type, NULL, NULL, use_json, json);
-        }
-    }
-
-  return CMD_SUCCESS;
-}
-
 static void
 bgp_show_all_instances_neighbors_vty (struct vty *vty, u_char use_json)
 {
@@ -8702,6 +8637,67 @@ bgp_show_all_instances_neighbors_vty (struct vty *vty, u_char use_json)
     vty_out (vty, "}%s", VTY_NEWLINE);
 }
 
+static int
+bgp_show_neighbor_vty (struct vty *vty, const char *name,
+                       enum show_type type, const char *ip_str, u_char use_json)
+{
+  int ret;
+  struct bgp *bgp;
+  union sockunion su;
+  json_object *json = NULL;
+
+  if (use_json)
+    json = json_object_new_object();
+
+  if (name)
+    {
+      if (strmatch(name, "all"))
+        {
+          bgp_show_all_instances_neighbors_vty (vty, use_json);
+          return CMD_SUCCESS;
+        }
+      else
+        {
+          bgp = bgp_lookup_by_name (name);
+          if (! bgp)
+            {
+              if (use_json)
+                {
+                  json_object_boolean_true_add(json, "bgpNoSuchInstance");
+                  vty_out (vty, "%s%s", json_object_to_json_string(json), VTY_NEWLINE);
+                  json_object_free(json);
+                }
+              else
+                vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
+
+              return CMD_WARNING;
+            }
+          }
+    }
+  else
+    {
+      bgp = bgp_get_default ();
+    }
+
+  if (bgp)
+    {
+      if (ip_str)
+        {
+          ret = str2sockunion (ip_str, &su);
+          if (ret < 0)
+            bgp_show_neighbor (vty, bgp, type, NULL, ip_str, use_json, json);
+          else
+            bgp_show_neighbor (vty, bgp, type, &su, NULL, use_json, json);
+        }
+      else
+        {
+          bgp_show_neighbor (vty, bgp, type, NULL, NULL, use_json, json);
+        }
+    }
+
+  return CMD_SUCCESS;
+}
+
 /* "show ip bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
@@ -8753,22 +8749,6 @@ DEFUN (show_ip_bgp_neighbors,
     }
 
   return bgp_show_neighbor_vty (vty, vrf, sh_type, sh_arg, uj);
-}
-
-DEFUN (show_ip_bgp_instance_all_neighbors,
-       show_ip_bgp_instance_all_neighbors_cmd,
-       "show [ip] bgp <view|vrf> all neighbors [json]",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_ALL_HELP_STR
-       "Detailed information on TCP and BGP neighbor connections\n"
-       "JavaScript Object Notation\n")
-{
-  u_char uj = use_json(argc, argv);
-
-  bgp_show_all_instances_neighbors_vty (vty, uj);
-  return CMD_SUCCESS;
 }
 
 /* Show BGP's AS paths internal data.  There are both `show ip bgp
@@ -8847,22 +8827,6 @@ DEFUN (show_ip_bgp_attr_info,
   return CMD_SUCCESS;
 }
 
-static int bgp_show_update_groups(struct vty *vty, const char *name,
-                                  int afi, int safi,
-                                  uint64_t subgrp_id)
-{
-  struct bgp *bgp;
-
- if (name)
-    bgp = bgp_lookup_by_name (name);
-  else
-    bgp = bgp_get_default ();
-
-  if (bgp)
-    update_group_show(bgp, afi, safi, vty, subgrp_id);
-  return CMD_SUCCESS;
-}
-
 static void
 bgp_show_all_instances_updgrps_vty (struct vty *vty, afi_t afi, safi_t safi)
 {
@@ -8877,6 +8841,35 @@ bgp_show_all_instances_updgrps_vty (struct vty *vty, afi_t afi, safi_t safi)
                VTY_NEWLINE);
       update_group_show(bgp, afi, safi, vty, 0);
     }
+}
+
+static int
+bgp_show_update_groups(struct vty *vty, const char *name,
+                       int afi, int safi,
+                       uint64_t subgrp_id)
+{
+  struct bgp *bgp;
+
+  if (name)
+    {
+      if (strmatch (name, "all"))
+        {
+          bgp_show_all_instances_updgrps_vty (vty, afi, safi);
+          return CMD_SUCCESS;
+        }
+      else
+        {
+          bgp = bgp_lookup_by_name (name);
+        }
+    }
+  else
+    {
+      bgp = bgp_get_default ();
+    }
+
+  if (bgp)
+    update_group_show(bgp, afi, safi, vty, subgrp_id);
+  return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_bgp_updgrps,
@@ -8919,19 +8912,6 @@ DEFUN (show_ip_bgp_updgrps,
     VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
 
   return (bgp_show_update_groups(vty, vrf, afi, safi, subgrp_id));
-}
-
-DEFUN (show_ip_bgp_instance_all_updgrps,
-       show_ip_bgp_instance_all_updgrps_cmd,
-       "show ip bgp <view|vrf> all update-groups",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_ALL_HELP_STR
-       "Detailed info about dynamic update groups\n")
-{
-  bgp_show_all_instances_updgrps_vty (vty, AFI_IP, SAFI_UNICAST);
-  return CMD_SUCCESS;
 }
 
 DEFUN (show_bgp_instance_all_ipv6_updgrps,
@@ -10987,7 +10967,6 @@ bgp_vty_init (void)
   /* "show ip bgp summary" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_all_updgrps_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_cmd);
@@ -10999,10 +10978,8 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_all_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_summary_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_instance_all_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_updgrps_adj_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_instance_updgrps_adj_cmd);
@@ -11014,10 +10991,8 @@ bgp_vty_init (void)
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (RESTRICTED_NODE, &show_ip_bgp_instance_all_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_summary_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_updgrps_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_updgrps_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_updgrps_adj_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_instance_updgrps_adj_cmd);
@@ -11029,13 +11004,10 @@ bgp_vty_init (void)
   install_element (ENABLE_NODE, &show_bgp_updgrps_adj_s_cmd);
   install_element (ENABLE_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
   install_element (ENABLE_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_summary_cmd);
 
   /* "show ip bgp neighbors" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_neighbors_cmd);
-  install_element (VIEW_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_neighbors_cmd);
-  install_element (ENABLE_NODE, &show_ip_bgp_instance_all_neighbors_cmd);
 
   /* "show ip bgp peer-group" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_peer_groups_cmd);

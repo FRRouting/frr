@@ -3612,28 +3612,17 @@ DEFUN (no_set_ip_nexthop,
 }
 
 
-
-/*
- * CHECK ME - The following ALIASes need to be implemented in this DEFUN
- * "set metric (rtt|+rtt|-rtt)",
- *     SET_STR
- *     "Metric value for destination routing protocol\n"
- *     "Assign round trip time\n"
- *     "Add round trip time\n"
- *     "Subtract round trip time\n"
- *
- * "set metric <+/-metric>",
- *     SET_STR
- *     "Metric value for destination routing protocol\n"
- *     "Add or subtract metric\n"
- *
- */
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric (0-4294967295)",
+       "set metric <(0-4294967295)|rtt|+rtt|-rtt|+metric|-metric>",
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Metric value\n")
+       "Metric value\n"
+       "Assign round trip time\n"
+       "Add round trip time\n"
+       "Subtract round trip time\n"
+       "Add metric\n"
+       "Subtract metric\n")
 {
   int idx_number = 2;
   return bgp_route_set_add (vty, vty->index, "metric", argv[idx_number]->arg);
