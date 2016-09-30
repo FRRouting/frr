@@ -292,7 +292,6 @@ selector_seq_seq:
   // link in last sequence
   graph_add_edge ($$->start, $3->start);
   graph_add_edge ($3->end, $$->end);
-  free ($3);
 
   for (unsigned int i = 0; i < vector_active ($1->start->to); i++)
   {
