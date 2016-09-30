@@ -311,6 +311,7 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
       exit (EXIT_FAILURE);
     }
 
+  fprintf (stdout, "installing %s in node %d\n", cmd->string, ntype);
   // add node to command graph and command vector
   command_parse_format (cnode->cmdgraph, cmd);
   vector_set (cnode->cmd_vector, cmd);
@@ -2129,6 +2130,7 @@ host_config_set (const char *filename)
 void
 install_default (enum node_type node)
 {
+  fprintf (stdout, "installing default\n");
   install_element (node, &config_exit_cmd);
   install_element (node, &config_quit_cmd);
   install_element (node, &config_end_cmd);

@@ -405,7 +405,7 @@ yyerror (struct graph *graph, struct cmd_element *el, char const *msg)
 {
   zlog_err ("%s: FATAL parse error: %s", __func__, msg);
   zlog_err ("while parsing this command definition: \n\t%s\n", el->string);
-  exit(EXIT_FAILURE);
+  //exit(EXIT_FAILURE);
 }
 
 static void

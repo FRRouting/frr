@@ -1082,31 +1082,16 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_BGPD,
 	 router_bgp,
 	 router_bgp_cmd,
-	 "router bgp (1-4294967295)",
+	 "router bgp [(1-4294967295) [<view|vrf> WORD]]",
 	 ROUTER_STR
 	 BGP_STR
-	 AS_STR)
+	 AS_STR
+         "BGP view\nBGP VRF\n"
+         "View/VRF name\n")
 {
   vty->node = BGP_NODE;
   return CMD_SUCCESS;
 }
-
-ALIAS_SH (VTYSH_BGPD,
-	  router_bgp,
-	  router_bgp_asn_cmd,
-	 "router bgp",
-	  ROUTER_STR
-	  BGP_STR)
-
-ALIAS_SH (VTYSH_BGPD,
-	  router_bgp,
-	  router_bgp_view_cmd,
-	  "router bgp (1-4294967295) (view|vrf) WORD",
-	  ROUTER_STR
-	  BGP_STR
-	  AS_STR
-	  "BGP view\nBGP VRF\n"
-	  "View/VRF name\n")
 
 DEFUNSH (VTYSH_BGPD,
 	 address_family_vpnv4,
@@ -1261,7 +1246,7 @@ DEFUNSH (VTYSH_RIPD,
 DEFUNSH (VTYSH_RIPD,
 	 key,
 	 key_cmd,
-	 "key <0-2147483647>",
+	 "key (0-2147483647)",
 	 "Configure a key\n"
 	 "Key identifier number\n")
 {
@@ -1294,21 +1279,14 @@ DEFUNSH (VTYSH_RIPNGD,
 DEFUNSH (VTYSH_OSPFD,
 	 router_ospf,
 	 router_ospf_cmd,
-	 "router ospf",
+	 "router ospf [(1-65535)]",
 	 "Enable a routing process\n"
-	 "Start OSPF configuration\n")
+	 "Start OSPF configuration\n"
+         "Instance ID\n")
 {
   vty->node = OSPF_NODE;
   return CMD_SUCCESS;
 }
-
-ALIAS_SH (VTYSH_OSPFD,
-	 router_ospf,
-	 router_ospf_instance_cmd,
-	 "router ospf <1-65535>",
-	 "Enable a routing process\n"
-	 "Start OSPF configuration\n"
-         "Instance ID\n")
 
 DEFUNSH (VTYSH_OSPF6D,
 	 router_ospf6,
@@ -1336,7 +1314,7 @@ DEFUNSH (VTYSH_ISISD,
 DEFUNSH (VTYSH_RMAP,
 	 route_map,
 	 route_map_cmd,
-	 "route-map WORD (deny|permit) <1-65535>",
+	 "route-map WORD <deny|permit> (1-65535)",
 	 "Create route-map or enter route-map command mode\n"
 	 "Route map tag\n"
 	 "Route map denies set operations\n"
@@ -1451,10 +1429,14 @@ DEFUNSH (VTYSH_ALL,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_all,
-       vtysh_quit_all_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_ALL,
+         vtysh_quit_all,
+         vtysh_quit_all_cmd,
+         "quit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_all (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_BGPD,
 	 exit_address_family,
@@ -1483,10 +1465,14 @@ DEFUNSH (VTYSH_ZEBRA,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_zebra,
-       vtysh_quit_zebra_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_ZEBRA,
+         vtysh_quit_zebra,
+         vtysh_quit_zebra_cmd,
+         "quit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_zebra (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_RIPD,
 	 vtysh_exit_ripd,
@@ -1497,10 +1483,14 @@ DEFUNSH (VTYSH_RIPD,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_ripd,
-       vtysh_quit_ripd_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_RIPD,
+	 vtysh_quit_ripd,
+	 vtysh_quit_ripd_cmd,
+	 "quit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_ripd (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_RIPNGD,
 	 vtysh_exit_ripngd,
@@ -1511,10 +1501,14 @@ DEFUNSH (VTYSH_RIPNGD,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_ripngd,
-       vtysh_quit_ripngd_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_RIPNGD,
+	 vtysh_quit_ripngd,
+	 vtysh_quit_ripngd_cmd,
+	 "quit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_ripngd (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_RMAP,
 	 vtysh_exit_rmap,
@@ -1525,10 +1519,14 @@ DEFUNSH (VTYSH_RMAP,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_rmap,
-       vtysh_quit_rmap_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_RMAP,
+	 vtysh_quit_rmap,
+	 vtysh_quit_rmap_cmd,
+	 "quit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_rmap (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_BGPD,
 	 vtysh_exit_bgpd,
@@ -1539,10 +1537,14 @@ DEFUNSH (VTYSH_BGPD,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_bgpd,
-       vtysh_quit_bgpd_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_BGPD,
+	 vtysh_quit_bgpd,
+	 vtysh_quit_bgpd_cmd,
+	 "quit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_bgpd (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_OSPFD,
 	 vtysh_exit_ospfd,
@@ -1553,10 +1555,14 @@ DEFUNSH (VTYSH_OSPFD,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_ospfd,
-       vtysh_quit_ospfd_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_OSPFD,
+	 vtysh_quit_ospfd,
+	 vtysh_quit_ospfd_cmd,
+	 "quit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_ospfd (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_OSPF6D,
 	 vtysh_exit_ospf6d,
@@ -1567,10 +1573,14 @@ DEFUNSH (VTYSH_OSPF6D,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_ospf6d,
-       vtysh_quit_ospf6d_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_OSPF6D,
+         vtysh_quit_ospf6d,
+         vtysh_quit_ospf6d_cmd,
+         "quit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_ospf6d (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_ISISD,
 	 vtysh_exit_isisd,
@@ -1581,10 +1591,14 @@ DEFUNSH (VTYSH_ISISD,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_isisd,
-       vtysh_quit_isisd_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_ISISD,
+	 vtysh_quit_isisd,
+	 vtysh_quit_isisd_cmd,
+	 "quit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_isisd (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_ALL,
          vtysh_exit_line_vty,
@@ -1595,29 +1609,26 @@ DEFUNSH (VTYSH_ALL,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_line_vty,
-       vtysh_quit_line_vty_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_ALL,
+         vtysh_quit_line_vty,
+         vtysh_quit_line_vty_cmd,
+         "quit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_line_vty (self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_INTERFACE,
 	 vtysh_interface,
 	 vtysh_interface_cmd,
-	 "interface IFNAME",
+	 "interface IFNAME [vrf NAME]",
 	 "Select an interface to configure\n"
-	 "Interface's name\n")
+	 "Interface's name\n"
+         VRF_CMD_HELP_STR)
 {
   vty->node = INTERFACE_NODE;
   return CMD_SUCCESS;
 }
-
-ALIAS_SH (VTYSH_ZEBRA,
-	 vtysh_interface,
-	 vtysh_interface_vrf_cmd,
-	 "interface IFNAME vrf NAME",
-	 "Select an interface to configure\n"
-         "Interface's name\n"
-         VRF_CMD_HELP_STR)
 
 /* TODO Implement "no interface command in isisd. */
 DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
@@ -1638,7 +1649,7 @@ DEFSH (VTYSH_ZEBRA,
 DEFUNSH (VTYSH_NS,
          vtysh_ns,
          vtysh_ns_cmd,
-         "logical-router <1-65535 ns NAME",
+         "logical-router (1-65535) ns NAME",
 	 "Enable a logical-router\n"
          "Specify the logical-router indentifier\n"
          "The Name Space\n"
@@ -1675,10 +1686,14 @@ DEFUNSH (VTYSH_NS,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_ns,
-       vtysh_quit_ns_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_NS,
+         vtysh_quit_ns,
+         vtysh_quit_ns_cmd,
+         "quit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_quit_ns(self, vty, argc, argv);
+}
 
 DEFUNSH (VTYSH_VRF,
 	 vtysh_exit_vrf,
@@ -1689,10 +1704,14 @@ DEFUNSH (VTYSH_VRF,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_vrf,
-       vtysh_quit_vrf_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_VRF,
+	 vtysh_quit_vrf,
+	 vtysh_quit_vrf_cmd,
+	 "quit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_vrf (self, vty, argc, argv);
+}
 
 /* TODO Implement interface description commands in ripngd, ospf6d
  * and isisd. */
@@ -1717,10 +1736,14 @@ DEFUNSH (VTYSH_INTERFACE,
   return vtysh_exit (vty);
 }
 
-ALIAS (vtysh_exit_interface,
-       vtysh_quit_interface_cmd,
-       "quit",
-       "Exit current mode and down to previous mode\n")
+DEFUNSH (VTYSH_INTERFACE,
+	 vtysh_quit_interface,
+	 vtysh_quit_interface_cmd,
+	 "quit",
+	 "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit_interface (self, vty, argc, argv);
+}
 
 DEFUN (vtysh_show_thread,
        vtysh_show_thread_cmd,
@@ -1913,42 +1936,23 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 no_vtysh_log_file,
 	 no_vtysh_log_file_cmd,
-	 "no log file [FILENAME]",
+	 "no log file [FILENAME [LEVEL]]",
 	 NO_STR
 	 "Logging control\n"
 	 "Cancel logging to file\n"
-	 "Logging file name\n")
+	 "Logging file name\n"
+         "Logging level\n")
 {
   return CMD_SUCCESS;
 }
-
-ALIAS_SH (VTYSH_ALL,
-	  no_vtysh_log_file,
-	  no_vtysh_log_file_level_cmd,
-	  "no log file FILENAME LEVEL",
-	  NO_STR
-	  "Logging control\n"
-	  "Cancel logging to file\n"
-	  "Logging file name\n"
-	  "Logging level\n")
 
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_monitor,
 	 vtysh_log_monitor_cmd,
-	 "log monitor",
-	 "Logging control\n"
-	 "Set terminal line (monitor) logging level\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_log_monitor_level,
-	 vtysh_log_monitor_level_cmd,
-	 "log monitor <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
+	 "log monitor [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 	 "Logging control\n"
 	 "Set terminal line (monitor) logging level\n"
-	 LOG_LEVEL_DESC)
+         LOG_LEVEL_DESC)
 {
   return CMD_SUCCESS;
 }
@@ -1968,20 +1972,10 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_syslog,
 	 vtysh_log_syslog_cmd,
-	 "log syslog",
-	 "Logging control\n"
-	 "Set syslog logging level\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_log_syslog_level,
-	 vtysh_log_syslog_level_cmd,
 	 "log syslog <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 	 "Logging control\n"
 	 "Set syslog logging level\n"
-	 LOG_LEVEL_DESC)
+         LOG_LEVEL_DESC)
 {
   return CMD_SUCCESS;
 }
@@ -2071,7 +2065,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_timestamp_precision,
 	 vtysh_log_timestamp_precision_cmd,
-	 "log timestamp precision <0-6>",
+	 "log timestamp precision (0-6)",
 	 "Logging control\n"
 	 "Timestamp configuration\n"
 	 "Set the timestamp precision\n"
@@ -2116,7 +2110,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_config_password,
 	 vtysh_password_cmd,
-	 "password (8|) WORD",
+	 "password (8-8) WORD",
 	 "Assign the terminal connection password\n"
 	 "Specifies a HIDDEN password will follow\n"
 	 "dummy string \n"
@@ -2138,11 +2132,10 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_config_enable_password,
 	 vtysh_enable_password_cmd,
-	 "enable password (8|) WORD",
+	 "enable password (8-8) WORD",
 	 "Modify enable password parameters\n"
 	 "Assign the privileged level password\n"
 	 "Specifies a HIDDEN password will follow\n"
-	 "dummy string \n"
 	 "The HIDDEN 'enable' password string\n")
 {
   return CMD_SUCCESS;
@@ -2172,10 +2165,17 @@ DEFUNSH (VTYSH_ALL,
 
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
-       "write terminal",
+       "write terminal [<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd>]",
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n")
 {
+  if (argc == 3)
+  {
+    for (unsigned int i = 0; i < array_size(vtysh_client); i++)
+      if (begins_with(vtysh_client[i].name, argv[2]->arg))
+        break;
+  }
+
   FILE *fp = NULL;
 
   if (vtysh_pager_name)
@@ -2216,11 +2216,11 @@ DEFUN (vtysh_write_terminal,
   return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_write_terminal_daemon,
-       vtysh_write_terminal_daemon_cmd,
-       "write terminal <zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd>",
-       "Write running configuration to memory, network, or terminal\n"
-       "Write to terminal\n"
+DEFUN (vtysh_show_running_config,
+       vtysh_show_running_config_cmd,
+       "show running-config [<zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd>]",
+       SHOW_STR
+       "Current operating configuration\n"
        "For the zebra daemon\n"
        "For the rip daemon\n"
        "For the ripng daemon\n"
@@ -2230,19 +2230,7 @@ DEFUN (vtysh_write_terminal_daemon,
        "For the isis daemon\n"
        "For the pim daemon\n")
 {
-  int idx_protocol = 2;
-  unsigned int i;
-  int ret = CMD_SUCCESS;
-
-  for (i = 0; i < array_size(vtysh_client); i++)
-    {
-      if (begins_with(vtysh_client[i].name, argv[idx_protocol]->arg))
-	break;
-    }
-
-  ret = vtysh_client_execute(&vtysh_client[i], "show running-config\n", stdout);
-
-  return ret;
+  return vtysh_write_terminal (self, vty, argc, argv);
 }
 
 DEFUN (vtysh_integrated_config,
@@ -2344,9 +2332,10 @@ write_config_integrated(void)
 
 DEFUN (vtysh_write_memory,
        vtysh_write_memory_cmd,
-       "write memory",
+       "write [<memory|file>]",
        "Write running configuration to memory, network, or terminal\n"
-       "Write configuration to the file (same as write file)\n")
+       "Write configuration to the file (same as write file)\n"
+       "Write configuration to the file (same as write memory)\n")
 {
   int ret = CMD_SUCCESS;
   char line[] = "write memory\n";
@@ -2390,43 +2379,16 @@ DEFUN (vtysh_write_memory,
   return ret;
 }
 
-ALIAS (vtysh_write_memory,
-       vtysh_copy_runningconfig_startupconfig_cmd,
-       "copy running-config startup-config",  
+DEFUN (vtysh_copy_running_config,
+       vtysh_copy_running_config_cmd,
+       "copy running-config startup-config",
        "Copy from one file to another\n"
        "Copy from current system configuration\n"
        "Copy to startup configuration\n")
+{
+  return vtysh_write_memory (self, vty, argc, argv);
+}
 
-ALIAS (vtysh_write_memory,
-       vtysh_write_file_cmd,
-       "write file",
-       "Write running configuration to memory, network, or terminal\n"
-       "Write configuration to the file (same as write memory)\n")
-
-ALIAS (vtysh_write_memory,
-       vtysh_write_cmd,
-       "write",
-       "Write running configuration to memory, network, or terminal\n")
-
-ALIAS (vtysh_write_terminal,
-       vtysh_show_running_config_cmd,
-       "show running-config",
-       SHOW_STR
-       "Current operating configuration\n")
-
-ALIAS (vtysh_write_terminal,
-       vtysh_show_running_config_daemon_cmd,
-       "show running-config (zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pimd)",
-       SHOW_STR
-       "Current operating configuration\n"
-       "For the zebra daemon\n"
-       "For the rip daemon\n"
-       "For the ripng daemon\n"
-       "For the ospf daemon\n"
-       "For the ospfv6 daemon\n"
-       "For the bgp daemon\n"
-       "For the isis daemon\n"
-       "For the pim daemon\n")
 
 DEFUN (vtysh_terminal_length,
        vtysh_terminal_length_cmd,
@@ -2959,7 +2921,6 @@ vtysh_init_vty (void)
 
   /* "exit" command. */
   install_element (VIEW_NODE, &vtysh_exit_all_cmd);
-  install_element (VIEW_NODE, &vtysh_quit_all_cmd);
   install_element (CONFIG_NODE, &vtysh_exit_all_cmd);
   /* install_element (CONFIG_NODE, &vtysh_quit_all_cmd); */
   install_element (ENABLE_NODE, &vtysh_exit_all_cmd);
@@ -3044,14 +3005,11 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &router_ripng_cmd);
 #endif
   install_element (CONFIG_NODE, &router_ospf_cmd);
-  install_element (CONFIG_NODE, &router_ospf_instance_cmd);
 #ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &router_ospf6_cmd);
 #endif
   install_element (CONFIG_NODE, &router_isis_cmd);
   install_element (CONFIG_NODE, &router_bgp_cmd);
-  install_element (CONFIG_NODE, &router_bgp_asn_cmd);
-  install_element (CONFIG_NODE, &router_bgp_view_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_unicast_cmd);
   install_element (BGP_NODE, &address_family_vpnv6_cmd);
@@ -3081,21 +3039,16 @@ vtysh_init_vty (void)
   install_element (KEYCHAIN_KEY_NODE, &key_chain_cmd);
   install_element (CONFIG_NODE, &vtysh_interface_cmd);
   install_element (CONFIG_NODE, &vtysh_no_interface_cmd);
-  install_element (CONFIG_NODE, &vtysh_interface_vrf_cmd);
   install_element (CONFIG_NODE, &vtysh_no_interface_vrf_cmd);
   install_element (INTERFACE_NODE, &vtysh_link_params_cmd);
   install_element (ENABLE_NODE, &vtysh_show_running_config_cmd);
-  install_element (ENABLE_NODE, &vtysh_show_running_config_daemon_cmd);
-  install_element (ENABLE_NODE, &vtysh_copy_runningconfig_startupconfig_cmd);
-  install_element (ENABLE_NODE, &vtysh_write_file_cmd);
-  install_element (ENABLE_NODE, &vtysh_write_cmd);
+  install_element (ENABLE_NODE, &vtysh_copy_running_config_cmd);
 
   install_element (CONFIG_NODE, &vtysh_vrf_cmd);
   install_element (CONFIG_NODE, &vtysh_no_vrf_cmd);
 
   /* "write terminal" command. */
   install_element (ENABLE_NODE, &vtysh_write_terminal_cmd);
-  install_element (ENABLE_NODE, &vtysh_write_terminal_daemon_cmd);
 
   install_element (CONFIG_NODE, &vtysh_integrated_config_cmd);
   install_element (CONFIG_NODE, &no_vtysh_integrated_config_cmd);
@@ -3160,12 +3113,9 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &vtysh_log_file_cmd);
   install_element (CONFIG_NODE, &vtysh_log_file_level_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_file_cmd);
-  install_element (CONFIG_NODE, &no_vtysh_log_file_level_cmd);
   install_element (CONFIG_NODE, &vtysh_log_monitor_cmd);
-  install_element (CONFIG_NODE, &vtysh_log_monitor_level_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_monitor_cmd);
   install_element (CONFIG_NODE, &vtysh_log_syslog_cmd);
-  install_element (CONFIG_NODE, &vtysh_log_syslog_level_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_syslog_cmd);
   install_element (CONFIG_NODE, &vtysh_log_trap_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_trap_cmd);
