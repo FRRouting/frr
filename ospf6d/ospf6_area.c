@@ -435,7 +435,7 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 
 DEFUN (area_range,
        area_range_cmd,
-       "area <A.B.C.D|(0-4294967295) range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]",
+       "area <A.B.C.D|(0-4294967295)> range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]",
        "OSPF area parameters\n"
        OSPF6_AREA_ID_STR
        "Configured address range\n"

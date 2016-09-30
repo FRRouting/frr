@@ -171,7 +171,7 @@ parse_type_spec (int idx_lsa, int argc, struct cmd_token **argv)
 
 DEFUN (show_ipv6_ospf6_database,
        show_ipv6_ospf6_database_cmd,
-       "show ipv6 ospf6 database [detail|dump|internal]",
+       "show ipv6 ospf6 database [<detail|dump|internal>]",
        SHOW_STR
        IPV6_STR
        OSPF6_STR

@@ -982,7 +982,7 @@ DEFUN (no_debug_ospf_ism,
 
   if (inst) // user passed instance ID
   {
-    if (!ospf_lookup_instance (strtoul (argv[2]->arg, NULL, 10)))
+    if (!ospf_lookup_instance (strtoul (inst, NULL, 10)))
       return CMD_SUCCESS;
   }
 
@@ -1057,7 +1057,7 @@ debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_token
 
 DEFUN (debug_ospf_nsm,
        debug_ospf_nsm_cmd,
-       "debug ospf nsm [status|events|timers]",
+       "debug ospf nsm [<status|events|timers>]",
        DEBUG_STR
        OSPF_STR
        "OSPF Neighbor State Machine\n"
@@ -1070,7 +1070,7 @@ DEFUN (debug_ospf_nsm,
 
 DEFUN (debug_ospf_instance_nsm,
        debug_ospf_instance_nsm_cmd,
-       "debug ospf (1-65535) nsm [status|events|timers]",
+       "debug ospf (1-65535) nsm [<status|events|timers>]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1128,7 +1128,7 @@ no_debug_ospf_nsm_common (struct vty *vty, int arg_base, int argc, struct cmd_to
 
 DEFUN (no_debug_ospf_nsm,
        no_debug_ospf_nsm_cmd,
-       "no debug ospf nsm [status|events|timers]",
+       "no debug ospf nsm [<status|events|timers>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1143,7 +1143,7 @@ DEFUN (no_debug_ospf_nsm,
 
 DEFUN (no_debug_ospf_instance_nsm,
        no_debug_ospf_instance_nsm_cmd,
-       "no debug ospf (1-65535) nsm [status|events|timers]",
+       "no debug ospf (1-65535) nsm [<status|events|timers>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1206,7 +1206,7 @@ debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_token
 
 DEFUN (debug_ospf_lsa,
        debug_ospf_lsa_cmd,
-       "debug ospf lsa [generate|flooding|install|refresh]",
+       "debug ospf lsa [<generate|flooding|install|refresh>]",
        DEBUG_STR
        OSPF_STR
        "OSPF Link State Advertisement\n"
@@ -1220,7 +1220,7 @@ DEFUN (debug_ospf_lsa,
 
 DEFUN (debug_ospf_instance_lsa,
        debug_ospf_instance_lsa_cmd,
-       "debug ospf (1-65535) lsa [generate|flooding|install|refresh]",
+       "debug ospf (1-65535) lsa [<generate|flooding|install|refresh>]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1283,7 +1283,7 @@ no_debug_ospf_lsa_common (struct vty *vty, int arg_base, int argc, struct cmd_to
 
 DEFUN (no_debug_ospf_lsa,
        no_debug_ospf_lsa_cmd,
-       "no debug ospf lsa [generate|flooding|install|refresh]",
+       "no debug ospf lsa [<generate|flooding|install|refresh>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1298,7 +1298,7 @@ DEFUN (no_debug_ospf_lsa,
 
 DEFUN (no_debug_ospf_instance_lsa,
        no_debug_ospf_instance_lsa_cmd,
-       "no debug ospf (1-65535) lsa [generate|flooding|install|refresh]",
+       "no debug ospf (1-65535) lsa [<generate|flooding|install|refresh>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1354,7 +1354,7 @@ debug_ospf_zebra_common (struct vty *vty, int arg_base, int argc, struct cmd_tok
 
 DEFUN (debug_ospf_zebra,
        debug_ospf_zebra_cmd,
-       "debug ospf zebra [interface|redistribute]",
+       "debug ospf zebra [<interface|redistribute>]",
        DEBUG_STR
        OSPF_STR
        "OSPF Zebra information\n"
@@ -1366,7 +1366,7 @@ DEFUN (debug_ospf_zebra,
 
 DEFUN (debug_ospf_instance_zebra,
        debug_ospf_instance_zebra_cmd,
-       "debug ospf (1-65535) zebra [interface|redistribute]",
+       "debug ospf (1-65535) zebra [<interface|redistribute>]",
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
@@ -1420,7 +1420,7 @@ no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
 
 DEFUN (no_debug_ospf_zebra,
        no_debug_ospf_zebra_cmd,
-       "no debug ospf zebra [interface|redistribute]",
+       "no debug ospf zebra [<interface|redistribute>]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1433,7 +1433,7 @@ DEFUN (no_debug_ospf_zebra,
 
 DEFUN (no_debug_ospf_instance_zebra,
        no_debug_ospf_instance_zebra_cmd,
-       "no debug ospf (1-65535) zebra [interface|redistribute]",
+       "no debug ospf (1-65535) zebra [<interface|redistribute>]",
        NO_STR
        DEBUG_STR
        OSPF_STR

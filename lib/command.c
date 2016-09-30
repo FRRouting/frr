@@ -1696,7 +1696,7 @@ DEFUN (show_logging,
 
 DEFUN (config_log_stdout,
        config_log_stdout_cmd,
-       "log stdout [emergencies|alerts|critical|errors|warnings|notifications|informational|debugging]",
+       "log stdout [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        "Logging control\n"
        "Set stdout logging level\n"
        LOG_LEVEL_DESC)
@@ -1718,7 +1718,7 @@ DEFUN (config_log_stdout,
 
 DEFUN (no_config_log_stdout,
        no_config_log_stdout_cmd,
-       "no log stdout [emergencies|alerts|critical|errors|warnings|notifications|informational|debugging]",
+       "no log stdout [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        NO_STR
        "Logging control\n"
        "Cancel logging to stdout\n"
@@ -1730,7 +1730,7 @@ DEFUN (no_config_log_stdout,
 
 DEFUN (config_log_monitor,
        config_log_monitor_cmd,
-       "log monitor [emergencies|alerts|critical|errors|warnings|notifications|informational|debugging]",
+       "log monitor [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        "Logging control\n"
        "Set terminal line (monitor) logging level\n"
        LOG_LEVEL_DESC)
@@ -1752,7 +1752,7 @@ DEFUN (config_log_monitor,
 
 DEFUN (no_config_log_monitor,
        no_config_log_monitor_cmd,
-       "no log monitor [emergencies|alerts|critical|errors|warnings|notifications|informational|debugging]",
+       "no log monitor [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        NO_STR
        "Logging control\n"
        "Disable terminal line (monitor) logging\n"
@@ -1818,7 +1818,7 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
 
 DEFUN (config_log_file,
        config_log_file_cmd,
-       "log file FILENAME [emergencies|alerts|critical|errors|warnings|notifications|informational|debugging]",
+       "log file FILENAME [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        "Logging control\n"
        "Logging to file\n"
        "Logging filename\n"
@@ -1859,7 +1859,7 @@ DEFUN (no_config_log_file,
 
 DEFUN (config_log_syslog,
        config_log_syslog_cmd,
-       "log syslog [emergencies|alerts|critical|errors|warnings|notifications|informational|debugging]",
+       "log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        "Logging control\n"
        "Set syslog logging level\n"
        LOG_LEVEL_DESC)
@@ -1897,7 +1897,7 @@ DEFUN_DEPRECATED (config_log_syslog_facility,
 
 DEFUN (no_config_log_syslog,
        no_config_log_syslog_cmd,
-       "no log syslog [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>] [emergencies|alerts|critical|errors|warnings|notifications|informational|debugging]",
+       "no log syslog [<kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>] [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
        NO_STR
        "Logging control\n"
        "Cancel logging to syslog\n"

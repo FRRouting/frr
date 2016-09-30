@@ -208,9 +208,9 @@ DEFUN (no_ip_mroute_dist,
        "Nexthop interface name\n"
        "Distance\n")
 {
-  char *destprefix = argv[2]->arg;
-  char *nexthop = argv[3]->arg;
-  char *distance = (argc == 5) ? argv[4]->arg : NULL;
+  char *destprefix = argv[3]->arg;
+  char *nexthop = argv[4]->arg;
+  char *distance = (argc == 6) ? argv[5]->arg : NULL;
 
   return zebra_static_ipv4 (vty, SAFI_MULTICAST, 0, destprefix, NULL, nexthop, NULL, NULL, distance, NULL);
 }
@@ -1392,6 +1392,9 @@ DEFUN (show_ip_route_tag,
        "Show only routes with tag\n"
        "Tag value\n")
 {
+  int idx_vrf = 3;
+  int idx_name = 4;
+  int idx_tag = 6;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -1399,14 +1402,15 @@ DEFUN (show_ip_route_tag,
   u_short tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
  
-  if (strmatch(argv[3]->text, "vrf"))
+  if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[4]->arg);
-      tag = atoi(argv[6]->arg);
+      VRF_GET_ID (vrf_id, argv[idx_name]->arg);
+      tag = atoi(argv[idx_tag]->arg);
     }
   else
     {
-      tag = atoi(argv[4]->arg);
+      idx_tag -= 2;
+      tag = atoi(argv[idx_tag]->arg);
     }
 
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
@@ -2852,6 +2856,9 @@ DEFUN (show_ipv6_route_tag,
        "Show only routes with tag\n"
        "Tag value\n")
 {
+  int idx_vrf = 3;
+  int idx_name = 4;
+  int idx_tag = 6;
   struct route_table *table;
   struct route_node *rn;
   struct rib *rib;
@@ -2859,14 +2866,15 @@ DEFUN (show_ipv6_route_tag,
   u_short tag = 0;
   vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (strmatch(argv[3]->text, "vrf"))
+  if (strmatch(argv[idx_vrf]->text, "vrf"))
     {
-      VRF_GET_ID (vrf_id, argv[4]->arg);
-      tag = atoi(argv[6]->arg);
+      VRF_GET_ID (vrf_id, argv[idx_name]->arg);
+      tag = atoi(argv[idx_tag]->arg);
     }
   else
     {
-      tag = atoi(argv[4]->arg);
+      idx_tag -= 2;
+      tag = atoi(argv[idx_tag]->arg);
     }
 
   table = zebra_vrf_table (AFI_IP6, SAFI_UNICAST, vrf_id);
@@ -3352,6 +3360,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
        VRF_ALL_CMD_HELP_STR
        QUAGGA_IP6_REDIST_HELP_STR_ZEBRA)
 {
+  int idx_protocol = 5;
   int type;
   struct route_table *table;
   struct route_node *rn;
@@ -3361,7 +3370,7 @@ DEFUN (show_ipv6_route_vrf_all_protocol,
   int first = 1;
   int vrf_header = 1;
 
-  type = proto_redistnum (AFI_IP6, argv[4]->arg);
+  type = proto_redistnum (AFI_IP6, argv[idx_protocol]->arg);
   if (type < 0)
     {
       vty_out (vty, "Unknown route type%s", VTY_NEWLINE);

@@ -829,7 +829,7 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
 
 DEFUN (show_ipv6_ospf6_neighbor,
        show_ipv6_ospf6_neighbor_cmd,
-       "show ipv6 ospf6 neighbor [detail|drchoice]",
+       "show ipv6 ospf6 neighbor [<detail|drchoice>]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
@@ -918,7 +918,7 @@ ospf6_neighbor_init (void)
 
 DEFUN (debug_ospf6_neighbor,
        debug_ospf6_neighbor_cmd,
-       "debug ospf6 neighbor [state|event]",
+       "debug ospf6 neighbor [<state|event>]",
        DEBUG_STR
        OSPF6_STR
        "Debug OSPFv3 Neighbor\n"
@@ -945,7 +945,7 @@ DEFUN (debug_ospf6_neighbor,
 
 DEFUN (no_debug_ospf6_neighbor,
        no_debug_ospf6_neighbor_cmd,
-       "no debug ospf6 neighbor [state|event]",
+       "no debug ospf6 neighbor [<state|event>]",
        NO_STR
        DEBUG_STR
        OSPF6_STR

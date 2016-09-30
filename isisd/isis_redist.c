@@ -539,7 +539,7 @@ isis_redist_area_finish(struct isis_area *area)
 
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute <ipv4|ipv6> <kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table> <level-1|level-2> [metric (0-16777215)|route-map WORD]",
+       "redistribute <ipv4|ipv6> <kernel|connected|static|rip|ripng|ospf|ospf6|bgp|pim|table> <level-1|level-2> [<metric (0-16777215)|route-map WORD>]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"

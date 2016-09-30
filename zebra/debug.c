@@ -174,7 +174,7 @@ DEFUN (debug_zebra_kernel,
 
 DEFUN (debug_zebra_kernel_msgdump,
        debug_zebra_kernel_msgdump_cmd,
-       "debug zebra kernel msgdump [recv|send]",
+       "debug zebra kernel msgdump [<recv|send>]",
        DEBUG_STR
        "Zebra configuration\n"
        "Debug option set for zebra between kernel interface\n"
@@ -292,7 +292,7 @@ DEFUN (no_debug_zebra_kernel,
 
 DEFUN (no_debug_zebra_kernel_msgdump,
        no_debug_zebra_kernel_msgdump_cmd,
-       "no debug zebra kernel msgdump [recv|send]",
+       "no debug zebra kernel msgdump [<recv|send>]",
        DEBUG_STR
        "Zebra configuration\n"
        "Debug option set for zebra between kernel interface\n"

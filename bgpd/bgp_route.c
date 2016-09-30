@@ -7732,7 +7732,7 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 /* BGP route print out function. */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] [cidr-only|community|<[dampening] <flap-statistics|dampened-paths>>|regexp .LINE|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|<A.B.C.D/M|k X:X::X:X/M> longer-prefixes] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] [<cidr-only|community|dampening <flap-statistics|dampened-paths>|regexp .LINE|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|A.B.C.D/M longer-prefixes|X:X::X:X/M longer-prefixes>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7857,7 +7857,7 @@ DEFUN (show_ip_bgp_ipv4,
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|encap> [unicast]|ipv4 multicast|vpnv4 unicast [rd ASN:nn_or_IP-address:nn]>] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [bestpath|multipath] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|encap> [unicast]|ipv4 multicast|vpnv4 unicast [rd ASN:nn_or_IP-address:nn]>] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR

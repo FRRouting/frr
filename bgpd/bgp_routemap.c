@@ -3091,7 +3091,7 @@ DEFUN (match_ip_next_hop,
 
 DEFUN (no_match_ip_next_hop,
        no_match_ip_next_hop_cmd,
-       "no match ip next-hop [<(1-199)|(1300-2699)|WORD]",
+       "no match ip next-hop [<(1-199)|(1300-2699)|WORD>]",
        NO_STR
        MATCH_STR
        IP_STR
@@ -3158,7 +3158,7 @@ DEFUN (match_ip_route_source,
 
 DEFUN (no_match_ip_route_source,
        no_match_ip_route_source_cmd,
-       "no match ip route-source [(1-199)|(1300-2699)|WORD]",
+       "no match ip route-source [<(1-199)|(1300-2699)|WORD>]",
        NO_STR
        MATCH_STR
        IP_STR

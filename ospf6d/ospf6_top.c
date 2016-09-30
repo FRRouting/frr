@@ -768,7 +768,7 @@ DEFUN (show_ipv6_ospf6,
 
 DEFUN (show_ipv6_ospf6_route,
        show_ipv6_ospf6_route_cmd,
-       "show ipv6 ospf6 route [intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary]",
+       "show ipv6 ospf6 route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>]",
        SHOW_STR
        IP6_STR
        OSPF6_STR

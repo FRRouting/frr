@@ -684,9 +684,26 @@ DEFUN (no_bgp_maxmed_onstartup,
         if not line.endswith('\n'):
             line += '\n'
 
+        if '|<' in line:
+            print "%d: ERROR |< is illegal in '%s'" % (self.line_number, line)
+
+        if '|[' in line:
+            print "%d: ERROR |[ is illegal in '%s'" % (self.line_number, line)
+
         # compress duplicate whitespaces
         re_space = re.search('^(\s*).*(\s*)$', line)
         line = re_space.group(1) + ' '.join(line.split()) + re_space.group(2)
+
+        for token in line_to_tokens(self.line_number, line):
+            token = token.strip()
+
+            if token.endswith('",'):
+                token = token[0:-2]
+
+            if token.startswith('[') and '|' in token:
+                if not token.startswith('[<') or not token.endswith('>]'):
+                    print "%s: suspend token '%s'" % (self.line_number, token)
+
         return line
 
     def get_used_idx_variables(self, idx_table):
@@ -743,8 +760,9 @@ DEFUN (no_bgp_maxmed_onstartup,
         return False
 
     def dump(self):
-        new_command_string = self.get_new_command_string()
-        new_command_string_expanded = expand_command_string(new_command_string)
+        # new_command_string = self.get_new_command_string()
+        # new_command_string_expanded = expand_command_string(new_command_string)
+        new_command_string_expanded = self.get_new_command_string()
         lines = []
 
         lines.append("DEFUN (%s,\n" % self.name)
@@ -898,7 +916,6 @@ def update_argvs(filename):
                     state = None
                     fh.write(line)
                 elif line.strip().startswith('* ') and not line.strip().startswith('*    '):
-                    # dwalton
                     new_line = expand_command_string(line[3:]) # chop the leading " * "
                     fh.write(" * %s" % new_line)
                 else:

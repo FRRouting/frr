@@ -1400,7 +1400,7 @@ DEFUN (ip_rip_receive_version_2,
 
 DEFUN (no_ip_rip_receive_version,
        no_ip_rip_receive_version_cmd,
-       "no ip rip receive version [(1-1)|(2-2)]",
+       "no ip rip receive version [<1|2>]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
@@ -1495,7 +1495,7 @@ DEFUN (ip_rip_send_version_2,
 
 DEFUN (no_ip_rip_send_version,
        no_ip_rip_send_version_cmd,
-       "no ip rip send version [(1-1)|(2-2)]",
+       "no ip rip send version [<1|2>]",
        NO_STR
        IP_STR
        "Routing Information Protocol\n"
