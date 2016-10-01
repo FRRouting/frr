@@ -823,32 +823,25 @@ vtysh_rl_describe (void)
   for (i = 0; i < vector_active (describe); i++)
     if ((token = vector_slot (describe, i)) != NULL)
       {
-	int len;
+        if (token->text[0] == '\0')
+          continue;
 
-	if (token->arg[0] == '\0')
-	  continue;
+        int len = strlen (token->text);
 
-	len = strlen (token->arg);
-	if (token->arg[0] == '.')
-	  len--;
-
-	if (width < len)
-	  width = len;
+        if (width < len)
+          width = len;
       }
 
   for (i = 0; i < vector_active (describe); i++)
     if ((token = vector_slot (describe, i)) != NULL)
       {
-	if (token->arg[0] == '\0')
-	  continue;
-
 	if (! token->desc)
 	  fprintf (stdout,"  %-s\n",
-		   token->arg[0] == '.' ? token->arg + 1 : token->arg);
+		   token->text);
 	else
 	  fprintf (stdout,"  %-*s  %s\n",
 		   width,
-		   token->arg[0] == '.' ? token->arg + 1 : token->arg,
+		   token->text,
 		   token->desc);
       }
 
