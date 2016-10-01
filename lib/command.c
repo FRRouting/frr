@@ -698,8 +698,13 @@ cmd_execute_command_real (vector vline,
 {
   struct list *argv_list;
   enum matcher_rv status;
+  struct cmd_element *matched_element = NULL;
+
   struct graph *cmdgraph = cmd_node_graph (cmdvec, vty->node);
-  status = command_match (cmdgraph, vline, &argv_list, cmd);
+  status = command_match (cmdgraph, vline, &argv_list, &matched_element);
+
+  if (cmd)
+    *cmd = matched_element;
 
   // if matcher error, return corresponding CMD_ERR
   if (MATCHER_ERROR(status))
@@ -724,10 +729,10 @@ cmd_execute_command_real (vector vline,
   int argc = argv_list->count;
 
   int ret;
-  if ((*cmd)->daemon)
+  if (matched_element->daemon)
     ret = CMD_SUCCESS_DAEMON;
   else
-    ret = (*cmd)->func (*cmd, vty, argc, argv);
+    ret = matched_element->func (matched_element, vty, argc, argv);
 
   // delete list and cmd_token's in it
   list_delete (argv_list);
