@@ -722,7 +722,7 @@ zclient_connect (struct thread *t)
   * If ZAPI_MESSAGE_METRIC is set, the metric value is written as an 8
   * byte value.
   *
-  * If ZAPI_MESSAGE_TAG is set, the tag value is written as a 2 byte value
+  * If ZAPI_MESSAGE_TAG is set, the tag value is written as a 4 byte value
   *
   * If ZAPI_MESSAGE_MTU is set, the mtu value is written as a 4 byte value
   *
@@ -785,7 +785,7 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_METRIC))
     stream_putl (s, api->metric);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_TAG))
-    stream_putw (s, api->tag);
+    stream_putl (s, api->tag);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_MTU))
     stream_putl (s, api->mtu);
 
@@ -852,7 +852,7 @@ zapi_ipv4_route_ipv6_nexthop (u_char cmd, struct zclient *zclient,
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_METRIC))
     stream_putl (s, api->metric);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_TAG))
-    stream_putw (s, api->tag);
+    stream_putl (s, api->tag);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_MTU))
     stream_putl (s, api->mtu);
 
@@ -918,7 +918,7 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_METRIC))
     stream_putl (s, api->metric);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_TAG))
-    stream_putw (s, api->tag);
+    stream_putl (s, api->tag);
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_MTU))
     stream_putl (s, api->mtu);
 

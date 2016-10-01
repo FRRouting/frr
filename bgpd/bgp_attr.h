@@ -118,7 +118,7 @@ struct attr_extra
   u_char mp_nexthop_prefer_global;
 
   /* route tag */
-  u_short tag;
+  route_tag_t tag;
 
   uint16_t			encap_tunneltype;	/* grr */
   struct bgp_attr_encap_subtlv *encap_subtlvs;		/* rfc5512 */

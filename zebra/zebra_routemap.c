@@ -51,7 +51,7 @@ struct nh_rmap_obj
   vrf_id_t vrf_id;
   u_int32_t source_protocol;
   int metric;
-  u_short tag;
+  route_tag_t tag;
 };
 
 static void zebra_route_map_set_delay_timer(u_int32_t value);
@@ -193,7 +193,7 @@ static route_map_result_t
 route_match_tag (void *rule, struct prefix *prefix,
 		 route_map_object_t type, void *object)
 {
-  u_short *tag;
+  route_tag_t *tag;
   struct nh_rmap_obj *nh_data;
 
   if (type == RMAP_ZEBRA)
@@ -207,45 +207,13 @@ route_match_tag (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-/* Route map 'match tag' match statement. 'arg' is TAG value */
-static void *
-route_match_tag_compile (const char *arg)
-{
-  u_short *tag;
-  u_short tmp;
-
-  /* tag value shoud be integer. */
-  if (! all_digit (arg))
-    return NULL;
-
-  tmp = atoi(arg);
-  if (tmp < 1)
-    return NULL;
-
-  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
-
-  if (!tag)
-    return tag;
-
-  *tag = tmp;
-
-  return tag;
-}
-
-/* Free route map's compiled 'match tag' value. */
-static void
-route_match_tag_free (void *rule)
-{
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
-}
-
 /* Route map commands for tag matching */
-struct route_map_rule_cmd route_match_tag_cmd =
+static struct route_map_rule_cmd route_match_tag_cmd =
 {
-   "tag",
-   route_match_tag,
-   route_match_tag_compile,
-   route_match_tag_free
+  "tag",
+  route_match_tag,
+  route_map_rule_tag_compile,
+  route_map_rule_tag_free,
 };
 
 
@@ -332,7 +300,7 @@ ALIAS (no_match_interface,
 
 DEFUN (match_tag,
        match_tag_cmd,
-       "match tag <1-65535>",
+       "match tag <1-4294967295>",
        MATCH_STR
        "Match tag of route\n"
        "Tag value\n")
@@ -358,7 +326,7 @@ DEFUN (no_match_tag,
 
 ALIAS (no_match_tag,
        no_match_tag_val_cmd,
-       "no match tag <1-65535>",
+       "no match tag <1-4294967295>",
        NO_STR
        MATCH_STR
        "Match tag of route\n")
@@ -1649,7 +1617,7 @@ zebra_route_map_write_delay_timer (struct vty *vty)
 
 route_map_result_t
 zebra_route_map_check (int family, int rib_type, struct prefix *p,
-		       struct nexthop *nexthop, vrf_id_t vrf_id, u_short tag)
+		       struct nexthop *nexthop, vrf_id_t vrf_id, route_tag_t tag)
 {
   struct route_map *rmap = NULL;
   route_map_result_t ret = RMAP_MATCH;
@@ -1692,7 +1660,7 @@ zebra_del_import_table_route_map (afi_t afi, uint32_t table)
 
 route_map_result_t
 zebra_import_table_route_map_check (int family, int rib_type, struct prefix *p,
-                struct nexthop *nexthop, vrf_id_t vrf_id, u_short tag, const char *rmap_name)
+                struct nexthop *nexthop, vrf_id_t vrf_id, route_tag_t tag, const char *rmap_name)
 {
   struct route_map *rmap = NULL;
   route_map_result_t ret = RMAP_DENYMATCH;

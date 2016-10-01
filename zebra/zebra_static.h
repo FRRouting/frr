@@ -45,7 +45,7 @@ struct static_route
   u_char distance;
 
   /* Tag */
-  u_short tag;
+  route_tag_t tag;
 
   /* Flag for this static route's type. */
   u_char type;
@@ -87,13 +87,13 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 extern int
 static_add_route (afi_t, safi_t safi, u_char type, struct prefix *p,
 		  union g_addr *gate, ifindex_t ifindex,
-		  const char *ifname, u_char flags, u_short tag,
+		  const char *ifname, u_char flags, route_tag_t tag,
 		  u_char distance, struct zebra_vrf *zvrf,
 		  struct static_nh_label *snh_label);
 
 extern int
 static_delete_route (afi_t, safi_t safi, u_char type, struct prefix *p,
-		     union g_addr *gate, ifindex_t ifindex, u_short tag,
+		     union g_addr *gate, ifindex_t ifindex, route_tag_t tag,
 		     u_char distance, struct zebra_vrf *zvrf,
 		     struct static_nh_label *snh_label);
 

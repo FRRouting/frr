@@ -148,7 +148,7 @@ struct ripng
 struct rte
 {
   struct in6_addr addr;	/* RIPng destination prefix */
-  u_short tag;		/* RIPng tag */
+  u_int16_t tag;		/* RIPng tag */
   u_char prefixlen;	/* Length of the RIPng prefix */
   u_char metric;	/* Metric of the RIPng route */
   			/* The nexthop is stored by the structure
@@ -202,7 +202,7 @@ struct ripng_info
   struct in6_addr nexthop_out;
   u_char metric_set;
   u_char metric_out;
-  u_short tag_out;
+  u_int16_t tag_out;
 
   struct route_node *rp;
 };

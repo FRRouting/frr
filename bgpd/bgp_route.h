@@ -271,7 +271,7 @@ extern int bgp_maximum_prefix_overflow (struct peer *, afi_t, safi_t, int);
 
 extern void bgp_redistribute_add (struct bgp *, struct prefix *, const struct in_addr *,
 				  const struct in6_addr *, unsigned int ifindex,
-				  u_int32_t, u_char, u_short, u_short);
+				  u_int32_t, u_char, u_short, route_tag_t);
 extern void bgp_redistribute_delete (struct bgp *, struct prefix *, u_char, u_short);
 extern void bgp_redistribute_withdraw (struct bgp *, afi_t, int, u_short);
 

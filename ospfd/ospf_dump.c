@@ -493,7 +493,7 @@ ospf_as_external_lsa_dump (struct stream *s, u_int16_t length)
 		 IS_EXTERNAL_METRIC (al->e[i].tos) ? "E" : "-",
 		 al->e[i].tos & 0x7f, GET_METRIC (al->e[i].metric));
       zlog_debug ("    Forwarding address %s", inet_ntoa (al->e[i].fwd_addr));
-      zlog_debug ("    External Route Tag %d", al->e[i].route_tag);
+      zlog_debug ("    External Route Tag %"ROUTE_TAG_PRI, al->e[i].route_tag);
     }
 }
 

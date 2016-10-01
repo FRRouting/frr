@@ -269,7 +269,7 @@ struct ospf
   struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
   /* Redistribute tag info. */
-  u_short dtag[ZEBRA_ROUTE_MAX + 1]; //Pending: cant configure as of now
+  route_tag_t dtag[ZEBRA_ROUTE_MAX + 1]; //Pending: cant configure as of now
 
   int default_metric;		/* Default metric for redistribute. */
 

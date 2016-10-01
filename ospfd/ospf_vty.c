@@ -5350,8 +5350,8 @@ show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
       vty_out (vty, "        Forward Address: %s%s",
 	       inet_ntoa (al->e[0].fwd_addr), VTY_NEWLINE);
 
-      vty_out (vty, "        External Route Tag: %lu%s%s",
-	       (u_long)ntohl (al->e[0].route_tag), VTY_NEWLINE, VTY_NEWLINE);
+      vty_out (vty, "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
+	       (route_tag_t)ntohl (al->e[0].route_tag), VTY_NEWLINE, VTY_NEWLINE);
     }
 
   return 0;
@@ -5376,8 +5376,8 @@ show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
   zlog_debug( "        Forward Address: %s%s",
 	     inet_ntoa (al->e[0].fwd_addr), "\n");
 
-  zlog_debug( "        External Route Tag: %u%s%s",
-	     ntohl (al->e[0].route_tag), "\n", "\n");
+  zlog_debug( "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
+	     (route_tag_t)ntohl (al->e[0].route_tag), "\n", "\n");
 
   return 0;
 }
@@ -5404,8 +5404,8 @@ show_as_nssa_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
       vty_out (vty, "        NSSA: Forward Address: %s%s",
 	       inet_ntoa (al->e[0].fwd_addr), VTY_NEWLINE);
 
-      vty_out (vty, "        External Route Tag: %u%s%s",
-	       ntohl (al->e[0].route_tag), VTY_NEWLINE, VTY_NEWLINE);
+      vty_out (vty, "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
+	       (route_tag_t)ntohl (al->e[0].route_tag), VTY_NEWLINE, VTY_NEWLINE);
     }
 
   return 0;
@@ -9067,11 +9067,11 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 	switch (er->path_type)
 	  {
 	  case OSPF_PATH_TYPE1_EXTERNAL:
-	    vty_out (vty, "N E1 %-18s    [%d] tag: %u%s", buf1,
+	    vty_out (vty, "N E1 %-18s    [%d] tag: %"ROUTE_TAG_PRI"%s", buf1,
 		     er->cost, er->u.ext.tag, VTY_NEWLINE);
 	    break;
 	  case OSPF_PATH_TYPE2_EXTERNAL:
-	    vty_out (vty, "N E2 %-18s    [%d/%d] tag: %u%s", buf1, er->cost,
+	    vty_out (vty, "N E2 %-18s    [%d/%d] tag: %"ROUTE_TAG_PRI"%s", buf1, er->cost,
 		     er->u.ext.type2_cost, er->u.ext.tag, VTY_NEWLINE);
 	    break;
 	  }

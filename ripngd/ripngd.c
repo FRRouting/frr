@@ -321,9 +321,9 @@ ripng_packet_dump (struct ripng_packet *packet, int size, const char *sndrcv)
       if (rte->metric == RIPNG_METRIC_NEXTHOP)
 	zlog_debug ("  nexthop %s/%d", inet6_ntoa (rte->addr), rte->prefixlen);
       else
-	zlog_debug ("  %s/%d metric %d tag %d", 
+	zlog_debug ("  %s/%d metric %d tag %"ROUTE_TAG_PRI,
 		   inet6_ntoa (rte->addr), rte->prefixlen, 
-		   rte->metric, ntohs (rte->tag));
+		   rte->metric, (route_tag_t)ntohs (rte->tag));
     }
 }
 
@@ -337,15 +337,15 @@ ripng_nexthop_rte (struct rte *rte,
 
   /* Logging before checking RTE. */
   if (IS_RIPNG_DEBUG_RECV)
-    zlog_debug ("RIPng nexthop RTE address %s tag %d prefixlen %d",
-	       inet6_ntoa (rte->addr), ntohs (rte->tag), rte->prefixlen);
+    zlog_debug ("RIPng nexthop RTE address %s tag %"ROUTE_TAG_PRI" prefixlen %d",
+	       inet6_ntoa (rte->addr), (route_tag_t)ntohs (rte->tag), rte->prefixlen);
 
   /* RFC2080 2.1.1 Next Hop: 
    The route tag and prefix length in the next hop RTE must be
    set to zero on sending and ignored on receiption.  */
   if (ntohs (rte->tag) != 0)
-    zlog_warn ("RIPng nexthop RTE with non zero tag value %d from %s",
-	       ntohs (rte->tag), inet6_ntoa (from->sin6_addr));
+    zlog_warn ("RIPng nexthop RTE with non zero tag value %"ROUTE_TAG_PRI" from %s",
+	       (route_tag_t)ntohs (rte->tag), inet6_ntoa (from->sin6_addr));
 
   if (rte->prefixlen != 0)
     zlog_warn ("RIPng nexthop RTE with non zero prefixlen value %d from %s",
@@ -2017,8 +2017,8 @@ DEFUN (show_ipv6_ripng,
 	  vty_out (vty, "%*s", 18, " ");
 
 	  vty_out (vty, "%*s", 28, " ");
-	  vty_out (vty, "self      %2d  %3d%s", aggregate->metric,
-		   aggregate->tag,
+	  vty_out (vty, "self      %2d  %3"ROUTE_TAG_PRI"%s", aggregate->metric,
+		   (route_tag_t)aggregate->tag,
 		   VTY_NEWLINE);
 	}
 
@@ -2062,8 +2062,8 @@ DEFUN (show_ipv6_ripng,
 	  if (len > 0)
 	    vty_out (vty, "%*s", len, " ");
 
-	  vty_out (vty, " %2d  %3d  ",
-		   rinfo->metric, rinfo->tag);
+	  vty_out (vty, " %2d  %3"ROUTE_TAG_PRI"  ",
+		   rinfo->metric, (route_tag_t)rinfo->tag);
 
 	  /* time */
 	  if ((rinfo->type == ZEBRA_ROUTE_RIPNG) && 

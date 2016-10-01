@@ -235,4 +235,7 @@ extern void route_map_upd8_dependency (route_map_event_t type, const char *arg,
 extern void route_map_notify_dependencies (const char *affected_name,
 					   route_map_event_t event);
 
+extern void *route_map_rule_tag_compile (const char *arg);
+extern void route_map_rule_tag_free (void *rule);
+
 #endif /* _ZEBRA_ROUTEMAP_H */

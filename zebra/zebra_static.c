@@ -362,7 +362,7 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
 int
 static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 		  union g_addr *gate, ifindex_t ifindex,
-		  const char *ifname, u_char flags, u_short tag,
+		  const char *ifname, u_char flags, route_tag_t tag,
 		  u_char distance, struct zebra_vrf *zvrf,
 		  struct static_nh_label *snh_label)
 {
@@ -481,7 +481,7 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 int
 static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 		     union g_addr *gate, ifindex_t ifindex,
-		     u_short tag, u_char distance, struct zebra_vrf *zvrf,
+		     route_tag_t tag, u_char distance, struct zebra_vrf *zvrf,
 		     struct static_nh_label *snh_label)
 {
   struct route_node *rn;

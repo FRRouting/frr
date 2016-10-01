@@ -225,7 +225,7 @@ struct rip_info
   struct in_addr nexthop_out;
   u_char metric_set;
   u_int32_t metric_out;
-  u_short tag_out;
+  u_int16_t tag_out;
   ifindex_t ifindex_out;
 
   struct route_node *rp;

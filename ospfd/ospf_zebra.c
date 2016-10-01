@@ -379,10 +379,10 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
       if (distance)
         SET_FLAG (message, ZAPI_MESSAGE_DISTANCE);
 
-      /* Check if path type is ASE and use only 16bit tags */
+      /* Check if path type is ASE */
       if (((or->path_type == OSPF_PATH_TYPE1_EXTERNAL) ||
           (or->path_type == OSPF_PATH_TYPE2_EXTERNAL)) &&
-           (or->u.ext.tag > 0) && (or->u.ext.tag < UINT16_MAX))
+           (or->u.ext.tag > 0) && (or->u.ext.tag <= ROUTE_TAG_MAX))
         SET_FLAG (message, ZAPI_MESSAGE_TAG);
 
       /* Make packet. */
@@ -479,7 +479,7 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
         }
 
       if (CHECK_FLAG (message, ZAPI_MESSAGE_TAG))
-         stream_putw (s, (u_short)or->u.ext.tag);
+         stream_putl (s, or->u.ext.tag);
 
       stream_putw_at (s, 0, stream_get_endp (s));
 
@@ -1093,7 +1093,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_METRIC))
     api.metric = stream_getl (s);
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
-    api.tag = stream_getw (s);
+    api.tag = stream_getl (s);
   else
     api.tag = 0;
 

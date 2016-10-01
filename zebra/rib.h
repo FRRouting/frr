@@ -23,6 +23,7 @@
 #ifndef _ZEBRA_RIB_H
 #define _ZEBRA_RIB_H
 
+#include "zebra.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "table.h"
@@ -47,6 +48,9 @@ struct rib
   /* Refrence count. */
   unsigned long refcnt;
   
+  /* Tag */
+  route_tag_t tag;
+
   /* Uptime. */
   time_t uptime;
 
@@ -71,9 +75,6 @@ struct rib
 
   /* Distance. */
   u_char distance;
-
-  /* Tag */
-  u_short tag;
 
   /* Flags of this route.
    * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed

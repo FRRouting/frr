@@ -5820,7 +5820,7 @@ ALIAS (no_ipv6_aggregate_address_summary_only,
 void
 bgp_redistribute_add (struct bgp *bgp, struct prefix *p, const struct in_addr *nexthop,
 		      const struct in6_addr *nexthop6, unsigned int ifindex,
-		      u_int32_t metric, u_char type, u_short instance, u_short tag)
+		      u_int32_t metric, u_char type, u_short instance, route_tag_t tag)
 {
   struct bgp_info *new;
   struct bgp_info *bi;
@@ -7185,7 +7185,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           if (json_paths)
             json_object_int_add(json_path, "tag", attr->extra->tag);
           else
-            vty_out (vty, ", tag %d", attr->extra->tag);
+            vty_out (vty, ", tag %"ROUTE_TAG_PRI, attr->extra->tag);
         }
 	
       if (! CHECK_FLAG (binfo->flags, BGP_INFO_VALID))

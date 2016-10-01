@@ -1829,6 +1829,32 @@ route_map_init_dep_hashes (void)
 					route_map_dep_hash_cmp);
 }
 
+/* Common route map rules */
+
+void *
+route_map_rule_tag_compile (const char *arg)
+{
+  unsigned long int tmp;
+  char *endptr;
+  route_tag_t *tag;
+
+  errno = 0;
+  tmp = strtoul(arg, &endptr, 0);
+  if (arg[0] == '\0' || *endptr != '\0' || errno || tmp > ROUTE_TAG_MAX)
+    return NULL;
+
+  tag = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*tag));
+  *tag = tmp;
+
+  return tag;
+}
+
+void
+route_map_rule_tag_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
 /* Initialization of route map vector. */
 void
 route_map_init_vty (void)

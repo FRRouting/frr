@@ -221,7 +221,7 @@ DEFUN (ip_route_label,
 
 DEFUN (ip_route_tag_label,
        ip_route_tag_label_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-65535> label WORD",
+       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -257,7 +257,7 @@ DEFUN (ip_route_mask_label,
 
 DEFUN (ip_route_mask_tag_label,
        ip_route_mask_tag_label_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-65535> label WORD",
+       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -295,7 +295,7 @@ DEFUN (ip_route_distance_label,
 
 DEFUN (ip_route_tag_distance_label,
        ip_route_tag_distance_label_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-65535> <1-255> label WORD",
+       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -333,7 +333,7 @@ DEFUN (ip_route_mask_distance_label,
 
 DEFUN (ip_route_mask_tag_distance_label,
        ip_route_mask_tag_distance_label_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-65535> <1-255> label WORD",
+       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> label WORD",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
@@ -370,7 +370,7 @@ DEFUN (no_ip_route_label,
 
 DEFUN (no_ip_route_tag_label,
        no_ip_route_tag_label_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-65535> label WORD",
+       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -407,7 +407,7 @@ DEFUN (no_ip_route_mask_label,
 
 DEFUN (no_ip_route_mask_tag_label,
        no_ip_route_mask_tag_label_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-65535> label WORD",
+       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -445,7 +445,7 @@ DEFUN (no_ip_route_distance_label,
 
 DEFUN (no_ip_route_tag_distance_label,
        no_ip_route_tag_distance_label_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-65535> <1-255> label WORD",
+       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -484,7 +484,7 @@ DEFUN (no_ip_route_mask_distance_label,
 
 DEFUN (no_ip_route_mask_tag_distance_label,
        no_ip_route_mask_tag_distance_label_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-65535> <1-255> label WORD",
+       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) tag <1-4294967295> <1-255> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -519,7 +519,7 @@ DEFUN (ipv6_route_label,
 
 DEFUN (ipv6_route_tag_label,
        ipv6_route_tag_label_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> label WORD",
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-4294967295> label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -548,7 +548,7 @@ DEFUN (ipv6_route_ifname_label,
 }
 DEFUN (ipv6_route_ifname_tag_label,
        ipv6_route_ifname_tag_label_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-65535> label WORD",
+       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -579,7 +579,7 @@ DEFUN (ipv6_route_pref_label,
 
 DEFUN (ipv6_route_pref_tag_label,
        ipv6_route_pref_tag_label_cmd,
-       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> <1-255> label WORD",
+       "ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-4294967295> <1-255> label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -611,7 +611,7 @@ DEFUN (ipv6_route_ifname_pref_label,
 
 DEFUN (ipv6_route_ifname_pref_tag_label,
        ipv6_route_ifname_pref_tag_label_cmd,
-       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-65535> <1-255> label WORD",
+       "ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> <1-255> label WORD",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -643,7 +643,7 @@ DEFUN (no_ipv6_route_label,
 
 DEFUN (no_ipv6_route_tag_label,
        no_ipv6_route_tag_label_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> label WORD",
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-4294967295> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -675,7 +675,7 @@ DEFUN (no_ipv6_route_ifname_label,
 
 DEFUN (no_ipv6_route_ifname_tag_label,
        no_ipv6_route_ifname_tag_label_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-65535> label WORD",
+       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -708,7 +708,7 @@ DEFUN (no_ipv6_route_pref_label,
 
 DEFUN (no_ipv6_route_pref_tag_label,
        no_ipv6_route_pref_tag_label_cmd,
-       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-65535> <1-255> label WORD",
+       "no ipv6 route X:X::X:X/M (X:X::X:X|INTERFACE) tag <1-4294967295> <1-255> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -742,7 +742,7 @@ DEFUN (no_ipv6_route_ifname_pref_label,
 
 DEFUN (no_ipv6_route_ifname_pref_tag_label,
        no_ipv6_route_ifname_pref_tag_label_cmd,
-       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-65535> <1-255> label WORD",
+       "no ipv6 route X:X::X:X/M X:X::X:X INTERFACE tag <1-4294967295> <1-255> label WORD",
        NO_STR
        IP_STR
        "Establish static routes\n"
