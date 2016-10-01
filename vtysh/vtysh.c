@@ -1942,7 +1942,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_monitor,
 	 vtysh_log_monitor_cmd,
-	 "log monitor [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
+	 "log monitor [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
 	 "Logging control\n"
 	 "Set terminal line (monitor) logging level\n"
          LOG_LEVEL_DESC)

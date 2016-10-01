@@ -974,7 +974,7 @@ DEFUN (bgp_confederation_peers,
 
 DEFUN (no_bgp_confederation_peers,
        no_bgp_confederation_peers_cmd,
-       "no bgp confederation peers . (1-4294967295)",
+       "no bgp confederation peers (1-4294967295)...",
        NO_STR
        "BGP specific commands\n"
        "AS confederation parameters\n"

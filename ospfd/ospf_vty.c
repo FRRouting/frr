@@ -6306,7 +6306,7 @@ DEFUN (ip_ospf_message_digest_key,
 
 DEFUN_HIDDEN (ospf_message_digest_key,
               ospf_message_digest_key_cmd,
-              "ospf message-digest-key <1-255> md5 KEY",
+              "ospf message-digest-key (1-255) md5 KEY",
               "OSPF interface commands\n"
               "Message digest authentication password (key)\n"
               "Key ID\n"
@@ -6559,7 +6559,7 @@ DEFUN (ip_ospf_cost,
 
 DEFUN_HIDDEN (ospf_cost,
               ospf_cost_u32_inet4_cmd,
-              "ospf cost <1-65535> A.B.C.D",
+              "ospf cost (1-65535) A.B.C.D",
               "OSPF interface commands\n"
               "Interface cost\n"
               "Cost\n"
@@ -6936,7 +6936,7 @@ DEFUN (ip_ospf_dead_interval,
 
 DEFUN_HIDDEN (ospf_dead_interval,
               ospf_dead_interval_cmd,
-              "ospf dead-interval <1-65535>",
+              "ospf dead-interval (1-65535)",
               "OSPF interface commands\n"
               "Interval after which a neighbor is declared dead\n"
               "Seconds\n")
@@ -6989,7 +6989,7 @@ DEFUN (no_ospf_dead_interval,
 
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_addr_cmd,
-       "no ip ospf dead-interval [[(1-65535)|minimal hello-multiplier (1-10)] [A.B.C.D]]",
+       "no ip ospf dead-interval [<(1-65535)|minimal hello-multiplier (1-10)> [A.B.C.D]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7108,7 +7108,7 @@ DEFUN (ip_ospf_hello_interval,
 
 DEFUN_HIDDEN (ospf_hello_interval,
               ospf_hello_interval_cmd,
-              "ospf hello-interval <1-65535>",
+              "ospf hello-interval (1-65535)",
               "OSPF interface commands\n"
               "Time between HELLO packets\n"
               "Seconds\n")
@@ -7244,7 +7244,7 @@ DEFUN (ip_ospf_network,
 
 DEFUN_HIDDEN (ospf_network,
               ospf_network_cmd,
-              "ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)",
+              "ospf network <broadcast|non-broadcast|point-to-multipoint|point-to-point>",
               "OSPF interface commands\n"
               "Network type\n"
               "Specify OSPF broadcast multi-access network\n"
@@ -7441,7 +7441,7 @@ DEFUN (ip_ospf_priority,
 
 DEFUN_HIDDEN (ospf_priority,
               ospf_priority_cmd,
-              "ospf priority <0-255>",
+              "ospf priority (0-255)",
               "OSPF interface commands\n"
               "Router priority\n"
               "Priority\n")
@@ -7658,7 +7658,7 @@ DEFUN (ip_ospf_retransmit_interval,
 
 DEFUN_HIDDEN (ospf_retransmit_interval,
               ospf_retransmit_interval_cmd,
-              "ospf retransmit-interval <3-65535>",
+              "ospf retransmit-interval (3-65535)",
               "OSPF interface commands\n"
               "Time between retransmitting lost link state advertisements\n"
               "Seconds\n")
@@ -7704,7 +7704,7 @@ DEFUN (no_ospf_retransmit_interval,
 
 DEFUN (no_ip_ospf_retransmit_interval,
        no_ip_ospf_retransmit_interval_addr_cmd,
-       "no ip ospf retransmit-interval [<<3-65535 [A.B.C.D]|A.B.C.D>]",
+       "no ip ospf retransmit-interval [<(3-65535) [A.B.C.D]|A.B.C.D>]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
@@ -7803,7 +7803,7 @@ DEFUN (ip_ospf_transmit_delay,
 
 DEFUN_HIDDEN (ospf_transmit_delay,
               ospf_transmit_delay_cmd,
-              "ospf transmit-delay <1-65535>",
+              "ospf transmit-delay (1-65535)",
               "OSPF interface commands\n"
               "Link state transmit delay\n"
               "Seconds\n")
@@ -8058,7 +8058,7 @@ DEFUN (no_ip_ospf_instance_area,
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
-       "redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
+       "redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
@@ -8113,7 +8113,7 @@ DEFUN (ospf_redistribute_source,
 
 DEFUN (no_ospf_redistribute_source,
        no_ospf_redistribute_source_cmd,
-       "no redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
+       "no redistribute <kernel|connected|static|rip|isis|bgp|pim|table> [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        NO_STR
        REDIST_STR
        QUAGGA_REDIST_HELP_STR_OSPFD
@@ -8320,7 +8320,7 @@ DEFUN (no_ospf_distribute_list_out,
 /* Default information originate. */
 DEFUN (ospf_default_information_originate,
        ospf_default_information_originate_cmd,
-       "default-information originate [<always|metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
+       "default-information originate [<always|metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Always advertise default route\n"

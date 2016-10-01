@@ -615,7 +615,7 @@ DEFUN (neighbor_bfd_param,
 
 DEFUN_HIDDEN (neighbor_bfd_type,
        neighbor_bfd_type_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (multihop|singlehop)",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n"
@@ -674,7 +674,7 @@ DEFUN (no_neighbor_bfd,
 
 DEFUN_HIDDEN (no_neighbor_bfd_type,
        no_neighbor_bfd_type_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd (multihop|singlehop)",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
