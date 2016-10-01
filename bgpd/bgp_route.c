@@ -7732,14 +7732,17 @@ bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 /* BGP route print out function. */
 DEFUN (show_ip_bgp_ipv4,
        show_ip_bgp_ipv4_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] [<cidr-only|community|dampening <flap-statistics|dampened-paths>|regexp .LINE|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|A.B.C.D/M longer-prefixes|X:X::X:X/M longer-prefixes>] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] [<cidr-only|community|dampening <flap-statistics|dampened-paths>|regexp .LINE|route-map WORD|prefix-list WORD|filter-list WORD|community <AA:NN|local-AS|no-advertise|no-export> [exact-match]|community-list <(1-500)|WORD> [exact-match]|A.B.C.D/M longer-prefixes|X:X::X:X/M longer-prefixes>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -7857,13 +7860,15 @@ DEFUN (show_ip_bgp_ipv4,
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|encap> [unicast]|ipv4 multicast|vpnv4 unicast [rd ASN:nn_or_IP-address:nn]>] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] <A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -7923,7 +7928,7 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
-       "show [ip] bgp <view|vrf> all [<<ipv4|ipv6|encap> [unicast]|ipv4 multicast|vpnv4 unicast>] [json]",
+       "show [ip] bgp <view|vrf> all [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9243,14 +9248,17 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf>] WORD [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes [route-map WORD]|advertised-routes [route-map WORD]>] [json]",
+       "show [ip] bgp [<view|vrf>] WORD [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] neighbors <A.B.C.D|X:X::X:X|WORD> [<received-routes [route-map WORD]|advertised-routes [route-map WORD]>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -9416,7 +9424,7 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR

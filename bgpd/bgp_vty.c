@@ -5963,7 +5963,7 @@ bgp_get_argv_afi_safi (int argc, struct cmd_token **argv,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> WORD] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -5977,8 +5977,11 @@ DEFUN (clear_ip_bgp_all,
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -6830,14 +6833,17 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 /* `show ip bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] summary [json]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
+       "Address Family modifier\n"
        "Address family\n"
        "Address Family modifier\n"
        "Address family\n"
@@ -8874,7 +8880,7 @@ bgp_show_update_groups(struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<<ipv4|ipv6|vpnv4|encap> [unicast]|ipv4 multicast>] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> WORD] [<ipv4 [unicast]|ipv6 [unicast]|encap [unicast]|ipv4 multicast|vpnv4 unicast>] update-groups [SUBGROUP-ID]",
        SHOW_STR
        IP_STR
        BGP_STR
