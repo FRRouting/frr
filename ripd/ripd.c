@@ -1513,7 +1513,8 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
 void
 rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p, 
 		      ifindex_t ifindex, struct in_addr *nexthop,
-                      unsigned int metric, unsigned char distance)
+                      unsigned int metric, unsigned char distance,
+                      route_tag_t tag)
 {
   int ret;
   struct route_node *rp = NULL;
@@ -1534,6 +1535,8 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
   newinfo.metric = 1;
   newinfo.external_metric = metric;
   newinfo.distance = distance;
+  if (tag <= UINT16_MAX) /* RIP only supports 16 bit tags */
+    newinfo.tag = tag;
   newinfo.rp = rp;
   if (nexthop)
     newinfo.nexthop = *nexthop;
@@ -2945,7 +2948,7 @@ DEFUN (rip_route,
 
   node->info = (void *)1;
 
-  rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL, 0, 0);
+  rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL, 0, 0, 0);
 
   return CMD_SUCCESS;
 }

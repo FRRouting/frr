@@ -403,7 +403,8 @@ extern int rip_neighbor_lookup (struct sockaddr_in *);
 
 extern int rip_redistribute_check (int);
 extern void rip_redistribute_add (int, int, struct prefix_ipv4 *, ifindex_t,
-			   struct in_addr *, unsigned int, unsigned char);
+			   struct in_addr *, unsigned int, unsigned char,
+			   route_tag_t);
 extern void rip_redistribute_delete (int, int, struct prefix_ipv4 *, ifindex_t);
 extern void rip_redistribute_withdraw (int);
 extern void rip_zebra_ipv4_add (struct route_node *);
