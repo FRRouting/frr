@@ -260,6 +260,11 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
   else
     api.metric = 0;
 
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_TAG))
+    api.tag = stream_getl (s);
+  else
+    api.tag = 0;
+
   if (IS_OSPF6_DEBUG_ZEBRA (RECV))
     {
       char prefixstr[PREFIX2STR_BUFFER], nexthopstr[128];
@@ -269,14 +274,14 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
       else
         snprintf (nexthopstr, sizeof (nexthopstr), "::");
 
-      zlog_debug ("Zebra Receive route %s: %s %s nexthop %s ifindex %ld",
+      zlog_debug ("Zebra Receive route %s: %s %s nexthop %s ifindex %ld tag %"ROUTE_TAG_PRI,
 		  (command == ZEBRA_IPV6_ROUTE_ADD ? "add" : "delete"),
-		  zebra_route_string(api.type), prefixstr, nexthopstr, ifindex);
+		  zebra_route_string(api.type), prefixstr, nexthopstr, ifindex, api.tag);
     }
  
   if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
     ospf6_asbr_redistribute_add (api.type, ifindex, (struct prefix *) &p,
-                                 api.nexthop_num, nexthop);
+                                 api.nexthop_num, nexthop, api.tag);
   else
     ospf6_asbr_redistribute_remove (api.type, ifindex, (struct prefix *) &p);
 
@@ -468,6 +473,11 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
   SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
   api.metric = (request->path.metric_type == 2 ?
                 request->path.u.cost_e2 : request->path.cost);
+  if (request->path.tag)
+    {
+      SET_FLAG (api.message, ZAPI_MESSAGE_TAG);
+      api.tag = request->path.tag;
+    }
 
   dest = (struct prefix_ipv6 *) &request->prefix;
   if (type == REM)

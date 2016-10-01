@@ -47,7 +47,8 @@ struct ospf6_external_info
   u_int32_t id;
 
   struct in6_addr forwarding;
-  /* u_int32_t tag; */
+
+  route_tag_t tag;
 
   ifindex_t ifindex;
 };
@@ -82,7 +83,8 @@ extern int ospf6_asbr_is_asbr (struct ospf6 *o);
 extern void ospf6_asbr_redistribute_add (int type, ifindex_t ifindex,
                                          struct prefix *prefix,
                                          u_int nexthop_num,
-                                         struct in6_addr *nexthop);
+                                         struct in6_addr *nexthop,
+                                         route_tag_t tag);
 extern void ospf6_asbr_redistribute_remove (int type, ifindex_t ifindex,
                                             struct prefix *prefix);
 
