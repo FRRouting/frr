@@ -907,7 +907,8 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
 /* Add redistributed route to RIPng table. */
 void
 ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p, 
-			ifindex_t ifindex, struct in6_addr *nexthop)
+			ifindex_t ifindex, struct in6_addr *nexthop,
+			route_tag_t tag)
 {
   struct route_node *rp;
   struct ripng_info *rinfo = NULL, newinfo;
@@ -926,6 +927,8 @@ ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p,
   newinfo.sub_type = sub_type;
   newinfo.ifindex = ifindex;
   newinfo.metric = 1;
+  if (tag <= UINT16_MAX) /* RIPng only supports 16 bit tags */
+    newinfo.tag = tag;
   newinfo.rp = rp;
   if (nexthop && IN6_IS_ADDR_LINKLOCAL(nexthop))
     newinfo.nexthop = *nexthop;
@@ -2216,7 +2219,7 @@ DEFUN (ripng_route,
     }
   rp->info = (void *)1;
 
-  ripng_redistribute_add (ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0, NULL);
+  ripng_redistribute_add (ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0, NULL, 0);
 
   return CMD_SUCCESS;
 }
@@ -2553,7 +2556,7 @@ DEFUN (ripng_default_information_originate,
     ripng->default_information = 1;
 
     str2prefix_ipv6 ("::/0", &p);
-    ripng_redistribute_add (ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_DEFAULT, &p, 0, NULL);
+    ripng_redistribute_add (ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_DEFAULT, &p, 0, NULL, 0);
   }
 
   return CMD_SUCCESS;

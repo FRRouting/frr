@@ -383,7 +383,7 @@ extern void ripng_info_free (struct ripng_info *rinfo);
 extern void ripng_event (enum ripng_event, int);
 extern int ripng_request (struct interface *ifp);
 extern void ripng_redistribute_add (int, int, struct prefix_ipv6 *,
-                                    ifindex_t, struct in6_addr *);
+                                    ifindex_t, struct in6_addr *, route_tag_t);
 extern void ripng_redistribute_delete (int, int, struct prefix_ipv6 *,
                                        ifindex_t);
 extern void ripng_redistribute_withdraw (int type);

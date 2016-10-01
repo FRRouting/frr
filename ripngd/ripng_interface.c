@@ -383,7 +383,7 @@ ripng_apply_address_add (struct connected *ifc) {
   if ((ripng_enable_if_lookup(ifc->ifp->name) >= 0) ||
       (ripng_enable_network_lookup2(ifc) >= 0))
     ripng_redistribute_add(ZEBRA_ROUTE_CONNECT, RIPNG_ROUTE_INTERFACE,
-                           &address, ifc->ifp->ifindex, NULL);
+                           &address, ifc->ifp->ifindex, NULL, 0);
 
 }
 
@@ -704,13 +704,13 @@ ripng_connect_set (struct interface *ifp, int set)
         if ((ripng_enable_if_lookup(connected->ifp->name) >= 0) ||
             (ripng_enable_network_lookup2(connected) >= 0))
           ripng_redistribute_add (ZEBRA_ROUTE_CONNECT, RIPNG_ROUTE_INTERFACE,
-                                  &address, connected->ifp->ifindex, NULL);
+                                  &address, connected->ifp->ifindex, NULL, 0);
       } else {
         ripng_redistribute_delete (ZEBRA_ROUTE_CONNECT, RIPNG_ROUTE_INTERFACE,
                                    &address, connected->ifp->ifindex);
         if (ripng_redistribute_check (ZEBRA_ROUTE_CONNECT))
           ripng_redistribute_add (ZEBRA_ROUTE_CONNECT, RIPNG_ROUTE_REDISTRIBUTE,
-                                  &address, connected->ifp->ifindex, NULL);
+                                  &address, connected->ifp->ifindex, NULL, 0);
       }
     }
 }
