@@ -618,8 +618,9 @@ cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
 
       // get token completions
       vector comps = cmd_complete_command_real (shifted_vline, vty, status);
-      ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *));
-      for (unsigned int i = 0; i < vector_active (comps); i++)
+      ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *) + 1);
+      unsigned int i;
+      for (i = 0; i < vector_active (comps); i++)
         {
           struct cmd_token *token = vector_slot (comps, i);
           ret[i] = XSTRDUP (MTYPE_TMP, token->text);
@@ -627,6 +628,7 @@ cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
           del_cmd_token (token);
         }
       vector_free (comps);
+      ret[i] = NULL;
 
       vector_free(shifted_vline);
       vty->node = onode;
@@ -635,14 +637,16 @@ cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
 
   // get token completions
   vector comps = cmd_complete_command_real (vline, vty, status);
-  ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *));
-  for (unsigned int i = 0; i < vector_active (comps); i++)
+  ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *) + 1);
+  unsigned int i;
+  for (i = 0; i < vector_active (comps); i++)
     {
       struct cmd_token *token = vector_slot (comps, i);
       ret[i] = XSTRDUP (MTYPE_TMP, token->text);
       vector_unset (comps, i);
       del_cmd_token (token);
     }
+  ret[i] = NULL;
   vector_free (comps);
 
   return ret;
