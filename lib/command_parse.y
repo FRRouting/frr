@@ -343,6 +343,7 @@ selector_token:
   $$->start = $$->end = $1;
 }
 | option
+| selector
 ;
 
 /* [option] productions */
