@@ -303,6 +303,7 @@ command_complete (struct graph *graph,
           struct cmd_token *token = gn->data;
           switch (match_token (token, input_token))
             {
+              case trivial_match:
               case partly_match:
                 if (idx == vector_active (vline) - 1)
                   {
@@ -526,6 +527,10 @@ del_arglist (struct list *list)
 static enum match_type
 match_token (struct cmd_token *token, char *input_token)
 {
+  // nothing trivially matches everything
+  if (!input_token)
+    return trivial_match;
+
   switch (token->type) {
     case WORD_TKN:
       return match_word (token, input_token);
@@ -556,9 +561,6 @@ match_ipv4 (const char *str)
   const char *sp;
   int dots = 0, nums = 0;
   char buf[4];
-
-  if (str == NULL)
-    return partly_match;
 
   for (;;)
     {
@@ -613,9 +615,6 @@ match_ipv4_prefix (const char *str)
   const char *sp;
   int dots = 0;
   char buf[4];
-
-  if (str == NULL)
-    return partly_match;
 
   for (;;)
     {
@@ -696,9 +695,6 @@ match_ipv6 (const char *str)
   struct sockaddr_in6 sin6_dummy;
   int ret;
 
-  if (str == NULL)
-    return partly_match;
-
   if (strspn (str, IPV6_ADDR_STR) != strlen (str))
     return no_match;
 
@@ -717,9 +713,6 @@ match_ipv6_prefix (const char *str)
   const char *delim = "/\0";
   char *tofree, *dupe, *prefix, *mask, *endptr;
   int nmask = -1;
-
-  if (str == NULL)
-    return partly_match;
 
   if (strspn (str, IPV6_PREFIX_STR) != strlen (str))
     return no_match;
@@ -763,9 +756,6 @@ match_range (struct cmd_token *token, const char *str)
   char *endptr = NULL;
   long long val;
 
-  if (str == NULL)
-    return 1;
-
   val = strtoll (str, &endptr, 10);
   if (*endptr != '\0')
     return 0;
@@ -781,8 +771,8 @@ match_word (struct cmd_token *token, const char *word)
 {
   assert (token->type == WORD_TKN);
 
-  // if the passed token is null or 0 length, partly match
-  if (!word || !strlen(word))
+  // if the passed token is 0 length, partly match
+  if (!strlen(word))
     return partly_match;
 
   // if the passed token is strictly a prefix of the full word, partly match

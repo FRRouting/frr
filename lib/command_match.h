@@ -50,9 +50,10 @@ enum matcher_rv
 /* completion match types */
 enum match_type
 {
-  no_match,
-  partly_match,
-  exact_match
+  trivial_match,  // the input is null
+  no_match,       // the input does not match
+  partly_match,   // the input matches but is incomplete
+  exact_match     // the input matches and is complete
 };
 
 /* Defines which matcher_rv values constitute an error. Should be used with
