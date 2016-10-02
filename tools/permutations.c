@@ -1,13 +1,44 @@
+/*
+ * Generates all possible matching inputs for a command string.
+ * --
+ * Copyright (C) 2016 Cumulus Networks, Inc.
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GNU Zebra; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ */
+
 #include "command.h"
 #include "graph.h"
 #include "command_parse.h"
 #include "vector.h"
 
+#define USAGE "usage: permutations <cmdstr>"
+
 void
-pretty_print_graph (struct graph_node *);
+permute (struct graph_node *);
 
 int main (int argc, char *argv[])
 {
+  if (argc < 2)
+  {
+    fprintf(stdout, USAGE"\n");
+    exit(EXIT_SUCCESS);
+  }
+
   struct cmd_element *cmd = calloc (1, sizeof (struct cmd_element));
   cmd->string = strdup(argv[1]);
 
@@ -16,18 +47,11 @@ int main (int argc, char *argv[])
   graph_new_node (graph, token, NULL);
   command_parse_format (graph, cmd);
 
-  pretty_print_graph (vector_slot (graph->nodes, 0));
+  permute (vector_slot (graph->nodes, 0));
 }
 
-/**
- * Pretty-prints a graph, assuming it is a tree.
- *
- * @param start the node to take as the root
- * @param level indent level for recursive calls, always pass 0
- */
-
 void
-pretty_print_graph (struct graph_node *start)
+permute (struct graph_node *start)
 {
   static struct list *position = NULL;
   if (!position) position = list_new ();
@@ -51,7 +75,7 @@ pretty_print_graph (struct graph_node *start)
       fprintf (stdout, "\n");
     }
     else
-      pretty_print_graph (gn);
+      permute (gn);
   }
   list_delete_node (position, listtail(position));
 }
