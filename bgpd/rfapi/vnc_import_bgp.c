@@ -2837,18 +2837,17 @@ vnc_import_bgp_del_route (
 #endif
   VNC_RHNCK (enter);
 
-  /* check bgp redist flag for vnc direct ("vpn") routes */
+  if (!bgp->rfapi_cfg)
+    {
+      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
+      return;
+    }
 
+  /* check bgp redist flag for vnc direct ("vpn") routes */
   if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT])
     {
       zlog_debug ("%s: bgp redistribution of afi=%d VNC direct routes is off",
                   __func__, afi);
-      return;
-    }
-
-  if (!bgp->rfapi_cfg)
-    {
-      zlog_debug ("%s: bgp->rfapi_cfg is NULL, skipping", __func__);
       return;
     }
 
