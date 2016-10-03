@@ -54,7 +54,8 @@ override_dh_auto_configure:
 		--enable-poll=yes \
 		--enable-cumulus=yes \
 		--enable-pimd=no \
-		--enable-dependency-tracking; \
+		--enable-dependency-tracking \
+		--enable-bgp-vnc=no; \
 	fi
 
 override_dh_auto_build:
