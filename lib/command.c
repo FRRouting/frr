@@ -597,57 +597,47 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
 char **
 cmd_complete_command_lib (vector vline, struct vty *vty, int *status, int islib)
 {
-  char **ret;
+  char **ret = NULL;
+  int original_node = vty->node;
+  vector input_line = vector_init (vector_count (vline));
 
-  if ( cmd_try_do_shortcut(vty->node, vector_slot(vline, 0) ) )
-    {
-      enum node_type onode;
-      vector shifted_vline;
-      unsigned int index;
+  // if the first token is 'do' we'll want to execute the command in the enable node
+  int do_shortcut = cmd_try_do_shortcut (vty->node, vector_slot (vline, 0));
+  vty->node = do_shortcut ? ENABLE_NODE : original_node;
 
-      onode = vty->node;
-      vty->node = ENABLE_NODE;
-      /* We can try it on enable node, cos' the vty is authenticated */
+  // construct the input line we'll be matching on
+  unsigned int offset = (do_shortcut) ? 1 : 0;
+  for (unsigned index = 0; index + offset < vector_active (vline); index++)
+    vector_set_index (input_line, index + offset, vector_lookup (vline, index));
 
-      shifted_vline = vector_init (vector_count(vline));
-      /* use memcpy? */
-      for (index = 1; index < vector_active (vline); index++)
-        {
-          vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
-        }
-
-      // get token completions
-      vector comps = cmd_complete_command_real (shifted_vline, vty, status);
-      ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *) + 1);
-      unsigned int i;
-      for (i = 0; i < vector_active (comps); i++)
-        {
-          struct cmd_token *token = vector_slot (comps, i);
-          ret[i] = XSTRDUP (MTYPE_TMP, token->text);
-          vector_unset (comps, i);
-          del_cmd_token (token);
-        }
-      vector_free (comps);
-      ret[i] = NULL;
-
-      vector_free(shifted_vline);
-      vty->node = onode;
-      return ret;
+  // get token completions -- this is a copying operation
+  vector comps = cmd_complete_command_real (input_line, vty, status);
+  if (!MATCHER_ERROR (*status))
+  {
+    // copy completions text into an array of char*
+    ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *) + 1);
+    unsigned int i;
+    for (i = 0; i < vector_active (comps); i++)
+      {
+        struct cmd_token *token = vector_slot (comps, i);
+        ret[i] = XSTRDUP (MTYPE_TMP, token->text);
+        vector_unset (comps, i);
+        del_cmd_token (token);
+      }
+    // set the last element to NULL, which vty/vtysh uses as a sentinel value
+    ret[i] = NULL;
+    vector_free (comps);
+    comps = NULL;
   }
 
-  // get token completions
-  vector comps = cmd_complete_command_real (vline, vty, status);
-  ret = XMALLOC (MTYPE_TMP, vector_active (comps) * sizeof (char *) + 1);
-  unsigned int i;
-  for (i = 0; i < vector_active (comps); i++)
-    {
-      struct cmd_token *token = vector_slot (comps, i);
-      ret[i] = XSTRDUP (MTYPE_TMP, token->text);
-      vector_unset (comps, i);
-      del_cmd_token (token);
-    }
-  ret[i] = NULL;
-  vector_free (comps);
+  // comps should always be null here
+  assert (!comps);
+
+  // free the adjusted input line
+  vector_free (input_line);
+
+  // reset vty->node to its original value
+  vty->node = original_node;
 
   return ret;
 }
