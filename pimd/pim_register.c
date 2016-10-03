@@ -51,7 +51,7 @@ pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg,
 			struct in_addr src, struct in_addr originator)
 {
   struct pim_interface *pinfo;
-  unsigned char buffer[3000];
+  unsigned char buffer[10000];
   unsigned int b1length = 0;
   unsigned int length;
   uint8_t *b1;
@@ -63,7 +63,7 @@ pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg,
 		  pim_str_sg_dump (sg), inet_ntoa(originator), ifp->name);
     }
 
-  memset (buffer, 0, 3000);
+  memset (buffer, 0, 10000);
   b1 = (uint8_t *)buffer + PIM_MSG_REGISTER_STOP_LEN;
 
   length = pim_encode_addr_group (b1, AFI_IP, 0, 0, sg->grp);
@@ -149,7 +149,7 @@ pim_register_stop_recv (uint8_t *buf, int buf_size)
 void
 pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct pim_rpf *rpg, int null_register)
 {
-  unsigned char buffer[3000];
+  unsigned char buffer[10000];
   unsigned char *b1;
   struct pim_interface *pinfo;
   struct interface *ifp;
@@ -175,7 +175,7 @@ pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct 
     return;
   }
 
-  memset(buffer, 0, 3000);
+  memset(buffer, 0, 10000);
   b1 = buffer + PIM_MSG_HEADER_LEN;
   *b1 |= null_register << 6;
   b1 = buffer + PIM_MSG_REGISTER_LEN;

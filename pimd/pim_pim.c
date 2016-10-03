@@ -538,11 +538,11 @@ pim_msg_send(int fd, struct in_addr src,
 {
   struct sockaddr_in to;
   socklen_t          tolen;
-  unsigned char      buffer[3000];
+  unsigned char      buffer[10000];
   unsigned char      *msg_start;
   struct ip *ip;
 
-  memset (buffer, 0, 3000);
+  memset (buffer, 0, 10000);
   int sendlen = sizeof (struct ip) + pim_msg_size;
 
   msg_start = buffer + sizeof (struct ip);
