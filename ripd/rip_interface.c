@@ -1379,7 +1379,7 @@ DEFUN (ip_rip_receive_version_1,
 
 DEFUN (ip_rip_receive_version_2,
        ip_rip_receive_version_2_cmd,
-       "ip rip receive version 2 1",
+       "ip rip receive version (2-2) (1-1)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
@@ -1453,7 +1453,7 @@ DEFUN (ip_rip_send_version,
 
 DEFUN (ip_rip_send_version_1,
        ip_rip_send_version_1_cmd,
-       "ip rip send version 1 2",
+       "ip rip send version (1-1) (2-2)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
@@ -1474,7 +1474,7 @@ DEFUN (ip_rip_send_version_1,
 
 DEFUN (ip_rip_send_version_2,
        ip_rip_send_version_2_cmd,
-       "ip rip send version 2 1",
+       "ip rip send version (2-2) (1-1)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"

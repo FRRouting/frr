@@ -8146,7 +8146,7 @@ DEFUN (no_ospf_redistribute_source,
 
 DEFUN (ospf_redistribute_instance_source,
        ospf_redistribute_instance_source_cmd,
-       "redistribute <ospf|table> (1-65535) [<metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
+       "redistribute <ospf|table> (1-65535) [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        REDIST_STR
        "Open Shortest Path First\n"
        "Non-main Kernel Routing Table\n"
@@ -8218,7 +8218,7 @@ DEFUN (ospf_redistribute_instance_source,
 
 DEFUN (no_ospf_redistribute_instance_source,
        no_ospf_redistribute_instance_source_cmd,
-       "no redistribute <ospf|table> (1-65535) [<metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
+       "no redistribute <ospf|table> (1-65535) [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        NO_STR
        REDIST_STR
        "Open Shortest Path First\n"

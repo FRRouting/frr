@@ -1300,7 +1300,7 @@ DEFUN (auto_cost_reference_bandwidth,
 
 DEFUN (no_auto_cost_reference_bandwidth,
        no_auto_cost_reference_bandwidth_cmd,
-       "no auto-cost reference-bandwidth [1-4294967]",
+       "no auto-cost reference-bandwidth [(1-4294967)]",
        NO_STR
        "Calculate OSPF interface cost according to bandwidth\n"
        "Use reference bandwidth method to assign OSPF cost\n"
