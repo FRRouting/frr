@@ -758,7 +758,7 @@ match_range (struct cmd_token *token, const char *str)
 
   val = strtoll (str, &endptr, 10);
   if (*endptr != '\0')
-    return 0;
+    return no_match;
 
   if (val < token->min || val > token->max)
     return no_match;
@@ -789,7 +789,7 @@ match_word (struct cmd_token *token, const char *word)
 }
 
 #define VARIABLE_ALPHABET \
-"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:"
+"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890:/."
 
 static enum match_type
 match_variable (struct cmd_token *token, const char *word)
