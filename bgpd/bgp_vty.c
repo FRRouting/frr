@@ -6064,19 +6064,23 @@ DEFUN (clear_ip_bgp_all,
   /* afi safi */
   idx_afi = idx_clr_sort + 1;
   idx_safi = idx_clr_sort + 2;
-  bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_soft_in_out);
+  idx_soft_in_out = 0;
+  if (argc > idx_afi)
+    bgp_get_argv_afi_safi (argc, argv, idx_afi, idx_safi, &afi, &safi, &idx_soft_in_out);
 
-  /* soft, soft in, or soft out */
-  if (strmatch(argv[idx_soft_in_out]->text, "in"))
-    clr_type = BGP_CLEAR_SOFT_IN;
-  else if (strmatch(argv[idx_soft_in_out]->text, "out"))
-    clr_type = BGP_CLEAR_SOFT_OUT;
-  else if (strmatch(argv[idx_soft_in_out]->text, "soft"))
-    clr_type = BGP_CLEAR_SOFT_BOTH;
-  else if (strmatch(argv[idx_soft_in_out]->text, "prefix-filter"))
-    clr_type = BGP_CLEAR_SOFT_IN_ORF_PREFIX;
-  else
-    clr_type = BGP_CLEAR_SOFT_NONE;
+  clr_type = BGP_CLEAR_SOFT_NONE;
+  if (idx_soft_in_out && argc > idx_soft_in_out)
+  {
+    /* soft, soft in, or soft out */
+    if (strmatch(argv[idx_soft_in_out]->text, "in"))
+      clr_type = BGP_CLEAR_SOFT_IN;
+    else if (strmatch(argv[idx_soft_in_out]->text, "out"))
+      clr_type = BGP_CLEAR_SOFT_OUT;
+    else if (strmatch(argv[idx_soft_in_out]->text, "soft"))
+      clr_type = BGP_CLEAR_SOFT_BOTH;
+    else if (strmatch(argv[idx_soft_in_out]->text, "prefix-filter"))
+      clr_type = BGP_CLEAR_SOFT_IN_ORF_PREFIX;
+  }
 
   return bgp_clear_vty (vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
 }
