@@ -1373,7 +1373,7 @@ DEFUN (config_no_hostname,
 /* VTY interface password set. */
 DEFUN (config_password,
        password_cmd,
-       "password [8] WORD",
+       "password [(8-8)] WORD",
        "Assign the terminal connection password\n"
        "Specifies a HIDDEN password will follow\n"
        "The password string\n")
@@ -1417,7 +1417,7 @@ DEFUN (config_password,
 /* VTY enable password set. */
 DEFUN (config_enable_password,
        enable_password_cmd,
-       "enable password [8] WORD",
+       "enable password [(8-8)] WORD",
        "Modify enable password parameters\n"
        "Assign the privileged level password\n"
        "Specifies a HIDDEN password will follow\n"
