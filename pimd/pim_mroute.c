@@ -349,12 +349,19 @@ pim_mroute_msg_wrvifwhole (int fd, struct interface *ifp, const char *buf)
 	    pim_register_stop_send(source.interface, &sg, pim_ifp->primary_address, up->upstream_register);
           if (!up->channel_oil)
             up->channel_oil = pim_channel_oil_add (&sg, pim_ifp->mroute_vif_index);
+          pim_upstream_inherited_olist (up);
           if (!up->channel_oil->installed)
             pim_mroute_add (up->channel_oil);
 	  //Send S bit down the join.
 	  up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 	}
-	  return 0;
+      else
+	{
+	  pim_upstream_keep_alive_timer_start (up, qpim_keep_alive_time);
+	  pim_upstream_inherited_olist (up);
+	  pim_mroute_msg_wholepkt (fd, ifp, buf);
+	}
+      return 0;
     }
 
   pim_ifp = ifp->info;

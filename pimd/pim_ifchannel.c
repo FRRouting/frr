@@ -653,6 +653,7 @@ void pim_ifchannel_join_add(struct interface *ifp,
   case PIM_IFJOIN_NOINFO:
     pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_JOIN);
     if (pim_macro_chisin_oiflist(ch)) {
+      pim_upstream_inherited_olist (ch->upstream);
       pim_forward_start(ch);
     }
     break;
