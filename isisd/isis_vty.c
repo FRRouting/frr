@@ -55,7 +55,7 @@ isis_circuit_lookup (struct vty *vty)
 
 DEFUN (ip_router_isis,
        ip_router_isis_cmd,
-       "<ip|ipv6> router isis WORD",
+       "ip router isis WORD",
        "Interface Internet Protocol config commands\n"
        "IP router interface commands\n"
        "IS-IS Routing for IP\n"
@@ -106,6 +106,17 @@ DEFUN (ip_router_isis,
 
   isis_circuit_af_set (circuit, ip, ipv6);
   return CMD_SUCCESS;
+}
+
+DEFUN (ip6_router_isis,
+       ip6_router_isis_cmd,
+       "ipv6 router isis WORD",
+       "Interface Internet Protocol config commands\n"
+       "IP router interface commands\n"
+       "IS-IS Routing for IP\n"
+       "Routing process tag\n")
+{
+  return ip_router_isis (self, vty, argc, argv);
 }
 
 DEFUN (no_ip_router_isis,
@@ -2163,6 +2174,7 @@ void
 isis_vty_init (void)
 {
   install_element (INTERFACE_NODE, &ip_router_isis_cmd);
+  install_element (INTERFACE_NODE, &ip6_router_isis_cmd);
   install_element (INTERFACE_NODE, &no_ip_router_isis_cmd);
 
   install_element (INTERFACE_NODE, &isis_passive_cmd);

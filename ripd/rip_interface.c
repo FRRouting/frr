@@ -1358,7 +1358,7 @@ DEFUN (ip_rip_receive_version,
 
 DEFUN (ip_rip_receive_version_1,
        ip_rip_receive_version_1_cmd,
-       "ip rip receive version 1 2",
+       "ip rip receive version (1-1) (2-2)",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"

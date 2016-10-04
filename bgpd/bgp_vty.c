@@ -943,7 +943,7 @@ DEFUN (no_bgp_confederation_identifier,
 
 DEFUN (bgp_confederation_peers,
        bgp_confederation_peers_cmd,
-       "bgp confederation peers . (1-4294967295)",
+       "bgp confederation peers (1-4294967295)...",
        "BGP specific commands\n"
        "AS confederation parameters\n"
        "Peer ASs in BGP confederation\n"

@@ -8372,7 +8372,7 @@ DEFUN (ospf_default_information_originate,
 
 DEFUN (no_ospf_default_information_originate,
        no_ospf_default_information_originate_cmd,
-       "no default-information originate [<always|metric (0-16777214)|metric-type <1|2>|route-map WORD>]",
+       "no default-information originate [<always|metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
        NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"

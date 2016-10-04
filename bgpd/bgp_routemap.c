@@ -3698,15 +3698,13 @@ DEFUN (no_set_weight,
 }
 
 
-DEFUN (set_aspath_prepend,
-       set_aspath_prepend_cmd,
-       "set as-path prepend <(1-4294967295)...|last-as (1-10)>",
+DEFUN (set_aspath_prepend_asn,
+       set_aspath_prepend_asn_cmd,
+       "set as-path prepend (1-4294967295)...",
        SET_STR
        "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
-       "AS number\n"
-       "Use the peer's AS-number\n"
-       "Number of times to insert")
+       "AS number\n")
 {
   int idx_asn = 3;
   int ret;
@@ -3719,6 +3717,17 @@ DEFUN (set_aspath_prepend,
   return ret;
 }
 
+DEFUN (set_aspath_prepend_lastas,
+       set_aspath_prepend_lastas_cmd,
+       "set as-path prepend last-as (1-10)",
+       SET_STR
+       "Transform BGP AS_PATH attribute\n"
+       "Prepend to the as-path\n"
+       "Use the peer's AS-number\n"
+       "Number of times to insert")
+{
+  return set_aspath_prepend_asn (self, vty, argc, argv);
+}
 
 DEFUN (no_set_aspath_prepend,
        no_set_aspath_prepend_cmd,
@@ -4516,7 +4525,8 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_set_weight_cmd);
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
-  install_element (RMAP_NODE, &set_aspath_prepend_cmd);
+  install_element (RMAP_NODE, &set_aspath_prepend_asn_cmd);
+  install_element (RMAP_NODE, &set_aspath_prepend_lastas_cmd);
   install_element (RMAP_NODE, &set_aspath_exclude_cmd);
   install_element (RMAP_NODE, &no_set_aspath_prepend_cmd);
   install_element (RMAP_NODE, &no_set_aspath_exclude_cmd);
