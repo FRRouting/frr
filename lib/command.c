@@ -281,6 +281,20 @@ cmd_free_strvec (vector v)
   vector_free (v);
 }
 
+char *
+cmd_concat_strvec (vector v)
+{
+  size_t strsize = 1;
+  for (unsigned int i = 0; i < vector_active (v); i++)
+    if (vector_slot (v, i))
+      strsize += strlen ((char *) vector_slot (v, i));
+
+  char *concatenated = calloc (sizeof (char), strsize);
+  for (unsigned int i = 0; i < vector_active (v); i++)
+    strlcat (concatenated, (char *) vector_slot (v, i), strsize);
+
+  return concatenated;
+}
 
 /* Return prompt character of specified node. */
 const char *
@@ -311,7 +325,6 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
       exit (EXIT_FAILURE);
     }
 
-  fprintf (stdout, "installing %s in node %d\n", cmd->string, ntype);
   // add node to command graph and command vector
   command_parse_format (cnode->cmdgraph, cmd);
   vector_set (cnode->cmd_vector, cmd);
@@ -709,6 +722,10 @@ cmd_execute_command_real (vector vline,
       case MATCHER_AMBIGUOUS:
         return CMD_ERR_AMBIGUOUS;
       default:
+        {} // C...
+        char *inputline = cmd_concat_strvec (vline);
+        zlog_debug ("invalid command %s for node %d\n", inputline, vty->node);
+        free (inputline);
         return CMD_ERR_NO_MATCH;
     }
 
@@ -2129,7 +2146,6 @@ host_config_set (const char *filename)
 void
 install_default (enum node_type node)
 {
-  fprintf (stdout, "installing default\n");
   install_element (node, &config_exit_cmd);
   install_element (node, &config_quit_cmd);
   install_element (node, &config_end_cmd);
