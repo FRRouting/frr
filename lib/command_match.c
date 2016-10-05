@@ -116,6 +116,13 @@ command_match (struct graph *cmdgraph,
       assert (*el);
     }
 
+#ifdef TRACE_MATCHER
+  if (!*el)
+    fprintf (stdout, "No match\n");
+  else
+    fprintf (stdout, "Matched command\n->string %s\n->desc %s\n", (*el)->string, (*el)->doc);
+#endif
+
   // free the leader token we alloc'd
   XFREE (MTYPE_TMP, vector_slot (vvline, 0));
   // free vector
@@ -183,6 +190,26 @@ command_match_r (struct graph_node *start, vector vline, unsigned int n)
 
   // get the current operating input token
   char *input_token = vector_slot (vline, n);
+
+#ifdef TRACE_MATCHER
+  fprintf (stdout, "\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
+  switch (match_token (token, input_token))
+  {
+    case trivial_match:
+      fprintf (stdout, "trivial_match ");
+      break;
+    case no_match:
+      fprintf (stdout, "no_match ");
+      break;
+    case partly_match:
+      fprintf (stdout, "partly_match ");
+      break;
+    case exact_match:
+      fprintf (stdout, "exact_match ");
+      break;
+  }
+  fprintf (stdout, "(minimum: %d)\n", minmatch);
+#endif
 
   // if we don't match this node, die
   if (match_token (token, input_token) < minmatch)
@@ -301,19 +328,35 @@ command_complete (struct graph *graph,
       for (ALL_LIST_ELEMENTS_RO (current,node,gn))
         {
           struct cmd_token *token = gn->data;
+#ifdef TRACE_MATCHER
+          fprintf (stdout, "\"%s\" matches \"%s\" (%d) ? ", input_token, token->text, token->type);
+#endif
+
           switch (match_token (token, input_token))
             {
               case trivial_match:
+#ifdef TRACE_MATCHER
+                fprintf (stdout, "trivial_match\n");
+#endif
               case partly_match:
+#ifdef TRACE_MATCHER
+                fprintf (stdout, "partly_match\n");
+#endif
                 if (idx == vector_active (vline) - 1)
                   {
                     listnode_add (next, gn);
                     break;
                   }
               case exact_match:
+#ifdef TRACE_MATCHER
+                fprintf (stdout, "exact_match\n");
+#endif
                 add_nexthops (next, gn);
                 break;
               default:
+#ifdef TRACE_MATCHER
+                fprintf (stdout, "no_match\n");
+#endif
                 break;
             }
         }
