@@ -146,8 +146,8 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
                        newrib->type, newrib->distance, zebra_check_addr (&rn->p));
 
 	  if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
-	      && newrib->type == type
-	      && newrib->instance == instance
+	      && (type == ZEBRA_ROUTE_ALL ||
+		  (newrib->type == type && newrib->instance == instance))
 	      && newrib->distance != DISTANCE_INFINITY
 	      && zebra_check_addr (&rn->p))
 	    {
@@ -161,8 +161,8 @@ zebra_redistribute (struct zserv *client, int type, u_short instance, vrf_id_t v
     for (rn = route_top (table); rn; rn = route_next (rn))
       RNODE_FOREACH_RIB (rn, newrib)
 	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
-	    && newrib->type == type
-            && newrib->instance == instance
+	    && (type == ZEBRA_ROUTE_ALL ||
+		(newrib->type == type && newrib->instance == instance))
 	    && newrib->distance != DISTANCE_INFINITY
 	    && zebra_check_addr (&rn->p))
 	  {
@@ -202,6 +202,9 @@ redistribute_update (struct prefix *p, struct rib *rib, struct rib *prev_rib)
       send_redistribute = 0;
 
       if (is_default(p) && client->redist_default)
+	  send_redistribute = 1;
+
+      if (vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], rib->vrf_id))
 	  send_redistribute = 1;
 
       if (rib->instance && redist_check_instance(&client->mi_redist[afi][rib->type],
@@ -287,6 +290,7 @@ redistribute_delete (struct prefix *p, struct rib *rib)
     {
       if ((is_default (p) &&
            vrf_bitmap_check (client->redist_default, rib->vrf_id)) ||
+	  vrf_bitmap_check (client->redist[afi][ZEBRA_ROUTE_ALL], rib->vrf_id) ||
           (rib->instance &&
            redist_check_instance(&client->mi_redist[afi][rib->type],
                                  rib->instance)) ||

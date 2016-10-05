@@ -359,8 +359,17 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	s = zclient->ibuf;
 
 	type = stream_getc(s);
-	if (type == ZEBRA_ROUTE_CONNECT)
+	switch (type) {
+	case ZEBRA_ROUTE_CONNECT:
 		kr.flags |= F_CONNECTED;
+		break;
+	case ZEBRA_ROUTE_BGP:
+		/* LDP should follow the IGP and ignore BGP routes */
+		return (0);
+	default:
+		break;
+	}
+
 	stream_getl(s); /* flags, unused */
 	stream_getw(s); /* instance, unused */
 	message_flags = stream_getc(s);
@@ -448,37 +457,11 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 static void
 ldp_zebra_connected(struct zclient *zclient)
 {
-	int	i;
-
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
-
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		switch (i) {
-		case ZEBRA_ROUTE_KERNEL:
-		case ZEBRA_ROUTE_CONNECT:
-		case ZEBRA_ROUTE_STATIC:
-		case ZEBRA_ROUTE_ISIS:
-			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
-			    AFI_IP, i, 0, VRF_DEFAULT);
-			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
-			    AFI_IP6, i, 0, VRF_DEFAULT);
-			break;
-		case ZEBRA_ROUTE_RIP:
-		case ZEBRA_ROUTE_OSPF:
-			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
-			    AFI_IP, i, 0, VRF_DEFAULT);
-			break;
-		case ZEBRA_ROUTE_RIPNG:
-		case ZEBRA_ROUTE_OSPF6:
-			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
-			    AFI_IP6, i, 0, VRF_DEFAULT);
-			break;
-		case ZEBRA_ROUTE_BGP:
-			/* LDP should follow the IGP and ignore BGP routes */
-		default:
-			break;
-		}
-	}
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
+	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 }
 
 void
