@@ -518,7 +518,7 @@ static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
     }
 
   /* Install into rib. */
-  static_uninstall_route (AFI_IP, safi, p, si);
+  static_uninstall_route (afi, safi, p, si);
 
   /* Unlink static route from linked list. */
   if (si->prev)
