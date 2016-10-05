@@ -348,12 +348,10 @@ vnc_zebra_read_ipv4 (
 {
   struct stream *s;
   struct zapi_ipv4 api;
-  unsigned long ifindex;
   struct in_addr nexthop;
   struct prefix_ipv4 p;
 
   s = zclient->ibuf;
-  ifindex = 0;
   nexthop.s_addr = 0;
 
   /* Type, flags, message. */
@@ -376,7 +374,7 @@ vnc_zebra_read_ipv4 (
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_IFINDEX))
     {
       api.ifindex_num = stream_getc (s);
-      ifindex = stream_getl (s);
+      stream_getl (s);
     }
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_DISTANCE))
     api.distance = stream_getc (s);
@@ -433,12 +431,10 @@ vnc_zebra_read_ipv6 (
 {
   struct stream *s;
   struct zapi_ipv6 api;
-  unsigned long ifindex;
   struct in6_addr nexthop;
   struct prefix_ipv6 p;
 
   s = zclient->ibuf;
-  ifindex = 0;
   memset (&nexthop, 0, sizeof (struct in6_addr));
 
   /* Type, flags, message. */
@@ -461,7 +457,7 @@ vnc_zebra_read_ipv6 (
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_IFINDEX))
     {
       api.ifindex_num = stream_getc (s);
-      ifindex = stream_getl (s);
+      stream_getl (s);
     }
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_DISTANCE))
     api.distance = stream_getc (s);

@@ -1069,12 +1069,8 @@ process_pending_node (
                * then remove from pending list because the route
                * hasn't changed.
                */
-              int same = 0;
               if (!rfapi_info_cmp (ori, ri))
                 {
-                  /* same: delete from pending list */
-                  same = 1;
-
                   skiplist_delete (slPendPt, &ri->rk, NULL);
                   assert (lPendCost);
                   if (lPendCost)

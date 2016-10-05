@@ -1873,7 +1873,6 @@ rfapi_open_rfd (struct rfapi_descriptor *rfd, struct bgp *bgp)
   struct rfapi_nve_group_cfg *rfg;
   struct rfapi *h;
   struct rfapi_cfg *hc;
-  struct prefix_rd prd;
   int rc;
 
   h = bgp->rfapi;
@@ -1913,14 +1912,6 @@ rfapi_open_rfd (struct rfapi_descriptor *rfd, struct bgp *bgp)
     {
       return rc;
     }
-
-
-  /*
-   * Construct route distinguisher for VPN routes
-   */
-  prd = rfd->rd;
-  prd.family = AF_UNSPEC;
-  prd.prefixlen = 64;
 
   /*
    * re-advertise registered routes, this time as part of new NVE-group
@@ -2316,7 +2307,6 @@ rfapi_close (void *handle)
   struct route_node *node;
   struct bgp *bgp;
   struct rfapi *h;
-  struct rfapi_cfg *hc;
 
   zlog_debug ("%s: rfd=%p", __func__, rfd);
 
@@ -2365,8 +2355,6 @@ rfapi_close (void *handle)
         }
       return 0;
     }
-
-  hc = bgp->rfapi_cfg;
 
   if (CHECK_FLAG (rfd->flags, RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY))
     {
@@ -2478,7 +2466,6 @@ int
 rfapi_reopen (struct rfapi_descriptor *rfd, struct bgp *bgp)
 {
   struct rfapi *h;
-  struct rfapi_cfg *hc;
   int rc;
 
   if ((rc = rfapi_close_inner (rfd, bgp)))
@@ -2489,7 +2476,6 @@ rfapi_reopen (struct rfapi_descriptor *rfd, struct bgp *bgp)
     {
 
       h = bgp->rfapi;
-      hc = bgp->rfapi_cfg;
 
       assert (!CHECK_FLAG (h->flags, RFAPI_INCALLBACK));
 
@@ -2538,7 +2524,6 @@ rfapi_register (
   uint32_t			*label = NULL;
   struct rfapi_vn_option	*vo;
   struct rfapi_l2address_option	*l2o = NULL;
-  struct rfapi_nexthop		*lnh = NULL;
   struct prefix_rd		*prd_override = NULL;
 
   switch (action)
@@ -2565,10 +2550,6 @@ rfapi_register (
       if (RFAPI_VN_OPTION_TYPE_L2ADDR == vo->type)
         {
           l2o = &vo->v.l2addr;
-        }
-      if (RFAPI_VN_OPTION_TYPE_LOCAL_NEXTHOP == vo->type)
-        {
-          lnh = &vo->v.local_nexthop;
         }
       if (RFAPI_VN_OPTION_TYPE_INTERNAL_RD == vo->type)
         {

@@ -952,7 +952,6 @@ vnc_import_bgp_add_route_mode_nvegroup (struct bgp *bgp,
   struct prefix_rd prd;
   struct route_map *rmap = NULL;
   uint32_t local_pref;
-  uint32_t *med = NULL;
 
   {
     char buf[BUFSIZ];
@@ -1119,12 +1118,6 @@ vnc_import_bgp_add_route_mode_nvegroup (struct bgp *bgp,
   }
 
   local_pref = calc_local_pref (iattr, peer);
-
-  if (iattr && (iattr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC)))
-    {
-
-      med = &iattr->med;
-    }
 
   if (VNC_DEBUG(IMPORT_BGP_ADD_ROUTE))
     {
@@ -1334,9 +1327,6 @@ vnc_import_bgp_del_route_mode_resolve_nve_one_bi (
     struct prefix	*prefix)/* unicast route prefix */
 {
   struct prefix un;
-  uint32_t lifetime;
-  uint32_t *plifetime;
-  struct bgp_attr_encap_subtlv *encaptlvs;
 
   if (bi->type != ZEBRA_ROUTE_BGP && bi->type != ZEBRA_ROUTE_BGP_DIRECT)
     {
@@ -1361,24 +1351,6 @@ vnc_import_bgp_del_route_mode_resolve_nve_one_bi (
   else
     {
       memset (&vncHDResolveNve.un_addr, 0, sizeof (vncHDResolveNve.un_addr));
-    }
-
-  if (rfapiGetVncLifetime (bi->attr, &lifetime))
-    {
-      plifetime = NULL;
-    }
-  else
-    {
-      plifetime = &lifetime;
-    }
-
-  if (bi->attr && bi->attr->extra)
-    {
-      encaptlvs = bi->attr->extra->vnc_subtlvs;
-    }
-  else
-    {
-      encaptlvs = NULL;
     }
 
   del_vnc_route (&vncHDResolveNve, vncHDResolveNve.peer, bgp, SAFI_MPLS_VPN, prefix,    /* unicast route prefix */

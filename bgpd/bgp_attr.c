@@ -1952,7 +1952,7 @@ bgp_attr_encap(
   bgp_size_t			total;
   struct attr_extra		*attre = NULL;
   struct bgp_attr_encap_subtlv	*stlv_last = NULL;
-  uint16_t			tunneltype;
+  uint16_t			tunneltype = 0;
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 

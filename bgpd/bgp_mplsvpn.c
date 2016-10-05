@@ -125,7 +125,7 @@ decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
 
 #if ENABLE_BGP_VNC
 /* type == RD_TYPE_VNC_ETH */
-void
+static void
 decode_rd_vnc_eth (u_char *pnt, struct rd_vnc_eth *rd_vnc_eth)
 {
   rd_vnc_eth->type = RD_TYPE_VNC_ETH;

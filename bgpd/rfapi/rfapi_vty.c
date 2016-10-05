@@ -1142,9 +1142,6 @@ rfapiPrintRemoteRegBi (
   struct vty *vty;
   void *out;
   const char *vty_newline;
-
-  uint32_t factor;
-
   struct prefix pfx_un;
   struct prefix pfx_vn;
   uint8_t cost;
@@ -1157,12 +1154,6 @@ rfapiPrintRemoteRegBi (
   char buf_vn[BUFSIZ];
   char buf_lifetime[BUFSIZ];
   int nlines = 0;
-
-  if (bgp && bgp->rfapi_cfg)
-    factor = bgp->rfapi_cfg->rfp_cfg.holddown_factor;
-  else
-    factor = RFAPI_RFP_CFG_DEFAULT_HOLDDOWN_FACTOR;
-
 
   if (!stream)
     return 0;                   /* for debug log, print into buf & call output once */

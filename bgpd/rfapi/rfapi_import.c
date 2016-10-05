@@ -3731,8 +3731,6 @@ rfapiBgpInfoFilteredImportVPN (
             }
           else
             {
-              int washolddown = 0;
-
               zlog_debug ("%s: %s at prefix %s/%d",
                           __func__,
                           ((action ==
@@ -3757,8 +3755,6 @@ rfapiBgpInfoFilteredImportVPN (
 
                   import_table->holddown_count[afi] -= 1;
                   RFAPI_UPDATE_ITABLE_COUNT (bi, import_table, afi, 1);
-
-                  washolddown = 1;
                 }
               /*
                * decrement remote count (if route is remote) because
