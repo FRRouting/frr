@@ -2326,7 +2326,7 @@ DEFUN (show_zebra_client,
        show_zebra_client_cmd,
        "show zebra client",
        SHOW_STR
-       "Zebra information"
+       "Zebra information\n"
        "Client information")
 {
   struct listnode *node;
