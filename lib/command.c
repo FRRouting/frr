@@ -284,14 +284,17 @@ cmd_free_strvec (vector v)
 char *
 cmd_concat_strvec (vector v)
 {
-  size_t strsize = 1;
+  size_t strsize = 0;
   for (unsigned int i = 0; i < vector_active (v); i++)
     if (vector_slot (v, i))
-      strsize += strlen ((char *) vector_slot (v, i));
+      strsize += strlen ((char *) vector_slot (v, i)) + 1;
 
   char *concatenated = calloc (sizeof (char), strsize);
   for (unsigned int i = 0; i < vector_active (v); i++)
+  {
     strlcat (concatenated, (char *) vector_slot (v, i), strsize);
+    strlcat (concatenated, " ", strsize);
+  }
 
   return concatenated;
 }
@@ -724,7 +727,7 @@ cmd_execute_command_real (vector vline,
       default:
         {} // C...
         char *inputline = cmd_concat_strvec (vline);
-        zlog_debug ("invalid command %s for node %d\n", inputline, vty->node);
+        zlog_err ("invalid command \"%s\" for node %d\n", inputline, vty->node);
         free (inputline);
         return CMD_ERR_NO_MATCH;
     }
